@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
-use wasm_bindgen::JsValue;
 
 use crate::build_hsf_combo_vectors_core;
 use crate::emit_hsf_rules_for_filtered_distributions_compact_core;
@@ -229,32 +227,4 @@ pub(crate) fn execute_hsf_full_selected_fallback_core(input: &ExecuteHsfFullSele
     emit_hsf_rules_for_filtered_distributions_compact_core(&compact_payload)
 }
 
-// JsValue wrapper keeps payload validation and serialization errors explicit.
-pub(crate) fn build_hsf_full_selected_fallback_plan_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: BuildHsfFullSelectedFallbackPlanIn = from_js_value(payload).map_err(|error| {
-        JsValue::from_str(&format!(
-            "Invalid build-hsf-full-selected-fallback-plan payload: {error}"
-        ))
-    })?;
-    let out = build_full_selected_fallback_plan_core(&input);
-    to_js_value(&out).map_err(|error| {
-        JsValue::from_str(&format!(
-            "Failed to serialize build-hsf-full-selected-fallback-plan output: {error}"
-        ))
-    })
-}
-
 // JsValue wrapper for full-selected fallback emission execution.
-pub(crate) fn execute_hsf_full_selected_fallback_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: ExecuteHsfFullSelectedFallbackIn = from_js_value(payload).map_err(|error| {
-        JsValue::from_str(&format!(
-            "Invalid execute-hsf-full-selected-fallback payload: {error}"
-        ))
-    })?;
-    let out = execute_hsf_full_selected_fallback_core(&input);
-    to_js_value(&out).map_err(|error| {
-        JsValue::from_str(&format!(
-            "Failed to serialize execute-hsf-full-selected-fallback output: {error}"
-        ))
-    })
-}

@@ -1,46 +1,6 @@
 /* @ts-self-types="./rule_engine.d.ts" */
 
 /**
- * @param {Int32Array} caps
- * @param {number} total
- * @returns {string}
- */
-export function bounded_compositions_i32_fast(caps, total) {
-    let deferred3_0;
-    let deferred3_1;
-    try {
-        const ptr0 = passArray32ToWasm0(caps, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.bounded_compositions_i32_fast(ptr0, len0, total);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
-        if (ret[3]) {
-            ptr2 = 0; len2 = 0;
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
-    } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
-    }
-}
-
-/**
- * @param {Int32Array} caps
- * @param {number} total
- * @returns {Int32Array}
- */
-export function bounded_compositions_i32_fast_flat(caps, total) {
-    const ptr0 = passArray32ToWasm0(caps, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.bounded_compositions_i32_fast_flat(ptr0, len0, total);
-    var v2 = getArrayI32FromWasm0(ret[0], ret[1]).slice();
-    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
-    return v2;
-}
-
-/**
  * @param {any} remainder
  * @param {any} all_known_set_ids
  * @returns {any}
@@ -57,164 +17,8 @@ export function build_final_sell_rules_value(remainder, all_known_set_ids) {
  * @param {any} payload
  * @returns {any}
  */
-export function build_hsf_branch_collapse_profile_value(payload) {
-    const ret = wasm.build_hsf_branch_collapse_profile_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function build_hsf_combo_policy_vectors_value(payload) {
-    const ret = wasm.build_hsf_combo_policy_vectors_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function build_hsf_combo_vectors_value(payload) {
-    const ret = wasm.build_hsf_combo_vectors_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function build_hsf_factory_combo_rows_value(payload) {
-    const ret = wasm.build_hsf_factory_combo_rows_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function build_hsf_full_selected_fallback_plan_value(payload) {
-    const ret = wasm.build_hsf_full_selected_fallback_plan_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function build_hsf_intro_assignments_for_level_value(payload) {
-    const ret = wasm.build_hsf_intro_assignments_for_level_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function build_hsf_intro_mode_plan_value(payload) {
-    const ret = wasm.build_hsf_intro_mode_plan_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function build_hsf_late_bounded_rows_value(payload) {
-    const ret = wasm.build_hsf_late_bounded_rows_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function build_hsf_level_combos_value(payload) {
-    const ret = wasm.build_hsf_level_combos_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function build_hsf_level_contexts_value(payload) {
-    const ret = wasm.build_hsf_level_contexts_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function build_hsf_preflight_flags_value(payload) {
-    const ret = wasm.build_hsf_preflight_flags_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function build_hsf_presence_only_rules_value(payload) {
-    const ret = wasm.build_hsf_presence_only_rules_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function build_hsf_rarity_branches_value(payload) {
-    const ret = wasm.build_hsf_rarity_branches_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function build_hsf_timeline_caps_value(payload) {
-    const ret = wasm.build_hsf_timeline_caps_value(payload);
+export function build_hsf_rules_runtime_value(payload) {
+    const ret = wasm.build_hsf_rules_runtime_value(payload);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -229,18 +33,6 @@ export function build_hsf_timeline_caps_value(payload) {
  */
 export function build_keep_unique_rules_value(rules, detection, config_id_base) {
     const ret = wasm.build_keep_unique_rules_value(rules, detection, config_id_base);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} rule
- * @returns {any}
- */
-export function canonical_rule_key_value(rule) {
-    const ret = wasm.canonical_rule_key_value(rule);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -279,58 +71,6 @@ export function collect_keep_unique_candidates_value(rows, rules, config_modes, 
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {string} values_json
- * @param {number} pick
- * @returns {string}
- */
-export function combinations_i32(values_json, pick) {
-    let deferred3_0;
-    let deferred3_1;
-    try {
-        const ptr0 = passStringToWasm0(values_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.combinations_i32(ptr0, len0, pick);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
-        if (ret[3]) {
-            ptr2 = 0; len2 = 0;
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
-    } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
-    }
-}
-
-/**
- * @param {Int32Array} values
- * @param {number} pick
- * @returns {string}
- */
-export function combinations_i32_fast(values, pick) {
-    let deferred3_0;
-    let deferred3_1;
-    try {
-        const ptr0 = passArray32ToWasm0(values, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.combinations_i32_fast(ptr0, len0, pick);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
-        if (ret[3]) {
-            ptr2 = 0; len2 = 0;
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
-    } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
-    }
 }
 
 /**
@@ -376,21 +116,6 @@ export function compute_merged_rules_value(payload) {
 }
 
 /**
- * @param {string} rules_json
- * @param {string} config_modes_json
- */
-export function configure(rules_json, config_modes_json) {
-    const ptr0 = passStringToWasm0(rules_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passStringToWasm0(config_modes_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.configure(ptr0, len0, ptr1, len1);
-    if (ret[1]) {
-        throw takeFromExternrefTable0(ret[0]);
-    }
-}
-
-/**
  * @param {any} rules
  * @param {any} config_modes
  */
@@ -414,148 +139,12 @@ export function dedupe_hsf_rules_for_export_value(rules) {
 }
 
 /**
- * @param {any} payload
- * @returns {any}
- */
-export function emit_hsf_rules_for_distributions_value(payload) {
-    const ret = wasm.emit_hsf_rules_for_distributions_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function emit_hsf_rules_for_filtered_distributions_compact_value(payload) {
-    const ret = wasm.emit_hsf_rules_for_filtered_distributions_compact_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function emit_hsf_rules_for_filtered_distributions_value(payload) {
-    const ret = wasm.emit_hsf_rules_for_filtered_distributions_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {string} items_json
- * @param {string} options_json
- * @returns {string}
- */
-export function evaluate(items_json, options_json) {
-    let deferred4_0;
-    let deferred4_1;
-    try {
-        const ptr0 = passStringToWasm0(items_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(options_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.evaluate(ptr0, len0, ptr1, len1);
-        var ptr3 = ret[0];
-        var len3 = ret[1];
-        if (ret[3]) {
-            ptr3 = 0; len3 = 0;
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        deferred4_0 = ptr3;
-        deferred4_1 = len3;
-        return getStringFromWasm0(ptr3, len3);
-    } finally {
-        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
-    }
-}
-
-/**
  * @param {any} items
  * @param {any} options
  * @returns {any}
  */
 export function evaluate_value(items, options) {
     const ret = wasm.evaluate_value(items, options);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function execute_hsf_branch_runtime_value(payload) {
-    const ret = wasm.execute_hsf_branch_runtime_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function execute_hsf_builder_runtime_value(payload) {
-    const ret = wasm.execute_hsf_builder_runtime_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function execute_hsf_combo_runtime_value(payload) {
-    const ret = wasm.execute_hsf_combo_runtime_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function execute_hsf_full_selected_fallback_value(payload) {
-    const ret = wasm.execute_hsf_full_selected_fallback_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function execute_hsf_intro_plan_value(payload) {
-    const ret = wasm.execute_hsf_intro_plan_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} payload
- * @returns {any}
- */
-export function execute_hsf_level_combo_value(payload) {
-    const ret = wasm.execute_hsf_level_combo_value(payload);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -576,255 +165,12 @@ export function expand_auto_flex_rarity_branches_value(config, base_rarity_code)
 }
 
 /**
- * @param {Int32Array} caps
- * @param {number} total
- * @param {Int32Array} need_now
- * @param {Uint8Array} locked_mask
- * @param {number} locked_base_sum
- * @param {number} locked_min_at_level
- * @param {Uint8Array} optional_mask
- * @param {Int32Array} mins
- * @param {boolean} skip_optional_baseline
- * @returns {Int32Array}
- */
-export function filtered_bounded_compositions_with_offset_i32_fast_flat(caps, total, need_now, locked_mask, locked_base_sum, locked_min_at_level, optional_mask, mins, skip_optional_baseline) {
-    const ptr0 = passArray32ToWasm0(caps, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passArray32ToWasm0(need_now, wasm.__wbindgen_malloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ptr2 = passArray8ToWasm0(locked_mask, wasm.__wbindgen_malloc);
-    const len2 = WASM_VECTOR_LEN;
-    const ptr3 = passArray8ToWasm0(optional_mask, wasm.__wbindgen_malloc);
-    const len3 = WASM_VECTOR_LEN;
-    const ptr4 = passArray32ToWasm0(mins, wasm.__wbindgen_malloc);
-    const len4 = WASM_VECTOR_LEN;
-    const ret = wasm.filtered_bounded_compositions_with_offset_i32_fast_flat(ptr0, len0, total, ptr1, len1, ptr2, len2, locked_base_sum, locked_min_at_level, ptr3, len3, ptr4, len4, skip_optional_baseline);
-    var v6 = getArrayI32FromWasm0(ret[0], ret[1]).slice();
-    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
-    return v6;
-}
-
-/**
- * @param {number} dimensions
- * @param {number} total
- * @param {string} max_caps_json
- * @param {string} min_floors_json
- * @param {string} timeline_caps_json
- * @param {string} targeted_mask_json
- * @param {number} targeted_exact
- * @param {string} deficit_floors_json
- * @param {number} deficit_max
- * @param {number} global_min
- * @param {number} global_remaining
- * @param {number} global_mode
- * @param {string} locked_mask_json
- * @param {number} locked_min
- * @param {number} locked_remaining
- * @param {number} locked_mode
- * @returns {string}
- */
-export function filtered_roll_distributions(dimensions, total, max_caps_json, min_floors_json, timeline_caps_json, targeted_mask_json, targeted_exact, deficit_floors_json, deficit_max, global_min, global_remaining, global_mode, locked_mask_json, locked_min, locked_remaining, locked_mode) {
-    let deferred8_0;
-    let deferred8_1;
-    try {
-        const ptr0 = passStringToWasm0(max_caps_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(min_floors_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passStringToWasm0(timeline_caps_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len2 = WASM_VECTOR_LEN;
-        const ptr3 = passStringToWasm0(targeted_mask_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len3 = WASM_VECTOR_LEN;
-        const ptr4 = passStringToWasm0(deficit_floors_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len4 = WASM_VECTOR_LEN;
-        const ptr5 = passStringToWasm0(locked_mask_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len5 = WASM_VECTOR_LEN;
-        const ret = wasm.filtered_roll_distributions(dimensions, total, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, targeted_exact, ptr4, len4, deficit_max, global_min, global_remaining, global_mode, ptr5, len5, locked_min, locked_remaining, locked_mode);
-        var ptr7 = ret[0];
-        var len7 = ret[1];
-        if (ret[3]) {
-            ptr7 = 0; len7 = 0;
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        deferred8_0 = ptr7;
-        deferred8_1 = len7;
-        return getStringFromWasm0(ptr7, len7);
-    } finally {
-        wasm.__wbindgen_free(deferred8_0, deferred8_1, 1);
-    }
-}
-
-/**
- * @param {number} dimensions
- * @param {number} total
- * @param {Int32Array} max_caps
- * @param {Int32Array} min_floors
- * @param {Int32Array} timeline_caps
- * @param {Uint8Array} targeted_mask
- * @param {number} targeted_exact
- * @param {Int32Array} deficit_floors
- * @param {number} deficit_max
- * @param {number} global_min
- * @param {number} global_remaining
- * @param {number} global_mode
- * @param {Uint8Array} locked_mask
- * @param {number} locked_min
- * @param {number} locked_remaining
- * @param {number} locked_mode
- * @returns {string}
- */
-export function filtered_roll_distributions_fast(dimensions, total, max_caps, min_floors, timeline_caps, targeted_mask, targeted_exact, deficit_floors, deficit_max, global_min, global_remaining, global_mode, locked_mask, locked_min, locked_remaining, locked_mode) {
-    let deferred8_0;
-    let deferred8_1;
-    try {
-        const ptr0 = passArray32ToWasm0(max_caps, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passArray32ToWasm0(min_floors, wasm.__wbindgen_malloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passArray32ToWasm0(timeline_caps, wasm.__wbindgen_malloc);
-        const len2 = WASM_VECTOR_LEN;
-        const ptr3 = passArray8ToWasm0(targeted_mask, wasm.__wbindgen_malloc);
-        const len3 = WASM_VECTOR_LEN;
-        const ptr4 = passArray32ToWasm0(deficit_floors, wasm.__wbindgen_malloc);
-        const len4 = WASM_VECTOR_LEN;
-        const ptr5 = passArray8ToWasm0(locked_mask, wasm.__wbindgen_malloc);
-        const len5 = WASM_VECTOR_LEN;
-        const ret = wasm.filtered_roll_distributions_fast(dimensions, total, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, targeted_exact, ptr4, len4, deficit_max, global_min, global_remaining, global_mode, ptr5, len5, locked_min, locked_remaining, locked_mode);
-        var ptr7 = ret[0];
-        var len7 = ret[1];
-        if (ret[3]) {
-            ptr7 = 0; len7 = 0;
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        deferred8_0 = ptr7;
-        deferred8_1 = len7;
-        return getStringFromWasm0(ptr7, len7);
-    } finally {
-        wasm.__wbindgen_free(deferred8_0, deferred8_1, 1);
-    }
-}
-
-/**
- * @param {number} dimensions
- * @param {number} total
- * @param {Int32Array} max_caps
- * @param {Int32Array} min_floors
- * @param {Int32Array} timeline_caps
- * @param {Uint8Array} targeted_mask
- * @param {number} targeted_exact
- * @param {Int32Array} deficit_floors
- * @param {number} deficit_max
- * @param {number} global_min
- * @param {number} global_remaining
- * @param {number} global_mode
- * @param {Uint8Array} locked_mask
- * @param {number} locked_min
- * @param {number} locked_remaining
- * @param {number} locked_mode
- * @returns {Int32Array}
- */
-export function filtered_roll_distributions_fast_flat(dimensions, total, max_caps, min_floors, timeline_caps, targeted_mask, targeted_exact, deficit_floors, deficit_max, global_min, global_remaining, global_mode, locked_mask, locked_min, locked_remaining, locked_mode) {
-    const ptr0 = passArray32ToWasm0(max_caps, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passArray32ToWasm0(min_floors, wasm.__wbindgen_malloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ptr2 = passArray32ToWasm0(timeline_caps, wasm.__wbindgen_malloc);
-    const len2 = WASM_VECTOR_LEN;
-    const ptr3 = passArray8ToWasm0(targeted_mask, wasm.__wbindgen_malloc);
-    const len3 = WASM_VECTOR_LEN;
-    const ptr4 = passArray32ToWasm0(deficit_floors, wasm.__wbindgen_malloc);
-    const len4 = WASM_VECTOR_LEN;
-    const ptr5 = passArray8ToWasm0(locked_mask, wasm.__wbindgen_malloc);
-    const len5 = WASM_VECTOR_LEN;
-    const ret = wasm.filtered_roll_distributions_fast_flat(dimensions, total, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, targeted_exact, ptr4, len4, deficit_max, global_min, global_remaining, global_mode, ptr5, len5, locked_min, locked_remaining, locked_mode);
-    var v7 = getArrayI32FromWasm0(ret[0], ret[1]).slice();
-    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
-    return v7;
-}
-
-/**
- * @param {any} rules
- * @param {any} emission_meta
- * @returns {any}
- */
-export function finalize_builder_rules_value(rules, emission_meta) {
-    const ret = wasm.finalize_builder_rules_value(rules, emission_meta);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {string} entries_json
- * @param {boolean} apply_obsolete_pruning
- * @returns {string}
- */
-export function finalize_generated_rules(entries_json, apply_obsolete_pruning) {
-    let deferred3_0;
-    let deferred3_1;
-    try {
-        const ptr0 = passStringToWasm0(entries_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.finalize_generated_rules(ptr0, len0, apply_obsolete_pruning);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
-        if (ret[3]) {
-            ptr2 = 0; len2 = 0;
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
-    } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
-    }
-}
-
-/**
  * @param {any} entries
  * @param {boolean} apply_obsolete_pruning
  * @returns {any}
  */
 export function finalize_generated_rules_value(entries, apply_obsolete_pruning) {
     const ret = wasm.finalize_generated_rules_value(entries, apply_obsolete_pruning);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {string} rules_json
- * @returns {string}
- */
-export function find_obsolete(rules_json) {
-    let deferred3_0;
-    let deferred3_1;
-    try {
-        const ptr0 = passStringToWasm0(rules_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.find_obsolete(ptr0, len0);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
-        if (ret[3]) {
-            ptr2 = 0; len2 = 0;
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
-    } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
-    }
-}
-
-/**
- * @param {any} rules
- * @returns {any}
- */
-export function find_obsolete_builder_value(rules) {
-    const ret = wasm.find_obsolete_builder_value(rules);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -867,66 +213,6 @@ export function flatten_rule_batches_with_total_limit_value(base_count, total_li
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {number} count
- * @param {number} base_slots
- * @param {string} addition_levels_json
- * @param {string} forced_base_json
- * @returns {string}
- */
-export function intro_assignments_for_combo(count, base_slots, addition_levels_json, forced_base_json) {
-    let deferred4_0;
-    let deferred4_1;
-    try {
-        const ptr0 = passStringToWasm0(addition_levels_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(forced_base_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.intro_assignments_for_combo(count, base_slots, ptr0, len0, ptr1, len1);
-        var ptr3 = ret[0];
-        var len3 = ret[1];
-        if (ret[3]) {
-            ptr3 = 0; len3 = 0;
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        deferred4_0 = ptr3;
-        deferred4_1 = len3;
-        return getStringFromWasm0(ptr3, len3);
-    } finally {
-        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
-    }
-}
-
-/**
- * @param {number} count
- * @param {number} base_slots
- * @param {Int32Array} addition_levels
- * @param {Int32Array} forced_base
- * @returns {string}
- */
-export function intro_assignments_for_combo_fast(count, base_slots, addition_levels, forced_base) {
-    let deferred4_0;
-    let deferred4_1;
-    try {
-        const ptr0 = passArray32ToWasm0(addition_levels, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passArray32ToWasm0(forced_base, wasm.__wbindgen_malloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.intro_assignments_for_combo_fast(count, base_slots, ptr0, len0, ptr1, len1);
-        var ptr3 = ret[0];
-        var len3 = ret[1];
-        if (ret[3]) {
-            ptr3 = 0; len3 = 0;
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        deferred4_0 = ptr3;
-        deferred4_1 = len3;
-        return getStringFromWasm0(ptr3, len3);
-    } finally {
-        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
-    }
 }
 
 /**
@@ -986,6 +272,19 @@ export function merge_keep_unique_injected_rules_value(base_rules, custom_rules,
 }
 
 /**
+ * @param {any} value
+ * @param {any} lookups
+ * @returns {any}
+ */
+export function normalize_keep_unique_combination_value(value, lookups) {
+    const ret = wasm.normalize_keep_unique_combination_value(value, lookups);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * @param {any} payload
  * @returns {any}
  */
@@ -998,53 +297,19 @@ export function normalize_keep_unique_expected_group_domain_value(payload) {
 }
 
 /**
- * @param {string} values_json
- * @returns {string}
+ * @param {any} value
+ * @param {any} lookups
+ * @param {string} generated_rule_id
+ * @returns {any}
  */
-export function permutations_i32(values_json) {
-    let deferred3_0;
-    let deferred3_1;
-    try {
-        const ptr0 = passStringToWasm0(values_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.permutations_i32(ptr0, len0);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
-        if (ret[3]) {
-            ptr2 = 0; len2 = 0;
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
-    } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+export function normalize_keep_unique_rule_value(value, lookups, generated_rule_id) {
+    const ptr0 = passStringToWasm0(generated_rule_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.normalize_keep_unique_rule_value(value, lookups, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
     }
-}
-
-/**
- * @param {Int32Array} values
- * @returns {string}
- */
-export function permutations_i32_fast(values) {
-    let deferred3_0;
-    let deferred3_1;
-    try {
-        const ptr0 = passArray32ToWasm0(values, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.permutations_i32_fast(ptr0, len0);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
-        if (ret[3]) {
-            ptr2 = 0; len2 = 0;
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
-    } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
-    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -1062,6 +327,18 @@ export function permutations_i32_fast_flat(values) {
 
 /**
  * @param {any} payload
+ * @returns {any}
+ */
+export function prepare_hsf_builder_config_value(payload) {
+    const ret = wasm.prepare_hsf_builder_config_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
  * @returns {number}
  */
 export function resolve_auto_rarity_code_for_builder_value(payload) {
@@ -1070,33 +347,6 @@ export function resolve_auto_rarity_code_for_builder_value(payload) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0];
-}
-
-/**
- * @param {any} payload
- * @returns {number}
- */
-export function resolve_auto_rarity_code_value(payload) {
-    const ret = wasm.resolve_auto_rarity_code_value(payload);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return ret[0];
-}
-
-/**
- * @param {any} rows
- * @param {any} rules
- * @param {any} config_modes
- * @param {any} ignore_keep_unique_config_indices
- * @returns {any}
- */
-export function resolve_keep_unique_candidate_keep_flags_value(rows, rules, config_modes, ignore_keep_unique_config_indices) {
-    const ret = wasm.resolve_keep_unique_candidate_keep_flags_value(rows, rules, config_modes, ignore_keep_unique_config_indices);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -1110,42 +360,6 @@ export function resolve_keep_unique_rules_with_metasets_value(rules, metasets) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {number} dimensions
- * @param {number} total
- * @returns {string}
- */
-export function roll_distributions(dimensions, total) {
-    let deferred2_0;
-    let deferred2_1;
-    try {
-        const ret = wasm.roll_distributions(dimensions, total);
-        var ptr1 = ret[0];
-        var len1 = ret[1];
-        if (ret[3]) {
-            ptr1 = 0; len1 = 0;
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        deferred2_0 = ptr1;
-        deferred2_1 = len1;
-        return getStringFromWasm0(ptr1, len1);
-    } finally {
-        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
-    }
-}
-
-/**
- * @param {number} dimensions
- * @param {number} total
- * @returns {Int32Array}
- */
-export function roll_distributions_flat(dimensions, total) {
-    const ret = wasm.roll_distributions_flat(dimensions, total);
-    var v1 = getArrayI32FromWasm0(ret[0], ret[1]).slice();
-    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
-    return v1;
 }
 
 /**
@@ -1539,13 +753,6 @@ function isLikeNone(x) {
 function passArray32ToWasm0(arg, malloc) {
     const ptr = malloc(arg.length * 4, 4) >>> 0;
     getUint32ArrayMemory0().set(arg, ptr / 4);
-    WASM_VECTOR_LEN = arg.length;
-    return ptr;
-}
-
-function passArray8ToWasm0(arg, malloc) {
-    const ptr = malloc(arg.length * 1, 1) >>> 0;
-    getUint8ArrayMemory0().set(arg, ptr / 1);
     WASM_VECTOR_LEN = arg.length;
     return ptr;
 }

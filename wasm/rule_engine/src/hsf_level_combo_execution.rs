@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
 use wasm_bindgen::JsValue;
 
 use crate::build_hsf_presence_only_rules_core;
@@ -211,13 +210,4 @@ pub(crate) fn execute_hsf_level_combo_core(input: &ExecuteHsfLevelComboIn) -> Re
         rules,
         sentinel_collapsed: false,
     })
-}
-
-// JsValue wrapper keeps schema/serialization errors actionable for TS callers.
-pub(crate) fn execute_hsf_level_combo_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: ExecuteHsfLevelComboIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid execute-hsf-level-combo payload: {error}")))?;
-    let out = execute_hsf_level_combo_core(&input)?;
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize execute-hsf-level-combo output: {error}")))
 }

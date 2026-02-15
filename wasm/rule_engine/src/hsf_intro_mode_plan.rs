@@ -1,6 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
-use wasm_bindgen::JsValue;
 
 // Intro policy input mirrors hsfBuilder.ts per-intro decision state.
 // Keep this payload numeric/boolean-only so serialization stays predictable.
@@ -353,13 +351,4 @@ pub(crate) fn build_intro_mode_plan_core(input: &BuildHsfIntroModePlanIn) -> Bui
         fallback_presence_on_empty: true,
     });
     BuildHsfIntroModePlanOut { steps }
-}
-
-// JsValue wrapper keeps schema validation and serialization errors actionable.
-pub(crate) fn build_hsf_intro_mode_plan_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: BuildHsfIntroModePlanIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid build-hsf-intro-mode-plan payload: {error}")))?;
-    let out = build_intro_mode_plan_core(&input);
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize build-hsf-intro-mode-plan output: {error}")))
 }

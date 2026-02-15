@@ -23,8 +23,6 @@ import {
   getArmorVariableSetIds,
   getAccessorySlotsCompatibleSetIds,
   rarityNames,
-  variantFromLabel,
-  findArtifactSetIdByName,
 } from './types'
 import type { BuilderConfig, SellfileExportMode } from './hsfBuilder'
 import type { HsfRuleWithCfg } from './merge'
@@ -34,13 +32,14 @@ import { normalizeConfigName } from './ruleConfigIndex'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
 import { hasIgnoreKeepUniqueTag } from './tagHelpers'
-import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT } from './testerSort'
 import {
   collectAndComputeKeepUniqueProtectionWithLoadedWasm,
   collectKeepUniqueCandidatesWithLoadedWasm,
   computeKeepUniqueProtectionWithLoadedWasm,
   getKeepUniqueCountKeyWithLoadedWasm,
+  normalizeKeepUniqueCombinationWithLoadedWasm,
   normalizeKeepUniqueExpectedGroupDomainWithLoadedWasm,
+  normalizeKeepUniqueRuleWithLoadedWasm,
   resolveKeepUniqueRulesWithMetasetsWithLoadedWasm,
 } from './wasm/wasmRuleEngine'
 
@@ -459,8 +458,8 @@ export function hashKeepUniqueCombination(combination: KeepUniqueCombination): s
   ].join('|')
 }
 
-/** Clamp ranks/rarities to the valid 1..6 range. */
-// Name lookups keep HSFC tuple fields readable while still resolving back to enum IDs on load.
+// Name lookups keep HSFC tuple fields readable while still resolving back to
+// enum IDs from TS domain constants (single source of truth for label -> id).
 const artifactTypeIdByName = new Map<string, ArtifactTypeId>(
   Object.entries(artifactTypeNames).map(([id, label]) => [label.trim().toLowerCase(), Number(id) as ArtifactTypeId]),
 )
@@ -475,43 +474,40 @@ const factionIdByName = new Map<string, FactionId>(
     .map(([id, name]) => [name.trim().toLowerCase(), Number(id) as FactionId]),
 )
 
-// Rarity is captured as labels in HSFC; keep a reverse map so loader can stay locale-agnostic.
+// Rarity labels in readable HSFC payloads resolve through this reverse map.
 const rarityCodeByName = new Map<string, RankValue>(
   Object.entries(rarityNames)
     .filter(([, name]) => Boolean(name && name.trim()))
     .map(([id, name]) => [name.trim().toLowerCase(), Math.max(RANK_MIN, Math.min(RANK_MAX, Number(id))) as RankValue]),
 )
 
-/** Clamp ranks/rarities to the valid 1..6 range, accepting either numbers or labels. */
-const clampRankOrRarity = (value: unknown): RankValue => {
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (!trimmed) return RANK_MAX
-    const namedRarity = rarityCodeByName.get(trimmed.toLowerCase())
-    if (namedRarity != null) return namedRarity
-    const numericInLabel = Number(trimmed.replace(/[^0-9]/g, ''))
-    if (Number.isFinite(numericInLabel) && numericInLabel > 0) {
-      const clamped = Math.max(RANK_MIN, Math.min(RANK_MAX, Math.floor(numericInLabel)))
-      return clamped as RankValue
-    }
+// Keep lookup-record conversion in one helper so wasm payload shape remains
+// stable whenever we add/adjust normalization lookups.
+const toKeepUniqueLookupRecord = (values: ReadonlyMap<string, number>): Record<string, number> => {
+  const out: Record<string, number> = {}
+  for (const [key, value] of values.entries()) {
+    const trimmed = key.trim().toLowerCase()
+    if (!trimmed) continue
+    if (!Number.isFinite(value)) continue
+    out[trimmed] = Math.floor(value)
   }
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return RANK_MAX
-  const rounded = Math.floor(numeric)
-  const clamped = Math.max(RANK_MIN, Math.min(RANK_MAX, rounded))
-  return clamped as RankValue
+  return out
 }
 
-/** Resolve the stat variant from user input (label or numeric); falls back to Any. */
-export const coerceStatVariant = (value: unknown): StatVariant => {
-  if (typeof value === 'string') {
-    // Stat labels should be readable in HSFC; keep the parser tolerant of labels first.
-    const parsed = variantFromLabel(value.trim())
-    if (parsed !== null) return parsed
-  }
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric) || numeric < 0) return StatVariantEnum.Any
-  return numeric as StatVariant
+// Readable HSFC lookups stay sourced from TS constants while recursive parsing
+// moves to wasm. Stat-variant labels are handled in Rust with TS-parity aliases.
+const KEEP_UNIQUE_NORMALIZATION_LOOKUPS = Object.freeze({
+  artifactTypeIdsByName: toKeepUniqueLookupRecord(artifactTypeIdByName),
+  artifactSetIdsByName: toKeepUniqueLookupRecord(artifactSetIdByName),
+  factionIdsByName: toKeepUniqueLookupRecord(factionIdByName),
+  rarityCodesByName: toKeepUniqueLookupRecord(rarityCodeByName),
+  statVariantIdsByLabel: {},
+})
+
+// buildNormalizedKeepUniqueRuleId keeps generated ids deterministic per call
+// while still letting wasm own the rest of the rule normalization logic.
+const buildNormalizedKeepUniqueRuleId = (): string => {
+  return createKeepUniqueRuleId()
 }
 
 // Keep the priority ordering consistent with stat button layouts across the app.
@@ -586,241 +582,25 @@ export const sortKeepUniqueCombination = (combination: KeepUniqueCombination): K
   factions: sortKeepUniqueNumericSelection(combination.factions ?? [], (left, right) => Number(left) - Number(right)),
 })
 
-// normalizeKeepUniqueSubstats parses a list of substat labels/ids into ordered variants.
-const normalizeKeepUniqueSubstats = (value: unknown): StatVariant[] => {
-  if (!value) return []
-  const list = Array.isArray(value) ? value : [value]
-  const seen = new Set<number>()
-  const result: StatVariant[] = []
-  for (const raw of list) {
-    if (Array.isArray(raw)) {
-      for (const nested of normalizeKeepUniqueSubstats(raw)) {
-        if (seen.has(Number(nested))) continue
-        seen.add(Number(nested))
-        result.push(nested)
-      }
-      continue
-    }
-    const variant = coerceStatVariant(raw)
-    // Skip invalid or synthetic variants so keep-unique stays focused on real substats.
-    if (variant === StatVariantEnum.Any || variant === StatVariantEnum.RollCount) continue
-    if (seen.has(Number(variant))) continue
-    seen.add(Number(variant))
-    result.push(variant)
-  }
-  return sortKeepUniqueSubstats(result)
-}
-
-// normalizeKeepUniqueSubstatWeights clamps per-stat weights to the tester sort defaults.
-const normalizeKeepUniqueSubstatWeights = (value: unknown): Partial<Record<StatVariant, number>> => {
-  if (!value || typeof value !== 'object') return {}
-  const rec = value as Record<string, unknown>
-  const weights: Partial<Record<StatVariant, number>> = {}
-  for (const [key, raw] of Object.entries(rec)) {
-    const variant = coerceStatVariant(key)
-    // Ignore invalid entries so readers cannot poison the score map.
-    if (variant === StatVariantEnum.Any || variant === StatVariantEnum.RollCount) continue
-    const normalized = normalizeTesterSortWeight(Number(raw))
-    // Omit neutral weights so serialization stays compact.
-    if (normalized === TESTER_SORT_WEIGHT_DEFAULT) continue
-    weights[variant] = normalized
-  }
-  return weights
-}
-
-const normalizeSelectionArray = <T extends number>(
-  value: unknown,
-  coerce: (raw: unknown) => T | null,
-): T[] => {
-  if (value == null) return []
-  const list = Array.isArray(value) ? value : [value]
-  const seen = new Set<string>()
-  const result: T[] = []
-  for (const raw of list) {
-    if (Array.isArray(raw)) {
-      for (const nested of normalizeSelectionArray(raw, coerce)) {
-        const key = String(nested)
-        if (seen.has(key)) continue
-        seen.add(key)
-        result.push(nested)
-      }
-      continue
-    }
-    const normalized = coerce(raw)
-    if (normalized == null) continue
-    const key = String(normalized)
-    if (seen.has(key)) continue
-    seen.add(key)
-    result.push(normalized)
-  }
-  return result
-}
-
-const coerceArtifactTypeId = (value: unknown): ArtifactTypeId | null => {
-  if (typeof value === 'string') {
-    // Handle readable slot labels in HSFC first, then allow numeric ids for resilience.
-    const found = artifactTypeIdByName.get(value.trim().toLowerCase())
-    if (found != null) return found
-  }
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return null
-  return Math.floor(numeric) as ArtifactTypeId
-}
-
-const coerceArtifactSetId = (value: unknown): ArtifactSetId | null => {
-  if (typeof value === 'string') {
-    // Accept readable set names so exported HSFC stays human-friendly.
-    const trimmed = value.trim().toLowerCase()
-    const found = artifactSetIdByName.get(trimmed)
-    if (found != null) return found
-    const runtime = findArtifactSetIdByName(value.trim())
-    if (runtime !== null) return runtime
-  }
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return null
-  return Math.floor(numeric) as ArtifactSetId
-}
-
-const coerceFactionId = (value: unknown): FactionId | null => {
-  if (typeof value === 'string') {
-    // Faction names only apply to accessories; still resolve strings to keep tuples readable.
-    const found = factionIdByName.get(value.trim().toLowerCase())
-    if (found != null) return found
-  }
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return null
-  return Math.floor(numeric) as FactionId
-}
-
-const normalizeStringSelectionArray = (value: unknown): string[] => {
-  if (!value) return []
-  const list = Array.isArray(value) ? value : [value]
-  const seen = new Set<string>()
-  const result: string[] = []
-  for (const raw of list) {
-    if (Array.isArray(raw)) {
-      for (const nested of normalizeStringSelectionArray(raw)) {
-        if (seen.has(nested)) continue
-        seen.add(nested)
-        result.push(nested)
-      }
-      continue
-    }
-    if (typeof raw !== 'string') continue
-    const trimmed = raw.trim()
-    if (!trimmed) continue
-    if (seen.has(trimmed)) continue
-    seen.add(trimmed)
-    result.push(trimmed)
-  }
-  return result
-}
-
-const normalizeKeepUniqueSetSelections = (value: unknown): ArtifactSetSelectionEntry[] => {
-  // Accept either a list or a single value (legacy tuple formats).
-  if (!value) return []
-  const list = Array.isArray(value) ? value : [value]
-  // Collect entries before normalization to preserve exclusion precedence.
-  const entries: ArtifactSetSelectionEntry[] = []
-  for (const raw of list) {
-    if (Array.isArray(raw)) {
-      // Flatten nested arrays so legacy tuple shapes still parse.
-      entries.push(...normalizeKeepUniqueSetSelections(raw))
-      continue
-    }
-    if (raw && typeof raw === 'object') {
-      const rec = raw as Record<string, unknown>
-      const candidate = rec.id ?? rec.setId ?? rec.name ?? rec.label
-      const resolved = coerceArtifactSetId(candidate)
-      if (resolved == null) continue
-      // Respect excluded flags for meta-derived set removals.
-      const excluded = rec.excluded === true
-      entries.push(excluded ? { id: resolved, excluded: true } : { id: resolved })
-      continue
-    }
-    const resolved = coerceArtifactSetId(raw)
-    if (resolved != null) entries.push({ id: resolved })
-  }
-  // Normalize to dedupe and enforce exclusion precedence.
-  return normalizeArtifactSetSelections(entries)
-}
-
 /** Normalize combination payloads loaded from HSFC/autosave. */
 export function normalizeKeepUniqueCombination(value: unknown): KeepUniqueCombination | null {
-  if (!value || typeof value !== 'object') return null
-  const rec = value as Record<string, unknown>
-  const slotValues = normalizeSelectionArray(rec.slots, coerceArtifactTypeId)
-  const setValues = normalizeKeepUniqueSetSelections(rec.sets)
-  const rankValues = normalizeSelectionArray(rec.ranks, (raw) => {
-    if (raw == null || raw === '') return null
-    return clampRankOrRarity(raw)
-  })
-  const rarityValues = normalizeSelectionArray(rec.rarities, (raw) => {
-    if (raw == null || raw === '') return null
-    return clampRankOrRarity(raw)
-  })
-  const mainStats = normalizeSelectionArray(rec.mainStats, (raw) => {
-    if (raw == null || raw === '') return null
-    const variant = coerceStatVariant(raw)
-    if (variant === StatVariantEnum.Any) return null
-    return variant
-  })
-  const factionValues = normalizeSelectionArray(rec.factions, (raw) => {
-    if (raw == null || raw === '') return null
-    return coerceFactionId(raw)
-  })
-  const metaSetIds = normalizeStringSelectionArray(rec.metaSetIds ?? rec.metaSets)
-  return sortKeepUniqueCombination({
-    slots: slotValues,
-    sets: setValues,
-    metaSetIds,
-    ranks: rankValues,
-    rarities: rarityValues,
-    mainStats,
-    factions: factionValues,
-  })
+  // Delegate normalization to wasm so recursive tuple parsing is SSOT in Rust.
+  return normalizeKeepUniqueCombinationWithLoadedWasm<KeepUniqueCombination>(
+    value,
+    KEEP_UNIQUE_NORMALIZATION_LOOKUPS,
+  )
 }
 
 /** Normalize rule payloads; returns null when combination data is invalid. */
 export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
-  if (!value || typeof value !== 'object') return null
-  const rec = value as Record<string, unknown>
-  const combination = normalizeKeepUniqueCombination(rec.combination ?? rec.tuple ?? rec)
-  if (!combination) return null
-  const name = (() => {
-    if (typeof rec.name !== 'string') return ''
-    const trimmed = rec.name.trim()
-    if (!trimmed) return ''
-    return trimmed
-  })()
-  const rawId = typeof rec.id === 'string' && rec.id.trim().length > 0 ? rec.id.trim() : createKeepUniqueRuleId()
-  const rawRequired = Number(rec.requiredCount)
-  const requiredCount = Number.isFinite(rawRequired) && rawRequired >= 1 ? Math.floor(rawRequired) : 1
-  const activation = normalizeKeepUniqueActivation(rec.activation, rec.enabled)
-  const countMode = (() => {
-    if ('countMode' in rec) return normalizeKeepUniqueCountMode(rec.countMode)
-    if (rec.requirePerCombination === true) return { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE }
-    return { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE }
-  })()
-  // Substat selection is optional; empty means "any".
-  const substats = normalizeKeepUniqueSubstats(rec.substats ?? rec.substatTargets ?? rec.substat)
-  // Substat matching defaults to "any" unless explicit data is provided.
-  const rawSubstatMatch = ('substatMatch' in rec ? rec.substatMatch : undefined)
-  const parsedSubstatMatch = normalizeKeepUniqueSubstatMatch(rawSubstatMatch)
-  const substatMatch = substats.length > 0 ? parsedSubstatMatch : KeepUniqueSubstatMatch.Any
-  // Weighting reuses tester sort normalization (non-defaults only).
-  const substatWeights = normalizeKeepUniqueSubstatWeights(rec.substatWeights ?? rec.substatWeighting)
-  return {
-    id: rawId,
-    combination,
-    requiredCount,
-    activation,
-    countMode,
-    name,
-    substats,
-    substatMatch,
-    substatWeights,
-  }
+  // Generate fallback id in TS so rule ids keep the same prefix/time randomness.
+  const generatedRuleId = buildNormalizedKeepUniqueRuleId()
+  // Delegate normalization to wasm so recursive rule parsing is SSOT in Rust.
+  return normalizeKeepUniqueRuleWithLoadedWasm<KeepUniqueRule>(
+    value,
+    KEEP_UNIQUE_NORMALIZATION_LOOKUPS,
+    generatedRuleId,
+  )
 }
 
 /** Shared helper for mapping tester artifacts to the detection item key. */
@@ -876,37 +656,6 @@ const resolveArmorCompatibleSetIds = (): readonly ArtifactSetId[] => {
   return deduped
 }
 
-// Minimal candidate payload keeps wasm serialization focused on detection fields only.
-type KeepUniqueWasmCandidatePayload = {
-  itemKey: number
-  groupKey: string
-  isSold: boolean
-  artifact: {
-    id: number | null
-    slot: ArtifactTypeId
-    set: ArtifactSetId
-    rank: RankValue
-    rarity: RankValue
-    level: LevelMilestone
-    exactLevel: number | null
-    faction: FactionId
-    mainStat: StatVariant
-    substats: KeepUniqueDetectionSubstat[]
-  }
-}
-
-// Widened rule payload strips reactive state while preserving detection semantics.
-type KeepUniqueWasmRulePayload = {
-  id: string
-  combination: KeepUniqueCombination
-  requiredCount: number
-  activation: KeepUniqueRuleActivation
-  countMode: KeepUniqueRuleCountMode
-  substats: StatVariant[]
-  substatMatch: KeepUniqueSubstatMatch
-  substatWeights: Partial<Record<StatVariant, number>>
-}
-
 type KeepUniqueWasmExpectedGroupDomainPayload = {
   slotOrder: ArtifactTypeId[]
   accessoryCompatibleSetIds: ArtifactSetId[]
@@ -934,80 +683,10 @@ const buildKeepUniqueExpectedGroupDomain = (): KeepUniqueWasmExpectedGroupDomain
   return normalizeKeepUniqueExpectedGroupDomainWithLoadedWasm(rawDomain)
 }
 
-// Build compact candidate payloads so the wasm boundary avoids full preview-row objects.
-const toKeepUniqueWasmCandidates = (candidates: readonly KeepUniqueCandidate[]): KeepUniqueWasmCandidatePayload[] => (
-  candidates.map((candidate) => ({
-    itemKey: candidate.itemKey,
-    groupKey: candidate.groupKey,
-    isSold: candidate.isSold,
-    artifact: {
-      id: Number.isFinite(Number(candidate.artifact.id)) ? Number(candidate.artifact.id) : null,
-      slot: candidate.artifact.slot,
-      set: candidate.artifact.set,
-      rank: candidate.artifact.rank,
-      rarity: candidate.artifact.rarity,
-      level: candidate.artifact.level,
-      exactLevel: candidate.artifact.exactLevel ?? null,
-      faction: candidate.artifact.faction,
-      mainStat: candidate.artifact.mainStat?.variant ?? StatVariantEnum.Any,
-      // Keep raw total values for scoring parity; wasm rounds only when emitting artifacts.
-      substats: candidate.artifact.substats.map((stat) => ({
-        variant: stat.variant,
-        isFlat: stat.isFlat,
-        value: Number(stat.totalValue ?? 0),
-      })),
-    },
-  }))
-)
-
-// Build compact rule payloads to avoid serializing UI-only or derived fields into wasm.
-const toKeepUniqueWasmRules = (rules: readonly KeepUniqueRule[]): KeepUniqueWasmRulePayload[] => (
-  rules.map((rule) => ({
-    id: rule.id,
-    combination: rule.combination,
-    requiredCount: rule.requiredCount,
-    activation: rule.activation,
-    countMode: sanitizeCountMode(rule.countMode),
-    substats: rule.substats ?? [],
-    substatMatch: normalizeKeepUniqueSubstatMatch(rule.substatMatch),
-    substatWeights: rule.substatWeights ?? {},
-  }))
-)
-
 const isKeepUniqueDetectionSnapshot = (value: unknown): value is KeepUniqueDetectionSnapshot => (
   value != null
   && typeof value === 'object'
   && Array.isArray((value as { entries?: unknown }).entries)
-)
-
-// Serialize tester preview rows into the compact collect payload consumed by wasm.
-const toKeepUniqueWasmCollectRows = (rows: readonly TesterPreviewRow[]) => (
-  rows.map((row) => ({
-    item: row.artifact.testerItem,
-    baseMatchDefined: row.baseMatch !== undefined,
-    baseMatch: row.baseMatch
-      ? {
-        keep: row.baseMatch.keep === true,
-        cfgIdx: row.baseMatch.cfgIdx ?? null,
-      }
-      : null,
-    artifact: {
-      id: Number.isFinite(Number(row.artifact.id)) ? Number(row.artifact.id) : null,
-      slot: row.artifact.slot,
-      set: row.artifact.set,
-      rank: row.artifact.rank,
-      rarity: row.artifact.rarity,
-      level: row.artifact.level,
-      exactLevel: row.artifact.exactLevel ?? null,
-      faction: row.artifact.faction,
-      mainStat: row.artifact.mainStat?.variant ?? StatVariantEnum.Any,
-      substats: row.artifact.substats.map((stat) => ({
-        variant: stat.variant,
-        isFlat: stat.isFlat,
-        value: Number(stat.totalValue ?? 0),
-      })),
-    },
-  }))
 )
 
 export function collectKeepUniqueCandidates(params: {
@@ -1023,12 +702,11 @@ export function collectKeepUniqueCandidates(params: {
     : null
   if (!rows.length) return { candidates: [], uniqueItemKeys: new Set() }
   const baseRuleList: HsfRuleWithCfg[] = Array.isArray(baseRules) ? [...baseRules] : []
-  // Serialize rows once so keep/sell key derivation remains in wasm.
-  const wasmCollectRows = toKeepUniqueWasmCollectRows(rows)
+  // Pass raw preview rows and let wasm normalize fields for collection.
   // WASM-first candidate snapshot keeps assembly semantics in Rust.
   try {
     const snapshot = collectKeepUniqueCandidatesWithLoadedWasm({
-      rows: wasmCollectRows,
+      rows,
       rules: baseRuleList,
       configModes,
       ...(ignoreConfigSet ? { ignoreKeepUniqueConfigIndices: ignoreConfigSet } : {}),
@@ -1068,15 +746,13 @@ export function collectAndComputeKeepUniqueProtection(
     }
   }
   const baseRuleList: HsfRuleWithCfg[] = Array.isArray(baseRules) ? [...baseRules] : []
-  // Collect rows and keep-unique rules are serialized once for the combined call.
-  const wasmCollectRows = toKeepUniqueWasmCollectRows(rows)
-  const wasmRules = toKeepUniqueWasmRules(rules)
+  // Pass raw rows/rules and let wasm normalize to its detection payload.
   const combined = collectAndComputeKeepUniqueProtectionWithLoadedWasm({
-    rows: wasmCollectRows,
+    rows,
     rules: baseRuleList,
     configModes,
     ...(ignoreConfigSet ? { ignoreKeepUniqueConfigIndices: ignoreConfigSet } : {}),
-    keepUniqueRules: wasmRules,
+    keepUniqueRules: rules,
     expectedGroupDomain: buildKeepUniqueExpectedGroupDomain(),
     enabled,
     now: timestamp,
@@ -1107,12 +783,10 @@ export function collectAndComputeKeepUniqueProtection(
 export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): KeepUniqueDetectionSnapshot {
   const { candidates, rules, enabled, now } = params
   const timestamp = Number.isFinite(now) ? Number(now) : Date.now()
-  const wasmCandidates = toKeepUniqueWasmCandidates(candidates)
-  const wasmRules = toKeepUniqueWasmRules(rules)
   // Wasm derives expected groups from the shared domain payload (SSOT path).
   const wasmSnapshot = computeKeepUniqueProtectionWithLoadedWasm({
-    candidates: wasmCandidates,
-    rules: wasmRules,
+    candidates,
+    rules,
     expectedGroupDomain: buildKeepUniqueExpectedGroupDomain(),
     enabled,
     now: timestamp,

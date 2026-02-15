@@ -848,15 +848,6 @@ fn resolve_auto_rarity_code_core(input: &AutoRarityResolveIn) -> i64 {
     apply_floor(candidate)
 }
 
-// Auto-rarity resolver keeps hsfBuilder rarity-floor/aggregate semantics in Rust.
-#[wasm_bindgen]
-pub fn resolve_auto_rarity_code_value(payload: JsValue) -> Result<i32, JsValue> {
-    let parsed: AutoRarityResolveIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid auto-rarity payload: {error}")))?;
-    let code = resolve_auto_rarity_code_core(&parsed);
-    Ok(code as i32)
-}
-
 // Builder-facing auto-rarity resolver compacts selected/fixed/bounds in Rust.
 #[wasm_bindgen]
 pub fn resolve_auto_rarity_code_for_builder_value(payload: JsValue) -> Result<i32, JsValue> {
@@ -1119,17 +1110,6 @@ pub(crate) struct BuildHsfComboPolicyVectorsOut {
     prefer_virtual_sink: bool,
 }
 
-// Input payload for per-combo factory-collapse profile derivation.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct BuildHsfFactoryComboRowsIn {
-    combo: Vec<i32>,
-    current_base_by_variant: HashMap<String, i32>,
-    factory_base_by_variant: HashMap<String, Option<i32>>,
-    target_base_override_by_variant: HashMap<String, Option<i32>>,
-    substat_roll_bounds_v: HashMap<String, BuildHsfComboBoundsIn>,
-}
-
 // Output payload carries both base values and collapse eligibility.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1164,11 +1144,11 @@ struct BuildHsfPreflightFlagsOut {
 }
 
 // Expand builder rarity branches exactly like hsfBuilder.ts.
-#[wasm_bindgen]
-pub fn build_hsf_rarity_branches_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: BuildHsfRarityBranchesIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid build-hsf-rarity-branches payload: {error}")))?;
 
+// Shared rarity-branch core keeps Late+Auto supplement expansion single-sourced.
+pub(crate) fn build_hsf_rarity_branches_core(
+    input: &BuildHsfRarityBranchesIn,
+) -> Vec<BuildHsfRarityBranchOut> {
     // Base branch always includes the resolved rarity code.
     let base_code = input.rarity_code;
     let mut branches = vec![BuildHsfRarityBranchOut {
@@ -1214,21 +1194,10 @@ pub fn build_hsf_rarity_branches_value(payload: JsValue) -> Result<JsValue, JsVa
             });
         }
     }
-
-    to_js_value(&branches)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize build-hsf-rarity-branches output: {error}")))
+    branches
 }
 
 // Build branch-level collapse profile and roll timeline from auto-rarity tables.
-#[wasm_bindgen]
-pub fn build_hsf_branch_collapse_profile_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    // Parse typed payload so malformed callers fail with a clear schema error.
-    let input: BuildHsfBranchCollapseProfileIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid build-hsf-branch-collapse-profile payload: {error}")))?;
-    let out = build_hsf_branch_collapse_profile_core(&input);
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize build-hsf-branch-collapse-profile output: {error}")))
-}
 
 // Shared branch-collapse profile core keeps collapse/timeline logic in one place.
 pub(crate) fn build_hsf_branch_collapse_profile_core(
@@ -1290,11 +1259,11 @@ pub(crate) fn build_hsf_branch_collapse_profile_core(
 }
 
 // Build preflight flags used before branch expansion in hsfBuilder.
-#[wasm_bindgen]
-pub fn build_hsf_preflight_flags_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    // Parse typed payload first so callers receive deterministic schema errors.
-    let input: BuildHsfPreflightFlagsIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid build-hsf-preflight-flags payload: {error}")))?;
+
+// Shared preflight core keeps cap-feasibility + circled-mode logic in one path.
+pub(crate) fn build_hsf_preflight_flags_core(
+    input: &BuildHsfPreflightFlagsIn,
+) -> BuildHsfPreflightFlagsOut {
     // "Circled" means at least one selected stat has an explicit minimum roll.
     let mut has_circled = input.aggregate_min_active;
     if !has_circled {
@@ -1361,21 +1330,10 @@ pub fn build_hsf_preflight_flags_value(payload: JsValue) -> Result<JsValue, JsVa
         aggregate_feasible_by_caps,
         has_circled,
     };
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize build-hsf-preflight-flags output: {error}")))
+    out
 }
 
 // Expand per-level branch counters used by hsfBuilder level loops.
-#[wasm_bindgen]
-pub fn build_hsf_level_contexts_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    // Parse payload first so callers get a focused schema error.
-    let input: BuildHsfLevelContextsIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid build-hsf-level-contexts payload: {error}")))?;
-    let out = build_hsf_level_contexts_core(&input);
-    // Serialize as plain JS objects for direct TS consumption.
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize build-hsf-level-contexts output: {error}")))
-}
 
 // Shared level-context core keeps level roll/presence counters in one place.
 pub(crate) fn build_hsf_level_contexts_core(input: &BuildHsfLevelContextsIn) -> Vec<BuildHsfLevelContextOut> {
@@ -1477,17 +1435,6 @@ pub(crate) fn build_hsf_level_contexts_core(input: &BuildHsfLevelContextsIn) -> 
 
 // Expand selected-substat combos for one level using the same flex/min-count
 // gating as hsfBuilder.ts, so TS no longer loops over total-count ranges.
-#[wasm_bindgen]
-pub fn build_hsf_level_combos_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    // Parse payload into a typed struct for deterministic validation.
-    let input: BuildHsfLevelCombosIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid build-hsf-level-combos payload: {error}")))?;
-    let out = build_hsf_level_combos_core(&input);
-
-    // Return plain array-of-arrays for direct TS iteration.
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize build-hsf-level-combos output: {error}")))
-}
 
 // Shared level-combo core keeps required/optional expansion in one place.
 pub(crate) fn build_hsf_level_combos_core(input: &BuildHsfLevelCombosIn) -> Vec<Vec<i32>> {
@@ -1559,16 +1506,6 @@ pub(crate) fn build_hsf_level_combos_core(input: &BuildHsfLevelCombosIn) -> Vec<
 }
 
 // Expand per-intro timeline caps for one (combo, level) pair.
-#[wasm_bindgen]
-pub fn build_hsf_timeline_caps_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    // Parse typed payload so malformed callers fail with an actionable message.
-    let input: BuildHsfTimelineCapsIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid build-hsf-timeline-caps payload: {error}")))?;
-    let out = build_hsf_timeline_caps_core(&input);
-    // Return matrix aligned 1:1 with input intro assignment ordering.
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize build-hsf-timeline-caps output: {error}")))
-}
 
 // Shared timeline-cap core keeps intro roll counting in one Rust implementation.
 pub(crate) fn build_hsf_timeline_caps_core(input: &BuildHsfTimelineCapsIn) -> Vec<Vec<i32>> {
@@ -1619,15 +1556,6 @@ pub(crate) fn build_hsf_timeline_caps_core(input: &BuildHsfTimelineCapsIn) -> Ve
 }
 
 // Build intro assignments for one (combo, level) pair from branch timeline input.
-#[wasm_bindgen]
-pub fn build_hsf_intro_assignments_for_level_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    // Parse typed payload so malformed callers fail with an actionable message.
-    let input: BuildHsfIntroAssignmentsForLevelIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid build-hsf-intro-assignments-for-level payload: {error}")))?;
-    let assignments = build_hsf_intro_assignments_for_level_core(&input);
-    to_js_value(&assignments)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize build-hsf-intro-assignments-for-level output: {error}")))
-}
 
 // Shared intro-assignment core keeps ordering and filtering single-sourced.
 pub(crate) fn build_hsf_intro_assignments_for_level_core(
@@ -1657,15 +1585,6 @@ pub(crate) fn build_hsf_intro_assignments_for_level_core(
 }
 
 // Build combo-invariant vectors (bounds/masks/substats/targets) once per combo.
-#[wasm_bindgen]
-pub fn build_hsf_combo_vectors_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    // Parse payload up front so schema errors are explicit.
-    let input: BuildHsfComboVectorsIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid build-hsf-combo-vectors payload: {error}")))?;
-    let out = build_hsf_combo_vectors_core(&input);
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize build-hsf-combo-vectors output: {error}")))
-}
 
 // Shared combo-vector core keeps bound/mask/target normalization in one place.
 pub(crate) fn build_hsf_combo_vectors_core(input: &BuildHsfComboVectorsIn) -> BuildHsfComboVectorsOut {
@@ -1775,15 +1694,6 @@ pub(crate) fn build_hsf_combo_vectors_core(input: &BuildHsfComboVectorsIn) -> Bu
 }
 
 // Build combo-policy vectors once so TS no longer loops masks/reductions per intro.
-#[wasm_bindgen]
-pub fn build_hsf_combo_policy_vectors_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    // Parse payload up front so malformed callers fail with an actionable error.
-    let input: BuildHsfComboPolicyVectorsIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid build-hsf-combo-policy-vectors payload: {error}")))?;
-    let out = build_hsf_combo_policy_vectors_core(&input);
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize build-hsf-combo-policy-vectors output: {error}")))
-}
 
 // Shared combo-policy core keeps aggregate/deficit reductions single-sourced.
 pub(crate) fn build_hsf_combo_policy_vectors_core(
@@ -1858,28 +1768,8 @@ pub(crate) fn build_hsf_combo_policy_vectors_core(
 }
 
 // Build base-value vectors and factory-collapse eligibility per combo in Rust.
-#[wasm_bindgen]
-pub fn build_hsf_factory_combo_rows_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    // Parse typed payload first so callers get deterministic schema errors.
-    let input: BuildHsfFactoryComboRowsIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid build-hsf-factory-combo-rows payload: {error}")))?;
-    let out = build_hsf_factory_combo_rows_core(&input);
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize build-hsf-factory-combo-rows output: {error}")))
-}
 
 // Shared factory-combo core keeps base-value and collapse gates single-sourced.
-pub(crate) fn build_hsf_factory_combo_rows_core(
-    input: &BuildHsfFactoryComboRowsIn,
-) -> BuildHsfFactoryComboRowsOut {
-    build_hsf_factory_combo_rows_from_parts(
-        &input.combo,
-        &input.current_base_by_variant,
-        &input.factory_base_by_variant,
-        &input.target_base_override_by_variant,
-        &input.substat_roll_bounds_v,
-    )
-}
 
 // Borrowed-argument factory helper avoids map cloning in branch runtime loops.
 pub(crate) fn build_hsf_factory_combo_rows_from_parts(
@@ -2282,13 +2172,6 @@ fn canonical_rule_key_core(rule: &RuleRaw) -> String {
 }
 
 // Public canonical key export keeps rule normalization in Rust.
-#[wasm_bindgen]
-pub fn canonical_rule_key_value(rule: JsValue) -> Result<JsValue, JsValue> {
-    let parsed: RuleRaw = from_js_value(rule)
-        .map_err(|error| JsValue::from_str(&format!("Invalid canonical-rule-key payload: {error}")))?;
-    let key = canonical_rule_key_core(&parsed);
-    Ok(JsValue::from_str(&key))
-}
 
 // Hash helper mirrors useTesterMatchOrchestrator.ts::hashSignature.
 fn js_hash_signature(value: &str) -> i32 {
@@ -3167,27 +3050,6 @@ fn sort_artifact_types_in_place(values: &mut [i64]) {
 
 // Enumerate integer compositions with deterministic ordering that matches
 // hsfBuilder.ts::rollDistributions (leftmost dimension increments first).
-fn enumerate_roll_distributions(
-    dimensions: i32,
-    total: i32,
-    idx: i32,
-    acc: &mut Vec<i32>,
-    out: &mut Vec<Vec<i32>>,
-) {
-    if idx == dimensions - 1 {
-        let mut row = acc.clone();
-        row.push(total);
-        out.push(row);
-        return;
-    }
-    let mut value = 0;
-    while value <= total {
-        acc.push(value);
-        enumerate_roll_distributions(dimensions, total - value, idx + 1, acc, out);
-        acc.pop();
-        value += 1;
-    }
-}
 
 // Aggregate gates for distribution filtering mirror the JS builder modes:
 // strict (>= now), feasible-by-target (>= now OR recoverable by remaining),
@@ -3521,50 +3383,8 @@ fn compute_permutations_i32(values: &[i32]) -> Vec<Vec<i32>> {
 }
 
 // Enumerate bounded compositions in deterministic index order.
-fn enumerate_bounded_compositions_i32(
-    caps: &[i32],
-    total: i32,
-    idx: usize,
-    path: &mut Vec<i32>,
-    out: &mut Vec<Vec<i32>>,
-) {
-    if idx == caps.len() {
-        if total == 0 {
-            out.push(path.clone());
-        }
-        return;
-    }
-    if total < 0 {
-        return;
-    }
-    let cap = std::cmp::max(0, caps[idx]);
-    let max_take = std::cmp::min(cap, total);
-    let mut value = 0;
-    while value <= max_take {
-        path.push(value);
-        enumerate_bounded_compositions_i32(caps, total - value, idx + 1, path, out);
-        path.pop();
-        value += 1;
-    }
-}
 
 // Shared bounded-compositions core for late-mode extra allocation loops.
-fn compute_bounded_compositions_i32(caps: &[i32], total: i32) -> Vec<Vec<i32>> {
-    if total < 0 {
-        return Vec::<Vec<i32>>::new();
-    }
-    if caps.is_empty() {
-        return if total == 0 {
-            vec![Vec::<i32>::new()]
-        } else {
-            Vec::<Vec<i32>>::new()
-        };
-    }
-    let mut out = Vec::<Vec<i32>>::new();
-    let mut path = Vec::<i32>::new();
-    enumerate_bounded_compositions_i32(caps, total, 0, &mut path, &mut out);
-    out
-}
 
 // Enumerate bounded compositions and keep only rows that satisfy additional
 // locked/optional filters used by late-mode HSF emission loops.
@@ -3860,69 +3680,42 @@ fn build_hsf_late_bounded_rows_core(input: &BuildHsfLateBoundedRowsIn) -> Vec<Ve
 }
 
 // Build late-mode bounded candidate rows for targeted or strict branches.
-#[wasm_bindgen]
-pub fn build_hsf_late_bounded_rows_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    // Parse typed payload so schema errors are explicit for callers.
-    let input: BuildHsfLateBoundedRowsIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid build-hsf-late-bounded-rows payload: {error}")))?;
-    let rows = build_hsf_late_bounded_rows_core(&input);
-    to_js_value(&rows)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize build-hsf-late-bounded-rows output: {error}")))
-}
 
 // Build intro-level emission plans for strict/potential early/late branches.
 // This keeps the largest hsfBuilder policy matrix in Rust (single source).
-#[wasm_bindgen]
-pub fn build_hsf_intro_mode_plan_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    hsf_intro_mode_plan::build_hsf_intro_mode_plan_value(payload)
-}
 
 // Full-selected fallback planning is split into a small module so this top-level
 // file stays focused on export wiring and shared utility code.
-#[wasm_bindgen]
-pub fn build_hsf_full_selected_fallback_plan_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    hsf_full_selected_fallback::build_hsf_full_selected_fallback_plan_value(payload)
-}
 
 // Full-selected fallback execution keeps the remaining early-potential branch
 // in Rust so hsfBuilder no longer emits these rows from TypeScript loops.
-#[wasm_bindgen]
-pub fn execute_hsf_full_selected_fallback_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    hsf_full_selected_fallback::execute_hsf_full_selected_fallback_value(payload)
-}
 
 // Branch runtime execution keeps per-branch level+combo loops in Rust so
 // hsfBuilder can delegate the largest remaining orchestration branch.
-#[wasm_bindgen]
-pub fn execute_hsf_branch_runtime_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    hsf_branch_execution::execute_hsf_branch_runtime_value(payload)
-}
 
 // Builder runtime execution keeps cross-branch orchestration in Rust so
 // hsfBuilder can issue one non-presence runtime call per config.
+
+// Full builder runtime execution keeps preflight + branch/runtime dispatch in
+// one Rust entrypoint so hsfBuilder can delegate orchestration in one call.
 #[wasm_bindgen]
-pub fn execute_hsf_builder_runtime_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    hsf_builder_execution::execute_hsf_builder_runtime_value(payload)
+pub fn build_hsf_rules_runtime_value(payload: JsValue) -> Result<JsValue, JsValue> {
+    hsf_builder_execution::build_hsf_rules_runtime_value(payload)
+}
+
+// Builder prep execution keeps selected/fixed pool normalization and variant-map
+// preparation in Rust so hsfBuilder.ts can avoid large per-config prep loops.
+#[wasm_bindgen]
+pub fn prepare_hsf_builder_config_value(payload: JsValue) -> Result<JsValue, JsValue> {
+    hsf_builder_execution::prepare_hsf_builder_config_value(payload)
 }
 
 // Intro execution is split into its own module so hsfBuilder runtime branching
 // can keep moving out of TypeScript without inflating this root file further.
-#[wasm_bindgen]
-pub fn execute_hsf_intro_plan_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    hsf_intro_execution::execute_hsf_intro_plan_value(payload)
-}
 
 // Combo runtime execution keeps combo-level policy/timeline dispatch in Rust.
-#[wasm_bindgen]
-pub fn execute_hsf_combo_runtime_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    hsf_combo_runtime::execute_hsf_combo_runtime_value(payload)
-}
 
 // Level+combo runtime execution keeps collapse/presence/runtime branch logic in Rust.
-#[wasm_bindgen]
-pub fn execute_hsf_level_combo_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    hsf_level_combo_execution::execute_hsf_level_combo_value(payload)
-}
 
 // Shared intro-assignment core to serve JSON and fast-array bindings.
 fn compute_intro_assignments_for_combo(
@@ -4411,43 +4204,6 @@ fn resolve_keep_unique_candidate_keep_flags_core(
 
 // Keep-unique candidate matching helper keeps base-match fallback and filtered
 // re-evaluation semantics in Rust so TS only handles row/object assembly.
-#[wasm_bindgen]
-pub fn resolve_keep_unique_candidate_keep_flags_value(
-    rows: JsValue,
-    rules: JsValue,
-    config_modes: JsValue,
-    ignore_keep_unique_config_indices: JsValue,
-) -> Result<JsValue, JsValue> {
-    let rows: Vec<KeepUniqueCandidateResolveRowIn> = from_js_value(rows)
-        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique rows payload: {error}")))?;
-    let rules: Vec<RuleRaw> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique rules payload: {error}")))?;
-    let config_modes: Vec<String> = from_js_value(config_modes).map_err(|error| {
-        JsValue::from_str(&format!(
-            "Invalid keep-unique config-modes payload: {error}"
-        ))
-    })?;
-    let ignore_keep_unique_config_indices: Option<Vec<i64>> = from_js_value(ignore_keep_unique_config_indices)
-        .map_err(|error| {
-            JsValue::from_str(&format!(
-                "Invalid keep-unique ignored-config-indices payload: {error}"
-            ))
-        })?;
-
-    // Prepare rules once so each row evaluation reuses precomputed masks/flags.
-    let prepared_rules = rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
-    let keep_flags = resolve_keep_unique_candidate_keep_flags_core(
-        &rows,
-        &prepared_rules,
-        &config_modes,
-        &ignore_keep_unique_config_indices.unwrap_or_default(),
-    );
-    to_js_value(&keep_flags).map_err(|error| {
-        JsValue::from_str(&format!(
-            "Failed to serialize keep-unique candidate keep flags: {error}"
-        ))
-    })
-}
 
 // Keep-unique candidate snapshot builder keeps key derivation + sold filtering
 // in Rust so TS only reattaches row references for existing call sites.
@@ -4526,9 +4282,8 @@ pub fn collect_keep_unique_candidates_value(
     config_modes: JsValue,
     ignore_keep_unique_config_indices: JsValue,
 ) -> Result<JsValue, JsValue> {
-    // Parse compact row payload that includes matcher item + normalized artifact.
-    let rows: Vec<KeepUniqueCollectRowIn> = from_js_value(rows)
-        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique collect rows payload: {error}")))?;
+    // Parse raw/compact row payloads into the normalized collect row shape.
+    let rows = keep_unique_parse_collect_rows_payload(rows)?;
     // Parse merged base rules used by keep/sell resolution.
     let rules: Vec<RuleRaw> = from_js_value(rules)
         .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique collect rules payload: {error}")))?;
@@ -4657,236 +4412,16 @@ pub fn version() -> String {
 }
 
 // Build integer roll distributions used by hsfBuilder's combinatorics loops.
-#[wasm_bindgen]
-pub fn roll_distributions(dimensions: i32, total: i32) -> Result<String, JsValue> {
-    if dimensions <= 0 {
-        return Ok("[[]]".to_string());
-    }
-    if total < 0 {
-        return Ok("[]".to_string());
-    }
-    let mut out = Vec::<Vec<i32>>::new();
-    let mut acc = Vec::<i32>::new();
-    enumerate_roll_distributions(dimensions, total, 0, &mut acc, &mut out);
-    serde_json::to_string(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize roll distributions: {error}")))
-}
 
 // Flat-array variant avoids JSON parsing on the result path.
-#[wasm_bindgen]
-pub fn roll_distributions_flat(dimensions: i32, total: i32) -> Vec<i32> {
-    if dimensions <= 0 || total < 0 {
-        return Vec::<i32>::new();
-    }
-    let mut out = Vec::<Vec<i32>>::new();
-    let mut acc = Vec::<i32>::new();
-    enumerate_roll_distributions(dimensions, total, 0, &mut acc, &mut out);
-    flatten_i32_rows(&out)
-}
 
 // Filtered distribution helper keeps the hottest per-level loops inside Rust so
 // JS only evaluates branch-specific predicates on already-feasible rows.
-#[wasm_bindgen]
-pub fn filtered_roll_distributions(
-    dimensions: i32,
-    total: i32,
-    max_caps_json: &str,
-    min_floors_json: &str,
-    timeline_caps_json: &str,
-    targeted_mask_json: &str,
-    targeted_exact: i32,
-    deficit_floors_json: &str,
-    deficit_max: i32,
-    global_min: i32,
-    global_remaining: i32,
-    global_mode: i32,
-    locked_mask_json: &str,
-    locked_min: i32,
-    locked_remaining: i32,
-    locked_mode: i32,
-) -> Result<String, JsValue> {
-    if dimensions <= 0 {
-        return Ok(if total == 0 { "[[]]".to_string() } else { "[]".to_string() });
-    }
-    if total < 0 {
-        return Ok("[]".to_string());
-    }
-    let max_caps: Vec<Option<i32>> = serde_json::from_str(max_caps_json)
-        .map_err(|error| JsValue::from_str(&format!("Invalid max-caps JSON: {error}")))?;
-    let min_floors: Vec<Option<i32>> = serde_json::from_str(min_floors_json)
-        .map_err(|error| JsValue::from_str(&format!("Invalid min-floors JSON: {error}")))?;
-    let timeline_caps: Vec<Option<i32>> = serde_json::from_str(timeline_caps_json)
-        .map_err(|error| JsValue::from_str(&format!("Invalid timeline-caps JSON: {error}")))?;
-    let targeted_mask: Vec<bool> = serde_json::from_str(targeted_mask_json)
-        .map_err(|error| JsValue::from_str(&format!("Invalid targeted-mask JSON: {error}")))?;
-    let deficit_floors: Vec<Option<i32>> = serde_json::from_str(deficit_floors_json)
-        .map_err(|error| JsValue::from_str(&format!("Invalid deficit-floors JSON: {error}")))?;
-    let locked_mask: Vec<bool> = serde_json::from_str(locked_mask_json)
-        .map_err(|error| JsValue::from_str(&format!("Invalid locked-mask JSON: {error}")))?;
-    let global_filter = parse_distribution_mode(global_mode);
-    let locked_filter = parse_distribution_mode(locked_mode);
-    let out = filter_roll_distributions_core(
-        dimensions,
-        total,
-        &max_caps,
-        &min_floors,
-        &timeline_caps,
-        &targeted_mask,
-        if targeted_exact <= FILTER_OPTION_NONE_I32 { None } else { Some(targeted_exact) },
-        &deficit_floors,
-        if deficit_max <= FILTER_OPTION_NONE_I32 { None } else { Some(deficit_max) },
-        global_min,
-        global_remaining,
-        global_filter,
-        &locked_mask,
-        locked_min,
-        locked_remaining,
-        locked_filter,
-    );
-    serde_json::to_string(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize filtered distributions: {error}")))
-}
 
 // Fast variant takes compact numeric arrays directly to avoid per-call JSON
 // stringify/parse overhead across the JS/WASM boundary.
-#[wasm_bindgen]
-pub fn filtered_roll_distributions_fast(
-    dimensions: i32,
-    total: i32,
-    max_caps: Vec<i32>,
-    min_floors: Vec<i32>,
-    timeline_caps: Vec<i32>,
-    targeted_mask: Vec<u8>,
-    targeted_exact: i32,
-    deficit_floors: Vec<i32>,
-    deficit_max: i32,
-    global_min: i32,
-    global_remaining: i32,
-    global_mode: i32,
-    locked_mask: Vec<u8>,
-    locked_min: i32,
-    locked_remaining: i32,
-    locked_mode: i32,
-) -> Result<String, JsValue> {
-    if dimensions <= 0 {
-        return Ok(if total == 0 { "[[]]".to_string() } else { "[]".to_string() });
-    }
-    if total < 0 {
-        return Ok("[]".to_string());
-    }
-    let max_caps_opt = max_caps
-        .iter()
-        .map(|value| if *value < 0 { None } else { Some(*value) })
-        .collect::<Vec<_>>();
-    let min_floors_opt = min_floors
-        .iter()
-        .map(|value| if *value < 0 { None } else { Some(*value) })
-        .collect::<Vec<_>>();
-    let timeline_caps_opt = timeline_caps
-        .iter()
-        .map(|value| if *value < 0 { None } else { Some(*value) })
-        .collect::<Vec<_>>();
-    let targeted_mask_bool = targeted_mask
-        .iter()
-        .map(|value| *value != 0)
-        .collect::<Vec<_>>();
-    let deficit_floors_opt = deficit_floors
-        .iter()
-        .map(|value| if *value < 0 { None } else { Some(*value) })
-        .collect::<Vec<_>>();
-    let locked_mask_bool = locked_mask
-        .iter()
-        .map(|value| *value != 0)
-        .collect::<Vec<_>>();
-    let out = filter_roll_distributions_core(
-        dimensions,
-        total,
-        &max_caps_opt,
-        &min_floors_opt,
-        &timeline_caps_opt,
-        &targeted_mask_bool,
-        if targeted_exact <= FILTER_OPTION_NONE_I32 { None } else { Some(targeted_exact) },
-        &deficit_floors_opt,
-        if deficit_max <= FILTER_OPTION_NONE_I32 { None } else { Some(deficit_max) },
-        global_min,
-        global_remaining,
-        parse_distribution_mode(global_mode),
-        &locked_mask_bool,
-        locked_min,
-        locked_remaining,
-        parse_distribution_mode(locked_mode),
-    );
-    serde_json::to_string(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize filtered distributions: {error}")))
-}
 
 // Flat-array variant avoids JSON parsing on the result path.
-#[wasm_bindgen]
-pub fn filtered_roll_distributions_fast_flat(
-    dimensions: i32,
-    total: i32,
-    max_caps: Vec<i32>,
-    min_floors: Vec<i32>,
-    timeline_caps: Vec<i32>,
-    targeted_mask: Vec<u8>,
-    targeted_exact: i32,
-    deficit_floors: Vec<i32>,
-    deficit_max: i32,
-    global_min: i32,
-    global_remaining: i32,
-    global_mode: i32,
-    locked_mask: Vec<u8>,
-    locked_min: i32,
-    locked_remaining: i32,
-    locked_mode: i32,
-) -> Vec<i32> {
-    if dimensions <= 0 || total < 0 {
-        return Vec::<i32>::new();
-    }
-    let max_caps_opt = max_caps
-        .iter()
-        .map(|value| if *value < 0 { None } else { Some(*value) })
-        .collect::<Vec<_>>();
-    let min_floors_opt = min_floors
-        .iter()
-        .map(|value| if *value < 0 { None } else { Some(*value) })
-        .collect::<Vec<_>>();
-    let timeline_caps_opt = timeline_caps
-        .iter()
-        .map(|value| if *value < 0 { None } else { Some(*value) })
-        .collect::<Vec<_>>();
-    let targeted_mask_bool = targeted_mask
-        .iter()
-        .map(|value| *value != 0)
-        .collect::<Vec<_>>();
-    let deficit_floors_opt = deficit_floors
-        .iter()
-        .map(|value| if *value < 0 { None } else { Some(*value) })
-        .collect::<Vec<_>>();
-    let locked_mask_bool = locked_mask
-        .iter()
-        .map(|value| *value != 0)
-        .collect::<Vec<_>>();
-    let out = filter_roll_distributions_core(
-        dimensions,
-        total,
-        &max_caps_opt,
-        &min_floors_opt,
-        &timeline_caps_opt,
-        &targeted_mask_bool,
-        if targeted_exact <= FILTER_OPTION_NONE_I32 { None } else { Some(targeted_exact) },
-        &deficit_floors_opt,
-        if deficit_max <= FILTER_OPTION_NONE_I32 { None } else { Some(deficit_max) },
-        global_min,
-        global_remaining,
-        parse_distribution_mode(global_mode),
-        &locked_mask_bool,
-        locked_min,
-        locked_remaining,
-        parse_distribution_mode(locked_mode),
-    );
-    flatten_i32_rows(&out)
-}
 
 // Input payload for batch HSF rule emission from pre-filtered distributions.
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -4922,30 +4457,6 @@ struct EmitHsfRulesForDistributionsIn {
     emit_any_main_when_no_choices: bool,
     target_bases: Vec<Option<i32>>,
     target_increments: Vec<Vec<Option<i32>>>,
-}
-
-// Combined payload lets wasm run filtering + rule emission in one pass,
-// avoiding JS transfer of large intermediate distribution row arrays.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct EmitHsfRulesForFilteredDistributionsIn {
-    dimensions: i32,
-    total: i32,
-    max_caps: Vec<i32>,
-    min_floors: Vec<i32>,
-    timeline_caps: Vec<i32>,
-    targeted_mask: Vec<u8>,
-    targeted_exact: i32,
-    deficit_floors: Vec<i32>,
-    deficit_max: i32,
-    global_min: i32,
-    global_remaining: i32,
-    global_mode: i32,
-    locked_mask: Vec<u8>,
-    locked_min: i32,
-    locked_remaining: i32,
-    locked_mode: i32,
-    emit: EmitHsfRulesForDistributionsIn,
 }
 
 // Compact filtered-emission payload keeps only base vectors at selected dims.
@@ -5139,24 +4650,8 @@ fn emit_hsf_rules_for_distributions_core(
 
 // Emit concrete HSF rules from distribution rows in one wasm call so
 // level/combo emission loops avoid per-row JS object construction overhead.
-#[wasm_bindgen]
-pub fn emit_hsf_rules_for_distributions_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: EmitHsfRulesForDistributionsIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid emit-hsf-rules payload: {error}")))?;
-    let out = emit_hsf_rules_for_distributions_core(&input, &input.distributions);
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize emitted rules: {error}")))
-}
 
 // Build presence-only HSF rows for configs that select no substats.
-#[wasm_bindgen]
-pub fn build_hsf_presence_only_rules_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: BuildHsfPresenceOnlyRulesIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid build-hsf-presence payload: {error}")))?;
-    let out = build_hsf_presence_only_rules_core(&input);
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize build-hsf-presence output: {error}")))
-}
 
 // Shared presence-only core keeps no-substat row emission in one Rust path.
 pub(crate) fn build_hsf_presence_only_rules_core(input: &BuildHsfPresenceOnlyRulesIn) -> Vec<RuleRaw> {
@@ -5209,91 +4704,9 @@ pub(crate) fn build_hsf_presence_only_rules_core(input: &BuildHsfPresenceOnlyRul
 
 // Combined filtered-emission helper removes large intermediate row transfers
 // for always-true branches where JS does not need per-row predicates.
-#[wasm_bindgen]
-pub fn emit_hsf_rules_for_filtered_distributions_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: EmitHsfRulesForFilteredDistributionsIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid emit-hsf-filtered payload: {error}")))?;
-    if input.dimensions <= 0 {
-        return to_js_value(&Vec::<RuleRaw>::new())
-            .map_err(|error| JsValue::from_str(&format!("Failed to serialize emitted rules: {error}")));
-    }
-    if input.total < 0 {
-        return to_js_value(&Vec::<RuleRaw>::new())
-            .map_err(|error| JsValue::from_str(&format!("Failed to serialize emitted rules: {error}")));
-    }
-
-    let max_caps_opt = input
-        .max_caps
-        .iter()
-        .map(|value| if *value < 0 { None } else { Some(*value) })
-        .collect::<Vec<_>>();
-    let min_floors_opt = input
-        .min_floors
-        .iter()
-        .map(|value| if *value < 0 { None } else { Some(*value) })
-        .collect::<Vec<_>>();
-    let timeline_caps_opt = input
-        .timeline_caps
-        .iter()
-        .map(|value| if *value < 0 { None } else { Some(*value) })
-        .collect::<Vec<_>>();
-    let targeted_mask_bool = input
-        .targeted_mask
-        .iter()
-        .map(|value| *value != 0)
-        .collect::<Vec<_>>();
-    let deficit_floors_opt = input
-        .deficit_floors
-        .iter()
-        .map(|value| if *value < 0 { None } else { Some(*value) })
-        .collect::<Vec<_>>();
-    let locked_mask_bool = input
-        .locked_mask
-        .iter()
-        .map(|value| *value != 0)
-        .collect::<Vec<_>>();
-    let rows = filter_roll_distributions_core(
-        input.dimensions,
-        input.total,
-        &max_caps_opt,
-        &min_floors_opt,
-        &timeline_caps_opt,
-        &targeted_mask_bool,
-        if input.targeted_exact <= FILTER_OPTION_NONE_I32 {
-            None
-        } else {
-            Some(input.targeted_exact)
-        },
-        &deficit_floors_opt,
-        if input.deficit_max <= FILTER_OPTION_NONE_I32 {
-            None
-        } else {
-            Some(input.deficit_max)
-        },
-        input.global_min,
-        input.global_remaining,
-        parse_distribution_mode(input.global_mode),
-        &locked_mask_bool,
-        input.locked_min,
-        input.locked_remaining,
-        parse_distribution_mode(input.locked_mode),
-    );
-    let out = emit_hsf_rules_for_distributions_core(&input.emit, &rows);
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize emitted rules: {error}")))
-}
 
 // Compact filtered-emission helper widens base vectors in Rust so JS no longer
 // rebuilds per-dimension cap/mask arrays inside hsfBuilder inner loops.
-#[wasm_bindgen]
-pub fn emit_hsf_rules_for_filtered_distributions_compact_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    // Parse compact payload first for deterministic schema errors.
-    let input: EmitHsfRulesForFilteredDistributionsCompactIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid emit-hsf-filtered-compact payload: {error}")))?;
-    let out = emit_hsf_rules_for_filtered_distributions_compact_core(&input);
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize emitted rules: {error}")))
-}
 
 // Shared compact filtered-emission core keeps sink-dimension widening in one implementation.
 pub(crate) fn emit_hsf_rules_for_filtered_distributions_compact_core(
@@ -5387,22 +4800,8 @@ pub(crate) fn emit_hsf_rules_for_filtered_distributions_compact_core(
 }
 
 // Numeric combinations helper keeps high-volume choose(N, K) expansion in wasm.
-#[wasm_bindgen]
-pub fn combinations_i32(values_json: &str, pick: i32) -> Result<String, JsValue> {
-    let values: Vec<i32> = serde_json::from_str(values_json)
-        .map_err(|error| JsValue::from_str(&format!("Invalid combinations values JSON: {error}")))?;
-    let out = compute_combinations_i32(&values, pick);
-    serde_json::to_string(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize combinations: {error}")))
-}
 
 // Fast variant avoids JSON serialization for numeric combinations calls.
-#[wasm_bindgen]
-pub fn combinations_i32_fast(values: Vec<i32>, pick: i32) -> Result<String, JsValue> {
-    let out = compute_combinations_i32(&values, pick);
-    serde_json::to_string(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize combinations: {error}")))
-}
 
 // Flat-array variant avoids JSON parsing on the result path.
 #[wasm_bindgen]
@@ -5412,22 +4811,8 @@ pub fn combinations_i32_fast_flat(values: Vec<i32>, pick: i32) -> Vec<i32> {
 }
 
 // Numeric permutations helper mirrors TS backtracking index order.
-#[wasm_bindgen]
-pub fn permutations_i32(values_json: &str) -> Result<String, JsValue> {
-    let values: Vec<i32> = serde_json::from_str(values_json)
-        .map_err(|error| JsValue::from_str(&format!("Invalid permutations values JSON: {error}")))?;
-    let out = compute_permutations_i32(&values);
-    serde_json::to_string(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize permutations: {error}")))
-}
 
 // Fast variant avoids JSON serialization for numeric permutations calls.
-#[wasm_bindgen]
-pub fn permutations_i32_fast(values: Vec<i32>) -> Result<String, JsValue> {
-    let out = compute_permutations_i32(&values);
-    serde_json::to_string(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize permutations: {error}")))
-}
 
 // Flat-array variant avoids JSON parsing on the result path.
 #[wasm_bindgen]
@@ -5437,81 +4822,14 @@ pub fn permutations_i32_fast_flat(values: Vec<i32>) -> Vec<i32> {
 }
 
 // Numeric bounded-compositions helper for late-mode extra allocation loops.
-#[wasm_bindgen]
-pub fn bounded_compositions_i32_fast(caps: Vec<i32>, total: i32) -> Result<String, JsValue> {
-    let out = compute_bounded_compositions_i32(&caps, total);
-    serde_json::to_string(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize bounded compositions: {error}")))
-}
 
 // Flat-array variant avoids JSON parsing on the result path.
-#[wasm_bindgen]
-pub fn bounded_compositions_i32_fast_flat(caps: Vec<i32>, total: i32) -> Vec<i32> {
-    let out = compute_bounded_compositions_i32(&caps, total);
-    flatten_i32_rows(&out)
-}
 
 // Flat helper for late-mode bounded-composition loops with inline filtering.
-#[wasm_bindgen]
-pub fn filtered_bounded_compositions_with_offset_i32_fast_flat(
-    caps: Vec<i32>,
-    total: i32,
-    need_now: Vec<i32>,
-    locked_mask: Vec<u8>,
-    locked_base_sum: i32,
-    locked_min_at_level: i32,
-    optional_mask: Vec<u8>,
-    mins: Vec<i32>,
-    skip_optional_baseline: bool,
-) -> Vec<i32> {
-    let out = compute_filtered_bounded_rows_with_offset_i32(
-        &caps,
-        total,
-        &need_now,
-        &locked_mask,
-        locked_base_sum,
-        locked_min_at_level,
-        &optional_mask,
-        &mins,
-        skip_optional_baseline,
-    );
-    flatten_i32_rows(&out)
-}
 
 // Build intro assignment schedules used by hsfBuilder combinatorics loops.
-#[wasm_bindgen]
-pub fn intro_assignments_for_combo(
-    count: i32,
-    base_slots: i32,
-    addition_levels_json: &str,
-    forced_base_json: &str,
-) -> Result<String, JsValue> {
-    let addition_levels: Vec<i32> = serde_json::from_str(addition_levels_json)
-        .map_err(|error| JsValue::from_str(&format!("Invalid addition-levels JSON: {error}")))?;
-    let forced_base_raw: Vec<i32> = serde_json::from_str(forced_base_json)
-        .map_err(|error| JsValue::from_str(&format!("Invalid forced-base JSON: {error}")))?;
-    let results = compute_intro_assignments_for_combo(
-        count,
-        base_slots,
-        &addition_levels,
-        &forced_base_raw,
-    );
-    serde_json::to_string(&results)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize intro assignments: {error}")))
-}
 
 // Fast variant avoids JSON serialization for intro assignment combinatorics.
-#[wasm_bindgen]
-pub fn intro_assignments_for_combo_fast(
-    count: i32,
-    base_slots: i32,
-    addition_levels: Vec<i32>,
-    forced_base: Vec<i32>,
-) -> Result<String, JsValue> {
-    let results = compute_intro_assignments_for_combo(count, base_slots, &addition_levels, &forced_base);
-    serde_json::to_string(&results)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize intro assignments: {error}")))
-}
 
 // Flat-array variant avoids JSON parsing on the result path.
 #[wasm_bindgen]
@@ -5532,20 +4850,8 @@ fn find_obsolete_report(rules: &[RuleRaw]) -> ObsoleteReportOut {
 }
 
 // Builder-pruning obsolete report mirrors hsfBuilder.ts::pruneDominatedRules semantics.
-fn find_obsolete_builder_report(rules: &[RuleRaw]) -> ObsoleteReportOut {
-    let obsolete = collect_builder_pruning_obsolete_entries(rules);
-    ObsoleteReportOut { obsolete }
-}
 
 // Detect obsolete rules using the same domination semantics as src/lib/hsfObsolete.ts.
-#[wasm_bindgen]
-pub fn find_obsolete(rules_json: &str) -> Result<String, JsValue> {
-    let rules: Vec<RuleRaw> = serde_json::from_str(rules_json)
-        .map_err(|error| JsValue::from_str(&format!("Invalid obsolete-rules JSON: {error}")))?;
-    let report = find_obsolete_report(&rules);
-    serde_json::to_string(&report)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize obsolete report: {error}")))
-}
 
 // Fast obsolete export accepts JS arrays directly and returns a JS object.
 #[wasm_bindgen]
@@ -5558,14 +4864,6 @@ pub fn find_obsolete_value(rules: JsValue) -> Result<JsValue, JsValue> {
 }
 
 // Builder-specific obsolete export keeps hsfBuilder pruning loops inside wasm.
-#[wasm_bindgen]
-pub fn find_obsolete_builder_value(rules: JsValue) -> Result<JsValue, JsValue> {
-    let parsed_rules: Vec<RuleRaw> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid builder-obsolete value: {error}")))?;
-    let report = find_obsolete_builder_report(&parsed_rules);
-    to_js_value(&report)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize builder-obsolete value: {error}")))
-}
 
 // Builder finalize mirrors hsfBuilder.ts post-emission behavior:
 // prune builder-obsolete rows, then stable sort by emission metadata.
@@ -5621,17 +4919,6 @@ pub(crate) fn finalize_builder_rules_core(
 }
 
 // Builder finalize export accepts JS arrays directly and returns finalized rules.
-#[wasm_bindgen]
-pub fn finalize_builder_rules_value(rules: JsValue, emission_meta: JsValue) -> Result<JsValue, JsValue> {
-    let parsed_rules: Vec<RuleRaw> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid builder-finalize rules: {error}")))?;
-    let parsed_meta: Vec<BuilderFinalizeEmissionMetaIn> = from_js_value(emission_meta)
-        .map_err(|error| JsValue::from_str(&format!("Invalid builder-finalize emissionMeta: {error}")))?;
-    let finalized = finalize_builder_rules_core(parsed_rules, parsed_meta)
-        .map_err(|error| JsValue::from_str(&error))?;
-    to_js_value(&finalized)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize builder-finalize value: {error}")))
-}
 
 // Flatten custom-rule batches while enforcing merge.ts total-rule limit.
 #[wasm_bindgen]
@@ -6167,17 +5454,6 @@ fn finalize_generated_rules_core(
 
 // Finalize generated branch rules in one WASM step:
 // collapse epic/legendary duplicates, optional obsolete pruning, then stable sort.
-#[wasm_bindgen]
-pub fn finalize_generated_rules(
-    entries_json: &str,
-    apply_obsolete_pruning: bool,
-) -> Result<String, JsValue> {
-    let raw_entries: Vec<GeneratedRuleEntryIn> = serde_json::from_str(entries_json)
-        .map_err(|error| JsValue::from_str(&format!("Invalid generated-rules JSON: {error}")))?;
-    let output = finalize_generated_rules_core(raw_entries, apply_obsolete_pruning);
-    serde_json::to_string(&output)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize finalized rules: {error}")))
-}
 
 // Fast finalizer export accepts JS arrays directly and returns a JS array.
 #[wasm_bindgen]
@@ -6263,16 +5539,6 @@ fn evaluate_engine(
 
 // Configure rules + config modes once per pipeline run.
 // The worker calls this before evaluating one or more item batches.
-#[wasm_bindgen]
-pub fn configure(rules_json: &str, config_modes_json: &str) -> Result<(), JsValue> {
-    let raw_rules: Vec<RuleRaw> = serde_json::from_str(rules_json)
-        .map_err(|error| JsValue::from_str(&format!("Invalid rules JSON: {error}")))?;
-
-    let config_modes: Vec<String> = serde_json::from_str(config_modes_json)
-        .map_err(|error| JsValue::from_str(&format!("Invalid configModes JSON: {error}")))?;
-    configure_engine(raw_rules, config_modes);
-    Ok(())
-}
 
 // Fast configure variant accepts JS objects directly (no JSON stringify).
 #[wasm_bindgen]
@@ -6287,22 +5553,6 @@ pub fn configure_value(rules: JsValue, config_modes: JsValue) -> Result<(), JsVa
 
 // Evaluate a batch of tester items against the configured rules.
 // Returns a JSON payload matching the existing worker result shape.
-#[wasm_bindgen]
-pub fn evaluate(items_json: &str, options_json: &str) -> Result<String, JsValue> {
-    let items: Vec<EvaluateItemRaw> = serde_json::from_str(items_json)
-        .map_err(|error| JsValue::from_str(&format!("Invalid items JSON: {error}")))?;
-
-    let options: EvaluateOptionsRaw = if options_json.trim().is_empty() {
-        EvaluateOptionsRaw::default()
-    } else {
-        serde_json::from_str(options_json)
-            .map_err(|error| JsValue::from_str(&format!("Invalid options JSON: {error}")))?
-    };
-    let results = evaluate_engine(items, options)?;
-
-    serde_json::to_string(&results)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize results: {error}")))
-}
 
 // Fast evaluate variant accepts JS objects directly and returns a JS value.
 #[wasm_bindgen]
@@ -6329,10 +5579,14 @@ const KEEP_UNIQUE_REASON_GROUP: &str = "group";
 const KEEP_UNIQUE_ACTIVATION_OFF: &str = "off";
 const KEEP_UNIQUE_ACTIVATION_PROTECT_EXISTING: &str = "protectExisting";
 const KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS: &str = "anticipategaps";
+// Canonical activation token used by TS state and HSFC persistence.
+const KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS_CANONICAL: &str = "anticipateGaps";
 // Substat matching modes are normalized to these three canonical tokens.
 const KEEP_UNIQUE_SUBSTAT_ANY: &str = "any";
 const KEEP_UNIQUE_SUBSTAT_ALL: &str = "all";
 const KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT: &str = "persubstat";
+// Canonical substat token keeps TS unions stable (`perSubstat` casing).
+const KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT_CANONICAL: &str = "perSubstat";
 // Epsilon is used only for tie expansion at the score boundary.
 const KEEP_UNIQUE_SCORE_TIE_EPSILON: f64 = 1e-9;
 // Weights are snapped to this fixed step and clamped to this range.
@@ -6389,6 +5643,246 @@ struct KeepUniqueWasmCandidateIn {
     artifact: KeepUniqueWasmArtifactIn,
 }
 
+// Numeric coercion helper accepts number/string/bool payloads from JS rows.
+// This keeps raw tester row parsing resilient without duplicating TS preprocess.
+fn keep_unique_value_to_i64(value: Option<&serde_json::Value>) -> Option<i64> {
+    match value {
+        Some(serde_json::Value::Number(number)) => {
+            number
+                .as_i64()
+                .or_else(|| number.as_f64().filter(|inner| inner.is_finite()).map(|inner| inner.floor() as i64))
+        }
+        Some(serde_json::Value::String(raw)) => raw
+            .trim()
+            .parse::<f64>()
+            .ok()
+            .filter(|inner| inner.is_finite())
+            .map(|inner| inner.floor() as i64),
+        Some(serde_json::Value::Bool(boolean)) => Some(if *boolean { 1 } else { 0 }),
+        _ => None,
+    }
+}
+
+// Floating-point coercion preserves finite numeric payloads only.
+// Invalid/NaN/Infinity values are ignored and callers apply safe defaults.
+fn keep_unique_value_to_f64(value: Option<&serde_json::Value>) -> Option<f64> {
+    match value {
+        Some(serde_json::Value::Number(number)) => number.as_f64().filter(|inner| inner.is_finite()),
+        Some(serde_json::Value::String(raw)) => raw
+            .trim()
+            .parse::<f64>()
+            .ok()
+            .filter(|inner| inner.is_finite()),
+        Some(serde_json::Value::Bool(boolean)) => Some(if *boolean { 1.0 } else { 0.0 }),
+        _ => None,
+    }
+}
+
+// Boolean coercion mirrors JS truthy handling for non-boolean legacy payloads.
+// This keeps old snapshots compatible when fields arrive as 0/1 or strings.
+fn keep_unique_value_to_bool(value: Option<&serde_json::Value>) -> Option<bool> {
+    match value {
+        Some(serde_json::Value::Bool(boolean)) => Some(*boolean),
+        Some(serde_json::Value::Number(number)) => number.as_f64().map(|inner| inner != 0.0),
+        Some(serde_json::Value::String(raw)) => Some(!raw.trim().is_empty()),
+        _ => None,
+    }
+}
+
+// Base-match parsing supports compact `{ keep, cfgIdx }` payloads from rows.
+// Missing baseMatch fields return `None` so undefined/null stay distinguishable.
+fn keep_unique_parse_base_match(
+    value: Option<&serde_json::Value>,
+) -> Option<KeepUniqueCandidateResolveBaseMatchIn> {
+    let record = value?.as_object()?;
+    Some(KeepUniqueCandidateResolveBaseMatchIn {
+        keep: keep_unique_value_to_bool(record.get("keep")).unwrap_or(false),
+        cfg_idx: keep_unique_value_to_i64(record.get("cfgIdx")),
+    })
+}
+
+// Main-stat parser accepts compact numeric variants or full `{ variant }` records.
+// This allows direct row/candidate payloads without TS-side conversion loops.
+fn keep_unique_parse_main_stat_variant(value: Option<&serde_json::Value>) -> i64 {
+    match value {
+        Some(serde_json::Value::Object(record)) => {
+            keep_unique_value_to_i64(record.get("variant")).unwrap_or(KEEP_UNIQUE_MAIN_ANY)
+        }
+        _ => keep_unique_value_to_i64(value).unwrap_or(KEEP_UNIQUE_MAIN_ANY),
+    }
+}
+
+// Substat parser accepts both compact `{ value }` and raw `{ totalValue }` payloads.
+// This keeps score calculations aligned while removing TS-side row remapping.
+fn keep_unique_parse_substats(value: Option<&serde_json::Value>) -> Vec<KeepUniqueWasmSubstatIn> {
+    let Some(entries) = value.and_then(|inner| inner.as_array()) else {
+        return Vec::new();
+    };
+    let mut out = Vec::<KeepUniqueWasmSubstatIn>::with_capacity(entries.len());
+    for entry in entries {
+        let Some(record) = entry.as_object() else {
+            continue;
+        };
+        let variant = keep_unique_value_to_i64(record.get("variant")).unwrap_or(STAT_VARIANT_ANY);
+        let is_flat = keep_unique_value_to_bool(record.get("isFlat")).unwrap_or(false);
+        let numeric_value = keep_unique_value_to_f64(record.get("value"))
+            .or_else(|| keep_unique_value_to_f64(record.get("totalValue")))
+            .unwrap_or(0.0);
+        out.push(KeepUniqueWasmSubstatIn {
+            variant,
+            is_flat,
+            value: numeric_value,
+        });
+    }
+    out
+}
+
+// Artifact parser accepts compact keep-unique payloads and raw tester artifacts.
+// Required dimensions fail fast so matcher scans do not run on malformed rows.
+fn keep_unique_parse_artifact(value: Option<&serde_json::Value>) -> Result<KeepUniqueWasmArtifactIn, String> {
+    let Some(record) = value.and_then(|inner| inner.as_object()) else {
+        return Err("artifact payload must be an object".to_string());
+    };
+    let slot = keep_unique_value_to_i64(record.get("slot"))
+        .ok_or_else(|| "artifact.slot is required".to_string())?;
+    let set = keep_unique_value_to_i64(record.get("set"))
+        .ok_or_else(|| "artifact.set is required".to_string())?;
+    let rank = keep_unique_value_to_i64(record.get("rank"))
+        .ok_or_else(|| "artifact.rank is required".to_string())?;
+    let rarity = keep_unique_value_to_i64(record.get("rarity"))
+        .ok_or_else(|| "artifact.rarity is required".to_string())?;
+    let level = keep_unique_value_to_i64(record.get("level"))
+        .ok_or_else(|| "artifact.level is required".to_string())?;
+    let faction = keep_unique_value_to_i64(record.get("faction")).unwrap_or(0);
+    Ok(KeepUniqueWasmArtifactIn {
+        id: keep_unique_value_to_i64(record.get("id")),
+        slot,
+        set,
+        rank,
+        rarity,
+        level,
+        exact_level: keep_unique_value_to_i64(record.get("exactLevel")),
+        faction,
+        main_stat: keep_unique_parse_main_stat_variant(record.get("mainStat")),
+        substats: keep_unique_parse_substats(record.get("substats")),
+    })
+}
+
+// Group-key helper keeps fallback key generation identical to collect-core rules.
+// Non-accessory slots normalize faction to zero before hashing dimensions.
+fn keep_unique_group_key_from_artifact(artifact: &KeepUniqueWasmArtifactIn) -> String {
+    let normalized_faction = if keep_unique_is_accessory_slot(artifact.slot) {
+        artifact.faction
+    } else {
+        0
+    };
+    format!(
+        "{}:{}:{}:{}",
+        artifact.slot, artifact.set, artifact.main_stat, normalized_faction
+    )
+}
+
+// Row parser accepts compact collect payloads or raw tester preview rows.
+// Raw rows read `item` from `artifact.testerItem` to avoid TS re-serialization.
+fn keep_unique_parse_collect_row(value: &serde_json::Value) -> Result<KeepUniqueCollectRowIn, String> {
+    let Some(record) = value.as_object() else {
+        return Err("collect row must be an object".to_string());
+    };
+    let artifact = keep_unique_parse_artifact(record.get("artifact"))
+        .map_err(|error| format!("invalid artifact payload: {error}"))?;
+    let item_value = if let Some(item) = record.get("item") {
+        item.clone()
+    } else {
+        record
+            .get("artifact")
+            .and_then(|inner| inner.get("testerItem"))
+            .cloned()
+            .ok_or_else(|| "collect row requires item or artifact.testerItem".to_string())?
+    };
+    let item: TestItemRaw = serde_json::from_value(item_value)
+        .map_err(|error| format!("invalid item payload: {error}"))?;
+    let base_match_defined = if record.contains_key("baseMatchDefined") {
+        keep_unique_value_to_bool(record.get("baseMatchDefined")).unwrap_or(false)
+    } else {
+        record.contains_key("baseMatch")
+    };
+    Ok(KeepUniqueCollectRowIn {
+        item,
+        base_match_defined,
+        base_match: keep_unique_parse_base_match(record.get("baseMatch")),
+        artifact,
+    })
+}
+
+// Candidate parser accepts compact payloads or raw KeepUniqueCandidate objects.
+// Missing item/group keys fall back to artifact-derived parity defaults.
+fn keep_unique_parse_candidate(value: &serde_json::Value) -> Result<KeepUniqueWasmCandidateIn, String> {
+    let Some(record) = value.as_object() else {
+        return Err("candidate entry must be an object".to_string());
+    };
+    let artifact = keep_unique_parse_artifact(record.get("artifact"))
+        .map_err(|error| format!("invalid artifact payload: {error}"))?;
+    let item_key = keep_unique_value_to_i64(record.get("itemKey"))
+        .or(artifact.id)
+        .unwrap_or(0);
+    let group_key = record
+        .get("groupKey")
+        .and_then(|inner| inner.as_str())
+        .map(str::trim)
+        .filter(|inner| !inner.is_empty())
+        .map(|inner| inner.to_string())
+        .unwrap_or_else(|| keep_unique_group_key_from_artifact(&artifact));
+    Ok(KeepUniqueWasmCandidateIn {
+        item_key,
+        group_key,
+        is_sold: keep_unique_value_to_bool(record.get("isSold")).unwrap_or(false),
+        artifact,
+    })
+}
+
+// Shared row decoder centralizes collect-row normalization for both bindings.
+// Every index is validated so callers get actionable error messages on failure.
+fn keep_unique_parse_collect_rows_payload(rows: JsValue) -> Result<Vec<KeepUniqueCollectRowIn>, JsValue> {
+    let raw_rows: Vec<serde_json::Value> = from_js_value(rows)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique collect rows payload: {error}")))?;
+    let mut parsed_rows = Vec::<KeepUniqueCollectRowIn>::with_capacity(raw_rows.len());
+    for (idx, row) in raw_rows.iter().enumerate() {
+        let parsed = keep_unique_parse_collect_row(row).map_err(|error| {
+            JsValue::from_str(&format!("Invalid keep-unique collect row at index {idx}: {error}"))
+        })?;
+        parsed_rows.push(parsed);
+    }
+    Ok(parsed_rows)
+}
+
+// Shared candidate decoder centralizes raw/compact keep-unique candidate parsing.
+// Candidate index is included so malformed rows are easy to locate in fixtures.
+fn keep_unique_parse_candidates_payload(
+    candidates: JsValue,
+) -> Result<Vec<KeepUniqueWasmCandidateIn>, JsValue> {
+    let raw_candidates: Vec<serde_json::Value> = from_js_value(candidates)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique candidates: {error}")))?;
+    let mut parsed_candidates = Vec::<KeepUniqueWasmCandidateIn>::with_capacity(raw_candidates.len());
+    for (idx, candidate) in raw_candidates.iter().enumerate() {
+        let parsed = keep_unique_parse_candidate(candidate).map_err(|error| {
+            JsValue::from_str(&format!("Invalid keep-unique candidate at index {idx}: {error}"))
+        })?;
+        parsed_candidates.push(parsed);
+    }
+    Ok(parsed_candidates)
+}
+
+// Keep-unique rule decoder keeps malformed legacy rows non-fatal for detection.
+// This matches existing behavior where invalid rows are skipped, not fatal.
+fn keep_unique_parse_rules_payload(rules: JsValue) -> Result<Vec<KeepUniqueWasmRuleIn>, JsValue> {
+    let parsed_rule_values: Vec<serde_json::Value> = from_js_value(rules)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique rules: {error}")))?;
+    Ok(parsed_rule_values
+        .into_iter()
+        .filter_map(|value| serde_json::from_value::<KeepUniqueWasmRuleIn>(value).ok())
+        .collect::<Vec<_>>())
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 struct KeepUniqueWasmSetSelection {
@@ -6414,6 +5908,23 @@ struct KeepUniqueWasmCombination {
     main_stats: Vec<i64>,
     #[serde(default)]
     factions: Vec<i64>,
+}
+
+// Lookup payload keeps readable HSFC labels single-sourced in TS while Rust
+// handles recursive flattening, coercion, and dedupe/sort normalization.
+#[derive(Debug, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+struct KeepUniqueWasmNormalizationLookupsIn {
+    #[serde(default)]
+    artifact_type_ids_by_name: HashMap<String, i64>,
+    #[serde(default)]
+    artifact_set_ids_by_name: HashMap<String, i64>,
+    #[serde(default)]
+    faction_ids_by_name: HashMap<String, i64>,
+    #[serde(default)]
+    rarity_codes_by_name: HashMap<String, i64>,
+    #[serde(default)]
+    stat_variant_ids_by_label: HashMap<String, i64>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy, Default)]
@@ -6467,6 +5978,586 @@ struct KeepUniqueWasmResolvedRuleOut {
     substats: Vec<i64>,
     substat_match: String,
     substat_weights: HashMap<String, f64>,
+}
+
+// Normalize incoming lookup-map keys (trim + lowercase) so Rust-side
+// label resolution stays deterministic across payload casing differences.
+fn keep_unique_normalize_lookup_map(raw: HashMap<String, i64>) -> HashMap<String, i64> {
+    let mut normalized = HashMap::<String, i64>::new();
+    for (key, value) in raw {
+        let lowered = key.trim().to_ascii_lowercase();
+        if lowered.is_empty() {
+            continue;
+        }
+        normalized.insert(lowered, value);
+    }
+    normalized
+}
+
+// Normalize all lookup maps once per export call so recursive value parsers
+// can avoid repeated lowercase/trim normalization on lookup keys.
+fn keep_unique_normalize_lookups(
+    raw: KeepUniqueWasmNormalizationLookupsIn,
+) -> KeepUniqueWasmNormalizationLookupsIn {
+    KeepUniqueWasmNormalizationLookupsIn {
+        artifact_type_ids_by_name: keep_unique_normalize_lookup_map(raw.artifact_type_ids_by_name),
+        artifact_set_ids_by_name: keep_unique_normalize_lookup_map(raw.artifact_set_ids_by_name),
+        faction_ids_by_name: keep_unique_normalize_lookup_map(raw.faction_ids_by_name),
+        rarity_codes_by_name: keep_unique_normalize_lookup_map(raw.rarity_codes_by_name),
+        stat_variant_ids_by_label: keep_unique_normalize_lookup_map(raw.stat_variant_ids_by_label),
+    }
+}
+
+// Lookup helper reads normalized lowercase keys and falls back to None.
+fn keep_unique_lookup_i64(lookup: &HashMap<String, i64>, raw: &str) -> Option<i64> {
+    let lowered = raw.trim().to_ascii_lowercase();
+    if lowered.is_empty() {
+        return None;
+    }
+    lookup.get(&lowered).copied()
+}
+
+// Coerce unknown payload values to ids using lookup maps first, then numeric
+// conversion. This mirrors TS behavior for readable-label and numeric payloads.
+fn keep_unique_coerce_named_or_numeric_i64(
+    value: &serde_json::Value,
+    lookup: &HashMap<String, i64>,
+) -> Option<i64> {
+    if let Some(raw) = value.as_str() {
+        if let Some(found) = keep_unique_lookup_i64(lookup, raw) {
+            return Some(found);
+        }
+    }
+    keep_unique_value_to_i64(Some(value))
+}
+
+// Parse StatVariant labels with TS-compatible aliases.
+fn keep_unique_parse_variant_from_label(
+    raw: &str,
+    lookups: &KeepUniqueWasmNormalizationLookupsIn,
+) -> Option<i64> {
+    if let Some(found) = keep_unique_lookup_i64(&lookups.stat_variant_ids_by_label, raw) {
+        return Some(found);
+    }
+    let token = raw.trim().to_ascii_uppercase();
+    match token.as_str() {
+        "HP%" => Some(STAT_VARIANT_HP_PERCENT),
+        "HP" => Some(STAT_VARIANT_HP_FLAT),
+        "ATK%" => Some(STAT_VARIANT_ATK_PERCENT),
+        "ATK" => Some(STAT_VARIANT_ATK_FLAT),
+        "DEF%" => Some(STAT_VARIANT_DEF_PERCENT),
+        "DEF" => Some(STAT_VARIANT_DEF_FLAT),
+        "SPD" => Some(STAT_VARIANT_SPD),
+        "RES" => Some(STAT_VARIANT_RES),
+        "ACC" => Some(STAT_VARIANT_ACC),
+        "CR%" => Some(STAT_VARIANT_CR),
+        "CDMG%" => Some(STAT_VARIANT_CDMG),
+        "ROLL COUNT" => Some(STAT_VARIANT_ROLL_COUNT),
+        _ => None,
+    }
+}
+
+// Coerce values to StatVariant ids (label lookup, then numeric fallback).
+fn keep_unique_coerce_stat_variant(
+    value: &serde_json::Value,
+    lookups: &KeepUniqueWasmNormalizationLookupsIn,
+) -> i64 {
+    if let Some(raw) = value.as_str() {
+        if let Some(found) = keep_unique_parse_variant_from_label(raw, lookups) {
+            return found;
+        }
+    }
+    let Some(numeric) = keep_unique_value_to_i64(Some(value)) else {
+        return STAT_VARIANT_ANY;
+    };
+    if numeric < 0 {
+        STAT_VARIANT_ANY
+    } else {
+        numeric
+    }
+}
+
+// Clamp rank/rarity entries while keeping TS behavior for invalid non-empty
+// values (`invalid` becomes 6★ instead of being dropped).
+fn keep_unique_coerce_rank_or_rarity(
+    value: &serde_json::Value,
+    lookups: &KeepUniqueWasmNormalizationLookupsIn,
+) -> Option<i64> {
+    if value.is_null() {
+        return None;
+    }
+    if let Some(raw) = value.as_str() {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+        if let Some(found) = keep_unique_lookup_i64(&lookups.rarity_codes_by_name, trimmed) {
+            return Some(keep_unique_clamp_rank_or_rarity_value(found));
+        }
+        let numeric_in_label = trimmed
+            .chars()
+            .filter(|char| char.is_ascii_digit())
+            .collect::<String>();
+        if !numeric_in_label.is_empty() {
+            if let Ok(parsed) = numeric_in_label.parse::<i64>() {
+                return Some(keep_unique_clamp_rank_or_rarity_value(parsed));
+            }
+        }
+        if let Some(parsed) = keep_unique_value_to_i64(Some(value)) {
+            return Some(keep_unique_clamp_rank_or_rarity_value(parsed));
+        }
+        return Some(RANK_RARITY_MAX);
+    }
+    if let Some(parsed) = keep_unique_value_to_i64(Some(value)) {
+        return Some(keep_unique_clamp_rank_or_rarity_value(parsed));
+    }
+    Some(RANK_RARITY_MAX)
+}
+
+// Recursive slot parser handles scalar, list, and nested-list payloads.
+fn keep_unique_collect_combination_slots(
+    value: Option<&serde_json::Value>,
+    lookups: &KeepUniqueWasmNormalizationLookupsIn,
+    out: &mut Vec<i64>,
+) {
+    let Some(raw) = value else {
+        return;
+    };
+    if let Some(list) = raw.as_array() {
+        for nested in list {
+            keep_unique_collect_combination_slots(Some(nested), lookups, out);
+        }
+        return;
+    }
+    if let Some(parsed) =
+        keep_unique_coerce_named_or_numeric_i64(raw, &lookups.artifact_type_ids_by_name)
+    {
+        out.push(parsed);
+    }
+}
+
+// Recursive faction parser handles scalar, list, and nested-list payloads.
+fn keep_unique_collect_combination_factions(
+    value: Option<&serde_json::Value>,
+    lookups: &KeepUniqueWasmNormalizationLookupsIn,
+    out: &mut Vec<i64>,
+) {
+    let Some(raw) = value else {
+        return;
+    };
+    if let Some(list) = raw.as_array() {
+        for nested in list {
+            keep_unique_collect_combination_factions(Some(nested), lookups, out);
+        }
+        return;
+    }
+    if let Some(text) = raw.as_str() {
+        if text.trim().is_empty() {
+            return;
+        }
+    }
+    if let Some(parsed) = keep_unique_coerce_named_or_numeric_i64(raw, &lookups.faction_ids_by_name)
+    {
+        out.push(parsed);
+    }
+}
+
+// Recursive rank/rarity parser handles scalar, list, and nested-list payloads.
+fn keep_unique_collect_combination_rank_values(
+    value: Option<&serde_json::Value>,
+    lookups: &KeepUniqueWasmNormalizationLookupsIn,
+    out: &mut Vec<i64>,
+) {
+    let Some(raw) = value else {
+        return;
+    };
+    if let Some(list) = raw.as_array() {
+        for nested in list {
+            keep_unique_collect_combination_rank_values(Some(nested), lookups, out);
+        }
+        return;
+    }
+    if let Some(parsed) = keep_unique_coerce_rank_or_rarity(raw, lookups) {
+        out.push(parsed);
+    }
+}
+
+// Recursive main-stat parser handles scalar, list, and nested-list payloads.
+fn keep_unique_collect_combination_main_stats(
+    value: Option<&serde_json::Value>,
+    lookups: &KeepUniqueWasmNormalizationLookupsIn,
+    out: &mut Vec<i64>,
+) {
+    let Some(raw) = value else {
+        return;
+    };
+    if let Some(list) = raw.as_array() {
+        for nested in list {
+            keep_unique_collect_combination_main_stats(Some(nested), lookups, out);
+        }
+        return;
+    }
+    let parsed = keep_unique_coerce_stat_variant(raw, lookups);
+    if parsed == STAT_VARIANT_ANY {
+        return;
+    }
+    out.push(parsed);
+}
+
+// Recursive metaset-id parser handles scalar, list, and nested-list payloads.
+fn keep_unique_collect_combination_meta_set_ids(
+    value: Option<&serde_json::Value>,
+    out: &mut Vec<String>,
+) {
+    let Some(raw) = value else {
+        return;
+    };
+    if let Some(list) = raw.as_array() {
+        for nested in list {
+            keep_unique_collect_combination_meta_set_ids(Some(nested), out);
+        }
+        return;
+    }
+    let Some(text) = raw.as_str() else {
+        return;
+    };
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return;
+    }
+    out.push(trimmed.to_string());
+}
+
+// Recursive set parser handles scalar, list, nested-list, and object entries.
+fn keep_unique_collect_combination_set_selections(
+    value: Option<&serde_json::Value>,
+    lookups: &KeepUniqueWasmNormalizationLookupsIn,
+    out: &mut Vec<KeepUniqueWasmSetSelection>,
+) {
+    let Some(raw) = value else {
+        return;
+    };
+    if let Some(list) = raw.as_array() {
+        for nested in list {
+            keep_unique_collect_combination_set_selections(Some(nested), lookups, out);
+        }
+        return;
+    }
+    if let Some(record) = raw.as_object() {
+        let candidate = record
+            .get("id")
+            .or_else(|| record.get("setId"))
+            .or_else(|| record.get("name"))
+            .or_else(|| record.get("label"));
+        let Some(candidate_value) = candidate else {
+            return;
+        };
+        let Some(parsed) =
+            keep_unique_coerce_named_or_numeric_i64(candidate_value, &lookups.artifact_set_ids_by_name)
+        else {
+            return;
+        };
+        let excluded = matches!(record.get("excluded"), Some(serde_json::Value::Bool(true)));
+        out.push(KeepUniqueWasmSetSelection { id: parsed, excluded });
+        return;
+    }
+    if let Some(parsed) = keep_unique_coerce_named_or_numeric_i64(raw, &lookups.artifact_set_ids_by_name)
+    {
+        out.push(KeepUniqueWasmSetSelection {
+            id: parsed,
+            excluded: false,
+        });
+    }
+}
+
+// Canonical metaset-id list is sorted and deduped for deterministic hashes.
+fn keep_unique_sort_unique_meta_set_ids(values: Vec<String>) -> Vec<String> {
+    let mut sorted = values
+        .into_iter()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<_>>();
+    sorted.sort();
+    sorted.dedup();
+    sorted
+}
+
+// Substat ordering mirrors TS `STAT_VARIANTS_PRIORITY` so UI chips and
+// normalized keep-unique payloads stay aligned across TS and Rust paths.
+fn keep_unique_substat_priority(variant: i64) -> i64 {
+    match variant {
+        STAT_VARIANT_SPD => 0,
+        STAT_VARIANT_CR => 1,
+        STAT_VARIANT_CDMG => 2,
+        STAT_VARIANT_ACC => 3,
+        STAT_VARIANT_RES => 4,
+        STAT_VARIANT_HP_FLAT => 5,
+        STAT_VARIANT_HP_PERCENT => 6,
+        STAT_VARIANT_ATK_FLAT => 7,
+        STAT_VARIANT_ATK_PERCENT => 8,
+        STAT_VARIANT_DEF_FLAT => 9,
+        STAT_VARIANT_DEF_PERCENT => 10,
+        _ => i64::MAX,
+    }
+}
+
+// Canonical substat list is deduped and sorted by keep-unique UI priority.
+fn keep_unique_sort_unique_substats(values: Vec<i64>) -> Vec<i64> {
+    let mut seen = HashSet::<i64>::new();
+    let mut deduped = Vec::<i64>::new();
+    for value in values {
+        if !seen.insert(value) {
+            continue;
+        }
+        deduped.push(value);
+    }
+    deduped.sort_by(|left, right| {
+        let left_priority = keep_unique_substat_priority(*left);
+        let right_priority = keep_unique_substat_priority(*right);
+        if left_priority != right_priority {
+            return left_priority.cmp(&right_priority);
+        }
+        left.cmp(right)
+    });
+    deduped
+}
+
+// Recursive substat parser handles scalar, list, and nested-list payloads.
+fn keep_unique_collect_rule_substats(
+    value: Option<&serde_json::Value>,
+    lookups: &KeepUniqueWasmNormalizationLookupsIn,
+    out: &mut Vec<i64>,
+) {
+    let Some(raw) = value else {
+        return;
+    };
+    if let Some(list) = raw.as_array() {
+        for nested in list {
+            keep_unique_collect_rule_substats(Some(nested), lookups, out);
+        }
+        return;
+    }
+    let parsed = keep_unique_coerce_stat_variant(raw, lookups);
+    if parsed == STAT_VARIANT_ANY || parsed == STAT_VARIANT_ROLL_COUNT {
+        return;
+    }
+    out.push(parsed);
+}
+
+// Activation parser mirrors TS normalizeKeepUniqueActivation semantics.
+fn keep_unique_normalize_activation_value(
+    activation: Option<&serde_json::Value>,
+    legacy_enabled: Option<&serde_json::Value>,
+) -> String {
+    if let Some(raw) = activation.and_then(|value| value.as_str()) {
+        let lowered = raw.trim().to_ascii_lowercase();
+        if !lowered.is_empty() {
+            if lowered == KEEP_UNIQUE_ACTIVATION_OFF || lowered == "disabled" {
+                return KEEP_UNIQUE_ACTIVATION_OFF.to_string();
+            }
+            if lowered == KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS
+                || lowered == "anticipate"
+                || lowered == "placeholder"
+            {
+                return KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS_CANONICAL.to_string();
+            }
+            if lowered == KEEP_UNIQUE_ACTIVATION_PROTECT_EXISTING.to_ascii_lowercase() {
+                return KEEP_UNIQUE_ACTIVATION_PROTECT_EXISTING.to_string();
+            }
+        }
+    }
+    if matches!(legacy_enabled, Some(serde_json::Value::Bool(false))) {
+        return KEEP_UNIQUE_ACTIVATION_OFF.to_string();
+    }
+    KEEP_UNIQUE_ACTIVATION_PROTECT_EXISTING.to_string()
+}
+
+// Substat match parser returns TS-canonical tokens (`any|all|perSubstat`).
+fn keep_unique_normalize_substat_match_for_rule(value: Option<&serde_json::Value>) -> String {
+    let Some(raw) = value.and_then(|inner| inner.as_str()) else {
+        return KEEP_UNIQUE_SUBSTAT_ANY.to_string();
+    };
+    let lowered = raw.trim().to_ascii_lowercase();
+    match lowered.as_str() {
+        KEEP_UNIQUE_SUBSTAT_ALL => KEEP_UNIQUE_SUBSTAT_ALL.to_string(),
+        KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT => KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT_CANONICAL.to_string(),
+        _ => KEEP_UNIQUE_SUBSTAT_ANY.to_string(),
+    }
+}
+
+// Count-mode parser mirrors TS normalizeKeepUniqueCountMode semantics.
+fn keep_unique_parse_count_mode_value(value: Option<&serde_json::Value>) -> KeepUniqueWasmCountMode {
+    let Some(raw) = value else {
+        return keep_unique_default_count_mode();
+    };
+    if let Some(token) = raw.as_str() {
+        let lowered = token.trim().to_ascii_lowercase();
+        if lowered == "perrule" || lowered == "rule" {
+            return keep_unique_sanitize_count_mode(KeepUniqueWasmCountMode {
+                per_rule: true,
+                per_set: false,
+                per_faction: false,
+                per_main_stat: false,
+                per_slot: false,
+            });
+        }
+        return keep_unique_default_count_mode();
+    }
+    let Some(record) = raw.as_object() else {
+        return keep_unique_default_count_mode();
+    };
+    let parsed = KeepUniqueWasmCountMode {
+        per_rule: matches!(record.get("perRule"), Some(serde_json::Value::Bool(true))),
+        per_set: matches!(record.get("perSet"), Some(serde_json::Value::Bool(true))),
+        per_faction: matches!(record.get("perFaction"), Some(serde_json::Value::Bool(true))),
+        per_main_stat: matches!(record.get("perMainStat"), Some(serde_json::Value::Bool(true))),
+        per_slot: matches!(record.get("perSlot"), Some(serde_json::Value::Bool(true))),
+    };
+    keep_unique_sanitize_count_mode(parsed)
+}
+
+// Substat weight parser mirrors TS normalizeKeepUniqueSubstatWeights behavior.
+fn keep_unique_parse_substat_weights_for_rule(
+    value: Option<&serde_json::Value>,
+    lookups: &KeepUniqueWasmNormalizationLookupsIn,
+) -> HashMap<String, f64> {
+    let Some(record) = value.and_then(|inner| inner.as_object()) else {
+        return HashMap::<String, f64>::new();
+    };
+    let mut weights = HashMap::<String, f64>::new();
+    for (raw_key, raw_value) in record {
+        let parsed_variant = keep_unique_coerce_stat_variant(&serde_json::Value::String(raw_key.clone()), lookups);
+        if parsed_variant == STAT_VARIANT_ANY || parsed_variant == STAT_VARIANT_ROLL_COUNT {
+            continue;
+        }
+        let numeric = keep_unique_value_to_f64(Some(raw_value)).unwrap_or(f64::NAN);
+        let normalized = keep_unique_normalize_weight(numeric);
+        if normalized == KEEP_UNIQUE_WEIGHT_DEFAULT {
+            continue;
+        }
+        weights.insert(parsed_variant.to_string(), normalized);
+    }
+    weights
+}
+
+// Normalize combination payloads so TS no longer owns recursive parsing loops.
+fn keep_unique_normalize_combination_from_value(
+    value: &serde_json::Value,
+    lookups: &KeepUniqueWasmNormalizationLookupsIn,
+) -> Option<KeepUniqueWasmCombination> {
+    let record = value.as_object()?;
+
+    let mut slot_values = Vec::<i64>::new();
+    keep_unique_collect_combination_slots(record.get("slots"), lookups, &mut slot_values);
+    let mut set_values = Vec::<KeepUniqueWasmSetSelection>::new();
+    keep_unique_collect_combination_set_selections(record.get("sets"), lookups, &mut set_values);
+    let mut rank_values = Vec::<i64>::new();
+    keep_unique_collect_combination_rank_values(record.get("ranks"), lookups, &mut rank_values);
+    let mut rarity_values = Vec::<i64>::new();
+    keep_unique_collect_combination_rank_values(record.get("rarities"), lookups, &mut rarity_values);
+    let mut main_stats = Vec::<i64>::new();
+    keep_unique_collect_combination_main_stats(record.get("mainStats"), lookups, &mut main_stats);
+    let mut factions = Vec::<i64>::new();
+    keep_unique_collect_combination_factions(record.get("factions"), lookups, &mut factions);
+    let mut meta_set_ids = Vec::<String>::new();
+    keep_unique_collect_combination_meta_set_ids(record.get("metaSetIds"), &mut meta_set_ids);
+    keep_unique_collect_combination_meta_set_ids(record.get("metaSets"), &mut meta_set_ids);
+
+    Some(KeepUniqueWasmCombination {
+        slots: keep_unique_sorted_unique_i64(&slot_values),
+        sets: keep_unique_normalize_set_selections(&set_values),
+        meta_set_ids: keep_unique_sort_unique_meta_set_ids(meta_set_ids),
+        ranks: keep_unique_sorted_unique_i64(&rank_values),
+        rarities: keep_unique_sorted_unique_i64(&rarity_values),
+        main_stats: keep_unique_sorted_unique_i64(&main_stats),
+        factions: keep_unique_sorted_unique_i64(&factions),
+    })
+}
+
+// Normalize rule payloads so TS no longer owns recursive keep-unique parsing.
+fn keep_unique_normalize_rule_from_value(
+    value: &serde_json::Value,
+    lookups: &KeepUniqueWasmNormalizationLookupsIn,
+    generated_rule_id: &str,
+) -> Option<KeepUniqueWasmResolvedRuleOut> {
+    let record = value.as_object()?;
+    let combination_source = record
+        .get("combination")
+        .or_else(|| record.get("tuple"))
+        .unwrap_or(value);
+    let combination = keep_unique_normalize_combination_from_value(combination_source, lookups)?;
+    let combination_hash = keep_unique_hash_combination(&combination);
+
+    let explicit_id = record
+        .get("id")
+        .and_then(|inner| inner.as_str())
+        .map(str::trim)
+        .filter(|inner| !inner.is_empty())
+        .map(str::to_string);
+    let generated_trimmed = generated_rule_id.trim();
+    let id = explicit_id.unwrap_or_else(|| {
+        if !generated_trimmed.is_empty() {
+            generated_trimmed.to_string()
+        } else {
+            format!("ku_{combination_hash}")
+        }
+    });
+
+    let name = record
+        .get("name")
+        .and_then(|inner| inner.as_str())
+        .map(str::trim)
+        .filter(|inner| !inner.is_empty())
+        .map(str::to_string)
+        .unwrap_or_default();
+
+    let required_count = keep_unique_value_to_i64(record.get("requiredCount"))
+        .filter(|inner| *inner >= 1)
+        .unwrap_or(1);
+
+    let activation = keep_unique_normalize_activation_value(record.get("activation"), record.get("enabled"));
+    let count_mode = if record.contains_key("countMode") {
+        keep_unique_parse_count_mode_value(record.get("countMode"))
+    } else {
+        keep_unique_default_count_mode()
+    };
+
+    let mut substats = Vec::<i64>::new();
+    keep_unique_collect_rule_substats(record.get("substats"), lookups, &mut substats);
+    if substats.is_empty() {
+        keep_unique_collect_rule_substats(record.get("substatTargets"), lookups, &mut substats);
+    }
+    if substats.is_empty() {
+        keep_unique_collect_rule_substats(record.get("substat"), lookups, &mut substats);
+    }
+    let normalized_substats = keep_unique_sort_unique_substats(substats);
+    let parsed_substat_match = if record.contains_key("substatMatch") {
+        keep_unique_normalize_substat_match_for_rule(record.get("substatMatch"))
+    } else {
+        KEEP_UNIQUE_SUBSTAT_ANY.to_string()
+    };
+    let substat_match = if normalized_substats.is_empty() {
+        KEEP_UNIQUE_SUBSTAT_ANY.to_string()
+    } else {
+        parsed_substat_match
+    };
+    let substat_weights = if record.contains_key("substatWeights") {
+        keep_unique_parse_substat_weights_for_rule(record.get("substatWeights"), lookups)
+    } else {
+        keep_unique_parse_substat_weights_for_rule(record.get("substatWeighting"), lookups)
+    };
+
+    Some(KeepUniqueWasmResolvedRuleOut {
+        id,
+        name,
+        combination,
+        required_count,
+        activation,
+        count_mode,
+        substats: normalized_substats,
+        substat_match,
+        substat_weights,
+    })
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -6535,6 +6626,82 @@ pub fn normalize_keep_unique_expected_group_domain_value(payload: JsValue) -> Re
 
     to_js_value(&normalized)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize keep-unique expected-group domain: {error}")))
+}
+
+// Normalize keep-unique combination payloads in Rust so TS no longer owns
+// recursive selection parsing/dedupe/sort loops for HSFC-readable tuples.
+#[wasm_bindgen]
+pub fn normalize_keep_unique_combination_value(
+    value: JsValue,
+    lookups: JsValue,
+) -> Result<JsValue, JsValue> {
+    // Null/undefined are treated as missing combination payloads.
+    if value.is_null() || value.is_undefined() {
+        return Ok(JsValue::NULL);
+    }
+    // Parse lookup maps (optional) and normalize keys once per call.
+    let parsed_lookups = if lookups.is_null() || lookups.is_undefined() {
+        KeepUniqueWasmNormalizationLookupsIn::default()
+    } else {
+        from_js_value::<KeepUniqueWasmNormalizationLookupsIn>(lookups).map_err(|error| {
+            JsValue::from_str(&format!(
+                "Invalid keep-unique normalization lookups payload: {error}"
+            ))
+        })?
+    };
+    let normalized_lookups = keep_unique_normalize_lookups(parsed_lookups);
+    // Parse arbitrary payload value and normalize from object fields.
+    let parsed_value = from_js_value::<serde_json::Value>(value)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique combination payload: {error}")))?;
+    let Some(normalized) =
+        keep_unique_normalize_combination_from_value(&parsed_value, &normalized_lookups)
+    else {
+        return Ok(JsValue::NULL);
+    };
+    // Serialize canonical combination payload for TS consumers.
+    to_js_value(&normalized).map_err(|error| {
+        JsValue::from_str(&format!(
+            "Failed to serialize keep-unique normalized combination: {error}"
+        ))
+    })
+}
+
+// Normalize keep-unique rule payloads in Rust so TS no longer owns recursive
+// tuple/rule parsing loops for readable HSFC + autosave payloads.
+#[wasm_bindgen]
+pub fn normalize_keep_unique_rule_value(
+    value: JsValue,
+    lookups: JsValue,
+    generated_rule_id: String,
+) -> Result<JsValue, JsValue> {
+    // Null/undefined are treated as missing rule payloads.
+    if value.is_null() || value.is_undefined() {
+        return Ok(JsValue::NULL);
+    }
+    // Parse lookup maps (optional) and normalize keys once per call.
+    let parsed_lookups = if lookups.is_null() || lookups.is_undefined() {
+        KeepUniqueWasmNormalizationLookupsIn::default()
+    } else {
+        from_js_value::<KeepUniqueWasmNormalizationLookupsIn>(lookups).map_err(|error| {
+            JsValue::from_str(&format!(
+                "Invalid keep-unique normalization lookups payload: {error}"
+            ))
+        })?
+    };
+    let normalized_lookups = keep_unique_normalize_lookups(parsed_lookups);
+    // Parse arbitrary payload value and normalize from object fields.
+    let parsed_value = from_js_value::<serde_json::Value>(value)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique rule payload: {error}")))?;
+    let Some(normalized) = keep_unique_normalize_rule_from_value(
+        &parsed_value,
+        &normalized_lookups,
+        generated_rule_id.as_str(),
+    ) else {
+        return Ok(JsValue::NULL);
+    };
+    // Serialize canonical rule payload for TS consumers.
+    to_js_value(&normalized)
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize keep-unique normalized rule: {error}")))
 }
 
 // Metaset payload for in-wasm keep-unique set expansion.
@@ -9056,16 +9223,10 @@ pub fn compute_keep_unique_protection_value(
     enabled: bool,
     now: f64,
 ) -> Result<JsValue, JsValue> {
-    // Deserialize candidate and rule payloads with explicit error context.
-    let parsed_candidates: Vec<KeepUniqueWasmCandidateIn> = from_js_value(candidates)
-        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique candidates: {error}")))?;
-    let parsed_rule_values: Vec<serde_json::Value> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique rules: {error}")))?;
-    // Skip malformed legacy rows so detection can continue on valid rules.
-    let parsed_rules = parsed_rule_values
-        .into_iter()
-        .filter_map(|value| serde_json::from_value::<KeepUniqueWasmRuleIn>(value).ok())
-        .collect::<Vec<_>>();
+    // Parse raw/compact candidate payloads into normalized detection candidates.
+    let parsed_candidates = keep_unique_parse_candidates_payload(candidates)?;
+    // Parse keep-unique rule rows and skip malformed legacy entries by design.
+    let parsed_rules = keep_unique_parse_rules_payload(rules)?;
     // Parse expected-group payload as wrapper or legacy map.
     let expected_payload = parse_keep_unique_expected_groups_payload(expected_groups_by_rule_id)?;
     // Run the shared protection core and return the serialized snapshot.
@@ -9092,9 +9253,8 @@ pub fn collect_and_compute_keep_unique_protection_value(
     enabled: bool,
     now: f64,
 ) -> Result<JsValue, JsValue> {
-    // Parse collect rows with matcher item + normalized artifact dimensions.
-    let rows: Vec<KeepUniqueCollectRowIn> = from_js_value(rows)
-        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique collect rows payload: {error}")))?;
+    // Parse raw/compact row payloads into the normalized collect row shape.
+    let rows = keep_unique_parse_collect_rows_payload(rows)?;
     // Parse base rules used by keep/sell candidate resolution.
     let rules: Vec<RuleRaw> = from_js_value(rules)
         .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique collect rules payload: {error}")))?;
@@ -9105,13 +9265,8 @@ pub fn collect_and_compute_keep_unique_protection_value(
     let ignore_keep_unique_config_indices: Option<Vec<i64>> = from_js_value(ignore_keep_unique_config_indices)
         .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique collect ignored-config payload: {error}")))?;
     // Parse keep-unique rules used by protection scoring/counting logic.
-    let parsed_rule_values: Vec<serde_json::Value> = from_js_value(keep_unique_rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique rules: {error}")))?;
-    // Skip malformed rows so protection still runs for valid rules.
-    let parsed_rules = parsed_rule_values
-        .into_iter()
-        .filter_map(|value| serde_json::from_value::<KeepUniqueWasmRuleIn>(value).ok())
-        .collect::<Vec<_>>();
+    // Parse keep-unique rule rows and skip malformed legacy entries by design.
+    let parsed_rules = keep_unique_parse_rules_payload(keep_unique_rules)?;
     // Parse expected-group wrapper or legacy map payload.
     let expected_payload = parse_keep_unique_expected_groups_payload(expected_groups_payload)?;
 

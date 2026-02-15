@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
 use serde::Deserialize;
-use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
 use wasm_bindgen::JsValue;
 
 use crate::build_hsf_branch_collapse_profile_core;
@@ -319,14 +318,4 @@ pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn)
     }
 
     Ok(out)
-}
-
-// JsValue wrapper keeps payload validation and return encoding centralized.
-// TS receives fully-emitted rows and only handles dedupe/limit/finalization.
-pub(crate) fn execute_hsf_branch_runtime_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: ExecuteHsfBranchRuntimeIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid execute-hsf-branch-runtime payload: {error}")))?;
-    let out = execute_hsf_branch_runtime_core(&input)?;
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize execute-hsf-branch-runtime output: {error}")))
 }

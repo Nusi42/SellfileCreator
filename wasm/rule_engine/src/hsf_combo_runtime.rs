@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
 use serde::Deserialize;
-use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
-use wasm_bindgen::JsValue;
 
 use crate::build_hsf_combo_policy_vectors_core;
 use crate::build_hsf_combo_vectors_core;
@@ -220,13 +218,4 @@ pub(crate) fn execute_hsf_combo_runtime_core(input: &ExecuteHsfComboRuntimeIn) -
         plan_steps: intro_plan.steps,
         emit: emit_payload,
     })
-}
-
-// JsValue wrapper keeps schema errors precise for TS callers.
-pub(crate) fn execute_hsf_combo_runtime_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: ExecuteHsfComboRuntimeIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid execute-hsf-combo-runtime payload: {error}")))?;
-    let out = execute_hsf_combo_runtime_core(&input);
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize execute-hsf-combo-runtime output: {error}")))
 }

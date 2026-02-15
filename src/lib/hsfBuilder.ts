@@ -11,10 +11,8 @@ import type {
   LegacyVisibilityFields,
   SellfileExportMode,
   Star,
-  SubstatRollTargetEntry,
   SubstatTargetTable,
 } from './hsfBuilder/types'
-import { normalizeRollTargetEntry } from './hsfBuilder/targets'
 export type {
   BuilderConfig,
   LegacyVisibilityFields,
@@ -32,16 +30,13 @@ export {
 } from './hsfBuilder/targets'
 import {
   StatVariant,
-  StatId,
-  compareArtifactSets,
-  compareArtifactTypes,
   compareVariants,
   anySelectedSlotSupportsMain,
-  LEVEL_ANY_SENTINEL,
   RarityCode,
   RankCode,
   LevelMilestone,
   LEVEL_MILESTONES,
+  PREFERRED_STAT_ORDER,
 } from './types'
 import {
   AUTO_RARITY_ADDITION_MASK_BY_CODE,
@@ -54,11 +49,8 @@ import { splitArtifactSetSelections } from './gearSets/selection'
 import { canEnableSubstatFlex, deriveRollBaselineMode, isLockedAggregateScopeActive, isMilestoneThresholdsActive } from './configNormalization'
 import { variantToMain } from './hsfTypes'
 import {
-  buildHsfPreflightFlagsWithLoadedWasm,
-  buildHsfPresenceOnlyRulesWithLoadedWasm,
-  buildHsfRarityBranchesWithLoadedWasm,
-  executeHsfBuilderRuntimeWithLoadedWasm,
-  finalizeBuilderRulesWithLoadedWasm,
+  buildHsfRulesRuntimeWithLoadedWasm,
+  prepareHsfBuilderConfigWithLoadedWasm,
   resolveAutoRarityCodeForBuilderWithLoadedWasm,
 } from './wasm/wasmRuleEngine'
 
@@ -383,13 +375,6 @@ const FACTORY_MINIMA_BY_STAR: Record<Star, Record<number, number>> = {
   6: BASE_MIN_6,
 }
 
-const factoryBaseMinForStar = (variant: number, star: Star): number | null => {
-  const table = FACTORY_MINIMA_BY_STAR[star]
-  if (!table) return null
-  const value = table[variant]
-  return typeof value === 'number' ? value : null
-}
-
 /** Default Substat Target table initialized with zeroes for all stars. */
 export function defaultSubstatTargets(): SubstatTargetTable {
   return {
@@ -449,73 +434,60 @@ export function buildHsfRules(
   const emissionLimit = (options?.limit != null && Number.isFinite(options.limit) && options.limit > 0)
     ? Math.max(1, Math.floor(options.limit))
     : null
-  // Track whether the user explicitly asked for substat filtering.
-  const hadRequestedSubstats = (() => {
-    // Any selected or locked substat counts as explicit intent.
-    if (Array.isArray(cfg.substatsV) && cfg.substatsV.length > 0) return true
-    if (Array.isArray(cfg.fixedSubstatsV) && cfg.fixedSubstatsV.length > 0) return true
-    // Bounds without explicit selection still represent intent (legacy/imported cases).
-    const bounds = cfg.substatRollBoundsV
-    return bounds != null && Object.keys(bounds).length > 0
-  })()
   // Propagate config metadata so exported HSF rows retain their builder lineage.
   const configId = (options && typeof options.configId === 'number' && Number.isFinite(options.configId) && options.configId > 0)
     ? Math.floor(options.configId)
     : null
 
-  // Apply slot/main constraints before building substat permutations.
+  // Apply slot/main constraints before preparing substat permutations in wasm.
   const allowedSubstats = resolveAllowedSubstatsForSlotsAndMains({
     slots: cfg.artifactTypes ?? [],
     mainStats: cfg.mainStatsV ?? [],
   })
-  // Build a fast lookup for allowed variants so pools can be filtered cheaply.
-  const allowedSubstatIds = new Set(allowedSubstats.map((variant) => Number(variant)))
-  // Build permutation pool respecting fixed substats (variants only).
-  // Canonicalize substat selection order so output does not depend on click order.
-  const selectedPoolV = Array.isArray(cfg.substatsV) && cfg.substatsV.length > 0
-    ? cfg.substatsV.map(Number).filter((variant) => allowedSubstatIds.has(Number(variant))).sort(compareVariants)
-    : []
-  // Preserve the literal fixed selections as entered so we can mirror UI locking faithfully.
-  const fixedPoolRawV = Array.isArray(cfg.fixedSubstatsV) && cfg.fixedSubstatsV.length > 0
-    ? cfg.fixedSubstatsV.map(Number).filter((variant) => allowedSubstatIds.has(Number(variant)))
-    : []
-  // Normalize fixed to be a subset of selected; preserve order of appearance from selected
-  const fixedPoolV = selectedPoolV.filter(sv => fixedPoolRawV.includes(Number(sv)))
-  // If the user explicitly selected substats but all are invalid for the slot/main,
-  // emit no rules instead of falling back to presence-only behavior.
-  if (hadRequestedSubstats && selectedPoolV.length === 0) return []
-  // Track whether any selected substat explicitly demands rolls.
-  const hasPerStatMin = selectedPoolV.some((variant) => {
-    const bounds = cfg.substatRollBoundsV?.[Number(variant)]
-    return typeof bounds?.min === 'number' && bounds.min > 0
-  })
-  const requiredV = fixedPoolV.slice(0, 4)
-  const lockedCount = requiredV.length
-  const minTargetCount = Math.min(4, Math.max(cfg.minCount, requiredV.length))
-  const optionalPoolV = selectedPoolV.filter(sv => !requiredV.includes(Number(sv)))
-
-  const maxSelectableCount = Math.min(4, requiredV.length + optionalPoolV.length)
-  const flexEligible = canEnableSubstatFlex(cfg)
-  // Flex mode only activates when both the config allows it and the toggle is on.
-  const flexActive = cfg.autoSubstatFlex === true && flexEligible
-  const maxTargetCount = flexActive ? maxSelectableCount : minTargetCount
   // Convert the HSF rank code into the substat target star bucket so thresholds stay coherent.
   const star = starForRankCode(rankCode, substatTargets.anyRankDefaultsTo ?? 6)
-  // Precompute star-resolved base minima once so combo loops can reuse lookups.
-  const currentBaseByVariantForWasm: Record<number, number> = {}
-  // Preserve factory minima from TS constants so rust does not duplicate them.
-  const factoryBaseByVariantForWasm: Record<number, number | null> = {}
-  // Precompute normalized target override bases once per selected variant.
-  const targetBaseOverrideByVariantForWasm: Record<number, number | null> = {}
-  for (const variantRaw of selectedPoolV) {
-    const variant = Number(variantRaw)
-    currentBaseByVariantForWasm[variant] = Math.floor(baseMinForStarV(variant, star, substatTargets))
-    factoryBaseByVariantForWasm[variant] = factoryBaseMinForStar(variant, star)
-    const targetOverride = normalizeRollTargetEntry(cfg.substatRollTargetsV?.[variant])
-    targetBaseOverrideByVariantForWasm[variant] = (
-      typeof targetOverride?.base === 'number' ? Math.floor(targetOverride.base) : null
-    )
-  }
+  // Build the star-resolved target map once and let rust normalize variant pools.
+  const substatTargetByVariant = ((): Record<number, number> => {
+    if (star === 6) return substatTargets.six
+    if (star === 5) return substatTargets.five
+    if (star === 4) return substatTargets.four
+    if (star === 3) return substatTargets.three
+    if (star === 2) return substatTargets.two
+    return substatTargets.one
+  })()
+  // Preserve factory minima in TS constants and pass only the active star table.
+  const factoryBaseByVariantForStar = FACTORY_MINIMA_BY_STAR[star] ?? {}
+  const flexEligible = canEnableSubstatFlex(cfg)
+  // Delegate selected/fixed pool normalization + base/target map prep to wasm.
+  const prep = prepareHsfBuilderConfigWithLoadedWasm({
+    minCount: cfg.minCount,
+    autoSubstatFlex: cfg.autoSubstatFlex === true,
+    flexEligible,
+    substatsV: cfg.substatsV ?? [],
+    fixedSubstatsV: cfg.fixedSubstatsV ?? [],
+    allowedSubstats,
+    substatRollBoundsV: cfg.substatRollBoundsV ?? {},
+    substatRollTargetsV: cfg.substatRollTargetsV ?? {},
+    substatTargetByVariant,
+    factoryBaseByVariantForStar,
+    variantPriority: PREFERRED_STAT_ORDER,
+  })
+  const selectedPoolV = prep.selectedPoolV
+  // If the user explicitly selected substats but all are invalid for the slot/main,
+  // emit no rules instead of falling back to presence-only behavior.
+  if (prep.hadRequestedSubstats && selectedPoolV.length === 0) return []
+  const requiredV = prep.requiredV
+  const optionalPoolV = prep.optionalPoolV
+  const lockedCount = requiredV.length
+  const minTargetCount = prep.minTargetCount
+  const maxTargetCount = prep.maxTargetCount
+  // Flex mode only activates when both the config allows it and the toggle is on.
+  const flexActive = cfg.autoSubstatFlex === true && flexEligible
+  // Track whether any selected substat explicitly demands rolls.
+  const hasPerStatMin = prep.hasPerStatMin
+  const currentBaseByVariantForWasm = prep.currentBaseByVariant as Record<number, number>
+  const factoryBaseByVariantForWasm = prep.factoryBaseByVariant as Record<number, number | null>
+  const targetBaseOverrideByVariantForWasm = prep.targetBaseOverrideByVariant as Record<number, number | null>
 
   // Resolve Auto rarity to a concrete rarity code before rule generation.
   // Use the shared resolver to keep UI and builder behavior identical.
@@ -523,131 +495,8 @@ export function buildHsfRules(
 
   // Resolve set selections into numeric IDs for HSF export.
   const resolvedSets = splitArtifactSetSelections(cfg.artifactSets)
-  const baseCoreGlobal = {
-    ...(configId !== null ? { ConfigID: configId } : {}),
-    ...(cfg.keep !== undefined ? { Keep: cfg.keep } : {}),
-    ...(exportMode === 'disabled' ? { Use: false }
-      : exportMode === 'active' ? { Use: true } : {}),
-    // Only include set/type arrays when non-empty to match HSF samples.
-    ...((resolvedSets.included.length > 0)
-      ? { ArtifactSet: resolvedSets.included.slice().sort(compareArtifactSets).map(Number) }
-      : {}),
-    ...(((cfg.artifactTypes ?? []).length > 0)
-      ? { ArtifactType: (cfg.artifactTypes ?? []).slice().sort(compareArtifactTypes).map(Number) }
-      : {}),
-    // Always include Rank/Rarity/Faction (0 means Any)
-    Rank: rankCode,
-    Rarity: rarityCode,
-    Faction: Number(factionCode ?? 0),
-  }
-
-  const rules: HsfRule[] = []
-  // Track emission order so we can re-sort after pruning while preserving deterministic grouping.
-  const emissionMeta: Array<{ levelIdx: number; branchIdx: number; seq: number }> = []
-  let nextSeq = 0
-  let currentBranchIdx = 0
-  let currentLevelIdx = 0
-  // Map milestone levels to a monotonic index so branch ordering stays stable post-sort.
-  const levelOrderMap = new Map<number, number>([
-    [LEVEL_ANY_SENTINEL, -1],
-    [0, 0],
-    [4, 1],
-    [8, 2],
-    [12, 3],
-    [16, 4],
-  ])
-  const levelOrderValue = (lvl: number): number => {
-    const mapped = levelOrderMap.get(lvl)
-    return mapped !== undefined ? mapped : (levelOrderMap.size + Number(lvl))
-  }
-  const recordMeta = () => {
-    // Capture the emission context before pruning potentially shuffles the array.
-    emissionMeta.push({ levelIdx: currentLevelIdx, branchIdx: currentBranchIdx, seq: nextSeq++ })
-  }
-  // Shared selector snapshot so signature caching and pruning see identical keys.
-  type CanonicalRuleSelectors = {
-    keep: boolean
-    use: boolean
-    rank: number
-    rarity: number
-    faction: number
-    mainId: number
-    mainF: number
-    lvl: number
-    setsKey: string
-    typesKey: string
-  }
-  const canonicalizeRuleSelectors = (rule: HsfRule): CanonicalRuleSelectors => {
-    const setsKey = Array.isArray(rule.ArtifactSet)
-      ? rule.ArtifactSet.map(Number).sort((a, b) => a - b).join(',')
-      : ''
-    const typesKey = Array.isArray(rule.ArtifactType)
-      ? rule.ArtifactType.map(Number).sort((a, b) => a - b).join(',')
-      : ''
-    return {
-      keep: rule.Keep === true,
-      use: rule.Use !== false,
-      rank: Number(rule.Rank ?? 0),
-      rarity: Number(rule.Rarity ?? 0),
-      faction: Number(rule.Faction ?? 0),
-      mainId: Number(rule.MainStatID ?? StatId.Any),
-      mainF: Number(rule.MainStatF ?? 1),
-      lvl: Number(rule.LVLForCheck ?? LEVEL_ANY_SENTINEL),
-      setsKey,
-      typesKey,
-    }
-  }
-  // Memoize per-variant overrides so repeated lookups inside loops stay cheap.
-  const targetEntryCache = new Map<number, SubstatRollTargetEntry | null>()
-  const getTargetEntry = (variant: number): SubstatRollTargetEntry | null => {
-    if (!cfg.substatRollTargetsV) return null
-    if (targetEntryCache.has(variant)) {
-      return targetEntryCache.get(variant) ?? null
-    }
-    const normalized = normalizeRollTargetEntry(cfg.substatRollTargetsV?.[variant])
-    targetEntryCache.set(variant, normalized ?? null)
-    return normalized ?? null
-  }
-  // Finalize in wasm so builder-obsolete pruning + emission ordering stay SSOT.
-  const finalizeRules = () => {
-    if (rules.length <= 1) return rules
-    const finalized = finalizeBuilderRulesWithLoadedWasm({ rules, emissionMeta })
-    if (!Array.isArray(finalized)) {
-      throw new Error('WASM builder finalizer is unavailable. Ensure warmupWasmRuleEngine() ran first.')
-    }
-    rules.splice(0, rules.length, ...finalized)
-    return rules
-  }
-  // Late+Auto may emit multiple rarity branches whose per-level thresholds can
-  // coincide. To avoid redundant duplicate rows (e.g., identical +4 rules for
-  // ≥ Epic and ≥ Legendary), maintain a signature set that ignores Rarity and
-  // deduplicates when emitting across branches.
-  const emittedSigs = new Set<string>()
-  const makeSignature = (r: HsfRule): string => {
-    const selectors = canonicalizeRuleSelectors(r)
-    const keepBit = selectors.keep ? '1' : '0'
-    const useBit = selectors.use ? '1' : '0'
-    const subs = Array.isArray(r.Substats)
-      ? r.Substats.map((s) => {
-        const id = Number(s?.ID ?? StatId.Any)
-        const flat = s?.IsFlat ? '1' : '0'
-        const cond = String(s?.Condition ?? '')
-        const val = Number(s?.Value ?? 0)
-        return `${id}:${flat}:${cond}:${val}`
-      }).join(';')
-      : ''
-    return `${keepBit}${useBit}|${selectors.rank}|${selectors.faction}|${selectors.mainId}:${selectors.mainF}|${selectors.lvl}|${selectors.setsKey}|${selectors.typesKey}|${subs}`
-  }
-  const pushRule = (r: HsfRule) => {
-    const sig = makeSignature(r)
-    if (emittedSigs.has(sig)) return
-    emittedSigs.add(sig)
-    rules.push(r)
-    recordMeta()
-    if (emissionLimit !== null && rules.length >= emissionLimit) {
-      throw new RuleLimitReachedError(emissionLimit)
-    }
-  }
+  // Export mode is normalized at entry, so runtime payload only needs a bool.
+  const useFlag = exportMode !== 'disabled'
 
   // Determine mainstat choices: [] means Any; otherwise list of variants to unroll
   // Canonicalize mainstat order as well to avoid click-order dependence.
@@ -687,97 +536,23 @@ export function buildHsfRules(
     && lockedMinActive
     && isLockedAggregateScopeActive(cfg, { lockedCountOverride: requiredV.length })
 
-  // Special case: No substats selected => presence-only.
-  // - For full window 0..16: emit a single "Any level" rule (LVLForCheck=LEVEL_ANY_SENTINEL).
-  // - Otherwise: emit rules for each milestone within the window.
-  if (selectedPoolV.length === 0) {
-    // Precompute slot-compatible mains once so wasm can unroll levels/mains.
-    const mainChoicesForWasm = mainChoicesV
-      .filter((mnV) => anySelectedSlotSupportsMain(cfg.artifactTypes, mnV))
-      .map((mnV) => variantToMain(mnV))
-      .map((main) => ({ id: main.id, f: main.f ?? 1 }))
-    // Delegate presence-only level/main rule emission to wasm.
-    const emitted = buildHsfPresenceOnlyRulesWithLoadedWasm({
-      baseCore: { ...baseCoreGlobal, Substats: [] },
-      mainChoices: mainChoicesForWasm,
-      levelWindowMin: levelWindow.min,
-      levelWindowMax: levelWindow.max,
-    })
-    // Preserve pushRule signature dedupe + emission metadata tracking.
-    for (const rule of emitted) {
-      currentLevelIdx = levelOrderValue(Number(rule.LVLForCheck ?? LEVEL_ANY_SENTINEL))
-      pushRule(rule)
-    }
-    finalizeRules()
-    return rules
-  }
-
-  // Global upper-cap infeasibility and auto-mode "circled" checks run in wasm
-  // so this preflight no longer loops through required/optional bounds in TS.
-  const preflight = buildHsfPreflightFlagsWithLoadedWasm({
-    selectedPoolV,
-    requiredV,
-    optionalPoolV,
-    maxTargetCount,
-    aggregateMinActive,
-    aggregateMinValue,
-    aggregateTargetsLocked,
-    rarityCode,
-    ...(typeof cfg.rarityMode === 'string' ? { rarityMode: cfg.rarityMode } : {}),
-    substatRollBoundsV: cfg.substatRollBoundsV,
-  })
-  // Keep the same hard-prune behavior for impossible aggregate cap scenarios.
-  if (!preflight.aggregateFeasibleByCaps) {
-    return []
-  }
-  // Auto toggles to potential mode when any stat has explicit roll targeting.
-  const hasCircled = preflight.hasCircled
-  // Auto toggles to potential mode when any stat has explicit roll targeting.
-  const effectiveMode: 'strict' | 'potential' = hasCircled ? 'potential' : 'strict'
-
-  // Build rules at milestone levels according to baseline option
-  // Late + Auto: expand into ≥ Rare / ≥ Epic / ≥ Legendary at 4/8/12 only.
-  const rarityBranches: Array<{ code: number; restrictLevels?: LevelMilestone[] }> = (() => {
-    // Delegate branch code expansion to wasm for SSOT tier sequencing.
-    const wasmBranches = buildHsfRarityBranchesWithLoadedWasm({
-      ...(typeof cfg.rarityMode === 'string' ? { rarityMode: cfg.rarityMode } : {}),
-      ...(typeof cfg.earlyKeepMode === 'string' ? { earlyKeepMode: cfg.earlyKeepMode } : {}),
-      ...(typeof cfg.autoRaritySupplementsThreshold === 'string' ? { autoRaritySupplementsThreshold: cfg.autoRaritySupplementsThreshold } : {}),
-      rarityCode,
-    })
-    return wasmBranches.map((branch) => {
-      const restrictLevels = Array.isArray(branch.restrictLevels)
-        ? branch.restrictLevels.filter((level): level is LevelMilestone => (
-          level === 4 || level === 8 || level === 12 || level === 16 || level === 0
-        ))
-        : null
-      return {
-        code: Number(branch.code),
-        ...(restrictLevels ? { restrictLevels } : {}),
-      }
-    })
-  })()
-
-  // Normalize per-variant target overrides once so branch runtime can align
-  // entries to combo order without re-reading builder config maps each loop.
-  const targetEntriesByVariantForWasm: Record<number, { base?: number; increments?: Array<number | null> }> = {}
-  for (const variantRaw of selectedPoolV) {
-    const variant = Number(variantRaw)
-    const entry = getTargetEntry(variant)
-    if (!entry) continue
-    targetEntriesByVariantForWasm[variant] = {
-      ...(typeof entry.base === 'number' ? { base: entry.base } : {}),
-      increments: Array.isArray(entry.increments) ? entry.increments : [],
-    }
-  }
-  // Build slot-compatible mains once; branch runtime now runs fully in wasm.
+  // Build slot-compatible mains once, then let wasm own rule orchestration.
   const mainChoicesForWasm = mainChoicesV
     .filter((mnV) => anySelectedSlotSupportsMain(cfg.artifactTypes, mnV))
     .map((mnV) => variantToMain(mnV))
     .map((main) => ({ id: main.id, f: main.f ?? 1 }))
-  // Execute all rarity branches in one wasm call for this config.
-  const builderRuntime = executeHsfBuilderRuntimeWithLoadedWasm({
-    rarityBranches,
+  // One wasm call now handles preflight, branch planning, and row emission.
+  const builderRuntime = buildHsfRulesRuntimeWithLoadedWasm({
+    ...(configId !== null ? { configId } : {}),
+    ...(cfg.keep !== undefined ? { keep: cfg.keep } : {}),
+    useFlag,
+    artifactSetIds: resolvedSets.included,
+    artifactTypeIds: cfg.artifactTypes ?? [],
+    rankCode: rankCode,
+    rarityCode,
+    factionCode: Number(factionCode ?? 0),
+    mainChoices: mainChoicesForWasm,
+    emitAnyMainWhenNoChoices: mainChoicesV.length === 0,
     baseline,
     effectiveStart,
     suppressRollThresholds,
@@ -795,15 +570,16 @@ export function buildHsfRules(
     lockedMinActive,
     lockedMinValue,
     substatRollBoundsV: cfg.substatRollBoundsV ?? {},
-    targetEntriesByVariant: targetEntriesByVariantForWasm,
+    targetEntriesByVariant: prep.targetEntriesByVariant,
     currentBaseByVariant: currentBaseByVariantForWasm,
     factoryBaseByVariant: factoryBaseByVariantForWasm,
     targetBaseOverrideByVariant: targetBaseOverrideByVariantForWasm,
-    baseRule: { ...baseCoreGlobal, Substats: [] },
-    mainChoices: mainChoicesForWasm,
-    emitAnyMainWhenNoChoices: mainChoicesV.length === 0,
-    effectiveMode,
     earlyMode,
+    ...(typeof cfg.rarityMode === 'string' ? { rarityMode: cfg.rarityMode } : {}),
+    ...(typeof cfg.earlyKeepMode === 'string' ? { earlyKeepMode: cfg.earlyKeepMode } : {}),
+    ...(typeof cfg.autoRaritySupplementsThreshold === 'string'
+      ? { autoRaritySupplementsThreshold: cfg.autoRaritySupplementsThreshold }
+      : {}),
     ...(emissionLimit != null ? { emissionLimit } : {}),
   })
   // Keep existing limit exception behavior so merge.ts can short-circuit safely.

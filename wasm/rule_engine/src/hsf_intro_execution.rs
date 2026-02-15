@@ -1,6 +1,4 @@
 use serde::Deserialize;
-use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
-use wasm_bindgen::JsValue;
 
 use crate::hsf_intro_mode_plan::HsfIntroModePlanStepOut;
 use crate::build_hsf_late_bounded_rows_core;
@@ -345,13 +343,4 @@ pub(crate) fn execute_hsf_intro_plan_core(input: &ExecuteHsfIntroPlanIn) -> Vec<
         execute_intro_steps_for_timeline(input, timeline_caps, &mut out);
     }
     out
-}
-
-// JsValue wrapper keeps input schema failures explicit for TS callers.
-pub(crate) fn execute_hsf_intro_plan_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: ExecuteHsfIntroPlanIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid execute-hsf-intro-plan payload: {error}")))?;
-    let out = execute_hsf_intro_plan_core(&input);
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize execute-hsf-intro-plan output: {error}")))
 }
