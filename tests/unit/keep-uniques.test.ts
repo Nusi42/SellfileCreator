@@ -125,6 +125,53 @@ test('hashKeepUniqueCombination differentiates accessory factions', () => {
   assert.notStrictEqual(hashA, hashB, 'different factions should yield different hashes')
 })
 
+test('normalizeKeepUniqueRule supports readable wrapper payloads', () => {
+  // Readable exports may wrap keep-unique rules in `{ kind, rule }`.
+  const normalized = normalizeKeepUniqueRule({
+    kind: 'keepUniqueRule',
+    rule: {
+      id: 'ku_mlcrdw83_4zvye589',
+      requiredCount: 3,
+      activation: KeepUniqueRuleActivation.AnticipateGaps,
+      countMode: {
+        perRule: false,
+        perSet: true,
+        perFaction: true,
+        perMainStat: false,
+        perSlot: true,
+      },
+      tuple: {
+        slots: ['Banner'],
+        sets: [],
+        metaSetIds: [],
+        ranks: ['5★', '6★'],
+        rarities: ['Rare', 'Epic', 'Legendary', 'Mythical'],
+        mainStats: [],
+        factions: [],
+      },
+      name: 'Reserve: Speed Banner',
+    },
+  })
+  assert.ok(normalized, 'wrapper payload should normalize into a keep-unique rule')
+  assert.strictEqual(normalized.id, 'ku_mlcrdw83_4zvye589')
+  assert.strictEqual(normalized.name, 'Reserve: Speed Banner')
+  assert.deepStrictEqual(normalized.combination.slots, [ArtifactType.Banner])
+  assert.deepStrictEqual(normalized.combination.ranks, [5, 6])
+  assert.deepStrictEqual(normalized.combination.rarities, [
+    RarityCode.Rare,
+    RarityCode.Epic,
+    RarityCode.Legendary,
+    6 as RankValue,
+  ])
+  assert.deepStrictEqual(normalized.countMode, {
+    perRule: false,
+    perSet: true,
+    perFaction: true,
+    perMainStat: false,
+    perSlot: true,
+  })
+})
+
 test('computeKeepUniqueProtection aggregates combination counts', () => {
   const rules = [
     makeRule({
@@ -273,6 +320,36 @@ test('custom grouping honors the selected dimensions only', () => {
   assert.strictEqual(entry.requiredCount, 2, 'requirement multiplies per set')
 })
 
+test('per-slot grouping splits quotas by slot and avoids zero-missing placeholders', () => {
+  // Keep only slot grouping active so each selected slot gets its own quota.
+  const rules = [makeRule({
+    requiredCount: 1,
+    combination: {
+      slots: [ArtifactType.Weapon, ArtifactType.Helmet],
+      sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
+      metaSetIds: [],
+      ranks: [6 as RankValue],
+      rarities: [6 as RankValue],
+      mainStats: [StatVariant.ATK],
+      factions: [],
+    },
+    countMode: { perRule: false, perSet: false, perFaction: false, perMainStat: false, perSlot: true },
+  })]
+  // One sold match per slot should fully satisfy the per-slot requirement.
+  const rows = [
+    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed }, false, StatVariant.ATK),
+    makeTesterRow({ slot: ArtifactType.Helmet, set: ArtifactSet.Speed }, false, StatVariant.ATK),
+  ]
+  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
+  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
+  const entry = snapshot.entries[0]
+  assert.ok(entry)
+  assert.strictEqual(entry.groupsTracked, 2, 'slot grouping should track one group per selected slot')
+  assert.strictEqual(entry.requiredCount, 2, 'required total should scale with the two slot groups')
+  assert.strictEqual(entry.deficit, 0, 'no deficit is expected when both slot groups are covered')
+  assert.strictEqual(entry.placeholders.length, 0, 'covered slot groups must not emit zero-missing placeholders')
+})
+
 test('ranked ties on the same main stat prefer higher rank', () => {
   const rules = [makeRule({
     requiredCount: 1,
@@ -419,6 +496,56 @@ test('resolveKeepUniqueRulesWithMetasets expands set lists', () => {
   // Compare by numeric ids because the selection list now stores entry objects.
   const combinationSetIds = combinationSets.map((entry) => Number(entry.id)).sort((a, b) => a - b)
   assert.deepStrictEqual(combinationSetIds, [ArtifactSet.Speed, ArtifactSet.DivineSpeed])
+})
+
+test('resolveKeepUniqueRulesWithMetasets preserves rules without metaset expansion', () => {
+  // Rules without metasets still need to survive the resolver unchanged.
+  const rules = [
+    makeRule({
+      id: 'ku_no_meta',
+      name: 'No Meta Rule',
+      combination: {
+        slots: [ArtifactType.Banner],
+        sets: [],
+        metaSetIds: [],
+        ranks: [5 as RankValue, 6 as RankValue],
+        rarities: [3 as RankValue, 4 as RankValue, 5 as RankValue, 6 as RankValue],
+        mainStats: [],
+        factions: [],
+      },
+      requiredCount: 3,
+      activation: KeepUniqueRuleActivation.AnticipateGaps,
+      countMode: { perRule: false, perSet: true, perFaction: true, perMainStat: false, perSlot: true },
+      substats: [StatVariant.SPD],
+      substatMatch: 'perSubstat',
+    }),
+  ]
+  // Unrelated metasets should not remove or alter this rule.
+  const metasets: Metaset[] = [{
+    id: 'unrelated_meta',
+    name: 'Unrelated',
+    sets: [ArtifactSet.Speed],
+    show: true,
+  }]
+  const resolved = resolveKeepUniqueRulesWithMetasets(rules, metasets)
+  assert.strictEqual(resolved.length, 1, 'rules without metasets must not be dropped')
+  const kept = resolved[0]
+  assert.ok(kept)
+  assert.strictEqual(kept.id, 'ku_no_meta')
+  assert.deepStrictEqual(kept.combination.slots, [ArtifactType.Banner])
+  assert.deepStrictEqual(kept.combination.metaSetIds, [])
+  assert.deepStrictEqual(kept.combination.sets, [])
+  assert.strictEqual(kept.requiredCount, 3)
+  assert.strictEqual(kept.activation, KeepUniqueRuleActivation.AnticipateGaps)
+  assert.deepStrictEqual(kept.countMode, {
+    perRule: false,
+    perSet: true,
+    perFaction: true,
+    perMainStat: false,
+    perSlot: true,
+  })
+  assert.deepStrictEqual(kept.substats, [StatVariant.SPD])
+  assert.strictEqual(kept.substatMatch, 'perSubstat')
 })
 
 test('default keep unique rules start empty', () => {

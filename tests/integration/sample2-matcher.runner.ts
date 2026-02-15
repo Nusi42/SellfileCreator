@@ -92,6 +92,12 @@ const main = async (): Promise<void> => {
   })
   // Resolve metaset references up-front so keep-unique inputs are explicit.
   const keepUniqueRules = resolveKeepUniqueRulesWithMetasets(parsed.keepUniqueRules, parsed.metasets)
+  // Metaset resolution must not drop rules that do not use metasets.
+  // Dropping such rules silently removes keep-unique coverage in tester/grid flows.
+  assert(
+    keepUniqueRules.length === parsed.keepUniqueRules.length,
+    `keep-unique metaset resolution changed rule count (${parsed.keepUniqueRules.length} -> ${keepUniqueRules.length})`,
+  )
   const configModes: SellfileExportMode[] = parsed.cfgs.map((cfg) => cfg.exportMode)
 
   // Load the shared sample2 database and merge both inventory + inbox items.
@@ -145,6 +151,20 @@ const main = async (): Promise<void> => {
     rules: keepUniqueRules,
     enabled: parsed.keepUniquesEnabled,
   })
+  // Invariant: placeholders must represent real deficits only.
+  // Zero-missing placeholders indicate grouping regressions in keep-unique scans.
+  let zeroMissingPlaceholders = 0
+  for (const entry of detection.entries) {
+    for (const placeholder of entry.placeholders) {
+      if ((placeholder.missing ?? 0) <= 0) {
+        zeroMissingPlaceholders += 1
+      }
+    }
+  }
+  assert(
+    zeroMissingPlaceholders === 0,
+    `keep-unique detection emitted zero-missing placeholders: ${zeroMissingPlaceholders}`,
+  )
 
   // Rebuild merged rules with the keep-unique detection snapshot applied.
   const mergedWithKeepRules = computeMergedRules({
