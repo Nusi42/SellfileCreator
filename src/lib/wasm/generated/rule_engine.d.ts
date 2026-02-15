@@ -98,7 +98,6 @@ export interface InitOutput {
     readonly expand_auto_flex_rarity_branches_value: (a: any, b: number) => [number, number, number];
     readonly finalize_generated_rules_value: (a: any, b: number) => [number, number, number];
     readonly find_obsolete_value: (a: any) => [number, number, number];
-    readonly fingerprint_merged_rules_value: (a: any) => [number, number, number];
     readonly flatten_rule_batches_with_total_limit_value: (a: bigint, b: bigint, c: any) => [number, number, number];
     readonly hash_keep_unique_combination_value: (a: any) => [number, number, number, number];
     readonly intro_assignments_for_combo_fast_flat: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
@@ -119,6 +118,7 @@ export interface InitOutput {
     readonly sort_keep_unique_combination_value: (a: any) => [number, number, number];
     readonly sort_keep_unique_substats_value: (a: any) => [number, number, number];
     readonly version: () => [number, number];
+    readonly fingerprint_merged_rules_value: (a: any) => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;
