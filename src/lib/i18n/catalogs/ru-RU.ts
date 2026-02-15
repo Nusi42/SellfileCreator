@@ -185,7 +185,7 @@ const overrides: Catalog = {
   msgDeleteSelectedConfigs: 'Это удалит выбранные {n} рецепты из SFR.',
 
   titlePasteConfigJson: 'Вставить JSON рецепта',
-  msgPasteInstructions: 'Вставьте один рецепт, массив рецептов или legacy-объект SFR.',
+  msgPasteInstructions: 'Вставьте один рецепт, массив рецептов или объект SFR с рецептами.',
   placeholderPasteExample: 'Пример: {example}',
   titleCopyConfigJson: 'Копировать JSON рецепта',
   msgBlockedClipboard: 'Браузер заблокировал доступ к буферу обмена. Выделите и скопируйте вручную.',
@@ -1151,7 +1151,6 @@ const overrides: Catalog = {
   statRollCount: 'Количество роллов',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Используйте это рабочее пространство, чтобы задать Sellfile, что нужно оставлять или продавать. Собирайте рецепты здесь, добавляйте их в свой список и загружайте или сохраняйте SFR (с метасетами).',
   toastConfigsSaved: 'Рецепты сохранены. Проверьте папку «Загрузки».',
   toastSellfileSaved: 'Sellfile экспортирован.',
   toastSellfileExportFailed: 'Не удалось экспортировать Sellfile. Подробности в консоли.',

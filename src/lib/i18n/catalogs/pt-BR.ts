@@ -1151,7 +1151,6 @@ const catalog: Catalog = {
   statRollCount: 'Contagem de rolagens',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Use este espaço de trabalho para indicar ao Sellfile o que deve manter ou vender. Construa cada receita aqui, adicione à lista e carregue ou salve arquivos SFR (meta-sets incluídos).',
   toastConfigsSaved: 'Receitas salvas. Confira sua pasta Downloads.',
   toastSellfileSaved: 'Sellfile exportado.',
   toastSellfileExportFailed: 'Falha ao exportar o Sellfile. Veja o console.',

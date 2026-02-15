@@ -1151,7 +1151,6 @@ const overrides: Catalog = {
   statRollCount: 'Rulo sayısı',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Bu çalışma alanını, Sellfile\'a neyin tutulup neyin satılacağını söylemek için kullanın. Reçeteleri burada hazırlayın, listenize ekleyin ve metasetlerle birlikte SFR dosyalarını yükleyip kaydedin.',
   toastConfigsSaved: 'Reçeteler kaydedildi. İndirilenler’i kontrol edin.',
   toastSellfileSaved: 'Sellfile dışa aktarıldı.',
   toastSellfileExportFailed: 'Sellfile dışa aktarma başarısız oldu. Ayrıntılar için konsola bakın.',
