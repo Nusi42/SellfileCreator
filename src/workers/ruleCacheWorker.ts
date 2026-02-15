@@ -11,8 +11,7 @@ import { configsForRuleBuild } from '../lib/ruleCacheHelpers'
 import type { EvalResult } from '../lib/ruleEval'
 import {
   buildIgnoreKeepUniqueConfigIndices,
-  collectKeepUniqueCandidates,
-  computeKeepUniqueProtection,
+  collectAndComputeKeepUniqueProtection,
   hasActiveKeepUniqueRules,
   resolveKeepUniqueRuleLabel,
 } from '../lib/keepUniques'
@@ -632,31 +631,26 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           matchingConfigDecisions: match?.matchingConfigDecisions ?? [],
         }
       })
-      // Collect candidate groups before running keep-unique protection logic.
-      const candidates = collectKeepUniqueCandidates({
+      // Run collect + detection together so wasm owns the full keep-unique pass.
+      const combinedDetection = collectAndComputeKeepUniqueProtection({
         // Use the prebuilt rows for stable snapshotting.
         rows,
         // Candidate generation depends on the base (non-keep-unique) rules.
         baseRules: mergedRulesBaseline,
         // Config modes gate which rules can claim a candidate.
         configModes: payload.configModes,
+        // Supply the active keep-unique rules for detection scoring.
+        rules: payload.keepUniques.rules,
+        // Respect the keep-unique enabled toggle.
+        enabled: payload.keepUniques.enabled,
         // Pre-filtered baseline matches already exclude ignored configs.
         ...(filteredBaselineMatchMap ? {} : { ignoreKeepUniqueConfigIndices }),
       })
-      // Produce detection snapshots for downstream keep-override rule injection.
-      if (hasActiveKeepUniques) {
-        keepUniqueDetectionSnapshot = computeKeepUniqueProtection({
-          // Use only the candidate list (not the full wrapper).
-          candidates: candidates.candidates,
-          // Supply the current keep-unique rules.
-          rules: payload.keepUniques.rules,
-          // Respect the keep-unique enabled toggle.
-          enabled: payload.keepUniques.enabled,
-        })
-      }
+      // Keep Uniques snapshot drives rule injection + UI counts downstream.
+      keepUniqueDetectionSnapshot = combinedDetection.detection
       // Detection phase complete: surface the candidate + entry counts.
       postPipelinePhase(id, 'detection:done', {
-        candidates: candidates.candidates.length,
+        candidates: combinedDetection.candidates.candidates.length,
         keepUniqueEntries: keepUniqueDetectionSnapshot?.entries.length ?? 0,
       })
     }

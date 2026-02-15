@@ -9,11 +9,14 @@ import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
 import {
   RULE_COUNT_LIMIT,
   TOTAL_RULE_COUNT_LIMIT,
-  ACCESSORY_NO_SET_ID,
   KEEP_UNIQUE_CONFIG_ID_BASE,
 } from './constants'
 import { buildHsfRules, RuleLimitReachedError, resolveAutoRarityCode } from './hsfBuilder'
 import {
+  buildFinalSellRulesWithLoadedWasm,
+  computeMergedRulesWithLoadedWasm,
+  expandAutoFlexRarityBranchesWithLoadedWasm,
+  flattenRuleBatchesWithTotalLimitWithLoadedWasm,
   finalizeGeneratedRulesWithLoadedWasm,
   buildKeepUniqueRulesWithLoadedWasm,
   mergeKeepUniqueInjectedRulesWithLoadedWasm,
@@ -21,19 +24,10 @@ import {
 import type { Metaset } from './metasets'
 import { resolveArtifactSetSelections } from './gearSets/selection'
 import {
-  ArtifactType,
-  compareArtifactTypes,
-  compareArtifactSets,
   getAllKnownArtifactSetIds,
   StatId,
-  LEVEL_MILESTONES,
-  type LevelMilestone,
-  RarityCode,
 } from './types'
 import {
-  FINAL_SELL_DEFAULT_SETS_MODE,
-  FINAL_SELL_SETS_MODE_ANY,
-  FINAL_SELL_SETS_MODE_EXPLICIT,
   type FinalSellRemainderConfig,
 } from './logicHub'
 import {
@@ -43,7 +37,6 @@ import {
   type KeepUniqueDetectionSnapshot,
 } from './keepUniques'
 import {
-  RULE_SOURCE_FINAL_SELL,
   RULE_SOURCE_HSF,
   RULE_SOURCE_HSFC,
   RULE_SOURCE_KEEP_UNIQUES,
@@ -93,6 +86,8 @@ export type BuildRulesFinalizeGeneratedFn = (params: {
 }) => HsfRuleWithCfg[]
 
 export function canonicalRuleKey(rule: HsfRule): string {
+  // Keep this pure-TS: it runs in a hot fingerprint loop and wasm boundary
+  // crossings here add per-rule serialization overhead.
   const artifactTypes = Array.isArray(rule.ArtifactType)
     ? (rule.ArtifactType as number[]).slice().sort((a, b) => a - b)
     : []
@@ -123,94 +118,18 @@ export function canonicalRuleKey(rule: HsfRule): string {
 }
 
 function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
-  try {
-    if (cfg.rarityMode !== 'auto') return [cfg]
-    if (cfg.autoSubstatFlex !== true) return [cfg]
-    if (cfg.autoMinCount) return [cfg]
-    const selected = Array.isArray(cfg.substatsV) ? cfg.substatsV.map(Number) : []
-    if (selected.length === 0) return [cfg]
-    const fixed = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV.map(Number) : []
-    const lockedCount = fixed.length
-    if (lockedCount === 0) return [cfg]
-    if (cfg.minCount !== lockedCount) return [cfg]
-    if (cfg.autoMinRequiredRolls !== false) return [cfg]
-    const minRequired = typeof cfg.minRequiredRolls === 'number' ? cfg.minRequiredRolls : 0
-    if (minRequired > lockedCount) return [cfg]
-    const aggregateMatchesLocked = minRequired === lockedCount
-    const fixedSet = new Set<number>(fixed)
-    const optional = selected.filter(v => !fixedSet.has(v))
-    if (optional.length === 0) return [cfg]
-    const bounds = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
-    const optionalAllWildcard = optional.every(v => {
-      const b = bounds[Number(v)]
-      const hasMin = typeof b?.min === 'number' && b.min > 0
-      const hasMax = typeof b?.max === 'number' && isFinite(b.max)
-      const wildcard = (b?.any === true) || (!b)
-      return wildcard && !hasMin && !hasMax
-    })
-    if (!optionalAllWildcard) return [cfg]
-    const baseRarityCode = resolveAutoRarityCode(cfg)
-    const minLevel = (cfg.minLevel ?? LEVEL_MILESTONES[0]!) as LevelMilestone
-    const maxLevel = (cfg.maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!) as LevelMilestone
-    const toMinCount = (value: number): 0 | 1 | 2 | 3 | 4 => {
-      const clamped = Math.max(0, Math.min(4, value))
-      return clamped as 0 | 1 | 2 | 3 | 4
-    }
-    const lockedOnlyCount = toMinCount(lockedCount)
-    const configuredMinCount = toMinCount(cfg.minCount ?? lockedOnlyCount)
-    const baseMinCount = toMinCount(Math.max(configuredMinCount, lockedOnlyCount))
-    const flexTargetTotal = toMinCount(Math.max(baseMinCount, lockedOnlyCount + 1))
-    const branches: BuilderConfig[] = []
-
-    // Baseline branch: keep the locked trio before +16 using the auto-resolved rarity.
-    const earlyEpicMax = Math.min(maxLevel, 12) as LevelMilestone
-    if (minLevel <= earlyEpicMax) {
-      const baselineCfg: BuilderConfig = {
-        ...cfg,
-        rarityMode: 'code',
-        rarityCode: baseRarityCode,
-        autoMinCount: false,
-        minCount: lockedOnlyCount,
-        minLevel: minLevel,
-        maxLevel: earlyEpicMax,
-        autoSubstatFlex: false,
-      }
-      branches.push(baselineCfg)
-    }
-
-    // Late branch: once +16 is inside the window, expect the optional slot to be present.
-    const lateEpicMin = Math.max(minLevel, 16) as LevelMilestone
-    if (aggregateMatchesLocked && lateEpicMin <= maxLevel) {
-      const lateCfg: BuilderConfig = {
-        ...cfg,
-        rarityMode: 'code',
-        rarityCode: Math.max(baseRarityCode, RarityCode.Epic) as RarityCode,
-        autoMinCount: false,
-        minCount: aggregateMatchesLocked ? flexTargetTotal : baseMinCount,
-        minLevel: lateEpicMin,
-        maxLevel: maxLevel,
-        autoSubstatFlex: aggregateMatchesLocked ? false : true,
-      }
-      branches.push(lateCfg)
-    }
-
-    // Legendary-or-range branch: when the aggregate floor matches the locked trio we still need ≥Legendary
-    // (so all four stats stay mandatory). Otherwise we leave Legendary in play so extra-roll permutations show up,
-    // but collapse the duplicate exact-Epic rows downstream.
-    const legendaryCfg: BuilderConfig = {
-      ...cfg,
-      rarityMode: 'code',
-      rarityCode: Math.max(baseRarityCode, RarityCode.GTE_Legendary) as RarityCode,
-      autoMinCount: false,
-      minCount: aggregateMatchesLocked ? flexTargetTotal : baseMinCount,
-      autoSubstatFlex: aggregateMatchesLocked ? false : true,
-    }
-    branches.push(legendaryCfg)
-
-    return branches
-  } catch {
-    return [cfg]
+  // Keep auto-rarity resolution in the existing shared helper.
+  const baseRarityCode = resolveAutoRarityCode(cfg)
+  // Delegate branch splitting heuristics to wasm for SSOT behavior.
+  const branches = expandAutoFlexRarityBranchesWithLoadedWasm({
+    config: cfg,
+    baseRarityCode,
+  })
+  // Fail closed when warmup/payload is invalid; do not silently keep one branch.
+  if (!Array.isArray(branches) || branches.length === 0) {
+    throw new Error('WASM auto-flex rarity expansion returned no branches. Ensure warmupWasmRuleEngine() ran first.')
   }
+  return branches
 }
 
 export function buildRulesForConfig(params: {
@@ -285,61 +204,12 @@ export function buildRulesForConfig(params: {
   }
 }
 
-const cloneAnySubstats = (): HsfRule['Substats'] => ([
-  { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
-  { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
-  { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
-  { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
-])
-
 export function buildFinalSellRules(finalSellRemainder: FinalSellRemainderConfig | null | undefined): HsfRuleWithCfg[] {
-  if (!finalSellRemainder) return []
-  const { artifacts, accessories, levels, setsMode = FINAL_SELL_DEFAULT_SETS_MODE } = finalSellRemainder
-  const artTypes: ArtifactType[] = [ArtifactType.Weapon, ArtifactType.Helmet, ArtifactType.Shield, ArtifactType.Gauntlets, ArtifactType.Chestplate, ArtifactType.Boots]
-  const accTypes: ArtifactType[] = [ArtifactType.Ring, ArtifactType.Amulet, ArtifactType.Banner]
-  const selected = new Set<LevelMilestone>(levels ?? [])
-  if (!((artifacts || accessories) && selected.size > 0)) return []
-  const allMilestones = LEVEL_MILESTONES
-  const typeCombos: number[][] = (() => {
-    if (artifacts && accessories) return [artTypes.concat(accTypes)]
-    if (artifacts) return [artTypes]
-    if (accessories) return [accTypes]
-    return []
-  })()
-  const rules: HsfRuleWithCfg[] = []
-  for (const lvl of allMilestones) {
-    const coverageModes: FinalSellRemainderConfig['setsMode'][] = [FINAL_SELL_SETS_MODE_EXPLICIT, FINAL_SELL_SETS_MODE_ANY]
-    for (const mode of coverageModes) {
-      const enabled = mode === setsMode
-      const useExplicitSets = mode === FINAL_SELL_SETS_MODE_EXPLICIT
-      const allSets = useExplicitSets
-        ? Array.from(new Set<number>([ACCESSORY_NO_SET_ID, ...getAllKnownArtifactSetIds().map((id) => Number(id))])).sort(compareArtifactSets)
-        : []
-      // Export helpers: emit sets/types immediately before the rank payload for readability.
-      const mkRule = (types: number[], useFlag: boolean): HsfRule => ({
-        Keep: false,
-        IsRuleTypeAND: false,
-        Use: useFlag,
-        ...(useExplicitSets ? { ArtifactSet: allSets } : {}),
-        ...(types.length ? { ArtifactType: types.slice().sort(compareArtifactTypes).map(Number) } : {}),
-        Rank: 0,
-        Rarity: 0,
-        MainStatID: StatId.Any,
-        MainStatF: 1,
-        LVLForCheck: lvl,
-        Faction: 0,
-        Substats: cloneAnySubstats(),
-      })
-      const useFlag = enabled && selected.has(lvl)
-      for (const combo of typeCombos) {
-        const baseRule = mkRule(combo, useFlag)
-        const annotated: HsfRuleWithCfg = { ...(baseRule as HsfRule), __source: RULE_SOURCE_FINAL_SELL }
-        if (useExplicitSets) annotated.__allKnownSets = true
-        rules.push(annotated)
-      }
-    }
-  }
-  return rules
+  // Delegate final-sell level/type/set expansion to wasm for SSOT ordering.
+  return buildFinalSellRulesWithLoadedWasm({
+    finalSellRemainder,
+    allKnownSetIds: getAllKnownArtifactSetIds().map((id) => Number(id)),
+  })
 }
 
 export const buildKeepUniqueRules = (
@@ -419,31 +289,14 @@ export function computeMergedRules(params: {
   const normalizedTotalLimit = Number.isFinite(TOTAL_RULE_COUNT_LIMIT) && TOTAL_RULE_COUNT_LIMIT > 0
     ? Math.max(1, Math.floor(TOTAL_RULE_COUNT_LIMIT))
     : null
-  let runningTotal = base.length
-  const customs: HsfRuleWithCfg[] = []
-  const addBatchRespectingLimit = (rules: readonly HsfRuleWithCfg[]): void => {
-    if (!rules.length) return
-    if (normalizedTotalLimit === null) {
-      customs.push(...rules)
-      runningTotal += rules.length
-      return
-    }
-    if (runningTotal >= normalizedTotalLimit) {
-      return
-    }
-    if (runningTotal + rules.length > normalizedTotalLimit) {
-      runningTotal = normalizedTotalLimit
-      return
-    }
-    customs.push(...rules)
-    runningTotal += rules.length
-  }
+  // Collect custom-rule batches first so wasm can apply the exact total-limit gate.
+  const customBatches: HsfRuleWithCfg[][] = []
 
   if (prebuiltCustomRules) {
     const ordered = Array.from(prebuiltCustomRules.entries())
     ordered.sort((a, b) => a[0] - b[0])
     for (const [, rules] of ordered) {
-      addBatchRespectingLimit(rules)
+      customBatches.push(Array.from(rules))
     }
   } else {
     // Fallback: build on demand when no cache is supplied.
@@ -455,39 +308,29 @@ export function computeMergedRules(params: {
           limit: RULE_COUNT_LIMIT + 1,
         },
       )
-      addBatchRespectingLimit(built)
+      customBatches.push(built)
     }
   }
+  // Delegate batch flattening + overflow stop behavior to wasm for SSOT parity.
+  const customs = flattenRuleBatchesWithTotalLimitWithLoadedWasm({
+    baseCount: base.length,
+    totalLimit: normalizedTotalLimit,
+    batches: customBatches,
+  })
 
-  // Build and then remove obsolete rules, but only when both the obsolete rule
-  // and its covering rule originate from the same custom config. This preserves
-  // duplicated configs and base-vs-custom overlaps in the preview.
-  // Optional: append final sell remainder rules across all milestones.
-  // When Final Sell is enabled (artifacts || accessories), we include one
-  // rule per level milestone (0/4/8/12/16). Milestones that are not selected
-  // by the user are emitted with `Use: false` (disabled) instead of being
-  // omitted. This keeps intent explicit in the exported HSF and mirrors the
-  // builder's Enable toggle semantics.
-  const finalSellRules = buildFinalSellRules(finalSellRemainder)
+  // Keep-unique active gate remains in TS so UI toggle semantics stay explicit.
   const keepUniquesInput = hasActiveKeepUniqueRules(keepUniques)
     ? keepUniques
     : null
-  const keepMergeResult: KeepUniqueMergeResult = keepUniquesInput
-    ? prependKeepUniqueRules({
-      baseRules: base,
-      customRules: customs,
-      finalSellRules,
-      resolvedKeepUniqueRules: keepUniquesInput.rules,
-      detection: keepUniquesInput.detection ?? null,
-    })
-    : { baseRules: base, mergedRules: [...base, ...customs, ...finalSellRules] }
-  const merged = keepMergeResult.mergedRules
-  // Assign a stable preview line index so filtered views can still display
-  // the original ordering (1-based when rendered).
-  for (let i = 0; i < merged.length; i += 1) {
-    (merged[i] as HsfRuleWithCfg).__lineIdx = i
-  }
-  // Do not perform cross-config pruning here; per-config pruning already applied above.
-  // Pass through merged rules (baseWithKeep reused by splitMergedRules elsewhere).
-  return merged
+  // Delegate merged-rule orchestration (+ __lineIdx assignment) to wasm.
+  return computeMergedRulesWithLoadedWasm({
+    baseRules: base,
+    customRules: customs,
+    finalSellRemainder: finalSellRemainder ?? null,
+    allKnownSetIds: getAllKnownArtifactSetIds().map((id) => Number(id)),
+    keepUniqueEnabled: keepUniquesInput != null,
+    keepUniqueRules: keepUniquesInput?.rules ?? [],
+    keepUniqueDetection: keepUniquesInput?.detection ?? null,
+    keepUniqueConfigIdBase: KEEP_UNIQUE_CONFIG_ID_BASE,
+  })
 }

@@ -15,9 +15,6 @@ export function combinations<T>(a: T[], k: number): T[][] {
   // Use index rows so this helper stays generic while loops run inside wasm.
   const indices = Array.from({ length: a.length }, (_, idx) => idx)
   const indexRows = getCombinationsI32WithLoadedWasm(indices, k)
-  if (!Array.isArray(indexRows)) {
-    throw new Error('WASM combinations helper is unavailable. Ensure warmupWasmRuleEngine() ran first.')
-  }
   return indexRows.map((row) => row.map((idx) => a[idx]!))
 }
 
@@ -26,9 +23,6 @@ export function permutations<T>(a: T[]): T[][] {
   // Use index rows so this helper stays generic while loops run inside wasm.
   const indices = Array.from({ length: a.length }, (_, idx) => idx)
   const indexRows = getPermutationsI32WithLoadedWasm(indices)
-  if (!Array.isArray(indexRows)) {
-    throw new Error('WASM permutations helper is unavailable. Ensure warmupWasmRuleEngine() ran first.')
-  }
   return indexRows.map((row) => row.map((idx) => a[idx]!))
 }
 
@@ -50,8 +44,5 @@ export function introAssignmentsForCombo(
     additionLevels: additionLevels.map((level) => Number(level)),
     forcedBase: forcedBase.map((idx) => Number(idx)),
   })
-  if (!Array.isArray(wasmRows)) {
-    throw new Error('WASM intro-assignment helper is unavailable. Ensure warmupWasmRuleEngine() ran first.')
-  }
   return wasmRows
 }

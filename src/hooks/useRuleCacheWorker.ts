@@ -15,8 +15,7 @@ import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import {
   buildIgnoreKeepUniqueConfigIndices,
-  collectKeepUniqueCandidates,
-  computeKeepUniqueProtection,
+  collectAndComputeKeepUniqueProtection,
   hasActiveKeepUniqueRules,
   resolveKeepUniqueRuleLabel,
   type KeepUniqueDetectionSnapshot,
@@ -384,21 +383,17 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           matchingConfigDecisions: match?.matchingConfigDecisions ?? [],
         }
       })
-      // Share the candidate list so both keep-override features stay aligned.
-      const candidates = collectKeepUniqueCandidates({
+      // Run collect + detection together so wasm owns one full detection pass.
+      const combinedDetection = collectAndComputeKeepUniqueProtection({
         rows,
         baseRules: mergedRulesBaseline,
         configModes: params.configModes,
+        rules: params.keepUniques.rules,
+        enabled: params.keepUniques.enabled,
         ignoreKeepUniqueConfigIndices,
       })
       // Keep Uniques snapshot drives rule injection + UI counts.
-      if (hasActiveKeepUniques) {
-        keepUniqueDetectionSnapshot = computeKeepUniqueProtection({
-          candidates: candidates.candidates,
-          rules: params.keepUniques.rules,
-          enabled: params.keepUniques.enabled,
-        })
-      }
+      keepUniqueDetectionSnapshot = combinedDetection.detection
     }
 
     const mergedRulesFinal = computeMergedRules({

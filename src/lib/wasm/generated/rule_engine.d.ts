@@ -5,7 +5,43 @@ export function bounded_compositions_i32_fast(caps: Int32Array, total: number): 
 
 export function bounded_compositions_i32_fast_flat(caps: Int32Array, total: number): Int32Array;
 
+export function build_final_sell_rules_value(remainder: any, all_known_set_ids: any): any;
+
+export function build_hsf_branch_collapse_profile_value(payload: any): any;
+
+export function build_hsf_combo_policy_vectors_value(payload: any): any;
+
+export function build_hsf_combo_vectors_value(payload: any): any;
+
+export function build_hsf_factory_combo_rows_value(payload: any): any;
+
+export function build_hsf_full_selected_fallback_plan_value(payload: any): any;
+
+export function build_hsf_intro_assignments_for_level_value(payload: any): any;
+
+export function build_hsf_intro_mode_plan_value(payload: any): any;
+
+export function build_hsf_late_bounded_rows_value(payload: any): any;
+
+export function build_hsf_level_combos_value(payload: any): any;
+
+export function build_hsf_level_contexts_value(payload: any): any;
+
+export function build_hsf_preflight_flags_value(payload: any): any;
+
+export function build_hsf_presence_only_rules_value(payload: any): any;
+
+export function build_hsf_rarity_branches_value(payload: any): any;
+
+export function build_hsf_timeline_caps_value(payload: any): any;
+
 export function build_keep_unique_rules_value(rules: any, detection: any, config_id_base: bigint): any;
+
+export function canonical_rule_key_value(rule: any): any;
+
+export function collect_and_compute_keep_unique_protection_value(rows: any, rules: any, config_modes: any, ignore_keep_unique_config_indices: any, keep_unique_rules: any, expected_groups_payload: any, enabled: boolean, now: number): any;
+
+export function collect_keep_unique_candidates_value(rows: any, rules: any, config_modes: any, ignore_keep_unique_config_indices: any): any;
 
 export function combinations_i32(values_json: string, pick: number): string;
 
@@ -15,6 +51,8 @@ export function combinations_i32_fast_flat(values: Int32Array, pick: number): In
 
 export function compute_keep_unique_protection_value(candidates: any, rules: any, expected_groups_by_rule_id: any, enabled: boolean, now: number): any;
 
+export function compute_merged_rules_value(payload: any): any;
+
 export function configure(rules_json: string, config_modes_json: string): void;
 
 export function configure_value(rules: any, config_modes: any): void;
@@ -23,11 +61,27 @@ export function dedupe_hsf_rules_for_export_value(rules: any): any;
 
 export function emit_hsf_rules_for_distributions_value(payload: any): any;
 
+export function emit_hsf_rules_for_filtered_distributions_compact_value(payload: any): any;
+
 export function emit_hsf_rules_for_filtered_distributions_value(payload: any): any;
 
 export function evaluate(items_json: string, options_json: string): string;
 
 export function evaluate_value(items: any, options: any): any;
+
+export function execute_hsf_branch_runtime_value(payload: any): any;
+
+export function execute_hsf_builder_runtime_value(payload: any): any;
+
+export function execute_hsf_combo_runtime_value(payload: any): any;
+
+export function execute_hsf_full_selected_fallback_value(payload: any): any;
+
+export function execute_hsf_intro_plan_value(payload: any): any;
+
+export function execute_hsf_level_combo_value(payload: any): any;
+
+export function expand_auto_flex_rarity_branches_value(config: any, base_rarity_code: number): any;
 
 export function filtered_bounded_compositions_with_offset_i32_fast_flat(caps: Int32Array, total: number, need_now: Int32Array, locked_mask: Uint8Array, locked_base_sum: number, locked_min_at_level: number, optional_mask: Uint8Array, mins: Int32Array, skip_optional_baseline: boolean): Int32Array;
 
@@ -49,6 +103,10 @@ export function find_obsolete_builder_value(rules: any): any;
 
 export function find_obsolete_value(rules: any): any;
 
+export function fingerprint_merged_rules_value(rules: any): any;
+
+export function flatten_rule_batches_with_total_limit_value(base_count: bigint, total_limit: bigint, batches: any): any;
+
 export function intro_assignments_for_combo(count: number, base_slots: number, addition_levels_json: string, forced_base_json: string): string;
 
 export function intro_assignments_for_combo_fast(count: number, base_slots: number, addition_levels: Int32Array, forced_base: Int32Array): string;
@@ -59,15 +117,21 @@ export function keep_unique_count_key_value(artifact: any, count_mode: any): str
 
 export function merge_keep_unique_injected_rules_value(base_rules: any, custom_rules: any, candidate_keep_rules: any): any;
 
+export function normalize_keep_unique_expected_group_domain_value(payload: any): any;
+
 export function permutations_i32(values_json: string): string;
 
 export function permutations_i32_fast(values: Int32Array): string;
 
 export function permutations_i32_fast_flat(values: Int32Array): Int32Array;
 
+export function resolve_auto_rarity_code_for_builder_value(payload: any): number;
+
 export function resolve_auto_rarity_code_value(payload: any): number;
 
 export function resolve_keep_unique_candidate_keep_flags_value(rows: any, rules: any, config_modes: any, ignore_keep_unique_config_indices: any): any;
+
+export function resolve_keep_unique_rules_with_metasets_value(rules: any, metasets: any): any;
 
 export function roll_distributions(dimensions: number, total: number): string;
 
@@ -81,18 +145,45 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly bounded_compositions_i32_fast: (a: number, b: number, c: number) => [number, number, number, number];
     readonly bounded_compositions_i32_fast_flat: (a: number, b: number, c: number) => [number, number];
+    readonly build_final_sell_rules_value: (a: any, b: any) => [number, number, number];
+    readonly build_hsf_branch_collapse_profile_value: (a: any) => [number, number, number];
+    readonly build_hsf_combo_policy_vectors_value: (a: any) => [number, number, number];
+    readonly build_hsf_combo_vectors_value: (a: any) => [number, number, number];
+    readonly build_hsf_factory_combo_rows_value: (a: any) => [number, number, number];
+    readonly build_hsf_full_selected_fallback_plan_value: (a: any) => [number, number, number];
+    readonly build_hsf_intro_assignments_for_level_value: (a: any) => [number, number, number];
+    readonly build_hsf_intro_mode_plan_value: (a: any) => [number, number, number];
+    readonly build_hsf_late_bounded_rows_value: (a: any) => [number, number, number];
+    readonly build_hsf_level_combos_value: (a: any) => [number, number, number];
+    readonly build_hsf_level_contexts_value: (a: any) => [number, number, number];
+    readonly build_hsf_preflight_flags_value: (a: any) => [number, number, number];
+    readonly build_hsf_presence_only_rules_value: (a: any) => [number, number, number];
+    readonly build_hsf_rarity_branches_value: (a: any) => [number, number, number];
+    readonly build_hsf_timeline_caps_value: (a: any) => [number, number, number];
     readonly build_keep_unique_rules_value: (a: any, b: any, c: bigint) => [number, number, number];
+    readonly canonical_rule_key_value: (a: any) => [number, number, number];
+    readonly collect_and_compute_keep_unique_protection_value: (a: any, b: any, c: any, d: any, e: any, f: any, g: number, h: number) => [number, number, number];
+    readonly collect_keep_unique_candidates_value: (a: any, b: any, c: any, d: any) => [number, number, number];
     readonly combinations_i32: (a: number, b: number, c: number) => [number, number, number, number];
     readonly combinations_i32_fast: (a: number, b: number, c: number) => [number, number, number, number];
     readonly combinations_i32_fast_flat: (a: number, b: number, c: number) => [number, number];
     readonly compute_keep_unique_protection_value: (a: any, b: any, c: any, d: number, e: number) => [number, number, number];
+    readonly compute_merged_rules_value: (a: any) => [number, number, number];
     readonly configure: (a: number, b: number, c: number, d: number) => [number, number];
     readonly configure_value: (a: any, b: any) => [number, number];
     readonly dedupe_hsf_rules_for_export_value: (a: any) => [number, number, number];
     readonly emit_hsf_rules_for_distributions_value: (a: any) => [number, number, number];
+    readonly emit_hsf_rules_for_filtered_distributions_compact_value: (a: any) => [number, number, number];
     readonly emit_hsf_rules_for_filtered_distributions_value: (a: any) => [number, number, number];
     readonly evaluate: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly evaluate_value: (a: any, b: any) => [number, number, number];
+    readonly execute_hsf_branch_runtime_value: (a: any) => [number, number, number];
+    readonly execute_hsf_builder_runtime_value: (a: any) => [number, number, number];
+    readonly execute_hsf_combo_runtime_value: (a: any) => [number, number, number];
+    readonly execute_hsf_full_selected_fallback_value: (a: any) => [number, number, number];
+    readonly execute_hsf_intro_plan_value: (a: any) => [number, number, number];
+    readonly execute_hsf_level_combo_value: (a: any) => [number, number, number];
+    readonly expand_auto_flex_rarity_branches_value: (a: any, b: number) => [number, number, number];
     readonly filtered_bounded_compositions_with_offset_i32_fast_flat: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number) => [number, number];
     readonly filtered_roll_distributions: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number) => [number, number, number, number];
     readonly filtered_roll_distributions_fast: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number) => [number, number, number, number];
@@ -103,16 +194,21 @@ export interface InitOutput {
     readonly find_obsolete: (a: number, b: number) => [number, number, number, number];
     readonly find_obsolete_builder_value: (a: any) => [number, number, number];
     readonly find_obsolete_value: (a: any) => [number, number, number];
+    readonly fingerprint_merged_rules_value: (a: any) => [number, number, number];
+    readonly flatten_rule_batches_with_total_limit_value: (a: bigint, b: bigint, c: any) => [number, number, number];
     readonly intro_assignments_for_combo: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
     readonly intro_assignments_for_combo_fast: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
     readonly intro_assignments_for_combo_fast_flat: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly keep_unique_count_key_value: (a: any, b: any) => [number, number, number, number];
     readonly merge_keep_unique_injected_rules_value: (a: any, b: any, c: any) => [number, number, number];
+    readonly normalize_keep_unique_expected_group_domain_value: (a: any) => [number, number, number];
     readonly permutations_i32: (a: number, b: number) => [number, number, number, number];
     readonly permutations_i32_fast: (a: number, b: number) => [number, number, number, number];
     readonly permutations_i32_fast_flat: (a: number, b: number) => [number, number];
+    readonly resolve_auto_rarity_code_for_builder_value: (a: any) => [number, number, number];
     readonly resolve_auto_rarity_code_value: (a: any) => [number, number, number];
     readonly resolve_keep_unique_candidate_keep_flags_value: (a: any, b: any, c: any, d: any) => [number, number, number];
+    readonly resolve_keep_unique_rules_with_metasets_value: (a: any, b: any) => [number, number, number];
     readonly roll_distributions: (a: number, b: number) => [number, number, number, number];
     readonly roll_distributions_flat: (a: number, b: number) => [number, number];
     readonly version: () => [number, number];

@@ -41,6 +41,187 @@ export function bounded_compositions_i32_fast_flat(caps, total) {
 }
 
 /**
+ * @param {any} remainder
+ * @param {any} all_known_set_ids
+ * @returns {any}
+ */
+export function build_final_sell_rules_value(remainder, all_known_set_ids) {
+    const ret = wasm.build_final_sell_rules_value(remainder, all_known_set_ids);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function build_hsf_branch_collapse_profile_value(payload) {
+    const ret = wasm.build_hsf_branch_collapse_profile_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function build_hsf_combo_policy_vectors_value(payload) {
+    const ret = wasm.build_hsf_combo_policy_vectors_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function build_hsf_combo_vectors_value(payload) {
+    const ret = wasm.build_hsf_combo_vectors_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function build_hsf_factory_combo_rows_value(payload) {
+    const ret = wasm.build_hsf_factory_combo_rows_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function build_hsf_full_selected_fallback_plan_value(payload) {
+    const ret = wasm.build_hsf_full_selected_fallback_plan_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function build_hsf_intro_assignments_for_level_value(payload) {
+    const ret = wasm.build_hsf_intro_assignments_for_level_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function build_hsf_intro_mode_plan_value(payload) {
+    const ret = wasm.build_hsf_intro_mode_plan_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function build_hsf_late_bounded_rows_value(payload) {
+    const ret = wasm.build_hsf_late_bounded_rows_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function build_hsf_level_combos_value(payload) {
+    const ret = wasm.build_hsf_level_combos_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function build_hsf_level_contexts_value(payload) {
+    const ret = wasm.build_hsf_level_contexts_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function build_hsf_preflight_flags_value(payload) {
+    const ret = wasm.build_hsf_preflight_flags_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function build_hsf_presence_only_rules_value(payload) {
+    const ret = wasm.build_hsf_presence_only_rules_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function build_hsf_rarity_branches_value(payload) {
+    const ret = wasm.build_hsf_rarity_branches_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function build_hsf_timeline_caps_value(payload) {
+    const ret = wasm.build_hsf_timeline_caps_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * @param {any} rules
  * @param {any} detection
  * @param {bigint} config_id_base
@@ -48,6 +229,52 @@ export function bounded_compositions_i32_fast_flat(caps, total) {
  */
 export function build_keep_unique_rules_value(rules, detection, config_id_base) {
     const ret = wasm.build_keep_unique_rules_value(rules, detection, config_id_base);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} rule
+ * @returns {any}
+ */
+export function canonical_rule_key_value(rule) {
+    const ret = wasm.canonical_rule_key_value(rule);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} rows
+ * @param {any} rules
+ * @param {any} config_modes
+ * @param {any} ignore_keep_unique_config_indices
+ * @param {any} keep_unique_rules
+ * @param {any} expected_groups_payload
+ * @param {boolean} enabled
+ * @param {number} now
+ * @returns {any}
+ */
+export function collect_and_compute_keep_unique_protection_value(rows, rules, config_modes, ignore_keep_unique_config_indices, keep_unique_rules, expected_groups_payload, enabled, now) {
+    const ret = wasm.collect_and_compute_keep_unique_protection_value(rows, rules, config_modes, ignore_keep_unique_config_indices, keep_unique_rules, expected_groups_payload, enabled, now);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} rows
+ * @param {any} rules
+ * @param {any} config_modes
+ * @param {any} ignore_keep_unique_config_indices
+ * @returns {any}
+ */
+export function collect_keep_unique_candidates_value(rows, rules, config_modes, ignore_keep_unique_config_indices) {
+    const ret = wasm.collect_keep_unique_candidates_value(rows, rules, config_modes, ignore_keep_unique_config_indices);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -137,6 +364,18 @@ export function compute_keep_unique_protection_value(candidates, rules, expected
 }
 
 /**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function compute_merged_rules_value(payload) {
+    const ret = wasm.compute_merged_rules_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * @param {string} rules_json
  * @param {string} config_modes_json
  */
@@ -190,6 +429,18 @@ export function emit_hsf_rules_for_distributions_value(payload) {
  * @param {any} payload
  * @returns {any}
  */
+export function emit_hsf_rules_for_filtered_distributions_compact_value(payload) {
+    const ret = wasm.emit_hsf_rules_for_filtered_distributions_compact_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
 export function emit_hsf_rules_for_filtered_distributions_value(payload) {
     const ret = wasm.emit_hsf_rules_for_filtered_distributions_value(payload);
     if (ret[2]) {
@@ -233,6 +484,91 @@ export function evaluate(items_json, options_json) {
  */
 export function evaluate_value(items, options) {
     const ret = wasm.evaluate_value(items, options);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function execute_hsf_branch_runtime_value(payload) {
+    const ret = wasm.execute_hsf_branch_runtime_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function execute_hsf_builder_runtime_value(payload) {
+    const ret = wasm.execute_hsf_builder_runtime_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function execute_hsf_combo_runtime_value(payload) {
+    const ret = wasm.execute_hsf_combo_runtime_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function execute_hsf_full_selected_fallback_value(payload) {
+    const ret = wasm.execute_hsf_full_selected_fallback_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function execute_hsf_intro_plan_value(payload) {
+    const ret = wasm.execute_hsf_intro_plan_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function execute_hsf_level_combo_value(payload) {
+    const ret = wasm.execute_hsf_level_combo_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} config
+ * @param {number} base_rarity_code
+ * @returns {any}
+ */
+export function expand_auto_flex_rarity_branches_value(config, base_rarity_code) {
+    const ret = wasm.expand_auto_flex_rarity_branches_value(config, base_rarity_code);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -508,6 +844,32 @@ export function find_obsolete_value(rules) {
 }
 
 /**
+ * @param {any} rules
+ * @returns {any}
+ */
+export function fingerprint_merged_rules_value(rules) {
+    const ret = wasm.fingerprint_merged_rules_value(rules);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {bigint} base_count
+ * @param {bigint} total_limit
+ * @param {any} batches
+ * @returns {any}
+ */
+export function flatten_rule_batches_with_total_limit_value(base_count, total_limit, batches) {
+    const ret = wasm.flatten_rule_batches_with_total_limit_value(base_count, total_limit, batches);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * @param {number} count
  * @param {number} base_slots
  * @param {string} addition_levels_json
@@ -624,6 +986,18 @@ export function merge_keep_unique_injected_rules_value(base_rules, custom_rules,
 }
 
 /**
+ * @param {any} payload
+ * @returns {any}
+ */
+export function normalize_keep_unique_expected_group_domain_value(payload) {
+    const ret = wasm.normalize_keep_unique_expected_group_domain_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * @param {string} values_json
  * @returns {string}
  */
@@ -690,6 +1064,18 @@ export function permutations_i32_fast_flat(values) {
  * @param {any} payload
  * @returns {number}
  */
+export function resolve_auto_rarity_code_for_builder_value(payload) {
+    const ret = wasm.resolve_auto_rarity_code_for_builder_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0];
+}
+
+/**
+ * @param {any} payload
+ * @returns {number}
+ */
 export function resolve_auto_rarity_code_value(payload) {
     const ret = wasm.resolve_auto_rarity_code_value(payload);
     if (ret[2]) {
@@ -707,6 +1093,19 @@ export function resolve_auto_rarity_code_value(payload) {
  */
 export function resolve_keep_unique_candidate_keep_flags_value(rows, rules, config_modes, ignore_keep_unique_config_indices) {
     const ret = wasm.resolve_keep_unique_candidate_keep_flags_value(rows, rules, config_modes, ignore_keep_unique_config_indices);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} rules
+ * @param {any} metasets
+ * @returns {any}
+ */
+export function resolve_keep_unique_rules_with_metasets_value(rules, metasets) {
+    const ret = wasm.resolve_keep_unique_rules_with_metasets_value(rules, metasets);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
