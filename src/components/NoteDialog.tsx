@@ -1488,7 +1488,7 @@ function RecipeChipBlock({ node }: RecipeChipBlockProps): JSX.Element | null {
         >
             <RecipeChip
               index={id - 1}
-              cfg={recipe}
+              recipe={recipe}
             gearSetCatalogVersion={gearSetCatalogVersion}
             onDelete={noop}
             onDuplicate={noop}

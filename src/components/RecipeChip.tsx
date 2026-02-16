@@ -120,7 +120,7 @@ function deriveSeparatorDividerDecoration(rawName: string | undefined, baseColor
 
 interface RecipeChipProps {
   index: number
-  cfg: BuilderRecipe
+  recipe: BuilderRecipe
   exportModeOverride?: SellfileExportMode
   gearSetCatalogVersion?: number
   visualVariant?: 'interactive' | 'static'
@@ -157,7 +157,7 @@ interface RecipeChipProps {
 
 function RecipeChip({
   index,
-  cfg,
+  recipe,
   exportModeOverride,
   gearSetCatalogVersion = 0,
   dragEnabled = false,
@@ -198,21 +198,21 @@ function RecipeChip({
   // Keep disabled chip dimming aligned with other disabled UI elements.
   const disabledOpacity = resolveDisabledOpacity(theme)
   const nameDecoration = useMemo(
-    () => parseRecipeNameDirectives(cfg.name, primaryColor),
-    [cfg.name, primaryColor],
+    () => parseRecipeNameDirectives(recipe.name, primaryColor),
+    [recipe.name, primaryColor],
   )
   // Dev builds expose extra clipboard utilities via the chip context menu.
   const isDev: boolean = isDevBuild
   // Allow callers to override the export mode for recipe overrides previews.
-  const exportMode: SellfileExportMode = exportModeOverride ?? cfg.exportMode
+  const exportMode: SellfileExportMode = exportModeOverride ?? recipe.exportMode
   const isSeparator = exportMode === 'separator'
   const isHidden = exportMode === 'disabled'
   const separatorDecoration = useMemo(
-    () => deriveSeparatorDividerDecoration(cfg.name, primaryColor),
-    [cfg.name, primaryColor],
+    () => deriveSeparatorDividerDecoration(recipe.name, primaryColor),
+    [recipe.name, primaryColor],
   )
   // Build compact summary without redundant labels; act is rendered separately
-  const actText = cfg.keep ? t('keepValueKeep') : t('keepValueSell')
+  const actText = recipe.keep ? t('keepValueKeep') : t('keepValueSell')
   const tooltipSuppressed = hideTooltip
   const tooltipListenerProps = tooltipSuppressed
     ? {
@@ -223,7 +223,7 @@ function RecipeChip({
     : undefined
   const tooltipForceClosedProps = tooltipSuppressed ? { open: false as const } : undefined
   const restSummary = useMemo(
-    () => summaryParts(cfg, metasets, {
+    () => summaryParts(recipe, metasets, {
       substatColors,
       useStatButtonColors: statButtonBorders,
       showFactionIcons,
@@ -231,13 +231,13 @@ function RecipeChip({
       showSlotIcons,
       t,
       lang,
-      cfgIndex: index,
+      recipeIndex: index,
       tooltipsDisabled: tooltipSuppressed,
       catalogVersion: gearSetCatalogVersion,
     }),
-    [cfg, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons, t, lang, index, tooltipSuppressed, gearSetCatalogVersion],
+    [recipe, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons, t, lang, index, tooltipSuppressed, gearSetCatalogVersion],
   )
-  const keepColor = cfg.keep ? 'success.main' : 'error.main'
+  const keepColor = recipe.keep ? 'success.main' : 'error.main'
   const isDisabled = isHidden
   // Dim the summary text when recipes export with Use = false.
   const summaryOpacity = isDisabled ? disabledOpacity : 1
@@ -618,7 +618,7 @@ function RecipeChip({
 }
 
 function areRecipeChipPropsEqual(prev: Readonly<RecipeChipProps>, next: Readonly<RecipeChipProps>): boolean {
-  return prev.cfg === next.cfg
+  return prev.recipe === next.recipe
     && prev.exportModeOverride === next.exportModeOverride
     && prev.index === next.index
     && prev.gearSetCatalogVersion === next.gearSetCatalogVersion
@@ -647,7 +647,7 @@ const withNbsp = (value: string | undefined | null): string => {
 }
 
 function summaryParts(
-  cfg: BuilderRecipe,
+  recipe: BuilderRecipe,
   metasets: Metaset[],
   opts: {
     substatColors: Record<number, { fg: string; bg: string }>
@@ -657,14 +657,14 @@ function summaryParts(
     showSlotIcons: boolean
     t?: (key: string, params?: Record<string, string | number>) => string
     lang: string
-    cfgIndex?: number
+    recipeIndex?: number
     tooltipsDisabled?: boolean
     catalogVersion?: number
   }
 ): JSX.Element | null {
   const parts: Array<JSX.Element> = []
   void opts.catalogVersion
-  const milestoneThresholdsActive = isMilestoneThresholdsActive(cfg)
+  const milestoneThresholdsActive = isMilestoneThresholdsActive(recipe)
   const addText = (text: string) => { if (text) parts.push(<Box key={`t-${parts.length}`} component="span">{text}</Box>) }
   const addNode = (node: JSX.Element) => parts.push(<Box key={`n-${parts.length}`} component="span">{node}</Box>)
 
@@ -693,8 +693,8 @@ function summaryParts(
       return String(n)
     }
 
-    const rank = chipRankLabel(cfg.rankCode)
-    const effectiveRarityCode = (cfg.rarityMode === 'auto') ? resolveAutoRarityCode(cfg) : cfg.rarityCode
+    const rank = chipRankLabel(recipe.rankCode)
+    const effectiveRarityCode = (recipe.rarityMode === 'auto') ? resolveAutoRarityCode(recipe) : recipe.rarityCode
     // Localized rarity label using existing rarity keys
     const chipRarityLabel = (code?: number): string => {
       const n = Number(code ?? 0)
@@ -724,9 +724,9 @@ function summaryParts(
     // When Rarity=Auto and Keep Mode is Late, the builder expands into
     // multiple rarity branches (≥ Epic base + ≥ Legendary at 4/8/12).
     // Add a subtle indicator after the rarity text to reflect this.
-    const isLate = ((cfg.earlyKeepMode ?? 'early') === 'late')
+    const isLate = ((recipe.earlyKeepMode ?? 'early') === 'late')
     // Multi-branch when Late+Auto and base is below Legendary: show +
-    const multiRarity = (cfg.rarityMode === 'auto') && isLate && (effectiveRarityCode !== 16)
+    const multiRarity = (recipe.rarityMode === 'auto') && isLate && (effectiveRarityCode !== 16)
     if (multiRarity) rarity = `${rarity}${NBSP}+`
     const combined = [rank, rarity].filter(Boolean).join(NBSP)
     if (combined) addText(combined)
@@ -736,14 +736,14 @@ function summaryParts(
   // 🌅 for Early, 🌙 for Late. Hide the section entirely when Milestone Thresholds
   // cannot go Late so the summary stays focused on active behavior.
   if (milestoneThresholdsActive) {
-    const mode = (cfg.earlyKeepMode ?? 'early')
+    const mode = (recipe.earlyKeepMode ?? 'early')
     addText(mode === 'late' ? '🌙' : '🌅')
   }
 
   // Faction
-  if (cfg.factionCode && cfg.factionCode !== 0) {
+  if (recipe.factionCode && recipe.factionCode !== 0) {
     const tr = opts.t
-    const rawLabel = tr ? tr(factionI18nKey(cfg.factionCode)) : factionCodeToName(cfg.factionCode)
+    const rawLabel = tr ? tr(factionI18nKey(recipe.factionCode)) : factionCodeToName(recipe.factionCode)
     const label = withNbsp(rawLabel)
     if (opts.showFactionIcons) {
       addNode(
@@ -756,7 +756,7 @@ function summaryParts(
               verticalAlign: `${RECIPE_CHIP_FACTION_ICON_OFFSET_EM}em`,
             }}
           >
-            <FactionIcon faction={cfg.factionCode} size={18} sx={{ mr: 0.25 }} />
+            <FactionIcon faction={recipe.factionCode} size={18} sx={{ mr: 0.25 }} />
           </Box>
         </MarkdownTooltip>
       )
@@ -768,7 +768,7 @@ function summaryParts(
   // Slots (artifact types) — render icons used by the Builder for consistency
   // Why: visual parity with Builder; icons are easier to scan than text here.
   {
-    const types = (cfg as unknown as { artifactTypes?: number[] }).artifactTypes
+    const types = (recipe as unknown as { artifactTypes?: number[] }).artifactTypes
     if (types && types.length > 0) {
       const sorted = [...types].sort(compareArtifactTypes)
       if (opts.showSlotIcons) {
@@ -808,7 +808,7 @@ function summaryParts(
 
   // Main stats (colored if enabled) — follows Slots
   {
-    const v = ((cfg as unknown as { mainStatsV?: number[] }).mainStatsV ?? []).slice()
+    const v = ((recipe as unknown as { mainStatsV?: number[] }).mainStatsV ?? []).slice()
     // Preferred stat ordering used across the app (same as substat chips/table)
     v.sort(compareVariants)
     if (v.length > 0) {
@@ -827,11 +827,11 @@ function summaryParts(
 
   // Substats (colored if enabled)
   {
-    const sv = ((cfg as unknown as { substatsV?: number[] }).substatsV ?? []).slice()
+    const sv = ((recipe as unknown as { substatsV?: number[] }).substatsV ?? []).slice()
     // Sort substats by the same preferred order
     sv.sort(compareVariants)
-    const fv = (cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV ?? []
-    const bounds = (cfg as unknown as { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> }).substatRollBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> | undefined
+    const fv = (recipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV ?? []
+    const bounds = (recipe as unknown as { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> }).substatRollBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> | undefined
     if (sv.length > 0) {
       const fixedSet = new Set<number>(fv as number[])
       let nodes: JSX.Element[]
@@ -847,7 +847,7 @@ function summaryParts(
         const max = (b && typeof b.max === 'number') ? Math.max(0, Math.min(5, Math.floor(b.max))) : undefined
         const showCap = max !== undefined
         const showMin = !showCap && (min !== undefined)
-        const rawTargetEntry = (cfg as BuilderRecipe).substatRollTargetsV?.[vk]
+        const rawTargetEntry = (recipe as BuilderRecipe).substatRollTargetsV?.[vk]
         let targetsEntry = null
         try {
           targetsEntry = normalizeLooseRollTargetEntry(rawTargetEntry)
@@ -964,15 +964,15 @@ function summaryParts(
   }
 
   // Required Substats count (show only when > 0)
-  if ((cfg.minCount ?? 0) > 0) {
+  if ((recipe.minCount ?? 0) > 0) {
     const base = opts.t ? opts.t('chipReq') : 'Req'
-    const label = cfg.autoSubstatFlex ? `${base}★` : base
-    addText(`${label}:${NBSP}${cfg.minCount}`)
+    const label = recipe.autoSubstatFlex ? `${base}★` : base
+    addText(`${label}:${NBSP}${recipe.minCount}`)
   }
 
   // Min Required Rolls (aggregate across selected; show only when > 0)
-  const lockedMin = clampAggregateRollDisplayValue(cfg.lockedMinRequiredRolls ?? 0)
-  const manualAggregateMin = clampAggregateRollDisplayValue(cfg.minRequiredRolls ?? 0)
+  const lockedMin = clampAggregateRollDisplayValue(recipe.lockedMinRequiredRolls ?? 0)
+  const manualAggregateMin = clampAggregateRollDisplayValue(recipe.minRequiredRolls ?? 0)
   const hasManualAggregateMin = manualAggregateMin > 0
   const hasLockedMin = lockedMin > 0
 
@@ -982,7 +982,7 @@ function summaryParts(
     addText(`Σr${NBSP}≥${NBSP}${lockedSegment}${totalSegment}`)
   } else if (hasManualAggregateMin) {
     // Legacy locked scope still appends a lock so older recipes remain understandable.
-    const lockedScope = isLockedAggregateScopeActive(cfg)
+    const lockedScope = isLockedAggregateScopeActive(recipe)
     addText(`Σr${NBSP}≥${NBSP}${manualAggregateMin}${lockedScope ? `${NBSP}🔒` : ''}`)
   } else if (hasLockedMin) {
     addText(`Σr${NBSP}≥${NBSP}${lockedMin}🔒`)
@@ -991,12 +991,12 @@ function summaryParts(
   // Sets (icons when enabled) — render metasets as text and artifacts with icons respecting the preference toggle
   {
     // Split include/exclude entries so we can render exclusions distinctly.
-    const setSelection = splitArtifactSetSelections(cfg.artifactSets)
+    const setSelection = splitArtifactSetSelections(recipe.artifactSets)
     // Keep included sets sorted for stable chip output.
     const setIdsSorted = setSelection.included.slice().sort((a, b) => Number(a) - Number(b))
     // Keep excluded sets sorted so the strike-through list is stable.
     const excludedSetIds = setSelection.excluded.slice().sort((a, b) => Number(a) - Number(b))
-    const metaEntries = (cfg.artifactMetaSets ?? []).map((metaId, idx) => {
+    const metaEntries = (recipe.artifactMetaSets ?? []).map((metaId, idx) => {
       const meta = metasets.find(m => m.id === metaId)
       const iconId = (meta?.iconId ?? DEFAULT_METASET_ICON_ID) as MetasetIconId
       return { key: `${metaId}-${idx}`, name: meta?.name || metaId, iconId }
