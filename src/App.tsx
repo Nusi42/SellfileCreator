@@ -84,7 +84,7 @@ import {
   RULE_SOURCE_FINAL_SELL,
   RULE_SOURCE_HSF,
   RULE_SOURCE_SAFEGUARDS,
-  type HsfRuleWithCfg,
+  type HsfRuleWithCfg as HsfRuleWithRecipe,
 } from './lib/merge'
 import { cloneRuleWithRecipeIndex, getRuleRecipeIndex, resolveMatchRecipeName } from './lib/ruleRecipeIndex'
 import {
@@ -337,9 +337,9 @@ const createGearDbFileFromBytes = (name: string, bytes: Uint8Array, contentType?
   }
 }
 
-function splitMergedRules(rules: readonly HsfRuleWithCfg[]): { baseRules: HsfRuleWithCfg[]; finalSellRules: HsfRuleWithCfg[] } {
-  const baseRules: HsfRuleWithCfg[] = []
-  const finalSellRules: HsfRuleWithCfg[] = []
+function splitMergedRules(rules: readonly HsfRuleWithRecipe[]): { baseRules: HsfRuleWithRecipe[]; finalSellRules: HsfRuleWithRecipe[] } {
+  const baseRules: HsfRuleWithRecipe[] = []
+  const finalSellRules: HsfRuleWithRecipe[] = []
   for (const rule of rules) {
     // Keep override sources belong with base rules so downstream logic can reuse them.
     if (
@@ -355,13 +355,13 @@ function splitMergedRules(rules: readonly HsfRuleWithCfg[]): { baseRules: HsfRul
 }
 
 type RecipeRulesStateSnapshot = {
-  baseRules: HsfRuleWithCfg[]
-  finalSellRules: HsfRuleWithCfg[]
-  rulesByRecipe: Map<number, HsfRuleWithCfg[]>
+  baseRules: HsfRuleWithRecipe[]
+  finalSellRules: HsfRuleWithRecipe[]
+  rulesByRecipe: Map<number, HsfRuleWithRecipe[]>
   countsByRecipe: Map<number, number>
   keys: string[]
   substatTargetsKey: string
-  mergedRules: HsfRuleWithCfg[]
+  mergedRules: HsfRuleWithRecipe[]
   truncatedRecipeIndices: number[]
   totalLimitHit: boolean
   excludedByTotalLimitIndices: number[]
@@ -385,8 +385,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     safeguardRules,
     safeguardsEnabled,
   } = useAppState()
-  const customCfgsRef = useRef(customRecipes)
-  useEffect(() => { customCfgsRef.current = customRecipes }, [customRecipes])
+  const customRecipesRef = useRef(customRecipes)
+  useEffect(() => { customRecipesRef.current = customRecipes }, [customRecipes])
   const {
     setCustomRecipes,
     setSelectedRecipeIdx: setSelectedRecipeIdxRaw,
@@ -432,11 +432,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const substatTargetsOverridesActive = recipeOverridesSubstatTargetsResolution.overridesActive
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const ruleRecipes = useMemo(() => recipesForRuleBuild(recipeOverridesRecipesForRules), [recipeOverridesRecipesForRules])
-  const recipeNames = useMemo(() => customRecipes.map((cfg) => (typeof cfg?.name === 'string' ? cfg.name : '')), [customRecipes])
+  const recipeNames = useMemo(() => customRecipes.map((recipe) => (typeof recipe?.name === 'string' ? recipe.name : '')), [customRecipes])
   // Normalize tags once so every filter path uses the same tag tokens.
-  const normalizeRecipeTags = useCallback((cfg: BuilderRecipe | null | undefined): string[] => {
+  const normalizeRecipeTags = useCallback((recipe: BuilderRecipe | null | undefined): string[] => {
     // Coerce tags into strings so recipe filters can consume them safely.
-    const rawTags = Array.isArray(cfg?.tags) ? cfg.tags : []
+    const rawTags = Array.isArray(recipe?.tags) ? recipe.tags : []
     // Trim and drop empty values to keep filter matching predictable.
     const normalized: string[] = []
     for (const tag of rawTags) {
@@ -447,7 +447,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [])
   // Keep tags in a parallel list so recipe filters can match either name or tag tokens.
   const recipeTags = useMemo(
-    () => customRecipes.map((cfg) => normalizeRecipeTags(cfg)),
+    () => customRecipes.map((recipe) => normalizeRecipeTags(recipe)),
     [customRecipes, normalizeRecipeTags],
   )
   const recipeModes = useMemo(() => recipeOverridesExportModes.modes, [recipeOverridesExportModes])
@@ -690,9 +690,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   )
   const safeguardScanAppliedRef = useRef<string | null>(null)
   const keepOverrideAppliedStateRef = useRef<{
-    baseRules: readonly HsfRuleWithCfg[] | null
+    baseRules: readonly HsfRuleWithRecipe[] | null
     rulesByRecipe: RecipeRulesStateSnapshot['rulesByRecipe'] | null
-    finalSellRules: readonly HsfRuleWithCfg[] | null
+    finalSellRules: readonly HsfRuleWithRecipe[] | null
   }>({
     baseRules: null,
     rulesByRecipe: null,
@@ -820,9 +820,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Usage counts for sets and metasets across current recipes
   const setUsageCounts = useMemo(() => {
     const counts: Record<number, number> = {}
-    for (const cfg of customRecipes) {
+    for (const recipe of customRecipes) {
       // Only count explicit inclusions so exclusions do not inflate usage stats.
-      const sets = splitArtifactSetSelections(cfg.artifactSets).included
+      const sets = splitArtifactSetSelections(recipe.artifactSets).included
       const seen = new Set<number>()
       for (const sid of sets) {
         if (seen.has(sid)) continue
@@ -849,8 +849,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [safeguardRules])
   const metasetUsageCounts = useMemo(() => {
     const counts: Record<string, number> = {}
-    for (const cfg of customRecipes) {
-      const metas = cfg.artifactMetaSets ?? []
+    for (const recipe of customRecipes) {
+      const metas = recipe.artifactMetaSets ?? []
       const seen = new Set<string>()
       for (const mid of metas) {
         if (seen.has(mid)) continue
@@ -976,7 +976,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Prefer live snapshots whenever deferred previews lag so fingerprints match the payload we send to the worker.
     const previewRecipesStale = (
       ruleRecipesForPreview.length !== ruleRecipes.length
-      || ruleRecipesForPreview.some((cfg, idx) => cfg !== ruleRecipes[idx])
+      || ruleRecipesForPreview.some((recipe, idx) => recipe !== ruleRecipes[idx])
     )
     const recipesForBuild = previewRecipesStale ? ruleRecipes : ruleRecipesForPreview
     // Align recipe-name snapshots with the recipe payload so match chips stay in sync.
@@ -1023,7 +1023,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       : (substatTargetsForPreview ?? effectiveSubstatTargets)
     // Use the build-aligned snapshot for key comparisons so reorders are detected even if deferred previews lag.
     const nextSubstatTargetsKey = fingerprintSubstatTargets(substatTargetsForBuild)
-    const nextRecipeKeys = recipesForBuild.map((cfg) => fingerprintRecipeForRules(cfg, nextSubstatTargetsKey))
+    const nextRecipeKeys = recipesForBuild.map((recipe) => fingerprintRecipeForRules(recipe, nextSubstatTargetsKey))
     const safeguardStructureSig = fingerprintSafeguardRuleList(resolvedSafeguardRules)
     const nextFingerprint = buildRulesFingerprint({
       substatTargetsKey: nextSubstatTargetsKey,
@@ -1113,17 +1113,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const refreshMatch = (match: TesterPreviewMatch | null): TesterPreviewMatch | null => {
         // Recompute recipe names, while safeguard matches use the live rule label map.
         if (!match) return null
-        const nextCfgName = resolveRecipeName(match.recipeIdx)
+        const nextRecipeName = resolveRecipeName(match.recipeIdx)
         const safeguardLabel = match.ruleSource === RULE_SOURCE_SAFEGUARDS
           ? resolveSafeguardLabel(match.ruleIndex)
           : null
-        const resolvedCfgName = match.ruleSource === RULE_SOURCE_SAFEGUARDS
+        const resolvedRecipeName = match.ruleSource === RULE_SOURCE_SAFEGUARDS
           ? (safeguardLabel ?? match.recipeName ?? null)
-          : nextCfgName
+          : nextRecipeName
         const resolvedRuleLabel = match.ruleSource === RULE_SOURCE_SAFEGUARDS
           ? (safeguardLabel ?? match.ruleLabel ?? null)
           : match.ruleLabel
-        return { ...match, recipeName: resolvedCfgName, ruleLabel: resolvedRuleLabel }
+        return { ...match, recipeName: resolvedRecipeName, ruleLabel: resolvedRuleLabel }
       }
       const updatedRows = prevMatches.map((row) => ({
         ...row,
@@ -1158,16 +1158,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Fast path: reorder-only changes can remap cached rules without waking the worker.
       const inverse = new Map<number, number>()
       mapping.forEach((prevIdx, newIdx) => { inverse.set(prevIdx, newIdx) })
-      const remapRulesForIndex = (rules: readonly HsfRuleWithCfg[], newIdx: number): HsfRuleWithCfg[] => (
+      const remapRulesForIndex = (rules: readonly HsfRuleWithRecipe[], newIdx: number): HsfRuleWithRecipe[] => (
         rules.map((rule) => cloneRuleWithRecipeIndex(rule, newIdx))
       )
-      const newRulesByRecipe = new Map<number, HsfRuleWithCfg[]>()
+      const newRulesByRecipe = new Map<number, HsfRuleWithRecipe[]>()
       const newCountsByRecipe = new Map<number, number>()
       const newTruncated: number[] = []
       const newExcluded: number[] = []
       const prevTruncated = new Set(prevState.truncatedRecipeIndices)
       const prevExcluded = new Set(prevState.excludedByTotalLimitIndices)
-      const customSegments: HsfRuleWithCfg[][] = []
+      const customSegments: HsfRuleWithRecipe[][] = []
       for (let newIdx = 0; newIdx < mapping.length; newIdx += 1) {
         const prevIdx = mapping[newIdx]!
         const prevRules = prevState.rulesByRecipe.get(prevIdx) ?? []
@@ -1325,7 +1325,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
       const toPreviewMatch = (
         result: TesterMatchWorkerItemResult['firstMatch'],
-        rules: readonly HsfRuleWithCfg[],
+        rules: readonly HsfRuleWithRecipe[],
       ): TesterPreviewMatch | null => {
         if (!result) return null
         const rule = rules[result.ruleIndex]
@@ -1335,14 +1335,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const safeguardLabel = rule?.__source === RULE_SOURCE_SAFEGUARDS
           ? resolveSafeguardRuleLabel(rule)
           : null
-        const effectiveCfgName = recipeName && recipeName.length > 0
+        const effectiveRecipeName = recipeName && recipeName.length > 0
           ? recipeName
           : safeguardLabel
         return {
           ruleIndex: result.ruleIndex,
           keep: result.keep,
           recipeIdx,
-          recipeName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
+          recipeName: effectiveRecipeName && effectiveRecipeName.length > 0 ? effectiveRecipeName : null,
           ruleLabel: safeguardLabel ?? null,
           ruleSource: rule?.__source ?? null,
         }
@@ -1693,7 +1693,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const visibleRecipeIndicesRef = useRef<ReadonlySet<number> | null>(null)
   const {
     selectedRecipeIndices,
-    setSelectedCfgIndices,
+    setSelectedCfgIndices: setSelectedRecipeIndices,
     multiselectActive,
     selectionAnchor,
     prepareDragSelection,
@@ -1750,7 +1750,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setSelectionAnchor(normalized)
       if (options?.preserveSelection) return
       if (!multiselectActive || options?.forceSync === true || normalized === null) {
-        setSelectedCfgIndices(normalized === null ? [] : [normalized])
+        setSelectedRecipeIndices(normalized === null ? [] : [normalized])
       }
     }
     if (options?.suppressDraft) {
@@ -1758,7 +1758,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } else {
       applySelectionChange()
     }
-  }, [autoApplyNowRef, multiselectActive, selectedRecipeIdx, runWithSelectionDraftSuppressed, setSelectedRecipeIdxRaw, setSelectedCfgIndices, setSelectionAnchor])
+  }, [autoApplyNowRef, multiselectActive, selectedRecipeIdx, runWithSelectionDraftSuppressed, setSelectedRecipeIdxRaw, setSelectedRecipeIndices, setSelectionAnchor])
   // Track final sell state for history session aggregation outside the render path.
   const fsrRef = React.useRef(finalSellRemainder)
   // Mirror the latest final-sell remainder into a ref so history helpers can read it without forcing extra renders.
@@ -1820,7 +1820,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSafeguardsEnabled,
     setHsfcNote,
     setSelectedRecipeIdx: setSelectedRecipeIdxRaw,
-    setSelectedCfgIndices,
+    setSelectedCfgIndices: setSelectedRecipeIndices,
     setSelectionAnchor,
     setBuilder,
     setBuilderNameDraft: () => {},
@@ -1832,20 +1832,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   describeNextChangeRef.current = describeNextChange
   const applyRecipeOverridesToRecipes = useCallback((instructions: RecipeOverridesInstructions) => {
     // Compute the updated recipes once so list + builder sync with one payload.
-    const prev = customCfgsRef.current
+    const prev = customRecipesRef.current
     // Apply the runtime recipe overrides instructions to the stored recipes.
     const next = applyRecipeOverrides(prev, instructions)
     // Track which recipes changed and how many export modes flipped.
     const changedIndices: number[] = []
     let enableCount = 0
     let disableCount = 0
-    next.forEach((cfg, idx) => {
-      const prevCfg = prev[idx]
-      if (!prevCfg || cfg === prevCfg) return
+    next.forEach((recipe, idx) => {
+      const previousRecipe = prev[idx]
+      if (!previousRecipe || recipe === previousRecipe) return
       changedIndices.push(idx)
-      if (prevCfg.exportMode !== cfg.exportMode) {
-        if (cfg.exportMode === 'active') enableCount += 1
-        if (cfg.exportMode === 'disabled') disableCount += 1
+      if (previousRecipe.exportMode !== recipe.exportMode) {
+        if (recipe.exportMode === 'active') enableCount += 1
+        if (recipe.exportMode === 'disabled') disableCount += 1
       }
     })
     // Skip state updates when nothing changed.
@@ -1866,8 +1866,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Record the recipe overrides apply in history for undo/redo.
     const labels = changedIndices
       .map((idx) => {
-        const cfg = next[idx]
-        return cfg ? snapshotRecipeLabel(idx, cfg) : null
+        const recipe = next[idx]
+        return recipe ? snapshotRecipeLabel(idx, recipe) : null
       })
       .filter((label): label is ReturnType<typeof snapshotRecipeLabel> => Boolean(label))
     const descriptor = createRecipeOverridesAppliedDescriptor({
@@ -3025,7 +3025,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Rebuild the merge list with keep-override rules at the front so matches see them.
     setRecipeRulesState((prev) => {
       // Flatten customs once; helpers handle dedupe + injection.
-      const flattenedCustoms: HsfRuleWithCfg[] = []
+      const flattenedCustoms: HsfRuleWithRecipe[] = []
       for (let idx = 0; idx < prev.keys.length; idx += 1) {
         const segment = prev.rulesByRecipe.get(idx)
         if (!segment || segment.length === 0) continue
@@ -3039,7 +3039,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         detection: safeguardsActive ? safeguardDetection : null,
       })
       for (let i = 0; i < safeguardResult.mergedRules.length; i += 1) {
-        (safeguardResult.mergedRules[i] as HsfRuleWithCfg).__lineIdx = i
+        (safeguardResult.mergedRules[i] as HsfRuleWithRecipe).__lineIdx = i
       }
       keepOverrideAppliedStateRef.current = {
         baseRules: safeguardResult.baseRules,
@@ -3085,15 +3085,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (multiselectActive && selectedRecipeIndices.length > 1) {
       const labels = selectedRecipeIndices
         .map((idx) => {
-          const cfg = customRecipes[idx]
-          return cfg ? snapshotRecipeLabel(idx, cfg) : { index: idx, name: null }
+          const recipe = customRecipes[idx]
+          return recipe ? snapshotRecipeLabel(idx, recipe) : { index: idx, name: null }
         })
       return { kind: 'builderDraft', mode: 'multi', labels }
     }
     if (editingRecipeIndex !== null && editingRecipeIndex >= 0 && editingRecipeIndex < customRecipes.length) {
-      const cfg = customRecipes[editingRecipeIndex]
-      if (cfg) {
-        return { kind: 'builderDraft', mode: 'recipe', label: snapshotRecipeLabel(editingRecipeIndex, cfg) }
+      const recipe = customRecipes[editingRecipeIndex]
+      if (recipe) {
+        return { kind: 'builderDraft', mode: 'recipe', label: snapshotRecipeLabel(editingRecipeIndex, recipe) }
       }
     }
     return { kind: 'builderDraft', mode: 'builder' }
@@ -3172,26 +3172,26 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Dev-only helper: bundle the builder recipe and its expanded HSF rules (with preview line numbers).
   const copyRecipeWithRulesDev = React.useCallback(async (idx: number) => {
     if (!isDevBuild) return
-    const cfg = customRecipes[idx]
-    if (!cfg) return
-    const readable = buildReadableRecipe(cfg, metasets)
-    const builderSnapshot = JSON.parse(JSON.stringify(cfg)) as BuilderRecipe
-    const rulesForCfg = mergedRules
+    const recipe = customRecipes[idx]
+    if (!recipe) return
+    const readable = buildReadableRecipe(recipe, metasets)
+    const builderSnapshot = JSON.parse(JSON.stringify(recipe)) as BuilderRecipe
+    const rulesForRecipe = mergedRules
       .map((rule, ruleIdx) => ({ rule, ruleIdx }))
       .filter(({ rule }) => getRuleRecipeIndex(rule) === idx)
       .map(({ rule, ruleIdx }) => {
-        const { __lineIdx: _omitLineIdx, __allKnownSets: _omitAllKnownSets, __source: _omitSource, ...rest } = rule as HsfRuleWithCfg & { __allKnownSets?: boolean }
+        const { __lineIdx: _omitLineIdx, __allKnownSets: _omitAllKnownSets, __source: _omitSource, ...rest } = rule as HsfRuleWithRecipe & { __allKnownSets?: boolean }
         const sanitized = JSON.parse(JSON.stringify(rest)) as HsfRule
         const line = typeof rule.__lineIdx === 'number' ? (rule.__lineIdx + 1) : (ruleIdx + 1)
         return { line, rule: sanitized }
       })
     const payload = {
       recipeNumber: idx + 1,
-      name: cfg.name ?? null,
+      name: recipe.name ?? null,
       builderRecipe: builderSnapshot,
       readableRecipe: readable,
-      previewLines: rulesForCfg.map(r => r.line),
-      rules: rulesForCfg,
+      previewLines: rulesForRecipe.map(r => r.line),
+      rules: rulesForRecipe,
     }
     const text = JSON.stringify(payload, null, 2)
     const ok = await writeTextSafe(text)
@@ -3644,7 +3644,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSafeguardRules,
     setSafeguardsEnabled,
     setSelectedRecipeIdx: syncSelectedRecipeIdx,
-    setSelectedCfgIndices,
+    setSelectedCfgIndices: setSelectedRecipeIndices,
     setSelectionAnchor,
     setBuilder,
     setMetasetConflictOpen,
@@ -3672,9 +3672,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleRulesTableSelectRecipeIdx = useCallback((idx: number) => {
     syncSelectedRecipeIdx((prev) => (idx >= 0 && idx < customRecipes.length ? idx : prev), { forceSync: true })
     if (idx < 0 || idx >= customRecipes.length) return
-    const cfg = customRecipes[idx]
-    if (!cfg) return
-    setBuilder(cfg)
+    const recipe = customRecipes[idx]
+    if (!recipe) return
+    setBuilder(recipe)
   }, [customRecipes, setBuilder, syncSelectedRecipeIdx])
 
   const handleRulesTableRecipeAction = useCallback(async (idx: number, action: 'duplicate' | 'delete' | 'copy' | 'paste_after' | 'move_top' | 'move_bottom' | 'move_up' | 'move_down') => {
@@ -3726,9 +3726,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     if (action === 'copy') {
       try {
-        const cfg = customRecipes[idx]
-        if (!cfg) return
-        const readable = buildReadableRecipe(cfg, metasets)
+        const recipe = customRecipes[idx]
+        if (!recipe) return
+        const readable = buildReadableRecipe(recipe, metasets)
         const text = JSON.stringify(readable, null, 2)
         const ok = await writeTextSafe(text)
         if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
@@ -3934,7 +3934,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
 
   // Manage Colors icon (bitmap), generated once at runtime
-  const filterResult = useMemo<FilterHsfRulesResult<HsfRuleWithCfg>>(() => (
+  const filterResult = useMemo<FilterHsfRulesResult<HsfRuleWithRecipe>>(() => (
     filterHsfRules(mergedRules, rulesFilter, metasets, {
       recipeNames,
       recipeTags,
@@ -4059,13 +4059,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const hsfTableEmptyDueToFilters = (filterActive || testerRecipeFilterActive) && mergedRules.length > 0 && hsfRulesForTable.length === 0
   const handleTesterRuleView = useCallback((ruleIndex: number, recipeIdx: number | null) => {
     setLogicHubOpen(false)
-    const cfgSnapshot = customCfgsRef.current
-    const hasValidRecipe = recipeIdx != null && recipeIdx >= 0 && recipeIdx < cfgSnapshot.length
+    const recipeSnapshot = customRecipesRef.current
+    const hasValidRecipe = recipeIdx != null && recipeIdx >= 0 && recipeIdx < recipeSnapshot.length
     if (hasValidRecipe) {
       const targetRecipeIdx = Number(recipeIdx)
       syncSelectedRecipeIdx(targetRecipeIdx, { forceSync: true })
-      const cfg = cfgSnapshot[targetRecipeIdx]
-      if (cfg) setBuilder(cfg)
+      const recipe = recipeSnapshot[targetRecipeIdx]
+      if (recipe) setBuilder(recipe)
     } else {
       setPreviewMode('rules')
     }
@@ -4105,12 +4105,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Clone to ensure the new recipe has unique references for history + multi-edit.
     const nextRecipe = cloneBuilderRecipe({ ...baseRecipe, name })
     // Insert after the current selection when possible so creation feels local.
-    const previous = customCfgsRef.current
+    const previous = customRecipesRef.current
     const insertIdx = (selectedRecipeIdx !== null && selectedRecipeIdx >= 0 && selectedRecipeIdx < previous.length)
       ? selectedRecipeIdx + 1
       : previous.length
     // Assemble the next list to preserve order + insert position.
-    const nextCfgs = [
+    const nextRecipes = [
       ...previous.slice(0, insertIdx),
       nextRecipe,
       ...previous.slice(insertIdx),
@@ -4124,7 +4124,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
     // Apply the mutation and focus the new chip in one gesture.
     describeNextChange(descriptor)
-    setCustomRecipes(nextCfgs)
+    setCustomRecipes(nextRecipes)
     // Sync the builder panel with the newly inserted recipe immediately.
     setBuilder(nextRecipe)
     syncSelectedRecipeIdx(insertIdx, { forceSync: true, suppressDraft: true })
@@ -4133,8 +4133,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!limitRecipesToFiltered) return null
     const indices = new Set(chipMatchingRecipeIndices)
     if (previewMode === 'tester' && testerRecipeFilterMode === 'off') {
-      customRecipes.forEach((cfg, idx) => {
-        if (cfg?.exportMode === 'separator') {
+      customRecipes.forEach((recipe, idx) => {
+        if (recipe?.exportMode === 'separator') {
           indices.add(idx)
         }
       })
@@ -4246,8 +4246,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const recipeIdx = getRuleRecipeIndex(rule)
     if (recipeIdx !== null && recipeIdx >= 0 && recipeIdx < customRecipes.length) {
       syncSelectedRecipeIdx(recipeIdx, { forceSync: true })
-      const cfg = customRecipes[recipeIdx]
-      if (cfg) setBuilder(cfg)
+      const recipe = customRecipes[recipeIdx]
+      if (recipe) setBuilder(recipe)
     }
     try {
       const effective = filterActive ? filteredRules : mergedRules
@@ -4276,7 +4276,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   ): boolean => {
     try {
       const cached = rulesByRecipe.get(targetIndex)
-      let rulesForRecipe: HsfRuleWithCfg[]
+      let rulesForRecipe: HsfRuleWithRecipe[]
       if (cached) {
         rulesForRecipe = cached
         if (recipeRuleCounts.get(targetIndex) === Number.POSITIVE_INFINITY) {
@@ -4693,23 +4693,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
     setCustomRecipes((prev) => {
       let anyChanged = false
-      const next = prev.map((cfg) => {
-        const currentMetaIds = cfg.artifactMetaSets ?? []
-        if (currentMetaIds.length === 0) return cfg
+      const next = prev.map((recipe) => {
+        const currentMetaIds = recipe.artifactMetaSets ?? []
+        if (currentMetaIds.length === 0) return recipe
         const nextMeta = (mode === 'replaceMeta' && replacementId) ? [replacementId] : []
         if (mode === 'replaceSets') {
           const metasToMerge = currentMetaIds.map((metaId) => metasById.get(metaId)).filter((meta): meta is Metaset => Boolean(meta))
-          const nextSets: ArtifactSetSelectionEntry[] = mergeSelectionsWithMetasets(cfg.artifactSets, metasToMerge)
+          const nextSets: ArtifactSetSelectionEntry[] = mergeSelectionsWithMetasets(recipe.artifactSets, metasToMerge)
           const metaChanged = !stringArraysEqual(currentMetaIds, nextMeta)
-          const setsChanged = !areSetEntriesEqual(cfg.artifactSets, nextSets)
-          if (!metaChanged && !setsChanged) return cfg
+          const setsChanged = !areSetEntriesEqual(recipe.artifactSets, nextSets)
+          if (!metaChanged && !setsChanged) return recipe
           anyChanged = true
-          return { ...cfg, artifactMetaSets: nextMeta, artifactSets: nextSets }
+          return { ...recipe, artifactMetaSets: nextMeta, artifactSets: nextSets }
         }
         const metaChanged = !stringArraysEqual(currentMetaIds, nextMeta)
-        if (!metaChanged) return cfg
+        if (!metaChanged) return recipe
         anyChanged = true
-        return { ...cfg, artifactMetaSets: nextMeta, artifactSets: cfg.artifactSets ?? [] }
+        return { ...recipe, artifactMetaSets: nextMeta, artifactSets: recipe.artifactSets ?? [] }
       })
       return anyChanged ? next : prev
     })
@@ -4723,23 +4723,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onAddToCustom={() => {
         const currentBuilder = builderRef.current
         // Clone the builder snapshot so recipes never share object identity.
-        const insertedCfg = cloneBuilderRecipe(currentBuilder)
+        const insertedRecipe = cloneBuilderRecipe(currentBuilder)
         const insertIdx = (selectedRecipeIdx !== null && selectedRecipeIdx >= 0 && selectedRecipeIdx < customRecipes.length)
           ? selectedRecipeIdx + 1
           : customRecipes.length
-        const nextCfgs = [
+        const nextRecipes = [
           ...customRecipes.slice(0, insertIdx),
-          insertedCfg,
+          insertedRecipe,
           ...customRecipes.slice(insertIdx),
         ]
         const descriptor = createRecipeAddedDescriptor({
           index: insertIdx,
-          cfg: insertedCfg,
+          cfg: insertedRecipe,
           previous: customRecipes,
           metasets,
         })
         describeNextChange(descriptor)
-        setCustomRecipes(nextCfgs)
+        setCustomRecipes(nextRecipes)
         // Auto-select the newly added recipe chip
         syncSelectedRecipeIdx(insertIdx, { forceSync: true, suppressDraft: true })
       }}
@@ -4758,10 +4758,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const currentBuilder = builderRef.current
         // Clone once so history + state updates see the same detached snapshot.
         const nextRecipe = cloneBuilderRecipe(currentBuilder)
-        const previousCfg = customRecipes[selectedRecipeIdx] ?? null
-        if (previousCfg) {
+        const previousRecipe = customRecipes[selectedRecipeIdx] ?? null
+        if (previousRecipe) {
           const descriptor = createBuilderRecipeUpdateDescriptor({
-            previous: previousCfg,
+            previous: previousRecipe,
             next: nextRecipe,
             index: selectedRecipeIdx,
             metasets,
@@ -4909,7 +4909,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           const ref = customRecipes[i]?.artifactMetaSets ?? []
           if (ref.includes(id)) indices.push(i)
         }
-        setSelectedCfgIndices(indices)
+        setSelectedRecipeIndices(indices)
         const lastIdx = indices.length - 1
         const last = lastIdx >= 0 ? indices[lastIdx]! : null
         syncSelectedRecipeIdx(last, { preserveSelection: indices.length > 1 })
@@ -5305,7 +5305,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               }
               const insertIdx = prev.length
               const next = [...prev, ...recipes]
-              const labels = recipes.map((cfg, offset) => snapshotRecipeLabel(insertIdx + offset, cfg))
+              const labels = recipes.map((recipe, offset) => snapshotRecipeLabel(insertIdx + offset, recipe))
               const descriptor = createRecipesInsertedDescriptor({
                 mode: 'import',
                 labels,
@@ -5342,7 +5342,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 return prev
               }
               const next = [...prev.slice(0, insertIdx), ...recipes, ...prev.slice(insertIdx)]
-              const labels = recipes.map((cfg, offset) => snapshotRecipeLabel(insertIdx + offset, cfg))
+              const labels = recipes.map((recipe, offset) => snapshotRecipeLabel(insertIdx + offset, recipe))
               const descriptor = createRecipesInsertedDescriptor({
                 mode: 'import',
                 labels,
@@ -6072,9 +6072,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               // Why: restored chips should not advertise dormant sets.
               const sanitizeRecipes = (incoming: BuilderRecipe[]): BuilderRecipe[] => (
                 bakedInSetIdSet
-                  ? incoming.map((cfg) => ({
-                    ...cfg,
-                    artifactSets: normalizeArtifactSetSelections(cfg.artifactSets ?? [])
+                  ? incoming.map((recipe) => ({
+                    ...recipe,
+                    artifactSets: normalizeArtifactSetSelections(recipe.artifactSets ?? [])
                       .filter((entry) => bakedInSetIdSet.has(Number(entry.id)))
                       .map((entry) => (entry.excluded ? { id: entry.id, excluded: true } : { id: entry.id })),
                   }))
@@ -6090,15 +6090,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                     applyFinalSellChange(fsr, { publish: false })
                   } catch {}
                 }
-                const sanitizedCfgs = sanitizeRecipes(draft.Recipes)
-                setCustomRecipes(sanitizedCfgs)
+                const sanitizedRecipes = sanitizeRecipes(draft.Recipes)
+                setCustomRecipes(sanitizedRecipes)
                 const len = draft.Recipes.length
                 if (len > 0) {
                   const savedSel = typeof draft.SelectedConfigIndex === 'number' ? draft.SelectedConfigIndex : (len - 1)
                   const sel = savedSel >= 0 && savedSel < len ? savedSel : len - 1
                   syncSelectedRecipeIdx(sel, { forceSync: true, suppressDraft: true })
                   try {
-                    if (sanitizedCfgs[sel]) setBuilder(sanitizedCfgs[sel]!)
+                    if (sanitizedRecipes[sel]) setBuilder(sanitizedRecipes[sel]!)
                   } catch {}
                 } else {
                   syncSelectedRecipeIdx(null, { forceSync: true, suppressDraft: true })
