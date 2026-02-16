@@ -835,7 +835,7 @@ export const hashKeepUniqueCombinationWithLoadedWasm = (combination: unknown): s
   throw new Error('WASM keep-unique combination hash helper returned an invalid payload.')
 }
 
-// Keep-unique item-key derivation runs in Rust so TS reuses tester-item fallback
+// Keep-unique item-key derivation runs in Rust so TS reuses DB-id-first
 // semantics used by candidate collection.
 export const getKeepUniqueItemKeyWithLoadedWasm = (artifact: unknown): number => {
   assertWasmInitializedSync()

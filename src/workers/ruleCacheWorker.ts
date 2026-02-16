@@ -26,6 +26,7 @@ import { resolveMatchConfigName } from '../lib/ruleConfigIndex'
 import { fingerprintRuleTesterItem } from '../lib/ruleTesterSession'
 import type { RuleTesterItem } from '../lib/ruleTesterSession'
 import { fingerprintKeepUniqueDetection } from '../lib/keepUniqueFingerprint'
+import { resolveArtifactItemIdWithFallback } from '../lib/itemIdentity'
 import {
   configureWasmRuleEngine,
   evaluateWasmRuleEngineItems,
@@ -260,12 +261,8 @@ const toWarmResponsePayload = (
 })
 
 const resolveItemId = (artifact: NormalizedGearArtifact, fallbackIdx?: number): number => {
-  const testerId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
-  if (Number.isFinite(testerId)) return testerId
-  const artifactId = Number((artifact as { id?: number } | undefined)?.id ?? NaN)
-  if (Number.isFinite(artifactId)) return artifactId
-  if (typeof fallbackIdx === 'number') return -(fallbackIdx + 1)
-  return -1
+  // Share one resolver with App/ruleEval so id precedence cannot drift.
+  return resolveArtifactItemIdWithFallback(artifact, fallbackIdx)
 }
 
 const fingerprintArtifact = (artifact: NormalizedGearArtifact): string => {

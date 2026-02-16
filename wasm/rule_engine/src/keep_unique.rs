@@ -3023,7 +3023,7 @@ pub fn keep_unique_count_key_value(artifact: JsValue, count_mode: JsValue) -> Re
     ))
 }
 
-// Expose item-key resolution so TS and Rust share tester-item-id fallback logic.
+// Expose item-key resolution so TS and Rust share DB-id-first fallback logic.
 #[wasm_bindgen]
 pub fn keep_unique_item_key_value(artifact: JsValue) -> Result<i64, JsValue> {
     let parsed_value: serde_json::Value = from_js_value(artifact)
@@ -3031,12 +3031,18 @@ pub fn keep_unique_item_key_value(artifact: JsValue) -> Result<i64, JsValue> {
     let record = parsed_value
         .as_object()
         .ok_or_else(|| JsValue::from_str("Invalid keep-unique item-key artifact payload: expected object"))?;
-    let tester_item_key = record
-        .get("testerItem")
-        .and_then(|value| value.as_object())
-        .and_then(|tester_item| keep_unique_value_to_i64(tester_item.get("itemId")));
+    // Canonical precedence: artifact.id (db) -> tester.previewExtras.id -> tester.itemId.
     let artifact_id = keep_unique_value_to_i64(record.get("id"));
-    Ok(tester_item_key.or(artifact_id).unwrap_or(0))
+    let tester_item_record = record
+        .get("testerItem")
+        .and_then(|value| value.as_object());
+    let tester_preview_id = tester_item_record
+        .and_then(|tester_item| tester_item.get("previewExtras"))
+        .and_then(|value| value.as_object())
+        .and_then(|preview_extras| keep_unique_value_to_i64(preview_extras.get("id")));
+    let tester_item_id = tester_item_record
+        .and_then(|tester_item| keep_unique_value_to_i64(tester_item.get("itemId")));
+    Ok(artifact_id.or(tester_preview_id).or(tester_item_id).unwrap_or(0))
 }
 
 // Expose group-key derivation so TS reuses Rust accessory-faction normalization.

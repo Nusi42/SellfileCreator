@@ -243,7 +243,20 @@ pub(crate) fn prepare_rule(raw: RuleRaw) -> PreparedRule {
 
 // Pull item key for keep-unique item-bound rule checks.
 fn resolve_item_key(item: &TestItemRaw) -> Option<i64> {
-    item.item_id.or(item.preview_extras.as_ref().and_then(|extras| extras.id))
+    // Prefer preview/db ids when present; older callers may only pass itemId.
+    item.preview_extras
+        .as_ref()
+        .and_then(|extras| extras.id)
+        .or(item.item_id)
+}
+
+// Keep one helper for candidate snapshots so item-key precedence is explicit:
+// artifact.id (db) -> item.previewExtras.id -> item.itemId -> 0.
+fn resolve_collect_row_item_key(row: &KeepUniqueCollectRowIn) -> i64 {
+    row.artifact
+        .id
+        .or(resolve_item_key(&row.item))
+        .unwrap_or(0)
 }
 
 // Fast helper for optional numeric value map lookup by encoded variant key.
@@ -567,8 +580,8 @@ pub(crate) fn collect_keep_unique_candidates_core(
     let mut unique_item_keys = HashSet::<i64>::new();
     let mut candidates = Vec::<KeepUniqueCollectedCandidateOut>::with_capacity(rows.len());
     for (idx, row) in rows.iter().enumerate() {
-        // Item-key parity: tester item id first, then artifact id, else zero.
-        let item_key = row.item.item_id.or(row.artifact.id).unwrap_or(0);
+        // Keep item-key derivation aligned with rule-item matching semantics.
+        let item_key = resolve_collect_row_item_key(row);
         // Group key formatting is shared with keep-unique parser/wasm exports.
         let group_key = keep_unique_group_key_from_parts(
             row.artifact.slot,

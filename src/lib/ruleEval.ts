@@ -15,6 +15,7 @@ import {
   evaluateWasmRuleEngineItemsWithLoadedWasm,
   type WasmRuleEngineEvaluateOptions,
 } from './wasm/wasmRuleEngine'
+import { resolveCanonicalTestItemId } from './itemIdentity'
 
 // Attach provenance (config index) as done in merge.ts.
 export type TesterItemPreviewExtras = {
@@ -125,14 +126,9 @@ const createEmptyEvalMatchesByConfigResult = (): EvalMatchesByConfigResult => ({
 const resolveEvalItemId = (item: TestItem): number => {
   // Some call sites still attach `itemId` directly onto the tester item object.
   const withItemId = item as TestItem & { itemId?: number }
-  // Prefer the direct id because workers already pass this exact field.
-  const direct = Number(withItemId.itemId ?? NaN)
-  // Keep only positive finite ids so keep-unique item-key guards remain stable.
-  if (Number.isFinite(direct) && direct > 0) return Math.floor(direct)
-  // Fallback to preview id for main-thread callers that only carry preview metadata.
-  const previewId = Number(item.previewExtras?.id ?? NaN)
-  // Keep only positive finite preview ids for the same guard-compatibility reason.
-  if (Number.isFinite(previewId) && previewId > 0) return Math.floor(previewId)
+  // Use shared canonical precedence so main-thread eval mirrors worker paths.
+  const resolved = resolveCanonicalTestItemId(withItemId)
+  if (resolved != null) return resolved
   // Zero means "no concrete id", matching existing keep-unique sentinel behavior.
   return FALLBACK_EVAL_ITEM_ID
 }
