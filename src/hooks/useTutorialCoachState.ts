@@ -22,6 +22,9 @@ import type { TutorialStep } from '../components/tutorial/TutorialCoach'
 import type { useI18n } from '../lib/i18n'
 import {
   KEEP_UNIQUE_DEFAULT_COUNT_MODE,
+  KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
+  KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
+  KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
   KeepUniqueRuleActivation,
   KeepUniqueSubstatMatch,
   type KeepUniqueRule,
@@ -88,6 +91,10 @@ const buildTutorialKeepUniqueRules = (): KeepUniqueRule[] => [{
   // Tutorial snapshot mirrors the scope chip defaults by cloning the
   // sanitized count mode so demos highlight the same state as the UI.
   countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
+  // Keep tutorial behavior aligned with current keep-unique defaults.
+  ignorePreviousSafeguards: KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
+  ignoreEquippedInCollection: KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
+  ignoreEquippedInVault: KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
   // Keep tutorial samples aligned with the classic (no substat filter) behavior.
   substats: [],
   substatMatch: KeepUniqueSubstatMatch.Any,

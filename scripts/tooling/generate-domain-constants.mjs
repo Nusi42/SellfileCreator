@@ -140,6 +140,7 @@ const rankValueMax = Number(rankValue.max)
 const keepUniqueActivation = keepUnique.activation
 const keepUniqueSubstatMatch = keepUnique.substatMatch
 const keepUniqueCountModeDefault = keepUnique.countModeDefault
+const keepUniqueRuleOptionsDefault = keepUnique.ruleOptionsDefault ?? {}
 const keepUniquePlaceholderReason = keepUnique.placeholderReason
 const keepUniqueWeight = keepUnique.weight
 
@@ -257,6 +258,9 @@ const tsLines = [
   `export const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_FACTION = ${keepUniqueCountModeDefault.perFaction === true}`,
   `export const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_MAIN_STAT = ${keepUniqueCountModeDefault.perMainStat === true}`,
   `export const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SLOT = ${keepUniqueCountModeDefault.perSlot === true}`,
+  `export const KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS = ${keepUniqueRuleOptionsDefault.ignorePreviousSafeguards !== false}`,
+  `export const KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION = ${keepUniqueRuleOptionsDefault.ignoreEquippedInCollection === true}`,
+  `export const KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT = ${keepUniqueRuleOptionsDefault.ignoreEquippedInVault === true}`,
   `export const KEEP_UNIQUE_REASON_GLOBAL = ${asTsStringLiteral(keepUniquePlaceholderReason.global)}`,
   `export const KEEP_UNIQUE_REASON_GROUP = ${asTsStringLiteral(keepUniquePlaceholderReason.group)}`,
   `export const KEEP_UNIQUE_WEIGHT_STEP = ${Number(keepUniqueWeight.step)}`,
@@ -374,6 +378,9 @@ const rustLines = [
   `pub const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_FACTION: bool = ${keepUniqueCountModeDefault.perFaction === true};`,
   `pub const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_MAIN_STAT: bool = ${keepUniqueCountModeDefault.perMainStat === true};`,
   `pub const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SLOT: bool = ${keepUniqueCountModeDefault.perSlot === true};`,
+  `pub const KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS: bool = ${keepUniqueRuleOptionsDefault.ignorePreviousSafeguards !== false};`,
+  `pub const KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION: bool = ${keepUniqueRuleOptionsDefault.ignoreEquippedInCollection === true};`,
+  `pub const KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT: bool = ${keepUniqueRuleOptionsDefault.ignoreEquippedInVault === true};`,
   `pub const KEEP_UNIQUE_REASON_GLOBAL: &str = ${asRustStringLiteral(keepUniquePlaceholderReason.global)};`,
   `pub const KEEP_UNIQUE_REASON_GROUP: &str = ${asRustStringLiteral(keepUniquePlaceholderReason.group)};`,
   `pub const KEEP_UNIQUE_WEIGHT_STEP: f64 = ${asRustF64Literal(keepUniqueWeight.step)};`,

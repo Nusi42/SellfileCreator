@@ -18,6 +18,10 @@ const KEEP_UNIQUE_SLOT_AMULET: i64 = ARTIFACT_TYPE_AMULET;
 const KEEP_UNIQUE_SLOT_BANNER: i64 = ARTIFACT_TYPE_BANNER;
 // Shared grouped-bucket token keeps per-rule mode branch-free and centralized.
 const KEEP_UNIQUE_COUNT_KEY_GLOBAL: &str = "global";
+// Equipped-location tokens are parsed once into booleans for hot match loops.
+const KEEP_UNIQUE_EQUIPPED_LOCATION_COLLECTION: &str = "collection";
+const KEEP_UNIQUE_EQUIPPED_LOCATION_VAULT: &str = "vault";
+const KEEP_UNIQUE_EQUIPPED_LOCATION_RESERVE_VAULT: &str = "reserveVault";
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -40,6 +44,10 @@ pub(crate) struct KeepUniqueWasmArtifactIn {
     pub(crate) exact_level: Option<i64>,
     pub(crate) faction: i64,
     pub(crate) main_stat: i64,
+    #[serde(default)]
+    pub(crate) equipped_in_collection: bool,
+    #[serde(default)]
+    pub(crate) equipped_in_vault: bool,
     #[serde(default)]
     pub(crate) substats: Vec<KeepUniqueWasmSubstatIn>,
 }
@@ -136,6 +144,9 @@ fn keep_unique_parse_artifact(value: Option<&serde_json::Value>) -> Result<KeepU
     let level = keep_unique_value_to_i64(record.get("level"))
         .ok_or_else(|| "artifact.level is required".to_string())?;
     let faction = keep_unique_value_to_i64(record.get("faction")).unwrap_or(0);
+    // Parse equipped-location flags once so rule matching stays branch-light.
+    let (equipped_in_collection, equipped_in_vault) =
+        keep_unique_parse_equipped_location_flags(record);
     Ok(KeepUniqueWasmArtifactIn {
         id: keep_unique_value_to_i64(record.get("id")),
         slot,
@@ -146,8 +157,49 @@ fn keep_unique_parse_artifact(value: Option<&serde_json::Value>) -> Result<KeepU
         exact_level: keep_unique_value_to_i64(record.get("exactLevel")),
         faction,
         main_stat: keep_unique_parse_main_stat_variant(record.get("mainStat")),
+        equipped_in_collection,
+        equipped_in_vault,
         substats: keep_unique_parse_substats(record.get("substats")),
     })
+}
+
+// Normalize raw equipped-location token into collection/vault flags.
+// Reserve-vault is treated as vault for keep-unique filtering purposes.
+fn keep_unique_parse_equipped_location(raw: Option<&str>) -> (bool, bool) {
+    let Some(location) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
+        return (false, false);
+    };
+    if location.eq_ignore_ascii_case(KEEP_UNIQUE_EQUIPPED_LOCATION_COLLECTION) {
+        return (true, false);
+    }
+    if location.eq_ignore_ascii_case(KEEP_UNIQUE_EQUIPPED_LOCATION_VAULT)
+        || location.eq_ignore_ascii_case(KEEP_UNIQUE_EQUIPPED_LOCATION_RESERVE_VAULT)
+    {
+        return (false, true);
+    }
+    (false, false)
+}
+
+// Read equipped location from direct artifact field first, then tester preview extras.
+fn keep_unique_parse_equipped_location_flags(
+    record: &serde_json::Map<String, serde_json::Value>,
+) -> (bool, bool) {
+    // Direct normalized artifact payload is the primary source.
+    let direct = record
+        .get("equippedChampionLocation")
+        .and_then(|value| value.as_str());
+    if direct.is_some() {
+        return keep_unique_parse_equipped_location(direct);
+    }
+    // Raw tester artifacts can carry the value under testerItem.previewExtras.
+    let nested = record
+        .get("testerItem")
+        .and_then(|value| value.as_object())
+        .and_then(|tester_item| tester_item.get("previewExtras"))
+        .and_then(|value| value.as_object())
+        .and_then(|preview_extras| preview_extras.get("equippedChampionLocation"))
+        .and_then(|value| value.as_str());
+    keep_unique_parse_equipped_location(nested)
 }
 
 // Accessory slots keep faction while armor slots collapse to zero by design.
@@ -361,6 +413,12 @@ pub(crate) struct KeepUniqueWasmRuleIn {
     #[serde(default)]
     pub(crate) count_mode: Option<KeepUniqueWasmCountMode>,
     #[serde(default)]
+    pub(crate) ignore_previous_safeguards: Option<bool>,
+    #[serde(default)]
+    pub(crate) ignore_equipped_in_collection: Option<bool>,
+    #[serde(default)]
+    pub(crate) ignore_equipped_in_vault: Option<bool>,
+    #[serde(default)]
     pub(crate) substats: Option<Vec<i64>>,
     #[serde(default)]
     pub(crate) substat_match: Option<String>,
@@ -378,6 +436,9 @@ pub(crate) struct KeepUniqueWasmResolvedRuleOut {
     pub(crate) required_count: i64,
     pub(crate) activation: String,
     pub(crate) count_mode: KeepUniqueWasmCountMode,
+    pub(crate) ignore_previous_safeguards: bool,
+    pub(crate) ignore_equipped_in_collection: bool,
+    pub(crate) ignore_equipped_in_vault: bool,
     pub(crate) substats: Vec<i64>,
     pub(crate) substat_match: String,
     pub(crate) substat_weights: HashMap<String, f64>,
@@ -991,6 +1052,20 @@ fn keep_unique_normalize_rule_from_value(
     } else {
         keep_unique_default_count_mode()
     };
+    // Legacy payloads default to baseline (independent) rule evaluation.
+    let ignore_previous_safeguards = keep_unique_value_to_bool(
+        record.get("ignorePreviousSafeguards"),
+    )
+    .unwrap_or(KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS);
+    // Equipped filters are opt-in and default to disabled.
+    let ignore_equipped_in_collection = keep_unique_value_to_bool(
+        record.get("ignoreEquippedInCollection"),
+    )
+    .unwrap_or(KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION);
+    let ignore_equipped_in_vault = keep_unique_value_to_bool(
+        record.get("ignoreEquippedInVault"),
+    )
+    .unwrap_or(KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT);
 
     let mut substats = Vec::<i64>::new();
     keep_unique_collect_rule_substats(record.get("substats"), lookups, &mut substats);
@@ -1024,6 +1099,9 @@ fn keep_unique_normalize_rule_from_value(
         required_count,
         activation,
         count_mode,
+        ignore_previous_safeguards,
+        ignore_equipped_in_collection,
+        ignore_equipped_in_vault,
         substats: normalized_substats,
         substat_match,
         substat_weights,
@@ -1251,6 +1329,9 @@ struct KeepUniqueWasmPreparedRule {
     activation: String,
     rule_active: bool,
     count_mode: KeepUniqueWasmCountMode,
+    ignore_previous_safeguards: bool,
+    ignore_equipped_in_collection: bool,
+    ignore_equipped_in_vault: bool,
     selected_substats: Vec<i64>,
     substat_match: String,
     weights: HashMap<i64, f64>,
@@ -1284,6 +1365,12 @@ struct KeepUniqueWasmGroupBucket {
     kept: Vec<usize>,
     sold: Vec<usize>,
     sample: Option<KeepUniqueWasmGroupSample>,
+}
+
+#[derive(Debug, Clone)]
+struct KeepUniqueWasmEntryEvalOut {
+    entry: KeepUniqueWasmEntryOut,
+    selected_candidate_indices: Vec<usize>,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy)]
@@ -2687,6 +2774,13 @@ fn keep_unique_artifact_matches_rule(
     artifact: &KeepUniqueWasmArtifactIn,
     rule: &KeepUniqueWasmPreparedRule,
 ) -> bool {
+    // Equipped filters are optional and short-circuit before tuple matching.
+    if rule.ignore_equipped_in_collection && artifact.equipped_in_collection {
+        return false;
+    }
+    if rule.ignore_equipped_in_vault && artifact.equipped_in_vault {
+        return false;
+    }
     // Slot filter is always evaluated first to fail fast.
     if !keep_unique_matches_selection(&rule.combination.slots, artifact.slot) {
         return false;
@@ -3105,9 +3199,10 @@ fn keep_unique_sort_candidate_indices(indices: &mut [usize], candidates: &[KeepU
 fn keep_unique_build_entry_for_substats(
     prepared_rule: &KeepUniqueWasmPreparedRule,
     candidates: &[KeepUniqueWasmCandidateIn],
+    candidate_sold_state: &[bool],
     selected_substats: &[i64],
     substat_match: &str,
-) -> KeepUniqueWasmEntryOut {
+) -> KeepUniqueWasmEntryEvalOut {
     // Presence of selected substats toggles ranking/scoring mode.
     let has_substat_filter = !selected_substats.is_empty();
     // HashSet gives O(1) membership checks during candidate scans.
@@ -3204,6 +3299,7 @@ fn keep_unique_build_entry_for_substats(
         let mut deficit = 0i64;
         let mut item_keys = Vec::<i64>::new();
         let mut artifacts = Vec::<KeepUniqueWasmArtifactOut>::new();
+        let mut selected_candidate_indices = Vec::<usize>::new();
         let mut placeholders = Vec::<KeepUniqueWasmPlaceholderOut>::new();
 
         // Use explicit expected list when present, otherwise derive from observed groups.
@@ -3253,9 +3349,11 @@ fn keep_unique_build_entry_for_substats(
             let mut group_sold = 0i64;
             for scored_entry in selected {
                 group_total += 1;
-                let candidate = &candidates[scored_entry.candidate_idx];
-                if candidate.is_sold {
+                let candidate_idx = scored_entry.candidate_idx;
+                let candidate = &candidates[candidate_idx];
+                if candidate_sold_state[candidate_idx] {
                     group_sold += 1;
+                    selected_candidate_indices.push(candidate_idx);
                     item_keys.push(candidate.item_key);
                     artifacts.push(keep_unique_to_detection_artifact(candidate));
                 } else {
@@ -3296,22 +3394,25 @@ fn keep_unique_build_entry_for_substats(
 
         // Projected count includes sold artifacts only when rule is active.
         let projected = kept_count + if prepared_rule.rule_active { sold_count } else { 0 };
-        return KeepUniqueWasmEntryOut {
-            hash: keep_unique_hash_combination(&prepared_rule.combination),
-            combination: prepared_rule.combination.clone(),
-            rule_id: Some(prepared_rule.id.clone()),
-            rule_activation: prepared_rule.activation.clone(),
-            count_mode: prepared_rule.count_mode,
-            per_group_required_count: required_per_group,
-            groups_tracked,
-            required_count: required_total,
-            current_count,
-            projected_count: projected,
-            deficit,
-            covered_by_existing: kept_count >= required_total,
-            item_keys,
-            artifacts,
-            placeholders,
+        return KeepUniqueWasmEntryEvalOut {
+            entry: KeepUniqueWasmEntryOut {
+                hash: keep_unique_hash_combination(&prepared_rule.combination),
+                combination: prepared_rule.combination.clone(),
+                rule_id: Some(prepared_rule.id.clone()),
+                rule_activation: prepared_rule.activation.clone(),
+                count_mode: prepared_rule.count_mode,
+                per_group_required_count: required_per_group,
+                groups_tracked,
+                required_count: required_total,
+                current_count,
+                projected_count: projected,
+                deficit,
+                covered_by_existing: kept_count >= required_total,
+                item_keys,
+                artifacts,
+                placeholders,
+            },
+            selected_candidate_indices,
         };
     }
 
@@ -3320,8 +3421,7 @@ fn keep_unique_build_entry_for_substats(
         let mut kept_count = 0i64;
         let mut sold_indices = Vec::<usize>::new();
         for candidate_idx in &matching_indices {
-            let candidate = &candidates[*candidate_idx];
-            if candidate.is_sold {
+            if candidate_sold_state[*candidate_idx] {
                 sold_indices.push(*candidate_idx);
             } else {
                 kept_count += 1;
@@ -3365,22 +3465,25 @@ fn keep_unique_build_entry_for_substats(
             .iter()
             .map(|idx| keep_unique_to_detection_artifact(&candidates[*idx]))
             .collect::<Vec<_>>();
-        return KeepUniqueWasmEntryOut {
-            hash: keep_unique_hash_combination(&prepared_rule.combination),
-            combination: prepared_rule.combination.clone(),
-            rule_id: Some(prepared_rule.id.clone()),
-            rule_activation: prepared_rule.activation.clone(),
-            count_mode: prepared_rule.count_mode,
-            per_group_required_count: required_per_group,
-            groups_tracked: if matching_indices.is_empty() { 0 } else { 1 },
-            required_count: required_total,
-            current_count: kept_count + sold_count,
-            projected_count: projected,
-            deficit,
-            covered_by_existing: kept_count >= required_total,
-            item_keys,
-            artifacts,
-            placeholders,
+        return KeepUniqueWasmEntryEvalOut {
+            entry: KeepUniqueWasmEntryOut {
+                hash: keep_unique_hash_combination(&prepared_rule.combination),
+                combination: prepared_rule.combination.clone(),
+                rule_id: Some(prepared_rule.id.clone()),
+                rule_activation: prepared_rule.activation.clone(),
+                count_mode: prepared_rule.count_mode,
+                per_group_required_count: required_per_group,
+                groups_tracked: if matching_indices.is_empty() { 0 } else { 1 },
+                required_count: required_total,
+                current_count: kept_count + sold_count,
+                projected_count: projected,
+                deficit,
+                covered_by_existing: kept_count >= required_total,
+                item_keys,
+                artifacts,
+                placeholders,
+            },
+            selected_candidate_indices: selected_sold,
         };
     }
 
@@ -3391,7 +3494,7 @@ fn keep_unique_build_entry_for_substats(
         let candidate = &candidates[candidate_idx];
         let key = keep_unique_count_key(&candidate.artifact, prepared_rule.count_mode);
         if let Some(bucket) = group_counts.get_mut(&key) {
-            if candidate.is_sold {
+            if candidate_sold_state[candidate_idx] {
                 bucket.sold.push(candidate_idx);
             } else {
                 bucket.kept.push(candidate_idx);
@@ -3405,7 +3508,7 @@ fn keep_unique_build_entry_for_substats(
                 sold: Vec::new(),
                 sample: Some(keep_unique_group_sample_from_artifact(&candidate.artifact)),
             };
-            if candidate.is_sold {
+            if candidate_sold_state[candidate_idx] {
                 bucket.sold.push(candidate_idx);
             } else {
                 bucket.kept.push(candidate_idx);
@@ -3539,48 +3642,60 @@ fn keep_unique_build_entry_for_substats(
         .iter()
         .map(|idx| keep_unique_to_detection_artifact(&candidates[*idx]))
         .collect::<Vec<_>>();
-    KeepUniqueWasmEntryOut {
-        hash: keep_unique_hash_combination(&prepared_rule.combination),
-        combination: prepared_rule.combination.clone(),
-        rule_id: Some(prepared_rule.id.clone()),
-        rule_activation: prepared_rule.activation.clone(),
-        count_mode: prepared_rule.count_mode,
-        per_group_required_count: required_per_group,
-        groups_tracked,
-        required_count: required_total,
-        current_count: kept_total + sold_total,
-        projected_count: projected_total,
-        deficit,
-        covered_by_existing: kept_total >= required_total,
-        item_keys,
-        artifacts,
-        placeholders,
+    KeepUniqueWasmEntryEvalOut {
+        entry: KeepUniqueWasmEntryOut {
+            hash: keep_unique_hash_combination(&prepared_rule.combination),
+            combination: prepared_rule.combination.clone(),
+            rule_id: Some(prepared_rule.id.clone()),
+            rule_activation: prepared_rule.activation.clone(),
+            count_mode: prepared_rule.count_mode,
+            per_group_required_count: required_per_group,
+            groups_tracked,
+            required_count: required_total,
+            current_count: kept_total + sold_total,
+            projected_count: projected_total,
+            deficit,
+            covered_by_existing: kept_total >= required_total,
+            item_keys,
+            artifacts,
+            placeholders,
+        },
+        selected_candidate_indices: at_risk,
     }
 }
 
 fn keep_unique_merge_substat_entries(
     prepared_rule: &KeepUniqueWasmPreparedRule,
     required_per_group: i64,
-    entries: Vec<KeepUniqueWasmEntryOut>,
-) -> KeepUniqueWasmEntryOut {
+    entries: Vec<KeepUniqueWasmEntryEvalOut>,
+) -> KeepUniqueWasmEntryEvalOut {
     // Merge per-substat entries into one aggregate rule entry.
     let mut item_keys = Vec::<i64>::new();
     let mut item_key_set = HashSet::<i64>::new();
     let mut artifacts = Vec::<KeepUniqueWasmArtifactOut>::new();
     let mut artifact_key_set = HashSet::<i64>::new();
+    let mut selected_candidate_indices = Vec::<usize>::new();
+    let mut selected_candidate_set = HashSet::<usize>::new();
     let mut placeholders = Vec::<KeepUniqueWasmPlaceholderOut>::new();
     let mut required_count = 0i64;
     let mut current_count = 0i64;
     let mut projected_count = 0i64;
     let mut deficit = 0i64;
     let mut groups_tracked = 0i64;
-    for entry in entries {
+    for mut eval in entries {
+        let entry = eval.entry;
         // Sum scalar counters across all per-substat entries.
         required_count += entry.required_count;
         current_count += entry.current_count;
         projected_count += entry.projected_count;
         deficit += entry.deficit;
         groups_tracked += entry.groups_tracked;
+        // Cascade state needs the union of selected sold candidates.
+        for candidate_idx in eval.selected_candidate_indices.drain(..) {
+            if selected_candidate_set.insert(candidate_idx) {
+                selected_candidate_indices.push(candidate_idx);
+            }
+        }
         // Placeholders are concatenated verbatim for full visibility.
         placeholders.extend(entry.placeholders);
         // Deduplicate item keys so merged output has stable unique ids.
@@ -3596,22 +3711,25 @@ fn keep_unique_merge_substat_entries(
             }
         }
     }
-    KeepUniqueWasmEntryOut {
-        hash: keep_unique_hash_combination(&prepared_rule.combination),
-        combination: prepared_rule.combination.clone(),
-        rule_id: Some(prepared_rule.id.clone()),
-        rule_activation: prepared_rule.activation.clone(),
-        count_mode: prepared_rule.count_mode,
-        per_group_required_count: required_per_group,
-        groups_tracked,
-        required_count,
-        current_count,
-        projected_count,
-        deficit,
-        covered_by_existing: deficit <= 0,
-        item_keys,
-        artifacts,
-        placeholders,
+    KeepUniqueWasmEntryEvalOut {
+        entry: KeepUniqueWasmEntryOut {
+            hash: keep_unique_hash_combination(&prepared_rule.combination),
+            combination: prepared_rule.combination.clone(),
+            rule_id: Some(prepared_rule.id.clone()),
+            rule_activation: prepared_rule.activation.clone(),
+            count_mode: prepared_rule.count_mode,
+            per_group_required_count: required_per_group,
+            groups_tracked,
+            required_count,
+            current_count,
+            projected_count,
+            deficit,
+            covered_by_existing: deficit <= 0,
+            item_keys,
+            artifacts,
+            placeholders,
+        },
+        selected_candidate_indices,
     }
 }
 
@@ -3651,6 +3769,13 @@ fn compute_keep_unique_protection_core(
     enabled: bool,
     now: f64,
 ) -> KeepUniqueWasmSnapshotOut {
+    // Baseline state never changes; per-rule toggle can opt to read from it.
+    let baseline_candidate_sold_state = parsed_candidates
+        .iter()
+        .map(|candidate| candidate.is_sold)
+        .collect::<Vec<_>>();
+    // Cumulative state tracks sold candidates already selected by prior safeguards.
+    let mut cumulative_candidate_sold_state = baseline_candidate_sold_state.clone();
     // Precompute sanitized rule metadata used by candidate scans.
     let prepared_rules = parsed_rules
         .into_iter()
@@ -3667,6 +3792,16 @@ fn compute_keep_unique_protection_core(
             }
             // Normalize count mode so invalid combos fall back to per-rule mode.
             let count_mode = keep_unique_resolve_count_mode(rule.count_mode);
+            // Defaults keep legacy behavior unless the payload opts in.
+            let ignore_previous_safeguards = rule
+                .ignore_previous_safeguards
+                .unwrap_or(KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS);
+            let ignore_equipped_in_collection = rule
+                .ignore_equipped_in_collection
+                .unwrap_or(KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION);
+            let ignore_equipped_in_vault = rule
+                .ignore_equipped_in_vault
+                .unwrap_or(KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT);
             // Required count is clamped to at least one.
             let required_per_group = rule.required_count.unwrap_or(1).max(1);
             // Normalize match mode token for deterministic branching.
@@ -3711,6 +3846,9 @@ fn compute_keep_unique_protection_core(
                 // Activation off disables sold-item projection contribution.
                 rule_active: enabled && !keep_unique_is_activation_off(&activation),
                 count_mode,
+                ignore_previous_safeguards,
+                ignore_equipped_in_collection,
+                ignore_equipped_in_vault,
                 selected_substats,
                 substat_match,
                 weights,
@@ -3724,8 +3862,14 @@ fn compute_keep_unique_protection_core(
     // Evaluate each prepared rule and build entry payloads.
     let mut entries = Vec::<KeepUniqueWasmEntryOut>::new();
     for prepared_rule in &prepared_rules {
-        // `persubstat` with multiple variants expands to one entry per variant.
-        if prepared_rule.substat_match == KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT
+        // Per-rule toggle decides whether this rule sees prior safeguard selections.
+        let candidate_sold_state = if prepared_rule.ignore_previous_safeguards {
+            &baseline_candidate_sold_state
+        } else {
+            &cumulative_candidate_sold_state
+        };
+        // Track selected sold candidates so optional cascading can mutate state once.
+        let eval_result = if prepared_rule.substat_match == KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT
             && prepared_rule.selected_substats.len() > 1
         {
             let per_substat_entries = prepared_rule
@@ -3735,30 +3879,42 @@ fn compute_keep_unique_protection_core(
                     keep_unique_build_entry_for_substats(
                         prepared_rule,
                         &parsed_candidates,
+                        candidate_sold_state,
                         &[*variant],
                         KEEP_UNIQUE_SUBSTAT_ANY,
                     )
                 })
                 .collect::<Vec<_>>();
-            entries.push(keep_unique_merge_substat_entries(
+            keep_unique_merge_substat_entries(
                 prepared_rule,
                 prepared_rule.required_per_group,
                 per_substat_entries,
-            ));
-            continue;
-        }
-        // Single-variant `persubstat` behaves like `any` for that variant.
-        let effective_match = if prepared_rule.substat_match == KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT {
-            KEEP_UNIQUE_SUBSTAT_ANY
+            )
         } else {
-            prepared_rule.substat_match.as_str()
+            // Single-variant `persubstat` behaves like `any` for that variant.
+            let effective_match = if prepared_rule.substat_match == KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT {
+                KEEP_UNIQUE_SUBSTAT_ANY
+            } else {
+                prepared_rule.substat_match.as_str()
+            };
+            keep_unique_build_entry_for_substats(
+                prepared_rule,
+                &parsed_candidates,
+                candidate_sold_state,
+                &prepared_rule.selected_substats,
+                effective_match,
+            )
         };
-        entries.push(keep_unique_build_entry_for_substats(
-            prepared_rule,
-            &parsed_candidates,
-            &prepared_rule.selected_substats,
-            effective_match,
-        ));
+        // Active safeguards always contribute to cumulative state for later rules.
+        if prepared_rule.rule_active {
+            for candidate_idx in &eval_result.selected_candidate_indices {
+                if *candidate_idx >= cumulative_candidate_sold_state.len() {
+                    continue;
+                }
+                cumulative_candidate_sold_state[*candidate_idx] = false;
+            }
+        }
+        entries.push(eval_result.entry);
     }
 
     // Snapshot timestamp is sanitized to finite number for stable payloads.

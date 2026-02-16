@@ -79,6 +79,11 @@
       "perMainStat": true,
       "perSlot": false
     },
+    "ruleOptionsDefault": {
+      "ignorePreviousSafeguards": true,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false
+    },
     "placeholderReason": {
       "global": "global",
       "group": "group"

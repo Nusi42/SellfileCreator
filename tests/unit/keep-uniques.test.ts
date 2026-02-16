@@ -101,6 +101,9 @@ const makeRule = (overrides: Partial<KeepUniqueRule> = {}): KeepUniqueRule => {
     requiredCount: overrides.requiredCount ?? 1,
     activation: overrides.activation ?? KeepUniqueRuleActivation.ProtectExisting,
     countMode: overrides.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE,
+    ignorePreviousSafeguards: overrides.ignorePreviousSafeguards,
+    ignoreEquippedInCollection: overrides.ignoreEquippedInCollection,
+    ignoreEquippedInVault: overrides.ignoreEquippedInVault,
     // Pass optional substat ranking fields through so tests can exercise ranked mode.
     substats: overrides.substats,
     substatMatch: overrides.substatMatch,
@@ -140,6 +143,9 @@ test('normalizeKeepUniqueRule supports readable wrapper payloads', () => {
         perMainStat: false,
         perSlot: true,
       },
+      ignorePreviousSafeguards: false,
+      ignoreEquippedInCollection: true,
+      ignoreEquippedInVault: true,
       tuple: {
         slots: ['Banner'],
         sets: [],
@@ -170,6 +176,31 @@ test('normalizeKeepUniqueRule supports readable wrapper payloads', () => {
     perMainStat: false,
     perSlot: true,
   })
+  assert.strictEqual(normalized.ignorePreviousSafeguards, false)
+  assert.strictEqual(normalized.ignoreEquippedInCollection, true)
+  assert.strictEqual(normalized.ignoreEquippedInVault, true)
+})
+
+test('normalizeKeepUniqueRule applies default toggle values', () => {
+  const normalized = normalizeKeepUniqueRule({
+    id: 'defaults',
+    requiredCount: 1,
+    activation: KeepUniqueRuleActivation.ProtectExisting,
+    countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
+    combination: {
+      slots: [ArtifactType.Weapon],
+      sets: [],
+      metaSetIds: [],
+      ranks: [],
+      rarities: [],
+      mainStats: [],
+      factions: [],
+    },
+  })
+  assert.ok(normalized)
+  assert.strictEqual(normalized.ignorePreviousSafeguards, true)
+  assert.strictEqual(normalized.ignoreEquippedInCollection, false)
+  assert.strictEqual(normalized.ignoreEquippedInVault, false)
 })
 
 test('computeKeepUniqueProtection aggregates combination counts', () => {
@@ -235,6 +266,87 @@ test('coveredByExisting flips when existing keep rules meet requirement', () => 
   assert.strictEqual(snapshot.entries[0]?.coveredByExisting, false, 'no gear means the quota still needs coverage')
   assert.strictEqual(snapshot.entries[0]?.deficit, 1, 'empty combos should report a deficit equal to the quota')
   assert.strictEqual(snapshot.entries[0]?.projectedCount, 0)
+})
+
+test('ignorePreviousSafeguards=false evaluates against cumulative prior safeguard state', () => {
+  const firstRule = makeRule({
+    id: 'first',
+    requiredCount: 1,
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+  })
+  const cumulativeRule = makeRule({
+    id: 'cumulative',
+    requiredCount: 1,
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+    ignorePreviousSafeguards: false,
+  })
+  const baselineRule = makeRule({
+    id: 'baseline',
+    requiredCount: 1,
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+    ignorePreviousSafeguards: true,
+  })
+  const rows = [
+    makeTesterRow({
+      id: 9101,
+      slot: ArtifactType.Weapon,
+      set: ArtifactSet.Speed,
+      rank: 6 as RankValue,
+      rarity: 6 as RankValue,
+    }, false, StatVariant.ATK),
+  ]
+  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
+  const snapshot = computeKeepUniqueProtection({
+    candidates,
+    rules: [firstRule, cumulativeRule, baselineRule],
+    enabled: true,
+  })
+  assert.deepStrictEqual(snapshot.entries[0]?.itemKeys, [9101], 'first rule should protect the sold candidate')
+  assert.deepStrictEqual(snapshot.entries[1]?.itemKeys, [], 'cumulative rule should see the prior safeguard as already kept')
+  assert.deepStrictEqual(snapshot.entries[2]?.itemKeys, [9101], 'baseline rule should ignore prior safeguards and re-evaluate from baseline')
+})
+
+test('equipped ignore toggles exclude matching collection/vault artifacts', () => {
+  const collectionRule = makeRule({
+    id: 'collection-filter',
+    requiredCount: 1,
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+    ignoreEquippedInCollection: true,
+  })
+  const vaultRule = makeRule({
+    id: 'vault-filter',
+    requiredCount: 1,
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+    ignoreEquippedInVault: true,
+  })
+  const rows = [
+    makeTesterRow({
+      id: 9201,
+      slot: ArtifactType.Weapon,
+      set: ArtifactSet.Speed,
+      equippedChampionLocation: 'collection',
+    }, false, StatVariant.ATK),
+    makeTesterRow({
+      id: 9202,
+      slot: ArtifactType.Weapon,
+      set: ArtifactSet.Speed,
+      equippedChampionLocation: 'vault',
+    }, false, StatVariant.ATK),
+    makeTesterRow({
+      id: 9203,
+      slot: ArtifactType.Weapon,
+      set: ArtifactSet.Speed,
+      equippedChampionLocation: null,
+    }, false, StatVariant.ATK),
+  ]
+  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
+  const snapshot = computeKeepUniqueProtection({
+    candidates,
+    rules: [collectionRule, vaultRule],
+    enabled: true,
+  })
+  assert.deepStrictEqual(snapshot.entries[0]?.itemKeys, [9202], 'collection filter should skip collection-equipped candidate')
+  assert.deepStrictEqual(snapshot.entries[1]?.itemKeys, [9201], 'vault filter should skip vault-equipped candidate')
 })
 
 test('per combination mode multiplies targets and deficits', () => {

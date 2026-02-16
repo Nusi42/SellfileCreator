@@ -33,7 +33,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import CheckIcon from '@mui/icons-material/Check'
-import CloseIcon from '@mui/icons-material/Close'
+import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import FilterListIcon from '@mui/icons-material/FilterList'
@@ -42,6 +42,9 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded'
 import {
   KEEP_UNIQUE_DEFAULT_COUNT_MODE,
+  KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
+  KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
+  KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
   KeepUniqueRuleActivation,
   KeepUniqueSubstatMatch,
   cloneKeepUniqueCombination,
@@ -131,6 +134,16 @@ import { createBuilderStatusChipSx } from '../builderStatusChipStyles'
 const KEEP_UNIQUES_RULE_HEADER_MIN_HEIGHT_PX = 56
 // Collapse the intro copy once the user scrolls down in the rules pane.
 const KEEP_UNIQUES_HEADER_COLLAPSE_SCROLL_PX = 4
+// Chip labels should truncate consistently and rely on native ellipsis tooltips for overflow.
+const KEEP_UNIQUES_CHIP_LABEL_ELLIPSIS_SX = {
+  '& .MuiChip-label': {
+    display: 'block',
+    maxWidth: '100%',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+} as const
 // areArraysEqual compares numeric arrays without allocating new copies.
 const areArraysEqual = (left: readonly number[], right: readonly number[]): boolean => {
   // Reuse the fast path when the arrays share identity.
@@ -291,7 +304,9 @@ export default function KeepUniquesTab({
 
 ${t('keepUniquesCountModeHint')}
 
-${t('keepUniquesSubstatModeHint')}`
+${t('keepUniquesSubstatModeHint')}
+
+${t('keepUniquesIgnoreOptionsHint')}`
   ), [t])
   // Map substat match values to localized chip labels.
   const substatMatchLabels = useMemo(() => ({
@@ -504,6 +519,9 @@ ${t('keepUniquesSubstatModeHint')}`
       requiredCount: 1,
       activation: KeepUniqueRuleActivation.ProtectExisting,
       countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
+      ignorePreviousSafeguards: KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
+      ignoreEquippedInCollection: KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
+      ignoreEquippedInVault: KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
       substats: [],
       substatMatch: KeepUniqueSubstatMatch.Any,
       substatWeights: {},
@@ -835,6 +853,12 @@ ${t('keepUniquesSubstatModeHint')}`
       // Explicit selection should clear manual deselect so defaults reapply on new interactions.
       setRespectManualDeselect(false)
     }
+    const handleCardClickCapture = (event: ReactMouseEvent<HTMLElement>) => {
+      // Interactive controls manage their own clicks and should not trigger card-level capture selection.
+      const target = event.target as HTMLElement | null
+      if (target?.closest('[data-rule-card-interactive="true"]')) return
+      selectRule()
+    }
     const toggleExpanded = () => {
       setExpandedRuleIds((prev) => {
         const next = new Set(prev)
@@ -896,8 +920,23 @@ ${t('keepUniquesSubstatModeHint')}`
     const perSetLabel = t('keepUniquesCountModePerSet')
     const perFactionLabel = t('keepUniquesCountModePerFaction')
     const perMainLabel = t('keepUniquesCountModePerMain')
-    // Resolve which scope chips are currently active for the rule.
-    const scopeActive = resolveKeepOverrideScopeActive(countMode)
+    // Ignore faction scope when accessories are not in this rule's slot filter.
+    const effectiveCountMode = hasAccessorySlot
+      ? countMode
+      : sanitizeKeepUniqueCountMode({ ...countMode, perFaction: false })
+    // Resolve which scope chips are currently active for the effective scope.
+    const scopeActive = resolveKeepOverrideScopeActive(effectiveCountMode)
+    // Legacy drafts may not have the new toggles persisted yet.
+    const ignorePreviousSafeguards = rule.ignorePreviousSafeguards !== false
+    // Equipped filters are opt-in and default to false for old payloads.
+    const ignoreEquippedInCollection = rule.ignoreEquippedInCollection === true
+    const ignoreEquippedInVault = rule.ignoreEquippedInVault === true
+    const ignorePreviousLabel = t('keepUniquesIgnorePreviousSafeguards')
+    const ignoreCollectionLabel = t('keepUniquesIgnoreEquippedInCollection')
+    const ignoreVaultLabel = t('keepUniquesIgnoreEquippedInVault')
+    const ignorePreviousHint = t('keepUniquesIgnorePreviousSafeguardsHint')
+    const ignoreCollectionHint = t('keepUniquesIgnoreEquippedInCollectionHint')
+    const ignoreVaultHint = t('keepUniquesIgnoreEquippedInVaultHint')
     // Toggle only the selected scope flag while preserving the rest.
     const handleScopeChipToggle = (scope: KeepOverrideScopeKey) => {
       if (ruleDisabled) return
@@ -909,47 +948,51 @@ ${t('keepUniquesSubstatModeHint')}`
       })
     }
     // Preconfigure the scope chips so each field can opt in easily.
-    const renderScopeChip = (scope: KeepOverrideScopeKey, label: string, active: boolean) => (
+    const renderScopeChip = (
+      scope: KeepOverrideScopeKey,
+      label: string,
+      active: boolean,
+      disabledOverride = false,
+    ) => (
       <MarkdownTooltip markdown={keepUniqueScopeChipTooltips[scope]}>
         <span>
           <KeepOverrideScopeChip
             scope={scope}
             label={label}
             active={active}
-            disabled={ruleDisabled}
+            disabled={ruleDisabled || disabledOverride}
             onToggle={handleScopeChipToggle}
           />
         </span>
       </MarkdownTooltip>
     )
 
-    const ruleCountsLabel = ruleDetection
-      ? t('keepUniquesRuleCounts', {
-        have: ruleDetection.currentCount,
-        keep: ruleDetection.requiredCount,
-      })
-      : ''
     const ruleCountsColor = (ruleDetection?.deficit ?? 0) > 0 ? 'error.main' : 'text.secondary'
-    // Extend the counts chip with a suffix that explains how the totals were derived.
-    const detectionScopeSuffix = (() => {
+    // Keep the quota explanation focused on scope; avoid mixing in raw "have/keep" labels.
+    const detectionScopeLine = (() => {
       if (!ruleDetection) return ''
-      const mode = sanitizeKeepUniqueCountMode(ruleDetection.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
-      if (mode.perRule || ruleDetection.groupsTracked === 0) return ''
+      // Mirror the same effective-scope rules used by the chips.
+      const rawMode = sanitizeKeepUniqueCountMode(ruleDetection.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
+      const mode = hasAccessorySlot
+        ? rawMode
+        : sanitizeKeepUniqueCountMode({ ...rawMode, perFaction: false })
       const scopeParts: string[] = []
       if (mode.perSlot) scopeParts.push(perSlotLabel)
       if (mode.perSet) scopeParts.push(perSetLabel)
       if (mode.perFaction) scopeParts.push(perFactionLabel)
       if (mode.perMainStat) scopeParts.push(perMainLabel)
-      const scopeLabel = scopeParts.join(' × ')
+      const scopeLabel = scopeParts.length > 0 ? scopeParts.join(' × ') : t('keepUniquesCountModePerRule')
       return t('keepUniquesRuleCountsPerGroupSuffix', {
         perGroup: ruleDetection.perGroupRequiredCount,
-        groups: ruleDetection.groupsTracked,
         scope: scopeLabel,
       })
     })()
-    const ruleCountsTooltip = detectionScopeSuffix
-      ? `${ruleCountsLabel}\n${detectionScopeSuffix}`
-      : ruleCountsLabel
+    const ruleCountsMissingLine = ruleDetection
+      ? t('keepUniquesRuleCountsMissing', {
+        missing: Math.max(0, Number(ruleDetection.deficit ?? 0)),
+      })
+      : ''
+    const ruleCountsTooltip = [detectionScopeLine, ruleCountsMissingLine].filter(Boolean).join('\n')
     // Summary title: name is optional, so fall back to a muted placeholder for fast scanning.
     const rawName = (pendingNameById.get(rule.id) ?? rule.name ?? '').trim()
     const summaryTitle = rawName || `${t('testerRule')} ${ruleIndex + 1}`
@@ -962,12 +1005,12 @@ ${t('keepUniquesSubstatModeHint')}`
     )
     const ruleStatus = ruleActive
       ? { label: activeRuleLabel, icon: <CheckIcon fontSize="small" />, color: 'success.main' }
-      : { label: t('keepUniquesRuleModeOff'), icon: <CloseIcon fontSize="small" />, color: 'text.secondary' }
+      : { label: t('keepUniquesRuleModeOff'), icon: <PauseCircleOutlineIcon fontSize="small" />, color: 'text.secondary' }
     return (
       <Box
         key={rule.id}
         // Capture clicks so any background or control interaction selects the card.
-        onClickCapture={selectRule}
+        onClickCapture={handleCardClickCapture}
         // Capture focus to support keyboard-driven activations selecting the card too.
         onFocusCapture={selectRule}
         sx={{
@@ -1377,7 +1420,7 @@ ${t('keepUniquesSubstatModeHint')}`
                 </RuleSelectAffordances>
               </KeepOverrideScopeField>
               {/* Keep the faction selector visible so users understand why accessory-only filters are required. */}
-              <KeepOverrideScopeField chip={renderScopeChip('perFaction', perFactionLabel, scopeActive.perFaction)}>
+              <KeepOverrideScopeField chip={renderScopeChip('perFaction', perFactionLabel, scopeActive.perFaction, !hasAccessorySlot)}>
                 {/* Faction filters are restricted to accessory slots. */}
                 <RuleSelectAffordances
                   selectionCount={factionSelection.length}
@@ -1508,30 +1551,40 @@ ${t('keepUniquesSubstatModeHint')}`
                   </RuleSelectAffordances>
                   <Box sx={{ mb: 0.5 }}>
                     <MarkdownTooltip markdown={t('keepUniquesSubstatRequirementHint')}>
-                      <Box component="span" sx={{ display: 'inline-flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <Box
+                        component="span"
+                        sx={{
+                          display: 'inline-flex',
+                          gap: 1,
+                          flexWrap: 'wrap',
+                          alignItems: 'center',
+                          ...KEEP_UNIQUES_CHIP_LABEL_ELLIPSIS_SX,
+                        }}
+                      >
                         {substatMatchOptions.map((option) => {
                           const active = effectiveSubstatMatch === option
                           const label = substatMatchLabels[option]
                             ?? substatMatchLabels[KeepUniqueSubstatMatch.Any]
                           return (
-                            <Chip
-                              key={option}
-                              size="small"
-                              variant="filled"
-                              label={label}
-                              aria-label={t('keepUniquesSubstatRequirementLabel')}
-                              data-rule-card-interactive="true"
-                              clickable
-                              disabled={ruleDisabled || !hasSubstatSelection}
-                              onClick={(event) => {
-                                event.preventDefault()
-                                event.stopPropagation()
-                                if (ruleDisabled || !hasSubstatSelection) return
-                                if (option === effectiveSubstatMatch) return
-                                updateRule(rule.id, (prev) => ({ ...prev, substatMatch: option }))
-                              }}
-                              sx={builderStatusChipSx(active, { dimDisabled: true })}
-                            />
+                            <EllipsisTooltip key={option} title={label} selector=".MuiChip-label">
+                              <Chip
+                                size="small"
+                                variant="filled"
+                                label={label}
+                                aria-label={t('keepUniquesSubstatRequirementLabel')}
+                                data-rule-card-interactive="true"
+                                clickable
+                                disabled={ruleDisabled || !hasSubstatSelection}
+                                onClick={(event) => {
+                                  event.preventDefault()
+                                  event.stopPropagation()
+                                  if (ruleDisabled || !hasSubstatSelection) return
+                                  if (option === effectiveSubstatMatch) return
+                                  updateRule(rule.id, (prev) => ({ ...prev, substatMatch: option }))
+                                }}
+                                sx={builderStatusChipSx(active, { dimDisabled: true })}
+                              />
+                            </EllipsisTooltip>
                           )
                         })}
                       </Box>
@@ -1541,7 +1594,7 @@ ${t('keepUniquesSubstatModeHint')}`
               </KeepOverrideScopeField>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: '0 0 auto' }}>
                 {/* Keep the info glyph on the same line as the quota so it no longer consumes a separate row. */}
                 <TextField
                   fullWidth
@@ -1610,6 +1663,103 @@ ${t('keepUniquesSubstatModeHint')}`
                     </IconButton>
                   </MarkdownTooltip>
                 ) : null}
+              </Box>
+              <Box
+                sx={{
+                  // Split safeguard toggles across two rows for better label readability.
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gap: 1,
+                  flex: 1,
+                  minWidth: 0,
+                  '& .MuiChip-root': {
+                    width: '100%',
+                  },
+                  ...KEEP_UNIQUES_CHIP_LABEL_ELLIPSIS_SX,
+                }}
+              >
+                {/* Keep toggles as chips so state styling matches other safeguard controls. */}
+                <Box sx={{ gridColumn: '1 / -1', minWidth: 0 }}>
+                  <MarkdownTooltip
+                    markdown={ignorePreviousHint}
+                    ellipsisTitle={ignorePreviousLabel}
+                    ellipsisSelector=".MuiChip-label"
+                  >
+                    <Chip
+                      size="small"
+                      variant="filled"
+                      label={ignorePreviousLabel}
+                      aria-label={ignorePreviousLabel}
+                      data-rule-card-interactive="true"
+                      clickable
+                      // Keep these toggles editable even when mode is Off.
+                      disabled={false}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        updateRule(rule.id, (prev) => ({
+                          ...prev,
+                          ignorePreviousSafeguards: !ignorePreviousSafeguards,
+                        }))
+                      }}
+                      sx={builderStatusChipSx(ignorePreviousSafeguards, { dimDisabled: true })}
+                    />
+                  </MarkdownTooltip>
+                </Box>
+                <Box sx={{ minWidth: 0 }}>
+                  <MarkdownTooltip
+                    markdown={ignoreCollectionHint}
+                    ellipsisTitle={ignoreCollectionLabel}
+                    ellipsisSelector=".MuiChip-label"
+                  >
+                    <Chip
+                      size="small"
+                      variant="filled"
+                      label={ignoreCollectionLabel}
+                      aria-label={ignoreCollectionLabel}
+                      data-rule-card-interactive="true"
+                      clickable
+                      // Keep these toggles editable even when mode is Off.
+                      disabled={false}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        updateRule(rule.id, (prev) => ({
+                          ...prev,
+                          ignoreEquippedInCollection: !ignoreEquippedInCollection,
+                        }))
+                      }}
+                      sx={builderStatusChipSx(ignoreEquippedInCollection, { dimDisabled: true })}
+                    />
+                  </MarkdownTooltip>
+                </Box>
+                <Box sx={{ minWidth: 0 }}>
+                  <MarkdownTooltip
+                    markdown={ignoreVaultHint}
+                    ellipsisTitle={ignoreVaultLabel}
+                    ellipsisSelector=".MuiChip-label"
+                  >
+                    <Chip
+                      size="small"
+                      variant="filled"
+                      label={ignoreVaultLabel}
+                      aria-label={ignoreVaultLabel}
+                      data-rule-card-interactive="true"
+                      clickable
+                      // Keep these toggles editable even when mode is Off.
+                      disabled={false}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        updateRule(rule.id, (prev) => ({
+                          ...prev,
+                          ignoreEquippedInVault: !ignoreEquippedInVault,
+                        }))
+                      }}
+                      sx={builderStatusChipSx(ignoreEquippedInVault, { dimDisabled: true })}
+                    />
+                  </MarkdownTooltip>
+                </Box>
               </Box>
             </Box>
           </Stack>
@@ -1893,11 +2043,13 @@ ${t('keepUniquesSubstatModeHint')}`
                 {/* Shared spinner keeps the dialog aligned with the preview chip busy indicator. */}
                 <WorkloadProgressIndicator progressRatio={workloadProgressRatio} ariaLabel={t('keepUniquesScanPending')} />
                 {selectionChipLabel ? (
-                  <Chip
-                    size="small"
-                    label={selectionChipLabel}
-                    sx={{ flexShrink: 0 }}
-                  />
+                  <EllipsisTooltip title={selectionChipLabel} selector=".MuiChip-label" wrap="block">
+                    <Chip
+                      size="small"
+                      label={selectionChipLabel}
+                      sx={{ flexShrink: 1, minWidth: 0, maxWidth: '100%', ...KEEP_UNIQUES_CHIP_LABEL_ELLIPSIS_SX }}
+                    />
+                  </EllipsisTooltip>
                 ) : null}
               </Box>
             </Box>

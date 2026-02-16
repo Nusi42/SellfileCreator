@@ -1736,6 +1736,15 @@ pub fn resolve_keep_unique_rules_with_metasets_value(
             required_count: rule.required_count.unwrap_or(1).max(1),
             activation: resolved_activation,
             count_mode: keep_unique_resolve_count_mode(rule.count_mode),
+            ignore_previous_safeguards: rule
+                .ignore_previous_safeguards
+                .unwrap_or(KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS),
+            ignore_equipped_in_collection: rule
+                .ignore_equipped_in_collection
+                .unwrap_or(KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION),
+            ignore_equipped_in_vault: rule
+                .ignore_equipped_in_vault
+                .unwrap_or(KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT),
             substats: rule.substats.clone().unwrap_or_default(),
             substat_match: keep_unique_normalize_substat_match(
                 rule.substat_match.as_deref().unwrap_or(""),

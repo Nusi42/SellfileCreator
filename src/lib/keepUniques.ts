@@ -55,6 +55,9 @@ import {
   KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_RULE,
   KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SET,
   KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SLOT,
+  KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION as KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION_CONST,
+  KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT as KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT_CONST,
+  KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS as KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS_CONST,
   KEEP_UNIQUE_SUBSTAT_ALL,
   KEEP_UNIQUE_SUBSTAT_ANY,
   KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT,
@@ -114,6 +117,15 @@ export const KEEP_UNIQUE_DEFAULT_COUNT_MODE: KeepUniqueRuleCountMode = {
   perMainStat: KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_MAIN_STAT,
   perSlot: KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SLOT,
 }
+
+// Default toggle keeps rule evaluation independent from earlier safeguards.
+export const KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS =
+  KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS_CONST
+// Equipped-ignore toggles default off so current behavior is preserved.
+export const KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION =
+  KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION_CONST
+export const KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT =
+  KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT_CONST
 
 export const KeepUniqueRuleActivation = {
   Off: KEEP_UNIQUE_ACTIVATION_OFF,
@@ -219,6 +231,11 @@ export const createEmptyKeepUniqueCombination = (): KeepUniqueCombination => ({
 export const cloneKeepUniqueRule = (rule: KeepUniqueRule): KeepUniqueRule => ({
   // Preserve stable identifiers and scalar fields.
   ...rule,
+  // Preserve cascade toggle with explicit default for legacy snapshots.
+  ignorePreviousSafeguards: rule.ignorePreviousSafeguards !== false,
+  // Preserve equipped filters with explicit defaults for legacy snapshots.
+  ignoreEquippedInCollection: rule.ignoreEquippedInCollection === true,
+  ignoreEquippedInVault: rule.ignoreEquippedInVault === true,
   // Clone the combination payload so arrays are detached.
   combination: cloneKeepUniqueCombination(rule.combination),
   // Clone the count mode flags to avoid shared references.
@@ -244,6 +261,12 @@ export type KeepUniqueRule = {
   requiredCount: number
   activation: KeepUniqueRuleActivation
   countMode: KeepUniqueRuleCountMode
+  // True keeps this rule independent from earlier keep-unique safeguards.
+  ignorePreviousSafeguards: boolean
+  // True excludes artifacts equipped on collection champions from matching.
+  ignoreEquippedInCollection: boolean
+  // True excludes artifacts equipped in vault/reserve-vault from matching.
+  ignoreEquippedInVault: boolean
   // Optional substat filters (empty array = any substat).
   substats: StatVariant[]
   // Match behavior for multiple selected substats.

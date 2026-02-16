@@ -104,7 +104,7 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Substats sind optional: Wähle einen oder mehrere, damit nur Items zählen, die diese Substats haben. Der Match‑Chip (`Beliebige Substat` / `Alle Substats` / `Pro Substat`) bestimmt, ob mindestens eine, alle oder jede ausgewählte Substat ihre eigene Quote bekommt. Leer lassen bedeutet: kein Substat-Filter.
 - Ausgewählte Substats werden immer mit der normalisierten Substat-Wertung gerankt (Glyphen ignoriert); Gewichtungen erscheinen bei `Beliebige Substat` und `Alle Substats`, `Pro Substat` bleibt bei der Standardgewichtung (Gleichstände an der Grenze bleiben geschützt).
 - `≥ Benötigte Anzahl` definiert das Versprechen, das die App halten soll. Direkt darunter entscheiden Chips für `Pro Slot`, `Pro Set`, `Pro Fraktion` und `Pro Hauptstat`, wie das Kontingent aufgeteilt wird. Sind alle Chips aus, gilt automatisch `Pro Regel` (ein gemeinsamer Pool).
-- Der Zähler `Vorhanden {have} / Behalten {keep}` zeigt: **Vorhanden** = passende Items (bei ausgewählten Substats zählen nur Top-Rolls + Gleichstände), **Behalten** = Quote nach Bereichen. Der Chip wird rot, wenn die Quote verfehlt wird.
+- Der Hinweis bei `Benötigte Anzahl` zeigt die aktive Bereichs-Aufteilung (`X je Slot × je Set × ...`) plus eine einfache Fehlmenge (`({missing} fehlen)`).
 - Der Scanner fügt nur Behalte-Zeilen für passende Items hinzu, die sonst verkauft würden, und nur wenn die Quote nicht erfüllt ist. Im Modus `Lücken vorab sichern` kommen Platzhalter-Regeln für fehlende Kombinationen dazu.
 
 #### Kontingentbereiche auf einen Blick

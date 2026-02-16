@@ -104,7 +104,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Los substats son opcionales: elige uno o varios para contar solo los objetos que tengan esos substats. El chip de coincidencia (`Cualquier Substat` / `Todos los Substats` / `Por Substat`) decide si basta con uno, si deben estar todos o si cada substat tiene su propia cuota. Dejarlo vacío permite cualquier substat.
 - Las substats seleccionadas siempre se clasifican con la fórmula normalizada (glifos ignorados); los pesos aparecen con `Cualquier Substat` y `Todos los Substats`, `Por Substat` usa la ponderación estándar (los empates en el corte se mantienen).
 - `≥ Cantidad necesaria` es la promesa que quieres cumplir. Los chips justo debajo de cada selector (todo salvo Rango y Rareza) comparten o duplican la cuota: `Por ranura`, `Por conjunto`, `Por facción` y `Por stat principal` se pueden combinar libremente, y al apagarlos todos la regla vuelve automáticamente a `Por regla`.
-- El contador `Hay {have} / Conservar {keep}` muestra: **Hay** = objetos coincidentes (con substats seleccionados, solo los mejores + empates), **Conservar** = la cuota tras los ámbitos. El chip se pone rojo cuando la cuota no se cumple.
+- El tooltip de `Cantidad necesaria` muestra la división activa de ámbitos (`X por ranura × por conjunto × ...`) y una línea simple de faltantes (`({missing} faltan)`).
 - El escáner solo añade filas de conservación para coincidencias que se venderían y solo cuando la cuota no se cumple. En `Anticipar huecos`, también emite reglas de marcador para combinaciones faltantes.
 
 #### Alcances de cuota de un vistazo
