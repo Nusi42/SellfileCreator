@@ -1,9 +1,9 @@
-export type RestoreOptionKey = 'configs' | 'metasets' | 'targets' | 'note' | 'filters' | 'sort' | 'tester' | 'gearSets'
+export type RestoreOptionKey = 'recipes' | 'metasets' | 'targets' | 'note' | 'filters' | 'sort' | 'tester' | 'gearSets'
 
 export type RestoreSelection = Record<RestoreOptionKey, boolean>
 
 export const RESTORE_SELECTION_KEYS: readonly RestoreOptionKey[] = [
-  'configs',
+  'recipes',
   'metasets',
   'targets',
   'note',
@@ -14,7 +14,7 @@ export const RESTORE_SELECTION_KEYS: readonly RestoreOptionKey[] = [
 ] as const
 
 export const RESTORE_SELECTION_DEFAULT: RestoreSelection = {
-  configs: false,
+  recipes: false,
   metasets: false,
   targets: false,
   note: false,

@@ -48,9 +48,9 @@ export default function ConfirmDialogs({
 
       {openClear ? (
       <Dialog open={openClear} onClose={() => setOpenClear(false)}>
-        <DialogTitle>{t('titleDeleteAllConfigs')}</DialogTitle>
+        <DialogTitle>{t('titleDeleteAllRecipes')}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">{t('msgDeleteAllConfigs')}</Typography>
+          <Typography variant="body2">{t('msgDeleteAllRecipes')}</Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenClear(false)}>{t('cancel')}</Button>
@@ -61,9 +61,9 @@ export default function ConfirmDialogs({
 
       {deleteIdx !== null ? (
       <Dialog open={deleteIdx !== null} onClose={() => setDeleteIdx(null)}>
-        <DialogTitle>{t('titleDeleteConfig')}</DialogTitle>
+        <DialogTitle>{t('titleDeleteRecipe')}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">{t('msgDeleteConfig')}</Typography>
+          <Typography variant="body2">{t('msgDeleteRecipe')}</Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteIdx(null)}>{t('cancel')}</Button>
@@ -74,9 +74,9 @@ export default function ConfirmDialogs({
 
       {deleteMultiTargets !== null ? (
       <Dialog open={deleteMultiTargets !== null} onClose={() => setDeleteMultiTargets(null)}>
-        <DialogTitle>{t('titleDeleteSelectedConfigs', { n: deleteMultiCount })}</DialogTitle>
+        <DialogTitle>{t('titleDeleteSelectedRecipes', { n: deleteMultiCount })}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">{t('msgDeleteSelectedConfigs', { n: deleteMultiCount })}</Typography>
+          <Typography variant="body2">{t('msgDeleteSelectedRecipes', { n: deleteMultiCount })}</Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteMultiTargets(null)}>{t('cancel')}</Button>
@@ -91,5 +91,5 @@ export default function ConfirmDialogs({
  * ConfirmDialogs
  *
  * Centralized confirmation dialogs used by App for clearing history, clearing
- * all configs, and deleting single or multiple configurations.
+ * all recipes, and deleting single or multiple configurations.
  */

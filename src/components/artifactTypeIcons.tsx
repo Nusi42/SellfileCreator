@@ -1,6 +1,6 @@
 /**
  * Shared artifact type icon mapping.
- * Why: keep a single source of truth for slot icons so the Builder and ConfigChip
+ * Why: keep a single source of truth for slot icons so the Builder and RecipeChip
  * render the same visuals and we avoid duplicating icon lists across files.
  *
  * Slot icons now reuse Farbstoff's RSL Helper assets. We inline their SVG

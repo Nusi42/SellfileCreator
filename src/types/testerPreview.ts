@@ -1,10 +1,10 @@
 import type { TesterFilterRow } from '../lib/rulesFilter'
-import type { MatchingConfigDecision } from '../lib/ruleEval'
+import type { MatchingRecipeDecision } from '../lib/ruleEval'
 
 export type TesterPreviewMatch = {
   keep: boolean
-  cfgIdx: number | null
-  cfgName: string | null
+  recipeIdx: number | null
+  recipeName: string | null
   ruleIndex: number | null
   ruleLabel: string | null
   ruleSource: string | null
@@ -14,7 +14,7 @@ export type TesterPreviewRow = TesterFilterRow & {
   match: TesterPreviewMatch | null
   baseMatch: TesterPreviewMatch | null
   matchingCfgIndices: number[]
-  matchingConfigDecisions: MatchingConfigDecision[]
+  matchingRecipeDecisions: MatchingRecipeDecision[]
 }
 
 // Aggregate outcome totals for Rule Tester preview rows.
@@ -25,6 +25,6 @@ export type TesterOutcomeSummary = {
   sold: number
   // Count of items kept (explicit keep or no sell match).
   kept: number
-  // Count of kept items attributed to Keep Unique rules.
-  keptByKeepUniques: number
+  // Count of kept items attributed to Safeguard rules.
+  keptBySafeguards: number
 }

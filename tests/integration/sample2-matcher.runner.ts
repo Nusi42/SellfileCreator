@@ -1,6 +1,6 @@
 /* eslint import/no-unused-modules: off */
 // sample2-bundle matcher regression runner.
-// This script guards the keep-unique + primary/base match invariants that
+// This script guards the safeguard + primary/base match invariants that
 // previously regressed during wasm boundary refactors.
 
 import { readFileSync } from 'node:fs'
@@ -9,16 +9,16 @@ import { defaultSubstatTargets, type SellfileExportMode } from '../../src/lib/hs
 import { parseHsfcObject } from '../../src/lib/hsfcIO.js'
 import { importGearDatabaseFromArrayBuffer } from '../../src/lib/importers/gearDbImporter.js'
 import {
-  RULE_SOURCE_KEEP_UNIQUES,
+  RULE_SOURCE_SAFEGUARDS,
   computeMergedRules,
   type HsfRuleWithCfg,
 } from '../../src/lib/merge.js'
 import {
-  collectKeepUniqueCandidates,
-  computeKeepUniqueProtection,
-  resolveKeepUniqueRulesWithMetasets,
-} from '../../src/lib/keepUniques.js'
-import { evaluateMatchesByConfig, type EvalResult } from '../../src/lib/ruleEval.js'
+  collectSafeguardCandidates,
+  computeSafeguardProtection,
+  resolveSafeguardRulesWithMetasets,
+} from '../../src/lib/safeguards.js'
+import { evaluateMatchesByRecipe, type EvalResult } from '../../src/lib/ruleEval.js'
 import type { TesterPreviewMatch, TesterPreviewRow } from '../../src/types/testerPreview.js'
 import '../setup/wasm-warmup.js'
 
@@ -61,7 +61,7 @@ const toArrayBuffer = (bytes: Buffer): ArrayBuffer => {
 }
 
 // Convert raw evaluator output into the preview match shape expected by
-// keep-unique candidate collection helpers.
+// safeguard candidate collection helpers.
 const toPreviewMatch = (
   result: EvalResult | null,
   rules: readonly HsfRuleWithCfg[],
@@ -70,8 +70,8 @@ const toPreviewMatch = (
   const matchedRule = rules[result.ruleIndex] ?? null
   return {
     keep: result.keep,
-    cfgIdx: result.cfgIdx ?? null,
-    cfgName: null,
+    recipeIdx: result.recipeIdx ?? null,
+    recipeName: null,
     ruleIndex: result.ruleIndex ?? null,
     ruleLabel: null,
     ruleSource: matchedRule?.__source ?? null,
@@ -90,15 +90,15 @@ const main = async (): Promise<void> => {
     metasets: [],
     substatTargets: defaultSubstatTargets(),
   })
-  // Resolve metaset references up-front so keep-unique inputs are explicit.
-  const keepUniqueRules = resolveKeepUniqueRulesWithMetasets(parsed.keepUniqueRules, parsed.metasets)
+  // Resolve metaset references up-front so safeguard inputs are explicit.
+  const safeguardRules = resolveSafeguardRulesWithMetasets(parsed.safeguardRules, parsed.metasets)
   // Metaset resolution must not drop rules that do not use metasets.
-  // Dropping such rules silently removes keep-unique coverage in tester/grid flows.
+  // Dropping such rules silently removes safeguard coverage in tester/grid flows.
   assert(
-    keepUniqueRules.length === parsed.keepUniqueRules.length,
-    `keep-unique metaset resolution changed rule count (${parsed.keepUniqueRules.length} -> ${keepUniqueRules.length})`,
+    safeguardRules.length === parsed.safeguardRules.length,
+    `safeguard metaset resolution changed rule count (${parsed.safeguardRules.length} -> ${safeguardRules.length})`,
   )
-  const configModes: SellfileExportMode[] = parsed.cfgs.map((cfg) => cfg.exportMode)
+  const recipeModes: SellfileExportMode[] = parsed.recipes.map((cfg) => cfg.exportMode)
 
   // Load the shared sample2 database and merge both inventory + inbox items.
   const dbBytes = readFileSync(dbPath)
@@ -106,53 +106,53 @@ const main = async (): Promise<void> => {
   const artifacts = [...imported.artifacts, ...imported.inboxArtifacts]
   assert(artifacts.length > 0, 'sample2-bundle matcher runner imported zero artifacts')
 
-  // Build the baseline merged rules (with keep-unique enabled but no detection yet).
+  // Build the baseline merged rules (with safeguard enabled but no detection yet).
   const baseMergedRules = computeMergedRules({
     hsf: null,
-    customCfgs: parsed.cfgs,
+    customRecipes: parsed.recipes,
     metasets: parsed.metasets,
     substatTargets: parsed.substatTargets,
     finalSellRemainder: parsed.finalSellRemainder,
-    keepUniques: {
-      enabled: parsed.keepUniquesEnabled,
-      rules: keepUniqueRules,
+    safeguards: {
+      enabled: parsed.safeguardsEnabled,
+      rules: safeguardRules,
       detection: null,
     },
   })
 
-  // Evaluate the baseline rows so keep-unique candidate collection can
+  // Evaluate the baseline rows so safeguard candidate collection can
   // reproduce the same row-level context used by the live tester pipeline.
   const baselineRows: TesterPreviewRow[] = artifacts.map((artifact) => {
-    const evalResult = evaluateMatchesByConfig(
+    const evalResult = evaluateMatchesByRecipe(
       baseMergedRules,
       artifact.testerItem,
       {
-        configModes,
-        excludeSources: [RULE_SOURCE_KEEP_UNIQUES],
+        recipeModes,
+        excludeSources: [RULE_SOURCE_SAFEGUARDS],
       },
     )
     return {
       artifact,
       match: toPreviewMatch(evalResult.firstMatch, baseMergedRules),
       baseMatch: toPreviewMatch(evalResult.firstNonExcludedMatch, baseMergedRules),
-      matchingCfgIndices: evalResult.matchingConfigIndices,
-      matchingConfigDecisions: evalResult.matchingConfigDecisions,
+      matchingCfgIndices: evalResult.matchingRecipeIndices,
+      matchingRecipeDecisions: evalResult.matchingRecipeDecisions,
     }
   })
 
-  // Generate keep-unique detection snapshot from sold candidates.
-  const candidates = collectKeepUniqueCandidates({
+  // Generate safeguard detection snapshot from sold candidates.
+  const candidates = collectSafeguardCandidates({
     rows: baselineRows,
-    baseRules: baseMergedRules.filter((rule) => rule.__source !== RULE_SOURCE_KEEP_UNIQUES),
-    configModes,
+    baseRules: baseMergedRules.filter((rule) => rule.__source !== RULE_SOURCE_SAFEGUARDS),
+    recipeModes,
   })
-  const detection = computeKeepUniqueProtection({
+  const detection = computeSafeguardProtection({
     candidates: candidates.candidates,
-    rules: keepUniqueRules,
-    enabled: parsed.keepUniquesEnabled,
+    rules: safeguardRules,
+    enabled: parsed.safeguardsEnabled,
   })
   // Invariant: placeholders must represent real deficits only.
-  // Zero-missing placeholders indicate grouping regressions in keep-unique scans.
+  // Zero-missing placeholders indicate grouping regressions in safeguard scans.
   let zeroMissingPlaceholders = 0
   for (const entry of detection.entries) {
     for (const placeholder of entry.placeholders) {
@@ -163,26 +163,26 @@ const main = async (): Promise<void> => {
   }
   assert(
     zeroMissingPlaceholders === 0,
-    `keep-unique detection emitted zero-missing placeholders: ${zeroMissingPlaceholders}`,
+    `safeguard detection emitted zero-missing placeholders: ${zeroMissingPlaceholders}`,
   )
 
-  // Rebuild merged rules with the keep-unique detection snapshot applied.
+  // Rebuild merged rules with the safeguard detection snapshot applied.
   const mergedWithKeepRules = computeMergedRules({
     hsf: null,
-    customCfgs: parsed.cfgs,
+    customRecipes: parsed.recipes,
     metasets: parsed.metasets,
     substatTargets: parsed.substatTargets,
     finalSellRemainder: parsed.finalSellRemainder,
-    keepUniques: {
-      enabled: parsed.keepUniquesEnabled,
-      rules: keepUniqueRules,
+    safeguards: {
+      enabled: parsed.safeguardsEnabled,
+      rules: safeguardRules,
       detection,
     },
   })
 
-  // Invariant #1: injected keep-unique rows must exist and carry full payload.
-  const keepRows = mergedWithKeepRules.filter((rule) => rule.__source === RULE_SOURCE_KEEP_UNIQUES)
-  assert(keepRows.length > 0, 'expected keep-unique injected rows in merged rules')
+  // Invariant #1: injected safeguard rows must exist and carry full payload.
+  const keepRows = mergedWithKeepRules.filter((rule) => rule.__source === RULE_SOURCE_SAFEGUARDS)
+  assert(keepRows.length > 0, 'expected safeguard injected rows in merged rules')
   let emptyKeepRows = 0
   let keepFlagViolations = 0
   let substatViolations = 0
@@ -194,28 +194,28 @@ const main = async (): Promise<void> => {
     // Keep rows must retain padded Substats payload for evaluator parity.
     if (!Array.isArray(row.Substats) || row.Substats.length === 0) substatViolations += 1
   }
-  assert(emptyKeepRows === 0, `keep-unique injected rows collapsed to empty payloads: ${emptyKeepRows}`)
-  assert(keepFlagViolations === 0, `keep-unique injected rows lost Keep/Use flags: ${keepFlagViolations}`)
-  assert(substatViolations === 0, `keep-unique injected rows lost Substats payload: ${substatViolations}`)
+  assert(emptyKeepRows === 0, `safeguard injected rows collapsed to empty payloads: ${emptyKeepRows}`)
+  assert(keepFlagViolations === 0, `safeguard injected rows lost Keep/Use flags: ${keepFlagViolations}`)
+  assert(substatViolations === 0, `safeguard injected rows lost Substats payload: ${substatViolations}`)
 
   // Invariant #2 and #3: final merged rules must still produce first-match
   // and first-non-excluded (primary/base) matches for every artifact.
   let missingFirstMatch = 0
   let missingPrimaryMatch = 0
   for (const artifact of artifacts) {
-    const evalResult = evaluateMatchesByConfig(
+    const evalResult = evaluateMatchesByRecipe(
       mergedWithKeepRules,
       artifact.testerItem,
       {
-        configModes,
-        excludeSources: [RULE_SOURCE_KEEP_UNIQUES],
+        recipeModes,
+        excludeSources: [RULE_SOURCE_SAFEGUARDS],
       },
     )
     if (!evalResult.firstMatch) missingFirstMatch += 1
     if (!evalResult.firstNonExcludedMatch) missingPrimaryMatch += 1
   }
-  assert(missingFirstMatch === 0, `missing firstMatch rows after keep-unique merge: ${missingFirstMatch}`)
-  assert(missingPrimaryMatch === 0, `missing firstNonExcludedMatch rows after keep-unique merge: ${missingPrimaryMatch}`)
+  assert(missingFirstMatch === 0, `missing firstMatch rows after safeguard merge: ${missingFirstMatch}`)
+  assert(missingPrimaryMatch === 0, `missing firstNonExcludedMatch rows after safeguard merge: ${missingPrimaryMatch}`)
 
   // Emit one compact success line so CI logs stay easy to scan.
   console.log(

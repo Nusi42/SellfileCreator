@@ -61,7 +61,7 @@
     "includesMythicalByCode": [false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, true, false],
     "minRollEventsByCode": [0, 0, 1, 2, 3, 4, 0, 1, 2, 3, 0, 0, 0, 0, 0, 4, 4]
   },
-  "keepUnique": {
+  "safeguard": {
     "activation": {
       "off": "off",
       "protectExisting": "protectExisting",

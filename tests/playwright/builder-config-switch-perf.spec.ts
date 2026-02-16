@@ -8,7 +8,7 @@ import { warmupAppShell } from './app-warmup'
 
 const RULE_CHIP_SELECTOR = '[data-testid="builder-rule-count-chip"] .MuiChip-label'
 
-// Minimal autosave payload to seed two configs without HSFC imports.
+// Minimal autosave payload to seed two recipes without HSFC imports.
 const AUTOSAVE_CONFIGS = [
   {
     name: 'Perf Config A',
@@ -58,7 +58,7 @@ const CONFIG_AUTOSAVE_ENTRY = (() => {
     Version: APP_VERSION,
     AutosaveSavedAt: '2025-01-01T00:00:00.000Z',
     Metasets: [],
-    Configs: AUTOSAVE_CONFIGS,
+    Recipes: AUTOSAVE_CONFIGS,
     FinalSellRemainder: {
       artifacts: true,
       accessories: true,
@@ -131,20 +131,20 @@ test.describe('builder config switching performance', () => {
       }
     })
 
-    const configNames = AUTOSAVE_CONFIG_NAMES
+    const recipeNames = AUTOSAVE_CONFIG_NAMES
 
     // Load the shell without waiting for the full load event.
     await page.goto('/', APP_GOTO_OPTIONS)
     await acceptConfigRestoreDialog(page)
     // Skip additional HSF/DB imports so the perf check stays within the fast-fail budget.
 
-    const chips = page.locator('[data-config-chip="true"]')
+    const chips = page.locator('[data-recipe-chip="true"]')
     await expect(chips.first()).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
 
     // Limit to a single switch so perf capture stays under the 15s cap.
-    const measurementPairs = deriveMeasurementPairs(configNames, 2).slice(0, 1)
+    const measurementPairs = deriveMeasurementPairs(recipeNames, 2).slice(0, 1)
     if (measurementPairs.length < 1) {
-      test.skip(true, 'Not enough named configs to measure switching latency.')
+      test.skip(true, 'Not enough named recipes to measure switching latency.')
     }
 
     let longTaskCursor = 0
@@ -164,7 +164,7 @@ test.describe('builder config switching performance', () => {
     }
 
     for (const entry of measurements) {
-      const label = `${formatConfigLabel(entry.fromIdx, entry.fromName)} → ${formatConfigLabel(entry.toIdx, entry.toName)}`
+      const label = `${formatRecipeLabel(entry.fromIdx, entry.fromName)} → ${formatRecipeLabel(entry.toIdx, entry.toName)}`
       const summary = `${label} | rule chip settled=${entry.ruleChipSettledMs.toFixed(1)} ms`
       testInfo.annotations.push({ type: 'perf', description: summary })
       console.log(`[builder-config-switch] ${summary}`)
@@ -203,8 +203,8 @@ async function acceptConfigRestoreDialog(page: Page): Promise<void> {
   // Skip when no restore prompt is displayed.
   const isVisible = await dialog.isVisible().catch(() => false)
   if (!isVisible) return
-  // Ensure configs are selected so the restore loads chips.
-  const configsCheckbox = dialog.getByRole('checkbox', { name: /Configs/i })
+  // Ensure recipes are selected so the restore loads chips.
+  const configsCheckbox = dialog.getByRole('checkbox', { name: /Recipes/i })
   if (await configsCheckbox.isVisible().catch(() => false)) {
     if (!(await configsCheckbox.isChecked().catch(() => false))) {
       await configsCheckbox.click()
@@ -217,8 +217,8 @@ async function acceptConfigRestoreDialog(page: Page): Promise<void> {
   await expect(dialog).toBeHidden({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 }
 
-function deriveMeasurementPairs(configNames: string[], desired: number): Array<{ fromIdx: number; toIdx: number; fromName: string; toName: string }> {
-  const named = configNames
+function deriveMeasurementPairs(recipeNames: string[], desired: number): Array<{ fromIdx: number; toIdx: number; fromName: string; toName: string }> {
+  const named = recipeNames
     .map((name, idx) => ({ name: (name ?? '').trim(), idx }))
     .filter((entry) => entry.name.length > 0)
   const usable = named.slice(0, desired)
@@ -280,7 +280,7 @@ async function waitForRuleChipStable(page: Page): Promise<void> {
   )
 }
 
-function formatConfigLabel(index: number, name: string): string {
+function formatRecipeLabel(index: number, name: string): string {
   const trimmed = name.trim()
   return trimmed ? `#${index + 1} – "${trimmed}"` : `#${index + 1}`
 }

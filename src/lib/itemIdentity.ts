@@ -1,4 +1,4 @@
-// Canonical item-id resolution keeps matcher, cache, and keep-unique item keys
+// Canonical item-id resolution keeps matcher, cache, and safeguard item keys
 // aligned so one artifact always maps to one identity across the app.
 
 // Real artifact ids from the gear DB are positive integers in practice.

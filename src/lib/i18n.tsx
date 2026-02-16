@@ -223,14 +223,14 @@ export function formatConfigsCount(
   const effectiveVisible = Math.max(0, visible ?? effectiveTotal)
   const selectedClamped = typeof selected === 'number' ? Math.max(0, Math.min(selected, effectiveTotal)) : null
   const hiddenCount = Math.max(0, effectiveTotal - effectiveVisible)
-  const totalWord = effectiveTotal === 1 ? t('configOne') : t('configMany')
-  const visibleWord = effectiveVisible === 1 ? t('configOne') : t('configMany')
-  const hiddenSuffix = hiddenCount > 0 ? t('configsHiddenSuffix', { hidden: hiddenCount }) : ''
+  const totalWord = effectiveTotal === 1 ? t('recipeOne') : t('recipeMany')
+  const visibleWord = effectiveVisible === 1 ? t('recipeOne') : t('recipeMany')
+  const hiddenSuffix = hiddenCount > 0 ? t('recipesHiddenSuffix', { hidden: hiddenCount }) : ''
   if (selectedClamped && selectedClamped > 1 && selectedClamped < effectiveTotal) {
     const useVisibleDenominator = hiddenCount > 0 && selectedClamped <= effectiveVisible && effectiveVisible > 0
     const denom = useVisibleDenominator ? effectiveVisible : effectiveTotal
     const denomWord = useVisibleDenominator ? visibleWord : totalWord
-    return `${t('configsSelectedCount', { selected: selectedClamped, total: denom, word: denomWord })}${hiddenSuffix}`
+    return `${t('recipesSelectedCount', { selected: selectedClamped, total: denom, word: denomWord })}${hiddenSuffix}`
   }
-  return `${t('configsTotalCount', { count: effectiveVisible, word: visibleWord })}${hiddenSuffix}`
+  return `${t('recipesTotalCount', { count: effectiveVisible, word: visibleWord })}${hiddenSuffix}`
 }

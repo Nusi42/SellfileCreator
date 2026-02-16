@@ -6,7 +6,7 @@ import {
   resolveCanonicalArtifactItemId,
   resolveCanonicalTestItemId,
 } from '../../src/lib/itemIdentity.js'
-import { getKeepUniqueItemKey } from '../../src/lib/keepUniques.js'
+import { getSafeguardItemKey } from '../../src/lib/safeguards.js'
 
 test('resolveCanonicalArtifactItemId prefers artifact.id over tester ids', () => {
   // Artifact `id` is the DB identity and should always win.
@@ -42,7 +42,7 @@ test('resolveArtifactItemIdWithFallback emits deterministic negative ids', () =>
   assert.equal(resolvedMissing, -1)
 })
 
-test('getKeepUniqueItemKey follows db-first precedence', () => {
+test('getSafeguardItemKey follows db-first precedence', () => {
   // Full payload with all ids proves DB id wins over tester ids.
   const withAllIds = {
     id: 4200,
@@ -50,8 +50,8 @@ test('getKeepUniqueItemKey follows db-first precedence', () => {
       itemId: 42,
       previewExtras: { id: 777 },
     },
-  } as unknown as Parameters<typeof getKeepUniqueItemKey>[0]
-  assert.equal(getKeepUniqueItemKey(withAllIds), 4200)
+  } as unknown as Parameters<typeof getSafeguardItemKey>[0]
+  assert.equal(getSafeguardItemKey(withAllIds), 4200)
 
   // Without artifact id, tester preview id should become the key.
   const withPreviewOnly = {
@@ -59,18 +59,18 @@ test('getKeepUniqueItemKey follows db-first precedence', () => {
       itemId: 42,
       previewExtras: { id: 777 },
     },
-  } as unknown as Parameters<typeof getKeepUniqueItemKey>[0]
-  assert.equal(getKeepUniqueItemKey(withPreviewOnly), 777)
+  } as unknown as Parameters<typeof getSafeguardItemKey>[0]
+  assert.equal(getSafeguardItemKey(withPreviewOnly), 777)
 
   // Legacy tester-only payloads still work as the third fallback.
   const withTesterOnly = {
     testerItem: {
       itemId: 42,
     },
-  } as unknown as Parameters<typeof getKeepUniqueItemKey>[0]
-  assert.equal(getKeepUniqueItemKey(withTesterOnly), 42)
+  } as unknown as Parameters<typeof getSafeguardItemKey>[0]
+  assert.equal(getSafeguardItemKey(withTesterOnly), 42)
 
   // Missing every id should keep the historical zero sentinel.
-  const withNoIds = {} as unknown as Parameters<typeof getKeepUniqueItemKey>[0]
-  assert.equal(getKeepUniqueItemKey(withNoIds), 0)
+  const withNoIds = {} as unknown as Parameters<typeof getSafeguardItemKey>[0]
+  assert.equal(getSafeguardItemKey(withNoIds), 0)
 })

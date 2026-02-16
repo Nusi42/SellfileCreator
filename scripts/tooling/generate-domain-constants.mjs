@@ -27,7 +27,7 @@ const rankValue = spec.rankValue
 const level = spec.level
 const encoding = spec.encoding
 const autoRarity = spec.autoRarity
-const keepUnique = spec.keepUnique
+const safeguard = spec.safeguard
 const ordering = spec.ordering
 const accessoryNoSetId = spec.accessoryNoSetId
 
@@ -132,17 +132,17 @@ assertAutoRarityLength(autoRarityMinRollEventsByCode, 'autoRarity.minRollEventsB
 const autoRarityBoolTs = autoRarityIncludesMythicalByCode.map((value) => (value ? 'true' : 'false')).join(', ')
 const autoRarityBoolRust = autoRarityIncludesMythicalByCode.map((value) => (value ? 'true' : 'false')).join(", ")
 
-// Rank bounds are shared by keep-unique normalization and matcher mask logic.
+// Rank bounds are shared by safeguard normalization and matcher mask logic.
 const rankValueMin = Number(rankValue.min)
 const rankValueMax = Number(rankValue.max)
 
-// Keep-unique token tables stay canonical in the shared constants payload.
-const keepUniqueActivation = keepUnique.activation
-const keepUniqueSubstatMatch = keepUnique.substatMatch
-const keepUniqueCountModeDefault = keepUnique.countModeDefault
-const keepUniqueRuleOptionsDefault = keepUnique.ruleOptionsDefault ?? {}
-const keepUniquePlaceholderReason = keepUnique.placeholderReason
-const keepUniqueWeight = keepUnique.weight
+// Safeguard token tables stay canonical in the shared constants payload.
+const safeguardActivation = safeguard.activation
+const safeguardSubstatMatch = safeguard.substatMatch
+const safeguardCountModeDefault = safeguard.countModeDefault
+const safeguardRuleOptionsDefault = safeguard.ruleOptionsDefault ?? {}
+const safeguardPlaceholderReason = safeguard.placeholderReason
+const safeguardWeight = safeguard.weight
 
 // Emit stable string literals for each target language.
 const asTsStringLiteral = (value) => JSON.stringify(String(value))
@@ -210,7 +210,7 @@ const tsLines = [
   `export const RARITY_CODE_MYTHICAL = ${Number(rarityCode.mythical)}`,
   `export const RARITY_CODE_GTE_LEGENDARY = ${Number(rarityCode.gteLegendary)}`,
   '',
-  '// Rank value bounds shared across TS and Rust keep-unique/matcher logic.',
+  '// Rank value bounds shared across TS and Rust safeguard/matcher logic.',
   `export const RANK_VALUE_MIN = ${rankValueMin}`,
   `export const RANK_VALUE_MAX = ${rankValueMax}`,
   '',
@@ -247,26 +247,26 @@ const tsLines = [
   `export const AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE = [${autoRarityMinRollEventsByCode.join(', ')}] as const`,
   '',
   '// Keep-unique token + default mode constants used by TS and Rust paths.',
-  `export const KEEP_UNIQUE_ACTIVATION_OFF = ${asTsStringLiteral(keepUniqueActivation.off)}`,
-  `export const KEEP_UNIQUE_ACTIVATION_PROTECT_EXISTING = ${asTsStringLiteral(keepUniqueActivation.protectExisting)}`,
-  `export const KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS = ${asTsStringLiteral(keepUniqueActivation.anticipateGaps)}`,
-  `export const KEEP_UNIQUE_SUBSTAT_ANY = ${asTsStringLiteral(keepUniqueSubstatMatch.any)}`,
-  `export const KEEP_UNIQUE_SUBSTAT_ALL = ${asTsStringLiteral(keepUniqueSubstatMatch.all)}`,
-  `export const KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT = ${asTsStringLiteral(keepUniqueSubstatMatch.perSubstat)}`,
-  `export const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_RULE = ${keepUniqueCountModeDefault.perRule === true}`,
-  `export const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SET = ${keepUniqueCountModeDefault.perSet === true}`,
-  `export const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_FACTION = ${keepUniqueCountModeDefault.perFaction === true}`,
-  `export const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_MAIN_STAT = ${keepUniqueCountModeDefault.perMainStat === true}`,
-  `export const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SLOT = ${keepUniqueCountModeDefault.perSlot === true}`,
-  `export const KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS = ${keepUniqueRuleOptionsDefault.ignorePreviousSafeguards !== false}`,
-  `export const KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION = ${keepUniqueRuleOptionsDefault.ignoreEquippedInCollection === true}`,
-  `export const KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT = ${keepUniqueRuleOptionsDefault.ignoreEquippedInVault === true}`,
-  `export const KEEP_UNIQUE_REASON_GLOBAL = ${asTsStringLiteral(keepUniquePlaceholderReason.global)}`,
-  `export const KEEP_UNIQUE_REASON_GROUP = ${asTsStringLiteral(keepUniquePlaceholderReason.group)}`,
-  `export const KEEP_UNIQUE_WEIGHT_STEP = ${Number(keepUniqueWeight.step)}`,
-  `export const KEEP_UNIQUE_WEIGHT_MIN = ${Number(keepUniqueWeight.min)}`,
-  `export const KEEP_UNIQUE_WEIGHT_MAX = ${Number(keepUniqueWeight.max)}`,
-  `export const KEEP_UNIQUE_WEIGHT_DEFAULT = ${Number(keepUniqueWeight.default)}`,
+  `export const SAFEGUARD_ACTIVATION_OFF = ${asTsStringLiteral(safeguardActivation.off)}`,
+  `export const SAFEGUARD_ACTIVATION_PROTECT_EXISTING = ${asTsStringLiteral(safeguardActivation.protectExisting)}`,
+  `export const SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS = ${asTsStringLiteral(safeguardActivation.anticipateGaps)}`,
+  `export const SAFEGUARD_SUBSTAT_ANY = ${asTsStringLiteral(safeguardSubstatMatch.any)}`,
+  `export const SAFEGUARD_SUBSTAT_ALL = ${asTsStringLiteral(safeguardSubstatMatch.all)}`,
+  `export const SAFEGUARD_SUBSTAT_PER_SUBSTAT = ${asTsStringLiteral(safeguardSubstatMatch.perSubstat)}`,
+  `export const SAFEGUARD_DEFAULT_COUNT_MODE_PER_RULE = ${safeguardCountModeDefault.perRule === true}`,
+  `export const SAFEGUARD_DEFAULT_COUNT_MODE_PER_SET = ${safeguardCountModeDefault.perSet === true}`,
+  `export const SAFEGUARD_DEFAULT_COUNT_MODE_PER_FACTION = ${safeguardCountModeDefault.perFaction === true}`,
+  `export const SAFEGUARD_DEFAULT_COUNT_MODE_PER_MAIN_STAT = ${safeguardCountModeDefault.perMainStat === true}`,
+  `export const SAFEGUARD_DEFAULT_COUNT_MODE_PER_SLOT = ${safeguardCountModeDefault.perSlot === true}`,
+  `export const SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS = ${safeguardRuleOptionsDefault.ignorePreviousSafeguards !== false}`,
+  `export const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION = ${safeguardRuleOptionsDefault.ignoreEquippedInCollection === true}`,
+  `export const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT = ${safeguardRuleOptionsDefault.ignoreEquippedInVault === true}`,
+  `export const SAFEGUARD_REASON_GLOBAL = ${asTsStringLiteral(safeguardPlaceholderReason.global)}`,
+  `export const SAFEGUARD_REASON_GROUP = ${asTsStringLiteral(safeguardPlaceholderReason.group)}`,
+  `export const SAFEGUARD_WEIGHT_STEP = ${Number(safeguardWeight.step)}`,
+  `export const SAFEGUARD_WEIGHT_MIN = ${Number(safeguardWeight.min)}`,
+  `export const SAFEGUARD_WEIGHT_MAX = ${Number(safeguardWeight.max)}`,
+  `export const SAFEGUARD_WEIGHT_DEFAULT = ${Number(safeguardWeight.default)}`,
   '',
   '// Shared UI/rule ordering tables so TS and Rust sort with one SSOT payload.',
   `export const PREFERRED_ARTIFACT_TYPE_ORDER = [${preferredArtifactTypeOrder.join(', ')}] as const`,
@@ -330,7 +330,7 @@ const rustLines = [
   `pub const RARITY_CODE_MYTHICAL: i64 = ${Number(rarityCode.mythical)};`,
   `pub const RARITY_CODE_GTE_LEGENDARY: i64 = ${Number(rarityCode.gteLegendary)};`,
   '',
-  '// Rank value bounds shared across TS and Rust keep-unique/matcher logic.',
+  '// Rank value bounds shared across TS and Rust safeguard/matcher logic.',
   `pub const RANK_VALUE_MIN: i64 = ${rankValueMin};`,
   `pub const RANK_VALUE_MAX: i64 = ${rankValueMax};`,
   '',
@@ -366,27 +366,27 @@ const rustLines = [
   `pub const AUTO_RARITY_INCLUDES_MYTHICAL_BY_CODE: [bool; 17] = [${autoRarityBoolRust}];`,
   `pub const AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE: [i64; 17] = [${autoRarityMinRollEventsByCode.join(", ")}];`,
   '',
-  '// Keep-unique token + default mode constants used by TS and Rust paths.',
-  `pub const KEEP_UNIQUE_ACTIVATION_OFF: &str = ${asRustStringLiteral(keepUniqueActivation.off)};`,
-  `pub const KEEP_UNIQUE_ACTIVATION_PROTECT_EXISTING: &str = ${asRustStringLiteral(keepUniqueActivation.protectExisting)};`,
-  `pub const KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS: &str = ${asRustStringLiteral(keepUniqueActivation.anticipateGaps)};`,
-  `pub const KEEP_UNIQUE_SUBSTAT_ANY: &str = ${asRustStringLiteral(keepUniqueSubstatMatch.any)};`,
-  `pub const KEEP_UNIQUE_SUBSTAT_ALL: &str = ${asRustStringLiteral(keepUniqueSubstatMatch.all)};`,
-  `pub const KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT: &str = ${asRustStringLiteral(keepUniqueSubstatMatch.perSubstat)};`,
-  `pub const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_RULE: bool = ${keepUniqueCountModeDefault.perRule === true};`,
-  `pub const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SET: bool = ${keepUniqueCountModeDefault.perSet === true};`,
-  `pub const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_FACTION: bool = ${keepUniqueCountModeDefault.perFaction === true};`,
-  `pub const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_MAIN_STAT: bool = ${keepUniqueCountModeDefault.perMainStat === true};`,
-  `pub const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SLOT: bool = ${keepUniqueCountModeDefault.perSlot === true};`,
-  `pub const KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS: bool = ${keepUniqueRuleOptionsDefault.ignorePreviousSafeguards !== false};`,
-  `pub const KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION: bool = ${keepUniqueRuleOptionsDefault.ignoreEquippedInCollection === true};`,
-  `pub const KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT: bool = ${keepUniqueRuleOptionsDefault.ignoreEquippedInVault === true};`,
-  `pub const KEEP_UNIQUE_REASON_GLOBAL: &str = ${asRustStringLiteral(keepUniquePlaceholderReason.global)};`,
-  `pub const KEEP_UNIQUE_REASON_GROUP: &str = ${asRustStringLiteral(keepUniquePlaceholderReason.group)};`,
-  `pub const KEEP_UNIQUE_WEIGHT_STEP: f64 = ${asRustF64Literal(keepUniqueWeight.step)};`,
-  `pub const KEEP_UNIQUE_WEIGHT_MIN: f64 = ${asRustF64Literal(keepUniqueWeight.min)};`,
-  `pub const KEEP_UNIQUE_WEIGHT_MAX: f64 = ${asRustF64Literal(keepUniqueWeight.max)};`,
-  `pub const KEEP_UNIQUE_WEIGHT_DEFAULT: f64 = ${asRustF64Literal(keepUniqueWeight.default)};`,
+  '// Safeguard token + default mode constants used by TS and Rust paths.',
+  `pub const SAFEGUARD_ACTIVATION_OFF: &str = ${asRustStringLiteral(safeguardActivation.off)};`,
+  `pub const SAFEGUARD_ACTIVATION_PROTECT_EXISTING: &str = ${asRustStringLiteral(safeguardActivation.protectExisting)};`,
+  `pub const SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS: &str = ${asRustStringLiteral(safeguardActivation.anticipateGaps)};`,
+  `pub const SAFEGUARD_SUBSTAT_ANY: &str = ${asRustStringLiteral(safeguardSubstatMatch.any)};`,
+  `pub const SAFEGUARD_SUBSTAT_ALL: &str = ${asRustStringLiteral(safeguardSubstatMatch.all)};`,
+  `pub const SAFEGUARD_SUBSTAT_PER_SUBSTAT: &str = ${asRustStringLiteral(safeguardSubstatMatch.perSubstat)};`,
+  `pub const SAFEGUARD_DEFAULT_COUNT_MODE_PER_RULE: bool = ${safeguardCountModeDefault.perRule === true};`,
+  `pub const SAFEGUARD_DEFAULT_COUNT_MODE_PER_SET: bool = ${safeguardCountModeDefault.perSet === true};`,
+  `pub const SAFEGUARD_DEFAULT_COUNT_MODE_PER_FACTION: bool = ${safeguardCountModeDefault.perFaction === true};`,
+  `pub const SAFEGUARD_DEFAULT_COUNT_MODE_PER_MAIN_STAT: bool = ${safeguardCountModeDefault.perMainStat === true};`,
+  `pub const SAFEGUARD_DEFAULT_COUNT_MODE_PER_SLOT: bool = ${safeguardCountModeDefault.perSlot === true};`,
+  `pub const SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS: bool = ${safeguardRuleOptionsDefault.ignorePreviousSafeguards !== false};`,
+  `pub const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION: bool = ${safeguardRuleOptionsDefault.ignoreEquippedInCollection === true};`,
+  `pub const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT: bool = ${safeguardRuleOptionsDefault.ignoreEquippedInVault === true};`,
+  `pub const SAFEGUARD_REASON_GLOBAL: &str = ${asRustStringLiteral(safeguardPlaceholderReason.global)};`,
+  `pub const SAFEGUARD_REASON_GROUP: &str = ${asRustStringLiteral(safeguardPlaceholderReason.group)};`,
+  `pub const SAFEGUARD_WEIGHT_STEP: f64 = ${asRustF64Literal(safeguardWeight.step)};`,
+  `pub const SAFEGUARD_WEIGHT_MIN: f64 = ${asRustF64Literal(safeguardWeight.min)};`,
+  `pub const SAFEGUARD_WEIGHT_MAX: f64 = ${asRustF64Literal(safeguardWeight.max)};`,
+  `pub const SAFEGUARD_WEIGHT_DEFAULT: f64 = ${asRustF64Literal(safeguardWeight.default)};`,
   '',
   '// Shared UI/rule ordering tables so TS and Rust sort with one SSOT payload.',
   `pub const PREFERRED_ARTIFACT_TYPE_ORDER: [i64; ${preferredArtifactTypeOrder.length}] = [${preferredArtifactTypeOrder.join(", ")}];`,

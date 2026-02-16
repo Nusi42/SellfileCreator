@@ -7,7 +7,7 @@ import {
   RULES_FILTER_OPEN_DEFAULT,
   RULES_FILTER_PREVIEW_MODES,
 } from '../../src/state/rulesFilterPersistence.js'
-import { TESTER_CONFIG_FILTER_MODE_DEFAULT } from '../../src/types/testerConfigFilterMode.js'
+import { TESTER_RECIPE_FILTER_MODE_DEFAULT } from '../../src/types/testerRecipeFilterMode.js'
 
 type Mode = typeof RULES_FILTER_PREVIEW_MODES[number]
 
@@ -25,7 +25,7 @@ const buildFilters = (overrides: Partial<AutosaveFiltersState> = {}): AutosaveFi
   return {
     activeMode: overrides.activeMode ?? 'rules',
     views: overrides.views ?? baseViews,
-    testerConfigFilterMode: overrides.testerConfigFilterMode ?? TESTER_CONFIG_FILTER_MODE_DEFAULT,
+    testerRecipeFilterMode: overrides.testerRecipeFilterMode ?? TESTER_RECIPE_FILTER_MODE_DEFAULT,
     ...overrides,
   }
 }

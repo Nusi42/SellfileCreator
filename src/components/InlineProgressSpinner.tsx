@@ -9,7 +9,7 @@ type InlineProgressSpinnerProps = {
 const INLINE_SPINNER_SIZE_PX = 20 as const
 
 /**
- * Shared circular progress indicator so preview chips and Keep Uniques reuse the same chrome.
+ * Shared circular progress indicator so preview chips and Safeguards reuse the same chrome.
  * Color stays in the info palette to align with the builder status badges.
  */
 export default function InlineProgressSpinner({ variant = 'indeterminate', value = 0, ariaLabel }: InlineProgressSpinnerProps) {

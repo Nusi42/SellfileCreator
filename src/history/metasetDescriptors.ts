@@ -52,7 +52,7 @@ function formatSetsList(ids: readonly ArtifactSetId[], t: TranslateFn, lang: str
   }
   if (labels.length <= MAX_SET_LABELS) return labels.join(', ')
   const slice = labels.slice(0, MAX_SET_LABELS)
-  slice.push(t('historyConfigsMoreLine', { count: labels.length - MAX_SET_LABELS }))
+  slice.push(t('historyRecipesMoreLine', { count: labels.length - MAX_SET_LABELS }))
   return slice.join(', ')
 }
 

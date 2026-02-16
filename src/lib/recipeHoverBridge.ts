@@ -1,13 +1,13 @@
-export type ConfigHoverListener = (idx: number | null) => void
+export type RecipeHoverListener = (idx: number | null) => void
 
 let currentHoverIdx: number | null = null
-const listeners = new Set<ConfigHoverListener>()
+const listeners = new Set<RecipeHoverListener>()
 
-export function getConfigHoverIndex(): number | null {
+export function getRecipeHoverIndex(): number | null {
   return currentHoverIdx
 }
 
-export function setConfigHoverIndex(idx: number | null): void {
+export function setRecipeHoverIndex(idx: number | null): void {
   if (currentHoverIdx === idx) return
   currentHoverIdx = idx
   listeners.forEach((listener) => {
@@ -17,7 +17,7 @@ export function setConfigHoverIndex(idx: number | null): void {
   })
 }
 
-export function subscribeConfigHover(listener: ConfigHoverListener): () => void {
+export function subscribeRecipeHover(listener: RecipeHoverListener): () => void {
   listeners.add(listener)
   try {
     listener(currentHoverIdx)

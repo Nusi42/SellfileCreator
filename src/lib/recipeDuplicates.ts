@@ -1,16 +1,16 @@
-import { buildCanonicalConfigSnapshot } from './configSnapshot'
-import type { BuilderConfig } from './hsfBuilder'
+import { buildCanonicalRecipeSnapshot } from './recipeSnapshot'
+import type { BuilderRecipe } from './hsfBuilder'
 
-// Cache duplicate snapshot keys per config identity so reordering or toggling
+// Cache duplicate snapshot keys per recipe identity so reordering or toggling
 // selection does not rebuild the normalization payload repeatedly.
-const SNAPSHOT_KEY_CACHE: WeakMap<BuilderConfig, string> = new WeakMap()
+const SNAPSHOT_KEY_CACHE: WeakMap<BuilderRecipe, string> = new WeakMap()
 
 type SnapshotKey = string
 
-function snapshotKeyForConfig(cfg: BuilderConfig): SnapshotKey {
+function snapshotKeyForRecipe(cfg: BuilderRecipe): SnapshotKey {
   const cached = SNAPSHOT_KEY_CACHE.get(cfg)
   if (cached) return cached
-  const snapshot = buildCanonicalConfigSnapshot(cfg)
+  const snapshot = buildCanonicalRecipeSnapshot(cfg)
 
   let key: SnapshotKey
   try {
@@ -23,17 +23,17 @@ function snapshotKeyForConfig(cfg: BuilderConfig): SnapshotKey {
   return key
 }
 
-export function computeDuplicateIndices(configs: BuilderConfig[]): Array<number | null> {
+export function computeDuplicateIndices(recipes: BuilderRecipe[]): Array<number | null> {
   const seen = new Map<SnapshotKey, number>()
   const duplicates: Array<number | null> = []
 
-  for (let index = 0; index < configs.length; index += 1) {
-    const cfg = configs[index]!
+  for (let index = 0; index < recipes.length; index += 1) {
+    const cfg = recipes[index]!
     if (cfg.exportMode === 'separator') {
       duplicates.push(null)
       continue
     }
-    const key = snapshotKeyForConfig(cfg)
+    const key = snapshotKeyForRecipe(cfg)
     const firstSeen = seen.get(key)
     if (firstSeen === undefined) {
       seen.set(key, index)

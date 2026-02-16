@@ -102,7 +102,7 @@ export function GearMainStatSelect({
     if (Number(singleValue) === Number(anyValue)) return <Typography variant="body2">{anyText}</Typography>
     return <Typography variant="body2">{t(statVariantI18nKey(singleValue))}</Typography>
   }, [anyText, anyValue, singleValue, t])
-  // Multi-select main stats also surface the "Any" placeholder so new Keep Unique cards aren't blank.
+  // Multi-select main stats also surface the "Any" placeholder so new Safeguard cards aren't blank.
   const renderMultiValue = useMemo(() => {
     if (!isMulti) return undefined
     return () => {

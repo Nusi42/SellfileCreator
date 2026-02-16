@@ -4,7 +4,7 @@
  * Builder-specific persisted preferences.
  */
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
-import { BUILDER_AUTO_APPLY_SELECTED_CONFIG_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_SHOW_TAG_CHIPS_KEY } from '../lib/constants'
+import { BUILDER_AUTO_APPLY_SELECTED_RECIPE_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_SHOW_TAG_CHIPS_KEY } from '../lib/constants'
 
 const autoResetStore = createLocalStorageStore<boolean>({
   key: BUILDER_AUTO_RESET_AFTER_INSERT_KEY,
@@ -16,13 +16,13 @@ const autoResetStore = createLocalStorageStore<boolean>({
 export const useAutoResetAfterInsertPreference = createLocalStorageStateHook(autoResetStore)
 
 const autoApplyStore = createLocalStorageStore<boolean>({
-  key: BUILDER_AUTO_APPLY_SELECTED_CONFIG_KEY,
+  key: BUILDER_AUTO_APPLY_SELECTED_RECIPE_KEY,
   fallback: false,
   parse: (raw) => raw === 'true' || raw === '1',
   serialize: (value) => String(value),
 })
 
-export const useAutoApplySelectedConfigPreference = createLocalStorageStateHook(autoApplyStore)
+export const useAutoApplySelectedRecipePreference = createLocalStorageStateHook(autoApplyStore)
 
 // Builder-only: control whether tag chips render beside the Tags button.
 const showTagsStore = createLocalStorageStore<boolean>({

@@ -5,17 +5,17 @@
  */
 import type { TranslateFn } from './historyI18n'
 import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
-import { describeBuilderConfigUpdate } from './builderUpdateDescriptor'
+import { describeBuilderRecipeUpdate } from './builderUpdateDescriptor'
 import {
-  describeConfigAdded,
-  describeConfigsDuplicated,
-  describeConfigsMoved,
-  describeConfigsDeleted,
-  describeConfigsCleared,
-  describeConfigsInserted,
-  describeConfigOptionsApplied,
+  describeRecipeAdded,
+  describeRecipesDuplicated,
+  describeRecipesMoved,
+  describeRecipesDeleted,
+  describeRecipesCleared,
+  describeRecipesInserted,
+  describeRecipeOverridesApplied,
   describeMultiEditApplied,
-} from './configCollectionDescriptors'
+} from './recipeCollectionDescriptors'
 import { describeFinalSellChange } from './finalSellDescriptors'
 import { describeNoteChange } from './noteDescriptors'
 import { describeSubstatTargetsChange } from './substatTargetDescriptors'
@@ -30,9 +30,9 @@ import {
   describeMetasetConflictResolved,
 } from './metasetDescriptors'
 import { describeHsfcLoaded, describeAutosaveRestored } from './bulkLoadDescriptors'
-import { describeKeepUniquesEnabledChange, describeKeepUniquesRulesChange } from './keepUniquesDescriptors'
-import { formatConfigLabel } from './historyLabelUtils'
-import type { ConfigLabelSnapshot } from './historyLabelUtils'
+import { describeSafeguardsEnabledChange, describeSafeguardsRulesChange } from './safeguardsDescriptors'
+import { formatRecipeLabel } from './historyLabelUtils'
+import type { RecipeLabelSnapshot } from './historyLabelUtils'
 
 // HistoryDescriptorResolveContext keeps localization details together.
 export type HistoryDescriptorResolveContext = {
@@ -55,9 +55,9 @@ export const resolveHistoryEntryDescriptor = (
       const extra = resolveHistoryEntryDescriptor(descriptor.extra, ctx)
       return mergeResolvedDescriptors(base, extra)
     }
-    case 'builderConfigUpdate':
+    case 'builderRecipeUpdate':
       // Builder updates reuse the diff renderer for localized output.
-      return describeBuilderConfigUpdate({
+      return describeBuilderRecipeUpdate({
         previous: descriptor.previous,
         next: descriptor.next,
         index: descriptor.index,
@@ -65,9 +65,9 @@ export const resolveHistoryEntryDescriptor = (
         lang: ctx.lang,
         metasets: descriptor.metasets,
       })
-    case 'configAdded':
-      // Config additions include insertion location and snapshot lines.
-      return describeConfigAdded({
+    case 'recipeAdded':
+      // Recipe additions include insertion location and snapshot lines.
+      return describeRecipeAdded({
         index: descriptor.index,
         cfg: descriptor.cfg,
         location: descriptor.location,
@@ -75,45 +75,45 @@ export const resolveHistoryEntryDescriptor = (
         lang: ctx.lang,
         metasets: descriptor.metasets,
       })
-    case 'configsDuplicated':
+    case 'recipesDuplicated':
       // Duplications summarize labels and optionally insertion location.
-      return describeConfigsDuplicated({
+      return describeRecipesDuplicated({
         labels: descriptor.labels,
         location: descriptor.location,
         t: ctx.t,
       })
-    case 'configsMoved':
+    case 'recipesMoved':
       // Moves translate direction + label list into a title.
-      return describeConfigsMoved({
+      return describeRecipesMoved({
         direction: descriptor.direction,
         labels: descriptor.labels,
         t: ctx.t,
       })
-    case 'configsDeleted':
-      // Deletions show labels and optional config snapshots.
-      return describeConfigsDeleted({
+    case 'recipesDeleted':
+      // Deletions show labels and optional recipe snapshots.
+      return describeRecipesDeleted({
         removed: descriptor.removed,
         t: ctx.t,
         lang: ctx.lang,
         metasets: descriptor.metasets,
       })
-    case 'configsCleared':
+    case 'recipesCleared':
       // Clears are title-only when there was something to clear.
-      return describeConfigsCleared({
+      return describeRecipesCleared({
         previousCount: descriptor.previousCount,
         t: ctx.t,
       })
-    case 'configsInserted':
+    case 'recipesInserted':
       // Inserts map to paste/import titles with location detail lines.
-      return describeConfigsInserted({
+      return describeRecipesInserted({
         mode: descriptor.mode,
         labels: descriptor.labels,
         location: descriptor.location,
         t: ctx.t,
       })
-    case 'configOptionsApplied':
-      // Config option toggles show enabled/disabled counts and labels.
-      return describeConfigOptionsApplied({
+    case 'recipeOverridesApplied':
+      // Recipe-override toggles show enabled/disabled counts and labels.
+      return describeRecipeOverridesApplied({
         labels: descriptor.labels,
         enableCount: descriptor.enableCount,
         disableCount: descriptor.disableCount,
@@ -127,7 +127,7 @@ export const resolveHistoryEntryDescriptor = (
         t: ctx.t,
       })
     case 'builderDraft':
-      // Draft entries are localized from config label snapshots.
+      // Draft entries are localized from recipe label snapshots.
       return resolveDraftDescriptor(descriptor, ctx)
     case 'metasetAdded':
       // Metaset adds capture name + set list context.
@@ -229,17 +229,17 @@ export const resolveHistoryEntryDescriptor = (
         savedAt: descriptor.savedAt ?? null,
         t: ctx.t,
       })
-    case 'keepUniquesEnabledChange':
+    case 'safeguardsEnabledChange':
       // Keep-unique toggles show the rule count context.
-      return describeKeepUniquesEnabledChange({
+      return describeSafeguardsEnabledChange({
         previousEnabled: descriptor.previousEnabled,
         nextEnabled: descriptor.nextEnabled,
         rules: descriptor.rules,
         t: ctx.t,
       })
-    case 'keepUniquesRulesChange':
+    case 'safeguardsRulesChange':
       // Keep-unique rule changes summarize adds/updates/removes.
-      return describeKeepUniquesRulesChange({
+      return describeSafeguardsRulesChange({
         previous: descriptor.previous,
         next: descriptor.next,
         metasets: descriptor.metasets,
@@ -289,25 +289,25 @@ const resolveDraftDescriptor = (
     const detailLines = summarizeDraftLabels(labels, ctx)
     return detailLines.length > 0 ? { title, detailLines } : { title }
   }
-  if (descriptor.mode === 'config' && descriptor.label) {
-    const label = formatConfigLabel(descriptor.label, ctx.t)
-    return { title: ctx.t('historyDraftConfigTitle', { label }) }
+  if (descriptor.mode === 'recipe' && descriptor.label) {
+    const label = formatRecipeLabel(descriptor.label, ctx.t)
+    return { title: ctx.t('historyDraftRecipeTitle', { label }) }
   }
-  // Default to the builder draft title when no config is active.
+  // Default to the builder draft title when no recipe is active.
   return { title: ctx.t('historyDraftBuilderTitle') }
 }
 
 // summarizeDraftLabels caps the list to keep tooltips compact.
 const summarizeDraftLabels = (
-  labels: ConfigLabelSnapshot[],
+  labels: RecipeLabelSnapshot[],
   ctx: HistoryDescriptorResolveContext,
 ): string[] => {
   // Keep the same cap as the history chip list.
   const MAX_LABELS = 4
-  const formatted = labels.map((label) => formatConfigLabel(label, ctx.t))
+  const formatted = labels.map((label) => formatRecipeLabel(label, ctx.t))
   if (formatted.length <= MAX_LABELS) return formatted
   const remaining = formatted.length - MAX_LABELS
-  return [...formatted.slice(0, MAX_LABELS), ctx.t('historyConfigsMoreLine', { count: remaining })]
+  return [...formatted.slice(0, MAX_LABELS), ctx.t('historyRecipesMoreLine', { count: remaining })]
 }
 
 // resolveMetasetsEditedSummary flattens nested descriptors into a list.

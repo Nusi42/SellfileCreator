@@ -4,12 +4,12 @@
  * Responsibilities:
  * - Normalize readable HSFC payloads to the internal StatVariant-based model.
  * - Build readable HSFC payloads (labels, not numeric IDs) from internal state for Save/Copy.
- * - Parse pasted text that may be a single config, an array of configs, or a full HSFC object.
+ * - Parse pasted text that may be a single config, an array of recipes, or a full HSFC object.
  *
  * This module deliberately contains only HSFC read/write concerns to keep UI code tidy.
  */
-import { normalizeExportModeFields, resolveExportModeField, coerceSellfileExportModeToken, normalizeRollTargetEntry, type BuilderConfig, type SubstatTargetTable, type SellfileExportMode, type Star, type SubstatRollTargetEntry, type SubstatRollTargets } from './hsfBuilder'
-import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeAutoSubstatFlex, normalizeAggregateRollTargets } from './configNormalization'
+import { normalizeExportModeFields, resolveExportModeField, coerceSellfileExportModeToken, normalizeRollTargetEntry, type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode, type Star, type SubstatRollTargetEntry, type SubstatRollTargets } from './hsfBuilder'
+import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeAutoSubstatFlex, normalizeAggregateRollTargets } from './recipeNormalization'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
 import { orderMetasetIds, type Metaset } from './metasets'
@@ -46,21 +46,21 @@ import {
   type FinalSellSetsMode,
 } from './logicHub'
 import {
-  KeepUniqueSubstatMatch,
-  normalizeKeepUniqueSubstatMatch,
-  normalizeKeepUniqueRule,
-  sanitizeKeepUniqueCountMode,
-  sortKeepUniqueCombination,
-  sortKeepUniqueSubstats,
-  type KeepUniqueRule,
-  KeepUniqueRuleActivation,
-} from './keepUniques'
+  SafeguardSubstatMatch,
+  normalizeSafeguardSubstatMatch,
+  normalizeSafeguardRule,
+  sanitizeSafeguardCountMode,
+  sortSafeguardCombination,
+  sortSafeguardSubstats,
+  type SafeguardRule,
+  SafeguardRuleActivation,
+} from './safeguards'
 import { normalizeTagList } from './tagHelpers'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
 
-type LockedMinValue = Exclude<BuilderConfig['lockedMinRequiredRolls'], undefined>
-type AggregateMinValue = Exclude<BuilderConfig['minRequiredRolls'], undefined>
+type LockedMinValue = Exclude<BuilderRecipe['lockedMinRequiredRolls'], undefined>
+type AggregateMinValue = Exclude<BuilderRecipe['minRequiredRolls'], undefined>
 
 // Readable HSFC substat payload that merges selection, fixed, and roll bounds.
 type ReadableSubstatBounds = {
@@ -321,8 +321,8 @@ const buildReadableArtifactSetEntries = (
   return entries
 }
 
-// Keep Unique rarities store the 1..6 bucket; map those rank-like values to readable rarity names.
-const KEEP_UNIQUE_RARITY_LABEL: Record<number, string> = {
+// Safeguard rarities store the 1..6 bucket; map those rank-like values to readable rarity names.
+const SAFEGUARD_RARITY_LABEL: Record<number, string> = {
   1: 'Common',
   2: 'Uncommon',
   3: 'Rare',
@@ -331,7 +331,7 @@ const KEEP_UNIQUE_RARITY_LABEL: Record<number, string> = {
   6: 'Mythical',
 }
 
-function mergeMetasetIds(base: BuilderConfig, metasets: Metaset[], extras: readonly string[] = []): BuilderConfig {
+function mergeMetasetIds(base: BuilderRecipe, metasets: Metaset[], extras: readonly string[] = []): BuilderRecipe {
   const baseOrdered = orderMetasetIds(base.artifactMetaSets, metasets)
   const extrasOrdered = extras.length ? orderMetasetIds(extras, metasets) : []
   const merged = extrasOrdered.length ? orderMetasetIds([...baseOrdered, ...extrasOrdered], metasets) : baseOrdered
@@ -344,19 +344,19 @@ function mergeMetasetIds(base: BuilderConfig, metasets: Metaset[], extras: reado
   return base
 }
 
-// Normalize HSFC configs (readable schema) to current BuilderConfig
+// Normalize HSFC recipes (readable schema) to current BuilderRecipe
 /**
- * Normalize a readable HSFC config to BuilderConfig with *V fields.
+ * Normalize a readable HSFC config to BuilderRecipe with *V fields.
  *
  * `runtimeNameMap` is only supplied by autosave restore to resolve dormant
  * runtime set names without activating the runtime catalog.
  */
-export function normalizeConfig(input: unknown, runtimeNameMap?: Map<string, number>): BuilderConfig {
+export function normalizeRecipe(input: unknown, runtimeNameMap?: Map<string, number>): BuilderRecipe {
   const rec: Record<string, unknown> = isRecord(input) ? input : {}
-  const configs = rec['Configs']
-  if (Array.isArray(configs) && configs.length > 0) {
-    const first = configs[0]
-    if (isRecord(first)) return normalizeConfig(first)
+  const recipes = Array.isArray(rec['Recipes']) ? rec['Recipes'] : rec['Configs']
+  if (Array.isArray(recipes) && recipes.length > 0) {
+    const first = recipes[0]
+    if (isRecord(first)) return normalizeRecipe(first)
   }
   const typeIdByName = new Map<string, number>(Object.entries(artifactTypeNames).map(([k, v]) => [v, Number(k)]))
   const parsedReadableSubstats = parseReadableSubstatEntries(rec['substats'])
@@ -441,7 +441,7 @@ export function normalizeConfig(input: unknown, runtimeNameMap?: Map<string, num
     enabled: typeof rec['enabled'] === 'boolean' ? rec['enabled'] : null,
   })
 
-  const baseCfg: BuilderConfig = {
+  const baseCfg: BuilderRecipe = {
     name: typeof rec['name'] === 'string' ? String(rec['name']) : '',
     // Normalize tag metadata from either "Tags" or legacy "tags".
     tags: normalizeTagList(rec['Tags'] ?? rec['tags']) ?? [],
@@ -482,7 +482,7 @@ export function normalizeConfig(input: unknown, runtimeNameMap?: Map<string, num
   const __srbV = mergedReadableBounds
   const __sreV = parseReadableRollTargetsMap(rec['substatRollTargets'])
 
-  const opt: Partial<BuilderConfig> = {}
+  const opt: Partial<BuilderRecipe> = {}
   let legacyMinRollsScopeLocked = false
   // Optional: Auto rarity supplements threshold (Late + Auto behavior)
   const ar = rec['autoRarityThreshold']
@@ -535,7 +535,7 @@ export function normalizeConfig(input: unknown, runtimeNameMap?: Map<string, num
     delete (baseCfg as unknown as Record<string, unknown>)['tags']
   }
   // Assemble normalized base
-  let normalized: BuilderConfig = { ...baseCfg, ...opt }
+  let normalized: BuilderRecipe = { ...baseCfg, ...opt }
 
   // Post-normalization to align HSFC with in-app invariants:
   // - Conflicting bounds: when min/max are present, drop 'any' (UI cannot represent both simultaneously).
@@ -601,7 +601,7 @@ export function normalizeConfig(input: unknown, runtimeNameMap?: Map<string, num
     normalized.autoRaritySupplementsThreshold = 'rare'
   }
 
-  normalized = normalizeExportModeFields(normalized as unknown as Record<string, unknown>) as unknown as BuilderConfig
+  normalized = normalizeExportModeFields(normalized as unknown as Record<string, unknown>) as unknown as BuilderRecipe
   // Coerce keep mode to 'early' when thresholds are inactive to match UI behavior
   normalized = normalizeKeepMode(normalized)
   normalized = normalizeAggregateRollTargets(normalized)
@@ -665,14 +665,14 @@ export function normalizeSubstatTargets(src: unknown): SubstatTargetTable {
 }
 
 // Build a readable config object for HSFC export/copy (labels, not numeric IDs)
-/** Build a single readable HSFC config from internal BuilderConfig state. */
-export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
-  // Metasets are included in the HSFC payload separately; configs now reference
+/** Build a single readable HSFC config from internal BuilderRecipe state. */
+export function buildReadableRecipe(cfg: BuilderRecipe, metasets: Metaset[]) {
+  // Metasets are included in the HSFC payload separately; recipes now reference
   // metasets by ID. We keep the parameter for call‑site symmetry and future use.
   void metasets
-  const mainV = (cfg as (BuilderConfig & { mainStatsV?: number[] })).mainStatsV ?? []
-  const subV = (cfg as (BuilderConfig & { substatsV?: number[] })).substatsV ?? []
-  const fixedV = (cfg as (BuilderConfig & { fixedSubstatsV?: number[] })).fixedSubstatsV ?? []
+  const mainV = (cfg as (BuilderRecipe & { mainStatsV?: number[] })).mainStatsV ?? []
+  const subV = (cfg as (BuilderRecipe & { substatsV?: number[] })).substatsV ?? []
+  const fixedV = (cfg as (BuilderRecipe & { fixedSubstatsV?: number[] })).fixedSubstatsV ?? []
   // Canonicalize label order for HSFC: use preferred stat order via compareVariants.
   const mainLabels = mainV.slice().sort(compareVariants).map(labelOfVariant)
   const substatEntries: ReadonlyArray<ReadableSubstatEntry> = (() => {
@@ -680,7 +680,7 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     if (!subV.length) return entries
     const sortedVariants = subV.slice().sort(compareVariants)
     const fixedSet = new Set<number>(fixedV)
-    const boundsMap = (cfg as (BuilderConfig & { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> })).substatRollBoundsV ?? {}
+    const boundsMap = (cfg as (BuilderRecipe & { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> })).substatRollBoundsV ?? {}
     for (const variant of sortedVariants) {
       const entry: ReadableSubstatEntry = { stat: labelOfVariant(variant) }
       if (fixedSet.has(variant)) entry.fixed = true
@@ -702,7 +702,7 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     : exportMode === 'disabled'
       ? 'Disabled'
       : 'Active'
-  const readableTargets = rollTargetsToReadable((cfg as BuilderConfig).substatRollTargetsV)
+  const readableTargets = rollTargetsToReadable((cfg as BuilderRecipe).substatRollTargetsV)
   // Normalize tags into a string array for HSFC output.
   const tags = Array.isArray(cfg.tags) ? cfg.tags.map(String).filter(Boolean) : []
   return {
@@ -717,8 +717,8 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     Faction: ((cfg.factionCode ?? 0) === 0 ? 'Any' : factionCodeToName(cfg.factionCode ?? 0)),
     mainStats: mainLabels,
     // New schema: emit explicit level window and omit legacy roll fields
-    minLevel: ((cfg as BuilderConfig).minLevel ?? LEVEL_MILESTONES[0]!),
-    maxLevel: ((cfg as BuilderConfig).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!),
+    minLevel: ((cfg as BuilderRecipe).minLevel ?? LEVEL_MILESTONES[0]!),
+    maxLevel: ((cfg as BuilderRecipe).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!),
     ...(cfg.earlyKeepMode === 'late' ? { earlyKeepMode: 'late' as const } : {}),
     substats: substatEntries,
     // Include only when applicable: Rarity=Auto and thresholds active in Late mode
@@ -770,9 +770,9 @@ export function substatTargetsToReadable(substatTargets: SubstatTargetTable) {
   }
 }
 
-// Parse text that may be a single config, an array, or an HSFC object with Configs
-/** Parse text as HSFC content: returns normalized configs array on success, [] on failure. */
-export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[]): BuilderConfig[] {
+// Parse text that may be a single config, an array, or an HSFC object with Recipes
+/** Parse text as HSFC content: returns normalized recipes array on success, [] on failure. */
+export function parseRecipesFromText(text: string, metasetsForNames?: Metaset[]): BuilderRecipe[] {
   try {
     const parsed = JSON.parse(text) as unknown
     const resolveMetaIds = (rawCfg: unknown, metas: Metaset[]): string[] => {
@@ -801,22 +801,24 @@ export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[])
     if (Array.isArray(parsed)) {
       const metas = metasetsForNames ?? []
       return parsed.map((raw) => {
-        const base = normalizeConfig(raw)
+        const base = normalizeRecipe(raw)
         const metaIds = metas.length ? resolveMetaIds(raw, metas) : []
         return mergeMetasetIds(base, metas, metaIds)
       })
     }
     if (isRecord(parsed)) {
-      const cfgs = Array.isArray(parsed['Configs']) ? (parsed['Configs'] as unknown[]) : []
+      const recipes = Array.isArray(parsed['Recipes'])
+        ? (parsed['Recipes'] as unknown[])
+        : (Array.isArray(parsed['Configs']) ? (parsed['Configs'] as unknown[]) : [])
       const metas = metasFromObj(parsed) ?? metasetsForNames ?? []
-      if (cfgs.length) {
-        return cfgs.map((raw) => {
-          const base = normalizeConfig(raw)
+      if (recipes.length) {
+        return recipes.map((raw) => {
+          const base = normalizeRecipe(raw)
           const metaIds = metas.length ? resolveMetaIds(raw, metas) : []
           return mergeMetasetIds(base, metas, metaIds)
         })
       }
-      const base = normalizeConfig(parsed)
+      const base = normalizeRecipe(parsed)
       const metaIds = metas.length ? resolveMetaIds(parsed, metas) : []
       return [mergeMetasetIds(base, metas, metaIds)]
     }
@@ -835,14 +837,14 @@ export function parseHsfcText(
   prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
   options?: { runtimeSetNameMap?: Map<string, number> },
 ): {
-  cfgs: BuilderConfig[]
+  recipes: BuilderRecipe[]
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
   selectedIndex: number | null
   note?: string
   finalSellRemainder: FinalSellRemainderConfig
-  keepUniqueRules: KeepUniqueRule[]
-  keepUniquesEnabled: boolean
+  safeguardRules: SafeguardRule[]
+  safeguardsEnabled: boolean
 } {
   const parsed = JSON.parse(text) as unknown
   return parseHsfcObject(parsed, prev, options)
@@ -854,22 +856,28 @@ export function parseHsfcObject(
   prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
   options?: { runtimeSetNameMap?: Map<string, number> },
 ): {
-  cfgs: BuilderConfig[]
+  recipes: BuilderRecipe[]
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
   selectedIndex: number | null
   note?: string
   finalSellRemainder: FinalSellRemainderConfig
-  keepUniqueRules: KeepUniqueRule[]
-  keepUniquesEnabled: boolean
+  safeguardRules: SafeguardRule[]
+  safeguardsEnabled: boolean
 } {
   const parsedRec = (typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {})
   const runtimeSetNameMap = options?.runtimeSetNameMap
-  let rawCfgs = Array.isArray(parsed) ? parsed : (Array.isArray(parsedRec['Configs']) ? (parsedRec['Configs'] as unknown[]) : [])
+  let rawCfgs = Array.isArray(parsed)
+    ? parsed
+    : (
+      Array.isArray(parsedRec['Recipes'])
+        ? (parsedRec['Recipes'] as unknown[])
+        : (Array.isArray(parsedRec['Configs']) ? (parsedRec['Configs'] as unknown[]) : [])
+    )
   // Convenience: accept a single readable-config object (tests/fixtures/*.sfr use this simplified shape).
   // Why: Developers often drag these fixtures into the app while validating builder output. The shape
-  // matches what parseHsfcText expects for each config, so when no `Configs` array is present but we
-  // detect the usual readable config keys, treat the payload as a one-item Configs array.
+  // matches what parseHsfcText expects for each config, so when no `Recipes` array is present but we
+  // detect the usual readable config keys, treat the payload as a one-item Recipes array.
   if (rawCfgs.length === 0 && parsedRec && typeof parsedRec === 'object') {
     const hasReadableConfigKey = (() => {
       const keys = new Set(Object.keys(parsedRec))
@@ -900,9 +908,9 @@ export function parseHsfcObject(
   const substatTargets: SubstatTargetTable = (!Array.isArray(parsed) && parsedRec['Minima'])
     ? normalizeSubstatTargets(parsedRec['Minima'])
     : prev.substatTargets
-  const cfgs: BuilderConfig[] = rawCfgs.map((raw) => {
+  const recipes: BuilderRecipe[] = rawCfgs.map((raw) => {
     // Only autosave restore provides `runtimeSetNameMap`.
-    const base = normalizeConfig(raw, runtimeSetNameMap)
+    const base = normalizeRecipe(raw, runtimeSetNameMap)
     const rec = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {}
     // Prefer explicit IDs, fallback to names
     const ids = Array.isArray(rec['artifactMetaSetIds']) ? (rec['artifactMetaSetIds'] as unknown[]).map(String) : []
@@ -938,29 +946,38 @@ export function parseHsfcObject(
         : DEFAULT_MODE
     return { artifacts, accessories, levels: finalLevels, setsMode }
   })()
-  const keepUniqueRules: KeepUniqueRule[] = (() => {
-    const raws = parsedRec['KeepUniques']
+  const safeguardRules: SafeguardRule[] = (() => {
+    // HSFC boundary compatibility: accept both canonical and legacy keys.
+    const raws = Array.isArray(parsedRec['Safeguards'])
+      ? parsedRec['Safeguards']
+      : parsedRec['KeepUniques']
     if (!Array.isArray(raws)) return []
-    const normalized: KeepUniqueRule[] = []
+    const normalized: SafeguardRule[] = []
     for (const entry of raws) {
-      const rule = normalizeKeepUniqueRule(entry)
+      const rule = normalizeSafeguardRule(entry)
       if (rule) normalized.push(rule)
     }
     return normalized
   })()
-  const keepUniquesEnabled = parsedRec['KeepUniquesEnabled'] === true
-  const savedSel = (!Array.isArray(parsed) && typeof parsedRec['SelectedConfigIndex'] === 'number') ? (parsedRec['SelectedConfigIndex'] as number) : (cfgs.length ? cfgs.length - 1 : null)
-  const selectedIndex = (savedSel !== null && savedSel >= 0 && savedSel < cfgs.length) ? savedSel : (cfgs.length ? cfgs.length - 1 : null)
+  // HSFC boundary compatibility: keep legacy toggle key support on read only.
+  const safeguardsEnabled = parsedRec['SafeguardsEnabled'] === true || parsedRec['KeepUniquesEnabled'] === true
+  const savedSel = (() => {
+    if (Array.isArray(parsed)) return recipes.length ? recipes.length - 1 : null
+    if (typeof parsedRec['SelectedRecipeIndex'] === 'number') return parsedRec['SelectedRecipeIndex'] as number
+    if (typeof parsedRec['SelectedConfigIndex'] === 'number') return parsedRec['SelectedConfigIndex'] as number
+    return recipes.length ? recipes.length - 1 : null
+  })()
+  const selectedIndex = (savedSel !== null && savedSel >= 0 && savedSel < recipes.length) ? savedSel : (recipes.length ? recipes.length - 1 : null)
   const note = (!Array.isArray(parsed) && typeof parsedRec['Note'] === 'string') ? String(parsedRec['Note']) : undefined
   return {
-    cfgs,
+    recipes,
     metasets,
     substatTargets,
     selectedIndex,
     ...(note ? { note } : {}),
     finalSellRemainder: fsr,
-    keepUniqueRules,
-    keepUniquesEnabled,
+    safeguardRules,
+    safeguardsEnabled,
   }
 }
 
@@ -969,35 +986,35 @@ export async function readHsfcFile(
   file: File,
   prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
 ): Promise<{
-  cfgs: BuilderConfig[]
+  recipes: BuilderRecipe[]
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
   selectedIndex: number | null
   note?: string
   finalSellRemainder: FinalSellRemainderConfig
-  keepUniqueRules: KeepUniqueRule[]
-  keepUniquesEnabled: boolean
+  safeguardRules: SafeguardRule[]
+  safeguardsEnabled: boolean
 }>
 {
   const text = await file.text()
   return parseHsfcText(text, prev)
 }
 
-/** Parse an internal autosave payload (not HSFC); expects variant-keyed substatTargets and full BuilderConfig objects. */
+/** Parse an internal autosave payload (not HSFC); expects variant-keyed substatTargets and full BuilderRecipe objects. */
 
 /**
  * Build a full, readable HSFC payload object for Save/Copy, given current state.
  */
-// Keep Unique entries in HSFC should stay human-readable; this tuple mirrors the
+// Safeguard entries in HSFC should stay human-readable; this tuple mirrors the
 // in-memory shape but with labels instead of numeric IDs so saved files are self-explanatory.
 type ReadableArtifactSetExportEntry = {
   // Human-readable set label for HSFC exports.
   name: string
-  // Optional exclusion marker so keep-unique exports preserve "not" selections.
+  // Optional exclusion marker so safeguard exports preserve "not" selections.
   excluded?: true
 }
 
-type ReadableKeepUniqueTuple = {
+type ReadableSafeguardTuple = {
   slots: string[]
   // Keep sets readable but preserve exclusions with structured entries.
   sets: ReadableArtifactSetExportEntry[]
@@ -1008,25 +1025,25 @@ type ReadableKeepUniqueTuple = {
   factions: string[]
 }
 
-export type ReadableKeepUniqueRuleEntry = {
+export type ReadableSafeguardRuleEntry = {
   id: string
   name?: string
   requiredCount: number
-  activation: KeepUniqueRuleActivation
-  countMode: KeepUniqueRule['countMode']
+  activation: SafeguardRuleActivation
+  countMode: SafeguardRule['countMode']
   ignorePreviousSafeguards?: boolean
   ignoreEquippedInCollection?: boolean
   ignoreEquippedInVault?: boolean
-  tuple: ReadableKeepUniqueTuple
+  tuple: ReadableSafeguardTuple
   substats?: string[]
   substatMatch?: string
   substatWeights?: Record<string, number>
 }
 
 // Build a readable keep-override tuple from a combination filter.
-const buildReadableKeepOverrideTuple = (combination: KeepUniqueRule['combination']): ReadableKeepUniqueTuple => {
+const buildReadableKeepOverrideTuple = (combination: SafeguardRule['combination']): ReadableSafeguardTuple => {
   // Sort the combination so exported tuples stay deterministic.
-  const sorted = sortKeepUniqueCombination(combination)
+  const sorted = sortSafeguardCombination(combination)
   const slotLabels = sorted.slots
     .map((slot) => artifactTypeNames[Number(slot)] ?? String(slot))
   // Preserve exclude flags while keeping readable set labels.
@@ -1035,7 +1052,7 @@ const buildReadableKeepOverrideTuple = (combination: KeepUniqueRule['combination
     .map((rank) => formatRank(rank as RankCode))
     .filter((label) => Boolean(label && label.trim()))
   const rarityLabels = sorted.rarities
-    .map((rarity) => KEEP_UNIQUE_RARITY_LABEL[Number(rarity)] ?? rarityCodeToName(rarity))
+    .map((rarity) => SAFEGUARD_RARITY_LABEL[Number(rarity)] ?? rarityCodeToName(rarity))
     .filter((label) => Boolean(label && label.trim()))
   const mainStatLabels = (sorted.mainStats ?? [])
     .map((stat) => labelOfVariant(stat))
@@ -1054,14 +1071,14 @@ const buildReadableKeepOverrideTuple = (combination: KeepUniqueRule['combination
   }
 }
 
-// Build a readable keep-unique export entry from an in-memory rule.
-export const buildReadableKeepUniqueRuleEntry = (rule: KeepUniqueRule): ReadableKeepUniqueRuleEntry => {
+// Build a readable safeguard export entry from an in-memory rule.
+export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSafeguardRuleEntry => {
   // Persist the normalized scope object explicitly so the loader can rehydrate chips.
-  const mode = sanitizeKeepUniqueCountMode(rule.countMode)
+  const mode = sanitizeSafeguardCountMode(rule.countMode)
   // Strip whitespace so empty names do not serialize.
   const trimmedName = typeof rule.name === 'string' ? rule.name.trim() : ''
   // Capture selected substats in readable form so exports stay user-friendly.
-  const substatVariants = sortKeepUniqueSubstats(rule.substats ?? [])
+  const substatVariants = sortSafeguardSubstats(rule.substats ?? [])
   // Map variants to readable labels; fall back to numeric IDs if needed.
   const substatLabels = substatVariants
     .map((variant) => {
@@ -1072,12 +1089,12 @@ export const buildReadableKeepUniqueRuleEntry = (rule: KeepUniqueRule): Readable
   // Substat matching only matters when a selection exists.
   const hasSubstatSelection = substatLabels.length > 0
   // Normalize the match so "Any" stays implicit unless the user overrides it.
-  const normalizedSubstatMatch = normalizeKeepUniqueSubstatMatch(rule.substatMatch)
+  const normalizedSubstatMatch = normalizeSafeguardSubstatMatch(rule.substatMatch)
   const shouldSerializeMatch = hasSubstatSelection
-    && normalizedSubstatMatch !== KeepUniqueSubstatMatch.Any
+    && normalizedSubstatMatch !== SafeguardSubstatMatch.Any
   // Weight controls are honored for Any/All; Per Substat uses equal weighting.
   const allowSubstatWeights = hasSubstatSelection
-    && normalizedSubstatMatch !== KeepUniqueSubstatMatch.PerSubstat
+    && normalizedSubstatMatch !== SafeguardSubstatMatch.PerSubstat
   // Serialize weights by readable label, but only for selected substats.
   const substatWeights: Record<string, number> = {}
   if (allowSubstatWeights) {
@@ -1095,10 +1112,10 @@ export const buildReadableKeepUniqueRuleEntry = (rule: KeepUniqueRule): Readable
     }
   }
   // Build the base export entry in readable HSFC form.
-  const entry: ReadableKeepUniqueRuleEntry = {
+  const entry: ReadableSafeguardRuleEntry = {
     id: rule.id,
     requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
-    activation: rule.activation ?? KeepUniqueRuleActivation.ProtectExisting,
+    activation: rule.activation ?? SafeguardRuleActivation.ProtectExisting,
     countMode: {
       perRule: mode.perRule,
       perSet: mode.perSet,
@@ -1126,33 +1143,33 @@ export function buildHsfcPayload(args: {
   version: string,
   metasets: Metaset[],
   substatTargets: SubstatTargetTable,
-  configs: BuilderConfig[],
+  recipes: BuilderRecipe[],
   finalSellRemainder?: FinalSellRemainderConfig,
-  selectedConfigIndex: number | null,
+  selectedRecipeIndex: number | null,
   note?: string,
-  keepUniqueRules?: KeepUniqueRule[],
-  keepUniquesEnabled?: boolean,
+  safeguardRules?: SafeguardRule[],
+  safeguardsEnabled?: boolean,
   }): {
     Version: string
     Metasets: Array<{ id: string; name: string; setNames: string[]; show?: boolean }>
     Minima: unknown
-    Configs: unknown[]
+    Recipes: unknown[]
     FinalSellRemainder: FinalSellRemainderConfig
-    KeepUniques: Array<{
+    Safeguards: Array<{
       id: string
       name?: string
       requiredCount: number
-      activation: KeepUniqueRuleActivation
-      countMode: KeepUniqueRule['countMode']
+      activation: SafeguardRuleActivation
+      countMode: SafeguardRule['countMode']
       ignorePreviousSafeguards?: boolean
       ignoreEquippedInCollection?: boolean
       ignoreEquippedInVault?: boolean
-      tuple: ReadableKeepUniqueTuple
+      tuple: ReadableSafeguardTuple
       substats?: string[]
       substatMatch?: string
       substatWeights?: Record<string, number>
     }>
-    KeepUniquesEnabled: boolean
+    SafeguardsEnabled: boolean
     SelectedConfigIndex?: number
     Note?: string
   } {
@@ -1160,12 +1177,12 @@ export function buildHsfcPayload(args: {
     version,
     metasets,
     substatTargets,
-    configs,
+    recipes,
     finalSellRemainder,
-    selectedConfigIndex,
+    selectedRecipeIndex,
     note,
-    keepUniqueRules = [],
-    keepUniquesEnabled = false,
+    safeguardRules = [],
+    safeguardsEnabled = false,
   } = args
   const metasOut = metasets.map(m => {
     const iconId = normalizeMetasetIconId(m.iconId)
@@ -1183,7 +1200,7 @@ export function buildHsfcPayload(args: {
     Version: version,
     Metasets: metasOut,
     Minima: substatTargetsToReadable(substatTargets),
-    Configs: configs.map((cfg) => buildReadableConfig(cfg, metasets)),
+    Recipes: recipes.map((cfg) => buildReadableRecipe(cfg, metasets)),
     FinalSellRemainder: (() => {
       if (finalSellRemainder) {
         const safeLevels = Array.from(new Set(finalSellRemainder.levels)).sort((a, b) => a - b) as LevelMilestone[]
@@ -1198,9 +1215,9 @@ export function buildHsfcPayload(args: {
       }
     })(),
     // Keep unique exports reuse the shared readable helper for clipboard parity.
-    KeepUniques: keepUniqueRules.map((rule) => buildReadableKeepUniqueRuleEntry(rule)),
-    KeepUniquesEnabled: keepUniquesEnabled === true,
-    ...(selectedConfigIndex != null ? { SelectedConfigIndex: selectedConfigIndex } : (configs.length ? { SelectedConfigIndex: configs.length - 1 } : {})),
+    Safeguards: safeguardRules.map((rule) => buildReadableSafeguardRuleEntry(rule)),
+    SafeguardsEnabled: safeguardsEnabled === true,
+    ...(selectedRecipeIndex != null ? { SelectedConfigIndex: selectedRecipeIndex } : (recipes.length ? { SelectedConfigIndex: recipes.length - 1 } : {})),
     ...(note ? { Note: note } : {}),
   }
 }

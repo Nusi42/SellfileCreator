@@ -68,7 +68,7 @@ export function GearRaritySelect({
     const singleHandler = onChange as (next: number | null) => void
     singleHandler(valueString === '' ? null : (Math.max(1, Math.min(6, Number(valueString)))))
   }
-  // Reuse the existing translation keys so dialog + Keep Uniques stay localized identically.
+  // Reuse the existing translation keys so dialog + Safeguards stay localized identically.
   const rarityLabel = (rarity: number): string => (
     rarity === 1 ? t('rarityCommon')
       : rarity === 2 ? t('rarityUncommon')
@@ -81,7 +81,7 @@ export function GearRaritySelect({
     if (singleValue == null) return <Typography variant="body2">{anyText}</Typography>
     return <Typography variant="body2">{rarityLabel(Number(singleValue))}</Typography>
   })()
-  // Keep multi-select defaults visible so Keep Uniques shows "Any" instead of empty badges.
+  // Keep multi-select defaults visible so Safeguards shows "Any" instead of empty badges.
   const renderMultiValue = (() => {
     if (!isMulti) return undefined
     return () => {

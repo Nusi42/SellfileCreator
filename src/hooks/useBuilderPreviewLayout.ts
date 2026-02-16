@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
-  BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX,
-  BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX,
-  BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX,
+  BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX,
+  BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX,
+  BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX,
   SIDE_BY_SIDE_BREAKPOINT_PX,
 } from '../lib/constants'
 
@@ -14,7 +14,7 @@ const isSyntheticResizeEvent = (event?: Event): boolean => Boolean(event && even
  *
  * Centralizes Builder/Preview responsive layout measurements:
  * - Tracks the builder Paper height so the preview column can mirror it.
- * - Measures the config chips container while side-by-side to cap its height safely.
+ * - Measures the recipe chips container while side-by-side to cap its height safely.
  * - Keeps the side-by-side breakpoint logic and resize observers in one place so App.tsx
  *   simply forwards refs and derived style values.
  */
@@ -83,8 +83,8 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
   const isSideBySideRef = useRef(isSideBySide)
   isSideBySideRef.current = isSideBySide
 
-  const [chipsMaxHeight, setChipsMaxHeightState] = useState<number>(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX)
-  const chipsMaxHeightRef = useRef(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX)
+  const [chipsMaxHeight, setChipsMaxHeightState] = useState<number>(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX)
+  const chipsMaxHeightRef = useRef(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX)
   const setChipsMaxHeight = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
     setChipsMaxHeightState((prev) => {
       const next = typeof value === 'function' ? (value as (previous: number) => number)(prev) : value
@@ -107,8 +107,8 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
 
   const runChipsMeasurement = useCallback(() => {
     if (!isSideBySideRef.current) {
-      if (chipsMaxHeightRef.current !== BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX) {
-        setChipsMaxHeight(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX)
+      if (chipsMaxHeightRef.current !== BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX) {
+        setChipsMaxHeight(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX)
       }
       return
     }
@@ -119,7 +119,7 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
       const viewportHeight = window.visualViewport?.height ?? window.innerHeight ?? document.documentElement?.clientHeight ?? 0
       const paperRect = paper.getBoundingClientRect()
       const containerRect = container.getBoundingClientRect()
-      const paperAvailable = viewportHeight - paperRect.top - BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX
+      const paperAvailable = viewportHeight - paperRect.top - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX
       const minPaperHeight = Math.max(0, Math.floor(paperAvailable))
       if (sideBySideMinPaperHeightRef.current !== minPaperHeight) {
         setSideBySideMinPaperHeight(minPaperHeight)
@@ -127,9 +127,9 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
       if (!Number.isFinite(paperAvailable) || paperAvailable <= 0) return
       const offsetWithinPaper = containerRect.top - paperRect.top
       const rawAvailable = Math.floor(paperAvailable - offsetWithinPaper)
-      const safeAvailable = rawAvailable - BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX
+      const safeAvailable = rawAvailable - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX
       if (!Number.isFinite(safeAvailable) || safeAvailable <= 0) return
-      const next = Math.max(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX, safeAvailable)
+      const next = Math.max(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX, safeAvailable)
       if (Math.abs(chipsMaxHeightRef.current - next) >= 4) {
         setChipsMaxHeight(next)
       }
@@ -190,7 +190,7 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
         cancelScheduledChipsMeasure()
         setSideBySideMinPaperHeight((prevHeight) => (prevHeight === 0 ? prevHeight : 0))
         setChipsMaxHeight((prevHeight) =>
-          prevHeight === BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX ? prevHeight : BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX,
+          prevHeight === BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX ? prevHeight : BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX,
         )
         return
       }

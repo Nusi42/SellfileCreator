@@ -2,7 +2,7 @@
 import { strict as assert } from 'node:assert'
 import test from 'node:test'
 
-import { evaluateMatchesByConfig, matchRule, type TestItem } from '../../src/lib/ruleEval.js'
+import { evaluateMatchesByRecipe, matchRule, type TestItem } from '../../src/lib/ruleEval.js'
 import { RULE_SOURCE_FINAL_SELL } from '../../src/lib/ruleSources.js'
 import { StatId, StatVariant, ArtifactSet, ArtifactType, type RankValue, type LevelMilestone } from '../../src/lib/types.js'
 import type { HsfRule } from '../../src/lib/hsfTypes.js'
@@ -128,20 +128,20 @@ test('matching config indices preserve encounter order when primary match has no
     Substats: [],
     __source: RULE_SOURCE_FINAL_SELL,
   }
-  // ConfigID maps to zero-based cfgIdx (2 -> 1, 1 -> 0) in matcher payloads.
-  const laterConfigOne: RuleWithOptionalCfg = { ...baseRule, Keep: true, Substats: [], ConfigID: 2 }
-  const laterConfigTwo: RuleWithOptionalCfg = { ...baseRule, Keep: true, Substats: [], ConfigID: 1 }
-  const result = evaluateMatchesByConfig(
+  // RecipeID maps to zero-based recipeIdx (2 -> 1, 1 -> 0) in matcher payloads.
+  const laterConfigOne: RuleWithOptionalCfg = { ...baseRule, Keep: true, Substats: [], RecipeID: 2 }
+  const laterConfigTwo: RuleWithOptionalCfg = { ...baseRule, Keep: true, Substats: [], RecipeID: 1 }
+  const result = evaluateMatchesByRecipe(
     [finalSellPrimary, laterConfigOne, laterConfigTwo],
     buildBaseItem(),
-    { configModes: ['active', 'active'] },
+    { recipeModes: ['active', 'active'] },
   )
   // Primary match still points at the first (config-less) final-sell rule.
   assert.equal(result.firstMatch?.ruleIndex, 0)
-  // Config-less matches may serialize cfgIdx as undefined; normalize to null.
-  assert.equal(result.firstMatch?.cfgIdx ?? null, null)
+  // Config-less matches may serialize recipeIdx as undefined; normalize to null.
+  assert.equal(result.firstMatch?.recipeIdx ?? null, null)
   // Config list must retain scan order so UI can remove only the real primary config.
-  assert.deepEqual(result.matchingConfigIndices, [1, 0])
+  assert.deepEqual(result.matchingRecipeIndices, [1, 0])
 })
 
 export {}

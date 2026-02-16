@@ -11,16 +11,16 @@ const root = resolve(dirname(here), '..', '..')
 const compiled = (p) => resolve(root, 'tmp', 'tsc', 'tests', p)
 
 // Import compiled test libs (must run after `tsc -p tsconfig.tests.json` and patch script).
-const { normalizeConfig } = await import(fileURLToPath(new URL('file://' + compiled('src/lib/hsfcIO.js').replace(/\\/g,'/'))))
+const { normalizeRecipe } = await import(fileURLToPath(new URL('file://' + compiled('src/lib/hsfcIO.js').replace(/\\/g,'/'))))
 const { buildHsfRules } = await import(fileURLToPath(new URL('file://' + compiled('src/lib/hsfBuilder.js').replace(/\\/g,'/'))))
 
 const inputPath = process.argv[2]
 if (!inputPath) { console.error('Provide HSFC path'); process.exit(1) }
 const hsfc = JSON.parse(readFileSync(inputPath, 'utf8'))
 let cfgInput
-if (Array.isArray(hsfc?.Configs)) cfgInput = hsfc.Configs[0]
+if (Array.isArray(hsfc?.Recipes)) cfgInput = hsfc.Recipes[0]
 else if (Array.isArray(hsfc)) cfgInput = hsfc[0]
 else cfgInput = hsfc
-const cfg = normalizeConfig(cfgInput)
+const cfg = normalizeRecipe(cfgInput)
 const rules = buildHsfRules(cfg)
 process.stdout.write(JSON.stringify(rules, null, 2))

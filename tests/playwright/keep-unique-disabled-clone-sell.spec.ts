@@ -12,12 +12,12 @@ import {
 import { buildRuleTesterAutosavePayload, type RuleTesterItem } from '../../src/lib/ruleTesterSession'
 import { computeCrc32 } from '../../src/lib/autosave'
 import { ArtifactSet, ArtifactType, StatVariant } from '../../src/lib/types'
-import { SAMPLE_SMALL_HSFC_DISABLED_OPTIONS_PATH } from './fixture-paths'
+import { SAMPLE_SMALL_HSFC_DISABLED_RECIPE_OVERRIDES_PATH } from './fixture-paths'
 import { HSFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { warmupAppShell } from './app-warmup'
 
-// Point at the slim HSFC file with config options disabled.
-const HSFC_PATH = SAMPLE_SMALL_HSFC_DISABLED_OPTIONS_PATH
+// Point at the slim HSFC file with recipe overrides disabled.
+const HSFC_PATH = SAMPLE_SMALL_HSFC_DISABLED_RECIPE_OVERRIDES_PATH
 // Seed a tiny tester autosave payload so we avoid DB imports in this check.
 const TESTER_ITEMS: RuleTesterItem[] = [
   {
@@ -167,7 +167,7 @@ test.beforeAll(async ({ browser }) => {
   await warmupAppShell(browser)
 })
 
-test('disable config options then duplicate disabled config changes sell counts', async ({ page }) => {
+test('disable recipe overrides then duplicate disabled config changes sell counts', async ({ page }) => {
   // Allow the long timeout for matcher rebuilds during DB import and duplication.
     // Allow extra time for autosave restore + tester work on slower engines.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
@@ -187,7 +187,7 @@ test('disable config options then duplicate disabled config changes sell counts'
   // Clear any leftover dialogs before interacting with file inputs.
   await dismissBlockingDialogs(page)
 
-  // Import the HSFC snapshot that defines the configs and options.
+  // Import the HSFC snapshot that defines the recipes and options.
   // Use the stable tour id so the input is found even if the label is localized.
   const hsfcInput = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
   // Wait for the input to mount so cold-start renders do not hit the action timeout.
@@ -199,7 +199,7 @@ test('disable config options then duplicate disabled config changes sell counts'
   // Clear any note/restore dialogs that appear after the import.
   await dismissBlockingDialogs(page)
   // Wait for the target chip to attach so we can duplicate it later.
-  const targetChip = page.locator('#cfg-chip-1')
+  const targetChip = page.locator('#recipe-chip-1')
   await targetChip.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   // Ensure the chip is rendered before proceeding.
   await expect(targetChip).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })

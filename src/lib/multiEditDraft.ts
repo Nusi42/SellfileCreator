@@ -1,12 +1,12 @@
 /**
  * multiEditDraft.ts
  *
- * Helper utilities for deriving and tracking multi-config edit state. A draft
- * represents the combined view of the currently selected configs so the UI can
+ * Helper utilities for deriving and tracking multi-recipe edit state. A draft
+ * represents the combined view of the currently selected recipes so the UI can
  * surface mixed fields and staged overrides before applying changes.
  */
-import type { BuilderConfig, SubstatRollTargetEntry } from './hsfBuilder'
-import { normalizeKeepMode, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex } from './configNormalization'
+import type { BuilderRecipe, SubstatRollTargetEntry } from './hsfBuilder'
+import { normalizeKeepMode, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex } from './recipeNormalization'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
 
@@ -37,7 +37,7 @@ export const BUILDER_FIELD_KEYS = [
   'artifactTypes',
   'artifactSets',
   'artifactMetaSets',
-] as const satisfies ReadonlyArray<keyof BuilderConfig>
+] as const satisfies ReadonlyArray<keyof BuilderRecipe>
 
 export type BuilderFieldKey = typeof BUILDER_FIELD_KEYS[number]
 
@@ -110,7 +110,7 @@ export interface MultiEditFieldCommit<T, K extends BuilderFieldKey = BuilderFiel
 
 export type MultiEditUpdateFn = <K extends BuilderFieldKey>(
   key: K,
-  commit: MultiEditFieldCommit<BuilderConfig[K], K>,
+  commit: MultiEditFieldCommit<BuilderRecipe[K], K>,
 ) => void
 
 export type MultiEditResetFn = (key: BuilderFieldKey) => void
@@ -133,13 +133,13 @@ export function getDirtyBuilderFieldKeys(fields: MultiEditFields | null | undefi
   return dirty
 }
 
-export function createMultiEditDraft(configs: BuilderConfig[], selection: number[]): MultiEditDraftState {
-  if (configs.length === 0) {
-    throw new Error('createMultiEditDraft: expected at least one config')
+export function createMultiEditDraft(recipes: BuilderRecipe[], selection: number[]): MultiEditDraftState {
+  if (recipes.length === 0) {
+    throw new Error('createMultiEditDraft: expected at least one recipe')
   }
   const fields = {} as MultiEditFields
   for (const key of BUILDER_FIELD_KEYS) {
-    fields[key] = createFieldStateForKey(configs, key)
+    fields[key] = createFieldStateForKey(recipes, key)
   }
   return {
     selection: selection.slice(),
@@ -204,13 +204,13 @@ export function areBuilderFieldValuesEqual(key: BuilderFieldKey, left: unknown, 
       return arePrimitiveArraysEqual(left as readonly unknown[] | undefined, right as readonly unknown[] | undefined)
     case 'substatRollBoundsV':
       return areRollBoundsEqual(
-        left as BuilderConfig['substatRollBoundsV'],
-        right as BuilderConfig['substatRollBoundsV'],
+        left as BuilderRecipe['substatRollBoundsV'],
+        right as BuilderRecipe['substatRollBoundsV'],
       )
     case 'substatRollTargetsV':
       return areRollTargetsEqual(
-        left as BuilderConfig['substatRollTargetsV'],
-        right as BuilderConfig['substatRollTargetsV'],
+        left as BuilderRecipe['substatRollTargetsV'],
+        right as BuilderRecipe['substatRollTargetsV'],
       )
     default:
       return left === right
@@ -234,7 +234,7 @@ export function cloneBuilderFieldValue(key: BuilderFieldKey, value: unknown): un
     case 'substatRollBoundsV':
       return cloneRollBounds(value as SubstatRollBounds)
     case 'substatRollTargetsV':
-      return cloneRollTargets(value as BuilderConfig['substatRollTargetsV'])
+      return cloneRollTargets(value as BuilderRecipe['substatRollTargetsV'])
     default:
       if (Array.isArray(value)) {
         return [...value]
@@ -247,27 +247,27 @@ export function cloneBuilderFieldValue(key: BuilderFieldKey, value: unknown): un
 }
 
 /**
- * cloneBuilderConfig
+ * cloneBuilderRecipe
  *
- * Creates a field-aware clone so configs stored elsewhere never share object
- * identity. Selection logic tracks entries by reference, so duplicate configs
+ * Creates a field-aware clone so recipes stored elsewhere never share object
+ * identity. Selection logic tracks entries by reference, so duplicate recipes
  * must receive fresh objects even when their payloads match.
  */
-export function cloneBuilderConfig(source: BuilderConfig): BuilderConfig {
-  const clone: BuilderConfig = { ...source }
+export function cloneBuilderRecipe(source: BuilderRecipe): BuilderRecipe {
+  const clone: BuilderRecipe = { ...source }
   for (const key of BUILDER_FIELD_KEYS) {
     if (!Object.prototype.hasOwnProperty.call(source, key)) continue
     // Use the per-field clone helper so nested collections are detached.
-    const clonedValue = cloneBuilderFieldValue(key, source[key]) as BuilderConfig[typeof key]
-    (clone as Record<BuilderFieldKey, BuilderConfig[BuilderFieldKey]>)[key] = clonedValue
+    const clonedValue = cloneBuilderFieldValue(key, source[key]) as BuilderRecipe[typeof key]
+    (clone as Record<BuilderFieldKey, BuilderRecipe[BuilderFieldKey]>)[key] = clonedValue
   }
   return clone
 }
 
-function createFieldStateForKey(configs: BuilderConfig[], key: BuilderFieldKey): MultiEditFieldState {
-  const first = configs[0]!
+function createFieldStateForKey(recipes: BuilderRecipe[], key: BuilderFieldKey): MultiEditFieldState {
+  const first = recipes[0]!
   const firstValue = first[key]
-  const uniqueValues = collectUniqueValues(configs, key)
+  const uniqueValues = collectUniqueValues(recipes, key)
   const status: MultiEditStatus = uniqueValues.length > 1 ? 'mixed' : 'common'
   const clonedValue = cloneBuilderFieldValue(key, firstValue)
   const initialValue = cloneBuilderFieldValue(key, firstValue)
@@ -318,15 +318,15 @@ const areArtifactSetSelectionsEqual = (left: unknown, right: unknown): boolean =
 const cloneArtifactSetSelections = (value: unknown): ArtifactSetSelectionEntry[] => {
   // Normalize first so every entry has a consistent shape.
   const normalized = normalizeArtifactSetSelectionEntries(value)
-  // Clone entries so configs never share object references.
+  // Clone entries so recipes never share object references.
   return normalized.map((entry) => (
     entry.excluded ? { id: entry.id, excluded: true } : { id: entry.id }
   ))
 }
 
 function areRollBoundsEqual(
-  left: BuilderConfig['substatRollBoundsV'],
-  right: BuilderConfig['substatRollBoundsV'],
+  left: BuilderRecipe['substatRollBoundsV'],
+  right: BuilderRecipe['substatRollBoundsV'],
 ): boolean {
   const a = normalizeRollBounds(left)
   const b = normalizeRollBounds(right)
@@ -345,9 +345,9 @@ function areRollBoundsEqual(
   return true
 }
 
-function collectUniqueValues(configs: BuilderConfig[], key: BuilderFieldKey): unknown[] {
+function collectUniqueValues(recipes: BuilderRecipe[], key: BuilderFieldKey): unknown[] {
   const unique: unknown[] = []
-  outer: for (const cfg of configs) {
+  outer: for (const cfg of recipes) {
     const candidate = cfg[key]
     for (const existing of unique) {
       if (areBuilderFieldValuesEqual(key, existing, candidate)) {
@@ -542,7 +542,7 @@ function areRollPatchesEqual(left: MultiEditRollPatch, right: MultiEditRollPatch
 }
 
 // Deep clone to keep the draft immutable snapshots safe across renders and to
-// ensure we never share references with BuilderConfig.
+// ensure we never share references with BuilderRecipe.
 function cloneTargetPatch(patch: MultiEditTargetPatch): MultiEditTargetPatch {
   const result: MultiEditTargetPatch = {}
   for (const [key, entry] of Object.entries(patch)) {
@@ -610,8 +610,8 @@ function arraysShallowEqual<T>(left: readonly T[] | undefined, right: readonly T
 }
 
 
-type SubstatRollBounds = NonNullable<BuilderConfig['substatRollBoundsV']>
-type SubstatRollTargetsMap = NonNullable<BuilderConfig['substatRollTargetsV']>
+type SubstatRollBounds = NonNullable<BuilderRecipe['substatRollBoundsV']>
+type SubstatRollTargetsMap = NonNullable<BuilderRecipe['substatRollTargetsV']>
 
 function cloneRollBounds(source: SubstatRollBounds): SubstatRollBounds {
   const result: SubstatRollBounds = {}
@@ -624,8 +624,8 @@ function cloneRollBounds(source: SubstatRollBounds): SubstatRollBounds {
 }
 
 function cloneRollTargets(
-  source: BuilderConfig['substatRollTargetsV'],
-): BuilderConfig['substatRollTargetsV'] {
+  source: BuilderRecipe['substatRollTargetsV'],
+): BuilderRecipe['substatRollTargetsV'] {
   if (!source) return source
   const result: SubstatRollTargetsMap = {}
   for (const [key, entry] of Object.entries(source)) {
@@ -646,7 +646,7 @@ function cloneRollTargets(
 }
 
 function normalizeRollBounds(
-  source: BuilderConfig['substatRollBoundsV'],
+  source: BuilderRecipe['substatRollBoundsV'],
 ): SubstatRollBounds {
   if (!source) return {}
   const result: SubstatRollBounds = {}
@@ -659,8 +659,8 @@ function normalizeRollBounds(
 }
 
 function areRollTargetsEqual(
-  left: BuilderConfig['substatRollTargetsV'],
-  right: BuilderConfig['substatRollTargetsV'],
+  left: BuilderRecipe['substatRollTargetsV'],
+  right: BuilderRecipe['substatRollTargetsV'],
 ): boolean {
   const a = normalizeRollTargets(left)
   const b = normalizeRollTargets(right)
@@ -678,7 +678,7 @@ function areRollTargetsEqual(
 // Canonicalize target maps before comparing so we avoid spurious dirty
 // states when the same numbers are provided in different shapes.
 function normalizeRollTargets(
-  source: BuilderConfig['substatRollTargetsV'],
+  source: BuilderRecipe['substatRollTargetsV'],
 ): SubstatRollTargetsMap {
   if (!source) return {}
   const result: SubstatRollTargetsMap = {}
@@ -734,20 +734,20 @@ function targetEntriesEqual(
   }
   return true
 }
-export function applyMultiEditFieldToConfig(
-  cfg: BuilderConfig,
+export function applyMultiEditFieldToRecipe(
+  cfg: BuilderRecipe,
   key: BuilderFieldKey,
   field: MultiEditFieldState,
-): BuilderConfig {
+): BuilderRecipe {
   const patch = field.patch
     ? cloneFieldPatch(key, field.patch as MultiEditFieldPatch<typeof key>)
     : null
   if (patch) {
     return applyPatchForKey(cfg, key, patch)
   }
-  const nextValue = cloneBuilderFieldValue(key, field.value) as BuilderConfig[typeof key]
+  const nextValue = cloneBuilderFieldValue(key, field.value) as BuilderRecipe[typeof key]
   if (areBuilderFieldValuesEqual(key, cfg[key], nextValue)) return cfg
-  let nextCfg: BuilderConfig = { ...cfg, [key]: nextValue }
+  let nextCfg: BuilderRecipe = { ...cfg, [key]: nextValue }
   switch (key) {
     case 'autoMinCount':
     case 'minCount':
@@ -779,18 +779,18 @@ export function applyMultiEditFieldToConfig(
   return nextCfg
 }
 
-export function applyMultiEditFieldsToConfig(
-  cfg: BuilderConfig,
+export function applyMultiEditFieldsToRecipe(
+  cfg: BuilderRecipe,
   fields: MultiEditFields,
   dirtyKeys?: readonly BuilderFieldKey[],
-): BuilderConfig {
+): BuilderRecipe {
   const keys = dirtyKeys && dirtyKeys.length > 0 ? dirtyKeys : BUILDER_FIELD_KEYS
   if (keys.length === 0) return cfg
   let nextCfg = cfg
   for (const key of keys) {
     const field = fields[key]
     if (!field?.dirty) continue
-    const updated = applyMultiEditFieldToConfig(nextCfg, key, field)
+    const updated = applyMultiEditFieldToRecipe(nextCfg, key, field)
     if (updated !== nextCfg) {
       nextCfg = updated
     }
@@ -799,10 +799,10 @@ export function applyMultiEditFieldsToConfig(
 }
 
 function applyPatchForKey<K extends BuilderFieldKey>(
-  cfg: BuilderConfig,
+  cfg: BuilderRecipe,
   key: K,
   patch: MultiEditFieldPatch<K>,
-): BuilderConfig {
+): BuilderRecipe {
   switch (key) {
     case 'tags':
       return applyTagsPatch(cfg, patch as MultiEditArrayPatch<string>)
@@ -827,14 +827,14 @@ function applyPatchForKey<K extends BuilderFieldKey>(
   }
 }
 
-function applyMainStatsPatch(cfg: BuilderConfig, patch: MultiEditArrayPatch<number>): BuilderConfig {
+function applyMainStatsPatch(cfg: BuilderRecipe, patch: MultiEditArrayPatch<number>): BuilderRecipe {
   const current = Array.isArray(cfg.mainStatsV) ? cfg.mainStatsV.map(Number) : []
   const next = applyNumberArrayPatch(current, patch, { sort: true })
   if (arraysEqualNumber(current, next)) return cfg
   return { ...cfg, mainStatsV: next }
 }
 
-function applySubstatsPatch(cfg: BuilderConfig, patch: MultiEditArrayPatch<number>): BuilderConfig {
+function applySubstatsPatch(cfg: BuilderRecipe, patch: MultiEditArrayPatch<number>): BuilderRecipe {
   const current = Array.isArray(cfg.substatsV) ? cfg.substatsV.map(Number) : []
   const next = applyNumberArrayPatch(current, patch, { sort: true })
   const currentSet = new Set<number>(current)
@@ -868,7 +868,7 @@ function applySubstatsPatch(cfg: BuilderConfig, patch: MultiEditArrayPatch<numbe
   }
   nextMinCount = Math.max(0, Math.min(4, nextMinCount))
 
-  let nextCfg: BuilderConfig = {
+  let nextCfg: BuilderRecipe = {
     ...cfg,
     substatsV: next,
     fixedSubstatsV: nextFixed,
@@ -884,19 +884,19 @@ function applySubstatsPatch(cfg: BuilderConfig, patch: MultiEditArrayPatch<numbe
   return nextCfg
 }
 
-function applyFixedSubstatsPatch(cfg: BuilderConfig, patch: MultiEditArrayPatch<number>): BuilderConfig {
+function applyFixedSubstatsPatch(cfg: BuilderRecipe, patch: MultiEditArrayPatch<number>): BuilderRecipe {
   const current = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV.map(Number) : []
   const selectable = new Set<number>(Array.isArray(cfg.substatsV) ? cfg.substatsV.map(Number) : [])
   const next = applyNumberArrayPatch(current, patch, { sort: true, filter: selectable })
   if (arraysEqualNumber(current, next)) return cfg
-  let nextCfg: BuilderConfig = { ...cfg, fixedSubstatsV: next }
+  let nextCfg: BuilderRecipe = { ...cfg, fixedSubstatsV: next }
   if (nextCfg.autoSubstatFlex && !canEnableSubstatFlex(nextCfg)) {
     nextCfg = { ...nextCfg, autoSubstatFlex: false }
   }
   return nextCfg
 }
 
-function applySubstatRollPatch(cfg: BuilderConfig, patch: MultiEditRollPatch): BuilderConfig {
+function applySubstatRollPatch(cfg: BuilderRecipe, patch: MultiEditRollPatch): BuilderRecipe {
   const selectable = new Set<number>(Array.isArray(cfg.substatsV) ? cfg.substatsV.map(Number) : [])
   const currentBounds = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
   const nextBounds: Record<number, { min?: number; max?: number; any?: boolean }> = {}
@@ -970,7 +970,7 @@ function applySubstatRollPatch(cfg: BuilderConfig, patch: MultiEditRollPatch): B
     }
   }
   if (!changed) return cfg
-  let nextCfg: BuilderConfig = {
+  let nextCfg: BuilderRecipe = {
     ...cfg,
     substatRollBoundsV: normalizeBoundsObject(nextBounds),
   }
@@ -982,7 +982,7 @@ function applySubstatRollPatch(cfg: BuilderConfig, patch: MultiEditRollPatch): B
   return nextCfg
 }
 
-function applyTargetPatch(cfg: BuilderConfig, patch: MultiEditTargetPatch): BuilderConfig {
+function applyTargetPatch(cfg: BuilderRecipe, patch: MultiEditTargetPatch): BuilderRecipe {
   if (!patch || Object.keys(patch).length === 0) return cfg
   const selectable = new Set<number>(Array.isArray(cfg.substatsV) ? cfg.substatsV.map(Number) : [])
   const current = (cfg.substatRollTargetsV ?? {}) as SubstatRollTargetsMap
@@ -1016,7 +1016,7 @@ function applyTargetPatch(cfg: BuilderConfig, patch: MultiEditTargetPatch): Buil
   }
 }
 
-function applyArtifactTypesPatch(cfg: BuilderConfig, patch: MultiEditArrayPatch<number>): BuilderConfig {
+function applyArtifactTypesPatch(cfg: BuilderRecipe, patch: MultiEditArrayPatch<number>): BuilderRecipe {
   const current = Array.isArray(cfg.artifactTypes) ? cfg.artifactTypes.map(Number) : []
   const next = applyNumberArrayPatch(current, patch, { sort: true })
   if (arraysEqualNumber(current, next)) return cfg
@@ -1024,9 +1024,9 @@ function applyArtifactTypesPatch(cfg: BuilderConfig, patch: MultiEditArrayPatch<
 }
 
 function applyArtifactSetsPatch(
-  cfg: BuilderConfig,
+  cfg: BuilderRecipe,
   patch: MultiEditArrayPatch<ArtifactSetSelectionEntry>,
-): BuilderConfig {
+): BuilderRecipe {
   // Normalize existing entries so we can apply add/remove safely.
   const current = normalizeArtifactSetSelectionEntries(cfg.artifactSets)
   // Apply the patch against canonical entries.
@@ -1057,14 +1057,14 @@ function applyArtifactSetSelectionPatch(
   return normalizeArtifactSetSelectionEntries([...filtered, ...addEntries])
 }
 
-function applyArtifactMetaSetsPatch(cfg: BuilderConfig, patch: MultiEditArrayPatch<string>): BuilderConfig {
+function applyArtifactMetaSetsPatch(cfg: BuilderRecipe, patch: MultiEditArrayPatch<string>): BuilderRecipe {
   const current = Array.isArray(cfg.artifactMetaSets) ? cfg.artifactMetaSets.map(String) : []
   const next = applyStringArrayPatch(current, patch)
   if (arraysEqualString(current, next)) return cfg
   return { ...cfg, artifactMetaSets: next }
 }
 
-function applyTagsPatch(cfg: BuilderConfig, patch: MultiEditArrayPatch<string>): BuilderConfig {
+function applyTagsPatch(cfg: BuilderRecipe, patch: MultiEditArrayPatch<string>): BuilderRecipe {
   // Normalize tags to strings before patching.
   const current = Array.isArray(cfg.tags) ? cfg.tags.map(String) : []
   // Apply standard string array patch semantics.

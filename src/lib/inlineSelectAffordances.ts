@@ -9,7 +9,7 @@ import { measureCssWidth } from './domMeasurements'
 import { pickEllipsisTarget } from './ellipsis'
 
 // Inline select menus share the same inline clear affordance, so we centralize the badge padding
-// and offsets to keep Keep Uniques, the builder, and the tester filter panel visually identical.
+// and offsets to keep Safeguards, the builder, and the tester filter panel visually identical.
 export const INLINE_SELECT_EXTRA_BADGE_PADDING_PX = CLEAR_ICON_BUTTON_SIZE_PX
   + (SETS_SELECT_CLEAR_BUTTON_RIGHT_PX - SETS_SELECT_DROPDOWN_ICON_HITBOX_PX)
 export const INLINE_SELECT_EXTRA_BADGE_RIGHT_PX = SETS_SELECT_CLEAR_BUTTON_RIGHT_PX

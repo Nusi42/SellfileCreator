@@ -19,7 +19,7 @@ export type ObsoleteReport = { obsolete: ObsoleteEntry[] }
 export function findObsoleteRules(rules: HsfRule[]): ObsoleteReport {
   // Delegate to WASM so domination semantics are defined in one place.
   const report = findObsoleteRulesWithLoadedWasm(rules)
-  // Fail closed when warmup/config is missing; no JS duplicate path remains.
+  // Fail closed when warmup/recipe is missing; no JS duplicate path remains.
   if (!report || !Array.isArray(report.obsolete)) {
     throw new Error('WASM obsolete-rule detector is unavailable. Ensure warmupWasmRuleEngine() ran first.')
   }

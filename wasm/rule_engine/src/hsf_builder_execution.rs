@@ -29,7 +29,7 @@ use crate::STAT_ID_ANY;
 // preparation out of hsfBuilder.ts so TS no longer loops large variant sets.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct PrepareHsfBuilderConfigIn {
+struct PrepareHsfBuilderRecipeIn {
     min_count: i64,
     auto_substat_flex: bool,
     flex_eligible: bool,
@@ -54,7 +54,7 @@ struct PrepareHsfBuilderConfigIn {
 // Output carries normalized pools and per-variant maps consumed by branch runtime.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct PrepareHsfBuilderConfigOut {
+struct PrepareHsfBuilderRecipeOut {
     selected_pool_v: Vec<i32>,
     required_v: Vec<i32>,
     optional_pool_v: Vec<i32>,
@@ -106,7 +106,7 @@ fn sort_variants_by_priority(values: &mut [i64], variant_priority: &[i64]) {
 
 // Shared prep core keeps variant filtering/sorting and per-variant map generation
 // in Rust so buildHsfRules can avoid repeated TS-side loops and map plumbing.
-fn prepare_hsf_builder_config_core(input: &PrepareHsfBuilderConfigIn) -> PrepareHsfBuilderConfigOut {
+fn prepare_hsf_builder_recipe_core(input: &PrepareHsfBuilderRecipeIn) -> PrepareHsfBuilderRecipeOut {
     // Explicit substats/fixed/bounds indicate the user requested substat filters.
     let had_requested_substats = !input.substats_v.is_empty()
         || !input.fixed_substats_v.is_empty()
@@ -218,7 +218,7 @@ fn prepare_hsf_builder_config_core(input: &PrepareHsfBuilderConfigIn) -> Prepare
         );
     }
 
-    PrepareHsfBuilderConfigOut {
+    PrepareHsfBuilderRecipeOut {
         selected_pool_v: selected_pool_v.iter().map(|value| *value as i32).collect::<Vec<_>>(),
         required_v: required_pool.iter().map(|value| *value as i32).collect::<Vec<_>>(),
         optional_pool_v: optional_pool.iter().map(|value| *value as i32).collect::<Vec<_>>(),
@@ -235,12 +235,12 @@ fn prepare_hsf_builder_config_core(input: &PrepareHsfBuilderConfigIn) -> Prepare
 }
 
 // JsValue wrapper centralizes parsing/serialization for TS prep helper calls.
-pub(crate) fn prepare_hsf_builder_config_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: PrepareHsfBuilderConfigIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid prepare-hsf-builder-config payload: {error}")))?;
-    let out = prepare_hsf_builder_config_core(&input);
+pub(crate) fn prepare_hsf_builder_recipe_value(payload: JsValue) -> Result<JsValue, JsValue> {
+    let input: PrepareHsfBuilderRecipeIn = from_js_value(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid prepare-hsf-builder-recipe payload: {error}")))?;
+    let out = prepare_hsf_builder_recipe_core(&input);
     to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize prepare-hsf-builder-config output: {error}")))
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize prepare-hsf-builder-recipe output: {error}")))
 }
 
 // Branch descriptor mirrors TS rarity branch objects for one-call runtime.
@@ -300,7 +300,7 @@ struct ExecuteHsfBuilderRuntimeOut {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct BuildHsfRulesRuntimeIn {
-    config_id: Option<i64>,
+    recipe_id: Option<i64>,
     keep: Option<bool>,
     use_flag: bool,
     #[serde(default)]
@@ -370,8 +370,8 @@ fn sort_artifact_types(values: &[i64]) -> Option<Vec<i64>> {
 // Build the selector-only base rule once so all runtime branches clone it.
 fn build_hsf_rules_base_rule(input: &BuildHsfRulesRuntimeIn) -> RuleRaw {
     RuleRaw {
-        ConfigID: input.config_id.filter(|value| *value > 0),
-        ConfigName: None,
+        RecipeID: input.recipe_id.filter(|value| *value > 0),
+        RecipeName: None,
         Keep: input.keep,
         IsRuleTypeAND: None,
         Use: Some(input.use_flag),
@@ -389,16 +389,16 @@ fn build_hsf_rules_base_rule(input: &BuildHsfRulesRuntimeIn) -> RuleRaw {
         all_known_sets: None,
         rank_mask: None,
         rarity_mask: None,
-        keep_unique_rule_id: None,
-        keep_unique_rule_ordinal: None,
-        keep_unique_hash: None,
-        keep_unique_required: None,
-        keep_unique_scan_ms: None,
-        keep_unique_projected: None,
-        keep_unique_deficit: None,
-        keep_unique_item_key: None,
-        keep_unique_placeholder: None,
-        keep_unique_placeholder_missing: None,
+        safeguard_rule_id: None,
+        safeguard_rule_ordinal: None,
+        safeguard_hash: None,
+        safeguard_required: None,
+        safeguard_scan_ms: None,
+        safeguard_projected: None,
+        safeguard_deficit: None,
+        safeguard_item_key: None,
+        safeguard_placeholder: None,
+        safeguard_placeholder_missing: None,
     }
 }
 

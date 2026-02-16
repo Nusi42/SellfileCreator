@@ -1,28 +1,28 @@
 /**
  * ruleCache.ts
  *
- * Maintains a per-config cache of generated HSF rules so the builder,
+ * Maintains a per-recipe cache of generated HSF rules so the builder,
  * preview, and filters reuse the same computation. The cache is keyed by a
  * fingerprint derived from the rule-affecting fields plus substatTargets so changes
  * invalidate only the affected entries.
  */
 import { RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT } from './constants'
 import {
-  buildRulesForConfig,
+  buildRulesForRecipe,
   type BuildRulesFinalizeGeneratedFn,
   type HsfRuleWithCfg,
 } from './merge'
-import { countRulesForConfig } from './ruleCacheHelpers'
-import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
+import { countRulesForRecipeEntry } from './ruleCacheHelpers'
+import type { BuilderRecipe, SubstatTargetTable } from './hsfBuilder'
 import type { Metaset } from './metasets'
 import { resolveArtifactSetSelections } from './gearSets/selection'
 import { compareVariants } from './types'
-import { buildCanonicalConfigSnapshot } from './configSnapshot'
+import { buildCanonicalRecipeSnapshot } from './recipeSnapshot'
 import type { ProgressSnapshot } from '../types/progress'
-import { applyConfigIndexMutable, cloneRuleWithConfigIndex } from './ruleConfigIndex'
+import { applyRecipeIndexMutable, cloneRuleWithRecipeIndex } from './ruleRecipeIndex'
 
-/** Cache entry keyed by a stable fingerprint for a single config. */
-export type ConfigRuleCacheEntry = {
+/** Cache entry keyed by a stable fingerprint for a single recipe. */
+export type RecipeRuleCacheEntry = {
   key: string
   rules: HsfRuleWithCfg[]
   count: number
@@ -30,16 +30,16 @@ export type ConfigRuleCacheEntry = {
   excludedByTotalLimit?: boolean
 }
 
-export type ConfigRulesCache = Map<number, ConfigRuleCacheEntry>
+export type RecipeRulesCache = Map<number, RecipeRuleCacheEntry>
 
 /** Create an empty cache that callers can persist across renders. */
-export function createConfigRulesCache(): ConfigRulesCache {
+export function createRecipeRulesCache(): RecipeRulesCache {
   return new Map()
 }
 
-function buildFallbackBuckets(cache?: ConfigRulesCache): Map<string, ConfigRuleCacheEntry[]> | null {
+function buildFallbackBuckets(cache?: RecipeRulesCache): Map<string, RecipeRuleCacheEntry[]> | null {
   if (!cache) return null
-  const buckets = new Map<string, ConfigRuleCacheEntry[]>()
+  const buckets = new Map<string, RecipeRuleCacheEntry[]>()
   cache.forEach((entry) => {
     if (!entry) return
     const list = buckets.get(entry.key)
@@ -52,20 +52,20 @@ function buildFallbackBuckets(cache?: ConfigRulesCache): Map<string, ConfigRuleC
   return buckets
 }
 
-function remapConfigIndex(entry: ConfigRuleCacheEntry, cfgIdx: number): ConfigRuleCacheEntry {
+function remapRecipeIndex(entry: RecipeRuleCacheEntry, recipeIdx: number): RecipeRuleCacheEntry {
   if (!entry.rules.length) {
     return {
       ...entry,
       rules: entry.rules,
     }
   }
-  const targetConfigId = Math.floor(cfgIdx) + 1
-  // Exit quickly when every rule already points at this ConfigID.
+  const targetRecipeId = Math.floor(recipeIdx) + 1
+  // Exit quickly when every rule already points at this RecipeID.
   let needsRemap = false
   for (const rule of entry.rules) {
     if (!rule) continue
-    const currentId = Number(rule.ConfigID)
-    if (currentId !== targetConfigId) {
+    const currentId = Number(rule.RecipeID)
+    if (currentId !== targetRecipeId) {
       needsRemap = true
       break
     }
@@ -73,13 +73,13 @@ function remapConfigIndex(entry: ConfigRuleCacheEntry, cfgIdx: number): ConfigRu
   if (!needsRemap) return entry
   const remappedRules = entry.rules.map((rule) => {
     if (!rule) return rule
-    const currentId = Number(rule.ConfigID)
-    if (currentId !== targetConfigId) {
-      // ConfigID drifted because the config moved; clone so we do not mutate shared entries.
-      return cloneRuleWithConfigIndex(rule, cfgIdx)
+    const currentId = Number(rule.RecipeID)
+    if (currentId !== targetRecipeId) {
+      // RecipeID drifted because the recipe moved; clone so we do not mutate shared entries.
+      return cloneRuleWithRecipeIndex(rule, recipeIdx)
     }
     // IDs already match, so mutate in place.
-    applyConfigIndexMutable(rule, cfgIdx)
+    applyRecipeIndexMutable(rule, recipeIdx)
     return rule
   })
   return {
@@ -89,10 +89,10 @@ function remapConfigIndex(entry: ConfigRuleCacheEntry, cfgIdx: number): ConfigRu
 }
 
 type UpdateArgs = {
-  configs: readonly BuilderConfig[]
+  recipes: readonly BuilderRecipe[]
   metasets: readonly Metaset[]
   substatTargets: SubstatTargetTable
-  previousCache?: ConfigRulesCache
+  previousCache?: RecipeRulesCache
   baseRuleCount?: number
   totalLimit?: number
   finalizeGeneratedRules?: BuildRulesFinalizeGeneratedFn
@@ -100,24 +100,24 @@ type UpdateArgs = {
 }
 
 type UpdateResult = {
-  cache: ConfigRulesCache
-  rulesByConfig: Map<number, HsfRuleWithCfg[]>
-  countsByConfig: Map<number, number>
+  cache: RecipeRulesCache
+  rulesByRecipe: Map<number, HsfRuleWithCfg[]>
+  countsByRecipe: Map<number, number>
   keys: string[]
   substatTargetsKey: string
-  truncatedConfigIndices: number[]
+  truncatedRecipeIndices: number[]
   totalLimitHit: boolean
   excludedByTotalLimitIndices: number[]
 }
 
 /**
  * Update (or warm) the cache and return the flattened rules plus lookups that
- * stay consistent with the provided config order. When a fingerprint matches
+ * stay consistent with the provided recipe order. When a fingerprint matches
  * the previous entry we reuse the prior rules to avoid rebuilding.
  */
-export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
+export function updateRecipeRulesCache(args: UpdateArgs): UpdateResult {
   const {
-    configs,
+    recipes,
     metasets,
     substatTargets,
     previousCache,
@@ -125,12 +125,12 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
     totalLimit = TOTAL_RULE_COUNT_LIMIT,
     onProgress,
   } = args
-  const totalConfigs = configs.length
+  const totalRecipes = recipes.length
   const emitProgress = (completed: number) => {
-    if (!onProgress || totalConfigs <= 0) return
+    if (!onProgress || totalRecipes <= 0) return
     const snapshot: ProgressSnapshot = {
-      completed: Math.max(0, Math.min(completed, totalConfigs)),
-      total: totalConfigs,
+      completed: Math.max(0, Math.min(completed, totalRecipes)),
+      total: totalRecipes,
     }
     try {
       onProgress(snapshot)
@@ -139,11 +139,11 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
     }
   }
   const substatTargetsKey = substatTargetsFingerprint(substatTargets)
-  const nextCache: ConfigRulesCache = new Map()
-  const rulesByConfig = new Map<number, HsfRuleWithCfg[]>()
-  const countsByConfig = new Map<number, number>()
+  const nextCache: RecipeRulesCache = new Map()
+  const rulesByRecipe = new Map<number, HsfRuleWithCfg[]>()
+  const countsByRecipe = new Map<number, number>()
   const keys: string[] = []
-  const truncatedConfigIndices: number[] = []
+  const truncatedRecipeIndices: number[] = []
   const excludedByTotalLimitIndices: number[] = []
   let reportedTotalCount = 0
   const normalizedTotalLimit = Number.isFinite(totalLimit) && totalLimit > 0
@@ -153,13 +153,13 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
   let runningTotal = baseCount
   let totalLimitHit = normalizedTotalLimit !== null && runningTotal > normalizedTotalLimit
   const fallbackBuckets = buildFallbackBuckets(previousCache)
-  const reusedFallbackEntries = fallbackBuckets ? new Set<ConfigRuleCacheEntry>() : null
+  const reusedFallbackEntries = fallbackBuckets ? new Set<RecipeRuleCacheEntry>() : null
 
-  const pickReusableEntry = (key: string, preferred?: ConfigRuleCacheEntry | null): ConfigRuleCacheEntry | null => {
+  const pickReusableEntry = (key: string, preferred?: RecipeRuleCacheEntry | null): RecipeRuleCacheEntry | null => {
     if (!fallbackBuckets) return null
     const bucket = fallbackBuckets.get(key)
     if (!bucket || bucket.length === 0) return null
-    const isEligible = (entry: ConfigRuleCacheEntry | undefined | null): entry is ConfigRuleCacheEntry => (
+    const isEligible = (entry: RecipeRuleCacheEntry | undefined | null): entry is RecipeRuleCacheEntry => (
       Boolean(entry)
       && entry!.excludedByTotalLimit !== true
       && !(reusedFallbackEntries?.has(entry!))
@@ -172,42 +172,42 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
     }
     return null
   }
-  const markEntryUsed = (entry: ConfigRuleCacheEntry | null): void => {
+  const markEntryUsed = (entry: RecipeRuleCacheEntry | null): void => {
     if (!entry || !reusedFallbackEntries) return
     reusedFallbackEntries.add(entry)
   }
 
-  for (let cfgIdx = 0; cfgIdx < configs.length; cfgIdx += 1) {
-    const source = configs[cfgIdx]!
-    const resolvedConfig = mergeArtifactSets(source, metasets)
-    const configKey = configFingerprint(resolvedConfig, substatTargetsKey)
-    keys.push(configKey)
+  for (let recipeIdx = 0; recipeIdx < recipes.length; recipeIdx += 1) {
+    const source = recipes[recipeIdx]!
+    const resolvedRecipe = mergeRecipeArtifactSets(source, metasets)
+    const recipeKey = buildRecipeFingerprint(resolvedRecipe, substatTargetsKey)
+    keys.push(recipeKey)
 
-    const prevEntry = previousCache?.get(cfgIdx) ?? null
-    const matched = Boolean(prevEntry && prevEntry.key === configKey)
-    const reusableEntry = pickReusableEntry(configKey, matched ? prevEntry : null)
+    const prevEntry = previousCache?.get(recipeIdx) ?? null
+    const matched = Boolean(prevEntry && prevEntry.key === recipeKey)
+    const reusableEntry = pickReusableEntry(recipeKey, matched ? prevEntry : null)
     const canReuseEntry = Boolean(reusableEntry)
 
     const remainingCapacity = normalizedTotalLimit !== null ? normalizedTotalLimit - runningTotal : null
     if (remainingCapacity !== null && remainingCapacity <= 0) {
       totalLimitHit = true
-      excludedByTotalLimitIndices.push(cfgIdx)
-      const fallbackEntry: ConfigRuleCacheEntry = canReuseEntry && reusableEntry
+      excludedByTotalLimitIndices.push(recipeIdx)
+      const fallbackEntry: RecipeRuleCacheEntry = canReuseEntry && reusableEntry
         ? { ...reusableEntry, truncated: true, excludedByTotalLimit: true, rules: [] }
         : {
-            key: configKey,
+            key: recipeKey,
             rules: [],
             count: Number.POSITIVE_INFINITY,
             truncated: true,
             excludedByTotalLimit: true,
           }
       if (canReuseEntry) markEntryUsed(reusableEntry)
-      nextCache.set(cfgIdx, fallbackEntry)
-      rulesByConfig.set(cfgIdx, [])
-      countsByConfig.set(cfgIdx, Number.POSITIVE_INFINITY)
-      truncatedConfigIndices.push(cfgIdx)
+      nextCache.set(recipeIdx, fallbackEntry)
+      rulesByRecipe.set(recipeIdx, [])
+      countsByRecipe.set(recipeIdx, Number.POSITIVE_INFINITY)
+      truncatedRecipeIndices.push(recipeIdx)
       reportedTotalCount = Number.POSITIVE_INFINITY
-      emitProgress(cfgIdx + 1)
+      emitProgress(recipeIdx + 1)
       continue
     }
 
@@ -216,7 +216,7 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
       const countLimit = Math.max(1, Math.floor(remainingCapacity + 1))
       const counted = (canReuseEntry && reusableEntry && !reusableEntry.truncated && Number.isFinite(reusableEntry.count))
         ? Math.max(0, Math.floor(reusableEntry.count))
-        : countRulesForConfig(resolvedConfig, substatTargets, { limit: countLimit })
+        : countRulesForRecipeEntry(resolvedRecipe, substatTargets, { limit: countLimit })
       if (!Number.isFinite(counted) || counted > remainingCapacity) {
         mustExcludeByCapacity = true
       }
@@ -224,38 +224,38 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
 
     if (mustExcludeByCapacity) {
       totalLimitHit = true
-      excludedByTotalLimitIndices.push(cfgIdx)
-      const fallbackEntry: ConfigRuleCacheEntry = canReuseEntry && reusableEntry
+      excludedByTotalLimitIndices.push(recipeIdx)
+      const fallbackEntry: RecipeRuleCacheEntry = canReuseEntry && reusableEntry
         ? { ...reusableEntry, truncated: true, excludedByTotalLimit: true, rules: [] }
         : {
-            key: configKey,
+            key: recipeKey,
             rules: [],
             count: Number.POSITIVE_INFINITY,
             truncated: true,
             excludedByTotalLimit: true,
           }
       if (canReuseEntry) markEntryUsed(reusableEntry)
-      nextCache.set(cfgIdx, fallbackEntry)
-      rulesByConfig.set(cfgIdx, [])
-      countsByConfig.set(cfgIdx, Number.POSITIVE_INFINITY)
-      truncatedConfigIndices.push(cfgIdx)
+      nextCache.set(recipeIdx, fallbackEntry)
+      rulesByRecipe.set(recipeIdx, [])
+      countsByRecipe.set(recipeIdx, Number.POSITIVE_INFINITY)
+      truncatedRecipeIndices.push(recipeIdx)
       reportedTotalCount = Number.POSITIVE_INFINITY
-      emitProgress(cfgIdx + 1)
+      emitProgress(recipeIdx + 1)
       continue
     }
 
-    let entry: ConfigRuleCacheEntry
+    let entry: RecipeRuleCacheEntry
     if (canReuseEntry && reusableEntry) {
       markEntryUsed(reusableEntry)
-      entry = remapConfigIndex(reusableEntry, cfgIdx)
+      entry = remapRecipeIndex(reusableEntry, recipeIdx)
       entry = { ...entry, excludedByTotalLimit: false }
     } else {
       entry = buildEntry(
-        resolvedConfig,
+        resolvedRecipe,
         metasets,
         substatTargets,
-        cfgIdx,
-        configKey,
+        recipeIdx,
+        recipeKey,
         {
           ...(args.finalizeGeneratedRules ? { finalizeGeneratedRules: args.finalizeGeneratedRules } : {}),
         },
@@ -274,42 +274,42 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
       runningTotal += ruleSpan
     }
 
-    nextCache.set(cfgIdx, entry)
-    rulesByConfig.set(cfgIdx, rulesForPreview)
-    countsByConfig.set(cfgIdx, outputCount)
-    if (truncated) truncatedConfigIndices.push(cfgIdx)
+    nextCache.set(recipeIdx, entry)
+    rulesByRecipe.set(recipeIdx, rulesForPreview)
+    countsByRecipe.set(recipeIdx, outputCount)
+    if (truncated) truncatedRecipeIndices.push(recipeIdx)
     if (Number.isFinite(reportedTotalCount) && Number.isFinite(outputCount)) {
       reportedTotalCount += outputCount
     } else {
       reportedTotalCount = Number.POSITIVE_INFINITY
     }
-    emitProgress(cfgIdx + 1)
+    emitProgress(recipeIdx + 1)
   }
 
   return {
     cache: nextCache,
-    rulesByConfig,
-    countsByConfig,
+    rulesByRecipe,
+    countsByRecipe,
     keys,
     substatTargetsKey,
-    truncatedConfigIndices,
+    truncatedRecipeIndices,
     totalLimitHit,
     excludedByTotalLimitIndices,
   }
 }
 
 function buildEntry(
-  config: BuilderConfig,
+  recipe: BuilderRecipe,
   metasets: readonly Metaset[],
   substatTargets: SubstatTargetTable,
-  cfgIdx: number,
+  recipeIdx: number,
   key: string,
   options?: { finalizeGeneratedRules?: BuildRulesFinalizeGeneratedFn },
-): ConfigRuleCacheEntry {
+): RecipeRuleCacheEntry {
   // Delegate to the shared builder so pruning and annotations stay unified.
   let truncated = false
-  const rules = buildRulesForConfig(
-    { config, metasets: metasets as Metaset[], substatTargets, cfgIdx },
+  const rules = buildRulesForRecipe(
+    { recipe, metasets: metasets as Metaset[], substatTargets, recipeIdx },
     {
       limit: RULE_COUNT_LIMIT + 1,
       onLimit: () => { truncated = true },
@@ -329,29 +329,29 @@ function buildEntry(
  * Merge explicit artifact sets with metaset-derived sets so fingerprints and
  * rule generation see a single resolved list.
  */
-export function mergeArtifactSets(config: BuilderConfig, metasets: readonly Metaset[]): BuilderConfig {
+export function mergeRecipeArtifactSets(recipe: BuilderRecipe, metasets: readonly Metaset[]): BuilderRecipe {
   // Resolve sets against metasets and explicit exclusions before caching.
   const resolved = resolveArtifactSetSelections({
-    selections: config.artifactSets,
-    metasetIds: config.artifactMetaSets,
+    selections: recipe.artifactSets,
+    metasetIds: recipe.artifactMetaSets,
     metasets,
   })
-  // Only include the resolved set IDs in cached configs for fingerprints.
+  // Only include the resolved set IDs in cached recipes for fingerprints.
   const normalized = resolved.resolved.map((id) => ({ id }))
-  if (normalized.length === (config.artifactSets ?? []).length) {
-    const same = normalized.every((entry, idx) => Number(entry.id) === Number((config.artifactSets ?? [])[idx]?.id))
-    if (same) return config
+  if (normalized.length === (recipe.artifactSets ?? []).length) {
+    const same = normalized.every((entry, idx) => Number(entry.id) === Number((recipe.artifactSets ?? [])[idx]?.id))
+    if (same) return recipe
   }
-  return { ...config, artifactSets: normalized }
+  return { ...recipe, artifactSets: normalized }
 }
 
 /**
- * Build a stable fingerprint for rule-affecting config fields. Arrays are
+ * Build a stable fingerprint for rule-affecting recipe fields. Arrays are
  * sorted and roll bound objects are normalized so cosmetic edits (like
  * selection order) do not invalidate the cache unnecessarily.
  */
-function configFingerprint(config: BuilderConfig, substatTargetsKey: string): string {
-  const canonical = buildCanonicalConfigSnapshot(config)
+function buildRecipeFingerprint(recipe: BuilderRecipe, substatTargetsKey: string): string {
+  const canonical = buildCanonicalRecipeSnapshot(recipe)
   return JSON.stringify({ cfg: canonical, substatTargets: substatTargetsKey })
 }
 
@@ -382,6 +382,6 @@ export function fingerprintSubstatTargets(substatTargets: SubstatTargetTable): s
   return substatTargetsFingerprint(substatTargets)
 }
 
-export function fingerprintConfigForRules(config: BuilderConfig, substatTargetsKey: string): string {
-  return configFingerprint(config, substatTargetsKey)
+export function fingerprintRecipeForRules(recipe: BuilderRecipe, substatTargetsKey: string): string {
+  return buildRecipeFingerprint(recipe, substatTargetsKey)
 }

@@ -83,7 +83,7 @@ try {
   }
   // Run the HSFC fixture harness before node:test specs.
   run(process.execPath, ['tmp/tsc/tests/tests/integration/hsfc-fixtures.runner.js'])
-  // Run the sample2-bundle matcher regression harness to guard keep-unique
+  // Run the sample2-bundle matcher regression harness to guard safeguard
   // injection payload integrity and primary/base match invariants.
   run(process.execPath, ['tmp/tsc/tests/tests/integration/sample2-matcher.runner.js'])
 

@@ -1,12 +1,12 @@
 /**
  * keepOverrideScope.ts
  *
- * Shared helpers for keep-override scope chips (Keep Uniques).
+ * Shared helpers for keep-override scope chips (Safeguards).
  * Why: both features share the same count-mode semantics and must stay in lockstep.
  */
-import { sanitizeKeepUniqueCountMode, type KeepUniqueRuleCountMode } from './keepUniques'
+import { sanitizeSafeguardCountMode, type SafeguardRuleCountMode } from './safeguards'
 
-// Scope chip identifiers align with KeepUniqueRuleCountMode keys.
+// Scope chip identifiers align with SafeguardRuleCountMode keys.
 export type KeepOverrideScopeKey = 'perSlot' | 'perSet' | 'perFaction' | 'perMainStat'
 
 export type KeepOverrideScopeActive = {
@@ -17,8 +17,8 @@ export type KeepOverrideScopeActive = {
 }
 
 // Normalize and expose which scope chips should appear active.
-export const resolveKeepOverrideScopeActive = (mode: KeepUniqueRuleCountMode): KeepOverrideScopeActive => {
-  const normalized = sanitizeKeepUniqueCountMode(mode)
+export const resolveKeepOverrideScopeActive = (mode: SafeguardRuleCountMode): KeepOverrideScopeActive => {
+  const normalized = sanitizeSafeguardCountMode(mode)
   return {
     perSlot: !normalized.perRule && normalized.perSlot,
     perSet: !normalized.perRule && normalized.perSet,
@@ -32,12 +32,12 @@ export const resolveKeepOverrideScopeActive = (mode: KeepUniqueRuleCountMode): K
  * Ensures at least one scope is active by falling back to per-rule.
  */
 export const toggleKeepOverrideCountMode = (
-  mode: KeepUniqueRuleCountMode,
+  mode: SafeguardRuleCountMode,
   scope: KeepOverrideScopeKey,
-): KeepUniqueRuleCountMode => {
-  const normalized = sanitizeKeepUniqueCountMode(mode)
+): SafeguardRuleCountMode => {
+  const normalized = sanitizeSafeguardCountMode(mode)
   const nextValue = !normalized[scope]
-  const nextMode: KeepUniqueRuleCountMode = {
+  const nextMode: SafeguardRuleCountMode = {
     perRule: false,
     perSlot: scope === 'perSlot' ? nextValue : normalized.perSlot,
     perSet: scope === 'perSet' ? nextValue : normalized.perSet,

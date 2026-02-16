@@ -14,7 +14,7 @@ import { dedupeHsfRulesForExportWithLoadedWasm } from './wasm/wasmRuleEngine'
 export function dedupeHsfRulesForExport(rules: HsfRuleWithCfg[]): HsfRuleWithCfg[] {
   // Delegate to WASM so export dedupe semantics stay in one implementation.
   const deduped = dedupeHsfRulesForExportWithLoadedWasm(rules)
-  // Fail closed when warmup/config is missing; no JS fallback path remains.
+  // Fail closed when warmup/recipe is missing; no JS fallback path remains.
   if (!Array.isArray(deduped)) {
     throw new Error('WASM export dedupe is unavailable. Ensure warmupWasmRuleEngine() ran first.')
   }

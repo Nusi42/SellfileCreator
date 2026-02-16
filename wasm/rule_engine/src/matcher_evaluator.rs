@@ -1,7 +1,7 @@
 use super::*;
 
 // Keep only the data needed in hot matcher loops.
-// Masks and config indices are precomputed at configure time.
+// Masks and recipe indices are precomputed at configure time.
 #[derive(Debug)]
 pub(crate) struct PreparedRule {
     pub(crate) use_flag: bool,
@@ -13,9 +13,9 @@ pub(crate) struct PreparedRule {
     pub(crate) main_stat_id: i64,
     pub(crate) main_stat_f: i64,
     pub(crate) substats: Vec<PreparedRuleSub>,
-    pub(crate) cfg_idx: Option<i64>,
+    pub(crate) recipe_idx: Option<i64>,
     pub(crate) source: Option<String>,
-    pub(crate) keep_unique_item_key: Option<i64>,
+    pub(crate) safeguard_item_key: Option<i64>,
     pub(crate) rank_mask: u8,
     pub(crate) rarity_mask: u8,
     pub(crate) is_keep_override_source: bool,
@@ -32,14 +32,14 @@ pub(crate) struct PreparedRuleSub {
     pub(crate) condition: PreparedRuleSubCondition,
 }
 
-// Evaluate options mirror EvalMatchesByConfigOptions from TS.
+// Evaluate options mirror EvalMatchesByRecipeOverrides from TS.
 // Sets are converted once so each rule scan stays allocation-free.
 #[derive(Debug, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct EvaluateOptionsRaw {
     pub(crate) exclude_sources: Option<Vec<String>>,
-    pub(crate) exclude_config_indices: Option<Vec<i64>>,
-    pub(crate) ignore_keep_unique_config_indices: Option<Vec<i64>>,
+    pub(crate) exclude_recipe_indices: Option<Vec<i64>>,
+    pub(crate) ignore_safeguard_recipe_indices: Option<Vec<i64>>,
     pub(crate) baseline_exclude_sources: Option<Vec<String>>,
 }
 
@@ -55,8 +55,8 @@ pub(crate) enum PreparedRuleSubCondition {
 #[derive(Debug, Default, Clone)]
 pub(crate) struct EvaluateOptionsPrepared {
     exclude_source_set: HashSet<String>,
-    exclude_config_indices: HashSet<i64>,
-    ignore_keep_unique_config_indices: HashSet<i64>,
+    exclude_recipe_indices: HashSet<i64>,
+    ignore_safeguard_recipe_indices: HashSet<i64>,
 }
 
 impl EvaluateOptionsPrepared {
@@ -68,23 +68,23 @@ impl EvaluateOptionsPrepared {
                 .as_ref()
                 .map(|sources| sources.iter().cloned().collect::<HashSet<_>>())
                 .unwrap_or_default(),
-            exclude_config_indices: raw
-                .exclude_config_indices
+            exclude_recipe_indices: raw
+                .exclude_recipe_indices
                 .as_ref()
                 .map(|indices| indices.iter().copied().collect::<HashSet<_>>())
                 .unwrap_or_default(),
-            ignore_keep_unique_config_indices: raw
-                .ignore_keep_unique_config_indices
+            ignore_safeguard_recipe_indices: raw
+                .ignore_safeguard_recipe_indices
                 .as_ref()
                 .map(|indices| indices.iter().copied().collect::<HashSet<_>>())
                 .unwrap_or_default(),
         }
     }
 
-    // Keep-unique fallback only needs config exclusions, not source filtering.
-    fn from_excluded_config_indices(exclude_config_indices: &[i64]) -> Self {
+    // Safeguard fallback only needs recipe exclusions, not source filtering.
+    fn from_excluded_recipe_indices(exclude_recipe_indices: &[i64]) -> Self {
         Self {
-            exclude_config_indices: exclude_config_indices.iter().copied().collect::<HashSet<_>>(),
+            exclude_recipe_indices: exclude_recipe_indices.iter().copied().collect::<HashSet<_>>(),
             ..Self::default()
         }
     }
@@ -96,10 +96,10 @@ impl EvaluateOptionsPrepared {
             .unwrap_or(false)
     }
 
-    // Keep-unique ignore checks are option-aware because cfg indices are optional.
-    fn keep_unique_cfg_is_ignored(&self, cfg_idx: Option<i64>) -> bool {
-        cfg_idx
-            .map(|idx| self.ignore_keep_unique_config_indices.contains(&idx))
+    // Safeguard ignore checks are option-aware because recipe indices are optional.
+    fn safeguard_cfg_is_ignored(&self, recipe_idx: Option<i64>) -> bool {
+        recipe_idx
+            .map(|idx| self.ignore_safeguard_recipe_indices.contains(&idx))
             .unwrap_or(false)
     }
 }
@@ -115,14 +115,14 @@ pub(crate) fn prepare_evaluate_options(raw: &EvaluateOptionsRaw) -> EvaluateOpti
 pub(crate) struct EvalMatch {
     pub(crate) rule_index: usize,
     pub(crate) keep: bool,
-    pub(crate) cfg_idx: Option<i64>,
+    pub(crate) recipe_idx: Option<i64>,
 }
 
-// Serialized per-config keep/sell decision list.
+// Serialized per-recipe keep/sell decision list.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct MatchingConfigDecision {
-    pub(crate) cfg_idx: i64,
+pub(crate) struct MatchingRecipeDecision {
+    pub(crate) recipe_idx: i64,
     pub(crate) keep: bool,
 }
 
@@ -133,45 +133,45 @@ pub(crate) struct EvaluateItemResult {
     pub(crate) item_id: i64,
     pub(crate) first_match: Option<EvalMatch>,
     pub(crate) first_non_excluded_match: Option<EvalMatch>,
-    pub(crate) matching_config_indices: Vec<i64>,
-    pub(crate) matching_config_decisions: Vec<MatchingConfigDecision>,
+    pub(crate) matching_recipe_indices: Vec<i64>,
+    pub(crate) matching_recipe_decisions: Vec<MatchingRecipeDecision>,
 }
 
 // Only the fields needed for keep/sell fallback logic cross the boundary.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct KeepUniqueCandidateResolveBaseMatchIn {
+pub(crate) struct SafeguardCandidateResolveBaseMatchIn {
     pub(crate) keep: bool,
-    pub(crate) cfg_idx: Option<i64>,
+    pub(crate) recipe_idx: Option<i64>,
 }
 
 // Candidate collection input extends resolver rows with normalized artifact data.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct KeepUniqueCollectRowIn {
+pub(crate) struct SafeguardCollectRowIn {
     pub(crate) item: TestItemRaw,
     #[serde(default)]
     pub(crate) base_match_defined: bool,
-    pub(crate) base_match: Option<KeepUniqueCandidateResolveBaseMatchIn>,
-    pub(crate) artifact: KeepUniqueWasmArtifactIn,
+    pub(crate) base_match: Option<SafeguardCandidateResolveBaseMatchIn>,
+    pub(crate) artifact: SafeguardWasmArtifactIn,
 }
 
-// Candidate snapshot entry mirrors keepUniques.ts KeepUniqueCandidate shape.
+// Candidate snapshot entry mirrors safeguards.ts SafeguardCandidate shape.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct KeepUniqueCollectedCandidateOut {
+pub(crate) struct SafeguardCollectedCandidateOut {
     pub(crate) row_index: usize,
     pub(crate) item_key: i64,
     pub(crate) group_key: String,
     pub(crate) is_sold: bool,
-    pub(crate) artifact: KeepUniqueWasmArtifactIn,
+    pub(crate) artifact: SafeguardWasmArtifactIn,
 }
 
 // Candidate snapshot payload also includes sold-item key dedupe set.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct KeepUniqueCollectedSnapshotOut {
-    pub(crate) candidates: Vec<KeepUniqueCollectedCandidateOut>,
+pub(crate) struct SafeguardCollectedSnapshotOut {
+    pub(crate) candidates: Vec<SafeguardCollectedCandidateOut>,
     pub(crate) unique_item_keys: Vec<i64>,
 }
 
@@ -200,8 +200,8 @@ pub(crate) fn prepare_rule(raw: RuleRaw) -> PreparedRule {
     let main_stat_id = raw.MainStatID.unwrap_or(STAT_ID_ANY);
     let main_stat_f = boolish_to_flag(raw.MainStatF.as_ref());
     let source = raw.source;
-    let is_keep_override_source = source.as_deref() == Some(RULE_SOURCE_KEEP_UNIQUES);
-    let cfg_idx = raw.ConfigID.and_then(|cfg| if cfg > 0 { Some(cfg - 1) } else { None });
+    let is_keep_override_source = source.as_deref() == Some(RULE_SOURCE_SAFEGUARDS);
+    let recipe_idx = raw.RecipeID.and_then(|cfg| if cfg > 0 { Some(cfg - 1) } else { None });
 
     let substats = raw
         .Substats
@@ -232,16 +232,16 @@ pub(crate) fn prepare_rule(raw: RuleRaw) -> PreparedRule {
         main_stat_id,
         main_stat_f,
         substats,
-        cfg_idx,
+        recipe_idx,
         source,
-        keep_unique_item_key: raw.keep_unique_item_key,
+        safeguard_item_key: raw.safeguard_item_key,
         rank_mask: rank_mask(raw.Rank.unwrap_or(0)),
         rarity_mask: rarity_mask(raw.Rarity.unwrap_or(0)),
         is_keep_override_source,
     }
 }
 
-// Pull item key for keep-unique item-bound rule checks.
+// Pull item key for safeguard item-bound rule checks.
 fn resolve_item_key(item: &TestItemRaw) -> Option<i64> {
     // Prefer preview/db ids when present; older callers may only pass itemId.
     item.preview_extras
@@ -252,7 +252,7 @@ fn resolve_item_key(item: &TestItemRaw) -> Option<i64> {
 
 // Keep one helper for candidate snapshots so item-key precedence is explicit:
 // artifact.id (db) -> item.previewExtras.id -> item.itemId -> 0.
-fn resolve_collect_row_item_key(row: &KeepUniqueCollectRowIn) -> i64 {
+fn resolve_collect_row_item_key(row: &SafeguardCollectRowIn) -> i64 {
     row.artifact
         .id
         .or(resolve_item_key(&row.item))
@@ -272,7 +272,7 @@ fn match_rule(rule: &PreparedRule, item: &TestItemRaw) -> bool {
         return false;
     }
 
-    if let Some(required_item_key) = rule.keep_unique_item_key {
+    if let Some(required_item_key) = rule.safeguard_item_key {
         if required_item_key != 0 && resolve_item_key(item) != Some(required_item_key) {
             return false;
         }
@@ -336,18 +336,18 @@ fn match_rule(rule: &PreparedRule, item: &TestItemRaw) -> bool {
     true
 }
 
-// Config visibility gate copied from evaluateMatchesByConfig.
-fn should_include_config(
-    cfg_idx: Option<i64>,
-    config_modes: &[String],
+// Recipe visibility gate copied from evaluateMatchesByRecipe.
+fn should_include_recipe(
+    recipe_idx: Option<i64>,
+    recipe_modes: &[String],
     options: &EvaluateOptionsPrepared,
 ) -> bool {
-    if let Some(idx) = cfg_idx {
-        if options.exclude_config_indices.contains(&idx) {
+    if let Some(idx) = recipe_idx {
+        if options.exclude_recipe_indices.contains(&idx) {
             return false;
         }
 
-        if let Some(mode) = config_modes.get(idx as usize) {
+        if let Some(mode) = recipe_modes.get(idx as usize) {
             return mode != "disabled" && mode != "separator";
         }
     }
@@ -358,22 +358,22 @@ fn should_include_config(
 // Hot-path evaluator takes prepared options to avoid per-item set allocations.
 pub(crate) fn evaluate_item(
     rules: &[PreparedRule],
-    config_modes: &[String],
+    recipe_modes: &[String],
     item: &TestItemRaw,
     options: &EvaluateOptionsPrepared,
-) -> (Option<EvalMatch>, Option<EvalMatch>, Vec<i64>, Vec<MatchingConfigDecision>) {
+) -> (Option<EvalMatch>, Option<EvalMatch>, Vec<i64>, Vec<MatchingRecipeDecision>) {
     let mut first_match: Option<EvalMatch> = None;
     let mut first_non_excluded_match: Option<EvalMatch> = None;
     let mut non_keep_override_keep_matched = false;
     let mut pending_keep_override: Option<EvalMatch> = None;
     let mut fallback_keep_override: Option<EvalMatch> = None;
     let mut any_keep_override_match: Option<EvalMatch> = None;
-    // Preserve first-seen config order so UI chips can remove only the true
-    // primary config entry without relying on sorted index order.
-    let mut matching_configs = Vec::<i64>::new();
+    // Preserve first-seen recipe order so UI chips can remove only the true
+    // primary recipe entry without relying on sorted index order.
+    let mut matching_recipes = Vec::<i64>::new();
     // Keep O(1) duplicate suppression while retaining encounter order.
-    let mut matching_config_seen = HashSet::<i64>::new();
-    let mut matching_config_decisions = HashMap::<i64, bool>::new();
+    let mut matching_recipe_seen = HashSet::<i64>::new();
+    let mut matching_recipe_decisions = HashMap::<i64, bool>::new();
 
     let mut prekeep_override: Option<EvalMatch> = None;
 
@@ -382,19 +382,19 @@ pub(crate) fn evaluate_item(
             continue;
         }
 
-        // Track first keep-override hit before config gating so the fallback
+        // Track first keep-override hit before recipe gating so the fallback
         // semantics match the TypeScript path without an extra pre-scan.
         if prekeep_override.is_none() && rule.is_keep_override_source {
             prekeep_override = Some(EvalMatch {
                 rule_index,
                 keep: true,
-                cfg_idx: rule.cfg_idx,
+                recipe_idx: rule.recipe_idx,
             });
         }
 
         let is_excluded = options.source_is_excluded(rule.source.as_deref());
 
-        if !should_include_config(rule.cfg_idx, config_modes, options) {
+        if !should_include_recipe(rule.recipe_idx, recipe_modes, options) {
             continue;
         }
 
@@ -409,57 +409,57 @@ pub(crate) fn evaluate_item(
                 pending_keep_override = Some(EvalMatch {
                     rule_index,
                     keep,
-                    cfg_idx: rule.cfg_idx,
+                    recipe_idx: rule.recipe_idx,
                 });
             }
             if fallback_keep_override.is_none() && !is_excluded {
                 fallback_keep_override = Some(EvalMatch {
                     rule_index,
                     keep,
-                    cfg_idx: rule.cfg_idx,
+                    recipe_idx: rule.recipe_idx,
                 });
             }
             if any_keep_override_match.is_none() && !is_excluded {
                 any_keep_override_match = Some(EvalMatch {
                     rule_index,
                     keep,
-                    cfg_idx: rule.cfg_idx,
+                    recipe_idx: rule.recipe_idx,
                 });
             }
         } else {
-            let ignored_for_keep_unique = options.keep_unique_cfg_is_ignored(rule.cfg_idx);
-            if keep && !is_excluded && !ignored_for_keep_unique {
+            let ignored_for_safeguard = options.safeguard_cfg_is_ignored(rule.recipe_idx);
+            if keep && !is_excluded && !ignored_for_safeguard {
                 non_keep_override_keep_matched = true;
             }
             if first_match.is_none() && !is_excluded {
                 first_match = Some(EvalMatch {
                     rule_index,
                     keep,
-                    cfg_idx: rule.cfg_idx,
+                    recipe_idx: rule.recipe_idx,
                 });
             }
             if first_non_excluded_match.is_none() && !is_excluded {
                 first_non_excluded_match = Some(EvalMatch {
                     rule_index,
                     keep,
-                    cfg_idx: rule.cfg_idx,
+                    recipe_idx: rule.recipe_idx,
                 });
             }
         }
 
-        if let Some(cfg_idx) = rule.cfg_idx {
+        if let Some(recipe_idx) = rule.recipe_idx {
             // Keep first-seen ordering for compatibility with legacy JS matcher output.
-            if matching_config_seen.insert(cfg_idx) {
-                matching_configs.push(cfg_idx);
+            if matching_recipe_seen.insert(recipe_idx) {
+                matching_recipes.push(recipe_idx);
             }
-            // First keep/sell decision per config still wins, matching prior behavior.
-            matching_config_decisions.entry(cfg_idx).or_insert(keep);
+            // First keep/sell decision per recipe still wins, matching prior behavior.
+            matching_recipe_decisions.entry(recipe_idx).or_insert(keep);
         }
     }
 
     let first_match_is_keep = first_match
         .as_ref()
-        .map(|entry| entry.keep && !options.keep_unique_cfg_is_ignored(entry.cfg_idx))
+        .map(|entry| entry.keep && !options.safeguard_cfg_is_ignored(entry.recipe_idx))
         .unwrap_or(false);
 
     let allow_keep_override = !non_keep_override_keep_matched && !first_match_is_keep;
@@ -474,20 +474,20 @@ pub(crate) fn evaluate_item(
                 first_non_excluded_match = Some(EvalMatch {
                     rule_index: candidate.rule_index,
                     keep: candidate.keep,
-                    cfg_idx: candidate.cfg_idx,
+                    recipe_idx: candidate.recipe_idx,
                 });
             }
             first_match = Some(candidate);
         }
     }
 
-    // Config indices are already in encounter order; clone into the output payload.
-    let matching_config_indices = matching_configs;
-    let matching_config_decisions = matching_config_indices
+    // Recipe indices are already in encounter order; clone into the output payload.
+    let matching_recipe_indices = matching_recipes;
+    let matching_recipe_decisions = matching_recipe_indices
         .iter()
-        .map(|cfg_idx| MatchingConfigDecision {
-            cfg_idx: *cfg_idx,
-            keep: *matching_config_decisions.get(cfg_idx).unwrap_or(&false),
+        .map(|recipe_idx| MatchingRecipeDecision {
+            recipe_idx: *recipe_idx,
+            keep: *matching_recipe_decisions.get(recipe_idx).unwrap_or(&false),
         })
         .collect::<Vec<_>>();
 
@@ -496,43 +496,43 @@ pub(crate) fn evaluate_item(
         first_match.as_ref().map(|entry| EvalMatch {
             rule_index: entry.rule_index,
             keep: entry.keep,
-            cfg_idx: entry.cfg_idx,
+            recipe_idx: entry.recipe_idx,
         })
     });
     (
         first_match,
         resolved_first_non_excluded,
-        matching_config_indices,
-        matching_config_decisions,
+        matching_recipe_indices,
+        matching_recipe_decisions,
     )
 }
 
-// Resolve keep/sell outcomes for keep-unique candidate rows.
+// Resolve keep/sell outcomes for safeguard candidate rows.
 // Rows reuse cached base matches when possible and only re-evaluate as needed.
-fn resolve_keep_unique_candidate_keep_flags_core(
-    rows: &[KeepUniqueCollectRowIn],
+fn resolve_safeguard_candidate_keep_flags_core(
+    rows: &[SafeguardCollectRowIn],
     prepared_rules: &[PreparedRule],
-    config_modes: &[String],
-    ignore_keep_unique_config_indices: &[i64],
+    recipe_modes: &[String],
+    ignore_safeguard_recipe_indices: &[i64],
 ) -> Vec<bool> {
-    let has_ignored_configs = !ignore_keep_unique_config_indices.is_empty();
-    let ignored_set = ignore_keep_unique_config_indices
+    let has_ignored_recipes = !ignore_safeguard_recipe_indices.is_empty();
+    let ignored_set = ignore_safeguard_recipe_indices
         .iter()
         .copied()
         .collect::<HashSet<_>>();
     let eval_options =
-        EvaluateOptionsPrepared::from_excluded_config_indices(ignore_keep_unique_config_indices);
+        EvaluateOptionsPrepared::from_excluded_recipe_indices(ignore_safeguard_recipe_indices);
 
     let mut keep_flags = Vec::<bool>::with_capacity(rows.len());
     for row in rows {
-        // Reuse explicit base-match decisions unless the owning config is ignored.
+        // Reuse explicit base-match decisions unless the owning recipe is ignored.
         if row.base_match_defined {
-            let base_cfg_idx = row.base_match.as_ref().and_then(|entry| entry.cfg_idx);
-            let base_cfg_ignored = has_ignored_configs
-                && base_cfg_idx
-                    .map(|cfg_idx| ignored_set.contains(&cfg_idx))
+            let base_recipe_idx = row.base_match.as_ref().and_then(|entry| entry.recipe_idx);
+            let base_recipe_ignored = has_ignored_recipes
+                && base_recipe_idx
+                    .map(|recipe_idx| ignored_set.contains(&recipe_idx))
                     .unwrap_or(false);
-            if !base_cfg_ignored {
+            if !base_recipe_ignored {
                 keep_flags.push(row.base_match.as_ref().map(|entry| entry.keep).unwrap_or(false));
                 continue;
             }
@@ -544,46 +544,46 @@ fn resolve_keep_unique_candidate_keep_flags_core(
             continue;
         }
 
-        // Re-evaluate with ignored configs excluded to mirror TS semantics.
+        // Re-evaluate with ignored recipes excluded to mirror TS semantics.
         let (first_match, _, _, _) =
-            evaluate_item(prepared_rules, config_modes, &row.item, &eval_options);
+            evaluate_item(prepared_rules, recipe_modes, &row.item, &eval_options);
         keep_flags.push(first_match.map(|entry| entry.keep).unwrap_or(false));
     }
     keep_flags
 }
 
-// Keep-unique candidate matching helper keeps base-match fallback and filtered
+// Safeguard candidate matching helper keeps base-match fallback and filtered
 // re-evaluation semantics in Rust so TS only handles row/object assembly.
 
-// Keep-unique candidate snapshot builder keeps key derivation + sold filtering
+// Safeguard candidate snapshot builder keeps key derivation + sold filtering
 // in Rust so TS only reattaches row references for existing call sites.
-pub(crate) fn collect_keep_unique_candidates_core(
-    rows: &[KeepUniqueCollectRowIn],
+pub(crate) fn collect_safeguard_candidates_core(
+    rows: &[SafeguardCollectRowIn],
     prepared_rules: &[PreparedRule],
-    config_modes: &[String],
-    ignore_keep_unique_config_indices: &[i64],
-) -> Result<KeepUniqueCollectedSnapshotOut, JsValue> {
-    let keep_flags = resolve_keep_unique_candidate_keep_flags_core(
+    recipe_modes: &[String],
+    ignore_safeguard_recipe_indices: &[i64],
+) -> Result<SafeguardCollectedSnapshotOut, JsValue> {
+    let keep_flags = resolve_safeguard_candidate_keep_flags_core(
         rows,
         prepared_rules,
-        config_modes,
-        ignore_keep_unique_config_indices,
+        recipe_modes,
+        ignore_safeguard_recipe_indices,
     );
     // Keep candidate/flag vectors aligned so item ownership never shifts.
     if keep_flags.len() != rows.len() {
         return Err(JsValue::from_str(
-            "Keep-unique candidate collect produced mismatched keep-flag length",
+            "Safeguard candidate collect produced mismatched keep-flag length",
         ));
     }
 
     // Build candidate rows in encounter order for deterministic UI snapshots.
     let mut unique_item_keys = HashSet::<i64>::new();
-    let mut candidates = Vec::<KeepUniqueCollectedCandidateOut>::with_capacity(rows.len());
+    let mut candidates = Vec::<SafeguardCollectedCandidateOut>::with_capacity(rows.len());
     for (idx, row) in rows.iter().enumerate() {
         // Keep item-key derivation aligned with rule-item matching semantics.
         let item_key = resolve_collect_row_item_key(row);
-        // Group key formatting is shared with keep-unique parser/wasm exports.
-        let group_key = keep_unique_group_key_from_parts(
+        // Group key formatting is shared with safeguard parser/wasm exports.
+        let group_key = safeguard_group_key_from_parts(
             row.artifact.slot,
             row.artifact.set,
             row.artifact.main_stat,
@@ -593,7 +593,7 @@ pub(crate) fn collect_keep_unique_candidates_core(
         if is_sold {
             unique_item_keys.insert(item_key);
         }
-        candidates.push(KeepUniqueCollectedCandidateOut {
+        candidates.push(SafeguardCollectedCandidateOut {
             row_index: idx,
             item_key,
             group_key,
@@ -605,7 +605,7 @@ pub(crate) fn collect_keep_unique_candidates_core(
     // Sold-key output is sorted for deterministic fingerprints.
     let mut unique_sorted = unique_item_keys.into_iter().collect::<Vec<_>>();
     unique_sorted.sort_unstable();
-    Ok(KeepUniqueCollectedSnapshotOut {
+    Ok(SafeguardCollectedSnapshotOut {
         candidates,
         unique_item_keys: unique_sorted,
     })

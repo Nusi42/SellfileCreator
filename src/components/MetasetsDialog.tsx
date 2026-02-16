@@ -71,8 +71,8 @@ export default function MetasetsDialog({
   onResetMetasets,
   setUsageCounts,
   metasetUsageCounts,
-  keepUniqueMetasetUsageCounts,
-  onSelectConfigsByMetaset,
+  safeguardMetasetUsageCounts,
+  onSelectRecipesByMetaset,
   setsSearch,
   onSetsSearchChange,
   setsOrder,
@@ -89,9 +89,9 @@ export default function MetasetsDialog({
   onResetMetasets: (mode: 'delete' | 'replaceSets' | 'replaceMeta', replacementMetaId?: string) => void
   setUsageCounts: Record<number, number>
   metasetUsageCounts: Record<string, number>
-  keepUniqueMetasetUsageCounts: Record<string, number>
-  // When the "Used" chip is clicked, select all configs that reference this metaset.
-  onSelectConfigsByMetaset: (id: string) => void
+  safeguardMetasetUsageCounts: Record<string, number>
+  // When the "Used" chip is clicked, select all recipes that reference this metaset.
+  onSelectRecipesByMetaset: (id: string) => void
   setsSearch: string
   onSetsSearchChange: (v: string) => void
   setsOrder: 'game' | 'az' | 'icons'
@@ -857,8 +857,8 @@ export default function MetasetsDialog({
                   </Select>
                 {(() => {
                   const configUsed = metasetUsageCounts[m.id] || 0
-                  const keepUniqueUsed = keepUniqueMetasetUsageCounts[m.id] || 0
-                  const totalUsed = configUsed + keepUniqueUsed
+                  const safeguardUsed = safeguardMetasetUsageCounts[m.id] || 0
+                  const totalUsed = configUsed + safeguardUsed
                   return (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <Button color="error" onClick={() => {
@@ -882,14 +882,14 @@ export default function MetasetsDialog({
                               color={'warning'}
                               sx={{ width: 84, justifyContent: 'center', cursor: 'pointer' }}
                               onClick={() => {
-                                // Map Keep Unique references are informational only; the chip keeps
-                                // selecting configs to mirror the previous affordance.
-                                try { onSelectConfigsByMetaset(m.id) } catch {}
+                                // Map Safeguard references are informational only; the chip keeps
+                                // selecting recipes to mirror the previous affordance.
+                                try { onSelectRecipesByMetaset(m.id) } catch {}
                                 // Close the dialog so the selection is visible in the chips list
                                 try { onClose() } catch {}
                               }}
                             />
-                            {keepUniqueUsed > 0 ? (
+                            {safeguardUsed > 0 ? (
                               <Box
                                 component="span"
                                 sx={(theme) => ({
@@ -908,8 +908,8 @@ export default function MetasetsDialog({
                                   pointerEvents: 'none',
                                 })}
                               >
-                                {/* Inline badge shows the Keep Unique rule count (+X). */}
-                                {`+${keepUniqueUsed}`}
+                                {/* Inline badge shows the Safeguard rule count (+X). */}
+                                {`+${safeguardUsed}`}
                               </Box>
                             ) : null}
                           </Box>
@@ -951,7 +951,7 @@ export default function MetasetsDialog({
           <Button size="small" variant="outlined" color="error" onClick={() => {
             // Default selection mirrors Delete: prefer replace-with-sets when possible
             try {
-              const used = metasets.filter(m => (metasetUsageCounts[m.id] || 0) > 0 || (keepUniqueMetasetUsageCounts[m.id] || 0) > 0)
+              const used = metasets.filter(m => (metasetUsageCounts[m.id] || 0) > 0 || (safeguardMetasetUsageCounts[m.id] || 0) > 0)
               const anyHasSets = used.some(m => m.sets.length > 0)
               setResetMode(anyHasSets ? 'replaceSets' : 'delete')
             } catch { setResetMode('delete') }
@@ -1018,8 +1018,8 @@ export default function MetasetsDialog({
             const id = confirmDeleteMetaId
             const m = metasets.find(x => x.id === id)
             const configUsed = id ? (metasetUsageCounts[id] || 0) : 0
-            const keepUniqueUsed = id ? (keepUniqueMetasetUsageCounts[id] || 0) : 0
-            const totalUsed = configUsed + keepUniqueUsed
+            const safeguardUsed = id ? (safeguardMetasetUsageCounts[id] || 0) : 0
+            const totalUsed = configUsed + safeguardUsed
             const otherMetas = metasets.filter(x => x.id !== id)
             const hasOtherMetas = otherMetas.length > 0
             const hasSets = Boolean(m && m.sets.length > 0)
@@ -1039,7 +1039,7 @@ export default function MetasetsDialog({
             return (
               <>
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  {t('refsCountWithKeepUniques', { configCount: configUsed, keepUniqueCount: keepUniqueUsed })}
+                  {t('refsCountWithSafeguards', { recipeCount: configUsed, safeguardCount: safeguardUsed })}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">{t('msgChooseUpdate')}</Typography>
                 <Divider sx={{ my: 1, opacity: 0.5 }} />
@@ -1076,8 +1076,8 @@ export default function MetasetsDialog({
           {(() => {
             const id = confirmDeleteMetaId
             const configUsed = id ? (metasetUsageCounts[id] || 0) : 0
-            const keepUniqueUsed = id ? (keepUniqueMetasetUsageCounts[id] || 0) : 0
-            const totalUsed = configUsed + keepUniqueUsed
+            const safeguardUsed = id ? (safeguardMetasetUsageCounts[id] || 0) : 0
+            const totalUsed = configUsed + safeguardUsed
             const okReplaceMeta = deleteMode === 'replaceMeta' && Boolean(deleteReplaceMetaId)
             return (
               <>
@@ -1145,9 +1145,9 @@ export default function MetasetsDialog({
             </Box>
           )}
           {(() => {
-            // Combine config + Keep Unique references; reset flow must keep both in sync.
+            // Combine recipe + Safeguard references; reset flow must keep both in sync.
             const totalRefs = metasets.reduce((acc, meta) => (
-              acc + (metasetUsageCounts[meta.id] || 0) + (keepUniqueMetasetUsageCounts[meta.id] || 0)
+              acc + (metasetUsageCounts[meta.id] || 0) + (safeguardMetasetUsageCounts[meta.id] || 0)
             ), 0)
             if (totalRefs === 0) {
               return (

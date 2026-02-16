@@ -74,7 +74,7 @@ test.describe('HSF preview performance', () => {
       await rulesToggle.click()
     }
 
-    const firstRow = page.locator('table tbody tr[data-cfg-idx]').first()
+    const firstRow = page.locator('table tbody tr[data-recipe-idx]').first()
     // Use the long timeout reserved for rebuild-driven table hydration.
     const firstRowTimeoutMs = PLAYWRIGHT_TIMEOUTS.expectLong
     // Wait for the first row to attach even if visibility lags.
@@ -84,7 +84,7 @@ test.describe('HSF preview performance', () => {
       console.log('[perf] first-row visibility=hidden')
     }
 
-    const firstRowReady = page.locator('table tbody tr[data-cfg-idx] td')
+    const firstRowReady = page.locator('table tbody tr[data-recipe-idx] td')
     // Keep the cell wait aligned with the row timeout.
     await firstRowReady.first().waitFor({ state: 'attached', timeout: firstRowTimeoutMs })
     const firstRowEnd = await page.evaluate(() => performance.now())

@@ -2,7 +2,7 @@ import { SUBSTAT_TARGET_MAX_ROLLS } from '../../lib/constants'
 import type { SubstatRollTargetEntry } from '../../lib/hsfBuilder'
 import type { StatVariant } from '../../lib/types'
 
-// Bound state mirrors the serialized BuilderConfig structure so callers can
+// Bound state mirrors the serialized BuilderRecipe structure so callers can
 // hydrate menu drafts without performing extra object shape conversions.
 export type SubstatRollBoundsEntry = { min?: number; max?: number; any?: boolean }
 

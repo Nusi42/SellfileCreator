@@ -83,7 +83,7 @@ import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuP
 import ContextMenuTitle from './ContextMenuTitle'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
-import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from '../types/testerConfigFilterMode'
+import { TESTER_RECIPE_FILTER_MODE_DEFAULT, type TesterRecipeFilterMode } from '../types/testerRecipeFilterMode'
 import type { ChampionLocation } from '../lib/importers/gearDbNormalizer'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
 import { computeInlineSelectContentMaxWidth, computeInlineSelectPadding } from '../lib/inlineSelectAffordances'
@@ -134,7 +134,7 @@ function renderGlyphTooltip(description: string, entries: GlyphLegendEntry[]): s
 }
 
 export type RulesFilterPanelHandle = {
-  focusConfigNameInput: (options?: { selectText?: boolean }) => boolean
+  focusRecipeNameInput: (options?: { selectText?: boolean }) => boolean
 }
 
 type RulesFilterPanelProps = {
@@ -143,11 +143,11 @@ type RulesFilterPanelProps = {
   onChange: (next: RulesFilterState) => void
   metasets: Metaset[]
   showFaction: boolean
-  configChipFilterActive: boolean
-  onConfigChipFilterChange: (value: boolean) => void
-  testerConfigFilterMode?: TesterConfigFilterMode
-  onTesterConfigFilterModeChange?: (mode: TesterConfigFilterMode) => void
-  configCount?: number
+  recipeChipFilterActive: boolean
+  onRecipeChipFilterChange: (value: boolean) => void
+  testerRecipeFilterMode?: TesterRecipeFilterMode
+  onTesterRecipeFilterModeChange?: (mode: TesterRecipeFilterMode) => void
+  recipeCount?: number
   collapsed: CollapsedSections
   onCollapsedChange: (next: CollapsedSections) => void
   testerChampionOptions?: TesterChampionOption[]
@@ -448,11 +448,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     onChange,
     metasets,
     showFaction,
-  configChipFilterActive,
-  onConfigChipFilterChange,
-  testerConfigFilterMode = TESTER_CONFIG_FILTER_MODE_DEFAULT,
-  onTesterConfigFilterModeChange,
-  configCount = 0,
+  recipeChipFilterActive,
+  onRecipeChipFilterChange,
+  testerRecipeFilterMode = TESTER_RECIPE_FILTER_MODE_DEFAULT,
+  onTesterRecipeFilterModeChange,
+  recipeCount = 0,
   collapsed,
   onCollapsedChange,
     testerChampionOptions = [],
@@ -499,10 +499,10 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   // Persisted Sets order + local search to mirror Builder UX
   const [setsOrder, setSetsOrder] = useSetsOrderPreference()
   const [setsSearch, setSetsSearch] = React.useState('')
-  const configNameQuery = state.configName?.query ?? ''
-  // Keep the header layout stable: the Config Name filter always renders so the action buttons stay left-aligned,
-  // even when there are zero configs (or configs without names) loaded yet.
-  const hasConfigs = configCount > 0
+  const configNameQuery = state.recipeName?.query ?? ''
+  // Keep the header layout stable: the Recipe Name filter always renders so the action buttons stay left-aligned,
+  // even when there are zero recipes (or recipes without names) loaded yet.
+  const hasConfigs = recipeCount > 0
   const configNameInputRef = React.useRef<HTMLInputElement | null>(null)
   const configNameRegexError = React.useMemo(() => {
     if (!configNameQuery) return false
@@ -513,12 +513,12 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       return true
     }
   }, [configNameQuery])
-  const handleConfigNameChange = React.useCallback((value: string) => {
-    onChange({ ...state, configName: { query: value } })
+  const handleRecipeNameChange = React.useCallback((value: string) => {
+    onChange({ ...state, recipeName: { query: value } })
   }, [onChange, state])
   const topHeaderRef = React.useRef<HTMLDivElement | null>(null)
-  const focusConfigNameInput = React.useCallback((options?: { selectText?: boolean }) => {
-    // Why: the config name field always renders now, so we only guard on the input being mounted and visible.
+  const focusRecipeNameInput = React.useCallback((options?: { selectText?: boolean }) => {
+    // Why: the recipe name field always renders now, so we only guard on the input being mounted and visible.
     const input = configNameInputRef.current
     if (!input) return false
     if (input.offsetParent === null) return false
@@ -543,8 +543,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   }, [])
 
   React.useImperativeHandle(ref, () => ({
-    focusConfigNameInput,
-  }), [focusConfigNameInput])
+    focusRecipeNameInput,
+  }), [focusRecipeNameInput])
   const [headerMaxHeight, setHeaderMaxHeight] = React.useState(0)
   React.useLayoutEffect(() => {
     const el = topHeaderRef.current
@@ -1134,46 +1134,46 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   // Group toggles handled inline in onChange for Rank/Rarity condensed controls
 
   const toggleLabelSx = [ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', textAlign: 'center', fontSize: 'inherit' as const }]
-  const testerConfigFilterOn = testerConfigFilterMode !== TESTER_CONFIG_FILTER_MODE_DEFAULT
-  const testerConfigLabelStrings = React.useMemo(() => ({
-    first: t('testerFilterConfigsFirst'),
-    any: t('testerFilterConfigsAny'),
-    off: t('testerFilterConfigsOff'),
+  const testerRecipeFilterOn = testerRecipeFilterMode !== TESTER_RECIPE_FILTER_MODE_DEFAULT
+  const testerRecipeLabelStrings = React.useMemo(() => ({
+    first: t('testerFilterRecipesFirst'),
+    any: t('testerFilterRecipesAny'),
+    off: t('testerFilterRecipesOff'),
   }), [t])
-  const testerConfigFilterLabel = testerConfigFilterMode === 'first'
-    ? testerConfigLabelStrings.first
-    : testerConfigFilterMode === 'any'
-      ? testerConfigLabelStrings.any
-      : testerConfigLabelStrings.off
-  const testerConfigLabelWidthCh = React.useMemo(() => (
+  const testerRecipeFilterLabel = testerRecipeFilterMode === 'first'
+    ? testerRecipeLabelStrings.first
+    : testerRecipeFilterMode === 'any'
+      ? testerRecipeLabelStrings.any
+      : testerRecipeLabelStrings.off
+  const testerRecipeLabelWidthCh = React.useMemo(() => (
     Math.max(
-      testerConfigLabelStrings.first.length,
-      testerConfigLabelStrings.any.length,
-      testerConfigLabelStrings.off.length,
+      testerRecipeLabelStrings.first.length,
+      testerRecipeLabelStrings.any.length,
+      testerRecipeLabelStrings.off.length,
     )
-  ), [testerConfigLabelStrings])
+  ), [testerRecipeLabelStrings])
   // Keep the button width stable across Rules vs Rule Tester by reserving space for
   // the widest translated value that can appear in either view.
   const configFilterValueWidthCh = React.useMemo(() => (
-    Math.max(testerConfigLabelWidthCh, t('configFilterOn').length)
-  ), [t, testerConfigLabelWidthCh])
-  const testerConfigFilterTooltip = t('filterLimitSelectedConfigsTooltip')
-  const configFilterButtonActive = testerConfigFilterOn
-  const configFilterButtonDisabled = !hasConfigs || !onTesterConfigFilterModeChange
+    Math.max(testerRecipeLabelWidthCh, t('recipeFilterOn').length)
+  ), [t, testerRecipeLabelWidthCh])
+  const testerRecipeFilterTooltip = t('filterLimitSelectedRecipesTooltip')
+  const configFilterButtonActive = testerRecipeFilterOn
+  const configFilterButtonDisabled = !hasConfigs || !onTesterRecipeFilterModeChange
   const configFilterButtonVariant: 'contained' | 'outlined' = configFilterButtonActive ? 'contained' : 'outlined'
   const configFilterButtonLabel = (
     isTesterMode
-      ? (testerConfigFilterOn ? testerConfigFilterLabel : t('testerFilterConfigsOff'))
-      : (testerConfigFilterOn ? t('configFilterOn') : t('testerFilterConfigsOff'))
+      ? (testerRecipeFilterOn ? testerRecipeFilterLabel : t('testerFilterRecipesOff'))
+      : (testerRecipeFilterOn ? t('recipeFilterOn') : t('testerFilterRecipesOff'))
   )
-  const previewConfigButtonActive = configChipFilterActive
+  const previewConfigButtonActive = recipeChipFilterActive
   const previewConfigButtonVariant: 'contained' | 'outlined' = previewConfigButtonActive ? 'contained' : 'outlined'
-  const previewConfigButtonLabel = previewConfigButtonActive ? t('configFilterOn') : t('testerFilterConfigsOff')
-  // Match Config Filter's width stabilization pattern so the Preview Configs button
+  const previewConfigButtonLabel = previewConfigButtonActive ? t('recipeFilterOn') : t('testerFilterRecipesOff')
+  // Match Recipe Filter's width stabilization pattern so the Preview Recipes button
   // doesn't "jump" as Off/On switches (or across localized strings).
   const previewConfigsValueWidthCh = React.useMemo(() => (
-    Math.max(t('configFilterOn').length, testerConfigLabelStrings.off.length)
-  ), [t, testerConfigLabelStrings.off])
+    Math.max(t('recipeFilterOn').length, testerRecipeLabelStrings.off.length)
+  ), [t, testerRecipeLabelStrings.off])
   const testerSourceOptions = React.useMemo(() => {
     const options = [
       { value: 'inventory', label: t('testerSourceInventory') },
@@ -1307,20 +1307,20 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     if (option.location === 'collection') return t('testerSourceEquippedCollection')
     return null
   }, [t])
-  const handleTesterConfigFilterClick = () => {
+  const handleTesterRecipeFilterClick = () => {
     if (!hasConfigs) return
-    if (!onTesterConfigFilterModeChange) return
+    if (!onTesterRecipeFilterModeChange) return
     if (isTesterMode) {
-      const next: TesterConfigFilterMode = testerConfigFilterMode === 'off'
+      const next: TesterRecipeFilterMode = testerRecipeFilterMode === 'off'
         ? 'first'
-        : testerConfigFilterMode === 'first'
+        : testerRecipeFilterMode === 'first'
           ? 'any'
           : 'off'
-      onTesterConfigFilterModeChange(next)
+      onTesterRecipeFilterModeChange(next)
       return
     }
-    const next: TesterConfigFilterMode = testerConfigFilterMode === 'off' ? 'first' : 'off'
-    onTesterConfigFilterModeChange(next)
+    const next: TesterRecipeFilterMode = testerRecipeFilterMode === 'off' ? 'first' : 'off'
+    onTesterRecipeFilterModeChange(next)
   }
 
   // Section labels feed both the header copy and the clear-button tooltips so we only translate once per render.
@@ -1561,45 +1561,45 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             alignItems="center"
             sx={{ flexWrap: 'wrap', justifyContent: 'flex-start' }}
           >
-              {Boolean(onTesterConfigFilterModeChange) && (
-                <MarkdownTooltip markdown={testerConfigFilterTooltip}>
+              {Boolean(onTesterRecipeFilterModeChange) && (
+                <MarkdownTooltip markdown={testerRecipeFilterTooltip}>
                   <span>
                     <SplitLabelValueButton
                       size="small"
                       variant={configFilterButtonVariant}
                       color="success"
-                      aria-label={t('filterLimitSelectedConfigs')}
-                      aria-pressed={configFilterButtonDisabled ? undefined : testerConfigFilterOn}
+                      aria-label={t('filterLimitSelectedRecipes')}
+                      aria-pressed={configFilterButtonDisabled ? undefined : testerRecipeFilterOn}
                       disabled={configFilterButtonDisabled}
-                      onClick={handleTesterConfigFilterClick}
+                        onClick={handleTesterRecipeFilterClick}
                       sx={{
                         height: SMALL_BUTTON_HEIGHT_PX,
                         minHeight: SMALL_BUTTON_HEIGHT_PX,
                         px: 1.25,
                       }}
-                      label={t('filterLimitSelectedConfigs')}
+                      label={t('filterLimitSelectedRecipes')}
                       value={configFilterButtonLabel}
                       valueWidthCh={configFilterValueWidthCh}
                     />
                   </span>
                 </MarkdownTooltip>
               )}
-              <MarkdownTooltip markdown={t('filterLimitPreviewConfigsTooltip')}>
+              <MarkdownTooltip markdown={t('filterLimitPreviewRecipesTooltip')}>
                 <span>
                   <SplitLabelValueButton
                     size="small"
                     variant={previewConfigButtonVariant}
                     color="success"
-                    aria-label={t('filterLimitPreviewConfigs')}
+                    aria-label={t('filterLimitPreviewRecipes')}
                     aria-pressed={hasConfigs ? previewConfigButtonActive : undefined}
-                    onClick={() => onConfigChipFilterChange(!configChipFilterActive)}
+                    onClick={() => onRecipeChipFilterChange(!recipeChipFilterActive)}
                     disabled={!hasConfigs}
                     sx={{
                       height: SMALL_BUTTON_HEIGHT_PX,
                       minHeight: SMALL_BUTTON_HEIGHT_PX,
                       px: 1.25,
                     }}
-                    label={t('filterLimitPreviewConfigs')}
+                    label={t('filterLimitPreviewRecipes')}
                     value={previewConfigButtonLabel}
                     valueWidthCh={previewConfigsValueWidthCh}
                   />
@@ -1618,16 +1618,16 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         >
           <TextField
             value={configNameQuery}
-            onChange={(e) => handleConfigNameChange(e.target.value)}
+            onChange={(e) => handleRecipeNameChange(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
             size="small"
             inputRef={configNameInputRef}
-            placeholder={t('filterConfigNamePlaceholder')}
+            placeholder={t('filterRecipeNamePlaceholder')}
             error={configNameRegexError}
             inputProps={{
-              'aria-label': t('filterConfigName'),
+              'aria-label': t('filterRecipeName'),
               'aria-invalid': configNameRegexError ? 'true' : undefined,
-              title: configNameRegexError ? t('filterConfigNameInvalid') : undefined,
+              title: configNameRegexError ? t('filterRecipeNameInvalid') : undefined,
             }}
             InputProps={{
               endAdornment: configNameQuery ? (
@@ -1635,9 +1635,9 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   <ClearIconButton
                     size="small"
                     edge="end"
-                    aria-label={t('builderClearConfigName')}
-                    tooltip={t('builderClearConfigName')}
-                    onClick={() => handleConfigNameChange('')}
+                    aria-label={t('builderClearRecipeName')}
+                    tooltip={t('builderClearRecipeName')}
+                    onClick={() => handleRecipeNameChange('')}
                   />
                 </InputAdornment>
               ) : null,

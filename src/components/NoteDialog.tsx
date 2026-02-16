@@ -18,7 +18,7 @@ import type { Schema } from 'hast-util-sanitize'
 import type { Pluggable } from 'unified'
 import type { Components } from 'react-markdown'
 import type { Root, RootContent, Element } from 'hast'
-import type { BuilderConfig } from '../lib/hsfBuilder'
+import type { BuilderRecipe } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { metasetGlyph } from '../lib/metasets'
 import { metasetIconOptionById, DEFAULT_METASET_ICON_ID, type MetasetIconId } from '../lib/metasetIcons'
@@ -34,33 +34,34 @@ import {
   STAT_VARIANTS_PRIORITY
 } from '../lib/types'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
-import ConfigChip from './ConfigChip'
+import RecipeChip from './RecipeChip'
 // MarkdownTooltip ensures the color pickers + toolbar reuse the same hover delay/style across the app.
 import MarkdownTooltip from './MarkdownTooltip'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import {
-  KEEP_UNIQUE_DEFAULT_COUNT_MODE,
-  sanitizeKeepUniqueCountMode,
-  type KeepUniqueRule,
-  KeepUniqueRuleActivation,
-  KeepUniqueSubstatMatch,
-  normalizeKeepUniqueSubstatMatch,
-} from '../lib/keepUniques'
+  SAFEGUARD_DEFAULT_COUNT_MODE,
+  sanitizeSafeguardCountMode,
+  type SafeguardRule,
+  SafeguardRuleActivation,
+  SafeguardSubstatMatch,
+  normalizeSafeguardSubstatMatch,
+} from '../lib/safeguards'
 import { resolveRarityLabel } from '../lib/testerPreviewFormatting'
 import { warningBadgeSx } from '../lib/badgeStyles'
 import TesterOutcomeSummaryChip from './TesterOutcomeSummaryChip'
 import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT } from '../lib/testerSort'
 import {
-  buildNoteConfigOptionsSignature,
+  buildNoteRecipeOverridesSignature,
   applyQuestionSelectionRules,
-  resolveConfigOptionsTags,
-  NOTE_CONFIG_OPTIONS_LAYOUT_WHOLELINE,
-  NOTE_CONFIG_OPTIONS_MARKER_COLUMNS_KEY,
-  NOTE_CONFIG_OPTIONS_MARKER_LAYOUT_OPTIONS,
-  type ConfigOptionsInstructions,
+  NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD,
+  resolveRecipeOverridesTags,
+  NOTE_RECIPE_OVERRIDES_LAYOUT_WHOLELINE,
+  NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY,
+  NOTE_RECIPE_OVERRIDES_MARKER_LAYOUT_OPTIONS,
+  type RecipeOverridesInstructions,
   type NoteQuestionDefinition,
-  type NoteConfigOptionsAnswers,
-} from '../lib/noteConfigOptions'
+  type NoteRecipeOverridesAnswers,
+} from '../lib/noteRecipeOverrides'
 import { normalizeTagValue } from '../lib/tagHelpers'
 import type { TesterOutcomeSummary } from '../types/testerPreview'
 
@@ -99,45 +100,46 @@ const NOTE_DIALOG_PAPER_SX = {
   display: 'flex',
   flexDirection: 'column',
 }
-const CONFIG_COMMENT_REGEX = /^\s*(?:recipes|configs)\s*:\s*([0-9,\s]+)\s*$/i
-const CONFIG_MARKER_REGEX = /<!--\s*(?:recipes|configs)\s*:\s*([0-9,\s]+)\s*-->/i
-const CONFIG_REGEX_COMMENT_REGEX = /^\s*(?:recipes|configs)-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*$/i
-const CONFIG_REGEX_MARKER_REGEX = /<!--\s*(?:recipes|configs)-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*-->/i
-const CONFIG_ANY_MARKER_GLOBAL_REGEX = /<!--\s*(?:recipes|configs)(?:-re)?\s*:[\s\S]*?-->/gi
-const CONFIG_ELEMENT_TAG = 'config-chip-block'
-const CONFIG_ELEMENT_ATTR = 'data-config-ids'
-const CONFIG_ELEMENT_PATTERN_ATTR = 'data-config-pattern'
-const CONFIG_ELEMENT_FILTER_ATTR = 'data-config-filter'
-const CONFIG_ELEMENT_INDEX_ATTR = 'data-config-marker-index'
+const CONFIG_COMMENT_REGEX = /^\s*(?:recipes|recipes)\s*:\s*([0-9,\s]+)\s*$/i
+const CONFIG_MARKER_REGEX = /<!--\s*(?:recipes|recipes)\s*:\s*([0-9,\s]+)\s*-->/i
+const CONFIG_REGEX_COMMENT_REGEX = /^\s*(?:recipes|recipes)-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*$/i
+const CONFIG_REGEX_MARKER_REGEX = /<!--\s*(?:recipes|recipes)-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*-->/i
+const CONFIG_ANY_MARKER_GLOBAL_REGEX = /<!--\s*(?:recipes|recipes)(?:-re)?\s*:[\s\S]*?-->/gi
+const CONFIG_ELEMENT_TAG = 'recipe-chip-block'
+const CONFIG_ELEMENT_ATTR = 'data-recipe-ids'
+const CONFIG_ELEMENT_PATTERN_ATTR = 'data-recipe-pattern'
+const CONFIG_ELEMENT_FILTER_ATTR = 'data-recipe-filter'
+const CONFIG_ELEMENT_INDEX_ATTR = 'data-recipe-marker-index'
 const CONFIG_FILTER_IDS = 'ids'
 const CONFIG_FILTER_REGEXP = 'regexp'
 const DEFAULT_ALLOWED_TAG_REGEX = /^[A-Za-z0-9]+$/
 
-const KEEP_UNIQUE_COMMENT_REGEX = /^\s*keep-uniques\s*:\s*([0-9,\s]+)\s*$/i
-const KEEP_UNIQUE_MARKER_REGEX = /<!--\s*keep-uniques\s*:\s*([0-9,\s]+)\s*-->/i
-const KEEP_UNIQUE_REGEX_COMMENT_REGEX = /^\s*keep-uniques-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*$/i
-const KEEP_UNIQUE_REGEX_MARKER_REGEX = /<!--\s*keep-uniques-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*-->/i
-const KEEP_UNIQUE_ANY_MARKER_GLOBAL_REGEX = /<!--\s*keep-uniques(?:-re)?\s*:[\s\S]*?-->/gi
-const KEEP_UNIQUE_ELEMENT_TAG = 'keep-unique-summary'
-const KEEP_UNIQUE_ELEMENT_ATTR = 'data-ku-ids'
-const KEEP_UNIQUE_ELEMENT_FILTER_ATTR = 'data-ku-filter'
-const KEEP_UNIQUE_ELEMENT_PATTERN_ATTR = 'data-ku-pattern'
-const KEEP_UNIQUE_ELEMENT_INDEX_ATTR = 'data-ku-marker-index'
-const KEEP_UNIQUE_FILTER_IDS = 'ids'
-const KEEP_UNIQUE_FILTER_REGEXP = 'regexp'
+const SAFEGUARD_COMMENT_REGEX = /^\s*safeguards\s*:\s*([0-9,\s]+)\s*$/i
+const SAFEGUARD_MARKER_REGEX = /<!--\s*safeguards\s*:\s*([0-9,\s]+)\s*-->/i
+const SAFEGUARD_REGEX_COMMENT_REGEX = /^\s*safeguards-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*$/i
+const SAFEGUARD_REGEX_MARKER_REGEX = /<!--\s*safeguards-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*-->/i
+const SAFEGUARD_ANY_MARKER_GLOBAL_REGEX = /<!--\s*safeguards(?:-re)?\s*:[\s\S]*?-->/gi
+const SAFEGUARD_ELEMENT_TAG = 'safeguard-summary'
+const SAFEGUARD_ELEMENT_ATTR = 'data-ku-ids'
+const SAFEGUARD_ELEMENT_FILTER_ATTR = 'data-ku-filter'
+const SAFEGUARD_ELEMENT_PATTERN_ATTR = 'data-ku-pattern'
+const SAFEGUARD_ELEMENT_INDEX_ATTR = 'data-ku-marker-index'
+const SAFEGUARD_FILTER_IDS = 'ids'
+const SAFEGUARD_FILTER_REGEXP = 'regexp'
 const NOTE_CARD_GAP = 1.5
 const NOTE_CARD_WIDTHS: Record<NoteCardWidthPreset, { flexBasis: number; minWidth: number; maxWidth: number }> = {
   note: { flexBasis: 242, minWidth: 209, maxWidth: 322 },
 }
 
-// Match HTML comment bodies that declare config options markers.
-const QUESTION_COMMENT_REGEX = /^\s*config-options\b/i
+// Match HTML comment bodies that declare recipe-overrides markers.
+const QUESTION_MARKER_KEYWORD_PATTERN = NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD
+const QUESTION_COMMENT_REGEX = new RegExp(`^\\s*(?:${QUESTION_MARKER_KEYWORD_PATTERN})\\b`, 'i')
 // Match raw HTML comment markers in the Markdown stream.
-const QUESTION_MARKER_REGEX = /<!--\s*config-options\b[\s\S]*?-->/i
+const QUESTION_MARKER_REGEX = new RegExp(`<!--\\s*(?:${QUESTION_MARKER_KEYWORD_PATTERN})\\b[\\s\\S]*?-->`, 'i')
 // Custom element tag used in sanitized Markdown output.
-const QUESTION_ELEMENT_TAG = 'note-config-options'
+const QUESTION_ELEMENT_TAG = 'note-recipe-overrides'
 // Wrapper tag used to group question markers into a single flex layout.
-const QUESTION_GROUP_ELEMENT_TAG = 'note-config-options-group'
+const QUESTION_GROUP_ELEMENT_TAG = 'note-recipe-overrides-group'
 // Attribute used to map back to a parsed question definition.
 const QUESTION_ELEMENT_INDEX_ATTR = 'data-question-index'
 // Backtick references like `\1` map to option labels by 1-based index.
@@ -173,10 +175,10 @@ function buildNotePattern(raw: string): RegExp | null {
   }
 }
 
-type ConfigMarkerEntry = { id: number; cfg: BuilderConfig }
+type ConfigMarkerEntry = { id: number; cfg: BuilderRecipe }
 type ConfigMarkerMap = Map<number, ConfigMarkerEntry[]>
-type KeepUniqueMarkerEntry = { id: number; rule: KeepUniqueRule }
-type KeepUniqueMarkerMap = Map<number, KeepUniqueMarkerEntry[]>
+type SafeguardMarkerEntry = { id: number; rule: SafeguardRule }
+type SafeguardMarkerMap = Map<number, SafeguardMarkerEntry[]>
 type NoteCardWidthPreset = 'note'
 type QuestionPromptToken = { key: string; text: string; kind: 'text' | 'chip' | 'label' }
 type QuestionPromptParts = { title: string; subtext: string | null }
@@ -209,7 +211,7 @@ const NOTE_QUESTION_OPTION_TWO_COLUMN_LABEL_SX = {
   lineHeight: NOTE_OPTION_LINE_HEIGHT_COLUMNS,
 }
 const NOTE_QUESTION_OPTION_SX = {
-  // Match Keep Unique row density by trimming default control padding.
+  // Match Safeguard row density by trimming default control padding.
   alignItems: 'center',
   m: 0,
   py: 0,
@@ -365,7 +367,7 @@ function renderQuestionTextTokens({
   // Render each token with the intended visual emphasis.
   return tokens.map((token) => (
     token.kind === 'chip' ? (
-      // Chip tokens reuse the keep-unique scope chip treatment.
+      // Chip tokens reuse the safeguard scope chip treatment.
       <Box key={token.key} component="span" sx={chipSx}>
         <Typography variant="caption" sx={{ fontWeight: 700, lineHeight: 'inherit' }}>
           {token.text}
@@ -524,17 +526,17 @@ function renderTwoColumnOptionLabel({
 }
 
 type NoteRenderContextValue = {
-  configs: BuilderConfig[]
+  recipes: BuilderRecipe[]
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
   markerResolutions: ConfigMarkerMap
-  keepUniqueRules: KeepUniqueRule[]
-  keepUniqueMarkerResolutions: KeepUniqueMarkerMap
-  configOptionsResolutions: Map<number, NoteQuestionDefinition>
-  configOptionsEditable: boolean
-  configOptionsDisabled: boolean
-  onConfigOptionsAnswerChange: (
+  safeguardRules: SafeguardRule[]
+  safeguardMarkerResolutions: SafeguardMarkerMap
+  recipeOverridesResolutions: Map<number, NoteQuestionDefinition>
+  recipeOverridesEditable: boolean
+  recipeOverridesDisabled: boolean
+  onRecipeOverridesAnswerChange: (
     question: NoteQuestionDefinition,
     nextAnswer: string[],
     preferredId?: string,
@@ -691,7 +693,7 @@ const rehypeConfigComments: Pluggable = () => {
   }
 }
 
-const rehypeKeepUniqueComments: Pluggable = () => {
+const rehypeSafeguardComments: Pluggable = () => {
   return (tree: Root) => {
     let markerIndex = 0
     const transform = (node: Root | Element): void => {
@@ -701,16 +703,16 @@ const rehypeKeepUniqueComments: Pluggable = () => {
         if (!child) continue
         if (child.type === 'comment') {
           const value = (child as { value: string }).value
-          const regexMatch = KEEP_UNIQUE_REGEX_COMMENT_REGEX.exec(value)
+          const regexMatch = SAFEGUARD_REGEX_COMMENT_REGEX.exec(value)
           if (regexMatch) {
             const patternRaw = regexMatch[1] ?? ''
             const element: Element = {
               type: 'element',
-              tagName: KEEP_UNIQUE_ELEMENT_TAG,
+              tagName: SAFEGUARD_ELEMENT_TAG,
               properties: {
-                [KEEP_UNIQUE_ELEMENT_FILTER_ATTR]: KEEP_UNIQUE_FILTER_REGEXP,
-                [KEEP_UNIQUE_ELEMENT_PATTERN_ATTR]: patternRaw,
-                [KEEP_UNIQUE_ELEMENT_INDEX_ATTR]: String(markerIndex),
+                [SAFEGUARD_ELEMENT_FILTER_ATTR]: SAFEGUARD_FILTER_REGEXP,
+                [SAFEGUARD_ELEMENT_PATTERN_ATTR]: patternRaw,
+                [SAFEGUARD_ELEMENT_INDEX_ATTR]: String(markerIndex),
               },
               children: [],
             }
@@ -718,7 +720,7 @@ const rehypeKeepUniqueComments: Pluggable = () => {
             nodeChildren.splice(i, 1, element)
             continue
           }
-          const match = KEEP_UNIQUE_COMMENT_REGEX.exec(value)
+          const match = SAFEGUARD_COMMENT_REGEX.exec(value)
           if (!match) continue
           const tokens = parseMarkerTokens(match[1] ?? '')
           if (tokens.length === 0) {
@@ -728,11 +730,11 @@ const rehypeKeepUniqueComments: Pluggable = () => {
           }
           const element: Element = {
             type: 'element',
-            tagName: KEEP_UNIQUE_ELEMENT_TAG,
+            tagName: SAFEGUARD_ELEMENT_TAG,
             properties: {
-              [KEEP_UNIQUE_ELEMENT_FILTER_ATTR]: KEEP_UNIQUE_FILTER_IDS,
-              [KEEP_UNIQUE_ELEMENT_ATTR]: serializeMarkerTokens(tokens),
-              [KEEP_UNIQUE_ELEMENT_INDEX_ATTR]: String(markerIndex),
+              [SAFEGUARD_ELEMENT_FILTER_ATTR]: SAFEGUARD_FILTER_IDS,
+              [SAFEGUARD_ELEMENT_ATTR]: serializeMarkerTokens(tokens),
+              [SAFEGUARD_ELEMENT_INDEX_ATTR]: String(markerIndex),
             },
             children: [],
           }
@@ -742,16 +744,16 @@ const rehypeKeepUniqueComments: Pluggable = () => {
         }
         if (child.type === 'raw') {
           const value = (child as { value: string }).value
-          const regexMatch = KEEP_UNIQUE_REGEX_MARKER_REGEX.exec(value)
+          const regexMatch = SAFEGUARD_REGEX_MARKER_REGEX.exec(value)
           if (regexMatch) {
             const patternRaw = regexMatch[1] ?? ''
             const element: Element = {
               type: 'element',
-              tagName: KEEP_UNIQUE_ELEMENT_TAG,
+              tagName: SAFEGUARD_ELEMENT_TAG,
               properties: {
-                [KEEP_UNIQUE_ELEMENT_FILTER_ATTR]: KEEP_UNIQUE_FILTER_REGEXP,
-                [KEEP_UNIQUE_ELEMENT_PATTERN_ATTR]: patternRaw,
-                [KEEP_UNIQUE_ELEMENT_INDEX_ATTR]: String(markerIndex),
+                [SAFEGUARD_ELEMENT_FILTER_ATTR]: SAFEGUARD_FILTER_REGEXP,
+                [SAFEGUARD_ELEMENT_PATTERN_ATTR]: patternRaw,
+                [SAFEGUARD_ELEMENT_INDEX_ATTR]: String(markerIndex),
               },
               children: [],
             }
@@ -759,7 +761,7 @@ const rehypeKeepUniqueComments: Pluggable = () => {
             nodeChildren.splice(i, 1, element)
             continue
           }
-          const match = KEEP_UNIQUE_MARKER_REGEX.exec(value)
+          const match = SAFEGUARD_MARKER_REGEX.exec(value)
           if (!match) continue
           const tokens = parseMarkerTokens(match[1] ?? '')
           if (tokens.length === 0) {
@@ -769,11 +771,11 @@ const rehypeKeepUniqueComments: Pluggable = () => {
           }
           const element: Element = {
             type: 'element',
-            tagName: KEEP_UNIQUE_ELEMENT_TAG,
+            tagName: SAFEGUARD_ELEMENT_TAG,
             properties: {
-              [KEEP_UNIQUE_ELEMENT_FILTER_ATTR]: KEEP_UNIQUE_FILTER_IDS,
-              [KEEP_UNIQUE_ELEMENT_ATTR]: serializeMarkerTokens(tokens),
-              [KEEP_UNIQUE_ELEMENT_INDEX_ATTR]: String(markerIndex),
+              [SAFEGUARD_ELEMENT_FILTER_ATTR]: SAFEGUARD_FILTER_IDS,
+              [SAFEGUARD_ELEMENT_ATTR]: serializeMarkerTokens(tokens),
+              [SAFEGUARD_ELEMENT_INDEX_ATTR]: String(markerIndex),
             },
             children: [],
           }
@@ -899,9 +901,9 @@ const rehypeQuestionGroups: Pluggable = () => {
   }
 }
 
-function collectConfigIds(text: string, configs: BuilderConfig[]): Set<number> {
+function collectConfigIds(text: string, recipes: BuilderRecipe[]): Set<number> {
   const used = new Set<number>()
-  const resolutions = buildConfigMarkerResolutions(text, configs)
+  const resolutions = buildConfigMarkerResolutions(text, recipes)
   for (const entries of resolutions.values()) {
     for (const entry of entries) {
       used.add(entry.id)
@@ -910,8 +912,8 @@ function collectConfigIds(text: string, configs: BuilderConfig[]): Set<number> {
   return used
 }
 
-function configMatchesNotePattern(cfg: BuilderConfig, pattern: RegExp): boolean {
-  // Match the config name first to preserve the existing regex behavior.
+function configMatchesNotePattern(cfg: BuilderRecipe, pattern: RegExp): boolean {
+  // Match the recipe name first to preserve the existing regex behavior.
   const name = typeof cfg?.name === 'string' ? cfg.name : ''
   if (name) {
     pattern.lastIndex = 0
@@ -928,7 +930,7 @@ function configMatchesNotePattern(cfg: BuilderConfig, pattern: RegExp): boolean 
   return false
 }
 
-function buildConfigMarkerResolutions(text: string, configs: BuilderConfig[]): ConfigMarkerMap {
+function buildConfigMarkerResolutions(text: string, recipes: BuilderRecipe[]): ConfigMarkerMap {
   const result: ConfigMarkerMap = new Map()
   if (!text) return result
   CONFIG_ANY_MARKER_GLOBAL_REGEX.lastIndex = 0
@@ -947,7 +949,7 @@ function buildConfigMarkerResolutions(text: string, configs: BuilderConfig[]): C
       const compiled = buildNotePattern(patternRaw)
       if (compiled) {
         const safeCompiled = compiled
-        entries = configs
+        entries = recipes
           .map((cfg, idx) => ({ cfg, idx }))
           .filter(({ cfg }) => {
             return configMatchesNotePattern(cfg, safeCompiled)
@@ -969,7 +971,7 @@ function buildConfigMarkerResolutions(text: string, configs: BuilderConfig[]): C
               candidate = markerLast + 1
             }
             if (!candidate || candidate <= 0) continue
-            const cfg = configs[candidate - 1]
+            const cfg = recipes[candidate - 1]
             if (!cfg) continue
             fallback.push({ id: candidate, cfg })
             markerLast = candidate
@@ -987,7 +989,7 @@ function buildConfigMarkerResolutions(text: string, configs: BuilderConfig[]): C
   return result
 }
 
-const CONFIG_MARKER_HINT = '<!--  Use `0` to reference the config after the last used. Alternatively, use `recipes-re: "text"` for regexp matches. -->'
+const CONFIG_MARKER_HINT = '<!--  Use `0` to reference the recipe after the last used. Alternatively, use `recipes-re: "text"` for regexp matches. -->'
 
 function buildConfigMarkerBlock(ids: number[]): { block: string; cursorIndex: number } {
   // Keep the marker and hint on separate lines to avoid breaking selection ranges.
@@ -997,9 +999,9 @@ function buildConfigMarkerBlock(ids: number[]): { block: string; cursorIndex: nu
   return { block, cursorIndex: marker.length + 1 }
 }
 
-function collectKeepUniqueIds(text: string, keepUniqueRules: KeepUniqueRule[]): Set<number> {
+function collectSafeguardIds(text: string, safeguardRules: SafeguardRule[]): Set<number> {
   const used = new Set<number>()
-  const resolutions = buildKeepUniqueMarkerResolutions(text, keepUniqueRules)
+  const resolutions = buildSafeguardMarkerResolutions(text, safeguardRules)
   for (const entries of resolutions.values()) {
     for (const entry of entries) {
       used.add(entry.id)
@@ -1008,26 +1010,26 @@ function collectKeepUniqueIds(text: string, keepUniqueRules: KeepUniqueRule[]): 
   return used
 }
 
-function buildKeepUniqueMarkerResolutions(text: string, keepUniqueRules: KeepUniqueRule[]): KeepUniqueMarkerMap {
-  const result: KeepUniqueMarkerMap = new Map()
+function buildSafeguardMarkerResolutions(text: string, safeguardRules: SafeguardRule[]): SafeguardMarkerMap {
+  const result: SafeguardMarkerMap = new Map()
   if (!text) return result
-  KEEP_UNIQUE_ANY_MARKER_GLOBAL_REGEX.lastIndex = 0
+  SAFEGUARD_ANY_MARKER_GLOBAL_REGEX.lastIndex = 0
   let markerIndex = 0
   let lastRendered = 0
-  for (const match of text.matchAll(KEEP_UNIQUE_ANY_MARKER_GLOBAL_REGEX)) {
+  for (const match of text.matchAll(SAFEGUARD_ANY_MARKER_GLOBAL_REGEX)) {
     const raw = match?.[0] ?? ''
     if (!raw) {
       markerIndex += 1
       continue
     }
-    let entries: KeepUniqueMarkerEntry[] = []
-    const regexMatch = KEEP_UNIQUE_REGEX_MARKER_REGEX.exec(raw)
+    let entries: SafeguardMarkerEntry[] = []
+    const regexMatch = SAFEGUARD_REGEX_MARKER_REGEX.exec(raw)
     if (regexMatch) {
       const patternRaw = regexMatch[1] ?? ''
       const compiled = buildNotePattern(patternRaw)
       if (compiled) {
         const safeCompiled = compiled
-        entries = keepUniqueRules
+        entries = safeguardRules
           .map((rule, idx) => ({ rule, idx }))
           .filter(({ rule }) => {
             const name = typeof rule?.name === 'string' ? rule.name : ''
@@ -1037,11 +1039,11 @@ function buildKeepUniqueMarkerResolutions(text: string, keepUniqueRules: KeepUni
           .map(({ rule, idx }) => ({ id: idx + 1, rule }))
       }
     } else {
-      const idsMatch = KEEP_UNIQUE_MARKER_REGEX.exec(raw)
+      const idsMatch = SAFEGUARD_MARKER_REGEX.exec(raw)
       if (idsMatch && typeof idsMatch[1] === 'string') {
         const tokens = parseMarkerTokens(idsMatch[1])
         if (tokens.length > 0) {
-          const fallback: KeepUniqueMarkerEntry[] = []
+          const fallback: SafeguardMarkerEntry[] = []
           let markerLast = lastRendered
           for (const token of tokens) {
             let candidate: number | null = null
@@ -1051,7 +1053,7 @@ function buildKeepUniqueMarkerResolutions(text: string, keepUniqueRules: KeepUni
               candidate = markerLast + 1
             }
             if (!candidate || candidate <= 0) continue
-            const rule = keepUniqueRules[candidate - 1]
+            const rule = safeguardRules[candidate - 1]
             if (!rule) continue
             fallback.push({ id: candidate, rule })
             markerLast = candidate
@@ -1069,23 +1071,23 @@ function buildKeepUniqueMarkerResolutions(text: string, keepUniqueRules: KeepUni
   return result
 }
 
-const KEEP_UNIQUE_MARKER_HINT = '<!-- use `keep-uniques-re: "text"` for regexp matches. Use `0` only in numeric lists (keep-uniques:). -->'
+const SAFEGUARD_MARKER_HINT = '<!-- use `safeguards-re: "text"` for regexp matches. Use `0` only in numeric lists (safeguards:). -->'
 
-function buildKeepUniqueMarkerBlock(ids: number[]): { block: string; cursorIndex: number } {
-  // Match config marker ergonomics: leave the hint on the next line.
-  const marker = `<!-- keep-uniques:${ids.join(',')} -->`
-  const block = `${marker}\n${KEEP_UNIQUE_MARKER_HINT}`
+function buildSafeguardMarkerBlock(ids: number[]): { block: string; cursorIndex: number } {
+  // Match recipe marker ergonomics: leave the hint on the next line.
+  const marker = `<!-- safeguards:${ids.join(',')} -->`
+  const block = `${marker}\n${SAFEGUARD_MARKER_HINT}`
   // Place the caret after the marker for quick follow-up edits.
   return { block, cursorIndex: marker.length + 1 }
 }
 
-function buildConfigOptionsMarkerResolutions(text: string, answers: NoteConfigOptionsAnswers): Map<number, NoteQuestionDefinition> {
+function buildRecipeOverridesMarkerResolutions(text: string, answers: NoteRecipeOverridesAnswers): Map<number, NoteQuestionDefinition> {
   // Map marker indices to parsed question definitions.
   const result = new Map<number, NoteQuestionDefinition>()
   // Short-circuit when no note text exists.
   if (!text) return result
   // Resolve questions with the current answers merged in.
-  const { questions } = resolveConfigOptionsTags(text, answers)
+  const { questions } = resolveRecipeOverridesTags(text, answers)
   for (const question of questions) {
     // Use the marker index so the Markdown renderer can map markers.
     result.set(question.index, question)
@@ -1152,38 +1154,38 @@ function buildMetasetBulletList(
     .join('\n')
 }
 
-// Keep the config options EBNF header consistent across samples and tooltips.
-const CONFIG_OPTIONS_EBNF_HEADER = 'Config options syntax (EBNF):'
+// Keep the recipe overrides EBNF header consistent across samples and tooltips.
+const RECIPE_OVERRIDES_EBNF_HEADER = 'Recipe overrides syntax (EBNF):'
 // Reference line sets the maximum width for EBNF formatting.
-const CONFIG_OPTIONS_EBNF_REFERENCE_LINE = 'question      := ("q" | "question") string group+ [fallbackBlock]'
-const CONFIG_OPTIONS_EBNF_MAX_LINE_LENGTH = CONFIG_OPTIONS_EBNF_REFERENCE_LINE.length
+const RECIPE_OVERRIDES_EBNF_REFERENCE_LINE = 'question      := ("q" | "question") string group+ [fallbackBlock]'
+const RECIPE_OVERRIDES_EBNF_MAX_LINE_LENGTH = RECIPE_OVERRIDES_EBNF_REFERENCE_LINE.length
 // Marker options shown in the EBNF block.
-const CONFIG_OPTIONS_EBNF_MARKER_OPTION_TOKENS = [
-  ...NOTE_CONFIG_OPTIONS_MARKER_LAYOUT_OPTIONS.map((token) => `"${token}"`),
-  `"${NOTE_CONFIG_OPTIONS_MARKER_COLUMNS_KEY}" "=" number`,
+const RECIPE_OVERRIDES_EBNF_MARKER_OPTION_TOKENS = [
+  ...NOTE_RECIPE_OVERRIDES_MARKER_LAYOUT_OPTIONS.map((token) => `"${token}"`),
+  `"${NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY}" "=" number`,
 ]
 // Render the marker option line from the shared token list.
-const CONFIG_OPTIONS_EBNF_MARKER_OPTION_LINE = (
-  `markerOption  := ${CONFIG_OPTIONS_EBNF_MARKER_OPTION_TOKENS.join(' | ')}`
+const RECIPE_OVERRIDES_EBNF_MARKER_OPTION_LINE = (
+  `markerOption  := ${RECIPE_OVERRIDES_EBNF_MARKER_OPTION_TOKENS.join(' | ')}`
 )
 // Use fenced-code markers when inserting the EBNF into the note editor.
-const CONFIG_OPTIONS_EBNF_FENCE_START = '```text'
-const CONFIG_OPTIONS_EBNF_FENCE_END = '```'
+const RECIPE_OVERRIDES_EBNF_FENCE_START = '```text'
+const RECIPE_OVERRIDES_EBNF_FENCE_END = '```'
 // Anchor the sample example header so insert content is stable.
-const CONFIG_OPTIONS_SAMPLE_EXAMPLE_HEADER = 'Example 1:'
+const RECIPE_OVERRIDES_SAMPLE_EXAMPLE_HEADER = 'Example 1:'
 // Anchor the tooltip example header to keep copy consistent.
-const CONFIG_OPTIONS_TOOLTIP_EXAMPLE_HEADER = 'Example:'
+const RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_HEADER = 'Example:'
 // Close marker for the sample comment block.
-const CONFIG_OPTIONS_SAMPLE_CLOSE = '-->'
+const RECIPE_OVERRIDES_SAMPLE_CLOSE = '-->'
 // Shared keyCommand for the toolbar insert button.
-const CONFIG_OPTIONS_SAMPLE_COMMAND_KEY = 'insert-configOptions-sample'
+const RECIPE_OVERRIDES_SAMPLE_COMMAND_KEY = 'insert-recipeOverrides-sample'
 
 // Static EBNF text; the statKey row is appended at runtime.
-const CONFIG_OPTIONS_EBNF_BASE =
-`marker        := "<!--" "config-options" [markerOptions] question "-->"
+const RECIPE_OVERRIDES_EBNF_BASE =
+`marker        := "<!--" "recipe-overrides" [markerOptions] question "-->"
 markerOptions := "[" markerOption ("," markerOption)* "]"
-${CONFIG_OPTIONS_EBNF_MARKER_OPTION_LINE}
-${CONFIG_OPTIONS_EBNF_REFERENCE_LINE}
+${RECIPE_OVERRIDES_EBNF_MARKER_OPTION_LINE}
+${RECIPE_OVERRIDES_EBNF_REFERENCE_LINE}
 group         := ("single" | "s" | "rb" | "radiobutton"
              | "radio" | "multi" | "m" | "cb"
              | "checkbox" | "check")
@@ -1221,24 +1223,24 @@ rarityName    := "common" | "uncommon" | "rare" | "epic"
 starKey       := "1" | "2" | "3" | "4" | "5" | "6"`
 
 // Full insertable example used in the markdown sample block.
-const CONFIG_OPTIONS_SAMPLE_EXAMPLE_TEXT = [
+const RECIPE_OVERRIDES_SAMPLE_EXAMPLE_TEXT = [
   // Comment marker + prompt header.
-  '<!-- config-options',
+  '<!-- recipe-overrides',
   'q "Builder knobs (plain English)?',
   'Line two with **Bold** and `highlight`."',
   // Tag-specific enable/disable toggles.
-  'radio "Default" "Activate configs tagged mode" * { @tag=mode { export=active } }',
-  'radio "Disable configs tagged mode" { @tag=mode { export=disabled } }',
-  'check "Activate only affects configs tagged: fast" { @tag=fast { export=active } }',
-  'check "Activate only affects configs tagged: arena or dungeon" { @tag in [arena, dungeon] { export=active } }',
-  'check "Activate only affects tagged configs (any tag). Otherwise set Required Substats to 1 for tagged configs." { @tag any { export=active } else { @tag any { minsubstats=1 } } }',
-  'check "Activate only affects untagged configs. Otherwise turn Flex off for untagged configs." { @tag none { export=active } else { @tag none { flex=off } } }',
+  'radio "Default" "Activate recipes tagged mode" * { @tag=mode { export=active } }',
+  'radio "Disable recipes tagged mode" { @tag=mode { export=disabled } }',
+  'check "Activate only affects recipes tagged: fast" { @tag=fast { export=active } }',
+  'check "Activate only affects recipes tagged: arena or dungeon" { @tag in [arena, dungeon] { export=active } }',
+  'check "Activate only affects tagged recipes (any tag). Otherwise set Required Substats to 1 for tagged recipes." { @tag any { export=active } else { @tag any { minsubstats=1 } } }',
+  'check "Activate only affects untagged recipes. Otherwise turn Flex off for untagged recipes." { @tag none { export=active } else { @tag none { flex=off } } }',
   // Attribute-based toggles for common filters.
-  'check "Activate only affects Rank 5+ configs" { @rank>=5 { export=active } }',
-  'check "Activate only affects Epic+ configs" { @rarity>=epic { export=active } }',
-  'check "Activate only affects configs with Min Required Rolls 3+" { @minrolls>=3 { export=active } }',
-  'check "Activate only affects configs with Required Substats 2+" { @minsubstats>=2 { export=active } }',
-  'check "Activate only affects configs with Flex turned on" { @flex=on { export=active } }',
+  'check "Activate only affects Rank 5+ recipes" { @rank>=5 { export=active } }',
+  'check "Activate only affects Epic+ recipes" { @rarity>=epic { export=active } }',
+  'check "Activate only affects recipes with Min Required Rolls 3+" { @minrolls>=3 { export=active } }',
+  'check "Activate only affects recipes with Required Substats 2+" { @minsubstats>=2 { export=active } }',
+  'check "Activate only affects recipes with Flex turned on" { @flex=on { export=active } }',
   // Explicit id toggles + constraints.
   'check "Toggle 1 (explicit id)" id=m1 !14 { @all { export=disabled } }',
   'check "Toggle 2 (explicit id)" id=m2 !14 { @all { export=active } }',
@@ -1264,23 +1266,23 @@ const CONFIG_OPTIONS_SAMPLE_EXAMPLE_TEXT = [
   'check "Global minima: use Rank 5 targets for Any" { @all { minima.any=5 } }',
   'check "Global minima: Rank 6 SPD = 6" { @all { minima.6.SPD=6 } }',
   // Close the comment block.
-  CONFIG_OPTIONS_SAMPLE_CLOSE,
+  RECIPE_OVERRIDES_SAMPLE_CLOSE,
 ].join('\n')
 
 // Compact tooltip example keeps the popper readable.
-const CONFIG_OPTIONS_TOOLTIP_EXAMPLE_TEXT = [
-  '<!-- config-options',
-  'q "Enable arena configs?"',
+const RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_TEXT = [
+  '<!-- recipe-overrides',
+  'q "Enable arena recipes?"',
   'radio "Yes" * { @tag=arena { export=active } }',
   'radio "No" { @tag=arena { export=disabled } }',
-  CONFIG_OPTIONS_SAMPLE_CLOSE,
+  RECIPE_OVERRIDES_SAMPLE_CLOSE,
 ].join('\n')
 
 // Notes for roll-related fields in the full sample block.
-const CONFIG_OPTIONS_SAMPLE_NOTE = (
-  'Note: substatmin sets Min Rolls (Per Stat) per config; use minima.any/minima.<star>.<stat> for global minima.'
+const RECIPE_OVERRIDES_SAMPLE_NOTE = (
+  'Note: substatmin sets Min Rolls (Per Stat) per recipe; use minima.any/minima.<star>.<stat> for global minima.'
 )
-const CONFIG_OPTIONS_TOOLTIP_WRAP_SX = {
+const RECIPE_OVERRIDES_TOOLTIP_WRAP_SX = {
   // Keep tooltip content within the shared markdown tooltip width.
   maxWidth: MARKDOWN_TOOLTIP_MAX_WIDTH_PX,
   // Stack the EBNF and example blocks with consistent spacing.
@@ -1288,7 +1290,7 @@ const CONFIG_OPTIONS_TOOLTIP_WRAP_SX = {
   flexDirection: 'column',
   gap: 0.75,
 }
-const CONFIG_OPTIONS_TOOLTIP_CODE_SX = {
+const RECIPE_OVERRIDES_TOOLTIP_CODE_SX = {
   // Use the mono stack so grammar alignment stays readable.
   fontFamily: 'var(--font-code, "JetBrains Mono", monospace)',
   // Slightly smaller text keeps the tooltip compact.
@@ -1301,7 +1303,7 @@ const CONFIG_OPTIONS_TOOLTIP_CODE_SX = {
   m: 0,
 } satisfies Record<string, unknown>
 
-function buildConfigOptionsStatKeys(): string[] {
+function buildRecipeOverridesStatKeys(): string[] {
   // Enumerate supported stat variants in their canonical order.
   const variants = [...STAT_VARIANTS_PRIORITY]
   // Convert variants to human labels while skipping empty entries.
@@ -1320,7 +1322,7 @@ function buildConfigOptionsStatKeys(): string[] {
   return statKeys
 }
 
-function buildConfigOptionsStatKeyLine(statKeys: string[]): string {
+function buildRecipeOverridesStatKeyLine(statKeys: string[]): string {
   // Quote each key so the EBNF literal list is explicit.
   const quoted = statKeys.map((label) => `"${label.replace(/"/g, '\\"')}"`)
   // Align the first line with the rest of the EBNF block.
@@ -1334,7 +1336,7 @@ function buildConfigOptionsStatKeyLine(statKeys: string[]): string {
       return
     }
     const candidate = `${current} | ${token}`
-    if (candidate.length > CONFIG_OPTIONS_EBNF_MAX_LINE_LENGTH) {
+    if (candidate.length > RECIPE_OVERRIDES_EBNF_MAX_LINE_LENGTH) {
       lines.push(current)
       current = `${continuation}${token}`
     } else {
@@ -1346,29 +1348,29 @@ function buildConfigOptionsStatKeyLine(statKeys: string[]): string {
   return lines.join('\n')
 }
 
-function buildConfigOptionsEbnfText(): string {
+function buildRecipeOverridesEbnfText(): string {
   // Build the runtime statKey list from current variant labels.
-  const statKeys = buildConfigOptionsStatKeys()
+  const statKeys = buildRecipeOverridesStatKeys()
   // Compose the statKey line for the EBNF block.
-  const statKeyLine = buildConfigOptionsStatKeyLine(statKeys)
+  const statKeyLine = buildRecipeOverridesStatKeyLine(statKeys)
   // Concatenate the static EBNF base with the runtime statKey row.
-  return `${CONFIG_OPTIONS_EBNF_BASE}\n${statKeyLine}`
+  return `${RECIPE_OVERRIDES_EBNF_BASE}\n${statKeyLine}`
 }
 
-function buildConfigOptionsSampleBlock(): string {
+function buildRecipeOverridesSampleBlock(): string {
   // Build the EBNF block with the runtime statKey row injected.
-  const ebnfText = buildConfigOptionsEbnfText()
+  const ebnfText = buildRecipeOverridesEbnfText()
   // Compose the full sample block without parsing or splitting.
   const lines = [
-    CONFIG_OPTIONS_EBNF_HEADER,
-    CONFIG_OPTIONS_EBNF_FENCE_START,
+    RECIPE_OVERRIDES_EBNF_HEADER,
+    RECIPE_OVERRIDES_EBNF_FENCE_START,
     ebnfText,
-    CONFIG_OPTIONS_EBNF_FENCE_END,
+    RECIPE_OVERRIDES_EBNF_FENCE_END,
     '',
-    CONFIG_OPTIONS_SAMPLE_EXAMPLE_HEADER,
-    CONFIG_OPTIONS_SAMPLE_EXAMPLE_TEXT,
+    RECIPE_OVERRIDES_SAMPLE_EXAMPLE_HEADER,
+    RECIPE_OVERRIDES_SAMPLE_EXAMPLE_TEXT,
     '',
-    CONFIG_OPTIONS_SAMPLE_NOTE,
+    RECIPE_OVERRIDES_SAMPLE_NOTE,
   ]
   // Join once so the editor insertion stays stable.
   return lines.join('\n')
@@ -1400,10 +1402,10 @@ function buildMetasetInsertCommand(params: {
   }
 }
 
-type ConfigChipBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
+type RecipeChipBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
 
-function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
-  const { configs, metasets, substatColors, markerResolutions } = useNoteRenderContext()
+function RecipeChipBlock({ node }: RecipeChipBlockProps): JSX.Element | null {
+  const { recipes, metasets, substatColors, markerResolutions } = useNoteRenderContext()
   const gearSetCatalogVersion = useGearSetCatalogVersion()
   const filterAttr = coerceFirstString(node?.properties?.[CONFIG_ELEMENT_FILTER_ATTR])
   const filterType = filterAttr === CONFIG_FILTER_REGEXP ? CONFIG_FILTER_REGEXP : CONFIG_FILTER_IDS
@@ -1431,7 +1433,7 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
       const compiled = buildNotePattern(patternRaw)
       if (compiled) {
         const safeCompiled = compiled
-        resolvedEntries = configs
+        resolvedEntries = recipes
           .map((cfg, idx) => ({ cfg, idx }))
           .filter(({ cfg }) => {
             return configMatchesNotePattern(cfg, safeCompiled)
@@ -1461,7 +1463,7 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
           candidate = markerLast + 1
         }
         if (!candidate || candidate <= 0) continue
-        const cfg = configs[candidate - 1]
+        const cfg = recipes[candidate - 1]
         if (!cfg) continue
         fallbackEntries.push({ id: candidate, cfg })
         markerLast = candidate
@@ -1483,7 +1485,7 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
             '& .MuiIconButton-root': { display: 'none !important' },
           }}
         >
-          <ConfigChip
+          <RecipeChip
             index={id - 1}
             cfg={cfg}
             gearSetCatalogVersion={gearSetCatalogVersion}
@@ -1514,7 +1516,7 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
 type NoteQuestionBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
 
 function getNoteCardWidthStyles(preset: NoteCardWidthPreset) {
-  // Shared sizing keeps config options and keep-unique cards aligned.
+  // Shared sizing keeps recipe overrides and safeguard cards aligned.
   return NOTE_CARD_WIDTHS[preset]
 }
 
@@ -1528,7 +1530,7 @@ function NoteCardWrap({ children }: React.PropsWithChildren): JSX.Element {
 }
 
 function buildNoteScopeChipSx(theme: Theme, active: boolean) {
-  // Reuse the Keep Unique scope chip styling for note highlights.
+  // Reuse the Safeguard scope chip styling for note highlights.
   return {
     display: 'inline-flex',
     alignItems: 'center',
@@ -1547,8 +1549,8 @@ function buildNoteScopeChipSx(theme: Theme, active: boolean) {
 }
 
 function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null {
-  // Pull config options wiring from context.
-  const { configOptionsResolutions, configOptionsEditable, configOptionsDisabled, onConfigOptionsAnswerChange } = useNoteRenderContext()
+  // Pull recipe overrides wiring from context.
+  const { recipeOverridesResolutions, recipeOverridesEditable, recipeOverridesDisabled, onRecipeOverridesAnswerChange } = useNoteRenderContext()
   const theme = useTheme()
   // Extract the marker index from the custom element.
   const rawIndexAttr = coerceFirstString(node?.properties?.[QUESTION_ELEMENT_INDEX_ATTR])
@@ -1558,7 +1560,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
     if (Number.isFinite(parsed)) markerIndex = parsed
   }
   // Lookup the parsed question definition by marker index.
-  const question = markerIndex != null ? configOptionsResolutions.get(markerIndex) : undefined
+  const question = markerIndex != null ? recipeOverridesResolutions.get(markerIndex) : undefined
   // Split prompt text so the first line becomes the title.
   const promptParts = useMemo(
     () => (question ? splitQuestionPrompt(question.prompt) : { title: '', subtext: null }),
@@ -1576,12 +1578,12 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
       : []),
     [question, promptParts.subtext],
   )
-  // Style chips to match Keep Unique scope chips for visual consistency.
+  // Style chips to match Safeguard scope chips for visual consistency.
   const promptChipSx = useMemo(
     () => buildNoteScopeChipSx(theme, true),
     [theme],
   )
-  // Emphasized text mirrors the Keep Unique label styling.
+  // Emphasized text mirrors the Safeguard label styling.
   const promptLabelSx = useMemo(
     () => ({
       ...NOTE_CARD_LABEL_TEXT_SX,
@@ -1617,15 +1619,15 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   }, [questionOptions])
   if (!question) return null
   // Switch layout styling when the marker opts into full-width rendering.
-  const isWholeline = question.layout === NOTE_CONFIG_OPTIONS_LAYOUT_WHOLELINE
+  const isWholeline = question.layout === NOTE_RECIPE_OVERRIDES_LAYOUT_WHOLELINE
   // Resolve the selected answers into a set for fast checks.
   const selected = Array.isArray(question.answer) ? question.answer : []
   const selectedSet = new Set<string>(selected)
   // Wrap answer updates so callers can track changes.
   const applyAnswer = (next: string[], preferredId?: string) => {
-    onConfigOptionsAnswerChange(question, next, preferredId)
+    onRecipeOverridesAnswerChange(question, next, preferredId)
   }
-  // Shared sizing keeps question cards in lockstep with keep-unique cards.
+  // Shared sizing keeps question cards in lockstep with safeguard cards.
   const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
   // Reuse the non-wholeline min width as the grid's minimum column width.
   const optionColumnMinWidth = minWidth
@@ -1642,7 +1644,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   const cardWidthSx = isWholeline
     ? { flex: '1 1 100%', minWidth: '100%', maxWidth: '100%', width: '100%' }
     : { flex: `1 1 ${flexBasis}px`, minWidth, maxWidth }
-  const cardOpacity = configOptionsDisabled ? 0.55 : 1
+  const cardOpacity = recipeOverridesDisabled ? 0.55 : 1
   // Build per-option row styling so alignment can differ per label presence.
   const buildOptionRowSx = (): Record<string, unknown> => {
     if (isWholeline) {
@@ -1671,8 +1673,8 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   return (
     <Box
       sx={{
-        // Match Keep Unique card styling for tighter, consistent layout.
-        // Width limits mirror Keep Unique cards so multiple can fit on a line.
+        // Match Safeguard card styling for tighter, consistent layout.
+        // Width limits mirror Safeguard cards so multiple can fit on a line.
         ...cardWidthSx,
         borderRadius: 1,
         border: '1px solid',
@@ -1685,12 +1687,12 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
     >
       {/* Stack keeps the heading and options tightly grouped. */}
       <Stack spacing={0}>
-        {/* Prompt text mirrors the Keep Unique card title. */}
+        {/* Prompt text mirrors the Safeguard card title. */}
         <Typography
           variant="subtitle2"
           component="div"
           sx={{
-            // Match the Keep Unique title typography for questions.
+            // Match the Safeguard title typography for questions.
             fontWeight: 700,
             wordBreak: 'break-word',
             // Keep the title compact without forcing extra flex height.
@@ -1734,7 +1736,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                     value={selectedOption?.id ?? ''}
                     onChange={(_, value) => {
                       // Ignore changes when the question is read-only.
-                      if (!configOptionsEditable) return
+                      if (!recipeOverridesEditable) return
                       // Reset the group's selection while preserving other groups.
                       const next = new Set(selectedSet)
                       group.options.forEach((option) => next.delete(option.id))
@@ -1756,7 +1758,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                         <FormControlLabel
                           key={option.id}
                           value={option.id}
-                          control={<Radio size="small" disabled={!configOptionsEditable} />}
+                          control={<Radio size="small" disabled={!recipeOverridesEditable} />}
                           label={renderTwoColumnOptionLabel({
                             option,
                             chipSx: promptChipSx,
@@ -1764,7 +1766,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                             labelColumnCh,
                             layout: isWholeline ? 'rows' : 'columns',
                           })}
-                          disabled={!configOptionsEditable}
+                          disabled={!recipeOverridesEditable}
                           sx={rowSx}
                         />
                       )
@@ -1787,10 +1789,10 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                         <Checkbox
                           size="small"
                           checked={checked}
-                          disabled={!configOptionsEditable}
+                          disabled={!recipeOverridesEditable}
                           onChange={(event) => {
                             // Ignore changes when the question is read-only.
-                            if (!configOptionsEditable) return
+                            if (!recipeOverridesEditable) return
                             // Toggle the option in a new Set instance.
                             const next = new Set(selectedSet)
                             if (event.target.checked) next.add(option.id)
@@ -1813,7 +1815,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                         labelColumnCh,
                         layout: isWholeline ? 'rows' : 'columns',
                       })}
-                      disabled={!configOptionsEditable}
+                      disabled={!recipeOverridesEditable}
                       sx={rowSx}
                     />
                   )
@@ -1836,40 +1838,40 @@ function NoteQuestionGroup({ children }: React.PropsWithChildren): JSX.Element {
   )
 }
 
-type KeepUniqueBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
+type SafeguardBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
 
-function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
+function SafeguardBlock({ node }: SafeguardBlockProps): JSX.Element | null {
   const { t, lang } = useI18n()
-  const { keepUniqueRules, keepUniqueMarkerResolutions, metasets, useStatButtonColors, substatColors } = useNoteRenderContext()
-  // Keep Uniques mirror config markers: ids render positional cards, `keep-uniques-re` filters by rule name.
-  const filterAttr = coerceFirstString(node?.properties?.[KEEP_UNIQUE_ELEMENT_FILTER_ATTR])
-  const filterType = filterAttr === KEEP_UNIQUE_FILTER_REGEXP ? KEEP_UNIQUE_FILTER_REGEXP : KEEP_UNIQUE_FILTER_IDS
+  const { safeguardRules, safeguardMarkerResolutions, metasets, useStatButtonColors, substatColors } = useNoteRenderContext()
+  // Safeguards mirror recipe markers: ids render positional cards, `safeguards-re` filters by rule name.
+  const filterAttr = coerceFirstString(node?.properties?.[SAFEGUARD_ELEMENT_FILTER_ATTR])
+  const filterType = filterAttr === SAFEGUARD_FILTER_REGEXP ? SAFEGUARD_FILTER_REGEXP : SAFEGUARD_FILTER_IDS
   let tokens: MarkerToken[] = []
   let patternRaw = ''
-  if (filterType === KEEP_UNIQUE_FILTER_IDS) {
-    const rawSpec = coerceFirstString(node?.properties?.[KEEP_UNIQUE_ELEMENT_ATTR]) ?? ''
+  if (filterType === SAFEGUARD_FILTER_IDS) {
+    const rawSpec = coerceFirstString(node?.properties?.[SAFEGUARD_ELEMENT_ATTR]) ?? ''
     tokens = parseMarkerTokens(rawSpec)
     if (tokens.length === 0) return null
   } else {
-    patternRaw = coerceFirstString(node?.properties?.[KEEP_UNIQUE_ELEMENT_PATTERN_ATTR]) ?? ''
+    patternRaw = coerceFirstString(node?.properties?.[SAFEGUARD_ELEMENT_PATTERN_ATTR]) ?? ''
   }
-  const rawIndexAttr = coerceFirstString(node?.properties?.[KEEP_UNIQUE_ELEMENT_INDEX_ATTR])
+  const rawIndexAttr = coerceFirstString(node?.properties?.[SAFEGUARD_ELEMENT_INDEX_ATTR])
   let markerIndex: number | null = null
   if (rawIndexAttr) {
     const parsed = Number.parseInt(rawIndexAttr, 10)
     if (Number.isFinite(parsed)) markerIndex = parsed
   }
-  let resolvedEntries: KeepUniqueMarkerEntry[] | undefined
+  let resolvedEntries: SafeguardMarkerEntry[] | undefined
   if (markerIndex != null) {
-    resolvedEntries = keepUniqueMarkerResolutions.get(markerIndex)
+    resolvedEntries = safeguardMarkerResolutions.get(markerIndex)
   }
   if (!resolvedEntries) {
     // Fall back to positional resolution when preview rendering did not precompute this marker (e.g., live edits).
-    if (filterType === KEEP_UNIQUE_FILTER_REGEXP) {
+    if (filterType === SAFEGUARD_FILTER_REGEXP) {
       const compiled = buildNotePattern(patternRaw)
       if (compiled) {
         const safeCompiled = compiled
-        resolvedEntries = keepUniqueRules
+        resolvedEntries = safeguardRules
           .map((rule, idx) => ({ rule, idx }))
           .filter(({ rule }) => {
             const name = typeof rule?.name === 'string' ? rule.name : ''
@@ -1884,14 +1886,14 @@ function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
       let priorLast = 0
       if (markerIndex != null) {
         for (let idx = markerIndex - 1; idx >= 0; idx -= 1) {
-          const prev = keepUniqueMarkerResolutions.get(idx)
+          const prev = safeguardMarkerResolutions.get(idx)
           if (prev && prev.length > 0) {
             priorLast = prev[prev.length - 1]!.id
             break
           }
         }
       }
-      const fallbackEntries: KeepUniqueMarkerEntry[] = []
+      const fallbackEntries: SafeguardMarkerEntry[] = []
       let markerLast = priorLast
       for (const token of tokens) {
         let candidate: number | null = null
@@ -1901,7 +1903,7 @@ function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
           candidate = markerLast + 1
         }
         if (!candidate || candidate <= 0) continue
-        const rule = keepUniqueRules[candidate - 1]
+        const rule = safeguardRules[candidate - 1]
         if (!rule) continue
         fallbackEntries.push({ id: candidate, rule })
         markerLast = candidate
@@ -1916,7 +1918,7 @@ function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
     <NoteCardWrap>
       {entries.map(({ id, rule }) => (
         <Box key={`note-ku-${id}`} sx={{ flex: `1 1 ${flexBasis}px`, minWidth, maxWidth }}>
-          <KeepUniqueSummaryCard
+          <SafeguardSummaryCard
             id={id}
             rule={rule}
             metasets={metasets}
@@ -1931,7 +1933,7 @@ function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
   )
 }
 
-function KeepUniqueSummaryCard({
+function SafeguardSummaryCard({
   id,
   rule,
   metasets,
@@ -1941,7 +1943,7 @@ function KeepUniqueSummaryCard({
   substatColors,
 }: {
   id: number
-  rule: KeepUniqueRule
+  rule: SafeguardRule
   metasets: Metaset[]
   t: ReturnType<typeof useI18n>['t']
   lang: string
@@ -1950,20 +1952,20 @@ function KeepUniqueSummaryCard({
 }): JSX.Element {
   const theme = useTheme()
   // Scope defaults mirror the dialog so notes stay in sync if count mode is missing.
-  const countMode = sanitizeKeepUniqueCountMode(rule.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
-  const scopeLegendLabel = t('noteKeepUniqueScopeLabel')
+  const countMode = sanitizeSafeguardCountMode(rule.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
+  const scopeLegendLabel = t('noteSafeguardScopeLabel')
   // Scope chips mirror the dialog toggles so markdown exports stay aligned.
   const scopeFlags = [
-    { key: 'perRule', label: t('keepUniquesCountModePerRule'), active: countMode.perRule },
-    { key: 'perSlot', label: t('keepUniquesCountModePerSlot'), active: countMode.perSlot },
-    { key: 'perSet', label: t('keepUniquesCountModePerSet'), active: countMode.perSet },
-    { key: 'perFaction', label: t('keepUniquesCountModePerFaction'), active: countMode.perFaction },
-    { key: 'perMain', label: t('keepUniquesCountModePerMain'), active: countMode.perMainStat },
+    { key: 'perRule', label: t('safeguardsCountModePerRule'), active: countMode.perRule },
+    { key: 'perSlot', label: t('safeguardsCountModePerSlot'), active: countMode.perSlot },
+    { key: 'perSet', label: t('safeguardsCountModePerSet'), active: countMode.perSet },
+    { key: 'perFaction', label: t('safeguardsCountModePerFaction'), active: countMode.perFaction },
+    { key: 'perMain', label: t('safeguardsCountModePerMain'), active: countMode.perMainStat },
   ]
   const activeScopeFlags = scopeFlags.filter((flag) => flag.active)
   // Surface explicit names when present so ordered exports stay recognizable.
   const ruleName = typeof rule.name === 'string' ? rule.name.trim() : ''
-  const titleLabel = ruleName || t('noteKeepUniqueRuleTitle', { index: id })
+  const titleLabel = ruleName || t('noteSafeguardRuleTitle', { index: id })
   const formatList = (values: string[]): string => values.join(', ')
 
   const slotLabels = (() => {
@@ -2036,19 +2038,19 @@ function KeepUniqueSummaryCard({
     })
   })()
 
-  const normalizedSubstatMatch = normalizeKeepUniqueSubstatMatch(rule.substatMatch)
+  const normalizedSubstatMatch = normalizeSafeguardSubstatMatch(rule.substatMatch)
   const substatMatchLabel = (() => {
-    if (normalizedSubstatMatch === KeepUniqueSubstatMatch.All) {
-      return t('noteKeepUniqueSubstatRequirementAll')
+    if (normalizedSubstatMatch === SafeguardSubstatMatch.All) {
+      return t('noteSafeguardSubstatRequirementAll')
     }
-    if (normalizedSubstatMatch === KeepUniqueSubstatMatch.PerSubstat) {
-      return t('noteKeepUniqueSubstatRequirementPer')
+    if (normalizedSubstatMatch === SafeguardSubstatMatch.PerSubstat) {
+      return t('noteSafeguardSubstatRequirementPer')
     }
-    return t('noteKeepUniqueSubstatRequirementAny')
+    return t('noteSafeguardSubstatRequirementAny')
   })()
 
   const substatWeightSummary = (() => {
-    if (normalizedSubstatMatch === KeepUniqueSubstatMatch.PerSubstat) return null
+    if (normalizedSubstatMatch === SafeguardSubstatMatch.PerSubstat) return null
     const weights = rule.substatWeights ?? {}
     const entries: Array<{ variant: number; weight: number }> = []
     for (const [key, raw] of Object.entries(weights)) {
@@ -2095,7 +2097,7 @@ function KeepUniqueSummaryCard({
   const filters: Array<{ label: string; value: React.ReactNode }> = []
   if (slotLabels.length > 0) {
     filters.push({
-      label: t('noteKeepUniqueSlotsLabel'),
+      label: t('noteSafeguardSlotsLabel'),
       value: (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
           {formatList(slotLabels)}
@@ -2129,13 +2131,13 @@ function KeepUniqueSummaryCard({
   })()
   if (setsValue) {
     filters.push({
-      label: t('noteKeepUniqueSetsLabel'),
+      label: t('noteSafeguardSetsLabel'),
       value: setsValue,
     })
   }
   if (mainLabels.length > 0) {
     filters.push({
-      label: t('noteKeepUniqueMainLabel'),
+      label: t('noteSafeguardMainLabel'),
       value: (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
           {mainLabels.map((entry, idx) => (
@@ -2150,7 +2152,7 @@ function KeepUniqueSummaryCard({
   }
   if (factionLabels.length > 0) {
     filters.push({
-      label: t('noteKeepUniqueFactionsLabel'),
+      label: t('noteSafeguardFactionsLabel'),
       value: (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
           {formatList(factionLabels)}
@@ -2160,7 +2162,7 @@ function KeepUniqueSummaryCard({
   }
   if (rankLabels.length > 0) {
     filters.push({
-      label: t('noteKeepUniqueRanksLabel'),
+      label: t('noteSafeguardRanksLabel'),
       value: (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
           {formatList(rankLabels)}
@@ -2170,7 +2172,7 @@ function KeepUniqueSummaryCard({
   }
   if (rarityLabels.length > 0) {
     filters.push({
-      label: t('noteKeepUniqueRaritiesLabel'),
+      label: t('noteSafeguardRaritiesLabel'),
       value: (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
           {formatList(rarityLabels)}
@@ -2180,7 +2182,7 @@ function KeepUniqueSummaryCard({
   }
   if (substatLabels.length > 0) {
     filters.push({
-      label: t('noteKeepUniqueSubstatsLabel'),
+      label: t('noteSafeguardSubstatsLabel'),
       value: (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
           {substatLabels.map((entry, idx) => (
@@ -2193,7 +2195,7 @@ function KeepUniqueSummaryCard({
       ),
     })
     filters.push({
-      label: t('noteKeepUniqueSubstatRequirementLabel'),
+      label: t('noteSafeguardSubstatRequirementLabel'),
       value: (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
           {substatMatchLabel}
@@ -2202,7 +2204,7 @@ function KeepUniqueSummaryCard({
     })
     if (substatWeightSummary) {
       filters.push({
-        label: t('noteKeepUniqueSubstatWeightsLabel'),
+        label: t('noteSafeguardSubstatWeightsLabel'),
         value: (
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
             {substatWeightSummary}
@@ -2266,7 +2268,7 @@ function KeepUniqueSummaryCard({
           >
             {titleLabel}
           </Typography>
-          {rule.activation === KeepUniqueRuleActivation.Off ? (
+          {rule.activation === SafeguardRuleActivation.Off ? (
             <Box
               sx={{
                 display: 'inline-flex',
@@ -2280,17 +2282,17 @@ function KeepUniqueSummaryCard({
             >
               <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'text.disabled' }} />
               <Typography component="span" variant="caption" color="text.disabled" sx={{ fontWeight: 700 }}>
-                {t('noteKeepUniqueRuleDisabled')}
+                {t('noteSafeguardRuleDisabled')}
               </Typography>
             </Box>
           ) : null}
         </Box>
         <Stack spacing={0.35} sx={{ mt: 0.35 }}>
           {renderRow(
-            t('noteKeepUniqueQuotaLabel'),
+            t('noteSafeguardQuotaLabel'),
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
               {/* Scope details live in the Scope row to avoid repetition. */}
-              {t('noteKeepUniqueQuotaValue', { count: rule.requiredCount })}
+              {t('noteSafeguardQuotaValue', { count: rule.requiredCount })}
             </Typography>,
             { valueAlign: 'center' },
           )}
@@ -2320,11 +2322,11 @@ function KeepUniqueSummaryCard({
 }
 
 // Capture the note text for the disable-confirm dialog.
-type DisableConfigOptionsContext = {
+type DisableRecipeOverridesContext = {
   noteText: string
 }
-// Queueable menu actions so we can defer config mutations until menus fully close.
-type ConfigOptionsMenuAction =
+// Queueable menu actions so we can defer recipe mutations until menus fully close.
+type RecipeOverridesMenuAction =
   // Reset answers back to defaults.
   | { kind: 'reset' }
   // Re-enable parsing without touching answers.
@@ -2332,8 +2334,8 @@ type ConfigOptionsMenuAction =
   // Disable parsing with a snapshot for the confirm dialog.
   | { kind: 'disable'; noteText: string }
 // Run a queued action after the menu exit transition, keeping view/edit consistent.
-const runConfigOptionsMenuAction = (
-  action: ConfigOptionsMenuAction | null,
+const runRecipeOverridesMenuAction = (
+  action: RecipeOverridesMenuAction | null,
   handlers: {
     onReset: () => void
     onEnable: () => void
@@ -2368,14 +2370,14 @@ export default function NoteDialog({
   onClose,
   onRequestEdit,
   onRequestView,
-  configOptionsAnswers,
-  onConfigOptionsAnswersChange,
-  configOptionsDisabled,
-  onConfigOptionsDisabledChange,
-  onApplyConfigOptionsOverrides,
-  configs,
+  recipeOverridesAnswers,
+  onRecipeOverridesAnswersChange,
+  recipeOverridesDisabled,
+  onRecipeOverridesDisabledChange,
+  onApplyRecipeOverrides,
+  recipes,
   metasets,
-  keepUniqueRules,
+  safeguardRules,
   useStatButtonColors,
   substatColors,
   gearSummary,
@@ -2389,15 +2391,15 @@ export default function NoteDialog({
   onClose: () => void
   onRequestEdit: () => void
   onRequestView: () => void
-  configOptionsAnswers: NoteConfigOptionsAnswers
-  onConfigOptionsAnswersChange: React.Dispatch<React.SetStateAction<NoteConfigOptionsAnswers>>
-  configOptionsDisabled: boolean
-  onConfigOptionsDisabledChange: React.Dispatch<React.SetStateAction<boolean>>
-  // Optional callback for applying the current config options to stored configs.
-  onApplyConfigOptionsOverrides: (instructions: ConfigOptionsInstructions) => void
-  configs: BuilderConfig[]
+  recipeOverridesAnswers: NoteRecipeOverridesAnswers
+  onRecipeOverridesAnswersChange: React.Dispatch<React.SetStateAction<NoteRecipeOverridesAnswers>>
+  recipeOverridesDisabled: boolean
+  onRecipeOverridesDisabledChange: React.Dispatch<React.SetStateAction<boolean>>
+  // Optional callback for applying the current recipe overrides to stored recipes.
+  onApplyRecipeOverrides: (instructions: RecipeOverridesInstructions) => void
+  recipes: BuilderRecipe[]
   metasets: Metaset[]
-  keepUniqueRules: KeepUniqueRule[]
+  safeguardRules: SafeguardRule[]
   useStatButtonColors: boolean
   substatColors: Record<number, { fg: string; bg: string }>
   gearSummary: TesterOutcomeSummary | null
@@ -2437,103 +2439,103 @@ export default function NoteDialog({
   const showNoteSummaryChip = Boolean(gearSummary && gearSummary.total > 0)
   // Keep disable-confirm actions visually equal to avoid implying a preferred choice.
   const disableConfirmButtonProps = { color: 'primary', variant: 'contained' } as const
-  // Resolve config markers for embedded config chips.
-  const markerResolutions = useMemo(() => buildConfigMarkerResolutions(renderNote ?? '', configs), [renderNote, configs])
-  // Resolve keep-unique markers for embedded rule summaries.
-  const keepUniqueMarkerResolutions = useMemo(
-    () => buildKeepUniqueMarkerResolutions(renderNote ?? '', keepUniqueRules),
-    [renderNote, keepUniqueRules],
+  // Resolve recipe markers for embedded recipe chips.
+  const markerResolutions = useMemo(() => buildConfigMarkerResolutions(renderNote ?? '', recipes), [renderNote, recipes])
+  // Resolve safeguard markers for embedded rule summaries.
+  const safeguardMarkerResolutions = useMemo(
+    () => buildSafeguardMarkerResolutions(renderNote ?? '', safeguardRules),
+    [renderNote, safeguardRules],
   )
   // Map marker indices to question definitions for rendering.
-  const configOptionsSignature = useMemo(
-    () => buildNoteConfigOptionsSignature(renderNote ?? ''),
+  const recipeOverridesSignature = useMemo(
+    () => buildNoteRecipeOverridesSignature(renderNote ?? ''),
     [renderNote],
   )
-  // Flag whether the current note includes config options markers.
-  const hasConfigOptionsMarkers = configOptionsSignature !== '[]'
-  // Resolve config options markers so disabled state can still render dimmed cards.
-  const configOptionsResolutions = useMemo(
-    () => buildConfigOptionsMarkerResolutions(renderNote ?? '', configOptionsAnswers),
-    [configOptionsAnswers, renderNote],
+  // Flag whether the current note includes recipe overrides markers.
+  const hasRecipeOverridesMarkers = recipeOverridesSignature !== '[]'
+  // Resolve recipe overrides markers so disabled state can still render dimmed cards.
+  const recipeOverridesResolutions = useMemo(
+    () => buildRecipeOverridesMarkerResolutions(renderNote ?? '', recipeOverridesAnswers),
+    [recipeOverridesAnswers, renderNote],
   )
   // Reset answers by clearing stored overrides back to defaults and re-enabling parsing.
-  const handleResetConfigOptionsAnswers = React.useCallback(() => {
-    onConfigOptionsDisabledChange(false)
-    onConfigOptionsAnswersChange(() => ({}))
-  }, [onConfigOptionsAnswersChange, onConfigOptionsDisabledChange])
-  const handleEnableConfigOptions = React.useCallback(() => {
-    onConfigOptionsDisabledChange(false)
-  }, [onConfigOptionsDisabledChange])
-  // Anchor the config options action menu in view mode.
-  const [viewConfigOptionsMenuAnchor, setViewConfigOptionsMenuAnchor] = useState<HTMLElement | null>(null)
-  // Flag whether the view-mode config options menu is open.
-  const viewConfigOptionsMenuOpen = Boolean(viewConfigOptionsMenuAnchor)
+  const handleResetRecipeOverridesAnswers = React.useCallback(() => {
+    onRecipeOverridesDisabledChange(false)
+    onRecipeOverridesAnswersChange(() => ({}))
+  }, [onRecipeOverridesAnswersChange, onRecipeOverridesDisabledChange])
+  const handleEnableRecipeOverrides = React.useCallback(() => {
+    onRecipeOverridesDisabledChange(false)
+  }, [onRecipeOverridesDisabledChange])
+  // Anchor the recipe overrides action menu in view mode.
+  const [viewRecipeOverridesMenuAnchor, setViewRecipeOverridesMenuAnchor] = useState<HTMLElement | null>(null)
+  // Flag whether the view-mode recipe overrides menu is open.
+  const viewRecipeOverridesMenuOpen = Boolean(viewRecipeOverridesMenuAnchor)
   // Queue the view-mode action so we can apply it after the menu closes.
-  const [viewConfigOptionsMenuAction, setViewConfigOptionsMenuAction] = useState<ConfigOptionsMenuAction | null>(null)
-  // Open the view-mode config options menu from the button anchor.
-  const openViewConfigOptionsMenu = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
-    setViewConfigOptionsMenuAnchor(event.currentTarget)
+  const [viewRecipeOverridesMenuAction, setViewRecipeOverridesMenuAction] = useState<RecipeOverridesMenuAction | null>(null)
+  // Open the view-mode recipe overrides menu from the button anchor.
+  const openViewRecipeOverridesMenu = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
+    setViewRecipeOverridesMenuAnchor(event.currentTarget)
   }, [])
-  // Close the view-mode config options menu without applying changes.
-  const closeViewConfigOptionsMenu = React.useCallback(() => {
-    setViewConfigOptionsMenuAnchor(null)
+  // Close the view-mode recipe overrides menu without applying changes.
+  const closeViewRecipeOverridesMenu = React.useCallback(() => {
+    setViewRecipeOverridesMenuAnchor(null)
   }, [])
   // Queue a view-mode action, then close the menu to trigger exit cleanup.
-  const queueViewConfigOptionsMenuAction = React.useCallback((action: ConfigOptionsMenuAction) => {
+  const queueViewRecipeOverridesMenuAction = React.useCallback((action: RecipeOverridesMenuAction) => {
     // Store the action before closing so exit cleanup can replay it.
-    setViewConfigOptionsMenuAction(action)
+    setViewRecipeOverridesMenuAction(action)
     // Closing the menu first prevents stuck backdrops.
-    closeViewConfigOptionsMenu()
-  }, [closeViewConfigOptionsMenu])
+    closeViewRecipeOverridesMenu()
+  }, [closeViewRecipeOverridesMenu])
   // Hold the disable dialog context so view + edit can share one confirm flow.
-  const [disableConfigOptionsContext, setDisableConfigOptionsContext] = useState<DisableConfigOptionsContext | null>(null)
+  const [disableRecipeOverridesContext, setDisableRecipeOverridesContext] = useState<DisableRecipeOverridesContext | null>(null)
   // Open the disable confirm dialog with the latest note snapshot.
-  const openDisableConfigOptionsDialog = React.useCallback((noteText: string) => {
-    setDisableConfigOptionsContext({ noteText })
+  const openDisableRecipeOverridesDialog = React.useCallback((noteText: string) => {
+    setDisableRecipeOverridesContext({ noteText })
   }, [])
-  // Close the confirm dialog without mutating note/config state.
-  const closeDisableConfigOptionsDialog = React.useCallback(() => {
-    setDisableConfigOptionsContext(null)
+  // Close the confirm dialog without mutating note/recipe state.
+  const closeDisableRecipeOverridesDialog = React.useCallback(() => {
+    setDisableRecipeOverridesContext(null)
   }, [])
   // Apply the queued view-mode action after the menu finishes closing.
-  const handleViewConfigOptionsMenuExited = React.useCallback(() => {
+  const handleViewRecipeOverridesMenuExited = React.useCallback(() => {
     // Run the action only once when the menu has fully unmounted.
-    runConfigOptionsMenuAction(
-      viewConfigOptionsMenuAction,
+    runRecipeOverridesMenuAction(
+      viewRecipeOverridesMenuAction,
       {
-        onReset: handleResetConfigOptionsAnswers,
-        onEnable: handleEnableConfigOptions,
-        onDisable: openDisableConfigOptionsDialog,
+        onReset: handleResetRecipeOverridesAnswers,
+        onEnable: handleEnableRecipeOverrides,
+        onDisable: openDisableRecipeOverridesDialog,
       },
-      () => setViewConfigOptionsMenuAction(null),
+      () => setViewRecipeOverridesMenuAction(null),
     )
   }, [
-    handleEnableConfigOptions,
-    handleResetConfigOptionsAnswers,
-    openDisableConfigOptionsDialog,
-    viewConfigOptionsMenuAction,
+    handleEnableRecipeOverrides,
+    handleResetRecipeOverridesAnswers,
+    openDisableRecipeOverridesDialog,
+    viewRecipeOverridesMenuAction,
   ])
-  // Apply or discard config options before disabling them in the session.
-  const handleDisableConfigOptionsConfirm = React.useCallback((applyToConfigs: boolean) => {
-    const context = disableConfigOptionsContext
+  // Apply or discard recipe overrides before disabling them in the session.
+  const handleDisableRecipeOverridesConfirm = React.useCallback((applyToConfigs: boolean) => {
+    const context = disableRecipeOverridesContext
     if (!context) return
     // Resolve instructions from the requested note snapshot + stored answers.
-    const resolution = resolveConfigOptionsTags(context.noteText ?? '', configOptionsAnswers)
-    // Apply the overrides to stored configs when requested.
+    const resolution = resolveRecipeOverridesTags(context.noteText ?? '', recipeOverridesAnswers)
+    // Apply the overrides to stored recipes when requested.
     if (applyToConfigs) {
-      onApplyConfigOptionsOverrides(resolution.instructions)
+      onApplyRecipeOverrides(resolution.instructions)
     }
-    // Disable config options parsing so markers are ignored.
-    onConfigOptionsDisabledChange(true)
+    // Disable recipe overrides parsing so markers are ignored.
+    onRecipeOverridesDisabledChange(true)
     // Close the confirm dialog after applying changes.
-    setDisableConfigOptionsContext(null)
+    setDisableRecipeOverridesContext(null)
   }, [
-    configOptionsAnswers,
-    disableConfigOptionsContext,
-    onApplyConfigOptionsOverrides,
-    onConfigOptionsDisabledChange,
+    recipeOverridesAnswers,
+    disableRecipeOverridesContext,
+    onApplyRecipeOverrides,
+    onRecipeOverridesDisabledChange,
   ])
-  const handleConfigOptionsAnswerChange = React.useCallback((
+  const handleRecipeOverridesAnswerChange = React.useCallback((
     question: NoteQuestionDefinition,
     nextSelection: string[],
     preferredId?: string,
@@ -2547,7 +2549,7 @@ export default function NoteDialog({
     const orderedSelection = question.options
       .filter((option) => nextSet.has(option.id))
       .map((option) => option.id)
-    onConfigOptionsAnswersChange((prev) => {
+    onRecipeOverridesAnswersChange((prev) => {
       const next = { ...prev }
       // Default selections are omitted from storage.
       if (matchesDefault) {
@@ -2557,8 +2559,8 @@ export default function NoteDialog({
         next[question.id] = orderedSelection
       }
       // Re-resolve to enforce global exclusions with the preferred option.
-      const { questions } = resolveConfigOptionsTags(renderNote ?? '', next, preferredId)
-      const normalized: NoteConfigOptionsAnswers = {}
+      const { questions } = resolveRecipeOverridesTags(renderNote ?? '', next, preferredId)
+      const normalized: NoteRecipeOverridesAnswers = {}
       questions.forEach((resolved) => {
         // Compare resolved answers against defaults to keep storage lean.
         const resolvedDefaultSet = new Set(resolved.defaultAnswer)
@@ -2575,38 +2577,38 @@ export default function NoteDialog({
       })
       return normalized
     })
-  }, [onConfigOptionsAnswersChange, renderNote])
+  }, [onRecipeOverridesAnswersChange, renderNote])
   const contextValue = useMemo<NoteRenderContextValue>(
     () => ({
-      configs,
+      recipes,
       metasets,
       substatColors,
       useStatButtonColors,
       markerResolutions,
-      keepUniqueRules,
-      keepUniqueMarkerResolutions,
-      configOptionsResolutions,
-      configOptionsEditable: mode === 'view' && !configOptionsDisabled,
-      configOptionsDisabled,
-      onConfigOptionsAnswerChange: handleConfigOptionsAnswerChange,
+      safeguardRules,
+      safeguardMarkerResolutions,
+      recipeOverridesResolutions,
+      recipeOverridesEditable: mode === 'view' && !recipeOverridesDisabled,
+      recipeOverridesDisabled,
+      onRecipeOverridesAnswerChange: handleRecipeOverridesAnswerChange,
     }),
     [
-      configs,
+      recipes,
       metasets,
       substatColors,
       useStatButtonColors,
       markerResolutions,
-      keepUniqueRules,
-      keepUniqueMarkerResolutions,
-      configOptionsResolutions,
-      configOptionsDisabled,
+      safeguardRules,
+      safeguardMarkerResolutions,
+      recipeOverridesResolutions,
+      recipeOverridesDisabled,
       mode,
-      handleConfigOptionsAnswerChange,
+      handleRecipeOverridesAnswerChange,
     ],
   )
   const allowMarkdownElement = React.useCallback<MarkdownAllowElement>((element) => {
     const tag = typeof element.tagName === 'string' ? element.tagName.toLowerCase() : ''
-    if (tag === CONFIG_ELEMENT_TAG || tag === KEEP_UNIQUE_ELEMENT_TAG || tag === QUESTION_ELEMENT_TAG || tag === QUESTION_GROUP_ELEMENT_TAG) return true
+    if (tag === CONFIG_ELEMENT_TAG || tag === SAFEGUARD_ELEMENT_TAG || tag === QUESTION_ELEMENT_TAG || tag === QUESTION_GROUP_ELEMENT_TAG) return true
     return DEFAULT_ALLOWED_TAG_REGEX.test(tag)
   }, [])
   // Memoized sanitize schema and plugins for performance during typing.
@@ -2616,7 +2618,7 @@ export default function NoteDialog({
     const baseAttrs = (defaultSchema.attributes ?? {}) as Record<string, SanitizeProp[]>
     const spanAttrs: SanitizeProp[] = Array.isArray(baseAttrs.span) ? baseAttrs.span : []
     const configAttrs: SanitizeProp[] = Array.isArray(baseAttrs[CONFIG_ELEMENT_TAG]) ? baseAttrs[CONFIG_ELEMENT_TAG] : []
-    const keepUniqueAttrs: SanitizeProp[] = Array.isArray(baseAttrs[KEEP_UNIQUE_ELEMENT_TAG]) ? baseAttrs[KEEP_UNIQUE_ELEMENT_TAG] : []
+    const safeguardAttrs: SanitizeProp[] = Array.isArray(baseAttrs[SAFEGUARD_ELEMENT_TAG]) ? baseAttrs[SAFEGUARD_ELEMENT_TAG] : []
     const questionAttrs: SanitizeProp[] = Array.isArray(baseAttrs[QUESTION_ELEMENT_TAG]) ? baseAttrs[QUESTION_ELEMENT_TAG] : []
     const mergedConfigAttrs = Array.from(new Set<SanitizeProp>([
       ...configAttrs,
@@ -2625,12 +2627,12 @@ export default function NoteDialog({
       CONFIG_ELEMENT_FILTER_ATTR,
       CONFIG_ELEMENT_INDEX_ATTR,
     ]))
-    const mergedKeepUniqueAttrs = Array.from(new Set<SanitizeProp>([
-      ...keepUniqueAttrs,
-      KEEP_UNIQUE_ELEMENT_ATTR,
-      KEEP_UNIQUE_ELEMENT_FILTER_ATTR,
-      KEEP_UNIQUE_ELEMENT_PATTERN_ATTR,
-      KEEP_UNIQUE_ELEMENT_INDEX_ATTR,
+    const mergedSafeguardAttrs = Array.from(new Set<SanitizeProp>([
+      ...safeguardAttrs,
+      SAFEGUARD_ELEMENT_ATTR,
+      SAFEGUARD_ELEMENT_FILTER_ATTR,
+      SAFEGUARD_ELEMENT_PATTERN_ATTR,
+      SAFEGUARD_ELEMENT_INDEX_ATTR,
     ]))
     const mergedQuestionAttrs = Array.from(new Set<SanitizeProp>([
       ...questionAttrs,
@@ -2642,24 +2644,24 @@ export default function NoteDialog({
         ...defaultSchema.attributes,
         span: [...spanAttrs, 'data-color', 'dataColor'],
         [CONFIG_ELEMENT_TAG]: mergedConfigAttrs,
-        [KEEP_UNIQUE_ELEMENT_TAG]: mergedKeepUniqueAttrs,
+        [SAFEGUARD_ELEMENT_TAG]: mergedSafeguardAttrs,
         [QUESTION_ELEMENT_TAG]: mergedQuestionAttrs,
       },
-      tagNames: Array.from(new Set([...(defaultSchema.tagNames ?? []), 'span', CONFIG_ELEMENT_TAG, KEEP_UNIQUE_ELEMENT_TAG, QUESTION_ELEMENT_TAG, QUESTION_GROUP_ELEMENT_TAG])),
+      tagNames: Array.from(new Set([...(defaultSchema.tagNames ?? []), 'span', CONFIG_ELEMENT_TAG, SAFEGUARD_ELEMENT_TAG, QUESTION_ELEMENT_TAG, QUESTION_GROUP_ELEMENT_TAG])),
     }
   }, [])
   const rehypePluginsSafe = useMemo<Pluggable[]>(() => (
     [
       rehypeConfigComments,
-      rehypeKeepUniqueComments,
+      rehypeSafeguardComments,
       rehypeQuestionComments,
       rehypeQuestionGroups,
       [rehypeSanitize, sanitizeSchema] as unknown as Pluggable,
     ]
   ), [sanitizeSchema])
   const markdownComponents = useMemo<MarkdownComponentMap>(() => ({
-    [CONFIG_ELEMENT_TAG]: ConfigChipBlock as unknown as React.ComponentType<Record<string, unknown>>,
-    [KEEP_UNIQUE_ELEMENT_TAG]: KeepUniqueBlock as unknown as React.ComponentType<Record<string, unknown>>,
+    [CONFIG_ELEMENT_TAG]: RecipeChipBlock as unknown as React.ComponentType<Record<string, unknown>>,
+    [SAFEGUARD_ELEMENT_TAG]: SafeguardBlock as unknown as React.ComponentType<Record<string, unknown>>,
     [QUESTION_ELEMENT_TAG]: NoteQuestionBlock as unknown as React.ComponentType<Record<string, unknown>>,
     [QUESTION_GROUP_ELEMENT_TAG]: NoteQuestionGroup as unknown as React.ComponentType<Record<string, unknown>>,
   }), [])
@@ -2772,46 +2774,46 @@ export default function NoteDialog({
                       {editNoteLabel}
                     </Button>
                   ) : null}
-                  {hasConfigOptionsMarkers ? (
+                  {hasRecipeOverridesMarkers ? (
                     <>
-                      {/* Group config options actions under a compact menu. */}
+                      {/* Group recipe overrides actions under a compact menu. */}
                       <Button
                         size="small"
                         variant="outlined"
                         endIcon={<ExpandMoreIcon fontSize="small" />}
-                        onClick={openViewConfigOptionsMenu}
+                        onClick={openViewRecipeOverridesMenu}
                         sx={{ whiteSpace: 'nowrap', px: 1.25 }}
                         aria-haspopup="true"
-                        aria-controls={viewConfigOptionsMenuOpen ? 'note-config-options-menu-view' : undefined}
-                        aria-expanded={viewConfigOptionsMenuOpen ? 'true' : undefined}
+                        aria-controls={viewRecipeOverridesMenuOpen ? 'note-recipe-overrides-menu-view' : undefined}
+                        aria-expanded={viewRecipeOverridesMenuOpen ? 'true' : undefined}
                       >
-                        {t('noteConfigOptionsMenu')}
+                        {t('noteRecipeOverridesMenu')}
                       </Button>
                       <Menu
-                        id="note-config-options-menu-view"
-                        anchorEl={viewConfigOptionsMenuAnchor}
-                        open={viewConfigOptionsMenuOpen}
-                        onClose={closeViewConfigOptionsMenu}
+                        id="note-recipe-overrides-menu-view"
+                        anchorEl={viewRecipeOverridesMenuAnchor}
+                        open={viewRecipeOverridesMenuOpen}
+                        onClose={closeViewRecipeOverridesMenu}
                         MenuListProps={{ dense: true }}
-                        TransitionProps={{ onExited: handleViewConfigOptionsMenuExited }}
+                        TransitionProps={{ onExited: handleViewRecipeOverridesMenuExited }}
                       >
                         <MenuItem
                           onClick={() => {
-                            queueViewConfigOptionsMenuAction({ kind: 'reset' })
+                            queueViewRecipeOverridesMenuAction({ kind: 'reset' })
                           }}
                         >
-                          {t('noteConfigOptionsResetDefaults')}
+                          {t('noteRecipeOverridesResetDefaults')}
                         </MenuItem>
                         <MenuItem
                           onClick={() => {
-                            queueViewConfigOptionsMenuAction(
-                              configOptionsDisabled
+                            queueViewRecipeOverridesMenuAction(
+                              recipeOverridesDisabled
                                 ? { kind: 'enable' }
                                 : { kind: 'disable', noteText: note ?? '' },
                             )
                           }}
                         >
-                          {configOptionsDisabled ? t('noteConfigOptionsEnable') : t('noteConfigOptionsDisable')}
+                          {recipeOverridesDisabled ? t('noteRecipeOverridesEnable') : t('noteRecipeOverridesDisable')}
                         </MenuItem>
                       </Menu>
                     </>
@@ -2832,33 +2834,33 @@ export default function NoteDialog({
             onClose={onClose}
             registerCommit={(fn) => { editCommitRef.current = fn }}
             onRequestView={onRequestView}
-            onResetConfigOptionsAnswers={handleResetConfigOptionsAnswers}
-            onOpenDisableConfigOptionsDialog={openDisableConfigOptionsDialog}
-            configOptionsDisabled={configOptionsDisabled}
-            onConfigOptionsDisabledChange={onConfigOptionsDisabledChange}
-            configs={configs}
+            onResetRecipeOverridesAnswers={handleResetRecipeOverridesAnswers}
+            onOpenDisableRecipeOverridesDialog={openDisableRecipeOverridesDialog}
+            recipeOverridesDisabled={recipeOverridesDisabled}
+            onRecipeOverridesDisabledChange={onRecipeOverridesDisabledChange}
+            recipes={recipes}
             metasets={metasets}
-            keepUniqueRules={keepUniqueRules}
-            configOptionsAnswers={configOptionsAnswers}
+            safeguardRules={safeguardRules}
+            recipeOverridesAnswers={recipeOverridesAnswers}
             markdownComponents={markdownComponents}
             allowElement={allowMarkdownElement}
             noteModeButtonMinWidth={noteModeButtonMinWidth}
           />
         )}
       </Dialog>
-      <Dialog open={Boolean(disableConfigOptionsContext)} onClose={closeDisableConfigOptionsDialog}>
-        <DialogTitle>{t('noteConfigOptionsDisableConfirmTitle')}</DialogTitle>
+      <Dialog open={Boolean(disableRecipeOverridesContext)} onClose={closeDisableRecipeOverridesDialog}>
+        <DialogTitle>{t('noteRecipeOverridesDisableConfirmTitle')}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">{t('noteConfigOptionsDisableConfirmBody')}</Typography>
+          <Typography variant="body2">{t('noteRecipeOverridesDisableConfirmBody')}</Typography>
         </DialogContent>
         <DialogActions>
           {/* Use uniform styling so color does not imply priority. */}
-          <Button {...disableConfirmButtonProps} onClick={closeDisableConfigOptionsDialog}>{t('cancel')}</Button>
-          <Button {...disableConfirmButtonProps} onClick={() => handleDisableConfigOptionsConfirm(false)}>
-            {t('noteConfigOptionsDisableConfirmDisable')}
+          <Button {...disableConfirmButtonProps} onClick={closeDisableRecipeOverridesDialog}>{t('cancel')}</Button>
+          <Button {...disableConfirmButtonProps} onClick={() => handleDisableRecipeOverridesConfirm(false)}>
+            {t('noteRecipeOverridesDisableConfirmDisable')}
           </Button>
-          <Button {...disableConfirmButtonProps} onClick={() => handleDisableConfigOptionsConfirm(true)}>
-            {t('noteConfigOptionsDisableConfirmApply')}
+          <Button {...disableConfirmButtonProps} onClick={() => handleDisableRecipeOverridesConfirm(true)}>
+            {t('noteRecipeOverridesDisableConfirmApply')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -2875,14 +2877,14 @@ function NoteEditorContent({
   onClose,
   registerCommit,
   onRequestView,
-  onResetConfigOptionsAnswers,
-  onOpenDisableConfigOptionsDialog,
-  configOptionsDisabled,
-  onConfigOptionsDisabledChange,
-  configs,
+  onResetRecipeOverridesAnswers,
+  onOpenDisableRecipeOverridesDialog,
+  recipeOverridesDisabled,
+  onRecipeOverridesDisabledChange,
+  recipes,
   metasets,
-  keepUniqueRules,
-  configOptionsAnswers,
+  safeguardRules,
+  recipeOverridesAnswers,
   markdownComponents,
   allowElement,
   noteModeButtonMinWidth,
@@ -2895,17 +2897,17 @@ function NoteEditorContent({
   onClose: () => void
   registerCommit: (fn: () => void) => void
   onRequestView: () => void
-  // Reset config options answers back to defaults.
-  onResetConfigOptionsAnswers: () => void
+  // Reset recipe overrides answers back to defaults.
+  onResetRecipeOverridesAnswers: () => void
   // Open the disable-confirm dialog with a draft update hook.
-  onOpenDisableConfigOptionsDialog: (noteText: string) => void
-  // Disable config options parsing without editing the note text.
-  configOptionsDisabled: boolean
-  onConfigOptionsDisabledChange: (next: boolean) => void
-  configs: BuilderConfig[]
+  onOpenDisableRecipeOverridesDialog: (noteText: string) => void
+  // Disable recipe overrides parsing without editing the note text.
+  recipeOverridesDisabled: boolean
+  onRecipeOverridesDisabledChange: (next: boolean) => void
+  recipes: BuilderRecipe[]
   metasets: Metaset[]
-  keepUniqueRules: KeepUniqueRule[]
-  configOptionsAnswers: NoteConfigOptionsAnswers
+  safeguardRules: SafeguardRule[]
+  recipeOverridesAnswers: NoteRecipeOverridesAnswers
   markdownComponents: MarkdownComponentMap
   allowElement: MarkdownAllowElement
   // Match the view/edit button widths to keep the action row stable.
@@ -2914,39 +2916,39 @@ function NoteEditorContent({
   const editWrapRef = useRef<HTMLDivElement | null>(null)
   const editorRef = useRef<RefMDEditor | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  // Anchor the config options menu for edit-mode actions.
-  const [editConfigOptionsMenuAnchor, setEditConfigOptionsMenuAnchor] = useState<HTMLElement | null>(null)
-  // Track whether the edit-mode config options menu is open.
-  const editConfigOptionsMenuOpen = Boolean(editConfigOptionsMenuAnchor)
+  // Anchor the recipe overrides menu for edit-mode actions.
+  const [editRecipeOverridesMenuAnchor, setEditRecipeOverridesMenuAnchor] = useState<HTMLElement | null>(null)
+  // Track whether the edit-mode recipe overrides menu is open.
+  const editRecipeOverridesMenuOpen = Boolean(editRecipeOverridesMenuAnchor)
   // Queue the edit-mode action so we can apply it after the menu closes.
-  const [editConfigOptionsMenuAction, setEditConfigOptionsMenuAction] = useState<ConfigOptionsMenuAction | null>(null)
-  // Open the edit-mode config options menu at the clicked button.
-  const openEditConfigOptionsMenu = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
-    setEditConfigOptionsMenuAnchor(event.currentTarget)
+  const [editRecipeOverridesMenuAction, setEditRecipeOverridesMenuAction] = useState<RecipeOverridesMenuAction | null>(null)
+  // Open the edit-mode recipe overrides menu at the clicked button.
+  const openEditRecipeOverridesMenu = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
+    setEditRecipeOverridesMenuAnchor(event.currentTarget)
   }, [])
-  // Close the edit-mode config options menu without taking action.
-  const closeEditConfigOptionsMenu = React.useCallback(() => {
-    setEditConfigOptionsMenuAnchor(null)
+  // Close the edit-mode recipe overrides menu without taking action.
+  const closeEditRecipeOverridesMenu = React.useCallback(() => {
+    setEditRecipeOverridesMenuAnchor(null)
   }, [])
   // Queue an edit-mode action, then close the menu to trigger exit cleanup.
-  const queueEditConfigOptionsMenuAction = React.useCallback((action: ConfigOptionsMenuAction) => {
+  const queueEditRecipeOverridesMenuAction = React.useCallback((action: RecipeOverridesMenuAction) => {
     // Store the action before closing so exit cleanup can replay it.
-    setEditConfigOptionsMenuAction(action)
+    setEditRecipeOverridesMenuAction(action)
     // Closing the menu first prevents stuck backdrops.
-    closeEditConfigOptionsMenu()
-  }, [closeEditConfigOptionsMenu])
+    closeEditRecipeOverridesMenu()
+  }, [closeEditRecipeOverridesMenu])
   const [draft, setDraft] = useState<string>(note ?? '')
-  // Track config options changes so the view-mode button can signal edits.
-  const baseConfigOptionsSignature = useMemo(
-    () => buildNoteConfigOptionsSignature(note ?? ''),
+  // Track recipe overrides changes so the view-mode button can signal edits.
+  const baseRecipeOverridesSignature = useMemo(
+    () => buildNoteRecipeOverridesSignature(note ?? ''),
     [note],
   )
-  const draftConfigOptionsSignature = useMemo(
-    () => buildNoteConfigOptionsSignature(draft ?? ''),
+  const draftRecipeOverridesSignature = useMemo(
+    () => buildNoteRecipeOverridesSignature(draft ?? ''),
     [draft],
   )
   // Flag when questions were added/removed/changed in the draft.
-  const configOptionsChanged = baseConfigOptionsSignature !== draftConfigOptionsSignature
+  const recipeOverridesChanged = baseRecipeOverridesSignature !== draftRecipeOverridesSignature
   // Keep warning badge tooltips attached to the badge itself.
   const renderWarningBadgeContent = React.useCallback((tooltip: string, disabled: boolean) => (
     <MarkdownTooltip markdown={tooltip} disableHoverListener={disabled}>
@@ -2967,52 +2969,52 @@ function NoteEditorContent({
   // Disable view mode when the draft is empty.
   const draftIsEmpty = !draft.trim()
   const baseContext = useNoteRenderContext()
-  // Resolve config markers inside the editor preview.
-  const editorMarkerResolutions = useMemo(() => buildConfigMarkerResolutions(draft ?? '', configs), [draft, configs])
-  // Resolve keep-unique markers inside the editor preview.
-  const editorKeepUniqueMarkerResolutions = useMemo(
-    () => buildKeepUniqueMarkerResolutions(draft ?? '', keepUniqueRules),
-    [draft, keepUniqueRules],
+  // Resolve recipe markers inside the editor preview.
+  const editorMarkerResolutions = useMemo(() => buildConfigMarkerResolutions(draft ?? '', recipes), [draft, recipes])
+  // Resolve safeguard markers inside the editor preview.
+  const editorSafeguardMarkerResolutions = useMemo(
+    () => buildSafeguardMarkerResolutions(draft ?? '', safeguardRules),
+    [draft, safeguardRules],
   )
-  // Resolve config options markers without making them interactive.
-  const editorConfigOptionsResolutions = useMemo(
-    () => buildConfigOptionsMarkerResolutions(draft ?? '', configOptionsAnswers),
-    [configOptionsAnswers, draft],
+  // Resolve recipe overrides markers without making them interactive.
+  const editorRecipeOverridesResolutions = useMemo(
+    () => buildRecipeOverridesMarkerResolutions(draft ?? '', recipeOverridesAnswers),
+    [recipeOverridesAnswers, draft],
   )
-  // Track whether the draft still contains config options markers.
-  const configOptionsSignature = useMemo(
-    () => buildNoteConfigOptionsSignature(draft ?? ''),
+  // Track whether the draft still contains recipe overrides markers.
+  const recipeOverridesSignature = useMemo(
+    () => buildNoteRecipeOverridesSignature(draft ?? ''),
     [draft],
   )
-  const hasConfigOptionsMarkers = configOptionsSignature !== '[]'
+  const hasRecipeOverridesMarkers = recipeOverridesSignature !== '[]'
   // Reset answers without mutating the draft text.
-  const handleResetConfigOptions = React.useCallback(() => {
-    onConfigOptionsDisabledChange(false)
-    onResetConfigOptionsAnswers()
-  }, [onConfigOptionsDisabledChange, onResetConfigOptionsAnswers])
-  const handleEnableConfigOptions = React.useCallback(() => {
-    onConfigOptionsDisabledChange(false)
-  }, [onConfigOptionsDisabledChange])
+  const handleResetRecipeOverrides = React.useCallback(() => {
+    onRecipeOverridesDisabledChange(false)
+    onResetRecipeOverridesAnswers()
+  }, [onRecipeOverridesDisabledChange, onResetRecipeOverridesAnswers])
+  const handleEnableRecipeOverrides = React.useCallback(() => {
+    onRecipeOverridesDisabledChange(false)
+  }, [onRecipeOverridesDisabledChange])
   // Apply the queued edit-mode action after the menu finishes closing.
-  const handleEditConfigOptionsMenuExited = React.useCallback(() => {
+  const handleEditRecipeOverridesMenuExited = React.useCallback(() => {
     // Run the action only once when the menu has fully unmounted.
-    runConfigOptionsMenuAction(
-      editConfigOptionsMenuAction,
+    runRecipeOverridesMenuAction(
+      editRecipeOverridesMenuAction,
       {
-        onReset: handleResetConfigOptions,
-        onEnable: handleEnableConfigOptions,
-        onDisable: onOpenDisableConfigOptionsDialog,
+        onReset: handleResetRecipeOverrides,
+        onEnable: handleEnableRecipeOverrides,
+        onDisable: onOpenDisableRecipeOverridesDialog,
       },
-      () => setEditConfigOptionsMenuAction(null),
+      () => setEditRecipeOverridesMenuAction(null),
     )
   }, [
-    editConfigOptionsMenuAction,
-    handleEnableConfigOptions,
-    handleResetConfigOptions,
-    onOpenDisableConfigOptionsDialog,
+    editRecipeOverridesMenuAction,
+    handleEnableRecipeOverrides,
+    handleResetRecipeOverrides,
+    onOpenDisableRecipeOverridesDialog,
   ])
   // Ignore answer updates in edit mode so markers stay read-only.
-  const ignoreConfigOptionsAnswerChange = React.useCallback((
+  const ignoreRecipeOverridesAnswerChange = React.useCallback((
     _question: NoteQuestionDefinition,
     _nextAnswer: string[],
     _preferredId?: string,
@@ -3021,19 +3023,19 @@ function NoteEditorContent({
     () => ({
       ...baseContext,
       markerResolutions: editorMarkerResolutions,
-      keepUniqueMarkerResolutions: editorKeepUniqueMarkerResolutions,
-      keepUniqueRules,
-      configOptionsResolutions: editorConfigOptionsResolutions,
-      configOptionsEditable: false,
-      onConfigOptionsAnswerChange: ignoreConfigOptionsAnswerChange,
+      safeguardMarkerResolutions: editorSafeguardMarkerResolutions,
+      safeguardRules,
+      recipeOverridesResolutions: editorRecipeOverridesResolutions,
+      recipeOverridesEditable: false,
+      onRecipeOverridesAnswerChange: ignoreRecipeOverridesAnswerChange,
     }),
     [
       baseContext,
       editorMarkerResolutions,
-      editorKeepUniqueMarkerResolutions,
-      editorConfigOptionsResolutions,
-      keepUniqueRules,
-      ignoreConfigOptionsAnswerChange,
+      editorSafeguardMarkerResolutions,
+      editorRecipeOverridesResolutions,
+      safeguardRules,
+      ignoreRecipeOverridesAnswerChange,
     ],
   )
 
@@ -3051,17 +3053,17 @@ function NoteEditorContent({
   registerCommit(commitAndClose)
 
   const configCommand = useMemo<ICommand>(() => ({
-    name: 'insert-configs',
-    keyCommand: 'insert-configs',
+    name: 'insert-recipes',
+    keyCommand: 'insert-recipes',
     groupName: 'note-inserts',
     // Toolbar tooltips should surface the localized insert label.
-    buttonProps: { 'aria-label': t('noteInsertConfigs'), title: t('noteInsertConfigs') },
+    buttonProps: { 'aria-label': t('noteInsertRecipes'), title: t('noteInsertRecipes') },
     icon: <LocalOfferIcon fontSize="small" />,
     execute: (state, api) => {
-      if (!configs.length) return
+      if (!recipes.length) return
       const text = state.text ?? ''
-      const allIds = configs.map((_, idx) => idx + 1)
-      const usedIds = collectConfigIds(text, configs)
+      const allIds = recipes.map((_, idx) => idx + 1)
+      const usedIds = collectConfigIds(text, recipes)
       const missing = allIds.filter((id) => !usedIds.has(id))
       const markerIds = missing.length ? missing : allIds
       if (!markerIds.length) return
@@ -3074,24 +3076,24 @@ function NoteEditorContent({
       api.setSelectionRange({ start: nextPos, end: nextPos })
       setDraft(nextState.text)
     },
-  }), [configs, setDraft, t])
+  }), [recipes, setDraft, t])
 
-  const keepUniqueCommand = useMemo<ICommand>(() => ({
-    name: 'insert-keep-uniques',
-    keyCommand: 'insert-keep-uniques',
+  const safeguardCommand = useMemo<ICommand>(() => ({
+    name: 'insert-safeguards',
+    keyCommand: 'insert-safeguards',
     groupName: 'note-inserts',
     // Keep-unique markers stay discoverable with a dedicated insert label.
-    buttonProps: { 'aria-label': t('noteInsertKeepUniques'), title: t('noteInsertKeepUniques') },
+    buttonProps: { 'aria-label': t('noteInsertSafeguards'), title: t('noteInsertSafeguards') },
     icon: <StarsIcon fontSize="small" />,
     execute: (state, api) => {
-      if (!keepUniqueRules.length) return
+      if (!safeguardRules.length) return
       const text = state.text ?? ''
-      const allIds = keepUniqueRules.map((_, idx) => idx + 1)
-      const usedIds = collectKeepUniqueIds(text, keepUniqueRules)
+      const allIds = safeguardRules.map((_, idx) => idx + 1)
+      const usedIds = collectSafeguardIds(text, safeguardRules)
       const missing = allIds.filter((id) => !usedIds.has(id))
       const markerIds = missing.length ? missing : allIds
       if (!markerIds.length) return
-      const { block, cursorIndex } = buildKeepUniqueMarkerBlock(markerIds)
+      const { block, cursorIndex } = buildSafeguardMarkerBlock(markerIds)
       const start = state.selection?.start ?? 0
       const end = state.selection?.end ?? start
       const { insert, cursorOffset } = computeBlockInsertion(text, start, end, block, cursorIndex)
@@ -3100,41 +3102,41 @@ function NoteEditorContent({
       api.setSelectionRange({ start: nextPos, end: nextPos })
       setDraft(nextState.text)
     },
-  }), [keepUniqueRules, setDraft, t])
+  }), [safeguardRules, setDraft, t])
 
-  const configOptionsSampleTooltipContent = useMemo(() => {
+  const recipeOverridesSampleTooltipContent = useMemo(() => {
     // Build the shared EBNF text for the tooltip.
-    const ebnfText = buildConfigOptionsEbnfText()
+    const ebnfText = buildRecipeOverridesEbnfText()
     // Reuse the compact example for the tooltip body.
-    const exampleText = CONFIG_OPTIONS_TOOLTIP_EXAMPLE_TEXT
+    const exampleText = RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_TEXT
     // Render the tooltip with headers and preformatted blocks.
     return (
-      <Box sx={CONFIG_OPTIONS_TOOLTIP_WRAP_SX}>
+      <Box sx={RECIPE_OVERRIDES_TOOLTIP_WRAP_SX}>
         <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
-          {CONFIG_OPTIONS_EBNF_HEADER}
+          {RECIPE_OVERRIDES_EBNF_HEADER}
         </Typography>
-        <Box component="pre" sx={CONFIG_OPTIONS_TOOLTIP_CODE_SX}>{ebnfText}</Box>
+        <Box component="pre" sx={RECIPE_OVERRIDES_TOOLTIP_CODE_SX}>{ebnfText}</Box>
         <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
-          {CONFIG_OPTIONS_TOOLTIP_EXAMPLE_HEADER}
+          {RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_HEADER}
         </Typography>
-        <Box component="pre" sx={CONFIG_OPTIONS_TOOLTIP_CODE_SX}>{exampleText}</Box>
+        <Box component="pre" sx={RECIPE_OVERRIDES_TOOLTIP_CODE_SX}>{exampleText}</Box>
       </Box>
     )
   }, [])
 
-  const configOptionsSampleCommand = useMemo<ICommand>(() => ({
-    name: CONFIG_OPTIONS_SAMPLE_COMMAND_KEY,
-    keyCommand: CONFIG_OPTIONS_SAMPLE_COMMAND_KEY,
+  const recipeOverridesSampleCommand = useMemo<ICommand>(() => ({
+    name: RECIPE_OVERRIDES_SAMPLE_COMMAND_KEY,
+    keyCommand: RECIPE_OVERRIDES_SAMPLE_COMMAND_KEY,
     groupName: 'note-inserts',
-    // ConfigOptions samples belong to the same insert block in the toolbar.
-    buttonProps: { 'aria-label': t('noteInsertConfigOptionsSample'), title: t('noteInsertConfigOptionsSample') },
+    // RecipeOverrides samples belong to the same insert block in the toolbar.
+    buttonProps: { 'aria-label': t('noteInsertRecipeOverridesSample'), title: t('noteInsertRecipeOverridesSample') },
     icon: <QuizIcon fontSize="small" />,
     execute: (state, api) => {
       // Insert a sample block at the cursor for quick onboarding.
       const text = state.text ?? ''
       const start = state.selection?.start ?? 0
       const end = state.selection?.end ?? start
-      const block = buildConfigOptionsSampleBlock()
+      const block = buildRecipeOverridesSampleBlock()
       const { insert, cursorOffset } = computeBlockInsertion(text, start, end, block)
       const nextState = api.replaceSelection(insert)
       const nextPos = start + cursorOffset
@@ -3246,9 +3248,9 @@ function NoteEditorContent({
     const noteInsertBlock = [
       commands.divider,
       configCommand,
-      keepUniqueCommand,
+      safeguardCommand,
       metasetCommand,
-      configOptionsSampleCommand,
+      recipeOverridesSampleCommand,
     ]
     // If there is no divider after the title group, add a trailing divider manually.
     if (idxDividerAfterTitle < 0 && idxLink >= 0) {
@@ -3259,9 +3261,9 @@ function NoteEditorContent({
   }, [
     colorCommand,
     configCommand,
-    keepUniqueCommand,
+    safeguardCommand,
     metasetCommand,
-    configOptionsSampleCommand,
+    recipeOverridesSampleCommand,
   ])
 
   return (
@@ -3426,10 +3428,10 @@ function NoteEditorContent({
                         l.includes('color') ? t('mdColor') : raw
                       )
                       // Override the insert-sample tooltip with the richer EBNF snippet.
-                      const isConfigOptionsSample = command?.keyCommand === CONFIG_OPTIONS_SAMPLE_COMMAND_KEY
+                      const isRecipeOverridesSample = command?.keyCommand === RECIPE_OVERRIDES_SAMPLE_COMMAND_KEY
                       // Prefer custom render content for the sample tooltip.
-                      const tooltipProps = isConfigOptionsSample
-                        ? { render: configOptionsSampleTooltipContent }
+                      const tooltipProps = isRecipeOverridesSample
+                        ? { render: recipeOverridesSampleTooltipContent }
                         : { markdown: label }
                       return (
                         // MarkdownTooltip keeps every toolbar command consistent (some strings contain Markdown tokens already).
@@ -3460,16 +3462,16 @@ function NoteEditorContent({
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          {/* Warn when config options markers changed during this edit session. */}
+          {/* Warn when recipe overrides markers changed during this edit session. */}
           <Box component="span" sx={{ display: 'inline-flex' }}>
             <Badge
               overlap="rectangular"
               anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-              invisible={!configOptionsChanged}
+              invisible={!recipeOverridesChanged}
               sx={warningBadgeSx}
               badgeContent={renderWarningBadgeContent(
-                t('noteConfigOptionsChangedTooltip'),
-                !configOptionsChanged,
+                t('noteRecipeOverridesChangedTooltip'),
+                !recipeOverridesChanged,
               )}
             >
               {/* Match the view-mode toggle width so swapping modes doesn't shift layout. */}
@@ -3484,51 +3486,51 @@ function NoteEditorContent({
               </Button>
             </Badge>
           </Box>
-          {hasConfigOptionsMarkers ? (
+          {hasRecipeOverridesMarkers ? (
             <>
-              {/* Keep config options actions behind a single menu button. */}
+              {/* Keep recipe overrides actions behind a single menu button. */}
               <Button
                 size="small"
                 variant="outlined"
                 endIcon={<ExpandMoreIcon fontSize="small" />}
-                onClick={openEditConfigOptionsMenu}
+                onClick={openEditRecipeOverridesMenu}
                 sx={{ whiteSpace: 'nowrap', px: 1.25 }}
                 aria-haspopup="true"
-                aria-controls={editConfigOptionsMenuOpen ? 'note-config-options-menu-edit' : undefined}
-                aria-expanded={editConfigOptionsMenuOpen ? 'true' : undefined}
+                aria-controls={editRecipeOverridesMenuOpen ? 'note-recipe-overrides-menu-edit' : undefined}
+                aria-expanded={editRecipeOverridesMenuOpen ? 'true' : undefined}
               >
-                {t('noteConfigOptionsMenu')}
+                {t('noteRecipeOverridesMenu')}
               </Button>
               <Menu
-                id="note-config-options-menu-edit"
-                anchorEl={editConfigOptionsMenuAnchor}
-                open={editConfigOptionsMenuOpen}
-                onClose={closeEditConfigOptionsMenu}
+                id="note-recipe-overrides-menu-edit"
+                anchorEl={editRecipeOverridesMenuAnchor}
+                open={editRecipeOverridesMenuOpen}
+                onClose={closeEditRecipeOverridesMenu}
                 MenuListProps={{ dense: true }}
-                TransitionProps={{ onExited: handleEditConfigOptionsMenuExited }}
+                TransitionProps={{ onExited: handleEditRecipeOverridesMenuExited }}
               >
                 <MenuItem
                   onClick={() => {
-                    queueEditConfigOptionsMenuAction({ kind: 'reset' })
+                    queueEditRecipeOverridesMenuAction({ kind: 'reset' })
                   }}
                 >
-                  {t('noteConfigOptionsResetDefaults')}
+                  {t('noteRecipeOverridesResetDefaults')}
                 </MenuItem>
                 <MenuItem
                   onClick={() => {
-                    queueEditConfigOptionsMenuAction(
-                      configOptionsDisabled
+                    queueEditRecipeOverridesMenuAction(
+                      recipeOverridesDisabled
                         ? { kind: 'enable' }
                         : { kind: 'disable', noteText: draft ?? '' },
                     )
                   }}
                 >
-                  {configOptionsDisabled ? t('noteConfigOptionsEnable') : t('noteConfigOptionsDisable')}
+                  {recipeOverridesDisabled ? t('noteRecipeOverridesEnable') : t('noteRecipeOverridesDisable')}
                 </MenuItem>
               </Menu>
             </>
           ) : null}
-          {/* Visually separate clear-note from the config actions. */}
+          {/* Visually separate clear-note from the recipe actions. */}
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
           <Button
             size="small"

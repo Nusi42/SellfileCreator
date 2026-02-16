@@ -13,10 +13,10 @@ export interface HsfSubstat {
 }
 
 export interface HsfRule {
-  /** Builder config index (1-based) for host integrations that expect stable IDs. */
-  ConfigID?: number
-  /** Optional builder config name (trimmed) so exported HSF stays human-readable. */
-  ConfigName?: string
+  /** Builder recipe index (1-based) for host integrations that expect stable IDs. */
+  RecipeID?: number
+  /** Optional builder recipe name (trimmed) so exported HSF stays human-readable. */
+  RecipeName?: string
   /** Final 1-based order of this row in the exported Rules array for downstream tracing. */
   RowIdx?: number
   Keep?: boolean

@@ -62,7 +62,7 @@ export default function RestoreAutosaveDialog({
   const { t } = useI18n()
   const [persistedSelection, setPersistedSelection] = useRestoreAutosaveSelectionPreference()
   const [selection, setSelection] = useState<RestoreSelection>(RESTORE_SELECTION_DEFAULT)
-  const configsCount = draft?.Configs?.length ?? 0
+  const recipesCount = draft?.Recipes?.length ?? 0
   const metasCount = draft?.Metasets?.length ?? 0
   // Gear sets are not embedded in autosave/HSFC, so only storage matters here.
   // Why: contributors share `.gearsets.json` separately.
@@ -70,8 +70,8 @@ export default function RestoreAutosaveDialog({
   const hasTargets = Boolean(draft?.substatTargets)
   const hasNote = Boolean(
     (draft?.Note && draft.Note.trim())
-    || (draft?.NoteConfigOptionsAnswers && Object.keys(draft.NoteConfigOptionsAnswers).length > 0)
-    || draft?.NoteConfigOptionsDisabled
+    || (draft?.NoteRecipeOverridesAnswers && Object.keys(draft.NoteRecipeOverridesAnswers).length > 0)
+    || draft?.NoteRecipeOverridesDisabled
   )
   const hasFilters = Boolean(draft?.Filters)
   const hasSort = Boolean(draft && Object.prototype.hasOwnProperty.call(draft, 'TesterSort'))
@@ -79,7 +79,7 @@ export default function RestoreAutosaveDialog({
   const testerSavedAt = formatSavedAt(testerDraft?.savedAt ?? null)
   const defaultSelection = useMemo<RestoreSelection>(() => {
     const next: RestoreSelection = { ...RESTORE_SELECTION_DEFAULT }
-    if (configsCount > 0) next.configs = true
+    if (recipesCount > 0) next.recipes = true
     if (metasCount > 0 && metasetsDiffer) next.metasets = true
     if (hasTargets && targetsDiffer) next.targets = true
     if (hasNote) next.note = true
@@ -88,7 +88,7 @@ export default function RestoreAutosaveDialog({
     if (testerDraft) next.tester = true
     if (gearSetsCount > 0) next.gearSets = true
     return next
-  }, [configsCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, testerDraft])
+  }, [recipesCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, testerDraft])
 
   useEffect(() => {
     if (!open) return
@@ -98,11 +98,11 @@ export default function RestoreAutosaveDialog({
 
   const options = useMemo<RestoreOption[]>(() => {
     const rows: RestoreOption[] = []
-    if (configsCount > 0) {
+    if (recipesCount > 0) {
       rows.push({
-        key: 'configs',
-        label: t('restoreAutosaveConfigsLabel', { count: configsCount }),
-        helper: t('restoreAutosaveConfigsHelper'),
+        key: 'recipes',
+        label: t('restoreAutosaveRecipesLabel', { count: recipesCount }),
+        helper: t('restoreAutosaveRecipesHelper'),
       })
     }
     if (metasCount > 0 && metasetsDiffer) {
@@ -155,7 +155,7 @@ export default function RestoreAutosaveDialog({
       })
     }
     return rows
-  }, [configsCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, testerDraft, t])
+  }, [recipesCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, testerDraft, t])
 
   const hasOptions = options.length > 0
   // Autosave prompts must feel invisible when there's nothing actionable.

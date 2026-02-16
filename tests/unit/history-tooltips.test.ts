@@ -2,23 +2,23 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   createHistoryBuilderBaseline,
-  createBuilderConfigUpdateDescriptor,
-  describeBuilderConfigUpdate,
+  createBuilderRecipeUpdateDescriptor,
+  describeBuilderRecipeUpdate,
   type TranslateFn,
 } from '../../src/history/builderUpdateDescriptor.js'
 import {
-  createConfigAddedDescriptor,
-  describeConfigAdded,
-  describeConfigsDeleted,
-} from '../../src/history/configCollectionDescriptors.js'
+  createRecipeAddedDescriptor,
+  describeRecipeAdded,
+  describeRecipesDeleted,
+} from '../../src/history/recipeCollectionDescriptors.js'
 import { formatHistoryTooltipText } from '../../src/history/historyTooltip.js'
-import { buildInsertionLocation, snapshotConfigLabel } from '../../src/history/historyLabelUtils.js'
-import type { BuilderConfig } from '../../src/lib/hsfBuilder.js'
+import { buildInsertionLocation, snapshotRecipeLabel } from '../../src/history/historyLabelUtils.js'
+import type { BuilderRecipe } from '../../src/lib/hsfBuilder.js'
 import type { Metaset } from '../../src/lib/metasets.js'
 import { StatVariant } from '../../src/lib/types.js'
 
 // Exported so ESLint treats this test file as a module when executed via node:test.
-export function makeConfig(overrides: Partial<BuilderConfig> = {}): BuilderConfig {
+export function makeRecipe(overrides: Partial<BuilderRecipe> = {}): BuilderRecipe {
   return createHistoryBuilderBaseline(overrides)
 }
 
@@ -29,9 +29,9 @@ const stubT: TranslateFn = (key, params) => {
   switch (key) {
     case 'historyBuilderSavedTitle':
       return `Saved ${read(params?.label)}`
-    case 'historyConfigLabel':
+    case 'historyRecipeLabel':
       return `#${read(params?.n)}`
-    case 'builderConfigName':
+    case 'builderRecipeName':
       return 'Name'
     case 'builderAction':
       return 'Action'
@@ -48,10 +48,10 @@ const stubT: TranslateFn = (key, params) => {
   }
 }
 
-test('describeBuilderConfigUpdate summarizes changed fields', () => {
-  const previous = makeConfig({ name: '', keep: true })
-  const next = makeConfig({ name: 'Speed Farm', keep: false })
-  const descriptor = describeBuilderConfigUpdate({
+test('describeBuilderRecipeUpdate summarizes changed fields', () => {
+  const previous = makeRecipe({ name: '', keep: true })
+  const next = makeRecipe({ name: 'Speed Farm', keep: false })
+  const descriptor = describeBuilderRecipeUpdate({
     previous,
     next,
     index: 1,
@@ -67,12 +67,12 @@ test('describeBuilderConfigUpdate summarizes changed fields', () => {
   ])
 })
 
-test('describeConfigAdded appends snapshot detail lines', () => {
-  const cfg = makeConfig({
+test('describeRecipeAdded appends snapshot detail lines', () => {
+  const cfg = makeRecipe({
     mainStatsV: [StatVariant.SPD],
     substatsV: [StatVariant.RES, StatVariant.ACC],
   })
-  const descriptor = describeConfigAdded({
+  const descriptor = describeRecipeAdded({
     index: 0,
     cfg,
     location: null,
@@ -87,14 +87,14 @@ test('describeConfigAdded appends snapshot detail lines', () => {
   )
 })
 
-test('describeConfigsDeleted includes snapshot lines for single deletions', () => {
-  const cfg = makeConfig({
+test('describeRecipesDeleted includes snapshot lines for single deletions', () => {
+  const cfg = makeRecipe({
     // Snapshot now expects set entries so exclusions can be encoded.
     artifactSets: [{ id: 1 }, { id: 2 }],
     mainStatsV: [StatVariant.HP],
   })
-  const descriptor = describeConfigsDeleted({
-    removed: [{ index: 0, cfg, label: snapshotConfigLabel(0, cfg) }],
+  const descriptor = describeRecipesDeleted({
+    removed: [{ index: 0, cfg, label: snapshotRecipeLabel(0, cfg) }],
     t: stubT,
     lang: 'en-US',
     metasets,
@@ -118,9 +118,9 @@ test('formatHistoryTooltipText returns fallback when no descriptor is available'
 })
 
 test('formatHistoryTooltipText includes descriptor lines without shortcut hint', () => {
-  const previous = makeConfig({ name: '', keep: true })
-  const next = makeConfig({ name: 'Speed Farm', keep: false })
-  const descriptor = createBuilderConfigUpdateDescriptor({
+  const previous = makeRecipe({ name: '', keep: true })
+  const next = makeRecipe({ name: 'Speed Farm', keep: false })
+  const descriptor = createBuilderRecipeUpdateDescriptor({
     previous,
     next,
     index: 1,
@@ -148,12 +148,12 @@ test('formatHistoryTooltipText includes descriptor lines without shortcut hint',
 
 test('formatHistoryTooltipText keeps structured payloads bullet-free so icons can render', () => {
   // BuilderTooltipContent parses single-line JSON blobs; preserving the raw text allows icon fallbacks to appear.
-  const cfg = makeConfig({
+  const cfg = makeRecipe({
     artifactSets: [{ id: 9001 }],
     mainStatsV: [StatVariant.HP],
   })
   const location = buildInsertionLocation(0, [])
-  const resolved = describeConfigAdded({
+  const resolved = describeRecipeAdded({
     index: 0,
     cfg,
     location,
@@ -163,7 +163,7 @@ test('formatHistoryTooltipText keeps structured payloads bullet-free so icons ca
   })
   const structuredLine = resolved.detailLines?.find((line) => line.trim().startsWith('{') && line.trim().endsWith('}'))
   assert.ok(structuredLine, 'expected structured snapshot line')
-  const descriptor = createConfigAddedDescriptor({
+  const descriptor = createRecipeAddedDescriptor({
     index: 0,
     cfg,
     previous: [],

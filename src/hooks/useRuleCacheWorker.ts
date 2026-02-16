@@ -1,48 +1,48 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { updateConfigRulesCache, createConfigRulesCache, type ConfigRulesCache } from '../lib/ruleCache'
-import type { BuilderConfig, SellfileExportMode, SubstatTargetTable } from '../lib/hsfBuilder'
+import { updateRecipeRulesCache, createRecipeRulesCache, type RecipeRulesCache } from '../lib/ruleCache'
+import type { BuilderRecipe, SellfileExportMode, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { HsfRuleWithCfg } from '../lib/merge'
 import {
   KEEP_OVERRIDE_RULE_SOURCES,
-  RULE_SOURCE_KEEP_UNIQUES,
+  RULE_SOURCE_SAFEGUARDS,
   computeMergedRules,
 } from '../lib/merge'
-import { configsForRuleBuild, countRulesForConfigs } from '../lib/ruleCacheHelpers'
+import { recipesForRuleBuild, countRulesForRecipes } from '../lib/ruleCacheHelpers'
 import type { RuleCachePipelinePhase, RuleCacheWorkerRequest, RuleCacheWorkerResponse } from '../workers/ruleCacheWorkerTypes'
 import RuleCacheWorker from '../workers/ruleCacheWorker?worker&inline'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import {
-  buildIgnoreKeepUniqueConfigIndices,
-  collectAndComputeKeepUniqueProtection,
-  hasActiveKeepUniqueRules,
-  resolveKeepUniqueRuleLabel,
-  type KeepUniqueDetectionSnapshot,
-  type KeepUniquesMergeInput,
-} from '../lib/keepUniques'
+  buildIgnoreSafeguardConfigIndices,
+  collectAndComputeSafeguardProtection,
+  hasActiveSafeguardRules,
+  resolveSafeguardRuleLabel,
+  type SafeguardDetectionSnapshot,
+  type SafeguardsMergeInput,
+} from '../lib/safeguards'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
-import { evaluateMatchesByConfig } from '../lib/ruleEval'
+import { evaluateMatchesByRecipe } from '../lib/ruleEval'
 import type { TesterMatchWorkerItemResult } from '../workers/testerMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
 import { createProgressThrottler } from '../types/progress'
 import type { TesterPreviewMatch } from '../types/testerPreview'
-import { resolveMatchConfigName } from '../lib/ruleConfigIndex'
+import { resolveMatchRecipeName } from '../lib/ruleRecipeIndex'
 import { PERF_EVENTS, markPerfEvent } from '../lib/perfTimeline'
 import { warmupWasmRuleEngine } from '../lib/wasm/wasmRuleEngine'
 
 type WarmCacheParams = {
-  configs: BuilderConfig[]
+  recipes: BuilderRecipe[]
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
   hsf: HsfFile | null
   finalSellRemainder?: FinalSellRemainderConfig
-  // Keep Uniques state feeds rule injection during warm merges.
-  keepUniques: KeepUniquesMergeInput
+  // Safeguards state feeds rule injection during warm merges.
+  safeguards: SafeguardsMergeInput
 }
 
 type PipelineParams = WarmCacheParams & {
-  configModes: SellfileExportMode[]
+  recipeModes: SellfileExportMode[]
   artifacts: NormalizedGearArtifact[]
   artifactSignature?: string | null
   artifactPatch?: {
@@ -50,7 +50,7 @@ type PipelineParams = WarmCacheParams & {
     removed: number[]
     signature: string | null
   }
-  // Explicit worker cache purge when artifacts disappear so keep-unique detection cannot reuse stale entries.
+  // Explicit worker cache purge when artifacts disappear so safeguard detection cannot reuse stale entries.
   resetArtifacts?: boolean
   fingerprint?: string | null
   skipWarm?: boolean
@@ -59,12 +59,12 @@ type PipelineParams = WarmCacheParams & {
 }
 
 type RuleCacheStateSnapshot = {
-  rulesByConfig: Map<number, HsfRuleWithCfg[]>
-  countsByConfig: Map<number, number>
+  rulesByRecipe: Map<number, HsfRuleWithCfg[]>
+  countsByRecipe: Map<number, number>
   keys: string[]
   substatTargetsKey: string
   mergedRules: HsfRuleWithCfg[]
-  truncatedConfigIndices: number[]
+  truncatedRecipeIndices: number[]
   totalLimitHit: boolean
   excludedByTotalLimitIndices: number[]
 }
@@ -76,14 +76,14 @@ type WarmCacheResult = {
 type PipelineResult = {
   state: RuleCacheStateSnapshot
   matches: TesterMatchWorkerItemResult[]
-  // Keep-unique detection snapshot for the Keep Uniques tab.
-  keepUniqueDetection: KeepUniqueDetectionSnapshot | null
+  // Keep-unique detection snapshot for the Safeguards tab.
+  safeguardDetection: SafeguardDetectionSnapshot | null
   fingerprint: string | null
   artifactSignature: string | null
 }
 
 type CountRulesParams = {
-  configs: readonly BuilderConfig[]
+  recipes: readonly BuilderRecipe[]
   substatTargets: SubstatTargetTable
 }
 
@@ -122,15 +122,15 @@ const maybeMarkPerfEvent = (label: string, data?: PerfEventPayload | PerfEventPa
 
 // Map rule-cache pipeline phases to perf timeline labels to keep matching centralized.
 const RULE_CACHE_PHASE_MARKERS: Record<RuleCachePipelinePhase, string> = {
-  // Baseline passes capture the initial match evaluation before keep-unique overrides.
+  // Baseline passes capture the initial match evaluation before safeguard overrides.
   'baseline:start': PERF_EVENTS.ruleCacheBaselineStart,
   // Baseline done marks the end of the initial matcher pass.
   'baseline:done': PERF_EVENTS.ruleCacheBaselineDone,
-  // Detection start marks the keep-unique detection snapshot phase.
+  // Detection start marks the safeguard detection snapshot phase.
   'detection:start': PERF_EVENTS.ruleCacheDetectionStart,
-  // Detection done signals the end of keep-unique snapshot building.
+  // Detection done signals the end of safeguard snapshot building.
   'detection:done': PERF_EVENTS.ruleCacheDetectionDone,
-  // Final start marks the keep-unique-adjusted match pass.
+  // Final start marks the safeguard-adjusted match pass.
   'final:start': PERF_EVENTS.ruleCacheFinalMatchStart,
   // Final done marks the end of match evaluation.
   'final:done': PERF_EVENTS.ruleCacheFinalMatchDone,
@@ -143,12 +143,12 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const pendingPipelineRef = useRef<Map<number, PendingPipelineRequest>>(new Map())
   const pendingCountRef = useRef<Map<number, PendingCountRequest>>(new Map())
   const abortedIdsRef = useRef<Set<number>>(new Set())
-  const fallbackCacheRef = useRef<ConfigRulesCache | null>(supportsWorkerEnv ? null : createConfigRulesCache())
+  const fallbackCacheRef = useRef<RecipeRulesCache | null>(supportsWorkerEnv ? null : createRecipeRulesCache())
   // Local test runs skip Web Workers, so keep our own artifact map to mimic the patch behavior.
   const fallbackArtifactsRef = useRef<Map<number, NormalizedGearArtifact>>(new Map())
   const fallbackWarmStateRef = useRef<{
     snapshot: RuleCacheStateSnapshot
-    configsForRules: BuilderConfig[]
+    recipesForRules: BuilderRecipe[]
     fingerprint: string | null
   } | null>(null)
   // Local fallback paths run sync WASM helpers, so warm once before any fallback execution.
@@ -173,12 +173,12 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   }, [abortPipelineRequest])
 
   const runWarmLocally = useCallback((params: WarmCacheParams, options?: { onProgress?: (progress: ProgressSnapshot) => void }): WarmCacheResult => {
-    const configsForRules = configsForRuleBuild(params.configs)
+    const recipesForRules = recipesForRuleBuild(params.recipes)
     const previousCache = fallbackCacheRef.current ?? undefined
     const baseRuleCount = Array.isArray(params.hsf?.Rules) ? (params.hsf?.Rules.length ?? 0) : 0
-      const cacheResult = updateConfigRulesCache(previousCache
+      const cacheResult = updateRecipeRulesCache(previousCache
         ? {
-            configs: configsForRules,
+            recipes: recipesForRules,
             metasets: params.metasets,
             substatTargets: params.substatTargets,
           previousCache,
@@ -187,7 +187,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           ...(options?.onProgress ? { onProgress: options.onProgress } : {}),
         }
       : {
-          configs: configsForRules,
+          recipes: recipesForRules,
           metasets: params.metasets,
           substatTargets: params.substatTargets,
           baseRuleCount,
@@ -196,34 +196,34 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     fallbackCacheRef.current = cacheResult.cache
     const mergedRules = computeMergedRules({
       hsf: params.hsf,
-      customCfgs: configsForRules,
+      customRecipes: recipesForRules,
       metasets: params.metasets,
       substatTargets: params.substatTargets,
       ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
-      prebuiltCustomRules: cacheResult.rulesByConfig,
+      prebuiltCustomRules: cacheResult.rulesByRecipe,
       // Keep overrides must be included so warm merges match pipeline merges.
-      keepUniques: params.keepUniques,
+      safeguards: params.safeguards,
     })
     const state: RuleCacheStateSnapshot = {
-      rulesByConfig: cacheResult.rulesByConfig,
-      countsByConfig: cacheResult.countsByConfig,
+      rulesByRecipe: cacheResult.rulesByRecipe,
+      countsByRecipe: cacheResult.countsByRecipe,
       keys: cacheResult.keys,
       substatTargetsKey: cacheResult.substatTargetsKey,
       mergedRules,
-      truncatedConfigIndices: cacheResult.truncatedConfigIndices.slice(),
+      truncatedRecipeIndices: cacheResult.truncatedRecipeIndices.slice(),
       totalLimitHit: cacheResult.totalLimitHit,
       excludedByTotalLimitIndices: cacheResult.excludedByTotalLimitIndices.slice(),
     }
     fallbackWarmStateRef.current = {
       snapshot: state,
-      configsForRules,
+      recipesForRules,
       fingerprint: null,
     }
     return { state }
   }, [])
 
   const runPipelineLocally = useCallback((params: PipelineParams, options?: { onProgress?: (progress: ProgressSnapshot) => void }): PipelineResult => {
-    const warmTotal = params.skipWarm ? 0 : params.configs.length
+    const warmTotal = params.skipWarm ? 0 : params.recipes.length
     const needsMatches = params.skipMatches !== true
     const fallbackArtifactMap = fallbackArtifactsRef.current
     if (params.resetArtifacts) fallbackArtifactMap.clear()
@@ -246,9 +246,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     // track per-artifact fingerprints; the worker handles the finer-grained reuse.
     const artifactList = Array.from(fallbackArtifactMap.values())
     // Avoid detection passes unless at least one keep-override feature is active.
-    const hasActiveKeepUniques = hasActiveKeepUniqueRules(params.keepUniques)
-    // Keep overrides are active when Keep Uniques is enabled.
-    const hasActiveKeepOverrides = hasActiveKeepUniques
+    const hasActiveSafeguards = hasActiveSafeguardRules(params.safeguards)
+    // Keep overrides are active when Safeguards is enabled.
+    const hasActiveKeepOverrides = hasActiveSafeguards
     const needsDetection = needsMatches
       && params.skipDetection !== true
       && hasActiveKeepOverrides
@@ -268,16 +268,16 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       && cachedWarm.fingerprint
       && cachedWarm.fingerprint === params.fingerprint,
     )
-    const configsForRules = canReuseWarm ? cachedWarm!.configsForRules : configsForRuleBuild(params.configs)
+    const recipesForRules = canReuseWarm ? cachedWarm!.recipesForRules : recipesForRuleBuild(params.recipes)
     let cacheResult
     if (canReuseWarm) {
       cacheResult = {
         cache: fallbackCacheRef.current,
-        rulesByConfig: cachedWarm!.snapshot.rulesByConfig,
-        countsByConfig: cachedWarm!.snapshot.countsByConfig,
+        rulesByRecipe: cachedWarm!.snapshot.rulesByRecipe,
+        countsByRecipe: cachedWarm!.snapshot.countsByRecipe,
         keys: cachedWarm!.snapshot.keys,
         substatTargetsKey: cachedWarm!.snapshot.substatTargetsKey,
-        truncatedConfigIndices: cachedWarm!.snapshot.truncatedConfigIndices,
+        truncatedRecipeIndices: cachedWarm!.snapshot.truncatedRecipeIndices,
         totalLimitHit: cachedWarm!.snapshot.totalLimitHit,
         excludedByTotalLimitIndices: cachedWarm!.snapshot.excludedByTotalLimitIndices,
       }
@@ -285,16 +285,16 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     } else {
       const previousCache = fallbackCacheRef.current ?? undefined
       const baseRuleCount = Array.isArray(params.hsf?.Rules) ? (params.hsf?.Rules.length ?? 0) : 0
-      cacheResult = updateConfigRulesCache(previousCache
+      cacheResult = updateRecipeRulesCache(previousCache
         ? {
-            configs: configsForRules,
+            recipes: recipesForRules,
             metasets: params.metasets,
             substatTargets: params.substatTargets,
             previousCache,
             baseRuleCount,
           }
         : {
-            configs: configsForRules,
+            recipes: recipesForRules,
             metasets: params.metasets,
             substatTargets: params.substatTargets,
             baseRuleCount,
@@ -305,20 +305,20 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     if (total > 0 && completed > 0) emitProgress()
 
     // Baseline merges should exclude detection artifacts to avoid double-injection.
-    const baseKeepUniques = hasActiveKeepUniques
-      ? { ...params.keepUniques, detection: null }
-      : params.keepUniques
+    const baseSafeguards = hasActiveSafeguards
+      ? { ...params.safeguards, detection: null }
+      : params.safeguards
     // Precompute ignore-tag indices so matcher precedence can reuse them.
-    const ignoreKeepUniqueConfigIndices = buildIgnoreKeepUniqueConfigIndices(configsForRules)
+    const ignoreSafeguardConfigIndices = buildIgnoreSafeguardConfigIndices(recipesForRules)
     const mergedRulesBaseline = computeMergedRules({
       hsf: params.hsf,
-      customCfgs: configsForRules,
+      customRecipes: recipesForRules,
       metasets: params.metasets,
       substatTargets: params.substatTargets,
       ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
-      prebuiltCustomRules: cacheResult.rulesByConfig,
+      prebuiltCustomRules: cacheResult.rulesByRecipe,
       // Keep overrides must be excluded from the baseline so detection sees raw sell outcomes.
-      keepUniques: baseKeepUniques,
+      safeguards: baseSafeguards,
     })
 
     const baselineMatchMap = new Map<number, TesterMatchWorkerItemResult>()
@@ -327,49 +327,49 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         if (!artifact) continue
         const itemId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? artifact.id ?? NaN)
         if (!Number.isFinite(itemId)) continue
-        const baseEval = evaluateMatchesByConfig(
+        const baseEval = evaluateMatchesByRecipe(
           mergedRulesBaseline,
           artifact.testerItem,
           // Baseline excludes keep overrides so detection stays honest.
-          { configModes: params.configModes, excludeSources: KEEP_OVERRIDE_RULE_SOURCES },
+          { recipeModes: params.recipeModes, excludeSources: KEEP_OVERRIDE_RULE_SOURCES },
         )
         baselineMatchMap.set(itemId, {
           itemId,
           firstMatch: baseEval.firstMatch,
           firstNonExcludedMatch: baseEval.firstNonExcludedMatch ?? baseEval.firstMatch,
-          matchingConfigIndices: baseEval.matchingConfigIndices,
-          matchingConfigDecisions: baseEval.matchingConfigDecisions,
+          matchingRecipeIndices: baseEval.matchingRecipeIndices,
+          matchingRecipeDecisions: baseEval.matchingRecipeDecisions,
         })
       }
       completed += artifactList.length
       if (total > 0) emitProgress()
     }
 
-    const toPreviewMatch = (result: ReturnType<typeof evaluateMatchesByConfig>['firstMatch'], rules: HsfRuleWithCfg[]): TesterPreviewMatch | null => {
+    const toPreviewMatch = (result: ReturnType<typeof evaluateMatchesByRecipe>['firstMatch'], rules: HsfRuleWithCfg[]): TesterPreviewMatch | null => {
       if (!result) return null
       const rule = rules[result.ruleIndex]
-      const cfgIdx = result.cfgIdx ?? null
-      const cfgName = resolveMatchConfigName(cfgIdx, null, rule)
-      // Keep Uniques render with a rule ordinal label instead of a config name.
-      const keepUniqueLabel = rule?.__source === RULE_SOURCE_KEEP_UNIQUES
-        ? resolveKeepUniqueRuleLabel(rule)
+      const recipeIdx = result.recipeIdx ?? null
+      const recipeName = resolveMatchRecipeName(recipeIdx, null, rule)
+      // Safeguards render with a rule ordinal label instead of a recipe name.
+      const safeguardLabel = rule?.__source === RULE_SOURCE_SAFEGUARDS
+        ? resolveSafeguardRuleLabel(rule)
         : null
-      // Prefer real config names but fall back to keep-override labels.
-      const effectiveCfgName = cfgName && cfgName.length > 0
-        ? cfgName
-        : keepUniqueLabel
+      // Prefer real recipe names but fall back to keep-override labels.
+      const effectiveCfgName = recipeName && recipeName.length > 0
+        ? recipeName
+        : safeguardLabel
       return {
         ruleIndex: result.ruleIndex,
         keep: result.keep,
-        cfgIdx,
-        cfgName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
-        ruleLabel: keepUniqueLabel ?? null,
+        recipeIdx,
+        recipeName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
+        ruleLabel: safeguardLabel ?? null,
         ruleSource: rule?.__source ?? null,
       }
     }
 
     // Keep override detection snapshots feed merged rule injection.
-    let keepUniqueDetectionSnapshot: KeepUniqueDetectionSnapshot | null = null
+    let safeguardDetectionSnapshot: SafeguardDetectionSnapshot | null = null
     if (needsDetection) {
       // Build candidate rows so keep overrides only consider sellable items.
       const rows = artifactList.map((artifact, idx) => {
@@ -379,34 +379,34 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           artifact,
           match: null,
           baseMatch: toPreviewMatch(match?.firstNonExcludedMatch ?? match?.firstMatch ?? null, mergedRulesBaseline),
-          matchingCfgIndices: match?.matchingConfigIndices ?? [],
-          matchingConfigDecisions: match?.matchingConfigDecisions ?? [],
+          matchingCfgIndices: match?.matchingRecipeIndices ?? [],
+          matchingRecipeDecisions: match?.matchingRecipeDecisions ?? [],
         }
       })
       // Run collect + detection together so wasm owns one full detection pass.
-      const combinedDetection = collectAndComputeKeepUniqueProtection({
+      const combinedDetection = collectAndComputeSafeguardProtection({
         rows,
         baseRules: mergedRulesBaseline,
-        configModes: params.configModes,
-        rules: params.keepUniques.rules,
-        enabled: params.keepUniques.enabled,
-        ignoreKeepUniqueConfigIndices,
+        recipeModes: params.recipeModes,
+        rules: params.safeguards.rules,
+        enabled: params.safeguards.enabled,
+        ignoreSafeguardConfigIndices,
       })
-      // Keep Uniques snapshot drives rule injection + UI counts.
-      keepUniqueDetectionSnapshot = combinedDetection.detection
+      // Safeguards snapshot drives rule injection + UI counts.
+      safeguardDetectionSnapshot = combinedDetection.detection
     }
 
     const mergedRulesFinal = computeMergedRules({
       hsf: params.hsf,
-      customCfgs: configsForRules,
+      customRecipes: recipesForRules,
       metasets: params.metasets,
       substatTargets: params.substatTargets,
       ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
-      prebuiltCustomRules: cacheResult.rulesByConfig,
-      // Inject keep-unique rules only when detection is active.
-      keepUniques: baseKeepUniques
-        ? { ...params.keepUniques, detection: keepUniqueDetectionSnapshot }
-        : params.keepUniques,
+      prebuiltCustomRules: cacheResult.rulesByRecipe,
+      // Inject safeguard rules only when detection is active.
+      safeguards: baseSafeguards
+        ? { ...params.safeguards, detection: safeguardDetectionSnapshot }
+        : params.safeguards,
     })
 
     const matches: TesterMatchWorkerItemResult[] = []
@@ -415,24 +415,24 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         if (!artifact) continue
         const itemId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
         if (!Number.isFinite(itemId)) continue
-        const fullEval = evaluateMatchesByConfig(
+        const fullEval = evaluateMatchesByRecipe(
           mergedRulesFinal,
           artifact.testerItem,
-          { configModes: params.configModes, ignoreKeepUniqueConfigIndices },
+          { recipeModes: params.recipeModes, ignoreSafeguardConfigIndices },
         )
         const baseEval = baselineMatchMap.get(itemId)
-          ?? evaluateMatchesByConfig(
+          ?? evaluateMatchesByRecipe(
             mergedRulesFinal,
             artifact.testerItem,
             // Baseline keeps ignore keep overrides so precedence math stays correct.
-            { configModes: params.configModes, excludeSources: KEEP_OVERRIDE_RULE_SOURCES },
+            { recipeModes: params.recipeModes, excludeSources: KEEP_OVERRIDE_RULE_SOURCES },
           )
         matches.push({
           itemId,
           firstMatch: fullEval.firstMatch,
           firstNonExcludedMatch: baseEval.firstMatch,
-          matchingConfigIndices: fullEval.matchingConfigIndices,
-          matchingConfigDecisions: fullEval.matchingConfigDecisions,
+          matchingRecipeIndices: fullEval.matchingRecipeIndices,
+          matchingRecipeDecisions: fullEval.matchingRecipeDecisions,
         })
         completed += 1
         if (total > 0 && options?.onProgress) emitProgress()
@@ -440,25 +440,25 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     }
 
     const state: RuleCacheStateSnapshot = {
-      rulesByConfig: cacheResult.rulesByConfig instanceof Map ? cacheResult.rulesByConfig : new Map<number, HsfRuleWithCfg[]>(cacheResult.rulesByConfig),
-      countsByConfig: cacheResult.countsByConfig instanceof Map ? cacheResult.countsByConfig : new Map<number, number>(cacheResult.countsByConfig),
+      rulesByRecipe: cacheResult.rulesByRecipe instanceof Map ? cacheResult.rulesByRecipe : new Map<number, HsfRuleWithCfg[]>(cacheResult.rulesByRecipe),
+      countsByRecipe: cacheResult.countsByRecipe instanceof Map ? cacheResult.countsByRecipe : new Map<number, number>(cacheResult.countsByRecipe),
       keys: cacheResult.keys.slice(),
       substatTargetsKey: cacheResult.substatTargetsKey,
       mergedRules: mergedRulesFinal,
-      truncatedConfigIndices: cacheResult.truncatedConfigIndices.slice(),
+      truncatedRecipeIndices: cacheResult.truncatedRecipeIndices.slice(),
       totalLimitHit: cacheResult.totalLimitHit,
       excludedByTotalLimitIndices: cacheResult.excludedByTotalLimitIndices.slice(),
     }
     fallbackWarmStateRef.current = {
       snapshot: state,
-      configsForRules,
+      recipesForRules,
       fingerprint: params.fingerprint ?? null,
     }
     return {
       state,
       matches,
-      // Keep Uniques detection snapshot supports the tab UI.
-      keepUniqueDetection: keepUniqueDetectionSnapshot,
+      // Safeguards detection snapshot supports the tab UI.
+      safeguardDetection: safeguardDetectionSnapshot,
       fingerprint: params.fingerprint ?? null,
       artifactSignature: params.artifactSignature ?? params.artifactPatch?.signature ?? null,
     }
@@ -509,12 +509,12 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           rules: data.payload.mergedRules.length,
         }))
         const state: RuleCacheStateSnapshot = {
-          rulesByConfig: new Map<number, HsfRuleWithCfg[]>(data.payload.rulesByConfigEntries),
-          countsByConfig: new Map<number, number>(data.payload.countsByConfigEntries),
+          rulesByRecipe: new Map<number, HsfRuleWithCfg[]>(data.payload.rulesByRecipeEntries),
+          countsByRecipe: new Map<number, number>(data.payload.countsByRecipeEntries),
           keys: data.payload.keys,
           substatTargetsKey: data.payload.substatTargetsKey,
           mergedRules: data.payload.mergedRules,
-          truncatedConfigIndices: data.payload.truncatedConfigIndices.slice(),
+          truncatedRecipeIndices: data.payload.truncatedRecipeIndices.slice(),
           totalLimitHit: data.payload.totalLimitHit,
           excludedByTotalLimitIndices: data.payload.excludedByTotalLimitIndices.slice(),
         }
@@ -532,24 +532,24 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           id: data.id,
           rules: data.payload.mergedRules.length,
           matches: data.payload.matches.length,
-          // Detection is considered active when keep-unique snapshot exists.
-          detection: Boolean(data.payload.keepUniqueDetection),
+          // Detection is considered active when safeguard snapshot exists.
+          detection: Boolean(data.payload.safeguardDetection),
         }))
         const state: RuleCacheStateSnapshot = {
-          rulesByConfig: new Map<number, HsfRuleWithCfg[]>(data.payload.rulesByConfigEntries),
-          countsByConfig: new Map<number, number>(data.payload.countsByConfigEntries),
+          rulesByRecipe: new Map<number, HsfRuleWithCfg[]>(data.payload.rulesByRecipeEntries),
+          countsByRecipe: new Map<number, number>(data.payload.countsByRecipeEntries),
           keys: data.payload.keys,
           substatTargetsKey: data.payload.substatTargetsKey,
           mergedRules: data.payload.mergedRules,
-          truncatedConfigIndices: data.payload.truncatedConfigIndices.slice(),
+          truncatedRecipeIndices: data.payload.truncatedRecipeIndices.slice(),
           totalLimitHit: data.payload.totalLimitHit,
           excludedByTotalLimitIndices: data.payload.excludedByTotalLimitIndices.slice(),
         }
         pending.resolve({
           state,
           matches: data.payload.matches,
-          // Keep-unique snapshot feeds the Keep Uniques tab.
-          keepUniqueDetection: data.payload.keepUniqueDetection,
+          // Keep-unique snapshot feeds the Safeguards tab.
+          safeguardDetection: data.payload.safeguardDetection,
           fingerprint: data.payload.fingerprint,
           artifactSignature: data.payload.artifactSignature,
         })
@@ -627,7 +627,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     if (!supportsWorkerEnv || !workerRef.current) {
       // Mark warm start before running the local fallback.
       maybeMarkPerfEvent(PERF_EVENTS.ruleCacheWarmStart, () => ({
-        configs: params.configs.length,
+        recipes: params.recipes.length,
         worker: false,
       }))
       return ensureLocalWasmReady().then(() => {
@@ -683,13 +683,13 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       id,
       kind: 'warm',
       payload: {
-        configs: params.configs,
+        recipes: params.recipes,
         metasets: params.metasets,
         substatTargets: params.substatTargets,
         hsf: params.hsf,
         ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
         // Keep override inputs must ride the worker request so merges stay consistent.
-        keepUniques: params.keepUniques,
+        safeguards: params.safeguards,
       },
     }
 
@@ -697,7 +697,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       // Mark warm start before dispatching to the worker.
       maybeMarkPerfEvent(PERF_EVENTS.ruleCacheWarmStart, () => ({
         id,
-        configs: params.configs.length,
+        recipes: params.recipes.length,
         worker: true,
       }))
       worker.postMessage(message)
@@ -745,8 +745,8 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineDone, () => ({
           rules: result.state.mergedRules.length,
           matches: result.matches.length,
-          // Detection is active when keep-unique snapshot exists.
-          detection: Boolean(result.keepUniqueDetection),
+          // Detection is active when safeguard snapshot exists.
+          detection: Boolean(result.safeguardDetection),
         }))
         return result
       })
@@ -800,14 +800,14 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       id,
       kind: 'pipeline',
       payload: {
-        configs: params.configs,
+        recipes: params.recipes,
         metasets: params.metasets,
         substatTargets: params.substatTargets,
         hsf: params.hsf,
         ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
         // Keep overrides must be supplied so detection + merges match the UI.
-        keepUniques: params.keepUniques,
-        configModes: params.configModes,
+        safeguards: params.safeguards,
+        recipeModes: params.recipeModes,
         artifacts: params.artifacts,
         ...(params.artifactPatch ? { artifactPatch: params.artifactPatch } : {}),
         ...(params.artifactSignature !== undefined ? { artifactSignature: params.artifactSignature ?? null } : {}),
@@ -851,14 +851,14 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
   const countRules = useCallback<UseRuleCacheWorkerResult['countRules']>((params, options) => {
     const signal = options?.signal ?? null
-    const configs = Array.from(params.configs)
+    const recipes = Array.from(params.recipes)
 
     if (!supportsWorkerEnv || !workerRef.current) {
       // Non-worker environments (SSR/tests) fall back to synchronous counting.
       if (signal?.aborted) {
         return Promise.reject(new DOMException('Aborted', 'AbortError'))
       }
-      return ensureLocalWasmReady().then(() => countRulesForConfigs(configs, params.substatTargets))
+      return ensureLocalWasmReady().then(() => countRulesForRecipes(recipes, params.substatTargets))
     }
 
     if (signal?.aborted) {
@@ -894,7 +894,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       id,
       kind: 'builderCount',
       payload: {
-        configs,
+        recipes,
         substatTargets: params.substatTargets,
       },
     }

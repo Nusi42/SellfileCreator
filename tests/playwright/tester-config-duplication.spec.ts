@@ -84,18 +84,18 @@ const readGridSnapshot = async (page: Parameters<typeof test>[0]['page']): Promi
   return rows
 }
 
-const duplicateConfigChip = async (page: Parameters<typeof test>[0]['page'], index: number) => {
+const duplicateRecipeChip = async (page: Parameters<typeof test>[0]['page'], index: number) => {
   // Right-click the target chip and fire the Duplicate action so config indices shift just like the bug report.
   const beforeCount = await page.evaluate(() => {
-    const nodes = Array.from(document.querySelectorAll('[data-config-chip-index]'))
+    const nodes = Array.from(document.querySelectorAll('[data-recipe-chip-index]'))
     const unique = new Set<string>()
     nodes.forEach((node) => {
-      const value = node.getAttribute('data-config-chip-index')
+      const value = node.getAttribute('data-recipe-chip-index')
       if (value) unique.add(value)
     })
     return unique.size
   })
-  const chip = page.locator(`[data-config-chip-index="${index}"]`).first()
+  const chip = page.locator(`[data-recipe-chip-index="${index}"]`).first()
   await chip.scrollIntoViewIfNeeded()
   await page.keyboard.press('Escape')
   await page.evaluate(() => {
@@ -105,10 +105,10 @@ const duplicateConfigChip = async (page: Parameters<typeof test>[0]['page'], ind
   await openContextMenu(page, chip)
   await page.getByRole('menuitem', { name: /Duplicate/i }).click()
   await page.waitForFunction((prev) => {
-    const nodes = Array.from(document.querySelectorAll('[data-config-chip-index]'))
+    const nodes = Array.from(document.querySelectorAll('[data-recipe-chip-index]'))
     const unique = new Set<string>()
     nodes.forEach((node) => {
-      const value = node.getAttribute('data-config-chip-index')
+      const value = node.getAttribute('data-recipe-chip-index')
       if (value) unique.add(value)
     })
     return unique.size === prev + 1
@@ -158,16 +158,16 @@ test.describe('tester grid matches remain stable', () => {
     await waitForTesterGrid(page)
     await waitForMatchingResults(page)
     const initialRows = await readGridSnapshot(page)
-    // Ensure we actually have grid data before we mutate configs.
+    // Ensure we actually have grid data before we mutate recipes.
     expect(initialRows.length).toBeGreaterThan(0)
 
-    await duplicateConfigChip(page, TARGET_CONFIG_INDEX)
+    await duplicateRecipeChip(page, TARGET_CONFIG_INDEX)
     await waitForTesterGrid(page)
     await waitForMatchingResults(page)
     const postDuplicateRows = await readGridSnapshot(page)
     expect(postDuplicateRows.length).toBe(initialRows.length)
 
-    // Config duplication may shift cfgIdx, but keep/sell calls for each artifact must stay consistent.
+    // Config duplication may shift recipeIdx, but keep/sell calls for each artifact must stay consistent.
     expect(postDuplicateRows).toEqual(initialRows)
   })
 })

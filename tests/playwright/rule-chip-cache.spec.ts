@@ -34,14 +34,14 @@ const acceptConfigAutosaveRestore = async (page: Parameters<typeof test>[0]['pag
   // Skip when no restore prompt is displayed.
   const isVisible = await dialog.isVisible().catch(() => false)
   if (!isVisible) return
-  // Ensure configs are selected so the builder list is restored.
-  const configsCheckbox = dialog.getByRole('checkbox', { name: /Configs/i })
+  // Ensure recipes are selected so the builder list is restored.
+  const configsCheckbox = dialog.getByRole('checkbox', { name: /Recipes/i })
   if (await configsCheckbox.isVisible().catch(() => false)) {
     if (!(await configsCheckbox.isChecked().catch(() => false))) {
       await configsCheckbox.click()
     }
   }
-  // Restore the autosave so the configs become available for testing.
+  // Restore the autosave so the recipes become available for testing.
   const restoreButton = dialog.getByRole('button', { name: /Restore selected/i })
   await expect(restoreButton).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
   // Allow the click to wait for async restore work on slower hosts.
@@ -51,7 +51,7 @@ const acceptConfigAutosaveRestore = async (page: Parameters<typeof test>[0]['pag
 }
 
 test.describe('builder rule count chip', () => {
-  test('does not revert to Counting when switching configs', async ({ page }) => {
+  test('does not revert to Counting when switching recipes', async ({ page }) => {
     // Allow the heavy timeout for autosave restore plus rule rebuilds.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
     // Seed storage so the README dialog does not block the shell.
@@ -73,17 +73,17 @@ test.describe('builder rule count chip', () => {
 
     // Load the shell without waiting on full resource load.
     await page.goto('/', APP_GOTO_OPTIONS)
-    // Accept the restore prompt so the autosave configs load into the builder.
+    // Accept the restore prompt so the autosave recipes load into the builder.
     await acceptConfigAutosaveRestore(page)
 
     // Clear any dialogs that would block chip interactions.
     await dismissBlockingDialogs(page)
 
-    const chips = page.locator('[data-config-chip="true"]')
+    const chips = page.locator('[data-recipe-chip="true"]')
     // Wait for at least two chips so the config list is hydrated before we switch.
     // Wait for the chip list to populate before asserting visibility.
     await page.waitForFunction(
-      () => document.querySelectorAll('[data-config-chip="true"]').length >= 2,
+      () => document.querySelectorAll('[data-recipe-chip="true"]').length >= 2,
       undefined,
       { timeout: PLAYWRIGHT_TIMEOUTS.expectLong },
     )

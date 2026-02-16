@@ -101,9 +101,9 @@ export default function HeaderActions(props: {
           alignItems: 'center',
         }}
       >
-        <MarkdownTooltip markdown={t('loadConfigsTooltip')}>
+        <MarkdownTooltip markdown={t('loadRecipesTooltip')}>
           <FilePickerButton
-            label={t('loadConfigs')}
+            label={t('loadRecipes')}
             startIcon={<UploadFileIcon />}
             accept={ACCEPT_HSFC_FILE_DIALOG}
             onBeforeOpen={() => { onAboutToOpenHsfc?.() }}
@@ -114,7 +114,7 @@ export default function HeaderActions(props: {
           />
         </MarkdownTooltip>
         <DirtyBadge active={hsfcDirty} sx={{ flexShrink: 1, minWidth: 0, display: 'inline-flex' }}>
-          <MarkdownTooltip markdown={t('saveAllConfigsTooltip')}>
+          <MarkdownTooltip markdown={t('saveAllRecipesTooltip')}>
             <Button
               startIcon={<SaveIcon />}
               onClick={onSaveHsfc}
@@ -123,7 +123,7 @@ export default function HeaderActions(props: {
               sx={{ maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden', flexShrink: 1, minWidth: 0 }}
             >
               <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX} data-ellipsis-target>
-                {t('saveAllConfigs')}
+                {t('saveAllRecipes')}
               </Typography>
             </Button>
           </MarkdownTooltip>

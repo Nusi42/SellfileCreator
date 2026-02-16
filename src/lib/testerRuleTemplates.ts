@@ -1,7 +1,7 @@
 import { createFactoryBuilderDefaults } from './builderDefaults'
 import { ACCESSORY_NO_SET_ID } from './constants'
 import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
-import type { BuilderConfig } from './hsfBuilder'
+import type { BuilderRecipe } from './hsfBuilder'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import {
   ArtifactType,
@@ -24,7 +24,7 @@ type SubstatEntry = {
   isFlat: boolean
 }
 
-type SubstatRollBounds = NonNullable<BuilderConfig['substatRollBoundsV']>
+type SubstatRollBounds = NonNullable<BuilderRecipe['substatRollBoundsV']>
 
 const clampRollCount = (value: number | null | undefined): number => {
   // Rolls are bounded by the in-game 0..5 range.
@@ -159,10 +159,10 @@ const resolveSetSelection = (artifact: NormalizedGearArtifact): ArtifactSetSelec
   return [{ id: Math.floor(setId) as ArtifactSetId }]
 }
 
-export const buildTesterRuleTemplateConfig = (params: {
+export const buildTesterRuleTemplateRecipe = (params: {
   artifact: NormalizedGearArtifact
   intent: TesterRuleTemplateIntent
-}): BuilderConfig => {
+}): BuilderRecipe => {
   const { artifact, intent } = params
   const base = createFactoryBuilderDefaults()
   const level = resolveItemLevel(artifact)
@@ -175,7 +175,7 @@ export const buildTesterRuleTemplateConfig = (params: {
   const primarySubstats = resolvePrimarySubstats(keepPrimaryCandidates, bracket)
   const useKeepTemplate = intent === 'keep'
   const fixedSubstats = useKeepTemplate ? primarySubstats : substatVariants
-  const resolvedMinCount = Math.min(4, fixedSubstats.length) as BuilderConfig['minCount']
+  const resolvedMinCount = Math.min(4, fixedSubstats.length) as BuilderRecipe['minCount']
   const useAutoMinCount = fixedSubstats.length === 0
   const rollBounds = useKeepTemplate
     ? buildKeepRollBounds(primarySubstats, substatEntries, bracket)

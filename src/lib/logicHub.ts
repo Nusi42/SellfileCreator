@@ -16,16 +16,16 @@ export const FINAL_SELL_DEFAULT_SETS_MODE: FinalSellSetsMode = FINAL_SELL_SETS_M
 
 // Logic Hub dialog tabs stay canonical so autosave/history handlers can share the same tokens.
 // Logic Hub tabs are centrally defined so autosave + history use the same ids.
-export type LogicHubDialogTab = 'finalSell' | 'gear' | 'keepUniques' | 'dungeonDrops'
+export type LogicHubDialogTab = 'finalSell' | 'gear' | 'safeguards' | 'dungeonDrops'
 export const LOGIC_HUB_DIALOG_TAB_FINAL_SELL: LogicHubDialogTab = 'finalSell'
 // Gear tab id lives here ahead of embedding the gear editor content.
 export const LOGIC_HUB_DIALOG_TAB_GEAR: LogicHubDialogTab = 'gear'
-export const LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES: LogicHubDialogTab = 'keepUniques'
+export const LOGIC_HUB_DIALOG_TAB_SAFEGUARDS: LogicHubDialogTab = 'safeguards'
 export const LOGIC_HUB_DIALOG_TAB_DUNGEON: LogicHubDialogTab = 'dungeonDrops'
 // Stable ordering helps consumers clamp restored values to a supported tab id.
 export const LOGIC_HUB_DIALOG_TABS: readonly LogicHubDialogTab[] = [
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
-  LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES,
+  LOGIC_HUB_DIALOG_TAB_SAFEGUARDS,
   LOGIC_HUB_DIALOG_TAB_GEAR,
   LOGIC_HUB_DIALOG_TAB_DUNGEON,
 ] as const
@@ -39,7 +39,7 @@ export const FINAL_SELL_LEVEL_CHOICES: ReadonlyArray<{ key: FinalSellLevel; labe
 ] as const
 
 export function finalSellCoversFullLevelRange(levels: FinalSellLevel[]): boolean {
-  // Empty selections never cover 0–16, so Keep Uniques can lean on this to nudge users.
+  // Empty selections never cover 0–16, so Safeguards can lean on this to nudge users.
   if (!levels.length) return false
   const levelSet = new Set(levels)
   for (const choice of FINAL_SELL_LEVEL_CHOICES) {

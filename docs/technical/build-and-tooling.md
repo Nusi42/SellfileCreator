@@ -53,8 +53,8 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `scripts/test/dump-tests-hsfc.mjs` — extracts HSFC‑readable configs from compiled tests (`npm run tests:extract`).
 - `scripts/test/dump-goldens-all.mjs` — writes golden snapshots for curated HSFC cases.
 - `scripts/test/gen-hsf-from-hsfc.mjs` — generates HSF from a readable HSFC file.
-- `scripts/test/build-hsf-from-config.mjs` — generates HSF from a single HSFC config object (stdin/stdout helper).
-- Fixture writers (`dump-tests-hsfc.mjs`, `dump-goldens-all.mjs`, `gen-hsf-from-hsfc.mjs`, `build-hsf-from-config.mjs`) reuse the builder output verbatim so JSON member order mirrors the RSL Helper export.
+- `scripts/test/build-hsf-from-recipe.mjs` — generates HSF from a single HSFC config object (stdin/stdout helper).
+- Fixture writers (`dump-tests-hsfc.mjs`, `dump-goldens-all.mjs`, `gen-hsf-from-hsfc.mjs`, `build-hsf-from-recipe.mjs`) reuse the builder output verbatim so JSON member order mirrors the RSL Helper export.
 - Fixture HSFs are kept in sync with the app pipeline: `tests/integration/hsfc-fixtures.runner.ts` routes every HSFC through `parseHsfcObject` and `computeMergedRules` so metaset expansion and obsolete-rule pruning match the UI/export behavior, then compares the full rule payloads exactly as emitted (no key reordering, no field trimming).
 - Fixture organization and refresh workflow lives in `tests/FIXTURES.md` for quick reference when adding scenarios or re-generating targets.
   - `scripts/tooling/audit-l10n-widths.ts` — estimates per-locale string width/line growth to flag UI elements that need fixed sizing.
@@ -167,7 +167,7 @@ Coding patterns adopted during the refactor (required for PRs):
 
 - `src/App.tsx`: Main UI — orchestrates builder, configs, metasets, Substat Target Values (`substatTargets`), autosave, preview.
 - `src/components/HelpDialog.tsx`: In-app Help/README viewer. Bundles the top-level `README.md` (via Vite `?raw`) and renders it with the Markdown previewer used elsewhere (sanitized, read-only). The dialog paper pulls the favicon data URL from the `<link rel="icon">` tag (injected by `assetsPlugin`) to paint a richer but still translucent background that matches the app branding without duplicating the asset; the favicon layer scales to 80% of the dialog while preserving aspect ratio.
-- `src/state/appState.tsx`: Context + reducer for core app state. Exposes `AppStateProvider`, `useAppState`, `useAppActions`, and `makeInitialAppState`. Fields: `customCfgs`, `metasets`, `substatTargets` (Substat Target Values), `finalSellRemainder`, `logicHubDialogTab`, `keepUniqueRules`, `keepUniquesEnabled`, `selectedCfgIdx`, `hsfcNote`.
+- `src/state/appState.tsx`: Context + reducer for core app state. Exposes `AppStateProvider`, `useAppState`, `useAppActions`, and `makeInitialAppState`. Fields: `customRecipes`, `metasets`, `substatTargets` (Substat Target Values), `finalSellRemainder`, `logicHubDialogTab`, `keepUniqueRules`, `safeguardsEnabled`, `selectedRecipeIdx`, `hsfcNote`.
 - `src/theme.ts`: MUI dark theme configuration.
 - `src/main.tsx`: App bootstrap with `ThemeProvider` and `CssBaseline`.
   - Wraps `<App />` in `AppStateProvider`, seeding with `defaultSubstatTargets()` (Substat Target Values) and `defaultMetasets()`.
@@ -180,7 +180,7 @@ Coding patterns adopted during the refactor (required for PRs):
 - `src/lib/hsfTypes.ts`: Types for `.hsf` schema (Rules/Substats).
 - `src/lib/ruleEval.ts`: Pure evaluator for testing items against HSF rules (first match wins). Used by the Gear tab inside Logic Hub.
 - `src/lib/hsfBuilder.ts`: Rule builder utilities for generating permutations and thresholds.
-  - Supports fixed substats: `BuilderConfig.fixedSubstatsV` (subset of `substatsV`) are always included in generated combinations.
+  - Supports fixed substats: `BuilderRecipe.fixedSubstatsV` (subset of `substatsV`) are always included in generated combinations.
   - Exposes `defaultSubstatTargets()` and `SubstatTargetTable` to configure per-rank Substat Target Values (1★..6★). Internally these tables are StatVariant-keyed (numeric) for speed; HSFC export converts them to label-keyed maps for readability. `SubstatTargetTable.anyRankDefaultsTo` controls which star bucket fills in those values when a config uses Rank = Any (defaults to 6★). HSFC payloads continue to use the `Minima` property name for backward compatibility.
 - `src/lib/hsfcIO.ts`: HSFC read/write helpers used by Save/Copy/Paste and context menus (normalize readable HSFC → variant model; build readable HSFC payloads from variant state; serialize to Blob). Exports labels via `labelOfVariant` (no `{ id, isFlat }`).
 - `src/lib/icons.ts`: Small utility icon builders (e.g., `makeManageColorsIcon()` for the Manage Colors button).

@@ -6,25 +6,25 @@ import {
   UI_BG_HOVER_DANGER_TRANSITION,
   DANGER_TINT_BG,
   SCROLLING_TOOLTIP_HIDE_MS,
-  BUILDER_CONFIG_CHIPS_EMPTY_MIN_HEIGHT_PX,
+  BUILDER_RECIPE_CHIPS_EMPTY_MIN_HEIGHT_PX,
 } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
-import ConfigChip from './ConfigChip'
-import type { BuilderConfig, SellfileExportMode } from '../lib/hsfBuilder'
+import RecipeChip from './RecipeChip'
+import type { BuilderRecipe, SellfileExportMode } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
-import { ConfigContextMenu } from './ConfigContextMenu'
+import { RecipeContextMenu } from './RecipeContextMenu'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 
 const AUTO_SCROLL_EDGE_PX = 80
 const AUTO_SCROLL_MAX_SPEED_PX = 28
 const DRAG_ACTIVATION_DISTANCE_PX = 4
 
-// Shared localStorage key suffix for the Config Chips context-menu hint.
+// Shared localStorage key suffix for the Recipe Chips context-menu hint.
 // Why: Right-clicking either the empty chips area or an individual chip should dismiss the hint for both.
-const CONFIG_CHIPS_CONTEXT_HINT_ID = 'builderConfigChips'
+const RECIPE_CHIPS_CONTEXT_HINT_ID = 'builderRecipeChips'
 
 type DropGuide = { top: number; left: number; width: number; height: number } | null
 
@@ -54,9 +54,9 @@ type PointerDragSession = {
   copyIntent: boolean
 }
 
-function ConfigChipsPanel(props: {
+function RecipeChipsPanel(props: {
   containerRef: React.MutableRefObject<HTMLDivElement | null>
-  configs: BuilderConfig[]
+  recipes: BuilderRecipe[]
   exportModeOverrides?: SellfileExportMode[]
   maxHeightPx: number
   selectedIndices: number[]
@@ -71,12 +71,12 @@ function ConfigChipsPanel(props: {
   onMoveDown: (idx: number) => void
   onMoveTop: (idx: number) => void
   onMoveBottom: (idx: number) => void
-  onCopyAllConfigs: () => void
+  onCopyAllRecipes: () => void
   onPasteAtEnd: () => void
   onSelectAll: () => void
   selectAllLabelKey: string
-  onCopyConfig: (idx: number) => void
-  onCopyConfigDev?: (idx: number) => void
+  onCopyRecipe: (idx: number) => void
+  onCopyRecipeDev?: (idx: number) => void
   onClearSelection: () => void
   duplicateOfIndices: Array<number | null>
   visibleIndices?: ReadonlySet<number> | null
@@ -86,13 +86,13 @@ function ConfigChipsPanel(props: {
   highlightDelete: boolean
   onHighlightDelete: (active: boolean) => void
   onPrepareDragSelection: (idx: number) => number[]
-  onReorderConfigs: (movingIndices: number[], targetIndex: number, options?: { mode?: 'move' | 'copy' }) => void
+  onReorderRecipes: (movingIndices: number[], targetIndex: number, options?: { mode?: 'move' | 'copy' }) => void
 }) {
   const { t } = useI18n()
   const gearSetCatalogVersion = useGearSetCatalogVersion()
   const {
     containerRef,
-    configs,
+    recipes,
     exportModeOverrides,
     maxHeightPx,
     selectedIndices,
@@ -107,12 +107,12 @@ function ConfigChipsPanel(props: {
     onMoveDown,
     onMoveTop,
     onMoveBottom,
-    onCopyAllConfigs,
+    onCopyAllRecipes,
     onPasteAtEnd,
     onSelectAll,
     selectAllLabelKey,
-    onCopyConfig,
-    onCopyConfigDev,
+    onCopyRecipe,
+    onCopyRecipeDev,
     onClearSelection,
     duplicateOfIndices,
     visibleIndices,
@@ -122,7 +122,7 @@ function ConfigChipsPanel(props: {
     highlightDelete,
     onHighlightDelete,
     onPrepareDragSelection,
-    onReorderConfigs,
+    onReorderRecipes,
   } = props
 
   const [menu, setMenu] = React.useState<null | { open: boolean; x: number; y: number }>(null)
@@ -144,13 +144,13 @@ function ConfigChipsPanel(props: {
   const {
     shouldShow: shouldShowContextHint,
     markSeen: markContextHintSeen,
-  } = useContextMenuHint(CONFIG_CHIPS_CONTEXT_HINT_ID)
+  } = useContextMenuHint(RECIPE_CHIPS_CONTEXT_HINT_ID)
   const [hintPos, setHintPos] = React.useState<{ x: number; y: number } | null>(null)
   const hintActive = hintPos !== null && !menu?.open && shouldShowContextHint
   const resetHint = React.useCallback(() => {
     setHintPos(null)
   }, [])
-  const handleConfigChipsContextMenuHint = React.useCallback(() => {
+  const handleRecipeChipsContextMenuHint = React.useCallback(() => {
     markContextHintSeen()
     resetHint()
   }, [markContextHintSeen, resetHint])
@@ -178,26 +178,26 @@ function ConfigChipsPanel(props: {
   const selectedSet = React.useMemo(() => new Set(selectedIndices), [selectedIndices])
   const visibleSet = visibleIndices ?? null
   const visibleCount = visibleSet
-    ? configs.reduce((count, _cfg, idx) => count + (visibleSet.has(idx) ? 1 : 0), 0)
-    : configs.length
+    ? recipes.reduce((count, _cfg, idx) => count + (visibleSet.has(idx) ? 1 : 0), 0)
+    : recipes.length
   const renderedIndices = React.useMemo(() => {
-    if (!visibleSet) return configs.map((_, idx) => idx)
+    if (!visibleSet) return recipes.map((_, idx) => idx)
     const order: number[] = []
-    configs.forEach((_cfg, idx) => {
+    recipes.forEach((_cfg, idx) => {
       if (visibleSet.has(idx)) order.push(idx)
     })
     return order
-  }, [configs, visibleSet])
+  }, [recipes, visibleSet])
   const minHeightPx = React.useMemo(() => {
     if (maxHeightPx <= 0) return 0
-    if (configs.length === 0) {
-      return Math.min(maxHeightPx, BUILDER_CONFIG_CHIPS_EMPTY_MIN_HEIGHT_PX)
+    if (recipes.length === 0) {
+      return Math.min(maxHeightPx, BUILDER_RECIPE_CHIPS_EMPTY_MIN_HEIGHT_PX)
     }
     return maxHeightPx
-  }, [configs.length, maxHeightPx])
+  }, [recipes.length, maxHeightPx])
 
   const [showFocusRing, setShowFocusRing] = React.useState(false)
-  const dragAllowed = configs.length > 1 && renderedIndices.length > 0
+  const dragAllowed = recipes.length > 1 && renderedIndices.length > 0
   const [dragState, setDragState] = React.useState<DragState | null>(null)
   const dragStateRef = React.useRef<DragState | null>(null)
   React.useEffect(() => { dragStateRef.current = dragState }, [dragState])
@@ -216,11 +216,11 @@ function ConfigChipsPanel(props: {
       return
     }
     // Pull chip DOM nodes so drag math stays synced with layout.
-    const nodes = container.querySelectorAll<HTMLElement>('[data-config-chip-index]')
+    const nodes = container.querySelectorAll<HTMLElement>('[data-recipe-chip-index]')
     const entries: ChipLayoutEntry[] = []
     nodes.forEach((node) => {
       // Skip nodes missing the index attribute.
-      const attr = node.getAttribute('data-config-chip-index')
+      const attr = node.getAttribute('data-recipe-chip-index')
       if (!attr) return
       // Ignore malformed indices to keep drag logic stable.
       const index = Number(attr)
@@ -372,17 +372,17 @@ function ConfigChipsPanel(props: {
     const { indices, dropIndex, copyMode } = current
     if (dropIndex != null) {
       if (copyMode) {
-        onReorderConfigs(indices, dropIndex, { mode: 'copy' })
+        onReorderRecipes(indices, dropIndex, { mode: 'copy' })
       } else {
         const min = indices[0] ?? 0
         const max = (indices[indices.length - 1] ?? -1) + 1
         if (dropIndex < min || dropIndex > max) {
-          onReorderConfigs(indices, dropIndex)
+          onReorderRecipes(indices, dropIndex)
         }
       }
     }
     clearDragState()
-  }, [clearDragState, onReorderConfigs])
+  }, [clearDragState, onReorderRecipes])
 
   const beginDragOperation = React.useCallback((idx: number, selection: number[], copyMode: boolean): boolean => {
     if (selection.length === 0) return false
@@ -641,7 +641,7 @@ function ConfigChipsPanel(props: {
             })}
           />
         ) : null}
-        {configs.length === 0 ? (
+        {recipes.length === 0 ? (
           <Box sx={{ width: '100%', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: 'text.secondary', py: 0.5 }}>
             <Typography variant="body2" sx={{ textAlign: 'center' }}>{t('chipsEmptyPasteHint')}</Typography>
           </Box>
@@ -650,15 +650,15 @@ function ConfigChipsPanel(props: {
             <Typography variant="body2" sx={{ textAlign: 'center' }}>{t('chipsFilteredEmpty')}</Typography>
           </Box>
         ) : (
-          configs.map((c, idx) => {
+          recipes.map((c, idx) => {
             if (visibleSet && !visibleSet.has(idx)) return null
-            // Respect config options overrides when provided by the parent.
+            // Respect recipe overrides when provided by the parent.
             const overrideMode = exportModeOverrides?.[idx]
             const mode = overrideMode ?? c.exportMode
             const isSeparator = mode === 'separator'
             const duplicateIdx = duplicateOf[idx]
             const ghostedWhileDragging = hasActiveDrag && dragGhostSet.has(idx)
-            // Keep separators draggable so multi-select moves always have an anchor, even when the first selected config is a divider.
+            // Keep separators draggable so multi-select moves always have an anchor, even when the first selected recipe is a divider.
             const dragEnabled = dragAllowed
             const pointerHandlers: { onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void } | null = dragEnabled
               ? {
@@ -666,7 +666,7 @@ function ConfigChipsPanel(props: {
                 }
               : null
             return (
-              <ConfigChip
+              <RecipeChip
                 key={idx}
                 index={idx}
                 cfg={c}
@@ -682,20 +682,20 @@ function ConfigChipsPanel(props: {
                 onDuplicate={() => onDuplicate(idx)}
                 onPasteAfter={() => onPasteAfter(idx)}
                 onPasteAtEnd={onPasteAtEnd}
-                onCopy={() => onCopyConfig(idx)}
-                {...(onCopyConfigDev ? { onCopyDev: () => onCopyConfigDev(idx) } : {})}
+                onCopy={() => onCopyRecipe(idx)}
+                {...(onCopyRecipeDev ? { onCopyDev: () => onCopyRecipeDev(idx) } : {})}
                 onSelectAll={onSelectAll}
                 selectAllLabelKey={selectAllLabelKey}
-                onCopyAllConfigs={onCopyAllConfigs}
-                onDeleteAllConfigs={onDeleteAll}
+                onCopyAllRecipes={onCopyAllRecipes}
+                onDeleteAllRecipes={onDeleteAll}
                 deleteAllDisabled={deleteAllDisabled}
                 onMoveUp={() => onMoveUp(idx)}
                 onMoveDown={() => onMoveDown(idx)}
                 onMoveTop={() => onMoveTop(idx)}
                 onMoveBottom={() => onMoveBottom(idx)}
-                isLast={idx === configs.length - 1}
+                isLast={idx === recipes.length - 1}
                 onHover={(enter) => onHoverIdx(enter ? idx : null)}
-                onContextMenuHintSeen={handleConfigChipsContextMenuHint}
+                onContextMenuHintSeen={handleRecipeChipsContextMenuHint}
                 onHighlightDelete={onHighlightDelete}
                 hideTooltip={hasActiveDrag}
                 dragEnabled={dragEnabled}
@@ -707,7 +707,7 @@ function ConfigChipsPanel(props: {
         )}
       </Box>
       <ContextMenuHintOverlay text={t('contextMenuHint')} position={hintActive && !hasActiveDrag ? hintPos : null} />
-      <ConfigContextMenu
+      <RecipeContextMenu
         open={Boolean(menu?.open)}
         anchorPosition={menu?.open ? { top: menu.y, left: menu.x } : null}
         onClose={closeMenu}
@@ -718,7 +718,7 @@ function ConfigChipsPanel(props: {
         actions={{
           pasteAtEnd: onPasteAtEnd,
           selectAll: { handler: onSelectAll, disabled: visibleCount === 0, labelKey: selectAllLabelKey },
-          copyAll: { handler: onCopyAllConfigs, disabled: configs.length === 0 },
+          copyAll: { handler: onCopyAllRecipes, disabled: recipes.length === 0 },
           deleteAll: {
             handler: onDeleteAll,
             disabled: deleteAllDisabled,
@@ -730,9 +730,9 @@ function ConfigChipsPanel(props: {
   )
 }
 
-function areConfigChipsPanelPropsEqual(prev: Readonly<React.ComponentProps<typeof ConfigChipsPanel>>, next: Readonly<React.ComponentProps<typeof ConfigChipsPanel>>): boolean {
+function areRecipeChipsPanelPropsEqual(prev: Readonly<React.ComponentProps<typeof RecipeChipsPanel>>, next: Readonly<React.ComponentProps<typeof RecipeChipsPanel>>): boolean {
   return prev.containerRef === next.containerRef
-    && prev.configs === next.configs
+    && prev.recipes === next.recipes
     && prev.maxHeightPx === next.maxHeightPx
     && prev.selectedIndices === next.selectedIndices
     && prev.metasets === next.metasets
@@ -746,12 +746,12 @@ function areConfigChipsPanelPropsEqual(prev: Readonly<React.ComponentProps<typeo
     && prev.onMoveDown === next.onMoveDown
     && prev.onMoveTop === next.onMoveTop
     && prev.onMoveBottom === next.onMoveBottom
-    && prev.onCopyAllConfigs === next.onCopyAllConfigs
+    && prev.onCopyAllRecipes === next.onCopyAllRecipes
     && prev.onPasteAtEnd === next.onPasteAtEnd
     && prev.onSelectAll === next.onSelectAll
     && prev.selectAllLabelKey === next.selectAllLabelKey
-    && prev.onCopyConfig === next.onCopyConfig
-    && prev.onCopyConfigDev === next.onCopyConfigDev
+    && prev.onCopyRecipe === next.onCopyRecipe
+    && prev.onCopyRecipeDev === next.onCopyRecipeDev
     && prev.onClearSelection === next.onClearSelection
     && prev.duplicateOfIndices === next.duplicateOfIndices
     && prev.visibleIndices === next.visibleIndices
@@ -760,7 +760,7 @@ function areConfigChipsPanelPropsEqual(prev: Readonly<React.ComponentProps<typeo
     && prev.highlightDelete === next.highlightDelete
     && prev.onHighlightDelete === next.onHighlightDelete
     && prev.onPrepareDragSelection === next.onPrepareDragSelection
-    && prev.onReorderConfigs === next.onReorderConfigs
+    && prev.onReorderRecipes === next.onReorderRecipes
 }
 
-export default memo(ConfigChipsPanel, areConfigChipsPanelPropsEqual)
+export default memo(RecipeChipsPanel, areRecipeChipsPanelPropsEqual)

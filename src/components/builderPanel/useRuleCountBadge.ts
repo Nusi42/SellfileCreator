@@ -8,31 +8,31 @@
 import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
-import type { BuilderConfig, SellfileExportMode, SubstatTargetTable } from '../../lib/hsfBuilder'
+import type { BuilderRecipe, SellfileExportMode, SubstatTargetTable } from '../../lib/hsfBuilder'
 import type { I18nContextValue } from '../../lib/i18n'
 import { formatRulesCount } from '../../lib/i18n'
 import { RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT } from '../../lib/constants'
-import { fingerprintConfigForRules } from '../../lib/ruleCache'
+import { fingerprintRecipeForRules } from '../../lib/ruleCache'
 
 type TranslateFn = I18nContextValue['t']
 
 export interface RuleCountBadgeOptions {
-  cfg: BuilderConfig
+  cfg: BuilderRecipe
   substatTargets: SubstatTargetTable
   ruleSubstatTargetsKey: string
   multiEditActive: boolean
-  multiProjectedConfigs: readonly BuilderConfig[] | null
-  multiSourceConfigs: readonly BuilderConfig[] | null
+  multiProjectedRecipes: readonly BuilderRecipe[] | null
+  multiSourceRecipes: readonly BuilderRecipe[] | null
   multiEditSelection: readonly number[]
   multiDirtyKeys: readonly string[]
-  configRuleCounts: ReadonlyMap<number, number>
-  configRuleFingerprints: readonly string[]
+  recipeRuleCounts: ReadonlyMap<number, number>
+  recipeRuleFingerprints: readonly string[]
   selectedIsDirty: boolean
   editingIndex: number | null
-  countRulesForConfigs: (params: { configs: readonly BuilderConfig[]; substatTargets: SubstatTargetTable }, options?: { signal?: AbortSignal }) => Promise<number[]>
+  countRulesForRecipes: (params: { recipes: readonly BuilderRecipe[]; substatTargets: SubstatTargetTable }, options?: { signal?: AbortSignal }) => Promise<number[]>
   awaitRuleCounts?: (() => { token: number; promise: Promise<Map<number, number>> } | null) | null
   rulesBuilding: boolean
-  configsExcludedByTotalLimit: ReadonlySet<number>
+  recipesExcludedByTotalLimit: ReadonlySet<number>
   t: TranslateFn
 }
 
@@ -52,54 +52,54 @@ export function useRuleCountBadge({
   substatTargets,
   ruleSubstatTargetsKey,
   multiEditActive,
-  multiProjectedConfigs,
-  multiSourceConfigs,
+  multiProjectedRecipes,
+  multiSourceRecipes,
   multiEditSelection,
   multiDirtyKeys,
-  configRuleCounts,
-  configRuleFingerprints,
+  recipeRuleCounts,
+  recipeRuleFingerprints,
   selectedIsDirty,
   editingIndex,
-  countRulesForConfigs,
+  countRulesForRecipes,
   awaitRuleCounts,
   rulesBuilding,
-  configsExcludedByTotalLimit,
+  recipesExcludedByTotalLimit,
   t,
 }: RuleCountBadgeOptions): RuleCountBadgeResult {
-  // Debounced rule count for the current builder config
+  // Debounced rule count for the current builder recipe
   const immediateRuleFingerprint = useMemo(
-    () => fingerprintConfigForRules(cfg, ruleSubstatTargetsKey),
+    () => fingerprintRecipeForRules(cfg, ruleSubstatTargetsKey),
     [cfg, ruleSubstatTargetsKey],
   )
-  const deferredMultiProjectedConfigs = useDeferredValue(multiProjectedConfigs)
+  const deferredMultiProjectedRecipes = useDeferredValue(multiProjectedRecipes)
   const deferredCfg = useDeferredValue(cfg)
   const deferredSubstatTargets = useDeferredValue(substatTargets)
   const builderRuleFingerprint = useMemo(
-    () => fingerprintConfigForRules(deferredCfg, ruleSubstatTargetsKey),
+    () => fingerprintRecipeForRules(deferredCfg, ruleSubstatTargetsKey),
     [deferredCfg, ruleSubstatTargetsKey],
   )
   // Multi-edit snapshots build a composite fingerprint so shared worker requests reuse cached totals.
   const multiRuleFingerprint = useMemo(() => {
     if (!multiEditActive) return null
-    const projected = deferredMultiProjectedConfigs ?? multiProjectedConfigs ?? multiSourceConfigs
+    const projected = deferredMultiProjectedRecipes ?? multiProjectedRecipes ?? multiSourceRecipes
     if (!projected || projected.length === 0) return null
     const parts: string[] = []
-    for (const config of projected) {
-      parts.push(fingerprintConfigForRules(config, ruleSubstatTargetsKey))
+    for (const recipe of projected) {
+      parts.push(fingerprintRecipeForRules(recipe, ruleSubstatTargetsKey))
     }
     return parts.join('|')
   }, [
     multiEditActive,
-    deferredMultiProjectedConfigs,
-    multiProjectedConfigs,
-    multiSourceConfigs,
+    deferredMultiProjectedRecipes,
+    multiProjectedRecipes,
+    multiSourceRecipes,
     ruleSubstatTargetsKey,
   ])
   const selectedRuleFingerprint = (typeof editingIndex === 'number' && editingIndex >= 0)
-    ? (configRuleFingerprints[editingIndex] ?? null)
+    ? (recipeRuleFingerprints[editingIndex] ?? null)
     : null
 
-  const singleRuleCacheRef = useRef<{ cfgRef: BuilderConfig | null; substatTargetsRef: SubstatTargetTable | null; fingerprint: string | null; count: number | null }>({
+  const singleRuleCacheRef = useRef<{ cfgRef: BuilderRecipe | null; substatTargetsRef: SubstatTargetTable | null; fingerprint: string | null; count: number | null }>({
     cfgRef: null,
     substatTargetsRef: null,
     fingerprint: null,
@@ -116,7 +116,7 @@ export function useRuleCountBadge({
       }
       let total = 0
       for (const idx of multiEditSelection) {
-        const cachedCount = configRuleCounts.get(idx)
+        const cachedCount = recipeRuleCounts.get(idx)
         if (cachedCount === undefined) {
           return null
         }
@@ -125,7 +125,7 @@ export function useRuleCountBadge({
       return total
     }
     if (typeof editingIndex === 'number' && editingIndex >= 0) {
-      const cachedCount = configRuleCounts.get(editingIndex)
+      const cachedCount = recipeRuleCounts.get(editingIndex)
       if (cachedCount === undefined) {
         return null
       }
@@ -143,9 +143,9 @@ export function useRuleCountBadge({
     if (!multiEditActive) {
       const cache = singleRuleCacheRef.current
       const fingerprintMatchesCache = Boolean(cache.fingerprint && cache.fingerprint === builderRuleFingerprint)
-      const configMatches = cache.cfgRef === deferredCfg
+      const recipeMatches = cache.cfgRef === deferredCfg
       const substatTargetsMatch = cache.substatTargetsRef === deferredSubstatTargets
-      if (fingerprintMatchesCache && configMatches && substatTargetsMatch) {
+      if (fingerprintMatchesCache && recipeMatches && substatTargetsMatch) {
         return cache.count ?? null
       }
     }
@@ -153,7 +153,7 @@ export function useRuleCountBadge({
   }, [
     builderRuleFingerprint,
     immediateRuleFingerprint,
-    configRuleCounts,
+    recipeRuleCounts,
     editingIndex,
     multiDirtyKeys,
     multiEditActive,
@@ -165,7 +165,7 @@ export function useRuleCountBadge({
     editingSelectionChanged,
   ])
 
-  // Rule counts are resolved asynchronously via the worker helper to avoid UI stalls on large configs.
+  // Rule counts are resolved asynchronously via the worker helper to avoid UI stalls on large recipes.
   const latestRuleCountRef = useRef<number | null>(precomputedRuleCount)
   const [asyncRuleCount, setAsyncRuleCount] = useState<number | null>(() => precomputedRuleCount)
   const [asyncCounting, setAsyncCounting] = useState(false)
@@ -207,10 +207,10 @@ export function useRuleCountBadge({
       return
     }
 
-    const activeConfigs: readonly BuilderConfig[] | null = multiEditActive
-      ? (deferredMultiProjectedConfigs ?? multiProjectedConfigs ?? multiSourceConfigs ?? null)
+    const activeRecipes: readonly BuilderRecipe[] | null = multiEditActive
+      ? (deferredMultiProjectedRecipes ?? multiProjectedRecipes ?? multiSourceRecipes ?? null)
       : [deferredCfg]
-    if (!activeConfigs || activeConfigs.length === 0) {
+    if (!activeRecipes || activeRecipes.length === 0) {
       pendingCountAbortRef.current?.abort()
       pendingCountAbortRef.current = null
       pendingFingerprintRef.current = null
@@ -349,7 +349,7 @@ export function useRuleCountBadge({
     pendingFingerprintRef.current = fingerprint
     setAsyncCounting(true)
 
-    countRulesForConfigs({ configs: activeConfigs, substatTargets: deferredSubstatTargets }, { signal: abortController.signal })
+    countRulesForRecipes({ recipes: activeRecipes, substatTargets: deferredSubstatTargets }, { signal: abortController.signal })
       .then((counts) => {
         if (abortController.signal.aborted) return
         const hasInfinite = counts.some((value) => !Number.isFinite(value))
@@ -393,16 +393,16 @@ export function useRuleCountBadge({
   }, [
     awaitRuleCounts,
     builderRuleFingerprint,
-    countRulesForConfigs,
+    countRulesForRecipes,
     deferredCfg,
     deferredSubstatTargets,
-    deferredMultiProjectedConfigs,
+    deferredMultiProjectedRecipes,
     multiDirtyKeys,
     multiEditActive,
     multiEditSelection,
-    multiProjectedConfigs,
+    multiProjectedRecipes,
     multiRuleFingerprint,
-    multiSourceConfigs,
+    multiSourceRecipes,
     precomputedRuleCount,
     rulesBuilding,
     editingIndex,
@@ -429,26 +429,26 @@ export function useRuleCountBadge({
   const displayRuleCount = ruleCount ?? lastResolvedRuleCountRef.current ?? null
   const hasTotalLimitSelection = useMemo(() => {
     if (multiEditActive) {
-      return multiEditSelection.some((idx) => configsExcludedByTotalLimit.has(idx))
+      return multiEditSelection.some((idx) => recipesExcludedByTotalLimit.has(idx))
     }
     if (typeof editingIndex === 'number' && editingIndex >= 0) {
-      return configsExcludedByTotalLimit.has(editingIndex)
+      return recipesExcludedByTotalLimit.has(editingIndex)
     }
     return false
-  }, [configsExcludedByTotalLimit, editingIndex, multiEditActive, multiEditSelection])
+  }, [recipesExcludedByTotalLimit, editingIndex, multiEditActive, multiEditSelection])
   const ruleCountLimitValue = hasTotalLimitSelection ? TOTAL_RULE_COUNT_LIMIT : RULE_COUNT_LIMIT
   const warnEligibleExportMode = useMemo(() => {
     if (multiEditActive) {
-      const projected = deferredMultiProjectedConfigs ?? multiProjectedConfigs ?? multiSourceConfigs
+      const projected = deferredMultiProjectedRecipes ?? multiProjectedRecipes ?? multiSourceRecipes
       if (!projected || projected.length === 0) return false
-      return projected.every((config) => {
-        const mode = (config.exportMode ?? 'active') as SellfileExportMode
+      return projected.every((recipe) => {
+        const mode = (recipe.exportMode ?? 'active') as SellfileExportMode
         return mode === 'active' || mode === 'disabled'
       })
     }
     const singleMode = (cfg.exportMode ?? 'active') as SellfileExportMode
     return singleMode === 'active' || singleMode === 'disabled'
-  }, [cfg.exportMode, deferredMultiProjectedConfigs, multiEditActive, multiProjectedConfigs, multiSourceConfigs])
+  }, [cfg.exportMode, deferredMultiProjectedRecipes, multiEditActive, multiProjectedRecipes, multiSourceRecipes])
   // Translation stored for the spinner aria-label so screen readers still hear "counting".
   const countingLabel = t('counting')
   const sampleMaxRulesLabel = formatRulesCount(t, Number.POSITIVE_INFINITY, { limit: ruleCountLimitValue })

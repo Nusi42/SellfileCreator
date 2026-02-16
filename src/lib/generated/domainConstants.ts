@@ -48,7 +48,7 @@ export const RARITY_CODE_LTE_MYTHICAL = 14
 export const RARITY_CODE_MYTHICAL = 15
 export const RARITY_CODE_GTE_LEGENDARY = 16
 
-// Rank value bounds shared across TS and Rust keep-unique/matcher logic.
+// Rank value bounds shared across TS and Rust safeguard/matcher logic.
 export const RANK_VALUE_MIN = 1
 export const RANK_VALUE_MAX = 6
 
@@ -85,26 +85,26 @@ export const AUTO_RARITY_INCLUDES_MYTHICAL_BY_CODE = [false, false, false, false
 export const AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE = [0, 0, 1, 2, 3, 4, 0, 1, 2, 3, 0, 0, 0, 0, 0, 4, 4] as const
 
 // Keep-unique token + default mode constants used by TS and Rust paths.
-export const KEEP_UNIQUE_ACTIVATION_OFF = "off"
-export const KEEP_UNIQUE_ACTIVATION_PROTECT_EXISTING = "protectExisting"
-export const KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS = "anticipateGaps"
-export const KEEP_UNIQUE_SUBSTAT_ANY = "any"
-export const KEEP_UNIQUE_SUBSTAT_ALL = "all"
-export const KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT = "perSubstat"
-export const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_RULE = false
-export const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SET = true
-export const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_FACTION = true
-export const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_MAIN_STAT = true
-export const KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SLOT = false
-export const KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS = true
-export const KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION = false
-export const KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT = false
-export const KEEP_UNIQUE_REASON_GLOBAL = "global"
-export const KEEP_UNIQUE_REASON_GROUP = "group"
-export const KEEP_UNIQUE_WEIGHT_STEP = 0.05
-export const KEEP_UNIQUE_WEIGHT_MIN = 0.1
-export const KEEP_UNIQUE_WEIGHT_MAX = 3
-export const KEEP_UNIQUE_WEIGHT_DEFAULT = 1
+export const SAFEGUARD_ACTIVATION_OFF = "off"
+export const SAFEGUARD_ACTIVATION_PROTECT_EXISTING = "protectExisting"
+export const SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS = "anticipateGaps"
+export const SAFEGUARD_SUBSTAT_ANY = "any"
+export const SAFEGUARD_SUBSTAT_ALL = "all"
+export const SAFEGUARD_SUBSTAT_PER_SUBSTAT = "perSubstat"
+export const SAFEGUARD_DEFAULT_COUNT_MODE_PER_RULE = false
+export const SAFEGUARD_DEFAULT_COUNT_MODE_PER_SET = true
+export const SAFEGUARD_DEFAULT_COUNT_MODE_PER_FACTION = true
+export const SAFEGUARD_DEFAULT_COUNT_MODE_PER_MAIN_STAT = true
+export const SAFEGUARD_DEFAULT_COUNT_MODE_PER_SLOT = false
+export const SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS = true
+export const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION = false
+export const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT = false
+export const SAFEGUARD_REASON_GLOBAL = "global"
+export const SAFEGUARD_REASON_GROUP = "group"
+export const SAFEGUARD_WEIGHT_STEP = 0.05
+export const SAFEGUARD_WEIGHT_MIN = 0.1
+export const SAFEGUARD_WEIGHT_MAX = 3
+export const SAFEGUARD_WEIGHT_DEFAULT = 1
 
 // Shared UI/rule ordering tables so TS and Rust sort with one SSOT payload.
 export const PREFERRED_ARTIFACT_TYPE_ORDER = [5, 1, 6, 3, 2, 4, 7, 8, 9] as const

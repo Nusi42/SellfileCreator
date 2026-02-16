@@ -1,9 +1,9 @@
-import type { BuilderConfig, SellfileExportMode, SubstatTargetTable } from '../lib/hsfBuilder'
+import type { BuilderRecipe, SellfileExportMode, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { HsfRuleWithCfg } from '../lib/merge'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
-import type { KeepUniqueDetectionSnapshot, KeepUniquesMergeInput } from '../lib/keepUniques'
+import type { SafeguardDetectionSnapshot, SafeguardsMergeInput } from '../lib/safeguards'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { TesterMatchWorkerItemResult } from './testerMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
@@ -12,12 +12,12 @@ export type RuleCacheWarmRequest = {
   id: number
   kind: 'warm'
   payload: {
-    configs: BuilderConfig[]
+    recipes: BuilderRecipe[]
     metasets: Metaset[]
     substatTargets: SubstatTargetTable
     hsf: HsfFile | null
     finalSellRemainder?: FinalSellRemainderConfig
-    keepUniques: KeepUniquesMergeInput
+    safeguards: SafeguardsMergeInput
   }
 }
 
@@ -25,12 +25,12 @@ export type RuleCacheWarmResponse = {
   id: number
   kind: 'warm:done'
   payload: {
-    rulesByConfigEntries: Array<[number, HsfRuleWithCfg[]]>
-    countsByConfigEntries: Array<[number, number]>
+    rulesByRecipeEntries: Array<[number, HsfRuleWithCfg[]]>
+    countsByRecipeEntries: Array<[number, number]>
     keys: string[]
     substatTargetsKey: string
     mergedRules: HsfRuleWithCfg[]
-    truncatedConfigIndices: number[]
+    truncatedRecipeIndices: number[]
     totalLimitHit: boolean
     excludedByTotalLimitIndices: number[]
   }
@@ -46,7 +46,7 @@ export type RuleCacheBuilderCountRequest = {
   id: number
   kind: 'builderCount'
   payload: {
-    configs: BuilderConfig[]
+    recipes: BuilderRecipe[]
     substatTargets: SubstatTargetTable
   }
 }
@@ -63,13 +63,13 @@ export type RuleCachePipelineRequest = {
   id: number
   kind: 'pipeline'
   payload: {
-    configs: BuilderConfig[]
+    recipes: BuilderRecipe[]
     metasets: Metaset[]
     substatTargets: SubstatTargetTable
     hsf: HsfFile | null
     finalSellRemainder?: FinalSellRemainderConfig
-    keepUniques: KeepUniquesMergeInput
-    configModes: SellfileExportMode[]
+    safeguards: SafeguardsMergeInput
+    recipeModes: SellfileExportMode[]
     artifacts?: NormalizedGearArtifact[]
     artifactPatch?: {
       changed: Array<[number, NormalizedGearArtifact]>
@@ -89,17 +89,17 @@ export type RuleCachePipelineResponse = {
   id: number
   kind: 'pipeline:done'
   payload: {
-    rulesByConfigEntries: Array<[number, HsfRuleWithCfg[]]>
-    countsByConfigEntries: Array<[number, number]>
+    rulesByRecipeEntries: Array<[number, HsfRuleWithCfg[]]>
+    countsByRecipeEntries: Array<[number, number]>
     keys: string[]
     substatTargetsKey: string
     mergedRules: HsfRuleWithCfg[]
-    truncatedConfigIndices: number[]
+    truncatedRecipeIndices: number[]
     totalLimitHit: boolean
     excludedByTotalLimitIndices: number[]
     matches: TesterMatchWorkerItemResult[]
     // Keep-unique detection snapshot for UI inspection + cache parity.
-    keepUniqueDetection: KeepUniqueDetectionSnapshot | null
+    safeguardDetection: SafeguardDetectionSnapshot | null
     fingerprint: string | null
     artifactSignature: string | null
   }

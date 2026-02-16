@@ -1,4 +1,4 @@
-import { resolveAutoRarityCode, type BuilderConfig } from './hsfBuilder'
+import { resolveAutoRarityCode, type BuilderRecipe } from './hsfBuilder'
 import {
   LEVEL_MILESTONES,
   compareArtifactSets,
@@ -6,7 +6,7 @@ import {
   compareVariants,
 } from './types'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
-import { hasIgnoreKeepUniqueTag } from './tagHelpers'
+import { hasIgnoreSafeguardTag } from './tagHelpers'
 
 const IGNORED_KEYS = new Set([
   // Cosmetic metadata never alters the generated rules, so we exclude it from fingerprints.
@@ -114,9 +114,9 @@ const canonicalizeUnknown = (value: unknown): unknown => {
   return undefined
 }
 
-export type BuilderConfigSnapshot = Record<string, unknown>
+export type BuilderRecipeSnapshot = Record<string, unknown>
 
-export function buildCanonicalConfigSnapshot(cfg: BuilderConfig): BuilderConfigSnapshot {
+export function buildCanonicalRecipeSnapshot(cfg: BuilderRecipe): BuilderRecipeSnapshot {
   const entries: SnapshotEntry[] = []
   const push = (key: string, value: unknown): void => {
     if (value === undefined) return
@@ -167,7 +167,7 @@ export function buildCanonicalConfigSnapshot(cfg: BuilderConfig): BuilderConfigS
   push('artifactMetaSets', sortStrings(cfg.artifactMetaSets))
   push('earlyKeepMode', cfg.earlyKeepMode === 'late' ? 'late' : 'early')
   // Keep-unique ignore tags affect match ordering, so include them in fingerprints.
-  push('ignoreKeepUniqueTag', hasIgnoreKeepUniqueTag(cfg.tags))
+  push('ignoreSafeguardTag', hasIgnoreSafeguardTag(cfg.tags))
 
   const knownKeys = new Set(entries.map(([key]) => key))
 

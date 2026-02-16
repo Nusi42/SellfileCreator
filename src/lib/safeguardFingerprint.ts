@@ -1,17 +1,17 @@
-import { hashKeepUniqueCombination, sanitizeKeepUniqueCountMode, type KeepUniqueDetectionSnapshot } from './keepUniques'
+import { hashSafeguardCombination, sanitizeSafeguardCountMode, type SafeguardDetectionSnapshot } from './safeguards'
 
 /**
- * Build a stable fingerprint for Keep Unique detection snapshots so callers in the
+ * Build a stable fingerprint for safeguards detection snapshots so callers in the
  * app shell and the worker can cheaply detect deltas without diffing the full payload.
  * The worker cannot import the React hook version, so this module provides a pure helper.
  */
-export const fingerprintKeepUniqueDetection = (
-  snapshot: KeepUniqueDetectionSnapshot | null,
+export const fingerprintSafeguardDetection = (
+  snapshot: SafeguardDetectionSnapshot | null,
 ): string | null => {
   if (!snapshot) return null
   const parts: string[] = []
   for (const entry of snapshot.entries) {
-    const mode = sanitizeKeepUniqueCountMode(entry.countMode)
+    const mode = sanitizeSafeguardCountMode(entry.countMode)
     parts.push([
       entry.ruleId ?? '',
       entry.ruleActivation ?? '',
@@ -29,7 +29,7 @@ export const fingerprintKeepUniqueDetection = (
       entry.coveredByExisting ? 1 : 0,
       entry.itemKeys.join(','),
       entry.placeholders.length,
-      entry.placeholders.map((placeholder) => `${hashKeepUniqueCombination(placeholder.combination)}:${placeholder.missing}:${placeholder.reason}`).join(','),
+      entry.placeholders.map((placeholder) => `${hashSafeguardCombination(placeholder.combination)}:${placeholder.missing}:${placeholder.reason}`).join(','),
     ].join(':'))
   }
   return parts.join(';')

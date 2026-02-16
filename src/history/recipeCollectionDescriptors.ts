@@ -1,19 +1,19 @@
-// configCollectionDescriptors keeps config list history localized at render time.
+// recipeCollectionDescriptors keeps recipe list history localized at render time.
 import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
-import type { BuilderConfig } from '../lib/hsfBuilder'
+import type { BuilderRecipe } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { BuilderFieldKey } from '../lib/multiEditDraft'
-import { makeBuilderConfigSnapshotLines } from './builderUpdateDescriptor'
+import { makeBuilderRecipeSnapshotLines } from './builderUpdateDescriptor'
 import type { TranslateFn } from './historyI18n'
-import type { ConfigInsertionLocation, ConfigLabelSnapshot } from './historyLabelUtils'
+import type { RecipeInsertionLocation, RecipeLabelSnapshot } from './historyLabelUtils'
 import {
   buildInsertionLocation,
-  formatConfigLabel,
-  formatConfigLabelFromConfig,
+  formatRecipeLabel,
+  formatRecipeLabelFromRecipe,
   formatInsertionLocation,
-  snapshotConfigLabel,
+  snapshotRecipeLabel,
 } from './historyLabelUtils'
-import { snapshotBuilderConfig, snapshotMetasets } from './historySnapshotUtils'
+import { snapshotBuilderRecipe, snapshotMetasets } from './historySnapshotUtils'
 
 // Cap label lists so history tooltips stay compact.
 const MAX_DETAIL_LABELS = 4
@@ -21,8 +21,8 @@ const MAX_DETAIL_LABELS = 4
 // DescribeConfigAddedParams drive localized history output.
 type DescribeConfigAddedParams = {
   index: number
-  cfg: BuilderConfig
-  location: ConfigInsertionLocation | null
+  cfg: BuilderRecipe
+  location: RecipeInsertionLocation | null
   t: TranslateFn
   lang: string
   metasets: Metaset[]
@@ -30,21 +30,21 @@ type DescribeConfigAddedParams = {
 
 // DescribeConfigsDuplicatedParams carries localized duplication details.
 type DescribeConfigsDuplicatedParams = {
-  labels: ConfigLabelSnapshot[]
-  location: ConfigInsertionLocation | null
+  labels: RecipeLabelSnapshot[]
+  location: RecipeInsertionLocation | null
   t: TranslateFn
 }
 
 // DescribeConfigsMovedParams carries localized move details.
 type DescribeConfigsMovedParams = {
   direction: 'up' | 'down' | 'top' | 'bottom'
-  labels: ConfigLabelSnapshot[]
+  labels: RecipeLabelSnapshot[]
   t: TranslateFn
 }
 
-// DescribeConfigsDeletedParams handles deletions plus config snapshots.
+// DescribeConfigsDeletedParams handles deletions plus recipe snapshots.
 type DescribeConfigsDeletedParams = {
-  removed: Array<{ index: number; cfg: BuilderConfig | undefined; label: ConfigLabelSnapshot }>
+  removed: Array<{ index: number; cfg: BuilderRecipe | undefined; label: RecipeLabelSnapshot }>
   t: TranslateFn
   lang: string
   metasets: Metaset[]
@@ -59,14 +59,14 @@ type DescribeConfigsClearedParams = {
 // DescribeConfigsInsertedParams covers paste/import entries.
 type DescribeConfigsInsertedParams = {
   mode: 'paste' | 'import'
-  labels: ConfigLabelSnapshot[]
-  location: ConfigInsertionLocation | null
+  labels: RecipeLabelSnapshot[]
+  location: RecipeInsertionLocation | null
   t: TranslateFn
 }
 
-// DescribeConfigOptionsAppliedParams details config option toggles.
-type DescribeConfigOptionsAppliedParams = {
-  labels: ConfigLabelSnapshot[]
+// DescribeRecipeOverridesAppliedParams details recipe-override toggles.
+type DescribeRecipeOverridesAppliedParams = {
+  labels: RecipeLabelSnapshot[]
   enableCount: number
   disableCount: number
   t: TranslateFn
@@ -74,59 +74,59 @@ type DescribeConfigOptionsAppliedParams = {
 
 // DescribeMultiEditAppliedParams details multi-edit operations.
 type DescribeMultiEditAppliedParams = {
-  labels: ConfigLabelSnapshot[]
+  labels: RecipeLabelSnapshot[]
   fieldKeys: BuilderFieldKey[]
   t: TranslateFn
 }
 
-// createConfigAddedDescriptor snapshots a newly inserted config for history.
-export const createConfigAddedDescriptor = (params: {
+// createRecipeAddedDescriptor snapshots a newly inserted recipe for history.
+export const createRecipeAddedDescriptor = (params: {
   index: number
-  cfg: BuilderConfig
-  previous: BuilderConfig[]
+  cfg: BuilderRecipe
+  previous: BuilderRecipe[]
   metasets: Metaset[]
 }): HistoryEntryDescriptor => {
   const { index, cfg, previous, metasets } = params
   return {
-    kind: 'configAdded',
+    kind: 'recipeAdded',
     index,
-    cfg: snapshotBuilderConfig(cfg),
+    cfg: snapshotBuilderRecipe(cfg),
     location: buildInsertionLocation(index, previous),
     metasets: snapshotMetasets(metasets),
   }
 }
 
-// createConfigsDuplicatedDescriptor snapshots duplicated labels for history.
-export const createConfigsDuplicatedDescriptor = (params: {
-  labels: ConfigLabelSnapshot[]
-  location: ConfigInsertionLocation | null
+// createRecipesDuplicatedDescriptor snapshots duplicated labels for history.
+export const createRecipesDuplicatedDescriptor = (params: {
+  labels: RecipeLabelSnapshot[]
+  location: RecipeInsertionLocation | null
 }): HistoryEntryDescriptor | null => {
   const { labels, location } = params
   if (labels.length === 0) return null
   return {
-    kind: 'configsDuplicated',
+    kind: 'recipesDuplicated',
     labels,
     location,
   }
 }
 
-// createConfigsMovedDescriptor snapshots a move action for history.
-export const createConfigsMovedDescriptor = (params: {
+// createRecipesMovedDescriptor snapshots a move action for history.
+export const createRecipesMovedDescriptor = (params: {
   direction: DescribeConfigsMovedParams['direction']
-  labels: ConfigLabelSnapshot[]
+  labels: RecipeLabelSnapshot[]
 }): HistoryEntryDescriptor | null => {
   const { direction, labels } = params
   if (labels.length === 0) return null
   return {
-    kind: 'configsMoved',
+    kind: 'recipesMoved',
     direction,
     labels,
   }
 }
 
-// createConfigsDeletedDescriptor snapshots deleted configs for history.
-export const createConfigsDeletedDescriptor = (params: {
-  removed: Array<{ index: number; cfg: BuilderConfig | undefined }>
+// createRecipesDeletedDescriptor snapshots deleted recipes for history.
+export const createRecipesDeletedDescriptor = (params: {
+  removed: Array<{ index: number; cfg: BuilderRecipe | undefined }>
   metasets: Metaset[]
 }): HistoryEntryDescriptor | null => {
   const { removed, metasets } = params
@@ -135,49 +135,49 @@ export const createConfigsDeletedDescriptor = (params: {
     .filter((entry) => Boolean(entry.cfg))
     .map((entry) => ({
       index: entry.index,
-      cfg: snapshotBuilderConfig(entry.cfg!),
-      label: snapshotConfigLabel(entry.index, entry.cfg!),
+      cfg: snapshotBuilderRecipe(entry.cfg!),
+      label: snapshotRecipeLabel(entry.index, entry.cfg!),
     }))
   if (snapshotRemoved.length === 0) return null
   return {
-    kind: 'configsDeleted',
+    kind: 'recipesDeleted',
     removed: snapshotRemoved,
     metasets: snapshotMetasets(metasets),
   }
 }
 
-// createConfigsClearedDescriptor captures the clear-all action.
-export const createConfigsClearedDescriptor = (previousCount: number): HistoryEntryDescriptor => ({
-  kind: 'configsCleared',
+// createRecipesClearedDescriptor captures the clear-all action.
+export const createRecipesClearedDescriptor = (previousCount: number): HistoryEntryDescriptor => ({
+  kind: 'recipesCleared',
   previousCount,
 })
 
-// createConfigsInsertedDescriptor snapshots pasted/imported configs.
-export const createConfigsInsertedDescriptor = (params: {
+// createRecipesInsertedDescriptor snapshots pasted/imported recipes.
+export const createRecipesInsertedDescriptor = (params: {
   mode: 'paste' | 'import'
-  labels: ConfigLabelSnapshot[]
-  location: ConfigInsertionLocation | null
+  labels: RecipeLabelSnapshot[]
+  location: RecipeInsertionLocation | null
 }): HistoryEntryDescriptor | null => {
   const { mode, labels, location } = params
   if (labels.length === 0) return null
   return {
-    kind: 'configsInserted',
+    kind: 'recipesInserted',
     mode,
     labels,
     location,
   }
 }
 
-// createConfigOptionsAppliedDescriptor snapshots config option tags.
-export const createConfigOptionsAppliedDescriptor = (params: {
-  labels: ConfigLabelSnapshot[]
+// createRecipeOverridesAppliedDescriptor snapshots recipe-override tags.
+export const createRecipeOverridesAppliedDescriptor = (params: {
+  labels: RecipeLabelSnapshot[]
   enableCount: number
   disableCount: number
 }): HistoryEntryDescriptor | null => {
   const { labels, enableCount, disableCount } = params
   if (labels.length === 0) return null
   return {
-    kind: 'configOptionsApplied',
+    kind: 'recipeOverridesApplied',
     labels,
     enableCount,
     disableCount,
@@ -186,7 +186,7 @@ export const createConfigOptionsAppliedDescriptor = (params: {
 
 // createMultiEditAppliedDescriptor snapshots a multi-edit apply event.
 export const createMultiEditAppliedDescriptor = (params: {
-  labels: ConfigLabelSnapshot[]
+  labels: RecipeLabelSnapshot[]
   fieldKeys: BuilderFieldKey[]
 }): HistoryEntryDescriptor | null => {
   const { labels, fieldKeys } = params
@@ -198,55 +198,55 @@ export const createMultiEditAppliedDescriptor = (params: {
   }
 }
 
-// describeConfigAdded localizes a config add descriptor at render time.
-export function describeConfigAdded(params: DescribeConfigAddedParams): ResolvedHistoryEntryDescriptor {
+// describeRecipeAdded localizes a recipe add descriptor at render time.
+export function describeRecipeAdded(params: DescribeConfigAddedParams): ResolvedHistoryEntryDescriptor {
   const { index, cfg, location, t, lang, metasets } = params
-  const label = formatConfigLabelFromConfig(index, cfg, t)
+  const label = formatRecipeLabelFromRecipe(index, cfg, t)
   const locationLine = formatInsertionLocation(location, t)
   const detailLines = locationLine ? [locationLine] : []
-  // Treat added configs as a single-state snapshot so tooltips show the actual values
+  // Treat added recipes as a single-state snapshot so tooltips show the actual values
   // that landed in the builder rather than a fabricated before/after diff.
-  const snapshotLines = makeBuilderConfigSnapshotLines({ cfg, metasets, t, lang })
+  const snapshotLines = makeBuilderRecipeSnapshotLines({ cfg, metasets, t, lang })
   if (snapshotLines.length > 0) {
     detailLines.push(...snapshotLines)
   }
   const descriptor: ResolvedHistoryEntryDescriptor = detailLines.length > 0
-    ? { title: t('historyConfigAddedTitle', { label }), detailLines }
-    : { title: t('historyConfigAddedTitle', { label }) }
+    ? { title: t('historyRecipeAddedTitle', { label }), detailLines }
+    : { title: t('historyRecipeAddedTitle', { label }) }
   return descriptor
 }
 
-// describeConfigsDuplicated localizes config duplication entries.
-export function describeConfigsDuplicated(params: DescribeConfigsDuplicatedParams): ResolvedHistoryEntryDescriptor | null {
+// describeRecipesDuplicated localizes recipe duplication entries.
+export function describeRecipesDuplicated(params: DescribeConfigsDuplicatedParams): ResolvedHistoryEntryDescriptor | null {
   const { labels, location, t } = params
   if (labels.length === 0) return null
   const detailLines = mergeDetailLines(location, labels, t)
   if (labels.length === 1) {
-    const label = formatConfigLabel(labels[0]!, t)
+    const label = formatRecipeLabel(labels[0]!, t)
     return detailLines.length > 0
-      ? { title: t('historyConfigDuplicatedTitle', { label }), detailLines }
-      : { title: t('historyConfigDuplicatedTitle', { label }) }
+      ? { title: t('historyRecipeDuplicatedTitle', { label }), detailLines }
+      : { title: t('historyRecipeDuplicatedTitle', { label }) }
   }
   return detailLines.length > 0
-    ? { title: t('historyConfigsDuplicatedMultipleTitle', { count: labels.length }), detailLines }
-    : { title: t('historyConfigsDuplicatedMultipleTitle', { count: labels.length }) }
+    ? { title: t('historyRecipesDuplicatedMultipleTitle', { count: labels.length }), detailLines }
+    : { title: t('historyRecipesDuplicatedMultipleTitle', { count: labels.length }) }
 }
 
-// describeConfigsMoved localizes move entries for config reordering.
-export function describeConfigsMoved(params: DescribeConfigsMovedParams): ResolvedHistoryEntryDescriptor | null {
+// describeRecipesMoved localizes move entries for recipe reordering.
+export function describeRecipesMoved(params: DescribeConfigsMovedParams): ResolvedHistoryEntryDescriptor | null {
   const { direction, labels, t } = params
   if (labels.length === 0) return null
   const detailLines = summarizeLabels(labels, t)
   const singleKey = SINGLE_MOVE_KEYS[direction]
   const multiKey = MULTI_MOVE_KEYS[direction]
   const title = labels.length === 1
-    ? t(singleKey, { label: formatConfigLabel(labels[0]!, t) })
+    ? t(singleKey, { label: formatRecipeLabel(labels[0]!, t) })
     : t(multiKey, { count: labels.length })
   return detailLines.length > 0 ? { title, detailLines } : { title }
 }
 
-// describeConfigsDeleted localizes delete entries plus config snapshots.
-export function describeConfigsDeleted(params: DescribeConfigsDeletedParams): ResolvedHistoryEntryDescriptor | null {
+// describeRecipesDeleted localizes delete entries plus recipe snapshots.
+export function describeRecipesDeleted(params: DescribeConfigsDeletedParams): ResolvedHistoryEntryDescriptor | null {
   const { removed, t, lang, metasets } = params
   if (!removed.length) return null
   const labels = removed
@@ -256,52 +256,52 @@ export function describeConfigsDeleted(params: DescribeConfigsDeletedParams): Re
   if (labels.length === 0) return null
   if (labels.length === 1) {
     const cfg = removed.find((entry) => Boolean(entry.cfg))?.cfg ?? null
-    // Likewise, deleted configs show their last-known state instead of a diff against defaults.
-    const snapshotLines = cfg ? makeBuilderConfigSnapshotLines({ cfg, metasets, t, lang }) : []
+    // Likewise, deleted recipes show their last-known state instead of a diff against defaults.
+    const snapshotLines = cfg ? makeBuilderRecipeSnapshotLines({ cfg, metasets, t, lang }) : []
     if (snapshotLines.length > 0) {
-      return { title: t('historyConfigDeletedTitle', { label: formatConfigLabel(labels[0]!, t) }), detailLines: snapshotLines }
+      return { title: t('historyRecipeDeletedTitle', { label: formatRecipeLabel(labels[0]!, t) }), detailLines: snapshotLines }
     }
-    return { title: t('historyConfigDeletedTitle', { label: formatConfigLabel(labels[0]!, t) }) }
+    return { title: t('historyRecipeDeletedTitle', { label: formatRecipeLabel(labels[0]!, t) }) }
   }
   return detailLines.length > 0
-    ? { title: t('historyConfigsDeletedMultipleTitle', { count: labels.length }), detailLines }
-    : { title: t('historyConfigsDeletedMultipleTitle', { count: labels.length }) }
+    ? { title: t('historyRecipesDeletedMultipleTitle', { count: labels.length }), detailLines }
+    : { title: t('historyRecipesDeletedMultipleTitle', { count: labels.length }) }
 }
 
-// describeConfigsCleared localizes the clear-all history entry.
-export function describeConfigsCleared(params: DescribeConfigsClearedParams): ResolvedHistoryEntryDescriptor | null {
+// describeRecipesCleared localizes the clear-all history entry.
+export function describeRecipesCleared(params: DescribeConfigsClearedParams): ResolvedHistoryEntryDescriptor | null {
   const { previousCount, t } = params
   if (previousCount === 0) return null
-  return { title: t('historyConfigsClearedTitle') }
+  return { title: t('historyRecipesClearedTitle') }
 }
 
-// describeConfigsInserted localizes paste/import history entries.
-export function describeConfigsInserted(params: DescribeConfigsInsertedParams): ResolvedHistoryEntryDescriptor | null {
+// describeRecipesInserted localizes paste/import history entries.
+export function describeRecipesInserted(params: DescribeConfigsInsertedParams): ResolvedHistoryEntryDescriptor | null {
   const { mode, labels, location, t } = params
   if (labels.length === 0) return null
   const detailLines = mergeDetailLines(location, labels, t)
   if (labels.length === 1) {
-    const key = mode === 'import' ? 'historyConfigImportedTitle' : 'historyConfigPastedTitle'
-    const title = t(key, { label: formatConfigLabel(labels[0]!, t) })
+    const key = mode === 'import' ? 'historyRecipeImportedTitle' : 'historyRecipePastedTitle'
+    const title = t(key, { label: formatRecipeLabel(labels[0]!, t) })
     return detailLines.length > 0 ? { title, detailLines } : { title }
   }
-  const key = mode === 'import' ? 'historyConfigsImportedMultipleTitle' : 'historyConfigsPastedMultipleTitle'
+  const key = mode === 'import' ? 'historyRecipesImportedMultipleTitle' : 'historyRecipesPastedMultipleTitle'
   const title = t(key, { count: labels.length })
   return detailLines.length > 0 ? { title, detailLines } : { title }
 }
 
-// describeConfigOptionsApplied localizes tag enable/disable entries.
-export function describeConfigOptionsApplied(params: DescribeConfigOptionsAppliedParams): ResolvedHistoryEntryDescriptor | null {
+// describeRecipeOverridesApplied localizes tag enable/disable entries.
+export function describeRecipeOverridesApplied(params: DescribeRecipeOverridesAppliedParams): ResolvedHistoryEntryDescriptor | null {
   const { labels, enableCount, disableCount, t } = params
   // Skip empty changes to avoid noisy history entries.
   if (labels.length === 0) return null
-  // Summarize config labels to keep history concise.
+  // Summarize recipe labels to keep history concise.
   const detailLines = summarizeLabels(labels, t)
   // Prefix with a summary of enabled/disabled counts.
-  detailLines.unshift(t('historyConfigOptionsAppliedSummaryLine', { enabled: enableCount, disabled: disableCount }))
+  detailLines.unshift(t('historyRecipeOverridesAppliedSummaryLine', { enabled: enableCount, disabled: disableCount }))
   return detailLines.length > 0
-    ? { title: t('historyConfigOptionsAppliedTitle'), detailLines }
-    : { title: t('historyConfigOptionsAppliedTitle') }
+    ? { title: t('historyRecipeOverridesAppliedTitle'), detailLines }
+    : { title: t('historyRecipeOverridesAppliedTitle') }
 }
 
 // describeMultiEditApplied localizes multi-edit entries for history.
@@ -320,29 +320,29 @@ export function describeMultiEditApplied(params: DescribeMultiEditAppliedParams)
 }
 
 const SINGLE_MOVE_KEYS: Record<DescribeConfigsMovedParams['direction'], string> = {
-  up: 'historyConfigMovedUpTitle',
-  down: 'historyConfigMovedDownTitle',
-  top: 'historyConfigMovedTopTitle',
-  bottom: 'historyConfigMovedBottomTitle',
+  up: 'historyRecipeMovedUpTitle',
+  down: 'historyRecipeMovedDownTitle',
+  top: 'historyRecipeMovedTopTitle',
+  bottom: 'historyRecipeMovedBottomTitle',
 }
 
 const MULTI_MOVE_KEYS: Record<DescribeConfigsMovedParams['direction'], string> = {
-  up: 'historyConfigsMovedUpTitle',
-  down: 'historyConfigsMovedDownTitle',
-  top: 'historyConfigsMovedTopTitle',
-  bottom: 'historyConfigsMovedBottomTitle',
+  up: 'historyRecipesMovedUpTitle',
+  down: 'historyRecipesMovedDownTitle',
+  top: 'historyRecipesMovedTopTitle',
+  bottom: 'historyRecipesMovedBottomTitle',
 }
 
-function summarizeLabels(labels: ConfigLabelSnapshot[], t: TranslateFn): string[] {
-  const formatted = labels.map((label) => formatConfigLabel(label, t))
+function summarizeLabels(labels: RecipeLabelSnapshot[], t: TranslateFn): string[] {
+  const formatted = labels.map((label) => formatRecipeLabel(label, t))
   if (formatted.length <= MAX_DETAIL_LABELS) return formatted.slice()
   const slice = formatted.slice(0, MAX_DETAIL_LABELS)
   const remaining = formatted.length - MAX_DETAIL_LABELS
-  slice.push(t('historyConfigsMoreLine', { count: remaining }))
+  slice.push(t('historyRecipesMoreLine', { count: remaining }))
   return slice
 }
 
-function mergeDetailLines(location: ConfigInsertionLocation | null, labels: ConfigLabelSnapshot[], t: TranslateFn): string[] {
+function mergeDetailLines(location: RecipeInsertionLocation | null, labels: RecipeLabelSnapshot[], t: TranslateFn): string[] {
   const summarized = summarizeLabels(labels, t)
   const locationLine = formatInsertionLocation(location, t)
   if (locationLine) return [locationLine, ...summarized]
@@ -350,7 +350,7 @@ function mergeDetailLines(location: ConfigInsertionLocation | null, labels: Conf
 }
 
 const FIELD_LABEL_KEY_BY_BUILDER_KEY: Partial<Record<BuilderFieldKey, string>> = {
-  name: 'builderConfigName',
+  name: 'builderRecipeName',
   keep: 'builderAction',
   exportMode: 'historyBuilderExportModeLabel',
   rankCode: 'builderRank',

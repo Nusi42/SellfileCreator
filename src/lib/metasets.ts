@@ -2,7 +2,7 @@
  * metasets.ts
  *
  * Metaset model and helpers. A metaset is a named group of artifact set IDs
- * that can be referenced by configs to include multiple sets conveniently.
+ * that can be referenced by recipes to include multiple sets conveniently.
  */
 import { ArtifactSet, type ArtifactSetId } from './types'
 import { DEFAULT_METASET_ICON_ID, metasetIconOptionById, normalizeMetasetIconId, type MetasetIconId } from './metasetIcons'

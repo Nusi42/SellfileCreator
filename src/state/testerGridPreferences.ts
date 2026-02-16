@@ -3,7 +3,7 @@ import {
   TESTER_GRID_COLUMNS_KEY,
   TESTER_GRID_SHOW_CHAMP_ICONS_KEY,
   TESTER_GRID_SHOW_FIRST_MATCH_KEY,
-  TESTER_GRID_SHOW_MATCH_CONFIG_INDEX_KEY,
+  TESTER_GRID_SHOW_MATCH_RECIPE_INDEX_KEY,
   TESTER_GRID_SHOW_MATCH_LINE_KEY,
   TESTER_GRID_SHOW_OTHER_MATCHES_KEY,
   TESTER_GRID_SHOW_RULE_TEMPLATES_KEY,
@@ -35,8 +35,8 @@ const testerGridShowFirstStore = createLocalStorageStore<boolean>({
 })
 
 const testerGridShowMatchConfigStore = createLocalStorageStore<boolean>({
-  key: TESTER_GRID_SHOW_MATCH_CONFIG_INDEX_KEY,
-  // New installs should hide config indices in first-match chips until users opt in.
+  key: TESTER_GRID_SHOW_MATCH_RECIPE_INDEX_KEY,
+  // New installs should hide recipe indices in first-match chips until users opt in.
   fallback: false,
   // Missing or malformed storage should stay aligned with the "off by default" intent.
   parse: (raw) => raw === 'true',

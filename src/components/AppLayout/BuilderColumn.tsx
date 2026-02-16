@@ -5,7 +5,7 @@ import { PANEL_WIDTH_PX, SIDE_BY_SIDE_BREAKPOINT_PX } from '../../lib/constants'
 import MarkdownTooltip from '../MarkdownTooltip'
 
 /**
- * BuilderColumn renders the builder-side layout: the rule form header, metaset controls, config chips,
+ * BuilderColumn renders the builder-side layout: the rule form header, metaset controls, recipe chips,
  * and supporting dialogs. App.tsx supplies the interactive pieces as React nodes so this component
  * focuses on layout and styling only.
  */
@@ -21,7 +21,7 @@ export type BuilderColumnProps = {
   builderPanel: ReactNode
   headerActions: ReactNode
   metasetConflictDialog: ReactNode
-  configChipsPanel: ReactNode
+  recipeChipsPanel: ReactNode
   pasteDialog: ReactNode
   copyDialog: ReactNode
 }
@@ -38,7 +38,7 @@ export function BuilderColumn({
   builderPanel,
   headerActions,
   metasetConflictDialog,
-  configChipsPanel,
+  recipeChipsPanel,
   pasteDialog,
   copyDialog,
 }: BuilderColumnProps) {
@@ -91,7 +91,7 @@ export function BuilderColumn({
       </Box>
       {metasetConflictDialog}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        {configChipsPanel}
+        {recipeChipsPanel}
       </Box>
       {pasteDialog}
       {copyDialog}

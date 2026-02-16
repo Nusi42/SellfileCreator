@@ -1,27 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
+import type { BuilderRecipe, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import { computeCrc32 } from '../lib/autosave'
 import { compressToBase64, decompressFromBase64 } from '../lib/compression'
 import type { MultiEditDraftState } from '../lib/multiEditDraft'
-import type { KeepUniqueRule } from '../lib/keepUniques'
+import type { SafeguardRule } from '../lib/safeguards'
 import type { HistoryEntryDescriptor } from '../history/historyDescriptorTypes'
 
 export type { HistoryEntryDescriptor }
 
 export type HsfcSnapshot = {
-  customCfgs: BuilderConfig[]
+  customRecipes: BuilderRecipe[]
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
   finalSellRemainder: FinalSellRemainderConfig
-  keepUniqueRules: KeepUniqueRule[]
-  keepUniquesEnabled: boolean
+  safeguardRules: SafeguardRule[]
+  safeguardsEnabled: boolean
   note: string | null
-  selectedCfgIdx: number | null
-  selectedCfgIndices: number[]
+  selectedRecipeIdx: number | null
+  selectedRecipeIndices: number[]
   selectionAnchor: number | null
-  builder: BuilderConfig
+  builder: BuilderRecipe
   builderNameDraft: string | null
   builderNameDraftKey: number | 'builder' | null
   multiEditDraft: MultiEditDraftState | null
@@ -78,34 +78,34 @@ function parseSnapshot(entry: HistoryEntry): HsfcSnapshot | null {
     const parsed = JSON.parse(json) as Partial<HsfcSnapshot>
     if (!parsed || typeof parsed !== 'object') return null
     const {
-      customCfgs,
+      customRecipes,
       metasets,
       substatTargets,
       finalSellRemainder,
       note,
-      selectedCfgIdx,
-      selectedCfgIndices,
+      selectedRecipeIdx,
+      selectedRecipeIndices,
       selectionAnchor,
       builder,
       builderNameDraft,
       builderNameDraftKey,
       multiEditDraft,
-      keepUniqueRules,
-      keepUniquesEnabled,
+      safeguardRules,
+      safeguardsEnabled,
     } = parsed
-    if (!Array.isArray(customCfgs) || !Array.isArray(metasets) || !substatTargets || typeof finalSellRemainder !== 'object' || finalSellRemainder === null) {
+    if (!Array.isArray(customRecipes) || !Array.isArray(metasets) || !substatTargets || typeof finalSellRemainder !== 'object' || finalSellRemainder === null) {
       return null
     }
     const normalizedNote = typeof note === 'string' ? note : null
-    const sel = typeof selectedCfgIdx === 'number' ? selectedCfgIdx : null
-    const normalizedSelectedIndices = Array.isArray(selectedCfgIndices) ? selectedCfgIndices.filter((value): value is number => Number.isInteger(value)) : []
+    const sel = typeof selectedRecipeIdx === 'number' ? selectedRecipeIdx : null
+    const normalizedSelectedIndices = Array.isArray(selectedRecipeIndices) ? selectedRecipeIndices.filter((value): value is number => Number.isInteger(value)) : []
     const normalizedSelectionAnchor = typeof selectionAnchor === 'number' ? selectionAnchor : null
     const normalizedBuilder = (builder && typeof builder === 'object')
-      ? builder as BuilderConfig
+      ? builder as BuilderRecipe
       : (() => {
-        if (sel !== null && sel >= 0 && sel < customCfgs.length && customCfgs[sel]) return customCfgs[sel]!
-        if (customCfgs.length > 0 && customCfgs[0]) return customCfgs[0]!
-        const fallback: BuilderConfig = {
+        if (sel !== null && sel >= 0 && sel < customRecipes.length && customRecipes[sel]) return customRecipes[sel]!
+        if (customRecipes.length > 0 && customRecipes[0]) return customRecipes[0]!
+        const fallback: BuilderRecipe = {
           name: '',
           keep: true,
           exportMode: 'active',
@@ -136,15 +136,15 @@ function parseSnapshot(entry: HistoryEntry): HsfcSnapshot | null {
       ? multiEditDraft as MultiEditDraftState
       : null
     return {
-      customCfgs: customCfgs as BuilderConfig[],
+      customRecipes: customRecipes as BuilderRecipe[],
       metasets: metasets as Metaset[],
       substatTargets: substatTargets as SubstatTargetTable,
       finalSellRemainder: finalSellRemainder as FinalSellRemainderConfig,
-      keepUniqueRules: Array.isArray(keepUniqueRules) ? keepUniqueRules as KeepUniqueRule[] : [],
-      keepUniquesEnabled: keepUniquesEnabled === true,
+      safeguardRules: Array.isArray(safeguardRules) ? safeguardRules as SafeguardRule[] : [],
+      safeguardsEnabled: safeguardsEnabled === true,
       note: normalizedNote,
-      selectedCfgIdx: sel,
-      selectedCfgIndices: normalizedSelectedIndices,
+      selectedRecipeIdx: sel,
+      selectedRecipeIndices: normalizedSelectedIndices,
       selectionAnchor: normalizedSelectionAnchor,
       builder: normalizedBuilder,
       builderNameDraft: normalizedNameDraft,

@@ -3,25 +3,25 @@
  *
  * Cloning helpers for history descriptor snapshots.
  */
-import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
+import type { BuilderRecipe, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import type { Metaset } from '../lib/metasets'
-import type { KeepUniqueRule } from '../lib/keepUniques'
-import { cloneBuilderConfig } from '../lib/multiEditDraft'
+import type { SafeguardRule } from '../lib/safeguards'
+import { cloneBuilderRecipe } from '../lib/multiEditDraft'
 import { cloneMetasets } from '../lib/metasets'
-import { cloneKeepUniqueRules } from '../lib/keepUniques'
+import { cloneSafeguardRules } from '../lib/safeguards'
 import { cloneSubstatTargets } from '../lib/substatTargets'
 
-// snapshotBuilderConfig detaches a builder config for history storage.
-export const snapshotBuilderConfig = (cfg: BuilderConfig): BuilderConfig => (
+// snapshotBuilderRecipe detaches a builder recipe for history storage.
+export const snapshotBuilderRecipe = (cfg: BuilderRecipe): BuilderRecipe => (
   // Use the shared clone helper so nested arrays are copied.
-  cloneBuilderConfig(cfg)
+  cloneBuilderRecipe(cfg)
 )
 
-// snapshotBuilderConfigs clones a list of configs in one pass.
-export const snapshotBuilderConfigs = (configs: readonly BuilderConfig[]): BuilderConfig[] => (
-  // Reuse the per-config clone to keep behavior consistent.
-  configs.map((cfg) => cloneBuilderConfig(cfg))
+// snapshotBuilderRecipes clones a list of recipes in one pass.
+export const snapshotBuilderRecipes = (recipes: readonly BuilderRecipe[]): BuilderRecipe[] => (
+  // Reuse the per-recipe clone to keep behavior consistent.
+  recipes.map((cfg) => cloneBuilderRecipe(cfg))
 )
 
 // snapshotMetasets clones metasets so name/icon changes do not rewrite history.
@@ -30,10 +30,10 @@ export const snapshotMetasets = (metasets: readonly Metaset[]): Metaset[] => (
   cloneMetasets(metasets)
 )
 
-// snapshotKeepUniqueRules clones keep-unique rules for stable history entries.
-export const snapshotKeepUniqueRules = (rules: readonly KeepUniqueRule[]): KeepUniqueRule[] => (
+// snapshotSafeguardRules clones safeguard rules for stable history entries.
+export const snapshotSafeguardRules = (rules: readonly SafeguardRule[]): SafeguardRule[] => (
   // Use the shared clone helper to detach nested arrays.
-  cloneKeepUniqueRules(rules)
+  cloneSafeguardRules(rules)
 )
 
 // snapshotSubstatTargets clones the target table to avoid shared references.
@@ -42,14 +42,14 @@ export const snapshotSubstatTargets = (targets: SubstatTargetTable): SubstatTarg
   cloneSubstatTargets(targets)
 )
 
-// snapshotFinalSellRemainder clones the final-sell config for history storage.
-export const snapshotFinalSellRemainder = (config: FinalSellRemainderConfig): FinalSellRemainderConfig => ({
+// snapshotFinalSellRemainder clones the final-sell recipe for history storage.
+export const snapshotFinalSellRemainder = (recipe: FinalSellRemainderConfig): FinalSellRemainderConfig => ({
   // Copy booleans directly since they are immutable.
-  artifacts: config.artifacts,
+  artifacts: recipe.artifacts,
   // Preserve accessory flag in the snapshot.
-  accessories: config.accessories,
+  accessories: recipe.accessories,
   // Clone the levels array to avoid shared references.
-  levels: [...(config.levels ?? [])],
+  levels: [...(recipe.levels ?? [])],
   // Preserve the sets mode since it is a scalar.
-  setsMode: config.setsMode,
+  setsMode: recipe.setsMode,
 })

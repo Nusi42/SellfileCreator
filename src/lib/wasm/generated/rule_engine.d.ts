@@ -11,25 +11,25 @@ export function build_final_sell_rules_value(remainder: any, all_known_set_ids: 
 
 export function build_hsf_rules_runtime_value(payload: any): any;
 
-export function build_keep_unique_rules_value(rules: any, detection: any, config_id_base: bigint): any;
+export function build_safeguard_rules_value(rules: any, detection: any, recipe_id_base: bigint): any;
 
-export function collect_and_compute_keep_unique_protection_value(rows: any, rules: any, config_modes: any, ignore_keep_unique_config_indices: any, keep_unique_rules: any, expected_groups_payload: any, enabled: boolean, now: number): any;
+export function collect_and_compute_safeguard_protection_value(rows: any, rules: any, recipe_modes: any, ignore_safeguard_recipe_indices: any, safeguard_rules: any, expected_groups_payload: any, enabled: boolean, now: number): any;
 
-export function collect_keep_unique_candidates_value(rows: any, rules: any, config_modes: any, ignore_keep_unique_config_indices: any): any;
+export function collect_safeguard_candidates_value(rows: any, rules: any, recipe_modes: any, ignore_safeguard_recipe_indices: any): any;
 
 export function combinations_i32_fast_flat(values: Int32Array, pick: number): Int32Array;
 
-export function compute_keep_unique_protection_value(candidates: any, rules: any, expected_groups_by_rule_id: any, enabled: boolean, now: number): any;
-
 export function compute_merged_rules_value(payload: any): any;
 
-export function configure_value(rules: any, config_modes: any): void;
+export function compute_safeguard_protection_value(candidates: any, rules: any, expected_groups_by_rule_id: any, enabled: boolean, now: number): any;
+
+export function configure_value(rules: any, recipe_modes: any): void;
 
 export function dedupe_hsf_rules_for_export_value(rules: any): any;
 
 export function evaluate_value(items: any, options: any): any;
 
-export function expand_auto_flex_rarity_branches_value(config: any, base_rarity_code: number): any;
+export function expand_auto_flex_rarity_branches_value(recipe: any, base_rarity_code: number): any;
 
 export function finalize_generated_rules_value(entries: any, apply_obsolete_pruning: boolean): any;
 
@@ -39,41 +39,41 @@ export function fingerprint_merged_rules_value(rules: any): any;
 
 export function flatten_rule_batches_with_total_limit_value(base_count: bigint, total_limit: bigint, batches: any): any;
 
-export function hash_keep_unique_combination_value(combination: any): string;
+export function hash_safeguard_combination_value(combination: any): string;
 
 export function intro_assignments_for_combo_fast_flat(count: number, base_slots: number, addition_levels: Int32Array, forced_base: Int32Array): Int32Array;
 
-export function keep_unique_count_key_value(artifact: any, count_mode: any): string;
+export function merge_safeguard_injected_rules_value(base_rules: any, custom_rules: any, candidate_safeguard_rules: any): any;
 
-export function keep_unique_group_key_value(artifact: any): string;
+export function normalize_safeguard_activation_value(activation: any): string;
 
-export function keep_unique_item_key_value(artifact: any): bigint;
+export function normalize_safeguard_combination_value(value: any, lookups: any): any;
 
-export function merge_keep_unique_injected_rules_value(base_rules: any, custom_rules: any, candidate_keep_rules: any): any;
+export function normalize_safeguard_count_mode_value(value: any): any;
 
-export function normalize_keep_unique_activation_value(activation: any, legacy_enabled: any): string;
+export function normalize_safeguard_expected_group_domain_value(payload: any): any;
 
-export function normalize_keep_unique_combination_value(value: any, lookups: any): any;
+export function normalize_safeguard_rule_value(value: any, lookups: any, generated_rule_id: string): any;
 
-export function normalize_keep_unique_count_mode_value(value: any): any;
-
-export function normalize_keep_unique_expected_group_domain_value(payload: any): any;
-
-export function normalize_keep_unique_rule_value(value: any, lookups: any, generated_rule_id: string): any;
-
-export function normalize_keep_unique_substat_match_value(value: any): string;
+export function normalize_safeguard_substat_match_value(value: any): string;
 
 export function permutations_i32_fast_flat(values: Int32Array): Int32Array;
 
-export function prepare_hsf_builder_config_value(payload: any): any;
+export function prepare_hsf_builder_recipe_value(payload: any): any;
 
 export function resolve_auto_rarity_code_for_builder_value(payload: any): number;
 
-export function resolve_keep_unique_rules_with_metasets_value(rules: any, metasets: any): any;
+export function resolve_safeguard_rules_with_metasets_value(rules: any, metasets: any): any;
 
-export function sort_keep_unique_combination_value(combination: any): any;
+export function safeguard_count_key_value(artifact: any, count_mode: any): string;
 
-export function sort_keep_unique_substats_value(values: any): any;
+export function safeguard_group_key_value(artifact: any): string;
+
+export function safeguard_item_key_value(artifact: any): bigint;
+
+export function sort_safeguard_combination_value(combination: any): any;
+
+export function sort_safeguard_substats_value(values: any): any;
 
 export function version(): string;
 
@@ -81,27 +81,27 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
-    readonly build_keep_unique_rules_value: (a: any, b: any, c: bigint) => [number, number, number];
-    readonly collect_and_compute_keep_unique_protection_value: (a: any, b: any, c: any, d: any, e: any, f: any, g: number, h: number) => [number, number, number];
-    readonly compute_keep_unique_protection_value: (a: any, b: any, c: any, d: number, e: number) => [number, number, number];
-    readonly hash_keep_unique_combination_value: (a: any) => [number, number, number, number];
-    readonly keep_unique_count_key_value: (a: any, b: any) => [number, number, number, number];
-    readonly keep_unique_group_key_value: (a: any) => [number, number, number, number];
-    readonly keep_unique_item_key_value: (a: any) => [bigint, number, number];
-    readonly normalize_keep_unique_activation_value: (a: any, b: any) => [number, number, number, number];
-    readonly normalize_keep_unique_combination_value: (a: any, b: any) => [number, number, number];
-    readonly normalize_keep_unique_count_mode_value: (a: any) => [number, number, number];
-    readonly normalize_keep_unique_expected_group_domain_value: (a: any) => [number, number, number];
-    readonly normalize_keep_unique_rule_value: (a: any, b: any, c: number, d: number) => [number, number, number];
-    readonly normalize_keep_unique_substat_match_value: (a: any) => [number, number, number, number];
-    readonly sort_keep_unique_combination_value: (a: any) => [number, number, number];
-    readonly sort_keep_unique_substats_value: (a: any) => [number, number, number];
+    readonly build_safeguard_rules_value: (a: any, b: any, c: bigint) => [number, number, number];
+    readonly collect_and_compute_safeguard_protection_value: (a: any, b: any, c: any, d: any, e: any, f: any, g: number, h: number) => [number, number, number];
+    readonly compute_safeguard_protection_value: (a: any, b: any, c: any, d: number, e: number) => [number, number, number];
+    readonly hash_safeguard_combination_value: (a: any) => [number, number, number, number];
+    readonly normalize_safeguard_activation_value: (a: any) => [number, number, number, number];
+    readonly normalize_safeguard_combination_value: (a: any, b: any) => [number, number, number];
+    readonly normalize_safeguard_count_mode_value: (a: any) => [number, number, number];
+    readonly normalize_safeguard_expected_group_domain_value: (a: any) => [number, number, number];
+    readonly normalize_safeguard_rule_value: (a: any, b: any, c: number, d: number) => [number, number, number];
+    readonly normalize_safeguard_substat_match_value: (a: any) => [number, number, number, number];
+    readonly safeguard_count_key_value: (a: any, b: any) => [number, number, number, number];
+    readonly safeguard_group_key_value: (a: any) => [number, number, number, number];
+    readonly safeguard_item_key_value: (a: any) => [bigint, number, number];
+    readonly sort_safeguard_combination_value: (a: any) => [number, number, number];
+    readonly sort_safeguard_substats_value: (a: any) => [number, number, number];
     readonly auto_rarity_addition_levels_for_code_value: (a: number) => [number, number];
     readonly auto_rarity_includes_mythical_for_code_value: (a: number) => number;
     readonly auto_rarity_roll_levels_for_code_value: (a: number) => [number, number];
     readonly build_final_sell_rules_value: (a: any, b: any) => [number, number, number];
     readonly build_hsf_rules_runtime_value: (a: any) => [number, number, number];
-    readonly collect_keep_unique_candidates_value: (a: any, b: any, c: any, d: any) => [number, number, number];
+    readonly collect_safeguard_candidates_value: (a: any, b: any, c: any, d: any) => [number, number, number];
     readonly combinations_i32_fast_flat: (a: number, b: number, c: number) => [number, number];
     readonly compute_merged_rules_value: (a: any) => [number, number, number];
     readonly configure_value: (a: any, b: any) => [number, number];
@@ -112,11 +112,11 @@ export interface InitOutput {
     readonly find_obsolete_value: (a: any) => [number, number, number];
     readonly flatten_rule_batches_with_total_limit_value: (a: bigint, b: bigint, c: any) => [number, number, number];
     readonly intro_assignments_for_combo_fast_flat: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
-    readonly merge_keep_unique_injected_rules_value: (a: any, b: any, c: any) => [number, number, number];
+    readonly merge_safeguard_injected_rules_value: (a: any, b: any, c: any) => [number, number, number];
     readonly permutations_i32_fast_flat: (a: number, b: number) => [number, number];
-    readonly prepare_hsf_builder_config_value: (a: any) => [number, number, number];
+    readonly prepare_hsf_builder_recipe_value: (a: any) => [number, number, number];
     readonly resolve_auto_rarity_code_for_builder_value: (a: any) => [number, number, number];
-    readonly resolve_keep_unique_rules_with_metasets_value: (a: any, b: any) => [number, number, number];
+    readonly resolve_safeguard_rules_with_metasets_value: (a: any, b: any) => [number, number, number];
     readonly version: () => [number, number];
     readonly fingerprint_merged_rules_value: (a: any) => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;

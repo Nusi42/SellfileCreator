@@ -156,7 +156,7 @@ const makeTesterRow = (overrides: Partial<NormalizedGearArtifact> = {}): TesterP
     match: null,
     baseMatch: null,
     matchingCfgIndices: [],
-    matchingConfigDecisions: [],
+    matchingRecipeDecisions: [],
   }
 }
 

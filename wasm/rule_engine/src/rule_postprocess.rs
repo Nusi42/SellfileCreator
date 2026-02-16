@@ -1,5 +1,5 @@
 use super::*;
-use crate::keep_unique::{build_keep_unique_rules_core, keep_unique_clone_any_substats};
+use crate::safeguards::{build_safeguard_rules_core, safeguard_clone_any_substats};
 
 pub(crate) fn flatten_rule_batches_with_total_limit_value(
     base_count: i64,
@@ -115,8 +115,8 @@ fn build_final_sell_rules_core(
                 let mut sorted_types = combo.clone();
                 sort_artifact_types_in_place(&mut sorted_types);
                 let mut rule = RuleRaw {
-                    ConfigID: None,
-                    ConfigName: None,
+                    RecipeID: None,
+                    RecipeName: None,
                     Keep: Some(false),
                     IsRuleTypeAND: Some(false),
                     Use: Some(use_flag),
@@ -136,22 +136,22 @@ fn build_final_sell_rules_core(
                     MainStatF: Some(serde_json::Value::from(MAIN_STAT_F_DEFAULT_FLAG)),
                     LVLForCheck: Some(level),
                     Faction: Some(0),
-                    Substats: Some(keep_unique_clone_any_substats()),
+                    Substats: Some(safeguard_clone_any_substats()),
                     source: Some(RULE_SOURCE_FINAL_SELL.to_string()),
                     line_idx: None,
                     all_known_sets: None,
                     rank_mask: None,
                     rarity_mask: None,
-                    keep_unique_rule_id: None,
-                    keep_unique_rule_ordinal: None,
-                    keep_unique_hash: None,
-                    keep_unique_required: None,
-                    keep_unique_scan_ms: None,
-                    keep_unique_projected: None,
-                    keep_unique_deficit: None,
-                    keep_unique_item_key: None,
-                    keep_unique_placeholder: None,
-                    keep_unique_placeholder_missing: None,
+                    safeguard_rule_id: None,
+                    safeguard_rule_ordinal: None,
+                    safeguard_hash: None,
+                    safeguard_required: None,
+                    safeguard_scan_ms: None,
+                    safeguard_projected: None,
+                    safeguard_deficit: None,
+                    safeguard_item_key: None,
+                    safeguard_placeholder: None,
+                    safeguard_placeholder_missing: None,
                 };
                 // Preserve merge.ts metadata marker for explicit-all-sets rows.
                 if use_explicit_sets {
@@ -188,15 +188,15 @@ pub(crate) fn build_final_sell_rules_value(
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize final-sell rules value: {error}")))
 }
 
-// Merge pipeline core combines base/custom/final-sell/keep-unique rows and
+// Merge pipeline core combines base/custom/final-sell/safeguard rows and
 // assigns stable preview line indices in one Rust-owned orchestration step.
 fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
-    // Parse keep-unique rules defensively so legacy/partial payload rows do not
+    // Parse safeguard rules defensively so legacy/partial payload rows do not
     // crash merged-rule assembly; invalid rows are simply skipped.
-    let parsed_keep_unique_rules = input
-        .keep_unique_rules
+    let parsed_safeguard_rules = input
+        .safeguard_rules
         .into_iter()
-        .filter_map(|value| serde_json::from_value::<KeepUniqueWasmRuleIn>(value).ok())
+        .filter_map(|value| serde_json::from_value::<SafeguardWasmRuleIn>(value).ok())
         .collect::<Vec<_>>();
     // Base rows always carry the hsf source marker unless explicitly provided.
     let mut base_rules = input.base_rules;
@@ -213,29 +213,29 @@ fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
         }
     }
 
-    // Build final-sell rows from config payload (if enabled).
+    // Build final-sell rows from recipe payload (if enabled).
     let final_sell_rules = build_final_sell_rules_core(
         input.final_sell_remainder.as_ref(),
         &input.all_known_set_ids,
     );
 
-    // Keep-unique merge prepends injected rows ahead of base when enabled.
-    let base_with_keep = if input.keep_unique_enabled {
+    // Safeguard merge prepends injected rows ahead of base when enabled.
+    let base_with_keep = if input.safeguard_enabled {
         let base_without_keep = base_rules
             .iter()
-            .filter(|rule| rule.source.as_deref() != Some(RULE_SOURCE_KEEP_UNIQUES))
+            .filter(|rule| rule.source.as_deref() != Some(RULE_SOURCE_SAFEGUARDS))
             .cloned()
             .collect::<Vec<_>>();
-        let candidate_keep_rules = if input.keep_unique_detection.is_some() && !parsed_keep_unique_rules.is_empty() {
-            build_keep_unique_rules_core(
-                &parsed_keep_unique_rules,
-                input.keep_unique_detection.as_ref(),
-                input.keep_unique_config_id_base.unwrap_or(-1),
+        let candidate_keep_rules = if input.safeguard_detection.is_some() && !parsed_safeguard_rules.is_empty() {
+            build_safeguard_rules_core(
+                &parsed_safeguard_rules,
+                input.safeguard_detection.as_ref(),
+                input.safeguard_recipe_id_base.unwrap_or(-1),
             )
         } else {
             Vec::<RuleRaw>::new()
         };
-        let sorted_keep_rules = merge_keep_unique_injected_rules_core(
+        let sorted_keep_rules = merge_safeguard_injected_rules_core(
             base_without_keep.clone(),
             custom_rules.clone(),
             candidate_keep_rules,
@@ -268,17 +268,17 @@ pub(crate) fn compute_merged_rules_value(payload: JsValue) -> Result<JsValue, Js
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize compute-merged-rules value: {error}")))
 }
 
-// Keep-unique merge helper mirrors merge.ts injected-rule filtering/sorting.
-fn merge_keep_unique_injected_rules_core(
+// Safeguard merge helper mirrors merge.ts injected-rule filtering/sorting.
+fn merge_safeguard_injected_rules_core(
     base_rules: Vec<RuleRaw>,
     custom_rules: Vec<RuleRaw>,
     candidate_keep_rules: Vec<RuleRaw>,
 ) -> Vec<RuleRaw> {
-    // Remove previously injected keep-unique rows from base key collection.
+    // Remove previously injected safeguard rows from base key collection.
     let mut base_custom_keep_keys = HashSet::<String>::new();
     for rule in base_rules
         .iter()
-        .filter(|entry| entry.source.as_deref() != Some(RULE_SOURCE_KEEP_UNIQUES))
+        .filter(|entry| entry.source.as_deref() != Some(RULE_SOURCE_SAFEGUARDS))
     {
         if rule.Keep.unwrap_or(false) {
             base_custom_keep_keys.insert(rule_dedupe::collapse_canonical_key(rule));
@@ -299,13 +299,13 @@ fn merge_keep_unique_injected_rules_core(
         if base_custom_keep_keys.contains(&canonical) {
             continue;
         }
-        let is_keep_unique_source = rule.source.as_deref() == Some(RULE_SOURCE_KEEP_UNIQUES);
-        let dedupe_key = if is_keep_unique_source {
-            if rule.keep_unique_placeholder.unwrap_or(false) {
+        let is_safeguard_source = rule.source.as_deref() == Some(RULE_SOURCE_SAFEGUARDS);
+        let dedupe_key = if is_safeguard_source {
+            if rule.safeguard_placeholder.unwrap_or(false) {
                 format!("ku:placeholder:{canonical}")
             } else {
                 let item_key = rule
-                    .keep_unique_item_key
+                    .safeguard_item_key
                     .map(|value| value.to_string())
                     .unwrap_or_else(|| "na".to_string());
                 let level = rule.LVLForCheck.unwrap_or(LEVEL_ANY_SENTINEL);
@@ -327,15 +327,15 @@ fn merge_keep_unique_injected_rules_core(
         .enumerate()
         .map(|(idx, rule)| {
             let canonical = rule_dedupe::collapse_canonical_key(&rule);
-            KeepUniqueMergeSortEntry {
+            SafeguardMergeSortEntry {
                 level_idx: level_order_value(rule.LVLForCheck),
-                rule_ordinal: rule.keep_unique_rule_ordinal.unwrap_or(JS_MAX_SAFE_INTEGER_I64),
-                placeholder_rank: if rule.keep_unique_placeholder.unwrap_or(false) {
+                rule_ordinal: rule.safeguard_rule_ordinal.unwrap_or(JS_MAX_SAFE_INTEGER_I64),
+                placeholder_rank: if rule.safeguard_placeholder.unwrap_or(false) {
                     1
                 } else {
                     0
                 },
-                item_key: rule.keep_unique_item_key.unwrap_or(JS_MAX_SAFE_INTEGER_I64),
+                item_key: rule.safeguard_item_key.unwrap_or(JS_MAX_SAFE_INTEGER_I64),
                 idx,
                 canonical,
                 rule,
@@ -366,25 +366,25 @@ fn merge_keep_unique_injected_rules_core(
         .collect::<Vec<_>>()
 }
 
-// Keep-unique merge export filters/dedupes/sorts injected rules in one wasm call.
-pub(crate) fn merge_keep_unique_injected_rules_value(
+// Safeguard merge export filters/dedupes/sorts injected rules in one wasm call.
+pub(crate) fn merge_safeguard_injected_rules_value(
     base_rules: JsValue,
     custom_rules: JsValue,
     candidate_keep_rules: JsValue,
 ) -> Result<JsValue, JsValue> {
     let parsed_base_rules: Vec<RuleRaw> = from_js_value(base_rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique merge base rules: {error}")))?;
+        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard merge base rules: {error}")))?;
     let parsed_custom_rules: Vec<RuleRaw> = from_js_value(custom_rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique merge custom rules: {error}")))?;
+        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard merge custom rules: {error}")))?;
     let parsed_candidate_keep_rules: Vec<RuleRaw> = from_js_value(candidate_keep_rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique merge candidate rules: {error}")))?;
-    let merged = merge_keep_unique_injected_rules_core(
+        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard merge candidate rules: {error}")))?;
+    let merged = merge_safeguard_injected_rules_core(
         parsed_base_rules,
         parsed_custom_rules,
         parsed_candidate_keep_rules,
     );
     to_js_value(&merged)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize keep-unique merge value: {error}")))
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard merge value: {error}")))
 }
 
 // Export dedupe keeps keep-segment matching/collapse in Rust for SSOT semantics.
@@ -466,7 +466,7 @@ fn finalize_generated_rules_core(
         }
     }
 
-    // Obsolete pruning only applies when merge.ts says the config has one branch.
+    // Obsolete pruning only applies when merge.ts says the recipe has one branch.
     let filtered = if apply_obsolete_pruning {
         let rules = collapsed
             .iter()

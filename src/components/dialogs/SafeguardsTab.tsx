@@ -42,27 +42,27 @@ import FilterListOffIcon from '@mui/icons-material/FilterListOff'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded'
 import {
-  KEEP_UNIQUE_DEFAULT_COUNT_MODE,
-  KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
-  KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
-  KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
-  KeepUniqueRuleActivation,
-  KeepUniqueSubstatMatch,
-  cloneKeepUniqueCombination,
-  cloneKeepUniqueRule,
-  createEmptyKeepUniqueCombination,
-  createKeepUniqueRuleId,
-  getKeepUniqueItemKey,
-  normalizeKeepUniqueSubstatMatch,
-  normalizeKeepUniqueRule,
-  sanitizeKeepUniqueCountMode,
-  sortKeepUniqueCombination,
-  sortKeepUniqueSubstats,
-  type KeepUniqueDetectionEntry,
-  type KeepUniqueDetectionSnapshot,
-  type KeepUniqueRule,
-} from '../../lib/keepUniques'
-import { buildReadableKeepUniqueRuleEntry } from '../../lib/hsfcIO'
+  SAFEGUARD_DEFAULT_COUNT_MODE,
+  SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
+  SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
+  SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
+  SafeguardRuleActivation,
+  SafeguardSubstatMatch,
+  cloneSafeguardCombination,
+  cloneSafeguardRule,
+  createEmptySafeguardCombination,
+  createSafeguardRuleId,
+  getSafeguardItemKey,
+  normalizeSafeguardSubstatMatch,
+  normalizeSafeguardRule,
+  sanitizeSafeguardCountMode,
+  sortSafeguardCombination,
+  sortSafeguardSubstats,
+  type SafeguardDetectionEntry,
+  type SafeguardDetectionSnapshot,
+  type SafeguardRule,
+} from '../../lib/safeguards'
+import { buildReadableSafeguardRuleEntry } from '../../lib/hsfcIO'
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import type { ColorBlindMode } from '../../lib/constants'
 import {
@@ -90,13 +90,13 @@ import WorkloadProgressIndicator from '../WorkloadProgressIndicator'
 // MarkdownTooltip keeps the rule-count hints and info icons synchronized with the broader tooltip refactor.
 import MarkdownTooltip from '../MarkdownTooltip'
 import EllipsisTooltip from '../EllipsisTooltip'
-import { ConfigContextMenu } from '../ConfigContextMenu'
+import { RecipeContextMenu } from '../RecipeContextMenu'
 import PasteDialog from '../PasteDialog'
 import type { SetStateAction } from 'react'
 import type { Metaset } from '../../lib/metasets'
 import { alpha, useTheme } from '@mui/material/styles'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
-import { useKeepUniquesGridColumnMode, useKeepUniquesGridFilterMode } from '../../state/keepUniquesPreferences'
+import { useSafeguardsGridColumnMode, useSafeguardsGridFilterMode } from '../../state/safeguardsPreferences'
 import { normalizeArtifactSetSelections } from '../../lib/gearSets/selection'
 import { useKeepOverrideCombinationTools } from '../keepOverrides/useKeepOverrideCombinationTools'
 import { KeepOverridePaneToggle } from '../keepOverrides/KeepOverridePaneToggle'
@@ -132,11 +132,11 @@ import { useContextMenuPaperGuard } from '../../hooks/useContextMenuPaperGuard'
 import { createBuilderStatusChipSx } from '../builderStatusChipStyles'
 
 // Keep-unique headers should stay a consistent height even when names wrap to two lines.
-const KEEP_UNIQUES_RULE_HEADER_MIN_HEIGHT_PX = 56
+const SAFEGUARDS_RULE_HEADER_MIN_HEIGHT_PX = 56
 // Collapse the intro copy once the user scrolls down in the rules pane.
-const KEEP_UNIQUES_HEADER_COLLAPSE_SCROLL_PX = 4
+const SAFEGUARDS_HEADER_COLLAPSE_SCROLL_PX = 4
 // Chip labels should truncate consistently and rely on native ellipsis tooltips for overflow.
-const KEEP_UNIQUES_CHIP_LABEL_ELLIPSIS_SX = {
+const SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX = {
   '& .MuiChip-label': {
     display: 'block',
     maxWidth: '100%',
@@ -182,8 +182,8 @@ const areWeightMapsEqual = (
   // All keys matched.
   return true
 }
-// pruneKeepUniquesSubstatWeights drops weights for unselected stats.
-const pruneKeepUniquesSubstatWeights = (
+// pruneSafeguardsSubstatWeights drops weights for unselected stats.
+const pruneSafeguardsSubstatWeights = (
   weights: Partial<Record<StatVariant, number>> | null | undefined,
   selected: readonly StatVariant[],
 ): Partial<Record<StatVariant, number>> => {
@@ -201,24 +201,24 @@ const pruneKeepUniquesSubstatWeights = (
   }
   return next
 }
-// constrainKeepUniqueSubstats applies slot/mainstat constraints to the rule's substat selection.
-const constrainKeepUniqueSubstats = (
-  rule: KeepUniqueRule,
-  combination: KeepUniqueRule['combination'],
-): KeepUniqueRule => {
+// constrainSafeguardSubstats applies slot/mainstat constraints to the rule's substat selection.
+const constrainSafeguardSubstats = (
+  rule: SafeguardRule,
+  combination: SafeguardRule['combination'],
+): SafeguardRule => {
   // Sort the combination so UI and exports stay deterministic.
-  const sortedCombination = sortKeepUniqueCombination(combination)
+  const sortedCombination = sortSafeguardCombination(combination)
   // Resolve the allowed substats for the updated slot/main selection.
   const allowed = resolveAllowedSubstatsForSlotsAndMains({
     slots: sortedCombination.slots,
     mainStats: sortedCombination.mainStats,
   })
   // Drop substats that are no longer possible for the slot/main combination.
-  const filtered = sortKeepUniqueSubstats((rule.substats ?? []).filter((variant) => allowed.includes(variant)))
+  const filtered = sortSafeguardSubstats((rule.substats ?? []).filter((variant) => allowed.includes(variant)))
   // Match only applies when a substat selection exists.
-  const nextMatch = filtered.length > 0 ? rule.substatMatch : KeepUniqueSubstatMatch.Any
+  const nextMatch = filtered.length > 0 ? rule.substatMatch : SafeguardSubstatMatch.Any
   // Remove weight entries for substats that are no longer selected.
-  const nextWeights = pruneKeepUniquesSubstatWeights(rule.substatWeights, filtered)
+  const nextWeights = pruneSafeguardsSubstatWeights(rule.substatWeights, filtered)
   // Skip rebuilding the rule if nothing changed.
   const substatsUnchanged = areArraysEqual(filtered, rule.substats ?? [])
   const matchUnchanged = nextMatch === rule.substatMatch
@@ -236,13 +236,13 @@ const constrainKeepUniqueSubstats = (
   }
 }
 
-type KeepUniquesTabProps = {
-  rules: KeepUniqueRule[]
+type SafeguardsTabProps = {
+  rules: SafeguardRule[]
   enabled: boolean
   finalSellCoverageWarningActive: boolean
-  onRulesChange: (next: SetStateAction<KeepUniqueRule[]>) => void
+  onRulesChange: (next: SetStateAction<SafeguardRule[]>) => void
   onToggleEnabled: (next: SetStateAction<boolean>) => void
-  detection: KeepUniqueDetectionSnapshot | null
+  detection: SafeguardDetectionSnapshot | null
   gearEntries: TesterPreviewRow[]
   uniqueItemKeys: ReadonlySet<number>
   testerCardWidthPx: number | null
@@ -253,14 +253,14 @@ type KeepUniquesTabProps = {
   colorBlindMode: ColorBlindMode
   onChangeColorBlindMode: (mode: ColorBlindMode) => void
   colorIconSrc: string
-  configNames: Array<string | null>
+  recipeNames: Array<string | null>
   metasets: Metaset[]
-  onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
+  onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null) => void) | undefined
   suppressMatchDetails?: boolean
   workloadProgressRatio: number
 }
 
-export default function KeepUniquesTab({
+export default function SafeguardsTab({
   rules,
   enabled,
   finalSellCoverageWarningActive,
@@ -277,12 +277,12 @@ export default function KeepUniquesTab({
   colorBlindMode,
   onChangeColorBlindMode,
   colorIconSrc,
-  configNames,
+  recipeNames,
   metasets,
   onJumpToRule,
   suppressMatchDetails = false,
   workloadProgressRatio,
-}: KeepUniquesTabProps) {
+}: SafeguardsTabProps) {
   const { t } = useI18n()
   const { resolveAllowedSetPool, sanitizeCombinationForSlots } = useKeepOverrideCombinationTools(metasets)
   const theme = useTheme()
@@ -301,35 +301,35 @@ export default function KeepUniquesTab({
   const [gridScrollbarWidthPx, setGridScrollbarWidthPx] = useState(0)
   const clearLabel = t('clear')
   const ruleModeScopeTooltip = useMemo(() => (
-    `${t('keepUniquesRuleModeHint')}
+    `${t('safeguardsRuleModeHint')}
 
-${t('keepUniquesCountModeHint')}
+${t('safeguardsCountModeHint')}
 
-${t('keepUniquesSubstatModeHint')}
+${t('safeguardsSubstatModeHint')}
 
-${t('keepUniquesIgnoreOptionsHint')}`
+${t('safeguardsIgnoreOptionsHint')}`
   ), [t])
   // Map substat match values to localized chip labels.
   const substatMatchLabels = useMemo(() => ({
-    [KeepUniqueSubstatMatch.Any]: t('keepUniquesSubstatRequirementAny'),
-    [KeepUniqueSubstatMatch.All]: t('keepUniquesSubstatRequirementAll'),
-    [KeepUniqueSubstatMatch.PerSubstat]: t('keepUniquesSubstatRequirementPer'),
+    [SafeguardSubstatMatch.Any]: t('safeguardsSubstatRequirementAny'),
+    [SafeguardSubstatMatch.All]: t('safeguardsSubstatRequirementAll'),
+    [SafeguardSubstatMatch.PerSubstat]: t('safeguardsSubstatRequirementPer'),
   }), [t])
   // Match options keep the chip row ordering stable.
   const substatMatchOptions = useMemo(() => ([
-    KeepUniqueSubstatMatch.Any,
-    KeepUniqueSubstatMatch.All,
-    KeepUniqueSubstatMatch.PerSubstat,
+    SafeguardSubstatMatch.Any,
+    SafeguardSubstatMatch.All,
+    SafeguardSubstatMatch.PerSubstat,
   ]), [])
   // Scope chip tooltips clarify how each toggle splits the quota.
-  const keepUniqueScopeChipTooltips = useMemo(() => ({
-    perSlot: t('keepUniquesCountModePerSlotHint'),
-    perSet: t('keepUniquesCountModePerSetHint'),
-    perFaction: t('keepUniquesCountModePerFactionHint'),
-    perMainStat: t('keepUniquesCountModePerMainHint'),
+  const safeguardScopeChipTooltips = useMemo(() => ({
+    perSlot: t('safeguardsCountModePerSlotHint'),
+    perSet: t('safeguardsCountModePerSetHint'),
+    perFaction: t('safeguardsCountModePerFactionHint'),
+    perMainStat: t('safeguardsCountModePerMainHint'),
   }), [t])
-  // Warn when Keep Uniques runs without Final Sell covering 0–16 so users revisit the baseline sweep.
-  const keepUniquesFinalSellWarning = enabled && finalSellCoverageWarningActive
+  // Warn when Safeguards runs without Final Sell covering 0–16 so users revisit the baseline sweep.
+  const safeguardsFinalSellWarning = enabled && finalSellCoverageWarningActive
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(() => rules[0]?.id ?? null)
   const [respectManualDeselect, setRespectManualDeselect] = useState(false)
   // Keep expansion state separate from the selection used to highlight tester rows; multiple cards can stay open.
@@ -340,8 +340,8 @@ ${t('keepUniquesIgnoreOptionsHint')}`
     return new Set()
   })
   const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
-  const [gridFilterMode, setGridFilterMode] = useKeepUniquesGridFilterMode()
-  const [gridColumnMode, setGridColumnMode] = useKeepUniquesGridColumnMode()
+  const [gridFilterMode, setGridFilterMode] = useSafeguardsGridFilterMode()
+  const [gridColumnMode, setGridColumnMode] = useSafeguardsGridColumnMode()
   // Track which rule header is in inline rename mode.
   const [editingRuleNameId, setEditingRuleNameId] = useState<string | null>(null)
   // Hide the intro copy when the rules list scrolls down.
@@ -352,7 +352,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
   const [pasteDialogTarget, setPasteDialogTarget] = useState<{ mode: 'after' | 'end'; ruleId?: string } | null>(null)
   const [pasteDialogText, setPasteDialogText] = useState('')
   const [pasteDialogError, setPasteDialogError] = useState<string | null>(null)
-  // Menu ref supports outside-click handling for the keep-unique action menu.
+  // Menu ref supports outside-click handling for the safeguard action menu.
   const ruleMenuRef = useRef<HTMLDivElement | null>(null)
   // Close handler keeps the menu in sync with rule edits.
   const closeRuleMenu = useCallback(() => {
@@ -388,7 +388,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
   // Track scroll changes so the header can collapse without extra layout passes.
   const handleRulesScrollChange = useCallback((scrollTop: number) => {
     // Treat any scroll beyond the top edge as a collapse trigger.
-    const nextCollapsed = scrollTop > KEEP_UNIQUES_HEADER_COLLAPSE_SCROLL_PX
+    const nextCollapsed = scrollTop > SAFEGUARDS_HEADER_COLLAPSE_SCROLL_PX
     // Avoid redundant state updates during scroll.
     setRulesHeaderCollapsed((prev) => (prev === nextCollapsed ? prev : nextCollapsed))
   }, [])
@@ -407,7 +407,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
     const maxAttempts = 8
     const tryScroll = (attempt: number) => {
       const scrollRoot = rulesScrollRootRef.current
-      const target = scrollRoot?.querySelector(`[data-keep-uniques-rule-id="${ruleId}"]`) as HTMLElement | null
+      const target = scrollRoot?.querySelector(`[data-safeguards-rule-id="${ruleId}"]`) as HTMLElement | null
       if (target) {
         target.scrollIntoView({ block: 'nearest' })
         scrollRafRef.current = null
@@ -421,16 +421,16 @@ ${t('keepUniquesIgnoreOptionsHint')}`
     }
     scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(0))
   }, [])
-  const ensureKeepUniquesEnabled = useCallback(() => {
+  const ensureSafeguardsEnabled = useCallback(() => {
     if (!enabled) onToggleEnabled(true)
   }, [enabled, onToggleEnabled])
-  // Rule edits should immediately re-enable Keep Uniques so users never lose changes silently, except when disabling a rule.
+  // Rule edits should immediately re-enable Safeguards so users never lose changes silently, except when disabling a rule.
   const mutateRules = useCallback(
-    (action: SetStateAction<KeepUniqueRule[]>, ensureEnabled = true) => {
-      if (ensureEnabled) ensureKeepUniquesEnabled()
+    (action: SetStateAction<SafeguardRule[]>, ensureEnabled = true) => {
+      if (ensureEnabled) ensureSafeguardsEnabled()
       onRulesChange(action)
     },
-    [ensureKeepUniquesEnabled, onRulesChange],
+    [ensureSafeguardsEnabled, onRulesChange],
   )
   const effectiveSelectedRuleId = useMemo(() => {
     if (selectedRuleId === null) {
@@ -457,7 +457,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
 
   const detectionEntries = useMemo(() => detection?.entries ?? [], [detection])
   const detectionByRuleId = useMemo(() => {
-    const map = new Map<string, KeepUniqueDetectionEntry>()
+    const map = new Map<string, SafeguardDetectionEntry>()
     for (const entry of detectionEntries) {
       if (entry.ruleId) map.set(entry.ruleId, entry)
     }
@@ -469,13 +469,13 @@ ${t('keepUniquesIgnoreOptionsHint')}`
   const uniqueRows = useMemo(() => {
     if (uniqueItemKeySet.size === 0) return []
     if (uniqueItemKeySet.size === gearEntries.length) return gearEntries
-    return gearEntries.filter((row) => uniqueItemKeySet.has(getKeepUniqueItemKey(row.artifact)))
+    return gearEntries.filter((row) => uniqueItemKeySet.has(getSafeguardItemKey(row.artifact)))
   }, [gearEntries, uniqueItemKeySet])
   const uniqueFilterActive = gearEntries.length > uniqueRows.length
   // Highlight callback lets the tester grid fade non-matching cards instead of mutating the dataset.
   const highlightRowPredicate = useMemo(() => {
     if (!selectedEntry || selectedItemKeys.size === 0) return null
-    return (row: TesterPreviewRow) => selectedItemKeys.has(getKeepUniqueItemKey(row.artifact))
+    return (row: TesterPreviewRow) => selectedItemKeys.has(getSafeguardItemKey(row.artifact))
   }, [selectedEntry, selectedItemKeys])
   const highlightActive = Boolean(highlightRowPredicate)
   // Treat selection mode as active whenever a rule is selected, even with zero matches.
@@ -500,33 +500,33 @@ ${t('keepUniquesIgnoreOptionsHint')}`
   const selectionChipLabel = useMemo(() => {
     if (selectedEntry) {
       // Keep the detail chip focused on the highlighted combination whenever a rule is active.
-      return t('keepUniquesGridSelectedCount', { count: selectedVisibleRowCount })
+      return t('safeguardsGridSelectedCount', { count: selectedVisibleRowCount })
     }
     if (gearEntries.length === 0 && uniqueRows.length === 0) return null
     // Surface the aggregate unique count so the toolbar never collapses when no rule is selected.
-    return t('keepUniquesGridUniqueCount', { count: uniqueRows.length })
+    return t('safeguardsGridUniqueCount', { count: uniqueRows.length })
   }, [selectedEntry, selectedVisibleRowCount, gearEntries.length, t, uniqueRows.length])
-  const gridFilterLabel = t('keepUniquesGridFilterLabel', {
+  const gridFilterLabel = t('safeguardsGridFilterLabel', {
     mode: gridFilterMode === 'selection'
-      ? t('keepUniquesGridFilterModeSelection')
-      : t('keepUniquesGridFilterModeAll'),
+      ? t('safeguardsGridFilterModeSelection')
+      : t('safeguardsGridFilterModeAll'),
   })
 
   const handleAddRule = useCallback(() => {
-    const combination = createEmptyKeepUniqueCombination()
+    const combination = createEmptySafeguardCombination()
     // Default new rules to per-set counting so cards immediately guard each combination.
-    const newRule: KeepUniqueRule = {
-      id: createKeepUniqueRuleId(),
+    const newRule: SafeguardRule = {
+      id: createSafeguardRuleId(),
       combination,
       name: '',
       requiredCount: 1,
-      activation: KeepUniqueRuleActivation.ProtectExisting,
-      countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
-      ignorePreviousSafeguards: KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
-      ignoreEquippedInCollection: KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
-      ignoreEquippedInVault: KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
+      activation: SafeguardRuleActivation.ProtectExisting,
+      countMode: { ...SAFEGUARD_DEFAULT_COUNT_MODE },
+      ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
+      ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
+      ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
       substats: [],
-      substatMatch: KeepUniqueSubstatMatch.Any,
+      substatMatch: SafeguardSubstatMatch.Any,
       substatWeights: {},
     }
     mutateRules((prev) => [...prev, newRule])
@@ -542,7 +542,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
   }, [mutateRules, scheduleScrollToRule, setRespectManualDeselect])
 
   const handleDeleteRule = useCallback((ruleId: string) => {
-    let filtered: KeepUniqueRule[] = []
+    let filtered: SafeguardRule[] = []
     mutateRules((prev) => {
       filtered = prev.filter((rule) => rule.id !== ruleId)
       return filtered
@@ -583,12 +583,12 @@ ${t('keepUniquesIgnoreOptionsHint')}`
       if (idx === -1) return prev
       const source = prev[idx]
       if (!source) return prev
-      const cloneId = createKeepUniqueRuleId()
+      const cloneId = createSafeguardRuleId()
       newRuleId = cloneId
-      const duplicated: KeepUniqueRule = {
+      const duplicated: SafeguardRule = {
         ...source,
         id: cloneId,
-        combination: cloneKeepUniqueCombination(source.combination),
+        combination: cloneSafeguardCombination(source.combination),
       }
       const next = prev.slice()
       next.splice(idx + 1, 0, duplicated)
@@ -607,7 +607,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
   }, [mutateRules, setRespectManualDeselect])
 
   const updateRule = useCallback(
-    (ruleId: string, updater: (rule: KeepUniqueRule) => KeepUniqueRule, ensureEnabled = true) => {
+    (ruleId: string, updater: (rule: SafeguardRule) => SafeguardRule, ensureEnabled = true) => {
       mutateRules((prev) => prev.map((rule) => (rule.id === ruleId ? updater(rule) : rule)), ensureEnabled)
     },
     [mutateRules],
@@ -636,7 +636,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
     cancelNameCommitTimer()
     nameCommitTimerRef.current = window.setTimeout(() => {
       nameCommitTimerRef.current = null
-      // Flush the buffered name into the keep-unique rule state once the debounce elapses.
+      // Flush the buffered name into the safeguard rule state once the debounce elapses.
       flushPendingName(ruleId)
     }, BUILDER_AUTO_APPLY_DEBOUNCE_MS)
   }, [cancelNameCommitTimer, flushPendingName])
@@ -670,11 +670,11 @@ ${t('keepUniquesIgnoreOptionsHint')}`
 
   const setRuleCombination = useCallback((
     ruleId: string,
-    updater: (combination: KeepUniqueRule['combination']) => KeepUniqueRule['combination'],
+    updater: (combination: SafeguardRule['combination']) => SafeguardRule['combination'],
   ) => {
     updateRule(ruleId, (rule) => {
       // Normalize combination ordering so UI chips and exports stay consistent.
-      const nextCombination = sortKeepUniqueCombination(updater(rule.combination))
+      const nextCombination = sortSafeguardCombination(updater(rule.combination))
       return { ...rule, combination: nextCombination }
     })
   }, [updateRule])
@@ -682,32 +682,32 @@ ${t('keepUniquesIgnoreOptionsHint')}`
     setGridFilterMode((prev) => (prev === 'all' ? 'selection' : 'all'))
   }, [setGridFilterMode])
   // Normalize clipboard payloads so paste accepts wrapper or raw rules.
-  const parseKeepUniqueClipboardRules = useCallback((raw: string | null): KeepUniqueRule[] => {
+  const parseSafeguardClipboardRules = useCallback((raw: string | null): SafeguardRule[] => {
     // Empty clipboard means nothing to paste.
     if (!raw || raw.trim().length === 0) return []
     try {
-      // Parse JSON and strip the keep-unique wrapper when present.
+      // Parse JSON and strip the safeguard wrapper when present.
       const parsed = JSON.parse(raw)
       const candidate = (
-        parsed && typeof parsed === 'object' && 'kind' in parsed && (parsed as { kind?: unknown }).kind === 'keepUniqueRule'
+        parsed && typeof parsed === 'object' && 'kind' in parsed && (parsed as { kind?: unknown }).kind === 'safeguardRule'
           ? (parsed as { rule?: unknown }).rule
           : parsed
       )
       const rawList = Array.isArray(candidate) ? candidate : [candidate]
       // Normalize into canonical rule shapes.
       const normalized = rawList
-        .map((entry) => normalizeKeepUniqueRule(entry))
-        .filter((entry): entry is KeepUniqueRule => Boolean(entry))
+        .map((entry) => normalizeSafeguardRule(entry))
+        .filter((entry): entry is SafeguardRule => Boolean(entry))
       if (normalized.length === 0) return []
       // Clone so future edits never mutate the parsed objects.
-      return normalized.map((rule) => cloneKeepUniqueRule(rule))
+      return normalized.map((rule) => cloneSafeguardRule(rule))
     } catch {
       // Ignore malformed clipboard data.
       return []
     }
   }, [])
   // Insert cloned rules at the requested index and focus the first insertion.
-  const insertKeepUniqueRulesAt = useCallback((rulesToInsert: KeepUniqueRule[], insertIndex: number) => {
+  const insertSafeguardRulesAt = useCallback((rulesToInsert: SafeguardRule[], insertIndex: number) => {
     // Track new IDs for selection + scroll behavior.
     const newRuleIds: string[] = []
     mutateRules((prev) => {
@@ -718,8 +718,8 @@ ${t('keepUniquesIgnoreOptionsHint')}`
       const next = prev.slice()
       let offset = 0
       for (const sourceRule of rulesToInsert) {
-        const clone = cloneKeepUniqueRule(sourceRule)
-        const cloneId = createKeepUniqueRuleId()
+        const clone = cloneSafeguardRule(sourceRule)
+        const cloneId = createSafeguardRuleId()
         clone.id = cloneId
         newRuleIds.push(cloneId)
         next.splice(safeIndex + offset, 0, clone)
@@ -747,9 +747,9 @@ ${t('keepUniquesIgnoreOptionsHint')}`
     const source = rules.find((rule) => rule.id === ruleId)
     if (!source) return
     // Convert to a readable HSFC-style rule so clipboard JSON stays human-friendly.
-    const snapshot = buildReadableKeepUniqueRuleEntry(source)
-    // Wrap the payload to make keep-unique rules detectable when pasting.
-    const payload = { kind: 'keepUniqueRule', rule: snapshot }
+    const snapshot = buildReadableSafeguardRuleEntry(source)
+    // Wrap the payload to make safeguard rules detectable when pasting.
+    const payload = { kind: 'safeguardRule', rule: snapshot }
     const text = JSON.stringify(payload, null, 2)
     // Write to clipboard, falling back to the manual copy dialog.
     const ok = await writeTextSafe(text)
@@ -759,30 +759,30 @@ ${t('keepUniquesIgnoreOptionsHint')}`
   const handlePasteAfterRule = useCallback(async (ruleId: string) => {
     // Resolve the rule to paste.
     const text = await readTextSafe()
-    const parsed = parseKeepUniqueClipboardRules(text)
+    const parsed = parseSafeguardClipboardRules(text)
     if (parsed.length > 0) {
       // Insert after the matching rule, or append if missing.
       const idx = rules.findIndex((entry) => entry.id === ruleId)
       const insertIndex = idx === -1 ? rules.length : idx + 1
-      insertKeepUniqueRulesAt(parsed, insertIndex)
+      insertSafeguardRulesAt(parsed, insertIndex)
       return
     }
     // Fall back to the manual paste dialog if clipboard access fails or is invalid.
     openPasteDialog('after', ruleId, text ?? '')
-  }, [insertKeepUniqueRulesAt, openPasteDialog, parseKeepUniqueClipboardRules, rules])
+  }, [insertSafeguardRulesAt, openPasteDialog, parseSafeguardClipboardRules, rules])
   // Paste a rule at the bottom of the list.
   const handlePasteAtEnd = useCallback(async () => {
     // Resolve the rule to paste.
     const text = await readTextSafe()
-    const parsed = parseKeepUniqueClipboardRules(text)
+    const parsed = parseSafeguardClipboardRules(text)
     if (parsed.length > 0) {
       // Append so list order stays predictable.
-      insertKeepUniqueRulesAt(parsed, rules.length)
+      insertSafeguardRulesAt(parsed, rules.length)
       return
     }
     // Fall back to the manual paste dialog if clipboard access fails or is invalid.
     openPasteDialog('end', undefined, text ?? '')
-  }, [insertKeepUniqueRulesAt, openPasteDialog, parseKeepUniqueClipboardRules, rules.length])
+  }, [insertSafeguardRulesAt, openPasteDialog, parseSafeguardClipboardRules, rules.length])
   // Reorder a rule to a specific index.
   const moveRule = useCallback((ruleId: string, targetIndex: number) => {
     mutateRules((prev) => {
@@ -816,8 +816,8 @@ ${t('keepUniquesIgnoreOptionsHint')}`
     setRuleMenu({ ruleId, x, y })
   }, [setRespectManualDeselect, setSelectedRuleId])
 
-  const renderRuleCard = (rule: KeepUniqueRule, ruleIndex: number) => {
-    const ruleDisabled = rule.activation === KeepUniqueRuleActivation.Off
+  const renderRuleCard = (rule: SafeguardRule, ruleIndex: number) => {
+    const ruleDisabled = rule.activation === SafeguardRuleActivation.Off
     const combination = rule.combination
     const ruleDetection = detectionByRuleId.get(rule.id) ?? null
     const slotSelection = combination.slots
@@ -856,23 +856,23 @@ ${t('keepUniquesIgnoreOptionsHint')}`
     const factionSelection = hasAccessorySlot ? dedupeNumericArray(combination.factions ?? []) : []
     // Translate faction labels so accessory filters report hidden entries precisely.
     const factionSelectionLabels = factionSelection.map((faction) => t(factionI18nKey(Number(faction))))
-    // Substat selection is optional; leave empty to keep classic keep-unique behavior.
+    // Substat selection is optional; leave empty to keep classic safeguard behavior.
     const allowedSubstatOptions = resolveAllowedSubstatsForSlotsAndMains({
       slots: slotSelection,
       mainStats: mainStatSelection,
     })
-    const substatSelection = sortKeepUniqueSubstats((rule.substats ?? []).filter((variant) => (
+    const substatSelection = sortSafeguardSubstats((rule.substats ?? []).filter((variant) => (
       allowedSubstatOptions.includes(variant)
     )))
     // Translate substat labels so badge math stays consistent with the visible text.
     const substatSelectionLabels = substatSelection.map((variant) => t(statVariantI18nKey(variant)))
     const hasSubstatSelection = substatSelection.length > 0
     const effectiveSubstatMatch = hasSubstatSelection
-      ? normalizeKeepUniqueSubstatMatch(rule.substatMatch)
-      : KeepUniqueSubstatMatch.Any
+      ? normalizeSafeguardSubstatMatch(rule.substatMatch)
+      : SafeguardSubstatMatch.Any
     // Weight controls apply to Any/All but stay hidden for Per Substat.
     const showSubstatWeights = hasSubstatSelection
-      && effectiveSubstatMatch !== KeepUniqueSubstatMatch.PerSubstat
+      && effectiveSubstatMatch !== SafeguardSubstatMatch.PerSubstat
     const selected = effectiveSelectedRuleId === rule.id
     const expanded = expandedRuleIds.has(rule.id)
     const selectRule = () => {
@@ -915,7 +915,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
       <IconButton
         size="small"
         onClick={(event) => { event.stopPropagation(); setPendingDeleteRuleId(rule.id) }}
-        aria-label={t('keepUniquesDeleteRule')}
+        aria-label={t('safeguardsDeleteRule')}
         color="error"
         sx={{ p: 0.5 }}
       >
@@ -926,7 +926,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
       <IconButton
         size="small"
         onClick={(event) => { event.stopPropagation(); handleDuplicateRule(rule.id) }}
-        aria-label={t('keepUniquesDuplicateRule')}
+        aria-label={t('safeguardsDuplicateRule')}
         sx={{ p: 0.5 }}
       >
         <ContentCopyIcon fontSize="small" />
@@ -946,7 +946,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
     const editNameButton = (
       <IconButton
         size="small"
-        aria-label={t('keepUniquesRuleNameLabel')}
+        aria-label={t('safeguardsRuleNameLabel')}
         data-rule-card-interactive="true"
         onClick={handleStartRuleNameEdit}
         sx={{ p: 0.5, color: 'text.secondary' }}
@@ -963,16 +963,16 @@ ${t('keepUniquesIgnoreOptionsHint')}`
       </Box>
     )
     // Normalize the rule count mode so scope chips always reflect a stable shape.
-    const countMode = sanitizeKeepUniqueCountMode(rule.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
+    const countMode = sanitizeSafeguardCountMode(rule.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
     // Labels are shared between chips and the detection scope tooltip.
-    const perSlotLabel = t('keepUniquesCountModePerSlot')
-    const perSetLabel = t('keepUniquesCountModePerSet')
-    const perFactionLabel = t('keepUniquesCountModePerFaction')
-    const perMainLabel = t('keepUniquesCountModePerMain')
+    const perSlotLabel = t('safeguardsCountModePerSlot')
+    const perSetLabel = t('safeguardsCountModePerSet')
+    const perFactionLabel = t('safeguardsCountModePerFaction')
+    const perMainLabel = t('safeguardsCountModePerMain')
     // Ignore faction scope when accessories are not in this rule's slot filter.
     const effectiveCountMode = hasAccessorySlot
       ? countMode
-      : sanitizeKeepUniqueCountMode({ ...countMode, perFaction: false })
+      : sanitizeSafeguardCountMode({ ...countMode, perFaction: false })
     // Resolve which scope chips are currently active for the effective scope.
     const scopeActive = resolveKeepOverrideScopeActive(effectiveCountMode)
     // Legacy drafts may not have the new toggles persisted yet.
@@ -980,18 +980,18 @@ ${t('keepUniquesIgnoreOptionsHint')}`
     // Equipped filters are opt-in and default to false for old payloads.
     const ignoreEquippedInCollection = rule.ignoreEquippedInCollection === true
     const ignoreEquippedInVault = rule.ignoreEquippedInVault === true
-    const ignorePreviousLabel = t('keepUniquesIgnorePreviousSafeguards')
-    const ignoreCollectionLabel = t('keepUniquesIgnoreEquippedInCollection')
-    const ignoreVaultLabel = t('keepUniquesIgnoreEquippedInVault')
-    const ignorePreviousHint = t('keepUniquesIgnorePreviousSafeguardsHint')
-    const ignoreCollectionHint = t('keepUniquesIgnoreEquippedInCollectionHint')
-    const ignoreVaultHint = t('keepUniquesIgnoreEquippedInVaultHint')
+    const ignorePreviousLabel = t('safeguardsIgnorePreviousSafeguards')
+    const ignoreCollectionLabel = t('safeguardsIgnoreEquippedInCollection')
+    const ignoreVaultLabel = t('safeguardsIgnoreEquippedInVault')
+    const ignorePreviousHint = t('safeguardsIgnorePreviousSafeguardsHint')
+    const ignoreCollectionHint = t('safeguardsIgnoreEquippedInCollectionHint')
+    const ignoreVaultHint = t('safeguardsIgnoreEquippedInVaultHint')
     // Toggle only the selected scope flag while preserving the rest.
     const handleScopeChipToggle = (scope: KeepOverrideScopeKey) => {
       if (ruleDisabled) return
       updateRule(rule.id, (prev) => {
         // Always toggle from a sanitized baseline to avoid drift.
-        const prevMode = prev.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE
+        const prevMode = prev.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE
         const nextMode = toggleKeepOverrideCountMode(prevMode, scope)
         return { ...prev, countMode: nextMode }
       })
@@ -1003,7 +1003,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
       active: boolean,
       disabledOverride = false,
     ) => (
-      <MarkdownTooltip markdown={keepUniqueScopeChipTooltips[scope]}>
+      <MarkdownTooltip markdown={safeguardScopeChipTooltips[scope]}>
         <span>
           <KeepOverrideScopeChip
             scope={scope}
@@ -1021,23 +1021,23 @@ ${t('keepUniquesIgnoreOptionsHint')}`
     const detectionScopeLine = (() => {
       if (!ruleDetection) return ''
       // Mirror the same effective-scope rules used by the chips.
-      const rawMode = sanitizeKeepUniqueCountMode(ruleDetection.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
+      const rawMode = sanitizeSafeguardCountMode(ruleDetection.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
       const mode = hasAccessorySlot
         ? rawMode
-        : sanitizeKeepUniqueCountMode({ ...rawMode, perFaction: false })
+        : sanitizeSafeguardCountMode({ ...rawMode, perFaction: false })
       const scopeParts: string[] = []
       if (mode.perSlot) scopeParts.push(perSlotLabel)
       if (mode.perSet) scopeParts.push(perSetLabel)
       if (mode.perFaction) scopeParts.push(perFactionLabel)
       if (mode.perMainStat) scopeParts.push(perMainLabel)
-      const scopeLabel = scopeParts.length > 0 ? scopeParts.join(' × ') : t('keepUniquesCountModePerRule')
-      return t('keepUniquesRuleCountsPerGroupSuffix', {
+      const scopeLabel = scopeParts.length > 0 ? scopeParts.join(' × ') : t('safeguardsCountModePerRule')
+      return t('safeguardsRuleCountsPerGroupSuffix', {
         perGroup: ruleDetection.perGroupRequiredCount,
         scope: scopeLabel,
       })
     })()
     const ruleCountsMissingLine = ruleDetection
-      ? t('keepUniquesRuleCountsMissing', {
+      ? t('safeguardsRuleCountsMissing', {
         missing: Math.max(0, Number(ruleDetection.deficit ?? 0)),
       })
       : ''
@@ -1047,15 +1047,15 @@ ${t('keepUniquesIgnoreOptionsHint')}`
     const summaryTitle = rawName || `${t('testerRule')} ${ruleIndex + 1}`
     const isEditingRuleName = editingRuleNameId === rule.id
     // Summary status keeps the header scannable: checkmark when active, X when Off.
-    const ruleActive = rule.activation !== KeepUniqueRuleActivation.Off
+    const ruleActive = rule.activation !== SafeguardRuleActivation.Off
     const activeRuleLabel = (
-      rule.activation === KeepUniqueRuleActivation.ProtectExisting
-        ? t('keepUniquesRuleModeProtect')
-        : t('keepUniquesRuleModeAnticipate')
+      rule.activation === SafeguardRuleActivation.ProtectExisting
+        ? t('safeguardsRuleModeProtect')
+        : t('safeguardsRuleModeAnticipate')
     )
     const ruleStatus = ruleActive
       ? { label: activeRuleLabel, icon: <CheckIcon fontSize="small" />, color: 'success.main' }
-      : { label: t('keepUniquesRuleModeOff'), icon: <PauseCircleOutlineIcon fontSize="small" />, color: 'text.secondary' }
+      : { label: t('safeguardsRuleModeOff'), icon: <PauseCircleOutlineIcon fontSize="small" />, color: 'text.secondary' }
     return (
       <Box
         key={rule.id}
@@ -1082,7 +1082,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
             columnGap: 1,
             alignItems: 'center',
             // Reserve space for a two-line name so expand/collapse never shifts the header height.
-            minHeight: KEEP_UNIQUES_RULE_HEADER_MIN_HEIGHT_PX,
+            minHeight: SAFEGUARDS_RULE_HEADER_MIN_HEIGHT_PX,
             px: 1.25,
             py: 0.875,
             textAlign: 'left',
@@ -1255,18 +1255,18 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                   updateRule(
                     rule.id,
                     (prev) => (prev.activation === next ? prev : { ...prev, activation: next }),
-                    next !== KeepUniqueRuleActivation.Off,
+                    next !== SafeguardRuleActivation.Off,
                   )
                 }}
                 data-rule-card-interactive="true"
                 sx={{ display: 'flex', width: '100%', borderRadius: '8px', overflow: 'hidden' }}
               >
                 <ToggleButton
-                  value={KeepUniqueRuleActivation.Off}
-                  aria-label={t('keepUniquesRuleModeOff')}
+                  value={SafeguardRuleActivation.Off}
+                  aria-label={t('safeguardsRuleModeOff')}
                   sx={{ flex: 1, minWidth: 0, px: 1 }}
                 >
-                  <EllipsisTooltip title={t('keepUniquesRuleModeOff')}>
+                  <EllipsisTooltip title={t('safeguardsRuleModeOff')}>
                     <Box
                       component="span"
                       data-ellipsis-target
@@ -1278,16 +1278,16 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {t('keepUniquesRuleModeOffShort')}
+                      {t('safeguardsRuleModeOffShort')}
                     </Box>
                   </EllipsisTooltip>
                 </ToggleButton>
                 <ToggleButton
-                  value={KeepUniqueRuleActivation.ProtectExisting}
-                  aria-label={t('keepUniquesRuleModeProtect')}
+                  value={SafeguardRuleActivation.ProtectExisting}
+                  aria-label={t('safeguardsRuleModeProtect')}
                   sx={{ flex: 1, minWidth: 0, px: 1 }}
                 >
-                  <EllipsisTooltip title={t('keepUniquesRuleModeProtect')}>
+                  <EllipsisTooltip title={t('safeguardsRuleModeProtect')}>
                     <Box
                       component="span"
                       data-ellipsis-target
@@ -1299,16 +1299,16 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {t('keepUniquesRuleModeProtectShort')}
+                      {t('safeguardsRuleModeProtectShort')}
                     </Box>
                   </EllipsisTooltip>
                 </ToggleButton>
                 <ToggleButton
-                  value={KeepUniqueRuleActivation.AnticipateGaps}
-                  aria-label={t('keepUniquesRuleModeAnticipate')}
+                  value={SafeguardRuleActivation.AnticipateGaps}
+                  aria-label={t('safeguardsRuleModeAnticipate')}
                   sx={{ flex: 1, minWidth: 0, px: 1 }}
                 >
-                  <EllipsisTooltip title={t('keepUniquesRuleModeAnticipate')}>
+                  <EllipsisTooltip title={t('safeguardsRuleModeAnticipate')}>
                     <Box
                       component="span"
                       data-ellipsis-target
@@ -1320,7 +1320,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {t('keepUniquesRuleModeAnticipateShort')}
+                      {t('safeguardsRuleModeAnticipateShort')}
                     </Box>
                   </EllipsisTooltip>
                 </ToggleButton>
@@ -1341,7 +1341,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                 <IconButton
                   size="small"
                   color="inherit"
-                  aria-label={t('keepUniquesRuleModeHintLabel')}
+                  aria-label={t('safeguardsRuleModeHintLabel')}
                   sx={{
                     p: 0.25,
                     fontSize: 16,
@@ -1378,7 +1378,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                       if (ruleDisabled) return
                       updateRule(rule.id, (prev) => {
                         const nextCombination = sanitizeCombinationForSlots(nextSlots, prev.combination)
-                        return constrainKeepUniqueSubstats(prev, nextCombination)
+                        return constrainSafeguardSubstats(prev, nextCombination)
                       })
                     }}
                     size="small"
@@ -1492,7 +1492,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                       if (ruleDisabled) return
                       updateRule(rule.id, (prev) => {
                         const nextCombination = { ...prev.combination, mainStats: dedupeNumericArray(nextMain) }
-                        return constrainKeepUniqueSubstats(prev, nextCombination)
+                        return constrainSafeguardSubstats(prev, nextCombination)
                       })
                     }}
                     colorOverrides={substatColors}
@@ -1547,7 +1547,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                       updateRule(rule.id, (prev) => ({
                         ...prev,
                         substats: [],
-                        substatMatch: KeepUniqueSubstatMatch.Any,
+                        substatMatch: SafeguardSubstatMatch.Any,
                         substatWeights: {},
                       }))
                     }}
@@ -1612,12 +1612,12 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                       onChange={(nextSubstats) => {
                         if (ruleDisabled) return
                         const filtered = nextSubstats.filter((variant) => allowedSubstatOptions.includes(variant))
-                        const sorted = sortKeepUniqueSubstats(filtered)
+                        const sorted = sortSafeguardSubstats(filtered)
                         updateRule(rule.id, (prev) => {
                           const nextMatch = sorted.length > 0
                             ? prev.substatMatch
-                            : KeepUniqueSubstatMatch.Any
-                          const nextWeights = pruneKeepUniquesSubstatWeights(prev.substatWeights, sorted)
+                            : SafeguardSubstatMatch.Any
+                          const nextWeights = pruneSafeguardsSubstatWeights(prev.substatWeights, sorted)
                           return {
                             ...prev,
                             substats: sorted,
@@ -1633,7 +1633,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                     />
                   </RuleSelectAffordances>
                   <Box sx={{ mb: 0.5 }}>
-                    <MarkdownTooltip markdown={t('keepUniquesSubstatRequirementHint')}>
+                    <MarkdownTooltip markdown={t('safeguardsSubstatRequirementHint')}>
                       <Box
                         component="span"
                         sx={{
@@ -1641,20 +1641,20 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                           gap: 1,
                           flexWrap: 'wrap',
                           alignItems: 'center',
-                          ...KEEP_UNIQUES_CHIP_LABEL_ELLIPSIS_SX,
+                          ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX,
                         }}
                       >
                         {substatMatchOptions.map((option) => {
                           const active = effectiveSubstatMatch === option
                           const label = substatMatchLabels[option]
-                            ?? substatMatchLabels[KeepUniqueSubstatMatch.Any]
+                            ?? substatMatchLabels[SafeguardSubstatMatch.Any]
                           return (
                             <EllipsisTooltip key={option} title={label} selector=".MuiChip-label">
                               <Chip
                                 size="small"
                                 variant="filled"
                                 label={label}
-                                aria-label={t('keepUniquesSubstatRequirementLabel')}
+                                aria-label={t('safeguardsSubstatRequirementLabel')}
                                 data-rule-card-interactive="true"
                                 clickable
                                 disabled={ruleDisabled || !hasSubstatSelection}
@@ -1683,7 +1683,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                   fullWidth
                   size="small"
                   type="number"
-                  label={t('keepUniquesRequiredCount')}
+                  label={t('safeguardsRequiredCount')}
                   value={rule.requiredCount}
                   disabled={ruleDisabled}
                   onChange={(event) => {
@@ -1694,7 +1694,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                     startAdornment: <InputAdornment position="start">≥</InputAdornment>,
                     endAdornment: (
                       <NumberSpinnerAdornment
-                        ariaLabel={t('keepUniquesRequiredCount')}
+                        ariaLabel={t('safeguardsRequiredCount')}
                         onStep={(delta) => {
                           if (ruleDisabled) return
                           updateRule(rule.id, (prev) => {
@@ -1758,7 +1758,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                   '& .MuiChip-root': {
                     width: '100%',
                   },
-                  ...KEEP_UNIQUES_CHIP_LABEL_ELLIPSIS_SX,
+                  ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX,
                 }}
               >
                 {/* Keep toggles as chips so state styling matches other safeguard controls. */}
@@ -1858,10 +1858,10 @@ ${t('keepUniquesIgnoreOptionsHint')}`
     ? t('chipMenuPasteAfter')
     : t('chipsMenuPasteAtEnd')
   const handleConfirmPasteDialog = useCallback(() => {
-    // Parse the manual paste text into keep-unique rules.
-    const parsed = parseKeepUniqueClipboardRules(pasteDialogText)
+    // Parse the manual paste text into safeguard rules.
+    const parsed = parseSafeguardClipboardRules(pasteDialogText)
     if (parsed.length === 0) {
-      setPasteDialogError('No valid keep-unique rule found in pasted text')
+      setPasteDialogError('No valid safeguard rule found in pasted text')
       return
     }
     // Decide insertion index based on the target mode.
@@ -1874,12 +1874,12 @@ ${t('keepUniquesIgnoreOptionsHint')}`
         return idx === -1 ? rules.length : idx + 1
       })()
       : rules.length
-    insertKeepUniqueRulesAt(parsed, insertIndex)
+    insertSafeguardRulesAt(parsed, insertIndex)
     closePasteDialog()
   }, [
     closePasteDialog,
-    insertKeepUniqueRulesAt,
-    parseKeepUniqueClipboardRules,
+    insertSafeguardRulesAt,
+    parseSafeguardClipboardRules,
     pasteDialogTarget,
     pasteDialogText,
     rules,
@@ -1887,7 +1887,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
 
   return (
     <>
-      <ConfigContextMenu
+      <RecipeContextMenu
         open={Boolean(ruleMenu)}
         anchorPosition={ruleMenu ? { top: ruleMenu.y, left: ruleMenu.x } : null}
         onClose={closeRuleMenu}
@@ -1911,7 +1911,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
             moveUp: { handler: () => moveRule(ruleMenu.ruleId, idx - 1), disabled: isFirst },
             moveDown: { handler: () => moveRule(ruleMenu.ruleId, idx + 1), disabled: isLast },
             moveBottom: { handler: () => moveRule(ruleMenu.ruleId, rules.length - 1), disabled: isLast },
-            copyConfig: () => handleCopyRule(ruleMenu.ruleId),
+            copyRecipe: () => handleCopyRule(ruleMenu.ruleId),
             pasteAfter: () => handlePasteAfterRule(ruleMenu.ruleId),
             pasteAtEnd: handlePasteAtEnd,
           }
@@ -1930,9 +1930,9 @@ ${t('keepUniquesIgnoreOptionsHint')}`
         onConfirm={handleConfirmPasteDialog}
       />
       <Dialog open={deleteDialogOpen} onClose={handleCancelDeleteRule}>
-        <DialogTitle>{t('keepUniquesDeleteRuleTitle')}</DialogTitle>
+        <DialogTitle>{t('safeguardsDeleteRuleTitle')}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">{t('keepUniquesDeleteRuleMessage')}</Typography>
+          <Typography variant="body2">{t('safeguardsDeleteRuleMessage')}</Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCancelDeleteRule}>{t('cancel')}</Button>
@@ -2004,8 +2004,8 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                     }),
                   })}
                 >
-                  <Typography variant="subtitle2">{t('keepUniquesTabLabel')}</Typography>
-                  <Typography variant="body2" color="text.secondary">{t('keepUniquesTabIntro')}</Typography>
+                  <Typography variant="subtitle2">{t('safeguardsTabLabel')}</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('safeguardsTabIntro')}</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                   <FormControlLabel
@@ -2017,13 +2017,13 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                     )}
                     label={(
                       <Stack direction="row" spacing={0.5} alignItems="center">
-                        <Typography component="span">{t('keepUniquesEnableLabel')}</Typography>
-                        {keepUniquesFinalSellWarning ? (
-                          // Tooltip nudges users to align Keep Uniques with a full Final Sell sweep.
-                          <MarkdownTooltip markdown={t('keepUniquesFinalSellCoverageWarning')}>
+                        <Typography component="span">{t('safeguardsEnableLabel')}</Typography>
+                        {safeguardsFinalSellWarning ? (
+                          // Tooltip nudges users to align Safeguards with a full Final Sell sweep.
+                          <MarkdownTooltip markdown={t('safeguardsFinalSellCoverageWarning')}>
                             <Box
                               component="span"
-                              aria-label={t('keepUniquesFinalSellCoverageWarning')}
+                              aria-label={t('safeguardsFinalSellCoverageWarning')}
                               sx={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
@@ -2045,7 +2045,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                 </Box>
               </Box>
             </Box>
-            <KeepUniquesRuleList
+            <SafeguardsRuleList
               rules={rules}
               renderRule={renderRuleCard}
               scrollRootRef={rulesScrollRootRef}
@@ -2054,7 +2054,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
             <Divider sx={{ my: 1 }} />
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Button variant="contained" onClick={handleAddRule} sx={{ minHeight: MENU_CONTROL_HEIGHT_PX }}>
-                {t('keepUniquesAddRule')}
+                {t('safeguardsAddRule')}
               </Button>
             </Box>
           </Box>
@@ -2074,7 +2074,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
             >
               <Box sx={{ minWidth: 0 }}>
                 <MarkdownTooltip
-                  markdown={t('keepUniquesGridFilterTooltip')}
+                  markdown={t('safeguardsGridFilterTooltip')}
                   ellipsisTitle={gridFilterLabel}
                   ellipsisSelector='[data-ellipsis-target]'
                 >
@@ -2124,13 +2124,13 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                 }}
               >
                 {/* Shared spinner keeps the dialog aligned with the preview chip busy indicator. */}
-                <WorkloadProgressIndicator progressRatio={workloadProgressRatio} ariaLabel={t('keepUniquesScanPending')} />
+                <WorkloadProgressIndicator progressRatio={workloadProgressRatio} ariaLabel={t('safeguardsScanPending')} />
                 {selectionChipLabel ? (
                   <EllipsisTooltip title={selectionChipLabel} selector=".MuiChip-label" wrap="block">
                     <Chip
                       size="small"
                       label={selectionChipLabel}
-                      sx={{ flexShrink: 1, minWidth: 0, maxWidth: '100%', ...KEEP_UNIQUES_CHIP_LABEL_ELLIPSIS_SX }}
+                      sx={{ flexShrink: 1, minWidth: 0, maxWidth: '100%', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}
                     />
                   </EllipsisTooltip>
                 ) : null}
@@ -2148,16 +2148,16 @@ ${t('keepUniquesIgnoreOptionsHint')}`
                 colorBlindMode={colorBlindMode}
                 onChangeColorBlindMode={onChangeColorBlindMode}
                 colorIconSrc={colorIconSrc}
-                configNames={configNames}
+                recipeNames={recipeNames}
                 onJumpToRule={onJumpToRule}
-                variant="keepUniques"
+                variant="safeguards"
                 keepOverrideColumnMode={gridColumnMode}
                 onKeepOverrideColumnModeChange={setGridColumnMode}
                 onScrollbarWidthMeasured={setGridScrollbarWidthPx}
                 highlightedRowPredicate={highlightRowPredicate ?? null}
                 dimUnhighlightedRows={highlightActive}
                 suppressMatchDetails={suppressMatchDetails}
-                keepUniquesEnabled={enabled}
+                safeguardsEnabled={enabled}
                 hasTesterData={hasPreviewGear}
                 emptyStateOptions={!hasPreviewGear ? {
                   borderVariant: 'dashed',
@@ -2173,14 +2173,14 @@ ${t('keepUniquesIgnoreOptionsHint')}`
   )
 }
 
-type KeepUniquesRuleListProps = {
-  rules: KeepUniqueRule[]
-  renderRule: (rule: KeepUniqueRule, ruleIndex: number) => ReactNode
+type SafeguardsRuleListProps = {
+  rules: SafeguardRule[]
+  renderRule: (rule: SafeguardRule, ruleIndex: number) => ReactNode
   scrollRootRef: RefObject<HTMLDivElement | null>
   onScrollChange?: (scrollTop: number) => void
 }
 
-function KeepUniquesRuleList({ rules, renderRule, scrollRootRef, onScrollChange }: KeepUniquesRuleListProps) {
+function SafeguardsRuleList({ rules, renderRule, scrollRootRef, onScrollChange }: SafeguardsRuleListProps) {
   const { t } = useI18n()
   // Bubble scroll changes so the parent can collapse the intro copy.
   const handleScroll = useCallback((event: ReactUIEvent<HTMLDivElement>) => {
@@ -2202,7 +2202,7 @@ function KeepUniquesRuleList({ rules, renderRule, scrollRootRef, onScrollChange 
       })}
     >
       {rules.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">{t('keepUniquesNoRules')}</Typography>
+        <Typography variant="body2" color="text.secondary">{t('safeguardsNoRules')}</Typography>
       ) : (
         // Render a normal stacked list so expand/collapse never depends on cached measurements.
         // Use CSS gap directly (instead of Stack's spacing implementation) to keep spacing stable across toggles.
@@ -2210,7 +2210,7 @@ function KeepUniquesRuleList({ rules, renderRule, scrollRootRef, onScrollChange 
           {rules.map((rule, index) => (
             <Box
               key={rule.id}
-              data-keep-uniques-rule-id={rule.id}
+              data-safeguards-rule-id={rule.id}
               sx={{ overflowAnchor: 'none' }}
             >
               {renderRule(rule, index)}

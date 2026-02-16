@@ -4,12 +4,12 @@ import initRuleEngineWasm, {
   auto_rarity_roll_levels_for_code_value as autoRarityRollLevelsForCodeWasmValueBinding,
   build_hsf_rules_runtime_value as buildHsfRulesRuntimeWasmValueBinding,
   build_final_sell_rules_value as buildFinalSellRulesWasmValueBinding,
-  build_keep_unique_rules_value as buildKeepUniqueRulesWasmValueBinding,
+  build_safeguard_rules_value as buildSafeguardRulesWasmValueBinding,
   combinations_i32_fast_flat as combinationsI32FastFlatWasmBinding,
-  collect_keep_unique_candidates_value as collectKeepUniqueCandidatesWasmValueBinding,
-  collect_and_compute_keep_unique_protection_value as collectAndComputeKeepUniqueProtectionWasmValueBinding,
+  collect_safeguard_candidates_value as collectSafeguardCandidatesWasmValueBinding,
+  collect_and_compute_safeguard_protection_value as collectAndComputeSafeguardProtectionWasmValueBinding,
   compute_merged_rules_value as computeMergedRulesWasmValueBinding,
-  compute_keep_unique_protection_value as computeKeepUniqueProtectionValueWasmBinding,
+  compute_safeguard_protection_value as computeSafeguardProtectionValueWasmBinding,
   dedupe_hsf_rules_for_export_value as dedupeHsfRulesForExportWasmValueBinding,
   expand_auto_flex_rarity_branches_value as expandAutoFlexRarityBranchesWasmValueBinding,
   flatten_rule_batches_with_total_limit_value as flattenRuleBatchesWithTotalLimitWasmValueBinding,
@@ -18,51 +18,51 @@ import initRuleEngineWasm, {
   fingerprint_merged_rules_value as fingerprintMergedRulesWasmValueBinding,
   finalize_generated_rules_value as finalizeGeneratedRulesWasmValueBinding,
   find_obsolete_value as findObsoleteRuleEngineWasmValueBinding,
-  hash_keep_unique_combination_value as hashKeepUniqueCombinationWasmValueBinding,
+  hash_safeguard_combination_value as hashSafeguardCombinationWasmValueBinding,
   intro_assignments_for_combo_fast_flat as introAssignmentsForComboFastFlatWasmBinding,
-  keep_unique_count_key_value as keepUniqueCountKeyValueWasmBinding,
-  keep_unique_group_key_value as keepUniqueGroupKeyValueWasmValueBinding,
-  keep_unique_item_key_value as keepUniqueItemKeyValueWasmValueBinding,
-  merge_keep_unique_injected_rules_value as mergeKeepUniqueInjectedRulesWasmValueBinding,
-  normalize_keep_unique_activation_value as normalizeKeepUniqueActivationWasmValueBinding,
-  normalize_keep_unique_combination_value as normalizeKeepUniqueCombinationWasmValueBinding,
-  normalize_keep_unique_count_mode_value as normalizeKeepUniqueCountModeWasmValueBinding,
-  normalize_keep_unique_rule_value as normalizeKeepUniqueRuleWasmValueBinding,
-  normalize_keep_unique_substat_match_value as normalizeKeepUniqueSubstatMatchWasmValueBinding,
-  normalize_keep_unique_expected_group_domain_value as normalizeKeepUniqueExpectedGroupDomainWasmValueBinding,
-  prepare_hsf_builder_config_value as prepareHsfBuilderConfigWasmValueBinding,
-  resolve_keep_unique_rules_with_metasets_value as resolveKeepUniqueRulesWithMetasetsWasmValueBinding,
+  safeguard_count_key_value as safeguardCountKeyValueWasmBinding,
+  safeguard_group_key_value as safeguardGroupKeyValueWasmValueBinding,
+  safeguard_item_key_value as safeguardItemKeyValueWasmValueBinding,
+  merge_safeguard_injected_rules_value as mergeSafeguardInjectedRulesWasmValueBinding,
+  normalize_safeguard_activation_value as normalizeSafeguardActivationWasmValueBinding,
+  normalize_safeguard_combination_value as normalizeSafeguardCombinationWasmValueBinding,
+  normalize_safeguard_count_mode_value as normalizeSafeguardCountModeWasmValueBinding,
+  normalize_safeguard_rule_value as normalizeSafeguardRuleWasmValueBinding,
+  normalize_safeguard_substat_match_value as normalizeSafeguardSubstatMatchWasmValueBinding,
+  normalize_safeguard_expected_group_domain_value as normalizeSafeguardExpectedGroupDomainWasmValueBinding,
+  prepare_hsf_builder_recipe_value as prepareHsfBuilderRecipeWasmValueBinding,
+  resolve_safeguard_rules_with_metasets_value as resolveSafeguardRulesWithMetasetsWasmValueBinding,
   resolve_auto_rarity_code_for_builder_value as resolveAutoRarityCodeForBuilderWasmValueBinding,
   permutations_i32_fast_flat as permutationsI32FastFlatWasmBinding,
-  sort_keep_unique_combination_value as sortKeepUniqueCombinationWasmValueBinding,
-  sort_keep_unique_substats_value as sortKeepUniqueSubstatsWasmValueBinding,
+  sort_safeguard_combination_value as sortSafeguardCombinationWasmValueBinding,
+  sort_safeguard_substats_value as sortSafeguardSubstatsWasmValueBinding,
   version as ruleEngineWasmVersionBinding,
 } from './generated/rule_engine.js'
 import type { GeneratedBranchRuleEntry, HsfRuleWithCfg } from '../merge'
 import type { HsfRule } from '../hsfTypes'
-import type { BuilderConfig, SellfileExportMode } from '../hsfBuilder'
-import type { KeepUniqueDetectionSnapshot, KeepUniqueRule } from '../keepUniques'
+import type { BuilderRecipe, SellfileExportMode } from '../hsfBuilder'
+import type { SafeguardDetectionSnapshot, SafeguardRule } from '../safeguards'
 import type { FinalSellRemainderConfig } from '../logicHub'
 import type { TesterMatchWorkerEvaluateItem, TesterMatchWorkerItemResult } from '../../workers/testerMatchWorkerTypes'
 
-// Evaluate options mirror evaluateMatchesByConfig inputs used by worker paths.
-// The WASM engine accepts object values and applies the same source/config gating.
+// Evaluate options mirror evaluateMatchesByRecipe inputs used by worker paths.
+// The WASM engine accepts object values and applies the same source/recipe gating.
 export type WasmRuleEngineEvaluateOptions = {
   excludeSources?: readonly string[]
   excludeConfigIndices?: ReadonlySet<number>
-  ignoreKeepUniqueConfigIndices?: ReadonlySet<number>
+  ignoreSafeguardConfigIndices?: ReadonlySet<number>
   baselineExcludeSources?: readonly string[]
 }
 
 type WasmRuleEngineEvaluatePayload = {
-  // Excluded rule sources (e.g., keep-unique injections) for baseline scans.
+  // Excluded rule sources (e.g., safeguard injections) for baseline scans.
   excludeSources?: string[]
   // Baseline-specific source exclusions used by worker differential flows.
   baselineExcludeSources?: string[]
-  // Explicit config indices to skip during matcher evaluation.
+  // Explicit recipe indices to skip during matcher evaluation.
   excludeConfigIndices?: number[]
-  // Config indices ignored by keep-unique precedence logic.
-  ignoreKeepUniqueConfigIndices?: number[]
+  // Recipe indices ignored by safeguard precedence logic.
+  ignoreSafeguardConfigIndices?: number[]
 }
 
 // Internal cached init promise prevents duplicate wasm instantiation work.
@@ -164,17 +164,17 @@ const toEvaluateOptionsPayload = (
   if (options?.baselineExcludeSources && options.baselineExcludeSources.length > 0) {
     payload.baselineExcludeSources = Array.from(options.baselineExcludeSources)
   }
-  // Convert config index set into sorted array for deterministic payload shape.
+  // Convert recipe index set into sorted array for deterministic payload shape.
   if (options?.excludeConfigIndices && options.excludeConfigIndices.size > 0) {
     const sorted = toSortedNumberArray(options.excludeConfigIndices)
     // Guard the assignment so exact optional typing never receives undefined.
     if (sorted) payload.excludeConfigIndices = sorted
   }
-  // Convert keep-unique ignore set into sorted array for deterministic payload shape.
-  if (options?.ignoreKeepUniqueConfigIndices && options.ignoreKeepUniqueConfigIndices.size > 0) {
-    const sorted = toSortedNumberArray(options.ignoreKeepUniqueConfigIndices)
+  // Convert safeguard ignore set into sorted array for deterministic payload shape.
+  if (options?.ignoreSafeguardConfigIndices && options.ignoreSafeguardConfigIndices.size > 0) {
+    const sorted = toSortedNumberArray(options.ignoreSafeguardConfigIndices)
     // Guard the assignment so exact optional typing never receives undefined.
-    if (sorted) payload.ignoreKeepUniqueConfigIndices = sorted
+    if (sorted) payload.ignoreSafeguardConfigIndices = sorted
   }
   // Return compact payload so wasm bindings only receive active filters.
   return payload
@@ -197,16 +197,16 @@ export const warmupWasmRuleEngine = async (): Promise<void> => {
   await ensureWasmInitialized()
 }
 
-// Configure the WASM engine with the merged rules + config mode visibility.
+// Configure the WASM engine with the merged rules + recipe mode visibility.
 // This must run before evaluate, matching the existing worker configure flow.
 export const configureWasmRuleEngine = async (params: {
   rules: HsfRuleWithCfg[]
-  configModes: SellfileExportMode[]
+  recipeModes: SellfileExportMode[]
 }): Promise<void> => {
   // Ensure module init before invoking wasm configure binding.
   await ensureWasmInitialized()
   // Configure shared matcher state used by subsequent evaluate calls.
-  configureRuleEngineWasmValueBinding(params.rules, params.configModes)
+  configureRuleEngineWasmValueBinding(params.rules, params.recipeModes)
 }
 
 // Evaluate a batch of tester items through the WASM matcher implementation.
@@ -231,12 +231,12 @@ export const evaluateWasmRuleEngineItems = async (params: {
 // Callers must run warmup first and then can configure on each ruleset swap.
 export const configureWasmRuleEngineWithLoadedWasm = (params: {
   rules: HsfRuleWithCfg[]
-  configModes: SellfileExportMode[]
+  recipeModes: SellfileExportMode[]
 }): void => {
   // Sync helper is fail-closed: caller must have warmed wasm already.
   assertWasmInitializedSync()
   // Configure matcher state for sync callers that cannot await.
-  configureRuleEngineWasmValueBinding(params.rules, params.configModes)
+  configureRuleEngineWasmValueBinding(params.rules, params.recipeModes)
 }
 
 // Sync evaluate helper mirrors the async wrapper but skips init checks.
@@ -274,7 +274,7 @@ type WasmGeneratedEntry = {
   originalIdx: number
 }
 
-type WasmKeepUniqueCountModePayload = {
+type WasmSafeguardCountModePayload = {
   perRule: boolean
   perSet: boolean
   perFaction: boolean
@@ -283,7 +283,7 @@ type WasmKeepUniqueCountModePayload = {
 }
 
 // Readable HSFC label lookups come from TS constants so label ids stay SSOT.
-type WasmKeepUniqueNormalizationLookupsPayload = {
+type WasmSafeguardNormalizationLookupsPayload = {
   artifactTypeIdsByName: Record<string, number>
   artifactSetIdsByName: Record<string, number>
   factionIdsByName: Record<string, number>
@@ -291,7 +291,7 @@ type WasmKeepUniqueNormalizationLookupsPayload = {
   statVariantIdsByLabel: Record<string, number>
 }
 
-type WasmCollectedKeepUniqueCandidate = {
+type WasmCollectedSafeguardCandidate = {
   rowIndex: number
   itemKey: number
   groupKey: string
@@ -299,15 +299,15 @@ type WasmCollectedKeepUniqueCandidate = {
   artifact: unknown
 }
 
-type WasmCollectedKeepUniqueSnapshot = {
-  candidates: WasmCollectedKeepUniqueCandidate[]
+type WasmCollectedSafeguardSnapshot = {
+  candidates: WasmCollectedSafeguardCandidate[]
   uniqueItemKeys: number[]
 }
 
-type WasmCollectedAndProtectedKeepUniqueSnapshot = {
-  candidates: WasmCollectedKeepUniqueCandidate[]
+type WasmCollectedAndProtectedSafeguardSnapshot = {
+  candidates: WasmCollectedSafeguardCandidate[]
   uniqueItemKeys: number[]
-  detection: KeepUniqueDetectionSnapshot
+  detection: SafeguardDetectionSnapshot
 }
 
 // Synchronous obsolete-pruning helper used by generation code paths that must
@@ -350,9 +350,9 @@ export const fingerprintMergedRulesWithLoadedWasm = (rules: readonly HsfRuleWith
   throw new Error('WASM merged-rule fingerprint helper returned an invalid payload.')
 }
 
-// Synchronous keep-unique detector runs candidate/rule loops inside wasm.
+// Synchronous safeguard detector runs candidate/rule loops inside wasm.
 // Callers must warm wasm first; invalid payloads are surfaced by callers.
-export const computeKeepUniqueProtectionWithLoadedWasm = (params: {
+export const computeSafeguardProtectionWithLoadedWasm = (params: {
   candidates: unknown
   rules: unknown
   expectedGroupsByRuleId?: unknown
@@ -376,7 +376,7 @@ export const computeKeepUniqueProtectionWithLoadedWasm = (params: {
         : {}),
     }
     : undefined
-  return computeKeepUniqueProtectionValueWasmBinding(
+  return computeSafeguardProtectionValueWasmBinding(
     params.candidates,
     params.rules,
     expectedGroupsPayload,
@@ -387,41 +387,41 @@ export const computeKeepUniqueProtectionWithLoadedWasm = (params: {
 
 // Candidate collection keeps keep-flag resolution + item/group key derivation
 // in Rust; TS callers reattach row references for compatibility.
-export const collectKeepUniqueCandidatesWithLoadedWasm = (params: {
+export const collectSafeguardCandidatesWithLoadedWasm = (params: {
   rows: unknown
   rules: HsfRuleWithCfg[]
-  configModes: SellfileExportMode[]
-  ignoreKeepUniqueConfigIndices?: ReadonlySet<number>
-}): WasmCollectedKeepUniqueSnapshot => {
+  recipeModes: SellfileExportMode[]
+  ignoreSafeguardConfigIndices?: ReadonlySet<number>
+}): WasmCollectedSafeguardSnapshot => {
   assertWasmInitializedSync()
-  const ignored = toSortedNumberArray(params.ignoreKeepUniqueConfigIndices) ?? null
-  const result = collectKeepUniqueCandidatesWasmValueBinding(
+  const ignored = toSortedNumberArray(params.ignoreSafeguardConfigIndices) ?? null
+  const result = collectSafeguardCandidatesWasmValueBinding(
     params.rows,
     params.rules,
-    params.configModes,
+    params.recipeModes,
     ignored,
-  ) as WasmCollectedKeepUniqueSnapshot
+  ) as WasmCollectedSafeguardSnapshot
   if (result && Array.isArray(result.candidates) && Array.isArray(result.uniqueItemKeys)) {
     return result
   }
-  throw new Error('WASM keep-unique candidate collector returned an invalid payload.')
+  throw new Error('WASM safeguard candidate collector returned an invalid payload.')
 }
 
-// Combined keep-unique pipeline runs candidate collection + detection in one
+// Combined safeguard pipeline runs candidate collection + detection in one
 // wasm call so TS orchestration avoids two separate Rust roundtrips.
-export const collectAndComputeKeepUniqueProtectionWithLoadedWasm = (params: {
+export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
   rows: unknown
   rules: HsfRuleWithCfg[]
-  configModes: SellfileExportMode[]
-  ignoreKeepUniqueConfigIndices?: ReadonlySet<number>
-  keepUniqueRules: unknown
+  recipeModes: SellfileExportMode[]
+  ignoreSafeguardConfigIndices?: ReadonlySet<number>
+  safeguardRules: unknown
   expectedGroupsByRuleId?: unknown
   expectedGroupDomain?: unknown
   enabled: boolean
   now: number
-}): WasmCollectedAndProtectedKeepUniqueSnapshot => {
+}): WasmCollectedAndProtectedSafeguardSnapshot => {
   assertWasmInitializedSync()
-  const ignored = toSortedNumberArray(params.ignoreKeepUniqueConfigIndices) ?? null
+  const ignored = toSortedNumberArray(params.ignoreSafeguardConfigIndices) ?? null
   const expectedGroupsPayload = (
     params.expectedGroupsByRuleId !== undefined
     || params.expectedGroupDomain !== undefined
@@ -435,16 +435,16 @@ export const collectAndComputeKeepUniqueProtectionWithLoadedWasm = (params: {
         : {}),
     }
     : undefined
-  const result = collectAndComputeKeepUniqueProtectionWasmValueBinding(
+  const result = collectAndComputeSafeguardProtectionWasmValueBinding(
     params.rows,
     params.rules,
-    params.configModes,
+    params.recipeModes,
     ignored,
-    params.keepUniqueRules,
+    params.safeguardRules,
     expectedGroupsPayload,
     params.enabled === true,
     Number.isFinite(params.now) ? params.now : 0,
-  ) as WasmCollectedAndProtectedKeepUniqueSnapshot
+  ) as WasmCollectedAndProtectedSafeguardSnapshot
   if (
     result
     && Array.isArray(result.candidates)
@@ -454,55 +454,55 @@ export const collectAndComputeKeepUniqueProtectionWithLoadedWasm = (params: {
   ) {
     return result
   }
-  throw new Error('WASM keep-unique combined collector/detector returned an invalid payload.')
+  throw new Error('WASM safeguard combined collector/detector returned an invalid payload.')
 }
 
-// Metaset expansion for keep-unique rules now runs in Rust so include/exclude
+// Metaset expansion for safeguard rules now runs in Rust so include/exclude
 // precedence stays single-sourced across app and workers.
-export const resolveKeepUniqueRulesWithMetasetsWithLoadedWasm = <T extends { combination: unknown }>(
+export const resolveSafeguardRulesWithMetasetsWithLoadedWasm = <T extends { combination: unknown }>(
   rules: readonly T[],
   metasets: readonly unknown[],
 ): T[] => {
   assertWasmInitializedSync()
   if (rules.length === 0 || metasets.length === 0) return rules as T[]
-  const result = resolveKeepUniqueRulesWithMetasetsWasmValueBinding(rules, metasets) as T[]
+  const result = resolveSafeguardRulesWithMetasetsWasmValueBinding(rules, metasets) as T[]
   if (Array.isArray(result)) return result
-  throw new Error('WASM keep-unique metaset resolver returned an invalid payload.')
+  throw new Error('WASM safeguard metaset resolver returned an invalid payload.')
 }
 
-// Injected keep-unique merge filtering/sorting runs in Rust so canonicalization
+// Injected safeguard merge filtering/sorting runs in Rust so canonicalization
 // and dedupe precedence are defined in one implementation.
-export const mergeKeepUniqueInjectedRulesWithLoadedWasm = (params: {
+export const mergeSafeguardInjectedRulesWithLoadedWasm = (params: {
   baseRules: HsfRuleWithCfg[]
   customRules: HsfRuleWithCfg[]
   candidateKeepRules: HsfRuleWithCfg[]
 }): HsfRuleWithCfg[] => {
   assertWasmInitializedSync()
-  const result = mergeKeepUniqueInjectedRulesWasmValueBinding(
+  const result = mergeSafeguardInjectedRulesWasmValueBinding(
     params.baseRules,
     params.customRules,
     params.candidateKeepRules,
   )
   if (Array.isArray(result)) return result as HsfRuleWithCfg[]
-  throw new Error('WASM keep-unique injected-rule merge returned an invalid payload.')
+  throw new Error('WASM safeguard injected-rule merge returned an invalid payload.')
 }
 
 // Keep-unique HSF keep-rule construction moved to Rust so merge.ts no longer
 // maintains duplicate placeholder/artifact expansion logic.
-export const buildKeepUniqueRulesWithLoadedWasm = (params: {
-  rules: readonly KeepUniqueRule[]
-  detection: KeepUniqueDetectionSnapshot | null
-  configIdBase: number
+export const buildSafeguardRulesWithLoadedWasm = (params: {
+  rules: readonly SafeguardRule[]
+  detection: SafeguardDetectionSnapshot | null
+  recipeIdBase: number
 }): HsfRuleWithCfg[] => {
   assertWasmInitializedSync()
   if (!params.detection) return []
-  const result = buildKeepUniqueRulesWasmValueBinding(
+  const result = buildSafeguardRulesWasmValueBinding(
     params.rules,
     params.detection,
-    BigInt(Math.floor(params.configIdBase)),
+    BigInt(Math.floor(params.recipeIdBase)),
   )
   if (Array.isArray(result)) return result as HsfRuleWithCfg[]
-  throw new Error('WASM keep-unique rule builder returned an invalid payload.')
+  throw new Error('WASM safeguard rule builder returned an invalid payload.')
 }
 
 // Final-sell HSF remainder generation runs in Rust so merge.ts no longer owns
@@ -537,17 +537,17 @@ export const flattenRuleBatchesWithTotalLimitWithLoadedWasm = (params: {
   throw new Error('WASM custom-rule batch flattener returned an invalid payload.')
 }
 
-// Merge orchestration combines base/custom/final-sell/keep-unique rows and
+// Merge orchestration combines base/custom/final-sell/safeguard rows and
 // assigns stable __lineIdx ordering in one Rust pass.
 export const computeMergedRulesWithLoadedWasm = (params: {
   baseRules: HsfRuleWithCfg[]
   customRules: HsfRuleWithCfg[]
   finalSellRemainder: FinalSellRemainderConfig | null | undefined
   allKnownSetIds: number[]
-  keepUniqueEnabled: boolean
-  keepUniqueRules: readonly KeepUniqueRule[]
-  keepUniqueDetection: KeepUniqueDetectionSnapshot | null | undefined
-  keepUniqueConfigIdBase: number
+  safeguardEnabled: boolean
+  safeguardRules: readonly SafeguardRule[]
+  safeguardDetection: SafeguardDetectionSnapshot | null | undefined
+  safeguardRecipeIdBase: number
 }): HsfRuleWithCfg[] => {
   assertWasmInitializedSync()
   const result = computeMergedRulesWasmValueBinding({
@@ -555,10 +555,11 @@ export const computeMergedRulesWithLoadedWasm = (params: {
     customRules: params.customRules,
     finalSellRemainder: params.finalSellRemainder ?? null,
     allKnownSetIds: params.allKnownSetIds,
-    keepUniqueEnabled: params.keepUniqueEnabled === true,
-    keepUniqueRules: params.keepUniqueRules,
-    keepUniqueDetection: params.keepUniqueDetection ?? null,
-    keepUniqueConfigIdBase: Math.floor(params.keepUniqueConfigIdBase),
+    // Rust uses canonical safeguard payload keys for merged-rule orchestration.
+    safeguardEnabled: params.safeguardEnabled === true,
+    safeguardRules: params.safeguardRules,
+    safeguardDetection: params.safeguardDetection ?? null,
+    safeguardRecipeIdBase: Math.floor(params.safeguardRecipeIdBase),
   })
   if (Array.isArray(result)) return result as HsfRuleWithCfg[]
   throw new Error('WASM merged-rule orchestrator returned an invalid payload.')
@@ -567,20 +568,20 @@ export const computeMergedRulesWithLoadedWasm = (params: {
 // Auto-flex rarity branch expansion now runs in Rust so merge.ts keeps one
 // source for the branch split heuristics tied to auto rarity + locked mins.
 export const expandAutoFlexRarityBranchesWithLoadedWasm = (params: {
-  config: BuilderConfig
+  recipe: BuilderRecipe
   baseRarityCode: number
-}): BuilderConfig[] => {
+}): BuilderRecipe[] => {
   assertWasmInitializedSync()
   const rawResult = expandAutoFlexRarityBranchesWasmValueBinding(
-    params.config,
+    params.recipe,
     Math.floor(params.baseRarityCode),
   )
   const result = toPlainObjectDeep(rawResult)
-  if (Array.isArray(result)) return result as BuilderConfig[]
+  if (Array.isArray(result)) return result as BuilderRecipe[]
   throw new Error('WASM auto-flex rarity branch expansion returned an invalid payload.')
 }
 
-// Builder-facing auto-rarity helper accepts raw config vectors and allowed ids.
+// Builder-facing auto-rarity helper accepts raw recipe vectors and allowed ids.
 // Rust compacts selected/fixed/bounds before running the shared rarity core.
 export const resolveAutoRarityCodeForBuilderWithLoadedWasm = (payload: {
   autoRaritySupplementsThreshold?: string | null
@@ -649,8 +650,8 @@ export const getAutoRarityIncludesMythicalForCodeWithLoadedWasm = (rarityCode: n
 }
 
 // Builder prep helper normalizes selected/fixed pools and precomputes per-variant
-// base/target maps in Rust so hsfBuilder.ts avoids heavy per-config prep loops.
-export const prepareHsfBuilderConfigWithLoadedWasm = (payload: {
+// base/target maps in Rust so hsfBuilder.ts avoids heavy per-recipe prep loops.
+export const prepareHsfBuilderRecipeWithLoadedWasm = (payload: {
   minCount: number
   autoSubstatFlex: boolean
   flexEligible: boolean
@@ -677,7 +678,7 @@ export const prepareHsfBuilderConfigWithLoadedWasm = (payload: {
   targetEntriesByVariant: Record<string, { base?: number; increments?: Array<number | null> }>
 } => {
   assertWasmInitializedSync()
-  const result = prepareHsfBuilderConfigWasmValueBinding({
+  const result = prepareHsfBuilderRecipeWasmValueBinding({
     minCount: Math.floor(payload.minCount),
     autoSubstatFlex: payload.autoSubstatFlex === true,
     flexEligible: payload.flexEligible === true,
@@ -713,7 +714,7 @@ export const prepareHsfBuilderConfigWithLoadedWasm = (payload: {
     || result.targetBaseOverrideByVariant == null
     || result.targetEntriesByVariant == null
   ) {
-    throw new Error('WASM prepare-hsf-builder-config helper returned an invalid payload.')
+    throw new Error('WASM prepare-hsf-builder-recipe helper returned an invalid payload.')
   }
   return {
     selectedPoolV: result.selectedPoolV.map((value) => Math.floor(Number(value))),
@@ -733,68 +734,67 @@ export const prepareHsfBuilderConfigWithLoadedWasm = (payload: {
 
 // Keep-unique combination normalization now runs in Rust so TS no longer owns
 // recursive tuple parsing/dedupe/sort loops for readable HSFC payloads.
-export const normalizeKeepUniqueCombinationWithLoadedWasm = <
+export const normalizeSafeguardCombinationWithLoadedWasm = <
   T extends object,
->(value: unknown, lookups: WasmKeepUniqueNormalizationLookupsPayload): T | null => {
+>(value: unknown, lookups: WasmSafeguardNormalizationLookupsPayload): T | null => {
   // Sync helper is fail-closed: caller must have warmed wasm already.
   assertWasmInitializedSync()
   // Delegate normalization to wasm so tuple parsing is single-sourced.
-  const result = normalizeKeepUniqueCombinationWasmValueBinding(value, lookups)
+  const result = normalizeSafeguardCombinationWasmValueBinding(value, lookups)
   // Null keeps invalid payload behavior aligned with TS helpers.
   if (result === null || result === undefined) return null
   // Guard the payload shape before returning typed output.
   if (typeof result === 'object') return result as T
-  throw new Error('WASM keep-unique combination normalizer returned an invalid payload.')
+  throw new Error('WASM safeguard combination normalizer returned an invalid payload.')
 }
 
 // Keep-unique rule normalization now runs in Rust so TS no longer owns
 // recursive rule parsing and legacy tuple-field coercion loops.
-export const normalizeKeepUniqueRuleWithLoadedWasm = <
+export const normalizeSafeguardRuleWithLoadedWasm = <
   T extends object,
 >(
   value: unknown,
-  lookups: WasmKeepUniqueNormalizationLookupsPayload,
+  lookups: WasmSafeguardNormalizationLookupsPayload,
   generatedRuleId: string,
 ): T | null => {
   // Sync helper is fail-closed: caller must have warmed wasm already.
   assertWasmInitializedSync()
   // Delegate normalization to wasm so rule parsing is single-sourced.
-  const result = normalizeKeepUniqueRuleWasmValueBinding(value, lookups, generatedRuleId)
+  const result = normalizeSafeguardRuleWasmValueBinding(value, lookups, generatedRuleId)
   // Null keeps invalid payload behavior aligned with TS helpers.
   if (result === null || result === undefined) return null
   // Guard the payload shape before returning typed output.
   if (typeof result === 'object') return result as T
-  throw new Error('WASM keep-unique rule normalizer returned an invalid payload.')
+  throw new Error('WASM safeguard rule normalizer returned an invalid payload.')
 }
 
 // Keep-unique activation normalization runs in Rust so TS and detection parsing
 // share the same legacy token aliases and fallback behavior.
-export const normalizeKeepUniqueActivationWithLoadedWasm = (
+export const normalizeSafeguardActivationWithLoadedWasm = (
   value: unknown,
-  legacyEnabled?: unknown,
 ): string => {
   assertWasmInitializedSync()
-  const normalized = normalizeKeepUniqueActivationWasmValueBinding(value, legacyEnabled)
+  const normalized = normalizeSafeguardActivationWasmValueBinding(value)
   if (typeof normalized === 'string') return normalized
-  throw new Error('WASM keep-unique activation normalizer returned an invalid payload.')
+  throw new Error('WASM safeguard activation normalizer returned an invalid payload.')
 }
 
 // Keep-unique substat-match normalization runs in Rust so TS and detection parsing
 // share the same canonical tokens (`any|all|perSubstat`).
-export const normalizeKeepUniqueSubstatMatchWithLoadedWasm = (value: unknown): string => {
+export const normalizeSafeguardSubstatMatchWithLoadedWasm = (value: unknown): string => {
   assertWasmInitializedSync()
-  const normalized = normalizeKeepUniqueSubstatMatchWasmValueBinding(value)
+  const normalized = normalizeSafeguardSubstatMatchWasmValueBinding(value)
   if (typeof normalized === 'string') return normalized
-  throw new Error('WASM keep-unique substat-match normalizer returned an invalid payload.')
+  throw new Error('WASM safeguard substat-match normalizer returned an invalid payload.')
 }
 
 // Keep-unique count-mode normalization runs in Rust so TS and detection parsing
 // share the same default + sanitize behavior.
-export const normalizeKeepUniqueCountModeWithLoadedWasm = (
+export const normalizeSafeguardCountModeWithLoadedWasm = (
   value: unknown,
-): WasmKeepUniqueCountModePayload => {
+): WasmSafeguardCountModePayload => {
   assertWasmInitializedSync()
-  const normalized = normalizeKeepUniqueCountModeWasmValueBinding(value)
+  const normalized = normalizeSafeguardCountModeWasmValueBinding(value)
   if (
     normalized
     && typeof normalized === 'object'
@@ -804,42 +804,42 @@ export const normalizeKeepUniqueCountModeWithLoadedWasm = (
     && 'perMainStat' in normalized
     && 'perSlot' in normalized
   ) {
-    return normalized as WasmKeepUniqueCountModePayload
+    return normalized as WasmSafeguardCountModePayload
   }
-  throw new Error('WASM keep-unique count-mode normalizer returned an invalid payload.')
+  throw new Error('WASM safeguard count-mode normalizer returned an invalid payload.')
 }
 
 // Keep-unique substat sorting runs in Rust so TS reuses one priority ordering.
-export const sortKeepUniqueSubstatsWithLoadedWasm = (values: readonly number[]): number[] => {
+export const sortSafeguardSubstatsWithLoadedWasm = (values: readonly number[]): number[] => {
   assertWasmInitializedSync()
-  const sorted = sortKeepUniqueSubstatsWasmValueBinding(values)
+  const sorted = sortSafeguardSubstatsWasmValueBinding(values)
   if (sorted instanceof Int32Array) return Array.from(sorted, (value) => Math.floor(Number(value)))
   if (Array.isArray(sorted)) return sorted.map((value) => Math.floor(Number(value)))
-  throw new Error('WASM keep-unique substat sorter returned an invalid payload.')
+  throw new Error('WASM safeguard substat sorter returned an invalid payload.')
 }
 
 // Keep-unique combination sorting runs in Rust so TS reuses one canonical order.
-export const sortKeepUniqueCombinationWithLoadedWasm = <T extends object>(combination: T): T => {
+export const sortSafeguardCombinationWithLoadedWasm = <T extends object>(combination: T): T => {
   assertWasmInitializedSync()
-  const sorted = sortKeepUniqueCombinationWasmValueBinding(combination)
+  const sorted = sortSafeguardCombinationWasmValueBinding(combination)
   if (sorted && typeof sorted === 'object') return sorted as T
-  throw new Error('WASM keep-unique combination sorter returned an invalid payload.')
+  throw new Error('WASM safeguard combination sorter returned an invalid payload.')
 }
 
 // Keep-unique combination hash generation runs in Rust so TS reuses one canonical
 // tokenization implementation for snapshots + rule metadata.
-export const hashKeepUniqueCombinationWithLoadedWasm = (combination: unknown): string => {
+export const hashSafeguardCombinationWithLoadedWasm = (combination: unknown): string => {
   assertWasmInitializedSync()
-  const hash = hashKeepUniqueCombinationWasmValueBinding(combination)
+  const hash = hashSafeguardCombinationWasmValueBinding(combination)
   if (typeof hash === 'string') return hash
-  throw new Error('WASM keep-unique combination hash helper returned an invalid payload.')
+  throw new Error('WASM safeguard combination hash helper returned an invalid payload.')
 }
 
 // Keep-unique item-key derivation runs in Rust so TS reuses DB-id-first
 // semantics used by candidate collection.
-export const getKeepUniqueItemKeyWithLoadedWasm = (artifact: unknown): number => {
+export const getSafeguardItemKeyWithLoadedWasm = (artifact: unknown): number => {
   assertWasmInitializedSync()
-  const key = keepUniqueItemKeyValueWasmValueBinding(artifact)
+  const key = safeguardItemKeyValueWasmValueBinding(artifact)
   // wasm-bindgen maps Rust `i64` to JS `bigint`, but older bindings may still
   // surface a JS number in some environments.
   if (typeof key === 'bigint') {
@@ -848,31 +848,31 @@ export const getKeepUniqueItemKeyWithLoadedWasm = (artifact: unknown): number =>
   }
   // Keep compatibility with number-returning bindings while still fail-closing.
   if (typeof key === 'number' && Number.isFinite(key)) return Math.floor(key)
-  throw new Error('WASM keep-unique item-key helper returned an invalid payload.')
+  throw new Error('WASM safeguard item-key helper returned an invalid payload.')
 }
 
 // Keep-unique group-key derivation runs in Rust so TS reuses accessory faction
 // normalization used by candidate collection.
-export const getKeepUniqueGroupKeyWithLoadedWasm = (artifact: unknown): string => {
+export const getSafeguardGroupKeyWithLoadedWasm = (artifact: unknown): string => {
   assertWasmInitializedSync()
-  const key = keepUniqueGroupKeyValueWasmValueBinding(artifact)
+  const key = safeguardGroupKeyValueWasmValueBinding(artifact)
   if (typeof key === 'string') return key
-  throw new Error('WASM keep-unique group-key helper returned an invalid payload.')
+  throw new Error('WASM safeguard group-key helper returned an invalid payload.')
 }
 
 // Keep-unique expected-group generation uses this helper so group-key logic is
 // defined by Rust only; JS now supplies normalized tuple fields only.
-export const getKeepUniqueCountKeyWithLoadedWasm = (params: {
+export const getSafeguardCountKeyWithLoadedWasm = (params: {
   slot: number
   set: number
   faction: number
   mainStat: number
-  countMode: WasmKeepUniqueCountModePayload
+  countMode: WasmSafeguardCountModePayload
 }): string => {
   // Sync helper is fail-closed: caller must have warmed wasm already.
   assertWasmInitializedSync()
   // Delegate key derivation to wasm so count-key semantics stay SSOT.
-  return keepUniqueCountKeyValueWasmBinding(
+  return safeguardCountKeyValueWasmBinding(
     {
       slot: Math.floor(params.slot),
       set: Math.floor(params.set),
@@ -885,7 +885,7 @@ export const getKeepUniqueCountKeyWithLoadedWasm = (params: {
 
 // Keep-unique expected-group domain normalization is centralized in Rust so
 // ordering/dedupe semantics cannot drift from matcher-side domain readers.
-export const normalizeKeepUniqueExpectedGroupDomainWithLoadedWasm = <
+export const normalizeSafeguardExpectedGroupDomainWithLoadedWasm = <
   T extends {
     slotOrder: number[]
     accessoryCompatibleSetIds: number[]
@@ -895,15 +895,15 @@ export const normalizeKeepUniqueExpectedGroupDomainWithLoadedWasm = <
   },
 >(domain: T): T => {
   assertWasmInitializedSync()
-  const result = normalizeKeepUniqueExpectedGroupDomainWasmValueBinding(domain)
+  const result = normalizeSafeguardExpectedGroupDomainWasmValueBinding(domain)
   if (result && typeof result === 'object') return result as T
-  throw new Error('WASM keep-unique expected-group domain normalizer returned an invalid payload.')
+  throw new Error('WASM safeguard expected-group domain normalizer returned an invalid payload.')
 }
 
 // Full builder runtime helper runs preflight + branch orchestration in one wasm
 // call so buildHsfRules no longer stitches presence/preflight/branches in TS.
 export const buildHsfRulesRuntimeWithLoadedWasm = (params: {
-  configId?: number | null
+  recipeId?: number | null
   keep?: boolean
   useFlag: boolean
   artifactSetIds: ReadonlyArray<number> | Int32Array
@@ -942,8 +942,8 @@ export const buildHsfRulesRuntimeWithLoadedWasm = (params: {
 }): { rules: HsfRule[]; limitHit: boolean } => {
   assertWasmInitializedSync()
   const result = buildHsfRulesRuntimeWasmValueBinding({
-    ...(params.configId != null && Number.isFinite(params.configId)
-      ? { configId: Math.floor(params.configId) }
+    ...(params.recipeId != null && Number.isFinite(params.recipeId)
+      ? { recipeId: Math.floor(params.recipeId) }
       : {}),
     ...(typeof params.keep === 'boolean' ? { keep: params.keep } : {}),
     useFlag: params.useFlag === true,

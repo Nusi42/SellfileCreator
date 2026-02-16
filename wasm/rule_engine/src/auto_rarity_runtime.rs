@@ -430,7 +430,7 @@ fn json_field_f64(map: &serde_json::Map<String, serde_json::Value>, key: &str) -
     map.get(key).and_then(|value| value.as_f64()).filter(|value| value.is_finite())
 }
 
-// Parse array<number> fields from flexible config payloads.
+// Parse array<number> fields from flexible recipe payloads.
 fn json_field_vec_i64(map: &serde_json::Map<String, serde_json::Value>, key: &str) -> Vec<i64> {
     let Some(values) = map.get(key).and_then(|value| value.as_array()) else {
         return Vec::new();
@@ -450,45 +450,45 @@ fn clamp_builder_min_count(value: i64) -> i64 {
 
 // Expand merge.ts auto-flex rarity helper branches using Rust as SSOT.
 pub(crate) fn expand_auto_flex_rarity_branches_core(
-    config: &serde_json::Value,
+    recipe: &serde_json::Value,
     base_rarity_code: i64,
 ) -> Vec<serde_json::Value> {
-    let Some(obj) = config.as_object() else {
-        return vec![config.clone()];
+    let Some(obj) = recipe.as_object() else {
+        return vec![recipe.clone()];
     };
 
     // Preserve JS early-return semantics exactly to avoid branch drift.
     if json_field_string(obj, "rarityMode").as_deref() != Some("auto") {
-        return vec![config.clone()];
+        return vec![recipe.clone()];
     }
     if json_field_bool(obj, "autoSubstatFlex") != Some(true) {
-        return vec![config.clone()];
+        return vec![recipe.clone()];
     }
     if json_field_bool(obj, "autoMinCount") == Some(true) {
-        return vec![config.clone()];
+        return vec![recipe.clone()];
     }
 
     // Normalize selected/fixed pools to finite integer variant ids.
     let selected = json_field_vec_i64(obj, "substatsV");
     if selected.is_empty() {
-        return vec![config.clone()];
+        return vec![recipe.clone()];
     }
     let fixed = json_field_vec_i64(obj, "fixedSubstatsV");
     let locked_count = fixed.len() as i64;
     if locked_count == 0 {
-        return vec![config.clone()];
+        return vec![recipe.clone()];
     }
     if json_field_i64(obj, "minCount").unwrap_or(0) != locked_count {
-        return vec![config.clone()];
+        return vec![recipe.clone()];
     }
     if json_field_bool(obj, "autoMinRequiredRolls") != Some(false) {
-        return vec![config.clone()];
+        return vec![recipe.clone()];
     }
 
     // Manual minimum rolls gate controls whether late split branches apply.
     let min_required = json_field_f64(obj, "minRequiredRolls").unwrap_or(0.0).floor() as i64;
     if min_required > locked_count {
-        return vec![config.clone()];
+        return vec![recipe.clone()];
     }
     let aggregate_matches_locked = min_required == locked_count;
 
@@ -500,7 +500,7 @@ pub(crate) fn expand_auto_flex_rarity_branches_core(
         .filter(|variant| !fixed_set.contains(variant))
         .collect::<Vec<_>>();
     if optional.is_empty() {
-        return vec![config.clone()];
+        return vec![recipe.clone()];
     }
 
     // Optional entries must remain wildcard-only for this branch split.
@@ -516,7 +516,7 @@ pub(crate) fn expand_auto_flex_rarity_branches_core(
         wildcard && !has_min && !has_max
     });
     if !optional_all_wildcard {
-        return vec![config.clone()];
+        return vec![recipe.clone()];
     }
 
     // Resolve level window defaults exactly like merge.ts helper.
@@ -529,11 +529,11 @@ pub(crate) fn expand_auto_flex_rarity_branches_core(
     let base_min_count = clamp_builder_min_count(configured_min_count.max(locked_only_count));
     let flex_target_total = clamp_builder_min_count(base_min_count.max(locked_only_count + 1));
 
-    // Helper clones the source config and patches branch-specific overrides.
+    // Helper clones the source recipe and patches branch-specific overrides.
     let build_branch = |rarity_code: i64, min_count: i64, min_level_patch: Option<i64>, max_level_patch: Option<i64>, auto_substat_flex: bool| {
-        let mut branch = config.clone();
+        let mut branch = recipe.clone();
         let Some(branch_obj) = branch.as_object_mut() else {
-            return config.clone();
+            return recipe.clone();
         };
         branch_obj.insert("rarityMode".to_string(), serde_json::Value::String("code".to_string()));
         branch_obj.insert("rarityCode".to_string(), serde_json::Value::from(rarity_code));
@@ -589,11 +589,11 @@ pub(crate) fn expand_auto_flex_rarity_branches_core(
 
 // Public merge helper export keeps branch expansion logic in Rust.
 pub(crate) fn expand_auto_flex_rarity_branches_value(
-    config: JsValue,
+    recipe: JsValue,
     base_rarity_code: i32,
 ) -> Result<JsValue, JsValue> {
-    let parsed: serde_json::Value = from_js_value(config)
-        .map_err(|error| JsValue::from_str(&format!("Invalid auto-flex branch config: {error}")))?;
+    let parsed: serde_json::Value = from_js_value(recipe)
+        .map_err(|error| JsValue::from_str(&format!("Invalid auto-flex branch recipe: {error}")))?;
     let branches = expand_auto_flex_rarity_branches_core(&parsed, base_rarity_code as i64);
     to_js_value(&branches)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize auto-flex branches: {error}")))

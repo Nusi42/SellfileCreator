@@ -35,10 +35,10 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 
 ### Localization alignment workflow
 
-- README translations (`README.<lang>.md`) and their catalogs (`src/lib/i18n/catalogs/<lang>.ts`) form a single source of truth for terminology. When a feature’s copy changes (Rule Tester preview, Keep Uniques defaults/helper rules, quota scopes, clipboard workflows, glyph/roll filters, config management tips), update the English README first, then mirror the structure and wording in every translated README while updating the matching catalog keys in the same commit.
+- README translations (`README.<lang>.md`) and their catalogs (`src/lib/i18n/catalogs/<lang>.ts`) form a single source of truth for terminology. When a feature’s copy changes (Rule Tester preview, Safeguards defaults/helper rules, quota scopes, clipboard workflows, glyph/roll filters, config management tips), update the English README first, then mirror the structure and wording in every translated README while updating the matching catalog keys in the same commit.
 - Use heading outlines to compare structures instead of noisy line-by-line diffs: `rg '^##' README.md` / `rg '^##' README.<lang>.md` (and `^###` for subsections) keeps the focus on missing sections, tables, and grids. Open both files side by side while applying the English layout to the localized version so tables, scenario grids, and config-management paragraphs stay parallel.
 - README.md and all README translations (`README.<lang>.md`) are end-user facing documentation. Keep the wording simple, avoid technical terms, explain straight up on point and dont try to sell a feature. Using terminology from the game Raid Shadow Legends is fine though.
-- All `Config`-building, `Filter`, `Gear-Sets`, and `Keep Uniques` terminology must stay synchronized between README copy, catalog strings, and UI labels. That includes the tab/section title, default/helper rule descriptions, badge labels, scope chips, and any other user facting button not explicitly mentioned here. If a locale intentionally keeps a loanword (e.g., “Rolls” in de-DE), mention the reasoning as a comment in their catalogs (`src/lib/i18n/catalogs/<lang>.ts`) so future translators do not “fix” it.
+- All `Config`-building, `Filter`, `Gear-Sets`, and `Safeguards` terminology must stay synchronized between README copy, catalog strings, and UI labels. That includes the tab/section title, default/helper rule descriptions, badge labels, scope chips, and any other user facting button not explicitly mentioned here. If a locale intentionally keeps a loanword (e.g., “Rolls” in de-DE), mention the reasoning as a comment in their catalogs (`src/lib/i18n/catalogs/<lang>.ts`) so future translators do not “fix” it.
 - Locale-specific notes should live as a comment in their catalogs (`src/lib/i18n/catalogs/<lang>.ts`).
 
 ## Tooltips and Context Hints
@@ -99,10 +99,10 @@ Anything that is not overflow-triggered runs through `MarkdownTooltip`. Represen
 
 - Builder form labels, action buttons, flex/min controls, lock toggles, roll target warnings, history entries, and metaset dialogs.
 - Rules filter chips/toggles (sets, chaos ore, glyph filters, roll summary), tester config buttons, preview header menus, and filter sections.
-- Headers, icons, and buttons inside the HSF preview table and tester grid (match rows, champion badges, Keep Uniques chips, context-menu affordances).
-- Dialog controls (Note dialog toolbar, Keep Uniques tabs, Substat Targets star chips, Rule Tester action buttons, copy-to-clipboard helpers).
+- Headers, icons, and buttons inside the HSF preview table and tester grid (match rows, champion badges, Safeguards chips, context-menu affordances).
+- Dialog controls (Note dialog toolbar, Safeguards tabs, Substat Targets star chips, Rule Tester action buttons, copy-to-clipboard helpers).
 - Export/load/save buttons, load-sellfile helpers, final-sell toggles, context shorthand hints, etc.
-- Note dialog markers: HTML/Markdown comments `<!-- recipes:1,0 -->` render Config chips; `<!-- recipes-re:"speed" -->` filters configs by name or tags; `<!-- keep-uniques:1,2 -->` renders Keep Unique summary cards; `<!-- keep-uniques-re:"ring" -->` filters cards by Keep Unique rule name. Markers are 1-based, support `0` for “next after previous marker”, and resolve against the current in-memory config/keep-unique ordering.
+- Note dialog markers: HTML/Markdown comments `<!-- recipes:1,0 -->` render Config chips; `<!-- recipes-re:"speed" -->` filters configs by name or tags; `<!-- safeguards:1,2 -->` renders Safeguard summary cards; `<!-- safeguards-re:"ring" -->` filters cards by Safeguard rule name. Markers are 1-based, support `0` for “next after previous marker”, and resolve against the current in-memory config/safeguard ordering.
 
 If tooltips need rich formatting (colored badges, inline icons), pass JSX via `render={<BuilderTooltipContent .../>}`. Everything else should use `markdown=` strings so translations stay readable and formatting stays consistent.
 
@@ -144,7 +144,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Implementation: dependency-free LCG for randomness; compact lists; no user toggle.
   - Visual feedback: A playful name triggers a brief golden glow + sparkles on the TextField. The effect is clipped to the input and respects the floating label.
 - Scrollbar stability: The metasets list uses `scrollbar-gutter: stable both-edges` to prevent dialog width shifts when the vertical scrollbar appears, and `reserveScrollbarGutterSpace()` injects Firefox-only padding so Chromium browsers keep their native gutter while Firefox still looks aligned.
-  - Deletion performance: Deleting an unused metaset skips remapping `customCfgs` and updates only the builder if needed.
+  - Deletion performance: Deleting an unused metaset skips remapping `customRecipes` and updates only the builder if needed.
   - IDs and IO:
     - Built-ins: stable slugs (e.g., `meta_nuker`).
     - New metasets: base-36 IDs via `makeMetasetId()` (e.g., `m_ab12cd3`).
@@ -161,12 +161,12 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 ### Obsolete Rules Handling
 
 - Obsolete detection groups rules by coarse selectors (action, rank/rarity/level, sets/types, main stat, faction) and normalized substats. A rule is “obsolete” if another in the same group dominates it (componentwise looser-or-equal thresholds, with tie-breaking to earlier indices for exact duplicates).
-- Preview pruning only removes an obsolete rule when both rules originate from the same custom config (ConfigID). Duplicate configs, overlaps versus base configs, and cross-config overlaps remain visible for auditability.
+- Preview pruning only removes an obsolete rule when both rules originate from the same custom config (RecipeID). Duplicate configs, overlaps versus base configs, and cross-config overlaps remain visible for auditability.
 
 ## UI Notes (developer-facing)
 
 - Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Level window; Row 3 Mainstat/Substats; Row 4 Min selected substats controls; Row 5 Slots/Sets.
-  - Tags live on Row 1, directly beside Export Mode, to emphasize that config options tags can override export mode when answers match.
+  - Tags live on Row 1, directly beside Export Mode, to emphasize that recipe overrides tags can override export mode when answers match.
   - When tags are present (single or multi-edit), a compact clear (x) button appears next to the Tags button to reset the tag list quickly.
   - The Tags button has a right-click context menu with a `Show Tags` toggle (persisted). When off, the inline tag chips next to the button stay hidden.
   - Faction stays near Rarity. Only accessories care about faction; other gear ignores `Faction`.
@@ -240,7 +240,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Keep the chunked row helper (`chunkGroupRows`) in sync with the card grid layout; card height math still depends on the column count and match-row toggles.
   - Remember to update this section plus the inline comments in `TesterItemsGrid.tsx` whenever you tweak virtualization heuristics, skeleton batching (`useTesterGridCardContentReady`), or the scroll-hint sampling strategy.
   - Selecting a chip auto-scrolls to its first rule row (smooth in single-line mode; jump in wrap mode).
-- Row context menu matches chip actions (Duplicate, Move, Copy, Paste after, Delete). Base rows show Clear instead of Delete. Keep Unique rows do not show a row context menu.
+- Row context menu matches chip actions (Duplicate, Move, Copy, Paste after, Delete). Base rows show Clear instead of Delete. Safeguard rows do not show a row context menu.
 - Cells:
   - Index column colors Keep/Sell status; disabled rules render dimmed text.
   - Indices stay aligned with merged order; filters never renumber.
@@ -251,14 +251,14 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Hover propagation syncs builder highlights via throttled `requestAnimationFrame` coordination.
 - Runtime-only metadata (e.g., `__lineIdx`) never enters exported HSF files.
 
-## Keep Uniques Tab
+## Safeguards Tab
 
-- Layout: the dialog switches to a `Tabs` layout but keeps the existing shell size. On medium+ breakpoints the Keep Uniques tab renders a left rules column plus a tester grid column; the grid pane width is pinned to the Rule Tester 4-column card width for both 1- and 2-column modes so cards stay identical while the rules pane absorbs the remaining space (stacked on small screens).
+- Layout: the dialog switches to a `Tabs` layout but keeps the existing shell size. On medium+ breakpoints the Safeguards tab renders a left rules column plus a tester grid column; the grid pane width is pinned to the Rule Tester 4-column card width for both 1- and 2-column modes so cards stay identical while the rules pane absorbs the remaining space (stacked on small screens).
 - Header block: the left column starts with explanatory copy, the enable toggle, and a contextual alert (`disabled`, `no tester data`, `scan pending`). Alerts stay above the scroll area so status never scrolls away, while deficit counts now surface via the inline detection chip instead of a success banner.
 - Rule list: rows map 1:1 with gear combinations and render as compact cards. Each card has a collapsed summary header (status icon + name/placeholder + actions) and expands inline to reveal the full editor. The expanded editor reuses the shared select components (`GearSlotSelect`, `GearRankSelect`, `GearRaritySelect`, `GearMainStatSelect`, `GearFactionSelect`) plus the filtered set picker. Slots/Ranks/Rarities/Main stats run in multi-select mode now: empty slot or main-stat selections read as Any, while Rank/Rarity menus expose an explicit Any option that clears other picks so combination filters mirror the builder affordances.
 - Substats: optional multi-select with the normalized-sort menu layout, plus a match-requirement chip (`Any Substat` / `All Substats` / `Per Substat`). The match chip controls whether one, all, or each selected substat gets its own quota. Weight controls are embedded in the substat menu rows (same controls as the Rule Tester sort menu) so selected substats can be prioritized without a separate popover.
-- Empty state: when no rules exist the column shows descriptive text plus a contained “Add rule” button. The same button lives in the footer alongside `Reset` (clears rules + disables Keep Uniques only).
-- Tester grid: the right column renders `TesterItemsGrid` with `variant="keepUniques"`. The variant uses the keep-override column toggle (1 or 2 columns, default 1) and passes `highlightedRowPredicate`/`dimUnhighlightedRows` so non-matching cards fade instead of being removed. Source glyphs, color-blind toggles, and Manage Colors wiring mirror the Rule Tester.
+- Empty state: when no rules exist the column shows descriptive text plus a contained “Add rule” button. The same button lives in the footer alongside `Reset` (clears rules + disables Safeguards only).
+- Tester grid: the right column renders `TesterItemsGrid` with `variant="safeguards"`. The variant uses the keep-override column toggle (1 or 2 columns, default 1) and passes `highlightedRowPredicate`/`dimUnhighlightedRows` so non-matching cards fade instead of being removed. Source glyphs, color-blind toggles, and Manage Colors wiring mirror the Rule Tester.
 - Selection: clicking a rule highlights it and pushes its detection items into the tester grid highlight set. Adding a new rule scrolls the list to the newly created card. Chips above the grid show how many gear entries are currently highlighted.
 - Accessibility: all selectors remain keyboard navigable because they reuse the Gear tab components inside the Logic Hub dialog. The dense layouts rely on `MENU_CONTROL_HEIGHT_PX` so buttons remain reachable with consistent hit targets.
 
@@ -329,7 +329,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - Roll timeline caps: multi-stat permutations clamp credited rolls to those obtainable after the stat appears; late optionals no longer inherit early thresholds.
 - Intro assignment: builder enumerates how selected stats occupy base vs later rarity slots. Fixed picks fill earliest slots; optional stats inherit remaining introductions, keeping thresholds aligned with availability.
 - `IsRuleTypeAND` always exports `false`; current RSL Helper compatibility does not require AND rules for our output.
-- Generated rules always carry `ConfigID` (1-based) ahead of `Keep`/`IsRuleTypeAND`; the export step injects the current trimmed `ConfigName` so downstream tooling can map Sellfile rows back to their configs without forcing the preview table to rebuild when names change.
+- Generated rules always carry `RecipeID` (1-based) ahead of `Keep`/`IsRuleTypeAND`; the export step injects the current trimmed `RecipeName` so downstream tooling can map Sellfile rows back to their configs without forcing the preview table to rebuild when names change.
 
 ## Layout Notes (responsive + headers)
 

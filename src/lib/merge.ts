@@ -5,11 +5,11 @@
  * unchanged — App composes this inside a useMemo with identical inputs.
  */
 import type { HsfFile, HsfRule } from './hsfTypes'
-import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
+import type { BuilderRecipe, SubstatTargetTable } from './hsfBuilder'
 import {
   RULE_COUNT_LIMIT,
   TOTAL_RULE_COUNT_LIMIT,
-  KEEP_UNIQUE_CONFIG_ID_BASE,
+  SAFEGUARD_RECIPE_ID_BASE,
 } from './constants'
 import { buildHsfRules, RuleLimitReachedError, resolveAutoRarityCode } from './hsfBuilder'
 import {
@@ -18,8 +18,8 @@ import {
   expandAutoFlexRarityBranchesWithLoadedWasm,
   flattenRuleBatchesWithTotalLimitWithLoadedWasm,
   finalizeGeneratedRulesWithLoadedWasm,
-  buildKeepUniqueRulesWithLoadedWasm,
-  mergeKeepUniqueInjectedRulesWithLoadedWasm,
+  buildSafeguardRulesWithLoadedWasm,
+  mergeSafeguardInjectedRulesWithLoadedWasm,
 } from './wasm/wasmRuleEngine'
 import type { Metaset } from './metasets'
 import { resolveArtifactSetSelections } from './gearSets/selection'
@@ -30,15 +30,15 @@ import {
   type FinalSellRemainderConfig,
 } from './logicHub'
 import {
-  type KeepUniquesMergeInput,
-  hasActiveKeepUniqueRules,
-  type KeepUniqueRule,
-  type KeepUniqueDetectionSnapshot,
-} from './keepUniques'
+  type SafeguardsMergeInput,
+  hasActiveSafeguardRules,
+  type SafeguardRule,
+  type SafeguardDetectionSnapshot,
+} from './safeguards'
 import {
   RULE_SOURCE_HSF,
   RULE_SOURCE_HSFC,
-  RULE_SOURCE_KEEP_UNIQUES,
+  RULE_SOURCE_SAFEGUARDS,
 } from './ruleSources'
 import type { RuleSource } from './ruleSources'
 export {
@@ -46,7 +46,7 @@ export {
   RULE_SOURCE_FINAL_SELL,
   RULE_SOURCE_HSF,
   RULE_SOURCE_HSFC,
-  RULE_SOURCE_KEEP_UNIQUES,
+  RULE_SOURCE_SAFEGUARDS,
   isKeepOverrideRuleSource,
   type RuleSource,
 } from './ruleSources'
@@ -57,16 +57,16 @@ export type HsfRuleWithCfg = HsfRule & {
   __source?: RuleSource
   __rankMask?: number
   __rarityMask?: number
-  __keepUniqueRuleId?: string
-  __keepUniqueRuleOrdinal?: number
-  __keepUniqueHash?: string
-  __keepUniqueRequired?: number
-  __keepUniqueScanMs?: number
-  __keepUniqueProjected?: number
-  __keepUniqueDeficit?: number
-  __keepUniqueItemKey?: number
-  __keepUniquePlaceholder?: boolean
-  __keepUniquePlaceholderMissing?: number
+  __safeguardRuleId?: string
+  __safeguardRuleOrdinal?: number
+  __safeguardHash?: string
+  __safeguardRequired?: number
+  __safeguardScanMs?: number
+  __safeguardProjected?: number
+  __safeguardDeficit?: number
+  __safeguardItemKey?: number
+  __safeguardPlaceholder?: boolean
+  __safeguardPlaceholderMissing?: number
 }
 
 // Keep branch metadata separate from the mutable rule object so worker callers
@@ -84,12 +84,12 @@ export type BuildRulesFinalizeGeneratedFn = (params: {
   applyObsoletePruning: boolean
 }) => HsfRuleWithCfg[]
 
-function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
+function expandAutoFlexRarityBranches(cfg: BuilderRecipe): BuilderRecipe[] {
   // Keep auto-rarity resolution in the existing shared helper.
   const baseRarityCode = resolveAutoRarityCode(cfg)
   // Delegate branch splitting heuristics to wasm for SSOT behavior.
   const branches = expandAutoFlexRarityBranchesWithLoadedWasm({
-    config: cfg,
+    recipe: cfg,
     baseRarityCode,
   })
   // Fail closed when warmup/payload is invalid; do not silently keep one branch.
@@ -99,26 +99,26 @@ function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
   return branches
 }
 
-export function buildRulesForConfig(params: {
-  config: BuilderConfig
+export function buildRulesForRecipe(params: {
+  recipe: BuilderRecipe
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
-  cfgIdx?: number
+  recipeIdx?: number
 }, options?: { limit?: number; onLimit?: () => void; finalizeGeneratedRules?: BuildRulesFinalizeGeneratedFn }): HsfRuleWithCfg[] {
-  const { config, metasets, substatTargets, cfgIdx } = params
-  // Carry a stable 1-based config identifier through builder → HSF exports.
-  const configIdForExport = (typeof cfgIdx === 'number' && Number.isFinite(cfgIdx) && cfgIdx >= 0)
-    ? (Math.floor(cfgIdx) + 1)
+  const { recipe, metasets, substatTargets, recipeIdx } = params
+  // Carry a stable 1-based recipe identifier through builder → HSF exports.
+  const configIdForExport = (typeof recipeIdx === 'number' && Number.isFinite(recipeIdx) && recipeIdx >= 0)
+    ? (Math.floor(recipeIdx) + 1)
     : null
   // Expand metasets and remove explicit exclusions before rule generation.
   const resolvedSets = resolveArtifactSetSelections({
-    selections: config.artifactSets,
-    metasetIds: config.artifactMetaSets,
+    selections: recipe.artifactSets,
+    metasetIds: recipe.artifactMetaSets,
     metasets,
   })
-  // Build a config snapshot with the resolved set IDs only.
-  const cfgWithSets: BuilderConfig = {
-    ...config,
+  // Build a recipe snapshot with the resolved set IDs only.
+  const cfgWithSets: BuilderRecipe = {
+    ...recipe,
     // Normalize to include-only entries so the builder sees final set ids.
     artifactSets: resolvedSets.resolved.map((id) => ({ id })),
   }
@@ -132,7 +132,7 @@ export function buildRulesForConfig(params: {
         substatTargets,
         {
           ...(options?.limit != null ? { limit: options.limit } : {}),
-          ...(configIdForExport !== null ? { configId: configIdForExport } : {}),
+          ...(configIdForExport !== null ? { recipeId: configIdForExport } : {}),
         },
       )
       built.forEach((rule, seq) => {
@@ -179,51 +179,51 @@ export function buildFinalSellRules(finalSellRemainder: FinalSellRemainderConfig
   })
 }
 
-export const buildKeepUniqueRules = (
-  rules: readonly KeepUniqueRule[],
-  detection: KeepUniqueDetectionSnapshot | null,
+export const buildSafeguardRules = (
+  rules: readonly SafeguardRule[],
+  detection: SafeguardDetectionSnapshot | null,
 ): HsfRuleWithCfg[] => {
-  // Single source of truth: keep-unique keep-rule generation lives in WASM.
-  return buildKeepUniqueRulesWithLoadedWasm({
+  // Single source of truth: safeguard keep-rule generation lives in WASM.
+  return buildSafeguardRulesWithLoadedWasm({
     rules,
     detection,
-    configIdBase: KEEP_UNIQUE_CONFIG_ID_BASE,
+    recipeIdBase: SAFEGUARD_RECIPE_ID_BASE,
   })
 }
 
-type KeepUniqueMergeParams = {
+type SafeguardMergeParams = {
   baseRules: HsfRuleWithCfg[]
   customRules: HsfRuleWithCfg[]
   finalSellRules: HsfRuleWithCfg[]
-  resolvedKeepUniqueRules: readonly KeepUniqueRule[]
-  detection: KeepUniqueDetectionSnapshot | null
+  resolvedSafeguardRules: readonly SafeguardRule[]
+  detection: SafeguardDetectionSnapshot | null
 }
 
-type KeepUniqueMergeResult = {
+type SafeguardMergeResult = {
   baseRules: HsfRuleWithCfg[]
   mergedRules: HsfRuleWithCfg[]
 }
 
-// Shared helper: inject keep-unique rules ahead of base/custom/final-sell with duplicate protection.
-export function prependKeepUniqueRules({
+// Shared helper: inject safeguard rules ahead of base/custom/final-sell with duplicate protection.
+export function prependSafeguardRules({
   baseRules,
   customRules,
   finalSellRules,
-  resolvedKeepUniqueRules,
+  resolvedSafeguardRules,
   detection,
-}: KeepUniqueMergeParams): KeepUniqueMergeResult {
-  // Strip any prior keep-unique injections to avoid double-prepending.
-  const baseWithoutKeep = baseRules.filter((rule) => rule.__source !== RULE_SOURCE_KEEP_UNIQUES)
+}: SafeguardMergeParams): SafeguardMergeResult {
+  // Strip any prior safeguard injections to avoid double-prepending.
+  const baseWithoutKeep = baseRules.filter((rule) => rule.__source !== RULE_SOURCE_SAFEGUARDS)
   // Build candidate keep rules from detection snapshot + resolved combinations.
-  const candidateKeepRules = detection ? buildKeepUniqueRules(resolvedKeepUniqueRules, detection) : []
+  const candidateKeepRules = detection ? buildSafeguardRules(resolvedSafeguardRules, detection) : []
   // WASM now owns injected keep-rule dedupe + sorting semantics (SSOT).
-  const sortedKeepRules = mergeKeepUniqueInjectedRulesWithLoadedWasm({
+  const sortedKeepRules = mergeSafeguardInjectedRulesWithLoadedWasm({
     baseRules: baseWithoutKeep,
     customRules,
     candidateKeepRules,
   })
   if (!Array.isArray(sortedKeepRules)) {
-    throw new Error('WASM keep-unique injected-rule merge is unavailable. Ensure warmupWasmRuleEngine() ran first.')
+    throw new Error('WASM safeguard injected-rule merge is unavailable. Ensure warmupWasmRuleEngine() ran first.')
   }
   // Keep-unique rules must precede base rules to override.
   const nextBaseRules = sortedKeepRules.concat(baseWithoutKeep)
@@ -237,14 +237,14 @@ export function prependKeepUniqueRules({
 
 export function computeMergedRules(params: {
   hsf: HsfFile | null
-  customCfgs: BuilderConfig[]
+  customRecipes: BuilderRecipe[]
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
   finalSellRemainder?: FinalSellRemainderConfig
   prebuiltCustomRules?: ReadonlyMap<number, readonly HsfRuleWithCfg[]>
-  keepUniques?: KeepUniquesMergeInput
+  safeguards?: SafeguardsMergeInput
 }): HsfRuleWithCfg[] {
-  const { hsf, customCfgs, metasets, substatTargets, finalSellRemainder, prebuiltCustomRules, keepUniques } = params
+  const { hsf, customRecipes, metasets, substatTargets, finalSellRemainder, prebuiltCustomRules, safeguards } = params
 
   // Always strip any foreign/internal fields (e.g., __lineIdx) from base HSF rules
   const baseRaw = hsf?.Rules ?? []
@@ -267,10 +267,10 @@ export function computeMergedRules(params: {
     }
   } else {
     // Fallback: build on demand when no cache is supplied.
-    for (let cfgIdx = 0; cfgIdx < customCfgs.length; cfgIdx += 1) {
-      const config = customCfgs[cfgIdx]!
-      const built = buildRulesForConfig(
-        { config, metasets: metasetsEffective, substatTargets, cfgIdx },
+    for (let recipeIdx = 0; recipeIdx < customRecipes.length; recipeIdx += 1) {
+      const recipe = customRecipes[recipeIdx]!
+      const built = buildRulesForRecipe(
+        { recipe, metasets: metasetsEffective, substatTargets, recipeIdx },
         {
           limit: RULE_COUNT_LIMIT + 1,
         },
@@ -286,8 +286,8 @@ export function computeMergedRules(params: {
   })
 
   // Keep-unique active gate remains in TS so UI toggle semantics stay explicit.
-  const keepUniquesInput = hasActiveKeepUniqueRules(keepUniques)
-    ? keepUniques
+  const safeguardsInput = hasActiveSafeguardRules(safeguards)
+    ? safeguards
     : null
   // Delegate merged-rule orchestration (+ __lineIdx assignment) to wasm.
   return computeMergedRulesWithLoadedWasm({
@@ -295,9 +295,9 @@ export function computeMergedRules(params: {
     customRules: customs,
     finalSellRemainder: finalSellRemainder ?? null,
     allKnownSetIds: getAllKnownArtifactSetIds().map((id) => Number(id)),
-    keepUniqueEnabled: keepUniquesInput != null,
-    keepUniqueRules: keepUniquesInput?.rules ?? [],
-    keepUniqueDetection: keepUniquesInput?.detection ?? null,
-    keepUniqueConfigIdBase: KEEP_UNIQUE_CONFIG_ID_BASE,
+    safeguardEnabled: safeguardsInput != null,
+    safeguardRules: safeguardsInput?.rules ?? [],
+    safeguardDetection: safeguardsInput?.detection ?? null,
+    safeguardRecipeIdBase: SAFEGUARD_RECIPE_ID_BASE,
   })
 }

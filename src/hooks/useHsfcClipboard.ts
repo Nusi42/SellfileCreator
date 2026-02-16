@@ -3,11 +3,11 @@ import type { Dispatch, SetStateAction } from 'react'
 import { APP_VERSION } from '../version'
 import {
   buildHsfcPayload,
-  buildReadableConfig,
-  parseConfigsFromText,
+  buildReadableRecipe,
+  parseRecipesFromText,
   parseHsfcText,
 } from '../lib/hsfcIO'
-import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
+import type { BuilderRecipe, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { makeMetasetId } from '../lib/metasets'
 import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
@@ -15,23 +15,23 @@ import { generateMetasetNameWithFlag } from '../lib/namegen'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import { artifactSetName, type ArtifactSetId } from '../lib/types'
 import { readTextSafe, writeTextSafe } from '../lib/clipboard'
-import { createConfigsInsertedDescriptor } from '../history/configCollectionDescriptors'
+import { createRecipesInsertedDescriptor } from '../history/recipeCollectionDescriptors'
 import type { TranslateFn } from '../history/historyI18n'
-import { buildInsertionLocation, snapshotConfigLabel } from '../history/historyLabelUtils'
+import { buildInsertionLocation, snapshotRecipeLabel } from '../history/historyLabelUtils'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useHsfcHistory'
 import { appendDescriptorDetails } from '../history/substatTargetDescriptors'
 import type { FinalSellDescriptorMode } from '../history/finalSellDescriptors'
 import { normalizeNoteValue, type NoteDescriptorMode } from '../history/noteDescriptors'
 import { makeClipboardSourceDescriptor } from '../history/bulkLoadDescriptors'
-import type { KeepUniqueRule } from '../lib/keepUniques'
+import type { SafeguardRule } from '../lib/safeguards'
 
 export type PendingImport = {
-  cfgs: BuilderConfig[]
+  recipes: BuilderRecipe[]
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
   finalSellRemainder: FinalSellRemainderConfig
-  keepUniqueRules: KeepUniqueRule[]
-  keepUniquesEnabled: boolean
+  safeguardRules: SafeguardRule[]
+  safeguardsEnabled: boolean
   selectedIndex: number | null
   note?: string
   mode: 'append' | 'after'
@@ -43,7 +43,7 @@ type PreparedHsfcImport = {
   toAdd: Metaset[]
   conflicts: string[]
   conflictPairs: Map<string, { cur: Metaset; inc: Metaset }>
-  cfgsMapped: BuilderConfig[]
+  recipesMapped: BuilderRecipe[]
 }
 
 type FinalizeImportResult = {
@@ -69,26 +69,26 @@ type ApplyNoteChangeFn = (
 type UseHsfcClipboardParams = {
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
-  customCfgs: BuilderConfig[]
+  customRecipes: BuilderRecipe[]
   hsfcNote: string | null
   finalSellRemainder: FinalSellRemainderConfig
-  keepUniqueRules: KeepUniqueRule[]
-  keepUniquesEnabled: boolean
-  selectedCfgIdx: number | null
-  selectedCfgIndices: number[]
+  safeguardRules: SafeguardRule[]
+  safeguardsEnabled: boolean
+  selectedRecipeIdx: number | null
+  selectedRecipeIndices: number[]
   describeNextChange: DescribeNextChangeFn
   t: TranslateFn
-  setCustomCfgs: (value: SetStateAction<BuilderConfig[]>) => void
+  setCustomRecipes: (value: SetStateAction<BuilderRecipe[]>) => void
   setMetasets: (value: SetStateAction<Metaset[]>) => void
   applySubstatTargetsChange: ApplySubstatTargetsChangeFn
   applyFinalSellChange: ApplyFinalSellChangeFn
-  setKeepUniqueRules: (value: SetStateAction<KeepUniqueRule[]>) => void
-  setKeepUniquesEnabled: (value: SetStateAction<boolean>) => void
+  setSafeguardRules: (value: SetStateAction<SafeguardRule[]>) => void
+  setSafeguardsEnabled: (value: SetStateAction<boolean>) => void
   applyNoteChange: ApplyNoteChangeFn
-  setSelectedCfgIdx: (value: SetStateAction<number | null>) => void
+  setSelectedRecipeIdx: (value: SetStateAction<number | null>) => void
   setSelectedCfgIndices: (value: number[]) => void
   setSelectionAnchor: (idx: number | null) => void
-  setBuilder: (value: SetStateAction<BuilderConfig>) => void
+  setBuilder: (value: SetStateAction<BuilderRecipe>) => void
   setMetasetConflictOpen: (open: boolean) => void
   setPendingImport: Dispatch<SetStateAction<PendingImport | null>>
   setConflictIds: Dispatch<SetStateAction<string[]>>
@@ -103,14 +103,14 @@ type UseHsfcClipboardParams = {
 }
 
 export type UseHsfcClipboardResult = {
-  insertIndexAfter: (list: BuilderConfig[], idx: number) => number
+  insertIndexAfter: (list: BuilderRecipe[], idx: number) => number
   handlePasteText: (text: string) => boolean
   pasteAfterIndex: (idx: number) => Promise<void>
-  handleConfigPasteAfter: (idx: number) => void
-  handleCopyAllConfigs: () => Promise<void>
-  handleCopyConfig: (idx: number) => Promise<void>
+  handleRecipePasteAfter: (idx: number) => void
+  handleCopyAllRecipes: () => Promise<void>
+  handleCopyRecipe: (idx: number) => Promise<void>
   handlePasteAtEnd: () => Promise<void>
-  prepareHsfcImport: (current: Metaset[], incoming: Metaset[], cfgsIn: BuilderConfig[]) => PreparedHsfcImport
+  prepareHsfcImport: (current: Metaset[], incoming: Metaset[], cfgsIn: BuilderRecipe[]) => PreparedHsfcImport
   finalizeImport: (
     baseCurrent: Metaset[],
     prep: PreparedHsfcImport,
@@ -123,9 +123,9 @@ const valueKey = (sets: number[]): string => {
   return arr.join(',')
 }
 
-const ensureReferencedMetasets = (base: Metaset[], cfgs: BuilderConfig[]): Metaset[] => {
+const ensureReferencedMetasets = (base: Metaset[], recipes: BuilderRecipe[]): Metaset[] => {
   const referenced = new Set<string>()
-  for (const cfg of cfgs) {
+  for (const cfg of recipes) {
     const ids = cfg.artifactMetaSets ?? []
     for (const id of ids) referenced.add(String(id))
   }
@@ -150,28 +150,28 @@ const ensureReferencedMetasets = (base: Metaset[], cfgs: BuilderConfig[]): Metas
 /**
  * Centralizes HSFC clipboard orchestration so App.tsx wires handlers instead of duplicating logic.
  * - Note merging only replaces the current note when it is blank, matching the legacy behavior.
- * - Missing metaset IDs referenced by imported configs receive generated placeholder entries so
+ * - Missing metaset IDs referenced by imported recipes receive generated placeholder entries so
  *   downstream lookups stay consistent even when the source HSFC references hidden metasets.
  */
 export function useHsfcClipboard({
   metasets,
   substatTargets,
-  customCfgs,
+  customRecipes,
   hsfcNote,
   finalSellRemainder,
-  keepUniqueRules,
-  keepUniquesEnabled,
-  selectedCfgIdx,
-  selectedCfgIndices,
+  safeguardRules,
+  safeguardsEnabled,
+  selectedRecipeIdx,
+  selectedRecipeIndices,
   describeNextChange,
   t,
-  setCustomCfgs,
+  setCustomRecipes,
   setMetasets,
   applyFinalSellChange,
   applyNoteChange,
-  setKeepUniqueRules,
-  setKeepUniquesEnabled,
-  setSelectedCfgIdx,
+  setSafeguardRules,
+  setSafeguardsEnabled,
+  setSelectedRecipeIdx,
   setBuilder,
   setMetasetConflictOpen,
   setPendingImport,
@@ -201,22 +201,22 @@ export function useHsfcClipboard({
     describeNextChange(withSource)
   }, [describeNextChange, t])
 
-  const insertIndexAfter = useCallback((list: BuilderConfig[], idx: number): number => (
+  const insertIndexAfter = useCallback((list: BuilderRecipe[], idx: number): number => (
     Math.min(list.length, idx + 1)
   ), [])
 
-  const makeInsertedLabels = useCallback((list: BuilderConfig[], insertIdx: number, count: number) => {
+  const makeInsertedLabels = useCallback((list: BuilderRecipe[], insertIdx: number, count: number) => {
     const labels = []
     for (let offset = 0; offset < count; offset += 1) {
       const idx = insertIdx + offset
       const cfg = list[idx]
       if (!cfg) continue
-      labels.push(snapshotConfigLabel(idx, cfg))
+      labels.push(snapshotRecipeLabel(idx, cfg))
     }
     return labels
   }, [])
 
-  const prepareHsfcImport = useCallback((current: Metaset[], incoming: Metaset[], cfgsIn: BuilderConfig[]): PreparedHsfcImport => {
+  const prepareHsfcImport = useCallback((current: Metaset[], incoming: Metaset[], cfgsIn: BuilderRecipe[]): PreparedHsfcImport => {
     const byIdCur = new Map(current.map(m => [m.id, m]))
     const byValCur = new Map<string, Metaset>()
     for (const m of current) byValCur.set(valueKey(m.sets), m)
@@ -263,7 +263,7 @@ export function useHsfcClipboard({
       toAdd.push({ ...inc, id: target })
     }
 
-    const cfgsMapped = cfgsIn.map(cfg => {
+    const recipesMapped = cfgsIn.map(cfg => {
       const ids = (cfg.artifactMetaSets ?? []).slice()
       const mapped = ids.map(id => idMap.get(id) ?? id)
       return { ...cfg, artifactMetaSets: mapped }
@@ -274,7 +274,7 @@ export function useHsfcClipboard({
       toAdd,
       conflicts: Array.from(new Set(conflicts)),
       conflictPairs: curVsIncById,
-      cfgsMapped,
+      recipesMapped,
     }
   }, [])
 
@@ -319,28 +319,28 @@ export function useHsfcClipboard({
     try {
       const parsed = parseHsfcText(text, { metasets, substatTargets })
       const {
-        cfgs,
+        recipes,
         metasets: nextMetas,
         substatTargets: nextSubstatTargets,
         selectedIndex,
         note,
         finalSellRemainder: fsr,
-        keepUniqueRules: importedKeepRules,
-        keepUniquesEnabled: importedKeepEnabled,
+        safeguardRules: importedKeepRules,
+        safeguardsEnabled: importedKeepEnabled,
       } = parsed
-      if (cfgs.length === 0) {
-        setPasteErr('No valid config found in pasted text')
+      if (recipes.length === 0) {
+        setPasteErr('No valid recipe found in pasted text')
         return false
       }
-      const prep = prepareHsfcImport(metasets, nextMetas, cfgs)
+      const prep = prepareHsfcImport(metasets, nextMetas, recipes)
       if (prep.conflicts.length) {
         setPendingImport({
-          cfgs: prep.cfgsMapped,
+          recipes: prep.recipesMapped,
           metasets: nextMetas,
           substatTargets: nextSubstatTargets,
           finalSellRemainder: fsr,
-          keepUniqueRules: importedKeepRules,
-          keepUniquesEnabled: importedKeepEnabled,
+          safeguardRules: importedKeepRules,
+          safeguardsEnabled: importedKeepEnabled,
           selectedIndex,
           ...(note ? { note } : {}),
           mode: 'after',
@@ -353,7 +353,7 @@ export function useHsfcClipboard({
         return true
       }
       const { nextMetas: metasDone } = finalizeImport(metasets, prep, 'keepCurrent')
-      const ensured = ensureReferencedMetasets(metasDone, prep.cfgsMapped)
+      const ensured = ensureReferencedMetasets(metasDone, prep.recipesMapped)
       setMetasets(ensured)
       const substatTargetsDescriptor = applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
       const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
@@ -362,11 +362,11 @@ export function useHsfcClipboard({
       const noteDescriptor = shouldApplyNote
         ? applyNoteChange(incomingNote, { mode: 'import', publish: false })
         : null
-      setCustomCfgs(prev => {
-        const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
-          ? selectedCfgIdx + 1
+      setCustomRecipes(prev => {
+        const insertIdx = (selectedRecipeIdx !== null && selectedRecipeIdx >= 0 && selectedRecipeIdx < prev.length)
+          ? selectedRecipeIdx + 1
           : prev.length
-        const count = prep.cfgsMapped.length
+        const count = prep.recipesMapped.length
         if (count === 0) {
           const combined = appendDescriptorDetails(
             appendDescriptorDetails(substatTargetsDescriptor, finalSellDescriptor),
@@ -377,11 +377,11 @@ export function useHsfcClipboard({
         }
         const next = [
           ...prev.slice(0, insertIdx),
-          ...prep.cfgsMapped,
+          ...prep.recipesMapped,
           ...prev.slice(insertIdx),
         ]
         const labels = makeInsertedLabels(next, insertIdx, count)
-        const descriptorBase = createConfigsInsertedDescriptor({
+        const descriptorBase = createRecipesInsertedDescriptor({
           mode: 'import',
           labels,
           location: buildInsertionLocation(insertIdx, prev),
@@ -392,32 +392,32 @@ export function useHsfcClipboard({
         publishClipboardDescriptor(descriptor)
         return next
       })
-      setKeepUniqueRules(importedKeepRules)
-      setKeepUniquesEnabled(importedKeepEnabled)
+      setSafeguardRules(importedKeepRules)
+      setSafeguardsEnabled(importedKeepEnabled)
       setPasteErr(null)
       return true
     } catch {
-      const cfgs = parseConfigsFromText(text, metasets)
-      if (cfgs.length === 0) {
-        setPasteErr('No valid config found in pasted text')
+      const recipes = parseRecipesFromText(text, metasets)
+      if (recipes.length === 0) {
+        setPasteErr('No valid recipe found in pasted text')
         return false
       }
-      setCustomCfgs(prev => {
-        const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
-          ? selectedCfgIdx + 1
+      setCustomRecipes(prev => {
+        const insertIdx = (selectedRecipeIdx !== null && selectedRecipeIdx >= 0 && selectedRecipeIdx < prev.length)
+          ? selectedRecipeIdx + 1
           : prev.length
-        const count = cfgs.length
+        const count = recipes.length
         if (count === 0) {
           publishClipboardDescriptor(null)
           return prev
         }
         const next = [
           ...prev.slice(0, insertIdx),
-          ...cfgs,
+          ...recipes,
           ...prev.slice(insertIdx),
         ]
         const labels = makeInsertedLabels(next, insertIdx, count)
-        const descriptor = createConfigsInsertedDescriptor({
+        const descriptor = createRecipesInsertedDescriptor({
           mode: 'paste',
           labels,
           location: buildInsertionLocation(insertIdx, prev),
@@ -437,9 +437,9 @@ export function useHsfcClipboard({
     metasets,
     substatTargets,
     prepareHsfcImport,
-    selectedCfgIdx,
+    selectedRecipeIdx,
     setConflictIds,
-    setCustomCfgs,
+    setCustomRecipes,
     applyFinalSellChange,
     applyNoteChange,
     setImportIdMap,
@@ -448,8 +448,8 @@ export function useHsfcClipboard({
     setPasteDlgOpen,
     setPasteErr,
     setPendingImport,
-    setKeepUniqueRules,
-    setKeepUniquesEnabled,
+    setSafeguardRules,
+    setSafeguardsEnabled,
   ])
 
   const pasteAfterIndex = useCallback(async (idx: number) => {
@@ -458,25 +458,25 @@ export function useHsfcClipboard({
       try {
         const parsed = parseHsfcText(text, { metasets, substatTargets })
         const {
-          cfgs,
+          recipes,
           metasets: nextMetas,
           substatTargets: nextSubstatTargets,
           selectedIndex,
           note,
           finalSellRemainder: fsr,
-          keepUniqueRules: importedKeepRules,
-          keepUniquesEnabled: importedKeepEnabled,
+          safeguardRules: importedKeepRules,
+          safeguardsEnabled: importedKeepEnabled,
         } = parsed
-        if (cfgs.length > 0) {
-          const prep = prepareHsfcImport(metasets, nextMetas, cfgs)
+        if (recipes.length > 0) {
+          const prep = prepareHsfcImport(metasets, nextMetas, recipes)
           if (prep.conflicts.length) {
             setPendingImport({
-              cfgs: prep.cfgsMapped,
+              recipes: prep.recipesMapped,
               metasets: nextMetas,
               substatTargets: nextSubstatTargets,
               finalSellRemainder: fsr,
-              keepUniqueRules: importedKeepRules,
-              keepUniquesEnabled: importedKeepEnabled,
+              safeguardRules: importedKeepRules,
+              safeguardsEnabled: importedKeepEnabled,
               selectedIndex,
               ...(note ? { note } : {}),
               mode: 'after',
@@ -488,7 +488,7 @@ export function useHsfcClipboard({
             return
           }
           const { nextMetas: metasDone } = finalizeImport(metasets, prep, 'keepCurrent')
-          const ensured = ensureReferencedMetasets(metasDone, prep.cfgsMapped)
+          const ensured = ensureReferencedMetasets(metasDone, prep.recipesMapped)
           setMetasets(ensured)
           const substatTargetsDescriptor = applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
           const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
@@ -497,9 +497,9 @@ export function useHsfcClipboard({
           const noteDescriptor = shouldApplyNote
             ? applyNoteChange(incomingNote, { mode: 'import', publish: false })
             : null
-          setCustomCfgs(prev => {
+          setCustomRecipes(prev => {
             const insertIdx = Math.min(prev.length, idx + 1)
-            const count = prep.cfgsMapped.length
+            const count = prep.recipesMapped.length
             if (count === 0) {
               const combined = appendDescriptorDetails(
                 appendDescriptorDetails(substatTargetsDescriptor, finalSellDescriptor),
@@ -510,11 +510,11 @@ export function useHsfcClipboard({
             }
             const next = [
               ...prev.slice(0, insertIdx),
-              ...prep.cfgsMapped,
+              ...prep.recipesMapped,
               ...prev.slice(insertIdx),
             ]
             const labels = makeInsertedLabels(next, insertIdx, count)
-            const descriptorBase = createConfigsInsertedDescriptor({
+            const descriptorBase = createRecipesInsertedDescriptor({
               mode: 'import',
               labels,
               location: buildInsertionLocation(insertIdx, prev),
@@ -525,31 +525,31 @@ export function useHsfcClipboard({
             publishClipboardDescriptor(descriptor)
             return next
           })
-          setKeepUniqueRules(importedKeepRules)
-          setKeepUniquesEnabled(importedKeepEnabled)
+          setSafeguardRules(importedKeepRules)
+          setSafeguardsEnabled(importedKeepEnabled)
           try {
-            setSelectedCfgIdx(idx + cfgs.length)
-            setBuilder(cfgs[cfgs.length - 1]!)
+            setSelectedRecipeIdx(idx + recipes.length)
+            setBuilder(recipes[recipes.length - 1]!)
           } catch {}
           return
         }
       } catch {}
-      const cfgs = parseConfigsFromText(text, metasets)
-      if (cfgs.length > 0) {
-        setCustomCfgs(prev => {
+      const recipes = parseRecipesFromText(text, metasets)
+      if (recipes.length > 0) {
+        setCustomRecipes(prev => {
           const insertIdx = Math.min(prev.length, idx + 1)
-          const count = cfgs.length
+          const count = recipes.length
           if (count === 0) {
             publishClipboardDescriptor(null)
             return prev
           }
           const next = [
             ...prev.slice(0, insertIdx),
-            ...cfgs,
+            ...recipes,
             ...prev.slice(insertIdx),
           ]
           const labels = makeInsertedLabels(next, insertIdx, count)
-          const descriptor = createConfigsInsertedDescriptor({
+          const descriptor = createRecipesInsertedDescriptor({
             mode: 'paste',
             labels,
             location: buildInsertionLocation(insertIdx, prev),
@@ -558,13 +558,13 @@ export function useHsfcClipboard({
           return next
         })
         try {
-          setSelectedCfgIdx(idx + cfgs.length)
-          setBuilder(cfgs[cfgs.length - 1]!)
+          setSelectedRecipeIdx(idx + recipes.length)
+          setBuilder(recipes[recipes.length - 1]!)
         } catch {}
         return
       }
     }
-    setSelectedCfgIdx(idx)
+    setSelectedRecipeIdx(idx)
     setPasteAfterIdx(idx)
     setPasteText('')
     setPasteErr(null)
@@ -580,7 +580,7 @@ export function useHsfcClipboard({
     prepareHsfcImport,
     setBuilder,
     setConflictIds,
-    setCustomCfgs,
+    setCustomRecipes,
     applyFinalSellChange,
     applyNoteChange,
     setImportIdMap,
@@ -591,29 +591,29 @@ export function useHsfcClipboard({
     setPasteAfterIdx,
     setPasteText,
     setPendingImport,
-    setSelectedCfgIdx,
-    setKeepUniqueRules,
-    setKeepUniquesEnabled,
+    setSelectedRecipeIdx,
+    setSafeguardRules,
+    setSafeguardsEnabled,
   ])
 
-  const handleConfigPasteAfter = useCallback((idx: number) => {
-    const target = selectedCfgIndices.length > 1
-      ? Math.max(...selectedCfgIndices)
+  const handleRecipePasteAfter = useCallback((idx: number) => {
+    const target = selectedRecipeIndices.length > 1
+      ? Math.max(...selectedRecipeIndices)
       : idx
     void pasteAfterIndex(target)
-  }, [selectedCfgIndices, pasteAfterIndex])
+  }, [selectedRecipeIndices, pasteAfterIndex])
 
-  const handleCopyAllConfigs = useCallback(async () => {
+  const handleCopyAllRecipes = useCallback(async () => {
     const payload = buildHsfcPayload({
       version: APP_VERSION,
       metasets,
       substatTargets,
-      configs: customCfgs,
+      recipes: customRecipes,
       finalSellRemainder,
-      selectedConfigIndex: selectedCfgIdx,
+      selectedRecipeIndex: selectedRecipeIdx,
       ...(hsfcNote && hsfcNote.trim() ? { note: hsfcNote } : {}),
-      keepUniqueRules,
-      keepUniquesEnabled,
+      safeguardRules,
+      safeguardsEnabled,
     })
     const text = JSON.stringify(payload, null, 2)
     const ok = await writeTextSafe(text)
@@ -622,26 +622,26 @@ export function useHsfcClipboard({
       setCopyDlgOpen(true)
     }
   }, [
-    customCfgs,
+    customRecipes,
     finalSellRemainder,
     hsfcNote,
     metasets,
     substatTargets,
-    selectedCfgIdx,
-    keepUniqueRules,
-    keepUniquesEnabled,
+    selectedRecipeIdx,
+    safeguardRules,
+    safeguardsEnabled,
     setCopyDlgOpen,
     setCopyText,
   ])
 
-  const handleCopyConfig = useCallback(async (idx: number) => {
-    const multi = selectedCfgIndices.length > 1 && selectedCfgIndices.includes(idx)
+  const handleCopyRecipe = useCallback(async (idx: number) => {
+    const multi = selectedRecipeIndices.length > 1 && selectedRecipeIndices.includes(idx)
     if (multi) {
-      const sel = selectedCfgIndices.slice().sort((a, b) => a - b)
-      const cfgs = sel.map(i => customCfgs[i]!).filter(Boolean)
-      const readable = cfgs.map((cfg) => buildReadableConfig(cfg, metasets))
+      const sel = selectedRecipeIndices.slice().sort((a, b) => a - b)
+      const recipes = sel.map(i => customRecipes[i]!).filter(Boolean)
+      const readable = recipes.map((cfg) => buildReadableRecipe(cfg, metasets))
       const usedMetaIds = new Set<string>()
-      for (const cfg of cfgs) for (const id of (cfg.artifactMetaSets ?? [])) usedMetaIds.add(String(id))
+      for (const cfg of recipes) for (const id of (cfg.artifactMetaSets ?? [])) usedMetaIds.add(String(id))
       const metasOut = metasets
         .filter(m => usedMetaIds.has(m.id))
         .map(m => ({
@@ -652,7 +652,7 @@ export function useHsfcClipboard({
             .filter((x): x is string => Boolean(x && x.trim())),
           show: m.show !== false,
         }))
-      const payload = { Version: APP_VERSION, Metasets: metasOut, Configs: readable }
+      const payload = { Version: APP_VERSION, Metasets: metasOut, Recipes: readable }
       const text = JSON.stringify(payload, null, 2)
       const ok = await writeTextSafe(text)
       if (!ok) {
@@ -660,9 +660,9 @@ export function useHsfcClipboard({
         setCopyDlgOpen(true)
       }
     } else {
-      const cfg = customCfgs[idx]
+      const cfg = customRecipes[idx]
       if (!cfg) return
-      const readable = buildReadableConfig(cfg, metasets)
+      const readable = buildReadableRecipe(cfg, metasets)
       const usedMetaIds = cfg.artifactMetaSets ?? []
       const metasOut = metasets
         .filter(m => usedMetaIds.includes(m.id))
@@ -674,7 +674,7 @@ export function useHsfcClipboard({
             .filter((x): x is string => Boolean(x && x.trim())),
           show: m.show !== false,
         }))
-      const payload = { Version: APP_VERSION, Metasets: metasOut, Configs: [readable] }
+      const payload = { Version: APP_VERSION, Metasets: metasOut, Recipes: [readable] }
       const text = JSON.stringify(payload, null, 2)
       const ok = await writeTextSafe(text)
       if (!ok) {
@@ -683,9 +683,9 @@ export function useHsfcClipboard({
       }
     }
   }, [
-    customCfgs,
+    customRecipes,
     metasets,
-    selectedCfgIndices,
+    selectedRecipeIndices,
     setCopyDlgOpen,
     setCopyText,
   ])
@@ -696,25 +696,25 @@ export function useHsfcClipboard({
       try {
         const parsed = parseHsfcText(text, { metasets, substatTargets })
         const {
-          cfgs,
+          recipes,
           metasets: nextMetas,
           substatTargets: nextSubstatTargets,
           selectedIndex,
           note,
           finalSellRemainder: fsr,
-          keepUniqueRules: importedKeepRules,
-          keepUniquesEnabled: importedKeepEnabled,
+          safeguardRules: importedKeepRules,
+          safeguardsEnabled: importedKeepEnabled,
         } = parsed
-        if (cfgs.length > 0) {
-          const prep = prepareHsfcImport(metasets, nextMetas, cfgs)
+        if (recipes.length > 0) {
+          const prep = prepareHsfcImport(metasets, nextMetas, recipes)
           if (prep.conflicts.length) {
             setPendingImport({
-              cfgs: prep.cfgsMapped,
+              recipes: prep.recipesMapped,
               metasets: nextMetas,
               substatTargets: nextSubstatTargets,
               finalSellRemainder: fsr,
-              keepUniqueRules: importedKeepRules,
-              keepUniquesEnabled: importedKeepEnabled,
+              safeguardRules: importedKeepRules,
+              safeguardsEnabled: importedKeepEnabled,
               selectedIndex,
               ...(note ? { note } : {}),
               mode: 'append',
@@ -725,9 +725,9 @@ export function useHsfcClipboard({
             return
           }
           const { nextMetas: metasDone } = finalizeImport(metasets, prep, 'keepCurrent')
-          const ensured = ensureReferencedMetasets(metasDone, prep.cfgsMapped)
+          const ensured = ensureReferencedMetasets(metasDone, prep.recipesMapped)
           setMetasets(ensured)
-          const preLen = customCfgs.length
+          const preLen = customRecipes.length
           const substatTargetsDescriptor = applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
           const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
           const incomingNote = typeof note === 'string' ? note : null
@@ -735,8 +735,8 @@ export function useHsfcClipboard({
           const noteDescriptor = shouldApplyNote
             ? applyNoteChange(incomingNote, { mode: 'import', publish: false })
             : null
-          setCustomCfgs(prev => {
-            const count = prep.cfgsMapped.length
+          setCustomRecipes(prev => {
+            const count = prep.recipesMapped.length
             if (count === 0) {
               const combined = appendDescriptorDetails(
                 appendDescriptorDetails(substatTargetsDescriptor, finalSellDescriptor),
@@ -746,9 +746,9 @@ export function useHsfcClipboard({
               return prev
             }
             const insertIdx = prev.length
-            const next = [...prev, ...prep.cfgsMapped]
+            const next = [...prev, ...prep.recipesMapped]
             const labels = makeInsertedLabels(next, insertIdx, count)
-            const descriptorBase = createConfigsInsertedDescriptor({
+            const descriptorBase = createRecipesInsertedDescriptor({
               mode: 'import',
               labels,
               location: buildInsertionLocation(insertIdx, prev),
@@ -759,28 +759,28 @@ export function useHsfcClipboard({
             publishClipboardDescriptor(descriptor)
             return next
           })
-          setKeepUniqueRules(importedKeepRules)
-          setKeepUniquesEnabled(importedKeepEnabled)
+          setSafeguardRules(importedKeepRules)
+          setSafeguardsEnabled(importedKeepEnabled)
           try {
-            const sel = preLen + cfgs.length - 1
-            setSelectedCfgIdx(sel)
-            setBuilder(cfgs[cfgs.length - 1]!)
+            const sel = preLen + recipes.length - 1
+            setSelectedRecipeIdx(sel)
+            setBuilder(recipes[recipes.length - 1]!)
           } catch {}
           return
         }
       } catch {}
-      const cfgs = parseConfigsFromText(text, metasets)
-      if (cfgs.length > 0) {
-        setCustomCfgs(prev => {
-          const count = cfgs.length
+      const recipes = parseRecipesFromText(text, metasets)
+      if (recipes.length > 0) {
+        setCustomRecipes(prev => {
+          const count = recipes.length
           if (count === 0) {
             publishClipboardDescriptor(null)
             return prev
           }
           const insertIdx = prev.length
-          const next = [...prev, ...cfgs]
+          const next = [...prev, ...recipes]
           const labels = makeInsertedLabels(next, insertIdx, count)
-          const descriptor = createConfigsInsertedDescriptor({
+          const descriptor = createRecipesInsertedDescriptor({
             mode: 'paste',
             labels,
             location: buildInsertionLocation(insertIdx, prev),
@@ -789,9 +789,9 @@ export function useHsfcClipboard({
           return next
         })
         try {
-          const sel = customCfgs.length + cfgs.length - 1
-          setSelectedCfgIdx(sel)
-          setBuilder(cfgs[cfgs.length - 1]!)
+          const sel = customRecipes.length + recipes.length - 1
+          setSelectedRecipeIdx(sel)
+          setBuilder(recipes[recipes.length - 1]!)
         } catch {}
         return
       }
@@ -799,9 +799,9 @@ export function useHsfcClipboard({
     setPasteDlgOpen(true)
     setPasteText('')
     setPasteErr(null)
-    setPasteAfterIdx(customCfgs.length - 1)
+    setPasteAfterIdx(customRecipes.length - 1)
   }, [
-    customCfgs,
+    customRecipes,
     applySubstatTargetsChange,
     finalizeImport,
     hsfcNote,
@@ -811,7 +811,7 @@ export function useHsfcClipboard({
     prepareHsfcImport,
     setBuilder,
     setConflictIds,
-    setCustomCfgs,
+    setCustomRecipes,
     applyFinalSellChange,
     applyNoteChange,
     setImportIdMap,
@@ -822,19 +822,19 @@ export function useHsfcClipboard({
     setPasteErr,
     setPasteText,
     setPendingImport,
-    setSelectedCfgIdx,
+    setSelectedRecipeIdx,
     publishClipboardDescriptor,
-    setKeepUniqueRules,
-    setKeepUniquesEnabled,
+    setSafeguardRules,
+    setSafeguardsEnabled,
   ])
 
   return {
     insertIndexAfter,
     handlePasteText,
     pasteAfterIndex,
-    handleConfigPasteAfter,
-    handleCopyAllConfigs,
-    handleCopyConfig,
+    handleRecipePasteAfter,
+    handleCopyAllRecipes,
+    handleCopyRecipe,
     handlePasteAtEnd,
     prepareHsfcImport,
     finalizeImport,

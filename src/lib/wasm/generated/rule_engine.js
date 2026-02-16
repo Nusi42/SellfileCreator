@@ -59,11 +59,11 @@ export function build_hsf_rules_runtime_value(payload) {
 /**
  * @param {any} rules
  * @param {any} detection
- * @param {bigint} config_id_base
+ * @param {bigint} recipe_id_base
  * @returns {any}
  */
-export function build_keep_unique_rules_value(rules, detection, config_id_base) {
-    const ret = wasm.build_keep_unique_rules_value(rules, detection, config_id_base);
+export function build_safeguard_rules_value(rules, detection, recipe_id_base) {
+    const ret = wasm.build_safeguard_rules_value(rules, detection, recipe_id_base);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -73,16 +73,16 @@ export function build_keep_unique_rules_value(rules, detection, config_id_base) 
 /**
  * @param {any} rows
  * @param {any} rules
- * @param {any} config_modes
- * @param {any} ignore_keep_unique_config_indices
- * @param {any} keep_unique_rules
+ * @param {any} recipe_modes
+ * @param {any} ignore_safeguard_recipe_indices
+ * @param {any} safeguard_rules
  * @param {any} expected_groups_payload
  * @param {boolean} enabled
  * @param {number} now
  * @returns {any}
  */
-export function collect_and_compute_keep_unique_protection_value(rows, rules, config_modes, ignore_keep_unique_config_indices, keep_unique_rules, expected_groups_payload, enabled, now) {
-    const ret = wasm.collect_and_compute_keep_unique_protection_value(rows, rules, config_modes, ignore_keep_unique_config_indices, keep_unique_rules, expected_groups_payload, enabled, now);
+export function collect_and_compute_safeguard_protection_value(rows, rules, recipe_modes, ignore_safeguard_recipe_indices, safeguard_rules, expected_groups_payload, enabled, now) {
+    const ret = wasm.collect_and_compute_safeguard_protection_value(rows, rules, recipe_modes, ignore_safeguard_recipe_indices, safeguard_rules, expected_groups_payload, enabled, now);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -92,12 +92,12 @@ export function collect_and_compute_keep_unique_protection_value(rows, rules, co
 /**
  * @param {any} rows
  * @param {any} rules
- * @param {any} config_modes
- * @param {any} ignore_keep_unique_config_indices
+ * @param {any} recipe_modes
+ * @param {any} ignore_safeguard_recipe_indices
  * @returns {any}
  */
-export function collect_keep_unique_candidates_value(rows, rules, config_modes, ignore_keep_unique_config_indices) {
-    const ret = wasm.collect_keep_unique_candidates_value(rows, rules, config_modes, ignore_keep_unique_config_indices);
+export function collect_safeguard_candidates_value(rows, rules, recipe_modes, ignore_safeguard_recipe_indices) {
+    const ret = wasm.collect_safeguard_candidates_value(rows, rules, recipe_modes, ignore_safeguard_recipe_indices);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -119,22 +119,6 @@ export function combinations_i32_fast_flat(values, pick) {
 }
 
 /**
- * @param {any} candidates
- * @param {any} rules
- * @param {any} expected_groups_by_rule_id
- * @param {boolean} enabled
- * @param {number} now
- * @returns {any}
- */
-export function compute_keep_unique_protection_value(candidates, rules, expected_groups_by_rule_id, enabled, now) {
-    const ret = wasm.compute_keep_unique_protection_value(candidates, rules, expected_groups_by_rule_id, enabled, now);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * @param {any} payload
  * @returns {any}
  */
@@ -147,11 +131,27 @@ export function compute_merged_rules_value(payload) {
 }
 
 /**
+ * @param {any} candidates
  * @param {any} rules
- * @param {any} config_modes
+ * @param {any} expected_groups_by_rule_id
+ * @param {boolean} enabled
+ * @param {number} now
+ * @returns {any}
  */
-export function configure_value(rules, config_modes) {
-    const ret = wasm.configure_value(rules, config_modes);
+export function compute_safeguard_protection_value(candidates, rules, expected_groups_by_rule_id, enabled, now) {
+    const ret = wasm.compute_safeguard_protection_value(candidates, rules, expected_groups_by_rule_id, enabled, now);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} rules
+ * @param {any} recipe_modes
+ */
+export function configure_value(rules, recipe_modes) {
+    const ret = wasm.configure_value(rules, recipe_modes);
     if (ret[1]) {
         throw takeFromExternrefTable0(ret[0]);
     }
@@ -183,12 +183,12 @@ export function evaluate_value(items, options) {
 }
 
 /**
- * @param {any} config
+ * @param {any} recipe
  * @param {number} base_rarity_code
  * @returns {any}
  */
-export function expand_auto_flex_rarity_branches_value(config, base_rarity_code) {
-    const ret = wasm.expand_auto_flex_rarity_branches_value(config, base_rarity_code);
+export function expand_auto_flex_rarity_branches_value(recipe, base_rarity_code) {
+    const ret = wasm.expand_auto_flex_rarity_branches_value(recipe, base_rarity_code);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -250,11 +250,11 @@ export function flatten_rule_batches_with_total_limit_value(base_count, total_li
  * @param {any} combination
  * @returns {string}
  */
-export function hash_keep_unique_combination_value(combination) {
+export function hash_safeguard_combination_value(combination) {
     let deferred2_0;
     let deferred2_1;
     try {
-        const ret = wasm.hash_keep_unique_combination_value(combination);
+        const ret = wasm.hash_safeguard_combination_value(combination);
         var ptr1 = ret[0];
         var len1 = ret[1];
         if (ret[3]) {
@@ -288,72 +288,13 @@ export function intro_assignments_for_combo_fast_flat(count, base_slots, additio
 }
 
 /**
- * @param {any} artifact
- * @param {any} count_mode
- * @returns {string}
- */
-export function keep_unique_count_key_value(artifact, count_mode) {
-    let deferred2_0;
-    let deferred2_1;
-    try {
-        const ret = wasm.keep_unique_count_key_value(artifact, count_mode);
-        var ptr1 = ret[0];
-        var len1 = ret[1];
-        if (ret[3]) {
-            ptr1 = 0; len1 = 0;
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        deferred2_0 = ptr1;
-        deferred2_1 = len1;
-        return getStringFromWasm0(ptr1, len1);
-    } finally {
-        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
-    }
-}
-
-/**
- * @param {any} artifact
- * @returns {string}
- */
-export function keep_unique_group_key_value(artifact) {
-    let deferred2_0;
-    let deferred2_1;
-    try {
-        const ret = wasm.keep_unique_group_key_value(artifact);
-        var ptr1 = ret[0];
-        var len1 = ret[1];
-        if (ret[3]) {
-            ptr1 = 0; len1 = 0;
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        deferred2_0 = ptr1;
-        deferred2_1 = len1;
-        return getStringFromWasm0(ptr1, len1);
-    } finally {
-        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
-    }
-}
-
-/**
- * @param {any} artifact
- * @returns {bigint}
- */
-export function keep_unique_item_key_value(artifact) {
-    const ret = wasm.keep_unique_item_key_value(artifact);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return ret[0];
-}
-
-/**
  * @param {any} base_rules
  * @param {any} custom_rules
- * @param {any} candidate_keep_rules
+ * @param {any} candidate_safeguard_rules
  * @returns {any}
  */
-export function merge_keep_unique_injected_rules_value(base_rules, custom_rules, candidate_keep_rules) {
-    const ret = wasm.merge_keep_unique_injected_rules_value(base_rules, custom_rules, candidate_keep_rules);
+export function merge_safeguard_injected_rules_value(base_rules, custom_rules, candidate_safeguard_rules) {
+    const ret = wasm.merge_safeguard_injected_rules_value(base_rules, custom_rules, candidate_safeguard_rules);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -362,14 +303,13 @@ export function merge_keep_unique_injected_rules_value(base_rules, custom_rules,
 
 /**
  * @param {any} activation
- * @param {any} legacy_enabled
  * @returns {string}
  */
-export function normalize_keep_unique_activation_value(activation, legacy_enabled) {
+export function normalize_safeguard_activation_value(activation) {
     let deferred2_0;
     let deferred2_1;
     try {
-        const ret = wasm.normalize_keep_unique_activation_value(activation, legacy_enabled);
+        const ret = wasm.normalize_safeguard_activation_value(activation);
         var ptr1 = ret[0];
         var len1 = ret[1];
         if (ret[3]) {
@@ -389,8 +329,8 @@ export function normalize_keep_unique_activation_value(activation, legacy_enable
  * @param {any} lookups
  * @returns {any}
  */
-export function normalize_keep_unique_combination_value(value, lookups) {
-    const ret = wasm.normalize_keep_unique_combination_value(value, lookups);
+export function normalize_safeguard_combination_value(value, lookups) {
+    const ret = wasm.normalize_safeguard_combination_value(value, lookups);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -401,8 +341,8 @@ export function normalize_keep_unique_combination_value(value, lookups) {
  * @param {any} value
  * @returns {any}
  */
-export function normalize_keep_unique_count_mode_value(value) {
-    const ret = wasm.normalize_keep_unique_count_mode_value(value);
+export function normalize_safeguard_count_mode_value(value) {
+    const ret = wasm.normalize_safeguard_count_mode_value(value);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -413,8 +353,8 @@ export function normalize_keep_unique_count_mode_value(value) {
  * @param {any} payload
  * @returns {any}
  */
-export function normalize_keep_unique_expected_group_domain_value(payload) {
-    const ret = wasm.normalize_keep_unique_expected_group_domain_value(payload);
+export function normalize_safeguard_expected_group_domain_value(payload) {
+    const ret = wasm.normalize_safeguard_expected_group_domain_value(payload);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -427,10 +367,10 @@ export function normalize_keep_unique_expected_group_domain_value(payload) {
  * @param {string} generated_rule_id
  * @returns {any}
  */
-export function normalize_keep_unique_rule_value(value, lookups, generated_rule_id) {
+export function normalize_safeguard_rule_value(value, lookups, generated_rule_id) {
     const ptr0 = passStringToWasm0(generated_rule_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.normalize_keep_unique_rule_value(value, lookups, ptr0, len0);
+    const ret = wasm.normalize_safeguard_rule_value(value, lookups, ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -441,11 +381,11 @@ export function normalize_keep_unique_rule_value(value, lookups, generated_rule_
  * @param {any} value
  * @returns {string}
  */
-export function normalize_keep_unique_substat_match_value(value) {
+export function normalize_safeguard_substat_match_value(value) {
     let deferred2_0;
     let deferred2_1;
     try {
-        const ret = wasm.normalize_keep_unique_substat_match_value(value);
+        const ret = wasm.normalize_safeguard_substat_match_value(value);
         var ptr1 = ret[0];
         var len1 = ret[1];
         if (ret[3]) {
@@ -477,8 +417,8 @@ export function permutations_i32_fast_flat(values) {
  * @param {any} payload
  * @returns {any}
  */
-export function prepare_hsf_builder_config_value(payload) {
-    const ret = wasm.prepare_hsf_builder_config_value(payload);
+export function prepare_hsf_builder_recipe_value(payload) {
+    const ret = wasm.prepare_hsf_builder_recipe_value(payload);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -502,8 +442,8 @@ export function resolve_auto_rarity_code_for_builder_value(payload) {
  * @param {any} metasets
  * @returns {any}
  */
-export function resolve_keep_unique_rules_with_metasets_value(rules, metasets) {
-    const ret = wasm.resolve_keep_unique_rules_with_metasets_value(rules, metasets);
+export function resolve_safeguard_rules_with_metasets_value(rules, metasets) {
+    const ret = wasm.resolve_safeguard_rules_with_metasets_value(rules, metasets);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -511,11 +451,70 @@ export function resolve_keep_unique_rules_with_metasets_value(rules, metasets) {
 }
 
 /**
+ * @param {any} artifact
+ * @param {any} count_mode
+ * @returns {string}
+ */
+export function safeguard_count_key_value(artifact, count_mode) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.safeguard_count_key_value(artifact, count_mode);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * @param {any} artifact
+ * @returns {string}
+ */
+export function safeguard_group_key_value(artifact) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.safeguard_group_key_value(artifact);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * @param {any} artifact
+ * @returns {bigint}
+ */
+export function safeguard_item_key_value(artifact) {
+    const ret = wasm.safeguard_item_key_value(artifact);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0];
+}
+
+/**
  * @param {any} combination
  * @returns {any}
  */
-export function sort_keep_unique_combination_value(combination) {
-    const ret = wasm.sort_keep_unique_combination_value(combination);
+export function sort_safeguard_combination_value(combination) {
+    const ret = wasm.sort_safeguard_combination_value(combination);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -526,8 +525,8 @@ export function sort_keep_unique_combination_value(combination) {
  * @param {any} values
  * @returns {any}
  */
-export function sort_keep_unique_substats_value(values) {
-    const ret = wasm.sort_keep_unique_substats_value(values);
+export function sort_safeguard_substats_value(values) {
+    const ret = wasm.sort_safeguard_substats_value(values);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }

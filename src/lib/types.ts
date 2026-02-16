@@ -232,7 +232,7 @@ export function getArtifactSetPieceGroup(id: ArtifactSetId): ArtifactSetPieceGro
   return artifactSetPieceGroups[Number(id)] ?? ArtifactSetPieceGroup.ArmorFixed
 }
 
-/** Convenience arrays keep UI filters and Keep Unique defaults in sync. */
+/** Convenience arrays keep UI filters and Safeguard defaults in sync. */
 export const ACCESSORY_SET_IDS = Object.freeze(
   Object.entries(artifactSetPieceGroups)
     .filter(([, group]) => group === ArtifactSetPieceGroup.Accessories)

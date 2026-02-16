@@ -1,17 +1,17 @@
 /* eslint import/no-unused-modules: off */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, KeepUniqueRuleActivation, collectKeepUniqueCandidates, computeKeepUniqueProtection, hashKeepUniqueCombination, normalizeKeepUniqueRule, resolveKeepUniqueRuleLabel, resolveKeepUniqueRulesWithMetasets, buildDefaultKeepUniqueRules } from '../../src/lib/keepUniques.js'
+import { SAFEGUARD_DEFAULT_COUNT_MODE, SafeguardRuleActivation, collectSafeguardCandidates, computeSafeguardProtection, hashSafeguardCombination, normalizeSafeguardRule, resolveSafeguardRuleLabel, resolveSafeguardRulesWithMetasets, buildDefaultSafeguardRules } from '../../src/lib/safeguards.js'
 import { normalizeArtifactSetSelections } from '../../src/lib/gearSets/selection.js'
 import { ArtifactSet, ArtifactType, Faction, StatVariant, LEVEL_ANY_SENTINEL, RarityCode, type RankValue } from '../../src/lib/types.js'
 import type { TesterPreviewRow } from '../../src/types/testerPreview.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../../src/lib/importers/gearDbNormalizer.js'
-import type { KeepUniqueRule } from '../../src/lib/keepUniques.js'
+import type { SafeguardRule } from '../../src/lib/safeguards.js'
 import type { Metaset } from '../../src/lib/metasets.js'
-import { buildKeepUniqueRules, prependKeepUniqueRules, RULE_SOURCE_KEEP_UNIQUES } from '../../src/lib/merge.js'
+import { buildSafeguardRules, prependSafeguardRules, RULE_SOURCE_SAFEGUARDS } from '../../src/lib/merge.js'
 import type { HsfRuleWithCfg } from '../../src/lib/merge.js'
 import {
-  mergeKeepUniqueInjectedRulesWithLoadedWasm,
+  mergeSafeguardInjectedRulesWithLoadedWasm,
   warmupWasmRuleEngine,
 } from '../../src/lib/wasm/wasmRuleEngine.js'
 
@@ -75,18 +75,18 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}, variant: 
 
 const makeTesterRow = (overrides: Partial<NormalizedGearArtifact> = {}, keep = false, variant: StatVariant = StatVariant.ATK): TesterPreviewRow => {
   const artifact = makeArtifact(overrides, variant)
-  const match = keep ? { keep: true, cfgIdx: 0, cfgName: 'Keep', ruleIndex: 0, ruleLabel: null, ruleSource: 'hsfc' } : null
+  const match = keep ? { keep: true, recipeIdx: 0, recipeName: 'Keep', ruleIndex: 0, ruleLabel: null, ruleSource: 'hsfc' } : null
   return {
     artifact,
     match,
     baseMatch: match,
     matchingCfgIndices: keep ? [0] : [],
-    matchingConfigDecisions: keep ? [{ cfgIdx: 0, keep: true }] : [],
+    matchingRecipeDecisions: keep ? [{ recipeIdx: 0, keep: true }] : [],
   }
 }
 
-const makeRule = (overrides: Partial<KeepUniqueRule> = {}): KeepUniqueRule => {
-  const rule = normalizeKeepUniqueRule({
+const makeRule = (overrides: Partial<SafeguardRule> = {}): SafeguardRule => {
+  const rule = normalizeSafeguardRule({
     id: overrides.id ?? `rule-${Math.random().toString(16).slice(2)}`,
     combination: overrides.combination ?? {
       slots: [ArtifactType.Weapon],
@@ -99,8 +99,8 @@ const makeRule = (overrides: Partial<KeepUniqueRule> = {}): KeepUniqueRule => {
       factions: [],
     },
     requiredCount: overrides.requiredCount ?? 1,
-    activation: overrides.activation ?? KeepUniqueRuleActivation.ProtectExisting,
-    countMode: overrides.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE,
+    activation: overrides.activation ?? SafeguardRuleActivation.ProtectExisting,
+    countMode: overrides.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE,
     ignorePreviousSafeguards: overrides.ignorePreviousSafeguards,
     ignoreEquippedInCollection: overrides.ignoreEquippedInCollection,
     ignoreEquippedInVault: overrides.ignoreEquippedInVault,
@@ -113,7 +113,7 @@ const makeRule = (overrides: Partial<KeepUniqueRule> = {}): KeepUniqueRule => {
   return rule
 }
 
-test('hashKeepUniqueCombination differentiates accessory factions', () => {
+test('hashSafeguardCombination differentiates accessory factions', () => {
   const base = {
     slots: [ArtifactType.Ring],
     sets: normalizeArtifactSetSelections([ArtifactSet.Refresh]),
@@ -123,19 +123,19 @@ test('hashKeepUniqueCombination differentiates accessory factions', () => {
     mainStats: [StatVariant.HP],
     factions: [1],
   }
-  const hashA = hashKeepUniqueCombination(base)
-  const hashB = hashKeepUniqueCombination({ ...base, factions: [2] })
+  const hashA = hashSafeguardCombination(base)
+  const hashB = hashSafeguardCombination({ ...base, factions: [2] })
   assert.notStrictEqual(hashA, hashB, 'different factions should yield different hashes')
 })
 
-test('normalizeKeepUniqueRule supports readable wrapper payloads', () => {
-  // Readable exports may wrap keep-unique rules in `{ kind, rule }`.
-  const normalized = normalizeKeepUniqueRule({
-    kind: 'keepUniqueRule',
+test('normalizeSafeguardRule supports readable wrapper payloads', () => {
+  // Readable exports may wrap safeguard rules in `{ kind, rule }`.
+  const normalized = normalizeSafeguardRule({
+    kind: 'safeguardRule',
     rule: {
       id: 'ku_mlcrdw83_4zvye589',
       requiredCount: 3,
-      activation: KeepUniqueRuleActivation.AnticipateGaps,
+      activation: SafeguardRuleActivation.AnticipateGaps,
       countMode: {
         perRule: false,
         perSet: true,
@@ -158,7 +158,7 @@ test('normalizeKeepUniqueRule supports readable wrapper payloads', () => {
       name: 'Reserve: Speed Banner',
     },
   })
-  assert.ok(normalized, 'wrapper payload should normalize into a keep-unique rule')
+  assert.ok(normalized, 'wrapper payload should normalize into a safeguard rule')
   assert.strictEqual(normalized.id, 'ku_mlcrdw83_4zvye589')
   assert.strictEqual(normalized.name, 'Reserve: Speed Banner')
   assert.deepStrictEqual(normalized.combination.slots, [ArtifactType.Banner])
@@ -181,12 +181,12 @@ test('normalizeKeepUniqueRule supports readable wrapper payloads', () => {
   assert.strictEqual(normalized.ignoreEquippedInVault, true)
 })
 
-test('normalizeKeepUniqueRule applies default toggle values', () => {
-  const normalized = normalizeKeepUniqueRule({
+test('normalizeSafeguardRule applies default toggle values', () => {
+  const normalized = normalizeSafeguardRule({
     id: 'defaults',
     requiredCount: 1,
-    activation: KeepUniqueRuleActivation.ProtectExisting,
-    countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
+    activation: SafeguardRuleActivation.ProtectExisting,
+    countMode: { ...SAFEGUARD_DEFAULT_COUNT_MODE },
     combination: {
       slots: [ArtifactType.Weapon],
       sets: [],
@@ -203,7 +203,7 @@ test('normalizeKeepUniqueRule applies default toggle values', () => {
   assert.strictEqual(normalized.ignoreEquippedInVault, false)
 })
 
-test('computeKeepUniqueProtection aggregates combination counts', () => {
+test('computeSafeguardProtection aggregates combination counts', () => {
   const rules = [
     makeRule({
       id: 'speed',
@@ -222,8 +222,8 @@ test('computeKeepUniqueProtection aggregates combination counts', () => {
     makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, rank: 6 as RankValue, rarity: 6 as RankValue }, false, StatVariant.ATK),
     makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, rank: 6 as RankValue, rarity: 6 as RankValue }, false, StatVariant.ATK),
   ]
-  const candidates = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] }).candidates
-  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
+  const candidates = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] }).candidates
+  const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
   assert.strictEqual(snapshot.entries.length, 1)
   const entry = snapshot.entries[0]
   assert.ok(entry)
@@ -250,8 +250,8 @@ test('projected count mirrors existing keep state when disabled', () => {
     makeTesterRow({ slot: ArtifactType.Ring, set: ArtifactSet.Refresh, rank: 5 as RankValue, rarity: 5 as RankValue, faction: 3 }, false, StatVariant.RES),
     makeTesterRow({ slot: ArtifactType.Ring, set: ArtifactSet.Refresh, rank: 5 as RankValue, rarity: 5 as RankValue, faction: 3 }, false, StatVariant.RES),
   ]
-  const candidates = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] }).candidates
-  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: false })
+  const candidates = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] }).candidates
+  const snapshot = computeSafeguardProtection({ candidates, rules, enabled: false })
   const entry = snapshot.entries[0]
   assert.ok(entry)
   assert.strictEqual(entry.projectedCount, 0, 'disabled feature mirrors existing keep state (0 kept)')
@@ -261,8 +261,8 @@ test('projected count mirrors existing keep state when disabled', () => {
 test('coveredByExisting flips when existing keep rules meet requirement', () => {
   const rules = [makeRule({ requiredCount: 1 })]
   const rows: TesterPreviewRow[] = []
-  const candidates = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] }).candidates
-  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
+  const candidates = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] }).candidates
+  const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
   assert.strictEqual(snapshot.entries[0]?.coveredByExisting, false, 'no gear means the quota still needs coverage')
   assert.strictEqual(snapshot.entries[0]?.deficit, 1, 'empty combos should report a deficit equal to the quota')
   assert.strictEqual(snapshot.entries[0]?.projectedCount, 0)
@@ -295,8 +295,8 @@ test('ignorePreviousSafeguards=false evaluates against cumulative prior safeguar
       rarity: 6 as RankValue,
     }, false, StatVariant.ATK),
   ]
-  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
-  const snapshot = computeKeepUniqueProtection({
+  const { candidates } = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] })
+  const snapshot = computeSafeguardProtection({
     candidates,
     rules: [firstRule, cumulativeRule, baselineRule],
     enabled: true,
@@ -339,8 +339,8 @@ test('equipped ignore toggles exclude matching collection/vault artifacts', () =
       equippedChampionLocation: null,
     }, false, StatVariant.ATK),
   ]
-  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
-  const snapshot = computeKeepUniqueProtection({
+  const { candidates } = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] })
+  const snapshot = computeSafeguardProtection({
     candidates,
     rules: [collectionRule, vaultRule],
     enabled: true,
@@ -366,8 +366,8 @@ test('per combination mode multiplies targets and deficits', () => {
     makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed }, false, StatVariant.ATK),
     makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Accuracy }, false, StatVariant.ATK),
   ]
-  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
-  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
+  const { candidates } = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] })
+  const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
   const entry = snapshot.entries[0]
   assert.ok(entry)
   assert.strictEqual(entry.countMode.perRule, false)
@@ -395,8 +395,8 @@ test('per rule mode keeps a single aggregate quota', () => {
     makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed }, false, StatVariant.ATK),
     makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Accuracy }, false, StatVariant.CDMG),
   ]
-  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
-  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
+  const { candidates } = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] })
+  const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
   const entry = snapshot.entries[0]
   assert.ok(entry)
   assert.strictEqual(entry.countMode.perRule, true)
@@ -424,8 +424,8 @@ test('custom grouping honors the selected dimensions only', () => {
     makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, faction: 2 }, false, StatVariant.DEF),
     makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Accuracy, faction: 1 }, false, StatVariant.CDMG),
   ]
-  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
-  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
+  const { candidates } = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] })
+  const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
   const entry = snapshot.entries[0]
   assert.ok(entry)
   assert.strictEqual(entry.groupsTracked, 2, 'groups only by set when faction/main toggles are off')
@@ -452,8 +452,8 @@ test('per-slot grouping splits quotas by slot and avoids zero-missing placeholde
     makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed }, false, StatVariant.ATK),
     makeTesterRow({ slot: ArtifactType.Helmet, set: ArtifactSet.Speed }, false, StatVariant.ATK),
   ]
-  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
-  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
+  const { candidates } = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] })
+  const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
   const entry = snapshot.entries[0]
   assert.ok(entry)
   assert.strictEqual(entry.groupsTracked, 2, 'slot grouping should track one group per selected slot')
@@ -495,8 +495,8 @@ test('ranked ties on the same main stat prefer higher rank', () => {
       substats: [buildSubstat(StatVariant.SPD, 6)],
     }, false, StatVariant.ATK),
   ]
-  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
-  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
+  const { candidates } = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] })
+  const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
   const entry = snapshot.entries[0]
   assert.ok(entry)
   assert.deepStrictEqual(entry.itemKeys, [102], 'same-main tie should choose the higher-rank item only')
@@ -535,8 +535,8 @@ test('ranked ties across main stats prefer percent over matching flat stat', () 
       substats: [buildSubstat(StatVariant.SPD, 6)],
     }, false, StatVariant.ATK),
   ]
-  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
-  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
+  const { candidates } = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] })
+  const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
   const entry = snapshot.entries[0]
   assert.ok(entry)
   assert.deepStrictEqual(entry.itemKeys, [202], 'percent main stat should win over the matching flat variant')
@@ -575,8 +575,8 @@ test('ranked unresolved cutoff ties keep more than N', () => {
       substats: [buildSubstat(StatVariant.SPD, 6)],
     }, false, StatVariant.ATK),
   ]
-  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
-  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
+  const { candidates } = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] })
+  const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
   const entry = snapshot.entries[0]
   assert.ok(entry)
   assert.strictEqual(entry.itemKeys.length, 2, 'unresolved boundary ties should preserve both candidates')
@@ -625,10 +625,10 @@ test('ranked unresolved ties are order-invariant across candidate permutations',
   const firstRows = [rowA, rowB, rowC]
   // Second permutation scrambles encounter order intentionally.
   const secondRows = [rowC, rowA, rowB]
-  const firstCandidates = collectKeepUniqueCandidates({ rows: firstRows, baseRules: [], configModes: [] }).candidates
-  const secondCandidates = collectKeepUniqueCandidates({ rows: secondRows, baseRules: [], configModes: [] }).candidates
-  const firstSnapshot = computeKeepUniqueProtection({ candidates: firstCandidates, rules, enabled: true })
-  const secondSnapshot = computeKeepUniqueProtection({ candidates: secondCandidates, rules, enabled: true })
+  const firstCandidates = collectSafeguardCandidates({ rows: firstRows, baseRules: [], recipeModes: [] }).candidates
+  const secondCandidates = collectSafeguardCandidates({ rows: secondRows, baseRules: [], recipeModes: [] }).candidates
+  const firstSnapshot = computeSafeguardProtection({ candidates: firstCandidates, rules, enabled: true })
+  const secondSnapshot = computeSafeguardProtection({ candidates: secondCandidates, rules, enabled: true })
   const firstEntry = firstSnapshot.entries[0]
   const secondEntry = secondSnapshot.entries[0]
   assert.ok(firstEntry)
@@ -641,7 +641,7 @@ test('ranked unresolved ties are order-invariant across candidate permutations',
   assert.deepStrictEqual(secondEntry.itemKeys, [401, 402, 403])
 })
 
-test('resolveKeepUniqueRulesWithMetasets expands set lists', () => {
+test('resolveSafeguardRulesWithMetasets expands set lists', () => {
   const rules = [
     makeRule({
       combination: {
@@ -661,14 +661,14 @@ test('resolveKeepUniqueRulesWithMetasets expands set lists', () => {
     sets: [ArtifactSet.Speed, ArtifactSet.DivineSpeed],
     show: true,
   }]
-  const resolved = resolveKeepUniqueRulesWithMetasets(rules, metasets)
+  const resolved = resolveSafeguardRulesWithMetasets(rules, metasets)
   const combinationSets = resolved[0]?.combination.sets ?? []
   // Compare by numeric ids because the selection list now stores entry objects.
   const combinationSetIds = combinationSets.map((entry) => Number(entry.id)).sort((a, b) => a - b)
   assert.deepStrictEqual(combinationSetIds, [ArtifactSet.Speed, ArtifactSet.DivineSpeed])
 })
 
-test('resolveKeepUniqueRulesWithMetasets preserves rules without metaset expansion', () => {
+test('resolveSafeguardRulesWithMetasets preserves rules without metaset expansion', () => {
   // Rules without metasets still need to survive the resolver unchanged.
   const rules = [
     makeRule({
@@ -684,7 +684,7 @@ test('resolveKeepUniqueRulesWithMetasets preserves rules without metaset expansi
         factions: [],
       },
       requiredCount: 3,
-      activation: KeepUniqueRuleActivation.AnticipateGaps,
+      activation: SafeguardRuleActivation.AnticipateGaps,
       countMode: { perRule: false, perSet: true, perFaction: true, perMainStat: false, perSlot: true },
       substats: [StatVariant.SPD],
       substatMatch: 'perSubstat',
@@ -697,7 +697,7 @@ test('resolveKeepUniqueRulesWithMetasets preserves rules without metaset expansi
     sets: [ArtifactSet.Speed],
     show: true,
   }]
-  const resolved = resolveKeepUniqueRulesWithMetasets(rules, metasets)
+  const resolved = resolveSafeguardRulesWithMetasets(rules, metasets)
   assert.strictEqual(resolved.length, 1, 'rules without metasets must not be dropped')
   const kept = resolved[0]
   assert.ok(kept)
@@ -706,7 +706,7 @@ test('resolveKeepUniqueRulesWithMetasets preserves rules without metaset expansi
   assert.deepStrictEqual(kept.combination.metaSetIds, [])
   assert.deepStrictEqual(kept.combination.sets, [])
   assert.strictEqual(kept.requiredCount, 3)
-  assert.strictEqual(kept.activation, KeepUniqueRuleActivation.AnticipateGaps)
+  assert.strictEqual(kept.activation, SafeguardRuleActivation.AnticipateGaps)
   assert.deepStrictEqual(kept.countMode, {
     perRule: false,
     perSet: true,
@@ -718,14 +718,14 @@ test('resolveKeepUniqueRulesWithMetasets preserves rules without metaset expansi
   assert.strictEqual(kept.substatMatch, 'perSubstat')
 })
 
-test('default keep unique rules start empty', () => {
-  const rules = buildDefaultKeepUniqueRules()
+test('default safeguard rules start empty', () => {
+  const rules = buildDefaultSafeguardRules()
   assert.strictEqual(rules.length, 0)
 })
 
 test('anticipate mode emits placeholder keeps when deficits remain', () => {
   const anticipateRule = makeRule({
-    activation: KeepUniqueRuleActivation.AnticipateGaps,
+    activation: SafeguardRuleActivation.AnticipateGaps,
     combination: {
       slots: [ArtifactType.Amulet],
       sets: normalizeArtifactSetSelections([ArtifactSet.Refresh]),
@@ -736,14 +736,14 @@ test('anticipate mode emits placeholder keeps when deficits remain', () => {
       factions: [Faction.BannerLords],
     },
   })
-  const detection = computeKeepUniqueProtection({ candidates: [], rules: [anticipateRule], enabled: true })
+  const detection = computeSafeguardProtection({ candidates: [], rules: [anticipateRule], enabled: true })
   const entry = detection.entries[0]
   assert.ok(entry, 'expected detection entry for anticipate rule')
   assert.strictEqual(entry.placeholders.length, 1, 'placeholder should be recorded when quota is unmet')
-  const keepRules = buildKeepUniqueRules([anticipateRule], detection)
+  const keepRules = buildSafeguardRules([anticipateRule], detection)
   assert.strictEqual(keepRules.length, 1, 'placeholder should emit a keep rule even without gear')
   const placeholderRule = keepRules[0]!
-  assert.ok(placeholderRule.__keepUniquePlaceholder, 'placeholder keep should be flagged')
+  assert.ok(placeholderRule.__safeguardPlaceholder, 'placeholder keep should be flagged')
   assert.deepStrictEqual(placeholderRule.ArtifactType, [ArtifactType.Amulet])
   assert.deepStrictEqual(placeholderRule.ArtifactSet, [ArtifactSet.Refresh])
   assert.strictEqual(placeholderRule.Rank, 6)
@@ -752,10 +752,10 @@ test('anticipate mode emits placeholder keeps when deficits remain', () => {
   assert.strictEqual(placeholderRule.LVLForCheck, LEVEL_ANY_SENTINEL)
 })
 
-test('keep-unique merge preserves injected rule payload fields', () => {
+test('safeguard merge preserves injected rule payload fields', () => {
   // Build one anticipate rule so we always emit at least one placeholder keep row.
   const keepRule = makeRule({
-    activation: KeepUniqueRuleActivation.AnticipateGaps,
+    activation: SafeguardRuleActivation.AnticipateGaps,
     combination: {
       slots: [ArtifactType.Amulet],
       sets: normalizeArtifactSetSelections([ArtifactSet.Refresh]),
@@ -766,36 +766,36 @@ test('keep-unique merge preserves injected rule payload fields', () => {
       factions: [Faction.BannerLords],
     },
   })
-  // Empty candidates force a placeholder output path in keep-unique detection.
-  const detection = computeKeepUniqueProtection({ candidates: [], rules: [keepRule], enabled: true })
-  // Merge helper should return full keep-unique rows, never empty objects.
-  const merged = prependKeepUniqueRules({
+  // Empty candidates force a placeholder output path in safeguard detection.
+  const detection = computeSafeguardProtection({ candidates: [], rules: [keepRule], enabled: true })
+  // Merge helper should return full safeguard rows, never empty objects.
+  const merged = prependSafeguardRules({
     baseRules: [],
     customRules: [],
     finalSellRules: [],
-    resolvedKeepUniqueRules: [keepRule],
+    resolvedSafeguardRules: [keepRule],
     detection,
   }).mergedRules
   assert.strictEqual(merged.length, 1, 'expected one injected placeholder keep rule')
   const injected = merged[0]!
   // Keep-source rows must retain source metadata after wasm merge serialization.
-  assert.strictEqual(injected.__source, RULE_SOURCE_KEEP_UNIQUES)
+  assert.strictEqual(injected.__source, RULE_SOURCE_SAFEGUARDS)
   // Keep-unique injected rows must remain functional keep rules.
   assert.strictEqual(injected.Keep, true)
   assert.strictEqual(injected.Use, true)
   // Placeholder metadata must survive the merge payload boundary.
-  assert.strictEqual(injected.__keepUniquePlaceholder, true)
+  assert.strictEqual(injected.__safeguardPlaceholder, true)
   assert.ok(Array.isArray(injected.Substats), 'placeholder keep row should carry padded substats')
   // Guard against "{}" regressions from broken merge payload serialization.
   assert.ok(Object.keys(injected).length > 1, 'injected keep row should not be an empty object')
 })
 
-test('wasm keep-unique merge binding preserves injected payload fields', async () => {
+test('wasm safeguard merge binding preserves injected payload fields', async () => {
   // Explicit warmup keeps this test valid even when run standalone.
   await warmupWasmRuleEngine()
   // Reuse the anticipate-gap path so candidate rows include placeholder metadata.
   const keepRule = makeRule({
-    activation: KeepUniqueRuleActivation.AnticipateGaps,
+    activation: SafeguardRuleActivation.AnticipateGaps,
     combination: {
       slots: [ArtifactType.Amulet],
       sets: normalizeArtifactSetSelections([ArtifactSet.Refresh]),
@@ -807,11 +807,11 @@ test('wasm keep-unique merge binding preserves injected payload fields', async (
     },
   })
   // Empty candidates force placeholder rows through the wasm merge boundary.
-  const detection = computeKeepUniqueProtection({ candidates: [], rules: [keepRule], enabled: true })
-  const candidateKeepRules = buildKeepUniqueRules([keepRule], detection)
+  const detection = computeSafeguardProtection({ candidates: [], rules: [keepRule], enabled: true })
+  const candidateKeepRules = buildSafeguardRules([keepRule], detection)
   assert.strictEqual(candidateKeepRules.length, 1, 'expected one candidate keep row')
   // Call the wasm merge wrapper directly to guard the serialization boundary.
-  const merged = mergeKeepUniqueInjectedRulesWithLoadedWasm({
+  const merged = mergeSafeguardInjectedRulesWithLoadedWasm({
     baseRules: [],
     customRules: [],
     candidateKeepRules,
@@ -819,48 +819,48 @@ test('wasm keep-unique merge binding preserves injected payload fields', async (
   assert.strictEqual(merged.length, 1, 'expected one merged keep row')
   const injected = merged[0]!
   // Source tag must survive so downstream UI and filtering can classify rows.
-  assert.strictEqual(injected.__source, RULE_SOURCE_KEEP_UNIQUES)
+  assert.strictEqual(injected.__source, RULE_SOURCE_SAFEGUARDS)
   // Core keep semantics must survive wasm serialization intact.
   assert.strictEqual(injected.Keep, true)
   assert.strictEqual(injected.Use, true)
   // Placeholder metadata verifies non-core fields survive this boundary too.
-  assert.strictEqual(injected.__keepUniquePlaceholder, true)
+  assert.strictEqual(injected.__safeguardPlaceholder, true)
   assert.ok(Array.isArray(injected.Substats), 'merged keep row should include substats')
   // Guard against regressions where rows were deserialized as "{}".
   assert.ok(Object.keys(injected).length > 1, 'merged keep row should not be empty')
 })
 
-test('resolveKeepUniqueRuleLabel prefers trimmed rule names', () => {
+test('resolveSafeguardRuleLabel prefers trimmed rule names', () => {
   const rule = makeRule()
-  const label = resolveKeepUniqueRuleLabel({ ...rule, name: '  Demo Rule  ' })
+  const label = resolveSafeguardRuleLabel({ ...rule, name: '  Demo Rule  ' })
   assert.strictEqual(label, 'Demo Rule')
 })
 
-test('resolveKeepUniqueRuleLabel falls back to ordinal when metadata is present', () => {
+test('resolveSafeguardRuleLabel falls back to ordinal when metadata is present', () => {
   const keepRule = makeRule({ id: 'ku_demo' })
   const injectedRule: HsfRuleWithCfg = {
     Keep: true,
     Use: true,
     IsRuleTypeAND: false,
     Substats: [],
-    ConfigName: '   ',
-    __keepUniqueRuleId: keepRule.id,
-    __keepUniqueRuleOrdinal: 3,
+    RecipeName: '   ',
+    __safeguardRuleId: keepRule.id,
+    __safeguardRuleOrdinal: 3,
   }
-  const label = resolveKeepUniqueRuleLabel(injectedRule)
+  const label = resolveSafeguardRuleLabel(injectedRule)
   assert.strictEqual(label, '#3')
 })
 
-test('resolveKeepUniqueRuleLabel falls back to rule id when ordinal is missing', () => {
+test('resolveSafeguardRuleLabel falls back to rule id when ordinal is missing', () => {
   const keepRule = makeRule({ id: 'ku_demo' })
   const injectedRule: HsfRuleWithCfg = {
     Keep: true,
     Use: true,
     IsRuleTypeAND: false,
     Substats: [],
-    ConfigName: '   ',
-    __keepUniqueRuleId: keepRule.id,
+    RecipeName: '   ',
+    __safeguardRuleId: keepRule.id,
   }
-  const label = resolveKeepUniqueRuleLabel(injectedRule)
+  const label = resolveSafeguardRuleLabel(injectedRule)
   assert.strictEqual(label, `#${keepRule.id}`)
 })

@@ -103,7 +103,7 @@ test.describe('config rebuild performance', () => {
     // Close any note/restore dialogs that appear after import.
     await dismissBlockingDialogs(page)
     // Wait for the config chips to render.
-    await waitForConfigChips(page)
+    await waitForRecipeChips(page)
     // Sweep again in case the note dialog appears after chips render.
     await dismissBlockingDialogs(page)
 
@@ -204,9 +204,9 @@ async function loadHsfcFile(page: Page, filePath: string): Promise<void> {
   await input.setInputFiles(filePath)
 }
 
-async function waitForConfigChips(page: Page): Promise<void> {
+async function waitForRecipeChips(page: Page): Promise<void> {
   // Config chips confirm the HSFC import finished.
-  const chips = page.locator('[data-config-chip="true"]')
+  const chips = page.locator('[data-recipe-chip="true"]')
   // Wait for at least one chip to attach and become visible.
   await expect(chips.first()).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 }
@@ -256,7 +256,7 @@ function buildTimelineDeltas(entries: PerfTimelineEntry[]): string[] {
     delta('rule-cache', PERF_EVENTS.ruleCachePipelineStart, PERF_EVENTS.ruleCachePipelineDone),
     // Rule-cache phase: baseline pass.
     delta('baseline', PERF_EVENTS.ruleCacheBaselineStart, PERF_EVENTS.ruleCacheBaselineDone),
-    // Rule-cache phase: keep-unique detection snapshot.
+    // Rule-cache phase: safeguard detection snapshot.
     delta('detection', PERF_EVENTS.ruleCacheDetectionStart, PERF_EVENTS.ruleCacheDetectionDone),
     // Rule-cache phase: final match pass.
     delta('final', PERF_EVENTS.ruleCacheFinalMatchStart, PERF_EVENTS.ruleCacheFinalMatchDone),

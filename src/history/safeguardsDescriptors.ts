@@ -1,112 +1,112 @@
 /**
- * keepUniquesDescriptors
+ * safeguardsDescriptors
  *
- * History descriptor helpers for Keep Uniques so the timeline can display
+ * History descriptor helpers for Safeguards so the timeline can display
  * structured rule snapshots with the same visual language as builder diffs.
  */
-// keepUniquesDescriptors keeps keep-unique history data-only until render.
+// safeguardsDescriptors keeps safeguard history data-only until render.
 import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
-import type { KeepUniqueRule, KeepUniqueRuleActivation, KeepUniqueRuleCountMode } from '../lib/keepUniques'
-import { KeepUniqueSubstatMatch, normalizeKeepUniqueSubstatMatch } from '../lib/keepUniques'
+import type { SafeguardRule, SafeguardRuleActivation, SafeguardRuleCountMode } from '../lib/safeguards'
+import { SafeguardSubstatMatch, normalizeSafeguardSubstatMatch } from '../lib/safeguards'
 import type { Metaset } from '../lib/metasets'
 import { compareArtifactSets, compareArtifactTypes, compareVariants, factionI18nKey, statVariantI18nKey, StatVariant, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
 import { collectMetasetSnapshotEntries, normalizeNumberArray } from './historyDescriptorUtils'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
-import type { KeepUniquesRulesDescriptorMode } from './historyDescriptorTypes'
-import { snapshotKeepUniqueRules, snapshotMetasets } from './historySnapshotUtils'
+import type { SafeguardsRulesDescriptorMode } from './historyDescriptorTypes'
+import { snapshotSafeguardRules, snapshotMetasets } from './historySnapshotUtils'
 import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT } from '../lib/testerSort'
 
-export type { KeepUniquesRulesDescriptorMode }
+export type { SafeguardsRulesDescriptorMode }
 
 type RuleChangeSummary = {
-  added: KeepUniqueRule[]
-  removed: KeepUniqueRule[]
-  updated: Array<{ previous: KeepUniqueRule; next: KeepUniqueRule }>
+  added: SafeguardRule[]
+  removed: SafeguardRule[]
+  updated: Array<{ previous: SafeguardRule; next: SafeguardRule }>
 }
 
-// isKeepUniquesRuleOrderChanged flags pure reorders so history can record them.
-export const isKeepUniquesRuleOrderChanged = (previous: KeepUniqueRule[], next: KeepUniqueRule[]): boolean => {
+// isSafeguardRuleOrderChanged flags pure reorders so history can record them.
+export const isSafeguardRuleOrderChanged = (previous: SafeguardRule[], next: SafeguardRule[]): boolean => {
   // Reorders only matter when the list lengths match.
   if (previous.length !== next.length) return false
   // Any ID mismatch at the same index means the order changed.
   return previous.some((rule, index) => rule.id !== next[index]?.id)
 }
 
-// createKeepUniquesEnabledChangeDescriptor snapshots the toggle history entry.
-export const createKeepUniquesEnabledChangeDescriptor = (params: {
+// createSafeguardsEnabledChangeDescriptor snapshots the toggle history entry.
+export const createSafeguardsEnabledChangeDescriptor = (params: {
   previousEnabled: boolean
   nextEnabled: boolean
-  rules: KeepUniqueRule[]
+  rules: SafeguardRule[]
 }): HistoryEntryDescriptor | null => {
   const { previousEnabled, nextEnabled, rules } = params
   if (previousEnabled === nextEnabled) return null
   return {
-    kind: 'keepUniquesEnabledChange',
+    kind: 'safeguardsEnabledChange',
     previousEnabled,
     nextEnabled,
-    rules: snapshotKeepUniqueRules(rules),
+    rules: snapshotSafeguardRules(rules),
   }
 }
 
-// createKeepUniquesRulesChangeDescriptor snapshots keep-unique rule edits.
-export const createKeepUniquesRulesChangeDescriptor = (params: {
-  previous: KeepUniqueRule[]
-  next: KeepUniqueRule[]
+// createSafeguardsRulesChangeDescriptor snapshots safeguard rule edits.
+export const createSafeguardsRulesChangeDescriptor = (params: {
+  previous: SafeguardRule[]
+  next: SafeguardRule[]
   metasets: Metaset[]
-  mode?: KeepUniquesRulesDescriptorMode
+  mode?: SafeguardsRulesDescriptorMode
 }): HistoryEntryDescriptor | null => {
   const { previous, next, metasets, mode = 'edit' } = params
-  const summary = diffKeepUniqueRules(previous, next)
+  const summary = diffSafeguardRules(previous, next)
   const totalChanges = summary.added.length + summary.removed.length + summary.updated.length
   // Reorders should still be recorded even when the rules themselves are unchanged.
-  const orderChanged = isKeepUniquesRuleOrderChanged(previous, next)
+  const orderChanged = isSafeguardRuleOrderChanged(previous, next)
   if (totalChanges === 0 && !orderChanged) return null
   return {
-    kind: 'keepUniquesRulesChange',
-    previous: snapshotKeepUniqueRules(previous),
-    next: snapshotKeepUniqueRules(next),
+    kind: 'safeguardsRulesChange',
+    previous: snapshotSafeguardRules(previous),
+    next: snapshotSafeguardRules(next),
     metasets: snapshotMetasets(metasets),
     mode,
   }
 }
 
-// describeKeepUniquesEnabledChange localizes toggle history entries.
-export function describeKeepUniquesEnabledChange(params: {
+// describeSafeguardsEnabledChange localizes toggle history entries.
+export function describeSafeguardsEnabledChange(params: {
   previousEnabled: boolean
   nextEnabled: boolean
-  rules: KeepUniqueRule[]
+  rules: SafeguardRule[]
   t: TranslateFn
 }): ResolvedHistoryEntryDescriptor | null {
   const { previousEnabled, nextEnabled, rules, t } = params
   // Skip when the toggle is effectively unchanged.
   if (previousEnabled === nextEnabled) return null
   // Pick the title based on the new toggle state.
-  const titleKey = nextEnabled ? 'historyKeepUniquesEnabledTitle' : 'historyKeepUniquesDisabledTitle'
+  const titleKey = nextEnabled ? 'historySafeguardsEnabledTitle' : 'historySafeguardsDisabledTitle'
   // Always surface the number of rules so the toggle context is visible.
-  const detailLines = [t('historyKeepUniquesRulesCountLine', { count: rules.length })]
+  const detailLines = [t('historySafeguardsRulesCountLine', { count: rules.length })]
   // Emit a simple descriptor so history timelines stay succinct.
   return { title: t(titleKey), detailLines }
 }
 
-// describeKeepUniquesRulesChange localizes keep-unique rule changes.
-export function describeKeepUniquesRulesChange(params: {
-  previous: KeepUniqueRule[]
-  next: KeepUniqueRule[]
+// describeSafeguardsRulesChange localizes safeguard rule changes.
+export function describeSafeguardsRulesChange(params: {
+  previous: SafeguardRule[]
+  next: SafeguardRule[]
   metasets: Metaset[]
   t: TranslateFn
-  mode?: KeepUniquesRulesDescriptorMode
+  mode?: SafeguardsRulesDescriptorMode
 }): ResolvedHistoryEntryDescriptor | null {
   const { previous, next, metasets, t, mode = 'edit' } = params
   // Treat identical rule lists as no-op so we do not enqueue empty history.
-  const summary = diffKeepUniqueRules(previous, next)
+  const summary = diffSafeguardRules(previous, next)
   // Count the total change footprint to steer the descriptor shape.
   const totalChanges = summary.added.length + summary.removed.length + summary.updated.length
   // Track reorders separately so move actions get their own history entries.
-  const orderChanged = isKeepUniquesRuleOrderChanged(previous, next)
+  const orderChanged = isSafeguardRuleOrderChanged(previous, next)
   if (totalChanges === 0) {
     if (!orderChanged) return null
-    const title = t('historyKeepUniquesRulesReorderedTitle')
+    const title = t('historySafeguardsRulesReorderedTitle')
     const detailLines = summarizeRuleOrder(next, t)
     return detailLines.length > 0 ? { title, detailLines } : { title }
   }
@@ -114,24 +114,24 @@ export function describeKeepUniquesRulesChange(params: {
   if (mode === 'reset') {
     // Reset has a dedicated title so history stays explicit.
     return {
-      title: t('historyKeepUniquesResetTitle'),
-      detailLines: [t('historyKeepUniquesRulesCountLine', { count: next.length })],
+      title: t('historySafeguardsResetTitle'),
+      detailLines: [t('historySafeguardsRulesCountLine', { count: next.length })],
     }
   }
 
   if (summary.added.length === 1 && summary.removed.length === 0 && summary.updated.length === 0) {
     // Use the added rule snapshot when only one rule is introduced.
     const rule = summary.added[0]!
-    const title = t('historyKeepUniquesRuleAddedTitle', { name: formatRuleName(rule, t) })
-    const detailLines = buildKeepUniqueRuleSnapshotLines(rule, metasets, t)
+    const title = t('historySafeguardsRuleAddedTitle', { name: formatRuleName(rule, t) })
+    const detailLines = buildSafeguardRuleSnapshotLines(rule, metasets, t)
     return detailLines.length > 0 ? { title, detailLines } : { title }
   }
 
   if (summary.removed.length === 1 && summary.added.length === 0 && summary.updated.length === 0) {
     // Use the removed rule snapshot when only one rule is deleted.
     const rule = summary.removed[0]!
-    const title = t('historyKeepUniquesRuleDeletedTitle', { name: formatRuleName(rule, t) })
-    const detailLines = buildKeepUniqueRuleSnapshotLines(rule, metasets, t)
+    const title = t('historySafeguardsRuleDeletedTitle', { name: formatRuleName(rule, t) })
+    const detailLines = buildSafeguardRuleSnapshotLines(rule, metasets, t)
     return detailLines.length > 0 ? { title, detailLines } : { title }
   }
 
@@ -139,26 +139,26 @@ export function describeKeepUniquesRulesChange(params: {
     // Use the updated rule snapshot when only one rule changes.
     const update = summary.updated[0]!
     // Reuse the new rule name in the title so it mirrors the rule card.
-    const title = t('historyKeepUniquesRuleUpdatedTitle', { name: formatRuleName(update.next, t) })
+    const title = t('historySafeguardsRuleUpdatedTitle', { name: formatRuleName(update.next, t) })
     // Emit before/after lines for only the fields that actually changed.
-    const detailLines = buildKeepUniqueRuleDiffLines(update.previous, update.next, metasets, t)
+    const detailLines = buildSafeguardRuleDiffLines(update.previous, update.next, metasets, t)
     return detailLines.length > 0 ? { title, detailLines } : { title }
   }
 
   // Fall back to a summary when multiple rules are affected at once.
-  const title = t('historyKeepUniquesRulesUpdatedTitle', { count: totalChanges })
+  const title = t('historySafeguardsRulesUpdatedTitle', { count: totalChanges })
   const detailLines = summarizeRuleNames(summary, t)
   return detailLines.length > 0 ? { title, detailLines } : { title }
 }
 
-function diffKeepUniqueRules(previous: KeepUniqueRule[], next: KeepUniqueRule[]): RuleChangeSummary {
+function diffSafeguardRules(previous: SafeguardRule[], next: SafeguardRule[]): RuleChangeSummary {
   // Index both lists by rule ID so additions/removals are easy to spot.
   const previousById = new Map(previous.map((rule) => [rule.id, rule]))
   const nextById = new Map(next.map((rule) => [rule.id, rule]))
   // Track rule-level changes by comparing stable signatures.
-  const added: KeepUniqueRule[] = []
-  const removed: KeepUniqueRule[] = []
-  const updated: Array<{ previous: KeepUniqueRule; next: KeepUniqueRule }> = []
+  const added: SafeguardRule[] = []
+  const removed: SafeguardRule[] = []
+  const updated: Array<{ previous: SafeguardRule; next: SafeguardRule }> = []
   for (const [id, rule] of nextById) {
     // Lookup the previous rule to detect add vs update.
     const prevRule = previousById.get(id)
@@ -168,7 +168,7 @@ function diffKeepUniqueRules(previous: KeepUniqueRule[], next: KeepUniqueRule[])
       continue
     }
     // Compare normalized signatures so ordering noise does not trigger updates.
-    if (buildKeepUniqueRuleSignature(prevRule) !== buildKeepUniqueRuleSignature(rule)) {
+    if (buildSafeguardRuleSignature(prevRule) !== buildSafeguardRuleSignature(rule)) {
       updated.push({ previous: prevRule, next: rule })
     }
   }
@@ -179,7 +179,7 @@ function diffKeepUniqueRules(previous: KeepUniqueRule[], next: KeepUniqueRule[])
   return { added, removed, updated }
 }
 
-function buildKeepUniqueRuleSignature(rule: KeepUniqueRule): string {
+function buildSafeguardRuleSignature(rule: SafeguardRule): string {
   // Normalize array order so signatures ignore ordering noise.
   const combo = rule.combination
   // Normalize slots so set ordering differences do not count as edits.
@@ -199,10 +199,10 @@ function buildKeepUniqueRuleSignature(rule: KeepUniqueRule): string {
   const factions = normalizeNumberArray(combo.factions).slice().sort((a, b) => a - b)
   // Normalize substats so matching changes are tracked consistently.
   const substats = sortSubstatsForHistory(rule.substats ?? [])
-  const normalizedSubstatMatch = normalizeKeepUniqueSubstatMatch(rule.substatMatch)
+  const normalizedSubstatMatch = normalizeSafeguardSubstatMatch(rule.substatMatch)
   // Normalize weights so edits show up even if arrays re-order.
   // Weights only affect the rule when Per Substat is not active.
-  const weightEntries = normalizedSubstatMatch !== KeepUniqueSubstatMatch.PerSubstat && substats.length > 0
+  const weightEntries = normalizedSubstatMatch !== SafeguardSubstatMatch.PerSubstat && substats.length > 0
     ? Object.entries(rule.substatWeights ?? {})
       .map(([key, raw]) => {
         const variant = Number(key)
@@ -236,7 +236,7 @@ function buildKeepUniqueRuleSignature(rule: KeepUniqueRule): string {
   })
 }
 
-function normalizeCountMode(mode: KeepUniqueRuleCountMode): KeepUniqueRuleCountMode {
+function normalizeCountMode(mode: SafeguardRuleCountMode): SafeguardRuleCountMode {
   // Default empty scopes to per-rule so signature comparisons stay stable.
   const perRule = mode.perRule
   const perSet = mode.perSet
@@ -263,10 +263,10 @@ function summarizeRuleNames(summary: RuleChangeSummary, t: TranslateFn): string[
   const MAX_LINES = 4
   if (names.length <= MAX_LINES) return names
   // Add a trailing "+N more" line when truncating.
-  return [...names.slice(0, MAX_LINES), t('historyConfigsMoreLine', { count: names.length - MAX_LINES })]
+  return [...names.slice(0, MAX_LINES), t('historyRecipesMoreLine', { count: names.length - MAX_LINES })]
 }
 
-function summarizeRuleOrder(next: KeepUniqueRule[], t: TranslateFn): string[] {
+function summarizeRuleOrder(next: SafeguardRule[], t: TranslateFn): string[] {
   // Use the new order so the history tooltip communicates the latest ordering.
   const names = next.map((rule) => formatRuleName(rule, t)).filter((name) => name.length > 0)
   if (names.length === 0) return []
@@ -274,10 +274,10 @@ function summarizeRuleOrder(next: KeepUniqueRule[], t: TranslateFn): string[] {
   const MAX_LINES = 4
   if (names.length <= MAX_LINES) return names
   // Append a "+N more" indicator when the list is long.
-  return [...names.slice(0, MAX_LINES), t('historyConfigsMoreLine', { count: names.length - MAX_LINES })]
+  return [...names.slice(0, MAX_LINES), t('historyRecipesMoreLine', { count: names.length - MAX_LINES })]
 }
 
-function formatRuleName(rule: KeepUniqueRule, t: TranslateFn): string {
+function formatRuleName(rule: SafeguardRule, t: TranslateFn): string {
   // Keep rule names stable; fall back to the empty marker when unnamed.
   const raw = (rule.name ?? '').trim()
   return raw.length > 0 ? raw : t('historyValueEmpty')
@@ -309,25 +309,25 @@ const sortSubstatsForHistory = (values: readonly number[] | null | undefined): S
 }
 
 const formatSubstatMatch = (
-  match: KeepUniqueSubstatMatch | null | undefined,
+  match: SafeguardSubstatMatch | null | undefined,
   t: TranslateFn,
 ): string => {
-  const normalized = normalizeKeepUniqueSubstatMatch(match)
-  if (normalized === 'all') return t('keepUniquesSubstatRequirementAll')
-  if (normalized === 'perSubstat') return t('keepUniquesSubstatRequirementPer')
-  return t('keepUniquesSubstatRequirementAny')
+  const normalized = normalizeSafeguardSubstatMatch(match)
+  if (normalized === 'all') return t('safeguardsSubstatRequirementAll')
+  if (normalized === 'perSubstat') return t('safeguardsSubstatRequirementPer')
+  return t('safeguardsSubstatRequirementAny')
 }
 
-const formatSubstatList = (rule: KeepUniqueRule, t: TranslateFn): string => {
+const formatSubstatList = (rule: SafeguardRule, t: TranslateFn): string => {
   const variants = sortSubstatsForHistory(rule.substats ?? [])
   if (variants.length === 0) return t('any')
   return variants.map((variant) => t(statVariantI18nKey(variant))).join(', ')
 }
 
-const formatSubstatWeights = (rule: KeepUniqueRule, t: TranslateFn): string => {
-  const normalizedMatch = normalizeKeepUniqueSubstatMatch(rule.substatMatch)
+const formatSubstatWeights = (rule: SafeguardRule, t: TranslateFn): string => {
+  const normalizedMatch = normalizeSafeguardSubstatMatch(rule.substatMatch)
   // Weights only surface when the match is not Per Substat.
-  if (normalizedMatch === KeepUniqueSubstatMatch.PerSubstat) return ''
+  if (normalizedMatch === SafeguardSubstatMatch.PerSubstat) return ''
   const weights = rule.substatWeights ?? {}
   const entries: Array<{ variant: StatVariant; weight: number }> = []
   for (const [key, raw] of Object.entries(weights)) {
@@ -350,15 +350,15 @@ const formatSubstatWeights = (rule: KeepUniqueRule, t: TranslateFn): string => {
     .join(', ')
 }
 
-function buildKeepUniqueRuleSnapshotLines(rule: KeepUniqueRule, metasets: Metaset[], t: TranslateFn): string[] {
+function buildSafeguardRuleSnapshotLines(rule: SafeguardRule, metasets: Metaset[], t: TranslateFn): string[] {
   // Provide a short, ordered summary so tooltips stay predictable.
   const detailLines: string[] = []
   // Render the rule activation mode as the first line.
   const modeLabel = formatRuleMode(rule.activation, t)
-  detailLines.push(`${t('keepUniquesRuleModeLabel')}: ${modeLabel}`)
+  detailLines.push(`${t('safeguardsRuleModeLabel')}: ${modeLabel}`)
   // Render the required count and scope combination.
   const scopeLabel = formatCountModeLabel(rule.countMode, t)
-  detailLines.push(`${t('keepUniquesRequiredCount')}: ${rule.requiredCount} (${scopeLabel})`)
+  detailLines.push(`${t('safeguardsRequiredCount')}: ${rule.requiredCount} (${scopeLabel})`)
   // Render rank/rarity/faction filters as text for quick scanning.
   detailLines.push(`${t('builderRank')}: ${formatRankList(rule.combination.ranks, t)}`)
   detailLines.push(`${t('filterRarity')}: ${formatRarityList(rule.combination.rarities, t)}`)
@@ -369,31 +369,31 @@ function buildKeepUniqueRuleSnapshotLines(rule: KeepUniqueRule, metasets: Metase
   detailLines.push(makeMetasetSnapshotLine(rule, metasets, t))
   detailLines.push(makeMainStatsSnapshotLine(rule, t))
   // Substat filters behave like optional scope rules; keep the summary explicit.
-  detailLines.push(`${t('keepUniquesSubstatLabel')}: ${formatSubstatList(rule, t)}`)
+  detailLines.push(`${t('safeguardsSubstatLabel')}: ${formatSubstatList(rule, t)}`)
   if ((rule.substats ?? []).length > 0) {
-    detailLines.push(`${t('keepUniquesSubstatRequirementLabel')}: ${formatSubstatMatch(rule.substatMatch, t)}`)
+    detailLines.push(`${t('safeguardsSubstatRequirementLabel')}: ${formatSubstatMatch(rule.substatMatch, t)}`)
     const weightSummary = formatSubstatWeights(rule, t)
     if (weightSummary) {
-      detailLines.push(`${t('keepUniquesSubstatWeightsLabel')}: ${weightSummary}`)
+      detailLines.push(`${t('safeguardsSubstatWeightsLabel')}: ${weightSummary}`)
     }
   }
   return detailLines
 }
 
-function buildKeepUniqueRuleDiffLines(
-  previous: KeepUniqueRule,
-  next: KeepUniqueRule,
+function buildSafeguardRuleDiffLines(
+  previous: SafeguardRule,
+  next: SafeguardRule,
   metasets: Metaset[],
   t: TranslateFn,
 ): string[] {
-  // Only include fields that changed so updated rule history matches config diffs.
+  // Only include fields that changed so updated rule history matches recipe diffs.
   const detailLines: string[] = []
   // Compare rule names so renames are surfaced alongside other edits.
-  pushDiffLine(detailLines, t, t('keepUniquesRuleNameLabel'), formatRuleName(previous, t), formatRuleName(next, t))
+  pushDiffLine(detailLines, t, t('safeguardsRuleNameLabel'), formatRuleName(previous, t), formatRuleName(next, t))
   // Compare activation modes so enable/anticipate changes are visible.
-  pushDiffLine(detailLines, t, t('keepUniquesRuleModeLabel'), formatRuleMode(previous.activation, t), formatRuleMode(next.activation, t))
+  pushDiffLine(detailLines, t, t('safeguardsRuleModeLabel'), formatRuleMode(previous.activation, t), formatRuleMode(next.activation, t))
   // Compare required counts + scopes as a single summary line.
-  pushDiffLine(detailLines, t, t('keepUniquesRequiredCount'), formatRequiredCountSummary(previous, t), formatRequiredCountSummary(next, t))
+  pushDiffLine(detailLines, t, t('safeguardsRequiredCount'), formatRequiredCountSummary(previous, t), formatRequiredCountSummary(next, t))
   // Compare rank filters using the same labels as the rule card.
   pushDiffLine(detailLines, t, t('builderRank'), formatRankList(previous.combination.ranks, t), formatRankList(next.combination.ranks, t))
   // Compare rarity filters using the same labels as the rule card.
@@ -428,19 +428,19 @@ function buildKeepUniqueRuleDiffLines(
     detailLines.push(makeMainStatsDiffLine(prevMains, nextMains, t))
   }
   // Compare substat selection so ranked/unranked edits are visible.
-  pushDiffLine(detailLines, t, t('keepUniquesSubstatLabel'), formatSubstatList(previous, t), formatSubstatList(next, t))
+  pushDiffLine(detailLines, t, t('safeguardsSubstatLabel'), formatSubstatList(previous, t), formatSubstatList(next, t))
   if ((previous.substats ?? []).length > 0 || (next.substats ?? []).length > 0) {
     pushDiffLine(
       detailLines,
       t,
-      t('keepUniquesSubstatRequirementLabel'),
+      t('safeguardsSubstatRequirementLabel'),
       formatSubstatMatch(previous.substatMatch, t),
       formatSubstatMatch(next.substatMatch, t),
     )
     const prevWeights = formatSubstatWeights(previous, t)
     const nextWeights = formatSubstatWeights(next, t)
     if (prevWeights || nextWeights) {
-      pushDiffLine(detailLines, t, t('keepUniquesSubstatWeightsLabel'), prevWeights || t('historyValueEmpty'), nextWeights || t('historyValueEmpty'))
+      pushDiffLine(detailLines, t, t('safeguardsSubstatWeightsLabel'), prevWeights || t('historyValueEmpty'), nextWeights || t('historyValueEmpty'))
     }
   }
   return detailLines
@@ -453,7 +453,7 @@ function pushDiffLine(target: string[], t: TranslateFn, label: string, previous:
   target.push(t('historyDiffLine', { label, previous, next }))
 }
 
-function formatRequiredCountSummary(rule: KeepUniqueRule, t: TranslateFn): string {
+function formatRequiredCountSummary(rule: SafeguardRule, t: TranslateFn): string {
   // Pair the required count with the active scope labels for quick scanning.
   const scopeLabel = formatCountModeLabel(rule.countMode, t)
   // Keep the format consistent with the snapshot line.
@@ -523,7 +523,7 @@ function makeSlotsDiffLine(previous: number[], next: number[], t: TranslateFn): 
 
 type NormalizedSetSelection = { included: number[]; excluded: number[] }
 
-function normalizeSetSelectionEntries(entries: KeepUniqueRule['combination']['sets'] | undefined): NormalizedSetSelection {
+function normalizeSetSelectionEntries(entries: SafeguardRule['combination']['sets'] | undefined): NormalizedSetSelection {
   const normalized = normalizeArtifactSetSelections(entries ?? [])
   const split = splitArtifactSetSelections(normalized)
   return {
@@ -568,25 +568,25 @@ function makeMainStatsDiffLine(previous: number[], next: number[], t: TranslateF
   })
 }
 
-function formatRuleMode(mode: KeepUniqueRuleActivation, t: TranslateFn): string {
-  // Reuse the Keep Uniques UI labels so history text stays familiar.
-  if (mode === 'off') return t('keepUniquesRuleModeOff')
-  if (mode === 'anticipateGaps') return t('keepUniquesRuleModeAnticipate')
-  return t('keepUniquesRuleModeProtect')
+function formatRuleMode(mode: SafeguardRuleActivation, t: TranslateFn): string {
+  // Reuse the Safeguards UI labels so history text stays familiar.
+  if (mode === 'off') return t('safeguardsRuleModeOff')
+  if (mode === 'anticipateGaps') return t('safeguardsRuleModeAnticipate')
+  return t('safeguardsRuleModeProtect')
 }
 
-function formatCountModeLabel(mode: KeepUniqueRuleCountMode, t: TranslateFn): string {
+function formatCountModeLabel(mode: SafeguardRuleCountMode, t: TranslateFn): string {
   // Normalize missing scopes to "Per rule" to match UI behavior.
   const normalized = normalizeCountMode(mode)
-  if (normalized.perRule) return t('keepUniquesCountModePerRule')
+  if (normalized.perRule) return t('safeguardsCountModePerRule')
   // Build the scoped label list in a predictable order.
   const parts: string[] = []
-  if (normalized.perSlot) parts.push(t('keepUniquesCountModePerSlot'))
-  if (normalized.perSet) parts.push(t('keepUniquesCountModePerSet'))
-  if (normalized.perFaction) parts.push(t('keepUniquesCountModePerFaction'))
-  if (normalized.perMainStat) parts.push(t('keepUniquesCountModePerMain'))
+  if (normalized.perSlot) parts.push(t('safeguardsCountModePerSlot'))
+  if (normalized.perSet) parts.push(t('safeguardsCountModePerSet'))
+  if (normalized.perFaction) parts.push(t('safeguardsCountModePerFaction'))
+  if (normalized.perMainStat) parts.push(t('safeguardsCountModePerMain'))
   // Join the scope labels so the UI shows the active grouping set.
-  return parts.length > 0 ? parts.join(', ') : t('keepUniquesCountModePerRule')
+  return parts.length > 0 ? parts.join(', ') : t('safeguardsCountModePerRule')
 }
 
 function formatRankList(values: number[] | undefined, t: TranslateFn): string {
@@ -633,7 +633,7 @@ function formatFactionList(values: number[] | undefined, t: TranslateFn): string
   return normalized.map((faction) => t(factionI18nKey(faction))).join(', ')
 }
 
-function makeSlotsSnapshotLine(rule: KeepUniqueRule, t: TranslateFn): string {
+function makeSlotsSnapshotLine(rule: SafeguardRule, t: TranslateFn): string {
   // Use the slots snapshot schema so BuilderTooltipContent can show icons.
   const slots = normalizeNumberArray(rule.combination.slots).slice().sort(compareArtifactTypes)
   // Emit the structured payload as JSON so the tooltip renderer can parse it.
@@ -645,7 +645,7 @@ function makeSlotsSnapshotLine(rule: KeepUniqueRule, t: TranslateFn): string {
   })
 }
 
-function makeSetListSnapshotLine(rule: KeepUniqueRule, t: TranslateFn): string {
+function makeSetListSnapshotLine(rule: SafeguardRule, t: TranslateFn): string {
   // Serialize the set list so tooltip icons match the preview table.
   const selection = normalizeSetSelectionEntries(rule.combination.sets)
   // Emit the structured payload as JSON so the tooltip renderer can parse it.
@@ -658,7 +658,7 @@ function makeSetListSnapshotLine(rule: KeepUniqueRule, t: TranslateFn): string {
   })
 }
 
-function makeMetasetSnapshotLine(rule: KeepUniqueRule, metasets: Metaset[], t: TranslateFn): string {
+function makeMetasetSnapshotLine(rule: SafeguardRule, metasets: Metaset[], t: TranslateFn): string {
   // Resolve metaset IDs into names/icons for structured tooltip output.
   const entries = collectMetasetSnapshotEntries(rule.combination.metaSetIds ?? [], metasets)
   // Emit the structured payload as JSON so the tooltip renderer can parse it.
@@ -670,7 +670,7 @@ function makeMetasetSnapshotLine(rule: KeepUniqueRule, metasets: Metaset[], t: T
   })
 }
 
-function makeMainStatsSnapshotLine(rule: KeepUniqueRule, t: TranslateFn): string {
+function makeMainStatsSnapshotLine(rule: SafeguardRule, t: TranslateFn): string {
   // Render the main stat list using the shared snapshot layout.
   const stats = normalizeNumberArray(rule.combination.mainStats).slice().sort(compareVariants)
   // Emit the structured payload as JSON so the tooltip renderer can parse it.

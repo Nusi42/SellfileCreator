@@ -8,7 +8,7 @@ import type { SubstatRollTargetEntry } from '../../lib/hsfBuilder'
 import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
 import { normalizeArtifactSetSelections } from '../../lib/gearSets/selection'
 
-// Multi-edit tri-state helpers keep toggles deterministic when several configs
+// Multi-edit tri-state helpers keep toggles deterministic when several recipes
 // are patched at once; the UI needs a canonical "all/mixed/none" baseline.
 export type TriStateBase = 'all' | 'mixed' | 'none'
 
@@ -297,7 +297,7 @@ export const mergeTargetPatchForVariant = (
 }
 
 // Preview builders let the UI render the "effective" selection while the user
-// hovers a menu without committing the patch to BuilderConfig yet.
+// hovers a menu without committing the patch to BuilderRecipe yet.
 export const applyNumberPatchPreview = (
   source: readonly number[],
   patch: MultiEditArrayPatch<number> | null | undefined,

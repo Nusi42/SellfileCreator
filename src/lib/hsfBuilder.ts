@@ -1,20 +1,20 @@
 /**
  * hsfBuilder.ts
  *
- * Core builder that turns a BuilderConfig and SubstatTargetTable into concrete HSF
+ * Core builder that turns a BuilderRecipe and SubstatTargetTable into concrete HSF
  * rules. Handles mainstat unrolling, substat combinations, roll-baseline math,
  * rarity schedules, substatTargets application, and per-substat roll bounds.
  */
 import type { HsfRule } from './hsfTypes'
 import type {
-  BuilderConfig,
+  BuilderRecipe,
   LegacyVisibilityFields,
   SellfileExportMode,
   Star,
   SubstatTargetTable,
 } from './hsfBuilder/types'
 export type {
-  BuilderConfig,
+  BuilderRecipe,
   LegacyVisibilityFields,
   SellfileExportMode,
   SellfileMode,
@@ -43,14 +43,14 @@ import {
 } from './generated/domainConstants'
 import { resolveAllowedSubstatsForSlotsAndMains } from './statCompatibility'
 import { splitArtifactSetSelections } from './gearSets/selection'
-import { canEnableSubstatFlex, deriveRollBaselineMode, isLockedAggregateScopeActive, isMilestoneThresholdsActive } from './configNormalization'
+import { canEnableSubstatFlex, deriveRollBaselineMode, isLockedAggregateScopeActive, isMilestoneThresholdsActive } from './recipeNormalization'
 import { variantToMain } from './hsfTypes'
 import {
   buildHsfRulesRuntimeWithLoadedWasm,
   getAutoRarityAdditionLevelsForCodeWithLoadedWasm,
   getAutoRarityIncludesMythicalForCodeWithLoadedWasm,
   getAutoRarityRollLevelsForCodeWithLoadedWasm,
-  prepareHsfBuilderConfigWithLoadedWasm,
+  prepareHsfBuilderRecipeWithLoadedWasm,
   resolveAutoRarityCodeForBuilderWithLoadedWasm,
 } from './wasm/wasmRuleEngine'
 
@@ -58,7 +58,7 @@ export function coerceSellfileExportModeToken(value: unknown): SellfileExportMod
   if (typeof value === 'string') {
     const lower = value.trim().toLowerCase()
     if (lower.length === 0) return null
-    // Accept a friendly set of english toggles so legacy configs continue to load.
+    // Accept a friendly set of english toggles so legacy recipes continue to load.
     if (lower === 'active' || lower === 'enabled' || lower.startsWith('enable') || lower.startsWith('visible')) return 'active'
     if (lower === 'disabled' || lower === 'hidden' || lower.startsWith('disab') || lower.startsWith('hide') || lower.startsWith('mute')) return 'disabled'
     if (
@@ -106,8 +106,8 @@ export function normalizeExportModeFields<T extends Record<string, unknown>>(sou
 export type BuildHsfRulesOptions = {
   /** Maximum number of rules to emit before aborting generation. */
   limit?: number
-  /** Optional 1-based builder config reference for downstream HSF consumers. */
-  configId?: number
+  /** Optional 1-based builder recipe reference for downstream HSF consumers. */
+  recipeId?: number
 }
 
 export class RuleLimitReachedError extends Error {
@@ -167,7 +167,7 @@ function clampRollRequirement(value: unknown): number {
 }
 
 type AggregateMinContext = {
-  cfg: BuilderConfig
+  cfg: BuilderRecipe
   selectedPoolV: readonly number[]
   requiredV: readonly number[]
   minTargetCount: number
@@ -175,7 +175,7 @@ type AggregateMinContext = {
 }
 
 type LockedMinContext = {
-  cfg: BuilderConfig
+  cfg: BuilderRecipe
   lockedCount: number
 }
 
@@ -215,11 +215,11 @@ export function rarityIncludesMythical(rarityCode: RarityCode): boolean {
 }
 
 /**
- * Resolve Auto rarity selection to a concrete HSF rarity code for a given config.
+ * Resolve Auto rarity selection to a concrete HSF rarity code for a given recipe.
  * Mirrors the internal logic used by the builder before rule generation so UI
  * summaries can display the exact rarity the preview table will show.
  */
-export function resolveAutoRarityCode(cfg: BuilderConfig): RarityCode {
+export function resolveAutoRarityCode(cfg: BuilderRecipe): RarityCode {
   // Apply slot/main constraints before Auto rarity so impossible substats don't tighten rarity.
   const allowedSubstats = resolveAllowedSubstatsForSlotsAndMains({
     slots: cfg.artifactTypes ?? [],
@@ -249,7 +249,7 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): RarityCode {
   return resolved as RarityCode
 }
 
-// Public API: build rules according to config with substat permutations and level chain
+// Public API: build rules according to recipe with substat permutations and level chain
 // Base substatTargets per star and stat (IDs per types.ts). Units use integers (percent as points).
 // Factory-default minima: these encode the lowest roll each substat can spawn with
 // in-game. Collapse guards rely on these staying in sync with RSL Helper samples.
@@ -385,9 +385,9 @@ export function starForRankCode(rankCode: number, anyFallback: Star): Star {
   return anyFallback
 }
 
-/** Build HSF rules for a single config against the provided Substat Target table. */
+/** Build HSF rules for a single recipe against the provided Substat Target table. */
 /**
- * Build HSF rules from a single BuilderConfig and substatTargets table.
+ * Build HSF rules from a single BuilderRecipe and substatTargets table.
  * Steps:
  * - Expand main stat selections into separate rule branches (or Any if empty)
  * - Generate substat combinations honoring fixed substats and minCount
@@ -395,7 +395,7 @@ export function starForRankCode(rankCode: number, anyFallback: Star): Star {
  * - Apply per-substat roll bounds (min/max/any) and filter invalid rows
  */
 export function buildHsfRules(
-  cfg: BuilderConfig,
+  cfg: BuilderRecipe,
   substatTargets: SubstatTargetTable = defaultSubstatTargets(),
   options?: BuildHsfRulesOptions,
 ): HsfRule[] {
@@ -406,9 +406,9 @@ export function buildHsfRules(
   const emissionLimit = (options?.limit != null && Number.isFinite(options.limit) && options.limit > 0)
     ? Math.max(1, Math.floor(options.limit))
     : null
-  // Propagate config metadata so exported HSF rows retain their builder lineage.
-  const configId = (options && typeof options.configId === 'number' && Number.isFinite(options.configId) && options.configId > 0)
-    ? Math.floor(options.configId)
+  // Propagate recipe metadata so exported HSF rows retain their builder lineage.
+  const recipeId = (options && typeof options.recipeId === 'number' && Number.isFinite(options.recipeId) && options.recipeId > 0)
+    ? Math.floor(options.recipeId)
     : null
 
   // Apply slot/main constraints before preparing substat permutations in wasm.
@@ -431,7 +431,7 @@ export function buildHsfRules(
   const factoryBaseByVariantForStar = FACTORY_MINIMA_BY_STAR[star] ?? {}
   const flexEligible = canEnableSubstatFlex(cfg)
   // Delegate selected/fixed pool normalization + base/target map prep to wasm.
-  const prep = prepareHsfBuilderConfigWithLoadedWasm({
+  const prep = prepareHsfBuilderRecipeWithLoadedWasm({
     minCount: cfg.minCount,
     autoSubstatFlex: cfg.autoSubstatFlex === true,
     flexEligible,
@@ -453,7 +453,7 @@ export function buildHsfRules(
   const lockedCount = requiredV.length
   const minTargetCount = prep.minTargetCount
   const maxTargetCount = prep.maxTargetCount
-  // Flex mode only activates when both the config allows it and the toggle is on.
+  // Flex mode only activates when both the recipe allows it and the toggle is on.
   const flexActive = cfg.autoSubstatFlex === true && flexEligible
   // Track whether any selected substat explicitly demands rolls.
   const hasPerStatMin = prep.hasPerStatMin
@@ -515,7 +515,7 @@ export function buildHsfRules(
     .map((main) => ({ id: main.id, f: main.f ?? 1 }))
   // One wasm call now handles preflight, branch planning, and row emission.
   const builderRuntime = buildHsfRulesRuntimeWithLoadedWasm({
-    ...(configId !== null ? { configId } : {}),
+    ...(recipeId !== null ? { recipeId } : {}),
     ...(cfg.keep !== undefined ? { keep: cfg.keep } : {}),
     useFlag,
     artifactSetIds: resolvedSets.included,

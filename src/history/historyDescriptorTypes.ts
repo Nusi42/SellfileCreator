@@ -3,13 +3,13 @@
  *
  * Data-only descriptor shapes for history entries.
  */
-import type { BuilderConfig } from '../lib/hsfBuilder'
+import type { BuilderRecipe } from '../lib/hsfBuilder'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
-import type { KeepUniqueRule } from '../lib/keepUniques'
+import type { SafeguardRule } from '../lib/safeguards'
 import type { Metaset } from '../lib/metasets'
 import type { SubstatTargetTable } from '../lib/hsfBuilder'
 import type { BuilderFieldKey } from '../lib/multiEditDraft'
-import type { ConfigInsertionLocation, ConfigLabelSnapshot } from './historyLabelUtils'
+import type { RecipeInsertionLocation, RecipeLabelSnapshot } from './historyLabelUtils'
 
 // Descriptor modes mirror the old localized helper inputs.
 export type NoteDescriptorMode = 'edit' | 'clear' | 'import' | 'restore'
@@ -18,7 +18,7 @@ export type FinalSellDescriptorMode = 'edit' | 'quickToggle' | 'reset' | 'import
 // Substat target modes control reset/import labeling.
 export type SubstatTargetsDescriptorMode = 'edit' | 'reset' | 'import'
 // Keep-uniques modes differentiate edit vs reset flows.
-export type KeepUniquesRulesDescriptorMode = 'edit' | 'reset'
+export type SafeguardsRulesDescriptorMode = 'edit' | 'reset'
 
 // Resolved history descriptor with localized strings.
 export type ResolvedHistoryEntryDescriptor = {
@@ -34,75 +34,75 @@ export type HistoryEntryDescriptor =
       base: HistoryEntryDescriptor
       extra: HistoryEntryDescriptor
     }
-  // builderConfigUpdate captures before/after configs plus metaset context.
+  // builderRecipeUpdate captures before/after recipes plus metaset context.
   | {
-      kind: 'builderConfigUpdate'
-      previous: BuilderConfig
-      next: BuilderConfig
+      kind: 'builderRecipeUpdate'
+      previous: BuilderRecipe
+      next: BuilderRecipe
       index: number
       metasets: Metaset[]
     }
-  // configAdded records a newly inserted config and its location.
+  // recipeAdded records a newly inserted recipe and its location.
   | {
-      kind: 'configAdded'
+      kind: 'recipeAdded'
       index: number
-      cfg: BuilderConfig
-      location: ConfigInsertionLocation | null
+      cfg: BuilderRecipe
+      location: RecipeInsertionLocation | null
       metasets: Metaset[]
     }
-  // configsDuplicated records duplicated config labels.
+  // recipesDuplicated records duplicated recipe labels.
   | {
-      kind: 'configsDuplicated'
-      labels: ConfigLabelSnapshot[]
-      location: ConfigInsertionLocation | null
+      kind: 'recipesDuplicated'
+      labels: RecipeLabelSnapshot[]
+      location: RecipeInsertionLocation | null
     }
-  // configsMoved records a move direction plus affected labels.
+  // recipesMoved records a move direction plus affected labels.
   | {
-      kind: 'configsMoved'
+      kind: 'recipesMoved'
       direction: 'up' | 'down' | 'top' | 'bottom'
-      labels: ConfigLabelSnapshot[]
+      labels: RecipeLabelSnapshot[]
     }
-  // configsDeleted stores deleted configs and their snapshots.
+  // recipesDeleted stores deleted recipes and their snapshots.
   | {
-      kind: 'configsDeleted'
+      kind: 'recipesDeleted'
       removed: Array<{
         index: number
-        cfg: BuilderConfig
-        label: ConfigLabelSnapshot
+        cfg: BuilderRecipe
+        label: RecipeLabelSnapshot
       }>
       metasets: Metaset[]
     }
-  // configsCleared stores the previous count for clear-all operations.
+  // recipesCleared stores the previous count for clear-all operations.
   | {
-      kind: 'configsCleared'
+      kind: 'recipesCleared'
       previousCount: number
     }
-  // configsInserted records paste/import labels and location.
+  // recipesInserted records paste/import labels and location.
   | {
-      kind: 'configsInserted'
+      kind: 'recipesInserted'
       mode: 'paste' | 'import'
-      labels: ConfigLabelSnapshot[]
-      location: ConfigInsertionLocation | null
+      labels: RecipeLabelSnapshot[]
+      location: RecipeInsertionLocation | null
     }
-  // configOptionsApplied records enable/disable toggles for config options.
+  // recipeOverridesApplied records enable/disable toggles for recipe overrides.
   | {
-      kind: 'configOptionsApplied'
-      labels: ConfigLabelSnapshot[]
+      kind: 'recipeOverridesApplied'
+      labels: RecipeLabelSnapshot[]
       enableCount: number
       disableCount: number
     }
   // multiEditApplied records a multi-edit apply event and changed fields.
   | {
       kind: 'multiEditApplied'
-      labels: ConfigLabelSnapshot[]
+      labels: RecipeLabelSnapshot[]
       fieldKeys: BuilderFieldKey[]
     }
   // builderDraft records draft previews for builder edits.
   | {
       kind: 'builderDraft'
-      mode: 'multi' | 'config' | 'builder'
-      labels?: ConfigLabelSnapshot[]
-      label?: ConfigLabelSnapshot
+      mode: 'multi' | 'recipe' | 'builder'
+      labels?: RecipeLabelSnapshot[]
+      label?: RecipeLabelSnapshot
     }
   // metasetAdded records a new metaset.
   | {
@@ -165,7 +165,7 @@ export type HistoryEntryDescriptor =
       next: SubstatTargetTable
       mode?: SubstatTargetsDescriptorMode
     }
-  // finalSellChange stores before/after final-sell config.
+  // finalSellChange stores before/after final-sell recipe.
   | {
       kind: 'finalSellChange'
       previous: FinalSellRemainderConfig
@@ -190,18 +190,18 @@ export type HistoryEntryDescriptor =
       version?: string | null
       savedAt?: string | null
     }
-  // keepUniquesEnabledChange records the toggle plus rule count.
+  // safeguardsEnabledChange records the toggle plus rule count.
   | {
-      kind: 'keepUniquesEnabledChange'
+      kind: 'safeguardsEnabledChange'
       previousEnabled: boolean
       nextEnabled: boolean
-      rules: KeepUniqueRule[]
+      rules: SafeguardRule[]
     }
-  // keepUniquesRulesChange stores before/after rule sets.
+  // safeguardsRulesChange stores before/after rule sets.
   | {
-      kind: 'keepUniquesRulesChange'
-      previous: KeepUniqueRule[]
-      next: KeepUniqueRule[]
+      kind: 'safeguardsRulesChange'
+      previous: SafeguardRule[]
+      next: SafeguardRule[]
       metasets: Metaset[]
-      mode?: KeepUniquesRulesDescriptorMode
+      mode?: SafeguardsRulesDescriptorMode
     }

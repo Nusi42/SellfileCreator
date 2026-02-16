@@ -3,19 +3,19 @@ import { Box, Chip } from '@mui/material'
 import type { ChipProps } from '@mui/material'
 import { alpha, useTheme, type SxProps, type Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
-import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
+import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
 import { useI18n } from '../lib/i18n'
 import type { TesterPreviewMatch } from '../types/testerPreview'
-import { MATCHING_CONFIG_CHIP_MIN_WIDTH_PX } from '../lib/constants'
-// MarkdownTooltip keeps the “jump to config” hint aligned with the rest of the tooltip rollout.
+import { MATCHING_RECIPE_CHIP_MIN_WIDTH_PX } from '../lib/constants'
+// MarkdownTooltip keeps the “jump to recipe” hint aligned with the rest of the tooltip rollout.
 import MarkdownTooltip from './MarkdownTooltip'
 import EllipsisTooltip, { hasEllipsisOverflow } from './EllipsisTooltip'
-import { parseConfigNameDirectives } from '../lib/configNameDirectives'
+import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
 import { getTesterMatchBorderColor } from './testerMatchStyles'
 
 type TesterRuleReferenceChipProps = {
   match: TesterPreviewMatch | null
-  onJump?: (ruleIndex: number, cfgIdx: number | null) => void
+  onJump?: (ruleIndex: number, recipeIdx: number | null) => void
   size?: ChipProps['size']
   sx?: SxProps<Theme>
   showFinalSellLabel?: boolean
@@ -30,7 +30,7 @@ const simpleMatchChipSx = (sx?: SxProps<Theme>): SxProps<Theme> => {
     maxWidth: '100%',
     flexShrink: 0,
     // Keep parity with tester overflow chips so the first match stays tap-friendly.
-    minWidth: MATCHING_CONFIG_CHIP_MIN_WIDTH_PX,
+    minWidth: MATCHING_RECIPE_CHIP_MIN_WIDTH_PX,
     '& .MuiChip-label': {
       display: 'inline-flex',
       px: 0.75,
@@ -67,7 +67,7 @@ export function TesterRuleReferenceChip({
   if (!match) return null
   // Rule source flags drive tint + label behavior.
   const isFinalSellSource = match.ruleSource === RULE_SOURCE_FINAL_SELL
-  const isKeepUniqueSource = match.ruleSource === RULE_SOURCE_KEEP_UNIQUES
+  const isSafeguardSource = match.ruleSource === RULE_SOURCE_SAFEGUARDS
   if (isFinalSellSource) {
     if (!showFinalSellLabel) return null
     const finalSellTint = buildChipSurfaceTint(theme, theme.palette.error.main)
@@ -77,9 +77,9 @@ export function TesterRuleReferenceChip({
         variant="outlined"
         clickable={false}
         ruleIndex={null}
-        cfgIdx={null}
+        recipeIdx={null}
         size={size}
-        jumpTooltip={t('testerJumpToConfig')}
+        jumpTooltip={t('testerJumpToRecipe')}
         sx={simpleMatchChipSx(sx)}
         borderColor={getTesterMatchBorderColor(theme, false)}
         backgroundColor={finalSellTint.surface}
@@ -90,30 +90,30 @@ export function TesterRuleReferenceChip({
     )
   }
   const ruleIndex = typeof match.ruleIndex === 'number' ? match.ruleIndex : null
-  const cfgIdx = typeof match.cfgIdx === 'number' ? match.cfgIdx : null
-  const configDecoration = parseConfigNameDirectives(match.cfgName ?? undefined, theme.palette.primary.main)
+  const recipeIdx = typeof match.recipeIdx === 'number' ? match.recipeIdx : null
+  const configDecoration = parseRecipeNameDirectives(match.recipeName ?? undefined, theme.palette.primary.main)
   const trimmedDecoratedName = configDecoration.displayName.trim()
   const fallbackRuleLabel = match.ruleLabel ? match.ruleLabel.trim() : ''
-  const formattedConfigName = trimmedDecoratedName.length > 0
+  const formattedRecipeName = trimmedDecoratedName.length > 0
     ? trimmedDecoratedName
     : (fallbackRuleLabel.length > 0
       ? fallbackRuleLabel
-      : (cfgIdx != null ? `#${cfgIdx + 1}` : ''))
+      : (recipeIdx != null ? `#${recipeIdx + 1}` : ''))
   const textColor = configDecoration.hasExplicitColor && trimmedDecoratedName.length > 0
     ? configDecoration.resolvedColor
     : null
-  // Number segment is intentionally lightweight: config index + line number sans labels,
-  // joined with a mid-dot so the trailing config name stays readable on narrow cards.
-  const configNumberSegment = (showConfigIndex && cfgIdx != null)
-    ? `#${cfgIdx + 1}`
+  // Number segment is intentionally lightweight: recipe index + line number sans labels,
+  // joined with a mid-dot so the trailing recipe name stays readable on narrow cards.
+  const configNumberSegment = (showConfigIndex && recipeIdx != null)
+    ? `#${recipeIdx + 1}`
     : ''
   const ruleLineSegment = (showLineNumber && ruleIndex != null)
     ? `#${ruleIndex + 1}`
     : ''
   const numberSegment = [configNumberSegment, ruleLineSegment].filter((part) => part && part.length > 0).join(' • ')
   const label = numberSegment
-    ? `${numberSegment} | ${formattedConfigName}`
-    : formattedConfigName
+    ? `${numberSegment} | ${formattedRecipeName}`
+    : formattedRecipeName
   // Some rule sources (e.g., imported base HSF sell rows) have no cfg/source label.
   // Fall back to the matched rule line so primary matches never render as empty.
   const resolvedLabel = label.length > 0
@@ -122,20 +122,20 @@ export function TesterRuleReferenceChip({
   const clickable = typeof onJump === 'function' && ruleIndex != null
   if (!resolvedLabel) return null
   // Keep-unique matches share a green tint so they read as "protected".
-  const keepOverrideTint = isKeepUniqueSource
+  const keepOverrideTint = isSafeguardSource
     ? buildChipSurfaceTint(theme, theme.palette.success.main)
     : null
-  // Data attribute lets tests and analytics distinguish keep-unique matches.
-  const dataMatchSource = isKeepUniqueSource ? 'keep-unique' : undefined
+  // Data attribute lets tests and analytics distinguish safeguard matches.
+  const dataMatchSource = isSafeguardSource ? 'safeguard' : undefined
   return (
     <TesterRuleReferenceChipBody
       label={resolvedLabel}
       variant="outlined"
       clickable={clickable}
       ruleIndex={ruleIndex}
-      cfgIdx={typeof match.cfgIdx === 'number' ? match.cfgIdx : null}
+      recipeIdx={typeof match.recipeIdx === 'number' ? match.recipeIdx : null}
       size={size}
-      jumpTooltip={t('testerJumpToConfig')}
+      jumpTooltip={t('testerJumpToRecipe')}
       textColor={textColor}
       {...(sx ? { sx } : {})}
       {...(icon ? { icon } : {})}
@@ -153,8 +153,8 @@ type TesterRuleReferenceChipBodyProps = {
   variant?: ChipProps['variant']
   clickable: boolean
   ruleIndex: number | null
-  cfgIdx: number | null
-  onJump?: (ruleIndex: number, cfgIdx: number | null) => void
+  recipeIdx: number | null
+  onJump?: (ruleIndex: number, recipeIdx: number | null) => void
   size?: ChipProps['size']
   sx?: SxProps<Theme>
   icon?: ChipProps['icon']
@@ -171,7 +171,7 @@ function TesterRuleReferenceChipBody({
   variant = 'outlined',
   clickable,
   ruleIndex,
-  cfgIdx,
+  recipeIdx,
   onJump,
   size = 'small',
   sx,
@@ -208,7 +208,7 @@ function TesterRuleReferenceChipBody({
     bgcolor: resolvedBackgroundColor,
     color: textColor ?? 'text.primary',
     borderRadius: '8px',
-    minWidth: MATCHING_CONFIG_CHIP_MIN_WIDTH_PX,
+    minWidth: MATCHING_RECIPE_CHIP_MIN_WIDTH_PX,
     maxWidth: '100%',
     flexShrink: 1,
     overflow: 'hidden',
@@ -232,7 +232,7 @@ function TesterRuleReferenceChipBody({
     : baseSx
   const canJump = clickable && typeof onJump === 'function' && typeof ruleIndex === 'number'
   const interactiveProps = canJump
-    ? { component: 'button' as const, onClick: () => onJump(ruleIndex, cfgIdx) }
+    ? { component: 'button' as const, onClick: () => onJump(ruleIndex, recipeIdx) }
     : {}
   const iconProps = icon ? { icon } : {}
   const dataMatchSourceProps = dataMatchSource ? { 'data-match-source': dataMatchSource } : {}
@@ -278,7 +278,7 @@ function TesterRuleReferenceChipBody({
     </Box>
   )
   return (
-    // Keep the jump-to-config hint in sync with other Markdown tooltips so multi-line copy stays readable.
+    // Keep the jump-to-recipe hint in sync with other Markdown tooltips so multi-line copy stays readable.
     <MarkdownTooltip markdown={jumpTooltip}>
       {chipWrapper}
     </MarkdownTooltip>

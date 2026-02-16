@@ -23,7 +23,7 @@ export default function CopyDialog({
   const { t } = useI18n()
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{t('titleCopyConfigJson')}</DialogTitle>
+      <DialogTitle>{t('titleCopyRecipeJson')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" sx={{ mb: 1 }}>{t('msgBlockedClipboard')}</Typography>
         <TextField

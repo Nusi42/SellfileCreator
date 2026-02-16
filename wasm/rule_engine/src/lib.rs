@@ -18,43 +18,43 @@ mod hsf_full_selected_fallback;
 mod hsf_intro_execution;
 mod hsf_intro_mode_plan;
 mod hsf_level_combo_execution;
-mod keep_unique;
+mod safeguards;
 mod matcher_evaluator;
 mod rule_dedupe;
 mod rule_postprocess;
 use generated_domain_constants::*;
-use keep_unique::{
-    keep_unique_group_key_from_parts,
-    keep_unique_hash_combination,
-    keep_unique_normalize_set_selections,
-    keep_unique_normalize_substat_match,
-    keep_unique_parse_collect_rows_payload,
-    keep_unique_resolve_count_mode,
-    keep_unique_variant_to_sub,
-    KeepUniqueWasmArtifactIn,
-    KeepUniqueWasmMetasetIn,
-    KeepUniqueWasmResolvedRuleOut,
-    KeepUniqueWasmRuleIn,
-    KeepUniqueWasmSetSelection,
-    KeepUniqueWasmSnapshotOut,
+use safeguards::{
+    safeguard_group_key_from_parts,
+    safeguard_hash_combination,
+    safeguard_normalize_set_selections,
+    safeguard_normalize_substat_match,
+    safeguard_parse_collect_rows_payload,
+    safeguard_resolve_count_mode,
+    safeguard_variant_to_sub,
+    SafeguardWasmArtifactIn,
+    SafeguardWasmMetasetIn,
+    SafeguardWasmResolvedRuleOut,
+    SafeguardWasmRuleIn,
+    SafeguardWasmSetSelection,
+    SafeguardWasmSnapshotOut,
 };
 pub(crate) use matcher_evaluator::{
-    collect_keep_unique_candidates_core,
+    collect_safeguard_candidates_core,
     evaluate_item,
     prepare_evaluate_options,
     prepare_rule,
     EvaluateItemResult,
     EvaluateOptionsRaw,
-    KeepUniqueCandidateResolveBaseMatchIn,
-    KeepUniqueCollectRowIn,
-    KeepUniqueCollectedCandidateOut,
+    SafeguardCandidateResolveBaseMatchIn,
+    SafeguardCollectRowIn,
+    SafeguardCollectedCandidateOut,
     PreparedRule,
 };
 
 const RULE_SOURCE_HSF: &str = "hsf";
 const RULE_SOURCE_HSFC: &str = "hsfc";
 const RULE_SOURCE_FINAL_SELL: &str = "finalSell";
-const RULE_SOURCE_KEEP_UNIQUES: &str = "keepUniques";
+const RULE_SOURCE_SAFEGUARDS: &str = "safeguards";
 const FINAL_SELL_SETS_MODE_ANY: &str = "any";
 const FINAL_SELL_SETS_MODE_EXPLICIT: &str = "explicit";
 const RULE_FIELD_UNSET_SENTINEL: i64 = STAT_ID_ANY;
@@ -86,8 +86,8 @@ thread_local! {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[allow(non_snake_case)]
 struct RuleRaw {
-    ConfigID: Option<i64>,
-    ConfigName: Option<String>,
+    RecipeID: Option<i64>,
+    RecipeName: Option<String>,
     Keep: Option<bool>,
     IsRuleTypeAND: Option<bool>,
     Use: Option<bool>,
@@ -110,26 +110,26 @@ struct RuleRaw {
     rank_mask: Option<i64>,
     #[serde(default, rename = "__rarityMask")]
     rarity_mask: Option<i64>,
-    #[serde(default, rename = "__keepUniqueRuleId")]
-    keep_unique_rule_id: Option<String>,
-    #[serde(default, rename = "__keepUniqueRuleOrdinal")]
-    keep_unique_rule_ordinal: Option<i64>,
-    #[serde(default, rename = "__keepUniqueHash")]
-    keep_unique_hash: Option<String>,
-    #[serde(default, rename = "__keepUniqueRequired")]
-    keep_unique_required: Option<i64>,
-    #[serde(default, rename = "__keepUniqueScanMs")]
-    keep_unique_scan_ms: Option<f64>,
-    #[serde(default, rename = "__keepUniqueProjected")]
-    keep_unique_projected: Option<i64>,
-    #[serde(default, rename = "__keepUniqueDeficit")]
-    keep_unique_deficit: Option<i64>,
-    #[serde(default, rename = "__keepUniqueItemKey")]
-    keep_unique_item_key: Option<i64>,
-    #[serde(default, rename = "__keepUniquePlaceholder")]
-    keep_unique_placeholder: Option<bool>,
-    #[serde(default, rename = "__keepUniquePlaceholderMissing")]
-    keep_unique_placeholder_missing: Option<i64>,
+    #[serde(default, rename = "__safeguardRuleId")]
+    safeguard_rule_id: Option<String>,
+    #[serde(default, rename = "__safeguardRuleOrdinal")]
+    safeguard_rule_ordinal: Option<i64>,
+    #[serde(default, rename = "__safeguardHash")]
+    safeguard_hash: Option<String>,
+    #[serde(default, rename = "__safeguardRequired")]
+    safeguard_required: Option<i64>,
+    #[serde(default, rename = "__safeguardScanMs")]
+    safeguard_scan_ms: Option<f64>,
+    #[serde(default, rename = "__safeguardProjected")]
+    safeguard_projected: Option<i64>,
+    #[serde(default, rename = "__safeguardDeficit")]
+    safeguard_deficit: Option<i64>,
+    #[serde(default, rename = "__safeguardItemKey")]
+    safeguard_item_key: Option<i64>,
+    #[serde(default, rename = "__safeguardPlaceholder")]
+    safeguard_placeholder: Option<bool>,
+    #[serde(default, rename = "__safeguardPlaceholderMissing")]
+    safeguard_placeholder_missing: Option<i64>,
 }
 
 // Substat row shape follows the HSF payload fields.
@@ -170,7 +170,7 @@ struct TestItemRaw {
     preview_extras: Option<PreviewExtrasRaw>,
 }
 
-// previewExtras carries the fallback ID used by keep-unique bindings.
+// previewExtras carries the fallback ID used by safeguard bindings.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct PreviewExtrasRaw {
@@ -196,14 +196,14 @@ where
     }))
 }
 
-// Combined keep-unique payload lets TS request candidate collection + detection
+// Combined safeguard payload lets TS request candidate collection + detection
 // in one wasm call while preserving both legacy output shapes.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct KeepUniqueCollectedAndProtectedSnapshotOut {
-    candidates: Vec<KeepUniqueCollectedCandidateOut>,
+struct SafeguardCollectedAndProtectedSnapshotOut {
+    candidates: Vec<SafeguardCollectedCandidateOut>,
     unique_item_keys: Vec<i64>,
-    detection: KeepUniqueWasmSnapshotOut,
+    detection: SafeguardWasmSnapshotOut,
 }
 
 // Obsolete-report payload mirrors src/lib/hsfObsolete.ts return shape.
@@ -248,7 +248,7 @@ struct BuilderFinalizeEntry {
     original_idx: usize,
 }
 
-// Final-sell remainder config mirrors src/lib/logicHub.ts payload shape.
+// Final-sell remainder recipe mirrors src/lib/logicHub.ts payload shape.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct FinalSellRemainderIn {
@@ -272,15 +272,15 @@ struct ComputeMergedRulesIn {
     #[serde(default)]
     all_known_set_ids: Vec<i64>,
     #[serde(default)]
-    keep_unique_enabled: bool,
+    safeguard_enabled: bool,
     #[serde(default)]
-    keep_unique_rules: Vec<serde_json::Value>,
-    keep_unique_detection: Option<KeepUniqueWasmSnapshotOut>,
+    safeguard_rules: Vec<serde_json::Value>,
+    safeguard_detection: Option<SafeguardWasmSnapshotOut>,
     #[serde(default)]
-    keep_unique_config_id_base: Option<i64>,
+    safeguard_recipe_id_base: Option<i64>,
 }
 
-// Auto-rarity bounds mirror BuilderConfig.substatRollBoundsV row shape.
+// Auto-rarity bounds mirror BuilderRecipe.substatRollBoundsV row shape.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct AutoRarityResolveRollBoundsIn {
@@ -339,7 +339,7 @@ struct AutoRarityResolveBuilderIn {
 
 // Sort payload stores computed keys so comparator work stays branch-light.
 #[derive(Debug)]
-struct KeepUniqueMergeSortEntry {
+struct SafeguardMergeSortEntry {
     rule: RuleRaw,
     idx: usize,
     level_idx: i64,
@@ -362,7 +362,7 @@ struct GeneratedRuleEntry {
 // Stateful engine keeps prepared rules + mode gating table.
 struct EngineState {
     rules: Vec<PreparedRule>,
-    config_modes: Vec<String>,
+    recipe_modes: Vec<String>,
 }
 
 // Normalize unknown rank/rarity values into supported 1..6 domain.
@@ -1203,7 +1203,7 @@ pub(crate) fn build_hsf_combo_vectors_core(input: &BuildHsfComboVectorsIn) -> Bu
         let is_optional = !is_locked;
         let is_targeted = !input.aggregate_targets_locked || is_locked;
         // Convert variant ids to HSF substat tuple form in Rust SSOT.
-        let (sub_id, sub_is_flat) = keep_unique_variant_to_sub(*variant as i64);
+        let (sub_id, sub_is_flat) = safeguard_variant_to_sub(*variant as i64);
 
         mins.push(min_value);
         max_caps.push(max_cap);
@@ -1358,7 +1358,7 @@ pub(crate) fn build_hsf_factory_combo_rows_from_parts(
     for variant in combo {
         let key = variant.to_string();
         // Keep variant->substat conversion single-sourced in Rust.
-        let (sub_id, sub_is_flat) = keep_unique_variant_to_sub(*variant as i64);
+        let (sub_id, sub_is_flat) = safeguard_variant_to_sub(*variant as i64);
         substats.push(EmitHsfSubstatIn {
             id: sub_id,
             is_flat: sub_is_flat,
@@ -1428,10 +1428,10 @@ pub(crate) fn build_hsf_factory_combo_rows_from_parts(
 // Public merge helper export keeps branch expansion logic in Rust.
 #[wasm_bindgen]
 pub fn expand_auto_flex_rarity_branches_value(
-    config: JsValue,
+    recipe: JsValue,
     base_rarity_code: i32,
 ) -> Result<JsValue, JsValue> {
-    auto_rarity_runtime::expand_auto_flex_rarity_branches_value(config, base_rarity_code)
+    auto_rarity_runtime::expand_auto_flex_rarity_branches_value(recipe, base_rarity_code)
 }
 
 // Coerce flat/percent flags from number/string/bool payloads.
@@ -1451,7 +1451,7 @@ fn boolish_to_flag(value: Option<&serde_json::Value>) -> i64 {
 }
 
 // Shared number-ish coercer accepts number/string/bool payloads.
-// Keep this behavior centralized so export and keep-unique paths stay aligned.
+// Keep this behavior centralized so export and safeguard paths stay aligned.
 fn numberish_to_f64(value: Option<&serde_json::Value>) -> Option<f64> {
     match value {
         Some(serde_json::Value::Number(raw)) => raw.as_f64(),
@@ -1461,19 +1461,19 @@ fn numberish_to_f64(value: Option<&serde_json::Value>) -> Option<f64> {
     }
 }
 
-// Keep-unique parsing requires finite numeric payloads only.
+// Safeguard parsing requires finite numeric payloads only.
 // Non-finite values are rejected so scoring and comparisons stay deterministic.
 fn numberish_to_f64_finite(value: Option<&serde_json::Value>) -> Option<f64> {
     numberish_to_f64(value).filter(|numeric| numeric.is_finite())
 }
 
 // Integer coercion mirrors JS floor(Number(value)) semantics where supported.
-// This is shared across keep-unique and compatibility parsing helpers.
+// This is shared across safeguard and compatibility parsing helpers.
 fn numberish_to_i64_floor(value: Option<&serde_json::Value>) -> Option<i64> {
     numberish_to_f64_finite(value).map(|numeric| numeric.floor() as i64)
 }
 
-// Keep-unique boolean coercion treats non-empty strings as true.
+// Safeguard boolean coercion treats non-empty strings as true.
 // This intentionally differs from boolish_to_flag for legacy snapshot parity.
 fn numberish_to_bool_non_empty_string(value: Option<&serde_json::Value>) -> Option<bool> {
     match value {
@@ -1491,7 +1491,7 @@ fn numberish_or_default(value: Option<&serde_json::Value>, default: f64) -> f64 
 }
 
 // Shared sort+dedupe helper keeps integer selector normalization single-sourced.
-// Callers use this for set/type arrays plus keep-unique domain lists.
+// Callers use this for set/type arrays plus safeguard domain lists.
 fn sorted_unique_i64(values: &[i64]) -> Vec<i64> {
     let mut normalized = values.to_vec();
     normalized.sort_unstable();
@@ -1620,63 +1620,77 @@ fn flatten_i32_rows(rows: &[Vec<i32>]) -> Vec<i32> {
     out
 }
 
-// Keep-unique candidate snapshot builder keeps key derivation + sold filtering
+// Safeguard candidate snapshot builder keeps key derivation + sold filtering
 // in Rust so TS call sites avoid re-implementing evaluator precedence.
-#[wasm_bindgen]
-pub fn collect_keep_unique_candidates_value(
+fn collect_safeguard_candidates_value_impl(
     rows: JsValue,
     rules: JsValue,
-    config_modes: JsValue,
-    ignore_keep_unique_config_indices: JsValue,
+    recipe_modes: JsValue,
+    ignore_safeguard_recipe_indices: JsValue,
 ) -> Result<JsValue, JsValue> {
     // Parse raw/compact row payloads into the normalized collect row shape.
-    let rows = keep_unique_parse_collect_rows_payload(rows)?;
+    let rows = safeguard_parse_collect_rows_payload(rows)?;
     // Parse merged base rules used by keep/sell resolution.
     let rules: Vec<RuleRaw> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique collect rules payload: {error}")))?;
-    // Parse per-config mode visibility needed by evaluate-item parity.
-    let config_modes: Vec<String> = from_js_value(config_modes)
-        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique collect config-modes payload: {error}")))?;
-    // Parse optional ignored config indices; null/undefined maps to empty list.
-    let ignore_keep_unique_config_indices: Option<Vec<i64>> = from_js_value(ignore_keep_unique_config_indices)
-        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique collect ignored-config payload: {error}")))?;
+        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect rules payload: {error}")))?;
+    // Parse per-recipe mode visibility needed by evaluate-item parity.
+    let recipe_modes: Vec<String> = from_js_value(recipe_modes)
+        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect recipe-modes payload: {error}")))?;
+    // Parse optional ignored recipe indices; null/undefined maps to empty list.
+    let ignore_safeguard_recipe_indices: Option<Vec<i64>> = from_js_value(ignore_safeguard_recipe_indices)
+        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect ignored-recipe payload: {error}")))?;
 
     // Prepare rules once so each row evaluation reuses precomputed masks.
     let prepared_rules = rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
-    let snapshot = collect_keep_unique_candidates_core(
+    let snapshot = collect_safeguard_candidates_core(
         &rows,
         &prepared_rules,
-        &config_modes,
-        &ignore_keep_unique_config_indices.unwrap_or_default(),
+        &recipe_modes,
+        &ignore_safeguard_recipe_indices.unwrap_or_default(),
     )?;
     // Return the compact candidate payload used by TS row re-attachment.
     to_js_value(&snapshot)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize keep-unique candidate snapshot: {error}")))
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard candidate snapshot: {error}")))
 }
 
-// Expand keep-unique metaset ids into concrete set selections inside wasm.
+// Safeguard wasm export uses canonical recipe/safeguard naming.
 #[wasm_bindgen]
-pub fn resolve_keep_unique_rules_with_metasets_value(
+pub fn collect_safeguard_candidates_value(
+    rows: JsValue,
+    rules: JsValue,
+    recipe_modes: JsValue,
+    ignore_safeguard_recipe_indices: JsValue,
+) -> Result<JsValue, JsValue> {
+    collect_safeguard_candidates_value_impl(
+        rows,
+        rules,
+        recipe_modes,
+        ignore_safeguard_recipe_indices,
+    )
+}
+
+// Expand safeguard metaset ids into concrete set selections inside wasm.
+fn resolve_safeguard_rules_with_metasets_core(
     rules: JsValue,
     metasets: JsValue,
 ) -> Result<JsValue, JsValue> {
-    // Parse keep-unique rule payloads with nullable-field tolerance.
-    let mut rules: Vec<KeepUniqueWasmRuleIn> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique rules payload: {error}")))?;
+    // Parse safeguard rule payloads with nullable-field tolerance.
+    let mut rules: Vec<SafeguardWasmRuleIn> = from_js_value(rules)
+        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard rules payload: {error}")))?;
     // Parse metaset definitions into a fast lookup table.
-    let metasets: Vec<KeepUniqueWasmMetasetIn> = from_js_value(metasets)
-        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique metasets payload: {error}")))?;
+    let metasets: Vec<SafeguardWasmMetasetIn> = from_js_value(metasets)
+        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard metasets payload: {error}")))?;
     let mut meta_map = HashMap::<String, Vec<i64>>::new();
     for meta in metasets {
         meta_map.insert(meta.id, meta.sets);
     }
 
     // Expand metaset ids for each rule and emit normalized rule payload rows.
-    let mut resolved = Vec::<KeepUniqueWasmResolvedRuleOut>::with_capacity(rules.len());
+    let mut resolved = Vec::<SafeguardWasmResolvedRuleOut>::with_capacity(rules.len());
     for rule in &mut rules {
         let mut combination = rule.combination.clone().unwrap_or_default();
         // Normalize initial set entries so exclusions are canonical before merging metasets.
-        let normalized = keep_unique_normalize_set_selections(&combination.sets);
+        let normalized = safeguard_normalize_set_selections(&combination.sets);
         let excluded_ids = normalized
             .iter()
             .filter_map(|entry| if entry.excluded { Some(entry.id) } else { None })
@@ -1700,23 +1714,23 @@ pub fn resolve_keep_unique_rules_with_metasets_value(
         }
 
         // Always keep the rule, even when metaset expansion adds no new sets.
-        // Readable keep-unique rules may intentionally have empty metaset lists.
+        // Readable safeguard rules may intentionally have empty metaset lists.
         // Rebuild + normalize merged entries so ordering/exclusion precedence stays canonical.
-        let mut merged = Vec::<KeepUniqueWasmSetSelection>::new();
+        let mut merged = Vec::<SafeguardWasmSetSelection>::new();
         for set_id in &excluded_ids {
-            merged.push(KeepUniqueWasmSetSelection {
+            merged.push(SafeguardWasmSetSelection {
                 id: *set_id,
                 excluded: true,
             });
         }
         for set_id in &included_ids {
-            merged.push(KeepUniqueWasmSetSelection {
+            merged.push(SafeguardWasmSetSelection {
                 id: *set_id,
                 excluded: false,
             });
         }
-        combination.sets = keep_unique_normalize_set_selections(&merged);
-        let resolved_hash = keep_unique_hash_combination(&combination);
+        combination.sets = safeguard_normalize_set_selections(&merged);
+        let resolved_hash = safeguard_hash_combination(&combination);
         let resolved_id = rule
             .id
             .clone()
@@ -1728,25 +1742,25 @@ pub fn resolve_keep_unique_rules_with_metasets_value(
             .clone()
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| KEEP_UNIQUE_ACTIVATION_PROTECT_EXISTING.to_string());
-        resolved.push(KeepUniqueWasmResolvedRuleOut {
+            .unwrap_or_else(|| SAFEGUARD_ACTIVATION_PROTECT_EXISTING.to_string());
+        resolved.push(SafeguardWasmResolvedRuleOut {
             id: resolved_id,
             name: rule.name.clone().unwrap_or_default(),
             combination,
             required_count: rule.required_count.unwrap_or(1).max(1),
             activation: resolved_activation,
-            count_mode: keep_unique_resolve_count_mode(rule.count_mode),
+            count_mode: safeguard_resolve_count_mode(rule.count_mode),
             ignore_previous_safeguards: rule
                 .ignore_previous_safeguards
-                .unwrap_or(KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS),
+                .unwrap_or(SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS),
             ignore_equipped_in_collection: rule
                 .ignore_equipped_in_collection
-                .unwrap_or(KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION),
+                .unwrap_or(SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION),
             ignore_equipped_in_vault: rule
                 .ignore_equipped_in_vault
-                .unwrap_or(KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT),
+                .unwrap_or(SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT),
             substats: rule.substats.clone().unwrap_or_default(),
-            substat_match: keep_unique_normalize_substat_match(
+            substat_match: safeguard_normalize_substat_match(
                 rule.substat_match.as_deref().unwrap_or(""),
             ),
             substat_weights: rule.substat_weights.clone().unwrap_or_default(),
@@ -1754,7 +1768,16 @@ pub fn resolve_keep_unique_rules_with_metasets_value(
     }
 
     to_js_value(&resolved)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize keep-unique metaset result: {error}")))
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard metaset result: {error}")))
+}
+
+// Safeguard wasm export uses canonical recipe/safeguard naming.
+#[wasm_bindgen]
+pub fn resolve_safeguard_rules_with_metasets_value(
+    rules: JsValue,
+    metasets: JsValue,
+) -> Result<JsValue, JsValue> {
+    resolve_safeguard_rules_with_metasets_core(rules, metasets)
 }
 
 // Expose a fixed version token so diagnostics can verify which WASM build loaded.
@@ -2003,7 +2026,7 @@ fn emit_hsf_rules_for_distributions_core(
 // Emit concrete HSF rules from distribution rows in one wasm call so
 // level/combo emission loops avoid per-row JS object construction overhead.
 
-// Build presence-only HSF rows for configs that select no substats.
+// Build presence-only HSF rows for recipes that select no substats.
 
 // Shared presence-only core keeps no-substat row emission in one Rust path.
 pub(crate) fn build_hsf_presence_only_rules_core(input: &BuildHsfPresenceOnlyRulesIn) -> Vec<RuleRaw> {
@@ -2153,17 +2176,17 @@ pub(crate) fn emit_hsf_rules_for_filtered_distributions_compact_core(
 }
 
 // Full builder runtime keeps preflight + branch orchestration in Rust.
-// TS calls this once per config instead of re-running branch loops in JS.
+// TS calls this once per recipe instead of re-running branch loops in JS.
 #[wasm_bindgen]
 pub fn build_hsf_rules_runtime_value(payload: JsValue) -> Result<JsValue, JsValue> {
     hsf_builder_execution::build_hsf_rules_runtime_value(payload)
 }
 
 // Builder prep normalizes selected/fixed pools and target maps in Rust.
-// TS uses this to avoid large per-config prep loops before runtime dispatch.
+// TS uses this to avoid large per-recipe prep loops before runtime dispatch.
 #[wasm_bindgen]
-pub fn prepare_hsf_builder_config_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    hsf_builder_execution::prepare_hsf_builder_config_value(payload)
+pub fn prepare_hsf_builder_recipe_value(payload: JsValue) -> Result<JsValue, JsValue> {
+    hsf_builder_execution::prepare_hsf_builder_recipe_value(payload)
 }
 
 // Numeric combinations helper keeps high-volume choose(N, K) expansion in wasm.
@@ -2317,17 +2340,30 @@ pub fn compute_merged_rules_value(payload: JsValue) -> Result<JsValue, JsValue> 
     rule_postprocess::compute_merged_rules_value(payload)
 }
 
-// Keep-unique injected merge/dedupe/sort delegates to postprocess helpers.
-#[wasm_bindgen]
-pub fn merge_keep_unique_injected_rules_value(
+// Safeguard injected merge/dedupe/sort delegates to postprocess helpers.
+fn merge_safeguard_injected_rules_core(
     base_rules: JsValue,
     custom_rules: JsValue,
     candidate_keep_rules: JsValue,
 ) -> Result<JsValue, JsValue> {
-    rule_postprocess::merge_keep_unique_injected_rules_value(
+    rule_postprocess::merge_safeguard_injected_rules_value(
         base_rules,
         custom_rules,
         candidate_keep_rules,
+    )
+}
+
+// Safeguard wasm export uses canonical recipe/safeguard naming.
+#[wasm_bindgen]
+pub fn merge_safeguard_injected_rules_value(
+    base_rules: JsValue,
+    custom_rules: JsValue,
+    candidate_safeguard_rules: JsValue,
+) -> Result<JsValue, JsValue> {
+    merge_safeguard_injected_rules_core(
+        base_rules,
+        custom_rules,
+        candidate_safeguard_rules,
     )
 }
 
@@ -2347,12 +2383,12 @@ pub fn finalize_generated_rules_value(
 }
 
 // Shared configure implementation used by both JSON and JsValue bindings.
-fn configure_engine(raw_rules: Vec<RuleRaw>, config_modes: Vec<String>) {
+fn configure_engine(raw_rules: Vec<RuleRaw>, recipe_modes: Vec<String>) {
     let prepared_rules = raw_rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
     ENGINE_STATE.with(|state| {
         *state.borrow_mut() = Some(EngineState {
             rules: prepared_rules,
-            config_modes,
+            recipe_modes,
         });
     });
 }
@@ -2385,10 +2421,10 @@ fn evaluate_engine(
         let results = items
             .iter()
             .map(|entry| {
-                let (first_match, first_non_excluded_match, matching_config_indices, matching_config_decisions) =
+                let (first_match, first_non_excluded_match, matching_recipe_indices, matching_recipe_decisions) =
                     evaluate_item(
                         &engine.rules,
-                        &engine.config_modes,
+                        &engine.recipe_modes,
                         &entry.item,
                         &prepared_options,
                     );
@@ -2403,7 +2439,7 @@ fn evaluate_engine(
                         let (_, baseline_non_excluded, _, _) =
                             evaluate_item(
                                 &engine.rules,
-                                &engine.config_modes,
+                                &engine.recipe_modes,
                                 &entry.item,
                                 baseline,
                             );
@@ -2417,8 +2453,8 @@ fn evaluate_engine(
                     item_id: entry.item_id,
                     first_match,
                     first_non_excluded_match: resolved_first_non_excluded,
-                    matching_config_indices,
-                    matching_config_decisions,
+                    matching_recipe_indices,
+                    matching_recipe_decisions,
                 }
             })
             .collect::<Vec<_>>();
@@ -2427,17 +2463,17 @@ fn evaluate_engine(
     })
 }
 
-// Configure rules + config modes once per pipeline run.
+// Configure rules + recipe modes once per pipeline run.
 // The worker calls this before evaluating one or more item batches.
 
 // Fast configure variant accepts JS objects directly (no JSON stringify).
 #[wasm_bindgen]
-pub fn configure_value(rules: JsValue, config_modes: JsValue) -> Result<(), JsValue> {
+pub fn configure_value(rules: JsValue, recipe_modes: JsValue) -> Result<(), JsValue> {
     let raw_rules: Vec<RuleRaw> = from_js_value(rules)
         .map_err(|error| JsValue::from_str(&format!("Invalid rules value: {error}")))?;
-    let config_modes: Vec<String> = from_js_value(config_modes)
-        .map_err(|error| JsValue::from_str(&format!("Invalid configModes value: {error}")))?;
-    configure_engine(raw_rules, config_modes);
+    let recipe_modes: Vec<String> = from_js_value(recipe_modes)
+        .map_err(|error| JsValue::from_str(&format!("Invalid recipeModes value: {error}")))?;
+    configure_engine(raw_rules, recipe_modes);
     Ok(())
 }
 

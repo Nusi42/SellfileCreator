@@ -1,16 +1,16 @@
 /**
  * summary.ts
  *
- * Produces a compact, human-readable summary string for a BuilderConfig to
+ * Produces a compact, human-readable summary string for a BuilderRecipe to
  * display in chips and lists.
  */
-import type { BuilderConfig } from './hsfBuilder'
+import type { BuilderRecipe } from './hsfBuilder'
 import { formatRank, rarityCodeToName, factionCodeToName, labelOfVariant, artifactSetName } from './types'
 import { RARITY_AUTO_LABEL } from './constants'
 import type { Metaset } from './metasets'
 import { splitArtifactSetSelections } from './gearSets/selection'
 
-export function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
+export function summaryOf(cfg: BuilderRecipe, metasets: Metaset[]): string {
   const parts: string[] = []
   const ellipsize = (s: string, max = 20) => (s.length <= max ? s : s.slice(0, max - 1) + '…')
   const push = (label: string, value: string) => parts.push(`${label}:${ellipsize(value)}`)
@@ -28,7 +28,7 @@ export function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
 
   // Mainstats (variants)
   {
-    const v = (cfg as (BuilderConfig & { mainStatsV?: number[] })).mainStatsV ?? []
+    const v = (cfg as (BuilderRecipe & { mainStatsV?: number[] })).mainStatsV ?? []
     if (v.length > 0) {
       const names = v.map(labelOfVariant).filter(Boolean as unknown as (x: string) => x is string)
       push('Main', names.join(','))
@@ -39,8 +39,8 @@ export function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
 
   // Substats with fixed indicator (variants)
   {
-    const sv = (cfg as (BuilderConfig & { substatsV?: number[] })).substatsV ?? []
-    const fv = (cfg as (BuilderConfig & { fixedSubstatsV?: number[] })).fixedSubstatsV ?? []
+    const sv = (cfg as (BuilderRecipe & { substatsV?: number[] })).substatsV ?? []
+    const fv = (cfg as (BuilderRecipe & { fixedSubstatsV?: number[] })).fixedSubstatsV ?? []
     if (sv.length > 0) {
       const fixedSet = new Set<number>(fv as number[])
       const names = sv.map((v) => `${labelOfVariant(v)}${fixedSet.has(v as number) ? '🔒' : ''}`)

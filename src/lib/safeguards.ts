@@ -21,46 +21,46 @@ import {
   getAccessorySlotsCompatibleSetIds,
   rarityNames,
 } from './types'
-import type { BuilderConfig, SellfileExportMode } from './hsfBuilder'
+import type { BuilderRecipe, SellfileExportMode } from './hsfBuilder'
 import type { HsfRuleWithCfg } from './merge'
 import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
 import type { Metaset } from './metasets'
-import { normalizeConfigName } from './ruleConfigIndex'
+import { normalizeRecipeName } from './ruleRecipeIndex'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
-import { hasIgnoreKeepUniqueTag } from './tagHelpers'
+import { hasIgnoreSafeguardTag } from './tagHelpers'
 import {
-  collectAndComputeKeepUniqueProtectionWithLoadedWasm,
-  collectKeepUniqueCandidatesWithLoadedWasm,
-  computeKeepUniqueProtectionWithLoadedWasm,
-  getKeepUniqueGroupKeyWithLoadedWasm,
-  getKeepUniqueItemKeyWithLoadedWasm,
-  getKeepUniqueCountKeyWithLoadedWasm,
-  hashKeepUniqueCombinationWithLoadedWasm,
-  normalizeKeepUniqueActivationWithLoadedWasm,
-  normalizeKeepUniqueCombinationWithLoadedWasm,
-  normalizeKeepUniqueCountModeWithLoadedWasm,
-  normalizeKeepUniqueExpectedGroupDomainWithLoadedWasm,
-  normalizeKeepUniqueRuleWithLoadedWasm,
-  normalizeKeepUniqueSubstatMatchWithLoadedWasm,
-  resolveKeepUniqueRulesWithMetasetsWithLoadedWasm,
-  sortKeepUniqueCombinationWithLoadedWasm,
-  sortKeepUniqueSubstatsWithLoadedWasm,
+  collectAndComputeSafeguardProtectionWithLoadedWasm,
+  collectSafeguardCandidatesWithLoadedWasm,
+  computeSafeguardProtectionWithLoadedWasm,
+  getSafeguardGroupKeyWithLoadedWasm,
+  getSafeguardItemKeyWithLoadedWasm,
+  getSafeguardCountKeyWithLoadedWasm,
+  hashSafeguardCombinationWithLoadedWasm,
+  normalizeSafeguardActivationWithLoadedWasm,
+  normalizeSafeguardCombinationWithLoadedWasm,
+  normalizeSafeguardCountModeWithLoadedWasm,
+  normalizeSafeguardExpectedGroupDomainWithLoadedWasm,
+  normalizeSafeguardRuleWithLoadedWasm,
+  normalizeSafeguardSubstatMatchWithLoadedWasm,
+  resolveSafeguardRulesWithMetasetsWithLoadedWasm,
+  sortSafeguardCombinationWithLoadedWasm,
+  sortSafeguardSubstatsWithLoadedWasm,
 } from './wasm/wasmRuleEngine'
 import {
-  KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS,
-  KEEP_UNIQUE_ACTIVATION_OFF,
-  KEEP_UNIQUE_ACTIVATION_PROTECT_EXISTING,
-  KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_FACTION,
-  KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_MAIN_STAT,
-  KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_RULE,
-  KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SET,
-  KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SLOT,
-  KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION as KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION_CONST,
-  KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT as KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT_CONST,
-  KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS as KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS_CONST,
-  KEEP_UNIQUE_SUBSTAT_ALL,
-  KEEP_UNIQUE_SUBSTAT_ANY,
-  KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT,
+  SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS,
+  SAFEGUARD_ACTIVATION_OFF,
+  SAFEGUARD_ACTIVATION_PROTECT_EXISTING,
+  SAFEGUARD_DEFAULT_COUNT_MODE_PER_FACTION,
+  SAFEGUARD_DEFAULT_COUNT_MODE_PER_MAIN_STAT,
+  SAFEGUARD_DEFAULT_COUNT_MODE_PER_RULE,
+  SAFEGUARD_DEFAULT_COUNT_MODE_PER_SET,
+  SAFEGUARD_DEFAULT_COUNT_MODE_PER_SLOT,
+  SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION as SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION_CONST,
+  SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT as SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT_CONST,
+  SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS as SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS_CONST,
+  SAFEGUARD_SUBSTAT_ALL,
+  SAFEGUARD_SUBSTAT_ANY,
+  SAFEGUARD_SUBSTAT_PER_SUBSTAT,
   RANK_VALUE_MAX,
   RANK_VALUE_MIN,
 } from './generated/domainConstants'
@@ -74,15 +74,15 @@ const ALL_FACTION_IDS = Object.freeze(
     .map((value) => value as FactionId),
 )
 
-export const buildIgnoreKeepUniqueConfigIndices = (configs: readonly BuilderConfig[]): ReadonlySet<number> => {
-  // Track indices so we can skip only tagged configs during detection.
+export const buildIgnoreSafeguardConfigIndices = (recipes: readonly BuilderRecipe[]): ReadonlySet<number> => {
+  // Track indices so we can skip only tagged recipes during detection.
   const ignored = new Set<number>()
-  // Maintain index alignment with rule-building config order.
-  for (let idx = 0; idx < configs.length; idx += 1) {
-    // Read the tags directly from the builder config.
-    const tags = configs[idx]?.tags
+  // Maintain index alignment with rule-building recipe order.
+  for (let idx = 0; idx < recipes.length; idx += 1) {
+    // Read the tags directly from the builder recipe.
+    const tags = recipes[idx]?.tags
     // Only add when the ignore tag is present.
-    if (hasIgnoreKeepUniqueTag(tags)) {
+    if (hasIgnoreSafeguardTag(tags)) {
       ignored.add(idx)
     }
   }
@@ -90,7 +90,7 @@ export const buildIgnoreKeepUniqueConfigIndices = (configs: readonly BuilderConf
   return ignored
 }
 
-export type KeepUniqueCombination = {
+export type SafeguardCombination = {
   slots: ArtifactTypeId[]
   sets: ArtifactSetSelectionEntry[]
   metaSetIds: string[]
@@ -101,7 +101,7 @@ export type KeepUniqueCombination = {
 }
 
 // Count mode decides whether the required total is per rule or enforced per set/faction/main tuple.
-export type KeepUniqueRuleCountMode = {
+export type SafeguardRuleCountMode = {
   perRule: boolean
   perSet: boolean
   perFaction: boolean
@@ -110,82 +110,81 @@ export type KeepUniqueRuleCountMode = {
 }
 
 // Mirrors the default scope-chip state (slot+set+faction+main) so HSFC imports and tutorials stay aligned.
-export const KEEP_UNIQUE_DEFAULT_COUNT_MODE: KeepUniqueRuleCountMode = {
-  perRule: KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_RULE,
-  perSet: KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SET,
-  perFaction: KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_FACTION,
-  perMainStat: KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_MAIN_STAT,
-  perSlot: KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SLOT,
+export const SAFEGUARD_DEFAULT_COUNT_MODE: SafeguardRuleCountMode = {
+  perRule: SAFEGUARD_DEFAULT_COUNT_MODE_PER_RULE,
+  perSet: SAFEGUARD_DEFAULT_COUNT_MODE_PER_SET,
+  perFaction: SAFEGUARD_DEFAULT_COUNT_MODE_PER_FACTION,
+  perMainStat: SAFEGUARD_DEFAULT_COUNT_MODE_PER_MAIN_STAT,
+  perSlot: SAFEGUARD_DEFAULT_COUNT_MODE_PER_SLOT,
 }
 
 // Default toggle keeps rule evaluation independent from earlier safeguards.
-export const KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS =
-  KEEP_UNIQUE_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS_CONST
+export const SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS =
+  SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS_CONST
 // Equipped-ignore toggles default off so current behavior is preserved.
-export const KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION =
-  KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION_CONST
-export const KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT =
-  KEEP_UNIQUE_DEFAULT_IGNORE_EQUIPPED_IN_VAULT_CONST
+export const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION =
+  SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION_CONST
+export const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT =
+  SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT_CONST
 
-export const KeepUniqueRuleActivation = {
-  Off: KEEP_UNIQUE_ACTIVATION_OFF,
-  ProtectExisting: KEEP_UNIQUE_ACTIVATION_PROTECT_EXISTING,
-  AnticipateGaps: KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS,
+export const SafeguardRuleActivation = {
+  Off: SAFEGUARD_ACTIVATION_OFF,
+  ProtectExisting: SAFEGUARD_ACTIVATION_PROTECT_EXISTING,
+  AnticipateGaps: SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS,
 } as const
 
 // eslint-disable-next-line no-redeclare -- allow constant/type pair
-export type KeepUniqueRuleActivation =
-  (typeof KeepUniqueRuleActivation)[keyof typeof KeepUniqueRuleActivation]
+export type SafeguardRuleActivation =
+  (typeof SafeguardRuleActivation)[keyof typeof SafeguardRuleActivation]
 
-const KEEP_UNIQUE_RULE_ACTIVATION_VALUES = new Set<KeepUniqueRuleActivation>([
-  KeepUniqueRuleActivation.Off,
-  KeepUniqueRuleActivation.ProtectExisting,
-  KeepUniqueRuleActivation.AnticipateGaps,
+const SAFEGUARD_RULE_ACTIVATION_VALUES = new Set<SafeguardRuleActivation>([
+  SafeguardRuleActivation.Off,
+  SafeguardRuleActivation.ProtectExisting,
+  SafeguardRuleActivation.AnticipateGaps,
 ])
 
-// KeepUniqueSubstatMatch controls how multiple picked substats are matched.
-export const KeepUniqueSubstatMatch = {
-  Any: KEEP_UNIQUE_SUBSTAT_ANY,
-  All: KEEP_UNIQUE_SUBSTAT_ALL,
-  PerSubstat: KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT,
+// SafeguardSubstatMatch controls how multiple picked substats are matched.
+export const SafeguardSubstatMatch = {
+  Any: SAFEGUARD_SUBSTAT_ANY,
+  All: SAFEGUARD_SUBSTAT_ALL,
+  PerSubstat: SAFEGUARD_SUBSTAT_PER_SUBSTAT,
 } as const
 
 // eslint-disable-next-line no-redeclare -- allow constant/type pair
-export type KeepUniqueSubstatMatch =
-  (typeof KeepUniqueSubstatMatch)[keyof typeof KeepUniqueSubstatMatch]
+export type SafeguardSubstatMatch =
+  (typeof SafeguardSubstatMatch)[keyof typeof SafeguardSubstatMatch]
 
-// normalizeKeepUniqueActivation keeps activation parsing consistent across keep-override rules.
-export const normalizeKeepUniqueActivation = (
+// normalizeSafeguardActivation keeps activation parsing consistent across keep-override rules.
+export const normalizeSafeguardActivation = (
   value: unknown,
-  legacyEnabled?: unknown,
-): KeepUniqueRuleActivation => {
+): SafeguardRuleActivation => {
   // Delegate token coercion to wasm so TS does not duplicate alias parsing rules.
-  const normalized = normalizeKeepUniqueActivationWithLoadedWasm(value, legacyEnabled)
+  const normalized = normalizeSafeguardActivationWithLoadedWasm(value)
   // Keep the public union return type strict and fail closed on unknown payloads.
-  if (KEEP_UNIQUE_RULE_ACTIVATION_VALUES.has(normalized as KeepUniqueRuleActivation)) {
-    return normalized as KeepUniqueRuleActivation
+  if (SAFEGUARD_RULE_ACTIVATION_VALUES.has(normalized as SafeguardRuleActivation)) {
+    return normalized as SafeguardRuleActivation
   }
-  throw new Error('WASM keep-unique activation normalizer returned an unexpected token.')
+  throw new Error('WASM safeguard activation normalizer returned an unexpected token.')
 }
 
-// normalizeKeepUniqueSubstatMatch keeps matching choices stable and case-insensitive.
-export const normalizeKeepUniqueSubstatMatch = (value: unknown): KeepUniqueSubstatMatch => {
+// normalizeSafeguardSubstatMatch keeps matching choices stable and case-insensitive.
+export const normalizeSafeguardSubstatMatch = (value: unknown): SafeguardSubstatMatch => {
   // Delegate token coercion to wasm so TS does not duplicate alias parsing rules.
-  const normalized = normalizeKeepUniqueSubstatMatchWithLoadedWasm(value)
+  const normalized = normalizeSafeguardSubstatMatchWithLoadedWasm(value)
   // Keep the public union return type strict and fail closed on unknown payloads.
-  if (normalized === KeepUniqueSubstatMatch.Any) return KeepUniqueSubstatMatch.Any
-  if (normalized === KeepUniqueSubstatMatch.All) return KeepUniqueSubstatMatch.All
-  if (normalized === KeepUniqueSubstatMatch.PerSubstat) return KeepUniqueSubstatMatch.PerSubstat
-  throw new Error('WASM keep-unique substat-match normalizer returned an unexpected token.')
+  if (normalized === SafeguardSubstatMatch.Any) return SafeguardSubstatMatch.Any
+  if (normalized === SafeguardSubstatMatch.All) return SafeguardSubstatMatch.All
+  if (normalized === SafeguardSubstatMatch.PerSubstat) return SafeguardSubstatMatch.PerSubstat
+  throw new Error('WASM safeguard substat-match normalizer returned an unexpected token.')
 }
 
-export const isKeepUniqueRuleActive = (rule: KeepUniqueRule): boolean => (
-  rule.activation !== KeepUniqueRuleActivation.Off
+export const isSafeguardRuleActive = (rule: SafeguardRule): boolean => (
+  rule.activation !== SafeguardRuleActivation.Off
 )
 
-const sanitizeCountMode = (raw: Partial<KeepUniqueRuleCountMode> | null | undefined): KeepUniqueRuleCountMode => {
+const sanitizeCountMode = (raw: Partial<SafeguardRuleCountMode> | null | undefined): SafeguardRuleCountMode => {
   // Delegate default + sanitize logic to wasm so TS does not duplicate mode rules.
-  const normalized = normalizeKeepUniqueCountModeWithLoadedWasm(raw)
+  const normalized = normalizeSafeguardCountModeWithLoadedWasm(raw)
   // Preserve the local structural type used across UI + worker payloads.
   return {
     perRule: normalized.perRule === true,
@@ -196,16 +195,16 @@ const sanitizeCountMode = (raw: Partial<KeepUniqueRuleCountMode> | null | undefi
   }
 }
 
-// normalizeKeepUniqueCountMode parses legacy payloads into the canonical scope-chip shape.
-export const normalizeKeepUniqueCountMode = (value: unknown): KeepUniqueRuleCountMode => {
+// normalizeSafeguardCountMode parses legacy payloads into the canonical scope-chip shape.
+export const normalizeSafeguardCountMode = (value: unknown): SafeguardRuleCountMode => {
   // Delegate default + sanitize logic to wasm so TS does not duplicate mode rules.
-  return sanitizeCountMode(value as Partial<KeepUniqueRuleCountMode> | null | undefined)
+  return sanitizeCountMode(value as Partial<SafeguardRuleCountMode> | null | undefined)
 }
 
-export const isPerRuleCountMode = (mode: KeepUniqueRuleCountMode): boolean => mode.perRule
-export const sanitizeKeepUniqueCountMode = (mode: KeepUniqueRuleCountMode): KeepUniqueRuleCountMode => sanitizeCountMode(mode)
+export const isPerRuleCountMode = (mode: SafeguardRuleCountMode): boolean => mode.perRule
+export const sanitizeSafeguardCountMode = (mode: SafeguardRuleCountMode): SafeguardRuleCountMode => sanitizeCountMode(mode)
 
-export const cloneKeepUniqueCombination = (combination: KeepUniqueCombination): KeepUniqueCombination => ({
+export const cloneSafeguardCombination = (combination: SafeguardCombination): SafeguardCombination => ({
   slots: [...combination.slots],
   // Clone entries so excluded flags survive but references do not.
   sets: combination.sets.map((entry) => (entry.excluded ? { id: entry.id, excluded: true } : { id: entry.id })),
@@ -216,8 +215,8 @@ export const cloneKeepUniqueCombination = (combination: KeepUniqueCombination): 
   factions: [...(combination.factions ?? [])],
 })
 
-// createEmptyKeepUniqueCombination returns an "any" combination for new rule drafts.
-export const createEmptyKeepUniqueCombination = (): KeepUniqueCombination => ({
+// createEmptySafeguardCombination returns an "any" combination for new rule drafts.
+export const createEmptySafeguardCombination = (): SafeguardCombination => ({
   slots: [],
   sets: [],
   metaSetIds: [],
@@ -227,8 +226,8 @@ export const createEmptyKeepUniqueCombination = (): KeepUniqueCombination => ({
   factions: [],
 })
 
-// cloneKeepUniqueRule keeps history snapshots isolated from live edits.
-export const cloneKeepUniqueRule = (rule: KeepUniqueRule): KeepUniqueRule => ({
+// cloneSafeguardRule keeps history snapshots isolated from live edits.
+export const cloneSafeguardRule = (rule: SafeguardRule): SafeguardRule => ({
   // Preserve stable identifiers and scalar fields.
   ...rule,
   // Preserve cascade toggle with explicit default for legacy snapshots.
@@ -237,7 +236,7 @@ export const cloneKeepUniqueRule = (rule: KeepUniqueRule): KeepUniqueRule => ({
   ignoreEquippedInCollection: rule.ignoreEquippedInCollection === true,
   ignoreEquippedInVault: rule.ignoreEquippedInVault === true,
   // Clone the combination payload so arrays are detached.
-  combination: cloneKeepUniqueCombination(rule.combination),
+  combination: cloneSafeguardCombination(rule.combination),
   // Clone the count mode flags to avoid shared references.
   countMode: { ...rule.countMode },
   // Clone substat selections so edits don't mutate the snapshot.
@@ -248,20 +247,20 @@ export const cloneKeepUniqueRule = (rule: KeepUniqueRule): KeepUniqueRule => ({
   substatWeights: { ...(rule.substatWeights ?? {}) },
 })
 
-// cloneKeepUniqueRules clones a list into detached rule objects.
-export const cloneKeepUniqueRules = (rules: readonly KeepUniqueRule[]): KeepUniqueRule[] => (
+// cloneSafeguardRules clones a list into detached rule objects.
+export const cloneSafeguardRules = (rules: readonly SafeguardRule[]): SafeguardRule[] => (
   // Reuse the per-rule clone so behavior stays consistent.
-  rules.map((rule) => cloneKeepUniqueRule(rule))
+  rules.map((rule) => cloneSafeguardRule(rule))
 )
 
-export type KeepUniqueRule = {
+export type SafeguardRule = {
   id: string
   name: string
-  combination: KeepUniqueCombination
+  combination: SafeguardCombination
   requiredCount: number
-  activation: KeepUniqueRuleActivation
-  countMode: KeepUniqueRuleCountMode
-  // True keeps this rule independent from earlier keep-unique safeguards.
+  activation: SafeguardRuleActivation
+  countMode: SafeguardRuleCountMode
+  // True keeps this rule independent from earlier safeguard safeguards.
   ignorePreviousSafeguards: boolean
   // True excludes artifacts equipped on collection champions from matching.
   ignoreEquippedInCollection: boolean
@@ -270,18 +269,18 @@ export type KeepUniqueRule = {
   // Optional substat filters (empty array = any substat).
   substats: StatVariant[]
   // Match behavior for multiple selected substats.
-  substatMatch: KeepUniqueSubstatMatch
+  substatMatch: SafeguardSubstatMatch
   // Per-substat weights for ranked scoring (only non-default values are stored).
   substatWeights: Partial<Record<StatVariant, number>>
 }
 
-/** Build the default Keep Unique rule list for new sessions (empty by design). */
-export function buildDefaultKeepUniqueRules(): KeepUniqueRule[] {
-  // Keep the list empty so users opt into Keep Unique combinations explicitly.
+/** Build the default Safeguard rule list for new sessions (empty by design). */
+export function buildDefaultSafeguardRules(): SafeguardRule[] {
+  // Keep the list empty so users opt into Safeguard combinations explicitly.
   return []
 }
 
-export type KeepUniqueDetectionArtifact = {
+export type SafeguardDetectionArtifact = {
   itemKey: number
   slot: ArtifactTypeId
   set: ArtifactSetId
@@ -291,22 +290,22 @@ export type KeepUniqueDetectionArtifact = {
   exactLevel: number | null
   faction: FactionId
   mainStat: StatVariant
-  substats: KeepUniqueDetectionSubstat[]
+  substats: SafeguardDetectionSubstat[]
 }
 
-export type KeepUniqueDetectionSubstat = {
+export type SafeguardDetectionSubstat = {
   variant: StatVariant
   isFlat: boolean
   value: number
 }
 
-export type KeepUniqueDetectionEntry = {
+export type SafeguardDetectionEntry = {
   hash: string
-  combination: KeepUniqueCombination
+  combination: SafeguardCombination
   ruleId: string | null
-  ruleActivation: KeepUniqueRuleActivation
+  ruleActivation: SafeguardRuleActivation
   // Carry the scope metadata so the UI can explain how totals were derived.
-  countMode: KeepUniqueRuleCountMode
+  countMode: SafeguardRuleCountMode
   perGroupRequiredCount: number
   groupsTracked: number
   requiredCount: number
@@ -315,84 +314,84 @@ export type KeepUniqueDetectionEntry = {
   deficit: number
   coveredByExisting: boolean
   itemKeys: number[]
-  artifacts: KeepUniqueDetectionArtifact[]
-  placeholders: KeepUniquePlaceholderRequest[]
+  artifacts: SafeguardDetectionArtifact[]
+  placeholders: SafeguardPlaceholderRequest[]
 }
 
-export type KeepUniqueDetectionSnapshot = {
+export type SafeguardDetectionSnapshot = {
   scannedAt: number
-  entries: KeepUniqueDetectionEntry[]
+  entries: SafeguardDetectionEntry[]
 }
 
-export type KeepUniquePlaceholderRequest = {
-  combination: KeepUniqueCombination
+export type SafeguardPlaceholderRequest = {
+  combination: SafeguardCombination
   missing: number
   reason: 'global' | 'group'
   // Optional substat filter for per-substat gaps (keeps placeholder rules scoped).
   substatVariants?: StatVariant[]
 }
 
-export type KeepUniqueCandidate = {
+export type SafeguardCandidate = {
   row: TesterPreviewRow
   artifact: NormalizedGearArtifact
   itemKey: number
-  groupKey: KeepUniqueGroupKey
+  groupKey: SafeguardGroupKey
   isSold: boolean
 }
 
-export type KeepUniqueCandidateSnapshot = {
-  candidates: KeepUniqueCandidate[]
+export type SafeguardCandidateSnapshot = {
+  candidates: SafeguardCandidate[]
   uniqueItemKeys: ReadonlySet<number>
 }
 
-export type KeepUniquesMergeInput = {
+export type SafeguardsMergeInput = {
   enabled: boolean
-  rules: readonly KeepUniqueRule[]
-  detection?: KeepUniqueDetectionSnapshot | null
+  rules: readonly SafeguardRule[]
+  detection?: SafeguardDetectionSnapshot | null
 }
 
 /**
  * True when the master toggle is on and at least one rule is enabled.
  * Used by pipeline callers to avoid unnecessary detection passes.
  */
-export const hasActiveKeepUniqueRules = (input: KeepUniquesMergeInput | null | undefined): boolean => {
+export const hasActiveSafeguardRules = (input: SafeguardsMergeInput | null | undefined): boolean => {
   if (!input || input.enabled !== true) return false
   if (!Array.isArray(input.rules) || input.rules.length === 0) return false
-  return input.rules.some((rule) => rule && isKeepUniqueRuleActive(rule))
+  return input.rules.some((rule) => rule && isSafeguardRuleActive(rule))
 }
 
-export type KeepUniqueDetectionParams = {
-  candidates: readonly KeepUniqueCandidate[]
-  rules: readonly KeepUniqueRule[]
+export type SafeguardDetectionParams = {
+  candidates: readonly SafeguardCandidate[]
+  rules: readonly SafeguardRule[]
   enabled: boolean
   now?: number
 }
 
-export type KeepUniqueCollectAndDetectParams = {
+export type SafeguardCollectAndDetectParams = {
   rows: readonly TesterPreviewRow[]
   baseRules: readonly HsfRuleWithCfg[]
-  configModes: SellfileExportMode[]
-  rules: readonly KeepUniqueRule[]
+  recipeModes: SellfileExportMode[]
+  rules: readonly SafeguardRule[]
   enabled: boolean
   now?: number
-  ignoreKeepUniqueConfigIndices?: ReadonlySet<number>
+  ignoreSafeguardConfigIndices?: ReadonlySet<number>
 }
 
-export type KeepUniqueCollectAndDetectSnapshot = {
-  candidates: KeepUniqueCandidateSnapshot
-  detection: KeepUniqueDetectionSnapshot
+export type SafeguardCollectAndDetectSnapshot = {
+  candidates: SafeguardCandidateSnapshot
+  detection: SafeguardDetectionSnapshot
 }
 
 /** Generate a short, unique id for combination rules. */
-export function createKeepUniqueRuleId(): string {
+export function createSafeguardRuleId(): string {
   const rand = Math.random().toString(36).slice(2, 10)
   return `ku_${Date.now().toString(36)}_${rand}`
 }
 
 /** Canonical hash for combination comparisons and metadata lookups. */
-export function hashKeepUniqueCombination(combination: KeepUniqueCombination): string {
+export function hashSafeguardCombination(combination: SafeguardCombination): string {
   // Delegate canonical hash construction to wasm so TS does not duplicate rules.
-  return hashKeepUniqueCombinationWithLoadedWasm(combination)
+  return hashSafeguardCombinationWithLoadedWasm(combination)
 }
 
 // Name lookups keep HSFC tuple fields readable while still resolving back to
@@ -420,7 +419,7 @@ const rarityCodeByName = new Map<string, RankValue>(
 
 // Keep lookup-record conversion in one helper so wasm payload shape remains
 // stable whenever we add/adjust normalization lookups.
-const toKeepUniqueLookupRecord = (values: ReadonlyMap<string, number>): Record<string, number> => {
+const toSafeguardLookupRecord = (values: ReadonlyMap<string, number>): Record<string, number> => {
   const out: Record<string, number> = {}
   for (const [key, value] of values.entries()) {
     const trimmed = key.trim().toLowerCase()
@@ -433,70 +432,70 @@ const toKeepUniqueLookupRecord = (values: ReadonlyMap<string, number>): Record<s
 
 // Readable HSFC lookups stay sourced from TS constants while recursive parsing
 // moves to wasm. Stat-variant labels are handled in Rust with TS-parity aliases.
-const KEEP_UNIQUE_NORMALIZATION_LOOKUPS = Object.freeze({
-  artifactTypeIdsByName: toKeepUniqueLookupRecord(artifactTypeIdByName),
-  artifactSetIdsByName: toKeepUniqueLookupRecord(artifactSetIdByName),
-  factionIdsByName: toKeepUniqueLookupRecord(factionIdByName),
-  rarityCodesByName: toKeepUniqueLookupRecord(rarityCodeByName),
+const SAFEGUARD_NORMALIZATION_LOOKUPS = Object.freeze({
+  artifactTypeIdsByName: toSafeguardLookupRecord(artifactTypeIdByName),
+  artifactSetIdsByName: toSafeguardLookupRecord(artifactSetIdByName),
+  factionIdsByName: toSafeguardLookupRecord(factionIdByName),
+  rarityCodesByName: toSafeguardLookupRecord(rarityCodeByName),
   statVariantIdsByLabel: {},
 })
 
-// buildNormalizedKeepUniqueRuleId keeps generated ids deterministic per call
+// buildNormalizedSafeguardRuleId keeps generated ids deterministic per call
 // while still letting wasm own the rest of the rule normalization logic.
-const buildNormalizedKeepUniqueRuleId = (): string => {
-  return createKeepUniqueRuleId()
+const buildNormalizedSafeguardRuleId = (): string => {
+  return createSafeguardRuleId()
 }
 
-// sortKeepUniqueSubstats keeps substat selections aligned with app-wide stat priority.
-export const sortKeepUniqueSubstats = (values: readonly StatVariant[]): StatVariant[] => (
+// sortSafeguardSubstats keeps substat selections aligned with app-wide stat priority.
+export const sortSafeguardSubstats = (values: readonly StatVariant[]): StatVariant[] => (
   // Delegate sorting to wasm so TS does not duplicate priority/dedupe behavior.
-  sortKeepUniqueSubstatsWithLoadedWasm(values).map((value) => Number(value) as StatVariant)
+  sortSafeguardSubstatsWithLoadedWasm(values).map((value) => Number(value) as StatVariant)
 )
 
-// sortKeepUniqueCombination enforces stable ordering across every keep-unique filter.
-export const sortKeepUniqueCombination = (combination: KeepUniqueCombination): KeepUniqueCombination => ({
+// sortSafeguardCombination enforces stable ordering across every safeguard filter.
+export const sortSafeguardCombination = (combination: SafeguardCombination): SafeguardCombination => ({
   // Delegate full combination sorting to wasm so TS does not duplicate rules.
-  ...(sortKeepUniqueCombinationWithLoadedWasm(combination)),
+  ...(sortSafeguardCombinationWithLoadedWasm(combination)),
 })
 
 /** Normalize combination payloads loaded from HSFC/autosave. */
-export function normalizeKeepUniqueCombination(value: unknown): KeepUniqueCombination | null {
+export function normalizeSafeguardCombination(value: unknown): SafeguardCombination | null {
   // Delegate normalization to wasm so recursive tuple parsing is SSOT in Rust.
-  return normalizeKeepUniqueCombinationWithLoadedWasm<KeepUniqueCombination>(
+  return normalizeSafeguardCombinationWithLoadedWasm<SafeguardCombination>(
     value,
-    KEEP_UNIQUE_NORMALIZATION_LOOKUPS,
+    SAFEGUARD_NORMALIZATION_LOOKUPS,
   )
 }
 
 /** Normalize rule payloads; returns null when combination data is invalid. */
-export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
+export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   // Generate fallback id in TS so rule ids keep the same prefix/time randomness.
-  const generatedRuleId = buildNormalizedKeepUniqueRuleId()
+  const generatedRuleId = buildNormalizedSafeguardRuleId()
   // Delegate normalization to wasm so recursive rule parsing is SSOT in Rust.
-  return normalizeKeepUniqueRuleWithLoadedWasm<KeepUniqueRule>(
+  return normalizeSafeguardRuleWithLoadedWasm<SafeguardRule>(
     value,
-    KEEP_UNIQUE_NORMALIZATION_LOOKUPS,
+    SAFEGUARD_NORMALIZATION_LOOKUPS,
     generatedRuleId,
   )
 }
 
 /** Shared helper for mapping tester artifacts to the detection item key. */
-export function getKeepUniqueItemKey(artifact: NormalizedGearArtifact): number {
+export function getSafeguardItemKey(artifact: NormalizedGearArtifact): number {
   // Delegate item-key derivation to wasm so TS does not duplicate fallback rules.
-  return getKeepUniqueItemKeyWithLoadedWasm(artifact)
+  return getSafeguardItemKeyWithLoadedWasm(artifact)
 }
 
-export type KeepUniqueGroupKey = string
+export type SafeguardGroupKey = string
 
 /** Hash representing the slot+set+main+faction group used for uniqueness filtering. */
-export function getKeepUniqueGroupKey(artifact: NormalizedGearArtifact): KeepUniqueGroupKey {
+export function getSafeguardGroupKey(artifact: NormalizedGearArtifact): SafeguardGroupKey {
   // Delegate group-key derivation to wasm so TS does not duplicate slot/faction rules.
-  return getKeepUniqueGroupKeyWithLoadedWasm(artifact)
+  return getSafeguardGroupKeyWithLoadedWasm(artifact)
 }
 
-type KeepUniqueCountKey = string
+type SafeguardCountKey = string
 
-export const getKeepUniqueCountKey = (artifact: NormalizedGearArtifact, mode: KeepUniqueRuleCountMode): KeepUniqueCountKey => {
+export const getSafeguardCountKey = (artifact: NormalizedGearArtifact, mode: SafeguardRuleCountMode): SafeguardCountKey => {
   // Keep key derivation in wasm so JS cannot drift from detection semantics.
   const normalizedMode = sanitizeCountMode(mode)
   // Slot drives faction normalization because non-accessories always use faction 0.
@@ -505,7 +504,7 @@ export const getKeepUniqueCountKey = (artifact: NormalizedGearArtifact, mode: Ke
   // Main stat is encoded as StatVariant number; missing maps to Any sentinel.
   const mainStat = Number(artifact.mainStat?.variant ?? StatVariantEnum.Any)
   // Delegate final key construction to wasm (single source of truth).
-  return getKeepUniqueCountKeyWithLoadedWasm({
+  return getSafeguardCountKeyWithLoadedWasm({
     slot,
     set: Number(artifact.set),
     faction,
@@ -528,7 +527,7 @@ const resolveArmorCompatibleSetIds = (): readonly ArtifactSetId[] => {
   return deduped
 }
 
-type KeepUniqueWasmExpectedGroupDomainPayload = {
+type SafeguardWasmExpectedGroupDomainPayload = {
   slotOrder: ArtifactTypeId[]
   accessoryCompatibleSetIds: ArtifactSetId[]
   armorCompatibleSetIds: ArtifactSetId[]
@@ -538,52 +537,52 @@ type KeepUniqueWasmExpectedGroupDomainPayload = {
 
 // Build a compact domain payload so wasm can enumerate expected scope groups
 // without duplicating TS-only catalogs or runtime set expansion logic.
-const buildKeepUniqueExpectedGroupDomain = (): KeepUniqueWasmExpectedGroupDomainPayload => {
+const buildSafeguardExpectedGroupDomain = (): SafeguardWasmExpectedGroupDomainPayload => {
   // Serialize slot->main map as plain arrays so wasm can normalize ordering.
   const allowedMainBySlot: Record<string, StatVariant[]> = {}
   for (const [slotKey, allowed] of Object.entries(ALLOWED_MAIN_BY_SLOT)) {
     allowedMainBySlot[String(slotKey)] = Array.from(allowed) as StatVariant[]
   }
   // Build a raw domain snapshot and let wasm apply canonical sorting/dedupe.
-  const rawDomain: KeepUniqueWasmExpectedGroupDomainPayload = {
+  const rawDomain: SafeguardWasmExpectedGroupDomainPayload = {
     slotOrder: PREFERRED_ARTIFACT_TYPE_ORDER.map((value) => Number(value) as ArtifactTypeId),
     accessoryCompatibleSetIds: getAccessorySlotsCompatibleSetIds().map((value) => Number(value) as ArtifactSetId),
     armorCompatibleSetIds: resolveArmorCompatibleSetIds().map((value) => Number(value) as ArtifactSetId),
     allowedMainBySlot,
     allFactionIds: ALL_FACTION_IDS.slice(),
   }
-  return normalizeKeepUniqueExpectedGroupDomainWithLoadedWasm(rawDomain)
+  return normalizeSafeguardExpectedGroupDomainWithLoadedWasm(rawDomain)
 }
 
-const isKeepUniqueDetectionSnapshot = (value: unknown): value is KeepUniqueDetectionSnapshot => (
+const isSafeguardDetectionSnapshot = (value: unknown): value is SafeguardDetectionSnapshot => (
   value != null
   && typeof value === 'object'
   && Array.isArray((value as { entries?: unknown }).entries)
 )
 
-export function collectKeepUniqueCandidates(params: {
+export function collectSafeguardCandidates(params: {
   rows: readonly TesterPreviewRow[]
   baseRules: readonly HsfRuleWithCfg[]
-  configModes: SellfileExportMode[]
-  ignoreKeepUniqueConfigIndices?: ReadonlySet<number>
-}): KeepUniqueCandidateSnapshot {
-  const { rows, baseRules, configModes } = params
-  // Allow keep-unique detection to skip configs that only protect rework fodder.
-  const ignoreConfigSet = params.ignoreKeepUniqueConfigIndices && params.ignoreKeepUniqueConfigIndices.size > 0
-    ? params.ignoreKeepUniqueConfigIndices
+  recipeModes: SellfileExportMode[]
+  ignoreSafeguardConfigIndices?: ReadonlySet<number>
+}): SafeguardCandidateSnapshot {
+  const { rows, baseRules, recipeModes } = params
+  // Allow safeguard detection to skip recipes that only protect rework fodder.
+  const ignoreConfigSet = params.ignoreSafeguardConfigIndices && params.ignoreSafeguardConfigIndices.size > 0
+    ? params.ignoreSafeguardConfigIndices
     : null
   if (!rows.length) return { candidates: [], uniqueItemKeys: new Set() }
   const baseRuleList: HsfRuleWithCfg[] = Array.isArray(baseRules) ? [...baseRules] : []
   // Pass raw preview rows and let wasm normalize fields for collection.
   // WASM-first candidate snapshot keeps assembly semantics in Rust.
   try {
-    const snapshot = collectKeepUniqueCandidatesWithLoadedWasm({
+    const snapshot = collectSafeguardCandidatesWithLoadedWasm({
       rows,
       rules: baseRuleList,
-      configModes,
-      ...(ignoreConfigSet ? { ignoreKeepUniqueConfigIndices: ignoreConfigSet } : {}),
+      recipeModes,
+      ...(ignoreConfigSet ? { ignoreSafeguardConfigIndices: ignoreConfigSet } : {}),
     })
-    const candidates: KeepUniqueCandidate[] = snapshot.candidates.map((entry) => {
+    const candidates: SafeguardCandidate[] = snapshot.candidates.map((entry) => {
       const row = rows[entry.rowIndex]!
       return {
         row,
@@ -597,18 +596,18 @@ export function collectKeepUniqueCandidates(params: {
     return { candidates, uniqueItemKeys }
   } catch (error) {
     // Keep the error actionable so callers know warmup/compat requirements.
-    throw new Error(`WASM keep-unique candidate collection is unavailable: ${String(error)}`)
+    throw new Error(`WASM safeguard candidate collection is unavailable: ${String(error)}`)
   }
 }
 
-// Combined keep-unique helper runs collect + detect in one wasm roundtrip.
+// Combined safeguard helper runs collect + detect in one wasm roundtrip.
 // Callers that need both outputs should prefer this over two separate calls.
-export function collectAndComputeKeepUniqueProtection(
-  params: KeepUniqueCollectAndDetectParams,
-): KeepUniqueCollectAndDetectSnapshot {
-  const { rows, baseRules, configModes, rules, enabled, now } = params
-  const ignoreConfigSet = params.ignoreKeepUniqueConfigIndices && params.ignoreKeepUniqueConfigIndices.size > 0
-    ? params.ignoreKeepUniqueConfigIndices
+export function collectAndComputeSafeguardProtection(
+  params: SafeguardCollectAndDetectParams,
+): SafeguardCollectAndDetectSnapshot {
+  const { rows, baseRules, recipeModes, rules, enabled, now } = params
+  const ignoreConfigSet = params.ignoreSafeguardConfigIndices && params.ignoreSafeguardConfigIndices.size > 0
+    ? params.ignoreSafeguardConfigIndices
     : null
   const timestamp = Number.isFinite(now) ? Number(now) : Date.now()
   if (!rows.length) {
@@ -619,18 +618,18 @@ export function collectAndComputeKeepUniqueProtection(
   }
   const baseRuleList: HsfRuleWithCfg[] = Array.isArray(baseRules) ? [...baseRules] : []
   // Pass raw rows/rules and let wasm normalize to its detection payload.
-  const combined = collectAndComputeKeepUniqueProtectionWithLoadedWasm({
+  const combined = collectAndComputeSafeguardProtectionWithLoadedWasm({
     rows,
     rules: baseRuleList,
-    configModes,
-    ...(ignoreConfigSet ? { ignoreKeepUniqueConfigIndices: ignoreConfigSet } : {}),
-    keepUniqueRules: rules,
-    expectedGroupDomain: buildKeepUniqueExpectedGroupDomain(),
+    recipeModes,
+    ...(ignoreConfigSet ? { ignoreSafeguardConfigIndices: ignoreConfigSet } : {}),
+    safeguardRules: rules,
+    expectedGroupDomain: buildSafeguardExpectedGroupDomain(),
     enabled,
     now: timestamp,
   })
   // Reattach UI row references on the TS side for compatibility.
-  const candidates: KeepUniqueCandidate[] = combined.candidates.map((entry) => {
+  const candidates: SafeguardCandidate[] = combined.candidates.map((entry) => {
     const row = rows[entry.rowIndex]!
     return {
       row,
@@ -641,8 +640,8 @@ export function collectAndComputeKeepUniqueProtection(
     }
   })
   const uniqueItemKeys = new Set<number>(combined.uniqueItemKeys.map((value) => Number(value)))
-  if (!isKeepUniqueDetectionSnapshot(combined.detection)) {
-    throw new Error('WASM keep-unique combined pipeline returned an invalid detection payload.')
+  if (!isSafeguardDetectionSnapshot(combined.detection)) {
+    throw new Error('WASM safeguard combined pipeline returned an invalid detection payload.')
   }
   return {
     candidates: { candidates, uniqueItemKeys },
@@ -650,54 +649,54 @@ export function collectAndComputeKeepUniqueProtection(
   }
 }
 
-/** Compute Keep Unique combination coverage against the candidate sold rows. */
-/** Compute Keep Unique combination coverage against the candidate sold rows. */
-export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): KeepUniqueDetectionSnapshot {
+/** Compute Safeguard combination coverage against the candidate sold rows. */
+/** Compute Safeguard combination coverage against the candidate sold rows. */
+export function computeSafeguardProtection(params: SafeguardDetectionParams): SafeguardDetectionSnapshot {
   const { candidates, rules, enabled, now } = params
   const timestamp = Number.isFinite(now) ? Number(now) : Date.now()
   // Wasm derives expected groups from the shared domain payload (SSOT path).
-  const wasmSnapshot = computeKeepUniqueProtectionWithLoadedWasm({
+  const wasmSnapshot = computeSafeguardProtectionWithLoadedWasm({
     candidates,
     rules,
-    expectedGroupDomain: buildKeepUniqueExpectedGroupDomain(),
+    expectedGroupDomain: buildSafeguardExpectedGroupDomain(),
     enabled,
     now: timestamp,
   })
-  if (isKeepUniqueDetectionSnapshot(wasmSnapshot)) {
+  if (isSafeguardDetectionSnapshot(wasmSnapshot)) {
     return wasmSnapshot
   }
-  throw new Error('WASM keep-unique detection returned an invalid payload.')
+  throw new Error('WASM safeguard detection returned an invalid payload.')
 }
 
-export function resolveKeepUniqueRulesWithMetasets<T extends { combination: KeepUniqueCombination }>(
+export function resolveSafeguardRulesWithMetasets<T extends { combination: SafeguardCombination }>(
   rules: readonly T[],
   metasets: readonly Metaset[],
 ): T[] {
   // Delegate metaset expansion to wasm so include/exclude precedence is SSOT.
-  return resolveKeepUniqueRulesWithMetasetsWithLoadedWasm(rules, metasets)
+  return resolveSafeguardRulesWithMetasetsWithLoadedWasm(rules, metasets)
 }
 
-type KeepUniqueLabelSource = KeepUniqueRule | HsfRuleWithCfg | null | undefined
+type SafeguardLabelSource = SafeguardRule | HsfRuleWithCfg | null | undefined
 
 /**
- * Resolve the label to display for a Keep Unique rule or injected row.
+ * Resolve the label to display for a Safeguard rule or injected row.
  * Prefers trimmed rule names, then falls back to a `#id` sentinel when blank.
  */
-export function resolveKeepUniqueRuleLabel(source: KeepUniqueLabelSource): string | null {
+export function resolveSafeguardRuleLabel(source: SafeguardLabelSource): string | null {
   if (!source) return null
-  const rawName = 'name' in source ? source.name : source.ConfigName
-  const normalizedName = normalizeConfigName(rawName ?? null)
+  const rawName = 'name' in source ? source.name : source.RecipeName
+  const normalizedName = normalizeRecipeName(rawName ?? null)
   if (normalizedName) return normalizedName
   const ordinal = ((): number | null => {
     if (typeof source !== 'object' || source === null) return null
-    if ('__keepUniqueRuleOrdinal' in source) {
-      const value = Number((source as { __keepUniqueRuleOrdinal?: number }).__keepUniqueRuleOrdinal)
+    if ('__safeguardRuleOrdinal' in source) {
+      const value = Number((source as { __safeguardRuleOrdinal?: number }).__safeguardRuleOrdinal)
       if (Number.isFinite(value) && value > 0) return value
     }
     return null
   })()
   if (ordinal) return `#${ordinal}`
-  const fallbackId = 'name' in source ? source.id : source.__keepUniqueRuleId
+  const fallbackId = 'name' in source ? source.id : source.__safeguardRuleId
   if (typeof fallbackId === 'string') {
     const trimmed = fallbackId.trim()
     if (trimmed.length > 0) return `#${trimmed}`

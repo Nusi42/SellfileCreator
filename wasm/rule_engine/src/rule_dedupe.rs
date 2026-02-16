@@ -136,18 +136,18 @@ pub fn fingerprint_merged_rules_value(rules: JsValue) -> Result<JsValue, JsValue
     }
     let mut hash: i32 = 0;
     for (idx, rule) in parsed.iter().enumerate() {
-        let cfg_idx = rule
-            .ConfigID
+        let recipe_idx = rule
+            .RecipeID
             .and_then(|cfg_id| if cfg_id > 0 { Some(cfg_id - 1) } else { None });
         let parts = [
             idx.to_string(),
             rule.source.clone().unwrap_or_default(),
-            cfg_idx.map(|value| value.to_string()).unwrap_or_else(|| "none".to_string()),
-            rule.keep_unique_rule_id.clone().unwrap_or_default(),
-            rule.keep_unique_hash.clone().unwrap_or_default(),
-            optional_i64_to_js_string(rule.keep_unique_required),
-            optional_i64_to_js_string(rule.keep_unique_projected),
-            optional_i64_to_js_string(rule.keep_unique_deficit),
+            recipe_idx.map(|value| value.to_string()).unwrap_or_else(|| "none".to_string()),
+            rule.safeguard_rule_id.clone().unwrap_or_default(),
+            rule.safeguard_hash.clone().unwrap_or_default(),
+            optional_i64_to_js_string(rule.safeguard_required),
+            optional_i64_to_js_string(rule.safeguard_projected),
+            optional_i64_to_js_string(rule.safeguard_deficit),
             canonical_rule_key_core(rule),
         ];
         let joined = parts.join("|");
@@ -604,7 +604,7 @@ fn export_dedupe_condition_order(value: ExportDedupeCondition) -> i32 {
 
 // Set normalization keeps empty selections as wildcards (`None`) like TS.
 fn normalize_sets_for_export_dedupe(rule: &RuleRaw) -> Option<Vec<i64>> {
-    // Reuse crate-level integer normalization so dedupe and keep-unique share one rule.
+    // Reuse crate-level integer normalization so dedupe and safeguard share one rule.
     let normalized = normalize_i64_array(rule.ArtifactSet.as_ref());
     if normalized.is_empty() {
         None

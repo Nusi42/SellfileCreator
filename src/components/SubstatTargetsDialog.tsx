@@ -39,7 +39,7 @@ export default function SubstatTargetsDialog({
   effectiveSubstatTargets,
   onSubstatTargetsChange,
   substatColors,
-  configOptionsOverridesActive,
+  recipeOverridesActive,
 }: {
   open: boolean
   onClose: () => void
@@ -47,7 +47,7 @@ export default function SubstatTargetsDialog({
   effectiveSubstatTargets: SubstatTargetTable
   onSubstatTargetsChange: (m: SubstatTargetTable, opts?: { mode?: 'edit' | 'reset' | 'import' }) => void
   substatColors: SubstatColorMap
-  configOptionsOverridesActive: boolean
+  recipeOverridesActive: boolean
 }) {
   const { t } = useI18n()
   const theme = useTheme()
@@ -60,12 +60,12 @@ export default function SubstatTargetsDialog({
   const fallbackStar: Star = storedFallback ?? 6
   const fallbackChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
   const substatTargetsHelp = t('msgSubstatTargetsHelp')
-  const configOptionsOverrideHint = t('substatTargetsConfigOptionsOverrideHint')
+  const recipeOverridesOverrideHint = t('substatTargetsRecipeOverridesOverrideHint')
   const substatTargetsHelpParagraphs = useMemo(() => substatTargetsHelp.split('\n\n'), [substatTargetsHelp])
-  const resolvedEffectiveSubstatTargets = configOptionsOverridesActive ? effectiveSubstatTargets : substatTargets
+  const resolvedEffectiveSubstatTargets = recipeOverridesActive ? effectiveSubstatTargets : substatTargets
   const storedFallbackValue = (substatTargets.anyRankDefaultsTo ?? 6) as Star
   const effectiveFallbackValue = (resolvedEffectiveSubstatTargets.anyRankDefaultsTo ?? 6) as Star
-  const anyRankOverrideActive = configOptionsOverridesActive && storedFallbackValue !== effectiveFallbackValue
+  const anyRankOverrideActive = recipeOverridesActive && storedFallbackValue !== effectiveFallbackValue
   const substatTargetsStarColumns = useMemo(() => ([
     { key: 'six' as SubstatTargetStarKey, label: t('star6'), star: 6 as Star },
     { key: 'five' as SubstatTargetStarKey, label: t('star5'), star: 5 as Star },
@@ -127,7 +127,7 @@ export default function SubstatTargetsDialog({
     // expectations and keep keyboard/spinner edits in sync.
     const currentValue = Number(substatTargets[starKey]?.[variantKey] ?? 0)
     const effectiveValue = Number(resolvedEffectiveSubstatTargets[starKey]?.[variantKey] ?? 0)
-    const valueOverrideActive = configOptionsOverridesActive && effectiveValue !== currentValue
+    const valueOverrideActive = recipeOverridesActive && effectiveValue !== currentValue
     const ariaLabel = `${statLabel} ${starLabel}`
     const clampValue = (raw: number): number => {
       if (!Number.isFinite(raw)) return 0
@@ -189,7 +189,7 @@ export default function SubstatTargetsDialog({
           endAdornment: (
             <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
               {valueOverrideActive
-                ? renderOverrideBadge(configOptionsOverrideHint, configOptionsOverrideHint)
+                ? renderOverrideBadge(recipeOverridesOverrideHint, recipeOverridesOverrideHint)
                 : null}
               <NumberSpinnerAdornment
                 ariaLabel={ariaLabel}

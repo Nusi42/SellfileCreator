@@ -18,9 +18,9 @@ import {
   rollLevelsForRarityCode,
   rarityIncludesMythical,
   resolveAutoRarityCode,
-  type BuilderConfig,
+  type BuilderRecipe,
 } from '../../lib/hsfBuilder'
-import { deriveRollBaselineMode } from '../../lib/configNormalization'
+import { deriveRollBaselineMode } from '../../lib/recipeNormalization'
 import { LEVEL_MILESTONES, type LevelMilestone } from '../../lib/types'
 
 export const LOCK_TOGGLE_HIT_SIZE_PX = ROLL_BADGE_SIZE_PX + (ROLL_BADGE_HOVER_GUTTER_PX * 2)
@@ -40,12 +40,12 @@ export const normalizeLevelMilestone = (value: number | null | undefined): Level
 }
 
 // Shared roll-budget helper so substat target fallbacks stay consistent.
-export const computeRollBudgetForConfig = (config: BuilderConfig): number => {
-  const rarityCode = (config.rarityMode === 'auto') ? resolveAutoRarityCode(config) : config.rarityCode
+export const computeRollBudgetForRecipe = (recipe: BuilderRecipe): number => {
+  const rarityCode = (recipe.rarityMode === 'auto') ? resolveAutoRarityCode(recipe) : recipe.rarityCode
   const rollLevels = Array.from(rollLevelsForRarityCode(rarityCode)).sort((a, b) => a - b)
-  const baselineMode = deriveRollBaselineMode(config)
-  const minLevel = normalizeLevelMilestone(config.minLevel)
-  const maxLevel = normalizeLevelMilestone(config.maxLevel)
+  const baselineMode = deriveRollBaselineMode(recipe)
+  const minLevel = normalizeLevelMilestone(recipe.minLevel)
+  const maxLevel = normalizeLevelMilestone(recipe.maxLevel)
   const windowMin = Math.min(minLevel, maxLevel)
   const windowMax = Math.max(minLevel, maxLevel)
   const preRolls = rarityIncludesMythical(rarityCode) ? 1 : 0
@@ -102,4 +102,4 @@ export const LOCK_MENU_OFFSET_PX = (SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX - LOCK_MEN
 export const LOCK_MENU_BORDER_RADIUS_PX = 3
 export const ROLL_ANY_STAR = '★' as const
 
-export const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
+export const MAX_RECIPE_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
