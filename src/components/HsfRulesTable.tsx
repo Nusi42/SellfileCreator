@@ -45,6 +45,9 @@ import { getRuleRecipeIndex } from '../lib/ruleRecipeIndex'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { resolveDisabledOpacity } from './disabledOpacity'
 
+// Keep the shared merge export stable while using recipe-first naming in this component.
+type HsfRuleWithRecipe = HsfRuleWithCfg
+
 // Preview rows stay at their fixed height (≈30px). Keep the inline faction icon
 // slightly smaller than the default select size so the row metrics remain
 // unchanged when toggling the "Factions as icons" option.
@@ -56,13 +59,13 @@ const FACTION_ICON_PREVIEW_OFFSET_PX = 0 as const
 const SINGLE_LINE_PREVIEW_OFFSET_PX = 3 as const
 // Builder recipes map rows via RecipeID (1-based). Base rules, safeguard injections, and other
 // recipe-less rows omit RecipeID, so they should not participate in recipe selection math.
-const resolveDisplayRecipeIdx = (rule: HsfRuleWithCfg | null | undefined): number | null => {
+const resolveDisplayRecipeIdx = (rule: HsfRuleWithRecipe | null | undefined): number | null => {
   const idx = getRuleRecipeIndex(rule ?? null)
   return idx !== null && idx >= 0 ? idx : null
 }
 
 export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onRecipeAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   setHoveredRecipeIdx: (idx: number | null) => void
   selectedRecipeIdx: number | null
   multiselectActive: boolean
@@ -141,14 +144,14 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
 
   // Render helpers cache derived strings/arrays per rule so repeated renders
   // (e.g. while scrolling or filtering) do not redo the expensive formatting work.
-  const sortedArtifactTypesCacheRef = useRef<WeakMap<HsfRuleWithCfg, readonly number[]>>(new WeakMap())
-  const sortedArtifactSetsCacheRef = useRef<WeakMap<HsfRuleWithCfg, readonly number[]>>(new WeakMap())
-  const substatSummaryCacheRef = useRef<WeakMap<HsfRuleWithCfg, { withButtons?: string; plain?: string; source: HsfRule['Substats'] | undefined }>>(new WeakMap())
-  const substatDetailsCacheRef = useRef<WeakMap<HsfRuleWithCfg, { normalized: readonly RuleSubstatDetail[]; source: HsfRule['Substats'] | undefined }>>(new WeakMap())
-  const artifactTypeLabelCacheRef = useRef<WeakMap<HsfRuleWithCfg, string>>(new WeakMap())
-  const artifactSetLabelCacheRef = useRef<WeakMap<HsfRuleWithCfg, string>>(new WeakMap())
-  const rankRarityLabelCacheRef = useRef<WeakMap<HsfRuleWithCfg, string>>(new WeakMap())
-  const factionLabelCacheRef = useRef<WeakMap<HsfRuleWithCfg, string>>(new WeakMap())
+  const sortedArtifactTypesCacheRef = useRef<WeakMap<HsfRuleWithRecipe, readonly number[]>>(new WeakMap())
+  const sortedArtifactSetsCacheRef = useRef<WeakMap<HsfRuleWithRecipe, readonly number[]>>(new WeakMap())
+  const substatSummaryCacheRef = useRef<WeakMap<HsfRuleWithRecipe, { withButtons?: string; plain?: string; source: HsfRule['Substats'] | undefined }>>(new WeakMap())
+  const substatDetailsCacheRef = useRef<WeakMap<HsfRuleWithRecipe, { normalized: readonly RuleSubstatDetail[]; source: HsfRule['Substats'] | undefined }>>(new WeakMap())
+  const artifactTypeLabelCacheRef = useRef<WeakMap<HsfRuleWithRecipe, string>>(new WeakMap())
+  const artifactSetLabelCacheRef = useRef<WeakMap<HsfRuleWithRecipe, string>>(new WeakMap())
+  const rankRarityLabelCacheRef = useRef<WeakMap<HsfRuleWithRecipe, string>>(new WeakMap())
+  const factionLabelCacheRef = useRef<WeakMap<HsfRuleWithRecipe, string>>(new WeakMap())
 
   useEffect(() => {
     artifactTypeLabelCacheRef.current = new WeakMap()
@@ -158,7 +161,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     substatSummaryCacheRef.current = new WeakMap()
   }, [t])
 
-  const getSubstatDetails = useCallback((rule: HsfRuleWithCfg): readonly RuleSubstatDetail[] => {
+  const getSubstatDetails = useCallback((rule: HsfRuleWithRecipe): readonly RuleSubstatDetail[] => {
     const cache = substatDetailsCacheRef.current
     const source = rule.Substats
     const existing = cache.get(rule)
@@ -168,7 +171,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     return normalized
   }, [])
 
-  const getSortedArtifactTypes = useCallback((rule: HsfRuleWithCfg): readonly number[] => {
+  const getSortedArtifactTypes = useCallback((rule: HsfRuleWithRecipe): readonly number[] => {
     let cached = sortedArtifactTypesCacheRef.current.get(rule)
     if (!cached) {
       const raw = Array.isArray(rule.ArtifactType) ? [...rule.ArtifactType] : []
@@ -179,7 +182,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     return cached
   }, [])
 
-  const getSortedArtifactSets = useCallback((rule: HsfRuleWithCfg): readonly number[] => {
+  const getSortedArtifactSets = useCallback((rule: HsfRuleWithRecipe): readonly number[] => {
     let cached = sortedArtifactSetsCacheRef.current.get(rule)
     if (!cached) {
       const raw = Array.isArray(rule.ArtifactSet) ? [...rule.ArtifactSet] : []
@@ -190,7 +193,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     return cached
   }, [])
 
-  const getSubstatSummary = useCallback((rule: HsfRuleWithCfg): string => {
+  const getSubstatSummary = useCallback((rule: HsfRuleWithRecipe): string => {
     let entry = substatSummaryCacheRef.current.get(rule)
     if (!entry) {
       entry = { source: rule.Substats }
@@ -213,7 +216,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     return entry.plain ?? ''
   }, [statButtonBorders, t, getSubstatDetails])
 
-  const getSubstatTooltipSummary = useCallback((rule: HsfRuleWithCfg): string => {
+  const getSubstatTooltipSummary = useCallback((rule: HsfRuleWithRecipe): string => {
     let entry = substatSummaryCacheRef.current.get(rule)
     if (!entry) {
       entry = { source: rule.Substats }
@@ -230,7 +233,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     return entry.withButtons ?? ''
   }, [t, getSubstatDetails])
 
-  const getArtifactTypeLabel = useCallback((rule: HsfRuleWithCfg): string => {
+  const getArtifactTypeLabel = useCallback((rule: HsfRuleWithRecipe): string => {
     let cached = artifactTypeLabelCacheRef.current.get(rule)
     if (cached === undefined) {
       const ids = getSortedArtifactTypes(rule)
@@ -240,7 +243,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     return cached
   }, [getSortedArtifactTypes, t])
 
-  const getArtifactSetLabel = useCallback((rule: HsfRuleWithCfg): string => {
+  const getArtifactSetLabel = useCallback((rule: HsfRuleWithRecipe): string => {
     if (rule.__allKnownSets) return t('setAllKnownShorthand')
     let cached = artifactSetLabelCacheRef.current.get(rule)
     if (cached === undefined) {
@@ -251,7 +254,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     return cached
   }, [getSortedArtifactSets, lang, t])
 
-  const getRankRarityLabel = useCallback((rule: HsfRuleWithCfg): string => {
+  const getRankRarityLabel = useCallback((rule: HsfRuleWithRecipe): string => {
     let cached = rankRarityLabelCacheRef.current.get(rule)
     if (cached === undefined) {
       const rank = formatRank(rule.Rank)
@@ -283,7 +286,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     return cached
   }, [t])
 
-  const getFactionLabel = useCallback((rule: HsfRuleWithCfg): string => {
+  const getFactionLabel = useCallback((rule: HsfRuleWithRecipe): string => {
     let cached = factionLabelCacheRef.current.get(rule)
     if (cached === undefined) {
       const fc = Number(rule.Faction)
@@ -293,13 +296,13 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     return cached
   }, [t])
 
-  type ConfigRuleSpan = { first: number; last: number; count: number }
-  const configRuleSpanMap = useMemo<Map<number, ConfigRuleSpan>>(() => {
-    const spans = new Map<number, ConfigRuleSpan>()
+  type RecipeRuleSpan = { first: number; last: number; count: number }
+  const recipeRuleSpanMap = useMemo<Map<number, RecipeRuleSpan>>(() => {
+    const spans = new Map<number, RecipeRuleSpan>()
     for (let i = 0; i < rules.length; i += 1) {
-      const rule = rules[i] as HsfRuleWithCfg | undefined
+      const rule = rules[i] as HsfRuleWithRecipe | undefined
       if (!rule) continue
-      const recipeIdx = resolveDisplayRecipeIdx(rule as HsfRuleWithCfg)
+      const recipeIdx = resolveDisplayRecipeIdx(rule as HsfRuleWithRecipe)
       if (recipeIdx === null) continue
       const existing = spans.get(recipeIdx)
       if (existing) {
@@ -312,14 +315,14 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     return spans
   }, [rules])
 
-  const getConfigSpan = useCallback((recipeIdx: number): ConfigRuleSpan | null => {
-    return configRuleSpanMap.get(recipeIdx) ?? null
-  }, [configRuleSpanMap])
+  const getRecipeSpan = useCallback((recipeIdx: number): RecipeRuleSpan | null => {
+    return recipeRuleSpanMap.get(recipeIdx) ?? null
+  }, [recipeRuleSpanMap])
 
   // Gate hover highlighting to the table area only
   const [isHoveringArea, setIsHoveringArea] = useState(false)
   // DOM-based hover highlight to avoid re-rendering rows during hover.
-  const lastDomHoverCfgRef = useRef<number | null>(null)
+  const lastDomHoverRecipeRef = useRef<number | null>(null)
   const hoveredRowElsRef = useRef<HTMLElement[] | null>(null)
   const lastPropagatedHoverRef = useRef<number | null>(null)
   const hoverThrottleTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
@@ -327,26 +330,26 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
   const pendingLocalHoverRef = useRef<number | null>(null)
   const pendingHoverTargetRef = useRef<number | null>(null)
   const selectedRowElsRef = useRef<HTMLElement[] | null>(null)
-  const lastSelectedCfgRef = useRef<number | null>(null)
+  const lastSelectedRecipeRef = useRef<number | null>(null)
   const applyDomSelection = useCallback((recipeIdx: number | null) => {
     const container = tableContainerRef.current
     if (!container) {
-      lastSelectedCfgRef.current = recipeIdx
+      lastSelectedRecipeRef.current = recipeIdx
       return
     }
     if (selectedRowElsRef.current) {
       for (const el of selectedRowElsRef.current) {
-        try { el.removeAttribute('data-selected-cfg') } catch {}
+        try { el.removeAttribute('data-selected-recipe') } catch {}
       }
       selectedRowElsRef.current = null
     }
-    lastSelectedCfgRef.current = recipeIdx
+    lastSelectedRecipeRef.current = recipeIdx
     if (recipeIdx === null || recipeIdx === undefined) return
     const list = Array.from(container.querySelectorAll(`tr[data-recipe-idx="${recipeIdx}"]`)) as HTMLElement[]
     if (!list.length) return
     selectedRowElsRef.current = list
     for (const el of list) {
-      try { el.setAttribute('data-selected-cfg', 'true') } catch {}
+      try { el.setAttribute('data-selected-recipe', 'true') } catch {}
     }
   }, [])
   const scheduleHoverPropagation = (next: number | null) => {
@@ -386,15 +389,15 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     const container = tableContainerRef.current
     if (!container) return
     if (hoveredRowElsRef.current) {
-      for (const el of hoveredRowElsRef.current) { try { el.classList.remove('cfg-hover') } catch {} }
+      for (const el of hoveredRowElsRef.current) { try { el.classList.remove('recipe-hover') } catch {} }
       hoveredRowElsRef.current = null
     }
-    lastDomHoverCfgRef.current = recipeIdx
+    lastDomHoverRecipeRef.current = recipeIdx
     if (recipeIdx === null || recipeIdx === undefined) {
       return
     }
     const list = Array.from(container.querySelectorAll(`tr[data-recipe-idx="${recipeIdx}"]`)) as HTMLElement[]
-    for (const el of list) { try { el.classList.add('cfg-hover') } catch {} }
+    for (const el of list) { try { el.classList.add('recipe-hover') } catch {} }
     hoveredRowElsRef.current = list
   }
   const scheduleLocalHover = (next: number | null) => {
@@ -407,7 +410,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     hoverRafIdRef.current = requestAnimationFrame(() => {
       hoverRafIdRef.current = null
       const target = pendingLocalHoverRef.current ?? null
-      if (target !== lastDomHoverCfgRef.current) applyDomHover(target)
+      if (target !== lastDomHoverRecipeRef.current) applyDomHover(target)
       scheduleHoverPropagation(target)
     })
   }
@@ -429,11 +432,11 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
   useEffect(() => {
     // Virtualization swaps row elements as the user scrolls; reapply the hover class so
     // newly mounted rows for the active recipe keep their highlight without extra renders.
-    const hovered = lastDomHoverCfgRef.current
+    const hovered = lastDomHoverRecipeRef.current
     if (hovered !== null && hovered !== undefined) {
       applyDomHover(hovered)
     }
-    applyDomSelection(lastSelectedCfgRef.current ?? null)
+    applyDomSelection(lastSelectedRecipeRef.current ?? null)
   })
 
   // Context menus
@@ -661,14 +664,14 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     if (suppressNextScrollRef.current) { suppressNextScrollRef.current = false; return }
     // Map the selected recipe to its contiguous range of preview rows.
     // Why: a recipe can generate multiple rules (or none), and the preview must jump to the correct block.
-    const span = getConfigSpan(effectiveRecipeIdx as number)
+    const span = getRecipeSpan(effectiveRecipeIdx as number)
     if (!span) return
     // Always anchor to the first rule row.
     // Why: this is deterministic and avoids any extra "correction" scrolling logic.
     scrollRuleIndexToTop(span.first)
   }, [
     focusRuleIndex,
-    getConfigSpan,
+    getRecipeSpan,
     multiselectActive,
     scrollRuleIndexToTop,
     selectedRecipeIdx,
@@ -719,8 +722,10 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
 
   type ColKey = keyof HsfRule | 'Idx' | 'RecipeIdx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'MainStatName' | 'LevelLabel' | 'RankRarity'
   type ColMode = 'auto' | 'show' | 'hide'
-  type ColCfg = { key: ColKey; label: string; width: number; visible: boolean; mode?: ColMode }
+  type ColConfig = { key: ColKey; label: string; width: number; visible: boolean; mode?: ColMode }
   const colLabel = (key: ColKey): string => (
+    // Keep the legacy i18n key until the catalog-wide key migration lands.
+    // The displayed fallback label/default column label is recipe-first in this component.
     key === 'Idx' ? t('colIdx') :
     key === 'RecipeIdx' ? t('colCfg') :
     key === 'Keep' ? t('colKeep') :
@@ -733,9 +738,9 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     key === 'Faction' ? t('colFaction') :
     key === 'SubstatsSummary' ? t('colSub') : String(key)
   )
-  const defaultCols = useMemo<ColCfg[]>(() => ([
+  const defaultCols = useMemo<ColConfig[]>(() => ([
     { key: 'Idx', label: 'Idx', width: 72, visible: true },
-    { key: 'RecipeIdx', label: 'Cfg', width: 56, visible: true },
+    { key: 'RecipeIdx', label: 'Recipe', width: 56, visible: true },
     { key: 'Keep', label: 'Keep', width: 61, visible: false },
     { key: 'Use', label: 'Use', width: 50, visible: false },
     { key: 'ArtifactSetNames', label: 'Sets', width: 170, visible: true },
@@ -749,10 +754,10 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
   ]), [])
   const [storedCols, setStoredCols] = useRulesTableColumnsPreference()
 
-  const restoreColumns = useCallback((prefs: StoredColumnConfig[]): ColCfg[] => {
-    const map = new Map<string, ColCfg>()
+  const restoreColumns = useCallback((prefs: StoredColumnConfig[]): ColConfig[] => {
+    const map = new Map<string, ColConfig>()
     for (const d of defaultCols) map.set(String(d.key), d)
-    const restored: ColCfg[] = []
+    const restored: ColConfig[] = []
     for (const pref of prefs) {
       const key = pref.key as ColKey | undefined
       const base = key ? map.get(String(key)) : undefined
@@ -760,7 +765,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
       const width = Number(pref.width ?? base.width) || base.width
       const visible = typeof pref.visible === 'boolean' ? pref.visible : base.visible
       const modeMaybe = pref.mode === 'auto' || pref.mode === 'show' || pref.mode === 'hide' ? pref.mode : base.mode
-      const next: ColCfg = { ...base, width, visible, ...(modeMaybe !== undefined ? { mode: modeMaybe } : {}) }
+      const next: ColConfig = { ...base, width, visible, ...(modeMaybe !== undefined ? { mode: modeMaybe } : {}) }
       restored.push(next)
     }
     for (const d of defaultCols) if (!restored.find(x => x.key === d.key)) restored.push(d)
@@ -773,7 +778,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     return restored
   }, [defaultCols])
 
-  const columnsEqual = useCallback((a: ColCfg[], b: ColCfg[]) => {
+  const columnsEqual = useCallback((a: ColConfig[], b: ColConfig[]) => {
     if (a.length !== b.length) return false
     for (let i = 0; i < a.length; i++) {
       const left = a[i]!
@@ -786,7 +791,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     return true
   }, [])
 
-  const toStoredColumns = useCallback((colsInput: ColCfg[]): StoredColumnConfig[] => (
+  const toStoredColumns = useCallback((colsInput: ColConfig[]): StoredColumnConfig[] => (
     colsInput.map(({ key, label, width, visible, mode }) => ({
       key: String(key),
       label,
@@ -798,7 +803,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
 
   const cols = useMemo(() => restoreColumns(storedCols), [restoreColumns, storedCols])
 
-  const updateColumns = useCallback((updater: (prev: ColCfg[]) => ColCfg[]) => {
+  const updateColumns = useCallback((updater: (prev: ColConfig[]) => ColConfig[]) => {
     setStoredCols((prevPrefs) => {
       const prevCols = restoreColumns(prevPrefs)
       const nextCols = updater(prevCols)
@@ -815,7 +820,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
   // has a non-zero faction filter. Previously this only reacted to HSFC-built rows
   // (those carrying RecipeID), which hid the column for loaded HSF files.
   const anyWithFaction = useMemo(() => rules.some((r) => r && typeof r.Faction === 'number' && (r.Faction as number) !== 0), [rules])
-  const isColVisible = React.useCallback((c: ColCfg) => {
+  const isColVisible = React.useCallback((c: ColConfig) => {
     if (c.key === 'Faction') {
       const m = c.mode ?? 'auto'
       if (m === 'show') return true
@@ -903,8 +908,8 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
             // Isolate layout/paint of the scroller to avoid causing app-level scrollbars during rapid scroll
             contain: 'layout paint',
             // CSS-only hover highlight class for hovered recipe rows (added imperatively)
-            '& tr.cfg-hover[data-selected-cfg="true"]': { backgroundColor: selectedHoverBg },
-            '& tr.cfg-hover:not([data-selected-cfg="true"])': { backgroundColor: hoverBg },
+            '& tr.recipe-hover[data-selected-recipe="true"]': { backgroundColor: selectedHoverBg },
+            '& tr.recipe-hover:not([data-selected-recipe="true"])': { backgroundColor: hoverBg },
             maxHeight: 960,
             '@media (min-width:2320px)': {
               flex: 1,
@@ -1049,9 +1054,9 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
                   )}
 	                  {virtualItems.map((virtualItem) => {
 	                    const idx = virtualItem.index
-	                    const rule = rules[idx] as HsfRuleWithCfg | undefined
+	                    const rule = rules[idx] as HsfRuleWithRecipe | undefined
 	                    if (!rule) return null
-                    const recipeIdxNumber = resolveDisplayRecipeIdx(rule as HsfRuleWithCfg)
+                    const recipeIdxNumber = resolveDisplayRecipeIdx(rule as HsfRuleWithRecipe)
                     const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : idx
                     // Normalize rule source so keep-override injections can be recognized reliably.
                     const resolvedSource: RuleSource = (() => {
@@ -1125,7 +1130,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
                         }}
 		                        sx={(theme) => ({
 		                          // Fixed-height styling is applied at the `<Table>` level so spacer rows can keep variable heights.
-		                          '&[data-selected-cfg="true"]': {
+		                          '&[data-selected-recipe="true"]': {
 		                            backgroundColor: theme.palette.action.selected,
 		                          },
 		                        })}
@@ -1133,7 +1138,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
                       {visibleCols.map((c) => {
                         let value: string = ''
                         let factionLabel: string | null = null
-                        let cfgSpecialContent: React.ReactNode | null = null
+                        let recipeSpecialContent: React.ReactNode | null = null
                         if (c.key === 'SubstatsSummary') value = getSubstatSummary(rule)
                         else if (c.key === 'RecipeIdx') {
                           if (recipeIdxNumber !== null) {
@@ -1142,7 +1147,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
                             // Keep-override injections display a hollow star and surface the originating rule name for attribution.
                             // Fall back to the tab label if rule naming is missing.
                             const keepOverrideLabel = resolveSafeguardRuleLabel(rule) ?? t('safeguardsTabLabel')
-                            cfgSpecialContent = (
+                            recipeSpecialContent = (
                               <MarkdownTooltip markdown={keepOverrideLabel}>
                                 <Box
                                   component="span"
@@ -1200,8 +1205,8 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
                             />
                           )
                           : (value || '')
-                        if (c.key === 'RecipeIdx' && cfgSpecialContent) {
-                          content = cfgSpecialContent
+                        if (c.key === 'RecipeIdx' && recipeSpecialContent) {
+                          content = recipeSpecialContent
                         }
                         // Replace textual slots with icons when enabled
                         if (c.key === 'ArtifactTypeNames' && showSlotIcons) {
