@@ -623,7 +623,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           // Provide a base match so detection can respect existing keep/sell results.
           baseMatch: toPreviewMatch(match?.firstNonExcludedMatch ?? match?.firstMatch ?? null, mergedRulesBaseline),
           // Carry baseline recipe index sets to keep candidate math stable.
-          matchingCfgIndices: match?.matchingRecipeIndices ?? [],
+          matchingRecipeIndices: match?.matchingRecipeIndices ?? [],
           // Carry baseline recipe decisions for safeguard precedence checks.
           matchingRecipeDecisions: match?.matchingRecipeDecisions ?? [],
         }

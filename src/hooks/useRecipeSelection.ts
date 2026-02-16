@@ -31,7 +31,7 @@ import { buildInsertionLocation, snapshotRecipeLabel } from '../history/historyL
 import { collectChangedFields } from '../history/builderUpdateDescriptor'
 import { setRecipeHoverIndex } from '../lib/recipeHoverBridge'
 
-type UseConfigSelectionParams = {
+type UseRecipeSelectionParams = {
   customRecipes: BuilderRecipe[]
   setCustomRecipes: Dispatch<SetStateAction<BuilderRecipe[]>>
   selectedRecipeIdx: number | null
@@ -46,9 +46,9 @@ type UseConfigSelectionParams = {
   visibleRecipeIndicesRef: MutableRefObject<ReadonlySet<number> | null>
 }
 
-export type UseConfigSelectionResult = {
+export type UseRecipeSelectionResult = {
   selectedRecipeIndices: number[]
-  setSelectedCfgIndices: (next: number[]) => void
+  setSelectedRecipeIndices: (next: number[]) => void
   multiselectActive: boolean
   selectionAnchor: number | null
   prepareDragSelection: (idx: number) => number[]
@@ -122,8 +122,8 @@ export function useRecipeSelection({
   describeNextChange,
   suppressSelectionDraft,
   visibleRecipeIndicesRef,
-}: UseConfigSelectionParams): UseConfigSelectionResult {
-  const [selectedRecipeIndices, setSelectedCfgIndicesState] = useState<number[]>([])
+}: UseRecipeSelectionParams): UseRecipeSelectionResult {
+  const [selectedRecipeIndices, setSelectedRecipeIndicesState] = useState<number[]>([])
   const selectionAnchorRef = useRef<number | null>(null)
   const [selectionAnchor, setSelectionAnchorState] = useState<number | null>(null)
   const selectedIndicesRef = useRef<number[]>([])
@@ -169,7 +169,7 @@ export function useRecipeSelection({
     }
     // Keep refs in sync before we trigger a re-render.
     selectedIndicesRef.current = normalized
-    setSelectedCfgIndicesState(normalized)
+    setSelectedRecipeIndicesState(normalized)
   }, [onWillChangeSelection])
 
   useEffect(() => {
@@ -858,7 +858,7 @@ export function useRecipeSelection({
 
   return {
     selectedRecipeIndices,
-    setSelectedCfgIndices: applySelection,
+    setSelectedRecipeIndices: applySelection,
     multiselectActive,
     selectionAnchor,
     prepareDragSelection,

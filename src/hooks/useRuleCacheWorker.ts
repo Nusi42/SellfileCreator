@@ -379,7 +379,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           artifact,
           match: null,
           baseMatch: toPreviewMatch(match?.firstNonExcludedMatch ?? match?.firstMatch ?? null, mergedRulesBaseline),
-          matchingCfgIndices: match?.matchingRecipeIndices ?? [],
+          matchingRecipeIndices: match?.matchingRecipeIndices ?? [],
           matchingRecipeDecisions: match?.matchingRecipeDecisions ?? [],
         }
       })

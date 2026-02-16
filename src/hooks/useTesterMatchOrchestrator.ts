@@ -295,7 +295,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
           artifact: entry.artifact,
           match: null,
           baseMatch: null,
-          matchingCfgIndices: [],
+          matchingRecipeIndices: [],
           matchingRecipeDecisions: [],
         })
       })
@@ -372,7 +372,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       artifact,
       match,
       baseMatch: toTesterPreviewMatch(baseMatch),
-      matchingCfgIndices: matchingRecipeIndices,
+      matchingRecipeIndices: matchingRecipeIndices,
       matchingRecipeDecisions,
     }
   }

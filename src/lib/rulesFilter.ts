@@ -777,7 +777,7 @@ export type TesterFilterRowMatch = {
 export type TesterFilterRow = {
   artifact: NormalizedGearArtifact
   match: TesterFilterRowMatch | null
-  matchingCfgIndices?: number[]
+  matchingRecipeIndices?: number[]
 }
 
 export interface FilterTesterItemsOptions {

@@ -135,7 +135,7 @@ const main = async (): Promise<void> => {
       artifact,
       match: toPreviewMatch(evalResult.firstMatch, baseMergedRules),
       baseMatch: toPreviewMatch(evalResult.firstNonExcludedMatch, baseMergedRules),
-      matchingCfgIndices: evalResult.matchingRecipeIndices,
+      matchingRecipeIndices: evalResult.matchingRecipeIndices,
       matchingRecipeDecisions: evalResult.matchingRecipeDecisions,
     }
   })

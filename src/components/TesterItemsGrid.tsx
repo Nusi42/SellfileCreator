@@ -2255,9 +2255,9 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   const rawArtifactId = Number(artifact?.id)
   const normalizedArtifactId = Number.isFinite(rawArtifactId) ? rawArtifactId : null
   const mightShowOtherMatchesRow = useMemo(() => {
-    if (!Array.isArray(row.matchingCfgIndices)) return false
+    if (!Array.isArray(row.matchingRecipeIndices)) return false
     const seen = new Set<number>()
-    for (const rawIdx of row.matchingCfgIndices) {
+    for (const rawIdx of row.matchingRecipeIndices) {
       const numericIdx = Number(rawIdx)
       if (!Number.isFinite(numericIdx)) continue
       if (seen.has(numericIdx)) continue
@@ -2267,7 +2267,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
       }
     }
     return false
-  }, [row.matchingCfgIndices])
+  }, [row.matchingRecipeIndices])
   // Match rows stay mounted even while frozen so the stale data can be seen at a glance.
   const basePrimaryMatchRowVisible = showFirstMatchRow
   const baseOtherMatchesRowVisible = showOtherMatchesRow && mightShowOtherMatchesRow
@@ -2328,10 +2328,10 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   // Matching chips hydrate lazily so skeleton rows can avoid heavy string work until revealed.
   const matchingEntries: MatchingConfigEntry[] = useMemo(() => {
     if (!cardContentReady) return []
-    if (!Array.isArray(row.matchingCfgIndices)) return []
+    if (!Array.isArray(row.matchingRecipeIndices)) return []
     const seen = new Set<number>()
     const entries: MatchingConfigEntry[] = []
-    for (const rawIdx of row.matchingCfgIndices) {
+    for (const rawIdx of row.matchingRecipeIndices) {
       const numericIdx = Number(rawIdx)
       if (!Number.isFinite(numericIdx) || seen.has(numericIdx)) continue
       seen.add(numericIdx)
@@ -2350,7 +2350,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
       })
     }
     return entries
-  }, [cardContentReady, row.matchingCfgIndices, matchingConfigKeepMap, recipeNames, configTextFallbackColor])
+  }, [cardContentReady, row.matchingRecipeIndices, matchingConfigKeepMap, recipeNames, configTextFallbackColor])
   const shouldShowPrimaryMatchRow = basePrimaryMatchRowVisible
   // Keep-override primary matches are not tied to a recipe, so keep all recipe matches visible.
   const keepOverridePrimaryMatch = match?.ruleSource === RULE_SOURCE_SAFEGUARDS

@@ -80,7 +80,7 @@ const makeTesterRow = (overrides: Partial<NormalizedGearArtifact> = {}, keep = f
     artifact,
     match,
     baseMatch: match,
-    matchingCfgIndices: keep ? [0] : [],
+    matchingRecipeIndices: keep ? [0] : [],
     matchingRecipeDecisions: keep ? [{ recipeIdx: 0, keep: true }] : [],
   }
 }

@@ -318,7 +318,7 @@ function buildTesterPreviewRow(snapshot: GearArtifactSnapshot, match: TesterPrev
     artifact,
     match,
     baseMatch: null,
-    matchingCfgIndices: EMPTY_MATCHING_CONFIG_INDICES,
+    matchingRecipeIndices: EMPTY_MATCHING_CONFIG_INDICES,
     matchingRecipeDecisions: EMPTY_MATCHING_CONFIG_DECISIONS,
   }
 }

@@ -249,7 +249,7 @@ const evaluateArtifacts = (
       artifact,
       match,
       baseMatch,
-      matchingCfgIndices: cfgMatches,
+      matchingRecipeIndices: cfgMatches,
       matchingConfigDecisions,
     })
   }

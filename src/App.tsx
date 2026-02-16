@@ -84,7 +84,6 @@ import {
   RULE_SOURCE_FINAL_SELL,
   RULE_SOURCE_HSF,
   RULE_SOURCE_SAFEGUARDS,
-  type HsfRuleWithCfg as HsfRuleWithRecipe,
 } from './lib/merge'
 import { cloneRuleWithRecipeIndex, getRuleRecipeIndex, resolveMatchRecipeName } from './lib/ruleRecipeIndex'
 import {
@@ -150,6 +149,7 @@ import {
 import { makeManageColorsIcon } from './lib/icons'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
 const TESTER_MATCH_RESET_TIMEOUT_MS = 1500
+type HsfRuleWithRecipe = ReturnType<typeof computeMergedRules>[number]
 // Keep the chip spinner visible with at least a whisper of progress so the pulse animation can show.
 const WORKLOAD_PENDING_MIN_RATIO = 0.02 as const
 // Hold the spinner a touch longer so sequential builders do not flicker off between phases.
@@ -1259,7 +1259,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               : row.baseMatch.ruleLabel
             return { ...row.baseMatch, recipeIdx: nextIdx, recipeName, ruleLabel }
           })(),
-          matchingCfgIndices: row.matchingCfgIndices.map((idx) => {
+          matchingRecipeIndices: row.matchingRecipeIndices.map((idx) => {
             const nextIdx = inverse.get(idx)
             return typeof nextIdx === 'number' ? nextIdx : idx
           }),
@@ -1421,7 +1421,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               artifact,
               match,
               baseMatch,
-              matchingCfgIndices: matchEntry?.matchingRecipeIndices ?? [],
+              matchingRecipeIndices: matchEntry?.matchingRecipeIndices ?? [],
               matchingRecipeDecisions: matchEntry?.matchingRecipeDecisions ?? [],
             })
           }
@@ -1518,7 +1518,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                     artifact,
                     match,
                     baseMatch,
-                    matchingCfgIndices: matchEntry?.matchingRecipeIndices ?? [],
+                    matchingRecipeIndices: matchEntry?.matchingRecipeIndices ?? [],
                     matchingRecipeDecisions: matchEntry?.matchingRecipeDecisions ?? [],
                   })
                 }
@@ -1693,7 +1693,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const visibleRecipeIndicesRef = useRef<ReadonlySet<number> | null>(null)
   const {
     selectedRecipeIndices,
-    setSelectedCfgIndices: setSelectedRecipeIndices,
+    setSelectedRecipeIndices,
     multiselectActive,
     selectionAnchor,
     prepareDragSelection,
@@ -1820,7 +1820,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSafeguardsEnabled,
     setHsfcNote,
     setSelectedRecipeIdx: setSelectedRecipeIdxRaw,
-    setSelectedCfgIndices: setSelectedRecipeIndices,
+    setSelectedRecipeIndices,
     setSelectionAnchor,
     setBuilder,
     setBuilderNameDraft: () => {},
@@ -2794,7 +2794,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     syncSelectedRecipeIdx(null, { forceSync: true, suppressDraft: true })
   }, [describeNextChange, metasets, selectedRecipeIndices, setCustomRecipes, syncSelectedRecipeIdx])
   const hsfcDialogs = useHsfcDialogs({
-    customCfgCount: customRecipes.length,
+    customRecipeCount: customRecipes.length,
     onConfirmClearAll: handleConfirmClearAll,
     onConfirmDeleteSingle: handleConfirmDeleteSingle,
     onConfirmDeleteMulti: handleDeleteMultiConfirmed,
@@ -3644,7 +3644,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSafeguardRules,
     setSafeguardsEnabled,
     setSelectedRecipeIdx: syncSelectedRecipeIdx,
-    setSelectedCfgIndices: setSelectedRecipeIndices,
+    setSelectedRecipeIndices,
     setSelectionAnchor,
     setBuilder,
     setMetasetConflictOpen,
@@ -4012,7 +4012,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         })
       } else {
         rows = gearEntriesAfterRulesFilter.filter((row) => {
-          const matches = row.matchingCfgIndices ?? []
+          const matches = row.matchingRecipeIndices ?? []
           for (const recipeIdx of matches) {
             if (testerRecipeFilterSelectedSet.has(recipeIdx)) return true
           }

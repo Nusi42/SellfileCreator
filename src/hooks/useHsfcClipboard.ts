@@ -86,7 +86,7 @@ type UseHsfcClipboardParams = {
   setSafeguardsEnabled: (value: SetStateAction<boolean>) => void
   applyNoteChange: ApplyNoteChangeFn
   setSelectedRecipeIdx: (value: SetStateAction<number | null>) => void
-  setSelectedCfgIndices: (value: number[]) => void
+  setSelectedRecipeIndices: (value: number[]) => void
   setSelectionAnchor: (idx: number | null) => void
   setBuilder: (value: SetStateAction<BuilderRecipe>) => void
   setMetasetConflictOpen: (open: boolean) => void
@@ -184,11 +184,11 @@ export function useHsfcClipboard({
   setCopyDlgOpen,
   setCopyText,
   applySubstatTargetsChange,
-  setSelectedCfgIndices: _setSelectedCfgIndices,
+  setSelectedRecipeIndices: _setSelectedRecipeIndices,
   setSelectionAnchor: _setSelectionAnchor,
   setPasteSelectOnEmpty: _setPasteSelectOnEmpty,
 }: UseHsfcClipboardParams): UseHsfcClipboardResult {
-  void _setSelectedCfgIndices
+  void _setSelectedRecipeIndices
   void _setSelectionAnchor
   void _setPasteSelectOnEmpty
 
