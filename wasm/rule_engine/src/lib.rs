@@ -896,11 +896,10 @@ pub(crate) fn build_hsf_preflight_flags_core(
         aggregate_feasible_by_caps = sum_caps >= target_min;
     }
 
-    let out = BuildHsfPreflightFlagsOut {
+    BuildHsfPreflightFlagsOut {
         aggregate_feasible_by_caps,
         has_circled,
-    };
-    out
+    }
 }
 
 // Expand per-level branch counters used by hsfBuilder level loops.
@@ -1247,7 +1246,7 @@ pub(crate) fn build_hsf_combo_vectors_core(input: &BuildHsfComboVectorsIn) -> Bu
         }
     }
 
-    let out = BuildHsfComboVectorsOut {
+    BuildHsfComboVectorsOut {
         mins,
         max_caps,
         any_flags,
@@ -1262,8 +1261,7 @@ pub(crate) fn build_hsf_combo_vectors_core(input: &BuildHsfComboVectorsIn) -> Bu
         any_min,
         any_wildcard,
         impossible_min_max,
-    };
-    out
+    }
 }
 
 // Build combo-policy vectors once so TS no longer loops masks/reductions per intro.
@@ -1330,14 +1328,13 @@ pub(crate) fn build_hsf_combo_policy_vectors_core(
         !blocked && has_targeted && has_non_targeted
     };
 
-    let out = BuildHsfComboPolicyVectorsOut {
+    BuildHsfComboPolicyVectorsOut {
         sum_min_targeted,
         min_non_target_now,
         optional_rows_only_baseline,
         deficit_floors,
         prefer_virtual_sink,
-    };
-    out
+    }
 }
 
 // Build base-value vectors and factory-collapse eligibility per combo in Rust.
@@ -1421,12 +1418,11 @@ pub(crate) fn build_hsf_factory_combo_rows_from_parts(
             }
         }
     }
-    let out = BuildHsfFactoryComboRowsOut {
+    BuildHsfFactoryComboRowsOut {
         base_vals,
         factory_eligible,
         substats,
-    };
-    out
+    }
 }
 
 // Public merge helper export keeps branch expansion logic in Rust.
@@ -1940,12 +1936,12 @@ fn emit_hsf_rules_for_distributions_core(
         }
         if input.skip_optional_baseline {
             let mut optional_baseline = false;
-            for idx in 0..dims {
+            for (idx, dist_value) in dist_prefix.iter().enumerate().take(dims) {
                 if !input.optional_mask.get(idx).copied().unwrap_or(false) {
                     continue;
                 }
                 let base = input.base_vals.get(idx).copied().unwrap_or(0) as i64;
-                let value = base + (dist_prefix[idx] as i64 * base);
+                let value = base + (*dist_value as i64 * base);
                 if value == base {
                     optional_baseline = true;
                     break;
@@ -2117,32 +2113,33 @@ pub(crate) fn emit_hsf_rules_for_filtered_distributions_compact_core(
         .iter()
         .map(|value| *value != 0)
         .collect::<Vec<_>>();
-    let rows = hsf_distribution_runtime::filter_roll_distributions_core(
-        input.dimensions,
-        input.total,
-        &max_caps_opt,
-        &min_floors_opt,
-        &timeline_caps_opt,
-        &targeted_mask_bool,
-        if input.targeted_exact <= FILTER_OPTION_NONE_I32 {
+    let filter_input = hsf_distribution_runtime::FilterRollDistributionsIn {
+        dimensions: input.dimensions,
+        total: input.total,
+        max_caps: &max_caps_opt,
+        min_floors: &min_floors_opt,
+        timeline_caps: &timeline_caps_opt,
+        targeted_mask: &targeted_mask_bool,
+        targeted_exact: if input.targeted_exact <= FILTER_OPTION_NONE_I32 {
             None
         } else {
             Some(input.targeted_exact)
         },
-        &deficit_floors_opt,
-        if input.deficit_max <= FILTER_OPTION_NONE_I32 {
+        deficit_floors: &deficit_floors_opt,
+        deficit_max: if input.deficit_max <= FILTER_OPTION_NONE_I32 {
             None
         } else {
             Some(input.deficit_max)
         },
-        input.global_min,
-        input.global_remaining,
-        hsf_distribution_runtime::parse_distribution_mode(input.global_mode),
-        &locked_mask_bool,
-        input.locked_min,
-        input.locked_remaining,
-        hsf_distribution_runtime::parse_distribution_mode(input.locked_mode),
-    );
+        global_min: input.global_min,
+        global_remaining: input.global_remaining,
+        global_filter: hsf_distribution_runtime::parse_distribution_mode(input.global_mode),
+        locked_mask: &locked_mask_bool,
+        locked_min: input.locked_min,
+        locked_remaining: input.locked_remaining,
+        locked_filter: hsf_distribution_runtime::parse_distribution_mode(input.locked_mode),
+    };
+    let rows = hsf_distribution_runtime::filter_roll_distributions_core(&filter_input);
     emit_hsf_rules_for_distributions_core(&input.emit, &rows)
 }
 

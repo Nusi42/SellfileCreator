@@ -88,221 +88,229 @@ fn enumerate_permutations_i32(values: &[i32], used: &mut Vec<bool>, path: &mut V
     }
 }
 
-// Shared filtering core for distribution helpers (JSON and fast array variants).
-pub(crate) fn filter_roll_distributions_core(
-    dimensions: i32,
-    total: i32,
-    max_caps: &[Option<i32>],
-    min_floors: &[Option<i32>],
-    timeline_caps: &[Option<i32>],
-    targeted_mask: &[bool],
+// Compact input payload keeps the filtered-distribution call site readable
+// while preserving a single core implementation for all wrappers.
+pub(crate) struct FilterRollDistributionsIn<'a> {
+    pub(crate) dimensions: i32,
+    pub(crate) total: i32,
+    pub(crate) max_caps: &'a [Option<i32>],
+    pub(crate) min_floors: &'a [Option<i32>],
+    pub(crate) timeline_caps: &'a [Option<i32>],
+    pub(crate) targeted_mask: &'a [bool],
+    pub(crate) targeted_exact: Option<i32>,
+    pub(crate) deficit_floors: &'a [Option<i32>],
+    pub(crate) deficit_max: Option<i32>,
+    pub(crate) global_min: i32,
+    pub(crate) global_remaining: i32,
+    pub(crate) global_filter: DistributionAggregateMode,
+    pub(crate) locked_mask: &'a [bool],
+    pub(crate) locked_min: i32,
+    pub(crate) locked_remaining: i32,
+    pub(crate) locked_filter: DistributionAggregateMode,
+}
+
+// Shared immutable recursion context avoids threading many independent arrays.
+struct DistributionFilterCtx<'a> {
+    dims: usize,
+    max_caps: &'a [Option<i32>],
+    min_floors: &'a [Option<i32>],
+    timeline_caps: &'a [Option<i32>],
+    targeted_mask: &'a [bool],
     targeted_exact: Option<i32>,
-    deficit_floors: &[Option<i32>],
+    deficit_floors: &'a [Option<i32>],
     deficit_max: Option<i32>,
     global_min: i32,
     global_remaining: i32,
     global_filter: DistributionAggregateMode,
-    locked_mask: &[bool],
+    locked_mask: &'a [bool],
     locked_min: i32,
     locked_remaining: i32,
     locked_filter: DistributionAggregateMode,
-) -> Vec<Vec<i32>> {
-    if dimensions <= 0 {
-        return if total == 0 {
+}
+
+// Mutable recursion state keeps running aggregates compact and explicit.
+#[derive(Debug, Clone, Copy)]
+struct DistributionFilterState {
+    targeted_sum: i32,
+    locked_sum: i32,
+    deficit_sum: i32,
+}
+
+// Recursive filter avoids materializing all compositions up front.
+// This keeps heap churn low in hot hsfBuilder call sites.
+fn backtrack_filtered(
+    idx: usize,
+    remaining: i32,
+    state: DistributionFilterState,
+    acc: &mut Vec<i32>,
+    out: &mut Vec<Vec<i32>>,
+    ctx: &DistributionFilterCtx<'_>,
+) {
+    if let Some(targeted_exact_sum) = ctx.targeted_exact {
+        if state.targeted_sum > targeted_exact_sum {
+            return;
+        }
+    }
+    if let Some(max_deficit) = ctx.deficit_max {
+        if state.deficit_sum > max_deficit {
+            return;
+        }
+    }
+    if idx == ctx.dims - 1 {
+        let value = remaining;
+        if value < 0 {
+            return;
+        }
+        if let Some(Some(cap)) = ctx.max_caps.get(idx) {
+            if value > *cap {
+                return;
+            }
+        }
+        if let Some(Some(floor)) = ctx.min_floors.get(idx) {
+            if value < *floor {
+                return;
+            }
+        }
+        if let Some(Some(cap)) = ctx.timeline_caps.get(idx) {
+            if value > *cap {
+                return;
+            }
+        }
+        let targeted_sum = state.targeted_sum
+            + if ctx.targeted_mask.get(idx).copied().unwrap_or(false) {
+                value
+            } else {
+                0
+            };
+        if let Some(targeted_exact_sum) = ctx.targeted_exact {
+            if targeted_sum != targeted_exact_sum {
+                return;
+            }
+        }
+        if !distribution_sum_passes_mode(
+            targeted_sum,
+            ctx.global_min,
+            ctx.global_remaining,
+            ctx.global_filter,
+        ) {
+            return;
+        }
+        let next_deficit = state.deficit_sum
+            + match ctx.deficit_floors.get(idx).copied().flatten() {
+                Some(floor) if value < floor => floor - value,
+                _ => 0,
+            };
+        if let Some(max_deficit) = ctx.deficit_max {
+            if next_deficit > max_deficit {
+                return;
+            }
+        }
+        let locked_sum = state.locked_sum
+            + if ctx.locked_mask.get(idx).copied().unwrap_or(false) {
+                value
+            } else {
+                0
+            };
+        if !distribution_sum_passes_mode(
+            locked_sum,
+            ctx.locked_min,
+            ctx.locked_remaining,
+            ctx.locked_filter,
+        ) {
+            return;
+        }
+        let mut row = acc.clone();
+        row.push(value);
+        out.push(row);
+        return;
+    }
+
+    let mut value = 0;
+    while value <= remaining {
+        if let Some(Some(cap)) = ctx.max_caps.get(idx) {
+            if value > *cap {
+                value += 1;
+                continue;
+            }
+        }
+        if let Some(Some(floor)) = ctx.min_floors.get(idx) {
+            if value < *floor {
+                value += 1;
+                continue;
+            }
+        }
+        if let Some(Some(cap)) = ctx.timeline_caps.get(idx) {
+            if value > *cap {
+                value += 1;
+                continue;
+            }
+        }
+        let next_state = DistributionFilterState {
+            targeted_sum: state.targeted_sum
+                + if ctx.targeted_mask.get(idx).copied().unwrap_or(false) {
+                    value
+                } else {
+                    0
+                },
+            locked_sum: state.locked_sum
+                + if ctx.locked_mask.get(idx).copied().unwrap_or(false) {
+                    value
+                } else {
+                    0
+                },
+            deficit_sum: state.deficit_sum
+                + match ctx.deficit_floors.get(idx).copied().flatten() {
+                    Some(floor) if value < floor => floor - value,
+                    _ => 0,
+                },
+        };
+        acc.push(value);
+        backtrack_filtered(idx + 1, remaining - value, next_state, acc, out, ctx);
+        acc.pop();
+        value += 1;
+    }
+}
+
+// Shared filtering core for distribution helpers (JSON and fast array variants).
+pub(crate) fn filter_roll_distributions_core(input: &FilterRollDistributionsIn<'_>) -> Vec<Vec<i32>> {
+    if input.dimensions <= 0 {
+        return if input.total == 0 {
             vec![Vec::<i32>::new()]
         } else {
             Vec::<Vec<i32>>::new()
         };
     }
-    if total < 0 {
+    if input.total < 0 {
         return Vec::<Vec<i32>>::new();
     }
 
-    let dims = dimensions as usize;
+    let dims = input.dimensions as usize;
     let mut out = Vec::<Vec<i32>>::new();
     let mut acc = Vec::<i32>::new();
 
-    struct DistributionFilterCtx<'a> {
-        dims: usize,
-        max_caps: &'a [Option<i32>],
-        min_floors: &'a [Option<i32>],
-        timeline_caps: &'a [Option<i32>],
-        targeted_mask: &'a [bool],
-        targeted_exact: Option<i32>,
-        deficit_floors: &'a [Option<i32>],
-        deficit_max: Option<i32>,
-        global_min: i32,
-        global_remaining: i32,
-        global_filter: DistributionAggregateMode,
-        locked_mask: &'a [bool],
-        locked_min: i32,
-        locked_remaining: i32,
-        locked_filter: DistributionAggregateMode,
-    }
-
-    // Recursive filter avoids materializing all compositions up front.
-    // This keeps heap churn low in hot hsfBuilder call sites.
-    fn backtrack_filtered(
-        idx: usize,
-        remaining: i32,
-        targeted_sum_so_far: i32,
-        locked_sum_so_far: i32,
-        deficit_so_far: i32,
-        acc: &mut Vec<i32>,
-        out: &mut Vec<Vec<i32>>,
-        ctx: &DistributionFilterCtx<'_>,
-    ) {
-        if let Some(targeted_exact_sum) = ctx.targeted_exact {
-            if targeted_sum_so_far > targeted_exact_sum {
-                return;
-            }
-        }
-        if let Some(max_deficit) = ctx.deficit_max {
-            if deficit_so_far > max_deficit {
-                return;
-            }
-        }
-        if idx == ctx.dims - 1 {
-            let value = remaining;
-            if value < 0 {
-                return;
-            }
-            if let Some(Some(cap)) = ctx.max_caps.get(idx) {
-                if value > *cap {
-                    return;
-                }
-            }
-            if let Some(Some(floor)) = ctx.min_floors.get(idx) {
-                if value < *floor {
-                    return;
-                }
-            }
-            if let Some(Some(cap)) = ctx.timeline_caps.get(idx) {
-                if value > *cap {
-                    return;
-                }
-            }
-            let targeted_sum = targeted_sum_so_far
-                + if ctx.targeted_mask.get(idx).copied().unwrap_or(false) {
-                    value
-                } else {
-                    0
-                };
-            if let Some(targeted_exact_sum) = ctx.targeted_exact {
-                if targeted_sum != targeted_exact_sum {
-                    return;
-                }
-            }
-            if !distribution_sum_passes_mode(
-                targeted_sum,
-                ctx.global_min,
-                ctx.global_remaining,
-                ctx.global_filter,
-            ) {
-                return;
-            }
-            let next_deficit = deficit_so_far
-                + match ctx.deficit_floors.get(idx).copied().flatten() {
-                    Some(floor) if value < floor => floor - value,
-                    _ => 0,
-                };
-            if let Some(max_deficit) = ctx.deficit_max {
-                if next_deficit > max_deficit {
-                    return;
-                }
-            }
-            let locked_sum = locked_sum_so_far
-                + if ctx.locked_mask.get(idx).copied().unwrap_or(false) {
-                    value
-                } else {
-                    0
-                };
-            if !distribution_sum_passes_mode(
-                locked_sum,
-                ctx.locked_min,
-                ctx.locked_remaining,
-                ctx.locked_filter,
-            ) {
-                return;
-            }
-            let mut row = acc.clone();
-            row.push(value);
-            out.push(row);
-            return;
-        }
-
-        let mut value = 0;
-        while value <= remaining {
-            if let Some(Some(cap)) = ctx.max_caps.get(idx) {
-                if value > *cap {
-                    value += 1;
-                    continue;
-                }
-            }
-            if let Some(Some(floor)) = ctx.min_floors.get(idx) {
-                if value < *floor {
-                    value += 1;
-                    continue;
-                }
-            }
-            if let Some(Some(cap)) = ctx.timeline_caps.get(idx) {
-                if value > *cap {
-                    value += 1;
-                    continue;
-                }
-            }
-
-            let targeted_sum = targeted_sum_so_far
-                + if ctx.targeted_mask.get(idx).copied().unwrap_or(false) {
-                    value
-                } else {
-                    0
-                };
-            let locked_sum = locked_sum_so_far
-                + if ctx.locked_mask.get(idx).copied().unwrap_or(false) {
-                    value
-                } else {
-                    0
-                };
-            let next_deficit = deficit_so_far
-                + match ctx.deficit_floors.get(idx).copied().flatten() {
-                    Some(floor) if value < floor => floor - value,
-                    _ => 0,
-                };
-            acc.push(value);
-            backtrack_filtered(
-                idx + 1,
-                remaining - value,
-                targeted_sum,
-                locked_sum,
-                next_deficit,
-                acc,
-                out,
-                ctx,
-            );
-            acc.pop();
-            value += 1;
-        }
-    }
-
     let ctx = DistributionFilterCtx {
         dims,
-        max_caps,
-        min_floors,
-        timeline_caps,
-        targeted_mask,
-        targeted_exact,
-        deficit_floors,
-        deficit_max,
-        global_min,
-        global_remaining,
-        global_filter,
-        locked_mask,
-        locked_min,
-        locked_remaining,
-        locked_filter,
+        max_caps: input.max_caps,
+        min_floors: input.min_floors,
+        timeline_caps: input.timeline_caps,
+        targeted_mask: input.targeted_mask,
+        targeted_exact: input.targeted_exact,
+        deficit_floors: input.deficit_floors,
+        deficit_max: input.deficit_max,
+        global_min: input.global_min,
+        global_remaining: input.global_remaining,
+        global_filter: input.global_filter,
+        locked_mask: input.locked_mask,
+        locked_min: input.locked_min,
+        locked_remaining: input.locked_remaining,
+        locked_filter: input.locked_filter,
     };
-    backtrack_filtered(0, total, 0, 0, 0, &mut acc, &mut out, &ctx);
+    let initial_state = DistributionFilterState {
+        targeted_sum: 0,
+        locked_sum: 0,
+        deficit_sum: 0,
+    };
+    backtrack_filtered(0, input.total, initial_state, &mut acc, &mut out, &ctx);
     out
 }
 
@@ -339,48 +347,64 @@ pub(crate) fn compute_permutations_i32(values: &[i32]) -> Vec<Vec<i32>> {
 
 // Enumerate bounded compositions and keep only rows that satisfy additional
 // locked/optional filters used by late-mode HSF emission loops.
-fn enumerate_filtered_bounded_rows_with_offset_i32(
-    caps: &[i32],
-    total: i32,
-    idx: usize,
-    path: &mut Vec<i32>,
-    need_now: &[i32],
-    locked_mask: &[u8],
+struct FilteredBoundedRowsCtx<'a> {
+    need_now: &'a [i32],
+    locked_mask: &'a [u8],
     locked_base_sum: i32,
     locked_min_at_level: i32,
-    optional_mask: &[u8],
-    mins: &[i32],
+    optional_mask: &'a [u8],
+    mins: &'a [i32],
     skip_optional_baseline: bool,
+}
+
+struct FilteredBoundedRowsIn<'a> {
+    caps: &'a [i32],
+    total: i32,
+    need_now: &'a [i32],
+    locked_mask: &'a [u8],
+    locked_base_sum: i32,
+    locked_min_at_level: i32,
+    optional_mask: &'a [u8],
+    mins: &'a [i32],
+    skip_optional_baseline: bool,
+}
+
+fn enumerate_filtered_bounded_rows_with_offset_i32(
+    idx: usize,
+    total: i32,
+    path: &mut Vec<i32>,
     out: &mut Vec<Vec<i32>>,
+    caps: &[i32],
+    ctx: &FilteredBoundedRowsCtx<'_>,
 ) {
     if idx == caps.len() {
         if total != 0 {
             return;
         }
-        if locked_min_at_level > 0 {
-            let mut locked_after = locked_base_sum;
+        if ctx.locked_min_at_level > 0 {
+            let mut locked_after = ctx.locked_base_sum;
             for (i, value) in path.iter().enumerate() {
-                if *locked_mask.get(i).unwrap_or(&0) != 0 {
+                if *ctx.locked_mask.get(i).unwrap_or(&0) != 0 {
                     locked_after += *value;
                 }
             }
-            if locked_after < locked_min_at_level {
+            if locked_after < ctx.locked_min_at_level {
                 return;
             }
         }
-        if skip_optional_baseline {
+        if ctx.skip_optional_baseline {
             let mut optional_only_baseline = true;
             let mut has_optional = false;
-            for i in 0..path.len() {
-                if *optional_mask.get(i).unwrap_or(&0) == 0 {
+            for (i, value) in path.iter().enumerate() {
+                if *ctx.optional_mask.get(i).unwrap_or(&0) == 0 {
                     continue;
                 }
                 has_optional = true;
-                if *mins.get(i).unwrap_or(&0) != 0 {
+                if *ctx.mins.get(i).unwrap_or(&0) != 0 {
                     optional_only_baseline = false;
                     break;
                 }
-                let applied = need_now.get(i).copied().unwrap_or(0) + path[i];
+                let applied = ctx.need_now.get(i).copied().unwrap_or(0) + *value;
                 if applied != 0 {
                     optional_only_baseline = false;
                     break;
@@ -392,7 +416,7 @@ fn enumerate_filtered_bounded_rows_with_offset_i32(
         }
         let mut row = Vec::<i32>::with_capacity(path.len());
         for (i, value) in path.iter().enumerate() {
-            row.push(need_now.get(i).copied().unwrap_or(0) + *value);
+            row.push(ctx.need_now.get(i).copied().unwrap_or(0) + *value);
         }
         out.push(row);
         return;
@@ -406,63 +430,50 @@ fn enumerate_filtered_bounded_rows_with_offset_i32(
     while value <= max_take {
         path.push(value);
         enumerate_filtered_bounded_rows_with_offset_i32(
-            caps,
-            total - value,
             idx + 1,
+            total - value,
             path,
-            need_now,
-            locked_mask,
-            locked_base_sum,
-            locked_min_at_level,
-            optional_mask,
-            mins,
-            skip_optional_baseline,
             out,
+            caps,
+            ctx,
         );
         path.pop();
         value += 1;
     }
 }
 
-fn compute_filtered_bounded_rows_with_offset_i32(
-    caps: &[i32],
-    total: i32,
-    need_now: &[i32],
-    locked_mask: &[u8],
-    locked_base_sum: i32,
-    locked_min_at_level: i32,
-    optional_mask: &[u8],
-    mins: &[i32],
-    skip_optional_baseline: bool,
-) -> Vec<Vec<i32>> {
-    if total < 0 {
+fn compute_filtered_bounded_rows_with_offset_i32(input: &FilteredBoundedRowsIn<'_>) -> Vec<Vec<i32>> {
+    if input.total < 0 {
         return Vec::<Vec<i32>>::new();
     }
-    if caps.is_empty() {
-        return if total == 0 {
+    if input.caps.is_empty() {
+        return if input.total == 0 {
             vec![Vec::<i32>::new()]
         } else {
             Vec::<Vec<i32>>::new()
         };
     }
-    if need_now.len() != caps.len() {
+    if input.need_now.len() != input.caps.len() {
         return Vec::<Vec<i32>>::new();
     }
     let mut out = Vec::<Vec<i32>>::new();
-    let mut path = Vec::<i32>::with_capacity(caps.len());
+    let mut path = Vec::<i32>::with_capacity(input.caps.len());
+    let ctx = FilteredBoundedRowsCtx {
+        need_now: input.need_now,
+        locked_mask: input.locked_mask,
+        locked_base_sum: input.locked_base_sum,
+        locked_min_at_level: input.locked_min_at_level,
+        optional_mask: input.optional_mask,
+        mins: input.mins,
+        skip_optional_baseline: input.skip_optional_baseline,
+    };
     enumerate_filtered_bounded_rows_with_offset_i32(
-        caps,
-        total,
         0,
+        input.total,
         &mut path,
-        need_now,
-        locked_mask,
-        locked_base_sum,
-        locked_min_at_level,
-        optional_mask,
-        mins,
-        skip_optional_baseline,
         &mut out,
+        input.caps,
+        &ctx,
     );
     out
 }
@@ -485,8 +496,7 @@ fn late_rows_build_need_now(
 ) -> Option<(Vec<i32>, i32)> {
     let mut need_now = Vec::<i32>::with_capacity(mins.len());
     let mut sum_need = 0i32;
-    for idx in 0..mins.len() {
-        let min_value = mins[idx];
+    for (idx, min_value) in mins.iter().copied().enumerate() {
         let cap = late_rows_resolve_cap(*max_caps.get(idx).unwrap_or(&FILTER_OPTION_NONE_I32));
         let any_flag = *any_flags.get(idx).unwrap_or(&0) != 0;
         let need = if any_flag {
@@ -617,17 +627,18 @@ pub(crate) fn build_hsf_late_bounded_rows_core(input: &BuildHsfLateBoundedRowsIn
         return Vec::<Vec<i32>>::new();
     }
 
-    compute_filtered_bounded_rows_with_offset_i32(
-        &add_caps,
-        extra,
-        &need_now,
-        &input.locked_mask,
-        base_locked_need,
-        locked_need_at_level,
-        &optional_mask,
-        &input.mins,
+    let bounded_input = FilteredBoundedRowsIn {
+        caps: &add_caps,
+        total: extra,
+        need_now: &need_now,
+        locked_mask: &input.locked_mask,
+        locked_base_sum: base_locked_need,
+        locked_min_at_level: locked_need_at_level,
+        optional_mask: &optional_mask,
+        mins: &input.mins,
         skip_optional_baseline,
-    )
+    };
+    compute_filtered_bounded_rows_with_offset_i32(&bounded_input)
 }
 
 // Shared intro-assignment core to serve JSON and fast-array bindings.

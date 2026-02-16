@@ -122,12 +122,11 @@ fn build_full_selected_fallback_plan_core(
 
     let mut deficit_floors: Vec<Option<i64>> = Vec::with_capacity(full_selection_len);
     let mut base_vals: Vec<i64> = Vec::with_capacity(full_selection_len);
-    for idx in 0..full_selection_len {
+    for (idx, variant) in full_selection.iter().copied().enumerate().take(full_selection_len) {
         let min_value = input.mins.get(idx).copied().unwrap_or(0).max(0);
         let is_any = input.any_flags.get(idx).copied().unwrap_or(false);
         deficit_floors.push(if is_any { None } else { Some(min_value) });
 
-        let variant = full_selection[idx];
         base_vals.push(base_for_variant(&input.base_by_variant, variant));
     }
 

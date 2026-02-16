@@ -161,9 +161,7 @@ pub fn fingerprint_merged_rules_value(rules: JsValue) -> Result<JsValue, JsValue
 // Canonical array normalization mirrors JSON.stringify(canonArray(...)) semantics.
 // `None` and `[]` both collapse to wildcard/undefined in the coarse grouping key.
 fn canon_array_key(values: Option<&Vec<i64>>) -> Option<Vec<i64>> {
-    let Some(raw) = values else {
-        return None;
-    };
+    let raw = values?;
     if raw.is_empty() {
         return None;
     }
@@ -184,18 +182,14 @@ fn parse_sub_cond(value: Option<&str>) -> Option<SubCond> {
 
 // Normalize substats for domination checks; unsupported conditions disable domination.
 fn normalize_substats_for_domination(subs: Option<&Vec<RuleSubRaw>>) -> Option<Vec<NormalizedSubstat>> {
-    let Some(substats) = subs else {
-        return None;
-    };
+    let substats = subs?;
     let mut dedup = HashMap::<NormalizedSubKey, i64>::new();
     for sub in substats {
         let id = sub.ID.unwrap_or(STAT_ID_ANY);
         if id == STAT_ID_ANY {
             continue;
         }
-        let Some(cond) = parse_sub_cond(sub.Condition.as_deref()) else {
-            return None;
-        };
+        let cond = parse_sub_cond(sub.Condition.as_deref())?;
         let variant = sub_to_variant(id, boolish_to_flag(sub.IsFlat.as_ref()));
         let key = NormalizedSubKey { variant, cond };
         let value = floor_number_or_zero(sub.Value);
@@ -394,7 +388,7 @@ pub(crate) fn collapse_canonical_key(rule: &RuleRaw) -> String {
         .join(",");
     // Build one full key that mirrors merge.ts::canonicalRuleKey dimensions.
     format!(
-        "{}|{}|{}|{}|{}|{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
         i64::from(rule.Keep.unwrap_or(false)),
         i64::from(rule.Use.unwrap_or(true)),
         rule.Rank.unwrap_or(0),
@@ -407,15 +401,12 @@ pub(crate) fn collapse_canonical_key(rule: &RuleRaw) -> String {
             .map(i64::to_string)
             .collect::<Vec<_>>()
             .join(","),
-        format!(
-            "{}|{}",
-            artifact_sets
-                .iter()
-                .map(i64::to_string)
-                .collect::<Vec<_>>()
-                .join(","),
-            substats_key
-        )
+        artifact_sets
+            .iter()
+            .map(i64::to_string)
+            .collect::<Vec<_>>()
+            .join(","),
+        substats_key
     )
 }
 
@@ -642,9 +633,7 @@ fn normalize_substats_for_export_dedupe(subs: Option<&Vec<RuleSubRaw>>) -> Optio
         if stat_id == STAT_ID_ANY {
             continue;
         }
-        let Some(condition) = parse_export_dedupe_condition(sub.Condition.as_deref()) else {
-            return None;
-        };
+        let condition = parse_export_dedupe_condition(sub.Condition.as_deref())?;
         let variant = sub_to_variant(stat_id, boolish_to_flag(sub.IsFlat.as_ref()));
         let value = sub.Value.unwrap_or(0.0);
         if !value.is_finite() {

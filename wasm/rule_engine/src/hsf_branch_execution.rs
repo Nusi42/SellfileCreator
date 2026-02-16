@@ -206,7 +206,7 @@ pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn)
                 continue;
             }
             // Addition events at this level disable factory collapse for the combo.
-            let addition_event_at_level = addition_timeline_all.iter().any(|value| *value == level);
+            let addition_event_at_level = addition_timeline_all.contains(&level);
             // Build or reuse per-combo collapse profile vectors.
             let combo_profile = if let Some(cached) = combo_profile_cache.get(&key) {
                 cached.clone()

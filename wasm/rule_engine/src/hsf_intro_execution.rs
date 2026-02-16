@@ -106,18 +106,18 @@ fn emit_rows_with_skip(
     emit_hsf_rules_for_distributions_core(&emit_payload, rows)
 }
 
-// Shared filtered+emit helper mirrors compact filtered-emission behavior.
-fn emit_filtered_rows_compact(
-    emit: &EmitHsfRulesForDistributionsIn,
+// Compact filtered-emission input groups related filter vectors and thresholds.
+struct EmitFilteredRowsCompactIn<'a> {
+    emit: &'a EmitHsfRulesForDistributionsIn,
     dimensions: i32,
     total: i32,
-    base_max_caps: &[i32],
-    base_timeline_caps: &[i32],
-    base_targeted_mask: &[u8],
-    base_locked_mask: &[u8],
-    min_floors: Option<&[i32]>,
+    base_max_caps: &'a [i32],
+    base_timeline_caps: &'a [i32],
+    base_targeted_mask: &'a [u8],
+    base_locked_mask: &'a [u8],
+    min_floors: Option<&'a [i32]>,
     targeted_exact: Option<i32>,
-    deficit_floors: Option<&[i32]>,
+    deficit_floors: Option<&'a [i32]>,
     deficit_max: Option<i32>,
     global_min: i32,
     global_remaining: i32,
@@ -125,35 +125,46 @@ fn emit_filtered_rows_compact(
     locked_min: i32,
     locked_remaining: i32,
     locked_mode: i32,
+}
+
+// Shared filtered+emit helper mirrors compact filtered-emission behavior.
+fn emit_filtered_rows_compact(
+    input: &EmitFilteredRowsCompactIn<'_>,
 ) -> Vec<RuleRaw> {
-    if dimensions <= 0 || total < 0 {
+    if input.dimensions <= 0 || input.total < 0 {
         return Vec::<RuleRaw>::new();
     }
-    let width = dimensions.max(0) as usize;
-    let widened_max_caps = widen_i32_with_sentinel(base_max_caps, width, FILTER_OPTION_NONE_I32);
-    let widened_timeline_caps = widen_i32_with_sentinel(base_timeline_caps, width, FILTER_OPTION_NONE_I32);
-    let widened_targeted_mask = widen_u8_with_zero(base_targeted_mask, width);
-    let widened_locked_mask = widen_u8_with_zero(base_locked_mask, width);
-
-    let rows = hsf_distribution_runtime::filter_roll_distributions_core(
-        dimensions,
-        total,
-        &decode_optional_i32(&widened_max_caps),
-        &decode_optional_i32(min_floors.unwrap_or(&[])),
-        &decode_optional_i32(&widened_timeline_caps),
-        &decode_mask_bool(&widened_targeted_mask),
-        targeted_exact,
-        &decode_optional_i32(deficit_floors.unwrap_or(&[])),
-        deficit_max,
-        global_min,
-        global_remaining,
-        hsf_distribution_runtime::parse_distribution_mode(global_mode),
-        &decode_mask_bool(&widened_locked_mask),
-        locked_min,
-        locked_remaining,
-        hsf_distribution_runtime::parse_distribution_mode(locked_mode),
-    );
-    emit_hsf_rules_for_distributions_core(emit, &rows)
+    let width = input.dimensions.max(0) as usize;
+    let widened_max_caps = widen_i32_with_sentinel(input.base_max_caps, width, FILTER_OPTION_NONE_I32);
+    let widened_timeline_caps = widen_i32_with_sentinel(input.base_timeline_caps, width, FILTER_OPTION_NONE_I32);
+    let widened_targeted_mask = widen_u8_with_zero(input.base_targeted_mask, width);
+    let widened_locked_mask = widen_u8_with_zero(input.base_locked_mask, width);
+    let max_caps = decode_optional_i32(&widened_max_caps);
+    let min_floors = decode_optional_i32(input.min_floors.unwrap_or(&[]));
+    let timeline_caps = decode_optional_i32(&widened_timeline_caps);
+    let targeted_mask = decode_mask_bool(&widened_targeted_mask);
+    let deficit_floors = decode_optional_i32(input.deficit_floors.unwrap_or(&[]));
+    let locked_mask = decode_mask_bool(&widened_locked_mask);
+    let filter_input = hsf_distribution_runtime::FilterRollDistributionsIn {
+        dimensions: input.dimensions,
+        total: input.total,
+        max_caps: &max_caps,
+        min_floors: &min_floors,
+        timeline_caps: &timeline_caps,
+        targeted_mask: &targeted_mask,
+        targeted_exact: input.targeted_exact,
+        deficit_floors: &deficit_floors,
+        deficit_max: input.deficit_max,
+        global_min: input.global_min,
+        global_remaining: input.global_remaining,
+        global_filter: hsf_distribution_runtime::parse_distribution_mode(input.global_mode),
+        locked_mask: &locked_mask,
+        locked_min: input.locked_min,
+        locked_remaining: input.locked_remaining,
+        locked_filter: hsf_distribution_runtime::parse_distribution_mode(input.locked_mode),
+    };
+    let rows = hsf_distribution_runtime::filter_roll_distributions_core(&filter_input);
+    emit_hsf_rules_for_distributions_core(input.emit, &rows)
 }
 
 // Execute one intro timeline by replaying planner steps in-order.
@@ -235,29 +246,30 @@ fn execute_intro_steps_for_timeline(
                     let dims = input.m
                         + if input.others_count > 0 { 1 } else { 0 }
                         + if include_virtual_sink { 1 } else { 0 };
-                    let emitted = emit_filtered_rows_compact(
-                        &input.emit,
-                        dims,
-                        input.avail,
-                        &base_max_caps,
-                        timeline_caps,
-                        &base_targeted_mask,
-                        &base_locked_mask,
-                        min_floors_narrowed.as_deref(),
-                        targeted_exact.map(|value| narrow_i64(value)),
-                        deficit_floors_narrowed.as_deref(),
-                        deficit_max.map(|value| narrow_i64(value)),
-                        input.global_min,
-                        input.remaining,
-                        if input.global_min > 0 { 2 } else { 0 },
-                        input.locked_min_value,
-                        input.remaining,
-                        if input.global_min > 0 && input.locked_min_active {
+                    let filtered_input = EmitFilteredRowsCompactIn {
+                        emit: &input.emit,
+                        dimensions: dims,
+                        total: input.avail,
+                        base_max_caps: &base_max_caps,
+                        base_timeline_caps: timeline_caps,
+                        base_targeted_mask: &base_targeted_mask,
+                        base_locked_mask: &base_locked_mask,
+                        min_floors: min_floors_narrowed.as_deref(),
+                        targeted_exact: targeted_exact.map(narrow_i64),
+                        deficit_floors: deficit_floors_narrowed.as_deref(),
+                        deficit_max: deficit_max.map(narrow_i64),
+                        global_min: input.global_min,
+                        global_remaining: input.remaining,
+                        global_mode: if input.global_min > 0 { 2 } else { 0 },
+                        locked_min: input.locked_min_value,
+                        locked_remaining: input.remaining,
+                        locked_mode: if input.global_min > 0 && input.locked_min_active {
                             2
                         } else {
                             0
                         },
-                    );
+                    };
+                    let emitted = emit_filtered_rows_compact(&filtered_input);
                     let emitted_any = !emitted.is_empty();
                     out.extend(emitted);
                     emitted_any
@@ -292,25 +304,26 @@ fn execute_intro_steps_for_timeline(
             } => {
                 let min_floors_narrowed = narrow_optional_vec(min_floors.as_deref());
                 let deficit_floors_narrowed = narrow_optional_vec(deficit_floors.as_deref());
-                let emitted = emit_filtered_rows_compact(
-                    &input.emit,
-                    input.m,
-                    input.avail,
-                    &base_max_caps,
-                    timeline_caps,
-                    &base_targeted_mask,
-                    &base_locked_mask,
-                    min_floors_narrowed.as_deref(),
-                    targeted_exact.map(|value| narrow_i64(value)),
-                    deficit_floors_narrowed.as_deref(),
-                    deficit_max.map(|value| narrow_i64(value)),
-                    input.global_min,
-                    narrow_i64(*global_remaining),
-                    narrow_i64(*global_mode),
-                    input.locked_min_value,
-                    narrow_i64(*locked_remaining),
-                    narrow_i64(*locked_mode),
-                );
+                let filtered_input = EmitFilteredRowsCompactIn {
+                    emit: &input.emit,
+                    dimensions: input.m,
+                    total: input.avail,
+                    base_max_caps: &base_max_caps,
+                    base_timeline_caps: timeline_caps,
+                    base_targeted_mask: &base_targeted_mask,
+                    base_locked_mask: &base_locked_mask,
+                    min_floors: min_floors_narrowed.as_deref(),
+                    targeted_exact: targeted_exact.map(narrow_i64),
+                    deficit_floors: deficit_floors_narrowed.as_deref(),
+                    deficit_max: deficit_max.map(narrow_i64),
+                    global_min: input.global_min,
+                    global_remaining: narrow_i64(*global_remaining),
+                    global_mode: narrow_i64(*global_mode),
+                    locked_min: input.locked_min_value,
+                    locked_remaining: narrow_i64(*locked_remaining),
+                    locked_mode: narrow_i64(*locked_mode),
+                };
+                let emitted = emit_filtered_rows_compact(&filtered_input);
                 let emitted_any = !emitted.is_empty();
                 out.extend(emitted);
                 if emitted_any || !*fallback_presence_on_empty {

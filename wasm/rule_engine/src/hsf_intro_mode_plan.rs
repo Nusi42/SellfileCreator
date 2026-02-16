@@ -40,6 +40,7 @@ pub(crate) struct BuildHsfIntroModePlanOut {
 
 // Step union keeps wire format explicit and stable for TS parsing.
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[allow(clippy::enum_variant_names)]
 #[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub(crate) enum HsfIntroModePlanStepOut {
     EmitRows {
@@ -103,7 +104,7 @@ pub(crate) fn build_intro_mode_plan_core(input: &BuildHsfIntroModePlanIn) -> Bui
 
     // Fast path: single selected substat with concrete minimum requirements.
     if input.m == 1 && input.any_min && !input.any_wildcard {
-        let min_value = input.mins.get(0).copied().unwrap_or(0);
+        let min_value = input.mins.first().copied().unwrap_or(0);
         let required = min_value.max(input.global_min);
         if required > input.num_target {
             return BuildHsfIntroModePlanOut { steps };
@@ -111,9 +112,9 @@ pub(crate) fn build_intro_mode_plan_core(input: &BuildHsfIntroModePlanIn) -> Bui
         let applied = if input.early_mode == "late" {
             let remaining = (input.num_target - input.avail).max(0);
             let need_now = (required - remaining).max(0);
-            apply_cap(need_now, input.max_caps.get(0).copied())
+            apply_cap(need_now, input.max_caps.first().copied())
         } else {
-            apply_cap(required.min(input.avail), input.max_caps.get(0).copied())
+            apply_cap(required.min(input.avail), input.max_caps.first().copied())
         };
         if input.global_min > 0 {
             let remaining = (input.num_target - input.avail).max(0);
@@ -141,9 +142,9 @@ pub(crate) fn build_intro_mode_plan_core(input: &BuildHsfIntroModePlanIn) -> Bui
         let applied = if input.early_mode == "late" {
             let remaining = (input.num_target - input.avail).max(0);
             let need_now = (input.global_min - remaining).max(0);
-            apply_cap(need_now, input.max_caps.get(0).copied())
+            apply_cap(need_now, input.max_caps.first().copied())
         } else {
-            apply_cap(input.global_min.min(input.avail), input.max_caps.get(0).copied())
+            apply_cap(input.global_min.min(input.avail), input.max_caps.first().copied())
         };
         let remaining = (input.num_target - input.avail).max(0);
         let selected_targeted = if bool_at(&input.targeted_mask, 0) { applied } else { 0 };

@@ -265,11 +265,11 @@ fn match_rule(rule: &PreparedRule, item: &TestItemRaw) -> bool {
         }
     }
 
-    if !rule.artifact_types.is_empty() && !rule.artifact_types.iter().any(|slot| *slot == item.slot) {
+    if !rule.artifact_types.is_empty() && !rule.artifact_types.contains(&item.slot) {
         return false;
     }
 
-    if !rule.artifact_sets.is_empty() && !rule.artifact_sets.iter().any(|set_id| *set_id == item.set) {
+    if !rule.artifact_sets.is_empty() && !rule.artifact_sets.contains(&item.set) {
         return false;
     }
 

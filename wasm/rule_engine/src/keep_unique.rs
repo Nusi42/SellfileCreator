@@ -928,9 +928,9 @@ fn keep_unique_normalize_combination_from_value(
 
 // Readable HSFC exports may wrap keep-unique entries as `{ kind, rule }`.
 // Unwrap that envelope so normalization still reads the actual rule payload.
-fn keep_unique_rule_record_from_value<'a>(
-    value: &'a serde_json::Value,
-) -> Option<&'a serde_json::Map<String, serde_json::Value>> {
+fn keep_unique_rule_record_from_value(
+    value: &serde_json::Value,
+) -> Option<&serde_json::Map<String, serde_json::Value>> {
     let record = value.as_object()?;
     let has_direct_rule_shape = record.contains_key("combination")
         || record.contains_key("tuple")
@@ -3801,6 +3801,7 @@ pub fn compute_keep_unique_protection_value(
 
 // Combined keep-unique export runs candidate collection + protection in one pass.
 #[wasm_bindgen]
+#[allow(clippy::too_many_arguments)]
 pub fn collect_and_compute_keep_unique_protection_value(
     rows: JsValue,
     rules: JsValue,

@@ -91,7 +91,7 @@ fn normalize_target_override_value(value: Option<f64>) -> Option<f64> {
 
 // Priority-sort helper mirrors compareVariants by using caller-provided order and
 // falling back to raw numeric value when a variant is outside that priority list.
-fn sort_variants_by_priority(values: &mut Vec<i64>, variant_priority: &[i64]) {
+fn sort_variants_by_priority(values: &mut [i64], variant_priority: &[i64]) {
     let mut order = HashMap::<i64, usize>::new();
     for (idx, value) in variant_priority.iter().enumerate() {
         order.insert(*value, idx);
