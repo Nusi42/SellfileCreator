@@ -53,7 +53,7 @@ import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT } from '../lib/te
 import {
   buildNoteRecipeOverridesSignature,
   applyQuestionSelectionRules,
-  NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD,
+  NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN,
   resolveRecipeOverridesTags,
   NOTE_RECIPE_OVERRIDES_LAYOUT_WHOLELINE,
   NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY,
@@ -132,7 +132,8 @@ const NOTE_CARD_WIDTHS: Record<NoteCardWidthPreset, { flexBasis: number; minWidt
 }
 
 // Match HTML comment bodies that declare recipe-overrides markers.
-const QUESTION_MARKER_KEYWORD_PATTERN = NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD
+// Legacy config-options markers are also accepted silently for old .sfr files.
+const QUESTION_MARKER_KEYWORD_PATTERN = NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN
 const QUESTION_COMMENT_REGEX = new RegExp(`^\\s*(?:${QUESTION_MARKER_KEYWORD_PATTERN})\\b`, 'i')
 // Match raw HTML comment markers in the Markdown stream.
 const QUESTION_MARKER_REGEX = new RegExp(`<!--\\s*(?:${QUESTION_MARKER_KEYWORD_PATTERN})\\b[\\s\\S]*?-->`, 'i')

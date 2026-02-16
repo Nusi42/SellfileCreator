@@ -43,7 +43,7 @@ test('global explicit ids exclude options across questions', () => {
   assert.equal(resolvedSecond?.answer.includes(second.options[0]!.id), true)
 })
 
-test('legacy config-options markers are ignored', () => {
+test('legacy config-options markers stay supported silently', () => {
   // Build a note using the legacy marker keyword.
   const legacyNote = [
     '<!-- config-options',
@@ -52,11 +52,13 @@ test('legacy config-options markers are ignored', () => {
     'radio "Off" { @all { export=disabled } }',
     '-->',
   ].join('\n')
-  // Resolve the note to ensure legacy markers are no longer parsed.
+  // Resolve the note to ensure legacy markers still parse for compatibility.
   const { questions, instructions } = resolveRecipeOverridesTags(legacyNote)
-  // Legacy markers are ignored now that recipe-overrides is the only supported keyword.
-  assert.equal(questions.length, 0)
-  assert.equal(instructions.length, 0)
+  // Legacy marker should resolve one question with the expected prompt.
+  assert.equal(questions.length, 1)
+  assert.equal(questions[0]?.prompt, 'Legacy Marker')
+  // Single-select defaults should activate exactly one selector block.
+  assert.equal(instructions.length, 1)
 })
 
 test('implicit numeric tokens remain question-scoped', () => {

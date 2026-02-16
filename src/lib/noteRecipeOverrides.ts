@@ -136,6 +136,15 @@ export const NOTE_RECIPE_OVERRIDES_ANSWERS_KEY = 'NoteRecipeOverridesAnswers'
 export const NOTE_RECIPE_OVERRIDES_DISABLED_KEY = 'NoteRecipeOverridesDisabled'
 // Marker keyword for recipe overrides in note comments.
 export const NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD = 'recipe-overrides'
+// Keep parsing the legacy marker silently for backward compatibility.
+const NOTE_RECIPE_OVERRIDES_LEGACY_MARKER_KEYWORD = 'config-options'
+// Accept both marker keywords without surfacing legacy wording in the UI.
+export const NOTE_RECIPE_OVERRIDES_MARKER_KEYWORDS = [
+  NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD,
+  NOTE_RECIPE_OVERRIDES_LEGACY_MARKER_KEYWORD,
+] as const
+// Share a single regex fragment so parser and UI marker detection stay in sync.
+export const NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN = NOTE_RECIPE_OVERRIDES_MARKER_KEYWORDS.join('|')
 
 // Stored answers keyed by question ID.
 export type NoteRecipeOverridesAnswers = Record<string, string[]>
@@ -155,8 +164,11 @@ export type RecipeOverridesExportModeResolution = {
   overriddenIndices: number[]
 }
 
-// Match recipe-overrides markers in note comments.
-const QUESTION_MARKER_REGEX = new RegExp(`<!--\\s*${NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD}\\b[\\s\\S]*?-->`, 'gi')
+// Match recipe-overrides markers and legacy config-options markers in note comments.
+const QUESTION_MARKER_REGEX = new RegExp(
+  `<!--\\s*(?:${NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN})\\b[\\s\\S]*?-->`,
+  'gi',
+)
 
 // Token grammar matches recipe tag tokens so ids/exclusions stay aligned.
 const QUESTION_TOKEN_REGEX = TAG_TOKEN_REGEX
@@ -1276,7 +1288,7 @@ const readTokenList = (cursor: TokenCursor, sink: string[]): void => {
 const parseQuestionMarker = (inner: string): ParsedQuestionDefinition | null => {
   const tokens = tokenizeRecipeOverrides(inner)
   const cursor = new TokenCursor(tokens)
-  if (!cursor.consumeWord(NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD)) return null
+  if (!cursor.consumeWord(...NOTE_RECIPE_OVERRIDES_MARKER_KEYWORDS)) return null
   // Capture marker-level layout hints before reading the question prompt.
   const markerOptions = parseQuestionMarkerOptions(cursor)
   const questionToken = cursor.consumeWord('q', 'question')
