@@ -3251,8 +3251,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
             <TesterRuleReferenceChip
               match={match}
               {...(!matchDetailsFrozen && onJumpToRule ? { onJump: onJumpToRule } : {})}
-              // `TesterRuleReferenceChip` still exposes the legacy prop name until its dedicated rename step.
-              showConfigIndex={showMatchRecipeIndex}
+              showRecipeIndex={showMatchRecipeIndex}
               showLineNumber={showMatchLineNumber}
               sx={{ width: '100%' }}
             />
