@@ -707,10 +707,10 @@ export function GearTesterTabContent({
     const isCompact = isItemCompact(it)
     const match = Number.isFinite(itemId) ? testerMatches.get(itemId) ?? null : null
     const recipeIdx = match?.recipeIdx ?? null
-    const cfg = (recipeIdx != null ? customRecipes[recipeIdx] : undefined)
-    const cfgFactionCode = cfg ? Number((cfg as { factionCode?: number }).factionCode ?? 0) : 0
-    const configIcon = (showFactionIcons && cfgFactionCode > 0)
-      ? <FactionIcon faction={cfgFactionCode as FactionId} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
+    const recipe = (recipeIdx != null ? customRecipes[recipeIdx] : undefined)
+    const recipeFactionCode = recipe ? Number((recipe as { factionCode?: number }).factionCode ?? 0) : 0
+    const recipeIcon = (showFactionIcons && recipeFactionCode > 0)
+      ? <FactionIcon faction={recipeFactionCode as FactionId} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
       : undefined
     const subEntries = entriesInOrder(it)
     const slotValue = Number(it.slot)
@@ -788,14 +788,14 @@ export function GearTesterTabContent({
         match={match}
         onJump={onView}
         showFinalSellLabel
-        icon={configIcon}
+        icon={recipeIcon}
         sx={{
           maxWidth: TESTER_RECIPE_CHIP_MAX_WIDTH_PX,
           width: '100%',
           '& .MuiChip-label': {
             whiteSpace: 'nowrap',
           },
-          ...(configIcon ? {
+          ...(recipeIcon ? {
             pl: 0.5,
             '& .MuiChip-icon': {
               color: 'inherit',
