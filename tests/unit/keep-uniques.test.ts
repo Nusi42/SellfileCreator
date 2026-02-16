@@ -471,6 +471,64 @@ test('ranked unresolved cutoff ties keep more than N', () => {
   assert.deepStrictEqual(new Set(entry.itemKeys), new Set([301, 302]))
 })
 
+test('ranked unresolved ties are order-invariant across candidate permutations', () => {
+  const rules = [makeRule({
+    requiredCount: 1,
+    // Per-rule mode keeps all candidates in one competition bucket.
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+    // Keep tuple filters broad so only ranking/tie logic decides.
+    combination: {
+      slots: [ArtifactType.Weapon],
+      sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
+      metaSetIds: [],
+      ranks: [],
+      rarities: [],
+      mainStats: [],
+      factions: [],
+    },
+    substats: [StatVariant.SPD],
+  })]
+  const rowA = makeTesterRow({
+    id: 401,
+    rank: 6 as RankValue,
+    rarity: 6 as RankValue,
+    mainStat: buildMainStat(StatVariant.CDMG),
+    substats: [buildSubstat(StatVariant.SPD, 6)],
+  }, false, StatVariant.ATK)
+  const rowB = makeTesterRow({
+    id: 402,
+    rank: 6 as RankValue,
+    rarity: 6 as RankValue,
+    mainStat: buildMainStat(StatVariant.CDMG),
+    substats: [buildSubstat(StatVariant.SPD, 6)],
+  }, false, StatVariant.ATK)
+  const rowC = makeTesterRow({
+    id: 403,
+    rank: 6 as RankValue,
+    rarity: 6 as RankValue,
+    mainStat: buildMainStat(StatVariant.CDMG),
+    substats: [buildSubstat(StatVariant.SPD, 6)],
+  }, false, StatVariant.ATK)
+  // First permutation keeps natural encounter order.
+  const firstRows = [rowA, rowB, rowC]
+  // Second permutation scrambles encounter order intentionally.
+  const secondRows = [rowC, rowA, rowB]
+  const firstCandidates = collectKeepUniqueCandidates({ rows: firstRows, baseRules: [], configModes: [] }).candidates
+  const secondCandidates = collectKeepUniqueCandidates({ rows: secondRows, baseRules: [], configModes: [] }).candidates
+  const firstSnapshot = computeKeepUniqueProtection({ candidates: firstCandidates, rules, enabled: true })
+  const secondSnapshot = computeKeepUniqueProtection({ candidates: secondCandidates, rules, enabled: true })
+  const firstEntry = firstSnapshot.entries[0]
+  const secondEntry = secondSnapshot.entries[0]
+  assert.ok(firstEntry)
+  assert.ok(secondEntry)
+  // All unresolved ties should be kept, independent of incoming candidate order.
+  assert.deepStrictEqual(new Set(firstEntry.itemKeys), new Set([401, 402, 403]))
+  assert.deepStrictEqual(new Set(secondEntry.itemKeys), new Set([401, 402, 403]))
+  // Deterministic item-key fallback should also keep emitted order stable.
+  assert.deepStrictEqual(firstEntry.itemKeys, [401, 402, 403])
+  assert.deepStrictEqual(secondEntry.itemKeys, [401, 402, 403])
+})
+
 test('resolveKeepUniqueRulesWithMetasets expands set lists', () => {
   const rules = [
     makeRule({

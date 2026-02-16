@@ -2817,9 +2817,9 @@ fn keep_unique_compute_score(
     }
 }
 
-// Keep tie detection separate from sort ordering.
-// Tie detection keeps the legacy "boundary extension" semantics.
-// Sorting still needs a strict total order to satisfy Rust's sort invariants.
+// Keep strict "better than" logic separate from presentation sorting.
+// This helper defines ranking semantics only (not output ordering).
+// Equal means "not strictly better" and should preserve unresolved ties.
 fn keep_unique_compare_scored_candidates_tie_only(
     left: &KeepUniqueWasmScoredCandidate,
     right: &KeepUniqueWasmScoredCandidate,
@@ -2865,61 +2865,42 @@ fn keep_unique_compare_scored_candidates_tie_only(
     Ordering::Equal
 }
 
-// Rust sort requires a strict weak ordering.
-// We reuse business tie logic first, then add deterministic key fallbacks.
-fn keep_unique_compare_scored_candidates_for_sort(
+// Selected candidate output still needs deterministic ordering for stable payloads.
+// This helper is presentation-only and never decides keep/drop eligibility.
+fn keep_unique_compare_scored_candidate_identity(
     left: &KeepUniqueWasmScoredCandidate,
     right: &KeepUniqueWasmScoredCandidate,
     candidates: &[KeepUniqueWasmCandidateIn],
 ) -> Ordering {
+    let left_candidate = &candidates[left.candidate_idx];
+    let right_candidate = &candidates[right.candidate_idx];
     let left_artifact = &candidates[left.candidate_idx].artifact;
     let right_artifact = &candidates[right.candidate_idx].artifact;
-    // Primary ordering is strict total score ordering.
-    // This keeps the comparator transitive even when tie-only logic uses epsilon.
-    let by_score_total = right.score.total_cmp(&left.score);
-    if by_score_total != Ordering::Equal {
-        return by_score_total;
+    // Item key is the canonical identity and remains stable across input order.
+    if left_candidate.item_key != right_candidate.item_key {
+        return left_candidate.item_key.cmp(&right_candidate.item_key);
     }
-    // Collapse flat/percent pairs into one family so pair preferences are transitive.
-    // This avoids pairwise-only decisions that can violate Rust sort invariants.
-    let family_key = |main_stat: i64| -> i64 {
-        match main_stat {
-            KEEP_UNIQUE_MAIN_HP_FLAT => KEEP_UNIQUE_MAIN_HP_PERCENT,
-            KEEP_UNIQUE_MAIN_ATK_FLAT => KEEP_UNIQUE_MAIN_ATK_PERCENT,
-            KEEP_UNIQUE_MAIN_DEF_FLAT => KEEP_UNIQUE_MAIN_DEF_PERCENT,
-            _ => main_stat,
-        }
-    };
-    // Percent mains should outrank their matching flat counterpart within the same family.
-    // Unrelated stats all get priority 0 so they stay ordered by family/id fallback keys.
-    let variant_priority = |main_stat: i64| -> i64 {
-        match main_stat {
-            KEEP_UNIQUE_MAIN_HP_PERCENT | KEEP_UNIQUE_MAIN_ATK_PERCENT | KEEP_UNIQUE_MAIN_DEF_PERCENT => 0,
-            KEEP_UNIQUE_MAIN_HP_FLAT | KEEP_UNIQUE_MAIN_ATK_FLAT | KEEP_UNIQUE_MAIN_DEF_FLAT => 1,
-            _ => 0,
-        }
-    };
-    let left_family = family_key(left_artifact.main_stat);
-    let right_family = family_key(right_artifact.main_stat);
-    if left_family != right_family {
-        return left_family.cmp(&right_family);
+    // Artifact id is a secondary identity fallback when item-key collides.
+    let left_id = left_artifact.id.unwrap_or(0);
+    let right_id = right_artifact.id.unwrap_or(0);
+    if left_id != right_id {
+        return left_id.cmp(&right_id);
     }
-    let left_variant_priority = variant_priority(left_artifact.main_stat);
-    let right_variant_priority = variant_priority(right_artifact.main_stat);
-    if left_variant_priority != right_variant_priority {
-        return left_variant_priority.cmp(&right_variant_priority);
+    // Group key keeps cross-group output deterministic for mixed payloads.
+    if left_candidate.group_key != right_candidate.group_key {
+        return left_candidate.group_key.cmp(&right_candidate.group_key);
     }
-    // Same-main ties still prefer higher rank, matching the prior behavior.
-    // Apply the same rank fallback for equal-family rows to keep ordering total.
-    if left_artifact.rank != right_artifact.rank {
-        return right_artifact.rank.cmp(&left_artifact.rank);
-    }
-    // Main stat id keeps same-family rows deterministic.
-    // Candidate index is the final unique key and guarantees strict transitivity.
+    // Keep remaining scalar fields sorted so duplicate ids stay deterministic.
     if left_artifact.main_stat != right_artifact.main_stat {
         return left_artifact.main_stat.cmp(&right_artifact.main_stat);
     }
-    left.candidate_idx.cmp(&right.candidate_idx)
+    if left_artifact.rank != right_artifact.rank {
+        return right_artifact.rank.cmp(&left_artifact.rank);
+    }
+    if left_artifact.rarity != right_artifact.rarity {
+        return right_artifact.rarity.cmp(&left_artifact.rarity);
+    }
+    Ordering::Equal
 }
 
 fn keep_unique_select_top_scored_candidates(
@@ -2931,29 +2912,35 @@ fn keep_unique_select_top_scored_candidates(
     if required_per_group <= 0 || entries.is_empty() {
         return Vec::new();
     }
-    // Copy then sort by strict comparator for deterministic ordering.
-    let mut sorted = entries.to_vec();
-    // Keep this on unstable sort to avoid stable-sort comparator guard panics in wasm.
-    // Determinism still holds because the comparator has an explicit final index key.
-    sorted.sort_unstable_by(|left, right| keep_unique_compare_scored_candidates_for_sort(left, right, candidates));
+    // Eligibility is order-independent: keep candidates that are not out-ranked
+    // by `required_per_group` strictly-better peers.
     let required = required_per_group as usize;
-    // If bucket has <= required candidates, all of them are selected.
-    if sorted.len() <= required {
-        return sorted;
+    let mut selected = Vec::<KeepUniqueWasmScoredCandidate>::new();
+    for candidate in entries {
+        let mut better_count = 0usize;
+        for challenger in entries {
+            if challenger.candidate_idx == candidate.candidate_idx {
+                continue;
+            }
+            // Only strict "better than" decisions reduce eligibility.
+            if keep_unique_compare_scored_candidates_tie_only(challenger, candidate, candidates)
+                == Ordering::Less
+            {
+                better_count += 1;
+                if better_count >= required {
+                    break;
+                }
+            }
+        }
+        // If fewer than `required` candidates are strictly better, keep it.
+        if better_count < required {
+            selected.push(candidate.clone());
+        }
     }
-    // Select top N first, then extend across tie boundary.
-    let mut selected = sorted[..required].to_vec();
-    let Some(boundary) = selected.last().cloned() else {
-        return selected;
-    };
-    let unresolved = sorted[required..]
-        .iter()
-        // Boundary extension still uses business ties (epsilon + main/rank parity).
-        .filter(|entry| keep_unique_compare_scored_candidates_tie_only(entry, &boundary, candidates) == Ordering::Equal)
-        .cloned()
-        .collect::<Vec<_>>();
-    // Extend with unresolved ties to preserve legacy boundary semantics.
-    selected.extend(unresolved);
+    // Normalize emitted order without using encounter index as a ranking tie-break.
+    selected.sort_unstable_by(|left, right| {
+        keep_unique_compare_scored_candidate_identity(left, right, candidates)
+    });
     selected
 }
 
