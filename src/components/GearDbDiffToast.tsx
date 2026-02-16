@@ -218,7 +218,7 @@ function ScaledTesterGridCard({
           suppressMatchDetails={false}
           showFirstMatchRow={showMatchRow}
           showOtherMatchesRow={TOAST_SHOW_OTHER_MATCH_ROWS}
-          showMatchConfigIndex={false}
+          showMatchRecipeIndex={false}
           showMatchLineNumber={false}
           // Surface champion avatars in the diff preview for quick context.
           showChampionIcons={true}

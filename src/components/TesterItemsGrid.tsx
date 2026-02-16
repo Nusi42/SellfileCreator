@@ -348,7 +348,7 @@ type GroupRowsBySetOptions = {
   substatSort: TesterSubstatSortSpec | null
 }
 
-type MatchingConfigEntry = {
+type MatchingRecipeEntry = {
   recipeIdx: number
   label: string
   textColor: string | null
@@ -387,7 +387,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   } = props
   // Variant flags control keep-override behavior without forking the grid.
   const safeguardsVariant = variant === 'safeguards'
-  // Keep-unique is the only keep-override variant now.
+  // Safeguards is the only keep-override variant now.
   const keepOverrideVariant = safeguardsVariant
   // Memoized predicates avoid re-render churn when Safeguards toggles highlighting.
   const highlightRowPredicate = typeof highlightedRowPredicate === 'function' ? highlightedRowPredicate : null
@@ -526,14 +526,15 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const {
     columns: gridColumnPreference,
     showFirstMatch,
-    showMatchConfigIndex,
+    // Preference store key remains legacy until `testerGridPreferences` contract migration lands.
+    showMatchConfigIndex: showMatchRecipeIndex,
     showMatchLine: showMatchLineNumber,
     showOtherMatches,
     showChampionIcons,
     showRuleTemplates,
     setColumns,
     setShowFirstMatch,
-    setShowMatchConfigIndex,
+    setShowMatchConfigIndex: setShowMatchRecipeIndex,
     setShowMatchLine,
     setShowOtherMatches,
     setShowChampionIcons,
@@ -1433,7 +1434,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   suppressMatchDetails={matchDetailsFrozen}
                   showFirstMatchRow={showFirstMatch}
                   showOtherMatchesRow={showOtherMatches}
-                  showMatchConfigIndex={showMatchConfigIndex}
+                  showMatchRecipeIndex={showMatchRecipeIndex}
                   showMatchLineNumber={showMatchLineNumber}
                   showChampionIcons={showChampionIcons}
                   cardHeightPx={cardHeightPx}
@@ -1838,23 +1839,23 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           disabled={!showFirstMatch}
           onClick={() => {
             if (!showFirstMatch) return
-            setShowMatchConfigIndex(!showMatchConfigIndex)
+            setShowMatchRecipeIndex(!showMatchRecipeIndex)
           }}
         >
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowMatchRecipeIndex')}</Typography>
           <Button
             size="small"
-            variant={showMatchConfigIndex ? 'contained' : 'outlined'}
+            variant={showMatchRecipeIndex ? 'contained' : 'outlined'}
             color="success"
             disabled={!showFirstMatch}
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
             onClick={(event) => {
               event.stopPropagation()
               if (!showFirstMatch) return
-              setShowMatchConfigIndex(!showMatchConfigIndex)
+              setShowMatchRecipeIndex(!showMatchRecipeIndex)
             }}
           >
-            {showMatchConfigIndex ? t('commonOn') : t('commonOff')}
+            {showMatchRecipeIndex ? t('commonOn') : t('commonOff')}
           </Button>
         </MenuItem>
         <MenuItem
@@ -2208,7 +2209,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   suppressMatchDetails,
   showFirstMatchRow,
   showOtherMatchesRow,
-  showMatchConfigIndex,
+  showMatchRecipeIndex,
   showMatchLineNumber,
   showChampionIcons,
   cardHeightPx,
@@ -2227,7 +2228,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   suppressMatchDetails: boolean
   showFirstMatchRow: boolean
   showOtherMatchesRow: boolean
-  showMatchConfigIndex: boolean
+  showMatchRecipeIndex: boolean
   showMatchLineNumber: boolean
   showChampionIcons: boolean
   cardHeightPx: number
@@ -2248,7 +2249,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   const matchDetailsOpacity = matchDetailsFrozen ? 0.45 : 1
   const { t, lang } = useI18n()
   const theme = useTheme()
-  const configTextFallbackColor = theme.palette.primary.main
+  const recipeTextFallbackColor = theme.palette.primary.main
   const artifact = row.artifact
   const priorityBase = Number(cardPriority?.base) || 0
   const priorityOrder = Number(cardPriority?.order) || 0
@@ -2278,13 +2279,13 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   const cardContentReady = useTesterGridCardContentReady(normalizedArtifactId, priorityBase, priorityOrder)
   const match = row.match
   const primaryRuleIndex = typeof match?.ruleIndex === 'number' ? match.ruleIndex : null
-  const primaryCfgIndex = typeof match?.recipeIdx === 'number' ? match.recipeIdx : null
+  const primaryRecipeIndex = typeof match?.recipeIdx === 'number' ? match.recipeIdx : null
   const canJumpToPrimaryMatch = typeof onJumpToRule === 'function' && primaryRuleIndex != null
   // Jump affordances stay disabled until the rebuild commits so stale matches never focus the wrong recipe.
   const allowPrimaryMatchJump = Boolean(!matchDetailsFrozen && canJumpToPrimaryMatch)
   const handlePrimaryMatchClick = () => {
     if (!allowPrimaryMatchJump || primaryRuleIndex == null) return
-    onJumpToRule?.(primaryRuleIndex, primaryCfgIndex ?? null)
+    onJumpToRule?.(primaryRuleIndex, primaryRecipeIndex ?? null)
   }
   // Template actions only appear when the parent supplies a handler.
   const canCreateRuleTemplate = typeof onCreateRuleTemplate === 'function'
@@ -2315,7 +2316,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     handleRuleTemplateClose()
   }
   // Map caches the first keep/sell decision per recipe so overflow chips reuse the same tint.
-  const matchingConfigKeepMap = useMemo(() => {
+  const matchingRecipeKeepMap = useMemo(() => {
     const map = new Map<number, boolean>()
     if (!Array.isArray(row.matchingRecipeDecisions)) return map
     for (const decision of row.matchingRecipeDecisions) {
@@ -2326,18 +2327,18 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     return map
   }, [row.matchingRecipeDecisions])
   // Matching chips hydrate lazily so skeleton rows can avoid heavy string work until revealed.
-  const matchingEntries: MatchingConfigEntry[] = useMemo(() => {
+  const matchingEntries: MatchingRecipeEntry[] = useMemo(() => {
     if (!cardContentReady) return []
     if (!Array.isArray(row.matchingRecipeIndices)) return []
     const seen = new Set<number>()
-    const entries: MatchingConfigEntry[] = []
+    const entries: MatchingRecipeEntry[] = []
     for (const rawIdx of row.matchingRecipeIndices) {
       const numericIdx = Number(rawIdx)
       if (!Number.isFinite(numericIdx) || seen.has(numericIdx)) continue
       seen.add(numericIdx)
       const decoration = parseRecipeNameDirectives(
         recipeNames[numericIdx] ?? undefined,
-        configTextFallbackColor,
+        recipeTextFallbackColor,
       )
       const cleanedLabel = decoration.displayName.trim()
       entries.push({
@@ -2346,11 +2347,11 @@ export const TesterGridCard = React.memo(function TesterGridCard({
           ? cleanedLabel
           : `#${numericIdx + 1}`,
         textColor: decoration.hasExplicitColor ? decoration.resolvedColor : null,
-        keep: matchingConfigKeepMap.get(numericIdx) ?? null,
+        keep: matchingRecipeKeepMap.get(numericIdx) ?? null,
       })
     }
     return entries
-  }, [cardContentReady, row.matchingRecipeIndices, matchingConfigKeepMap, recipeNames, configTextFallbackColor])
+  }, [cardContentReady, row.matchingRecipeIndices, matchingRecipeKeepMap, recipeNames, recipeTextFallbackColor])
   const shouldShowPrimaryMatchRow = basePrimaryMatchRowVisible
   // Keep-override primary matches are not tied to a recipe, so keep all recipe matches visible.
   const keepOverridePrimaryMatch = match?.ruleSource === RULE_SOURCE_SAFEGUARDS
@@ -2360,10 +2361,10 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     // Keep-override rows stay fully visible because primary match has no recipe scope.
     if (keepOverridePrimaryMatch) return matchingEntries
     // Final Sell and other recipe-less primaries should not hide any recipe chips.
-    if (primaryCfgIndex == null) return matchingEntries
+    if (primaryRecipeIndex == null) return matchingEntries
     // Hide only the actual primary recipe entry to avoid duplicate chips.
-    return matchingEntries.filter((entry) => entry.recipeIdx !== primaryCfgIndex)
-  }, [keepOverridePrimaryMatch, matchingEntries, primaryCfgIndex])
+    return matchingEntries.filter((entry) => entry.recipeIdx !== primaryRecipeIndex)
+  }, [keepOverridePrimaryMatch, matchingEntries, primaryRecipeIndex])
   const shouldShowOtherMatchesRow = showOtherMatchesRow && otherMatchingEntries.length > 0
   const totalOtherMatches = otherMatchingEntries.length
   const otherMatchingEntriesSignature = useMemo(
@@ -2482,13 +2483,13 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     if (hiddenOtherMatching.length === 0) return
     setMatchingPopoverAnchor(event.currentTarget)
   }
-  const handleMatchingConfigJump = (recipeIdx: number) => {
+  const handleMatchingRecipeJump = (recipeIdx: number) => {
     if (!allowPrimaryMatchJump || primaryRuleIndex == null) return
     if (!Number.isFinite(recipeIdx)) return
     onJumpToRule?.(primaryRuleIndex, recipeIdx)
   }
   const renderMatchingChip = (
-    entry: MatchingConfigEntry,
+    entry: MatchingRecipeEntry,
     options?: { onSelect?: () => void },
   ): React.ReactNode => {
     const key = `matching-chip-${entry.recipeIdx}`
@@ -2519,7 +2520,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
               type: 'button' as const,
               onClick: () => {
                 options?.onSelect?.()
-                handleMatchingConfigJump(entry.recipeIdx)
+                handleMatchingRecipeJump(entry.recipeIdx)
               },
             }
           : {})}
@@ -2806,7 +2807,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     : undefined
   // Surface stable match metadata for automation without forcing DOM text scraping.
   const cardMatchOutcome = match ? (match.keep === false ? 'sell' : 'keep') : 'none'
-  const cardMatchConfigIdx = match?.recipeIdx != null ? String(match.recipeIdx) : 'none'
+  const cardMatchRecipeIdx = match?.recipeIdx != null ? String(match.recipeIdx) : 'none'
   const mainSummaryLabel = (
     <>
       <Box component="span" sx={{ color: mainColor ?? 'inherit' }}>
@@ -2926,7 +2927,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
       data-tester-grid-card="true"
       data-row-id={artifact.id}
       data-match-outcome={cardMatchOutcome}
-      data-match-recipe-index={cardMatchConfigIdx}
+      data-match-recipe-index={cardMatchRecipeIdx}
       sx={(theme) => ({
         display: 'grid',
         gridTemplateColumns: GRID_CARD_TEMPLATE,
@@ -3250,7 +3251,8 @@ export const TesterGridCard = React.memo(function TesterGridCard({
             <TesterRuleReferenceChip
               match={match}
               {...(!matchDetailsFrozen && onJumpToRule ? { onJump: onJumpToRule } : {})}
-              showConfigIndex={showMatchConfigIndex}
+              // `TesterRuleReferenceChip` still exposes the legacy prop name until its dedicated rename step.
+              showConfigIndex={showMatchRecipeIndex}
               showLineNumber={showMatchLineNumber}
               sx={{ width: '100%' }}
             />
