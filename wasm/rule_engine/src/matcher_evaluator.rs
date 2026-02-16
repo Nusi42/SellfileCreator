@@ -24,11 +24,12 @@ pub(crate) struct PreparedRule {
 // Prepared substats normalize condition/value flags for direct comparisons.
 #[derive(Debug)]
 pub(crate) struct PreparedRuleSub {
-    pub(crate) id: i64,
+    // Variant is precomputed during configure so matcher loops do zero coercion.
+    pub(crate) variant: i64,
+    // Threshold stays as f64 because substat values are floating-point in payloads.
     pub(crate) value: f64,
-    pub(crate) is_flat: i64,
-    pub(crate) condition: String,
-    pub(crate) not_available: bool,
+    // Condition is parsed once; hot loops use enum dispatch instead of strings.
+    pub(crate) condition: PreparedRuleSubCondition,
 }
 
 // Evaluate options mirror EvalMatchesByConfigOptions from TS.
@@ -40,6 +41,72 @@ pub(crate) struct EvaluateOptionsRaw {
     pub(crate) exclude_config_indices: Option<Vec<i64>>,
     pub(crate) ignore_keep_unique_config_indices: Option<Vec<i64>>,
     pub(crate) baseline_exclude_sources: Option<Vec<String>>,
+}
+
+// Matcher loops compare only three condition families from TS semantics.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub(crate) enum PreparedRuleSubCondition {
+    AtLeast,
+    AtMost,
+    Equal,
+}
+
+// Prepared options keep all exclusion sets prebuilt for repeated item scans.
+#[derive(Debug, Default, Clone)]
+pub(crate) struct EvaluateOptionsPrepared {
+    exclude_source_set: HashSet<String>,
+    exclude_config_indices: HashSet<i64>,
+    ignore_keep_unique_config_indices: HashSet<i64>,
+}
+
+impl EvaluateOptionsPrepared {
+    // Convert vector-based JS payloads once per evaluate batch.
+    pub(crate) fn from_raw(raw: &EvaluateOptionsRaw) -> Self {
+        Self {
+            exclude_source_set: raw
+                .exclude_sources
+                .as_ref()
+                .map(|sources| sources.iter().cloned().collect::<HashSet<_>>())
+                .unwrap_or_default(),
+            exclude_config_indices: raw
+                .exclude_config_indices
+                .as_ref()
+                .map(|indices| indices.iter().copied().collect::<HashSet<_>>())
+                .unwrap_or_default(),
+            ignore_keep_unique_config_indices: raw
+                .ignore_keep_unique_config_indices
+                .as_ref()
+                .map(|indices| indices.iter().copied().collect::<HashSet<_>>())
+                .unwrap_or_default(),
+        }
+    }
+
+    // Keep-unique fallback only needs config exclusions, not source filtering.
+    fn from_excluded_config_indices(exclude_config_indices: &[i64]) -> Self {
+        Self {
+            exclude_config_indices: exclude_config_indices.iter().copied().collect::<HashSet<_>>(),
+            ..Self::default()
+        }
+    }
+
+    // Source comparisons use borrowed `&str` lookups to avoid string cloning.
+    fn source_is_excluded(&self, source: Option<&str>) -> bool {
+        source
+            .map(|candidate| self.exclude_source_set.contains(candidate))
+            .unwrap_or(false)
+    }
+
+    // Keep-unique ignore checks are option-aware because cfg indices are optional.
+    fn keep_unique_cfg_is_ignored(&self, cfg_idx: Option<i64>) -> bool {
+        cfg_idx
+            .map(|idx| self.ignore_keep_unique_config_indices.contains(&idx))
+            .unwrap_or(false)
+    }
+}
+
+// Keep options conversion in one helper so all call sites share the same rules.
+pub(crate) fn prepare_evaluate_options(raw: &EvaluateOptionsRaw) -> EvaluateOptionsPrepared {
+    EvaluateOptionsPrepared::from_raw(raw)
 }
 
 // Serialized match result shape consumed by existing worker hooks.
@@ -68,17 +135,6 @@ pub(crate) struct EvaluateItemResult {
     pub(crate) first_non_excluded_match: Option<EvalMatch>,
     pub(crate) matching_config_indices: Vec<i64>,
     pub(crate) matching_config_decisions: Vec<MatchingConfigDecision>,
-}
-
-// Keep-unique candidate resolver consumes compact row payloads from TS.
-// `base_match_defined` distinguishes `undefined` from explicit `null`.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct KeepUniqueCandidateResolveRowIn {
-    item: TestItemRaw,
-    #[serde(default)]
-    base_match_defined: bool,
-    base_match: Option<KeepUniqueCandidateResolveBaseMatchIn>,
 }
 
 // Only the fields needed for keep/sell fallback logic cross the boundary.
@@ -119,6 +175,17 @@ pub(crate) struct KeepUniqueCollectedSnapshotOut {
     pub(crate) unique_item_keys: Vec<i64>,
 }
 
+// Normalize the optional TS condition token into a compact matcher enum.
+fn parse_sub_condition(raw_condition: Option<&str>) -> PreparedRuleSubCondition {
+    // Missing/unknown tokens follow TS fallback semantics (`>=`).
+    let trimmed = raw_condition.unwrap_or(">=").trim();
+    match trimmed {
+        "<=" | "<" | "=<" | "≤" => PreparedRuleSubCondition::AtMost,
+        "==" | "=" => PreparedRuleSubCondition::Equal,
+        _ => PreparedRuleSubCondition::AtLeast,
+    }
+}
+
 // Prepare one rule for fast repeated item evaluation.
 pub(crate) fn prepare_rule(raw: RuleRaw) -> PreparedRule {
     let use_flag = raw.Use.unwrap_or(true);
@@ -137,12 +204,18 @@ pub(crate) fn prepare_rule(raw: RuleRaw) -> PreparedRule {
         .Substats
         .unwrap_or_default()
         .into_iter()
-        .map(|sub| PreparedRuleSub {
-            id: sub.ID.unwrap_or(STAT_ID_ANY),
-            value: sub.Value.unwrap_or(0.0),
-            is_flat: boolish_to_flag(sub.IsFlat.as_ref()),
-            condition: sub.Condition.unwrap_or_else(|| ">=".to_string()).trim().to_string(),
-            not_available: sub.NotAvailable.unwrap_or(false),
+        // Skip unsupported substat placeholders here so hot loops stay branch-light.
+        .filter_map(|sub| {
+            let id = sub.ID.unwrap_or(STAT_ID_ANY);
+            // `notAvailable` and `Any` are non-constraints by definition.
+            if sub.NotAvailable.unwrap_or(false) || id == STAT_ID_ANY {
+                return None;
+            }
+            Some(PreparedRuleSub {
+                variant: sub_to_variant(id, boolish_to_flag(sub.IsFlat.as_ref())),
+                value: sub.Value.unwrap_or(0.0),
+                condition: parse_sub_condition(sub.Condition.as_deref()),
+            })
         })
         .collect::<Vec<_>>();
 
@@ -171,10 +244,10 @@ fn resolve_item_key(item: &TestItemRaw) -> Option<i64> {
 }
 
 // Fast helper for optional numeric value map lookup by encoded variant key.
-fn read_sub_value(sub_values: &Option<HashMap<String, f64>>, variant: i64) -> Option<f64> {
+fn read_sub_value(sub_values: &Option<HashMap<i64, f64>>, variant: i64) -> Option<f64> {
     sub_values
         .as_ref()
-        .and_then(|values| values.get(&variant.to_string()).copied())
+        .and_then(|values| values.get(&variant).copied())
 }
 
 // Rule-level predicate copied from src/lib/ruleEval.ts::matchRule.
@@ -223,26 +296,20 @@ fn match_rule(rule: &PreparedRule, item: &TestItemRaw) -> bool {
         }
     }
 
-    for sub in rule
-        .substats
-        .iter()
-        .filter(|entry| !entry.not_available && entry.id != STAT_ID_ANY)
-    {
-        let variant = sub_to_variant(sub.id, sub.is_flat);
-        let raw_value = read_sub_value(&item.sub_values, variant);
+    for sub in &rule.substats {
+        let raw_value = read_sub_value(&item.sub_values, sub.variant);
         let has_value = raw_value.is_some_and(|v| v.is_finite() && v > 0.0);
         let have = raw_value.unwrap_or(0.0);
-        let needs_presence = matches!(sub.condition.as_str(), "<=" | "<" | "=<" | "≤");
+        let needs_presence = sub.condition == PreparedRuleSubCondition::AtMost;
 
         if needs_presence && !has_value {
             return false;
         }
 
-        let ok = match sub.condition.as_str() {
-            ">=" => have >= sub.value,
-            "<=" => have <= sub.value,
-            "==" | "=" => (have - sub.value).abs() < f64::EPSILON,
-            _ => have >= sub.value,
+        let ok = match sub.condition {
+            PreparedRuleSubCondition::AtLeast => have >= sub.value,
+            PreparedRuleSubCondition::AtMost => have <= sub.value,
+            PreparedRuleSubCondition::Equal => (have - sub.value).abs() < f64::EPSILON,
         };
 
         if !ok {
@@ -257,10 +324,10 @@ fn match_rule(rule: &PreparedRule, item: &TestItemRaw) -> bool {
 fn should_include_config(
     cfg_idx: Option<i64>,
     config_modes: &[String],
-    exclude_config_indices: &HashSet<i64>,
+    options: &EvaluateOptionsPrepared,
 ) -> bool {
     if let Some(idx) = cfg_idx {
-        if exclude_config_indices.contains(&idx) {
+        if options.exclude_config_indices.contains(&idx) {
             return false;
         }
 
@@ -272,37 +339,13 @@ fn should_include_config(
     true
 }
 
-// Item-level evaluator copied from evaluateMatchesByConfig with full-rule scans.
+// Hot-path evaluator takes prepared options to avoid per-item set allocations.
 pub(crate) fn evaluate_item(
     rules: &[PreparedRule],
     config_modes: &[String],
     item: &TestItemRaw,
-    options: &EvaluateOptionsRaw,
+    options: &EvaluateOptionsPrepared,
 ) -> (Option<EvalMatch>, Option<EvalMatch>, Vec<i64>, Vec<MatchingConfigDecision>) {
-    let exclude_source_set = options
-        .exclude_sources
-        .as_ref()
-        .map(|sources| sources.iter().cloned().collect::<HashSet<_>>())
-        .unwrap_or_default();
-
-    let exclude_config_indices = options
-        .exclude_config_indices
-        .as_ref()
-        .map(|indices| indices.iter().copied().collect::<HashSet<_>>())
-        .unwrap_or_default();
-
-    let ignore_keep_unique_config_indices = options
-        .ignore_keep_unique_config_indices
-        .as_ref()
-        .map(|indices| indices.iter().copied().collect::<HashSet<_>>())
-        .unwrap_or_default();
-
-    let is_keep_unique_ignored = |cfg_idx: Option<i64>| -> bool {
-        cfg_idx
-            .map(|idx| ignore_keep_unique_config_indices.contains(&idx))
-            .unwrap_or(false)
-    };
-
     let mut first_match: Option<EvalMatch> = None;
     let mut first_non_excluded_match: Option<EvalMatch> = None;
     let mut non_keep_override_keep_matched = false;
@@ -333,12 +376,9 @@ pub(crate) fn evaluate_item(
             });
         }
 
-        let source = rule.source.as_deref();
-        let is_excluded = source
-            .map(|candidate| exclude_source_set.contains(candidate))
-            .unwrap_or(false);
+        let is_excluded = options.source_is_excluded(rule.source.as_deref());
 
-        if !should_include_config(rule.cfg_idx, config_modes, &exclude_config_indices) {
+        if !should_include_config(rule.cfg_idx, config_modes, options) {
             continue;
         }
 
@@ -348,32 +388,46 @@ pub(crate) fn evaluate_item(
             rule.keep_flag
         };
 
-        let matched = EvalMatch {
-            rule_index,
-            keep,
-            cfg_idx: rule.cfg_idx,
-        };
-
         if rule.is_keep_override_source {
             if pending_keep_override.is_none() && !is_excluded {
-                pending_keep_override = Some(matched.clone());
+                pending_keep_override = Some(EvalMatch {
+                    rule_index,
+                    keep,
+                    cfg_idx: rule.cfg_idx,
+                });
             }
             if fallback_keep_override.is_none() && !is_excluded {
-                fallback_keep_override = Some(matched.clone());
+                fallback_keep_override = Some(EvalMatch {
+                    rule_index,
+                    keep,
+                    cfg_idx: rule.cfg_idx,
+                });
             }
             if any_keep_override_match.is_none() && !is_excluded {
-                any_keep_override_match = Some(matched.clone());
+                any_keep_override_match = Some(EvalMatch {
+                    rule_index,
+                    keep,
+                    cfg_idx: rule.cfg_idx,
+                });
             }
         } else {
-            let ignored_for_keep_unique = is_keep_unique_ignored(rule.cfg_idx);
+            let ignored_for_keep_unique = options.keep_unique_cfg_is_ignored(rule.cfg_idx);
             if keep && !is_excluded && !ignored_for_keep_unique {
                 non_keep_override_keep_matched = true;
             }
             if first_match.is_none() && !is_excluded {
-                first_match = Some(matched.clone());
+                first_match = Some(EvalMatch {
+                    rule_index,
+                    keep,
+                    cfg_idx: rule.cfg_idx,
+                });
             }
             if first_non_excluded_match.is_none() && !is_excluded {
-                first_non_excluded_match = Some(matched.clone());
+                first_non_excluded_match = Some(EvalMatch {
+                    rule_index,
+                    keep,
+                    cfg_idx: rule.cfg_idx,
+                });
             }
         }
 
@@ -389,7 +443,7 @@ pub(crate) fn evaluate_item(
 
     let first_match_is_keep = first_match
         .as_ref()
-        .map(|entry| entry.keep && !is_keep_unique_ignored(entry.cfg_idx))
+        .map(|entry| entry.keep && !options.keep_unique_cfg_is_ignored(entry.cfg_idx))
         .unwrap_or(false);
 
     let allow_keep_override = !non_keep_override_keep_matched && !first_match_is_keep;
@@ -400,10 +454,14 @@ pub(crate) fn evaluate_item(
             .or(prekeep_override);
 
         if let Some(candidate) = keep_candidate {
-            first_match = Some(candidate.clone());
             if first_non_excluded_match.is_none() {
-                first_non_excluded_match = Some(candidate);
+                first_non_excluded_match = Some(EvalMatch {
+                    rule_index: candidate.rule_index,
+                    keep: candidate.keep,
+                    cfg_idx: candidate.cfg_idx,
+                });
             }
+            first_match = Some(candidate);
         }
     }
 
@@ -417,9 +475,17 @@ pub(crate) fn evaluate_item(
         })
         .collect::<Vec<_>>();
 
+    // Keep first-match ownership while mirroring fallback semantics for non-excluded.
+    let resolved_first_non_excluded = first_non_excluded_match.or_else(|| {
+        first_match.as_ref().map(|entry| EvalMatch {
+            rule_index: entry.rule_index,
+            keep: entry.keep,
+            cfg_idx: entry.cfg_idx,
+        })
+    });
     (
-        first_match.clone(),
-        first_non_excluded_match.or(first_match),
+        first_match,
+        resolved_first_non_excluded,
         matching_config_indices,
         matching_config_decisions,
     )
@@ -428,7 +494,7 @@ pub(crate) fn evaluate_item(
 // Resolve keep/sell outcomes for keep-unique candidate rows.
 // Rows reuse cached base matches when possible and only re-evaluate as needed.
 fn resolve_keep_unique_candidate_keep_flags_core(
-    rows: &[KeepUniqueCandidateResolveRowIn],
+    rows: &[KeepUniqueCollectRowIn],
     prepared_rules: &[PreparedRule],
     config_modes: &[String],
     ignore_keep_unique_config_indices: &[i64],
@@ -438,14 +504,8 @@ fn resolve_keep_unique_candidate_keep_flags_core(
         .iter()
         .copied()
         .collect::<HashSet<_>>();
-    let eval_options = EvaluateOptionsRaw {
-        exclude_config_indices: if has_ignored_configs {
-            Some(ignore_keep_unique_config_indices.to_vec())
-        } else {
-            None
-        },
-        ..EvaluateOptionsRaw::default()
-    };
+    let eval_options =
+        EvaluateOptionsPrepared::from_excluded_config_indices(ignore_keep_unique_config_indices);
 
     let mut keep_flags = Vec::<bool>::with_capacity(rows.len());
     for row in rows {
@@ -487,17 +547,8 @@ pub(crate) fn collect_keep_unique_candidates_core(
     config_modes: &[String],
     ignore_keep_unique_config_indices: &[i64],
 ) -> Result<KeepUniqueCollectedSnapshotOut, JsValue> {
-    // Reuse keep-flag resolution so base-match fallback stays single-sourced.
-    let resolver_rows = rows
-        .iter()
-        .map(|row| KeepUniqueCandidateResolveRowIn {
-            item: row.item.clone(),
-            base_match_defined: row.base_match_defined,
-            base_match: row.base_match.clone(),
-        })
-        .collect::<Vec<_>>();
     let keep_flags = resolve_keep_unique_candidate_keep_flags_core(
-        &resolver_rows,
+        rows,
         prepared_rules,
         config_modes,
         ignore_keep_unique_config_indices,

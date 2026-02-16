@@ -41,6 +41,7 @@ use keep_unique::{
 pub(crate) use matcher_evaluator::{
     collect_keep_unique_candidates_core,
     evaluate_item,
+    prepare_evaluate_options,
     prepare_rule,
     EvaluateItemResult,
     EvaluateOptionsRaw,
@@ -162,7 +163,9 @@ struct TestItemRaw {
     level: i64,
     faction: Option<i64>,
     main: Option<i64>,
-    sub_values: Option<HashMap<String, f64>>,
+    // Keys are parsed to i64 once at deserialize-time to avoid hot-loop coercion.
+    #[serde(default, deserialize_with = "deserialize_sub_values_map")]
+    sub_values: Option<HashMap<i64, f64>>,
     item_id: Option<i64>,
     preview_extras: Option<PreviewExtrasRaw>,
 }
@@ -172,6 +175,33 @@ struct TestItemRaw {
 #[serde(rename_all = "camelCase")]
 struct PreviewExtrasRaw {
     id: Option<i64>,
+}
+
+// Deserialize `subValues` from JS object keys into numeric variant ids.
+fn deserialize_sub_values_map<'de, D>(
+    deserializer: D,
+) -> Result<Option<HashMap<i64, f64>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    // Keep accepting null/undefined maps from older payloads.
+    let raw = Option::<HashMap<String, f64>>::deserialize(deserializer)?;
+    raw.map(|entries| {
+        // Parse each string key once so matcher lookups stay numeric.
+        entries
+            .into_iter()
+            .map(|(key, value)| {
+                key.parse::<i64>()
+                    .map(|variant| (variant, value))
+                    .map_err(|_| {
+                        serde::de::Error::custom(format!(
+                            "Invalid subValues key `{key}` (expected integer variant id)"
+                        ))
+                    })
+            })
+            .collect::<Result<HashMap<i64, f64>, D::Error>>()
+    })
+    .transpose()
 }
 
 // Combined keep-unique payload lets TS request candidate collection + detection
@@ -2328,6 +2358,8 @@ fn evaluate_engine(
             return Err(JsValue::from_str("WASM rule engine is not configured"));
         };
 
+        // Prepare all option sets once so each item scan stays allocation-free.
+        let prepared_options = prepare_evaluate_options(&options);
         // Optional baseline path excludes keep-override sources when primary
         // first-match came from those sources.
         let baseline_options = options
@@ -2337,14 +2369,19 @@ fn evaluate_engine(
                 let mut cloned = options.clone();
                 cloned.exclude_sources = Some(sources.clone());
                 cloned.baseline_exclude_sources = None;
-                cloned
+                prepare_evaluate_options(&cloned)
             });
 
         let results = items
             .iter()
             .map(|entry| {
                 let (first_match, first_non_excluded_match, matching_config_indices, matching_config_decisions) =
-                    evaluate_item(&engine.rules, &engine.config_modes, &entry.item, &options);
+                    evaluate_item(
+                        &engine.rules,
+                        &engine.config_modes,
+                        &entry.item,
+                        &prepared_options,
+                    );
                 let mut resolved_first_non_excluded = first_non_excluded_match.clone();
                 if let Some(baseline) = baseline_options.as_ref() {
                     let needs_baseline = first_match
@@ -2354,7 +2391,12 @@ fn evaluate_engine(
                         .unwrap_or(false);
                     if needs_baseline {
                         let (_, baseline_non_excluded, _, _) =
-                            evaluate_item(&engine.rules, &engine.config_modes, &entry.item, baseline);
+                            evaluate_item(
+                                &engine.rules,
+                                &engine.config_modes,
+                                &entry.item,
+                                baseline,
+                            );
                         if baseline_non_excluded.is_some() {
                             resolved_first_non_excluded = baseline_non_excluded;
                         }
