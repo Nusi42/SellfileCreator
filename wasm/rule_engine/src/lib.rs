@@ -186,22 +186,14 @@ where
 {
     // Keep accepting null/undefined maps from older payloads.
     let raw = Option::<HashMap<String, f64>>::deserialize(deserializer)?;
-    raw.map(|entries| {
-        // Parse each string key once so matcher lookups stay numeric.
+    // Invalid keys are ignored so malformed payload entries stay non-fatal.
+    Ok(raw.map(|entries| {
         entries
             .into_iter()
-            .map(|(key, value)| {
-                key.parse::<i64>()
-                    .map(|variant| (variant, value))
-                    .map_err(|_| {
-                        serde::de::Error::custom(format!(
-                            "Invalid subValues key `{key}` (expected integer variant id)"
-                        ))
-                    })
-            })
-            .collect::<Result<HashMap<i64, f64>, D::Error>>()
-    })
-    .transpose()
+            // Parse numeric variant ids once during deserialize.
+            .filter_map(|(key, value)| key.parse::<i64>().ok().map(|variant| (variant, value)))
+            .collect::<HashMap<i64, f64>>()
+    }))
 }
 
 // Combined keep-unique payload lets TS request candidate collection + detection

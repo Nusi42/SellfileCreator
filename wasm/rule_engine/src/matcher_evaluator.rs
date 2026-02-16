@@ -180,8 +180,11 @@ fn parse_sub_condition(raw_condition: Option<&str>) -> PreparedRuleSubCondition 
     // Missing/unknown tokens follow TS fallback semantics (`>=`).
     let trimmed = raw_condition.unwrap_or(">=").trim();
     match trimmed {
-        "<=" | "<" | "=<" | "≤" => PreparedRuleSubCondition::AtMost,
+        // Accept only canonical ASCII and Unicode "less than or equal" tokens.
+        "<=" | "≤" => PreparedRuleSubCondition::AtMost,
+        // Keep equality aliases mapped to exact-value comparisons.
         "==" | "=" => PreparedRuleSubCondition::Equal,
+        // Treat all other tokens as `>=` to preserve fallback semantics.
         _ => PreparedRuleSubCondition::AtLeast,
     }
 }
