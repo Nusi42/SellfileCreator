@@ -100,18 +100,18 @@ const NOTE_DIALOG_PAPER_SX = {
   display: 'flex',
   flexDirection: 'column',
 }
-const CONFIG_COMMENT_REGEX = /^\s*(?:recipes|recipes)\s*:\s*([0-9,\s]+)\s*$/i
-const CONFIG_MARKER_REGEX = /<!--\s*(?:recipes|recipes)\s*:\s*([0-9,\s]+)\s*-->/i
-const CONFIG_REGEX_COMMENT_REGEX = /^\s*(?:recipes|recipes)-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*$/i
-const CONFIG_REGEX_MARKER_REGEX = /<!--\s*(?:recipes|recipes)-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*-->/i
-const CONFIG_ANY_MARKER_GLOBAL_REGEX = /<!--\s*(?:recipes|recipes)(?:-re)?\s*:[\s\S]*?-->/gi
-const CONFIG_ELEMENT_TAG = 'recipe-chip-block'
-const CONFIG_ELEMENT_ATTR = 'data-recipe-ids'
-const CONFIG_ELEMENT_PATTERN_ATTR = 'data-recipe-pattern'
-const CONFIG_ELEMENT_FILTER_ATTR = 'data-recipe-filter'
-const CONFIG_ELEMENT_INDEX_ATTR = 'data-recipe-marker-index'
-const CONFIG_FILTER_IDS = 'ids'
-const CONFIG_FILTER_REGEXP = 'regexp'
+const RECIPE_COMMENT_REGEX = /^\s*recipes\s*:\s*([0-9,\s]+)\s*$/i
+const RECIPE_MARKER_REGEX = /<!--\s*recipes\s*:\s*([0-9,\s]+)\s*-->/i
+const RECIPE_REGEX_COMMENT_REGEX = /^\s*recipes-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*$/i
+const RECIPE_REGEX_MARKER_REGEX = /<!--\s*recipes-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*-->/i
+const RECIPE_ANY_MARKER_GLOBAL_REGEX = /<!--\s*recipes(?:-re)?\s*:[\s\S]*?-->/gi
+const RECIPE_ELEMENT_TAG = 'recipe-chip-block'
+const RECIPE_ELEMENT_ATTR = 'data-recipe-ids'
+const RECIPE_ELEMENT_PATTERN_ATTR = 'data-recipe-pattern'
+const RECIPE_ELEMENT_FILTER_ATTR = 'data-recipe-filter'
+const RECIPE_ELEMENT_INDEX_ATTR = 'data-recipe-marker-index'
+const RECIPE_FILTER_IDS = 'ids'
+const RECIPE_FILTER_REGEXP = 'regexp'
 const DEFAULT_ALLOWED_TAG_REGEX = /^[A-Za-z0-9]+$/
 
 const SAFEGUARD_COMMENT_REGEX = /^\s*safeguards\s*:\s*([0-9,\s]+)\s*$/i
@@ -132,7 +132,7 @@ const NOTE_CARD_WIDTHS: Record<NoteCardWidthPreset, { flexBasis: number; minWidt
 }
 
 // Match HTML comment bodies that declare recipe-overrides markers.
-// Legacy config-options markers are also accepted silently for old .sfr files.
+// Legacy recipe-overrides marker aliases are accepted silently for old .sfr files.
 const QUESTION_MARKER_KEYWORD_PATTERN = NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN
 const QUESTION_COMMENT_REGEX = new RegExp(`^\\s*(?:${QUESTION_MARKER_KEYWORD_PATTERN})\\b`, 'i')
 // Match raw HTML comment markers in the Markdown stream.
@@ -176,8 +176,8 @@ function buildNotePattern(raw: string): RegExp | null {
   }
 }
 
-type ConfigMarkerEntry = { id: number; cfg: BuilderRecipe }
-type ConfigMarkerMap = Map<number, ConfigMarkerEntry[]>
+type RecipeMarkerEntry = { id: number; recipe: BuilderRecipe }
+type RecipeMarkerMap = Map<number, RecipeMarkerEntry[]>
 type SafeguardMarkerEntry = { id: number; rule: SafeguardRule }
 type SafeguardMarkerMap = Map<number, SafeguardMarkerEntry[]>
 type NoteCardWidthPreset = 'note'
@@ -531,7 +531,7 @@ type NoteRenderContextValue = {
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
-  markerResolutions: ConfigMarkerMap
+  markerResolutions: RecipeMarkerMap
   safeguardRules: SafeguardRule[]
   safeguardMarkerResolutions: SafeguardMarkerMap
   recipeOverridesResolutions: Map<number, NoteQuestionDefinition>
@@ -595,7 +595,7 @@ function serializeMarkerTokens(tokens: MarkerToken[]): string {
   return tokens.map((token) => (token.type === 'relativeNext' ? '0' : String(token.value))).join(',')
 }
 
-const rehypeConfigComments: Pluggable = () => {
+const rehypeRecipeComments: Pluggable = () => {
   return (tree: Root) => {
     let markerIndex = 0
     const transform = (node: Root | Element): void => {
@@ -605,16 +605,16 @@ const rehypeConfigComments: Pluggable = () => {
         if (!child) continue
         if (child.type === 'comment') {
           const value = (child as { value: string }).value
-          const regexMatch = CONFIG_REGEX_COMMENT_REGEX.exec(value)
+          const regexMatch = RECIPE_REGEX_COMMENT_REGEX.exec(value)
           if (regexMatch) {
             const patternRaw = regexMatch[1] ?? ''
             const element: Element = {
               type: 'element',
-              tagName: CONFIG_ELEMENT_TAG,
+              tagName: RECIPE_ELEMENT_TAG,
               properties: {
-                [CONFIG_ELEMENT_FILTER_ATTR]: CONFIG_FILTER_REGEXP,
-                [CONFIG_ELEMENT_PATTERN_ATTR]: patternRaw,
-                [CONFIG_ELEMENT_INDEX_ATTR]: String(markerIndex),
+                [RECIPE_ELEMENT_FILTER_ATTR]: RECIPE_FILTER_REGEXP,
+                [RECIPE_ELEMENT_PATTERN_ATTR]: patternRaw,
+                [RECIPE_ELEMENT_INDEX_ATTR]: String(markerIndex),
               },
               children: [],
             }
@@ -622,7 +622,7 @@ const rehypeConfigComments: Pluggable = () => {
             nodeChildren.splice(i, 1, element)
             continue
           }
-          const match = CONFIG_COMMENT_REGEX.exec(value)
+          const match = RECIPE_COMMENT_REGEX.exec(value)
           if (!match) continue
           const tokens = parseMarkerTokens(match[1] ?? '')
           if (tokens.length === 0) {
@@ -632,11 +632,11 @@ const rehypeConfigComments: Pluggable = () => {
           }
           const element: Element = {
             type: 'element',
-            tagName: CONFIG_ELEMENT_TAG,
+            tagName: RECIPE_ELEMENT_TAG,
             properties: {
-              [CONFIG_ELEMENT_FILTER_ATTR]: CONFIG_FILTER_IDS,
-              [CONFIG_ELEMENT_ATTR]: serializeMarkerTokens(tokens),
-              [CONFIG_ELEMENT_INDEX_ATTR]: String(markerIndex),
+              [RECIPE_ELEMENT_FILTER_ATTR]: RECIPE_FILTER_IDS,
+              [RECIPE_ELEMENT_ATTR]: serializeMarkerTokens(tokens),
+              [RECIPE_ELEMENT_INDEX_ATTR]: String(markerIndex),
             },
             children: [],
           }
@@ -646,16 +646,16 @@ const rehypeConfigComments: Pluggable = () => {
         }
         if (child.type === 'raw') {
           const value = (child as { value: string }).value
-          const regexMatch = CONFIG_REGEX_MARKER_REGEX.exec(value)
+          const regexMatch = RECIPE_REGEX_MARKER_REGEX.exec(value)
           if (regexMatch) {
             const patternRaw = regexMatch[1] ?? ''
             const element: Element = {
               type: 'element',
-              tagName: CONFIG_ELEMENT_TAG,
+              tagName: RECIPE_ELEMENT_TAG,
               properties: {
-                [CONFIG_ELEMENT_FILTER_ATTR]: CONFIG_FILTER_REGEXP,
-                [CONFIG_ELEMENT_PATTERN_ATTR]: patternRaw,
-                [CONFIG_ELEMENT_INDEX_ATTR]: String(markerIndex),
+                [RECIPE_ELEMENT_FILTER_ATTR]: RECIPE_FILTER_REGEXP,
+                [RECIPE_ELEMENT_PATTERN_ATTR]: patternRaw,
+                [RECIPE_ELEMENT_INDEX_ATTR]: String(markerIndex),
               },
               children: [],
             }
@@ -663,7 +663,7 @@ const rehypeConfigComments: Pluggable = () => {
             nodeChildren.splice(i, 1, element)
             continue
           }
-          const match = CONFIG_MARKER_REGEX.exec(value)
+          const match = RECIPE_MARKER_REGEX.exec(value)
           if (!match) continue
           const tokens = parseMarkerTokens(match[1] ?? '')
           if (tokens.length === 0) {
@@ -673,11 +673,11 @@ const rehypeConfigComments: Pluggable = () => {
           }
           const element: Element = {
             type: 'element',
-            tagName: CONFIG_ELEMENT_TAG,
+            tagName: RECIPE_ELEMENT_TAG,
             properties: {
-              [CONFIG_ELEMENT_FILTER_ATTR]: CONFIG_FILTER_IDS,
-              [CONFIG_ELEMENT_ATTR]: serializeMarkerTokens(tokens),
-              [CONFIG_ELEMENT_INDEX_ATTR]: String(markerIndex),
+              [RECIPE_ELEMENT_FILTER_ATTR]: RECIPE_FILTER_IDS,
+              [RECIPE_ELEMENT_ATTR]: serializeMarkerTokens(tokens),
+              [RECIPE_ELEMENT_INDEX_ATTR]: String(markerIndex),
             },
             children: [],
           }
@@ -902,9 +902,9 @@ const rehypeQuestionGroups: Pluggable = () => {
   }
 }
 
-function collectConfigIds(text: string, recipes: BuilderRecipe[]): Set<number> {
+function collectRecipeIds(text: string, recipes: BuilderRecipe[]): Set<number> {
   const used = new Set<number>()
-  const resolutions = buildConfigMarkerResolutions(text, recipes)
+  const resolutions = buildRecipeMarkerResolutions(text, recipes)
   for (const entries of resolutions.values()) {
     for (const entry of entries) {
       used.add(entry.id)
@@ -913,15 +913,15 @@ function collectConfigIds(text: string, recipes: BuilderRecipe[]): Set<number> {
   return used
 }
 
-function configMatchesNotePattern(cfg: BuilderRecipe, pattern: RegExp): boolean {
+function recipeMatchesNotePattern(recipe: BuilderRecipe, pattern: RegExp): boolean {
   // Match the recipe name first to preserve the existing regex behavior.
-  const name = typeof cfg?.name === 'string' ? cfg.name : ''
+  const name = typeof recipe?.name === 'string' ? recipe.name : ''
   if (name) {
     pattern.lastIndex = 0
     if (pattern.test(name)) return true
   }
   // Check normalized tags so recipes-re can target tag metadata.
-  const tags = Array.isArray(cfg?.tags) ? cfg.tags : []
+  const tags = Array.isArray(recipe?.tags) ? recipe.tags : []
   for (const tag of tags) {
     const normalized = normalizeTagValue(String(tag))
     if (!normalized) continue
@@ -931,38 +931,38 @@ function configMatchesNotePattern(cfg: BuilderRecipe, pattern: RegExp): boolean 
   return false
 }
 
-function buildConfigMarkerResolutions(text: string, recipes: BuilderRecipe[]): ConfigMarkerMap {
-  const result: ConfigMarkerMap = new Map()
+function buildRecipeMarkerResolutions(text: string, recipes: BuilderRecipe[]): RecipeMarkerMap {
+  const result: RecipeMarkerMap = new Map()
   if (!text) return result
-  CONFIG_ANY_MARKER_GLOBAL_REGEX.lastIndex = 0
+  RECIPE_ANY_MARKER_GLOBAL_REGEX.lastIndex = 0
   let markerIndex = 0
   let lastRendered = 0
-  for (const match of text.matchAll(CONFIG_ANY_MARKER_GLOBAL_REGEX)) {
+  for (const match of text.matchAll(RECIPE_ANY_MARKER_GLOBAL_REGEX)) {
     const raw = match?.[0] ?? ''
     if (!raw) {
       markerIndex += 1
       continue
     }
-    let entries: ConfigMarkerEntry[] = []
-    const regexMatch = CONFIG_REGEX_MARKER_REGEX.exec(raw)
+    let entries: RecipeMarkerEntry[] = []
+    const regexMatch = RECIPE_REGEX_MARKER_REGEX.exec(raw)
     if (regexMatch) {
       const patternRaw = regexMatch[1] ?? ''
       const compiled = buildNotePattern(patternRaw)
       if (compiled) {
         const safeCompiled = compiled
         entries = recipes
-          .map((cfg, idx) => ({ cfg, idx }))
-          .filter(({ cfg }) => {
-            return configMatchesNotePattern(cfg, safeCompiled)
+          .map((recipe, idx) => ({ recipe, idx }))
+          .filter(({ recipe }) => {
+            return recipeMatchesNotePattern(recipe, safeCompiled)
           })
-          .map(({ cfg, idx }) => ({ id: idx + 1, cfg }))
+          .map(({ recipe, idx }) => ({ id: idx + 1, recipe }))
       }
     } else {
-      const idsMatch = CONFIG_MARKER_REGEX.exec(raw)
+      const idsMatch = RECIPE_MARKER_REGEX.exec(raw)
       if (idsMatch && typeof idsMatch[1] === 'string') {
         const tokens = parseMarkerTokens(idsMatch[1])
         if (tokens.length > 0) {
-          const fallback: ConfigMarkerEntry[] = []
+          const fallback: RecipeMarkerEntry[] = []
           let markerLast = lastRendered
           for (const token of tokens) {
             let candidate: number | null = null
@@ -972,9 +972,9 @@ function buildConfigMarkerResolutions(text: string, recipes: BuilderRecipe[]): C
               candidate = markerLast + 1
             }
             if (!candidate || candidate <= 0) continue
-            const cfg = recipes[candidate - 1]
-            if (!cfg) continue
-            fallback.push({ id: candidate, cfg })
+            const recipe = recipes[candidate - 1]
+            if (!recipe) continue
+            fallback.push({ id: candidate, recipe })
             markerLast = candidate
           }
           entries = fallback
@@ -990,12 +990,12 @@ function buildConfigMarkerResolutions(text: string, recipes: BuilderRecipe[]): C
   return result
 }
 
-const CONFIG_MARKER_HINT = '<!--  Use `0` to reference the recipe after the last used. Alternatively, use `recipes-re: "text"` for regexp matches. -->'
+const RECIPE_MARKER_HINT = '<!--  Use `0` to reference the recipe after the last used. Alternatively, use `recipes-re: "text"` for regexp matches. -->'
 
-function buildConfigMarkerBlock(ids: number[]): { block: string; cursorIndex: number } {
+function buildRecipeMarkerBlock(ids: number[]): { block: string; cursorIndex: number } {
   // Keep the marker and hint on separate lines to avoid breaking selection ranges.
   const marker = `<!-- recipes:${ids.join(',')} -->`
-  const block = `${marker}\n${CONFIG_MARKER_HINT}`
+  const block = `${marker}\n${RECIPE_MARKER_HINT}`
   // Cursor returns to the end of the marker line for continued editing.
   return { block, cursorIndex: marker.length + 1 }
 }
@@ -1408,38 +1408,38 @@ type RecipeChipBlockProps = React.PropsWithChildren<{ node?: Element & { propert
 function RecipeChipBlock({ node }: RecipeChipBlockProps): JSX.Element | null {
   const { recipes, metasets, substatColors, markerResolutions } = useNoteRenderContext()
   const gearSetCatalogVersion = useGearSetCatalogVersion()
-  const filterAttr = coerceFirstString(node?.properties?.[CONFIG_ELEMENT_FILTER_ATTR])
-  const filterType = filterAttr === CONFIG_FILTER_REGEXP ? CONFIG_FILTER_REGEXP : CONFIG_FILTER_IDS
+  const filterAttr = coerceFirstString(node?.properties?.[RECIPE_ELEMENT_FILTER_ATTR])
+  const filterType = filterAttr === RECIPE_FILTER_REGEXP ? RECIPE_FILTER_REGEXP : RECIPE_FILTER_IDS
   let tokens: MarkerToken[] = []
   let patternRaw = ''
-  if (filterType === CONFIG_FILTER_IDS) {
-    const rawSpec = coerceFirstString(node?.properties?.[CONFIG_ELEMENT_ATTR]) ?? ''
+  if (filterType === RECIPE_FILTER_IDS) {
+    const rawSpec = coerceFirstString(node?.properties?.[RECIPE_ELEMENT_ATTR]) ?? ''
     tokens = parseMarkerTokens(rawSpec)
     if (tokens.length === 0) return null
   } else {
-    patternRaw = coerceFirstString(node?.properties?.[CONFIG_ELEMENT_PATTERN_ATTR]) ?? ''
+    patternRaw = coerceFirstString(node?.properties?.[RECIPE_ELEMENT_PATTERN_ATTR]) ?? ''
   }
-  const rawIndexAttr = coerceFirstString(node?.properties?.[CONFIG_ELEMENT_INDEX_ATTR])
+  const rawIndexAttr = coerceFirstString(node?.properties?.[RECIPE_ELEMENT_INDEX_ATTR])
   let markerIndex: number | null = null
   if (rawIndexAttr) {
     const parsed = Number.parseInt(rawIndexAttr, 10)
     if (Number.isFinite(parsed)) markerIndex = parsed
   }
-  let resolvedEntries: ConfigMarkerEntry[] | undefined
+  let resolvedEntries: RecipeMarkerEntry[] | undefined
   if (markerIndex != null) {
     resolvedEntries = markerResolutions.get(markerIndex)
   }
   if (!resolvedEntries) {
-    if (filterType === CONFIG_FILTER_REGEXP) {
+    if (filterType === RECIPE_FILTER_REGEXP) {
       const compiled = buildNotePattern(patternRaw)
       if (compiled) {
         const safeCompiled = compiled
         resolvedEntries = recipes
-          .map((cfg, idx) => ({ cfg, idx }))
-          .filter(({ cfg }) => {
-            return configMatchesNotePattern(cfg, safeCompiled)
+          .map((recipe, idx) => ({ recipe, idx }))
+          .filter(({ recipe }) => {
+            return recipeMatchesNotePattern(recipe, safeCompiled)
           })
-          .map(({ cfg, idx }) => ({ id: idx + 1, cfg }))
+          .map(({ recipe, idx }) => ({ id: idx + 1, recipe }))
       } else {
         resolvedEntries = []
       }
@@ -1454,7 +1454,7 @@ function RecipeChipBlock({ node }: RecipeChipBlockProps): JSX.Element | null {
           }
         }
       }
-      const fallbackEntries: ConfigMarkerEntry[] = []
+      const fallbackEntries: RecipeMarkerEntry[] = []
       let markerLast = priorLast
       for (const token of tokens) {
         let candidate: number | null = null
@@ -1464,9 +1464,9 @@ function RecipeChipBlock({ node }: RecipeChipBlockProps): JSX.Element | null {
           candidate = markerLast + 1
         }
         if (!candidate || candidate <= 0) continue
-        const cfg = recipes[candidate - 1]
-        if (!cfg) continue
-        fallbackEntries.push({ id: candidate, cfg })
+        const recipe = recipes[candidate - 1]
+        if (!recipe) continue
+        fallbackEntries.push({ id: candidate, recipe })
         markerLast = candidate
       }
       resolvedEntries = fallbackEntries
@@ -1477,18 +1477,18 @@ function RecipeChipBlock({ node }: RecipeChipBlockProps): JSX.Element | null {
   const noop = () => {}
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, my: 1 }}>
-      {entries.map(({ id, cfg }, idx) => (
+      {entries.map(({ id, recipe }, idx) => (
         <Box
-          key={`note-cfg-${id}`}
+          key={`note-recipe-${id}`}
           sx={{
             pointerEvents: 'none',
             width: '100%',
             '& .MuiIconButton-root': { display: 'none !important' },
           }}
         >
-          <RecipeChip
-            index={id - 1}
-            cfg={cfg}
+            <RecipeChip
+              index={id - 1}
+              cfg={recipe}
             gearSetCatalogVersion={gearSetCatalogVersion}
             onDelete={noop}
             onDuplicate={noop}
@@ -2441,7 +2441,7 @@ export default function NoteDialog({
   // Keep disable-confirm actions visually equal to avoid implying a preferred choice.
   const disableConfirmButtonProps = { color: 'primary', variant: 'contained' } as const
   // Resolve recipe markers for embedded recipe chips.
-  const markerResolutions = useMemo(() => buildConfigMarkerResolutions(renderNote ?? '', recipes), [renderNote, recipes])
+  const markerResolutions = useMemo(() => buildRecipeMarkerResolutions(renderNote ?? '', recipes), [renderNote, recipes])
   // Resolve safeguard markers for embedded rule summaries.
   const safeguardMarkerResolutions = useMemo(
     () => buildSafeguardMarkerResolutions(renderNote ?? '', safeguardRules),
@@ -2517,13 +2517,13 @@ export default function NoteDialog({
     viewRecipeOverridesMenuAction,
   ])
   // Apply or discard recipe overrides before disabling them in the session.
-  const handleDisableRecipeOverridesConfirm = React.useCallback((applyToConfigs: boolean) => {
+  const handleDisableRecipeOverridesConfirm = React.useCallback((applyToRecipes: boolean) => {
     const context = disableRecipeOverridesContext
     if (!context) return
     // Resolve instructions from the requested note snapshot + stored answers.
     const resolution = resolveRecipeOverridesTags(context.noteText ?? '', recipeOverridesAnswers)
     // Apply the overrides to stored recipes when requested.
-    if (applyToConfigs) {
+    if (applyToRecipes) {
       onApplyRecipeOverrides(resolution.instructions)
     }
     // Disable recipe overrides parsing so markers are ignored.
@@ -2609,7 +2609,7 @@ export default function NoteDialog({
   )
   const allowMarkdownElement = React.useCallback<MarkdownAllowElement>((element) => {
     const tag = typeof element.tagName === 'string' ? element.tagName.toLowerCase() : ''
-    if (tag === CONFIG_ELEMENT_TAG || tag === SAFEGUARD_ELEMENT_TAG || tag === QUESTION_ELEMENT_TAG || tag === QUESTION_GROUP_ELEMENT_TAG) return true
+    if (tag === RECIPE_ELEMENT_TAG || tag === SAFEGUARD_ELEMENT_TAG || tag === QUESTION_ELEMENT_TAG || tag === QUESTION_GROUP_ELEMENT_TAG) return true
     return DEFAULT_ALLOWED_TAG_REGEX.test(tag)
   }, [])
   // Memoized sanitize schema and plugins for performance during typing.
@@ -2618,15 +2618,15 @@ export default function NoteDialog({
   const sanitizeSchema: Schema = useMemo(() => {
     const baseAttrs = (defaultSchema.attributes ?? {}) as Record<string, SanitizeProp[]>
     const spanAttrs: SanitizeProp[] = Array.isArray(baseAttrs.span) ? baseAttrs.span : []
-    const configAttrs: SanitizeProp[] = Array.isArray(baseAttrs[CONFIG_ELEMENT_TAG]) ? baseAttrs[CONFIG_ELEMENT_TAG] : []
+    const recipeAttrs: SanitizeProp[] = Array.isArray(baseAttrs[RECIPE_ELEMENT_TAG]) ? baseAttrs[RECIPE_ELEMENT_TAG] : []
     const safeguardAttrs: SanitizeProp[] = Array.isArray(baseAttrs[SAFEGUARD_ELEMENT_TAG]) ? baseAttrs[SAFEGUARD_ELEMENT_TAG] : []
     const questionAttrs: SanitizeProp[] = Array.isArray(baseAttrs[QUESTION_ELEMENT_TAG]) ? baseAttrs[QUESTION_ELEMENT_TAG] : []
-    const mergedConfigAttrs = Array.from(new Set<SanitizeProp>([
-      ...configAttrs,
-      CONFIG_ELEMENT_ATTR,
-      CONFIG_ELEMENT_PATTERN_ATTR,
-      CONFIG_ELEMENT_FILTER_ATTR,
-      CONFIG_ELEMENT_INDEX_ATTR,
+    const mergedRecipeAttrs = Array.from(new Set<SanitizeProp>([
+      ...recipeAttrs,
+      RECIPE_ELEMENT_ATTR,
+      RECIPE_ELEMENT_PATTERN_ATTR,
+      RECIPE_ELEMENT_FILTER_ATTR,
+      RECIPE_ELEMENT_INDEX_ATTR,
     ]))
     const mergedSafeguardAttrs = Array.from(new Set<SanitizeProp>([
       ...safeguardAttrs,
@@ -2644,16 +2644,16 @@ export default function NoteDialog({
       attributes: {
         ...defaultSchema.attributes,
         span: [...spanAttrs, 'data-color', 'dataColor'],
-        [CONFIG_ELEMENT_TAG]: mergedConfigAttrs,
+        [RECIPE_ELEMENT_TAG]: mergedRecipeAttrs,
         [SAFEGUARD_ELEMENT_TAG]: mergedSafeguardAttrs,
         [QUESTION_ELEMENT_TAG]: mergedQuestionAttrs,
       },
-      tagNames: Array.from(new Set([...(defaultSchema.tagNames ?? []), 'span', CONFIG_ELEMENT_TAG, SAFEGUARD_ELEMENT_TAG, QUESTION_ELEMENT_TAG, QUESTION_GROUP_ELEMENT_TAG])),
+      tagNames: Array.from(new Set([...(defaultSchema.tagNames ?? []), 'span', RECIPE_ELEMENT_TAG, SAFEGUARD_ELEMENT_TAG, QUESTION_ELEMENT_TAG, QUESTION_GROUP_ELEMENT_TAG])),
     }
   }, [])
   const rehypePluginsSafe = useMemo<Pluggable[]>(() => (
     [
-      rehypeConfigComments,
+      rehypeRecipeComments,
       rehypeSafeguardComments,
       rehypeQuestionComments,
       rehypeQuestionGroups,
@@ -2661,7 +2661,7 @@ export default function NoteDialog({
     ]
   ), [sanitizeSchema])
   const markdownComponents = useMemo<MarkdownComponentMap>(() => ({
-    [CONFIG_ELEMENT_TAG]: RecipeChipBlock as unknown as React.ComponentType<Record<string, unknown>>,
+    [RECIPE_ELEMENT_TAG]: RecipeChipBlock as unknown as React.ComponentType<Record<string, unknown>>,
     [SAFEGUARD_ELEMENT_TAG]: SafeguardBlock as unknown as React.ComponentType<Record<string, unknown>>,
     [QUESTION_ELEMENT_TAG]: NoteQuestionBlock as unknown as React.ComponentType<Record<string, unknown>>,
     [QUESTION_GROUP_ELEMENT_TAG]: NoteQuestionGroup as unknown as React.ComponentType<Record<string, unknown>>,
@@ -2971,7 +2971,7 @@ function NoteEditorContent({
   const draftIsEmpty = !draft.trim()
   const baseContext = useNoteRenderContext()
   // Resolve recipe markers inside the editor preview.
-  const editorMarkerResolutions = useMemo(() => buildConfigMarkerResolutions(draft ?? '', recipes), [draft, recipes])
+  const editorMarkerResolutions = useMemo(() => buildRecipeMarkerResolutions(draft ?? '', recipes), [draft, recipes])
   // Resolve safeguard markers inside the editor preview.
   const editorSafeguardMarkerResolutions = useMemo(
     () => buildSafeguardMarkerResolutions(draft ?? '', safeguardRules),
@@ -3053,7 +3053,7 @@ function NoteEditorContent({
 
   registerCommit(commitAndClose)
 
-  const configCommand = useMemo<ICommand>(() => ({
+  const recipeCommand = useMemo<ICommand>(() => ({
     name: 'insert-recipes',
     keyCommand: 'insert-recipes',
     groupName: 'note-inserts',
@@ -3064,11 +3064,11 @@ function NoteEditorContent({
       if (!recipes.length) return
       const text = state.text ?? ''
       const allIds = recipes.map((_, idx) => idx + 1)
-      const usedIds = collectConfigIds(text, recipes)
+      const usedIds = collectRecipeIds(text, recipes)
       const missing = allIds.filter((id) => !usedIds.has(id))
       const markerIds = missing.length ? missing : allIds
       if (!markerIds.length) return
-      const { block, cursorIndex } = buildConfigMarkerBlock(markerIds)
+      const { block, cursorIndex } = buildRecipeMarkerBlock(markerIds)
       const start = state.selection?.start ?? 0
       const end = state.selection?.end ?? start
       const { insert, cursorOffset } = computeBlockInsertion(text, start, end, block, cursorIndex)
@@ -3248,7 +3248,7 @@ function NoteEditorContent({
     // Leading divider ensures the insert block reads as its own toolbar section.
     const noteInsertBlock = [
       commands.divider,
-      configCommand,
+      recipeCommand,
       safeguardCommand,
       metasetCommand,
       recipeOverridesSampleCommand,
@@ -3261,7 +3261,7 @@ function NoteEditorContent({
     return withNoteInserts
   }, [
     colorCommand,
-    configCommand,
+    recipeCommand,
     safeguardCommand,
     metasetCommand,
     recipeOverridesSampleCommand,
