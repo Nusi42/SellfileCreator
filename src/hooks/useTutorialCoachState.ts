@@ -1127,7 +1127,7 @@ export function useTutorialCoachState({
         id: 'safeguards-intro',
         title: t('tutSafeguardsIntroTitle'),
         body: t('tutSafeguardsIntroBody'),
-        targetId: 'keepuniques.tab',
+        targetId: 'safeguards.tab',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
           setLogicHubOpen(true)

@@ -35,7 +35,8 @@ import MarkdownTooltip from '../MarkdownTooltip'
 import type { Metaset } from '../../lib/metasets'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import type { EmptyStateMessageProps } from '../EmptyStateMessage'
-import type { HsfRuleWithCfg } from '../../lib/merge'
+// `merge.ts` still exports the legacy name for compatibility, so we alias to recipe wording locally.
+import type { HsfRuleWithCfg as HsfRuleWithRecipe } from '../../lib/merge'
 import type { SubstatTargetTable } from '../../lib/hsfBuilder/types'
 
 
@@ -74,7 +75,7 @@ type LogicHubDialogProps = {
   allocTesterItemId: () => number
   testerMatches: ReadonlyMap<number, TesterPreviewMatch | null>
   onResetGearTester?: () => void
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   substatTargets: SubstatTargetTable
   // Propagates the main app's layout choice so empty-state messaging stays consistent across panes.
   emptyStateVerticalAlign?: EmptyStateMessageProps['verticalAlign']
@@ -247,7 +248,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
               <Tab
                 value={LOGIC_HUB_DIALOG_TAB_SAFEGUARDS}
                 label={t('tabSafeguards')}
-                data-tour-id="keepuniques.tab"
+                data-tour-id="safeguards.tab"
               />
               <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
               <Tab value={LOGIC_HUB_DIALOG_TAB_DUNGEON} label={t('tabDungeonDrops')} />
