@@ -160,14 +160,26 @@ pub(crate) fn keep_unique_normalized_faction_for_slot(slot: i64, faction: i64) -
     }
 }
 
+// Group-key dimensions always normalize faction the same way before encoding.
+// Export this so matcher and parser call sites reuse one formatting helper.
+pub(crate) fn keep_unique_group_key_from_parts(
+    slot: i64,
+    set: i64,
+    main_stat: i64,
+    faction_raw: i64,
+) -> String {
+    let normalized_faction = keep_unique_normalized_faction_for_slot(slot, faction_raw);
+    format!("{slot}:{set}:{main_stat}:{normalized_faction}")
+}
+
 // Group-key helper keeps fallback key generation identical to collect-core rules.
 // Non-accessory slots normalize faction to zero before hashing dimensions.
 fn keep_unique_group_key_from_artifact(artifact: &KeepUniqueWasmArtifactIn) -> String {
-    let normalized_faction =
-        keep_unique_normalized_faction_for_slot(artifact.slot, artifact.faction);
-    format!(
-        "{}:{}:{}:{}",
-        artifact.slot, artifact.set, artifact.main_stat, normalized_faction
+    keep_unique_group_key_from_parts(
+        artifact.slot,
+        artifact.set,
+        artifact.main_stat,
+        artifact.faction,
     )
 }
 
@@ -1466,11 +1478,8 @@ fn keep_unique_split_set_selections(values: &[KeepUniqueWasmSetSelection]) -> (H
 }
 
 fn keep_unique_sorted_unique_i64(values: &[i64]) -> Vec<i64> {
-    // Normalize arbitrary numeric lists into deterministic ascending vectors.
-    let mut sorted = values.to_vec();
-    sorted.sort_unstable();
-    sorted.dedup();
-    sorted
+    // Reuse the crate-wide helper so every module shares one sort+dedupe rule.
+    sorted_unique_i64(values)
 }
 
 // Slot sorting mirrors TS compareArtifactTypes (preferred order + numeric fallback).
@@ -3044,8 +3053,8 @@ pub fn keep_unique_group_key_value(artifact: JsValue) -> Result<String, JsValue>
         .ok_or_else(|| JsValue::from_str("Invalid keep-unique group-key artifact payload: set is required"))?;
     let main_stat = keep_unique_parse_main_stat_variant(record.get("mainStat"));
     let faction = keep_unique_value_to_i64(record.get("faction")).unwrap_or(0);
-    let normalized_faction = keep_unique_normalized_faction_for_slot(slot, faction);
-    Ok(format!("{slot}:{set}:{main_stat}:{normalized_faction}"))
+    // Delegate to shared formatter so all group-key callers stay in lockstep.
+    Ok(keep_unique_group_key_from_parts(slot, set, main_stat, faction))
 }
 
 fn keep_unique_round_three(value: f64) -> f64 {

@@ -42,9 +42,8 @@ fn final_sell_explicit_set_ids(all_known_set_ids: &[i64]) -> Vec<i64> {
     let mut all_sets = vec![ACCESSORY_NO_SET_ID];
     // Append caller-provided known ids; dedupe and sort after merge.
     all_sets.extend(all_known_set_ids.iter().copied());
-    all_sets.sort_unstable();
-    all_sets.dedup();
-    all_sets
+    // Shared helper keeps final-sell selector normalization aligned everywhere.
+    sorted_unique_i64(&all_sets)
 }
 
 // Build Final Sell rules in Rust so merge.ts no longer owns level/type loops.

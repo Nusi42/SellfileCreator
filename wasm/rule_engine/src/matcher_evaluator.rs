@@ -566,12 +566,12 @@ pub(crate) fn collect_keep_unique_candidates_core(
     for (idx, row) in rows.iter().enumerate() {
         // Item-key parity: tester item id first, then artifact id, else zero.
         let item_key = row.item.item_id.or(row.artifact.id).unwrap_or(0);
-        // Non-accessory slots always collapse faction to zero in group keys.
-        let normalized_faction =
-            keep_unique_normalized_faction_for_slot(row.artifact.slot, row.artifact.faction);
-        let group_key = format!(
-            "{}:{}:{}:{}",
-            row.artifact.slot, row.artifact.set, row.artifact.main_stat, normalized_faction
+        // Group key formatting is shared with keep-unique parser/wasm exports.
+        let group_key = keep_unique_group_key_from_parts(
+            row.artifact.slot,
+            row.artifact.set,
+            row.artifact.main_stat,
+            row.artifact.faction,
         );
         let is_sold = !keep_flags[idx];
         if is_sold {

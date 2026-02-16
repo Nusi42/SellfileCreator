@@ -611,16 +611,9 @@ fn export_dedupe_condition_order(value: ExportDedupeCondition) -> i32 {
     }
 }
 
-// Normalize and dedupe integer arrays exactly once per candidate rule.
-pub(crate) fn normalize_i64_array(values: Option<&Vec<i64>>) -> Vec<i64> {
-    let mut normalized = values.cloned().unwrap_or_default();
-    normalized.sort_unstable();
-    normalized.dedup();
-    normalized
-}
-
 // Set normalization keeps empty selections as wildcards (`None`) like TS.
 fn normalize_sets_for_export_dedupe(rule: &RuleRaw) -> Option<Vec<i64>> {
+    // Reuse crate-level integer normalization so dedupe and keep-unique share one rule.
     let normalized = normalize_i64_array(rule.ArtifactSet.as_ref());
     if normalized.is_empty() {
         None
@@ -631,6 +624,7 @@ fn normalize_sets_for_export_dedupe(rule: &RuleRaw) -> Option<Vec<i64>> {
 
 // Type normalization feeds the base key used to group comparable rules.
 fn normalize_types_for_export_dedupe(rule: &RuleRaw) -> Vec<i64> {
+    // Shared helper keeps selector ordering deterministic across modules.
     normalize_i64_array(rule.ArtifactType.as_ref())
 }
 

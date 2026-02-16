@@ -24,10 +24,10 @@ mod rule_dedupe;
 mod rule_postprocess;
 use generated_domain_constants::*;
 use keep_unique::{
+    keep_unique_group_key_from_parts,
     keep_unique_hash_combination,
     keep_unique_normalize_set_selections,
     keep_unique_normalize_substat_match,
-    keep_unique_normalized_faction_for_slot,
     keep_unique_parse_collect_rows_payload,
     keep_unique_resolve_count_mode,
     keep_unique_variant_to_sub,
@@ -1502,10 +1502,22 @@ fn numberish_or_default(value: Option<&serde_json::Value>, default: f64) -> f64 
     rule_dedupe::numberish_or_default(value, default)
 }
 
-// Keep normalized-array helper at crate root for keep-unique/key builders.
-// Implementation remains centralized in `rule_dedupe`.
+// Shared sort+dedupe helper keeps integer selector normalization single-sourced.
+// Callers use this for set/type arrays plus keep-unique domain lists.
+fn sorted_unique_i64(values: &[i64]) -> Vec<i64> {
+    let mut normalized = values.to_vec();
+    normalized.sort_unstable();
+    normalized.dedup();
+    normalized
+}
+
+// Keep optional-array normalization centralized at crate root.
+// This preserves one path for `None` -> empty plus sorted+unique semantics.
 fn normalize_i64_array(values: Option<&Vec<i64>>) -> Vec<i64> {
-    rule_dedupe::normalize_i64_array(values)
+    values
+        .as_ref()
+        .map(|raw| sorted_unique_i64(raw))
+        .unwrap_or_default()
 }
 
 // Convert HSF main stat tuple to unified StatVariant encoding.
