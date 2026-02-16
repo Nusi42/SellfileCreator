@@ -176,8 +176,8 @@ import {
 
 export { createFactoryBuilderDefaults } from './builderPanel/defaults'
 
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, effectiveSubstatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, safeguardMetasetUsageCounts, substatColors: _substatColors, recipeCount: _recipeCount, recipeRuleCounts, recipeRuleFingerprints, recipesExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForRecipes, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectRecipesByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, recipeOverridesInstructions, substatTargetsOverridesActive, multiEdit: _multiEdit = null, multiSelectedRecipes = null, onBeforeMetasetsDialogClose }: {
-  cfg: BuilderRecipe,
+export default function BuilderPanel({ recipe, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, effectiveSubstatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, safeguardMetasetUsageCounts, substatColors: _substatColors, recipeCount: _recipeCount, recipeRuleCounts, recipeRuleFingerprints, recipesExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForRecipes, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectRecipesByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, recipeOverridesInstructions, substatTargetsOverridesActive, multiEdit: _multiEdit = null, multiSelectedRecipes = null, onBeforeMetasetsDialogClose }: {
+  recipe: BuilderRecipe,
   onChange: (c: BuilderRecipe) => void
   onAddToCustom: () => void
   editingIndex: number | null
@@ -286,8 +286,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       if (staged.length > 0) return staged
     }
     // Fall back to the live recipe when multi-edit is inactive.
-    return [cfg]
-  }, [cfg, multiEditActive, multiProjectedRecipes, multiSourceRecipes])
+    return [recipe]
+  }, [recipe, multiEditActive, multiProjectedRecipes, multiSourceRecipes])
   const aggregateRollSnapshots = React.useMemo(() => (
     aggregateRollRecipes.map((recipe) => ({
       // Auto mode uses `false` as the opt-out flag, so everything else is considered manual.
@@ -318,10 +318,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   }, [])
   const commitRollState = React.useCallback((nextState: AggregateRollState) => {
     onChange(normalizeKeepWithAuto({
-      ...cfg,
+      ...recipe,
       ...aggregateRollStateToRecipe(nextState),
     }))
-  }, [cfg, normalizeKeepWithAuto, onChange])
+  }, [recipe, normalizeKeepWithAuto, onChange])
 
   const readMultiRollState = React.useCallback((): AggregateRollState | null => {
     if (!multiEditActive) return null
@@ -348,13 +348,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
   const applyRollAction = React.useCallback((action: AggregateRollAction) => {
     if (multiEditActive && multiEdit) {
-      const baseState = readMultiRollState() ?? aggregateRollStateFromRecipe(cfg)
+      const baseState = readMultiRollState() ?? aggregateRollStateFromRecipe(recipe)
       commitMultiRollState(applyAggregateRollAction(baseState, action))
       return
     }
-    const currentState = aggregateRollStateFromRecipe(cfg)
+    const currentState = aggregateRollStateFromRecipe(recipe)
     commitRollState(applyAggregateRollAction(currentState, action))
-  }, [cfg, commitMultiRollState, commitRollState, multiEdit, multiEditActive, readMultiRollState])
+  }, [recipe, commitMultiRollState, commitRollState, multiEdit, multiEditActive, readMultiRollState])
 
   const handleAutoMinRequiredRolls = React.useCallback(() => {
     applyRollAction({ type: 'set-auto' })
@@ -368,7 +368,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     applyRollAction({ type: 'toggle-lock', value: clampAggregateRollValue(value) })
   }, [applyRollAction])
 const applySingleSubstatBounds = React.useCallback((variant: number, builder: (current: SubstatRollBoundsEntry | undefined) => SubstatRollBoundsEntry | null) => {
-  const prevMap = (cfg.substatRollBoundsV ?? {}) as Record<number, SubstatRollBoundsEntry>
+  const prevMap = (recipe.substatRollBoundsV ?? {}) as Record<number, SubstatRollBoundsEntry>
   const prevRaw = prevMap[variant]
   const prevNormalized = normalizeRollBoundsEntry(prevRaw ?? null)
   const nextRaw = builder(prevRaw ? { ...prevRaw } : undefined)
@@ -385,14 +385,14 @@ const applySingleSubstatBounds = React.useCallback((variant: number, builder: (c
   const normalizedBounds: BuilderRecipe['substatRollBoundsV'] = nextMap
     ? nextMap
     : ({} as BuilderRecipe['substatRollBoundsV'])
-  const baseCfg = {
-    ...cfg,
+  const baseRecipe = {
+    ...recipe,
     substatRollBoundsV: normalizedBounds,
   } as BuilderRecipe
-  onChange(normalizeKeepWithAuto(baseCfg))
-}, [cfg, normalizeKeepWithAuto, onChange])
+  onChange(normalizeKeepWithAuto(baseRecipe))
+}, [recipe, normalizeKeepWithAuto, onChange])
 const applySingleSubstatTargets = React.useCallback((variant: number, builder: (current: SubstatRollTargetEntry | undefined) => SubstatRollTargetEntry | null) => {
-  const prevMap = (cfg.substatRollTargetsV ?? {}) as SubstatRollTargets
+  const prevMap = (recipe.substatRollTargetsV ?? {}) as SubstatRollTargets
   const prevRaw = prevMap[variant]
   const nextRaw = builder(prevRaw ? {
     ...(typeof prevRaw.base === 'number' ? { base: prevRaw.base } : {}),
@@ -411,12 +411,12 @@ const applySingleSubstatTargets = React.useCallback((variant: number, builder: (
   const normalizedTargets: BuilderRecipe['substatRollTargetsV'] = nextMap
     ? nextMap
     : ({} as SubstatRollTargets)
-  const baseCfg = {
-    ...cfg,
+  const baseRecipe = {
+    ...recipe,
     substatRollTargetsV: normalizedTargets,
   } as BuilderRecipe
-  onChange(normalizeKeepWithAuto(baseCfg))
-}, [cfg, normalizeKeepWithAuto, onChange])
+  onChange(normalizeKeepWithAuto(baseRecipe))
+}, [recipe, normalizeKeepWithAuto, onChange])
 const [substatMenu, setSubstatMenu] = React.useState<{ variant: StatVariant; anchor: { x: number; y: number } } | null>(null)
 const [substatMenuDraft, setSubstatMenuDraft] = React.useState<SubstatMenuDraftState | null>(null)
 const [substatMenuChipWidths, setSubstatMenuChipWidths] = React.useState<{ min: number; max: number }>({ min: 0, max: 0 })
@@ -449,8 +449,8 @@ const markSubstatHintSeenAndClear = React.useCallback(() => {
   clearSubstatHint()
 }, [markSubstatHintSeen, clearSubstatHint])
 const [interactiveHoverVariant, setInteractiveHoverVariant] = React.useState<StatVariant | null>(null)
-const canFlexSubstats = canEnableSubstatFlex(cfg)
-const milestoneThresholdsActive = isMilestoneThresholdsActive(cfg)
+const canFlexSubstats = canEnableSubstatFlex(recipe)
+const milestoneThresholdsActive = isMilestoneThresholdsActive(recipe)
 const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
   const resolveTokenPresence = React.useCallback((token: number, baseCount: number, patch: MultiEditArrayPatch<number> | null | undefined): number => {
     if (!multiSummary) return baseCount
@@ -513,7 +513,7 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
   const mainStatsPatch = (multiMainStatsField?.patch as MultiEditArrayPatch<number> | null | undefined) ?? null
   const resolveMainStatTriState = (variant: number): 'all' | 'none' | 'mixed' => {
     if (!multiEditActive || !multiSummary) {
-      const selected = Array.isArray(cfg.mainStatsV) ? cfg.mainStatsV.includes(variant) : false
+      const selected = Array.isArray(recipe.mainStatsV) ? recipe.mainStatsV.includes(variant) : false
       return selected ? 'all' : 'none'
     }
     const baseCount = multiSummary.mainCounts.get(variant) ?? 0
@@ -529,7 +529,7 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
     const baseState = deriveBaseTriState(baseCount, multiSummary.total)
     const target: 'all' | 'none' = state === 'all' ? 'none' : 'all'
     const nextPatch = computeNumberPatchToggle(mainStatsPatch, variant, baseState, target)
-    const baseArray = Array.isArray(cfg.mainStatsV) ? cfg.mainStatsV : []
+    const baseArray = Array.isArray(recipe.mainStatsV) ? recipe.mainStatsV : []
     const preview = applyNumberPatchPreview(baseArray, nextPatch)
     multiEdit.updateField('mainStatsV', {
       value: preview as BuilderRecipe['mainStatsV'],
@@ -540,12 +540,12 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
   const clearMainSelection = () => {
     if (multiEditActive && multiEdit) {
       multiEdit.updateField('mainStatsV', {
-        value: (multiMainStatsField?.value as BuilderRecipe['mainStatsV']) ?? (cfg.mainStatsV ?? []),
+        value: (multiMainStatsField?.value as BuilderRecipe['mainStatsV']) ?? (recipe.mainStatsV ?? []),
         status: 'common',
         patch: { clear: true },
       })
     } else {
-      onChange({ ...cfg, mainStatsV: [] })
+      onChange({ ...recipe, mainStatsV: [] })
     }
   }
   const substatsPatch = (multiSubstatsField?.patch as MultiEditArrayPatch<number> | null | undefined) ?? null
@@ -553,18 +553,18 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
   const rollPatch = (multiRollField?.patch as MultiEditRollPatch | null | undefined) ?? null
   const getSubstatPresenceCount = React.useCallback((variant: number): number => {
     if (!multiEditActive || !multiSummary) {
-      const selected = Array.isArray((cfg as { substatsV?: number[] }).substatsV)
-        ? ((cfg as { substatsV?: number[] }).substatsV as number[]).includes(variant)
+      const selected = Array.isArray((recipe as { substatsV?: number[] }).substatsV)
+        ? ((recipe as { substatsV?: number[] }).substatsV as number[]).includes(variant)
         : false
       return selected ? 1 : 0
     }
     const base = multiSummary.subCounts.get(variant)?.present ?? 0
     return resolveTokenPresence(variant, base, substatsPatch)
-  }, [cfg, multiEditActive, multiSummary, resolveTokenPresence, substatsPatch])
+  }, [recipe, multiEditActive, multiSummary, resolveTokenPresence, substatsPatch])
   const getSubstatPresence = React.useCallback((variant: number): 'none' | 'partial' | 'all' => {
     if (!multiEditActive || !multiSummary) {
-      const selected = Array.isArray((cfg as { substatsV?: number[] }).substatsV)
-        ? ((cfg as { substatsV?: number[] }).substatsV as number[]).includes(variant)
+      const selected = Array.isArray((recipe as { substatsV?: number[] }).substatsV)
+        ? ((recipe as { substatsV?: number[] }).substatsV as number[]).includes(variant)
         : false
       return selected ? 'all' : 'none'
     }
@@ -572,11 +572,11 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
     if (finalCount === 0) return 'none'
     if (finalCount === multiSummary.total) return 'all'
     return 'partial'
-  }, [cfg, getSubstatPresenceCount, multiEditActive, multiSummary])
+  }, [recipe, getSubstatPresenceCount, multiEditActive, multiSummary])
   const getSubstatLockCount = React.useCallback((variant: number): number => {
     if (!multiEditActive || !multiSummary) {
-      const locked = Array.isArray((cfg as { fixedSubstatsV?: number[] }).fixedSubstatsV)
-        ? ((cfg as { fixedSubstatsV?: number[] }).fixedSubstatsV as number[]).includes(variant)
+      const locked = Array.isArray((recipe as { fixedSubstatsV?: number[] }).fixedSubstatsV)
+        ? ((recipe as { fixedSubstatsV?: number[] }).fixedSubstatsV as number[]).includes(variant)
         : false
       return locked ? 1 : 0
     }
@@ -600,11 +600,11 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
       }
     }
     return Math.min(nextLocked, presenceCount)
-  }, [cfg, fixedSubstatsPatch, getSubstatPresenceCount, multiEditActive, multiSummary])
+  }, [recipe, fixedSubstatsPatch, getSubstatPresenceCount, multiEditActive, multiSummary])
   const getSubstatLockState = React.useCallback((variant: number): 'none' | 'partial' | 'all' => {
     if (!multiEditActive || !multiSummary) {
-      const locked = Array.isArray((cfg as { fixedSubstatsV?: number[] }).fixedSubstatsV)
-        ? ((cfg as { fixedSubstatsV?: number[] }).fixedSubstatsV as number[]).includes(variant)
+      const locked = Array.isArray((recipe as { fixedSubstatsV?: number[] }).fixedSubstatsV)
+        ? ((recipe as { fixedSubstatsV?: number[] }).fixedSubstatsV as number[]).includes(variant)
         : false
       return locked ? 'all' : 'none'
     }
@@ -614,7 +614,7 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
     if (lockedCount === 0) return 'none'
     if (lockedCount === presenceCount) return 'all'
     return 'partial'
-  }, [cfg, getSubstatLockCount, getSubstatPresenceCount, multiEditActive, multiSummary])
+  }, [recipe, getSubstatLockCount, getSubstatPresenceCount, multiEditActive, multiSummary])
   type RollMode =
     | { kind: 'none'; presence: number }
     | { kind: 'any'; presence: number }
@@ -622,9 +622,9 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
     | { kind: 'max'; presence: number; max: number; min?: number }
     | { kind: 'mixed'; presence: number; wildcardCount: number; minValues: number[]; maxValues: number[] }
   const getRollMode = React.useCallback((variant: number): RollMode => {
-    const boundsForSingle = (key: number) => (cfg.substatRollBoundsV ?? {})[key]
+    const boundsForSingle = (key: number) => (recipe.substatRollBoundsV ?? {})[key]
     if (!multiEditActive || !multiSummary) {
-      const hasStat = Array.isArray(cfg.substatsV) ? cfg.substatsV.includes(variant) : false
+      const hasStat = Array.isArray(recipe.substatsV) ? recipe.substatsV.includes(variant) : false
       if (!hasStat) return { kind: 'none', presence: hasStat ? 1 : 0 }
       const bounds = boundsForSingle(variant)
       if (!bounds || bounds.any) return { kind: 'any', presence: 1 }
@@ -708,7 +708,7 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
       minValues: minArray,
       maxValues: maxArray,
     }
-  }, [cfg.substatRollBoundsV, cfg.substatsV, getSubstatPresenceCount, multiEditActive, multiSummary, rollPatch])
+  }, [recipe.substatRollBoundsV, recipe.substatsV, getSubstatPresenceCount, multiEditActive, multiSummary, rollPatch])
   const commitRollPatch = React.useCallback((variant: number, entry: MultiEditRollPatchEntry) => {
     if (!multiEditActive || !multiEdit) return
     const mergedPatch = mergeRollPatchForVariant(
@@ -717,11 +717,11 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
       entry,
     )
     multiEdit.updateField('substatRollBoundsV', {
-      value: (multiRollField?.value as BuilderRecipe['substatRollBoundsV']) ?? (cfg.substatRollBoundsV ?? {}),
+      value: (multiRollField?.value as BuilderRecipe['substatRollBoundsV']) ?? (recipe.substatRollBoundsV ?? {}),
       status: 'common',
       patch: mergedPatch ?? null,
     })
-  }, [cfg.substatRollBoundsV, multiEdit, multiEditActive, multiRollField?.patch, multiRollField?.value])
+  }, [recipe.substatRollBoundsV, multiEdit, multiEditActive, multiRollField?.patch, multiRollField?.value])
   const commitTargetPatch = React.useCallback((variant: number, entry: SubstatRollTargetEntry | null) => {
     if (!multiEditActive || !multiEdit) return
     const mergedPatch = mergeTargetPatchForVariant(
@@ -730,15 +730,15 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
       entry,
     )
     multiEdit.updateField('substatRollTargetsV', {
-      value: (multiTargetField?.value as BuilderRecipe['substatRollTargetsV']) ?? (cfg.substatRollTargetsV ?? {}),
+      value: (multiTargetField?.value as BuilderRecipe['substatRollTargetsV']) ?? (recipe.substatRollTargetsV ?? {}),
       status: 'common',
       patch: mergedPatch ?? null,
     })
-  }, [cfg.substatRollTargetsV, multiEdit, multiEditActive, multiTargetField?.patch, multiTargetField?.value])
+  }, [recipe.substatRollTargetsV, multiEdit, multiEditActive, multiTargetField?.patch, multiTargetField?.value])
   const deriveSubstatMenuInfo = React.useCallback((variant: StatVariant): SubstatMenuInfo | null => {
     const presenceState = multiEditActive
       ? getSubstatPresence(variant)
-      : (Array.isArray(cfg.substatsV) && cfg.substatsV.includes(variant) ? 'all' : 'none')
+      : (Array.isArray(recipe.substatsV) && recipe.substatsV.includes(variant) ? 'all' : 'none')
     if (presenceState === 'none') return null
     const lockState = getSubstatLockState(variant)
     const info: SubstatMenuInfo = {
@@ -822,7 +822,7 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
         info.wildcard = true
       }
     } else {
-      const bounds = (cfg.substatRollBoundsV ?? {})[variant]
+      const bounds = (recipe.substatRollBoundsV ?? {})[variant]
       if (typeof bounds?.min === 'number') info.minValue = clampRollMin(bounds.min)
       if (typeof bounds?.max === 'number') info.maxValue = clampRollMax(bounds.max)
       info.wildcard = Boolean(bounds?.any) || (info.minValue == null && info.maxValue == null)
@@ -837,10 +837,10 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
       }
     }
     return info
-  }, [cfg.substatRollBoundsV, cfg.substatsV, getRollMode, getSubstatLockState, getSubstatPresence, multiEditActive])
+  }, [recipe.substatRollBoundsV, recipe.substatsV, getRollMode, getSubstatLockState, getSubstatPresence, multiEditActive])
 const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): SubstatRollTargetEntry | null => {
     if (!multiEditActive) {
-      const raw = (cfg.substatRollTargetsV ?? {})[variant]
+      const raw = (recipe.substatRollTargetsV ?? {})[variant]
       return normalizeRollTargetEntry(raw)
     }
     const recipes = (() => {
@@ -861,7 +861,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       }
     }
     return baseline ?? null
-  }, [cfg.substatRollTargetsV, multiEditActive, multiProjectedRecipes, multiSourceRecipes])
+  }, [recipe.substatRollTargetsV, multiEditActive, multiProjectedRecipes, multiSourceRecipes])
   const handleSubstatMenuClose = React.useCallback(() => {
     setSubstatMenu(null)
     setSubstatMenuDraft(null)
@@ -903,15 +903,15 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   const targetContext = React.useMemo(() => {
     if (!activeMenuInfo || multiEditActive) return null
     const starFallback = (substatTargets.anyRankDefaultsTo ?? 6) as Star
-    const star = starForRankCode(Number(cfg.rankCode ?? 0), starFallback)
+    const star = starForRankCode(Number(recipe.rankCode ?? 0), starFallback)
     const baseValue = Math.max(0, baseMinForStarV(Number(activeMenuInfo.variant), star, substatTargets))
-    const rollBudget = computeRollBudgetForRecipe(cfg)
+    const rollBudget = computeRollBudgetForRecipe(recipe)
     return {
       baseValue,
       rollBudget,
       star,
     }
-  }, [activeMenuInfo, cfg, substatTargets, multiEditActive])
+  }, [activeMenuInfo, recipe, substatTargets, multiEditActive])
   // Shared fallback when a specific roll override is blank. Keeps the UX honest
   // by previewing the same value that will be used when exporting the recipe.
   const resolveTargetFallbackValue = React.useCallback((rollIndex: number): number | null => {
@@ -958,7 +958,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       baseState,
       desired,
     )
-    const baseArray = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV : []
+    const baseArray = Array.isArray(recipe.fixedSubstatsV) ? recipe.fixedSubstatsV : []
     const preview = applyNumberPatchPreview(baseArray, nextPatch)
     multiEdit.updateField('fixedSubstatsV', {
       value: preview as BuilderRecipe['fixedSubstatsV'],
@@ -967,7 +967,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     })
     return true
   }, [
-    cfg.fixedSubstatsV,
+    recipe.fixedSubstatsV,
     fixedSubstatsPatch,
     getSubstatLockState,
     multiEdit,
@@ -988,7 +988,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       baseState,
       target,
     )
-    const baseArray = Array.isArray(cfg.substatsV) ? cfg.substatsV : []
+    const baseArray = Array.isArray(recipe.substatsV) ? recipe.substatsV : []
     const preview = applyNumberPatchPreview(baseArray, nextPatch)
     multiEdit.updateField('substatsV', {
       value: preview as BuilderRecipe['substatsV'],
@@ -1002,7 +1002,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     return true
   }, [
     applyMultiFixedState,
-    cfg.substatsV,
+    recipe.substatsV,
     commitRollPatch,
     getSubstatPresence,
     multiEdit,
@@ -1095,7 +1095,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   const slotsPatch = (multiSlotsField?.patch as MultiEditArrayPatch<number> | null | undefined) ?? null
   const getSlotState = React.useCallback((id: number): 'none' | 'partial' | 'all' => {
     if (!multiEditActive || !multiSummary) {
-      const selected = Array.isArray(cfg.artifactTypes) ? cfg.artifactTypes.includes(id) : false
+      const selected = Array.isArray(recipe.artifactTypes) ? recipe.artifactTypes.includes(id) : false
       return selected ? 'all' : 'none'
     }
     const base = multiSummary.slotCounts.get(id) ?? 0
@@ -1103,7 +1103,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     if (final === 0) return 'none'
     if (final === multiSummary.total) return 'all'
     return 'partial'
-  }, [cfg.artifactTypes, multiEditActive, multiSummary, resolveTokenPresence, slotsPatch])
+  }, [recipe.artifactTypes, multiEditActive, multiSummary, resolveTokenPresence, slotsPatch])
   const toggleSlot = React.useCallback((id: number) => {
     if (!multiEditActive || !multiEdit) return
     const state = getSlotState(id)
@@ -1115,14 +1115,14 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       baseState,
       target,
     )
-    const baseArray = Array.isArray(cfg.artifactTypes) ? cfg.artifactTypes : []
+    const baseArray = Array.isArray(recipe.artifactTypes) ? recipe.artifactTypes : []
     const preview = applyNumberPatchPreview(baseArray, nextPatch)
     multiEdit.updateField('artifactTypes', {
       value: preview as BuilderRecipe['artifactTypes'],
       status: 'common',
       patch: nextPatch ?? undefined,
     })
-  }, [cfg.artifactTypes, getSlotState, multiEdit, multiEditActive, multiSlotsField?.patch])
+  }, [recipe.artifactTypes, getSlotState, multiEdit, multiEditActive, multiSlotsField?.patch])
   const slotSelectionForNoSet = React.useMemo(() => {
     // Multi-edit: any non-none slot keeps accessories in scope for the union.
     if (multiEditActive && multiSummary) {
@@ -1133,24 +1133,24 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       return selected
     }
     // Single-edit: empty selection means "Any slot".
-    return Array.isArray(cfg.artifactTypes) ? cfg.artifactTypes : []
-  }, [cfg.artifactTypes, getSlotState, multiEditActive, multiSummary])
+    return Array.isArray(recipe.artifactTypes) ? recipe.artifactTypes : []
+  }, [recipe.artifactTypes, getSlotState, multiEditActive, multiSummary])
   // Accessory-only sets (like no-set) should only appear when accessories are in scope.
   const allowNoSet = slotSelectionAllowsAccessories(slotSelectionForNoSet)
   React.useEffect(() => {
     // Avoid mutating multi-edit patches; only sanitize the active recipe.
     if (multiEditActive) return
     // Remove no-set when accessories are excluded by slot constraints.
-    const sanitized = pruneAccessoryNoSetSelections(cfg.artifactSets ?? [], allowNoSet)
+    const sanitized = pruneAccessoryNoSetSelections(recipe.artifactSets ?? [], allowNoSet)
     // Skip writes when pruning did not change the selection payload.
-    if (buildArtifactSetSelectionKey(cfg.artifactSets ?? []) === buildArtifactSetSelectionKey(sanitized)) return
-    onChange({ ...cfg, artifactSets: sanitized })
-  }, [allowNoSet, cfg, multiEditActive, onChange])
+    if (buildArtifactSetSelectionKey(recipe.artifactSets ?? []) === buildArtifactSetSelectionKey(sanitized)) return
+    onChange({ ...recipe, artifactSets: sanitized })
+  }, [allowNoSet, recipe, multiEditActive, onChange])
   const setsPatch = (multiSetsField?.patch as MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined) ?? null
   const metasetsPatch = (multiMetasetsField?.patch as MultiEditArrayPatch<string> | null | undefined) ?? null
   const getSetState = React.useCallback((id: number): 'none' | 'partial' | 'all' => {
     if (!multiEditActive || !multiSummary) {
-      const selected = splitArtifactSetSelections(cfg.artifactSets).included.includes(id)
+      const selected = splitArtifactSetSelections(recipe.artifactSets).included.includes(id)
       return selected ? 'all' : 'none'
     }
     const base = multiSummary.setCounts.get(id) ?? 0
@@ -1158,10 +1158,10 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     if (final === 0) return 'none'
     if (final === multiSummary.total) return 'all'
     return 'partial'
-  }, [cfg.artifactSets, multiEditActive, multiSummary, resolveSetPresence, setsPatch])
+  }, [recipe.artifactSets, multiEditActive, multiSummary, resolveSetPresence, setsPatch])
 const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'all' => {
   if (!multiEditActive || !multiSummary) {
-    const selected = Array.isArray(cfg.artifactMetaSets) ? cfg.artifactMetaSets.includes(id) : false
+    const selected = Array.isArray(recipe.artifactMetaSets) ? recipe.artifactMetaSets.includes(id) : false
     return selected ? 'all' : 'none'
   }
   const base = multiSummary.metaCounts.get(id) ?? 0
@@ -1169,11 +1169,11 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   if (final === 0) return 'none'
   if (final === multiSummary.total) return 'all'
   return 'partial'
-}, [cfg.artifactMetaSets, metasetsPatch, multiEditActive, multiSummary, resolveMetaPresence])
+}, [recipe.artifactMetaSets, metasetsPatch, multiEditActive, multiSummary, resolveMetaPresence])
   const getSetStateForScroll = React.useCallback((id: number): 'none' | 'partial' | 'all' => {
     if (multiEditActive) return getSetState(id)
-    return splitArtifactSetSelections(cfg.artifactSets).included.includes(id) ? 'all' : 'none'
-  }, [cfg.artifactSets, getSetState, multiEditActive])
+    return splitArtifactSetSelections(recipe.artifactSets).included.includes(id) ? 'all' : 'none'
+  }, [recipe.artifactSets, getSetState, multiEditActive])
   const toggleSet = React.useCallback((id: number) => {
     if (!multiEditActive || !multiEdit) return
     const state = getSetState(id)
@@ -1185,14 +1185,14 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
       baseState,
       target,
     )
-    const baseArray = Array.isArray(cfg.artifactSets) ? cfg.artifactSets : []
+    const baseArray = Array.isArray(recipe.artifactSets) ? recipe.artifactSets : []
     const preview = applyArtifactSetPatchPreview(baseArray, nextPatch)
     multiEdit.updateField('artifactSets', {
       value: preview as BuilderRecipe['artifactSets'],
       status: 'common',
       patch: nextPatch ?? undefined,
     })
-  }, [cfg.artifactSets, getSetState, multiEdit, multiEditActive, multiSetsField?.patch])
+  }, [recipe.artifactSets, getSetState, multiEdit, multiEditActive, multiSetsField?.patch])
   const toggleMetaset = React.useCallback((id: string) => {
     if (!multiEditActive || !multiEdit) return
     const state = getMetasetState(id)
@@ -1204,54 +1204,54 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
       baseState,
       target,
     )
-    const baseArray = Array.isArray(cfg.artifactMetaSets) ? cfg.artifactMetaSets : []
+    const baseArray = Array.isArray(recipe.artifactMetaSets) ? recipe.artifactMetaSets : []
     const preview = applyStringPatchPreview(baseArray, nextPatch)
     multiEdit.updateField('artifactMetaSets', {
       value: preview as BuilderRecipe['artifactMetaSets'],
       status: 'common',
       patch: nextPatch ?? undefined,
     })
-  }, [cfg.artifactMetaSets, getMetasetState, multiEdit, multiEditActive, multiMetasetsField?.patch])
+  }, [recipe.artifactMetaSets, getMetasetState, multiEdit, multiEditActive, multiMetasetsField?.patch])
   const keepMixed = multiEditActive && (multiKeepField?.status === 'mixed')
   const keepValue: 'keep' | 'sell' | null = multiEditActive
     ? (keepMixed ? null : ((multiKeepField?.value as boolean | undefined) ? 'keep' : 'sell'))
-    : (cfg.keep ? 'keep' : 'sell')
+    : (recipe.keep ? 'keep' : 'sell')
   const exportModeMixed = multiEditActive && (multiExportModeField?.status === 'mixed')
   // Resolve recipe overrides for the active recipe.
   const effectiveRecipe = useMemo(
-    () => resolveRecipeOverridesEffectiveRecipe(cfg, recipeOverridesInstructions),
-    [cfg, recipeOverridesInstructions],
+    () => resolveRecipeOverridesEffectiveRecipe(recipe, recipeOverridesInstructions),
+    [recipe, recipeOverridesInstructions],
   )
   // Read the effective export mode from the resolved recipe.
   const effectiveExportMode = effectiveRecipe.exportMode
   // Only mark an override when the recipe overrides flip the stored selection.
-  const exportModeOverrideActive = !multiEditActive && effectiveExportMode !== cfg.exportMode
+  const exportModeOverrideActive = !multiEditActive && effectiveExportMode !== recipe.exportMode
   // Track rank, rarity, and level overrides for UI indicators.
-  const storedRarityMode: 'auto' | 'code' = (cfg.rarityMode ?? 'code')
+  const storedRarityMode: 'auto' | 'code' = (recipe.rarityMode ?? 'code')
   const effectiveRarityMode: 'auto' | 'code' = (effectiveRecipe.rarityMode ?? 'code')
-  const rankOverrideActive = !multiEditActive && effectiveRecipe.rankCode !== cfg.rankCode
+  const rankOverrideActive = !multiEditActive && effectiveRecipe.rankCode !== recipe.rankCode
   const rarityOverrideActive = !multiEditActive && (
     effectiveRarityMode !== storedRarityMode
-    || (effectiveRarityMode === 'code' && effectiveRecipe.rarityCode !== cfg.rarityCode)
+    || (effectiveRarityMode === 'code' && effectiveRecipe.rarityCode !== recipe.rarityCode)
   )
-  const storedMinLevel = ((cfg as BuilderRecipe).minLevel ?? LEVEL_MILESTONES[0]!) as LevelMilestone
-  const storedMaxLevel = ((cfg as BuilderRecipe).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!) as LevelMilestone
+  const storedMinLevel = ((recipe as BuilderRecipe).minLevel ?? LEVEL_MILESTONES[0]!) as LevelMilestone
+  const storedMaxLevel = ((recipe as BuilderRecipe).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!) as LevelMilestone
   const effectiveMinLevel = ((effectiveRecipe as BuilderRecipe).minLevel ?? LEVEL_MILESTONES[0]!) as LevelMilestone
   const effectiveMaxLevel = ((effectiveRecipe as BuilderRecipe).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!) as LevelMilestone
   const levelOverrideActive = !multiEditActive && (
     effectiveMinLevel !== storedMinLevel || effectiveMaxLevel !== storedMaxLevel
   )
-  const keepOverrideActive = !multiEditActive && effectiveRecipe.earlyKeepMode !== cfg.earlyKeepMode
+  const keepOverrideActive = !multiEditActive && effectiveRecipe.earlyKeepMode !== recipe.earlyKeepMode
   const autoLateOverrideActive = !multiEditActive && (
-    effectiveRecipe.autoRaritySupplementsThreshold !== cfg.autoRaritySupplementsThreshold
+    effectiveRecipe.autoRaritySupplementsThreshold !== recipe.autoRaritySupplementsThreshold
   )
   // Prefer the recipe overrides-resolved mode for the single-recipe display.
   const exportModeValue: SellfileExportMode | null = multiEditActive
     ? (exportModeMixed ? null : (multiExportModeField?.value as SellfileExportMode | undefined ?? 'active'))
     : effectiveExportMode
   // Surface the stored selection when recipe overrides tags override the effective mode.
-  const exportModeOverrideTarget = exportModeOverrideActive && cfg.exportMode !== 'separator'
-    ? cfg.exportMode
+  const exportModeOverrideTarget = exportModeOverrideActive && recipe.exportMode !== 'separator'
+    ? recipe.exportMode
     : null
   // Map export modes to their localized labels for tooltip messaging.
   const exportModeLabel = React.useCallback((mode: SellfileExportMode): string => {
@@ -1292,7 +1292,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   ), [])
   const rankMixed = multiEditActive && (multiRankField?.status === 'mixed')
   const rankValue = multiEditActive
-    ? (rankMixed ? '' : String((multiRankField?.value as number | undefined) ?? cfg.rankCode))
+    ? (rankMixed ? '' : String((multiRankField?.value as number | undefined) ?? recipe.rankCode))
     : String(effectiveRecipe.rankCode)
   const rarityMixed = multiEditActive && (
     (multiRarityModeField?.status === 'mixed')
@@ -1303,12 +1303,12 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
       ? ''
       : ((multiRarityModeField?.value as BuilderRecipe['rarityMode'] | undefined) === 'auto'
         ? 'auto'
-        : String((multiRarityCodeField?.value as number | undefined) ?? cfg.rarityCode)))
+        : String((multiRarityCodeField?.value as number | undefined) ?? recipe.rarityCode)))
     : (effectiveRarityMode === 'auto' ? 'auto' : String(effectiveRecipe.rarityCode))
   const factionMixed = multiEditActive && (multiFactionField?.status === 'mixed')
   const factionValue = multiEditActive
-    ? (factionMixed ? '' : String((multiFactionField?.value as number | undefined) ?? cfg.factionCode ?? 0))
-    : String(cfg.factionCode ?? 0)
+    ? (factionMixed ? '' : String((multiFactionField?.value as number | undefined) ?? recipe.factionCode ?? 0))
+    : String(recipe.factionCode ?? 0)
   const singleMinLevel = (multiEditActive ? storedMinLevel : effectiveMinLevel)
   const singleMaxLevel = (multiEditActive ? storedMaxLevel : effectiveMaxLevel)
   const aggregatedMinLevel = multiEditActive
@@ -1395,9 +1395,9 @@ const maxLevelValue = multiEditActive
   }, [aggregateRollSnapshots, computeTriState, lockedSubstatsExist])
   const getRequiredCountTriState = React.useCallback((target: 'auto' | 1 | 2 | 3 | 4): 'on' | 'mixed' | 'off' => {
     if (!multiEditActive || !multiSourceRecipes) {
-      const auto = cfg.autoMinCount === true
+      const auto = recipe.autoMinCount === true
       if (target === 'auto') return auto ? 'on' : 'off'
-      const value = Number(cfg.minCount ?? 0)
+      const value = Number(recipe.minCount ?? 0)
       return (!auto && value === target) ? 'on' : 'off'
     }
     const autoField = multiAutoMinCountField
@@ -1440,7 +1440,7 @@ const maxLevelValue = multiEditActive
       }
     }
     return computeTriState(matches, total)
-  }, [cfg, computeTriState, multiAutoMinCountField, multiEditActive, multiMinCountField, multiSourceRecipes])
+  }, [recipe, computeTriState, multiAutoMinCountField, multiEditActive, multiMinCountField, multiSourceRecipes])
   const getKeepModeTriState = React.useCallback((target: 'early' | 'late'): 'on' | 'mixed' | 'off' => {
     if (!multiEditActive || !multiSourceRecipes) {
       const mode = ((effectiveRecipe as BuilderRecipe).earlyKeepMode ?? 'early') as 'early' | 'late'
@@ -1559,7 +1559,7 @@ const maxLevelValue = multiEditActive
   // Shared styling for the builder’s status chips (Flex, Only locked, Auto ≥ …). The helper keeps
   // BuilderPanel and the cheat sheet visuals in sync.
   const builderToggleChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
-  const singleRequiredCountValue = cfg.autoMinCount ? 'auto' : ((cfg.minCount ?? 0) > 0 ? String(cfg.minCount) : 'auto')
+  const singleRequiredCountValue = recipe.autoMinCount ? 'auto' : ((recipe.minCount ?? 0) > 0 ? String(recipe.minCount) : 'auto')
   const requiredCountValue = multiEditActive
     ? (() => {
         if (getRequiredCountTriState('auto') === 'on') return 'auto'
@@ -1786,30 +1786,30 @@ const maxLevelValue = multiEditActive
     paddingBottom: 0,
     cursor: 'pointer',
   } as const
-  const update = <K extends keyof BuilderRecipe>(k: K, v: BuilderRecipe[K]) => onChange({ ...cfg, [k]: v })
+  const update = <K extends keyof BuilderRecipe>(k: K, v: BuilderRecipe[K]) => onChange({ ...recipe, [k]: v })
   const updateExportMode = useCallback((next: SellfileExportMode) => {
-    onChange({ ...cfg, exportMode: next })
-  }, [cfg, onChange])
+    onChange({ ...recipe, exportMode: next })
+  }, [recipe, onChange])
   const updateLevelWindow = useCallback((min: LevelMilestone, max: LevelMilestone) => {
     // Keep level window updates normalized so min/max stay consistent.
-    onChange(normalizeLevelWindow({ ...cfg, minLevel: min, maxLevel: max }))
-  }, [cfg, onChange])
+    onChange(normalizeLevelWindow({ ...recipe, minLevel: min, maxLevel: max }))
+  }, [recipe, onChange])
   const updateKeepMode = useCallback((mode: 'early' | 'late') => {
     // Normalize keep mode so Auto+Late and roll targets stay aligned.
-    onChange(normalizeKeepWithAuto({ ...cfg, earlyKeepMode: mode }))
-  }, [cfg, onChange, normalizeKeepWithAuto])
+    onChange(normalizeKeepWithAuto({ ...recipe, earlyKeepMode: mode }))
+  }, [recipe, onChange, normalizeKeepWithAuto])
   const updateAutoLateThreshold = useCallback((nextTier: 'uncommon' | 'rare' | 'epic') => {
     // Normalize after setting the Auto+Late tier so related flags stay in sync.
-    onChange(normalizeKeepWithAuto({ ...cfg, autoRaritySupplementsThreshold: nextTier }))
-  }, [cfg, onChange, normalizeKeepWithAuto])
+    onChange(normalizeKeepWithAuto({ ...recipe, autoRaritySupplementsThreshold: nextTier }))
+  }, [recipe, onChange, normalizeKeepWithAuto])
   const updateRaritySelection = useCallback((mode: 'auto' | 'code', code?: number) => {
     // Normalize to keep Auto+Late behavior consistent with the selection.
     if (mode === 'auto') {
-      onChange(normalizeKeepWithAuto({ ...cfg, rarityMode: 'auto' }))
+      onChange(normalizeKeepWithAuto({ ...recipe, rarityMode: 'auto' }))
       return
     }
-    onChange(normalizeKeepWithAuto({ ...cfg, rarityMode: 'code', rarityCode: Number(code ?? 0) }))
-  }, [cfg, onChange, normalizeKeepWithAuto])
+    onChange(normalizeKeepWithAuto({ ...recipe, rarityMode: 'code', rarityCode: Number(code ?? 0) }))
+  }, [recipe, onChange, normalizeKeepWithAuto])
   const handleExportModeOverrideClick = React.useCallback((mode: SellfileExportMode) => {
     if (multiEditActive) return
     if (!exportModeOverrideActive) return
@@ -1889,7 +1889,7 @@ const maxLevelValue = multiEditActive
     setTagsContextAnchor(event.currentTarget as HTMLElement)
   }, [markTagsHintSeen])
   // Memoize single-recipe tags so callbacks get stable dependencies.
-  const tagsValue = useMemo(() => (cfg.tags ?? []), [cfg.tags])
+  const tagsValue = useMemo(() => (recipe.tags ?? []), [recipe.tags])
   // Summarize tag presence for multi-edit so mixed tags are styled separately.
   const tagPresence = useMemo(() => {
     if (!multiEditActive) return null
@@ -1948,17 +1948,17 @@ const maxLevelValue = multiEditActive
     : ''
   const commitName = React.useCallback((value: string) => {
     const next = value
-    const current = cfg.name ?? ''
+    const current = recipe.name ?? ''
     if (current === next) {
       setNameDraft('')
       setNameDraftKey(null)
       return next
     }
-    onChange({ ...cfg, name: next })
+    onChange({ ...recipe, name: next })
     setNameDraft('')
     setNameDraftKey(null)
     return next
-  }, [cfg, onChange])
+  }, [recipe, onChange])
   const commitNameDraftIfNeeded = React.useCallback(() => {
     if (multiEditActive) return
     if (!nameDraftDirty) return
@@ -2006,8 +2006,8 @@ const maxLevelValue = multiEditActive
       return
     }
     // Persist tags onto the single builder recipe.
-    onChange({ ...cfg, tags: normalized })
-  }, [cfg, multiEditActive, onChange, stageTagPatch])
+    onChange({ ...recipe, tags: normalized })
+  }, [recipe, multiEditActive, onChange, stageTagPatch])
   const commitTagsFromDraft = useCallback(() => {
     // Split comma-separated input and normalize each tag.
     const raw = tagsDraft.trim()
@@ -2047,15 +2047,15 @@ const maxLevelValue = multiEditActive
     // Multi-edit clears tags with a patch so every selected recipe resets together.
     if (multiEditActive && multiEdit) {
       multiEdit.updateField('tags', {
-        value: (multiTagsField?.value as BuilderRecipe['tags']) ?? (cfg.tags ?? []),
+        value: (multiTagsField?.value as BuilderRecipe['tags']) ?? (recipe.tags ?? []),
         status: 'common',
         patch: { clear: true },
       })
       return
     }
     // Persist the empty tag list for the current recipe.
-    onChange({ ...cfg, tags: [] })
-  }, [cfg, multiEdit, multiEditActive, multiTagsField?.value, onChange, tagsClearable])
+    onChange({ ...recipe, tags: [] })
+  }, [recipe, multiEdit, multiEditActive, multiTagsField?.value, onChange, tagsClearable])
   const singleBuilderDirty = selectedIsDirty || nameDraftDirty
   const isDirty = multiEditActive ? multiDraftDirty : singleBuilderDirty
   const insertButtonLabel = editingIndex !== null
@@ -2177,7 +2177,7 @@ const maxLevelValue = multiEditActive
   }), [theme])
   const renderedName = usingMultiName
     ? multiNameDraftValue
-    : (nameDraftDirty ? nameDraft : (cfg.name ?? ''))
+    : (nameDraftDirty ? nameDraft : (recipe.name ?? ''))
   const namePlaceholder = usingMultiName && multiNameMixed ? t('builderMultiNamePlaceholder') : undefined
   const userDisabledFlexRef = useRef(false)
   const userKeepModeRef = useRef<'auto' | 'early' | 'late'>('auto')
@@ -2188,16 +2188,16 @@ const maxLevelValue = multiEditActive
     lastBuilderIdentityRef.current = builderIdentity
     userDisabledFlexRef.current = builderIdentity === 'builder'
       ? false
-      : !cfg.autoSubstatFlex
+      : !recipe.autoSubstatFlex
     userKeepModeRef.current = builderIdentity === 'builder'
       ? 'auto'
-      : (((cfg as BuilderRecipe).earlyKeepMode ?? 'early') as 'early' | 'late')
+      : (((recipe as BuilderRecipe).earlyKeepMode ?? 'early') as 'early' | 'late')
   }
   const toggleSubstatFlex = () => {
     if (!canFlexSubstats) return
-    const next = !cfg.autoSubstatFlex
+    const next = !recipe.autoSubstatFlex
     userDisabledFlexRef.current = !next
-    onChange({ ...cfg, autoSubstatFlex: next })
+    onChange({ ...recipe, autoSubstatFlex: next })
   }
 
   const prevThresholdsActiveRef = useRef<boolean>(milestoneThresholdsActive)
@@ -2205,23 +2205,23 @@ const maxLevelValue = multiEditActive
     const prev = prevThresholdsActiveRef.current
     prevThresholdsActiveRef.current = milestoneThresholdsActive
     if (!prev && milestoneThresholdsActive) {
-      const currentMode = ((cfg as BuilderRecipe).earlyKeepMode ?? 'early') as 'early' | 'late'
+      const currentMode = ((recipe as BuilderRecipe).earlyKeepMode ?? 'early') as 'early' | 'late'
       if (currentMode !== 'late' && userKeepModeRef.current === 'auto') {
-        onChange({ ...cfg, earlyKeepMode: 'late' })
+        onChange({ ...recipe, earlyKeepMode: 'late' })
       }
     }
-  }, [cfg, milestoneThresholdsActive, onChange])
+  }, [recipe, milestoneThresholdsActive, onChange])
 
   const prevCanFlexRef = useRef<boolean>(canFlexSubstats)
   useEffect(() => {
     const prev = prevCanFlexRef.current
     prevCanFlexRef.current = canFlexSubstats
     if (!prev && canFlexSubstats) {
-      if (!cfg.autoSubstatFlex && !userDisabledFlexRef.current) {
-        onChange({ ...cfg, autoSubstatFlex: true })
+      if (!recipe.autoSubstatFlex && !userDisabledFlexRef.current) {
+        onChange({ ...recipe, autoSubstatFlex: true })
       }
     }
-  }, [canFlexSubstats, cfg, onChange])
+  }, [canFlexSubstats, recipe, onChange])
   // Note: We no longer color the stat toggle button borders. The preference
   // now controls coloring of stat texts in chips and preview only.
   const buttonBorderSx = (_variant: number) => {
@@ -2322,7 +2322,7 @@ const maxLevelValue = multiEditActive
     limitWarningTooltip,
     ruleCountChipSx,
   } = useRuleCountBadge({
-    cfg,
+    recipe,
     substatTargets,
     ruleSubstatTargetsKey,
     multiEditActive,
@@ -2387,31 +2387,31 @@ const maxLevelValue = multiEditActive
       return !v
     }
     return (
-      (cfg.name ?? '') === (target.name ?? '') &&
-      cfg.keep === Boolean(target.keep) &&
-      cfg.exportMode === target.exportMode &&
-      Number(cfg.rankCode) === Number(target.rankCode) &&
-      Number((cfg as unknown as { rarityCode?: number }).rarityCode ?? 0) === Number((target as unknown as { rarityCode?: number }).rarityCode ?? 0) &&
-      (((cfg as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'code') === ((target as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'code')) &&
-      (((cfg as unknown as { autoRaritySupplementsThreshold?: 'uncommon'|'rare'|'epic' }).autoRaritySupplementsThreshold ?? 'rare') === ((target as unknown as { autoRaritySupplementsThreshold?: 'uncommon'|'rare'|'epic' }).autoRaritySupplementsThreshold ?? 'rare')) &&
-      Number((cfg as unknown as { factionCode?: number }).factionCode ?? 0) === Number((target as unknown as { factionCode?: number }).factionCode ?? 0) &&
-      JSON.stringify(asNumArr((cfg as unknown as { mainStatsV?: number[] }).mainStatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { mainStatsV?: number[] }).mainStatsV).slice().sort()) &&
-      (cfg as unknown as { minLevel?: LevelMilestone }).minLevel === (target as unknown as { minLevel?: LevelMilestone }).minLevel &&
-      (cfg as unknown as { maxLevel?: LevelMilestone }).maxLevel === (target as unknown as { maxLevel?: LevelMilestone }).maxLevel &&
-      ((cfg as unknown as { earlyKeepMode?: 'early'|'late' }).earlyKeepMode ?? 'early') === ((target as unknown as { earlyKeepMode?: 'early'|'late' }).earlyKeepMode ?? 'early') &&
-      JSON.stringify(asNumArr((cfg as unknown as { substatsV?: number[] }).substatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { substatsV?: number[] }).substatsV).slice().sort()) &&
-      JSON.stringify(asNumArr((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV).slice().sort()) &&
-      Number(cfg.minCount) === Number(target.minCount) &&
-      Boolean(cfg.autoMinCount) === Boolean(target.autoMinCount) &&
-      Boolean((cfg as unknown as { autoSubstatFlex?: boolean }).autoSubstatFlex ?? false) === Boolean((target as unknown as { autoSubstatFlex?: boolean }).autoSubstatFlex ?? false) &&
-      Number((cfg as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0) === Number((target as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0) &&
-      Boolean((cfg as unknown as { autoMinRequiredRolls?: boolean }).autoMinRequiredRolls ?? true) === Boolean((target as unknown as { autoMinRequiredRolls?: boolean }).autoMinRequiredRolls ?? true) &&
-      empty((cfg as unknown as { substatRollBoundsV?: Record<number, unknown> }).substatRollBoundsV ?? {}) === empty((target as unknown as { substatRollBoundsV?: Record<number, unknown> }).substatRollBoundsV ?? {}) &&
-      JSON.stringify(asNumArr((cfg as unknown as { artifactTypes?: number[] }).artifactTypes).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { artifactTypes?: number[] }).artifactTypes).slice().sort()) &&
-      JSON.stringify(normalizeArtifactSetSelections((cfg as unknown as { artifactSets?: ArtifactSetSelectionEntry[] }).artifactSets ?? [])) === JSON.stringify(normalizeArtifactSetSelections((target as unknown as { artifactSets?: ArtifactSetSelectionEntry[] }).artifactSets ?? [])) &&
-      JSON.stringify(((cfg as unknown as { artifactMetaSets?: string[] }).artifactMetaSets ?? []).slice().sort()) === JSON.stringify(((target as unknown as { artifactMetaSets?: string[] }).artifactMetaSets ?? []).slice().sort())
+      (recipe.name ?? '') === (target.name ?? '') &&
+      recipe.keep === Boolean(target.keep) &&
+      recipe.exportMode === target.exportMode &&
+      Number(recipe.rankCode) === Number(target.rankCode) &&
+      Number((recipe as unknown as { rarityCode?: number }).rarityCode ?? 0) === Number((target as unknown as { rarityCode?: number }).rarityCode ?? 0) &&
+      (((recipe as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'code') === ((target as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'code')) &&
+      (((recipe as unknown as { autoRaritySupplementsThreshold?: 'uncommon'|'rare'|'epic' }).autoRaritySupplementsThreshold ?? 'rare') === ((target as unknown as { autoRaritySupplementsThreshold?: 'uncommon'|'rare'|'epic' }).autoRaritySupplementsThreshold ?? 'rare')) &&
+      Number((recipe as unknown as { factionCode?: number }).factionCode ?? 0) === Number((target as unknown as { factionCode?: number }).factionCode ?? 0) &&
+      JSON.stringify(asNumArr((recipe as unknown as { mainStatsV?: number[] }).mainStatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { mainStatsV?: number[] }).mainStatsV).slice().sort()) &&
+      (recipe as unknown as { minLevel?: LevelMilestone }).minLevel === (target as unknown as { minLevel?: LevelMilestone }).minLevel &&
+      (recipe as unknown as { maxLevel?: LevelMilestone }).maxLevel === (target as unknown as { maxLevel?: LevelMilestone }).maxLevel &&
+      ((recipe as unknown as { earlyKeepMode?: 'early'|'late' }).earlyKeepMode ?? 'early') === ((target as unknown as { earlyKeepMode?: 'early'|'late' }).earlyKeepMode ?? 'early') &&
+      JSON.stringify(asNumArr((recipe as unknown as { substatsV?: number[] }).substatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { substatsV?: number[] }).substatsV).slice().sort()) &&
+      JSON.stringify(asNumArr((recipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV).slice().sort()) &&
+      Number(recipe.minCount) === Number(target.minCount) &&
+      Boolean(recipe.autoMinCount) === Boolean(target.autoMinCount) &&
+      Boolean((recipe as unknown as { autoSubstatFlex?: boolean }).autoSubstatFlex ?? false) === Boolean((target as unknown as { autoSubstatFlex?: boolean }).autoSubstatFlex ?? false) &&
+      Number((recipe as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0) === Number((target as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0) &&
+      Boolean((recipe as unknown as { autoMinRequiredRolls?: boolean }).autoMinRequiredRolls ?? true) === Boolean((target as unknown as { autoMinRequiredRolls?: boolean }).autoMinRequiredRolls ?? true) &&
+      empty((recipe as unknown as { substatRollBoundsV?: Record<number, unknown> }).substatRollBoundsV ?? {}) === empty((target as unknown as { substatRollBoundsV?: Record<number, unknown> }).substatRollBoundsV ?? {}) &&
+      JSON.stringify(asNumArr((recipe as unknown as { artifactTypes?: number[] }).artifactTypes).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { artifactTypes?: number[] }).artifactTypes).slice().sort()) &&
+      JSON.stringify(normalizeArtifactSetSelections((recipe as unknown as { artifactSets?: ArtifactSetSelectionEntry[] }).artifactSets ?? [])) === JSON.stringify(normalizeArtifactSetSelections((target as unknown as { artifactSets?: ArtifactSetSelectionEntry[] }).artifactSets ?? [])) &&
+      JSON.stringify(((recipe as unknown as { artifactMetaSets?: string[] }).artifactMetaSets ?? []).slice().sort()) === JSON.stringify(((target as unknown as { artifactMetaSets?: string[] }).artifactMetaSets ?? []).slice().sort())
     )
-  }, [cfg, defaultsEpoch])
+  }, [recipe, defaultsEpoch])
   // Default builders reset the cached toggles so they mirror the factory state.
   if (isDefaultBuilder) {
     userDisabledFlexRef.current = false
@@ -2525,9 +2525,9 @@ const maxLevelValue = multiEditActive
 
   const handleResetBuilder = React.useCallback(() => {
     const eff = getEffectiveDefaults()
-    onChange({ ...cfg, ...eff })
+    onChange({ ...recipe, ...eff })
     setHoverReset(false)
-  }, [cfg, getEffectiveDefaults, onChange])
+  }, [recipe, getEffectiveDefaults, onChange])
 
   // Wrap insert to optionally reset builder controls to defaults (no dialog)
   const handleAddToCustom = () => {
@@ -2535,7 +2535,7 @@ const maxLevelValue = multiEditActive
     onAddToCustom()
     if (autoResetAfterInsert) {
       const eff = getEffectiveDefaults()
-      onChange({ ...cfg, ...eff })
+      onChange({ ...recipe, ...eff })
     }
   }
   // Attention phase: After idle threshold while dirty, replay suite effects every interval.
@@ -2550,7 +2550,7 @@ const maxLevelValue = multiEditActive
       ? window.setTimeout(() => setAttentionState({ phase: true, burst: true }), BUILDER_DIRTY_NUDGE_IDLE_MS)
       : null
     return () => { idle !== null && window.clearTimeout(idle) }
-  }, [cfg, interactionNonce, isDirty])
+  }, [recipe, interactionNonce, isDirty])
   // When phase starts, trigger immediate burst and then repeat every interval until cancelled
   useEffect(() => {
     const activate = () => {
@@ -2608,7 +2608,7 @@ const maxLevelValue = multiEditActive
   }, [
     autoApplySelectedRecipe,
     clearAutoApplyTimeout,
-    cfg,
+    recipe,
     editingIndex,
     multiEditActive,
     performAutoApply,
@@ -2649,7 +2649,7 @@ const maxLevelValue = multiEditActive
   }, [actionButtonSx, editingIndex, isDirty, resolveSx, suiteSx])
 
   // Legendary 42 overlay (centralized in attentionEffects). Triggers when the builder expects 2 required substats and 4 min required rolls.
-  const fortyTwoOverlay = useFortyTwoLegendaryOverlay((Number(cfg.minCount) === 2) && (Number((cfg as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0) === 4))
+  const fortyTwoOverlay = useFortyTwoLegendaryOverlay((Number(recipe.minCount) === 2) && (Number((recipe as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0) === 4))
 
   return (
     <Box ref={builderRootRef} sx={{ position: 'relative' }}>
@@ -3248,7 +3248,7 @@ const maxLevelValue = multiEditActive
                   onClick={() => {
                     // When an override is active, allow clicking the effective value to accept it.
                     if (multiEditActive || !rankOverrideActive) return
-                    if (cfg.rankCode === effectiveRecipe.rankCode) return
+                    if (recipe.rankCode === effectiveRecipe.rankCode) return
                     if (Number(code) !== effectiveRecipe.rankCode) return
                     update('rankCode', effectiveRecipe.rankCode)
                   }}
@@ -3264,7 +3264,7 @@ const maxLevelValue = multiEditActive
                   onClick={() => {
                     // When an override is active, allow clicking the effective value to accept it.
                     if (multiEditActive || !rankOverrideActive) return
-                    if (cfg.rankCode === effectiveRecipe.rankCode) return
+                    if (recipe.rankCode === effectiveRecipe.rankCode) return
                     if (Number(code) !== effectiveRecipe.rankCode) return
                     update('rankCode', effectiveRecipe.rankCode)
                   }}
@@ -3280,7 +3280,7 @@ const maxLevelValue = multiEditActive
                   onClick={() => {
                     // When an override is active, allow clicking the effective value to accept it.
                     if (multiEditActive || !rankOverrideActive) return
-                    if (cfg.rankCode === effectiveRecipe.rankCode) return
+                    if (recipe.rankCode === effectiveRecipe.rankCode) return
                     if (Number(code) !== effectiveRecipe.rankCode) return
                     update('rankCode', effectiveRecipe.rankCode)
                   }}
@@ -3291,7 +3291,7 @@ const maxLevelValue = multiEditActive
               </Select>
               {rankOverrideActive
                 ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
-                    rankOptionLabel(cfg.rankCode),
+                    rankOptionLabel(recipe.rankCode),
                     rankOptionLabel(effectiveRecipe.rankCode),
                   ))
                 : null}
@@ -3382,7 +3382,7 @@ const maxLevelValue = multiEditActive
                 onClick={() => {
                   // When an override is active, allow clicking the effective value to accept it.
                   if (multiEditActive || !rarityOverrideActive) return
-                  if (cfg.rarityMode === effectiveRarityMode && cfg.rarityCode === effectiveRecipe.rarityCode) return
+                  if (recipe.rarityMode === effectiveRarityMode && recipe.rarityCode === effectiveRecipe.rarityCode) return
                   if (effectiveRarityMode !== 'auto') return
                   updateRaritySelection('auto')
                 }}
@@ -3394,7 +3394,7 @@ const maxLevelValue = multiEditActive
                 onClick={() => {
                   // When an override is active, allow clicking the effective value to accept it.
                   if (multiEditActive || !rarityOverrideActive) return
-                  if (cfg.rarityMode === effectiveRarityMode && cfg.rarityCode === effectiveRecipe.rarityCode) return
+                  if (recipe.rarityMode === effectiveRarityMode && recipe.rarityCode === effectiveRecipe.rarityCode) return
                   if (effectiveRarityMode !== 'code') return
                   if (effectiveRecipe.rarityCode !== 0) return
                   updateRaritySelection('code', 0)
@@ -3410,7 +3410,7 @@ const maxLevelValue = multiEditActive
                   onClick={() => {
                     // When an override is active, allow clicking the effective value to accept it.
                     if (multiEditActive || !rarityOverrideActive) return
-                    if (cfg.rarityMode === effectiveRarityMode && cfg.rarityCode === effectiveRecipe.rarityCode) return
+                    if (recipe.rarityMode === effectiveRarityMode && recipe.rarityCode === effectiveRecipe.rarityCode) return
                     if (effectiveRarityMode !== 'code') return
                     if (effectiveRecipe.rarityCode !== Number(code)) return
                     updateRaritySelection('code', Number(code))
@@ -3432,7 +3432,7 @@ const maxLevelValue = multiEditActive
                   onClick={() => {
                     // When an override is active, allow clicking the effective value to accept it.
                     if (multiEditActive || !rarityOverrideActive) return
-                    if (cfg.rarityMode === effectiveRarityMode && cfg.rarityCode === effectiveRecipe.rarityCode) return
+                    if (recipe.rarityMode === effectiveRarityMode && recipe.rarityCode === effectiveRecipe.rarityCode) return
                     if (effectiveRarityMode !== 'code') return
                     if (effectiveRecipe.rarityCode !== Number(code)) return
                     updateRaritySelection('code', Number(code))
@@ -3453,7 +3453,7 @@ const maxLevelValue = multiEditActive
                   onClick={() => {
                     // When an override is active, allow clicking the effective value to accept it.
                     if (multiEditActive || !rarityOverrideActive) return
-                    if (cfg.rarityMode === effectiveRarityMode && cfg.rarityCode === effectiveRecipe.rarityCode) return
+                    if (recipe.rarityMode === effectiveRarityMode && recipe.rarityCode === effectiveRecipe.rarityCode) return
                     if (effectiveRarityMode !== 'code') return
                     if (effectiveRecipe.rarityCode !== Number(code)) return
                     updateRaritySelection('code', Number(code))
@@ -3469,7 +3469,7 @@ const maxLevelValue = multiEditActive
               </Select>
               {rarityOverrideActive
                 ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
-                    rarityOptionLabel(storedRarityMode, cfg.rarityCode),
+                    rarityOptionLabel(storedRarityMode, recipe.rarityCode),
                     rarityOptionLabel(effectiveRarityMode, effectiveRecipe.rarityCode),
                   ))
                 : null}
@@ -3626,7 +3626,7 @@ const maxLevelValue = multiEditActive
                       multiEdit?.updateField('maxLevel', { value: nextMin, status: 'common' })
                     }
                   } else {
-                    const currentMax = ((cfg as BuilderRecipe).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!) as LevelMilestone
+                    const currentMax = ((recipe as BuilderRecipe).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!) as LevelMilestone
                     const nextMax = (nextMin > currentMax ? nextMin : currentMax) as LevelMilestone
                     updateLevelWindow(nextMin, nextMax)
                   }
@@ -3716,7 +3716,7 @@ const maxLevelValue = multiEditActive
                       multiEdit?.updateField('minLevel', { value: nextMax, status: 'common' })
                     }
                   } else {
-                    const currentMin = ((cfg as BuilderRecipe).minLevel ?? LEVEL_MILESTONES[0]!) as LevelMilestone
+                    const currentMin = ((recipe as BuilderRecipe).minLevel ?? LEVEL_MILESTONES[0]!) as LevelMilestone
                     const nextMin = (nextMax < currentMin ? nextMax : currentMin) as LevelMilestone
                     updateLevelWindow(nextMin, nextMax)
                   }
@@ -3803,7 +3803,7 @@ const maxLevelValue = multiEditActive
               </MarkdownTooltip>
             </FormLabel>
             {(() => {
-              const baseMainSelected = (((cfg as (BuilderRecipe & { mainStatsV?: number[] })).mainStatsV ?? []).length > 0)
+              const baseMainSelected = (((recipe as (BuilderRecipe & { mainStatsV?: number[] })).mainStatsV ?? []).length > 0)
               const hasMainSelection = multiEditActive && multiSummary
                 ? [...STAT_VARIANTS_PRIORITY_ROW1, ...STAT_VARIANTS_PRIORITY_ROW2].some((variant) => resolveMainStatTriState(variant) !== 'none')
                 : baseMainSelected
@@ -3821,15 +3821,15 @@ const maxLevelValue = multiEditActive
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
-              const value: string[] = ((cfg as (BuilderRecipe & { mainStatsV?: number[] })).mainStatsV ?? []).map(String)
+              const value: string[] = ((recipe as (BuilderRecipe & { mainStatsV?: number[] })).mainStatsV ?? []).map(String)
               const handleChange = (_: React.SyntheticEvent, v: string[]) => {
                 if (!Array.isArray(v)) return
                 const nextNumbers = Array.from(new Set(v.map((token) => Number(token)).filter((n) => Number.isFinite(n))))
                 if (nextNumbers.length === 0) {
-                  onChange({ ...cfg, mainStatsV: [] })
+                  onChange({ ...recipe, mainStatsV: [] })
                   return
                 }
-                onChange({ ...cfg, mainStatsV: nextNumbers as number[] })
+                onChange({ ...recipe, mainStatsV: nextNumbers as number[] })
               }
               return (
                 <>
@@ -4008,17 +4008,17 @@ const maxLevelValue = multiEditActive
                       tooltip={t('builderClearSubstats')}
                       onClick={() => {
                         multiEdit?.updateField('substatsV', {
-                          value: (multiSubstatsField?.value as BuilderRecipe['substatsV']) ?? (cfg.substatsV ?? []),
+                          value: (multiSubstatsField?.value as BuilderRecipe['substatsV']) ?? (recipe.substatsV ?? []),
                           status: 'common',
                           patch: { clear: true },
                         })
                         multiEdit?.updateField('fixedSubstatsV', {
-                          value: (multiFixedSubstatsField?.value as BuilderRecipe['fixedSubstatsV']) ?? (cfg.fixedSubstatsV ?? []),
+                          value: (multiFixedSubstatsField?.value as BuilderRecipe['fixedSubstatsV']) ?? (recipe.fixedSubstatsV ?? []),
                           status: 'common',
                           patch: { clear: true },
                         })
                         multiEdit?.updateField('substatRollBoundsV', {
-                          value: (multiRollField?.value as BuilderRecipe['substatRollBoundsV']) ?? (cfg.substatRollBoundsV ?? {}),
+                          value: (multiRollField?.value as BuilderRecipe['substatRollBoundsV']) ?? (recipe.substatRollBoundsV ?? {}),
                           status: 'common',
                           patch: {},
                         })
@@ -4027,7 +4027,7 @@ const maxLevelValue = multiEditActive
                   )
                   : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
               }
-              const substatsSelection = (((cfg as unknown) as { substatsV?: number[] }).substatsV) ?? []
+              const substatsSelection = (((recipe as unknown) as { substatsV?: number[] }).substatsV) ?? []
               const hasSubstats = substatsSelection.length > 0
               return hasSubstats
                 ? (
@@ -4036,7 +4036,7 @@ const maxLevelValue = multiEditActive
                     aria-label={t('builderClearSubstats')}
                     tooltip={t('builderClearSubstats')}
                   onClick={() => onChange(normalizeKeepWithAuto({
-                      ...cfg,
+                      ...recipe,
                       substatsV: [],
                       fixedSubstatsV: [],
                       minCount: 0,
@@ -4053,7 +4053,7 @@ const maxLevelValue = multiEditActive
               
               // Prefer recipe-overrides overrides for display-only UI so roll badges match previews.
               // Keep edits bound to the stored recipe so interactions stay deterministic.
-              const displayCfg = (!multiEditActive && effectiveRecipe !== cfg) ? effectiveRecipe : cfg
+              const displayRecipe = (!multiEditActive && effectiveRecipe !== recipe) ? effectiveRecipe : recipe
               // Normalize roll bounds so override comparisons use stable, clamped values.
               const normalizeBounds = (bounds?: { min?: number; max?: number; any?: boolean }) => ({
                 // Keep the wildcard flag explicit to avoid false positives.
@@ -4072,20 +4072,20 @@ const maxLevelValue = multiEditActive
                 left: ReturnType<typeof normalizeBounds>,
                 right: ReturnType<typeof normalizeBounds>,
               ) => left.any === right.any && left.min === right.min && left.max === right.max
-              const value: string[] = ((((displayCfg as unknown) as { substatsV?: number[] }).substatsV) ?? []).map(String)
+              const value: string[] = ((((displayRecipe as unknown) as { substatsV?: number[] }).substatsV) ?? []).map(String)
               const isSelected = (v: number) => {
-                const subsV = ((displayCfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+                const subsV = ((displayRecipe as unknown as { substatsV?: number[] }).substatsV) ?? []
                 return subsV.includes(v)
               }
               const isFixed = (v: number) => {
-                const fixedV = ((displayCfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+                const fixedV = ((displayRecipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
                 return fixedV.includes(v)
               }
               const getBounds = (vKey: number) => {
-                return (cfg.substatRollBoundsV)?.[vKey]
+                return (recipe.substatRollBoundsV)?.[vKey]
               }
               const getDisplayBounds = (vKey: number) => {
-                return (displayCfg.substatRollBoundsV)?.[vKey]
+                return (displayRecipe.substatRollBoundsV)?.[vKey]
               }
               const setBounds = (vKey: number, bounds?: { min?: number; max?: number; any?: boolean }) => {
                 applySingleSubstatBounds(vKey, () => {
@@ -4202,59 +4202,59 @@ const maxLevelValue = multiEditActive
                 }
                 const selected = isSelected(vKey)
                 if (!selected) {
-                  const prevV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+                  const prevV = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
                   const nextV = [...prevV, vKey]
                   const nextLen = nextV.length
-                  const nextMin = (cfg.autoMinCount ? Math.min(4, nextLen) : ((cfg.minCount === 0 && nextLen > 0) ? 1 : cfg.minCount)) as 0 | 1 | 2 | 3 | 4
-                  const bVAll = { ...((cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>) }
+                  const nextMin = (recipe.autoMinCount ? Math.min(4, nextLen) : ((recipe.minCount === 0 && nextLen > 0) ? 1 : recipe.minCount)) as 0 | 1 | 2 | 3 | 4
+                  const bVAll = { ...((recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>) }
                   bVAll[vKey] = { any: true }
-                  onChange(normalizeKeepWithAuto({ ...cfg, substatsV: nextV, minCount: nextMin, substatRollBoundsV: bVAll }))
+                  onChange(normalizeKeepWithAuto({ ...recipe, substatsV: nextV, minCount: nextMin, substatRollBoundsV: bVAll }))
                   return
                 }
                 // Selected (locked or not) -> remove entirely
-                const prevSubsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+                const prevSubsV = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
                 const nextSubsV = prevSubsV.filter((v) => v !== vKey)
-                const prevFixedV = ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+                const prevFixedV = ((recipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
                 const nextFixedV = prevFixedV.filter((v) => v !== vKey)
                 // prune bounds for substat (variant-keyed)
-                const bVAll = { ...((cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>) }
+                const bVAll = { ...((recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>) }
                 const { [vKey]: _omit, ...restV } = bVAll
                 const prunedV: Record<number, { min?: number; max?: number; any?: boolean }> = restV
-                const nextMin = (cfg.autoMinCount ? Math.min(4, nextSubsV.length) : (cfg.minCount > nextSubsV.length ? (nextSubsV.length as 0 | 1 | 2 | 3 | 4) : cfg.minCount)) as 0 | 1 | 2 | 3 | 4
+                const nextMin = (recipe.autoMinCount ? Math.min(4, nextSubsV.length) : (recipe.minCount > nextSubsV.length ? (nextSubsV.length as 0 | 1 | 2 | 3 | 4) : recipe.minCount)) as 0 | 1 | 2 | 3 | 4
                 // Check if this removal deactivates Milestone Thresholds; if so, normalize to Early.
-                onChange(normalizeKeepWithAuto({ ...cfg, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin }))
+                onChange(normalizeKeepWithAuto({ ...recipe, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin }))
               }
               // Lock badge toggle: ensures the substat is selected before flipping fixed state.
               const toggleSubstatLock = (vKey: number) => {
                 const selected = isSelected(vKey)
                 const fixed = isFixed(vKey)
-                const prevSubs = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
-                const prevFixed = ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
-                const boundsSource = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+                const prevSubs = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
+                const prevFixed = ((recipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+                const boundsSource = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
                 if (!selected) {
                   const nextSubs = [...prevSubs, vKey]
                   const nextFixed = Array.from(new Set([...prevFixed, vKey]))
                   const nextLen = nextSubs.length
-                  const nextMin = (cfg.autoMinCount ? Math.min(4, nextLen) : ((cfg.minCount === 0 && nextLen > 0) ? 1 : Math.min(cfg.minCount, nextLen))) as 0 | 1 | 2 | 3 | 4
+                  const nextMin = (recipe.autoMinCount ? Math.min(4, nextLen) : ((recipe.minCount === 0 && nextLen > 0) ? 1 : Math.min(recipe.minCount, nextLen))) as 0 | 1 | 2 | 3 | 4
                   const nextBounds = { ...boundsSource, [vKey]: { any: true } }
-                  const nextCfg = normalizeKeepWithAuto({
-                    ...cfg,
+                  const nextRecipe = normalizeKeepWithAuto({
+                    ...recipe,
                     substatsV: nextSubs,
                     fixedSubstatsV: nextFixed,
                     minCount: nextMin,
                     substatRollBoundsV: nextBounds,
                   })
-                  onChange(nextCfg)
+                  onChange(nextRecipe)
                   return
                 }
                 if (!fixed) {
                   const nextFixed = Array.from(new Set([...prevFixed, vKey]))
-                  onChange(normalizeKeepWithAuto({ ...cfg, fixedSubstatsV: nextFixed }))
+                  onChange(normalizeKeepWithAuto({ ...recipe, fixedSubstatsV: nextFixed }))
                   return
                 }
                 const nextFixed = prevFixed.filter((v) => v !== vKey)
-                const nextCfg = normalizeKeepWithAuto({ ...cfg, fixedSubstatsV: nextFixed })
-                onChange(nextCfg)
+                const nextRecipe = normalizeKeepWithAuto({ ...recipe, fixedSubstatsV: nextFixed })
+                onChange(nextRecipe)
               }
 
               // Emit Markdown-friendly copy so the substat roll indicator can drop straight into MarkdownTooltip without JSX wrappers.
@@ -4294,7 +4294,7 @@ const maxLevelValue = multiEditActive
                   // Avoid mixing recipe-overrides overlays with multi-edit preview.
                   if (multiEditActive) return false
                   // Only show overrides when recipe overrides altered the display recipe.
-                  if (displayCfg === cfg) return false
+                  if (displayRecipe === recipe) return false
                   // Keep warnings off hidden indicators to reduce noise.
                   if (!displaySelected) return false
                   // Compare the stored vs effective bounds for this variant.
@@ -4530,7 +4530,7 @@ const maxLevelValue = multiEditActive
                     if (multiSourceRecipes && multiSourceRecipes.length > 0) return multiSourceRecipes
                     return []
                   }
-                  return [cfg]
+                  return [recipe]
                 })()
                 if (!recipes || recipes.length === 0) return null
                 const starFallback = (substatTargets.anyRankDefaultsTo ?? 6) as Star
@@ -5591,7 +5591,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       tooltip={t('builderClearSlots')}
                       onClick={() => {
                         multiEdit?.updateField('artifactTypes', {
-                          value: (multiSlotsField?.value as BuilderRecipe['artifactTypes']) ?? (cfg.artifactTypes ?? []),
+                          value: (multiSlotsField?.value as BuilderRecipe['artifactTypes']) ?? (recipe.artifactTypes ?? []),
                           status: 'common',
                           patch: { clear: true },
                         })
@@ -5600,7 +5600,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   )
                   : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
               }
-              const hasSlots = Array.isArray(cfg.artifactTypes) && (cfg.artifactTypes?.length ?? 0) > 0
+              const hasSlots = Array.isArray(recipe.artifactTypes) && (recipe.artifactTypes?.length ?? 0) > 0
               return hasSlots
                 ? (
                   <ClearIconButton
@@ -5616,8 +5616,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           {/* Tighten the slot matrix spacing to 4px (0.5 spacing unit) so nine buttons remain compact. */}
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }}>
             {artifactTypeIconList.map(({ id, name, Icon }) => {
-              const slotState = multiEditActive ? getSlotState(id) : ((cfg.artifactTypes ?? []).includes(id) ? 'all' : 'none')
-              const selected = slotState === 'all' || (!multiEditActive && (cfg.artifactTypes ?? []).includes(id))
+              const slotState = multiEditActive ? getSlotState(id) : ((recipe.artifactTypes ?? []).includes(id) ? 'all' : 'none')
+              const selected = slotState === 'all' || (!multiEditActive && (recipe.artifactTypes ?? []).includes(id))
               return (
                 <ToggleButton
                   key={id}
@@ -5630,7 +5630,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       toggleSlot(id)
                       return
                     }
-                    const set = new Set(cfg.artifactTypes ?? [])
+                    const set = new Set(recipe.artifactTypes ?? [])
                     if (set.has(id)) set.delete(id); else set.add(id)
                     update('artifactTypes', Array.from(set))
                   }}
@@ -5761,7 +5761,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     }
                     return null
                   }
-                  const value = Number(cfg.lockedMinRequiredRolls ?? 0)
+                  const value = Number(recipe.lockedMinRequiredRolls ?? 0)
                   if (Number.isFinite(value) && value > 0) return Math.max(0, Math.min(5, value))
                   return null
                 })()
@@ -5949,7 +5949,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 if (!multiEditActive || !multiSourceRecipes) {
                   chipEnabled = canFlexSubstats
                   flexState = chipEnabled
-                    ? (cfg.autoSubstatFlex ? 'on' : 'off')
+                    ? (recipe.autoSubstatFlex ? 'on' : 'off')
                     : 'disabled'
                 } else {
                   const total = multiSourceRecipes.length
@@ -6029,11 +6029,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           return
                         }
                         if (v === 'auto') {
-                          const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+                          const subsV = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
                           const nextMin = Math.min(4, subsV.length) as 0 | 1 | 2 | 3 | 4
                           userDisabledFlexRef.current = true
                           onChange(normalizeKeepWithAuto({
-                            ...cfg,
+                            ...recipe,
                             autoMinCount: true,
                             minCount: nextMin,
                           }))
@@ -6041,7 +6041,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         }
                         const next = Number(v) as 1 | 2 | 3 | 4
                         onChange(normalizeKeepWithAuto({
-                          ...cfg,
+                          ...recipe,
                           autoMinCount: false,
                           minCount: next,
                         }))
@@ -6137,8 +6137,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     }
                   }
                 }
-                const raw = (multiEditActive ? cfg : effectiveRecipe).autoRaritySupplementsThreshold
-                  ?? pickAutoRaritySupplementsThreshold(multiEditActive ? cfg : effectiveRecipe)
+                const raw = (multiEditActive ? recipe : effectiveRecipe).autoRaritySupplementsThreshold
+                  ?? pickAutoRaritySupplementsThreshold(multiEditActive ? recipe : effectiveRecipe)
                 return (raw === 'uncommon' || raw === 'epic') ? raw : 'rare'
               })()
               const tierLabel = tierForLabel === 'uncommon'
@@ -6170,20 +6170,20 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   if (multiEditActive && multiEdit) {
                     const next = autoRarityChipState === 'on'
                       ? cycleThreshold(tierForLabel, true)
-                      : pickAutoRaritySupplementsThreshold(cfg)
+                      : pickAutoRaritySupplementsThreshold(recipe)
                     multiEdit.updateField('autoRaritySupplementsThreshold', { value: next, status: 'common' })
                     return
                   }
                   // When an override is active, allow clicking the effective value to accept it.
                   if (autoLateOverrideActive) {
-                    const stored = cfg.autoRaritySupplementsThreshold
+                    const stored = recipe.autoRaritySupplementsThreshold
                     const effective = effectiveRecipe.autoRaritySupplementsThreshold
                     if (stored !== effective && effective) {
                       updateAutoLateThreshold(effective)
                       return
                     }
                   }
-                  const curr = (cfg.autoRaritySupplementsThreshold ?? pickAutoRaritySupplementsThreshold(cfg)) as 'uncommon' | 'rare' | 'epic'
+                  const curr = (recipe.autoRaritySupplementsThreshold ?? pickAutoRaritySupplementsThreshold(recipe)) as 'uncommon' | 'rare' | 'epic'
                   const next = cycleThreshold(curr, true)
                   updateAutoLateThreshold(next)
                 }
@@ -6262,7 +6262,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                               onClick={() => {
                                 // When an override is active, allow clicking the effective value to accept it.
                                 if (multiEditActive || !keepOverrideActive) return
-                                if ((cfg.earlyKeepMode ?? 'early') === (effectiveRecipe.earlyKeepMode ?? 'early')) return
+                                if ((recipe.earlyKeepMode ?? 'early') === (effectiveRecipe.earlyKeepMode ?? 'early')) return
                                 if (mode !== (effectiveRecipe.earlyKeepMode ?? 'early')) return
                                 updateKeepMode(mode)
                               }}
@@ -6274,7 +6274,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       </ToggleButtonGroup>
                       {keepOverrideActive
                         ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
-                            keepModeLabel((cfg.earlyKeepMode ?? 'early') as 'early' | 'late'),
+                            keepModeLabel((recipe.earlyKeepMode ?? 'early') as 'early' | 'late'),
                             keepModeLabel((effectiveRecipe.earlyKeepMode ?? 'early') as 'early' | 'late'),
                           ))
                         : null}
@@ -6313,7 +6313,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       </MarkdownTooltip>
                       {autoLateOverrideActive
                         ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
-                            autoLateLabel(cfg.autoRaritySupplementsThreshold),
+                            autoLateLabel(recipe.autoRaritySupplementsThreshold),
                             autoLateLabel(effectiveRecipe.autoRaritySupplementsThreshold),
                           ))
                         : null}
@@ -6327,36 +6327,36 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         </FormControl>
         {/* Warning area (fixed height, single line, ellipsed, always reserved) */}
         {(() => {
-          const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
-          const fixedV = ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+          const subsV = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
+          const fixedV = ((recipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
           const chosenCount = subsV.length
           const fixedCount = fixedV.length
-          const warnMin = (chosenCount < cfg.minCount) && !(chosenCount === 0 && (cfg.autoMinRequiredRolls !== false))
+          const warnMin = (chosenCount < recipe.minCount) && !(chosenCount === 0 && (recipe.autoMinRequiredRolls !== false))
           const warnFixed = fixedCount > 4
           // When Flex is off and Required equals the number of locked substats while
           // other unlocked substats are also selected, the unlocked ones never fire.
           // Skip this warning when Flex permutations are active because the builder
           // rotates those optional picks into separate rules instead of dropping them.
           const hasUnlockedSelected = chosenCount > fixedCount
-          const flexActive = cfg.autoSubstatFlex === true && canFlexSubstats
-          const warnReqBelowLocked = (cfg.minCount ?? 0) < fixedCount
-          const warnReqEqLocked = (cfg.minCount === fixedCount) && hasUnlockedSelected && !flexActive
+          const flexActive = recipe.autoSubstatFlex === true && canFlexSubstats
+          const warnReqBelowLocked = (recipe.minCount ?? 0) < fixedCount
+          const warnReqEqLocked = (recipe.minCount === fixedCount) && hasUnlockedSelected && !flexActive
           // Aggregate floors without any tracked substats confuse users because they
           // never fire; warn whenever a manual global Min Required Rolls is set
           // while zero selections keep the builder idle.
           const warnMinRollsWithoutSubstats = (() => {
             if (chosenCount !== 0) return false
-            if (cfg.autoMinRequiredRolls !== false) return false
-            return (cfg.minRequiredRolls ?? 0) > 0
+            if (recipe.autoMinRequiredRolls !== false) return false
+            return (recipe.minRequiredRolls ?? 0) > 0
           })()
           // New: detect an impossible-by-target case under simple sufficient conditions:
           // If a global MinRequiredRolls is set and even the best-case sum of per‑stat caps
           // across the required number of selected substats is below that minimum, then
           // the target cannot be met. This mirrors cases like single SPD with Max=0 and MinRequired=1.
           const warnImpossible = (() => {
-            if (!(cfg.autoMinRequiredRolls === false) || !cfg.minRequiredRolls || cfg.minRequiredRolls <= 0) return false
+            if (!(recipe.autoMinRequiredRolls === false) || !recipe.minRequiredRolls || recipe.minRequiredRolls <= 0) return false
             if (!Array.isArray(subsV) || subsV.length === 0) return false
-            const m = Math.max(cfg.minCount, fixedCount)
+            const m = Math.max(recipe.minCount, fixedCount)
             if (m <= 0) return false
             // Build caps per selected variant
             // UI heuristic: default per‑stat cap is 4 rolls, except when the
@@ -6366,17 +6366,17 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             // "impossible" warnings for legitimate 5‑roll targets like ACC
             // with a global MinRequired=5.
             const supportsFive = (() => {
-              const rc = Number((cfg as unknown as { rarityCode?: number }).rarityCode ?? 0)
-              const mode = (cfg as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode
+              const rc = Number((recipe as unknown as { rarityCode?: number }).rarityCode ?? 0)
+              const mode = (recipe as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode
               if (rc === RarityCode.Mythical || rc === RarityCode.LTE_Mythical) return true
               if (rc === RarityCode.Any) return true
               // When Auto and the global target is 5, treat as 5‑cap capable.
-              if (mode === 'auto' && (cfg.minRequiredRolls ?? 0) >= 5) return true
+              if (mode === 'auto' && (recipe.minRequiredRolls ?? 0) >= 5) return true
               return false
             })()
             const defaultCap = supportsFive ? 5 : 4
             const capFor = (v: number): number => {
-              const b = (cfg.substatRollBoundsV ?? {})[Number(v)]
+              const b = (recipe.substatRollBoundsV ?? {})[Number(v)]
               const hasMax = (typeof b?.max === 'number' && isFinite(b.max))
               const raw = hasMax ? Number(b!.max) : defaultCap
               return Math.max(0, Math.min(defaultCap, raw))
@@ -6388,16 +6388,16 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             // Include all fixed, then highest optional caps to fill to m
             for (const c of fixedCaps) sumCaps += c
             for (let i = 0; i < Math.max(0, m - fixedCaps.length); i++) { sumCaps += (optCaps[i] ?? 0) }
-            return sumCaps < (cfg.minRequiredRolls ?? 0)
+            return sumCaps < (recipe.minRequiredRolls ?? 0)
           })()
           const msg = warnMin
-            ? `Warning: Required (${cfg.minCount}) > chosen (${chosenCount})`
+            ? `Warning: Required (${recipe.minCount}) > chosen (${chosenCount})`
             : (warnFixed
                 ? `Warning: Fixed substats (${fixedCount}) exceed 4 — extra will be ignored`
                 : (warnReqBelowLocked
-                    ? `Warning: Required (${cfg.minCount}) is below locked (${fixedCount}); requirement will clamp to ${fixedCount}`
+                    ? `Warning: Required (${recipe.minCount}) is below locked (${fixedCount}); requirement will clamp to ${fixedCount}`
                     : (warnReqEqLocked
-                        ? `Warning: Required (${cfg.minCount}) equals locked (${fixedCount}); other selected (${chosenCount - fixedCount}) will be ignored`
+                        ? `Warning: Required (${recipe.minCount}) equals locked (${fixedCount}); other selected (${chosenCount - fixedCount}) will be ignored`
                         : (warnImpossible
                             ? t('builderMinRequiredRollsImpossibleWarn')
                             : (warnMinRollsWithoutSubstats
@@ -6461,11 +6461,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             // Keep order stable by preferring visible metasets when present.
             const orderBasis = visibleMetasets.length ? visibleMetasets : metasets
             // Normalize set selections while respecting accessory-only constraints.
-            const baseSetSelections = pruneAccessoryNoSetSelections(cfg.artifactSets ?? [], allowNoSet)
+            const baseSetSelections = pruneAccessoryNoSetSelections(recipe.artifactSets ?? [], allowNoSet)
             // Split include/exclude lists so UI can render both states.
             const baseSetSplit = splitArtifactSetSelections(baseSetSelections)
             // Resolve metaset order for the base recipe (or multi-edit union).
-            const baseMetaIds = orderMetasetIds(cfg.artifactMetaSets, orderBasis)
+            const baseMetaIds = orderMetasetIds(recipe.artifactMetaSets, orderBasis)
             const metaDisplayIds = multiEditActive && multiSummary
               ? orderMetasetIds(
                   Array.from(new Set<string>([
@@ -6504,8 +6504,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               }
               // Multi-edit: union all excluded sets + staged patch entries.
               const union = new Set<number>()
-              for (const cfgEntry of multiSelectedRecipes) {
-                const split = splitArtifactSetSelections(cfgEntry.artifactSets)
+              for (const recipeEntry of multiSelectedRecipes) {
+                const split = splitArtifactSetSelections(recipeEntry.artifactSets)
                 for (const id of split.excluded) union.add(Number(id))
               }
               // Patch entries may add exclusions; merge them into the display list.
@@ -6553,12 +6553,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 ...nextIncluded.map((entry) => ({ id: entry })),
                 ...nextExcluded.map((entry) => ({ id: entry, excluded: true })),
               ])
-              onChange({ ...cfg, artifactSets: nextSelections })
+              onChange({ ...recipe, artifactSets: nextSelections })
             }
             // Evaluate "Any" state based on metasets, sets, and exclusions.
             const projectedMetaActive = multiEditActive && multiSummary
               ? metaDisplayIds.some((id) => getMetasetState(id) !== 'none')
-              : (cfg.artifactMetaSets?.length ?? 0) > 0
+              : (recipe.artifactMetaSets?.length ?? 0) > 0
             const projectedSetActive = multiEditActive && multiSummary
               ? setDisplayIds.some((id) => getSetState(id) !== 'none')
               : baseSetSelections.length > 0
@@ -6581,7 +6581,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 ...setIds.map((id) => ({ id })),
                 ...nextExcluded.map((id) => ({ id, excluded: true })),
               ])
-              onChange({ ...cfg, artifactMetaSets: metaIds, artifactSets: nextSelections })
+              onChange({ ...recipe, artifactMetaSets: metaIds, artifactSets: nextSelections })
             }
             const handleToggleSet = (id: number) => {
               // Multi-edit toggles are handled via patch helpers.
@@ -6599,7 +6599,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 ...nextSets.map((entry) => ({ id: entry })),
                 ...nextExcluded.map((entry) => ({ id: entry, excluded: true })),
               ])
-              onChange({ ...cfg, artifactSets: nextSelections })
+              onChange({ ...recipe, artifactSets: nextSelections })
             }
             const getSetsSelectionDisplay = (tokens: readonly string[]) => {
               // Multi-edit needs mixed-value labels for tri-state tokens.
@@ -6735,7 +6735,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             const margin = 8
                             const selectedMetaState = (id: string): 'none' | 'partial' | 'all' => {
                               if (multiEditActive) return getMetasetState(id)
-                              return (cfg.artifactMetaSets ?? []).includes(id) ? 'all' : 'none'
+                              return (recipe.artifactMetaSets ?? []).includes(id) ? 'all' : 'none'
                             }
                             const targetMetasetId = (() => {
                               if (!hasMetasetsSection) return null
@@ -6885,7 +6885,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                       ...setIds.map((id) => ({ id })),
                                       ...nextExcluded.map((id) => ({ id, excluded: true })),
                                     ])
-                                    onChange({ ...cfg, artifactMetaSets: metaIds, artifactSets: nextSelections })
+                                    onChange({ ...recipe, artifactMetaSets: metaIds, artifactSets: nextSelections })
                                   }}
                                   sx={(theme) => ({
                                     '&.Mui-selected': {
@@ -7033,18 +7033,18 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             if (!hasAnySelection) return
                             if (multiEditActive && multiEdit) {
                               multiEdit.updateField('artifactSets', {
-                                value: (multiSetsField?.value as BuilderRecipe['artifactSets']) ?? (cfg.artifactSets ?? []),
+                                value: (multiSetsField?.value as BuilderRecipe['artifactSets']) ?? (recipe.artifactSets ?? []),
                                 status: 'common',
                                 patch: { clear: true },
                               })
                               multiEdit.updateField('artifactMetaSets', {
-                                value: (multiMetasetsField?.value as BuilderRecipe['artifactMetaSets']) ?? (cfg.artifactMetaSets ?? []),
+                                value: (multiMetasetsField?.value as BuilderRecipe['artifactMetaSets']) ?? (recipe.artifactMetaSets ?? []),
                                 status: 'common',
                                 patch: { clear: true },
                               })
                               return
                             }
-                            onChange({ ...cfg, artifactSets: [], artifactMetaSets: [] })
+                            onChange({ ...recipe, artifactSets: [], artifactMetaSets: [] })
                           }}
                         />
                         <SelectDropdownActivator
@@ -7302,29 +7302,29 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               // remove the override to keep storage clean and restore factory behavior.
               const factory = createFactoryBuilderDefaults()
               const current: BuilderRecipe = {
-                name: cfg.name ?? '',
-                keep: cfg.keep,
-                exportMode: cfg.exportMode,
-                rankCode: cfg.rankCode,
-                rarityCode: cfg.rarityCode,
-                rarityMode: (cfg.rarityMode ?? 'code'),
-                autoRaritySupplementsThreshold: (cfg.autoRaritySupplementsThreshold ?? 'rare'),
-                factionCode: (cfg.factionCode ?? 0),
-                mainStatsV: (cfg.mainStatsV ?? []),
-                minLevel: (cfg.minLevel ?? 0),
-                maxLevel: (cfg.maxLevel ?? 16),
-                earlyKeepMode: (cfg.earlyKeepMode ?? 'early'),
-                substatsV: (cfg.substatsV ?? []),
-                fixedSubstatsV: (cfg.fixedSubstatsV ?? []),
-                minCount: cfg.minCount,
-                autoMinCount: Boolean(cfg.autoMinCount ?? true),
-                autoSubstatFlex: Boolean((cfg as unknown as { autoSubstatFlex?: boolean }).autoSubstatFlex ?? false),
-                minRequiredRolls: Number(cfg.minRequiredRolls ?? 0) as 0|1|2|3|4|5,
-                autoMinRequiredRolls: Boolean(cfg.autoMinRequiredRolls ?? true),
-                substatRollBoundsV: (cfg.substatRollBoundsV ?? {}),
-                artifactTypes: (cfg.artifactTypes ?? []),
-                artifactSets: (cfg.artifactSets ?? []),
-                artifactMetaSets: (cfg.artifactMetaSets ?? []),
+                name: recipe.name ?? '',
+                keep: recipe.keep,
+                exportMode: recipe.exportMode,
+                rankCode: recipe.rankCode,
+                rarityCode: recipe.rarityCode,
+                rarityMode: (recipe.rarityMode ?? 'code'),
+                autoRaritySupplementsThreshold: (recipe.autoRaritySupplementsThreshold ?? 'rare'),
+                factionCode: (recipe.factionCode ?? 0),
+                mainStatsV: (recipe.mainStatsV ?? []),
+                minLevel: (recipe.minLevel ?? 0),
+                maxLevel: (recipe.maxLevel ?? 16),
+                earlyKeepMode: (recipe.earlyKeepMode ?? 'early'),
+                substatsV: (recipe.substatsV ?? []),
+                fixedSubstatsV: (recipe.fixedSubstatsV ?? []),
+                minCount: recipe.minCount,
+                autoMinCount: Boolean(recipe.autoMinCount ?? true),
+                autoSubstatFlex: Boolean((recipe as unknown as { autoSubstatFlex?: boolean }).autoSubstatFlex ?? false),
+                minRequiredRolls: Number(recipe.minRequiredRolls ?? 0) as 0|1|2|3|4|5,
+                autoMinRequiredRolls: Boolean(recipe.autoMinRequiredRolls ?? true),
+                substatRollBoundsV: (recipe.substatRollBoundsV ?? {}),
+                artifactTypes: (recipe.artifactTypes ?? []),
+                artifactSets: (recipe.artifactSets ?? []),
+                artifactMetaSets: (recipe.artifactMetaSets ?? []),
               }
               const same = JSON.stringify(current) === JSON.stringify(factory)
               try {
@@ -7346,7 +7346,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               // Reset the builder to factory defaults explicitly
               const factory = createFactoryBuilderDefaults()
               onChange({
-                ...cfg,
+                ...recipe,
                 ...factory,
               })
             }}

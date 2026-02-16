@@ -4718,7 +4718,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   const builderPanelElement = (
     <BuilderPanel
-      cfg={builder}
+      recipe={builder}
       onChange={setBuilder}
       onAddToCustom={() => {
         const currentBuilder = builderRef.current

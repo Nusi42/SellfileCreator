@@ -17,7 +17,7 @@ import { fingerprintRecipeForRules } from '../../lib/ruleCache'
 type TranslateFn = I18nContextValue['t']
 
 export interface RuleCountBadgeOptions {
-  cfg: BuilderRecipe
+  recipe: BuilderRecipe
   substatTargets: SubstatTargetTable
   ruleSubstatTargetsKey: string
   multiEditActive: boolean
@@ -48,7 +48,7 @@ export interface RuleCountBadgeResult {
 }
 
 export function useRuleCountBadge({
-  cfg,
+  recipe,
   substatTargets,
   ruleSubstatTargetsKey,
   multiEditActive,
@@ -68,15 +68,15 @@ export function useRuleCountBadge({
 }: RuleCountBadgeOptions): RuleCountBadgeResult {
   // Debounced rule count for the current builder recipe
   const immediateRuleFingerprint = useMemo(
-    () => fingerprintRecipeForRules(cfg, ruleSubstatTargetsKey),
-    [cfg, ruleSubstatTargetsKey],
+    () => fingerprintRecipeForRules(recipe, ruleSubstatTargetsKey),
+    [recipe, ruleSubstatTargetsKey],
   )
   const deferredMultiProjectedRecipes = useDeferredValue(multiProjectedRecipes)
-  const deferredCfg = useDeferredValue(cfg)
+  const deferredRecipe = useDeferredValue(recipe)
   const deferredSubstatTargets = useDeferredValue(substatTargets)
   const builderRuleFingerprint = useMemo(
-    () => fingerprintRecipeForRules(deferredCfg, ruleSubstatTargetsKey),
-    [deferredCfg, ruleSubstatTargetsKey],
+    () => fingerprintRecipeForRules(deferredRecipe, ruleSubstatTargetsKey),
+    [deferredRecipe, ruleSubstatTargetsKey],
   )
   // Multi-edit snapshots build a composite fingerprint so shared worker requests reuse cached totals.
   const multiRuleFingerprint = useMemo(() => {
@@ -99,8 +99,8 @@ export function useRuleCountBadge({
     ? (recipeRuleFingerprints[editingIndex] ?? null)
     : null
 
-  const singleRuleCacheRef = useRef<{ cfgRef: BuilderRecipe | null; substatTargetsRef: SubstatTargetTable | null; fingerprint: string | null; count: number | null }>({
-    cfgRef: null,
+  const singleRuleCacheRef = useRef<{ recipeRef: BuilderRecipe | null; substatTargetsRef: SubstatTargetTable | null; fingerprint: string | null; count: number | null }>({
+    recipeRef: null,
     substatTargetsRef: null,
     fingerprint: null,
     count: null,
@@ -143,7 +143,7 @@ export function useRuleCountBadge({
     if (!multiEditActive) {
       const cache = singleRuleCacheRef.current
       const fingerprintMatchesCache = Boolean(cache.fingerprint && cache.fingerprint === builderRuleFingerprint)
-      const recipeMatches = cache.cfgRef === deferredCfg
+      const recipeMatches = cache.recipeRef === deferredRecipe
       const substatTargetsMatch = cache.substatTargetsRef === deferredSubstatTargets
       if (fingerprintMatchesCache && recipeMatches && substatTargetsMatch) {
         return cache.count ?? null
@@ -160,7 +160,7 @@ export function useRuleCountBadge({
     multiEditSelection,
     selectedIsDirty,
     selectedRuleFingerprint,
-    deferredCfg,
+    deferredRecipe,
     deferredSubstatTargets,
     editingSelectionChanged,
   ])
@@ -198,7 +198,7 @@ export function useRuleCountBadge({
       setAsyncCounting(false)
       if (!multiEditActive) {
         singleRuleCacheRef.current = {
-          cfgRef: deferredCfg,
+          recipeRef: deferredRecipe,
           substatTargetsRef: deferredSubstatTargets,
           fingerprint: builderRuleFingerprint,
           count: precomputedRuleCount,
@@ -209,7 +209,7 @@ export function useRuleCountBadge({
 
     const activeRecipes: readonly BuilderRecipe[] | null = multiEditActive
       ? (deferredMultiProjectedRecipes ?? multiProjectedRecipes ?? multiSourceRecipes ?? null)
-      : [deferredCfg]
+      : [deferredRecipe]
     if (!activeRecipes || activeRecipes.length === 0) {
       pendingCountAbortRef.current?.abort()
       pendingCountAbortRef.current = null
@@ -313,7 +313,7 @@ export function useRuleCountBadge({
           latestRuleCountRef.current = total
           if (!multiEditActive) {
             singleRuleCacheRef.current = {
-              cfgRef: deferredCfg,
+              recipeRef: deferredRecipe,
               substatTargetsRef: deferredSubstatTargets,
               fingerprint,
               count: total,
@@ -361,7 +361,7 @@ export function useRuleCountBadge({
         latestRuleCountRef.current = total
         if (!multiEditActive) {
           singleRuleCacheRef.current = {
-            cfgRef: deferredCfg,
+            recipeRef: deferredRecipe,
             substatTargetsRef: deferredSubstatTargets,
             fingerprint,
             count: total,
@@ -394,7 +394,7 @@ export function useRuleCountBadge({
     awaitRuleCounts,
     builderRuleFingerprint,
     countRulesForRecipes,
-    deferredCfg,
+    deferredRecipe,
     deferredSubstatTargets,
     deferredMultiProjectedRecipes,
     multiDirtyKeys,
@@ -446,9 +446,9 @@ export function useRuleCountBadge({
         return mode === 'active' || mode === 'disabled'
       })
     }
-    const singleMode = (cfg.exportMode ?? 'active') as SellfileExportMode
+    const singleMode = (recipe.exportMode ?? 'active') as SellfileExportMode
     return singleMode === 'active' || singleMode === 'disabled'
-  }, [cfg.exportMode, deferredMultiProjectedRecipes, multiEditActive, multiProjectedRecipes, multiSourceRecipes])
+  }, [recipe.exportMode, deferredMultiProjectedRecipes, multiEditActive, multiProjectedRecipes, multiSourceRecipes])
   // Translation stored for the spinner aria-label so screen readers still hear "counting".
   const countingLabel = t('counting')
   const sampleMaxRulesLabel = formatRulesCount(t, Number.POSITIVE_INFINITY, { limit: ruleCountLimitValue })
