@@ -8,58 +8,58 @@
  */
 import React, { createContext, useContext, useMemo, useReducer } from 'react'
 import { FINAL_SELL_DEFAULT_LEVELS } from '../lib/constants'
-import { buildDefaultKeepUniqueRules } from '../lib/keepUniques'
+import { buildDefaultSafeguardRules } from '../lib/safeguards'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
   type LogicHubDialogTab,
   type FinalSellRemainderConfig,
 } from '../lib/logicHub'
-import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
+import type { BuilderRecipe, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { normalizeMetasetIcons } from '../lib/metasets'
 import type { LevelMilestone } from '../lib/types'
-import type { KeepUniqueRule } from '../lib/keepUniques'
-import type { NoteConfigOptionsAnswers } from '../lib/noteConfigOptions'
+import type { SafeguardRule } from '../lib/safeguards'
+import type { NoteRecipeOverridesAnswers } from '../lib/noteRecipeOverrides'
 
 type AppState = {
-  customCfgs: BuilderConfig[]
+  customRecipes: BuilderRecipe[]
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
   // Final "sell others" rule configuration, saved with HSFC.
   // This adds catch-all Sell rules at selected level ranges for artifacts/accessories.
   finalSellRemainder: FinalSellRemainderConfig
   logicHubDialogTab: LogicHubDialogTab
-  keepUniqueRules: KeepUniqueRule[]
-  keepUniquesEnabled: boolean
-  selectedCfgIdx: number | null
+  safeguardRules: SafeguardRule[]
+  safeguardsEnabled: boolean
+  selectedRecipeIdx: number | null
   hsfcNote: string | null
-  // Session-only configOptions answers keyed by question ID.
-  noteConfigOptionsAnswers: NoteConfigOptionsAnswers
-  // Session-only flag to ignore config options prompts.
-  noteConfigOptionsDisabled: boolean
+  // Session-only recipeOverrides answers keyed by question ID.
+  noteRecipeOverridesAnswers: NoteRecipeOverridesAnswers
+  // Session-only flag to ignore recipe overrides prompts.
+  noteRecipeOverridesDisabled: boolean
 }
 
 type Updater<T> = T | ((prev: T) => T)
 
 type Action =
-  | { type: 'setCustomCfgs'; value: Updater<BuilderConfig[]> }
+  | { type: 'setCustomRecipes'; value: Updater<BuilderRecipe[]> }
   | { type: 'setMetasets'; value: Updater<Metaset[]> }
   | { type: 'setSubstatTargets'; value: Updater<SubstatTargetTable> }
   | { type: 'setFinalSellRemainder'; value: Updater<FinalSellRemainderConfig> }
   | { type: 'setLogicHubDialogTab'; value: Updater<LogicHubDialogTab> }
-  | { type: 'setKeepUniqueRules'; value: Updater<KeepUniqueRule[]> }
-  | { type: 'setKeepUniquesEnabled'; value: Updater<boolean> }
-  | { type: 'setSelectedCfgIdx'; value: Updater<number | null> }
+  | { type: 'setSafeguardRules'; value: Updater<SafeguardRule[]> }
+  | { type: 'setSafeguardsEnabled'; value: Updater<boolean> }
+  | { type: 'setSelectedRecipeIdx'; value: Updater<number | null> }
   | { type: 'setHsfcNote'; value: Updater<string | null> }
-  | { type: 'setNoteConfigOptionsAnswers'; value: Updater<NoteConfigOptionsAnswers> }
-  | { type: 'setNoteConfigOptionsDisabled'; value: Updater<boolean> }
+  | { type: 'setNoteRecipeOverridesAnswers'; value: Updater<NoteRecipeOverridesAnswers> }
+  | { type: 'setNoteRecipeOverridesDisabled'; value: Updater<boolean> }
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
-    case 'setCustomCfgs': {
-      const next = typeof action.value === 'function' ? (action.value as (p: BuilderConfig[]) => BuilderConfig[])(state.customCfgs) : action.value
-      return { ...state, customCfgs: next }
+    case 'setCustomRecipes': {
+      const next = typeof action.value === 'function' ? (action.value as (p: BuilderRecipe[]) => BuilderRecipe[])(state.customRecipes) : action.value
+      return { ...state, customRecipes: next }
     }
     case 'setMetasets': {
       const next = typeof action.value === 'function' ? (action.value as (p: Metaset[]) => Metaset[])(state.metasets) : action.value
@@ -82,54 +82,54 @@ function reducer(state: AppState, action: Action): AppState {
         : action.value
       return { ...state, logicHubDialogTab: next }
     }
-    case 'setKeepUniqueRules': {
+    case 'setSafeguardRules': {
       const next = typeof action.value === 'function'
-        ? (action.value as (p: KeepUniqueRule[]) => KeepUniqueRule[])(state.keepUniqueRules)
+        ? (action.value as (p: SafeguardRule[]) => SafeguardRule[])(state.safeguardRules)
         : action.value
-      return { ...state, keepUniqueRules: next }
+      return { ...state, safeguardRules: next }
     }
-    case 'setKeepUniquesEnabled': {
+    case 'setSafeguardsEnabled': {
       const next = typeof action.value === 'function'
-        ? (action.value as (p: boolean) => boolean)(state.keepUniquesEnabled)
+        ? (action.value as (p: boolean) => boolean)(state.safeguardsEnabled)
         : Boolean(action.value)
-      return { ...state, keepUniquesEnabled: next }
+      return { ...state, safeguardsEnabled: next }
     }
-    case 'setSelectedCfgIdx': {
-      const next = typeof action.value === 'function' ? (action.value as (p: number | null) => number | null)(state.selectedCfgIdx) : action.value
-      return { ...state, selectedCfgIdx: next }
+    case 'setSelectedRecipeIdx': {
+      const next = typeof action.value === 'function' ? (action.value as (p: number | null) => number | null)(state.selectedRecipeIdx) : action.value
+      return { ...state, selectedRecipeIdx: next }
     }
     case 'setHsfcNote': {
       const next = typeof action.value === 'function' ? (action.value as (p: string | null) => string | null)(state.hsfcNote) : action.value
       return { ...state, hsfcNote: next }
     }
-    case 'setNoteConfigOptionsAnswers': {
+    case 'setNoteRecipeOverridesAnswers': {
       const next = typeof action.value === 'function'
-        ? (action.value as (p: NoteConfigOptionsAnswers) => NoteConfigOptionsAnswers)(state.noteConfigOptionsAnswers)
+        ? (action.value as (p: NoteRecipeOverridesAnswers) => NoteRecipeOverridesAnswers)(state.noteRecipeOverridesAnswers)
         : action.value
-      return { ...state, noteConfigOptionsAnswers: next }
+      return { ...state, noteRecipeOverridesAnswers: next }
     }
-    case 'setNoteConfigOptionsDisabled': {
+    case 'setNoteRecipeOverridesDisabled': {
       const next = typeof action.value === 'function'
-        ? (action.value as (p: boolean) => boolean)(state.noteConfigOptionsDisabled)
+        ? (action.value as (p: boolean) => boolean)(state.noteRecipeOverridesDisabled)
         : Boolean(action.value)
-      return { ...state, noteConfigOptionsDisabled: next }
+      return { ...state, noteRecipeOverridesDisabled: next }
     }
     default: return state
   }
 }
 
 type AppDispatchers = {
-  setCustomCfgs: (v: Updater<BuilderConfig[]>) => void
+  setCustomRecipes: (v: Updater<BuilderRecipe[]>) => void
   setMetasets: (v: Updater<Metaset[]>) => void
   setSubstatTargets: (v: Updater<SubstatTargetTable>) => void
   setFinalSellRemainder: (v: Updater<FinalSellRemainderConfig>) => void
   setLogicHubDialogTab: (v: Updater<LogicHubDialogTab>) => void
-  setKeepUniqueRules: (v: Updater<KeepUniqueRule[]>) => void
-  setKeepUniquesEnabled: (v: Updater<boolean>) => void
-  setSelectedCfgIdx: (v: Updater<number | null>) => void
+  setSafeguardRules: (v: Updater<SafeguardRule[]>) => void
+  setSafeguardsEnabled: (v: Updater<boolean>) => void
+  setSelectedRecipeIdx: (v: Updater<number | null>) => void
   setHsfcNote: (v: Updater<string | null>) => void
-  setNoteConfigOptionsAnswers: (v: Updater<NoteConfigOptionsAnswers>) => void
-  setNoteConfigOptionsDisabled: (v: Updater<boolean>) => void
+  setNoteRecipeOverridesAnswers: (v: Updater<NoteRecipeOverridesAnswers>) => void
+  setNoteRecipeOverridesDisabled: (v: Updater<boolean>) => void
 }
 
 const AppStateCtx = createContext<AppState | null>(null)
@@ -139,17 +139,17 @@ export function AppStateProvider({ initial, children }: { initial: AppState; chi
   const [state, dispatch] = useReducer(reducer, initial)
 
   const actions: AppDispatchers = useMemo(() => ({
-    setCustomCfgs: (v) => dispatch({ type: 'setCustomCfgs', value: v }),
+    setCustomRecipes: (v) => dispatch({ type: 'setCustomRecipes', value: v }),
     setMetasets: (v) => dispatch({ type: 'setMetasets', value: v }),
     setSubstatTargets: (v) => dispatch({ type: 'setSubstatTargets', value: v }),
     setFinalSellRemainder: (v) => dispatch({ type: 'setFinalSellRemainder', value: v }),
     setLogicHubDialogTab: (v) => dispatch({ type: 'setLogicHubDialogTab', value: v }),
-    setKeepUniqueRules: (v) => dispatch({ type: 'setKeepUniqueRules', value: v }),
-    setKeepUniquesEnabled: (v) => dispatch({ type: 'setKeepUniquesEnabled', value: v }),
-    setSelectedCfgIdx: (v) => dispatch({ type: 'setSelectedCfgIdx', value: v }),
+    setSafeguardRules: (v) => dispatch({ type: 'setSafeguardRules', value: v }),
+    setSafeguardsEnabled: (v) => dispatch({ type: 'setSafeguardsEnabled', value: v }),
+    setSelectedRecipeIdx: (v) => dispatch({ type: 'setSelectedRecipeIdx', value: v }),
     setHsfcNote: (v) => dispatch({ type: 'setHsfcNote', value: v }),
-    setNoteConfigOptionsAnswers: (v) => dispatch({ type: 'setNoteConfigOptionsAnswers', value: v }),
-    setNoteConfigOptionsDisabled: (v) => dispatch({ type: 'setNoteConfigOptionsDisabled', value: v }),
+    setNoteRecipeOverridesAnswers: (v) => dispatch({ type: 'setNoteRecipeOverridesAnswers', value: v }),
+    setNoteRecipeOverridesDisabled: (v) => dispatch({ type: 'setNoteRecipeOverridesDisabled', value: v }),
   }), [])
 
   return (
@@ -175,18 +175,18 @@ export function useAppActions(): AppDispatchers {
 export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, 'substatTargets' | 'metasets'>): AppState {
   const { metasets, ...rest } = params
   return {
-    customCfgs: [],
+    customRecipes: [],
     // Final Sell defaults: leave the standard level ranges visible but keep both gear toggles off until the user opts in.
     finalSellRemainder: { artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[], setsMode: FINAL_SELL_DEFAULT_SETS_MODE },
     logicHubDialogTab: LOGIC_HUB_DIALOG_TAB_FINAL_SELL, // Start new sessions on the classic Logic Hub tab for continuity.
-    keepUniqueRules: buildDefaultKeepUniqueRules(),
-    keepUniquesEnabled: false,
-    selectedCfgIdx: null,
+    safeguardRules: buildDefaultSafeguardRules(),
+    safeguardsEnabled: false,
+    selectedRecipeIdx: null,
     hsfcNote: null,
-    // Config options answers are stored only in autosave/session state.
-    noteConfigOptionsAnswers: {},
-    // Config options are enabled by default when a note includes markers.
-    noteConfigOptionsDisabled: false,
+    // Recipe overrides answers are stored only in autosave/session state.
+    noteRecipeOverridesAnswers: {},
+    // Recipe overrides are enabled by default when a note includes markers.
+    noteRecipeOverridesDisabled: false,
     ...rest,
     metasets: normalizeMetasetIcons(metasets),
   }

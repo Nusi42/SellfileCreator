@@ -1,4 +1,4 @@
-import type { BuilderConfig } from './hsfBuilder'
+import type { BuilderRecipe } from './hsfBuilder'
 
 // Encapsulates all builder behaviors for Global Min Required Rolls (GMRR) and
 // Locked Min Required Rolls (LMRR) so the UI, multi-edit draft, and HSFC
@@ -25,19 +25,19 @@ export const clampAggregateRollValue = (value: unknown): AggregateRollValue => {
   return clamped
 }
 
-export const aggregateRollStateFromConfig = (
-  config: Pick<BuilderConfig, 'autoMinRequiredRolls' | 'minRequiredRolls' | 'lockedMinRequiredRolls'>,
+export const aggregateRollStateFromRecipe = (
+  recipe: Pick<BuilderRecipe, 'autoMinRequiredRolls' | 'minRequiredRolls' | 'lockedMinRequiredRolls'>,
 ): AggregateRollState => {
   return normalizeAggregateRollState({
-    auto: config.autoMinRequiredRolls !== false,
-    manual: clampAggregateRollValue(config.minRequiredRolls ?? 0),
-    locked: clampAggregateRollValue(config.lockedMinRequiredRolls ?? 0),
+    auto: recipe.autoMinRequiredRolls !== false,
+    manual: clampAggregateRollValue(recipe.minRequiredRolls ?? 0),
+    locked: clampAggregateRollValue(recipe.lockedMinRequiredRolls ?? 0),
   })
 }
 
-export const aggregateRollStateToConfig = (
+export const aggregateRollStateToRecipe = (
   state: AggregateRollState,
-): Pick<BuilderConfig, 'autoMinRequiredRolls' | 'minRequiredRolls' | 'lockedMinRequiredRolls'> => {
+): Pick<BuilderRecipe, 'autoMinRequiredRolls' | 'minRequiredRolls' | 'lockedMinRequiredRolls'> => {
   if (state.auto) {
     return {
       autoMinRequiredRolls: true,

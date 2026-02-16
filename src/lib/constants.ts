@@ -63,10 +63,10 @@ export const AUTOSAVE_TESTER_KEY = 'sellfileCreator.autosave.tester.v1'
 export const PREVIEW_MODE_STORAGE_KEY = 'sellfileCreator.previewMode.v1'
 // Persisted toggle for coloring stat texts (chips/preview)
 export const STAT_BUTTON_BORDERS_KEY = 'sellfileCreator.statButtonBorders.v1'
-// Persisted Keep Uniques grid filter toggle so reopening the dialog keeps the last scope
-export const KEEP_UNIQUES_GRID_FILTER_KEY = 'sellfileCreator.keepUniques.gridFilter.v1'
-// Persisted Keep Uniques grid column count so the tab can default to 1 column.
-export const KEEP_UNIQUES_GRID_COLUMNS_KEY = 'sellfileCreator.keepUniques.gridColumns.v1'
+// Persisted safeguards grid filter toggle.
+export const SAFEGUARDS_GRID_FILTER_KEY = 'sellfileCreator.safeguards.gridFilter.v1'
+// Persisted safeguards grid column count.
+export const SAFEGUARDS_GRID_COLUMNS_KEY = 'sellfileCreator.safeguards.gridColumns.v1'
 // Persisted Dungeon Drops simulator selections (mode, stage, spotlight set).
 export const DUNGEON_SIM_PREFERENCES_KEY = 'sellfileCreator.dungeonDrops.v1'
 
@@ -96,14 +96,14 @@ export const ROLL_BADGE_HOVER_GUTTER_PX = 6
 // circle via CSS transform so labels remain unaffected.
 export const ROLL_BADGE_SCALE = 1.35
 
-// Config chip substat roll indicator sizing (hollow circle)
+// Recipe chip substat roll indicator sizing (hollow circle)
 // Why: Keep the chip indicator legible and consistently sized; centralized to
 // make future tuning safe without hunting for magic numbers.
 export const CHIP_ROLL_BADGE_SIZE_PX = 15
 export const CHIP_ROLL_BADGE_FONT_SIZE_PX = FONT_SIZE_BADGE_PX
-export const CONFIG_CHIP_BORDER_RADIUS_PX = 8
-export const CONFIG_CHIP_VERTICAL_PADDING_PX = 3
-export const CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX = 26
+export const RECIPE_CHIP_BORDER_RADIUS_PX = 8
+export const RECIPE_CHIP_VERTICAL_PADDING_PX = 3
+export const RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX = 26
 // Layout widths (see docs/TECHNICAL.md)
 export const PANEL_WIDTH_PX = 1152
 export const SIDE_BY_SIDE_BREAKPOINT_PX = 2320
@@ -116,7 +116,7 @@ export const AUTO_SIDE_BY_SIDE_FORCED_ZOOM = 0.81
 export const AUTO_SIDE_BY_SIDE_FORCE_MIN_WIDTH_PX = Math.ceil(SIDE_BY_SIDE_BREAKPOINT_PX * AUTO_SIDE_BY_SIDE_FORCED_ZOOM)
 
 // Rule count safeguard: stop asynchronous counting once emission attempts to exceed this many rules.
-// Extremely broad configs can explode into millions of permutations and stall the worker.
+// Extremely broad recipes can explode into millions of permutations and stall the worker.
 // We surface a "≥ limit" hint instead of blocking the UI indefinitely.
 export const RULE_COUNT_LIMIT = 35_000
 
@@ -124,18 +124,18 @@ export const RULE_COUNT_LIMIT = 35_000
 // Final Sell remainder rows are exempt so the toggle always reflects user intent.
 export const TOTAL_RULE_COUNT_LIMIT = 150_000
 
-// Keep Unique rule metadata: assign ConfigID values at or below this sentinel so they never collide
-// with builder-generated configs (which map to positive IDs).
-export const KEEP_UNIQUE_CONFIG_ID_BASE = -1 as const
+// Safeguard rule metadata: assign RecipeID values at or below this sentinel so they never collide
+// with builder-generated recipes (which map to positive IDs).
+export const SAFEGUARD_RECIPE_ID_BASE = -1 as const
 
-// Config chips (builder) height caps
+// Recipe chips (builder) height caps
 // Why: Keep the stack layout compact in single-column mode while letting the
 // chips section stretch toward the viewport bottom whenever the wide
 // side-by-side layout is active.
-export const BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX = 300
-export const BUILDER_CONFIG_CHIPS_EMPTY_MIN_HEIGHT_PX = 340
-export const BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX = 3 * 8
-export const BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX = 12
+export const BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX = 300
+export const BUILDER_RECIPE_CHIPS_EMPTY_MIN_HEIGHT_PX = 340
+export const BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX = 3 * 8
+export const BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX = 12
 
 // Shared UI transitions
 export const UI_BG_TRANSITION = 'background-color 220ms ease-in-out 60ms'
@@ -150,7 +150,7 @@ export const DANGER_TINT_BG = {
   dark: 'rgba(244,67,54,0.08)',
 } as const
 
-// Shared hover highlight opacities (light vs dark mode). Used across config chips
+// Shared hover highlight opacities (light vs dark mode). Used across recipe chips
 // and the HSF preview so the states remain visually aligned without duplicating
 // magic numbers in component styles.
 export const HOVER_BG_ALPHA = {
@@ -252,8 +252,8 @@ export const FILTER_HEADER_CONTAINER_MAX_WIDTH_PX = 540
 // Compact max width for color chip buttons inside the Manage Colors dialog. Keeps the swatch +
 // label on one line without letting long translations (e.g., German “Hintergrund”) stretch the row.
 export const COLOR_FIELD_BUTTON_MAX_WIDTH_PX = 144
-// Tester config chips (matches + overflow) stay tap-friendly by enforcing a shared minimum width.
-export const MATCHING_CONFIG_CHIP_MIN_WIDTH_PX = 50
+// Tester recipe chips (matches + overflow) stay tap-friendly by enforcing a shared minimum width.
+export const MATCHING_RECIPE_CHIP_MIN_WIDTH_PX = 50
 // Reusable ellipsis style for inline text elements (typically button labels) that need to clamp to a
 // single line while remaining accessible via title/tooltips.
 export const ELLIPSIS_TEXT_SX = {
@@ -292,7 +292,7 @@ export const BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX = 146
 // Fixed width for builder "Auto" toggle buttons so translations stay aligned with numeric chips.
 export const BUILDER_AUTO_TOGGLE_WIDTH_PX = 46
 
-// Default config number shown when no existing config is selected yet.
+// Default recipe number shown when no existing recipe is selected yet.
 export const BUILDER_DEFAULT_SAVE_TARGET = 42
 
 // Builder slot labels use the longest localized string to reserve space so all
@@ -431,13 +431,13 @@ export const TUTORIAL_SEEN_VERSION_KEY = 'sellfileCreator.tutorial.seen.version'
 export const BUILDER_USER_DEFAULTS_KEY = 'sellfileCreator.builder.userDefaults.v1'
 
 // Builder: when enabled, resets the builder controls to defaults immediately
-// after inserting a config (no confirmation). Default Off. Persisted here so
+// after inserting a recipe (no confirmation). Default Off. Persisted here so
 // the behavior is stable across sessions.
 export const BUILDER_AUTO_RESET_AFTER_INSERT_KEY = 'sellfileCreator.builder.autoResetAfterInsert.v1'
 // Builder: when enabled, automatically applies changes to the currently
-// selected config after a short debounce. Default Off; stored separately so
+// selected recipe after a short debounce. Default Off; stored separately so
 // users can keep the behavior between sessions.
-export const BUILDER_AUTO_APPLY_SELECTED_CONFIG_KEY = 'sellfileCreator.builder.autoApplySelectedConfig.v1'
+export const BUILDER_AUTO_APPLY_SELECTED_RECIPE_KEY = 'sellfileCreator.builder.autoApplySelectedRecipe.v1'
 // Builder: controls whether tag chips render next to the Tags button.
 // Default Off so the chip row stays hidden until explicitly enabled.
 export const BUILDER_SHOW_TAG_CHIPS_KEY = 'sellfileCreator.builder.showTagsChips.v1'
@@ -450,7 +450,7 @@ export const SELLFILE_OMIT_DISABLED_KEY = 'sellfileCreator.sellfile.omitDisabled
 // Sellfile export: pushes now route through `/hsf/` so receivers can distinguish
 // payload classes (future uploads can use their own prefixes without guessing).
 export const SELLFILE_PUSH_PATH_SEGMENT = 'hsf'
-// Debounce window (ms) before auto-apply saves changes to the selected config.
+// Debounce window (ms) before auto-apply saves changes to the selected recipe.
 // Matches the builder's pacing so rapid edits don't spam apply calls while
 // still feeling responsive.
 export const BUILDER_AUTO_APPLY_DEBOUNCE_MS = 400
@@ -469,7 +469,7 @@ export const RULES_TABLE_SHOW_FACTION_ICONS_KEY = 'sellfileCreator.rulesTable.fa
 export const TESTER_PREVIEW_LAYOUT_KEY = 'sellfileCreator.tester.previewLayout.v1'
 export const TESTER_GRID_COLUMNS_KEY = 'sellfileCreator.tester.grid.columns.v1'
 export const TESTER_GRID_SHOW_FIRST_MATCH_KEY = 'sellfileCreator.tester.grid.showFirstMatch.v1'
-export const TESTER_GRID_SHOW_MATCH_CONFIG_INDEX_KEY = 'sellfileCreator.tester.grid.showMatchConfigIndex.v1'
+export const TESTER_GRID_SHOW_MATCH_RECIPE_INDEX_KEY = 'sellfileCreator.tester.grid.showMatchRecipeIndex.v1'
 export const TESTER_GRID_SHOW_MATCH_LINE_KEY = 'sellfileCreator.tester.grid.showMatchLine.v1'
 export const TESTER_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.tester.grid.showOtherMatches.v1'
 export const TESTER_GRID_SHOW_CHAMP_ICONS_KEY = 'sellfileCreator.tester.grid.showChampIcons.v1'
@@ -495,8 +495,8 @@ export type SelectionScrollRequest = {
   token: number
   // Source of the request (user or command).
   source: SelectionScrollSource
-  // Target config index to scroll to (if applicable).
-  targetCfgIdx: number | null
+  // Target recipe index to scroll to (if applicable).
+  targetRecipeIdx: number | null
 }
 
 // Fixed width for Faction Select in the Rules filter
@@ -632,7 +632,7 @@ export const TESTER_RESULT_ROW_MIN_HEIGHT_PX = 36
 
 // Maximum width for the Rule Tester config chip before truncating with ellipsis.
 // Chosen to balance long names without forcing the row to wrap unexpectedly.
-export const TESTER_CONFIG_CHIP_MAX_WIDTH_PX = 520
+export const TESTER_RECIPE_CHIP_MAX_WIDTH_PX = 520
 
 // Fixed dimensions for the Gear dialog so its layout remains predictable.
 // Width is trimmed below the previous 1120px cap for a tighter footprint; height
@@ -643,7 +643,7 @@ export const TESTER_DIALOG_HEIGHT_PX = 780
 export const TESTER_VIRTUAL_OVERSCAN_PX = 320
 export const TESTER_ROW_ESTIMATE_COMPACT_PX = 180
 export const TESTER_ROW_ESTIMATE_EXPANDED_PX = 420
-// Shared inline icon size for Rule Tester compact chips (preview + keep uniques).
+// Shared inline icon size for Rule Tester compact chips (preview + safeguards).
 // Keeps slot/set/faction icons from hitting the chip border while staying recognizable.
 export const TESTER_COMPACT_ICON_SIZE_PX = 16
 // Extra padding applied to compact chips that render icons; tuned high right now

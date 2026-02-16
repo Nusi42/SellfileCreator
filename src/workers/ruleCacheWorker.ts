@@ -1,32 +1,32 @@
 /* eslint-disable import/no-unused-modules */
 /// <reference lib="webworker" />
 
-import { createConfigRulesCache, updateConfigRulesCache } from '../lib/ruleCache'
+import { createRecipeRulesCache, updateRecipeRulesCache } from '../lib/ruleCache'
 import {
   KEEP_OVERRIDE_RULE_SOURCES,
-  RULE_SOURCE_KEEP_UNIQUES,
+  RULE_SOURCE_SAFEGUARDS,
   computeMergedRules,
 } from '../lib/merge'
-import { configsForRuleBuild } from '../lib/ruleCacheHelpers'
+import { recipesForRuleBuild } from '../lib/ruleCacheHelpers'
 import type { EvalResult } from '../lib/ruleEval'
 import {
-  buildIgnoreKeepUniqueConfigIndices,
-  collectKeepUniqueCandidates,
-  computeKeepUniqueProtection,
-  hasActiveKeepUniqueRules,
-  resolveKeepUniqueRuleLabel,
-} from '../lib/keepUniques'
-import type { KeepUniqueDetectionSnapshot } from '../lib/keepUniques'
+  buildIgnoreSafeguardConfigIndices,
+  collectAndComputeSafeguardProtection,
+  hasActiveSafeguardRules,
+  resolveSafeguardRuleLabel,
+} from '../lib/safeguards'
+import type { SafeguardDetectionSnapshot } from '../lib/safeguards'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { HsfRuleWithCfg } from '../lib/merge'
-import type { BuilderConfig, SellfileExportMode, SubstatTargetTable } from '../lib/hsfBuilder'
+import type { BuilderRecipe, SellfileExportMode, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { TesterMatchWorkerItemResult } from './testerMatchWorkerTypes'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 import type { RuleCachePipelinePhase, RuleCacheWorkerRequest, RuleCacheWorkerResponse } from './ruleCacheWorkerTypes'
-import { resolveMatchConfigName } from '../lib/ruleConfigIndex'
+import { resolveMatchRecipeName } from '../lib/ruleRecipeIndex'
 import { fingerprintRuleTesterItem } from '../lib/ruleTesterSession'
 import type { RuleTesterItem } from '../lib/ruleTesterSession'
-import { fingerprintKeepUniqueDetection } from '../lib/keepUniqueFingerprint'
+import { fingerprintSafeguardDetection } from '../lib/safeguardFingerprint'
+import { resolveArtifactItemIdWithFallback } from '../lib/itemIdentity'
 import {
   configureWasmRuleEngine,
   evaluateWasmRuleEngineItems,
@@ -38,19 +38,19 @@ import {
 declare const self: DedicatedWorkerGlobalScope
 
 type WarmState = {
-  rulesByConfig: Map<number, HsfRuleWithCfg[]>
-  countsByConfig: Map<number, number>
+  rulesByRecipe: Map<number, HsfRuleWithCfg[]>
+  countsByRecipe: Map<number, number>
   keys: string[]
   substatTargetsKey: string
-  truncatedConfigIndices: number[]
+  truncatedRecipeIndices: number[]
   totalLimitHit: boolean
   excludedByTotalLimitIndices: number[]
-  configsForRules: BuilderConfig[]
+  recipesForRules: BuilderRecipe[]
   fingerprint: string | null
   artifactSignature: string | null
 }
 
-let cache = createConfigRulesCache()
+let cache = createRecipeRulesCache()
 let lastWarmState: WarmState | null = null
 
 // Cache reuse remains enabled by default; tests can disable it explicitly.
@@ -67,7 +67,7 @@ type CachedArtifactEntry = {
   artifact: NormalizedGearArtifact
   fingerprint: string
   baseMatch: TesterMatchWorkerItemResult | null
-  // Signature ties baseMatch to the rule/config snapshot it was computed against.
+  // Signature ties baseMatch to the rule/recipe snapshot it was computed against.
   baseMatchSignature: string | null
   finalMatch: TesterMatchWorkerItemResult | null
   finalMatchSignature: string | null
@@ -141,35 +141,35 @@ const finalizeGeneratedRulesForWorker = (params: Parameters<typeof finalizeGener
 
 // Builder-count requests are served from the same cache-generation machinery as
 // warm/pipeline so wasm-enabled branches measure the same generation path.
-const countRulesForConfigsWithWorkerCache = (
-  configs: readonly BuilderConfig[],
+const countRulesForRecipesWithWorkerCache = (
+  recipes: readonly BuilderRecipe[],
   substatTargets: SubstatTargetTable,
 ): number[] => {
-  const configsForRules = configsForRuleBuild(configs)
-  const result = updateConfigRulesCache({
-    configs: configsForRules,
+  const recipesForRules = recipesForRuleBuild(recipes)
+  const result = updateRecipeRulesCache({
+    recipes: recipesForRules,
     // Builder-count payload does not include metasets, so we preserve legacy
     // semantics by using an empty list in this fast-count path.
     metasets: [],
     substatTargets,
     // Keep this request independent from warm/pipeline cache state.
-    previousCache: createConfigRulesCache(),
-    // Count badges are per-config and should not be clipped by total limits.
+    previousCache: createRecipeRulesCache(),
+    // Count badges are per-recipe and should not be clipped by total limits.
     totalLimit: Number.POSITIVE_INFINITY,
     finalizeGeneratedRules: finalizeGeneratedRulesForWorker,
   })
   const counts: number[] = []
-  for (let idx = 0; idx < configsForRules.length; idx += 1) {
-    counts.push(result.countsByConfig.get(idx) ?? 0)
+  for (let idx = 0; idx < recipesForRules.length; idx += 1) {
+    counts.push(result.countsByRecipe.get(idx) ?? 0)
   }
   return counts
 }
 
 const buildBaseMatchSignature = (payload: Extract<RuleCacheWorkerRequest, { kind: 'pipeline' }>['payload']): string => {
-  // Fingerprint captures config order + keep-unique rules + final-sell inputs.
+  // Fingerprint captures recipe order + safeguard rules + final-sell inputs.
   const fingerprint = payload.fingerprint ?? 'null'
-  // Config modes alter the matcher gate (disabled/separator), so include them too.
-  const modes = Array.isArray(payload.configModes) ? payload.configModes.join('|') : ''
+  // Recipe modes alter the matcher gate (disabled/separator), so include them too.
+  const modes = Array.isArray(payload.recipeModes) ? payload.recipeModes.join('|') : ''
   return `${fingerprint}|modes:${modes}`
 }
 
@@ -178,7 +178,7 @@ const buildWarmState = (
   payload: Extract<RuleCacheWorkerRequest, { kind: 'warm' | 'pipeline' }>['payload'],
   options?: { skipProgress?: boolean; fingerprint?: string | null },
 ): { state: WarmState; mergedRules: HsfRuleWithCfg[] } => {
-  const configsForRules = configsForRuleBuild(payload.configs)
+  const recipesForRules = recipesForRuleBuild(payload.recipes)
   const baseRuleCount = Array.isArray(payload.hsf?.Rules) ? (payload.hsf?.Rules.length ?? 0) : 0
   let lastProgress = 0
   const handleProgress = options?.skipProgress === true
@@ -190,8 +190,8 @@ const buildWarmState = (
       lastProgress = progress.completed
       postWarmProgress(id, progress)
     }
-  const result = updateConfigRulesCache({
-    configs: configsForRules,
+  const result = updateRecipeRulesCache({
+    recipes: recipesForRules,
     metasets: payload.metasets,
     substatTargets: payload.substatTargets,
     // WASM experiment bypasses warm-cache reuse to expose raw rebuild costs.
@@ -202,26 +202,26 @@ const buildWarmState = (
   })
   // Keep the cache map in sync for non-experiment runs; in WASM mode we reset
   // to an empty cache so subsequent warm calls cannot reuse stale entries.
-  cache = WASM_EXPERIMENT_DISABLE_CACHES ? createConfigRulesCache() : result.cache
+  cache = WASM_EXPERIMENT_DISABLE_CACHES ? createRecipeRulesCache() : result.cache
   const mergedRules = computeMergedRules({
     hsf: payload.hsf,
-    customCfgs: configsForRules,
+    customRecipes: recipesForRules,
     metasets: payload.metasets,
     substatTargets: payload.substatTargets,
     ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
-    prebuiltCustomRules: result.rulesByConfig,
+    prebuiltCustomRules: result.rulesByRecipe,
     // Keep overrides travel with warm merges so cached rules stay accurate.
-    keepUniques: payload.keepUniques,
+    safeguards: payload.safeguards,
   })
   const state: WarmState = {
-    rulesByConfig: result.rulesByConfig,
-    countsByConfig: result.countsByConfig,
+    rulesByRecipe: result.rulesByRecipe,
+    countsByRecipe: result.countsByRecipe,
     keys: result.keys.slice(),
     substatTargetsKey: result.substatTargetsKey,
-    truncatedConfigIndices: result.truncatedConfigIndices.slice(),
+    truncatedRecipeIndices: result.truncatedRecipeIndices.slice(),
     totalLimitHit: result.totalLimitHit,
     excludedByTotalLimitIndices: result.excludedByTotalLimitIndices.slice(),
-    configsForRules,
+    recipesForRules,
     fingerprint: options?.fingerprint ?? null,
     artifactSignature: null,
   }
@@ -249,24 +249,20 @@ const toWarmResponsePayload = (
   id: 0,
   kind: 'warm:done',
   payload: {
-    rulesByConfigEntries: Array.from(state.rulesByConfig.entries()),
-    countsByConfigEntries: Array.from(state.countsByConfig.entries()),
+    rulesByRecipeEntries: Array.from(state.rulesByRecipe.entries()),
+    countsByRecipeEntries: Array.from(state.countsByRecipe.entries()),
     keys: state.keys.slice(),
     substatTargetsKey: state.substatTargetsKey,
     mergedRules,
-    truncatedConfigIndices: state.truncatedConfigIndices.slice(),
+    truncatedRecipeIndices: state.truncatedRecipeIndices.slice(),
     totalLimitHit: state.totalLimitHit,
     excludedByTotalLimitIndices: state.excludedByTotalLimitIndices.slice(),
   },
 })
 
 const resolveItemId = (artifact: NormalizedGearArtifact, fallbackIdx?: number): number => {
-  const testerId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
-  if (Number.isFinite(testerId)) return testerId
-  const artifactId = Number((artifact as { id?: number } | undefined)?.id ?? NaN)
-  if (Number.isFinite(artifactId)) return artifactId
-  if (typeof fallbackIdx === 'number') return -(fallbackIdx + 1)
-  return -1
+  // Share one resolver with App/ruleEval so id precedence cannot drift.
+  return resolveArtifactItemIdWithFallback(artifact, fallbackIdx)
 }
 
 const fingerprintArtifact = (artifact: NormalizedGearArtifact): string => {
@@ -312,9 +308,9 @@ const artifactEntriesFromCache = (): Array<[number, NormalizedGearArtifact]> => 
 const buildPipelineMatches = async (
   mergedRules: HsfRuleWithCfg[],
   artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,
-  configModes: SellfileExportMode[] | undefined,
+  recipeModes: SellfileExportMode[] | undefined,
   _baseMatchMap: Map<number, TesterMatchWorkerItemResult> | null,
-  ignoreKeepUniqueConfigIndices: ReadonlySet<number> | null,
+  ignoreSafeguardConfigIndices: ReadonlySet<number> | null,
   total: number,
   completedRef: { value: number },
   id: number,
@@ -325,19 +321,19 @@ const buildPipelineMatches = async (
   // Configure per phase so the WASM state aligns with the current ruleset.
   await configureWasmRuleEngine({
     rules: mergedRules,
-    configModes: Array.isArray(configModes) ? configModes : [],
+    recipeModes: Array.isArray(recipeModes) ? recipeModes : [],
   })
   if (!wasmVersionLogged) {
     await getWasmRuleEngineVersion()
     wasmVersionLogged = true
   }
-  // Full matcher pass mirrors evaluateMatchesByConfig with keep-unique
+  // Full matcher pass mirrors evaluateMatchesByRecipe with safeguard
   // precedence options included.
   const fullItems = artifactEntries.map(([itemId, artifact]) => ({ itemId, item: artifact.testerItem }))
   const fullResults = await evaluateWasmRuleEngineItems({
     items: fullItems,
     options: {
-      ...(ignoreKeepUniqueConfigIndices ? { ignoreKeepUniqueConfigIndices } : {}),
+      ...(ignoreSafeguardConfigIndices ? { ignoreSafeguardConfigIndices } : {}),
       ...(hasKeepOverrideRules ? { baselineExcludeSources: KEEP_OVERRIDE_RULE_SOURCES } : {}),
     },
   })
@@ -355,8 +351,8 @@ const buildPipelineMatches = async (
         ?? fullEval.firstMatch
         ?? null
       ),
-      matchingConfigIndices: fullEval.matchingConfigIndices,
-      matchingConfigDecisions: fullEval.matchingConfigDecisions,
+      matchingRecipeIndices: fullEval.matchingRecipeIndices,
+      matchingRecipeDecisions: fullEval.matchingRecipeDecisions,
     })
     if (!emitProgress) continue
     completedRef.value += 1
@@ -366,11 +362,11 @@ const buildPipelineMatches = async (
 }
 
 // Keep-unique candidate detection needs baseline keep/sell decisions with some
-// configs excluded. Batch evaluation avoids per-row JS re-scans in that phase.
+// recipes excluded. Batch evaluation avoids per-row JS re-scans in that phase.
 const buildExcludedConfigBaselineMap = async (
   mergedRules: HsfRuleWithCfg[],
   artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,
-  configModes: SellfileExportMode[] | undefined,
+  recipeModes: SellfileExportMode[] | undefined,
   excludeConfigIndices: ReadonlySet<number>,
 ): Promise<Map<number, TesterMatchWorkerItemResult>> => {
   const byItem = new Map<number, TesterMatchWorkerItemResult>()
@@ -378,7 +374,7 @@ const buildExcludedConfigBaselineMap = async (
   // Configure with the baseline ruleset so exclude-index evaluation mirrors JS.
   await configureWasmRuleEngine({
     rules: mergedRules,
-    configModes: Array.isArray(configModes) ? configModes : [],
+    recipeModes: Array.isArray(recipeModes) ? recipeModes : [],
   })
   const items = artifactEntries.map(([itemId, artifact]) => ({ itemId, item: artifact.testerItem }))
   const evaluated = await evaluateWasmRuleEngineItems({
@@ -390,8 +386,8 @@ const buildExcludedConfigBaselineMap = async (
       itemId: entry.itemId,
       firstMatch: entry.firstMatch,
       firstNonExcludedMatch: entry.firstNonExcludedMatch ?? entry.firstMatch,
-      matchingConfigIndices: entry.matchingConfigIndices,
-      matchingConfigDecisions: entry.matchingConfigDecisions,
+      matchingRecipeIndices: entry.matchingRecipeIndices,
+      matchingRecipeDecisions: entry.matchingRecipeDecisions,
     })
   }
   // Fill any unexpected gaps so downstream row assembly can treat the map as complete.
@@ -401,8 +397,8 @@ const buildExcludedConfigBaselineMap = async (
       itemId,
       firstMatch: null,
       firstNonExcludedMatch: null,
-      matchingConfigIndices: [],
-      matchingConfigDecisions: [],
+      matchingRecipeIndices: [],
+      matchingRecipeDecisions: [],
     })
   }
   return byItem
@@ -421,8 +417,8 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
   if (message.kind === 'builderCount') {
     const { id, payload } = message
     try {
-      // BuilderPanel requests per-config rule counts through this fast path so the UI stays responsive.
-      const counts = countRulesForConfigsWithWorkerCache(payload.configs, payload.substatTargets)
+      // BuilderPanel requests per-recipe rule counts through this fast path so the UI stays responsive.
+      const counts = countRulesForRecipesWithWorkerCache(payload.recipes, payload.substatTargets)
       const response: RuleCacheWorkerResponse = {
         id,
         kind: 'builderCount:done',
@@ -461,18 +457,18 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       // Drop any cached tester artifacts so the next detection run cannot reference deleted items.
       artifactCache.clear()
     }
-    const prebuiltCustomRules = warmState.rulesByConfig
+    const prebuiltCustomRules = warmState.rulesByRecipe
     // Skip the extra detection/merge work when keep overrides are effectively off.
-    const hasActiveKeepUniques = hasActiveKeepUniqueRules(payload.keepUniques)
-    const hasActiveKeepOverrides = hasActiveKeepUniques
-    const baseKeepUniques = hasActiveKeepUniques
-      ? { ...payload.keepUniques, detection: null }
-      : payload.keepUniques
-    const configsForRules = warmState.configsForRules
-    const warmTotal = reused ? 0 : payload.configs.length
+    const hasActiveSafeguards = hasActiveSafeguardRules(payload.safeguards)
+    const hasActiveKeepOverrides = hasActiveSafeguards
+    const baseSafeguards = hasActiveSafeguards
+      ? { ...payload.safeguards, detection: null }
+      : payload.safeguards
+    const recipesForRules = warmState.recipesForRules
+    const warmTotal = reused ? 0 : payload.recipes.length
     const needsMatches = payload.skipMatches !== true
 
-    // Base-match results must be tied to the current rule/config fingerprint.
+    // Base-match results must be tied to the current rule/recipe fingerprint.
     // WASM experiment appends the request id so cross-run reuse stays disabled.
     const baseMatchSignature = WASM_EXPERIMENT_DISABLE_CACHES
       ? `${buildBaseMatchSignature(payload)}|run:${id}`
@@ -513,12 +509,12 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
 
     const mergedRulesBaseline = computeMergedRules({
       hsf: payload.hsf,
-      customCfgs: configsForRules,
+      customRecipes: recipesForRules,
       metasets: payload.metasets,
       substatTargets: payload.substatTargets,
       ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
       prebuiltCustomRules,
-      keepUniques: baseKeepUniques,
+      safeguards: baseSafeguards,
     })
 
     // Seed the baseline map with anything we already evaluated so the detection pass only
@@ -528,7 +524,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       artifactCache.forEach((entry, itemId) => {
         // Reuse cached base matches only when the signature still aligns.
         if (!entry.baseMatch) return
-        // Skip stale base matches when configs/reordering changed.
+        // Skip stale base matches when recipes/reordering changed.
         if (entry.baseMatchSignature !== baseMatchSignature) return
         baselineMatchMap.set(itemId, entry.baseMatch)
       })
@@ -549,7 +545,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         const baseMatchResults = await buildPipelineMatches(
           mergedRulesBaseline,
           missingEntries,
-          payload.configModes,
+          payload.recipeModes,
           null,
           null,
           total,
@@ -577,43 +573,43 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     const toPreviewMatch = (result: EvalResult | null, rules: HsfRuleWithCfg[]): TesterPreviewMatch | null => {
       if (!result) return null
       const rule = rules[result.ruleIndex]
-      const cfgIdx = result.cfgIdx ?? null
-      const cfgName = resolveMatchConfigName(cfgIdx, null, rule)
-      const keepUniqueLabel = rule?.__source === RULE_SOURCE_KEEP_UNIQUES
-        ? resolveKeepUniqueRuleLabel(rule)
+      const recipeIdx = result.recipeIdx ?? null
+      const recipeName = resolveMatchRecipeName(recipeIdx, null, rule)
+      const safeguardLabel = rule?.__source === RULE_SOURCE_SAFEGUARDS
+        ? resolveSafeguardRuleLabel(rule)
         : null
-      const effectiveCfgName = cfgName && cfgName.length > 0
-        ? cfgName
-        : keepUniqueLabel
+      const effectiveCfgName = recipeName && recipeName.length > 0
+        ? recipeName
+        : safeguardLabel
       return {
         ruleIndex: result.ruleIndex,
         keep: result.keep,
-        cfgIdx,
-        cfgName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
-        ruleLabel: keepUniqueLabel ?? null,
+        recipeIdx,
+        recipeName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
+        ruleLabel: safeguardLabel ?? null,
         ruleSource: rule?.__source ?? null,
       }
     }
 
-    // Precompute ignored configs so matcher precedence can reuse the set.
-    const ignoreKeepUniqueConfigIndices = buildIgnoreKeepUniqueConfigIndices(configsForRules)
-    // Candidate detection uses this baseline when ignored configs are excluded.
-    const filteredBaselineMatchMap = (needsDetection && ignoreKeepUniqueConfigIndices.size > 0)
+    // Precompute ignored recipes so matcher precedence can reuse the set.
+    const ignoreSafeguardConfigIndices = buildIgnoreSafeguardConfigIndices(recipesForRules)
+    // Candidate detection uses this baseline when ignored recipes are excluded.
+    const filteredBaselineMatchMap = (needsDetection && ignoreSafeguardConfigIndices.size > 0)
       ? await buildExcludedConfigBaselineMap(
         mergedRulesBaseline,
         artifactEntries,
-        payload.configModes,
-        ignoreKeepUniqueConfigIndices,
+        payload.recipeModes,
+        ignoreSafeguardConfigIndices,
       )
       : null
     // Keep detection optional so we only pay for it when needed.
-    let keepUniqueDetectionSnapshot: KeepUniqueDetectionSnapshot | null = null
+    let safeguardDetectionSnapshot: SafeguardDetectionSnapshot | null = null
     // Only compute detection when the caller requested keep-override scanning.
     if (needsDetection) {
       // Detection phase: collect candidate groups + compute keep-override snapshots.
       postPipelinePhase(id, 'detection:start', {
         artifacts: artifactEntries.length,
-        keepUniqueRules: payload.keepUniques.rules.length,
+        safeguardRules: payload.safeguards.rules.length,
       })
       // Build a row list that mirrors the preview matcher inputs.
       const rows = artifactEntries.map(([itemId, artifact]) => {
@@ -626,62 +622,57 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           match: null,
           // Provide a base match so detection can respect existing keep/sell results.
           baseMatch: toPreviewMatch(match?.firstNonExcludedMatch ?? match?.firstMatch ?? null, mergedRulesBaseline),
-          // Carry baseline config index sets to keep candidate math stable.
-          matchingCfgIndices: match?.matchingConfigIndices ?? [],
-          // Carry baseline config decisions for keep-unique precedence checks.
-          matchingConfigDecisions: match?.matchingConfigDecisions ?? [],
+          // Carry baseline recipe index sets to keep candidate math stable.
+          matchingCfgIndices: match?.matchingRecipeIndices ?? [],
+          // Carry baseline recipe decisions for safeguard precedence checks.
+          matchingRecipeDecisions: match?.matchingRecipeDecisions ?? [],
         }
       })
-      // Collect candidate groups before running keep-unique protection logic.
-      const candidates = collectKeepUniqueCandidates({
+      // Run collect + detection together so wasm owns the full safeguard pass.
+      const combinedDetection = collectAndComputeSafeguardProtection({
         // Use the prebuilt rows for stable snapshotting.
         rows,
-        // Candidate generation depends on the base (non-keep-unique) rules.
+        // Candidate generation depends on the base (non-safeguard) rules.
         baseRules: mergedRulesBaseline,
-        // Config modes gate which rules can claim a candidate.
-        configModes: payload.configModes,
-        // Pre-filtered baseline matches already exclude ignored configs.
-        ...(filteredBaselineMatchMap ? {} : { ignoreKeepUniqueConfigIndices }),
+        // Recipe modes gate which rules can claim a candidate.
+        recipeModes: payload.recipeModes,
+        // Supply the active safeguard rules for detection scoring.
+        rules: payload.safeguards.rules,
+        // Respect the safeguard enabled toggle.
+        enabled: payload.safeguards.enabled,
+        // Pre-filtered baseline matches already exclude ignored recipes.
+        ...(filteredBaselineMatchMap ? {} : { ignoreSafeguardConfigIndices }),
       })
-      // Produce detection snapshots for downstream keep-override rule injection.
-      if (hasActiveKeepUniques) {
-        keepUniqueDetectionSnapshot = computeKeepUniqueProtection({
-          // Use only the candidate list (not the full wrapper).
-          candidates: candidates.candidates,
-          // Supply the current keep-unique rules.
-          rules: payload.keepUniques.rules,
-          // Respect the keep-unique enabled toggle.
-          enabled: payload.keepUniques.enabled,
-        })
-      }
+      // Safeguards snapshot drives rule injection + UI counts downstream.
+      safeguardDetectionSnapshot = combinedDetection.detection
       // Detection phase complete: surface the candidate + entry counts.
       postPipelinePhase(id, 'detection:done', {
-        candidates: candidates.candidates.length,
-        keepUniqueEntries: keepUniqueDetectionSnapshot?.entries.length ?? 0,
+        candidates: combinedDetection.candidates.candidates.length,
+        safeguardEntries: safeguardDetectionSnapshot?.entries.length ?? 0,
       })
     }
 
     // Build the final merged rules with keep-override injections if active.
     const mergedRulesFinal = computeMergedRules({
       hsf: payload.hsf,
-      customCfgs: configsForRules,
+      customRecipes: recipesForRules,
       metasets: payload.metasets,
       substatTargets: payload.substatTargets,
       ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
       prebuiltCustomRules,
-      // If keep-uniques is active, pass the detection snapshot through.
-      keepUniques: baseKeepUniques
+      // If safeguards is active, pass the detection snapshot through.
+      safeguards: baseSafeguards
         ? {
-          // Reuse the existing keep-unique payload.
-          ...payload.keepUniques,
+          // Reuse the existing safeguard payload.
+          ...payload.safeguards,
           // Inject the latest detection data.
-          detection: keepUniqueDetectionSnapshot,
+          detection: safeguardDetectionSnapshot,
         }
-        : payload.keepUniques,
+        : payload.safeguards,
     })
     // Final-match cache needs to know both the rule fingerprint and the detection outcome.
     // When either changes we fall back to recomputing the affected entries.
-    const detectionSignature = fingerprintKeepUniqueDetection(keepUniqueDetectionSnapshot)
+    const detectionSignature = fingerprintSafeguardDetection(safeguardDetectionSnapshot)
     // Compose a signature that invalidates caches on any detection change.
     const finalMatchSignature = [
       payload.fingerprint ?? 'null',
@@ -719,9 +710,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         const pendingMatches = await buildPipelineMatches(
           mergedRulesFinal,
           pendingEntries,
-          payload.configModes,
+          payload.recipeModes,
           null,
-          ignoreKeepUniqueConfigIndices,
+          ignoreSafeguardConfigIndices,
           total,
           pendingProgressRef,
           id,
@@ -762,17 +753,17 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       id,
       kind: 'pipeline:done',
       payload: {
-        rulesByConfigEntries: Array.from(prebuiltCustomRules.entries()),
-        countsByConfigEntries: Array.from(warmState.countsByConfig.entries()),
+        rulesByRecipeEntries: Array.from(prebuiltCustomRules.entries()),
+        countsByRecipeEntries: Array.from(warmState.countsByRecipe.entries()),
         keys: warmState.keys.slice(),
         substatTargetsKey: warmState.substatTargetsKey,
         mergedRules: mergedRulesFinal,
-        truncatedConfigIndices: warmState.truncatedConfigIndices.slice(),
+        truncatedRecipeIndices: warmState.truncatedRecipeIndices.slice(),
         totalLimitHit: warmState.totalLimitHit,
         excludedByTotalLimitIndices: warmState.excludedByTotalLimitIndices.slice(),
         matches,
-        // Keep-unique detection snapshot drives Keep Uniques tab + merges.
-        keepUniqueDetection: keepUniqueDetectionSnapshot,
+        // Keep-unique detection snapshot drives Safeguards tab + merges.
+        safeguardDetection: safeguardDetectionSnapshot,
         fingerprint: payload.fingerprint ?? null,
         artifactSignature: payload.artifactPatch?.signature ?? payload.artifactSignature ?? null,
       },

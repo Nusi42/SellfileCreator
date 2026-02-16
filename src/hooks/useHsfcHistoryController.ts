@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, type SetStateAction } from 'react'
-import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
+import type { BuilderRecipe, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import type { MultiEditDraftState } from '../lib/multiEditDraft'
@@ -12,39 +12,39 @@ import {
   type SuppressNextSnapshotFn,
   type HistoryTimelineEntry,
 } from './useHsfcHistory'
-import type { KeepUniqueRule } from '../lib/keepUniques'
+import type { SafeguardRule } from '../lib/safeguards'
 
 type Params = {
-  customCfgs: BuilderConfig[]
+  customRecipes: BuilderRecipe[]
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
   finalSellRemainder: FinalSellRemainderConfig
-  keepUniqueRules: KeepUniqueRule[]
-  keepUniquesEnabled: boolean
+  safeguardRules: SafeguardRule[]
+  safeguardsEnabled: boolean
   hsfcNote: string | null
-  selectedCfgIdx: number | null
-  selectedCfgIndices: number[]
+  selectedRecipeIdx: number | null
+  selectedRecipeIndices: number[]
   selectionAnchor: number | null
-  builder: BuilderConfig
+  builder: BuilderRecipe
   builderNameDraft: string
   builderNameDraftKey: number | 'builder' | null
   multiEditDraft: MultiEditDraftState | null
-  setCustomCfgs: (value: SetStateAction<BuilderConfig[]>) => void
+  setCustomRecipes: (value: SetStateAction<BuilderRecipe[]>) => void
   setMetasets: (value: SetStateAction<Metaset[]>) => void
   setSubstatTargets: (value: SetStateAction<SubstatTargetTable>) => void
   setFinalSellRemainder: (value: SetStateAction<FinalSellRemainderConfig>) => void
-  setKeepUniqueRules: (value: SetStateAction<KeepUniqueRule[]>) => void
-  setKeepUniquesEnabled: (value: SetStateAction<boolean>) => void
+  setSafeguardRules: (value: SetStateAction<SafeguardRule[]>) => void
+  setSafeguardsEnabled: (value: SetStateAction<boolean>) => void
   setHsfcNote: (value: SetStateAction<string | null>) => void
-  setSelectedCfgIdx: (value: SetStateAction<number | null>) => void
+  setSelectedRecipeIdx: (value: SetStateAction<number | null>) => void
   setSelectedCfgIndices: (value: number[]) => void
   setSelectionAnchor: (value: SetStateAction<number | null>) => void
-  setBuilder: (value: SetStateAction<BuilderConfig>) => void
+  setBuilder: (value: SetStateAction<BuilderRecipe>) => void
   setBuilderNameDraft: (value: SetStateAction<string>) => void
   setBuilderNameDraftKey: (value: SetStateAction<number | 'builder' | null>) => void
   setMultiEditDraft: (value: SetStateAction<MultiEditDraftState | null>) => void
   suppressSelectionDraft: <T>(fn: () => T) => T
-  autoApplySelectedConfig: boolean
+  autoApplySelectedRecipe: boolean
 }
 
 type ControllerResult = {
@@ -68,28 +68,28 @@ type ControllerResult = {
 
 export function useHsfcHistoryController(params: Params): ControllerResult {
   const {
-  customCfgs,
+  customRecipes,
   metasets,
   substatTargets,
   finalSellRemainder,
-  keepUniqueRules,
-  keepUniquesEnabled,
+  safeguardRules,
+  safeguardsEnabled,
   hsfcNote,
-    selectedCfgIdx,
-    selectedCfgIndices,
+    selectedRecipeIdx,
+    selectedRecipeIndices,
     selectionAnchor,
     builder,
     builderNameDraft,
     builderNameDraftKey,
     multiEditDraft,
-    setCustomCfgs,
+    setCustomRecipes,
     setMetasets,
     setSubstatTargets,
   setFinalSellRemainder,
-  setKeepUniqueRules,
-  setKeepUniquesEnabled,
+  setSafeguardRules,
+  setSafeguardsEnabled,
   setHsfcNote,
-    setSelectedCfgIdx,
+    setSelectedRecipeIdx,
     setSelectedCfgIndices,
     setSelectionAnchor,
     setBuilder,
@@ -97,28 +97,28 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     setBuilderNameDraftKey,
     setMultiEditDraft,
     suppressSelectionDraft,
-    autoApplySelectedConfig,
+    autoApplySelectedRecipe,
   } = params
 
   const safeSelectedIndex = useMemo(() => {
-    if (typeof selectedCfgIdx === 'number' && selectedCfgIdx >= 0 && selectedCfgIdx < customCfgs.length) {
-      return selectedCfgIdx
+    if (typeof selectedRecipeIdx === 'number' && selectedRecipeIdx >= 0 && selectedRecipeIdx < customRecipes.length) {
+      return selectedRecipeIdx
     }
     return null
-  }, [customCfgs.length, selectedCfgIdx])
+  }, [customRecipes.length, selectedRecipeIdx])
 
   const historyBaseStrings = useMemo(() => {
     const selectedIdx = safeSelectedIndex
     const basePayload = {
-      customCfgs,
+      customRecipes,
       metasets,
       substatTargets,
       finalSellRemainder,
-      keepUniqueRules,
-      keepUniquesEnabled,
+      safeguardRules,
+      safeguardsEnabled,
       note: hsfcNote ?? null,
-      selectedCfgIdx: selectedIdx,
-      selectedCfgIndices,
+      selectedRecipeIdx: selectedIdx,
+      selectedRecipeIndices,
       selectionAnchor,
       builder,
       builderNameDraft: null as string | null,
@@ -127,28 +127,28 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     }
     const payloadTemplate = JSON.stringify(basePayload)
     const signature = JSON.stringify({
-      customCfgs,
+      customRecipes,
       metasets,
       substatTargets,
       finalSellRemainder,
-      keepUniqueRules,
-      keepUniquesEnabled,
+      safeguardRules,
+      safeguardsEnabled,
       note: hsfcNote ?? null,
     })
     return { payloadTemplate, signature }
   }, [
     builder,
-    customCfgs,
+    customRecipes,
     metasets,
     substatTargets,
     finalSellRemainder,
     hsfcNote,
     multiEditDraft,
     safeSelectedIndex,
-    selectedCfgIndices,
+    selectedRecipeIndices,
     selectionAnchor,
-    keepUniqueRules,
-    keepUniquesEnabled,
+    safeguardRules,
+    safeguardsEnabled,
   ])
 
   const historyStrings = useMemo(() => {
@@ -166,22 +166,22 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
   }, [builderNameDraft, builderNameDraftKey, historyBaseStrings])
 
   const applySnapshot = useCallback((snap: HsfcSnapshot) => {
-    setCustomCfgs(snap.customCfgs)
+    setCustomRecipes(snap.customRecipes)
     setMetasets(snap.metasets)
     setSubstatTargets(snap.substatTargets)
     setFinalSellRemainder(snap.finalSellRemainder)
-    setKeepUniqueRules(snap.keepUniqueRules)
-    setKeepUniquesEnabled(Boolean(snap.keepUniquesEnabled))
+    setSafeguardRules(snap.safeguardRules)
+    setSafeguardsEnabled(Boolean(snap.safeguardsEnabled))
     setHsfcNote(snap.note)
-    const len = snap.customCfgs.length
+    const len = snap.customRecipes.length
     let restoredIdx: number | null = null
     suppressSelectionDraft(() => {
-      restoredIdx = typeof snap.selectedCfgIdx === 'number' && snap.selectedCfgIdx >= 0 && snap.selectedCfgIdx < len
-        ? snap.selectedCfgIdx
+      restoredIdx = typeof snap.selectedRecipeIdx === 'number' && snap.selectedRecipeIdx >= 0 && snap.selectedRecipeIdx < len
+        ? snap.selectedRecipeIdx
         : (len > 0 ? len - 1 : null)
-      setSelectedCfgIdx(restoredIdx)
-      const restoredSelection = Array.isArray(snap.selectedCfgIndices)
-        ? snap.selectedCfgIndices
+      setSelectedRecipeIdx(restoredIdx)
+      const restoredSelection = Array.isArray(snap.selectedRecipeIndices)
+        ? snap.selectedRecipeIndices
           .map((idx) => Number(idx))
           .filter((idx) => Number.isInteger(idx) && idx >= 0 && idx < len)
         : []
@@ -197,15 +197,15 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
       setSelectionAnchor(resolvedAnchor ?? null)
     })
     const builderSource = (() => {
-      if (autoApplySelectedConfig) {
-        if (restoredIdx !== null && snap.customCfgs[restoredIdx]) {
-          return snap.customCfgs[restoredIdx]!
+      if (autoApplySelectedRecipe) {
+        if (restoredIdx !== null && snap.customRecipes[restoredIdx]) {
+          return snap.customRecipes[restoredIdx]!
         }
         return snap.builder ?? null
       }
       if (snap.builder) return snap.builder
-      if (restoredIdx !== null && snap.customCfgs[restoredIdx]) {
-        return snap.customCfgs[restoredIdx]!
+      if (restoredIdx !== null && snap.customRecipes[restoredIdx]) {
+        return snap.customRecipes[restoredIdx]!
       }
       return null
     })()
@@ -220,19 +220,19 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     setBuilder,
     setBuilderNameDraft,
     setBuilderNameDraftKey,
-    setCustomCfgs,
+    setCustomRecipes,
     setFinalSellRemainder,
     setHsfcNote,
     setMetasets,
     setSubstatTargets,
     setMultiEditDraft,
-    setSelectedCfgIdx,
+    setSelectedRecipeIdx,
     setSelectedCfgIndices,
     setSelectionAnchor,
-    setKeepUniqueRules,
-    setKeepUniquesEnabled,
+    setSafeguardRules,
+    setSafeguardsEnabled,
     suppressSelectionDraft,
-    autoApplySelectedConfig,
+    autoApplySelectedRecipe,
   ])
 
   const {

@@ -6,7 +6,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DeleteIcon from '@mui/icons-material/Delete'
-import type { BuilderConfig } from '../lib/hsfBuilder'
+import type { BuilderRecipe } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import {
   factionCodeToName,
@@ -21,13 +21,13 @@ import {
   factionI18nKey,
   getLocalizedGearSetName,
 } from '../lib/types'
-import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA, CONFIG_CHIP_BORDER_RADIUS_PX, CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX, CONFIG_CHIP_VERTICAL_PADDING_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
+import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA, RECIPE_CHIP_BORDER_RADIUS_PX, RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, RECIPE_CHIP_VERTICAL_PADDING_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
 import { normalizeLooseRollTargetEntry, resolveAutoRarityCode } from '../lib/hsfBuilder'
-import { isLockedAggregateScopeActive, isMilestoneThresholdsActive } from '../lib/configNormalization'
+import { isLockedAggregateScopeActive, isMilestoneThresholdsActive } from '../lib/recipeNormalization'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useI18n } from '../lib/i18n'
-import { parseConfigNameDirectives } from '../lib/configNameDirectives'
+import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
 import { FactionIcon } from './FactionIcon'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { SetIcon } from './SetIcon'
@@ -35,16 +35,16 @@ import { DEFAULT_METASET_ICON_ID, metasetIconOptionById } from '../lib/metasetIc
 import type { MetasetIconId } from '../lib/metasetIcons'
 import type { SellfileExportMode } from '../lib/hsfBuilder'
 import { splitArtifactSetSelections } from '../lib/gearSets/selection'
-import { ConfigContextMenu } from './ConfigContextMenu'
+import { RecipeContextMenu } from './RecipeContextMenu'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import MarkdownTooltip from './MarkdownTooltip'
 import { resolveDisabledOpacity } from './disabledOpacity'
 
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
-const CONFIG_CHIP_FACTION_ICON_OFFSET_EM = -0.45
-const CONFIG_CHIP_SLOT_ICON_OFFSET_EM = -0.20
-const CONFIG_CHIP_ARTIFACT_SET_ICON_OFFSET_EM = -0.35
-const CONFIG_CHIP_METASET_ICON_BOX_PX = 16
+const RECIPE_CHIP_FACTION_ICON_OFFSET_EM = -0.45
+const RECIPE_CHIP_SLOT_ICON_OFFSET_EM = -0.20
+const RECIPE_CHIP_ARTIFACT_SET_ICON_OFFSET_EM = -0.35
+const RECIPE_CHIP_METASET_ICON_BOX_PX = 16
 
 const SEPARATOR_SOLID_BORDER_WIDTH_PX = 2
 const SEPARATOR_HASHED_BASE_BORDER_WIDTH_PX = 1.5
@@ -80,7 +80,7 @@ function deriveSeparatorDividerDecoration(rawName: string | undefined, baseColor
   const hashCount = hashPrefix.length
 
   const rest = trimmed.slice(hashPrefix.length).trimStart()
-  const { displayName, resolvedColor } = parseConfigNameDirectives(rest, baseColor)
+  const { displayName, resolvedColor } = parseRecipeNameDirectives(rest, baseColor)
   const hasLabel = displayName.length > 0
 
   if (hashCount === 0) {
@@ -118,9 +118,9 @@ function deriveSeparatorDividerDecoration(rawName: string | undefined, baseColor
   }
 }
 
-interface ConfigChipProps {
+interface RecipeChipProps {
   index: number
-  cfg: BuilderConfig
+  cfg: BuilderRecipe
   exportModeOverride?: SellfileExportMode
   gearSetCatalogVersion?: number
   visualVariant?: 'interactive' | 'static'
@@ -142,8 +142,8 @@ interface ConfigChipProps {
   onCopyDev?: () => void
   onSelectAll?: () => void
   selectAllLabelKey?: string
-  onCopyAllConfigs?: () => void
-  onDeleteAllConfigs?: () => void
+  onCopyAllRecipes?: () => void
+  onDeleteAllRecipes?: () => void
   deleteAllDisabled?: boolean
   onHighlightDelete?: (active: boolean) => void
   isLast: boolean
@@ -155,7 +155,7 @@ interface ConfigChipProps {
   onContextMenuHintSeen?: () => void
 }
 
-function ConfigChip({
+function RecipeChip({
   index,
   cfg,
   exportModeOverride,
@@ -179,8 +179,8 @@ function ConfigChip({
   onCopyDev,
   onSelectAll,
   selectAllLabelKey,
-  onCopyAllConfigs,
-  onDeleteAllConfigs,
+  onCopyAllRecipes,
+  onDeleteAllRecipes,
   deleteAllDisabled,
   onHighlightDelete,
   isLast,
@@ -190,7 +190,7 @@ function ConfigChip({
   isDuplicate,
   duplicateOfIndex,
   onContextMenuHintSeen,
-}: ConfigChipProps) {
+}: RecipeChipProps) {
   const { t, lang } = useI18n()
   const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
   const theme = useTheme()
@@ -198,12 +198,12 @@ function ConfigChip({
   // Keep disabled chip dimming aligned with other disabled UI elements.
   const disabledOpacity = resolveDisabledOpacity(theme)
   const nameDecoration = useMemo(
-    () => parseConfigNameDirectives(cfg.name, primaryColor),
+    () => parseRecipeNameDirectives(cfg.name, primaryColor),
     [cfg.name, primaryColor],
   )
   // Dev builds expose extra clipboard utilities via the chip context menu.
   const isDev: boolean = isDevBuild
-  // Allow callers to override the export mode for config options previews.
+  // Allow callers to override the export mode for recipe overrides previews.
   const exportMode: SellfileExportMode = exportModeOverride ?? cfg.exportMode
   const isSeparator = exportMode === 'separator'
   const isHidden = exportMode === 'disabled'
@@ -239,7 +239,7 @@ function ConfigChip({
   )
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
   const isDisabled = isHidden
-  // Dim the summary text when configs export with Use = false.
+  // Dim the summary text when recipes export with Use = false.
   const summaryOpacity = isDisabled ? disabledOpacity : 1
   const showDuplicateFrame = !isSeparator && isDuplicate
   const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
@@ -281,10 +281,10 @@ function ConfigChip({
 
   const chipNode = (
     <Box
-      id={`cfg-chip-${index}`}
+      id={`recipe-chip-${index}`}
       data-tour-id={selected ? 'chip.selected' : undefined}
-      data-config-chip-index={index}
-      data-config-chip="true"
+      data-recipe-chip-index={index}
+      data-recipe-chip="true"
       // Builder hover is coordinated outside React; App.tsx toggles this attribute
       // so the chip can reuse the same highlight styles as pointer-driven focus.
       data-linked-hover="false"
@@ -312,7 +312,7 @@ function ConfigChip({
         // Interactive chips should fill the row; static chips keep their natural width.
         const rowWidth = isSeparator || !isStatic ? '100%' : 'auto'
         // Keep the border radius stable across themes.
-        const borderRadius = `${CONFIG_CHIP_BORDER_RADIUS_PX}px`
+        const borderRadius = `${RECIPE_CHIP_BORDER_RADIUS_PX}px`
         const pointerCursor = isStatic ? 'default' : (dragEnabled ? 'grab' : 'pointer')
         return {
           position: 'relative',
@@ -330,7 +330,7 @@ function ConfigChip({
           borderRadius,
           pl: isSeparator ? 1.1 : 1,
           pr: isSeparator ? 1.1 : 0.4,
-          py: `${CONFIG_CHIP_VERTICAL_PADDING_PX}px`,
+          py: `${RECIPE_CHIP_VERTICAL_PADDING_PX}px`,
           cursor: pointerCursor,
           flex: flexSizing,
           flexWrap: isStatic ? 'wrap' : 'nowrap',
@@ -487,10 +487,10 @@ function ConfigChip({
               <IconButton
                 size="small"
                 sx={{
-                  width: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
-                  height: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
-                  minWidth: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
-                  minHeight: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
                   p: 0.25,
                 }}
                 onClick={(e) => { e.stopPropagation(); onMoveUp() }}
@@ -508,10 +508,10 @@ function ConfigChip({
               <IconButton
                 size="small"
                 sx={{
-                  width: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
-                  height: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
-                  minWidth: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
-                  minHeight: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
                   p: 0.25,
                 }}
                 onClick={(e) => { e.stopPropagation(); onMoveDown() }}
@@ -529,10 +529,10 @@ function ConfigChip({
               <IconButton
                 size="small"
                 sx={{
-                  width: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
-                  height: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
-                  minWidth: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
-                  minHeight: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
                   p: 0.25,
                 }}
                 onClick={(e) => { e.stopPropagation(); onDuplicate() }}
@@ -549,10 +549,10 @@ function ConfigChip({
               <IconButton
                 size="small"
                 sx={{
-                  width: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
-                  height: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
-                  minWidth: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
-                  minHeight: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
                   p: 0.25,
                 }}
                 onClick={(e) => { e.stopPropagation(); onDelete() }}
@@ -562,7 +562,7 @@ function ConfigChip({
           </MarkdownTooltip>
         </>
       ) : null}
-      <ConfigContextMenu
+      <RecipeContextMenu
         open={Boolean(menu?.open)}
         anchorPosition={menu?.open ? { top: menu.y, left: menu.x } : null}
         onClose={closeMenu}
@@ -576,11 +576,11 @@ function ConfigChip({
           moveUp: { handler: onMoveUp, disabled: index === 0 },
           moveDown: { handler: onMoveDown, disabled: isLast },
           moveBottom: { handler: onMoveBottom, disabled: isLast },
-          copyConfig: onCopy,
+          copyRecipe: onCopy,
           pasteAfter: onPasteAfter,
           pasteAtEnd: onPasteAtEnd,
-          ...(isDev && onCopyDev ? { copyConfigDev: onCopyDev } : {}),
-          deleteConfig: onDelete,
+          ...(isDev && onCopyDev ? { copyRecipeDev: onCopyDev } : {}),
+          deleteRecipe: onDelete,
           ...(onSelectAll ? {
             selectAll: {
               handler: onSelectAll,
@@ -588,10 +588,10 @@ function ConfigChip({
               labelKey: selectAllLabelKey ?? 'chipsMenuSelectAll',
             },
           } : {}),
-          ...(onCopyAllConfigs ? { copyAll: { handler: onCopyAllConfigs, disabled: false } } : {}),
-          ...(onDeleteAllConfigs ? {
+          ...(onCopyAllRecipes ? { copyAll: { handler: onCopyAllRecipes, disabled: false } } : {}),
+          ...(onDeleteAllRecipes ? {
             deleteAll: {
-              handler: onDeleteAllConfigs,
+              handler: onDeleteAllRecipes,
               disabled: deleteAllDisabledFlag,
               ...(onHighlightDelete ? { onHighlightChange: onHighlightDelete } : {}),
             },
@@ -617,7 +617,7 @@ function ConfigChip({
   return chipNode
 }
 
-function areConfigChipPropsEqual(prev: Readonly<ConfigChipProps>, next: Readonly<ConfigChipProps>): boolean {
+function areRecipeChipPropsEqual(prev: Readonly<RecipeChipProps>, next: Readonly<RecipeChipProps>): boolean {
   return prev.cfg === next.cfg
     && prev.exportModeOverride === next.exportModeOverride
     && prev.index === next.index
@@ -634,12 +634,12 @@ function areConfigChipPropsEqual(prev: Readonly<ConfigChipProps>, next: Readonly
     && prev.substatColors === next.substatColors
     && prev.metasets === next.metasets
     && prev.selectAllLabelKey === next.selectAllLabelKey
-    && prev.onDeleteAllConfigs === next.onDeleteAllConfigs
+    && prev.onDeleteAllRecipes === next.onDeleteAllRecipes
     && prev.onHighlightDelete === next.onHighlightDelete
     && prev.onPasteAtEnd === next.onPasteAtEnd
 }
 
-export default memo(ConfigChip, areConfigChipPropsEqual)
+export default memo(RecipeChip, areRecipeChipPropsEqual)
 
 const withNbsp = (value: string | undefined | null): string => {
   if (!value) return ''
@@ -647,7 +647,7 @@ const withNbsp = (value: string | undefined | null): string => {
 }
 
 function summaryParts(
-  cfg: BuilderConfig,
+  cfg: BuilderRecipe,
   metasets: Metaset[],
   opts: {
     substatColors: Record<number, { fg: string; bg: string }>
@@ -753,7 +753,7 @@ function summaryParts(
             sx={{
               display: 'inline-flex',
               alignItems: 'center',
-              verticalAlign: `${CONFIG_CHIP_FACTION_ICON_OFFSET_EM}em`,
+              verticalAlign: `${RECIPE_CHIP_FACTION_ICON_OFFSET_EM}em`,
             }}
           >
             <FactionIcon faction={cfg.factionCode} size={18} sx={{ mr: 0.25 }} />
@@ -785,7 +785,7 @@ function summaryParts(
                   display: 'inline-flex',
                   alignItems: 'center',
                   mr: 0.5,
-                  verticalAlign: `${CONFIG_CHIP_SLOT_ICON_OFFSET_EM}em`,
+                  verticalAlign: `${RECIPE_CHIP_SLOT_ICON_OFFSET_EM}em`,
                 }}
               >
                 <Icon fontSize="inherit" />
@@ -847,7 +847,7 @@ function summaryParts(
         const max = (b && typeof b.max === 'number') ? Math.max(0, Math.min(5, Math.floor(b.max))) : undefined
         const showCap = max !== undefined
         const showMin = !showCap && (min !== undefined)
-        const rawTargetEntry = (cfg as BuilderConfig).substatRollTargetsV?.[vk]
+        const rawTargetEntry = (cfg as BuilderRecipe).substatRollTargetsV?.[vk]
         let targetsEntry = null
         try {
           targetsEntry = normalizeLooseRollTargetEntry(rawTargetEntry)
@@ -981,7 +981,7 @@ function summaryParts(
     const totalSegment = manualAggregateMin > lockedMin ? `/${manualAggregateMin}` : ''
     addText(`Σr${NBSP}≥${NBSP}${lockedSegment}${totalSegment}`)
   } else if (hasManualAggregateMin) {
-    // Legacy locked scope still appends a lock so older configs remain understandable.
+    // Legacy locked scope still appends a lock so older recipes remain understandable.
     const lockedScope = isLockedAggregateScopeActive(cfg)
     addText(`Σr${NBSP}≥${NBSP}${manualAggregateMin}${lockedScope ? `${NBSP}🔒` : ''}`)
   } else if (hasLockedMin) {
@@ -1056,8 +1056,8 @@ function summaryParts(
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            width: CONFIG_CHIP_METASET_ICON_BOX_PX,
-            height: CONFIG_CHIP_METASET_ICON_BOX_PX,
+            width: RECIPE_CHIP_METASET_ICON_BOX_PX,
+            height: RECIPE_CHIP_METASET_ICON_BOX_PX,
             lineHeight: 1,
             textAlign: 'center',
             fontSize: 'inherit',
@@ -1077,13 +1077,13 @@ function summaryParts(
                 label={localizedName}
                 sx={{
                   mr: 0,
-                  verticalAlign: `${CONFIG_CHIP_ARTIFACT_SET_ICON_OFFSET_EM}em`,
+                  verticalAlign: `${RECIPE_CHIP_ARTIFACT_SET_ICON_OFFSET_EM}em`,
                 }}
               />,
               {
                 display: 'inline-flex',
                 alignItems: 'center',
-                verticalAlign: `${CONFIG_CHIP_ARTIFACT_SET_ICON_OFFSET_EM}em`,
+                verticalAlign: `${RECIPE_CHIP_ARTIFACT_SET_ICON_OFFSET_EM}em`,
               },
               localizedName,
             )
@@ -1152,8 +1152,8 @@ function summaryParts(
   return <>{withSeps}</>
 }
 /**
- * ConfigChip
+ * RecipeChip
  *
- * Compact, clickable summary for a single BuilderConfig with context menu
+ * Compact, clickable summary for a single BuilderRecipe with context menu
  * actions (duplicate, move, copy, delete). Renders the human-readable summary.
  */

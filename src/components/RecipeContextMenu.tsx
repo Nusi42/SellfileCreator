@@ -22,30 +22,30 @@ type SelectAllAction = {
   labelKey: string
 }
 
-export interface ConfigContextMenuActions {
+export interface RecipeContextMenuActions {
   duplicate?: MenuClickHandler
   moveTop?: MoveAction
   moveUp?: MoveAction
   moveDown?: MoveAction
   moveBottom?: MoveAction
-  copyConfig?: MenuClickHandler
+  copyRecipe?: MenuClickHandler
   pasteAfter?: MenuClickHandler
   pasteAtEnd?: MenuClickHandler
-  copyConfigDev?: MenuClickHandler
-  deleteConfig?: MenuClickHandler
+  copyRecipeDev?: MenuClickHandler
+  deleteRecipe?: MenuClickHandler
   selectAll?: SelectAllAction
   copyAll?: { handler: MenuClickHandler; disabled: boolean }
   deleteAll?: HighlightableAction
 }
 
-interface ConfigContextMenuProps {
+interface RecipeContextMenuProps {
   open: boolean
   anchorPosition: { top: number; left: number } | null
   onClose: () => void
   paperRef: React.MutableRefObject<HTMLDivElement | null>
   paperDataTourId: string
   onPaperContextMenu: (event: React.MouseEvent) => void
-  actions: ConfigContextMenuActions
+  actions: RecipeContextMenuActions
   contextMenuGuard: ContextMenuPaperGuardToken
 }
 
@@ -58,7 +58,7 @@ function wrapClick(onClose: () => void, handler?: MenuClickHandler) {
   }
 }
 
-export function ConfigContextMenu({
+export function RecipeContextMenu({
   open,
   anchorPosition,
   onClose,
@@ -67,7 +67,7 @@ export function ConfigContextMenu({
   onPaperContextMenu,
   actions,
   contextMenuGuard,
-}: ConfigContextMenuProps) {
+}: RecipeContextMenuProps) {
   const { t } = useI18n()
 
   const primaryItems: React.ReactNode[] = []
@@ -124,9 +124,9 @@ export function ConfigContextMenu({
       </MenuItem>,
     )
   }
-  if (actions.copyConfig) {
+  if (actions.copyRecipe) {
     primaryItems.push(
-      <MenuItem key="copyConfig" onClick={wrapClick(onClose, actions.copyConfig)}>
+      <MenuItem key="copyRecipe" onClick={wrapClick(onClose, actions.copyRecipe)}>
         {t('chipMenuCopy')}
       </MenuItem>,
     )
@@ -139,7 +139,7 @@ export function ConfigContextMenu({
     )
   }
 
-  if (actions.copyConfigDev) {
+  if (actions.copyRecipeDev) {
     primaryItems.push(
       <MenuItem
         key="copyDev"
@@ -148,19 +148,19 @@ export function ConfigContextMenu({
           event.stopPropagation()
           onClose()
           try {
-            await actions.copyConfigDev?.()
+            await actions.copyRecipeDev?.()
           } catch {
             // Ignore clipboard failures; dev helper mirrors previous behavior.
           }
         }}
       >
-        Copy config + rules (dev)
+        Copy recipe + rules (dev)
       </MenuItem>,
     )
   }
-  if (actions.deleteConfig) {
+  if (actions.deleteRecipe) {
     primaryItems.push(
-      <MenuItem key="deleteConfig" onClick={wrapClick(onClose, actions.deleteConfig)} sx={{ color: 'error.main' }}>
+      <MenuItem key="deleteRecipe" onClick={wrapClick(onClose, actions.deleteRecipe)} sx={{ color: 'error.main' }}>
         {t('chipMenuDelete')}
       </MenuItem>,
     )
@@ -183,7 +183,7 @@ export function ConfigContextMenu({
         onClick={wrapClick(onClose, actions.copyAll.handler)}
         disabled={actions.copyAll.disabled}
       >
-        {t('chipsMenuCopyAllConfigs')}
+        {t('chipsMenuCopyAllRecipes')}
       </MenuItem>,
     )
   }
@@ -204,7 +204,7 @@ export function ConfigContextMenu({
         disabled={actions.deleteAll.disabled}
         sx={{ color: 'error.main', opacity: actions.deleteAll.disabled ? 0.6 : 1 }}
       >
-        {t('deleteConfigs')}
+        {t('deleteRecipes')}
       </MenuItem>,
     )
   }
@@ -234,4 +234,4 @@ export function ConfigContextMenu({
   )
 }
 
-export default ConfigContextMenu
+export default RecipeContextMenu

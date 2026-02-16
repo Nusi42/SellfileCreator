@@ -42,9 +42,9 @@ export const createFinalSellChangeDescriptor = (params: {
   }
 }
 
-export function isFinalSellActive(config: FinalSellRemainderConfig): boolean {
-  const hasTypes = Boolean(config.artifacts || config.accessories)
-  const levels = normalizeLevels(config.levels)
+export function isFinalSellActive(recipe: FinalSellRemainderConfig): boolean {
+  const hasTypes = Boolean(recipe.artifacts || recipe.accessories)
+  const levels = normalizeLevels(recipe.levels)
   return hasTypes && levels.length > 0
 }
 
@@ -165,10 +165,10 @@ function levelsEqual(
   return true
 }
 
-function formatTypes(config: FinalSellRemainderConfig, t: TranslateFn): string {
+function formatTypes(recipe: FinalSellRemainderConfig, t: TranslateFn): string {
   const parts: string[] = []
-  if (config.artifacts) parts.push(t('artifacts'))
-  if (config.accessories) parts.push(t('accessories'))
+  if (recipe.artifacts) parts.push(t('artifacts'))
+  if (recipe.accessories) parts.push(t('accessories'))
   if (parts.length === 0) return t('historyValueEmpty')
   return parts.join(', ')
 }

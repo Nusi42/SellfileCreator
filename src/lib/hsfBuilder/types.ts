@@ -15,16 +15,16 @@ export type SellfileMode = SellfileExportMode
 
 export type Star = RankValue
 
-// BuilderConfig mirrors the HSFC schema but uses strongly-typed enums so the UI
+// BuilderRecipe mirrors the HSFC schema but uses strongly-typed enums so the UI
 // and build steps guarantee we emit valid HSF payloads.
-export interface BuilderConfig {
+export interface BuilderRecipe {
   // Optional display name for this rule configuration (saved in HSFC)
   name?: string
-  // Optional config options tags used to enable/disable configs via note prompts.
+  // Optional recipe overrides tags used to enable/disable recipes via note prompts.
   tags?: string[]
   keep: boolean
-  // Sellfile export mode. Separator configs export only to HSFC (no Sellfile rules).
-  // 'disabled' keeps the config in exports but forces `Use: false` so RSL Helper ignores it.
+  // Sellfile export mode. Separator recipes export only to HSFC (no Sellfile rules).
+  // 'disabled' keeps the recipe in exports but forces `Use: false` so RSL Helper ignores it.
   exportMode: SellfileExportMode
   // Explicit level window for which to emit rules (inclusive).
   minLevel?: LevelMilestone

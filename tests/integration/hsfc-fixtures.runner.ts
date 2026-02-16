@@ -14,9 +14,9 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildHsfRules, defaultSubstatTargets, type BuilderConfig, type SubstatTargetTable } from '../../src/lib/hsfBuilder.js'
+import { buildHsfRules, defaultSubstatTargets, type BuilderRecipe, type SubstatTargetTable } from '../../src/lib/hsfBuilder.js'
 import { ArtifactType, StatVariant } from '../../src/lib/types.js'
-import { normalizeConfig, buildReadableConfig, parseHsfcObject } from '../../src/lib/hsfcIO.js'
+import { normalizeRecipe, buildReadableRecipe, parseHsfcObject } from '../../src/lib/hsfcIO.js'
 import { computeMergedRules } from '../../src/lib/merge.js'
 import { ACCESSORY_NO_SET_ID } from '../../src/lib/constants.js'
 import { FINAL_SELL_DEFAULT_SETS_MODE } from '../../src/lib/logicHub.js'
@@ -35,8 +35,8 @@ function stripRuleMetadata(rules: any[]): any[] {
       __lineIdx: _lineIdx,
       __allKnownSets: _allKnownSets,
       __source: _source,
-      ConfigID: _configId,
-      ConfigName: _configName,
+      RecipeID: _configId,
+      RecipeName: _configName,
       ...rest
     } = rule ?? {}
     return rest
@@ -118,7 +118,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       const parsed = parseHsfcObject(hsfc, { metasets: [], substatTargets: defaultSubstatTargets() })
       const merged = computeMergedRules({
         hsf: null,
-        customCfgs: parsed.cfgs,
+        customRecipes: parsed.recipes,
         metasets: parsed.metasets,
         substatTargets: parsed.substatTargets,
         finalSellRemainder: parsed.finalSellRemainder,
@@ -149,7 +149,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
   // Additional IO checks: autoRarityThreshold normalization (export/import)
   // Scenario A: Auto + Late + thresholds active -> writer includes field
   {
-    const cfg: BuilderConfig = {
+    const cfg: BuilderRecipe = {
       name: '', keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'auto', autoRaritySupplementsThreshold: 'epic',
@@ -162,18 +162,18 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       substatRollBoundsV: { [StatVariant.ACC]: { min: 1 } },
       artifactTypes: [], artifactSets: [], artifactMetaSets: [],
     }
-    const out = buildReadableConfig(cfg as any, []) as any
+    const out = buildReadableRecipe(cfg as any, []) as any
     assert(Array.isArray(out.substats) && out.substats.length === 1, 'IO A: writer should emit structured substat entries')
     assert(out.substats?.[0]?.rollBounds?.min === 1, 'IO A: writer should store roll bounds on each entry')
     assert(!('fixedSubstats' in out), 'IO A: writer should omit legacy fixedSubstats field')
     assert(!('substatRollBounds' in out), 'IO A: writer should omit legacy roll bounds map')
     assert(out.autoRarityThreshold === 'epic', 'IO A: writer should include autoRarityThreshold when Auto+Late+active')
-    const round = normalizeConfig({ ...out, Rarity: 'Auto' }) as any
+    const round = normalizeRecipe({ ...out, Rarity: 'Auto' }) as any
     assert(round.autoRaritySupplementsThreshold === 'epic', 'IO A: reader should parse autoRarityThreshold when applicable')
   }
   // Scenario B: Auto + Early + active -> writer omits; reader drops
   {
-    const cfg: BuilderConfig = {
+    const cfg: BuilderRecipe = {
       name: '', keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'auto', autoRaritySupplementsThreshold: 'uncommon',
@@ -186,14 +186,14 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       substatRollBoundsV: { [StatVariant.ACC]: { min: 1 } },
       artifactTypes: [], artifactSets: [], artifactMetaSets: [],
     }
-    const out = buildReadableConfig(cfg as any, []) as any
+    const out = buildReadableRecipe(cfg as any, []) as any
     assert(!('autoRarityThreshold' in out), 'IO B: writer should omit autoRarityThreshold when Early')
-    const round = normalizeConfig({ ...out, Rarity: 'Auto', autoRarityThreshold: 'uncommon', earlyKeepMode: 'early' }) as any
+    const round = normalizeRecipe({ ...out, Rarity: 'Auto', autoRarityThreshold: 'uncommon', earlyKeepMode: 'early' }) as any
     assert(!('autoRaritySupplementsThreshold' in round), 'IO B: reader should drop autoRaritySupplementsThreshold when Early')
   }
   // Scenario C: Code mode -> writer omits; reader drops
   {
-    const cfg: BuilderConfig = {
+    const cfg: BuilderRecipe = {
       name: '', keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 8, rarityMode: 'code', autoRaritySupplementsThreshold: 'rare',
@@ -206,14 +206,14 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       substatRollBoundsV: { [StatVariant.ACC]: { min: 1 } },
       artifactTypes: [], artifactSets: [], artifactMetaSets: [],
     }
-    const out = buildReadableConfig(cfg as any, []) as any
+    const out = buildReadableRecipe(cfg as any, []) as any
     assert(!('autoRarityThreshold' in out), 'IO C: writer should omit autoRarityThreshold when rarityMode is code')
-    const round = normalizeConfig({ ...out, Rarity: 'Rare', autoRarityThreshold: 'rare', earlyKeepMode: 'late' }) as any
+    const round = normalizeRecipe({ ...out, Rarity: 'Rare', autoRarityThreshold: 'rare', earlyKeepMode: 'late' }) as any
     assert(!('autoRaritySupplementsThreshold' in round), 'IO C: reader should drop autoRaritySupplementsThreshold when rarityMode is code')
   }
   // Scenario D: Auto + Late but thresholds inactive -> writer omits; reader drops
   {
-    const cfg: BuilderConfig = {
+    const cfg: BuilderRecipe = {
       name: '', keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'auto', autoRaritySupplementsThreshold: 'rare',
@@ -226,9 +226,9 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       substatRollBoundsV: {},
       artifactTypes: [], artifactSets: [], artifactMetaSets: [],
     }
-    const out = buildReadableConfig(cfg as any, []) as any
+    const out = buildReadableRecipe(cfg as any, []) as any
     assert(!('autoRarityThreshold' in out), 'IO D: writer should omit autoRarityThreshold when thresholds are inactive')
-    const round = normalizeConfig({ ...out, Rarity: 'Auto', autoRarityThreshold: 'rare' }) as any
+    const round = normalizeRecipe({ ...out, Rarity: 'Auto', autoRarityThreshold: 'rare' }) as any
     assert(!('autoRaritySupplementsThreshold' in round), 'IO D: reader should drop autoRaritySupplementsThreshold when thresholds are inactive')
   }
   // Scenario Legacy: reader upgrades legacy substats/fixed/bounds fields
@@ -250,7 +250,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
         SPD: { any: true },
       },
     }
-    const round = normalizeConfig(legacyReadable) as BuilderConfig
+    const round = normalizeRecipe(legacyReadable) as BuilderRecipe
     assert(round.substatsV?.length === 2, 'Legacy IO: reader should retain all selected substats')
     assert(round.fixedSubstatsV?.length === 1 && round.fixedSubstatsV[0] === StatVariant.ACC, 'Legacy IO: fixed substats should round-trip')
     assert(round.substatRollBoundsV?.[StatVariant.ACC]?.min === 2, 'Legacy IO: numeric bounds are preserved')
@@ -258,7 +258,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
   }
   // Scenario E: Substat roll expectations serialize/deserialize
   {
-    const cfg: BuilderConfig = {
+    const cfg: BuilderRecipe = {
       name: '', keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'code',
@@ -277,23 +277,23 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
         },
       },
     }
-    const readable = buildReadableConfig(cfg as any, []) as any
+    const readable = buildReadableRecipe(cfg as any, []) as any
     assert(readable.substatRollTargets?.SPD, 'IO E: writer should emit substatRollTargets map')
     assert(readable.substatRollTargets.SPD.base === 12, 'IO E: writer preserves target base')
-    const round = normalizeConfig({
+    const round = normalizeRecipe({
       ...readable,
       substats: ['SPD'],
       substatRollTargets: readable.substatRollTargets,
-    }) as BuilderConfig
+    }) as BuilderRecipe
     const entry = round.substatRollTargetsV?.[StatVariant.SPD]
     assert(Boolean(entry && entry.base === 12), 'IO E: reader restores target base')
     assert(Boolean(entry?.increments && entry.increments.length === 3), 'IO E: reader restores increments array length')
     assert(entry?.increments?.[0] === 18, 'IO E: reader preserves explicit increment values')
     assert(entry?.increments?.[1] === null, 'IO E: reader preserves null increments as fallbacks')
   }
-  // Scenario Draft: Draft configs act as dividers and emit no rules
+  // Scenario Draft: Draft recipes act as dividers and emit no rules
   {
-    const cfg: BuilderConfig = {
+    const cfg: BuilderRecipe = {
       name: 'Divider', keep: true, exportMode: 'separator',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'auto',
@@ -307,8 +307,8 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       artifactTypes: [], artifactSets: [], artifactMetaSets: [],
     }
     const built = buildHsfRules(cfg, defaultSubstatTargets())
-    assert(built.length === 0, 'IO Draft: draft configs must not emit HSF rows')
-    const readable = buildReadableConfig(cfg, []) as any
+    assert(built.length === 0, 'IO Draft: draft recipes must not emit HSF rows')
+    const readable = buildReadableRecipe(cfg, []) as any
     assert(readable.SellfileVisibility === 'Separator', 'IO Separator: writer should label separator export mode')
   }
   // Scenario E: Rank Any uses the configured substatTargets fallback star
@@ -318,7 +318,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     substatTargets.five[StatVariant.SPD] = 57
     substatTargets.six[StatVariant.SPD] = 67
 
-    const cfg: BuilderConfig = {
+    const cfg: BuilderRecipe = {
       name: '', keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'code',
@@ -341,7 +341,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
   }
   // Scenario F: Factory minima collapse triggers only when targets match the factory roll floors
   {
-    const cfg: BuilderConfig = {
+    const cfg: BuilderRecipe = {
       name: '', keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'auto',
@@ -391,7 +391,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     const substatTargets: SubstatTargetTable = { one: {}, two: {}, three: {}, four: {}, five: {}, six: {}, anyRankDefaultsTo: 6 }
     const merged = computeMergedRules({
       hsf: null,
-      customCfgs: [],
+      customRecipes: [],
       metasets: [],
       substatTargets,
       finalSellRemainder: { artifacts: false, accessories: true, levels: [0, 4, 8, 12, 16], setsMode: FINAL_SELL_DEFAULT_SETS_MODE },

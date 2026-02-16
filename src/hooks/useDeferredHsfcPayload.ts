@@ -9,21 +9,21 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { buildHsfcPayload } from '../lib/hsfcIO'
-import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
+import type { BuilderRecipe, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import type { Metaset } from '../lib/metasets'
-import type { KeepUniqueRule } from '../lib/keepUniques'
+import type { SafeguardRule } from '../lib/safeguards'
 
 type BuildParams = {
   version: string
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
-  configs: BuilderConfig[]
+  recipes: BuilderRecipe[]
   finalSellRemainder?: FinalSellRemainderConfig
-  selectedConfigIndex: number | null
+  selectedRecipeIndex: number | null
   note?: string
-  keepUniqueRules?: KeepUniqueRule[]
-  keepUniquesEnabled?: boolean
+  safeguardRules?: SafeguardRule[]
+  safeguardsEnabled?: boolean
 }
 
 type IdleHandle = number
@@ -67,20 +67,20 @@ export function useDeferredHsfcPayload(params: BuildParams): {
     params.version,
     params.metasets,
     params.substatTargets,
-    params.configs,
+    params.recipes,
     params.finalSellRemainder,
-    params.selectedConfigIndex,
+    params.selectedRecipeIndex,
     params.note ?? null,
-    params.keepUniqueRules,
-    params.keepUniquesEnabled,
+    params.safeguardRules,
+    params.safeguardsEnabled,
   ]), [
-    params.configs,
+    params.recipes,
     params.finalSellRemainder,
-    params.keepUniqueRules,
-    params.keepUniquesEnabled,
+    params.safeguardRules,
+    params.safeguardsEnabled,
     params.metasets,
     params.note,
-    params.selectedConfigIndex,
+    params.selectedRecipeIndex,
     params.substatTargets,
     params.version,
   ])

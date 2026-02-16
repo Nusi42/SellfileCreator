@@ -7,10 +7,11 @@ The technical reference is now split across focused documents. Start here, then 
 - Keep inline documentation dense and helpful—when implementing or revising code, aim for a concise intent-focused comment roughly every 2–3 lines.
 - Enforce the Single Source of Truth / One Definition Rule without exception: centralize each constant, helper, and schema definition once, then import it everywhere else.
 - Shared TS/Rust domain sentinels now come from `shared/domain-constants.json`; regenerate language bindings with `npm run generate:domain-constants` (the WASM build script runs this automatically before compiling).
+- Any constant that must exist in both TS and Rust is required to be declared in `shared/domain-constants.json` and emitted by `scripts/tooling/generate-domain-constants.mjs`; do not hand-define cross-language constants in app/wasm source files or hand-edit generated constant outputs.
 - Auto-rarity schedule constants (`rollMaskByCode`, `additionMaskByCode`, `includesMythicalByCode`, `minRollEventsByCode`) are also defined in `shared/domain-constants.json`; do not reintroduce TS/Rust-local rarity schedule tables.
 - The rule-engine wasm binary (`src/lib/wasm/generated/rule_engine_bg.wasm`) is build output, not source of truth; rely on `npm run wasm:ensure:rule-engine`/`npm run wasm:build:rule-engine` to regenerate it when inputs change.
 - Watch file size creep; split modules or move helpers into shared files before they cross roughly 1,500 lines so reviews stay manageable.
-- Configs are identity-tracked: whenever you add/duplicate/paste a `BuilderConfig`, clone it with `cloneBuilderConfig` from `src/lib/multiEditDraft.ts` so multiselect + history logic never shares references between chips.
+- Configs are identity-tracked: whenever you add/duplicate/paste a `BuilderRecipe`, clone it with `cloneBuilderRecipe` from `src/lib/multiEditDraft.ts` so multiselect + history logic never shares references between chips.
 - Large surfaces such as the builder now keep their helper logic in dedicated siblings (`src/components/builderPanel/*`, `src/lib/hsfBuilder/*`); add new helpers beside those files instead of expanding the main component/module. The builder pulls all layout constants and roll budget math from `builderPanel/constants.ts`, so extend that file instead of re-declaring pixel math or repeat helpers.
 - BuilderPanel-specific controller hooks (`builderPanel/useBuilderHistoryMenu.ts`, `builderPanel/useRuleCountBadge.ts`) encapsulate context-menu hints, undo tooltips, and asynchronous rule-count caching. When adding new UI flows, introduce a sibling hook rather than embedding another 200+ line block back into `BuilderPanel.tsx`.
 - Multi-edit aggregations live in `builderPanel/useMultiEditSummary.ts` and the action button context menus + hint overlays live in `builderPanel/useBuilderPanelActionMenus.ts`; wire new behaviors through these hooks to keep the core component declarative.
@@ -18,10 +19,10 @@ The technical reference is now split across focused documents. Start here, then 
 - Rule cache worker progress events are throttled to roughly once per second to prevent Firefox from backlogging main-thread message delivery on large datasets; avoid reintroducing verbose per-item logging or unthrottled progress forwarding.
 
 - [Build and Tooling](technical/build-and-tooling.md) — stack, scripts, packaging, project structure, and the Tauri wrapper.
-- [Application Behavior](technical/app-behavior.md) — builder guardrails, preview filters (including substat include/exclude), rule cache fast paths, clipboard/save flows, file import, config options prompt formatting (including group-level fallbacks and two-string label/value layouts), and the rule tester (including grouping + sort behavior and headerless mode).
+- [Application Behavior](technical/app-behavior.md) — builder guardrails, preview filters (including substat include/exclude), rule cache fast paths, clipboard/save flows, file import, recipe overrides prompt formatting (including group-level fallbacks and two-string label/value layouts), and the rule tester (including grouping + sort behavior and headerless mode).
 - [Tutorial and Onboarding](technical/tutorial.md) — help dialog, tutorial coach behavior, and guidance for extending scripted steps.
 - [Rules and Data](technical/rules-and-data.md) — HSFC/HSF schemas, builder roll semantics, autosave plumbing, and migration notes.
-- [Keep Uniques](technical/app-behavior.md#keep-uniques) — Logic Hub layout, gear-combination detection, substat-focused protection (including weighted ranking for **Any/All Substats**), tester-grid linking (including Rule Tester card-width matching), and reset behaviors.
+- [Safeguards](technical/app-behavior.md#safeguards) — Logic Hub layout, gear-combination detection, substat-focused protection (including weighted ranking for **Any/All Substats**), tester-grid linking (including Rule Tester card-width matching), and reset behaviors.
 - [Dungeon Simulator](technical/dungeon-simulator.md) — Logic Hub Dungeon Drops tab, drop-table assumptions, stat generation, and keep evaluation rules.
 - [Locked roll constraints](technical/app-behavior.md#builder-outputs-and-normalization) — how `lockedMinRequiredRolls` impacts aggregate targets so locked selections can demand their own roll floors alongside the global sum.
 - [Gear Database Import](technical/gear-db-import.md) — reverse-engineering the RSL Helper SQLite dump, mapping it into the Rule Tester, and documenting endpoint diff toasts/history.
@@ -59,23 +60,23 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
 - Accessories: `Ring`, `Amulet`, `Banner`.
 - The term *gear* covers artifacts and accessories; UI copy uses *type* and *slot* interchangeably.
 
-### Keep Uniques State
+### Safeguards State
 
-- Builder state carries `keepUniqueRules` plus the global `keepUniquesEnabled` flag. Each gear combination stores `(slot, set, rank, rarity, main stat, faction?)`, optional `substats` + `substatMatch`/`substatWeights` for substat-focused protection, `requiredCount`, and a per-rule activation mode (`off`, `protectExisting`, or `anticipateGaps`).
-- The Logic Hub dialog stores `logicHubDialogTab` (legacy autosaves still expose `FinalSellDialogTab`) alongside the rest of the builder payload so autosave/restore reopen whichever tab (Final Sell vs. Gear vs. Keep Uniques) the user last used. Keep Uniques launches with an empty rule list—enabling the feature exposes the inline editors, and the Reset button simply clears every rule and disables the toggle so re-enabling starts from a clean slate instead of resurrecting stale combinations.
-- Autosave and HSFC payloads serialize the toggle plus combinations via `KeepUniques` and `KeepUniquesEnabled`. Autosave restore, clipboard import/export, and history snapshots treat them exactly like configs/metasets so undo/redo remains accurate. The HSFC import path (`applyHsfcLoadResult`) always writes the file’s keep-unique snapshot into state before we trigger a rule cache warm so a file with zero keep rules clears the previous session’s entries and lets the preview chip’s progress ring advance cleanly.
-- Keep Uniques history entries emit structured tooltip payloads: add/delete snapshots show the full rule breakdown, while updates render before/after diffs for only the changed fields (slots/sets/metasets/main stats plus rank/rarity/faction lines).
-- Keep Unique scans only run while `keepUniquesEnabled` is true; disabling the feature or rebuilding the gear queue clears `keepUniqueDetection` so the UI never shows stale combination stats. Detection fingerprints live only in memory to avoid bloating autosave payloads.
-- Keep Unique rule names debounce using `BUILDER_AUTO_APPLY_DEBOUNCE_MS`; tester match chips refresh from the live name map without forcing a rule-cache rebuild.
-- Configs tagged `ignore_keep_unique` keep their items in previews but are ignored during keep-unique coverage checks so rework fodder never satisfies the uniqueness quota.
-- The rule cache worker retains a per-run artifact cache; when the tester preview is empty the pipeline must set `resetArtifacts` so the worker drops that cache before recomputing keep-unique injections. The app wires this flag already—preserve it on new pipeline call sites.
+- Builder state carries `keepUniqueRules` plus the global `safeguardsEnabled` flag. Each gear combination stores `(slot, set, rank, rarity, main stat, faction?)`, optional `substats` + `substatMatch`/`substatWeights` for substat-focused protection, `requiredCount`, and a per-rule activation mode (`off`, `protectExisting`, or `anticipateGaps`).
+- The Logic Hub dialog stores `logicHubDialogTab` (legacy autosaves still expose `FinalSellDialogTab`) alongside the rest of the builder payload so autosave/restore reopen whichever tab (Final Sell vs. Gear vs. Safeguards) the user last used. Safeguards launches with an empty rule list—enabling the feature exposes the inline editors, and the Reset button simply clears every rule and disables the toggle so re-enabling starts from a clean slate instead of resurrecting stale combinations.
+- Autosave and HSFC payloads serialize the toggle plus combinations via `Safeguards` and `SafeguardsEnabled`. Autosave restore, clipboard import/export, and history snapshots treat them exactly like configs/metasets so undo/redo remains accurate. The HSFC import path (`applyHsfcLoadResult`) always writes the file’s safeguard snapshot into state before we trigger a rule cache warm so a file with zero keep rules clears the previous session’s entries and lets the preview chip’s progress ring advance cleanly.
+- Safeguards history entries emit structured tooltip payloads: add/delete snapshots show the full rule breakdown, while updates render before/after diffs for only the changed fields (slots/sets/metasets/main stats plus rank/rarity/faction lines).
+- Safeguard scans only run while `safeguardsEnabled` is true; disabling the feature or rebuilding the gear queue clears `keepUniqueDetection` so the UI never shows stale combination stats. Detection fingerprints live only in memory to avoid bloating autosave payloads.
+- Safeguard rule names debounce using `BUILDER_AUTO_APPLY_DEBOUNCE_MS`; tester match chips refresh from the live name map without forcing a rule-cache rebuild.
+- Configs tagged `ignore_keep_unique` keep their items in previews but are ignored during safeguard coverage checks so rework fodder never satisfies the uniqueness quota.
+- The rule cache worker retains a per-run artifact cache; when the tester preview is empty the pipeline must set `resetArtifacts` so the worker drops that cache before recomputing safeguard injections. The app wires this flag already—preserve it on new pipeline call sites.
 - `computeKeepUniqueProtection` reads the normalized preview gear and emits combination stats (`currentCount`, `keptCount`, `projectedCount`, `coveredByExisting`, `deficit`, gear ids) that the UI and keep-rule generator consume.
 - Keep-unique expected-group expansion (slot/set/faction/main-scope cartesian products used for per-group deficits) now runs entirely in WASM using a shared domain payload from TS.
 - Substat scoring always uses normalized substat scoring and keeps the top N per scope. Equal-score ties resolve only when we can prove one item is better (`same main stat => higher rank`, or `% HP/DEF/ATK beats the matching flat variant`); unresolved boundary ties are all kept, so the selected count can exceed N. Weights shift the ranking when **Any** or **All Substats** is active, while **Per Substat** sticks to equal weighting.
-- `TesterItemsGrid` exposes a `variant="keepUniques"` path so the dialog can reuse the shared renderer with forced two-column cards and rule-linked highlighting.
-- `computeMergedRules` prepends Keep Unique rules ahead of the Final Sell batch, tagging each rule with `RULE_SOURCE_KEEP_UNIQUES` and metadata (`__keepUniqueRuleId`, combination hash, required count, scan timestamp). Canonical keep-rule keys ensure we skip duplicates when HSFC/Final Sell already guarantee the same combination.
-- Keep Unique rows in the HSF preview are informational-only: they show the hollow-star attribution but do not expose a row context menu.
-- The tester match rebuild + keep-unique detection path lives in `useTesterMatchOrchestrator`, which batches rule/config/name changes into a single loop and logs each build start/finish with the relevant signatures. Matches use a single evaluation: the displayed match includes keep-unique rules, while `baseMatch` excludes them for detection.
+- `TesterItemsGrid` exposes a `variant="safeguards"` path so the dialog can reuse the shared renderer with forced two-column cards and rule-linked highlighting.
+- `computeMergedRules` prepends Safeguard rules ahead of the Final Sell batch, tagging each rule with `RULE_SOURCE_SAFEGUARDS` and metadata (`__keepUniqueRuleId`, combination hash, required count, scan timestamp). Canonical keep-rule keys ensure we skip duplicates when HSFC/Final Sell already guarantee the same combination.
+- Safeguard rows in the HSF preview are informational-only: they show the hollow-star attribution but do not expose a row context menu.
+- The tester match rebuild + safeguard detection path lives in `useTesterMatchOrchestrator`, which batches rule/config/name changes into a single loop and logs each build start/finish with the relevant signatures. Matches use a single evaluation: the displayed match includes safeguard rules, while `baseMatch` excludes them for detection.
 
 ### Faction Coverage
 
@@ -221,15 +222,15 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
   - `app-init.ts` primes localStorage, forces `isSecureContext`, and (optionally) stubs the clipboard API for deterministic tests.
   - `app-warmup.ts` preloads the shell once to avoid cold Vite compile costs in perf specs.
   - `fixture-paths.ts` is the single source of truth for Playwright fixture paths; import from it instead of hardcoding file locations.
-  - `tests/data/sample-small.sfr` (3 configs, no Keep Uniques) is the fast HSFC fixture for most UI coverage; `tests/data/sample.sfr` remains the large fixture for scroll/perf scenarios.
-  - `tests/data/sample-small-config-options-disabled.sfr` mirrors the small HSFC fixture with config options disabled (used by note/config-option coverage).
+  - `tests/data/sample-small.sfr` (3 configs, no Safeguards) is the fast HSFC fixture for most UI coverage; `tests/data/sample.sfr` remains the large fixture for scroll/perf scenarios.
+  - `tests/data/sample-small-recipe-overrides-disabled.sfr` mirrors the small HSFC fixture with recipe overrides disabled (used by note/recipe-override coverage).
   - `tests/data/sample-small.db` is the slim Rule Tester fixture for Playwright; `tests/data/sample.db` stays reserved for unit tests and offline tooling.
 - Specs:
   - `tests/playwright/smoke.spec.ts` is the canonical health-check (run single-browser only for targeted debugging, e.g. `npx playwright test tests/playwright/smoke.spec.ts --project=chromium --reporter=list`).
   - `tests/playwright/config-insert-order.spec.ts` guards the “paste after” ordering regression by loading `tests/data/sample-small.sfr`, performing copy/paste, and verifying row ordering.
   - `tests/playwright/builder-config-switch-perf.spec.ts` seeds a tiny autosave payload (two configs) to measure a single config switch without HSFC import overhead.
   - `tests/playwright/tester-matching-perf.spec.ts` is a fast rebuild sanity check: it measures config-name rebuild latency in rules preview using `tests/data/sample-small.sfr` across all browsers.
-  - `tests/playwright/keep-unique-disabled-clone-sell.spec.ts` seeds a tiny Rule Tester autosave payload (no DB import) to verify config-duplicate behavior with config options disabled.
+  - `tests/playwright/safeguard-disabled-clone-sell.spec.ts` seeds a tiny Rule Tester autosave payload (no DB import) to verify config-duplicate behavior with recipe overrides disabled.
 - Default test runs:
   - `npm run test:unit` executes the node:test suite and HSFC fixture runner.
   - `npm run test:e2e:chromium` executes the Playwright suite in Chromium only.

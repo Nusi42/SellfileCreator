@@ -15,8 +15,9 @@ import {
   evaluateWasmRuleEngineItemsWithLoadedWasm,
   type WasmRuleEngineEvaluateOptions,
 } from './wasm/wasmRuleEngine'
+import { resolveCanonicalTestItemId } from './itemIdentity'
 
-// Attach provenance (config index) as done in merge.ts.
+// Attach provenance (recipe index) as done in merge.ts.
 export type TesterItemPreviewExtras = {
   // Stable numeric id used to correlate preview rows and matcher results.
   id?: number
@@ -71,39 +72,39 @@ export type TestItem = {
   previewExtras?: TesterItemPreviewExtras
 }
 
-export type EvalResult = { ruleIndex: number; keep: boolean; cfgIdx: number | null } | null
+export type EvalResult = { ruleIndex: number; keep: boolean; recipeIdx: number | null } | null
 
-export type EvalMatchesByConfigOptions = {
-  // Optional per-config export modes (disabled/separator suppression).
-  configModes?: SellfileExportMode[]
-  // Optional source exclusions (e.g., keep-unique injection sources).
+export type EvalMatchesByRecipeOverrides = {
+  // Optional per-recipe export modes (disabled/separator suppression).
+  recipeModes?: SellfileExportMode[]
+  // Optional source exclusions (e.g., safeguard injection sources).
   excludeSources?: readonly string[]
-  // Optional config blocklist for filtered baseline scans.
+  // Optional recipe blocklist for filtered baseline scans.
   excludeConfigIndices?: ReadonlySet<number>
-  // Optional config list ignored by keep-unique precedence rules.
-  ignoreKeepUniqueConfigIndices?: ReadonlySet<number>
+  // Optional recipe list ignored by safeguard precedence rules.
+  ignoreSafeguardConfigIndices?: ReadonlySet<number>
 }
 
-export type MatchingConfigDecision = { cfgIdx: number; keep: boolean }
+export type MatchingRecipeDecision = { recipeIdx: number; keep: boolean }
 
 export type EvalMatchesByConfigResult = {
   firstMatch: EvalResult | null
   firstNonExcludedMatch: EvalResult | null
-  matchingConfigIndices: number[]
-  matchingConfigDecisions: MatchingConfigDecision[]
+  matchingRecipeIndices: number[]
+  matchingRecipeDecisions: MatchingRecipeDecision[]
 }
 
 type WasmMatcherConfigCache = {
   // Keep the same rule array identity used for the active WASM configure call.
   rules: HsfRuleWithCfg[]
-  // Keep the same config-mode array identity used for the active WASM configure call.
-  configModes: SellfileExportMode[]
+  // Keep the same recipe-mode array identity used for the active WASM configure call.
+  recipeModes: SellfileExportMode[]
 }
 
-// Reuse one empty array reference so repeated no-config calls do not trigger
+// Reuse one empty array reference so repeated no-recipe calls do not trigger
 // unnecessary reconfigure calls just because [] was allocated again.
 const EMPTY_CONFIG_MODES: SellfileExportMode[] = []
-// Item key 0 means "no concrete item id" for keep-unique rule guards.
+// Item key 0 means "no concrete item id" for safeguard rule guards.
 const FALLBACK_EVAL_ITEM_ID = 0
 // Cache the last configured matcher inputs so sync adapters can evaluate many
 // rows without paying configure cost on every single call.
@@ -114,48 +115,43 @@ const createEmptyEvalMatchesByConfigResult = (): EvalMatchesByConfigResult => ({
   firstMatch: null,
   // Baseline/non-excluded result is also empty in the same no-hit case.
   firstNonExcludedMatch: null,
-  // No configs matched, so return an empty index list.
-  matchingConfigIndices: [],
-  // No config decisions exist, so return an empty decision list.
-  matchingConfigDecisions: [],
+  // No recipes matched, so return an empty index list.
+  matchingRecipeIndices: [],
+  // No recipe decisions exist, so return an empty decision list.
+  matchingRecipeDecisions: [],
 })
 
-// Resolve the stable item key used by keep-unique item-bound rules.
+// Resolve the stable item key used by safeguard item-bound rules.
 // This mirrors worker inputs where itemId is carried alongside the payload.
 const resolveEvalItemId = (item: TestItem): number => {
   // Some call sites still attach `itemId` directly onto the tester item object.
   const withItemId = item as TestItem & { itemId?: number }
-  // Prefer the direct id because workers already pass this exact field.
-  const direct = Number(withItemId.itemId ?? NaN)
-  // Keep only positive finite ids so keep-unique item-key guards remain stable.
-  if (Number.isFinite(direct) && direct > 0) return Math.floor(direct)
-  // Fallback to preview id for main-thread callers that only carry preview metadata.
-  const previewId = Number(item.previewExtras?.id ?? NaN)
-  // Keep only positive finite preview ids for the same guard-compatibility reason.
-  if (Number.isFinite(previewId) && previewId > 0) return Math.floor(previewId)
-  // Zero means "no concrete id", matching existing keep-unique sentinel behavior.
+  // Use shared canonical precedence so main-thread eval mirrors worker paths.
+  const resolved = resolveCanonicalTestItemId(withItemId)
+  if (resolved != null) return resolved
+  // Zero means "no concrete id", matching existing safeguard sentinel behavior.
   return FALLBACK_EVAL_ITEM_ID
 }
 
 // Strip local-only fields and pass only matcher filters accepted by wasm.
 const toWasmEvaluateOptions = (
-  options?: EvalMatchesByConfigOptions,
+  options?: EvalMatchesByRecipeOverrides,
 ): WasmRuleEngineEvaluateOptions | undefined => {
   // Missing options means no matcher-side filters should be applied.
   if (!options) return undefined
   // Start with an empty payload and add only defined filters.
   const payload: WasmRuleEngineEvaluateOptions = {}
-  // Forward source exclusions used by baseline scans (e.g. keep-unique injections).
+  // Forward source exclusions used by baseline scans (e.g. safeguard injections).
   if (options.excludeSources && options.excludeSources.length > 0) {
     payload.excludeSources = options.excludeSources
   }
-  // Forward explicit config blocklists used by keep-unique ignore workflows.
+  // Forward explicit recipe blocklists used by safeguard ignore workflows.
   if (options.excludeConfigIndices && options.excludeConfigIndices.size > 0) {
     payload.excludeConfigIndices = options.excludeConfigIndices
   }
-  // Forward keep-unique precedence ignore sets unchanged to preserve semantics.
-  if (options.ignoreKeepUniqueConfigIndices && options.ignoreKeepUniqueConfigIndices.size > 0) {
-    payload.ignoreKeepUniqueConfigIndices = options.ignoreKeepUniqueConfigIndices
+  // Forward safeguard precedence ignore sets unchanged to preserve semantics.
+  if (options.ignoreSafeguardConfigIndices && options.ignoreSafeguardConfigIndices.size > 0) {
+    payload.ignoreSafeguardConfigIndices = options.ignoreSafeguardConfigIndices
   }
   // Undefined signals "no filters", so WASM avoids unnecessary option handling.
   return Object.keys(payload).length > 0 ? payload : undefined
@@ -164,39 +160,39 @@ const toWasmEvaluateOptions = (
 // Configure once per ruleset/mode tuple so repeated evaluate calls stay cheap.
 const ensureWasmMatcherConfigured = (
   rules: HsfRuleWithCfg[],
-  configModes: SellfileExportMode[],
+  recipeModes: SellfileExportMode[],
 ): void => {
   // If both arrays are the exact same identities, WASM is already configured.
   if (
     wasmMatcherConfigCache
     && wasmMatcherConfigCache.rules === rules
-    && wasmMatcherConfigCache.configModes === configModes
+    && wasmMatcherConfigCache.recipeModes === recipeModes
   ) {
     return
   }
-  // Reconfigure WASM when either rules or config-mode arrays changed.
-  configureWasmRuleEngineWithLoadedWasm({ rules, configModes })
+  // Reconfigure WASM when either rules or recipe-mode arrays changed.
+  configureWasmRuleEngineWithLoadedWasm({ rules, recipeModes })
   // Cache the new identities so subsequent calls can skip reconfigure work.
-  wasmMatcherConfigCache = { rules, configModes }
+  wasmMatcherConfigCache = { rules, recipeModes }
 }
 
 const evaluateSingleItemWithWasm = (
   rules: HsfRuleWithCfg[],
-  configModes: SellfileExportMode[],
+  recipeModes: SellfileExportMode[],
   item: TestItem,
-  options?: EvalMatchesByConfigOptions,
+  options?: EvalMatchesByRecipeOverrides,
 ): EvalMatchesByConfigResult => {
   // Empty ruleset cannot match anything, so return the canonical empty payload.
   if (!Array.isArray(rules) || rules.length === 0) return createEmptyEvalMatchesByConfigResult()
-  // Ensure WASM has the right rule/config snapshot before evaluating this item.
-  ensureWasmMatcherConfigured(rules, configModes)
+  // Ensure WASM has the right rule/recipe snapshot before evaluating this item.
+  ensureWasmMatcherConfigured(rules, recipeModes)
   // Convert local option shape into the compact payload accepted by WASM.
   const wasmOptions = toWasmEvaluateOptions(options)
   // Evaluate exactly one item; adapter APIs consume single-row requests.
   const [result] = evaluateWasmRuleEngineItemsWithLoadedWasm(
     wasmOptions
       ? {
-          // Pass resolved item id so keep-unique item-bound rules can match.
+          // Pass resolved item id so safeguard item-bound rules can match.
           items: [{ itemId: resolveEvalItemId(item), item }],
           // Include matcher filters only when they actually exist.
           options: wasmOptions,
@@ -213,10 +209,10 @@ const evaluateSingleItemWithWasm = (
     firstMatch: result.firstMatch ?? null,
     // Preserve baseline fallback semantics from prior JS implementation.
     firstNonExcludedMatch: result.firstNonExcludedMatch ?? result.firstMatch ?? null,
-    // Keep config index list shape stable for chip rendering callers.
-    matchingConfigIndices: result.matchingConfigIndices ?? [],
-    // Keep config decision list shape stable for preview state callers.
-    matchingConfigDecisions: result.matchingConfigDecisions ?? [],
+    // Keep recipe index list shape stable for chip rendering callers.
+    matchingRecipeIndices: result.matchingRecipeIndices ?? [],
+    // Keep recipe decision list shape stable for preview state callers.
+    matchingRecipeDecisions: result.matchingRecipeDecisions ?? [],
   }
 }
 
@@ -244,14 +240,14 @@ export function evaluateFirst(rules: HsfRuleWithCfg[], item: TestItem): EvalResu
   return result.firstMatch
 }
 
-/** Full scan that returns the first match plus the set of configs that match anywhere in the rules list. */
-export function evaluateMatchesByConfig(
+/** Full scan that returns the first match plus the set of recipes that match anywhere in the rules list. */
+export function evaluateMatchesByRecipe(
   rules: HsfRuleWithCfg[],
   item: TestItem,
-  options?: EvalMatchesByConfigOptions,
+  options?: EvalMatchesByRecipeOverrides,
 ): EvalMatchesByConfigResult {
-  // Caller-provided config modes are optional; default to the shared empty list.
-  const configModes = options?.configModes ?? EMPTY_CONFIG_MODES
+  // Caller-provided recipe modes are optional; default to the shared empty list.
+  const recipeModes = options?.recipeModes ?? EMPTY_CONFIG_MODES
   // Delegate full match payload generation to the shared WASM adapter.
-  return evaluateSingleItemWithWasm(rules, configModes, item, options)
+  return evaluateSingleItemWithWasm(rules, recipeModes, item, options)
 }

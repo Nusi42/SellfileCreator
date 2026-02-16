@@ -55,7 +55,7 @@ test.describe('HSFC load performance', () => {
     }
 
     // Wait for the first preview row to ensure the render is complete.
-    const firstRow = page.locator('table tbody tr[data-cfg-idx]').first()
+    const firstRow = page.locator('table tbody tr[data-recipe-idx]').first()
     await firstRow.waitFor({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
     // Snapshot the time for first-row render to compare against the start.
     const firstRowReady = await page.evaluate(() => performance.now())

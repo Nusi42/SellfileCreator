@@ -1,11 +1,11 @@
 import type { SellfileExportMode } from '../lib/hsfBuilder'
 import type { HsfRuleWithCfg } from '../lib/merge'
-import type { EvalResult, MatchingConfigDecision, TestItem } from '../lib/ruleEval'
+import type { EvalResult, MatchingRecipeDecision, TestItem } from '../lib/ruleEval'
 import type { ProgressSnapshot } from '../types/progress'
 
 export type TesterMatchWorkerConfigurePayload = {
   rules: HsfRuleWithCfg[]
-  configModes: SellfileExportMode[]
+  recipeModes: SellfileExportMode[]
 }
 
 export type TesterMatchWorkerEvaluateItem = {
@@ -21,8 +21,8 @@ export type TesterMatchWorkerItemResult = {
   itemId: number
   firstMatch: EvalResult | null
   firstNonExcludedMatch: EvalResult | null
-  matchingConfigIndices: number[]
-  matchingConfigDecisions: MatchingConfigDecision[]
+  matchingRecipeIndices: number[]
+  matchingRecipeDecisions: MatchingRecipeDecision[]
 }
 
 export type TesterMatchWorkerRequest =

@@ -2,36 +2,36 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  resolveConfigOptionsTags,
-  NOTE_CONFIG_OPTIONS_LAYOUT_WHOLELINE,
-  NOTE_CONFIG_OPTIONS_LAYOUT_COLUMNS_DEFAULT,
-} from '../../src/lib/noteConfigOptions.js'
+  resolveRecipeOverridesTags,
+  NOTE_RECIPE_OVERRIDES_LAYOUT_WHOLELINE,
+  NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT,
+} from '../../src/lib/noteRecipeOverrides.js'
 
 test('global explicit ids exclude options across questions', () => {
-  // Build a note with two config-options markers.
+  // Build a note with two recipe-overrides markers.
   const note = [
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Question One"',
     'check "Option A" id=a { @all { export=active } }',
     '-->',
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Question Two"',
     'check "Option B" !a { @all { export=active } }',
     '-->',
   ].join('\n')
   // Parse once so we can reuse the generated IDs.
-  const seed = resolveConfigOptionsTags(note)
+  const seed = resolveRecipeOverridesTags(note)
   const [first, second] = seed.questions
   // Ensure the marker ordering is intact before asserting.
-  assert.ok(first, 'expected a first config options question')
-  assert.ok(second, 'expected a second config options question')
+  assert.ok(first, 'expected a first recipe overrides question')
+  assert.ok(second, 'expected a second recipe overrides question')
   // Select both options so exclusions have to resolve.
   const answers = {
     [first.id]: [first.options[0]!.id],
     [second.id]: [second.options[0]!.id],
   }
   // Re-resolve answers so global exclusions apply.
-  const resolved = resolveConfigOptionsTags(note, answers).questions
+  const resolved = resolveRecipeOverridesTags(note, answers).questions
   const resolvedFirst = resolved.find((entry) => entry.id === first.id)
   const resolvedSecond = resolved.find((entry) => entry.id === second.id)
   // Verify both questions resolved as expected.
@@ -43,21 +43,39 @@ test('global explicit ids exclude options across questions', () => {
   assert.equal(resolvedSecond?.answer.includes(second.options[0]!.id), true)
 })
 
+test('legacy config-options markers stay supported silently', () => {
+  // Build a note using the legacy marker keyword.
+  const legacyNote = [
+    '<!-- config-options',
+    'q "Legacy Marker"',
+    'radio "On" * { @all { export=active } }',
+    'radio "Off" { @all { export=disabled } }',
+    '-->',
+  ].join('\n')
+  // Resolve the note to ensure legacy markers still parse for compatibility.
+  const { questions, instructions } = resolveRecipeOverridesTags(legacyNote)
+  // Legacy marker should resolve one question with the expected prompt.
+  assert.equal(questions.length, 1)
+  assert.equal(questions[0]?.prompt, 'Legacy Marker')
+  // Single-select defaults should activate exactly one selector block.
+  assert.equal(instructions.length, 1)
+})
+
 test('implicit numeric tokens remain question-scoped', () => {
   // Build a note with a numeric exclusion in the second question.
   const note = [
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "First Question"',
     'check "First Option" { @all { export=active } }',
     '-->',
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Second Question"',
     'check "Second Option 1" { @all { export=active } }',
     'check "Second Option 2" !1 { @all { export=active } }',
     '-->',
   ].join('\n')
   // Resolve the parsed questions to inspect exclusions.
-  const { questions } = resolveConfigOptionsTags(note)
+  const { questions } = resolveRecipeOverridesTags(note)
   const first = questions[0]
   const second = questions[1]
   // Guard against missing parsed content.
@@ -74,29 +92,29 @@ test('implicit numeric tokens remain question-scoped', () => {
 test('only constraints keep the preferred option and prune explicit ids within referenced questions', () => {
   // Build a note with a defaults question that references explicit tokens elsewhere.
   const note = [
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Defaults"',
     'radio "Lategame" id=lategame ^q1 ^q3 { @all { export=active } }',
     'radio "Endgame" id=endgame { @all { export=active } }',
     '-->',
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "AAA"',
     'radio "Option 1" id=q1 * { @all { export=active } }',
     'radio "Option 2" id=q2 { @all { export=active } }',
     '-->',
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "BBB"',
     'radio "Option 3" id=q3 * { @all { export=active } }',
     'radio "Option 4" id=q4 { @all { export=active } }',
     '-->',
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "CCC"',
     'check "Option 5" id=q5 * { @all { export=active } }',
     'check "Option 6" id=q6 { @all { export=active } }',
     '-->',
   ].join('\n')
   // Parse once so we can reuse the generated IDs.
-  const seed = resolveConfigOptionsTags(note)
+  const seed = resolveRecipeOverridesTags(note)
   const [defaults, first, second, third] = seed.questions
   // Guard against missing parsed content.
   assert.ok(defaults, 'expected a defaults question')
@@ -118,7 +136,7 @@ test('only constraints keep the preferred option and prune explicit ids within r
     [third.id]: [q5Id],
   }
   // Re-resolve answers so the "only" constraint can prune selections.
-  const resolved = resolveConfigOptionsTags(note, answers, lategameId).questions
+  const resolved = resolveRecipeOverridesTags(note, answers, lategameId).questions
   const resolvedDefaults = resolved.find((entry) => entry.id === defaults.id)
   const resolvedFirst = resolved.find((entry) => entry.id === first.id)
   const resolvedSecond = resolved.find((entry) => entry.id === second.id)
@@ -140,18 +158,18 @@ test('only constraints keep the preferred option and prune explicit ids within r
 test('only numeric constraints stay scoped to the current question', () => {
   // Build a note with a numeric-only constraint in the first question.
   const note = [
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Local Only"',
     'check "Local A" ^1 { @all { export=active } }',
     'check "Local B" { @all { export=active } }',
     '-->',
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Global Explicit"',
     'check "Global A" id=globalA { @all { export=active } }',
     '-->',
   ].join('\n')
   // Parse once so we can reuse the generated IDs.
-  const seed = resolveConfigOptionsTags(note)
+  const seed = resolveRecipeOverridesTags(note)
   const [local, global] = seed.questions
   // Guard against missing parsed content.
   assert.ok(local, 'expected a local-only question')
@@ -165,7 +183,7 @@ test('only numeric constraints stay scoped to the current question', () => {
     [global.id]: [globalAId],
   }
   // Re-resolve answers so the numeric-only constraint can prune selections.
-  const resolved = resolveConfigOptionsTags(note, answers, localAId).questions
+  const resolved = resolveRecipeOverridesTags(note, answers, localAId).questions
   const resolvedLocal = resolved.find((entry) => entry.id === local.id)
   const resolvedGlobal = resolved.find((entry) => entry.id === global.id)
   // The "only 1" constraint should remove the second local option.
@@ -178,24 +196,24 @@ test('only numeric constraints stay scoped to the current question', () => {
 test('only constraints resolve when id appears after the default marker', () => {
   // Build a note where ids are declared after the default marker.
   const note = [
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Defaults"',
     'cb "Lategame" * id=lategame ^marius_open ^fwh_no { @all { export=active } }',
     'cb "Endgame" id=endgame ^marius_finished ^fwh_yes16 { @all { export=active } }',
     '-->',
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Marius?"',
     'rb "No" * id=marius_open { @all { export=active } }',
     'rb "Yes" id=marius_finished { @all { export=active } }',
     '-->',
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Faction Wars?"',
     'rb "No" * id=fwh_no { @all { export=active } }',
     'rb "Yes" id=fwh_yes16 { @all { export=active } }',
     '-->',
   ].join('\n')
   // Parse once so we can reuse the generated IDs.
-  const seed = resolveConfigOptionsTags(note)
+  const seed = resolveRecipeOverridesTags(note)
   const [defaults, marius, fwh] = seed.questions
   // Guard against missing parsed content.
   assert.ok(defaults, 'expected defaults question')
@@ -215,7 +233,7 @@ test('only constraints resolve when id appears after the default marker', () => 
     [fwh.id]: [fwhYesId],
   }
   // Re-resolve with the Lategame preference so allow-lists can apply.
-  const resolved = resolveConfigOptionsTags(note, answers, lategameId).questions
+  const resolved = resolveRecipeOverridesTags(note, answers, lategameId).questions
   const resolvedDefaults = resolved.find((entry) => entry.id === defaults.id)
   const resolvedMarius = resolved.find((entry) => entry.id === marius.id)
   const resolvedFwh = resolved.find((entry) => entry.id === fwh.id)
@@ -233,23 +251,23 @@ test('only constraints resolve when id appears after the default marker', () => 
 test('set constraints can switch single-select answers across questions', () => {
   // Build a note where one option presets two radio questions.
   const note = [
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Preset"',
     'check "Endgame preset" id=preset +marius_yes +fwh_yes { @all { export=active } }',
     '-->',
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Marius"',
     'radio "No" * id=marius_no { @all { export=active } }',
     'radio "Yes" id=marius_yes { @all { export=active } }',
     '-->',
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Faction Wars"',
     'radio "No" * id=fwh_no { @all { export=active } }',
     'radio "Yes" id=fwh_yes { @all { export=active } }',
     '-->',
   ].join('\n')
   // Parse once so we can reuse scoped ids.
-  const seed = resolveConfigOptionsTags(note)
+  const seed = resolveRecipeOverridesTags(note)
   const [preset, marius, fwh] = seed.questions
   assert.ok(preset, 'expected preset question')
   assert.ok(marius, 'expected Marius question')
@@ -261,7 +279,7 @@ test('set constraints can switch single-select answers across questions', () => 
   const fwhYesId = fwh.options[1]!.id
   // Select only the preset and let directives propagate.
   const answers = { [preset.id]: [presetId] }
-  const resolved = resolveConfigOptionsTags(note, answers, presetId).questions
+  const resolved = resolveRecipeOverridesTags(note, answers, presetId).questions
   const resolvedMarius = resolved.find((entry) => entry.id === marius.id)
   const resolvedFwh = resolved.find((entry) => entry.id === fwh.id)
   // The preset should switch both radio questions to "Yes".
@@ -274,17 +292,17 @@ test('set constraints can switch single-select answers across questions', () => 
 test('unset constraints can remove selected options across questions', () => {
   // Build a note where one option disables another selected checkbox.
   const note = [
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Parent"',
     'check "Disable child" id=parent -child { @all { export=active } }',
     '-->',
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Child"',
     'check "Child option" * id=child { @all { export=active } }',
     '-->',
   ].join('\n')
   // Parse once so we can reuse scoped ids.
-  const seed = resolveConfigOptionsTags(note)
+  const seed = resolveRecipeOverridesTags(note)
   const [parent, child] = seed.questions
   assert.ok(parent, 'expected parent question')
   assert.ok(child, 'expected child question')
@@ -295,7 +313,7 @@ test('unset constraints can remove selected options across questions', () => {
     [parent.id]: [parentId],
     [child.id]: [childId],
   }
-  const resolved = resolveConfigOptionsTags(note, answers, parentId).questions
+  const resolved = resolveRecipeOverridesTags(note, answers, parentId).questions
   const resolvedParent = resolved.find((entry) => entry.id === parent.id)
   const resolvedChild = resolved.find((entry) => entry.id === child.id)
   // Parent stays selected while the child is explicitly unset.
@@ -306,21 +324,21 @@ test('unset constraints can remove selected options across questions', () => {
 test('plus constraints no longer enforce only semantics', () => {
   // Build a note where "+1" should behave like set, not allow-list exclusion.
   const note = [
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Local"',
     'check "A" +1 { @all { export=active } }',
     'check "B" { @all { export=active } }',
     '-->',
   ].join('\n')
   // Parse once so we can reuse scoped ids.
-  const seed = resolveConfigOptionsTags(note)
+  const seed = resolveRecipeOverridesTags(note)
   const [local] = seed.questions
   assert.ok(local, 'expected local question')
   const aId = local.options[0]!.id
   const bId = local.options[1]!.id
   // Select both options and keep A preferred.
   const answers = { [local.id]: [aId, bId] }
-  const resolved = resolveConfigOptionsTags(note, answers, aId).questions
+  const resolved = resolveRecipeOverridesTags(note, answers, aId).questions
   const resolvedLocal = resolved.find((entry) => entry.id === local.id)
   // Both answers should remain selected because "+" now means set.
   assert.ok(resolvedLocal?.answer.includes(aId))
@@ -330,29 +348,29 @@ test('plus constraints no longer enforce only semantics', () => {
 test('single-select groups pick a compatible fallback when excluded', () => {
   // Build a note where a second question excludes a radio option.
   const note = [
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "First Question"',
     'radio "Choice A" id=a { @all { export=active } }',
     'radio "Choice B" id=b { @all { export=active } }',
     '-->',
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Second Question"',
     'check "Block A" !a { @all { export=active } }',
     '-->',
   ].join('\n')
   // Parse once so we can reuse the generated IDs.
-  const seed = resolveConfigOptionsTags(note)
+  const seed = resolveRecipeOverridesTags(note)
   const [first, second] = seed.questions
   // Ensure the marker ordering is intact before asserting.
-  assert.ok(first, 'expected a first config options question')
-  assert.ok(second, 'expected a second config options question')
+  assert.ok(first, 'expected a first recipe overrides question')
+  assert.ok(second, 'expected a second recipe overrides question')
   // Select the excluded radio option plus the blocker.
   const answers = {
     [first.id]: [first.options[0]!.id],
     [second.id]: [second.options[0]!.id],
   }
   // Re-resolve answers so exclusions and fallbacks apply.
-  const resolved = resolveConfigOptionsTags(note, answers).questions
+  const resolved = resolveRecipeOverridesTags(note, answers).questions
   const resolvedFirst = resolved.find((entry) => entry.id === first.id)
   const resolvedSecond = resolved.find((entry) => entry.id === second.id)
   // Verify both questions resolved as expected.
@@ -369,22 +387,22 @@ test('single-select groups pick a compatible fallback when excluded', () => {
 test('preferred selections displace excluded answers across questions', () => {
   // Build a note with cross-question radio exclusions.
   const note = [
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Early Question"',
     'radio "`No`" id=midgame !lategame1 { @all { export=active } }',
     'radio "`Yes`" * { @all { export=active } }',
     '-->',
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Late Question"',
     'radio "`Yes`" id=lategame1 !midgame { @all { export=active } }',
     '-->',
   ].join('\n')
   // Parse once so we can reuse the generated IDs.
-  const seed = resolveConfigOptionsTags(note)
+  const seed = resolveRecipeOverridesTags(note)
   const [first, second] = seed.questions
   // Ensure the marker ordering is intact before asserting.
-  assert.ok(first, 'expected a first config options question')
-  assert.ok(second, 'expected a second config options question')
+  assert.ok(first, 'expected a first recipe overrides question')
+  assert.ok(second, 'expected a second recipe overrides question')
   const midgameId = first.options[0]!.id
   const earlyDefaultId = first.options[1]!.id
   const lategameId = second.options[0]!.id
@@ -394,7 +412,7 @@ test('preferred selections displace excluded answers across questions', () => {
     [second.id]: [lategameId],
   }
   // Re-resolve answers so the preferred option wins.
-  const resolved = resolveConfigOptionsTags(note, answers, lategameId).questions
+  const resolved = resolveRecipeOverridesTags(note, answers, lategameId).questions
   const resolvedFirst = resolved.find((entry) => entry.id === first.id)
   const resolvedSecond = resolved.find((entry) => entry.id === second.id)
   // Verify the late option remains selected.
@@ -407,23 +425,23 @@ test('preferred selections displace excluded answers across questions', () => {
 test('preferred selections survive when labels repeat across questions', () => {
   // Build a note where identical labels would collide without scoped ids.
   const note = [
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Early Question"',
     'radio "`No`" id=midgame !lategame1 { @all { export=active } }',
     'radio "`Yes`" * { @all { export=active } }',
     '-->',
-    '<!-- config-options',
+    '<!-- recipe-overrides',
     'q "Late Question"',
     'radio "`No`" * { @all { export=active } }',
     'radio "`Yes`" id=lategame1 !midgame { @all { export=active } }',
     '-->',
   ].join('\n')
   // Parse once so we can reuse the generated IDs.
-  const seed = resolveConfigOptionsTags(note)
+  const seed = resolveRecipeOverridesTags(note)
   const [first, second] = seed.questions
   // Ensure the marker ordering is intact before asserting.
-  assert.ok(first, 'expected a first config options question')
-  assert.ok(second, 'expected a second config options question')
+  assert.ok(first, 'expected a first recipe overrides question')
+  assert.ok(second, 'expected a second recipe overrides question')
   const midgameId = first.options[0]!.id
   const earlyDefaultId = first.options[1]!.id
   const lateDefaultId = second.options[0]!.id
@@ -434,7 +452,7 @@ test('preferred selections survive when labels repeat across questions', () => {
     [second.id]: [lategameId],
   }
   // Re-resolve answers so the preferred option wins.
-  const resolved = resolveConfigOptionsTags(note, answers, lategameId).questions
+  const resolved = resolveRecipeOverridesTags(note, answers, lategameId).questions
   const resolvedFirst = resolved.find((entry) => entry.id === first.id)
   const resolvedSecond = resolved.find((entry) => entry.id === second.id)
   // Verify the early conflicting choice is displaced.
@@ -449,18 +467,18 @@ test('preferred selections survive when labels repeat across questions', () => {
 test('marker options can request wholeline layout and column overrides', () => {
   // Build a note with marker options before the question header.
   const note = [
-    '<!-- config-options [wholeline columns=3]',
+    '<!-- recipe-overrides [wholeline columns=3]',
     'q "Wide Question"',
     'radio "Yes" * { @all { export=active } }',
     '-->',
   ].join('\n')
   // Parse the note so we can inspect the layout metadata.
-  const { questions } = resolveConfigOptionsTags(note)
+  const { questions } = resolveRecipeOverridesTags(note)
   const question = questions[0]
   // Guard against missing parsed content.
   assert.ok(question, 'expected the question to be parsed')
   // Confirm the marker layout option was captured.
-  assert.equal(question?.layout, NOTE_CONFIG_OPTIONS_LAYOUT_WHOLELINE)
+  assert.equal(question?.layout, NOTE_RECIPE_OVERRIDES_LAYOUT_WHOLELINE)
   // Confirm the column override was captured.
   assert.equal(question?.layoutColumns, 3)
 })
@@ -468,18 +486,18 @@ test('marker options can request wholeline layout and column overrides', () => {
 test('marker options default columns to auto-fit', () => {
   // Build a note without column overrides.
   const note = [
-    '<!-- config-options [wholeline]',
+    '<!-- recipe-overrides [wholeline]',
     'q "Wide Question"',
     'radio "Yes" * { @all { export=active } }',
     '-->',
   ].join('\n')
   // Parse the note so we can inspect defaults.
-  const { questions } = resolveConfigOptionsTags(note)
+  const { questions } = resolveRecipeOverridesTags(note)
   const question = questions[0]
   // Guard against missing parsed content.
   assert.ok(question, 'expected the question to be parsed')
   // Confirm the default column count remains auto-fit.
-  assert.equal(question?.layoutColumns, NOTE_CONFIG_OPTIONS_LAYOUT_COLUMNS_DEFAULT)
+  assert.equal(question?.layoutColumns, NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT)
 })
 
 export {}

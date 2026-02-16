@@ -1,14 +1,14 @@
 /**
- * noteConfigOptions.ts
+ * noteRecipeOverrides.ts
  *
- * Parses in-note config options markers and resolves selector-based overrides
- * that drive config export-mode overrides.
+ * Parses in-note recipe overrides markers and resolves selector-based overrides
+ * that drive recipe export-mode overrides.
  */
-import type { BuilderConfig, SellfileExportMode, Star, SubstatTargetTable } from './hsfBuilder'
+import type { BuilderRecipe, SellfileExportMode, Star, SubstatTargetTable } from './hsfBuilder'
 import { clampAggregateRollValue } from './aggregateRollState'
 import { RARITY_AUTO_LABEL } from './constants'
 import { TAG_TOKEN_REGEX, normalizeTagValue } from './tagHelpers'
-import { cloneBuilderConfig } from './multiEditDraft'
+import { cloneBuilderRecipe } from './multiEditDraft'
 import { cloneSubstatTargets } from './substatTargets'
 import {
   type LevelMilestone,
@@ -27,28 +27,28 @@ import {
   normalizeKeepMode,
   normalizeLevelWindow,
   type AutoRaritySupplementsThreshold,
-} from './configNormalization'
+} from './recipeNormalization'
 import { pickAutoRaritySupplementsThreshold } from './raritySupplements'
 
 // Supported group types in the note markers.
 export type NoteQuestionGroupType = 'single' | 'multi'
 
 // Default layout for question cards when no marker option is supplied.
-export const NOTE_CONFIG_OPTIONS_LAYOUT_DEFAULT = 'default' as const
+export const NOTE_RECIPE_OVERRIDES_LAYOUT_DEFAULT = 'default' as const
 // Marker option that expands a question card to span the full line.
-export const NOTE_CONFIG_OPTIONS_LAYOUT_WHOLELINE = 'wholeline' as const
-// Supported layout tokens parsed from config-options marker options.
-export const NOTE_CONFIG_OPTIONS_MARKER_LAYOUT_OPTIONS = [NOTE_CONFIG_OPTIONS_LAYOUT_WHOLELINE] as const
+export const NOTE_RECIPE_OVERRIDES_LAYOUT_WHOLELINE = 'wholeline' as const
+// Supported layout tokens parsed from recipe-overrides marker options.
+export const NOTE_RECIPE_OVERRIDES_MARKER_LAYOUT_OPTIONS = [NOTE_RECIPE_OVERRIDES_LAYOUT_WHOLELINE] as const
 // Marker option key used to override the answer grid column count.
-export const NOTE_CONFIG_OPTIONS_MARKER_COLUMNS_KEY = 'columns' as const
+export const NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY = 'columns' as const
 // Default column count for wholeline option grids (0 = auto-fit).
-export const NOTE_CONFIG_OPTIONS_LAYOUT_COLUMNS_DEFAULT = 0
+export const NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT = 0
 // Layout choices exposed on parsed question definitions.
 export type NoteQuestionLayout =
-  | typeof NOTE_CONFIG_OPTIONS_LAYOUT_DEFAULT
-  | (typeof NOTE_CONFIG_OPTIONS_MARKER_LAYOUT_OPTIONS)[number]
+  | typeof NOTE_RECIPE_OVERRIDES_LAYOUT_DEFAULT
+  | (typeof NOTE_RECIPE_OVERRIDES_MARKER_LAYOUT_OPTIONS)[number]
 
-export type ConfigOptionsSelector =
+export type RecipeOverridesSelector =
   | { kind: 'all' }
   | { kind: 'tagged' }
   | { kind: 'untagged' }
@@ -58,10 +58,10 @@ export type ConfigOptionsSelector =
   | { kind: 'minRolls'; op: TagOverrideOp; value: number }
   | { kind: 'minSubstats'; op: TagOverrideOp; value: number }
   | { kind: 'flex'; value: boolean }
-  | { kind: 'and'; left: ConfigOptionsSelector; right: ConfigOptionsSelector }
-  | { kind: 'or'; left: ConfigOptionsSelector; right: ConfigOptionsSelector }
+  | { kind: 'and'; left: RecipeOverridesSelector; right: RecipeOverridesSelector }
+  | { kind: 'or'; left: RecipeOverridesSelector; right: RecipeOverridesSelector }
 
-export type ConfigOptionsOperation =
+export type RecipeOverridesOperation =
   | { kind: 'exportMode'; action: 'active' | 'disabled' | 'toggle' }
   | { kind: 'rank'; value: RankCode }
   | { kind: 'rarity'; mode: 'auto' | 'code'; code?: RarityCode }
@@ -77,9 +77,9 @@ export type ConfigOptionsOperation =
   | { kind: 'minimaAnyRank'; value: Star }
   | { kind: 'minimaTarget'; star: Star; variant: StatVariant; value: number }
 
-export type ConfigOptionsSelectorBlock = {
-  selector: ConfigOptionsSelector
-  operations: ConfigOptionsOperation[]
+export type RecipeOverridesSelectorBlock = {
+  selector: RecipeOverridesSelector
+  operations: RecipeOverridesOperation[]
 }
 
 // A single answer option for a question.
@@ -88,7 +88,7 @@ export type NoteQuestionOption = {
   label: string
   // Optional second string rendered as the value column in two-column layouts.
   detail: string | null
-  blocks: ConfigOptionsSelectorBlock[]
+  blocks: RecipeOverridesSelectorBlock[]
   isDefault: boolean
   token: string
   setOptionIds: string[]
@@ -99,12 +99,12 @@ export type NoteQuestionOption = {
 
 // Selector blocks that apply when no options are selected.
 export type NoteQuestionFallback = {
-  blocks: ConfigOptionsSelectorBlock[]
+  blocks: RecipeOverridesSelectorBlock[]
 }
 
 // Selector blocks that apply when a group has no selections.
 export type NoteQuestionGroupFallback = {
-  blocks: ConfigOptionsSelectorBlock[]
+  blocks: RecipeOverridesSelectorBlock[]
 }
 
 // Group metadata for a single question.
@@ -130,40 +130,52 @@ export type NoteQuestionDefinition = {
   answer: string[]
 }
 
-// Autosave key for storing config options answers (session-only).
-export const NOTE_CONFIG_OPTIONS_ANSWERS_KEY = 'NoteConfigOptionsAnswers'
-// Autosave key for disabling config options parsing (session-only).
-export const NOTE_CONFIG_OPTIONS_DISABLED_KEY = 'NoteConfigOptionsDisabled'
-// Legacy autosave key used by older versions (kept for migrations).
-export const LEGACY_NOTE_CONFIG_OPTIONS_ANSWERS_KEY = `Note${'Question'}${'naire'}Answers`
+// Autosave key for storing recipe overrides answers (session-only).
+export const NOTE_RECIPE_OVERRIDES_ANSWERS_KEY = 'NoteRecipeOverridesAnswers'
+// Autosave key for disabling recipe overrides parsing (session-only).
+export const NOTE_RECIPE_OVERRIDES_DISABLED_KEY = 'NoteRecipeOverridesDisabled'
+// Marker keyword for recipe overrides in note comments.
+export const NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD = 'recipe-overrides'
+// Keep parsing the legacy marker silently for backward compatibility.
+const NOTE_RECIPE_OVERRIDES_LEGACY_MARKER_KEYWORD = 'config-options'
+// Accept both marker keywords without surfacing legacy wording in the UI.
+export const NOTE_RECIPE_OVERRIDES_MARKER_KEYWORDS = [
+  NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD,
+  NOTE_RECIPE_OVERRIDES_LEGACY_MARKER_KEYWORD,
+] as const
+// Share a single regex fragment so parser and UI marker detection stay in sync.
+export const NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN = NOTE_RECIPE_OVERRIDES_MARKER_KEYWORDS.join('|')
 
 // Stored answers keyed by question ID.
-export type NoteConfigOptionsAnswers = Record<string, string[]>
+export type NoteRecipeOverridesAnswers = Record<string, string[]>
 
 // Selector blocks applied in source order.
-export type ConfigOptionsInstructions = ConfigOptionsSelectorBlock[]
+export type RecipeOverridesInstructions = RecipeOverridesSelectorBlock[]
 
-export type ConfigOptionsResolution = {
+export type RecipeOverridesResolution = {
   questions: NoteQuestionDefinition[]
-  instructions: ConfigOptionsInstructions
+  instructions: RecipeOverridesInstructions
 }
 
-// Config impact summary for Apply Tags flow.
-export type ConfigOptionsExportModeResolution = {
-  instructions: ConfigOptionsInstructions
+// Recipe impact summary for Apply Tags flow.
+export type RecipeOverridesExportModeResolution = {
+  instructions: RecipeOverridesInstructions
   modes: SellfileExportMode[]
   overriddenIndices: number[]
 }
 
-// Match config-options markers in note comments.
-const QUESTION_MARKER_REGEX = /<!--\s*config-options\b[\s\S]*?-->/gi
+// Match recipe-overrides markers and legacy config-options markers in note comments.
+const QUESTION_MARKER_REGEX = new RegExp(
+  `<!--\\s*(?:${NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN})\\b[\\s\\S]*?-->`,
+  'gi',
+)
 
-// Token grammar matches config tag tokens so ids/exclusions stay aligned.
+// Token grammar matches recipe tag tokens so ids/exclusions stay aligned.
 const QUESTION_TOKEN_REGEX = TAG_TOKEN_REGEX
 // Leading asterisk marks default answers.
 const QUESTION_OPTION_DEFAULT_MARKER = '*'
 // Known layout tokens extracted from marker options.
-const QUESTION_LAYOUT_TOKEN_SET = new Set<string>(NOTE_CONFIG_OPTIONS_MARKER_LAYOUT_OPTIONS)
+const QUESTION_LAYOUT_TOKEN_SET = new Set<string>(NOTE_RECIPE_OVERRIDES_MARKER_LAYOUT_OPTIONS)
 
 type TokenKind = 'word' | 'string' | 'symbol'
 
@@ -361,15 +373,15 @@ const clampMinimaValue = (value: number): number => {
   return Math.max(0, Math.round(value))
 }
 
-const resolveSelectedSubstatCount = (cfg: Pick<BuilderConfig, 'substatsV'>): number => (
+const resolveSelectedSubstatCount = (cfg: Pick<BuilderRecipe, 'substatsV'>): number => (
   Array.isArray(cfg.substatsV) ? cfg.substatsV.length : 0
 )
 
-const resolveLockedSubstatCount = (cfg: Pick<BuilderConfig, 'fixedSubstatsV'>): number => (
+const resolveLockedSubstatCount = (cfg: Pick<BuilderRecipe, 'fixedSubstatsV'>): number => (
   Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV.length : 0
 )
 
-const resolveEffectiveMinCount = (cfg: Pick<BuilderConfig, 'autoMinCount' | 'minCount' | 'substatsV' | 'fixedSubstatsV'>): number => {
+const resolveEffectiveMinCount = (cfg: Pick<BuilderRecipe, 'autoMinCount' | 'minCount' | 'substatsV' | 'fixedSubstatsV'>): number => {
   const selected = resolveSelectedSubstatCount(cfg)
   const locked = resolveLockedSubstatCount(cfg)
   if (cfg.autoMinCount) {
@@ -380,7 +392,7 @@ const resolveEffectiveMinCount = (cfg: Pick<BuilderConfig, 'autoMinCount' | 'min
 }
 
 const resolveMinCountOverride = (
-  cfg: Pick<BuilderConfig, 'substatsV' | 'fixedSubstatsV'>,
+  cfg: Pick<BuilderRecipe, 'substatsV' | 'fixedSubstatsV'>,
   value: number,
 ): 0 | 1 | 2 | 3 | 4 => {
   const selected = resolveSelectedSubstatCount(cfg)
@@ -422,8 +434,8 @@ const parseMinimaField = (field: string): MinimaFieldParse | null => {
   return { kind: 'stat', star, statKey }
 }
 
-// Tokenize config options blocks for the parser.
-const tokenizeConfigOptions = (input: string): Token[] => {
+// Tokenize recipe overrides blocks for the parser.
+const tokenizeRecipeOverrides = (input: string): Token[] => {
   const tokens: Token[] = []
   let idx = 0
   while (idx < input.length) {
@@ -583,14 +595,14 @@ const parseQuestionMarkerOptions = (
   // Default to the standard layout unless a marker option list appears.
   if (!token || token.kind !== 'symbol' || token.value !== '[') {
     return {
-      layout: NOTE_CONFIG_OPTIONS_LAYOUT_DEFAULT,
-      columns: NOTE_CONFIG_OPTIONS_LAYOUT_COLUMNS_DEFAULT,
+      layout: NOTE_RECIPE_OVERRIDES_LAYOUT_DEFAULT,
+      columns: NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT,
     }
   }
   // Consume the opening bracket before reading option tokens.
   cursor.next()
-  let layout: NoteQuestionLayout = NOTE_CONFIG_OPTIONS_LAYOUT_DEFAULT
-  let columns = NOTE_CONFIG_OPTIONS_LAYOUT_COLUMNS_DEFAULT
+  let layout: NoteQuestionLayout = NOTE_RECIPE_OVERRIDES_LAYOUT_DEFAULT
+  let columns = NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT
   while (true) {
     const next = cursor.peek()
     // Stop if we hit the end of the token stream.
@@ -617,7 +629,7 @@ const parseQuestionMarkerOptions = (
         continue
       }
       // Parse column overrides when the marker option key is present.
-      if (word.toLowerCase() === NOTE_CONFIG_OPTIONS_MARKER_COLUMNS_KEY) {
+      if (word.toLowerCase() === NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY) {
         cursor.next()
         // Require an equals sign before the numeric value.
         if (!cursor.consumeSymbol('=')) continue
@@ -640,9 +652,9 @@ const parseQuestionMarkerOptions = (
   return { layout, columns }
 }
 
-const parseSelectorTokens = (tokens: Token[]): ConfigOptionsSelector | null => {
+const parseSelectorTokens = (tokens: Token[]): RecipeOverridesSelector | null => {
   const cursor = new TokenCursor(tokens)
-  const parseTerm = (): ConfigOptionsSelector | null => {
+  const parseTerm = (): RecipeOverridesSelector | null => {
     const token = cursor.peek()
     if (!token || token.kind !== 'word') return null
     const keyword = token.value.toLowerCase()
@@ -749,7 +761,7 @@ const parseSelectorTokens = (tokens: Token[]): ConfigOptionsSelector | null => {
     return null
   }
 
-  const parseAnd = (): ConfigOptionsSelector | null => {
+  const parseAnd = (): RecipeOverridesSelector | null => {
     let left = parseTerm()
     if (!left) return null
     while (true) {
@@ -765,7 +777,7 @@ const parseSelectorTokens = (tokens: Token[]): ConfigOptionsSelector | null => {
     return left
   }
 
-  const parseOr = (): ConfigOptionsSelector | null => {
+  const parseOr = (): RecipeOverridesSelector | null => {
     let left = parseAnd()
     if (!left) return null
     while (true) {
@@ -786,8 +798,8 @@ const parseSelectorTokens = (tokens: Token[]): ConfigOptionsSelector | null => {
   return parsed
 }
 
-const parseOperations = (cursor: TokenCursor, endSymbol: string): ConfigOptionsOperation[] => {
-  const operations: ConfigOptionsOperation[] = []
+const parseOperations = (cursor: TokenCursor, endSymbol: string): RecipeOverridesOperation[] => {
+  const operations: RecipeOverridesOperation[] = []
   while (true) {
     const token = cursor.peek()
     if (!token) break
@@ -864,7 +876,7 @@ const parseOperations = (cursor: TokenCursor, endSymbol: string): ConfigOptionsO
     if (field === 'rarity') {
       const parsed = parseRarityOverride(valueRaw, op)
       if (parsed) {
-        const operation: ConfigOptionsOperation = parsed.code != null
+        const operation: RecipeOverridesOperation = parsed.code != null
           ? { kind: 'rarity', mode: parsed.mode, code: parsed.code }
           : { kind: 'rarity', mode: parsed.mode }
         operations.push(operation)
@@ -968,8 +980,8 @@ type ParsedQuestionOption = {
   label: string
   // Optional second string that becomes the value column in UI.
   detail: string | null
-  blocks: ConfigOptionsSelectorBlock[]
-  fallbackBlocks: ConfigOptionsSelectorBlock[]
+  blocks: RecipeOverridesSelectorBlock[]
+  fallbackBlocks: RecipeOverridesSelectorBlock[]
   isDefault: boolean
   explicitToken: string | null
   implicitToken: string | null
@@ -992,7 +1004,7 @@ type ParsedQuestionDefinition = {
 }
 
 // Parse a single selector block after a leading "@".
-function parseSelectorBlock(cursor: TokenCursor): ConfigOptionsSelectorBlock | null {
+function parseSelectorBlock(cursor: TokenCursor): RecipeOverridesSelectorBlock | null {
   // Collect selector tokens until the selector block opens.
   const selectorTokens: Token[] = []
   while (true) {
@@ -1022,16 +1034,16 @@ function parseSelectorBlock(cursor: TokenCursor): ConfigOptionsSelectorBlock | n
 }
 
 type ParsedGroupBlocks = {
-  blocks: ConfigOptionsSelectorBlock[]
-  fallbackBlocks: ConfigOptionsSelectorBlock[]
+  blocks: RecipeOverridesSelectorBlock[]
+  fallbackBlocks: RecipeOverridesSelectorBlock[]
 }
 
 // Parse a group's selector blocks plus optional group-level fallback blocks.
 function parseGroupBlocks(cursor: TokenCursor): ParsedGroupBlocks {
   // Track selector blocks in source order.
-  const blocks: ConfigOptionsSelectorBlock[] = []
+  const blocks: RecipeOverridesSelectorBlock[] = []
   // Track group-level fallback blocks in source order.
-  const fallbackBlocks: ConfigOptionsSelectorBlock[] = []
+  const fallbackBlocks: RecipeOverridesSelectorBlock[] = []
   while (true) {
     const token = cursor.peek()
     // Exit when the token stream ends unexpectedly.
@@ -1067,8 +1079,8 @@ function parseGroupBlocks(cursor: TokenCursor): ParsedGroupBlocks {
   return { blocks, fallbackBlocks }
 }
 
-const parseSelectorBlocks = (cursor: TokenCursor): ConfigOptionsSelectorBlock[] => {
-  const blocks: ConfigOptionsSelectorBlock[] = []
+const parseSelectorBlocks = (cursor: TokenCursor): RecipeOverridesSelectorBlock[] => {
+  const blocks: RecipeOverridesSelectorBlock[] = []
   while (true) {
     const token = cursor.peek()
     // Exit when the token stream ends unexpectedly.
@@ -1274,9 +1286,9 @@ const readTokenList = (cursor: TokenCursor, sink: string[]): void => {
 }
 
 const parseQuestionMarker = (inner: string): ParsedQuestionDefinition | null => {
-  const tokens = tokenizeConfigOptions(inner)
+  const tokens = tokenizeRecipeOverrides(inner)
   const cursor = new TokenCursor(tokens)
-  if (!cursor.consumeWord('config-options')) return null
+  if (!cursor.consumeWord(...NOTE_RECIPE_OVERRIDES_MARKER_KEYWORDS)) return null
   // Capture marker-level layout hints before reading the question prompt.
   const markerOptions = parseQuestionMarkerOptions(cursor)
   const questionToken = cursor.consumeWord('q', 'question')
@@ -1285,7 +1297,7 @@ const parseQuestionMarker = (inner: string): ParsedQuestionDefinition | null => 
   if (!promptToken) return null
   const prompt = promptToken.value
   const parsedOptions: ParsedQuestionOption[] = []
-  let fallbackBlocks: ConfigOptionsSelectorBlock[] | null = null
+  let fallbackBlocks: RecipeOverridesSelectorBlock[] | null = null
   while (true) {
     const token = cursor.peek()
     if (!token) break
@@ -1546,7 +1558,7 @@ const buildQuestionGroups = (
 // Resolve a parsed question into a fully-typed question definition.
 const buildResolvedQuestion = (
   entry: ParsedQuestionEntry,
-  answers: NoteConfigOptionsAnswers | null | undefined,
+  answers: NoteRecipeOverridesAnswers | null | undefined,
   globalExplicitTokenMap: Map<string, string>,
   onlyExclusionsById: Map<string, string[]>,
 ): NoteQuestionDefinition => {
@@ -1921,10 +1933,10 @@ const resolveQuestionAnswer = (
   return applyQuestionSelectionRules(next, question)
 }
 
-// Parse config options markers from note text.
-export const parseNoteConfigOptions = (
+// Parse recipe overrides markers from note text.
+export const parseNoteRecipeOverrides = (
   note: string,
-  answers?: NoteConfigOptionsAnswers | null,
+  answers?: NoteRecipeOverridesAnswers | null,
   preferredId?: string,
 ): NoteQuestionDefinition[] => {
   // Short-circuit when no note is present.
@@ -1964,10 +1976,10 @@ export const parseNoteConfigOptions = (
   return applyGlobalOptionExclusions(resolved, preferredId)
 }
 
-// Build a stable signature for the config options section of a note.
-export const buildNoteConfigOptionsSignature = (note: string): string => {
+// Build a stable signature for the recipe overrides section of a note.
+export const buildNoteRecipeOverridesSignature = (note: string): string => {
   // Parse the questions using the same parser as the UI.
-  const questions = parseNoteConfigOptions(note)
+  const questions = parseNoteRecipeOverrides(note)
   // Preserve marker order plus layout metadata so formatting changes still register.
   const signature = questions.map((question) => [question.id, question.layout, question.layoutColumns])
   // Serialize the signature so comparisons are cheap and stable.
@@ -1975,14 +1987,14 @@ export const buildNoteConfigOptionsSignature = (note: string): string => {
 }
 
 // Remove answers that no longer match the current note content.
-export const pruneNoteConfigOptionsAnswers = (
+export const pruneNoteRecipeOverridesAnswers = (
   note: string,
-  answers: NoteConfigOptionsAnswers,
-): NoteConfigOptionsAnswers => {
+  answers: NoteRecipeOverridesAnswers,
+): NoteRecipeOverridesAnswers => {
   // Build a pruned output map.
-  const next: NoteConfigOptionsAnswers = {}
+  const next: NoteRecipeOverridesAnswers = {}
   // Parse the current questions as the source of truth.
-  const questions = parseNoteConfigOptions(note)
+  const questions = parseNoteRecipeOverrides(note)
   // Precompute allowed option IDs per question.
   const lookup = new Map<string, { hasMulti: boolean; options: Set<string>; groups: NoteQuestionGroup[] }>()
   questions.forEach((question) => {
@@ -2025,13 +2037,13 @@ export const pruneNoteConfigOptionsAnswers = (
 }
 
 // Normalize an autosave payload into a valid answers map.
-export const normalizeNoteConfigOptionsAnswers = (
+export const normalizeNoteRecipeOverridesAnswers = (
   raw: unknown,
-): NoteConfigOptionsAnswers | null => {
+): NoteRecipeOverridesAnswers | null => {
   // Reject null or non-object payloads.
   if (!raw || typeof raw !== 'object') return null
   const rec = raw as Record<string, unknown>
-  const next: NoteConfigOptionsAnswers = {}
+  const next: NoteRecipeOverridesAnswers = {}
   for (const [key, value] of Object.entries(rec)) {
     // Accept a string or string[] and drop empties.
     const isArrayValue = Array.isArray(value)
@@ -2049,14 +2061,14 @@ export const normalizeNoteConfigOptionsAnswers = (
   return Object.keys(next).length > 0 ? next : null
 }
 
-// Resolve selector blocks based on the current config options answers.
-export const resolveConfigOptionsTags = (
+// Resolve selector blocks based on the current recipe overrides answers.
+export const resolveRecipeOverridesTags = (
   note: string,
-  answers?: NoteConfigOptionsAnswers | null,
+  answers?: NoteRecipeOverridesAnswers | null,
   preferredId?: string,
-): ConfigOptionsResolution => {
-  const questions = parseNoteConfigOptions(note, answers, preferredId)
-  const instructions: ConfigOptionsInstructions = []
+): RecipeOverridesResolution => {
+  const questions = parseNoteRecipeOverrides(note, answers, preferredId)
+  const instructions: RecipeOverridesInstructions = []
   for (const question of questions) {
     const selected = new Set(question.answer)
     // Track whether each group has at least one selected option.
@@ -2093,7 +2105,7 @@ export const resolveConfigOptionsTags = (
   return { questions, instructions }
 }
 
-const matchesRankSelector = (cfg: BuilderConfig, selector: ConfigOptionsSelector & { kind: 'rank' }): boolean => {
+const matchesRankSelector = (cfg: BuilderRecipe, selector: RecipeOverridesSelector & { kind: 'rank' }): boolean => {
   const { op, value } = selector
   const rank = cfg.rankCode
   const range = rankCodeToRange(rank)
@@ -2102,7 +2114,7 @@ const matchesRankSelector = (cfg: BuilderConfig, selector: ConfigOptionsSelector
   return range.max <= rankRangeValue(value).max
 }
 
-const matchesRaritySelector = (cfg: BuilderConfig, selector: ConfigOptionsSelector & { kind: 'rarity' }): boolean => {
+const matchesRaritySelector = (cfg: BuilderRecipe, selector: RecipeOverridesSelector & { kind: 'rarity' }): boolean => {
   const { op, mode, code } = selector
   const cfgMode: 'auto' | 'code' = (cfg.rarityMode ?? 'code')
   if (mode === 'auto') {
@@ -2115,7 +2127,7 @@ const matchesRaritySelector = (cfg: BuilderConfig, selector: ConfigOptionsSelect
   return range.max <= rarityRangeValue(code ?? RarityCodeEnum.Any).max
 }
 
-const matchesSelector = (selector: ConfigOptionsSelector, cfg: BuilderConfig): boolean => {
+const matchesSelector = (selector: RecipeOverridesSelector, cfg: BuilderRecipe): boolean => {
   switch (selector.kind) {
     case 'all':
       return true
@@ -2204,10 +2216,10 @@ const rarityCodeToRange = (rarity: RarityCode): { min: number; max: number } => 
   return { min: 1, max: 6 }
 }
 
-// Resolve a config's export mode based on config options selector blocks.
-const resolveConfigOptionsExportModeWithInstructions = (
-  cfg: BuilderConfig,
-  instructions: ConfigOptionsInstructions,
+// Resolve a recipe's export mode based on recipe overrides selector blocks.
+const resolveRecipeOverridesExportModeWithInstructions = (
+  cfg: BuilderRecipe,
+  instructions: RecipeOverridesInstructions,
 ): SellfileExportMode => {
   // Separators should never be overridden by options.
   if (cfg.exportMode === 'separator') return 'separator'
@@ -2229,19 +2241,19 @@ const resolveConfigOptionsExportModeWithInstructions = (
   return hasInstruction ? nextMode : cfg.exportMode
 }
 
-// Resolve a config's export mode with selector blocks.
-export const resolveConfigOptionsExportMode = (
-  cfg: BuilderConfig,
-  instructions: ConfigOptionsInstructions,
+// Resolve a recipe's export mode with selector blocks.
+export const resolveRecipeOverridesExportMode = (
+  cfg: BuilderRecipe,
+  instructions: RecipeOverridesInstructions,
 ): SellfileExportMode => {
-  return resolveConfigOptionsExportModeWithInstructions(cfg, instructions)
+  return resolveRecipeOverridesExportModeWithInstructions(cfg, instructions)
 }
 
 const applySubstatMinOverrides = (
-  cfg: BuilderConfig,
+  cfg: BuilderRecipe,
   substatMinAll: number | null,
   substatMinByVariant: Map<number, number>,
-): BuilderConfig => {
+): BuilderRecipe => {
   if (substatMinAll == null && substatMinByVariant.size === 0) return cfg
   const selection = new Set<number>()
   ;(cfg.substatsV ?? []).forEach((variant) => selection.add(Number(variant)))
@@ -2257,12 +2269,12 @@ const applySubstatMinOverrides = (
   return { ...cfg, substatRollBoundsV: bounds }
 }
 
-// Resolve a config with all config options overrides applied.
-const resolveConfigOptionsEffectiveConfigWithInstructions = (
-  cfg: BuilderConfig,
-  instructions: ConfigOptionsInstructions,
-): BuilderConfig => {
-  // Separators stay isolated from config options logic.
+// Resolve a recipe with all recipe overrides applied.
+const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
+  cfg: BuilderRecipe,
+  instructions: RecipeOverridesInstructions,
+): BuilderRecipe => {
+  // Separators stay isolated from recipe overrides logic.
   if (cfg.exportMode === 'separator') return cfg
   let nextMode: SellfileExportMode = cfg.exportMode
   let nextRank: RankCode = cfg.rankCode
@@ -2390,7 +2402,7 @@ const resolveConfigOptionsEffectiveConfigWithInstructions = (
     && !appliedSubstatMin) {
     return cfg
   }
-  let next = cloneBuilderConfig(cfg)
+  let next = cloneBuilderRecipe(cfg)
   if (exportModeChanged) next.exportMode = nextMode
   if (appliedRank) next.rankCode = nextRank
   if (appliedRarity) {
@@ -2437,23 +2449,23 @@ const resolveConfigOptionsEffectiveConfigWithInstructions = (
   return next
 }
 
-// Resolve a config with config options overrides applied (exported for UI).
-export const resolveConfigOptionsEffectiveConfig = (
-  cfg: BuilderConfig,
-  instructions: ConfigOptionsInstructions,
-): BuilderConfig => (
-  resolveConfigOptionsEffectiveConfigWithInstructions(cfg, instructions)
+// Resolve a recipe with recipe overrides applied (exported for UI).
+export const resolveRecipeOverridesEffectiveRecipe = (
+  cfg: BuilderRecipe,
+  instructions: RecipeOverridesInstructions,
+): BuilderRecipe => (
+  resolveRecipeOverridesEffectiveRecipeWithInstructions(cfg, instructions)
 )
 
-// Build a per-config export-mode snapshot for config options overrides.
-export const buildConfigOptionsExportModeResolution = (
-  configs: readonly BuilderConfig[],
-  instructions: ConfigOptionsInstructions,
-): ConfigOptionsExportModeResolution => {
+// Build a per-recipe export-mode snapshot for recipe overrides.
+export const buildRecipeOverridesExportModeResolution = (
+  recipes: readonly BuilderRecipe[],
+  instructions: RecipeOverridesInstructions,
+): RecipeOverridesExportModeResolution => {
   const modes: SellfileExportMode[] = []
   const overriddenIndices: number[] = []
-  configs.forEach((cfg, idx) => {
-    const nextMode = resolveConfigOptionsExportModeWithInstructions(cfg, instructions)
+  recipes.forEach((cfg, idx) => {
+    const nextMode = resolveRecipeOverridesExportModeWithInstructions(cfg, instructions)
     modes.push(nextMode)
     if (nextMode !== cfg.exportMode) {
       overriddenIndices.push(idx)
@@ -2462,38 +2474,38 @@ export const buildConfigOptionsExportModeResolution = (
   return { instructions, modes, overriddenIndices }
 }
 
-// Apply config options overrides by cloning only the configs that change mode.
-export const applyConfigOptionsExportModeOverrides = (
-  configs: readonly BuilderConfig[],
+// Apply recipe overrides by cloning only the recipes that change mode.
+export const applyRecipeOverridesExportModeOverrides = (
+  recipes: readonly BuilderRecipe[],
   modes: readonly SellfileExportMode[],
-): BuilderConfig[] => {
+): BuilderRecipe[] => {
   let mutated = false
-  const next = configs.map((cfg, idx) => {
+  const next = recipes.map((cfg, idx) => {
     const nextMode = modes[idx] ?? cfg.exportMode
     if (nextMode === cfg.exportMode) return cfg
-    const clone = cloneBuilderConfig(cfg)
+    const clone = cloneBuilderRecipe(cfg)
     clone.exportMode = nextMode
     mutated = true
     return clone
   })
-  return mutated ? next : configs.slice()
+  return mutated ? next : recipes.slice()
 }
 
-// Apply config options overrides across a config list.
-export const applyConfigOptionsOverrides = (
-  configs: readonly BuilderConfig[],
-  instructions: ConfigOptionsInstructions,
-): BuilderConfig[] => {
+// Apply recipe overrides across a recipe list.
+export const applyRecipeOverrides = (
+  recipes: readonly BuilderRecipe[],
+  instructions: RecipeOverridesInstructions,
+): BuilderRecipe[] => {
   let mutated = false
-  const next = configs.map((cfg) => {
-    const resolved = resolveConfigOptionsEffectiveConfigWithInstructions(cfg, instructions)
+  const next = recipes.map((cfg) => {
+    const resolved = resolveRecipeOverridesEffectiveRecipeWithInstructions(cfg, instructions)
     if (resolved !== cfg) mutated = true
     return resolved
   })
-  return mutated ? next : configs.slice()
+  return mutated ? next : recipes.slice()
 }
 
-type ConfigOptionsSubstatTargetsResolution = {
+type RecipeOverridesSubstatTargetsResolution = {
   substatTargets: SubstatTargetTable
   overridesActive: boolean
 }
@@ -2513,22 +2525,22 @@ const starKeyForSubstatTargets = (star: Star): SubstatTargetStarKey => {
 }
 
 const instructionAppliesToAnyConfig = (
-  instruction: ConfigOptionsSelectorBlock,
-  configs: readonly BuilderConfig[],
+  instruction: RecipeOverridesSelectorBlock,
+  recipes: readonly BuilderRecipe[],
 ): boolean => {
-  if (configs.length === 0) return instruction.selector.kind === 'all'
-  return configs.some((cfg) => matchesSelector(instruction.selector, cfg))
+  if (recipes.length === 0) return instruction.selector.kind === 'all'
+  return recipes.some((cfg) => matchesSelector(instruction.selector, cfg))
 }
 
-export const applyConfigOptionsSubstatTargetsOverrides = (
+export const applyRecipeOverridesSubstatTargetsOverrides = (
   substatTargets: SubstatTargetTable,
-  configs: readonly BuilderConfig[],
-  instructions: ConfigOptionsInstructions,
-): ConfigOptionsSubstatTargetsResolution => {
+  recipes: readonly BuilderRecipe[],
+  instructions: RecipeOverridesInstructions,
+): RecipeOverridesSubstatTargetsResolution => {
   let next = substatTargets
   let overridesActive = false
   for (const instruction of instructions) {
-    if (!instructionAppliesToAnyConfig(instruction, configs)) continue
+    if (!instructionAppliesToAnyConfig(instruction, recipes)) continue
     for (const op of instruction.operations) {
       if (op.kind !== 'minimaAnyRank' && op.kind !== 'minimaTarget') continue
       overridesActive = true

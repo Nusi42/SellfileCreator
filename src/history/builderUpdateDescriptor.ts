@@ -1,13 +1,13 @@
 // builderUpdateDescriptor keeps builder history data separate from localization.
-import type { BuilderConfig } from '../lib/hsfBuilder'
+import type { BuilderRecipe } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { NBSP } from '../lib/constants'
-import { isLockedAggregateScopeActive } from '../lib/configNormalization'
+import { isLockedAggregateScopeActive } from '../lib/recipeNormalization'
 import { collectMetasetSnapshotEntries, normalizeNumberArray, type MetasetSnapshotEntry } from './historyDescriptorUtils'
-import { formatConfigLabelFromConfig } from './historyLabelUtils'
+import { formatRecipeLabelFromRecipe } from './historyLabelUtils'
 import type { TranslateFn } from './historyI18n'
 import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
-import { snapshotBuilderConfig, snapshotMetasets } from './historySnapshotUtils'
+import { snapshotBuilderRecipe, snapshotMetasets } from './historySnapshotUtils'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import {
   artifactTypeI18nKey,
@@ -30,32 +30,32 @@ import { createFactoryBuilderDefaults } from '../lib/builderDefaults'
 
 export type { TranslateFn }
 
-type DescribeBuilderConfigUpdateParams = {
-  previous: BuilderConfig
-  next: BuilderConfig
+type DescribeBuilderRecipeUpdateParams = {
+  previous: BuilderRecipe
+  next: BuilderRecipe
   index: number
   t: TranslateFn
   lang: string
   metasets: Metaset[]
 }
 
-type SummarizeBuilderConfigDiffParams = {
-  previous: BuilderConfig
-  next: BuilderConfig
+type SummarizeBuilderRecipeDiffParams = {
+  previous: BuilderRecipe
+  next: BuilderRecipe
   t: TranslateFn
   lang: string
   metasets: Metaset[]
 }
 
-type BuilderConfigDiffSummary = {
+type BuilderRecipeDiffSummary = {
   detailLines: string[]
   changedKeys: Set<BuilderFieldKey>
 }
 
-// createBuilderConfigUpdateDescriptor snapshots builder changes for history.
-export const createBuilderConfigUpdateDescriptor = (params: {
-  previous: BuilderConfig
-  next: BuilderConfig
+// createBuilderRecipeUpdateDescriptor snapshots builder changes for history.
+export const createBuilderRecipeUpdateDescriptor = (params: {
+  previous: BuilderRecipe
+  next: BuilderRecipe
   index: number
   metasets: Metaset[]
 }): HistoryEntryDescriptor | null => {
@@ -63,30 +63,30 @@ export const createBuilderConfigUpdateDescriptor = (params: {
   const changedKeys = collectChangedFields(previous, next)
   if (changedKeys.size === 0) return null
   return {
-    kind: 'builderConfigUpdate',
-    previous: snapshotBuilderConfig(previous),
-    next: snapshotBuilderConfig(next),
+    kind: 'builderRecipeUpdate',
+    previous: snapshotBuilderRecipe(previous),
+    next: snapshotBuilderRecipe(next),
     index,
     metasets: snapshotMetasets(metasets),
   }
 }
 
-// Produces a plain BuilderConfig with the same defaults the builder form uses so
+// Produces a plain BuilderRecipe with the same defaults the builder form uses so
 // history helpers can normalize snapshots independently of React state.
-export function createHistoryBuilderBaseline(overrides: Partial<BuilderConfig> = {}): BuilderConfig {
+export function createHistoryBuilderBaseline(overrides: Partial<BuilderRecipe> = {}): BuilderRecipe {
   // Use the shared defaults so history snapshots stay consistent with the builder UI.
   const base = createFactoryBuilderDefaults()
   // Overrides let callers tweak just the fields they need for comparison.
   return { ...base, ...overrides }
 }
 
-// describeBuilderConfigUpdate localizes a builder update descriptor at render time.
-export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateParams): ResolvedHistoryEntryDescriptor | null {
+// describeBuilderRecipeUpdate localizes a builder update descriptor at render time.
+export function describeBuilderRecipeUpdate(params: DescribeBuilderRecipeUpdateParams): ResolvedHistoryEntryDescriptor | null {
   const { previous, next, index, t, lang, metasets } = params
-  const { detailLines, changedKeys } = summarizeBuilderConfigDiff({ previous, next, t, lang, metasets })
+  const { detailLines, changedKeys } = summarizeBuilderRecipeDiff({ previous, next, t, lang, metasets })
   if (changedKeys.size === 0) return null
 
-  const label = buildConfigLabel(index, next, t)
+  const label = buildRecipeLabel(index, next, t)
   const title = t('historyBuilderSavedTitle', { label })
   const descriptor: ResolvedHistoryEntryDescriptor = detailLines.length > 0
     ? { title, detailLines }
@@ -95,12 +95,12 @@ export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateP
 }
 
 /**
- * summarizeBuilderConfigDiff
+ * summarizeBuilderRecipeDiff
  *
  * Re-uses the builder preview formatting helpers to describe what changed between
- * two configs. Shared by the history timeline and snapshot helpers.
+ * two recipes. Shared by the history timeline and snapshot helpers.
  */
-export function summarizeBuilderConfigDiff(params: SummarizeBuilderConfigDiffParams): BuilderConfigDiffSummary {
+export function summarizeBuilderRecipeDiff(params: SummarizeBuilderRecipeDiffParams): BuilderRecipeDiffSummary {
   const { previous, next, t, lang, metasets } = params
   const changed = collectChangedFields(previous, next)
   if (changed.size === 0) {
@@ -113,7 +113,7 @@ export function summarizeBuilderConfigDiff(params: SummarizeBuilderConfigDiffPar
   let artifactSetsDiffLine: string | null = null
 
   if (changed.has('name')) {
-    pushDiff(detailLines, t, t('builderConfigName'), formatName(previous, t), formatName(next, t))
+    pushDiff(detailLines, t, t('builderRecipeName'), formatName(previous, t), formatName(next, t))
   }
   if (changed.has('keep')) {
     pushInlineDiff(detailLines, t, t('builderAction'), formatKeepValue(previous, t), formatKeepValue(next, t))
@@ -173,14 +173,14 @@ export function summarizeBuilderConfigDiff(params: SummarizeBuilderConfigDiffPar
 }
 
 /**
- * makeBuilderConfigSnapshotLines
+ * makeBuilderRecipeSnapshotLines
  *
- * Serializes the current config values into the structured JSON blobs consumed by
- * BuilderTooltipContent. Unlike summarizeBuilderConfigDiff it only emits “after”
+ * Serializes the current recipe values into the structured JSON blobs consumed by
+ * BuilderTooltipContent. Unlike summarizeBuilderRecipeDiff it only emits “after”
  * values so add/delete history entries can re-use the same UI components without
  * implying a change.
  */
-export function makeBuilderConfigSnapshotLines(params: { cfg: BuilderConfig; metasets: Metaset[]; t: TranslateFn; lang: string }): string[] {
+export function makeBuilderRecipeSnapshotLines(params: { cfg: BuilderRecipe; metasets: Metaset[]; t: TranslateFn; lang: string }): string[] {
   const { cfg, metasets, t, lang } = params
   const lines: string[] = []
   const tagsLine = makeTagsSnapshotLine(cfg, t)
@@ -198,7 +198,7 @@ export function makeBuilderConfigSnapshotLines(params: { cfg: BuilderConfig; met
   return lines
 }
 
-export function collectChangedFields(previous: BuilderConfig, next: BuilderConfig): Set<BuilderFieldKey> {
+export function collectChangedFields(previous: BuilderRecipe, next: BuilderRecipe): Set<BuilderFieldKey> {
   const changed = new Set<BuilderFieldKey>()
   for (const key of BUILDER_FIELD_KEYS) {
     if (!areBuilderFieldValuesEqual(key, previous[key], next[key])) {
@@ -229,7 +229,7 @@ function pushInlineDiff(target: string[], t: TranslateFn, label: string, previou
   target.push(`${label}: ${prevText}${NBSP}→${NBSP}${nextText}`)
 }
 
-function makeSlotsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: TranslateFn): string {
+function makeSlotsDiffLine(previous: BuilderRecipe, next: BuilderRecipe, t: TranslateFn): string {
   const prevTypes = normalizeNumberArray(previous.artifactTypes).map(Number).sort(compareArtifactTypes)
   const nextTypes = normalizeNumberArray(next.artifactTypes).map(Number).sort(compareArtifactTypes)
   return JSON.stringify({
@@ -243,7 +243,7 @@ function makeSlotsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: Tran
 }
 
 // Single-state slot snapshot for add/delete history entries.
-function makeSlotsSnapshotLine(cfg: BuilderConfig, t: TranslateFn): string | null {
+function makeSlotsSnapshotLine(cfg: BuilderRecipe, t: TranslateFn): string | null {
   const types = normalizeNumberArray(cfg.artifactTypes).map(Number).sort(compareArtifactTypes)
   return JSON.stringify({
     kind: 'slotsSnapshot',
@@ -253,7 +253,7 @@ function makeSlotsSnapshotLine(cfg: BuilderConfig, t: TranslateFn): string | nul
   })
 }
 
-function makeMainStatsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: TranslateFn): string {
+function makeMainStatsDiffLine(previous: BuilderRecipe, next: BuilderRecipe, t: TranslateFn): string {
   const prevStats = normalizeNumberArray(previous.mainStatsV).map(Number).sort(compareVariants)
   const nextStats = normalizeNumberArray(next.mainStatsV).map(Number).sort(compareVariants)
   return JSON.stringify({
@@ -267,7 +267,7 @@ function makeMainStatsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: 
 }
 
 // Single-state main stat snapshot for add/delete history entries.
-function makeMainStatsSnapshotLine(cfg: BuilderConfig, t: TranslateFn): string | null {
+function makeMainStatsSnapshotLine(cfg: BuilderRecipe, t: TranslateFn): string | null {
   const stats = normalizeNumberArray(cfg.mainStatsV).map(Number).sort(compareVariants)
   return JSON.stringify({
     kind: 'mainStatsSnapshot',
@@ -277,7 +277,7 @@ function makeMainStatsSnapshotLine(cfg: BuilderConfig, t: TranslateFn): string |
   })
 }
 
-function makeSubstatsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: TranslateFn): string {
+function makeSubstatsDiffLine(previous: BuilderRecipe, next: BuilderRecipe, t: TranslateFn): string {
   const prevStats = normalizeNumberArray(previous.substatsV).map(Number).sort(compareVariants)
   const nextStats = normalizeNumberArray(next.substatsV).map(Number).sort(compareVariants)
   const prevLocked = normalizeNumberArray((previous as { fixedSubstatsV?: number[] }).fixedSubstatsV).map(Number).sort(compareVariants)
@@ -301,7 +301,7 @@ function makeSubstatsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: T
 }
 
 // Single-state substat snapshot that preserves locked picks and min/max bounds.
-function makeSubstatsSnapshotLine(cfg: BuilderConfig, t: TranslateFn): string | null {
+function makeSubstatsSnapshotLine(cfg: BuilderRecipe, t: TranslateFn): string | null {
   const stats = normalizeNumberArray(cfg.substatsV).map(Number).sort(compareVariants)
   const locked = normalizeNumberArray((cfg as { fixedSubstatsV?: number[] }).fixedSubstatsV).map(Number).sort(compareVariants)
   const bounds = normalizeRollBounds((cfg as { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> }).substatRollBoundsV)
@@ -316,7 +316,7 @@ function makeSubstatsSnapshotLine(cfg: BuilderConfig, t: TranslateFn): string | 
   })
 }
 
-function makeArtifactSetsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: TranslateFn, lang: string): string {
+function makeArtifactSetsDiffLine(previous: BuilderRecipe, next: BuilderRecipe, t: TranslateFn, lang: string): string {
   const prevSelection = normalizeSetSelectionEntries(previous.artifactSets)
   const nextSelection = normalizeSetSelectionEntries(next.artifactSets)
   return JSON.stringify({
@@ -332,7 +332,7 @@ function makeArtifactSetsDiffLine(previous: BuilderConfig, next: BuilderConfig, 
 }
 
 // Single-state artifact-set snapshot for add/delete history entries.
-function makeArtifactSetsSnapshotLine(cfg: BuilderConfig, t: TranslateFn, lang: string): string | null {
+function makeArtifactSetsSnapshotLine(cfg: BuilderRecipe, t: TranslateFn, lang: string): string | null {
   const selection = normalizeSetSelectionEntries(cfg.artifactSets)
   return JSON.stringify({
     kind: 'setListSnapshot',
@@ -343,7 +343,7 @@ function makeArtifactSetsSnapshotLine(cfg: BuilderConfig, t: TranslateFn, lang: 
   })
 }
 
-function makeMetasetsDiffLine(previous: BuilderConfig, next: BuilderConfig, metasets: Metaset[], t: TranslateFn): string {
+function makeMetasetsDiffLine(previous: BuilderRecipe, next: BuilderRecipe, metasets: Metaset[], t: TranslateFn): string {
   return JSON.stringify({
     kind: 'metasetDiff',
     label: t('menuMetasetsSection'),
@@ -355,7 +355,7 @@ function makeMetasetsDiffLine(previous: BuilderConfig, next: BuilderConfig, meta
 }
 
 // Single-state metaset snapshot for add/delete history entries.
-function makeMetasetSnapshotLine(cfg: BuilderConfig, metasets: Metaset[], t: TranslateFn): string | null {
+function makeMetasetSnapshotLine(cfg: BuilderRecipe, metasets: Metaset[], t: TranslateFn): string | null {
   return JSON.stringify({
     kind: 'metasetSnapshot',
     label: t('menuMetasetsSection'),
@@ -364,22 +364,22 @@ function makeMetasetSnapshotLine(cfg: BuilderConfig, metasets: Metaset[], t: Tra
   })
 }
 
-// Snapshot line for tags so config summaries preserve config options metadata.
-function makeTagsSnapshotLine(cfg: BuilderConfig, t: TranslateFn): string | null {
+// Snapshot line for tags so recipe summaries preserve recipe overrides metadata.
+function makeTagsSnapshotLine(cfg: BuilderRecipe, t: TranslateFn): string | null {
   // Keep tag output stable and compact for history snapshots.
   const tags = Array.isArray(cfg.tags) ? cfg.tags.map(String).filter(Boolean) : []
   if (tags.length === 0) return null
   return `${t('builderTagsLabel')}: ${tags.join(', ')}`
 }
 
-function collectMetasetDiffEntries(cfg: BuilderConfig, metasets: Metaset[]): MetasetSnapshotEntry[] {
-  // Reuse the shared snapshot collector so config and keep-unique paths stay aligned.
+function collectMetasetDiffEntries(cfg: BuilderRecipe, metasets: Metaset[]): MetasetSnapshotEntry[] {
+  // Reuse the shared snapshot collector so recipe and safeguard paths stay aligned.
   return collectMetasetSnapshotEntries(cfg.artifactMetaSets ?? [], metasets)
 }
 
 type NormalizedSetSelection = { included: number[]; excluded: number[] }
 
-function normalizeSetSelectionEntries(value: BuilderConfig['artifactSets']): NormalizedSetSelection {
+function normalizeSetSelectionEntries(value: BuilderRecipe['artifactSets']): NormalizedSetSelection {
   const normalized = normalizeArtifactSetSelections(value ?? [])
   const split = splitArtifactSetSelections(normalized)
   return {
@@ -426,20 +426,20 @@ function normalizeDisplay(value: string, t: TranslateFn): string {
   return trimmed.length > 0 ? trimmed : t('historyValueEmpty')
 }
 
-export function buildConfigLabel(index: number, cfg: BuilderConfig, t: TranslateFn): string {
-  return formatConfigLabelFromConfig(index, cfg, t)
+export function buildRecipeLabel(index: number, cfg: BuilderRecipe, t: TranslateFn): string {
+  return formatRecipeLabelFromRecipe(index, cfg, t)
 }
 
-function formatName(cfg: BuilderConfig, t: TranslateFn): string {
+function formatName(cfg: BuilderRecipe, t: TranslateFn): string {
   const raw = (cfg.name ?? '').trim()
   return raw ? `"${raw}"` : t('historyValueEmpty')
 }
 
-function formatKeepValue(cfg: BuilderConfig, t: TranslateFn): string {
+function formatKeepValue(cfg: BuilderRecipe, t: TranslateFn): string {
   return cfg.keep ? t('keepValueKeep') : t('keepValueSell')
 }
 
-function formatExportModeValue(cfg: BuilderConfig, t: TranslateFn): string {
+function formatExportModeValue(cfg: BuilderRecipe, t: TranslateFn): string {
   const mode = cfg.exportMode ?? 'active'
   switch (mode) {
     case 'disabled': return t('builderExportModeDisabled')
@@ -448,13 +448,13 @@ function formatExportModeValue(cfg: BuilderConfig, t: TranslateFn): string {
   }
 }
 
-function formatTagsValue(cfg: BuilderConfig, t: TranslateFn): string {
+function formatTagsValue(cfg: BuilderRecipe, t: TranslateFn): string {
   // Use the same normalization as snapshot output.
   const tags = Array.isArray(cfg.tags) ? cfg.tags.map(String).filter(Boolean) : []
   return tags.length > 0 ? tags.join(', ') : t('builderTagsEmpty')
 }
 
-function formatRankValue(cfg: BuilderConfig, t: TranslateFn): string {
+function formatRankValue(cfg: BuilderRecipe, t: TranslateFn): string {
   const n = Number(cfg.rankCode ?? 0)
   if (n === 0 || Number.isNaN(n)) return t('any')
   const star = (value: number): string => {
@@ -474,7 +474,7 @@ function formatRankValue(cfg: BuilderConfig, t: TranslateFn): string {
   return String(n)
 }
 
-function formatRarityValue(cfg: BuilderConfig, t: TranslateFn): string {
+function formatRarityValue(cfg: BuilderRecipe, t: TranslateFn): string {
   if (cfg.rarityMode === 'auto') {
     const threshold = cfg.autoRaritySupplementsThreshold ?? null
     if (!threshold) return t('headerMenuAuto')
@@ -513,7 +513,7 @@ function formatRarityCode(code: number | undefined, t: TranslateFn): string {
   }
 }
 
-function formatFactionValue(cfg: BuilderConfig, t: TranslateFn): string {
+function formatFactionValue(cfg: BuilderRecipe, t: TranslateFn): string {
   const code = cfg.factionCode ?? 0
   if (!code) return t('any')
   return t(factionI18nKey(code))
@@ -526,7 +526,7 @@ function clampLevel(level: number | undefined): number {
   return level
 }
 
-function formatLevelWindowValue(cfg: BuilderConfig, t: TranslateFn): string {
+function formatLevelWindowValue(cfg: BuilderRecipe, t: TranslateFn): string {
   const min = clampLevel(cfg.minLevel ?? 0)
   const max = clampLevel(cfg.maxLevel ?? 16)
   const minLabel = `+${min}`
@@ -534,21 +534,21 @@ function formatLevelWindowValue(cfg: BuilderConfig, t: TranslateFn): string {
   return t('historyBuilderLevelsValue', { min: minLabel, max: maxLabel })
 }
 
-function formatArtifactTypesValue(cfg: BuilderConfig, t: TranslateFn): string {
+function formatArtifactTypesValue(cfg: BuilderRecipe, t: TranslateFn): string {
   const types = normalizeNumberArray(cfg.artifactTypes)
   if (types.length === 0) return t('any')
   const sorted = types.slice().sort(compareArtifactTypes)
   return sorted.map((typeId) => t(artifactTypeI18nKey(typeId as ArtifactTypeId))).join(', ')
 }
 
-function formatMainStatsValue(cfg: BuilderConfig, t: TranslateFn): string {
+function formatMainStatsValue(cfg: BuilderRecipe, t: TranslateFn): string {
   const stats = normalizeNumberArray(cfg.mainStatsV)
   if (stats.length === 0) return t('any')
   const sorted = stats.slice().sort(compareVariants)
   return sorted.map((variant) => t(statVariantI18nKey(variant as StatVariantLike))).join(', ')
 }
 
-function formatSubstatsValue(cfg: BuilderConfig, t: TranslateFn): string {
+function formatSubstatsValue(cfg: BuilderRecipe, t: TranslateFn): string {
   const substats = normalizeNumberArray(cfg.substatsV)
   if (substats.length === 0) return t('any')
   const fixed = new Set<number>(normalizeNumberArray(cfg.fixedSubstatsV))
@@ -567,7 +567,7 @@ function clampRoll(value: number, opts?: { cap?: number }): number {
   return Math.max(0, Math.min(capped, Math.floor(value)))
 }
 
-function formatRequiredSubstatsValue(cfg: BuilderConfig, t: TranslateFn): string {
+function formatRequiredSubstatsValue(cfg: BuilderRecipe, t: TranslateFn): string {
   const auto = cfg.autoMinCount === true
   const count = typeof cfg.minCount === 'number' ? cfg.minCount : 0
   const base = auto ? t('headerMenuAuto') : String(count)
@@ -577,7 +577,7 @@ function formatRequiredSubstatsValue(cfg: BuilderConfig, t: TranslateFn): string
   return `${base} (${flex})`
 }
 
-function formatMinRequiredRollsValue(cfg: BuilderConfig, t: TranslateFn): string {
+function formatMinRequiredRollsValue(cfg: BuilderRecipe, t: TranslateFn): string {
   const auto = cfg.autoMinRequiredRolls !== false
   const count = typeof cfg.minRequiredRolls === 'number' ? cfg.minRequiredRolls : 0
   const base = auto ? t('headerMenuAuto') : String(count)
@@ -591,7 +591,7 @@ function formatMinRequiredRollsValue(cfg: BuilderConfig, t: TranslateFn): string
   return `${base} (${scope}${lockedSuffix})`
 }
 
-function formatMilestoneModeValue(cfg: BuilderConfig, t: TranslateFn): string {
+function formatMilestoneModeValue(cfg: BuilderRecipe, t: TranslateFn): string {
   const mode = (cfg.earlyKeepMode ?? 'early') === 'late' ? 'late' : 'early'
   return mode === 'late' ? t('builderLateLabel') : t('builderEarlyLabel')
 }

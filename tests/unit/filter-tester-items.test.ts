@@ -73,8 +73,8 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}): Normaliz
 
 test('filterTesterItems filters by set selection', () => {
   const rows: TesterFilterRow[] = [
-    { artifact: makeArtifact({ set: ArtifactSet.Speed }), match: { keep: true, cfgIdx: 0 } },
-    { artifact: makeArtifact({ set: ArtifactSet.Life }), match: { keep: true, cfgIdx: 1 } },
+    { artifact: makeArtifact({ set: ArtifactSet.Speed }), match: { keep: true, recipeIdx: 0 } },
+    { artifact: makeArtifact({ set: ArtifactSet.Life }), match: { keep: true, recipeIdx: 1 } },
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
@@ -84,8 +84,8 @@ test('filterTesterItems filters by set selection', () => {
   const result = filterTesterItems(rows, state)
   assert.equal(result.items.length, 1)
   assert.equal(result.items[0]?.artifact.set, ArtifactSet.Speed)
-  assert.equal(result.matchingConfigIndices.has(0), true)
-  assert.equal(result.matchingConfigIndices.has(1), false)
+  assert.equal(result.matchingRecipeIndices.has(0), true)
+  assert.equal(result.matchingRecipeIndices.has(1), false)
 })
 
 test('filterTesterItems filters by main stat and substats', () => {
@@ -124,8 +124,8 @@ test('filterTesterItems filters by main stat and substats', () => {
     ],
   })
   const rows: TesterFilterRow[] = [
-    { artifact: fastArtifact, match: { keep: true, cfgIdx: 0 } },
-    { artifact: hpArtifact, match: { keep: true, cfgIdx: 1 } },
+    { artifact: fastArtifact, match: { keep: true, recipeIdx: 0 } },
+    { artifact: hpArtifact, match: { keep: true, recipeIdx: 1 } },
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
@@ -139,46 +139,46 @@ test('filterTesterItems filters by main stat and substats', () => {
 
 test('filterTesterItems filters by config name', () => {
   const rows: TesterFilterRow[] = [
-    { artifact: makeArtifact(), match: { keep: true, cfgIdx: 0 } },
-    { artifact: makeArtifact({ set: ArtifactSet.Life }), match: { keep: false, cfgIdx: 1 } },
+    { artifact: makeArtifact(), match: { keep: true, recipeIdx: 0 } },
+    { artifact: makeArtifact({ set: ArtifactSet.Life }), match: { keep: false, recipeIdx: 1 } },
     { artifact: makeArtifact({ set: ArtifactSet.Immortal }), match: null },
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    configName: { query: 'Arena' },
+    recipeName: { query: 'Arena' },
   }
-  const result = filterTesterItems(rows, state, undefined, { configNames: ['Speed Farm', 'Arena Nuker'] })
+  const result = filterTesterItems(rows, state, undefined, { recipeNames: ['Speed Farm', 'Arena Nuker'] })
   assert.equal(result.items.length, 1)
-  assert.equal(result.items[0]?.match?.cfgIdx, 1)
-  assert.equal(result.matchingConfigIndices.has(1), true)
-  assert.equal(result.matchingConfigIndices.has(0), false)
+  assert.equal(result.items[0]?.match?.recipeIdx, 1)
+  assert.equal(result.matchingRecipeIndices.has(1), true)
+  assert.equal(result.matchingRecipeIndices.has(0), false)
 })
 
-test('filterTesterItems matches keep-unique names without config indices', () => {
+test('filterTesterItems matches safeguard names without config indices', () => {
   const rows: TesterFilterRow[] = [
-    { artifact: makeArtifact(), match: { keep: true, cfgIdx: null, cfgName: 'Keep Unique Demo' } },
+    { artifact: makeArtifact(), match: { keep: true, recipeIdx: null, recipeName: 'Safeguard Demo' } },
     { artifact: makeArtifact({ set: ArtifactSet.Immortal }), match: null },
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    configName: { query: 'unique' },
+    recipeName: { query: 'safeguard' },
   }
-  const result = filterTesterItems(rows, state, undefined, { configNames: [] })
+  const result = filterTesterItems(rows, state, undefined, { recipeNames: [] })
   assert.equal(result.items.length, 1)
-  assert.equal(result.items[0]?.match?.cfgIdx, null)
+  assert.equal(result.items[0]?.match?.recipeIdx, null)
 })
 
 test('filterTesterItems matches special rule labels like Final Sell chips', () => {
   const rows: TesterFilterRow[] = [
     {
       artifact: makeArtifact(),
-      match: { keep: false, cfgIdx: null, ruleSource: RULE_SOURCE_FINAL_SELL },
+      match: { keep: false, recipeIdx: null, ruleSource: RULE_SOURCE_FINAL_SELL },
     },
     { artifact: makeArtifact({ set: ArtifactSet.Immortal }), match: null },
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    configName: { query: 'Final' },
+    recipeName: { query: 'Final' },
   }
   const result = filterTesterItems(
     rows,
@@ -192,8 +192,8 @@ test('filterTesterItems matches special rule labels like Final Sell chips', () =
 
 test('filterTesterItems filters by tester Keep/Sell result', () => {
   const rows: TesterFilterRow[] = [
-    { artifact: makeArtifact(), match: { keep: true, cfgIdx: 0 } },
-    { artifact: makeArtifact({ set: ArtifactSet.Life }), match: { keep: false, cfgIdx: 1 } },
+    { artifact: makeArtifact(), match: { keep: true, recipeIdx: 0 } },
+    { artifact: makeArtifact({ set: ArtifactSet.Life }), match: { keep: false, recipeIdx: 1 } },
     { artifact: makeArtifact({ set: ArtifactSet.Immortal }), match: null },
   ]
   const keepState: RulesFilterState = {
@@ -215,7 +215,7 @@ test('filterTesterItems filters by tester Keep/Sell result', () => {
 
 test('filterTesterItems filters by matched vs unmatched gear', () => {
   const rows: TesterFilterRow[] = [
-    { artifact: makeArtifact(), match: { keep: true, cfgIdx: 0 } },
+    { artifact: makeArtifact(), match: { keep: true, recipeIdx: 0 } },
     { artifact: makeArtifact({ set: ArtifactSet.Life }), match: null },
   ]
   const matchedState: RulesFilterState = {
@@ -224,7 +224,7 @@ test('filterTesterItems filters by matched vs unmatched gear', () => {
   }
   const matched = filterTesterItems(rows, matchedState)
   assert.equal(matched.items.length, 1)
-  assert.equal(matched.items[0]?.match?.cfgIdx, 0)
+  assert.equal(matched.items[0]?.match?.recipeIdx, 0)
 
   const unmatchedState: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
@@ -257,8 +257,8 @@ test('filterTesterItems filters by tester level slider range using exactLevels',
   const highLevel = makeArtifact({ exactLevel: 15 })
   const midLevel = makeArtifact({ exactLevel: 9 })
   const rows: TesterFilterRow[] = [
-    { artifact: highLevel, match: { keep: true, cfgIdx: 0 } },
-    { artifact: midLevel, match: { keep: false, cfgIdx: 1 } },
+    { artifact: highLevel, match: { keep: true, recipeIdx: 0 } },
+    { artifact: midLevel, match: { keep: false, recipeIdx: 1 } },
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
@@ -273,8 +273,8 @@ test('filterTesterItems falls back to milestone level when exactLevel is missing
   const missingExact = makeArtifact({ level: 12, exactLevel: null })
   const cappedLevel = makeArtifact({ level: 16, exactLevel: 16 })
   const rows: TesterFilterRow[] = [
-    { artifact: missingExact, match: { keep: true, cfgIdx: 0 } },
-    { artifact: cappedLevel, match: { keep: true, cfgIdx: 1 } },
+    { artifact: missingExact, match: { keep: true, recipeIdx: 0 } },
+    { artifact: cappedLevel, match: { keep: true, recipeIdx: 1 } },
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,

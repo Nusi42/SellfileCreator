@@ -108,7 +108,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Substats are optional: pick one or more to only count items that actually have those substats. The match chip (`Any Substat` / `All Substats` / `Per Substat`) decides whether at least one, all, or each selected substat gets its own quota. Leave it empty to allow any substat.
 - Selected substats are always ranked by the normalized substat formula (glyphs ignored); weight controls appear for `Any Substat` and `All Substats`, while `Per Substat` keeps equal weighting (ties at the cutoff stay protected).
 - `≥ Required Count` is the promise you want the app to keep. Scope chips directly under each picker (everything except `Rank` and `Rarity`) decide how that quota is split: `Per slot`, `Per set`, `Per faction`, and `Per main stat` can be combined freely. Turning every chip off automatically falls back to the shared `Per rule` pool.
-- The `Have {have} / Keep {keep}` counter shows: **Have** = matching items (with substats selected, only top rolls + ties count), **Keep** = the quota after scopes. The chip turns red when the quota is unmet.
+- The info tooltip behind `Required Count` shows the active scope split (`X per slot × per set × ...`) and a simple deficit line (`({missing} missing)`).
 - The scanner only adds keep rows for matching items that would otherwise be sold, and only when the quota is not met. In `Anticipate gaps`, placeholder keep rules cover missing combinations.
 
 #### Quota scopes at a glance

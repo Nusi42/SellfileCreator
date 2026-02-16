@@ -3,14 +3,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildHsfRules, defaultSubstatTargets, resolveAutoRarityCode, type BuilderConfig } from '../../src/lib/hsfBuilder'
-import { buildRulesForConfig } from '../../src/lib/merge'
-import { computeDuplicateIndices } from '../../src/lib/configDuplicates'
+import { buildHsfRules, defaultSubstatTargets, resolveAutoRarityCode, type BuilderRecipe } from '../../src/lib/hsfBuilder'
+import { buildRulesForRecipe } from '../../src/lib/merge'
+import { computeDuplicateIndices } from '../../src/lib/recipeDuplicates'
 import { ArtifactType, RankCode, RarityCode, StatVariant, subToVariant } from '../../src/lib/types'
-import { normalizeAggregateRollTargets } from '../../src/lib/configNormalization'
+import { normalizeAggregateRollTargets } from '../../src/lib/recipeNormalization'
 import { variantToSub } from '../../src/lib/hsfTypes'
 
-const baseBuilderConfig = (overrides: Partial<BuilderConfig> = {}): BuilderConfig => ({
+const baseBuilderRecipe = (overrides: Partial<BuilderRecipe> = {}): BuilderRecipe => ({
   keep: true,
   exportMode: 'active',
   rankCode: RankCode.Six,
@@ -25,7 +25,7 @@ const baseBuilderConfig = (overrides: Partial<BuilderConfig> = {}): BuilderConfi
 })
 
 test('locked minimums above per-stat caps yield no rules', () => {
-  const cfg = baseBuilderConfig({
+  const cfg = baseBuilderRecipe({
     lockedMinRequiredRolls: 3,
     minRequiredRolls: 0,
     substatRollBoundsV: {
@@ -33,11 +33,11 @@ test('locked minimums above per-stat caps yield no rules', () => {
     },
   })
   const rules = buildHsfRules(cfg)
-  assert.equal(rules.length, 0, 'aggregate locked minimum should prune infeasible configs')
+  assert.equal(rules.length, 0, 'aggregate locked minimum should prune infeasible recipes')
 })
 
 test('lockedMinRequiredRolls raises Auto rarity even when global min is lower', () => {
-  const baseCfg = baseBuilderConfig({
+  const baseCfg = baseBuilderRecipe({
     lockedMinRequiredRolls: 0,
     minRequiredRolls: 0,
   })
@@ -52,7 +52,7 @@ test('lockedMinRequiredRolls raises Auto rarity even when global min is lower', 
 })
 
 test('locked minimum forces extra rolls on locked stats before collapsing to min-only rows', () => {
-  const cfg = baseBuilderConfig({
+  const cfg = baseBuilderRecipe({
     name: 'gauntlet sample',
     minCount: 3,
     autoMinCount: false,
@@ -101,9 +101,9 @@ test('locked minimum forces extra rolls on locked stats before collapsing to min
   }
 })
 
-test('locked minimum enforcement survives buildRulesForConfig wrappers', () => {
+test('locked minimum enforcement survives buildRulesForRecipe wrappers', () => {
   const targets = defaultSubstatTargets()
-  const cfg = baseBuilderConfig({
+  const cfg = baseBuilderRecipe({
     name: 'gauntlet sample',
     minCount: 3,
     autoMinCount: false,
@@ -121,7 +121,7 @@ test('locked minimum enforcement survives buildRulesForConfig wrappers', () => {
     lockedMinRequiredRolls: 2,
     earlyKeepMode: 'late',
   })
-  const rules = buildRulesForConfig({ config: cfg, metasets: [], substatTargets: targets })
+  const rules = buildRulesForRecipe({ recipe: cfg, metasets: [], substatTargets: targets })
   const lockedVariants: StatVariant[] = [StatVariant.SPD, StatVariant.CR]
   const baseFor = (variant: StatVariant): number => targets.six[variant] ?? 0
   const rollsForValue = (variant: StatVariant, value: number): number => {
@@ -151,7 +151,7 @@ test('locked minimum enforcement survives buildRulesForConfig wrappers', () => {
 })
 
 test('global minimums still apply to every selected stat when locks are active', () => {
-  const cfg = baseBuilderConfig({
+  const cfg = baseBuilderRecipe({
     rarityCode: RarityCode.Legendary,
     rarityMode: 'code',
     substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.HP],
@@ -186,7 +186,7 @@ test('global minimums still apply to every selected stat when locks are active',
 })
 
 test('aggregate normalization clears manual when locked exceeds manual', () => {
-  const cfg = normalizeAggregateRollTargets(baseBuilderConfig({
+  const cfg = normalizeAggregateRollTargets(baseBuilderRecipe({
     minRequiredRolls: 2,
     autoMinRequiredRolls: false,
     lockedMinRequiredRolls: 4,
@@ -196,7 +196,7 @@ test('aggregate normalization clears manual when locked exceeds manual', () => {
 })
 
 test('aggregate normalization clears manual when totals match', () => {
-  const cfg = normalizeAggregateRollTargets(baseBuilderConfig({
+  const cfg = normalizeAggregateRollTargets(baseBuilderRecipe({
     minRequiredRolls: 3,
     autoMinRequiredRolls: false,
     lockedMinRequiredRolls: 3,
@@ -206,23 +206,23 @@ test('aggregate normalization clears manual when totals match', () => {
 })
 
 test('duplicate detection treats lockedMinRequiredRolls as part of the identity', () => {
-  const cfgA = baseBuilderConfig({
+  const cfgA = baseBuilderRecipe({
     lockedMinRequiredRolls: 2,
     minRequiredRolls: 0,
     substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.HP],
     fixedSubstatsV: [StatVariant.SPD, StatVariant.CR],
   })
-  const cfgB: BuilderConfig = { ...cfgA, lockedMinRequiredRolls: 3 }
+  const cfgB: BuilderRecipe = { ...cfgA, lockedMinRequiredRolls: 3 }
   const indices = computeDuplicateIndices([cfgA, cfgB])
-  assert.deepEqual(indices, [null, null], 'configs with differing locked minimums should not be treated as duplicates')
+  assert.deepEqual(indices, [null, null], 'recipes with differing locked minimums should not be treated as duplicates')
 })
 
 test('duplicate detection ignores cosmetic metadata fields (excluding config name)', () => {
-  const cfg = baseBuilderConfig({
+  const cfg = baseBuilderRecipe({
     substatsV: [StatVariant.SPD, StatVariant.CR],
     fixedSubstatsV: [StatVariant.SPD],
   })
-  const withMetadata = { ...cfg } as BuilderConfig & Record<string, unknown>
+  const withMetadata = { ...cfg } as BuilderRecipe & Record<string, unknown>
   withMetadata.artifactTypeNames = ['Weapon']
   withMetadata.artifactSetNames = ['Speed']
   withMetadata.artifactMetaSetIds = ['set/1']

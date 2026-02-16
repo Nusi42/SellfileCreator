@@ -65,7 +65,7 @@ for (const c of mod.CASES) {
   if (name.startsWith('MATRIX')) continue
   const goldenName = String(c.goldenName || '').trim()
   if (!goldenName) continue
-  const cfg = io.normalizeConfig(c.hsfc)
+  const cfg = io.normalizeRecipe(c.hsfc)
   const rules = builder.buildHsfRules(cfg, builder.defaultSubstatTargets())
   const norm = rules.map(r => normalizeRule(r))
   const outPath = resolve(outDir, `${goldenName}.json`)

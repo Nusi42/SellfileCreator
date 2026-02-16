@@ -147,7 +147,7 @@ export const isDefaultTesterGroupingState = (grouping: TesterGroupingState | nul
 }
 
 export const normalizeTesterGroupingState = (raw: unknown): TesterGroupingState => {
-  // Invalid shapes should never crash; fall back to the default grouping config.
+  // Invalid shapes should never crash; fall back to the default grouping recipe.
   if (!raw || typeof raw !== 'object') return TESTER_GROUPING_DEFAULT_STATE
   const obj = raw as Record<string, unknown>
   const artifactsRaw = obj.artifacts && typeof obj.artifacts === 'object' ? (obj.artifacts as Record<string, unknown>) : {}

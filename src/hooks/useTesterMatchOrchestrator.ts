@@ -1,65 +1,40 @@
 import { useEffect, useMemo, useRef, type MutableRefObject } from 'react'
-import { RULE_SOURCE_KEEP_UNIQUES, canonicalRuleKey, type HsfRuleWithCfg } from '../lib/merge'
-import { evaluateMatchesByConfig, type EvalResult, type MatchingConfigDecision } from '../lib/ruleEval'
+import { RULE_SOURCE_SAFEGUARDS, type HsfRuleWithCfg } from '../lib/merge'
+import { evaluateMatchesByRecipe, type EvalResult, type MatchingRecipeDecision } from '../lib/ruleEval'
 import type { SellfileExportMode } from '../lib/hsfBuilder'
 import {
-  collectKeepUniqueCandidates,
-  type KeepUniqueCandidateSnapshot,
-  type KeepUniqueDetectionSnapshot,
-  type KeepUniqueRule,
-  computeKeepUniqueProtection,
-  resolveKeepUniqueRuleLabel,
-} from '../lib/keepUniques'
-import { fingerprintKeepUniqueDetection } from '../lib/keepUniqueFingerprint'
+  collectAndComputeSafeguardProtection,
+  type SafeguardCandidateSnapshot,
+  type SafeguardDetectionSnapshot,
+  type SafeguardRule,
+  resolveSafeguardRuleLabel,
+} from '../lib/safeguards'
+import { fingerprintSafeguardDetection } from '../lib/safeguardFingerprint'
 import type { TesterPreviewRow } from '../types/testerPreview'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 import { sortTesterRows } from '../lib/testerSort'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { TesterMatchWorkerEvaluateItem, TesterMatchWorkerItemResult } from '../workers/testerMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
-import { getRuleConfigIndex, resolveMatchConfigName } from '../lib/ruleConfigIndex'
+import { resolveMatchRecipeName } from '../lib/ruleRecipeIndex'
 import { PERF_EVENTS, markPerfEvent } from '../lib/perfTimeline'
+import { fingerprintMergedRulesWithLoadedWasm } from '../lib/wasm/wasmRuleEngine'
 
 export const TESTER_PREVIEW_CHUNK_SIZE = 250
 
-const EMPTY_KEEP_UNIQUE_CANDIDATES: KeepUniqueCandidateSnapshot = {
+const EMPTY_SAFEGUARD_CANDIDATES: SafeguardCandidateSnapshot = {
   candidates: [],
   uniqueItemKeys: new Set<number>(),
 }
 
-// Lightweight hash to avoid logging giant signatures (not crypto-safe).
-const hashSignature = (value: string): number => {
-  let hash = 0
-  for (let i = 0; i < value.length; i += 1) {
-    hash = ((hash << 5) - hash) + value.charCodeAt(i)
-    hash |= 0
-  }
-  return hash
+const EMPTY_SAFEGUARD_DETECTION: SafeguardDetectionSnapshot = {
+  scannedAt: 0,
+  entries: [],
 }
 
 const fingerprintMergedRules = (rules: readonly HsfRuleWithCfg[]): string => {
-  if (!rules || rules.length === 0) return '0:0'
-  let hash = 0
-  for (let idx = 0; idx < rules.length; idx += 1) {
-    const rule = rules[idx]
-    if (!rule) continue
-    const cfgIdx = getRuleConfigIndex(rule)
-    const parts = [
-      idx.toString(10),
-      rule.__source ?? '',
-      cfgIdx != null ? cfgIdx.toString(10) : 'none',
-      rule.__keepUniqueRuleId ?? '',
-      rule.__keepUniqueHash ?? '',
-      String(rule.__keepUniqueRequired ?? ''),
-      String(rule.__keepUniqueProjected ?? ''),
-      String(rule.__keepUniqueDeficit ?? ''),
-      canonicalRuleKey(rule),
-    ]
-    const keyHash = hashSignature(parts.join('|'))
-    hash = ((hash << 5) - hash) + keyHash
-    hash |= 0
-  }
-  return `${rules.length}:${hash}`
+  // Fingerprinting is wasm-only; callers must warm up before this hook runs.
+  return fingerprintMergedRulesWithLoadedWasm(rules)
 }
 
 // Dev-only perf marker helper keeps call sites compact while honoring DEV gating.
@@ -77,12 +52,12 @@ const maybeMarkPerfEvent = (label: string, data?: PerfEventPayload | PerfEventPa
 type UseTesterMatchOrchestratorParams = {
   // Incoming artifacts to evaluate for matches.
   artifacts: NormalizedGearArtifact[]
-  // Effective merged rules, including keep-unique injections.
+  // Effective merged rules, including safeguard injections.
   mergedRules: HsfRuleWithCfg[]
-  // Config names to show in gear entries + match chips.
-  configNames: (string | null)[]
-  // Export modes aligned to configs for worker + fallback eval.
-  configModes: SellfileExportMode[]
+  // Recipe names to show in gear entries + match chips.
+  recipeNames: (string | null)[]
+  // Export modes aligned to recipes for worker + fallback eval.
+  recipeModes: SellfileExportMode[]
   // Currently rendered tester preview rows.
   testerPreviewRows: TesterPreviewRow[]
   // Setter for rows so callers keep ownership of state.
@@ -92,21 +67,21 @@ type UseTesterMatchOrchestratorParams = {
   // Evaluator from worker hook or fallback.
   evaluateTesterMatchItems: (params: { items: TesterMatchWorkerEvaluateItem[]; onProgress?: (progress: ProgressSnapshot) => void }) => Promise<TesterMatchWorkerItemResult[]>
   // Keep-unique state shared with rule warm logic.
-  keepUniquesActive: boolean
+  safeguardsActive: boolean
   // Keep-unique base rules allow calculating candidates without injected keep rules.
-  keepUniqueBaseRules: HsfRuleWithCfg[]
+  safeguardBaseRules: HsfRuleWithCfg[]
   // Keep-unique rules resolved with metasets for detection.
-  resolvedKeepUniqueRules: KeepUniqueRule[]
-  // Optional config indices to ignore when tallying keep-unique coverage.
-  ignoreKeepUniqueConfigIndices?: ReadonlySet<number>
+  resolvedSafeguardRules: SafeguardRule[]
+  // Optional recipe indices to ignore when tallying safeguard coverage.
+  ignoreSafeguardConfigIndices?: ReadonlySet<number>
   // Detection signature so we can guard against redundant rebuilds.
-  keepUniqueDetectionSignature: string | null
+  safeguardDetectionSignature: string | null
   // Setter to publish detection updates.
-  setKeepUniqueDetection: (value: KeepUniqueDetectionSnapshot | null | ((prev: KeepUniqueDetectionSnapshot | null) => KeepUniqueDetectionSnapshot | null)) => void
+  setSafeguardDetection: (value: SafeguardDetectionSnapshot | null | ((prev: SafeguardDetectionSnapshot | null) => SafeguardDetectionSnapshot | null)) => void
   // Ref that tracks which detection signature has been applied to merged rules.
-  keepUniqueScanAppliedRef: MutableRefObject<string | null>
+  safeguardScanAppliedRef: MutableRefObject<string | null>
   // Ref for the pending detection signature while detection is inflight.
-  pendingKeepUniqueDetectionSigRef: MutableRefObject<string | null>
+  pendingSafeguardDetectionSigRef: MutableRefObject<string | null>
   rulesBuilding: boolean
   // Row-building flag used to coordinate with external status chips.
   gearEntriesBuilding: boolean
@@ -123,14 +98,14 @@ type UseTesterMatchOrchestratorParams = {
 }
 
 type UseTesterMatchOrchestratorResult = {
-  // Candidate snapshot used by keep-unique protections downstream.
-  keepUniqueCandidates: KeepUniqueCandidateSnapshot
+  // Candidate snapshot used by safeguard protections downstream.
+  safeguardCandidates: SafeguardCandidateSnapshot
 }
 
 type PreviewMatchDeps = {
   // Fingerprint of the rules used for the previous build.
   rulesSignature: string | null
-  // Signature of config names to detect label changes that need rerender.
+  // Signature of recipe names to detect label changes that need rerender.
   namesSignature: string | null
 }
 
@@ -138,20 +113,20 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
   const {
     artifacts,
     mergedRules,
-    configNames,
-    configModes,
+    recipeNames,
+    recipeModes,
     testerPreviewRows,
     setTesterPreviewRows,
     evaluateTesterMatchItems,
-    keepUniquesActive,
-    keepUniqueBaseRules,
-    // Forward ignore-tag indices for keep-unique candidate evaluation.
-    ignoreKeepUniqueConfigIndices,
-    resolvedKeepUniqueRules,
-    keepUniqueDetectionSignature,
-    setKeepUniqueDetection,
-    keepUniqueScanAppliedRef,
-    pendingKeepUniqueDetectionSigRef,
+    safeguardsActive,
+    safeguardBaseRules,
+    // Forward ignore-tag indices for safeguard candidate evaluation.
+    ignoreSafeguardConfigIndices,
+    resolvedSafeguardRules,
+    safeguardDetectionSignature,
+    setSafeguardDetection,
+    safeguardScanAppliedRef,
+    pendingSafeguardDetectionSigRef,
     rulesBuilding,
     testerMatchWorkerSupported: rawTesterMatchWorkerSupported,
     gearEntriesBuilding,
@@ -163,7 +138,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     setGearEntriesProgress,
   } = params
   // Keep-unique detection is enabled again.
-  const keepUniqueDetectionDisabled = false
+  const safeguardDetectionDisabled = false
   // Re-enable the worker so heavy tester scans stay off the main thread whenever the browser allows it.
   const effectiveWorkerSupported = rawTesterMatchWorkerSupported
 
@@ -199,8 +174,8 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       setGearEntriesProgress(null)
       return
     }
-    // Build a simple signature for config names to detect label changes.
-    const namesSignature = configNames.map((name) => name ?? '').join('\u0001')
+    // Build a simple signature for recipe names to detect label changes.
+    const namesSignature = recipeNames.map((name) => name ?? '').join('\u0001')
     // Previous deps determine whether a rebuild is necessary.
     const prevMatchDeps = testerPreviewMatchDepsRef.current
     const rulesChangedSinceCommit = gearEntriesCommittedRulesSignatureRef.current !== mergedRulesSignature
@@ -227,7 +202,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     ) {
       return
     }
-    // Force rebuild when rules or config names change.
+    // Force rebuild when rules or recipe names change.
     const rulesChanged = prevMatchDeps.rulesSignature !== mergedRulesSignature
     const namesChanged = prevMatchDeps.namesSignature !== namesSignature
     const forceRebuildAllRows = rulesChanged || namesChanged || rulesChangedSinceCommit
@@ -277,7 +252,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       rulesChanged,
       namesChanged,
       worker: effectiveWorkerSupported,
-      keepUniques: keepUniquesActive,
+      safeguards: safeguardsActive,
     }))
     if (noOpBuild) {
       // Mark no-op rebuilds so we can spot unnecessary churn.
@@ -321,7 +296,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
           match: null,
           baseMatch: null,
           matchingCfgIndices: [],
-          matchingConfigDecisions: [],
+          matchingRecipeDecisions: [],
         })
       })
       testerPreviewRowMapRef.current = nextRowMap
@@ -339,36 +314,36 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     const toTesterPreviewMatch = (result: EvalResult | null): TesterPreviewMatch | null => {
       if (!result) return null
       const rule = mergedRules[result.ruleIndex]
-      const cfgIdx = result.cfgIdx
-      const cfgName = resolveMatchConfigName(cfgIdx, configNames, rule)
-      const keepUniqueLabel = rule?.__source === RULE_SOURCE_KEEP_UNIQUES
-        ? resolveKeepUniqueRuleLabel(rule)
+      const recipeIdx = result.recipeIdx
+      const recipeName = resolveMatchRecipeName(recipeIdx, recipeNames, rule)
+      const safeguardLabel = rule?.__source === RULE_SOURCE_SAFEGUARDS
+        ? resolveSafeguardRuleLabel(rule)
         : null
-      const effectiveCfgName = cfgName && cfgName.length > 0 ? cfgName : keepUniqueLabel
+      const effectiveCfgName = recipeName && recipeName.length > 0 ? recipeName : safeguardLabel
       return {
         keep: result.keep,
-        cfgIdx: cfgIdx ?? null,
-        cfgName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
+        recipeIdx: recipeIdx ?? null,
+        recipeName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
         ruleIndex: result.ruleIndex,
-        ruleLabel: keepUniqueLabel ?? null,
+        ruleLabel: safeguardLabel ?? null,
         ruleSource: rule?.__source ?? null,
       }
     }
 
     // Keep-unique detection waits for latest scan to avoid flicker.
-    // Hold the visible match rows whenever keep-unique protection is in flux so users never see stale overrides.
+    // Hold the visible match rows whenever safeguard protection is in flux so users never see stale overrides.
     const shouldHoldRowsBuilding = (): boolean => (
-      keepUniquesActive
+      safeguardsActive
       && (
-        Boolean(pendingKeepUniqueDetectionSigRef.current)
+        Boolean(pendingSafeguardDetectionSigRef.current)
         || (
-          Boolean(keepUniqueDetectionSignature)
-          && keepUniqueDetectionSignature !== keepUniqueScanAppliedRef.current
+          Boolean(safeguardDetectionSignature)
+          && safeguardDetectionSignature !== safeguardScanAppliedRef.current
         )
       )
     )
 
-    // Capture previous rows to reuse keep-unique matches while frozen.
+    // Capture previous rows to reuse safeguard matches while frozen.
     const prevRowSnapshot = testerPreviewRowMapRef.current
 
     // Convert a single artifact into a preview row with computed matches.
@@ -377,19 +352,19 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     artifact: NormalizedGearArtifact,
     firstMatch: EvalResult | null,
     baseMatch: EvalResult | null,
-    matchingConfigIndices: number[],
-    matchingConfigDecisions: MatchingConfigDecision[],
+    matchingRecipeIndices: number[],
+    matchingRecipeDecisions: MatchingRecipeDecision[],
   ): TesterPreviewRow => {
-    // Compute the displayed match (includes keep-unique rules).
+    // Compute the displayed match (includes safeguard rules).
     let match = toTesterPreviewMatch(firstMatch)
-    // If keep-unique detection is pending, reuse prior keep-unique match.
+    // If safeguard detection is pending, reuse prior safeguard match.
     if (
       shouldHoldRowsBuilding()
-      && (!match || match.ruleSource !== RULE_SOURCE_KEEP_UNIQUES)
+      && (!match || match.ruleSource !== RULE_SOURCE_SAFEGUARDS)
       && prevRowSnapshot
     ) {
       const prevRow = prevRowSnapshot.get(itemId)
-      if (prevRow?.match?.ruleSource === RULE_SOURCE_KEEP_UNIQUES) {
+      if (prevRow?.match?.ruleSource === RULE_SOURCE_SAFEGUARDS) {
         match = prevRow.match
       }
     }
@@ -397,8 +372,8 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       artifact,
       match,
       baseMatch: toTesterPreviewMatch(baseMatch),
-      matchingCfgIndices: matchingConfigIndices,
-      matchingConfigDecisions,
+      matchingCfgIndices: matchingRecipeIndices,
+      matchingRecipeDecisions,
     }
   }
 
@@ -447,8 +422,8 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
               artifact,
               result.firstMatch,
               result.firstNonExcludedMatch,
-              result.matchingConfigIndices,
-              result.matchingConfigDecisions,
+              result.matchingRecipeIndices,
+              result.matchingRecipeDecisions,
             ))
           })
           testerPreviewRowMapRef.current = nextRowMap
@@ -458,7 +433,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
           gearEntriesCommittedRulesSignatureRef.current = mergedRulesSignature
           lastSettledArtifactsRef.current = artifacts
           inFlightArtifactsRef.current = null
-          // Release building flag even when keep-unique hold is active so the UI does not spin forever.
+          // Release building flag even when safeguard hold is active so the UI does not spin forever.
           if (gearEntriesBuildIdRef.current === buildId) {
             setGearEntriesBuilding(false)
             setGearEntriesProgress(null)
@@ -505,28 +480,28 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
 
     // Evaluates one artifact synchronously.
     const buildRow = (artifact: NormalizedGearArtifact, itemId: number): TesterPreviewRow => {
-      // Evaluate full rule set (including keep-unique injections) for the primary match,
-      // and a keep-unique-excluded view for baseMatch so detection still sees the baseline.
-      const fullEval = evaluateMatchesByConfig(
+      // Evaluate full rule set (including safeguard injections) for the primary match,
+      // and a safeguard-excluded view for baseMatch so detection still sees the baseline.
+      const fullEval = evaluateMatchesByRecipe(
         mergedRules,
         artifact.testerItem,
         {
-          configModes,
-          ...(ignoreKeepUniqueConfigIndices ? { ignoreKeepUniqueConfigIndices } : {}),
+          recipeModes,
+          ...(ignoreSafeguardConfigIndices ? { ignoreSafeguardConfigIndices } : {}),
         },
       )
-      const baseEval = evaluateMatchesByConfig(
+      const baseEval = evaluateMatchesByRecipe(
         mergedRules,
         artifact.testerItem,
-        { configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] },
+        { recipeModes, excludeSources: [RULE_SOURCE_SAFEGUARDS] },
       )
       return toPreviewRow(
         itemId,
         artifact,
         fullEval.firstMatch,
         baseEval.firstMatch,
-        fullEval.matchingConfigIndices,
-        fullEval.matchingConfigDecisions,
+        fullEval.matchingRecipeIndices,
+        fullEval.matchingRecipeDecisions,
       )
     }
 
@@ -570,80 +545,94 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     artifacts,
     mergedRules,
     mergedRulesSignature,
-    configNames,
-    configModes,
+    recipeNames,
+    recipeModes,
     evaluateTesterMatchItems,
-    keepUniquesActive,
-    ignoreKeepUniqueConfigIndices,
-    keepUniqueDetectionSignature,
-    keepUniqueScanAppliedRef,
-    pendingKeepUniqueDetectionSigRef,
+    safeguardsActive,
+    ignoreSafeguardConfigIndices,
+    safeguardDetectionSignature,
+    safeguardScanAppliedRef,
+    pendingSafeguardDetectionSigRef,
     setTesterPreviewRows,
     setGearEntriesBuilding,
     setGearEntriesCommittedBuildId,
     setGearEntriesActiveBuildId,
     setGearEntriesProgress,
     effectiveWorkerSupported,
-    keepUniqueDetectionDisabled,
+    safeguardDetectionDisabled,
     gearEntriesBuilding,
     rulesBuilding,
   ])
 
-  // Keep-unique candidate snapshot shared with detectors downstream.
-  const keepUniqueCandidates = useMemo<KeepUniqueCandidateSnapshot>(() => {
-    if (!testerPreviewRows.length) return EMPTY_KEEP_UNIQUE_CANDIDATES
-    return collectKeepUniqueCandidates({
+  // Keep-unique combined snapshot runs collect + detection in one wasm call.
+  const safeguardCombined = useMemo(() => {
+    // Avoid scan work when rows are empty or safeguards are disabled.
+    if (!testerPreviewRows.length || !safeguardsActive) {
+      return {
+        candidates: EMPTY_SAFEGUARD_CANDIDATES,
+        detection: EMPTY_SAFEGUARD_DETECTION,
+      }
+    }
+    return collectAndComputeSafeguardProtection({
       rows: testerPreviewRows,
-      baseRules: keepUniqueBaseRules,
-      configModes,
-      // Skip configs tagged to ignore keep-unique coverage.
-      ...(ignoreKeepUniqueConfigIndices ? { ignoreKeepUniqueConfigIndices } : {}),
+      baseRules: safeguardBaseRules,
+      recipeModes,
+      rules: resolvedSafeguardRules,
+      enabled: safeguardsActive,
+      // Skip recipes tagged to ignore safeguard coverage.
+      ...(ignoreSafeguardConfigIndices ? { ignoreSafeguardConfigIndices } : {}),
     })
-  }, [testerPreviewRows, keepUniqueBaseRules, configModes, ignoreKeepUniqueConfigIndices])
+  }, [
+    testerPreviewRows,
+    safeguardsActive,
+    safeguardBaseRules,
+    recipeModes,
+    resolvedSafeguardRules,
+    ignoreSafeguardConfigIndices,
+  ])
+
+  // Keep returning candidate metadata for downstream UI callers.
+  const safeguardCandidates = safeguardCombined.candidates
 
   // Keep-unique detection refresh runs when candidates or rules change.
   useEffect(() => {
     // Only run detection when rows are settled.
     const rowsUpToDate = gearEntriesCommittedBuildId >= gearEntriesBuildIdRef.current && !gearEntriesBuilding
     // When disabled, clear any cached detection + pending signatures.
-    if (!keepUniquesActive) {
-      keepUniqueScanAppliedRef.current = null
-      pendingKeepUniqueDetectionSigRef.current = null
-      setKeepUniqueDetection(null)
+    if (!safeguardsActive) {
+      safeguardScanAppliedRef.current = null
+      pendingSafeguardDetectionSigRef.current = null
+      setSafeguardDetection(null)
       return
     }
     // Defer until rows catch up to the latest build.
     if (gearEntriesBuilding || !rowsUpToDate) return
-    if (testerPreviewRows.length === 0 || keepUniqueCandidates.candidates.length === 0) {
-      keepUniqueScanAppliedRef.current = null
-      pendingKeepUniqueDetectionSigRef.current = null
-      setKeepUniqueDetection(null)
+    if (testerPreviewRows.length === 0 || safeguardCandidates.candidates.length === 0) {
+      safeguardScanAppliedRef.current = null
+      pendingSafeguardDetectionSigRef.current = null
+      setSafeguardDetection(null)
       return
     }
 
-    // Compute keep-unique protection snapshot without deferring to a timeout.
-    const snapshot = computeKeepUniqueProtection({
-      candidates: keepUniqueCandidates.candidates,
-      rules: resolvedKeepUniqueRules,
-      enabled: keepUniquesActive,
-    })
-    const snapshotSignature = fingerprintKeepUniqueDetection(snapshot)
-    setKeepUniqueDetection((prev) => {
+    // Detection payload already comes from the combined collect+detect scan.
+    const snapshot = safeguardCombined.detection
+    const snapshotSignature = fingerprintSafeguardDetection(snapshot)
+    setSafeguardDetection((prev) => {
       // When there was no prior snapshot, always apply and record signature.
       if (!prev) {
-        pendingKeepUniqueDetectionSigRef.current = snapshotSignature
+        pendingSafeguardDetectionSigRef.current = snapshotSignature
         return snapshot
       }
       // Compare lengths + entry fields; if identical, reuse previous snapshot.
       if (prev.entries.length !== snapshot.entries.length) {
-        pendingKeepUniqueDetectionSigRef.current = snapshotSignature
+        pendingSafeguardDetectionSigRef.current = snapshotSignature
         return snapshot
       }
       for (let idx = 0; idx < snapshot.entries.length; idx += 1) {
         const nextEntry = snapshot.entries[idx]
         const prevEntry = prev.entries[idx]
         if (!nextEntry || !prevEntry) {
-          pendingKeepUniqueDetectionSigRef.current = snapshotSignature
+          pendingSafeguardDetectionSigRef.current = snapshotSignature
           return snapshot
         }
         if (
@@ -658,25 +647,25 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
           || nextEntry.artifacts.length !== prevEntry.artifacts.length
           || nextEntry.placeholders.length !== prevEntry.placeholders.length
         ) {
-          pendingKeepUniqueDetectionSigRef.current = snapshotSignature
+          pendingSafeguardDetectionSigRef.current = snapshotSignature
           return snapshot
         }
       }
       return prev
     })
   }, [
-    resolvedKeepUniqueRules,
-    keepUniquesActive,
-    keepUniqueCandidates,
-    keepUniqueDetectionSignature,
+    safeguardsActive,
+    safeguardCombined,
+    safeguardCandidates,
+    safeguardDetectionSignature,
     testerPreviewRows.length,
     gearEntriesBuilding,
     gearEntriesCommittedBuildId,
-    setKeepUniqueDetection,
-    keepUniqueScanAppliedRef,
-    pendingKeepUniqueDetectionSigRef,
+    setSafeguardDetection,
+    safeguardScanAppliedRef,
+    pendingSafeguardDetectionSigRef,
   ])
 
-  // Carry keep-unique detection metadata back to caller.
-  return { keepUniqueCandidates }
+  // Carry safeguard detection metadata back to caller.
+  return { safeguardCandidates }
 }

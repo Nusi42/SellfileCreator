@@ -7,7 +7,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
 import type { HsfRule } from '../lib/hsfTypes'
-import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_HSFC, RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg, type RuleSource } from '../lib/merge'
+import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_HSFC, RULE_SOURCE_SAFEGUARDS, type HsfRuleWithCfg, type RuleSource } from '../lib/merge'
 import { /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId, getLocalizedGearSetName } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
@@ -33,7 +33,7 @@ import { FactionIcon } from './FactionIcon'
 import { useI18n } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
 import { formatRuleSubstatSummary, formatRuleSubstatPlain, normalizeRuleSubstats, type RuleSubstatDetail } from '../lib/substatDisplay'
-import { resolveKeepUniqueRuleLabel } from '../lib/keepUniques'
+import { resolveSafeguardRuleLabel } from '../lib/safeguards'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
@@ -41,7 +41,7 @@ import { useRulesTableColumnsPreference, type StoredColumnConfig } from '../stat
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { HEADER_MENU_LABEL_SX } from './tableHeaderMenuStyles'
 import { EmptyStateMessage } from './EmptyStateMessage'
-import { getRuleConfigIndex } from '../lib/ruleConfigIndex'
+import { getRuleRecipeIndex } from '../lib/ruleRecipeIndex'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { resolveDisabledOpacity } from './disabledOpacity'
 
@@ -54,22 +54,22 @@ const FACTION_ICON_PREVIEW_SCALE = 1.2 as const
 const FACTION_ICON_PREVIEW_OFFSET_PX = 0 as const
 // Single-line spans now stay centered with no vertical nudge; keep the constant for quick tuning across browsers.
 const SINGLE_LINE_PREVIEW_OFFSET_PX = 3 as const
-// Builder configs map rows via ConfigID (1-based). Base rules, keep-unique injections, and other
-// config-less rows omit ConfigID, so they should not participate in config selection math.
-const resolveDisplayCfgIdx = (rule: HsfRuleWithCfg | null | undefined): number | null => {
-  const idx = getRuleConfigIndex(rule ?? null)
+// Builder recipes map rows via RecipeID (1-based). Base rules, safeguard injections, and other
+// recipe-less rows omit RecipeID, so they should not participate in recipe selection math.
+const resolveDisplayRecipeIdx = (rule: HsfRuleWithCfg | null | undefined): number | null => {
+  const idx = getRuleRecipeIndex(rule ?? null)
   return idx !== null && idx >= 0 ? idx : null
 }
 
-export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, selectionScrollRequest, onSelectCfgIdx, onConfigAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
+export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onRecipeAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
   rules: HsfRuleWithCfg[]
-  setHoveredCfgIdx: (idx: number | null) => void
-  selectedCfgIdx: number | null
+  setHoveredRecipeIdx: (idx: number | null) => void
+  selectedRecipeIdx: number | null
   multiselectActive: boolean
   // Explicit scroll request for selection-driven preview jumps.
   selectionScrollRequest: SelectionScrollRequest
-  onSelectCfgIdx: (idx: number) => void
-  onConfigAction: (idx: number, action: 'duplicate' | 'delete' | 'copy' | 'paste_after' | 'move_top' | 'move_bottom' | 'move_up' | 'move_down') => void
+  onSelectRecipeIdx: (idx: number) => void
+  onRecipeAction: (idx: number, action: 'duplicate' | 'delete' | 'copy' | 'paste_after' | 'move_top' | 'move_bottom' | 'move_up' | 'move_down') => void
   onClearBase: () => void
   onConfigureFinalSell: () => void
   onOpenManageColors: () => void
@@ -299,21 +299,21 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     for (let i = 0; i < rules.length; i += 1) {
       const rule = rules[i] as HsfRuleWithCfg | undefined
       if (!rule) continue
-      const cfgIdx = resolveDisplayCfgIdx(rule as HsfRuleWithCfg)
-      if (cfgIdx === null) continue
-      const existing = spans.get(cfgIdx)
+      const recipeIdx = resolveDisplayRecipeIdx(rule as HsfRuleWithCfg)
+      if (recipeIdx === null) continue
+      const existing = spans.get(recipeIdx)
       if (existing) {
         existing.last = i
         existing.count += 1
       } else {
-        spans.set(cfgIdx, { first: i, last: i, count: 1 })
+        spans.set(recipeIdx, { first: i, last: i, count: 1 })
       }
     }
     return spans
   }, [rules])
 
-  const getConfigSpan = useCallback((cfgIdx: number): ConfigRuleSpan | null => {
-    return configRuleSpanMap.get(cfgIdx) ?? null
+  const getConfigSpan = useCallback((recipeIdx: number): ConfigRuleSpan | null => {
+    return configRuleSpanMap.get(recipeIdx) ?? null
   }, [configRuleSpanMap])
 
   // Gate hover highlighting to the table area only
@@ -328,10 +328,10 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   const pendingHoverTargetRef = useRef<number | null>(null)
   const selectedRowElsRef = useRef<HTMLElement[] | null>(null)
   const lastSelectedCfgRef = useRef<number | null>(null)
-  const applyDomSelection = useCallback((cfgIdx: number | null) => {
+  const applyDomSelection = useCallback((recipeIdx: number | null) => {
     const container = tableContainerRef.current
     if (!container) {
-      lastSelectedCfgRef.current = cfgIdx
+      lastSelectedCfgRef.current = recipeIdx
       return
     }
     if (selectedRowElsRef.current) {
@@ -340,9 +340,9 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
       }
       selectedRowElsRef.current = null
     }
-    lastSelectedCfgRef.current = cfgIdx
-    if (cfgIdx === null || cfgIdx === undefined) return
-    const list = Array.from(container.querySelectorAll(`tr[data-cfg-idx="${cfgIdx}"]`)) as HTMLElement[]
+    lastSelectedCfgRef.current = recipeIdx
+    if (recipeIdx === null || recipeIdx === undefined) return
+    const list = Array.from(container.querySelectorAll(`tr[data-recipe-idx="${recipeIdx}"]`)) as HTMLElement[]
     if (!list.length) return
     selectedRowElsRef.current = list
     for (const el of list) {
@@ -376,24 +376,24 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
       }
       lastPropagatedHoverRef.current = target
       pendingHoverTargetRef.current = target
-      try { setHoveredCfgIdx(target) } catch {}
+      try { setHoveredRecipeIdx(target) } catch {}
     }, RULES_TABLE_HOVER_PROPAGATION_MS)
   }
 
   // Per-frame throttle for local hover updates (row highlight). Coalesces rapid
   // mouseenter events into a single state update per animation frame.
-  const applyDomHover = (cfgIdx: number | null) => {
+  const applyDomHover = (recipeIdx: number | null) => {
     const container = tableContainerRef.current
     if (!container) return
     if (hoveredRowElsRef.current) {
       for (const el of hoveredRowElsRef.current) { try { el.classList.remove('cfg-hover') } catch {} }
       hoveredRowElsRef.current = null
     }
-    lastDomHoverCfgRef.current = cfgIdx
-    if (cfgIdx === null || cfgIdx === undefined) {
+    lastDomHoverCfgRef.current = recipeIdx
+    if (recipeIdx === null || recipeIdx === undefined) {
       return
     }
-    const list = Array.from(container.querySelectorAll(`tr[data-cfg-idx="${cfgIdx}"]`)) as HTMLElement[]
+    const list = Array.from(container.querySelectorAll(`tr[data-recipe-idx="${recipeIdx}"]`)) as HTMLElement[]
     for (const el of list) { try { el.classList.add('cfg-hover') } catch {} }
     hoveredRowElsRef.current = list
   }
@@ -423,12 +423,12 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   }, [])
 
   useEffect(() => {
-    applyDomSelection(multiselectActive ? null : selectedCfgIdx)
-  }, [selectedCfgIdx, multiselectActive, applyDomSelection])
+    applyDomSelection(multiselectActive ? null : selectedRecipeIdx)
+  }, [selectedRecipeIdx, multiselectActive, applyDomSelection])
 
   useEffect(() => {
     // Virtualization swaps row elements as the user scrolls; reapply the hover class so
-    // newly mounted rows for the active config keep their highlight without extra renders.
+    // newly mounted rows for the active recipe keep their highlight without extra renders.
     const hovered = lastDomHoverCfgRef.current
     if (hovered !== null && hovered !== undefined) {
       applyDomHover(hovered)
@@ -438,7 +438,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
 
   // Context menus
   const [headerMenu, setHeaderMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
-  const [rowMenu, setRowMenu] = useState<null | { open: boolean; x: number; y: number; cfgIdx: number | null; source: RuleSource }>(null)
+  const [rowMenu, setRowMenu] = useState<null | { open: boolean; x: number; y: number; recipeIdx: number | null; source: RuleSource }>(null)
   const headerMenuPaperRef = useRef<HTMLDivElement | null>(null)
   const rowMenuPaperRef = useRef<HTMLDivElement | null>(null)
   const closeHeaderMenu = useCallback(() => { setHeaderMenu(null) }, [setHeaderMenu])
@@ -556,7 +556,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   // Why: This replaces the bespoke prefix-sum windowing logic while preserving the `<Table>` structure.
   const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
     // Virtualize the `rules[]` array directly.
-    // Why: all config span / selection math is expressed as indices into this array.
+    // Why: all recipe span / selection math is expressed as indices into this array.
     count: rules.length,
     // Use the preview `<TableContainer>` as the scroll element.
     // Why: scroll must remain confined to the preview panel (not the window).
@@ -635,7 +635,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     })
 	  }, [focusRuleIndex, clampRuleIndex, onFocusRuleSettled, scrollRuleIndexToTop])
 
-  // When selection changes (e.g., user clicked a config chip), scroll to the start of that config’s preview block.
+  // When selection changes (e.g., user clicked a recipe chip), scroll to the start of that recipe’s preview block.
   // Why: per request, rely on TanStack’s built-in scrolling rather than custom "fits/above" heuristics.
   const suppressNextScrollRef = useRef<boolean>(false)
   // Track the last handled scroll request so re-renders do not retrigger scrolling.
@@ -646,22 +646,22 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   useEffect(() => {
     // Gate auto-scroll to explicit scroll requests only.
     // Why: background updates should not move the user's viewport.
-    const { token, source, targetCfgIdx } = selectionScrollRequest
+    const { token, source, targetRecipeIdx } = selectionScrollRequest
     if (token === lastSelectionScrollTokenRef.current) return
     lastSelectionScrollTokenRef.current = token
-    // Skip config-based scroll when a rule-specific focus is active.
+    // Skip recipe-based scroll when a rule-specific focus is active.
     // Why: selectRule already scrolls to the target row.
     if (source === SELECTION_SCROLL_SOURCE_SELECT_RULE && focusRuleIndex != null) return
     // Prefer the explicit target when available.
     // Why: selection updates can trail the user event that requested a scroll.
-    const effectiveCfgIdx = targetCfgIdx ?? selectedCfgIdx
-    if (effectiveCfgIdx === null || effectiveCfgIdx === undefined) return
+    const effectiveRecipeIdx = targetRecipeIdx ?? selectedRecipeIdx
+    if (effectiveRecipeIdx === null || effectiveRecipeIdx === undefined) return
     if (multiselectActive) return
     // If selection came from a table row click, skip this one automatic scroll.
     if (suppressNextScrollRef.current) { suppressNextScrollRef.current = false; return }
-    // Map the selected config to its contiguous range of preview rows.
-    // Why: a config can generate multiple rules (or none), and the preview must jump to the correct block.
-    const span = getConfigSpan(effectiveCfgIdx as number)
+    // Map the selected recipe to its contiguous range of preview rows.
+    // Why: a recipe can generate multiple rules (or none), and the preview must jump to the correct block.
+    const span = getConfigSpan(effectiveRecipeIdx as number)
     if (!span) return
     // Always anchor to the first rule row.
     // Why: this is deterministic and avoids any extra "correction" scrolling logic.
@@ -671,7 +671,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     getConfigSpan,
     multiselectActive,
     scrollRuleIndexToTop,
-    selectedCfgIdx,
+    selectedRecipeIdx,
     selectionScrollRequest,
   ])
 
@@ -717,12 +717,12 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   // to avoid re-render cost entirely during hover.)
 
 
-  type ColKey = keyof HsfRule | 'Idx' | 'CfgIdx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'MainStatName' | 'LevelLabel' | 'RankRarity'
+  type ColKey = keyof HsfRule | 'Idx' | 'RecipeIdx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'MainStatName' | 'LevelLabel' | 'RankRarity'
   type ColMode = 'auto' | 'show' | 'hide'
   type ColCfg = { key: ColKey; label: string; width: number; visible: boolean; mode?: ColMode }
   const colLabel = (key: ColKey): string => (
     key === 'Idx' ? t('colIdx') :
-    key === 'CfgIdx' ? t('colCfg') :
+    key === 'RecipeIdx' ? t('colCfg') :
     key === 'Keep' ? t('colKeep') :
     key === 'Use' ? t('colUse') :
     key === 'ArtifactSetNames' ? t('colSets') :
@@ -735,7 +735,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   )
   const defaultCols = useMemo<ColCfg[]>(() => ([
     { key: 'Idx', label: 'Idx', width: 72, visible: true },
-    { key: 'CfgIdx', label: 'Cfg', width: 56, visible: true },
+    { key: 'RecipeIdx', label: 'Cfg', width: 56, visible: true },
     { key: 'Keep', label: 'Keep', width: 61, visible: false },
     { key: 'Use', label: 'Use', width: 50, visible: false },
     { key: 'ArtifactSetNames', label: 'Sets', width: 170, visible: true },
@@ -813,7 +813,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   }, [updateColumns])
   // Show the Faction column automatically when any rule (from HSFC or loaded HSF)
   // has a non-zero faction filter. Previously this only reacted to HSFC-built rows
-  // (those carrying ConfigID), which hid the column for loaded HSF files.
+  // (those carrying RecipeID), which hid the column for loaded HSF files.
   const anyWithFaction = useMemo(() => rules.some((r) => r && typeof r.Faction === 'number' && (r.Faction as number) !== 0), [rules])
   const isColVisible = React.useCallback((c: ColCfg) => {
     if (c.key === 'Faction') {
@@ -902,7 +902,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
             ...reserveScrollbarGutterSpace(),
             // Isolate layout/paint of the scroller to avoid causing app-level scrollbars during rapid scroll
             contain: 'layout paint',
-            // CSS-only hover highlight class for hovered config rows (added imperatively)
+            // CSS-only hover highlight class for hovered recipe rows (added imperatively)
             '& tr.cfg-hover[data-selected-cfg="true"]': { backgroundColor: selectedHoverBg },
             '& tr.cfg-hover:not([data-selected-cfg="true"])': { backgroundColor: hoverBg },
             maxHeight: 960,
@@ -1051,7 +1051,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
 	                    const idx = virtualItem.index
 	                    const rule = rules[idx] as HsfRuleWithCfg | undefined
 	                    if (!rule) return null
-                    const cfgIdxNumber = resolveDisplayCfgIdx(rule as HsfRuleWithCfg)
+                    const recipeIdxNumber = resolveDisplayRecipeIdx(rule as HsfRuleWithCfg)
                     const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : idx
                     // Normalize rule source so keep-override injections can be recognized reliably.
                     const resolvedSource: RuleSource = (() => {
@@ -1059,15 +1059,15 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                         rule.__source === RULE_SOURCE_HSF
                         || rule.__source === RULE_SOURCE_HSFC
                         || rule.__source === RULE_SOURCE_FINAL_SELL
-                        || rule.__source === RULE_SOURCE_KEEP_UNIQUES
+                        || rule.__source === RULE_SOURCE_SAFEGUARDS
                       ) {
                         return rule.__source
                       }
-                      if (cfgIdxNumber !== null) return RULE_SOURCE_HSFC
+                      if (recipeIdxNumber !== null) return RULE_SOURCE_HSFC
                       return RULE_SOURCE_HSF
                     })()
-                    // Keep overrides include keep uniques injection rows.
-                    const isKeepOverrideSource = resolvedSource === RULE_SOURCE_KEEP_UNIQUES
+                    // Keep overrides include safeguards injection rows.
+                    const isKeepOverrideSource = resolvedSource === RULE_SOURCE_SAFEGUARDS
                     return (
 		                      <TableRow
 		                        key={virtualItem.key}
@@ -1076,7 +1076,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
 		                        // Why: without it, measurements are ignored and scroll offsets drift.
 		                        data-index={idx}
 			                        data-row-index={idx}
-		                        {...(cfgIdxNumber !== null ? { 'data-cfg-idx': String(cfgIdxNumber) } : {})}
+		                        {...(recipeIdxNumber !== null ? { 'data-recipe-idx': String(recipeIdxNumber) } : {})}
 		                        // Wrap mode needs measured heights so TanStack can compute correct scroll offsets.
 		                        // Why: single-line mode is strict fixed-height, so measuring would unnecessarily enable dynamic mode.
 		                        ref={(el) => {
@@ -1086,15 +1086,15 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
 		                        }}
                         onMouseEnter={() => {
                           if (!isHoveringArea) return
-                          const next = cfgIdxNumber
+                          const next = recipeIdxNumber
                           scheduleLocalHover(next)
                         }}
                         // Do not clear on row leave; container onMouseLeave clears once.
                         onClick={() => {
-                          if (cfgIdxNumber !== null) {
-                            // Keep-override rows surface in the preview but do not map to chips, so only real configs trigger selection + auto-scroll.
+                          if (recipeIdxNumber !== null) {
+                            // Keep-override rows surface in the preview but do not map to chips, so only real recipes trigger selection + auto-scroll.
                             suppressNextScrollRef.current = true
-                            onSelectCfgIdx(cfgIdxNumber)
+                            onSelectRecipeIdx(recipeIdxNumber)
                           }
                         }}
                         onContextMenu={(e) => {
@@ -1112,7 +1112,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                             open: true,
                             x: e.clientX,
                             y: e.clientY,
-                            cfgIdx: cfgIdxNumber,
+                            recipeIdx: recipeIdxNumber,
                             source: resolvedSource,
                           })
                         }}
@@ -1135,13 +1135,13 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                         let factionLabel: string | null = null
                         let cfgSpecialContent: React.ReactNode | null = null
                         if (c.key === 'SubstatsSummary') value = getSubstatSummary(rule)
-                        else if (c.key === 'CfgIdx') {
-                          if (cfgIdxNumber !== null) {
-                            value = String(cfgIdxNumber + 1)
+                        else if (c.key === 'RecipeIdx') {
+                          if (recipeIdxNumber !== null) {
+                            value = String(recipeIdxNumber + 1)
                           } else if (isKeepOverrideSource) {
                             // Keep-override injections display a hollow star and surface the originating rule name for attribution.
                             // Fall back to the tab label if rule naming is missing.
-                            const keepOverrideLabel = resolveKeepUniqueRuleLabel(rule) ?? t('keepUniquesTabLabel')
+                            const keepOverrideLabel = resolveSafeguardRuleLabel(rule) ?? t('safeguardsTabLabel')
                             cfgSpecialContent = (
                               <MarkdownTooltip markdown={keepOverrideLabel}>
                                 <Box
@@ -1200,7 +1200,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                             />
                           )
                           : (value || '')
-                        if (c.key === 'CfgIdx' && cfgSpecialContent) {
+                        if (c.key === 'RecipeIdx' && cfgSpecialContent) {
                           content = cfgSpecialContent
                         }
                         // Replace textual slots with icons when enabled
@@ -1684,7 +1684,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           )
         })}
       </Menu>
-      {/* Row context menu (acts on the originating config when available) */}
+      {/* Row context menu (acts on the originating recipe when available) */}
       <Menu
         open={Boolean(rowMenu?.open)}
         onClose={closeRowMenu}
@@ -1704,19 +1704,19 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           <MenuItem onClick={() => { closeRowMenu(); onClearBase() }}>{t('rowMenuClear')}</MenuItem>
         ) : null}
         {rowMenu?.source === RULE_SOURCE_FINAL_SELL ? (
-          <MenuItem onClick={() => { closeRowMenu(); onConfigureFinalSell() }}>{t('rowMenuConfigureFinalSell')}</MenuItem>
+          <MenuItem onClick={() => { closeRowMenu(); onConfigureFinalSell() }}>{t('rowMenuEditFinalSell')}</MenuItem>
         ) : null}
         {rowMenu?.source === RULE_SOURCE_HSFC ? (
           <>
-            <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'duplicate') }}>{t('rowMenuDuplicate')}</MenuItem>
-            <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'move_top') }}>{t('rowMenuMoveTop')}</MenuItem>
-            <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'move_up') }}>{t('rowMenuMoveUp')}</MenuItem>
-            <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'move_down') }}>{t('rowMenuMoveDown')}</MenuItem>
-            <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'move_bottom') }}>{t('rowMenuMoveBottom')}</MenuItem>
-            <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'copy') }}>{t('rowMenuCopy')}</MenuItem>
-            <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'paste_after') }}>{t('rowMenuPasteAfter')}</MenuItem>
+            <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'duplicate') }}>{t('rowMenuDuplicate')}</MenuItem>
+            <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'move_top') }}>{t('rowMenuMoveTop')}</MenuItem>
+            <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'move_up') }}>{t('rowMenuMoveUp')}</MenuItem>
+            <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'move_down') }}>{t('rowMenuMoveDown')}</MenuItem>
+            <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'move_bottom') }}>{t('rowMenuMoveBottom')}</MenuItem>
+            <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'copy') }}>{t('rowMenuCopy')}</MenuItem>
+            <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'paste_after') }}>{t('rowMenuPasteAfter')}</MenuItem>
             <Divider />
-            <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'delete') }} sx={{ color: 'error.main' }}>{t('rowMenuDelete')}</MenuItem>
+            <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'delete') }} sx={{ color: 'error.main' }}>{t('rowMenuDelete')}</MenuItem>
           </>
         ) : null}
       </Menu>

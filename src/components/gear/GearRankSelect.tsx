@@ -68,7 +68,7 @@ export function GearRankSelect({
   const selectValue: string | string[] = isMulti
     ? multiValues.map((rank) => String(rank))
     : (singleValue == null ? '' : String(singleValue))
-  // Custom renderers keep multi-select defaults labeled "Any" so Keep Uniques cards never show empty pills.
+  // Custom renderers keep multi-select defaults labeled "Any" so Safeguards cards never show empty pills.
   const renderMultiValue = useMemo(() => {
     if (!isMulti) return undefined
     return () => {

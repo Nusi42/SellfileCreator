@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent, type MutableRefObject, type SetStateAction } from 'react'
 import { arraysEqual } from '../lib/array'
-import type { BuilderConfig } from '../lib/hsfBuilder'
+import type { BuilderRecipe } from '../lib/hsfBuilder'
 import {
   createMultiEditDraft,
   syncMultiEditDraft,
@@ -10,9 +10,9 @@ import {
   areFieldPatchesEqual,
   areBuilderFieldValuesEqual,
   BUILDER_FIELD_KEYS,
-  applyMultiEditFieldsToConfig,
+  applyMultiEditFieldsToRecipe,
   getDirtyBuilderFieldKeys,
-  cloneBuilderConfig,
+  cloneBuilderRecipe,
   type MultiEditDraftState,
   type BuilderFieldKey,
   type MultiEditFieldCommit,
@@ -23,51 +23,51 @@ import {
 import { SELECTION_SCROLL_SOURCE_USER, type SelectionScrollSource } from '../lib/constants'
 import type { DescribeNextChangeFn } from '../hooks/useHsfcHistory'
 import {
-  createConfigsDuplicatedDescriptor,
-  createConfigsMovedDescriptor,
+  createRecipesDuplicatedDescriptor,
+  createRecipesMovedDescriptor,
   createMultiEditAppliedDescriptor,
-} from '../history/configCollectionDescriptors'
-import { buildInsertionLocation, snapshotConfigLabel } from '../history/historyLabelUtils'
+} from '../history/recipeCollectionDescriptors'
+import { buildInsertionLocation, snapshotRecipeLabel } from '../history/historyLabelUtils'
 import { collectChangedFields } from '../history/builderUpdateDescriptor'
-import { setConfigHoverIndex } from '../lib/configHoverBridge'
+import { setRecipeHoverIndex } from '../lib/recipeHoverBridge'
 
 type UseConfigSelectionParams = {
-  customCfgs: BuilderConfig[]
-  setCustomCfgs: Dispatch<SetStateAction<BuilderConfig[]>>
-  selectedCfgIdx: number | null
-  setSelectedCfgIdx: Dispatch<SetStateAction<number | null>>
-  setBuilder: Dispatch<SetStateAction<BuilderConfig>>
+  customRecipes: BuilderRecipe[]
+  setCustomRecipes: Dispatch<SetStateAction<BuilderRecipe[]>>
+  selectedRecipeIdx: number | null
+  setSelectedRecipeIdx: Dispatch<SetStateAction<number | null>>
+  setBuilder: Dispatch<SetStateAction<BuilderRecipe>>
   onWillChangeSelection?: ((previous: number[], next: number[]) => void) | undefined
-  onSelectionScrollRequest?: ((source: SelectionScrollSource, targetCfgIdx: number | null) => void) | undefined
+  onSelectionScrollRequest?: ((source: SelectionScrollSource, targetRecipeIdx: number | null) => void) | undefined
   requestDeleteSingle: (idx: number) => void
   requestDeleteMulti: (targets: number[]) => void
   describeNextChange: DescribeNextChangeFn
   suppressSelectionDraft: <T>(fn: () => T) => T
-  visibleConfigIndicesRef: MutableRefObject<ReadonlySet<number> | null>
+  visibleRecipeIndicesRef: MutableRefObject<ReadonlySet<number> | null>
 }
 
 export type UseConfigSelectionResult = {
-  selectedCfgIndices: number[]
+  selectedRecipeIndices: number[]
   setSelectedCfgIndices: (next: number[]) => void
   multiselectActive: boolean
   selectionAnchor: number | null
   prepareDragSelection: (idx: number) => number[]
-  setHoveredCfgIdx: (idx: number | null) => void
-  handleConfigHoverIdx: (idx: number | null) => void
-  multiSelectedConfigs: BuilderConfig[]
+  setHoveredRecipeIdx: (idx: number | null) => void
+  handleRecipeHoverIdx: (idx: number | null) => void
+  multiSelectedRecipes: BuilderRecipe[]
   multiEditDraftState: MultiEditDraftState | null
   setMultiEditDraftState: Dispatch<SetStateAction<MultiEditDraftState | null>>
   multiEditHandle: MultiEditDraftHandle | null
   applyMultiEditDraft: () => void
-  handleConfigSelect: (event: MouseEvent, idx: number) => void
-  handleConfigDelete: (idx: number) => void
-  handleConfigDuplicate: (idx: number) => void
-  handleConfigMoveUp: (idx: number) => void
-  handleConfigMoveDown: (idx: number) => void
-  handleConfigMoveTop: (idx: number) => void
-  handleConfigMoveBottom: (idx: number) => void
-  handleConfigReorder: (movingIndices: number[], targetIndex: number, options?: { mode?: 'move' | 'copy' }) => void
-  handleSelectAllConfigs: () => void
+  handleRecipeSelect: (event: MouseEvent, idx: number) => void
+  handleRecipeDelete: (idx: number) => void
+  handleRecipeDuplicate: (idx: number) => void
+  handleRecipeMoveUp: (idx: number) => void
+  handleRecipeMoveDown: (idx: number) => void
+  handleRecipeMoveTop: (idx: number) => void
+  handleRecipeMoveBottom: (idx: number) => void
+  handleRecipeReorder: (movingIndices: number[], targetIndex: number, options?: { mode?: 'move' | 'copy' }) => void
+  handleSelectAllRecipes: () => void
   handleClearSelection: () => void
   setSelectionAnchor: Dispatch<SetStateAction<number | null>>
 }
@@ -78,21 +78,21 @@ type ApplySelectionOptions = {
 }
 
 const mapSelectionByIdentity = (
-  prev: BuilderConfig[],
-  next: BuilderConfig[],
+  prev: BuilderRecipe[],
+  next: BuilderRecipe[],
   selection: number[],
 ): number[] => {
   // Preserve selection by object identity so reorders stay stable.
   if (!Array.isArray(selection) || selection.length === 0) return []
-  // Collect the selected configs from the previous list.
-  const selectedItems: BuilderConfig[] = []
+  // Collect the selected recipes from the previous list.
+  const selectedItems: BuilderRecipe[] = []
   for (const idx of selection) {
     const cfg = prev[idx]
-    // Skip invalid indices or missing configs.
+    // Skip invalid indices or missing recipes.
     if (!cfg) continue
     selectedItems.push(cfg)
   }
-  // If no configs are matched, there is no selection to restore.
+  // If no recipes are matched, there is no selection to restore.
   if (selectedItems.length === 0) return []
   // Use a Set for quick identity checks.
   const selectedSet = new Set(selectedItems)
@@ -105,15 +105,15 @@ const mapSelectionByIdentity = (
 }
 
 /**
- * Centralizes config selection and multi-edit draft state so App.tsx only wires the orchestration.
- * The hook keeps selection + anchor indices in sync with the global selected config index and
+ * Centralizes recipe selection and multi-edit draft state so App.tsx only wires the orchestration.
+ * The hook keeps selection + anchor indices in sync with the global selected recipe index and
  * exposes handlers used by the chips list and builder toolbar.
  */
-export function useConfigSelection({
-  customCfgs,
-  setCustomCfgs,
-  selectedCfgIdx,
-  setSelectedCfgIdx,
+export function useRecipeSelection({
+  customRecipes,
+  setCustomRecipes,
+  selectedRecipeIdx,
+  setSelectedRecipeIdx,
   setBuilder,
   onWillChangeSelection,
   onSelectionScrollRequest,
@@ -121,41 +121,41 @@ export function useConfigSelection({
   requestDeleteMulti,
   describeNextChange,
   suppressSelectionDraft,
-  visibleConfigIndicesRef,
+  visibleRecipeIndicesRef,
 }: UseConfigSelectionParams): UseConfigSelectionResult {
-  const [selectedCfgIndices, setSelectedCfgIndicesState] = useState<number[]>([])
+  const [selectedRecipeIndices, setSelectedCfgIndicesState] = useState<number[]>([])
   const selectionAnchorRef = useRef<number | null>(null)
   const [selectionAnchor, setSelectionAnchorState] = useState<number | null>(null)
   const selectedIndicesRef = useRef<number[]>([])
-  const multiselectActive = selectedCfgIndices.length > 1
+  const multiselectActive = selectedRecipeIndices.length > 1
 
   const multiSelectedIndices = useMemo(() => {
-    if (selectedCfgIndices.length <= 1) return []
+    if (selectedRecipeIndices.length <= 1) return []
     const next: number[] = []
-    for (const idx of selectedCfgIndices) {
+    for (const idx of selectedRecipeIndices) {
       if (idx < 0) continue
-      if (idx >= customCfgs.length) continue
-      if (!customCfgs[idx]) continue
+      if (idx >= customRecipes.length) continue
+      if (!customRecipes[idx]) continue
       next.push(idx)
     }
     return next
-  }, [customCfgs, selectedCfgIndices])
+  }, [customRecipes, selectedRecipeIndices])
 
-  const multiSelectedConfigs = useMemo(() => {
+  const multiSelectedRecipes = useMemo(() => {
     if (multiSelectedIndices.length === 0) return []
-    const result: BuilderConfig[] = []
+    const result: BuilderRecipe[] = []
     for (const idx of multiSelectedIndices) {
-      const cfg = customCfgs[idx]
+      const cfg = customRecipes[idx]
       if (cfg) result.push(cfg)
     }
     return result
-  }, [customCfgs, multiSelectedIndices])
+  }, [customRecipes, multiSelectedIndices])
 
   const [multiEditDraftState, setMultiEditDraftState] = useState<MultiEditDraftState | null>(null)
 
   useEffect(() => {
-    selectedIndicesRef.current = selectedCfgIndices
-  }, [selectedCfgIndices])
+    selectedIndicesRef.current = selectedRecipeIndices
+  }, [selectedRecipeIndices])
 
   const applySelection = useCallback((nextSelection: number[], options?: ApplySelectionOptions) => {
     // Always clone so callers can reuse their array without surprises.
@@ -173,13 +173,13 @@ export function useConfigSelection({
   }, [onWillChangeSelection])
 
   useEffect(() => {
-    if (multiSelectedConfigs.length < 2) {
+    if (multiSelectedRecipes.length < 2) {
       setMultiEditDraftState(prev => (prev === null ? prev : null))
       return
     }
-    const base = createMultiEditDraft(multiSelectedConfigs, multiSelectedIndices)
+    const base = createMultiEditDraft(multiSelectedRecipes, multiSelectedIndices)
     setMultiEditDraftState(prev => syncMultiEditDraft(prev, base))
-  }, [multiSelectedConfigs, multiSelectedIndices])
+  }, [multiSelectedRecipes, multiSelectedIndices])
 
   const setSelectionAnchor = useCallback<Dispatch<SetStateAction<number | null>>>((value) => {
     const next = typeof value === 'function'
@@ -191,17 +191,17 @@ export function useConfigSelection({
   }, [])
 
   const syncSelectionAfterReorder = useCallback((nextSelection: number[]) => {
-    // Reorders keep the same configs selected, so skip auto-apply/draft capture.
+    // Reorders keep the same recipes selected, so skip auto-apply/draft capture.
     applySelection(nextSelection, { suppressWillChange: true })
     // Anchor to the last selected index so keyboard navigation stays intuitive.
     const last = nextSelection.length > 0 ? nextSelection[nextSelection.length - 1]! : null
-    setSelectedCfgIdx(last)
+    setSelectedRecipeIdx(last)
     setSelectionAnchor(last)
-  }, [applySelection, setSelectedCfgIdx, setSelectionAnchor])
+  }, [applySelection, setSelectedRecipeIdx, setSelectionAnchor])
 
   const updateMultiEditField = useCallback(<K extends BuilderFieldKey>(
     key: K,
-    commit: MultiEditFieldCommit<BuilderConfig[K], K>,
+    commit: MultiEditFieldCommit<BuilderRecipe[K], K>,
   ) => {
     setMultiEditDraftState(prev => {
       if (!prev) return prev
@@ -373,12 +373,12 @@ export function useConfigSelection({
     if (dirtyKeys.length === 0) return
     const selectionSet = new Set(multiEditDraftState.selection)
     const fields = multiEditDraftState.fields
-    setCustomCfgs(prev => {
+    setCustomRecipes(prev => {
       let changed = false
-      const entries: Array<{ index: number; previous: BuilderConfig; next: BuilderConfig }> = []
+      const entries: Array<{ index: number; previous: BuilderRecipe; next: BuilderRecipe }> = []
       const next = prev.map((cfg, idx) => {
         if (!selectionSet.has(idx)) return cfg
-        const updated = applyMultiEditFieldsToConfig(cfg, fields, dirtyKeys)
+        const updated = applyMultiEditFieldsToRecipe(cfg, fields, dirtyKeys)
         if (updated !== cfg) {
           changed = true
           entries.push({ index: idx, previous: cfg, next: updated })
@@ -395,7 +395,7 @@ export function useConfigSelection({
         const changedKeys = collectChangedFields(entry.previous, entry.next)
         for (const key of changedKeys) fieldKeySet.add(key)
       }
-      const labels = entries.map((entry) => snapshotConfigLabel(entry.index, entry.next))
+      const labels = entries.map((entry) => snapshotRecipeLabel(entry.index, entry.next))
       const descriptor = createMultiEditAppliedDescriptor({
         labels,
         fieldKeys: Array.from(fieldKeySet),
@@ -404,7 +404,7 @@ export function useConfigSelection({
       return next
     })
     resetAllMultiEditFields()
-  }, [describeNextChange, multiEditDraftState, resetAllMultiEditFields, setCustomCfgs])
+  }, [describeNextChange, multiEditDraftState, resetAllMultiEditFields, setCustomRecipes])
 
   const multiEditHandle = useMemo<MultiEditDraftHandle | null>(() => {
     if (!multiEditDraftState) return null
@@ -416,39 +416,39 @@ export function useConfigSelection({
     }
   }, [multiEditDraftState, resetAllMultiEditFields, resetMultiEditField, updateMultiEditField])
 
-  const setHoveredCfgIdx = useCallback((idx: number | null) => {
-    setConfigHoverIndex(idx)
+  const setHoveredRecipeIdx = useCallback((idx: number | null) => {
+    setRecipeHoverIndex(idx)
   }, [])
 
-  const handleConfigHoverIdx = useCallback((idx: number | null) => {
-    setConfigHoverIndex(idx)
+  const handleRecipeHoverIdx = useCallback((idx: number | null) => {
+    setRecipeHoverIndex(idx)
   }, [])
 
   const prepareDragSelection = useCallback((idx: number): number[] => {
-    if (!Number.isInteger(idx) || idx < 0 || idx >= customCfgs.length) return []
-    const alreadySelected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 0
+    if (!Number.isInteger(idx) || idx < 0 || idx >= customRecipes.length) return []
+    const alreadySelected = selectedRecipeIndices.includes(idx) && selectedRecipeIndices.length > 0
     if (alreadySelected) {
-      return selectedCfgIndices.slice().sort((a, b) => a - b)
+      return selectedRecipeIndices.slice().sort((a, b) => a - b)
     }
-    const cfg = customCfgs[idx]
+    const cfg = customRecipes[idx]
     applySelection([idx])
-    setSelectedCfgIdx(idx)
+    setSelectedRecipeIdx(idx)
     setSelectionAnchor(idx)
     if (cfg) {
       setBuilder(cfg)
     }
     return [idx]
-  }, [applySelection, customCfgs, selectedCfgIndices, setBuilder, setSelectedCfgIdx, setSelectionAnchor])
+  }, [applySelection, customRecipes, selectedRecipeIndices, setBuilder, setSelectedRecipeIdx, setSelectionAnchor])
 
-  const handleConfigSelect = useCallback((event: MouseEvent, idx: number) => {
-    const cfg = customCfgs[idx]
+  const handleRecipeSelect = useCallback((event: MouseEvent, idx: number) => {
+    const cfg = customRecipes[idx]
     if (!cfg) return
 
     const computeNext = (prev: number[]): number[] => {
       if (event.shiftKey && selectionAnchorRef.current !== null) {
         const anchor = selectionAnchorRef.current
         const [lo, hi] = anchor < idx ? [anchor, idx] : [idx, anchor]
-        const visibleSet = visibleConfigIndicesRef?.current ?? null
+        const visibleSet = visibleRecipeIndicesRef?.current ?? null
         if (!visibleSet || visibleSet.size === 0) {
           return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i)
         }
@@ -473,7 +473,7 @@ export function useConfigSelection({
       return [idx]
     }
 
-    const previousSelection = selectedCfgIndices
+    const previousSelection = selectedRecipeIndices
     const computedSelection = computeNext(previousSelection)
     // Track whether the selection actually changed before we mutate state.
     // Why: repeated clicks should not re-trigger selection side effects.
@@ -491,47 +491,47 @@ export function useConfigSelection({
     if (selectionAnchorRef.current !== (last ?? null)) {
       setSelectionAnchor(last ?? null)
     }
-    if (selectedCfgIdx !== (last ?? null)) {
-      setSelectedCfgIdx(last ?? null)
+    if (selectedRecipeIdx !== (last ?? null)) {
+      setSelectedRecipeIdx(last ?? null)
     }
 
     if (finalSelection.length === 1) {
-      const only = customCfgs[finalSelection[0]!]
+      const only = customRecipes[finalSelection[0]!]
       if (only) setBuilder(only)
     }
     // Only request preview auto-scroll when a direct user selection changed.
     // Why: endpoint-driven updates can re-render without user intent.
     if (selectionChanged && finalSelection.length === 1) {
-      // Capture the explicit target so the preview scrolls to the new config.
+      // Capture the explicit target so the preview scrolls to the new recipe.
       // Why: selection state updates can lag in transition-rendered views.
-      const targetCfgIdx = finalSelection[0] ?? null
-      onSelectionScrollRequest?.(SELECTION_SCROLL_SOURCE_USER, targetCfgIdx)
+      const targetRecipeIdx = finalSelection[0] ?? null
+      onSelectionScrollRequest?.(SELECTION_SCROLL_SOURCE_USER, targetRecipeIdx)
     }
-  }, [applySelection, customCfgs, onSelectionScrollRequest, selectedCfgIdx, selectedCfgIndices, setBuilder, setSelectedCfgIdx, setSelectionAnchor, visibleConfigIndicesRef])
+  }, [applySelection, customRecipes, onSelectionScrollRequest, selectedRecipeIdx, selectedRecipeIndices, setBuilder, setSelectedRecipeIdx, setSelectionAnchor, visibleRecipeIndicesRef])
 
-  const handleConfigDelete = useCallback((idx: number) => {
-    if (selectedCfgIndices.length > 1 && selectedCfgIndices.includes(idx)) {
-      const targets = selectedCfgIndices.slice().sort((a, b) => a - b)
+  const handleRecipeDelete = useCallback((idx: number) => {
+    if (selectedRecipeIndices.length > 1 && selectedRecipeIndices.includes(idx)) {
+      const targets = selectedRecipeIndices.slice().sort((a, b) => a - b)
       requestDeleteMulti(targets)
     } else {
       requestDeleteSingle(idx)
     }
-  }, [requestDeleteMulti, requestDeleteSingle, selectedCfgIndices])
+  }, [requestDeleteMulti, requestDeleteSingle, selectedRecipeIndices])
 
-  // Config mutations emit their own history descriptors; guard selection changes so they do not add extra draft entries.
-  const handleConfigDuplicate = useCallback((idx: number) => {
+  // Recipe mutations emit their own history descriptors; guard selection changes so they do not add extra draft entries.
+  const handleRecipeDuplicate = useCallback((idx: number) => {
     suppressSelectionDraft(() => {
       // Duplicate the current selection or just the clicked index.
-      const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
-        ? selectedCfgIndices.slice().sort((a, b) => a - b)
+      const selected = selectedRecipeIndices.includes(idx) && selectedRecipeIndices.length > 1
+        ? selectedRecipeIndices.slice().sort((a, b) => a - b)
         : [idx]
-      // Snapshot the current config list for stable indexing.
-      const prev = customCfgs
-      // Clone the selected configs so duplicates stay identity-unique.
+      // Snapshot the current recipe list for stable indexing.
+      const prev = customRecipes
+      // Clone the selected recipes so duplicates stay identity-unique.
       const copies = selected
         .map(i => (i >= 0 && i < prev.length ? prev[i] : undefined))
-        .filter((cfg): cfg is BuilderConfig => Boolean(cfg))
-        .map(cfg => cloneBuilderConfig(cfg))
+        .filter((cfg): cfg is BuilderRecipe => Boolean(cfg))
+        .map(cfg => cloneBuilderRecipe(cfg))
       // If nothing can be duplicated, skip the update.
       if (copies.length === 0) {
         describeNextChange(null)
@@ -545,33 +545,33 @@ export function useConfigSelection({
         .map((_, offset) => {
           const newIdx = insertIdx + offset
           const cfg = next[newIdx]
-          return cfg ? snapshotConfigLabel(newIdx, cfg) : null
+          return cfg ? snapshotRecipeLabel(newIdx, cfg) : null
         })
-        .filter((label): label is ReturnType<typeof snapshotConfigLabel> => Boolean(label))
-      const descriptor = createConfigsDuplicatedDescriptor({
+        .filter((label): label is ReturnType<typeof snapshotRecipeLabel> => Boolean(label))
+      const descriptor = createRecipesDuplicatedDescriptor({
         labels,
         location: buildInsertionLocation(insertIdx, prev),
       })
       describeNextChange(descriptor)
-      // Commit the new configs before switching selection.
-      setCustomCfgs(next)
+      // Commit the new recipes before switching selection.
+      setCustomRecipes(next)
       const newIdxs = copies.map((_, i) => insertIdx + i)
       // Switching selection should still flush auto-apply when enabled.
       applySelection(newIdxs)
       const last = newIdxs[newIdxs.length - 1] ?? null
-      setSelectedCfgIdx(last)
+      setSelectedRecipeIdx(last)
       setSelectionAnchor(last)
     })
-  }, [applySelection, customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft])
+  }, [applySelection, customRecipes, describeNextChange, selectedRecipeIndices, setCustomRecipes, setSelectedRecipeIdx, setSelectionAnchor, suppressSelectionDraft])
 
-  const handleConfigMoveUp = useCallback((idx: number) => {
+  const handleRecipeMoveUp = useCallback((idx: number) => {
     suppressSelectionDraft(() => {
       // Reorder the active selection when multi-select is on.
-      const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
-        ? selectedCfgIndices.slice().sort((a, b) => a - b)
+      const selected = selectedRecipeIndices.includes(idx) && selectedRecipeIndices.length > 1
+        ? selectedRecipeIndices.slice().sort((a, b) => a - b)
         : [idx]
       // Copy the array so we can swap in place safely.
-      const prev = customCfgs
+      const prev = customRecipes
       const arr = [...prev]
       let changed = false
       // Move in ascending order so earlier swaps do not skip entries.
@@ -590,29 +590,29 @@ export function useConfigSelection({
       const labels = newSel
         .map((idxNew) => {
           const cfg = arr[idxNew]
-          return cfg ? snapshotConfigLabel(idxNew, cfg) : null
+          return cfg ? snapshotRecipeLabel(idxNew, cfg) : null
         })
-        .filter((label): label is ReturnType<typeof snapshotConfigLabel> => Boolean(label))
-      const descriptor = createConfigsMovedDescriptor({
+        .filter((label): label is ReturnType<typeof snapshotRecipeLabel> => Boolean(label))
+      const descriptor = createRecipesMovedDescriptor({
         direction: 'up',
         labels,
       })
       describeNextChange(descriptor)
       // Commit the reordered list before syncing selection indices.
-      setCustomCfgs(arr)
+      setCustomRecipes(arr)
       // Reorders should not trigger auto-apply or draft capture.
       syncSelectionAfterReorder(newSel)
     })
-  }, [customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterReorder])
+  }, [customRecipes, describeNextChange, selectedRecipeIndices, setCustomRecipes, suppressSelectionDraft, syncSelectionAfterReorder])
 
-  const handleConfigMoveDown = useCallback((idx: number) => {
+  const handleRecipeMoveDown = useCallback((idx: number) => {
     suppressSelectionDraft(() => {
       // Reorder the active selection when multi-select is on.
-      const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
-        ? selectedCfgIndices.slice().sort((a, b) => a - b)
+      const selected = selectedRecipeIndices.includes(idx) && selectedRecipeIndices.length > 1
+        ? selectedRecipeIndices.slice().sort((a, b) => a - b)
         : [idx]
       // Copy the array so we can swap in place safely.
-      const prev = customCfgs
+      const prev = customRecipes
       const arr = [...prev]
       let changed = false
       // Move in descending order so later swaps do not skip entries.
@@ -632,29 +632,29 @@ export function useConfigSelection({
       const labels = newSel
         .map((idxNew) => {
           const cfg = arr[idxNew]
-          return cfg ? snapshotConfigLabel(idxNew, cfg) : null
+          return cfg ? snapshotRecipeLabel(idxNew, cfg) : null
         })
-        .filter((label): label is ReturnType<typeof snapshotConfigLabel> => Boolean(label))
-      const descriptor = createConfigsMovedDescriptor({
+        .filter((label): label is ReturnType<typeof snapshotRecipeLabel> => Boolean(label))
+      const descriptor = createRecipesMovedDescriptor({
         direction: 'down',
         labels,
       })
       describeNextChange(descriptor)
       // Commit the reordered list before syncing selection indices.
-      setCustomCfgs(arr)
+      setCustomRecipes(arr)
       // Reorders should not trigger auto-apply or draft capture.
       syncSelectionAfterReorder(newSel)
     })
-  }, [customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterReorder])
+  }, [customRecipes, describeNextChange, selectedRecipeIndices, setCustomRecipes, suppressSelectionDraft, syncSelectionAfterReorder])
 
-  const handleConfigMoveTop = useCallback((idx: number) => {
+  const handleRecipeMoveTop = useCallback((idx: number) => {
     suppressSelectionDraft(() => {
       // Reorder the active selection when multi-select is on.
-      const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
-        ? selectedCfgIndices.slice().sort((a, b) => a - b)
+      const selected = selectedRecipeIndices.includes(idx) && selectedRecipeIndices.length > 1
+        ? selectedRecipeIndices.slice().sort((a, b) => a - b)
         : [idx]
-      // Work from the current config list for identity mapping.
-      const prev = customCfgs
+      // Work from the current recipe list for identity mapping.
+      const prev = customRecipes
       if (selected[0] === 0) {
         describeNextChange(null)
         return
@@ -666,29 +666,29 @@ export function useConfigSelection({
       const labels = newSel
         .map((idxNew) => {
           const cfg = next[idxNew]
-          return cfg ? snapshotConfigLabel(idxNew, cfg) : null
+          return cfg ? snapshotRecipeLabel(idxNew, cfg) : null
         })
-        .filter((label): label is ReturnType<typeof snapshotConfigLabel> => Boolean(label))
-      const descriptor = createConfigsMovedDescriptor({
+        .filter((label): label is ReturnType<typeof snapshotRecipeLabel> => Boolean(label))
+      const descriptor = createRecipesMovedDescriptor({
         direction: 'top',
         labels,
       })
       describeNextChange(descriptor)
       // Commit the reordered list before syncing selection indices.
-      setCustomCfgs(next)
+      setCustomRecipes(next)
       // Reorders should not trigger auto-apply or draft capture.
       syncSelectionAfterReorder(newSel)
     })
-  }, [customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterReorder])
+  }, [customRecipes, describeNextChange, selectedRecipeIndices, setCustomRecipes, suppressSelectionDraft, syncSelectionAfterReorder])
 
-  const handleConfigMoveBottom = useCallback((idx: number) => {
+  const handleRecipeMoveBottom = useCallback((idx: number) => {
     suppressSelectionDraft(() => {
       // Reorder the active selection when multi-select is on.
-      const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
-        ? selectedCfgIndices.slice().sort((a, b) => a - b)
+      const selected = selectedRecipeIndices.includes(idx) && selectedRecipeIndices.length > 1
+        ? selectedRecipeIndices.slice().sort((a, b) => a - b)
         : [idx]
-      // Work from the current config list for identity mapping.
-      const prev = customCfgs
+      // Work from the current recipe list for identity mapping.
+      const prev = customRecipes
       if (selected[selected.length - 1] === prev.length - 1) {
         describeNextChange(null)
         return
@@ -700,28 +700,28 @@ export function useConfigSelection({
       const labels = newSel
         .map((idxNew) => {
           const cfg = next[idxNew]
-          return cfg ? snapshotConfigLabel(idxNew, cfg) : null
+          return cfg ? snapshotRecipeLabel(idxNew, cfg) : null
         })
-        .filter((label): label is ReturnType<typeof snapshotConfigLabel> => Boolean(label))
-      const descriptor = createConfigsMovedDescriptor({
+        .filter((label): label is ReturnType<typeof snapshotRecipeLabel> => Boolean(label))
+      const descriptor = createRecipesMovedDescriptor({
         direction: 'bottom',
         labels,
       })
       describeNextChange(descriptor)
       // Commit the reordered list before syncing selection indices.
-      setCustomCfgs(next)
+      setCustomRecipes(next)
       // Reorders should not trigger auto-apply or draft capture.
       syncSelectionAfterReorder(newSel)
     })
-  }, [customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterReorder])
+  }, [customRecipes, describeNextChange, selectedRecipeIndices, setCustomRecipes, suppressSelectionDraft, syncSelectionAfterReorder])
 
-  const handleConfigReorder = useCallback((movingIndices: number[], rawTargetIndex: number, options?: { mode?: 'move' | 'copy' }) => {
+  const handleRecipeReorder = useCallback((movingIndices: number[], rawTargetIndex: number, options?: { mode?: 'move' | 'copy' }) => {
     if (!Array.isArray(movingIndices) || movingIndices.length === 0) return
     suppressSelectionDraft(() => {
       // Derive the reorder mode once so we can branch cleanly.
       const mode = options?.mode === 'copy' ? 'copy' : 'move'
-      // Reorder moves need at least two configs to make sense.
-      if (mode === 'move' && customCfgs.length <= 1) {
+      // Reorder moves need at least two recipes to make sense.
+      if (mode === 'move' && customRecipes.length <= 1) {
         describeNextChange(null)
         return
       }
@@ -729,17 +729,17 @@ export function useConfigSelection({
       const sanitized = Array.from(new Set(
         movingIndices
           .map((idx) => (Number.isInteger(idx) ? Number(idx) : -1))
-          .filter((idx) => idx >= 0 && idx < customCfgs.length),
+          .filter((idx) => idx >= 0 && idx < customRecipes.length),
       )).sort((a, b) => a - b)
       if (sanitized.length === 0) {
         describeNextChange(null)
         return
       }
-      // Resolve the moving configs by identity before mutating the list.
-      const prev = customCfgs
+      // Resolve the moving recipes by identity before mutating the list.
+      const prev = customRecipes
       const movingItems = sanitized
         .map((idx) => prev[idx])
-        .filter((cfg): cfg is BuilderConfig => Boolean(cfg))
+        .filter((cfg): cfg is BuilderRecipe => Boolean(cfg))
       if (movingItems.length === 0) {
         describeNextChange(null)
         return
@@ -748,7 +748,7 @@ export function useConfigSelection({
       const clampedTarget = Math.max(0, Math.min(prev.length, rawTargetIndex))
       if (mode === 'copy') {
         // Copy entries with fresh identity so selection mapping stays stable.
-        const copies = movingItems.map(cfg => cloneBuilderConfig(cfg))
+        const copies = movingItems.map(cfg => cloneBuilderRecipe(cfg))
         if (copies.length === 0) {
           describeNextChange(null)
           return
@@ -762,21 +762,21 @@ export function useConfigSelection({
           .map((_, offset) => {
             const newIdx = clampedTarget + offset
             const cfg = next[newIdx]
-            return cfg ? snapshotConfigLabel(newIdx, cfg) : null
+            return cfg ? snapshotRecipeLabel(newIdx, cfg) : null
           })
-          .filter((label): label is ReturnType<typeof snapshotConfigLabel> => Boolean(label))
-        const descriptor = createConfigsDuplicatedDescriptor({
+          .filter((label): label is ReturnType<typeof snapshotRecipeLabel> => Boolean(label))
+        const descriptor = createRecipesDuplicatedDescriptor({
           labels,
           location: buildInsertionLocation(clampedTarget, prev),
         })
         describeNextChange(descriptor)
         // Commit the copied list before switching selection.
-        setCustomCfgs(next)
+        setCustomRecipes(next)
         const newSelection = copies.map((_, offset) => clampedTarget + offset)
         // Copy inserts should still trigger auto-apply before selection changes.
         applySelection(newSelection)
         const last = newSelection[newSelection.length - 1] ?? null
-        setSelectedCfgIdx(last)
+        setSelectedRecipeIdx(last)
         setSelectionAnchor(last)
         return
       }
@@ -816,68 +816,68 @@ export function useConfigSelection({
       const labels = newSelection
         .map((idxNew) => {
           const cfg = next[idxNew]
-          return cfg ? snapshotConfigLabel(idxNew, cfg) : null
+          return cfg ? snapshotRecipeLabel(idxNew, cfg) : null
         })
-        .filter((label): label is ReturnType<typeof snapshotConfigLabel> => Boolean(label))
-      const descriptor = createConfigsMovedDescriptor({
+        .filter((label): label is ReturnType<typeof snapshotRecipeLabel> => Boolean(label))
+      const descriptor = createRecipesMovedDescriptor({
         direction,
         labels,
       })
       describeNextChange(descriptor)
       // Commit the reordered list before syncing selection indices.
-      setCustomCfgs(next)
+      setCustomRecipes(next)
       // Reorders should not trigger auto-apply or draft capture.
       syncSelectionAfterReorder(newSelection)
     })
-  }, [applySelection, customCfgs, describeNextChange, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, syncSelectionAfterReorder])
+  }, [applySelection, customRecipes, describeNextChange, setCustomRecipes, setSelectedRecipeIdx, setSelectionAnchor, suppressSelectionDraft, syncSelectionAfterReorder])
 
-  const handleSelectAllConfigs = useCallback(() => {
-    const visibleSet = visibleConfigIndicesRef?.current ?? null
+  const handleSelectAllRecipes = useCallback(() => {
+    const visibleSet = visibleRecipeIndicesRef?.current ?? null
     const all = visibleSet
       ? Array.from(visibleSet)
-        .filter((idx) => Number.isInteger(idx) && idx >= 0 && idx < customCfgs.length)
+        .filter((idx) => Number.isInteger(idx) && idx >= 0 && idx < customRecipes.length)
         .sort((a, b) => a - b)
-      : customCfgs.map((_, i) => i)
+      : customRecipes.map((_, i) => i)
     applySelection(all)
     const nextSelected = (() => {
       if (!all.length) return null
-      if (typeof selectedCfgIdx === 'number' && selectedCfgIdx >= 0 && selectedCfgIdx < customCfgs.length && (!visibleSet || visibleSet.has(selectedCfgIdx))) {
-        return selectedCfgIdx
+      if (typeof selectedRecipeIdx === 'number' && selectedRecipeIdx >= 0 && selectedRecipeIdx < customRecipes.length && (!visibleSet || visibleSet.has(selectedRecipeIdx))) {
+        return selectedRecipeIdx
       }
       return all[0]!
     })()
-    setSelectedCfgIdx(nextSelected)
+    setSelectedRecipeIdx(nextSelected)
     setSelectionAnchor(nextSelected)
-  }, [applySelection, customCfgs, selectedCfgIdx, setSelectedCfgIdx, setSelectionAnchor, visibleConfigIndicesRef])
+  }, [applySelection, customRecipes, selectedRecipeIdx, setSelectedRecipeIdx, setSelectionAnchor, visibleRecipeIndicesRef])
 
   const handleClearSelection = useCallback(() => {
     applySelection([])
-    setSelectedCfgIdx(null)
+    setSelectedRecipeIdx(null)
     setSelectionAnchor(null)
-  }, [applySelection, setSelectedCfgIdx, setSelectionAnchor])
+  }, [applySelection, setSelectedRecipeIdx, setSelectionAnchor])
 
   return {
-    selectedCfgIndices,
+    selectedRecipeIndices,
     setSelectedCfgIndices: applySelection,
     multiselectActive,
     selectionAnchor,
     prepareDragSelection,
-    setHoveredCfgIdx,
-    handleConfigHoverIdx,
-    multiSelectedConfigs,
+    setHoveredRecipeIdx,
+    handleRecipeHoverIdx,
+    multiSelectedRecipes,
     multiEditDraftState,
     setMultiEditDraftState,
     multiEditHandle,
     applyMultiEditDraft,
-    handleConfigSelect,
-    handleConfigDelete,
-    handleConfigDuplicate,
-    handleConfigMoveUp,
-    handleConfigMoveDown,
-    handleConfigMoveTop,
-    handleConfigMoveBottom,
-    handleConfigReorder,
-    handleSelectAllConfigs,
+    handleRecipeSelect,
+    handleRecipeDelete,
+    handleRecipeDuplicate,
+    handleRecipeMoveUp,
+    handleRecipeMoveDown,
+    handleRecipeMoveTop,
+    handleRecipeMoveBottom,
+    handleRecipeReorder,
+    handleSelectAllRecipes,
     handleClearSelection,
     setSelectionAnchor,
   }

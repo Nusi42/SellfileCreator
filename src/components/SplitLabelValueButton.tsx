@@ -6,7 +6,7 @@ import type { SxProps, Theme } from '@mui/material/styles'
 // A small helper for filter toggles that must render a fixed label + a centered value.
 // The fixed right-column width prevents the button from "jumping" as values change.
 export type SplitLabelValueButtonProps = Omit<ButtonProps, 'children'> & {
-  // Left side: the stable, descriptive label (e.g. "Config Filter").
+  // Left side: the stable, descriptive label (e.g. "Recipe Filter").
   label: React.ReactNode
   // Right side: the current value (e.g. "Off" / "First-Match" / "Any-Match").
   value: React.ReactNode

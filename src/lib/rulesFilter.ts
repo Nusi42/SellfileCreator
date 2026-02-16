@@ -28,7 +28,7 @@ import type { HsfRuleWithCfg } from './merge'
 import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
 import { isAccessorySlot } from './testerDomain'
 import { ACCESSORY_NO_SET_ID } from './constants'
-import { getRuleConfigIndex, resolveMatchConfigName } from './ruleConfigIndex'
+import { getRuleRecipeIndex, resolveMatchRecipeName } from './ruleRecipeIndex'
 import { getDaysSince } from './dateDisplay'
 
 // Tri-state for handling explicit "Any" fields in rules.
@@ -150,7 +150,7 @@ export interface RulesFilterState {
     wildcardMode: AnyMode
   }
   faction: { selected: FactionId[]; anyMode: AnyMode }
-  configName?: { query: string }
+  recipeName?: { query: string }
   testerSources?: { selected: TesterSourceFilter[] }
   testerChaos?: { mode: TesterChaosFilterMode }
   testerGlyphs?: { mode: TesterGlyphFilterMode }
@@ -187,7 +187,7 @@ export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
   main: { selected: [], anyMode: 'include' },
   sub: { selected: [], notSelected: [], mode: 'all', wildcardMode: 'include' },
   faction: { selected: [], anyMode: 'include' },
-  configName: { query: '' },
+  recipeName: { query: '' },
   testerSources: { selected: [] },
   testerChaos: { mode: 'any' },
   testerGlyphs: { mode: 'any' },
@@ -384,9 +384,9 @@ export const sanitizeRulesFilterState = (raw: unknown): RulesFilterState => {
 
   // Optional sections: keep defaults when missing so consumers can assume shape.
   {
-    const candidate = isRecord(rec['configName']) ? (rec['configName'] as UnknownRecord) : null
-    const query = typeof candidate?.['query'] === 'string' ? candidate['query'] : next.configName?.query ?? ''
-    next.configName = { query }
+    const candidate = isRecord(rec['recipeName']) ? (rec['recipeName'] as UnknownRecord) : null
+    const query = typeof candidate?.['query'] === 'string' ? candidate['query'] : next.recipeName?.query ?? ''
+    next.recipeName = { query }
   }
   {
     const candidate = isRecord(rec['testerSources']) ? (rec['testerSources'] as UnknownRecord) : null
@@ -454,7 +454,7 @@ export function isRulesFilterActive(f: RulesFilterState, options?: { includeTest
     || (f.sub?.wildcardMode ?? 'include') !== 'include'
     || (f.sub?.mode ?? 'all') !== 'all'
   const i = (f.faction?.selected?.length ?? 0) > 0 || (f.faction?.anyMode ?? 'include') !== 'include'
-  const j = Boolean(f.configName && typeof f.configName.query === 'string' && f.configName.query.length > 0)
+  const j = Boolean(f.recipeName && typeof f.recipeName.query === 'string' && f.recipeName.query.length > 0)
   const k = (f.testerSources?.selected?.length ?? 0) > 0
   const l = (f.testerChaos?.mode ?? 'any') !== 'any'
   const m = (f.testerGlyphs?.mode ?? 'any') !== 'any'
@@ -479,8 +479,8 @@ function matchesAnyModeForArrayField<T extends number>(field: T[] | undefined, a
 
 export interface FilterHsfRulesResult<T extends HsfRule = HsfRule> {
   rules: T[]
-  matchingConfigIndices: Set<number>
-  configRuleCounts: Map<number, number>
+  matchingRecipeIndices: Set<number>
+  recipeRuleCounts: Map<number, number>
 }
 
 export function filterHsfRules<T extends HsfRule>(
@@ -488,9 +488,9 @@ export function filterHsfRules<T extends HsfRule>(
   f: RulesFilterState,
   metasets?: Metaset[],
   options?: {
-    configNames?: Array<string | null | undefined>
-    configTags?: Array<string[] | null | undefined>
-    configModes?: SellfileExportMode[]
+    recipeNames?: Array<string | null | undefined>
+    recipeTags?: Array<string[] | null | undefined>
+    recipeModes?: SellfileExportMode[]
     specialRuleLabels?: RuleSourceLabelMap
   },
 ): FilterHsfRulesResult<T> {
@@ -518,10 +518,10 @@ export function filterHsfRules<T extends HsfRule>(
   const selectedRarities = new Set(f.rarity?.selected ?? [])
 
   const filtered: T[] = []
-  const matchingConfigIndices = new Set<number>()
-  const configRuleCounts = new Map<number, number>()
+  const matchingRecipeIndices = new Set<number>()
+  const recipeRuleCounts = new Map<number, number>()
 
-  const configNameQuery = f.configName?.query ?? ''
+  const configNameQuery = f.recipeName?.query ?? ''
   const configNameFilterActive = configNameQuery.length > 0
   let configNameRegex: RegExp | null = null
   let configNameRegexValid = true
@@ -536,7 +536,7 @@ export function filterHsfRules<T extends HsfRule>(
 
   const shouldIncludeRule = (r: T): boolean => {
     const withCfg = r as unknown as HsfRuleWithCfg
-    const cfgIdx = getRuleConfigIndex(withCfg)
+    const recipeIdx = getRuleRecipeIndex(withCfg)
     // Rule-level: Keep/Sell and Enabled/Disabled
     {
       const keepMode = f.rule?.keep ?? 'any'
@@ -578,16 +578,16 @@ export function filterHsfRules<T extends HsfRule>(
 
     if (configNameFilterActive) {
       if (!configNameRegexValid) return false
-      const resolvedName = resolveMatchConfigName(cfgIdx ?? null, options?.configNames ?? null, withCfg)
+      const resolvedName = resolveMatchRecipeName(recipeIdx ?? null, options?.recipeNames ?? null, withCfg)
       const ruleSource = (withCfg as Partial<HsfRuleWithCfg> | null | undefined)?.__source ?? null
       const sourceAliases = ruleSource
         ? options?.specialRuleLabels?.[ruleSource] ?? []
         : []
       const candidateNames: string[] = []
       if (resolvedName) candidateNames.push(resolvedName)
-      // Also allow config tags to satisfy the name filter.
-      if (cfgIdx != null && cfgIdx >= 0 && Array.isArray(options?.configTags)) {
-        const tagList = options.configTags[cfgIdx]
+      // Also allow recipe tags to satisfy the name filter.
+      if (recipeIdx != null && recipeIdx >= 0 && Array.isArray(options?.recipeTags)) {
+        const tagList = options.recipeTags[recipeIdx]
         if (Array.isArray(tagList)) {
           for (const tag of tagList) {
             const trimmed = typeof tag === 'string' ? tag.trim() : ''
@@ -713,26 +713,26 @@ export function filterHsfRules<T extends HsfRule>(
   for (const r of rules) {
     if (!shouldIncludeRule(r)) continue
     filtered.push(r)
-    const cfgIdx = getRuleConfigIndex(r as unknown as HsfRuleWithCfg)
-    if (cfgIdx !== null) {
-      matchingConfigIndices.add(cfgIdx)
-      configRuleCounts.set(cfgIdx, (configRuleCounts.get(cfgIdx) ?? 0) + 1)
+    const recipeIdx = getRuleRecipeIndex(r as unknown as HsfRuleWithCfg)
+    if (recipeIdx !== null) {
+      matchingRecipeIndices.add(recipeIdx)
+      recipeRuleCounts.set(recipeIdx, (recipeRuleCounts.get(recipeIdx) ?? 0) + 1)
     }
   }
 
   const ensureConfigEntries = (indices: Iterable<number>) => {
     for (const idx of indices) {
-      matchingConfigIndices.add(idx)
-      if (!configRuleCounts.has(idx)) configRuleCounts.set(idx, 0)
+      matchingRecipeIndices.add(idx)
+      if (!recipeRuleCounts.has(idx)) recipeRuleCounts.set(idx, 0)
     }
   }
 
   const filtersActive = isRulesFilterActive(f)
   if (!filtersActive) {
     const total = Math.max(
-      options?.configModes?.length ?? 0,
-      options?.configNames?.length ?? 0,
-      options?.configTags?.length ?? 0,
+      options?.recipeModes?.length ?? 0,
+      options?.recipeNames?.length ?? 0,
+      options?.recipeTags?.length ?? 0,
     )
     if (total > 0) {
       ensureConfigEntries(Array.from({ length: total }, (_, i) => i))
@@ -740,17 +740,17 @@ export function filterHsfRules<T extends HsfRule>(
   }
 
   if (configNameFilterActive && configNameRegexValid) {
-    const nameLimit = Array.isArray(options?.configNames) ? options.configNames.length : 0
-    const tagLimit = Array.isArray(options?.configTags) ? options.configTags.length : 0
+    const nameLimit = Array.isArray(options?.recipeNames) ? options.recipeNames.length : 0
+    const tagLimit = Array.isArray(options?.recipeTags) ? options.recipeTags.length : 0
     const limit = Math.max(nameLimit, tagLimit)
     for (let idx = 0; idx < limit; idx += 1) {
       const candidateNames: string[] = []
-      if (Array.isArray(options?.configNames)) {
-        const name = options.configNames[idx] ?? ''
+      if (Array.isArray(options?.recipeNames)) {
+        const name = options.recipeNames[idx] ?? ''
         if (typeof name === 'string' && name.trim().length > 0) candidateNames.push(name)
       }
-      if (Array.isArray(options?.configTags)) {
-        const tagList = options.configTags[idx]
+      if (Array.isArray(options?.recipeTags)) {
+        const tagList = options.recipeTags[idx]
         if (Array.isArray(tagList)) {
           for (const tag of tagList) {
             const trimmed = typeof tag === 'string' ? tag.trim() : ''
@@ -759,18 +759,18 @@ export function filterHsfRules<T extends HsfRule>(
         }
       }
       if (!candidateNames.some((name) => configNameRegex!.test(name))) continue
-      if (!matchingConfigIndices.has(idx)) matchingConfigIndices.add(idx)
-      if (!configRuleCounts.has(idx)) configRuleCounts.set(idx, 0)
+      if (!matchingRecipeIndices.has(idx)) matchingRecipeIndices.add(idx)
+      if (!recipeRuleCounts.has(idx)) recipeRuleCounts.set(idx, 0)
     }
   }
 
-  return { rules: filtered, matchingConfigIndices, configRuleCounts }
+  return { rules: filtered, matchingRecipeIndices, recipeRuleCounts }
 }
 
 export type TesterFilterRowMatch = {
   keep: boolean
-  cfgIdx: number | null
-  cfgName?: string | null
+  recipeIdx: number | null
+  recipeName?: string | null
   ruleSource?: string | null
 }
 
@@ -781,14 +781,14 @@ export type TesterFilterRow = {
 }
 
 export interface FilterTesterItemsOptions {
-  configNames?: Array<string | null | undefined>
-  configTags?: Array<string[] | null | undefined>
+  recipeNames?: Array<string | null | undefined>
+  recipeTags?: Array<string[] | null | undefined>
   specialRuleLabels?: RuleSourceLabelMap
 }
 
 export interface FilterTesterItemsResult<T extends TesterFilterRow> {
   items: T[]
-  matchingConfigIndices: Set<number>
+  matchingRecipeIndices: Set<number>
 }
 
 export function filterTesterItems<T extends TesterFilterRow>(
@@ -797,7 +797,7 @@ export function filterTesterItems<T extends TesterFilterRow>(
   metasets?: Metaset[],
   options?: FilterTesterItemsOptions,
 ): FilterTesterItemsResult<T> {
-  if (!rows.length) return { items: [], matchingConfigIndices: new Set() }
+  if (!rows.length) return { items: [], matchingRecipeIndices: new Set() }
 
   const testerRolls = normalizeTesterRollsState(f.testerRolls)
   const testerRollsActive = isTesterRollFilterActive(testerRolls)
@@ -839,7 +839,7 @@ export function filterTesterItems<T extends TesterFilterRow>(
 
   let configNameRegex: RegExp | null = null
   let configNameRegexValid = true
-  const configNameQuery = f.configName?.query ?? ''
+  const configNameQuery = f.recipeName?.query ?? ''
   const configNameFilterActive = configNameQuery.length > 0
   if (configNameFilterActive) {
     try {
@@ -850,7 +850,7 @@ export function filterTesterItems<T extends TesterFilterRow>(
     }
   }
 
-  const matchingConfigIndices = new Set<number>()
+  const matchingRecipeIndices = new Set<number>()
   const selectedSources = new Set<TesterSourceFilter>(f.testerSources?.selected ?? [])
   const chaosMode = f.testerChaos?.mode ?? 'any'
   const glyphMode = f.testerGlyphs?.mode ?? 'any'
@@ -876,14 +876,14 @@ export function filterTesterItems<T extends TesterFilterRow>(
     if (configNameFilterActive) {
       if (!configNameRegexValid) continue
       const candidateNames: string[] = []
-      const cfgIdx = match?.cfgIdx
-      if (cfgIdx != null && cfgIdx >= 0 && Array.isArray(options?.configNames)) {
-        const rawName = options.configNames[cfgIdx]
+      const recipeIdx = match?.recipeIdx
+      if (recipeIdx != null && recipeIdx >= 0 && Array.isArray(options?.recipeNames)) {
+        const rawName = options.recipeNames[recipeIdx]
         const trimmedName = typeof rawName === 'string' ? rawName.trim() : ''
         if (trimmedName.length > 0) candidateNames.push(trimmedName)
       }
-      if (cfgIdx != null && cfgIdx >= 0 && Array.isArray(options?.configTags)) {
-        const tagList = options.configTags[cfgIdx]
+      if (recipeIdx != null && recipeIdx >= 0 && Array.isArray(options?.recipeTags)) {
+        const tagList = options.recipeTags[recipeIdx]
         if (Array.isArray(tagList)) {
           for (const tag of tagList) {
             const trimmed = typeof tag === 'string' ? tag.trim() : ''
@@ -891,7 +891,7 @@ export function filterTesterItems<T extends TesterFilterRow>(
           }
         }
       }
-      const explicitMatchName = typeof match?.cfgName === 'string' ? match.cfgName.trim() : ''
+      const explicitMatchName = typeof match?.recipeName === 'string' ? match.recipeName.trim() : ''
       if (explicitMatchName.length > 0) candidateNames.push(explicitMatchName)
       const ruleSource = match?.ruleSource ?? null
       if (ruleSource && options?.specialRuleLabels?.[ruleSource]) {
@@ -1125,14 +1125,14 @@ export function filterTesterItems<T extends TesterFilterRow>(
       })) continue
     }
 
-    if (match?.cfgIdx != null && match.cfgIdx >= 0) {
-      matchingConfigIndices.add(match.cfgIdx)
+    if (match?.recipeIdx != null && match.recipeIdx >= 0) {
+      matchingRecipeIndices.add(match.recipeIdx)
     }
 
     filtered.push(row)
   }
 
-  return { items: filtered, matchingConfigIndices }
+  return { items: filtered, matchingRecipeIndices }
 }
 
 export const determineTesterSourceCategory = (artifact: NormalizedGearArtifact): TesterSourceFilter => {

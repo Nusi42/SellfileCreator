@@ -4,10 +4,26 @@ import { alpha, useTheme, type SxProps, type Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import type { KeepOverrideScopeKey } from '../../lib/keepOverrideScope'
 import { createBuilderStatusChipSx } from '../builderStatusChipStyles'
+import EllipsisTooltip from '../EllipsisTooltip'
 
 // Keep override scope chips should visually match builder-status pills.
 // We still need a distinct hover tint to signal clickability.
 const KEEP_OVERRIDE_SCOPE_HOVER_ALPHA = { light: 0.12, dark: 0.24 } as const
+// Keep chip labels truncated so the native ellipsis tooltip can expose full text on overflow.
+const KEEP_OVERRIDE_SCOPE_CHIP_ELLIPSIS_SX = {
+  display: 'inline-flex',
+  maxWidth: '100%',
+  '& .MuiChip-root': {
+    maxWidth: '100%',
+  },
+  '& .MuiChip-label': {
+    display: 'block',
+    maxWidth: '100%',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+} as const
 
 type KeepOverrideScopeChipProps = {
   scope: KeepOverrideScopeKey
@@ -56,24 +72,28 @@ export function KeepOverrideScopeChip({
     )
   }, [theme])
   return (
-    <Chip
-      size="small"
-      variant="filled"
-      clickable
-      // Allow rule cards to handle pointer intent checks.
-      data-rule-card-interactive="true"
-      disabled={disabled}
-      onClick={(event) => {
-        // Prevent the click from selecting the rule card unless the caller wants it.
-        event.stopPropagation()
-        // Delegate the toggle so the parent can enforce constraints.
-        onToggle?.(scope)
-      }}
-      aria-pressed={active}
-      label={label}
-      // Resolve the active vs inactive styling at render time.
-      sx={chipSx(active)}
-    />
+    <EllipsisTooltip title={label} selector=".MuiChip-label">
+      <Box component="span" sx={KEEP_OVERRIDE_SCOPE_CHIP_ELLIPSIS_SX}>
+        <Chip
+          size="small"
+          variant="filled"
+          clickable
+          // Allow rule cards to handle pointer intent checks.
+          data-rule-card-interactive="true"
+          disabled={disabled}
+          onClick={(event) => {
+            // Prevent the click from selecting the rule card unless the caller wants it.
+            event.stopPropagation()
+            // Delegate the toggle so the parent can enforce constraints.
+            onToggle?.(scope)
+          }}
+          aria-pressed={active}
+          label={label}
+          // Resolve the active vs inactive styling at render time.
+          sx={chipSx(active)}
+        />
+      </Box>
+    </EllipsisTooltip>
   )
 }
 

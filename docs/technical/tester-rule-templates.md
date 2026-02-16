@@ -15,7 +15,7 @@ configs that are generated for "Add Keep Config" and "Add Sell Config".
   (or appended when no config is selected) and the builder selection jumps
   to the new config so users can fine-tune it immediately.
 - Availability: the gear action appears only in the main Rule Tester grid
-  (not in the Keep Uniques tab).
+  (not in the Safeguards tab).
 
 ## Generated Config Defaults
 

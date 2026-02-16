@@ -1,13 +1,13 @@
 import { RULE_COUNT_LIMIT } from './constants'
-import { buildHsfRules, RuleLimitReachedError, type BuilderConfig, type SubstatTargetTable } from './hsfBuilder'
+import { buildHsfRules, RuleLimitReachedError, type BuilderRecipe, type SubstatTargetTable } from './hsfBuilder'
 import { findObsoleteRules } from './hsfObsolete'
 
-export function configsForRuleBuild(configs: readonly BuilderConfig[]): BuilderConfig[] {
-  return configs.map((cfg) => ({ ...cfg }))
+export function recipesForRuleBuild(recipes: readonly BuilderRecipe[]): BuilderRecipe[] {
+  return recipes.map((cfg) => ({ ...cfg }))
 }
 
-export function countRulesForConfig(
-  config: BuilderConfig,
+export function countRulesForRecipeEntry(
+  recipe: BuilderRecipe,
   substatTargets: SubstatTargetTable,
   options?: { limit?: number },
 ): number {
@@ -15,7 +15,7 @@ export function countRulesForConfig(
     ? Math.max(1, Math.floor(options.limit))
     : RULE_COUNT_LIMIT + 1
   try {
-    const built = buildHsfRules(config, substatTargets, { limit: emissionLimit })
+    const built = buildHsfRules(recipe, substatTargets, { limit: emissionLimit })
     if (built.length === 0) {
       return 0
     }
@@ -37,6 +37,6 @@ export function countRulesForConfig(
   }
 }
 
-export function countRulesForConfigs(configs: readonly BuilderConfig[], substatTargets: SubstatTargetTable): number[] {
-  return configs.map((cfg) => countRulesForConfig(cfg, substatTargets))
+export function countRulesForRecipes(recipes: readonly BuilderRecipe[], substatTargets: SubstatTargetTable): number[] {
+  return recipes.map((cfg) => countRulesForRecipeEntry(cfg, substatTargets))
 }

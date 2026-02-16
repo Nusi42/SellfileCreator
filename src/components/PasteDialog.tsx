@@ -1,7 +1,7 @@
 /**
  * PasteDialog
  *
- * Manual paste dialog for HSFC content (single config, array, or full HSFC).
+ * Manual paste dialog for HSFC content (single recipe, array, or full HSFC).
  */
 import { Dialog, DialogActions, DialogContent, DialogTitle, Button, TextField, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'
@@ -26,7 +26,7 @@ export default function PasteDialog({
   const { t } = useI18n()
   return (
     <Dialog open={open} onClose={onCancel} maxWidth="md" fullWidth>
-      <DialogTitle>{t('titlePasteConfigJson')}</DialogTitle>
+      <DialogTitle>{t('titlePasteRecipeJson')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" sx={{ mb: 1 }}>{t('msgPasteInstructions')}</Typography>
         <TextField
@@ -36,7 +36,7 @@ export default function PasteDialog({
           fullWidth
           value={text}
           onChange={(e) => { onTextChange(e.target.value) }}
-          placeholder={t('placeholderPasteExample', { example: '{"keep":true, "rankCode":0, …} or [{…}, {…}] or {"Configs": […]}' })}
+          placeholder={t('placeholderPasteExample', { example: '{"keep":true, "rankCode":0, …} or [{…}, {…}] or {"Recipes": […]}' })}
           error={Boolean(error)}
           helperText={error ?? ' '}
         />

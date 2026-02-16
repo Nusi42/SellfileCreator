@@ -54,13 +54,13 @@ import {
   formatSubstats,
   getItemSourceDescriptor,
 } from '../lib/testerPreviewFormatting'
-import { parseConfigNameDirectives } from '../lib/configNameDirectives'
+import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
 import { isAccessorySlot } from '../lib/testerDomain'
 import type { TesterSourceFilter } from '../lib/rulesFilter'
 import { TesterSummaryLabel } from './TesterSummaryLabel'
 import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
 import { getTesterMatchBorderColor } from './testerMatchStyles'
-import { RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
+import { RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
 import { KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT } from '../lib/keepOverrideLayout'
 // MarkdownTooltip unifies the tester’s tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
 import MarkdownTooltip from './MarkdownTooltip'
@@ -75,7 +75,7 @@ import {
   ACCESSORY_NO_SET_ID,
   MENU_CONTROL_HEIGHT_PX,
   MENU_CONTROL_MIN_WIDTH_PX,
-  MATCHING_CONFIG_CHIP_MIN_WIDTH_PX,
+  MATCHING_RECIPE_CHIP_MIN_WIDTH_PX,
   RULES_TABLE_SCROLL_HINT_HIDE_MS,
   SMALL_BUTTON_HEIGHT_PX,
   CHAMPION_ICON_BASE_SIZE,
@@ -238,9 +238,9 @@ const GRID_CARD_REVEAL_BATCH_MULTIPLIER = 4
 const GRID_CARD_REVEAL_IDLE_DRAIN_DELAY_MS = 180
 const MATCHING_POPOVER_MAX_WIDTH_PX = 360
 const MATCHING_CHIP_GAP_UNITS = 0.5
-const MATCHING_CONFIG_CHIP_SX = {
+const MATCHING_RECIPE_CHIP_SX = {
   flexShrink: 0,
-  minWidth: MATCHING_CONFIG_CHIP_MIN_WIDTH_PX,
+  minWidth: MATCHING_RECIPE_CHIP_MIN_WIDTH_PX,
   maxWidth: '100%',
   overflow: 'hidden',
   borderRadius: '8px',
@@ -287,7 +287,7 @@ const measureMatchingRowContentWidth = (node: HTMLElement): number => {
 type TranslateFn = ReturnType<typeof useI18n>['t']
 
 // Variant toggles keep-override specific layout while keeping the base tester grid intact.
-type TesterItemsGridVariant = 'tester' | 'keepUniques'
+type TesterItemsGridVariant = 'tester' | 'safeguards'
 
 type TesterItemsGridProps = {
   rows: TesterPreviewRow[]
@@ -299,11 +299,11 @@ type TesterItemsGridProps = {
   colorBlindMode: ColorBlindMode
   onChangeColorBlindMode: (mode: ColorBlindMode) => void
   colorIconSrc: string
-  configNames: Array<string | null>
-  onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
+  recipeNames: Array<string | null>
+  onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null) => void) | undefined
   onCreateRuleTemplate?: ((row: TesterPreviewRow, intent: TesterRuleTemplateIntent) => void) | undefined
   variant?: TesterItemsGridVariant
-  keepUniquesEnabled?: boolean
+  safeguardsEnabled?: boolean
   keepOverrideColumnMode?: 1 | 2
   onKeepOverrideColumnModeChange?: (next: 1 | 2) => void
   hasTesterData?: boolean
@@ -312,7 +312,7 @@ type TesterItemsGridProps = {
   // side-by-side layout looks balanced when centered.
   emptyStateVerticalAlign?: EmptyStateMessageProps['verticalAlign']
   suppressMatchDetails?: boolean
-  // Optional highlighter lets Keep Uniques fade non-matching cards without forking the grid.
+  // Optional highlighter lets Safeguards fade non-matching cards without forking the grid.
   highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
   // Optional card-width tap for keep-override layout (measures Rule Tester 4-col cards).
@@ -349,7 +349,7 @@ type GroupRowsBySetOptions = {
 }
 
 type MatchingConfigEntry = {
-  cfgIdx: number
+  recipeIdx: number
   label: string
   textColor: string | null
   keep: boolean | null
@@ -366,11 +366,11 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     colorBlindMode,
     onChangeColorBlindMode,
     colorIconSrc,
-    configNames,
+    recipeNames,
     onJumpToRule,
     onCreateRuleTemplate,
     variant = 'tester',
-    keepUniquesEnabled = true,
+    safeguardsEnabled = true,
     keepOverrideColumnMode,
     onKeepOverrideColumnModeChange,
     hasTesterData = true,
@@ -386,10 +386,10 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     grouping = TESTER_GROUPING_DEFAULT_STATE,
   } = props
   // Variant flags control keep-override behavior without forking the grid.
-  const keepUniquesVariant = variant === 'keepUniques'
+  const safeguardsVariant = variant === 'safeguards'
   // Keep-unique is the only keep-override variant now.
-  const keepOverrideVariant = keepUniquesVariant
-  // Memoized predicates avoid re-render churn when Keep Uniques toggles highlighting.
+  const keepOverrideVariant = safeguardsVariant
+  // Memoized predicates avoid re-render churn when Safeguards toggles highlighting.
   const highlightRowPredicate = typeof highlightedRowPredicate === 'function' ? highlightedRowPredicate : null
   const shouldDimUnhighlightedRows = Boolean(dimUnhighlightedRows && highlightRowPredicate)
   const { t, lang } = useI18n()
@@ -1153,12 +1153,12 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   if (rows.length === 0) {
     // Empty-state copy depends on whether we are in a keep-override tab.
     const emptyStateMessage = (() => {
-      if (keepUniquesVariant) {
-        // Keep Uniques empty states explain missing tester data or disabled rules.
-        if (!hasTesterData) return t('keepUniquesNoTesterData')
-        if (!keepUniquesEnabled) return t('testerTableEmptyKeepUniquesDisabled')
+      if (safeguardsVariant) {
+        // Safeguards empty states explain missing tester data or disabled rules.
+        if (!hasTesterData) return t('safeguardsNoTesterData')
+        if (!safeguardsEnabled) return t('testerTableEmptySafeguardsDisabled')
         if (filterActive) return t('testerTableEmptyFilter')
-        return t('testerTableEmptyKeepUniquesNoMatches')
+        return t('testerTableEmptySafeguardsNoMatches')
       }
       // Base tester grid falls back to the generic filter/empty messages.
       return filterActive ? t('testerTableEmptyFilter') : t('testerGridEmpty')
@@ -1438,7 +1438,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   showChampionIcons={showChampionIcons}
                   cardHeightPx={cardHeightPx}
                   gridColumnCount={gridColumnCount}
-                  configNames={configNames}
+                  recipeNames={recipeNames}
                   onJumpToRule={onJumpToRule}
                   onCreateRuleTemplate={canShowRuleTemplateActions ? onCreateRuleTemplate : undefined}
                   highlightedRowPredicate={highlightRowPredicate}
@@ -1841,7 +1841,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             setShowMatchConfigIndex(!showMatchConfigIndex)
           }}
         >
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowMatchConfigIndex')}</Typography>
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowMatchRecipeIndex')}</Typography>
           <Button
             size="small"
             variant={showMatchConfigIndex ? 'contained' : 'outlined'}
@@ -2061,7 +2061,7 @@ type FlattenedGridItem =
       height: number
     }
 
-// Leaf grids still render as chunked rows per column count so Keep Uniques + tester variants share one calculator.
+// Leaf grids still render as chunked rows per column count so Safeguards + tester variants share one calculator.
 function chunkGroupRows(group: TesterGroup, gridColumnCount: number): TesterPreviewRow[][] {
   // Every chunk mirrors one rendered row so the flattened list can translate heights straight into DOM slots.
   const columns = Math.max(1, gridColumnCount)
@@ -2213,7 +2213,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   showChampionIcons,
   cardHeightPx,
   gridColumnCount,
-  configNames,
+  recipeNames,
   onJumpToRule,
   onCreateRuleTemplate,
   highlightedRowPredicate = null,
@@ -2232,14 +2232,14 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   showChampionIcons: boolean
   cardHeightPx: number
   gridColumnCount: number
-  configNames: Array<string | null>
-  onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
+  recipeNames: Array<string | null>
+  onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null) => void) | undefined
   onCreateRuleTemplate?: ((row: TesterPreviewRow, intent: TesterRuleTemplateIntent) => void) | undefined
   highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
   cardPriority: { base: number; order: number }
 }) {
-  // Highlight state lets Keep Uniques call attention to the at-risk combinations without mutating the dataset.
+  // Highlight state lets Safeguards call attention to the at-risk combinations without mutating the dataset.
   const highlightFn = typeof highlightedRowPredicate === 'function' ? highlightedRowPredicate : null
   const cardHighlighted = highlightFn ? Boolean(highlightFn(row)) : false
   const cardDimmed = Boolean(highlightFn && dimUnhighlightedRows && !cardHighlighted)
@@ -2278,9 +2278,9 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   const cardContentReady = useTesterGridCardContentReady(normalizedArtifactId, priorityBase, priorityOrder)
   const match = row.match
   const primaryRuleIndex = typeof match?.ruleIndex === 'number' ? match.ruleIndex : null
-  const primaryCfgIndex = typeof match?.cfgIdx === 'number' ? match.cfgIdx : null
+  const primaryCfgIndex = typeof match?.recipeIdx === 'number' ? match.recipeIdx : null
   const canJumpToPrimaryMatch = typeof onJumpToRule === 'function' && primaryRuleIndex != null
-  // Jump affordances stay disabled until the rebuild commits so stale matches never focus the wrong config.
+  // Jump affordances stay disabled until the rebuild commits so stale matches never focus the wrong recipe.
   const allowPrimaryMatchJump = Boolean(!matchDetailsFrozen && canJumpToPrimaryMatch)
   const handlePrimaryMatchClick = () => {
     if (!allowPrimaryMatchJump || primaryRuleIndex == null) return
@@ -2309,22 +2309,22 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     event.stopPropagation()
     setRuleTemplateAnchor(event.currentTarget)
   }
-  // Picking an action forwards the intent to the parent for config creation.
+  // Picking an action forwards the intent to the parent for recipe creation.
   const handleRuleTemplateSelect = (intent: TesterRuleTemplateIntent) => {
     onCreateRuleTemplate?.(row, intent)
     handleRuleTemplateClose()
   }
-  // Map caches the first keep/sell decision per config so overflow chips reuse the same tint.
+  // Map caches the first keep/sell decision per recipe so overflow chips reuse the same tint.
   const matchingConfigKeepMap = useMemo(() => {
     const map = new Map<number, boolean>()
-    if (!Array.isArray(row.matchingConfigDecisions)) return map
-    for (const decision of row.matchingConfigDecisions) {
-      const cfgIdx = Number(decision?.cfgIdx)
-      if (!Number.isFinite(cfgIdx) || map.has(cfgIdx)) continue
-      map.set(cfgIdx, Boolean(decision.keep))
+    if (!Array.isArray(row.matchingRecipeDecisions)) return map
+    for (const decision of row.matchingRecipeDecisions) {
+      const recipeIdx = Number(decision?.recipeIdx)
+      if (!Number.isFinite(recipeIdx) || map.has(recipeIdx)) continue
+      map.set(recipeIdx, Boolean(decision.keep))
     }
     return map
-  }, [row.matchingConfigDecisions])
+  }, [row.matchingRecipeDecisions])
   // Matching chips hydrate lazily so skeleton rows can avoid heavy string work until revealed.
   const matchingEntries: MatchingConfigEntry[] = useMemo(() => {
     if (!cardContentReady) return []
@@ -2335,13 +2335,13 @@ export const TesterGridCard = React.memo(function TesterGridCard({
       const numericIdx = Number(rawIdx)
       if (!Number.isFinite(numericIdx) || seen.has(numericIdx)) continue
       seen.add(numericIdx)
-      const decoration = parseConfigNameDirectives(
-        configNames[numericIdx] ?? undefined,
+      const decoration = parseRecipeNameDirectives(
+        recipeNames[numericIdx] ?? undefined,
         configTextFallbackColor,
       )
       const cleanedLabel = decoration.displayName.trim()
       entries.push({
-        cfgIdx: numericIdx,
+        recipeIdx: numericIdx,
         label: cleanedLabel.length > 0
           ? cleanedLabel
           : `#${numericIdx + 1}`,
@@ -2350,24 +2350,24 @@ export const TesterGridCard = React.memo(function TesterGridCard({
       })
     }
     return entries
-  }, [cardContentReady, row.matchingCfgIndices, matchingConfigKeepMap, configNames, configTextFallbackColor])
+  }, [cardContentReady, row.matchingCfgIndices, matchingConfigKeepMap, recipeNames, configTextFallbackColor])
   const shouldShowPrimaryMatchRow = basePrimaryMatchRowVisible
-  // Keep-override primary matches are not tied to a config, so keep all config matches visible.
-  const keepOverridePrimaryMatch = match?.ruleSource === RULE_SOURCE_KEEP_UNIQUES
-  // Remove only the config that actually won primary match.
-  // Do not drop by position because matcher config lists are not guaranteed to start with primary.
+  // Keep-override primary matches are not tied to a recipe, so keep all recipe matches visible.
+  const keepOverridePrimaryMatch = match?.ruleSource === RULE_SOURCE_SAFEGUARDS
+  // Remove only the recipe that actually won primary match.
+  // Do not drop by position because matcher recipe lists are not guaranteed to start with primary.
   const otherMatchingEntries = useMemo(() => {
-    // Keep-override rows stay fully visible because primary match has no config scope.
+    // Keep-override rows stay fully visible because primary match has no recipe scope.
     if (keepOverridePrimaryMatch) return matchingEntries
-    // Final Sell and other config-less primaries should not hide any config chips.
+    // Final Sell and other recipe-less primaries should not hide any recipe chips.
     if (primaryCfgIndex == null) return matchingEntries
-    // Hide only the actual primary config entry to avoid duplicate chips.
-    return matchingEntries.filter((entry) => entry.cfgIdx !== primaryCfgIndex)
+    // Hide only the actual primary recipe entry to avoid duplicate chips.
+    return matchingEntries.filter((entry) => entry.recipeIdx !== primaryCfgIndex)
   }, [keepOverridePrimaryMatch, matchingEntries, primaryCfgIndex])
   const shouldShowOtherMatchesRow = showOtherMatchesRow && otherMatchingEntries.length > 0
   const totalOtherMatches = otherMatchingEntries.length
   const otherMatchingEntriesSignature = useMemo(
-    () => otherMatchingEntries.map((entry) => `${entry.cfgIdx}:${entry.label}`).join('|'),
+    () => otherMatchingEntries.map((entry) => `${entry.recipeIdx}:${entry.label}`).join('|'),
     [otherMatchingEntries],
   )
   const [otherMatchesRowEl, setOtherMatchesRowEl] = useState<HTMLDivElement | null>(null)
@@ -2482,16 +2482,16 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     if (hiddenOtherMatching.length === 0) return
     setMatchingPopoverAnchor(event.currentTarget)
   }
-  const handleMatchingConfigJump = (cfgIdx: number) => {
+  const handleMatchingConfigJump = (recipeIdx: number) => {
     if (!allowPrimaryMatchJump || primaryRuleIndex == null) return
-    if (!Number.isFinite(cfgIdx)) return
-    onJumpToRule?.(primaryRuleIndex, cfgIdx)
+    if (!Number.isFinite(recipeIdx)) return
+    onJumpToRule?.(primaryRuleIndex, recipeIdx)
   }
   const renderMatchingChip = (
     entry: MatchingConfigEntry,
     options?: { onSelect?: () => void },
   ): React.ReactNode => {
-    const key = `matching-chip-${entry.cfgIdx}`
+    const key = `matching-chip-${entry.recipeIdx}`
     const clickable = allowPrimaryMatchJump
     const textColor = entry.textColor ?? null
     // Dimmed outline mirrors the keep/sell outcome without overpowering the primary chip.
@@ -2504,7 +2504,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
       variant: 'outlined' as const,
       title: entry.label,
       sx: [
-        MATCHING_CONFIG_CHIP_SX,
+        MATCHING_RECIPE_CHIP_SX,
         { cursor: clickable ? 'pointer' : 'default' },
         ...(textColor ? [{ color: textColor, '& .MuiChip-label': { color: textColor } }] : []),
         ...(borderColor ? [{ borderColor }] : []),
@@ -2519,7 +2519,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
               type: 'button' as const,
               onClick: () => {
                 options?.onSelect?.()
-                handleMatchingConfigJump(entry.cfgIdx)
+                handleMatchingConfigJump(entry.recipeIdx)
               },
             }
           : {})}
@@ -2544,7 +2544,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     }
 
     return (
-      <MarkdownTooltip key={key} markdown={t('testerJumpToConfig')}>
+      <MarkdownTooltip key={key} markdown={t('testerJumpToRecipe')}>
         {wrappedChip}
       </MarkdownTooltip>
     )
@@ -2806,7 +2806,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     : undefined
   // Surface stable match metadata for automation without forcing DOM text scraping.
   const cardMatchOutcome = match ? (match.keep === false ? 'sell' : 'keep') : 'none'
-  const cardMatchConfigIdx = match?.cfgIdx != null ? String(match.cfgIdx) : 'none'
+  const cardMatchConfigIdx = match?.recipeIdx != null ? String(match.recipeIdx) : 'none'
   const mainSummaryLabel = (
     <>
       <Box component="span" sx={{ color: mainColor ?? 'inherit' }}>
@@ -2852,6 +2852,39 @@ export const TesterGridCard = React.memo(function TesterGridCard({
       {ruleTemplateButton}
     </Box>
   ) : null
+  // Split marker lets locales place Keep/Sell naturally inside the action phrase.
+  const ruleTemplateOutcomeMarker = '__OUTCOME__'
+  // Build one localized menu label while keeping the outcome colorized.
+  const renderRuleTemplateActionLabel = (
+    outcomeLabel: string,
+    outcomeColor: string,
+  ) => {
+    // Resolve one template so languages can choose their own word order.
+    const template = t('testerRuleTemplateActionTemplate', { outcome: ruleTemplateOutcomeMarker })
+    // Locate the marker once and split prefix/suffix around it.
+    const markerIndex = template.indexOf(ruleTemplateOutcomeMarker)
+    // Fallback: if marker is missing, just show the outcome word.
+    if (markerIndex < 0) {
+      return (
+        <Typography variant="body2" component="span" sx={{ color: outcomeColor, fontWeight: 700 }}>
+          {outcomeLabel}
+        </Typography>
+      )
+    }
+    // Prefix includes any needed spaces or punctuation before the outcome.
+    const prefix = template.slice(0, markerIndex)
+    // Suffix includes any needed spaces or punctuation after the outcome.
+    const suffix = template.slice(markerIndex + ruleTemplateOutcomeMarker.length)
+    return (
+      <Typography variant="body2" component="span">
+        {prefix}
+        <Box component="span" sx={{ color: outcomeColor, fontWeight: 700 }}>
+          {outcomeLabel}
+        </Box>
+        {suffix}
+      </Typography>
+    )
+  }
   // Menu presents the keep/sell actions and reuses the context menu styling.
   const ruleTemplateMenu = canCreateRuleTemplate ? (
     <Menu
@@ -2871,26 +2904,14 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     >
       {/* Keep actions create a keep template tied to the current item. */}
       <MenuItem onClick={() => handleRuleTemplateSelect('keep')}>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-          {t('testerRuleTemplateActionPrefix').trim().length > 0 ? (
-            <Typography variant="body2">{t('testerRuleTemplateActionPrefix')}</Typography>
-          ) : null}
-          <Typography variant="body2" sx={{ color: theme.palette.success.main, fontWeight: 700 }}>
-            {t('testerMatchKeep')}
-          </Typography>
-          <Typography variant="body2">{t('testerRuleTemplateActionSuffix')}</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
+          {renderRuleTemplateActionLabel(t('testerMatchKeep'), theme.palette.success.main)}
         </Box>
       </MenuItem>
       {/* Sell actions create a sell template tied to the current item. */}
       <MenuItem onClick={() => handleRuleTemplateSelect('sell')}>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-          {t('testerRuleTemplateActionPrefix').trim().length > 0 ? (
-            <Typography variant="body2">{t('testerRuleTemplateActionPrefix')}</Typography>
-          ) : null}
-          <Typography variant="body2" sx={{ color: theme.palette.error.main, fontWeight: 700 }}>
-            {t('testerMatchSell')}
-          </Typography>
-          <Typography variant="body2">{t('testerRuleTemplateActionSuffix')}</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
+          {renderRuleTemplateActionLabel(t('testerMatchSell'), theme.palette.error.main)}
         </Box>
       </MenuItem>
     </Menu>
@@ -2899,13 +2920,13 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   const cardHeightStyle = `${cardHeightPx}px`
   const matchRowHeight = `${CARD_MATCH_ROW_HEIGHT_PX}px`
 
-  // Cards tint when highlighted so Keep Uniques can spotlight the matching combinations.
+  // Cards tint when highlighted so Safeguards can spotlight the matching combinations.
   return (
     <Box
       data-tester-grid-card="true"
       data-row-id={artifact.id}
       data-match-outcome={cardMatchOutcome}
-      data-match-config-index={cardMatchConfigIdx}
+      data-match-recipe-index={cardMatchConfigIdx}
       sx={(theme) => ({
         display: 'grid',
         gridTemplateColumns: GRID_CARD_TEMPLATE,
@@ -3292,7 +3313,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
             {hiddenOtherMatching.length > 0 ? (
               <>
                 {/* MarkdownTooltip keeps the “+N” overflow chip consistent with other tester tooltips. */}
-                <MarkdownTooltip markdown={`${t('testerConfigMatches')} (+${hiddenOtherMatching.length})`}>
+                <MarkdownTooltip markdown={`${t('testerRecipeMatches')} (+${hiddenOtherMatching.length})`}>
                   <Box component="span" ref={handleMoreChipRef} sx={MATCHING_CHIP_WRAPPER_SX}>
                     <Chip
                       label={`+${hiddenOtherMatching.length}`}
@@ -3302,7 +3323,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
                       type="button"
                       onClick={handleMatchingMoreClick}
                       sx={{
-                        ...MATCHING_CONFIG_CHIP_SX,
+                        ...MATCHING_RECIPE_CHIP_SX,
                         minWidth: 'auto',
                         cursor: 'pointer',
                       }}

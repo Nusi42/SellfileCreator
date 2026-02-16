@@ -87,7 +87,7 @@ export default function SetMenuSection({
   // When true, do not render the ListSubheader (parent renders its own header
   // outside the scrollable list to keep layout width stable across modes).
   hideHeader?: boolean
-  // Show/hide "x use(s) in configs)" helper in list modes
+  // Show/hide "x use(s) in recipes)" helper in list modes
   showUsageCounts?: boolean
   // Single-select mode hints the handler not to prevent default, so the Select closes naturally.
   singleSelect?: boolean
@@ -371,7 +371,7 @@ export default function SetMenuSection({
                 <SetIcon setId={idNum} label={localizedName || name} size={SET_ICON_PX} />
                 <Typography>{localizedName}</Typography>
                 {showUsageCounts && (
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('setsUsageInConfigs', { n: used })}</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('setsUsageInRecipes', { n: used })}</Typography>
                 )}
               </Box>
               {metaNames.length > 0 && (

@@ -1,12 +1,12 @@
-import type { BuilderConfig } from './hsfBuilder'
+import type { BuilderRecipe } from './hsfBuilder'
 
 // Central factory defaults keep builder clones consistent across UI + history helpers.
-export const createFactoryBuilderDefaults = (): BuilderConfig => ({
-  // Empty label keeps new configs unnamed until the user edits the field.
+export const createFactoryBuilderDefaults = (): BuilderRecipe => ({
+  // Empty label keeps new recipes unnamed until the user edits the field.
   name: '',
-  // Tags default to empty so note-driven config options start clean.
+  // Tags default to empty so note-driven recipe overrides start clean.
   tags: [],
-  // New configs keep by default to match the builder baseline.
+  // New recipes keep by default to match the builder baseline.
   keep: true,
   // Export mode stays active so new rules emit into the Sellfile unless disabled later.
   exportMode: 'active',

@@ -6,7 +6,7 @@
  * inline.
  */
 import { useMemo } from 'react'
-import type { BuilderConfig } from '../../lib/hsfBuilder'
+import type { BuilderRecipe } from '../../lib/hsfBuilder'
 import { splitArtifactSetSelections } from '../../lib/gearSets/selection'
 
 export interface MultiEditSummary {
@@ -21,11 +21,11 @@ export interface MultiEditSummary {
 
 export const useMultiEditSummary = (
   multiEditActive: boolean,
-  multiSourceConfigs: readonly BuilderConfig[] | null,
+  multiSourceRecipes: readonly BuilderRecipe[] | null,
 ): MultiEditSummary | null => useMemo(() => {
-  if (!multiEditActive || !multiSourceConfigs) return null
+  if (!multiEditActive || !multiSourceRecipes) return null
   // Counts populate per-token maps so tri-state toggles can resolve quickly.
-  const total = multiSourceConfigs.length
+  const total = multiSourceRecipes.length
   const mainCounts = new Map<number, number>()
   const subCounts = new Map<number, { present: number; locked: number }>()
   // Roll summary retains both wildcard counts and min/max sets for each stat.
@@ -33,15 +33,15 @@ export const useMultiEditSummary = (
   const slotCounts = new Map<number, number>()
   const setCounts = new Map<number, number>()
   const metaCounts = new Map<string, number>()
-  for (const config of multiSourceConfigs) {
-    const main = Array.isArray(config.mainStatsV) ? config.mainStatsV : []
+  for (const recipe of multiSourceRecipes) {
+    const main = Array.isArray(recipe.mainStatsV) ? recipe.mainStatsV : []
     // Track unique main stat presence across the selection.
     for (const variant of main) {
       mainCounts.set(variant, (mainCounts.get(variant) ?? 0) + 1)
     }
-    const substats = Array.isArray(config.substatsV) ? config.substatsV : []
-    const fixed = new Set<number>(Array.isArray(config.fixedSubstatsV) ? config.fixedSubstatsV : [])
-    const bounds = (config.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+    const substats = Array.isArray(recipe.substatsV) ? recipe.substatsV : []
+    const fixed = new Set<number>(Array.isArray(recipe.fixedSubstatsV) ? recipe.fixedSubstatsV : [])
+    const bounds = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
     for (const variant of substats) {
       const entry = subCounts.get(variant) ?? { present: 0, locked: 0 }
       entry.present += 1
@@ -65,16 +65,16 @@ export const useMultiEditSummary = (
       }
     }
     // Slots, sets, and metasets each get their own simple counters.
-    const slots = Array.isArray(config.artifactTypes) ? config.artifactTypes : []
+    const slots = Array.isArray(recipe.artifactTypes) ? recipe.artifactTypes : []
     for (const slot of slots) {
       slotCounts.set(slot, (slotCounts.get(slot) ?? 0) + 1)
     }
     // Only count explicit inclusions so exclusions don't register as selected.
-    const sets = splitArtifactSetSelections(config.artifactSets).included
+    const sets = splitArtifactSetSelections(recipe.artifactSets).included
     for (const set of sets) {
       setCounts.set(Number(set), (setCounts.get(Number(set)) ?? 0) + 1)
     }
-    const metas = Array.isArray(config.artifactMetaSets) ? config.artifactMetaSets : []
+    const metas = Array.isArray(recipe.artifactMetaSets) ? recipe.artifactMetaSets : []
     for (const meta of metas) {
       metaCounts.set(meta, (metaCounts.get(meta) ?? 0) + 1)
     }
@@ -88,4 +88,4 @@ export const useMultiEditSummary = (
     setCounts,
     metaCounts,
   }
-}, [multiEditActive, multiSourceConfigs])
+}, [multiEditActive, multiSourceRecipes])

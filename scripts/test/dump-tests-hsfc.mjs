@@ -1,4 +1,4 @@
-// Dump readable recipe configs from the compiled test cases.
+// Dump readable recipe recipes from the compiled test cases.
 // Usage: npm run tests:extract
 // Writes: examples/tests.extracted.sfr
 
@@ -22,7 +22,7 @@ if (!mod || !Array.isArray(mod.CASES)) {
   throw new Error('Failed to load CASES from compiled tests. Did compilation run?')
 }
 
-const configs = mod.CASES.map(c => {
+const recipes = mod.CASES.map(c => {
   // Start from hsfc to preserve any explicit keep/enabled; then set stable name.
   const hsfc = { ...(c.hsfc || {}), name: c.name }
   if (!('keep' in hsfc)) hsfc.keep = true
@@ -32,7 +32,7 @@ const configs = mod.CASES.map(c => {
 
 const output = {
   Version: 'tests-extracted',
-  Configs: configs,
+  Recipes: recipes,
 }
 
 // Emit into the repo-root examples directory.
@@ -40,4 +40,4 @@ const outDir = resolve(__dirname, '..', '..', 'examples')
 mkdirSync(outDir, { recursive: true })
 const outPath = resolve(outDir, 'tests.extracted.sfr')
 writeFileSync(outPath, JSON.stringify(output, null, 2) + '\n', 'utf8')
-console.log(`Wrote ${configs.length} configs to ${outPath}`)
+console.log(`Wrote ${recipes.length} recipes to ${outPath}`)

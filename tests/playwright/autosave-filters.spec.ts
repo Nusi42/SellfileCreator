@@ -22,7 +22,7 @@ const AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfc.v1'
 const basePayload = {
   Version: APP_VERSION,
   Metasets: [],
-  Configs: [
+  Recipes: [
     {
       name: 'Saved Config',
       keep: true,
@@ -68,7 +68,7 @@ const savedFilterState: RulesFilterState = (() => {
   // Normalize sets to the structured selection entries used by the filter state.
   clone.sets.selected = normalizeArtifactSetSelections([2, 6, 8])
   clone.rank.selected = [5]
-  clone.configName = { query: 'Nuker' }
+  clone.recipeName = { query: 'Nuker' }
   return clone
 })()
 
@@ -99,7 +99,7 @@ const savedAutosaveEntry = (() => {
           collapsed: savedCollapsedState,
         },
       },
-      testerConfigFilterMode: 'first',
+      testerRecipeFilterMode: 'first',
     },
   }
   const serialized = JSON.stringify(payload)

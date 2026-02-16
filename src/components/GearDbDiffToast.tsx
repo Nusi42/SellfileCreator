@@ -4,7 +4,7 @@ import { useI18n } from '../lib/i18n'
 import { CHAMPION_ICON_LARGE_THRESHOLD, GEAR_DB_DIFF_TOAST_CARD_SCALE, GLYPH_ARROW_RIGHT } from '../lib/constants'
 import { buildPreviewArtifactFromTesterItem } from '../lib/testerPreviewArtifacts'
 import type { TestItem } from '../lib/ruleEval'
-import type { MatchingConfigDecision } from '../lib/ruleEval'
+import type { MatchingRecipeDecision } from '../lib/ruleEval'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
 import type { TesterPreviewMatch, TesterPreviewRow } from '../types/testerPreview'
 import type { GearArtifactSnapshot, GearDbDiffToastEntry, GearDbDiffToastPayload } from '../lib/gearDbDiffToast'
@@ -25,7 +25,7 @@ const TOAST_SHOW_OTHER_MATCH_ROWS = false
 const TOAST_CARD_PRIORITY_BASE = 0
 
 // Shared empty arrays avoid re-allocating on every toast render.
-const EMPTY_MATCHING_CONFIG_DECISIONS: MatchingConfigDecision[] = []
+const EMPTY_MATCHING_CONFIG_DECISIONS: MatchingRecipeDecision[] = []
 const EMPTY_MATCHING_CONFIG_INDICES: number[] = []
 const EMPTY_CONFIG_NAMES: Array<string | null> = []
 
@@ -86,7 +86,7 @@ export function GearDbDiffToast({
       ) : null}
       {payload.overflowCount > 0 ? (
         <Typography variant="caption" color="text.secondary">
-          {t('historyConfigsMoreLine', { count: payload.overflowCount })}
+          {t('historyRecipesMoreLine', { count: payload.overflowCount })}
         </Typography>
       ) : null}
     </Stack>
@@ -224,7 +224,7 @@ function ScaledTesterGridCard({
           showChampionIcons={true}
           cardHeightPx={size.cardSizing.cardHeightPx}
           gridColumnCount={TOAST_CARD_COLUMN_COUNT}
-          configNames={EMPTY_CONFIG_NAMES}
+          recipeNames={EMPTY_CONFIG_NAMES}
           highlightedRowPredicate={null}
           dimUnhighlightedRows={false}
           cardPriority={{ base: TOAST_CARD_PRIORITY_BASE, order: priorityOrder }}
@@ -319,6 +319,6 @@ function buildTesterPreviewRow(snapshot: GearArtifactSnapshot, match: TesterPrev
     match,
     baseMatch: null,
     matchingCfgIndices: EMPTY_MATCHING_CONFIG_INDICES,
-    matchingConfigDecisions: EMPTY_MATCHING_CONFIG_DECISIONS,
+    matchingRecipeDecisions: EMPTY_MATCHING_CONFIG_DECISIONS,
   }
 }

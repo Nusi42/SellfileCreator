@@ -3,23 +3,23 @@
  *
  * Snapshot and formatting helpers for history label strings.
  */
-import type { BuilderConfig } from '../lib/hsfBuilder'
+import type { BuilderRecipe } from '../lib/hsfBuilder'
 import type { TranslateFn } from './historyI18n'
 
-// ConfigLabelSnapshot keeps index + name stable without localization.
-export type ConfigLabelSnapshot = {
+// RecipeLabelSnapshot keeps index + name stable without localization.
+export type RecipeLabelSnapshot = {
   index: number
   name: string | null
 }
 
-// ConfigInsertionLocation describes where new configs landed in the list.
-export type ConfigInsertionLocation =
+// RecipeInsertionLocation describes where new recipes landed in the list.
+export type RecipeInsertionLocation =
   | { kind: 'start' }
   | { kind: 'end' }
-  | { kind: 'after'; anchor: ConfigLabelSnapshot }
+  | { kind: 'after'; anchor: RecipeLabelSnapshot }
 
-// snapshotConfigLabel captures the index + name at creation time.
-export const snapshotConfigLabel = (index: number, cfg: BuilderConfig): ConfigLabelSnapshot => {
+// snapshotRecipeLabel captures the index + name at creation time.
+export const snapshotRecipeLabel = (index: number, cfg: BuilderRecipe): RecipeLabelSnapshot => {
   // Trim once so future edits do not rewrite stored labels.
   const rawName = (cfg.name ?? '').trim()
   // Persist the trimmed name or null when blank.
@@ -28,44 +28,44 @@ export const snapshotConfigLabel = (index: number, cfg: BuilderConfig): ConfigLa
   return { index, name }
 }
 
-// snapshotConfigLabels captures multiple labels from a config list.
+// snapshotConfigLabels captures multiple labels from a recipe list.
 export const snapshotConfigLabels = (
-  configs: readonly BuilderConfig[],
+  recipes: readonly BuilderRecipe[],
   indices: readonly number[],
-): ConfigLabelSnapshot[] => {
+): RecipeLabelSnapshot[] => {
   // Normalize and capture only valid indices.
-  const snapshots: ConfigLabelSnapshot[] = []
+  const snapshots: RecipeLabelSnapshot[] = []
   for (const index of indices) {
-    const cfg = configs[index]
+    const cfg = recipes[index]
     if (!cfg) continue
-    snapshots.push(snapshotConfigLabel(index, cfg))
+    snapshots.push(snapshotRecipeLabel(index, cfg))
   }
   return snapshots
 }
 
-// formatConfigLabel mirrors the old buildConfigLabel but defers localization.
-export const formatConfigLabel = (snapshot: ConfigLabelSnapshot, t: TranslateFn): string => {
-  // Format the base label with the localized config number.
-  const base = t('historyConfigLabel', { n: snapshot.index + 1 })
+// formatRecipeLabel mirrors the old buildRecipeLabel but defers localization.
+export const formatRecipeLabel = (snapshot: RecipeLabelSnapshot, t: TranslateFn): string => {
+  // Format the base label with the localized recipe number.
+  const base = t('historyRecipeLabel', { n: snapshot.index + 1 })
   // Append the quoted name when present to match prior output.
   return snapshot.name ? `${base} - "${snapshot.name}"` : base
 }
 
-// formatConfigLabelFromConfig snapshots then formats a config label in one step.
-export const formatConfigLabelFromConfig = (
+// formatRecipeLabelFromRecipe snapshots then formats a recipe label in one step.
+export const formatRecipeLabelFromRecipe = (
   index: number,
-  cfg: BuilderConfig,
+  cfg: BuilderRecipe,
   t: TranslateFn,
 ): string => (
   // Reuse snapshot + format helpers so behavior stays centralized.
-  formatConfigLabel(snapshotConfigLabel(index, cfg), t)
+  formatRecipeLabel(snapshotRecipeLabel(index, cfg), t)
 )
 
 // buildInsertionLocation captures where an insert happened.
 export const buildInsertionLocation = (
   index: number,
-  previous: readonly BuilderConfig[],
-): ConfigInsertionLocation | null => {
+  previous: readonly BuilderRecipe[],
+): RecipeInsertionLocation | null => {
   // Treat an empty list as "at start" so history stays explicit.
   if (previous.length === 0) return { kind: 'start' }
   // Clamp to start when insert index is before the list.
@@ -73,20 +73,20 @@ export const buildInsertionLocation = (
   // Clamp to end when insert index is after the list.
   if (index >= previous.length) return { kind: 'end' }
   // Snapshot the anchor label so history stays stable.
-  return { kind: 'after', anchor: snapshotConfigLabel(index - 1, previous[index - 1]!) }
+  return { kind: 'after', anchor: snapshotRecipeLabel(index - 1, previous[index - 1]!) }
 }
 
 // formatInsertionLocation localizes the insertion position.
 export const formatInsertionLocation = (
-  location: ConfigInsertionLocation | null,
+  location: RecipeInsertionLocation | null,
   t: TranslateFn,
 ): string | null => {
   // Preserve nulls so callers can skip the line.
   if (!location) return null
   // Map the location kind onto localized strings.
-  if (location.kind === 'start') return t('historyConfigsInsertedAtStartLine')
+  if (location.kind === 'start') return t('historyRecipesInsertedAtStartLine')
   // Map end inserts to the end label.
-  if (location.kind === 'end') return t('historyConfigsInsertedAtEndLine')
-  // Format the "after" anchor with the localized config label.
-  return t('historyConfigsInsertedAfterLine', { label: formatConfigLabel(location.anchor, t) })
+  if (location.kind === 'end') return t('historyRecipesInsertedAtEndLine')
+  // Format the "after" anchor with the localized recipe label.
+  return t('historyRecipesInsertedAfterLine', { label: formatRecipeLabel(location.anchor, t) })
 }

@@ -1,8 +1,8 @@
 /**
  * tagHelpers.ts
  *
- * Central tag normalization helpers used by config metadata and Note
- * config options parsing so matching stays consistent across the app.
+ * Central tag normalization helpers used by recipe metadata and Note
+ * recipe overrides parsing so matching stays consistent across the app.
  */
 
 // Tag tokens stay compact so they travel well in filenames and HSFC notes.
@@ -28,13 +28,13 @@ export function normalizeTagValue(raw: string): string | null {
   return normalized
 }
 
-// Config tag that marks keep rules as ignorable for keep-unique coverage checks.
-export const KEEP_UNIQUE_IGNORE_TAG = 'ignore_keep_unique'
+// Recipe tag that marks keep rules as ignorable for safeguard coverage checks.
+export const SAFEGUARD_IGNORE_TAG = 'ignore_safeguard'
 
-// Normalize once so tag checks stay consistent with config-tag grammar.
-const KEEP_UNIQUE_IGNORE_TAG_TOKEN = normalizeTagValue(KEEP_UNIQUE_IGNORE_TAG) ?? KEEP_UNIQUE_IGNORE_TAG
+// Normalize once so tag checks stay consistent with recipe-tag grammar.
+const SAFEGUARD_IGNORE_TAG_TOKEN = normalizeTagValue(SAFEGUARD_IGNORE_TAG) ?? SAFEGUARD_IGNORE_TAG
 
-export const hasIgnoreKeepUniqueTag = (tags: readonly string[] | null | undefined): boolean => {
+export const hasIgnoreSafeguardTag = (tags: readonly string[] | null | undefined): boolean => {
   // Skip empty or missing tag lists to keep hot paths tight.
   if (!Array.isArray(tags) || tags.length === 0) return false
   // Walk the tags so we can normalize any loose inputs.
@@ -42,7 +42,7 @@ export const hasIgnoreKeepUniqueTag = (tags: readonly string[] | null | undefine
     // Normalize to the same token grammar used elsewhere.
     const normalized = normalizeTagValue(String(rawTag))
     // Treat the special tag as a positive match when present.
-    if (normalized === KEEP_UNIQUE_IGNORE_TAG_TOKEN) return true
+    if (normalized === SAFEGUARD_IGNORE_TAG_TOKEN) return true
   }
   // No matching tag found in this list.
   return false
@@ -103,7 +103,7 @@ export interface TagPresenceSummary {
   counts: Record<string, number>
 }
 
-// Summarize tag presence across multiple configs so multi-edit can flag mixed tags.
+// Summarize tag presence across multiple recipes so multi-edit can flag mixed tags.
 export function summarizeTagPresence(
   tagLists: readonly (readonly string[] | null | undefined)[],
 ): TagPresenceSummary {

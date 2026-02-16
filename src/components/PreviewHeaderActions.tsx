@@ -99,7 +99,7 @@ export default function PreviewHeaderActions(props: {
   filteredCount?: number
   filterActive?: boolean
   onToggleFilter?: () => void
-  // True when any filter-related setting deviates from defaults (including config filters).
+  // True when any filter-related setting deviates from defaults (including recipe filters).
   filtersDirty?: boolean
   // Clears filter state back to defaults (mirrors the old Reset Filters button).
   onClearFilters?: () => void
@@ -114,8 +114,8 @@ export default function PreviewHeaderActions(props: {
   onToggleOmitDisabled: (next: boolean) => void
   exportDisabled: boolean
   pushEndpoint?: string
-  keepUniquesEnabled: boolean
-  onToggleKeepUniques: (next: boolean) => void
+  safeguardsEnabled: boolean
+  onToggleSafeguards: (next: boolean) => void
   hsfDirty: boolean
   building?: boolean
   testerBuilding?: boolean
@@ -191,8 +191,8 @@ export default function PreviewHeaderActions(props: {
     exportDisabled,
     pushEndpoint,
     finalSell,
-    keepUniquesEnabled,
-    onToggleKeepUniques,
+    safeguardsEnabled,
+    onToggleSafeguards,
     onToggleFinalSell,
     onOpenLogicHubDialog,
     hsfDirty,
@@ -461,16 +461,16 @@ export default function PreviewHeaderActions(props: {
     setDeletePresetTarget(null)
   }, [deletePresetTarget, onDeleteFilterPreset])
   const filterLabel = filterActive ? t('filtersOn') : t('filtersOff')
-  const keepUniquesToggleLabel = t('keepUniquesToggleLabel')
+  const safeguardsToggleLabel = t('safeguardsToggleLabel')
   const filterHeaderLabel = t('filterHeader')
   const finalSellLabel = t('finalSellToggleLabel')
   const filterToggleLabel = t('filterToggleLabel')
   const logicHubLabel = t('titleLogicHub')
-  const keepUniquesLabel = t('keepUniquesToggleLabel')
+  const safeguardsLabel = t('safeguardsToggleLabel')
   // History menu toggle label keeps the context menu consistent across locales.
   const gearDbHistoryHideToastLabel = t('gearDbHistoryHideToast')
   const longestWarningToggleWidth = React.useMemo(() => {
-    const labels = [finalSellLabel, keepUniquesLabel]
+    const labels = [finalSellLabel, safeguardsLabel]
     const ctx = document?.createElement?.('canvas')?.getContext?.('2d')
     const font = typeof window !== 'undefined'
       ? getComputedStyle(window.document.body).font || '500 14px Roboto'
@@ -480,7 +480,7 @@ export default function PreviewHeaderActions(props: {
     const widths = labels.map((text) => ctx.measureText(text).width + 32)
     const longest = Math.max(...widths, FINAL_SELL_BUTTON_MIN_WIDTH_PX)
     return Math.min(longest, FINAL_SELL_BUTTON_WIDTH_PX)
-  }, [finalSellLabel, keepUniquesLabel])
+  }, [finalSellLabel, safeguardsLabel])
   const pushActive = !!pushEndpoint
   const exportLabel = pushActive
     ? (baseRuleCount ? t('pushMergedSellfile') : t('pushSellfile'))
@@ -1950,14 +1950,14 @@ export default function PreviewHeaderActions(props: {
               </ToggleButton>
             </>
             <>
-              {/* Keep Uniques shares the inline toggle treatment so users can pause/resume protections without leaving the preview. */}
+              {/* Safeguards shares the inline toggle treatment so users can pause/resume protections without leaving the preview. */}
               <ToggleButton
-                value="keepUniquesToggle"
-                selected={keepUniquesEnabled}
-                onClick={() => onToggleKeepUniques(!keepUniquesEnabled)}
+                value="safeguardsToggle"
+                selected={safeguardsEnabled}
+                onClick={() => onToggleSafeguards(!safeguardsEnabled)}
                 data-tour-id="keepuniques.toggle"
-                aria-label={keepUniquesToggleLabel}
-                aria-pressed={keepUniquesEnabled}
+                aria-label={safeguardsToggleLabel}
+                aria-pressed={safeguardsEnabled}
                 sx={(theme) => ({
                 display: 'flex',
                 alignItems: 'center',
@@ -1986,14 +1986,14 @@ export default function PreviewHeaderActions(props: {
                   },
                 })}
               >
-                <EllipsisTooltip title={keepUniquesToggleLabel} selector='[data-ellipsis-target]' wrap="block">
+                <EllipsisTooltip title={safeguardsToggleLabel} selector='[data-ellipsis-target]' wrap="block">
                   <Typography
                     component="span"
                     noWrap
                     data-ellipsis-target
                     sx={{ ...ELLIPSIS_TEXT_SX, width: '100%', textAlign: 'center', lineHeight: 1, display: 'block' }}
                   >
-                    {keepUniquesToggleLabel}
+                    {safeguardsToggleLabel}
                   </Typography>
                 </EllipsisTooltip>
               </ToggleButton>
@@ -2005,7 +2005,7 @@ export default function PreviewHeaderActions(props: {
                 size="small"
                 variant="outlined"
                 onClick={onOpenLogicHubDialog}
-                data-tour-id="finalsell.config"
+                data-tour-id="finalsell.recipe"
                 aria-label={t('openLogicHubAria')}
                 sx={{
                   whiteSpace: 'nowrap',

@@ -8,11 +8,11 @@ import { HSFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 // Use the shared HSFC fixture so the test stays aligned with the refactored test data layout.
 const HSFC_PATH = SAMPLE_HSFC_PATH
 
-const isConfigVisible = async (page: Parameters<typeof test>[0]['page'], cfgIdx: number) => {
+const isConfigVisible = async (page: Parameters<typeof test>[0]['page'], recipeIdx: number) => {
   // Check whether any row for the config intersects the visible preview viewport.
   return page.evaluate(({ idx }) => {
     // Grab any rendered rows for the target config.
-    const rows = Array.from(document.querySelectorAll(`tbody tr[data-cfg-idx="${idx}"]`)) as HTMLElement[]
+    const rows = Array.from(document.querySelectorAll(`tbody tr[data-recipe-idx="${idx}"]`)) as HTMLElement[]
     // Bail out early when no rows are mounted yet.
     const row = rows[0]
     if (!row) return false
@@ -39,23 +39,23 @@ const isConfigVisible = async (page: Parameters<typeof test>[0]['page'], cfgIdx:
     }
     // Report hidden when no row intersects the viewport.
     return false
-  }, { idx: cfgIdx })
+  }, { idx: recipeIdx })
 }
 
 const readBoundaryConfigIdx = async (
   page: Parameters<typeof test>[0]['page'],
   boundary: 'first' | 'last',
 ) => {
-  // Read the first or last rendered config index so we only pick configs with rows.
+  // Read the first or last rendered config index so we only pick recipes with rows.
   return page.evaluate(({ edge }) => {
     // Collect rendered rows for the preview table.
-    const rows = Array.from(document.querySelectorAll('tbody tr[data-cfg-idx]')) as HTMLElement[]
+    const rows = Array.from(document.querySelectorAll('tbody tr[data-recipe-idx]')) as HTMLElement[]
     // Choose the boundary row based on the requested edge.
     const row = edge === 'first' ? rows[0] : rows[rows.length - 1]
     // Treat missing rows as an unavailable boundary.
     if (!row) return null
     // Pull the config index from the row attribute.
-    const raw = row.getAttribute('data-cfg-idx')
+    const raw = row.getAttribute('data-recipe-idx')
     // Skip when the attribute is missing.
     if (!raw) return null
     // Convert to a number for consumers.
@@ -98,13 +98,13 @@ test.describe('preview chip scroll', () => {
     try { await page.getByRole('button', { name: 'Close' }).first().click({ timeout: PLAYWRIGHT_TIMEOUTS.uiQuick }) } catch {}
 
     // Load the large HSFC sample file.
-    // Why: it contains many configs and enough rows to reproduce the scroll drift.
+    // Why: it contains many recipes and enough rows to reproduce the scroll drift.
     // Use the shared selector so Playwright does not depend on button text.
     const hsfcInput = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
     // Allow slower engines to resolve the hidden input before uploading.
     await hsfcInput.setInputFiles(HSFC_PATH, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 
-    // Close any note/restore dialogs that appear after loading configs.
+    // Close any note/restore dialogs that appear after loading recipes.
     await dismissBlockingDialogs(page)
 
     const previewPaper = page.locator('[data-tour-id="preview.paper"]').first()
@@ -149,7 +149,7 @@ test.describe('preview chip scroll', () => {
 
     // Step 1: select the bottom config and verify it scrolls into view.
     // Why: this is the large jump where the regression was reported.
-    const bottomChip = page.locator(`#cfg-chip-${bottomIdx}`).first()
+    const bottomChip = page.locator(`#recipe-chip-${bottomIdx}`).first()
     await bottomChip.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
     await bottomChip.scrollIntoViewIfNeeded()
     await expect(bottomChip).toBeVisible()

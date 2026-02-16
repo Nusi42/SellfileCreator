@@ -61,7 +61,7 @@ function resolveTesterSummaryToneColor(theme: Theme, tone: TesterOutcomeSummaryT
   if (tone === 'sell') return theme.palette.error.main
   // Keep outcomes mirror the success palette for immediate scanability.
   if (tone === 'keep') return theme.palette.success.main
-  // Keep Unique reads best with the warning/gold palette.
+  // Safeguard reads best with the warning/gold palette.
   return theme.palette.warning.main
 }
 
@@ -133,19 +133,19 @@ export default function TesterOutcomeSummaryChip({
     const total = formatPair(summary.total, totalSnapshot.total)
     const sold = formatPair(summary.sold, totalSnapshot.sold)
     const kept = formatPair(summary.kept, totalSnapshot.kept)
-    const keepUniques = formatPair(summary.keptByKeepUniques, totalSnapshot.keptByKeepUniques)
+    const safeguards = formatPair(summary.keptBySafeguards, totalSnapshot.keptBySafeguards)
     // Build a compact, symmetric tooltip string so the chip stays text-light.
     const tooltipParts = [
       `${t('testerSummaryTotalLabel')}: ${total}`,
       `${t('testerMatchSell')}: ${sold}`,
       `${t('testerMatchKeep')}: ${kept}`,
-      `${t('keepUniquesToggleLabel')}: ${keepUniques}`,
+      `${t('safeguardsToggleLabel')}: ${safeguards}`,
     ]
     return {
       total,
       sold,
       kept,
-      keepUniques,
+      safeguards,
       tooltip: tooltipParts.join(' / '),
     }
   }, [lang, showFilteredTotals, showWhenEmpty, summary, t, totalSummary])
@@ -188,7 +188,7 @@ export default function TesterOutcomeSummaryChip({
           />
           <TesterOutcomeSummaryMetric
             icon={<StarsIcon fontSize="inherit" />}
-            value={formattedSummary.keepUniques}
+            value={formattedSummary.safeguards}
             tone="unique"
             dimmed={dimmed}
           />

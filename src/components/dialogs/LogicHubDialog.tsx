@@ -15,7 +15,7 @@ import {
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
   LOGIC_HUB_DIALOG_TAB_GEAR,
   LOGIC_HUB_DIALOG_TAB_DUNGEON,
-  LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES,
+  LOGIC_HUB_DIALOG_TAB_SAFEGUARDS,
   LOGIC_HUB_DIALOG_TABS,
   finalSellCoversFullLevelRange,
   type LogicHubDialogTab,
@@ -23,12 +23,12 @@ import {
   type FinalSellRemainderConfig,
   type FinalSellSetsMode,
 } from '../../lib/logicHub'
-import type { KeepUniqueDetectionSnapshot, KeepUniqueRule } from '../../lib/keepUniques'
-import type { BuilderConfig } from '../../lib/hsfBuilder'
+import type { SafeguardDetectionSnapshot, SafeguardRule } from '../../lib/safeguards'
+import type { BuilderRecipe } from '../../lib/hsfBuilder'
 import type { RuleTesterItem } from '../../lib/ruleTesterSession'
 import type { TesterPreviewMatch, TesterPreviewRow } from '../../types/testerPreview'
 import { GearTesterTabContent, type GearTesterTabLayoutSlots } from './GearTesterTabContent'
-import KeepUniquesTab from './KeepUniquesTab'
+import SafeguardsTab from './SafeguardsTab'
 import DungeonSimulatorTab from './DungeonSimulatorTab'
 // MarkdownTooltip keeps the level-hint copy behavior aligned with the rest of the app.
 import MarkdownTooltip from '../MarkdownTooltip'
@@ -47,13 +47,13 @@ type LogicHubDialogProps = {
   onReset?: () => void
   activeTab: LogicHubDialogTab
   onChangeTab: (next: LogicHubDialogTab) => void
-  keepUniqueRules: KeepUniqueRule[]
-  onKeepUniqueRulesChange: (next: SetStateAction<KeepUniqueRule[]>) => void
-  keepUniquesEnabled: boolean
-  onKeepUniquesEnabledChange: (next: SetStateAction<boolean>) => void
-  keepUniqueDetection: KeepUniqueDetectionSnapshot | null
+  safeguardRules: SafeguardRule[]
+  onSafeguardRulesChange: (next: SetStateAction<SafeguardRule[]>) => void
+  safeguardsEnabled: boolean
+  onSafeguardsEnabledChange: (next: SetStateAction<boolean>) => void
+  safeguardDetection: SafeguardDetectionSnapshot | null
   gearEntries: TesterPreviewRow[]
-  keepUniqueItemKeys: ReadonlySet<number>
+  safeguardItemKeys: ReadonlySet<number>
   testerCardWidthPx: number | null
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
@@ -62,13 +62,13 @@ type LogicHubDialogProps = {
   colorBlindMode: ColorBlindMode
   onChangeColorBlindMode: (mode: ColorBlindMode) => void
   colorIconSrc: string
-  configNames: Array<string | null>
+  recipeNames: Array<string | null>
   metasets: Metaset[]
   suppressMatchDetails?: boolean
-  onResetKeepUniques?: () => void
-  onJumpToRule?: (ruleIndex: number, cfgIdx: number | null) => void
+  onResetSafeguards?: () => void
+  onJumpToRule?: (ruleIndex: number, recipeIdx: number | null) => void
   workloadProgressRatio: number
-  customCfgs: BuilderConfig[]
+  customRecipes: BuilderRecipe[]
   testerItems: RuleTesterItem[]
   setTesterItems: Dispatch<SetStateAction<RuleTesterItem[]>>
   allocTesterItemId: () => number
@@ -89,13 +89,13 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     onReset,
     activeTab,
     onChangeTab,
-    keepUniqueRules,
-    onKeepUniqueRulesChange,
-    keepUniquesEnabled,
-    onKeepUniquesEnabledChange,
-    keepUniqueDetection,
+    safeguardRules,
+    onSafeguardRulesChange,
+    safeguardsEnabled,
+    onSafeguardsEnabledChange,
+    safeguardDetection,
     gearEntries,
-    keepUniqueItemKeys,
+    safeguardItemKeys,
     testerCardWidthPx,
     substatColors,
     useStatButtonColors,
@@ -104,13 +104,13 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     colorBlindMode,
     onChangeColorBlindMode,
     colorIconSrc,
-    configNames,
+    recipeNames,
     metasets,
     suppressMatchDetails = false,
-    onResetKeepUniques,
+    onResetSafeguards,
     onJumpToRule,
     workloadProgressRatio,
-    customCfgs,
+    customRecipes,
     testerItems,
     setTesterItems,
     allocTesterItemId,
@@ -121,8 +121,8 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     emptyStateVerticalAlign = 'center',
   } = props
   const { t } = useI18n()
-  // Keep Uniques resets need their own confirmation flow so accidental clicks do not wipe custom rules.
-  const [confirmResetKeepUniques, setConfirmResetKeepUniques] = useState(false)
+  // Safeguards resets need their own confirmation flow so accidental clicks do not wipe custom rules.
+  const [confirmResetSafeguards, setConfirmResetSafeguards] = useState(false)
   // Gear resets also confirm so a stray click does not clear imported databases or manual samples.
   const [confirmResetGearTester, setConfirmResetGearTester] = useState(false)
   // Fallback keeps the tester grid handler stable even when no jump target is supplied.
@@ -134,8 +134,8 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
   const hasLevelRanges = value.levels.length > 0
   const finalSellActive = hasGear && hasLevelRanges
   const finalSellFullRange = finalSellCoversFullLevelRange(value.levels)
-  // Keep Uniques depends on Final Sell covering the full ladder so protection rules stay aligned.
-  const keepUniquesFinalSellWarning = keepUniquesEnabled && (!finalSellActive || !finalSellFullRange)
+  // Safeguards depends on Final Sell covering the full ladder so protection rules stay aligned.
+  const safeguardsFinalSellWarning = safeguardsEnabled && (!finalSellActive || !finalSellFullRange)
   const statusWordKey = finalSellActive ? 'hintFinalSellStatusWordOn' : 'hintFinalSellStatusWordOff'
   const statusDetailKey = finalSellActive ? 'hintFinalSellStatusOnDetail' : 'hintFinalSellStatusOffDetail'
   const setsMode: FinalSellSetsMode = value.setsMode ?? FINAL_SELL_DEFAULT_SETS_MODE
@@ -157,15 +157,15 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
   }
   const showFinalSellTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_FINAL_SELL
   const showGearTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_GEAR
-  const showKeepUniquesTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES
+  const showSafeguardsTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_SAFEGUARDS
   const showDungeonTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_DUNGEON
-  // The reset affordance still sits in the Dialog actions, but Keep Uniques routes through a confirm prompt.
+  // The reset affordance still sits in the Dialog actions, but Safeguards routes through a confirm prompt.
   const showResetButton = showFinalSellTab
     ? Boolean(onReset)
     : showGearTab
       ? Boolean(onResetGearTester)
-      : showKeepUniquesTab
-      ? Boolean(onResetKeepUniques)
+      : showSafeguardsTab
+      ? Boolean(onResetSafeguards)
       : false
   const handleResetButtonClick = () => {
     if (showFinalSellTab) {
@@ -176,13 +176,13 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
       setConfirmResetGearTester(true)
       return
     }
-    if (showKeepUniquesTab && onResetKeepUniques) setConfirmResetKeepUniques(true)
+    if (showSafeguardsTab && onResetSafeguards) setConfirmResetSafeguards(true)
   }
-  // Once confirmed we immediately run the keep-unique reset so custom overrides do not linger in a half-reset state.
-  const handleConfirmResetKeepUniques = () => {
-    if (!onResetKeepUniques) return
-    setConfirmResetKeepUniques(false)
-    onResetKeepUniques()
+  // Once confirmed we immediately run the safeguard reset so custom overrides do not linger in a half-reset state.
+  const handleConfirmResetSafeguards = () => {
+    if (!onResetSafeguards) return
+    setConfirmResetSafeguards(false)
+    onResetSafeguards()
   }
   // Clear the tester items in one shot so manual + imported gear disappear together.
   const handleConfirmResetGearTester = () => {
@@ -245,8 +245,8 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
             >
               <Tab value={LOGIC_HUB_DIALOG_TAB_FINAL_SELL} label={t('testerFinalSell')} />
               <Tab
-                value={LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES}
-                label={t('tabKeepUniques')}
+                value={LOGIC_HUB_DIALOG_TAB_SAFEGUARDS}
+                label={t('tabSafeguards')}
                 data-tour-id="keepuniques.tab"
               />
               <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
@@ -498,7 +498,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
         {showGearTab && (
           // Gear tab reuses the tester tab content without duplicating dialog chrome.
           <GearTesterTabContent
-            customCfgs={customCfgs}
+            customRecipes={customRecipes}
             onView={gearTabOnView}
             substatColors={substatColors}
             testerItems={testerItems}
@@ -510,17 +510,17 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
             renderLayout={renderGearTesterLayout}
           />
         )}
-        {showKeepUniquesTab && (
-          // Keep Uniques tab reuses tester grid context; props land even while the UI is under construction.
-          <KeepUniquesTab
-            rules={keepUniqueRules}
-            enabled={keepUniquesEnabled}
-            finalSellCoverageWarningActive={keepUniquesFinalSellWarning}
-            onRulesChange={onKeepUniqueRulesChange}
-            onToggleEnabled={onKeepUniquesEnabledChange}
-            detection={keepUniqueDetection}
+        {showSafeguardsTab && (
+          // Safeguards tab reuses tester grid context; props land even while the UI is under construction.
+          <SafeguardsTab
+            rules={safeguardRules}
+            enabled={safeguardsEnabled}
+            finalSellCoverageWarningActive={safeguardsFinalSellWarning}
+            onRulesChange={onSafeguardRulesChange}
+            onToggleEnabled={onSafeguardsEnabledChange}
+            detection={safeguardDetection}
             gearEntries={gearEntries}
-            uniqueItemKeys={keepUniqueItemKeys}
+            uniqueItemKeys={safeguardItemKeys}
             testerCardWidthPx={testerCardWidthPx}
             substatColors={substatColors}
             useStatButtonColors={useStatButtonColors}
@@ -529,7 +529,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
             colorBlindMode={colorBlindMode}
             onChangeColorBlindMode={onChangeColorBlindMode}
             colorIconSrc={colorIconSrc}
-            configNames={configNames}
+            recipeNames={recipeNames}
             metasets={metasets}
             onJumpToRule={onJumpToRule}
             suppressMatchDetails={suppressMatchDetails}
@@ -575,18 +575,18 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
           <Button color="error" onClick={handleConfirmResetGearTester}>{t('reset')}</Button>
         </DialogActions>
       </Dialog>
-      {/* Dedicated confirm dialog spells out the destructive Keep Uniques reset details before applying the change. */}
+      {/* Dedicated confirm dialog spells out the destructive Safeguards reset details before applying the change. */}
       <Dialog
-        open={confirmResetKeepUniques}
-        onClose={() => setConfirmResetKeepUniques(false)}
+        open={confirmResetSafeguards}
+        onClose={() => setConfirmResetSafeguards(false)}
       >
-        <DialogTitle>{t('titleResetKeepUniques')}</DialogTitle>
+        <DialogTitle>{t('titleResetSafeguards')}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">{t('msgResetKeepUniques')}</Typography>
+          <Typography variant="body2">{t('msgResetSafeguards')}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmResetKeepUniques(false)}>{t('cancel')}</Button>
-          <Button color="error" onClick={handleConfirmResetKeepUniques}>{t('reset')}</Button>
+          <Button onClick={() => setConfirmResetSafeguards(false)}>{t('cancel')}</Button>
+          <Button color="error" onClick={handleConfirmResetSafeguards}>{t('reset')}</Button>
         </DialogActions>
       </Dialog>
     </>

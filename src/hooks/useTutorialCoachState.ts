@@ -3,8 +3,8 @@ import { flushSync } from 'react-dom'
 
 import { APP_VERSION } from '../version'
 import { FINAL_SELL_DEFAULT_LEVELS, README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY } from '../lib/constants'
-import { defaultSubstatTargets, type BuilderConfig, type SubstatTargetTable } from '../lib/hsfBuilder'
-import { cloneBuilderConfig } from '../lib/multiEditDraft'
+import { defaultSubstatTargets, type BuilderRecipe, type SubstatTargetTable } from '../lib/hsfBuilder'
+import { cloneBuilderRecipe } from '../lib/multiEditDraft'
 import type { HsfFile } from '../lib/hsfTypes'
 import { defaultMetasets, makeMetasetId, type Metaset } from '../lib/metasets'
 import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
@@ -12,7 +12,7 @@ import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
   LOGIC_HUB_DIALOG_TAB_GEAR,
-  LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES,
+  LOGIC_HUB_DIALOG_TAB_SAFEGUARDS,
   type LogicHubDialogTab,
   type FinalSellRemainderConfig,
 } from '../lib/logicHub'
@@ -21,11 +21,14 @@ import { DEFAULT_RULES_FILTER_STATE, type RulesFilterState } from '../lib/rulesF
 import type { TutorialStep } from '../components/tutorial/TutorialCoach'
 import type { useI18n } from '../lib/i18n'
 import {
-  KEEP_UNIQUE_DEFAULT_COUNT_MODE,
-  KeepUniqueRuleActivation,
-  KeepUniqueSubstatMatch,
-  type KeepUniqueRule,
-} from '../lib/keepUniques'
+  SAFEGUARD_DEFAULT_COUNT_MODE,
+  SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
+  SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
+  SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
+  SafeguardRuleActivation,
+  SafeguardSubstatMatch,
+  type SafeguardRule,
+} from '../lib/safeguards'
 import type { RuleTesterItem } from '../lib/ruleTesterSession'
 
 type Translate = ReturnType<typeof useI18n>['t']
@@ -33,15 +36,15 @@ type SubstatTargetsState = SubstatTargetTable
 
 type TutorialSnapshot = {
   hsf: HsfFile | null
-  cfgs: BuilderConfig[]
+  recipes: BuilderRecipe[]
   sel: number | null
   metas: Metaset[]
   substatTargets: SubstatTargetsState
   fsr: FinalSellRemainderConfig
-  keepUniqueRules: KeepUniqueRule[]
-  keepUniquesEnabled: boolean
+  safeguardRules: SafeguardRule[]
+  safeguardsEnabled: boolean
   note: string | null
-  builder: BuilderConfig
+  builder: BuilderRecipe
   filterOpen: boolean
   rulesFilter: RulesFilterState
   testerItems: RuleTesterItem[]
@@ -71,8 +74,8 @@ const buildTutorialTesterItems = (): RuleTesterItem[] => [{
   },
 }]
 
-const buildTutorialKeepUniqueRules = (): KeepUniqueRule[] => [{
-  id: 'tutorial-refresh-keep-unique',
+const buildTutorialSafeguardRules = (): SafeguardRule[] => [{
+  id: 'tutorial-refresh-safeguard',
   name: 'Refresh Bannerlords Amulet',
   combination: {
     slots: [ArtifactType.Amulet],
@@ -84,13 +87,17 @@ const buildTutorialKeepUniqueRules = (): KeepUniqueRule[] => [{
     factions: [Faction.BannerLords],
   },
   requiredCount: 1,
-  activation: KeepUniqueRuleActivation.ProtectExisting,
+  activation: SafeguardRuleActivation.ProtectExisting,
   // Tutorial snapshot mirrors the scope chip defaults by cloning the
   // sanitized count mode so demos highlight the same state as the UI.
-  countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
+  countMode: { ...SAFEGUARD_DEFAULT_COUNT_MODE },
+  // Keep tutorial behavior aligned with current safeguard defaults.
+  ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
+  ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
+  ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
   // Keep tutorial samples aligned with the classic (no substat filter) behavior.
   substats: [],
-  substatMatch: KeepUniqueSubstatMatch.Any,
+  substatMatch: SafeguardSubstatMatch.Any,
   substatWeights: {},
 }]
 
@@ -101,7 +108,7 @@ const cloneTesterItem = (item: RuleTesterItem): RuleTesterItem => ({
   ...(item.previewExtras ? { previewExtras: { ...item.previewExtras } } : {}),
 })
 
-const cloneKeepUniqueRule = (rule: KeepUniqueRule): KeepUniqueRule => ({
+const cloneSafeguardRule = (rule: SafeguardRule): SafeguardRule => ({
   ...rule,
   combination: {
     slots: [...rule.combination.slots],
@@ -125,10 +132,10 @@ const cloneKeepUniqueRule = (rule: KeepUniqueRule): KeepUniqueRule => ({
 export type UseTutorialCoachStateParams = {
   hsf: HsfFile | null
   setHsf: Dispatch<SetStateAction<HsfFile | null>>
-  customCfgs: BuilderConfig[]
-  setCustomCfgs: Dispatch<SetStateAction<BuilderConfig[]>>
-  selectedCfgIdx: number | null
-  setSelectedCfgIdx: Dispatch<SetStateAction<number | null>>
+  customRecipes: BuilderRecipe[]
+  setCustomRecipes: Dispatch<SetStateAction<BuilderRecipe[]>>
+  selectedRecipeIdx: number | null
+  setSelectedRecipeIdx: Dispatch<SetStateAction<number | null>>
   metasets: Metaset[]
   setMetasets: Dispatch<SetStateAction<Metaset[]>>
   substatTargets: SubstatTargetsState
@@ -137,18 +144,18 @@ export type UseTutorialCoachStateParams = {
   setFinalSellRemainder: Dispatch<SetStateAction<FinalSellRemainderConfig>>
   logicHubDialogTab: LogicHubDialogTab
   setLogicHubDialogTab: Dispatch<SetStateAction<LogicHubDialogTab>>
-  keepUniqueRules: KeepUniqueRule[]
-  setKeepUniqueRules: Dispatch<SetStateAction<KeepUniqueRule[]>>
-  keepUniquesEnabled: boolean
-  setKeepUniquesEnabled: Dispatch<SetStateAction<boolean>>
+  safeguardRules: SafeguardRule[]
+  setSafeguardRules: Dispatch<SetStateAction<SafeguardRule[]>>
+  safeguardsEnabled: boolean
+  setSafeguardsEnabled: Dispatch<SetStateAction<boolean>>
   testerItems: RuleTesterItem[]
   setTesterItems: Dispatch<SetStateAction<RuleTesterItem[]>>
   previewMode: 'rules' | 'tester'
   setPreviewMode: Dispatch<SetStateAction<'rules' | 'tester'>>
   hsfcNote: string | null
   setHsfcNote: Dispatch<SetStateAction<string | null>>
-  builderRef: MutableRefObject<BuilderConfig>
-  setBuilder: Dispatch<SetStateAction<BuilderConfig>>
+  builderRef: MutableRefObject<BuilderRecipe>
+  setBuilder: Dispatch<SetStateAction<BuilderRecipe>>
   filterOpen: boolean
   setFilterOpen: Dispatch<SetStateAction<boolean>>
   rulesFilter: RulesFilterState
@@ -186,10 +193,10 @@ export type UseTutorialCoachStateResult = {
 export function useTutorialCoachState({
   hsf,
   setHsf,
-  customCfgs,
-  setCustomCfgs,
-  selectedCfgIdx,
-  setSelectedCfgIdx,
+  customRecipes,
+  setCustomRecipes,
+  selectedRecipeIdx,
+  setSelectedRecipeIdx,
   metasets,
   setMetasets,
   substatTargets,
@@ -198,10 +205,10 @@ export function useTutorialCoachState({
   setFinalSellRemainder,
   logicHubDialogTab,
   setLogicHubDialogTab,
-  keepUniqueRules,
-  setKeepUniqueRules,
-  keepUniquesEnabled,
-  setKeepUniquesEnabled,
+  safeguardRules,
+  setSafeguardRules,
+  safeguardsEnabled,
+  setSafeguardsEnabled,
   testerItems,
   setTesterItems,
   previewMode,
@@ -251,20 +258,20 @@ export function useTutorialCoachState({
 
   const hsfRef = useRef(hsf)
   useEffect(() => { hsfRef.current = hsf }, [hsf])
-  const cfgsRef = useRef(customCfgs)
-  useEffect(() => { cfgsRef.current = customCfgs }, [customCfgs])
-  const selRef = useRef(selectedCfgIdx)
-  useEffect(() => { selRef.current = selectedCfgIdx }, [selectedCfgIdx])
+  const cfgsRef = useRef(customRecipes)
+  useEffect(() => { cfgsRef.current = customRecipes }, [customRecipes])
+  const selRef = useRef(selectedRecipeIdx)
+  useEffect(() => { selRef.current = selectedRecipeIdx }, [selectedRecipeIdx])
   const metasRef = useRef(metasets)
   useEffect(() => { metasRef.current = metasets }, [metasets])
   const substatTargetsRef = useRef(substatTargets)
   useEffect(() => { substatTargetsRef.current = substatTargets }, [substatTargets])
   const fsrRef = useRef(finalSellRemainder)
   useEffect(() => { fsrRef.current = finalSellRemainder }, [finalSellRemainder])
-  const keepUniqueRulesRef = useRef(keepUniqueRules)
-  useEffect(() => { keepUniqueRulesRef.current = keepUniqueRules }, [keepUniqueRules])
-  const keepUniquesEnabledRef = useRef(keepUniquesEnabled)
-  useEffect(() => { keepUniquesEnabledRef.current = keepUniquesEnabled }, [keepUniquesEnabled])
+  const safeguardRulesRef = useRef(safeguardRules)
+  useEffect(() => { safeguardRulesRef.current = safeguardRules }, [safeguardRules])
+  const safeguardsEnabledRef = useRef(safeguardsEnabled)
+  useEffect(() => { safeguardsEnabledRef.current = safeguardsEnabled }, [safeguardsEnabled])
   const noteRef = useRef(hsfcNote)
   useEffect(() => { noteRef.current = hsfcNote }, [hsfcNote])
   const filterOpenRef = useRef(filterOpen)
@@ -435,13 +442,13 @@ export function useTutorialCoachState({
       suppressHistorySnapshot()
       flushSync(() => {
         setHsf(snap.hsf)
-        setCustomCfgs(snap.cfgs)
-        setSelectedCfgIdx(snap.sel)
+        setCustomRecipes(snap.recipes)
+        setSelectedRecipeIdx(snap.sel)
         setMetasets(snap.metas)
         setSubstatTargets(snap.substatTargets)
         setFinalSellRemainder(snap.fsr)
-        setKeepUniqueRules(snap.keepUniqueRules)
-        setKeepUniquesEnabled(snap.keepUniquesEnabled)
+        setSafeguardRules(snap.safeguardRules)
+        setSafeguardsEnabled(snap.safeguardsEnabled)
         setHsfcNote(snap.note)
         setBuilder(snap.builder)
         setFilterOpen(snap.filterOpen)
@@ -454,7 +461,7 @@ export function useTutorialCoachState({
     } catch {}
   }, [
     setBuilder,
-    setCustomCfgs,
+    setCustomRecipes,
     setFinalSellRemainder,
     setFilterOpen,
     setHsf,
@@ -462,9 +469,9 @@ export function useTutorialCoachState({
     setMetasets,
     setSubstatTargets,
     setRulesFilter,
-    setSelectedCfgIdx,
-    setKeepUniqueRules,
-    setKeepUniquesEnabled,
+    setSelectedRecipeIdx,
+    setSafeguardRules,
+    setSafeguardsEnabled,
     setTesterItems,
     setPreviewMode,
     setLogicHubOpen,
@@ -658,21 +665,21 @@ export function useTutorialCoachState({
       const srcSubstatTargets = substatTargetsRef.current
       const srcFsr = fsrRef.current
       const srcBuilder = builderRef.current
-      const cloneCfgs = srcCfgs.map((cfg) => cloneBuilderConfig(cfg)) // ensure tutorial snapshots stay isolated
+      const cloneCfgs = srcCfgs.map((cfg) => cloneBuilderRecipe(cfg)) // ensure tutorial snapshots stay isolated
       const cloneMetas = srcMetas.map((meta) => ({ ...meta, sets: meta.sets.slice() }))
       const clonedSubstatTargets = JSON.parse(JSON.stringify(srcSubstatTargets)) as SubstatTargetsState
       const cloneFsr = JSON.parse(JSON.stringify(srcFsr)) as FinalSellRemainderConfig
-      const cloneBuilder = JSON.parse(JSON.stringify(srcBuilder)) as BuilderConfig
+      const cloneBuilder = JSON.parse(JSON.stringify(srcBuilder)) as BuilderRecipe
       const cloneRulesFilter = JSON.parse(JSON.stringify(rulesFilterRef.current)) as RulesFilterState
       setTutorialSnapshot({
         hsf: cloneHsf,
-        cfgs: cloneCfgs,
+        recipes: cloneCfgs,
         sel: selRef.current,
         metas: cloneMetas,
         substatTargets: clonedSubstatTargets,
         fsr: cloneFsr,
-        keepUniqueRules: keepUniqueRulesRef.current?.map((rule) => cloneKeepUniqueRule(rule)) ?? [],
-        keepUniquesEnabled: keepUniquesEnabledRef.current,
+        safeguardRules: safeguardRulesRef.current?.map((rule) => cloneSafeguardRule(rule)) ?? [],
+        safeguardsEnabled: safeguardsEnabledRef.current,
         note: noteRef.current,
         builder: cloneBuilder,
         filterOpen: filterOpenRef.current,
@@ -688,8 +695,8 @@ export function useTutorialCoachState({
       // Suppress history so the tutorial reset doesn't pollute undo/redo stacks.
       suppressHistorySnapshot()
       setHsf(null)
-      setCustomCfgs([])
-      setSelectedCfgIdx(null)
+      setCustomRecipes([])
+      setSelectedRecipeIdx(null)
       setMetasets([])
       setSubstatTargets(defaultSubstatTargets())
       setFinalSellRemainder({ artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[], setsMode: FINAL_SELL_DEFAULT_SETS_MODE })
@@ -720,8 +727,8 @@ export function useTutorialCoachState({
       setTesterItems([])
       setLogicHubOpen(false)
       setPreviewMode('rules')
-      setKeepUniqueRules([])
-      setKeepUniquesEnabled(false)
+      setSafeguardRules([])
+      setSafeguardsEnabled(false)
     } catch {}
 
     setTutorialIdx(0)
@@ -789,15 +796,15 @@ export function useTutorialCoachState({
       },
       {
         id: 'add',
-        title: t('tutAddConfigTitle'),
-        body: t('tutAddConfigBody'),
-        targetId: 'builder.add-config',
+        title: t('tutAddRecipeTitle'),
+        body: t('tutAddRecipeBody'),
+        targetId: 'builder.add-recipe',
       },
       {
         id: 'added',
-        title: t('tutConfigAddedTitle'),
-        body: t('tutConfigAddedBody'),
-        targetIds: ['chip.selected', 'builder.add-config'],
+        title: t('tutRecipeAddedTitle'),
+        body: t('tutRecipeAddedBody'),
+        targetIds: ['chip.selected', 'builder.add-recipe'],
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
@@ -946,7 +953,7 @@ export function useTutorialCoachState({
         id: 'adv-add',
         title: t('tutAdvAddTitle'),
         body: t('tutAdvAddBody'),
-        targetId: 'builder.add-config',
+        targetId: 'builder.add-recipe',
       },
       {
         id: 'adv-added',
@@ -967,8 +974,8 @@ export function useTutorialCoachState({
 	      },
 	      {
 	        id: 'chips',
-        title: t('tutConfigChipsTitle'),
-        body: t('tutConfigChipsBody'),
+        title: t('tutRecipeChipsTitle'),
+        body: t('tutRecipeChipsBody'),
         targetIds: ['chip.selected', 'chip.menu'],
         expand: 10,
 	        before: () => {
@@ -1046,7 +1053,7 @@ export function useTutorialCoachState({
         id: 'auto-late-add',
         title: t('tutAutoLateAddTitle'),
         body: t('tutAutoLateAddBody'),
-        targetId: 'builder.add-config',
+        targetId: 'builder.add-recipe',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
@@ -1095,7 +1102,7 @@ export function useTutorialCoachState({
         id: 'finalsell-intro',
         title: t('tutFinalSellIntroTitle'),
         body: t('tutFinalSellIntroBody'),
-        targetIds: ['finalsell.toggle', 'finalsell.config'],
+        targetIds: ['finalsell.toggle', 'finalsell.recipe'],
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null) },
       },
       {
@@ -1117,29 +1124,29 @@ export function useTutorialCoachState({
         },
       },
       {
-        id: 'keep-uniques-intro',
-        title: t('tutKeepUniquesIntroTitle'),
-        body: t('tutKeepUniquesIntroBody'),
+        id: 'safeguards-intro',
+        title: t('tutSafeguardsIntroTitle'),
+        body: t('tutSafeguardsIntroBody'),
         targetId: 'keepuniques.tab',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
           setLogicHubOpen(true)
-          setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES)
-          setKeepUniqueRules(buildTutorialKeepUniqueRules())
-          setKeepUniquesEnabled(true)
+          setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_SAFEGUARDS)
+          setSafeguardRules(buildTutorialSafeguardRules())
+          setSafeguardsEnabled(true)
         },
       },
       {
-        id: 'keep-uniques-rule',
-        title: t('tutKeepUniquesRuleTitle'),
-        body: t('tutKeepUniquesRuleBody'),
+        id: 'safeguards-rule',
+        title: t('tutSafeguardsRuleTitle'),
+        body: t('tutSafeguardsRuleBody'),
         targetId: 'keepuniques.rules',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
           setLogicHubOpen(true)
-          setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES)
-          setKeepUniqueRules(buildTutorialKeepUniqueRules())
-          setKeepUniquesEnabled(true)
+          setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_SAFEGUARDS)
+          setSafeguardRules(buildTutorialSafeguardRules())
+          setSafeguardsEnabled(true)
         },
       },
       {
@@ -1194,7 +1201,7 @@ export function useTutorialCoachState({
       { label: t('tutSectionBasicsLabel'), index: find('welcome') },
       { label: t('tutSectionAdvancedLabel'), index: find('adv-intro') },
       { label: t('tutSectionMetasetsLabel'), index: find('metasets-open') },
-      { label: t('tutSectionConfigChipsLabel'), index: find('adv-add') },
+      { label: t('tutSectionRecipeChipsLabel'), index: find('adv-add') },
       { label: t('tutSectionAutoLateLabel'), index: find('auto-late-slot') },
       { label: t('tutSectionGearDialogLabel'), index: find('tester-open') },
       { label: t('tutSectionFinalSellLabel'), index: find('finalsell-intro') },
@@ -1206,7 +1213,7 @@ export function useTutorialCoachState({
     builderRef,
     ensurePreviewHighlight,
     setBuilder,
-    setCustomCfgs,
+    setCustomRecipes,
     setLogicHubOpen,
     setFinalSellRemainder,
     setFilterOpen,
@@ -1215,12 +1222,12 @@ export function useTutorialCoachState({
     setMetasets,
     setSubstatTargets,
     setRulesFilter,
-    setSelectedCfgIdx,
+    setSelectedRecipeIdx,
     setTesterItems,
     setPreviewMode,
     setLogicHubDialogTab,
-    setKeepUniqueRules,
-    setKeepUniquesEnabled,
+    setSafeguardRules,
+    setSafeguardsEnabled,
     setTutorialAddedAutoLate,
     setTutorialAddedAdvanced,
     setTutorialAddedBasic,
@@ -1241,7 +1248,7 @@ export function useTutorialCoachState({
       closeAllTransientUi()
       const steps = tutorialSteps
       let nextHsf: HsfFile | null = null
-      let nextCfgs: BuilderConfig[] = []
+      let nextCfgs: BuilderRecipe[] = []
       let nextSel: number | null = null
       let nextMetas: Metaset[] = []
       let nextSubstatTargets = defaultSubstatTargets()
@@ -1254,11 +1261,11 @@ export function useTutorialCoachState({
       let nextTesterItems: RuleTesterItem[] = []
       let nextPreviewMode: 'rules' | 'tester' = 'rules'
       let nextLogicHubOpen = false
-      let nextKeepUniqueRules: KeepUniqueRule[] = []
-      let nextKeepUniquesEnabled = false
+      let nextSafeguardRules: SafeguardRule[] = []
+      let nextSafeguardsEnabled = false
       let nextLogicHubDialogTab: LogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_FINAL_SELL
       let nextNote: string | null = null
-      let nextBuilder: BuilderConfig = {
+      let nextBuilder: BuilderRecipe = {
         name: '',
         keep: true,
         exportMode: 'active',
@@ -1427,16 +1434,16 @@ export function useTutorialCoachState({
             nextLogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_FINAL_SELL
             break
           }
-          case 'keep-uniques-intro': {
-            nextKeepUniqueRules = buildTutorialKeepUniqueRules()
-            nextKeepUniquesEnabled = true
-            nextLogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES
+          case 'safeguards-intro': {
+            nextSafeguardRules = buildTutorialSafeguardRules()
+            nextSafeguardsEnabled = true
+            nextLogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_SAFEGUARDS
             break
           }
-          case 'keep-uniques-rule': {
-            if (nextKeepUniqueRules.length === 0) nextKeepUniqueRules = buildTutorialKeepUniqueRules()
-            nextKeepUniquesEnabled = true
-            nextLogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES
+          case 'safeguards-rule': {
+            if (nextSafeguardRules.length === 0) nextSafeguardRules = buildTutorialSafeguardRules()
+            nextSafeguardsEnabled = true
+            nextLogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_SAFEGUARDS
             break
           }
           default:
@@ -1446,13 +1453,13 @@ export function useTutorialCoachState({
       // Suppress history so tutorial skips never create undo/redo entries.
       suppressHistorySnapshot()
       setHsf(nextHsf)
-      setCustomCfgs(nextCfgs)
-      setSelectedCfgIdx(nextSel)
+      setCustomRecipes(nextCfgs)
+      setSelectedRecipeIdx(nextSel)
       setMetasets(nextMetas)
       setSubstatTargets(nextSubstatTargets)
       setFinalSellRemainder(nextFsr)
-      setKeepUniqueRules(nextKeepUniqueRules)
-      setKeepUniquesEnabled(nextKeepUniquesEnabled)
+      setSafeguardRules(nextSafeguardRules)
+      setSafeguardsEnabled(nextSafeguardsEnabled)
       setTesterItems(nextTesterItems)
       setPreviewMode(nextPreviewMode)
       setLogicHubOpen(nextLogicHubOpen)
@@ -1466,15 +1473,15 @@ export function useTutorialCoachState({
   }, [
     closeAllTransientUi,
     setBuilder,
-    setCustomCfgs,
+    setCustomRecipes,
     setFinalSellRemainder,
     setHsf,
     setHsfcNote,
     setMetasets,
     setSubstatTargets,
-    setSelectedCfgIdx,
-    setKeepUniqueRules,
-    setKeepUniquesEnabled,
+    setSelectedRecipeIdx,
+    setSafeguardRules,
+    setSafeguardsEnabled,
     setTesterItems,
     setPreviewMode,
     setLogicHubOpen,
@@ -1528,12 +1535,12 @@ export function useTutorialCoachState({
         // Suppress history so tutorial inserts do not add undo/redo entries.
         suppressHistorySnapshot()
         const snap = builderRef.current
-        setCustomCfgs((prev) => {
-          const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
-            ? selectedCfgIdx + 1
+        setCustomRecipes((prev) => {
+          const insertIdx = (selectedRecipeIdx !== null && selectedRecipeIdx >= 0 && selectedRecipeIdx < prev.length)
+            ? selectedRecipeIdx + 1
             : prev.length
           const next = [...prev.slice(0, insertIdx), snap, ...prev.slice(insertIdx)]
-          setSelectedCfgIdx(insertIdx)
+          setSelectedRecipeIdx(insertIdx)
           return next
         })
       } else if (cur?.id === 'adv-add' && !tutorialAddedAdvanced) {
@@ -1541,12 +1548,12 @@ export function useTutorialCoachState({
         // Suppress history so tutorial inserts do not add undo/redo entries.
         suppressHistorySnapshot()
         const snap = builderRef.current
-        setCustomCfgs((prev) => {
-          const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
-            ? selectedCfgIdx + 1
+        setCustomRecipes((prev) => {
+          const insertIdx = (selectedRecipeIdx !== null && selectedRecipeIdx >= 0 && selectedRecipeIdx < prev.length)
+            ? selectedRecipeIdx + 1
             : prev.length
           const next = [...prev.slice(0, insertIdx), snap, ...prev.slice(insertIdx)]
-          setSelectedCfgIdx(insertIdx)
+          setSelectedRecipeIdx(insertIdx)
           return next
         })
       } else if (cur?.id === 'metasets-add' && !tutorialAddedSlowDD) {
@@ -1599,12 +1606,12 @@ export function useTutorialCoachState({
         // Suppress history so tutorial inserts do not add undo/redo entries.
         suppressHistorySnapshot()
         const snap = builderRef.current
-        setCustomCfgs((prev) => {
-          const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
-            ? selectedCfgIdx + 1
+        setCustomRecipes((prev) => {
+          const insertIdx = (selectedRecipeIdx !== null && selectedRecipeIdx >= 0 && selectedRecipeIdx < prev.length)
+            ? selectedRecipeIdx + 1
             : prev.length
           const next = [...prev.slice(0, insertIdx), snap, ...prev.slice(insertIdx)]
-          setSelectedCfgIdx(insertIdx)
+          setSelectedRecipeIdx(insertIdx)
           return next
         })
       }
@@ -1626,11 +1633,11 @@ export function useTutorialCoachState({
     closeAllTransientUi,
     metasets,
     restoreFromTutorialSnapshot,
-    selectedCfgIdx,
+    selectedRecipeIdx,
     setBuilder,
-    setCustomCfgs,
+    setCustomRecipes,
     setMetasets,
-    setSelectedCfgIdx,
+    setSelectedRecipeIdx,
     suppressHistorySnapshot,
     setTutorialAddedAdvanced,
     setTutorialAddedAutoLate,

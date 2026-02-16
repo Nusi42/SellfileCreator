@@ -11,7 +11,7 @@ import { loadAutosave } from '../lib/autosave'
 import { parseHsfcObject } from '../lib/hsfcIO'
 import { getPersistedRuntimeGearSetNameMap } from '../lib/gearSets/runtimeStore'
 import { normalizeMetasetIconId } from '../lib/metasetIcons'
-import type { SubstatTargetTable, BuilderConfig } from '../lib/hsfBuilder'
+import type { SubstatTargetTable, BuilderRecipe } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { LogicHubDialogTab, FinalSellRemainderConfig } from '../lib/logicHub'
 import { LOGIC_HUB_DIALOG_TAB_FINAL_SELL, LOGIC_HUB_DIALOG_TABS } from '../lib/logicHub'
@@ -26,16 +26,15 @@ import {
   cloneDefaultRulesFilterState,
   type CollapsedSections,
 } from '../state/rulesFilterPersistence'
-import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from '../types/testerConfigFilterMode'
-import type { KeepUniqueRule } from '../lib/keepUniques'
-import { sanitizeKeepUniquesGridFilterMode, type KeepUniquesGridFilterMode } from '../state/keepUniquesPreferences'
+import { TESTER_RECIPE_FILTER_MODE_DEFAULT, type TesterRecipeFilterMode } from '../types/testerRecipeFilterMode'
+import type { SafeguardRule } from '../lib/safeguards'
+import { sanitizeSafeguardsGridFilterMode, type SafeguardsGridFilterMode } from '../state/safeguardsPreferences'
 import {
-  LEGACY_NOTE_CONFIG_OPTIONS_ANSWERS_KEY,
-  NOTE_CONFIG_OPTIONS_ANSWERS_KEY,
-  NOTE_CONFIG_OPTIONS_DISABLED_KEY,
-  normalizeNoteConfigOptionsAnswers,
-  type NoteConfigOptionsAnswers,
-} from '../lib/noteConfigOptions'
+  NOTE_RECIPE_OVERRIDES_ANSWERS_KEY,
+  NOTE_RECIPE_OVERRIDES_DISABLED_KEY,
+  normalizeNoteRecipeOverridesAnswers,
+  type NoteRecipeOverridesAnswers,
+} from '../lib/noteRecipeOverrides'
 import {
   isDefaultTesterSubstatSortState,
   normalizeTesterSubstatSortState,
@@ -46,20 +45,20 @@ export type RestoreDraft = {
   Version?: string
   Metasets?: Metaset[]
   substatTargets?: SubstatTargetTable
-  Configs?: BuilderConfig[]
+  Recipes?: BuilderRecipe[]
   FinalSellRemainder?: FinalSellRemainderConfig
-  KeepUniques?: KeepUniqueRule[]
-  KeepUniquesEnabled?: boolean
+  Safeguards?: SafeguardRule[]
+  SafeguardsEnabled?: boolean
   SelectedConfigIndex?: number
   Note?: string
-  NoteConfigOptionsAnswers?: NoteConfigOptionsAnswers
-  NoteConfigOptionsDisabled?: boolean
+  NoteRecipeOverridesAnswers?: NoteRecipeOverridesAnswers
+  NoteRecipeOverridesDisabled?: boolean
   AutosaveSavedAt?: string
   Filters?: AutosaveFiltersState
   TesterSort?: TesterSubstatSortState
   LogicHubDialogTab?: LogicHubDialogTab
   FinalSellDialogTab?: LogicHubDialogTab
-  KeepUniquesGridFilterMode?: KeepUniquesGridFilterMode
+  SafeguardsGridFilterMode?: SafeguardsGridFilterMode
 }
 
 export type AutosaveFilterView = {
@@ -71,7 +70,7 @@ export type AutosaveFilterView = {
 export type AutosaveFiltersState = {
   activeMode: RulesFilterPreviewMode
   views: Record<RulesFilterPreviewMode, AutosaveFilterView>
-  testerConfigFilterMode?: TesterConfigFilterMode
+  testerRecipeFilterMode?: TesterRecipeFilterMode
 }
 
 type InitialAutosaveState = {
@@ -116,9 +115,15 @@ const normalizeAutosaveFilters = (filters: AutosaveFiltersState | null | undefin
   return {
     activeMode: filters.activeMode === 'tester' ? 'tester' : 'rules',
     views,
-    testerConfigFilterMode: filters.testerConfigFilterMode ?? TESTER_CONFIG_FILTER_MODE_DEFAULT,
+    testerRecipeFilterMode: filters.testerRecipeFilterMode ?? TESTER_RECIPE_FILTER_MODE_DEFAULT,
   }
 }
+
+const parseTesterRecipeFilterMode = (raw: unknown): TesterRecipeFilterMode | undefined => (
+  raw === 'first' || raw === 'any' || raw === 'off'
+    ? raw
+    : undefined
+)
 
 const parseCollapsedSections = (raw: unknown): CollapsedSections => {
   const next = cloneDefaultRulesFilterCollapsed()
@@ -161,17 +166,14 @@ const parseSavedFilters = (raw: unknown): AutosaveFiltersState | null => {
         collapsed: parseCollapsedSections(viewRec['collapsed']),
       }
     }
-    const testerModeRaw = rec['testerConfigFilterMode']
-    const testerConfigFilterMode: TesterConfigFilterMode | undefined =
-      testerModeRaw === 'first' || testerModeRaw === 'any' || testerModeRaw === 'off'
-        ? testerModeRaw
-        : undefined
+    const testerModeRaw = rec['testerRecipeFilterMode']
+    const testerRecipeFilterMode = parseTesterRecipeFilterMode(testerModeRaw)
     const activeModeRaw = rec['activeMode']
     const activeMode: RulesFilterPreviewMode = activeModeRaw === 'tester' ? 'tester' : 'rules'
     return {
       activeMode,
       views,
-      ...(testerConfigFilterMode ? { testerConfigFilterMode } : {}),
+      ...(testerRecipeFilterMode ? { testerRecipeFilterMode } : {}),
     }
   }
   const stateRaw = rec['state']
@@ -181,11 +183,8 @@ const parseSavedFilters = (raw: unknown): AutosaveFiltersState | null => {
     state: stateRaw as RulesFilterState,
     collapsed: parseCollapsedSections(rec['collapsed']),
   }
-  const testerModeRaw = rec['testerConfigFilterMode']
-  const testerConfigFilterMode: TesterConfigFilterMode | undefined =
-    testerModeRaw === 'first' || testerModeRaw === 'any' || testerModeRaw === 'off'
-      ? testerModeRaw
-      : undefined
+  const testerModeRaw = rec['testerRecipeFilterMode']
+  const testerRecipeFilterMode = parseTesterRecipeFilterMode(testerModeRaw)
   const views = RULES_FILTER_PREVIEW_MODES.reduce((acc, mode) => {
     acc[mode] = {
       open: legacyView.open,
@@ -197,7 +196,7 @@ const parseSavedFilters = (raw: unknown): AutosaveFiltersState | null => {
   return {
     activeMode: 'rules',
     views,
-    ...(testerConfigFilterMode ? { testerConfigFilterMode } : {}),
+    ...(testerRecipeFilterMode ? { testerRecipeFilterMode } : {}),
   }
 }
 
@@ -213,7 +212,7 @@ export const filtersSignature = (filters: AutosaveFiltersState | null | undefine
   return JSON.stringify({
     activeMode: normalized.activeMode,
     views,
-    testerConfigFilterMode: normalized.testerConfigFilterMode ?? TESTER_CONFIG_FILTER_MODE_DEFAULT,
+    testerRecipeFilterMode: normalized.testerRecipeFilterMode ?? TESTER_RECIPE_FILTER_MODE_DEFAULT,
   })
 }
 
@@ -227,7 +226,7 @@ const DEFAULT_AUTOSAVE_FILTERS_SIGNATURE = filtersSignature({
     }
     return acc
   }, {} as Record<RulesFilterPreviewMode, AutosaveFilterView>),
-  testerConfigFilterMode: TESTER_CONFIG_FILTER_MODE_DEFAULT,
+  testerRecipeFilterMode: TESTER_RECIPE_FILTER_MODE_DEFAULT,
 })
 
 // Treat exact matches to the factory defaults as "no filters" so autosave stays clean.
@@ -245,35 +244,35 @@ function computeInitialAutosaveState(args: {
   key: string
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
-  configs: BuilderConfig[]
+  recipes: BuilderRecipe[]
   finalSellRemainder: FinalSellRemainderConfig
   note: string | null
-  noteConfigOptionsAnswers: NoteConfigOptionsAnswers
+  noteRecipeOverridesAnswers: NoteRecipeOverridesAnswers
   filters: AutosaveFiltersState
   testerSort: TesterSubstatSortState
-  keepUniqueRules: KeepUniqueRule[]
-  keepUniquesEnabled: boolean
-  keepUniquesGridFilterMode: KeepUniquesGridFilterMode
+  safeguardRules: SafeguardRule[]
+  safeguardsEnabled: boolean
+  safeguardsGridFilterMode: SafeguardsGridFilterMode
   storedRuntimeGearSetCount: number
 }): InitialAutosaveState {
   try {
     const entry = loadAutosave<unknown>(args.key)
-    if (entry && args.configs.length === 0) {
+    if (entry && args.recipes.length === 0) {
       // Build a dormant runtime-name map from localStorage.
       // Why: autosave drafts store readable set names even for runtime sets.
       // We must resolve those names without auto-applying runtime gear sets.
       const runtimeSetNameMap = getPersistedRuntimeGearSetNameMap()
-  const parsed = parseHsfcObject(
+      const parsed = parseHsfcObject(
         entry.payload as unknown,
         { metasets: args.metasets, substatTargets: args.substatTargets },
         { runtimeSetNameMap },
       )
-      const cfgs = parsed.cfgs
+      const recipes = parsed.recipes
       const savedMetasets = parsed.metasets
       const savedSubstatTargets = parsed.substatTargets
       const savedFinalSell = parsed.finalSellRemainder
-      const savedKeepUniques = parsed.keepUniqueRules ?? []
-      const savedKeepEnabled = parsed.keepUniquesEnabled ?? false
+      const savedSafeguards = parsed.safeguardRules ?? []
+      const savedKeepEnabled = parsed.safeguardsEnabled ?? false
       const metasetsMatchDefaults = metasetsSignature(savedMetasets as Metaset[]) === metasetsSignature(args.metasets)
       // Compare canonicalized copies so reordering the variant keys (common when
       // editing via the dialog) does not trick autosave into thinking the
@@ -293,44 +292,48 @@ function computeInitialAutosaveState(args: {
         ? savedTesterSortNormalized
         : null
       const testerSortMatchDefaults = savedTesterSort === null
-      const keepUniquesMatchDefaults = savedKeepUniques.length === 0
+      const safeguardsMatchDefaults = savedSafeguards.length === 0
         && !savedKeepEnabled
-        && args.keepUniqueRules.length === 0
-        && !args.keepUniquesEnabled
-      // Read any config options answers stored alongside the autosave payload.
+        && args.safeguardRules.length === 0
+        && !args.safeguardsEnabled
+      // Read any recipe overrides answers stored alongside the autosave payload.
       const payloadRecord = (entry.payload && typeof entry.payload === 'object')
         ? (entry.payload as Record<string, unknown>)
         : null
-      const savedConfigOptionsAnswers = normalizeNoteConfigOptionsAnswers(
+      const savedRecipeOverridesAnswers = normalizeNoteRecipeOverridesAnswers(
         payloadRecord
-          ? (payloadRecord[NOTE_CONFIG_OPTIONS_ANSWERS_KEY]
-            ?? payloadRecord[LEGACY_NOTE_CONFIG_OPTIONS_ANSWERS_KEY])
+          ? payloadRecord[NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]
           : null,
       )
-      const savedConfigOptionsDisabled = payloadRecord
-        ? payloadRecord[NOTE_CONFIG_OPTIONS_DISABLED_KEY] === true
+      const savedRecipeOverridesDisabled = payloadRecord
+        ? payloadRecord[NOTE_RECIPE_OVERRIDES_DISABLED_KEY] === true
         : false
-      // Consider either the note or config options answers as a reason to restore.
+      // Consider either the note or recipe overrides answers as a reason to restore.
       const notePresent = typeof parsed.note === 'string' && parsed.note.trim().length > 0
-        || (savedConfigOptionsAnswers && Object.keys(savedConfigOptionsAnswers).length > 0)
-        || savedConfigOptionsDisabled
-      const savedGridFilterModeRaw = (entry.payload && typeof entry.payload === 'object' && typeof (entry.payload as Record<string, unknown>)['KeepUniquesGridFilterMode'] === 'string')
-        ? (entry.payload as Record<string, unknown>)['KeepUniquesGridFilterMode']
+        || (savedRecipeOverridesAnswers && Object.keys(savedRecipeOverridesAnswers).length > 0)
+        || savedRecipeOverridesDisabled
+      const payloadRecordForGridMode = entry.payload && typeof entry.payload === 'object'
+        ? (entry.payload as Record<string, unknown>)
         : null
+      const savedGridFilterModeRaw = payloadRecordForGridMode && (
+        typeof payloadRecordForGridMode['SafeguardsGridFilterMode'] === 'string'
+          ? payloadRecordForGridMode['SafeguardsGridFilterMode']
+          : null
+      )
       const savedGridFilterMode = savedGridFilterModeRaw
-        ? sanitizeKeepUniquesGridFilterMode(savedGridFilterModeRaw)
+        ? sanitizeSafeguardsGridFilterMode(savedGridFilterModeRaw)
         : null
-      // Treat persisted runtime sets as restore-worthy even if configs are empty.
+      // Treat persisted runtime sets as restore-worthy even if recipes are empty.
       // Why: this is the only UX surface that can re-apply dormant sets.
       const hasStoredRuntimeGearSets = args.storedRuntimeGearSetCount > 0
-      const essentiallyDefault = cfgs.length === 0
+      const essentiallyDefault = recipes.length === 0
         && metasetsMatchDefaults
         && substatTargetsMatchDefaults
         && finalSellMatches
         && !notePresent
         && filtersMatchDefaults
         && testerSortMatchDefaults
-        && keepUniquesMatchDefaults
+        && safeguardsMatchDefaults
         && !hasStoredRuntimeGearSets
       if (!essentiallyDefault) {
         const payload = entry.payload as Record<string, unknown>
@@ -341,15 +344,15 @@ function computeInitialAutosaveState(args: {
             Version: String(payload['Version'] ?? ''),
             Metasets: savedMetasets,
             substatTargets: savedSubstatTargets,
-            Configs: cfgs,
+            Recipes: recipes,
             ...(savedFinalSell ? { FinalSellRemainder: savedFinalSell } : {}),
-            ...(savedKeepUniques.length ? { KeepUniques: savedKeepUniques } : {}),
-            ...(savedKeepEnabled ? { KeepUniquesEnabled: savedKeepEnabled } : {}),
-            ...(savedGridFilterMode ? { KeepUniquesGridFilterMode: savedGridFilterMode } : {}),
+            ...(savedSafeguards.length ? { Safeguards: savedSafeguards } : {}),
+            ...(savedKeepEnabled ? { SafeguardsEnabled: savedKeepEnabled } : {}),
+            ...(savedGridFilterMode ? { SafeguardsGridFilterMode: savedGridFilterMode } : {}),
             ...(parsed.selectedIndex != null ? { SelectedConfigIndex: parsed.selectedIndex } : {}),
             ...(parsed.note ? { Note: parsed.note } : {}),
-            ...(savedConfigOptionsAnswers ? { [NOTE_CONFIG_OPTIONS_ANSWERS_KEY]: savedConfigOptionsAnswers } : {}),
-            ...(savedConfigOptionsDisabled ? { [NOTE_CONFIG_OPTIONS_DISABLED_KEY]: true } : {}),
+            ...(savedRecipeOverridesAnswers ? { [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]: savedRecipeOverridesAnswers } : {}),
+            ...(savedRecipeOverridesDisabled ? { [NOTE_RECIPE_OVERRIDES_DISABLED_KEY]: true } : {}),
             ...(savedAtRaw ? { AutosaveSavedAt: savedAtRaw } : {}),
             ...(savedFilters ? { Filters: savedFilters } : {}),
             ...(savedTesterSort ? { TesterSort: savedTesterSort } : {}),
@@ -377,18 +380,18 @@ export function useAutosaveRestore(opts: {
   version: string
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
-  configs: BuilderConfig[]
+  recipes: BuilderRecipe[]
   finalSellRemainder: FinalSellRemainderConfig
-  selectedConfigIndex: number | null
+  selectedRecipeIndex: number | null
   note: string | null
-  noteConfigOptionsAnswers: NoteConfigOptionsAnswers
-  noteConfigOptionsDisabled: boolean
+  noteRecipeOverridesAnswers: NoteRecipeOverridesAnswers
+  noteRecipeOverridesDisabled: boolean
   filters: AutosaveFiltersState
   testerSort: TesterSubstatSortState
-  keepUniqueRules: KeepUniqueRule[]
-  keepUniquesEnabled: boolean
+  safeguardRules: SafeguardRule[]
+  safeguardsEnabled: boolean
   logicHubDialogTab: LogicHubDialogTab
-  keepUniquesGridFilterMode: KeepUniquesGridFilterMode
+  safeguardsGridFilterMode: SafeguardsGridFilterMode
   storedRuntimeGearSetCount: number
 }) {
   const {
@@ -396,18 +399,18 @@ export function useAutosaveRestore(opts: {
     version,
     metasets,
     substatTargets,
-    configs,
+    recipes,
     finalSellRemainder,
-    selectedConfigIndex: _selectedConfigIndex,
-  note,
-  noteConfigOptionsAnswers,
-  noteConfigOptionsDisabled,
-  filters,
+    selectedRecipeIndex: _selectedConfigIndex,
+    note,
+    noteRecipeOverridesAnswers,
+    noteRecipeOverridesDisabled,
+    filters,
     testerSort,
-    keepUniqueRules,
-    keepUniquesEnabled,
+    safeguardRules,
+    safeguardsEnabled,
     logicHubDialogTab,
-    keepUniquesGridFilterMode,
+    safeguardsGridFilterMode,
     storedRuntimeGearSetCount,
   } = opts
 
@@ -417,15 +420,15 @@ export function useAutosaveRestore(opts: {
       key,
       metasets,
       substatTargets,
-      configs,
+      recipes,
       finalSellRemainder,
       note,
-      noteConfigOptionsAnswers,
+      noteRecipeOverridesAnswers,
       filters,
       testerSort,
-      keepUniqueRules,
-      keepUniquesEnabled,
-      keepUniquesGridFilterMode,
+      safeguardRules,
+      safeguardsEnabled,
+      safeguardsGridFilterMode,
       storedRuntimeGearSetCount,
     })
   }
@@ -447,18 +450,18 @@ export function useAutosaveRestore(opts: {
       Version: version,
       Metasets: metasets,
       substatTargets,
-      Configs: configs,
+      Recipes: recipes,
       FinalSellRemainder: finalSellRemainder,
-      KeepUniques: keepUniqueRules,
-      KeepUniquesEnabled: keepUniquesEnabled,
+      Safeguards: safeguardRules,
+      SafeguardsEnabled: safeguardsEnabled,
       LogicHubDialogTab: logicHubDialogTab,
-      KeepUniquesGridFilterMode: keepUniquesGridFilterMode,
-      // Persist note content and config options answers only when present.
+      SafeguardsGridFilterMode: safeguardsGridFilterMode,
+      // Persist note content and recipe overrides answers only when present.
       ...(note && note.trim() ? { Note: note } : {}),
-      ...(Object.keys(noteConfigOptionsAnswers).length > 0
-        ? { [NOTE_CONFIG_OPTIONS_ANSWERS_KEY]: noteConfigOptionsAnswers }
+      ...(Object.keys(noteRecipeOverridesAnswers).length > 0
+        ? { [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]: noteRecipeOverridesAnswers }
         : {}),
-      ...(noteConfigOptionsDisabled ? { [NOTE_CONFIG_OPTIONS_DISABLED_KEY]: true } : {}),
+      ...(noteRecipeOverridesDisabled ? { [NOTE_RECIPE_OVERRIDES_DISABLED_KEY]: true } : {}),
       ...(filtersForSnapshot ? { Filters: filtersForSnapshot } : {}),
       ...(testerSortForSnapshot ? { TesterSort: testerSortForSnapshot } : {}),
     }
@@ -467,17 +470,17 @@ export function useAutosaveRestore(opts: {
     version,
     metasets,
     substatTargets,
-    configs,
+    recipes,
     finalSellRemainder,
     note,
-    noteConfigOptionsAnswers,
-    noteConfigOptionsDisabled,
+    noteRecipeOverridesAnswers,
+    noteRecipeOverridesDisabled,
     filters,
     testerSort,
-    keepUniqueRules,
-    keepUniquesEnabled,
+    safeguardRules,
+    safeguardsEnabled,
     logicHubDialogTab,
-    keepUniquesGridFilterMode,
+    safeguardsGridFilterMode,
   ])
 
   // After dismissing, enable autosave only after divergence from baseline

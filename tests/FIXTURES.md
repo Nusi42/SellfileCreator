@@ -23,28 +23,28 @@ users can export from the app.
 ## Naming conventions
 - Prefix the base name with the feature under test (`auto-…`, `legendary-…`, `ring-…`, etc.) so failures read clearly.
 - Encode the critical parameters in the filename (`minreq5`, `late`, `mincount-3`, etc.) to make intent obvious without opening the file.
-- For multi-config exports, keep related configs in a single `.sfr` file (example: `auto-banner-aggregate-window.sfr`).
+- For multi-config exports, keep related recipes in a single `.sfr` file (example: `auto-banner-aggregate-window.sfr`).
 
 ## Current coverage highlights
 - `epic-percent-optionals-capped.*` protects the ≥ Epic late-percent substat caps at +16.
 - `epic-factory-triple-collapse.*` pins the Epic factory triple minima collapse for levels 0/4/8/12, while `epic-factory-triple-full-window-minreq3.*` proves the +16 milestone still enumerates every partition once the fourth substat is present.
 - `factory-collapse-helmet-matrix.*` collects the Auto/Legendary/Epic/Rare helmet scenarios used to validate the factory minima shortcuts, so regressions show up across full, partial, and range-specific windows.
 - `auto-at-0-with-k-4-minreq{3,4,5}.*` (and `auto-banner-aggregate-window.*`) cover the Banner aggregate-roll collapse logic for Legendary/Mythical progressions.
-- `minreq0-roll-schedule-matrix.*` captures Auto and explicit rarity configs with `minRequiredRolls=0`, ensuring roll thresholds are suppressed and Auto resolves to Any only when no roll requirements exist.
+- `minreq0-roll-schedule-matrix.*` captures Auto and explicit rarity recipes with `minRequiredRolls=0`, ensuring roll thresholds are suppressed and Auto resolves to Any only when no roll requirements exist.
 - Files prefixed with `auto-flex-`, `ring-flex-`, or `ring-manual-` exercise autosupplement thresholds and manual rarity baselines.
-- The `ring-flex-*.hsf` snapshots double-check that pruning keeps real multi-stat requirements: rows that combine HP% and DEF% (or other targeted pairs) must remain because they encode split roll distributions. If a future change trims those rows, re-run `node scripts/build-hsf-from-config.mjs < tests/fixtures/ring-flex-…sfr > …/tmp.hsf` and inspect the +12/+16 sections before accepting the churn.
-- `legendary-late-…` fixtures verify late keep schedules for exact rarity configs.
+- The `ring-flex-*.hsf` snapshots double-check that pruning keeps real multi-stat requirements: rows that combine HP% and DEF% (or other targeted pairs) must remain because they encode split roll distributions. If a future change trims those rows, re-run `node scripts/build-hsf-from-recipe.mjs < tests/fixtures/ring-flex-…sfr > …/tmp.hsf` and inspect the +12/+16 sections before accepting the churn.
+- `legendary-late-…` fixtures verify late keep schedules for exact rarity recipes.
 - `locked-target-…` fixtures validate locked-substat roll targeting, caps, and feasibility checks on minRequiredRolls.
-- `locked-aggregate-combos.*` bundles the ten configs from `lockedTests.sfr` so both importer and builder are exercised across every locked/global aggregate pairing (Auto vs Late, locked-only vs global-only, and mixed floors).
-- `roll-target-single-spd.*` locks in the per-stat roll target overrides for single-stat configs, covering explicit base overrides, sparse increments, and fallback to the default minima when an increment cell is empty.
+- `locked-aggregate-combos.*` bundles the ten recipes from `lockedTests.sfr` so both importer and builder are exercised across every locked/global aggregate pairing (Auto vs Late, locked-only vs global-only, and mixed floors).
+- `roll-target-single-spd.*` locks in the per-stat roll target overrides for single-stat recipes, covering explicit base overrides, sparse increments, and fallback to the default minima when an increment cell is empty.
 - `roll-target-collapsed-quad.*` protects the collapsed 4-substat builder path so Level=Any rows honor roll target base overrides when every stat is locked.
 - `minima-default-factory.*` locks in the factory (in-game) minima we ship by default so we spot regressions if the base roll floors change again.
 - `auto-flex-epic-legendary-optionals.*` captures the Auto+Flex dual-branch pattern (locked SPD/CR%/CDMG% with wildcard fourth stats) so Epic rows still collapse at the early milestones while Legendary rows emit the 4-of minima once Epic’s +16 permutations appear.
 - `auto-flex-loose-optionals.*` exercises the same Auto+Flex pattern when the aggregate roll floor is below the locked trio, ensuring the Epic +16 and ≥Legendary branches keep the trio while allowing optional fourth-slot permutations only after additional rolls exist.
 - `tests/data/sample2-bundle/` now carries the large `examples/example.sfr` + `tests/data/sample2.db` fixture bundle for transcript-driven regression checks.
-- `tests/data/sample2-bundle/configs/` exports one fixture variant per source config and per major config-option profile (`lategame`, `endgame`, `endgame+`), then dedupes profile outputs when the effective config is identical; profile-to-variant mapping lives in `tests/data/sample2-bundle/manifest.json`.
-- `tests/data/sample2-bundle/keep-uniques/` exports one fixture variant per keep-unique rule while keeping the full mixed keep/sell config list in place, so keep-unique behavior is always evaluated in real rule context (including config-option profile effects).
-- `tests/integration/sample2-matcher.runner.ts` is executed by `npm run test:unit` via `scripts/test/run-tests.mjs`, using `tests/data/sample2-bundle/manifest.json` as source-of-truth for fixture paths. It asserts that keep-unique injected rows are never empty and that matcher outputs always include both `firstMatch` and `firstNonExcludedMatch` for every artifact in the shared sample2 DB.
+- `tests/data/sample2-bundle/configs/` exports one fixture variant per source recipe and per major recipe-override profile (`lategame`, `endgame`, `endgame+`), then dedupes profile outputs when the effective recipe is identical; profile-to-variant mapping lives in `tests/data/sample2-bundle/manifest.json`.
+- `tests/data/sample2-bundle/safeguards/` exports one fixture variant per safeguard rule while keeping the full mixed keep/sell config list in place, so safeguard behavior is always evaluated in real rule context (including recipe-override profile effects).
+- `tests/integration/sample2-matcher.runner.ts` is executed by `npm run test:unit` via `scripts/test/run-tests.mjs`, using `tests/data/sample2-bundle/manifest.json` as source-of-truth for fixture paths. It asserts that safeguard injected rows are never empty and that matcher outputs always include both `firstMatch` and `firstNonExcludedMatch` for every artifact in the shared sample2 DB.
 - When a scenario needs to cover both collapse and non-collapse behaviour, we keep two variants:
   - The `*-factory.*` pair pins `Minima` to the factory roll floors so the builder still collapses to a single rule (`auto-at-0-with-k-4-minreq4-factory.*`, `auto-banner-aggregate-window-factory.*`, `roll-target-collapsed-quad-factory.*`, etc.).
   - The legacy pair (without the suffix) retains the boosted minima used in the original test so we continue to exercise the expanded multi-rule path.

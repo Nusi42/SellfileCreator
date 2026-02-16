@@ -13,7 +13,7 @@ import {
   type RulesFilterPreviewMode,
   type CollapsedSections,
 } from './rulesFilterPersistence'
-import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from '../types/testerConfigFilterMode'
+import { TESTER_RECIPE_FILTER_MODE_DEFAULT, type TesterRecipeFilterMode } from '../types/testerRecipeFilterMode'
 import { sanitizeRulesFilterState, type RulesFilterState } from '../lib/rulesFilter'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 import {
@@ -35,8 +35,8 @@ export type FilterPresetSnapshot = {
   version: typeof FILTER_PRESETS_VERSION
   activeMode: RulesFilterPreviewMode
   filtersSynced: boolean
-  limitConfigsToFiltered: boolean
-  testerConfigFilterMode: TesterConfigFilterMode
+  limitRecipesToFiltered: boolean
+  testerRecipeFilterMode: TesterRecipeFilterMode
   testerSubstatSort: TesterSubstatSortState
   views: Record<RulesFilterPreviewMode, FilterPresetView>
 }
@@ -63,8 +63,8 @@ const cloneDefaultSnapshot = (): FilterPresetSnapshot => {
     version: FILTER_PRESETS_VERSION,
     activeMode: 'rules',
     filtersSynced: false,
-    limitConfigsToFiltered: false,
-    testerConfigFilterMode: TESTER_CONFIG_FILTER_MODE_DEFAULT,
+    limitRecipesToFiltered: false,
+    testerRecipeFilterMode: TESTER_RECIPE_FILTER_MODE_DEFAULT,
     testerSubstatSort: DEFAULT_TESTER_SUBSTAT_SORT_STATE,
     views,
   }
@@ -94,8 +94,8 @@ const sanitizeIsoString = (raw: unknown): string => {
 
 const sanitizeMode = (raw: unknown): RulesFilterPreviewMode => (raw === 'tester' ? 'tester' : 'rules')
 
-const sanitizeTesterConfigFilterMode = (raw: unknown): TesterConfigFilterMode => (
-  raw === 'first' || raw === 'any' || raw === 'off' ? raw : TESTER_CONFIG_FILTER_MODE_DEFAULT
+const sanitizeTesterRecipeFilterMode = (raw: unknown): TesterRecipeFilterMode => (
+  raw === 'first' || raw === 'any' || raw === 'off' ? raw : TESTER_RECIPE_FILTER_MODE_DEFAULT
 )
 
 const sanitizeCollapsed = (raw: unknown): CollapsedSections => {
@@ -140,8 +140,8 @@ const sanitizeSnapshot = (raw: unknown): FilterPresetSnapshot => {
     version: FILTER_PRESETS_VERSION,
     activeMode: sanitizeMode(rec['activeMode']),
     filtersSynced: rec['filtersSynced'] === true,
-    limitConfigsToFiltered: rec['limitConfigsToFiltered'] === true,
-    testerConfigFilterMode: sanitizeTesterConfigFilterMode(rec['testerConfigFilterMode']),
+    limitRecipesToFiltered: rec['limitRecipesToFiltered'] === true,
+    testerRecipeFilterMode: sanitizeTesterRecipeFilterMode(rec['testerRecipeFilterMode']),
     testerSubstatSort: normalizeTesterSubstatSortState(rec['testerSubstatSort']),
     views,
   }

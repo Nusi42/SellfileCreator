@@ -42,6 +42,10 @@
     "mythical": 15,
     "gteLegendary": 16
   },
+  "rankValue": {
+    "min": 1,
+    "max": 6
+  },
   "level": {
     "anySentinel": 99,
     "milestones": [0, 4, 8, 12, 16]
@@ -56,6 +60,46 @@
     "additionMaskByCode": [0, 15, 14, 12, 8, 0, 15, 14, 12, 8, 15, 15, 15, 15, 15, 0, 0],
     "includesMythicalByCode": [false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, true, false],
     "minRollEventsByCode": [0, 0, 1, 2, 3, 4, 0, 1, 2, 3, 0, 0, 0, 0, 0, 4, 4]
+  },
+  "safeguard": {
+    "activation": {
+      "off": "off",
+      "protectExisting": "protectExisting",
+      "anticipateGaps": "anticipateGaps"
+    },
+    "substatMatch": {
+      "any": "any",
+      "all": "all",
+      "perSubstat": "perSubstat"
+    },
+    "countModeDefault": {
+      "perRule": false,
+      "perSet": true,
+      "perFaction": true,
+      "perMainStat": true,
+      "perSlot": false
+    },
+    "ruleOptionsDefault": {
+      "ignorePreviousSafeguards": true,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false
+    },
+    "placeholderReason": {
+      "global": "global",
+      "group": "group"
+    },
+    "weight": {
+      "step": 0.05,
+      "min": 0.1,
+      "max": 3,
+      "default": 1
+    }
+  },
+  "ordering": {
+    "preferredArtifactTypeOrder": ["weapon", "helmet", "shield", "gauntlets", "chestplate", "boots", "ring", "amulet", "banner"],
+    "statVariantsPriorityRow1": ["spd", "cr", "cdmg", "acc", "res"],
+    "statVariantsPriorityRow2": ["hpFlat", "hpPercent", "atkFlat", "atkPercent", "defFlat", "defPercent"],
+    "preferredStatOrder": ["spd", "cr", "cdmg", "acc", "res", "hpPercent", "hpFlat", "atkPercent", "atkFlat", "defPercent", "defFlat", "rollCount"]
   },
   "accessoryNoSetId": -99
 }

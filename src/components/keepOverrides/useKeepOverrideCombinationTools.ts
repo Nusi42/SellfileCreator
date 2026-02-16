@@ -10,7 +10,7 @@ import type { Metaset } from '../../lib/metasets'
 import { isAccessorySlot } from '../../lib/testerDomain'
 import { useGearSetCatalogVersion } from '../../hooks/useGearSetCatalogVersion'
 import { normalizeArtifactSetSelections } from '../../lib/gearSets/selection'
-import type { KeepUniqueRule } from '../../lib/keepUniques'
+import type { SafeguardRule } from '../../lib/safeguards'
 import { dedupeNumericArray, dedupeStringArray, getMainStatOptionsForSlots } from './keepOverrideRuleUtils'
 
 // useKeepOverrideCombinationTools centralizes slot+set sanitization for keep overrides.
@@ -57,7 +57,7 @@ export const useKeepOverrideCombinationTools = (metasets: Metaset[]) => {
     return hasAccessory ? accessoryCompatibleSetIds : artifactSetPool
   }, [accessoryCompatibleSetIds, allArtifactSetIds, artifactSetPool])
   // sanitizeCombinationForSlots keeps sets/main/faction selections valid as slots change.
-  const sanitizeCombinationForSlots = useCallback((slots: ArtifactTypeId[], combination: KeepUniqueRule['combination']) => {
+  const sanitizeCombinationForSlots = useCallback((slots: ArtifactTypeId[], combination: SafeguardRule['combination']) => {
     const normalizedSlots = dedupeNumericArray(slots)
     const allowedSetPool = resolveAllowedSetPool(normalizedSlots)
     const allowedSetIds = new Set(allowedSetPool.map(Number))

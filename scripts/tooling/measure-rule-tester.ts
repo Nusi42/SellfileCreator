@@ -5,28 +5,28 @@
  * CLI utility to profile the rule tester matching pipeline against a concrete
  * HSFC + gear database pairing. Loads the HSFC definition, imports the DB,
  * runs the same matching logic used in the UI, and prints timing stats for
- * the base matcher, Keep Unique detection, and the post-detection matcher.
+ * the base matcher, Safeguard detection, and the post-detection matcher.
  */
 import { cp, mkdir, readFile } from 'node:fs/promises'
 import { resolve as resolvePath } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { parseHsfcObject } from '../../src/lib/hsfcIO.js'
-import { defaultSubstatTargets, type BuilderConfig, type SellfileExportMode, type SubstatTargetTable } from '../../src/lib/hsfBuilder.js'
+import { defaultSubstatTargets, type BuilderRecipe, type SellfileExportMode, type SubstatTargetTable } from '../../src/lib/hsfBuilder.js'
 import {
   computeMergedRules,
-  RULE_SOURCE_KEEP_UNIQUES,
-  buildKeepUniqueRules,
+  RULE_SOURCE_SAFEGUARDS,
+  buildSafeguardRules,
   canonicalRuleKey,
   type HsfRuleWithCfg,
 } from '../../src/lib/merge.js'
 import {
-  collectKeepUniqueCandidates,
-  computeKeepUniqueProtection,
-  resolveKeepUniqueRuleLabel,
-  resolveKeepUniqueRulesWithMetasets,
-  type KeepUniqueRule,
-  type KeepUniqueDetectionSnapshot,
-} from '../../src/lib/keepUniques.js'
+  collectSafeguardCandidates,
+  computeSafeguardProtection,
+  resolveSafeguardRuleLabel,
+  resolveSafeguardRulesWithMetasets,
+  type SafeguardRule,
+  type SafeguardDetectionSnapshot,
+} from '../../src/lib/safeguards.js'
 import { importGearDatabaseFromArrayBuffer, type GearDbImportResult } from '../../src/lib/importers/gearDbImporter.js'
 import type { NormalizedGearArtifact } from '../../src/lib/importers/gearDbNormalizer.js'
 import { evaluateMatchesByConfig } from '../../src/lib/ruleEval.js'
@@ -42,13 +42,13 @@ type ScenarioInput = {
 }
 
 type ScenarioData = {
-  configs: BuilderConfig[]
+  recipes: BuilderRecipe[]
   metasets: ReturnType<typeof parseHsfcObject>['metasets']
   substatTargets: SubstatTargetTable
-  keepUniqueRules: KeepUniqueRule[]
-  keepUniquesEnabled: boolean
+  safeguardRules: SafeguardRule[]
+  safeguardsEnabled: boolean
   finalSellRemainder: FinalSellRemainderConfig
-  configModes: SellfileExportMode[]
+  recipeModes: SellfileExportMode[]
   gear: NormalizedGearArtifact[]
 }
 
@@ -152,11 +152,11 @@ const parseArgs = (): ScenarioInput => {
 
 // Read and normalize the HSFC definition so we can rebuild the merged rules.
 const loadHsfc = async (hsfcPath: string): Promise<{
-  configs: BuilderConfig[]
+  recipes: BuilderRecipe[]
   metasets: ReturnType<typeof parseHsfcObject>['metasets']
   substatTargets: SubstatTargetTable
-  keepUniqueRules: KeepUniqueRule[]
-  keepUniquesEnabled: boolean
+  safeguardRules: SafeguardRule[]
+  safeguardsEnabled: boolean
   finalSellRemainder: FinalSellRemainderConfig
 }> => {
   const raw = await readFile(hsfcPath, 'utf8')
@@ -166,11 +166,11 @@ const loadHsfc = async (hsfcPath: string): Promise<{
     substatTargets: defaultSubstatTargets(),
   })
   return {
-    configs: parsedHsfc.cfgs,
+    recipes: parsedHsfc.recipes,
     metasets: parsedHsfc.metasets,
     substatTargets: parsedHsfc.substatTargets,
-    keepUniqueRules: parsedHsfc.keepUniqueRules,
-    keepUniquesEnabled: parsedHsfc.keepUniquesEnabled,
+    safeguardRules: parsedHsfc.safeguardRules,
+    safeguardsEnabled: parsedHsfc.safeguardsEnabled,
     finalSellRemainder: parsedHsfc.finalSellRemainder,
   }
 }
@@ -190,15 +190,15 @@ const loadGear = async (gearDbPath: string): Promise<NormalizedGearArtifact[]> =
 const buildScenario = async (input: ScenarioInput): Promise<ScenarioData> => {
   const hsfc = await loadHsfc(input.hsfcPath)
   const gear = await loadGear(input.gearDbPath)
-  const configModes = hsfc.configs.map(cfg => cfg.exportMode)
+  const recipeModes = hsfc.recipes.map((recipe) => recipe.exportMode)
   return {
-    configs: hsfc.configs,
+    recipes: hsfc.recipes,
     metasets: hsfc.metasets,
     substatTargets: hsfc.substatTargets,
-    keepUniqueRules: hsfc.keepUniqueRules,
-    keepUniquesEnabled: hsfc.keepUniquesEnabled,
+    safeguardRules: hsfc.safeguardRules,
+    safeguardsEnabled: hsfc.safeguardsEnabled,
     finalSellRemainder: hsfc.finalSellRemainder,
-    configModes,
+    recipeModes,
     gear,
   }
 }
@@ -208,7 +208,7 @@ const buildScenario = async (input: ScenarioInput): Promise<ScenarioData> => {
 const evaluateArtifacts = (
   artifacts: readonly NormalizedGearArtifact[],
   rules: readonly HsfRuleWithCfg[],
-  configModes: readonly SellfileExportMode[],
+  recipeModes: readonly SellfileExportMode[],
 ): MatchPhaseResult => {
   const rows: TesterPreviewRow[] = []
   const startedAt = performance.now()
@@ -216,15 +216,15 @@ const evaluateArtifacts = (
   const toTesterMatch = (result: EvalResult | null): TesterPreviewMatch | null => {
     if (!result) return null
     const rule = rules[result.ruleIndex] ?? null
-    const keepUniqueLabel = rule?.__source === RULE_SOURCE_KEEP_UNIQUES
-      ? resolveKeepUniqueRuleLabel(rule)
+    const safeguardLabel = rule?.__source === RULE_SOURCE_SAFEGUARDS
+      ? resolveSafeguardRuleLabel(rule)
       : null
     return {
       keep: result.keep,
-      cfgIdx: result.cfgIdx ?? null,
-      cfgName: keepUniqueLabel ?? null,
+      recipeIdx: result.recipeIdx ?? null,
+      recipeName: safeguardLabel ?? null,
       ruleIndex: result.ruleIndex ?? null,
-      ruleLabel: keepUniqueLabel ?? null,
+      ruleLabel: safeguardLabel ?? null,
       ruleSource: rule?.__source ?? null,
     }
   }
@@ -238,8 +238,8 @@ const evaluateArtifacts = (
       rules as HsfRuleWithCfg[],
       artifact.testerItem,
       {
-        configModes: configModes as SellfileExportMode[],
-        excludeSources: [RULE_SOURCE_KEEP_UNIQUES],
+        configModes: recipeModes as SellfileExportMode[],
+        excludeSources: [RULE_SOURCE_SAFEGUARDS],
       },
     )
     const match = toTesterMatch(firstMatch)
@@ -257,35 +257,35 @@ const evaluateArtifacts = (
   return { rows, durationMs, kept, sold: artifacts.length - kept }
 }
 
-// Recreate the Keep Unique detection flow and return its timing stats.
-const measureKeepUniques = (
+// Recreate the Safeguard detection flow and return its timing stats.
+const measureSafeguards = (
   rows: readonly TesterPreviewRow[],
   baseRules: readonly HsfRuleWithCfg[],
-  keepUniqueRules: readonly KeepUniqueRule[],
-  keepUniquesEnabled: boolean,
-  configModes: readonly SellfileExportMode[],
+  safeguardRules: readonly SafeguardRule[],
+  safeguardsEnabled: boolean,
+  recipeModes: readonly SellfileExportMode[],
 ): {
-  detection: KeepUniqueDetectionSnapshot
+  detection: SafeguardDetectionSnapshot
   candidateMs: number
   detectionMs: number
-  keepUniqueRuleCount: number
+  safeguardRuleCount: number
 } => {
   const candidateStartedAt = performance.now()
-  const candidates = collectKeepUniqueCandidates({
+  const candidates = collectSafeguardCandidates({
     rows,
     baseRules,
-    configModes: configModes as SellfileExportMode[],
+    configModes: recipeModes as SellfileExportMode[],
   })
   const candidateMs = performance.now() - candidateStartedAt
   const detectionStartedAt = performance.now()
-  const detection = computeKeepUniqueProtection({
+  const detection = computeSafeguardProtection({
     candidates: candidates.candidates,
-    rules: keepUniqueRules,
-    enabled: keepUniquesEnabled,
+    rules: safeguardRules,
+    enabled: safeguardsEnabled,
   })
   const detectionMs = performance.now() - detectionStartedAt
 
-  const candidateKeepRules = buildKeepUniqueRules(keepUniqueRules, detection)
+  const candidateKeepRules = buildSafeguardRules(safeguardRules, detection)
 
   const keepRuleKeys = new Set<string>()
   baseRules.forEach((rule) => {
@@ -293,19 +293,19 @@ const measureKeepUniques = (
       keepRuleKeys.add(canonicalRuleKey(rule))
     }
   })
-  let keepUniqueRuleCount = 0
+  let safeguardRuleCount = 0
   for (const rule of candidateKeepRules) {
     const key = canonicalRuleKey(rule)
     if (keepRuleKeys.has(key)) continue
     keepRuleKeys.add(key)
-    keepUniqueRuleCount += 1
+    safeguardRuleCount += 1
   }
 
   return {
     detection,
     candidateMs,
     detectionMs,
-    keepUniqueRuleCount,
+    safeguardRuleCount,
   }
 }
 
@@ -328,60 +328,60 @@ const main = async (): Promise<void> => {
   console.log(`  HSFC: ${input.hsfcPath}`)
   console.log(`  Gear DB: ${input.gearDbPath}`)
   const scenario = await buildScenario(input)
-  const resolvedKeepUniqueRules = resolveKeepUniqueRulesWithMetasets(
-    scenario.keepUniqueRules,
+  const resolvedSafeguardRules = resolveSafeguardRulesWithMetasets(
+    scenario.safeguardRules,
     scenario.metasets,
   )
   const mergedBaseRules = computeMergedRules({
     hsf: null,
-    customCfgs: scenario.configs,
+    customRecipes: scenario.recipes,
     metasets: scenario.metasets,
     substatTargets: scenario.substatTargets,
     finalSellRemainder: scenario.finalSellRemainder,
-    keepUniques: {
-      enabled: scenario.keepUniquesEnabled,
-      rules: resolvedKeepUniqueRules,
+    safeguards: {
+      enabled: scenario.safeguardsEnabled,
+      rules: resolvedSafeguardRules,
       detection: null,
     },
   })
-  console.log(`  Configs: ${scenario.configs.length}`)
-  console.log(`  Resolved Keep Unique rules: ${resolvedKeepUniqueRules.length} (enabled=${scenario.keepUniquesEnabled})`)
+  console.log(`  Recipes: ${scenario.recipes.length}`)
+  console.log(`  Resolved Safeguard rules: ${resolvedSafeguardRules.length} (enabled=${scenario.safeguardsEnabled})`)
   console.log(`  Imported gear items: ${scenario.gear.length}`)
   console.log(`  Base rule count: ${mergedBaseRules.length}`)
 
-  const basePhase = evaluateArtifacts(scenario.gear, mergedBaseRules, scenario.configModes)
+  const basePhase = evaluateArtifacts(scenario.gear, mergedBaseRules, scenario.recipeModes)
   summarize('Base matcher', basePhase)
 
-  if (!scenario.keepUniquesEnabled || resolvedKeepUniqueRules.length === 0) {
+  if (!scenario.safeguardsEnabled || resolvedSafeguardRules.length === 0) {
     return
   }
 
-  const keepUniqueBaseRules = mergedBaseRules.filter((rule) => rule.__source !== RULE_SOURCE_KEEP_UNIQUES)
-  const keepUniqueMeasurements = measureKeepUniques(
+  const safeguardBaseRules = mergedBaseRules.filter((rule) => rule.__source !== RULE_SOURCE_SAFEGUARDS)
+  const safeguardMeasurements = measureSafeguards(
     basePhase.rows,
-    keepUniqueBaseRules,
-    resolvedKeepUniqueRules,
-    scenario.keepUniquesEnabled,
-    scenario.configModes,
+    safeguardBaseRules,
+    resolvedSafeguardRules,
+    scenario.safeguardsEnabled,
+    scenario.recipeModes,
   )
-  console.log(`  Keep Unique candidate scan: ${formatMs(keepUniqueMeasurements.candidateMs)}`)
-  console.log(`  Keep Unique detection: ${formatMs(keepUniqueMeasurements.detectionMs)}`)
-  console.log(`  Deduplicated Keep Unique rules emitted: ${keepUniqueMeasurements.keepUniqueRuleCount}`)
+  console.log(`  Safeguard candidate scan: ${formatMs(safeguardMeasurements.candidateMs)}`)
+  console.log(`  Safeguard detection: ${formatMs(safeguardMeasurements.detectionMs)}`)
+  console.log(`  Deduplicated Safeguard rules emitted: ${safeguardMeasurements.safeguardRuleCount}`)
 
   const mergedWithKeep = computeMergedRules({
     hsf: null,
-    customCfgs: scenario.configs,
+    customRecipes: scenario.recipes,
     metasets: scenario.metasets,
     substatTargets: scenario.substatTargets,
     finalSellRemainder: scenario.finalSellRemainder,
-    keepUniques: {
-      enabled: scenario.keepUniquesEnabled,
-      rules: resolvedKeepUniqueRules,
-      detection: keepUniqueMeasurements.detection,
+    safeguards: {
+      enabled: scenario.safeguardsEnabled,
+      rules: resolvedSafeguardRules,
+      detection: safeguardMeasurements.detection,
     },
   })
   console.log(`  Post-Keep rule count: ${mergedWithKeep.length}`)
-  const keepPhase = evaluateArtifacts(scenario.gear, mergedWithKeep, scenario.configModes)
+  const keepPhase = evaluateArtifacts(scenario.gear, mergedWithKeep, scenario.recipeModes)
   summarize('Post-Keep matcher', keepPhase)
 }
 

@@ -1,7 +1,7 @@
 /**
  * Artifact set piece-group taxonomy.
  *
- * Why: multiple modules (builder filters, Keep Unique defaults, runtime gear-set
+ * Why: multiple modules (builder filters, Safeguard defaults, runtime gear-set
  * patches) need to know whether a set behaves like accessories, fixed-size armor,
  * or the flexible 1–9 piece families. Centralizing the enum avoids divergent
  * literals and keeps runtime validation in sync with the canonical union.

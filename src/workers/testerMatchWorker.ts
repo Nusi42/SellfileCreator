@@ -33,9 +33,9 @@ const ensureWasmWorkerReady = async (): Promise<void> => {
   await wasmWarmupPromise
 }
 
-const configureRules = async (rules: HsfRuleWithCfg[], configModes: SellfileExportMode[]) => {
+const configureRules = async (rules: HsfRuleWithCfg[], recipeModes: SellfileExportMode[]) => {
   currentRules = rules ?? []
-  currentConfigModes = Array.isArray(configModes) ? configModes : []
+  currentConfigModes = Array.isArray(recipeModes) ? recipeModes : []
   // Keep-override index map allows skipping baseline re-eval for unaffected rows.
   currentKeepOverrideRuleIndices = new Set<number>()
   for (let idx = 0; idx < currentRules.length; idx += 1) {
@@ -46,7 +46,7 @@ const configureRules = async (rules: HsfRuleWithCfg[], configModes: SellfileExpo
   await ensureWasmWorkerReady()
   await configureWasmRuleEngine({
     rules: currentRules,
-    configModes: currentConfigModes,
+    recipeModes: currentConfigModes,
   })
 }
 
@@ -64,8 +64,8 @@ const evaluateRows = async (
         itemId: entry.itemId,
         firstMatch: null,
         firstNonExcludedMatch: null,
-        matchingConfigIndices: [],
-        matchingConfigDecisions: [],
+        matchingRecipeIndices: [],
+        matchingRecipeDecisions: [],
       }
     })
     return emptyResults
@@ -91,8 +91,8 @@ const evaluateRows = async (
         ?? full?.firstMatch
         ?? null
       ),
-      matchingConfigIndices: full?.matchingConfigIndices ?? [],
-      matchingConfigDecisions: full?.matchingConfigDecisions ?? [],
+      matchingRecipeIndices: full?.matchingRecipeIndices ?? [],
+      matchingRecipeDecisions: full?.matchingRecipeDecisions ?? [],
     })
     // Emit determinate progress so the UI overlay can update mid-batch.
     forwardProgress({ completed: idx + 1, total })
@@ -105,7 +105,7 @@ self.onmessage = async (event: MessageEvent<TesterMatchWorkerRequest>) => {
   if (!message) return
   if (message.kind === 'configure') {
     try {
-      await configureRules(message.payload.rules, message.payload.configModes)
+      await configureRules(message.payload.rules, message.payload.recipeModes)
       const response: TesterMatchWorkerResponse = {
         id: message.id,
         kind: 'configure:done',

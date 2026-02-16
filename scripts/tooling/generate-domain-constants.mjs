@@ -23,9 +23,12 @@ const spec = JSON.parse(rawSpec)
 const artifactType = spec.artifactType
 const statId = spec.statId
 const rarityCode = spec.rarityCode
+const rankValue = spec.rankValue
 const level = spec.level
 const encoding = spec.encoding
 const autoRarity = spec.autoRarity
+const safeguard = spec.safeguard
+const ordering = spec.ordering
 const accessoryNoSetId = spec.accessoryNoSetId
 
 // Variant encoding mirrors src/lib/types.ts and wasm/rule_engine semantics.
@@ -49,6 +52,45 @@ const statVariant = {
   cdmg: mkVariant(statId.cdmg, 0),
   rollCount: mkVariant(statId.rollCount, flatSuffix),
 }
+
+// Resolve ordering tokens against the computed numeric domain catalogs so
+// both TS and Rust consume one generated order definition.
+const resolveNamedOrder = (tokens, lookup, label) => {
+  // Keep spec validation strict so typos fail the generator early.
+  if (!Array.isArray(tokens)) {
+    throw new Error(`Expected array for ${label}.`)
+  }
+  // Map every token to a numeric value; unknown names fail fast.
+  return tokens.map((token) => {
+    const key = String(token)
+    if (!(key in lookup)) {
+      throw new Error(`Unknown token "${key}" in ${label}.`)
+    }
+    return Number(lookup[key])
+  })
+}
+// Decode shared ordering arrays from named tokens to numeric values once.
+const preferredArtifactTypeOrder = resolveNamedOrder(
+  ordering.preferredArtifactTypeOrder,
+  artifactType,
+  'ordering.preferredArtifactTypeOrder',
+)
+const statVariantsPriorityRow1 = resolveNamedOrder(
+  ordering.statVariantsPriorityRow1,
+  statVariant,
+  'ordering.statVariantsPriorityRow1',
+)
+const statVariantsPriorityRow2 = resolveNamedOrder(
+  ordering.statVariantsPriorityRow2,
+  statVariant,
+  'ordering.statVariantsPriorityRow2',
+)
+const statVariantsPriority = [...statVariantsPriorityRow1, ...statVariantsPriorityRow2]
+const preferredStatOrder = resolveNamedOrder(
+  ordering.preferredStatOrder,
+  statVariant,
+  'ordering.preferredStatOrder',
+)
 
 // Keep milestone helpers explicit so consumers can import direct named values.
 const [level0, level4, level8, level12, level16] = level.milestones.map((value) => Number(value))
@@ -89,6 +131,32 @@ assertAutoRarityLength(autoRarityMinRollEventsByCode, 'autoRarity.minRollEventsB
 // Emit boolean arrays in each target language's literal style.
 const autoRarityBoolTs = autoRarityIncludesMythicalByCode.map((value) => (value ? 'true' : 'false')).join(', ')
 const autoRarityBoolRust = autoRarityIncludesMythicalByCode.map((value) => (value ? 'true' : 'false')).join(", ")
+
+// Rank bounds are shared by safeguard normalization and matcher mask logic.
+const rankValueMin = Number(rankValue.min)
+const rankValueMax = Number(rankValue.max)
+
+// Safeguard token tables stay canonical in the shared constants payload.
+const safeguardActivation = safeguard.activation
+const safeguardSubstatMatch = safeguard.substatMatch
+const safeguardCountModeDefault = safeguard.countModeDefault
+const safeguardRuleOptionsDefault = safeguard.ruleOptionsDefault ?? {}
+const safeguardPlaceholderReason = safeguard.placeholderReason
+const safeguardWeight = safeguard.weight
+
+// Emit stable string literals for each target language.
+const asTsStringLiteral = (value) => JSON.stringify(String(value))
+const asRustStringLiteral = (value) => (
+  `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`
+)
+const asRustF64Literal = (value) => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) {
+    throw new Error(`Expected finite float value, received: ${String(value)}`)
+  }
+  if (Number.isInteger(numeric)) return `${numeric}.0`
+  return String(numeric)
+}
 
 // TypeScript emitter keeps constants tree-shakeable and easy to import by name.
 const tsLines = [
@@ -142,6 +210,10 @@ const tsLines = [
   `export const RARITY_CODE_MYTHICAL = ${Number(rarityCode.mythical)}`,
   `export const RARITY_CODE_GTE_LEGENDARY = ${Number(rarityCode.gteLegendary)}`,
   '',
+  '// Rank value bounds shared across TS and Rust safeguard/matcher logic.',
+  `export const RANK_VALUE_MIN = ${rankValueMin}`,
+  `export const RANK_VALUE_MAX = ${rankValueMax}`,
+  '',
   '// Level constants shared by builder/rule-engine code paths.',
   `export const LEVEL_ANY_SENTINEL = ${Number(level.anySentinel)}`,
   `export const LEVEL_MILESTONE_0 = ${level0}`,
@@ -173,6 +245,35 @@ const tsLines = [
   `export const AUTO_RARITY_ADDITION_MASK_BY_CODE = [${autoRarityAdditionMaskByCode.join(', ')}] as const`,
   `export const AUTO_RARITY_INCLUDES_MYTHICAL_BY_CODE = [${autoRarityBoolTs}] as const`,
   `export const AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE = [${autoRarityMinRollEventsByCode.join(', ')}] as const`,
+  '',
+  '// Keep-unique token + default mode constants used by TS and Rust paths.',
+  `export const SAFEGUARD_ACTIVATION_OFF = ${asTsStringLiteral(safeguardActivation.off)}`,
+  `export const SAFEGUARD_ACTIVATION_PROTECT_EXISTING = ${asTsStringLiteral(safeguardActivation.protectExisting)}`,
+  `export const SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS = ${asTsStringLiteral(safeguardActivation.anticipateGaps)}`,
+  `export const SAFEGUARD_SUBSTAT_ANY = ${asTsStringLiteral(safeguardSubstatMatch.any)}`,
+  `export const SAFEGUARD_SUBSTAT_ALL = ${asTsStringLiteral(safeguardSubstatMatch.all)}`,
+  `export const SAFEGUARD_SUBSTAT_PER_SUBSTAT = ${asTsStringLiteral(safeguardSubstatMatch.perSubstat)}`,
+  `export const SAFEGUARD_DEFAULT_COUNT_MODE_PER_RULE = ${safeguardCountModeDefault.perRule === true}`,
+  `export const SAFEGUARD_DEFAULT_COUNT_MODE_PER_SET = ${safeguardCountModeDefault.perSet === true}`,
+  `export const SAFEGUARD_DEFAULT_COUNT_MODE_PER_FACTION = ${safeguardCountModeDefault.perFaction === true}`,
+  `export const SAFEGUARD_DEFAULT_COUNT_MODE_PER_MAIN_STAT = ${safeguardCountModeDefault.perMainStat === true}`,
+  `export const SAFEGUARD_DEFAULT_COUNT_MODE_PER_SLOT = ${safeguardCountModeDefault.perSlot === true}`,
+  `export const SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS = ${safeguardRuleOptionsDefault.ignorePreviousSafeguards !== false}`,
+  `export const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION = ${safeguardRuleOptionsDefault.ignoreEquippedInCollection === true}`,
+  `export const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT = ${safeguardRuleOptionsDefault.ignoreEquippedInVault === true}`,
+  `export const SAFEGUARD_REASON_GLOBAL = ${asTsStringLiteral(safeguardPlaceholderReason.global)}`,
+  `export const SAFEGUARD_REASON_GROUP = ${asTsStringLiteral(safeguardPlaceholderReason.group)}`,
+  `export const SAFEGUARD_WEIGHT_STEP = ${Number(safeguardWeight.step)}`,
+  `export const SAFEGUARD_WEIGHT_MIN = ${Number(safeguardWeight.min)}`,
+  `export const SAFEGUARD_WEIGHT_MAX = ${Number(safeguardWeight.max)}`,
+  `export const SAFEGUARD_WEIGHT_DEFAULT = ${Number(safeguardWeight.default)}`,
+  '',
+  '// Shared UI/rule ordering tables so TS and Rust sort with one SSOT payload.',
+  `export const PREFERRED_ARTIFACT_TYPE_ORDER = [${preferredArtifactTypeOrder.join(', ')}] as const`,
+  `export const STAT_VARIANTS_PRIORITY_ROW1 = [${statVariantsPriorityRow1.join(', ')}] as const`,
+  `export const STAT_VARIANTS_PRIORITY_ROW2 = [${statVariantsPriorityRow2.join(', ')}] as const`,
+  `export const STAT_VARIANTS_PRIORITY = [${statVariantsPriority.join(', ')}] as const`,
+  `export const PREFERRED_STAT_ORDER = [${preferredStatOrder.join(', ')}] as const`,
   '',
 ]
 
@@ -229,6 +330,10 @@ const rustLines = [
   `pub const RARITY_CODE_MYTHICAL: i64 = ${Number(rarityCode.mythical)};`,
   `pub const RARITY_CODE_GTE_LEGENDARY: i64 = ${Number(rarityCode.gteLegendary)};`,
   '',
+  '// Rank value bounds shared across TS and Rust safeguard/matcher logic.',
+  `pub const RANK_VALUE_MIN: i64 = ${rankValueMin};`,
+  `pub const RANK_VALUE_MAX: i64 = ${rankValueMax};`,
+  '',
   '// Level constants shared by builder/rule-engine code paths.',
   `pub const LEVEL_ANY_SENTINEL: i64 = ${Number(level.anySentinel)};`,
   `pub const LEVEL_MILESTONE_0: i64 = ${level0};`,
@@ -260,6 +365,35 @@ const rustLines = [
   `pub const AUTO_RARITY_ADDITION_MASK_BY_CODE: [i64; 17] = [${autoRarityAdditionMaskByCode.join(", ")}];`,
   `pub const AUTO_RARITY_INCLUDES_MYTHICAL_BY_CODE: [bool; 17] = [${autoRarityBoolRust}];`,
   `pub const AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE: [i64; 17] = [${autoRarityMinRollEventsByCode.join(", ")}];`,
+  '',
+  '// Safeguard token + default mode constants used by TS and Rust paths.',
+  `pub const SAFEGUARD_ACTIVATION_OFF: &str = ${asRustStringLiteral(safeguardActivation.off)};`,
+  `pub const SAFEGUARD_ACTIVATION_PROTECT_EXISTING: &str = ${asRustStringLiteral(safeguardActivation.protectExisting)};`,
+  `pub const SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS: &str = ${asRustStringLiteral(safeguardActivation.anticipateGaps)};`,
+  `pub const SAFEGUARD_SUBSTAT_ANY: &str = ${asRustStringLiteral(safeguardSubstatMatch.any)};`,
+  `pub const SAFEGUARD_SUBSTAT_ALL: &str = ${asRustStringLiteral(safeguardSubstatMatch.all)};`,
+  `pub const SAFEGUARD_SUBSTAT_PER_SUBSTAT: &str = ${asRustStringLiteral(safeguardSubstatMatch.perSubstat)};`,
+  `pub const SAFEGUARD_DEFAULT_COUNT_MODE_PER_RULE: bool = ${safeguardCountModeDefault.perRule === true};`,
+  `pub const SAFEGUARD_DEFAULT_COUNT_MODE_PER_SET: bool = ${safeguardCountModeDefault.perSet === true};`,
+  `pub const SAFEGUARD_DEFAULT_COUNT_MODE_PER_FACTION: bool = ${safeguardCountModeDefault.perFaction === true};`,
+  `pub const SAFEGUARD_DEFAULT_COUNT_MODE_PER_MAIN_STAT: bool = ${safeguardCountModeDefault.perMainStat === true};`,
+  `pub const SAFEGUARD_DEFAULT_COUNT_MODE_PER_SLOT: bool = ${safeguardCountModeDefault.perSlot === true};`,
+  `pub const SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS: bool = ${safeguardRuleOptionsDefault.ignorePreviousSafeguards !== false};`,
+  `pub const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION: bool = ${safeguardRuleOptionsDefault.ignoreEquippedInCollection === true};`,
+  `pub const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT: bool = ${safeguardRuleOptionsDefault.ignoreEquippedInVault === true};`,
+  `pub const SAFEGUARD_REASON_GLOBAL: &str = ${asRustStringLiteral(safeguardPlaceholderReason.global)};`,
+  `pub const SAFEGUARD_REASON_GROUP: &str = ${asRustStringLiteral(safeguardPlaceholderReason.group)};`,
+  `pub const SAFEGUARD_WEIGHT_STEP: f64 = ${asRustF64Literal(safeguardWeight.step)};`,
+  `pub const SAFEGUARD_WEIGHT_MIN: f64 = ${asRustF64Literal(safeguardWeight.min)};`,
+  `pub const SAFEGUARD_WEIGHT_MAX: f64 = ${asRustF64Literal(safeguardWeight.max)};`,
+  `pub const SAFEGUARD_WEIGHT_DEFAULT: f64 = ${asRustF64Literal(safeguardWeight.default)};`,
+  '',
+  '// Shared UI/rule ordering tables so TS and Rust sort with one SSOT payload.',
+  `pub const PREFERRED_ARTIFACT_TYPE_ORDER: [i64; ${preferredArtifactTypeOrder.length}] = [${preferredArtifactTypeOrder.join(", ")}];`,
+  `pub const STAT_VARIANTS_PRIORITY_ROW1: [i64; ${statVariantsPriorityRow1.length}] = [${statVariantsPriorityRow1.join(", ")}];`,
+  `pub const STAT_VARIANTS_PRIORITY_ROW2: [i64; ${statVariantsPriorityRow2.length}] = [${statVariantsPriorityRow2.join(", ")}];`,
+  `pub const STAT_VARIANTS_PRIORITY: [i64; ${statVariantsPriority.length}] = [${statVariantsPriority.join(", ")}];`,
+  `pub const PREFERRED_STAT_ORDER: [i64; ${preferredStatOrder.length}] = [${preferredStatOrder.join(", ")}];`,
   '',
 ]
 

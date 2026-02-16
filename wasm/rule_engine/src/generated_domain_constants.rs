@@ -49,6 +49,10 @@ pub const RARITY_CODE_LTE_MYTHICAL: i64 = 14;
 pub const RARITY_CODE_MYTHICAL: i64 = 15;
 pub const RARITY_CODE_GTE_LEGENDARY: i64 = 16;
 
+// Rank value bounds shared across TS and Rust safeguard/matcher logic.
+pub const RANK_VALUE_MIN: i64 = 1;
+pub const RANK_VALUE_MAX: i64 = 6;
+
 // Level constants shared by builder/rule-engine code paths.
 pub const LEVEL_ANY_SENTINEL: i64 = 99;
 pub const LEVEL_MILESTONE_0: i64 = 0;
@@ -80,4 +84,33 @@ pub const AUTO_RARITY_ROLL_MASK_BY_CODE: [i64; 17] = [15, 0, 1, 3, 7, 15, 0, 1, 
 pub const AUTO_RARITY_ADDITION_MASK_BY_CODE: [i64; 17] = [0, 15, 14, 12, 8, 0, 15, 14, 12, 8, 15, 15, 15, 15, 15, 0, 0];
 pub const AUTO_RARITY_INCLUDES_MYTHICAL_BY_CODE: [bool; 17] = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, true, false];
 pub const AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE: [i64; 17] = [0, 0, 1, 2, 3, 4, 0, 1, 2, 3, 0, 0, 0, 0, 0, 4, 4];
+
+// Safeguard token + default mode constants used by TS and Rust paths.
+pub const SAFEGUARD_ACTIVATION_OFF: &str = "off";
+pub const SAFEGUARD_ACTIVATION_PROTECT_EXISTING: &str = "protectExisting";
+pub const SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS: &str = "anticipateGaps";
+pub const SAFEGUARD_SUBSTAT_ANY: &str = "any";
+pub const SAFEGUARD_SUBSTAT_ALL: &str = "all";
+pub const SAFEGUARD_SUBSTAT_PER_SUBSTAT: &str = "perSubstat";
+pub const SAFEGUARD_DEFAULT_COUNT_MODE_PER_RULE: bool = false;
+pub const SAFEGUARD_DEFAULT_COUNT_MODE_PER_SET: bool = true;
+pub const SAFEGUARD_DEFAULT_COUNT_MODE_PER_FACTION: bool = true;
+pub const SAFEGUARD_DEFAULT_COUNT_MODE_PER_MAIN_STAT: bool = true;
+pub const SAFEGUARD_DEFAULT_COUNT_MODE_PER_SLOT: bool = false;
+pub const SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS: bool = true;
+pub const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION: bool = false;
+pub const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT: bool = false;
+pub const SAFEGUARD_REASON_GLOBAL: &str = "global";
+pub const SAFEGUARD_REASON_GROUP: &str = "group";
+pub const SAFEGUARD_WEIGHT_STEP: f64 = 0.05;
+pub const SAFEGUARD_WEIGHT_MIN: f64 = 0.1;
+pub const SAFEGUARD_WEIGHT_MAX: f64 = 3.0;
+pub const SAFEGUARD_WEIGHT_DEFAULT: f64 = 1.0;
+
+// Shared UI/rule ordering tables so TS and Rust sort with one SSOT payload.
+pub const PREFERRED_ARTIFACT_TYPE_ORDER: [i64; 9] = [5, 1, 6, 3, 2, 4, 7, 8, 9];
+pub const STAT_VARIANTS_PRIORITY_ROW1: [i64; 5] = [1025, 1792, 2048, 1537, 1281];
+pub const STAT_VARIANTS_PRIORITY_ROW2: [i64; 6] = [257, 256, 513, 512, 769, 768];
+pub const STAT_VARIANTS_PRIORITY: [i64; 11] = [1025, 1792, 2048, 1537, 1281, 257, 256, 513, 512, 769, 768];
+pub const PREFERRED_STAT_ORDER: [i64; 12] = [1025, 1792, 2048, 1537, 1281, 256, 257, 512, 513, 768, 769, 25345];
 

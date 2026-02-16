@@ -25,7 +25,7 @@ type PrepareAppOptions = {
 const README_KEY = 'sellfileCreator.readme.seen.version'
 const TUTORIAL_KEY = 'sellfileCreator.tutorial.seen.version'
 const AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfc.v1'
-// The preview filter drawer (and its "limit configs" toggles) is persisted in localStorage.
+// The preview filter drawer (and its "limit recipes" toggles) is persisted in localStorage.
 // Why: Playwright runs must start from a clean baseline so scroll/virtualization assertions match user repro steps.
 const RULES_FILTER_OPEN_KEY = 'sellfileCreator.rulesFilter.open.v2'
 const RULES_FILTER_STATE_KEY = 'sellfileCreator.rulesFilter.state.v3'

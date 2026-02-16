@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { SellfileExportMode } from '../lib/hsfBuilder'
-import { RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg } from '../lib/merge'
-import { evaluateMatchesByConfig } from '../lib/ruleEval'
+import { RULE_SOURCE_SAFEGUARDS, type HsfRuleWithCfg } from '../lib/merge'
+import { evaluateMatchesByRecipe } from '../lib/ruleEval'
 import TesterMatchWorker from '../workers/testerMatchWorker?worker&inline'
 import type {
   TesterMatchWorkerEvaluatePayload,
@@ -16,7 +16,7 @@ import { PERF_EVENTS, markPerfEvent } from '../lib/perfTimeline'
 
 type ConfigureParams = {
   rules: HsfRuleWithCfg[]
-  configModes: SellfileExportMode[]
+  recipeModes: SellfileExportMode[]
 }
 
 type EvaluateParams = {
@@ -54,7 +54,7 @@ const maybeMarkPerfEvent = (label: string, data?: PerfEventPayload | PerfEventPa
 
 const evaluateRowsFallback = (
   rules: HsfRuleWithCfg[],
-  configModes: SellfileExportMode[],
+  recipeModes: SellfileExportMode[],
   items: readonly TesterMatchWorkerEvaluateItem[],
   onProgress?: (progress: ProgressSnapshot) => void,
 ): TesterMatchWorkerItemResult[] => {
@@ -68,8 +68,8 @@ const evaluateRowsFallback = (
         itemId: entry.itemId,
         firstMatch: null,
         firstNonExcludedMatch: null,
-        matchingConfigIndices: [],
-        matchingConfigDecisions: [],
+        matchingRecipeIndices: [],
+        matchingRecipeDecisions: [],
       }
     })
   }
@@ -77,12 +77,12 @@ const evaluateRowsFallback = (
     const {
       firstMatch,
       firstNonExcludedMatch,
-      matchingConfigIndices,
-      matchingConfigDecisions,
-    } = evaluateMatchesByConfig(
+      matchingRecipeIndices,
+      matchingRecipeDecisions,
+    } = evaluateMatchesByRecipe(
       rules,
       entry.item,
-      { configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] },
+      { recipeModes, excludeSources: [RULE_SOURCE_SAFEGUARDS] },
     )
     // Mirror worker behavior so determinate UI continues to move in fallback mode.
     forwardProgress({ completed: idx + 1, total })
@@ -90,8 +90,8 @@ const evaluateRowsFallback = (
       itemId: entry.itemId,
       firstMatch,
       firstNonExcludedMatch,
-      matchingConfigIndices,
-      matchingConfigDecisions,
+      matchingRecipeIndices,
+      matchingRecipeDecisions,
     }
   })
 }
@@ -189,7 +189,7 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
 
   const configure = useCallback<UseTesterMatchWorkerResult['configure']>((params) => {
     fallbackRulesRef.current = params.rules
-    fallbackConfigModesRef.current = params.configModes
+    fallbackConfigModesRef.current = params.recipeModes
     if (!supportsWorkerEnv || !workerRef.current) {
       lastConfigurePromiseRef.current = null
       return Promise.resolve()
@@ -204,14 +204,14 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
     maybeMarkPerfEvent(PERF_EVENTS.testerMatchWorkerConfigureSend, () => ({
       id,
       rules: params.rules.length,
-      modes: params.configModes.length,
+      modes: params.recipeModes.length,
     }))
     const message: TesterMatchWorkerRequest = {
       id,
       kind: 'configure',
       payload: {
         rules: params.rules,
-        configModes: params.configModes,
+        recipeModes: params.recipeModes,
       },
     }
     worker.postMessage(message)

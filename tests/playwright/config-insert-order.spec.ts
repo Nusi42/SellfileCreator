@@ -9,15 +9,15 @@ import { HSFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 
 async function getFirstRulePositions(page: import('@playwright/test').Page): Promise<number[]> {
   return page.evaluate(() => {
-    const rows = Array.from(document.querySelectorAll('[data-cfg-idx]'))
+    const rows = Array.from(document.querySelectorAll('[data-recipe-idx]'))
     const firstPositions = new Map<number, number>()
     rows.forEach((row, idx) => {
-      const raw = row.getAttribute('data-cfg-idx')
+      const raw = row.getAttribute('data-recipe-idx')
       if (raw == null) return
-      const cfgIdx = Number(raw)
-      if (!Number.isFinite(cfgIdx)) return
-      if (!firstPositions.has(cfgIdx)) {
-        firstPositions.set(cfgIdx, idx)
+      const recipeIdx = Number(raw)
+      if (!Number.isFinite(recipeIdx)) return
+      if (!firstPositions.has(recipeIdx)) {
+        firstPositions.set(recipeIdx, idx)
       }
     })
     return Array.from(firstPositions.entries())
@@ -64,7 +64,7 @@ test.describe('config insert ordering', () => {
       /* overlay already closed */
     }
 
-    const previewRow = page.locator('[data-cfg-idx]')
+    const previewRow = page.locator('[data-recipe-idx]')
     // First preview rows arrive after the initial rebuild finishes.
     await previewRow.first().waitFor({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 
@@ -80,7 +80,7 @@ test.describe('config insert ordering', () => {
     expect(positionsAreOrdered(baselinePositions)).toBe(true)
 
     // Target the last chip in the small fixture as the paste source.
-    const sourceChip = page.locator('#cfg-chip-2').first()
+    const sourceChip = page.locator('#recipe-chip-2').first()
     await sourceChip.waitFor({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
     await openContextMenu(page, sourceChip)
 
@@ -91,7 +91,7 @@ test.describe('config insert ordering', () => {
     await closeContextMenu(page)
 
     // Paste after the first chip so ordering changes are easy to detect.
-    const targetChip = page.locator('#cfg-chip-0').first()
+    const targetChip = page.locator('#recipe-chip-0').first()
     await targetChip.waitFor({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
     // Ensure no lingering menus intercept the next context menu.
     await closeContextMenu(page)
@@ -118,7 +118,7 @@ test.describe('config insert ordering', () => {
 
     // Wait for preview rows to re-appear after the paste action rebuilds the list.
     await page.waitForFunction(
-      () => document.querySelectorAll('[data-cfg-idx]').length > 0,
+      () => document.querySelectorAll('[data-recipe-idx]').length > 0,
       undefined,
       { timeout: PLAYWRIGHT_TIMEOUTS.expectLong },
     )
