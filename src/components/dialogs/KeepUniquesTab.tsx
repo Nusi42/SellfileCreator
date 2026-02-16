@@ -32,6 +32,7 @@ import {
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import CheckIcon from '@mui/icons-material/Check'
 import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
@@ -341,6 +342,8 @@ ${t('keepUniquesIgnoreOptionsHint')}`
   const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
   const [gridFilterMode, setGridFilterMode] = useKeepUniquesGridFilterMode()
   const [gridColumnMode, setGridColumnMode] = useKeepUniquesGridColumnMode()
+  // Track which rule header is in inline rename mode.
+  const [editingRuleNameId, setEditingRuleNameId] = useState<string | null>(null)
   // Hide the intro copy when the rules list scrolls down.
   const [rulesHeaderCollapsed, setRulesHeaderCollapsed] = useState(false)
   // Track which rule's action menu is currently open.
@@ -639,6 +642,31 @@ ${t('keepUniquesIgnoreOptionsHint')}`
   }, [cancelNameCommitTimer, flushPendingName])
   // Clean up the pending timer when the dialog unmounts.
   useEffect(() => () => cancelNameCommitTimer(), [cancelNameCommitTimer])
+  // Enter inline rename mode and seed a draft value from the persisted rule name.
+  const startRuleNameEdit = useCallback((ruleId: string, persistedName: string) => {
+    setPendingNameById((prev) => {
+      const next = new Map(prev)
+      next.set(ruleId, persistedName ?? '')
+      return next
+    })
+    setEditingRuleNameId(ruleId)
+  }, [])
+  // Leave inline rename mode, optionally committing the staged name.
+  const finishRuleNameEdit = useCallback((ruleId: string, commit: boolean) => {
+    cancelNameCommitTimer()
+    if (commit) {
+      flushPendingName(ruleId)
+    } else {
+      // Esc cancels edits by discarding the staged draft for this rule.
+      setPendingNameById((prev) => {
+        if (!prev.has(ruleId)) return prev
+        const next = new Map(prev)
+        next.delete(ruleId)
+        return next
+      })
+    }
+    setEditingRuleNameId((prev) => (prev === ruleId ? null : prev))
+  }, [cancelNameCommitTimer, flushPendingName])
 
   const setRuleCombination = useCallback((
     ruleId: string,
@@ -868,12 +896,20 @@ ${t('keepUniquesIgnoreOptionsHint')}`
       })
     }
     const handleRuleTitleClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
-      // Title clicks should feel like the primary disclosure control for the rule.
+      // Title clicks now only control selection; disclosure is chevron-only.
       event.preventDefault()
-      // Toggle expansion to open/close the rule detail.
-      toggleExpanded()
-      // Also keep selection aligned with the click target.
       selectRule()
+    }
+    const beginRuleNameEdit = () => {
+      // Keep selection aligned with the edited card.
+      selectRule()
+      startRuleNameEdit(rule.id, rule.name ?? '')
+    }
+    const handleStartRuleNameEdit = (event: ReactMouseEvent<HTMLElement>) => {
+      // Editing should not trigger card capture handlers.
+      event.preventDefault()
+      event.stopPropagation()
+      beginRuleNameEdit()
     }
     const deleteButton = (
       <IconButton
@@ -900,14 +936,27 @@ ${t('keepUniquesIgnoreOptionsHint')}`
       <IconButton
         size="small"
         aria-label={t('contextMenuHint')}
+        data-rule-card-interactive="true"
         onClick={(event) => openRuleMenu(event, rule.id)}
         sx={{ p: 0.5, color: 'text.secondary' }}
       >
         <MoreVertIcon fontSize="small" />
       </IconButton>
     )
+    const editNameButton = (
+      <IconButton
+        size="small"
+        aria-label={t('keepUniquesRuleNameLabel')}
+        data-rule-card-interactive="true"
+        onClick={handleStartRuleNameEdit}
+        sx={{ p: 0.5, color: 'text.secondary' }}
+      >
+        <EditOutlinedIcon fontSize="small" />
+      </IconButton>
+    )
     const actionButtons = (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end', flexShrink: 0 }}>
+        {editNameButton}
         {menuButton}
         {duplicateButton}
         {deleteButton}
@@ -996,6 +1045,7 @@ ${t('keepUniquesIgnoreOptionsHint')}`
     // Summary title: name is optional, so fall back to a muted placeholder for fast scanning.
     const rawName = (pendingNameById.get(rule.id) ?? rule.name ?? '').trim()
     const summaryTitle = rawName || `${t('testerRule')} ${ruleIndex + 1}`
+    const isEditingRuleName = editingRuleNameId === rule.id
     // Summary status keeps the header scannable: checkmark when active, X when Off.
     const ruleActive = rule.activation !== KeepUniqueRuleActivation.Off
     const activeRuleLabel = (
@@ -1041,54 +1091,111 @@ ${t('keepUniquesIgnoreOptionsHint')}`
             borderColor: 'divider',
           }}
         >
-          {/* Title-only button isolates expand/collapse from other header controls. */}
-          <EllipsisTooltip title={rawName || summaryTitle}>
-            <ButtonBase
-              onClick={handleRuleTitleClick}
+          {/* Title area now separates select vs rename; chevron owns disclosure. */}
+          <Box
+            sx={{
+              gridColumn: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.75,
+              minWidth: 0,
+              textAlign: 'left',
+            }}
+          >
+            <Box
+              component="span"
+              aria-label={ruleStatus.label}
               sx={{
-                gridColumn: 1,
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
-                gap: 0.75,
-                minWidth: 0,
-                textAlign: 'left',
+                justifyContent: 'center',
+                width: 20,
+                height: 20,
+                flex: '0 0 auto',
+                color: ruleStatus.color,
               }}
             >
-              <Box
-                component="span"
-                aria-label={ruleStatus.label}
-                sx={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 20,
-                  height: 20,
-                  flex: '0 0 auto',
-                  color: ruleStatus.color,
+              {ruleStatus.icon}
+            </Box>
+            {isEditingRuleName ? (
+              <TextField
+                fullWidth
+                size="small"
+                autoFocus
+                data-rule-card-interactive="true"
+                value={pendingNameById.get(rule.id) ?? rule.name ?? ''}
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
                 }}
-              >
-                {ruleStatus.icon}
-              </Box>
-              <Typography
-                variant="body2"
-                data-ellipsis-target
-                sx={{
-                  minWidth: 0,
-                  fontWeight: 400,
-                  fontStyle: rawName ? 'normal' : 'italic',
-                  color: rawName ? 'text.primary' : 'text.secondary',
-                  // Clamp to 2 lines (with ellipsis) without changing header height.
-                  display: '-webkit-box',
-                  WebkitBoxOrient: 'vertical',
-                  WebkitLineClamp: 2,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
+                onChange={(event) => {
+                  const raw = event.target.value ?? ''
+                  setPendingNameById((prev) => {
+                    const next = new Map(prev)
+                    next.set(rule.id, raw)
+                    return next
+                  })
+                  // Keep debounced persistence behavior while inline editing.
+                  scheduleNameCommit(rule.id)
                 }}
-              >
-                {summaryTitle}
-              </Typography>
-            </ButtonBase>
-          </EllipsisTooltip>
+                onBlur={() => finishRuleNameEdit(rule.id, true)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    finishRuleNameEdit(rule.id, true)
+                    return
+                  }
+                  if (event.key === 'Escape') {
+                    event.preventDefault()
+                    finishRuleNameEdit(rule.id, false)
+                  }
+                }}
+              />
+            ) : (
+              <EllipsisTooltip title={rawName || summaryTitle}>
+                <ButtonBase
+                  onClick={handleRuleTitleClick}
+                  onDoubleClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    beginRuleNameEdit()
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'F2') return
+                    event.preventDefault()
+                    event.stopPropagation()
+                    beginRuleNameEdit()
+                  }}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    minWidth: 0,
+                    textAlign: 'left',
+                    flex: 1,
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    data-ellipsis-target
+                    sx={{
+                      minWidth: 0,
+                      fontWeight: 400,
+                      fontStyle: rawName ? 'normal' : 'italic',
+                      color: rawName ? 'text.primary' : 'text.secondary',
+                      // Clamp to 2 lines (with ellipsis) without changing header height.
+                      display: '-webkit-box',
+                      WebkitBoxOrient: 'vertical',
+                      WebkitLineClamp: 2,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {summaryTitle}
+                  </Typography>
+                </ButtonBase>
+              </EllipsisTooltip>
+            )}
+          </Box>
           <Box
             sx={{
               gridColumn: 2,
@@ -1247,30 +1354,6 @@ ${t('keepUniquesIgnoreOptionsHint')}`
               </MarkdownTooltip>
             </Box>
           </Box>
-          <TextField
-            fullWidth
-            size="small"
-            label={t('keepUniquesRuleNameLabel')}
-            value={pendingNameById.get(rule.id) ?? rule.name}
-            disabled={ruleDisabled}
-            onClick={(event) => event.stopPropagation()}
-            onChange={(event) => {
-              const raw = event.target.value ?? ''
-              setPendingNameById((prev) => {
-                const next = new Map(prev)
-                next.set(rule.id, raw)
-                return next
-              })
-              scheduleNameCommit(rule.id)
-            }}
-            onBlur={() => flushPendingName(rule.id)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault()
-                flushPendingName(rule.id)
-              }
-            }}
-          />
           <Stack spacing={1}>
             {/* Slots + sets anchor the per-group keep scope. */}
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
