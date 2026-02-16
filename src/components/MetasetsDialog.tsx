@@ -856,9 +856,9 @@ export default function MetasetsDialog({
                   })}
                   </Select>
                 {(() => {
-                  const configUsed = metasetUsageCounts[m.id] || 0
+                  const recipeUsed = metasetUsageCounts[m.id] || 0
                   const safeguardUsed = safeguardMetasetUsageCounts[m.id] || 0
-                  const totalUsed = configUsed + safeguardUsed
+                  const totalUsed = recipeUsed + safeguardUsed
                   return (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <Button color="error" onClick={() => {
@@ -878,7 +878,7 @@ export default function MetasetsDialog({
                           <Box sx={{ position: 'relative', display: 'inline-flex' }}>
                             <Chip
                               size="small"
-                              label={t('metasetsUses', { n: configUsed })}
+                              label={t('metasetsUses', { n: recipeUsed })}
                               color={'warning'}
                               sx={{ width: 84, justifyContent: 'center', cursor: 'pointer' }}
                               onClick={() => {
@@ -917,7 +917,7 @@ export default function MetasetsDialog({
                       ) : (
                         <Chip
                           size="small"
-                          label={t('metasetsUses', { n: configUsed })}
+                          label={t('metasetsUses', { n: recipeUsed })}
                           color={'default'}
                           sx={{ width: 84, justifyContent: 'center' }}
                         />
@@ -1017,9 +1017,9 @@ export default function MetasetsDialog({
           {(() => {
             const id = confirmDeleteMetaId
             const m = metasets.find(x => x.id === id)
-            const configUsed = id ? (metasetUsageCounts[id] || 0) : 0
+            const recipeUsed = id ? (metasetUsageCounts[id] || 0) : 0
             const safeguardUsed = id ? (safeguardMetasetUsageCounts[id] || 0) : 0
-            const totalUsed = configUsed + safeguardUsed
+            const totalUsed = recipeUsed + safeguardUsed
             const otherMetas = metasets.filter(x => x.id !== id)
             const hasOtherMetas = otherMetas.length > 0
             const hasSets = Boolean(m && m.sets.length > 0)
@@ -1039,7 +1039,7 @@ export default function MetasetsDialog({
             return (
               <>
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  {t('refsCountWithSafeguards', { recipeCount: configUsed, safeguardCount: safeguardUsed })}
+                  {t('refsCountWithSafeguards', { recipeCount: recipeUsed, safeguardCount: safeguardUsed })}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">{t('msgChooseUpdate')}</Typography>
                 <Divider sx={{ my: 1, opacity: 0.5 }} />
@@ -1075,9 +1075,9 @@ export default function MetasetsDialog({
         <DialogActions>
           {(() => {
             const id = confirmDeleteMetaId
-            const configUsed = id ? (metasetUsageCounts[id] || 0) : 0
+            const recipeUsed = id ? (metasetUsageCounts[id] || 0) : 0
             const safeguardUsed = id ? (safeguardMetasetUsageCounts[id] || 0) : 0
-            const totalUsed = configUsed + safeguardUsed
+            const totalUsed = recipeUsed + safeguardUsed
             const okReplaceMeta = deleteMode === 'replaceMeta' && Boolean(deleteReplaceMetaId)
             return (
               <>
