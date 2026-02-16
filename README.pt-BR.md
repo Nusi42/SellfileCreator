@@ -106,7 +106,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Substats são opcionais: escolha um ou mais para contar somente itens que tenham esses substats. O chip de correspondência (`Qualquer Substat` / `Todas as Substats` / `Por Substat`) decide se basta um, se precisam estar todos ou se cada substat tem sua própria quota. Deixar vazio permite qualquer substat.
 - As substats selecionadas sempre são ranqueadas pela fórmula normalizada (glifos ignorados); os pesos aparecem com `Qualquer Substat` e `Todas as Substats`, `Por Substat` mantém a ponderação igual (empates no corte continuam protegidos).
 - `≥ Quantidade necessária` é a promessa que você quer manter. Os chips de escopo logo abaixo de cada seletor (todos exceto `Rank` e `Raridade`) decidem como essa quota se divide: `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` podem ser combinados livremente. Desligar todos volta automaticamente para `Por regra`.
-- O contador `Existem {have} / Manter {keep}` mostra: **Existem** = itens correspondentes (com substats selecionadas, conta só os melhores rolls + empates), **Manter** = a quota após os escopos. O chip fica vermelho quando a quota não é atingida.
+- O tooltip de `Quantidade necessária` mostra a divisão ativa de escopo (`X por slot × por conjunto × ...`) e uma linha simples de faltantes (`({missing} faltando)`).
 - O scanner só adiciona linhas de manter para itens correspondentes que seriam vendidos, e só quando a quota não é atendida. Em `Antecipar lacunas`, regras fictícias cobrem as combinações que faltam.
 
 #### Escopos de quota em resumo

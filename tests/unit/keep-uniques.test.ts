@@ -101,6 +101,9 @@ const makeRule = (overrides: Partial<KeepUniqueRule> = {}): KeepUniqueRule => {
     requiredCount: overrides.requiredCount ?? 1,
     activation: overrides.activation ?? KeepUniqueRuleActivation.ProtectExisting,
     countMode: overrides.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE,
+    ignorePreviousSafeguards: overrides.ignorePreviousSafeguards,
+    ignoreEquippedInCollection: overrides.ignoreEquippedInCollection,
+    ignoreEquippedInVault: overrides.ignoreEquippedInVault,
     // Pass optional substat ranking fields through so tests can exercise ranked mode.
     substats: overrides.substats,
     substatMatch: overrides.substatMatch,
@@ -123,6 +126,81 @@ test('hashKeepUniqueCombination differentiates accessory factions', () => {
   const hashA = hashKeepUniqueCombination(base)
   const hashB = hashKeepUniqueCombination({ ...base, factions: [2] })
   assert.notStrictEqual(hashA, hashB, 'different factions should yield different hashes')
+})
+
+test('normalizeKeepUniqueRule supports readable wrapper payloads', () => {
+  // Readable exports may wrap keep-unique rules in `{ kind, rule }`.
+  const normalized = normalizeKeepUniqueRule({
+    kind: 'keepUniqueRule',
+    rule: {
+      id: 'ku_mlcrdw83_4zvye589',
+      requiredCount: 3,
+      activation: KeepUniqueRuleActivation.AnticipateGaps,
+      countMode: {
+        perRule: false,
+        perSet: true,
+        perFaction: true,
+        perMainStat: false,
+        perSlot: true,
+      },
+      ignorePreviousSafeguards: false,
+      ignoreEquippedInCollection: true,
+      ignoreEquippedInVault: true,
+      tuple: {
+        slots: ['Banner'],
+        sets: [],
+        metaSetIds: [],
+        ranks: ['5★', '6★'],
+        rarities: ['Rare', 'Epic', 'Legendary', 'Mythical'],
+        mainStats: [],
+        factions: [],
+      },
+      name: 'Reserve: Speed Banner',
+    },
+  })
+  assert.ok(normalized, 'wrapper payload should normalize into a keep-unique rule')
+  assert.strictEqual(normalized.id, 'ku_mlcrdw83_4zvye589')
+  assert.strictEqual(normalized.name, 'Reserve: Speed Banner')
+  assert.deepStrictEqual(normalized.combination.slots, [ArtifactType.Banner])
+  assert.deepStrictEqual(normalized.combination.ranks, [5, 6])
+  assert.deepStrictEqual(normalized.combination.rarities, [
+    RarityCode.Rare,
+    RarityCode.Epic,
+    RarityCode.Legendary,
+    6 as RankValue,
+  ])
+  assert.deepStrictEqual(normalized.countMode, {
+    perRule: false,
+    perSet: true,
+    perFaction: true,
+    perMainStat: false,
+    perSlot: true,
+  })
+  assert.strictEqual(normalized.ignorePreviousSafeguards, false)
+  assert.strictEqual(normalized.ignoreEquippedInCollection, true)
+  assert.strictEqual(normalized.ignoreEquippedInVault, true)
+})
+
+test('normalizeKeepUniqueRule applies default toggle values', () => {
+  const normalized = normalizeKeepUniqueRule({
+    id: 'defaults',
+    requiredCount: 1,
+    activation: KeepUniqueRuleActivation.ProtectExisting,
+    countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
+    combination: {
+      slots: [ArtifactType.Weapon],
+      sets: [],
+      metaSetIds: [],
+      ranks: [],
+      rarities: [],
+      mainStats: [],
+      factions: [],
+    },
+  })
+  assert.ok(normalized)
+  assert.strictEqual(normalized.ignorePreviousSafeguards, true)
+  assert.strictEqual(normalized.ignoreEquippedInCollection, false)
+  assert.strictEqual(normalized.ignoreEquippedInVault, false)
 })
 
 test('computeKeepUniqueProtection aggregates combination counts', () => {
@@ -188,6 +266,87 @@ test('coveredByExisting flips when existing keep rules meet requirement', () => 
   assert.strictEqual(snapshot.entries[0]?.coveredByExisting, false, 'no gear means the quota still needs coverage')
   assert.strictEqual(snapshot.entries[0]?.deficit, 1, 'empty combos should report a deficit equal to the quota')
   assert.strictEqual(snapshot.entries[0]?.projectedCount, 0)
+})
+
+test('ignorePreviousSafeguards=false evaluates against cumulative prior safeguard state', () => {
+  const firstRule = makeRule({
+    id: 'first',
+    requiredCount: 1,
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+  })
+  const cumulativeRule = makeRule({
+    id: 'cumulative',
+    requiredCount: 1,
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+    ignorePreviousSafeguards: false,
+  })
+  const baselineRule = makeRule({
+    id: 'baseline',
+    requiredCount: 1,
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+    ignorePreviousSafeguards: true,
+  })
+  const rows = [
+    makeTesterRow({
+      id: 9101,
+      slot: ArtifactType.Weapon,
+      set: ArtifactSet.Speed,
+      rank: 6 as RankValue,
+      rarity: 6 as RankValue,
+    }, false, StatVariant.ATK),
+  ]
+  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
+  const snapshot = computeKeepUniqueProtection({
+    candidates,
+    rules: [firstRule, cumulativeRule, baselineRule],
+    enabled: true,
+  })
+  assert.deepStrictEqual(snapshot.entries[0]?.itemKeys, [9101], 'first rule should protect the sold candidate')
+  assert.deepStrictEqual(snapshot.entries[1]?.itemKeys, [], 'cumulative rule should see the prior safeguard as already kept')
+  assert.deepStrictEqual(snapshot.entries[2]?.itemKeys, [9101], 'baseline rule should ignore prior safeguards and re-evaluate from baseline')
+})
+
+test('equipped ignore toggles exclude matching collection/vault artifacts', () => {
+  const collectionRule = makeRule({
+    id: 'collection-filter',
+    requiredCount: 1,
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+    ignoreEquippedInCollection: true,
+  })
+  const vaultRule = makeRule({
+    id: 'vault-filter',
+    requiredCount: 1,
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+    ignoreEquippedInVault: true,
+  })
+  const rows = [
+    makeTesterRow({
+      id: 9201,
+      slot: ArtifactType.Weapon,
+      set: ArtifactSet.Speed,
+      equippedChampionLocation: 'collection',
+    }, false, StatVariant.ATK),
+    makeTesterRow({
+      id: 9202,
+      slot: ArtifactType.Weapon,
+      set: ArtifactSet.Speed,
+      equippedChampionLocation: 'vault',
+    }, false, StatVariant.ATK),
+    makeTesterRow({
+      id: 9203,
+      slot: ArtifactType.Weapon,
+      set: ArtifactSet.Speed,
+      equippedChampionLocation: null,
+    }, false, StatVariant.ATK),
+  ]
+  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
+  const snapshot = computeKeepUniqueProtection({
+    candidates,
+    rules: [collectionRule, vaultRule],
+    enabled: true,
+  })
+  assert.deepStrictEqual(snapshot.entries[0]?.itemKeys, [9202], 'collection filter should skip collection-equipped candidate')
+  assert.deepStrictEqual(snapshot.entries[1]?.itemKeys, [9201], 'vault filter should skip vault-equipped candidate')
 })
 
 test('per combination mode multiplies targets and deficits', () => {
@@ -271,6 +430,36 @@ test('custom grouping honors the selected dimensions only', () => {
   assert.ok(entry)
   assert.strictEqual(entry.groupsTracked, 2, 'groups only by set when faction/main toggles are off')
   assert.strictEqual(entry.requiredCount, 2, 'requirement multiplies per set')
+})
+
+test('per-slot grouping splits quotas by slot and avoids zero-missing placeholders', () => {
+  // Keep only slot grouping active so each selected slot gets its own quota.
+  const rules = [makeRule({
+    requiredCount: 1,
+    combination: {
+      slots: [ArtifactType.Weapon, ArtifactType.Helmet],
+      sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
+      metaSetIds: [],
+      ranks: [6 as RankValue],
+      rarities: [6 as RankValue],
+      mainStats: [StatVariant.ATK],
+      factions: [],
+    },
+    countMode: { perRule: false, perSet: false, perFaction: false, perMainStat: false, perSlot: true },
+  })]
+  // One sold match per slot should fully satisfy the per-slot requirement.
+  const rows = [
+    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed }, false, StatVariant.ATK),
+    makeTesterRow({ slot: ArtifactType.Helmet, set: ArtifactSet.Speed }, false, StatVariant.ATK),
+  ]
+  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
+  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
+  const entry = snapshot.entries[0]
+  assert.ok(entry)
+  assert.strictEqual(entry.groupsTracked, 2, 'slot grouping should track one group per selected slot')
+  assert.strictEqual(entry.requiredCount, 2, 'required total should scale with the two slot groups')
+  assert.strictEqual(entry.deficit, 0, 'no deficit is expected when both slot groups are covered')
+  assert.strictEqual(entry.placeholders.length, 0, 'covered slot groups must not emit zero-missing placeholders')
 })
 
 test('ranked ties on the same main stat prefer higher rank', () => {
@@ -394,6 +583,64 @@ test('ranked unresolved cutoff ties keep more than N', () => {
   assert.deepStrictEqual(new Set(entry.itemKeys), new Set([301, 302]))
 })
 
+test('ranked unresolved ties are order-invariant across candidate permutations', () => {
+  const rules = [makeRule({
+    requiredCount: 1,
+    // Per-rule mode keeps all candidates in one competition bucket.
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+    // Keep tuple filters broad so only ranking/tie logic decides.
+    combination: {
+      slots: [ArtifactType.Weapon],
+      sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
+      metaSetIds: [],
+      ranks: [],
+      rarities: [],
+      mainStats: [],
+      factions: [],
+    },
+    substats: [StatVariant.SPD],
+  })]
+  const rowA = makeTesterRow({
+    id: 401,
+    rank: 6 as RankValue,
+    rarity: 6 as RankValue,
+    mainStat: buildMainStat(StatVariant.CDMG),
+    substats: [buildSubstat(StatVariant.SPD, 6)],
+  }, false, StatVariant.ATK)
+  const rowB = makeTesterRow({
+    id: 402,
+    rank: 6 as RankValue,
+    rarity: 6 as RankValue,
+    mainStat: buildMainStat(StatVariant.CDMG),
+    substats: [buildSubstat(StatVariant.SPD, 6)],
+  }, false, StatVariant.ATK)
+  const rowC = makeTesterRow({
+    id: 403,
+    rank: 6 as RankValue,
+    rarity: 6 as RankValue,
+    mainStat: buildMainStat(StatVariant.CDMG),
+    substats: [buildSubstat(StatVariant.SPD, 6)],
+  }, false, StatVariant.ATK)
+  // First permutation keeps natural encounter order.
+  const firstRows = [rowA, rowB, rowC]
+  // Second permutation scrambles encounter order intentionally.
+  const secondRows = [rowC, rowA, rowB]
+  const firstCandidates = collectKeepUniqueCandidates({ rows: firstRows, baseRules: [], configModes: [] }).candidates
+  const secondCandidates = collectKeepUniqueCandidates({ rows: secondRows, baseRules: [], configModes: [] }).candidates
+  const firstSnapshot = computeKeepUniqueProtection({ candidates: firstCandidates, rules, enabled: true })
+  const secondSnapshot = computeKeepUniqueProtection({ candidates: secondCandidates, rules, enabled: true })
+  const firstEntry = firstSnapshot.entries[0]
+  const secondEntry = secondSnapshot.entries[0]
+  assert.ok(firstEntry)
+  assert.ok(secondEntry)
+  // All unresolved ties should be kept, independent of incoming candidate order.
+  assert.deepStrictEqual(new Set(firstEntry.itemKeys), new Set([401, 402, 403]))
+  assert.deepStrictEqual(new Set(secondEntry.itemKeys), new Set([401, 402, 403]))
+  // Deterministic item-key fallback should also keep emitted order stable.
+  assert.deepStrictEqual(firstEntry.itemKeys, [401, 402, 403])
+  assert.deepStrictEqual(secondEntry.itemKeys, [401, 402, 403])
+})
+
 test('resolveKeepUniqueRulesWithMetasets expands set lists', () => {
   const rules = [
     makeRule({
@@ -419,6 +666,56 @@ test('resolveKeepUniqueRulesWithMetasets expands set lists', () => {
   // Compare by numeric ids because the selection list now stores entry objects.
   const combinationSetIds = combinationSets.map((entry) => Number(entry.id)).sort((a, b) => a - b)
   assert.deepStrictEqual(combinationSetIds, [ArtifactSet.Speed, ArtifactSet.DivineSpeed])
+})
+
+test('resolveKeepUniqueRulesWithMetasets preserves rules without metaset expansion', () => {
+  // Rules without metasets still need to survive the resolver unchanged.
+  const rules = [
+    makeRule({
+      id: 'ku_no_meta',
+      name: 'No Meta Rule',
+      combination: {
+        slots: [ArtifactType.Banner],
+        sets: [],
+        metaSetIds: [],
+        ranks: [5 as RankValue, 6 as RankValue],
+        rarities: [3 as RankValue, 4 as RankValue, 5 as RankValue, 6 as RankValue],
+        mainStats: [],
+        factions: [],
+      },
+      requiredCount: 3,
+      activation: KeepUniqueRuleActivation.AnticipateGaps,
+      countMode: { perRule: false, perSet: true, perFaction: true, perMainStat: false, perSlot: true },
+      substats: [StatVariant.SPD],
+      substatMatch: 'perSubstat',
+    }),
+  ]
+  // Unrelated metasets should not remove or alter this rule.
+  const metasets: Metaset[] = [{
+    id: 'unrelated_meta',
+    name: 'Unrelated',
+    sets: [ArtifactSet.Speed],
+    show: true,
+  }]
+  const resolved = resolveKeepUniqueRulesWithMetasets(rules, metasets)
+  assert.strictEqual(resolved.length, 1, 'rules without metasets must not be dropped')
+  const kept = resolved[0]
+  assert.ok(kept)
+  assert.strictEqual(kept.id, 'ku_no_meta')
+  assert.deepStrictEqual(kept.combination.slots, [ArtifactType.Banner])
+  assert.deepStrictEqual(kept.combination.metaSetIds, [])
+  assert.deepStrictEqual(kept.combination.sets, [])
+  assert.strictEqual(kept.requiredCount, 3)
+  assert.strictEqual(kept.activation, KeepUniqueRuleActivation.AnticipateGaps)
+  assert.deepStrictEqual(kept.countMode, {
+    perRule: false,
+    perSet: true,
+    perFaction: true,
+    perMainStat: false,
+    perSlot: true,
+  })
+  assert.deepStrictEqual(kept.substats, [StatVariant.SPD])
+  assert.strictEqual(kept.substatMatch, 'perSubstat')
 })
 
 test('default keep unique rules start empty', () => {

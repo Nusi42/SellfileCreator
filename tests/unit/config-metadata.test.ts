@@ -150,6 +150,10 @@ test('keep-unique exports include sentinel ConfigID/ConfigName', () => {
       perMainStat: false,
       perSlot: true,
     },
+    // Default toggles preserve baseline independent safeguard behavior.
+    ignorePreviousSafeguards: true,
+    ignoreEquippedInCollection: false,
+    ignoreEquippedInVault: false,
     // Keep the sample rule unfiltered by substats to mirror classic behavior.
     substats: [],
     substatMatch: KeepUniqueSubstatMatch.Any,

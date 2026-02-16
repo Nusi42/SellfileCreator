@@ -208,6 +208,10 @@ import { useConfigSelection } from './hooks/useConfigSelection'
 import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
 import { fingerprintKeepUniqueDetection } from './lib/keepUniqueFingerprint'
 import { useTesterItemsActions } from './hooks/useTesterItemsActions'
+import {
+  resolveArtifactItemIdWithFallback,
+  resolveCanonicalTestItemId,
+} from './lib/itemIdentity'
 // Local tag for tester reset triggers; persists only in memory.
 type TesterMatchResetReason = 'restore' | 'hsfc' | 'gearDb'
 import { getConfigHoverIndex, setConfigHoverIndex, subscribeConfigHover } from './lib/configHoverBridge'
@@ -490,6 +494,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const comboHash = hashKeepUniqueCombination(rule.combination)
       const activation = rule.activation ?? KeepUniqueRuleActivation.ProtectExisting
       const required = Number.isFinite(rule.requiredCount) ? Number(rule.requiredCount) : 0
+      // Include ignore toggles so cache fingerprints track keep-unique behavior changes.
+      const ignorePrevious = rule.ignorePreviousSafeguards !== false ? 1 : 0
+      const ignoreCollection = rule.ignoreEquippedInCollection === true ? 1 : 0
+      const ignoreVault = rule.ignoreEquippedInVault === true ? 1 : 0
       const mode = sanitizeKeepUniqueCountMode(rule.countMode)
       const modeKey = [
         mode.perRule ? 1 : 0,
@@ -519,7 +527,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           .sort()
           .join(',')
         : ''
-      return `${rule.id ?? comboHash}:${activation}:${required}:${modeKey}:${comboHash}:${substatMatch}:${substats}:${weightEntries}`
+      return `${rule.id ?? comboHash}:${activation}:${required}:${ignorePrevious}${ignoreCollection}${ignoreVault}:${modeKey}:${comboHash}:${substatMatch}:${substats}:${weightEntries}`
     }).join('|')
   }, [])
   // Combined fingerprint captures every input that affects the warmed rule cache while ignoring display-only fields.
@@ -600,9 +608,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const next: NormalizedGearArtifact[] = []
     const activeItemIds = new Set<number>()
     testerItems.forEach((item, idx) => {
-      const itemId = Number.isFinite(item.itemId)
-        ? item.itemId
-        : -(idx + 1)
+      // Prefer canonical DB-backed ids so cache keys are stable across reloads.
+      const canonicalItemId = resolveCanonicalTestItemId(item)
+      // Keep fallback ids deterministic for malformed/manual rows.
+      const itemId = canonicalItemId ?? -(idx + 1)
       const fingerprint = fingerprintRuleTesterItem(item)
       const cached = cache.get(itemId)
       if (cached && cached.fingerprint === fingerprint) {
@@ -648,13 +657,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return sig
   }, [testerPreviewArtifacts])
-  const getArtifactItemId = useCallback((artifact: NormalizedGearArtifact, fallbackIdx?: number): number | null => {
-    const testerId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
-    if (Number.isFinite(testerId)) return testerId
-    const artifactId = Number((artifact as { id?: number } | undefined)?.id ?? NaN)
-    if (Number.isFinite(artifactId)) return artifactId
-    if (typeof fallbackIdx === 'number') return -(fallbackIdx + 1)
-    return null
+  const getArtifactItemId = useCallback((artifact: NormalizedGearArtifact, fallbackIdx?: number): number => {
+    // Share one resolver with worker/cache logic so key precedence cannot drift.
+    return resolveArtifactItemIdWithFallback(artifact, fallbackIdx)
   }, [])
   const [testerPreviewRows, setTesterPreviewRows] = useState<TesterPreviewRow[]>([])
   const testerPreviewRowsRef = useRef<TesterPreviewRow[]>([])
@@ -1301,13 +1306,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           const artifact = testerPreviewArtifacts[idx]
           if (!artifact) continue
           const itemId = getArtifactItemId(artifact, idx)
-          if (!Number.isFinite(itemId)) continue
-          const cached = cache.get(itemId!)
+          const cached = cache.get(itemId)
           const testerPayload = artifact.testerItem as RuleTesterItem | undefined
           const fingerprint = cached?.fingerprint ?? (testerPayload ? fingerprintRuleTesterItem(testerPayload) : '')
-          nextFingerprints.set(itemId!, fingerprint ?? '')
-          if (!diffOnly || prevFingerprints.get(itemId!) !== fingerprint) {
-            changed.push([itemId!, artifact])
+          nextFingerprints.set(itemId, fingerprint ?? '')
+          if (!diffOnly || prevFingerprints.get(itemId) !== fingerprint) {
+            changed.push([itemId, artifact])
           }
         }
         prevFingerprints.forEach((_, itemId) => {
@@ -1407,11 +1411,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             matchMap.set(entry.itemId, entry)
           }
           const rows: TesterPreviewRow[] = []
-          const artifactEntries = testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number | null, NormalizedGearArtifact])
-          for (const [itemIdMaybe, artifact] of artifactEntries) {
+          const artifactEntries = testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number, NormalizedGearArtifact])
+          for (const [itemId, artifact] of artifactEntries) {
             if (!artifact) continue
-            const itemId = Number(itemIdMaybe ?? NaN)
-            if (!Number.isFinite(itemId)) continue
             const matchEntry = matchMap.get(itemId)
             const match = toPreviewMatch(matchEntry?.firstMatch ?? null, state.mergedRules)
             const baseMatch = toPreviewMatch(matchEntry?.firstNonExcludedMatch ?? null, state.mergedRules)
@@ -1506,11 +1508,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 const retryMap = new Map<number, TesterMatchWorkerItemResult>()
                 for (const entry of retryMatches) retryMap.set(entry.itemId, entry)
                 const retryRows: TesterPreviewRow[] = []
-                const entries = testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number | null, NormalizedGearArtifact])
-                for (const [itemIdMaybe, artifact] of entries) {
+                const entries = testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number, NormalizedGearArtifact])
+                for (const [itemId, artifact] of entries) {
                   if (!artifact) continue
-                  const itemId = Number(itemIdMaybe ?? NaN)
-                  if (!Number.isFinite(itemId)) continue
                   const matchEntry = retryMap.get(itemId)
                   const match = toPreviewMatch(matchEntry?.firstMatch ?? null, retryState.mergedRules)
                   const baseMatch = toPreviewMatch(matchEntry?.firstNonExcludedMatch ?? null, retryState.mergedRules)

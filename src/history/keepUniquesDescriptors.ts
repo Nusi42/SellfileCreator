@@ -218,6 +218,10 @@ function buildKeepUniqueRuleSignature(rule: KeepUniqueRule): string {
     name: rule.name,
     requiredCount: rule.requiredCount,
     activation: rule.activation,
+    // Keep toggle fields in the signature so history detects their edits.
+    ignorePreviousSafeguards: rule.ignorePreviousSafeguards !== false,
+    ignoreEquippedInCollection: rule.ignoreEquippedInCollection === true,
+    ignoreEquippedInVault: rule.ignoreEquippedInVault === true,
     countMode: normalizeCountMode(rule.countMode),
     slots,
     sets,

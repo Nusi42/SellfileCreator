@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, type MutableRefObject } from 'react'
-import { RULE_SOURCE_KEEP_UNIQUES, canonicalRuleKey, type HsfRuleWithCfg } from '../lib/merge'
+import { RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg } from '../lib/merge'
 import { evaluateMatchesByConfig, type EvalResult, type MatchingConfigDecision } from '../lib/ruleEval'
 import type { SellfileExportMode } from '../lib/hsfBuilder'
 import {
-  collectKeepUniqueCandidates,
+  collectAndComputeKeepUniqueProtection,
   type KeepUniqueCandidateSnapshot,
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueRule,
-  computeKeepUniqueProtection,
   resolveKeepUniqueRuleLabel,
 } from '../lib/keepUniques'
 import { fingerprintKeepUniqueDetection } from '../lib/keepUniqueFingerprint'
@@ -17,8 +16,9 @@ import { sortTesterRows } from '../lib/testerSort'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { TesterMatchWorkerEvaluateItem, TesterMatchWorkerItemResult } from '../workers/testerMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
-import { getRuleConfigIndex, resolveMatchConfigName } from '../lib/ruleConfigIndex'
+import { resolveMatchConfigName } from '../lib/ruleConfigIndex'
 import { PERF_EVENTS, markPerfEvent } from '../lib/perfTimeline'
+import { fingerprintMergedRulesWithLoadedWasm } from '../lib/wasm/wasmRuleEngine'
 
 export const TESTER_PREVIEW_CHUNK_SIZE = 250
 
@@ -27,39 +27,14 @@ const EMPTY_KEEP_UNIQUE_CANDIDATES: KeepUniqueCandidateSnapshot = {
   uniqueItemKeys: new Set<number>(),
 }
 
-// Lightweight hash to avoid logging giant signatures (not crypto-safe).
-const hashSignature = (value: string): number => {
-  let hash = 0
-  for (let i = 0; i < value.length; i += 1) {
-    hash = ((hash << 5) - hash) + value.charCodeAt(i)
-    hash |= 0
-  }
-  return hash
+const EMPTY_KEEP_UNIQUE_DETECTION: KeepUniqueDetectionSnapshot = {
+  scannedAt: 0,
+  entries: [],
 }
 
 const fingerprintMergedRules = (rules: readonly HsfRuleWithCfg[]): string => {
-  if (!rules || rules.length === 0) return '0:0'
-  let hash = 0
-  for (let idx = 0; idx < rules.length; idx += 1) {
-    const rule = rules[idx]
-    if (!rule) continue
-    const cfgIdx = getRuleConfigIndex(rule)
-    const parts = [
-      idx.toString(10),
-      rule.__source ?? '',
-      cfgIdx != null ? cfgIdx.toString(10) : 'none',
-      rule.__keepUniqueRuleId ?? '',
-      rule.__keepUniqueHash ?? '',
-      String(rule.__keepUniqueRequired ?? ''),
-      String(rule.__keepUniqueProjected ?? ''),
-      String(rule.__keepUniqueDeficit ?? ''),
-      canonicalRuleKey(rule),
-    ]
-    const keyHash = hashSignature(parts.join('|'))
-    hash = ((hash << 5) - hash) + keyHash
-    hash |= 0
-  }
-  return `${rules.length}:${hash}`
+  // Fingerprinting is wasm-only; callers must warm up before this hook runs.
+  return fingerprintMergedRulesWithLoadedWasm(rules)
 }
 
 // Dev-only perf marker helper keeps call sites compact while honoring DEV gating.
@@ -589,17 +564,35 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     rulesBuilding,
   ])
 
-  // Keep-unique candidate snapshot shared with detectors downstream.
-  const keepUniqueCandidates = useMemo<KeepUniqueCandidateSnapshot>(() => {
-    if (!testerPreviewRows.length) return EMPTY_KEEP_UNIQUE_CANDIDATES
-    return collectKeepUniqueCandidates({
+  // Keep-unique combined snapshot runs collect + detection in one wasm call.
+  const keepUniqueCombined = useMemo(() => {
+    // Avoid scan work when rows are empty or keep-uniques are disabled.
+    if (!testerPreviewRows.length || !keepUniquesActive) {
+      return {
+        candidates: EMPTY_KEEP_UNIQUE_CANDIDATES,
+        detection: EMPTY_KEEP_UNIQUE_DETECTION,
+      }
+    }
+    return collectAndComputeKeepUniqueProtection({
       rows: testerPreviewRows,
       baseRules: keepUniqueBaseRules,
       configModes,
+      rules: resolvedKeepUniqueRules,
+      enabled: keepUniquesActive,
       // Skip configs tagged to ignore keep-unique coverage.
       ...(ignoreKeepUniqueConfigIndices ? { ignoreKeepUniqueConfigIndices } : {}),
     })
-  }, [testerPreviewRows, keepUniqueBaseRules, configModes, ignoreKeepUniqueConfigIndices])
+  }, [
+    testerPreviewRows,
+    keepUniquesActive,
+    keepUniqueBaseRules,
+    configModes,
+    resolvedKeepUniqueRules,
+    ignoreKeepUniqueConfigIndices,
+  ])
+
+  // Keep returning candidate metadata for downstream UI callers.
+  const keepUniqueCandidates = keepUniqueCombined.candidates
 
   // Keep-unique detection refresh runs when candidates or rules change.
   useEffect(() => {
@@ -621,12 +614,8 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       return
     }
 
-    // Compute keep-unique protection snapshot without deferring to a timeout.
-    const snapshot = computeKeepUniqueProtection({
-      candidates: keepUniqueCandidates.candidates,
-      rules: resolvedKeepUniqueRules,
-      enabled: keepUniquesActive,
-    })
+    // Detection payload already comes from the combined collect+detect scan.
+    const snapshot = keepUniqueCombined.detection
     const snapshotSignature = fingerprintKeepUniqueDetection(snapshot)
     setKeepUniqueDetection((prev) => {
       // When there was no prior snapshot, always apply and record signature.
@@ -665,8 +654,8 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       return prev
     })
   }, [
-    resolvedKeepUniqueRules,
     keepUniquesActive,
+    keepUniqueCombined,
     keepUniqueCandidates,
     keepUniqueDetectionSignature,
     testerPreviewRows.length,

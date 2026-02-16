@@ -57,6 +57,67 @@ test('<= thresholds still obey the numeric ceiling when the stat exists', async 
   assert.equal(matchRule(baseRule, tooHigh), false, 'present stat above the ceiling should fail')
 })
 
+test('≤ thresholds are treated as <= thresholds', async () => {
+  // Sync matcher helpers require warmup in each isolated test file.
+  await warmupWasmRuleEngine()
+  const unicodeRule: HsfRule = {
+    ...baseRule,
+    Substats: [{ ID: StatId.SPD, Value: 18, IsFlat: true, Condition: '≤' }],
+  }
+  const okStat: TestItem = {
+    ...buildBaseItem(),
+    subValues: { [StatVariant.SPD]: 12 },
+  }
+  assert.equal(matchRule(unicodeRule, okStat), true, 'unicode <= token should be supported')
+})
+
+test('legacy < and =< tokens are treated as fallback >= checks', async () => {
+  // Sync matcher helpers require warmup in each isolated test file.
+  await warmupWasmRuleEngine()
+  const ltRule: HsfRule = {
+    ...baseRule,
+    Substats: [{ ID: StatId.SPD, Value: 18, IsFlat: true, Condition: '<' }],
+  }
+  const eqltRule: HsfRule = {
+    ...baseRule,
+    Substats: [{ ID: StatId.SPD, Value: 18, IsFlat: true, Condition: '=<' }],
+  }
+  const belowThreshold: TestItem = {
+    ...buildBaseItem(),
+    subValues: { [StatVariant.SPD]: 12 },
+  }
+  const aboveThreshold: TestItem = {
+    ...buildBaseItem(),
+    subValues: { [StatVariant.SPD]: 24 },
+  }
+  assert.equal(matchRule(ltRule, belowThreshold), false, '< should not behave like <=')
+  assert.equal(matchRule(ltRule, aboveThreshold), true, '< should follow fallback >=')
+  assert.equal(matchRule(eqltRule, belowThreshold), false, '=< should not behave like <=')
+  assert.equal(matchRule(eqltRule, aboveThreshold), true, '=< should follow fallback >=')
+})
+
+test('malformed subValues keys are ignored instead of failing evaluation', async () => {
+  // Sync matcher helpers require warmup in each isolated test file.
+  await warmupWasmRuleEngine()
+  const malformedOnlySubValues = { notANumber: 12 } as unknown as NonNullable<TestItem['subValues']>
+  const malformedOnly: TestItem = {
+    ...buildBaseItem(),
+    subValues: malformedOnlySubValues,
+  }
+  assert.doesNotThrow(() => matchRule(baseRule, malformedOnly))
+  assert.equal(matchRule(baseRule, malformedOnly), false, 'malformed key should be treated as missing stat')
+
+  const mixedSubValues = {
+    notANumber: 99,
+    [StatVariant.SPD]: 12,
+  } as unknown as NonNullable<TestItem['subValues']>
+  const mixedItem: TestItem = {
+    ...buildBaseItem(),
+    subValues: mixedSubValues,
+  }
+  assert.equal(matchRule(baseRule, mixedItem), true, 'valid numeric keys should still be evaluated')
+})
+
 test('matching config indices preserve encounter order when primary match has no config', async () => {
   // Sync matcher helpers require warmup in each isolated test file.
   await warmupWasmRuleEngine()

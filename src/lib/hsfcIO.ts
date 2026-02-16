@@ -1014,6 +1014,9 @@ export type ReadableKeepUniqueRuleEntry = {
   requiredCount: number
   activation: KeepUniqueRuleActivation
   countMode: KeepUniqueRule['countMode']
+  ignorePreviousSafeguards?: boolean
+  ignoreEquippedInCollection?: boolean
+  ignoreEquippedInVault?: boolean
   tuple: ReadableKeepUniqueTuple
   substats?: string[]
   substatMatch?: string
@@ -1103,6 +1106,9 @@ export const buildReadableKeepUniqueRuleEntry = (rule: KeepUniqueRule): Readable
       perMainStat: mode.perMainStat,
       perSlot: mode.perSlot,
     },
+    ignorePreviousSafeguards: rule.ignorePreviousSafeguards !== false,
+    ignoreEquippedInCollection: rule.ignoreEquippedInCollection === true,
+    ignoreEquippedInVault: rule.ignoreEquippedInVault === true,
     tuple: buildReadableKeepOverrideTuple(rule.combination),
   }
   // Only persist a name when it is non-empty.
@@ -1138,6 +1144,9 @@ export function buildHsfcPayload(args: {
       requiredCount: number
       activation: KeepUniqueRuleActivation
       countMode: KeepUniqueRule['countMode']
+      ignorePreviousSafeguards?: boolean
+      ignoreEquippedInCollection?: boolean
+      ignoreEquippedInVault?: boolean
       tuple: ReadableKeepUniqueTuple
       substats?: string[]
       substatMatch?: string

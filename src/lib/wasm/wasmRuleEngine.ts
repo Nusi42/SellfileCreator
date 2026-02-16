@@ -1,31 +1,48 @@
 import initRuleEngineWasm, {
+  auto_rarity_addition_levels_for_code_value as autoRarityAdditionLevelsForCodeWasmValueBinding,
+  auto_rarity_includes_mythical_for_code_value as autoRarityIncludesMythicalForCodeWasmValueBinding,
+  auto_rarity_roll_levels_for_code_value as autoRarityRollLevelsForCodeWasmValueBinding,
+  build_hsf_rules_runtime_value as buildHsfRulesRuntimeWasmValueBinding,
+  build_final_sell_rules_value as buildFinalSellRulesWasmValueBinding,
   build_keep_unique_rules_value as buildKeepUniqueRulesWasmValueBinding,
-  bounded_compositions_i32_fast_flat as boundedCompositionsI32FastFlatWasmBinding,
   combinations_i32_fast_flat as combinationsI32FastFlatWasmBinding,
+  collect_keep_unique_candidates_value as collectKeepUniqueCandidatesWasmValueBinding,
+  collect_and_compute_keep_unique_protection_value as collectAndComputeKeepUniqueProtectionWasmValueBinding,
+  compute_merged_rules_value as computeMergedRulesWasmValueBinding,
   compute_keep_unique_protection_value as computeKeepUniqueProtectionValueWasmBinding,
   dedupe_hsf_rules_for_export_value as dedupeHsfRulesForExportWasmValueBinding,
-  emit_hsf_rules_for_distributions_value as emitHsfRulesForDistributionsValueWasmBinding,
-  emit_hsf_rules_for_filtered_distributions_value as emitHsfRulesForFilteredDistributionsValueWasmBinding,
-  filtered_bounded_compositions_with_offset_i32_fast_flat as filteredBoundedCompositionsWithOffsetI32FastFlatWasmBinding,
-  finalize_builder_rules_value as finalizeBuilderRulesWasmValueBinding,
+  expand_auto_flex_rarity_branches_value as expandAutoFlexRarityBranchesWasmValueBinding,
+  flatten_rule_batches_with_total_limit_value as flattenRuleBatchesWithTotalLimitWasmValueBinding,
   configure_value as configureRuleEngineWasmValueBinding,
   evaluate_value as evaluateRuleEngineWasmValueBinding,
+  fingerprint_merged_rules_value as fingerprintMergedRulesWasmValueBinding,
   finalize_generated_rules_value as finalizeGeneratedRulesWasmValueBinding,
-  find_obsolete_builder_value as findObsoleteBuilderRuleEngineWasmValueBinding,
   find_obsolete_value as findObsoleteRuleEngineWasmValueBinding,
+  hash_keep_unique_combination_value as hashKeepUniqueCombinationWasmValueBinding,
   intro_assignments_for_combo_fast_flat as introAssignmentsForComboFastFlatWasmBinding,
   keep_unique_count_key_value as keepUniqueCountKeyValueWasmBinding,
+  keep_unique_group_key_value as keepUniqueGroupKeyValueWasmValueBinding,
+  keep_unique_item_key_value as keepUniqueItemKeyValueWasmValueBinding,
   merge_keep_unique_injected_rules_value as mergeKeepUniqueInjectedRulesWasmValueBinding,
-  resolve_auto_rarity_code_value as resolveAutoRarityCodeWasmValueBinding,
-  resolve_keep_unique_candidate_keep_flags_value as resolveKeepUniqueCandidateKeepFlagsValueWasmBinding,
+  normalize_keep_unique_activation_value as normalizeKeepUniqueActivationWasmValueBinding,
+  normalize_keep_unique_combination_value as normalizeKeepUniqueCombinationWasmValueBinding,
+  normalize_keep_unique_count_mode_value as normalizeKeepUniqueCountModeWasmValueBinding,
+  normalize_keep_unique_rule_value as normalizeKeepUniqueRuleWasmValueBinding,
+  normalize_keep_unique_substat_match_value as normalizeKeepUniqueSubstatMatchWasmValueBinding,
+  normalize_keep_unique_expected_group_domain_value as normalizeKeepUniqueExpectedGroupDomainWasmValueBinding,
+  prepare_hsf_builder_config_value as prepareHsfBuilderConfigWasmValueBinding,
+  resolve_keep_unique_rules_with_metasets_value as resolveKeepUniqueRulesWithMetasetsWasmValueBinding,
+  resolve_auto_rarity_code_for_builder_value as resolveAutoRarityCodeForBuilderWasmValueBinding,
   permutations_i32_fast_flat as permutationsI32FastFlatWasmBinding,
-  roll_distributions_flat as rollDistributionsFlatWasmBinding,
+  sort_keep_unique_combination_value as sortKeepUniqueCombinationWasmValueBinding,
+  sort_keep_unique_substats_value as sortKeepUniqueSubstatsWasmValueBinding,
   version as ruleEngineWasmVersionBinding,
 } from './generated/rule_engine.js'
 import type { GeneratedBranchRuleEntry, HsfRuleWithCfg } from '../merge'
 import type { HsfRule } from '../hsfTypes'
-import type { SellfileExportMode } from '../hsfBuilder'
+import type { BuilderConfig, SellfileExportMode } from '../hsfBuilder'
 import type { KeepUniqueDetectionSnapshot, KeepUniqueRule } from '../keepUniques'
+import type { FinalSellRemainderConfig } from '../logicHub'
 import type { TesterMatchWorkerEvaluateItem, TesterMatchWorkerItemResult } from '../../workers/testerMatchWorkerTypes'
 
 // Evaluate options mirror evaluateMatchesByConfig inputs used by worker paths.
@@ -61,10 +78,18 @@ const assertWasmInitializedSync = (): void => {
 }
 
 // Decode flat wasm int arrays into fixed-width rows without JSON parse costs.
-const unflattenI32Rows = (flat: Int32Array, rowWidth: number): number[][] | null => {
-  if (!Number.isFinite(rowWidth) || rowWidth < 0) return null
-  if (rowWidth === 0) return flat.length === 0 ? [[]] : null
-  if (flat.length % rowWidth !== 0) return null
+// This helper is fail-closed so malformed wasm payloads surface immediately.
+const unflattenI32Rows = (flat: Int32Array, rowWidth: number): number[][] => {
+  if (!Number.isFinite(rowWidth) || rowWidth < 0) {
+    throw new Error(`Invalid wasm row width: ${String(rowWidth)}`)
+  }
+  if (rowWidth === 0) {
+    if (flat.length === 0) return [[]]
+    throw new Error('WASM row decoder received non-empty payload for zero-width rows.')
+  }
+  if (flat.length % rowWidth !== 0) {
+    throw new Error('WASM row decoder received a payload with mismatched row width.')
+  }
   const rowCount = Math.floor(flat.length / rowWidth)
   const rows: number[][] = new Array(rowCount)
   for (let row = 0; row < rowCount; row += 1) {
@@ -80,16 +105,6 @@ const unflattenI32Rows = (flat: Int32Array, rowWidth: number): number[][] | null
 
 // Keep conversion helpers branch-free on hot paths: if callers already prepared
 // typed arrays, forward them directly instead of allocating/mapping again.
-const toOptionalI32 = (values: ReadonlyArray<number | undefined> | Int32Array): Int32Array => {
-  if (values instanceof Int32Array) return values
-  const out = new Int32Array(values.length)
-  for (let idx = 0; idx < values.length; idx += 1) {
-    const value = values[idx]
-    out[idx] = typeof value === 'number' && Number.isFinite(value) ? Math.floor(value) : -1
-  }
-  return out
-}
-
 const toFlooredI32 = (values: ReadonlyArray<number> | Int32Array): Int32Array => {
   if (values instanceof Int32Array) return values
   const out = new Int32Array(values.length)
@@ -100,23 +115,31 @@ const toFlooredI32 = (values: ReadonlyArray<number> | Int32Array): Int32Array =>
   return out
 }
 
-const toNonNegativeI32 = (values: ReadonlyArray<number> | Int32Array): Int32Array => {
-  if (values instanceof Int32Array) return values
-  const out = new Int32Array(values.length)
-  for (let idx = 0; idx < values.length; idx += 1) {
-    const value = values[idx] ?? 0
-    out[idx] = Math.max(0, Math.floor(Number(value)))
+// wasm-bindgen payloads may decode nested maps as JS Map objects depending on
+// serde source types. Normalize them into plain objects for TS call sites.
+const toPlainObjectDeep = (value: unknown): unknown => {
+  // Convert map payloads into plain object literals recursively.
+  if (value instanceof Map) {
+    const out: Record<string, unknown> = {}
+    for (const [key, nested] of value.entries()) {
+      out[String(key)] = toPlainObjectDeep(nested)
+    }
+    return out
   }
-  return out
-}
-
-const toMaskU8 = (values: ReadonlyArray<boolean> | Uint8Array): Uint8Array => {
-  if (values instanceof Uint8Array) return values
-  const out = new Uint8Array(values.length)
-  for (let idx = 0; idx < values.length; idx += 1) {
-    out[idx] = values[idx] === true ? 1 : 0
+  // Recurse arrays so map/object children are normalized too.
+  if (Array.isArray(value)) {
+    return value.map((entry) => toPlainObjectDeep(entry))
   }
-  return out
+  // Recurse plain object records while preserving scalar primitives.
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+      out[key] = toPlainObjectDeep(nested)
+    }
+    return out
+  }
+  // Primitive/null payloads pass through unchanged.
+  return value
 }
 
 // Convert Set inputs into plain arrays before serializing into the WASM payload.
@@ -198,8 +221,10 @@ export const evaluateWasmRuleEngineItems = async (params: {
   const optionsPayload = toEvaluateOptionsPayload(params.options)
   // Evaluate all provided items using the configured matcher state.
   const result = evaluateRuleEngineWasmValueBinding(params.items, optionsPayload)
-  // Keep return contract stable: malformed payload falls back to empty array.
-  return Array.isArray(result) ? (result as TesterMatchWorkerItemResult[]) : []
+  // Return parsed results when binding returned the expected array payload.
+  if (Array.isArray(result)) return result as TesterMatchWorkerItemResult[]
+  // Fail loudly on malformed payloads instead of masking with fallback rows.
+  throw new Error('WASM matcher evaluate returned an invalid payload.')
 }
 
 // Sync configure helper is used by main-thread adapters that cannot await.
@@ -257,6 +282,34 @@ type WasmKeepUniqueCountModePayload = {
   perSlot: boolean
 }
 
+// Readable HSFC label lookups come from TS constants so label ids stay SSOT.
+type WasmKeepUniqueNormalizationLookupsPayload = {
+  artifactTypeIdsByName: Record<string, number>
+  artifactSetIdsByName: Record<string, number>
+  factionIdsByName: Record<string, number>
+  rarityCodesByName: Record<string, number>
+  statVariantIdsByLabel: Record<string, number>
+}
+
+type WasmCollectedKeepUniqueCandidate = {
+  rowIndex: number
+  itemKey: number
+  groupKey: string
+  isSold: boolean
+  artifact: unknown
+}
+
+type WasmCollectedKeepUniqueSnapshot = {
+  candidates: WasmCollectedKeepUniqueCandidate[]
+  uniqueItemKeys: number[]
+}
+
+type WasmCollectedAndProtectedKeepUniqueSnapshot = {
+  candidates: WasmCollectedKeepUniqueCandidate[]
+  uniqueItemKeys: number[]
+  detection: KeepUniqueDetectionSnapshot
+}
+
 // Synchronous obsolete-pruning helper used by generation code paths that must
 // stay sync; it only runs after the async warmup initialized the module.
 export const findObsoleteRulesWithLoadedWasm = (rules: HsfRule[]): WasmObsoleteReport | null => {
@@ -264,26 +317,6 @@ export const findObsoleteRulesWithLoadedWasm = (rules: HsfRule[]): WasmObsoleteR
   const report = findObsoleteRuleEngineWasmValueBinding(rules) as WasmObsoleteReport
   if (report && Array.isArray(report.obsolete)) return report
   throw new Error('WASM obsolete-rule detector returned an invalid payload.')
-}
-
-// Builder-specific obsolete detector mirrors hsfBuilder pruning semantics.
-export const findObsoleteBuilderRulesWithLoadedWasm = (rules: HsfRule[]): WasmObsoleteReport | null => {
-  assertWasmInitializedSync()
-  const report = findObsoleteBuilderRuleEngineWasmValueBinding(rules) as WasmObsoleteReport
-  if (report && Array.isArray(report.obsolete)) return report
-  throw new Error('WASM builder obsolete-rule detector returned an invalid payload.')
-}
-
-// Builder finalizer keeps builder-specific obsolete pruning + emission ordering
-// in Rust so hsfBuilder.ts no longer duplicates the prune/sort implementation.
-export const finalizeBuilderRulesWithLoadedWasm = (params: {
-  rules: HsfRule[]
-  emissionMeta: Array<{ levelIdx: number; branchIdx: number; seq: number }>
-}): HsfRule[] => {
-  assertWasmInitializedSync()
-  const result = finalizeBuilderRulesWasmValueBinding(params.rules, params.emissionMeta)
-  if (Array.isArray(result)) return result as HsfRule[]
-  throw new Error('WASM builder finalizer returned an invalid payload.')
 }
 
 // Export dedupe helper mirrors hsfDeduplicate.ts segment semantics while moving
@@ -308,36 +341,17 @@ export const finalizeGeneratedRulesWithLoadedWasm = (params: {
   throw new Error('WASM finalize-generated-rules returned an invalid payload.')
 }
 
-// Synchronous helper for hsfBuilder roll-composition loops.
-// Callers use this only after warmup; null means wasm is not ready.
-export const getRollDistributionsWithLoadedWasm = (
-  dimensions: number,
-  total: number,
-): number[][] | null => {
-  // Sync callers use this inside tight loops; require warmup beforehand.
-  if (!wasmInitialized) return null
-  // Reject NaN/Infinity inputs so wasm never receives invalid dimensions.
-  if (!Number.isFinite(dimensions) || !Number.isFinite(total)) return null
-  // Zero dimensions can only satisfy a zero-total composition.
-  if (dimensions <= 0) return total === 0 ? [[]] : []
-  // Negative totals have no feasible distributions.
-  if (total < 0) return []
-  try {
-    // Floor once to keep parity with existing JS integer semantics.
-    const flat = rollDistributionsFlatWasmBinding(
-      Math.max(0, Math.floor(dimensions)),
-      Math.floor(total),
-    )
-    // Rehydrate fixed-width rows from the flat wasm payload.
-    return unflattenI32Rows(flat, Math.max(0, Math.floor(dimensions)))
-  } catch {
-    // Preserve nullable contract used by legacy fallback-aware callers.
-    return null
-  }
+// Batch merged-rule fingerprinting runs in Rust so orchestrator rebuild checks
+// avoid repeated per-rule JS normalization work on large merged rule sets.
+export const fingerprintMergedRulesWithLoadedWasm = (rules: readonly HsfRuleWithCfg[]): string => {
+  assertWasmInitializedSync()
+  const signature = fingerprintMergedRulesWasmValueBinding(rules)
+  if (typeof signature === 'string') return signature
+  throw new Error('WASM merged-rule fingerprint helper returned an invalid payload.')
 }
 
 // Synchronous keep-unique detector runs candidate/rule loops inside wasm.
-// Returns null when wasm is unavailable so callers can use JS fallback paths.
+// Callers must warm wasm first; invalid payloads are surfaced by callers.
 export const computeKeepUniqueProtectionWithLoadedWasm = (params: {
   candidates: unknown
   rules: unknown
@@ -371,26 +385,89 @@ export const computeKeepUniqueProtectionWithLoadedWasm = (params: {
   )
 }
 
-// Candidate keep/sell resolver mirrors keepUniques.ts fallback behavior while
-// keeping the base-match + ignore-config decision path inside Rust.
-export const resolveKeepUniqueCandidateKeepFlagsWithLoadedWasm = (params: {
+// Candidate collection keeps keep-flag resolution + item/group key derivation
+// in Rust; TS callers reattach row references for compatibility.
+export const collectKeepUniqueCandidatesWithLoadedWasm = (params: {
   rows: unknown
   rules: HsfRuleWithCfg[]
   configModes: SellfileExportMode[]
   ignoreKeepUniqueConfigIndices?: ReadonlySet<number>
-}): boolean[] => {
+}): WasmCollectedKeepUniqueSnapshot => {
   assertWasmInitializedSync()
   const ignored = toSortedNumberArray(params.ignoreKeepUniqueConfigIndices) ?? null
-  const result = resolveKeepUniqueCandidateKeepFlagsValueWasmBinding(
+  const result = collectKeepUniqueCandidatesWasmValueBinding(
     params.rows,
     params.rules,
     params.configModes,
     ignored,
-  )
-  if (Array.isArray(result)) {
-    return result.map((value) => value === true)
+  ) as WasmCollectedKeepUniqueSnapshot
+  if (result && Array.isArray(result.candidates) && Array.isArray(result.uniqueItemKeys)) {
+    return result
   }
-  throw new Error('WASM keep-unique candidate resolver returned an invalid payload.')
+  throw new Error('WASM keep-unique candidate collector returned an invalid payload.')
+}
+
+// Combined keep-unique pipeline runs candidate collection + detection in one
+// wasm call so TS orchestration avoids two separate Rust roundtrips.
+export const collectAndComputeKeepUniqueProtectionWithLoadedWasm = (params: {
+  rows: unknown
+  rules: HsfRuleWithCfg[]
+  configModes: SellfileExportMode[]
+  ignoreKeepUniqueConfigIndices?: ReadonlySet<number>
+  keepUniqueRules: unknown
+  expectedGroupsByRuleId?: unknown
+  expectedGroupDomain?: unknown
+  enabled: boolean
+  now: number
+}): WasmCollectedAndProtectedKeepUniqueSnapshot => {
+  assertWasmInitializedSync()
+  const ignored = toSortedNumberArray(params.ignoreKeepUniqueConfigIndices) ?? null
+  const expectedGroupsPayload = (
+    params.expectedGroupsByRuleId !== undefined
+    || params.expectedGroupDomain !== undefined
+  )
+    ? {
+      ...(params.expectedGroupsByRuleId !== undefined
+        ? { expectedGroupsByRuleId: params.expectedGroupsByRuleId }
+        : {}),
+      ...(params.expectedGroupDomain !== undefined
+        ? { expectedGroupDomain: params.expectedGroupDomain }
+        : {}),
+    }
+    : undefined
+  const result = collectAndComputeKeepUniqueProtectionWasmValueBinding(
+    params.rows,
+    params.rules,
+    params.configModes,
+    ignored,
+    params.keepUniqueRules,
+    expectedGroupsPayload,
+    params.enabled === true,
+    Number.isFinite(params.now) ? params.now : 0,
+  ) as WasmCollectedAndProtectedKeepUniqueSnapshot
+  if (
+    result
+    && Array.isArray(result.candidates)
+    && Array.isArray(result.uniqueItemKeys)
+    && result.detection
+    && Array.isArray(result.detection.entries)
+  ) {
+    return result
+  }
+  throw new Error('WASM keep-unique combined collector/detector returned an invalid payload.')
+}
+
+// Metaset expansion for keep-unique rules now runs in Rust so include/exclude
+// precedence stays single-sourced across app and workers.
+export const resolveKeepUniqueRulesWithMetasetsWithLoadedWasm = <T extends { combination: unknown }>(
+  rules: readonly T[],
+  metasets: readonly unknown[],
+): T[] => {
+  assertWasmInitializedSync()
+  if (rules.length === 0 || metasets.length === 0) return rules as T[]
+  const result = resolveKeepUniqueRulesWithMetasetsWasmValueBinding(rules, metasets) as T[]
+  if (Array.isArray(result)) return result
+  throw new Error('WASM keep-unique metaset resolver returned an invalid payload.')
 }
 
 // Injected keep-unique merge filtering/sorting runs in Rust so canonicalization
@@ -428,26 +505,359 @@ export const buildKeepUniqueRulesWithLoadedWasm = (params: {
   throw new Error('WASM keep-unique rule builder returned an invalid payload.')
 }
 
-// Auto-rarity resolution stays in Rust so builder preview and generation share
-// one rarity decision implementation for aggregate/per-substat requirements.
-export const resolveAutoRarityCodeWithLoadedWasm = (payload: {
+// Final-sell HSF remainder generation runs in Rust so merge.ts no longer owns
+// level/type/set expansion loops.
+export const buildFinalSellRulesWithLoadedWasm = (params: {
+  finalSellRemainder: FinalSellRemainderConfig | null | undefined
+  allKnownSetIds: number[]
+}): HsfRuleWithCfg[] => {
+  assertWasmInitializedSync()
+  const result = buildFinalSellRulesWasmValueBinding(
+    params.finalSellRemainder ?? null,
+    params.allKnownSetIds,
+  )
+  if (Array.isArray(result)) return result as HsfRuleWithCfg[]
+  throw new Error('WASM final-sell rule builder returned an invalid payload.')
+}
+
+// Custom-rule batch flattening + total-limit gating runs in Rust so merge.ts
+// keeps one source for add-batch overflow behavior.
+export const flattenRuleBatchesWithTotalLimitWithLoadedWasm = (params: {
+  baseCount: number
+  totalLimit: number | null
+  batches: ReadonlyArray<ReadonlyArray<HsfRuleWithCfg>>
+}): HsfRuleWithCfg[] => {
+  assertWasmInitializedSync()
+  const result = flattenRuleBatchesWithTotalLimitWasmValueBinding(
+    BigInt(Math.max(0, Math.floor(params.baseCount))),
+    BigInt(params.totalLimit != null ? Math.floor(params.totalLimit) : -1),
+    params.batches,
+  )
+  if (Array.isArray(result)) return result as HsfRuleWithCfg[]
+  throw new Error('WASM custom-rule batch flattener returned an invalid payload.')
+}
+
+// Merge orchestration combines base/custom/final-sell/keep-unique rows and
+// assigns stable __lineIdx ordering in one Rust pass.
+export const computeMergedRulesWithLoadedWasm = (params: {
+  baseRules: HsfRuleWithCfg[]
+  customRules: HsfRuleWithCfg[]
+  finalSellRemainder: FinalSellRemainderConfig | null | undefined
+  allKnownSetIds: number[]
+  keepUniqueEnabled: boolean
+  keepUniqueRules: readonly KeepUniqueRule[]
+  keepUniqueDetection: KeepUniqueDetectionSnapshot | null | undefined
+  keepUniqueConfigIdBase: number
+}): HsfRuleWithCfg[] => {
+  assertWasmInitializedSync()
+  const result = computeMergedRulesWasmValueBinding({
+    baseRules: params.baseRules,
+    customRules: params.customRules,
+    finalSellRemainder: params.finalSellRemainder ?? null,
+    allKnownSetIds: params.allKnownSetIds,
+    keepUniqueEnabled: params.keepUniqueEnabled === true,
+    keepUniqueRules: params.keepUniqueRules,
+    keepUniqueDetection: params.keepUniqueDetection ?? null,
+    keepUniqueConfigIdBase: Math.floor(params.keepUniqueConfigIdBase),
+  })
+  if (Array.isArray(result)) return result as HsfRuleWithCfg[]
+  throw new Error('WASM merged-rule orchestrator returned an invalid payload.')
+}
+
+// Auto-flex rarity branch expansion now runs in Rust so merge.ts keeps one
+// source for the branch split heuristics tied to auto rarity + locked mins.
+export const expandAutoFlexRarityBranchesWithLoadedWasm = (params: {
+  config: BuilderConfig
+  baseRarityCode: number
+}): BuilderConfig[] => {
+  assertWasmInitializedSync()
+  const rawResult = expandAutoFlexRarityBranchesWasmValueBinding(
+    params.config,
+    Math.floor(params.baseRarityCode),
+  )
+  const result = toPlainObjectDeep(rawResult)
+  if (Array.isArray(result)) return result as BuilderConfig[]
+  throw new Error('WASM auto-flex rarity branch expansion returned an invalid payload.')
+}
+
+// Builder-facing auto-rarity helper accepts raw config vectors and allowed ids.
+// Rust compacts selected/fixed/bounds before running the shared rarity core.
+export const resolveAutoRarityCodeForBuilderWithLoadedWasm = (payload: {
   autoRaritySupplementsThreshold?: string | null
   autoMinRequiredRolls?: boolean
   minRequiredRolls?: number
   lockedMinRequiredRolls?: number
   minCount?: number
   earlyKeepMode?: string
-  selectedPoolV: number[]
-  fixedPoolV: number[]
-  substatRollBoundsV: Record<number, { min?: number }>
+  substatsV: ReadonlyArray<number> | Int32Array
+  fixedSubstatsV: ReadonlyArray<number> | Int32Array
+  substatRollBoundsV: Record<number, { min?: number }> | undefined
+  allowedSubstats: ReadonlyArray<number> | Int32Array
 }): number => {
   // Sync helper is fail-closed: caller must have warmed wasm already.
   assertWasmInitializedSync()
-  // Delegate the full auto-rarity decision to Rust for SSOT parity.
-  const result = resolveAutoRarityCodeWasmValueBinding(payload)
+  // Delegate selection/fixed filtering + bound compaction + resolve to Rust.
+  const result = resolveAutoRarityCodeForBuilderWasmValueBinding({
+    ...(typeof payload.autoRaritySupplementsThreshold === 'string'
+      ? { autoRaritySupplementsThreshold: payload.autoRaritySupplementsThreshold }
+      : {}),
+    ...(typeof payload.autoMinRequiredRolls === 'boolean'
+      ? { autoMinRequiredRolls: payload.autoMinRequiredRolls }
+      : {}),
+    ...(typeof payload.minRequiredRolls === 'number' && Number.isFinite(payload.minRequiredRolls)
+      ? { minRequiredRolls: payload.minRequiredRolls }
+      : {}),
+    ...(typeof payload.lockedMinRequiredRolls === 'number' && Number.isFinite(payload.lockedMinRequiredRolls)
+      ? { lockedMinRequiredRolls: payload.lockedMinRequiredRolls }
+      : {}),
+    ...(typeof payload.minCount === 'number' && Number.isFinite(payload.minCount)
+      ? { minCount: payload.minCount }
+      : {}),
+    ...(typeof payload.earlyKeepMode === 'string'
+      ? { earlyKeepMode: payload.earlyKeepMode }
+      : {}),
+    substatsV: Array.from(toFlooredI32(payload.substatsV)),
+    fixedSubstatsV: Array.from(toFlooredI32(payload.fixedSubstatsV)),
+    substatRollBoundsV: payload.substatRollBoundsV ?? {},
+    allowedSubstats: Array.from(toFlooredI32(payload.allowedSubstats)),
+  })
   // Rust binding returns a numeric rarity code; reject malformed payloads.
   if (typeof result === 'number' && Number.isFinite(result)) return Math.floor(result)
-  throw new Error('WASM auto-rarity resolver returned an invalid payload.')
+  throw new Error('WASM auto-rarity builder resolver returned an invalid payload.')
+}
+
+// Auto-rarity roll-level helper keeps TS schedule lookups sourced from Rust.
+export const getAutoRarityRollLevelsForCodeWithLoadedWasm = (rarityCode: number): number[] => {
+  assertWasmInitializedSync()
+  const levels = autoRarityRollLevelsForCodeWasmValueBinding(Math.floor(rarityCode))
+  if (levels instanceof Int32Array) return Array.from(levels, (value) => Math.floor(Number(value)))
+  throw new Error('WASM auto-rarity roll-level helper returned an invalid payload.')
+}
+
+// Auto-rarity addition-level helper keeps TS schedule lookups sourced from Rust.
+export const getAutoRarityAdditionLevelsForCodeWithLoadedWasm = (rarityCode: number): number[] => {
+  assertWasmInitializedSync()
+  const levels = autoRarityAdditionLevelsForCodeWasmValueBinding(Math.floor(rarityCode))
+  if (levels instanceof Int32Array) return Array.from(levels, (value) => Math.floor(Number(value)))
+  throw new Error('WASM auto-rarity addition-level helper returned an invalid payload.')
+}
+
+// Mythical-membership helper keeps TS schedule lookups sourced from Rust.
+export const getAutoRarityIncludesMythicalForCodeWithLoadedWasm = (rarityCode: number): boolean => {
+  assertWasmInitializedSync()
+  return autoRarityIncludesMythicalForCodeWasmValueBinding(Math.floor(rarityCode)) === true
+}
+
+// Builder prep helper normalizes selected/fixed pools and precomputes per-variant
+// base/target maps in Rust so hsfBuilder.ts avoids heavy per-config prep loops.
+export const prepareHsfBuilderConfigWithLoadedWasm = (payload: {
+  minCount: number
+  autoSubstatFlex: boolean
+  flexEligible: boolean
+  substatsV: ReadonlyArray<number> | Int32Array
+  fixedSubstatsV: ReadonlyArray<number> | Int32Array
+  allowedSubstats: ReadonlyArray<number> | Int32Array
+  substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }>
+  substatRollTargetsV?: Record<number, { base?: number; increments?: Array<number | null> }>
+  substatTargetByVariant: Record<number, number>
+  factoryBaseByVariantForStar: Record<number, number>
+  variantPriority: ReadonlyArray<number> | Int32Array
+}): {
+  selectedPoolV: number[]
+  requiredV: number[]
+  optionalPoolV: number[]
+  minTargetCount: number
+  maxTargetCount: number
+  maxSelectableCount: number
+  hadRequestedSubstats: boolean
+  hasPerStatMin: boolean
+  currentBaseByVariant: Record<string, number>
+  factoryBaseByVariant: Record<string, number | null>
+  targetBaseOverrideByVariant: Record<string, number | null>
+  targetEntriesByVariant: Record<string, { base?: number; increments?: Array<number | null> }>
+} => {
+  assertWasmInitializedSync()
+  const result = prepareHsfBuilderConfigWasmValueBinding({
+    minCount: Math.floor(payload.minCount),
+    autoSubstatFlex: payload.autoSubstatFlex === true,
+    flexEligible: payload.flexEligible === true,
+    substatsV: Array.from(toFlooredI32(payload.substatsV)),
+    fixedSubstatsV: Array.from(toFlooredI32(payload.fixedSubstatsV)),
+    allowedSubstats: Array.from(toFlooredI32(payload.allowedSubstats)),
+    substatRollBoundsV: payload.substatRollBoundsV ?? {},
+    substatRollTargetsV: payload.substatRollTargetsV ?? {},
+    substatTargetByVariant: payload.substatTargetByVariant ?? {},
+    factoryBaseByVariantForStar: payload.factoryBaseByVariantForStar ?? {},
+    variantPriority: Array.from(toFlooredI32(payload.variantPriority)),
+  }) as {
+    selectedPoolV?: unknown
+    requiredV?: unknown
+    optionalPoolV?: unknown
+    minTargetCount?: unknown
+    maxTargetCount?: unknown
+    maxSelectableCount?: unknown
+    hadRequestedSubstats?: unknown
+    hasPerStatMin?: unknown
+    currentBaseByVariant?: unknown
+    factoryBaseByVariant?: unknown
+    targetBaseOverrideByVariant?: unknown
+    targetEntriesByVariant?: unknown
+  }
+  if (
+    !result
+    || !Array.isArray(result.selectedPoolV)
+    || !Array.isArray(result.requiredV)
+    || !Array.isArray(result.optionalPoolV)
+    || result.currentBaseByVariant == null
+    || result.factoryBaseByVariant == null
+    || result.targetBaseOverrideByVariant == null
+    || result.targetEntriesByVariant == null
+  ) {
+    throw new Error('WASM prepare-hsf-builder-config helper returned an invalid payload.')
+  }
+  return {
+    selectedPoolV: result.selectedPoolV.map((value) => Math.floor(Number(value))),
+    requiredV: result.requiredV.map((value) => Math.floor(Number(value))),
+    optionalPoolV: result.optionalPoolV.map((value) => Math.floor(Number(value))),
+    minTargetCount: Math.floor(Number(result.minTargetCount ?? 0)),
+    maxTargetCount: Math.floor(Number(result.maxTargetCount ?? 0)),
+    maxSelectableCount: Math.floor(Number(result.maxSelectableCount ?? 0)),
+    hadRequestedSubstats: result.hadRequestedSubstats === true,
+    hasPerStatMin: result.hasPerStatMin === true,
+    currentBaseByVariant: toPlainObjectDeep(result.currentBaseByVariant) as Record<string, number>,
+    factoryBaseByVariant: toPlainObjectDeep(result.factoryBaseByVariant) as Record<string, number | null>,
+    targetBaseOverrideByVariant: toPlainObjectDeep(result.targetBaseOverrideByVariant) as Record<string, number | null>,
+    targetEntriesByVariant: toPlainObjectDeep(result.targetEntriesByVariant) as Record<string, { base?: number; increments?: Array<number | null> }>,
+  }
+}
+
+// Keep-unique combination normalization now runs in Rust so TS no longer owns
+// recursive tuple parsing/dedupe/sort loops for readable HSFC payloads.
+export const normalizeKeepUniqueCombinationWithLoadedWasm = <
+  T extends object,
+>(value: unknown, lookups: WasmKeepUniqueNormalizationLookupsPayload): T | null => {
+  // Sync helper is fail-closed: caller must have warmed wasm already.
+  assertWasmInitializedSync()
+  // Delegate normalization to wasm so tuple parsing is single-sourced.
+  const result = normalizeKeepUniqueCombinationWasmValueBinding(value, lookups)
+  // Null keeps invalid payload behavior aligned with TS helpers.
+  if (result === null || result === undefined) return null
+  // Guard the payload shape before returning typed output.
+  if (typeof result === 'object') return result as T
+  throw new Error('WASM keep-unique combination normalizer returned an invalid payload.')
+}
+
+// Keep-unique rule normalization now runs in Rust so TS no longer owns
+// recursive rule parsing and legacy tuple-field coercion loops.
+export const normalizeKeepUniqueRuleWithLoadedWasm = <
+  T extends object,
+>(
+  value: unknown,
+  lookups: WasmKeepUniqueNormalizationLookupsPayload,
+  generatedRuleId: string,
+): T | null => {
+  // Sync helper is fail-closed: caller must have warmed wasm already.
+  assertWasmInitializedSync()
+  // Delegate normalization to wasm so rule parsing is single-sourced.
+  const result = normalizeKeepUniqueRuleWasmValueBinding(value, lookups, generatedRuleId)
+  // Null keeps invalid payload behavior aligned with TS helpers.
+  if (result === null || result === undefined) return null
+  // Guard the payload shape before returning typed output.
+  if (typeof result === 'object') return result as T
+  throw new Error('WASM keep-unique rule normalizer returned an invalid payload.')
+}
+
+// Keep-unique activation normalization runs in Rust so TS and detection parsing
+// share the same legacy token aliases and fallback behavior.
+export const normalizeKeepUniqueActivationWithLoadedWasm = (
+  value: unknown,
+  legacyEnabled?: unknown,
+): string => {
+  assertWasmInitializedSync()
+  const normalized = normalizeKeepUniqueActivationWasmValueBinding(value, legacyEnabled)
+  if (typeof normalized === 'string') return normalized
+  throw new Error('WASM keep-unique activation normalizer returned an invalid payload.')
+}
+
+// Keep-unique substat-match normalization runs in Rust so TS and detection parsing
+// share the same canonical tokens (`any|all|perSubstat`).
+export const normalizeKeepUniqueSubstatMatchWithLoadedWasm = (value: unknown): string => {
+  assertWasmInitializedSync()
+  const normalized = normalizeKeepUniqueSubstatMatchWasmValueBinding(value)
+  if (typeof normalized === 'string') return normalized
+  throw new Error('WASM keep-unique substat-match normalizer returned an invalid payload.')
+}
+
+// Keep-unique count-mode normalization runs in Rust so TS and detection parsing
+// share the same default + sanitize behavior.
+export const normalizeKeepUniqueCountModeWithLoadedWasm = (
+  value: unknown,
+): WasmKeepUniqueCountModePayload => {
+  assertWasmInitializedSync()
+  const normalized = normalizeKeepUniqueCountModeWasmValueBinding(value)
+  if (
+    normalized
+    && typeof normalized === 'object'
+    && 'perRule' in normalized
+    && 'perSet' in normalized
+    && 'perFaction' in normalized
+    && 'perMainStat' in normalized
+    && 'perSlot' in normalized
+  ) {
+    return normalized as WasmKeepUniqueCountModePayload
+  }
+  throw new Error('WASM keep-unique count-mode normalizer returned an invalid payload.')
+}
+
+// Keep-unique substat sorting runs in Rust so TS reuses one priority ordering.
+export const sortKeepUniqueSubstatsWithLoadedWasm = (values: readonly number[]): number[] => {
+  assertWasmInitializedSync()
+  const sorted = sortKeepUniqueSubstatsWasmValueBinding(values)
+  if (sorted instanceof Int32Array) return Array.from(sorted, (value) => Math.floor(Number(value)))
+  if (Array.isArray(sorted)) return sorted.map((value) => Math.floor(Number(value)))
+  throw new Error('WASM keep-unique substat sorter returned an invalid payload.')
+}
+
+// Keep-unique combination sorting runs in Rust so TS reuses one canonical order.
+export const sortKeepUniqueCombinationWithLoadedWasm = <T extends object>(combination: T): T => {
+  assertWasmInitializedSync()
+  const sorted = sortKeepUniqueCombinationWasmValueBinding(combination)
+  if (sorted && typeof sorted === 'object') return sorted as T
+  throw new Error('WASM keep-unique combination sorter returned an invalid payload.')
+}
+
+// Keep-unique combination hash generation runs in Rust so TS reuses one canonical
+// tokenization implementation for snapshots + rule metadata.
+export const hashKeepUniqueCombinationWithLoadedWasm = (combination: unknown): string => {
+  assertWasmInitializedSync()
+  const hash = hashKeepUniqueCombinationWasmValueBinding(combination)
+  if (typeof hash === 'string') return hash
+  throw new Error('WASM keep-unique combination hash helper returned an invalid payload.')
+}
+
+// Keep-unique item-key derivation runs in Rust so TS reuses DB-id-first
+// semantics used by candidate collection.
+export const getKeepUniqueItemKeyWithLoadedWasm = (artifact: unknown): number => {
+  assertWasmInitializedSync()
+  const key = keepUniqueItemKeyValueWasmValueBinding(artifact)
+  // wasm-bindgen maps Rust `i64` to JS `bigint`, but older bindings may still
+  // surface a JS number in some environments.
+  if (typeof key === 'bigint') {
+    const numeric = Number(key)
+    if (Number.isFinite(numeric)) return Math.floor(numeric)
+  }
+  // Keep compatibility with number-returning bindings while still fail-closing.
+  if (typeof key === 'number' && Number.isFinite(key)) return Math.floor(key)
+  throw new Error('WASM keep-unique item-key helper returned an invalid payload.')
+}
+
+// Keep-unique group-key derivation runs in Rust so TS reuses accessory faction
+// normalization used by candidate collection.
+export const getKeepUniqueGroupKeyWithLoadedWasm = (artifact: unknown): string => {
+  assertWasmInitializedSync()
+  const key = keepUniqueGroupKeyValueWasmValueBinding(artifact)
+  if (typeof key === 'string') return key
+  throw new Error('WASM keep-unique group-key helper returned an invalid payload.')
 }
 
 // Keep-unique expected-group generation uses this helper so group-key logic is
@@ -473,236 +883,179 @@ export const getKeepUniqueCountKeyWithLoadedWasm = (params: {
   )
 }
 
-// Combined filtered-emission helper keeps distribution filtering + HSF rule
-// object construction in wasm for branches that do not require JS row predicates.
-export const emitHsfRulesForFilteredDistributionsWithLoadedWasm = (payload: {
-  dimensions: number
-  total: number
-  maxCaps: ReadonlyArray<number | undefined> | Int32Array
-  minFloors?: ReadonlyArray<number | undefined> | Int32Array
-  timelineCaps: ReadonlyArray<number | undefined> | Int32Array
-  targetedMask: ReadonlyArray<boolean> | Uint8Array
-  targetedExact?: number | null
-  deficitFloors?: ReadonlyArray<number | undefined> | Int32Array
-  deficitMax?: number | null
-  globalMin: number
-  globalRemaining: number
-  globalMode: 0 | 1 | 2
-  lockedMask: ReadonlyArray<boolean> | Uint8Array
-  lockedMin: number
-  lockedRemaining: number
-  lockedMode: 0 | 1 | 2
-  emit: {
-    baseRule: HsfRule
-    substats: Array<{ id: number; isFlat?: boolean }>
-    baseVals: number[]
-    mins: number[]
-    maxCaps: number[]
-    optionalMask: boolean[]
-    skipOptionalBaseline: boolean
-    mainChoices: Array<{ id: number; f?: number }>
-    emitAnyMainWhenNoChoices: boolean
-    targetBases: Array<number | null>
-    targetIncrements: Array<Array<number | null>>
-  }
-}): HsfRule[] | null => {
+// Keep-unique expected-group domain normalization is centralized in Rust so
+// ordering/dedupe semantics cannot drift from matcher-side domain readers.
+export const normalizeKeepUniqueExpectedGroupDomainWithLoadedWasm = <
+  T extends {
+    slotOrder: number[]
+    accessoryCompatibleSetIds: number[]
+    armorCompatibleSetIds: number[]
+    allowedMainBySlot: Record<string, number[]>
+    allFactionIds: number[]
+  },
+>(domain: T): T => {
   assertWasmInitializedSync()
-  const result = emitHsfRulesForFilteredDistributionsValueWasmBinding({
-    dimensions: Math.max(0, Math.floor(payload.dimensions)),
-    total: Math.floor(payload.total),
-    maxCaps: Array.from(toOptionalI32(payload.maxCaps)),
-    minFloors: Array.from(toOptionalI32(payload.minFloors ?? [])),
-    timelineCaps: Array.from(toOptionalI32(payload.timelineCaps)),
-    targetedMask: Array.from(toMaskU8(payload.targetedMask)),
-    targetedExact: (
-      typeof payload.targetedExact === 'number' && Number.isFinite(payload.targetedExact)
-        ? Math.floor(payload.targetedExact)
-        : -1
-    ),
-    deficitFloors: Array.from(toOptionalI32(payload.deficitFloors ?? [])),
-    deficitMax: (
-      typeof payload.deficitMax === 'number' && Number.isFinite(payload.deficitMax)
-        ? Math.floor(payload.deficitMax)
-        : -1
-    ),
-    globalMin: Math.floor(payload.globalMin),
-    globalRemaining: Math.floor(payload.globalRemaining),
-    globalMode: Math.floor(payload.globalMode),
-    lockedMask: Array.from(toMaskU8(payload.lockedMask)),
-    lockedMin: Math.floor(payload.lockedMin),
-    lockedRemaining: Math.floor(payload.lockedRemaining),
-    lockedMode: Math.floor(payload.lockedMode),
-    // Filtered path computes distributions in Rust; emit core still expects the
-    // field to deserialize, so provide an empty placeholder vector.
-    emit: {
-      ...payload.emit,
-      distributions: [],
-    },
-  })
-  if (Array.isArray(result)) return result as HsfRule[]
-  throw new Error('WASM filtered HSF emission returned an invalid payload.')
+  const result = normalizeKeepUniqueExpectedGroupDomainWasmValueBinding(domain)
+  if (result && typeof result === 'object') return result as T
+  throw new Error('WASM keep-unique expected-group domain normalizer returned an invalid payload.')
 }
 
-// Synchronous helper emits concrete HSF rows for a distribution batch.
-// Returns null when wasm is unavailable so callers can use JS fallback paths.
-export const emitHsfRulesForDistributionsWithLoadedWasm = (payload: {
-  baseRule: HsfRule
-  substats: Array<{ id: number; isFlat?: boolean }>
-  distributions: number[][]
-  baseVals: number[]
-  mins: number[]
-  maxCaps: number[]
-  optionalMask: boolean[]
-  skipOptionalBaseline: boolean
+// Full builder runtime helper runs preflight + branch orchestration in one wasm
+// call so buildHsfRules no longer stitches presence/preflight/branches in TS.
+export const buildHsfRulesRuntimeWithLoadedWasm = (params: {
+  configId?: number | null
+  keep?: boolean
+  useFlag: boolean
+  artifactSetIds: ReadonlyArray<number> | Int32Array
+  artifactTypeIds: ReadonlyArray<number> | Int32Array
+  rankCode: number
+  rarityCode: number
+  factionCode: number
   mainChoices: Array<{ id: number; f?: number }>
   emitAnyMainWhenNoChoices: boolean
-  targetBases: Array<number | null>
-  targetIncrements: Array<Array<number | null>>
-}): HsfRule[] | null => {
+  baseline?: string
+  effectiveStart: number
+  suppressRollThresholds: boolean
+  levelWindowMin: number
+  levelWindowMax: number
+  requiredV: ReadonlyArray<number> | Int32Array
+  optionalPoolV: ReadonlyArray<number> | Int32Array
+  selectedPoolV: ReadonlyArray<number> | Int32Array
+  flexActive: boolean
+  aggregateMinActive: boolean
+  minTargetCount: number
+  maxTargetCount: number
+  aggregateTargetsLocked: boolean
+  aggregateMinValue: number
+  lockedMinActive: boolean
+  lockedMinValue: number
+  substatRollBoundsV: Record<string, { min?: number; max?: number; any?: boolean }>
+  targetEntriesByVariant: Record<number, { base?: number; increments?: Array<number | null> }>
+  currentBaseByVariant: Record<number, number>
+  factoryBaseByVariant: Record<number, number | null>
+  targetBaseOverrideByVariant: Record<number, number | null>
+  rarityMode?: string
+  earlyKeepMode?: string
+  autoRaritySupplementsThreshold?: string
+  earlyMode: 'early' | 'late'
+  emissionLimit?: number | null
+}): { rules: HsfRule[]; limitHit: boolean } => {
   assertWasmInitializedSync()
-  const result = emitHsfRulesForDistributionsValueWasmBinding(payload)
-  if (Array.isArray(result)) return result as HsfRule[]
-  throw new Error('WASM HSF emission returned an invalid payload.')
+  const result = buildHsfRulesRuntimeWasmValueBinding({
+    ...(params.configId != null && Number.isFinite(params.configId)
+      ? { configId: Math.floor(params.configId) }
+      : {}),
+    ...(typeof params.keep === 'boolean' ? { keep: params.keep } : {}),
+    useFlag: params.useFlag === true,
+    artifactSetIds: Array.from(toFlooredI32(params.artifactSetIds)),
+    artifactTypeIds: Array.from(toFlooredI32(params.artifactTypeIds)),
+    rankCode: Math.floor(params.rankCode),
+    rarityCode: Math.floor(params.rarityCode),
+    factionCode: Math.floor(params.factionCode),
+    mainChoices: params.mainChoices ?? [],
+    emitAnyMainWhenNoChoices: params.emitAnyMainWhenNoChoices === true,
+    baseline: params.baseline,
+    effectiveStart: Math.floor(params.effectiveStart),
+    suppressRollThresholds: params.suppressRollThresholds === true,
+    levelWindowMin: Math.floor(params.levelWindowMin),
+    levelWindowMax: Math.floor(params.levelWindowMax),
+    requiredV: Array.from(toFlooredI32(params.requiredV)),
+    optionalPoolV: Array.from(toFlooredI32(params.optionalPoolV)),
+    selectedPoolV: Array.from(toFlooredI32(params.selectedPoolV)),
+    flexActive: params.flexActive === true,
+    aggregateMinActive: params.aggregateMinActive === true,
+    minTargetCount: Math.floor(params.minTargetCount),
+    maxTargetCount: Math.floor(params.maxTargetCount),
+    aggregateTargetsLocked: params.aggregateTargetsLocked === true,
+    aggregateMinValue: Math.floor(params.aggregateMinValue),
+    lockedMinActive: params.lockedMinActive === true,
+    lockedMinValue: Math.floor(params.lockedMinValue),
+    substatRollBoundsV: params.substatRollBoundsV ?? {},
+    targetEntriesByVariant: params.targetEntriesByVariant ?? {},
+    currentBaseByVariant: params.currentBaseByVariant ?? {},
+    factoryBaseByVariant: params.factoryBaseByVariant ?? {},
+    targetBaseOverrideByVariant: params.targetBaseOverrideByVariant ?? {},
+    ...(typeof params.rarityMode === 'string' ? { rarityMode: params.rarityMode } : {}),
+    ...(typeof params.earlyKeepMode === 'string' ? { earlyKeepMode: params.earlyKeepMode } : {}),
+    ...(typeof params.autoRaritySupplementsThreshold === 'string'
+      ? { autoRaritySupplementsThreshold: params.autoRaritySupplementsThreshold }
+      : {}),
+    earlyMode: params.earlyMode,
+    ...(params.emissionLimit != null && Number.isFinite(params.emissionLimit)
+      ? { emissionLimit: Math.floor(params.emissionLimit) }
+      : {}),
+  }) as { rules?: unknown; limitHit?: unknown }
+  if (!result || !Array.isArray(result.rules)) {
+    throw new Error('WASM build-hsf-rules-runtime helper returned an invalid payload.')
+  }
+  return {
+    rules: result.rules as HsfRule[],
+    limitHit: result.limitHit === true,
+  }
 }
 
 // Synchronous helper for intro assignment combinatorics.
-// Returns null when wasm is unavailable so callers can use JS fallback paths.
+// Callers must warm wasm first; this helper now fails closed.
 export const getIntroAssignmentsForComboWithLoadedWasm = (params: {
   count: number
   baseSlots: number
   additionLevels: ReadonlyArray<number> | Int32Array
   forcedBase: ReadonlyArray<number> | Int32Array
-}): number[][] | null => {
-  // Sync callers must warm wasm first; null keeps historical contract.
-  if (!wasmInitialized) return null
+}): number[][] => {
+  // Sync callers must warm wasm first.
+  assertWasmInitializedSync()
   // Guard invalid numeric inputs before array conversion.
-  if (!Number.isFinite(params.count) || !Number.isFinite(params.baseSlots)) return null
+  if (!Number.isFinite(params.count) || !Number.isFinite(params.baseSlots)) {
+    throw new Error('Invalid intro assignment input: count/baseSlots must be finite.')
+  }
   // Zero count yields one empty assignment row.
   if (params.count <= 0) return [[]]
-  try {
-    // Normalize both vectors once to avoid repeated Number coercions.
-    const additionLevels = toFlooredI32(params.additionLevels)
-    const forcedBase = toFlooredI32(params.forcedBase)
-    // Run combinatorics in wasm and return flattened integer rows.
-    const flat = introAssignmentsForComboFastFlatWasmBinding(
-      Math.floor(params.count),
-      Math.floor(params.baseSlots),
-      additionLevels,
-      forcedBase,
-    )
-    // Rehydrate fixed-width rows where width === artifact count.
-    return unflattenI32Rows(flat, Math.max(0, Math.floor(params.count)))
-  } catch {
-    // Keep nullable failure behavior for existing call sites.
-    return null
-  }
+  // Normalize both vectors once to avoid repeated Number coercions.
+  const count = Math.max(0, Math.floor(params.count))
+  const additionLevels = toFlooredI32(params.additionLevels)
+  const forcedBase = toFlooredI32(params.forcedBase)
+  // Run combinatorics in wasm and return flattened integer rows.
+  const flat = introAssignmentsForComboFastFlatWasmBinding(
+    count,
+    Math.floor(params.baseSlots),
+    additionLevels,
+    forcedBase,
+  )
+  // Rehydrate fixed-width rows where width === artifact count.
+  return unflattenI32Rows(flat, count)
 }
 
 // Synchronous numeric combinations helper for builder combinatorics.
-export const getCombinationsI32WithLoadedWasm = (values: number[], pick: number): number[][] | null => {
-  // Sync callers must warm wasm first; null keeps historical contract.
-  if (!wasmInitialized) return null
+export const getCombinationsI32WithLoadedWasm = (values: number[], pick: number): number[][] => {
+  // Sync callers must warm wasm first.
+  assertWasmInitializedSync()
   // Reject NaN/Infinity pick values before integer flooring.
-  if (!Number.isFinite(pick)) return null
+  if (!Number.isFinite(pick)) {
+    throw new Error('Invalid combinations input: pick must be finite.')
+  }
   // Pick <= 0 means one empty combination by convention.
   if (pick <= 0) return [[]]
   // Picking more than input length cannot produce combinations.
   if (pick > values.length) return []
-  try {
-    // Convert once to contiguous i32 payload for wasm binding.
-    const payload = toFlooredI32(values)
-    // Let wasm enumerate combinations in deterministic index order.
-    const flat = combinationsI32FastFlatWasmBinding(payload, Math.floor(pick))
-    // Decode flat result into rows of length `pick`.
-    return unflattenI32Rows(flat, Math.max(0, Math.floor(pick)))
-  } catch {
-    // Preserve nullable failure behavior used by adapters.
-    return null
-  }
-}
-
-// Synchronous numeric bounded-compositions helper for late allocation loops.
-export const getBoundedCompositionsI32WithLoadedWasm = (caps: number[], total: number): number[][] | null => {
-  // Sync callers must warm wasm first; null keeps historical contract.
-  if (!wasmInitialized) return null
-  // Reject invalid totals before computing caps payload.
-  if (!Number.isFinite(total)) return null
-  // Negative totals have no feasible compositions.
-  if (total < 0) return []
-  // Empty cap vector only supports exact total zero.
-  if (caps.length === 0) return total === 0 ? [[]] : []
-  try {
-    // Clamp caps to non-negative integers before wasm call.
-    const payload = toNonNegativeI32(caps)
-    // Execute bounded-composition backtracking in wasm.
-    const flat = boundedCompositionsI32FastFlatWasmBinding(payload, Math.floor(total))
-    // Rehydrate rows where width equals cap vector length.
-    return unflattenI32Rows(flat, payload.length)
-  } catch {
-    // Preserve nullable failure behavior used by adapters.
-    return null
-  }
-}
-
-// Synchronous helper for late-mode bounded allocations with locked/optional filters.
-export const getFilteredBoundedCompositionsWithOffsetI32WithLoadedWasm = (params: {
-  caps: ReadonlyArray<number> | Int32Array
-  total: number
-  needNow: ReadonlyArray<number> | Int32Array
-  lockedMask: ReadonlyArray<boolean> | Uint8Array
-  lockedBaseSum: number
-  lockedMinAtLevel: number
-  optionalMask: ReadonlyArray<boolean> | Uint8Array
-  mins: ReadonlyArray<number> | Int32Array
-  skipOptionalBaseline: boolean
-}): number[][] | null => {
-  // Fail closed for sync callers that forgot to warm wasm.
-  assertWasmInitializedSync()
-  // Reject invalid totals before any array normalization work.
-  if (!Number.isFinite(params.total)) return null
-  // Negative totals have no feasible compositions.
-  if (params.total < 0) return []
-  // Empty caps support only the exact zero-total shape.
-  if (params.caps.length === 0) return params.total === 0 ? [[]] : []
-  // Keep dimensions aligned; mismatch means malformed caller payload.
-  if (params.needNow.length !== params.caps.length) return null
-  // Normalize all arrays to compact typed payloads once per call.
-  const caps = toNonNegativeI32(params.caps)
-  const needNow = toNonNegativeI32(params.needNow)
-  const lockedMask = toMaskU8(params.lockedMask)
-  const optionalMask = toMaskU8(params.optionalMask)
-  const mins = toNonNegativeI32(params.mins)
-  // Run bounded enumeration + filtering in wasm.
-  const flat = filteredBoundedCompositionsWithOffsetI32FastFlatWasmBinding(
-    caps,
-    Math.floor(params.total),
-    needNow,
-    lockedMask,
-    Math.floor(params.lockedBaseSum),
-    Math.floor(params.lockedMinAtLevel),
-    optionalMask,
-    mins,
-    params.skipOptionalBaseline === true,
-  )
-  // Decode fixed-width rows where width equals cap vector length.
-  return unflattenI32Rows(flat, caps.length)
+  // Convert once to contiguous i32 payload for wasm binding.
+  const width = Math.max(0, Math.floor(pick))
+  const payload = toFlooredI32(values)
+  // Let wasm enumerate combinations in deterministic index order.
+  const flat = combinationsI32FastFlatWasmBinding(payload, width)
+  // Decode flat result into rows of length `pick`.
+  return unflattenI32Rows(flat, width)
 }
 
 // Synchronous numeric permutations helper for builder combinatorics.
-export const getPermutationsI32WithLoadedWasm = (values: number[]): number[][] | null => {
-  // Sync callers must warm wasm first; null keeps historical contract.
-  if (!wasmInitialized) return null
+export const getPermutationsI32WithLoadedWasm = (values: number[]): number[][] => {
+  // Sync callers must warm wasm first.
+  assertWasmInitializedSync()
   // Empty/singleton vectors have exactly one permutation.
   if (values.length <= 1) return [values.slice()]
-  try {
-    // Convert once to contiguous i32 payload for wasm.
-    const payload = toFlooredI32(values)
-    // Execute permutation backtracking in wasm.
-    const flat = permutationsI32FastFlatWasmBinding(payload)
-    // Rehydrate rows where width equals input length.
-    return unflattenI32Rows(flat, payload.length)
-  } catch {
-    // Preserve nullable failure behavior used by adapters.
-    return null
-  }
+  // Convert once to contiguous i32 payload for wasm.
+  const payload = toFlooredI32(values)
+  // Execute permutation backtracking in wasm.
+  const flat = permutationsI32FastFlatWasmBinding(payload)
+  // Rehydrate rows where width equals input length.
+  return unflattenI32Rows(flat, payload.length)
 }
