@@ -780,7 +780,7 @@ test('safeguard merge preserves injected rule payload fields', () => {
   const injected = merged[0]!
   // Keep-source rows must retain source metadata after wasm merge serialization.
   assert.strictEqual(injected.__source, RULE_SOURCE_SAFEGUARDS)
-  // Keep-unique injected rows must remain functional keep rules.
+  // Safeguard-injected rows must remain functional keep rules.
   assert.strictEqual(injected.Keep, true)
   assert.strictEqual(injected.Use, true)
   // Placeholder metadata must survive the merge payload boundary.
