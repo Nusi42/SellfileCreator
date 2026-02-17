@@ -2314,7 +2314,7 @@ fn safeguard_build_placeholder_base_rules(
             for faction in &faction_options {
                 for main_variant in &main_variants {
                     let (main_id, main_f) = safeguard_variant_to_main(*main_variant);
-                    let keep_rule = RuleRaw {
+                    let safeguard_rule = RuleRaw {
                         RecipeID: Some(recipe_id),
                         RecipeName: normalized_name.map(|value| value.to_string()),
                         Keep: Some(true),
@@ -2356,11 +2356,11 @@ fn safeguard_build_placeholder_base_rules(
                         safeguard_placeholder: None,
                         safeguard_placeholder_missing: None,
                     };
-                    let canonical = safeguard_canonical_rule_key(&keep_rule);
+                    let canonical = safeguard_canonical_rule_key(&safeguard_rule);
                     if !seen.insert(canonical) {
                         continue;
                     }
-                    rules.push(keep_rule);
+                    rules.push(safeguard_rule);
                 }
             }
         }
@@ -2369,20 +2369,20 @@ fn safeguard_build_placeholder_base_rules(
 }
 
 fn safeguard_apply_rule_meta(
-    keep_rule: &mut RuleRaw,
+    safeguard_rule: &mut RuleRaw,
     rule_id: &str,
     rule_ordinal: i64,
     hash: &str,
     entry: &SafeguardWasmEntryOut,
     scanned_at: Option<f64>,
 ) {
-    keep_rule.safeguard_rule_id = Some(rule_id.to_string());
-    keep_rule.safeguard_rule_ordinal = Some(rule_ordinal);
-    keep_rule.safeguard_hash = Some(hash.to_string());
-    keep_rule.safeguard_required = Some(entry.required_count);
-    keep_rule.safeguard_projected = Some(entry.projected_count);
-    keep_rule.safeguard_deficit = Some(entry.deficit);
-    keep_rule.safeguard_scan_ms = scanned_at;
+    safeguard_rule.safeguard_rule_id = Some(rule_id.to_string());
+    safeguard_rule.safeguard_rule_ordinal = Some(rule_ordinal);
+    safeguard_rule.safeguard_hash = Some(hash.to_string());
+    safeguard_rule.safeguard_required = Some(entry.required_count);
+    safeguard_rule.safeguard_projected = Some(entry.projected_count);
+    safeguard_rule.safeguard_deficit = Some(entry.deficit);
+    safeguard_rule.safeguard_scan_ms = scanned_at;
 }
 
 fn safeguard_build_placeholder_rules(
@@ -2471,18 +2471,18 @@ fn safeguard_build_placeholder_rules(
                 }
                 continue;
             }
-            let mut keep_rule = base_rule.clone();
+            let mut safeguard_rule = base_rule.clone();
             safeguard_apply_rule_meta(
-                &mut keep_rule,
+                &mut safeguard_rule,
                 normalized_rule_id,
                 safeguard_rule_ordinal,
                 &hash,
                 entry,
                 scanned_at,
             );
-            keep_rule.safeguard_placeholder = Some(true);
-            keep_rule.safeguard_placeholder_missing = Some(placeholder.missing);
-            rules.push(keep_rule);
+            safeguard_rule.safeguard_placeholder = Some(true);
+            safeguard_rule.safeguard_placeholder_missing = Some(placeholder.missing);
+            rules.push(safeguard_rule);
         }
     }
     rules
@@ -2522,7 +2522,7 @@ pub(crate) fn build_safeguard_rules_core(
         }
     }
 
-    let mut keep_rules = Vec::<RuleRaw>::new();
+    let mut safeguard_rules = Vec::<RuleRaw>::new();
     let mut emitted_artifact_levels = HashSet::<String>::new();
     let mut placeholder_keys = HashSet::<String>::new();
     let mut safeguard_rule_offset = 0i64;
@@ -2542,7 +2542,7 @@ pub(crate) fn build_safeguard_rules_core(
         let activation = rule.activation.clone().unwrap_or_default();
         // Ordinal is the 1-based traversal index across all rules.
         safeguard_rule_ordinal += 1;
-        // `off` rules never emit artifact/placeholder keep overrides.
+        // `off` rules never emit artifact/placeholder safeguard overrides.
         if safeguard_is_activation_off(&activation) {
             continue;
         }
@@ -2576,7 +2576,7 @@ pub(crate) fn build_safeguard_rules_core(
                         continue;
                     }
                     let (main_id, main_f) = safeguard_variant_to_main(artifact.main_stat);
-                    keep_rules.push(RuleRaw {
+                    safeguard_rules.push(RuleRaw {
                         RecipeID: Some(recipe_id),
                         RecipeName: normalized_name.clone(),
                         Keep: Some(true),
@@ -2626,14 +2626,14 @@ pub(crate) fn build_safeguard_rules_core(
                 if !placeholder_keys.insert(canonical) {
                     continue;
                 }
-                keep_rules.push(placeholder_rule);
+                safeguard_rules.push(placeholder_rule);
             }
         }
     }
-    keep_rules
+    safeguard_rules
 }
 
-// Safeguard HSF keep-rule generation now lives in wasm (merge.ts SSOT path).
+// Safeguard HSF rule generation now lives in wasm (merge.ts SSOT path).
 #[wasm_bindgen]
 pub fn build_safeguard_rules_value(
     rules: JsValue,
@@ -2649,12 +2649,12 @@ pub fn build_safeguard_rules_value(
             JsValue::from_str(&format!("Invalid safeguard detection payload: {error}"))
         })?)
     };
-    let keep_rules = build_safeguard_rules_core(
+    let safeguard_rules = build_safeguard_rules_core(
         &parsed_rules,
         parsed_detection.as_ref(),
         recipe_id_base,
     );
-    to_js_value(&keep_rules)
+    to_js_value(&safeguard_rules)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard rules value: {error}")))
 }
 
