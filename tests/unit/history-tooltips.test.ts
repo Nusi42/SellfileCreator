@@ -68,13 +68,13 @@ test('describeBuilderRecipeUpdate summarizes changed fields', () => {
 })
 
 test('describeRecipeAdded appends snapshot detail lines', () => {
-  const cfg = makeRecipe({
+  const recipe = makeRecipe({
     mainStatsV: [StatVariant.SPD],
     substatsV: [StatVariant.RES, StatVariant.ACC],
   })
   const descriptor = describeRecipeAdded({
     index: 0,
-    cfg,
+    recipe,
     location: null,
     t: stubT,
     lang: 'en-US',
@@ -88,13 +88,13 @@ test('describeRecipeAdded appends snapshot detail lines', () => {
 })
 
 test('describeRecipesDeleted includes snapshot lines for single deletions', () => {
-  const cfg = makeRecipe({
+  const recipe = makeRecipe({
     // Snapshot now expects set entries so exclusions can be encoded.
     artifactSets: [{ id: 1 }, { id: 2 }],
     mainStatsV: [StatVariant.HP],
   })
   const descriptor = describeRecipesDeleted({
-    removed: [{ index: 0, cfg, label: snapshotRecipeLabel(0, cfg) }],
+    removed: [{ index: 0, recipe, label: snapshotRecipeLabel(0, recipe) }],
     t: stubT,
     lang: 'en-US',
     metasets,
@@ -148,14 +148,14 @@ test('formatHistoryTooltipText includes descriptor lines without shortcut hint',
 
 test('formatHistoryTooltipText keeps structured payloads bullet-free so icons can render', () => {
   // BuilderTooltipContent parses single-line JSON blobs; preserving the raw text allows icon fallbacks to appear.
-  const cfg = makeRecipe({
+  const recipe = makeRecipe({
     artifactSets: [{ id: 9001 }],
     mainStatsV: [StatVariant.HP],
   })
   const location = buildInsertionLocation(0, [])
   const resolved = describeRecipeAdded({
     index: 0,
-    cfg,
+    recipe,
     location,
     t: stubT,
     lang: 'en-US',
@@ -165,7 +165,7 @@ test('formatHistoryTooltipText keeps structured payloads bullet-free so icons ca
   assert.ok(structuredLine, 'expected structured snapshot line')
   const descriptor = createRecipeAddedDescriptor({
     index: 0,
-    cfg,
+    recipe,
     previous: [],
     metasets,
   })

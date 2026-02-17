@@ -2759,7 +2759,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         return prev
       }
       const descriptor = createRecipesDeletedDescriptor({
-        removed: [{ index: idx, cfg: prev[idx] }],
+        removed: [{ index: idx, recipe: prev[idx] }],
         metasets,
       })
       describeNextChange(descriptor)
@@ -2786,7 +2786,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         describeNextChange(null)
         return prev
       }
-      const removed = uniqueTargets.map((idx) => ({ index: idx, cfg: prev[idx] }))
+      const removed = uniqueTargets.map((idx) => ({ index: idx, recipe: prev[idx] }))
       const descriptor = createRecipesDeletedDescriptor({ removed, metasets })
       describeNextChange(descriptor)
       return prev.filter((_, i) => !deleteSet.has(i))
@@ -3709,7 +3709,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     if (action === 'delete') {
       setCustomRecipes(prev => {
-        const removed = [{ index: idx, cfg: prev[idx] }]
+        const removed = [{ index: idx, recipe: prev[idx] }]
         // Describe the delete action to keep history aligned with chip menus.
         const descriptor = createRecipesDeletedDescriptor({ removed, metasets })
         // Publish the descriptor so undo/redo shows the deleted recipe.
@@ -4118,7 +4118,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // History entries capture the inserted recipe details for undo + hover.
     const descriptor = createRecipeAddedDescriptor({
       index: insertIdx,
-      cfg: nextRecipe,
+      recipe: nextRecipe,
       previous,
       metasets,
     })
@@ -4734,7 +4734,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         ]
         const descriptor = createRecipeAddedDescriptor({
           index: insertIdx,
-          cfg: insertedRecipe,
+          recipe: insertedRecipe,
           previous: customRecipes,
           metasets,
         })
