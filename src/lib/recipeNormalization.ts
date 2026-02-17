@@ -21,7 +21,7 @@ type FlexRecipeShape = Pick<BuilderRecipe,
 >
 
 /**
- * Decide whether auto substat flex is meaningful for the current configuration.
+ * Decide whether auto substat flex is meaningful for the current recipe.
  *
  * Requirements:
  * - Manual min-count with spare selectable substats.
@@ -29,19 +29,19 @@ type FlexRecipeShape = Pick<BuilderRecipe,
  * - Flex adds coverage only when optional stats have a minimum roll requirement, or
  *   when the aggregate minimum exceeds the targeted substat count (forcing extras).
  */
-export function canEnableSubstatFlex(cfg: FlexRecipeShape): boolean {
+export function canEnableSubstatFlex(recipe: FlexRecipeShape): boolean {
   try {
-    if (cfg.autoMinCount) return false
-    const minCount = Number(cfg.minCount ?? 0)
-    const selected = Array.isArray(cfg.substatsV) ? cfg.substatsV.map(Number) : []
+    if (recipe.autoMinCount) return false
+    const minCount = Number(recipe.minCount ?? 0)
+    const selected = Array.isArray(recipe.substatsV) ? recipe.substatsV.map(Number) : []
     if (selected.length === 0) return false
-    const fixed = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV.map(Number) : []
+    const fixed = Array.isArray(recipe.fixedSubstatsV) ? recipe.fixedSubstatsV.map(Number) : []
     const fixedSet = new Set<number>(fixed)
     const lockedCount = selected.filter(v => fixedSet.has(v)).length
     const effectiveRequired = Math.max(minCount, lockedCount)
     if (selected.length <= effectiveRequired) return false
 
-    const bounds = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+    const bounds = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
     const optional = selected.filter(v => !fixedSet.has(v))
 
     const hasPureWildcardOptional = optional.some(v => {
@@ -58,9 +58,9 @@ export function canEnableSubstatFlex(cfg: FlexRecipeShape): boolean {
       return typeof b?.min === 'number' && b.min > 0
     })
 
-    const globalMinActive = (cfg.autoMinRequiredRolls === false) && typeof cfg.minRequiredRolls === 'number' && cfg.minRequiredRolls > 0
-    const targetedCount = isLockedAggregateScopeActive(cfg, { lockedCountOverride: lockedCount }) ? lockedCount : effectiveRequired
-    const needsFlexForAggregate = globalMinActive && (cfg.minRequiredRolls as number) > targetedCount
+    const globalMinActive = (recipe.autoMinRequiredRolls === false) && typeof recipe.minRequiredRolls === 'number' && recipe.minRequiredRolls > 0
+    const targetedCount = isLockedAggregateScopeActive(recipe, { lockedCountOverride: lockedCount }) ? lockedCount : effectiveRequired
+    const needsFlexForAggregate = globalMinActive && (recipe.minRequiredRolls as number) > targetedCount
 
     if (hasOptionalMin || needsFlexForAggregate) return true
     // Even without per-stat mins or an aggregate bump, allow flex when we have
@@ -72,18 +72,18 @@ export function canEnableSubstatFlex(cfg: FlexRecipeShape): boolean {
   }
 }
 
-export function normalizeAutoSubstatFlex<T extends FlexRecipeShape & Pick<BuilderRecipe, 'autoSubstatFlex'>>(cfg: T): T {
-  if (cfg.autoSubstatFlex && !canEnableSubstatFlex(cfg)) {
-    return { ...cfg, autoSubstatFlex: false } as T
+export function normalizeAutoSubstatFlex<T extends FlexRecipeShape & Pick<BuilderRecipe, 'autoSubstatFlex'>>(recipe: T): T {
+  if (recipe.autoSubstatFlex && !canEnableSubstatFlex(recipe)) {
+    return { ...recipe, autoSubstatFlex: false } as T
   }
-  return cfg
+  return recipe
 }
 
-export function isMilestoneThresholdsActive(cfg: Pick<BuilderRecipe, 'substatRollBoundsV' | 'autoMinRequiredRolls' | 'minRequiredRolls' | 'lockedMinRequiredRolls' | 'fixedSubstatsV'>): boolean {
+export function isMilestoneThresholdsActive(recipe: Pick<BuilderRecipe, 'substatRollBoundsV' | 'autoMinRequiredRolls' | 'minRequiredRolls' | 'lockedMinRequiredRolls' | 'fixedSubstatsV'>): boolean {
   try {
-    if (hasSubstatThresholds(cfg)) return true
-    if (hasManualAggregateMin(cfg)) return true
-    if (isLockedAggregateActive(cfg)) return true
+    if (hasSubstatThresholds(recipe)) return true
+    if (hasManualAggregateMin(recipe)) return true
+    if (isLockedAggregateActive(recipe)) return true
     return false
   } catch {
     return false
@@ -93,11 +93,11 @@ export function isMilestoneThresholdsActive(cfg: Pick<BuilderRecipe, 'substatRol
 
 
 /** Normalize keep mode to 'early' when thresholds are inactive. */
-export function normalizeKeepMode<T extends Pick<BuilderRecipe, 'earlyKeepMode' | 'substatRollBoundsV' | 'autoMinRequiredRolls' | 'minRequiredRolls'>>(cfg: T): T {
-  if (!isMilestoneThresholdsActive(cfg)) {
-    return { ...cfg, earlyKeepMode: 'early' } as T
+export function normalizeKeepMode<T extends Pick<BuilderRecipe, 'earlyKeepMode' | 'substatRollBoundsV' | 'autoMinRequiredRolls' | 'minRequiredRolls'>>(recipe: T): T {
+  if (!isMilestoneThresholdsActive(recipe)) {
+    return { ...recipe, earlyKeepMode: 'early' } as T
   }
-  return cfg
+  return recipe
 }
 
 /**
@@ -107,22 +107,22 @@ export function normalizeKeepMode<T extends Pick<BuilderRecipe, 'earlyKeepMode' 
  */
 export function normalizeAutoRaritySupplements<T extends Pick<BuilderRecipe,
   'rarityMode' | 'earlyKeepMode' | 'substatRollBoundsV' | 'autoMinRequiredRolls' | 'minRequiredRolls' | 'autoRaritySupplementsThreshold'
->>(cfg: T, options?: { defaultThreshold?: AutoRaritySupplementsThreshold }): T {
-  const active = isMilestoneThresholdsActive(cfg)
-  const applicable = (cfg.rarityMode === 'auto') && (cfg.earlyKeepMode === 'late') && active
+>>(recipe: T, options?: { defaultThreshold?: AutoRaritySupplementsThreshold }): T {
+  const active = isMilestoneThresholdsActive(recipe)
+  const applicable = (recipe.rarityMode === 'auto') && (recipe.earlyKeepMode === 'late') && active
   if (!applicable) {
-    if (cfg.autoRaritySupplementsThreshold == null) {
-      return cfg
+    if (recipe.autoRaritySupplementsThreshold == null) {
+      return recipe
     }
     // Remove the optional key to satisfy exactOptionalPropertyTypes
-    const { autoRaritySupplementsThreshold: _omit, ...rest } = cfg as unknown as Record<string, unknown>
+    const { autoRaritySupplementsThreshold: _omit, ...rest } = recipe as unknown as Record<string, unknown>
     return rest as T
   }
-  if (isAutoRaritySupplementsThreshold(cfg.autoRaritySupplementsThreshold)) {
-    return cfg
+  if (isAutoRaritySupplementsThreshold(recipe.autoRaritySupplementsThreshold)) {
+    return recipe
   }
   const fallback = options?.defaultThreshold ?? 'rare'
-  return { ...cfg, autoRaritySupplementsThreshold: fallback } as T
+  return { ...recipe, autoRaritySupplementsThreshold: fallback } as T
 }
 
 /**
@@ -138,13 +138,13 @@ const clampAggregateRollRequirement = (value: unknown): 0 | 1 | 2 | 3 | 4 | 5 =>
   return clamped as 0 | 1 | 2 | 3 | 4 | 5
 }
 
-export function isLockedAggregateScopeActive<T extends Pick<BuilderRecipe, 'lockedMinRequiredRolls' | 'fixedSubstatsV'>>(cfg: T, options?: { lockedCountOverride?: number }): boolean {
+export function isLockedAggregateScopeActive<T extends Pick<BuilderRecipe, 'lockedMinRequiredRolls' | 'fixedSubstatsV'>>(recipe: T, options?: { lockedCountOverride?: number }): boolean {
   try {
     const lockedCount = typeof options?.lockedCountOverride === 'number'
       ? options.lockedCountOverride
-      : (Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV.length : 0)
+      : (Array.isArray(recipe.fixedSubstatsV) ? recipe.fixedSubstatsV.length : 0)
     if (lockedCount <= 0) return false
-    const lockedMinRaw = (cfg as { lockedMinRequiredRolls?: number }).lockedMinRequiredRolls
+    const lockedMinRaw = (recipe as { lockedMinRequiredRolls?: number }).lockedMinRequiredRolls
     const lockedMin = clampAggregateRollRequirement(lockedMinRaw ?? 0)
     return lockedMin > 0
   } catch {
@@ -155,47 +155,47 @@ export function isLockedAggregateScopeActive<T extends Pick<BuilderRecipe, 'lock
 /**
  * Clamp and clear the locked aggregate minimum rolls requirement when invalid.
  */
-export function normalizeLockedMinRequiredRolls<T extends Pick<BuilderRecipe, 'lockedMinRequiredRolls' | 'fixedSubstatsV'>>(cfg: T): T {
+export function normalizeLockedMinRequiredRolls<T extends Pick<BuilderRecipe, 'lockedMinRequiredRolls' | 'fixedSubstatsV'>>(recipe: T): T {
   try {
-    const lockedCount = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV.length : 0
-    const currentValue = (cfg as { lockedMinRequiredRolls?: number }).lockedMinRequiredRolls
+    const lockedCount = Array.isArray(recipe.fixedSubstatsV) ? recipe.fixedSubstatsV.length : 0
+    const currentValue = (recipe as { lockedMinRequiredRolls?: number }).lockedMinRequiredRolls
     const clamped = clampAggregateRollRequirement(currentValue ?? 0)
     if (lockedCount <= 0 || clamped <= 0) {
-      if (currentValue == null) return cfg
-      const { lockedMinRequiredRolls: _omit, ...rest } = cfg as unknown as Record<string, unknown>
+      if (currentValue == null) return recipe
+      const { lockedMinRequiredRolls: _omit, ...rest } = recipe as unknown as Record<string, unknown>
       return rest as T
     }
     if (clamped !== currentValue) {
-      return { ...cfg, lockedMinRequiredRolls: clamped } as T
+      return { ...recipe, lockedMinRequiredRolls: clamped } as T
     }
-    return cfg
+    return recipe
   } catch {
-    return cfg
+    return recipe
   }
 }
 
-export function normalizeMinRequiredRolls<T extends Pick<BuilderRecipe, 'minRequiredRolls' | 'autoMinRequiredRolls'>>(cfg: T): T {
+export function normalizeMinRequiredRolls<T extends Pick<BuilderRecipe, 'minRequiredRolls' | 'autoMinRequiredRolls'>>(recipe: T): T {
   try {
-    const currentValue = (cfg as { minRequiredRolls?: number }).minRequiredRolls
+    const currentValue = (recipe as { minRequiredRolls?: number }).minRequiredRolls
     const clamped = clampAggregateRollRequirement(currentValue ?? 0)
-    if ((cfg.autoMinRequiredRolls ?? true) === false) {
+    if ((recipe.autoMinRequiredRolls ?? true) === false) {
       if (currentValue !== clamped) {
-        return { ...cfg, minRequiredRolls: clamped } as T
+        return { ...recipe, minRequiredRolls: clamped } as T
       }
-      return cfg
+      return recipe
     }
-    if (currentValue == null) return cfg
+    if (currentValue == null) return recipe
     if (currentValue !== clamped) {
-      return { ...cfg, minRequiredRolls: clamped } as T
+      return { ...recipe, minRequiredRolls: clamped } as T
     }
-    return cfg
+    return recipe
   } catch {
-    return cfg
+    return recipe
   }
 }
 
-export function normalizeAggregateRollTargets<T extends Pick<BuilderRecipe, 'lockedMinRequiredRolls' | 'fixedSubstatsV' | 'autoMinRequiredRolls' | 'minRequiredRolls'>>(cfg: T): T {
-  let next: T = normalizeLockedMinRequiredRolls(cfg)
+export function normalizeAggregateRollTargets<T extends Pick<BuilderRecipe, 'lockedMinRequiredRolls' | 'fixedSubstatsV' | 'autoMinRequiredRolls' | 'minRequiredRolls'>>(recipe: T): T {
+  let next: T = normalizeLockedMinRequiredRolls(recipe)
   next = normalizeMinRequiredRolls(next as T)
   try {
     const locked = clampAggregateRollRequirement((next as { lockedMinRequiredRolls?: number }).lockedMinRequiredRolls ?? 0)
@@ -223,14 +223,14 @@ export function normalizeAggregateRollTargets<T extends Pick<BuilderRecipe, 'loc
  * Keep min/max level milestones within the allowed window and maintain `min <= max`.
  * Falls back to the builder defaults (0/16) when values are missing or invalid.
  */
-export function normalizeLevelWindow<T extends Pick<BuilderRecipe, 'minLevel' | 'maxLevel'>>(cfg: T): T {
+export function normalizeLevelWindow<T extends Pick<BuilderRecipe, 'minLevel' | 'maxLevel'>>(recipe: T): T {
   const defaultMin: LevelMilestone = LEVEL_MILESTONES[0]!
   const defaultMax: LevelMilestone = LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!
-  let min: LevelMilestone = isLevelMilestone(cfg.minLevel) ? cfg.minLevel! : defaultMin
-  let max: LevelMilestone = isLevelMilestone(cfg.maxLevel) ? cfg.maxLevel! : defaultMax
+  let min: LevelMilestone = isLevelMilestone(recipe.minLevel) ? recipe.minLevel! : defaultMin
+  let max: LevelMilestone = isLevelMilestone(recipe.maxLevel) ? recipe.maxLevel! : defaultMax
   if (min > max) {
     // Preserve the user-selected milestone by clamping the opposite bound.
-    if (isLevelMilestone(cfg.minLevel) && !isLevelMilestone(cfg.maxLevel)) {
+    if (isLevelMilestone(recipe.minLevel) && !isLevelMilestone(recipe.maxLevel)) {
       max = min
     } else {
       min = max
@@ -239,25 +239,25 @@ export function normalizeLevelWindow<T extends Pick<BuilderRecipe, 'minLevel' | 
   if (!isLevelMilestone(min)) min = defaultMin
   if (!isLevelMilestone(max)) max = defaultMax
   if (min > max) min = max
-  return { ...cfg, minLevel: min, maxLevel: max } as T
+  return { ...recipe, minLevel: min, maxLevel: max } as T
 }
 
-const hasSubstatThresholds = (cfg: Pick<BuilderRecipe, 'substatRollBoundsV'>): boolean => {
-  const bV = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+const hasSubstatThresholds = (recipe: Pick<BuilderRecipe, 'substatRollBoundsV'>): boolean => {
+  const bV = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
   return Object.values(bV).some((b) => typeof b?.min === 'number' && (b.min ?? 0) > 0)
 }
 
-const hasManualAggregateMin = (cfg: Pick<BuilderRecipe, 'autoMinRequiredRolls' | 'minRequiredRolls'>): boolean => (
-  (cfg.autoMinRequiredRolls === false)
-  && typeof cfg.minRequiredRolls === 'number'
-  && Number.isFinite(cfg.minRequiredRolls)
-  && cfg.minRequiredRolls > 0
+const hasManualAggregateMin = (recipe: Pick<BuilderRecipe, 'autoMinRequiredRolls' | 'minRequiredRolls'>): boolean => (
+  (recipe.autoMinRequiredRolls === false)
+  && typeof recipe.minRequiredRolls === 'number'
+  && Number.isFinite(recipe.minRequiredRolls)
+  && recipe.minRequiredRolls > 0
 )
 
-const isLockedAggregateActive = (cfg: Pick<BuilderRecipe, 'lockedMinRequiredRolls' | 'fixedSubstatsV'>): boolean => {
-  const lockedValue = typeof cfg.lockedMinRequiredRolls === 'number' ? cfg.lockedMinRequiredRolls : 0
+const isLockedAggregateActive = (recipe: Pick<BuilderRecipe, 'lockedMinRequiredRolls' | 'fixedSubstatsV'>): boolean => {
+  const lockedValue = typeof recipe.lockedMinRequiredRolls === 'number' ? recipe.lockedMinRequiredRolls : 0
   if (!(lockedValue > 0)) return false
-  const fixed = cfg.fixedSubstatsV ?? []
+  const fixed = recipe.fixedSubstatsV ?? []
   return Array.isArray(fixed) && fixed.length > 0
 }
 
@@ -268,8 +268,8 @@ const isLockedAggregateActive = (cfg: Pick<BuilderRecipe, 'lockedMinRequiredRoll
  * count the rolls gained before the window and therefore acts like
  * 'upToLevel'.
  */
-export function deriveRollBaselineMode<T extends Pick<BuilderRecipe, 'minLevel' | 'maxLevel'>>(cfg: T): 'afterStart' | 'upToLevel' {
+export function deriveRollBaselineMode<T extends Pick<BuilderRecipe, 'minLevel' | 'maxLevel'>>(recipe: T): 'afterStart' | 'upToLevel' {
   const defaultMin: LevelMilestone = LEVEL_MILESTONES[0]!
-  const min: LevelMilestone = isLevelMilestone(cfg.minLevel) ? cfg.minLevel! : defaultMin
+  const min: LevelMilestone = isLevelMilestone(recipe.minLevel) ? recipe.minLevel! : defaultMin
   return min <= 0 ? 'afterStart' : 'upToLevel'
 }
