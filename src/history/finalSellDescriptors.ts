@@ -27,7 +27,7 @@ export const createFinalSellChangeDescriptor = (params: {
   mode?: FinalSellDescriptorMode
 }): HistoryEntryDescriptor | null => {
   const { previous, next, mode } = params
-  const changed = !areFinalSellConfigsEqual(previous, next)
+  const changed = !areFinalSellSettingsEqual(previous, next)
   if (!changed && mode !== 'quickToggle') return null
   if (!changed && mode === 'quickToggle') {
     const prevActive = isFinalSellActive(previous)
@@ -48,7 +48,7 @@ export function isFinalSellActive(recipe: FinalSellRemainderConfig): boolean {
   return hasTypes && levels.length > 0
 }
 
-export function areFinalSellConfigsEqual(
+export function areFinalSellSettingsEqual(
   a: FinalSellRemainderConfig,
   b: FinalSellRemainderConfig,
 ): boolean {

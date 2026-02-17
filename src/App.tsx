@@ -261,7 +261,7 @@ import {
   isDefaultSubstatTargetTable,
   appendDescriptorDetails,
 } from './history/substatTargetDescriptors'
-import { createFinalSellChangeDescriptor, areFinalSellConfigsEqual, type FinalSellDescriptorMode } from './history/finalSellDescriptors'
+import { createFinalSellChangeDescriptor, areFinalSellSettingsEqual, type FinalSellDescriptorMode } from './history/finalSellDescriptors'
 import { createNoteChangeDescriptor, normalizeNoteValue, type NoteDescriptorMode } from './history/noteDescriptors'
 import { createHsfcLoadedDescriptor, createAutosaveRestoredDescriptor, makeClipboardSourceDescriptor } from './history/bulkLoadDescriptors'
 import {
@@ -1942,7 +1942,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const resolvedNextState = typeof value === 'function'
       ? (value as (p: FinalSellRemainderConfig) => FinalSellRemainderConfig)(prevState)
       : value
-    const changed = !areFinalSellConfigsEqual(prevState, resolvedNextState)
+    const changed = !areFinalSellSettingsEqual(prevState, resolvedNextState)
     const descriptor = changed
       ? createFinalSellChangeDescriptor({
         previous: prevState,
