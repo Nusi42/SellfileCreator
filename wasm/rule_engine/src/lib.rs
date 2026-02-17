@@ -311,7 +311,7 @@ struct AutoRarityResolveIn {
     substat_roll_bounds_v: HashMap<String, AutoRarityResolveRollBoundsIn>,
 }
 
-// Builder-facing auto-rarity payload accepts raw cfg vectors plus allowed ids.
+// Builder-facing auto-rarity payload accepts raw recipe vectors plus allowed ids.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct AutoRarityResolveBuilderIn {
