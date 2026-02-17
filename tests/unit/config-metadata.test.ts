@@ -36,15 +36,15 @@ const baseRecipe = (overrides: Partial<BuilderRecipe> = {}): BuilderRecipe => ({
 })
 
 test('builder rules carry RecipeID/RecipeName through HSF export', () => {
-  const cfg = baseRecipe()
+  const recipe = baseRecipe()
   const substatTargets = defaultSubstatTargets()
-  const rules = buildRulesForRecipe({ recipe: cfg, metasets: [], substatTargets, recipeIdx: 0 })
+  const rules = buildRulesForRecipe({ recipe, metasets: [], substatTargets, recipeIdx: 0 })
   assert(rules.length > 0, 'expected at least one rule to verify annotations')
   for (const rule of rules) {
-    assert.equal(rule.RecipeID, 1, 'RecipeID should be 1-based and stable per config index')
+    assert.equal(rule.RecipeID, 1, 'RecipeID should be 1-based and stable per recipe index')
     assert.equal(rule.RecipeName, undefined, 'builder rules should not carry RecipeName until export')
   }
-  const exported = buildHsfFileFromMerged(rules, { recipeNames: [cfg.name ?? ''] })
+  const exported = buildHsfFileFromMerged(rules, { recipeNames: [recipe.name ?? ''] })
   assert(exported.Rules.length === rules.length, 'HSF payload should retain every rule')
   const first = exported.Rules[0]
   assert(first, 'expected exported Rules to contain at least one entry')
@@ -54,19 +54,19 @@ test('builder rules carry RecipeID/RecipeName through HSF export', () => {
   assert.deepEqual(
     orderedKeys.slice(0, 4),
     ['RecipeID', 'RecipeName', 'Keep', 'IsRuleTypeAND'],
-    'Config metadata should precede legacy flags for readability',
+    'Recipe metadata should precede legacy flags for readability',
   )
 })
 
-test('config metadata omits empty names but still writes RecipeID', () => {
-  const cfg = baseRecipe({ name: '' })
-  const rules = buildRulesForRecipe({ recipe: cfg, metasets: [], substatTargets: defaultSubstatTargets(), recipeIdx: 3 })
+test('recipe metadata omits empty names but still writes RecipeID', () => {
+  const recipe = baseRecipe({ name: '' })
+  const rules = buildRulesForRecipe({ recipe, metasets: [], substatTargets: defaultSubstatTargets(), recipeIdx: 3 })
   assert(rules.length > 0, 'expected at least one rule to verify RecipeID fallback')
   for (const rule of rules) {
     assert.equal(rule.RecipeID, 4, 'RecipeID should map recipeIdx (0-based) to 1-based IDs')
     assert.equal(rule.RecipeName, undefined, 'builder rules should never store RecipeName')
   }
-  const exported = buildHsfFileFromMerged(rules, { recipeNames: [cfg.name ?? ''] })
+  const exported = buildHsfFileFromMerged(rules, { recipeNames: [recipe.name ?? ''] })
   const first = exported.Rules[0]
   assert(first, 'expected exported rules to exist')
   assert.equal(first!.RecipeID, 4, 'HSF payload should preserve RecipeID even without a name')
@@ -89,7 +89,7 @@ test('renaming recipes updates RecipeName without rebuilding cached rules', () =
   const firstRules = initial.rulesByRecipe.get(0)
   const renamedRules = renamed.rulesByRecipe.get(0)
   assert(firstRules && firstRules.length > 0, 'expected cached rules to exist')
-  assert(renamedRules && renamedRules.length > 0, 'expected renamed config to keep its rules')
+  assert(renamedRules && renamedRules.length > 0, 'expected renamed recipe to keep its rules')
   assert.strictEqual(renamedRules, firstRules, 'rename-only edits should reuse the cached rule array')
   assert(renamedRules!.every((rule) => rule.RecipeName === undefined), 'rules should remain free of RecipeName metadata')
   const exported = buildHsfFileFromMerged(renamedRules!, { recipeNames: ['Cached Builder (Renamed)'] })
@@ -99,8 +99,8 @@ test('renaming recipes updates RecipeName without rebuilding cached rules', () =
 })
 
 test('HSF export strips every UI-only metadata field', () => {
-  const cfg = baseRecipe()
-  const rules = buildRulesForRecipe({ recipe: cfg, metasets: [], substatTargets: defaultSubstatTargets(), recipeIdx: 0 })
+  const recipe = baseRecipe()
+  const rules = buildRulesForRecipe({ recipe, metasets: [], substatTargets: defaultSubstatTargets(), recipeIdx: 0 })
   // Decorate the rules with every UI-only field so the export clean up has something to remove.
   const decorated = rules.map((rule, idx) => ({
     ...rule,
@@ -118,7 +118,7 @@ test('HSF export strips every UI-only metadata field', () => {
     __safeguardItemKey: idx,
   }))
   // Run the export helper so the sanitizer strips the fake diagnostics.
-  const exported = buildHsfFileFromMerged(decorated, { recipeNames: [cfg.name ?? ''] })
+  const exported = buildHsfFileFromMerged(decorated, { recipeNames: [recipe.name ?? ''] })
   for (const rule of exported.Rules) {
     assert(rule, 'expected sanitized HSF rule to exist')
     // HSF schema never tolerates double-underscore metadata, so each key should be clean.
@@ -133,7 +133,7 @@ test('safeguard exports include sentinel RecipeID/RecipeName', () => {
     name: '  Safeguard Demo  ',
     combination: {
       slots: [ArtifactType.Ring],
-      // Keep-unique sets now use entry objects to allow exclusions.
+      // Safeguard sets now use entry objects to allow exclusions.
       sets: [{ id: ArtifactSet.Refresh }],
       metaSetIds: [],
       ranks: [],
