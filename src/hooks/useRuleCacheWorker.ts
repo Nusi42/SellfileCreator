@@ -421,8 +421,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         const fullEval = evaluateMatchesByRecipe(
           mergedRulesFinal,
           artifact.testerItem,
-          // Compatibility boundary: evaluator override shape still exports the legacy key.
-          { recipeModes: params.recipeModes, ignoreSafeguardConfigIndices: ignoreSafeguardRecipeIndices },
+          { recipeModes: params.recipeModes, ignoreSafeguardRecipeIndices },
         )
         const baseEval = baselineMatchMap.get(itemId)
           ?? evaluateMatchesByRecipe(

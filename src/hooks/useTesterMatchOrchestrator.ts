@@ -490,8 +490,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
         artifact.testerItem,
         {
           recipeModes,
-          // Compatibility boundary: downstream evaluators still expect the legacy key.
-          ...(ignoreSafeguardRecipeIndices ? { ignoreSafeguardConfigIndices: ignoreSafeguardRecipeIndices } : {}),
+          ...(ignoreSafeguardRecipeIndices ? { ignoreSafeguardRecipeIndices } : {}),
         },
       )
       const baseEval = evaluateMatchesByRecipe(
