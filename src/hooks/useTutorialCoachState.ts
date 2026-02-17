@@ -258,8 +258,8 @@ export function useTutorialCoachState({
 
   const hsfRef = useRef(hsf)
   useEffect(() => { hsfRef.current = hsf }, [hsf])
-  const cfgsRef = useRef(customRecipes)
-  useEffect(() => { cfgsRef.current = customRecipes }, [customRecipes])
+  const recipesRef = useRef(customRecipes)
+  useEffect(() => { recipesRef.current = customRecipes }, [customRecipes])
   const selRef = useRef(selectedRecipeIdx)
   useEffect(() => { selRef.current = selectedRecipeIdx }, [selectedRecipeIdx])
   const metasRef = useRef(metasets)
@@ -660,12 +660,12 @@ export function useTutorialCoachState({
 
     try {
       const cloneHsf = hsfRef.current ? (JSON.parse(JSON.stringify(hsfRef.current)) as HsfFile) : null
-      const srcCfgs = cfgsRef.current
+      const srcRecipes = recipesRef.current
       const srcMetas = metasRef.current
       const srcSubstatTargets = substatTargetsRef.current
       const srcFsr = fsrRef.current
       const srcBuilder = builderRef.current
-      const cloneCfgs = srcCfgs.map((cfg) => cloneBuilderRecipe(cfg)) // ensure tutorial snapshots stay isolated
+      const cloneRecipes = srcRecipes.map((recipe) => cloneBuilderRecipe(recipe)) // ensure tutorial snapshots stay isolated
       const cloneMetas = srcMetas.map((meta) => ({ ...meta, sets: meta.sets.slice() }))
       const clonedSubstatTargets = JSON.parse(JSON.stringify(srcSubstatTargets)) as SubstatTargetsState
       const cloneFsr = JSON.parse(JSON.stringify(srcFsr)) as FinalSellRemainderConfig
@@ -673,7 +673,7 @@ export function useTutorialCoachState({
       const cloneRulesFilter = JSON.parse(JSON.stringify(rulesFilterRef.current)) as RulesFilterState
       setTutorialSnapshot({
         hsf: cloneHsf,
-        recipes: cloneCfgs,
+        recipes: cloneRecipes,
         sel: selRef.current,
         metas: cloneMetas,
         substatTargets: clonedSubstatTargets,
@@ -1140,7 +1140,7 @@ export function useTutorialCoachState({
         id: 'safeguards-rule',
         title: t('tutSafeguardsRuleTitle'),
         body: t('tutSafeguardsRuleBody'),
-        targetId: 'keepuniques.rules',
+        targetId: 'safeguards.rules',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
           setLogicHubOpen(true)
@@ -1248,7 +1248,7 @@ export function useTutorialCoachState({
       closeAllTransientUi()
       const steps = tutorialSteps
       let nextHsf: HsfFile | null = null
-      let nextCfgs: BuilderRecipe[] = []
+      let nextRecipes: BuilderRecipe[] = []
       let nextSel: number | null = null
       let nextMetas: Metaset[] = []
       let nextSubstatTargets = defaultSubstatTargets()
@@ -1308,8 +1308,8 @@ export function useTutorialCoachState({
             break
           }
           case 'add': {
-            nextCfgs = nextCfgs.concat(nextBuilder)
-            nextSel = nextCfgs.length - 1
+            nextRecipes = nextRecipes.concat(nextBuilder)
+            nextSel = nextRecipes.length - 1
             break
           }
           case 'adv-select-slots-main': {
@@ -1362,8 +1362,8 @@ export function useTutorialCoachState({
             break
           }
           case 'adv-add': {
-            nextCfgs = nextCfgs.concat(nextBuilder)
-            nextSel = nextCfgs.length - 1
+            nextRecipes = nextRecipes.concat(nextBuilder)
+            nextSel = nextRecipes.length - 1
             break
           }
           case 'auto-late-slot': {
@@ -1399,8 +1399,8 @@ export function useTutorialCoachState({
             break
           }
           case 'auto-late-add': {
-            nextCfgs = nextCfgs.concat(nextBuilder)
-            nextSel = nextCfgs.length - 1
+            nextRecipes = nextRecipes.concat(nextBuilder)
+            nextSel = nextRecipes.length - 1
             break
           }
           case 'tester-open': {
@@ -1453,7 +1453,7 @@ export function useTutorialCoachState({
       // Suppress history so tutorial skips never create undo/redo entries.
       suppressHistorySnapshot()
       setHsf(nextHsf)
-      setCustomRecipes(nextCfgs)
+      setCustomRecipes(nextRecipes)
       setSelectedRecipeIdx(nextSel)
       setMetasets(nextMetas)
       setSubstatTargets(nextSubstatTargets)

@@ -1978,7 +1978,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
             gap: 2,
           }}
         >
-          <Box data-tour-id="keepuniques.rules" sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+          <Box data-tour-id="safeguards.rules" sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
             <Box sx={{ pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
               <Box
                 sx={{
