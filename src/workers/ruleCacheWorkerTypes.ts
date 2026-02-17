@@ -98,7 +98,7 @@ export type RuleCachePipelineResponse = {
     totalLimitHit: boolean
     excludedByTotalLimitIndices: number[]
     matches: TesterMatchWorkerItemResult[]
-    // Keep-unique detection snapshot for UI inspection + cache parity.
+    // Safeguard detection snapshot for UI inspection + cache parity.
     safeguardDetection: SafeguardDetectionSnapshot | null
     fingerprint: string | null
     artifactSignature: string | null
