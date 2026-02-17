@@ -43,7 +43,7 @@ test('global explicit ids exclude options across questions', () => {
   assert.equal(resolvedSecond?.answer.includes(second.options[0]!.id), true)
 })
 
-test('legacy config-options markers stay supported silently', () => {
+test('legacy marker aliases stay supported silently', () => {
   // Build a note using the legacy marker keyword.
   const legacyNote = [
     '<!-- config-options',
