@@ -206,7 +206,7 @@ export function describeRecipeAdded(params: DescribeConfigAddedParams): Resolved
   const detailLines = locationLine ? [locationLine] : []
   // Treat added recipes as a single-state snapshot so tooltips show the actual values
   // that landed in the builder rather than a fabricated before/after diff.
-  const snapshotLines = makeBuilderRecipeSnapshotLines({ cfg, metasets, t, lang })
+  const snapshotLines = makeBuilderRecipeSnapshotLines({ recipe: cfg, metasets, t, lang })
   if (snapshotLines.length > 0) {
     detailLines.push(...snapshotLines)
   }
@@ -257,7 +257,7 @@ export function describeRecipesDeleted(params: DescribeConfigsDeletedParams): Re
   if (labels.length === 1) {
     const cfg = removed.find((entry) => Boolean(entry.cfg))?.cfg ?? null
     // Likewise, deleted recipes show their last-known state instead of a diff against defaults.
-    const snapshotLines = cfg ? makeBuilderRecipeSnapshotLines({ cfg, metasets, t, lang }) : []
+    const snapshotLines = cfg ? makeBuilderRecipeSnapshotLines({ recipe: cfg, metasets, t, lang }) : []
     if (snapshotLines.length > 0) {
       return { title: t('historyRecipeDeletedTitle', { label: formatRecipeLabel(labels[0]!, t) }), detailLines: snapshotLines }
     }

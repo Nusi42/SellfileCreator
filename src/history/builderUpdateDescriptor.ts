@@ -180,20 +180,20 @@ export function summarizeBuilderRecipeDiff(params: SummarizeBuilderRecipeDiffPar
  * values so add/delete history entries can re-use the same UI components without
  * implying a change.
  */
-export function makeBuilderRecipeSnapshotLines(params: { cfg: BuilderRecipe; metasets: Metaset[]; t: TranslateFn; lang: string }): string[] {
-  const { cfg, metasets, t, lang } = params
+export function makeBuilderRecipeSnapshotLines(params: { recipe: BuilderRecipe; metasets: Metaset[]; t: TranslateFn; lang: string }): string[] {
+  const { recipe, metasets, t, lang } = params
   const lines: string[] = []
-  const tagsLine = makeTagsSnapshotLine(cfg, t)
+  const tagsLine = makeTagsSnapshotLine(recipe, t)
   if (tagsLine) lines.push(tagsLine)
-  const slots = makeSlotsSnapshotLine(cfg, t)
+  const slots = makeSlotsSnapshotLine(recipe, t)
   if (slots) lines.push(slots)
-  const metasetsLine = makeMetasetSnapshotLine(cfg, metasets, t)
+  const metasetsLine = makeMetasetSnapshotLine(recipe, metasets, t)
   if (metasetsLine) lines.push(metasetsLine)
-  const setsLine = makeArtifactSetsSnapshotLine(cfg, t, lang)
+  const setsLine = makeArtifactSetsSnapshotLine(recipe, t, lang)
   if (setsLine) lines.push(setsLine)
-  const mainStats = makeMainStatsSnapshotLine(cfg, t)
+  const mainStats = makeMainStatsSnapshotLine(recipe, t)
   if (mainStats) lines.push(mainStats)
-  const substats = makeSubstatsSnapshotLine(cfg, t)
+  const substats = makeSubstatsSnapshotLine(recipe, t)
   if (substats) lines.push(substats)
   return lines
 }
@@ -243,13 +243,13 @@ function makeSlotsDiffLine(previous: BuilderRecipe, next: BuilderRecipe, t: Tran
 }
 
 // Single-state slot snapshot for add/delete history entries.
-function makeSlotsSnapshotLine(cfg: BuilderRecipe, t: TranslateFn): string | null {
-  const types = normalizeNumberArray(cfg.artifactTypes).map(Number).sort(compareArtifactTypes)
+function makeSlotsSnapshotLine(recipe: BuilderRecipe, t: TranslateFn): string | null {
+  const types = normalizeNumberArray(recipe.artifactTypes).map(Number).sort(compareArtifactTypes)
   return JSON.stringify({
     kind: 'slotsSnapshot',
     label: t('builderSlots'),
     values: types,
-    fallbackText: formatArtifactTypesValue(cfg, t),
+    fallbackText: formatArtifactTypesValue(recipe, t),
   })
 }
 
@@ -267,13 +267,13 @@ function makeMainStatsDiffLine(previous: BuilderRecipe, next: BuilderRecipe, t: 
 }
 
 // Single-state main stat snapshot for add/delete history entries.
-function makeMainStatsSnapshotLine(cfg: BuilderRecipe, t: TranslateFn): string | null {
-  const stats = normalizeNumberArray(cfg.mainStatsV).map(Number).sort(compareVariants)
+function makeMainStatsSnapshotLine(recipe: BuilderRecipe, t: TranslateFn): string | null {
+  const stats = normalizeNumberArray(recipe.mainStatsV).map(Number).sort(compareVariants)
   return JSON.stringify({
     kind: 'mainStatsSnapshot',
     label: t('builderMain'),
     values: stats,
-    fallbackText: formatMainStatsValue(cfg, t),
+    fallbackText: formatMainStatsValue(recipe, t),
   })
 }
 
@@ -301,18 +301,18 @@ function makeSubstatsDiffLine(previous: BuilderRecipe, next: BuilderRecipe, t: T
 }
 
 // Single-state substat snapshot that preserves locked picks and min/max bounds.
-function makeSubstatsSnapshotLine(cfg: BuilderRecipe, t: TranslateFn): string | null {
-  const stats = normalizeNumberArray(cfg.substatsV).map(Number).sort(compareVariants)
-  const locked = normalizeNumberArray((cfg as { fixedSubstatsV?: number[] }).fixedSubstatsV).map(Number).sort(compareVariants)
-  const bounds = normalizeRollBounds((cfg as { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> }).substatRollBoundsV)
+function makeSubstatsSnapshotLine(recipe: BuilderRecipe, t: TranslateFn): string | null {
+  const stats = normalizeNumberArray(recipe.substatsV).map(Number).sort(compareVariants)
+  const locked = normalizeNumberArray((recipe as { fixedSubstatsV?: number[] }).fixedSubstatsV).map(Number).sort(compareVariants)
+  const bounds = normalizeRollBounds((recipe as { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> }).substatRollBoundsV)
   return JSON.stringify({
     kind: 'substatsSnapshot',
     label: t('builderSubstats'),
     variants: stats,
     locked,
     bounds,
-    autoFlex: cfg.autoSubstatFlex === true,
-    fallbackText: formatSubstatsValue(cfg, t),
+    autoFlex: recipe.autoSubstatFlex === true,
+    fallbackText: formatSubstatsValue(recipe, t),
   })
 }
 
@@ -332,8 +332,8 @@ function makeArtifactSetsDiffLine(previous: BuilderRecipe, next: BuilderRecipe, 
 }
 
 // Single-state artifact-set snapshot for add/delete history entries.
-function makeArtifactSetsSnapshotLine(cfg: BuilderRecipe, t: TranslateFn, lang: string): string | null {
-  const selection = normalizeSetSelectionEntries(cfg.artifactSets)
+function makeArtifactSetsSnapshotLine(recipe: BuilderRecipe, t: TranslateFn, lang: string): string | null {
+  const selection = normalizeSetSelectionEntries(recipe.artifactSets)
   return JSON.stringify({
     kind: 'setListSnapshot',
     label: t('setsTitle'),
@@ -355,26 +355,26 @@ function makeMetasetsDiffLine(previous: BuilderRecipe, next: BuilderRecipe, meta
 }
 
 // Single-state metaset snapshot for add/delete history entries.
-function makeMetasetSnapshotLine(cfg: BuilderRecipe, metasets: Metaset[], t: TranslateFn): string | null {
+function makeMetasetSnapshotLine(recipe: BuilderRecipe, metasets: Metaset[], t: TranslateFn): string | null {
   return JSON.stringify({
     kind: 'metasetSnapshot',
     label: t('menuMetasetsSection'),
-    entries: collectMetasetDiffEntries(cfg, metasets),
+    entries: collectMetasetDiffEntries(recipe, metasets),
     fallbackText: t('any'),
   })
 }
 
 // Snapshot line for tags so recipe summaries preserve recipe overrides metadata.
-function makeTagsSnapshotLine(cfg: BuilderRecipe, t: TranslateFn): string | null {
+function makeTagsSnapshotLine(recipe: BuilderRecipe, t: TranslateFn): string | null {
   // Keep tag output stable and compact for history snapshots.
-  const tags = Array.isArray(cfg.tags) ? cfg.tags.map(String).filter(Boolean) : []
+  const tags = Array.isArray(recipe.tags) ? recipe.tags.map(String).filter(Boolean) : []
   if (tags.length === 0) return null
   return `${t('builderTagsLabel')}: ${tags.join(', ')}`
 }
 
-function collectMetasetDiffEntries(cfg: BuilderRecipe, metasets: Metaset[]): MetasetSnapshotEntry[] {
+function collectMetasetDiffEntries(recipe: BuilderRecipe, metasets: Metaset[]): MetasetSnapshotEntry[] {
   // Reuse the shared snapshot collector so recipe and safeguard paths stay aligned.
-  return collectMetasetSnapshotEntries(cfg.artifactMetaSets ?? [], metasets)
+  return collectMetasetSnapshotEntries(recipe.artifactMetaSets ?? [], metasets)
 }
 
 type NormalizedSetSelection = { included: number[]; excluded: number[] }
@@ -426,21 +426,21 @@ function normalizeDisplay(value: string, t: TranslateFn): string {
   return trimmed.length > 0 ? trimmed : t('historyValueEmpty')
 }
 
-export function buildRecipeLabel(index: number, cfg: BuilderRecipe, t: TranslateFn): string {
-  return formatRecipeLabelFromRecipe(index, cfg, t)
+export function buildRecipeLabel(index: number, recipe: BuilderRecipe, t: TranslateFn): string {
+  return formatRecipeLabelFromRecipe(index, recipe, t)
 }
 
-function formatName(cfg: BuilderRecipe, t: TranslateFn): string {
-  const raw = (cfg.name ?? '').trim()
+function formatName(recipe: BuilderRecipe, t: TranslateFn): string {
+  const raw = (recipe.name ?? '').trim()
   return raw ? `"${raw}"` : t('historyValueEmpty')
 }
 
-function formatKeepValue(cfg: BuilderRecipe, t: TranslateFn): string {
-  return cfg.keep ? t('keepValueKeep') : t('keepValueSell')
+function formatKeepValue(recipe: BuilderRecipe, t: TranslateFn): string {
+  return recipe.keep ? t('keepValueKeep') : t('keepValueSell')
 }
 
-function formatExportModeValue(cfg: BuilderRecipe, t: TranslateFn): string {
-  const mode = cfg.exportMode ?? 'active'
+function formatExportModeValue(recipe: BuilderRecipe, t: TranslateFn): string {
+  const mode = recipe.exportMode ?? 'active'
   switch (mode) {
     case 'disabled': return t('builderExportModeDisabled')
     case 'separator': return t('builderExportModeSeparator')
@@ -448,14 +448,14 @@ function formatExportModeValue(cfg: BuilderRecipe, t: TranslateFn): string {
   }
 }
 
-function formatTagsValue(cfg: BuilderRecipe, t: TranslateFn): string {
+function formatTagsValue(recipe: BuilderRecipe, t: TranslateFn): string {
   // Use the same normalization as snapshot output.
-  const tags = Array.isArray(cfg.tags) ? cfg.tags.map(String).filter(Boolean) : []
+  const tags = Array.isArray(recipe.tags) ? recipe.tags.map(String).filter(Boolean) : []
   return tags.length > 0 ? tags.join(', ') : t('builderTagsEmpty')
 }
 
-function formatRankValue(cfg: BuilderRecipe, t: TranslateFn): string {
-  const n = Number(cfg.rankCode ?? 0)
+function formatRankValue(recipe: BuilderRecipe, t: TranslateFn): string {
+  const n = Number(recipe.rankCode ?? 0)
   if (n === 0 || Number.isNaN(n)) return t('any')
   const star = (value: number): string => {
     switch (value) {
@@ -474,9 +474,9 @@ function formatRankValue(cfg: BuilderRecipe, t: TranslateFn): string {
   return String(n)
 }
 
-function formatRarityValue(cfg: BuilderRecipe, t: TranslateFn): string {
-  if (cfg.rarityMode === 'auto') {
-    const threshold = cfg.autoRaritySupplementsThreshold ?? null
+function formatRarityValue(recipe: BuilderRecipe, t: TranslateFn): string {
+  if (recipe.rarityMode === 'auto') {
+    const threshold = recipe.autoRaritySupplementsThreshold ?? null
     if (!threshold) return t('headerMenuAuto')
     const tierKey = threshold === 'uncommon'
       ? 'rarityUncommon'
@@ -485,7 +485,7 @@ function formatRarityValue(cfg: BuilderRecipe, t: TranslateFn): string {
         : 'rarityRare'
     return t('builderAutoGeLabel', { tier: t(tierKey) })
   }
-  return formatRarityCode(cfg.rarityCode, t)
+  return formatRarityCode(recipe.rarityCode, t)
 }
 
 function formatRarityCode(code: number | undefined, t: TranslateFn): string {
@@ -513,8 +513,8 @@ function formatRarityCode(code: number | undefined, t: TranslateFn): string {
   }
 }
 
-function formatFactionValue(cfg: BuilderRecipe, t: TranslateFn): string {
-  const code = cfg.factionCode ?? 0
+function formatFactionValue(recipe: BuilderRecipe, t: TranslateFn): string {
+  const code = recipe.factionCode ?? 0
   if (!code) return t('any')
   return t(factionI18nKey(code))
 }
@@ -526,32 +526,32 @@ function clampLevel(level: number | undefined): number {
   return level
 }
 
-function formatLevelWindowValue(cfg: BuilderRecipe, t: TranslateFn): string {
-  const min = clampLevel(cfg.minLevel ?? 0)
-  const max = clampLevel(cfg.maxLevel ?? 16)
+function formatLevelWindowValue(recipe: BuilderRecipe, t: TranslateFn): string {
+  const min = clampLevel(recipe.minLevel ?? 0)
+  const max = clampLevel(recipe.maxLevel ?? 16)
   const minLabel = `+${min}`
   const maxLabel = `+${max}`
   return t('historyBuilderLevelsValue', { min: minLabel, max: maxLabel })
 }
 
-function formatArtifactTypesValue(cfg: BuilderRecipe, t: TranslateFn): string {
-  const types = normalizeNumberArray(cfg.artifactTypes)
+function formatArtifactTypesValue(recipe: BuilderRecipe, t: TranslateFn): string {
+  const types = normalizeNumberArray(recipe.artifactTypes)
   if (types.length === 0) return t('any')
   const sorted = types.slice().sort(compareArtifactTypes)
   return sorted.map((typeId) => t(artifactTypeI18nKey(typeId as ArtifactTypeId))).join(', ')
 }
 
-function formatMainStatsValue(cfg: BuilderRecipe, t: TranslateFn): string {
-  const stats = normalizeNumberArray(cfg.mainStatsV)
+function formatMainStatsValue(recipe: BuilderRecipe, t: TranslateFn): string {
+  const stats = normalizeNumberArray(recipe.mainStatsV)
   if (stats.length === 0) return t('any')
   const sorted = stats.slice().sort(compareVariants)
   return sorted.map((variant) => t(statVariantI18nKey(variant as StatVariantLike))).join(', ')
 }
 
-function formatSubstatsValue(cfg: BuilderRecipe, t: TranslateFn): string {
-  const substats = normalizeNumberArray(cfg.substatsV)
+function formatSubstatsValue(recipe: BuilderRecipe, t: TranslateFn): string {
+  const substats = normalizeNumberArray(recipe.substatsV)
   if (substats.length === 0) return t('any')
-  const fixed = new Set<number>(normalizeNumberArray(cfg.fixedSubstatsV))
+  const fixed = new Set<number>(normalizeNumberArray(recipe.fixedSubstatsV))
   const sorted = substats.slice().sort(compareVariants)
   return sorted
     .map((variant) => {
@@ -567,32 +567,32 @@ function clampRoll(value: number, opts?: { cap?: number }): number {
   return Math.max(0, Math.min(capped, Math.floor(value)))
 }
 
-function formatRequiredSubstatsValue(cfg: BuilderRecipe, t: TranslateFn): string {
-  const auto = cfg.autoMinCount === true
-  const count = typeof cfg.minCount === 'number' ? cfg.minCount : 0
+function formatRequiredSubstatsValue(recipe: BuilderRecipe, t: TranslateFn): string {
+  const auto = recipe.autoMinCount === true
+  const count = typeof recipe.minCount === 'number' ? recipe.minCount : 0
   const base = auto ? t('headerMenuAuto') : String(count)
-  const flex = cfg.autoSubstatFlex
+  const flex = recipe.autoSubstatFlex
     ? t('builderFlexChipOn')
     : t('builderFlexChipOff')
   return `${base} (${flex})`
 }
 
-function formatMinRequiredRollsValue(cfg: BuilderRecipe, t: TranslateFn): string {
-  const auto = cfg.autoMinRequiredRolls !== false
-  const count = typeof cfg.minRequiredRolls === 'number' ? cfg.minRequiredRolls : 0
+function formatMinRequiredRollsValue(recipe: BuilderRecipe, t: TranslateFn): string {
+  const auto = recipe.autoMinRequiredRolls !== false
+  const count = typeof recipe.minRequiredRolls === 'number' ? recipe.minRequiredRolls : 0
   const base = auto ? t('headerMenuAuto') : String(count)
-  const scope = isLockedAggregateScopeActive(cfg)
+  const scope = isLockedAggregateScopeActive(recipe)
     ? t('builderMinRequiredRollsChipLocked')
     : t('builderMinRequiredRollsChipSelected')
-  const lockedCount = typeof cfg.lockedMinRequiredRolls === 'number' ? cfg.lockedMinRequiredRolls : 0
+  const lockedCount = typeof recipe.lockedMinRequiredRolls === 'number' ? recipe.lockedMinRequiredRolls : 0
   const lockedSuffix = lockedCount > 0
     ? ` • ${t('builderLockedMinRequiredRollsLabel', { count: lockedCount })}`
     : ''
   return `${base} (${scope}${lockedSuffix})`
 }
 
-function formatMilestoneModeValue(cfg: BuilderRecipe, t: TranslateFn): string {
-  const mode = (cfg.earlyKeepMode ?? 'early') === 'late' ? 'late' : 'early'
+function formatMilestoneModeValue(recipe: BuilderRecipe, t: TranslateFn): string {
+  const mode = (recipe.earlyKeepMode ?? 'early') === 'late' ? 'late' : 'early'
   return mode === 'late' ? t('builderLateLabel') : t('builderEarlyLabel')
 }
 
