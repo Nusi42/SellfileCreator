@@ -110,7 +110,7 @@ export type UseHsfcClipboardResult = {
   handleCopyAllRecipes: () => Promise<void>
   handleCopyRecipe: (idx: number) => Promise<void>
   handlePasteAtEnd: () => Promise<void>
-  prepareHsfcImport: (current: Metaset[], incoming: Metaset[], cfgsIn: BuilderRecipe[]) => PreparedHsfcImport
+  prepareHsfcImport: (current: Metaset[], incoming: Metaset[], recipesIn: BuilderRecipe[]) => PreparedHsfcImport
   finalizeImport: (
     baseCurrent: Metaset[],
     prep: PreparedHsfcImport,
@@ -125,8 +125,8 @@ const valueKey = (sets: number[]): string => {
 
 const ensureReferencedMetasets = (base: Metaset[], recipes: BuilderRecipe[]): Metaset[] => {
   const referenced = new Set<string>()
-  for (const cfg of recipes) {
-    const ids = cfg.artifactMetaSets ?? []
+  for (const recipe of recipes) {
+    const ids = recipe.artifactMetaSets ?? []
     for (const id of ids) referenced.add(String(id))
   }
   if (!referenced.size) return base
@@ -209,14 +209,14 @@ export function useHsfcClipboard({
     const labels = []
     for (let offset = 0; offset < count; offset += 1) {
       const idx = insertIdx + offset
-      const cfg = list[idx]
-      if (!cfg) continue
-      labels.push(snapshotRecipeLabel(idx, cfg))
+      const recipe = list[idx]
+      if (!recipe) continue
+      labels.push(snapshotRecipeLabel(idx, recipe))
     }
     return labels
   }, [])
 
-  const prepareHsfcImport = useCallback((current: Metaset[], incoming: Metaset[], cfgsIn: BuilderRecipe[]): PreparedHsfcImport => {
+  const prepareHsfcImport = useCallback((current: Metaset[], incoming: Metaset[], recipesIn: BuilderRecipe[]): PreparedHsfcImport => {
     const byIdCur = new Map(current.map(m => [m.id, m]))
     const byValCur = new Map<string, Metaset>()
     for (const m of current) byValCur.set(valueKey(m.sets), m)
@@ -263,10 +263,10 @@ export function useHsfcClipboard({
       toAdd.push({ ...inc, id: target })
     }
 
-    const recipesMapped = cfgsIn.map(cfg => {
-      const ids = (cfg.artifactMetaSets ?? []).slice()
+    const recipesMapped = recipesIn.map(recipe => {
+      const ids = (recipe.artifactMetaSets ?? []).slice()
       const mapped = ids.map(id => idMap.get(id) ?? id)
-      return { ...cfg, artifactMetaSets: mapped }
+      return { ...recipe, artifactMetaSets: mapped }
     })
 
     return {
@@ -325,8 +325,8 @@ export function useHsfcClipboard({
         selectedIndex,
         note,
         finalSellRemainder: fsr,
-        safeguardRules: importedKeepRules,
-        safeguardsEnabled: importedKeepEnabled,
+        safeguardRules: importedSafeguardRules,
+        safeguardsEnabled: importedSafeguardsEnabled,
       } = parsed
       if (recipes.length === 0) {
         setPasteErr('No valid recipe found in pasted text')
@@ -339,8 +339,8 @@ export function useHsfcClipboard({
           metasets: nextMetas,
           substatTargets: nextSubstatTargets,
           finalSellRemainder: fsr,
-          safeguardRules: importedKeepRules,
-          safeguardsEnabled: importedKeepEnabled,
+          safeguardRules: importedSafeguardRules,
+          safeguardsEnabled: importedSafeguardsEnabled,
           selectedIndex,
           ...(note ? { note } : {}),
           mode: 'after',
@@ -392,8 +392,8 @@ export function useHsfcClipboard({
         publishClipboardDescriptor(descriptor)
         return next
       })
-      setSafeguardRules(importedKeepRules)
-      setSafeguardsEnabled(importedKeepEnabled)
+      setSafeguardRules(importedSafeguardRules)
+      setSafeguardsEnabled(importedSafeguardsEnabled)
       setPasteErr(null)
       return true
     } catch {
@@ -464,8 +464,8 @@ export function useHsfcClipboard({
           selectedIndex,
           note,
           finalSellRemainder: fsr,
-          safeguardRules: importedKeepRules,
-          safeguardsEnabled: importedKeepEnabled,
+          safeguardRules: importedSafeguardRules,
+          safeguardsEnabled: importedSafeguardsEnabled,
         } = parsed
         if (recipes.length > 0) {
           const prep = prepareHsfcImport(metasets, nextMetas, recipes)
@@ -475,8 +475,8 @@ export function useHsfcClipboard({
               metasets: nextMetas,
               substatTargets: nextSubstatTargets,
               finalSellRemainder: fsr,
-              safeguardRules: importedKeepRules,
-              safeguardsEnabled: importedKeepEnabled,
+              safeguardRules: importedSafeguardRules,
+              safeguardsEnabled: importedSafeguardsEnabled,
               selectedIndex,
               ...(note ? { note } : {}),
               mode: 'after',
@@ -525,8 +525,8 @@ export function useHsfcClipboard({
             publishClipboardDescriptor(descriptor)
             return next
           })
-          setSafeguardRules(importedKeepRules)
-          setSafeguardsEnabled(importedKeepEnabled)
+          setSafeguardRules(importedSafeguardRules)
+          setSafeguardsEnabled(importedSafeguardsEnabled)
           try {
             setSelectedRecipeIdx(idx + recipes.length)
             setBuilder(recipes[recipes.length - 1]!)
@@ -639,9 +639,9 @@ export function useHsfcClipboard({
     if (multi) {
       const sel = selectedRecipeIndices.slice().sort((a, b) => a - b)
       const recipes = sel.map(i => customRecipes[i]!).filter(Boolean)
-      const readable = recipes.map((cfg) => buildReadableRecipe(cfg, metasets))
+      const readable = recipes.map((recipe) => buildReadableRecipe(recipe, metasets))
       const usedMetaIds = new Set<string>()
-      for (const cfg of recipes) for (const id of (cfg.artifactMetaSets ?? [])) usedMetaIds.add(String(id))
+      for (const recipe of recipes) for (const id of (recipe.artifactMetaSets ?? [])) usedMetaIds.add(String(id))
       const metasOut = metasets
         .filter(m => usedMetaIds.has(m.id))
         .map(m => ({
@@ -660,10 +660,10 @@ export function useHsfcClipboard({
         setCopyDlgOpen(true)
       }
     } else {
-      const cfg = customRecipes[idx]
-      if (!cfg) return
-      const readable = buildReadableRecipe(cfg, metasets)
-      const usedMetaIds = cfg.artifactMetaSets ?? []
+      const recipe = customRecipes[idx]
+      if (!recipe) return
+      const readable = buildReadableRecipe(recipe, metasets)
+      const usedMetaIds = recipe.artifactMetaSets ?? []
       const metasOut = metasets
         .filter(m => usedMetaIds.includes(m.id))
         .map(m => ({
@@ -702,8 +702,8 @@ export function useHsfcClipboard({
           selectedIndex,
           note,
           finalSellRemainder: fsr,
-          safeguardRules: importedKeepRules,
-          safeguardsEnabled: importedKeepEnabled,
+          safeguardRules: importedSafeguardRules,
+          safeguardsEnabled: importedSafeguardsEnabled,
         } = parsed
         if (recipes.length > 0) {
           const prep = prepareHsfcImport(metasets, nextMetas, recipes)
@@ -713,8 +713,8 @@ export function useHsfcClipboard({
               metasets: nextMetas,
               substatTargets: nextSubstatTargets,
               finalSellRemainder: fsr,
-              safeguardRules: importedKeepRules,
-              safeguardsEnabled: importedKeepEnabled,
+              safeguardRules: importedSafeguardRules,
+              safeguardsEnabled: importedSafeguardsEnabled,
               selectedIndex,
               ...(note ? { note } : {}),
               mode: 'append',
@@ -759,8 +759,8 @@ export function useHsfcClipboard({
             publishClipboardDescriptor(descriptor)
             return next
           })
-          setSafeguardRules(importedKeepRules)
-          setSafeguardsEnabled(importedKeepEnabled)
+          setSafeguardRules(importedSafeguardRules)
+          setSafeguardsEnabled(importedSafeguardsEnabled)
           try {
             const sel = preLen + recipes.length - 1
             setSelectedRecipeIdx(sel)
