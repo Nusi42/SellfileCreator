@@ -526,15 +526,14 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const {
     columns: gridColumnPreference,
     showFirstMatch,
-    // Preference store key remains legacy until `testerGridPreferences` contract migration lands.
-    showMatchConfigIndex: showMatchRecipeIndex,
+    showMatchRecipeIndex,
     showMatchLine: showMatchLineNumber,
     showOtherMatches,
     showChampionIcons,
     showRuleTemplates,
     setColumns,
     setShowFirstMatch,
-    setShowMatchConfigIndex: setShowMatchRecipeIndex,
+    setShowMatchRecipeIndex,
     setShowMatchLine,
     setShowOtherMatches,
     setShowChampionIcons,

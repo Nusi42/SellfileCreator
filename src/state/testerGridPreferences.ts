@@ -34,7 +34,7 @@ const testerGridShowFirstStore = createLocalStorageStore<boolean>({
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
-const testerGridShowMatchConfigStore = createLocalStorageStore<boolean>({
+const testerGridShowMatchRecipeStore = createLocalStorageStore<boolean>({
   key: TESTER_GRID_SHOW_MATCH_RECIPE_INDEX_KEY,
   // New installs should hide recipe indices in first-match chips until users opt in.
   fallback: false,
@@ -75,7 +75,7 @@ const testerGridShowRuleTemplatesStore = createLocalStorageStore<boolean>({
 export function useTesterGridPreferences() {
   const columns = testerGridColumnsStore.useValue()
   const showFirstMatch = testerGridShowFirstStore.useValue()
-  const showMatchConfigIndex = testerGridShowMatchConfigStore.useValue()
+  const showMatchRecipeIndex = testerGridShowMatchRecipeStore.useValue()
   const showMatchLine = testerGridShowMatchLineStore.useValue()
   const showOtherMatches = testerGridShowOtherStore.useValue()
   const showChampionIcons = testerGridShowChampIconsStore.useValue()
@@ -89,8 +89,8 @@ export function useTesterGridPreferences() {
     testerGridShowFirstStore.set(Boolean(next))
   }, [])
 
-  const setShowMatchConfigIndex = useCallback((next: boolean) => {
-    testerGridShowMatchConfigStore.set(Boolean(next))
+  const setShowMatchRecipeIndex = useCallback((next: boolean) => {
+    testerGridShowMatchRecipeStore.set(Boolean(next))
   }, [])
 
   const setShowMatchLine = useCallback((next: boolean) => {
@@ -112,14 +112,14 @@ export function useTesterGridPreferences() {
   return {
     columns,
     showFirstMatch,
-    showMatchConfigIndex,
+    showMatchRecipeIndex,
     showMatchLine,
     showOtherMatches,
     showChampionIcons,
     showRuleTemplates,
     setColumns,
     setShowFirstMatch,
-    setShowMatchConfigIndex,
+    setShowMatchRecipeIndex,
     setShowMatchLine,
     setShowOtherMatches,
     setShowChampionIcons,
