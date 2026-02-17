@@ -9,7 +9,7 @@ import type { NormalizedGearArtifact, NormalizedStat } from '../../src/lib/impor
 import type { SafeguardRule } from '../../src/lib/safeguards.js'
 import type { Metaset } from '../../src/lib/metasets.js'
 import { buildSafeguardRules, prependSafeguardRules, RULE_SOURCE_SAFEGUARDS } from '../../src/lib/merge.js'
-import type { HsfRuleWithCfg } from '../../src/lib/merge.js'
+import type { HsfRuleWithRecipe } from '../../src/lib/merge.js'
 import {
   mergeSafeguardInjectedRulesWithLoadedWasm,
   warmupWasmRuleEngine,
@@ -814,7 +814,7 @@ test('wasm safeguard merge binding preserves injected payload fields', async () 
   const merged = mergeSafeguardInjectedRulesWithLoadedWasm({
     baseRules: [],
     customRules: [],
-    candidateKeepRules,
+    candidateSafeguardRules: candidateKeepRules,
   })
   assert.strictEqual(merged.length, 1, 'expected one merged keep row')
   const injected = merged[0]!
@@ -838,7 +838,7 @@ test('resolveSafeguardRuleLabel prefers trimmed rule names', () => {
 
 test('resolveSafeguardRuleLabel falls back to ordinal when metadata is present', () => {
   const keepRule = makeRule({ id: 'ku_demo' })
-  const injectedRule: HsfRuleWithCfg = {
+  const injectedRule: HsfRuleWithRecipe = {
     Keep: true,
     Use: true,
     IsRuleTypeAND: false,
@@ -853,7 +853,7 @@ test('resolveSafeguardRuleLabel falls back to ordinal when metadata is present',
 
 test('resolveSafeguardRuleLabel falls back to rule id when ordinal is missing', () => {
   const keepRule = makeRule({ id: 'ku_demo' })
-  const injectedRule: HsfRuleWithCfg = {
+  const injectedRule: HsfRuleWithRecipe = {
     Keep: true,
     Use: true,
     IsRuleTypeAND: false,

@@ -17,7 +17,7 @@ import {
 } from '../lib/safeguards'
 import type { SafeguardDetectionSnapshot } from '../lib/safeguards'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
-import type { HsfRuleWithCfg } from '../lib/merge'
+import type { HsfRuleWithRecipe } from '../lib/merge'
 import type { BuilderRecipe, SellfileExportMode, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { TesterMatchWorkerItemResult } from './testerMatchWorkerTypes'
 import type { TesterPreviewMatch } from '../types/testerPreview'
@@ -38,7 +38,7 @@ import {
 declare const self: DedicatedWorkerGlobalScope
 
 type WarmState = {
-  rulesByRecipe: Map<number, HsfRuleWithCfg[]>
+  rulesByRecipe: Map<number, HsfRuleWithRecipe[]>
   countsByRecipe: Map<number, number>
   keys: string[]
   substatTargetsKey: string
@@ -177,7 +177,7 @@ const buildWarmState = (
   id: number,
   payload: Extract<RuleCacheWorkerRequest, { kind: 'warm' | 'pipeline' }>['payload'],
   options?: { skipProgress?: boolean; fingerprint?: string | null },
-): { state: WarmState; mergedRules: HsfRuleWithCfg[] } => {
+): { state: WarmState; mergedRules: HsfRuleWithRecipe[] } => {
   const recipesForRules = recipesForRuleBuild(payload.recipes)
   const baseRuleCount = Array.isArray(payload.hsf?.Rules) ? (payload.hsf?.Rules.length ?? 0) : 0
   let lastProgress = 0
@@ -244,7 +244,7 @@ const reuseWarmState = (
 
 const toWarmResponsePayload = (
   state: WarmState,
-  mergedRules: HsfRuleWithCfg[],
+  mergedRules: HsfRuleWithRecipe[],
 ): RuleCacheWorkerResponse => ({
   id: 0,
   kind: 'warm:done',
@@ -306,7 +306,7 @@ const artifactEntriesFromCache = (): Array<[number, NormalizedGearArtifact]> => 
 }
 
 const buildPipelineMatches = async (
-  mergedRules: HsfRuleWithCfg[],
+  mergedRules: HsfRuleWithRecipe[],
   artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,
   recipeModes: SellfileExportMode[] | undefined,
   _baseMatchMap: Map<number, TesterMatchWorkerItemResult> | null,
@@ -364,7 +364,7 @@ const buildPipelineMatches = async (
 // Keep-unique candidate detection needs baseline keep/sell decisions with some
 // recipes excluded. Batch evaluation avoids per-row JS re-scans in that phase.
 const buildExcludedConfigBaselineMap = async (
-  mergedRules: HsfRuleWithCfg[],
+  mergedRules: HsfRuleWithRecipe[],
   artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,
   recipeModes: SellfileExportMode[] | undefined,
   excludeConfigIndices: ReadonlySet<number>,
@@ -570,7 +570,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       completed = warmTotal
     }
 
-    const toPreviewMatch = (result: EvalResult | null, rules: HsfRuleWithCfg[]): TesterPreviewMatch | null => {
+    const toPreviewMatch = (result: EvalResult | null, rules: HsfRuleWithRecipe[]): TesterPreviewMatch | null => {
       if (!result) return null
       const rule = rules[result.ruleIndex]
       const recipeIdx = result.recipeIdx ?? null

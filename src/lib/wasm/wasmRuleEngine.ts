@@ -38,7 +38,7 @@ import initRuleEngineWasm, {
   sort_safeguard_substats_value as sortSafeguardSubstatsWasmValueBinding,
   version as ruleEngineWasmVersionBinding,
 } from './generated/rule_engine.js'
-import type { GeneratedBranchRuleEntry, HsfRuleWithCfg } from '../merge'
+import type { GeneratedBranchRuleEntry, HsfRuleWithRecipe } from '../merge'
 import type { HsfRule } from '../hsfTypes'
 import type { BuilderRecipe, SellfileExportMode } from '../hsfBuilder'
 import type { SafeguardDetectionSnapshot, SafeguardRule } from '../safeguards'
@@ -200,7 +200,7 @@ export const warmupWasmRuleEngine = async (): Promise<void> => {
 // Configure the WASM engine with the merged rules + recipe mode visibility.
 // This must run before evaluate, matching the existing worker configure flow.
 export const configureWasmRuleEngine = async (params: {
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
 }): Promise<void> => {
   // Ensure module init before invoking wasm configure binding.
@@ -230,7 +230,7 @@ export const evaluateWasmRuleEngineItems = async (params: {
 // Sync configure helper is used by main-thread adapters that cannot await.
 // Callers must run warmup first and then can configure on each ruleset swap.
 export const configureWasmRuleEngineWithLoadedWasm = (params: {
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
 }): void => {
   // Sync helper is fail-closed: caller must have warmed wasm already.
@@ -268,7 +268,7 @@ type WasmObsoleteEntry = { index: number; coveredBy: number; reason: string }
 type WasmObsoleteReport = { obsolete: WasmObsoleteEntry[] }
 
 type WasmGeneratedEntry = {
-  rule: HsfRuleWithCfg
+  rule: HsfRuleWithRecipe
   branchOrder: number
   branchSeq: number
   originalIdx: number
@@ -321,9 +321,9 @@ export const findObsoleteRulesWithLoadedWasm = (rules: HsfRule[]): WasmObsoleteR
 
 // Export dedupe helper mirrors hsfDeduplicate.ts segment semantics while moving
 // normalization + coverage matching to Rust as the single source of truth.
-export const dedupeHsfRulesForExportWithLoadedWasm = (rules: HsfRuleWithCfg[]): HsfRuleWithCfg[] | null => {
+export const dedupeHsfRulesForExportWithLoadedWasm = (rules: HsfRuleWithRecipe[]): HsfRuleWithRecipe[] | null => {
   assertWasmInitializedSync()
-  const result = dedupeHsfRulesForExportWasmValueBinding(rules) as HsfRuleWithCfg[]
+  const result = dedupeHsfRulesForExportWasmValueBinding(rules) as HsfRuleWithRecipe[]
   if (Array.isArray(result)) return result
   throw new Error('WASM export-rule dedupe returned an invalid payload.')
 }
@@ -333,17 +333,17 @@ export const dedupeHsfRulesForExportWithLoadedWasm = (rules: HsfRuleWithCfg[]): 
 export const finalizeGeneratedRulesWithLoadedWasm = (params: {
   entries: readonly GeneratedBranchRuleEntry[]
   applyObsoletePruning: boolean
-}): HsfRuleWithCfg[] | null => {
+}): HsfRuleWithRecipe[] | null => {
   assertWasmInitializedSync()
   const payload = params.entries as WasmGeneratedEntry[]
-  const result = finalizeGeneratedRulesWasmValueBinding(payload, params.applyObsoletePruning) as HsfRuleWithCfg[]
+  const result = finalizeGeneratedRulesWasmValueBinding(payload, params.applyObsoletePruning) as HsfRuleWithRecipe[]
   if (Array.isArray(result)) return result
   throw new Error('WASM finalize-generated-rules returned an invalid payload.')
 }
 
 // Batch merged-rule fingerprinting runs in Rust so orchestrator rebuild checks
 // avoid repeated per-rule JS normalization work on large merged rule sets.
-export const fingerprintMergedRulesWithLoadedWasm = (rules: readonly HsfRuleWithCfg[]): string => {
+export const fingerprintMergedRulesWithLoadedWasm = (rules: readonly HsfRuleWithRecipe[]): string => {
   assertWasmInitializedSync()
   const signature = fingerprintMergedRulesWasmValueBinding(rules)
   if (typeof signature === 'string') return signature
@@ -389,7 +389,7 @@ export const computeSafeguardProtectionWithLoadedWasm = (params: {
 // in Rust; TS callers reattach row references for compatibility.
 export const collectSafeguardCandidatesWithLoadedWasm = (params: {
   rows: unknown
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
   ignoreSafeguardConfigIndices?: ReadonlySet<number>
 }): WasmCollectedSafeguardSnapshot => {
@@ -411,7 +411,7 @@ export const collectSafeguardCandidatesWithLoadedWasm = (params: {
 // wasm call so TS orchestration avoids two separate Rust roundtrips.
 export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
   rows: unknown
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
   ignoreSafeguardConfigIndices?: ReadonlySet<number>
   safeguardRules: unknown
@@ -473,27 +473,27 @@ export const resolveSafeguardRulesWithMetasetsWithLoadedWasm = <T extends { comb
 // Injected safeguard merge filtering/sorting runs in Rust so canonicalization
 // and dedupe precedence are defined in one implementation.
 export const mergeSafeguardInjectedRulesWithLoadedWasm = (params: {
-  baseRules: HsfRuleWithCfg[]
-  customRules: HsfRuleWithCfg[]
-  candidateKeepRules: HsfRuleWithCfg[]
-}): HsfRuleWithCfg[] => {
+  baseRules: HsfRuleWithRecipe[]
+  customRules: HsfRuleWithRecipe[]
+  candidateSafeguardRules: HsfRuleWithRecipe[]
+}): HsfRuleWithRecipe[] => {
   assertWasmInitializedSync()
   const result = mergeSafeguardInjectedRulesWasmValueBinding(
     params.baseRules,
     params.customRules,
-    params.candidateKeepRules,
+    params.candidateSafeguardRules,
   )
-  if (Array.isArray(result)) return result as HsfRuleWithCfg[]
+  if (Array.isArray(result)) return result as HsfRuleWithRecipe[]
   throw new Error('WASM safeguard injected-rule merge returned an invalid payload.')
 }
 
-// Keep-unique HSF keep-rule construction moved to Rust so merge.ts no longer
+// Safeguard HSF rule construction moved to Rust so merge.ts no longer
 // maintains duplicate placeholder/artifact expansion logic.
 export const buildSafeguardRulesWithLoadedWasm = (params: {
   rules: readonly SafeguardRule[]
   detection: SafeguardDetectionSnapshot | null
   recipeIdBase: number
-}): HsfRuleWithCfg[] => {
+}): HsfRuleWithRecipe[] => {
   assertWasmInitializedSync()
   if (!params.detection) return []
   const result = buildSafeguardRulesWasmValueBinding(
@@ -501,7 +501,7 @@ export const buildSafeguardRulesWithLoadedWasm = (params: {
     params.detection,
     BigInt(Math.floor(params.recipeIdBase)),
   )
-  if (Array.isArray(result)) return result as HsfRuleWithCfg[]
+  if (Array.isArray(result)) return result as HsfRuleWithRecipe[]
   throw new Error('WASM safeguard rule builder returned an invalid payload.')
 }
 
@@ -510,13 +510,13 @@ export const buildSafeguardRulesWithLoadedWasm = (params: {
 export const buildFinalSellRulesWithLoadedWasm = (params: {
   finalSellRemainder: FinalSellRemainderConfig | null | undefined
   allKnownSetIds: number[]
-}): HsfRuleWithCfg[] => {
+}): HsfRuleWithRecipe[] => {
   assertWasmInitializedSync()
   const result = buildFinalSellRulesWasmValueBinding(
     params.finalSellRemainder ?? null,
     params.allKnownSetIds,
   )
-  if (Array.isArray(result)) return result as HsfRuleWithCfg[]
+  if (Array.isArray(result)) return result as HsfRuleWithRecipe[]
   throw new Error('WASM final-sell rule builder returned an invalid payload.')
 }
 
@@ -525,30 +525,30 @@ export const buildFinalSellRulesWithLoadedWasm = (params: {
 export const flattenRuleBatchesWithTotalLimitWithLoadedWasm = (params: {
   baseCount: number
   totalLimit: number | null
-  batches: ReadonlyArray<ReadonlyArray<HsfRuleWithCfg>>
-}): HsfRuleWithCfg[] => {
+  batches: ReadonlyArray<ReadonlyArray<HsfRuleWithRecipe>>
+}): HsfRuleWithRecipe[] => {
   assertWasmInitializedSync()
   const result = flattenRuleBatchesWithTotalLimitWasmValueBinding(
     BigInt(Math.max(0, Math.floor(params.baseCount))),
     BigInt(params.totalLimit != null ? Math.floor(params.totalLimit) : -1),
     params.batches,
   )
-  if (Array.isArray(result)) return result as HsfRuleWithCfg[]
+  if (Array.isArray(result)) return result as HsfRuleWithRecipe[]
   throw new Error('WASM custom-rule batch flattener returned an invalid payload.')
 }
 
 // Merge orchestration combines base/custom/final-sell/safeguard rows and
 // assigns stable __lineIdx ordering in one Rust pass.
 export const computeMergedRulesWithLoadedWasm = (params: {
-  baseRules: HsfRuleWithCfg[]
-  customRules: HsfRuleWithCfg[]
+  baseRules: HsfRuleWithRecipe[]
+  customRules: HsfRuleWithRecipe[]
   finalSellRemainder: FinalSellRemainderConfig | null | undefined
   allKnownSetIds: number[]
   safeguardEnabled: boolean
   safeguardRules: readonly SafeguardRule[]
   safeguardDetection: SafeguardDetectionSnapshot | null | undefined
   safeguardRecipeIdBase: number
-}): HsfRuleWithCfg[] => {
+}): HsfRuleWithRecipe[] => {
   assertWasmInitializedSync()
   const result = computeMergedRulesWasmValueBinding({
     baseRules: params.baseRules,
@@ -561,7 +561,7 @@ export const computeMergedRulesWithLoadedWasm = (params: {
     safeguardDetection: params.safeguardDetection ?? null,
     safeguardRecipeIdBase: Math.floor(params.safeguardRecipeIdBase),
   })
-  if (Array.isArray(result)) return result as HsfRuleWithCfg[]
+  if (Array.isArray(result)) return result as HsfRuleWithRecipe[]
   throw new Error('WASM merged-rule orchestrator returned an invalid payload.')
 }
 

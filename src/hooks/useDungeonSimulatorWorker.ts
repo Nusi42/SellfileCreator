@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import DungeonSimulatorWorker from '../workers/dungeonSimulatorWorker?worker&inline'
-import type { HsfRuleWithCfg } from '../lib/merge'
+import type { HsfRuleWithRecipe } from '../lib/merge'
 import type { SubstatTargetTable } from '../lib/hsfBuilder/types'
 import {
   DUNGEON_IDS,
@@ -34,7 +34,7 @@ import { warmupWasmRuleEngine } from '../lib/wasm/wasmRuleEngine'
 import { createProgressThrottler, PROGRESS_THROTTLE_MS } from '../types/progress'
 
 type UseDungeonSimulatorWorkerParams = {
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   substatTargets: SubstatTargetTable
   selections?: Partial<Record<DungeonId, DungeonStageSelection>>
   boosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
@@ -213,7 +213,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
   const fallbackCancelRef = useRef<(() => void) | null>(null)
   // Track previous inputs so we can resimulate only changed dungeons.
   const prevInputsRef = useRef<{
-    rules: HsfRuleWithCfg[]
+    rules: HsfRuleWithRecipe[]
     substatTargets: SubstatTargetTable
     selections?: Partial<Record<DungeonId, DungeonStageSelection>>
     boosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>

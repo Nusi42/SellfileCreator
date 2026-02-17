@@ -6,7 +6,7 @@
  */
 import { ACCESSORY_NO_SET_ID } from './constants'
 import { evaluateFirst, type TestItem } from './ruleEval'
-import type { HsfRuleWithCfg } from './merge'
+import type { HsfRuleWithRecipe } from './merge'
 import { ALLOWED_MAIN_BY_SLOT, ALLOWED_SUB_BY_SLOT, ArtifactSet, ArtifactType, Faction, StatVariant, type ArtifactSetId, type ArtifactTypeId, type FactionId, type LevelMilestone, type RankValue } from './types'
 import { isAccessorySlot } from './testerDomain'
 import { substatMatchesMainVariant } from './statCompatibility'
@@ -1172,7 +1172,7 @@ const createDungeonRuntime = (params: {
 // Execute a batch of runs for a single dungeon runtime.
 const runDungeonBatch = (
   runtime: DungeonSimRuntime,
-  rules: HsfRuleWithCfg[],
+  rules: HsfRuleWithRecipe[],
   substatTargets: SubstatTargetTable,
   batchRuns: number,
 ): number => {
@@ -1313,7 +1313,7 @@ const finalizeDungeonResults = (runtime: DungeonSimRuntime): DungeonSimDungeonRe
 
 // Build a streaming simulation session so callers can run in batches.
 export const createDungeonSimSession = (params: {
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   substatTargets: SubstatTargetTable
   selections?: Partial<Record<DungeonId, DungeonStageSelection>>
   spotlight?: EventSpotlightSelection
@@ -1387,7 +1387,7 @@ export const createDungeonSimSession = (params: {
 
 // Build a streaming session that precomputes both event spotlight variants.
 export const createDungeonSimSpotlightSession = (params: {
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   substatTargets: SubstatTargetTable
   selections?: Partial<Record<DungeonId, DungeonStageSelection>>
   boosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
@@ -1598,7 +1598,7 @@ export const createDungeonSimSpotlightSession = (params: {
 
 // Simulate every dungeon with the same rules and substat targets.
 export const simulateDungeonDrops = (params: {
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   substatTargets: SubstatTargetTable
   selections?: Partial<Record<DungeonId, DungeonStageSelection>>
   spotlight?: EventSpotlightSelection

@@ -8,7 +8,7 @@ import type { ChampionLocation, NormalizedStat } from './importers/gearDbNormali
 import type { HsfRule } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, StatVariantLike } from './types'
 import type { LevelMilestone, RankValue } from './types'
-import type { HsfRuleWithCfg } from './merge'
+import type { HsfRuleWithRecipe } from './merge'
 import type { SellfileExportMode } from './hsfBuilder'
 import {
   configureWasmRuleEngineWithLoadedWasm,
@@ -96,7 +96,7 @@ export type EvalMatchesByConfigResult = {
 
 type WasmMatcherConfigCache = {
   // Keep the same rule array identity used for the active WASM configure call.
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   // Keep the same recipe-mode array identity used for the active WASM configure call.
   recipeModes: SellfileExportMode[]
 }
@@ -159,7 +159,7 @@ const toWasmEvaluateOptions = (
 
 // Configure once per ruleset/mode tuple so repeated evaluate calls stay cheap.
 const ensureWasmMatcherConfigured = (
-  rules: HsfRuleWithCfg[],
+  rules: HsfRuleWithRecipe[],
   recipeModes: SellfileExportMode[],
 ): void => {
   // If both arrays are the exact same identities, WASM is already configured.
@@ -177,7 +177,7 @@ const ensureWasmMatcherConfigured = (
 }
 
 const evaluateSingleItemWithWasm = (
-  rules: HsfRuleWithCfg[],
+  rules: HsfRuleWithRecipe[],
   recipeModes: SellfileExportMode[],
   item: TestItem,
   options?: EvalMatchesByRecipeOverrides,
@@ -220,7 +220,7 @@ const evaluateSingleItemWithWasm = (
 export function matchRule(rule: HsfRule, item: TestItem): boolean {
   // Single-rule match reuses the common WASM adapter with a one-rule list.
   const result = evaluateSingleItemWithWasm(
-    [rule as HsfRuleWithCfg],
+    [rule as HsfRuleWithRecipe],
     EMPTY_CONFIG_MODES,
     item,
   )
@@ -229,7 +229,7 @@ export function matchRule(rule: HsfRule, item: TestItem): boolean {
 }
 
 /** Iterate in order and return the first matching rule. */
-export function evaluateFirst(rules: HsfRuleWithCfg[], item: TestItem): EvalResult {
+export function evaluateFirst(rules: HsfRuleWithRecipe[], item: TestItem): EvalResult {
   // First-match scan also reuses the common WASM single-item adapter.
   const result = evaluateSingleItemWithWasm(
     rules,
@@ -242,7 +242,7 @@ export function evaluateFirst(rules: HsfRuleWithCfg[], item: TestItem): EvalResu
 
 /** Full scan that returns the first match plus the set of recipes that match anywhere in the rules list. */
 export function evaluateMatchesByRecipe(
-  rules: HsfRuleWithCfg[],
+  rules: HsfRuleWithRecipe[],
   item: TestItem,
   options?: EvalMatchesByRecipeOverrides,
 ): EvalMatchesByConfigResult {

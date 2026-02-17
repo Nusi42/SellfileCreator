@@ -1,6 +1,6 @@
 import type { BuilderRecipe, SellfileExportMode, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
-import type { HsfRuleWithCfg } from '../lib/merge'
+import type { HsfRuleWithRecipe } from '../lib/merge'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import type { SafeguardDetectionSnapshot, SafeguardsMergeInput } from '../lib/safeguards'
@@ -25,11 +25,11 @@ export type RuleCacheWarmResponse = {
   id: number
   kind: 'warm:done'
   payload: {
-    rulesByRecipeEntries: Array<[number, HsfRuleWithCfg[]]>
+    rulesByRecipeEntries: Array<[number, HsfRuleWithRecipe[]]>
     countsByRecipeEntries: Array<[number, number]>
     keys: string[]
     substatTargetsKey: string
-    mergedRules: HsfRuleWithCfg[]
+    mergedRules: HsfRuleWithRecipe[]
     truncatedRecipeIndices: number[]
     totalLimitHit: boolean
     excludedByTotalLimitIndices: number[]
@@ -89,11 +89,11 @@ export type RuleCachePipelineResponse = {
   id: number
   kind: 'pipeline:done'
   payload: {
-    rulesByRecipeEntries: Array<[number, HsfRuleWithCfg[]]>
+    rulesByRecipeEntries: Array<[number, HsfRuleWithRecipe[]]>
     countsByRecipeEntries: Array<[number, number]>
     keys: string[]
     substatTargetsKey: string
-    mergedRules: HsfRuleWithCfg[]
+    mergedRules: HsfRuleWithRecipe[]
     truncatedRecipeIndices: number[]
     totalLimitHit: boolean
     excludedByTotalLimitIndices: number[]

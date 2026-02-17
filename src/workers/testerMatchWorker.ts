@@ -2,7 +2,7 @@
 /// <reference lib="webworker" />
 
 import type { SellfileExportMode } from '../lib/hsfBuilder'
-import { KEEP_OVERRIDE_RULE_SOURCES, type HsfRuleWithCfg } from '../lib/merge'
+import { KEEP_OVERRIDE_RULE_SOURCES, type HsfRuleWithRecipe } from '../lib/merge'
 import {
   configureWasmRuleEngine,
   evaluateWasmRuleEngineItems,
@@ -18,7 +18,7 @@ import { createProgressThrottler } from '../types/progress'
 
 declare const self: DedicatedWorkerGlobalScope
 
-let currentRules: HsfRuleWithCfg[] = []
+let currentRules: HsfRuleWithRecipe[] = []
 let currentConfigModes: SellfileExportMode[] = []
 let currentKeepOverrideRuleIndices = new Set<number>()
 let wasmWarmupPromise: Promise<void> | null = null
@@ -33,7 +33,7 @@ const ensureWasmWorkerReady = async (): Promise<void> => {
   await wasmWarmupPromise
 }
 
-const configureRules = async (rules: HsfRuleWithCfg[], recipeModes: SellfileExportMode[]) => {
+const configureRules = async (rules: HsfRuleWithRecipe[], recipeModes: SellfileExportMode[]) => {
   currentRules = rules ?? []
   currentConfigModes = Array.isArray(recipeModes) ? recipeModes : []
   // Keep-override index map allows skipping baseline re-eval for unaffected rows.

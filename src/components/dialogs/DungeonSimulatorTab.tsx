@@ -8,7 +8,7 @@ import SwapVertIcon from '@mui/icons-material/SwapVert'
 import { useI18n } from '../../lib/i18n'
 import { ACCESSORY_NO_SET_ID, STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS } from '../../lib/constants'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, artifactTypeI18nKey, getLocalizedGearSetName, statVariantI18nKey, type ArtifactSetId, type ArtifactTypeId, type LevelMilestone } from '../../lib/types'
-import type { HsfRuleWithCfg } from '../../lib/merge'
+import type { HsfRuleWithRecipe } from '../../lib/merge'
 import type { SubstatTargetTable } from '../../lib/hsfBuilder/types'
 import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../../lib/gearSets/selection'
@@ -236,7 +236,7 @@ const resolveSingleBoostSet = (entries: ArtifactSetSelectionEntry[]): ArtifactSe
 }
 
 export type DungeonSimulatorTabProps = {
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   substatTargets: SubstatTargetTable
   // Provide the shared stat color map so the popover can match other UI.
   substatColors: SubstatColorMap

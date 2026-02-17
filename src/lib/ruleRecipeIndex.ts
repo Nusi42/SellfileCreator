@@ -1,4 +1,4 @@
-import type { HsfRuleWithCfg } from './merge'
+import type { HsfRuleWithRecipe } from './merge'
 
 type RuleWithConfigMetadata = {
   RecipeID?: number
@@ -52,7 +52,7 @@ export function applyRecipeIndexMutable(rule: RuleWithConfigMetadata, recipeIdx:
   }
 }
 
-export function cloneRuleWithRecipeIndex(rule: HsfRuleWithCfg, recipeIdx: number, recipeName?: string | null): HsfRuleWithCfg {
+export function cloneRuleWithRecipeIndex(rule: HsfRuleWithRecipe, recipeIdx: number, recipeName?: string | null): HsfRuleWithRecipe {
   if (!Number.isFinite(recipeIdx) || recipeIdx < 0) {
     const clone = { ...rule }
     delete (clone as { RecipeID?: number }).RecipeID
@@ -61,9 +61,9 @@ export function cloneRuleWithRecipeIndex(rule: HsfRuleWithCfg, recipeIdx: number
     if ('ConfigName' in clone) delete (clone as { ConfigName?: string }).ConfigName
     return clone
   }
-  const legacy = rule as HsfRuleWithCfg & { ConfigName?: string }
+  const legacy = rule as HsfRuleWithRecipe & { ConfigName?: string }
   const nextName = sanitizeName(recipeName ?? legacy.RecipeName ?? legacy.ConfigName)
-  const clone: HsfRuleWithCfg = {
+  const clone: HsfRuleWithRecipe = {
     ...rule,
     RecipeID: normalizeConfigId(recipeIdx),
     ...(nextName ? { RecipeName: nextName } : {}),

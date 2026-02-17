@@ -24,7 +24,7 @@ import {
   type RankValue,
 } from './types'
 import { rankCoverage, rarityCoverage } from './hsfTypes'
-import type { HsfRuleWithCfg } from './merge'
+import type { HsfRuleWithRecipe } from './merge'
 import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
 import { isAccessorySlot } from './testerDomain'
 import { ACCESSORY_NO_SET_ID } from './constants'
@@ -535,7 +535,7 @@ export function filterHsfRules<T extends HsfRule>(
   }
 
   const shouldIncludeRule = (r: T): boolean => {
-    const withCfg = r as unknown as HsfRuleWithCfg
+    const withCfg = r as unknown as HsfRuleWithRecipe
     const recipeIdx = getRuleRecipeIndex(withCfg)
     // Rule-level: Keep/Sell and Enabled/Disabled
     {
@@ -579,7 +579,7 @@ export function filterHsfRules<T extends HsfRule>(
     if (configNameFilterActive) {
       if (!configNameRegexValid) return false
       const resolvedName = resolveMatchRecipeName(recipeIdx ?? null, options?.recipeNames ?? null, withCfg)
-      const ruleSource = (withCfg as Partial<HsfRuleWithCfg> | null | undefined)?.__source ?? null
+      const ruleSource = (withCfg as Partial<HsfRuleWithRecipe> | null | undefined)?.__source ?? null
       const sourceAliases = ruleSource
         ? options?.specialRuleLabels?.[ruleSource] ?? []
         : []
@@ -713,7 +713,7 @@ export function filterHsfRules<T extends HsfRule>(
   for (const r of rules) {
     if (!shouldIncludeRule(r)) continue
     filtered.push(r)
-    const recipeIdx = getRuleRecipeIndex(r as unknown as HsfRuleWithCfg)
+    const recipeIdx = getRuleRecipeIndex(r as unknown as HsfRuleWithRecipe)
     if (recipeIdx !== null) {
       matchingRecipeIndices.add(recipeIdx)
       recipeRuleCounts.set(recipeIdx, (recipeRuleCounts.get(recipeIdx) ?? 0) + 1)

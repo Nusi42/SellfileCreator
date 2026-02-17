@@ -35,8 +35,7 @@ import MarkdownTooltip from '../MarkdownTooltip'
 import type { Metaset } from '../../lib/metasets'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import type { EmptyStateMessageProps } from '../EmptyStateMessage'
-// `merge.ts` still exports the legacy name for compatibility, so we alias to recipe wording locally.
-import type { HsfRuleWithCfg as HsfRuleWithRecipe } from '../../lib/merge'
+import type { HsfRuleWithRecipe } from '../../lib/merge'
 import type { SubstatTargetTable } from '../../lib/hsfBuilder/types'
 
 

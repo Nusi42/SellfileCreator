@@ -11,7 +11,7 @@ import { importGearDatabaseFromArrayBuffer } from '../../src/lib/importers/gearD
 import {
   RULE_SOURCE_SAFEGUARDS,
   computeMergedRules,
-  type HsfRuleWithCfg,
+  type HsfRuleWithRecipe,
 } from '../../src/lib/merge.js'
 import {
   collectSafeguardCandidates,
@@ -64,7 +64,7 @@ const toArrayBuffer = (bytes: Buffer): ArrayBuffer => {
 // safeguard candidate collection helpers.
 const toPreviewMatch = (
   result: EvalResult | null,
-  rules: readonly HsfRuleWithCfg[],
+  rules: readonly HsfRuleWithRecipe[],
 ): TesterPreviewMatch | null => {
   if (!result) return null
   const matchedRule = rules[result.ruleIndex] ?? null

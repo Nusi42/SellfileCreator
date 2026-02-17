@@ -17,7 +17,7 @@ import {
   RULE_SOURCE_SAFEGUARDS,
   buildSafeguardRules,
   canonicalRuleKey,
-  type HsfRuleWithCfg,
+  type HsfRuleWithRecipe,
 } from '../../src/lib/merge.js'
 import {
   collectSafeguardCandidates,
@@ -207,7 +207,7 @@ const buildScenario = async (input: ScenarioInput): Promise<ScenarioData> => {
 // capture the same per-row metadata the UI stores in testerPreviewRows.
 const evaluateArtifacts = (
   artifacts: readonly NormalizedGearArtifact[],
-  rules: readonly HsfRuleWithCfg[],
+  rules: readonly HsfRuleWithRecipe[],
   recipeModes: readonly SellfileExportMode[],
 ): MatchPhaseResult => {
   const rows: TesterPreviewRow[] = []
@@ -235,7 +235,7 @@ const evaluateArtifacts = (
       matchingConfigIndices: cfgMatches,
       matchingConfigDecisions,
     } = evaluateMatchesByConfig(
-      rules as HsfRuleWithCfg[],
+      rules as HsfRuleWithRecipe[],
       artifact.testerItem,
       {
         configModes: recipeModes as SellfileExportMode[],
@@ -260,7 +260,7 @@ const evaluateArtifacts = (
 // Recreate the Safeguard detection flow and return its timing stats.
 const measureSafeguards = (
   rows: readonly TesterPreviewRow[],
-  baseRules: readonly HsfRuleWithCfg[],
+  baseRules: readonly HsfRuleWithRecipe[],
   safeguardRules: readonly SafeguardRule[],
   safeguardsEnabled: boolean,
   recipeModes: readonly SellfileExportMode[],

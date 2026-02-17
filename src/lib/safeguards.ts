@@ -22,7 +22,7 @@ import {
   rarityNames,
 } from './types'
 import type { BuilderRecipe, SellfileExportMode } from './hsfBuilder'
-import type { HsfRuleWithCfg } from './merge'
+import type { HsfRuleWithRecipe } from './merge'
 import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
 import type { Metaset } from './metasets'
 import { normalizeRecipeName } from './ruleRecipeIndex'
@@ -369,7 +369,7 @@ export type SafeguardDetectionParams = {
 
 export type SafeguardCollectAndDetectParams = {
   rows: readonly TesterPreviewRow[]
-  baseRules: readonly HsfRuleWithCfg[]
+  baseRules: readonly HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
   rules: readonly SafeguardRule[]
   enabled: boolean
@@ -562,7 +562,7 @@ const isSafeguardDetectionSnapshot = (value: unknown): value is SafeguardDetecti
 
 export function collectSafeguardCandidates(params: {
   rows: readonly TesterPreviewRow[]
-  baseRules: readonly HsfRuleWithCfg[]
+  baseRules: readonly HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
   ignoreSafeguardConfigIndices?: ReadonlySet<number>
 }): SafeguardCandidateSnapshot {
@@ -572,7 +572,7 @@ export function collectSafeguardCandidates(params: {
     ? params.ignoreSafeguardConfigIndices
     : null
   if (!rows.length) return { candidates: [], uniqueItemKeys: new Set() }
-  const baseRuleList: HsfRuleWithCfg[] = Array.isArray(baseRules) ? [...baseRules] : []
+  const baseRuleList: HsfRuleWithRecipe[] = Array.isArray(baseRules) ? [...baseRules] : []
   // Pass raw preview rows and let wasm normalize fields for collection.
   // WASM-first candidate snapshot keeps assembly semantics in Rust.
   try {
@@ -616,7 +616,7 @@ export function collectAndComputeSafeguardProtection(
       detection: { scannedAt: timestamp, entries: [] },
     }
   }
-  const baseRuleList: HsfRuleWithCfg[] = Array.isArray(baseRules) ? [...baseRules] : []
+  const baseRuleList: HsfRuleWithRecipe[] = Array.isArray(baseRules) ? [...baseRules] : []
   // Pass raw rows/rules and let wasm normalize to its detection payload.
   const combined = collectAndComputeSafeguardProtectionWithLoadedWasm({
     rows,
@@ -676,7 +676,7 @@ export function resolveSafeguardRulesWithMetasets<T extends { combination: Safeg
   return resolveSafeguardRulesWithMetasetsWithLoadedWasm(rules, metasets)
 }
 
-type SafeguardLabelSource = SafeguardRule | HsfRuleWithCfg | null | undefined
+type SafeguardLabelSource = SafeguardRule | HsfRuleWithRecipe | null | undefined
 
 /**
  * Resolve the label to display for a Safeguard rule or injected row.

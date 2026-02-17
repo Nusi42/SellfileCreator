@@ -1,10 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { dedupeHsfRulesForExport } from '../../src/lib/hsfDeduplicate'
-import type { HsfRuleWithCfg } from '../../src/lib/merge'
+import type { HsfRuleWithRecipe } from '../../src/lib/merge'
 import { StatId } from '../../src/lib/types'
 
-function makeRule(artifactSets: number[]): HsfRuleWithCfg {
+function makeRule(artifactSets: number[]): HsfRuleWithRecipe {
   return {
     Keep: true,
     IsRuleTypeAND: false,
