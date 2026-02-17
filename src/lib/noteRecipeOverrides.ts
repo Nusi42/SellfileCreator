@@ -373,30 +373,30 @@ const clampMinimaValue = (value: number): number => {
   return Math.max(0, Math.round(value))
 }
 
-const resolveSelectedSubstatCount = (cfg: Pick<BuilderRecipe, 'substatsV'>): number => (
-  Array.isArray(cfg.substatsV) ? cfg.substatsV.length : 0
+const resolveSelectedSubstatCount = (recipe: Pick<BuilderRecipe, 'substatsV'>): number => (
+  Array.isArray(recipe.substatsV) ? recipe.substatsV.length : 0
 )
 
-const resolveLockedSubstatCount = (cfg: Pick<BuilderRecipe, 'fixedSubstatsV'>): number => (
-  Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV.length : 0
+const resolveLockedSubstatCount = (recipe: Pick<BuilderRecipe, 'fixedSubstatsV'>): number => (
+  Array.isArray(recipe.fixedSubstatsV) ? recipe.fixedSubstatsV.length : 0
 )
 
-const resolveEffectiveMinCount = (cfg: Pick<BuilderRecipe, 'autoMinCount' | 'minCount' | 'substatsV' | 'fixedSubstatsV'>): number => {
-  const selected = resolveSelectedSubstatCount(cfg)
-  const locked = resolveLockedSubstatCount(cfg)
-  if (cfg.autoMinCount) {
+const resolveEffectiveMinCount = (recipe: Pick<BuilderRecipe, 'autoMinCount' | 'minCount' | 'substatsV' | 'fixedSubstatsV'>): number => {
+  const selected = resolveSelectedSubstatCount(recipe)
+  const locked = resolveLockedSubstatCount(recipe)
+  if (recipe.autoMinCount) {
     return Math.min(4, Math.max(0, selected))
   }
-  const clamped = clampMinSubstats(Number(cfg.minCount ?? 0))
+  const clamped = clampMinSubstats(Number(recipe.minCount ?? 0))
   return Math.min(4, Math.max(clamped, locked))
 }
 
 const resolveMinCountOverride = (
-  cfg: Pick<BuilderRecipe, 'substatsV' | 'fixedSubstatsV'>,
+  recipe: Pick<BuilderRecipe, 'substatsV' | 'fixedSubstatsV'>,
   value: number,
 ): 0 | 1 | 2 | 3 | 4 => {
-  const selected = resolveSelectedSubstatCount(cfg)
-  const locked = resolveLockedSubstatCount(cfg)
+  const selected = resolveSelectedSubstatCount(recipe)
+  const locked = resolveLockedSubstatCount(recipe)
   const clamped = clampMinSubstats(value)
   if (selected <= 0) return 0
   const withLocked = Math.max(clamped, locked)
@@ -2105,38 +2105,38 @@ export const resolveRecipeOverridesTags = (
   return { questions, instructions }
 }
 
-const matchesRankSelector = (cfg: BuilderRecipe, selector: RecipeOverridesSelector & { kind: 'rank' }): boolean => {
+const matchesRankSelector = (recipe: BuilderRecipe, selector: RecipeOverridesSelector & { kind: 'rank' }): boolean => {
   const { op, value } = selector
-  const rank = cfg.rankCode
+  const rank = recipe.rankCode
   const range = rankCodeToRange(rank)
   if (op === 'eq') return range.min === range.max && range.min === value
   if (op === 'gte') return range.min >= rankRangeValue(value).min
   return range.max <= rankRangeValue(value).max
 }
 
-const matchesRaritySelector = (cfg: BuilderRecipe, selector: RecipeOverridesSelector & { kind: 'rarity' }): boolean => {
+const matchesRaritySelector = (recipe: BuilderRecipe, selector: RecipeOverridesSelector & { kind: 'rarity' }): boolean => {
   const { op, mode, code } = selector
-  const cfgMode: 'auto' | 'code' = (cfg.rarityMode ?? 'code')
+  const recipeMode: 'auto' | 'code' = (recipe.rarityMode ?? 'code')
   if (mode === 'auto') {
-    return op === 'eq' && cfgMode === 'auto'
+    return op === 'eq' && recipeMode === 'auto'
   }
-  if (cfgMode !== 'code') return false
-  const range = rarityCodeToRange(cfg.rarityCode)
+  if (recipeMode !== 'code') return false
+  const range = rarityCodeToRange(recipe.rarityCode)
   if (op === 'eq') return range.min === range.max && range.min === rarityRangeValue(code ?? RarityCodeEnum.Any).min
   if (op === 'gte') return range.min >= rarityRangeValue(code ?? RarityCodeEnum.Any).min
   return range.max <= rarityRangeValue(code ?? RarityCodeEnum.Any).max
 }
 
-const matchesSelector = (selector: RecipeOverridesSelector, cfg: BuilderRecipe): boolean => {
+const matchesSelector = (selector: RecipeOverridesSelector, recipe: BuilderRecipe): boolean => {
   switch (selector.kind) {
     case 'all':
       return true
     case 'tagged':
-      return Array.isArray(cfg.tags) && cfg.tags.length > 0
+      return Array.isArray(recipe.tags) && recipe.tags.length > 0
     case 'untagged':
-      return !Array.isArray(cfg.tags) || cfg.tags.length === 0
+      return !Array.isArray(recipe.tags) || recipe.tags.length === 0
     case 'tag': {
-      const tags = Array.isArray(cfg.tags) ? cfg.tags : []
+      const tags = Array.isArray(recipe.tags) ? recipe.tags : []
       if (selector.mode === 'any') return tags.length > 0
       if (selector.mode === 'none') return tags.length === 0
       const normalized = tags.map((tag) => normalizeTagValue(String(tag))).filter((tag): tag is string => Boolean(tag))
@@ -2146,21 +2146,21 @@ const matchesSelector = (selector: RecipeOverridesSelector, cfg: BuilderRecipe):
       return normalized.some((tag) => selector.values?.includes(tag))
     }
     case 'rank':
-      return matchesRankSelector(cfg, selector)
+      return matchesRankSelector(recipe, selector)
     case 'rarity':
-      return matchesRaritySelector(cfg, selector)
+      return matchesRaritySelector(recipe, selector)
     case 'minRolls': {
-      const manual = (cfg.autoMinRequiredRolls === false) ? (cfg.minRequiredRolls ?? 0) : 0
+      const manual = (recipe.autoMinRequiredRolls === false) ? (recipe.minRequiredRolls ?? 0) : 0
       return compareNumeric(manual, selector.op, selector.value)
     }
     case 'minSubstats':
-      return compareNumeric(resolveEffectiveMinCount(cfg), selector.op, selector.value)
+      return compareNumeric(resolveEffectiveMinCount(recipe), selector.op, selector.value)
     case 'flex':
-      return Boolean(cfg.autoSubstatFlex) === selector.value
+      return Boolean(recipe.autoSubstatFlex) === selector.value
     case 'and':
-      return matchesSelector(selector.left, cfg) && matchesSelector(selector.right, cfg)
+      return matchesSelector(selector.left, recipe) && matchesSelector(selector.right, recipe)
     case 'or':
-      return matchesSelector(selector.left, cfg) || matchesSelector(selector.right, cfg)
+      return matchesSelector(selector.left, recipe) || matchesSelector(selector.right, recipe)
     default:
       return false
   }
@@ -2218,16 +2218,16 @@ const rarityCodeToRange = (rarity: RarityCode): { min: number; max: number } => 
 
 // Resolve a recipe's export mode based on recipe overrides selector blocks.
 const resolveRecipeOverridesExportModeWithInstructions = (
-  cfg: BuilderRecipe,
+  recipe: BuilderRecipe,
   instructions: RecipeOverridesInstructions,
 ): SellfileExportMode => {
   // Separators should never be overridden by options.
-  if (cfg.exportMode === 'separator') return 'separator'
+  if (recipe.exportMode === 'separator') return 'separator'
   // Start from the stored export mode before applying selector blocks.
-  let nextMode: SellfileExportMode = cfg.exportMode
+  let nextMode: SellfileExportMode = recipe.exportMode
   let hasInstruction = false
   for (const instruction of instructions) {
-    if (!matchesSelector(instruction.selector, cfg)) continue
+    if (!matchesSelector(instruction.selector, recipe)) continue
     hasInstruction = true
     instruction.operations.forEach((op) => {
       if (op.kind !== 'exportMode') return
@@ -2238,56 +2238,56 @@ const resolveRecipeOverridesExportModeWithInstructions = (
       nextMode = op.action
     })
   }
-  return hasInstruction ? nextMode : cfg.exportMode
+  return hasInstruction ? nextMode : recipe.exportMode
 }
 
 // Resolve a recipe's export mode with selector blocks.
 export const resolveRecipeOverridesExportMode = (
-  cfg: BuilderRecipe,
+  recipe: BuilderRecipe,
   instructions: RecipeOverridesInstructions,
 ): SellfileExportMode => {
-  return resolveRecipeOverridesExportModeWithInstructions(cfg, instructions)
+  return resolveRecipeOverridesExportModeWithInstructions(recipe, instructions)
 }
 
 const applySubstatMinOverrides = (
-  cfg: BuilderRecipe,
+  recipe: BuilderRecipe,
   substatMinAll: number | null,
   substatMinByVariant: Map<number, number>,
 ): BuilderRecipe => {
-  if (substatMinAll == null && substatMinByVariant.size === 0) return cfg
+  if (substatMinAll == null && substatMinByVariant.size === 0) return recipe
   const selection = new Set<number>()
-  ;(cfg.substatsV ?? []).forEach((variant) => selection.add(Number(variant)))
-  ;(cfg.fixedSubstatsV ?? []).forEach((variant) => selection.add(Number(variant)))
-  if (selection.size === 0) return cfg
-  const bounds = { ...(cfg.substatRollBoundsV ?? {}) }
+  ;(recipe.substatsV ?? []).forEach((variant) => selection.add(Number(variant)))
+  ;(recipe.fixedSubstatsV ?? []).forEach((variant) => selection.add(Number(variant)))
+  if (selection.size === 0) return recipe
+  const bounds = { ...(recipe.substatRollBoundsV ?? {}) }
   selection.forEach((variant) => {
     const nextMin = substatMinByVariant.get(variant) ?? substatMinAll
     if (nextMin == null) return
     const existing = bounds[variant] ?? {}
     bounds[variant] = { ...existing, min: clampSubstatMin(nextMin) }
   })
-  return { ...cfg, substatRollBoundsV: bounds }
+  return { ...recipe, substatRollBoundsV: bounds }
 }
 
 // Resolve a recipe with all recipe overrides applied.
 const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
-  cfg: BuilderRecipe,
+  recipe: BuilderRecipe,
   instructions: RecipeOverridesInstructions,
 ): BuilderRecipe => {
   // Separators stay isolated from recipe overrides logic.
-  if (cfg.exportMode === 'separator') return cfg
-  let nextMode: SellfileExportMode = cfg.exportMode
-  let nextRank: RankCode = cfg.rankCode
-  let nextRarityMode: 'auto' | 'code' = (cfg.rarityMode ?? 'code')
-  let nextRarityCode: RarityCode = cfg.rarityCode
-  let nextMinLevel: LevelMilestone | undefined = cfg.minLevel
-  let nextMaxLevel: LevelMilestone | undefined = cfg.maxLevel
-  let nextKeepMode: 'early' | 'late' = (cfg.earlyKeepMode ?? 'early')
-  let nextAutoLate: AutoRaritySupplementsThreshold | undefined = cfg.autoRaritySupplementsThreshold
-  let nextMinRequiredRolls: number | undefined = cfg.minRequiredRolls
-  let nextLockedMinRequiredRolls: number | undefined = cfg.lockedMinRequiredRolls
-  let nextMinCount = cfg.minCount
-  let nextFlex = cfg.autoSubstatFlex
+  if (recipe.exportMode === 'separator') return recipe
+  let nextMode: SellfileExportMode = recipe.exportMode
+  let nextRank: RankCode = recipe.rankCode
+  let nextRarityMode: 'auto' | 'code' = (recipe.rarityMode ?? 'code')
+  let nextRarityCode: RarityCode = recipe.rarityCode
+  let nextMinLevel: LevelMilestone | undefined = recipe.minLevel
+  let nextMaxLevel: LevelMilestone | undefined = recipe.maxLevel
+  let nextKeepMode: 'early' | 'late' = (recipe.earlyKeepMode ?? 'early')
+  let nextAutoLate: AutoRaritySupplementsThreshold | undefined = recipe.autoRaritySupplementsThreshold
+  let nextMinRequiredRolls: number | undefined = recipe.minRequiredRolls
+  let nextLockedMinRequiredRolls: number | undefined = recipe.lockedMinRequiredRolls
+  let nextMinCount = recipe.minCount
+  let nextFlex = recipe.autoSubstatFlex
   const substatMinByVariant = new Map<number, number>()
   let substatMinAll: number | null = null
   let appliedMode = false
@@ -2303,7 +2303,7 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   let appliedSubstatMin = false
   let hasInstruction = false
   for (const instruction of instructions) {
-    if (!matchesSelector(instruction.selector, cfg)) continue
+    if (!matchesSelector(instruction.selector, recipe)) continue
     hasInstruction = true
     instruction.operations.forEach((op) => {
       if (op.kind === 'exportMode') {
@@ -2355,7 +2355,7 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
         return
       }
       if (op.kind === 'minSubstats') {
-        nextMinCount = resolveMinCountOverride(cfg, op.value)
+        nextMinCount = resolveMinCountOverride(recipe, op.value)
         appliedMinCount = true
         return
       }
@@ -2375,20 +2375,20 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
       }
     })
   }
-  if (!hasInstruction) return cfg
-  const storedRarityMode: 'auto' | 'code' = (cfg.rarityMode ?? 'code')
-  const exportModeChanged = appliedMode && nextMode !== cfg.exportMode
-  const rankChanged = appliedRank && nextRank !== cfg.rankCode
+  if (!hasInstruction) return recipe
+  const storedRarityMode: 'auto' | 'code' = (recipe.rarityMode ?? 'code')
+  const exportModeChanged = appliedMode && nextMode !== recipe.exportMode
+  const rankChanged = appliedRank && nextRank !== recipe.rankCode
   const rarityModeChanged = appliedRarity && nextRarityMode !== storedRarityMode
-  const rarityCodeChanged = appliedRarity && nextRarityMode === 'code' && nextRarityCode !== cfg.rarityCode
+  const rarityCodeChanged = appliedRarity && nextRarityMode === 'code' && nextRarityCode !== recipe.rarityCode
   const rarityChanged = rarityModeChanged || rarityCodeChanged
-  const levelChanged = appliedLevel && (nextMinLevel !== cfg.minLevel || nextMaxLevel !== cfg.maxLevel)
-  const keepChanged = appliedKeep && nextKeepMode !== (cfg.earlyKeepMode ?? 'early')
-  const autoLateChanged = appliedAutoLate && nextAutoLate !== cfg.autoRaritySupplementsThreshold
-  const minRequiredChanged = appliedMinRequired && nextMinRequiredRolls !== cfg.minRequiredRolls
-  const lockedMinChanged = appliedLockedMin && nextLockedMinRequiredRolls !== cfg.lockedMinRequiredRolls
-  const minCountChanged = appliedMinCount && nextMinCount !== cfg.minCount
-  const flexChanged = appliedFlex && nextFlex !== cfg.autoSubstatFlex
+  const levelChanged = appliedLevel && (nextMinLevel !== recipe.minLevel || nextMaxLevel !== recipe.maxLevel)
+  const keepChanged = appliedKeep && nextKeepMode !== (recipe.earlyKeepMode ?? 'early')
+  const autoLateChanged = appliedAutoLate && nextAutoLate !== recipe.autoRaritySupplementsThreshold
+  const minRequiredChanged = appliedMinRequired && nextMinRequiredRolls !== recipe.minRequiredRolls
+  const lockedMinChanged = appliedLockedMin && nextLockedMinRequiredRolls !== recipe.lockedMinRequiredRolls
+  const minCountChanged = appliedMinCount && nextMinCount !== recipe.minCount
+  const flexChanged = appliedFlex && nextFlex !== recipe.autoSubstatFlex
   if (!exportModeChanged
     && !rankChanged
     && !rarityChanged
@@ -2400,9 +2400,9 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
     && !minCountChanged
     && !flexChanged
     && !appliedSubstatMin) {
-    return cfg
+    return recipe
   }
-  let next = cloneBuilderRecipe(cfg)
+  let next = cloneBuilderRecipe(recipe)
   if (exportModeChanged) next.exportMode = nextMode
   if (appliedRank) next.rankCode = nextRank
   if (appliedRarity) {
@@ -2451,10 +2451,10 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
 
 // Resolve a recipe with recipe overrides applied (exported for UI).
 export const resolveRecipeOverridesEffectiveRecipe = (
-  cfg: BuilderRecipe,
+  recipe: BuilderRecipe,
   instructions: RecipeOverridesInstructions,
 ): BuilderRecipe => (
-  resolveRecipeOverridesEffectiveRecipeWithInstructions(cfg, instructions)
+  resolveRecipeOverridesEffectiveRecipeWithInstructions(recipe, instructions)
 )
 
 // Build a per-recipe export-mode snapshot for recipe overrides.
@@ -2464,10 +2464,10 @@ export const buildRecipeOverridesExportModeResolution = (
 ): RecipeOverridesExportModeResolution => {
   const modes: SellfileExportMode[] = []
   const overriddenIndices: number[] = []
-  recipes.forEach((cfg, idx) => {
-    const nextMode = resolveRecipeOverridesExportModeWithInstructions(cfg, instructions)
+  recipes.forEach((recipe, idx) => {
+    const nextMode = resolveRecipeOverridesExportModeWithInstructions(recipe, instructions)
     modes.push(nextMode)
-    if (nextMode !== cfg.exportMode) {
+    if (nextMode !== recipe.exportMode) {
       overriddenIndices.push(idx)
     }
   })
@@ -2480,10 +2480,10 @@ export const applyRecipeOverridesExportModeOverrides = (
   modes: readonly SellfileExportMode[],
 ): BuilderRecipe[] => {
   let mutated = false
-  const next = recipes.map((cfg, idx) => {
-    const nextMode = modes[idx] ?? cfg.exportMode
-    if (nextMode === cfg.exportMode) return cfg
-    const clone = cloneBuilderRecipe(cfg)
+  const next = recipes.map((recipe, idx) => {
+    const nextMode = modes[idx] ?? recipe.exportMode
+    if (nextMode === recipe.exportMode) return recipe
+    const clone = cloneBuilderRecipe(recipe)
     clone.exportMode = nextMode
     mutated = true
     return clone
@@ -2497,9 +2497,9 @@ export const applyRecipeOverrides = (
   instructions: RecipeOverridesInstructions,
 ): BuilderRecipe[] => {
   let mutated = false
-  const next = recipes.map((cfg) => {
-    const resolved = resolveRecipeOverridesEffectiveRecipeWithInstructions(cfg, instructions)
-    if (resolved !== cfg) mutated = true
+  const next = recipes.map((recipe) => {
+    const resolved = resolveRecipeOverridesEffectiveRecipeWithInstructions(recipe, instructions)
+    if (resolved !== recipe) mutated = true
     return resolved
   })
   return mutated ? next : recipes.slice()
@@ -2524,12 +2524,12 @@ const starKeyForSubstatTargets = (star: Star): SubstatTargetStarKey => {
   }
 }
 
-const instructionAppliesToAnyConfig = (
+const instructionAppliesToAnyRecipe = (
   instruction: RecipeOverridesSelectorBlock,
   recipes: readonly BuilderRecipe[],
 ): boolean => {
   if (recipes.length === 0) return instruction.selector.kind === 'all'
-  return recipes.some((cfg) => matchesSelector(instruction.selector, cfg))
+  return recipes.some((recipe) => matchesSelector(instruction.selector, recipe))
 }
 
 export const applyRecipeOverridesSubstatTargetsOverrides = (
@@ -2540,7 +2540,7 @@ export const applyRecipeOverridesSubstatTargetsOverrides = (
   let next = substatTargets
   let overridesActive = false
   for (const instruction of instructions) {
-    if (!instructionAppliesToAnyConfig(instruction, recipes)) continue
+    if (!instructionAppliesToAnyRecipe(instruction, recipes)) continue
     for (const op of instruction.operations) {
       if (op.kind !== 'minimaAnyRank' && op.kind !== 'minimaTarget') continue
       overridesActive = true
