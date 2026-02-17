@@ -74,7 +74,7 @@ const ALL_FACTION_IDS = Object.freeze(
     .map((value) => value as FactionId),
 )
 
-export const buildIgnoreSafeguardConfigIndices = (recipes: readonly BuilderRecipe[]): ReadonlySet<number> => {
+export const buildIgnoreSafeguardRecipeIndices = (recipes: readonly BuilderRecipe[]): ReadonlySet<number> => {
   // Track indices so we can skip only tagged recipes during detection.
   const ignored = new Set<number>()
   // Maintain index alignment with rule-building recipe order.
@@ -374,7 +374,7 @@ export type SafeguardCollectAndDetectParams = {
   rules: readonly SafeguardRule[]
   enabled: boolean
   now?: number
-  ignoreSafeguardConfigIndices?: ReadonlySet<number>
+  ignoreSafeguardRecipeIndices?: ReadonlySet<number>
 }
 
 export type SafeguardCollectAndDetectSnapshot = {
@@ -564,12 +564,12 @@ export function collectSafeguardCandidates(params: {
   rows: readonly TesterPreviewRow[]
   baseRules: readonly HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
-  ignoreSafeguardConfigIndices?: ReadonlySet<number>
+  ignoreSafeguardRecipeIndices?: ReadonlySet<number>
 }): SafeguardCandidateSnapshot {
   const { rows, baseRules, recipeModes } = params
   // Allow safeguard detection to skip recipes that only protect rework fodder.
-  const ignoreConfigSet = params.ignoreSafeguardConfigIndices && params.ignoreSafeguardConfigIndices.size > 0
-    ? params.ignoreSafeguardConfigIndices
+  const ignoreRecipeSet = params.ignoreSafeguardRecipeIndices && params.ignoreSafeguardRecipeIndices.size > 0
+    ? params.ignoreSafeguardRecipeIndices
     : null
   if (!rows.length) return { candidates: [], uniqueItemKeys: new Set() }
   const baseRuleList: HsfRuleWithRecipe[] = Array.isArray(baseRules) ? [...baseRules] : []
@@ -580,7 +580,8 @@ export function collectSafeguardCandidates(params: {
       rows,
       rules: baseRuleList,
       recipeModes,
-      ...(ignoreConfigSet ? { ignoreSafeguardConfigIndices: ignoreConfigSet } : {}),
+      // Compatibility boundary: wasm payload key is still ignoreSafeguardConfigIndices.
+      ...(ignoreRecipeSet ? { ignoreSafeguardConfigIndices: ignoreRecipeSet } : {}),
     })
     const candidates: SafeguardCandidate[] = snapshot.candidates.map((entry) => {
       const row = rows[entry.rowIndex]!
@@ -606,8 +607,8 @@ export function collectAndComputeSafeguardProtection(
   params: SafeguardCollectAndDetectParams,
 ): SafeguardCollectAndDetectSnapshot {
   const { rows, baseRules, recipeModes, rules, enabled, now } = params
-  const ignoreConfigSet = params.ignoreSafeguardConfigIndices && params.ignoreSafeguardConfigIndices.size > 0
-    ? params.ignoreSafeguardConfigIndices
+  const ignoreRecipeSet = params.ignoreSafeguardRecipeIndices && params.ignoreSafeguardRecipeIndices.size > 0
+    ? params.ignoreSafeguardRecipeIndices
     : null
   const timestamp = Number.isFinite(now) ? Number(now) : Date.now()
   if (!rows.length) {
@@ -622,7 +623,8 @@ export function collectAndComputeSafeguardProtection(
     rows,
     rules: baseRuleList,
     recipeModes,
-    ...(ignoreConfigSet ? { ignoreSafeguardConfigIndices: ignoreConfigSet } : {}),
+    // Compatibility boundary: wasm payload key is still ignoreSafeguardConfigIndices.
+    ...(ignoreRecipeSet ? { ignoreSafeguardConfigIndices: ignoreRecipeSet } : {}),
     safeguardRules: rules,
     expectedGroupDomain: buildSafeguardExpectedGroupDomain(),
     enabled,

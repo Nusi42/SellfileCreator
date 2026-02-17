@@ -10,7 +10,7 @@ import {
 import { recipesForRuleBuild } from '../lib/ruleCacheHelpers'
 import type { EvalResult } from '../lib/ruleEval'
 import {
-  buildIgnoreSafeguardConfigIndices,
+  buildIgnoreSafeguardRecipeIndices,
   collectAndComputeSafeguardProtection,
   hasActiveSafeguardRules,
   resolveSafeguardRuleLabel,
@@ -592,14 +592,14 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     }
 
     // Precompute ignored recipes so matcher precedence can reuse the set.
-    const ignoreSafeguardConfigIndices = buildIgnoreSafeguardConfigIndices(recipesForRules)
+    const ignoreSafeguardRecipeIndices = buildIgnoreSafeguardRecipeIndices(recipesForRules)
     // Candidate detection uses this baseline when ignored recipes are excluded.
-    const filteredBaselineMatchMap = (needsDetection && ignoreSafeguardConfigIndices.size > 0)
+    const filteredBaselineMatchMap = (needsDetection && ignoreSafeguardRecipeIndices.size > 0)
       ? await buildExcludedConfigBaselineMap(
         mergedRulesBaseline,
         artifactEntries,
         payload.recipeModes,
-        ignoreSafeguardConfigIndices,
+        ignoreSafeguardRecipeIndices,
       )
       : null
     // Keep detection optional so we only pay for it when needed.
@@ -641,7 +641,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         // Respect the safeguard enabled toggle.
         enabled: payload.safeguards.enabled,
         // Pre-filtered baseline matches already exclude ignored recipes.
-        ...(filteredBaselineMatchMap ? {} : { ignoreSafeguardConfigIndices }),
+        ...(filteredBaselineMatchMap ? {} : { ignoreSafeguardRecipeIndices }),
       })
       // Safeguards snapshot drives rule injection + UI counts downstream.
       safeguardDetectionSnapshot = combinedDetection.detection
@@ -712,7 +712,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           pendingEntries,
           payload.recipeModes,
           null,
-          ignoreSafeguardConfigIndices,
+          ignoreSafeguardRecipeIndices,
           total,
           pendingProgressRef,
           id,

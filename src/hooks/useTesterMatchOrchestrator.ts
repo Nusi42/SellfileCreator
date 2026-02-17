@@ -583,8 +583,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       rules: resolvedSafeguardRules,
       enabled: safeguardsActive,
       // Skip recipes tagged to ignore safeguard coverage.
-      // Compatibility boundary: shared helpers still expect the legacy key.
-      ...(ignoreSafeguardRecipeIndices ? { ignoreSafeguardConfigIndices: ignoreSafeguardRecipeIndices } : {}),
+      ...(ignoreSafeguardRecipeIndices ? { ignoreSafeguardRecipeIndices } : {}),
     })
   }, [
     testerPreviewRows,

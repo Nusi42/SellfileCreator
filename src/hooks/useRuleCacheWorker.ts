@@ -13,7 +13,7 @@ import RuleCacheWorker from '../workers/ruleCacheWorker?worker&inline'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import {
-  buildIgnoreSafeguardConfigIndices as buildIgnoreSafeguardRecipeIndices,
+  buildIgnoreSafeguardRecipeIndices,
   collectAndComputeSafeguardProtection,
   hasActiveSafeguardRules,
   resolveSafeguardRuleLabel,
@@ -392,8 +392,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         recipeModes: params.recipeModes,
         rules: params.safeguards.rules,
         enabled: params.safeguards.enabled,
-        // Compatibility boundary: downstream helpers still expect the legacy key.
-        ignoreSafeguardConfigIndices: ignoreSafeguardRecipeIndices,
+        ignoreSafeguardRecipeIndices,
       })
       // Safeguards snapshot drives rule injection + UI counts.
       safeguardDetectionSnapshot = combinedDetection.detection
