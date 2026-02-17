@@ -95,3 +95,57 @@ test('HSF parser resolves legacy ConfigID/ConfigName keys to recipe metadata at 
   assert.equal('ConfigID' in first, false)
   assert.equal('ConfigName' in first, false)
 })
+
+test('HSFC parser preserves safeguard substatWeights from legacy KeepUniques payloads', () => {
+  const parsed = parseHsfcObject(
+    {
+      Version: 'legacy-keep-weights',
+      Recipes: [buildRecipe('Legacy Keep Weights')],
+      KeepUniques: [{
+        id: 'legacy-keep',
+        name: 'Reserve SPD/ACC',
+        requiredCount: 1,
+        activation: 'protectExisting',
+        tuple: {
+          slots: ['Gloves'],
+          sets: [],
+          metaSetIds: [],
+          ranks: ['6★'],
+          rarities: ['Epic', 'Legendary', 'Mythical'],
+          mainStats: ['CR%'],
+          factions: [],
+        },
+        substats: ['SPD', 'ACC'],
+        substatWeights: {
+          SPD: 1.5,
+          ACC: 0.9,
+        },
+      }],
+      KeepUniquesEnabled: true,
+      SelectedConfigIndex: 0,
+    },
+    { metasets: [], substatTargets: defaultSubstatTargets() },
+  )
+
+  const importedRule = parsed.safeguardRules[0] as unknown as { substatWeights?: Record<string, number> } | undefined
+  assert(importedRule, 'expected imported safeguard rule')
+  // Import should expose plain records, not map-like values, so downstream exports keep weights.
+  const importedWeights = Object.values(importedRule.substatWeights ?? {}).sort((a, b) => a - b)
+  assert.deepEqual(importedWeights, [0.9, 1.5])
+
+  const payload = buildHsfcPayload({
+    version: 'roundtrip',
+    metasets: parsed.metasets,
+    substatTargets: parsed.substatTargets,
+    recipes: parsed.recipes,
+    selectedRecipeIndex: parsed.selectedIndex,
+    safeguardRules: parsed.safeguardRules,
+    safeguardsEnabled: parsed.safeguardsEnabled,
+  }) as Record<string, unknown>
+  const exportedRule = ((payload['Safeguards'] as unknown[])?.[0] ?? null) as Record<string, unknown> | null
+  assert(exportedRule, 'expected exported safeguard rule')
+  const exportedWeights = (exportedRule['substatWeights'] ?? null) as Record<string, number> | null
+  assert(exportedWeights, 'expected exported substatWeights')
+  assert.equal(exportedWeights['SPD'], 1.5)
+  assert.equal(exportedWeights['ACC'], 0.9)
+})

@@ -446,6 +446,36 @@ const buildNormalizedSafeguardRuleId = (): string => {
   return createSafeguardRuleId()
 }
 
+// Normalize wasm map/object payloads into the plain weight record shape used by TS code.
+const normalizeSafeguardSubstatWeightsRecord = (
+  value: unknown,
+): Partial<Record<StatVariant, number>> => {
+  const out: Partial<Record<StatVariant, number>> = {}
+  // Keep one insertion helper so map/object branches share validation behavior.
+  const addEntry = (rawKey: unknown, rawValue: unknown): void => {
+    // Safeguard weights are keyed by StatVariant ids (numeric string or number).
+    const variant = Math.floor(Number(rawKey))
+    if (!Number.isFinite(variant)) return
+    // Ignore sentinel variants that cannot be scored as normal substats.
+    if (variant === StatVariantEnum.Any || variant === StatVariantEnum.RollCount) return
+    const weight = Number(rawValue)
+    if (!Number.isFinite(weight)) return
+    out[variant as StatVariant] = weight
+  }
+  // WASM serde may surface maps as JS `Map`; normalize to plain object semantics.
+  if (value instanceof Map) {
+    for (const [rawKey, rawValue] of value.entries()) addEntry(rawKey, rawValue)
+    return out
+  }
+  // Plain JSON/object payloads remain supported for legacy/manual imports.
+  if (value && typeof value === 'object') {
+    for (const [rawKey, rawValue] of Object.entries(value as Record<string, unknown>)) {
+      addEntry(rawKey, rawValue)
+    }
+  }
+  return out
+}
+
 // sortSafeguardSubstats keeps substat selections aligned with app-wide stat priority.
 export const sortSafeguardSubstats = (values: readonly StatVariant[]): StatVariant[] => (
   // Delegate sorting to wasm so TS does not duplicate priority/dedupe behavior.
@@ -472,11 +502,19 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   // Generate fallback id in TS so rule ids keep the same prefix/time randomness.
   const generatedRuleId = buildNormalizedSafeguardRuleId()
   // Delegate normalization to wasm so recursive rule parsing is SSOT in Rust.
-  return normalizeSafeguardRuleWithLoadedWasm<SafeguardRule>(
+  const normalized = normalizeSafeguardRuleWithLoadedWasm<SafeguardRule>(
     value,
     SAFEGUARD_NORMALIZATION_LOOKUPS,
     generatedRuleId,
   )
+  if (!normalized) return null
+  // Canonicalize map-like payloads to plain records at the IO boundary.
+  return {
+    ...normalized,
+    substatWeights: normalizeSafeguardSubstatWeightsRecord(
+      (normalized as unknown as { substatWeights?: unknown }).substatWeights,
+    ),
+  }
 }
 
 /** Shared helper for mapping tester artifacts to the detection item key. */
