@@ -352,7 +352,7 @@ export function mergeRecipeArtifactSets(recipe: BuilderRecipe, metasets: readonl
  */
 function buildRecipeFingerprint(recipe: BuilderRecipe, substatTargetsKey: string): string {
   const canonical = buildCanonicalRecipeSnapshot(recipe)
-  return JSON.stringify({ cfg: canonical, substatTargets: substatTargetsKey })
+  return JSON.stringify({ recipe: canonical, substatTargets: substatTargetsKey })
 }
 
 /**
