@@ -74,7 +74,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - WASM rule engine is mandatory in this branch; worker-side generation and matcher paths always run through `src/lib/wasm/wasmRuleEngine.ts`.
   - Worker matcher evaluation runs through WASM when enabled.
   - Worker warm/build generation now routes generated branch-rule finalization (epic/legendary collapse, obsolete pruning, stable ordering) through WASM and fails closed if the WASM module is unavailable.
-  - Cache reuse remains enabled by default; set `VITE_WASM_DISABLE_CACHE_REUSE=1` for raw-matcher profiling.
+  - Cache reuse remains enabled in worker matcher paths; profiling should use fixture sizing and perf timelines rather than cache-disable runtime flags.
 
 ### Validation Before Handoff
 

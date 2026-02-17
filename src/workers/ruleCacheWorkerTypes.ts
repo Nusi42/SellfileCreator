@@ -63,6 +63,8 @@ export type RuleCachePipelineRequest = {
   id: number
   kind: 'pipeline'
   payload: {
+    // Monotonic generation id from the app so worker runs can drop stale commits.
+    generation: number
     recipes: BuilderRecipe[]
     metasets: Metaset[]
     substatTargets: SubstatTargetTable

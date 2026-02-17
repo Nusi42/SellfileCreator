@@ -141,6 +141,8 @@ const RULE_CACHE_PHASE_MARKERS: Record<RuleCachePipelinePhase, string> = {
 export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const workerRef = useRef<Worker | null>(null)
   const requestIdRef = useRef(0)
+  // Generation id lets the worker reject stale in-flight pipelines safely.
+  const pipelineGenerationRef = useRef(0)
   const pendingWarmRef = useRef<Map<number, PendingWarmRequest>>(new Map())
   const pendingPipelineRef = useRef<Map<number, PendingPipelineRequest>>(new Map())
   const pendingCountRef = useRef<Map<number, PendingCountRequest>>(new Map())
@@ -757,6 +759,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     if (signal?.aborted) {
       return Promise.reject(new DOMException('Aborted', 'AbortError'))
     }
+    // Stamp this run with a strictly increasing generation so worker-side state commits are latest-only.
+    const generation = pipelineGenerationRef.current + 1
+    pipelineGenerationRef.current = generation
     // Ensure only the newest pipeline runs so UI stays aligned with the latest inputs.
     if (pendingPipelineRef.current.size > 0) {
       abortActivePipelines()
@@ -802,6 +807,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       id,
       kind: 'pipeline',
       payload: {
+        generation,
         recipes: params.recipes,
         metasets: params.metasets,
         substatTargets: params.substatTargets,

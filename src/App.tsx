@@ -709,11 +709,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     }
   }, [safeguardDetectionSignature])
-  const pendingSafeguardDetectionSigRef = useRef<string | null>(null)
   const resetKeepOverrideDetectionState = useCallback(() => {
     // Clear applied signatures so the next detection snapshot can re-inject rules.
     safeguardScanAppliedRef.current = null
-    pendingSafeguardDetectionSigRef.current = null
     keepOverrideAppliedStateRef.current = {
       baseRules: null,
       rulesByRecipe: null,
@@ -1371,7 +1369,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         resetArtifacts: workerNeedsReset,
       }
 
-      lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
       // One pipeline invocation per update after early fast paths.
       runPipeline(pipelinePayload, {
         signal: abortController.signal,
@@ -1383,7 +1380,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       })
         .then((result) => {
           const { state, matches, safeguardDetection } = result
-          if (abortController.signal.aborted || requestToken !== rulesBuildingTokenRef.current) return
+          if (abortController.signal.aborted) {
+            // Clear reuse fingerprints when the active run is cancelled mid-flight.
+            if (requestToken === rulesBuildingTokenRef.current) {
+              lastPipelineSignatureRef.current = null
+              lastCommittedArtifactFingerprintsRef.current = new Map()
+              lastWarmFingerprintRef.current = null
+            }
+            return
+          }
+          if (requestToken !== rulesBuildingTokenRef.current) return
           lastWarmFingerprintRef.current = nextFingerprint
           const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
           const snapshot: RecipeRulesStateSnapshot = {
@@ -1444,7 +1450,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           safeguardScanAppliedRef.current = safeguardDetection
             ? fingerprintSafeguardDetection(safeguardDetection)
             : null
-          pendingSafeguardDetectionSigRef.current = null
           lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
           lastRecipeNamesRef.current = recipeNamesForBuild
           lastSafeguardLabelSignatureRef.current = safeguardLabelSignature
@@ -1477,7 +1482,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               },
             )
               .then((retryResult) => {
-                if (abortController.signal.aborted || requestToken !== rulesBuildingTokenRef.current) return
+                if (abortController.signal.aborted) {
+                  // Clear reuse fingerprints when the active retry run is cancelled.
+                  if (requestToken === rulesBuildingTokenRef.current) {
+                    lastPipelineSignatureRef.current = null
+                    lastCommittedArtifactFingerprintsRef.current = new Map()
+                    lastWarmFingerprintRef.current = null
+                  }
+                  return
+                }
+                if (requestToken !== rulesBuildingTokenRef.current) return
                 recoverMissingRulesRef.current = false
                 lastWarmFingerprintRef.current = retryResult.fingerprint ?? null
                 // Re-run the success handler with the retried payload.
@@ -1537,7 +1551,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 safeguardScanAppliedRef.current = retrySafeguardDetection
                   ? fingerprintSafeguardDetection(retrySafeguardDetection)
                   : null
-                pendingSafeguardDetectionSigRef.current = null
                 // Retry path accepts the same snapshot, so propagate the pending fingerprints as well.
                 lastCommittedArtifactFingerprintsRef.current = nextArtifactFingerprints
                 lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
@@ -1545,14 +1558,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 lastSafeguardLabelSignatureRef.current = safeguardLabelSignature
               })
               .catch(() => {
-                if (abortController.signal.aborted) return
+                // Never keep stale signature/fingerprint snapshots after a failed retry.
+                if (requestToken === rulesBuildingTokenRef.current) {
+                  lastPipelineSignatureRef.current = null
+                  lastCommittedArtifactFingerprintsRef.current = new Map()
+                  lastWarmFingerprintRef.current = null
+                }
               })
             return
           }
           recoverMissingRulesRef.current = false
         })
         .catch(() => {
-          if (abortController.signal.aborted) return
+          // Never keep stale signature/fingerprint snapshots after a failed/aborted run.
+          if (requestToken === rulesBuildingTokenRef.current) {
+            lastPipelineSignatureRef.current = null
+            lastCommittedArtifactFingerprintsRef.current = new Map()
+            lastWarmFingerprintRef.current = null
+          }
         })
         .finally(() => {
           if (requestToken !== rulesBuildingTokenRef.current) return
@@ -3005,7 +3028,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Require a detection snapshot before injecting safeguard rules.
     if (safeguardsActive && (!safeguardDetection || !safeguardDetectionSignature)) return
     // Skip redundant applications when both detection fingerprints and rule sources match.
-    const pendingUniqueSig = pendingSafeguardDetectionSigRef.current
     const applied = keepOverrideAppliedStateRef.current
     const baseRulesRef = recipeRulesState.baseRules
     const rulesByRecipeRef = recipeRulesState.rulesByRecipe
@@ -3018,10 +3040,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       && applied.rulesByRecipe === rulesByRecipeRef
       && applied.finalSellRules === finalSellRulesRef
     )
-    const detectionAwaitingApply = (
-      (safeguardsActive && pendingUniqueSig === safeguardDetectionSignature)
-    )
-    if (detectionAwaitingApply || alreadyApplied) return
+    if (alreadyApplied) return
     // Rebuild the merge list with keep-override rules at the front so matches see them.
     setRecipeRulesState((prev) => {
       // Flatten customs once; helpers handle dedupe + injection.
@@ -3053,9 +3072,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     })
     // Record applied signatures to avoid re-applying the same snapshot.
-    if (pendingSafeguardDetectionSigRef.current === safeguardDetectionSignature) {
-      pendingSafeguardDetectionSigRef.current = null
-    }
     if (safeguardsActive && safeguardDetectionSignature) {
       safeguardScanAppliedRef.current = safeguardDetectionSignature
     }
