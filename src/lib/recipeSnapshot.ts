@@ -116,47 +116,47 @@ const canonicalizeUnknown = (value: unknown): unknown => {
 
 export type BuilderRecipeSnapshot = Record<string, unknown>
 
-export function buildCanonicalRecipeSnapshot(cfg: BuilderRecipe): BuilderRecipeSnapshot {
+export function buildCanonicalRecipeSnapshot(recipe: BuilderRecipe): BuilderRecipeSnapshot {
   const entries: SnapshotEntry[] = []
   const push = (key: string, value: unknown): void => {
     if (value === undefined) return
     entries.push([key, value])
   }
 
-  const rarityMode: 'auto' | 'code' = cfg.rarityMode === 'auto' ? 'auto' : 'code'
+  const rarityMode: 'auto' | 'code' = recipe.rarityMode === 'auto' ? 'auto' : 'code'
   const effectiveRarity = rarityMode === 'auto'
-    ? resolveAutoRarityCode(cfg)
-    : Number(cfg.rarityCode ?? 0)
+    ? resolveAutoRarityCode(recipe)
+    : Number(recipe.rarityCode ?? 0)
 
-  push('keep', Boolean(cfg.keep))
-  push('exportMode', cfg.exportMode ?? 'active')
-  push('minLevel', cfg.minLevel ?? DEFAULT_MIN_LEVEL)
-  push('maxLevel', cfg.maxLevel ?? DEFAULT_MAX_LEVEL)
-  push('rankCode', Number(cfg.rankCode ?? 0))
+  push('keep', Boolean(recipe.keep))
+  push('exportMode', recipe.exportMode ?? 'active')
+  push('minLevel', recipe.minLevel ?? DEFAULT_MIN_LEVEL)
+  push('maxLevel', recipe.maxLevel ?? DEFAULT_MAX_LEVEL)
+  push('rankCode', Number(recipe.rankCode ?? 0))
   push('rarityMode', rarityMode)
   push('rarityCode', Number(effectiveRarity ?? 0))
-  push('autoRaritySupplementsThreshold', cfg.autoRaritySupplementsThreshold ?? 'rare')
-  push('factionCode', Number(cfg.factionCode ?? 0))
-  push('mainStatsV', sortNumbers(cfg.mainStatsV, compareVariants))
-  push('substatsV', sortNumbers(cfg.substatsV, compareVariants))
-  push('fixedSubstatsV', sortNumbers(cfg.fixedSubstatsV, compareVariants))
-  push('minCount', Number(cfg.minCount ?? 0))
-  push('autoMinCount', Boolean(cfg.autoMinCount ?? false))
-  push('autoSubstatFlex', Boolean(cfg.autoSubstatFlex ?? false))
-  push('minRequiredRolls', Number(cfg.minRequiredRolls ?? 0))
-  push('autoMinRequiredRolls', cfg.autoMinRequiredRolls !== false)
-  push('lockedMinRequiredRolls', Number((cfg as { lockedMinRequiredRolls?: number }).lockedMinRequiredRolls ?? 0))
-  const normalizedBounds = normalizeBounds(cfg.substatRollBoundsV)
+  push('autoRaritySupplementsThreshold', recipe.autoRaritySupplementsThreshold ?? 'rare')
+  push('factionCode', Number(recipe.factionCode ?? 0))
+  push('mainStatsV', sortNumbers(recipe.mainStatsV, compareVariants))
+  push('substatsV', sortNumbers(recipe.substatsV, compareVariants))
+  push('fixedSubstatsV', sortNumbers(recipe.fixedSubstatsV, compareVariants))
+  push('minCount', Number(recipe.minCount ?? 0))
+  push('autoMinCount', Boolean(recipe.autoMinCount ?? false))
+  push('autoSubstatFlex', Boolean(recipe.autoSubstatFlex ?? false))
+  push('minRequiredRolls', Number(recipe.minRequiredRolls ?? 0))
+  push('autoMinRequiredRolls', recipe.autoMinRequiredRolls !== false)
+  push('lockedMinRequiredRolls', Number((recipe as { lockedMinRequiredRolls?: number }).lockedMinRequiredRolls ?? 0))
+  const normalizedBounds = normalizeBounds(recipe.substatRollBoundsV)
   if (Object.keys(normalizedBounds).length > 0) {
     push('substatRollBoundsV', normalizedBounds)
   }
-  const normalizedTargets = canonicalizeRollTargets(cfg.substatRollTargetsV)
+  const normalizedTargets = canonicalizeRollTargets(recipe.substatRollTargetsV)
   if (normalizedTargets) {
     push('substatRollTargetsV', normalizedTargets)
   }
-  push('artifactTypes', sortNumbers(cfg.artifactTypes, compareArtifactTypes))
+  push('artifactTypes', sortNumbers(recipe.artifactTypes, compareArtifactTypes))
   // Normalize set selections so include/exclude entries serialize consistently.
-  const normalizedSets = normalizeArtifactSetSelections(cfg.artifactSets ?? [])
+  const normalizedSets = normalizeArtifactSetSelections(recipe.artifactSets ?? [])
   // Sort by set id for stable fingerprints across reorders.
   const sortedSetEntries = normalizedSets
     .slice()
@@ -164,14 +164,14 @@ export function buildCanonicalRecipeSnapshot(cfg: BuilderRecipe): BuilderRecipeS
     .map((entry) => (entry.excluded ? { id: entry.id, excluded: true } : { id: entry.id }))
   // Keep excluded flags in the snapshot so they affect the cache key.
   push('artifactSets', sortedSetEntries)
-  push('artifactMetaSets', sortStrings(cfg.artifactMetaSets))
-  push('earlyKeepMode', cfg.earlyKeepMode === 'late' ? 'late' : 'early')
-  // Keep-unique ignore tags affect match ordering, so include them in fingerprints.
-  push('ignoreSafeguardTag', hasIgnoreSafeguardTag(cfg.tags))
+  push('artifactMetaSets', sortStrings(recipe.artifactMetaSets))
+  push('earlyKeepMode', recipe.earlyKeepMode === 'late' ? 'late' : 'early')
+  // Safeguard ignore tags affect match ordering, so include them in fingerprints.
+  push('ignoreSafeguardTag', hasIgnoreSafeguardTag(recipe.tags))
 
   const knownKeys = new Set(entries.map(([key]) => key))
 
-  for (const [rawKey, rawValue] of Object.entries(cfg as unknown as Record<string, unknown>)) {
+  for (const [rawKey, rawValue] of Object.entries(recipe as unknown as Record<string, unknown>)) {
     if (IGNORED_KEYS.has(rawKey)) continue
     if (knownKeys.has(rawKey)) continue
     if (rawKey.startsWith('__')) continue
