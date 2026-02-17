@@ -1845,6 +1845,25 @@ export const applyQuestionDirectives = (
         if (getOptionQuestionScopeId(candidate.id) !== preferredScope) return
         next.delete(candidate.id)
       })
+      // Drop selected directive sources that force a different single answer
+      // in the user's preferred single-select group.
+      options.forEach((candidate) => {
+        // Skip options that are already unselected or are the preferred choice.
+        if (!next.has(candidate.id) || candidate.id === preferredId) return
+        // Keep options that do not set anything outside their own scope.
+        const forcesDifferentPreferredPeer = candidate.setOptionIds.some((targetId) => {
+          // Setting the preferred option itself stays compatible.
+          if (targetId === preferredId) return false
+          // Only single-select targets can conflict with preferred radio intent.
+          const target = optionById.get(targetId)
+          if (!target || target.groupType !== 'single') return false
+          // Conflicts are limited to the preferred option's single-select scope.
+          return getOptionQuestionScopeId(targetId) === preferredScope
+        })
+        if (!forcesDifferentPreferredPeer) return
+        // Unset the conflicting source so presets release manual overrides.
+        next.delete(candidate.id)
+      })
     }
   }
   return options.filter((option) => next.has(option.id)).map((option) => option.id)

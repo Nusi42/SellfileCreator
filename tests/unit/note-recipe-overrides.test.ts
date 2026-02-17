@@ -289,6 +289,155 @@ test('set constraints can switch single-select answers across questions', () => 
   assert.ok(resolvedFwh?.answer.includes(fwhYesId))
 })
 
+test('preferred single-select overrides clear conflicting set presets', () => {
+  // Build a note with a checkbox preset that sets a radio answer.
+  const note = [
+    '<!-- recipe-overrides',
+    'q "Account Level"',
+    'check "Lategame" id=lategame +fwh_no { @all { export=active } }',
+    '-->',
+    '<!-- recipe-overrides',
+    'q "Faction Wars"',
+    'radio "No" * id=fwh_no { @all { export=active } }',
+    'radio "Yes" id=fwh_yes16 { @all { export=active } }',
+    '-->',
+  ].join('\n')
+  // Parse once so we can reuse stable scoped IDs.
+  const seed = resolveRecipeOverridesTags(note)
+  const [presetQuestion, fwhQuestion] = seed.questions
+  assert.ok(presetQuestion, 'expected preset question')
+  assert.ok(fwhQuestion, 'expected Faction Wars question')
+  const lategameId = presetQuestion.options[0]!.id
+  const fwhNoId = fwhQuestion.options[0]!.id
+  const fwhYesId = fwhQuestion.options[1]!.id
+  // Start with the preset selected, then prefer the conflicting radio answer.
+  const answers = {
+    [presetQuestion.id]: [lategameId],
+    [fwhQuestion.id]: [fwhYesId],
+  }
+  const preferredResolution = resolveRecipeOverridesTags(note, answers, fwhYesId).questions
+  const preferredPreset = preferredResolution.find((entry) => entry.id === presetQuestion.id)
+  const preferredFwh = preferredResolution.find((entry) => entry.id === fwhQuestion.id)
+  // The preferred radio answer should stay, and the preset should clear itself.
+  assert.equal(preferredPreset?.answer.includes(lategameId), false)
+  assert.equal(preferredFwh?.answer.includes(fwhNoId), false)
+  assert.ok(preferredFwh?.answer.includes(fwhYesId))
+  // Persist only non-default answers, matching the dialog normalization step.
+  const normalizedAnswers: Record<string, string[]> = {}
+  preferredResolution.forEach((question) => {
+    const defaultSet = new Set(question.defaultAnswer)
+    const answerSet = new Set(question.answer)
+    const matchesDefault = defaultSet.size === answerSet.size
+      && Array.from(defaultSet).every((id) => answerSet.has(id))
+    if (matchesDefault) return
+    normalizedAnswers[question.id] = question.answer.slice()
+  })
+  // Re-resolving without a preferred ID should keep the user override stable.
+  const stableResolution = resolveRecipeOverridesTags(note, normalizedAnswers).questions
+  const stablePreset = stableResolution.find((entry) => entry.id === presetQuestion.id)
+  const stableFwh = stableResolution.find((entry) => entry.id === fwhQuestion.id)
+  assert.equal(stablePreset?.answer.includes(lategameId), false)
+  assert.equal(stableFwh?.answer.includes(fwhNoId), false)
+  assert.ok(stableFwh?.answer.includes(fwhYesId))
+})
+
+test('full lategame/endgame/endgame+ block releases lategame on conflicting yes selections', () => {
+  // Build the real preset block text plus dependent override questions.
+  const note = [
+    '<!-- recipe-overrides [wholeline columns=4]',
+    '  q "Which account level do you think you have?"',
+    '  cb "`Lategame`" "I can finish all **Normal** game modes and a lot of the stages in any **Hard** mode.',
+    'Different than accessories, **5★** and **6★ Rare** gear is usually sold!"',
+    ' * id=lategame ^lategame  +marius_open +fwh_no +la_no +eg_no +o5s_late4 +o6s_late4 +o6c_yes16 !o5_lvlcap !o6_lvlcap {}',
+    '  cb "`Endgame`" "I can finish all **Hard** game modes including **Cursed City** / **Soulcross** and **Faction Wars,** and **all my used champs are already equipped properly.**',
+    'Different than accessories, **5★** and **6★ Rare** gear is usually sold!" id=endgame ^endgame +marius_finished +fwh_yes16 +la_yes16 +eg_yes16 +o5s_early +o6s_early +o6c_yes16 +o5_lvlcap +o6_lvlcap {}',
+    '  cb "`Endgame+`" "I can finish everything easily and want to only keep the best of the best gear.',
+    'Different than accessories, **5★** and **6★ Rare** gear is usually sold!" id=kraken ^kraken +marius_finished +fwh_yes +la_yes +eg_yes +o5s_early +o6s_early +o6c_yes16 +o5_lvlcap +o6_lvlcap {}',
+    '-->',
+    '<!-- recipe-overrides',
+    '  q "Did you finish Faction Wars in Hard mode?',
+    '  This question targets utility gear sets like **Stun**, **Provoke**, **Toxic**, etc...',
+    'Regardless of your answer, exceptionally good pieces are always protected."',
+    '  rb "`No`" "Protect utility drops at any level (0-16)" * id=fwh_no { @tag=fwhard { export=active lvl=0-16 } }',
+    '  rb "`Yes`" "Protect only level 16 utility pieces" id=fwh_yes16 { @tag=fwhard { export=active lvl=16 } }',
+    '  rb "`Yes!`" "Treat this gear like normal drops (no extra protection)" id=fwh_yes { @tag=fwhard { export=disabled } }',
+    '-->',
+    '<!-- recipe-overrides',
+    '  q "Do you play and win Live Arena and Siege a lot?',
+    '  This question targets mediocre **Feral**, **Stonecleaver**, **Rebirth** gear.',
+    'Regardless of your answer, exceptionally good pieces are always protected."',
+    '  rb "`No`" "Protect Live Arena and Siege drops" * id=la_no { @tag=pvpgear { export=active lvl=0-16 } }',
+    '  rb "`Yes`" "But still protect existing level 16 mediocre pieces" id=la_yes16 { @tag=pvpgear { export=active lvl=16 } }',
+    '  rb "`Yes!`" "Treat this gear like normal limited-set drops (no extra protection)" id=la_yes { @tag=pvpgear { export=disabled } }',
+    '-->',
+    '<!-- recipe-overrides',
+    '  q "Do you safely farm all dungeon hard stages 10 **and** finish all 101 stages of Cursed City (hard) always completely **and** have enough great gear to equip your useful champs completely?',
+    '  This question targets all gear sets except utility and Live Arena sets.',
+    'Regardless of your answer, exceptionally good pieces are always protected."',
+    '  rb "`No`" "Protect less-optimal drops" * id=eg_no { @tag=mediocre { export=active lvl=0-16 } }',
+    '  rb  "`Yes`" "But still protect existing level 16 mediocre pieces" id=eg_yes16 { @tag=mediocre { export=active lvl=16 } }',
+    '  rb "`Yes!`" "Allow auto-sell for mediocre drops (unless protected elsewhere)" id=eg_yes { @tag=mediocre { export=disabled } }',
+    '-->',
+  ].join('\n')
+  // Parse once so we can lookup scoped option ids by explicit token.
+  const seed = resolveRecipeOverridesTags(note)
+  // Find a scoped option id from its explicit token.
+  const findOptionId = (token: string): string => {
+    const question = seed.questions.find((entry) => entry.options.some((option) => option.token === token))
+    assert.ok(question, `expected a question for token ${token}`)
+    const option = question.options.find((entry) => entry.token === token)
+    assert.ok(option, `expected an option for token ${token}`)
+    return option.id
+  }
+  // Find the owning question id for a given explicit token.
+  const findQuestionId = (token: string): string => {
+    const question = seed.questions.find((entry) => entry.options.some((option) => option.token === token))
+    assert.ok(question, `expected a question id for token ${token}`)
+    return question.id
+  }
+  // Capture the preset id and the account-level question id.
+  const lategameId = findOptionId('lategame')
+  const presetQuestionId = findQuestionId('lategame')
+  // Build conflict targets that used to fail to override lategame.
+  const conflictTokens = ['fwh_yes16', 'fwh_yes', 'la_yes16', 'la_yes', 'eg_yes16', 'eg_yes']
+  conflictTokens.forEach((token) => {
+    // Resolve scoped ids for this conflict target.
+    const targetId = findOptionId(token)
+    const targetQuestionId = findQuestionId(token)
+    // Start with lategame selected, then prefer a conflicting yes/yes! answer.
+    const answers = {
+      [presetQuestionId]: [lategameId],
+      [targetQuestionId]: [targetId],
+    }
+    const preferredResolution = resolveRecipeOverridesTags(note, answers, targetId).questions
+    const resolvedPreset = preferredResolution.find((entry) => entry.id === presetQuestionId)
+    const resolvedTarget = preferredResolution.find((entry) => entry.id === targetQuestionId)
+    assert.ok(resolvedPreset, `expected preset resolution for ${token}`)
+    assert.ok(resolvedTarget, `expected target resolution for ${token}`)
+    // Preferred target stays selected and lategame is released.
+    assert.equal(resolvedPreset.answer.includes(lategameId), false)
+    assert.ok(resolvedTarget.answer.includes(targetId))
+    // Persist only non-default answers, matching dialog storage behavior.
+    const normalizedAnswers: Record<string, string[]> = {}
+    preferredResolution.forEach((question) => {
+      const defaultSet = new Set(question.defaultAnswer)
+      const answerSet = new Set(question.answer)
+      const matchesDefault = defaultSet.size === answerSet.size
+        && Array.from(defaultSet).every((id) => answerSet.has(id))
+      if (matchesDefault) return
+      normalizedAnswers[question.id] = question.answer.slice()
+    })
+    // Re-resolving without preferred id should keep lategame unset.
+    const stableResolution = resolveRecipeOverridesTags(note, normalizedAnswers).questions
+    const stablePreset = stableResolution.find((entry) => entry.id === presetQuestionId)
+    const stableTarget = stableResolution.find((entry) => entry.id === targetQuestionId)
+    assert.ok(stablePreset, `expected stable preset resolution for ${token}`)
+    assert.ok(stableTarget, `expected stable target resolution for ${token}`)
+    assert.equal(stablePreset.answer.includes(lategameId), false)
+    assert.ok(stableTarget.answer.includes(targetId))
+  })
+})
+
 test('unset constraints can remove selected options across questions', () => {
   // Build a note where one option disables another selected checkbox.
   const note = [
