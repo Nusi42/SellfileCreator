@@ -13,19 +13,19 @@
 - Overlay: `src/components/tutorial/TutorialCoach.tsx` renders a lightweight coachmark overlay that highlights elements by `data-tour-id` and shows step text with Back/Next controls. The coach dialog is slightly wider on desktop (`sm: 860px`) to accommodate section breadcrumbs without ellipsis.
 - Gating: The Help dialog auto-opens once per app version (keyed by `README_SEEN_VERSION_KEY`). The walkthrough only starts when the user clicks Start; finishing stores `APP_VERSION` under `TUTORIAL_SEEN_VERSION_KEY = 'sellfileCreator.tutorial.seen.version'` in `src/lib/constants.ts` so completion for that version is recorded.
 - Manual start: `HelpDialog` includes a bottom-left “Start Tutorial” button. The dialog surfaces README content and acts as the entry point.
-- Steps: `src/hooks/useTutorialCoachState.ts` constructs the typed `TutorialStep[]` and wires the scripted examples (basic config followed by an advanced config that covers substats, Min Required Rolls, and Milestone Thresholds). Each step can register a `before` action to stage builder state before the overlay renders.
+- Steps: `src/hooks/useTutorialCoachState.ts` constructs the typed `TutorialStep[]` and wires the scripted examples (basic recipe followed by an advanced recipe that covers substats, Min Required Rolls, and Milestone Thresholds). Each step can register a `before` action to stage builder state before the overlay renders.
 - Targets: A step can highlight a single `targetId` or multiple `targetIds: string[]`. When multiple are given, the overlay hole covers the union of all target rects.
-- Targets: Key controls expose `data-tour-id` attributes: rank/rarity/faction selects, mainstat group, slots (Boots), sets Select, add-config button, HSFC load/save buttons, Min Required Rolls and Thresholds groups.
+- Targets: Key controls expose `data-tour-id` attributes: rank/rarity/faction selects, mainstat group, slots (Boots), sets Select, add-recipe button, HSFC load/save buttons, Min Required Rolls and Thresholds groups.
 
 ### Navigation
 
-- Breadcrumbs: The dialog footer shows section breadcrumbs (Basics, Advanced, Metasets, Config Chips, Final Sell, Save & Export). Clicking a section jumps there; the current section is clickable too (jumps to its first step).
+- Breadcrumbs: The dialog footer shows section breadcrumbs (Basics, Advanced, Metasets, Recipe Chips, Final Sell, Save & Export). Clicking a section jumps there; the current section is clickable too (jumps to its first step).
 - Emoji feedback: When skipping forward/backward, a small emoji rises briefly over the section being left (🙁 for forward/skip, 👍 for rewind). Jumps happen immediately; the animation runs independently. No emoji is shown when clicking the current section.
 
 ### Jump Hydration
 
 - Intent: Section jumps reconstruct state as if the user walked through intermediate steps, rather than literally skipping.
-- Implementation: On jump, the app resets to a clean baseline and replays step effects up to the target index (slots, mainstat, sets, substats, required count, min rolls, config adds/selection, metaset creation/defaults, metaset selection, Final Sell defaults — Artifacts/Accessories off with the standard level ranges plus sets mode).
+- Implementation: On jump, the app resets to a clean baseline and replays step effects up to the target index (slots, mainstat, sets, substats, required count, min rolls, recipe adds/selection, metaset creation/defaults, metaset selection, Final Sell defaults — Artifacts/Accessories off with the standard level ranges plus sets mode).
 - Include tester state in replay: when a jump lands on or past the Gear dialog / Rule Tester steps, hydrate the gear queue, preview mode (`'tester'`), and tester filter state before showing the step. Reuse the same helpers the live tutorial uses (`useTesterItemsActions`, `setPreviewMode('tester')`, `setTesterFilters`) so jumps never flash empty grids, and set `logicHubOpen`/`logicHubDialogTab = LOGIC_HUB_DIALOG_TAB_GEAR` any time a step expects the embedded tester tab.
 - Persist builder preference toggles: when a step toggles Auto reset or Auto apply, record the toggles in `nextPreferences` so replays and jumps keep the same defaults active.
 - Determinism: After hydration, the target step’s `before` still opens/closes any dialogs/menus to match the intended view.
@@ -40,7 +40,7 @@
 
 ### Session Handling
 
-- Snapshot/restore: On tutorial start, the app snapshots the full HSFC state in memory (configs, selection, metasets, substatTargets, final-sell, note, builder) and resets to a clean default so the walkthrough is deterministic. On exit or finish, the snapshot is restored exactly.
+- Snapshot/restore: On tutorial start, the app snapshots the full HSFC state in memory (recipes, selection, metasets, substatTargets, final-sell, note, builder) and resets to a clean default so the walkthrough is deterministic. On exit or finish, the snapshot is restored exactly.
 - Exit hygiene: On exit/finish, the app first closes all transient UI (menus, dialogs, context menus), then restores the snapshot, then closes the coach. Autosave resumes after the original state is back in place.
 - Autosave: Paused while the tutorial runs to avoid overwriting the user’s real session. Resumes after exit/finish.
 - History: Tutorial-driven resets, jumps, and snapshot restores suppress undo/redo history entries so the timeline only reflects user edits.
@@ -58,7 +58,7 @@
 - Jumps reconstruct state by replaying step effects (a `switch` on `step.id`) inside the `handleTutorialSkipTo` callback defined in `useTutorialCoachState` (just below `startTutorial()`).
 - To support a new step that mutates state, add a `case '<step-id>'` and update the in-memory variables:
   - `nextBuilder` (slots, mainstats, substats, locks, counts, rolls, name, etc.)
-  - `nextCfgs` / `nextSel` (when a step “adds” the current builder as a config)
+  - `nextRecipes` / `nextSel` (when a step “adds” the current builder as a recipe)
   - `nextMetas` (create/merge metasets; reuse `makeMetasetId()` and `defaultMetasets()` as needed)
   - `nextFsr` (Final Sell defaults: no level ranges selected plus the sets mode)
 - Keep mutations minimal and explicit so later tweaks to a step can be mirrored here safely.
@@ -116,4 +116,4 @@
 
 ### Safeguards Coverage
 
-- Right after the classic Final Sell steps, `safeguards-intro` opens Logic Hub, switches the tab to Safeguards, and describes how the automatic protections work. `safeguards-rule` focuses the rule editor (`data-tour-id="keepuniques.rules"`) while the tutorial adds a predefined Refresh combo (Amulet slot, Refresh set, Banner Lords faction, CDMG main stat, 5★ Rare) so users see how to keep at least one Refresh accessory around before the Final Sell catch-alls run.
+- Right after the classic Final Sell steps, `safeguards-intro` opens Logic Hub, switches the tab to Safeguards, and describes how the automatic protections work. `safeguards-rule` focuses the rule editor (`data-tour-id="safeguards.rules"`) while the tutorial adds a predefined Refresh combo (Amulet slot, Refresh set, Banner Lords faction, CDMG main stat, 5★ Rare) so users see how to keep at least one Refresh accessory around before the Final Sell catch-alls run.
