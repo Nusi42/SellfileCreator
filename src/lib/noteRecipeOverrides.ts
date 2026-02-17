@@ -146,6 +146,20 @@ export const NOTE_RECIPE_OVERRIDES_MARKER_KEYWORDS = [
 // Share a single regex fragment so parser and UI marker detection stay in sync.
 export const NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN = NOTE_RECIPE_OVERRIDES_MARKER_KEYWORDS.join('|')
 
+// Match legacy marker openings so imports can normalize them once at IO boundaries.
+const NOTE_RECIPE_OVERRIDES_LEGACY_MARKER_OPEN_REGEX = new RegExp(
+  `<!--(\\s*)${NOTE_RECIPE_OVERRIDES_LEGACY_MARKER_KEYWORD}\\b`,
+  'gi',
+)
+
+// Canonicalize legacy note markers so new exports always use recipe-overrides wording.
+export const canonicalizeNoteRecipeOverridesMarkers = (note: string): string => (
+  note.replace(
+    NOTE_RECIPE_OVERRIDES_LEGACY_MARKER_OPEN_REGEX,
+    `<!--$1${NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD}`,
+  )
+)
+
 // Stored answers keyed by question ID.
 export type NoteRecipeOverridesAnswers = Record<string, string[]>
 

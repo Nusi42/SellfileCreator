@@ -58,6 +58,7 @@ import {
 import { normalizeTagList } from './tagHelpers'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
+import { canonicalizeNoteRecipeOverridesMarkers } from './noteRecipeOverrides'
 
 type LockedMinValue = Exclude<BuilderRecipe['lockedMinRequiredRolls'], undefined>
 type AggregateMinValue = Exclude<BuilderRecipe['minRequiredRolls'], undefined>
@@ -968,7 +969,10 @@ export function parseHsfcObject(
     return recipes.length ? recipes.length - 1 : null
   })()
   const selectedIndex = (savedSel !== null && savedSel >= 0 && savedSel < recipes.length) ? savedSel : (recipes.length ? recipes.length - 1 : null)
-  const note = (!Array.isArray(parsed) && typeof parsedRec['Note'] === 'string') ? String(parsedRec['Note']) : undefined
+  // Canonicalize legacy note markers during HSFC import so runtime state uses new wording only.
+  const note = (!Array.isArray(parsed) && typeof parsedRec['Note'] === 'string')
+    ? canonicalizeNoteRecipeOverridesMarkers(String(parsedRec['Note']))
+    : undefined
   return {
     recipes,
     metasets,
@@ -1170,7 +1174,7 @@ export function buildHsfcPayload(args: {
       substatWeights?: Record<string, number>
     }>
     SafeguardsEnabled: boolean
-    SelectedConfigIndex?: number
+    SelectedRecipeIndex?: number
     Note?: string
   } {
   const {
@@ -1217,8 +1221,11 @@ export function buildHsfcPayload(args: {
     // Safeguard exports reuse the shared readable helper for clipboard parity.
     Safeguards: safeguardRules.map((rule) => buildReadableSafeguardRuleEntry(rule)),
     SafeguardsEnabled: safeguardsEnabled === true,
-    ...(selectedRecipeIndex != null ? { SelectedConfigIndex: selectedRecipeIndex } : (recipes.length ? { SelectedConfigIndex: recipes.length - 1 } : {})),
-    ...(note ? { Note: note } : {}),
+    ...(selectedRecipeIndex != null
+      ? { SelectedRecipeIndex: selectedRecipeIndex }
+      : (recipes.length ? { SelectedRecipeIndex: recipes.length - 1 } : {})),
+    // Canonicalize legacy marker aliases so exports never re-emit config-options.
+    ...(note ? { Note: canonicalizeNoteRecipeOverridesMarkers(note) } : {}),
   }
 }
 

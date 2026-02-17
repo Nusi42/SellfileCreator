@@ -194,15 +194,15 @@ This document captures runtime behavior, builder interactions, and user-facing w
 
 - The chip area always renders (min height) and exposes a context menu with “Select All”, “Copy All Recipes”, and “Paste at End”. When empty, a centered hint invites right-click Paste.
 - Chip context menu includes: Duplicate, Paste after, Move to Top/Up/Down/Bottom, Copy to Clipboard, Delete.
-- Copy All uses `buildHsfcPayload` to copy the HSFC object (`Version`, `Metasets`, `Minima`/Substat Target Values, `Configs`, `FinalSellRemainder`, `SelectedConfigIndex`, and optional `Note`) so pastes preserve state.
+- Copy All uses `buildHsfcPayload` to copy the HSFC object (`Version`, `Metasets`, `Minima`/Substat Target Values, `Recipes`, `FinalSellRemainder`, `SelectedRecipeIndex`, and optional `Note`) so pastes preserve state.
 - Paste accepts: single `BuilderRecipe`, array of recipes, or a full HSFC object in the readable schema. Legacy forms are not normalized.
 - Clipboard fallback: in non-secure contexts (not HTTPS/localhost), programmatic clipboard is blocked, so the app opens a dialog with pre-selected text for manual copy/paste.
 
 ## Save/Load Guarantees
 
-- Saver writes `{ Version, Metasets, Minima, Configs, FinalSellRemainder, SelectedConfigIndex? }` (via `buildHsfcPayload`) and downloads `*.sfr`. When no recipe is explicitly selected, the last recipe index is saved by convention so loaders can preserve intent.
+- Saver writes `{ Version, Metasets, Minima, Recipes, FinalSellRemainder, SelectedRecipeIndex? }` (via `buildHsfcPayload`) and downloads `*.sfr`. When no recipe is explicitly selected, the last recipe index is saved by convention so loaders can preserve intent. Loader compatibility still accepts the legacy `SelectedConfigIndex` key.
 - Loader (`readHsfcFile`) accepts the readable HSFC schema and preserves each merged `substats` entry (`{ stat, fixed?, rollBounds? }`). `substatRollBounds.min`/`max` stay clamped to valid ranges (`min` 0..5, `max` 0..4) and wildcard flags remain intact. Legacy payloads that still provide `fixedSubstats`/`substatRollBounds` are converted inside `hsfcIO` so the rest of the app only deals with the new shape.
-- Copy All mirrors the saver payload (including `SelectedConfigIndex`) to enable full round-trip via copy/paste.
+- Copy All mirrors the saver payload (including `SelectedRecipeIndex`) to enable full round-trip via copy/paste.
 - Sellfile export context menu: right-click `Export RSL Helper Sellfile` to open advanced options. `Export deduped RSL Helper Sellfile` runs a one-off dedupe pass that merges identical keep rules and removes dominated variants; the dedupe matcher now runs in the WASM rule engine for single-source semantics. `Export deduped by default` persists the behavior (key `sellfileCreator.sellfile.dedupDefault.v1`); when enabled, both downloads and push exports write the deduped payload. `Omit disabled rules when exporting` drops rules whose `Use` flag is `false` from downloads and push exports, and persists via `sellfileCreator.sellfile.omitDisabled.v1`.
 
 ## Behavioral Details

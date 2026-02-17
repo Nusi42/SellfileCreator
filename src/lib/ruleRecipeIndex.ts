@@ -3,9 +3,6 @@ import type { HsfRuleWithRecipe } from './merge'
 type RuleWithRecipeMetadata = {
   RecipeID?: number
   RecipeName?: string
-  // Legacy HSF payload compatibility: accept old keys at load boundary.
-  ConfigID?: number
-  ConfigName?: string
 }
 
 const normalizeRecipeId = (recipeIdx: number): number => Math.floor(recipeIdx) + 1
@@ -21,8 +18,8 @@ export function normalizeRecipeName(name?: string | null): string | undefined {
 }
 
 export function getRuleRecipeIndex(rule: RuleWithRecipeMetadata | null | undefined): number | null {
-  // Prefer canonical metadata and fall back to legacy keys only when needed.
-  const rawId = (rule?.RecipeID ?? rule?.ConfigID)
+  // Rules should already be normalized at HSF IO boundaries.
+  const rawId = rule?.RecipeID
   if (typeof rawId === 'number' && Number.isFinite(rawId)) {
     const recipeId = Math.floor(rawId)
     if (recipeId > 0) return recipeId - 1
@@ -35,20 +32,15 @@ export function applyRecipeIndexMutable(rule: RuleWithRecipeMetadata, recipeIdx:
     if (rule) {
       delete (rule as { RecipeID?: number }).RecipeID
       delete (rule as { RecipeName?: string }).RecipeName
-      delete (rule as { ConfigID?: number }).ConfigID
-      delete (rule as { ConfigName?: string }).ConfigName
     }
     return
   }
   rule.RecipeID = normalizeRecipeId(recipeIdx)
-  delete (rule as { ConfigID?: number }).ConfigID
-  const nextName = sanitizeName(recipeName ?? rule.RecipeName ?? rule.ConfigName)
+  const nextName = sanitizeName(recipeName ?? rule.RecipeName)
   if (nextName) {
     rule.RecipeName = nextName
-    delete (rule as { ConfigName?: string }).ConfigName
   } else if ('RecipeName' in rule) {
     delete (rule as { RecipeName?: string }).RecipeName
-    delete (rule as { ConfigName?: string }).ConfigName
   }
 }
 
@@ -57,19 +49,14 @@ export function cloneRuleWithRecipeIndex(rule: HsfRuleWithRecipe, recipeIdx: num
     const clone = { ...rule }
     delete (clone as { RecipeID?: number }).RecipeID
     if ('RecipeName' in clone) delete (clone as { RecipeName?: string }).RecipeName
-    delete (clone as { ConfigID?: number }).ConfigID
-    if ('ConfigName' in clone) delete (clone as { ConfigName?: string }).ConfigName
     return clone
   }
-  const legacy = rule as HsfRuleWithRecipe & { ConfigName?: string }
-  const nextName = sanitizeName(recipeName ?? legacy.RecipeName ?? legacy.ConfigName)
+  const nextName = sanitizeName(recipeName ?? rule.RecipeName)
   const clone: HsfRuleWithRecipe = {
     ...rule,
     RecipeID: normalizeRecipeId(recipeIdx),
     ...(nextName ? { RecipeName: nextName } : {}),
   }
-  delete (clone as { ConfigID?: number }).ConfigID
-  if ('ConfigName' in clone) delete (clone as { ConfigName?: string }).ConfigName
   return clone
 }
 
@@ -96,7 +83,6 @@ export function resolveMatchRecipeName(
       if (trimmed.length > 0) return trimmed
     }
   }
-  // Prefer canonical metadata and fall back to legacy metadata if present.
-  const fallback = normalizeRecipeName(rule?.RecipeName ?? rule?.ConfigName ?? null)
+  const fallback = normalizeRecipeName(rule?.RecipeName ?? null)
   return fallback ?? null
 }

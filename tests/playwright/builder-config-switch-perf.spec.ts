@@ -65,8 +65,8 @@ const RECIPE_AUTOSAVE_ENTRY = (() => {
       levels: [0, 4, 8, 12, 16],
       setsMode: 'any',
     },
-    // Keep the legacy HSFC/autosave key for compatibility with persisted payloads.
-    SelectedConfigIndex: 0,
+    // Seed the canonical selection key used by current HSFC/autosave exports.
+    SelectedRecipeIndex: 0,
     Note: 'Perf autosave payload',
   }
   const serialized = JSON.stringify(payload)

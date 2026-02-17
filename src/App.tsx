@@ -6094,7 +6094,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 setCustomRecipes(sanitizedRecipes)
                 const len = draft.Recipes.length
                 if (len > 0) {
-                  const savedSel = typeof draft.SelectedConfigIndex === 'number' ? draft.SelectedConfigIndex : (len - 1)
+                  const savedSel = typeof draft.SelectedRecipeIndex === 'number' ? draft.SelectedRecipeIndex : (len - 1)
                   const sel = savedSel >= 0 && savedSel < len ? savedSel : len - 1
                   syncSelectedRecipeIdx(sel, { forceSync: true, suppressDraft: true })
                   try {

@@ -49,7 +49,7 @@ const basePayload = {
     levels: [0, 4, 8, 12, 16],
     setsMode: 'any',
   },
-  SelectedConfigIndex: 0,
+  SelectedRecipeIndex: 0,
   Note: 'Example autosave payload',
 }
 
