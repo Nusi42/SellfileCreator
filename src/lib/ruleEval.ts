@@ -147,13 +147,11 @@ const toWasmEvaluateOptions = (
   }
   // Forward explicit recipe blocklists used by safeguard ignore workflows.
   if (options.excludeRecipeIndices && options.excludeRecipeIndices.size > 0) {
-    // Compatibility boundary: wasm evaluate options still use legacy `*Config*` keys.
-    payload.excludeConfigIndices = options.excludeRecipeIndices
+    payload.excludeRecipeIndices = options.excludeRecipeIndices
   }
   // Forward safeguard precedence ignore sets unchanged to preserve semantics.
   if (options.ignoreSafeguardRecipeIndices && options.ignoreSafeguardRecipeIndices.size > 0) {
-    // Compatibility boundary: wasm evaluate options still use legacy `*Config*` keys.
-    payload.ignoreSafeguardConfigIndices = options.ignoreSafeguardRecipeIndices
+    payload.ignoreSafeguardRecipeIndices = options.ignoreSafeguardRecipeIndices
   }
   // Undefined signals "no filters", so WASM avoids unnecessary option handling.
   return Object.keys(payload).length > 0 ? payload : undefined

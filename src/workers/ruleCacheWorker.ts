@@ -310,7 +310,7 @@ const buildPipelineMatches = async (
   artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,
   recipeModes: SellfileExportMode[] | undefined,
   _baseMatchMap: Map<number, TesterMatchWorkerItemResult> | null,
-  ignoreSafeguardConfigIndices: ReadonlySet<number> | null,
+  ignoreSafeguardRecipeIndices: ReadonlySet<number> | null,
   total: number,
   completedRef: { value: number },
   id: number,
@@ -333,7 +333,7 @@ const buildPipelineMatches = async (
   const fullResults = await evaluateWasmRuleEngineItems({
     items: fullItems,
     options: {
-      ...(ignoreSafeguardConfigIndices ? { ignoreSafeguardConfigIndices } : {}),
+      ...(ignoreSafeguardRecipeIndices ? { ignoreSafeguardRecipeIndices } : {}),
       ...(hasKeepOverrideRules ? { baselineExcludeSources: KEEP_OVERRIDE_RULE_SOURCES } : {}),
     },
   })
@@ -361,16 +361,16 @@ const buildPipelineMatches = async (
   return results
 }
 
-// Keep-unique candidate detection needs baseline keep/sell decisions with some
+// Safeguard candidate detection needs baseline keep/sell decisions with some
 // recipes excluded. Batch evaluation avoids per-row JS re-scans in that phase.
-const buildExcludedConfigBaselineMap = async (
+const buildExcludedRecipeBaselineMap = async (
   mergedRules: HsfRuleWithRecipe[],
   artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,
   recipeModes: SellfileExportMode[] | undefined,
-  excludeConfigIndices: ReadonlySet<number>,
+  excludeRecipeIndices: ReadonlySet<number>,
 ): Promise<Map<number, TesterMatchWorkerItemResult>> => {
   const byItem = new Map<number, TesterMatchWorkerItemResult>()
-  if (!artifactEntries.length || excludeConfigIndices.size === 0) return byItem
+  if (!artifactEntries.length || excludeRecipeIndices.size === 0) return byItem
   // Configure with the baseline ruleset so exclude-index evaluation mirrors JS.
   await configureWasmRuleEngine({
     rules: mergedRules,
@@ -379,7 +379,7 @@ const buildExcludedConfigBaselineMap = async (
   const items = artifactEntries.map(([itemId, artifact]) => ({ itemId, item: artifact.testerItem }))
   const evaluated = await evaluateWasmRuleEngineItems({
     items,
-    options: { excludeConfigIndices },
+    options: { excludeRecipeIndices },
   })
   for (const entry of evaluated) {
     byItem.set(entry.itemId, {
@@ -595,7 +595,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     const ignoreSafeguardRecipeIndices = buildIgnoreSafeguardRecipeIndices(recipesForRules)
     // Candidate detection uses this baseline when ignored recipes are excluded.
     const filteredBaselineMatchMap = (needsDetection && ignoreSafeguardRecipeIndices.size > 0)
-      ? await buildExcludedConfigBaselineMap(
+      ? await buildExcludedRecipeBaselineMap(
         mergedRulesBaseline,
         artifactEntries,
         payload.recipeModes,
@@ -762,7 +762,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         totalLimitHit: warmState.totalLimitHit,
         excludedByTotalLimitIndices: warmState.excludedByTotalLimitIndices.slice(),
         matches,
-        // Keep-unique detection snapshot drives Safeguards tab + merges.
+        // Safeguard detection snapshot drives Safeguards tab + merges.
         safeguardDetection: safeguardDetectionSnapshot,
         fingerprint: payload.fingerprint ?? null,
         artifactSignature: payload.artifactPatch?.signature ?? payload.artifactSignature ?? null,

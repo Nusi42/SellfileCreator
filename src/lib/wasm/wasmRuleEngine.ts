@@ -49,8 +49,8 @@ import type { TesterMatchWorkerEvaluateItem, TesterMatchWorkerItemResult } from 
 // The WASM engine accepts object values and applies the same source/recipe gating.
 export type WasmRuleEngineEvaluateOptions = {
   excludeSources?: readonly string[]
-  excludeConfigIndices?: ReadonlySet<number>
-  ignoreSafeguardConfigIndices?: ReadonlySet<number>
+  excludeRecipeIndices?: ReadonlySet<number>
+  ignoreSafeguardRecipeIndices?: ReadonlySet<number>
   baselineExcludeSources?: readonly string[]
 }
 
@@ -60,9 +60,9 @@ type WasmRuleEngineEvaluatePayload = {
   // Baseline-specific source exclusions used by worker differential flows.
   baselineExcludeSources?: string[]
   // Explicit recipe indices to skip during matcher evaluation.
-  excludeConfigIndices?: number[]
+  excludeRecipeIndices?: number[]
   // Recipe indices ignored by safeguard precedence logic.
-  ignoreSafeguardConfigIndices?: number[]
+  ignoreSafeguardRecipeIndices?: number[]
 }
 
 // Internal cached init promise prevents duplicate wasm instantiation work.
@@ -165,16 +165,16 @@ const toEvaluateOptionsPayload = (
     payload.baselineExcludeSources = Array.from(options.baselineExcludeSources)
   }
   // Convert recipe index set into sorted array for deterministic payload shape.
-  if (options?.excludeConfigIndices && options.excludeConfigIndices.size > 0) {
-    const sorted = toSortedNumberArray(options.excludeConfigIndices)
+  if (options?.excludeRecipeIndices && options.excludeRecipeIndices.size > 0) {
+    const sorted = toSortedNumberArray(options.excludeRecipeIndices)
     // Guard the assignment so exact optional typing never receives undefined.
-    if (sorted) payload.excludeConfigIndices = sorted
+    if (sorted) payload.excludeRecipeIndices = sorted
   }
   // Convert safeguard ignore set into sorted array for deterministic payload shape.
-  if (options?.ignoreSafeguardConfigIndices && options.ignoreSafeguardConfigIndices.size > 0) {
-    const sorted = toSortedNumberArray(options.ignoreSafeguardConfigIndices)
+  if (options?.ignoreSafeguardRecipeIndices && options.ignoreSafeguardRecipeIndices.size > 0) {
+    const sorted = toSortedNumberArray(options.ignoreSafeguardRecipeIndices)
     // Guard the assignment so exact optional typing never receives undefined.
-    if (sorted) payload.ignoreSafeguardConfigIndices = sorted
+    if (sorted) payload.ignoreSafeguardRecipeIndices = sorted
   }
   // Return compact payload so wasm bindings only receive active filters.
   return payload
@@ -391,10 +391,10 @@ export const collectSafeguardCandidatesWithLoadedWasm = (params: {
   rows: unknown
   rules: HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
-  ignoreSafeguardConfigIndices?: ReadonlySet<number>
+  ignoreSafeguardRecipeIndices?: ReadonlySet<number>
 }): WasmCollectedSafeguardSnapshot => {
   assertWasmInitializedSync()
-  const ignored = toSortedNumberArray(params.ignoreSafeguardConfigIndices) ?? null
+  const ignored = toSortedNumberArray(params.ignoreSafeguardRecipeIndices) ?? null
   const result = collectSafeguardCandidatesWasmValueBinding(
     params.rows,
     params.rules,
@@ -413,7 +413,7 @@ export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
   rows: unknown
   rules: HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
-  ignoreSafeguardConfigIndices?: ReadonlySet<number>
+  ignoreSafeguardRecipeIndices?: ReadonlySet<number>
   safeguardRules: unknown
   expectedGroupsByRuleId?: unknown
   expectedGroupDomain?: unknown
@@ -421,7 +421,7 @@ export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
   now: number
 }): WasmCollectedAndProtectedSafeguardSnapshot => {
   assertWasmInitializedSync()
-  const ignored = toSortedNumberArray(params.ignoreSafeguardConfigIndices) ?? null
+  const ignored = toSortedNumberArray(params.ignoreSafeguardRecipeIndices) ?? null
   const expectedGroupsPayload = (
     params.expectedGroupsByRuleId !== undefined
     || params.expectedGroupDomain !== undefined
@@ -732,7 +732,7 @@ export const prepareHsfBuilderRecipeWithLoadedWasm = (payload: {
   }
 }
 
-// Keep-unique combination normalization now runs in Rust so TS no longer owns
+// Safeguard combination normalization now runs in Rust so TS no longer owns
 // recursive tuple parsing/dedupe/sort loops for readable HSFC payloads.
 export const normalizeSafeguardCombinationWithLoadedWasm = <
   T extends object,
@@ -748,7 +748,7 @@ export const normalizeSafeguardCombinationWithLoadedWasm = <
   throw new Error('WASM safeguard combination normalizer returned an invalid payload.')
 }
 
-// Keep-unique rule normalization now runs in Rust so TS no longer owns
+// Safeguard rule normalization now runs in Rust so TS no longer owns
 // recursive rule parsing and legacy tuple-field coercion loops.
 export const normalizeSafeguardRuleWithLoadedWasm = <
   T extends object,
@@ -768,7 +768,7 @@ export const normalizeSafeguardRuleWithLoadedWasm = <
   throw new Error('WASM safeguard rule normalizer returned an invalid payload.')
 }
 
-// Keep-unique activation normalization runs in Rust so TS and detection parsing
+// Safeguard activation normalization runs in Rust so TS and detection parsing
 // share the same legacy token aliases and fallback behavior.
 export const normalizeSafeguardActivationWithLoadedWasm = (
   value: unknown,
@@ -779,7 +779,7 @@ export const normalizeSafeguardActivationWithLoadedWasm = (
   throw new Error('WASM safeguard activation normalizer returned an invalid payload.')
 }
 
-// Keep-unique substat-match normalization runs in Rust so TS and detection parsing
+// Safeguard substat-match normalization runs in Rust so TS and detection parsing
 // share the same canonical tokens (`any|all|perSubstat`).
 export const normalizeSafeguardSubstatMatchWithLoadedWasm = (value: unknown): string => {
   assertWasmInitializedSync()
@@ -788,7 +788,7 @@ export const normalizeSafeguardSubstatMatchWithLoadedWasm = (value: unknown): st
   throw new Error('WASM safeguard substat-match normalizer returned an invalid payload.')
 }
 
-// Keep-unique count-mode normalization runs in Rust so TS and detection parsing
+// Safeguard count-mode normalization runs in Rust so TS and detection parsing
 // share the same default + sanitize behavior.
 export const normalizeSafeguardCountModeWithLoadedWasm = (
   value: unknown,
@@ -809,7 +809,7 @@ export const normalizeSafeguardCountModeWithLoadedWasm = (
   throw new Error('WASM safeguard count-mode normalizer returned an invalid payload.')
 }
 
-// Keep-unique substat sorting runs in Rust so TS reuses one priority ordering.
+// Safeguard substat sorting runs in Rust so TS reuses one priority ordering.
 export const sortSafeguardSubstatsWithLoadedWasm = (values: readonly number[]): number[] => {
   assertWasmInitializedSync()
   const sorted = sortSafeguardSubstatsWasmValueBinding(values)
@@ -818,7 +818,7 @@ export const sortSafeguardSubstatsWithLoadedWasm = (values: readonly number[]): 
   throw new Error('WASM safeguard substat sorter returned an invalid payload.')
 }
 
-// Keep-unique combination sorting runs in Rust so TS reuses one canonical order.
+// Safeguard combination sorting runs in Rust so TS reuses one canonical order.
 export const sortSafeguardCombinationWithLoadedWasm = <T extends object>(combination: T): T => {
   assertWasmInitializedSync()
   const sorted = sortSafeguardCombinationWasmValueBinding(combination)
@@ -826,7 +826,7 @@ export const sortSafeguardCombinationWithLoadedWasm = <T extends object>(combina
   throw new Error('WASM safeguard combination sorter returned an invalid payload.')
 }
 
-// Keep-unique combination hash generation runs in Rust so TS reuses one canonical
+// Safeguard combination hash generation runs in Rust so TS reuses one canonical
 // tokenization implementation for snapshots + rule metadata.
 export const hashSafeguardCombinationWithLoadedWasm = (combination: unknown): string => {
   assertWasmInitializedSync()
@@ -835,7 +835,7 @@ export const hashSafeguardCombinationWithLoadedWasm = (combination: unknown): st
   throw new Error('WASM safeguard combination hash helper returned an invalid payload.')
 }
 
-// Keep-unique item-key derivation runs in Rust so TS reuses DB-id-first
+// Safeguard item-key derivation runs in Rust so TS reuses DB-id-first
 // semantics used by candidate collection.
 export const getSafeguardItemKeyWithLoadedWasm = (artifact: unknown): number => {
   assertWasmInitializedSync()
@@ -851,7 +851,7 @@ export const getSafeguardItemKeyWithLoadedWasm = (artifact: unknown): number => 
   throw new Error('WASM safeguard item-key helper returned an invalid payload.')
 }
 
-// Keep-unique group-key derivation runs in Rust so TS reuses accessory faction
+// Safeguard group-key derivation runs in Rust so TS reuses accessory faction
 // normalization used by candidate collection.
 export const getSafeguardGroupKeyWithLoadedWasm = (artifact: unknown): string => {
   assertWasmInitializedSync()
@@ -860,7 +860,7 @@ export const getSafeguardGroupKeyWithLoadedWasm = (artifact: unknown): string =>
   throw new Error('WASM safeguard group-key helper returned an invalid payload.')
 }
 
-// Keep-unique expected-group generation uses this helper so group-key logic is
+// Safeguard expected-group generation uses this helper so group-key logic is
 // defined by Rust only; JS now supplies normalized tuple fields only.
 export const getSafeguardCountKeyWithLoadedWasm = (params: {
   slot: number
@@ -883,7 +883,7 @@ export const getSafeguardCountKeyWithLoadedWasm = (params: {
   )
 }
 
-// Keep-unique expected-group domain normalization is centralized in Rust so
+// Safeguard expected-group domain normalization is centralized in Rust so
 // ordering/dedupe semantics cannot drift from matcher-side domain readers.
 export const normalizeSafeguardExpectedGroupDomainWithLoadedWasm = <
   T extends {

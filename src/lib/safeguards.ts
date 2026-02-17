@@ -580,8 +580,7 @@ export function collectSafeguardCandidates(params: {
       rows,
       rules: baseRuleList,
       recipeModes,
-      // Compatibility boundary: wasm payload key is still ignoreSafeguardConfigIndices.
-      ...(ignoreRecipeSet ? { ignoreSafeguardConfigIndices: ignoreRecipeSet } : {}),
+      ...(ignoreRecipeSet ? { ignoreSafeguardRecipeIndices: ignoreRecipeSet } : {}),
     })
     const candidates: SafeguardCandidate[] = snapshot.candidates.map((entry) => {
       const row = rows[entry.rowIndex]!
@@ -623,8 +622,7 @@ export function collectAndComputeSafeguardProtection(
     rows,
     rules: baseRuleList,
     recipeModes,
-    // Compatibility boundary: wasm payload key is still ignoreSafeguardConfigIndices.
-    ...(ignoreRecipeSet ? { ignoreSafeguardConfigIndices: ignoreRecipeSet } : {}),
+    ...(ignoreRecipeSet ? { ignoreSafeguardRecipeIndices: ignoreRecipeSet } : {}),
     safeguardRules: rules,
     expectedGroupDomain: buildSafeguardExpectedGroupDomain(),
     enabled,
