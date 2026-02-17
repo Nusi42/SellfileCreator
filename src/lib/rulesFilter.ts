@@ -521,22 +521,22 @@ export function filterHsfRules<T extends HsfRule>(
   const matchingRecipeIndices = new Set<number>()
   const recipeRuleCounts = new Map<number, number>()
 
-  const configNameQuery = f.recipeName?.query ?? ''
-  const configNameFilterActive = configNameQuery.length > 0
-  let configNameRegex: RegExp | null = null
-  let configNameRegexValid = true
-  if (configNameFilterActive) {
+  const recipeNameQuery = f.recipeName?.query ?? ''
+  const recipeNameFilterActive = recipeNameQuery.length > 0
+  let recipeNameRegex: RegExp | null = null
+  let recipeNameRegexValid = true
+  if (recipeNameFilterActive) {
     try {
-      configNameRegex = new RegExp(configNameQuery, 'i')
+      recipeNameRegex = new RegExp(recipeNameQuery, 'i')
     } catch {
-      configNameRegexValid = false
-      configNameRegex = null
+      recipeNameRegexValid = false
+      recipeNameRegex = null
     }
   }
 
   const shouldIncludeRule = (r: T): boolean => {
-    const withCfg = r as unknown as HsfRuleWithRecipe
-    const recipeIdx = getRuleRecipeIndex(withCfg)
+    const withRecipe = r as unknown as HsfRuleWithRecipe
+    const recipeIdx = getRuleRecipeIndex(withRecipe)
     // Rule-level: Keep/Sell and Enabled/Disabled
     {
       const keepMode = f.rule?.keep ?? 'any'
@@ -576,10 +576,10 @@ export function filterHsfRules<T extends HsfRule>(
       }
     }
 
-    if (configNameFilterActive) {
-      if (!configNameRegexValid) return false
-      const resolvedName = resolveMatchRecipeName(recipeIdx ?? null, options?.recipeNames ?? null, withCfg)
-      const ruleSource = (withCfg as Partial<HsfRuleWithRecipe> | null | undefined)?.__source ?? null
+    if (recipeNameFilterActive) {
+      if (!recipeNameRegexValid) return false
+      const resolvedName = resolveMatchRecipeName(recipeIdx ?? null, options?.recipeNames ?? null, withRecipe)
+      const ruleSource = (withRecipe as Partial<HsfRuleWithRecipe> | null | undefined)?.__source ?? null
       const sourceAliases = ruleSource
         ? options?.specialRuleLabels?.[ruleSource] ?? []
         : []
@@ -599,7 +599,7 @@ export function filterHsfRules<T extends HsfRule>(
         if (alias && alias.length > 0) candidateNames.push(alias)
       }
       if (candidateNames.length === 0) return false
-      if (!candidateNames.some((name) => configNameRegex!.test(name))) return false
+      if (!candidateNames.some((name) => recipeNameRegex!.test(name))) return false
     }
 
     // Slots
@@ -720,7 +720,7 @@ export function filterHsfRules<T extends HsfRule>(
     }
   }
 
-  const ensureConfigEntries = (indices: Iterable<number>) => {
+  const ensureRecipeEntries = (indices: Iterable<number>) => {
     for (const idx of indices) {
       matchingRecipeIndices.add(idx)
       if (!recipeRuleCounts.has(idx)) recipeRuleCounts.set(idx, 0)
@@ -735,11 +735,11 @@ export function filterHsfRules<T extends HsfRule>(
       options?.recipeTags?.length ?? 0,
     )
     if (total > 0) {
-      ensureConfigEntries(Array.from({ length: total }, (_, i) => i))
+      ensureRecipeEntries(Array.from({ length: total }, (_, i) => i))
     }
   }
 
-  if (configNameFilterActive && configNameRegexValid) {
+  if (recipeNameFilterActive && recipeNameRegexValid) {
     const nameLimit = Array.isArray(options?.recipeNames) ? options.recipeNames.length : 0
     const tagLimit = Array.isArray(options?.recipeTags) ? options.recipeTags.length : 0
     const limit = Math.max(nameLimit, tagLimit)
@@ -758,7 +758,7 @@ export function filterHsfRules<T extends HsfRule>(
           }
         }
       }
-      if (!candidateNames.some((name) => configNameRegex!.test(name))) continue
+      if (!candidateNames.some((name) => recipeNameRegex!.test(name))) continue
       if (!matchingRecipeIndices.has(idx)) matchingRecipeIndices.add(idx)
       if (!recipeRuleCounts.has(idx)) recipeRuleCounts.set(idx, 0)
     }
@@ -837,16 +837,16 @@ export function filterTesterItems<T extends TesterFilterRow>(
   const subMode = f.sub?.mode ?? 'all'
   const subWildcardMode = f.sub?.wildcardMode ?? 'include'
 
-  let configNameRegex: RegExp | null = null
-  let configNameRegexValid = true
-  const configNameQuery = f.recipeName?.query ?? ''
-  const configNameFilterActive = configNameQuery.length > 0
-  if (configNameFilterActive) {
+  let recipeNameRegex: RegExp | null = null
+  let recipeNameRegexValid = true
+  const recipeNameQuery = f.recipeName?.query ?? ''
+  const recipeNameFilterActive = recipeNameQuery.length > 0
+  if (recipeNameFilterActive) {
     try {
-      configNameRegex = new RegExp(configNameQuery, 'i')
+      recipeNameRegex = new RegExp(recipeNameQuery, 'i')
     } catch {
-      configNameRegex = null
-      configNameRegexValid = false
+      recipeNameRegex = null
+      recipeNameRegexValid = false
     }
   }
 
@@ -873,8 +873,8 @@ export function filterTesterItems<T extends TesterFilterRow>(
       if (match?.keep !== false) continue
     }
 
-    if (configNameFilterActive) {
-      if (!configNameRegexValid) continue
+    if (recipeNameFilterActive) {
+      if (!recipeNameRegexValid) continue
       const candidateNames: string[] = []
       const recipeIdx = match?.recipeIdx
       if (recipeIdx != null && recipeIdx >= 0 && Array.isArray(options?.recipeNames)) {
@@ -900,7 +900,7 @@ export function filterTesterItems<T extends TesterFilterRow>(
         }
       }
       if (candidateNames.length === 0) continue
-      if (!candidateNames.some((name) => configNameRegex!.test(name))) continue
+      if (!candidateNames.some((name) => recipeNameRegex!.test(name))) continue
     }
 
     const slotId = Number(artifact.slot)
