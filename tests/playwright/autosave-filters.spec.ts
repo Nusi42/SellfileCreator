@@ -24,7 +24,7 @@ const basePayload = {
   Metasets: [],
   Recipes: [
     {
-      name: 'Saved Config',
+      name: 'Saved Recipe',
       keep: true,
       SellfileVisibility: 'Active',
       Rank: 'Any',
@@ -323,9 +323,9 @@ test.describe('autosave filter restore', () => {
     // Use aria-label to avoid layout-specific truncation of the visible label.
     await expect(filterButton).toHaveAttribute('aria-label', /Filters On/i)
 
-    const configFilterButton = page.getByRole('button', { name: /(?:Recipe|Config) Filter/i })
-    await expect(configFilterButton).toBeVisible()
-    await expect(configFilterButton).toContainText('First')
-    await expect(configFilterButton).toHaveAttribute('aria-pressed', 'true')
+    const recipeFilterButton = page.getByRole('button', { name: /(?:Recipe|Config) Filter/i })
+    await expect(recipeFilterButton).toBeVisible()
+    await expect(recipeFilterButton).toContainText('First')
+    await expect(recipeFilterButton).toHaveAttribute('aria-pressed', 'true')
   })
 })
