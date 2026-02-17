@@ -3,7 +3,7 @@
 
 import { createRecipeRulesCache, updateRecipeRulesCache } from '../lib/ruleCache'
 import {
-  KEEP_OVERRIDE_RULE_SOURCES,
+  KEEP_OVERRIDE_RULE_SOURCES as SAFEGUARD_OVERRIDE_RULE_SOURCES,
   RULE_SOURCE_SAFEGUARDS,
   computeMergedRules,
 } from '../lib/merge'
@@ -315,7 +315,7 @@ const buildPipelineMatches = async (
   completedRef: { value: number },
   id: number,
   emitProgress: boolean,
-  hasKeepOverrideRules: boolean,
+  hasSafeguardOverrideRules: boolean,
 ) : Promise<TesterMatchWorkerItemResult[]> => {
   if (!artifactEntries.length) return []
   // Configure per phase so the WASM state aligns with the current ruleset.
@@ -334,7 +334,7 @@ const buildPipelineMatches = async (
     items: fullItems,
     options: {
       ...(ignoreSafeguardRecipeIndices ? { ignoreSafeguardRecipeIndices } : {}),
-      ...(hasKeepOverrideRules ? { baselineExcludeSources: KEEP_OVERRIDE_RULE_SOURCES } : {}),
+      ...(hasSafeguardOverrideRules ? { baselineExcludeSources: SAFEGUARD_OVERRIDE_RULE_SOURCES } : {}),
     },
   })
   const fullByItemId = new Map<number, TesterMatchWorkerItemResult>()
@@ -458,9 +458,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       artifactCache.clear()
     }
     const prebuiltCustomRules = warmState.rulesByRecipe
-    // Skip the extra detection/merge work when keep overrides are effectively off.
+    // Skip the extra detection/merge work when safeguard overrides are effectively off.
     const hasActiveSafeguards = hasActiveSafeguardRules(payload.safeguards)
-    const hasActiveKeepOverrides = hasActiveSafeguards
+    const hasActiveSafeguardOverrides = hasActiveSafeguards
     const baseSafeguards = hasActiveSafeguards
       ? { ...payload.safeguards, detection: null }
       : payload.safeguards
@@ -500,7 +500,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     })()
     const needsDetection = needsMatches
       && payload.skipDetection !== true
-      && hasActiveKeepOverrides
+      && hasActiveSafeguardOverrides
       && artifactEntries.length > 0
     const matchPasses = needsMatches ? (needsDetection ? 2 : 1) : 0
     const total = warmTotal + (artifactEntries.length * matchPasses)
@@ -552,7 +552,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           baseProgressRef,
           id,
           true,
-          hasActiveKeepOverrides,
+          hasActiveSafeguardOverrides,
         )
         for (const result of baseMatchResults) {
           baselineMatchMap.set(result.itemId, result)
@@ -578,14 +578,14 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       const safeguardLabel = rule?.__source === RULE_SOURCE_SAFEGUARDS
         ? resolveSafeguardRuleLabel(rule)
         : null
-      const effectiveCfgName = recipeName && recipeName.length > 0
+      const effectiveRecipeName = recipeName && recipeName.length > 0
         ? recipeName
         : safeguardLabel
       return {
         ruleIndex: result.ruleIndex,
         keep: result.keep,
         recipeIdx,
-        recipeName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
+        recipeName: effectiveRecipeName && effectiveRecipeName.length > 0 ? effectiveRecipeName : null,
         ruleLabel: safeguardLabel ?? null,
         ruleSource: rule?.__source ?? null,
       }
@@ -604,9 +604,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       : null
     // Keep detection optional so we only pay for it when needed.
     let safeguardDetectionSnapshot: SafeguardDetectionSnapshot | null = null
-    // Only compute detection when the caller requested keep-override scanning.
+    // Only compute detection when the caller requested safeguard-override scanning.
     if (needsDetection) {
-      // Detection phase: collect candidate groups + compute keep-override snapshots.
+      // Detection phase: collect candidate groups + compute safeguard-override snapshots.
       postPipelinePhase(id, 'detection:start', {
         artifacts: artifactEntries.length,
         safeguardRules: payload.safeguards.rules.length,
@@ -652,7 +652,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       })
     }
 
-    // Build the final merged rules with keep-override injections if active.
+    // Build the final merged rules with safeguard-override injections if active.
     const mergedRulesFinal = computeMergedRules({
       hsf: payload.hsf,
       customRecipes: recipesForRules,
@@ -703,7 +703,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         pending: pendingEntries.length,
         cached: artifactEntries.length - pendingEntries.length,
         fastPath: false,
-        keepOverrideRules: hasActiveKeepOverrides ? 1 : 0,
+        safeguardOverrideRules: hasActiveSafeguardOverrides ? 1 : 0,
       })
       if (pendingEntries.length > 0) {
         const pendingProgressRef = { value: completed }
@@ -717,7 +717,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           pendingProgressRef,
           id,
           true,
-          hasActiveKeepOverrides,
+          hasActiveSafeguardOverrides,
         )
         // Append each full-eval match and refresh the cache.
         for (const match of pendingMatches) {
