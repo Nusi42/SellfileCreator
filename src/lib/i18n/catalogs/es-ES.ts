@@ -583,8 +583,11 @@ const overrides: Catalog = {
   setDesc_setBloodshield_text: 'por pieza: {buff:Shield} igual al 5% del daño infligido tras atacar (los ataques en área se reducen un 75%); totales: 5/10/15% con 1/2/3 piezas',
 
   // Rules table: columns and UI
-  colIdx: 'N.º',
-  colCfg: 'Cfg',
+  colIdx: '#',
+  colRecipe: 'Receta',
+  colName: 'Nombre',
+  colIdxMenu: 'Índice de fila HSF',
+  colRecipeIdxMenu: 'Índice de receta',
   colKeep: 'Conservar',
   colUse: 'Usar',
   colSets: 'Conjuntos',
@@ -1170,6 +1173,7 @@ const overrides: Catalog = {
   toastL10nLoadFailed: 'Error al cargar el archivo de localización',
   toastGearSetsLoaded: 'Se cargaron {count} conjuntos personalizados',
   toastGearSetsLoadFailed: 'No se pudo cargar el archivo de conjuntos',
+  toastTesterFocusArtifactFiltered: 'El objeto objetivo está oculto por los filtros activos del tester.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Conceptos básicos',

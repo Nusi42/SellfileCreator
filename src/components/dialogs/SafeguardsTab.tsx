@@ -255,6 +255,8 @@ type SafeguardsTabProps = {
   colorIconSrc: string
   recipeNames: Array<string | null>
   metasets: Metaset[]
+  // One-shot parent request used by preview star clicks to focus this rule card.
+  focusRuleRequest?: { ruleId: string; token: number } | null
   onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null) => void) | undefined
   suppressMatchDetails?: boolean
   workloadProgressRatio: number
@@ -279,6 +281,7 @@ export default function SafeguardsTab({
   colorIconSrc,
   recipeNames,
   metasets,
+  focusRuleRequest = null,
   onJumpToRule,
   suppressMatchDetails = false,
   workloadProgressRatio,
@@ -421,6 +424,28 @@ ${t('safeguardsIgnoreOptionsHint')}`
     }
     scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(0))
   }, [])
+  const lastAppliedFocusTokenRef = useRef<number | null>(null)
+  /* eslint-disable react-you-might-not-need-an-effect/no-derived-state -- External focus requests intentionally update local selection/expansion state. */
+  useEffect(() => {
+    if (!focusRuleRequest) return
+    if (lastAppliedFocusTokenRef.current === focusRuleRequest.token) return
+    lastAppliedFocusTokenRef.current = focusRuleRequest.token
+    const requestedRuleId = focusRuleRequest.ruleId
+    // Ignore stale requests when the referenced rule no longer exists.
+    if (!rules.some((rule) => rule.id === requestedRuleId)) return
+    // Keep selection/grid highlighting aligned with the externally requested rule.
+    setSelectedRuleId(requestedRuleId)
+    setRespectManualDeselect(false)
+    // Ensure the requested card is visible and expanded for immediate editing.
+    setExpandedRuleIds((prev) => {
+      if (prev.has(requestedRuleId)) return prev
+      const next = new Set(prev)
+      next.add(requestedRuleId)
+      return next
+    })
+    scheduleScrollToRule(requestedRuleId)
+  }, [focusRuleRequest, rules, scheduleScrollToRule])
+  /* eslint-enable react-you-might-not-need-an-effect/no-derived-state */
   const ensureSafeguardsEnabled = useCallback(() => {
     if (!enabled) onToggleEnabled(true)
   }, [enabled, onToggleEnabled])

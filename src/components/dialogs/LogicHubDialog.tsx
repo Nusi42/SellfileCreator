@@ -47,6 +47,8 @@ type LogicHubDialogProps = {
   onReset?: () => void
   activeTab: LogicHubDialogTab
   onChangeTab: (next: LogicHubDialogTab) => void
+  // Optional one-shot request to select + expand a specific safeguard card.
+  focusSafeguardRule?: { ruleId: string; token: number } | null
   safeguardRules: SafeguardRule[]
   onSafeguardRulesChange: (next: SetStateAction<SafeguardRule[]>) => void
   safeguardsEnabled: boolean
@@ -89,6 +91,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     onReset,
     activeTab,
     onChangeTab,
+    focusSafeguardRule = null,
     safeguardRules,
     onSafeguardRulesChange,
     safeguardsEnabled,
@@ -531,6 +534,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
             colorIconSrc={colorIconSrc}
             recipeNames={recipeNames}
             metasets={metasets}
+            focusRuleRequest={focusSafeguardRule}
             onJumpToRule={onJumpToRule}
             suppressMatchDetails={suppressMatchDetails}
             workloadProgressRatio={workloadProgressRatio}

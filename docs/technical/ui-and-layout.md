@@ -157,6 +157,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - Chip click: Selecting a config chip triggers an explicit scroll request and jumps the table to the first matching rule row. Single-line mode uses smooth scrolling when nearby and falls back to an instant jump for long distances; wrap mode always jumps.
 - `selectRule` commands also trigger preview scrolling (to the requested rule row) while still syncing the related config selection.
 - Auto-scroll is gated to explicit selection intents (chip clicks or `selectRule`) so background rule updates never re-scroll the table.
+- Mode switch retention: Sellfile Preview and Rule Tester now cache independent scroll offsets; toggling between modes restores the prior viewport and relies on native scroll clamping when filtered/removed rows shrink the content height.
 
 ### Obsolete Rules Handling
 
@@ -210,7 +211,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - On load, a valid entry prompts Restore vs Dismiss. Dismiss keeps the previous snapshot until the user edits state.
 - Substat color preferences: `sellfileCreator.substatColors.v6` (variant-keyed `{ fg, bg }`, default alpha 25%).
 - Table settings:
-  - Column layout key `rulesTableCols.v3` (array of column descriptors, persisted widths/order/visibility with optional `mode`).
+  - Column layout key `rulesTableCols.v4` (array of column descriptors, persisted widths/order/visibility with optional `mode`).
   - Wrap toggle key `rulesTableWrapRows.v1` (boolean).
   - Icon toggles: `RULES_TABLE_SHOW_SLOT_ICONS_KEY`, `RULES_TABLE_SHOW_SET_ICONS_KEY`, `RULES_TABLE_SHOW_FACTION_ICONS_KEY` control preview icon preferences.
 - LocalStorage caveat: running via `file://` may yield non-persistent storage. Prefer dev/preview servers.
@@ -223,9 +224,13 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Single-line mode: fixed-height rows (~30px); avoids per-row measurement during scroll.
   - Wrap mode: variable-height rows measured via the virtualizer; row heights re-measure when layout changes so scroll and range hints stay accurate.
 - Header menu (context): reset columns, toggle wrap mode, toggle icon modes, adjust stat-border coloring, and manage per-column visibility (Faction supports `auto|show|hide`). Drag headers to reorder; resize via drag handles (min width 40px); widths persist.
+- Column labels now separate compact headers from menu labels: the table shows `#` and `Recipe`, while the header menu lists those same toggles as `HSF Row` and `Recipe Index`. A `Name` column (default hidden, ordered between `Recipe` and `Keep`) exposes recipe names and safeguard rule names.
+- Hovering a numeric `Recipe` cell now shows the recipe name (when present); safeguard star rows keep showing the safeguard rule label tooltip.
 - Row interactions:
   - Hover highlights only while pointer stays inside the preview.
   - Clicking a row selects the config but suppresses auto-scroll (prevents loops).
+  - Safeguard rows suppress the "right-click for actions" hint because they intentionally expose no row context menu actions.
+  - Clicking a safeguard star now branches by data: concrete safeguard matches switch to `Rule Tester`, while anticipate-only placeholders open `Logic Hub → Safeguards`, select the matching rule, and expand its card.
 
 ### Tester Grid Virtualization
 

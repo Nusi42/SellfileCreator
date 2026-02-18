@@ -588,8 +588,11 @@ const enUS: Catalog = {
   setDesc_setBloodshield_text: 'Per piece: {buff:Shield} equal to 5% of damage dealt after attacking (AoE reduced by 75%); totals: 5/10/15% with 1/2/3 pieces',
 
   // Rules table: columns and UI
-  colIdx: 'Idx',
-  colCfg: 'Cfg',
+  colIdx: '#',
+  colRecipe: 'Recipe',
+  colName: 'Name',
+  colIdxMenu: 'HSF Row Index',
+  colRecipeIdxMenu: 'Recipe Index',
   colKeep: 'Keep',
   colUse: 'Use',
   colSets: 'Sets',
@@ -1175,6 +1178,7 @@ const enUS: Catalog = {
   toastL10nLoadFailed: 'Failed to load localization file',
   toastGearSetsLoaded: 'Loaded {count} custom gear sets',
   toastGearSetsLoadFailed: 'Failed to load gear-set file',
+  toastTesterFocusArtifactFiltered: 'Target item is currently hidden by active tester filters.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Basics',

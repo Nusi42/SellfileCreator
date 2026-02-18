@@ -63,7 +63,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { Snackbar, Alert } from '@mui/material'
 // Icons for App header and controls are imported within components that use them
-import { HsfRulesTableMemo } from './components/HsfRulesTable'
+import { HsfRulesTableMemo, type SafeguardStarSelection } from './components/HsfRulesTable'
 // Recipe chips list panel component
 import RecipeChipsPanel from './components/RecipeChipsPanel'
 import ConfirmDialogs from './components/ConfirmDialogs'
@@ -92,6 +92,7 @@ import {
   type SafeguardRule,
   resolveSafeguardRulesWithMetasets,
   hashSafeguardCombination,
+  getSafeguardItemKey,
   resolveSafeguardRuleLabel,
   normalizeSafeguardSubstatMatch,
   sanitizeSafeguardCountMode,
@@ -201,9 +202,11 @@ import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
   LOGIC_HUB_DIALOG_TAB_GEAR,
+  LOGIC_HUB_DIALOG_TAB_SAFEGUARDS,
   LOGIC_HUB_DIALOG_TABS,
 } from './lib/logicHub'
 import type { FinalSellRemainderConfig, FinalSellLevel, LogicHubDialogTab } from './lib/logicHub'
+import { resolveSafeguardPreviewStarAction } from './lib/safeguardNavigation'
 import { useRecipeSelection } from './hooks/useRecipeSelection'
 import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
 import { fingerprintSafeguardDetection } from './lib/safeguardFingerprint'
@@ -365,6 +368,20 @@ type RecipeRulesStateSnapshot = {
   truncatedRecipeIndices: number[]
   totalLimitHit: boolean
   excludedByTotalLimitIndices: number[]
+}
+
+// One-shot signal used to focus a Safeguards card after cross-surface jumps.
+// Token increments force downstream effects even when the same rule is requested twice.
+type SafeguardFocusRequest = {
+  ruleId: string
+  token: number
+}
+
+// One-shot signal for scrolling Rule Tester to a specific artifact card.
+// Token increments allow repeated jumps to the same artifact id.
+type TesterArtifactFocusRequest = {
+  artifactId: number
+  token: number
 }
 
 // Inserts/updates still flow through the worker; the UI only handles pure reorders locally.
@@ -2354,6 +2371,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       localStorage.setItem(PREVIEW_MODE_STORAGE_KEY, previewMode)
     } catch {}
   }, [previewMode])
+  // Keep independent scroll memory for the two preview surfaces.
+  // Why: switching modes unmounts the inactive surface, so we need an external store.
+  const rulesPreviewScrollTopRef = useRef(0)
+  const testerPreviewScrollTopRef = useRef(0)
+  const handleRulesPreviewScrollTopChange = useCallback((nextScrollTop: number) => {
+    // Clamp to non-negative values so stale DOM readings cannot poison the cache.
+    if (!Number.isFinite(nextScrollTop)) return
+    rulesPreviewScrollTopRef.current = Math.max(0, nextScrollTop)
+  }, [])
+  const handleTesterPreviewScrollTopChange = useCallback((nextScrollTop: number) => {
+    // Clamp to non-negative values so stale DOM readings cannot poison the cache.
+    if (!Number.isFinite(nextScrollTop)) return
+    testerPreviewScrollTopRef.current = Math.max(0, nextScrollTop)
+  }, [])
   const [gearImportBusy, setGearImportBusy] = useState(false)
   const gearImportBusyCountRef = useRef(0)
   const beginGearImport = useCallback(() => {
@@ -2370,6 +2401,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // External focus target for preview table (exact rule index in the effective rules array)
   const [focusRuleIndex, setFocusRuleIndex] = useState<number | null>(null)
   const [logicHubOpen, setLogicHubOpen] = useState<boolean>(false)
+  // Safeguards tab consumes this to select + expand the requested safeguard rule.
+  const [logicHubSafeguardFocusRequest, setLogicHubSafeguardFocusRequest] = useState<SafeguardFocusRequest | null>(null)
+  const logicHubSafeguardFocusTokenRef = useRef(0)
+  // Rule Tester consumes this to expand + scroll to a targeted artifact card.
+  const [testerArtifactFocusRequest, setTesterArtifactFocusRequest] = useState<TesterArtifactFocusRequest | null>(null)
+  const testerArtifactFocusTokenRef = useRef(0)
   const theme = useTheme()
   // Track preview paper width so keep-override grids can match Rule Tester cards.
   const previewPaperRef = useRef<HTMLDivElement | null>(null)
@@ -2451,6 +2488,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     try { document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })) } catch {}
     try { document.body.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true })) } catch {}
     try { document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) } catch {}
+  }, [])
+  const handleCloseLogicHub = useCallback(() => {
+    // Closing the dialog should also clear any pending one-shot safeguard focus request.
+    setLogicHubOpen(false)
+    setLogicHubSafeguardFocusRequest(null)
   }, [])
   logicHubOpenRef.current = logicHubOpen
   if (!logicHubOpen) {
@@ -4073,7 +4115,109 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const hsfRulesForTableRef = useRef(hsfRulesForTable)
   useEffect(() => { hsfRulesForTableRef.current = hsfRulesForTable }, [hsfRulesForTable])
   const hsfTableEmptyDueToFilters = (filterActive || testerRecipeFilterActive) && mergedRules.length > 0 && hsfRulesForTable.length === 0
+  const testerArtifactIdBySafeguardItemKey = useMemo(() => {
+    const byItemKey = new Map<number, number>()
+    for (const row of testerPreviewRows) {
+      const artifactId = Number(row.artifact?.id)
+      if (!Number.isFinite(artifactId)) continue
+      const itemKey = getSafeguardItemKey(row.artifact)
+      if (!Number.isFinite(itemKey)) continue
+      if (!byItemKey.has(itemKey)) {
+        byItemKey.set(itemKey, artifactId)
+      }
+    }
+    return byItemKey
+  }, [testerPreviewRows])
+  const openLogicHubSafeguardRule = useCallback((ruleId: string): boolean => {
+    const normalizedRuleId = typeof ruleId === 'string' ? ruleId.trim() : ''
+    if (normalizedRuleId.length === 0) return false
+    // Safeguard jumps should not leave a stale tester focus request queued.
+    setTesterArtifactFocusRequest(null)
+    logicHubSafeguardFocusTokenRef.current += 1
+    setLogicHubSafeguardFocusRequest({
+      ruleId: normalizedRuleId,
+      token: logicHubSafeguardFocusTokenRef.current,
+    })
+    setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_SAFEGUARDS)
+    setLogicHubOpen(true)
+    return true
+  }, [setLogicHubDialogTab, setLogicHubOpen])
+  const handleSafeguardPreviewStarSelect = useCallback((selection: SafeguardStarSelection) => {
+    const normalizedRuleId = typeof selection.safeguardRuleId === 'string' ? selection.safeguardRuleId.trim() : ''
+    // Missing ids can happen with malformed/legacy rows; still route users into Safeguards.
+    if (normalizedRuleId.length === 0) {
+      setTesterArtifactFocusRequest(null)
+      setLogicHubSafeguardFocusRequest(null)
+      setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_SAFEGUARDS)
+      setLogicHubOpen(true)
+      return
+    }
+    // Prefer the clicked row's concrete item-key so we can scroll directly to it in Rule Tester.
+    const clickedItemKey = (
+      typeof selection.safeguardItemKey === 'number'
+      && Number.isFinite(selection.safeguardItemKey)
+    )
+      ? selection.safeguardItemKey
+      : null
+    // Use merged preview rows as the single source of truth for placeholder vs concrete routing.
+    const nextAction = resolveSafeguardPreviewStarAction(mergedRulesRef.current, normalizedRuleId)
+    if (nextAction === 'openTester') {
+      // When the clicked row is a placeholder but the safeguard still has real gear,
+      // fall back to the first concrete item key for that safeguard id.
+      const fallbackItemKey = mergedRulesRef.current.find((rule) => (
+        rule.__source === RULE_SOURCE_SAFEGUARDS
+        && rule.__safeguardRuleId === normalizedRuleId
+        && rule.__safeguardPlaceholder !== true
+        && typeof rule.__safeguardItemKey === 'number'
+        && Number.isFinite(rule.__safeguardItemKey)
+      ))?.__safeguardItemKey
+      const targetItemKey = clickedItemKey ?? ((
+        typeof fallbackItemKey === 'number' && Number.isFinite(fallbackItemKey)
+      ) ? fallbackItemKey : null)
+      if (targetItemKey != null) {
+        const targetArtifactId = testerArtifactIdBySafeguardItemKey.get(targetItemKey) ?? null
+        if (targetArtifactId != null) {
+          // Concrete safeguards have real gear to inspect, so jump to Rule Tester immediately.
+          setLogicHubSafeguardFocusRequest(null)
+          setLogicHubOpen(false)
+          setPreviewMode('tester')
+          testerArtifactFocusTokenRef.current += 1
+          setTesterArtifactFocusRequest({
+            artifactId: targetArtifactId,
+            token: testerArtifactFocusTokenRef.current,
+          })
+        } else {
+          // If no concrete artifact can be resolved anymore, fall back to Safeguards editing.
+          openLogicHubSafeguardRule(normalizedRuleId)
+        }
+      } else {
+        // Missing concrete item keys indicate placeholder-only rows despite stale preview metadata.
+        openLogicHubSafeguardRule(normalizedRuleId)
+      }
+      return
+    }
+    openLogicHubSafeguardRule(normalizedRuleId)
+  }, [openLogicHubSafeguardRule, setLogicHubDialogTab, setLogicHubOpen, setPreviewMode, testerArtifactIdBySafeguardItemKey])
+  const handleTesterFocusArtifactFilteredOut = useCallback(() => {
+    // Keep the notification short because this only explains why auto-scroll did not occur.
+    showToast(t('toastTesterFocusArtifactFiltered'), { icon: <HelpOutlineIcon fontSize="inherit" /> })
+  }, [showToast, t])
   const handleTesterRuleView = useCallback((ruleIndex: number, recipeIdx: number | null) => {
+    setTesterArtifactFocusRequest(null)
+    const targetRule = mergedRulesRef.current[ruleIndex]
+    if (targetRule?.__source === RULE_SOURCE_SAFEGUARDS) {
+      const safeguardRuleId = typeof targetRule.__safeguardRuleId === 'string'
+        ? targetRule.__safeguardRuleId
+        : ''
+      // Safeguard matches should open the Safeguards tab directly instead of jumping back to preview rows.
+      if (openLogicHubSafeguardRule(safeguardRuleId)) return
+      // Malformed safeguard rows can miss ids; still route into Safeguards so users land on the right surface.
+      setLogicHubSafeguardFocusRequest(null)
+      setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_SAFEGUARDS)
+      setLogicHubOpen(true)
+      return
+    }
+    setLogicHubSafeguardFocusRequest(null)
     setLogicHubOpen(false)
     const recipeSnapshot = customRecipesRef.current
     const hasValidRecipe = recipeIdx != null && recipeIdx >= 0 && recipeIdx < recipeSnapshot.length
@@ -4086,7 +4230,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setPreviewMode('rules')
     }
     try {
-      const targetRule = mergedRulesRef.current[ruleIndex]
       const effectiveRules = hsfRulesForTableRef.current
       const idxInEffective = targetRule ? effectiveRules.indexOf(targetRule) : -1
       if (idxInEffective >= 0) {
@@ -4097,7 +4240,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } catch {
       setFocusRuleIndex(null)
     }
-  }, [setBuilder, setFocusRuleIndex, setPreviewMode, setLogicHubOpen, syncSelectedRecipeIdx])
+  }, [openLogicHubSafeguardRule, setBuilder, setFocusRuleIndex, setPreviewMode, setLogicHubDialogTab, setLogicHubOpen, syncSelectedRecipeIdx])
   const handleTesterRuleTemplateCreate = useCallback((row: TesterPreviewRow, intent: 'keep' | 'sell') => {
     const artifact = row.artifact
     // Build the baseline template based on level, rolls, and the item’s current stats.
@@ -5813,8 +5956,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   onChangeColorBlindMode={setColorBlindMode}
                   colorIconSrc={colorIconSrc}
                   onCardWidthMeasured={handleTesterCardWidthMeasured}
-                  onScrollbarWidthMeasured={setTesterGridScrollbarWidthPx}
-                  recipeNames={testerRecipeNamesForGrid}
+	                  onScrollbarWidthMeasured={setTesterGridScrollbarWidthPx}
+	                  recipeNames={testerRecipeNamesForGrid}
+	                  initialScrollTop={testerPreviewScrollTopRef.current}
+	                  onScrollTopChange={handleTesterPreviewScrollTopChange}
+	                  focusArtifactRequest={testerArtifactFocusRequest}
+	                  onFocusArtifactFilteredOut={handleTesterFocusArtifactFilteredOut}
 	                  onJumpToRule={handleTesterRuleView}
 	                  onCreateRuleTemplate={handleTesterRuleTemplateCreate}
 	                  suppressMatchDetails={suppressTesterMatchDetails}
@@ -5825,18 +5972,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	                />
               </Box>
             ) : (
-	              <HsfRulesTableMemo
-	                rules={hsfRulesForTable}
-	                setHoveredRecipeIdx={setHoveredRecipeIdx}
-	                selectedRecipeIdx={previewSelectedRecipeIdx}
-	                multiselectActive={multiselectActive}
-	                selectionScrollRequest={selectionScrollRequest}
+		              <HsfRulesTableMemo
+		                rules={hsfRulesForTable}
+		                recipeNames={recipeNamesForGrid}
+		                initialScrollTop={rulesPreviewScrollTopRef.current}
+		                onScrollTopChange={handleRulesPreviewScrollTopChange}
+		                setHoveredRecipeIdx={setHoveredRecipeIdx}
+		                selectedRecipeIdx={previewSelectedRecipeIdx}
+		                multiselectActive={multiselectActive}
+		                selectionScrollRequest={selectionScrollRequest}
 	                emptyStateVerticalAlign={emptyStateVerticalAlign}
 	                focusRuleIndex={focusRuleIndex}
-	                onFocusRuleSettled={() => setFocusRuleIndex(null)}
-	                onSelectRecipeIdx={handleRulesTableSelectRecipeIdx}
-	                emptyDueToFilter={hsfTableEmptyDueToFilters}
-	                limitExceeded={limitExceeded}
+		                onFocusRuleSettled={() => setFocusRuleIndex(null)}
+		                onSelectRecipeIdx={handleRulesTableSelectRecipeIdx}
+		                onSelectSafeguardRule={handleSafeguardPreviewStarSelect}
+		                emptyDueToFilter={hsfTableEmptyDueToFilters}
+		                limitExceeded={limitExceeded}
                 onRecipeAction={handleRulesTableRecipeAction}
                 onClearBase={handleRulesTableClearBase}
                 onConfigureFinalSell={handleRulesTableEditFinalSell}
@@ -6174,17 +6325,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	          open={logicHubOpen}
 	          value={finalSellRemainder}
 	          onChange={(v) => applyFinalSellChange(v)}
-	          onClose={() => setLogicHubOpen(false)}
+		          onClose={handleCloseLogicHub}
           onReset={() => applyFinalSellChange({
             artifacts: false,
             accessories: false,
             levels: FINAL_SELL_DEFAULT_LEVELS.slice() as FinalSellLevel[],
             setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
           }, { mode: 'reset' })}
-          activeTab={logicHubDialogTab}
-          onChangeTab={setLogicHubDialogTab}
-          // Pass preview grid state so the Safeguards tab can mirror the tester visuals without duplicating selectors.
-          safeguardRules={safeguardRules}
+	          activeTab={logicHubDialogTab}
+	          onChangeTab={setLogicHubDialogTab}
+          focusSafeguardRule={logicHubSafeguardFocusRequest}
+	          // Pass preview grid state so the Safeguards tab can mirror the tester visuals without duplicating selectors.
+	          safeguardRules={safeguardRules}
           onSafeguardRulesChange={applySafeguardRulesChange}
           safeguardsEnabled={safeguardsEnabled}
           onSafeguardsEnabledChange={applySafeguardsEnabledChange}

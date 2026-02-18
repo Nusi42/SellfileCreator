@@ -583,8 +583,11 @@ const overrides: Catalog = {
   setDesc_setBloodshield_text: 'Parça başına: Saldırı sonrası verilen hasarın %5\'i kadar {buff:Shield} (AoE %75 azaltılır); toplam: 1/2/3 parçada %5/%10/%15',
 
   // Rules table: columns and UI
-  colIdx: 'No',
-  colCfg: 'Konf',
+  colIdx: '#',
+  colRecipe: 'Reçete',
+  colName: 'Ad',
+  colIdxMenu: 'HSF Satır İndeksi',
+  colRecipeIdxMenu: 'Reçete İndeksi',
   colKeep: 'Koru',
   colUse: 'Kullan',
   colSets: 'Setler',
@@ -1170,6 +1173,7 @@ const overrides: Catalog = {
   toastL10nLoadFailed: 'Yerelleştirme dosyası yüklenemedi',
   toastGearSetsLoaded: '{count} özel set yüklendi',
   toastGearSetsLoadFailed: 'Set dosyası yüklenemedi',
+  toastTesterFocusArtifactFiltered: 'Hedef eşya şu anda etkin tester filtreleri tarafından gizleniyor.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Temeller',

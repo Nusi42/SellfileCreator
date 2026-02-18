@@ -583,8 +583,11 @@ const overrides: Catalog = {
   setDesc_setBloodshield_text: 'за предмет: {buff:Shield} на 5% від завданої шкоди після атаки (AoE зменшено на 75%); сумарно: 5/10/15% з 1/2/3 предметами',
 
   // Rules table: columns and UI
-  colIdx: '№',
-  colCfg: 'Конф',
+  colIdx: '#',
+  colRecipe: 'Рецепт',
+  colName: 'Назва',
+  colIdxMenu: 'Індекс рядка HSF',
+  colRecipeIdxMenu: 'Індекс рецепта',
   colKeep: 'Зберегти',
   colUse: 'Вик.',
   colSets: 'Сети',
@@ -1170,6 +1173,7 @@ const overrides: Catalog = {
   toastL10nLoadFailed: 'Не вдалося завантажити файл локалізації',
   toastGearSetsLoaded: 'Завантажено {count} користувацьких сетів',
   toastGearSetsLoadFailed: 'Не вдалося завантажити файл сетів',
+  toastTesterFocusArtifactFiltered: 'Цільовий предмет зараз прихований активними фільтрами тестера.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Основи',

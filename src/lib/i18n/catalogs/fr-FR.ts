@@ -583,8 +583,11 @@ const overrides: Catalog = {
   setDesc_setBloodshield_text: 'par pièce : {buff:Shield} égal à 5% des dégâts infligés après l’attaque (AoE réduite de 75%) ; totaux : 5/10/15% avec 1/2/3 pièces',
 
   // Rules table: columns and UI
-  colIdx: 'N°',
-  colCfg: 'Cfg',
+  colIdx: '#',
+  colRecipe: 'Recette',
+  colName: 'Nom',
+  colIdxMenu: 'Indice de ligne HSF',
+  colRecipeIdxMenu: 'Indice de recette',
   colKeep: 'Garder',
   colUse: 'Utiliser',
   colSets: 'Sets',
@@ -1170,6 +1173,7 @@ const overrides: Catalog = {
   toastL10nLoadFailed: 'Échec du chargement du fichier de localisation',
   toastGearSetsLoaded: '{count} ensembles personnalisés chargés',
   toastGearSetsLoadFailed: 'Échec du chargement du fichier d’ensembles',
+  toastTesterFocusArtifactFiltered: 'L’objet ciblé est actuellement masqué par les filtres actifs du testeur.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Bases',

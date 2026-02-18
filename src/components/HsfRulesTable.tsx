@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { elementScroll, useVirtualizer } from '@tanstack/react-virtual'
 import type { VirtualizerOptions } from '@tanstack/react-virtual'
-import { Box, Button, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
+import { Box, Button, ButtonBase, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
@@ -41,7 +41,7 @@ import { useRulesTableColumnsPreference, type StoredColumnConfig } from '../stat
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { HEADER_MENU_LABEL_SX } from './tableHeaderMenuStyles'
 import { EmptyStateMessage } from './EmptyStateMessage'
-import { getRuleRecipeIndex } from '../lib/ruleRecipeIndex'
+import { getRuleRecipeIndex, resolveMatchRecipeName } from '../lib/ruleRecipeIndex'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { resolveDisabledOpacity } from './disabledOpacity'
 
@@ -61,14 +61,27 @@ const resolveDisplayRecipeIdx = (rule: HsfRuleWithRecipe | null | undefined): nu
   return idx !== null && idx >= 0 ? idx : null
 }
 
-export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onRecipeAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
+export type SafeguardStarSelection = {
+  safeguardRuleId: string | null
+  safeguardItemKey: number | null
+  isPlaceholder: boolean
+}
+
+export function HsfRulesTable({ rules, recipeNames = [], initialScrollTop = 0, onScrollTopChange, setHoveredRecipeIdx, selectedRecipeIdx, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onSelectSafeguardRule, onRecipeAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
   rules: HsfRuleWithRecipe[]
+  recipeNames?: readonly (string | null | undefined)[]
+  // One-shot mount restore for the sellfile preview scroller.
+  initialScrollTop?: number
+  // Persist live scroll offsets so mode switches can restore position.
+  onScrollTopChange?: (nextScrollTop: number) => void
   setHoveredRecipeIdx: (idx: number | null) => void
   selectedRecipeIdx: number | null
   multiselectActive: boolean
   // Explicit scroll request for selection-driven preview jumps.
   selectionScrollRequest: SelectionScrollRequest
   onSelectRecipeIdx: (idx: number) => void
+  // Safeguard star rows route either to Rule Tester or Safeguards management.
+  onSelectSafeguardRule?: (selection: SafeguardStarSelection) => void
   onRecipeAction: (idx: number, action: 'duplicate' | 'delete' | 'copy' | 'paste_after' | 'move_top' | 'move_bottom' | 'move_up' | 'move_down') => void
   onClearBase: () => void
   onConfigureFinalSell: () => void
@@ -115,6 +128,12 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
   const showEmptyOverlay = rules.length === 0 && Boolean(emptyLabel)
   // Table container refs power both virtualization and DOM-based hover styling.
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
+  // Capture the first render value only; parent updates happen through `onScrollTopChange`.
+  const initialScrollTopRef = useRef(
+    (typeof initialScrollTop === 'number' && Number.isFinite(initialScrollTop))
+      ? Math.max(0, initialScrollTop)
+      : 0,
+  )
   const headerRef = useRef<HTMLTableSectionElement | null>(null)
   const [containerW, setContainerW] = useState(0)
   const [showScrollRangeHint, setShowScrollRangeHint] = useState(false)
@@ -292,6 +311,29 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     }
     return cached
   }, [t])
+  const resolvePreviewRuleName = useCallback((rule: HsfRuleWithRecipe, isSafeguardRow: boolean): string => {
+    // Safeguard injections should always expose their authored label.
+    if (isSafeguardRow) return resolveSafeguardRuleLabel(rule) ?? t('safeguardsTabLabel')
+    // Resolve recipe names from the live recipe-name snapshot first, then fall back to serialized RecipeName metadata.
+    const recipeIdx = resolveDisplayRecipeIdx(rule)
+    return resolveMatchRecipeName(recipeIdx, recipeNames, rule) ?? ''
+  }, [recipeNames, t])
+  const handleSafeguardStarClick = useCallback((rule: HsfRuleWithRecipe) => {
+    // Safeguard injections carry the source safeguard id for cross-view routing.
+    const rawRuleId = typeof rule.__safeguardRuleId === 'string' ? rule.__safeguardRuleId.trim() : ''
+    // Real safeguard matches carry an item key; placeholder gaps do not.
+    const safeguardItemKey = (
+      typeof rule.__safeguardItemKey === 'number'
+      && Number.isFinite(rule.__safeguardItemKey)
+    )
+      ? rule.__safeguardItemKey
+      : null
+    onSelectSafeguardRule?.({
+      safeguardRuleId: rawRuleId.length > 0 ? rawRuleId : null,
+      safeguardItemKey,
+      isPlaceholder: rule.__safeguardPlaceholder === true,
+    })
+  }, [onSelectSafeguardRule])
 
   type RecipeRuleSpan = { first: number; last: number; count: number }
   const recipeRuleSpanMap = useMemo<Map<number, RecipeRuleSpan>>(() => {
@@ -572,6 +614,23 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     getItemKey: getRuleVirtualKey,
     scrollToFn,
   })
+  // Restore the previous sellfile-preview scroll position when this table remounts.
+  // Browser clamping keeps the offset in-bounds automatically when rows were removed.
+  useLayoutEffect(() => {
+    const container = tableContainerRef.current
+    if (!container) return
+    const apply = () => {
+      const targetScrollTop = initialScrollTopRef.current
+      container.scrollTop = targetScrollTop
+      onScrollTopChange?.(Math.max(0, container.scrollTop))
+    }
+    if (typeof window === 'undefined') {
+      apply()
+      return
+    }
+    const rafId = window.requestAnimationFrame(apply)
+    return () => window.cancelAnimationFrame(rafId)
+  }, [onScrollTopChange])
 
   // Resolve the "actually visible" row indices (excluding overscan) for UX decisions like chip auto-scroll.
   // Why: overscan exists for perf, but UX should reflect what the user can read in the viewport.
@@ -679,6 +738,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     const el = tableContainerRef.current
     if (!el) return
     const onScroll = () => {
+      onScrollTopChange?.(Math.max(0, el.scrollTop))
       if (!scrollRangeVisibleRef.current) {
         scrollRangeVisibleRef.current = true
         setShowScrollRangeHint(true)
@@ -710,21 +770,21 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
       if (ro) ro.disconnect()
       if (scrollRangeHideTimerRef.current) { clearTimeout(scrollRangeHideTimerRef.current); scrollRangeHideTimerRef.current = null }
     }
-  }, [])
+  }, [onScrollTopChange])
 
   // Row renderer (memoized) to avoid re-computing heavy cells on unrelated updates (e.g., hover elsewhere)
   // (Per-row React.memo was explored but replaced with a DOM-based highlight
   // to avoid re-render cost entirely during hover.)
 
 
-  type ColKey = keyof HsfRule | 'Idx' | 'RecipeIdx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'MainStatName' | 'LevelLabel' | 'RankRarity'
+  type ColKey = keyof HsfRule | 'Idx' | 'RecipeIdx' | 'RuleName' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'MainStatName' | 'LevelLabel' | 'RankRarity'
   type ColMode = 'auto' | 'show' | 'hide'
   type ColConfig = { key: ColKey; label: string; width: number; visible: boolean; mode?: ColMode }
-  const colLabel = (key: ColKey): string => (
-    // Keep the legacy i18n key until the catalog-wide key migration lands.
-    // The displayed fallback label/default column label is recipe-first in this component.
+  const colHeaderLabel = (key: ColKey): string => (
+    // Keep existing i18n keys for backwards compatibility with runtime catalogs.
     key === 'Idx' ? t('colIdx') :
-    key === 'RecipeIdx' ? t('colCfg') :
+    key === 'RecipeIdx' ? t('colRecipe') :
+    key === 'RuleName' ? t('colName') :
     key === 'Keep' ? t('colKeep') :
     key === 'Use' ? t('colUse') :
     key === 'ArtifactSetNames' ? t('colSets') :
@@ -735,9 +795,18 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     key === 'Faction' ? t('colFaction') :
     key === 'SubstatsSummary' ? t('colSub') : String(key)
   )
+  const colMenuLabel = (key: ColKey): string => (
+    key === 'Idx' ? t('colIdxMenu') :
+    key === 'RecipeIdx' ? t('colRecipeIdxMenu') :
+    // Name stays concise in the table and in the context menu.
+    key === 'RuleName' ? t('colName') :
+    colHeaderLabel(key)
+  )
   const defaultCols = useMemo<ColConfig[]>(() => ([
-    { key: 'Idx', label: 'Idx', width: 72, visible: true },
-    { key: 'RecipeIdx', label: 'Recipe', width: 56, visible: true },
+    { key: 'Idx', label: '#', width: 72, visible: true },
+    { key: 'RecipeIdx', label: 'Recipe', width: 64, visible: true },
+    // Rule names are useful for audits but too wide for default dense preview layouts.
+    { key: 'RuleName', label: 'Name', width: 180, visible: false },
     { key: 'Keep', label: 'Keep', width: 61, visible: false },
     { key: 'Use', label: 'Use', width: 50, visible: false },
     { key: 'ArtifactSetNames', label: 'Sets', width: 170, visible: true },
@@ -746,7 +815,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
     { key: 'MainStatName', label: 'Main', width: 75, visible: true },
     { key: 'LevelLabel', label: 'Level', width: 75, visible: true },
     // Default to hidden; users can opt-in via the header menu or auto mode.
-    { key: 'Faction', label: 'Faction', width: 70, visible: false, mode: 'hide' },
+    { key: 'Faction', label: 'Faction', width: 50, visible: false, mode: 'auto' },
     { key: 'SubstatsSummary', label: 'Sub', width: 340, visible: true },
   ]), [])
   const [storedCols, setStoredCols] = useRulesTableColumnsPreference()
@@ -924,6 +993,11 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
             setRowHintPos(null)
             return
           }
+          // Safeguard rows intentionally have no row actions; suppress the affordance hint there.
+          if (target && target.closest(`tr[data-rule-source="${RULE_SOURCE_SAFEGUARDS}"]`)) {
+            setRowHintPos(null)
+            return
+          }
           setHeaderHintPos(null)
           const container = tableContainerRef.current
           if (container) {
@@ -1001,9 +1075,9 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
                     onDrop={() => onHeaderDrop(realIdx)}
                     sx={{ width: c.width, fontWeight: 600, fontSize: FONT_SIZE_BASE_PX, userSelect: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                   >
-                    <MarkdownTooltip markdown={t('rulesHeaderHelp', { label: colLabel(c.key) })}>
+                    <MarkdownTooltip markdown={t('rulesHeaderHelp', { label: colHeaderLabel(c.key) })}>
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
-                        <span>{colLabel(c.key)}</span>
+                        <span>{colHeaderLabel(c.key)}</span>
                       </Box>
                     </MarkdownTooltip>
                     <Box onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startResize(realIdx, e.clientX) }} sx={{ position: 'absolute', right: 0, top: 0, height: '100%', width: 6, cursor: 'col-resize', zIndex: 2 }} />
@@ -1070,6 +1144,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
                     })()
                     // Keep overrides include safeguards injection rows.
                     const isKeepOverrideSource = resolvedSource === RULE_SOURCE_SAFEGUARDS
+                    const previewRuleName = resolvePreviewRuleName(rule, isKeepOverrideSource)
                     return (
 		                      <TableRow
 		                        key={virtualItem.key}
@@ -1078,6 +1153,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
 		                        // Why: without it, measurements are ignored and scroll offsets drift.
 		                        data-index={idx}
 			                        data-row-index={idx}
+		                        data-rule-source={resolvedSource}
 		                        {...(recipeIdxNumber !== null ? { 'data-recipe-idx': String(recipeIdxNumber) } : {})}
 		                        // Wrap mode needs measured heights so TanStack can compute correct scroll offsets.
 		                        // Why: single-line mode is strict fixed-height, so measuring would unnecessarily enable dynamic mode.
@@ -1142,23 +1218,29 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
                             value = String(recipeIdxNumber + 1)
                           } else if (isKeepOverrideSource) {
                             // Keep-override injections display a hollow star and surface the originating rule name for attribution.
-                            // Fall back to the tab label if rule naming is missing.
-                            const keepOverrideLabel = resolveSafeguardRuleLabel(rule) ?? t('safeguardsTabLabel')
                             recipeSpecialContent = (
-                              <MarkdownTooltip markdown={keepOverrideLabel}>
-                                <Box
-                                  component="span"
-                                  sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}
-                                  aria-label={keepOverrideLabel}
+                              <MarkdownTooltip markdown={previewRuleName}>
+                                <ButtonBase
+                                  // Star clicks branch into Rule Tester or Safeguards editing based on row metadata.
+                                  onClick={(event) => {
+                                    event.preventDefault()
+                                    event.stopPropagation()
+                                    handleSafeguardStarClick(rule)
+                                  }}
+                                  data-safeguard-star="true"
+                                  data-safeguard-rule-id={rule.__safeguardRuleId ?? ''}
+                                  sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', borderRadius: 0 }}
+                                  aria-label={previewRuleName}
                                 >
                                   <StarBorderIcon fontSize="inherit" />
-                                </Box>
+                                </ButtonBase>
                               </MarkdownTooltip>
                             )
                           } else {
                             value = ''
                           }
                         }
+                        else if (c.key === 'RuleName') value = previewRuleName
                         else if (c.key === 'Keep') value = rule.Keep ? t('keepValueKeep') : t('keepValueSell')
                         else if (c.key === 'Use') value = rule.Use ? '✓' : '-'
                     else if (c.key === 'ArtifactTypeNames') {
@@ -1191,6 +1273,11 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
                         const isRuleDisabled = rule.Use === false
                         // Convert the disabled flag into a per-row opacity for reuse.
                         const rowOpacity = isRuleDisabled ? disabledOpacity : 1
+                        const showRecipeIdxNameTooltip = (
+                          c.key === 'RecipeIdx'
+                          && recipeIdxNumber !== null
+                          && previewRuleName.length > 0
+                        )
                         let content: React.ReactNode = isSub
                           ? (
                             <RuleSubstatChips
@@ -1356,7 +1443,27 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
                               </MarkdownTooltip>
                             )
                             : substatSpan
-                        } else if (String(value).length && c.key !== 'ArtifactTypeNames' && c.key !== 'ArtifactSetNames') {
+                        } else if (showRecipeIdxNameTooltip) {
+                          cellInner = (
+                            <MarkdownTooltip markdown={previewRuleName}>
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  width: '100%',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  transform: `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
+                                }}
+                              >{content}</span>
+                            </MarkdownTooltip>
+                          )
+                        } else if (
+                          String(value).length
+                          && c.key !== 'ArtifactTypeNames'
+                          && c.key !== 'ArtifactSetNames'
+                          && c.key !== 'RecipeIdx'
+                        ) {
                           cellInner = (
                             <EllipsisTooltip title={value} wrap="block">
                               <span
@@ -1658,7 +1765,7 @@ export function HsfRulesTable({ rules, setHoveredRecipeIdx, selectedRecipeIdx, m
               }}
               sx={{ gap: 1 }}
             >
-              <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{colLabel(c.key)}</Typography>
+              <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{colMenuLabel(c.key)}</Typography>
               {isFaction ? (
                 <Button
                   size="small"

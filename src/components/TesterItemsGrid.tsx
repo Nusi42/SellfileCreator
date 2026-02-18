@@ -17,7 +17,7 @@ import {
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SellIcon from '@mui/icons-material/Sell'
-import { alpha, useTheme, type Theme } from '@mui/material/styles'
+import { alpha, keyframes, useTheme, type Theme } from '@mui/material/styles'
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined'
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import MailOutlineIcon from '@mui/icons-material/MailOutline'
@@ -266,6 +266,32 @@ const MATCHING_CHIP_WRAPPER_SX = {
 // Skeleton batches spread icon decoding across frames so collapsed accordions can re-open instantly.
 const GRID_CARD_SKELETON_BATCH_SIZE = 6
 const GRID_CARD_SKELETON_FRAME_DELAY_MS = 24
+// Focused cards briefly glow so programmatic jumps are visible even without persistent selection state.
+const GRID_CARD_FOCUS_PULSE_DURATION_MS = 1100
+// Pulse keyframes intentionally return to baseline so focused cards never look permanently selected.
+// CSS variables provide theme-aware colors without rebuilding keyframes at runtime.
+const TESTER_GRID_CARD_FOCUS_PULSE_KEYFRAMES = keyframes`
+  0% {
+    border-color: var(--tester-focus-border-base);
+    background-color: var(--tester-focus-bg-base);
+    box-shadow: var(--tester-focus-shadow-base);
+  }
+  30% {
+    border-color: var(--tester-focus-border-peak);
+    background-color: var(--tester-focus-bg-peak);
+    box-shadow: var(--tester-focus-shadow-peak);
+  }
+  60% {
+    border-color: var(--tester-focus-border-base);
+    background-color: var(--tester-focus-bg-base);
+    box-shadow: var(--tester-focus-shadow-base);
+  }
+  100% {
+    border-color: var(--tester-focus-border-base);
+    background-color: var(--tester-focus-bg-base);
+    box-shadow: var(--tester-focus-shadow-base);
+  }
+`
 
 const SOURCE_ICON_MAP: Record<TesterSourceFilter, React.ElementType | null> = {
   manual: BuildOutlinedIcon,
@@ -300,6 +326,14 @@ type TesterItemsGridProps = {
   onChangeColorBlindMode: (mode: ColorBlindMode) => void
   colorIconSrc: string
   recipeNames: Array<string | null>
+  // One-shot mount restore for the Rule Tester scroller.
+  initialScrollTop?: number
+  // Persist live scroll offsets so mode switches can restore position.
+  onScrollTopChange?: (nextScrollTop: number) => void
+  // Optional one-shot request to expand + scroll to a concrete artifact card.
+  focusArtifactRequest?: { artifactId: number; token: number } | null
+  // Optional callback when the requested artifact is hidden by active tester filters.
+  onFocusArtifactFilteredOut?: ((artifactId: number) => void) | undefined
   onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null) => void) | undefined
   onCreateRuleTemplate?: ((row: TesterPreviewRow, intent: TesterRuleTemplateIntent) => void) | undefined
   variant?: TesterItemsGridVariant
@@ -367,6 +401,10 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     onChangeColorBlindMode,
     colorIconSrc,
     recipeNames,
+    initialScrollTop = 0,
+    onScrollTopChange,
+    focusArtifactRequest = null,
+    onFocusArtifactFilteredOut,
     onJumpToRule,
     onCreateRuleTemplate,
     variant = 'tester',
@@ -680,6 +718,12 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     })
   }, [allGroupKeys])
   const containerRef = useRef<HTMLDivElement | null>(null)
+  // Capture the first render value only; parent updates happen through `onScrollTopChange`.
+  const initialScrollTopRef = useRef(
+    (typeof initialScrollTop === 'number' && Number.isFinite(initialScrollTop))
+      ? Math.max(0, initialScrollTop)
+      : 0,
+  )
   // Cache the last scrollbar width so we only notify on real changes.
   const scrollbarWidthRef = useRef<number | null>(null)
   // Cache the last measured card width so we only notify on real changes.
@@ -694,6 +738,24 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const [scrollHintMinWidthPx, setScrollHintMinWidthPx] = useState(0)
   const viewportMeasureRafRef = useRef<number | null>(null)
   const revealIdleDrainTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    const apply = () => {
+      const targetScrollTop = initialScrollTopRef.current
+      container.scrollTop = targetScrollTop
+      const clampedScrollTop = Math.max(0, container.scrollTop)
+      // Keep internal range math aligned with the restored viewport.
+      setScrollTop(clampedScrollTop)
+      onScrollTopChange?.(clampedScrollTop)
+    }
+    if (typeof window === 'undefined') {
+      apply()
+      return
+    }
+    const rafId = window.requestAnimationFrame(apply)
+    return () => window.cancelAnimationFrame(rafId)
+  }, [onScrollTopChange])
   useEffect(() => {
     const node = containerRef.current
     if (!node) return
@@ -733,6 +795,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const handleScroll = useCallback<React.UIEventHandler<HTMLDivElement>>((event) => {
     const nextScrollTop = event.currentTarget.scrollTop
     setScrollTop(nextScrollTop)
+    onScrollTopChange?.(Math.max(0, nextScrollTop))
     if (!scrollHintVisibleRef.current) {
       scrollHintVisibleRef.current = true
       setShowScrollGroupHint(true)
@@ -757,7 +820,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         flushTesterGridCardRevealQueue(true)
       }, GRID_CARD_REVEAL_IDLE_DRAIN_DELAY_MS)
     }
-  }, [])
+  }, [onScrollTopChange])
   // Keep overrides rely on a dedicated 1/2 column preference to widen the rule list when desired.
   const resolvedKeepOverrideColumnMode = keepOverrideColumnMode === 2 ? 2 : 1
   // Default to 1 column whenever the keep-override preference is missing.
@@ -966,6 +1029,93 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     groups.forEach(assignGroup)
     return map
   }, [groups])
+  const [focusPulseArtifactId, setFocusPulseArtifactId] = useState<number | null>(null)
+  const focusPulseClearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const triggerFocusPulse = useCallback((artifactId: number) => {
+    // Replace any prior pulse so rapid star-clicks always emphasize the latest card.
+    if (focusPulseClearTimeoutRef.current) {
+      clearTimeout(focusPulseClearTimeoutRef.current)
+      focusPulseClearTimeoutRef.current = null
+    }
+    setFocusPulseArtifactId(artifactId)
+    focusPulseClearTimeoutRef.current = setTimeout(() => {
+      setFocusPulseArtifactId((current) => (current === artifactId ? null : current))
+      focusPulseClearTimeoutRef.current = null
+    }, GRID_CARD_FOCUS_PULSE_DURATION_MS)
+  }, [])
+  useEffect(() => () => {
+    if (focusPulseClearTimeoutRef.current) {
+      clearTimeout(focusPulseClearTimeoutRef.current)
+      focusPulseClearTimeoutRef.current = null
+    }
+  }, [])
+  const lastAppliedFocusTokenRef = useRef<number | null>(null)
+  useLayoutEffect(() => {
+    if (!focusArtifactRequest) return
+    if (lastAppliedFocusTokenRef.current === focusArtifactRequest.token) return
+    const targetArtifactId = Number(focusArtifactRequest.artifactId)
+    if (!Number.isFinite(targetArtifactId)) {
+      lastAppliedFocusTokenRef.current = focusArtifactRequest.token
+      return
+    }
+    // Ensure the owning accordion branch is expanded before we attempt to scroll.
+    const targetGroupKey = rowGroupKeyLookup.get(targetArtifactId)
+    if (targetGroupKey) {
+      const keysToExpand: string[] = []
+      let cursor: string | null = targetGroupKey
+      while (cursor) {
+        keysToExpand.push(cursor)
+        cursor = groupLookup.get(cursor)?.parentKey ?? null
+      }
+      const shouldExpand = keysToExpand.some((key) => collapsedGroups.has(key))
+      if (shouldExpand) {
+        setCollapsedGroups((prev) => {
+          const next = new Set(prev)
+          for (const key of keysToExpand) {
+            next.delete(key)
+          }
+          return next.size === prev.size ? prev : next
+        })
+        return
+      }
+    }
+    const targetIndex = flattenedItems.findIndex((item) => (
+      item.kind === 'cardRow'
+      && item.rowEntries.some((entry) => Number(entry.artifact?.id) === targetArtifactId)
+    ))
+    if (targetIndex < 0) {
+      // If filters hide the row we still consume the request to avoid retry loops.
+      if (filterActive) {
+        onFocusArtifactFilteredOut?.(targetArtifactId)
+      }
+      lastAppliedFocusTokenRef.current = focusArtifactRequest.token
+      return
+    }
+    // Programmatic jumps get a temporary visual pulse because cards have no persistent selection state yet.
+    triggerFocusPulse(targetArtifactId)
+    rowVirtualizer.scrollToIndex(targetIndex, { align: 'center' })
+    // Virtualizer scroll is index-based; follow with DOM centering for the exact card within its row.
+    if (typeof window !== 'undefined') {
+      window.requestAnimationFrame(() => {
+        const container = containerRef.current
+        const card = container?.querySelector<HTMLElement>(
+          `[data-tester-grid-card="true"][data-row-id="${targetArtifactId}"]`,
+        )
+        card?.scrollIntoView({ block: 'center', inline: 'nearest' })
+      })
+    }
+    lastAppliedFocusTokenRef.current = focusArtifactRequest.token
+  }, [
+    collapsedGroups,
+    filterActive,
+    flattenedItems,
+    focusArtifactRequest,
+    groupLookup,
+    onFocusArtifactFilteredOut,
+    rowGroupKeyLookup,
+    rowVirtualizer,
+    triggerFocusPulse,
+  ])
   const fallbackScrollHintRowId = useMemo(() => {
     for (let idx = 0; idx < rows.length; idx += 1) {
       const candidateId = Number(rows[idx]?.artifact?.id)
@@ -1443,6 +1593,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   onCreateRuleTemplate={canShowRuleTemplateActions ? onCreateRuleTemplate : undefined}
                   highlightedRowPredicate={highlightRowPredicate}
                   dimUnhighlightedRows={shouldDimUnhighlightedRows}
+                  focusPulseActive={Number(row.artifact?.id) === focusPulseArtifactId}
                   cardPriority={{ base: scrollVersion, order: cardPriorityOrder }}
                 />
               )
@@ -2218,6 +2369,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   onCreateRuleTemplate,
   highlightedRowPredicate = null,
   dimUnhighlightedRows = false,
+  focusPulseActive = false,
   cardPriority,
 }: {
   row: TesterPreviewRow
@@ -2237,12 +2389,13 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   onCreateRuleTemplate?: ((row: TesterPreviewRow, intent: TesterRuleTemplateIntent) => void) | undefined
   highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
+  focusPulseActive?: boolean
   cardPriority: { base: number; order: number }
 }) {
   // Highlight state lets Safeguards call attention to the at-risk combinations without mutating the dataset.
   const highlightFn = typeof highlightedRowPredicate === 'function' ? highlightedRowPredicate : null
   const cardHighlighted = highlightFn ? Boolean(highlightFn(row)) : false
-  const cardDimmed = Boolean(highlightFn && dimUnhighlightedRows && !cardHighlighted)
+  const cardDimmed = Boolean(highlightFn && dimUnhighlightedRows && !cardHighlighted && !focusPulseActive)
   // Frozen match rows keep stale data visible but low-opacity until the rebuild commits.
   const matchDetailsFrozen = Boolean(suppressMatchDetails)
   const matchDetailsOpacity = matchDetailsFrozen ? 0.45 : 1
@@ -2935,6 +3088,13 @@ export const TesterGridCard = React.memo(function TesterGridCard({
         borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
         border: `1px solid ${cardHighlighted ? theme.palette.info.light : theme.palette.divider}`,
         bgcolor: theme.palette.background.paper,
+        // Expose baseline/peak palette values so the pulse animation can resolve to theme-safe colors.
+        '--tester-focus-border-base': cardHighlighted ? theme.palette.info.light : theme.palette.divider,
+        '--tester-focus-border-peak': theme.palette.info.main,
+        '--tester-focus-bg-base': theme.palette.background.paper,
+        '--tester-focus-bg-peak': alpha(theme.palette.info.main, 0.07),
+        '--tester-focus-shadow-base': cardHighlighted ? `0 0 0 1px ${alpha(theme.palette.info.main, 0.3)}` : 'none',
+        '--tester-focus-shadow-peak': `0 0 0 2px ${alpha(theme.palette.info.main, 0.26)}, 0 8px 18px ${alpha(theme.palette.info.main, 0.2)}`,
         // Relative positioning anchors the overlay button to the card frame.
         position: 'relative',
         minHeight: cardHeightStyle,
@@ -2950,7 +3110,11 @@ export const TesterGridCard = React.memo(function TesterGridCard({
         // Card content must stay readable even inside colored containers (for example success toasts).
         color: theme.palette.text.primary,
         opacity: cardDimmed ? 0.35 : 1,
-        transition: 'opacity 120ms ease, border-color 120ms ease, box-shadow 120ms ease',
+        transition: 'opacity 220ms ease, border-color 260ms ease, box-shadow 280ms ease, background-color 280ms ease',
+        // Programmatic focus should blink once and then settle back to baseline (no persistent selection affordance).
+        animation: focusPulseActive
+          ? `${TESTER_GRID_CARD_FOCUS_PULSE_KEYFRAMES} ${GRID_CARD_FOCUS_PULSE_DURATION_MS}ms ease-in-out 1`
+          : 'none',
       })}
     >
       {/* Overlay keeps the gear action out of the main stat row flow. */}
