@@ -67,13 +67,9 @@ export type SafeguardStarSelection = {
   isPlaceholder: boolean
 }
 
-export function HsfRulesTable({ rules, recipeNames = [], initialScrollTop = 0, onScrollTopChange, setHoveredRecipeIdx, selectedRecipeIdx, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onSelectSafeguardRule, onRecipeAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
+export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, selectedRecipeIdx, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onSelectSafeguardRule, onRecipeAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
   rules: HsfRuleWithRecipe[]
   recipeNames?: readonly (string | null | undefined)[]
-  // One-shot mount restore for the sellfile preview scroller.
-  initialScrollTop?: number
-  // Persist live scroll offsets so mode switches can restore position.
-  onScrollTopChange?: (nextScrollTop: number) => void
   setHoveredRecipeIdx: (idx: number | null) => void
   selectedRecipeIdx: number | null
   multiselectActive: boolean
@@ -128,12 +124,6 @@ export function HsfRulesTable({ rules, recipeNames = [], initialScrollTop = 0, o
   const showEmptyOverlay = rules.length === 0 && Boolean(emptyLabel)
   // Table container refs power both virtualization and DOM-based hover styling.
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
-  // Capture the first render value only; parent updates happen through `onScrollTopChange`.
-  const initialScrollTopRef = useRef(
-    (typeof initialScrollTop === 'number' && Number.isFinite(initialScrollTop))
-      ? Math.max(0, initialScrollTop)
-      : 0,
-  )
   const headerRef = useRef<HTMLTableSectionElement | null>(null)
   const [containerW, setContainerW] = useState(0)
   const [showScrollRangeHint, setShowScrollRangeHint] = useState(false)
@@ -614,24 +604,6 @@ export function HsfRulesTable({ rules, recipeNames = [], initialScrollTop = 0, o
     getItemKey: getRuleVirtualKey,
     scrollToFn,
   })
-  // Restore the previous sellfile-preview scroll position when this table remounts.
-  // Browser clamping keeps the offset in-bounds automatically when rows were removed.
-  useLayoutEffect(() => {
-    const container = tableContainerRef.current
-    if (!container) return
-    const apply = () => {
-      const targetScrollTop = initialScrollTopRef.current
-      container.scrollTop = targetScrollTop
-      onScrollTopChange?.(Math.max(0, container.scrollTop))
-    }
-    if (typeof window === 'undefined') {
-      apply()
-      return
-    }
-    const rafId = window.requestAnimationFrame(apply)
-    return () => window.cancelAnimationFrame(rafId)
-  }, [onScrollTopChange])
-
   // Resolve the "actually visible" row indices (excluding overscan) for UX decisions like chip auto-scroll.
   // Why: overscan exists for perf, but UX should reflect what the user can read in the viewport.
   const getActuallyVisibleIndexRange = useCallback((): { first: number; last: number } | null => {
@@ -738,7 +710,6 @@ export function HsfRulesTable({ rules, recipeNames = [], initialScrollTop = 0, o
     const el = tableContainerRef.current
     if (!el) return
     const onScroll = () => {
-      onScrollTopChange?.(Math.max(0, el.scrollTop))
       if (!scrollRangeVisibleRef.current) {
         scrollRangeVisibleRef.current = true
         setShowScrollRangeHint(true)
@@ -770,7 +741,7 @@ export function HsfRulesTable({ rules, recipeNames = [], initialScrollTop = 0, o
       if (ro) ro.disconnect()
       if (scrollRangeHideTimerRef.current) { clearTimeout(scrollRangeHideTimerRef.current); scrollRangeHideTimerRef.current = null }
     }
-  }, [onScrollTopChange])
+  }, [])
 
   // Row renderer (memoized) to avoid re-computing heavy cells on unrelated updates (e.g., hover elsewhere)
   // (Per-row React.memo was explored but replaced with a DOM-based highlight

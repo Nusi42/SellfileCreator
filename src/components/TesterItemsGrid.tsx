@@ -267,7 +267,8 @@ const MATCHING_CHIP_WRAPPER_SX = {
 const GRID_CARD_SKELETON_BATCH_SIZE = 6
 const GRID_CARD_SKELETON_FRAME_DELAY_MS = 24
 // Focused cards briefly glow so programmatic jumps are visible even without persistent selection state.
-const GRID_CARD_FOCUS_PULSE_DURATION_MS = 1100
+// Two slower pulses make cross-view jumps easier to notice without looking like a persistent selection.
+const GRID_CARD_FOCUS_PULSE_DURATION_MS = 1500
 // Pulse keyframes intentionally return to baseline so focused cards never look permanently selected.
 // CSS variables provide theme-aware colors without rebuilding keyframes at runtime.
 const TESTER_GRID_CARD_FOCUS_PULSE_KEYFRAMES = keyframes`
@@ -276,12 +277,22 @@ const TESTER_GRID_CARD_FOCUS_PULSE_KEYFRAMES = keyframes`
     background-color: var(--tester-focus-bg-base);
     box-shadow: var(--tester-focus-shadow-base);
   }
-  30% {
+  18% {
     border-color: var(--tester-focus-border-peak);
     background-color: var(--tester-focus-bg-peak);
     box-shadow: var(--tester-focus-shadow-peak);
   }
-  60% {
+  36% {
+    border-color: var(--tester-focus-border-base);
+    background-color: var(--tester-focus-bg-base);
+    box-shadow: var(--tester-focus-shadow-base);
+  }
+  62% {
+    border-color: var(--tester-focus-border-peak);
+    background-color: var(--tester-focus-bg-peak);
+    box-shadow: var(--tester-focus-shadow-peak);
+  }
+  80% {
     border-color: var(--tester-focus-border-base);
     background-color: var(--tester-focus-bg-base);
     box-shadow: var(--tester-focus-shadow-base);
@@ -326,10 +337,6 @@ type TesterItemsGridProps = {
   onChangeColorBlindMode: (mode: ColorBlindMode) => void
   colorIconSrc: string
   recipeNames: Array<string | null>
-  // One-shot mount restore for the Rule Tester scroller.
-  initialScrollTop?: number
-  // Persist live scroll offsets so mode switches can restore position.
-  onScrollTopChange?: (nextScrollTop: number) => void
   // Optional one-shot request to expand + scroll to a concrete artifact card.
   focusArtifactRequest?: { artifactId: number; token: number } | null
   // Optional callback when the requested artifact is hidden by active tester filters.
@@ -401,8 +408,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     onChangeColorBlindMode,
     colorIconSrc,
     recipeNames,
-    initialScrollTop = 0,
-    onScrollTopChange,
     focusArtifactRequest = null,
     onFocusArtifactFilteredOut,
     onJumpToRule,
@@ -718,12 +723,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     })
   }, [allGroupKeys])
   const containerRef = useRef<HTMLDivElement | null>(null)
-  // Capture the first render value only; parent updates happen through `onScrollTopChange`.
-  const initialScrollTopRef = useRef(
-    (typeof initialScrollTop === 'number' && Number.isFinite(initialScrollTop))
-      ? Math.max(0, initialScrollTop)
-      : 0,
-  )
   // Cache the last scrollbar width so we only notify on real changes.
   const scrollbarWidthRef = useRef<number | null>(null)
   // Cache the last measured card width so we only notify on real changes.
@@ -738,24 +737,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const [scrollHintMinWidthPx, setScrollHintMinWidthPx] = useState(0)
   const viewportMeasureRafRef = useRef<number | null>(null)
   const revealIdleDrainTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useLayoutEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-    const apply = () => {
-      const targetScrollTop = initialScrollTopRef.current
-      container.scrollTop = targetScrollTop
-      const clampedScrollTop = Math.max(0, container.scrollTop)
-      // Keep internal range math aligned with the restored viewport.
-      setScrollTop(clampedScrollTop)
-      onScrollTopChange?.(clampedScrollTop)
-    }
-    if (typeof window === 'undefined') {
-      apply()
-      return
-    }
-    const rafId = window.requestAnimationFrame(apply)
-    return () => window.cancelAnimationFrame(rafId)
-  }, [onScrollTopChange])
   useEffect(() => {
     const node = containerRef.current
     if (!node) return
@@ -795,7 +776,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const handleScroll = useCallback<React.UIEventHandler<HTMLDivElement>>((event) => {
     const nextScrollTop = event.currentTarget.scrollTop
     setScrollTop(nextScrollTop)
-    onScrollTopChange?.(Math.max(0, nextScrollTop))
     if (!scrollHintVisibleRef.current) {
       scrollHintVisibleRef.current = true
       setShowScrollGroupHint(true)
@@ -820,7 +800,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         flushTesterGridCardRevealQueue(true)
       }, GRID_CARD_REVEAL_IDLE_DRAIN_DELAY_MS)
     }
-  }, [onScrollTopChange])
+  }, [])
   // Keep overrides rely on a dedicated 1/2 column preference to widen the rule list when desired.
   const resolvedKeepOverrideColumnMode = keepOverrideColumnMode === 2 ? 2 : 1
   // Default to 1 column whenever the keep-override preference is missing.

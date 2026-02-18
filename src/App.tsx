@@ -206,7 +206,6 @@ import {
   LOGIC_HUB_DIALOG_TABS,
 } from './lib/logicHub'
 import type { FinalSellRemainderConfig, FinalSellLevel, LogicHubDialogTab } from './lib/logicHub'
-import { resolveSafeguardPreviewStarAction } from './lib/safeguardNavigation'
 import { useRecipeSelection } from './hooks/useRecipeSelection'
 import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
 import { fingerprintSafeguardDetection } from './lib/safeguardFingerprint'
@@ -2371,20 +2370,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       localStorage.setItem(PREVIEW_MODE_STORAGE_KEY, previewMode)
     } catch {}
   }, [previewMode])
-  // Keep independent scroll memory for the two preview surfaces.
-  // Why: switching modes unmounts the inactive surface, so we need an external store.
-  const rulesPreviewScrollTopRef = useRef(0)
-  const testerPreviewScrollTopRef = useRef(0)
-  const handleRulesPreviewScrollTopChange = useCallback((nextScrollTop: number) => {
-    // Clamp to non-negative values so stale DOM readings cannot poison the cache.
-    if (!Number.isFinite(nextScrollTop)) return
-    rulesPreviewScrollTopRef.current = Math.max(0, nextScrollTop)
-  }, [])
-  const handleTesterPreviewScrollTopChange = useCallback((nextScrollTop: number) => {
-    // Clamp to non-negative values so stale DOM readings cannot poison the cache.
-    if (!Number.isFinite(nextScrollTop)) return
-    testerPreviewScrollTopRef.current = Math.max(0, nextScrollTop)
-  }, [])
   const [gearImportBusy, setGearImportBusy] = useState(false)
   const gearImportBusyCountRef = useRef(0)
   const beginGearImport = useCallback(() => {
@@ -4159,11 +4144,40 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     )
       ? selection.safeguardItemKey
       : null
-    // Use merged preview rows as the single source of truth for placeholder vs concrete routing.
-    const nextAction = resolveSafeguardPreviewStarAction(mergedRulesRef.current, normalizedRuleId)
-    if (nextAction === 'openTester') {
-      // When the clicked row is a placeholder but the safeguard still has real gear,
-      // fall back to the first concrete item key for that safeguard id.
+    const targetArtifactId = (() => {
+      // Detection snapshot is the source of truth for real, gear-backed matches.
+      const detectionEntries = safeguardDetectionRef.current?.entries ?? []
+      const detectedItemKeys: number[] = []
+      const seenDetectedKeys = new Set<number>()
+      for (const entry of detectionEntries) {
+        if (!entry || entry.ruleId !== normalizedRuleId) continue
+        for (const key of entry.itemKeys) {
+          if (typeof key !== 'number' || !Number.isFinite(key)) continue
+          if (seenDetectedKeys.has(key)) continue
+          seenDetectedKeys.add(key)
+          detectedItemKeys.push(key)
+        }
+      }
+      // Prioritize the clicked item when it is part of the detected real matches.
+      if (detectedItemKeys.length > 0) {
+        const prioritizedKeys = clickedItemKey != null && seenDetectedKeys.has(clickedItemKey)
+          ? [clickedItemKey, ...detectedItemKeys.filter((key) => key !== clickedItemKey)]
+          : detectedItemKeys
+        for (const key of prioritizedKeys) {
+          const artifactId = testerArtifactIdBySafeguardItemKey.get(key)
+          if (artifactId != null) return artifactId
+        }
+        // Detection says real gear exists, but tester rows no longer include it (stale/filtered dataset).
+        return null
+      }
+      // Placeholder rows without detected real matches must route to Safeguards, not random tester gear.
+      if (selection.isPlaceholder === true) return null
+      // Detection may be temporarily unavailable during rebuilds; keep a conservative fallback for non-placeholder rows.
+      if (clickedItemKey != null) {
+        const artifactId = testerArtifactIdBySafeguardItemKey.get(clickedItemKey)
+        if (artifactId != null) return artifactId
+      }
+      // Fallback to the first non-placeholder safeguard row for the same rule id.
       const fallbackItemKey = mergedRulesRef.current.find((rule) => (
         rule.__source === RULE_SOURCE_SAFEGUARDS
         && rule.__safeguardRuleId === normalizedRuleId
@@ -4171,31 +4185,25 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         && typeof rule.__safeguardItemKey === 'number'
         && Number.isFinite(rule.__safeguardItemKey)
       ))?.__safeguardItemKey
-      const targetItemKey = clickedItemKey ?? ((
-        typeof fallbackItemKey === 'number' && Number.isFinite(fallbackItemKey)
-      ) ? fallbackItemKey : null)
-      if (targetItemKey != null) {
-        const targetArtifactId = testerArtifactIdBySafeguardItemKey.get(targetItemKey) ?? null
-        if (targetArtifactId != null) {
-          // Concrete safeguards have real gear to inspect, so jump to Rule Tester immediately.
-          setLogicHubSafeguardFocusRequest(null)
-          setLogicHubOpen(false)
-          setPreviewMode('tester')
-          testerArtifactFocusTokenRef.current += 1
-          setTesterArtifactFocusRequest({
-            artifactId: targetArtifactId,
-            token: testerArtifactFocusTokenRef.current,
-          })
-        } else {
-          // If no concrete artifact can be resolved anymore, fall back to Safeguards editing.
-          openLogicHubSafeguardRule(normalizedRuleId)
-        }
-      } else {
-        // Missing concrete item keys indicate placeholder-only rows despite stale preview metadata.
-        openLogicHubSafeguardRule(normalizedRuleId)
+      if (typeof fallbackItemKey === 'number' && Number.isFinite(fallbackItemKey)) {
+        const artifactId = testerArtifactIdBySafeguardItemKey.get(fallbackItemKey)
+        if (artifactId != null) return artifactId
       }
+      return null
+    })()
+    if (targetArtifactId != null) {
+      // Concrete safeguards have real gear to inspect, so jump to Rule Tester immediately.
+      setLogicHubSafeguardFocusRequest(null)
+      setLogicHubOpen(false)
+      setPreviewMode('tester')
+      testerArtifactFocusTokenRef.current += 1
+      setTesterArtifactFocusRequest({
+        artifactId: targetArtifactId,
+        token: testerArtifactFocusTokenRef.current,
+      })
       return
     }
+    // No real gear was resolved for this safeguard, so open Safeguards editing.
     openLogicHubSafeguardRule(normalizedRuleId)
   }, [openLogicHubSafeguardRule, setLogicHubDialogTab, setLogicHubOpen, setPreviewMode, testerArtifactIdBySafeguardItemKey])
   const handleTesterFocusArtifactFilteredOut = useCallback(() => {
@@ -5938,56 +5946,82 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               hasManualTesterItems={hasManualTesterRows}
             />
           )}
-          <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            {previewMode === 'tester' ? (
-              <Box sx={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }} data-tour-id="preview.tester-grid">
-                <Box
-                  data-tour-id="preview.tester-grid-top"
-                  sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '50%', pointerEvents: 'none' }}
-                />
-	                <TesterItemsGrid
-	                  rows={gearEntriesForTable}
-	                  filterActive={testerFilterActive || testerRecipeFilterActive}
-	                  substatColors={substatColors}
-	                  useStatButtonColors={statButtonBorders}
-	                  onToggleStatColors={setStatButtonBorders}
-                  onOpenManageColors={openColors}
-                  colorBlindMode={colorBlindMode}
-                  onChangeColorBlindMode={setColorBlindMode}
-                  colorIconSrc={colorIconSrc}
-                  onCardWidthMeasured={handleTesterCardWidthMeasured}
-	                  onScrollbarWidthMeasured={setTesterGridScrollbarWidthPx}
-	                  recipeNames={testerRecipeNamesForGrid}
-	                  initialScrollTop={testerPreviewScrollTopRef.current}
-	                  onScrollTopChange={handleTesterPreviewScrollTopChange}
-	                  focusArtifactRequest={testerArtifactFocusRequest}
-	                  onFocusArtifactFilteredOut={handleTesterFocusArtifactFilteredOut}
-	                  onJumpToRule={handleTesterRuleView}
-	                  onCreateRuleTemplate={handleTesterRuleTemplateCreate}
-	                  suppressMatchDetails={suppressTesterMatchDetails}
-	                  grouping={testerSubstatSortPrefs.state.grouping}
-	                  substatSort={testerSubstatSortSpec}
-	                  sortState={testerSubstatSortPrefs.state}
-	                  emptyStateVerticalAlign={emptyStateVerticalAlign}
-	                />
-              </Box>
-            ) : (
-		              <HsfRulesTableMemo
-		                rules={hsfRulesForTable}
-		                recipeNames={recipeNamesForGrid}
-		                initialScrollTop={rulesPreviewScrollTopRef.current}
-		                onScrollTopChange={handleRulesPreviewScrollTopChange}
-		                setHoveredRecipeIdx={setHoveredRecipeIdx}
-		                selectedRecipeIdx={previewSelectedRecipeIdx}
-		                multiselectActive={multiselectActive}
-		                selectionScrollRequest={selectionScrollRequest}
-	                emptyStateVerticalAlign={emptyStateVerticalAlign}
-	                focusRuleIndex={focusRuleIndex}
-		                onFocusRuleSettled={() => setFocusRuleIndex(null)}
-		                onSelectRecipeIdx={handleRulesTableSelectRecipeIdx}
-		                onSelectSafeguardRule={handleSafeguardPreviewStarSelect}
-		                emptyDueToFilter={hsfTableEmptyDueToFilters}
-		                limitExceeded={limitExceeded}
+          <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
+            <Box
+              aria-hidden={previewMode !== 'tester'}
+              data-tour-id={previewMode === 'tester' ? 'preview.tester-grid' : undefined}
+              sx={{
+                // Keep both panes mounted and layered with fixed geometry across mode switches.
+                position: 'absolute',
+                inset: 0,
+                height: '100%',
+                minHeight: 0,
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                visibility: previewMode === 'tester' ? 'visible' : 'hidden',
+                pointerEvents: previewMode === 'tester' ? 'auto' : 'none',
+                zIndex: previewMode === 'tester' ? 1 : 0,
+              }}
+            >
+              <Box
+                data-tour-id={previewMode === 'tester' ? 'preview.tester-grid-top' : undefined}
+                sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '50%', pointerEvents: 'none' }}
+              />
+              <TesterItemsGrid
+                rows={gearEntriesForTable}
+                filterActive={testerFilterActive || testerRecipeFilterActive}
+                substatColors={substatColors}
+                useStatButtonColors={statButtonBorders}
+                onToggleStatColors={setStatButtonBorders}
+                onOpenManageColors={openColors}
+                colorBlindMode={colorBlindMode}
+                onChangeColorBlindMode={setColorBlindMode}
+                colorIconSrc={colorIconSrc}
+                onCardWidthMeasured={handleTesterCardWidthMeasured}
+                onScrollbarWidthMeasured={setTesterGridScrollbarWidthPx}
+                recipeNames={testerRecipeNamesForGrid}
+                focusArtifactRequest={testerArtifactFocusRequest}
+                onFocusArtifactFilteredOut={handleTesterFocusArtifactFilteredOut}
+                onJumpToRule={handleTesterRuleView}
+                onCreateRuleTemplate={handleTesterRuleTemplateCreate}
+                suppressMatchDetails={suppressTesterMatchDetails}
+                grouping={testerSubstatSortPrefs.state.grouping}
+                substatSort={testerSubstatSortSpec}
+                sortState={testerSubstatSortPrefs.state}
+                emptyStateVerticalAlign={emptyStateVerticalAlign}
+              />
+            </Box>
+            <Box
+              aria-hidden={previewMode === 'tester'}
+              sx={{
+                // Keep the preview pane mounted in a stable absolute layer as well.
+                position: 'absolute',
+                inset: 0,
+                height: '100%',
+                minHeight: 0,
+                width: '100%',
+                overflow: 'hidden',
+                visibility: previewMode === 'tester' ? 'hidden' : 'visible',
+                pointerEvents: previewMode === 'tester' ? 'none' : 'auto',
+                zIndex: previewMode === 'tester' ? 0 : 1,
+              }}
+            >
+              <HsfRulesTableMemo
+                rules={hsfRulesForTable}
+                recipeNames={recipeNamesForGrid}
+                setHoveredRecipeIdx={setHoveredRecipeIdx}
+                selectedRecipeIdx={previewSelectedRecipeIdx}
+                multiselectActive={multiselectActive}
+                selectionScrollRequest={selectionScrollRequest}
+                emptyStateVerticalAlign={emptyStateVerticalAlign}
+                focusRuleIndex={focusRuleIndex}
+                onFocusRuleSettled={() => setFocusRuleIndex(null)}
+                onSelectRecipeIdx={handleRulesTableSelectRecipeIdx}
+                onSelectSafeguardRule={handleSafeguardPreviewStarSelect}
+                emptyDueToFilter={hsfTableEmptyDueToFilters}
+                limitExceeded={limitExceeded}
                 onRecipeAction={handleRulesTableRecipeAction}
                 onClearBase={handleRulesTableClearBase}
                 onConfigureFinalSell={handleRulesTableEditFinalSell}
@@ -5997,7 +6031,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 colorBlindMode={colorBlindMode}
                 onChangeColorBlindMode={setColorBlindMode}
               />
-            )}
+            </Box>
           </Box>
         </Paper>
         </Box>

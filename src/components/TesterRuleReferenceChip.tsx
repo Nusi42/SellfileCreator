@@ -7,7 +7,7 @@ import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
 import { useI18n } from '../lib/i18n'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 import { MATCHING_RECIPE_CHIP_MIN_WIDTH_PX } from '../lib/constants'
-// MarkdownTooltip keeps the “jump to recipe” hint aligned with the rest of the tooltip rollout.
+// MarkdownTooltip keeps the jump hint aligned with the rest of the tooltip rollout.
 import MarkdownTooltip from './MarkdownTooltip'
 import EllipsisTooltip, { hasEllipsisOverflow } from './EllipsisTooltip'
 import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
@@ -68,6 +68,7 @@ export function TesterRuleReferenceChip({
   // Rule source flags drive tint + label behavior.
   const isFinalSellSource = match.ruleSource === RULE_SOURCE_FINAL_SELL
   const isSafeguardSource = match.ruleSource === RULE_SOURCE_SAFEGUARDS
+  const jumpTooltip = isSafeguardSource ? t('testerJumpToSafeguard') : t('testerJumpToRecipe')
   if (isFinalSellSource) {
     if (!showFinalSellLabel) return null
     const finalSellTint = buildChipSurfaceTint(theme, theme.palette.error.main)
@@ -79,7 +80,7 @@ export function TesterRuleReferenceChip({
         ruleIndex={null}
         recipeIdx={null}
         size={size}
-        jumpTooltip={t('testerJumpToRecipe')}
+        jumpTooltip={jumpTooltip}
         sx={simpleMatchChipSx(sx)}
         borderColor={getTesterMatchBorderColor(theme, false)}
         backgroundColor={finalSellTint.surface}
@@ -135,7 +136,7 @@ export function TesterRuleReferenceChip({
       ruleIndex={ruleIndex}
       recipeIdx={typeof match.recipeIdx === 'number' ? match.recipeIdx : null}
       size={size}
-      jumpTooltip={t('testerJumpToRecipe')}
+      jumpTooltip={jumpTooltip}
       textColor={textColor}
       {...(sx ? { sx } : {})}
       {...(icon ? { icon } : {})}
@@ -278,7 +279,7 @@ function TesterRuleReferenceChipBody({
     </Box>
   )
   return (
-    // Keep the jump-to-recipe hint in sync with other Markdown tooltips so multi-line copy stays readable.
+    // Keep jump hints in sync with other Markdown tooltips so multi-line copy stays readable.
     <MarkdownTooltip markdown={jumpTooltip}>
       {chipWrapper}
     </MarkdownTooltip>
