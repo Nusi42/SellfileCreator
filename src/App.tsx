@@ -4144,53 +4144,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     )
       ? selection.safeguardItemKey
       : null
-    const targetArtifactId = (() => {
-      // Detection snapshot is the source of truth for real, gear-backed matches.
-      const detectionEntries = safeguardDetectionRef.current?.entries ?? []
-      const detectedItemKeys: number[] = []
-      const seenDetectedKeys = new Set<number>()
-      for (const entry of detectionEntries) {
-        if (!entry || entry.ruleId !== normalizedRuleId) continue
-        for (const key of entry.itemKeys) {
-          if (typeof key !== 'number' || !Number.isFinite(key)) continue
-          if (seenDetectedKeys.has(key)) continue
-          seenDetectedKeys.add(key)
-          detectedItemKeys.push(key)
-        }
-      }
-      // Prioritize the clicked item when it is part of the detected real matches.
-      if (detectedItemKeys.length > 0) {
-        const prioritizedKeys = clickedItemKey != null && seenDetectedKeys.has(clickedItemKey)
-          ? [clickedItemKey, ...detectedItemKeys.filter((key) => key !== clickedItemKey)]
-          : detectedItemKeys
-        for (const key of prioritizedKeys) {
-          const artifactId = testerArtifactIdBySafeguardItemKey.get(key)
-          if (artifactId != null) return artifactId
-        }
-        // Detection says real gear exists, but tester rows no longer include it (stale/filtered dataset).
-        return null
-      }
-      // Placeholder rows without detected real matches must route to Safeguards, not random tester gear.
-      if (selection.isPlaceholder === true) return null
-      // Detection may be temporarily unavailable during rebuilds; keep a conservative fallback for non-placeholder rows.
-      if (clickedItemKey != null) {
-        const artifactId = testerArtifactIdBySafeguardItemKey.get(clickedItemKey)
-        if (artifactId != null) return artifactId
-      }
-      // Fallback to the first non-placeholder safeguard row for the same rule id.
-      const fallbackItemKey = mergedRulesRef.current.find((rule) => (
-        rule.__source === RULE_SOURCE_SAFEGUARDS
-        && rule.__safeguardRuleId === normalizedRuleId
-        && rule.__safeguardPlaceholder !== true
-        && typeof rule.__safeguardItemKey === 'number'
-        && Number.isFinite(rule.__safeguardItemKey)
-      ))?.__safeguardItemKey
-      if (typeof fallbackItemKey === 'number' && Number.isFinite(fallbackItemKey)) {
-        const artifactId = testerArtifactIdBySafeguardItemKey.get(fallbackItemKey)
-        if (artifactId != null) return artifactId
-      }
-      return null
-    })()
+    // Row-specific routing: placeholder rows (or rows without item keys) should never jump to unrelated gear.
+    const clickedRowHasConcreteItem = selection.isPlaceholder !== true && clickedItemKey != null
+    if (!clickedRowHasConcreteItem) {
+      openLogicHubSafeguardRule(normalizedRuleId)
+      return
+    }
+    // Concrete rows should jump only to the exact backing artifact referenced by that row's item key.
+    const targetArtifactId = testerArtifactIdBySafeguardItemKey.get(clickedItemKey) ?? null
     if (targetArtifactId != null) {
       // Concrete safeguards have real gear to inspect, so jump to Rule Tester immediately.
       setLogicHubSafeguardFocusRequest(null)
