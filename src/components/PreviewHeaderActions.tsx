@@ -45,6 +45,8 @@ import GroupsIcon from '@mui/icons-material/Groups'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import HistoryIcon from '@mui/icons-material/History'
 import {
+  isTesterSyntheticSortKey,
+  TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE,
   TESTER_SORT_KEY_LAST_USAGE,
   TESTER_SORT_WEIGHT_DEFAULT,
   isNeutralTesterSortWeight,
@@ -334,6 +336,7 @@ export default function PreviewHeaderActions(props: {
 	  const sortHighToLowLabel = t('testerSortHighToLow')
 	  const sortLowToHighLabel = t('testerSortLowToHigh')
 	  const sortLastUsedLabel = t('testerLastUsedFilterLabel')
+	  const sortImprovementChanceLabel = t('testerSortImprovementChanceLabel')
 	  const sortGlyphInheritDirectionLabel = t('testerSortPerKeyInheritDirection')
 	  const sortGlyphFlippedDirectionLabel = t('testerSortPerKeyFlippedDirection')
 	  const sortGroupingArtifactsLabel = t('testerSortGroupingArtifactsLabel')
@@ -540,7 +543,7 @@ export default function PreviewHeaderActions(props: {
 	    return testerSubstatSort.flipped ?? []
 	  }, [testerSubstatSort.flipped])
 	  const sortSelectedSubstats = React.useMemo(
-	    () => sortPriorities.filter((key) => Number(key) !== TESTER_SORT_KEY_LAST_USAGE),
+	    () => sortPriorities.filter((key) => !isTesterSyntheticSortKey(Number(key))),
 	    [sortPriorities],
 	  )
 	  const sortNormalizedPresetIdSet = React.useMemo(
@@ -660,8 +663,9 @@ export default function PreviewHeaderActions(props: {
 	  ] as const
 	  const sortLabelForKey = React.useCallback((key: TesterSortKey): string => {
 	    if (Number(key) === TESTER_SORT_KEY_LAST_USAGE) return sortLastUsedLabel
+	    if (Number(key) === TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE) return sortImprovementChanceLabel
 	    return t(statVariantI18nKey(key as StatVariant))
-	  }, [sortLastUsedLabel, t])
+	  }, [sortImprovementChanceLabel, sortLastUsedLabel, t])
 	  const sortButtonLabel = React.useMemo(() => {
 	    if (isRulesMode) return sortLabel
 	    if (sortNormalizedEffective) return sortNormalizedLabel
@@ -1132,7 +1136,15 @@ export default function PreviewHeaderActions(props: {
               anchorEl={sortMenuAnchor}
               onClose={closeSortMenu}
               // MenuList adds default padding (8px) which makes the title block sit lower than other popovers (e.g., Rolls).
-              MenuListProps={{ disablePadding: true }}
+              MenuListProps={{
+                disablePadding: true,
+                // Keep long sort menus inside the popover background instead of spilling past the paper edge.
+                sx: {
+                  maxHeight: 'calc(100vh - 128px)',
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+                },
+              }}
               anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
               transformOrigin={{ vertical: 'top', horizontal: 'left' }}
               slotProps={{
@@ -1157,16 +1169,16 @@ export default function PreviewHeaderActions(props: {
               <Box sx={{ px: 2.25, pt: 2.25, pb: 1 }}>
                 <ContextMenuTitle title={sortLabel} description={t('testerSortPopoverDescription')} />
               </Box>
-	              {[...STAT_VARIANTS_PRIORITY, TESTER_SORT_KEY_LAST_USAGE as TesterSortKey].map((key) => {
+	              {[...STAT_VARIANTS_PRIORITY, TESTER_SORT_KEY_LAST_USAGE as TesterSortKey, TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE as TesterSortKey].map((key) => {
 	                const idx = sortPriorities.findIndex((v) => Number(v) === Number(key))
 	                const label = sortLabelForKey(key)
-	                const fg = Number(key) === TESTER_SORT_KEY_LAST_USAGE ? undefined : sortStatFg(key as StatVariant)
+	                const fg = isTesterSyntheticSortKey(Number(key)) ? undefined : sortStatFg(key as StatVariant)
 	                const active = sortNormalizedEffective
 	                  ? sortNormalizedDisplayedVariantSet.has(Number(key))
 	                  : idx >= 0
 	                const perKeyFlipped = sortFlipped.some((v) => Number(v) === Number(key))
 	                const priorityDisabled = sortNormalizedEffective
-	                const isSyntheticKey = Number(key) === TESTER_SORT_KEY_LAST_USAGE
+	                const isSyntheticKey = isTesterSyntheticSortKey(Number(key))
 	                const rowDisabled = priorityDisabled && isSyntheticKey
 	                const showPriorityBadges = active && !sortNormalizedEffective
 	                // Weight controls only replace the active badges. When the row is not selected, always show the two ghost badges

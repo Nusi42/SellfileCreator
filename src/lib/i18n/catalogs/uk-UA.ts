@@ -1023,6 +1023,7 @@ const overrides: Catalog = {
   testerSortGroupingAccessoriesSlotTooltip: 'Групувати аксесуари за слотом.',
   testerSortHighToLow: 'Більше → Менше',
   testerSortLowToHigh: 'Менше → Більше',
+  testerSortImprovementChanceLabel: 'Шанс покращення',
   testerSortGlyphsLabel: 'Гліфи',
   testerSortGlyphsExclude: 'Виключити',
   testerSortGlyphsInclude: 'Включити',

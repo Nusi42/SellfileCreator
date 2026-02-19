@@ -1028,6 +1028,7 @@ const enUS: Catalog = {
   testerSortGroupingAccessoriesSlotTooltip: 'Group accessories by slot.',
   testerSortHighToLow: 'High → Low',
   testerSortLowToHigh: 'Low → High',
+  testerSortImprovementChanceLabel: 'Improvement Chance',
   testerSortGlyphsLabel: 'Glyphs',
   testerSortGlyphsExclude: 'Exclude',
   testerSortGlyphsInclude: 'Include',

@@ -1023,6 +1023,7 @@ const overrides: Catalog = {
   testerSortGroupingAccessoriesSlotTooltip: 'Gruppiert Accessoires nach Slot.',
   testerSortHighToLow: 'Hoch → Niedrig',
   testerSortLowToHigh: 'Niedrig → Hoch',
+  testerSortImprovementChanceLabel: 'Verbesserungschance',
   testerSortGlyphsLabel: 'Glyphen',
   testerSortGlyphsExclude: 'Ausschließen',
   testerSortGlyphsInclude: 'Einschließen',

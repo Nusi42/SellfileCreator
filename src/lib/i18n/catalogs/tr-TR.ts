@@ -1023,6 +1023,7 @@ const overrides: Catalog = {
   testerSortGroupingAccessoriesSlotTooltip: 'Aksesuarları slota göre grupla.',
   testerSortHighToLow: 'Yüksek → Düşük',
   testerSortLowToHigh: 'Düşük → Yüksek',
+  testerSortImprovementChanceLabel: 'İyileştirme şansı',
   testerSortGlyphsLabel: 'Glifler',
   testerSortGlyphsExclude: 'Hariç tut',
   testerSortGlyphsInclude: 'Dahil et',

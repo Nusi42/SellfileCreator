@@ -11,8 +11,10 @@ import {
   normalizeTesterGroupingState,
   type TesterGroupingState,
   TESTER_SORT_KEY_LAST_USAGE,
+  TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE,
   TESTER_SORT_WEIGHT_DEFAULT,
   TESTER_SORT_WEIGHT_STEP,
+  isTesterSyntheticSortKey,
   isNeutralTesterSortWeight,
   normalizeTesterSortWeight,
   type TesterSortKey,
@@ -83,6 +85,7 @@ export const isDefaultTesterSubstatSortState = (state: TesterSubstatSortState | 
 const SORT_KEY_SET = new Set<number>([
   ...STAT_VARIANTS_PRIORITY.map((variant) => Number(variant)),
   TESTER_SORT_KEY_LAST_USAGE,
+  TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE,
 ])
 
 const WEIGHT_KEY_SET = new Set<number>(
@@ -111,12 +114,12 @@ const normalizeSortKeys = (raw: unknown): TesterSortKey[] => {
 
 const countSelectedSubstats = (priorities: readonly TesterSortKey[]): number => (
   // "Substat" means the real StatVariant keys; synthetic keys do not participate in normalized sums.
-  priorities.filter((key) => Number(key) !== TESTER_SORT_KEY_LAST_USAGE).length
+  priorities.filter((key) => !isTesterSyntheticSortKey(Number(key))).length
 )
 
 const stripSyntheticKeys = (keys: readonly TesterSortKey[]): TesterSortKey[] => (
   // Normalized sorting is explicitly about substat values, so drop synthetic keys like "Last Used".
-  keys.filter((key) => Number(key) !== TESTER_SORT_KEY_LAST_USAGE)
+  keys.filter((key) => !isTesterSyntheticSortKey(Number(key)))
 )
 
 const normalizePresetIds = (raw: unknown): TesterNormalizedPresetId[] => {

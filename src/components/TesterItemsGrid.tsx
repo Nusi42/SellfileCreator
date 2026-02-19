@@ -96,10 +96,11 @@ import { championIconUrl } from '../lib/iconMaps/championIconMap'
 import EmptyStateMessage, { type EmptyStateMessageProps } from './EmptyStateMessage'
 import {
   computeTesterNormalizedSubstatScore,
+  isTesterSyntheticSortKey,
   sortTesterRowsBySubstats,
   TESTER_GROUPING_DEFAULT_STATE,
   isDefaultTesterGroupingState,
-  TESTER_SORT_KEY_LAST_USAGE,
+  TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE,
   type TesterGroupingState,
   type TesterSubstatSortSpec,
 } from '../lib/testerSort'
@@ -498,11 +499,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   }, [normalizedOverlaySortSourceAllowed, normalizedOverlayUseSortWeights, toggleNormalizedOverlayUseSortWeights])
   // Frozen match details stay rendered but dimmed so users remember the last result during rebuilds.
   const matchDetailsFrozen = Boolean(suppressMatchDetailsProp)
-  // Group tree is recalculated only when the dataset, locale, or sort mode changes so TanStack can reuse measured rows.
-  const groups = useMemo(
-    () => groupRowsBySet(rows, t, lang, { grouping, substatSort: effectiveSubstatSort }),
-    [rows, t, lang, grouping, effectiveSubstatSort],
-  )
   const {
     columns: gridColumnPreference,
     showFirstMatch,
@@ -533,7 +529,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     const presets = normalizedOverlayPrefs.state.presets
     // [S] uses the Sort popout’s currently selected substats + weights.
     const sortSelectedVariants = useSortWeights
-      ? (effectiveSubstatSort?.priorities ?? []).filter((key) => Number(key) !== Number(TESTER_SORT_KEY_LAST_USAGE)) as StatVariant[]
+      ? (effectiveSubstatSort?.priorities ?? []).filter((key) => !isTesterSyntheticSortKey(Number(key))) as StatVariant[]
       : []
     const sortWeights = useSortWeights ? (effectiveSubstatSort?.weights ?? {}) : {}
 
@@ -609,6 +605,11 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   ])
   // Keep chance source separate from visible rows so filters do not affect chance math.
   const safeguardChanceSourceRows = safeguardUpgradeChanceRows ?? rows
+  // Sorting can request chance data even when the overlay itself is hidden.
+  const safeguardChanceSortEnabled = useMemo(
+    () => (effectiveSubstatSort?.priorities ?? []).some((key) => Number(key) === TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE),
+    [effectiveSubstatSort?.priorities],
+  )
   // Artifacts are projected as a batch once; tooltip-only updates should not rebuild this list.
   const safeguardChanceSourceArtifacts = useMemo(
     () => safeguardChanceSourceRows.map((row) => row.artifact),
@@ -624,8 +625,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     return map
   }, [safeguardUpgradeChanceRules])
   const safeguardUpgradeChanceByArtifactId = useMemo(() => {
-    // Keep heavy chance recursion disabled when the overlay is hidden.
-    if (!showSafeguardUpgradeChance) {
+    // Keep heavy chance recursion disabled unless either overlay rendering or sorting needs this data.
+    if (!showSafeguardUpgradeChance && !safeguardChanceSortEnabled) {
       return buildSafeguardUpgradeChanceByArtifactId([], [])
     }
     // Chance map is keyed by artifact id so re-grouping does not invalidate lookups.
@@ -635,10 +636,38 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     )
   }, [
     safeguardChanceSourceArtifacts,
+    safeguardChanceSortEnabled,
     safeguardUpgradeChanceRules,
     showSafeguardUpgradeChance,
   ])
+  const substatSortWithSafeguardChance = useMemo(() => {
+    // When improvement-chance is not part of the current sort priorities, reuse the original spec unchanged.
+    if (!effectiveSubstatSort || !safeguardChanceSortEnabled) return effectiveSubstatSort
+    // Comparator only needs numeric chance values; omit non-matching safeguards so they sort as null/last.
+    const chanceMap = new Map<number, number | null>()
+    safeguardUpgradeChanceByArtifactId.forEach((entry, artifactId) => {
+      if (!entry.hasMatchingSafeguard) return
+      chanceMap.set(artifactId, entry.chancePercent)
+    })
+    return {
+      ...effectiveSubstatSort,
+      safeguardUpgradeChanceByArtifactId: chanceMap,
+    }
+  }, [
+    effectiveSubstatSort,
+    safeguardChanceSortEnabled,
+    safeguardUpgradeChanceByArtifactId,
+  ])
+  // Group tree is recalculated only when the dataset, locale, or sort mode changes so TanStack can reuse measured rows.
+  const groups = useMemo(
+    () => groupRowsBySet(rows, t, lang, { grouping, substatSort: substatSortWithSafeguardChance }),
+    [rows, t, lang, grouping, substatSortWithSafeguardChance],
+  )
   const safeguardUpgradeOverlayByArtifactId = useMemo(() => {
+    // Tooltip-rich overlays are only needed when the card overlay toggle is enabled.
+    if (!showSafeguardUpgradeChance) {
+      return new Map<number, TesterCardTopOverlay>()
+    }
     const normalizeSelectedSubstatsForTooltip = (values: readonly number[]): number[] => {
       const out: number[] = []
       const seen = new Set<number>()
@@ -842,6 +871,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     safeguardChanceSourceRows,
     safeguardRuleById,
     safeguardUpgradeChanceByArtifactId,
+    showSafeguardUpgradeChance,
     substatColors,
     useStatButtonColors,
     t,
