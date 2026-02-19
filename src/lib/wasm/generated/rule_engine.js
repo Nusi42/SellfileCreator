@@ -326,11 +326,11 @@ export function normalize_safeguard_activation_value(activation) {
 
 /**
  * @param {any} value
- * @param {any} lookups
+ * @param {any} _lookups
  * @returns {any}
  */
-export function normalize_safeguard_combination_value(value, lookups) {
-    const ret = wasm.normalize_safeguard_combination_value(value, lookups);
+export function normalize_safeguard_combination_value(value, _lookups) {
+    const ret = wasm.normalize_safeguard_combination_value(value, _lookups);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -363,14 +363,14 @@ export function normalize_safeguard_expected_group_domain_value(payload) {
 
 /**
  * @param {any} value
- * @param {any} lookups
+ * @param {any} _lookups
  * @param {string} generated_rule_id
  * @returns {any}
  */
-export function normalize_safeguard_rule_value(value, lookups, generated_rule_id) {
+export function normalize_safeguard_rule_value(value, _lookups, generated_rule_id) {
     const ptr0 = passStringToWasm0(generated_rule_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.normalize_safeguard_rule_value(value, lookups, ptr0, len0);
+    const ret = wasm.normalize_safeguard_rule_value(value, _lookups, ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }

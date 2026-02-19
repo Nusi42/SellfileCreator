@@ -24,11 +24,6 @@ import initRuleEngineWasm, {
   safeguard_group_key_value as safeguardGroupKeyValueWasmValueBinding,
   safeguard_item_key_value as safeguardItemKeyValueWasmValueBinding,
   merge_safeguard_injected_rules_value as mergeSafeguardInjectedRulesWasmValueBinding,
-  normalize_safeguard_activation_value as normalizeSafeguardActivationWasmValueBinding,
-  normalize_safeguard_combination_value as normalizeSafeguardCombinationWasmValueBinding,
-  normalize_safeguard_count_mode_value as normalizeSafeguardCountModeWasmValueBinding,
-  normalize_safeguard_rule_value as normalizeSafeguardRuleWasmValueBinding,
-  normalize_safeguard_substat_match_value as normalizeSafeguardSubstatMatchWasmValueBinding,
   normalize_safeguard_expected_group_domain_value as normalizeSafeguardExpectedGroupDomainWasmValueBinding,
   prepare_hsf_builder_recipe_value as prepareHsfBuilderRecipeWasmValueBinding,
   resolve_safeguard_rules_with_metasets_value as resolveSafeguardRulesWithMetasetsWasmValueBinding,
@@ -41,9 +36,10 @@ import initRuleEngineWasm, {
 import type { GeneratedBranchRuleEntry, HsfRuleWithRecipe } from '../merge'
 import type { HsfRule } from '../hsfTypes'
 import type { BuilderRecipe, SellfileExportMode } from '../hsfBuilder'
-import type { SafeguardDetectionSnapshot, SafeguardRule } from '../safeguards'
+import type { SafeguardCandidate, SafeguardDetectionSnapshot, SafeguardRule } from '../safeguards'
 import type { FinalSellRemainderConfig } from '../logicHub'
 import type { TesterMatchWorkerEvaluateItem, TesterMatchWorkerItemResult } from '../../workers/testerMatchWorkerTypes'
+import type { TesterPreviewRow } from '../../types/testerPreview'
 
 // Evaluate options mirror evaluateMatchesByRecipe inputs used by worker paths.
 // The WASM engine accepts object values and applies the same source/recipe gating.
@@ -282,15 +278,6 @@ type WasmSafeguardCountModePayload = {
   perSlot: boolean
 }
 
-// Readable HSFC label lookups come from TS constants so label ids stay SSOT.
-type WasmSafeguardNormalizationLookupsPayload = {
-  artifactTypeIdsByName: Record<string, number>
-  artifactSetIdsByName: Record<string, number>
-  factionIdsByName: Record<string, number>
-  rarityCodesByName: Record<string, number>
-  statVariantIdsByLabel: Record<string, number>
-}
-
 type WasmCollectedSafeguardCandidate = {
   rowIndex: number
   itemKey: number
@@ -353,16 +340,15 @@ export const fingerprintMergedRulesWithLoadedWasm = (rules: readonly HsfRuleWith
 // Synchronous safeguard detector runs candidate/rule loops inside wasm.
 // Callers must warm wasm first; invalid payloads are surfaced by callers.
 export const computeSafeguardProtectionWithLoadedWasm = (params: {
-  candidates: unknown
-  rules: unknown
-  expectedGroupsByRuleId?: unknown
-  expectedGroupDomain?: unknown
+  candidates: readonly SafeguardCandidate[]
+  rules: readonly SafeguardRule[]
+  expectedGroupsByRuleId?: Record<string, unknown>
+  expectedGroupDomain?: Record<string, unknown>
   enabled: boolean
   now: number
-}): unknown | null => {
+}): SafeguardDetectionSnapshot => {
   assertWasmInitializedSync()
-  // Wrapper payload lets wasm accept both legacy precomputed groups and the
-  // new domain-driven in-wasm expected-group generation inputs.
+  // Wrapper payload carries canonical expected-group metadata into wasm.
   const expectedGroupsPayload = (
     params.expectedGroupsByRuleId !== undefined
     || params.expectedGroupDomain !== undefined
@@ -376,19 +362,23 @@ export const computeSafeguardProtectionWithLoadedWasm = (params: {
         : {}),
     }
     : undefined
-  return computeSafeguardProtectionValueWasmBinding(
+  const result = computeSafeguardProtectionValueWasmBinding(
     params.candidates,
     params.rules,
     expectedGroupsPayload,
     params.enabled === true,
     Number.isFinite(params.now) ? params.now : 0,
   )
+  if (result && typeof result === 'object' && Array.isArray((result as { entries?: unknown }).entries)) {
+    return result as SafeguardDetectionSnapshot
+  }
+  throw new Error('WASM safeguard detection returned an invalid payload.')
 }
 
 // Candidate collection keeps keep-flag resolution + item/group key derivation
 // in Rust; TS callers reattach row references for compatibility.
 export const collectSafeguardCandidatesWithLoadedWasm = (params: {
-  rows: unknown
+  rows: readonly TesterPreviewRow[]
   rules: HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
   ignoreSafeguardRecipeIndices?: ReadonlySet<number>
@@ -410,13 +400,13 @@ export const collectSafeguardCandidatesWithLoadedWasm = (params: {
 // Combined safeguard pipeline runs candidate collection + detection in one
 // wasm call so TS orchestration avoids two separate Rust roundtrips.
 export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
-  rows: unknown
+  rows: readonly TesterPreviewRow[]
   rules: HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
   ignoreSafeguardRecipeIndices?: ReadonlySet<number>
-  safeguardRules: unknown
-  expectedGroupsByRuleId?: unknown
-  expectedGroupDomain?: unknown
+  safeguardRules: readonly SafeguardRule[]
+  expectedGroupsByRuleId?: Record<string, unknown>
+  expectedGroupDomain?: Record<string, unknown>
   enabled: boolean
   now: number
 }): WasmCollectedAndProtectedSafeguardSnapshot => {
@@ -730,83 +720,6 @@ export const prepareHsfBuilderRecipeWithLoadedWasm = (payload: {
     targetBaseOverrideByVariant: toPlainObjectDeep(result.targetBaseOverrideByVariant) as Record<string, number | null>,
     targetEntriesByVariant: toPlainObjectDeep(result.targetEntriesByVariant) as Record<string, { base?: number; increments?: Array<number | null> }>,
   }
-}
-
-// Safeguard combination normalization now runs in Rust so TS no longer owns
-// recursive tuple parsing/dedupe/sort loops for readable HSFC payloads.
-export const normalizeSafeguardCombinationWithLoadedWasm = <
-  T extends object,
->(value: unknown, lookups: WasmSafeguardNormalizationLookupsPayload): T | null => {
-  // Sync helper is fail-closed: caller must have warmed wasm already.
-  assertWasmInitializedSync()
-  // Delegate normalization to wasm so tuple parsing is single-sourced.
-  const result = normalizeSafeguardCombinationWasmValueBinding(value, lookups)
-  // Null keeps invalid payload behavior aligned with TS helpers.
-  if (result === null || result === undefined) return null
-  // Guard the payload shape before returning typed output.
-  if (typeof result === 'object') return result as T
-  throw new Error('WASM safeguard combination normalizer returned an invalid payload.')
-}
-
-// Safeguard rule normalization now runs in Rust so TS no longer owns
-// recursive rule parsing and legacy tuple-field coercion loops.
-export const normalizeSafeguardRuleWithLoadedWasm = <
-  T extends object,
->(
-  value: unknown,
-  lookups: WasmSafeguardNormalizationLookupsPayload,
-  generatedRuleId: string,
-): T | null => {
-  // Sync helper is fail-closed: caller must have warmed wasm already.
-  assertWasmInitializedSync()
-  // Delegate normalization to wasm so rule parsing is single-sourced.
-  const result = normalizeSafeguardRuleWasmValueBinding(value, lookups, generatedRuleId)
-  // Null keeps invalid payload behavior aligned with TS helpers.
-  if (result === null || result === undefined) return null
-  // Guard the payload shape before returning typed output.
-  if (typeof result === 'object') return result as T
-  throw new Error('WASM safeguard rule normalizer returned an invalid payload.')
-}
-
-// Safeguard activation normalization runs in Rust so TS and detection parsing
-// share the same legacy token aliases and fallback behavior.
-export const normalizeSafeguardActivationWithLoadedWasm = (
-  value: unknown,
-): string => {
-  assertWasmInitializedSync()
-  const normalized = normalizeSafeguardActivationWasmValueBinding(value)
-  if (typeof normalized === 'string') return normalized
-  throw new Error('WASM safeguard activation normalizer returned an invalid payload.')
-}
-
-// Safeguard substat-match normalization runs in Rust so TS and detection parsing
-// share the same canonical tokens (`any|all|perSubstat`).
-export const normalizeSafeguardSubstatMatchWithLoadedWasm = (value: unknown): string => {
-  assertWasmInitializedSync()
-  const normalized = normalizeSafeguardSubstatMatchWasmValueBinding(value)
-  if (typeof normalized === 'string') return normalized
-  throw new Error('WASM safeguard substat-match normalizer returned an invalid payload.')
-}
-
-// Safeguard count-mode normalization runs in Rust so TS and detection parsing
-// share the same default + sanitize behavior.
-export const normalizeSafeguardCountModeWithLoadedWasm = (
-  value: unknown,
-): WasmSafeguardCountModePayload => {
-  assertWasmInitializedSync()
-  const normalized = normalizeSafeguardCountModeWasmValueBinding(value)
-  if (
-    normalized
-    && typeof normalized === 'object'
-    && 'perRule' in normalized
-    && 'perSet' in normalized
-    && 'perFaction' in normalized
-    && 'perMainStat' in normalized
-    && 'perSlot' in normalized
-  ) {
-    return normalized as WasmSafeguardCountModePayload
-  }
-  throw new Error('WASM safeguard count-mode normalizer returned an invalid payload.')
 }
 
 // Safeguard substat sorting runs in Rust so TS reuses one priority ordering.

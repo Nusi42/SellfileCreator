@@ -47,13 +47,13 @@ export function merge_safeguard_injected_rules_value(base_rules: any, custom_rul
 
 export function normalize_safeguard_activation_value(activation: any): string;
 
-export function normalize_safeguard_combination_value(value: any, lookups: any): any;
+export function normalize_safeguard_combination_value(value: any, _lookups: any): any;
 
 export function normalize_safeguard_count_mode_value(value: any): any;
 
 export function normalize_safeguard_expected_group_domain_value(payload: any): any;
 
-export function normalize_safeguard_rule_value(value: any, lookups: any, generated_rule_id: string): any;
+export function normalize_safeguard_rule_value(value: any, _lookups: any, generated_rule_id: string): any;
 
 export function normalize_safeguard_substat_match_value(value: any): string;
 

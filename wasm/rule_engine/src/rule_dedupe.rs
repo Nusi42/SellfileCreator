@@ -68,6 +68,7 @@ fn coarse_main_stat_f(value: Option<&serde_json::Value>) -> String {
 }
 
 // Canonical rule-key payload mirrors merge.ts::canonicalRuleKey normalization.
+// This avoids serde_json object assembly/stringify and writes a deterministic key directly.
 fn canonical_rule_key_core(rule: &RuleRaw) -> String {
     // Keep artifact type/set selectors sorted so click-order never changes keys.
     let mut artifact_types = rule.ArtifactType.clone().unwrap_or_default();
@@ -75,39 +76,63 @@ fn canonical_rule_key_core(rule: &RuleRaw) -> String {
     let mut artifact_sets = rule.ArtifactSet.clone().unwrap_or_default();
     artifact_sets.sort_unstable();
 
-    // Normalize substats into explicit primitive fields with fallback defaults.
-    let substats = rule
-        .Substats
-        .as_ref()
-        .map(|rows| {
-            rows.iter()
-                .map(|sub| {
-                    serde_json::json!({
-                        "ID": sub.ID,
-                        "IsFlat": boolish_to_flag(sub.IsFlat.as_ref()) == 1,
-                        "NotAvailable": sub.NotAvailable.unwrap_or(false),
-                        "Condition": sub.Condition.clone().unwrap_or_default(),
-                        "Value": sub.Value.unwrap_or(0.0),
-                    })
-                })
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
-
-    // Build a stable primitive object equivalent to TS canonicalRuleKey input.
-    let payload = serde_json::json!({
-        "Keep": rule.Keep.unwrap_or(false),
-        "Use": rule.Use.unwrap_or(true),
-        "Rank": rule.Rank.unwrap_or(0),
-        "Level": rule.LVLForCheck.unwrap_or(0),
-        "Faction": rule.Faction.unwrap_or(0),
-        "MainStatID": rule.MainStatID.unwrap_or(STAT_ID_ANY),
-        "MainStatF": boolish_to_flag(rule.MainStatF.as_ref()),
-        "ArtifactType": artifact_types,
-        "ArtifactSet": artifact_sets,
-        "Substats": substats,
-    });
-    serde_json::to_string(&payload).unwrap_or_else(|_| String::new())
+    let mut out = String::new();
+    out.push_str("k:");
+    out.push(if rule.Keep.unwrap_or(false) { '1' } else { '0' });
+    out.push_str("|u:");
+    out.push(if rule.Use.unwrap_or(true) { '1' } else { '0' });
+    out.push_str("|r:");
+    out.push_str(&rule.Rank.unwrap_or(0).to_string());
+    out.push_str("|l:");
+    out.push_str(&rule.LVLForCheck.unwrap_or(0).to_string());
+    out.push_str("|f:");
+    out.push_str(&rule.Faction.unwrap_or(0).to_string());
+    out.push_str("|mid:");
+    out.push_str(&rule.MainStatID.unwrap_or(STAT_ID_ANY).to_string());
+    out.push_str("|mf:");
+    out.push_str(&boolish_to_flag(rule.MainStatF.as_ref()).to_string());
+    out.push_str("|t:");
+    for (idx, value) in artifact_types.iter().enumerate() {
+        if idx > 0 {
+            out.push(',');
+        }
+        out.push_str(&value.to_string());
+    }
+    out.push_str("|s:");
+    for (idx, value) in artifact_sets.iter().enumerate() {
+        if idx > 0 {
+            out.push(',');
+        }
+        out.push_str(&value.to_string());
+    }
+    out.push_str("|sub:");
+    if let Some(rows) = rule.Substats.as_ref() {
+        for (row_idx, sub) in rows.iter().enumerate() {
+            if row_idx > 0 {
+                out.push(';');
+            }
+            out.push_str("id=");
+            out.push_str(&sub.ID.unwrap_or(STAT_ID_ANY).to_string());
+            out.push_str(",flat=");
+            out.push(if boolish_to_flag(sub.IsFlat.as_ref()) == 1 { '1' } else { '0' });
+            out.push_str(",na=");
+            out.push(if sub.NotAvailable.unwrap_or(false) { '1' } else { '0' });
+            let condition = sub.Condition.as_deref().unwrap_or_default();
+            out.push_str(",clen=");
+            out.push_str(&condition.len().to_string());
+            out.push(':');
+            out.push_str(condition);
+            out.push_str(",val=");
+            let value = sub
+                .Value
+                .filter(|numeric| numeric.is_finite())
+                .unwrap_or(0.0);
+            // Normalize -0.0 to 0.0 for stable key equality.
+            let normalized_value = if value == 0.0 { 0.0 } else { value };
+            out.push_str(&normalized_value.to_string());
+        }
+    }
+    out
 }
 
 // Public canonical key export keeps rule normalization in Rust.
