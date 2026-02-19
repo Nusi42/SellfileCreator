@@ -5932,6 +5932,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               />
               <TesterItemsGrid
                 rows={gearEntriesForTable}
+                // Chance overlays should compare against the full tester inventory, not the filtered slice.
+                safeguardUpgradeChanceRows={testerPreviewRows}
                 filterActive={testerFilterActive || testerRecipeFilterActive}
                 substatColors={substatColors}
                 useStatButtonColors={statButtonBorders}
@@ -5946,11 +5948,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 focusArtifactRequest={testerArtifactFocusRequest}
                 onFocusArtifactFilteredOut={handleTesterFocusArtifactFilteredOut}
                 onJumpToRule={handleTesterRuleView}
+                onJumpToSafeguardRule={openLogicHubSafeguardRule}
                 onCreateRuleTemplate={handleTesterRuleTemplateCreate}
                 suppressMatchDetails={suppressTesterMatchDetails}
                 grouping={testerSubstatSortPrefs.state.grouping}
                 substatSort={testerSubstatSortSpec}
                 sortState={testerSubstatSortPrefs.state}
+                safeguardUpgradeChanceRules={resolvedSafeguardRules}
                 emptyStateVerticalAlign={emptyStateVerticalAlign}
               />
             </Box>

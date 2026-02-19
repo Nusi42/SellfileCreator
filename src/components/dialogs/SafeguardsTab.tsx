@@ -55,6 +55,7 @@ import {
   getSafeguardItemKey,
   normalizeSafeguardSubstatMatch,
   normalizeSafeguardRule,
+  resolveSafeguardRulesWithMetasets,
   sanitizeSafeguardCountMode,
   sortSafeguardCombination,
   sortSafeguardSubstats,
@@ -481,6 +482,11 @@ ${t('safeguardsIgnoreOptionsHint')}`
   /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
 
   const detectionEntries = useMemo(() => detection?.entries ?? [], [detection])
+  // Resolve metaset-backed safeguards so the tester overlay evaluates the same concrete set filters as detection.
+  const resolvedRulesForUpgradeChance = useMemo(
+    () => resolveSafeguardRulesWithMetasets(rules, metasets),
+    [metasets, rules],
+  )
   const detectionByRuleId = useMemo(() => {
     const map = new Map<string, SafeguardDetectionEntry>()
     for (const entry of detectionEntries) {
@@ -2183,6 +2189,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
                 dimUnhighlightedRows={highlightActive}
                 suppressMatchDetails={suppressMatchDetails}
                 safeguardsEnabled={enabled}
+                safeguardUpgradeChanceRules={resolvedRulesForUpgradeChance}
                 hasTesterData={hasPreviewGear}
                 emptyStateOptions={!hasPreviewGear ? {
                   borderVariant: 'dashed',
