@@ -170,8 +170,16 @@ export const normalizeTesterGroupingState = (raw: unknown): TesterGroupingState 
 // Synthetic "priority keys" beyond the StatVariant enum.
 // Why: keep the sort menu extensible without forcing fake variants into the domain enum.
 export const TESTER_SORT_KEY_LAST_USAGE = -1 as const
+export const TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE = -2 as const
 
-export type TesterSortKey = StatVariant | typeof TESTER_SORT_KEY_LAST_USAGE
+export type TesterSortKey =
+  | StatVariant
+  | typeof TESTER_SORT_KEY_LAST_USAGE
+  | typeof TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE
+
+export const isTesterSyntheticSortKey = (key: number): boolean => (
+  key === TESTER_SORT_KEY_LAST_USAGE || key === TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE
+)
 
 export type TesterSubstatSortSpec = {
   // Ordered priority keys; earlier entries win.
@@ -189,6 +197,8 @@ export type TesterSubstatSortSpec = {
   // Optional override for normalized mode: a list of score specs where the effective score is the best (max).
   // Why: supports "combine presets and use the best" UX without forking the score math.
   normalizedScoreSpecs?: readonly TesterNormalizedSubstatScoreSpec[]
+  // Optional artifact-id keyed safeguard chance map used by the synthetic "improvement chance" sort key.
+  safeguardUpgradeChanceByArtifactId?: ReadonlyMap<number, number | null>
 }
 
 // Weighting constants are exported so UI + persistence + sort logic share a single source of truth.
@@ -242,6 +252,24 @@ const lastUsageValueForSort = (row: TesterPreviewRow): number | null => {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+const safeguardUpgradeChanceValueForSort = (
+  row: TesterPreviewRow,
+  map: ReadonlyMap<number, number | null> | undefined,
+): number | null => {
+  // Missing map entry means "no matching safeguard chance", which should sort last for this synthetic key.
+  if (!map) return null
+  const artifactId = Number(row.artifact.id)
+  if (!Number.isFinite(artifactId)) return null
+  const value = map.get(artifactId)
+  if (value == null) return null
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return null
+  // Keep values bounded so invalid debug overrides cannot dominate sorting.
+  if (numeric <= 0) return 0
+  if (numeric >= 100) return 100
+  return numeric
+}
+
 export type TesterNormalizedSubstatScoreSpec = {
   // Selected substats to include in the normalized sum (synthetic keys are not allowed here).
   variants: readonly StatVariant[]
@@ -283,7 +311,7 @@ export function compareTesterPreviewRowsBySubstats(
   // Default to excluding glyphs so legacy callers that omit the flag behave predictably.
   const excludeGlyphs = spec.excludeGlyphs !== false
   // Normalized sorting is a "sum score" mode: priority order and per-key flips are ignored.
-  const selectedSubstats = spec.priorities.filter((key) => Number(key) !== TESTER_SORT_KEY_LAST_USAGE)
+  const selectedSubstats = spec.priorities.filter((key) => !isTesterSyntheticSortKey(Number(key)))
   const normalizedScoreSpecs = spec.normalizedScoreSpecs
   // Normalized mode is allowed when we have either a score-spec override or at least one selected substat.
   const normalized = spec.normalized === true && (
@@ -328,6 +356,16 @@ export function compareTesterPreviewRowsBySubstats(
     if (key === TESTER_SORT_KEY_LAST_USAGE) {
       const left = lastUsageValueForSort(a)
       const right = lastUsageValueForSort(b)
+      if (left == null && right == null) continue
+      if (left == null) return 1
+      if (right == null) return -1
+      if (left === right) continue
+      return (left - right) * perKeyMultiplier
+    }
+
+    if (key === TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE) {
+      const left = safeguardUpgradeChanceValueForSort(a, spec.safeguardUpgradeChanceByArtifactId)
+      const right = safeguardUpgradeChanceValueForSort(b, spec.safeguardUpgradeChanceByArtifactId)
       if (left == null && right == null) continue
       if (left == null) return 1
       if (right == null) return -1

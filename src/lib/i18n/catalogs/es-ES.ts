@@ -1023,6 +1023,7 @@ const overrides: Catalog = {
   testerSortGroupingAccessoriesSlotTooltip: 'Agrupa accesorios por ranura.',
   testerSortHighToLow: 'Mayor → Menor',
   testerSortLowToHigh: 'Menor → Mayor',
+  testerSortImprovementChanceLabel: 'Probabilidad de mejora',
   testerSortGlyphsLabel: 'Glifos',
   testerSortGlyphsExclude: 'Excluir',
   testerSortGlyphsInclude: 'Incluir',

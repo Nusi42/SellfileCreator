@@ -75,8 +75,8 @@ const testerGridShowRuleTemplatesStore = createLocalStorageStore<boolean>({
 
 const testerGridShowSafeguardUpgradeChanceStore = createLocalStorageStore<boolean>({
   key: TESTER_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY,
-  // Keep overlays off by default so existing tester sessions stay visually unchanged.
-  fallback: false,
+  // Default on so users see improvement guidance immediately.
+  fallback: true,
   parse: (raw) => raw === 'true',
   serialize: (value) => (value ? 'true' : 'false'),
 })

@@ -113,7 +113,7 @@ import {
   type GearDbDiffToastEntry,
   type GearDbDiffToastPayload,
 } from './lib/gearDbDiffToast'
-import { normalizeTesterSortWeight, sortTesterRows, TESTER_SORT_KEY_LAST_USAGE, TESTER_SORT_WEIGHT_DEFAULT } from './lib/testerSort'
+import { isTesterSyntheticSortKey, normalizeTesterSortWeight, sortTesterRows, TESTER_SORT_WEIGHT_DEFAULT } from './lib/testerSort'
 import { buildTesterRuleTemplateRecipe } from './lib/testerRuleTemplates'
 import { buildTesterOutcomeSummary } from './lib/testerOutcomeSummary'
 import { isDefaultTesterSubstatSortState, setTesterSubstatSortState, useTesterSubstatSortPreferences } from './state/testerSubstatSortPreferences'
@@ -2498,7 +2498,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	  const testerSubstatSortSpec = useMemo(() => {
 	    const priorities = testerSubstatSortPrefs.state.priorities
 	    const excludeGlyphs = testerSubstatSortPrefs.state.excludeGlyphs
-	    const selectedSubstats = priorities.filter((key) => Number(key) !== TESTER_SORT_KEY_LAST_USAGE) as StatVariant[]
+	    const selectedSubstats = priorities.filter((key) => !isTesterSyntheticSortKey(Number(key))) as StatVariant[]
 	    // Custom scoring spec mirrors the Sort popout's current selection + weights.
 	    const customScoreSpec = selectedSubstats.length > 0
 	      ? {

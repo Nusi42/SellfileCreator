@@ -1023,6 +1023,7 @@ const catalog: Catalog = {
   testerSortGroupingAccessoriesSlotTooltip: 'Agrupa acessórios por slot.',
   testerSortHighToLow: 'Maior → Menor',
   testerSortLowToHigh: 'Menor → Maior',
+  testerSortImprovementChanceLabel: 'Chance de melhoria',
   testerSortGlyphsLabel: 'Glifos',
   testerSortGlyphsExclude: 'Excluir',
   testerSortGlyphsInclude: 'Incluir',

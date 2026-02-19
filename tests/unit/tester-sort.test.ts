@@ -1,7 +1,12 @@
 /* eslint import/no-unused-modules: off */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { TESTER_SORT_KEY_LAST_USAGE, sortTesterRows, sortTesterRowsBySubstats } from '../../src/lib/testerSort.js'
+import {
+  TESTER_SORT_KEY_LAST_USAGE,
+  TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE,
+  sortTesterRows,
+  sortTesterRowsBySubstats,
+} from '../../src/lib/testerSort.js'
 import {
   ArtifactSet,
   ArtifactType,
@@ -298,6 +303,40 @@ test('sortTesterRowsBySubstats supports per-key flipped direction', () => {
   assert.deepEqual(sorted.map((row) => row.artifact.id), [1, 2, 3])
 })
 
+test('sortTesterRowsBySubstats sorts by safeguard improvement chance (highest first)', () => {
+  const high = makeTesterRow({ id: 1 })
+  const low = makeTesterRow({ id: 2 })
+  const none = makeTesterRow({ id: 3 })
+  const sorted = sortTesterRowsBySubstats([low, none, high], {
+    priorities: [TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE],
+    direction: 'desc',
+    flipped: [],
+    excludeGlyphs: true,
+    safeguardUpgradeChanceByArtifactId: new Map([
+      [1, 80],
+      [2, 20],
+    ]),
+  })
+  assert.deepEqual(sorted.map((row) => row.artifact.id), [1, 2, 3])
+})
+
+test('sortTesterRowsBySubstats supports flipped direction for safeguard improvement chance', () => {
+  const high = makeTesterRow({ id: 1 })
+  const low = makeTesterRow({ id: 2 })
+  const none = makeTesterRow({ id: 3 })
+  const sorted = sortTesterRowsBySubstats([high, none, low], {
+    priorities: [TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE],
+    direction: 'desc',
+    flipped: [TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE],
+    excludeGlyphs: true,
+    safeguardUpgradeChanceByArtifactId: new Map([
+      [1, 80],
+      [2, 20],
+    ]),
+  })
+  assert.deepEqual(sorted.map((row) => row.artifact.id), [2, 1, 3])
+})
+
 test('sortTesterRowsBySubstats composes last usage and substat priorities', () => {
   const timestamp = '2024-01-01T00:00:00.000Z'
   const spdHigh = makeTesterRow({ id: 1, lastUseLocalTimestamp: timestamp, substats: [makeSubstat(StatVariant.SPD, 20)] })
@@ -307,6 +346,22 @@ test('sortTesterRowsBySubstats composes last usage and substat priorities', () =
     direction: 'desc',
     flipped: [],
     excludeGlyphs: true,
+  })
+  assert.deepEqual(sorted.map((row) => row.artifact.id), [1, 2])
+})
+
+test('sortTesterRowsBySubstats composes safeguard chance and substat priorities', () => {
+  const spdHigh = makeTesterRow({ id: 1, substats: [makeSubstat(StatVariant.SPD, 20)] })
+  const spdLow = makeTesterRow({ id: 2, substats: [makeSubstat(StatVariant.SPD, 5)] })
+  const sorted = sortTesterRowsBySubstats([spdLow, spdHigh], {
+    priorities: [TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE, StatVariant.SPD],
+    direction: 'desc',
+    flipped: [],
+    excludeGlyphs: true,
+    safeguardUpgradeChanceByArtifactId: new Map([
+      [1, 50],
+      [2, 50],
+    ]),
   })
   assert.deepEqual(sorted.map((row) => row.artifact.id), [1, 2])
 })
