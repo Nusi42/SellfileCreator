@@ -607,13 +607,38 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     theme.palette.error.main,
     theme.palette.success.main,
   ])
-  const safeguardUpgradeOverlayByArtifactId = useMemo(() => {
-    // Keep the fast path empty when the feature toggle is off.
-    if (!showSafeguardUpgradeChance) {
-      return new Map<number, TesterCardTopOverlay>()
+  // Keep chance source separate from visible rows so filters do not affect chance math.
+  const safeguardChanceSourceRows = safeguardUpgradeChanceRows ?? rows
+  // Artifacts are projected as a batch once; tooltip-only updates should not rebuild this list.
+  const safeguardChanceSourceArtifacts = useMemo(
+    () => safeguardChanceSourceRows.map((row) => row.artifact),
+    [safeguardChanceSourceRows],
+  )
+  const safeguardRuleById = useMemo(() => {
+    const map = new Map<string, SafeguardRule>()
+    for (const rule of safeguardUpgradeChanceRules) {
+      const normalizedRuleId = typeof rule.id === 'string' ? rule.id.trim() : ''
+      if (!normalizedRuleId) continue
+      map.set(normalizedRuleId, rule)
     }
-    // Full-dataset mode uses caller-provided rows; fallback keeps legacy visible-rows behavior.
-    const chanceRows = safeguardUpgradeChanceRows ?? rows
+    return map
+  }, [safeguardUpgradeChanceRules])
+  const safeguardUpgradeChanceByArtifactId = useMemo(() => {
+    // Keep heavy chance recursion disabled when the overlay is hidden.
+    if (!showSafeguardUpgradeChance) {
+      return buildSafeguardUpgradeChanceByArtifactId([], [])
+    }
+    // Chance map is keyed by artifact id so re-grouping does not invalidate lookups.
+    return buildSafeguardUpgradeChanceByArtifactId(
+      safeguardChanceSourceArtifacts,
+      safeguardUpgradeChanceRules,
+    )
+  }, [
+    safeguardChanceSourceArtifacts,
+    safeguardUpgradeChanceRules,
+    showSafeguardUpgradeChance,
+  ])
+  const safeguardUpgradeOverlayByArtifactId = useMemo(() => {
     const normalizeSelectedSubstatsForTooltip = (values: readonly number[]): number[] => {
       const out: number[] = []
       const seen = new Set<number>()
@@ -629,19 +654,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       }
       return out
     }
-    const safeguardRuleById = new Map<string, SafeguardRule>()
-    for (const rule of safeguardUpgradeChanceRules) {
-      const normalizedRuleId = typeof rule.id === 'string' ? rule.id.trim() : ''
-      if (!normalizedRuleId) continue
-      safeguardRuleById.set(normalizedRuleId, rule)
-    }
-    // Chance map is keyed by artifact id so re-grouping does not invalidate lookups.
-    const chanceByArtifactId = buildSafeguardUpgradeChanceByArtifactId(
-      chanceRows.map((row) => row.artifact),
-      safeguardUpgradeChanceRules,
-    )
     // Hide overlay chips when the artifact does not match any substat safeguard.
-    const matchedEntries = Array.from(chanceByArtifactId.entries()).filter(([, entry]) => entry.hasMatchingSafeguard)
+    const matchedEntries = Array.from(safeguardUpgradeChanceByArtifactId.entries()).filter(([, entry]) => entry.hasMatchingSafeguard)
     if (matchedEntries.length === 0) {
       return new Map<number, TesterCardTopOverlay>()
     }
@@ -688,7 +702,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       const tooltipHeader = t('testerGridSafeguardChanceTooltipHeader', { chance: `${entry.chancePercent}%` })
       const tooltipProjection = t('testerGridSafeguardChanceTooltipProjection')
       const tooltipDataset = t('testerGridSafeguardChanceTooltipDataset', {
-        count: numberFormatter.format(debug?.sourceArtifactCount ?? chanceRows.length),
+        count: numberFormatter.format(debug?.sourceArtifactCount ?? safeguardChanceSourceRows.length),
       })
       const tooltipRule = t('testerGridSafeguardChanceTooltipRule', { name: safeguardName })
       const tooltipRuleNameIndex = tooltipRule.indexOf(safeguardName)
@@ -825,10 +839,9 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   }, [
     onJumpToSafeguardRule,
     numberFormatter,
-    rows,
-    safeguardUpgradeChanceRows,
-    safeguardUpgradeChanceRules,
-    showSafeguardUpgradeChance,
+    safeguardChanceSourceRows,
+    safeguardRuleById,
+    safeguardUpgradeChanceByArtifactId,
     substatColors,
     useStatButtonColors,
     t,
