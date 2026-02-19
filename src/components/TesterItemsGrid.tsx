@@ -51,7 +51,6 @@ import {
   formatCircledDigit,
   formatStatNumber,
   formatStatPreGlyph,
-  formatSubstats,
   getItemSourceDescriptor,
 } from '../lib/testerPreviewFormatting'
 import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
@@ -86,6 +85,13 @@ import {
 } from '../lib/constants'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useTesterGridPreferences } from '../state/testerGridPreferences'
+import {
+  SAFEGUARD_DEFAULT_COUNT_MODE,
+  SafeguardSubstatMatch,
+  sanitizeSafeguardCountMode,
+  type SafeguardRule,
+} from '../lib/safeguards'
+import { buildSafeguardUpgradeChanceByArtifactId } from '../lib/safeguardUpgradeChance'
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
 import EmptyStateMessage, { type EmptyStateMessageProps } from './EmptyStateMessage'
 import {
@@ -328,6 +334,8 @@ type TesterItemsGridVariant = 'tester' | 'safeguards'
 
 type TesterItemsGridProps = {
   rows: TesterPreviewRow[]
+  // Optional source rows for safeguard chance math (defaults to visible rows).
+  safeguardUpgradeChanceRows?: readonly TesterPreviewRow[]
   filterActive?: boolean
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors?: boolean
@@ -342,6 +350,8 @@ type TesterItemsGridProps = {
   // Optional callback when the requested artifact is hidden by active tester filters.
   onFocusArtifactFilteredOut?: ((artifactId: number) => void) | undefined
   onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null) => void) | undefined
+  // Optional safeguard deep-link used by the upgrade chance overlay click action.
+  onJumpToSafeguardRule?: ((ruleId: string) => void) | undefined
   onCreateRuleTemplate?: ((row: TesterPreviewRow, intent: TesterRuleTemplateIntent) => void) | undefined
   variant?: TesterItemsGridVariant
   safeguardsEnabled?: boolean
@@ -366,6 +376,8 @@ type TesterItemsGridProps = {
   sortState?: TesterSubstatSortState | null
   // Grouping settings for the tester grid; independent of sorting.
   grouping?: TesterGroupingState
+  // Resolved safeguard rules used by the tester-grid upgrade-chance overlay.
+  safeguardUpgradeChanceRules?: readonly SafeguardRule[]
 }
 
 type TesterGroupKind = 'artifactSet' | 'artifactSlot' | 'accessorySet' | 'accessoryFaction'
@@ -396,9 +408,18 @@ type MatchingRecipeEntry = {
   keep: boolean | null
 }
 
+type TesterCardTopOverlay = {
+  text: string
+  color?: string
+  onClick?: () => void
+  tooltipMarkdown?: string
+  tooltipRender?: React.ReactNode
+}
+
 export function TesterItemsGrid(props: TesterItemsGridProps) {
   const {
     rows,
+    safeguardUpgradeChanceRows,
     filterActive = false,
     substatColors,
     useStatButtonColors = false,
@@ -411,6 +432,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     focusArtifactRequest = null,
     onFocusArtifactFilteredOut,
     onJumpToRule,
+    onJumpToSafeguardRule,
     onCreateRuleTemplate,
     variant = 'tester',
     safeguardsEnabled = true,
@@ -427,6 +449,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     substatSort = null,
     sortState = null,
     grouping = TESTER_GROUPING_DEFAULT_STATE,
+    safeguardUpgradeChanceRules = [],
   } = props
   // Variant flags control keep-override behavior without forking the grid.
   const safeguardsVariant = variant === 'safeguards'
@@ -480,6 +503,24 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     () => groupRowsBySet(rows, t, lang, { grouping, substatSort: effectiveSubstatSort }),
     [rows, t, lang, grouping, effectiveSubstatSort],
   )
+  const {
+    columns: gridColumnPreference,
+    showFirstMatch,
+    showMatchRecipeIndex,
+    showMatchLine: showMatchLineNumber,
+    showOtherMatches,
+    showChampionIcons,
+    showRuleTemplates,
+    showSafeguardUpgradeChance,
+    setColumns,
+    setShowFirstMatch,
+    setShowMatchRecipeIndex,
+    setShowMatchLine,
+    setShowOtherMatches,
+    setShowChampionIcons,
+    setShowRuleTemplates,
+    setShowSafeguardUpgradeChance,
+  } = useTesterGridPreferences()
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
   // Overlay score uses the same glyph inclusion policy as the Sort UI (default excludes glyphs).
   // Why: avoids confusing users with two independent "glyph counting" toggles for the same scores.
@@ -566,22 +607,247 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     theme.palette.error.main,
     theme.palette.success.main,
   ])
-  const {
-    columns: gridColumnPreference,
-    showFirstMatch,
-    showMatchRecipeIndex,
-    showMatchLine: showMatchLineNumber,
-    showOtherMatches,
-    showChampionIcons,
-    showRuleTemplates,
-    setColumns,
-    setShowFirstMatch,
-    setShowMatchRecipeIndex,
-    setShowMatchLine,
-    setShowOtherMatches,
-    setShowChampionIcons,
-    setShowRuleTemplates,
-  } = useTesterGridPreferences()
+  // Keep chance source separate from visible rows so filters do not affect chance math.
+  const safeguardChanceSourceRows = safeguardUpgradeChanceRows ?? rows
+  // Artifacts are projected as a batch once; tooltip-only updates should not rebuild this list.
+  const safeguardChanceSourceArtifacts = useMemo(
+    () => safeguardChanceSourceRows.map((row) => row.artifact),
+    [safeguardChanceSourceRows],
+  )
+  const safeguardRuleById = useMemo(() => {
+    const map = new Map<string, SafeguardRule>()
+    for (const rule of safeguardUpgradeChanceRules) {
+      const normalizedRuleId = typeof rule.id === 'string' ? rule.id.trim() : ''
+      if (!normalizedRuleId) continue
+      map.set(normalizedRuleId, rule)
+    }
+    return map
+  }, [safeguardUpgradeChanceRules])
+  const safeguardUpgradeChanceByArtifactId = useMemo(() => {
+    // Keep heavy chance recursion disabled when the overlay is hidden.
+    if (!showSafeguardUpgradeChance) {
+      return buildSafeguardUpgradeChanceByArtifactId([], [])
+    }
+    // Chance map is keyed by artifact id so re-grouping does not invalidate lookups.
+    return buildSafeguardUpgradeChanceByArtifactId(
+      safeguardChanceSourceArtifacts,
+      safeguardUpgradeChanceRules,
+    )
+  }, [
+    safeguardChanceSourceArtifacts,
+    safeguardUpgradeChanceRules,
+    showSafeguardUpgradeChance,
+  ])
+  const safeguardUpgradeOverlayByArtifactId = useMemo(() => {
+    const normalizeSelectedSubstatsForTooltip = (values: readonly number[]): number[] => {
+      const out: number[] = []
+      const seen = new Set<number>()
+      for (const raw of values) {
+        const numeric = Number(raw)
+        if (!Number.isFinite(numeric)) continue
+        const variant = Math.floor(numeric)
+        if (variant <= 0) continue
+        if (variant === Number(StatVariant.Any) || variant === Number(StatVariant.RollCount)) continue
+        if (seen.has(variant)) continue
+        seen.add(variant)
+        out.push(variant)
+      }
+      return out
+    }
+    // Hide overlay chips when the artifact does not match any substat safeguard.
+    const matchedEntries = Array.from(safeguardUpgradeChanceByArtifactId.entries()).filter(([, entry]) => entry.hasMatchingSafeguard)
+    if (matchedEntries.length === 0) {
+      return new Map<number, TesterCardTopOverlay>()
+    }
+    // Color scale mirrors normalized substat ratings: low=red, high=green.
+    let min = Number.POSITIVE_INFINITY
+    let max = Number.NEGATIVE_INFINITY
+    for (const [, entry] of matchedEntries) {
+      min = Math.min(min, entry.chancePercent)
+      max = Math.max(max, entry.chancePercent)
+    }
+    const lowRgb = parseCssColorToRgb(theme.palette.error.main) ?? { r: 220, g: 38, b: 38 }
+    const highRgb = parseCssColorToRgb(theme.palette.success.main) ?? { r: 22, g: 163, b: 74 }
+    const range = max - min
+    const requirementSubstatsToken = '__REQUIREMENT_SUBSTATS__'
+    // Pre-format percentage labels + click handlers so row rendering stays allocation-light.
+    const overlays = new Map<number, TesterCardTopOverlay>()
+    for (const [artifactId, entry] of matchedEntries) {
+      const ratio = range > 0 ? (entry.chancePercent - min) / range : 1
+      const color = rgbToCss(mixRgb(lowRgb, highRgb, ratio))
+      const normalizedRuleId = typeof entry.matchedRuleId === 'string' ? entry.matchedRuleId.trim() : ''
+      const matchedRule = normalizedRuleId ? (safeguardRuleById.get(normalizedRuleId) ?? null) : null
+      const selectedSubstats = entry.debug?.selectedSubstats?.length
+        ? entry.debug.selectedSubstats
+        : normalizeSelectedSubstatsForTooltip(matchedRule?.substats ?? [])
+      const selectedSubstatLabel = selectedSubstats.length > 0
+        ? selectedSubstats.map((variant) => t(statVariantI18nKey(variant))).join(', ')
+        : t('any')
+      const rawMatchMode = entry.debug?.substatMatch ?? matchedRule?.substatMatch ?? SafeguardSubstatMatch.Any
+      const matchModeLabel = (
+        rawMatchMode === SafeguardSubstatMatch.All
+          ? t('testerGridSafeguardChanceMatchModeAll')
+          : (
+            rawMatchMode === SafeguardSubstatMatch.PerSubstat
+              ? t('testerGridSafeguardChanceMatchModePerSubstat')
+              : t('testerGridSafeguardChanceMatchModeAny')
+          )
+      )
+      const safeguardName = (() => {
+        const trimmedName = matchedRule?.name?.trim() ?? ''
+        if (trimmedName.length > 0) return trimmedName
+        return t('testerGridSafeguardChanceUnknownRule')
+      })()
+      const debug = entry.debug
+      const tooltipHeader = t('testerGridSafeguardChanceTooltipHeader', { chance: `${entry.chancePercent}%` })
+      const tooltipProjection = t('testerGridSafeguardChanceTooltipProjection')
+      const tooltipDataset = t('testerGridSafeguardChanceTooltipDataset', {
+        count: numberFormatter.format(debug?.sourceArtifactCount ?? safeguardChanceSourceRows.length),
+      })
+      const tooltipRule = t('testerGridSafeguardChanceTooltipRule', { name: safeguardName })
+      const tooltipRuleNameIndex = tooltipRule.indexOf(safeguardName)
+      const tooltipRuleNameHighlightedMarkdown = tooltipRuleNameIndex >= 0
+        ? `${tooltipRule.slice(0, tooltipRuleNameIndex)}*${safeguardName}*${tooltipRule.slice(tooltipRuleNameIndex + safeguardName.length)}`
+        : tooltipRule
+      const tooltipRulePrefix = tooltipRuleNameIndex >= 0 ? tooltipRule.slice(0, tooltipRuleNameIndex) : tooltipRule
+      const tooltipRuleSuffix = tooltipRuleNameIndex >= 0
+        ? tooltipRule.slice(tooltipRuleNameIndex + safeguardName.length)
+        : ''
+      const normalizedCountMode = sanitizeSafeguardCountMode(matchedRule?.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
+      const countModeScopeLabels: string[] = []
+      if (normalizedCountMode.perSet) countModeScopeLabels.push(t('safeguardsCountModePerSet'))
+      if (normalizedCountMode.perFaction) countModeScopeLabels.push(t('safeguardsCountModePerFaction'))
+      if (normalizedCountMode.perMainStat) countModeScopeLabels.push(t('safeguardsCountModePerMain'))
+      if (normalizedCountMode.perSlot) countModeScopeLabels.push(t('safeguardsCountModePerSlot'))
+      const requiredCountScopeSuffix = countModeScopeLabels.length > 0
+        ? ` (${countModeScopeLabels.join(', ')})`
+        : ''
+      const tooltipRequirementBase = t('testerGridSafeguardChanceTooltipRequirement', {
+        matchMode: matchModeLabel,
+        substats: selectedSubstatLabel,
+      })
+      const tooltipRequirement = tooltipRequirementBase
+      const tooltipRequirementTemplateBase = t('testerGridSafeguardChanceTooltipRequirement', {
+        matchMode: matchModeLabel,
+        substats: requirementSubstatsToken,
+      })
+      const tooltipRequirementTemplate = tooltipRequirementTemplateBase
+      const tooltipRequirementTemplateParts = tooltipRequirementTemplate.split(requirementSubstatsToken)
+      const tooltipRequiredCount = debug
+        ? `${t('testerGridSafeguardChanceTooltipRequiredCount', { count: numberFormatter.format(debug.requiredPerGroup) })}${requiredCountScopeSuffix}`
+        : null
+      const debugTooltipLines = debug
+        ? [
+          tooltipRequiredCount,
+          t('testerGridSafeguardChanceTooltipBucketCount', { count: numberFormatter.format(debug.bucketCandidateCount) }),
+          t('testerGridSafeguardChanceTooltipBetterCount', { count: numberFormatter.format(debug.betterCandidateCount) }),
+          t('testerGridSafeguardChanceTooltipMatchedNow', { count: numberFormatter.format(debug.matchedSelectedNow) }),
+        ]
+        : []
+      const resolveTooltipSubstatColor = (variant: number): string | undefined => (
+        substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
+      )
+      const requirementSupportsColor = useStatButtonColors && selectedSubstats.some((variant) => Boolean(resolveTooltipSubstatColor(variant)))
+      const requirementColoredSubstatsNode = requirementSupportsColor ? (
+        <>
+          {selectedSubstats.map((variant, idx) => {
+            const statLabel = t(statVariantI18nKey(variant))
+            const statColor = resolveTooltipSubstatColor(variant)
+            return (
+              <Box
+                key={`safeguard-requirement-substat-${artifactId}-${variant}-${idx}`}
+                component="span"
+                sx={statColor ? { color: statColor } : {}}
+              >
+                {statLabel}
+                {idx < selectedSubstats.length - 1 ? ', ' : ''}
+              </Box>
+            )
+          })}
+        </>
+      ) : null
+      const tooltipRequirementNode = (
+        requirementSupportsColor
+        && requirementColoredSubstatsNode
+        && tooltipRequirementTemplateParts.length === 2
+      )
+        ? (
+          <>
+            {tooltipRequirementTemplateParts[0]}
+            {requirementColoredSubstatsNode}
+            {tooltipRequirementTemplateParts[1]}
+          </>
+        )
+        : tooltipRequirement
+      const chanceTooltipLines = [
+        `**${tooltipHeader}**`,
+        tooltipProjection,
+        `- ${tooltipDataset}`,
+        `- ${tooltipRuleNameHighlightedMarkdown}`,
+        `- ${tooltipRequirement}`,
+        ...debugTooltipLines.map((line) => `- ${line}`),
+      ]
+      const tooltipMarkdown = chanceTooltipLines.join('\n')
+      const tooltipRender = requirementSupportsColor ? (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+          <Typography variant="body2" component="p" sx={{ m: 0, fontWeight: 700 }}>
+            {tooltipHeader}
+          </Typography>
+          <Typography variant="body2" component="p" sx={{ m: 0 }}>
+            {tooltipProjection}
+          </Typography>
+          <Box component="ul" sx={{ pl: 2.25, m: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            <Box component="li" sx={{ p: 0, listStylePosition: 'outside' }}>
+              <Typography variant="body2" component="span">
+                {tooltipDataset}
+              </Typography>
+            </Box>
+            <Box component="li" sx={{ p: 0, listStylePosition: 'outside' }}>
+              <Typography variant="body2" component="span">
+                {tooltipRulePrefix}
+                <Box component="span" sx={{ fontStyle: 'italic' }}>
+                  {safeguardName}
+                </Box>
+                {tooltipRuleSuffix}
+              </Typography>
+            </Box>
+            <Box component="li" sx={{ p: 0, listStylePosition: 'outside' }}>
+              <Typography variant="body2" component="span">
+                {tooltipRequirementNode}
+              </Typography>
+            </Box>
+            {debugTooltipLines.map((line, idx) => (
+              <Box key={`safeguard-tooltip-debug-${artifactId}-${idx}`} component="li" sx={{ p: 0, listStylePosition: 'outside' }}>
+                <Typography variant="body2" component="span">
+                  {line}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      ) : undefined
+      const canJumpToSafeguard = normalizedRuleId.length > 0 && typeof onJumpToSafeguardRule === 'function'
+      overlays.set(artifactId, {
+        text: `${entry.chancePercent}%`,
+        color,
+        tooltipMarkdown,
+        ...(tooltipRender ? { tooltipRender } : {}),
+        ...(canJumpToSafeguard ? { onClick: () => onJumpToSafeguardRule(normalizedRuleId) } : {}),
+      })
+    }
+    return overlays
+  }, [
+    onJumpToSafeguardRule,
+    numberFormatter,
+    safeguardChanceSourceRows,
+    safeguardRuleById,
+    safeguardUpgradeChanceByArtifactId,
+    substatColors,
+    useStatButtonColors,
+    t,
+    theme.palette.error.main,
+    theme.palette.success.main,
+  ])
   // Gear actions only apply to the Rule Tester grid and must be explicitly enabled.
   const canShowRuleTemplateActions = variant === 'tester'
     && showRuleTemplates
@@ -1553,11 +1819,20 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
               const centerOverlay = Number.isFinite(artifactId)
                 ? (normalizedOverlayByArtifactId.get(artifactId) ?? null)
                 : null
+              // Safeguard chance overlay lives above the center rating so both signals can coexist.
+              const topOverlay = showSafeguardUpgradeChance
+                ? (
+                  Number.isFinite(artifactId)
+                    ? (safeguardUpgradeOverlayByArtifactId.get(artifactId) ?? null)
+                    : null
+                )
+                : null
               return (
                 <TesterGridCard
                   key={row.artifact.id}
                   row={row}
                   centerOverlay={centerOverlay}
+                  topOverlay={topOverlay}
                   substatColors={substatColors}
                   useStatButtonColors={useStatButtonColors}
                   suppressMatchDetails={matchDetailsFrozen}
@@ -1732,6 +2007,26 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           </Button>
         </MenuItem>
         <Divider sx={{ my: 0.5 }} />
+        <MenuItem
+          sx={{ gap: 1, alignItems: 'center' }}
+          onClick={() => setShowSafeguardUpgradeChance(!showSafeguardUpgradeChance)}
+        >
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
+            {t('testerGridShowSafeguardUpgradeChance')}
+          </Typography>
+          <Button
+            size="small"
+            variant={showSafeguardUpgradeChance ? 'contained' : 'outlined'}
+            color="success"
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(event) => {
+              event.stopPropagation()
+              setShowSafeguardUpgradeChance(!showSafeguardUpgradeChance)
+            }}
+          >
+            {showSafeguardUpgradeChance ? t('commonOn') : t('commonOff')}
+          </Button>
+        </MenuItem>
         <MenuItem
           disableRipple
           sx={{ gap: 1, alignItems: 'center' }}
@@ -2334,6 +2629,7 @@ function buildFlattenedGridItems({
 export const TesterGridCard = React.memo(function TesterGridCard({
   row,
   centerOverlay,
+  topOverlay,
   substatColors,
   useStatButtonColors,
   suppressMatchDetails,
@@ -2354,6 +2650,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
 }: {
   row: TesterPreviewRow
   centerOverlay?: { text: string; color?: string } | null
+  topOverlay?: TesterCardTopOverlay | null
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
   suppressMatchDetails: boolean
@@ -2711,7 +3008,6 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   const mainColor = useStatButtonColors && typeof mainVariant === 'number'
     ? (substatColors[mainVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainVariant])
     : undefined
-  const { tooltip: subTooltip } = formatSubstats(artifact.substats, t)
   const glyphDeltaColor = theme.palette.success.main
   const substatEntries = artifact.substats
     .filter((stat) => stat.variant !== StatVariant.Any)
@@ -3129,6 +3425,8 @@ export const TesterGridCard = React.memo(function TesterGridCard({
           gearTooltip={lastUseTooltip}
           // Center overlay is informational and is rendered click-through by GridIconBox.
           {...(centerOverlay ? { centerOverlay } : {})}
+          // Top overlay stacks above the center score (used for safeguard upgrade chance).
+          {...(topOverlay ? { topOverlay } : {})}
           {...(cardOutcome ? { outcome: cardOutcome } : {})}
         />
         {shouldShowChampionIcon || shouldShowMissingChampionIconFallback ? (
@@ -3282,23 +3580,21 @@ export const TesterGridCard = React.memo(function TesterGridCard({
         }}
       >
         <TesterSummaryLabel label={mainSummaryLabel} wrap />
-        {/* Summary chips share MarkdownTooltip to keep the multi-line substat text readable with the new delay. */}
-        <MarkdownTooltip markdown={subTooltip}>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: CARD_SUBSTAT_ROW_GAP_UNITS,
-              width: '100%',
-              flexGrow: 1,
-              // Clip horizontal overflow so cards never trigger a scrollbar.
-              overflowX: 'hidden',
-              // Clip vertical overflow so substat columns never show scrollbars.
-              overflowY: 'hidden',
-            }}
-          >
-            {substatEntries.length > 0 ? (
-              substatEntries.map((entry) => {
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: CARD_SUBSTAT_ROW_GAP_UNITS,
+            width: '100%',
+            flexGrow: 1,
+            // Clip horizontal overflow so cards never trigger a scrollbar.
+            overflowX: 'hidden',
+            // Clip vertical overflow so substat columns never show scrollbars.
+            overflowY: 'hidden',
+          }}
+        >
+          {substatEntries.length > 0 ? (
+            substatEntries.map((entry) => {
                 // Use a bar + tint for mythic bonuses to avoid the underline cue.
                 const mythicAccentColor = theme.palette.error.main
                 // Alpha tint keeps the highlight readable without overpowering.
@@ -3366,13 +3662,12 @@ export const TesterGridCard = React.memo(function TesterGridCard({
                         {entry.content}
                       </Typography>
                   </Box>
-                )
-              })
-            ) : (
-              <TesterSummaryLabel label="—" />
-            )}
-          </Box>
-        </MarkdownTooltip>
+              )
+            })
+          ) : (
+            <TesterSummaryLabel label="—" />
+          )}
+        </Box>
       </Stack>
       {ruleTemplateMenu}
       {shouldShowPrimaryMatchRow ? (

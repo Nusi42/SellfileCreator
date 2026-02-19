@@ -474,6 +474,9 @@ export const TESTER_GRID_SHOW_MATCH_LINE_KEY = 'sellfileCreator.tester.grid.show
 export const TESTER_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.tester.grid.showOtherMatches.v1'
 export const TESTER_GRID_SHOW_CHAMP_ICONS_KEY = 'sellfileCreator.tester.grid.showChampIcons.v1'
 export const TESTER_GRID_SHOW_RULE_TEMPLATES_KEY = 'sellfileCreator.tester.grid.showRuleTemplates.v1'
+// Tester grid: safeguard upgrade chance overlay toggle.
+// Why: the overlay is view-only and should persist across sessions like other grid display toggles.
+export const TESTER_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY = 'sellfileCreator.tester.grid.showSafeguardUpgradeChance.v1'
 // Tester preview: substat sorting controls for the rule tester grid.
 // Why: Sorting is view-only (like filters) but should persist across sessions.
 export const TESTER_SUBSTAT_SORT_KEY = 'sellfileCreator.tester.sort.substats.v1'
