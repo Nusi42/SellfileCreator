@@ -6,6 +6,7 @@ import {
   TESTER_GRID_SHOW_MATCH_RECIPE_INDEX_KEY,
   TESTER_GRID_SHOW_MATCH_LINE_KEY,
   TESTER_GRID_SHOW_OTHER_MATCHES_KEY,
+  TESTER_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY,
   TESTER_GRID_SHOW_RULE_TEMPLATES_KEY,
 } from '../lib/constants'
 import { createLocalStorageStore } from './localStorageStore'
@@ -72,6 +73,14 @@ const testerGridShowRuleTemplatesStore = createLocalStorageStore<boolean>({
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
+const testerGridShowSafeguardUpgradeChanceStore = createLocalStorageStore<boolean>({
+  key: TESTER_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY,
+  // Keep overlays off by default so existing tester sessions stay visually unchanged.
+  fallback: false,
+  parse: (raw) => raw === 'true',
+  serialize: (value) => (value ? 'true' : 'false'),
+})
+
 export function useTesterGridPreferences() {
   const columns = testerGridColumnsStore.useValue()
   const showFirstMatch = testerGridShowFirstStore.useValue()
@@ -80,6 +89,7 @@ export function useTesterGridPreferences() {
   const showOtherMatches = testerGridShowOtherStore.useValue()
   const showChampionIcons = testerGridShowChampIconsStore.useValue()
   const showRuleTemplates = testerGridShowRuleTemplatesStore.useValue()
+  const showSafeguardUpgradeChance = testerGridShowSafeguardUpgradeChanceStore.useValue()
 
   const setColumns = useCallback((next: TesterGridColumnMode) => {
     testerGridColumnsStore.set(next === 4 ? 4 : 5)
@@ -109,6 +119,10 @@ export function useTesterGridPreferences() {
     testerGridShowRuleTemplatesStore.set(Boolean(next))
   }, [])
 
+  const setShowSafeguardUpgradeChance = useCallback((next: boolean) => {
+    testerGridShowSafeguardUpgradeChanceStore.set(Boolean(next))
+  }, [])
+
   return {
     columns,
     showFirstMatch,
@@ -117,6 +131,7 @@ export function useTesterGridPreferences() {
     showOtherMatches,
     showChampionIcons,
     showRuleTemplates,
+    showSafeguardUpgradeChance,
     setColumns,
     setShowFirstMatch,
     setShowMatchRecipeIndex,
@@ -124,5 +139,6 @@ export function useTesterGridPreferences() {
     setShowOtherMatches,
     setShowChampionIcons,
     setShowRuleTemplates,
+    setShowSafeguardUpgradeChance,
   }
 }

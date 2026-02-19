@@ -1,7 +1,7 @@
 import { Box } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
-import type { ReactNode } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon } from './SetIcon'
 import { WithSetTooltip } from './SetTooltip'
@@ -57,6 +57,18 @@ type GridIconBoxProps = {
     // Accent color applied to the overlay text + border; callers supply a range-mapped color.
     color?: string
   } | null
+  topOverlay?: {
+    // Secondary overlay text shown above center (for stacked overlay signals).
+    text: string
+    // Accent color applied to the overlay text + border; callers supply a range-mapped color.
+    color?: string
+    // Optional tooltip copy rendered on hover.
+    tooltipMarkdown?: string
+    // Optional rich tooltip content; when present it takes precedence over markdown text.
+    tooltipRender?: ReactNode
+    // Optional click-through action (used by safeguard chance overlay navigation).
+    onClick?: () => void
+  } | null
 }
 
 export default function GridIconBox({
@@ -77,6 +89,7 @@ export default function GridIconBox({
   showRankStarsBackground = true,
   gearTooltip,
   centerOverlay,
+  topOverlay,
 }: GridIconBoxProps) {
   const theme = useTheme()
   const slotArtSrc = gearSetSlotIconUrl(
@@ -288,37 +301,109 @@ export default function GridIconBox({
     </MarkdownTooltip>
   ) : null
 
-  const centerOverlayNode = centerOverlay?.text ? (
+  const hasCenterOverlay = typeof centerOverlay?.text === 'string' && centerOverlay.text.trim().length > 0
+  const hasTopOverlay = typeof topOverlay?.text === 'string' && topOverlay.text.trim().length > 0
+  // When both overlays are enabled, keep both chips compact so they can stack cleanly.
+  const stackedOverlayMode = hasCenterOverlay && hasTopOverlay
+
+  const centerOverlayNode = hasCenterOverlay ? (
     <Box
       // Overlay is informational; keep it click-through so existing icon tooltips/interactions win.
-      sx={(theme) => ({
-        // Keep the overlay legible even on smaller grid icons.
-        // The tester grid uses this to show a normalized substat rating.
-        position: 'absolute',
-        left: '50%',
-        top: '50%',
-        transform: 'translate(-50%, -50%)',
-        px: 0.85,
-        py: 0.35,
-        borderRadius: 6,
-        border: '1px solid',
-        borderColor: centerOverlay?.color ?? alpha(theme.palette.text.primary, 0.55),
-        backgroundColor: alpha(theme.palette.background.paper, 0.9),
-        color: centerOverlay?.color ?? theme.palette.text.primary,
-        fontWeight: 800,
-        fontVariantNumeric: 'tabular-nums',
-        fontSize: theme.typography.pxToRem(Math.min(16, Math.max(13, Math.round(size * 0.34)))),
-        lineHeight: 1.1,
-        letterSpacing: 0.2,
-        boxShadow: theme.shadows[2],
-        pointerEvents: 'none',
-        userSelect: 'none',
-        whiteSpace: 'nowrap',
-      })}
+      sx={(theme) => {
+        // Single-overlay mode mirrors the larger rating chip; stacked mode mirrors the compact chance chip.
+        const compact = stackedOverlayMode
+        return {
+          position: 'absolute',
+          left: '50%',
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+          px: compact ? 0.65 : 0.85,
+          py: compact ? 0.2 : 0.35,
+          borderRadius: 6,
+          border: '1px solid',
+          borderColor: centerOverlay?.color ?? alpha(theme.palette.text.primary, compact ? 0.5 : 0.55),
+          backgroundColor: alpha(theme.palette.background.paper, 0.9),
+          color: centerOverlay?.color ?? theme.palette.text.primary,
+          fontWeight: 800,
+          fontVariantNumeric: 'tabular-nums',
+          fontSize: theme.typography.pxToRem(
+            compact
+              ? Math.min(13, Math.max(10, Math.round(size * 0.25)))
+              : Math.min(16, Math.max(13, Math.round(size * 0.34))),
+          ),
+          lineHeight: compact ? 1.05 : 1.1,
+          letterSpacing: compact ? 0.15 : 0.2,
+          boxShadow: theme.shadows[2],
+          pointerEvents: 'none',
+          userSelect: 'none',
+          whiteSpace: 'nowrap',
+        }
+      }}
     >
-      {centerOverlay.text}
+      {centerOverlay?.text}
     </Box>
   ) : null
+  const topOverlayClickable = Boolean(topOverlay?.onClick)
+  const topOverlayTooltip = typeof topOverlay?.tooltipMarkdown === 'string' ? topOverlay.tooltipMarkdown.trim() : ''
+  const topOverlayHasRenderTooltip = topOverlay?.tooltipRender != null
+  const topOverlayInteractive = topOverlayClickable || topOverlayTooltip.length > 0 || topOverlayHasRenderTooltip
+  const topOverlayNode = hasTopOverlay ? (
+    <Box
+      component={topOverlayClickable ? 'button' : 'div'}
+      type={topOverlayClickable ? 'button' : undefined}
+      onClick={topOverlayClickable
+        ? (event: MouseEvent<HTMLButtonElement>) => {
+            // Keep overlay clicks from triggering underlying card interactions.
+            event.stopPropagation()
+            topOverlay.onClick?.()
+          }
+        : undefined}
+      sx={(theme) => {
+        // If chance is the only overlay, render it with the same prominent style as the rating chip.
+        const prominent = !stackedOverlayMode
+        return {
+          position: 'absolute',
+          left: '50%',
+          top: prominent ? '50%' : '26%',
+          transform: 'translate(-50%, -50%)',
+          px: prominent ? 0.85 : 0.65,
+          py: prominent ? 0.35 : 0.2,
+          borderRadius: 6,
+          border: '1px solid',
+          borderColor: topOverlay?.color ?? alpha(theme.palette.text.primary, prominent ? 0.55 : 0.5),
+          backgroundColor: alpha(theme.palette.background.paper, 0.9),
+          color: topOverlay?.color ?? theme.palette.text.primary,
+          fontWeight: 800,
+          fontVariantNumeric: 'tabular-nums',
+          fontSize: theme.typography.pxToRem(
+            prominent
+              ? Math.min(16, Math.max(13, Math.round(size * 0.34)))
+              : Math.min(13, Math.max(10, Math.round(size * 0.25))),
+          ),
+          lineHeight: prominent ? 1.1 : 1.05,
+          letterSpacing: prominent ? 0.2 : 0.15,
+          boxShadow: theme.shadows[2],
+          pointerEvents: topOverlayInteractive ? 'auto' : 'none',
+          cursor: topOverlayClickable ? 'pointer' : (topOverlayInteractive ? 'help' : 'default'),
+          userSelect: 'none',
+          whiteSpace: 'nowrap',
+          // Reset native button chrome so clickable overlays keep visual parity.
+          appearance: 'none',
+          fontFamily: 'inherit',
+        }
+      }}
+    >
+      {topOverlay.text}
+    </Box>
+  ) : null
+  const topOverlayWrappedNode = topOverlayNode && (topOverlayTooltip.length > 0 || topOverlayHasRenderTooltip)
+    ? (
+      // Tooltip exposes chance-calculation context without adding permanent card clutter.
+      <MarkdownTooltip markdown={topOverlayTooltip} render={topOverlay?.tooltipRender}>
+        {topOverlayNode}
+      </MarkdownTooltip>
+    )
+    : topOverlayNode
 
   const iconNode = (
     <Box
@@ -370,6 +455,7 @@ export default function GridIconBox({
       {rerollNode}
       {levelNode}
       {outcomeNode}
+      {topOverlayWrappedNode}
       {centerOverlayNode}
     </Box>
   )
