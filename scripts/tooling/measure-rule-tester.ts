@@ -16,9 +16,9 @@ import {
   computeMergedRules,
   RULE_SOURCE_SAFEGUARDS,
   buildSafeguardRules,
-  canonicalRuleKey,
   type HsfRuleWithRecipe,
 } from '../../src/lib/merge.js'
+import { dedupeHsfRulesForExport } from '../../src/lib/hsfDeduplicate.js'
 import {
   collectSafeguardCandidates,
   computeSafeguardProtection,
@@ -287,19 +287,16 @@ const measureSafeguards = (
 
   const candidateSafeguardRules = buildSafeguardRules(safeguardRules, detection)
 
-  const keepRuleKeys = new Set<string>()
-  baseRules.forEach((rule) => {
-    if (rule.Keep === true) {
-      keepRuleKeys.add(canonicalRuleKey(rule))
-    }
-  })
-  let safeguardRuleCount = 0
-  for (const rule of candidateSafeguardRules) {
-    const key = canonicalRuleKey(rule)
-    if (keepRuleKeys.has(key)) continue
-    keepRuleKeys.add(key)
-    safeguardRuleCount += 1
-  }
+  // Mirror export-time keep-rule dedupe so perf output stays aligned with app behavior.
+  const baseKeepRules = baseRules.filter((rule) => rule.Keep === true)
+  // Dedupe baseline keep rules first in case upstream sources already overlap.
+  const dedupedBaseKeepRules = dedupeHsfRulesForExport(baseKeepRules)
+  // Dedupe with safeguard candidates appended; delta equals net injected keeps.
+  const dedupedMergedKeepRules = dedupeHsfRulesForExport([
+    ...baseKeepRules,
+    ...candidateSafeguardRules,
+  ])
+  const safeguardRuleCount = Math.max(0, dedupedMergedKeepRules.length - dedupedBaseKeepRules.length)
 
   return {
     detection,
