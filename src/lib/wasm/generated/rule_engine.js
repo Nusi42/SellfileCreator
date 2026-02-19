@@ -302,54 +302,6 @@ export function merge_safeguard_injected_rules_value(base_rules, custom_rules, c
 }
 
 /**
- * @param {any} activation
- * @returns {string}
- */
-export function normalize_safeguard_activation_value(activation) {
-    let deferred2_0;
-    let deferred2_1;
-    try {
-        const ret = wasm.normalize_safeguard_activation_value(activation);
-        var ptr1 = ret[0];
-        var len1 = ret[1];
-        if (ret[3]) {
-            ptr1 = 0; len1 = 0;
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        deferred2_0 = ptr1;
-        deferred2_1 = len1;
-        return getStringFromWasm0(ptr1, len1);
-    } finally {
-        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
-    }
-}
-
-/**
- * @param {any} value
- * @param {any} lookups
- * @returns {any}
- */
-export function normalize_safeguard_combination_value(value, lookups) {
-    const ret = wasm.normalize_safeguard_combination_value(value, lookups);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} value
- * @returns {any}
- */
-export function normalize_safeguard_count_mode_value(value) {
-    const ret = wasm.normalize_safeguard_count_mode_value(value);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * @param {any} payload
  * @returns {any}
  */
@@ -359,45 +311,6 @@ export function normalize_safeguard_expected_group_domain_value(payload) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} value
- * @param {any} lookups
- * @param {string} generated_rule_id
- * @returns {any}
- */
-export function normalize_safeguard_rule_value(value, lookups, generated_rule_id) {
-    const ptr0 = passStringToWasm0(generated_rule_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.normalize_safeguard_rule_value(value, lookups, ptr0, len0);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * @param {any} value
- * @returns {string}
- */
-export function normalize_safeguard_substat_match_value(value) {
-    let deferred2_0;
-    let deferred2_1;
-    try {
-        const ret = wasm.normalize_safeguard_substat_match_value(value);
-        var ptr1 = ret[0];
-        var len1 = ret[1];
-        if (ret[3]) {
-            ptr1 = 0; len1 = 0;
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        deferred2_0 = ptr1;
-        deferred2_1 = len1;
-        return getStringFromWasm0(ptr1, len1);
-    } finally {
-        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
-    }
 }
 
 /**

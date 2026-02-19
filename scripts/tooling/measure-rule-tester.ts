@@ -17,7 +17,7 @@ import {
   RULE_SOURCE_SAFEGUARDS,
   buildSafeguardRules,
   canonicalRuleKey,
-  type HsfRuleWithCfg,
+  type HsfRuleWithRecipe,
 } from '../../src/lib/merge.js'
 import {
   collectSafeguardCandidates,
@@ -29,7 +29,7 @@ import {
 } from '../../src/lib/safeguards.js'
 import { importGearDatabaseFromArrayBuffer, type GearDbImportResult } from '../../src/lib/importers/gearDbImporter.js'
 import type { NormalizedGearArtifact } from '../../src/lib/importers/gearDbNormalizer.js'
-import { evaluateMatchesByConfig } from '../../src/lib/ruleEval.js'
+import { evaluateMatchesByRecipe } from '../../src/lib/ruleEval.js'
 import type { EvalResult } from '../../src/lib/ruleEval.js'
 import type { TesterPreviewMatch, TesterPreviewRow } from '../../src/types/testerPreview.js'
 // Final Sell config stays centralized in Logic Hub so tooling mirrors UI + IO types.
@@ -203,11 +203,11 @@ const buildScenario = async (input: ScenarioInput): Promise<ScenarioData> => {
   }
 }
 
-// Run the core matcher (evaluateMatchesByConfig) against every artifact and
+// Run the core matcher (evaluateMatchesByRecipe) against every artifact and
 // capture the same per-row metadata the UI stores in testerPreviewRows.
 const evaluateArtifacts = (
   artifacts: readonly NormalizedGearArtifact[],
-  rules: readonly HsfRuleWithCfg[],
+  rules: readonly HsfRuleWithRecipe[],
   recipeModes: readonly SellfileExportMode[],
 ): MatchPhaseResult => {
   const rows: TesterPreviewRow[] = []
@@ -232,13 +232,13 @@ const evaluateArtifacts = (
     const {
       firstMatch,
       firstNonExcludedMatch,
-      matchingConfigIndices: cfgMatches,
-      matchingConfigDecisions,
-    } = evaluateMatchesByConfig(
-      rules as HsfRuleWithCfg[],
+      matchingRecipeIndices,
+      matchingRecipeDecisions,
+    } = evaluateMatchesByRecipe(
+      rules as HsfRuleWithRecipe[],
       artifact.testerItem,
       {
-        configModes: recipeModes as SellfileExportMode[],
+        recipeModes: recipeModes as SellfileExportMode[],
         excludeSources: [RULE_SOURCE_SAFEGUARDS],
       },
     )
@@ -249,8 +249,8 @@ const evaluateArtifacts = (
       artifact,
       match,
       baseMatch,
-      matchingCfgIndices: cfgMatches,
-      matchingConfigDecisions,
+      matchingRecipeIndices,
+      matchingRecipeDecisions,
     })
   }
   const durationMs = performance.now() - startedAt
@@ -260,7 +260,7 @@ const evaluateArtifacts = (
 // Recreate the Safeguard detection flow and return its timing stats.
 const measureSafeguards = (
   rows: readonly TesterPreviewRow[],
-  baseRules: readonly HsfRuleWithCfg[],
+  baseRules: readonly HsfRuleWithRecipe[],
   safeguardRules: readonly SafeguardRule[],
   safeguardsEnabled: boolean,
   recipeModes: readonly SellfileExportMode[],
@@ -274,7 +274,7 @@ const measureSafeguards = (
   const candidates = collectSafeguardCandidates({
     rows,
     baseRules,
-    configModes: recipeModes as SellfileExportMode[],
+    recipeModes: recipeModes as SellfileExportMode[],
   })
   const candidateMs = performance.now() - candidateStartedAt
   const detectionStartedAt = performance.now()
@@ -285,7 +285,7 @@ const measureSafeguards = (
   })
   const detectionMs = performance.now() - detectionStartedAt
 
-  const candidateKeepRules = buildSafeguardRules(safeguardRules, detection)
+  const candidateSafeguardRules = buildSafeguardRules(safeguardRules, detection)
 
   const keepRuleKeys = new Set<string>()
   baseRules.forEach((rule) => {
@@ -294,7 +294,7 @@ const measureSafeguards = (
     }
   })
   let safeguardRuleCount = 0
-  for (const rule of candidateKeepRules) {
+  for (const rule of candidateSafeguardRules) {
     const key = canonicalRuleKey(rule)
     if (keepRuleKeys.has(key)) continue
     keepRuleKeys.add(key)
@@ -368,7 +368,7 @@ const main = async (): Promise<void> => {
   console.log(`  Safeguard detection: ${formatMs(safeguardMeasurements.detectionMs)}`)
   console.log(`  Deduplicated Safeguard rules emitted: ${safeguardMeasurements.safeguardRuleCount}`)
 
-  const mergedWithKeep = computeMergedRules({
+  const mergedWithSafeguards = computeMergedRules({
     hsf: null,
     customRecipes: scenario.recipes,
     metasets: scenario.metasets,
@@ -380,9 +380,9 @@ const main = async (): Promise<void> => {
       detection: safeguardMeasurements.detection,
     },
   })
-  console.log(`  Post-Keep rule count: ${mergedWithKeep.length}`)
-  const keepPhase = evaluateArtifacts(scenario.gear, mergedWithKeep, scenario.recipeModes)
-  summarize('Post-Keep matcher', keepPhase)
+  console.log(`  Post-Safeguard rule count: ${mergedWithSafeguards.length}`)
+  const keepPhase = evaluateArtifacts(scenario.gear, mergedWithSafeguards, scenario.recipeModes)
+  summarize('Post-Safeguard matcher', keepPhase)
 }
 
 await main().catch((error: unknown) => {

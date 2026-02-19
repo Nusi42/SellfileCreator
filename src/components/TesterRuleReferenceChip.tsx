@@ -7,7 +7,7 @@ import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
 import { useI18n } from '../lib/i18n'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 import { MATCHING_RECIPE_CHIP_MIN_WIDTH_PX } from '../lib/constants'
-// MarkdownTooltip keeps the “jump to recipe” hint aligned with the rest of the tooltip rollout.
+// MarkdownTooltip keeps the jump hint aligned with the rest of the tooltip rollout.
 import MarkdownTooltip from './MarkdownTooltip'
 import EllipsisTooltip, { hasEllipsisOverflow } from './EllipsisTooltip'
 import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
@@ -20,7 +20,7 @@ type TesterRuleReferenceChipProps = {
   sx?: SxProps<Theme>
   showFinalSellLabel?: boolean
   icon?: ChipProps['icon']
-  showConfigIndex?: boolean
+  showRecipeIndex?: boolean
   showLineNumber?: boolean
 }
 
@@ -59,7 +59,7 @@ export function TesterRuleReferenceChip({
   sx,
   showFinalSellLabel = true,
   icon,
-  showConfigIndex = true,
+  showRecipeIndex = true,
   showLineNumber = false,
 }: TesterRuleReferenceChipProps) {
   const { t } = useI18n()
@@ -68,6 +68,7 @@ export function TesterRuleReferenceChip({
   // Rule source flags drive tint + label behavior.
   const isFinalSellSource = match.ruleSource === RULE_SOURCE_FINAL_SELL
   const isSafeguardSource = match.ruleSource === RULE_SOURCE_SAFEGUARDS
+  const jumpTooltip = isSafeguardSource ? t('testerJumpToSafeguard') : t('testerJumpToRecipe')
   if (isFinalSellSource) {
     if (!showFinalSellLabel) return null
     const finalSellTint = buildChipSurfaceTint(theme, theme.palette.error.main)
@@ -79,7 +80,7 @@ export function TesterRuleReferenceChip({
         ruleIndex={null}
         recipeIdx={null}
         size={size}
-        jumpTooltip={t('testerJumpToRecipe')}
+        jumpTooltip={jumpTooltip}
         sx={simpleMatchChipSx(sx)}
         borderColor={getTesterMatchBorderColor(theme, false)}
         backgroundColor={finalSellTint.surface}
@@ -91,37 +92,37 @@ export function TesterRuleReferenceChip({
   }
   const ruleIndex = typeof match.ruleIndex === 'number' ? match.ruleIndex : null
   const recipeIdx = typeof match.recipeIdx === 'number' ? match.recipeIdx : null
-  const configDecoration = parseRecipeNameDirectives(match.recipeName ?? undefined, theme.palette.primary.main)
-  const trimmedDecoratedName = configDecoration.displayName.trim()
+  const recipeDecoration = parseRecipeNameDirectives(match.recipeName ?? undefined, theme.palette.primary.main)
+  const trimmedDecoratedName = recipeDecoration.displayName.trim()
   const fallbackRuleLabel = match.ruleLabel ? match.ruleLabel.trim() : ''
   const formattedRecipeName = trimmedDecoratedName.length > 0
     ? trimmedDecoratedName
     : (fallbackRuleLabel.length > 0
       ? fallbackRuleLabel
       : (recipeIdx != null ? `#${recipeIdx + 1}` : ''))
-  const textColor = configDecoration.hasExplicitColor && trimmedDecoratedName.length > 0
-    ? configDecoration.resolvedColor
+  const textColor = recipeDecoration.hasExplicitColor && trimmedDecoratedName.length > 0
+    ? recipeDecoration.resolvedColor
     : null
   // Number segment is intentionally lightweight: recipe index + line number sans labels,
   // joined with a mid-dot so the trailing recipe name stays readable on narrow cards.
-  const configNumberSegment = (showConfigIndex && recipeIdx != null)
+  const recipeNumberSegment = (showRecipeIndex && recipeIdx != null)
     ? `#${recipeIdx + 1}`
     : ''
   const ruleLineSegment = (showLineNumber && ruleIndex != null)
     ? `#${ruleIndex + 1}`
     : ''
-  const numberSegment = [configNumberSegment, ruleLineSegment].filter((part) => part && part.length > 0).join(' • ')
+  const numberSegment = [recipeNumberSegment, ruleLineSegment].filter((part) => part && part.length > 0).join(' • ')
   const label = numberSegment
     ? `${numberSegment} | ${formattedRecipeName}`
     : formattedRecipeName
-  // Some rule sources (e.g., imported base HSF sell rows) have no cfg/source label.
+  // Some rule sources (e.g., imported base HSF sell rows) have no recipe/source label.
   // Fall back to the matched rule line so primary matches never render as empty.
   const resolvedLabel = label.length > 0
     ? label
     : (ruleIndex != null ? `#${ruleIndex + 1}` : '')
   const clickable = typeof onJump === 'function' && ruleIndex != null
   if (!resolvedLabel) return null
-  // Keep-unique matches share a green tint so they read as "protected".
+  // Safeguard matches share a green tint so they read as "protected".
   const keepOverrideTint = isSafeguardSource
     ? buildChipSurfaceTint(theme, theme.palette.success.main)
     : null
@@ -135,7 +136,7 @@ export function TesterRuleReferenceChip({
       ruleIndex={ruleIndex}
       recipeIdx={typeof match.recipeIdx === 'number' ? match.recipeIdx : null}
       size={size}
-      jumpTooltip={t('testerJumpToRecipe')}
+      jumpTooltip={jumpTooltip}
       textColor={textColor}
       {...(sx ? { sx } : {})}
       {...(icon ? { icon } : {})}
@@ -278,7 +279,7 @@ function TesterRuleReferenceChipBody({
     </Box>
   )
   return (
-    // Keep the jump-to-recipe hint in sync with other Markdown tooltips so multi-line copy stays readable.
+    // Keep jump hints in sync with other Markdown tooltips so multi-line copy stays readable.
     <MarkdownTooltip markdown={jumpTooltip}>
       {chipWrapper}
     </MarkdownTooltip>

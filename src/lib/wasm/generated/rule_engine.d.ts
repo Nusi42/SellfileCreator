@@ -45,17 +45,7 @@ export function intro_assignments_for_combo_fast_flat(count: number, base_slots:
 
 export function merge_safeguard_injected_rules_value(base_rules: any, custom_rules: any, candidate_safeguard_rules: any): any;
 
-export function normalize_safeguard_activation_value(activation: any): string;
-
-export function normalize_safeguard_combination_value(value: any, lookups: any): any;
-
-export function normalize_safeguard_count_mode_value(value: any): any;
-
 export function normalize_safeguard_expected_group_domain_value(payload: any): any;
-
-export function normalize_safeguard_rule_value(value: any, lookups: any, generated_rule_id: string): any;
-
-export function normalize_safeguard_substat_match_value(value: any): string;
 
 export function permutations_i32_fast_flat(values: Int32Array): Int32Array;
 
@@ -85,12 +75,7 @@ export interface InitOutput {
     readonly collect_and_compute_safeguard_protection_value: (a: any, b: any, c: any, d: any, e: any, f: any, g: number, h: number) => [number, number, number];
     readonly compute_safeguard_protection_value: (a: any, b: any, c: any, d: number, e: number) => [number, number, number];
     readonly hash_safeguard_combination_value: (a: any) => [number, number, number, number];
-    readonly normalize_safeguard_activation_value: (a: any) => [number, number, number, number];
-    readonly normalize_safeguard_combination_value: (a: any, b: any) => [number, number, number];
-    readonly normalize_safeguard_count_mode_value: (a: any) => [number, number, number];
     readonly normalize_safeguard_expected_group_domain_value: (a: any) => [number, number, number];
-    readonly normalize_safeguard_rule_value: (a: any, b: any, c: number, d: number) => [number, number, number];
-    readonly normalize_safeguard_substat_match_value: (a: any) => [number, number, number, number];
     readonly safeguard_count_key_value: (a: any, b: any) => [number, number, number, number];
     readonly safeguard_group_key_value: (a: any) => [number, number, number, number];
     readonly safeguard_item_key_value: (a: any) => [bigint, number, number];

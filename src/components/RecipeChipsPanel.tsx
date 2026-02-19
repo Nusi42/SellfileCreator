@@ -669,7 +669,7 @@ function RecipeChipsPanel(props: {
               <RecipeChip
                 key={idx}
                 index={idx}
-                cfg={c}
+                recipe={c}
                 {...(overrideMode ? { exportModeOverride: overrideMode } : {})}
                 gearSetCatalogVersion={gearSetCatalogVersion}
                 metasets={metasets}

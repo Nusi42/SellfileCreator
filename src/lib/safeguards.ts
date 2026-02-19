@@ -15,18 +15,21 @@ import {
   artifactSetNames,
   artifactTypeNames,
   compareArtifactSets,
+  compareArtifactTypes,
   factionNames,
   getArmorFixedSetIds,
   getArmorVariableSetIds,
   getAccessorySlotsCompatibleSetIds,
   rarityNames,
+  variantFromLabel,
 } from './types'
 import type { BuilderRecipe, SellfileExportMode } from './hsfBuilder'
-import type { HsfRuleWithCfg } from './merge'
+import type { HsfRuleWithRecipe } from './merge'
 import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
 import type { Metaset } from './metasets'
 import { normalizeRecipeName } from './ruleRecipeIndex'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
+import { normalizeArtifactSetSelections } from './gearSets/selection'
 import { hasIgnoreSafeguardTag } from './tagHelpers'
 import {
   collectAndComputeSafeguardProtectionWithLoadedWasm,
@@ -36,12 +39,7 @@ import {
   getSafeguardItemKeyWithLoadedWasm,
   getSafeguardCountKeyWithLoadedWasm,
   hashSafeguardCombinationWithLoadedWasm,
-  normalizeSafeguardActivationWithLoadedWasm,
-  normalizeSafeguardCombinationWithLoadedWasm,
-  normalizeSafeguardCountModeWithLoadedWasm,
   normalizeSafeguardExpectedGroupDomainWithLoadedWasm,
-  normalizeSafeguardRuleWithLoadedWasm,
-  normalizeSafeguardSubstatMatchWithLoadedWasm,
   resolveSafeguardRulesWithMetasetsWithLoadedWasm,
   sortSafeguardCombinationWithLoadedWasm,
   sortSafeguardSubstatsWithLoadedWasm,
@@ -58,6 +56,10 @@ import {
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION as SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION_CONST,
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT as SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT_CONST,
   SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS as SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS_CONST,
+  SAFEGUARD_WEIGHT_DEFAULT,
+  SAFEGUARD_WEIGHT_MAX,
+  SAFEGUARD_WEIGHT_MIN,
+  SAFEGUARD_WEIGHT_STEP,
   SAFEGUARD_SUBSTAT_ALL,
   SAFEGUARD_SUBSTAT_ANY,
   SAFEGUARD_SUBSTAT_PER_SUBSTAT,
@@ -74,7 +76,7 @@ const ALL_FACTION_IDS = Object.freeze(
     .map((value) => value as FactionId),
 )
 
-export const buildIgnoreSafeguardConfigIndices = (recipes: readonly BuilderRecipe[]): ReadonlySet<number> => {
+export const buildIgnoreSafeguardRecipeIndices = (recipes: readonly BuilderRecipe[]): ReadonlySet<number> => {
   // Track indices so we can skip only tagged recipes during detection.
   const ignored = new Set<number>()
   // Maintain index alignment with rule-building recipe order.
@@ -137,12 +139,6 @@ export const SafeguardRuleActivation = {
 export type SafeguardRuleActivation =
   (typeof SafeguardRuleActivation)[keyof typeof SafeguardRuleActivation]
 
-const SAFEGUARD_RULE_ACTIVATION_VALUES = new Set<SafeguardRuleActivation>([
-  SafeguardRuleActivation.Off,
-  SafeguardRuleActivation.ProtectExisting,
-  SafeguardRuleActivation.AnticipateGaps,
-])
-
 // SafeguardSubstatMatch controls how multiple picked substats are matched.
 export const SafeguardSubstatMatch = {
   Any: SAFEGUARD_SUBSTAT_ANY,
@@ -158,24 +154,29 @@ export type SafeguardSubstatMatch =
 export const normalizeSafeguardActivation = (
   value: unknown,
 ): SafeguardRuleActivation => {
-  // Delegate token coercion to wasm so TS does not duplicate alias parsing rules.
-  const normalized = normalizeSafeguardActivationWithLoadedWasm(value)
-  // Keep the public union return type strict and fail closed on unknown payloads.
-  if (SAFEGUARD_RULE_ACTIVATION_VALUES.has(normalized as SafeguardRuleActivation)) {
-    return normalized as SafeguardRuleActivation
+  const token = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  if (token === SafeguardRuleActivation.Off.toLowerCase()) {
+    return SafeguardRuleActivation.Off
   }
-  throw new Error('WASM safeguard activation normalizer returned an unexpected token.')
+  if (token === SafeguardRuleActivation.AnticipateGaps.toLowerCase()) {
+    return SafeguardRuleActivation.AnticipateGaps
+  }
+  if (token === SafeguardRuleActivation.ProtectExisting.toLowerCase()) {
+    return SafeguardRuleActivation.ProtectExisting
+  }
+  return SafeguardRuleActivation.ProtectExisting
 }
 
 // normalizeSafeguardSubstatMatch keeps matching choices stable and case-insensitive.
 export const normalizeSafeguardSubstatMatch = (value: unknown): SafeguardSubstatMatch => {
-  // Delegate token coercion to wasm so TS does not duplicate alias parsing rules.
-  const normalized = normalizeSafeguardSubstatMatchWithLoadedWasm(value)
-  // Keep the public union return type strict and fail closed on unknown payloads.
-  if (normalized === SafeguardSubstatMatch.Any) return SafeguardSubstatMatch.Any
-  if (normalized === SafeguardSubstatMatch.All) return SafeguardSubstatMatch.All
-  if (normalized === SafeguardSubstatMatch.PerSubstat) return SafeguardSubstatMatch.PerSubstat
-  throw new Error('WASM safeguard substat-match normalizer returned an unexpected token.')
+  const token = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  if (token === SafeguardSubstatMatch.All.toLowerCase()) {
+    return SafeguardSubstatMatch.All
+  }
+  if (token === SafeguardSubstatMatch.PerSubstat.toLowerCase()) {
+    return SafeguardSubstatMatch.PerSubstat
+  }
+  return SafeguardSubstatMatch.Any
 }
 
 export const isSafeguardRuleActive = (rule: SafeguardRule): boolean => (
@@ -183,21 +184,53 @@ export const isSafeguardRuleActive = (rule: SafeguardRule): boolean => (
 )
 
 const sanitizeCountMode = (raw: Partial<SafeguardRuleCountMode> | null | undefined): SafeguardRuleCountMode => {
-  // Delegate default + sanitize logic to wasm so TS does not duplicate mode rules.
-  const normalized = normalizeSafeguardCountModeWithLoadedWasm(raw)
-  // Preserve the local structural type used across UI + worker payloads.
+  const parsed = raw ?? SAFEGUARD_DEFAULT_COUNT_MODE
+  const perRule = parsed.perRule === true
+  const perSet = parsed.perSet === true
+  const perFaction = parsed.perFaction === true
+  const perMainStat = parsed.perMainStat === true
+  const perSlot = parsed.perSlot === true
+  if (perRule) {
+    return {
+      perRule: true,
+      perSet: false,
+      perFaction: false,
+      perMainStat: false,
+      perSlot: false,
+    }
+  }
+  if (!perSet && !perFaction && !perMainStat && !perSlot) {
+    return {
+      perRule: true,
+      perSet: false,
+      perFaction: false,
+      perMainStat: false,
+      perSlot: false,
+    }
+  }
   return {
-    perRule: normalized.perRule === true,
-    perSet: normalized.perSet === true,
-    perFaction: normalized.perFaction === true,
-    perMainStat: normalized.perMainStat === true,
-    perSlot: normalized.perSlot === true,
+    perRule: false,
+    perSet,
+    perFaction,
+    perMainStat,
+    perSlot,
   }
 }
 
 // normalizeSafeguardCountMode parses legacy payloads into the canonical scope-chip shape.
 export const normalizeSafeguardCountMode = (value: unknown): SafeguardRuleCountMode => {
-  // Delegate default + sanitize logic to wasm so TS does not duplicate mode rules.
+  if (typeof value === 'string') {
+    const token = value.trim().toLowerCase()
+    if (token === 'perrule' || token === 'rule') {
+      return {
+        perRule: true,
+        perSet: false,
+        perFaction: false,
+        perMainStat: false,
+        perSlot: false,
+      }
+    }
+  }
   return sanitizeCountMode(value as Partial<SafeguardRuleCountMode> | null | undefined)
 }
 
@@ -369,12 +402,12 @@ export type SafeguardDetectionParams = {
 
 export type SafeguardCollectAndDetectParams = {
   rows: readonly TesterPreviewRow[]
-  baseRules: readonly HsfRuleWithCfg[]
+  baseRules: readonly HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
   rules: readonly SafeguardRule[]
   enabled: boolean
   now?: number
-  ignoreSafeguardConfigIndices?: ReadonlySet<number>
+  ignoreSafeguardRecipeIndices?: ReadonlySet<number>
 }
 
 export type SafeguardCollectAndDetectSnapshot = {
@@ -417,33 +450,154 @@ const rarityCodeByName = new Map<string, RankValue>(
     .map(([id, name]) => [name.trim().toLowerCase(), Math.max(RANK_VALUE_MIN, Math.min(RANK_VALUE_MAX, Number(id))) as RankValue]),
 )
 
-// Keep lookup-record conversion in one helper so wasm payload shape remains
-// stable whenever we add/adjust normalization lookups.
-const toSafeguardLookupRecord = (values: ReadonlyMap<string, number>): Record<string, number> => {
-  const out: Record<string, number> = {}
-  for (const [key, value] of values.entries()) {
-    const trimmed = key.trim().toLowerCase()
-    if (!trimmed) continue
-    if (!Number.isFinite(value)) continue
-    out[trimmed] = Math.floor(value)
+// buildNormalizedSafeguardRuleId keeps generated ids deterministic per call
+// while preserving existing random-prefix behavior across imports/paste.
+const buildNormalizedSafeguardRuleId = (): string => {
+  return createSafeguardRuleId()
+}
+
+// Narrow unknown values before property reads so normalization stays type-safe.
+const toRecord = (value: unknown): Record<string, unknown> | null => (
+  value && typeof value === 'object' ? value as Record<string, unknown> : null
+)
+
+// Floor finite number-like values so parsing mirrors JS Number()+floor semantics.
+const toFiniteFloor = (value: unknown): number | null => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return null
+  return Math.floor(numeric)
+}
+
+// Legacy safeguard toggles treated non-empty strings as true in snapshots.
+const toBoolish = (value: unknown): boolean | null => {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number' && Number.isFinite(value)) return value !== 0
+  if (typeof value === 'string') return value.trim().length > 0
+  return null
+}
+
+// Rank/rarity coercion accepts readable labels, starred labels, or numeric ids.
+const parseRankOrRarity = (value: unknown): RankValue | null => {
+  if (value == null) return null
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return null
+    const mapped = rarityCodeByName.get(trimmed.toLowerCase())
+    if (mapped != null) return mapped
+    const digits = trimmed.match(/\d+/g)?.join('') ?? ''
+    if (digits) {
+      const parsedDigits = Number(digits)
+      if (Number.isFinite(parsedDigits)) {
+        return Math.max(RANK_VALUE_MIN, Math.min(RANK_VALUE_MAX, Math.floor(parsedDigits))) as RankValue
+      }
+    }
+    const parsedNumeric = toFiniteFloor(trimmed)
+    if (parsedNumeric != null) {
+      return Math.max(RANK_VALUE_MIN, Math.min(RANK_VALUE_MAX, parsedNumeric)) as RankValue
+    }
+    return RANK_VALUE_MAX as RankValue
+  }
+  const parsed = toFiniteFloor(value)
+  if (parsed != null) return Math.max(RANK_VALUE_MIN, Math.min(RANK_VALUE_MAX, parsed)) as RankValue
+  return RANK_VALUE_MAX as RankValue
+}
+
+// Parse readable/legacy stat labels first, then numeric variants.
+const parseStatVariant = (value: unknown): StatVariant => {
+  if (typeof value === 'string') {
+    const fromLabel = variantFromLabel(value)
+    if (fromLabel != null) return fromLabel
+  }
+  const numeric = toFiniteFloor(value)
+  if (numeric == null || numeric < 0) return StatVariantEnum.Any as StatVariant
+  return numeric as StatVariant
+}
+
+// Dedup + lexical ordering keeps metaset ids stable for hashing and exports.
+const sortUniqueMetaSetIds = (values: string[]): string[] => {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b))
+}
+
+// Shared recursive walker keeps legacy nested-array payload support centralized.
+const collectRecursive = (value: unknown, collectLeaf: (leaf: unknown) => void): void => {
+  if (Array.isArray(value)) {
+    for (const nested of value) collectRecursive(nested, collectLeaf)
+    return
+  }
+  collectLeaf(value)
+}
+
+// Named-or-numeric parser is reused by slot/set/faction readers.
+const parseNamedOrNumeric = (value: unknown, lookup: ReadonlyMap<string, number>): number | null => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim().toLowerCase()
+    if (!trimmed) return null
+    const mapped = lookup.get(trimmed)
+    if (mapped != null) return mapped
+  }
+  return toFiniteFloor(value)
+}
+
+// Parse readable set selections while preserving include/exclude precedence.
+const parseSetSelections = (value: unknown): ArtifactSetSelectionEntry[] => {
+  const collected: ArtifactSetSelectionEntry[] = []
+  collectRecursive(value, (leaf) => {
+    const record = toRecord(leaf)
+    if (record) {
+      const source = record.id ?? record.setId ?? record.name ?? record.label
+      const parsedId = parseNamedOrNumeric(source, artifactSetIdByName)
+      if (parsedId == null) return
+      collected.push(record.excluded === true
+        ? { id: parsedId as ArtifactSetId, excluded: true }
+        : { id: parsedId as ArtifactSetId })
+      return
+    }
+    const parsed = parseNamedOrNumeric(leaf, artifactSetIdByName)
+    if (parsed == null) return
+    collected.push({ id: parsed as ArtifactSetId })
+  })
+  return normalizeArtifactSetSelections(collected)
+}
+
+// Normalized weight helper keeps legacy values clamped to the canonical range.
+const normalizeSubstatWeight = (value: unknown): number => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return SAFEGUARD_WEIGHT_DEFAULT
+  const clamped = Math.max(SAFEGUARD_WEIGHT_MIN, Math.min(SAFEGUARD_WEIGHT_MAX, numeric))
+  const stepped = Math.round(clamped / SAFEGUARD_WEIGHT_STEP) * SAFEGUARD_WEIGHT_STEP
+  return Math.round(stepped * 100) / 100
+}
+
+// Parse optional substat weighting maps from readable or legacy rule payloads.
+const parseSubstatWeights = (value: unknown): Partial<Record<StatVariant, number>> => {
+  const record = toRecord(value)
+  if (!record) return {}
+  const out: Partial<Record<StatVariant, number>> = {}
+  for (const [rawKey, rawValue] of Object.entries(record)) {
+    const variant = parseStatVariant(rawKey)
+    if (variant === StatVariantEnum.Any || variant === StatVariantEnum.RollCount) continue
+    const normalized = normalizeSubstatWeight(rawValue)
+    if (normalized === SAFEGUARD_WEIGHT_DEFAULT) continue
+    out[variant] = normalized
   }
   return out
 }
 
-// Readable HSFC lookups stay sourced from TS constants while recursive parsing
-// moves to wasm. Stat-variant labels are handled in Rust with TS-parity aliases.
-const SAFEGUARD_NORMALIZATION_LOOKUPS = Object.freeze({
-  artifactTypeIdsByName: toSafeguardLookupRecord(artifactTypeIdByName),
-  artifactSetIdsByName: toSafeguardLookupRecord(artifactSetIdByName),
-  factionIdsByName: toSafeguardLookupRecord(factionIdByName),
-  rarityCodesByName: toSafeguardLookupRecord(rarityCodeByName),
-  statVariantIdsByLabel: {},
-})
-
-// buildNormalizedSafeguardRuleId keeps generated ids deterministic per call
-// while still letting wasm own the rest of the rule normalization logic.
-const buildNormalizedSafeguardRuleId = (): string => {
-  return createSafeguardRuleId()
+// Readable exports may wrap rules as `{ kind: 'safeguardRule', rule: {...} }`.
+const unwrapSafeguardRuleRecord = (value: unknown): Record<string, unknown> | null => {
+  const record = toRecord(value)
+  if (!record) return null
+  const hasRuleShape = (
+    'combination' in record
+    || 'tuple' in record
+    || 'requiredCount' in record
+    || 'countMode' in record
+  )
+  if (!hasRuleShape) {
+    const nestedRule = toRecord(record.rule)
+    if (nestedRule) return nestedRule
+  }
+  return record
 }
 
 // sortSafeguardSubstats keeps substat selections aligned with app-wide stat priority.
@@ -460,23 +614,124 @@ export const sortSafeguardCombination = (combination: SafeguardCombination): Saf
 
 /** Normalize combination payloads loaded from HSFC/autosave. */
 export function normalizeSafeguardCombination(value: unknown): SafeguardCombination | null {
-  // Delegate normalization to wasm so recursive tuple parsing is SSOT in Rust.
-  return normalizeSafeguardCombinationWithLoadedWasm<SafeguardCombination>(
-    value,
-    SAFEGUARD_NORMALIZATION_LOOKUPS,
-  )
+  const record = toRecord(value)
+  if (!record) return null
+  const slots: ArtifactTypeId[] = []
+  const ranks: RankValue[] = []
+  const rarities: RankValue[] = []
+  const mainStats: StatVariant[] = []
+  const factions: FactionId[] = []
+  const metaSetIds: string[] = []
+
+  collectRecursive(record.slots, (leaf) => {
+    const parsed = parseNamedOrNumeric(leaf, artifactTypeIdByName)
+    if (parsed == null) return
+    slots.push(parsed as ArtifactTypeId)
+  })
+  collectRecursive(record.ranks, (leaf) => {
+    const parsed = parseRankOrRarity(leaf)
+    if (parsed == null) return
+    ranks.push(parsed)
+  })
+  collectRecursive(record.rarities, (leaf) => {
+    const parsed = parseRankOrRarity(leaf)
+    if (parsed == null) return
+    rarities.push(parsed)
+  })
+  collectRecursive(record.mainStats, (leaf) => {
+    const parsed = parseStatVariant(leaf)
+    if (parsed === StatVariantEnum.Any) return
+    mainStats.push(parsed)
+  })
+  collectRecursive(record.factions, (leaf) => {
+    if (typeof leaf === 'string' && leaf.trim().length === 0) return
+    const parsed = parseNamedOrNumeric(leaf, factionIdByName)
+    if (parsed == null) return
+    factions.push(parsed as FactionId)
+  })
+  collectRecursive(record.metaSetIds, (leaf) => {
+    if (typeof leaf !== 'string') return
+    const trimmed = leaf.trim()
+    if (!trimmed) return
+    metaSetIds.push(trimmed)
+  })
+  collectRecursive(record.metaSets, (leaf) => {
+    if (typeof leaf !== 'string') return
+    const trimmed = leaf.trim()
+    if (!trimmed) return
+    metaSetIds.push(trimmed)
+  })
+
+  return {
+    slots: Array.from(new Set(slots)).sort((left, right) => compareArtifactTypes(left, right)),
+    sets: parseSetSelections(record.sets),
+    metaSetIds: sortUniqueMetaSetIds(metaSetIds),
+    ranks: Array.from(new Set(ranks)).sort((a, b) => a - b),
+    rarities: Array.from(new Set(rarities)).sort((a, b) => a - b),
+    mainStats: sortSafeguardSubstats(Array.from(new Set(mainStats))),
+    factions: Array.from(new Set(factions)).sort((a, b) => a - b),
+  }
 }
 
 /** Normalize rule payloads; returns null when combination data is invalid. */
 export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
-  // Generate fallback id in TS so rule ids keep the same prefix/time randomness.
+  const record = unwrapSafeguardRuleRecord(value)
+  if (!record) return null
   const generatedRuleId = buildNormalizedSafeguardRuleId()
-  // Delegate normalization to wasm so recursive rule parsing is SSOT in Rust.
-  return normalizeSafeguardRuleWithLoadedWasm<SafeguardRule>(
-    value,
-    SAFEGUARD_NORMALIZATION_LOOKUPS,
-    generatedRuleId,
+  const combinationSource = record.combination ?? record.tuple ?? value
+  const combination = normalizeSafeguardCombination(combinationSource)
+  if (!combination) return null
+
+  const explicitId = typeof record.id === 'string' ? record.id.trim() : ''
+  const id = explicitId || generatedRuleId
+  const name = typeof record.name === 'string' ? record.name.trim() : ''
+  const requiredCount = Math.max(1, toFiniteFloor(record.requiredCount) ?? 1)
+  const countMode = (
+    Object.prototype.hasOwnProperty.call(record, 'countMode')
+      ? normalizeSafeguardCountMode(record.countMode)
+      : sanitizeCountMode(SAFEGUARD_DEFAULT_COUNT_MODE)
   )
+
+  const parsedSubstats = (() => {
+    const out: StatVariant[] = []
+    const collectFrom = (source: unknown): void => {
+      collectRecursive(source, (leaf) => {
+        const parsed = parseStatVariant(leaf)
+        if (parsed === StatVariantEnum.Any || parsed === StatVariantEnum.RollCount) return
+        out.push(parsed)
+      })
+    }
+    collectFrom(record.substats)
+    if (out.length === 0) collectFrom(record.substatTargets)
+    if (out.length === 0) collectFrom(record.substat)
+    return sortSafeguardSubstats(Array.from(new Set(out)))
+  })()
+  const parsedSubstatMatch = (
+    Object.prototype.hasOwnProperty.call(record, 'substatMatch')
+      ? normalizeSafeguardSubstatMatch(record.substatMatch)
+      : SafeguardSubstatMatch.Any
+  )
+  const substatMatch = parsedSubstats.length === 0 ? SafeguardSubstatMatch.Any : parsedSubstatMatch
+
+  const weightsSource = (
+    Object.prototype.hasOwnProperty.call(record, 'substatWeights')
+      ? record.substatWeights
+      : record.substatWeighting
+  )
+  return {
+    id,
+    name,
+    combination,
+    requiredCount,
+    activation: normalizeSafeguardActivation(record.activation),
+    countMode,
+    ignorePreviousSafeguards: toBoolish(record.ignorePreviousSafeguards) ?? SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
+    ignoreEquippedInCollection: toBoolish(record.ignoreEquippedInCollection) ?? SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
+    ignoreEquippedInVault: toBoolish(record.ignoreEquippedInVault) ?? SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
+    substats: parsedSubstats,
+    substatMatch,
+    substatWeights: parseSubstatWeights(weightsSource),
+  }
 }
 
 /** Shared helper for mapping tester artifacts to the detection item key. */
@@ -562,25 +817,25 @@ const isSafeguardDetectionSnapshot = (value: unknown): value is SafeguardDetecti
 
 export function collectSafeguardCandidates(params: {
   rows: readonly TesterPreviewRow[]
-  baseRules: readonly HsfRuleWithCfg[]
+  baseRules: readonly HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
-  ignoreSafeguardConfigIndices?: ReadonlySet<number>
+  ignoreSafeguardRecipeIndices?: ReadonlySet<number>
 }): SafeguardCandidateSnapshot {
   const { rows, baseRules, recipeModes } = params
   // Allow safeguard detection to skip recipes that only protect rework fodder.
-  const ignoreConfigSet = params.ignoreSafeguardConfigIndices && params.ignoreSafeguardConfigIndices.size > 0
-    ? params.ignoreSafeguardConfigIndices
+  const ignoreRecipeSet = params.ignoreSafeguardRecipeIndices && params.ignoreSafeguardRecipeIndices.size > 0
+    ? params.ignoreSafeguardRecipeIndices
     : null
   if (!rows.length) return { candidates: [], uniqueItemKeys: new Set() }
-  const baseRuleList: HsfRuleWithCfg[] = Array.isArray(baseRules) ? [...baseRules] : []
-  // Pass raw preview rows and let wasm normalize fields for collection.
-  // WASM-first candidate snapshot keeps assembly semantics in Rust.
+  const baseRuleList: HsfRuleWithRecipe[] = Array.isArray(baseRules) ? [...baseRules] : []
+  // Pass canonical preview rows and let wasm derive matcher keys/flags.
+  // WASM-first candidate snapshot keeps collection semantics in Rust.
   try {
     const snapshot = collectSafeguardCandidatesWithLoadedWasm({
       rows,
       rules: baseRuleList,
       recipeModes,
-      ...(ignoreConfigSet ? { ignoreSafeguardConfigIndices: ignoreConfigSet } : {}),
+      ...(ignoreRecipeSet ? { ignoreSafeguardRecipeIndices: ignoreRecipeSet } : {}),
     })
     const candidates: SafeguardCandidate[] = snapshot.candidates.map((entry) => {
       const row = rows[entry.rowIndex]!
@@ -606,8 +861,8 @@ export function collectAndComputeSafeguardProtection(
   params: SafeguardCollectAndDetectParams,
 ): SafeguardCollectAndDetectSnapshot {
   const { rows, baseRules, recipeModes, rules, enabled, now } = params
-  const ignoreConfigSet = params.ignoreSafeguardConfigIndices && params.ignoreSafeguardConfigIndices.size > 0
-    ? params.ignoreSafeguardConfigIndices
+  const ignoreRecipeSet = params.ignoreSafeguardRecipeIndices && params.ignoreSafeguardRecipeIndices.size > 0
+    ? params.ignoreSafeguardRecipeIndices
     : null
   const timestamp = Number.isFinite(now) ? Number(now) : Date.now()
   if (!rows.length) {
@@ -616,13 +871,13 @@ export function collectAndComputeSafeguardProtection(
       detection: { scannedAt: timestamp, entries: [] },
     }
   }
-  const baseRuleList: HsfRuleWithCfg[] = Array.isArray(baseRules) ? [...baseRules] : []
-  // Pass raw rows/rules and let wasm normalize to its detection payload.
+  const baseRuleList: HsfRuleWithRecipe[] = Array.isArray(baseRules) ? [...baseRules] : []
+  // Pass canonical rows/rules and let wasm produce the detection payload.
   const combined = collectAndComputeSafeguardProtectionWithLoadedWasm({
     rows,
     rules: baseRuleList,
     recipeModes,
-    ...(ignoreConfigSet ? { ignoreSafeguardConfigIndices: ignoreConfigSet } : {}),
+    ...(ignoreRecipeSet ? { ignoreSafeguardRecipeIndices: ignoreRecipeSet } : {}),
     safeguardRules: rules,
     expectedGroupDomain: buildSafeguardExpectedGroupDomain(),
     enabled,
@@ -676,7 +931,7 @@ export function resolveSafeguardRulesWithMetasets<T extends { combination: Safeg
   return resolveSafeguardRulesWithMetasetsWithLoadedWasm(rules, metasets)
 }
 
-type SafeguardLabelSource = SafeguardRule | HsfRuleWithCfg | null | undefined
+type SafeguardLabelSource = SafeguardRule | HsfRuleWithRecipe | null | undefined
 
 /**
  * Resolve the label to display for a Safeguard rule or injected row.

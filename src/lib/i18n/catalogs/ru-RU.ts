@@ -58,7 +58,8 @@ const overrides: Catalog = {
   gearDialogIntro: 'Используйте диалог «Снаряжение» (Logic Hub → вкладка) чтобы создать примерные вещи и увидеть, какое правило их оставит или продаст. Загрузите или перетащите базу RSL Helper (обычно в %APPDATA%\\RslHelper\\Config), чтобы режим тестера показывал реальные предметы.',
   gearDialogManualOnlyNotice: 'В этой панели показываются только пользовательские записи. Импортированные предметы из инвентаря, коллекции, хранилища и почты остаются видимыми в тестере; при необходимости удаляйте эти источники кнопками ниже.',
   testerRule: 'Правило',
-  testerJumpToRecipe: 'Перейти к рецепту',
+  testerJumpToRecipe: 'Выбрать рецепт',
+  testerJumpToSafeguard: 'Открыть правило сохранения',
   testerNoMatch: 'Нет совпад.',
   testerFinalSell: 'Финпродажа',
   gearDialogDeleteSourceConfirmTitle: 'Удалить экипировку «{source}»?',
@@ -583,8 +584,11 @@ const overrides: Catalog = {
   setDesc_setBloodshield_text: 'за предмет: {buff:Shield} = 5% нанесённого урона после атаки (AoE уменьшен на 75%); итого: 5/10/15% при 1/2/3 предметах',
 
   // Rules table: columns and UI
-  colIdx: '№',
-  colCfg: 'Конф',
+  colIdx: '#',
+  colRecipe: 'Рецепт',
+  colName: 'Название',
+  colIdxMenu: 'Индекс строки HSF',
+  colRecipeIdxMenu: 'Индекс рецепта',
   colKeep: 'Оставить',
   colUse: 'Исп.',
   colSets: 'Сеты',
@@ -1170,6 +1174,7 @@ const overrides: Catalog = {
   toastL10nLoadFailed: 'Не удалось загрузить файл локализации',
   toastGearSetsLoaded: 'Загружено {count} пользовательских наборов',
   toastGearSetsLoadFailed: 'Не удалось загрузить файл наборов',
+  toastTesterFocusArtifactFiltered: 'Целевой предмет сейчас скрыт активными фильтрами тестера.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Основы',

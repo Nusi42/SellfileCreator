@@ -58,7 +58,8 @@ const catalog: Catalog = {
   gearDialogIntro: 'Use o diálogo Equipamentos (Logic Hub → guia Equipamentos) para criar peças de exemplo e ver qual regra mantém ou vende o item. Carregue ou arraste um banco de dados do RSL Helper (geralmente em %APPDATA%\\RslHelper\\Receita) para que a visualização do Teste de Regras reflita equipamentos reais.',
   gearDialogManualOnlyNotice: 'Este painel mostra apenas as entradas personalizadas. Os itens importados do inventário, coleção, cofre e caixa de entrada continuam visíveis na visualização do Teste de Regras; use os botões abaixo para remover essas origens, se necessário.',
   testerRule: 'Regra',
-  testerJumpToRecipe: 'Ir para a receita',
+  testerJumpToRecipe: 'Selecionar receita',
+  testerJumpToSafeguard: 'Abrir salvaguarda',
   testerNoMatch: 'Sem acerto',
   testerFinalSell: 'Venda final',
   gearDialogDeleteSourceConfirmTitle: 'Excluir o equipamento "{source}"?',
@@ -583,8 +584,11 @@ const catalog: Catalog = {
   setDesc_setBloodshield_text: 'por peça: {buff:Shield} equivalente a 5% do dano causado após atacar (AoE reduzido em 75%); totais: 5/10/15% com 1/2/3 peças',
 
   // Rules table: columns and UI
-  colIdx: 'Nº',
-  colCfg: 'Cfg',
+  colIdx: '#',
+  colRecipe: 'Receita',
+  colName: 'Nome',
+  colIdxMenu: 'Índice da linha HSF',
+  colRecipeIdxMenu: 'Índice da receita',
   colKeep: 'Manter',
   colUse: 'Usar',
   colSets: 'Conjuntos',
@@ -1170,6 +1174,7 @@ const catalog: Catalog = {
   toastL10nLoadFailed: 'Falha ao carregar o arquivo de localização',
   toastGearSetsLoaded: '{count} conjuntos personalizados carregados',
   toastGearSetsLoadFailed: 'Falha ao carregar o arquivo de conjuntos',
+  toastTesterFocusArtifactFiltered: 'O item de destino está oculto pelos filtros ativos do tester.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Noções básicas',

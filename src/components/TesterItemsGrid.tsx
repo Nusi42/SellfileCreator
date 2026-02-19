@@ -17,7 +17,7 @@ import {
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SellIcon from '@mui/icons-material/Sell'
-import { alpha, useTheme, type Theme } from '@mui/material/styles'
+import { alpha, keyframes, useTheme, type Theme } from '@mui/material/styles'
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined'
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import MailOutlineIcon from '@mui/icons-material/MailOutline'
@@ -266,6 +266,43 @@ const MATCHING_CHIP_WRAPPER_SX = {
 // Skeleton batches spread icon decoding across frames so collapsed accordions can re-open instantly.
 const GRID_CARD_SKELETON_BATCH_SIZE = 6
 const GRID_CARD_SKELETON_FRAME_DELAY_MS = 24
+// Focused cards briefly glow so programmatic jumps are visible even without persistent selection state.
+// Two slower pulses make cross-view jumps easier to notice without looking like a persistent selection.
+const GRID_CARD_FOCUS_PULSE_DURATION_MS = 1500
+// Pulse keyframes intentionally return to baseline so focused cards never look permanently selected.
+// CSS variables provide theme-aware colors without rebuilding keyframes at runtime.
+const TESTER_GRID_CARD_FOCUS_PULSE_KEYFRAMES = keyframes`
+  0% {
+    border-color: var(--tester-focus-border-base);
+    background-color: var(--tester-focus-bg-base);
+    box-shadow: var(--tester-focus-shadow-base);
+  }
+  18% {
+    border-color: var(--tester-focus-border-peak);
+    background-color: var(--tester-focus-bg-peak);
+    box-shadow: var(--tester-focus-shadow-peak);
+  }
+  36% {
+    border-color: var(--tester-focus-border-base);
+    background-color: var(--tester-focus-bg-base);
+    box-shadow: var(--tester-focus-shadow-base);
+  }
+  62% {
+    border-color: var(--tester-focus-border-peak);
+    background-color: var(--tester-focus-bg-peak);
+    box-shadow: var(--tester-focus-shadow-peak);
+  }
+  80% {
+    border-color: var(--tester-focus-border-base);
+    background-color: var(--tester-focus-bg-base);
+    box-shadow: var(--tester-focus-shadow-base);
+  }
+  100% {
+    border-color: var(--tester-focus-border-base);
+    background-color: var(--tester-focus-bg-base);
+    box-shadow: var(--tester-focus-shadow-base);
+  }
+`
 
 const SOURCE_ICON_MAP: Record<TesterSourceFilter, React.ElementType | null> = {
   manual: BuildOutlinedIcon,
@@ -300,6 +337,10 @@ type TesterItemsGridProps = {
   onChangeColorBlindMode: (mode: ColorBlindMode) => void
   colorIconSrc: string
   recipeNames: Array<string | null>
+  // Optional one-shot request to expand + scroll to a concrete artifact card.
+  focusArtifactRequest?: { artifactId: number; token: number } | null
+  // Optional callback when the requested artifact is hidden by active tester filters.
+  onFocusArtifactFilteredOut?: ((artifactId: number) => void) | undefined
   onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null) => void) | undefined
   onCreateRuleTemplate?: ((row: TesterPreviewRow, intent: TesterRuleTemplateIntent) => void) | undefined
   variant?: TesterItemsGridVariant
@@ -348,7 +389,7 @@ type GroupRowsBySetOptions = {
   substatSort: TesterSubstatSortSpec | null
 }
 
-type MatchingConfigEntry = {
+type MatchingRecipeEntry = {
   recipeIdx: number
   label: string
   textColor: string | null
@@ -367,6 +408,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     onChangeColorBlindMode,
     colorIconSrc,
     recipeNames,
+    focusArtifactRequest = null,
+    onFocusArtifactFilteredOut,
     onJumpToRule,
     onCreateRuleTemplate,
     variant = 'tester',
@@ -387,7 +430,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   } = props
   // Variant flags control keep-override behavior without forking the grid.
   const safeguardsVariant = variant === 'safeguards'
-  // Keep-unique is the only keep-override variant now.
+  // Safeguards is the only keep-override variant now.
   const keepOverrideVariant = safeguardsVariant
   // Memoized predicates avoid re-render churn when Safeguards toggles highlighting.
   const highlightRowPredicate = typeof highlightedRowPredicate === 'function' ? highlightedRowPredicate : null
@@ -526,14 +569,14 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const {
     columns: gridColumnPreference,
     showFirstMatch,
-    showMatchConfigIndex,
+    showMatchRecipeIndex,
     showMatchLine: showMatchLineNumber,
     showOtherMatches,
     showChampionIcons,
     showRuleTemplates,
     setColumns,
     setShowFirstMatch,
-    setShowMatchConfigIndex,
+    setShowMatchRecipeIndex,
     setShowMatchLine,
     setShowOtherMatches,
     setShowChampionIcons,
@@ -966,6 +1009,93 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     groups.forEach(assignGroup)
     return map
   }, [groups])
+  const [focusPulseArtifactId, setFocusPulseArtifactId] = useState<number | null>(null)
+  const focusPulseClearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const triggerFocusPulse = useCallback((artifactId: number) => {
+    // Replace any prior pulse so rapid star-clicks always emphasize the latest card.
+    if (focusPulseClearTimeoutRef.current) {
+      clearTimeout(focusPulseClearTimeoutRef.current)
+      focusPulseClearTimeoutRef.current = null
+    }
+    setFocusPulseArtifactId(artifactId)
+    focusPulseClearTimeoutRef.current = setTimeout(() => {
+      setFocusPulseArtifactId((current) => (current === artifactId ? null : current))
+      focusPulseClearTimeoutRef.current = null
+    }, GRID_CARD_FOCUS_PULSE_DURATION_MS)
+  }, [])
+  useEffect(() => () => {
+    if (focusPulseClearTimeoutRef.current) {
+      clearTimeout(focusPulseClearTimeoutRef.current)
+      focusPulseClearTimeoutRef.current = null
+    }
+  }, [])
+  const lastAppliedFocusTokenRef = useRef<number | null>(null)
+  useLayoutEffect(() => {
+    if (!focusArtifactRequest) return
+    if (lastAppliedFocusTokenRef.current === focusArtifactRequest.token) return
+    const targetArtifactId = Number(focusArtifactRequest.artifactId)
+    if (!Number.isFinite(targetArtifactId)) {
+      lastAppliedFocusTokenRef.current = focusArtifactRequest.token
+      return
+    }
+    // Ensure the owning accordion branch is expanded before we attempt to scroll.
+    const targetGroupKey = rowGroupKeyLookup.get(targetArtifactId)
+    if (targetGroupKey) {
+      const keysToExpand: string[] = []
+      let cursor: string | null = targetGroupKey
+      while (cursor) {
+        keysToExpand.push(cursor)
+        cursor = groupLookup.get(cursor)?.parentKey ?? null
+      }
+      const shouldExpand = keysToExpand.some((key) => collapsedGroups.has(key))
+      if (shouldExpand) {
+        setCollapsedGroups((prev) => {
+          const next = new Set(prev)
+          for (const key of keysToExpand) {
+            next.delete(key)
+          }
+          return next.size === prev.size ? prev : next
+        })
+        return
+      }
+    }
+    const targetIndex = flattenedItems.findIndex((item) => (
+      item.kind === 'cardRow'
+      && item.rowEntries.some((entry) => Number(entry.artifact?.id) === targetArtifactId)
+    ))
+    if (targetIndex < 0) {
+      // If filters hide the row we still consume the request to avoid retry loops.
+      if (filterActive) {
+        onFocusArtifactFilteredOut?.(targetArtifactId)
+      }
+      lastAppliedFocusTokenRef.current = focusArtifactRequest.token
+      return
+    }
+    // Programmatic jumps get a temporary visual pulse because cards have no persistent selection state yet.
+    triggerFocusPulse(targetArtifactId)
+    rowVirtualizer.scrollToIndex(targetIndex, { align: 'center' })
+    // Virtualizer scroll is index-based; follow with DOM centering for the exact card within its row.
+    if (typeof window !== 'undefined') {
+      window.requestAnimationFrame(() => {
+        const container = containerRef.current
+        const card = container?.querySelector<HTMLElement>(
+          `[data-tester-grid-card="true"][data-row-id="${targetArtifactId}"]`,
+        )
+        card?.scrollIntoView({ block: 'center', inline: 'nearest' })
+      })
+    }
+    lastAppliedFocusTokenRef.current = focusArtifactRequest.token
+  }, [
+    collapsedGroups,
+    filterActive,
+    flattenedItems,
+    focusArtifactRequest,
+    groupLookup,
+    onFocusArtifactFilteredOut,
+    rowGroupKeyLookup,
+    rowVirtualizer,
+    triggerFocusPulse,
+  ])
   const fallbackScrollHintRowId = useMemo(() => {
     for (let idx = 0; idx < rows.length; idx += 1) {
       const candidateId = Number(rows[idx]?.artifact?.id)
@@ -1433,7 +1563,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   suppressMatchDetails={matchDetailsFrozen}
                   showFirstMatchRow={showFirstMatch}
                   showOtherMatchesRow={showOtherMatches}
-                  showMatchConfigIndex={showMatchConfigIndex}
+                  showMatchRecipeIndex={showMatchRecipeIndex}
                   showMatchLineNumber={showMatchLineNumber}
                   showChampionIcons={showChampionIcons}
                   cardHeightPx={cardHeightPx}
@@ -1443,6 +1573,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   onCreateRuleTemplate={canShowRuleTemplateActions ? onCreateRuleTemplate : undefined}
                   highlightedRowPredicate={highlightRowPredicate}
                   dimUnhighlightedRows={shouldDimUnhighlightedRows}
+                  focusPulseActive={Number(row.artifact?.id) === focusPulseArtifactId}
                   cardPriority={{ base: scrollVersion, order: cardPriorityOrder }}
                 />
               )
@@ -1838,23 +1969,23 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           disabled={!showFirstMatch}
           onClick={() => {
             if (!showFirstMatch) return
-            setShowMatchConfigIndex(!showMatchConfigIndex)
+            setShowMatchRecipeIndex(!showMatchRecipeIndex)
           }}
         >
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowMatchRecipeIndex')}</Typography>
           <Button
             size="small"
-            variant={showMatchConfigIndex ? 'contained' : 'outlined'}
+            variant={showMatchRecipeIndex ? 'contained' : 'outlined'}
             color="success"
             disabled={!showFirstMatch}
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
             onClick={(event) => {
               event.stopPropagation()
               if (!showFirstMatch) return
-              setShowMatchConfigIndex(!showMatchConfigIndex)
+              setShowMatchRecipeIndex(!showMatchRecipeIndex)
             }}
           >
-            {showMatchConfigIndex ? t('commonOn') : t('commonOff')}
+            {showMatchRecipeIndex ? t('commonOn') : t('commonOff')}
           </Button>
         </MenuItem>
         <MenuItem
@@ -2208,7 +2339,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   suppressMatchDetails,
   showFirstMatchRow,
   showOtherMatchesRow,
-  showMatchConfigIndex,
+  showMatchRecipeIndex,
   showMatchLineNumber,
   showChampionIcons,
   cardHeightPx,
@@ -2218,6 +2349,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   onCreateRuleTemplate,
   highlightedRowPredicate = null,
   dimUnhighlightedRows = false,
+  focusPulseActive = false,
   cardPriority,
 }: {
   row: TesterPreviewRow
@@ -2227,7 +2359,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   suppressMatchDetails: boolean
   showFirstMatchRow: boolean
   showOtherMatchesRow: boolean
-  showMatchConfigIndex: boolean
+  showMatchRecipeIndex: boolean
   showMatchLineNumber: boolean
   showChampionIcons: boolean
   cardHeightPx: number
@@ -2237,27 +2369,28 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   onCreateRuleTemplate?: ((row: TesterPreviewRow, intent: TesterRuleTemplateIntent) => void) | undefined
   highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
+  focusPulseActive?: boolean
   cardPriority: { base: number; order: number }
 }) {
   // Highlight state lets Safeguards call attention to the at-risk combinations without mutating the dataset.
   const highlightFn = typeof highlightedRowPredicate === 'function' ? highlightedRowPredicate : null
   const cardHighlighted = highlightFn ? Boolean(highlightFn(row)) : false
-  const cardDimmed = Boolean(highlightFn && dimUnhighlightedRows && !cardHighlighted)
+  const cardDimmed = Boolean(highlightFn && dimUnhighlightedRows && !cardHighlighted && !focusPulseActive)
   // Frozen match rows keep stale data visible but low-opacity until the rebuild commits.
   const matchDetailsFrozen = Boolean(suppressMatchDetails)
   const matchDetailsOpacity = matchDetailsFrozen ? 0.45 : 1
   const { t, lang } = useI18n()
   const theme = useTheme()
-  const configTextFallbackColor = theme.palette.primary.main
+  const recipeTextFallbackColor = theme.palette.primary.main
   const artifact = row.artifact
   const priorityBase = Number(cardPriority?.base) || 0
   const priorityOrder = Number(cardPriority?.order) || 0
   const rawArtifactId = Number(artifact?.id)
   const normalizedArtifactId = Number.isFinite(rawArtifactId) ? rawArtifactId : null
   const mightShowOtherMatchesRow = useMemo(() => {
-    if (!Array.isArray(row.matchingCfgIndices)) return false
+    if (!Array.isArray(row.matchingRecipeIndices)) return false
     const seen = new Set<number>()
-    for (const rawIdx of row.matchingCfgIndices) {
+    for (const rawIdx of row.matchingRecipeIndices) {
       const numericIdx = Number(rawIdx)
       if (!Number.isFinite(numericIdx)) continue
       if (seen.has(numericIdx)) continue
@@ -2267,7 +2400,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
       }
     }
     return false
-  }, [row.matchingCfgIndices])
+  }, [row.matchingRecipeIndices])
   // Match rows stay mounted even while frozen so the stale data can be seen at a glance.
   const basePrimaryMatchRowVisible = showFirstMatchRow
   const baseOtherMatchesRowVisible = showOtherMatchesRow && mightShowOtherMatchesRow
@@ -2278,13 +2411,13 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   const cardContentReady = useTesterGridCardContentReady(normalizedArtifactId, priorityBase, priorityOrder)
   const match = row.match
   const primaryRuleIndex = typeof match?.ruleIndex === 'number' ? match.ruleIndex : null
-  const primaryCfgIndex = typeof match?.recipeIdx === 'number' ? match.recipeIdx : null
+  const primaryRecipeIndex = typeof match?.recipeIdx === 'number' ? match.recipeIdx : null
   const canJumpToPrimaryMatch = typeof onJumpToRule === 'function' && primaryRuleIndex != null
   // Jump affordances stay disabled until the rebuild commits so stale matches never focus the wrong recipe.
   const allowPrimaryMatchJump = Boolean(!matchDetailsFrozen && canJumpToPrimaryMatch)
   const handlePrimaryMatchClick = () => {
     if (!allowPrimaryMatchJump || primaryRuleIndex == null) return
-    onJumpToRule?.(primaryRuleIndex, primaryCfgIndex ?? null)
+    onJumpToRule?.(primaryRuleIndex, primaryRecipeIndex ?? null)
   }
   // Template actions only appear when the parent supplies a handler.
   const canCreateRuleTemplate = typeof onCreateRuleTemplate === 'function'
@@ -2315,7 +2448,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     handleRuleTemplateClose()
   }
   // Map caches the first keep/sell decision per recipe so overflow chips reuse the same tint.
-  const matchingConfigKeepMap = useMemo(() => {
+  const matchingRecipeKeepMap = useMemo(() => {
     const map = new Map<number, boolean>()
     if (!Array.isArray(row.matchingRecipeDecisions)) return map
     for (const decision of row.matchingRecipeDecisions) {
@@ -2326,18 +2459,18 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     return map
   }, [row.matchingRecipeDecisions])
   // Matching chips hydrate lazily so skeleton rows can avoid heavy string work until revealed.
-  const matchingEntries: MatchingConfigEntry[] = useMemo(() => {
+  const matchingEntries: MatchingRecipeEntry[] = useMemo(() => {
     if (!cardContentReady) return []
-    if (!Array.isArray(row.matchingCfgIndices)) return []
+    if (!Array.isArray(row.matchingRecipeIndices)) return []
     const seen = new Set<number>()
-    const entries: MatchingConfigEntry[] = []
-    for (const rawIdx of row.matchingCfgIndices) {
+    const entries: MatchingRecipeEntry[] = []
+    for (const rawIdx of row.matchingRecipeIndices) {
       const numericIdx = Number(rawIdx)
       if (!Number.isFinite(numericIdx) || seen.has(numericIdx)) continue
       seen.add(numericIdx)
       const decoration = parseRecipeNameDirectives(
         recipeNames[numericIdx] ?? undefined,
-        configTextFallbackColor,
+        recipeTextFallbackColor,
       )
       const cleanedLabel = decoration.displayName.trim()
       entries.push({
@@ -2346,11 +2479,11 @@ export const TesterGridCard = React.memo(function TesterGridCard({
           ? cleanedLabel
           : `#${numericIdx + 1}`,
         textColor: decoration.hasExplicitColor ? decoration.resolvedColor : null,
-        keep: matchingConfigKeepMap.get(numericIdx) ?? null,
+        keep: matchingRecipeKeepMap.get(numericIdx) ?? null,
       })
     }
     return entries
-  }, [cardContentReady, row.matchingCfgIndices, matchingConfigKeepMap, recipeNames, configTextFallbackColor])
+  }, [cardContentReady, row.matchingRecipeIndices, matchingRecipeKeepMap, recipeNames, recipeTextFallbackColor])
   const shouldShowPrimaryMatchRow = basePrimaryMatchRowVisible
   // Keep-override primary matches are not tied to a recipe, so keep all recipe matches visible.
   const keepOverridePrimaryMatch = match?.ruleSource === RULE_SOURCE_SAFEGUARDS
@@ -2360,10 +2493,10 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     // Keep-override rows stay fully visible because primary match has no recipe scope.
     if (keepOverridePrimaryMatch) return matchingEntries
     // Final Sell and other recipe-less primaries should not hide any recipe chips.
-    if (primaryCfgIndex == null) return matchingEntries
+    if (primaryRecipeIndex == null) return matchingEntries
     // Hide only the actual primary recipe entry to avoid duplicate chips.
-    return matchingEntries.filter((entry) => entry.recipeIdx !== primaryCfgIndex)
-  }, [keepOverridePrimaryMatch, matchingEntries, primaryCfgIndex])
+    return matchingEntries.filter((entry) => entry.recipeIdx !== primaryRecipeIndex)
+  }, [keepOverridePrimaryMatch, matchingEntries, primaryRecipeIndex])
   const shouldShowOtherMatchesRow = showOtherMatchesRow && otherMatchingEntries.length > 0
   const totalOtherMatches = otherMatchingEntries.length
   const otherMatchingEntriesSignature = useMemo(
@@ -2482,13 +2615,13 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     if (hiddenOtherMatching.length === 0) return
     setMatchingPopoverAnchor(event.currentTarget)
   }
-  const handleMatchingConfigJump = (recipeIdx: number) => {
+  const handleMatchingRecipeJump = (recipeIdx: number) => {
     if (!allowPrimaryMatchJump || primaryRuleIndex == null) return
     if (!Number.isFinite(recipeIdx)) return
     onJumpToRule?.(primaryRuleIndex, recipeIdx)
   }
   const renderMatchingChip = (
-    entry: MatchingConfigEntry,
+    entry: MatchingRecipeEntry,
     options?: { onSelect?: () => void },
   ): React.ReactNode => {
     const key = `matching-chip-${entry.recipeIdx}`
@@ -2519,7 +2652,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
               type: 'button' as const,
               onClick: () => {
                 options?.onSelect?.()
-                handleMatchingConfigJump(entry.recipeIdx)
+                handleMatchingRecipeJump(entry.recipeIdx)
               },
             }
           : {})}
@@ -2806,7 +2939,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     : undefined
   // Surface stable match metadata for automation without forcing DOM text scraping.
   const cardMatchOutcome = match ? (match.keep === false ? 'sell' : 'keep') : 'none'
-  const cardMatchConfigIdx = match?.recipeIdx != null ? String(match.recipeIdx) : 'none'
+  const cardMatchRecipeIdx = match?.recipeIdx != null ? String(match.recipeIdx) : 'none'
   const mainSummaryLabel = (
     <>
       <Box component="span" sx={{ color: mainColor ?? 'inherit' }}>
@@ -2926,7 +3059,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
       data-tester-grid-card="true"
       data-row-id={artifact.id}
       data-match-outcome={cardMatchOutcome}
-      data-match-recipe-index={cardMatchConfigIdx}
+      data-match-recipe-index={cardMatchRecipeIdx}
       sx={(theme) => ({
         display: 'grid',
         gridTemplateColumns: GRID_CARD_TEMPLATE,
@@ -2935,6 +3068,13 @@ export const TesterGridCard = React.memo(function TesterGridCard({
         borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
         border: `1px solid ${cardHighlighted ? theme.palette.info.light : theme.palette.divider}`,
         bgcolor: theme.palette.background.paper,
+        // Expose baseline/peak palette values so the pulse animation can resolve to theme-safe colors.
+        '--tester-focus-border-base': cardHighlighted ? theme.palette.info.light : theme.palette.divider,
+        '--tester-focus-border-peak': theme.palette.info.main,
+        '--tester-focus-bg-base': theme.palette.background.paper,
+        '--tester-focus-bg-peak': alpha(theme.palette.info.main, 0.07),
+        '--tester-focus-shadow-base': cardHighlighted ? `0 0 0 1px ${alpha(theme.palette.info.main, 0.3)}` : 'none',
+        '--tester-focus-shadow-peak': `0 0 0 2px ${alpha(theme.palette.info.main, 0.26)}, 0 8px 18px ${alpha(theme.palette.info.main, 0.2)}`,
         // Relative positioning anchors the overlay button to the card frame.
         position: 'relative',
         minHeight: cardHeightStyle,
@@ -2950,7 +3090,11 @@ export const TesterGridCard = React.memo(function TesterGridCard({
         // Card content must stay readable even inside colored containers (for example success toasts).
         color: theme.palette.text.primary,
         opacity: cardDimmed ? 0.35 : 1,
-        transition: 'opacity 120ms ease, border-color 120ms ease, box-shadow 120ms ease',
+        transition: 'opacity 220ms ease, border-color 260ms ease, box-shadow 280ms ease, background-color 280ms ease',
+        // Programmatic focus should blink once and then settle back to baseline (no persistent selection affordance).
+        animation: focusPulseActive
+          ? `${TESTER_GRID_CARD_FOCUS_PULSE_KEYFRAMES} ${GRID_CARD_FOCUS_PULSE_DURATION_MS}ms ease-in-out 1`
+          : 'none',
       })}
     >
       {/* Overlay keeps the gear action out of the main stat row flow. */}
@@ -3250,7 +3394,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
             <TesterRuleReferenceChip
               match={match}
               {...(!matchDetailsFrozen && onJumpToRule ? { onJump: onJumpToRule } : {})}
-              showConfigIndex={showMatchConfigIndex}
+              showRecipeIndex={showMatchRecipeIndex}
               showLineNumber={showMatchLineNumber}
               sx={{ width: '100%' }}
             />

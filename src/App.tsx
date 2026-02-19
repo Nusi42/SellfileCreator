@@ -63,7 +63,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { Snackbar, Alert } from '@mui/material'
 // Icons for App header and controls are imported within components that use them
-import { HsfRulesTableMemo } from './components/HsfRulesTable'
+import { HsfRulesTableMemo, type SafeguardStarSelection } from './components/HsfRulesTable'
 // Recipe chips list panel component
 import RecipeChipsPanel from './components/RecipeChipsPanel'
 import ConfirmDialogs from './components/ConfirmDialogs'
@@ -84,7 +84,6 @@ import {
   RULE_SOURCE_FINAL_SELL,
   RULE_SOURCE_HSF,
   RULE_SOURCE_SAFEGUARDS,
-  type HsfRuleWithCfg as HsfRuleWithRecipe,
 } from './lib/merge'
 import { cloneRuleWithRecipeIndex, getRuleRecipeIndex, resolveMatchRecipeName } from './lib/ruleRecipeIndex'
 import {
@@ -93,6 +92,7 @@ import {
   type SafeguardRule,
   resolveSafeguardRulesWithMetasets,
   hashSafeguardCombination,
+  getSafeguardItemKey,
   resolveSafeguardRuleLabel,
   normalizeSafeguardSubstatMatch,
   sanitizeSafeguardCountMode,
@@ -150,6 +150,7 @@ import {
 import { makeManageColorsIcon } from './lib/icons'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
 const TESTER_MATCH_RESET_TIMEOUT_MS = 1500
+type HsfRuleWithRecipe = ReturnType<typeof computeMergedRules>[number]
 // Keep the chip spinner visible with at least a whisper of progress so the pulse animation can show.
 const WORKLOAD_PENDING_MIN_RATIO = 0.02 as const
 // Hold the spinner a touch longer so sequential builders do not flicker off between phases.
@@ -201,6 +202,7 @@ import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
   LOGIC_HUB_DIALOG_TAB_GEAR,
+  LOGIC_HUB_DIALOG_TAB_SAFEGUARDS,
   LOGIC_HUB_DIALOG_TABS,
 } from './lib/logicHub'
 import type { FinalSellRemainderConfig, FinalSellLevel, LogicHubDialogTab } from './lib/logicHub'
@@ -261,7 +263,7 @@ import {
   isDefaultSubstatTargetTable,
   appendDescriptorDetails,
 } from './history/substatTargetDescriptors'
-import { createFinalSellChangeDescriptor, areFinalSellConfigsEqual, type FinalSellDescriptorMode } from './history/finalSellDescriptors'
+import { createFinalSellChangeDescriptor, areFinalSellSettingsEqual, type FinalSellDescriptorMode } from './history/finalSellDescriptors'
 import { createNoteChangeDescriptor, normalizeNoteValue, type NoteDescriptorMode } from './history/noteDescriptors'
 import { createHsfcLoadedDescriptor, createAutosaveRestoredDescriptor, makeClipboardSourceDescriptor } from './history/bulkLoadDescriptors'
 import {
@@ -365,6 +367,20 @@ type RecipeRulesStateSnapshot = {
   truncatedRecipeIndices: number[]
   totalLimitHit: boolean
   excludedByTotalLimitIndices: number[]
+}
+
+// One-shot signal used to focus a Safeguards card after cross-surface jumps.
+// Token increments force downstream effects even when the same rule is requested twice.
+type SafeguardFocusRequest = {
+  ruleId: string
+  token: number
+}
+
+// One-shot signal for scrolling Rule Tester to a specific artifact card.
+// Token increments allow repeated jumps to the same artifact id.
+type TesterArtifactFocusRequest = {
+  artifactId: number
+  token: number
 }
 
 // Inserts/updates still flow through the worker; the UI only handles pure reorders locally.
@@ -709,11 +725,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     }
   }, [safeguardDetectionSignature])
-  const pendingSafeguardDetectionSigRef = useRef<string | null>(null)
   const resetKeepOverrideDetectionState = useCallback(() => {
     // Clear applied signatures so the next detection snapshot can re-inject rules.
     safeguardScanAppliedRef.current = null
-    pendingSafeguardDetectionSigRef.current = null
     keepOverrideAppliedStateRef.current = {
       baseRules: null,
       rulesByRecipe: null,
@@ -1259,7 +1273,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               : row.baseMatch.ruleLabel
             return { ...row.baseMatch, recipeIdx: nextIdx, recipeName, ruleLabel }
           })(),
-          matchingCfgIndices: row.matchingCfgIndices.map((idx) => {
+          matchingRecipeIndices: row.matchingRecipeIndices.map((idx) => {
             const nextIdx = inverse.get(idx)
             return typeof nextIdx === 'number' ? nextIdx : idx
           }),
@@ -1371,7 +1385,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         resetArtifacts: workerNeedsReset,
       }
 
-      lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
       // One pipeline invocation per update after early fast paths.
       runPipeline(pipelinePayload, {
         signal: abortController.signal,
@@ -1383,7 +1396,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       })
         .then((result) => {
           const { state, matches, safeguardDetection } = result
-          if (abortController.signal.aborted || requestToken !== rulesBuildingTokenRef.current) return
+          if (abortController.signal.aborted) {
+            // Clear reuse fingerprints when the active run is cancelled mid-flight.
+            if (requestToken === rulesBuildingTokenRef.current) {
+              lastPipelineSignatureRef.current = null
+              lastCommittedArtifactFingerprintsRef.current = new Map()
+              lastWarmFingerprintRef.current = null
+            }
+            return
+          }
+          if (requestToken !== rulesBuildingTokenRef.current) return
           lastWarmFingerprintRef.current = nextFingerprint
           const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
           const snapshot: RecipeRulesStateSnapshot = {
@@ -1421,7 +1443,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               artifact,
               match,
               baseMatch,
-              matchingCfgIndices: matchEntry?.matchingRecipeIndices ?? [],
+              matchingRecipeIndices: matchEntry?.matchingRecipeIndices ?? [],
               matchingRecipeDecisions: matchEntry?.matchingRecipeDecisions ?? [],
             })
           }
@@ -1444,7 +1466,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           safeguardScanAppliedRef.current = safeguardDetection
             ? fingerprintSafeguardDetection(safeguardDetection)
             : null
-          pendingSafeguardDetectionSigRef.current = null
           lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
           lastRecipeNamesRef.current = recipeNamesForBuild
           lastSafeguardLabelSignatureRef.current = safeguardLabelSignature
@@ -1477,7 +1498,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               },
             )
               .then((retryResult) => {
-                if (abortController.signal.aborted || requestToken !== rulesBuildingTokenRef.current) return
+                if (abortController.signal.aborted) {
+                  // Clear reuse fingerprints when the active retry run is cancelled.
+                  if (requestToken === rulesBuildingTokenRef.current) {
+                    lastPipelineSignatureRef.current = null
+                    lastCommittedArtifactFingerprintsRef.current = new Map()
+                    lastWarmFingerprintRef.current = null
+                  }
+                  return
+                }
+                if (requestToken !== rulesBuildingTokenRef.current) return
                 recoverMissingRulesRef.current = false
                 lastWarmFingerprintRef.current = retryResult.fingerprint ?? null
                 // Re-run the success handler with the retried payload.
@@ -1518,7 +1548,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                     artifact,
                     match,
                     baseMatch,
-                    matchingCfgIndices: matchEntry?.matchingRecipeIndices ?? [],
+                    matchingRecipeIndices: matchEntry?.matchingRecipeIndices ?? [],
                     matchingRecipeDecisions: matchEntry?.matchingRecipeDecisions ?? [],
                   })
                 }
@@ -1537,7 +1567,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 safeguardScanAppliedRef.current = retrySafeguardDetection
                   ? fingerprintSafeguardDetection(retrySafeguardDetection)
                   : null
-                pendingSafeguardDetectionSigRef.current = null
                 // Retry path accepts the same snapshot, so propagate the pending fingerprints as well.
                 lastCommittedArtifactFingerprintsRef.current = nextArtifactFingerprints
                 lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
@@ -1545,14 +1574,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 lastSafeguardLabelSignatureRef.current = safeguardLabelSignature
               })
               .catch(() => {
-                if (abortController.signal.aborted) return
+                // Never keep stale signature/fingerprint snapshots after a failed retry.
+                if (requestToken === rulesBuildingTokenRef.current) {
+                  lastPipelineSignatureRef.current = null
+                  lastCommittedArtifactFingerprintsRef.current = new Map()
+                  lastWarmFingerprintRef.current = null
+                }
               })
             return
           }
           recoverMissingRulesRef.current = false
         })
         .catch(() => {
-          if (abortController.signal.aborted) return
+          // Never keep stale signature/fingerprint snapshots after a failed/aborted run.
+          if (requestToken === rulesBuildingTokenRef.current) {
+            lastPipelineSignatureRef.current = null
+            lastCommittedArtifactFingerprintsRef.current = new Map()
+            lastWarmFingerprintRef.current = null
+          }
         })
         .finally(() => {
           if (requestToken !== rulesBuildingTokenRef.current) return
@@ -1693,7 +1732,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const visibleRecipeIndicesRef = useRef<ReadonlySet<number> | null>(null)
   const {
     selectedRecipeIndices,
-    setSelectedCfgIndices: setSelectedRecipeIndices,
+    setSelectedRecipeIndices,
     multiselectActive,
     selectionAnchor,
     prepareDragSelection,
@@ -1820,7 +1859,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSafeguardsEnabled,
     setHsfcNote,
     setSelectedRecipeIdx: setSelectedRecipeIdxRaw,
-    setSelectedCfgIndices: setSelectedRecipeIndices,
+    setSelectedRecipeIndices,
     setSelectionAnchor,
     setBuilder,
     setBuilderNameDraft: () => {},
@@ -1942,7 +1981,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const resolvedNextState = typeof value === 'function'
       ? (value as (p: FinalSellRemainderConfig) => FinalSellRemainderConfig)(prevState)
       : value
-    const changed = !areFinalSellConfigsEqual(prevState, resolvedNextState)
+    const changed = !areFinalSellSettingsEqual(prevState, resolvedNextState)
     const descriptor = changed
       ? createFinalSellChangeDescriptor({
         previous: prevState,
@@ -2347,6 +2386,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // External focus target for preview table (exact rule index in the effective rules array)
   const [focusRuleIndex, setFocusRuleIndex] = useState<number | null>(null)
   const [logicHubOpen, setLogicHubOpen] = useState<boolean>(false)
+  // Safeguards tab consumes this to select + expand the requested safeguard rule.
+  const [logicHubSafeguardFocusRequest, setLogicHubSafeguardFocusRequest] = useState<SafeguardFocusRequest | null>(null)
+  const logicHubSafeguardFocusTokenRef = useRef(0)
+  // Rule Tester consumes this to expand + scroll to a targeted artifact card.
+  const [testerArtifactFocusRequest, setTesterArtifactFocusRequest] = useState<TesterArtifactFocusRequest | null>(null)
+  const testerArtifactFocusTokenRef = useRef(0)
   const theme = useTheme()
   // Track preview paper width so keep-override grids can match Rule Tester cards.
   const previewPaperRef = useRef<HTMLDivElement | null>(null)
@@ -2428,6 +2473,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     try { document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })) } catch {}
     try { document.body.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true })) } catch {}
     try { document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) } catch {}
+  }, [])
+  const handleCloseLogicHub = useCallback(() => {
+    // Closing the dialog should also clear any pending one-shot safeguard focus request.
+    setLogicHubOpen(false)
+    setLogicHubSafeguardFocusRequest(null)
   }, [])
   logicHubOpenRef.current = logicHubOpen
   if (!logicHubOpen) {
@@ -2759,7 +2809,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         return prev
       }
       const descriptor = createRecipesDeletedDescriptor({
-        removed: [{ index: idx, cfg: prev[idx] }],
+        removed: [{ index: idx, recipe: prev[idx] }],
         metasets,
       })
       describeNextChange(descriptor)
@@ -2786,7 +2836,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         describeNextChange(null)
         return prev
       }
-      const removed = uniqueTargets.map((idx) => ({ index: idx, cfg: prev[idx] }))
+      const removed = uniqueTargets.map((idx) => ({ index: idx, recipe: prev[idx] }))
       const descriptor = createRecipesDeletedDescriptor({ removed, metasets })
       describeNextChange(descriptor)
       return prev.filter((_, i) => !deleteSet.has(i))
@@ -2794,7 +2844,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     syncSelectedRecipeIdx(null, { forceSync: true, suppressDraft: true })
   }, [describeNextChange, metasets, selectedRecipeIndices, setCustomRecipes, syncSelectedRecipeIdx])
   const hsfcDialogs = useHsfcDialogs({
-    customCfgCount: customRecipes.length,
+    customRecipeCount: customRecipes.length,
     onConfirmClearAll: handleConfirmClearAll,
     onConfirmDeleteSingle: handleConfirmDeleteSingle,
     onConfirmDeleteMulti: handleDeleteMultiConfirmed,
@@ -3005,7 +3055,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Require a detection snapshot before injecting safeguard rules.
     if (safeguardsActive && (!safeguardDetection || !safeguardDetectionSignature)) return
     // Skip redundant applications when both detection fingerprints and rule sources match.
-    const pendingUniqueSig = pendingSafeguardDetectionSigRef.current
     const applied = keepOverrideAppliedStateRef.current
     const baseRulesRef = recipeRulesState.baseRules
     const rulesByRecipeRef = recipeRulesState.rulesByRecipe
@@ -3018,10 +3067,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       && applied.rulesByRecipe === rulesByRecipeRef
       && applied.finalSellRules === finalSellRulesRef
     )
-    const detectionAwaitingApply = (
-      (safeguardsActive && pendingUniqueSig === safeguardDetectionSignature)
-    )
-    if (detectionAwaitingApply || alreadyApplied) return
+    if (alreadyApplied) return
     // Rebuild the merge list with keep-override rules at the front so matches see them.
     setRecipeRulesState((prev) => {
       // Flatten customs once; helpers handle dedupe + injection.
@@ -3053,9 +3099,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     })
     // Record applied signatures to avoid re-applying the same snapshot.
-    if (pendingSafeguardDetectionSigRef.current === safeguardDetectionSignature) {
-      pendingSafeguardDetectionSigRef.current = null
-    }
     if (safeguardsActive && safeguardDetectionSignature) {
       safeguardScanAppliedRef.current = safeguardDetectionSignature
     }
@@ -3644,7 +3687,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSafeguardRules,
     setSafeguardsEnabled,
     setSelectedRecipeIdx: syncSelectedRecipeIdx,
-    setSelectedCfgIndices: setSelectedRecipeIndices,
+    setSelectedRecipeIndices,
     setSelectionAnchor,
     setBuilder,
     setMetasetConflictOpen,
@@ -3709,7 +3752,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     if (action === 'delete') {
       setCustomRecipes(prev => {
-        const removed = [{ index: idx, cfg: prev[idx] }]
+        const removed = [{ index: idx, recipe: prev[idx] }]
         // Describe the delete action to keep history aligned with chip menus.
         const descriptor = createRecipesDeletedDescriptor({ removed, metasets })
         // Publish the descriptor so undo/redo shows the deleted recipe.
@@ -4012,7 +4055,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         })
       } else {
         rows = gearEntriesAfterRulesFilter.filter((row) => {
-          const matches = row.matchingCfgIndices ?? []
+          const matches = row.matchingRecipeIndices ?? []
           for (const recipeIdx of matches) {
             if (testerRecipeFilterSelectedSet.has(recipeIdx)) return true
           }
@@ -4057,7 +4100,93 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const hsfRulesForTableRef = useRef(hsfRulesForTable)
   useEffect(() => { hsfRulesForTableRef.current = hsfRulesForTable }, [hsfRulesForTable])
   const hsfTableEmptyDueToFilters = (filterActive || testerRecipeFilterActive) && mergedRules.length > 0 && hsfRulesForTable.length === 0
+  const testerArtifactIdBySafeguardItemKey = useMemo(() => {
+    const byItemKey = new Map<number, number>()
+    for (const row of testerPreviewRows) {
+      const artifactId = Number(row.artifact?.id)
+      if (!Number.isFinite(artifactId)) continue
+      const itemKey = getSafeguardItemKey(row.artifact)
+      if (!Number.isFinite(itemKey)) continue
+      if (!byItemKey.has(itemKey)) {
+        byItemKey.set(itemKey, artifactId)
+      }
+    }
+    return byItemKey
+  }, [testerPreviewRows])
+  const openLogicHubSafeguardRule = useCallback((ruleId: string): boolean => {
+    const normalizedRuleId = typeof ruleId === 'string' ? ruleId.trim() : ''
+    if (normalizedRuleId.length === 0) return false
+    // Safeguard jumps should not leave a stale tester focus request queued.
+    setTesterArtifactFocusRequest(null)
+    logicHubSafeguardFocusTokenRef.current += 1
+    setLogicHubSafeguardFocusRequest({
+      ruleId: normalizedRuleId,
+      token: logicHubSafeguardFocusTokenRef.current,
+    })
+    setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_SAFEGUARDS)
+    setLogicHubOpen(true)
+    return true
+  }, [setLogicHubDialogTab, setLogicHubOpen])
+  const handleSafeguardPreviewStarSelect = useCallback((selection: SafeguardStarSelection) => {
+    const normalizedRuleId = typeof selection.safeguardRuleId === 'string' ? selection.safeguardRuleId.trim() : ''
+    // Missing ids can happen with malformed/legacy rows; still route users into Safeguards.
+    if (normalizedRuleId.length === 0) {
+      setTesterArtifactFocusRequest(null)
+      setLogicHubSafeguardFocusRequest(null)
+      setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_SAFEGUARDS)
+      setLogicHubOpen(true)
+      return
+    }
+    // Prefer the clicked row's concrete item-key so we can scroll directly to it in Rule Tester.
+    const clickedItemKey = (
+      typeof selection.safeguardItemKey === 'number'
+      && Number.isFinite(selection.safeguardItemKey)
+    )
+      ? selection.safeguardItemKey
+      : null
+    // Row-specific routing: placeholder rows (or rows without item keys) should never jump to unrelated gear.
+    const clickedRowHasConcreteItem = selection.isPlaceholder !== true && clickedItemKey != null
+    if (!clickedRowHasConcreteItem) {
+      openLogicHubSafeguardRule(normalizedRuleId)
+      return
+    }
+    // Concrete rows should jump only to the exact backing artifact referenced by that row's item key.
+    const targetArtifactId = testerArtifactIdBySafeguardItemKey.get(clickedItemKey) ?? null
+    if (targetArtifactId != null) {
+      // Concrete safeguards have real gear to inspect, so jump to Rule Tester immediately.
+      setLogicHubSafeguardFocusRequest(null)
+      setLogicHubOpen(false)
+      setPreviewMode('tester')
+      testerArtifactFocusTokenRef.current += 1
+      setTesterArtifactFocusRequest({
+        artifactId: targetArtifactId,
+        token: testerArtifactFocusTokenRef.current,
+      })
+      return
+    }
+    // No real gear was resolved for this safeguard, so open Safeguards editing.
+    openLogicHubSafeguardRule(normalizedRuleId)
+  }, [openLogicHubSafeguardRule, setLogicHubDialogTab, setLogicHubOpen, setPreviewMode, testerArtifactIdBySafeguardItemKey])
+  const handleTesterFocusArtifactFilteredOut = useCallback(() => {
+    // Keep the notification short because this only explains why auto-scroll did not occur.
+    showToast(t('toastTesterFocusArtifactFiltered'), { icon: <HelpOutlineIcon fontSize="inherit" /> })
+  }, [showToast, t])
   const handleTesterRuleView = useCallback((ruleIndex: number, recipeIdx: number | null) => {
+    setTesterArtifactFocusRequest(null)
+    const targetRule = mergedRulesRef.current[ruleIndex]
+    if (targetRule?.__source === RULE_SOURCE_SAFEGUARDS) {
+      const safeguardRuleId = typeof targetRule.__safeguardRuleId === 'string'
+        ? targetRule.__safeguardRuleId
+        : ''
+      // Safeguard matches should open the Safeguards tab directly instead of jumping back to preview rows.
+      if (openLogicHubSafeguardRule(safeguardRuleId)) return
+      // Malformed safeguard rows can miss ids; still route into Safeguards so users land on the right surface.
+      setLogicHubSafeguardFocusRequest(null)
+      setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_SAFEGUARDS)
+      setLogicHubOpen(true)
+      return
+    }
+    setLogicHubSafeguardFocusRequest(null)
     setLogicHubOpen(false)
     const recipeSnapshot = customRecipesRef.current
     const hasValidRecipe = recipeIdx != null && recipeIdx >= 0 && recipeIdx < recipeSnapshot.length
@@ -4070,7 +4199,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setPreviewMode('rules')
     }
     try {
-      const targetRule = mergedRulesRef.current[ruleIndex]
       const effectiveRules = hsfRulesForTableRef.current
       const idxInEffective = targetRule ? effectiveRules.indexOf(targetRule) : -1
       if (idxInEffective >= 0) {
@@ -4081,7 +4209,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } catch {
       setFocusRuleIndex(null)
     }
-  }, [setBuilder, setFocusRuleIndex, setPreviewMode, setLogicHubOpen, syncSelectedRecipeIdx])
+  }, [openLogicHubSafeguardRule, setBuilder, setFocusRuleIndex, setPreviewMode, setLogicHubDialogTab, setLogicHubOpen, syncSelectedRecipeIdx])
   const handleTesterRuleTemplateCreate = useCallback((row: TesterPreviewRow, intent: 'keep' | 'sell') => {
     const artifact = row.artifact
     // Build the baseline template based on level, rolls, and the item’s current stats.
@@ -4118,7 +4246,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // History entries capture the inserted recipe details for undo + hover.
     const descriptor = createRecipeAddedDescriptor({
       index: insertIdx,
-      cfg: nextRecipe,
+      recipe: nextRecipe,
       previous,
       metasets,
     })
@@ -4718,7 +4846,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   const builderPanelElement = (
     <BuilderPanel
-      cfg={builder}
+      recipe={builder}
       onChange={setBuilder}
       onAddToCustom={() => {
         const currentBuilder = builderRef.current
@@ -4734,7 +4862,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         ]
         const descriptor = createRecipeAddedDescriptor({
           index: insertIdx,
-          cfg: insertedRecipe,
+          recipe: insertedRecipe,
           previous: customRecipes,
           metasets,
         })
@@ -5779,48 +5907,82 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               hasManualTesterItems={hasManualTesterRows}
             />
           )}
-          <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            {previewMode === 'tester' ? (
-              <Box sx={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }} data-tour-id="preview.tester-grid">
-                <Box
-                  data-tour-id="preview.tester-grid-top"
-                  sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '50%', pointerEvents: 'none' }}
-                />
-	                <TesterItemsGrid
-	                  rows={gearEntriesForTable}
-	                  filterActive={testerFilterActive || testerRecipeFilterActive}
-	                  substatColors={substatColors}
-	                  useStatButtonColors={statButtonBorders}
-	                  onToggleStatColors={setStatButtonBorders}
-                  onOpenManageColors={openColors}
-                  colorBlindMode={colorBlindMode}
-                  onChangeColorBlindMode={setColorBlindMode}
-                  colorIconSrc={colorIconSrc}
-                  onCardWidthMeasured={handleTesterCardWidthMeasured}
-                  onScrollbarWidthMeasured={setTesterGridScrollbarWidthPx}
-                  recipeNames={testerRecipeNamesForGrid}
-	                  onJumpToRule={handleTesterRuleView}
-	                  onCreateRuleTemplate={handleTesterRuleTemplateCreate}
-	                  suppressMatchDetails={suppressTesterMatchDetails}
-	                  grouping={testerSubstatSortPrefs.state.grouping}
-	                  substatSort={testerSubstatSortSpec}
-	                  sortState={testerSubstatSortPrefs.state}
-	                  emptyStateVerticalAlign={emptyStateVerticalAlign}
-	                />
-              </Box>
-            ) : (
-	              <HsfRulesTableMemo
-	                rules={hsfRulesForTable}
-	                setHoveredRecipeIdx={setHoveredRecipeIdx}
-	                selectedRecipeIdx={previewSelectedRecipeIdx}
-	                multiselectActive={multiselectActive}
-	                selectionScrollRequest={selectionScrollRequest}
-	                emptyStateVerticalAlign={emptyStateVerticalAlign}
-	                focusRuleIndex={focusRuleIndex}
-	                onFocusRuleSettled={() => setFocusRuleIndex(null)}
-	                onSelectRecipeIdx={handleRulesTableSelectRecipeIdx}
-	                emptyDueToFilter={hsfTableEmptyDueToFilters}
-	                limitExceeded={limitExceeded}
+          <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
+            <Box
+              aria-hidden={previewMode !== 'tester'}
+              data-tour-id={previewMode === 'tester' ? 'preview.tester-grid' : undefined}
+              sx={{
+                // Keep both panes mounted and layered with fixed geometry across mode switches.
+                position: 'absolute',
+                inset: 0,
+                height: '100%',
+                minHeight: 0,
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                visibility: previewMode === 'tester' ? 'visible' : 'hidden',
+                pointerEvents: previewMode === 'tester' ? 'auto' : 'none',
+                zIndex: previewMode === 'tester' ? 1 : 0,
+              }}
+            >
+              <Box
+                data-tour-id={previewMode === 'tester' ? 'preview.tester-grid-top' : undefined}
+                sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '50%', pointerEvents: 'none' }}
+              />
+              <TesterItemsGrid
+                rows={gearEntriesForTable}
+                filterActive={testerFilterActive || testerRecipeFilterActive}
+                substatColors={substatColors}
+                useStatButtonColors={statButtonBorders}
+                onToggleStatColors={setStatButtonBorders}
+                onOpenManageColors={openColors}
+                colorBlindMode={colorBlindMode}
+                onChangeColorBlindMode={setColorBlindMode}
+                colorIconSrc={colorIconSrc}
+                onCardWidthMeasured={handleTesterCardWidthMeasured}
+                onScrollbarWidthMeasured={setTesterGridScrollbarWidthPx}
+                recipeNames={testerRecipeNamesForGrid}
+                focusArtifactRequest={testerArtifactFocusRequest}
+                onFocusArtifactFilteredOut={handleTesterFocusArtifactFilteredOut}
+                onJumpToRule={handleTesterRuleView}
+                onCreateRuleTemplate={handleTesterRuleTemplateCreate}
+                suppressMatchDetails={suppressTesterMatchDetails}
+                grouping={testerSubstatSortPrefs.state.grouping}
+                substatSort={testerSubstatSortSpec}
+                sortState={testerSubstatSortPrefs.state}
+                emptyStateVerticalAlign={emptyStateVerticalAlign}
+              />
+            </Box>
+            <Box
+              aria-hidden={previewMode === 'tester'}
+              sx={{
+                // Keep the preview pane mounted in a stable absolute layer as well.
+                position: 'absolute',
+                inset: 0,
+                height: '100%',
+                minHeight: 0,
+                width: '100%',
+                overflow: 'hidden',
+                visibility: previewMode === 'tester' ? 'hidden' : 'visible',
+                pointerEvents: previewMode === 'tester' ? 'none' : 'auto',
+                zIndex: previewMode === 'tester' ? 0 : 1,
+              }}
+            >
+              <HsfRulesTableMemo
+                rules={hsfRulesForTable}
+                recipeNames={recipeNamesForGrid}
+                setHoveredRecipeIdx={setHoveredRecipeIdx}
+                selectedRecipeIdx={previewSelectedRecipeIdx}
+                multiselectActive={multiselectActive}
+                selectionScrollRequest={selectionScrollRequest}
+                emptyStateVerticalAlign={emptyStateVerticalAlign}
+                focusRuleIndex={focusRuleIndex}
+                onFocusRuleSettled={() => setFocusRuleIndex(null)}
+                onSelectRecipeIdx={handleRulesTableSelectRecipeIdx}
+                onSelectSafeguardRule={handleSafeguardPreviewStarSelect}
+                emptyDueToFilter={hsfTableEmptyDueToFilters}
+                limitExceeded={limitExceeded}
                 onRecipeAction={handleRulesTableRecipeAction}
                 onClearBase={handleRulesTableClearBase}
                 onConfigureFinalSell={handleRulesTableEditFinalSell}
@@ -5830,7 +5992,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 colorBlindMode={colorBlindMode}
                 onChangeColorBlindMode={setColorBlindMode}
               />
-            )}
+            </Box>
           </Box>
         </Paper>
         </Box>
@@ -6094,7 +6256,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 setCustomRecipes(sanitizedRecipes)
                 const len = draft.Recipes.length
                 if (len > 0) {
-                  const savedSel = typeof draft.SelectedConfigIndex === 'number' ? draft.SelectedConfigIndex : (len - 1)
+                  const savedSel = typeof draft.SelectedRecipeIndex === 'number' ? draft.SelectedRecipeIndex : (len - 1)
                   const sel = savedSel >= 0 && savedSel < len ? savedSel : len - 1
                   syncSelectedRecipeIdx(sel, { forceSync: true, suppressDraft: true })
                   try {
@@ -6158,17 +6320,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	          open={logicHubOpen}
 	          value={finalSellRemainder}
 	          onChange={(v) => applyFinalSellChange(v)}
-	          onClose={() => setLogicHubOpen(false)}
+		          onClose={handleCloseLogicHub}
           onReset={() => applyFinalSellChange({
             artifacts: false,
             accessories: false,
             levels: FINAL_SELL_DEFAULT_LEVELS.slice() as FinalSellLevel[],
             setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
           }, { mode: 'reset' })}
-          activeTab={logicHubDialogTab}
-          onChangeTab={setLogicHubDialogTab}
-          // Pass preview grid state so the Safeguards tab can mirror the tester visuals without duplicating selectors.
-          safeguardRules={safeguardRules}
+	          activeTab={logicHubDialogTab}
+	          onChangeTab={setLogicHubDialogTab}
+          focusSafeguardRule={logicHubSafeguardFocusRequest}
+	          // Pass preview grid state so the Safeguards tab can mirror the tester visuals without duplicating selectors.
+	          safeguardRules={safeguardRules}
           onSafeguardRulesChange={applySafeguardRulesChange}
           safeguardsEnabled={safeguardsEnabled}
           onSafeguardsEnabledChange={applySafeguardsEnabledChange}

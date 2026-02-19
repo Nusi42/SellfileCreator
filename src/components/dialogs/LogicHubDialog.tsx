@@ -35,7 +35,7 @@ import MarkdownTooltip from '../MarkdownTooltip'
 import type { Metaset } from '../../lib/metasets'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import type { EmptyStateMessageProps } from '../EmptyStateMessage'
-import type { HsfRuleWithCfg } from '../../lib/merge'
+import type { HsfRuleWithRecipe } from '../../lib/merge'
 import type { SubstatTargetTable } from '../../lib/hsfBuilder/types'
 
 
@@ -47,6 +47,8 @@ type LogicHubDialogProps = {
   onReset?: () => void
   activeTab: LogicHubDialogTab
   onChangeTab: (next: LogicHubDialogTab) => void
+  // Optional one-shot request to select + expand a specific safeguard card.
+  focusSafeguardRule?: { ruleId: string; token: number } | null
   safeguardRules: SafeguardRule[]
   onSafeguardRulesChange: (next: SetStateAction<SafeguardRule[]>) => void
   safeguardsEnabled: boolean
@@ -74,7 +76,7 @@ type LogicHubDialogProps = {
   allocTesterItemId: () => number
   testerMatches: ReadonlyMap<number, TesterPreviewMatch | null>
   onResetGearTester?: () => void
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   substatTargets: SubstatTargetTable
   // Propagates the main app's layout choice so empty-state messaging stays consistent across panes.
   emptyStateVerticalAlign?: EmptyStateMessageProps['verticalAlign']
@@ -89,6 +91,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     onReset,
     activeTab,
     onChangeTab,
+    focusSafeguardRule = null,
     safeguardRules,
     onSafeguardRulesChange,
     safeguardsEnabled,
@@ -247,7 +250,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
               <Tab
                 value={LOGIC_HUB_DIALOG_TAB_SAFEGUARDS}
                 label={t('tabSafeguards')}
-                data-tour-id="keepuniques.tab"
+                data-tour-id="safeguards.tab"
               />
               <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
               <Tab value={LOGIC_HUB_DIALOG_TAB_DUNGEON} label={t('tabDungeonDrops')} />
@@ -531,6 +534,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
             colorIconSrc={colorIconSrc}
             recipeNames={recipeNames}
             metasets={metasets}
+            focusRuleRequest={focusSafeguardRule}
             onJumpToRule={onJumpToRule}
             suppressMatchDetails={suppressMatchDetails}
             workloadProgressRatio={workloadProgressRatio}

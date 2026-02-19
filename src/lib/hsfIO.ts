@@ -9,12 +9,13 @@
  * Core builder logic lives in `hsfBuilder.ts`, and HSF type definitions in `hsfTypes.ts`.
  */
 import type { HsfFile, HsfRule } from './hsfTypes'
-import type { HsfRuleWithCfg } from './merge'
 import { dedupeHsfRulesForExport } from './hsfDeduplicate'
 import { getRuleRecipeIndex, normalizeRecipeName } from './ruleRecipeIndex'
 
+type HsfRuleWithRecipe = ReturnType<(typeof import('./merge'))['computeMergedRules']>[number]
+
 // Single source of truth listing every UI-only field attached to merged rules.
-const EXPORT_RULE_METADATA_FIELDS: Array<keyof HsfRuleWithCfg> = [
+const EXPORT_RULE_METADATA_FIELDS: Array<keyof HsfRuleWithRecipe> = [
   '__lineIdx',
   '__allKnownSets',
   '__source',
@@ -33,7 +34,7 @@ const EXPORT_RULE_METADATA_FIELDS: Array<keyof HsfRuleWithCfg> = [
 ]
 
 /** Strip UTF‑8 BOM and parse `.hsf` JSON. Ensures a `Rules` array exists. */
-type ExportableRule = HsfRuleWithCfg
+type ExportableRule = HsfRuleWithRecipe
 type RecipeNameList = Array<string | null | undefined>
 type LegacyRuleMetadata = { ConfigID?: number; ConfigName?: string }
 
@@ -86,7 +87,7 @@ export function cleanHsfForExport(rules: ExportableRule[]): HsfFile {
     const stripped = stripUiMetadata(r) as ExportableRule & { rowIdx?: number }
     // Preserve RecipeID/RecipeName ordering for readability while omitting diagnostics.
     const { RecipeID, RecipeName, RowIdx: _prevRowIdx, rowIdx: _legacyRowIdx, ...rest } = stripped
-    // Builders already emit fields in the desired order; we simply reattach Config metadata.
+    // Builders already emit fields in the desired order; we simply reattach Recipe metadata.
     const others = rest as HsfRule
     const ordered: HsfRule = {
       ...(RecipeID !== undefined ? { RecipeID } : {}),
@@ -140,7 +141,7 @@ export function hsfToBlob(file: HsfFile): Blob {
 }
 
 /** Build a deduplicated HSF file object from merged rules (dev export helper). */
-export function buildDedupedHsfFileFromMerged(rules: HsfRuleWithCfg[], options?: ExportMetadataOptions): HsfFile {
+export function buildDedupedHsfFileFromMerged(rules: HsfRuleWithRecipe[], options?: ExportMetadataOptions): HsfFile {
   const deduped = dedupeHsfRulesForExport(rules)
   const prepared = applyRecipeNamesForExport(deduped, options)
   return cleanHsfForExport(prepared)

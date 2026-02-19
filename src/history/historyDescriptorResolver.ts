@@ -69,7 +69,7 @@ export const resolveHistoryEntryDescriptor = (
       // Recipe additions include insertion location and snapshot lines.
       return describeRecipeAdded({
         index: descriptor.index,
-        cfg: descriptor.cfg,
+        recipe: descriptor.recipe,
         location: descriptor.location,
         t: ctx.t,
         lang: ctx.lang,

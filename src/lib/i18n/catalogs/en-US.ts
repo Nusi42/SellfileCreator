@@ -58,7 +58,8 @@ const enUS: Catalog = {
   gearDialogIntro: 'Use the Gear dialog (Logic Hub → Gear tab) to build sample gear and see which rule keeps or sells the item. Load or drag an RSL Helper DB (typically under %APPDATA%\\RslHelper\\Config) into the app so the Rule Tester view reflects real gear.',
   gearDialogManualOnlyNotice: 'This pane lists only the custom entries. Imported inventory, collection, vault, and inbox items remain in the Rule Tester view; clear those sources with the buttons below if needed.',
   testerRule: 'Rule',
-  testerJumpToRecipe: 'Jump to Recipe',
+  testerJumpToRecipe: 'Select Recipe',
+  testerJumpToSafeguard: 'Open Safeguard',
   testerNoMatch: 'No Match',
   testerFinalSell: 'Final Sell',
   gearDialogDeleteSourceConfirmTitle: 'Delete "{source}" Gear?',
@@ -588,8 +589,11 @@ const enUS: Catalog = {
   setDesc_setBloodshield_text: 'Per piece: {buff:Shield} equal to 5% of damage dealt after attacking (AoE reduced by 75%); totals: 5/10/15% with 1/2/3 pieces',
 
   // Rules table: columns and UI
-  colIdx: 'Idx',
-  colCfg: 'Cfg',
+  colIdx: '#',
+  colRecipe: 'Recipe',
+  colName: 'Name',
+  colIdxMenu: 'HSF Row Index',
+  colRecipeIdxMenu: 'Recipe Index',
   colKeep: 'Keep',
   colUse: 'Use',
   colSets: 'Sets',
@@ -1175,6 +1179,7 @@ const enUS: Catalog = {
   toastL10nLoadFailed: 'Failed to load localization file',
   toastGearSetsLoaded: 'Loaded {count} custom gear sets',
   toastGearSetsLoadFailed: 'Failed to load gear-set file',
+  toastTesterFocusArtifactFiltered: 'Target item is currently hidden by active tester filters.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Basics',

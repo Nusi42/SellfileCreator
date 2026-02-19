@@ -39,14 +39,14 @@ struct PrepareHsfBuilderRecipeIn {
     fixed_substats_v: Vec<i64>,
     #[serde(default)]
     allowed_substats: Vec<i64>,
-    #[serde(default)]
-    substat_roll_bounds_v: HashMap<String, BuildHsfComboBoundsIn>,
-    #[serde(default)]
-    substat_roll_targets_v: HashMap<String, BuildHsfComboTargetEntryIn>,
-    #[serde(default)]
-    substat_target_by_variant: HashMap<String, i64>,
-    #[serde(default)]
-    factory_base_by_variant_for_star: HashMap<String, i64>,
+    #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
+    substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
+    #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
+    substat_roll_targets_v: HashMap<i64, BuildHsfComboTargetEntryIn>,
+    #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
+    substat_target_by_variant: HashMap<i64, i64>,
+    #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
+    factory_base_by_variant_for_star: HashMap<i64, i64>,
     #[serde(default)]
     variant_priority: Vec<i64>,
 }
@@ -63,10 +63,10 @@ struct PrepareHsfBuilderRecipeOut {
     max_selectable_count: i32,
     had_requested_substats: bool,
     has_per_stat_min: bool,
-    current_base_by_variant: HashMap<String, i32>,
-    factory_base_by_variant: HashMap<String, Option<i32>>,
-    target_base_override_by_variant: HashMap<String, Option<i32>>,
-    target_entries_by_variant: HashMap<String, PrepareHsfBuilderTargetEntryOut>,
+    current_base_by_variant: HashMap<i64, i32>,
+    factory_base_by_variant: HashMap<i64, Option<i32>>,
+    target_base_override_by_variant: HashMap<i64, Option<i32>>,
+    target_entries_by_variant: HashMap<i64, PrepareHsfBuilderTargetEntryOut>,
 }
 
 // Output target-entry payload mirrors the runtime input entry schema.
@@ -154,7 +154,7 @@ fn prepare_hsf_builder_recipe_core(input: &PrepareHsfBuilderRecipeIn) -> Prepare
     let has_per_stat_min = selected_pool_v.iter().any(|variant| {
         input
             .substat_roll_bounds_v
-            .get(&variant.to_string())
+            .get(variant)
             .and_then(|entry| entry.min)
             .filter(|value| value.is_finite())
             .map(|value| value > 0.0)
@@ -162,36 +162,35 @@ fn prepare_hsf_builder_recipe_core(input: &PrepareHsfBuilderRecipeIn) -> Prepare
     });
 
     // Build star-resolved base minima and normalized roll-target override maps.
-    let mut current_base_by_variant = HashMap::<String, i32>::new();
-    let mut factory_base_by_variant = HashMap::<String, Option<i32>>::new();
-    let mut target_base_override_by_variant = HashMap::<String, Option<i32>>::new();
-    let mut target_entries_by_variant = HashMap::<String, PrepareHsfBuilderTargetEntryOut>::new();
+    let mut current_base_by_variant = HashMap::<i64, i32>::new();
+    let mut factory_base_by_variant = HashMap::<i64, Option<i32>>::new();
+    let mut target_base_override_by_variant = HashMap::<i64, Option<i32>>::new();
+    let mut target_entries_by_variant = HashMap::<i64, PrepareHsfBuilderTargetEntryOut>::new();
     for variant in &selected_pool_v {
-        let key = variant.to_string();
         let current_base = input
             .substat_target_by_variant
-            .get(&key)
+            .get(variant)
             .copied()
             .unwrap_or(0)
             .max(0)
             .min(i32::MAX as i64) as i32;
-        current_base_by_variant.insert(key.clone(), current_base);
+        current_base_by_variant.insert(*variant, current_base);
         factory_base_by_variant.insert(
-            key.clone(),
+            *variant,
             input
                 .factory_base_by_variant_for_star
-                .get(&key)
+                .get(variant)
                 .copied()
                 .map(|value| value.max(0).min(i32::MAX as i64) as i32),
         );
-        let maybe_target = input.substat_roll_targets_v.get(&key).cloned();
+        let maybe_target = input.substat_roll_targets_v.get(variant).cloned();
         let Some(target_entry) = maybe_target else {
-            target_base_override_by_variant.insert(key.clone(), None);
+            target_base_override_by_variant.insert(*variant, None);
             continue;
         };
         let normalized_base = normalize_target_override_value(target_entry.base);
         let normalized_base_i32 = normalized_base.map(|value| value as i32);
-        target_base_override_by_variant.insert(key.clone(), normalized_base_i32);
+        target_base_override_by_variant.insert(*variant, normalized_base_i32);
         let mut normalized_increments = target_entry
             .increments
             .unwrap_or_default()
@@ -206,7 +205,7 @@ fn prepare_hsf_builder_recipe_core(input: &PrepareHsfBuilderRecipeIn) -> Prepare
             continue;
         }
         target_entries_by_variant.insert(
-            key,
+            *variant,
             PrepareHsfBuilderTargetEntryOut {
                 base: normalized_base,
                 increments: if has_increments {
@@ -273,11 +272,11 @@ struct ExecuteHsfBuilderRuntimeIn {
     aggregate_min_value: i32,
     locked_min_active: bool,
     locked_min_value: i32,
-    substat_roll_bounds_v: HashMap<String, BuildHsfComboBoundsIn>,
-    target_entries_by_variant: HashMap<String, BuildHsfComboTargetEntryIn>,
-    current_base_by_variant: HashMap<String, i32>,
-    factory_base_by_variant: HashMap<String, Option<i32>>,
-    target_base_override_by_variant: HashMap<String, Option<i32>>,
+    substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
+    target_entries_by_variant: HashMap<i64, BuildHsfComboTargetEntryIn>,
+    current_base_by_variant: HashMap<i64, i32>,
+    factory_base_by_variant: HashMap<i64, Option<i32>>,
+    target_base_override_by_variant: HashMap<i64, Option<i32>>,
     base_rule: RuleRaw,
     main_choices: Vec<EmitHsfMainChoiceIn>,
     emit_any_main_when_no_choices: bool,
@@ -329,16 +328,16 @@ struct BuildHsfRulesRuntimeIn {
     aggregate_min_value: i32,
     locked_min_active: bool,
     locked_min_value: i32,
-    #[serde(default)]
-    substat_roll_bounds_v: HashMap<String, BuildHsfComboBoundsIn>,
-    #[serde(default)]
-    target_entries_by_variant: HashMap<String, BuildHsfComboTargetEntryIn>,
-    #[serde(default)]
-    current_base_by_variant: HashMap<String, i32>,
-    #[serde(default)]
-    factory_base_by_variant: HashMap<String, Option<i32>>,
-    #[serde(default)]
-    target_base_override_by_variant: HashMap<String, Option<i32>>,
+    #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
+    substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
+    #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
+    target_entries_by_variant: HashMap<i64, BuildHsfComboTargetEntryIn>,
+    #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
+    current_base_by_variant: HashMap<i64, i32>,
+    #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
+    factory_base_by_variant: HashMap<i64, Option<i32>>,
+    #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
+    target_base_override_by_variant: HashMap<i64, Option<i32>>,
     rarity_mode: Option<String>,
     early_keep_mode: Option<String>,
     auto_rarity_supplements_threshold: Option<String>,

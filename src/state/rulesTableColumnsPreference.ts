@@ -13,7 +13,8 @@ export type StoredColumnConfig = {
   mode?: 'auto' | 'show' | 'hide'
 }
 
-const STORAGE_KEY_CURRENT = 'sellfileCreator.rulesTableCols.v3'
+// Bump the key when the default column set/order changes so stale layouts do not mask new defaults.
+const STORAGE_KEY_CURRENT = 'sellfileCreator.rulesTableCols.v4'
 
 const parseStoredColumns = (raw: string | null): StoredColumnConfig[] => {
   if (!raw) return []

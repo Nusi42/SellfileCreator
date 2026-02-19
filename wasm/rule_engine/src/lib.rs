@@ -178,21 +178,46 @@ struct PreviewExtrasRaw {
 }
 
 // Deserialize `subValues` from JS object keys into numeric variant ids.
-fn deserialize_sub_values_map<'de, D>(
+pub(crate) fn deserialize_sub_values_map<'de, D>(
     deserializer: D,
 ) -> Result<Option<HashMap<i64, f64>>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     // Keep accepting null/undefined maps from older payloads.
-    let raw = Option::<HashMap<String, f64>>::deserialize(deserializer)?;
-    // Invalid keys are ignored so malformed payload entries stay non-fatal.
+    deserialize_optional_i64_key_map(deserializer)
+}
+
+// Deserialize object-keyed maps into numeric-variant maps once at the boundary.
+// Invalid keys are skipped so malformed entries remain non-fatal by design.
+pub(crate) fn deserialize_i64_key_map<'de, D, V>(
+    deserializer: D,
+) -> Result<HashMap<i64, V>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    V: Deserialize<'de>,
+{
+    let raw = HashMap::<String, V>::deserialize(deserializer)?;
+    Ok(raw
+        .into_iter()
+        .filter_map(|(key, value)| key.parse::<i64>().ok().map(|variant| (variant, value)))
+        .collect::<HashMap<i64, V>>())
+}
+
+// Optional-map variant keeps legacy `null`/`undefined` payloads compatible.
+pub(crate) fn deserialize_optional_i64_key_map<'de, D, V>(
+    deserializer: D,
+) -> Result<Option<HashMap<i64, V>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    V: Deserialize<'de>,
+{
+    let raw = Option::<HashMap<String, V>>::deserialize(deserializer)?;
     Ok(raw.map(|entries| {
         entries
             .into_iter()
-            // Parse numeric variant ids once during deserialize.
             .filter_map(|(key, value)| key.parse::<i64>().ok().map(|variant| (variant, value)))
-            .collect::<HashMap<i64, f64>>()
+            .collect::<HashMap<i64, V>>()
     }))
 }
 
@@ -274,7 +299,7 @@ struct ComputeMergedRulesIn {
     #[serde(default)]
     safeguard_enabled: bool,
     #[serde(default)]
-    safeguard_rules: Vec<serde_json::Value>,
+    safeguard_rules: Vec<SafeguardWasmRuleIn>,
     safeguard_detection: Option<SafeguardWasmSnapshotOut>,
     #[serde(default)]
     safeguard_recipe_id_base: Option<i64>,
@@ -307,11 +332,11 @@ struct AutoRarityResolveIn {
     selected_pool_v: Vec<i64>,
     #[serde(default)]
     fixed_pool_v: Vec<i64>,
-    #[serde(default)]
-    substat_roll_bounds_v: HashMap<String, AutoRarityResolveRollBoundsIn>,
+    #[serde(default, deserialize_with = "deserialize_i64_key_map")]
+    substat_roll_bounds_v: HashMap<i64, AutoRarityResolveRollBoundsIn>,
 }
 
-// Builder-facing auto-rarity payload accepts raw cfg vectors plus allowed ids.
+// Builder-facing auto-rarity payload accepts raw recipe vectors plus allowed ids.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct AutoRarityResolveBuilderIn {
@@ -331,8 +356,8 @@ struct AutoRarityResolveBuilderIn {
     substats_v: Vec<i64>,
     #[serde(default)]
     fixed_substats_v: Vec<i64>,
-    #[serde(default)]
-    substat_roll_bounds_v: HashMap<String, AutoRarityResolveRollBoundsIn>,
+    #[serde(default, deserialize_with = "deserialize_i64_key_map")]
+    substat_roll_bounds_v: HashMap<i64, AutoRarityResolveRollBoundsIn>,
     #[serde(default)]
     allowed_substats: Vec<i64>,
 }
@@ -608,7 +633,8 @@ struct BuildHsfComboVectorsIn {
     combo: Vec<i32>,
     required_v: Vec<i32>,
     aggregate_targets_locked: bool,
-    substat_roll_bounds_v: HashMap<String, BuildHsfComboBoundsIn>,
+    #[serde(deserialize_with = "deserialize_i64_key_map")]
+    substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
     target_entries: Vec<Option<BuildHsfComboTargetEntryIn>>,
 }
 
@@ -702,7 +728,8 @@ struct BuildHsfPreflightFlagsIn {
     aggregate_targets_locked: bool,
     rarity_code: i64,
     rarity_mode: Option<String>,
-    substat_roll_bounds_v: HashMap<String, BuildHsfComboBoundsIn>,
+    #[serde(deserialize_with = "deserialize_i64_key_map")]
+    substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
 }
 
 // Output payload keeps preflight decisions in one rust-owned computation.
@@ -838,10 +865,9 @@ pub(crate) fn build_hsf_preflight_flags_core(
     let mut has_circled = input.aggregate_min_active;
     if !has_circled {
         for variant in &input.selected_pool_v {
-            let key = variant.to_string();
             let min_value = input
                 .substat_roll_bounds_v
-                .get(&key)
+                .get(&(*variant as i64))
                 .and_then(|entry| entry.min)
                 .filter(|value| value.is_finite())
                 .unwrap_or(0.0);
@@ -867,10 +893,9 @@ pub(crate) fn build_hsf_preflight_flags_core(
             || (rarity_mode.as_deref() == Some("auto") && target_min >= 5);
         let default_cap = if supports_five { 5 } else { 4 };
         let cap_for = |variant: i32| -> i32 {
-            let key = variant.to_string();
             let max_value = input
                 .substat_roll_bounds_v
-                .get(&key)
+                .get(&(variant as i64))
                 .and_then(|entry| entry.max)
                 .filter(|value| value.is_finite())
                 .map(|value| value.floor() as i32);
@@ -1178,8 +1203,7 @@ pub(crate) fn build_hsf_combo_vectors_core(input: &BuildHsfComboVectorsIn) -> Bu
     let mut impossible_min_max = false;
 
     for (idx, variant) in input.combo.iter().enumerate() {
-        let key = variant.to_string();
-        let bounds = input.substat_roll_bounds_v.get(&key);
+        let bounds = input.substat_roll_bounds_v.get(&(*variant as i64));
         let any_flag = bounds.and_then(|entry| entry.any).unwrap_or(false);
         // Clamp per-substat minimum to the supported 0..5 roll domain.
         let min_value = bounds
@@ -1344,10 +1368,10 @@ pub(crate) fn build_hsf_combo_policy_vectors_core(
 // Borrowed-argument factory helper avoids map cloning in branch runtime loops.
 pub(crate) fn build_hsf_factory_combo_rows_from_parts(
     combo: &[i32],
-    current_base_by_variant: &HashMap<String, i32>,
-    factory_base_by_variant: &HashMap<String, Option<i32>>,
-    target_base_override_by_variant: &HashMap<String, Option<i32>>,
-    substat_roll_bounds_v: &HashMap<String, BuildHsfComboBoundsIn>,
+    current_base_by_variant: &HashMap<i64, i32>,
+    factory_base_by_variant: &HashMap<i64, Option<i32>>,
+    target_base_override_by_variant: &HashMap<i64, Option<i32>>,
+    substat_roll_bounds_v: &HashMap<i64, BuildHsfComboBoundsIn>,
 ) -> BuildHsfFactoryComboRowsOut {
     // Preserve combo index order so callers can align emitted substats exactly.
     let mut base_vals = Vec::<i32>::with_capacity(combo.len());
@@ -1356,15 +1380,15 @@ pub(crate) fn build_hsf_factory_combo_rows_from_parts(
     // Collapse remains true until any per-variant gate fails.
     let mut factory_eligible = true;
     for variant in combo {
-        let key = variant.to_string();
+        let variant_id = *variant as i64;
         // Keep variant->substat conversion single-sourced in Rust.
-        let (sub_id, sub_is_flat) = safeguard_variant_to_sub(*variant as i64);
+        let (sub_id, sub_is_flat) = safeguard_variant_to_sub(variant_id);
         substats.push(EmitHsfSubstatIn {
             id: sub_id,
             is_flat: sub_is_flat,
         });
         // Current base uses the precomputed star bucket map with 0 fallback.
-        let current_base = *current_base_by_variant.get(&key).unwrap_or(&0);
+        let current_base = *current_base_by_variant.get(&variant_id).unwrap_or(&0);
         base_vals.push(current_base);
         // Skip expensive checks after first failure but keep base values aligned.
         if !factory_eligible {
@@ -1372,7 +1396,7 @@ pub(crate) fn build_hsf_factory_combo_rows_from_parts(
         }
         // Non-zero minimum bounds always disqualify factory collapse.
         let min_bound = substat_roll_bounds_v
-            .get(&key)
+            .get(&variant_id)
             .and_then(|entry| entry.min)
             .filter(|value| value.is_finite())
             .map(|value| value.floor() as i32)
@@ -1384,7 +1408,7 @@ pub(crate) fn build_hsf_factory_combo_rows_from_parts(
         }
         // Any finite max bound disqualifies factory collapse too.
         let has_finite_max = substat_roll_bounds_v
-            .get(&key)
+            .get(&variant_id)
             .and_then(|entry| entry.max)
             .filter(|value| value.is_finite())
             .is_some();
@@ -1394,7 +1418,7 @@ pub(crate) fn build_hsf_factory_combo_rows_from_parts(
         }
         // Factory base must exist for this star/variant pair.
         let factory_base = factory_base_by_variant
-            .get(&key)
+            .get(&variant_id)
             .copied()
             .flatten();
         let Some(factory_base_value) = factory_base else {
@@ -1408,7 +1432,7 @@ pub(crate) fn build_hsf_factory_combo_rows_from_parts(
         }
         // Per-stat target overrides can only keep collapse when equal to factory.
         let target_override_base = target_base_override_by_variant
-            .get(&key)
+            .get(&variant_id)
             .copied()
             .flatten();
         if let Some(target_base) = target_override_base {
@@ -1457,29 +1481,6 @@ fn numberish_to_f64(value: Option<&serde_json::Value>) -> Option<f64> {
         Some(serde_json::Value::Number(raw)) => raw.as_f64(),
         Some(serde_json::Value::Bool(raw)) => Some(if *raw { 1.0 } else { 0.0 }),
         Some(serde_json::Value::String(raw)) => raw.trim().parse::<f64>().ok(),
-        _ => None,
-    }
-}
-
-// Safeguard parsing requires finite numeric payloads only.
-// Non-finite values are rejected so scoring and comparisons stay deterministic.
-fn numberish_to_f64_finite(value: Option<&serde_json::Value>) -> Option<f64> {
-    numberish_to_f64(value).filter(|numeric| numeric.is_finite())
-}
-
-// Integer coercion mirrors JS floor(Number(value)) semantics where supported.
-// This is shared across safeguard and compatibility parsing helpers.
-fn numberish_to_i64_floor(value: Option<&serde_json::Value>) -> Option<i64> {
-    numberish_to_f64_finite(value).map(|numeric| numeric.floor() as i64)
-}
-
-// Safeguard boolean coercion treats non-empty strings as true.
-// This intentionally differs from boolish_to_flag for legacy snapshot parity.
-fn numberish_to_bool_non_empty_string(value: Option<&serde_json::Value>) -> Option<bool> {
-    match value {
-        Some(serde_json::Value::Bool(raw)) => Some(*raw),
-        Some(serde_json::Value::Number(raw)) => raw.as_f64().map(|numeric| numeric != 0.0),
-        Some(serde_json::Value::String(raw)) => Some(!raw.trim().is_empty()),
         _ => None,
     }
 }
@@ -1763,7 +1764,13 @@ fn resolve_safeguard_rules_with_metasets_core(
             substat_match: safeguard_normalize_substat_match(
                 rule.substat_match.as_deref().unwrap_or(""),
             ),
-            substat_weights: rule.substat_weights.clone().unwrap_or_default(),
+            substat_weights: rule
+                .substat_weights
+                .clone()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(variant, weight)| (variant.to_string(), weight))
+                .collect::<HashMap<String, f64>>(),
         });
     }
 

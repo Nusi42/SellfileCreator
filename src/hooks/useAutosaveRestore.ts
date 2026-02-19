@@ -49,7 +49,7 @@ export type RestoreDraft = {
   FinalSellRemainder?: FinalSellRemainderConfig
   Safeguards?: SafeguardRule[]
   SafeguardsEnabled?: boolean
-  SelectedConfigIndex?: number
+  SelectedRecipeIndex?: number
   Note?: string
   NoteRecipeOverridesAnswers?: NoteRecipeOverridesAnswers
   NoteRecipeOverridesDisabled?: boolean
@@ -349,7 +349,7 @@ function computeInitialAutosaveState(args: {
             ...(savedSafeguards.length ? { Safeguards: savedSafeguards } : {}),
             ...(savedKeepEnabled ? { SafeguardsEnabled: savedKeepEnabled } : {}),
             ...(savedGridFilterMode ? { SafeguardsGridFilterMode: savedGridFilterMode } : {}),
-            ...(parsed.selectedIndex != null ? { SelectedConfigIndex: parsed.selectedIndex } : {}),
+            ...(parsed.selectedIndex != null ? { SelectedRecipeIndex: parsed.selectedIndex } : {}),
             ...(parsed.note ? { Note: parsed.note } : {}),
             ...(savedRecipeOverridesAnswers ? { [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]: savedRecipeOverridesAnswers } : {}),
             ...(savedRecipeOverridesDisabled ? { [NOTE_RECIPE_OVERRIDES_DISABLED_KEY]: true } : {}),
@@ -401,7 +401,7 @@ export function useAutosaveRestore(opts: {
     substatTargets,
     recipes,
     finalSellRemainder,
-    selectedRecipeIndex: _selectedConfigIndex,
+    selectedRecipeIndex: _selectedRecipeIndex,
     note,
     noteRecipeOverridesAnswers,
     noteRecipeOverridesDisabled,
@@ -441,7 +441,7 @@ export function useAutosaveRestore(opts: {
   // Snapshot of current state used for divergence detection
   const snapshot = useMemo(() => {
     // Selection changes should not enable autosave by themselves.
-    // Exclude SelectedConfigIndex from the divergence snapshot.
+    // Exclude SelectedRecipeIndex from the divergence snapshot.
     const filtersForSnapshot = areAutosaveFiltersDefault(filters) ? null : normalizeAutosaveFilters(filters)
     const testerSortForSnapshot = isDefaultTesterSubstatSortState(testerSort)
       ? null

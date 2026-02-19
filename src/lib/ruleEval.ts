@@ -8,7 +8,7 @@ import type { ChampionLocation, NormalizedStat } from './importers/gearDbNormali
 import type { HsfRule } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, StatVariantLike } from './types'
 import type { LevelMilestone, RankValue } from './types'
-import type { HsfRuleWithCfg } from './merge'
+import type { HsfRuleWithRecipe } from './merge'
 import type { SellfileExportMode } from './hsfBuilder'
 import {
   configureWasmRuleEngineWithLoadedWasm,
@@ -80,14 +80,14 @@ export type EvalMatchesByRecipeOverrides = {
   // Optional source exclusions (e.g., safeguard injection sources).
   excludeSources?: readonly string[]
   // Optional recipe blocklist for filtered baseline scans.
-  excludeConfigIndices?: ReadonlySet<number>
+  excludeRecipeIndices?: ReadonlySet<number>
   // Optional recipe list ignored by safeguard precedence rules.
-  ignoreSafeguardConfigIndices?: ReadonlySet<number>
+  ignoreSafeguardRecipeIndices?: ReadonlySet<number>
 }
 
 export type MatchingRecipeDecision = { recipeIdx: number; keep: boolean }
 
-export type EvalMatchesByConfigResult = {
+export type EvalMatchesByRecipeResult = {
   firstMatch: EvalResult | null
   firstNonExcludedMatch: EvalResult | null
   matchingRecipeIndices: number[]
@@ -96,21 +96,21 @@ export type EvalMatchesByConfigResult = {
 
 type WasmMatcherConfigCache = {
   // Keep the same rule array identity used for the active WASM configure call.
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   // Keep the same recipe-mode array identity used for the active WASM configure call.
   recipeModes: SellfileExportMode[]
 }
 
 // Reuse one empty array reference so repeated no-recipe calls do not trigger
 // unnecessary reconfigure calls just because [] was allocated again.
-const EMPTY_CONFIG_MODES: SellfileExportMode[] = []
+const EMPTY_RECIPE_MODES: SellfileExportMode[] = []
 // Item key 0 means "no concrete item id" for safeguard rule guards.
 const FALLBACK_EVAL_ITEM_ID = 0
 // Cache the last configured matcher inputs so sync adapters can evaluate many
 // rows without paying configure cost on every single call.
 let wasmMatcherConfigCache: WasmMatcherConfigCache | null = null
 
-const createEmptyEvalMatchesByConfigResult = (): EvalMatchesByConfigResult => ({
+const createEmptyEvalMatchesByRecipeResult = (): EvalMatchesByRecipeResult => ({
   // No first match exists when evaluation cannot find any rule hit.
   firstMatch: null,
   // Baseline/non-excluded result is also empty in the same no-hit case.
@@ -146,12 +146,12 @@ const toWasmEvaluateOptions = (
     payload.excludeSources = options.excludeSources
   }
   // Forward explicit recipe blocklists used by safeguard ignore workflows.
-  if (options.excludeConfigIndices && options.excludeConfigIndices.size > 0) {
-    payload.excludeConfigIndices = options.excludeConfigIndices
+  if (options.excludeRecipeIndices && options.excludeRecipeIndices.size > 0) {
+    payload.excludeRecipeIndices = options.excludeRecipeIndices
   }
   // Forward safeguard precedence ignore sets unchanged to preserve semantics.
-  if (options.ignoreSafeguardConfigIndices && options.ignoreSafeguardConfigIndices.size > 0) {
-    payload.ignoreSafeguardConfigIndices = options.ignoreSafeguardConfigIndices
+  if (options.ignoreSafeguardRecipeIndices && options.ignoreSafeguardRecipeIndices.size > 0) {
+    payload.ignoreSafeguardRecipeIndices = options.ignoreSafeguardRecipeIndices
   }
   // Undefined signals "no filters", so WASM avoids unnecessary option handling.
   return Object.keys(payload).length > 0 ? payload : undefined
@@ -159,7 +159,7 @@ const toWasmEvaluateOptions = (
 
 // Configure once per ruleset/mode tuple so repeated evaluate calls stay cheap.
 const ensureWasmMatcherConfigured = (
-  rules: HsfRuleWithCfg[],
+  rules: HsfRuleWithRecipe[],
   recipeModes: SellfileExportMode[],
 ): void => {
   // If both arrays are the exact same identities, WASM is already configured.
@@ -177,13 +177,13 @@ const ensureWasmMatcherConfigured = (
 }
 
 const evaluateSingleItemWithWasm = (
-  rules: HsfRuleWithCfg[],
+  rules: HsfRuleWithRecipe[],
   recipeModes: SellfileExportMode[],
   item: TestItem,
   options?: EvalMatchesByRecipeOverrides,
-): EvalMatchesByConfigResult => {
+): EvalMatchesByRecipeResult => {
   // Empty ruleset cannot match anything, so return the canonical empty payload.
-  if (!Array.isArray(rules) || rules.length === 0) return createEmptyEvalMatchesByConfigResult()
+  if (!Array.isArray(rules) || rules.length === 0) return createEmptyEvalMatchesByRecipeResult()
   // Ensure WASM has the right rule/recipe snapshot before evaluating this item.
   ensureWasmMatcherConfigured(rules, recipeModes)
   // Convert local option shape into the compact payload accepted by WASM.
@@ -203,7 +203,7 @@ const evaluateSingleItemWithWasm = (
         },
   )
   // Defensive fallback: malformed WASM payload should not leak undefineds.
-  if (!result) return createEmptyEvalMatchesByConfigResult()
+  if (!result) return createEmptyEvalMatchesByRecipeResult()
   return {
     // Main first-match mirrors the previous ruleEval contract exactly.
     firstMatch: result.firstMatch ?? null,
@@ -220,8 +220,8 @@ const evaluateSingleItemWithWasm = (
 export function matchRule(rule: HsfRule, item: TestItem): boolean {
   // Single-rule match reuses the common WASM adapter with a one-rule list.
   const result = evaluateSingleItemWithWasm(
-    [rule as HsfRuleWithCfg],
-    EMPTY_CONFIG_MODES,
+    [rule as HsfRuleWithRecipe],
+    EMPTY_RECIPE_MODES,
     item,
   )
   // Rule at index 0 matched means this single rule matched the tester item.
@@ -229,11 +229,11 @@ export function matchRule(rule: HsfRule, item: TestItem): boolean {
 }
 
 /** Iterate in order and return the first matching rule. */
-export function evaluateFirst(rules: HsfRuleWithCfg[], item: TestItem): EvalResult {
+export function evaluateFirst(rules: HsfRuleWithRecipe[], item: TestItem): EvalResult {
   // First-match scan also reuses the common WASM single-item adapter.
   const result = evaluateSingleItemWithWasm(
     rules,
-    EMPTY_CONFIG_MODES,
+    EMPTY_RECIPE_MODES,
     item,
   )
   // Return only the first-match payload to preserve evaluateFirst contract.
@@ -242,12 +242,12 @@ export function evaluateFirst(rules: HsfRuleWithCfg[], item: TestItem): EvalResu
 
 /** Full scan that returns the first match plus the set of recipes that match anywhere in the rules list. */
 export function evaluateMatchesByRecipe(
-  rules: HsfRuleWithCfg[],
+  rules: HsfRuleWithRecipe[],
   item: TestItem,
   options?: EvalMatchesByRecipeOverrides,
-): EvalMatchesByConfigResult {
+): EvalMatchesByRecipeResult {
   // Caller-provided recipe modes are optional; default to the shared empty list.
-  const recipeModes = options?.recipeModes ?? EMPTY_CONFIG_MODES
+  const recipeModes = options?.recipeModes ?? EMPTY_RECIPE_MODES
   // Delegate full match payload generation to the shared WASM adapter.
   return evaluateSingleItemWithWasm(rules, recipeModes, item, options)
 }

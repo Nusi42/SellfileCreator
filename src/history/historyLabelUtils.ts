@@ -19,26 +19,26 @@ export type RecipeInsertionLocation =
   | { kind: 'after'; anchor: RecipeLabelSnapshot }
 
 // snapshotRecipeLabel captures the index + name at creation time.
-export const snapshotRecipeLabel = (index: number, cfg: BuilderRecipe): RecipeLabelSnapshot => {
+export const snapshotRecipeLabel = (index: number, recipe: BuilderRecipe): RecipeLabelSnapshot => {
   // Trim once so future edits do not rewrite stored labels.
-  const rawName = (cfg.name ?? '').trim()
+  const rawName = (recipe.name ?? '').trim()
   // Persist the trimmed name or null when blank.
   const name = rawName.length > 0 ? rawName : null
   // Return the snapshot so formatting can be localized later.
   return { index, name }
 }
 
-// snapshotConfigLabels captures multiple labels from a recipe list.
-export const snapshotConfigLabels = (
+// snapshotRecipeLabels captures multiple labels from a recipe list.
+export const snapshotRecipeLabels = (
   recipes: readonly BuilderRecipe[],
   indices: readonly number[],
 ): RecipeLabelSnapshot[] => {
   // Normalize and capture only valid indices.
   const snapshots: RecipeLabelSnapshot[] = []
   for (const index of indices) {
-    const cfg = recipes[index]
-    if (!cfg) continue
-    snapshots.push(snapshotRecipeLabel(index, cfg))
+    const recipe = recipes[index]
+    if (!recipe) continue
+    snapshots.push(snapshotRecipeLabel(index, recipe))
   }
   return snapshots
 }
@@ -54,11 +54,11 @@ export const formatRecipeLabel = (snapshot: RecipeLabelSnapshot, t: TranslateFn)
 // formatRecipeLabelFromRecipe snapshots then formats a recipe label in one step.
 export const formatRecipeLabelFromRecipe = (
   index: number,
-  cfg: BuilderRecipe,
+  recipe: BuilderRecipe,
   t: TranslateFn,
 ): string => (
   // Reuse snapshot + format helpers so behavior stays centralized.
-  formatRecipeLabel(snapshotRecipeLabel(index, cfg), t)
+  formatRecipeLabel(snapshotRecipeLabel(index, recipe), t)
 )
 
 // buildInsertionLocation captures where an insert happened.

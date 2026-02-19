@@ -17,10 +17,10 @@ const { buildHsfRules } = await import(fileURLToPath(new URL('file://' + compile
 const inputPath = process.argv[2]
 if (!inputPath) { console.error('Provide HSFC path'); process.exit(1) }
 const hsfc = JSON.parse(readFileSync(inputPath, 'utf8'))
-let cfgInput
-if (Array.isArray(hsfc?.Recipes)) cfgInput = hsfc.Recipes[0]
-else if (Array.isArray(hsfc)) cfgInput = hsfc[0]
-else cfgInput = hsfc
-const cfg = normalizeRecipe(cfgInput)
-const rules = buildHsfRules(cfg)
+let recipeInput
+if (Array.isArray(hsfc?.Recipes)) recipeInput = hsfc.Recipes[0]
+else if (Array.isArray(hsfc)) recipeInput = hsfc[0]
+else recipeInput = hsfc
+const recipe = normalizeRecipe(recipeInput)
+const rules = buildHsfRules(recipe)
 process.stdout.write(JSON.stringify(rules, null, 2))

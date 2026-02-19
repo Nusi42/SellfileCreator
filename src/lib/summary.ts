@@ -10,25 +10,25 @@ import { RARITY_AUTO_LABEL } from './constants'
 import type { Metaset } from './metasets'
 import { splitArtifactSetSelections } from './gearSets/selection'
 
-export function summaryOf(cfg: BuilderRecipe, metasets: Metaset[]): string {
+export function summaryOf(recipe: BuilderRecipe, metasets: Metaset[]): string {
   const parts: string[] = []
   const ellipsize = (s: string, max = 20) => (s.length <= max ? s : s.slice(0, max - 1) + '…')
   const push = (label: string, value: string) => parts.push(`${label}:${ellipsize(value)}`)
 
-  push('Act', cfg.keep ? 'Keep' : 'Sell')
+  push('Act', recipe.keep ? 'Keep' : 'Sell')
   {
-    const r = formatRank(cfg.rankCode)
+    const r = formatRank(recipe.rankCode)
     if (r) push('Rank', r)
   }
   {
-    const rar = (cfg.rarityMode === 'auto') ? RARITY_AUTO_LABEL : rarityCodeToName(cfg.rarityCode)
+    const rar = (recipe.rarityMode === 'auto') ? RARITY_AUTO_LABEL : rarityCodeToName(recipe.rarityCode)
     if (rar) push('Rar', rar)
   }
-  if (cfg.factionCode && cfg.factionCode !== 0) push('Fac', factionCodeToName(cfg.factionCode))
+  if (recipe.factionCode && recipe.factionCode !== 0) push('Fac', factionCodeToName(recipe.factionCode))
 
   // Mainstats (variants)
   {
-    const v = (cfg as (BuilderRecipe & { mainStatsV?: number[] })).mainStatsV ?? []
+    const v = (recipe as (BuilderRecipe & { mainStatsV?: number[] })).mainStatsV ?? []
     if (v.length > 0) {
       const names = v.map(labelOfVariant).filter(Boolean as unknown as (x: string) => x is string)
       push('Main', names.join(','))
@@ -39,8 +39,8 @@ export function summaryOf(cfg: BuilderRecipe, metasets: Metaset[]): string {
 
   // Substats with fixed indicator (variants)
   {
-    const sv = (cfg as (BuilderRecipe & { substatsV?: number[] })).substatsV ?? []
-    const fv = (cfg as (BuilderRecipe & { fixedSubstatsV?: number[] })).fixedSubstatsV ?? []
+    const sv = (recipe as (BuilderRecipe & { substatsV?: number[] })).substatsV ?? []
+    const fv = (recipe as (BuilderRecipe & { fixedSubstatsV?: number[] })).fixedSubstatsV ?? []
     if (sv.length > 0) {
       const fixedSet = new Set<number>(fv as number[])
       const names = sv.map((v) => `${labelOfVariant(v)}${fixedSet.has(v as number) ? '🔒' : ''}`)
@@ -51,9 +51,9 @@ export function summaryOf(cfg: BuilderRecipe, metasets: Metaset[]): string {
   }
 
   // Per-substat roll bounds summary (variant-keyed)
-  if (cfg.substatRollBoundsV && Object.keys(cfg.substatRollBoundsV).length > 0) {
+  if (recipe.substatRollBoundsV && Object.keys(recipe.substatRollBoundsV).length > 0) {
     const tags: string[] = []
-    for (const [vk, v] of Object.entries(cfg.substatRollBoundsV)) {
+    for (const [vk, v] of Object.entries(recipe.substatRollBoundsV)) {
       const n = labelOfVariant(Number(vk))
       const min = typeof v.min === 'number' ? Math.max(0, Math.min(5, Math.floor(v.min))) : undefined
       const max = typeof v.max === 'number' ? Math.max(0, Math.min(4, Math.floor(v.max))) : undefined
@@ -69,13 +69,13 @@ export function summaryOf(cfg: BuilderRecipe, metasets: Metaset[]): string {
 
   // Sets and Metasets
   // Render includes normally and exclusions with a simple "not" prefix.
-  const setSelection = splitArtifactSetSelections(cfg.artifactSets)
+  const setSelection = splitArtifactSetSelections(recipe.artifactSets)
   // Explicit includes map to readable names.
   const setNames = setSelection.included.map(artifactSetName)
   // Explicit excludes are prefixed so intent is obvious.
   const excludedNames = setSelection.excluded.map((id) => `not ${artifactSetName(id)}`)
   // Metaset labels are resolved against the active metaset list.
-  const metaNames = (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id)
+  const metaNames = (recipe.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id)
   // Build a single comma-separated list for compact chips.
   const setsJoined = [...metaNames, ...setNames, ...excludedNames].join(',')
   if (setsJoined) push('Sets', setsJoined)

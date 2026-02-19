@@ -56,11 +56,11 @@ pub(crate) struct ExecuteHsfBranchRuntimeIn {
     pub(crate) aggregate_min_value: i32,
     pub(crate) locked_min_active: bool,
     pub(crate) locked_min_value: i32,
-    pub(crate) substat_roll_bounds_v: HashMap<String, BuildHsfComboBoundsIn>,
-    pub(crate) target_entries_by_variant: HashMap<String, BuildHsfComboTargetEntryIn>,
-    pub(crate) current_base_by_variant: HashMap<String, i32>,
-    pub(crate) factory_base_by_variant: HashMap<String, Option<i32>>,
-    pub(crate) target_base_override_by_variant: HashMap<String, Option<i32>>,
+    pub(crate) substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
+    pub(crate) target_entries_by_variant: HashMap<i64, BuildHsfComboTargetEntryIn>,
+    pub(crate) current_base_by_variant: HashMap<i64, i32>,
+    pub(crate) factory_base_by_variant: HashMap<i64, Option<i32>>,
+    pub(crate) target_base_override_by_variant: HashMap<i64, Option<i32>>,
     pub(crate) base_rule: RuleRaw,
     pub(crate) main_choices: Vec<EmitHsfMainChoiceIn>,
     pub(crate) emit_any_main_when_no_choices: bool,
@@ -230,7 +230,7 @@ pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn)
             // Target entries are indexed by variant id and aligned to combo order.
             let target_entries = combo
                 .iter()
-                .map(|variant| input.target_entries_by_variant.get(&variant.to_string()).cloned())
+                .map(|variant| input.target_entries_by_variant.get(&(*variant as i64)).cloned())
                 .collect::<Vec<_>>();
             // Build shared base-rule payload once for level+combo execution.
             let mut base_rule = input.base_rule.clone();
@@ -306,7 +306,7 @@ pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn)
             base_by_variant: input
                 .current_base_by_variant
                 .iter()
-                .map(|(key, value)| (key.clone(), *value as i64))
+                .map(|(key, value)| (*key, *value as i64))
                 .collect::<HashMap<_, _>>(),
             substat_roll_bounds_v: input.substat_roll_bounds_v.clone(),
             base_rule: fallback_base_rule,

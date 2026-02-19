@@ -6,12 +6,12 @@ import { evaluateMatchesByRecipe, matchRule, type TestItem } from '../../src/lib
 import { RULE_SOURCE_FINAL_SELL } from '../../src/lib/ruleSources.js'
 import { StatId, StatVariant, ArtifactSet, ArtifactType, type RankValue, type LevelMilestone } from '../../src/lib/types.js'
 import type { HsfRule } from '../../src/lib/hsfTypes.js'
-import type { HsfRuleWithCfg } from '../../src/lib/merge.js'
+import type { HsfRuleWithRecipe } from '../../src/lib/merge.js'
 import { warmupWasmRuleEngine } from '../../src/lib/wasm/wasmRuleEngine.js'
 
 // Keep this test file isolated from merge.ts so the matcher suite does not pull
 // unrelated builder modules when validating rule-eval behavior.
-type RuleWithOptionalCfg = HsfRuleWithCfg
+type RuleWithOptionalCfg = HsfRuleWithRecipe
 
 function buildBaseItem(): TestItem {
   return {

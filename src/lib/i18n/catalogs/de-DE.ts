@@ -58,7 +58,8 @@ const overrides: Catalog = {
   gearDialogIntro: 'Nutze den Ausrüstungsdialog (Logic Hub → „Ausrüstung“), um Beispielgear zu bauen und zu sehen, welche Regel zuerst greift und ob sie den Gegenstand behält oder verkauft. Lade eine RSL-Helper-DB (normalerweise unter %APPDATA%\\RslHelper\\Config) oder ziehe sie in die App, damit die Regel Tester-Ansicht echtes Gear zeigt.',
   gearDialogManualOnlyNotice: 'Dieses Panel zeigt nur die benutzerdefinierten Einträge. Importierte Gegenstände aus Inventar, Sammlung, Höhle und Posteingang bleiben in der Ansicht „Regel Tester“ sichtbar; lösche diese Quellen bei Bedarf über die Buttons unten.',
   testerRule: 'Regel',
-  testerJumpToRecipe: 'Zur Rezept springen',
+  testerJumpToRecipe: 'Rezept auswählen',
+  testerJumpToSafeguard: 'Schutzmaßnahme öffnen',
   testerNoMatch: 'Kein Treffer',
   testerFinalSell: 'Finaler Verkauf',
   gearDialogDeleteSourceConfirmTitle: 'Ausrüstung aus „{source}“ löschen?',
@@ -583,8 +584,11 @@ const overrides: Catalog = {
   setDesc_setBloodshield_text: 'pro Teil: {buff:Shield} in Höhe von 5% des verursachten Schadens nach dem Angriff (AoE um 75% reduziert); Summen: 5/10/15% mit 1/2/3 Teilen',
 
   // Rules table: columns and UI
-  colIdx: 'Nr',
-  colCfg: 'Konf',
+  colIdx: '#',
+  colRecipe: 'Rezept',
+  colName: 'Name',
+  colIdxMenu: 'HSF-Zeilenindex',
+  colRecipeIdxMenu: 'Rezeptindex',
   colKeep: 'Behalten',
   colUse: 'Nutzen',
   colSets: 'Sets',
@@ -1170,6 +1174,7 @@ const overrides: Catalog = {
   toastL10nLoadFailed: 'Lokalisierungsdatei konnte nicht geladen werden',
   toastGearSetsLoaded: '{count} benutzerdefinierte Sets geladen',
   toastGearSetsLoadFailed: 'Gear-Set-Datei konnte nicht geladen werden',
+  toastTesterFocusArtifactFiltered: 'Das Zielobjekt wird aktuell durch aktive Tester-Filter ausgeblendet.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Grundlagen',

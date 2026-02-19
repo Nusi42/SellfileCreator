@@ -347,8 +347,8 @@ function areRollBoundsEqual(
 
 function collectUniqueValues(recipes: BuilderRecipe[], key: BuilderFieldKey): unknown[] {
   const unique: unknown[] = []
-  outer: for (const cfg of recipes) {
-    const candidate = cfg[key]
+  outer: for (const recipe of recipes) {
+    const candidate = recipe[key]
     for (const existing of unique) {
       if (areBuilderFieldValuesEqual(key, existing, candidate)) {
         continue outer
@@ -735,7 +735,7 @@ function targetEntriesEqual(
   return true
 }
 export function applyMultiEditFieldToRecipe(
-  cfg: BuilderRecipe,
+  recipe: BuilderRecipe,
   key: BuilderFieldKey,
   field: MultiEditFieldState,
 ): BuilderRecipe {
@@ -743,109 +743,109 @@ export function applyMultiEditFieldToRecipe(
     ? cloneFieldPatch(key, field.patch as MultiEditFieldPatch<typeof key>)
     : null
   if (patch) {
-    return applyPatchForKey(cfg, key, patch)
+    return applyPatchForKey(recipe, key, patch)
   }
   const nextValue = cloneBuilderFieldValue(key, field.value) as BuilderRecipe[typeof key]
-  if (areBuilderFieldValuesEqual(key, cfg[key], nextValue)) return cfg
-  let nextCfg: BuilderRecipe = { ...cfg, [key]: nextValue }
+  if (areBuilderFieldValuesEqual(key, recipe[key], nextValue)) return recipe
+  let nextRecipe: BuilderRecipe = { ...recipe, [key]: nextValue }
   switch (key) {
     case 'autoMinCount':
     case 'minCount':
-      nextCfg = normalizeAutoSubstatFlex(nextCfg)
+      nextRecipe = normalizeAutoSubstatFlex(nextRecipe)
       break
     case 'autoSubstatFlex':
-      if (nextCfg.autoSubstatFlex && !canEnableSubstatFlex(nextCfg)) {
-        nextCfg = { ...nextCfg, autoSubstatFlex: false }
+      if (nextRecipe.autoSubstatFlex && !canEnableSubstatFlex(nextRecipe)) {
+        nextRecipe = { ...nextRecipe, autoSubstatFlex: false }
       }
       break
     case 'autoMinRequiredRolls':
     case 'minRequiredRolls':
-      nextCfg = normalizeKeepMode(nextCfg)
-      nextCfg = normalizeAutoRaritySupplements(nextCfg)
-      nextCfg = normalizeAutoSubstatFlex(nextCfg)
+      nextRecipe = normalizeKeepMode(nextRecipe)
+      nextRecipe = normalizeAutoRaritySupplements(nextRecipe)
+      nextRecipe = normalizeAutoSubstatFlex(nextRecipe)
       break
     case 'earlyKeepMode':
     case 'rarityMode':
     case 'autoRaritySupplementsThreshold':
-      nextCfg = normalizeAutoRaritySupplements(nextCfg)
+      nextRecipe = normalizeAutoRaritySupplements(nextRecipe)
       break
     case 'minLevel':
     case 'maxLevel':
-      nextCfg = normalizeLevelWindow(nextCfg)
+      nextRecipe = normalizeLevelWindow(nextRecipe)
       break
     default:
       break
   }
-  return nextCfg
+  return nextRecipe
 }
 
 export function applyMultiEditFieldsToRecipe(
-  cfg: BuilderRecipe,
+  recipe: BuilderRecipe,
   fields: MultiEditFields,
   dirtyKeys?: readonly BuilderFieldKey[],
 ): BuilderRecipe {
   const keys = dirtyKeys && dirtyKeys.length > 0 ? dirtyKeys : BUILDER_FIELD_KEYS
-  if (keys.length === 0) return cfg
-  let nextCfg = cfg
+  if (keys.length === 0) return recipe
+  let nextRecipe = recipe
   for (const key of keys) {
     const field = fields[key]
     if (!field?.dirty) continue
-    const updated = applyMultiEditFieldToRecipe(nextCfg, key, field)
-    if (updated !== nextCfg) {
-      nextCfg = updated
+    const updated = applyMultiEditFieldToRecipe(nextRecipe, key, field)
+    if (updated !== nextRecipe) {
+      nextRecipe = updated
     }
   }
-  return nextCfg
+  return nextRecipe
 }
 
 function applyPatchForKey<K extends BuilderFieldKey>(
-  cfg: BuilderRecipe,
+  recipe: BuilderRecipe,
   key: K,
   patch: MultiEditFieldPatch<K>,
 ): BuilderRecipe {
   switch (key) {
     case 'tags':
-      return applyTagsPatch(cfg, patch as MultiEditArrayPatch<string>)
+      return applyTagsPatch(recipe, patch as MultiEditArrayPatch<string>)
     case 'mainStatsV':
-      return applyMainStatsPatch(cfg, patch as MultiEditArrayPatch<number>)
+      return applyMainStatsPatch(recipe, patch as MultiEditArrayPatch<number>)
     case 'substatsV':
-      return applySubstatsPatch(cfg, patch as MultiEditArrayPatch<number>)
+      return applySubstatsPatch(recipe, patch as MultiEditArrayPatch<number>)
     case 'fixedSubstatsV':
-      return applyFixedSubstatsPatch(cfg, patch as MultiEditArrayPatch<number>)
+      return applyFixedSubstatsPatch(recipe, patch as MultiEditArrayPatch<number>)
     case 'substatRollBoundsV':
-      return applySubstatRollPatch(cfg, patch as MultiEditRollPatch)
+      return applySubstatRollPatch(recipe, patch as MultiEditRollPatch)
     case 'substatRollTargetsV':
-      return applyTargetPatch(cfg, patch as MultiEditTargetPatch)
+      return applyTargetPatch(recipe, patch as MultiEditTargetPatch)
     case 'artifactTypes':
-      return applyArtifactTypesPatch(cfg, patch as MultiEditArrayPatch<number>)
+      return applyArtifactTypesPatch(recipe, patch as MultiEditArrayPatch<number>)
     case 'artifactSets':
-      return applyArtifactSetsPatch(cfg, patch as MultiEditArrayPatch<ArtifactSetSelectionEntry>)
+      return applyArtifactSetsPatch(recipe, patch as MultiEditArrayPatch<ArtifactSetSelectionEntry>)
     case 'artifactMetaSets':
-      return applyArtifactMetaSetsPatch(cfg, patch as MultiEditArrayPatch<string>)
+      return applyArtifactMetaSetsPatch(recipe, patch as MultiEditArrayPatch<string>)
     default:
-      return cfg
+      return recipe
   }
 }
 
-function applyMainStatsPatch(cfg: BuilderRecipe, patch: MultiEditArrayPatch<number>): BuilderRecipe {
-  const current = Array.isArray(cfg.mainStatsV) ? cfg.mainStatsV.map(Number) : []
+function applyMainStatsPatch(recipe: BuilderRecipe, patch: MultiEditArrayPatch<number>): BuilderRecipe {
+  const current = Array.isArray(recipe.mainStatsV) ? recipe.mainStatsV.map(Number) : []
   const next = applyNumberArrayPatch(current, patch, { sort: true })
-  if (arraysEqualNumber(current, next)) return cfg
-  return { ...cfg, mainStatsV: next }
+  if (arraysEqualNumber(current, next)) return recipe
+  return { ...recipe, mainStatsV: next }
 }
 
-function applySubstatsPatch(cfg: BuilderRecipe, patch: MultiEditArrayPatch<number>): BuilderRecipe {
-  const current = Array.isArray(cfg.substatsV) ? cfg.substatsV.map(Number) : []
+function applySubstatsPatch(recipe: BuilderRecipe, patch: MultiEditArrayPatch<number>): BuilderRecipe {
+  const current = Array.isArray(recipe.substatsV) ? recipe.substatsV.map(Number) : []
   const next = applyNumberArrayPatch(current, patch, { sort: true })
   const currentSet = new Set<number>(current)
   const nextSet = new Set<number>(next)
   const added = next.filter(v => !currentSet.has(v))
 
-  let nextFixed = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV.filter(v => nextSet.has(Number(v))) : []
+  let nextFixed = Array.isArray(recipe.fixedSubstatsV) ? recipe.fixedSubstatsV.filter(v => nextSet.has(Number(v))) : []
   // Remove duplicates
   nextFixed = Array.from(new Set(nextFixed.map(Number))).sort((a, b) => a - b)
 
-  const boundsSource = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+  const boundsSource = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
   const nextBounds: Record<number, { min?: number; max?: number; any?: boolean }> = {}
   for (const [key, value] of Object.entries(boundsSource)) {
     const idx = Number(key)
@@ -857,10 +857,10 @@ function applySubstatsPatch(cfg: BuilderRecipe, patch: MultiEditArrayPatch<numbe
   }
   const prunedBounds = normalizeBoundsObject(nextBounds)
 
-  let nextMinCount = Number(cfg.minCount ?? 0)
+  let nextMinCount = Number(recipe.minCount ?? 0)
   if (patch.clear || next.length === 0) {
     nextMinCount = 0
-  } else if (cfg.autoMinCount) {
+  } else if (recipe.autoMinCount) {
     nextMinCount = Math.min(4, next.length)
   } else {
     if (nextMinCount === 0 && next.length > 0) nextMinCount = 1
@@ -868,37 +868,37 @@ function applySubstatsPatch(cfg: BuilderRecipe, patch: MultiEditArrayPatch<numbe
   }
   nextMinCount = Math.max(0, Math.min(4, nextMinCount))
 
-  let nextCfg: BuilderRecipe = {
-    ...cfg,
+  let nextRecipe: BuilderRecipe = {
+    ...recipe,
     substatsV: next,
     fixedSubstatsV: nextFixed,
     substatRollBoundsV: prunedBounds,
     minCount: nextMinCount as 0 | 1 | 2 | 3 | 4,
   }
 
-  nextCfg = normalizeKeepMode(nextCfg)
-  nextCfg = normalizeAutoRaritySupplements(nextCfg)
-  if (nextCfg.autoSubstatFlex && !canEnableSubstatFlex(nextCfg)) {
-    nextCfg = { ...nextCfg, autoSubstatFlex: false }
+  nextRecipe = normalizeKeepMode(nextRecipe)
+  nextRecipe = normalizeAutoRaritySupplements(nextRecipe)
+  if (nextRecipe.autoSubstatFlex && !canEnableSubstatFlex(nextRecipe)) {
+    nextRecipe = { ...nextRecipe, autoSubstatFlex: false }
   }
-  return nextCfg
+  return nextRecipe
 }
 
-function applyFixedSubstatsPatch(cfg: BuilderRecipe, patch: MultiEditArrayPatch<number>): BuilderRecipe {
-  const current = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV.map(Number) : []
-  const selectable = new Set<number>(Array.isArray(cfg.substatsV) ? cfg.substatsV.map(Number) : [])
+function applyFixedSubstatsPatch(recipe: BuilderRecipe, patch: MultiEditArrayPatch<number>): BuilderRecipe {
+  const current = Array.isArray(recipe.fixedSubstatsV) ? recipe.fixedSubstatsV.map(Number) : []
+  const selectable = new Set<number>(Array.isArray(recipe.substatsV) ? recipe.substatsV.map(Number) : [])
   const next = applyNumberArrayPatch(current, patch, { sort: true, filter: selectable })
-  if (arraysEqualNumber(current, next)) return cfg
-  let nextCfg: BuilderRecipe = { ...cfg, fixedSubstatsV: next }
-  if (nextCfg.autoSubstatFlex && !canEnableSubstatFlex(nextCfg)) {
-    nextCfg = { ...nextCfg, autoSubstatFlex: false }
+  if (arraysEqualNumber(current, next)) return recipe
+  let nextRecipe: BuilderRecipe = { ...recipe, fixedSubstatsV: next }
+  if (nextRecipe.autoSubstatFlex && !canEnableSubstatFlex(nextRecipe)) {
+    nextRecipe = { ...nextRecipe, autoSubstatFlex: false }
   }
-  return nextCfg
+  return nextRecipe
 }
 
-function applySubstatRollPatch(cfg: BuilderRecipe, patch: MultiEditRollPatch): BuilderRecipe {
-  const selectable = new Set<number>(Array.isArray(cfg.substatsV) ? cfg.substatsV.map(Number) : [])
-  const currentBounds = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+function applySubstatRollPatch(recipe: BuilderRecipe, patch: MultiEditRollPatch): BuilderRecipe {
+  const selectable = new Set<number>(Array.isArray(recipe.substatsV) ? recipe.substatsV.map(Number) : [])
+  const currentBounds = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
   const nextBounds: Record<number, { min?: number; max?: number; any?: boolean }> = {}
   let changed = false
   for (const [key, value] of Object.entries(currentBounds)) {
@@ -969,23 +969,23 @@ function applySubstatRollPatch(cfg: BuilderRecipe, patch: MultiEditRollPatch): B
       nextBounds[idx] = current
     }
   }
-  if (!changed) return cfg
-  let nextCfg: BuilderRecipe = {
-    ...cfg,
+  if (!changed) return recipe
+  let nextRecipe: BuilderRecipe = {
+    ...recipe,
     substatRollBoundsV: normalizeBoundsObject(nextBounds),
   }
-  nextCfg = normalizeKeepMode(nextCfg)
-  nextCfg = normalizeAutoRaritySupplements(nextCfg)
-  if (nextCfg.autoSubstatFlex && !canEnableSubstatFlex(nextCfg)) {
-    nextCfg = { ...nextCfg, autoSubstatFlex: false }
+  nextRecipe = normalizeKeepMode(nextRecipe)
+  nextRecipe = normalizeAutoRaritySupplements(nextRecipe)
+  if (nextRecipe.autoSubstatFlex && !canEnableSubstatFlex(nextRecipe)) {
+    nextRecipe = { ...nextRecipe, autoSubstatFlex: false }
   }
-  return nextCfg
+  return nextRecipe
 }
 
-function applyTargetPatch(cfg: BuilderRecipe, patch: MultiEditTargetPatch): BuilderRecipe {
-  if (!patch || Object.keys(patch).length === 0) return cfg
-  const selectable = new Set<number>(Array.isArray(cfg.substatsV) ? cfg.substatsV.map(Number) : [])
-  const current = (cfg.substatRollTargetsV ?? {}) as SubstatRollTargetsMap
+function applyTargetPatch(recipe: BuilderRecipe, patch: MultiEditTargetPatch): BuilderRecipe {
+  if (!patch || Object.keys(patch).length === 0) return recipe
+  const selectable = new Set<number>(Array.isArray(recipe.substatsV) ? recipe.substatsV.map(Number) : [])
+  const current = (recipe.substatRollTargetsV ?? {}) as SubstatRollTargetsMap
   let nextEntries: SubstatRollTargetsMap | null = null
   let changed = false
   for (const [key, entry] of Object.entries(patch)) {
@@ -1005,35 +1005,35 @@ function applyTargetPatch(cfg: BuilderRecipe, patch: MultiEditTargetPatch): Buil
     nextEntries[idx] = normalized
     changed = true
   }
-  if (!changed) return cfg
+  if (!changed) return recipe
   const normalizedEntries = normalizeRollTargets(nextEntries ?? {})
   const nextValue = Object.keys(normalizedEntries).length > 0
     ? normalizedEntries
     : ({} as SubstatRollTargetsMap)
   return {
-    ...cfg,
+    ...recipe,
     substatRollTargetsV: nextValue,
   }
 }
 
-function applyArtifactTypesPatch(cfg: BuilderRecipe, patch: MultiEditArrayPatch<number>): BuilderRecipe {
-  const current = Array.isArray(cfg.artifactTypes) ? cfg.artifactTypes.map(Number) : []
+function applyArtifactTypesPatch(recipe: BuilderRecipe, patch: MultiEditArrayPatch<number>): BuilderRecipe {
+  const current = Array.isArray(recipe.artifactTypes) ? recipe.artifactTypes.map(Number) : []
   const next = applyNumberArrayPatch(current, patch, { sort: true })
-  if (arraysEqualNumber(current, next)) return cfg
-  return { ...cfg, artifactTypes: next }
+  if (arraysEqualNumber(current, next)) return recipe
+  return { ...recipe, artifactTypes: next }
 }
 
 function applyArtifactSetsPatch(
-  cfg: BuilderRecipe,
+  recipe: BuilderRecipe,
   patch: MultiEditArrayPatch<ArtifactSetSelectionEntry>,
 ): BuilderRecipe {
   // Normalize existing entries so we can apply add/remove safely.
-  const current = normalizeArtifactSetSelectionEntries(cfg.artifactSets)
+  const current = normalizeArtifactSetSelectionEntries(recipe.artifactSets)
   // Apply the patch against canonical entries.
   const next = applyArtifactSetSelectionPatch(current, patch)
   // Skip cloning when the result matches the current selection.
-  if (areArtifactSetSelectionsEqual(current, next)) return cfg
-  return { ...cfg, artifactSets: next }
+  if (areArtifactSetSelectionsEqual(current, next)) return recipe
+  return { ...recipe, artifactSets: next }
 }
 
 function applyArtifactSetSelectionPatch(
@@ -1057,22 +1057,22 @@ function applyArtifactSetSelectionPatch(
   return normalizeArtifactSetSelectionEntries([...filtered, ...addEntries])
 }
 
-function applyArtifactMetaSetsPatch(cfg: BuilderRecipe, patch: MultiEditArrayPatch<string>): BuilderRecipe {
-  const current = Array.isArray(cfg.artifactMetaSets) ? cfg.artifactMetaSets.map(String) : []
+function applyArtifactMetaSetsPatch(recipe: BuilderRecipe, patch: MultiEditArrayPatch<string>): BuilderRecipe {
+  const current = Array.isArray(recipe.artifactMetaSets) ? recipe.artifactMetaSets.map(String) : []
   const next = applyStringArrayPatch(current, patch)
-  if (arraysEqualString(current, next)) return cfg
-  return { ...cfg, artifactMetaSets: next }
+  if (arraysEqualString(current, next)) return recipe
+  return { ...recipe, artifactMetaSets: next }
 }
 
-function applyTagsPatch(cfg: BuilderRecipe, patch: MultiEditArrayPatch<string>): BuilderRecipe {
+function applyTagsPatch(recipe: BuilderRecipe, patch: MultiEditArrayPatch<string>): BuilderRecipe {
   // Normalize tags to strings before patching.
-  const current = Array.isArray(cfg.tags) ? cfg.tags.map(String) : []
+  const current = Array.isArray(recipe.tags) ? recipe.tags.map(String) : []
   // Apply standard string array patch semantics.
   const next = applyStringArrayPatch(current, patch)
   // Avoid allocation when nothing changes.
-  if (arraysEqualString(current, next)) return cfg
+  if (arraysEqualString(current, next)) return recipe
   // Persist the updated tag list.
-  return { ...cfg, tags: next }
+  return { ...recipe, tags: next }
 }
 
 interface NumberArrayPatchOptions {

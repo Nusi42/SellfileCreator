@@ -191,10 +191,9 @@ pub(crate) fn resolve_auto_rarity_code_core(input: &AutoRarityResolveIn) -> i64 
     // Parse per-substat mins from normalized bounds payload.
     let mut per_min = HashMap::<i64, i64>::new();
     for variant in &selected_pool_v {
-        let key = variant.to_string();
         let min_value = input
             .substat_roll_bounds_v
-            .get(&key)
+            .get(variant)
             .and_then(|entry| entry.min);
         per_min.insert(*variant, auto_rarity_clamp_roll_requirement(min_value));
     }
@@ -373,11 +372,8 @@ pub(crate) fn resolve_auto_rarity_code_for_builder_value(payload: JsValue) -> Re
         .collect::<Vec<_>>();
     // Keep bounds payload compact by forwarding only selected variants.
     let selected_set = selected_pool_v.iter().copied().collect::<HashSet<_>>();
-    let mut substat_roll_bounds_v = HashMap::<String, AutoRarityResolveRollBoundsIn>::new();
-    for (key, bounds) in parsed.substat_roll_bounds_v {
-        let Ok(variant) = key.parse::<i64>() else {
-            continue;
-        };
+    let mut substat_roll_bounds_v = HashMap::<i64, AutoRarityResolveRollBoundsIn>::new();
+    for (variant, bounds) in parsed.substat_roll_bounds_v {
         if !selected_set.contains(&variant) {
             continue;
         }
@@ -385,7 +381,7 @@ pub(crate) fn resolve_auto_rarity_code_for_builder_value(payload: JsValue) -> Re
             min: bounds.min.filter(|value| value.is_finite()),
         };
         if normalized.min.is_some() {
-            substat_roll_bounds_v.insert(key, normalized);
+            substat_roll_bounds_v.insert(variant, normalized);
         }
     }
     // Reuse the shared core so builder and direct payload paths stay aligned.
@@ -404,89 +400,98 @@ pub(crate) fn resolve_auto_rarity_code_for_builder_value(payload: JsValue) -> Re
     Ok(code as i32)
 }
 
-// Read a JSON object field as a string token.
-fn json_field_string(map: &serde_json::Map<String, serde_json::Value>, key: &str) -> Option<String> {
-    map.get(key).and_then(|value| value.as_str()).map(|value| value.to_string())
-}
-
-// Read a JSON object field as a boolean.
-fn json_field_bool(map: &serde_json::Map<String, serde_json::Value>, key: &str) -> Option<bool> {
-    map.get(key).and_then(|value| value.as_bool())
-}
-
-// Read a JSON object field as an integer (floor semantics).
-fn json_field_i64(map: &serde_json::Map<String, serde_json::Value>, key: &str) -> Option<i64> {
-    map.get(key).and_then(|value| value.as_f64()).and_then(|value| {
-        if value.is_finite() {
-            Some(value.floor() as i64)
-        } else {
-            None
-        }
-    })
-}
-
-// Read a JSON object field as a numeric value.
-fn json_field_f64(map: &serde_json::Map<String, serde_json::Value>, key: &str) -> Option<f64> {
-    map.get(key).and_then(|value| value.as_f64()).filter(|value| value.is_finite())
-}
-
-// Parse array<number> fields from flexible recipe payloads.
-fn json_field_vec_i64(map: &serde_json::Map<String, serde_json::Value>, key: &str) -> Vec<i64> {
-    let Some(values) = map.get(key).and_then(|value| value.as_array()) else {
-        return Vec::new();
-    };
-    values
-        .iter()
-        .filter_map(|entry| entry.as_f64())
-        .filter(|value| value.is_finite())
-        .map(|value| value.floor() as i64)
-        .collect::<Vec<_>>()
-}
-
 // Clamp builder min-count domains to the supported 0..4 range.
 fn clamp_builder_min_count(value: i64) -> i64 {
     value.clamp(0, 4)
 }
 
-// Expand merge.ts auto-flex rarity helper branches using Rust as SSOT.
-pub(crate) fn expand_auto_flex_rarity_branches_core(
-    recipe: &serde_json::Value,
+// Typed auto-flex bounds preserve known fields plus unknown extras.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct AutoFlexRarityBoundsIn {
+    #[serde(default)]
+    min: Option<f64>,
+    #[serde(default)]
+    max: Option<f64>,
+    #[serde(default)]
+    any: Option<bool>,
+    #[serde(flatten)]
+    extra: HashMap<String, serde_json::Value>,
+}
+
+// Typed auto-flex recipe shape keeps common fields fast and unknown keys intact.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct AutoFlexRarityRecipeIn {
+    #[serde(default)]
+    rarity_mode: Option<String>,
+    #[serde(default)]
+    rarity_code: Option<i64>,
+    #[serde(default)]
+    auto_substat_flex: Option<bool>,
+    #[serde(default)]
+    auto_min_count: Option<bool>,
+    #[serde(default)]
+    min_count: Option<f64>,
+    #[serde(default)]
+    auto_min_required_rolls: Option<bool>,
+    #[serde(default)]
+    min_required_rolls: Option<f64>,
+    #[serde(default)]
+    substats_v: Vec<i64>,
+    #[serde(default)]
+    fixed_substats_v: Vec<i64>,
+    #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
+    substat_roll_bounds_v: HashMap<i64, AutoFlexRarityBoundsIn>,
+    #[serde(default)]
+    min_level: Option<f64>,
+    #[serde(default)]
+    max_level: Option<f64>,
+    #[serde(flatten)]
+    extra: HashMap<String, serde_json::Value>,
+}
+
+// Normalize optional finite numeric fields using floor semantics.
+fn auto_flex_optional_i64(value: Option<f64>) -> Option<i64> {
+    value.filter(|numeric| numeric.is_finite())
+        .map(|numeric| numeric.floor() as i64)
+}
+
+// Typed fast path avoids `serde_json::Value` traversal on common builder payloads.
+fn expand_auto_flex_rarity_branches_typed_core(
+    recipe: &AutoFlexRarityRecipeIn,
     base_rarity_code: i64,
-) -> Vec<serde_json::Value> {
-    let Some(obj) = recipe.as_object() else {
-        return vec![recipe.clone()];
-    };
-
+) -> Vec<AutoFlexRarityRecipeIn> {
     // Preserve JS early-return semantics exactly to avoid branch drift.
-    if json_field_string(obj, "rarityMode").as_deref() != Some("auto") {
+    if recipe.rarity_mode.as_deref() != Some("auto") {
         return vec![recipe.clone()];
     }
-    if json_field_bool(obj, "autoSubstatFlex") != Some(true) {
+    if recipe.auto_substat_flex != Some(true) {
         return vec![recipe.clone()];
     }
-    if json_field_bool(obj, "autoMinCount") == Some(true) {
+    if recipe.auto_min_count == Some(true) {
         return vec![recipe.clone()];
     }
 
-    // Normalize selected/fixed pools to finite integer variant ids.
-    let selected = json_field_vec_i64(obj, "substatsV");
+    // Normalize selected/fixed pools to integer variant ids.
+    let selected = recipe.substats_v.clone();
     if selected.is_empty() {
         return vec![recipe.clone()];
     }
-    let fixed = json_field_vec_i64(obj, "fixedSubstatsV");
+    let fixed = recipe.fixed_substats_v.clone();
     let locked_count = fixed.len() as i64;
     if locked_count == 0 {
         return vec![recipe.clone()];
     }
-    if json_field_i64(obj, "minCount").unwrap_or(0) != locked_count {
+    if auto_flex_optional_i64(recipe.min_count).unwrap_or(0) != locked_count {
         return vec![recipe.clone()];
     }
-    if json_field_bool(obj, "autoMinRequiredRolls") != Some(false) {
+    if recipe.auto_min_required_rolls != Some(false) {
         return vec![recipe.clone()];
     }
 
     // Manual minimum rolls gate controls whether late split branches apply.
-    let min_required = json_field_f64(obj, "minRequiredRolls").unwrap_or(0.0).floor() as i64;
+    let min_required = auto_flex_optional_i64(recipe.min_required_rolls).unwrap_or(0);
     if min_required > locked_count {
         return vec![recipe.clone()];
     }
@@ -504,15 +509,13 @@ pub(crate) fn expand_auto_flex_rarity_branches_core(
     }
 
     // Optional entries must remain wildcard-only for this branch split.
-    let bounds_map = obj.get("substatRollBoundsV").and_then(|value| value.as_object());
     let optional_all_wildcard = optional.iter().all(|variant| {
-        let key = variant.to_string();
-        let Some(bounds) = bounds_map.and_then(|map| map.get(&key)).and_then(|value| value.as_object()) else {
+        let Some(bounds) = recipe.substat_roll_bounds_v.get(variant) else {
             return true;
         };
-        let has_min = json_field_f64(bounds, "min").is_some_and(|value| value > 0.0);
-        let has_max = json_field_f64(bounds, "max").is_some();
-        let wildcard = json_field_bool(bounds, "any").unwrap_or(false);
+        let has_min = bounds.min.is_some_and(|value| value.is_finite() && value > 0.0);
+        let has_max = bounds.max.is_some_and(|value| value.is_finite());
+        let wildcard = bounds.any.unwrap_or(false);
         wildcard && !has_min && !has_max
     });
     if !optional_all_wildcard {
@@ -520,36 +523,37 @@ pub(crate) fn expand_auto_flex_rarity_branches_core(
     }
 
     // Resolve level window defaults exactly like merge.ts helper.
-    let min_level = json_field_i64(obj, "minLevel").unwrap_or(LEVEL_MILESTONE_0);
-    let max_level = json_field_i64(obj, "maxLevel").unwrap_or(LEVEL_MILESTONE_16);
+    let min_level = auto_flex_optional_i64(recipe.min_level).unwrap_or(LEVEL_MILESTONE_0);
+    let max_level = auto_flex_optional_i64(recipe.max_level).unwrap_or(LEVEL_MILESTONE_16);
     let locked_only_count = clamp_builder_min_count(locked_count);
     let configured_min_count = clamp_builder_min_count(
-        json_field_i64(obj, "minCount").unwrap_or(locked_only_count),
+        auto_flex_optional_i64(recipe.min_count).unwrap_or(locked_only_count),
     );
     let base_min_count = clamp_builder_min_count(configured_min_count.max(locked_only_count));
     let flex_target_total = clamp_builder_min_count(base_min_count.max(locked_only_count + 1));
 
     // Helper clones the source recipe and patches branch-specific overrides.
-    let build_branch = |rarity_code: i64, min_count: i64, min_level_patch: Option<i64>, max_level_patch: Option<i64>, auto_substat_flex: bool| {
+    let build_branch = |rarity_code: i64,
+                        min_count: i64,
+                        min_level_patch: Option<i64>,
+                        max_level_patch: Option<i64>,
+                        auto_substat_flex: bool| {
         let mut branch = recipe.clone();
-        let Some(branch_obj) = branch.as_object_mut() else {
-            return recipe.clone();
-        };
-        branch_obj.insert("rarityMode".to_string(), serde_json::Value::String("code".to_string()));
-        branch_obj.insert("rarityCode".to_string(), serde_json::Value::from(rarity_code));
-        branch_obj.insert("autoMinCount".to_string(), serde_json::Value::Bool(false));
-        branch_obj.insert("minCount".to_string(), serde_json::Value::from(min_count));
-        branch_obj.insert("autoSubstatFlex".to_string(), serde_json::Value::Bool(auto_substat_flex));
+        branch.rarity_mode = Some("code".to_string());
+        branch.rarity_code = Some(rarity_code);
+        branch.auto_min_count = Some(false);
+        branch.min_count = Some(min_count as f64);
+        branch.auto_substat_flex = Some(auto_substat_flex);
         if let Some(value) = min_level_patch {
-            branch_obj.insert("minLevel".to_string(), serde_json::Value::from(value));
+            branch.min_level = Some(value as f64);
         }
         if let Some(value) = max_level_patch {
-            branch_obj.insert("maxLevel".to_string(), serde_json::Value::from(value));
+            branch.max_level = Some(value as f64);
         }
         branch
     };
 
-    let mut branches = Vec::<serde_json::Value>::new();
+    let mut branches = Vec::<AutoFlexRarityRecipeIn>::new();
 
     // Baseline branch keeps locked-only expectations before +16.
     let early_epic_max = max_level.min(LEVEL_MILESTONE_12);
@@ -592,9 +596,10 @@ pub(crate) fn expand_auto_flex_rarity_branches_value(
     recipe: JsValue,
     base_rarity_code: i32,
 ) -> Result<JsValue, JsValue> {
-    let parsed: serde_json::Value = from_js_value(recipe)
+    // Strict contract: callers provide canonical typed recipe payloads.
+    let parsed_typed: AutoFlexRarityRecipeIn = from_js_value(recipe)
         .map_err(|error| JsValue::from_str(&format!("Invalid auto-flex branch recipe: {error}")))?;
-    let branches = expand_auto_flex_rarity_branches_core(&parsed, base_rarity_code as i64);
+    let branches = expand_auto_flex_rarity_branches_typed_core(&parsed_typed, base_rarity_code as i64);
     to_js_value(&branches)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize auto-flex branches: {error}")))
 }

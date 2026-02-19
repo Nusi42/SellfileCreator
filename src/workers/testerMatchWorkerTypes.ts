@@ -1,10 +1,10 @@
 import type { SellfileExportMode } from '../lib/hsfBuilder'
-import type { HsfRuleWithCfg } from '../lib/merge'
+import type { HsfRuleWithRecipe } from '../lib/merge'
 import type { EvalResult, MatchingRecipeDecision, TestItem } from '../lib/ruleEval'
 import type { ProgressSnapshot } from '../types/progress'
 
 export type TesterMatchWorkerConfigurePayload = {
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
 }
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { SellfileExportMode } from '../lib/hsfBuilder'
-import { RULE_SOURCE_SAFEGUARDS, type HsfRuleWithCfg } from '../lib/merge'
+import { RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
 import { evaluateMatchesByRecipe } from '../lib/ruleEval'
 import TesterMatchWorker from '../workers/testerMatchWorker?worker&inline'
 import type {
@@ -14,8 +14,11 @@ import type { ProgressSnapshot } from '../types/progress'
 import { createProgressThrottler } from '../types/progress'
 import { PERF_EVENTS, markPerfEvent } from '../lib/perfTimeline'
 
+// Keep merge typing sourced from computeMergedRules while avoiding legacy alias names locally.
+type HsfRuleWithRecipe = ReturnType<(typeof import('../lib/merge'))['computeMergedRules']>[number]
+
 type ConfigureParams = {
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
 }
 
@@ -53,7 +56,7 @@ const maybeMarkPerfEvent = (label: string, data?: PerfEventPayload | PerfEventPa
 }
 
 const evaluateRowsFallback = (
-  rules: HsfRuleWithCfg[],
+  rules: HsfRuleWithRecipe[],
   recipeModes: SellfileExportMode[],
   items: readonly TesterMatchWorkerEvaluateItem[],
   onProgress?: (progress: ProgressSnapshot) => void,
@@ -102,8 +105,8 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
   const pendingConfigureRef = useRef<Map<number, PendingRequest<void>>>(new Map())
   const pendingEvaluateRef = useRef<Map<number, PendingEvaluateRequest>>(new Map())
   const lastConfigurePromiseRef = useRef<Promise<void> | null>(null)
-  const fallbackRulesRef = useRef<HsfRuleWithCfg[]>([])
-  const fallbackConfigModesRef = useRef<SellfileExportMode[]>([])
+  const fallbackRulesRef = useRef<HsfRuleWithRecipe[]>([])
+  const fallbackRecipeModesRef = useRef<SellfileExportMode[]>([])
 
   useEffect(() => {
     if (!supportsWorkerEnv) {
@@ -189,7 +192,7 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
 
   const configure = useCallback<UseTesterMatchWorkerResult['configure']>((params) => {
     fallbackRulesRef.current = params.rules
-    fallbackConfigModesRef.current = params.recipeModes
+    fallbackRecipeModesRef.current = params.recipeModes
     if (!supportsWorkerEnv || !workerRef.current) {
       lastConfigurePromiseRef.current = null
       return Promise.resolve()
@@ -225,7 +228,7 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
       maybeMarkPerfEvent(PERF_EVENTS.testerMatchWorkerEvaluateFallback, () => ({ items: params.items.length }))
       const results = evaluateRowsFallback(
         fallbackRulesRef.current,
-        fallbackConfigModesRef.current,
+        fallbackRecipeModesRef.current,
         params.items,
         params.onProgress,
       )

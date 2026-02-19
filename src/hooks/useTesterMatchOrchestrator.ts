@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, type MutableRefObject } from 'react'
-import { RULE_SOURCE_SAFEGUARDS, type HsfRuleWithCfg } from '../lib/merge'
+import { RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
 import { evaluateMatchesByRecipe, type EvalResult, type MatchingRecipeDecision } from '../lib/ruleEval'
 import type { SellfileExportMode } from '../lib/hsfBuilder'
 import {
@@ -22,6 +22,9 @@ import { fingerprintMergedRulesWithLoadedWasm } from '../lib/wasm/wasmRuleEngine
 
 export const TESTER_PREVIEW_CHUNK_SIZE = 250
 
+// Merge still exports the legacy rule type name; keep a local recipe alias in this hook.
+type HsfRuleWithRecipe = ReturnType<(typeof import('../lib/merge'))['computeMergedRules']>[number]
+
 const EMPTY_SAFEGUARD_CANDIDATES: SafeguardCandidateSnapshot = {
   candidates: [],
   uniqueItemKeys: new Set<number>(),
@@ -32,7 +35,7 @@ const EMPTY_SAFEGUARD_DETECTION: SafeguardDetectionSnapshot = {
   entries: [],
 }
 
-const fingerprintMergedRules = (rules: readonly HsfRuleWithCfg[]): string => {
+const fingerprintMergedRules = (rules: readonly HsfRuleWithRecipe[]): string => {
   // Fingerprinting is wasm-only; callers must warm up before this hook runs.
   return fingerprintMergedRulesWithLoadedWasm(rules)
 }
@@ -53,7 +56,7 @@ type UseTesterMatchOrchestratorParams = {
   // Incoming artifacts to evaluate for matches.
   artifacts: NormalizedGearArtifact[]
   // Effective merged rules, including safeguard injections.
-  mergedRules: HsfRuleWithCfg[]
+  mergedRules: HsfRuleWithRecipe[]
   // Recipe names to show in gear entries + match chips.
   recipeNames: (string | null)[]
   // Export modes aligned to recipes for worker + fallback eval.
@@ -66,14 +69,14 @@ type UseTesterMatchOrchestratorParams = {
   testerMatchWorkerSupported: boolean
   // Evaluator from worker hook or fallback.
   evaluateTesterMatchItems: (params: { items: TesterMatchWorkerEvaluateItem[]; onProgress?: (progress: ProgressSnapshot) => void }) => Promise<TesterMatchWorkerItemResult[]>
-  // Keep-unique state shared with rule warm logic.
+  // Safeguard state shared with rule warm logic.
   safeguardsActive: boolean
-  // Keep-unique base rules allow calculating candidates without injected keep rules.
-  safeguardBaseRules: HsfRuleWithCfg[]
-  // Keep-unique rules resolved with metasets for detection.
+  // Safeguard base rules allow calculating candidates without injected safeguard rules.
+  safeguardBaseRules: HsfRuleWithRecipe[]
+  // Safeguard rules resolved with metasets for detection.
   resolvedSafeguardRules: SafeguardRule[]
   // Optional recipe indices to ignore when tallying safeguard coverage.
-  ignoreSafeguardConfigIndices?: ReadonlySet<number>
+  ignoreSafeguardRecipeIndices?: ReadonlySet<number>
   // Detection signature so we can guard against redundant rebuilds.
   safeguardDetectionSignature: string | null
   // Setter to publish detection updates.
@@ -121,7 +124,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     safeguardsActive,
     safeguardBaseRules,
     // Forward ignore-tag indices for safeguard candidate evaluation.
-    ignoreSafeguardConfigIndices,
+    ignoreSafeguardRecipeIndices,
     resolvedSafeguardRules,
     safeguardDetectionSignature,
     setSafeguardDetection,
@@ -137,7 +140,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     // App-supplied setter that feeds the determinate overlay on preview chips.
     setGearEntriesProgress,
   } = params
-  // Keep-unique detection is enabled again.
+  // Safeguard detection is enabled again.
   const safeguardDetectionDisabled = false
   // Re-enable the worker so heavy tester scans stay off the main thread whenever the browser allows it.
   const effectiveWorkerSupported = rawTesterMatchWorkerSupported
@@ -295,7 +298,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
           artifact: entry.artifact,
           match: null,
           baseMatch: null,
-          matchingCfgIndices: [],
+          matchingRecipeIndices: [],
           matchingRecipeDecisions: [],
         })
       })
@@ -319,18 +322,18 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       const safeguardLabel = rule?.__source === RULE_SOURCE_SAFEGUARDS
         ? resolveSafeguardRuleLabel(rule)
         : null
-      const effectiveCfgName = recipeName && recipeName.length > 0 ? recipeName : safeguardLabel
+      const effectiveRecipeName = recipeName && recipeName.length > 0 ? recipeName : safeguardLabel
       return {
         keep: result.keep,
         recipeIdx: recipeIdx ?? null,
-        recipeName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
+        recipeName: effectiveRecipeName && effectiveRecipeName.length > 0 ? effectiveRecipeName : null,
         ruleIndex: result.ruleIndex,
         ruleLabel: safeguardLabel ?? null,
         ruleSource: rule?.__source ?? null,
       }
     }
 
-    // Keep-unique detection waits for latest scan to avoid flicker.
+    // Safeguard detection waits for latest scan to avoid flicker.
     // Hold the visible match rows whenever safeguard protection is in flux so users never see stale overrides.
     const shouldHoldRowsBuilding = (): boolean => (
       safeguardsActive
@@ -372,7 +375,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       artifact,
       match,
       baseMatch: toTesterPreviewMatch(baseMatch),
-      matchingCfgIndices: matchingRecipeIndices,
+      matchingRecipeIndices: matchingRecipeIndices,
       matchingRecipeDecisions,
     }
   }
@@ -487,7 +490,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
         artifact.testerItem,
         {
           recipeModes,
-          ...(ignoreSafeguardConfigIndices ? { ignoreSafeguardConfigIndices } : {}),
+          ...(ignoreSafeguardRecipeIndices ? { ignoreSafeguardRecipeIndices } : {}),
         },
       )
       const baseEval = evaluateMatchesByRecipe(
@@ -549,7 +552,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     recipeModes,
     evaluateTesterMatchItems,
     safeguardsActive,
-    ignoreSafeguardConfigIndices,
+    ignoreSafeguardRecipeIndices,
     safeguardDetectionSignature,
     safeguardScanAppliedRef,
     pendingSafeguardDetectionSigRef,
@@ -564,7 +567,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     rulesBuilding,
   ])
 
-  // Keep-unique combined snapshot runs collect + detection in one wasm call.
+  // Safeguard combined snapshot runs collect + detection in one wasm call.
   const safeguardCombined = useMemo(() => {
     // Avoid scan work when rows are empty or safeguards are disabled.
     if (!testerPreviewRows.length || !safeguardsActive) {
@@ -580,7 +583,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       rules: resolvedSafeguardRules,
       enabled: safeguardsActive,
       // Skip recipes tagged to ignore safeguard coverage.
-      ...(ignoreSafeguardConfigIndices ? { ignoreSafeguardConfigIndices } : {}),
+      ...(ignoreSafeguardRecipeIndices ? { ignoreSafeguardRecipeIndices } : {}),
     })
   }, [
     testerPreviewRows,
@@ -588,13 +591,13 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     safeguardBaseRules,
     recipeModes,
     resolvedSafeguardRules,
-    ignoreSafeguardConfigIndices,
+    ignoreSafeguardRecipeIndices,
   ])
 
   // Keep returning candidate metadata for downstream UI callers.
   const safeguardCandidates = safeguardCombined.candidates
 
-  // Keep-unique detection refresh runs when candidates or rules change.
+  // Safeguard detection refresh runs when candidates or rules change.
   useEffect(() => {
     // Only run detection when rows are settled.
     const rowsUpToDate = gearEntriesCommittedBuildId >= gearEntriesBuildIdRef.current && !gearEntriesBuilding

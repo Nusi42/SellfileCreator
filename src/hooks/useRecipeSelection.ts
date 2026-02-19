@@ -31,7 +31,7 @@ import { buildInsertionLocation, snapshotRecipeLabel } from '../history/historyL
 import { collectChangedFields } from '../history/builderUpdateDescriptor'
 import { setRecipeHoverIndex } from '../lib/recipeHoverBridge'
 
-type UseConfigSelectionParams = {
+type UseRecipeSelectionParams = {
   customRecipes: BuilderRecipe[]
   setCustomRecipes: Dispatch<SetStateAction<BuilderRecipe[]>>
   selectedRecipeIdx: number | null
@@ -46,9 +46,9 @@ type UseConfigSelectionParams = {
   visibleRecipeIndicesRef: MutableRefObject<ReadonlySet<number> | null>
 }
 
-export type UseConfigSelectionResult = {
+export type UseRecipeSelectionResult = {
   selectedRecipeIndices: number[]
-  setSelectedCfgIndices: (next: number[]) => void
+  setSelectedRecipeIndices: (next: number[]) => void
   multiselectActive: boolean
   selectionAnchor: number | null
   prepareDragSelection: (idx: number) => number[]
@@ -87,10 +87,10 @@ const mapSelectionByIdentity = (
   // Collect the selected recipes from the previous list.
   const selectedItems: BuilderRecipe[] = []
   for (const idx of selection) {
-    const cfg = prev[idx]
+    const recipe = prev[idx]
     // Skip invalid indices or missing recipes.
-    if (!cfg) continue
-    selectedItems.push(cfg)
+    if (!recipe) continue
+    selectedItems.push(recipe)
   }
   // If no recipes are matched, there is no selection to restore.
   if (selectedItems.length === 0) return []
@@ -122,8 +122,8 @@ export function useRecipeSelection({
   describeNextChange,
   suppressSelectionDraft,
   visibleRecipeIndicesRef,
-}: UseConfigSelectionParams): UseConfigSelectionResult {
-  const [selectedRecipeIndices, setSelectedCfgIndicesState] = useState<number[]>([])
+}: UseRecipeSelectionParams): UseRecipeSelectionResult {
+  const [selectedRecipeIndices, setSelectedRecipeIndicesState] = useState<number[]>([])
   const selectionAnchorRef = useRef<number | null>(null)
   const [selectionAnchor, setSelectionAnchorState] = useState<number | null>(null)
   const selectedIndicesRef = useRef<number[]>([])
@@ -145,8 +145,8 @@ export function useRecipeSelection({
     if (multiSelectedIndices.length === 0) return []
     const result: BuilderRecipe[] = []
     for (const idx of multiSelectedIndices) {
-      const cfg = customRecipes[idx]
-      if (cfg) result.push(cfg)
+      const recipe = customRecipes[idx]
+      if (recipe) result.push(recipe)
     }
     return result
   }, [customRecipes, multiSelectedIndices])
@@ -169,7 +169,7 @@ export function useRecipeSelection({
     }
     // Keep refs in sync before we trigger a re-render.
     selectedIndicesRef.current = normalized
-    setSelectedCfgIndicesState(normalized)
+    setSelectedRecipeIndicesState(normalized)
   }, [onWillChangeSelection])
 
   useEffect(() => {
@@ -376,15 +376,15 @@ export function useRecipeSelection({
     setCustomRecipes(prev => {
       let changed = false
       const entries: Array<{ index: number; previous: BuilderRecipe; next: BuilderRecipe }> = []
-      const next = prev.map((cfg, idx) => {
-        if (!selectionSet.has(idx)) return cfg
-        const updated = applyMultiEditFieldsToRecipe(cfg, fields, dirtyKeys)
-        if (updated !== cfg) {
+      const next = prev.map((recipe, idx) => {
+        if (!selectionSet.has(idx)) return recipe
+        const updated = applyMultiEditFieldsToRecipe(recipe, fields, dirtyKeys)
+        if (updated !== recipe) {
           changed = true
-          entries.push({ index: idx, previous: cfg, next: updated })
+          entries.push({ index: idx, previous: recipe, next: updated })
           return updated
         }
-        return cfg
+        return recipe
       })
       if (!changed) {
         describeNextChange(null)
@@ -430,19 +430,19 @@ export function useRecipeSelection({
     if (alreadySelected) {
       return selectedRecipeIndices.slice().sort((a, b) => a - b)
     }
-    const cfg = customRecipes[idx]
+    const recipe = customRecipes[idx]
     applySelection([idx])
     setSelectedRecipeIdx(idx)
     setSelectionAnchor(idx)
-    if (cfg) {
-      setBuilder(cfg)
+    if (recipe) {
+      setBuilder(recipe)
     }
     return [idx]
   }, [applySelection, customRecipes, selectedRecipeIndices, setBuilder, setSelectedRecipeIdx, setSelectionAnchor])
 
   const handleRecipeSelect = useCallback((event: MouseEvent, idx: number) => {
-    const cfg = customRecipes[idx]
-    if (!cfg) return
+    const recipe = customRecipes[idx]
+    if (!recipe) return
 
     const computeNext = (prev: number[]): number[] => {
       if (event.shiftKey && selectionAnchorRef.current !== null) {
@@ -530,8 +530,8 @@ export function useRecipeSelection({
       // Clone the selected recipes so duplicates stay identity-unique.
       const copies = selected
         .map(i => (i >= 0 && i < prev.length ? prev[i] : undefined))
-        .filter((cfg): cfg is BuilderRecipe => Boolean(cfg))
-        .map(cfg => cloneBuilderRecipe(cfg))
+        .filter((recipe): recipe is BuilderRecipe => Boolean(recipe))
+        .map(recipe => cloneBuilderRecipe(recipe))
       // If nothing can be duplicated, skip the update.
       if (copies.length === 0) {
         describeNextChange(null)
@@ -544,8 +544,8 @@ export function useRecipeSelection({
       const labels = copies
         .map((_, offset) => {
           const newIdx = insertIdx + offset
-          const cfg = next[newIdx]
-          return cfg ? snapshotRecipeLabel(newIdx, cfg) : null
+          const recipe = next[newIdx]
+          return recipe ? snapshotRecipeLabel(newIdx, recipe) : null
         })
         .filter((label): label is ReturnType<typeof snapshotRecipeLabel> => Boolean(label))
       const descriptor = createRecipesDuplicatedDescriptor({
@@ -589,8 +589,8 @@ export function useRecipeSelection({
       const newSel = mapSelectionByIdentity(prev, arr, selected)
       const labels = newSel
         .map((idxNew) => {
-          const cfg = arr[idxNew]
-          return cfg ? snapshotRecipeLabel(idxNew, cfg) : null
+          const recipe = arr[idxNew]
+          return recipe ? snapshotRecipeLabel(idxNew, recipe) : null
         })
         .filter((label): label is ReturnType<typeof snapshotRecipeLabel> => Boolean(label))
       const descriptor = createRecipesMovedDescriptor({
@@ -631,8 +631,8 @@ export function useRecipeSelection({
       const newSel = mapSelectionByIdentity(prev, arr, selected)
       const labels = newSel
         .map((idxNew) => {
-          const cfg = arr[idxNew]
-          return cfg ? snapshotRecipeLabel(idxNew, cfg) : null
+          const recipe = arr[idxNew]
+          return recipe ? snapshotRecipeLabel(idxNew, recipe) : null
         })
         .filter((label): label is ReturnType<typeof snapshotRecipeLabel> => Boolean(label))
       const descriptor = createRecipesMovedDescriptor({
@@ -665,8 +665,8 @@ export function useRecipeSelection({
       const newSel = mapSelectionByIdentity(prev, next, selected)
       const labels = newSel
         .map((idxNew) => {
-          const cfg = next[idxNew]
-          return cfg ? snapshotRecipeLabel(idxNew, cfg) : null
+          const recipe = next[idxNew]
+          return recipe ? snapshotRecipeLabel(idxNew, recipe) : null
         })
         .filter((label): label is ReturnType<typeof snapshotRecipeLabel> => Boolean(label))
       const descriptor = createRecipesMovedDescriptor({
@@ -699,8 +699,8 @@ export function useRecipeSelection({
       const newSel = mapSelectionByIdentity(prev, next, selected)
       const labels = newSel
         .map((idxNew) => {
-          const cfg = next[idxNew]
-          return cfg ? snapshotRecipeLabel(idxNew, cfg) : null
+          const recipe = next[idxNew]
+          return recipe ? snapshotRecipeLabel(idxNew, recipe) : null
         })
         .filter((label): label is ReturnType<typeof snapshotRecipeLabel> => Boolean(label))
       const descriptor = createRecipesMovedDescriptor({
@@ -739,7 +739,7 @@ export function useRecipeSelection({
       const prev = customRecipes
       const movingItems = sanitized
         .map((idx) => prev[idx])
-        .filter((cfg): cfg is BuilderRecipe => Boolean(cfg))
+        .filter((recipe): recipe is BuilderRecipe => Boolean(recipe))
       if (movingItems.length === 0) {
         describeNextChange(null)
         return
@@ -748,7 +748,7 @@ export function useRecipeSelection({
       const clampedTarget = Math.max(0, Math.min(prev.length, rawTargetIndex))
       if (mode === 'copy') {
         // Copy entries with fresh identity so selection mapping stays stable.
-        const copies = movingItems.map(cfg => cloneBuilderRecipe(cfg))
+        const copies = movingItems.map(recipe => cloneBuilderRecipe(recipe))
         if (copies.length === 0) {
           describeNextChange(null)
           return
@@ -761,8 +761,8 @@ export function useRecipeSelection({
         const labels = copies
           .map((_, offset) => {
             const newIdx = clampedTarget + offset
-            const cfg = next[newIdx]
-            return cfg ? snapshotRecipeLabel(newIdx, cfg) : null
+            const recipe = next[newIdx]
+            return recipe ? snapshotRecipeLabel(newIdx, recipe) : null
           })
           .filter((label): label is ReturnType<typeof snapshotRecipeLabel> => Boolean(label))
         const descriptor = createRecipesDuplicatedDescriptor({
@@ -815,8 +815,8 @@ export function useRecipeSelection({
       const newSelection = mapSelectionByIdentity(prev, next, sanitized)
       const labels = newSelection
         .map((idxNew) => {
-          const cfg = next[idxNew]
-          return cfg ? snapshotRecipeLabel(idxNew, cfg) : null
+          const recipe = next[idxNew]
+          return recipe ? snapshotRecipeLabel(idxNew, recipe) : null
         })
         .filter((label): label is ReturnType<typeof snapshotRecipeLabel> => Boolean(label))
       const descriptor = createRecipesMovedDescriptor({
@@ -858,7 +858,7 @@ export function useRecipeSelection({
 
   return {
     selectedRecipeIndices,
-    setSelectedCfgIndices: applySelection,
+    setSelectedRecipeIndices: applySelection,
     multiselectActive,
     selectionAnchor,
     prepareDragSelection,

@@ -213,7 +213,7 @@ export function formatRulesCount(
   return t('rulesCountMany', { n: formatted })
 }
 
-export function formatConfigsCount(
+export function formatRecipesCount(
   t: I18nContextValue['t'],
   total: number,
   selected?: number | null,

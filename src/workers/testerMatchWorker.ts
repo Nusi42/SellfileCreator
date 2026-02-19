@@ -2,7 +2,10 @@
 /// <reference lib="webworker" />
 
 import type { SellfileExportMode } from '../lib/hsfBuilder'
-import { KEEP_OVERRIDE_RULE_SOURCES, type HsfRuleWithCfg } from '../lib/merge'
+import {
+  KEEP_OVERRIDE_RULE_SOURCES as SAFEGUARD_OVERRIDE_RULE_SOURCES,
+  type HsfRuleWithRecipe,
+} from '../lib/merge'
 import {
   configureWasmRuleEngine,
   evaluateWasmRuleEngineItems,
@@ -18,13 +21,13 @@ import { createProgressThrottler } from '../types/progress'
 
 declare const self: DedicatedWorkerGlobalScope
 
-let currentRules: HsfRuleWithCfg[] = []
-let currentConfigModes: SellfileExportMode[] = []
-let currentKeepOverrideRuleIndices = new Set<number>()
+let currentRules: HsfRuleWithRecipe[] = []
+let currentRecipeModes: SellfileExportMode[] = []
+let currentSafeguardOverrideRuleIndices = new Set<number>()
 let wasmWarmupPromise: Promise<void> | null = null
 
 // Reuse a set for O(1) first-match source checks on the hot evaluate path.
-const KEEP_OVERRIDE_SOURCE_SET = new Set<string>(KEEP_OVERRIDE_RULE_SOURCES)
+const SAFEGUARD_OVERRIDE_SOURCE_SET = new Set<string>(SAFEGUARD_OVERRIDE_RULE_SOURCES)
 
 const ensureWasmWorkerReady = async (): Promise<void> => {
   if (!wasmWarmupPromise) {
@@ -33,20 +36,20 @@ const ensureWasmWorkerReady = async (): Promise<void> => {
   await wasmWarmupPromise
 }
 
-const configureRules = async (rules: HsfRuleWithCfg[], recipeModes: SellfileExportMode[]) => {
+const configureRules = async (rules: HsfRuleWithRecipe[], recipeModes: SellfileExportMode[]) => {
   currentRules = rules ?? []
-  currentConfigModes = Array.isArray(recipeModes) ? recipeModes : []
-  // Keep-override index map allows skipping baseline re-eval for unaffected rows.
-  currentKeepOverrideRuleIndices = new Set<number>()
+  currentRecipeModes = Array.isArray(recipeModes) ? recipeModes : []
+  // Safeguard-override index map allows skipping baseline re-eval for unaffected rows.
+  currentSafeguardOverrideRuleIndices = new Set<number>()
   for (let idx = 0; idx < currentRules.length; idx += 1) {
     const source = currentRules[idx]?.__source ?? ''
-    if (!KEEP_OVERRIDE_SOURCE_SET.has(source)) continue
-    currentKeepOverrideRuleIndices.add(idx)
+    if (!SAFEGUARD_OVERRIDE_SOURCE_SET.has(source)) continue
+    currentSafeguardOverrideRuleIndices.add(idx)
   }
   await ensureWasmWorkerReady()
   await configureWasmRuleEngine({
     rules: currentRules,
-    recipeModes: currentConfigModes,
+    recipeModes: currentRecipeModes,
   })
 }
 
@@ -72,8 +75,8 @@ const evaluateRows = async (
   }
   const fullResults = await evaluateWasmRuleEngineItems({
     items,
-    ...(currentKeepOverrideRuleIndices.size > 0
-      ? { options: { baselineExcludeSources: KEEP_OVERRIDE_RULE_SOURCES } }
+    ...(currentSafeguardOverrideRuleIndices.size > 0
+      ? { options: { baselineExcludeSources: SAFEGUARD_OVERRIDE_RULE_SOURCES } }
       : {}),
   })
   const fullById = new Map<number, TesterMatchWorkerItemResult>()

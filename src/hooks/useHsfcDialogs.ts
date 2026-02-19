@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 
 type UseHsfcDialogsParams = {
-  customCfgCount: number
+  customRecipeCount: number
   onConfirmClearAll: () => void
   onConfirmDeleteSingle: (targetIdx: number) => void
   onConfirmDeleteMulti: (targets: number[] | null) => void
@@ -51,7 +51,7 @@ export type UseHsfcDialogsResult = {
  * - Exposes clipboard dialog state so `useHsfcClipboard` can drive the same fallback UI.
  */
 export function useHsfcDialogs({
-  customCfgCount,
+  customRecipeCount,
   onConfirmClearAll,
   onConfirmDeleteSingle,
   onConfirmDeleteMulti,
@@ -82,10 +82,10 @@ export function useHsfcDialogs({
   }, [cancelPendingNoteClose])
 
   useEffect(() => {
-    if (autosaveSilencedByClear && customCfgCount > 0) {
+    if (autosaveSilencedByClear && customRecipeCount > 0) {
       setAutosaveSilencedByClear(false)
     }
-  }, [autosaveSilencedByClear, customCfgCount])
+  }, [autosaveSilencedByClear, customRecipeCount])
 
   const requestClearAll = useCallback(() => {
     setConfirmClearOpen(true)

@@ -58,7 +58,8 @@ const overrides: Catalog = {
   gearDialogIntro: 'Користуйтесь діалогом Gear (Logic Hub → вкладка Gear), щоб створити приклади спорядження і побачити, яке правило його залишить чи продасть. Завантажуйте або перетягуйте базу RSL Helper (зазвичай %APPDATA%\\RslHelper\\Config), щоб у тестері були реальні предмети.',
   gearDialogManualOnlyNotice: 'Ця панель показує лише користувацькі записи. Імпортовані предмети з інвентарю, колекції, сховища та скриньки залишаються видимими у тестері; за потреби очищайте ці джерела кнопками нижче.',
   testerRule: 'Правило',
-  testerJumpToRecipe: 'Перейти до рецепта',
+  testerJumpToRecipe: 'Вибрати рецепт',
+  testerJumpToSafeguard: 'Відкрити правило збереження',
   testerNoMatch: 'Немає збігів',
   testerFinalSell: 'Фінальний продаж',
   gearDialogDeleteSourceConfirmTitle: 'Видалити спорядження «{source}»?',
@@ -583,8 +584,11 @@ const overrides: Catalog = {
   setDesc_setBloodshield_text: 'за предмет: {buff:Shield} на 5% від завданої шкоди після атаки (AoE зменшено на 75%); сумарно: 5/10/15% з 1/2/3 предметами',
 
   // Rules table: columns and UI
-  colIdx: '№',
-  colCfg: 'Конф',
+  colIdx: '#',
+  colRecipe: 'Рецепт',
+  colName: 'Назва',
+  colIdxMenu: 'Індекс рядка HSF',
+  colRecipeIdxMenu: 'Індекс рецепта',
   colKeep: 'Зберегти',
   colUse: 'Вик.',
   colSets: 'Сети',
@@ -1170,6 +1174,7 @@ const overrides: Catalog = {
   toastL10nLoadFailed: 'Не вдалося завантажити файл локалізації',
   toastGearSetsLoaded: 'Завантажено {count} користувацьких сетів',
   toastGearSetsLoadFailed: 'Не вдалося завантажити файл сетів',
+  toastTesterFocusArtifactFiltered: 'Цільовий предмет зараз прихований активними фільтрами тестера.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Основи',

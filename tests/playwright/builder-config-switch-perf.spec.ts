@@ -9,9 +9,9 @@ import { warmupAppShell } from './app-warmup'
 const RULE_CHIP_SELECTOR = '[data-testid="builder-rule-count-chip"] .MuiChip-label'
 
 // Minimal autosave payload to seed two recipes without HSFC imports.
-const AUTOSAVE_CONFIGS = [
+const AUTOSAVE_RECIPES = [
   {
-    name: 'Perf Config A',
+    name: 'Perf Recipe A',
     keep: true,
     SellfileVisibility: 'Active',
     Rank: 'Any',
@@ -30,7 +30,7 @@ const AUTOSAVE_CONFIGS = [
     artifactMetaSetIds: [],
   },
   {
-    name: 'Perf Config B',
+    name: 'Perf Recipe B',
     keep: true,
     SellfileVisibility: 'Active',
     Rank: 'Any',
@@ -50,22 +50,23 @@ const AUTOSAVE_CONFIGS = [
   },
 ] as const
 
-// Keep the config names aligned with the autosave payload for metric labels.
-const AUTOSAVE_CONFIG_NAMES = AUTOSAVE_CONFIGS.map((cfg) => cfg.name ?? '')
+// Keep the recipe names aligned with the autosave payload for metric labels.
+const AUTOSAVE_RECIPE_NAMES = AUTOSAVE_RECIPES.map((recipe) => recipe.name ?? '')
 
-const CONFIG_AUTOSAVE_ENTRY = (() => {
+const RECIPE_AUTOSAVE_ENTRY = (() => {
   const payload = {
     Version: APP_VERSION,
     AutosaveSavedAt: '2025-01-01T00:00:00.000Z',
     Metasets: [],
-    Recipes: AUTOSAVE_CONFIGS,
+    Recipes: AUTOSAVE_RECIPES,
     FinalSellRemainder: {
       artifacts: true,
       accessories: true,
       levels: [0, 4, 8, 12, 16],
       setsMode: 'any',
     },
-    SelectedConfigIndex: 0,
+    // Seed the canonical selection key used by current HSFC/autosave exports.
+    SelectedRecipeIndex: 0,
     Note: 'Perf autosave payload',
   }
   const serialized = JSON.stringify(payload)
@@ -82,7 +83,7 @@ type Measurement = {
   longTasks: { duration: number; scriptUrl: string | null; name: string }[]
 }
 
-test.describe('builder config switching performance', () => {
+test.describe('builder recipe switching performance', () => {
   test.beforeAll(async ({ browser }) => {
     // Allow the long timeout so the cold Vite compile can finish during warmup.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
@@ -91,11 +92,11 @@ test.describe('builder config switching performance', () => {
   })
 
   // Measure switch latency across all engines to detect browser-specific slowdowns.
-  test('measures config switch latency for fixture datasets', async ({ page }, testInfo) => {
-    // Allow the long timeout for rebuilds triggered by config switches.
+  test('measures recipe switch latency for fixture datasets', async ({ page }, testInfo) => {
+    // Allow the long timeout for rebuilds triggered by recipe switches.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
     await prepareApp(page)
-    await seedConfigAutosave(page)
+    await seedRecipeAutosave(page)
     await page.addInitScript(() => {
       // Force English labels so role selectors remain stable across locales.
       try {
@@ -131,11 +132,11 @@ test.describe('builder config switching performance', () => {
       }
     })
 
-    const recipeNames = AUTOSAVE_CONFIG_NAMES
+    const recipeNames = AUTOSAVE_RECIPE_NAMES
 
     // Load the shell without waiting for the full load event.
     await page.goto('/', APP_GOTO_OPTIONS)
-    await acceptConfigRestoreDialog(page)
+    await acceptRecipeRestoreDialog(page)
     // Skip additional HSF/DB imports so the perf check stays within the fast-fail budget.
 
     const chips = page.locator('[data-recipe-chip="true"]')
@@ -150,7 +151,7 @@ test.describe('builder config switching performance', () => {
     let longTaskCursor = 0
     const measurements: Measurement[] = []
     for (const pair of measurementPairs) {
-      const result = await measureConfigSwitch(page, chips, pair.toIdx)
+      const result = await measureRecipeSwitch(page, chips, pair.toIdx)
       const taskDelta = await collectLongTasks(page, longTaskCursor, result.startTime, result.endTime)
       longTaskCursor = taskDelta.nextCursor
       measurements.push({
@@ -167,7 +168,7 @@ test.describe('builder config switching performance', () => {
       const label = `${formatRecipeLabel(entry.fromIdx, entry.fromName)} → ${formatRecipeLabel(entry.toIdx, entry.toName)}`
       const summary = `${label} | rule chip settled=${entry.ruleChipSettledMs.toFixed(1)} ms`
       testInfo.annotations.push({ type: 'perf', description: summary })
-      console.log(`[builder-config-switch] ${summary}`)
+      console.log(`[builder-recipe-switch] ${summary}`)
       if (entry.longTasks.length > 0) {
         for (const task of entry.longTasks) {
           const location = task.scriptUrl ? task.scriptUrl : task.name
@@ -178,8 +179,8 @@ test.describe('builder config switching performance', () => {
   })
 })
 
-async function seedConfigAutosave(page: Page): Promise<void> {
-  // Seed the HSFC autosave entry so config chips are available without imports.
+async function seedRecipeAutosave(page: Page): Promise<void> {
+  // Seed the HSFC autosave entry so recipe chips are available without imports.
   await page.addInitScript(
     ({ autosaveKey, autosaveValue }) => {
       try {
@@ -190,12 +191,12 @@ async function seedConfigAutosave(page: Page): Promise<void> {
     },
     {
       autosaveKey: AUTOSAVE_KEY,
-      autosaveValue: CONFIG_AUTOSAVE_ENTRY,
+      autosaveValue: RECIPE_AUTOSAVE_ENTRY,
     },
   )
 }
 
-async function acceptConfigRestoreDialog(page: Page): Promise<void> {
+async function acceptRecipeRestoreDialog(page: Page): Promise<void> {
   // Locate the restore dialog that appears when autosave data exists.
   const dialog = page.getByRole('dialog', { name: RESTORE_DIALOG_TITLE })
   // Allow the app boot budget so the dialog can render.
@@ -204,10 +205,10 @@ async function acceptConfigRestoreDialog(page: Page): Promise<void> {
   const isVisible = await dialog.isVisible().catch(() => false)
   if (!isVisible) return
   // Ensure recipes are selected so the restore loads chips.
-  const configsCheckbox = dialog.getByRole('checkbox', { name: /Recipes/i })
-  if (await configsCheckbox.isVisible().catch(() => false)) {
-    if (!(await configsCheckbox.isChecked().catch(() => false))) {
-      await configsCheckbox.click()
+  const recipesCheckbox = dialog.getByRole('checkbox', { name: /Recipes/i })
+  if (await recipesCheckbox.isVisible().catch(() => false)) {
+    if (!(await recipesCheckbox.isChecked().catch(() => false))) {
+      await recipesCheckbox.click()
     }
   }
   const restoreButton = dialog.getByRole('button', { name: /Restore Selected/i })
@@ -236,7 +237,7 @@ function deriveMeasurementPairs(recipeNames: string[], desired: number): Array<{
   return pairs
 }
 
-async function measureConfigSwitch(page: Page, chips: Locator, toIdx: number): Promise<{ ruleChipSettledMs: number; startTime: number; endTime: number }> {
+async function measureRecipeSwitch(page: Page, chips: Locator, toIdx: number): Promise<{ ruleChipSettledMs: number; startTime: number; endTime: number }> {
   const target = chips.nth(toIdx)
   await expect(target).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
   const start = await page.evaluate(() => performance.now())

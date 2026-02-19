@@ -1,23 +1,23 @@
 /* eslint-disable import/no-unused-modules */
 /// <reference lib="webworker" />
 
-import { createRecipeRulesCache, updateRecipeRulesCache } from '../lib/ruleCache'
+import { createRecipeRulesCache, updateRecipeRulesCache, type RecipeRulesCache } from '../lib/ruleCache'
 import {
-  KEEP_OVERRIDE_RULE_SOURCES,
+  KEEP_OVERRIDE_RULE_SOURCES as SAFEGUARD_OVERRIDE_RULE_SOURCES,
   RULE_SOURCE_SAFEGUARDS,
   computeMergedRules,
 } from '../lib/merge'
 import { recipesForRuleBuild } from '../lib/ruleCacheHelpers'
 import type { EvalResult } from '../lib/ruleEval'
 import {
-  buildIgnoreSafeguardConfigIndices,
+  buildIgnoreSafeguardRecipeIndices,
   collectAndComputeSafeguardProtection,
   hasActiveSafeguardRules,
   resolveSafeguardRuleLabel,
 } from '../lib/safeguards'
 import type { SafeguardDetectionSnapshot } from '../lib/safeguards'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
-import type { HsfRuleWithCfg } from '../lib/merge'
+import type { HsfRuleWithRecipe } from '../lib/merge'
 import type { BuilderRecipe, SellfileExportMode, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { TesterMatchWorkerItemResult } from './testerMatchWorkerTypes'
 import type { TesterPreviewMatch } from '../types/testerPreview'
@@ -38,7 +38,7 @@ import {
 declare const self: DedicatedWorkerGlobalScope
 
 type WarmState = {
-  rulesByRecipe: Map<number, HsfRuleWithCfg[]>
+  rulesByRecipe: Map<number, HsfRuleWithRecipe[]>
   countsByRecipe: Map<number, number>
   keys: string[]
   substatTargetsKey: string
@@ -52,11 +52,9 @@ type WarmState = {
 
 let cache = createRecipeRulesCache()
 let lastWarmState: WarmState | null = null
+// Pipeline generation increments on the app side; worker uses it to ignore stale commits.
+let latestPipelineGeneration = 0
 
-// Cache reuse remains enabled by default; tests can disable it explicitly.
-const WASM_EXPERIMENT_DISABLE_CACHES = (
-  (import.meta as ImportMeta & { env?: Record<string, unknown> }).env?.VITE_WASM_DISABLE_CACHE_REUSE === '1'
-)
 // Log the loaded WASM version once per worker so perf transcripts can confirm
 // which binary was active during a run.
 let wasmVersionLogged = false
@@ -75,6 +73,26 @@ type CachedArtifactEntry = {
 
 // Cache tester artifacts across pipeline runs so patches can be applied incrementally.
 const artifactCache = new Map<number, CachedArtifactEntry>()
+
+const notePipelineGeneration = (generation: number): void => {
+  if (generation > latestPipelineGeneration) latestPipelineGeneration = generation
+}
+
+const pipelineGenerationIsStale = (generation: number): boolean => generation < latestPipelineGeneration
+
+const cloneArtifactCache = (source: Map<number, CachedArtifactEntry>): Map<number, CachedArtifactEntry> => {
+  const next = new Map<number, CachedArtifactEntry>()
+  source.forEach((entry, itemId) => {
+    // Clone each value so stale runs can never mutate shared cache entries in place.
+    next.set(itemId, { ...entry })
+  })
+  return next
+}
+
+const commitArtifactCache = (next: Map<number, CachedArtifactEntry>): void => {
+  artifactCache.clear()
+  next.forEach((entry, itemId) => artifactCache.set(itemId, entry))
+}
 
 const postError = (id: number, error: unknown): void => {
   const response: RuleCacheWorkerResponse = {
@@ -177,7 +195,7 @@ const buildWarmState = (
   id: number,
   payload: Extract<RuleCacheWorkerRequest, { kind: 'warm' | 'pipeline' }>['payload'],
   options?: { skipProgress?: boolean; fingerprint?: string | null },
-): { state: WarmState; mergedRules: HsfRuleWithCfg[] } => {
+): { state: WarmState; mergedRules: HsfRuleWithRecipe[]; nextCache: RecipeRulesCache } => {
   const recipesForRules = recipesForRuleBuild(payload.recipes)
   const baseRuleCount = Array.isArray(payload.hsf?.Rules) ? (payload.hsf?.Rules.length ?? 0) : 0
   let lastProgress = 0
@@ -194,15 +212,14 @@ const buildWarmState = (
     recipes: recipesForRules,
     metasets: payload.metasets,
     substatTargets: payload.substatTargets,
-    // WASM experiment bypasses warm-cache reuse to expose raw rebuild costs.
-    ...(WASM_EXPERIMENT_DISABLE_CACHES ? {} : { previousCache: cache }),
+    // Reuse the previous warm cache snapshot to avoid rebuilding unchanged branches.
+    previousCache: cache,
     baseRuleCount,
     finalizeGeneratedRules: finalizeGeneratedRulesForWorker,
     ...(handleProgress ? { onProgress: handleProgress } : {}),
   })
-  // Keep the cache map in sync for non-experiment runs; in WASM mode we reset
-  // to an empty cache so subsequent warm calls cannot reuse stale entries.
-  cache = WASM_EXPERIMENT_DISABLE_CACHES ? createRecipeRulesCache() : result.cache
+  // Compute the next cache snapshot but defer committing it until the caller accepts this run.
+  const nextCache = result.cache
   const mergedRules = computeMergedRules({
     hsf: payload.hsf,
     customRecipes: recipesForRules,
@@ -225,16 +242,13 @@ const buildWarmState = (
     fingerprint: options?.fingerprint ?? null,
     artifactSignature: null,
   }
-  lastWarmState = state
-  return { state, mergedRules }
+  return { state, mergedRules, nextCache }
 }
 
 const reuseWarmState = (
   fingerprint: string | null | undefined,
   skipWarm: boolean | undefined,
 ): WarmState | null => {
-  // WASM experiment intentionally drops warm-state reuse.
-  if (WASM_EXPERIMENT_DISABLE_CACHES) return null
   if (!lastWarmState) return null
   const fingerprintsMatch = fingerprint != null ? fingerprint === lastWarmState.fingerprint : false
   if (skipWarm && fingerprintsMatch) return lastWarmState
@@ -244,7 +258,7 @@ const reuseWarmState = (
 
 const toWarmResponsePayload = (
   state: WarmState,
-  mergedRules: HsfRuleWithCfg[],
+  mergedRules: HsfRuleWithRecipe[],
 ): RuleCacheWorkerResponse => ({
   id: 0,
   kind: 'warm:done',
@@ -278,11 +292,15 @@ const fingerprintArtifact = (artifact: NormalizedGearArtifact): string => {
 
 // Merge the new artifact into the cache while reusing cached matcher answers whenever
 // the fingerprint proves the payload is identical to the last run.
-const upsertArtifactCacheEntry = (itemId: number, artifact: NormalizedGearArtifact): void => {
+const upsertArtifactCacheEntry = (
+  cacheMap: Map<number, CachedArtifactEntry>,
+  itemId: number,
+  artifact: NormalizedGearArtifact,
+): void => {
   const nextFingerprint = fingerprintArtifact(artifact)
-  const previous = artifactCache.get(itemId)
-  const canReuseMatches = !WASM_EXPERIMENT_DISABLE_CACHES && Boolean(previous && previous.fingerprint === nextFingerprint)
-  artifactCache.set(itemId, {
+  const previous = cacheMap.get(itemId)
+  const canReuseMatches = Boolean(previous && previous.fingerprint === nextFingerprint)
+  cacheMap.set(itemId, {
     artifact,
     fingerprint: nextFingerprint,
     // Preserve base matches only when the item payload fingerprint matches.
@@ -297,25 +315,25 @@ const upsertArtifactCacheEntry = (itemId: number, artifact: NormalizedGearArtifa
 }
 
 // Convert the cache map to the tuple shape the rest of the pipeline expects.
-const artifactEntriesFromCache = (): Array<[number, NormalizedGearArtifact]> => {
+const artifactEntriesFromCache = (cacheMap: Map<number, CachedArtifactEntry>): Array<[number, NormalizedGearArtifact]> => {
   const entries: Array<[number, NormalizedGearArtifact]> = []
-  artifactCache.forEach((entry, itemId) => {
+  cacheMap.forEach((entry, itemId) => {
     entries.push([itemId, entry.artifact])
   })
   return entries
 }
 
 const buildPipelineMatches = async (
-  mergedRules: HsfRuleWithCfg[],
+  mergedRules: HsfRuleWithRecipe[],
   artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,
   recipeModes: SellfileExportMode[] | undefined,
   _baseMatchMap: Map<number, TesterMatchWorkerItemResult> | null,
-  ignoreSafeguardConfigIndices: ReadonlySet<number> | null,
+  ignoreSafeguardRecipeIndices: ReadonlySet<number> | null,
   total: number,
   completedRef: { value: number },
   id: number,
   emitProgress: boolean,
-  hasKeepOverrideRules: boolean,
+  hasSafeguardOverrideRules: boolean,
 ) : Promise<TesterMatchWorkerItemResult[]> => {
   if (!artifactEntries.length) return []
   // Configure per phase so the WASM state aligns with the current ruleset.
@@ -333,8 +351,8 @@ const buildPipelineMatches = async (
   const fullResults = await evaluateWasmRuleEngineItems({
     items: fullItems,
     options: {
-      ...(ignoreSafeguardConfigIndices ? { ignoreSafeguardConfigIndices } : {}),
-      ...(hasKeepOverrideRules ? { baselineExcludeSources: KEEP_OVERRIDE_RULE_SOURCES } : {}),
+      ...(ignoreSafeguardRecipeIndices ? { ignoreSafeguardRecipeIndices } : {}),
+      ...(hasSafeguardOverrideRules ? { baselineExcludeSources: SAFEGUARD_OVERRIDE_RULE_SOURCES } : {}),
     },
   })
   const fullByItemId = new Map<number, TesterMatchWorkerItemResult>()
@@ -361,16 +379,16 @@ const buildPipelineMatches = async (
   return results
 }
 
-// Keep-unique candidate detection needs baseline keep/sell decisions with some
+// Safeguard candidate detection needs baseline keep/sell decisions with some
 // recipes excluded. Batch evaluation avoids per-row JS re-scans in that phase.
-const buildExcludedConfigBaselineMap = async (
-  mergedRules: HsfRuleWithCfg[],
+const buildExcludedRecipeBaselineMap = async (
+  mergedRules: HsfRuleWithRecipe[],
   artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,
   recipeModes: SellfileExportMode[] | undefined,
-  excludeConfigIndices: ReadonlySet<number>,
+  excludeRecipeIndices: ReadonlySet<number>,
 ): Promise<Map<number, TesterMatchWorkerItemResult>> => {
   const byItem = new Map<number, TesterMatchWorkerItemResult>()
-  if (!artifactEntries.length || excludeConfigIndices.size === 0) return byItem
+  if (!artifactEntries.length || excludeRecipeIndices.size === 0) return byItem
   // Configure with the baseline ruleset so exclude-index evaluation mirrors JS.
   await configureWasmRuleEngine({
     rules: mergedRules,
@@ -379,7 +397,7 @@ const buildExcludedConfigBaselineMap = async (
   const items = artifactEntries.map(([itemId, artifact]) => ({ itemId, item: artifact.testerItem }))
   const evaluated = await evaluateWasmRuleEngineItems({
     items,
-    options: { excludeConfigIndices },
+    options: { excludeRecipeIndices },
   })
   for (const entry of evaluated) {
     byItem.set(entry.itemId, {
@@ -434,7 +452,10 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
   if (message.kind === 'warm') {
     const { id, payload } = message
     try {
-      const { state, mergedRules } = buildWarmState(id, payload)
+      const { state, mergedRules, nextCache } = buildWarmState(id, payload)
+      // Warm requests always commit immediately because they are single-shot cache seeds.
+      cache = nextCache
+      lastWarmState = state
       const response = toWarmResponsePayload(state, mergedRules)
       response.id = id
       self.postMessage(response)
@@ -446,21 +467,31 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
 
   if (message.kind !== 'pipeline') return
   const { id, payload } = message
+  const pipelineGeneration = Number.isFinite(payload.generation) ? Number(payload.generation) : id
+  // Record this run as the newest candidate; older runs can only read, never commit.
+  notePipelineGeneration(pipelineGeneration)
+  const runIsStale = (): boolean => pipelineGenerationIsStale(pipelineGeneration)
   try {
     const reused = reuseWarmState(payload.fingerprint ?? null, payload.skipWarm)
-    const warmState = reused ?? buildWarmState(
-      id,
-      payload,
-      { skipProgress: true, fingerprint: payload.fingerprint ?? null },
-    ).state
+    const builtWarmState = reused
+      ? null
+      : buildWarmState(
+        id,
+        payload,
+        { skipProgress: true, fingerprint: payload.fingerprint ?? null },
+      )
+    const warmState = reused ?? builtWarmState!.state
+    const pendingCacheCommit = builtWarmState?.nextCache ?? null
+    // Pipeline work mutates a local snapshot and only commits if this generation stays current.
+    const localArtifactCache = cloneArtifactCache(artifactCache)
     if (payload.resetArtifacts) {
       // Drop any cached tester artifacts so the next detection run cannot reference deleted items.
-      artifactCache.clear()
+      localArtifactCache.clear()
     }
     const prebuiltCustomRules = warmState.rulesByRecipe
-    // Skip the extra detection/merge work when keep overrides are effectively off.
+    // Skip the extra detection/merge work when safeguard overrides are effectively off.
     const hasActiveSafeguards = hasActiveSafeguardRules(payload.safeguards)
-    const hasActiveKeepOverrides = hasActiveSafeguards
+    const hasActiveSafeguardOverrides = hasActiveSafeguards
     const baseSafeguards = hasActiveSafeguards
       ? { ...payload.safeguards, detection: null }
       : payload.safeguards
@@ -469,38 +500,35 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     const needsMatches = payload.skipMatches !== true
 
     // Base-match results must be tied to the current rule/recipe fingerprint.
-    // WASM experiment appends the request id so cross-run reuse stays disabled.
-    const baseMatchSignature = WASM_EXPERIMENT_DISABLE_CACHES
-      ? `${buildBaseMatchSignature(payload)}|run:${id}`
-      : buildBaseMatchSignature(payload)
+    const baseMatchSignature = buildBaseMatchSignature(payload)
     // Track which item ids truly changed so baseline/final matcher caches can stay valid.
     const changedItemIds = new Set<number>()
     if (payload.artifactPatch) {
       for (const [itemId, artifact] of payload.artifactPatch.changed) {
         changedItemIds.add(itemId)
-        upsertArtifactCacheEntry(itemId, artifact)
+        upsertArtifactCacheEntry(localArtifactCache, itemId, artifact)
       }
       for (const removed of payload.artifactPatch.removed) {
         changedItemIds.add(removed)
-        artifactCache.delete(removed)
+        localArtifactCache.delete(removed)
       }
     } else if (payload.artifacts && payload.artifacts.length > 0) {
-      artifactCache.clear()
+      localArtifactCache.clear()
       payload.artifacts.forEach((artifact, idx) => {
         const itemId = resolveItemId(artifact, idx)
         changedItemIds.add(itemId)
-        upsertArtifactCacheEntry(itemId, artifact)
+        upsertArtifactCacheEntry(localArtifactCache, itemId, artifact)
       })
     }
     const artifactEntries: Array<[number, NormalizedGearArtifact]> = (() => {
       if (payload.artifacts && payload.artifacts.length > 0) {
         return payload.artifacts.map((artifact, idx) => [resolveItemId(artifact, idx), artifact] as [number, NormalizedGearArtifact])
       }
-      return artifactEntriesFromCache()
+      return artifactEntriesFromCache(localArtifactCache)
     })()
     const needsDetection = needsMatches
       && payload.skipDetection !== true
-      && hasActiveKeepOverrides
+      && hasActiveSafeguardOverrides
       && artifactEntries.length > 0
     const matchPasses = needsMatches ? (needsDetection ? 2 : 1) : 0
     const total = warmTotal + (artifactEntries.length * matchPasses)
@@ -520,15 +548,13 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // Seed the baseline map with anything we already evaluated so the detection pass only
     // recomputes the rows the patch touched.
     const baselineMatchMap = new Map<number, TesterMatchWorkerItemResult>()
-    if (!WASM_EXPERIMENT_DISABLE_CACHES) {
-      artifactCache.forEach((entry, itemId) => {
-        // Reuse cached base matches only when the signature still aligns.
-        if (!entry.baseMatch) return
-        // Skip stale base matches when recipes/reordering changed.
-        if (entry.baseMatchSignature !== baseMatchSignature) return
-        baselineMatchMap.set(itemId, entry.baseMatch)
-      })
-    }
+    localArtifactCache.forEach((entry, itemId) => {
+      // Reuse cached base matches only when the signature still aligns.
+      if (!entry.baseMatch) return
+      // Skip stale base matches when recipes/reordering changed.
+      if (entry.baseMatchSignature !== baseMatchSignature) return
+      baselineMatchMap.set(itemId, entry.baseMatch)
+    })
     if (needsDetection) {
       // Baseline phase: refresh missing base matches so detection can reuse them.
       postPipelinePhase(id, 'baseline:start', { total: artifactEntries.length })
@@ -552,11 +578,12 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           baseProgressRef,
           id,
           true,
-          hasActiveKeepOverrides,
+          hasActiveSafeguardOverrides,
         )
+        if (runIsStale()) return
         for (const result of baseMatchResults) {
           baselineMatchMap.set(result.itemId, result)
-          const cached = artifactCache.get(result.itemId)
+          const cached = localArtifactCache.get(result.itemId)
           if (cached) cached.baseMatch = result
           if (cached) cached.baseMatchSignature = baseMatchSignature
         }
@@ -570,7 +597,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       completed = warmTotal
     }
 
-    const toPreviewMatch = (result: EvalResult | null, rules: HsfRuleWithCfg[]): TesterPreviewMatch | null => {
+    const toPreviewMatch = (result: EvalResult | null, rules: HsfRuleWithRecipe[]): TesterPreviewMatch | null => {
       if (!result) return null
       const rule = rules[result.ruleIndex]
       const recipeIdx = result.recipeIdx ?? null
@@ -578,35 +605,36 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       const safeguardLabel = rule?.__source === RULE_SOURCE_SAFEGUARDS
         ? resolveSafeguardRuleLabel(rule)
         : null
-      const effectiveCfgName = recipeName && recipeName.length > 0
+      const effectiveRecipeName = recipeName && recipeName.length > 0
         ? recipeName
         : safeguardLabel
       return {
         ruleIndex: result.ruleIndex,
         keep: result.keep,
         recipeIdx,
-        recipeName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
+        recipeName: effectiveRecipeName && effectiveRecipeName.length > 0 ? effectiveRecipeName : null,
         ruleLabel: safeguardLabel ?? null,
         ruleSource: rule?.__source ?? null,
       }
     }
 
     // Precompute ignored recipes so matcher precedence can reuse the set.
-    const ignoreSafeguardConfigIndices = buildIgnoreSafeguardConfigIndices(recipesForRules)
+    const ignoreSafeguardRecipeIndices = buildIgnoreSafeguardRecipeIndices(recipesForRules)
     // Candidate detection uses this baseline when ignored recipes are excluded.
-    const filteredBaselineMatchMap = (needsDetection && ignoreSafeguardConfigIndices.size > 0)
-      ? await buildExcludedConfigBaselineMap(
+    const filteredBaselineMatchMap = (needsDetection && ignoreSafeguardRecipeIndices.size > 0)
+      ? await buildExcludedRecipeBaselineMap(
         mergedRulesBaseline,
         artifactEntries,
         payload.recipeModes,
-        ignoreSafeguardConfigIndices,
+        ignoreSafeguardRecipeIndices,
       )
       : null
+    if (runIsStale()) return
     // Keep detection optional so we only pay for it when needed.
     let safeguardDetectionSnapshot: SafeguardDetectionSnapshot | null = null
-    // Only compute detection when the caller requested keep-override scanning.
+    // Only compute detection when the caller requested safeguard-override scanning.
     if (needsDetection) {
-      // Detection phase: collect candidate groups + compute keep-override snapshots.
+      // Detection phase: collect candidate groups + compute safeguard-override snapshots.
       postPipelinePhase(id, 'detection:start', {
         artifacts: artifactEntries.length,
         safeguardRules: payload.safeguards.rules.length,
@@ -623,7 +651,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           // Provide a base match so detection can respect existing keep/sell results.
           baseMatch: toPreviewMatch(match?.firstNonExcludedMatch ?? match?.firstMatch ?? null, mergedRulesBaseline),
           // Carry baseline recipe index sets to keep candidate math stable.
-          matchingCfgIndices: match?.matchingRecipeIndices ?? [],
+          matchingRecipeIndices: match?.matchingRecipeIndices ?? [],
           // Carry baseline recipe decisions for safeguard precedence checks.
           matchingRecipeDecisions: match?.matchingRecipeDecisions ?? [],
         }
@@ -641,7 +669,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         // Respect the safeguard enabled toggle.
         enabled: payload.safeguards.enabled,
         // Pre-filtered baseline matches already exclude ignored recipes.
-        ...(filteredBaselineMatchMap ? {} : { ignoreSafeguardConfigIndices }),
+        ...(filteredBaselineMatchMap ? {} : { ignoreSafeguardRecipeIndices }),
       })
       // Safeguards snapshot drives rule injection + UI counts downstream.
       safeguardDetectionSnapshot = combinedDetection.detection
@@ -652,7 +680,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       })
     }
 
-    // Build the final merged rules with keep-override injections if active.
+    // Build the final merged rules with safeguard-override injections if active.
     const mergedRulesFinal = computeMergedRules({
       hsf: payload.hsf,
       customRecipes: recipesForRules,
@@ -684,10 +712,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       // Collect artifacts that need full evaluation (cache misses or invalidated entries).
       const pendingEntries: Array<[number, NormalizedGearArtifact]> = []
       for (const [itemId, artifact] of artifactEntries) {
-        const cached = artifactCache.get(itemId)
+        const cached = localArtifactCache.get(itemId)
         const reusable = Boolean(
-          !WASM_EXPERIMENT_DISABLE_CACHES
-          && cached
+          cached
           && cached.finalMatch
           && cached.finalMatchSignature === finalMatchSignature
           && !changedItemIds.has(itemId),
@@ -703,7 +730,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         pending: pendingEntries.length,
         cached: artifactEntries.length - pendingEntries.length,
         fastPath: false,
-        keepOverrideRules: hasActiveKeepOverrides ? 1 : 0,
+        safeguardOverrideRules: hasActiveSafeguardOverrides ? 1 : 0,
       })
       if (pendingEntries.length > 0) {
         const pendingProgressRef = { value: completed }
@@ -712,19 +739,20 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           pendingEntries,
           payload.recipeModes,
           null,
-          ignoreSafeguardConfigIndices,
+          ignoreSafeguardRecipeIndices,
           total,
           pendingProgressRef,
           id,
           true,
-          hasActiveKeepOverrides,
+          hasActiveSafeguardOverrides,
         )
+        if (runIsStale()) return
         // Append each full-eval match and refresh the cache.
         for (const match of pendingMatches) {
           // Push the result into the output list.
           matches.push(match)
           // Update the cached match for this artifact.
-          const cached = artifactCache.get(match.itemId)
+          const cached = localArtifactCache.get(match.itemId)
           if (cached) {
             // Store the final match for reuse.
             cached.finalMatch = match
@@ -743,11 +771,14 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       // Final phase complete: surface how many matches were produced.
       postPipelinePhase(id, 'final:done', { matches: matches.length })
     } else {
-      artifactCache.forEach((entry) => {
+      localArtifactCache.forEach((entry) => {
         entry.finalMatch = null
         entry.finalMatchSignature = null
       })
     }
+
+    // Never let stale generations mutate shared worker cache state.
+    if (runIsStale()) return
 
     const response: RuleCacheWorkerResponse = {
       id,
@@ -762,22 +793,24 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         totalLimitHit: warmState.totalLimitHit,
         excludedByTotalLimitIndices: warmState.excludedByTotalLimitIndices.slice(),
         matches,
-        // Keep-unique detection snapshot drives Safeguards tab + merges.
+        // Safeguard detection snapshot drives Safeguards tab + merges.
         safeguardDetection: safeguardDetectionSnapshot,
         fingerprint: payload.fingerprint ?? null,
         artifactSignature: payload.artifactPatch?.signature ?? payload.artifactSignature ?? null,
       },
     }
+    // Commit cache state only when this run is still the latest generation.
+    if (pendingCacheCommit) cache = pendingCacheCommit
+    commitArtifactCache(localArtifactCache)
     // Update warm cache so subsequent requests can skip redundant work.
-    lastWarmState = WASM_EXPERIMENT_DISABLE_CACHES
-      ? null
-      : {
-        ...warmState,
-        fingerprint: payload.fingerprint ?? null,
-        artifactSignature: payload.artifactPatch?.signature ?? payload.artifactSignature ?? null,
-      }
+    lastWarmState = {
+      ...warmState,
+      fingerprint: payload.fingerprint ?? null,
+      artifactSignature: payload.artifactPatch?.signature ?? payload.artifactSignature ?? null,
+    }
     self.postMessage(response)
   } catch (error) {
+    if (runIsStale()) return
     postError(id, error)
   }
 }

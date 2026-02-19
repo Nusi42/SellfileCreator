@@ -3,7 +3,7 @@ import { ACCEPT_HSFC_FILE_DIALOG, ELLIPSIS_TEXT_SX, LONG_LABEL_BUTTON_MAX_WIDTH_
 import FilePickerButton from './FilePickerButton'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
-import { useI18n, formatConfigsCount } from '../lib/i18n'
+import { useI18n, formatRecipesCount } from '../lib/i18n'
 import DirtyBadge from './DirtyBadge'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
@@ -31,13 +31,13 @@ export default function HeaderActions(props: {
     hsfcDirty,
   } = props
   const { t } = useI18n()
-  const configChipLabel = formatConfigsCount(
+  const recipeChipLabel = formatRecipesCount(
     t,
     count,
     selectedCount > 0 ? selectedCount : null,
     visibleCount,
   )
-  const chipLabel = configChipLabel
+  const chipLabel = recipeChipLabel
 
   return (
     <Box

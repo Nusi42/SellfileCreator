@@ -10,7 +10,7 @@ import { RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT } from './constants'
 import {
   buildRulesForRecipe,
   type BuildRulesFinalizeGeneratedFn,
-  type HsfRuleWithCfg,
+  type HsfRuleWithRecipe,
 } from './merge'
 import { countRulesForRecipeEntry } from './ruleCacheHelpers'
 import type { BuilderRecipe, SubstatTargetTable } from './hsfBuilder'
@@ -24,7 +24,7 @@ import { applyRecipeIndexMutable, cloneRuleWithRecipeIndex } from './ruleRecipeI
 /** Cache entry keyed by a stable fingerprint for a single recipe. */
 export type RecipeRuleCacheEntry = {
   key: string
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   count: number
   truncated: boolean
   excludedByTotalLimit?: boolean
@@ -101,7 +101,7 @@ type UpdateArgs = {
 
 type UpdateResult = {
   cache: RecipeRulesCache
-  rulesByRecipe: Map<number, HsfRuleWithCfg[]>
+  rulesByRecipe: Map<number, HsfRuleWithRecipe[]>
   countsByRecipe: Map<number, number>
   keys: string[]
   substatTargetsKey: string
@@ -140,7 +140,7 @@ export function updateRecipeRulesCache(args: UpdateArgs): UpdateResult {
   }
   const substatTargetsKey = substatTargetsFingerprint(substatTargets)
   const nextCache: RecipeRulesCache = new Map()
-  const rulesByRecipe = new Map<number, HsfRuleWithCfg[]>()
+  const rulesByRecipe = new Map<number, HsfRuleWithRecipe[]>()
   const countsByRecipe = new Map<number, number>()
   const keys: string[] = []
   const truncatedRecipeIndices: number[] = []
@@ -352,7 +352,7 @@ export function mergeRecipeArtifactSets(recipe: BuilderRecipe, metasets: readonl
  */
 function buildRecipeFingerprint(recipe: BuilderRecipe, substatTargetsKey: string): string {
   const canonical = buildCanonicalRecipeSnapshot(recipe)
-  return JSON.stringify({ cfg: canonical, substatTargets: substatTargetsKey })
+  return JSON.stringify({ recipe: canonical, substatTargets: substatTargetsKey })
 }
 
 /**

@@ -51,7 +51,7 @@ export {
   type RuleSource,
 } from './ruleSources'
 
-export type HsfRuleWithCfg = HsfRule & {
+export type HsfRuleWithRecipe = HsfRule & {
   __lineIdx?: number
   __allKnownSets?: boolean
   __source?: RuleSource
@@ -72,7 +72,7 @@ export type HsfRuleWithCfg = HsfRule & {
 // Keep branch metadata separate from the mutable rule object so worker callers
 // can serialize generation output for WASM post-processing.
 export type GeneratedBranchRuleEntry = {
-  rule: HsfRuleWithCfg
+  rule: HsfRuleWithRecipe
   branchOrder: number
   branchSeq: number
   originalIdx: number
@@ -82,14 +82,14 @@ export type GeneratedBranchRuleEntry = {
 export type BuildRulesFinalizeGeneratedFn = (params: {
   entries: readonly GeneratedBranchRuleEntry[]
   applyObsoletePruning: boolean
-}) => HsfRuleWithCfg[]
+}) => HsfRuleWithRecipe[]
 
-function expandAutoFlexRarityBranches(cfg: BuilderRecipe): BuilderRecipe[] {
+function expandAutoFlexRarityBranches(recipe: BuilderRecipe): BuilderRecipe[] {
   // Keep auto-rarity resolution in the existing shared helper.
-  const baseRarityCode = resolveAutoRarityCode(cfg)
+  const baseRarityCode = resolveAutoRarityCode(recipe)
   // Delegate branch splitting heuristics to wasm for SSOT behavior.
   const branches = expandAutoFlexRarityBranchesWithLoadedWasm({
-    recipe: cfg,
+    recipe,
     baseRarityCode,
   })
   // Fail closed when warmup/payload is invalid; do not silently keep one branch.
@@ -104,10 +104,10 @@ export function buildRulesForRecipe(params: {
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
   recipeIdx?: number
-}, options?: { limit?: number; onLimit?: () => void; finalizeGeneratedRules?: BuildRulesFinalizeGeneratedFn }): HsfRuleWithCfg[] {
+}, options?: { limit?: number; onLimit?: () => void; finalizeGeneratedRules?: BuildRulesFinalizeGeneratedFn }): HsfRuleWithRecipe[] {
   const { recipe, metasets, substatTargets, recipeIdx } = params
   // Carry a stable 1-based recipe identifier through builder → HSF exports.
-  const configIdForExport = (typeof recipeIdx === 'number' && Number.isFinite(recipeIdx) && recipeIdx >= 0)
+  const recipeIdForExport = (typeof recipeIdx === 'number' && Number.isFinite(recipeIdx) && recipeIdx >= 0)
     ? (Math.floor(recipeIdx) + 1)
     : null
   // Expand metasets and remove explicit exclusions before rule generation.
@@ -117,34 +117,34 @@ export function buildRulesForRecipe(params: {
     metasets,
   })
   // Build a recipe snapshot with the resolved set IDs only.
-  const cfgWithSets: BuilderRecipe = {
+  const recipeWithSets: BuilderRecipe = {
     ...recipe,
     // Normalize to include-only entries so the builder sees final set ids.
     artifactSets: resolvedSets.resolved.map((id) => ({ id })),
   }
   try {
-    const configsToBuild = expandAutoFlexRarityBranches(cfgWithSets)
+    const recipesToBuild = expandAutoFlexRarityBranches(recipeWithSets)
     // Capture explicit branch metadata so sorting/finalization is deterministic.
     const generatedEntries: GeneratedBranchRuleEntry[] = []
-    configsToBuild.forEach((branch, branchOrder) => {
+    recipesToBuild.forEach((branch, branchOrder) => {
       const built = buildHsfRules(
         branch,
         substatTargets,
         {
           ...(options?.limit != null ? { limit: options.limit } : {}),
-          ...(configIdForExport !== null ? { recipeId: configIdForExport } : {}),
+          ...(recipeIdForExport !== null ? { recipeId: recipeIdForExport } : {}),
         },
       )
       built.forEach((rule, seq) => {
         generatedEntries.push({
-          rule: rule as HsfRuleWithCfg,
+          rule: rule as HsfRuleWithRecipe,
           branchOrder,
           branchSeq: seq,
           originalIdx: generatedEntries.length,
         })
       })
     })
-    const applyObsoletePruning = configsToBuild.length <= 1
+    const applyObsoletePruning = recipesToBuild.length <= 1
     // Single source of truth: generated-rule finalize logic lives in WASM.
     // Allow callers to inject an alternative only for explicit test/worker hooks.
     const finalizeGeneratedRules = options?.finalizeGeneratedRules ?? ((finalizeParams: {
@@ -161,7 +161,7 @@ export function buildRulesForRecipe(params: {
     // Always pass through the selected finalizer so merge/order/prune behavior
     // comes from one implementation across app + worker + tests.
     const finalized = finalizeGeneratedRules({ entries: generatedEntries, applyObsoletePruning })
-    return finalized.map((rule): HsfRuleWithCfg => ({ ...rule, __source: RULE_SOURCE_HSFC }))
+    return finalized.map((rule): HsfRuleWithRecipe => ({ ...rule, __source: RULE_SOURCE_HSFC }))
   } catch (error) {
     if (error instanceof RuleLimitReachedError) {
       options?.onLimit?.()
@@ -171,7 +171,7 @@ export function buildRulesForRecipe(params: {
   }
 }
 
-export function buildFinalSellRules(finalSellRemainder: FinalSellRemainderConfig | null | undefined): HsfRuleWithCfg[] {
+export function buildFinalSellRules(finalSellRemainder: FinalSellRemainderConfig | null | undefined): HsfRuleWithRecipe[] {
   // Delegate final-sell level/type/set expansion to wasm for SSOT ordering.
   return buildFinalSellRulesWithLoadedWasm({
     finalSellRemainder,
@@ -182,8 +182,8 @@ export function buildFinalSellRules(finalSellRemainder: FinalSellRemainderConfig
 export const buildSafeguardRules = (
   rules: readonly SafeguardRule[],
   detection: SafeguardDetectionSnapshot | null,
-): HsfRuleWithCfg[] => {
-  // Single source of truth: safeguard keep-rule generation lives in WASM.
+): HsfRuleWithRecipe[] => {
+  // Single source of truth: safeguard-rule generation lives in WASM.
   return buildSafeguardRulesWithLoadedWasm({
     rules,
     detection,
@@ -192,16 +192,16 @@ export const buildSafeguardRules = (
 }
 
 type SafeguardMergeParams = {
-  baseRules: HsfRuleWithCfg[]
-  customRules: HsfRuleWithCfg[]
-  finalSellRules: HsfRuleWithCfg[]
+  baseRules: HsfRuleWithRecipe[]
+  customRules: HsfRuleWithRecipe[]
+  finalSellRules: HsfRuleWithRecipe[]
   resolvedSafeguardRules: readonly SafeguardRule[]
   detection: SafeguardDetectionSnapshot | null
 }
 
 type SafeguardMergeResult = {
-  baseRules: HsfRuleWithCfg[]
-  mergedRules: HsfRuleWithCfg[]
+  baseRules: HsfRuleWithRecipe[]
+  mergedRules: HsfRuleWithRecipe[]
 }
 
 // Shared helper: inject safeguard rules ahead of base/custom/final-sell with duplicate protection.
@@ -213,21 +213,21 @@ export function prependSafeguardRules({
   detection,
 }: SafeguardMergeParams): SafeguardMergeResult {
   // Strip any prior safeguard injections to avoid double-prepending.
-  const baseWithoutKeep = baseRules.filter((rule) => rule.__source !== RULE_SOURCE_SAFEGUARDS)
-  // Build candidate keep rules from detection snapshot + resolved combinations.
-  const candidateKeepRules = detection ? buildSafeguardRules(resolvedSafeguardRules, detection) : []
-  // WASM now owns injected keep-rule dedupe + sorting semantics (SSOT).
-  const sortedKeepRules = mergeSafeguardInjectedRulesWithLoadedWasm({
-    baseRules: baseWithoutKeep,
+  const baseWithoutSafeguards = baseRules.filter((rule) => rule.__source !== RULE_SOURCE_SAFEGUARDS)
+  // Build candidate safeguard rules from detection snapshot + resolved combinations.
+  const candidateSafeguardRules = detection ? buildSafeguardRules(resolvedSafeguardRules, detection) : []
+  // WASM now owns injected safeguard-rule dedupe + sorting semantics (SSOT).
+  const sortedSafeguardRules = mergeSafeguardInjectedRulesWithLoadedWasm({
+    baseRules: baseWithoutSafeguards,
     customRules,
-    candidateKeepRules,
+    candidateSafeguardRules,
   })
-  if (!Array.isArray(sortedKeepRules)) {
+  if (!Array.isArray(sortedSafeguardRules)) {
     throw new Error('WASM safeguard injected-rule merge is unavailable. Ensure warmupWasmRuleEngine() ran first.')
   }
-  // Keep-unique rules must precede base rules to override.
-  const nextBaseRules = sortedKeepRules.concat(baseWithoutKeep)
-  const mergedRules: HsfRuleWithCfg[] = [
+  // Safeguard rules must precede base rules to override.
+  const nextBaseRules = sortedSafeguardRules.concat(baseWithoutSafeguards)
+  const mergedRules: HsfRuleWithRecipe[] = [
     ...nextBaseRules,
     ...customRules,
     ...finalSellRules,
@@ -241,14 +241,14 @@ export function computeMergedRules(params: {
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
   finalSellRemainder?: FinalSellRemainderConfig
-  prebuiltCustomRules?: ReadonlyMap<number, readonly HsfRuleWithCfg[]>
+  prebuiltCustomRules?: ReadonlyMap<number, readonly HsfRuleWithRecipe[]>
   safeguards?: SafeguardsMergeInput
-}): HsfRuleWithCfg[] {
+}): HsfRuleWithRecipe[] {
   const { hsf, customRecipes, metasets, substatTargets, finalSellRemainder, prebuiltCustomRules, safeguards } = params
 
   // Always strip any foreign/internal fields (e.g., __lineIdx) from base HSF rules
   const baseRaw = hsf?.Rules ?? []
-  const base: HsfRuleWithCfg[] = baseRaw.map((r: HsfRule) => ({ ...r, __source: RULE_SOURCE_HSF }))
+  const base: HsfRuleWithRecipe[] = baseRaw.map((r: HsfRule) => ({ ...r, __source: RULE_SOURCE_HSF }))
 
   // The legacy "All Sets (Explicit)" metaset is removed; use provided metasets only.
   const metasetsEffective: Metaset[] = metasets
@@ -257,7 +257,7 @@ export function computeMergedRules(params: {
     ? Math.max(1, Math.floor(TOTAL_RULE_COUNT_LIMIT))
     : null
   // Collect custom-rule batches first so wasm can apply the exact total-limit gate.
-  const customBatches: HsfRuleWithCfg[][] = []
+  const customBatches: HsfRuleWithRecipe[][] = []
 
   if (prebuiltCustomRules) {
     const ordered = Array.from(prebuiltCustomRules.entries())
@@ -285,7 +285,7 @@ export function computeMergedRules(params: {
     batches: customBatches,
   })
 
-  // Keep-unique active gate remains in TS so UI toggle semantics stay explicit.
+  // Safeguard active gate remains in TS so UI toggle semantics stay explicit.
   const safeguardsInput = hasActiveSafeguardRules(safeguards)
     ? safeguards
     : null

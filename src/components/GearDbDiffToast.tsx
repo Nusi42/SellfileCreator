@@ -218,7 +218,7 @@ function ScaledTesterGridCard({
           suppressMatchDetails={false}
           showFirstMatchRow={showMatchRow}
           showOtherMatchesRow={TOAST_SHOW_OTHER_MATCH_ROWS}
-          showMatchConfigIndex={false}
+          showMatchRecipeIndex={false}
           showMatchLineNumber={false}
           // Surface champion avatars in the diff preview for quick context.
           showChampionIcons={true}
@@ -318,7 +318,7 @@ function buildTesterPreviewRow(snapshot: GearArtifactSnapshot, match: TesterPrev
     artifact,
     match,
     baseMatch: null,
-    matchingCfgIndices: EMPTY_MATCHING_CONFIG_INDICES,
+    matchingRecipeIndices: EMPTY_MATCHING_CONFIG_INDICES,
     matchingRecipeDecisions: EMPTY_MATCHING_CONFIG_DECISIONS,
   }
 }

@@ -58,7 +58,8 @@ const overrides: Catalog = {
   gearDialogIntro: 'Utilisez le dialogue « Équipement » (Logic Hub → onglet Équipement) pour créer des exemples et voir quelle règle conserve ou vend l’objet. Chargez/glissez une base RSL Helper (souvent %APPDATA%\\RslHelper\\Recette) afin que la vue du Testeur reflète de l’équipement réel.',
   gearDialogManualOnlyNotice: 'Ce panneau affiche uniquement les entrées personnalisées. Les pièces importées depuis l’inventaire, la collection, le coffre et la boîte de réception restent visibles dans la vue du Testeur de règles ; utilisez les boutons ci-dessous pour supprimer ces sources si nécessaire.',
   testerRule: 'Règle',
-  testerJumpToRecipe: 'Aller à la recette',
+  testerJumpToRecipe: 'Sélectionner la recette',
+  testerJumpToSafeguard: 'Ouvrir la sauvegarde',
   testerNoMatch: 'Aucun accord',
   testerFinalSell: 'Vente finale',
   gearDialogDeleteSourceConfirmTitle: 'Supprimer l’équipement « {source} » ?',
@@ -583,8 +584,11 @@ const overrides: Catalog = {
   setDesc_setBloodshield_text: 'par pièce : {buff:Shield} égal à 5% des dégâts infligés après l’attaque (AoE réduite de 75%) ; totaux : 5/10/15% avec 1/2/3 pièces',
 
   // Rules table: columns and UI
-  colIdx: 'N°',
-  colCfg: 'Cfg',
+  colIdx: '#',
+  colRecipe: 'Recette',
+  colName: 'Nom',
+  colIdxMenu: 'Indice de ligne HSF',
+  colRecipeIdxMenu: 'Indice de recette',
   colKeep: 'Garder',
   colUse: 'Utiliser',
   colSets: 'Sets',
@@ -1170,6 +1174,7 @@ const overrides: Catalog = {
   toastL10nLoadFailed: 'Échec du chargement du fichier de localisation',
   toastGearSetsLoaded: '{count} ensembles personnalisés chargés',
   toastGearSetsLoadFailed: 'Échec du chargement du fichier d’ensembles',
+  toastTesterFocusArtifactFiltered: 'L’objet ciblé est actuellement masqué par les filtres actifs du testeur.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Bases',

@@ -167,7 +167,7 @@ function clampRollRequirement(value: unknown): number {
 }
 
 type AggregateMinContext = {
-  cfg: BuilderRecipe
+  recipe: BuilderRecipe
   selectedPoolV: readonly number[]
   requiredV: readonly number[]
   minTargetCount: number
@@ -175,7 +175,7 @@ type AggregateMinContext = {
 }
 
 type LockedMinContext = {
-  cfg: BuilderRecipe
+  recipe: BuilderRecipe
   lockedCount: number
 }
 
@@ -187,12 +187,12 @@ function minRollEventsForSelection(rarityCode: RarityCode): number {
 }
 
 function deriveGlobalMinRolls(context: AggregateMinContext): number {
-  const { cfg, selectedPoolV, requiredV, minTargetCount, rarityCode } = context
-  if (cfg.autoMinRequiredRolls === false) {
-    return clampRollRequirement(cfg.minRequiredRolls)
+  const { recipe, selectedPoolV, requiredV, minTargetCount, rarityCode } = context
+  if (recipe.autoMinRequiredRolls === false) {
+    return clampRollRequirement(recipe.minRequiredRolls)
   }
   if (selectedPoolV.length === 0) return 0
-  const lockedScope = isLockedAggregateScopeActive(cfg, { lockedCountOverride: requiredV.length })
+  const lockedScope = isLockedAggregateScopeActive(recipe, { lockedCountOverride: requiredV.length })
   let base = lockedScope ? requiredV.length : minTargetCount
   if (rarityCode != null) {
     base = Math.min(base, minRollEventsForSelection(rarityCode))
@@ -202,9 +202,9 @@ function deriveGlobalMinRolls(context: AggregateMinContext): number {
 }
 
 function deriveLockedMinRolls(context: LockedMinContext): number {
-  const { cfg, lockedCount } = context
+  const { recipe, lockedCount } = context
   if (lockedCount === 0) return 0
-  return clampRollRequirement(cfg.lockedMinRequiredRolls)
+  return clampRollRequirement(recipe.lockedMinRequiredRolls)
 }
 
 // Whether the given rarity code includes Mythical items
@@ -219,31 +219,31 @@ export function rarityIncludesMythical(rarityCode: RarityCode): boolean {
  * Mirrors the internal logic used by the builder before rule generation so UI
  * summaries can display the exact rarity the preview table will show.
  */
-export function resolveAutoRarityCode(cfg: BuilderRecipe): RarityCode {
+export function resolveAutoRarityCode(recipe: BuilderRecipe): RarityCode {
   // Apply slot/main constraints before Auto rarity so impossible substats don't tighten rarity.
   const allowedSubstats = resolveAllowedSubstatsForSlotsAndMains({
-    slots: cfg.artifactTypes ?? [],
-    mainStats: cfg.mainStatsV ?? [],
+    slots: recipe.artifactTypes ?? [],
+    mainStats: recipe.mainStatsV ?? [],
   })
   // Delegate selection/fixed filtering + bound compaction + rarity resolve to Rust.
   const resolved = resolveAutoRarityCodeForBuilderWithLoadedWasm({
-    autoRaritySupplementsThreshold: (cfg.rarityMode === 'auto')
-      ? (cfg.autoRaritySupplementsThreshold ?? null)
+    autoRaritySupplementsThreshold: (recipe.rarityMode === 'auto')
+      ? (recipe.autoRaritySupplementsThreshold ?? null)
       : null,
-    ...(typeof cfg.autoMinRequiredRolls === 'boolean'
-      ? { autoMinRequiredRolls: cfg.autoMinRequiredRolls }
+    ...(typeof recipe.autoMinRequiredRolls === 'boolean'
+      ? { autoMinRequiredRolls: recipe.autoMinRequiredRolls }
       : {}),
-    ...(typeof cfg.minRequiredRolls === 'number'
-      ? { minRequiredRolls: cfg.minRequiredRolls }
+    ...(typeof recipe.minRequiredRolls === 'number'
+      ? { minRequiredRolls: recipe.minRequiredRolls }
       : {}),
-    ...(typeof cfg.lockedMinRequiredRolls === 'number'
-      ? { lockedMinRequiredRolls: cfg.lockedMinRequiredRolls }
+    ...(typeof recipe.lockedMinRequiredRolls === 'number'
+      ? { lockedMinRequiredRolls: recipe.lockedMinRequiredRolls }
       : {}),
-    ...(typeof cfg.minCount === 'number' ? { minCount: cfg.minCount } : {}),
-    ...(typeof cfg.earlyKeepMode === 'string' ? { earlyKeepMode: cfg.earlyKeepMode } : {}),
-    substatsV: cfg.substatsV ?? [],
-    fixedSubstatsV: cfg.fixedSubstatsV ?? [],
-    substatRollBoundsV: cfg.substatRollBoundsV,
+    ...(typeof recipe.minCount === 'number' ? { minCount: recipe.minCount } : {}),
+    ...(typeof recipe.earlyKeepMode === 'string' ? { earlyKeepMode: recipe.earlyKeepMode } : {}),
+    substatsV: recipe.substatsV ?? [],
+    fixedSubstatsV: recipe.fixedSubstatsV ?? [],
+    substatRollBoundsV: recipe.substatRollBoundsV,
     allowedSubstats,
   })
   return resolved as RarityCode
@@ -395,14 +395,14 @@ export function starForRankCode(rankCode: number, anyFallback: Star): Star {
  * - Apply per-substat roll bounds (min/max/any) and filter invalid rows
  */
 export function buildHsfRules(
-  cfg: BuilderRecipe,
+  recipe: BuilderRecipe,
   substatTargets: SubstatTargetTable = defaultSubstatTargets(),
   options?: BuildHsfRulesOptions,
 ): HsfRule[] {
-  const exportMode: SellfileExportMode = cfg.exportMode ?? 'active'
+  const exportMode: SellfileExportMode = recipe.exportMode ?? 'active'
   if (exportMode === 'separator') return []
-  const rankCode = cfg.rankCode
-  const factionCode = Number(cfg.factionCode ?? 0)
+  const rankCode = recipe.rankCode
+  const factionCode = Number(recipe.factionCode ?? 0)
   const emissionLimit = (options?.limit != null && Number.isFinite(options.limit) && options.limit > 0)
     ? Math.max(1, Math.floor(options.limit))
     : null
@@ -413,8 +413,8 @@ export function buildHsfRules(
 
   // Apply slot/main constraints before preparing substat permutations in wasm.
   const allowedSubstats = resolveAllowedSubstatsForSlotsAndMains({
-    slots: cfg.artifactTypes ?? [],
-    mainStats: cfg.mainStatsV ?? [],
+    slots: recipe.artifactTypes ?? [],
+    mainStats: recipe.mainStatsV ?? [],
   })
   // Convert the HSF rank code into the substat target star bucket so thresholds stay coherent.
   const star = starForRankCode(rankCode, substatTargets.anyRankDefaultsTo ?? 6)
@@ -429,17 +429,17 @@ export function buildHsfRules(
   })()
   // Preserve factory minima in TS constants and pass only the active star table.
   const factoryBaseByVariantForStar = FACTORY_MINIMA_BY_STAR[star] ?? {}
-  const flexEligible = canEnableSubstatFlex(cfg)
+  const flexEligible = canEnableSubstatFlex(recipe)
   // Delegate selected/fixed pool normalization + base/target map prep to wasm.
   const prep = prepareHsfBuilderRecipeWithLoadedWasm({
-    minCount: cfg.minCount,
-    autoSubstatFlex: cfg.autoSubstatFlex === true,
+    minCount: recipe.minCount,
+    autoSubstatFlex: recipe.autoSubstatFlex === true,
     flexEligible,
-    substatsV: cfg.substatsV ?? [],
-    fixedSubstatsV: cfg.fixedSubstatsV ?? [],
+    substatsV: recipe.substatsV ?? [],
+    fixedSubstatsV: recipe.fixedSubstatsV ?? [],
     allowedSubstats,
-    substatRollBoundsV: cfg.substatRollBoundsV ?? {},
-    substatRollTargetsV: cfg.substatRollTargetsV ?? {},
+    substatRollBoundsV: recipe.substatRollBoundsV ?? {},
+    substatRollTargetsV: recipe.substatRollTargetsV ?? {},
     substatTargetByVariant,
     factoryBaseByVariantForStar,
     variantPriority: PREFERRED_STAT_ORDER,
@@ -454,7 +454,7 @@ export function buildHsfRules(
   const minTargetCount = prep.minTargetCount
   const maxTargetCount = prep.maxTargetCount
   // Flex mode only activates when both the recipe allows it and the toggle is on.
-  const flexActive = cfg.autoSubstatFlex === true && flexEligible
+  const flexActive = recipe.autoSubstatFlex === true && flexEligible
   // Track whether any selected substat explicitly demands rolls.
   const hasPerStatMin = prep.hasPerStatMin
   const currentBaseByVariantForWasm = prep.currentBaseByVariant as Record<number, number>
@@ -463,21 +463,21 @@ export function buildHsfRules(
 
   // Resolve Auto rarity to a concrete rarity code before rule generation.
   // Use the shared resolver to keep UI and builder behavior identical.
-  const rarityCode = (cfg.rarityMode === 'auto') ? resolveAutoRarityCode(cfg) : cfg.rarityCode
+  const rarityCode = (recipe.rarityMode === 'auto') ? resolveAutoRarityCode(recipe) : recipe.rarityCode
 
   // Resolve set selections into numeric IDs for HSF export.
-  const resolvedSets = splitArtifactSetSelections(cfg.artifactSets)
+  const resolvedSets = splitArtifactSetSelections(recipe.artifactSets)
   // Export mode is normalized at entry, so runtime payload only needs a bool.
   const useFlag = exportMode !== 'disabled'
 
   // Determine mainstat choices: [] means Any; otherwise list of variants to unroll
   // Canonicalize mainstat order as well to avoid click-order dependence.
-  const mainChoicesV: number[] = (Array.isArray(cfg.mainStatsV) && cfg.mainStatsV.length > 0)
-    ? cfg.mainStatsV.map(Number).sort(compareVariants)
+  const mainChoicesV: number[] = (Array.isArray(recipe.mainStatsV) && recipe.mainStatsV.length > 0)
+    ? recipe.mainStatsV.map(Number).sort(compareVariants)
     : []
 
-  const baseline: 'afterStart' | 'upToLevel' = deriveRollBaselineMode(cfg)
-  const earlyMode: 'early' | 'late' = (cfg.earlyKeepMode === 'late' && isMilestoneThresholdsActive(cfg)) ? 'late' : 'early'
+  const baseline: 'afterStart' | 'upToLevel' = deriveRollBaselineMode(recipe)
+  const earlyMode: 'early' | 'late' = (recipe.earlyKeepMode === 'late' && isMilestoneThresholdsActive(recipe)) ? 'late' : 'early'
   const effectiveStart: LevelMilestone = 0
   // Level window: rely on normalized min/max window.
   const deriveLevelWindow = (): { min: LevelMilestone; max: LevelMilestone } => {
@@ -486,40 +486,40 @@ export function buildHsfRules(
       if (v === 0 || v === 4 || v === 8 || v === 12 || v === 16) return v as LevelMilestone
       return null
     }
-    const minCandidate = toLevel(cfg.minLevel) ?? 0
-    const maxCandidate = toLevel(cfg.maxLevel) ?? 16
+    const minCandidate = toLevel(recipe.minLevel) ?? 0
+    const maxCandidate = toLevel(recipe.maxLevel) ?? 16
     if (minCandidate <= maxCandidate) return { min: minCandidate, max: maxCandidate }
     return { min: maxCandidate, max: minCandidate }
   }
   const levelWindow = deriveLevelWindow()
 
   // Aggregate roll requirements split into global (selected stats) and locked-only scopes.
-  const globalMinValue = deriveGlobalMinRolls({ cfg, selectedPoolV, requiredV, minTargetCount, rarityCode })
-  const lockedMinValue = deriveLockedMinRolls({ cfg, lockedCount })
+  const globalMinValue = deriveGlobalMinRolls({ recipe, selectedPoolV, requiredV, minTargetCount, rarityCode })
+  const lockedMinValue = deriveLockedMinRolls({ recipe, lockedCount })
   const aggregateMinValue = Math.max(globalMinValue, lockedMinValue)
   const globalMinActive = globalMinValue > 0
   const lockedMinActive = lockedMinValue > 0
   const aggregateMinActive = aggregateMinValue > 0
-  const manualMinZero = cfg.autoMinRequiredRolls === false && clampRollRequirement(cfg.minRequiredRolls ?? 0) === 0
+  const manualMinZero = recipe.autoMinRequiredRolls === false && clampRollRequirement(recipe.minRequiredRolls ?? 0) === 0
   // Manual zero with no per-stat mins means "no roll requirements" regardless of rarity schedule.
   const suppressRollThresholds = manualMinZero && !hasPerStatMin && lockedMinValue === 0
   // When only locked mins are active, the aggregate target narrows to the locked subset only.
   const aggregateTargetsLocked = (!globalMinActive)
     && lockedMinActive
-    && isLockedAggregateScopeActive(cfg, { lockedCountOverride: requiredV.length })
+    && isLockedAggregateScopeActive(recipe, { lockedCountOverride: requiredV.length })
 
   // Build slot-compatible mains once, then let wasm own rule orchestration.
   const mainChoicesForWasm = mainChoicesV
-    .filter((mnV) => anySelectedSlotSupportsMain(cfg.artifactTypes, mnV))
+    .filter((mnV) => anySelectedSlotSupportsMain(recipe.artifactTypes, mnV))
     .map((mnV) => variantToMain(mnV))
     .map((main) => ({ id: main.id, f: main.f ?? 1 }))
   // One wasm call now handles preflight, branch planning, and row emission.
   const builderRuntime = buildHsfRulesRuntimeWithLoadedWasm({
     ...(recipeId !== null ? { recipeId } : {}),
-    ...(cfg.keep !== undefined ? { keep: cfg.keep } : {}),
+    ...(recipe.keep !== undefined ? { keep: recipe.keep } : {}),
     useFlag,
     artifactSetIds: resolvedSets.included,
-    artifactTypeIds: cfg.artifactTypes ?? [],
+    artifactTypeIds: recipe.artifactTypes ?? [],
     rankCode: rankCode,
     rarityCode,
     factionCode: Number(factionCode ?? 0),
@@ -541,16 +541,16 @@ export function buildHsfRules(
     aggregateMinValue,
     lockedMinActive,
     lockedMinValue,
-    substatRollBoundsV: cfg.substatRollBoundsV ?? {},
+    substatRollBoundsV: recipe.substatRollBoundsV ?? {},
     targetEntriesByVariant: prep.targetEntriesByVariant,
     currentBaseByVariant: currentBaseByVariantForWasm,
     factoryBaseByVariant: factoryBaseByVariantForWasm,
     targetBaseOverrideByVariant: targetBaseOverrideByVariantForWasm,
     earlyMode,
-    ...(typeof cfg.rarityMode === 'string' ? { rarityMode: cfg.rarityMode } : {}),
-    ...(typeof cfg.earlyKeepMode === 'string' ? { earlyKeepMode: cfg.earlyKeepMode } : {}),
-    ...(typeof cfg.autoRaritySupplementsThreshold === 'string'
-      ? { autoRaritySupplementsThreshold: cfg.autoRaritySupplementsThreshold }
+    ...(typeof recipe.rarityMode === 'string' ? { rarityMode: recipe.rarityMode } : {}),
+    ...(typeof recipe.earlyKeepMode === 'string' ? { earlyKeepMode: recipe.earlyKeepMode } : {}),
+    ...(typeof recipe.autoRaritySupplementsThreshold === 'string'
+      ? { autoRaritySupplementsThreshold: recipe.autoRaritySupplementsThreshold }
       : {}),
     ...(emissionLimit != null ? { emissionLimit } : {}),
   })

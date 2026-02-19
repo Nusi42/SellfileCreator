@@ -1,4 +1,4 @@
-import type { HsfRuleWithCfg } from '../lib/merge'
+import type { HsfRuleWithRecipe } from '../lib/merge'
 import type { SubstatTargetTable } from '../lib/hsfBuilder/types'
 import type {
   DungeonBoostableId,
@@ -17,7 +17,7 @@ import type {
 // Run payload includes everything needed to build a fresh simulator session.
 export type DungeonSimulatorWorkerRunPayload = {
   // Fully merged rules from the Logic Hub.
-  rules: HsfRuleWithCfg[]
+  rules: HsfRuleWithRecipe[]
   // Substat thresholds for roll simulation.
   substatTargets: SubstatTargetTable
   // Optional per-dungeon stage selections.

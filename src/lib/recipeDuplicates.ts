@@ -7,10 +7,10 @@ const SNAPSHOT_KEY_CACHE: WeakMap<BuilderRecipe, string> = new WeakMap()
 
 type SnapshotKey = string
 
-function snapshotKeyForRecipe(cfg: BuilderRecipe): SnapshotKey {
-  const cached = SNAPSHOT_KEY_CACHE.get(cfg)
+function snapshotKeyForRecipe(recipe: BuilderRecipe): SnapshotKey {
+  const cached = SNAPSHOT_KEY_CACHE.get(recipe)
   if (cached) return cached
-  const snapshot = buildCanonicalRecipeSnapshot(cfg)
+  const snapshot = buildCanonicalRecipeSnapshot(recipe)
 
   let key: SnapshotKey
   try {
@@ -19,7 +19,7 @@ function snapshotKeyForRecipe(cfg: BuilderRecipe): SnapshotKey {
     key = `${Math.random()}`
   }
 
-  SNAPSHOT_KEY_CACHE.set(cfg, key)
+  SNAPSHOT_KEY_CACHE.set(recipe, key)
   return key
 }
 
@@ -28,12 +28,12 @@ export function computeDuplicateIndices(recipes: BuilderRecipe[]): Array<number 
   const duplicates: Array<number | null> = []
 
   for (let index = 0; index < recipes.length; index += 1) {
-    const cfg = recipes[index]!
-    if (cfg.exportMode === 'separator') {
+    const recipe = recipes[index]!
+    if (recipe.exportMode === 'separator') {
       duplicates.push(null)
       continue
     }
-    const key = snapshotKeyForRecipe(cfg)
+    const key = snapshotKeyForRecipe(recipe)
     const firstSeen = seen.get(key)
     if (firstSeen === undefined) {
       seen.set(key, index)

@@ -37,7 +37,7 @@ type Params = {
   setSafeguardsEnabled: (value: SetStateAction<boolean>) => void
   setHsfcNote: (value: SetStateAction<string | null>) => void
   setSelectedRecipeIdx: (value: SetStateAction<number | null>) => void
-  setSelectedCfgIndices: (value: number[]) => void
+  setSelectedRecipeIndices: (value: number[]) => void
   setSelectionAnchor: (value: SetStateAction<number | null>) => void
   setBuilder: (value: SetStateAction<BuilderRecipe>) => void
   setBuilderNameDraft: (value: SetStateAction<string>) => void
@@ -90,7 +90,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
   setSafeguardsEnabled,
   setHsfcNote,
     setSelectedRecipeIdx,
-    setSelectedCfgIndices,
+    setSelectedRecipeIndices,
     setSelectionAnchor,
     setBuilder,
     setBuilderNameDraft,
@@ -188,7 +188,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
       const resolvedSelection = restoredSelection.length > 0
         ? restoredSelection
         : (restoredIdx !== null ? [restoredIdx] : [])
-      setSelectedCfgIndices(resolvedSelection)
+      setSelectedRecipeIndices(resolvedSelection)
       const resolvedAnchor = typeof snap.selectionAnchor === 'number' && snap.selectionAnchor >= 0 && snap.selectionAnchor < len
         ? snap.selectionAnchor
         : (resolvedSelection.length > 0
@@ -227,7 +227,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     setSubstatTargets,
     setMultiEditDraft,
     setSelectedRecipeIdx,
-    setSelectedCfgIndices,
+    setSelectedRecipeIndices,
     setSelectionAnchor,
     setSafeguardRules,
     setSafeguardsEnabled,

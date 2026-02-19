@@ -10,12 +10,12 @@ import { warmupAppShell } from './app-warmup'
 import { AUTOSAVE_KEY } from '../../src/lib/constants'
 import { computeCrc32 } from '../../src/lib/autosave'
 
-// Load the slim HSFC snapshot so the config names are stable and rebuilds stay fast.
+// Load the slim HSFC snapshot so the recipe names are stable and rebuilds stay fast.
 const HSFC_PATH = SAMPLE_SMALL_HSFC_PATH
-// Target config names used throughout the auto-apply checks.
-const MARIUS_CONFIG_NAME = 'Optional: Marius Sets'
-const BASICS_CONFIG_NAME = 'Basics'
-const SELL_LOW_VALUE_CONFIG_NAME = 'Sell - Low Value'
+// Target recipe names used throughout the auto-apply checks.
+const MARIUS_RECIPE_NAME = 'Optional: Marius Sets'
+const BASICS_RECIPE_NAME = 'Basics'
+const SELL_LOW_VALUE_RECIPE_NAME = 'Sell - Low Value'
 // Base stat labels used for the dirty builder edits.
 const MAIN_STAT_LABEL = 'SPD'
 const SUBSTAT_LABEL = 'ACC'
@@ -39,7 +39,7 @@ const AUTO_APPLY_AUTOSAVE_ENTRY = (() => {
 })()
 
 const getRecipeChipByName = (page: Page, name: string): Locator => {
-  // Scope to config chips to avoid matching menus or preview rows.
+  // Scope to recipe chips to avoid matching menus or preview rows.
   return page.locator('[data-recipe-chip="true"]', { hasText: name }).first()
 }
 
@@ -48,8 +48,9 @@ const getRecipeChipByIndex = (page: Page, index: number): Locator => {
   return page.locator(`[data-recipe-chip-index="${index}"]`).first()
 }
 
-const getConfigNameInput = (page: Page): Locator => {
+const getRecipeNameInput = (page: Page): Locator => {
   // Use the textbox role to avoid matching the clear-name button.
+  // Keep the legacy Config fallback in case old autosave/UI labels surface.
   return page.getByRole('textbox', { name: /(?:Recipe|Config) Name/i })
 }
 
@@ -57,7 +58,7 @@ const ensureChipSelected = async (chip: Locator): Promise<void> => {
   // Skip clicking when the chip already reports the selected tour id.
   const selected = await chip.getAttribute('data-tour-id')
   if (selected === 'chip.selected') return
-  // Click the chip to activate its config.
+  // Click the chip to activate its recipe.
   await chip.click()
 }
 
@@ -95,6 +96,7 @@ const expectStatNotSelected = async (button: Locator): Promise<void> => {
 
 const openApplyContextMenu = async (page: Page): Promise<void> => {
   // The Apply button hosts the auto-apply toggle in its context menu.
+  // Keep the legacy Config fallback in case old autosave/UI labels surface.
   const applyButton = page.getByRole('button', { name: /Apply as (?:Recipe|Config)/i }).first()
   // Wait for the button so the menu is anchored correctly.
   await expect(applyButton).toBeVisible()
@@ -106,6 +108,7 @@ const enableAutoApply = async (page: Page): Promise<void> => {
   // Open the Apply button menu so we can toggle auto-apply.
   await openApplyContextMenu(page)
   // Click the menu entry that enables auto apply.
+  // Keep the legacy Config fallback in case old autosave/UI labels surface.
   const menuItem = page.getByRole('menuitem', { name: /Auto Apply to Selected (?:Recipe|Config)/i })
   // Ensure the item is visible before interacting.
   await expect(menuItem).toBeVisible()
@@ -117,7 +120,7 @@ const enableAutoApply = async (page: Page): Promise<void> => {
   await expect(menuItem).toBeHidden()
 }
 
-const acceptConfigAutosaveRestore = async (page: Page): Promise<void> => {
+const acceptRecipeAutosaveRestore = async (page: Page): Promise<void> => {
   // Locate the restore dialog that appears when autosave data exists.
   const dialog = page.getByRole('dialog', { name: RESTORE_DIALOG_TITLE })
   // Allow app boot time so the dialog has a chance to render.
@@ -126,10 +129,10 @@ const acceptConfigAutosaveRestore = async (page: Page): Promise<void> => {
   const isVisible = await dialog.isVisible().catch(() => false)
   if (!isVisible) return
   // Ensure recipes are selected so the builder list is restored.
-  const configsCheckbox = dialog.getByRole('checkbox', { name: /Recipes/i })
-  if (await configsCheckbox.isVisible().catch(() => false)) {
-    if (!(await configsCheckbox.isChecked().catch(() => false))) {
-      await configsCheckbox.click()
+  const recipesCheckbox = dialog.getByRole('checkbox', { name: /Recipes/i })
+  if (await recipesCheckbox.isVisible().catch(() => false)) {
+    if (!(await recipesCheckbox.isChecked().catch(() => false))) {
+      await recipesCheckbox.click()
     }
   }
   // Restore the autosave so the recipes become available for testing.
@@ -206,18 +209,18 @@ const setupAutoApplyScenario = async (page: Page): Promise<void> => {
   // Load the app shell without waiting for full load.
   await page.goto('/', APP_GOTO_OPTIONS)
   // Accept the restore prompt so the autosave recipes load into the builder.
-  await acceptConfigAutosaveRestore(page)
+  await acceptRecipeAutosaveRestore(page)
 
   // Close any note/restore dialogs if they auto-open.
   await dismissBlockingDialogs(page)
 
-  // Wait for any config chip so we know the import finished.
+  // Wait for any recipe chip so we know the import finished.
   await expect(page.locator('[data-recipe-chip="true"]').first()).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 
-  // Click the chip to select config #2.
-  await ensureChipSelected(getRecipeChipByName(page, MARIUS_CONFIG_NAME))
-  // Confirm the builder is showing the Marius config.
-  await expect(getConfigNameInput(page)).toHaveValue(MARIUS_CONFIG_NAME)
+  // Click the chip to select recipe #2.
+  await ensureChipSelected(getRecipeChipByName(page, MARIUS_RECIPE_NAME))
+  // Confirm the builder is showing the Marius recipe.
+  await expect(getRecipeNameInput(page)).toHaveValue(MARIUS_RECIPE_NAME)
 
   // Enable auto apply so selection changes flush edits.
   await enableAutoApply(page)
@@ -256,80 +259,80 @@ test.describe('auto apply move', () => {
     await setupAutoApplyScenario(page)
   })
 
-  test('auto apply stays on the moved config for move up/down', async ({ page }) => {
+  test('auto apply stays on the moved recipe for move up/down', async ({ page }) => {
     // Allow time for HSFC parsing and the rebuild it triggers.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
 
   // Move Up using the chip button while the builder is dirty.
-  await moveChipUp(getRecipeChipByName(page, MARIUS_CONFIG_NAME))
+  await moveChipUp(getRecipeChipByName(page, MARIUS_RECIPE_NAME))
   // Auto-apply should persist the dirty builder state before assertions.
   // Confirm the Marius chip is now at index 0.
-  await expect(getRecipeChipByName(page, MARIUS_CONFIG_NAME)).toHaveAttribute('data-recipe-chip-index', '0')
-  // Re-select the moved config and confirm edits persisted.
-  await ensureChipSelected(getRecipeChipByName(page, MARIUS_CONFIG_NAME))
-  await expect(getConfigNameInput(page)).toHaveValue(MARIUS_CONFIG_NAME)
+  await expect(getRecipeChipByName(page, MARIUS_RECIPE_NAME)).toHaveAttribute('data-recipe-chip-index', '0')
+  // Re-select the moved recipe and confirm edits persisted.
+  await ensureChipSelected(getRecipeChipByName(page, MARIUS_RECIPE_NAME))
+  await expect(getRecipeNameInput(page)).toHaveValue(MARIUS_RECIPE_NAME)
   await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: true })
-  // Select the config that swapped into index 1 (Basics) and ensure it stayed clean.
+  // Select the recipe that swapped into index 1 (Basics) and ensure it stayed clean.
   await ensureChipSelected(getRecipeChipByIndex(page, 1))
-  await expect(getConfigNameInput(page)).toHaveValue(BASICS_CONFIG_NAME)
+  await expect(getRecipeNameInput(page)).toHaveValue(BASICS_RECIPE_NAME)
   await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: false })
 
   // Move Down back to index 1 using the chip button.
-  await ensureChipSelected(getRecipeChipByName(page, MARIUS_CONFIG_NAME))
-  await moveChipDown(getRecipeChipByName(page, MARIUS_CONFIG_NAME))
+  await ensureChipSelected(getRecipeChipByName(page, MARIUS_RECIPE_NAME))
+  await moveChipDown(getRecipeChipByName(page, MARIUS_RECIPE_NAME))
   // Auto-apply should persist the dirty builder state before assertions.
   // Confirm the Marius chip is now at index 1.
-  await expect(getRecipeChipByName(page, MARIUS_CONFIG_NAME)).toHaveAttribute('data-recipe-chip-index', '1')
-  // Re-select the moved config and confirm edits persisted.
-  await ensureChipSelected(getRecipeChipByName(page, MARIUS_CONFIG_NAME))
-  await expect(getConfigNameInput(page)).toHaveValue(MARIUS_CONFIG_NAME)
+  await expect(getRecipeChipByName(page, MARIUS_RECIPE_NAME)).toHaveAttribute('data-recipe-chip-index', '1')
+  // Re-select the moved recipe and confirm edits persisted.
+  await ensureChipSelected(getRecipeChipByName(page, MARIUS_RECIPE_NAME))
+  await expect(getRecipeNameInput(page)).toHaveValue(MARIUS_RECIPE_NAME)
   await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: true })
   // Ensure Basics still has no edits after swapping back.
   await ensureChipSelected(getRecipeChipByIndex(page, 0))
-  await expect(getConfigNameInput(page)).toHaveValue(BASICS_CONFIG_NAME)
+  await expect(getRecipeNameInput(page)).toHaveValue(BASICS_RECIPE_NAME)
   await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: false })
   })
 
-  test('auto apply stays on the moved config for move to top', async ({ page }) => {
+  test('auto apply stays on the moved recipe for move to top', async ({ page }) => {
     // Allow time for HSFC parsing and the rebuild it triggers.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
 
   // Move to Top via the context menu entry.
-  await ensureChipSelected(getRecipeChipByName(page, MARIUS_CONFIG_NAME))
-  await moveChipToTop(page, getRecipeChipByName(page, MARIUS_CONFIG_NAME))
+  await ensureChipSelected(getRecipeChipByName(page, MARIUS_RECIPE_NAME))
+  await moveChipToTop(page, getRecipeChipByName(page, MARIUS_RECIPE_NAME))
   // Auto-apply should persist the dirty builder state before assertions.
   // Confirm the Marius chip is now at index 0.
-  await expect(getRecipeChipByName(page, MARIUS_CONFIG_NAME)).toHaveAttribute('data-recipe-chip-index', '0')
-  // Re-select the moved config and confirm edits persisted.
-  await ensureChipSelected(getRecipeChipByName(page, MARIUS_CONFIG_NAME))
-  await expect(getConfigNameInput(page)).toHaveValue(MARIUS_CONFIG_NAME)
+  await expect(getRecipeChipByName(page, MARIUS_RECIPE_NAME)).toHaveAttribute('data-recipe-chip-index', '0')
+  // Re-select the moved recipe and confirm edits persisted.
+  await ensureChipSelected(getRecipeChipByName(page, MARIUS_RECIPE_NAME))
+  await expect(getRecipeNameInput(page)).toHaveValue(MARIUS_RECIPE_NAME)
   await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: true })
   // Ensure Basics remained unchanged after moving to top.
   await ensureChipSelected(getRecipeChipByIndex(page, 1))
-  await expect(getConfigNameInput(page)).toHaveValue(BASICS_CONFIG_NAME)
+  await expect(getRecipeNameInput(page)).toHaveValue(BASICS_RECIPE_NAME)
   await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: false })
   })
 
-  test('auto apply stays on the moved config for move to bottom', async ({ page }) => {
+  test('auto apply stays on the moved recipe for move to bottom', async ({ page }) => {
     // Allow time for HSFC parsing and the rebuild it triggers.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
 
   // Move to Bottom via the context menu entry.
-  await ensureChipSelected(getRecipeChipByName(page, MARIUS_CONFIG_NAME))
-  await moveChipToBottom(page, getRecipeChipByName(page, MARIUS_CONFIG_NAME))
+  await ensureChipSelected(getRecipeChipByName(page, MARIUS_RECIPE_NAME))
+  await moveChipToBottom(page, getRecipeChipByName(page, MARIUS_RECIPE_NAME))
   // Auto-apply should persist the dirty builder state before assertions.
   // Compute the last index so we can confirm the chip moved to the end.
   const chipCount = await page.locator('[data-recipe-chip="true"]').count()
   const lastIndex = Math.max(0, chipCount - 1)
   // Confirm the Marius chip is now at the last index.
-  await expect(getRecipeChipByName(page, MARIUS_CONFIG_NAME)).toHaveAttribute('data-recipe-chip-index', String(lastIndex))
-  // Re-select the moved config and confirm edits persisted.
-  await ensureChipSelected(getRecipeChipByName(page, MARIUS_CONFIG_NAME))
-  await expect(getConfigNameInput(page)).toHaveValue(MARIUS_CONFIG_NAME)
+  await expect(getRecipeChipByName(page, MARIUS_RECIPE_NAME)).toHaveAttribute('data-recipe-chip-index', String(lastIndex))
+  // Re-select the moved recipe and confirm edits persisted.
+  await ensureChipSelected(getRecipeChipByName(page, MARIUS_RECIPE_NAME))
+  await expect(getRecipeNameInput(page)).toHaveValue(MARIUS_RECIPE_NAME)
   await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: true })
-  // Ensure the config now at index 1 did not inherit the edits.
+  // Ensure the recipe now at index 1 did not inherit the edits.
   await ensureChipSelected(getRecipeChipByIndex(page, 1))
-  await expect(getConfigNameInput(page)).toHaveValue(SELL_LOW_VALUE_CONFIG_NAME)
+  await expect(getRecipeNameInput(page)).toHaveValue(SELL_LOW_VALUE_RECIPE_NAME)
   await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: false })
   })
 })

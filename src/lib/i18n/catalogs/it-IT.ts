@@ -58,7 +58,8 @@ const overrides: Catalog = {
   gearDialogIntro: 'Usa il dialogo Equipaggiamento (Logic Hub → scheda Equipaggiamento) per creare equip di esempio e vedere quale regola lo conserva o lo vende. Carica o trascina un database di RSL Helper (di solito in %APPDATA%\\RslHelper\\Ricetta) così la vista del Tester mostra equip reale.',
   gearDialogManualOnlyNotice: 'Questo riquadro mostra solo le voci personalizzate. Gli oggetti importati da inventario, collezione, deposito e posta rimangono visibili nella vista del Tester regole; usa i pulsanti qui sotto per rimuovere tali sorgenti se necessario.',
   testerRule: 'Regola',
-  testerJumpToRecipe: 'Vai alla ricetta',
+  testerJumpToRecipe: 'Seleziona ricetta',
+  testerJumpToSafeguard: 'Apri salvaguardia',
   testerNoMatch: 'Nessuna corrispondenza',
   testerFinalSell: 'Vendita finale',
   gearDialogDeleteSourceConfirmTitle: 'Eliminare l’equipaggiamento "{source}"?',
@@ -583,8 +584,11 @@ const overrides: Catalog = {
   setDesc_setBloodshield_text: 'per pezzo: {buff:Shield} pari al 5% dei danni inflitti dopo l’attacco (l’AoE è ridotta del 75%); totali: 5/10/15% con 1/2/3 pezzi',
 
   // Rules table: columns and UI
-  colIdx: 'N.',
-  colCfg: 'Cfg',
+  colIdx: '#',
+  colRecipe: 'Ricetta',
+  colName: 'Nome',
+  colIdxMenu: 'Indice riga HSF',
+  colRecipeIdxMenu: 'Indice ricetta',
   colKeep: 'Mantieni',
   colUse: 'Usa',
   colSets: 'Set',
@@ -1170,6 +1174,7 @@ const overrides: Catalog = {
   toastL10nLoadFailed: 'Impossibile caricare il file di localizzazione',
   toastGearSetsLoaded: 'Caricati {count} set personalizzati',
   toastGearSetsLoadFailed: 'Impossibile caricare il file dei set',
+  toastTesterFocusArtifactFiltered: 'L’oggetto di destinazione è nascosto dai filtri attivi del tester.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Nozioni base',

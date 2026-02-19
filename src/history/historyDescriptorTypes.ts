@@ -46,7 +46,7 @@ export type HistoryEntryDescriptor =
   | {
       kind: 'recipeAdded'
       index: number
-      cfg: BuilderRecipe
+      recipe: BuilderRecipe
       location: RecipeInsertionLocation | null
       metasets: Metaset[]
     }
@@ -67,7 +67,7 @@ export type HistoryEntryDescriptor =
       kind: 'recipesDeleted'
       removed: Array<{
         index: number
-        cfg: BuilderRecipe
+        recipe: BuilderRecipe
         label: RecipeLabelSnapshot
       }>
       metasets: Metaset[]

@@ -58,7 +58,8 @@ const overrides: Catalog = {
   gearDialogIntro: 'Ekipman diyaloğunu (Logic Hub → Gear sekmesi) kullanarak örnek ekipman oluşturun ve hangi kuralın tutup satacağını görün. RSL Helper veritabanını (genellikle %APPDATA%\\RslHelper\\Config) uygulamaya yükleyin veya sürükleyin ki Kural Testi görünümü gerçek eşyaları göstersin.',
   gearDialogManualOnlyNotice: 'Bu panel sadece özel girişleri listeler. İçeri aktarılan envanter, koleksiyon, kasa ve gelen kutusu parçaları Kural Testi görünümünde kalır; gerekirse bu kaynakları aşağıdaki düğmelerle temizleyin.',
   testerRule: 'Kural',
-  testerJumpToRecipe: 'Reçete git',
+  testerJumpToRecipe: 'Tarifi seç',
+  testerJumpToSafeguard: 'Koruma kuralını aç',
   testerNoMatch: 'Eşleşme yok',
   testerFinalSell: 'Son Satış',
   gearDialogDeleteSourceConfirmTitle: '"{source}" ekipmanını sil?',
@@ -583,8 +584,11 @@ const overrides: Catalog = {
   setDesc_setBloodshield_text: 'Parça başına: Saldırı sonrası verilen hasarın %5\'i kadar {buff:Shield} (AoE %75 azaltılır); toplam: 1/2/3 parçada %5/%10/%15',
 
   // Rules table: columns and UI
-  colIdx: 'No',
-  colCfg: 'Konf',
+  colIdx: '#',
+  colRecipe: 'Reçete',
+  colName: 'Ad',
+  colIdxMenu: 'HSF Satır İndeksi',
+  colRecipeIdxMenu: 'Reçete İndeksi',
   colKeep: 'Koru',
   colUse: 'Kullan',
   colSets: 'Setler',
@@ -1170,6 +1174,7 @@ const overrides: Catalog = {
   toastL10nLoadFailed: 'Yerelleştirme dosyası yüklenemedi',
   toastGearSetsLoaded: '{count} özel set yüklendi',
   toastGearSetsLoadFailed: 'Set dosyası yüklenemedi',
+  toastTesterFocusArtifactFiltered: 'Hedef eşya şu anda etkin tester filtreleri tarafından gizleniyor.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Temeller',

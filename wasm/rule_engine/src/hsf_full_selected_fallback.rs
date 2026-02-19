@@ -29,7 +29,7 @@ struct BuildHsfFullSelectedFallbackPlanIn {
     any_flags: Vec<bool>,
     sum_min: i64,
     impossible_min_max: bool,
-    base_by_variant: HashMap<String, i64>,
+    base_by_variant: HashMap<i64, i64>,
 }
 
 // Output is an emission spec consumed by the existing compact wasm emitter path.
@@ -58,8 +58,8 @@ pub(crate) struct ExecuteHsfFullSelectedFallbackIn {
     pub(crate) num_rolls_for_this_level: i64,
     pub(crate) num_rolls_by_target: i64,
     pub(crate) aggregate_min_value: i64,
-    pub(crate) base_by_variant: HashMap<String, i64>,
-    pub(crate) substat_roll_bounds_v: HashMap<String, BuildHsfComboBoundsIn>,
+    pub(crate) base_by_variant: HashMap<i64, i64>,
+    pub(crate) substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
     pub(crate) base_rule: RuleRaw,
     pub(crate) main_choices: Vec<EmitHsfMainChoiceIn>,
     pub(crate) emit_any_main_when_no_choices: bool,
@@ -67,9 +67,9 @@ pub(crate) struct ExecuteHsfFullSelectedFallbackIn {
 
 // Resolve precomputed base values by variant id; missing entries fail closed to zero.
 // Selected vectors are already filtered in TS, so missing keys are unexpected.
-fn base_for_variant(base_by_variant: &HashMap<String, i64>, variant: i64) -> i64 {
+fn base_for_variant(base_by_variant: &HashMap<i64, i64>, variant: i64) -> i64 {
     base_by_variant
-        .get(&variant.to_string())
+        .get(&variant)
         .copied()
         .unwrap_or(0)
 }
