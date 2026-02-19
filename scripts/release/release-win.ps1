@@ -59,6 +59,7 @@ try {
 
   # Single source of truth: keep shipped sample names consistent.
   $ShippedSellfileBaseName = 'lategame'
+  $ShippedRecipeFileName = '_RECIPE_FOR_LATEGAME_AND_ENDGAME_.sfr'
 
   # Read version from package.json and normalize depending on mode
   $pkgPath = Join-Path $RepoRoot 'package.json'
@@ -175,21 +176,35 @@ try {
     }
   }
 
-  $sampleHsf = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.hsf' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-  if (-not $sampleHsf) {
-    $fallbackHsfPath = Join-Path $samplesDir 'example.hsf'
-    if (Test-Path -LiteralPath $fallbackHsfPath) {
-      $sampleHsf = Get-Item -LiteralPath $fallbackHsfPath
+  # Pin the lategame/endgame HSF payloads so release archives are deterministic.
+  # Why: These files are curated baselines and should not float to timestamped Nusi_* variants.
+  $lategameHsfPath = Join-Path $samplesDir 'lategame.hsf'
+  if (-not (Test-Path -LiteralPath $lategameHsfPath)) {
+    $legacyLategameHsfPath = Join-Path $samplesDir 'Lategame.hsf'
+    if (Test-Path -LiteralPath $legacyLategameHsfPath) {
+      $lategameHsfPath = $legacyLategameHsfPath
     } else {
-      throw "No Example HSF sample found in 'examples'"
+      throw "Lategame HSF sample not found in 'examples'"
     }
   }
 
-  Write-Host ("Using samples: {0} and {1}" -f $sampleHsfc.Name, $sampleHsf.Name)
+  # Keep endgame alongside lategame in every release so users can choose either baseline.
+  $endgameHsfPath = Join-Path $samplesDir 'endgame.hsf'
+  if (-not (Test-Path -LiteralPath $endgameHsfPath)) {
+    $legacyEndgameHsfPath = Join-Path $samplesDir 'Endgame.hsf'
+    if (Test-Path -LiteralPath $legacyEndgameHsfPath) {
+      $endgameHsfPath = $legacyEndgameHsfPath
+    } else {
+      throw "Endgame HSF sample not found in 'examples'"
+    }
+  }
+
+  Write-Host ("Using samples: {0}, {1}, and {2}" -f $sampleHsfc.Name, (Split-Path -Leaf $lategameHsfPath), (Split-Path -Leaf $endgameHsfPath))
   $sellfilesDir = Join-Path $staging 'Sellfiles'
   if (-not (Test-Path $sellfilesDir)) { New-Item -ItemType Directory -Path $sellfilesDir | Out-Null }
-  Copy-Item -LiteralPath $sampleHsfc.FullName -Destination (Join-Path $sellfilesDir "$ShippedSellfileBaseName-receipe.sfr") -Force
-  Copy-Item -LiteralPath $sampleHsf.FullName  -Destination (Join-Path $sellfilesDir "$ShippedSellfileBaseName-sellfile.hsf") -Force
+  Copy-Item -LiteralPath $sampleHsfc.FullName -Destination (Join-Path $sellfilesDir $ShippedRecipeFileName) -Force
+  Copy-Item -LiteralPath $lategameHsfPath -Destination (Join-Path $sellfilesDir "$ShippedSellfileBaseName-sellfile.hsf") -Force
+  Copy-Item -LiteralPath $endgameHsfPath  -Destination (Join-Path $sellfilesDir 'endgame-sellfile.hsf') -Force
   # Ship the baseline Basic.sfr so newcomers can inspect an intentionally minimal recipe.
   $basicHsfcPath = Join-Path $samplesDir 'Basic.sfr'
   if (-not (Test-Path -LiteralPath $basicHsfcPath)) {
@@ -234,7 +249,19 @@ try {
   # Keep the helper BAT in the watcher bundle.
   $sampleServerBatSrc = Join-Path $RepoRoot 'scripts\watchers\Stream-Helper-DB-to-Creator.bat'
   if (Test-Path $sampleServerBatSrc) {
-    Copy-Item -LiteralPath $sampleServerBatSrc -Destination (Join-Path $devDir 'Stream-Helper-DB-to-Creator.bat') -Force
+    $sampleServerBatOut = Join-Path $devDir 'Stream-Helper-DB-to-Creator.bat'
+    $sampleServerBatRaw = Get-Content -Raw -LiteralPath $sampleServerBatSrc
+    # Rewrite the fixed app entry for packaged builds so runtime probing is unnecessary.
+    $prodEntryLine = 'set "APP_ENTRY_PATH=!SCRIPT_DIR!..\SellfileCreator.html"'
+    $sampleServerBatPatched = [regex]::Replace(
+      $sampleServerBatRaw,
+      '(?im)^set "APP_ENTRY_PATH=.*"$',
+      $prodEntryLine
+    )
+    if ($sampleServerBatPatched -eq $sampleServerBatRaw) {
+      throw "Expected APP_ENTRY_PATH line not found in $sampleServerBatSrc"
+    }
+    Write-TextUtf8NoBom -Path $sampleServerBatOut -Text $sampleServerBatPatched
   }
 
   # Legacy HTTP sample payloads are no longer staged.

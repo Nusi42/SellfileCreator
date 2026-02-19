@@ -25,6 +25,7 @@ $protocolSubprotocol = if ($protocolMode -eq 'helper') { 'rws' } else { 'jsonrpc
 $defaultParameters = [ordered]@{
     Port                = 8765
     AppRoot             = (Split-Path -Parent $PSScriptRoot)
+    AppEntryPath        = $null
     OutputPath          = (Join-Path $PSScriptRoot 'exported-sellfile.hsf')
     WatchGearDb         = $true
     GearDbPath          = $null
@@ -34,6 +35,7 @@ $defaultParameters = [ordered]@{
 $canonicalNames = @{
     'port'               = 'Port'
     'approot'            = 'AppRoot'
+    'appentrypath'       = 'AppEntryPath'
     'outputpath'         = 'OutputPath'
     'watchgeardb'        = 'WatchGearDb'
     'geardbpath'         = 'GearDbPath'
@@ -130,6 +132,9 @@ while ($argIndex -lt $args.Count) {
             }
         }
         'AppRoot' {
+            Set-ResolvedParameter -Name $canonical -Value ([string]$valueText)
+        }
+        'AppEntryPath' {
             Set-ResolvedParameter -Name $canonical -Value ([string]$valueText)
         }
         'OutputPath' {
@@ -2014,29 +2019,27 @@ function Invoke-ForcedGearDbSnapshot {
 
 #region === Launch helpers ===
 function Resolve-AppEntryPath {
-    param([string]$Root)
-
-    $candidates = @(
-        (Join-Path $Root 'SellfileCreator.html'),
-        (Join-Path $Root 'dist\SellfileCreator.html'),
-        (Join-Path $Root 'dist\index.html'),
-        (Join-Path $Root '..\dist\SellfileCreator.html'),
-        (Join-Path $Root '..\dist\index.html'),
-        (Join-Path $Root 'index.html')
+    param(
+        [string]$Root,
+        [string]$ExplicitPath
     )
 
-    foreach ($candidate in $candidates) {
-        if (Test-Path $candidate) {
-            return (Resolve-Path $candidate).Path
-        }
+    # Require an explicit app entry so launch behavior is fixed by the caller/build step.
+    if ([string]::IsNullOrWhiteSpace($ExplicitPath)) {
+        throw "Sellfile entry point is not configured. Pass -AppEntryPath explicitly."
     }
 
-    $message = @(
-        "Sellfile entry point not found under '$Root'.",
-        "Expected one of: SellfileCreator.html, dist\\SellfileCreator.html, dist\\index.html, index.html.",
-        "Run 'npm run build' first or pass -AppRoot explicitly."
-    ) -join ' '
-    throw $message
+    # Resolve relative paths against AppRoot to keep wrapper calls portable.
+    $requestedPath = if ([System.IO.Path]::IsPathRooted($ExplicitPath)) {
+        $ExplicitPath
+    } else {
+        Join-Path $Root $ExplicitPath
+    }
+    if (Test-Path -LiteralPath $requestedPath) {
+        return (Resolve-Path -LiteralPath $requestedPath).Path
+    }
+
+    throw ("Sellfile entry point not found at explicit path '{0}'." -f $requestedPath)
 }
 
 function New-LaunchUrl {
@@ -2055,12 +2058,12 @@ function New-LaunchUrl {
 
 function Get-DefaultHtmlHandlerExe {
     $progid = $null
-    $candidates = @(
+    $associationPaths = @(
         'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.html\UserChoice',
         'HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice',
         'HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice'
     )
-    foreach ($path in $candidates) {
+    foreach ($path in $associationPaths) {
         try {
             $props = Get-ItemProperty -Path $path -ErrorAction Stop
             if ($props.ProgId) {
@@ -2116,7 +2119,7 @@ function Open-LaunchUrl {
 #endregion
 
 #region === Runtime setup & listener loop ===
-$indexPathResolved = Resolve-AppEntryPath -Root $AppRoot
+$indexPathResolved = Resolve-AppEntryPath -Root $AppRoot -ExplicitPath $AppEntryPath
 $wsEndpoint = "ws://localhost:$Port/"
 $launchUrl = New-LaunchUrl -IndexPath $indexPathResolved -Endpoint $wsEndpoint
 

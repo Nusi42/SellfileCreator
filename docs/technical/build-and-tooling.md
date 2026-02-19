@@ -64,7 +64,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `scripts/watchers/run-db-watcher.ps1` — JSON-RPC 2.0 WebSocket db watcher. Launches the UI with a `ws://` endpoint, accepts `uploadSellfile` requests, emits `selectRule` + gear DB events, and watches `%APPDATA%\RslHelper\Config` for `.db` updates by default (disable via `-WatchGearDb:false` or override with `-GearDbPath`). Requires PowerShell 7 (`pwsh`) and will re-launch under `pwsh` if needed. Uses `[R]` to queue a sample selectRule, `[T]` to toggle the sample gear via raw deltas, and `[F]` to force a DB snapshot.
 - `scripts/watchers/run-db-watcher-helper.ps1` — lightweight WebSocket db watcher (the `type/cmd/evt` protocol). Same behavior as `run-db-watcher.ps1`, but uses the compact envelope expected by RSL Helper integrations.
 - `scripts/watchers/run-db-watcher-core.ps1` — shared implementation for the two WebSocket db watchers above; keep common behavior here so the two wrappers stay in sync.
-- `scripts/watchers/Stream-Helper-DB-to-Creator.bat` — double-click helper that locates PowerShell 7 (`pwsh`) first (falls back to Windows PowerShell when needed), injects `-GearDbPath "%APPDATA%\RslHelper\Config"` so the watcher boots with the default RSL Helper directory, and forwards any additional arguments so users can override settings.
+- `scripts/watchers/Stream-Helper-DB-to-Creator.bat` — double-click helper that requires PowerShell 7 (`pwsh`), prompts to open the official download page when `pwsh` is missing, and passes a fixed `-AppEntryPath` plus `-GearDbPath "%APPDATA%\RslHelper\Config"` into `run-db-watcher-helper.ps1`. In-repo source points to `..\dist\index.html` for local development; release packaging rewrites that line to `..\SellfileCreator.html` before staging the `dev/` copy, so shipped bundles contain no runtime dev-vs-prod path branching.
 
 - Transient/compiled helpers live under `tmp/tsc/**` and are ignored by git (see `.gitignore`). Example:
   - `tmp/tsc/scripts/scripts/tooling/export-catalogs.js` — compiled output of `scripts/tooling/export-catalogs.ts` used by `npm run export:l10n`.
@@ -157,8 +157,9 @@ Coding patterns adopted during the refactor (required for PRs):
   - `README.<lang>.txt` — localized README variants converted to UTF-8 BOM text
   - `HISTORY.txt` — copied from `docs/HISTORY.txt` so the release bundle ships with the full changelog
   - `i18n/*.l10n.json` — localization templates exported from `dist/l10n`
-  - `Sellfiles/lategame-receipe.sfr` — prefers the most recent `Nusi_*.sfr` in `examples/`; falls back to `example.sfr` (legacy `example.hsfc`) if no timestamped sample is present
-  - `Sellfiles/lategame-sellfile.hsf` — prefers the most recent `Nusi_*.hsf` in `examples/`; falls back to `example.hsf` if no timestamped sample is present
+  - `Sellfiles/_RECIPE_FOR_LATEGAME_AND_ENDGAME_.sfr` — prefers the most recent `Nusi_*.sfr` in `examples/`; falls back to `example.sfr` (legacy `example.hsfc`) if no timestamped sample is present
+  - `Sellfiles/lategame-sellfile.hsf` — copied from `examples/lategame.hsf` (legacy `Lategame.hsf` fallback) so the archive always ships the curated lategame baseline
+  - `Sellfiles/endgame-sellfile.hsf` — copied from `examples/endgame.hsf` (legacy `Endgame.hsf` fallback) so the archive also ships the curated endgame baseline
   - `Sellfiles/basic.sfr` — copied from `examples/Basic.sfr` (legacy `Basic.hsfc` fallback) as the minimal starter recipe
   - `runme.bat` — launches the HTML in the default browser
   - `dev/` — optional helper folder with the WebSocket watcher scripts and protocol docs when available

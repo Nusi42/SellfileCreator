@@ -3,13 +3,15 @@ setlocal ENABLEDELAYEDEXPANSION
 
 REM Stream the live RSL Helper DB into Sellfile Creator without typing commands.
 REM Double-click this file to start the db watcher with the defaults that
-REM most users expect: it finds PowerShell 7 (pwsh) when available, falls back to
-REM Windows PowerShell otherwise, and launches run-db-watcher-helper.ps1 with the gear
-REM DB watcher already pointing at %APPDATA%\RslHelper\Config. Extra arguments
-REM typed after the .bat name still flow through for advanced tinkering.
+REM most users expect: it requires PowerShell 7 (pwsh), launches
+REM run-db-watcher-helper.ps1 with the gear DB watcher already pointing at
+REM %APPDATA%\RslHelper\Config, and still forwards any extra arguments.
 
 set "SCRIPT_DIR=%~dp0"
 set "PS_SCRIPT=!SCRIPT_DIR!run-db-watcher-helper.ps1"
+REM Pin the app entry file in source control for local dev runs.
+REM Build/package tooling can rewrite this value for the target layout.
+set "APP_ENTRY_PATH=!SCRIPT_DIR!..\..\dist\index.html"
 
 REM Keep the PowerShell companion script next to this batch file.
 if not exist "!PS_SCRIPT!" (
@@ -25,21 +27,22 @@ if "!APPDATA!"=="" (
 
 set "DEFAULT_DB=!APPDATA!\RslHelper\Config"
 
-REM Prefer pwsh (PowerShell 7). If unavailable, fall back to Windows PowerShell.
+REM Require pwsh (PowerShell 7)
 where pwsh >nul 2>&1
 if not errorlevel 1 (
   set "POWERSHELL_EXE=pwsh"
 ) else (
-  where powershell >nul 2>&1
-  if not errorlevel 1 (
-    set "POWERSHELL_EXE=powershell"
-  ) else (
-    echo "[Stream-Helper] Neither PowerShell 7 (pwsh) nor Windows PowerShell was found on PATH."
+  echo [Stream-Helper] PowerShell 7 ^(pwsh^) is required to run this helper.
+  echo [Stream-Helper] Download it from https://aka.ms/powershell and run this file again.
+  choice /M "Open the PowerShell download page now"
+  if errorlevel 2 (
     exit /b 1
   )
+  start "" "https://aka.ms/powershell"
+  exit /b 1
 )
 
 REM Launch the db watcher with watcher defaults and pass through extra args.
-"!POWERSHELL_EXE!" -NoProfile -ExecutionPolicy Bypass -File "!PS_SCRIPT!" -WatchGearDb -GearDbPath "!DEFAULT_DB!" %*
+"!POWERSHELL_EXE!" -NoProfile -ExecutionPolicy Bypass -File "!PS_SCRIPT!" -AppEntryPath "!APP_ENTRY_PATH!" -WatchGearDb -GearDbPath "!DEFAULT_DB!" %*
 set "EXIT_CODE=!ERRORLEVEL"
 endlocal & exit /b !EXIT_CODE!
