@@ -99,6 +99,20 @@ type PendingRequest<T> = {
 type PendingWarmRequest = PendingRequest<WarmCacheResult> & { onProgress?: (progress: ProgressSnapshot) => void }
 type PendingPipelineRequest = PendingRequest<PipelineResult> & { onProgress?: (progress: ProgressSnapshot) => void }
 type PendingCountRequest = PendingRequest<number[]>
+type PipelineProgressHandler = (progress: ProgressSnapshot) => void
+type ActivePipelineRun = {
+  signature: string | null
+  promise: Promise<PipelineResult>
+  abort: () => void
+}
+type QueuedPipelineRun = {
+  signature: string | null
+  params: PipelineParams
+  onProgress?: PipelineProgressHandler
+  resolve: (value: PipelineResult) => void
+  reject: (reason?: unknown) => void
+  promise: Promise<PipelineResult>
+}
 
 type UseRuleCacheWorkerResult = {
   warmCache: (params: WarmCacheParams, options?: { signal?: AbortSignal; onProgress?: (progress: ProgressSnapshot) => void }) => Promise<WarmCacheResult>
@@ -138,14 +152,77 @@ const RULE_CACHE_PHASE_MARKERS: Record<RuleCachePipelinePhase, string> = {
   'final:done': PERF_EVENTS.ruleCacheFinalMatchDone,
 }
 
+// Keep AbortError creation centralized so every early-exit uses the same error shape.
+const createAbortError = (): DOMException => new DOMException('Aborted', 'AbortError')
+
+const withCallerAbort = <T>(promise: Promise<T>, signal: AbortSignal | null): Promise<T> => {
+  // No caller signal means the shared promise can be returned as-is.
+  if (!signal) return promise
+  // Immediate abort should reject without touching the underlying pipeline.
+  if (signal.aborted) return Promise.reject(createAbortError())
+  return new Promise<T>((resolve, reject) => {
+    const handleAbort = () => {
+      signal.removeEventListener('abort', handleAbort)
+      reject(createAbortError())
+    }
+    signal.addEventListener('abort', handleAbort, { once: true })
+    promise.then((value) => {
+      signal.removeEventListener('abort', handleAbort)
+      resolve(value)
+    }).catch((error) => {
+      signal.removeEventListener('abort', handleAbort)
+      reject(error)
+    })
+  })
+}
+
+const buildPipelineRequestSignature = (params: PipelineParams): string | null => {
+  const fingerprint = params.fingerprint ?? null
+  const artifactSignature = params.artifactSignature ?? params.artifactPatch?.signature ?? null
+  // Dedupe only when both fingerprints are available to avoid false "same request" positives.
+  if (!fingerprint || !artifactSignature) return null
+  return JSON.stringify({
+    fingerprint,
+    artifactSignature,
+    recipeModes: params.recipeModes,
+    skipWarm: params.skipWarm ?? false,
+    skipMatches: params.skipMatches ?? false,
+    skipDetection: params.skipDetection ?? false,
+    resetArtifacts: params.resetArtifacts ?? false,
+  })
+}
+
+const resolveArtifactSnapshotKey = (
+  artifact: NormalizedGearArtifact,
+  fallbackIdx: number,
+): number => {
+  // Reuse tester item id when present so patch keys align with App-side item identities.
+  const testerId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
+  if (Number.isFinite(testerId)) return testerId
+  // Imported artifact ids are the second-best stable key.
+  const artifactId = Number((artifact as { id?: number } | undefined)?.id ?? NaN)
+  if (Number.isFinite(artifactId)) return artifactId
+  // Final fallback keeps keys deterministic even when source ids are missing.
+  return fallbackIdx
+}
+
 export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const workerRef = useRef<Worker | null>(null)
+  // Worker reset hook lets pipeline aborts terminate long-running wasm work immediately.
+  const resetWorkerForPipelineAbortRef = useRef<(() => void) | null>(null)
   const requestIdRef = useRef(0)
   // Generation id lets the worker reject stale in-flight pipelines safely.
   const pipelineGenerationRef = useRef(0)
   const pendingWarmRef = useRef<Map<number, PendingWarmRequest>>(new Map())
   const pendingPipelineRef = useRef<Map<number, PendingPipelineRequest>>(new Map())
   const pendingCountRef = useRef<Map<number, PendingCountRequest>>(new Map())
+  // Track active + queued pipeline requests so rapid UI edits collapse to latest-only work.
+  const activePipelineRunRef = useRef<ActivePipelineRun | null>(null)
+  const queuedPipelineRunRef = useRef<QueuedPipelineRun | null>(null)
+  // Mirror artifact patches locally so a respawned worker can be rehydrated with full artifacts.
+  const workerArtifactSnapshotRef = useRef<Map<number, NormalizedGearArtifact>>(new Map())
+  // Hard-cancel worker rotation clears worker cache; next run must resend full artifacts.
+  const workerNeedsArtifactHydrationRef = useRef(false)
   const abortedIdsRef = useRef<Set<number>>(new Set())
   const fallbackCacheRef = useRef<RecipeRulesCache | null>(supportsWorkerEnv ? null : createRecipeRulesCache())
   // Local test runs skip Web Workers, so keep our own artifact map to mimic the patch behavior.
@@ -163,18 +240,28 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     }
     await localWasmWarmupPromiseRef.current
   }, [])
-  // Keep pipelines latest-wins: abort older runs so we never resolve stale work after a new request arrives.
-  const abortPipelineRequest = useCallback((id: number) => {
-    const pending = pendingPipelineRef.current.get(id)
-    abortedIdsRef.current.add(id)
-    pendingPipelineRef.current.delete(id)
-    pending?.reject(new DOMException('Aborted', 'AbortError'))
-  }, [])
-  const abortActivePipelines = useCallback(() => {
-    for (const pendingId of pendingPipelineRef.current.keys()) {
-      abortPipelineRequest(pendingId)
+  const syncWorkerArtifactSnapshot = useCallback((params: PipelineParams): void => {
+    const snapshot = workerArtifactSnapshotRef.current
+    // Explicit reset requests mirror the worker behavior by dropping the full snapshot first.
+    if (params.resetArtifacts) snapshot.clear()
+    // Patch mode carries exact changed/removed ids, so apply it incrementally.
+    if (params.artifactPatch) {
+      for (const [itemId, artifact] of params.artifactPatch.changed) {
+        snapshot.set(itemId, artifact)
+      }
+      for (const removed of params.artifactPatch.removed) {
+        snapshot.delete(removed)
+      }
+      return
     }
-  }, [abortPipelineRequest])
+    // Full artifact payloads replace the snapshot to keep ids deterministic.
+    if (params.artifacts.length > 0) {
+      snapshot.clear()
+      params.artifacts.forEach((artifact, idx) => {
+        snapshot.set(resolveArtifactSnapshotKey(artifact, idx), artifact)
+      })
+    }
+  }, [])
 
   const runWarmLocally = useCallback((params: WarmCacheParams, options?: { onProgress?: (progress: ProgressSnapshot) => void }): WarmCacheResult => {
     const recipesForRules = recipesForRuleBuild(params.recipes)
@@ -470,11 +557,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
   useEffect(() => {
     if (!supportsWorkerEnv) return
-    const worker = new RuleCacheWorker()
-    workerRef.current = worker
     const warmMap = pendingWarmRef.current
     const pipelineMap = pendingPipelineRef.current
     const countMap = pendingCountRef.current
+    const artifactSnapshot = workerArtifactSnapshotRef.current
     const abortedSet = abortedIdsRef.current
 
     const handleMessage = (event: MessageEvent<RuleCacheWorkerResponse>) => {
@@ -588,37 +674,81 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       }
     }
 
+    const rejectAllPending = (reason: unknown, options?: { markAborted?: boolean }) => {
+      warmMap.forEach((pending, id) => {
+        if (options?.markAborted) abortedSet.add(id)
+        pending.reject(reason)
+      })
+      warmMap.clear()
+      pipelineMap.forEach((pending, id) => {
+        if (options?.markAborted) abortedSet.add(id)
+        pending.reject(reason)
+      })
+      pipelineMap.clear()
+      countMap.forEach((pending, id) => {
+        if (options?.markAborted) abortedSet.add(id)
+        pending.reject(reason)
+      })
+      countMap.clear()
+    }
+
     const handleError = (event: ErrorEvent | MessageEvent) => {
       const error = event instanceof ErrorEvent ? event.error : event.data
       const reason = error ?? new Error('Rule cache worker error')
-      warmMap.forEach((pending) => {
-        pending.reject(reason)
-      })
-      warmMap.clear()
-      pipelineMap.forEach((pending) => {
-        pending.reject(reason)
-      })
-      pipelineMap.clear()
-      countMap.forEach((pending) => {
-        pending.reject(reason)
-      })
-      countMap.clear()
+      rejectAllPending(reason)
       abortedSet.clear()
     }
 
-    worker.addEventListener('message', handleMessage)
-    worker.addEventListener('error', handleError)
-    worker.addEventListener('messageerror', handleError)
-
-    return () => {
+    const attachWorkerListeners = (worker: Worker) => {
+      worker.addEventListener('message', handleMessage)
+      worker.addEventListener('error', handleError)
+      worker.addEventListener('messageerror', handleError)
+    }
+    const detachWorkerListeners = (worker: Worker) => {
       worker.removeEventListener('message', handleMessage)
       worker.removeEventListener('error', handleError)
       worker.removeEventListener('messageerror', handleError)
-      worker.terminate()
-      workerRef.current = null
-      warmMap.clear()
-      pipelineMap.clear()
-      countMap.clear()
+    }
+    const spawnWorker = () => {
+      const worker = new RuleCacheWorker()
+      attachWorkerListeners(worker)
+      workerRef.current = worker
+    }
+    const replaceWorkerForPipelineAbort = () => {
+      // Abort-driven worker rotation is our hard stop for long wasm calls.
+      rejectAllPending(createAbortError(), { markAborted: true })
+      const activeWorker = workerRef.current
+      if (activeWorker) {
+        detachWorkerListeners(activeWorker)
+        activeWorker.terminate()
+        if (workerRef.current === activeWorker) workerRef.current = null
+      }
+      // The replacement worker starts empty, so the next pipeline must send a full artifact payload.
+      workerNeedsArtifactHydrationRef.current = true
+      spawnWorker()
+    }
+
+    resetWorkerForPipelineAbortRef.current = replaceWorkerForPipelineAbort
+    spawnWorker()
+
+    return () => {
+      resetWorkerForPipelineAbortRef.current = null
+      const activeWorker = workerRef.current
+      if (activeWorker) {
+        detachWorkerListeners(activeWorker)
+        activeWorker.terminate()
+        if (workerRef.current === activeWorker) workerRef.current = null
+      }
+      // Reject any queued request that never reached worker dispatch.
+      const queued = queuedPipelineRunRef.current
+      if (queued) {
+        queued.reject(createAbortError())
+        queuedPipelineRunRef.current = null
+      }
+      activePipelineRunRef.current = null
+      workerNeedsArtifactHydrationRef.current = false
+      artifactSnapshot.clear()
+      rejectAllPending(createAbortError(), { markAborted: true })
       abortedSet.clear()
     }
   }, [])
@@ -646,7 +776,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     }
 
     if (signal?.aborted) {
-      return Promise.reject(new DOMException('Aborted', 'AbortError'))
+      return Promise.reject(createAbortError())
     }
 
     const worker = workerRef.current
@@ -654,7 +784,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
     const runFallback = (_error: unknown): Promise<WarmCacheResult> => {
       if (signal?.aborted) {
-        return Promise.reject(new DOMException('Aborted', 'AbortError'))
+        return Promise.reject(createAbortError())
       }
       return ensureLocalWasmReady().then(() => runWarmLocally(params, localProgressOptions))
     }
@@ -675,7 +805,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           const abortHandler = () => {
             if (!pendingWarmRef.current.has(id)) return
             abortedIdsRef.current.add(id)
-            pendingWarmRef.current.get(id)?.reject(new DOMException('Aborted', 'AbortError'))
+            pendingWarmRef.current.get(id)?.reject(createAbortError())
             pendingWarmRef.current.delete(id)
           }
           signal.addEventListener('abort', abortHandler, { once: true })
@@ -715,7 +845,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       .catch((error) => {
         const aborted = abortedIdsRef.current.delete(id)
         if (aborted) {
-          return Promise.reject(new DOMException('Aborted', 'AbortError'))
+          return Promise.reject(createAbortError())
         }
         return runFallback(error)
       })
@@ -724,61 +854,34 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       })
   }, [ensureLocalWasmReady, runWarmLocally])
 
-  const runPipeline = useCallback<UseRuleCacheWorkerResult['runPipeline']>((params, options) => {
-    const signal = options?.signal ?? null
-    const localProgressOptions = options?.onProgress
-      ? { onProgress: createProgressThrottler(options.onProgress) }
+  const startPipelineRunOnWorker = useCallback((
+    params: PipelineParams,
+    onProgress: PipelineProgressHandler | undefined,
+    signature: string | null,
+  ): ActivePipelineRun => {
+    const localProgressOptions = onProgress
+      ? { onProgress }
       : undefined
-    if (!supportsWorkerEnv || !workerRef.current) {
-      // Mark pipeline start before running the local fallback.
-      maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineStart, () => ({
-        artifacts: params.artifacts?.length ?? 0,
-        worker: false,
-        skipWarm: params.skipWarm ?? false,
-        skipMatches: params.skipMatches ?? false,
-        skipDetection: params.skipDetection ?? false,
-      }))
-      return ensureLocalWasmReady().then(() => {
-        const result = runPipelineLocally(params, localProgressOptions)
-        // Mark pipeline fallback completion for perf traces.
-        maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineFallback, () => ({
-          rules: result.state.mergedRules.length,
-          matches: result.matches.length,
-        }))
-        // Mirror the completion marker for local pipeline runs.
-        maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineDone, () => ({
-          rules: result.state.mergedRules.length,
-          matches: result.matches.length,
-          // Detection is active when safeguard snapshot exists.
-          detection: Boolean(result.safeguardDetection),
-        }))
-        return result
-      })
-    }
-
-    if (signal?.aborted) {
-      return Promise.reject(new DOMException('Aborted', 'AbortError'))
+    const runFallback = (_error: unknown): Promise<PipelineResult> => ensureLocalWasmReady()
+      .then(() => runPipelineLocally(params, localProgressOptions))
+    const worker = workerRef.current
+    if (!supportsWorkerEnv || !worker) {
+      const promise = runFallback(new Error('Worker unavailable'))
+      return {
+        signature,
+        promise,
+        // Local fallback is synchronous work in this process and cannot be interrupted.
+        abort: () => {},
+      }
     }
     // Stamp this run with a strictly increasing generation so worker-side state commits are latest-only.
     const generation = pipelineGenerationRef.current + 1
     pipelineGenerationRef.current = generation
-    // Ensure only the newest pipeline runs so UI stays aligned with the latest inputs.
-    if (pendingPipelineRef.current.size > 0) {
-      abortActivePipelines()
-    }
-
-    const worker = workerRef.current
     const id = ++requestIdRef.current
-    const runFallback = (_error: unknown): Promise<PipelineResult> => {
-      if (signal?.aborted) {
-        return Promise.reject(new DOMException('Aborted', 'AbortError'))
-      }
-      return ensureLocalWasmReady().then(() => runPipelineLocally(params, localProgressOptions))
-    }
 
     let resolveFn: (value: PipelineResult) => void = () => {}
     let rejectFn: (reason?: unknown) => void = () => {}
-    const promise = new Promise<PipelineResult>((resolve, reject) => {
+    const basePromise = new Promise<PipelineResult>((resolve, reject) => {
       resolveFn = resolve
       rejectFn = reject
     })
@@ -786,22 +889,45 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     const pendingEntry: PendingPipelineRequest = {
       resolve: resolveFn,
       reject: rejectFn,
-      promise,
-      ...(options?.onProgress ? { onProgress: createProgressThrottler(options.onProgress) } : {}),
+      promise: basePromise,
+      ...(onProgress ? { onProgress } : {}),
     }
     pendingPipelineRef.current.set(id, pendingEntry)
-    const cleanupAbort = signal
-      ? (() => {
-          const abortHandler = () => {
-            if (!pendingPipelineRef.current.has(id)) return
-            abortedIdsRef.current.add(id)
-            pendingPipelineRef.current.get(id)?.reject(new DOMException('Aborted', 'AbortError'))
-            pendingPipelineRef.current.delete(id)
-          }
-          signal.addEventListener('abort', abortHandler, { once: true })
-          return () => signal.removeEventListener('abort', abortHandler)
-        })()
-      : null
+
+    let settled = false
+    let cancelIssued = false
+    const abort = () => {
+      // Ignore duplicate or post-settlement abort attempts.
+      if (settled || cancelIssued) return
+      cancelIssued = true
+      const pending = pendingPipelineRef.current.get(id)
+      if (pending) {
+        abortedIdsRef.current.add(id)
+        pendingPipelineRef.current.delete(id)
+        pending.reject(createAbortError())
+      }
+      // Terminate + respawn the worker so wasm evaluation stops immediately.
+      resetWorkerForPipelineAbortRef.current?.()
+    }
+
+    // Hard-cancel worker rotation empties worker cache; rehydrate from our local artifact snapshot.
+    const workerNeedsHydration = workerNeedsArtifactHydrationRef.current
+    const workerArtifactSnapshot = workerArtifactSnapshotRef.current
+    let artifactsForWorker = params.artifacts
+    let artifactPatchForWorker = params.artifactPatch
+    let resetArtifactsForWorker = params.resetArtifacts ?? false
+    if (workerNeedsHydration) {
+      if (workerArtifactSnapshot.size > 0) {
+        // Send a full payload once so recipe-mode-only toggles still produce matches.
+        artifactsForWorker = Array.from(workerArtifactSnapshot.values())
+        artifactPatchForWorker = undefined
+        resetArtifactsForWorker = false
+        workerNeedsArtifactHydrationRef.current = false
+      } else if (params.artifacts.length > 0) {
+        // A caller-provided full payload also satisfies hydration.
+        workerNeedsArtifactHydrationRef.current = false
+      }
+    }
 
     const message: RuleCacheWorkerRequest = {
       id,
@@ -816,10 +942,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         // Safeguard overrides must be supplied so detection + merges match the UI.
         safeguards: params.safeguards,
         recipeModes: params.recipeModes,
-        artifacts: params.artifacts,
-        ...(params.artifactPatch ? { artifactPatch: params.artifactPatch } : {}),
+        artifacts: artifactsForWorker,
+        ...(artifactPatchForWorker ? { artifactPatch: artifactPatchForWorker } : {}),
         ...(params.artifactSignature !== undefined ? { artifactSignature: params.artifactSignature ?? null } : {}),
-        resetArtifacts: params.resetArtifacts ?? false,
+        resetArtifacts: resetArtifactsForWorker,
         fingerprint: params.fingerprint ?? null,
         skipWarm: params.skipWarm ?? false,
         skipMatches: params.skipMatches ?? false,
@@ -831,7 +957,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       // Mark pipeline start before dispatching to the worker.
       maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineStart, () => ({
         id,
-        artifacts: params.artifacts?.length ?? 0,
+        artifacts: artifactsForWorker?.length ?? 0,
         worker: true,
         skipWarm: params.skipWarm ?? false,
         skipMatches: params.skipMatches ?? false,
@@ -840,22 +966,137 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       worker.postMessage(message)
     } catch (_error) {
       pendingPipelineRef.current.delete(id)
-      cleanupAbort?.()
-      return runFallback(_error)
+      const promise = runFallback(_error)
+      return {
+        signature,
+        promise,
+        abort: () => {},
+      }
     }
 
-    return promise
+    const promise = basePromise
       .catch((error) => {
         const aborted = abortedIdsRef.current.delete(id)
         if (aborted) {
-          return Promise.reject(new DOMException('Aborted', 'AbortError'))
+          return Promise.reject(createAbortError())
         }
         return runFallback(error)
       })
       .finally(() => {
-        cleanupAbort?.()
+        settled = true
       })
-  }, [abortActivePipelines, ensureLocalWasmReady, runPipelineLocally])
+
+    return {
+      signature,
+      promise,
+      abort,
+    }
+  }, [ensureLocalWasmReady, runPipelineLocally])
+
+  const promoteQueuedPipeline = useCallback(() => {
+    // Exactly one active pipeline at a time; wait for active completion before promoting queued work.
+    if (activePipelineRunRef.current) return
+    const queued = queuedPipelineRunRef.current
+    if (!queued) return
+    queuedPipelineRunRef.current = null
+    const activeRun = startPipelineRunOnWorker(
+      queued.params,
+      queued.onProgress,
+      queued.signature,
+    )
+    activePipelineRunRef.current = activeRun
+    activeRun.promise.then((result) => {
+      queued.resolve(result)
+    }).catch((error) => {
+      queued.reject(error)
+    }).finally(() => {
+      // Advance the queue only once the active run fully settled (success/error/abort).
+      if (activePipelineRunRef.current === activeRun) activePipelineRunRef.current = null
+      promoteQueuedPipeline()
+    })
+  }, [startPipelineRunOnWorker])
+
+  const runPipeline = useCallback<UseRuleCacheWorkerResult['runPipeline']>((params, options) => {
+    const signal = options?.signal ?? null
+    const throttledProgress = options?.onProgress
+      ? createProgressThrottler(options.onProgress)
+      : undefined
+    if (!supportsWorkerEnv || !workerRef.current) {
+      // Mark pipeline start before running the local fallback.
+      maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineStart, () => ({
+        artifacts: params.artifacts?.length ?? 0,
+        worker: false,
+        skipWarm: params.skipWarm ?? false,
+        skipMatches: params.skipMatches ?? false,
+        skipDetection: params.skipDetection ?? false,
+      }))
+      const localRun = ensureLocalWasmReady().then(() => {
+        const result = runPipelineLocally(
+          params,
+          throttledProgress ? { onProgress: throttledProgress } : undefined,
+        )
+        // Mark pipeline fallback completion for perf traces.
+        maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineFallback, () => ({
+          rules: result.state.mergedRules.length,
+          matches: result.matches.length,
+        }))
+        // Mirror the completion marker for local pipeline runs.
+        maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineDone, () => ({
+          rules: result.state.mergedRules.length,
+          matches: result.matches.length,
+          // Detection is active when safeguard snapshot exists.
+          detection: Boolean(result.safeguardDetection),
+        }))
+        return result
+      })
+      return withCallerAbort(localRun, signal)
+    }
+
+    if (signal?.aborted) return Promise.reject(createAbortError())
+    // Keep local artifact snapshot aligned with the latest payload before queue/dedupe.
+    syncWorkerArtifactSnapshot(params)
+    const signature = buildPipelineRequestSignature(params)
+
+    // Identical payloads can share the same active run.
+    const active = activePipelineRunRef.current
+    if (signature && active && active.signature === signature) {
+      return withCallerAbort(active.promise, signal)
+    }
+    // Identical payloads can share the same queued run too.
+    const queued = queuedPipelineRunRef.current
+    if (signature && queued && queued.signature === signature) {
+      return withCallerAbort(queued.promise, signal)
+    }
+
+    let resolveFn: (value: PipelineResult) => void = () => {}
+    let rejectFn: (reason?: unknown) => void = () => {}
+    const promise = new Promise<PipelineResult>((resolve, reject) => {
+      resolveFn = resolve
+      rejectFn = reject
+    })
+    const nextQueued: QueuedPipelineRun = {
+      signature,
+      params,
+      resolve: resolveFn,
+      reject: rejectFn,
+      promise,
+      ...(throttledProgress ? { onProgress: throttledProgress } : {}),
+    }
+
+    // Keep a single queued request: drop older queued work in favor of the latest payload.
+    const previousQueued = queuedPipelineRunRef.current
+    if (previousQueued) {
+      previousQueued.reject(createAbortError())
+    }
+    queuedPipelineRunRef.current = nextQueued
+
+    // New payloads always cancel the active run; the next run starts after abort settles.
+    if (activePipelineRunRef.current) {
+      activePipelineRunRef.current.abort()
+    }
+    promoteQueuedPipeline()
+    return withCallerAbort(promise, signal)
+  }, [ensureLocalWasmReady, promoteQueuedPipeline, runPipelineLocally, syncWorkerArtifactSnapshot])
 
   const countRules = useCallback<UseRuleCacheWorkerResult['countRules']>((params, options) => {
     const signal = options?.signal ?? null
@@ -864,13 +1105,13 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     if (!supportsWorkerEnv || !workerRef.current) {
       // Non-worker environments (SSR/tests) fall back to synchronous counting.
       if (signal?.aborted) {
-        return Promise.reject(new DOMException('Aborted', 'AbortError'))
+        return Promise.reject(createAbortError())
       }
       return ensureLocalWasmReady().then(() => countRulesForRecipes(recipes, params.substatTargets))
     }
 
     if (signal?.aborted) {
-      return Promise.reject(new DOMException('Aborted', 'AbortError'))
+      return Promise.reject(createAbortError())
     }
 
     const worker = workerRef.current
@@ -890,7 +1131,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           const abortHandler = () => {
             if (!pendingCountRef.current.has(id)) return
             abortedIdsRef.current.add(id)
-            pendingCountRef.current.get(id)?.reject(new DOMException('Aborted', 'AbortError'))
+            pendingCountRef.current.get(id)?.reject(createAbortError())
             pendingCountRef.current.delete(id)
           }
           signal.addEventListener('abort', abortHandler, { once: true })
@@ -916,7 +1157,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
   const flush = useCallback(() => {
     if (!supportsWorkerEnv) return Promise.resolve()
-    // Wait for any in-flight warm/count requests so teardown can proceed deterministically.
+    // Wait for any in-flight or queued requests so teardown can proceed deterministically.
     const pendingPromises: Promise<unknown>[] = []
     pendingWarmRef.current.forEach((entry) => {
       pendingPromises.push(entry.promise)
@@ -924,11 +1165,13 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     pendingPipelineRef.current.forEach((entry) => {
       pendingPromises.push(entry.promise)
     })
+    if (activePipelineRunRef.current) pendingPromises.push(activePipelineRunRef.current.promise)
+    if (queuedPipelineRunRef.current) pendingPromises.push(queuedPipelineRunRef.current.promise)
     pendingCountRef.current.forEach((entry) => {
       pendingPromises.push(entry.promise)
     })
     if (pendingPromises.length === 0) return Promise.resolve()
-    return Promise.all(pendingPromises).then(() => {})
+    return Promise.allSettled(pendingPromises).then(() => {})
   }, [])
 
   return useMemo<UseRuleCacheWorkerResult>(() => ({
