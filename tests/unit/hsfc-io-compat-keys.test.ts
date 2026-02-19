@@ -30,7 +30,7 @@ const buildRecipe = (name: string): BuilderRecipe => ({
   artifactMetaSets: [],
 })
 
-test('HSFC writer emits SelectedRecipeIndex and canonical recipe-overrides marker wording', () => {
+test('HSFC writer emits SelectedRecipeIndex and canonical note marker wording', () => {
   const payload = buildHsfcPayload({
     version: 'test-version',
     metasets: [],
@@ -41,16 +41,19 @@ test('HSFC writer emits SelectedRecipeIndex and canonical recipe-overrides marke
       '<!-- config-options',
       '  q "Legacy marker"',
       '-->',
+      '<!-- keep-uniques-re: "Legacy safeguard marker" -->',
     ].join('\n'),
   }) as Record<string, unknown>
 
   // New exports should emit recipe wording for selection metadata.
   assert.equal(payload['SelectedRecipeIndex'], 0)
   assert.equal('SelectedConfigIndex' in payload, false)
-  // New exports should canonicalize legacy note markers.
+  // New exports should canonicalize legacy recipe/safeguard note markers.
   const note = String(payload['Note'] ?? '')
   assert.match(note, /<!--\s*recipe-overrides\b/i)
   assert.equal(/<!--\s*config-options\b/i.test(note), false)
+  assert.match(note, /<!--\s*safeguards-re\b/i)
+  assert.equal(/<!--\s*keep-uniques-re\b/i.test(note), false)
 })
 
 test('HSFC parser reads legacy SelectedConfigIndex/KeepUniques keys and canonicalizes note markers', () => {
@@ -67,7 +70,10 @@ test('HSFC parser reads legacy SelectedConfigIndex/KeepUniques keys and canonica
       KeepUniques: [],
       KeepUniquesEnabled: true,
       SelectedConfigIndex: 0,
-      Note: '<!-- config-options q "Legacy question" -->',
+      Note: [
+        '<!-- config-options q "Legacy question" -->',
+        '<!-- keep-uniques-re: "Legacy safeguard marker" -->',
+      ].join('\n'),
     },
     { metasets: [], substatTargets: defaultSubstatTargets() },
   )
@@ -77,9 +83,11 @@ test('HSFC parser reads legacy SelectedConfigIndex/KeepUniques keys and canonica
   assert.equal(parsed.safeguardsEnabled, true)
   assert.equal(Array.isArray(parsed.safeguardRules), true)
   assert.equal(parsed.safeguardRules.length, 0)
-  // Boundary normalization should rewrite the note marker once.
+  // Boundary normalization should rewrite legacy recipe/safeguard markers once.
   assert.equal(parsed.note?.includes('recipe-overrides'), true)
   assert.equal(parsed.note?.includes('config-options'), false)
+  assert.equal(parsed.note?.includes('safeguards-re'), true)
+  assert.equal(parsed.note?.includes('keep-uniques-re'), false)
 })
 
 test('HSF parser resolves legacy ConfigID/ConfigName keys to recipe metadata at IO boundary', () => {

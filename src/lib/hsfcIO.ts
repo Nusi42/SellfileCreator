@@ -60,6 +60,16 @@ import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
 import { canonicalizeNoteRecipeOverridesMarkers } from './noteRecipeOverrides'
 
+// Legacy safeguard note markers used `keep-uniques` wording.
+// Normalize opening markers at the HSFC boundary so runtime/editor state stays canonical.
+const NOTE_LEGACY_SAFEGUARDS_MARKER_OPEN_REGEX = /<!--(\s*)keep-uniques\b/gi
+
+// Canonicalize all known legacy note marker aliases at HSFC IO boundaries.
+const canonicalizeLegacyNoteMarkers = (note: string): string => (
+  canonicalizeNoteRecipeOverridesMarkers(note)
+    .replace(NOTE_LEGACY_SAFEGUARDS_MARKER_OPEN_REGEX, '<!--$1safeguards')
+)
+
 type LockedMinValue = Exclude<BuilderRecipe['lockedMinRequiredRolls'], undefined>
 type AggregateMinValue = Exclude<BuilderRecipe['minRequiredRolls'], undefined>
 
@@ -971,7 +981,7 @@ export function parseHsfcObject(
   const selectedIndex = (savedSel !== null && savedSel >= 0 && savedSel < recipes.length) ? savedSel : (recipes.length ? recipes.length - 1 : null)
   // Canonicalize legacy note markers during HSFC import so runtime state uses new wording only.
   const note = (!Array.isArray(parsed) && typeof parsedRec['Note'] === 'string')
-    ? canonicalizeNoteRecipeOverridesMarkers(String(parsedRec['Note']))
+    ? canonicalizeLegacyNoteMarkers(String(parsedRec['Note']))
     : undefined
   return {
     recipes,
@@ -1224,8 +1234,8 @@ export function buildHsfcPayload(args: {
     ...(selectedRecipeIndex != null
       ? { SelectedRecipeIndex: selectedRecipeIndex }
       : (recipes.length ? { SelectedRecipeIndex: recipes.length - 1 } : {})),
-    // Canonicalize legacy marker aliases so exports never re-emit config-options.
-    ...(note ? { Note: canonicalizeNoteRecipeOverridesMarkers(note) } : {}),
+    // Canonicalize legacy marker aliases so exports never re-emit old note keywords.
+    ...(note ? { Note: canonicalizeLegacyNoteMarkers(note) } : {}),
   }
 }
 
