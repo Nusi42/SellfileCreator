@@ -156,6 +156,11 @@ const MYTHIC_SUBSTAT_TEXT_SHADOW_ALPHA = 0.6
 const MYTHIC_SUBSTAT_RADIUS_PX = 4
 // Shared padding keeps substat text readable against the mythic glow.
 const SUBSTAT_ROW_HORIZONTAL_PADDING_UNITS = 0.25
+// Compact-mode substats align like a fixed-width table.
+const COMPACT_SUBSTAT_NAME_COL_PX = 50
+const COMPACT_SUBSTAT_VALUE_COL_PX = 34
+const COMPACT_SUBSTAT_ROLL_COL_PX = 16
+const COMPACT_SUBSTAT_GLYPH_COL_PX = 38
 const CARD_SUMMARY_FONT_SIZE_REM = 0.9375
 const CARD_SUMMARY_LINE_HEIGHT_REM = 1.25
 const CARD_ASC_LINE_HEIGHT = 1.1
@@ -3039,6 +3044,8 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     ? (substatColors[mainVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainVariant])
     : undefined
   const glyphDeltaColor = theme.palette.success.main
+  // Compact (<=4 columns) cards need explicit per-field alignment for substats.
+  const compactSubstatColumnLayout = gridColumnCount <= 4
   const substatEntries = artifact.substats
     .filter((stat) => stat.variant !== StatVariant.Any)
     .map((stat) => {
@@ -3062,6 +3069,15 @@ export const TesterGridCard = React.memo(function TesterGridCard({
       return {
         variant: stat.variant,
         isMythicBonus: hasMythBonus,
+        statLabel,
+        statValue,
+        statColor,
+        rollGlyph,
+        rollAriaLabel,
+        glyphDelta,
+        hasValue: statValue.trim().length > 0,
+        hasRoll: Boolean(rollGlyph),
+        hasGlyph: Boolean(glyphDelta),
         content: (
           <>
             <Box component="span" sx={{ color: statColor ?? 'inherit' }}>
@@ -3093,6 +3109,9 @@ export const TesterGridCard = React.memo(function TesterGridCard({
         ),
       }
 });
+  const compactHasValueColumnContent = substatEntries.some((entry) => entry.statValue.trim().length > 0)
+  const compactHasRollColumnContent = substatEntries.some((entry) => entry.hasRoll)
+  const compactHasGlyphColumnContent = substatEntries.some((entry) => entry.hasGlyph)
   const ascVariant = artifact.ascension?.variant
   const ascValue = artifact.ascension ? formatStatNumber(artifact.ascension.baseValue) : ''
   const ascLabel = artifact.ascension ? t(statVariantI18nKey(artifact.ascension.variant)) : ''
@@ -3657,6 +3676,15 @@ export const TesterGridCard = React.memo(function TesterGridCard({
                 const mythicTextShadow = entry.isMythicBonus
                   ? `0 0 ${MYTHIC_SUBSTAT_TEXT_SHADOW_BLUR_PX}px ${alpha(theme.palette.background.paper, MYTHIC_SUBSTAT_TEXT_SHADOW_ALPHA)}`
                   : undefined
+                // In compact table mode, cap mythic highlighting to populated columns only.
+                const rowMythicIndicatorSx = compactSubstatColumnLayout ? undefined : mythicIndicatorSx
+                // Determine the last populated compact column so mythic highlight
+                // stops at visible content while table columns remain shared/aligned.
+                const compactMythicHighlightEndColumn = entry.hasGlyph
+                  ? 4
+                  : entry.hasRoll
+                    ? 3
+                    : (compactHasValueColumnContent && entry.hasValue ? 2 : 1)
 
                 // Return a single inline row so ellipsis behavior stays consistent.
                 return (
@@ -3666,8 +3694,8 @@ export const TesterGridCard = React.memo(function TesterGridCard({
                       // Inline flex keeps the stat label/value aligned with roll glyphs.
                       display: 'inline-flex',
                       alignItems: 'center',
-                      // Fit-content avoids stretching short stats across the column.
-                      width: 'fit-content',
+                      // Compact mode uses a full-width 3-column grid row (name | value | roll+glyph).
+                      width: compactSubstatColumnLayout ? '100%' : 'fit-content',
                       maxWidth: '100%',
                       alignSelf: 'flex-start',
                       // Preserve shrink behavior so long stats still ellipsize.
@@ -3676,30 +3704,137 @@ export const TesterGridCard = React.memo(function TesterGridCard({
                       // Uniform padding keeps spacing consistent across mythic and non-mythic rows.
                       px: SUBSTAT_ROW_HORIZONTAL_PADDING_UNITS,
                       // Merge the mythic indicator only when the bonus is present.
-                      ...(mythicIndicatorSx ?? {}),
+                      ...(rowMythicIndicatorSx ?? {}),
                     }}
                   >
                       <Typography
                         variant="body2"
                         component="span"
-                        noWrap
+                        noWrap={!compactSubstatColumnLayout}
                         sx={{
                           // Tight line-height keeps substats compact within the fixed card height.
                           lineHeight: 1.1,
-                          display: 'inline-flex',
-                          alignItems: 'center',
+                          display: compactSubstatColumnLayout ? 'block' : 'inline-flex',
+                          alignItems: compactSubstatColumnLayout ? undefined : 'center',
                           // Keep ellipsis stable when the stat text is long.
                           width: '100%',
                           minWidth: 0,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
+                          overflow: compactSubstatColumnLayout ? 'visible' : 'hidden',
+                          textOverflow: compactSubstatColumnLayout ? 'clip' : 'ellipsis',
+                          whiteSpace: compactSubstatColumnLayout ? 'normal' : 'nowrap',
                           color: 'inherit',
                           // Subtle halo keeps tinted text legible over the mythic background.
                           textShadow: mythicTextShadow,
                         }}
                       >
-                        {entry.content}
+                        {compactSubstatColumnLayout ? (
+                          <Box
+                            component="span"
+                            sx={{
+                              // Table-like 4-column row: name | value | reroll | glyph.
+                              display: 'grid',
+                              // Fixed column widths keep every row perfectly aligned.
+                              gridTemplateColumns: `${COMPACT_SUBSTAT_NAME_COL_PX}px ${compactHasValueColumnContent ? COMPACT_SUBSTAT_VALUE_COL_PX : 0}px ${compactHasRollColumnContent ? COMPACT_SUBSTAT_ROLL_COL_PX : 0}px ${compactHasGlyphColumnContent ? COMPACT_SUBSTAT_GLYPH_COL_PX : 0}px`,
+                              columnGap: 0.4,
+                              alignItems: 'center',
+                              width: 'fit-content',
+                              maxWidth: '100%',
+                              minWidth: 0,
+                            }}
+                          >
+                            {entry.isMythicBonus ? (
+                              <Box
+                                component="span"
+                                sx={{
+                                  gridColumn: `1 / ${compactMythicHighlightEndColumn + 1}`,
+                                  gridRow: '1',
+                                  alignSelf: 'stretch',
+                                  justifySelf: 'stretch',
+                                  ...(mythicIndicatorSx ?? {}),
+                                  zIndex: 0,
+                                }}
+                              />
+                            ) : null}
+                            <Box
+                              component="span"
+                              sx={{
+                                gridColumn: '1',
+                                gridRow: '1',
+                                color: entry.statColor ?? 'inherit',
+                                minWidth: 0,
+                                overflow: 'visible',
+                                textOverflow: 'clip',
+                                whiteSpace: 'nowrap',
+                                zIndex: 1,
+                              }}
+                            >
+                              {entry.statLabel}
+                            </Box>
+                            <Box
+                              component="span"
+                              sx={{
+                                gridColumn: '2',
+                                gridRow: '1',
+                                color: entry.statColor ?? 'inherit',
+                                whiteSpace: 'nowrap',
+                                textAlign: 'right',
+                                justifySelf: 'end',
+                                fontVariantNumeric: 'tabular-nums',
+                                zIndex: 1,
+                              }}
+                            >
+                              {entry.statValue}
+                            </Box>
+                            <Box
+                              component="span"
+                              aria-label={entry.rollAriaLabel ?? undefined}
+                              sx={{
+                                gridColumn: '3',
+                                gridRow: '1',
+                                minWidth: 0,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                whiteSpace: 'nowrap',
+                                zIndex: 1,
+                              }}
+                            >
+                              {entry.rollGlyph ? (
+                                <Box
+                                  component="span"
+                                  sx={{
+                                    fontSize: '1rem',
+                                    lineHeight: 1,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    position: 'relative',
+                                    top: '0.06em',
+                                  }}
+                                >
+                                  {entry.rollGlyph}
+                                </Box>
+                              ) : null}
+                            </Box>
+                            <Box
+                              component="span"
+                              sx={{
+                                gridColumn: '4',
+                                gridRow: '1',
+                                color: glyphDeltaColor,
+                                fontWeight: 600,
+                                minWidth: 0,
+                                whiteSpace: 'nowrap',
+                                textAlign: 'right',
+                                justifySelf: 'end',
+                                fontVariantNumeric: 'tabular-nums',
+                                zIndex: 1,
+                              }}
+                            >
+                              {entry.glyphDelta ?? ''}
+                            </Box>
+                          </Box>
+                        ) : entry.content}
                       </Typography>
                   </Box>
               )
