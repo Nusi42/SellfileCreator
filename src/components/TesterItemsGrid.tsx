@@ -3436,10 +3436,9 @@ export const TesterGridCard = React.memo(function TesterGridCard({
         height: cardHeightStyle,
         maxHeight: cardHeightStyle,
         boxSizing: 'border-box',
-        // Clip horizontal overflow so scrollbars never appear in grid cards.
-        overflowX: 'hidden',
-        // Keep the fixed-height card from leaking extra rows.
-        overflowY: 'hidden',
+        // Allow decorative mythic glow to paint outside row bounds in all layouts.
+        overflowX: 'visible',
+        overflowY: 'visible',
         alignContent: 'start',
         boxShadow: cardHighlighted ? `0 0 0 1px ${alpha(theme.palette.info.main, 0.3)}` : 'none',
         // Card content must stay readable even inside colored containers (for example success toasts).
@@ -3646,10 +3645,9 @@ export const TesterGridCard = React.memo(function TesterGridCard({
             gap: CARD_SUBSTAT_ROW_GAP_UNITS,
             width: '100%',
             flexGrow: 1,
-            // Clip horizontal overflow so cards never trigger a scrollbar.
-            overflowX: 'hidden',
-            // Clip vertical overflow so substat columns never show scrollbars.
-            overflowY: 'hidden',
+            // Allow substat-row mythic highlighting to paint beyond row bounds.
+            overflowX: 'visible',
+            overflowY: 'visible',
           }}
         >
           {substatEntries.length > 0 ? (
