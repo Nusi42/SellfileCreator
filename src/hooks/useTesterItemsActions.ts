@@ -50,55 +50,63 @@ export function useTesterItemsActions(options: UseTesterItemsActionsOptions): Te
   } = options
 
   /**
+   * Build appended tester rows with assigned runtime ids.
+   * Keeping this logic centralized ensures every writer path allocates ids
+   * with the same sequence and payload cloning behavior.
+   */
+  const appendToSnapshot = useCallback((base: RuleTesterItem[], items: TestItem[]): RuleTesterItem[] => {
+    if (!items || items.length === 0) return base
+    const next = base.slice()
+    for (const addition of items) {
+      const assignedItemId = allocTesterItemId()
+      next.push({ ...(addition as RuleTesterItem), itemId: assignedItemId })
+    }
+    return next
+  }, [allocTesterItemId])
+
+  /**
    * Append incoming gear entries (from commands or manual adds).
    * Every artifact gets a stable `itemId` so matcher diffs stay deterministic.
    */
   const appendTesterRuleItems = useCallback((items: TestItem[]) => {
     // Ignore empty payloads so we do not churn the tester-item array.
     if (!items || items.length === 0) return
-    setTesterItems((prev) => {
-      // Re-read inside the setter to avoid stale closures on `items`.
-      if (items.length === 0) return prev
-      const next = prev.slice()
-      // Assign ids sequentially so replaying imports yields the same keys.
-      for (const addition of items) {
-        const assignedItemId = allocTesterItemId()
-        // Clone the addition to avoid mutating external references.
-        next.push({ ...(addition as RuleTesterItem), itemId: assignedItemId })
-      }
-      return next
-    })
-  }, [allocTesterItemId, setTesterItems])
+    // Apply against the shared ref first so back-to-back endpoint pushes do not
+    // diff against stale React state while updates are still batched.
+    const next = appendToSnapshot(testerItemsRef.current, items)
+    testerItemsRef.current = next
+    // Publish the same snapshot to React state for rendering.
+    setTesterItems(next)
+  }, [appendToSnapshot, setTesterItems, testerItemsRef])
 
   /**
    * Diff the gear queue after a Gear DB import or an automation command.
    * Returns a summary so the caller can toast how many artifacts changed.
    */
   const applyGearDbDiff = useCallback((desiredTesterItems: TestItem[]): GearDbDiffSummary => {
+    // Read from the shared ref so each command applies to the latest snapshot,
+    // even when React has not committed previous queue updates yet.
+    const currentSnapshot = testerItemsRef.current
     // Compute which gear entries should leave or join the preview grid.
     const { removalItemIds, additions } = diffRuleTesterItems(
-      testerItemsRef.current,
+      currentSnapshot,
       desiredTesterItems,
       [],
       { retainManualItems: true },
     )
     const removedCount = removalItemIds.length
-    // When items disappeared from the import payload, drop them immediately.
-    if (removalItemIds.length > 0) {
-      const removalSet = new Set(removalItemIds)
-      setTesterItems((prev) => {
-        // Endpoint pushes can race the diff and flag the current manual rows for removal.
-        // Always keep custom gear rows so remote DB refreshes never wipe tester edits.
-        return prev.filter((item) => (
-          isManualTesterItem(item)
-          || !removalSet.has(item.itemId)
-        ))
-      })
-    }
-    // Always append the desired additions so Gear DB updates mirror manual imports.
-    appendTesterRuleItems(additions)
+    const removalSet = removalItemIds.length > 0 ? new Set(removalItemIds) : null
+    // Keep manual rows regardless of endpoint churn so user-crafted samples persist.
+    const afterRemoval = removalSet
+      ? currentSnapshot.filter((item) => isManualTesterItem(item) || !removalSet.has(item.itemId))
+      : currentSnapshot
+    // Append desired additions after removals so queue order mirrors imports.
+    const next = appendToSnapshot(afterRemoval, additions)
+    // Sync ref before state so rapid endpoint bursts stay deterministic.
+    testerItemsRef.current = next
+    setTesterItems(next)
     return { removedCount, addedCount: additions.length }
-  }, [appendTesterRuleItems, setTesterItems, testerItemsRef])
+  }, [appendToSnapshot, setTesterItems, testerItemsRef])
 
   // Return both helpers so callers can hook into whichever entry point they need.
   return { appendTesterRuleItems, applyGearDbDiff }
