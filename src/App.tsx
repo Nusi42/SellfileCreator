@@ -150,6 +150,8 @@ import {
 import { makeManageColorsIcon } from './lib/icons'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
 const TESTER_MATCH_RESET_TIMEOUT_MS = 1500
+// Coalesce bursty endpoint snapshots so transient intermediate payloads do not churn the grid.
+const GEAR_DB_RAW_SNAPSHOT_COALESCE_MS = 200
 type HsfRuleWithRecipe = ReturnType<typeof computeMergedRules>[number]
 // Keep the chip spinner visible with at least a whisper of progress so the pulse animation can show.
 const WORKLOAD_PENDING_MIN_RATIO = 0.02 as const
@@ -733,9 +735,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       rulesByRecipe: null,
       finalSellRules: null,
     }
-    setSafeguardDetection(null)
-    setSafeguardGroupItemKeys(new Set())
-  }, [setSafeguardDetection, setSafeguardGroupItemKeys])
+    // Keep the last committed safeguard snapshot visible until the worker publishes the next one.
+    // This mirrors tester-grid behavior: old state stays mounted during rebuild and swaps atomically on commit.
+  }, [])
   const resolvedSafeguardRules = useMemo(() => (
     resolveSafeguardRulesWithMetasets(safeguardRules, metasets)
   ), [safeguardRules, metasets])
@@ -4604,6 +4606,45 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     previewMode,
   ])
 
+  // Track the latest full snapshot while endpoint pushes are arriving in bursts.
+  const queuedRawSnapshotRef = useRef<GearDbRawSnapshotCommand | null>(null)
+  // Timer id for the snapshot coalescing window.
+  const queuedRawSnapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Cancel + clear any queued snapshot timer.
+  const clearQueuedRawSnapshotTimer = useCallback(() => {
+    if (queuedRawSnapshotTimerRef.current === null) return
+    clearTimeout(queuedRawSnapshotTimerRef.current)
+    queuedRawSnapshotTimerRef.current = null
+  }, [])
+  // Flush the queued snapshot immediately (used before deltas/imports to preserve ordering).
+  const flushQueuedRawSnapshot = useCallback(() => {
+    const queued = queuedRawSnapshotRef.current
+    queuedRawSnapshotRef.current = null
+    clearQueuedRawSnapshotTimer()
+    if (!queued) return
+    handleGearDbRawSnapshot(queued)
+  }, [clearQueuedRawSnapshotTimer, handleGearDbRawSnapshot])
+  // Queue snapshot updates so only the latest payload in a rapid burst is applied.
+  const queueRawSnapshot = useCallback((command: GearDbRawSnapshotCommand) => {
+    queuedRawSnapshotRef.current = command
+    clearQueuedRawSnapshotTimer()
+    queuedRawSnapshotTimerRef.current = setTimeout(() => {
+      // Consume the queued payload once the burst window settles.
+      const queued = queuedRawSnapshotRef.current
+      queuedRawSnapshotRef.current = null
+      queuedRawSnapshotTimerRef.current = null
+      if (!queued) return
+      handleGearDbRawSnapshot(queued)
+    }, GEAR_DB_RAW_SNAPSHOT_COALESCE_MS)
+  }, [clearQueuedRawSnapshotTimer, handleGearDbRawSnapshot])
+  // Ensure queued timers do not outlive the component.
+  useEffect(() => (
+    () => {
+      clearQueuedRawSnapshotTimer()
+      queuedRawSnapshotRef.current = null
+    }
+  ), [clearQueuedRawSnapshotTimer])
+
   const handleExternalCommand = useCallback((cmd: ExternalCommand) => {
     if (cmd.kind === 'selectRule') {
       if (cmd.rowNumber != null) {
@@ -4619,16 +4660,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
 
     if (cmd.kind === 'gearDbRawSnapshot') {
-      handleGearDbRawSnapshot(cmd)
+      queueRawSnapshot(cmd)
       return
     }
 
     if (cmd.kind === 'gearDbRawDelta') {
+      // Apply any queued full snapshot first so delta ops mutate the correct baseline.
+      flushQueuedRawSnapshot()
       handleGearDbRawDelta(cmd)
       return
     }
 
     if (cmd.kind === 'gearDbFile') {
+      // File imports should supersede queued snapshots from the same endpoint burst.
+      flushQueuedRawSnapshot()
       const queueImport = (file: File | null) => {
         if (!file) {
           if (import.meta.env.DEV) {
@@ -4682,6 +4727,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
 
     if (cmd.kind === 'gearDbFileBinary') {
+      // Binary imports should supersede queued snapshots from the same endpoint burst.
+      flushQueuedRawSnapshot()
       const file = createGearDbFileFromBytes(cmd.name, cmd.bytes, cmd.contentType)
       if (!file) {
         if (import.meta.env.DEV) {
@@ -4691,7 +4738,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       void handleGearDbImport(file, { source: 'command' })
     }
-  }, [focusRuleByIndex, handleGearDbImport, handleGearDbRawDelta, handleGearDbRawSnapshot, pushEndpointHttpBase, requestSelectionScroll])
+  }, [
+    focusRuleByIndex,
+    flushQueuedRawSnapshot,
+    handleGearDbImport,
+    handleGearDbRawDelta,
+    pushEndpointHttpBase,
+    queueRawSnapshot,
+    requestSelectionScroll,
+  ])
 
   const { sendRequest: sendExternalRequest } = useExternalCommands({
     pushEndpoint,
