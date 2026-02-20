@@ -939,7 +939,19 @@ export function GearTesterTabContent({
             <Box sx={{ gridColumn: '3', gridRow: '1', display: 'flex', alignItems: 'center', minWidth: 0 }}>
               <TesterSummaryLabel label={rarityLabel(it.rarity)} />
             </Box>
-            <Box sx={{ gridColumn: '4', gridRow: '1', display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', minWidth: 0 }}>
+            <Box
+              sx={{
+                gridColumn: '4',
+                gridRow: '1',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                // Keep the compact main-stat summary on one line so row height stays stable.
+                flexWrap: 'nowrap',
+                overflow: 'hidden',
+                minWidth: 0,
+              }}
+            >
               <TesterSummaryLabel label={mainLabel} color={mainSummaryColor} />
             </Box>
             <Box sx={{ gridColumn: '1', gridRow: '2', display: showSetChip ? 'flex' : 'none', alignItems: 'center', minWidth: 0 }}>
@@ -969,7 +981,19 @@ export function GearTesterTabContent({
                 )
               ) : null}
             </Box>
-            <Box sx={{ gridColumn: '4', gridRow: '2', display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center', minWidth: 0 }}>
+            <Box
+              sx={{
+                gridColumn: '4',
+                gridRow: '2',
+                display: 'flex',
+                gap: 0.5,
+                // Keep substat summaries on one line; labels can ellipsize as width shrinks.
+                flexWrap: 'nowrap',
+                overflow: 'hidden',
+                alignItems: 'center',
+                minWidth: 0,
+              }}
+            >
               {substatSummaries.map((entry) => {
                 const subSummaryColor = statButtonBorders ? entry.color : undefined
                 return (
