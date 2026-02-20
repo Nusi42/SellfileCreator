@@ -432,7 +432,6 @@ const enUS: Catalog = {
   setDesc_setDaze_text: '25% chance to place {debuff:Sleep} for 1 turn when attacking',
   setDesc_setDefense_text: '+15% [[stat:statDEF]]',
   setDesc_setDefiant_text: '[[stat:statDEF]] +10%\n-15% damage taken from enemy AoE attacks',
-  setDesc_setDeflection_text: '[[stat:statHP]] +20%\n[[stat:statDEF]] +20%\n25% chance to deflect 1 debuff onto attacker when a debuff is applied to wearer',
   setDesc_setDestroy_text: 'Decrease target MAX [[stat:statHP]] by 40% of damage dealt',
   setDesc_setDivineCriticalRate_text: '[[stat:statCR|bare]] +12%\n{buff:Shield} on self equal to 15% of MAX [[stat:statHP]] for 3 turns at start of round',
   setDesc_setDivineLife_text: '[[stat:statHP]] +15%\n{buff:Shield} on self equal to 15% of MAX [[stat:statHP]] for 3 turns at start of round',
@@ -470,7 +469,6 @@ const enUS: Catalog = {
   setDesc_setSpeed_text: '+12% [[stat:statSPD]]',
   setDesc_setStalwart_text: '-30% damage from incoming AoE attacks',
   setDesc_setStun_text: '18% chance to place {debuff:Stun} for 1 turn when attacking',
-  setDesc_setSwiftParry_text: '[[stat:statSPD]] +18%\n[[stat:statCDMG|bare]] +30%\n50% chance to gain {buff:Unkillable} for 1 turn when hit with a fatal hit',
   setDesc_setToxic_text: '75% chance to place 2.5% {debuff:Poison} for 2 turns when attacking',
   setDesc_setUntouchable_text: '{buff:Block Debuffs} for 2 turns at start of round\n+40 [[stat:statRES]]',
   setDesc_setZeal_text: '[[stat:statCDMG|bare]] +20%\nDamage +3% per 25% current [[stat:statHP]]',
@@ -488,6 +486,17 @@ const enUS: Catalog = {
   setDesc_setChronophage_by_7: '+20 [[stat:statRES]]',
   setDesc_setChronophage_by_8: '+12% [[stat:statSPD]]',
   setDesc_setChronophage_by_9: 'Starts with 3 {buff:Immutable} stacks',
+
+  // Deflection
+  setDesc_setDeflection_by_1: '+20 [[stat:statACC]]',
+  setDesc_setDeflection_by_2: '+10% [[stat:statSPD]]',
+  setDesc_setDeflection_by_3: '+20 [[stat:statACC]]',
+  setDesc_setDeflection_by_4: '35% chance to deflect 1 debuff onto attacker when a debuff is applied to wearer\nPlaces {buff:Block Debuffs} for 1 turn at start of round',
+  setDesc_setDeflection_by_5: '+10% [[stat:statSPD]]',
+  setDesc_setDeflection_by_6: 'Deals bonus damage proportional to own [[stat:statACC]] against enemies that block debuffs from wearer (once per skill)\nBonus damage can remove {buff:Total Guard} stacks',
+  setDesc_setDeflection_by_7: '+20 [[stat:statACC]]',
+  setDesc_setDeflection_by_8: '+12% [[stat:statSPD]]',
+  setDesc_setDeflection_by_9: 'Enemies ignore 10% less [[stat:statDEF]] for each active debuff placed by wearer (5% for bosses)',
 
   // Feral
   setDesc_setFeral_by_1: '+40 [[stat:statACC]]',
@@ -598,6 +607,17 @@ const enUS: Catalog = {
   setDesc_setSupersonic_by_7: '+20 [[stat:statRES]]',
   setDesc_setSupersonic_by_8: '+12% [[stat:statSPD]]',
   setDesc_setSupersonic_by_9: '+30% Turn Meter boost effects',
+
+  // Swift Parry
+  setDesc_setSwiftParry_by_1: '[[stat:statCDMG|bare]] +15%',
+  setDesc_setSwiftParry_by_2: '[[stat:statSPD]] +8%',
+  setDesc_setSwiftParry_by_3: '[[stat:statCDMG|bare]] +15%',
+  setDesc_setSwiftParry_by_4: '[[stat:statSPD]] +10%\n50% chance to gain {buff:Unkillable} for 1 turn when receiving fatal damage from any damage source',
+  setDesc_setSwiftParry_by_5: '[[stat:statHP]] +10%',
+  setDesc_setSwiftParry_by_6: 'Enemy single-target attacks deal 15% less damage to wearer',
+  setDesc_setSwiftParry_by_7: '[[stat:statHP]] +15%',
+  setDesc_setSwiftParry_by_8: '[[stat:statSPD]] +10%',
+  setDesc_setSwiftParry_by_9: 'Ignore 50% [[stat:statDEF]]',
 
   // Accessories (variable count not used; texts are per piece or fixed)
   setDesc_setBloodshield_text: 'Per piece: {buff:Shield} equal to 5% of damage dealt after attacking (AoE reduced by 75%); totals: 5/10/15% with 1/2/3 pieces',
