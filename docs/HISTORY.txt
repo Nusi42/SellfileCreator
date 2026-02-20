@@ -1,6 +1,17 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v0.9.17 — 2026-02-20
+English:
+- *Rule Tester now shows a safeguard improvement-chance overlay with tooltip details*, and you can sort by Improvement Chance to surface gear with the best upgrade outlook first.
+- The app now consistently uses `Recipes` and `Safeguards` in the UI, docs, and shipped examples, and recipe files are now `.sfr` by default.
+- Safeguards got major control upgrades: new ignore toggles let you skip already-protected items or equipped items (collection/vault).
+
+Deutsch:
+- Die App nutzt jetzt durchgaengig `Rezepte` und `Schutzmassnahmen` in UI, Doku und Beispielen, und Rezept-Dateien sind standardmaessig `.sfr`.
+- *Im Rule Tester gibt es jetzt ein Overlay fuer die Verbesserungschance mit Tooltip-Details*, und du kannst nach Verbesserungschance sortieren, um Gear mit der besten Upgrade-Perspektive zuerst zu sehen.
+- Schutzmassnahmen haben neue Steuerungen: Mit Ignore-Toggles kannst du bereits geschuetzte oder ausgeruestete Items (Sammlung/Hoehle) ausklammern.
+
 ## v0.9.16 — 2026-02-10
 English:
 - Dungeon Drops adds a refresh button so you can rerun every dungeon without changing inputs.
