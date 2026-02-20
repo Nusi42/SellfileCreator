@@ -3170,6 +3170,8 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     return `${base} (${baseHeroLabel} / ${equippedToChampionId})`
   })()
   const championIconSrc = championIconUrl(artifact.equippedChampionBaseId ?? artifact.equippedToChampionId)
+  // Keep 4-column avatar sizing aligned with 5-column cards for visual consistency.
+  const championSizingColumnCount = gridColumnCount === 4 ? 5 : gridColumnCount
   // Champion avatars only render for collection/vault sources so the extra visuals stay meaningful.
   const championIconEligible = Boolean(
     showChampionIcons
@@ -3178,7 +3180,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   )
   // Large avatars only appear when the grid has enough horizontal room to avoid crushing the stats column.
   const championIconMode = championIconEligible
-    ? (gridColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD ? 'large' : 'compact')
+    ? (championSizingColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD ? 'large' : 'compact')
     : 'none'
   // Champion images render inside the avatar frame; missing images fall back to the dropdown-style initial.
   const shouldShowChampionIcon = Boolean(championIconEligible && championIconSrc)
@@ -3218,40 +3220,6 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     return t('testerLastUsedTooltip', { timestamp: displayTimestamp })
   })()
   const ascSummaryContent = ascSummary
-  const shouldInlineAscension = gridColumnCount <= 4
-  const ascSummaryInline = ascSummaryContent ? (
-    <Box
-      component="span"
-      sx={{
-        display: 'inline-flex',
-        alignItems: 'baseline',
-        gap: 0.25,
-        ml: 0.75,
-        flexWrap: 'wrap',
-      }}
-    >
-      <Box component="span" sx={{ color: theme.palette.text.secondary, fontWeight: 600 }}>+</Box>
-      {ascSummaryContent}
-    </Box>
-  ) : null
-  const ascSummaryBlock = ascSummaryContent ? (
-    <Box
-      component="span"
-      sx={{
-        display: 'block',
-        mt: CARD_ASC_BLOCK_MARGIN_TOP_UNITS,
-        pl: 1,
-        color: theme.palette.text.secondary,
-        fontWeight: 600,
-        fontSize: ascInlineFontSize,
-        lineHeight: 1.1,
-      }}
-    >
-      +
-      {' '}
-      {ascSummaryContent}
-    </Box>
-  ) : null
   // Keep/sell outcome surfaces the rule chip inline so keyboard users do not need to open popovers.
   const cardOutcome = match
     ? {
@@ -3267,12 +3235,54 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   const cardMatchOutcome = match ? (match.keep === false ? 'sell' : 'keep') : 'none'
   const cardMatchRecipeIdx = match?.recipeIdx != null ? String(match.recipeIdx) : 'none'
   const mainSummaryLabel = (
-    <>
-      <Box component="span" sx={{ color: mainColor ?? 'inherit' }}>
+    <Box
+      component="span"
+      sx={{
+        display: 'inline-flex',
+        flexDirection: 'column',
+        minWidth: 0,
+        maxWidth: '100%',
+      }}
+    >
+      <Typography
+        component="span"
+        variant="body2"
+        noWrap
+        sx={{
+          color: mainColor ?? 'inherit',
+          minWidth: 0,
+          maxWidth: '100%',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          lineHeight: 1.1,
+        }}
+      >
         {mainInline}
-      </Box>
-      {shouldInlineAscension ? ascSummaryInline : ascSummaryBlock}
-    </>
+      </Typography>
+      {ascSummaryContent ? (
+        <Typography
+          component="span"
+          variant="body2"
+          noWrap
+          sx={{
+            mt: CARD_ASC_BLOCK_MARGIN_TOP_UNITS,
+            pl: 1,
+            color: theme.palette.text.secondary,
+            fontWeight: 600,
+            fontSize: ascInlineFontSize,
+            minWidth: 0,
+            maxWidth: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            lineHeight: 1.1,
+          }}
+        >
+          + {ascSummaryContent}
+        </Typography>
+      ) : null}
+    </Box>
   )
   // Gear action button opens the keep/sell template menu.
   const ruleTemplateButton = canCreateRuleTemplate ? (
@@ -3572,10 +3582,10 @@ export const TesterGridCard = React.memo(function TesterGridCard({
                 sx={{
                   ...(sourceCategory === 'collection' || sourceCategory === 'vault'
                     ? {
-                      width: gridColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD ? CHAMPION_ICON_LARGE_SIZE.width : CHAMPION_ICON_BASE_SIZE.width,
-                      height: gridColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD ? CHAMPION_ICON_LARGE_SIZE.height : CHAMPION_ICON_BASE_SIZE.height,
+                      width: championSizingColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD ? CHAMPION_ICON_LARGE_SIZE.width : CHAMPION_ICON_BASE_SIZE.width,
+                      height: championSizingColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD ? CHAMPION_ICON_LARGE_SIZE.height : CHAMPION_ICON_BASE_SIZE.height,
                       borderRadius: `${CHAMPION_ICON_BORDER_RADIUS_PX}px`,
-                      fontSize: `${Math.max(16, Math.round((gridColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD ? CHAMPION_ICON_LARGE_SIZE.height : CHAMPION_ICON_BASE_SIZE.height) * 0.78))}px`,
+                      fontSize: `${Math.max(16, Math.round((championSizingColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD ? CHAMPION_ICON_LARGE_SIZE.height : CHAMPION_ICON_BASE_SIZE.height) * 0.78))}px`,
                     }
                     : {
                       width: GRID_CARD_SOURCE_ICON_SIZE_PX,
@@ -4673,7 +4683,8 @@ function getTesterGridCardColumnHeights(theme: Theme, gridColumnCount: number): 
   const substatGapPx = parseSpacingPx(theme.spacing(CARD_SUBSTAT_ROW_GAP_UNITS))
   const totalSubstatHeightPx = (CARD_SUBSTAT_LINE_COUNT * substatLineHeightPx)
     + (Math.max(0, CARD_SUBSTAT_LINE_COUNT - 1) * substatGapPx)
-  const shouldInlineAscension = gridColumnCount <= 4
+  // Match 4-column cards to the 5-column vertical profile; only very narrow layouts inline ascension.
+  const shouldInlineAscension = gridColumnCount <= 3
   const ascMarginPx = shouldInlineAscension ? 0 : parseSpacingPx(theme.spacing(CARD_ASC_BLOCK_MARGIN_TOP_UNITS))
   const ascFontSizePx = Math.max(0, summaryFontSizePx - CARD_ASC_FONT_DECREMENT_PX)
   const ascLineHeightPx = shouldInlineAscension ? 0 : CARD_ASC_LINE_HEIGHT * ascFontSizePx
