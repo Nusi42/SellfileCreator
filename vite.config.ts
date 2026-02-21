@@ -112,6 +112,12 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
       return { __APP_VERSION__: JSON.stringify('0.0.0') };
     }
   })(),
+  optimizeDeps: {
+    // Keep dep-scan anchored to the real app entry.
+    // Why: this repo also contains archived/report HTML files that can break
+    // esbuild's scanner and disable pre-bundling during `vite` dev runs.
+    entries: ['index.html'],
+  },
   build: {
     // Force Rollup to keep everything in a single JS chunk
     cssCodeSplit: false,
