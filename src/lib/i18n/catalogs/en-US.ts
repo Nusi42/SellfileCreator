@@ -1048,6 +1048,7 @@ const enUS: Catalog = {
   testerSortHighToLow: 'High → Low',
   testerSortLowToHigh: 'Low → High',
   testerSortImprovementChanceLabel: 'Improvement Chance',
+  testerSortNewestLabel: 'Newest',
   testerSortGlyphsLabel: 'Glyphs',
   testerSortGlyphsExclude: 'Exclude',
   testerSortGlyphsInclude: 'Include',

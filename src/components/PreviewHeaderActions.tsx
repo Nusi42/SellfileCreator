@@ -45,6 +45,7 @@ import GroupsIcon from '@mui/icons-material/Groups'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import HistoryIcon from '@mui/icons-material/History'
 import {
+  TESTER_SORT_KEY_NEWEST,
   isTesterSyntheticSortKey,
   TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE,
   TESTER_SORT_KEY_LAST_USAGE,
@@ -334,6 +335,7 @@ export default function PreviewHeaderActions(props: {
 	  const sortHighToLowLabel = t('testerSortHighToLow')
 	  const sortLowToHighLabel = t('testerSortLowToHigh')
 	  const sortLastUsedLabel = t('testerLastUsedFilterLabel')
+	  const sortNewestLabel = t('testerSortNewestLabel')
 	  const sortImprovementChanceLabel = t('testerSortImprovementChanceLabel')
 	  const sortGlyphInheritDirectionLabel = t('testerSortPerKeyInheritDirection')
 	  const sortGlyphFlippedDirectionLabel = t('testerSortPerKeyFlippedDirection')
@@ -661,9 +663,10 @@ export default function PreviewHeaderActions(props: {
 	  ] as const
 	  const sortLabelForKey = React.useCallback((key: TesterSortKey): string => {
 	    if (Number(key) === TESTER_SORT_KEY_LAST_USAGE) return sortLastUsedLabel
+	    if (Number(key) === TESTER_SORT_KEY_NEWEST) return sortNewestLabel
 	    if (Number(key) === TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE) return sortImprovementChanceLabel
 	    return t(statVariantI18nKey(key as StatVariant))
-	  }, [sortImprovementChanceLabel, sortLastUsedLabel, t])
+	  }, [sortImprovementChanceLabel, sortLastUsedLabel, sortNewestLabel, t])
 	  const sortButtonLabel = React.useMemo(() => {
 	    if (isRulesMode) return sortLabel
 	    if (sortNormalizedEffective) return sortNormalizedLabel
@@ -1167,7 +1170,12 @@ export default function PreviewHeaderActions(props: {
               <Box sx={{ px: 2.25, pt: 2.25, pb: 1 }}>
                 <ContextMenuTitle title={sortLabel} description={t('testerSortPopoverDescription')} />
               </Box>
-	              {[...STAT_VARIANTS_PRIORITY, TESTER_SORT_KEY_LAST_USAGE as TesterSortKey, TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE as TesterSortKey].map((key) => {
+	              {[
+	                ...STAT_VARIANTS_PRIORITY,
+	                TESTER_SORT_KEY_LAST_USAGE as TesterSortKey,
+	                TESTER_SORT_KEY_NEWEST as TesterSortKey,
+	                TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE as TesterSortKey,
+	              ].map((key) => {
 	                const idx = sortPriorities.findIndex((v) => Number(v) === Number(key))
 	                const label = sortLabelForKey(key)
 	                const fg = isTesterSyntheticSortKey(Number(key)) ? undefined : sortStatFg(key as StatVariant)

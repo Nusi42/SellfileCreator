@@ -171,14 +171,18 @@ export const normalizeTesterGroupingState = (raw: unknown): TesterGroupingState 
 // Why: keep the sort menu extensible without forcing fake variants into the domain enum.
 export const TESTER_SORT_KEY_LAST_USAGE = -1 as const
 export const TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE = -2 as const
+export const TESTER_SORT_KEY_NEWEST = -3 as const
 
 export type TesterSortKey =
   | StatVariant
   | typeof TESTER_SORT_KEY_LAST_USAGE
   | typeof TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE
+  | typeof TESTER_SORT_KEY_NEWEST
 
 export const isTesterSyntheticSortKey = (key: number): boolean => (
-  key === TESTER_SORT_KEY_LAST_USAGE || key === TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE
+  key === TESTER_SORT_KEY_LAST_USAGE
+  || key === TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE
+  || key === TESTER_SORT_KEY_NEWEST
 )
 
 export type TesterSubstatSortSpec = {
@@ -268,6 +272,12 @@ const safeguardUpgradeChanceValueForSort = (
   if (numeric <= 0) return 0
   if (numeric >= 100) return 100
   return numeric
+}
+
+const newestValueForSort = (row: TesterPreviewRow): number | null => {
+  // Artifact ids monotonically increase for imported DB rows, so larger ids are newer.
+  const artifactId = Number(row.artifact.id)
+  return Number.isFinite(artifactId) ? artifactId : null
 }
 
 export type TesterNormalizedSubstatScoreSpec = {
@@ -366,6 +376,16 @@ export function compareTesterPreviewRowsBySubstats(
     if (key === TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE) {
       const left = safeguardUpgradeChanceValueForSort(a, spec.safeguardUpgradeChanceByArtifactId)
       const right = safeguardUpgradeChanceValueForSort(b, spec.safeguardUpgradeChanceByArtifactId)
+      if (left == null && right == null) continue
+      if (left == null) return 1
+      if (right == null) return -1
+      if (left === right) continue
+      return (left - right) * perKeyMultiplier
+    }
+
+    if (key === TESTER_SORT_KEY_NEWEST) {
+      const left = newestValueForSort(a)
+      const right = newestValueForSort(b)
       if (left == null && right == null) continue
       if (left == null) return 1
       if (right == null) return -1

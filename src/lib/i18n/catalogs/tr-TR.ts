@@ -1039,6 +1039,7 @@ const overrides: Catalog = {
   testerSortHighToLow: 'Yüksek → Düşük',
   testerSortLowToHigh: 'Düşük → Yüksek',
   testerSortImprovementChanceLabel: 'İyileştirme şansı',
+  testerSortNewestLabel: 'En yeni',
   testerSortGlyphsLabel: 'Glifler',
   testerSortGlyphsExclude: 'Hariç tut',
   testerSortGlyphsInclude: 'Dahil et',

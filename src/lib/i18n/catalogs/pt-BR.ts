@@ -1039,6 +1039,7 @@ const catalog: Catalog = {
   testerSortHighToLow: 'Maior → Menor',
   testerSortLowToHigh: 'Menor → Maior',
   testerSortImprovementChanceLabel: 'Chance de melhoria',
+  testerSortNewestLabel: 'Mais recente',
   testerSortGlyphsLabel: 'Glifos',
   testerSortGlyphsExclude: 'Excluir',
   testerSortGlyphsInclude: 'Incluir',

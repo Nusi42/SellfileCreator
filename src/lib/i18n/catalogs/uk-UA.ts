@@ -1039,6 +1039,7 @@ const overrides: Catalog = {
   testerSortHighToLow: 'Більше → Менше',
   testerSortLowToHigh: 'Менше → Більше',
   testerSortImprovementChanceLabel: 'Шанс покращення',
+  testerSortNewestLabel: 'Найновіші',
   testerSortGlyphsLabel: 'Гліфи',
   testerSortGlyphsExclude: 'Виключити',
   testerSortGlyphsInclude: 'Включити',
