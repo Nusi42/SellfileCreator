@@ -608,34 +608,32 @@ ${t('safeguardsIgnoreOptionsHint')}`
   }, [handleDeleteRule, pendingDeleteRuleId])
 
   const handleDuplicateRule = useCallback((ruleId: string) => {
-    let newRuleId: string | null = null
-    mutateRules((prev) => {
-      const idx = prev.findIndex((rule) => rule.id === ruleId)
-      if (idx === -1) return prev
-      const source = prev[idx]
-      if (!source) return prev
-      const cloneId = createSafeguardRuleId()
-      newRuleId = cloneId
-      const duplicated: SafeguardRule = {
-        ...source,
-        id: cloneId,
-        combination: cloneSafeguardCombination(source.combination),
-      }
-      const next = prev.slice()
-      next.splice(idx + 1, 0, duplicated)
+    // Resolve from the current rendered list so duplicate + selection stay in lockstep.
+    const sourceIndex = rules.findIndex((rule) => rule.id === ruleId)
+    if (sourceIndex === -1) return
+    const source = rules[sourceIndex]
+    if (!source) return
+    // Generate the clone id up front so selection can reliably target the inserted rule.
+    const cloneId = createSafeguardRuleId()
+    const duplicated: SafeguardRule = {
+      ...source,
+      id: cloneId,
+      combination: cloneSafeguardCombination(source.combination),
+    }
+    // Insert directly after the source rule so ordering mirrors the row action label.
+    const next = rules.slice()
+    next.splice(sourceIndex + 1, 0, duplicated)
+    mutateRules(next)
+    setSelectedRuleId(cloneId)
+    setRespectManualDeselect(false)
+    setExpandedRuleIds((prev) => {
+      const next = new Set(prev)
+      next.add(cloneId)
       return next
     })
-    if (newRuleId) {
-      const resolvedNewRuleId = newRuleId
-      setSelectedRuleId(newRuleId)
-      setRespectManualDeselect(false)
-      setExpandedRuleIds((prev) => {
-        const next = new Set(prev)
-        next.add(resolvedNewRuleId)
-        return next
-      })
-    }
-  }, [mutateRules, setRespectManualDeselect])
+    // Keep duplicate behavior aligned with add/paste: focus and reveal the new card.
+    scheduleScrollToRule(cloneId)
+  }, [mutateRules, rules, scheduleScrollToRule, setRespectManualDeselect])
 
   const updateRule = useCallback(
     (ruleId: string, updater: (rule: SafeguardRule) => SafeguardRule, ensureEnabled = true) => {
