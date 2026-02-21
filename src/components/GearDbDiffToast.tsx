@@ -112,12 +112,29 @@ export function GearDbDiffToast({
 function resolveSingleSidedDiffKind(entries: GearDbDiffToastEntry[]): SingleSidedDiffKind | null {
   // Empty lists fall back to the standard renderer.
   if (entries.length === 0) return null
-  // Added-only batches contain no `before` snapshots.
-  const allAdded = entries.every((entry) => entry.kind === 'added' && entry.before === null && entry.after !== null)
-  if (allAdded) return 'added'
-  // Removed-only batches contain no `after` snapshots.
-  const allRemoved = entries.every((entry) => entry.kind === 'removed' && entry.before !== null && entry.after === null)
-  if (allRemoved) return 'removed'
+  // Resolve a uniform single-sided kind in one pass.
+  let singleSidedKind: SingleSidedDiffKind | null = null
+  for (const entry of entries) {
+    if (entry.kind === 'added' && entry.before === null && entry.after !== null) {
+      if (singleSidedKind === null) {
+        singleSidedKind = 'added'
+        continue
+      }
+      if (singleSidedKind === 'added') continue
+      return null
+    }
+    if (entry.kind === 'removed' && entry.before !== null && entry.after === null) {
+      if (singleSidedKind === null) {
+        singleSidedKind = 'removed'
+        continue
+      }
+      if (singleSidedKind === 'removed') continue
+      return null
+    }
+    // Updates or malformed one-sided rows are not eligible.
+    return null
+  }
+  if (singleSidedKind) return singleSidedKind
   // Mixed/update batches keep before/after rows with arrows.
   return null
 }
@@ -259,6 +276,7 @@ function GearDbDiffSingleSidedGrid({
             substatColors={substatColors}
             useStatButtonColors={useStatButtonColors}
             priorityOrder={index}
+            tone={kind === 'added' ? 'added' : 'removed'}
           />
         )
       })}
@@ -274,6 +292,7 @@ type ScaledTesterGridCardProps = {
   substatColors: SubstatColorMap
   useStatButtonColors: boolean
   priorityOrder: number
+  tone?: BadgeTone
 }
 
 /**
@@ -287,9 +306,17 @@ function ScaledTesterGridCard({
   substatColors,
   useStatButtonColors,
   priorityOrder,
+  tone = null,
 }: ScaledTesterGridCardProps) {
   // Build a full tester preview row from the snapshot payload.
   const row = buildTesterPreviewRow(snapshot, match)
+  const theme = useTheme()
+  // Single-sided add/remove grids tint borders so direction is obvious at a glance.
+  const accentBorderColor = tone === 'added'
+    ? alpha(theme.palette.success.main, 0.55)
+    : tone === 'removed'
+      ? alpha(theme.palette.error.main, 0.55)
+      : null
   // Fixed size wrapper keeps the scaled card aligned with its sibling.
   return (
     <Box
@@ -298,6 +325,9 @@ function ScaledTesterGridCard({
         height: size.scaledHeightPx,
         position: 'relative',
         flexShrink: 0,
+        borderRadius: 1,
+        boxSizing: 'border-box',
+        ...(accentBorderColor ? { border: `1px solid ${accentBorderColor}` } : {}),
       }}
     >
       <Box

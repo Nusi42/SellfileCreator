@@ -39,6 +39,7 @@ import {
   FONT_SIZE_BASE_PX,
   GEAR_DB_DIFF_HISTORY_MAX_ITEMS,
   GEAR_DB_DIFF_TOAST_MAX_ITEMS,
+  GEAR_DB_DIFF_TOAST_SINGLE_SIDED_MAX_ITEMS,
   SELECTION_SCROLL_SOURCE_SELECT_RULE,
   SELECTION_SCROLL_SOURCE_USER,
   type SelectionScrollRequest,
@@ -1760,13 +1761,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     queuedAt: number
     // Structured header specs so history stays localizable.
     lineSpecs: GearDbDiffHistoryLineSpec[]
-    // Capped diff entries for the history menu tooltip.
-    historyEntries: GearDbDiffEntry[]
-    // Count of omitted entries beyond the history cap.
+    // Shared retained diff entries (newest-window capped once for all surfaces).
+    retainedEntries: GearDbDiffEntry[]
+    // Number of retained entries to expose in the history surface.
+    historyCount: number
+    // Count of omitted entries beyond the history surface cap.
     historyOverflowCount: number
-    // Capped diff entries for the compact top-right toast.
-    toastEntries: GearDbDiffEntry[]
-    // Count of omitted entries beyond the toast cap.
+    // Number of retained entries to expose in the toast surface.
+    toastCount: number
+    // Count of omitted entries beyond the toast surface cap.
     toastOverflowCount: number
     // Matches captured before applying the dataset update.
     matchesBefore: Map<number, TesterPreviewMatch | null>
@@ -1803,12 +1806,40 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Skip history entries when nothing changed so the list stays meaningful.
       return
     }
-    // History keeps a deeper preview list so tooltip inspection needs fewer clicks.
-    const historyEntries = params.entries.slice(0, GEAR_DB_DIFF_HISTORY_MAX_ITEMS)
-    const historyOverflowCount = Math.max(0, params.entries.length - historyEntries.length)
+    // Keep the newest artifacts when the diff exceeds the UI caps.
+    // Higher artifact ids are newer, so sort descending for truncation.
+    const newestFirstEntries = [...params.entries].sort((left, right) => right.id - left.id)
+    // Side-by-side add/remove batches can show two columns, so allow a wider toast window.
+    let singleSidedKind: 'added' | 'removed' | null = null
+    if (newestFirstEntries.length > 0) {
+      const firstKind = newestFirstEntries[0]?.kind ?? null
+      if (firstKind === 'added' || firstKind === 'removed') {
+        // Validate uniform kind in one pass; mixed kinds fall back to the default toast cap.
+        let isUniformKind = true
+        for (const entry of newestFirstEntries) {
+          if (entry.kind !== firstKind) {
+            isUniformKind = false
+            break
+          }
+        }
+        if (isUniformKind) singleSidedKind = firstKind
+      }
+    }
     // Toast stays compact so it does not dominate the preview header area.
-    const toastEntries = params.entries.slice(0, GEAR_DB_DIFF_TOAST_MAX_ITEMS)
-    const toastOverflowCount = Math.max(0, params.entries.length - toastEntries.length)
+    const toastMaxEntries = singleSidedKind
+      ? GEAR_DB_DIFF_TOAST_SINGLE_SIDED_MAX_ITEMS
+      : GEAR_DB_DIFF_TOAST_MAX_ITEMS
+    // Keep one shared retained list so history/toast do not duplicate diff payloads.
+    const retainedMaxEntries = Math.max(GEAR_DB_DIFF_HISTORY_MAX_ITEMS, toastMaxEntries)
+    const newestRetainedEntries = newestFirstEntries.slice(0, retainedMaxEntries)
+    // Keep the shared list in ascending order for stable visual scanning everywhere.
+    const retainedEntries = newestRetainedEntries.sort((left, right) => left.id - right.id)
+    // Surfaces consume tail slices from the shared list (tail = newest ids).
+    const historyCount = Math.min(retainedEntries.length, GEAR_DB_DIFF_HISTORY_MAX_ITEMS)
+    const toastCount = Math.min(retainedEntries.length, toastMaxEntries)
+    // Overflow counts still measure against each surface cap.
+    const historyOverflowCount = Math.max(0, params.entries.length - historyCount)
+    const toastOverflowCount = Math.max(0, params.entries.length - toastCount)
     // Advance the request id so stale updates do not leak through.
     const requestId = gearDbDiffToastRequestIdRef.current + 1
     gearDbDiffToastRequestIdRef.current = requestId
@@ -1818,9 +1849,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       baselineBuildId: gearEntriesCommittedBuildIdRef.current,
       queuedAt,
       lineSpecs: params.lineSpecs,
-      historyEntries,
+      retainedEntries,
+      historyCount,
       historyOverflowCount,
-      toastEntries,
+      toastCount,
       toastOverflowCount,
       // Snapshot matches before the gear list is rebuilt.
       matchesBefore: buildMatchMapByArtifactId(testerPreviewRowsRef.current),
@@ -1844,16 +1876,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (gearEntriesCommittedBuildIdRef.current <= pending.baselineBuildId) return
     // Map current preview rows so matches line up with the diff entries.
     const matchesAfter = buildMatchMapByArtifactId(testerPreviewRowsRef.current)
-    // Reusable mapper keeps history + toast enrichment logic aligned.
-    const enrichEntries = (entries: GearDbDiffEntry[]): GearDbDiffToastEntry[] => entries.map((entry) => ({
+    // Enrich the shared retained list once; history/toast derive slices from it.
+    const retainedEnriched = pending.retainedEntries.map((entry) => ({
       ...entry,
       beforeMatch: pending.matchesBefore.get(entry.id) ?? null,
       afterMatch: matchesAfter.get(entry.id) ?? null,
     }))
-    // Enrich the wider history list so each entry can show up to the history cap.
-    const historyEnriched = enrichEntries(pending.historyEntries)
-    // Enrich the compact list for the toast surface.
-    const toastEnriched = enrichEntries(pending.toastEntries)
+    // History reads the newest N entries from the shared enriched list.
+    const historyEnriched = retainedEnriched.slice(-pending.historyCount)
+    // Toast reads its own newest-N tail from the same shared enriched list.
+    const toastEnriched = retainedEnriched.slice(-pending.toastCount)
     // Localize header lines now that the diff is ready to render.
     const headerLines = buildGearDbHistoryHeaderLines(pending.lineSpecs)
     // Store the capped diff in the session history menu.
