@@ -4,6 +4,7 @@ import {
   TESTER_GRID_COLUMNS_KEY,
   TESTER_GRID_SHOW_CHAMP_ICONS_KEY,
   TESTER_GRID_SHOW_FIRST_MATCH_KEY,
+  TESTER_GRID_HIGHLIGHT_KEEP_SELL_KEY,
   TESTER_GRID_SHOW_MATCH_RECIPE_INDEX_KEY,
   TESTER_GRID_SHOW_MATCH_LINE_KEY,
   TESTER_GRID_SHOW_OTHER_MATCHES_KEY,
@@ -83,6 +84,14 @@ const testerGridShowRuleTemplatesStore = createLocalStorageStore<boolean>({
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
+const testerGridHighlightKeepSellStore = createLocalStorageStore<boolean>({
+  key: TESTER_GRID_HIGHLIGHT_KEEP_SELL_KEY,
+  // Default on so keep/sell outcomes are emphasized immediately for new sessions.
+  fallback: true,
+  parse: (raw) => raw === 'true',
+  serialize: (value) => (value ? 'true' : 'false'),
+})
+
 const testerGridShowSafeguardUpgradeChanceStore = createLocalStorageStore<boolean>({
   key: TESTER_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY,
   // Default on so users see improvement guidance immediately.
@@ -103,6 +112,7 @@ export function useTesterGridPreferences(variant: TesterGridPreferenceVariant = 
     : testerShowOtherMatches
   const showChampionIcons = testerGridShowChampIconsStore.useValue()
   const showRuleTemplates = testerGridShowRuleTemplatesStore.useValue()
+  const highlightKeepSell = testerGridHighlightKeepSellStore.useValue()
   const showSafeguardUpgradeChance = testerGridShowSafeguardUpgradeChanceStore.useValue()
 
   const setColumns = useCallback((next: TesterGridColumnMode) => {
@@ -137,6 +147,10 @@ export function useTesterGridPreferences(variant: TesterGridPreferenceVariant = 
     testerGridShowRuleTemplatesStore.set(Boolean(next))
   }, [])
 
+  const setHighlightKeepSell = useCallback((next: boolean) => {
+    testerGridHighlightKeepSellStore.set(Boolean(next))
+  }, [])
+
   const setShowSafeguardUpgradeChance = useCallback((next: boolean) => {
     testerGridShowSafeguardUpgradeChanceStore.set(Boolean(next))
   }, [])
@@ -149,6 +163,7 @@ export function useTesterGridPreferences(variant: TesterGridPreferenceVariant = 
     showOtherMatches,
     showChampionIcons,
     showRuleTemplates,
+    highlightKeepSell,
     showSafeguardUpgradeChance,
     setColumns,
     setShowFirstMatch,
@@ -157,6 +172,7 @@ export function useTesterGridPreferences(variant: TesterGridPreferenceVariant = 
     setShowOtherMatches,
     setShowChampionIcons,
     setShowRuleTemplates,
+    setHighlightKeepSell,
     setShowSafeguardUpgradeChance,
   }
 }

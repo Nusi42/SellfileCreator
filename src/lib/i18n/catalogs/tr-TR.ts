@@ -654,6 +654,7 @@ const overrides: Catalog = {
   rulesMenuShowMatchLine: 'Satır noyu göster',
   rulesMenuShowOtherMatches: 'Diğer eşleşmeleri göster',
   rulesMenuShowChampionIcons: 'Şampiyon simgelerini göster',
+  rulesMenuHighlightKeepSell: 'Tut/Sat vurgusu',
   commonOn: 'Açık',
   commonOff: 'Kapalı',
   headerMenuResetCols: 'Sütunları sıfırla',

@@ -174,6 +174,9 @@ const ACCORDION_BORDER_RADIUS_PX = 8
 // Keep the per-card gear action compact so the stats column stays readable.
 const CARD_ACTION_BUTTON_SIZE_PX = 28
 const CARD_ACTION_ICON_SIZE_PX = 18
+// Keep/sell background tints stay subtle so stat colors remain readable.
+const CARD_OUTCOME_TINT_ALPHA_LIGHT = 0.1
+const CARD_OUTCOME_TINT_ALPHA_DARK = 0.2
 // Group-level virtualization uses light overscan because the heavy lifting happens at the card row level.
 const GRID_GROUP_VIRTUAL_OVERSCAN_ROWS = 2
 // Penalize off-screen rows so the reveal queue prefers on-screen cards even while overscanning nested accordions.
@@ -513,6 +516,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     showOtherMatches,
     showChampionIcons,
     showRuleTemplates,
+    highlightKeepSell,
     showSafeguardUpgradeChance,
     setColumns,
     setShowFirstMatch,
@@ -521,6 +525,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     setShowOtherMatches,
     setShowChampionIcons,
     setShowRuleTemplates,
+    setHighlightKeepSell,
     setShowSafeguardUpgradeChance,
   } = useTesterGridPreferences(variant)
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
@@ -1881,6 +1886,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   showMatchRecipeIndex={showMatchRecipeIndex}
                   showMatchLineNumber={showMatchLineNumber}
                   showChampionIcons={showChampionIcons}
+                  highlightKeepSell={highlightKeepSell}
                   cardHeightPx={cardHeightPx}
                   // Preserve real row chunking (1/2) while card internals use the 4-column visual profile.
                   gridColumnCount={cardStyleProfileColumnCount}
@@ -2396,6 +2402,21 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             </Button>
           </MenuItem>
         ) : null}
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setHighlightKeepSell(!highlightKeepSell)}>
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuHighlightKeepSell')}</Typography>
+          <Button
+            size="small"
+            variant={highlightKeepSell ? 'contained' : 'outlined'}
+            color="success"
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(event) => {
+              event.stopPropagation()
+              setHighlightKeepSell(!highlightKeepSell)
+            }}
+          >
+            {highlightKeepSell ? t('commonOn') : t('commonOff')}
+          </Button>
+        </MenuItem>
         <Divider sx={{ my: 0.75 }} />
         {/* Keep appearance controls grouped at the bottom so the grid actions stay front-loaded. */}
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleStatColors(!useStatButtonColors)}>
@@ -2679,6 +2700,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   showMatchRecipeIndex,
   showMatchLineNumber,
   showChampionIcons,
+  highlightKeepSell = false,
   cardHeightPx,
   gridColumnCount,
   recipeNames,
@@ -2700,6 +2722,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   showMatchRecipeIndex: boolean
   showMatchLineNumber: boolean
   showChampionIcons: boolean
+  highlightKeepSell?: boolean
   cardHeightPx: number
   gridColumnCount: number
   recipeNames: Array<string | null>
@@ -3271,6 +3294,13 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   // Surface stable match metadata for automation without forcing DOM text scraping.
   const cardMatchOutcome = match ? (match.keep === false ? 'sell' : 'keep') : 'none'
   const cardMatchRecipeIdx = match?.recipeIdx != null ? String(match.recipeIdx) : 'none'
+  // Outcome tint is optional and only applies when the row has a resolved keep/sell decision.
+  const outcomeTintBg = (() => {
+    if (!highlightKeepSell || !match) return null
+    const baseTone = match.keep === false ? theme.palette.error.main : theme.palette.success.main
+    const tintAlpha = theme.palette.mode === 'dark' ? CARD_OUTCOME_TINT_ALPHA_DARK : CARD_OUTCOME_TINT_ALPHA_LIGHT
+    return alpha(baseTone, tintAlpha)
+  })()
   const mainSummaryLabel = (
     <Box
       component="span"
@@ -3440,11 +3470,11 @@ export const TesterGridCard = React.memo(function TesterGridCard({
         p: theme.spacing(CARD_PADDING_UNITS),
         borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
         border: `1px solid ${cardHighlighted ? theme.palette.info.light : theme.palette.divider}`,
-        bgcolor: theme.palette.background.paper,
+        bgcolor: outcomeTintBg ?? theme.palette.background.paper,
         // Expose baseline/peak palette values so the pulse animation can resolve to theme-safe colors.
         '--tester-focus-border-base': cardHighlighted ? theme.palette.info.light : theme.palette.divider,
         '--tester-focus-border-peak': theme.palette.info.main,
-        '--tester-focus-bg-base': theme.palette.background.paper,
+        '--tester-focus-bg-base': outcomeTintBg ?? theme.palette.background.paper,
         '--tester-focus-bg-peak': alpha(theme.palette.info.main, 0.07),
         '--tester-focus-shadow-base': cardHighlighted ? `0 0 0 1px ${alpha(theme.palette.info.main, 0.3)}` : 'none',
         '--tester-focus-shadow-peak': `0 0 0 2px ${alpha(theme.palette.info.main, 0.26)}, 0 8px 18px ${alpha(theme.palette.info.main, 0.2)}`,

@@ -480,6 +480,9 @@ export const TESTER_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.tester.grid.s
 export const SAFEGUARDS_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.safeguards.grid.showOtherMatches.v1'
 export const TESTER_GRID_SHOW_CHAMP_ICONS_KEY = 'sellfileCreator.tester.grid.showChampIcons.v1'
 export const TESTER_GRID_SHOW_RULE_TEMPLATES_KEY = 'sellfileCreator.tester.grid.showRuleTemplates.v1'
+// Tester grid: keep/sell outcome background emphasis toggle.
+// Why: this is view-only card styling and should persist across sessions like other grid toggles.
+export const TESTER_GRID_HIGHLIGHT_KEEP_SELL_KEY = 'sellfileCreator.tester.grid.highlightKeepSell.v1'
 // Tester grid: safeguard upgrade chance overlay toggle.
 // Why: the overlay is view-only and should persist across sessions like other grid display toggles.
 export const TESTER_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY = 'sellfileCreator.tester.grid.showSafeguardUpgradeChance.v1'

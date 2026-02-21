@@ -663,6 +663,7 @@ const enUS: Catalog = {
   rulesMenuShowMatchLine: 'Show Line Number',
   rulesMenuShowOtherMatches: 'Show Other Matches',
   rulesMenuShowChampionIcons: 'Show Champion Icons',
+  rulesMenuHighlightKeepSell: 'Highlight Keep/Sell',
   commonOn: 'On',
   commonOff: 'Off',
   headerMenuResetCols: 'Reset Columns',

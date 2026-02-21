@@ -654,6 +654,7 @@ const overrides: Catalog = {
   rulesMenuShowMatchLine: 'Показати № рядка',
   rulesMenuShowOtherMatches: 'Показати інші збіги',
   rulesMenuShowChampionIcons: 'Показувати іконки чемпіонів',
+  rulesMenuHighlightKeepSell: 'Підсвічувати Залишити/Продати',
   commonOn: 'Увімк.',
   commonOff: 'Вимк.',
   headerMenuResetCols: 'Скинути колонки',

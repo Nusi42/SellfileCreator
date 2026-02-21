@@ -654,6 +654,7 @@ const overrides: Catalog = {
   rulesMenuShowMatchLine: 'Zeilennr. anzeigen',
   rulesMenuShowOtherMatches: 'Weitere Treffer anzeigen',
   rulesMenuShowChampionIcons: 'Champion-Icons anzeigen',
+  rulesMenuHighlightKeepSell: 'Behalten/Verkaufen hervorheben',
   commonOn: 'An',
   commonOff: 'Aus',
   headerMenuResetCols: 'Spalten zurücksetzen',
