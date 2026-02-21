@@ -316,8 +316,9 @@ export const HISTORY_MENU_MAX_HEIGHT_PX = 360
 export const HISTORY_TOOLTIP_MAX_WIDTH_PX = 728
 // Cap the number of per-item diffs shown in the Gear DB endpoint toast.
 export const GEAR_DB_DIFF_TOAST_MAX_ITEMS = 18
-// Keep a separate token for history semantics, but reuse the same cap.
-export const GEAR_DB_DIFF_HISTORY_MAX_ITEMS = GEAR_DB_DIFF_TOAST_MAX_ITEMS
+// History can render single-sided add/remove updates in two columns, so retain
+// enough entries to fill both columns before truncating.
+export const GEAR_DB_DIFF_HISTORY_MAX_ITEMS = GEAR_DB_DIFF_TOAST_MAX_ITEMS * 2
 // Cap Gear DB history tooltip height so tall diff lists scroll inside the popper.
 export const GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX = 640
 // Scale factor for tester cards rendered inside the Gear DB diff toast/history.

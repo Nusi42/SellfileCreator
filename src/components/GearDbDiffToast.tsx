@@ -31,6 +31,8 @@ const EMPTY_CONFIG_NAMES: Array<string | null> = []
 
 // Badge tones for add/remove placeholders.
 type BadgeTone = 'added' | 'removed' | null
+// Single-sided batches (all adds or all removals) can render in a dense 2-column grid.
+type SingleSidedDiffKind = 'added' | 'removed'
 
 /**
  * Render the endpoint diff toast body: header lines + per-item diffs.
@@ -56,6 +58,8 @@ export function GearDbDiffToast({
   const headerLineNodes = payload.lineSpecs && payload.lineSpecs.length > 0
     ? buildGearDbDiffSummaryLineNodes(payload.lineSpecs, t, { useCountPill })
     : headerLines
+  // Added-only and removed-only batches do not need synthetic empty-side cards.
+  const singleSidedKind = resolveSingleSidedDiffKind(payload.entries)
   // Stack header, list, and overflow summary vertically.
   return (
     <Stack spacing={TOAST_ENTRY_GAP_UNITS} sx={{ minWidth: 260, maxWidth: 520 }}>
@@ -73,16 +77,25 @@ export function GearDbDiffToast({
         </Stack>
       ) : null}
       {payload.entries.length > 0 ? (
-        <Stack spacing={TOAST_ENTRY_GAP_UNITS}>
-          {payload.entries.map((entry) => (
-            <GearDbDiffToastItem
-              key={`gear-db-diff-item-${entry.id}`}
-              entry={entry}
-              substatColors={substatColors}
-              useStatButtonColors={useStatButtonColors}
-            />
-          ))}
-        </Stack>
+        singleSidedKind ? (
+          <GearDbDiffSingleSidedGrid
+            entries={payload.entries}
+            kind={singleSidedKind}
+            substatColors={substatColors}
+            useStatButtonColors={useStatButtonColors}
+          />
+        ) : (
+          <Stack spacing={TOAST_ENTRY_GAP_UNITS}>
+            {payload.entries.map((entry) => (
+              <GearDbDiffToastItem
+                key={`gear-db-diff-item-${entry.id}`}
+                entry={entry}
+                substatColors={substatColors}
+                useStatButtonColors={useStatButtonColors}
+              />
+            ))}
+          </Stack>
+        )
       ) : null}
       {payload.overflowCount > 0 ? (
         <Typography variant="caption" color="text.secondary">
@@ -91,6 +104,22 @@ export function GearDbDiffToast({
       ) : null}
     </Stack>
   )
+}
+
+/**
+ * Detect whether every diff entry is one-sided in the same direction.
+ */
+function resolveSingleSidedDiffKind(entries: GearDbDiffToastEntry[]): SingleSidedDiffKind | null {
+  // Empty lists fall back to the standard renderer.
+  if (entries.length === 0) return null
+  // Added-only batches contain no `before` snapshots.
+  const allAdded = entries.every((entry) => entry.kind === 'added' && entry.before === null && entry.after !== null)
+  if (allAdded) return 'added'
+  // Removed-only batches contain no `after` snapshots.
+  const allRemoved = entries.every((entry) => entry.kind === 'removed' && entry.before !== null && entry.after === null)
+  if (allRemoved) return 'removed'
+  // Mixed/update batches keep before/after rows with arrows.
+  return null
 }
 
 type ToastItemProps = {
@@ -165,6 +194,74 @@ function GearDbDiffToastItem({ entry, substatColors, useStatButtonColors }: Toas
         {GLYPH_ARROW_RIGHT}
       </Typography>
       {right}
+    </Box>
+  )
+}
+
+type SingleSidedGridProps = {
+  entries: GearDbDiffToastEntry[]
+  kind: SingleSidedDiffKind
+  substatColors: SubstatColorMap
+  useStatButtonColors: boolean
+}
+
+/**
+ * Render add-only/remove-only batches as compact two-column cards.
+ */
+function GearDbDiffSingleSidedGrid({
+  entries,
+  kind,
+  substatColors,
+  useStatButtonColors,
+}: SingleSidedGridProps) {
+  // Use theme-driven sizing so this grid matches the standard diff rows.
+  const theme = useTheme()
+  // Keep card heights uniform: if any card needs the match row, reserve it for all.
+  const showMatchRow = entries.some((entry) => kind === 'added'
+    ? Boolean(entry.afterMatch)
+    : Boolean(entry.beforeMatch))
+  // Reuse the same sizing pipeline as the before/after renderer.
+  const cardSizing = getTesterGridCardSizing(theme, TOAST_CARD_COLUMN_COUNT, {
+    showFirstMatchRow: showMatchRow,
+    showOtherMatchesRow: TOAST_SHOW_OTHER_MATCH_ROWS,
+  })
+  // Apply the shared scale so toast/history cards remain visually identical.
+  const scaledWidthPx = Math.ceil(cardSizing.minWidthPx * TOAST_CARD_SCALE)
+  const scaledHeightPx = Math.ceil(cardSizing.cardHeightPx * TOAST_CARD_SCALE)
+  const size = {
+    cardSizing,
+    scaledWidthPx,
+    scaledHeightPx,
+  }
+  // Render cards in two columns without empty placeholders.
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: 'auto auto',
+        columnGap: 0.75,
+        rowGap: TOAST_ENTRY_GAP_UNITS,
+      }}
+    >
+      {entries.map((entry, index) => {
+        // Added entries render the `after` state; removals render `before`.
+        const snapshot = kind === 'added' ? entry.after : entry.before
+        // Single-sided detection guarantees the relevant snapshot exists.
+        if (!snapshot) return null
+        const match = kind === 'added' ? entry.afterMatch : entry.beforeMatch
+        return (
+          <ScaledTesterGridCard
+            key={`gear-db-diff-single-sided-${entry.id}`}
+            snapshot={snapshot}
+            match={match}
+            showMatchRow={showMatchRow}
+            size={size}
+            substatColors={substatColors}
+            useStatButtonColors={useStatButtonColors}
+            priorityOrder={index}
+          />
+        )
+      })}
     </Box>
   )
 }
