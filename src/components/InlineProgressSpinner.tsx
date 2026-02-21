@@ -22,7 +22,16 @@ export default function InlineProgressSpinner({ variant = 'indeterminate', value
       size={INLINE_SPINNER_SIZE_PX}
       thickness={4}
       aria-label={ariaLabel}
-      sx={{ color: 'info.main' }}
+      // Lock the spinner to a square so tight flex rows cannot squash it into an oval.
+      sx={{
+        color: 'info.main',
+        width: INLINE_SPINNER_SIZE_PX,
+        height: INLINE_SPINNER_SIZE_PX,
+        minWidth: INLINE_SPINNER_SIZE_PX,
+        minHeight: INLINE_SPINNER_SIZE_PX,
+        aspectRatio: '1 / 1',
+        flexShrink: 0,
+      }}
       {...determinateProps}
     />
   )

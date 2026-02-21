@@ -4,7 +4,8 @@
     "private":  true,
     "type":  "module",
     "scripts":  {
-                    "dev":  "npm run wasm:ensure:rule-engine \u0026\u0026 vite",
+                    "dev":  "node scripts/tooling/run-dev-with-wasm-watch.mjs",
+                    "dev:vite":  "vite",
                     "build":  "npm run wasm:ensure:rule-engine \u0026\u0026 vite build",
                     "preview":  "vite preview",
                     "typecheck":  "npm run wasm:ensure:rule-engine \u0026\u0026 tsc --noEmit",

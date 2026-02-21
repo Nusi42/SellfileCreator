@@ -20,7 +20,8 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 
 **Scripts**
 - `npm install` — install dependencies; auto-installs missing `wasm-bindgen-cli` + `wasm32-unknown-unknown` target (when Rust exists), then fails fast if the local Rust/WASM toolchain for the current platform is still incomplete
-- `npm run dev` — start Vite dev server
+- `npm run dev` — run one wasm ensure pass, start Vite, and watch Rust/domain inputs to auto-run wasm ensure on changes
+- `npm run dev:vite` — start Vite dev server only (used by `npm run dev` orchestration)
 - `npm run build` — production build to `dist`
 - `npm run preview` — preview the built app
 - `npm run typecheck` — run `tsc --noEmit`
@@ -44,9 +45,11 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `scripts/vite/wasmInlinePlugin.ts` — resolves `sql.js/dist/sql-wasm.wasm`, encodes it once as a data URI, and injects a `__SQL_JS_WASM_INLINE__` define so static (`file://`) builds can still load gear DBs without a network fetch.
 - `scripts/tooling/build-rule-engine-wasm.mjs` — builds the experimental Rust matcher crate (`wasm/rule_engine`) for `wasm32-unknown-unknown` and regenerates `src/lib/wasm/generated/*` via `wasm-bindgen` (defaults to release profile for optimized perf validation; set `WASM_RULE_ENGINE_PROFILE=dev` for faster local iteration; release builds default `CARGO_PROFILE_RELEASE_STRIP=none` unless explicitly overridden).
 - `scripts/tooling/ensure-rule-engine-wasm.mjs` — compares mtimes for relevant wasm sources (`wasm/rule_engine/src/**`, `Cargo.toml`, `Cargo.lock`, shared domain-constant inputs, and the wasm build scripts) against generated outputs and invokes `build-rule-engine-wasm.mjs` only when outputs are missing/stale.
+- `scripts/tooling/run-dev-with-wasm-watch.mjs` — dev orchestrator used by `npm run dev`; runs an initial ensure, starts `npm run dev:vite`, and polls Rust/domain source inputs (`wasm/rule_engine/src/**`, `Cargo.toml`, `Cargo.lock`, `shared/domain-constants.json`) to trigger incremental ensure checks during active development.
 - `scripts/tooling/check-rust-wasm-toolchain.mjs` — verifies required Rust/WASM binaries and target installation for the current platform; with `--fix`, it auto-installs missing `wasm-bindgen-cli` and wasm target when possible.
 - `postinstall` runs `npm run ensure:wasm-toolchain` before Playwright browser installation.
-- `dev`, `build`, `typecheck`, and `test:unit` run `npm run wasm:ensure:rule-engine` first, so local workflows auto-regenerate wasm/bindings as needed.
+- `dev` now runs an initial `npm run wasm:ensure:rule-engine` pass and then keeps polling Rust/domain inputs so follow-up edits trigger fresh ensure checks while Vite stays running.
+- `build`, `typecheck`, and `test:unit` still run `npm run wasm:ensure:rule-engine` first, so non-dev workflows auto-regenerate wasm/bindings as needed.
 - `src/lib/wasm/generated/rule_engine_bg.wasm` is intentionally gitignored and should be regenerated locally by the ensure/build scripts instead of committed.
 - `scripts/tooling/patch-esm-specifiers.cjs` — patches compiled artifacts to add `.js` extensions for Node ESM.
 - `scripts/test/run-tests.mjs` — orchestrates `npm run test:unit` (cleans `tmp/tsc/tests`, runs `tsc -p tsconfig.tests.json`, patches ESM specifiers, executes the HSFC fixture runner, then runs all node:test specs emitted under `tmp/tsc/tests/tests/`).
