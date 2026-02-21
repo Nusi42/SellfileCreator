@@ -1,7 +1,7 @@
 import { MenuItem, Select, Typography } from '@mui/material'
 import type { SelectChangeEvent, SelectProps } from '@mui/material/Select'
 import type { SxProps, Theme } from '@mui/material/styles'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useI18n } from '../../lib/i18n'
 import type { RankValue } from '../../lib/types'
 
@@ -42,6 +42,8 @@ export function GearRankSelect({
   const { t } = useI18n()
   // Keep the default label localized unless the caller overrides it.
   const anyText = anyLabel ?? t('any')
+  // Track menu visibility so option rows are only mounted while the popup is open.
+  const [menuOpen, setMenuOpen] = useState(false)
   const resolvedSx: SxProps<Theme> = sx ?? {}
   const menuPropsAttr = menuProps ? { MenuProps: menuProps } : {}
   const rankLabel = useMemo(() => {
@@ -112,6 +114,15 @@ export function GearRankSelect({
   const selectRenderValue = isMulti
     ? (renderMultiValue ?? (() => null))
     : (() => renderSelected)
+  // Keep closed selects lightweight while preserving valid selected values for MUI.
+  const closedMenuItems = useMemo(() => {
+    if (isMulti) {
+      return multiValues.map((rank) => (
+        <MenuItem key={`closed-${rank}`} value={String(rank)} sx={{ display: 'none' }} />
+      ))
+    }
+    return <MenuItem key="closed-single" value={singleValue == null ? '' : String(singleValue)} sx={{ display: 'none' }} />
+  }, [isMulti, multiValues, singleValue])
   return (
     <Select
       size={size}
@@ -122,16 +133,22 @@ export function GearRankSelect({
       displayEmpty
       renderValue={selectRenderValue}
       {...menuPropsAttr}
+      onOpen={() => setMenuOpen(true)}
+      onClose={() => setMenuOpen(false)}
     >
-      {allowAny && !isMulti ? <MenuItem value="">{anyText}</MenuItem> : null}
-      {allowAny && isMulti ? (
-        <MenuItem value={ANY_SENTINEL}>{anyText}</MenuItem>
-      ) : null}
-      {[1, 2, 3, 4, 5, 6].map((rank) => (
-        <MenuItem key={rank} value={String(rank)}>
-          {rankLabel(rank)}
-        </MenuItem>
-      ))}
+      {menuOpen ? (
+        <>
+          {allowAny && !isMulti ? <MenuItem value="">{anyText}</MenuItem> : null}
+          {allowAny && isMulti ? (
+            <MenuItem value={ANY_SENTINEL}>{anyText}</MenuItem>
+          ) : null}
+          {[1, 2, 3, 4, 5, 6].map((rank) => (
+            <MenuItem key={rank} value={String(rank)}>
+              {rankLabel(rank)}
+            </MenuItem>
+          ))}
+        </>
+      ) : closedMenuItems}
     </Select>
   )
 }

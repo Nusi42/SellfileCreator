@@ -1,7 +1,7 @@
 import { Box, ListSubheader, MenuItem, Select } from '@mui/material'
 import type { SelectChangeEvent, SelectProps } from '@mui/material/Select'
 import type { SxProps, Theme } from '@mui/material/styles'
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useI18n } from '../../lib/i18n'
 import { Faction, factionI18nKey, type FactionId } from '../../lib/types'
 import { FactionOptionLabel } from '../FactionIcon'
@@ -57,6 +57,8 @@ export function GearFactionSelect({
   const anyText = anyLabel ?? t('any')
   const resolvedSx = sx
   const isMulti = Boolean(multiple)
+  // Track menu visibility so option rows are only mounted while the popup is open.
+  const [menuOpen, setMenuOpen] = useState(false)
   const multiValues = useMemo<FactionId[]>(() => {
     if (!isMulti) return []
     return Array.isArray(value) ? (value as FactionId[]) : []
@@ -149,6 +151,15 @@ export function GearFactionSelect({
   const selectValue = isMulti
     ? multiValues.map((entry) => String(entry))
     : (singleValue == null ? '' : String(singleValue))
+  // Keep closed selects lightweight while preserving valid selected values for MUI.
+  const closedMenuItems = useMemo(() => {
+    if (isMulti) {
+      return multiValues.map((entry) => (
+        <MenuItem key={`closed-${entry}`} value={String(entry)} sx={{ display: 'none' }} />
+      ))
+    }
+    return <MenuItem key="closed-single" value={singleValue == null ? '' : String(singleValue)} sx={{ display: 'none' }} />
+  }, [isMulti, multiValues, singleValue])
   return (
     <Select
       size={size}
@@ -160,22 +171,28 @@ export function GearFactionSelect({
       {...(isMulti ? { renderValue: (selected) => renderMultiSelected(selected) } : { renderValue: () => renderSelected() })}
       MenuProps={menuProps ?? FACTION_MENU_PROPS}
       {...(selectSx ? { sx: selectSx } : {})}
+      onOpen={() => setMenuOpen(true)}
+      onClose={() => setMenuOpen(false)}
     >
-      {allowAny ? (
-        isMulti
-          ? <MenuItem value={ANY_SENTINEL}>{anyText}</MenuItem>
-          : <MenuItem value="">{anyText}</MenuItem>
-      ) : null}
-      {FACTION_GROUPS.flatMap((group) => [
-        <ListSubheader key={`${group.labelKey}-header`} sx={{ fontSize: '0.75rem' }}>
-          {t(group.labelKey)}
-        </ListSubheader>,
-        ...group.ids.map((code) => (
-          <MenuItem key={`${group.labelKey}-${code}`} value={String(code)}>
-            <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
-          </MenuItem>
-        )),
-      ])}
+      {menuOpen ? (
+        <>
+          {allowAny ? (
+            isMulti
+              ? <MenuItem value={ANY_SENTINEL}>{anyText}</MenuItem>
+              : <MenuItem value="">{anyText}</MenuItem>
+          ) : null}
+          {FACTION_GROUPS.flatMap((group) => [
+            <ListSubheader key={`${group.labelKey}-header`} sx={{ fontSize: '0.75rem' }}>
+              {t(group.labelKey)}
+            </ListSubheader>,
+            ...group.ids.map((code) => (
+              <MenuItem key={`${group.labelKey}-${code}`} value={String(code)}>
+                <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
+              </MenuItem>
+            )),
+          ])}
+        </>
+      ) : closedMenuItems}
     </Select>
   )
 }
