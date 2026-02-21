@@ -59,7 +59,7 @@ All documents describe the *current* implementation; update the relevant file wh
 - Safeguards history entries emit structured tooltip payloads: add/delete snapshots show the full rule breakdown, while updates render before/after diffs for only the changed fields (slots/sets/metasets/main stats plus rank/rarity/faction lines).
 - Safeguard scans only run while `safeguardsEnabled` is true; disabling the feature or rebuilding the gear queue clears `keepUniqueDetection` so the UI never shows stale combination stats. The app tracks the last applied detection snapshot by reference in memory (no persisted detection signature in autosave payloads).
 - Safeguard rule names debounce using `BUILDER_AUTO_APPLY_DEBOUNCE_MS`; tester match chips refresh from the live name map without forcing a rule-cache rebuild.
-- Recipes tagged `ignore_keep_unique` keep their items in previews but are ignored during safeguard coverage checks so rework fodder never satisfies the uniqueness quota.
+- Recipes tagged `ignore_by_safeguards` keep their items in previews but are ignored during safeguard coverage checks so rework fodder never satisfies the uniqueness quota. Legacy aliases (`ignore_keep_unique`, `ignore_safeguard`) are still accepted on import and canonicalized to `ignore_by_safeguards`.
 - Pipeline requests now carry a monotonic `generation` id; stale in-flight runs are discarded so only the newest payload can update preview state.
 - Worker-backed matcher pipelines run through a single-flight scheduler (`useRuleCacheWorker`): one active run, one latest queued payload. New payloads supersede active work immediately.
 - Pipeline calls now send full artifact arrays per run (no patch payloads, warm fingerprints, or artifact/detection signature caches).

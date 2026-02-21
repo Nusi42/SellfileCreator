@@ -21,6 +21,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - `Metaset` write format: `{ id: string; name: string; setNames: string[]; show?: boolean; iconId?: string }` — named group of artifact set names with an optional icon identifier. Defaults are created if omitted.
 - `ReadableRecipe` (write format for Save/Copy) emits human-readable labels plus metaset IDs:
   - `name?`, `Tags?` (string[]), `keep`, `visibility`: `'Active' | 'Disabled' | 'Separator'`.
+    - Safeguard-ignore tag is canonicalized to `ignore_by_safeguards` on read/write; legacy aliases `ignore_keep_unique` and `ignore_safeguard` are still accepted on import.
   - `Rank`: string label (e.g., `"≥ 5★"`); `Rarity`: string label or `"Auto"`; `Faction`: faction name string.
   - `mainStats`: string[] (labels).
   - `minLevel`, `maxLevel`: explicit level milestones (`LevelMilestone`). `earlyKeepMode?`: `'late'` when Late thresholds are active.
