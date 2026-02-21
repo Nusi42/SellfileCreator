@@ -1,7 +1,7 @@
 import { defineConfig, type UserConfig } from 'vite';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import react from '@vitejs/plugin-react';
 import { assetsPlugin } from './scripts/vite/assetsPlugin';
 import { singleFilePlugin } from './scripts/vite/singleFilePlugin';
@@ -9,6 +9,57 @@ import { wasmInlinePlugin } from './scripts/vite/wasmInlinePlugin';
 
 const withRootPath = (relativePath: string): string =>
   fileURLToPath(new URL(relativePath, import.meta.url));
+
+const VITE_CONFIG_ROOT = dirname(fileURLToPath(import.meta.url))
+
+// Keep Windows + POSIX watch paths comparable in one format.
+const toPosixPath = (value: string): string => value.replace(/\\/g, '/')
+
+// Dev-server edits should only react to source, app assets, and vite config inputs.
+const WATCH_INCLUDED_ROOT_FILE_PATTERNS: readonly RegExp[] = [
+  /^index\.html$/,
+  /^package\.json$/,
+  /^vite\.config\.ts$/,
+  /^tsconfig(?:\..+)?\.json$/,
+  /^README(?:\.[^/]+)?\.md$/,
+]
+
+// Restrict non-root directory watching to code + runtime assets consumed by the app.
+const WATCH_INCLUDED_TOP_LEVEL_DIRS = new Set<string>([
+  'src',
+  'ico',
+])
+
+// Vite plugin code under scripts/vite affects bundling/hot reload behavior directly.
+const WATCH_INCLUDED_SUBTREE_PREFIXES: readonly string[] = [
+  'scripts/vite/',
+]
+
+// Return true for paths chokidar should skip while serving the app in dev.
+const shouldIgnoreDevWatchPath = (filePath: string): boolean => {
+  const relativePath = toPosixPath(relative(VITE_CONFIG_ROOT, filePath))
+
+  // Leave root and external paths untouched so Vite/chokidar internals keep working.
+  if (relativePath === '' || relativePath === '.' || relativePath.startsWith('../')) {
+    return false
+  }
+
+  // Root files are allowlisted by explicit regex patterns.
+  for (const pattern of WATCH_INCLUDED_ROOT_FILE_PATTERNS) {
+    if (pattern.test(relativePath)) return false
+  }
+
+  // Allowlisted subtrees are checked before generic top-level directory matching.
+  for (const prefix of WATCH_INCLUDED_SUBTREE_PREFIXES) {
+    if (relativePath.startsWith(prefix)) return false
+  }
+
+  // Only watch top-level dirs needed for live app development.
+  const firstSegment = relativePath.split('/')[0] ?? relativePath
+  if (WATCH_INCLUDED_TOP_LEVEL_DIRS.has(firstSegment)) return false
+
+  return true
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(async ({ command }): Promise<UserConfig> => {
@@ -114,6 +165,8 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
   },
   server: {
     watch: {
+      // Ignore every non-dev path so large archives/output folders never get polled.
+      ignored: shouldIgnoreDevWatchPath,
       usePolling: true,   // force polling
       interval: 400       // ms between checks
     },
