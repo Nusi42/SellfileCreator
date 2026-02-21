@@ -183,12 +183,10 @@ export const MULTI_EDIT_MIXED_TEXT_ALPHA = {
 // scrollable containers move. We add a short-lived body class to hide all
 // tooltips during active scroll interactions for visual stability.
 export const SCROLLING_TOOLTIP_HIDE_MS = 250
-// Explanatory tooltips attached to passive text should appear quickly to keep context visible.
-// Why: Informational labels rarely intercept clicks, so we bias toward responsiveness.
-export const MARKDOWN_TOOLTIP_INFO_ENTER_DELAY_MS = 500
-// Interactive controls (buttons/icons) need a longer hover delay so the tooltip does not obscure click targets.
-// Why: Left-click handlers should win over hover hints to avoid flicker while aiming for controls.
-export const MARKDOWN_TOOLTIP_INTERACTIVE_ENTER_DELAY_MS = 1000
+// Explanatory tooltips attached to passive text use the shared hover delay.
+export const MARKDOWN_TOOLTIP_INFO_ENTER_DELAY_MS = 2000
+// Interactive controls keep a separate constant so behavior can diverge later if needed.
+export const MARKDOWN_TOOLTIP_INTERACTIVE_ENTER_DELAY_MS = 2000
 // Consistent width cap for MarkdownTooltip content so longer translations wrap
 // gracefully without spanning the entire viewport.
 export const MARKDOWN_TOOLTIP_MAX_WIDTH_PX = 520

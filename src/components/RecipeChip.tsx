@@ -938,7 +938,6 @@ function summaryParts(
                 key={`s-${vk}-${i}`}
                 render={<BuilderTooltipContent text={tooltipSections.join('\n')} />}
                 arrow
-                enterDelay={200}
               >
                 {content}
               </MarkdownTooltip>
