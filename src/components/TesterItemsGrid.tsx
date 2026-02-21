@@ -521,7 +521,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     setShowChampionIcons,
     setShowRuleTemplates,
     setShowSafeguardUpgradeChance,
-  } = useTesterGridPreferences()
+  } = useTesterGridPreferences(variant)
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
   // Overlay score uses the same glyph inclusion policy as the Sort UI (default excludes glyphs).
   // Why: avoids confusing users with two independent "glyph counting" toggles for the same scores.
@@ -1106,14 +1106,18 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const resolvedKeepOverrideColumnMode = keepOverrideColumnMode === 2 ? 2 : 1
   // Default to 1 column whenever the keep-override preference is missing.
   const preferredColumnCount = keepOverrideVariant ? resolvedKeepOverrideColumnMode : storedColumnPreference
+  // Safeguards keeps its 1/2-column layout, but card internals should mirror the tester 4-column profile.
+  const keepOverrideCardStyleColumnCount = keepOverrideVariant ? KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT : undefined
   const {
     accordionSpacingPx,
     cardHeightPx,
+    cardStyleColumnCount: cardStyleProfileColumnCount,
     gridColumnCount,
     gridGapPx,
     leafPaddingPx: gridLeafPaddingPx,
   } = useTesterGridLayoutMetrics({
     preferredColumnCount,
+    ...(keepOverrideCardStyleColumnCount != null ? { cardStyleColumnCount: keepOverrideCardStyleColumnCount } : {}),
     showFirstMatch,
     showOtherMatches,
     theme,
@@ -1877,7 +1881,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   showMatchLineNumber={showMatchLineNumber}
                   showChampionIcons={showChampionIcons}
                   cardHeightPx={cardHeightPx}
-                  gridColumnCount={gridColumnCount}
+                  // Preserve real row chunking (1/2) while card internals use the 4-column visual profile.
+                  gridColumnCount={cardStyleProfileColumnCount}
                   recipeNames={recipeNames}
                   onJumpToRule={onJumpToRule}
                   onCreateRuleTemplate={canShowRuleTemplateActions ? onCreateRuleTemplate : undefined}
@@ -2873,6 +2878,12 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     : normalizedVisibleLimit
   const visibleOtherMatching = otherMatchingEntries.slice(0, effectiveVisibleOtherMatchingLimit)
   const hiddenOtherMatching = otherMatchingEntries.slice(effectiveVisibleOtherMatchingLimit)
+  // When "other matches" is off, keep first-match text visible and expose all others behind a +N chip.
+  const shouldPinOtherMatchesToPrimaryRow = Boolean(!showOtherMatchesRow && shouldShowPrimaryMatchRow && totalOtherMatches > 0)
+  const matchingOverflowEntries = shouldPinOtherMatchesToPrimaryRow
+    ? otherMatchingEntries
+    : (shouldShowOtherMatchesRow ? hiddenOtherMatching : [])
+  const matchingOverflowCount = matchingOverflowEntries.length
   // Gap + refs let us squeeze as many chips as possible before handing the overflow to a popover.
   const matchingChipGapPx = parseSpacingPx(String(theme.spacing(MATCHING_CHIP_GAP_UNITS)))
   const visibleChipsContainerRef = useRef<HTMLDivElement | null>(null)
@@ -2930,7 +2941,11 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     otherMatchingEntriesSignature,
   ])
   const [matchingPopoverAnchor, setMatchingPopoverAnchor] = useState<HTMLElement | null>(null)
-  const matchingPopoverOpen = Boolean(matchingPopoverAnchor) && hiddenOtherMatching.length > 0
+  const matchingPopoverOpen = Boolean(matchingPopoverAnchor) && matchingOverflowCount > 0
+  useEffect(() => {
+    // Switching row modes should dismiss stale popovers anchored to unmounted chips.
+    setMatchingPopoverAnchor(null)
+  }, [shouldPinOtherMatchesToPrimaryRow])
   // Keep a ref for the popover so outside clicks can close cleanly.
   const matchingPopoverPaperRef = useRef<HTMLDivElement | null>(null)
   const handleMatchingPopoverClose = useCallback(() => {
@@ -2944,7 +2959,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   })
   // Overflow chip defers the popover until the user explicitly taps it to keep VT tree shallow.
   const handleMatchingMoreClick = (event: React.MouseEvent<HTMLElement>) => {
-    if (hiddenOtherMatching.length === 0) return
+    if (matchingOverflowCount <= 0) return
     setMatchingPopoverAnchor(event.currentTarget)
   }
   const handleMatchingRecipeJump = (recipeIdx: number) => {
@@ -3850,6 +3865,8 @@ export const TesterGridCard = React.memo(function TesterGridCard({
             width: '100%',
             display: 'flex',
             alignItems: 'center',
+            gap: MATCHING_CHIP_GAP_UNITS,
+            minWidth: 0,
             mt: `${CARD_MATCH_ROW_MARGIN_PX}px`,
             mb: `${CARD_MATCH_ROW_MARGIN_PX}px`,
             minHeight: matchRowHeight,
@@ -3864,8 +3881,28 @@ export const TesterGridCard = React.memo(function TesterGridCard({
               {...(!matchDetailsFrozen && onJumpToRule ? { onJump: onJumpToRule } : {})}
               showRecipeIndex={showMatchRecipeIndex}
               showLineNumber={showMatchLineNumber}
-              sx={{ width: '100%' }}
+              sx={{ flex: 1, minWidth: 0 }}
             />
+          ) : null}
+          {shouldPinOtherMatchesToPrimaryRow ? (
+            // Reuse the +N affordance so hidden matches remain discoverable while first match stays fully visible.
+            <MarkdownTooltip markdown={`${t('testerRecipeMatches')} (+${matchingOverflowCount})`}>
+              <Box component="span" ref={handleMoreChipRef} sx={{ ...MATCHING_CHIP_WRAPPER_SX, ml: 'auto' }}>
+                <Chip
+                  label={`+${matchingOverflowCount}`}
+                  size="small"
+                  variant="outlined"
+                  component="button"
+                  type="button"
+                  onClick={handleMatchingMoreClick}
+                  sx={{
+                    ...MATCHING_RECIPE_CHIP_SX,
+                    minWidth: 'auto',
+                    cursor: 'pointer',
+                  }}
+                />
+              </Box>
+            </MarkdownTooltip>
           ) : null}
         </Box>
       ) : null}
@@ -3922,13 +3959,13 @@ export const TesterGridCard = React.memo(function TesterGridCard({
                 {visibleOtherMatching.map((entry) => renderMatchingChip(entry))}
               </Box>
             </Box>
-            {hiddenOtherMatching.length > 0 ? (
+            {matchingOverflowCount > 0 ? (
               <>
                 {/* MarkdownTooltip keeps the “+N” overflow chip consistent with other tester tooltips. */}
-                <MarkdownTooltip markdown={`${t('testerRecipeMatches')} (+${hiddenOtherMatching.length})`}>
+                <MarkdownTooltip markdown={`${t('testerRecipeMatches')} (+${matchingOverflowCount})`}>
                   <Box component="span" ref={handleMoreChipRef} sx={MATCHING_CHIP_WRAPPER_SX}>
                     <Chip
-                      label={`+${hiddenOtherMatching.length}`}
+                      label={`+${matchingOverflowCount}`}
                       size="small"
                       variant="outlined"
                       component="button"
@@ -3942,44 +3979,46 @@ export const TesterGridCard = React.memo(function TesterGridCard({
                     />
                   </Box>
                 </MarkdownTooltip>
-                <Popover
-                  open={matchingPopoverOpen}
-                  anchorEl={matchingPopoverAnchor}
-                  onClose={handleMatchingPopoverClose}
-                  anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                  transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                  disableRestoreFocus
-                  slotProps={{
-                    paper: buildContextMenuPaperSlotProps({
-                      component: ContextMenuPaper,
-                      contextMenuGuard: matchingPopoverGuard,
-                      onRequestClose: handleMatchingPopoverClose,
-                      closeLabel: t('close'),
-                      ref: matchingPopoverPaperRef,
-                      sx: {
-                        maxWidth: MATCHING_POPOVER_MAX_WIDTH_PX,
-                        width: `min(80vw, ${MATCHING_POPOVER_MAX_WIDTH_PX}px)`,
-                      },
-                    }),
-                  }}
-                >
-                  <Box
-                    sx={{
-                      p: 1,
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: 0.5,
-                      maxWidth: MATCHING_POPOVER_MAX_WIDTH_PX,
-                      width: `min(80vw, ${MATCHING_POPOVER_MAX_WIDTH_PX}px)`,
-                    }}
-                  >
-                    {hiddenOtherMatching.map((entry) => renderMatchingChip(entry, { onSelect: handleMatchingPopoverClose }))}
-                  </Box>
-                </Popover>
               </>
             ) : null}
           </Box>
         </Box>
+      ) : null}
+      {matchingOverflowCount > 0 ? (
+        <Popover
+          open={matchingPopoverOpen}
+          anchorEl={matchingPopoverAnchor}
+          onClose={handleMatchingPopoverClose}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          disableRestoreFocus
+          slotProps={{
+            paper: buildContextMenuPaperSlotProps({
+              component: ContextMenuPaper,
+              contextMenuGuard: matchingPopoverGuard,
+              onRequestClose: handleMatchingPopoverClose,
+              closeLabel: t('close'),
+              ref: matchingPopoverPaperRef,
+              sx: {
+                maxWidth: MATCHING_POPOVER_MAX_WIDTH_PX,
+                width: `min(80vw, ${MATCHING_POPOVER_MAX_WIDTH_PX}px)`,
+              },
+            }),
+          }}
+        >
+          <Box
+            sx={{
+              p: 1,
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 0.5,
+              maxWidth: MATCHING_POPOVER_MAX_WIDTH_PX,
+              width: `min(80vw, ${MATCHING_POPOVER_MAX_WIDTH_PX}px)`,
+            }}
+          >
+            {matchingOverflowEntries.map((entry) => renderMatchingChip(entry, { onSelect: handleMatchingPopoverClose }))}
+          </Box>
+        </Popover>
       ) : null}
     </Box>
   )
@@ -4837,6 +4876,7 @@ function getTesterGridCardColumnHeights(theme: Theme, gridColumnCount: number): 
 type TesterGridLayoutMetrics = {
   accordionSpacingPx: number
   cardHeightPx: number
+  cardStyleColumnCount: number
   gridColumnCount: number
   gridGapPx: number
   leafPaddingPx: number
@@ -4844,6 +4884,7 @@ type TesterGridLayoutMetrics = {
 
 type UseTesterGridLayoutMetricsOptions = {
   preferredColumnCount: number
+  cardStyleColumnCount?: number
   showFirstMatch: boolean
   showOtherMatches: boolean
   theme: Theme
@@ -4851,6 +4892,7 @@ type UseTesterGridLayoutMetricsOptions = {
 
 function useTesterGridLayoutMetrics({
   preferredColumnCount,
+  cardStyleColumnCount,
   showFirstMatch,
   showOtherMatches,
   theme,
@@ -4858,13 +4900,17 @@ function useTesterGridLayoutMetrics({
   // Layout metrics re-run only on breakpoint or toggle changes so the cards stay stable across renders.
   const isMultiColumn = useMediaQuery(theme.breakpoints.up('sm'))
   const gridColumnCount = isMultiColumn ? preferredColumnCount : 1
+  // Card internals can use a separate column profile so keep-override panes match tester card styling.
+  const resolvedCardStyleColumnCount = Number.isFinite(cardStyleColumnCount)
+    ? Math.max(1, Math.round(Number(cardStyleColumnCount)))
+    : gridColumnCount
   const accordionSpacingPx = useMemo(() => parseSpacingPx(theme.spacing(ACCORDION_MARGIN_UNITS)), [theme])
   const gridGapPx = useMemo(() => parseSpacingPx(theme.spacing(GRID_GAP)), [theme])
   const leafPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS)), [theme])
   const cardVerticalPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(CARD_PADDING_UNITS)) * 2, [theme])
   const { firstRowHeightPx: cardFirstRowHeightPx } = useMemo(
-    () => getTesterGridCardColumnHeights(theme, gridColumnCount),
-    [theme, gridColumnCount],
+    () => getTesterGridCardColumnHeights(theme, resolvedCardStyleColumnCount),
+    [theme, resolvedCardStyleColumnCount],
   )
   const cardHeightPx = useMemo(
     () => getTesterCardHeight(showFirstMatch, showOtherMatches, cardVerticalPaddingPx, cardFirstRowHeightPx),
@@ -4873,12 +4919,14 @@ function useTesterGridLayoutMetrics({
   return useMemo(() => ({
     accordionSpacingPx,
     cardHeightPx,
+    cardStyleColumnCount: resolvedCardStyleColumnCount,
     gridColumnCount,
     gridGapPx,
     leafPaddingPx,
   }), [
     accordionSpacingPx,
     cardHeightPx,
+    resolvedCardStyleColumnCount,
     gridColumnCount,
     gridGapPx,
     leafPaddingPx,

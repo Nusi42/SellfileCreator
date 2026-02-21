@@ -2942,7 +2942,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       .map((rule, ruleIdx) => ({ rule, ruleIdx }))
       .filter(({ rule }) => getRuleRecipeIndex(rule) === idx)
       .map(({ rule, ruleIdx }) => {
-        const { __lineIdx: _omitLineIdx, __allKnownSets: _omitAllKnownSets, __source: _omitSource, ...rest } = rule as HsfRuleWithRecipe & { __allKnownSets?: boolean }
+        const { __lineIdx: _omitLineIdx, __allKnownSets: _omitAllKnownSets, __source: _omitSource, ...rest } = rule as (HsfRuleWithRecipe & { __allKnownSets?: boolean })
         const sanitized = JSON.parse(JSON.stringify(rest)) as HsfRule
         const line = typeof rule.__lineIdx === 'number' ? (rule.__lineIdx + 1) : (ruleIdx + 1)
         return { line, rule: sanitized }

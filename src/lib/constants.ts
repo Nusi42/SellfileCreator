@@ -476,6 +476,8 @@ export const TESTER_GRID_SHOW_FIRST_MATCH_KEY = 'sellfileCreator.tester.grid.sho
 export const TESTER_GRID_SHOW_MATCH_RECIPE_INDEX_KEY = 'sellfileCreator.tester.grid.showMatchRecipeIndex.v1'
 export const TESTER_GRID_SHOW_MATCH_LINE_KEY = 'sellfileCreator.tester.grid.showMatchLine.v1'
 export const TESTER_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.tester.grid.showOtherMatches.v1'
+// Safeguards keeps its own default for "show other matches" so Rule Tester stays unchanged.
+export const SAFEGUARDS_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.safeguards.grid.showOtherMatches.v1'
 export const TESTER_GRID_SHOW_CHAMP_ICONS_KEY = 'sellfileCreator.tester.grid.showChampIcons.v1'
 export const TESTER_GRID_SHOW_RULE_TEMPLATES_KEY = 'sellfileCreator.tester.grid.showRuleTemplates.v1'
 // Tester grid: safeguard upgrade chance overlay toggle.
