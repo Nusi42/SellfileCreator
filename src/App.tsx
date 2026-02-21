@@ -96,6 +96,7 @@ import {
 import { updateRecipeRulesCache } from './lib/ruleCache'
 import { hasRecipeMeaningfulDifferences } from './lib/recipeDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
+import { stableSerialize } from './lib/stableSerialize'
 import {
   buildGearDbDiffSummary,
   collectGearDbDeltaArtifactIds,
@@ -2595,98 +2596,245 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const buildDedupedExportPayload = useCallback(() => (
     buildDedupedHsfFileFromMerged(exportRules, { recipeNames })
   ), [recipeNames, exportRules])
-  // Export "dirty" checks use a lightweight input signature instead of serializing full HSF payloads.
-  const hsfExportStateSig = useMemo(() => {
-    // Put high-churn toggles first so comparisons short-circuit quickly.
-    const omitDisabledBit = omitDisabledForExport ? '1' : '0'
-    const totalLimitBit = recipeRulesState.totalLimitHit ? '1' : '0'
-    // Recipe keys already capture canonical builder rule fingerprints.
-    const recipeKeysSig = recipeRulesState.keys.join('|')
-    // Recipe names still affect export metadata and must invalidate the dirty signature.
-    const recipeNamesSig = recipeNames.join('|')
-    // Metaset definitions can affect resolved set expansion even with stable recipe keys.
-    const metasetSig = metasets
-      .map((meta) => {
-        const sortedSets = Array.isArray(meta.sets) ? [...meta.sets].map(Number).sort((a, b) => a - b) : []
-        return `${meta.id}:${sortedSets.join(',')}`
-      })
-      .sort((a, b) => a.localeCompare(b))
-      .join('|')
-    // Base HSF hash/size folds in imported baseline rules without cloning payloads.
-    const baseHsfSig = (() => {
-      if (!hsf) return 'hsf:none'
-      const hash = (hsf as { Hash?: string }).Hash
-      if (hash) return `hsf:${hash}`
-      return `hsf:rules:${hsf.Rules.length}`
-    })()
-    // Final-sell toggles inject extra export rows, so include a compact normalized key.
-    const finalSellSig = (() => {
-      if (!finalSellRemainder) return 'fs:none'
-      const levels = Array.isArray(finalSellRemainder.levels)
-        ? [...finalSellRemainder.levels].map(Number).sort((a, b) => a - b).join(',')
-        : ''
-      const setsMode = finalSellRemainder.setsMode ?? FINAL_SELL_DEFAULT_SETS_MODE
-      const artifactsBit = finalSellRemainder.artifacts ? '1' : '0'
-      const accessoriesBit = finalSellRemainder.accessories ? '1' : '0'
-      return `fs:${setsMode}:${artifactsBit}${accessoriesBit}:${levels}`
-    })()
-    // Safeguard rules + detection snapshots can inject keep-override rows into exports.
-    const safeguardRuleSig = `${safeguardsEnabled ? '1' : '0'}:${resolvedSafeguardRules.map((rule) => {
+  type ExportDirtyMetasetDigest = { id: string; sets: number[] }
+  type ExportDirtySafeguardRuleDigest = {
+    id: string
+    activation: string
+    requiredCount: number
+    ignorePreviousSafeguards: boolean
+    ignoreEquippedInCollection: boolean
+    ignoreEquippedInVault: boolean
+    countModeBits: string
+    substats: number[]
+    weights: Array<[number, number]>
+    combination: string
+  }
+  type ExportDirtyDetectionDigest = {
+    ruleId: string
+    ruleActivation: string
+    requiredCount: number
+    currentCount: number
+    projectedCount: number
+    deficit: number
+    groupsTracked: number
+    perGroupRequiredCount: number
+    coveredByExisting: boolean
+    itemKeys: number[]
+    placeholders: number
+  }
+  type ExportDirtyState = {
+    omitDisabledForExport: boolean
+    totalLimitHit: boolean
+    substatTargetsKey: string
+    recipeKeys: string[]
+    recipeNames: string[]
+    metasets: ExportDirtyMetasetDigest[]
+    baseHsfHash: string | null
+    baseHsfRuleCount: number
+    finalSell: {
+      setsMode: string
+      artifacts: boolean
+      accessories: boolean
+      levels: number[]
+    } | null
+    safeguardsEnabled: boolean
+    safeguardRules: ExportDirtySafeguardRuleDigest[]
+    safeguardDetection: ExportDirtyDetectionDigest[] | null
+    mergedRuleCount: number
+    exportRuleCount: number
+  }
+
+  const numberArraysEqual = (left: number[], right: number[]): boolean => {
+    if (left === right) return true
+    if (left.length !== right.length) return false
+    for (let idx = 0; idx < left.length; idx += 1) if (left[idx] !== right[idx]) return false
+    return true
+  }
+  const stringArraysEqual = (left: string[], right: string[]): boolean => {
+    if (left === right) return true
+    if (left.length !== right.length) return false
+    for (let idx = 0; idx < left.length; idx += 1) if (left[idx] !== right[idx]) return false
+    return true
+  }
+  const metasetDigestsEqual = (left: ExportDirtyMetasetDigest[], right: ExportDirtyMetasetDigest[]): boolean => {
+    if (left === right) return true
+    if (left.length !== right.length) return false
+    for (let idx = 0; idx < left.length; idx += 1) {
+      const a = left[idx]!
+      const b = right[idx]!
+      if (a.id !== b.id) return false
+      if (!numberArraysEqual(a.sets, b.sets)) return false
+    }
+    return true
+  }
+  const safeguardRuleDigestsEqual = (left: ExportDirtySafeguardRuleDigest[], right: ExportDirtySafeguardRuleDigest[]): boolean => {
+    if (left === right) return true
+    if (left.length !== right.length) return false
+    for (let idx = 0; idx < left.length; idx += 1) {
+      const a = left[idx]!
+      const b = right[idx]!
+      if (
+        a.id !== b.id
+        || a.activation !== b.activation
+        || a.requiredCount !== b.requiredCount
+        || a.ignorePreviousSafeguards !== b.ignorePreviousSafeguards
+        || a.ignoreEquippedInCollection !== b.ignoreEquippedInCollection
+        || a.ignoreEquippedInVault !== b.ignoreEquippedInVault
+        || a.countModeBits !== b.countModeBits
+        || a.combination !== b.combination
+      ) {
+        return false
+      }
+      if (!numberArraysEqual(a.substats, b.substats)) return false
+      if (a.weights.length !== b.weights.length) return false
+      for (let weightIdx = 0; weightIdx < a.weights.length; weightIdx += 1) {
+        const aw = a.weights[weightIdx]!
+        const bw = b.weights[weightIdx]!
+        if (aw[0] !== bw[0] || aw[1] !== bw[1]) return false
+      }
+    }
+    return true
+  }
+  const safeguardDetectionDigestsEqual = (
+    left: ExportDirtyDetectionDigest[] | null,
+    right: ExportDirtyDetectionDigest[] | null,
+  ): boolean => {
+    if (left === right) return true
+    if (!left || !right) return false
+    if (left.length !== right.length) return false
+    for (let idx = 0; idx < left.length; idx += 1) {
+      const a = left[idx]!
+      const b = right[idx]!
+      if (
+        a.ruleId !== b.ruleId
+        || a.ruleActivation !== b.ruleActivation
+        || a.requiredCount !== b.requiredCount
+        || a.currentCount !== b.currentCount
+        || a.projectedCount !== b.projectedCount
+        || a.deficit !== b.deficit
+        || a.groupsTracked !== b.groupsTracked
+        || a.perGroupRequiredCount !== b.perGroupRequiredCount
+        || a.coveredByExisting !== b.coveredByExisting
+        || a.placeholders !== b.placeholders
+      ) {
+        return false
+      }
+      if (!numberArraysEqual(a.itemKeys, b.itemKeys)) return false
+    }
+    return true
+  }
+  const exportDirtyStatesEqual = (left: ExportDirtyState, right: ExportDirtyState): boolean => {
+    if (
+      left.omitDisabledForExport !== right.omitDisabledForExport
+      || left.totalLimitHit !== right.totalLimitHit
+      || left.substatTargetsKey !== right.substatTargetsKey
+      || left.baseHsfHash !== right.baseHsfHash
+      || left.baseHsfRuleCount !== right.baseHsfRuleCount
+      || left.safeguardsEnabled !== right.safeguardsEnabled
+      || left.mergedRuleCount !== right.mergedRuleCount
+      || left.exportRuleCount !== right.exportRuleCount
+    ) {
+      return false
+    }
+    if (!stringArraysEqual(left.recipeKeys, right.recipeKeys)) return false
+    if (!stringArraysEqual(left.recipeNames, right.recipeNames)) return false
+    if (!metasetDigestsEqual(left.metasets, right.metasets)) return false
+    if (Boolean(left.finalSell) !== Boolean(right.finalSell)) return false
+    if (left.finalSell && right.finalSell) {
+      if (
+        left.finalSell.setsMode !== right.finalSell.setsMode
+        || left.finalSell.artifacts !== right.finalSell.artifacts
+        || left.finalSell.accessories !== right.finalSell.accessories
+      ) {
+        return false
+      }
+      if (!numberArraysEqual(left.finalSell.levels, right.finalSell.levels)) return false
+    }
+    if (!safeguardRuleDigestsEqual(left.safeguardRules, right.safeguardRules)) return false
+    if (!safeguardDetectionDigestsEqual(left.safeguardDetection, right.safeguardDetection)) return false
+    return true
+  }
+
+  // Export dirty checks compare normalized structured state so we avoid one
+  // huge concatenated signature string on every recompute.
+  const hsfExportStateSig = useMemo<ExportDirtyState>(() => {
+    const metasetDigests = metasets
+      .map((meta) => ({
+        id: String(meta.id),
+        sets: (Array.isArray(meta.sets) ? [...meta.sets].map(Number).sort((a, b) => a - b) : []),
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id))
+    const baseHsfHash = hsf ? ((hsf as { Hash?: string }).Hash ?? null) : null
+    const baseHsfRuleCount = hsf?.Rules?.length ?? 0
+    const finalSellDigest = finalSellRemainder
+      ? {
+        setsMode: finalSellRemainder.setsMode ?? FINAL_SELL_DEFAULT_SETS_MODE,
+        artifacts: finalSellRemainder.artifacts === true,
+        accessories: finalSellRemainder.accessories === true,
+        levels: Array.isArray(finalSellRemainder.levels)
+          ? [...finalSellRemainder.levels].map(Number).sort((a, b) => a - b)
+          : [],
+      }
+      : null
+    const safeguardRuleDigests = resolvedSafeguardRules.map((rule) => {
       const countMode = rule.countMode
-      const modeSig = [
+      const countModeBits = [
         countMode?.perRule ? 1 : 0,
         countMode?.perSlot ? 1 : 0,
         countMode?.perSet ? 1 : 0,
         countMode?.perFaction ? 1 : 0,
         countMode?.perMainStat ? 1 : 0,
       ].join('')
-      const substatsSig = Array.isArray(rule.substats)
-        ? [...rule.substats].map(Number).sort((a, b) => a - b).join(',')
-        : ''
-      const weightsSig = Object.entries(rule.substatWeights ?? {})
-        .map(([variant, value]) => `${Number(variant)}:${Number(value)}`)
-        .sort()
-        .join(',')
-      return [
-        rule.id ?? '',
-        rule.activation ?? '',
-        Number.isFinite(rule.requiredCount) ? Number(rule.requiredCount) : 0,
-        rule.ignorePreviousSafeguards !== false ? 1 : 0,
-        rule.ignoreEquippedInCollection === true ? 1 : 0,
-        rule.ignoreEquippedInVault === true ? 1 : 0,
-        modeSig,
-        substatsSig,
-        weightsSig,
-        JSON.stringify(rule.combination ?? null),
-      ].join(':')
-    }).join('|')}`
-    const safeguardDetectionSig = safeguardDetection
-      ? safeguardDetection.entries.map((entry) => [
-        entry.ruleId ?? '',
-        entry.ruleActivation ?? '',
-        entry.requiredCount,
-        entry.currentCount,
-        entry.projectedCount,
-        entry.deficit,
-        entry.groupsTracked,
-        entry.perGroupRequiredCount,
-        entry.coveredByExisting ? 1 : 0,
-        entry.itemKeys.join(','),
-        entry.placeholders.length,
-      ].join(':')).join(';')
-      : 'sd:none'
-    return [
-      `${omitDisabledBit}${totalLimitBit}`,
-      recipeRulesState.substatTargetsKey,
-      recipeKeysSig,
-      recipeNamesSig,
-      metasetSig,
-      baseHsfSig,
-      finalSellSig,
-      safeguardRuleSig,
-      safeguardDetectionSig,
-      `${mergedRules.length}:${exportRules.length}`,
-    ].join('|')
+      const substats = Array.isArray(rule.substats)
+        ? [...rule.substats].map(Number).sort((a, b) => a - b)
+        : []
+      const weights = Object.entries(rule.substatWeights ?? {})
+        .map(([variant, value]) => [Number(variant), Number(value)] as [number, number])
+        .sort((a, b) => a[0] - b[0] || a[1] - b[1])
+      return {
+        id: rule.id ?? '',
+        activation: rule.activation ?? '',
+        requiredCount: Number.isFinite(rule.requiredCount) ? Number(rule.requiredCount) : 0,
+        ignorePreviousSafeguards: rule.ignorePreviousSafeguards !== false,
+        ignoreEquippedInCollection: rule.ignoreEquippedInCollection === true,
+        ignoreEquippedInVault: rule.ignoreEquippedInVault === true,
+        countModeBits,
+        substats,
+        weights,
+        combination: stableSerialize(rule.combination ?? null),
+      }
+    })
+    const safeguardDetectionDigests = safeguardDetection
+      ? safeguardDetection.entries.map((entry) => ({
+        ruleId: entry.ruleId ?? '',
+        ruleActivation: entry.ruleActivation ?? '',
+        requiredCount: Number(entry.requiredCount),
+        currentCount: Number(entry.currentCount),
+        projectedCount: Number(entry.projectedCount),
+        deficit: Number(entry.deficit),
+        groupsTracked: Number(entry.groupsTracked),
+        perGroupRequiredCount: Number(entry.perGroupRequiredCount),
+        coveredByExisting: entry.coveredByExisting === true,
+        itemKeys: [...entry.itemKeys].map(Number),
+        placeholders: entry.placeholders.length,
+      }))
+      : null
+    return {
+      omitDisabledForExport,
+      totalLimitHit: recipeRulesState.totalLimitHit,
+      substatTargetsKey: recipeRulesState.substatTargetsKey,
+      recipeKeys: [...recipeRulesState.keys],
+      recipeNames: [...recipeNames],
+      metasets: metasetDigests,
+      baseHsfHash,
+      baseHsfRuleCount,
+      finalSell: finalSellDigest,
+      safeguardsEnabled,
+      safeguardRules: safeguardRuleDigests,
+      safeguardDetection: safeguardDetectionDigests,
+      mergedRuleCount: mergedRules.length,
+      exportRuleCount: exportRules.length,
+    }
   }, [
     omitDisabledForExport,
     recipeRulesState.totalLimitHit,
@@ -2702,7 +2850,26 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     mergedRules.length,
     exportRules.length,
   ])
-  const [lastExportSig, setLastExportSig] = useState<string | null>(null)
+  const [lastExportSig, setLastExportSig] = useState<ExportDirtyState | null>(null)
+  type QueuedSellfileExportAction = 'default' | 'deduped'
+  // Queue one export request while rule/tester workers are still rebuilding state.
+  const [queuedSellfileExportAction, setQueuedSellfileExportAction] = useState<QueuedSellfileExportAction | null>(null)
+  const isSellfileExportBlockedByWorker = useCallback((): boolean => (
+    // A queued debounce still means export snapshots are stale.
+    pipelineDebounceRef.current !== null
+    // Active pipeline requests must settle before we serialize payloads.
+    || pipelineAbortRef.current !== null
+    // UI build flags mirror in-flight worker work that mutates preview/export data.
+    || rulesBuilding
+    || gearEntriesBuilding
+  ), [gearEntriesBuilding, rulesBuilding])
+  const queueSellfileExportIfNeeded = useCallback((action: QueuedSellfileExportAction): boolean => {
+    // Run immediately when no worker build is pending.
+    if (!isSellfileExportBlockedByWorker()) return false
+    // Keep only the latest requested action while work is in flight.
+    setQueuedSellfileExportAction(action)
+    return true
+  }, [isSellfileExportBlockedByWorker])
   // Establish the export signature baseline after resets or first render to track unsaved changes.
   useEffect(() => {
     if (exportBaselineResetRef.current || lastExportSig === null) {
@@ -2710,11 +2877,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       exportBaselineResetRef.current = false
     }
   }, [hsfExportStateSig, lastExportSig])
-  const hsfDirty = useMemo(
-    () => lastExportSig !== null && hsfExportStateSig !== lastExportSig,
-    [hsfExportStateSig, lastExportSig],
-  )
-  const handleExportDeduped = useCallback(() => {
+  const hsfDirty = lastExportSig !== null && !exportDirtyStatesEqual(hsfExportStateSig, lastExportSig)
+  const runSellfileDedupedExportNow = useCallback(() => {
     if (!exportRulesCountRef.current) return
     try {
       const blob = hsfToBlob(buildDedupedExportPayload())
@@ -5242,6 +5406,109 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     />
   ) : null
 
+  const runSellfileExportNow = useCallback(async () => {
+    // Build export payload lazily so routine renders avoid full HSF serialization.
+    const payload = dedupeDefault ? buildDedupedExportPayload() : buildExportPayload()
+    const blob = hsfToBlob(payload)
+    const filename = sellfileFilename()
+    const target = pushExportEndpoint
+    if (target) {
+      let pushToast: 'success' | 'failure' | null = null
+      try {
+        // Serialize once so WS upload payloads match the downloaded sellfile body.
+        const payloadText = await blob.text()
+        // Send the upload command using the shared endpoint compatibility shim.
+        const response = await sendExternalRequest(EXTERNAL_WS_METHOD_UPLOAD_SELLFILE, {
+          name: filename,
+          contentType: blob.type || 'application/json',
+          data: payloadText,
+        })
+        if (response.ok) {
+          // A successful request proves endpoint reachability for later pushes.
+          setPushEndpointReachable(true)
+          pushToast = 'success'
+          setLastExportSig(hsfExportStateSig)
+        } else {
+          if (import.meta.env.DEV) {
+            console.error('Push endpoint responded with error', response.error)
+          }
+          pushToast = 'failure'
+        }
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.error('Failed to export sellfile over WebSocket', err)
+        }
+        setPushEndpointReachable(false)
+        pushToast = 'failure'
+      } finally {
+        if (pushToast === 'success') {
+          showToast(t('toastSellfileSaved'))
+        } else if (pushToast === 'failure') {
+          showToast(t('toastSellfileExportFailed'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
+        }
+      }
+      return
+    }
+    // Local export path mirrors prior behavior and keeps push optional.
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+    setLastExportSig(hsfExportStateSig)
+    showToast(t('toastSellfileSaved'))
+  }, [
+    buildDedupedExportPayload,
+    buildExportPayload,
+    dedupeDefault,
+    hsfExportStateSig,
+    pushExportEndpoint,
+    sendExternalRequest,
+    setPushEndpointReachable,
+    showToast,
+    t,
+  ])
+  const handleExportSellfile = useCallback(() => {
+    // No rules means both push/download should be a no-op.
+    if (!exportRulesCountRef.current) return
+    // Queue while pipeline work is pending so the payload reflects latest edits.
+    if (queueSellfileExportIfNeeded('default')) return
+    void runSellfileExportNow()
+  }, [queueSellfileExportIfNeeded, runSellfileExportNow])
+  const handleExportSellfileDeduped = useCallback(() => {
+    // No rules means deduped export has nothing to emit.
+    if (!exportRulesCountRef.current) return
+    // Queue while pipeline work is pending so dedupe runs on current results.
+    if (queueSellfileExportIfNeeded('deduped')) return
+    runSellfileDedupedExportNow()
+  }, [queueSellfileExportIfNeeded, runSellfileDedupedExportNow])
+  useEffect(() => {
+    // No queued request means nothing to flush.
+    if (!queuedSellfileExportAction) return
+    // Worker still busy; wait for the next state change.
+    if (isSellfileExportBlockedByWorker()) return
+    // Run on the next frame so transition commits land before payload capture.
+    const frameId = window.requestAnimationFrame(() => {
+      if (isSellfileExportBlockedByWorker()) return
+      const action = queuedSellfileExportAction
+      // Clear queue first so re-clicks during export can queue another action.
+      setQueuedSellfileExportAction(null)
+      if (!exportRulesCountRef.current) return
+      if (action === 'deduped') {
+        runSellfileDedupedExportNow()
+        return
+      }
+      void runSellfileExportNow()
+    })
+    return () => window.cancelAnimationFrame(frameId)
+  }, [
+    isSellfileExportBlockedByWorker,
+    queuedSellfileExportAction,
+    runSellfileDedupedExportNow,
+    runSellfileExportNow,
+  ])
+
   return (
     <Container maxWidth="xl" sx={{ pt: 1.5, pb: 1.5 }}>
       {/* Full-screen, non-interactive overlay shown while dragging files over the app.
@@ -5460,59 +5727,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onToggleDedupeDefault={handleSetDedupeDefault}
         omitDisabledForExport={omitDisabledForExport}
         onToggleOmitDisabled={handleSetOmitDisabled}
-        onExportDeduped={handleExportDeduped}
-        onExport={async () => {
-          // Build export payload on demand so routine UI updates avoid full HSF serialization.
-          const payload = dedupeDefault ? buildDedupedExportPayload() : buildExportPayload()
-          const blob = hsfToBlob(payload)
-          const filename = sellfileFilename()
-          const target = pushExportEndpoint
-          if (target) {
-            let pushToast: 'success' | 'failure' | null = null
-            try {
-              // Serialize the sellfile payload so the WS server can persist it.
-              const payloadText = await blob.text()
-              // Send an upload request that matches both WS protocol flavors.
-              const response = await sendExternalRequest(EXTERNAL_WS_METHOD_UPLOAD_SELLFILE, {
-                name: filename,
-                contentType: blob.type || 'application/json',
-                data: payloadText,
-              })
-              if (response.ok) {
-                // Mark the endpoint as reachable once a request succeeds.
-                setPushEndpointReachable(true)
-                pushToast = 'success'
-                setLastExportSig(hsfExportStateSig)
-              } else {
-                if (import.meta.env.DEV) {
-                  console.error('Push endpoint responded with error', response.error)
-                }
-                pushToast = 'failure'
-              }
-            } catch (err) {
-              if (import.meta.env.DEV) {
-                console.error('Failed to export sellfile over WebSocket', err)
-              }
-              setPushEndpointReachable(false)
-              pushToast = 'failure'
-            } finally {
-              if (pushToast === 'success') {
-                showToast(t('toastSellfileSaved'))
-              } else if (pushToast === 'failure') {
-                showToast(t('toastSellfileExportFailed'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
-              }
-            }
-            return
-          }
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = filename
-          a.click()
-          URL.revokeObjectURL(url)
-          setLastExportSig(hsfExportStateSig)
-          showToast(t('toastSellfileSaved'))
-        }}
+        onExportDeduped={handleExportSellfileDeduped}
+        onExport={handleExportSellfile}
         exportDisabled={!mergedRules.length}
         finalSell={finalSellRemainder}
         onToggleFinalSell={(enabled) => {

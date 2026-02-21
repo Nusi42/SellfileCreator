@@ -14,7 +14,8 @@ pub(crate) struct PreparedRule {
     pub(crate) main_stat_f: i64,
     pub(crate) substats: Vec<PreparedRuleSub>,
     pub(crate) recipe_idx: Option<i64>,
-    pub(crate) source: Option<String>,
+    pub(crate) source_bits: u8,
+    pub(crate) source_fallback: Option<String>,
     pub(crate) safeguard_item_key: Option<i64>,
     pub(crate) rank_mask: u8,
     pub(crate) rarity_mask: u8,
@@ -54,7 +55,8 @@ pub(crate) enum PreparedRuleSubCondition {
 // Prepared options keep all exclusion sets prebuilt for repeated item scans.
 #[derive(Debug, Default, Clone)]
 pub(crate) struct EvaluateOptionsPrepared {
-    exclude_source_set: HashSet<String>,
+    exclude_source_bits: u8,
+    exclude_source_fallback_set: HashSet<String>,
     exclude_recipe_indices: HashSet<i64>,
     ignore_safeguard_recipe_indices: HashSet<i64>,
 }
@@ -63,10 +65,25 @@ impl EvaluateOptionsPrepared {
     // Convert vector-based JS payloads once per evaluate batch.
     pub(crate) fn from_raw(raw: &EvaluateOptionsRaw) -> Self {
         Self {
-            exclude_source_set: raw
+            exclude_source_bits: raw
                 .exclude_sources
                 .as_ref()
-                .map(|sources| sources.iter().cloned().collect::<HashSet<_>>())
+                .map(|sources| {
+                    sources
+                        .iter()
+                        .fold(0u8, |bits, source| bits | rule_source_bit(source).unwrap_or(0))
+                })
+                .unwrap_or_default(),
+            exclude_source_fallback_set: raw
+                .exclude_sources
+                .as_ref()
+                .map(|sources| {
+                    sources
+                        .iter()
+                        .filter(|source| rule_source_bit(source).is_none())
+                        .cloned()
+                        .collect::<HashSet<_>>()
+                })
                 .unwrap_or_default(),
             exclude_recipe_indices: raw
                 .exclude_recipe_indices
@@ -89,10 +106,13 @@ impl EvaluateOptionsPrepared {
         }
     }
 
-    // Source comparisons use borrowed `&str` lookups to avoid string cloning.
-    fn source_is_excluded(&self, source: Option<&str>) -> bool {
-        source
-            .map(|candidate| self.exclude_source_set.contains(candidate))
+    // Known source tokens are matched via bitmasks; unknowns keep a fallback set.
+    fn source_is_excluded(&self, source_bits: u8, source_fallback: Option<&str>) -> bool {
+        if source_bits != 0 && (self.exclude_source_bits & source_bits) != 0 {
+            return true;
+        }
+        source_fallback
+            .map(|candidate| self.exclude_source_fallback_set.contains(candidate))
             .unwrap_or(false)
     }
 
@@ -101,6 +121,21 @@ impl EvaluateOptionsPrepared {
         recipe_idx
             .map(|idx| self.ignore_safeguard_recipe_indices.contains(&idx))
             .unwrap_or(false)
+    }
+}
+
+const RULE_SOURCE_BIT_HSF: u8 = 1 << 0;
+const RULE_SOURCE_BIT_HSFC: u8 = 1 << 1;
+const RULE_SOURCE_BIT_FINAL_SELL: u8 = 1 << 2;
+const RULE_SOURCE_BIT_SAFEGUARDS: u8 = 1 << 3;
+
+fn rule_source_bit(raw: &str) -> Option<u8> {
+    match raw {
+        RULE_SOURCE_HSF => Some(RULE_SOURCE_BIT_HSF),
+        RULE_SOURCE_HSFC => Some(RULE_SOURCE_BIT_HSFC),
+        RULE_SOURCE_FINAL_SELL => Some(RULE_SOURCE_BIT_FINAL_SELL),
+        RULE_SOURCE_SAFEGUARDS => Some(RULE_SOURCE_BIT_SAFEGUARDS),
+        _ => None,
     }
 }
 
@@ -199,8 +234,18 @@ pub(crate) fn prepare_rule(raw: RuleRaw) -> PreparedRule {
     let level_for_check = raw.LVLForCheck.unwrap_or(LEVEL_ANY_SENTINEL);
     let main_stat_id = raw.MainStatID.unwrap_or(STAT_ID_ANY);
     let main_stat_f = boolish_to_flag(raw.MainStatF.as_ref());
-    let source = raw.source;
-    let is_keep_override_source = source.as_deref() == Some(RULE_SOURCE_SAFEGUARDS);
+    let source_raw = raw.source;
+    let source_bits = source_raw
+        .as_deref()
+        .and_then(rule_source_bit)
+        .unwrap_or(0);
+    let source_fallback = if source_bits == 0 {
+        source_raw.clone()
+    } else {
+        None
+    };
+    let is_keep_override_source = (source_bits & RULE_SOURCE_BIT_SAFEGUARDS) != 0
+        || source_fallback.as_deref() == Some(RULE_SOURCE_SAFEGUARDS);
     let recipe_idx = raw.RecipeID.and_then(|cfg| if cfg > 0 { Some(cfg - 1) } else { None });
 
     let substats = raw
@@ -233,7 +278,8 @@ pub(crate) fn prepare_rule(raw: RuleRaw) -> PreparedRule {
         main_stat_f,
         substats,
         recipe_idx,
-        source,
+        source_bits,
+        source_fallback,
         safeguard_item_key: raw.safeguard_item_key,
         rank_mask: rank_mask(raw.Rank.unwrap_or(0)),
         rarity_mask: rarity_mask(raw.Rarity.unwrap_or(0)),
@@ -392,7 +438,10 @@ pub(crate) fn evaluate_item(
             });
         }
 
-        let is_excluded = options.source_is_excluded(rule.source.as_deref());
+        let is_excluded = options.source_is_excluded(
+            rule.source_bits,
+            rule.source_fallback.as_deref(),
+        );
 
         if !should_include_recipe(rule.recipe_idx, recipe_modes, options) {
             continue;

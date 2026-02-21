@@ -204,6 +204,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Loader (`readHsfcFile`) accepts the readable HSFC schema and preserves each merged `substats` entry (`{ stat, fixed?, rollBounds? }`). `substatRollBounds.min`/`max` stay clamped to valid ranges (`min` 0..5, `max` 0..4) and wildcard flags remain intact. Legacy payloads that still provide `fixedSubstats`/`substatRollBounds` are converted inside `hsfcIO` so the rest of the app only deals with the new shape.
 - Copy All mirrors the saver payload (including `SelectedRecipeIndex`) to enable full round-trip via copy/paste.
 - Sellfile export context menu: right-click `Export RSL Helper Sellfile` to open advanced options. `Export deduped RSL Helper Sellfile` runs a one-off dedupe pass that merges identical keep rules and removes dominated variants; the dedupe matcher now runs in the WASM rule engine for single-source semantics. `Export deduped by default` persists the behavior (key `sellfileCreator.sellfile.dedupDefault.v1`); when enabled, both downloads and push exports write the deduped payload. `Omit disabled rules when exporting` drops rules whose `Use` flag is `false` from downloads and push exports, and persists via `sellfileCreator.sellfile.omitDisabled.v1`.
+- Export/push queueing: if a rule-cache pipeline rebuild is pending/running (debounce window or active worker run), export actions are queued and executed once the worker is idle so downloaded/pushed sellfiles match the latest edits.
 
 ## Behavioral Details
 

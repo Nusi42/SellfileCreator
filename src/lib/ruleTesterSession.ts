@@ -478,20 +478,253 @@ const normalizeTesterName = (value: unknown): string | null => {
   return null
 }
 
-export function fingerprintRuleTesterItem(item: RuleTesterItem | TestItem): string {
-  const canonical = {
-    name: normalizeTesterName((item as { name?: unknown }).name),
-    slot: coerceFiniteNumber(item.slot, 0),
-    set: coerceFiniteNumber(item.set, 0),
-    rank: coerceFiniteNumber(item.rank, 0),
-    rarity: coerceFiniteNumber(item.rarity, 0),
-    level: coerceFiniteNumber(item.level, 0),
-    faction: coerceFiniteNumber((item as { faction?: unknown }).faction, 0),
-    main: coerceFiniteNumber(item.main, -1),
-    subValues: canonicalizeSubValues(item.subValues),
-    previewExtras: canonicalizePreviewExtras(item.previewExtras),
+type RuleTesterItemSignature = {
+  name: string | null
+  slot: number
+  set: number
+  rank: number
+  rarity: number
+  level: number
+  faction: number
+  main: number
+  subValues: Array<[number, number]>
+  previewExtras: CanonicalPreviewExtras | null
+}
+
+type RuleTesterItemSignatureToken = {
+  hash: number
+  signature: RuleTesterItemSignature
+}
+
+type RuleTesterItemSignatureCountMap = Map<RuleTesterItemSignatureToken, number>
+
+// Keep one deterministic non-crypt hash for interning typed signatures.
+const HASH_FNV_OFFSET = 0x811c9dc5
+const HASH_FNV_PRIME = 0x01000193
+const HASH_NUMBER_BUFFER = new ArrayBuffer(8)
+const HASH_NUMBER_VIEW = new DataView(HASH_NUMBER_BUFFER)
+
+const hashFoldU32 = (hash: number, value: number): number => (
+  (Math.imul((hash ^ (value >>> 0)) >>> 0, HASH_FNV_PRIME)) >>> 0
+)
+
+const hashFoldBool = (hash: number, value: boolean): number => hashFoldU32(hash, value ? 1 : 0)
+
+const hashFoldNullableString = (hash: number, value: string | null): number => {
+  if (value == null) return hashFoldU32(hash, 0xffffffff)
+  let next = hashFoldU32(hash, value.length)
+  for (let idx = 0; idx < value.length; idx += 1) next = hashFoldU32(next, value.charCodeAt(idx))
+  return next
+}
+
+const hashFoldNumber = (hash: number, value: number): number => {
+  const normalized = Number.isFinite(value) ? (Object.is(value, -0) ? 0 : value) : Number.NaN
+  HASH_NUMBER_VIEW.setFloat64(0, normalized, true)
+  const low = HASH_NUMBER_VIEW.getUint32(0, true)
+  const high = HASH_NUMBER_VIEW.getUint32(4, true)
+  return hashFoldU32(hashFoldU32(hash, low), high)
+}
+
+const hashFoldNullableNumber = (hash: number, value: number | null): number => (
+  value == null ? hashFoldU32(hash, 0xfffffffe) : hashFoldNumber(hash, value)
+)
+
+const hashFoldCanonicalStat = (hash: number, stat: CanonicalNormalizedStat | null): number => {
+  if (!stat) return hashFoldU32(hash, 0xfffffffd)
+  let next = hashFoldNullableString(hash, stat.source)
+  next = hashFoldNullableNumber(next, stat.statId)
+  next = hashFoldBool(next, stat.isFlat)
+  next = hashFoldNullableNumber(next, stat.variant)
+  next = hashFoldNumber(next, stat.baseValue)
+  next = hashFoldNumber(next, stat.glyphValue)
+  next = hashFoldNumber(next, stat.mythValue)
+  next = hashFoldNumber(next, stat.totalValue)
+  next = hashFoldNullableNumber(next, stat.rolls)
+  next = hashFoldNullableNumber(next, stat.position)
+  return next
+}
+
+const hashFoldCanonicalStatArray = (hash: number, stats: CanonicalNormalizedStat[] | null): number => {
+  if (!stats) return hashFoldU32(hash, 0xfffffffc)
+  let next = hashFoldU32(hash, stats.length)
+  for (const stat of stats) next = hashFoldCanonicalStat(next, stat)
+  return next
+}
+
+const hashFoldPreviewExtras = (hash: number, extras: CanonicalPreviewExtras | null): number => {
+  if (!extras) return hashFoldU32(hash, 0xfffffffb)
+  let next = hashFoldNullableString(hash, extras.source ?? null)
+  next = hashFoldNullableNumber(next, extras.rerollCount)
+  next = hashFoldNullableNumber(next, extras.equippedToChampionId)
+  next = hashFoldNullableNumber(next, extras.equippedChampionBaseId)
+  next = hashFoldNullableNumber(next, extras.equippedChampionRarity)
+  next = hashFoldNullableString(next, extras.equippedChampionName)
+  next = hashFoldNullableString(next, extras.equippedChampionLocation ?? null)
+  next = hashFoldCanonicalStat(next, extras.mainStat)
+  next = hashFoldCanonicalStatArray(next, extras.substats)
+  next = hashFoldCanonicalStat(next, extras.ascension)
+  next = hashFoldNullableNumber(next, extras.exactLevel)
+  next = hashFoldNullableString(next, extras.lastUseLocalTimestamp)
+  return next
+}
+
+const buildRuleTesterItemSignature = (item: RuleTesterItem | TestItem): RuleTesterItemSignature => ({
+  name: normalizeTesterName((item as { name?: unknown }).name),
+  slot: coerceFiniteNumber(item.slot, 0),
+  set: coerceFiniteNumber(item.set, 0),
+  rank: coerceFiniteNumber(item.rank, 0),
+  rarity: coerceFiniteNumber(item.rarity, 0),
+  level: coerceFiniteNumber(item.level, 0),
+  faction: coerceFiniteNumber((item as { faction?: unknown }).faction, 0),
+  main: coerceFiniteNumber(item.main, -1),
+  subValues: canonicalizeSubValues(item.subValues),
+  previewExtras: canonicalizePreviewExtras(item.previewExtras),
+})
+
+const hashRuleTesterItemSignature = (signature: RuleTesterItemSignature): number => {
+  let hash = HASH_FNV_OFFSET
+  hash = hashFoldNullableString(hash, signature.name)
+  hash = hashFoldNumber(hash, signature.slot)
+  hash = hashFoldNumber(hash, signature.set)
+  hash = hashFoldNumber(hash, signature.rank)
+  hash = hashFoldNumber(hash, signature.rarity)
+  hash = hashFoldNumber(hash, signature.level)
+  hash = hashFoldNumber(hash, signature.faction)
+  hash = hashFoldNumber(hash, signature.main)
+  hash = hashFoldU32(hash, signature.subValues.length)
+  for (const [variant, value] of signature.subValues) {
+    hash = hashFoldNumber(hash, variant)
+    hash = hashFoldNumber(hash, value)
   }
-  return JSON.stringify(canonical)
+  hash = hashFoldPreviewExtras(hash, signature.previewExtras)
+  return hash >>> 0
+}
+
+const canonicalStatEqual = (
+  left: CanonicalNormalizedStat | null,
+  right: CanonicalNormalizedStat | null,
+): boolean => (
+  left === right
+  || Boolean(left && right
+    && left.source === right.source
+    && left.statId === right.statId
+    && left.isFlat === right.isFlat
+    && left.variant === right.variant
+    && left.baseValue === right.baseValue
+    && left.glyphValue === right.glyphValue
+    && left.mythValue === right.mythValue
+    && left.totalValue === right.totalValue
+    && left.rolls === right.rolls
+    && left.position === right.position)
+)
+
+const canonicalStatArrayEqual = (
+  left: CanonicalNormalizedStat[] | null,
+  right: CanonicalNormalizedStat[] | null,
+): boolean => {
+  if (left === right) return true
+  if (!left || !right) return false
+  if (left.length !== right.length) return false
+  for (let idx = 0; idx < left.length; idx += 1) {
+    if (!canonicalStatEqual(left[idx]!, right[idx]!)) return false
+  }
+  return true
+}
+
+const previewExtrasEqual = (left: CanonicalPreviewExtras | null, right: CanonicalPreviewExtras | null): boolean => {
+  if (left === right) return true
+  if (!left || !right) return false
+  if (
+    left.source !== right.source
+    || left.rerollCount !== right.rerollCount
+    || left.equippedToChampionId !== right.equippedToChampionId
+    || left.equippedChampionBaseId !== right.equippedChampionBaseId
+    || left.equippedChampionRarity !== right.equippedChampionRarity
+    || left.equippedChampionName !== right.equippedChampionName
+    || left.equippedChampionLocation !== right.equippedChampionLocation
+    || left.exactLevel !== right.exactLevel
+    || left.lastUseLocalTimestamp !== right.lastUseLocalTimestamp
+  ) {
+    return false
+  }
+  if (!canonicalStatEqual(left.mainStat, right.mainStat)) return false
+  if (!canonicalStatArrayEqual(left.substats, right.substats)) return false
+  if (!canonicalStatEqual(left.ascension, right.ascension)) return false
+  return true
+}
+
+const ruleTesterItemSignaturesEqual = (left: RuleTesterItemSignature, right: RuleTesterItemSignature): boolean => {
+  if (left === right) return true
+  if (
+    left.name !== right.name
+    || left.slot !== right.slot
+    || left.set !== right.set
+    || left.rank !== right.rank
+    || left.rarity !== right.rarity
+    || left.level !== right.level
+    || left.faction !== right.faction
+    || left.main !== right.main
+  ) {
+    return false
+  }
+  if (left.subValues.length !== right.subValues.length) return false
+  for (let idx = 0; idx < left.subValues.length; idx += 1) {
+    const leftPair = left.subValues[idx]!
+    const rightPair = right.subValues[idx]!
+    if (leftPair[0] !== rightPair[0] || leftPair[1] !== rightPair[1]) return false
+  }
+  return previewExtrasEqual(left.previewExtras, right.previewExtras)
+}
+
+const createRuleTesterSignatureInterner = () => {
+  const internedByHash = new Map<number, RuleTesterItemSignatureToken[]>()
+  const byReference = new WeakMap<object, RuleTesterItemSignatureToken>()
+
+  const intern = (item: RuleTesterItem | TestItem): RuleTesterItemSignatureToken => {
+    if (item && typeof item === 'object') {
+      const cached = byReference.get(item as object)
+      if (cached) return cached
+    }
+    const signature = buildRuleTesterItemSignature(item)
+    const hash = hashRuleTesterItemSignature(signature)
+    const bucket = internedByHash.get(hash)
+    if (bucket) {
+      for (const token of bucket) {
+        if (ruleTesterItemSignaturesEqual(token.signature, signature)) {
+          if (item && typeof item === 'object') byReference.set(item as object, token)
+          return token
+        }
+      }
+    }
+    const created: RuleTesterItemSignatureToken = { hash, signature }
+    if (bucket) {
+      bucket.push(created)
+    } else {
+      internedByHash.set(hash, [created])
+    }
+    if (item && typeof item === 'object') byReference.set(item as object, created)
+    return created
+  }
+
+  return { intern }
+}
+
+const incrementSignatureCount = (
+  map: RuleTesterItemSignatureCountMap,
+  key: RuleTesterItemSignatureToken,
+  delta = 1,
+): void => {
+  map.set(key, (map.get(key) ?? 0) + delta)
+}
+
+const readSignatureCount = (
+  map: RuleTesterItemSignatureCountMap,
+  key: RuleTesterItemSignatureToken,
+): number => map.get(key) ?? 0
+
+export function fingerprintRuleTesterItem(item: RuleTesterItem | TestItem): string {
+  // Keep the public helper stable for tests/dev tooling.
+  return JSON.stringify(buildRuleTesterItemSignature(item))
 }
 
 export type DiffRuleTesterItemsOptions = {
@@ -505,23 +738,22 @@ export function diffRuleTesterItems(
   options?: DiffRuleTesterItemsOptions,
 ): { removalItemIds: number[]; nextPendingQueue: TestItem[]; additions: TestItem[] } {
   const retainManualItems = Boolean(options?.retainManualItems)
-  const desiredCounts = new Map<string, number>()
+  const signatureInterner = createRuleTesterSignatureInterner()
+  const desiredCounts: RuleTesterItemSignatureCountMap = new Map()
   for (const desired of desiredItems) {
-    const key = fingerprintRuleTesterItem(desired)
-    desiredCounts.set(key, (desiredCounts.get(key) ?? 0) + 1)
+    incrementSignatureCount(desiredCounts, signatureInterner.intern(desired))
   }
 
-  const currentCounts = new Map<string, number>()
+  const currentCounts: RuleTesterItemSignatureCountMap = new Map()
   for (const item of currentItems) {
     if (retainManualItems && isManualTesterItem(item)) continue
-    const key = fingerprintRuleTesterItem(item)
-    currentCounts.set(key, (currentCounts.get(key) ?? 0) + 1)
+    incrementSignatureCount(currentCounts, signatureInterner.intern(item))
   }
 
-  const currentKeepLimits = new Map<string, number>()
+  const currentKeepLimits: RuleTesterItemSignatureCountMap = new Map()
   for (const [key, desiredCount] of desiredCounts.entries()) {
     if (desiredCount <= 0) continue
-    const currentCount = currentCounts.get(key) ?? 0
+    const currentCount = readSignatureCount(currentCounts, key)
     const keep = Math.min(currentCount, desiredCount)
     if (keep > 0) {
       currentKeepLimits.set(key, keep)
@@ -529,12 +761,12 @@ export function diffRuleTesterItems(
   }
 
   const removalItemIds: number[] = []
-  const currentKeptCounts = new Map<string, number>()
+  const currentKeptCounts: RuleTesterItemSignatureCountMap = new Map()
   for (const item of currentItems) {
     if (retainManualItems && isManualTesterItem(item)) continue
-    const key = fingerprintRuleTesterItem(item)
-    const keepLimit = currentKeepLimits.get(key) ?? 0
-    const kept = currentKeptCounts.get(key) ?? 0
+    const key = signatureInterner.intern(item)
+    const keepLimit = readSignatureCount(currentKeepLimits, key)
+    const kept = readSignatureCount(currentKeptCounts, key)
     if (kept < keepLimit) {
       currentKeptCounts.set(key, kept + 1)
       continue
@@ -542,40 +774,40 @@ export function diffRuleTesterItems(
     removalItemIds.push(item.itemId)
   }
 
-  const pendingKeepLimits = new Map<string, number>()
+  const pendingKeepLimits: RuleTesterItemSignatureCountMap = new Map()
   for (const [key, desiredCount] of desiredCounts.entries()) {
-    const keptCurrent = currentKeepLimits.get(key) ?? 0
+    const keptCurrent = readSignatureCount(currentKeepLimits, key)
     const needFromPending = desiredCount - keptCurrent
     if (needFromPending > 0) {
       pendingKeepLimits.set(key, needFromPending)
     }
   }
 
-  const pendingRetainedCounts = new Map<string, number>()
+  const pendingRetainedCounts: RuleTesterItemSignatureCountMap = new Map()
   const retainedPending: TestItem[] = []
   for (const pending of pendingQueue) {
-    const key = fingerprintRuleTesterItem(pending)
-    const limit = pendingKeepLimits.get(key)
+    const key = signatureInterner.intern(pending)
+    const limit = readSignatureCount(pendingKeepLimits, key)
     if (!limit || limit <= 0) continue
-    const kept = pendingRetainedCounts.get(key) ?? 0
+    const kept = readSignatureCount(pendingRetainedCounts, key)
     if (kept >= limit) continue
     pendingRetainedCounts.set(key, kept + 1)
     retainedPending.push(pending)
   }
 
   const additions: TestItem[] = []
-  const satisfiedCounts = new Map<string, number>()
+  const satisfiedCounts: RuleTesterItemSignatureCountMap = new Map()
   for (const desired of desiredItems) {
-    const key = fingerprintRuleTesterItem(desired)
-    const satisfied = satisfiedCounts.get(key) ?? 0
-    const currentKeep = currentKeepLimits.get(key) ?? 0
-    const pendingKeep = pendingRetainedCounts.get(key) ?? 0
+    const key = signatureInterner.intern(desired)
+    const satisfied = readSignatureCount(satisfiedCounts, key)
+    const currentKeep = readSignatureCount(currentKeepLimits, key)
+    const pendingKeep = readSignatureCount(pendingRetainedCounts, key)
     const satisfiedLimit = currentKeep + pendingKeep
     if (satisfied < satisfiedLimit) {
       satisfiedCounts.set(key, satisfied + 1)
       continue
     }
-    const desiredCount = desiredCounts.get(key) ?? 0
+    const desiredCount = readSignatureCount(desiredCounts, key)
     if (satisfied < desiredCount) {
       additions.push(desired)
       satisfiedCounts.set(key, satisfied + 1)

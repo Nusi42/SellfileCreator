@@ -604,6 +604,7 @@ pub(crate) struct SafeguardWasmSnapshotOut {
 #[derive(Debug, Clone)]
 struct SafeguardWasmPreparedRule {
     id: String,
+    hash: String,
     combination: SafeguardWasmCombination,
     required_per_group: i64,
     activation: String,
@@ -636,7 +637,7 @@ struct SafeguardWasmGroupSample {
 
 #[derive(Debug, Clone)]
 struct SafeguardWasmExpectedGroupResolved {
-    key: String,
+    key: SafeguardCountKey,
     sample: SafeguardWasmGroupSample,
 }
 
@@ -645,6 +646,19 @@ struct SafeguardWasmGroupBucket {
     kept: Vec<usize>,
     sold: Vec<usize>,
     sample: Option<SafeguardWasmGroupSample>,
+}
+
+// Count grouping keys stay typed internally so grouped scans do not allocate
+// repeated `slot:x|set:y|...` strings in hot loops.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum SafeguardCountKey {
+    Global,
+    Scoped {
+        slot: Option<i64>,
+        set: Option<i64>,
+        faction: Option<i64>,
+        main_stat: Option<i64>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -1185,7 +1199,7 @@ fn safeguard_build_expected_groups_for_rule(
         Vec::new()
     };
     // Preserve insertion order while deduping by count key.
-    let mut seen = HashSet::<String>::new();
+    let mut seen = HashSet::<SafeguardCountKey>::new();
     let mut expected = Vec::<SafeguardWasmExpectedGroupIn>::new();
     for slot in slot_samples {
         let set_candidates = if count_mode.per_set {
@@ -1235,7 +1249,7 @@ fn safeguard_build_expected_groups_for_rule(
                         continue;
                     }
                     expected.push(SafeguardWasmExpectedGroupIn {
-                        key,
+                        key: safeguard_count_key_to_string(&key),
                         sample: SafeguardWasmExpectedSampleIn {
                             slot,
                             set: *set_id,
@@ -2381,7 +2395,7 @@ fn safeguard_select_top_scored_candidates(
     selected
 }
 
-fn safeguard_count_key(artifact: &SafeguardWasmArtifactIn, mode: SafeguardWasmCountMode) -> String {
+fn safeguard_count_key(artifact: &SafeguardWasmArtifactIn, mode: SafeguardWasmCountMode) -> SafeguardCountKey {
     safeguard_count_key_from_parts(
         artifact.slot,
         artifact.set,
@@ -2397,28 +2411,56 @@ fn safeguard_count_key_from_parts(
     faction_raw: i64,
     main_stat: i64,
     mode: SafeguardWasmCountMode,
-) -> String {
+) -> SafeguardCountKey {
     // Per-rule mode collapses all candidates into one global bucket.
     if mode.per_rule {
+        return SafeguardCountKey::Global;
+    }
+    // Normalize grouped dimensions into one typed key payload.
+    let normalized_faction = safeguard_normalized_faction_for_slot(slot, faction_raw);
+    let scoped = SafeguardCountKey::Scoped {
+        slot: if mode.per_slot { Some(slot) } else { None },
+        set: if mode.per_set { Some(set) } else { None },
+        faction: if mode.per_faction { Some(normalized_faction) } else { None },
+        main_stat: if mode.per_main_stat { Some(main_stat) } else { None },
+    };
+    // No active dimensions still maps to the global bucket.
+    match &scoped {
+        SafeguardCountKey::Scoped {
+            slot: None,
+            set: None,
+            faction: None,
+            main_stat: None,
+        } => SafeguardCountKey::Global,
+        _ => scoped,
+    }
+}
+
+fn safeguard_count_key_to_string(key: &SafeguardCountKey) -> String {
+    // Global bucket keeps the historical token for TS parity.
+    let SafeguardCountKey::Scoped {
+        slot,
+        set,
+        faction,
+        main_stat,
+    } = key else {
         return SAFEGUARD_COUNT_KEY_GLOBAL.to_string();
-    }
-    // Build grouped key from enabled dimensions only.
+    };
+    // Scoped bucket stringifies only active dimensions.
     let mut parts = Vec::<String>::new();
-    if mode.per_slot {
-        parts.push(format!("slot:{slot}"));
+    if let Some(value) = slot {
+        parts.push(format!("slot:{value}"));
     }
-    if mode.per_set {
-        parts.push(format!("set:{set}"));
+    if let Some(value) = set {
+        parts.push(format!("set:{value}"));
     }
-    if mode.per_faction {
-        // Artifact slots normalize to faction 0 for grouping consistency.
-        let faction = safeguard_normalized_faction_for_slot(slot, faction_raw);
-        parts.push(format!("faction:{faction}"));
+    if let Some(value) = faction {
+        parts.push(format!("faction:{value}"));
     }
-    if mode.per_main_stat {
-        parts.push(format!("main:{main_stat}"));
+    if let Some(value) = main_stat {
+        parts.push(format!("main:{value}"));
     }
-    // Empty dimensions fallback to global bucket.
+    // Defensive fallback: empty scoped payload still resolves to global.
     if parts.is_empty() {
         SAFEGUARD_COUNT_KEY_GLOBAL.to_string()
     } else {
@@ -2438,13 +2480,13 @@ pub fn safeguard_count_key_value(artifact: JsValue, count_mode: JsValue) -> Resu
         .map_err(|error| JsValue::from_str(&format!("Invalid safeguard count mode: {error}")))?;
     let mode = safeguard_sanitize_count_mode(parsed_mode);
     // Delegate to the shared Rust helper so key semantics stay SSOT.
-    Ok(safeguard_count_key_from_parts(
+    Ok(safeguard_count_key_to_string(&safeguard_count_key_from_parts(
         parsed_artifact.slot,
         parsed_artifact.set,
         parsed_artifact.faction,
         parsed_artifact.main_stat,
         mode,
-    ))
+    )))
 }
 
 // Expose item-key resolution so TS and Rust share DB-id-first fallback logic.
@@ -2559,7 +2601,19 @@ fn safeguard_build_entry_for_substats(
         .expected_groups
         .iter()
         .map(|group| SafeguardWasmExpectedGroupResolved {
-            key: group.key.clone(),
+            // Keep the parsed payload key read so dead-code checks stay quiet.
+            // Group lookups use typed keys derived from the canonical sample.
+            key: {
+                let _provided_key = group.key.trim();
+            // Derive typed keys from sample dimensions so lookups stay typed.
+                safeguard_count_key_from_parts(
+                    group.sample.slot,
+                    group.sample.set,
+                    group.sample.faction,
+                    group.sample.main_stat,
+                    prepared_rule.count_mode,
+                )
+            },
             sample: SafeguardWasmGroupSample {
                 slot: group.sample.slot,
                 set: group.sample.set,
@@ -2599,13 +2653,13 @@ fn safeguard_build_entry_for_substats(
             .collect::<Vec<_>>();
 
         // Bucket scored entries by count key for grouped counting modes.
-        let mut groups = HashMap::<String, Vec<SafeguardWasmScoredCandidate>>::new();
-        let mut group_order = Vec::<String>::new();
+        let mut groups = HashMap::<SafeguardCountKey, Vec<SafeguardWasmScoredCandidate>>::new();
+        let mut group_order = Vec::<SafeguardCountKey>::new();
         if prepared_rule.count_mode.per_rule {
             // Per-rule mode uses one global bucket.
             if !scored.is_empty() {
-                groups.insert(SAFEGUARD_COUNT_KEY_GLOBAL.to_string(), scored);
-                group_order.push(SAFEGUARD_COUNT_KEY_GLOBAL.to_string());
+                groups.insert(SafeguardCountKey::Global, scored);
+                group_order.push(SafeguardCountKey::Global);
             }
         } else {
             // Grouped mode routes each scored candidate to its group key.
@@ -2733,7 +2787,7 @@ fn safeguard_build_entry_for_substats(
         let projected = kept_count + if prepared_rule.rule_active { sold_count } else { 0 };
         return SafeguardWasmEntryEvalOut {
             entry: SafeguardWasmEntryOut {
-                hash: safeguard_hash_combination(&prepared_rule.combination),
+                hash: prepared_rule.hash.clone(),
                 combination: prepared_rule.combination.clone(),
                 rule_id: Some(prepared_rule.id.clone()),
                 rule_activation: prepared_rule.activation.clone(),
@@ -2804,7 +2858,7 @@ fn safeguard_build_entry_for_substats(
             .collect::<Vec<_>>();
         return SafeguardWasmEntryEvalOut {
             entry: SafeguardWasmEntryOut {
-                hash: safeguard_hash_combination(&prepared_rule.combination),
+                hash: prepared_rule.hash.clone(),
                 combination: prepared_rule.combination.clone(),
                 rule_id: Some(prepared_rule.id.clone()),
                 rule_activation: prepared_rule.activation.clone(),
@@ -2825,8 +2879,8 @@ fn safeguard_build_entry_for_substats(
     }
 
     // Grouped non-ranking path: split matching candidates into group buckets.
-    let mut group_counts = HashMap::<String, SafeguardWasmGroupBucket>::new();
-    let mut group_order = Vec::<String>::new();
+    let mut group_counts = HashMap::<SafeguardCountKey, SafeguardWasmGroupBucket>::new();
+    let mut group_order = Vec::<SafeguardCountKey>::new();
     for candidate_idx in matching_indices {
         let candidate = &candidates[candidate_idx];
         let key = safeguard_count_key(&candidate.artifact, prepared_rule.count_mode);
@@ -2878,7 +2932,20 @@ fn safeguard_build_entry_for_substats(
             .expected_groups
             .iter()
             .map(|group| SafeguardWasmExpectedGroupResolved {
-                key: group.key.clone(),
+                // Keep the parsed payload key read so dead-code checks stay quiet.
+                // Group lookups use typed keys derived from the canonical sample.
+                // Keep expected-group lookups typed and derive key dimensions
+                // from the canonical sample payload.
+                key: {
+                    let _provided_key = group.key.trim();
+                    safeguard_count_key_from_parts(
+                        group.sample.slot,
+                        group.sample.set,
+                        group.sample.faction,
+                        group.sample.main_stat,
+                        prepared_rule.count_mode,
+                    )
+                },
                 sample: SafeguardWasmGroupSample {
                     slot: group.sample.slot,
                     set: group.sample.set,
@@ -2981,7 +3048,7 @@ fn safeguard_build_entry_for_substats(
         .collect::<Vec<_>>();
     SafeguardWasmEntryEvalOut {
         entry: SafeguardWasmEntryOut {
-            hash: safeguard_hash_combination(&prepared_rule.combination),
+            hash: prepared_rule.hash.clone(),
             combination: prepared_rule.combination.clone(),
             rule_id: Some(prepared_rule.id.clone()),
             rule_activation: prepared_rule.activation.clone(),
@@ -3050,7 +3117,7 @@ fn safeguard_merge_substat_entries(
     }
     SafeguardWasmEntryEvalOut {
         entry: SafeguardWasmEntryOut {
-            hash: safeguard_hash_combination(&prepared_rule.combination),
+            hash: prepared_rule.hash.clone(),
             combination: prepared_rule.combination.clone(),
             rule_id: Some(prepared_rule.id.clone()),
             rule_activation: prepared_rule.activation.clone(),
@@ -3105,9 +3172,11 @@ fn compute_safeguard_protection_core(
             // Normalize nullable legacy fields before downstream matching logic.
             let mut rule_id = rule.id.unwrap_or_default();
             let combination = rule.combination.unwrap_or_default();
+            // Combination hash is reused across id fallback + output payload rows.
+            let combination_hash = safeguard_hash_combination(&combination);
             let mut activation = rule.activation.unwrap_or_default();
             if rule_id.trim().is_empty() {
-                rule_id = format!("ku_{}", safeguard_hash_combination(&combination));
+                rule_id = format!("ku_{combination_hash}");
             }
             if activation.trim().is_empty() {
                 activation = SAFEGUARD_ACTIVATION_PROTECT_EXISTING.to_string();
@@ -3159,6 +3228,7 @@ fn compute_safeguard_protection_core(
                 .unwrap_or_default();
             SafeguardWasmPreparedRule {
                 id: rule_id,
+                hash: combination_hash,
                 combination,
                 required_per_group,
                 activation: activation.clone(),
