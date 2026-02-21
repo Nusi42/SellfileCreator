@@ -62,7 +62,15 @@ export function GearDbDiffToast({
   const singleSidedKind = resolveSingleSidedDiffKind(payload.entries)
   // Stack header, list, and overflow summary vertically.
   return (
-    <Stack spacing={TOAST_ENTRY_GAP_UNITS} sx={{ minWidth: 260, maxWidth: 520 }}>
+    <Stack
+      spacing={TOAST_ENTRY_GAP_UNITS}
+      sx={{
+        minWidth: 260,
+        maxWidth: 520,
+        // Clip wide diff-card content instead of exposing a horizontal scrollbar in the toast.
+        overflowX: 'hidden',
+      }}
+    >
       {headerLineNodes.length > 0 ? (
         <Stack spacing={0.35}>
           {headerLineNodes.map((line, index) => (
@@ -203,6 +211,8 @@ function GearDbDiffToastItem({ entry, substatColors, useStatButtonColors }: Toas
         gridTemplateColumns: 'auto auto auto',
         alignItems: 'center',
         columnGap: 0.75,
+        // Keep oversized rows clipped inside the toast body.
+        overflowX: 'hidden',
       }}
     >
       {left}
@@ -258,6 +268,8 @@ function GearDbDiffSingleSidedGrid({
         gridTemplateColumns: 'auto auto',
         columnGap: 0.75,
         rowGap: TOAST_ENTRY_GAP_UNITS,
+        // Diff cards can be wider than the toast on small viewports; clip instead of scrolling.
+        overflowX: 'hidden',
       }}
     >
       {entries.map((entry, index) => {

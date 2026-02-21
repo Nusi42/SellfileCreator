@@ -6043,6 +6043,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               minWidth: gearDbCommandToast.diff ? 320 : 240,
               maxWidth: 560,
               whiteSpace: gearDbCommandToast.diff ? 'normal' : 'pre-line',
+              // Diff toasts should clip overwide content instead of rendering a horizontal scrollbar.
+              overflowX: 'hidden',
             }}
           >
             {gearDbCommandToast.diff
