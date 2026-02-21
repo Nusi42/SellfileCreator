@@ -267,3 +267,63 @@ test('prefers the most likely safeguard for matchedRuleId when multiple safeguar
   assert.equal(chance?.matchedRuleId, 'sg_spd_best')
   assert.equal(chance?.debug?.selectedSubstats.join(','), String(StatVariant.SPD))
 })
+
+test('breaks equal-chance safeguard ties by higher matching substat count', () => {
+  const candidate = makeArtifact({
+    id: 51,
+    level: 0,
+    rarity: 6,
+    substats: [
+      makeSubstat(StatVariant.SPD, 6, 0),
+      makeSubstat(StatVariant.HP, 6, 0),
+    ],
+  })
+  const chance = buildSafeguardUpgradeChanceByArtifactId(
+    [candidate],
+    [
+      {
+        ...makeSpdSafeguardRule('sg_less_matching'),
+        substats: [StatVariant.SPD, StatVariant.ACC],
+        substatMatch: SafeguardSubstatMatch.Any,
+      },
+      {
+        ...makeSpdSafeguardRule('sg_more_matching'),
+        substats: [StatVariant.SPD, StatVariant.HP],
+        substatMatch: SafeguardSubstatMatch.Any,
+      },
+    ],
+  ).get(51)
+  assert.equal(Boolean(chance?.hasMatchingSafeguard), true)
+  assert.equal(chance?.chancePercent, 100)
+  assert.equal(chance?.matchedRuleId, 'sg_more_matching')
+})
+
+test('breaks equal-chance + equal-match ties by safeguard list order', () => {
+  const candidate = makeArtifact({
+    id: 52,
+    level: 0,
+    rarity: 6,
+    substats: [
+      makeSubstat(StatVariant.SPD, 6, 0),
+      makeSubstat(StatVariant.HP, 6, 0),
+    ],
+  })
+  const chance = buildSafeguardUpgradeChanceByArtifactId(
+    [candidate],
+    [
+      {
+        ...makeSpdSafeguardRule('sg_top_rule'),
+        substats: [StatVariant.SPD, StatVariant.ACC],
+        substatMatch: SafeguardSubstatMatch.Any,
+      },
+      {
+        ...makeSpdSafeguardRule('sg_bottom_rule'),
+        substats: [StatVariant.SPD, StatVariant.RES],
+        substatMatch: SafeguardSubstatMatch.Any,
+      },
+    ],
+  ).get(52)
+  assert.equal(Boolean(chance?.hasMatchingSafeguard), true)
+  assert.equal(chance?.chancePercent, 100)
+  assert.equal(chance?.matchedRuleId, 'sg_top_rule')
+})
