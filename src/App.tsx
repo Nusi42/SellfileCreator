@@ -226,7 +226,8 @@ import {
   resolveArtifactItemIdWithFallback,
 } from './lib/itemIdentity'
 // Local tag for tester reset triggers; persists only in memory.
-type TesterMatchResetReason = 'restore' | 'hsfc' | 'gearDb'
+// Endpoint pushes get their own reason so the tester grid can stay interactive.
+type TesterMatchResetReason = 'restore' | 'hsfc' | 'gearDbManual' | 'gearDbEndpoint'
 import { getRecipeHoverIndex, setRecipeHoverIndex, subscribeRecipeHover } from './lib/recipeHoverBridge'
 import { useBuilderPreviewLayout } from './hooks/useBuilderPreviewLayout'
 import { getDirtyBuilderFieldKeys, cloneBuilderRecipe } from './lib/multiEditDraft'
@@ -393,6 +394,8 @@ type TesterArtifactFocusRequest = {
   artifactId: number
   token: number
 }
+// Tag tester rebuild origin so endpoint pushes can keep card interactions alive.
+type TesterBuildOrigin = 'user' | 'endpoint'
 
 // Inserts/updates still flow through the worker; the UI only handles pure reorders locally.
 
@@ -570,6 +573,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [gearEntriesBuilding, setGearEntriesBuilding] = useState(false)
   const [gearEntriesCommittedBuildId, setGearEntriesCommittedBuildId] = useState(0)
   const [gearEntriesActiveBuildId, setGearEntriesActiveBuildId] = useState(0)
+  // Track which source initiated the active tester build.
+  const [activeTesterBuildOrigin, setActiveTesterBuildOrigin] = useState<TesterBuildOrigin>('user')
+  // Queue origin for the next pipeline launch (defaults to user interactions).
+  const nextTesterBuildOriginRef = useRef<TesterBuildOrigin>('user')
   // Track tester-row progress separately so the preview chips can show determinate progress.
   const [gearEntriesProgress, setGearEntriesProgress] = useState<ProgressSnapshot | null>(null)
   const gearEntriesBuildingRef = useRef(gearEntriesBuilding)
@@ -579,6 +586,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const testerMatchResetRef = useRef<{ reason: TesterMatchResetReason; targetBuildId: number; startedAt: number } | null>(null)
   const [testerMatchResetReason, setTesterMatchResetReason] = useState<TesterMatchResetReason | null>(null)
   const beginTesterMatchReset = useCallback((reason: TesterMatchResetReason) => {
+    // Endpoint pushes should keep grid interactions available during rebuilds.
+    nextTesterBuildOriginRef.current = reason === 'gearDbEndpoint' ? 'endpoint' : 'user'
     const targetBuildId = gearEntriesActiveBuildId > gearEntriesCommittedBuildId
       ? gearEntriesActiveBuildId
       : gearEntriesCommittedBuildId + 1
@@ -824,6 +833,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Keep matcher rows available regardless of which pane is currently visible.
     const includeMatchesInPipeline = true
     const launchPipeline = () => {
+      // Consume queued origin once so later user edits fall back to interactive guards.
+      const queuedBuildOrigin = nextTesterBuildOriginRef.current
+      nextTesterBuildOriginRef.current = 'user'
       const requestToken = (rulesBuildingTokenRef.current ?? 0) + 1
       rulesBuildingTokenRef.current = requestToken
       const shouldTrackTesterBuild = includeMatchesInPipeline || Boolean(testerMatchResetRef.current)
@@ -831,6 +843,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Build/progress toggles fan out through many memoized panels; transition them
       // so user input stays responsive while the worker pipeline spins up.
       startTransition(() => {
+        setActiveTesterBuildOrigin(queuedBuildOrigin)
         setRulesBuilding(true)
         setRulesBuildProgress(null)
         // Rules preview mode skips tester rows, so avoid flipping tester build state/progress.
@@ -3107,7 +3120,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const desiredTesterItems = combined.map((artifact) => artifact.testerItem)
       const { removedCount, addedCount } = applyGearDbDiff(desiredTesterItems)
       if (removedCount > 0 || addedCount > 0) {
-        beginTesterMatchReset('gearDb')
+        beginTesterMatchReset(source === 'command' ? 'gearDbEndpoint' : 'gearDbManual')
       }
       const inboxCount = inboxArtifacts.length
       const totalCount = combined.length
@@ -3223,8 +3236,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Diff the tester queue so only net changes are enqueued.
       const { removedCount, addedCount } = applyGearDbDiff(testerItems)
       if (removedCount > 0 || addedCount > 0) {
-        // Rebuild tester matches when the queue changed.
-        beginTesterMatchReset('gearDb')
+        // Endpoint snapshots should refresh matches without dimming card details.
+        beginTesterMatchReset('gearDbEndpoint')
       }
       // Empty snapshots should still show a clear error status.
       const totalCount = artifactCount + inboxCount
@@ -3319,8 +3332,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Apply the gear diff so only net changes hit the tester queue.
       const { removedCount, addedCount } = applyGearDbDiff(testerItems)
       if (removedCount > 0 || addedCount > 0) {
-        // Rebuild tester matches when the queue changed.
-        beginTesterMatchReset('gearDb')
+        // Endpoint deltas should refresh matches without dimming card details.
+        beginTesterMatchReset('gearDbEndpoint')
       }
       // Capture a shared timestamp so badge + history remain aligned.
       const queuedAt = Date.now()
@@ -3613,7 +3626,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [describeNextChange, safeguardRules, metasets, setSafeguardRulesTransition, setSafeguardsEnabledTransition])
   const handleResetGearTesterItems = useCallback(() => {
     // Treat manual resets like a full gear-db refresh so matcher + safeguard detection clear immediately.
-    beginTesterMatchReset('gearDb')
+    beginTesterMatchReset('gearDbManual')
     // Gear resets can clear large lists; schedule non-urgent.
     setTesterItemsTransition([])
   }, [beginTesterMatchReset, setTesterItemsTransition])
@@ -3897,8 +3910,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const hasManualTesterRows = useMemo(() => (
     testerPreviewRows.some((row) => row.artifact.source === 'tester')
   ), [testerPreviewRows])
-  const suppressTesterMatchDetails = testerMatchDetailsFrozen
+  // Endpoint DB pushes are frequent; keep matcher rows clickable while those builds run.
+  const endpointDrivenTesterBuild = gearEntriesBuilding && activeTesterBuildOrigin === 'endpoint'
+  // Reset reasons can outlive build flags briefly; treat endpoint resets as non-dimming too.
+  const endpointDrivenTesterReset = testerMatchResetReason === 'gearDbEndpoint'
+  const suppressTesterMatchDetails = !(endpointDrivenTesterBuild || endpointDrivenTesterReset) && (
+    testerMatchDetailsFrozen
     || gearEntriesBuilding
+  )
   const testerBuilding = gearEntriesBuilding || rulesBuilding
   const matchingRecipeIndices = filterResult.matchingRecipeIndices
   const testerMatchingRecipeIndices = testerFilterResult.matchingRecipeIndices

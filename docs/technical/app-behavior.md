@@ -174,6 +174,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Stat color controls, color-blind mode toggles, and the Manage Colors dialog are shared with the Rule Tester so palette tweaks stay synchronized across tabs.
 - Jump-to-recipe wiring (`onJumpToRule`) mirrors the Rule Tester: clicking a matching-recipe chip in the grid still focuses the builder rule, even while the Safeguards tab is active.
 - Matcher rebuilds run through the unified rule-cache worker pipeline (rules + matches + safeguard detection in one request). While the worker processes a build, the Safeguard grid keeps rendering the last applied matches until the new worker commit arrives.
+- Endpoint-driven Gear DB snapshot/delta pushes no longer dim or disable Rule Tester match chips while the worker rebuild runs; only user-initiated gear resets/imports keep the temporary stale-match dim/lock guard.
 
 ### Sellfile preview integration
 
