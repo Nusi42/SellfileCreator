@@ -21,6 +21,9 @@ type PipelineParams = {
   hsf: HsfFile | null
   finalSellRemainder?: FinalSellRemainderConfig
   safeguards: SafeguardsMergeInput
+  // In-app rule transforms run before safeguard evaluation in the worker.
+  omitDisabledBeforeSafeguards: boolean
+  dedupeBeforeSafeguards: boolean
   recipeModes: SellfileExportMode[]
   artifacts: NormalizedGearArtifact[]
 }
@@ -334,6 +337,8 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         hsf: params.hsf,
         ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
         safeguards: params.safeguards,
+        omitDisabledBeforeSafeguards: params.omitDisabledBeforeSafeguards === true,
+        dedupeBeforeSafeguards: params.dedupeBeforeSafeguards === true,
         recipeModes: params.recipeModes,
         artifacts: params.artifacts,
         emitProgressEvents: Boolean(onProgress),

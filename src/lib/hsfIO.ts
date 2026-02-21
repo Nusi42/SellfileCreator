@@ -9,7 +9,6 @@
  * Core builder logic lives in `hsfBuilder.ts`, and HSF type definitions in `hsfTypes.ts`.
  */
 import type { HsfFile, HsfRule } from './hsfTypes'
-import { dedupeHsfRulesForExport } from './hsfDeduplicate'
 import { getRuleRecipeIndex, normalizeRecipeName } from './ruleRecipeIndex'
 
 type HsfRuleWithRecipe = ReturnType<(typeof import('./merge'))['computeMergedRules']>[number]
@@ -138,11 +137,4 @@ export function buildHsfFileFromMerged(rules: ExportableRule[], options?: Export
 /** Convert an HSF file object to a Blob ready to download. */
 export function hsfToBlob(file: HsfFile): Blob {
   return new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' })
-}
-
-/** Build a deduplicated HSF file object from merged rules (dev export helper). */
-export function buildDedupedHsfFileFromMerged(rules: HsfRuleWithRecipe[], options?: ExportMetadataOptions): HsfFile {
-  const deduped = dedupeHsfRulesForExport(rules)
-  const prepared = applyRecipeNamesForExport(deduped, options)
-  return cleanHsfForExport(prepared)
 }

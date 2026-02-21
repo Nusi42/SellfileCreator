@@ -63,6 +63,7 @@ All documents describe the *current* implementation; update the relevant file wh
 - Pipeline requests now carry a monotonic `generation` id; stale in-flight runs are discarded so only the newest payload can update preview state.
 - Worker-backed matcher pipelines run through a single-flight scheduler (`useRuleCacheWorker`): one active run, one latest queued payload. New payloads supersede active work immediately.
 - Pipeline calls now send full artifact arrays per run (no patch payloads, warm fingerprints, or artifact/detection signature caches).
+- Sellfile toggles `dedupeDefault` and `omitDisabledForExport` now run as in-app transforms before safeguard detection/injection, so preview/matcher/safeguard pipelines and exports share one ruleset.
 - Browser builds require worker-backed rule-cache execution; the hook no longer provides a main-thread fallback pipeline.
 - `computeKeepUniqueProtection` reads the normalized preview gear and emits combination stats (`currentCount`, `keptCount`, `projectedCount`, `coveredByExisting`, `deficit`, gear ids) that the UI and safeguard-rule generator consume.
 - Safeguard expected-group expansion (slot/set/faction/main-scope cartesian products used for per-group deficits) now runs entirely in WASM using a shared domain payload from TS.

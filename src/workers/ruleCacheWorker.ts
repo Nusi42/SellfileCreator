@@ -127,7 +127,7 @@ const countRulesForRecipesWithWorkerCache = (
 
 const buildPipelineState = (
   payload: Extract<RuleCacheWorkerRequest, { kind: 'pipeline' }>['payload'],
-): { state: PipelineState; mergedRules: HsfRuleWithRecipe[] } => {
+): { state: PipelineState } => {
   const recipesForRules = recipesForRuleBuild(payload.recipes)
   const baseRuleCount = Array.isArray(payload.hsf?.Rules) ? (payload.hsf?.Rules.length ?? 0) : 0
   const result = updateRecipeRulesCache({
@@ -136,15 +136,6 @@ const buildPipelineState = (
     substatTargets: payload.substatTargets,
     baseRuleCount,
     finalizeGeneratedRules: finalizeGeneratedRulesForWorker,
-  })
-  const mergedRules = computeMergedRules({
-    hsf: payload.hsf,
-    customRecipes: recipesForRules,
-    metasets: payload.metasets,
-    substatTargets: payload.substatTargets,
-    ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
-    prebuiltCustomRules: result.rulesByRecipe,
-    safeguards: payload.safeguards,
   })
   const state: PipelineState = {
     rulesByRecipe: result.rulesByRecipe,
@@ -156,7 +147,7 @@ const buildPipelineState = (
     excludedByTotalLimitIndices: result.excludedByTotalLimitIndices.slice(),
     recipesForRules,
   }
-  return { state, mergedRules }
+  return { state }
 }
 
 const resolveItemId = (artifact: NormalizedGearArtifact, fallbackIdx?: number): number => {
@@ -342,6 +333,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
       prebuiltCustomRules,
       safeguards: baseSafeguards,
+      // Apply app-level transforms before safeguard detection/injection.
+      omitDisabledBeforeSafeguards: payload.omitDisabledBeforeSafeguards,
+      dedupeBeforeSafeguards: payload.dedupeBeforeSafeguards,
     })
 
     const baselineMatchMap = new Map<number, TesterMatchWorkerItemResult>()
@@ -432,6 +426,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         ...payload.safeguards,
         detection: safeguardDetectionSnapshot,
       },
+      // Keep final matcher output aligned with baseline transformed rules.
+      omitDisabledBeforeSafeguards: payload.omitDisabledBeforeSafeguards,
+      dedupeBeforeSafeguards: payload.dedupeBeforeSafeguards,
     })
 
     const finalProgressRef = { value: completed }

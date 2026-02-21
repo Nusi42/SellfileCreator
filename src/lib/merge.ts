@@ -243,8 +243,21 @@ export function computeMergedRules(params: {
   finalSellRemainder?: FinalSellRemainderConfig
   prebuiltCustomRules?: ReadonlyMap<number, readonly HsfRuleWithRecipe[]>
   safeguards?: SafeguardsMergeInput
+  // Apply app-level transforms to generated rows before safeguard processing.
+  omitDisabledBeforeSafeguards?: boolean
+  dedupeBeforeSafeguards?: boolean
 }): HsfRuleWithRecipe[] {
-  const { hsf, customRecipes, metasets, substatTargets, finalSellRemainder, prebuiltCustomRules, safeguards } = params
+  const {
+    hsf,
+    customRecipes,
+    metasets,
+    substatTargets,
+    finalSellRemainder,
+    prebuiltCustomRules,
+    safeguards,
+    omitDisabledBeforeSafeguards,
+    dedupeBeforeSafeguards,
+  } = params
 
   // Always strip any foreign/internal fields (e.g., __lineIdx) from base HSF rules
   const baseRaw = hsf?.Rules ?? []
@@ -295,6 +308,8 @@ export function computeMergedRules(params: {
     customRules: customs,
     finalSellRemainder: finalSellRemainder ?? null,
     allKnownSetIds: getAllKnownArtifactSetIds().map((id) => Number(id)),
+    omitDisabledBeforeSafeguards: omitDisabledBeforeSafeguards === true,
+    dedupeBeforeSafeguards: dedupeBeforeSafeguards === true,
     safeguardEnabled: safeguardsInput != null,
     safeguardRules: safeguardsInput?.rules ?? [],
     safeguardDetection: safeguardsInput?.detection ?? null,

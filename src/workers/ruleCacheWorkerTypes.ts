@@ -36,6 +36,9 @@ export type RuleCachePipelineRequest = {
     hsf: HsfFile | null
     finalSellRemainder?: FinalSellRemainderConfig
     safeguards: SafeguardsMergeInput
+    // Apply app-wide export-mode transforms before safeguard evaluation/injection.
+    omitDisabledBeforeSafeguards: boolean
+    dedupeBeforeSafeguards: boolean
     recipeModes: SellfileExportMode[]
     artifacts: NormalizedGearArtifact[]
     emitProgressEvents?: boolean

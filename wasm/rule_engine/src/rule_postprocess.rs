@@ -207,6 +207,8 @@ fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
         custom_rules,
         final_sell_remainder,
         all_known_set_ids,
+        omit_disabled_before_safeguards,
+        dedupe_before_safeguards,
         safeguard_enabled,
         safeguard_rules,
         safeguard_detection,
@@ -235,9 +237,23 @@ fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
         &all_known_set_ids,
     );
 
-    // Safeguard merge prepends injected rows ahead of base when enabled.
-    let base_with_keep = if safeguard_enabled {
-        let base_without_keep = base_rules
+    // Merge generated rows before safeguards so app-level transforms can run once.
+    let mut generated_rules = Vec::<RuleRaw>::new();
+    generated_rules.extend(base_rules);
+    generated_rules.extend(custom_rules);
+    generated_rules.extend(final_sell_rules);
+    // Omit-disabled now applies to the in-app pipeline, not only file export.
+    if omit_disabled_before_safeguards {
+        generated_rules.retain(|rule| rule.Use.unwrap_or(true));
+    }
+    // Default dedupe now transforms the in-app ruleset before safeguards.
+    if dedupe_before_safeguards {
+        generated_rules = rule_dedupe::dedupe_hsf_rules_for_export_core(&generated_rules);
+    }
+
+    // Safeguard merge prepends injected rows ahead of the transformed base set.
+    let mut merged = if safeguard_enabled {
+        let base_without_keep = generated_rules
             .iter()
             .filter(|rule| rule.source.as_deref() != Some(RULE_SOURCE_SAFEGUARDS))
             .cloned()
@@ -251,23 +267,18 @@ fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
         } else {
             Vec::<RuleRaw>::new()
         };
+        // Base already includes custom/final rows after transforms, so one input is sufficient.
         let sorted_keep_rules = merge_safeguard_injected_rules_core(
             base_without_keep.clone(),
-            custom_rules.clone(),
+            Vec::<RuleRaw>::new(),
             candidate_keep_rules,
         );
-        let mut merged_base = sorted_keep_rules;
-        merged_base.extend(base_without_keep);
-        merged_base
+        let mut with_keep = sorted_keep_rules;
+        with_keep.extend(base_without_keep);
+        with_keep
     } else {
-        base_rules
+        generated_rules
     };
-
-    // Final merged ordering mirrors merge.ts: keep/base, then custom, then final-sell.
-    let mut merged = Vec::<RuleRaw>::new();
-    merged.extend(base_with_keep);
-    merged.extend(custom_rules);
-    merged.extend(final_sell_rules);
     // Assign stable preview line indices used by filtered tables.
     for (idx, rule) in merged.iter_mut().enumerate() {
         rule.line_idx = Some(idx as i64);

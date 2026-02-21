@@ -524,6 +524,9 @@ export const computeMergedRulesWithLoadedWasm = (params: {
   customRules: HsfRuleWithRecipe[]
   finalSellRemainder: FinalSellRemainderConfig | null | undefined
   allKnownSetIds: number[]
+  // Transform generated HSF rows before safeguard evaluation/injection.
+  omitDisabledBeforeSafeguards: boolean
+  dedupeBeforeSafeguards: boolean
   safeguardEnabled: boolean
   safeguardRules: readonly SafeguardRule[]
   safeguardDetection: SafeguardDetectionSnapshot | null | undefined
@@ -535,6 +538,8 @@ export const computeMergedRulesWithLoadedWasm = (params: {
     customRules: params.customRules,
     finalSellRemainder: params.finalSellRemainder ?? null,
     allKnownSetIds: params.allKnownSetIds,
+    omitDisabledBeforeSafeguards: params.omitDisabledBeforeSafeguards === true,
+    dedupeBeforeSafeguards: params.dedupeBeforeSafeguards === true,
     // Rust uses canonical safeguard payload keys for merged-rule orchestration.
     safeguardEnabled: params.safeguardEnabled === true,
     safeguardRules: params.safeguardRules,

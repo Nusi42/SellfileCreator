@@ -9,7 +9,7 @@
  */
 import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, type ReactNode } from 'react'
 import { APP_VERSION } from './version'
-import { readHsfFile, buildHsfFileFromMerged, buildDedupedHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
+import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
 import { EXTERNAL_WS_METHOD_UPLOAD_SELLFILE } from './lib/externalWsProtocol'
 import type { ExternalCommand, GearDbRawDeltaCommand, GearDbRawSnapshotCommand } from './lib/externalCommands'
@@ -186,7 +186,7 @@ function coerceWsEndpointToHttp(endpoint: string): string | null {
   }
   return null
 }
-import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
+import { sellfileFilename, hsfcFilename } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
 import { cloneMetaset, defaultMetasets, type Metaset } from './lib/metasets'
@@ -427,6 +427,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   } = useAppActions()
   const [safeguardsGridFilterMode, setSafeguardsGridFilterMode] = useSafeguardsGridFilterMode()
   const { runPipeline, flush: flushRuleCache, countRules } = useRuleCacheWorker()
+  // These toggles now drive in-app rule transforms, not export-only behavior.
+  const [dedupeDefault, setDedupeDefault] = useSellfileDedupPreference()
+  const [omitDisabledForExport, setOmitDisabledForExport] = useSellfileOmitDisabledPreference()
   const { statButtonBorders } = useDisplayPreferences()
   const [autoApplySelectedRecipe] = useAutoApplySelectedRecipePreference()
   const { setStatButtonBorders } = useDisplayPreferenceActions()
@@ -721,6 +724,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         rules: resolvedSafeguardRules,
         detection: safeguardsActive ? safeguardDetection : null,
       },
+      // Keep in-app transforms aligned with worker pipeline semantics.
+      omitDisabledBeforeSafeguards: omitDisabledForExport,
+      dedupeBeforeSafeguards: dedupeDefault,
     })
     const { baseRules, finalSellRules } = splitMergedRules(mergedRules)
     return {
@@ -877,6 +883,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         hsf,
         ...(finalSellRemainder ? { finalSellRemainder } : {}),
         safeguards: safeguardsPayload,
+        // Apply in-app transforms before safeguards in the worker pipeline.
+        omitDisabledBeforeSafeguards: omitDisabledForExport,
+        dedupeBeforeSafeguards: dedupeDefault,
         recipeModes: recipeModesForBuild,
         artifacts: testerPreviewArtifacts,
       }
@@ -1110,6 +1119,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     effectiveSubstatTargets,
     hsf,
     finalSellRemainder,
+    omitDisabledForExport,
+    dedupeDefault,
     safeguardsEnabled,
     resolvedSafeguardRules,
     recipeModes,
@@ -2581,21 +2592,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }
 
-  const [dedupeDefault, setDedupeDefault] = useSellfileDedupPreference()
-  const [omitDisabledForExport, setOmitDisabledForExport] = useSellfileOmitDisabledPreference()
-  const exportRules = useMemo(
-    () => (omitDisabledForExport ? mergedRules.filter((rule) => rule?.Use !== false) : mergedRules),
-    [mergedRules, omitDisabledForExport],
-  )
-  const exportRulesCountRef = useRef(exportRules.length)
-  useEffect(() => { exportRulesCountRef.current = exportRules.length }, [exportRules.length])
+  const exportRulesCountRef = useRef(mergedRules.length)
+  useEffect(() => { exportRulesCountRef.current = mergedRules.length }, [mergedRules.length])
   // Keep export payload creation lazy so large merged-rule snapshots do not run on every render.
   const buildExportPayload = useCallback(() => (
-    buildHsfFileFromMerged(exportRules, { recipeNames })
-  ), [exportRules, recipeNames])
-  const buildDedupedExportPayload = useCallback(() => (
-    buildDedupedHsfFileFromMerged(exportRules, { recipeNames })
-  ), [recipeNames, exportRules])
+    buildHsfFileFromMerged(mergedRules, { recipeNames })
+  ), [mergedRules, recipeNames])
   type ExportDirtyMetasetDigest = { id: string; sets: number[] }
   type ExportDirtySafeguardRuleDigest = {
     id: string
@@ -2641,7 +2643,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     safeguardRules: ExportDirtySafeguardRuleDigest[]
     safeguardDetection: ExportDirtyDetectionDigest[] | null
     mergedRuleCount: number
-    exportRuleCount: number
   }
 
   const numberArraysEqual = (left: number[], right: number[]): boolean => {
@@ -2732,7 +2733,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       || left.baseHsfRuleCount !== right.baseHsfRuleCount
       || left.safeguardsEnabled !== right.safeguardsEnabled
       || left.mergedRuleCount !== right.mergedRuleCount
-      || left.exportRuleCount !== right.exportRuleCount
     ) {
       return false
     }
@@ -2833,7 +2833,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       safeguardRules: safeguardRuleDigests,
       safeguardDetection: safeguardDetectionDigests,
       mergedRuleCount: mergedRules.length,
-      exportRuleCount: exportRules.length,
     }
   }, [
     omitDisabledForExport,
@@ -2848,12 +2847,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     resolvedSafeguardRules,
     safeguardDetection,
     mergedRules.length,
-    exportRules.length,
   ])
   const [lastExportSig, setLastExportSig] = useState<ExportDirtyState | null>(null)
-  type QueuedSellfileExportAction = 'default' | 'deduped'
   // Queue one export request while rule/tester workers are still rebuilding state.
-  const [queuedSellfileExportAction, setQueuedSellfileExportAction] = useState<QueuedSellfileExportAction | null>(null)
+  const [queuedSellfileExport, setQueuedSellfileExport] = useState(false)
   const isSellfileExportBlockedByWorker = useCallback((): boolean => (
     // A queued debounce still means export snapshots are stale.
     pipelineDebounceRef.current !== null
@@ -2863,11 +2860,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     || rulesBuilding
     || gearEntriesBuilding
   ), [gearEntriesBuilding, rulesBuilding])
-  const queueSellfileExportIfNeeded = useCallback((action: QueuedSellfileExportAction): boolean => {
+  const queueSellfileExportIfNeeded = useCallback((): boolean => {
     // Run immediately when no worker build is pending.
     if (!isSellfileExportBlockedByWorker()) return false
-    // Keep only the latest requested action while work is in flight.
-    setQueuedSellfileExportAction(action)
+    // Keep one queued request while work is in flight.
+    setQueuedSellfileExport(true)
     return true
   }, [isSellfileExportBlockedByWorker])
   // Establish the export signature baseline after resets or first render to track unsaved changes.
@@ -2878,25 +2875,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [hsfExportStateSig, lastExportSig])
   const hsfDirty = lastExportSig !== null && !exportDirtyStatesEqual(hsfExportStateSig, lastExportSig)
-  const runSellfileDedupedExportNow = useCallback(() => {
-    if (!exportRulesCountRef.current) return
-    try {
-      const blob = hsfToBlob(buildDedupedExportPayload())
-      const filename = `Sellfile_deduped_${buildTimestamp()}.hsf`
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      a.click()
-      URL.revokeObjectURL(url)
-      setLastExportSig(hsfExportStateSig)
-      showToast(t('toastSellfileSaved'))
-    } catch (err) {
-      if (import.meta.env.DEV) {
-        console.error('Failed to export deduped sellfile', err)
-      }
-    }
-  }, [buildDedupedExportPayload, hsfExportStateSig, setLastExportSig, showToast, t])
   const handleSetDedupeDefault = useCallback((next: boolean) => {
     setDedupeDefault(Boolean(next))
   }, [setDedupeDefault])
@@ -5407,8 +5385,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   ) : null
 
   const runSellfileExportNow = useCallback(async () => {
-    // Build export payload lazily so routine renders avoid full HSF serialization.
-    const payload = dedupeDefault ? buildDedupedExportPayload() : buildExportPayload()
+    // Default export always serializes the active in-app ruleset.
+    // Dedupe-by-default is already applied in the pre-safeguard pipeline.
+    const payload = buildExportPayload()
     const blob = hsfToBlob(payload)
     const filename = sellfileFilename()
     const target = pushExportEndpoint
@@ -5459,9 +5438,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setLastExportSig(hsfExportStateSig)
     showToast(t('toastSellfileSaved'))
   }, [
-    buildDedupedExportPayload,
     buildExportPayload,
-    dedupeDefault,
     hsfExportStateSig,
     pushExportEndpoint,
     sendExternalRequest,
@@ -5473,39 +5450,26 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // No rules means both push/download should be a no-op.
     if (!exportRulesCountRef.current) return
     // Queue while pipeline work is pending so the payload reflects latest edits.
-    if (queueSellfileExportIfNeeded('default')) return
+    if (queueSellfileExportIfNeeded()) return
     void runSellfileExportNow()
   }, [queueSellfileExportIfNeeded, runSellfileExportNow])
-  const handleExportSellfileDeduped = useCallback(() => {
-    // No rules means deduped export has nothing to emit.
-    if (!exportRulesCountRef.current) return
-    // Queue while pipeline work is pending so dedupe runs on current results.
-    if (queueSellfileExportIfNeeded('deduped')) return
-    runSellfileDedupedExportNow()
-  }, [queueSellfileExportIfNeeded, runSellfileDedupedExportNow])
   useEffect(() => {
     // No queued request means nothing to flush.
-    if (!queuedSellfileExportAction) return
+    if (!queuedSellfileExport) return
     // Worker still busy; wait for the next state change.
     if (isSellfileExportBlockedByWorker()) return
     // Run on the next frame so transition commits land before payload capture.
     const frameId = window.requestAnimationFrame(() => {
       if (isSellfileExportBlockedByWorker()) return
-      const action = queuedSellfileExportAction
       // Clear queue first so re-clicks during export can queue another action.
-      setQueuedSellfileExportAction(null)
+      setQueuedSellfileExport(false)
       if (!exportRulesCountRef.current) return
-      if (action === 'deduped') {
-        runSellfileDedupedExportNow()
-        return
-      }
       void runSellfileExportNow()
     })
     return () => window.cancelAnimationFrame(frameId)
   }, [
     isSellfileExportBlockedByWorker,
-    queuedSellfileExportAction,
-    runSellfileDedupedExportNow,
+    queuedSellfileExport,
     runSellfileExportNow,
   ])
 
@@ -5727,7 +5691,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onToggleDedupeDefault={handleSetDedupeDefault}
         omitDisabledForExport={omitDisabledForExport}
         onToggleOmitDisabled={handleSetOmitDisabled}
-        onExportDeduped={handleExportSellfileDeduped}
         onExport={handleExportSellfile}
         exportDisabled={!mergedRules.length}
         finalSell={finalSellRemainder}

@@ -297,6 +297,10 @@ struct ComputeMergedRulesIn {
     #[serde(default)]
     all_known_set_ids: Vec<i64>,
     #[serde(default)]
+    omit_disabled_before_safeguards: bool,
+    #[serde(default)]
+    dedupe_before_safeguards: bool,
+    #[serde(default)]
     safeguard_enabled: bool,
     #[serde(default)]
     safeguard_rules: Vec<SafeguardWasmRuleIn>,

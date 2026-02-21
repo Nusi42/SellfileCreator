@@ -109,7 +109,6 @@ export default function PreviewHeaderActions(props: {
   onClearBase: () => void
   baseRuleCount?: number
   onExport: () => void
-  onExportDeduped?: () => void
   dedupeDefault: boolean
   onToggleDedupeDefault: (next: boolean) => void
   omitDisabledForExport: boolean
@@ -185,7 +184,6 @@ export default function PreviewHeaderActions(props: {
     onClearBase,
     baseRuleCount,
     onExport,
-    onExportDeduped,
     dedupeDefault,
     onToggleDedupeDefault,
     omitDisabledForExport,
@@ -344,8 +342,8 @@ export default function PreviewHeaderActions(props: {
 	  const sortGroupingNoHeadersLabel = t('testerSortGroupingNoHeadersLabel')
 	  const sortGroupingNoHeadersTooltip = t('testerSortGroupingNoHeadersTooltip')
   const exportMenuEnabled = React.useMemo(
-    () => typeof onExportDeduped === 'function' || typeof onToggleDedupeDefault === 'function' || typeof onToggleOmitDisabled === 'function',
-    [onExportDeduped, onToggleDedupeDefault, onToggleOmitDisabled],
+    () => typeof onToggleDedupeDefault === 'function' || typeof onToggleOmitDisabled === 'function',
+    [onToggleDedupeDefault, onToggleOmitDisabled],
   )
   const [exportMenuAnchor, setExportMenuAnchor] = React.useState<HTMLElement | null>(null)
   const closeExportMenu = React.useCallback(() => { setExportMenuAnchor(null) }, [])
@@ -2330,14 +2328,6 @@ export default function PreviewHeaderActions(props: {
                   sx={{ mr: 1, p: 0.5 }}
                 />
                 {t('exportSellfileDedupDefault')}
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  closeExportMenu()
-                  onExportDeduped?.()
-                }}
-              >
-                {t('exportSellfileDeduped')}
               </MenuItem>
             </Menu>
           ) : null}
