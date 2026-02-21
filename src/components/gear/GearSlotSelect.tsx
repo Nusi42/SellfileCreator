@@ -1,7 +1,7 @@
 import { Box, MenuItem, Select, Typography } from '@mui/material'
 import type { SelectChangeEvent, SelectProps } from '@mui/material/Select'
 import type { SxProps, Theme } from '@mui/material/styles'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useI18n } from '../../lib/i18n'
 import type { ArtifactTypeId } from '../../lib/types'
 import { artifactTypeI18nKey } from '../../lib/types'
@@ -80,8 +80,6 @@ export function GearSlotSelect({
       ? [SLOT_SELECT_DISPLAY_SX, sx]
       : SLOT_SELECT_DISPLAY_SX
   const isMulti = Boolean(multiple)
-  // Track menu visibility so option rows are only mounted while the popup is open.
-  const [menuOpen, setMenuOpen] = useState(false)
   const multiSelected = useMemo<ArtifactTypeId[]>(() => {
     if (!isMulti) return []
     return Array.isArray(value) ? (value as ArtifactTypeId[]) : []
@@ -166,21 +164,6 @@ export function GearSlotSelect({
   const selectRenderValue = isMulti
     ? (renderMultiValue ?? (() => null))
     : (() => renderSingleValue)
-  // Keep closed selects lightweight while preserving valid selected values for MUI.
-  const closedMenuItems = useMemo(() => {
-    if (isMulti) {
-      return multiSelected.map((slotId) => (
-        <MenuItem key={`closed-${slotId}`} value={String(Number(slotId))} sx={{ display: 'none' }} />
-      ))
-    }
-    return (
-      <MenuItem
-        key="closed-single"
-        value={singleValue == null ? '' : String(singleValue)}
-        sx={{ display: 'none' }}
-      />
-    )
-  }, [isMulti, multiSelected, singleValue])
   return (
     <Select
       size={size}
@@ -191,39 +174,33 @@ export function GearSlotSelect({
       MenuProps={menuProps ?? SLOT_MENU_PROPS}
       displayEmpty
       sx={resolvedSx}
-      onOpen={() => setMenuOpen(true)}
-      onClose={() => setMenuOpen(false)}
     >
-      {menuOpen ? (
-        <>
-          {!isMulti && allowAny ? (
-            <MenuItem value="">
-              {anyText}
-            </MenuItem>
-          ) : null}
-          {artifactTypeIconList.map(({ id, Icon }) => (
-            <MenuItem
-              key={String(id)}
-              value={String(Number(id))}
-              sx={{
-                border: '1px solid',
-                borderColor: 'divider',
-                borderRadius: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 0.5,
-                py: 1,
-                '&.Mui-selected': { bgcolor: 'action.selected' },
-              }}
-            >
-              <Icon fontSize="medium" />
-              <Typography variant="caption">{t(artifactTypeI18nKey(id))}</Typography>
-            </MenuItem>
-          ))}
-        </>
-      ) : closedMenuItems}
+      {!isMulti && allowAny ? (
+        <MenuItem value="">
+          {anyText}
+        </MenuItem>
+      ) : null}
+      {artifactTypeIconList.map(({ id, Icon }) => (
+        <MenuItem
+          key={String(id)}
+          value={String(Number(id))}
+          sx={{
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 0.5,
+            py: 1,
+            '&.Mui-selected': { bgcolor: 'action.selected' },
+          }}
+        >
+          <Icon fontSize="medium" />
+          <Typography variant="caption">{t(artifactTypeI18nKey(id))}</Typography>
+        </MenuItem>
+      ))}
     </Select>
   )
 }

@@ -1,7 +1,7 @@
 import { MenuItem, Select, Typography } from '@mui/material'
 import type { SelectChangeEvent, SelectProps } from '@mui/material/Select'
 import type { SxProps, Theme } from '@mui/material/styles'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useI18n } from '../../lib/i18n'
 import type { RankValue } from '../../lib/types'
 
@@ -42,8 +42,6 @@ export function GearRaritySelect({
   const { t } = useI18n()
   // Allow callers to replace the "Any" label without touching global strings.
   const anyText = anyLabel ?? t('any')
-  // Track menu visibility so option rows are only mounted while the popup is open.
-  const [menuOpen, setMenuOpen] = useState(false)
   const resolvedSx: SxProps<Theme> = sx ?? {}
   const menuPropsAttr = menuProps ? { MenuProps: menuProps } : {}
   const isMulti = Boolean(multiple)
@@ -110,15 +108,6 @@ export function GearRaritySelect({
   const selectRenderValue = isMulti
     ? (renderMultiValue ?? (() => null))
     : (() => renderSelected)
-  // Keep closed selects lightweight while preserving valid selected values for MUI.
-  const closedMenuItems = useMemo(() => {
-    if (isMulti) {
-      return multiValues.map((rarity) => (
-        <MenuItem key={`closed-${rarity}`} value={String(rarity)} sx={{ display: 'none' }} />
-      ))
-    }
-    return <MenuItem key="closed-single" value={singleValue == null ? '' : String(singleValue)} sx={{ display: 'none' }} />
-  }, [isMulti, multiValues, singleValue])
   return (
     <Select
       size={size}
@@ -129,22 +118,16 @@ export function GearRaritySelect({
       renderValue={selectRenderValue}
       sx={resolvedSx}
       {...menuPropsAttr}
-      onOpen={() => setMenuOpen(true)}
-      onClose={() => setMenuOpen(false)}
     >
-      {menuOpen ? (
-        <>
-          {allowAny && !isMulti ? <MenuItem value="">{anyText}</MenuItem> : null}
-          {allowAny && isMulti ? (
-            <MenuItem value={ANY_SENTINEL}>{anyText}</MenuItem>
-          ) : null}
-          {[1, 2, 3, 4, 5, 6].map((rarity) => (
-            <MenuItem key={rarity} value={String(rarity)}>
-              {rarityLabel(rarity)}
-            </MenuItem>
-          ))}
-        </>
-      ) : closedMenuItems}
+      {allowAny && !isMulti ? <MenuItem value="">{anyText}</MenuItem> : null}
+      {allowAny && isMulti ? (
+        <MenuItem value={ANY_SENTINEL}>{anyText}</MenuItem>
+      ) : null}
+      {[1, 2, 3, 4, 5, 6].map((rarity) => (
+        <MenuItem key={rarity} value={String(rarity)}>
+          {rarityLabel(rarity)}
+        </MenuItem>
+      ))}
     </Select>
   )
 }

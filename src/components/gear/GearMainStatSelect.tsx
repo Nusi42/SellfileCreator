@@ -1,7 +1,7 @@
 import { MenuItem, Select, Typography } from '@mui/material'
 import type { SelectChangeEvent, SelectProps } from '@mui/material/Select'
 import type { SxProps, Theme } from '@mui/material/styles'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useI18n } from '../../lib/i18n'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, compareVariants, statVariantI18nKey, type StatVariant } from '../../lib/types'
 
@@ -48,8 +48,6 @@ export function GearMainStatSelect({
   const { t } = useI18n()
   const anyText = anyLabel ?? t('any')
   const isMulti = Boolean(multiple)
-  // Track menu visibility so option rows are only mounted while the popup is open.
-  const [menuOpen, setMenuOpen] = useState(false)
   const normalizedOptions = useMemo(() => {
     const filtered = options.filter((variant) => Number(variant) !== Number(anyValue))
     return filtered.slice().sort(compareVariants)
@@ -126,17 +124,6 @@ export function GearMainStatSelect({
   const selectRenderValue = isMulti
     ? (renderMultiValue ?? (() => null))
     : (() => renderSelected)
-  // Keep closed selects lightweight while preserving valid selected values for MUI.
-  const closedMenuItems = useMemo(() => {
-    if (isMulti) {
-      return multiValues.map((variant) => (
-        <MenuItem key={`closed-${variant}`} value={String(variant)} sx={{ display: 'none' }} />
-      ))
-    }
-    return (
-      <MenuItem key="closed-single" value={String(selectValue)} sx={{ display: 'none' }} />
-    )
-  }, [isMulti, multiValues, selectValue])
   return (
     <Select
       size={size}
@@ -147,27 +134,21 @@ export function GearMainStatSelect({
       displayEmpty
       renderValue={selectRenderValue}
       sx={resolvedSx}
-      onOpen={() => setMenuOpen(true)}
-      onClose={() => setMenuOpen(false)}
     >
-      {menuOpen ? (
-        <>
-          {isMulti ? (
-            <MenuItem value={ANY_SENTINEL}>{anyText}</MenuItem>
-          ) : (
-            <MenuItem value={String(anyValue)}>{anyText}</MenuItem>
-          )}
-          {normalizedOptions.map((variant) => (
-            <MenuItem
-              key={variant}
-              value={String(variant)}
-              sx={{ color: showBorderColors ? (colorOverrides?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) : undefined }}
-            >
-              {t(statVariantI18nKey(variant))}
-            </MenuItem>
-          ))}
-        </>
-      ) : closedMenuItems}
+      {isMulti ? (
+        <MenuItem value={ANY_SENTINEL}>{anyText}</MenuItem>
+      ) : (
+        <MenuItem value={String(anyValue)}>{anyText}</MenuItem>
+      )}
+      {normalizedOptions.map((variant) => (
+        <MenuItem
+          key={variant}
+          value={String(variant)}
+          sx={{ color: showBorderColors ? (colorOverrides?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) : undefined }}
+        >
+          {t(statVariantI18nKey(variant))}
+        </MenuItem>
+      ))}
     </Select>
   )
 }
