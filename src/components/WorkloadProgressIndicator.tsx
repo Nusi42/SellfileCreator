@@ -33,6 +33,10 @@ export default function WorkloadProgressIndicator({ progressRatio, ariaLabel }: 
         sx={(theme) => ({
           width: PENDING_RING_SIZE_PX,
           height: PENDING_RING_SIZE_PX,
+          minWidth: PENDING_RING_SIZE_PX,
+          minHeight: PENDING_RING_SIZE_PX,
+          aspectRatio: '1 / 1',
+          flexShrink: 0,
           borderRadius: '50%',
           border: `${PENDING_RING_THICKNESS_PX}px solid`,
           borderColor: alpha(theme.palette.info.dark, 0.9),
