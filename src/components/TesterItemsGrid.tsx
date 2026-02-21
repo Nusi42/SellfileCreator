@@ -63,6 +63,7 @@ import { RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
 import { KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT } from '../lib/keepOverrideLayout'
 // MarkdownTooltip unifies the tester’s tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
 import MarkdownTooltip from './MarkdownTooltip'
+import EllipsisTooltip from './EllipsisTooltip'
 import { WithSetTooltip, buildNoSetTooltipMarkdown } from './SetTooltip'
 import { formatLocalDateTime } from '../lib/dateDisplay'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
@@ -2982,7 +2983,6 @@ export const TesterGridCard = React.memo(function TesterGridCard({
       label: entry.label,
       size: 'small' as const,
       variant: 'outlined' as const,
-      title: entry.label,
       sx: [
         MATCHING_RECIPE_CHIP_SX,
         { cursor: clickable ? 'pointer' : 'default' },
@@ -3007,12 +3007,15 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     )
 
     const wrappedChip = (
-      <Box
-        component="span"
-        sx={MATCHING_CHIP_WRAPPER_SX}
-      >
-        {chipNode}
-      </Box>
+      // Use the chip-label class as the ellipsis target so native tooltips only appear for clipped labels.
+      <EllipsisTooltip title={entry.label} selector=".MuiChip-label">
+        <Box
+          component="span"
+          sx={MATCHING_CHIP_WRAPPER_SX}
+        >
+          {chipNode}
+        </Box>
+      </EllipsisTooltip>
     )
 
     if (!clickable) {

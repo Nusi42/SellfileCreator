@@ -1,4 +1,3 @@
-import { useCallback, useRef, useState } from 'react'
 import { Box, Chip } from '@mui/material'
 import type { ChipProps } from '@mui/material'
 import { alpha, useTheme, type SxProps, type Theme } from '@mui/material/styles'
@@ -9,7 +8,7 @@ import type { TesterPreviewMatch } from '../types/testerPreview'
 import { MATCHING_RECIPE_CHIP_MIN_WIDTH_PX } from '../lib/constants'
 // MarkdownTooltip keeps the jump hint aligned with the rest of the tooltip rollout.
 import MarkdownTooltip from './MarkdownTooltip'
-import EllipsisTooltip, { hasEllipsisOverflow } from './EllipsisTooltip'
+import EllipsisTooltip from './EllipsisTooltip'
 import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
 import { getTesterMatchBorderColor } from './testerMatchStyles'
 
@@ -184,22 +183,6 @@ function TesterRuleReferenceChipBody({
   hoverBackgroundColor,
   dataMatchSource,
 }: TesterRuleReferenceChipBodyProps) {
-  const chipWrapperRef = useRef<HTMLSpanElement | null>(null)
-  const [nativeEllipsisTitle, setNativeEllipsisTitle] = useState<string | undefined>(undefined)
-  const handleChipMouseEnter = useCallback(() => {
-    if (!clickable) return
-    const root = chipWrapperRef.current
-    // Only mirror the truncated label when it is actually ellipsized; otherwise we keep the tooltip copy focused on jumping.
-    if (hasEllipsisOverflow(root, '.MuiChip-label')) {
-      setNativeEllipsisTitle(label)
-    } else {
-      setNativeEllipsisTitle(undefined)
-    }
-  }, [clickable, label])
-  const handleChipMouseLeave = useCallback(() => {
-    if (!clickable) return
-    setNativeEllipsisTitle(undefined)
-  }, [clickable])
   const resolvedBackgroundColor = backgroundColor ?? 'background.paper'
   const resolvedHoverColor = clickable
     ? hoverBackgroundColor ?? 'action.hover'
@@ -261,27 +244,12 @@ function TesterRuleReferenceChipBody({
       </Box>
     )
   }
-  const chipWrapper = (
-    <Box
-      component="span"
-      ref={chipWrapperRef}
-      onMouseEnter={handleChipMouseEnter}
-      onMouseLeave={handleChipMouseLeave}
-      sx={{ display: 'block', maxWidth: '100%', minWidth: 0 }}
-    >
-      <Box
-        component="span"
-        {...(nativeEllipsisTitle ? { title: nativeEllipsisTitle } : {})}
-        sx={{ display: 'block', maxWidth: '100%', minWidth: 0 }}
-      >
-        {baseChip}
-      </Box>
-    </Box>
-  )
   return (
     // Keep jump hints in sync with other Markdown tooltips so multi-line copy stays readable.
     <MarkdownTooltip markdown={jumpTooltip}>
-      {chipWrapper}
+      <Box component="span" sx={{ display: 'block', maxWidth: '100%', minWidth: 0 }}>
+        {chipWithEllipsis}
+      </Box>
     </MarkdownTooltip>
   )
 }
