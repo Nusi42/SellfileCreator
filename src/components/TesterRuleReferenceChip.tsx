@@ -10,7 +10,7 @@ import { MATCHING_RECIPE_CHIP_MIN_WIDTH_PX } from '../lib/constants'
 import MarkdownTooltip from './MarkdownTooltip'
 import EllipsisTooltip from './EllipsisTooltip'
 import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
-import { getTesterMatchBorderColor } from './testerMatchStyles'
+import { getTesterMatchBorderColor, getTesterMatchSurfaceColors } from './testerMatchStyles'
 
 type TesterRuleReferenceChipProps = {
   match: TesterPreviewMatch | null
@@ -41,8 +41,8 @@ const simpleMatchChipSx = (sx?: SxProps<Theme>): SxProps<Theme> => {
   return [...asArray, base] as SxProps<Theme>
 }
 
-const buildChipSurfaceTint = (theme: Theme, tone: string): { surface: string; hover: string } => {
-  // Tinted matches lean on translucent fills so the label stays legible in both themes.
+const buildSourceChipSurfaceTint = (theme: Theme, tone: string): { surface: string; hover: string } => {
+  // Source chips (Final Sell / Safeguards) keep the stronger legacy tint for quick scanning.
   const surfaceAlpha = theme.palette.mode === 'dark' ? 0.35 : 0.12
   const hoverAlpha = theme.palette.mode === 'dark' ? 0.45 : 0.18
   return {
@@ -70,7 +70,7 @@ export function TesterRuleReferenceChip({
   const jumpTooltip = isSafeguardSource ? t('testerJumpToSafeguard') : t('testerJumpToRecipe')
   if (isFinalSellSource) {
     if (!showFinalSellLabel) return null
-    const finalSellTint = buildChipSurfaceTint(theme, theme.palette.error.main)
+    const finalSellTint = buildSourceChipSurfaceTint(theme, theme.palette.error.main)
     return (
       <TesterRuleReferenceChipBody
         label={t('testerFinalSellChip')}
@@ -121,10 +121,12 @@ export function TesterRuleReferenceChip({
     : (ruleIndex != null ? `#${ruleIndex + 1}` : '')
   const clickable = typeof onJump === 'function' && ruleIndex != null
   if (!resolvedLabel) return null
-  // Safeguard matches share a green tint so they read as "protected".
+  // Keep source chips (Safeguards) on their legacy stronger tint.
   const keepOverrideTint = isSafeguardSource
-    ? buildChipSurfaceTint(theme, theme.palette.success.main)
+    ? buildSourceChipSurfaceTint(theme, theme.palette.success.main)
     : null
+  // Shared keep/sell surface keeps normal first-match chips consistent with other-match chips.
+  const chipSurfaceTint = keepOverrideTint ?? getTesterMatchSurfaceColors(theme, Boolean(match.keep))
   // Data attribute lets tests and analytics distinguish safeguard matches.
   const dataMatchSource = isSafeguardSource ? 'safeguard' : undefined
   return (
@@ -140,8 +142,8 @@ export function TesterRuleReferenceChip({
       {...(sx ? { sx } : {})}
       {...(icon ? { icon } : {})}
       borderColor={getTesterMatchBorderColor(theme, Boolean(match.keep))}
-      {...(keepOverrideTint ? { backgroundColor: keepOverrideTint.surface } : {})}
-      {...(keepOverrideTint ? { hoverBackgroundColor: keepOverrideTint.hover } : {})}
+      backgroundColor={chipSurfaceTint.surface}
+      hoverBackgroundColor={chipSurfaceTint.hover}
       {...(dataMatchSource ? { dataMatchSource } : {})}
       {...(onJump ? { onJump } : {})}
     />

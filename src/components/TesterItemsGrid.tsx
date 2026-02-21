@@ -58,7 +58,7 @@ import { isAccessorySlot } from '../lib/testerDomain'
 import type { TesterSourceFilter } from '../lib/rulesFilter'
 import { TesterSummaryLabel } from './TesterSummaryLabel'
 import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
-import { getTesterMatchBorderColor } from './testerMatchStyles'
+import { getTesterMatchBorderColor, getTesterMatchSurfaceColors } from './testerMatchStyles'
 import { RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
 import { KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT } from '../lib/keepOverrideLayout'
 // MarkdownTooltip unifies the tester’s tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
@@ -2998,9 +2998,12 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     const key = `matching-chip-${entry.recipeIdx}`
     const clickable = allowPrimaryMatchJump
     const textColor = entry.textColor ?? null
-    // Dimmed outline mirrors the keep/sell outcome without overpowering the primary chip.
+    // Match first-row chips: same border and subtle surface tint for keep/sell.
     const borderColor = typeof entry.keep === 'boolean'
-      ? getTesterMatchBorderColor(theme, entry.keep, { dimmed: true })
+      ? getTesterMatchBorderColor(theme, entry.keep)
+      : null
+    const surfaceColors = typeof entry.keep === 'boolean'
+      ? getTesterMatchSurfaceColors(theme, entry.keep)
       : null
     const sharedChipProps = {
       label: entry.label,
@@ -3008,7 +3011,13 @@ export const TesterGridCard = React.memo(function TesterGridCard({
       variant: 'outlined' as const,
       sx: [
         MATCHING_RECIPE_CHIP_SX,
-        { cursor: clickable ? 'pointer' : 'default' },
+        {
+          cursor: clickable ? 'pointer' : 'default',
+          bgcolor: surfaceColors?.surface ?? 'background.paper',
+          ...(clickable
+            ? { '&:hover': { bgcolor: surfaceColors?.hover ?? 'action.hover' } }
+            : {}),
+        },
         ...(textColor ? [{ color: textColor, '& .MuiChip-label': { color: textColor } }] : []),
         ...(borderColor ? [{ borderColor }] : []),
       ],
