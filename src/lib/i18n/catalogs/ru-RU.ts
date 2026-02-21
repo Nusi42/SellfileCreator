@@ -350,7 +350,6 @@ const overrides: Catalog = {
   safeguardsNoRules: 'Правила сохранения ещё не добавлены.',
   safeguardsAddRule: 'Добавить правило сохранения',
   safeguardsGridSelectedCount: '{count} предметов',
-  safeguardsGridUniqueCount: '{count} уникальных предметов',
   safeguardsGridFilterLabel: 'Фильтр: {mode}',
   safeguardsGridFilterModeAll: 'Все',
   safeguardsGridFilterModeSelection: 'Выбор',

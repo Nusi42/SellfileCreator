@@ -26,6 +26,7 @@ import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import SortIcon from '@mui/icons-material/Sort'
 import { useI18n } from '../lib/i18n'
 import type { TesterPreviewRow } from '../types/testerPreview'
+import TesterOutcomeSummaryChip from './TesterOutcomeSummaryChip'
 import { SetIcon } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
 import { NoGearSetIcon } from './NoGearSetIcon'
@@ -120,6 +121,7 @@ import {
   TESTER_GRID_CONTAINER_PADDING_END_UNITS,
   TESTER_GRID_ROW_PADDING_UNITS,
 } from '../lib/testerGridLayout'
+import { buildTesterOutcomeSummary } from '../lib/testerOutcomeSummary'
 
 type EmptyStateWrapperProps = Omit<EmptyStateMessageProps, 'children'>
 
@@ -344,6 +346,8 @@ type TesterItemsGridVariant = 'tester' | 'safeguards'
 
 type TesterItemsGridProps = {
   rows: TesterPreviewRow[]
+  // Optional unfiltered source rows so group chips can show filtered/total pairs.
+  allRows?: readonly TesterPreviewRow[]
   // Optional source rows for safeguard chance math (defaults to visible rows).
   safeguardUpgradeChanceRows?: readonly TesterPreviewRow[]
   filterActive?: boolean
@@ -429,6 +433,7 @@ type TesterCardTopOverlay = {
 export function TesterItemsGrid(props: TesterItemsGridProps) {
   const {
     rows,
+    allRows,
     safeguardUpgradeChanceRows,
     filterActive = false,
     substatColors,
@@ -617,6 +622,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   ])
   // Keep chance source separate from visible rows so filters do not affect chance math.
   const safeguardChanceSourceRows = safeguardUpgradeChanceRows ?? rows
+  // Group chips can optionally compare filtered rows against the original unfiltered dataset.
+  const groupSummarySourceRows = allRows ?? rows
   // Sorting can request chance data even when the overlay itself is hidden.
   const safeguardChanceSortEnabled = useMemo(
     () => (effectiveSubstatSort?.priorities ?? []).some((key) => Number(key) === TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE),
@@ -674,6 +681,10 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const groups = useMemo(
     () => groupRowsBySet(rows, t, lang, { grouping, substatSort: substatSortWithSafeguardChance }),
     [rows, t, lang, grouping, substatSortWithSafeguardChance],
+  )
+  const summaryGroups = useMemo(
+    () => groupRowsBySet(groupSummarySourceRows, t, lang, { grouping, substatSort: substatSortWithSafeguardChance }),
+    [groupSummarySourceRows, t, lang, grouping, substatSortWithSafeguardChance],
   )
   const safeguardUpgradeOverlayByArtifactId = useMemo(() => {
     // Tooltip-rich overlays are only needed when the card overlay toggle is enabled.
@@ -937,6 +948,26 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     groups.forEach(addGroup)
     return map
   }, [groups])
+  const groupOutcomeSummaryByKey = useMemo(() => {
+    // Cache one outcome summary per group so header rendering avoids repeated row scans.
+    const map = new Map<string, ReturnType<typeof buildTesterOutcomeSummary>>()
+    const addGroupSummary = (group: TesterGroup) => {
+      map.set(group.key, buildTesterOutcomeSummary(group.rows))
+      group.children?.forEach(addGroupSummary)
+    }
+    groups.forEach(addGroupSummary)
+    return map
+  }, [groups])
+  const groupTotalOutcomeSummaryByKey = useMemo(() => {
+    // Mirror the same lookup for unfiltered rows so filtered views can show X / Y like the global chip.
+    const map = new Map<string, ReturnType<typeof buildTesterOutcomeSummary>>()
+    const addGroupSummary = (group: TesterGroup) => {
+      map.set(group.key, buildTesterOutcomeSummary(group.rows))
+      group.children?.forEach(addGroupSummary)
+    }
+    summaryGroups.forEach(addGroupSummary)
+    return map
+  }, [summaryGroups])
   const getMultiToggleScope = useCallback((groupKey: string): Iterable<string> => {
     const group = groupLookup.get(groupKey)
     if (!group || !group.parentKey) {
@@ -1204,7 +1235,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     observer.observe(container)
     return () => observer.disconnect()
   }, [onScrollbarWidthMeasured, shouldMeasureScrollbarWidth])
-  const groupCountChipBg = theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100]
   const accordionSummaryHeightPx = useMemo(() => parseSpacingPx(theme.spacing(5)), [theme])
   useEffect(() => () => {
     if (scrollHintHideTimerRef.current) {
@@ -1633,9 +1663,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     })
     if (item.kind === 'groupHeader') {
       const group = item.group
-      const groupCountLabel = group.rows.length === 1
-        ? t('testerItemsCountOne')
-        : t('testerItemsCountMany', { n: numberFormatter.format(group.rows.length) })
+      const groupOutcomeSummary = groupOutcomeSummaryByKey.get(group.key) ?? null
+      const groupTotalOutcomeSummary = groupTotalOutcomeSummaryByKey.get(group.key) ?? groupOutcomeSummary
       const expanded = item.expanded
       const numericSetId = typeof group.setId === 'number' && group.setId > 0 ? group.setId : null
       const groupSetTooltipName = numericSetId != null ? artifactSetName(numericSetId as ArtifactSetId) : null
@@ -1761,11 +1790,15 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
               >
                 {group.label}
               </Typography>
-              <Chip
-                size="small"
-                label={groupCountLabel}
-                sx={{ bgcolor: groupCountChipBg, flexShrink: 0 }}
-              />
+              <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                <TesterOutcomeSummaryChip
+                  summary={groupOutcomeSummary}
+                  totalSummary={groupTotalOutcomeSummary}
+                  showWhenEmpty
+                  showFilteredTotals={Boolean(filterActive)}
+                  metricMode={safeguardsVariant ? 'safeguardsOnly' : 'all'}
+                />
+              </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                 {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
               </Box>

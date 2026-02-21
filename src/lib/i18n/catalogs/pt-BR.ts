@@ -350,7 +350,6 @@ const catalog: Catalog = {
   safeguardsNoRules: 'Ainda não há regras de manutenção.',
   safeguardsAddRule: 'Adicionar regra de manutenção',
   safeguardsGridSelectedCount: '{count} itens',
-  safeguardsGridUniqueCount: '{count} itens únicos',
   safeguardsGridFilterLabel: 'Filtro: {mode}',
   safeguardsGridFilterModeAll: 'Todos',
   safeguardsGridFilterModeSelection: 'Seleção',

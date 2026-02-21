@@ -350,7 +350,6 @@ const overrides: Catalog = {
   safeguardsNoRules: 'Henüz koruma kuralı yok.',
   safeguardsAddRule: 'Koruma kuralı ekle',
   safeguardsGridSelectedCount: '{count} eşya',
-  safeguardsGridUniqueCount: '{count} benzersiz eşya',
   safeguardsGridFilterLabel: 'Filtre: {mode}',
   safeguardsGridFilterModeAll: 'Hepsi',
   safeguardsGridFilterModeSelection: 'Seçim',

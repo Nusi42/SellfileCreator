@@ -5868,6 +5868,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               />
               <TesterItemsGrid
                 rows={gearEntriesForTable}
+                allRows={testerPreviewRows}
                 // Chance overlays should compare against the full tester inventory, not the filtered slice.
                 safeguardUpgradeChanceRows={testerPreviewRows}
                 filterActive={testerFilterActive || testerRecipeFilterActive}

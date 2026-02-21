@@ -355,7 +355,6 @@ const enUS: Catalog = {
   safeguardsNoRules: 'No safeguards yet.',
   safeguardsAddRule: 'Add Safeguard',
   safeguardsGridSelectedCount: '{count} items',
-  safeguardsGridUniqueCount: '{count} unique items',
   safeguardsGridFilterLabel: 'Filter: {mode}',
   safeguardsGridFilterModeAll: 'All',
   safeguardsGridFilterModeSelection: 'Selection',

@@ -350,7 +350,6 @@ const overrides: Catalog = {
   safeguardsNoRules: 'Noch keine Schutzmaßnahmen.',
   safeguardsAddRule: 'Schutzmaßnahme hinzufügen',
   safeguardsGridSelectedCount: '{count} Gegenstände',
-  safeguardsGridUniqueCount: '{count} einzigartige Gegenstände',
   safeguardsGridFilterLabel: 'Filter: {mode}',
   safeguardsGridFilterModeAll: 'Alle',
   safeguardsGridFilterModeSelection: 'Auswahl',

@@ -86,6 +86,7 @@ import { useI18n } from '../../lib/i18n'
 import { readTextSafe, triggerCopyDialog, writeTextSafe } from '../../lib/clipboard'
 import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSetsSelect, GearSlotSelect, GearSubstatSelect } from '../gear'
 import { TesterItemsGrid } from '../TesterItemsGrid'
+import TesterOutcomeSummaryChip from '../TesterOutcomeSummaryChip'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
 import WorkloadProgressIndicator from '../WorkloadProgressIndicator'
 // MarkdownTooltip keeps the rule-count hints and info icons synchronized with the broader tooltip refactor.
@@ -534,9 +535,20 @@ ${t('safeguardsIgnoreOptionsHint')}`
       return t('safeguardsGridSelectedCount', { count: selectedVisibleRowCount })
     }
     if (gearEntries.length === 0 && uniqueRows.length === 0) return null
-    // Surface the aggregate unique count so the toolbar never collapses when no rule is selected.
-    return t('safeguardsGridUniqueCount', { count: uniqueRows.length })
+    // Reuse the shared count label for both selected and unique totals to keep localization simple.
+    return t('safeguardsGridSelectedCount', { count: uniqueRows.length })
   }, [selectedEntry, selectedVisibleRowCount, gearEntries.length, t, uniqueRows.length])
+  const selectionChipSummary = useMemo(() => {
+    // Selected rule mode reports highlighted row count; default mode reports unique row count.
+    const count = selectedEntry ? selectedVisibleRowCount : uniqueRows.length
+    if (!selectedEntry && gearEntries.length === 0 && uniqueRows.length === 0) return null
+    return {
+      total: count,
+      sold: 0,
+      kept: count,
+      keptBySafeguards: count,
+    }
+  }, [selectedEntry, selectedVisibleRowCount, gearEntries.length, uniqueRows.length])
   const gridFilterLabel = t('safeguardsGridFilterLabel', {
     mode: gridFilterMode === 'selection'
       ? t('safeguardsGridFilterModeSelection')
@@ -2155,13 +2167,12 @@ ${t('safeguardsIgnoreOptionsHint')}`
                 {/* Shared spinner keeps the dialog aligned with the preview chip busy indicator. */}
                 <WorkloadProgressIndicator progressRatio={workloadProgressRatio} ariaLabel={t('safeguardsScanPending')} />
                 {selectionChipLabel ? (
-                  <EllipsisTooltip title={selectionChipLabel} selector=".MuiChip-label" wrap="block">
-                    <Chip
-                      size="small"
-                      label={selectionChipLabel}
-                      sx={{ flexShrink: 1, minWidth: 0, maxWidth: '100%', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}
-                    />
-                  </EllipsisTooltip>
+                  <TesterOutcomeSummaryChip
+                    summary={selectionChipSummary}
+                    showWhenEmpty
+                    metricMode="safeguardsOnly"
+                    ariaLabel={selectionChipLabel}
+                  />
                 ) : null}
               </Box>
             </Box>
@@ -2169,6 +2180,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
               <TesterItemsGrid
                 // Use keep-override variant for 1/2 column toggles and empty-state copy.
                 rows={gridRows}
+                allRows={uniqueRows}
                 filterActive={gridFiltered}
                 substatColors={substatColors}
                 useStatButtonColors={useStatButtonColors}

@@ -350,7 +350,6 @@ const overrides: Catalog = {
   safeguardsNoRules: 'Nessuna regola di mantenimento.',
   safeguardsAddRule: 'Aggiungi regola di mantenimento',
   safeguardsGridSelectedCount: '{count} oggetti',
-  safeguardsGridUniqueCount: '{count} oggetti unici',
   safeguardsGridFilterLabel: 'Filtro: {mode}',
   safeguardsGridFilterModeAll: 'Tutti',
   safeguardsGridFilterModeSelection: 'Selezione',

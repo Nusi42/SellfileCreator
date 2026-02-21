@@ -102,6 +102,7 @@ export type TesterOutcomeSummaryChipProps = {
   dimmed?: boolean
   showWhenEmpty?: boolean
   showFilteredTotals?: boolean
+  metricMode?: 'all' | 'safeguardsOnly'
   ariaLabel?: string | undefined
 }
 
@@ -111,6 +112,7 @@ export default function TesterOutcomeSummaryChip({
   dimmed = false,
   showWhenEmpty = false,
   showFilteredTotals = false,
+  metricMode = 'all',
   ariaLabel,
 }: TesterOutcomeSummaryChipProps) {
   const { t, lang } = useI18n()
@@ -134,13 +136,15 @@ export default function TesterOutcomeSummaryChip({
     const sold = formatPair(summary.sold, totalSnapshot.sold)
     const kept = formatPair(summary.kept, totalSnapshot.kept)
     const safeguards = formatPair(summary.keptBySafeguards, totalSnapshot.keptBySafeguards)
-    // Build a compact, symmetric tooltip string so the chip stays text-light.
-    const tooltipParts = [
-      `${t('testerSummaryTotalLabel')}: ${total}`,
-      `${t('testerMatchSell')}: ${sold}`,
-      `${t('testerMatchKeep')}: ${kept}`,
-      `${t('safeguardsToggleLabel')}: ${safeguards}`,
-    ]
+    // Keep safeguards-only chips focused on the one metric that matters in that tab.
+    const tooltipParts = metricMode === 'safeguardsOnly'
+      ? [`${t('safeguardsToggleLabel')}: ${safeguards}`]
+      : [
+          `${t('testerSummaryTotalLabel')}: ${total}`,
+          `${t('testerMatchSell')}: ${sold}`,
+          `${t('testerMatchKeep')}: ${kept}`,
+          `${t('safeguardsToggleLabel')}: ${safeguards}`,
+        ]
     return {
       total,
       sold,
@@ -148,7 +152,7 @@ export default function TesterOutcomeSummaryChip({
       safeguards,
       tooltip: tooltipParts.join(' / '),
     }
-  }, [lang, showFilteredTotals, showWhenEmpty, summary, t, totalSummary])
+  }, [lang, metricMode, showFilteredTotals, showWhenEmpty, summary, t, totalSummary])
 
   if (!formattedSummary) return null
 
@@ -167,25 +171,30 @@ export default function TesterOutcomeSummaryChip({
           spacing={0.75}
           divider={<Divider orientation="vertical" flexItem sx={TESTER_SUMMARY_DIVIDER_SX} />}
         >
-          {/* Total / Sell / Keep / Unique segments mirror the note dialog order. */}
-          <TesterOutcomeSummaryMetric
-            icon={<ViewListIcon fontSize="inherit" />}
-            value={formattedSummary.total}
-            tone="total"
-            dimmed={dimmed}
-          />
-          <TesterOutcomeSummaryMetric
-            icon={<SellIcon fontSize="inherit" />}
-            value={formattedSummary.sold}
-            tone="sell"
-            dimmed={dimmed}
-          />
-          <TesterOutcomeSummaryMetric
-            icon={<CheckCircleIcon fontSize="inherit" />}
-            value={formattedSummary.kept}
-            tone="keep"
-            dimmed={dimmed}
-          />
+          {/* Safeguards tab only needs the safeguard metric because rows are already scoped. */}
+          {metricMode === 'all' ? (
+            <>
+              {/* Total / Sell / Keep / Unique segments mirror the note dialog order. */}
+              <TesterOutcomeSummaryMetric
+                icon={<ViewListIcon fontSize="inherit" />}
+                value={formattedSummary.total}
+                tone="total"
+                dimmed={dimmed}
+              />
+              <TesterOutcomeSummaryMetric
+                icon={<SellIcon fontSize="inherit" />}
+                value={formattedSummary.sold}
+                tone="sell"
+                dimmed={dimmed}
+              />
+              <TesterOutcomeSummaryMetric
+                icon={<CheckCircleIcon fontSize="inherit" />}
+                value={formattedSummary.kept}
+                tone="keep"
+                dimmed={dimmed}
+              />
+            </>
+          ) : null}
           <TesterOutcomeSummaryMetric
             icon={<StarsIcon fontSize="inherit" />}
             value={formattedSummary.safeguards}
