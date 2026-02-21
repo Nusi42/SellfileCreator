@@ -221,18 +221,6 @@ export function find_obsolete_value(rules) {
 }
 
 /**
- * @param {any} rules
- * @returns {any}
- */
-export function fingerprint_merged_rules_value(rules) {
-    const ret = wasm.fingerprint_merged_rules_value(rules);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * @param {bigint} base_count
  * @param {bigint} total_limit
  * @param {any} batches

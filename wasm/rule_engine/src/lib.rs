@@ -371,7 +371,7 @@ struct SafeguardMergeSortEntry {
     rule_ordinal: i64,
     placeholder_rank: i64,
     item_key: i64,
-    canonical: String,
+    canonical: rule_dedupe::CollapseCanonicalKey,
 }
 
 // Internal carry type keeps branch ordering attached through finalization.

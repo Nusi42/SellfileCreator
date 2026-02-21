@@ -80,28 +80,22 @@ import { useSubstatTargetsDialog } from './hooks/useSubstatTargetsDialog'
 import {
   computeMergedRules,
   buildRulesForRecipe,
-  prependSafeguardRules,
   RULE_SOURCE_FINAL_SELL,
   RULE_SOURCE_HSF,
   RULE_SOURCE_SAFEGUARDS,
 } from './lib/merge'
-import { cloneRuleWithRecipeIndex, getRuleRecipeIndex, resolveMatchRecipeName } from './lib/ruleRecipeIndex'
+import { getRuleRecipeIndex, resolveMatchRecipeName } from './lib/ruleRecipeIndex'
 import {
   buildDefaultSafeguardRules,
   type SafeguardDetectionSnapshot,
   type SafeguardRule,
   resolveSafeguardRulesWithMetasets,
-  hashSafeguardCombination,
   getSafeguardItemKey,
   resolveSafeguardRuleLabel,
-  normalizeSafeguardSubstatMatch,
-  sanitizeSafeguardCountMode,
-  SafeguardSubstatMatch,
-  SafeguardRuleActivation,
 } from './lib/safeguards'
-import { fingerprintRecipeForRules, fingerprintSubstatTargets, updateRecipeRulesCache } from './lib/ruleCache'
+import { updateRecipeRulesCache } from './lib/ruleCache'
 import { hasRecipeMeaningfulDifferences } from './lib/recipeDiff'
-import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
+import { buildRuleTesterAutosavePayload, createRuleTesterMath, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
 import {
   buildGearDbDiffSummary,
   collectGearDbDeltaArtifactIds,
@@ -113,7 +107,7 @@ import {
   type GearDbDiffToastEntry,
   type GearDbDiffToastPayload,
 } from './lib/gearDbDiffToast'
-import { isTesterSyntheticSortKey, normalizeTesterSortWeight, sortTesterRows, TESTER_SORT_WEIGHT_DEFAULT } from './lib/testerSort'
+import { isTesterSyntheticSortKey, sortTesterRows } from './lib/testerSort'
 import { buildTesterRuleTemplateRecipe } from './lib/testerRuleTemplates'
 import { buildTesterOutcomeSummary } from './lib/testerOutcomeSummary'
 import { isDefaultTesterSubstatSortState, setTesterSubstatSortState, useTesterSubstatSortPreferences } from './state/testerSubstatSortPreferences'
@@ -133,7 +127,7 @@ import RestoreAutosaveDialog from './components/dialogs/RestoreAutosaveDialog'
 import MetasetConflictDialog from './components/dialogs/MetasetConflictDialog'
 import FileFormatErrorDialog from './components/dialogs/FileFormatErrorDialog'
 import { useAutosave } from './hooks/useAutosave'
-import { useDeferredHsfcPayload } from './hooks/useDeferredHsfcPayload'
+import { useNonUrgentStateDispatch } from './hooks/useNonUrgentStateDispatch'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
 import { TESTER_RECIPE_FILTER_MODE_DEFAULT, type TesterRecipeFilterMode } from './types/testerRecipeFilterMode'
@@ -159,6 +153,20 @@ const WORKLOAD_PENDING_MIN_RATIO = 0.02 as const
 const WORKLOAD_SPINNER_HANG_MS = 450 as const
 // Coalesce rapid edits so we do not restart the pipeline for every keystroke/reorder.
 const PIPELINE_DEBOUNCE_MS = 200 as const
+// Stable empty metaset snapshot lets filter memos avoid recomputing on metaset edits
+// when the current filters do not reference any metaset ids.
+const EMPTY_METASETS: Metaset[] = []
+
+// Centralize AbortError checks so every pipeline catch path applies the same rules.
+// We treat browser DOMException and plain `{ name: "AbortError" }` objects equally.
+// The worker can emit either shape depending on runtime and transport boundaries.
+function isAbortError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const maybe = error as { name?: unknown }
+  if (typeof maybe.name === 'string' && maybe.name === 'AbortError') return true
+  if (typeof DOMException !== 'undefined' && error instanceof DOMException) return error.name === 'AbortError'
+  return false
+}
 
 // WebSocket endpoints may still host HTTP downloads; map ws(s) -> http(s).
 function coerceWsEndpointToHttp(endpoint: string): string | null {
@@ -189,7 +197,7 @@ import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/recipeDuplicates'
 import { recipesForRuleBuild } from './lib/ruleCacheHelpers'
-import { evaluateFirst, type MatchingRecipeDecision } from './lib/ruleEval'
+import { evaluateFirst } from './lib/ruleEval'
 import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import {
   createDatasetFromSnapshot,
@@ -210,11 +218,9 @@ import {
 import type { FinalSellRemainderConfig, FinalSellLevel, LogicHubDialogTab } from './lib/logicHub'
 import { useRecipeSelection } from './hooks/useRecipeSelection'
 import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
-import { fingerprintSafeguardDetection } from './lib/safeguardFingerprint'
 import { useTesterItemsActions } from './hooks/useTesterItemsActions'
 import {
   resolveArtifactItemIdWithFallback,
-  resolveCanonicalTestItemId,
 } from './lib/itemIdentity'
 // Local tag for tester reset triggers; persists only in memory.
 type TesterMatchResetReason = 'restore' | 'hsfc' | 'gearDb'
@@ -469,18 +475,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     [customRecipes, normalizeRecipeTags],
   )
   const recipeModes = useMemo(() => recipeOverridesExportModes.modes, [recipeOverridesExportModes])
-  const substatTargetsForPreview = useDeferredValue(effectiveSubstatTargets)
   const metasetsForPreview = useDeferredValue(metasets)
-  const ruleRecipesForPreview = useDeferredValue(ruleRecipes)
-  const recipeModesForPreview = useDeferredValue(recipeModes)
   const recipeNamesForPreview = useDeferredValue(recipeNames)
   // Keep tester math reusable so seeding hooks share the same normalization as the dialog.
   const testerMath = useMemo(() => createRuleTesterMath(effectiveSubstatTargets), [effectiveSubstatTargets])
   const lastRecipeNamesRef = useRef<string[]>(recipeNamesForPreview)
-  // Track the last safeguard label signature so name-only edits can update chips without a rebuild.
-  const lastSafeguardLabelSignatureRef = useRef<string>('')
-  // Track the last dispatched pipeline so deferred snapshots cannot retrigger identical worker runs.
-  const lastPipelineSignatureRef = useRef<{ fingerprint: string | null; artifactSig: string | null } | null>(null)
   const testerItemIdRef = useRef(1)
   const allocTesterItemId = useCallback(() => {
     const id = testerItemIdRef.current
@@ -493,110 +492,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [testerItems, setTesterItems] = useState<RuleTesterItem[]>([])
   const testerItemsRef = useRef(testerItems)
   useEffect(() => { testerItemsRef.current = testerItems }, [testerItems])
-  // Cache warm fingerprints so lightweight updates can skip a full rebuild.
-  const lastWarmFingerprintRef = useRef<string | null>(null)
-  // Stable metaset fingerprint keeps warm reuse keyed to the actual set payloads.
-  const fingerprintMetasetsForRules = useCallback((metasetList: readonly Metaset[]): string => {
-    const parts = metasetList
-      .map((meta) => {
-        const sortedSets = Array.isArray(meta.sets) ? [...meta.sets].map(Number).sort((a, b) => a - b) : []
-        return `${meta.id}:${sortedSets.join(',')}`
-      })
-      .sort((a, b) => a.localeCompare(b))
-    return parts.join('|')
-  }, [])
-  // Keep-unique rules get a canonical hash so cosmetic edits do not churn the cache.
-  const fingerprintSafeguardRuleList = useCallback((rules: readonly SafeguardRule[]): string => {
-    if (!rules.length) return ''
-    return rules.map((rule) => {
-      const comboHash = hashSafeguardCombination(rule.combination)
-      const activation = rule.activation ?? SafeguardRuleActivation.ProtectExisting
-      const required = Number.isFinite(rule.requiredCount) ? Number(rule.requiredCount) : 0
-      // Include ignore toggles so cache fingerprints track safeguard behavior changes.
-      const ignorePrevious = rule.ignorePreviousSafeguards !== false ? 1 : 0
-      const ignoreCollection = rule.ignoreEquippedInCollection === true ? 1 : 0
-      const ignoreVault = rule.ignoreEquippedInVault === true ? 1 : 0
-      const mode = sanitizeSafeguardCountMode(rule.countMode)
-      const modeKey = [
-        mode.perRule ? 1 : 0,
-        mode.perSlot ? 1 : 0,
-        mode.perSet ? 1 : 0,
-        mode.perFaction ? 1 : 0,
-        mode.perMainStat ? 1 : 0,
-      ].join('')
-      // Track whether a substat selection exists so match defaults stay aligned.
-      const hasSubstatSelection = Array.isArray(rule.substats) && rule.substats.length > 0
-      const substats = hasSubstatSelection ? rule.substats.map(Number).sort((a, b) => a - b).join(',') : ''
-      // Normalize match only when substats are active to avoid churn.
-      const substatMatch = hasSubstatSelection
-        ? normalizeSafeguardSubstatMatch(rule.substatMatch)
-        : SafeguardSubstatMatch.Any
-      // Weights only affect the fingerprint when Per Substat is not active.
-      const weightEntries = hasSubstatSelection && substatMatch !== SafeguardSubstatMatch.PerSubstat
-        ? Object.entries(rule.substatWeights ?? {})
-          .map(([key, raw]) => {
-            const variant = Number(key)
-            if (!Number.isFinite(variant)) return null
-            const normalized = normalizeTesterSortWeight(Number(raw))
-            if (normalized === TESTER_SORT_WEIGHT_DEFAULT) return null
-            return `${variant}:${normalized.toFixed(2)}`
-          })
-          .filter((entry): entry is string => Boolean(entry))
-          .sort()
-          .join(',')
-        : ''
-      return `${rule.id ?? comboHash}:${activation}:${required}:${ignorePrevious}${ignoreCollection}${ignoreVault}:${modeKey}:${comboHash}:${substatMatch}:${substats}:${weightEntries}`
-    }).join('|')
-  }, [])
-  // Combined fingerprint captures every input that affects the warmed rule cache while ignoring display-only fields.
-  const buildRulesFingerprint = useCallback((args: {
-    substatTargetsKey: string
-    recipeKeys: string[]
-    metasets: readonly Metaset[]
-    hsf: HsfFile | null
-    safeguardRules: readonly SafeguardRule[]
-    safeguardsEnabled: boolean
-    finalSell: FinalSellRemainderConfig | null | undefined
-  }): string => {
-    const {
-      substatTargetsKey,
-      recipeKeys,
-      metasets,
-      hsf: hsfFile,
-      safeguardRules,
-      safeguardsEnabled: kuEnabled,
-      finalSell,
-    } = args
-    // Metaset + safeguard signatures ensure warm reuse stays aligned with resolved datasets.
-    const metasetSig = fingerprintMetasetsForRules(metasets)
-    const safeguardSig = `${kuEnabled ? 'on' : 'off'}:${fingerprintSafeguardRuleList(safeguardRules)}`
-    // Final-sell settings affect injected rules, so fold them into the warm fingerprint.
-    const finalSellSig = (() => {
-      if (!finalSell) return 'fs:none'
-      const levels = Array.isArray(finalSell.levels)
-        ? [...finalSell.levels].map(Number).sort((a, b) => a - b).join(',')
-        : ''
-      const mode = typeof finalSell.setsMode === 'string' ? finalSell.setsMode : 'any'
-      const artifactsFlag = finalSell.artifacts ? 1 : 0
-      const accessoriesFlag = finalSell.accessories ? 1 : 0
-      return `fs:${mode}:${artifactsFlag}:${accessoriesFlag}:${levels}`
-    })()
-    const hsfSig = (() => {
-      if (!hsfFile) return 'hsf:none'
-      const hash = (hsfFile as { Hash?: string }).Hash
-      if (hash) return `hsf:${hash}`
-      const ruleCount = Array.isArray(hsfFile.Rules) ? hsfFile.Rules.length : 0
-      return `hsf:rules:${ruleCount}`
-    })()
-    return [
-      substatTargetsKey,
-      recipeKeys.join(','),
-      metasetSig,
-      hsfSig,
-      finalSellSig,
-      safeguardSig,
-    ].join('|')
-  }, [fingerprintSafeguardRuleList, fingerprintMetasetsForRules])
   const [testerRestoreDraft, setTesterRestoreDraft] = useState<{
     items: RuleTesterItem[]
     savedAt: string | null
@@ -606,7 +501,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!draft) return null
     return { items: draft.items, savedAt: draft.savedAt, count: draft.itemCount }
   })
-  type TesterArtifactCacheEntry = { fingerprint: string; artifact: NormalizedGearArtifact }
   // Rule tester champion filters reuse the same metadata as the tester grid to keep icons/borders in sync.
   type TesterChampionOption = {
     id: number
@@ -616,10 +510,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     location: ChampionLocation | null
     count: number
   }
-  const testerArtifactCacheRef = useRef<Map<number, TesterArtifactCacheEntry>>(new Map())
-  // Record the fingerprints the worker most recently acknowledged so differential patches only
-  // send artifacts whose content actually changed (manual edits happen frequently).
-  const lastCommittedArtifactFingerprintsRef = useRef<Map<number, string>>(new Map())
   // Keep the initial tester array reference as a cheap "changed since load" baseline.
   const testerAutosaveBaselineRef = useRef<RuleTesterItem[] | null>(null)
   // Store latest tester items for lazy autosave payload generation.
@@ -628,59 +518,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     testerAutosaveItemsRef.current = testerItems
   }, [testerItems])
   const testerPreviewArtifacts = useMemo<NormalizedGearArtifact[]>(() => {
-    const cache = testerArtifactCacheRef.current
     const next: NormalizedGearArtifact[] = []
-    const activeItemIds = new Set<number>()
     testerItems.forEach((item, idx) => {
-      // Prefer canonical DB-backed ids so cache keys are stable across reloads.
-      const canonicalItemId = resolveCanonicalTestItemId(item)
-      // Keep fallback ids deterministic for malformed/manual rows.
-      const itemId = canonicalItemId ?? -(idx + 1)
-      const fingerprint = fingerprintRuleTesterItem(item)
-      const cached = cache.get(itemId)
-      if (cached && cached.fingerprint === fingerprint) {
-        next.push(cached.artifact)
-        activeItemIds.add(itemId)
-        return
-      }
       try {
         const artifact = buildPreviewArtifactFromTesterItem(item, {
           fallbackId: Number.isFinite(item.itemId) ? -Math.abs(item.itemId) : undefined,
           subOrder: item.subOrder,
         })
-        cache.set(itemId, { fingerprint, artifact })
         next.push(artifact)
-        activeItemIds.add(itemId)
       } catch {
-        cache.delete(itemId)
+        void idx
       }
     })
-    if (cache.size > activeItemIds.size) {
-      for (const key of Array.from(cache.keys())) {
-        if (!activeItemIds.has(key)) {
-          cache.delete(key)
-        }
-      }
-    }
     return next
   }, [testerItems])
-  const testerArtifactsSignature = useMemo(() => {
-    const cache = testerArtifactCacheRef.current
-    const previewArtifactCount = testerPreviewArtifacts.length
-    // Fast-path empty caches so the dependency on testerPreviewArtifacts is meaningful without changing existing behavior.
-    if (previewArtifactCount === 0 && cache.size === 0) return '0'
-    // Build a stable signature based on the same SSOT fingerprint used by the artifact cache.
-    // Why: the pipeline uses this signature to decide whether tester rows are stale.
-    // Why: missing fields (e.g. faction, gear set) can otherwise skip rebuilds and leave stale UI.
-    const entries = Array.from(cache.entries()).sort((a, b) => a[0] - b[0])
-    let sig = `${entries.length}`
-    for (const [itemId, entry] of entries) {
-      // Keep the item id in the signature so reorderings and insertions are detectable.
-      // Use the canonical per-item fingerprint so edits to faction/main/rank/etc invalidate rebuilds.
-      sig += `|${itemId}:${entry.fingerprint}`
-    }
-    return sig
-  }, [testerPreviewArtifacts])
   const getArtifactItemId = useCallback((artifact: NormalizedGearArtifact, fallbackIdx?: number): number => {
     // Share one resolver with worker/cache logic so key precedence cannot drift.
     return resolveArtifactItemIdWithFallback(artifact, fallbackIdx)
@@ -706,49 +557,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   )
   const [safeguardDetection, setSafeguardDetection] = useState<SafeguardDetectionSnapshot | null>(null)
   const [safeguardGroupItemKeys, setSafeguardGroupItemKeys] = useState<Set<number>>(new Set())
-  const safeguardDetectionRef = useRef<SafeguardDetectionSnapshot | null>(safeguardDetection)
-  useEffect(() => { safeguardDetectionRef.current = safeguardDetection }, [safeguardDetection])
-  const safeguardDetectionSignature = useMemo(
-    () => fingerprintSafeguardDetection(safeguardDetection),
-    [safeguardDetection],
-  )
-  const safeguardScanAppliedRef = useRef<string | null>(null)
-  const keepOverrideAppliedStateRef = useRef<{
-    baseRules: readonly HsfRuleWithRecipe[] | null
-    rulesByRecipe: RecipeRulesStateSnapshot['rulesByRecipe'] | null
-    finalSellRules: readonly HsfRuleWithRecipe[] | null
-  }>({
-    baseRules: null,
-    rulesByRecipe: null,
-    finalSellRules: null,
-  })
-  // Force a re-apply when Safeguards detection changes so late DB loads still inject keep overrides.
-  useEffect(() => {
-    if (!safeguardDetectionSignature) return
-    if (safeguardDetectionSignature !== safeguardScanAppliedRef.current) {
-      keepOverrideAppliedStateRef.current = {
-        baseRules: null,
-        rulesByRecipe: null,
-        finalSellRules: null,
-      }
-    }
-  }, [safeguardDetectionSignature])
-  const resetKeepOverrideDetectionState = useCallback(() => {
-    // Clear applied signatures so the next detection snapshot can re-inject rules.
-    safeguardScanAppliedRef.current = null
-    keepOverrideAppliedStateRef.current = {
-      baseRules: null,
-      rulesByRecipe: null,
-      finalSellRules: null,
-    }
-    // Keep the last committed safeguard snapshot visible until the worker publishes the next one.
-    // This mirrors tester-grid behavior: old state stays mounted during rebuild and swaps atomically on commit.
-  }, [])
   const resolvedSafeguardRules = useMemo(() => (
     resolveSafeguardRulesWithMetasets(safeguardRules, metasets)
   ), [safeguardRules, metasets])
   const safeguardsActive = safeguardsEnabled && resolvedSafeguardRules.length > 0
-  const keepOverridesActive = safeguardsActive
   const [gearEntriesBuilding, setGearEntriesBuilding] = useState(false)
   const [gearEntriesCommittedBuildId, setGearEntriesCommittedBuildId] = useState(0)
   const [gearEntriesActiveBuildId, setGearEntriesActiveBuildId] = useState(0)
@@ -760,10 +572,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { gearEntriesCommittedBuildIdRef.current = gearEntriesCommittedBuildId }, [gearEntriesCommittedBuildId])
   const testerMatchResetRef = useRef<{ reason: TesterMatchResetReason; targetBuildId: number; startedAt: number } | null>(null)
   const [testerMatchResetReason, setTesterMatchResetReason] = useState<TesterMatchResetReason | null>(null)
-  // Track the last safeguard structural signature so cosmetic edits do not retrigger the pipeline.
-  const safeguardStructureSigRef = useRef<string | null>(null)
   const beginTesterMatchReset = useCallback((reason: TesterMatchResetReason) => {
-    resetKeepOverrideDetectionState()
     const targetBuildId = gearEntriesActiveBuildId > gearEntriesCommittedBuildId
       ? gearEntriesActiveBuildId
       : gearEntriesCommittedBuildId + 1
@@ -773,7 +582,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       startedAt: Date.now(),
     }
     setTesterMatchResetReason(reason)
-  }, [resetKeepOverrideDetectionState, gearEntriesActiveBuildId, gearEntriesCommittedBuildId])
+  }, [gearEntriesActiveBuildId, gearEntriesCommittedBuildId])
   const testerMatchDetailsFrozen = Boolean(testerMatchResetReason)
   useEffect(() => {
     if (!testerMatchResetReason) return
@@ -912,22 +721,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         detection: safeguardsActive ? safeguardDetection : null,
       },
     })
-      const { baseRules, finalSellRules } = splitMergedRules(mergedRules)
-      if (keepOverridesActive && safeguardDetection) {
-        // Seed applied-state refs so detection effects know this snapshot already includes the scan results.
-        keepOverrideAppliedStateRef.current = {
-          baseRules,
-          rulesByRecipe: initial.rulesByRecipe,
-          finalSellRules,
-        }
-        if (safeguardDetection) {
-          safeguardScanAppliedRef.current = fingerprintSafeguardDetection(safeguardDetection)
-        }
-      }
-      return {
-        baseRules,
-        finalSellRules,
-        rulesByRecipe: initial.rulesByRecipe,
+    const { baseRules, finalSellRules } = splitMergedRules(mergedRules)
+    return {
+      baseRules,
+      finalSellRules,
+      rulesByRecipe: initial.rulesByRecipe,
       countsByRecipe: initial.countsByRecipe,
       keys: initial.keys,
       substatTargetsKey: initial.substatTargetsKey,
@@ -937,10 +735,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       excludedByTotalLimitIndices: initial.excludedByTotalLimitIndices.slice(),
     }
   })
-  const recipeRulesStateRef = useRef(recipeRulesState)
-  useEffect(() => { recipeRulesStateRef.current = recipeRulesState }, [recipeRulesState])
   const [rulesBuilding, setRulesBuilding] = useState(false)
-  // Persist the current warm-cache snapshot so the preview chip can render an overlay.
   const [rulesBuildProgress, setRulesBuildProgress] = useState<ProgressSnapshot | null>(null)
   // Shared spinner ratio merges both rule + tester builders so the UI has a single busy signal.
   const [workloadProgressRatio, setWorkloadProgressRatio] = useState(0)
@@ -960,6 +755,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const trimmed = name.trim()
     return trimmed.length > 0 ? trimmed : null
   }), [recipeNamesForGrid])
+  // Preview mode is still tracked for UI layout, but pipeline matching is always computed.
+  const [previewMode, setPreviewMode] = useState<'rules' | 'tester'>(() => {
+    if (typeof window === 'undefined') return 'rules'
+    try {
+      return localStorage.getItem(PREVIEW_MODE_STORAGE_KEY) === 'tester' ? 'tester' : 'rules'
+    } catch {
+      return 'rules'
+    }
+  })
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      localStorage.setItem(PREVIEW_MODE_STORAGE_KEY, previewMode)
+    } catch {}
+  }, [previewMode])
   const restoringAutosaveRef = useRef(false)
   useEffect(() => {
     // Hang the spinner through idle gaps so sequence builds do not flash the chip.
@@ -990,321 +800,38 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const pipelineAbortRef = useRef<AbortController | null>(null)
   const pipelineDebounceRef = useRef<number | null>(null)
   useEffect(() => {
-    const abortController = new AbortController()
-    pipelineAbortRef.current = abortController
-    const prevState = recipeRulesStateRef.current
-    const prevMatches = testerPreviewRowsRef.current
-    const prevRecipeNames = lastRecipeNamesRef.current
-    // Prefer live snapshots whenever deferred previews lag so fingerprints match the payload we send to the worker.
-    const previewRecipesStale = (
-      ruleRecipesForPreview.length !== ruleRecipes.length
-      || ruleRecipesForPreview.some((recipe, idx) => recipe !== ruleRecipes[idx])
-    )
-    const recipesForBuild = previewRecipesStale ? ruleRecipes : ruleRecipesForPreview
-    // Align recipe-name snapshots with the recipe payload so match chips stay in sync.
-    // Align recipe-name snapshot with the recipe payload so recipeIdx remaps stay deterministic.
-    const previewNamesStale = (
-      recipeNamesForPreview.length !== recipeNames.length
-      || recipeNamesForPreview.some((name, idx) => name !== recipeNames[idx])
-    )
-    const recipeNamesForBuild = previewNamesStale ? recipeNames : recipeNamesForPreview
-    // Recipe modes gate disabled/separator recipes during matcher eval, so keep the snapshot aligned with the builder payload.
-    const previewModesStale = (
-      recipeModesForPreview.length !== recipeModes.length
-      || recipeModesForPreview.some((mode, idx) => mode !== recipeModes[idx])
-    )
-    const recipeModesForBuild = previewModesStale ? recipeModes : recipeModesForPreview
-    // Keep a stable label map so safeguard name edits can update tester chips without a rebuild.
-    const safeguardLabelMap = (() => {
-      // Build a lookup by rule id so injected rows can resolve live names.
-      const map = new Map<string, string>()
-      for (const rule of safeguardRules) {
-        if (!rule || typeof rule.id !== 'string') continue
-        const label = resolveSafeguardRuleLabel(rule)
-        if (!label) continue
-        map.set(rule.id, label)
-      }
-      return map
-    })()
-    // Hash the label map so we can detect name-only changes cheaply.
-    const safeguardLabelSignature = Array.from(safeguardLabelMap.entries())
-      .map(([id, label]) => `${id}:${label}`)
-      .join('|')
-    // Compare against the last applied signature so we can refresh chips without rebuilding rules.
-    const safeguardLabelsChanged = safeguardLabelSignature !== lastSafeguardLabelSignatureRef.current
-    // Artifact signature drives match reuse; keep it alongside the fingerprint so duplicate builds can bail quickly.
-    const pipelineArtifactSignature = testerArtifactsSignature
-    // Mirror metasets and substat targets to the same snapshot to avoid stale warm fingerprints.
-    const previewMetasetsStale = (
-      metasetsForPreview.length !== metasets.length
-      || metasetsForPreview.some((meta, idx) => meta !== metasets[idx])
-    )
-    const metasetsForBuild = previewMetasetsStale ? metasets : metasetsForPreview
-    const substatTargetsForBuild = substatTargetsForPreview === effectiveSubstatTargets
-      ? effectiveSubstatTargets
-      : (substatTargetsForPreview ?? effectiveSubstatTargets)
-    // Use the build-aligned snapshot for key comparisons so reorders are detected even if deferred previews lag.
-    const nextSubstatTargetsKey = fingerprintSubstatTargets(substatTargetsForBuild)
-    const nextRecipeKeys = recipesForBuild.map((recipe) => fingerprintRecipeForRules(recipe, nextSubstatTargetsKey))
-    const safeguardStructureSig = fingerprintSafeguardRuleList(resolvedSafeguardRules)
-    const nextFingerprint = buildRulesFingerprint({
-      substatTargetsKey: nextSubstatTargetsKey,
-      recipeKeys: nextRecipeKeys,
-      metasets: metasetsForBuild,
-      hsf,
-      safeguardRules: resolvedSafeguardRules,
-      safeguardsEnabled,
-      finalSell: finalSellRemainder,
-    })
-    // If the warmed state already covers this fingerprint, skip the worker warm pass and avoid toggling spinners.
-    const canSkipWarm = lastWarmFingerprintRef.current === nextFingerprint
-    // Name-only edits should not wake the worker; detect them explicitly.
-    const recipeNamesChanged = (() => {
-      if (prevRecipeNames.length !== recipeNamesForBuild.length) return true
-      for (let i = 0; i < recipeNamesForBuild.length; i += 1) {
-        if (recipeNamesForBuild[i] !== prevRecipeNames[i]) return true
-      }
-      return false
-    })()
-    // Artifact signature drift signals that the tester payload meaningfully changed.
-    const artifactsChanged = !lastPipelineSignatureRef.current
-      || lastPipelineSignatureRef.current.artifactSig !== pipelineArtifactSignature
-    // When the preview empties out we need to purge the worker's artifact cache explicitly;
-    // otherwise, stale cached artifacts would keep producing safeguard rows.
-    const workerNeedsReset = testerPreviewArtifacts.length === 0
-      && lastPipelineSignatureRef.current?.artifactSig !== pipelineArtifactSignature
-      && lastPipelineSignatureRef.current?.artifactSig !== undefined
-      && lastPipelineSignatureRef.current?.artifactSig !== null
-    // Skip redundant pipelines when deferred snapshots catch up without changing the rule or artifact signatures.
-    if (
-      canSkipWarm
-      && !recipeNamesChanged
-      && !safeguardLabelsChanged
-      && lastPipelineSignatureRef.current
-      && lastPipelineSignatureRef.current.fingerprint === nextFingerprint
-      && lastPipelineSignatureRef.current.artifactSig === pipelineArtifactSignature
-      && !workerNeedsReset
-    ) {
-      safeguardStructureSigRef.current = safeguardStructureSig
-      return () => {
-        abortController.abort()
-        if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
-      }
-    }
-    const buildIndexMapping = (previousKeys: string[], nextKeys: string[]): number[] | null => {
-      if (previousKeys.length !== nextKeys.length) return null
-      const buckets = new Map<string, number[]>()
-      previousKeys.forEach((key, idx) => {
-        const list = buckets.get(key) ?? []
-        list.push(idx)
-        buckets.set(key, list)
-      })
-      const mapping: number[] = []
-      for (const key of nextKeys) {
-        const list = buckets.get(key)
-        if (!list || list.length === 0) return null
-        const sourceIdx = list.shift()!
-        mapping.push(sourceIdx)
-      }
-      return mapping
-    }
-    const mapping = prevState
-      && prevState.substatTargetsKey === nextSubstatTargetsKey
-      ? buildIndexMapping(prevState.keys, nextRecipeKeys)
-      : null
-    const hasArtifacts = testerPreviewArtifacts.length > 0
-
-    if (!artifactsChanged && canSkipWarm && (recipeNamesChanged || safeguardLabelsChanged) && prevMatches.length > 0) {
-      // Names changed but rule fingerprints are stable; update cached rows without rebuilding.
-      const resolveRecipeName = (recipeIdx: number | null): string | null => {
-        // Builder recipe names still key off the recipe index snapshot.
-        if (recipeIdx == null) return null
-        return recipeNamesForBuild[recipeIdx] ?? null
-      }
-      const resolveSafeguardLabel = (ruleIndex: number | null): string | null => {
-        // Keep-unique labels are mapped by rule id so they can refresh without rebuilding rules.
-        if (ruleIndex == null || !prevState?.mergedRules) return null
-        const rule = prevState.mergedRules[ruleIndex]
-        if (!rule || rule.__source !== RULE_SOURCE_SAFEGUARDS) return null
-        const ruleId = rule.__safeguardRuleId
-        if (ruleId && safeguardLabelMap.has(ruleId)) {
-          return safeguardLabelMap.get(ruleId) ?? null
-        }
-        return resolveSafeguardRuleLabel(rule)
-      }
-      const refreshMatch = (match: TesterPreviewMatch | null): TesterPreviewMatch | null => {
-        // Recompute recipe names, while safeguard matches use the live rule label map.
-        if (!match) return null
-        const nextRecipeName = resolveRecipeName(match.recipeIdx)
-        const safeguardLabel = match.ruleSource === RULE_SOURCE_SAFEGUARDS
-          ? resolveSafeguardLabel(match.ruleIndex)
-          : null
-        const resolvedRecipeName = match.ruleSource === RULE_SOURCE_SAFEGUARDS
-          ? (safeguardLabel ?? match.recipeName ?? null)
-          : nextRecipeName
-        const resolvedRuleLabel = match.ruleSource === RULE_SOURCE_SAFEGUARDS
-          ? (safeguardLabel ?? match.ruleLabel ?? null)
-          : match.ruleLabel
-        return { ...match, recipeName: resolvedRecipeName, ruleLabel: resolvedRuleLabel }
-      }
-      const updatedRows = prevMatches.map((row) => ({
-        ...row,
-        match: refreshMatch(row.match),
-        baseMatch: refreshMatch(row.baseMatch),
-      }))
-      setTesterPreviewRows(sortTesterRows(updatedRows))
-      lastRecipeNamesRef.current = recipeNamesForBuild
-      lastSafeguardLabelSignatureRef.current = safeguardLabelSignature
-      return () => {
-        abortController.abort()
-        if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
-      }
-    }
-    if (!artifactsChanged && canSkipWarm && safeguardLabelsChanged && prevMatches.length === 0 && !recipeNamesChanged) {
-      // No rows to refresh, but we still want to record the latest safeguard labels.
-      lastRecipeNamesRef.current = recipeNamesForBuild
-      lastSafeguardLabelSignatureRef.current = safeguardLabelSignature
-      return () => {
-        abortController.abort()
-        if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
-      }
-    }
-
-    if (
-      !artifactsChanged
-      && !restoringAutosaveRef.current
-      && mapping
-      && mapping.some((idx, newIdx) => idx !== newIdx)
-      && !hasArtifacts
-    ) {
-      // Fast path: reorder-only changes can remap cached rules without waking the worker.
-      const inverse = new Map<number, number>()
-      mapping.forEach((prevIdx, newIdx) => { inverse.set(prevIdx, newIdx) })
-      const remapRulesForIndex = (rules: readonly HsfRuleWithRecipe[], newIdx: number): HsfRuleWithRecipe[] => (
-        rules.map((rule) => cloneRuleWithRecipeIndex(rule, newIdx))
-      )
-      const newRulesByRecipe = new Map<number, HsfRuleWithRecipe[]>()
-      const newCountsByRecipe = new Map<number, number>()
-      const newTruncated: number[] = []
-      const newExcluded: number[] = []
-      const prevTruncated = new Set(prevState.truncatedRecipeIndices)
-      const prevExcluded = new Set(prevState.excludedByTotalLimitIndices)
-      const customSegments: HsfRuleWithRecipe[][] = []
-      for (let newIdx = 0; newIdx < mapping.length; newIdx += 1) {
-        const prevIdx = mapping[newIdx]!
-        const prevRules = prevState.rulesByRecipe.get(prevIdx) ?? []
-        const remapped = remapRulesForIndex(prevRules, newIdx)
-        newRulesByRecipe.set(newIdx, remapped)
-        customSegments.push(remapped)
-        const prevCount = prevState.countsByRecipe.get(prevIdx)
-        if (prevTruncated.has(prevIdx)) {
-          newCountsByRecipe.set(newIdx, Number.POSITIVE_INFINITY)
-          newTruncated.push(newIdx)
-        } else {
-          newCountsByRecipe.set(newIdx, typeof prevCount === 'number' ? prevCount : remapped.length)
-        }
-        if (prevExcluded.has(prevIdx)) newExcluded.push(newIdx)
-      }
-      const mergedRules = prevState.baseRules.concat(...customSegments, prevState.finalSellRules)
-      setRecipeRulesState({
-        ...prevState,
-        rulesByRecipe: newRulesByRecipe,
-        countsByRecipe: newCountsByRecipe,
-        keys: nextRecipeKeys,
-        substatTargetsKey: nextSubstatTargetsKey,
-        mergedRules,
-        truncatedRecipeIndices: newTruncated,
-        excludedByTotalLimitIndices: newExcluded,
-      })
-      keepOverrideAppliedStateRef.current = {
-        baseRules: prevState.baseRules,
-        rulesByRecipe: newRulesByRecipe,
-        finalSellRules: prevState.finalSellRules,
-      }
-      lastWarmFingerprintRef.current = nextFingerprint
-      // Avoid flashing the preview spinner when we served this entirely from the cache.
-      setRulesBuilding(false)
-      setGearEntriesBuilding(false)
-      setRulesBuildProgress(null)
-      setGearEntriesProgress(null)
-      if (prevMatches && prevMatches.length > 0) {
-        // Keep-unique labels may have drifted; resolve them from the live rule list.
-        const resolveSafeguardLabel = (ruleIndex: number | null): string | null => {
-          if (ruleIndex == null) return null
-          const rule = prevState.mergedRules[ruleIndex]
-          if (!rule || rule.__source !== RULE_SOURCE_SAFEGUARDS) return null
-          const ruleId = rule.__safeguardRuleId
-          if (ruleId && safeguardLabelMap.has(ruleId)) {
-            return safeguardLabelMap.get(ruleId) ?? null
-          }
-          return resolveSafeguardRuleLabel(rule)
-        }
-        const remapRecipeIdx = (recipeIdx: number | null): number | null => {
-          if (recipeIdx == null) return null
-          const nextIdx = inverse.get(recipeIdx)
-          return typeof nextIdx === 'number' ? nextIdx : null
-        }
-        const remapDecision = (decision: MatchingRecipeDecision): MatchingRecipeDecision => {
-          const nextIdx = remapRecipeIdx(decision.recipeIdx)
-          const recipeIdx = typeof nextIdx === 'number' ? nextIdx : decision.recipeIdx
-          return { ...decision, recipeIdx }
-        }
-        const remappedRows = prevMatches.map((row) => ({
-          ...row,
-          match: (() => {
-            if (!row.match) return null
-            const nextIdx = remapRecipeIdx(row.match.recipeIdx)
-            const nextName = nextIdx != null ? recipeNamesForBuild[nextIdx] ?? null : null
-            const safeguardLabel = row.match.ruleSource === RULE_SOURCE_SAFEGUARDS
-              ? resolveSafeguardLabel(row.match.ruleIndex)
-              : null
-            const recipeName = row.match.ruleSource === RULE_SOURCE_SAFEGUARDS
-              ? (safeguardLabel ?? row.match.recipeName ?? null)
-              : nextName
-            const ruleLabel = row.match.ruleSource === RULE_SOURCE_SAFEGUARDS
-              ? (safeguardLabel ?? row.match.ruleLabel ?? null)
-              : row.match.ruleLabel
-            return { ...row.match, recipeIdx: nextIdx, recipeName, ruleLabel }
-          })(),
-          baseMatch: (() => {
-            if (!row.baseMatch) return null
-            const nextIdx = remapRecipeIdx(row.baseMatch.recipeIdx)
-            const nextName = nextIdx != null ? recipeNamesForBuild[nextIdx] ?? null : null
-            const safeguardLabel = row.baseMatch.ruleSource === RULE_SOURCE_SAFEGUARDS
-              ? resolveSafeguardLabel(row.baseMatch.ruleIndex)
-              : null
-            const recipeName = row.baseMatch.ruleSource === RULE_SOURCE_SAFEGUARDS
-              ? (safeguardLabel ?? row.baseMatch.recipeName ?? null)
-              : nextName
-            const ruleLabel = row.baseMatch.ruleSource === RULE_SOURCE_SAFEGUARDS
-              ? (safeguardLabel ?? row.baseMatch.ruleLabel ?? null)
-              : row.baseMatch.ruleLabel
-            return { ...row.baseMatch, recipeIdx: nextIdx, recipeName, ruleLabel }
-          })(),
-          matchingRecipeIndices: row.matchingRecipeIndices.map((idx) => {
-            const nextIdx = inverse.get(idx)
-            return typeof nextIdx === 'number' ? nextIdx : idx
-          }),
-          matchingRecipeDecisions: (row.matchingRecipeDecisions ?? []).map(remapDecision),
-        }))
-        setTesterPreviewRows(sortTesterRows(remappedRows))
-      }
-      lastRecipeNamesRef.current = recipeNamesForBuild
-      lastSafeguardLabelSignatureRef.current = safeguardLabelSignature
-      return () => {
-        abortController.abort()
-        if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
-      }
-    }
-
+    // Pipeline payloads use immediate state snapshots.
+    // Why: deferred snapshots can emit follow-up renders for the same user click
+    // and repeatedly restart the debounce window before dispatch.
+    const recipesForBuild = ruleRecipes
+    // Keep recipe-name snapshots aligned with the same immediate payload so remaps stay deterministic.
+    const recipeNamesForBuild = recipeNames
+    // Recipe modes gate matcher behavior, so keep the same immediate snapshot as recipes/metasets.
+    const recipeModesForBuild = recipeModes
+    // Keep metasets/substat targets on the same immediate snapshot used for recipes.
+    const metasetsForBuild = metasets
+    const substatTargetsForBuild = effectiveSubstatTargets
+    // Preview mode is a pure view toggle; pipeline work should not depend on it.
+    // Keep matcher rows available regardless of which pane is currently visible.
+    const includeMatchesInPipeline = true
     const launchPipeline = () => {
       const requestToken = (rulesBuildingTokenRef.current ?? 0) + 1
       rulesBuildingTokenRef.current = requestToken
-      setGearEntriesActiveBuildId(requestToken)
-      setRulesBuilding(true)
-      setGearEntriesBuilding(true)
-      setRulesBuildProgress(null)
-      setGearEntriesProgress(null)
+      const shouldTrackTesterBuild = includeMatchesInPipeline || Boolean(testerMatchResetRef.current)
+      if (shouldTrackTesterBuild) setGearEntriesActiveBuildId(requestToken)
+      // Build/progress toggles fan out through many memoized panels; transition them
+      // so user input stays responsive while the worker pipeline spins up.
+      startTransition(() => {
+        setRulesBuilding(true)
+        setRulesBuildProgress(null)
+        // Rules preview mode skips tester rows, so avoid flipping tester build state/progress.
+        if (includeMatchesInPipeline) {
+          setGearEntriesBuilding(true)
+          setGearEntriesProgress(null)
+        } else {
+          setGearEntriesBuilding(false)
+        }
+      })
 
       // Safeguards payload seeds the worker with the current rule set.
       const safeguardsPayload = {
@@ -1312,39 +839,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         rules: resolvedSafeguardRules,
         detection: null as SafeguardDetectionSnapshot | null,
       }
-      const {
-        patch: artifactPatch,
-        fingerprints: nextArtifactFingerprints,
-      } = (() => {
-        const cache = testerArtifactCacheRef.current
-        const prevFingerprints = lastCommittedArtifactFingerprintsRef.current
-        const nextFingerprints = new Map<number, string>()
-        const changed: Array<[number, NormalizedGearArtifact]> = []
-        const removed: number[] = []
-        // Only compute a diff when the worker previously accepted fingerprints and the cache
-        // isn't being flushed; the first warm still sends the full artifact list.
-        const diffOnly = prevFingerprints.size > 0 && !workerNeedsReset
-        for (let idx = 0; idx < testerPreviewArtifacts.length; idx += 1) {
-          const artifact = testerPreviewArtifacts[idx]
-          if (!artifact) continue
-          const itemId = getArtifactItemId(artifact, idx)
-          const cached = cache.get(itemId)
-          const testerPayload = artifact.testerItem as RuleTesterItem | undefined
-          const fingerprint = cached?.fingerprint ?? (testerPayload ? fingerprintRuleTesterItem(testerPayload) : '')
-          nextFingerprints.set(itemId, fingerprint ?? '')
-          if (!diffOnly || prevFingerprints.get(itemId) !== fingerprint) {
-            changed.push([itemId, artifact])
-          }
-        }
-        prevFingerprints.forEach((_, itemId) => {
-          if (!nextFingerprints.has(itemId)) removed.push(itemId)
-        })
-        return {
-          patch: { changed, removed, signature: testerArtifactsSignature },
-          fingerprints: nextFingerprints,
-        }
-      })()
-
       const toPreviewMatch = (
         result: TesterMatchWorkerItemResult['firstMatch'],
         rules: readonly HsfRuleWithRecipe[],
@@ -1383,15 +877,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         ...(finalSellRemainder ? { finalSellRemainder } : {}),
         safeguards: safeguardsPayload,
         recipeModes: recipeModesForBuild,
-        artifacts: [],
-        artifactPatch,
-        artifactSignature: testerArtifactsSignature,
-        fingerprint: nextFingerprint,
-        skipWarm: canSkipWarm,
-        skipMatches: false,
-        skipDetection: false,
-        resetArtifacts: workerNeedsReset,
+        artifacts: testerPreviewArtifacts,
       }
+      // Cancel the prior in-flight run only when dispatching a new payload.
+      // Effect rerenders alone no longer abort active work.
+      if (pipelineAbortRef.current) {
+        pipelineAbortRef.current.abort()
+        pipelineAbortRef.current = null
+      }
+      const abortController = new AbortController()
+      pipelineAbortRef.current = abortController
 
       // One pipeline invocation per update after early fast paths.
       runPipeline(pipelinePayload, {
@@ -1399,22 +894,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onProgress: (progress) => {
           if (requestToken !== rulesBuildingTokenRef.current) return
           setRulesBuildProgress(progress)
-          setGearEntriesProgress(progress)
+          if (includeMatchesInPipeline) setGearEntriesProgress(progress)
         },
       })
         .then((result) => {
           const { state, matches, safeguardDetection } = result
           if (abortController.signal.aborted) {
-            // Clear reuse fingerprints when the active run is cancelled mid-flight.
-            if (requestToken === rulesBuildingTokenRef.current) {
-              lastPipelineSignatureRef.current = null
-              lastCommittedArtifactFingerprintsRef.current = new Map()
-              lastWarmFingerprintRef.current = null
-            }
+            // Abort is expected control flow during rapid edit bursts.
             return
           }
           if (requestToken !== rulesBuildingTokenRef.current) return
-          lastWarmFingerprintRef.current = nextFingerprint
           const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
           const snapshot: RecipeRulesStateSnapshot = {
             baseRules,
@@ -1428,36 +917,43 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             totalLimitHit: state.totalLimitHit,
             excludedByTotalLimitIndices: state.excludedByTotalLimitIndices,
           }
-          setRecipeRulesState(snapshot)
-          keepOverrideAppliedStateRef.current = {
-            baseRules,
-            rulesByRecipe: state.rulesByRecipe,
-            finalSellRules,
-          }
-          safeguardStructureSigRef.current = safeguardStructureSig
-          const matchMap = new Map<number, TesterMatchWorkerItemResult>()
-          for (const entry of matches) {
-            if (!entry) continue
-            matchMap.set(entry.itemId, entry)
-          }
-          const rows: TesterPreviewRow[] = []
-          const artifactEntries = testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number, NormalizedGearArtifact])
-          for (const [itemId, artifact] of artifactEntries) {
-            if (!artifact) continue
-            const matchEntry = matchMap.get(itemId)
-            const match = toPreviewMatch(matchEntry?.firstMatch ?? null, state.mergedRules)
-            const baseMatch = toPreviewMatch(matchEntry?.firstNonExcludedMatch ?? null, state.mergedRules)
-            rows.push({
-              artifact,
-              match,
-              baseMatch,
-              matchingRecipeIndices: matchEntry?.matchingRecipeIndices ?? [],
-              matchingRecipeDecisions: matchEntry?.matchingRecipeDecisions ?? [],
+          // Rule-table snapshots are large; transition the commit so input-heavy
+          // dialogs keep handling clicks while preview state settles.
+          startTransition(() => {
+            setRecipeRulesState(snapshot)
+          })
+          if (includeMatchesInPipeline) {
+            const matchMap = new Map<number, TesterMatchWorkerItemResult>()
+            for (const entry of matches) {
+              if (!entry) continue
+              matchMap.set(entry.itemId, entry)
+            }
+            const rows: TesterPreviewRow[] = []
+            const artifactEntries = testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number, NormalizedGearArtifact])
+            for (const [itemId, artifact] of artifactEntries) {
+              if (!artifact) continue
+              const matchEntry = matchMap.get(itemId)
+              const match = toPreviewMatch(matchEntry?.firstMatch ?? null, state.mergedRules)
+              const baseMatch = toPreviewMatch(matchEntry?.firstNonExcludedMatch ?? null, state.mergedRules)
+              rows.push({
+                artifact,
+                match,
+                baseMatch,
+                matchingRecipeIndices: matchEntry?.matchingRecipeIndices ?? [],
+                matchingRecipeDecisions: matchEntry?.matchingRecipeDecisions ?? [],
+              })
+            }
+            // Tester row lists can be large; transition to avoid blocking edits.
+            startTransition(() => {
+              setTesterPreviewRows(sortTesterRows(rows))
             })
           }
-          setTesterPreviewRows(sortTesterRows(rows))
-          setGearEntriesCommittedBuildId(requestToken)
-          setGearEntriesActiveBuildId(requestToken)
+          // Advance tester build ids only when tester rows were requested, or when a
+          // pending tester-reset wait explicitly needs a completion marker.
+          if (includeMatchesInPipeline || testerMatchResetRef.current) {
+            setGearEntriesCommittedBuildId(requestToken)
+            setGearEntriesActiveBuildId(requestToken)
+          }
           // Collect Safeguards item keys for the tab-level grid filter.
           const uniqueKeys = new Set<number>()
           if (safeguardDetection?.entries) {
@@ -1466,18 +962,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               for (const key of entry.itemKeys) uniqueKeys.add(key)
             }
           }
-          setSafeguardDetection(safeguardDetection ?? null)
-          setSafeguardGroupItemKeys(uniqueKeys)
-          // Persist the latest worker-acknowledged fingerprints so the next patch knows which
-          // artifacts can be skipped safely.
-          lastCommittedArtifactFingerprintsRef.current = nextArtifactFingerprints
-          safeguardScanAppliedRef.current = safeguardDetection
-            ? fingerprintSafeguardDetection(safeguardDetection)
-            : null
-          lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
+          // Safeguard table snapshots are preview-only and can be deferred.
+          startTransition(() => {
+            setSafeguardDetection(safeguardDetection ?? null)
+            setSafeguardGroupItemKeys(uniqueKeys)
+          })
           lastRecipeNamesRef.current = recipeNamesForBuild
-          lastSafeguardLabelSignatureRef.current = safeguardLabelSignature
-          if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
           const totalCustomRules = Array.from(state.countsByRecipe.values()).reduce((acc, val) => (
             acc + (Number.isFinite(val) ? Number(val) : 0)
           ), 0)
@@ -1492,32 +982,25 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             runPipeline(
               {
                 ...pipelinePayload,
-                artifacts: [],
-                skipWarm: false,
-                fingerprint: null,
+                artifacts: testerPreviewArtifacts,
               },
               {
                 signal: abortController.signal,
                 onProgress: (progress) => {
                   if (requestToken !== rulesBuildingTokenRef.current) return
                   setRulesBuildProgress(progress)
-                  setGearEntriesProgress(progress)
+                  if (includeMatchesInPipeline) setGearEntriesProgress(progress)
                 },
               },
             )
               .then((retryResult) => {
                 if (abortController.signal.aborted) {
-                  // Clear reuse fingerprints when the active retry run is cancelled.
-                  if (requestToken === rulesBuildingTokenRef.current) {
-                    lastPipelineSignatureRef.current = null
-                    lastCommittedArtifactFingerprintsRef.current = new Map()
-                    lastWarmFingerprintRef.current = null
-                  }
+                  // Retry aborts are still expected control flow during rapid edits.
+                  // Non-abort failures still clear state in the retry catch below.
                   return
                 }
                 if (requestToken !== rulesBuildingTokenRef.current) return
                 recoverMissingRulesRef.current = false
-                lastWarmFingerprintRef.current = retryResult.fingerprint ?? null
                 // Re-run the success handler with the retried payload.
                 const {
                   state: retryState,
@@ -1525,44 +1008,48 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   safeguardDetection: retrySafeguardDetection,
                 } = retryResult
                 const splitRetry = splitMergedRules(retryState.mergedRules)
-                setRecipeRulesState({
-                  baseRules: splitRetry.baseRules,
-                  finalSellRules: splitRetry.finalSellRules,
-                  rulesByRecipe: retryState.rulesByRecipe,
-                  countsByRecipe: retryState.countsByRecipe,
-                  keys: retryState.keys,
-                  substatTargetsKey: retryState.substatTargetsKey,
-                  mergedRules: retryState.mergedRules,
-                  truncatedRecipeIndices: retryState.truncatedRecipeIndices,
-                  totalLimitHit: retryState.totalLimitHit,
-                  excludedByTotalLimitIndices: retryState.excludedByTotalLimitIndices,
+                // Retry snapshots are just as large; keep them out of the urgent lane.
+                startTransition(() => {
+                  setRecipeRulesState({
+                    baseRules: splitRetry.baseRules,
+                    finalSellRules: splitRetry.finalSellRules,
+                    rulesByRecipe: retryState.rulesByRecipe,
+                    countsByRecipe: retryState.countsByRecipe,
+                    keys: retryState.keys,
+                    substatTargetsKey: retryState.substatTargetsKey,
+                    mergedRules: retryState.mergedRules,
+                    truncatedRecipeIndices: retryState.truncatedRecipeIndices,
+                    totalLimitHit: retryState.totalLimitHit,
+                    excludedByTotalLimitIndices: retryState.excludedByTotalLimitIndices,
+                  })
                 })
-                keepOverrideAppliedStateRef.current = {
-                  baseRules: splitRetry.baseRules,
-                  rulesByRecipe: retryState.rulesByRecipe,
-                  finalSellRules: splitRetry.finalSellRules,
-                }
-                safeguardStructureSigRef.current = safeguardStructureSig
-                const retryMap = new Map<number, TesterMatchWorkerItemResult>()
-                for (const entry of retryMatches) retryMap.set(entry.itemId, entry)
-                const retryRows: TesterPreviewRow[] = []
-                const entries = testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number, NormalizedGearArtifact])
-                for (const [itemId, artifact] of entries) {
-                  if (!artifact) continue
-                  const matchEntry = retryMap.get(itemId)
-                  const match = toPreviewMatch(matchEntry?.firstMatch ?? null, retryState.mergedRules)
-                  const baseMatch = toPreviewMatch(matchEntry?.firstNonExcludedMatch ?? null, retryState.mergedRules)
-                  retryRows.push({
-                    artifact,
-                    match,
-                    baseMatch,
-                    matchingRecipeIndices: matchEntry?.matchingRecipeIndices ?? [],
-                    matchingRecipeDecisions: matchEntry?.matchingRecipeDecisions ?? [],
+                if (includeMatchesInPipeline) {
+                  const retryMap = new Map<number, TesterMatchWorkerItemResult>()
+                  for (const entry of retryMatches) retryMap.set(entry.itemId, entry)
+                  const retryRows: TesterPreviewRow[] = []
+                  const entries = testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number, NormalizedGearArtifact])
+                  for (const [itemId, artifact] of entries) {
+                    if (!artifact) continue
+                    const matchEntry = retryMap.get(itemId)
+                    const match = toPreviewMatch(matchEntry?.firstMatch ?? null, retryState.mergedRules)
+                    const baseMatch = toPreviewMatch(matchEntry?.firstNonExcludedMatch ?? null, retryState.mergedRules)
+                    retryRows.push({
+                      artifact,
+                      match,
+                      baseMatch,
+                      matchingRecipeIndices: matchEntry?.matchingRecipeIndices ?? [],
+                      matchingRecipeDecisions: matchEntry?.matchingRecipeDecisions ?? [],
+                    })
+                  }
+                  // Retry tester rows can be large; schedule as non-urgent UI work.
+                  startTransition(() => {
+                    setTesterPreviewRows(sortTesterRows(retryRows))
                   })
                 }
-                setTesterPreviewRows(sortTesterRows(retryRows))
-                setGearEntriesCommittedBuildId(requestToken)
-                setGearEntriesActiveBuildId(requestToken)
+                if (includeMatchesInPipeline || testerMatchResetRef.current) {
+                  setGearEntriesCommittedBuildId(requestToken)
+                  setGearEntriesActiveBuildId(requestToken)
+                }
                 const retryUniqueKeys = new Set<number>()
                 if (retrySafeguardDetection?.entries) {
                   for (const entry of retrySafeguardDetection.entries) {
@@ -1570,43 +1057,34 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                     for (const key of entry.itemKeys) retryUniqueKeys.add(key)
                   }
                 }
-                setSafeguardDetection(retrySafeguardDetection ?? null)
-                setSafeguardGroupItemKeys(retryUniqueKeys)
-                safeguardScanAppliedRef.current = retrySafeguardDetection
-                  ? fingerprintSafeguardDetection(retrySafeguardDetection)
-                  : null
-                // Retry path accepts the same snapshot, so propagate the pending fingerprints as well.
-                lastCommittedArtifactFingerprintsRef.current = nextArtifactFingerprints
-                lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
+                // Safeguard previews are informative, not input-critical.
+                startTransition(() => {
+                  setSafeguardDetection(retrySafeguardDetection ?? null)
+                  setSafeguardGroupItemKeys(retryUniqueKeys)
+                })
                 lastRecipeNamesRef.current = recipeNamesForBuild
-                lastSafeguardLabelSignatureRef.current = safeguardLabelSignature
               })
-              .catch(() => {
-                // Never keep stale signature/fingerprint snapshots after a failed retry.
-                if (requestToken === rulesBuildingTokenRef.current) {
-                  lastPipelineSignatureRef.current = null
-                  lastCommittedArtifactFingerprintsRef.current = new Map()
-                  lastWarmFingerprintRef.current = null
-                }
+              .catch((error: unknown) => {
+                if (isAbortError(error)) return
               })
             return
           }
           recoverMissingRulesRef.current = false
         })
-        .catch(() => {
-          // Never keep stale signature/fingerprint snapshots after a failed/aborted run.
-          if (requestToken === rulesBuildingTokenRef.current) {
-            lastPipelineSignatureRef.current = null
-            lastCommittedArtifactFingerprintsRef.current = new Map()
-            lastWarmFingerprintRef.current = null
-          }
+        .catch((error: unknown) => {
+          if (isAbortError(error)) return
         })
         .finally(() => {
           if (requestToken !== rulesBuildingTokenRef.current) return
-          setRulesBuilding(false)
-          setGearEntriesBuilding(false)
-          setRulesBuildProgress(null)
-          setGearEntriesProgress(null)
+          // Clear active request markers once the latest pipeline settles.
+          if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
+          // Completion toggles are UI-only and can be deferred behind user input.
+          startTransition(() => {
+            setRulesBuilding(false)
+            setGearEntriesBuilding(false)
+            setRulesBuildProgress(null)
+            setGearEntriesProgress(null)
+          })
         })
     }
 
@@ -1622,34 +1100,35 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         window.clearTimeout(pipelineDebounceRef.current)
         pipelineDebounceRef.current = null
       }
-      abortController.abort()
-      if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
     }
   }, [
     runPipeline,
     ruleRecipes,
-    ruleRecipesForPreview,
     recipeNames,
     metasets,
-    metasetsForPreview,
     effectiveSubstatTargets,
-    substatTargetsForPreview,
     hsf,
     finalSellRemainder,
-    safeguardRules,
     safeguardsEnabled,
     resolvedSafeguardRules,
     recipeModes,
-    recipeModesForPreview,
     testerPreviewArtifacts,
-    testerArtifactsSignature,
-    recipeNamesForPreview,
     getArtifactItemId,
-    buildRulesFingerprint,
-    fingerprintSafeguardRuleList,
   ])
+  useEffect(() => {
+    return () => {
+      // Component teardown must cancel timers and active worker requests.
+      if (pipelineDebounceRef.current !== null) {
+        window.clearTimeout(pipelineDebounceRef.current)
+        pipelineDebounceRef.current = null
+      }
+      if (pipelineAbortRef.current) {
+        pipelineAbortRef.current.abort()
+        pipelineAbortRef.current = null
+      }
+    }
+  }, [])
 
-  const awaitRuleCounts = useCallback((): { token: number; promise: Promise<Map<number, number>> } | null => null, [])
   const selectionGuardRef = useRef<(prev: number[], next: number[]) => void>(() => {})
   const autoApplyNowRef = useRef<() => boolean>(NO_AUTO_APPLY)
   const registerAutoApplyHandler = useCallback((fn: (() => boolean) | null) => {
@@ -1877,6 +1356,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     autoApplySelectedRecipe,
   })
   describeNextChangeRef.current = describeNextChange
+  // Use one SSOT transition wrapper for heavy tab/dialog writes so every pathway
+  // (builder, minima, safeguards, final-sell, gear) shares the same scheduling behavior.
+  const setCustomRecipesTransition = useNonUrgentStateDispatch(setCustomRecipes)
+  const setMetasetsTransition = useNonUrgentStateDispatch(setMetasets)
+  const setSubstatTargetsTransition = useNonUrgentStateDispatch(setSubstatTargets)
+  const setFinalSellRemainderTransition = useNonUrgentStateDispatch(setFinalSellRemainder)
+  const setSafeguardRulesTransition = useNonUrgentStateDispatch(setSafeguardRules)
+  const setSafeguardsEnabledTransition = useNonUrgentStateDispatch(setSafeguardsEnabled)
+  const setTesterItemsTransition = useNonUrgentStateDispatch(setTesterItems)
   const applyRecipeOverridesToRecipes = useCallback((instructions: RecipeOverridesInstructions) => {
     // Compute the updated recipes once so list + builder sync with one payload.
     const prev = customRecipesRef.current
@@ -1901,7 +1389,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
     // Persist the updated list so future edits start from the applied values.
-    setCustomRecipes(next)
+    setCustomRecipesTransition(next)
     // Sync the builder when the selected recipe changed under the overrides.
     if (selectedRecipeIdx !== null) {
       const nextSelected = next[selectedRecipeIdx]
@@ -1923,7 +1411,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       disableCount,
     })
     describeNextChange(descriptor)
-  }, [describeNextChange, selectedRecipeIdx, setBuilder, setCustomRecipes])
+  }, [describeNextChange, selectedRecipeIdx, setBuilder, setCustomRecipesTransition])
 
   // Builder and dialog both call through here so history/undo sees a single
   // cohesive change. While the dialog is open we aggregate edits until the
@@ -1947,7 +1435,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     const mode = options?.mode ?? (isDefaultSubstatTargetTable(next) && !isDefaultSubstatTargetTable(previous) ? 'reset' : 'edit')
     const descriptor = createSubstatTargetsChangeDescriptor({ previous, next, mode })
-    setSubstatTargets(next)
+    // Minima dialog edits are non-urgent relative to click/typing responsiveness.
+    setSubstatTargetsTransition(next)
     if (options?.publish === false) {
       substatTargetsHistorySessionRef.current = 'idle'
       substatTargetsSessionBaselineRef.current = null
@@ -1978,7 +1467,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       describeNextChange(descriptor ?? null)
     }
     return descriptor ?? null
-  }, [describeNextChange, substatTargets, substatTargetsDialogOpen, setSubstatTargets])
+  }, [describeNextChange, setSubstatTargetsTransition, substatTargets, substatTargetsDialogOpen])
   const applyFinalSellChange = useCallback((
     value: React.SetStateAction<FinalSellRemainderConfig>,
     options?: { mode?: FinalSellDescriptorMode; publish?: boolean },
@@ -2002,11 +1491,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         describeNextChange(null)
       }
       if (resolvedNextState !== prevState) {
-        setFinalSellRemainder(resolvedNextState)
+        // Preserve current behavior while scheduling the heavy rebuild as non-urgent.
+        setFinalSellRemainderTransition(resolvedNextState)
       }
       return null
     }
-    setFinalSellRemainder(resolvedNextState)
+    // Final Sell toggles can invalidate many rows/rules; transition this commit.
+    setFinalSellRemainderTransition(resolvedNextState)
     if (options?.publish === false) {
       finalSellHistorySessionRef.current = 'idle'
       finalSellSessionBaselineRef.current = null
@@ -2042,13 +1533,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       describeNextChange(descriptor ?? null)
     }
     return descriptor ?? null
-  }, [describeNextChange, setFinalSellRemainder])
+  }, [describeNextChange, setFinalSellRemainderTransition])
   const applySafeguardsEnabledChange = useCallback((
     value: React.SetStateAction<boolean>,
     options?: { publish?: boolean },
   ): void => {
     // Keep the toggle change labeled so history never falls back to unnamed snapshots.
-    setSafeguardsEnabled((prev) => {
+    // Toggle updates can trigger detection/matcher pipelines; schedule non-urgent.
+    setSafeguardsEnabledTransition((prev) => {
       // Resolve the next value so we can compare and label the transition.
       const next = typeof value === 'function' ? (value as (p: boolean) => boolean)(prev) : value
       // Skip no-op toggles so history stays clean.
@@ -2065,13 +1557,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       describeNextChange(descriptor ?? null)
       return next
     })
-  }, [describeNextChange, safeguardRules, setSafeguardsEnabled])
+  }, [describeNextChange, safeguardRules, setSafeguardsEnabledTransition])
   const applySafeguardRulesChange = useCallback((
     value: React.SetStateAction<SafeguardRule[]>,
     options?: { mode?: 'edit' | 'reset'; publish?: boolean },
   ): void => {
     // Snapshot safeguard rules with structured tooltip lines for history.
-    setSafeguardRules((prev) => {
+    // Safeguards-tab edits often rewrite many rows; keep them in transition lane.
+    setSafeguardRulesTransition((prev) => {
       // Resolve the next rules list so we can diff against the previous state.
       const next = typeof value === 'function' ? (value as (p: SafeguardRule[]) => SafeguardRule[])(prev) : value
       // Reordering keeps rule contents intact, so compare ID order explicitly.
@@ -2091,7 +1584,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       describeNextChange(descriptor)
       return next
     })
-  }, [describeNextChange, metasets, setSafeguardRules])
+  }, [describeNextChange, metasets, setSafeguardRulesTransition])
   // Warn on close/tab navigation if there are unsaved changes
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -2363,21 +1856,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     showGearDbDiffToast,
     testerPreviewRows,
   ])
-  const [previewMode, setPreviewMode] = useState<'rules' | 'tester'>(() => {
-    if (typeof window === 'undefined') return 'rules'
-    try {
-      const stored = localStorage.getItem(PREVIEW_MODE_STORAGE_KEY)
-      return stored === 'tester' ? 'tester' : 'rules'
-    } catch {
-      return 'rules'
-    }
-  })
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      localStorage.setItem(PREVIEW_MODE_STORAGE_KEY, previewMode)
-    } catch {}
-  }, [previewMode])
   const [gearImportBusy, setGearImportBusy] = useState(false)
   const gearImportBusyCountRef = useRef(0)
   const beginGearImport = useCallback(() => {
@@ -2393,6 +1871,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Determine once whether to auto-open the README on this version.
   // External focus target for preview table (exact rule index in the effective rules array)
   const [focusRuleIndex, setFocusRuleIndex] = useState<number | null>(null)
+  // Keep callback identity stable so HsfRulesTable memoization can skip unrelated app rerenders.
+  const handleFocusRuleSettled = useCallback(() => {
+    setFocusRuleIndex(null)
+  }, [])
   const [logicHubOpen, setLogicHubOpen] = useState<boolean>(false)
   // Safeguards tab consumes this to select + expand the requested safeguard rule.
   const [logicHubSafeguardFocusRequest, setLogicHubSafeguardFocusRequest] = useState<SafeguardFocusRequest | null>(null)
@@ -2805,13 +2287,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleConfirmClearAll = useCallback(() => {
     const descriptor = createRecipesClearedDescriptor(customRecipes.length)
     describeNextChange(descriptor)
-    setCustomRecipes([])
+    // Clearing recipes can trigger large downstream preview diffs; transition the write.
+    setCustomRecipesTransition([])
     syncSelectedRecipeIdx(null, { forceSync: true, suppressDraft: true })
     markNextSnapshotAsSaved()
     exportBaselineResetRef.current = true
-  }, [customRecipes.length, describeNextChange, markNextSnapshotAsSaved, setCustomRecipes, syncSelectedRecipeIdx])
+  }, [customRecipes.length, describeNextChange, markNextSnapshotAsSaved, setCustomRecipesTransition, syncSelectedRecipeIdx])
   const handleConfirmDeleteSingle = useCallback((idx: number) => {
-    setCustomRecipes(prev => {
+    // Recipe deletes can shift large arrays; schedule as non-urgent.
+    setCustomRecipesTransition(prev => {
       if (idx < 0 || idx >= prev.length) {
         describeNextChange(null)
         return prev
@@ -2829,7 +2313,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (sel > idx) return sel - 1
       return sel
     }, { suppressDraft: true })
-  }, [describeNextChange, metasets, setCustomRecipes, syncSelectedRecipeIdx])
+  }, [describeNextChange, metasets, setCustomRecipesTransition, syncSelectedRecipeIdx])
   const handleDeleteMultiConfirmed = useCallback((targetsParam: number[] | null) => {
     // Use the snapshot captured when opening the dialog so confirmation matches the displayed list.
     const source = Array.isArray(targetsParam) && targetsParam.length > 0
@@ -2839,7 +2323,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const uniqueTargets = Array.from(new Set(source.filter((idx) => Number.isInteger(idx) && idx >= 0))).sort((a, b) => a - b)
     if (!uniqueTargets.length) return
     const deleteSet = new Set(uniqueTargets)
-    setCustomRecipes(prev => {
+    // Batch deletes can be heavy on large recipe lists.
+    setCustomRecipesTransition(prev => {
       if (deleteSet.size === 0) {
         describeNextChange(null)
         return prev
@@ -2850,7 +2335,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return prev.filter((_, i) => !deleteSet.has(i))
     })
     syncSelectedRecipeIdx(null, { forceSync: true, suppressDraft: true })
-  }, [describeNextChange, metasets, selectedRecipeIndices, setCustomRecipes, syncSelectedRecipeIdx])
+  }, [describeNextChange, metasets, selectedRecipeIndices, setCustomRecipesTransition, syncSelectedRecipeIdx])
   const hsfcDialogs = useHsfcDialogs({
     customRecipeCount: customRecipes.length,
     onConfirmClearAll: handleConfirmClearAll,
@@ -3024,7 +2509,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     safeguardsEnabled,
     setSafeguardsEnabled,
     testerItems,
-    setTesterItems,
+    // Keep tutorial-driven tester mutations on the same transition path as dialogs/imports.
+    setTesterItems: setTesterItemsTransition,
     previewMode,
     setPreviewMode,
     hsfcNote,
@@ -3043,7 +2529,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // Compute a stable key for recipes that affects HSF rule generation (ignores display-only fields like `name`).
   // Why: Changing the recipe name should not cause a refresh of the Sellfile Preview table.
-  const recipeRuleFingerprints = recipeRulesState.keys
   const ruleSubstatTargetsKey = recipeRulesState.substatTargetsKey
 
   const rulesByRecipe = recipeRulesState.rulesByRecipe
@@ -3055,72 +2540,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const totalLimitHit = recipeRulesState.totalLimitHit
   const limitExceeded = totalLimitHit || truncatedRecipeIndices.length > 0
   const recipesExcludedByTotalLimit = useMemo(() => new Set<number>(recipeRulesState.excludedByTotalLimitIndices), [recipeRulesState.excludedByTotalLimitIndices])
-
-  // Apply safeguard rules immediately when fresh detection snapshots arrive.
-  useEffect(() => {
-    // Exit early when the safeguard feature is off.
-    if (!keepOverridesActive) return
-    // Require a detection snapshot before injecting safeguard rules.
-    if (safeguardsActive && (!safeguardDetection || !safeguardDetectionSignature)) return
-    // Skip redundant applications when both detection fingerprints and rule sources match.
-    const applied = keepOverrideAppliedStateRef.current
-    const baseRulesRef = recipeRulesState.baseRules
-    const rulesByRecipeRef = recipeRulesState.rulesByRecipe
-    const finalSellRulesRef = recipeRulesState.finalSellRules
-    const uniqueApplied = !safeguardsActive
-      || safeguardDetectionSignature === safeguardScanAppliedRef.current
-    const alreadyApplied = (
-      uniqueApplied
-      && applied.baseRules === baseRulesRef
-      && applied.rulesByRecipe === rulesByRecipeRef
-      && applied.finalSellRules === finalSellRulesRef
-    )
-    if (alreadyApplied) return
-    // Rebuild the merge list with keep-override rules at the front so matches see them.
-    setRecipeRulesState((prev) => {
-      // Flatten customs once; helpers handle dedupe + injection.
-      const flattenedCustoms: HsfRuleWithRecipe[] = []
-      for (let idx = 0; idx < prev.keys.length; idx += 1) {
-        const segment = prev.rulesByRecipe.get(idx)
-        if (!segment || segment.length === 0) continue
-        flattenedCustoms.push(...segment)
-      }
-      const safeguardResult = prependSafeguardRules({
-        baseRules: prev.baseRules,
-        customRules: flattenedCustoms,
-        finalSellRules: prev.finalSellRules,
-        resolvedSafeguardRules,
-        detection: safeguardsActive ? safeguardDetection : null,
-      })
-      for (let i = 0; i < safeguardResult.mergedRules.length; i += 1) {
-        (safeguardResult.mergedRules[i] as HsfRuleWithRecipe).__lineIdx = i
-      }
-      keepOverrideAppliedStateRef.current = {
-        baseRules: safeguardResult.baseRules,
-        rulesByRecipe: prev.rulesByRecipe,
-        finalSellRules: prev.finalSellRules,
-      }
-      return {
-        ...prev,
-        baseRules: safeguardResult.baseRules,
-        mergedRules: safeguardResult.mergedRules,
-      }
-    })
-    // Record applied signatures to avoid re-applying the same snapshot.
-    if (safeguardsActive && safeguardDetectionSignature) {
-      safeguardScanAppliedRef.current = safeguardDetectionSignature
-    }
-  }, [
-    keepOverridesActive,
-    safeguardsActive,
-    safeguardDetection,
-    safeguardDetectionSignature,
-    resolvedSafeguardRules,
-    recipeRulesState.baseRules,
-    recipeRulesState.rulesByRecipe,
-    recipeRulesState.finalSellRules,
-    setRecipeRulesState,
-  ])
   const selectedIsDirty = useMemo(() => {
     if (selectedRecipeIdx === null) return false
     const target = customRecipes[selectedRecipeIdx]
@@ -3169,31 +2588,132 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   )
   const exportRulesCountRef = useRef(exportRules.length)
   useEffect(() => { exportRulesCountRef.current = exportRules.length }, [exportRules.length])
-  const hsfExportPayload = useMemo(
-    () => buildHsfFileFromMerged(exportRules, { recipeNames }),
-    [exportRules, recipeNames],
-  )
+  // Keep export payload creation lazy so large merged-rule snapshots do not run on every render.
+  const buildExportPayload = useCallback(() => (
+    buildHsfFileFromMerged(exportRules, { recipeNames })
+  ), [exportRules, recipeNames])
   const buildDedupedExportPayload = useCallback(() => (
     buildDedupedHsfFileFromMerged(exportRules, { recipeNames })
   ), [recipeNames, exportRules])
-  const hsfExportSig = useMemo(() => {
-    try {
-      return JSON.stringify(hsfExportPayload)
-    } catch {
-      return ''
-    }
-  }, [hsfExportPayload])
-  const hsfExportSigRef = useRef(hsfExportSig)
-  useEffect(() => { hsfExportSigRef.current = hsfExportSig }, [hsfExportSig])
+  // Export "dirty" checks use a lightweight input signature instead of serializing full HSF payloads.
+  const hsfExportStateSig = useMemo(() => {
+    // Put high-churn toggles first so comparisons short-circuit quickly.
+    const omitDisabledBit = omitDisabledForExport ? '1' : '0'
+    const totalLimitBit = recipeRulesState.totalLimitHit ? '1' : '0'
+    // Recipe keys already capture canonical builder rule fingerprints.
+    const recipeKeysSig = recipeRulesState.keys.join('|')
+    // Recipe names still affect export metadata and must invalidate the dirty signature.
+    const recipeNamesSig = recipeNames.join('|')
+    // Metaset definitions can affect resolved set expansion even with stable recipe keys.
+    const metasetSig = metasets
+      .map((meta) => {
+        const sortedSets = Array.isArray(meta.sets) ? [...meta.sets].map(Number).sort((a, b) => a - b) : []
+        return `${meta.id}:${sortedSets.join(',')}`
+      })
+      .sort((a, b) => a.localeCompare(b))
+      .join('|')
+    // Base HSF hash/size folds in imported baseline rules without cloning payloads.
+    const baseHsfSig = (() => {
+      if (!hsf) return 'hsf:none'
+      const hash = (hsf as { Hash?: string }).Hash
+      if (hash) return `hsf:${hash}`
+      return `hsf:rules:${hsf.Rules.length}`
+    })()
+    // Final-sell toggles inject extra export rows, so include a compact normalized key.
+    const finalSellSig = (() => {
+      if (!finalSellRemainder) return 'fs:none'
+      const levels = Array.isArray(finalSellRemainder.levels)
+        ? [...finalSellRemainder.levels].map(Number).sort((a, b) => a - b).join(',')
+        : ''
+      const setsMode = finalSellRemainder.setsMode ?? FINAL_SELL_DEFAULT_SETS_MODE
+      const artifactsBit = finalSellRemainder.artifacts ? '1' : '0'
+      const accessoriesBit = finalSellRemainder.accessories ? '1' : '0'
+      return `fs:${setsMode}:${artifactsBit}${accessoriesBit}:${levels}`
+    })()
+    // Safeguard rules + detection snapshots can inject keep-override rows into exports.
+    const safeguardRuleSig = `${safeguardsEnabled ? '1' : '0'}:${resolvedSafeguardRules.map((rule) => {
+      const countMode = rule.countMode
+      const modeSig = [
+        countMode?.perRule ? 1 : 0,
+        countMode?.perSlot ? 1 : 0,
+        countMode?.perSet ? 1 : 0,
+        countMode?.perFaction ? 1 : 0,
+        countMode?.perMainStat ? 1 : 0,
+      ].join('')
+      const substatsSig = Array.isArray(rule.substats)
+        ? [...rule.substats].map(Number).sort((a, b) => a - b).join(',')
+        : ''
+      const weightsSig = Object.entries(rule.substatWeights ?? {})
+        .map(([variant, value]) => `${Number(variant)}:${Number(value)}`)
+        .sort()
+        .join(',')
+      return [
+        rule.id ?? '',
+        rule.activation ?? '',
+        Number.isFinite(rule.requiredCount) ? Number(rule.requiredCount) : 0,
+        rule.ignorePreviousSafeguards !== false ? 1 : 0,
+        rule.ignoreEquippedInCollection === true ? 1 : 0,
+        rule.ignoreEquippedInVault === true ? 1 : 0,
+        modeSig,
+        substatsSig,
+        weightsSig,
+        JSON.stringify(rule.combination ?? null),
+      ].join(':')
+    }).join('|')}`
+    const safeguardDetectionSig = safeguardDetection
+      ? safeguardDetection.entries.map((entry) => [
+        entry.ruleId ?? '',
+        entry.ruleActivation ?? '',
+        entry.requiredCount,
+        entry.currentCount,
+        entry.projectedCount,
+        entry.deficit,
+        entry.groupsTracked,
+        entry.perGroupRequiredCount,
+        entry.coveredByExisting ? 1 : 0,
+        entry.itemKeys.join(','),
+        entry.placeholders.length,
+      ].join(':')).join(';')
+      : 'sd:none'
+    return [
+      `${omitDisabledBit}${totalLimitBit}`,
+      recipeRulesState.substatTargetsKey,
+      recipeKeysSig,
+      recipeNamesSig,
+      metasetSig,
+      baseHsfSig,
+      finalSellSig,
+      safeguardRuleSig,
+      safeguardDetectionSig,
+      `${mergedRules.length}:${exportRules.length}`,
+    ].join('|')
+  }, [
+    omitDisabledForExport,
+    recipeRulesState.totalLimitHit,
+    recipeRulesState.substatTargetsKey,
+    recipeRulesState.keys,
+    recipeNames,
+    metasets,
+    hsf,
+    finalSellRemainder,
+    safeguardsEnabled,
+    resolvedSafeguardRules,
+    safeguardDetection,
+    mergedRules.length,
+    exportRules.length,
+  ])
   const [lastExportSig, setLastExportSig] = useState<string | null>(null)
   // Establish the export signature baseline after resets or first render to track unsaved changes.
   useEffect(() => {
     if (exportBaselineResetRef.current || lastExportSig === null) {
-      setLastExportSig(hsfExportSig)
+      setLastExportSig(hsfExportStateSig)
       exportBaselineResetRef.current = false
     }
-  }, [hsfExportSig, lastExportSig])
-  const hsfDirty = useMemo(() => lastExportSig !== null && hsfExportSig !== lastExportSig, [hsfExportSig, lastExportSig])
+  }, [hsfExportStateSig, lastExportSig])
+  const hsfDirty = useMemo(
+    () => lastExportSig !== null && hsfExportStateSig !== lastExportSig,
+    [hsfExportStateSig, lastExportSig],
+  )
   const handleExportDeduped = useCallback(() => {
     if (!exportRulesCountRef.current) return
     try {
@@ -3205,14 +2725,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       a.download = filename
       a.click()
       URL.revokeObjectURL(url)
-      setLastExportSig(hsfExportSigRef.current)
+      setLastExportSig(hsfExportStateSig)
       showToast(t('toastSellfileSaved'))
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error('Failed to export deduped sellfile', err)
       }
     }
-  }, [buildDedupedExportPayload, setLastExportSig, showToast, t])
+  }, [buildDedupedExportPayload, hsfExportStateSig, setLastExportSig, showToast, t])
   const handleSetDedupeDefault = useCallback((next: boolean) => {
     setDedupeDefault(Boolean(next))
   }, [setDedupeDefault])
@@ -3333,7 +2853,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const restoreDlgOpen = !tutorial.helpOpen && (restoreDialogPending || Boolean(testerRestoreDraft))
   const { applyGearDbDiff } = useTesterItemsActions({
     allocTesterItemId,
-    setTesterItems,
+    // Route manual imports + endpoint snapshots/deltas through the shared
+    // non-urgent dispatcher so DB payload commits do not preempt click handling.
+    setTesterItems: setTesterItemsTransition,
     testerItemsRef,
   })
 
@@ -3386,7 +2908,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
         return
       }
-      // Manual imports should guide the user to Tester view, but external pushes stay passive.
+      // Manual file/drag imports always open Tester preview so users see imported rows immediately.
+      // Endpoint command pushes intentionally keep the current preview mode.
       if (source === 'manual') {
         setPreviewMode('tester')
       }
@@ -3791,7 +3314,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
     if (action === 'move_top') {
-      setCustomRecipes(prev => {
+      // Reorder writes can touch large derived previews; treat as non-urgent.
+      setCustomRecipesTransition(prev => {
         if (idx === 0) return prev
         const arr = [...prev]
         const current = arr[idx]
@@ -3811,7 +3335,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
     if (action === 'move_bottom') {
-      setCustomRecipes(prev => {
+      // Reorder writes can touch large derived previews; treat as non-urgent.
+      setCustomRecipesTransition(prev => {
         if (idx === prev.length - 1) return prev
         const arr = [...prev]
         const current = arr[idx]
@@ -3831,7 +3356,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
     if (action === 'move_up') {
-      setCustomRecipes(prev => {
+      // Reorder writes can touch large derived previews; treat as non-urgent.
+      setCustomRecipesTransition(prev => {
         if (idx === 0) return prev
         const arr = [...prev]
         if (!arr[idx - 1] || !arr[idx]) return prev
@@ -3851,7 +3377,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
     if (action === 'move_down') {
-      setCustomRecipes(prev => {
+      // Reorder writes can touch large derived previews; treat as non-urgent.
+      setCustomRecipesTransition(prev => {
         if (idx === prev.length - 1) return prev
         const arr = [...prev]
         if (!arr[idx + 1] || !arr[idx]) return prev
@@ -3870,8 +3397,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       })
       return
     }
-  }, [customRecipes, describeNextChange, insertIndexAfter, metasets, pasteAfterIndex, setCopyDlgOpen, setCopyText, setCustomRecipes, syncSelectedRecipeIdx])
+  }, [customRecipes, describeNextChange, insertIndexAfter, metasets, pasteAfterIndex, setCopyDlgOpen, setCopyText, setCustomRecipesTransition, syncSelectedRecipeIdx])
 
+  const handleMetasetsChange = useCallback((next: React.SetStateAction<Metaset[]>) => {
+    // Reuse the shared transition dispatcher so metaset writes follow the same
+    // non-urgent scheduling policy as other heavy dialog/tab edits.
+    setMetasetsTransition(next)
+  }, [setMetasetsTransition])
   const handleRulesTableClearBase = useCallback(() => { setHsf(null) }, [setHsf])
   const handleRulesTableEditFinalSell = useCallback(() => { setLogicHubOpen(true) }, [setLogicHubOpen])
   const handleResetSafeguards = useCallback(() => {
@@ -3884,14 +3416,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       mode: 'reset',
     })
     describeNextChange(descriptor ?? null)
-    setSafeguardRules(nextRules)
-    setSafeguardsEnabled(false)
-  }, [describeNextChange, safeguardRules, metasets, setSafeguardRules, setSafeguardsEnabled])
+    // Resetting safeguards can fan out into detection + merged-rule refreshes.
+    setSafeguardRulesTransition(nextRules)
+    setSafeguardsEnabledTransition(false)
+  }, [describeNextChange, safeguardRules, metasets, setSafeguardRulesTransition, setSafeguardsEnabledTransition])
   const handleResetGearTesterItems = useCallback(() => {
     // Treat manual resets like a full gear-db refresh so matcher + safeguard detection clear immediately.
     beginTesterMatchReset('gearDb')
-    setTesterItems([])
-  }, [beginTesterMatchReset, setTesterItems])
+    // Gear resets can clear large lists; schedule non-urgent.
+    setTesterItemsTransition([])
+  }, [beginTesterMatchReset, setTesterItemsTransition])
 
 
   // Build autosave payload and write via useAutosave (enabled after restore choice)
@@ -3899,27 +3433,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Pass selectedRecipeIndex: null in autosave payload so selection changes
   // do not alter the payload. Explicit Save/Copy flows still include it.
   const trimmedHsfcNote = typeof hsfcNote === 'string' ? hsfcNote.trim() : ''
-  const autosaveBuildParams = useMemo(() => ({
-    version: APP_VERSION,
-    metasets,
-    substatTargets,
-    recipes: customRecipes,
-    finalSellRemainder,
-    selectedRecipeIndex: null,
-    ...(trimmedHsfcNote ? { note: trimmedHsfcNote } : {}),
-    safeguardRules,
-    safeguardsEnabled,
-  }), [
-    customRecipes,
-    finalSellRemainder,
-    safeguardRules,
-    safeguardsEnabled,
-    metasets,
-    substatTargets,
-    trimmedHsfcNote,
-  ])
-  const { payload: autosaveBasePayload } = useDeferredHsfcPayload(autosaveBuildParams)
-  const autosavePayload = useMemo(() => {
+  // Keep autosave scheduling lightweight: only build the heavy HSFC snapshot when the
+  // debounced write actually executes, not on every render/update.
+  const buildAutosavePayload = useCallback(() => {
+    const basePayload = buildHsfcPayload({
+      version: APP_VERSION,
+      metasets,
+      substatTargets,
+      recipes: customRecipes,
+      finalSellRemainder,
+      // Autosave should not change from selection-only updates.
+      selectedRecipeIndex: null,
+      ...(trimmedHsfcNote ? { note: trimmedHsfcNote } : {}),
+      safeguardRules,
+      safeguardsEnabled,
+    })
     const filtersPayload = areAutosaveFiltersDefault(autosaveFiltersState) ? null : autosaveFiltersState
     const testerSortPayload = isDefaultTesterSubstatSortState(testerSubstatSortPrefs.state)
       ? null
@@ -3931,7 +3459,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Persist recipe overrides disabled flag only when turned off.
     const recipeOverridesDisabledPayload = noteRecipeOverridesDisabled ? true : null
     return {
-      ...autosaveBasePayload,
+      ...basePayload,
       LogicHubDialogTab: logicHubDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
       SafeguardsGridFilterMode: safeguardsGridFilterMode,
       AutosaveSavedAt: new Date().toISOString(),
@@ -3941,17 +3469,55 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...(testerSortPayload ? { TesterSort: testerSortPayload } : {}),
     }
   }, [
-    autosaveBasePayload,
     autosaveFiltersState,
+    customRecipes,
+    finalSellRemainder,
+    logicHubDialogTab,
+    metasets,
+    noteRecipeOverridesAnswers,
+    noteRecipeOverridesDisabled,
+    safeguardRules,
+    safeguardsEnabled,
+    safeguardsGridFilterMode,
+    substatTargets,
+    testerSubstatSortPrefs.state,
+    trimmedHsfcNote,
+  ])
+  // Mutable references are enough to trigger autosave scheduling; avoid expensive payload
+  // serialization in render by passing this signal instead of an eagerly-built object.
+  const autosavePayloadSignal = useMemo(() => ({
+    recipes: customRecipes,
+    metasets,
+    substatTargets,
+    finalSellRemainder,
+    note: trimmedHsfcNote || null,
+    safeguardRules,
+    safeguardsEnabled,
+    filters: autosaveFiltersState,
     logicHubDialogTab,
     safeguardsGridFilterMode,
     noteRecipeOverridesAnswers,
     noteRecipeOverridesDisabled,
+    testerSort: testerSubstatSortPrefs.state,
+  }), [
+    autosaveFiltersState,
+    customRecipes,
+    finalSellRemainder,
+    logicHubDialogTab,
+    metasets,
+    noteRecipeOverridesAnswers,
+    noteRecipeOverridesDisabled,
+    safeguardRules,
+    safeguardsEnabled,
+    safeguardsGridFilterMode,
+    substatTargets,
     testerSubstatSortPrefs.state,
+    trimmedHsfcNote,
   ])
   useAutosave({
     key: AUTOSAVE_KEY,
-    payload: autosavePayload,
+    payloadSignal: autosavePayloadSignal,
+    buildPayload: buildAutosavePayload,
     enabled: autosaveEnabled && !tutorial.tutorialOpen && !autosaveSilencedByClear,
     debounceMs: 1000,
     beforeSave: persistRuntimeGearSetsNow,
@@ -3971,8 +3537,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     key: AUTOSAVE_TESTER_KEY,
     payloadSignal: testerItems,
     buildPayload: buildTesterAutosavePayload,
-    enabled: testerAutosaveEnabled,
+    // Rules-only rebuilds do not mutate tester items; keeping tester autosave enabled
+    // avoids false disable/enable cycles that can repeatedly trigger compression work.
+    // Still pause during tester-grid rebuilds, where large row changes are expected.
+    enabled: testerAutosaveEnabled && !gearEntriesBuilding,
     debounceMs: 1000,
+    // Avoid immediate compression spikes when tester autosave first turns on.
+    writeOnEnable: false,
+    // Let compression/localStorage writes run during idle time when possible.
+    idle: true,
+    idleTimeoutMs: 5_000,
     beforeSave: persistRuntimeGearSetsNow,
   })
   // Listen for child chip open-copy-dialog to open manual copy UI
@@ -3990,23 +3564,68 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
 
 
-  // Manage Colors icon (bitmap), generated once at runtime
-  const filterResult = useMemo<FilterHsfRulesResult<HsfRuleWithRecipe>>(() => (
-    filterHsfRules(mergedRules, rulesFilter, metasets, {
+  // Compute active flags once so inactive filters can bypass full rule/tester scans.
+  // This avoids O(n) filtering work on interactions that do not change filter state.
+  const filterActive = isRulesFilterActive(rulesFilter)
+  const testerFilterActive = isRulesFilterActive(testerRulesFilter, { includeTesterRange: true })
+  // Metaset lists only affect filtering when metaset ids are selected in the filter UI.
+  // If no metaset ids are selected, pin to EMPTY_METASETS so metaset edits don't retrigger scans.
+  const metasetsForRulesFilter = (rulesFilter.sets?.metaSelected?.length ?? 0) > 0
+    ? metasets
+    : EMPTY_METASETS
+  const metasetsForTesterFilter = (testerRulesFilter.sets?.metaSelected?.length ?? 0) > 0
+    ? metasets
+    : EMPTY_METASETS
+  const filterResult = useMemo<FilterHsfRulesResult<HsfRuleWithRecipe>>(() => {
+    // No active rule filters means the table already uses mergedRules as-is.
+    // Return a passthrough snapshot to skip the full filterHsfRules traversal.
+    if (!filterActive) {
+      return {
+        rules: mergedRules,
+        matchingRecipeIndices: new Set<number>(),
+        recipeRuleCounts: new Map<number, number>(),
+      }
+    }
+    return filterHsfRules(mergedRules, rulesFilter, metasetsForRulesFilter, {
       recipeNames,
       recipeTags,
       recipeModes,
       specialRuleLabels: specialRuleSourceLabels,
     })
-  ), [mergedRules, rulesFilter, metasets, recipeNames, recipeTags, recipeModes, specialRuleSourceLabels])
+  }, [
+    filterActive,
+    mergedRules,
+    rulesFilter,
+    metasetsForRulesFilter,
+    recipeNames,
+    recipeTags,
+    recipeModes,
+    specialRuleSourceLabels,
+  ])
   const filteredRules = filterResult.rules
-  const testerFilterResult = useMemo(() => (
-    filterTesterItems(testerPreviewRows, testerRulesFilter, metasets, {
+  const testerFilterResult = useMemo(() => {
+    // No active tester filters means we can pass rows through unchanged.
+    // Avoid scanning every tester row on unrelated state changes.
+    if (!testerFilterActive) {
+      return {
+        items: testerPreviewRows,
+        matchingRecipeIndices: new Set<number>(),
+      }
+    }
+    return filterTesterItems(testerPreviewRows, testerRulesFilter, metasetsForTesterFilter, {
       recipeNames,
       recipeTags,
       specialRuleLabels: specialRuleSourceLabels,
     })
-  ), [testerPreviewRows, testerRulesFilter, metasets, recipeNames, recipeTags, specialRuleSourceLabels])
+  }, [
+    testerFilterActive,
+    testerPreviewRows,
+    testerRulesFilter,
+    metasetsForTesterFilter,
+    recipeNames,
+    recipeTags,
+    specialRuleSourceLabels,
+  ])
   const gearEntriesAfterRulesFilter = testerFilterResult.items
   const testerChampionOptions = useMemo<TesterChampionOption[]>(() => {
     // Cache champion metadata per id so the dropdown can render icons without rescanning rows.
@@ -4095,8 +3714,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const chipMatchingRecipeIndices = previewMode === 'tester'
     ? testerMatchingRecipeIndices
     : matchingRecipeIndices
-  const filterActive = isRulesFilterActive(rulesFilter)
-  const testerFilterActive = isRulesFilterActive(testerRulesFilter, { includeTesterRange: true })
   const previewFilterActive = previewMode === 'tester'
     ? (testerFilterActive || testerRecipeFilterActive)
     : (filterActive || testerRecipeFilterActive)
@@ -4849,7 +4466,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         artifactSets: prev.artifactSets ?? [],
       }
     })
-    setSafeguardRules((prev) => {
+    // Resetting metasets can rewrite many safeguard combinations.
+    setSafeguardRulesTransition((prev) => {
       let mutated = false
       const next = prev.map((rule) => {
         const metaIds = rule.combination.metaSetIds ?? []
@@ -4886,7 +4504,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       })
       return mutated ? next : prev
     })
-    setCustomRecipes((prev) => {
+    // Resetting metasets can rewrite many recipes; keep off urgent lane.
+    setCustomRecipesTransition((prev) => {
       let anyChanged = false
       const next = prev.map((recipe) => {
         const currentMetaIds = recipe.artifactMetaSets ?? []
@@ -4908,8 +4527,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       })
       return anyChanged ? next : prev
     })
-    setMetasets(defaults)
-  }, [areSetEntriesEqual, describeNextChange, mergeSelectionsWithMetasets, metasets, setBuilder, setCustomRecipes, setSafeguardRules, setMetasets])
+    // Replace the metaset catalog via the same centralized transition dispatcher.
+    setMetasetsTransition(defaults)
+  }, [areSetEntriesEqual, describeNextChange, mergeSelectionsWithMetasets, metasets, setBuilder, setCustomRecipesTransition, setMetasetsTransition, setSafeguardRulesTransition])
 
   const builderPanelElement = (
     <BuilderPanel
@@ -4934,7 +4554,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           metasets,
         })
         describeNextChange(descriptor)
-        setCustomRecipes(nextRecipes)
+        // Persisting a new recipe can rebuild large rule tables; transition the write.
+        setCustomRecipesTransition(nextRecipes)
         // Auto-select the newly added recipe chip
         syncSelectedRecipeIdx(insertIdx, { forceSync: true, suppressDraft: true })
       }}
@@ -4965,11 +4586,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         } else {
           describeNextChange(null)
         }
-        setCustomRecipes(prev => prev.map((c, i) => (i === selectedRecipeIdx ? nextRecipe : c)))
+        // Saving builder edits rewrites the recipe list and can trigger expensive previews.
+        setCustomRecipesTransition(prev => prev.map((c, i) => (i === selectedRecipeIdx ? nextRecipe : c)))
       }}
       registerAutoApplyHandler={registerAutoApplyHandler}
       metasets={metasets}
-      onMetasetsChange={(next) => setMetasets(next)}
+      onMetasetsChange={handleMetasetsChange}
       describeNextChange={describeNextChange}
       onDeleteMetaset={(id, opts) => {
         // Determine replacement strategy before mutating metasets/recipes/safeguard rules
@@ -4991,7 +4613,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           ...(replacementName ? { replacementName } : {}),
         }
         describeNextChange(descriptor)
-        setMetasets(prev => prev.filter(m => m.id !== id))
+        // Deleting a metaset can fan out into recipe/safeguard recalculation; keep non-urgent.
+        handleMetasetsChange(prev => prev.filter(m => m.id !== id))
 
         // Update the live builder selection if it referenced this metaset
         const builderUses = (builder.artifactMetaSets ?? []).includes(id)
@@ -5015,7 +4638,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
         // Update only recipes that reference this metaset
         if (usedCount > 0) {
-          setCustomRecipes(prev => {
+          setCustomRecipesTransition(prev => {
             let anyChanged = false
             const next = prev.map(c => {
               const currentMeta = c.artifactMetaSets ?? []
@@ -5036,7 +4659,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
         // Rewrite Safeguard rules that referenced this metaset.
         if (safeguardUsedCount > 0) {
-          setSafeguardRules((prev) => {
+          setSafeguardRulesTransition((prev) => {
             let mutated = false
             const next = prev.map((rule) => {
               const metaIds = rule.combination.metaSetIds ?? []
@@ -5091,11 +4714,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       insertHiddenByFilters={insertHiddenByFilters}
       saveHiddenByFilters={saveHiddenByFilters}
       recipeRuleCounts={recipeRuleCounts}
-      recipeRuleFingerprints={recipeRuleFingerprints}
       recipesExcludedByTotalLimit={recipesExcludedByTotalLimit}
-      ruleSubstatTargetsKey={ruleSubstatTargetsKey}
-      rulesBuilding={rulesBuilding}
-      awaitRuleCounts={awaitRuleCounts}
       countRulesForRecipes={countRules}
       onSelectRecipesByMetaset={(id) => {
         // Select all recipes that reference the given metaset ID.
@@ -5164,7 +4783,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       exportModeOverrides={recipeOverridesExportModes.modes}
       maxHeightPx={chipsMaxHeight}
       selectedIndices={selectedRecipeIndices}
-      metasets={metasets}
+      // Chip relabeling across large recipe lists is expensive; consume the deferred
+      // metaset snapshot so picker clicks can paint before chip refresh work starts.
+      metasets={metasetsForPreview}
       substatColors={substatColors}
       onHoverIdx={handleRecipeHoverIdx}
       duplicateOfIndices={duplicateOfIndices}
@@ -5841,7 +5462,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onToggleOmitDisabled={handleSetOmitDisabled}
         onExportDeduped={handleExportDeduped}
         onExport={async () => {
-          const payload = dedupeDefault ? buildDedupedExportPayload() : hsfExportPayload
+          // Build export payload on demand so routine UI updates avoid full HSF serialization.
+          const payload = dedupeDefault ? buildDedupedExportPayload() : buildExportPayload()
           const blob = hsfToBlob(payload)
           const filename = sellfileFilename()
           const target = pushExportEndpoint
@@ -5860,7 +5482,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 // Mark the endpoint as reachable once a request succeeds.
                 setPushEndpointReachable(true)
                 pushToast = 'success'
-                setLastExportSig(hsfExportSig)
+                setLastExportSig(hsfExportStateSig)
               } else {
                 if (import.meta.env.DEV) {
                   console.error('Push endpoint responded with error', response.error)
@@ -5888,7 +5510,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           a.download = filename
           a.click()
           URL.revokeObjectURL(url)
-          setLastExportSig(hsfExportSig)
+          setLastExportSig(hsfExportStateSig)
           showToast(t('toastSellfileSaved'))
         }}
         exportDisabled={!mergedRules.length}
@@ -6049,7 +5671,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 selectionScrollRequest={selectionScrollRequest}
                 emptyStateVerticalAlign={emptyStateVerticalAlign}
                 focusRuleIndex={focusRuleIndex}
-                onFocusRuleSettled={() => setFocusRuleIndex(null)}
+                onFocusRuleSettled={handleFocusRuleSettled}
                 onSelectRecipeIdx={handleRulesTableSelectRecipeIdx}
                 onSelectSafeguardRule={handleSafeguardPreviewStarSelect}
                 emptyDueToFilter={hsfTableEmptyDueToFilters}
@@ -6340,13 +5962,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             }
             if (selection.tester && testerRestoreDraft) {
               const restoredItems = testerRestoreDraft.items
-              setTesterItems(restoredItems)
+              // Restores can include large tester payloads; commit non-urgently like imports.
+              setTesterItemsTransition(restoredItems)
               const maxItemId = testerRestoreDraft.items.reduce((max, item) => (
                 Number.isFinite(item.itemId) && item.itemId > max ? item.itemId : max
               ), 0)
               testerItemIdRef.current = Math.max(testerItemIdRef.current, (maxItemId || 0) + 1)
             }
-            const savedAutosaveTab = (draft?.LogicHubDialogTab ?? draft?.FinalSellDialogTab) as LogicHubDialogTab | undefined
+            const savedAutosaveTab = draft?.LogicHubDialogTab as LogicHubDialogTab | undefined
             if (savedAutosaveTab) {
               // Clamp unknown values back to the default tab so corrupted autosave payloads stay recoverable.
               const normalizedTab = LOGIC_HUB_DIALOG_TABS.includes(savedAutosaveTab)
@@ -6423,10 +6046,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           workloadProgressRatio={workloadProgressRatio}
           onResetSafeguards={handleResetSafeguards}
           onJumpToRule={handleTesterRuleView}
-          customRecipes={customRecipes}
-          testerItems={testerItems}
-	          setTesterItems={setTesterItems}
-	          allocTesterItemId={allocTesterItemId}
+	          customRecipes={customRecipes}
+	          testerItems={testerItems}
+		          setTesterItems={setTesterItemsTransition}
+		          allocTesterItemId={allocTesterItemId}
           testerMatches={testerMatchesByItemId}
           onResetGearTester={handleResetGearTesterItems}
           rules={mergedRules}

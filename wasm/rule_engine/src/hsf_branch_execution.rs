@@ -102,16 +102,6 @@ fn is_collapse_rarity_eligible(rarity_code: i64) -> bool {
     )
 }
 
-// Stable combo-key format matches TS `combo.join(',')` sentinel cache behavior.
-// Keep this deterministic so sentinel collapse coverage memoization stays exact.
-fn combo_key(combo: &[i32]) -> String {
-    combo
-        .iter()
-        .map(|value| value.to_string())
-        .collect::<Vec<_>>()
-        .join(",")
-}
-
 // Core branch execution loops through all level contexts and level combos.
 // It reuses lower-level cores so the only moved logic is orchestration.
 pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn) -> Result<Vec<RuleRaw>, JsValue> {
@@ -171,9 +161,9 @@ pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn)
         .collect::<Vec<_>>();
 
     // Cache per-combo factory profiles so repeated levels reuse base/collapse vectors.
-    let mut combo_profile_cache = HashMap::<String, HsfComboCollapseProfileIn>::new();
+    let mut combo_profile_cache = HashMap::<Vec<i32>, HsfComboCollapseProfileIn>::new();
     // Sentinel-collapsed combos are skipped for later levels in the same branch.
-    let mut sentinel_collapsed = HashSet::<String>::new();
+    let mut sentinel_collapsed = HashSet::<Vec<i32>>::new();
     // Output rows preserve level->combo emission order for stable downstream sorting.
     let mut out = Vec::<RuleRaw>::new();
 
@@ -196,9 +186,9 @@ pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn)
         });
 
         for combo in level_combos {
-            // Sentinel collapse coverage is tracked by the same key format as TS.
-            let key = combo_key(&combo);
-            if sentinel_collapsed.contains(&key) {
+            // Reuse the combo vector itself as the cache key.
+            let combo_key = combo.clone();
+            if sentinel_collapsed.contains(&combo_key) {
                 continue;
             }
             // Level-local present slots still guard against invalid combo sizes.
@@ -208,7 +198,7 @@ pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn)
             // Addition events at this level disable factory collapse for the combo.
             let addition_event_at_level = addition_timeline_all.contains(&level);
             // Build or reuse per-combo collapse profile vectors.
-            let combo_profile = if let Some(cached) = combo_profile_cache.get(&key) {
+            let combo_profile = if let Some(cached) = combo_profile_cache.get(&combo_key) {
                 cached.clone()
             } else {
                 // Build combo base/collapse vectors without cloning large branch maps.
@@ -224,7 +214,7 @@ pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn)
                     factory_eligible: profile.factory_eligible,
                     substats: profile.substats,
                 };
-                combo_profile_cache.insert(key.clone(), normalized.clone());
+                combo_profile_cache.insert(combo_key.clone(), normalized.clone());
                 normalized
             };
             // Target entries are indexed by variant id and aligned to combo order.
@@ -238,7 +228,7 @@ pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn)
             base_rule.Substats = Some(Vec::new());
             // Execute collapse/presence/runtime in the shared level-combo core.
             let combo_out = execute_hsf_level_combo_core(&ExecuteHsfLevelComboIn {
-                sentinel_already_collapsed: sentinel_collapsed.contains(&key),
+                sentinel_already_collapsed: sentinel_collapsed.contains(&combo_key),
                 combo: combo.clone(),
                 present,
                 level,
@@ -284,7 +274,7 @@ pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn)
             })?;
             // Sentinel collapse marks this combo covered by LEVEL_ANY emission.
             if combo_out.sentinel_collapsed {
-                sentinel_collapsed.insert(key);
+                sentinel_collapsed.insert(combo_key);
             }
             // Append emitted rules in-place to preserve original ordering semantics.
             out.extend(combo_out.rules);

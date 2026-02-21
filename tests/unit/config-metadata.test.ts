@@ -73,7 +73,7 @@ test('recipe metadata omits empty names but still writes RecipeID', () => {
   assert(!('RecipeName' in first!), 'HSF payload should omit RecipeName when no label is configured')
 })
 
-test('renaming recipes updates RecipeName without rebuilding cached rules', () => {
+test('renaming recipes updates RecipeName without mutating generated rule content', () => {
   const substatTargets = defaultSubstatTargets()
   const initial = updateRecipeRulesCache({
     recipes: [baseRecipe({ name: '  Cached Builder  ' })],
@@ -84,13 +84,16 @@ test('renaming recipes updates RecipeName without rebuilding cached rules', () =
     recipes: [baseRecipe({ name: '  Cached Builder (Renamed)' })],
     metasets: [],
     substatTargets,
-    previousCache: initial.cache,
   })
   const firstRules = initial.rulesByRecipe.get(0)
   const renamedRules = renamed.rulesByRecipe.get(0)
   assert(firstRules && firstRules.length > 0, 'expected cached rules to exist')
   assert(renamedRules && renamedRules.length > 0, 'expected renamed recipe to keep its rules')
-  assert.strictEqual(renamedRules, firstRules, 'rename-only edits should reuse the cached rule array')
+  assert.deepEqual(
+    renamedRules,
+    firstRules,
+    'rename-only edits should preserve generated rule payload content',
+  )
   assert(renamedRules!.every((rule) => rule.RecipeName === undefined), 'rules should remain free of RecipeName metadata')
   const exported = buildHsfFileFromMerged(renamedRules!, { recipeNames: ['Cached Builder (Renamed)'] })
   const first = exported.Rules[0]

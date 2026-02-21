@@ -176,7 +176,7 @@ import {
 
 export { createFactoryBuilderDefaults } from './builderPanel/defaults'
 
-export default function BuilderPanel({ recipe, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, effectiveSubstatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, safeguardMetasetUsageCounts, substatColors: _substatColors, recipeCount: _recipeCount, recipeRuleCounts, recipeRuleFingerprints, recipesExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForRecipes, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectRecipesByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, recipeOverridesInstructions, substatTargetsOverridesActive, multiEdit: _multiEdit = null, multiSelectedRecipes = null, onBeforeMetasetsDialogClose }: {
+export default function BuilderPanel({ recipe, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, effectiveSubstatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, safeguardMetasetUsageCounts, substatColors: _substatColors, recipeCount: _recipeCount, recipeRuleCounts, recipesExcludedByTotalLimit, countRulesForRecipes, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectRecipesByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, recipeOverridesInstructions, substatTargetsOverridesActive, multiEdit: _multiEdit = null, multiSelectedRecipes = null, onBeforeMetasetsDialogClose }: {
   recipe: BuilderRecipe,
   onChange: (c: BuilderRecipe) => void
   onAddToCustom: () => void
@@ -208,11 +208,7 @@ export default function BuilderPanel({ recipe, onChange, onAddToCustom, editingI
   substatColors: Record<number, { fg: string; bg: string }>
   recipeCount: number
   recipeRuleCounts: ReadonlyMap<number, number>
-  recipeRuleFingerprints: readonly string[]
   recipesExcludedByTotalLimit: ReadonlySet<number>
-  ruleSubstatTargetsKey: string
-  rulesBuilding: boolean
-  awaitRuleCounts?: () => { token: number; promise: Promise<Map<number, number>> } | null
   countRulesForRecipes: (params: { recipes: readonly BuilderRecipe[]; substatTargets: SubstatTargetTable }, options?: { signal?: AbortSignal }) => Promise<number[]>
   selectedIsDirty: boolean
   // Flag Insert/Apply actions that will not appear under "Preview recipes".
@@ -2324,19 +2320,15 @@ const maxLevelValue = multiEditActive
   } = useRuleCountBadge({
     recipe,
     substatTargets,
-    ruleSubstatTargetsKey,
     multiEditActive,
     multiProjectedRecipes,
     multiSourceRecipes,
     multiEditSelection,
     multiDirtyKeys,
     recipeRuleCounts,
-    recipeRuleFingerprints,
     selectedIsDirty,
     editingIndex,
     countRulesForRecipes,
-    awaitRuleCounts: awaitRuleCounts ?? null,
-    rulesBuilding,
     recipesExcludedByTotalLimit,
     t,
   })

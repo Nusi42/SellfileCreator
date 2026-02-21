@@ -56,6 +56,39 @@ enum ObsoleteGroupKey {
     },
 }
 
+// Typed collapse keys avoid building large concatenated strings per rule.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub(crate) struct CollapseCanonicalSubstatKey {
+    id: i64,
+    is_flat_true: bool,
+    not_available: bool,
+    condition: String,
+    value_bits: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub(crate) struct CollapseCanonicalKey {
+    keep: bool,
+    use_flag: bool,
+    rank: i64,
+    level: i64,
+    faction: i64,
+    main_stat_id: i64,
+    main_stat_f: i64,
+    artifact_types: Vec<i64>,
+    artifact_sets: Vec<i64>,
+    substats: Vec<CollapseCanonicalSubstatKey>,
+}
+
+// Normalize NaN to one canonical bit pattern so all NaN payloads hash equally.
+fn normalize_f64_bits(value: f64) -> u64 {
+    if value.is_nan() {
+        f64::NAN.to_bits()
+    } else {
+        value.to_bits()
+    }
+}
+
 // String form used in coarse keys for MainStatF (mirrors template literal behavior).
 fn coarse_main_stat_f(value: Option<&serde_json::Value>) -> String {
     match value {
@@ -65,122 +98,6 @@ fn coarse_main_stat_f(value: Option<&serde_json::Value>) -> String {
         Some(other) => other.to_string(),
         None => MAIN_STAT_F_DEFAULT_STR.to_string(),
     }
-}
-
-// Canonical rule-key payload mirrors merge.ts::canonicalRuleKey normalization.
-// This avoids serde_json object assembly/stringify and writes a deterministic key directly.
-fn canonical_rule_key_core(rule: &RuleRaw) -> String {
-    // Keep artifact type/set selectors sorted so click-order never changes keys.
-    let mut artifact_types = rule.ArtifactType.clone().unwrap_or_default();
-    artifact_types.sort_unstable();
-    let mut artifact_sets = rule.ArtifactSet.clone().unwrap_or_default();
-    artifact_sets.sort_unstable();
-
-    let mut out = String::new();
-    out.push_str("k:");
-    out.push(if rule.Keep.unwrap_or(false) { '1' } else { '0' });
-    out.push_str("|u:");
-    out.push(if rule.Use.unwrap_or(true) { '1' } else { '0' });
-    out.push_str("|r:");
-    out.push_str(&rule.Rank.unwrap_or(0).to_string());
-    out.push_str("|l:");
-    out.push_str(&rule.LVLForCheck.unwrap_or(0).to_string());
-    out.push_str("|f:");
-    out.push_str(&rule.Faction.unwrap_or(0).to_string());
-    out.push_str("|mid:");
-    out.push_str(&rule.MainStatID.unwrap_or(STAT_ID_ANY).to_string());
-    out.push_str("|mf:");
-    out.push_str(&boolish_to_flag(rule.MainStatF.as_ref()).to_string());
-    out.push_str("|t:");
-    for (idx, value) in artifact_types.iter().enumerate() {
-        if idx > 0 {
-            out.push(',');
-        }
-        out.push_str(&value.to_string());
-    }
-    out.push_str("|s:");
-    for (idx, value) in artifact_sets.iter().enumerate() {
-        if idx > 0 {
-            out.push(',');
-        }
-        out.push_str(&value.to_string());
-    }
-    out.push_str("|sub:");
-    if let Some(rows) = rule.Substats.as_ref() {
-        for (row_idx, sub) in rows.iter().enumerate() {
-            if row_idx > 0 {
-                out.push(';');
-            }
-            out.push_str("id=");
-            out.push_str(&sub.ID.unwrap_or(STAT_ID_ANY).to_string());
-            out.push_str(",flat=");
-            out.push(if boolish_to_flag(sub.IsFlat.as_ref()) == 1 { '1' } else { '0' });
-            out.push_str(",na=");
-            out.push(if sub.NotAvailable.unwrap_or(false) { '1' } else { '0' });
-            let condition = sub.Condition.as_deref().unwrap_or_default();
-            out.push_str(",clen=");
-            out.push_str(&condition.len().to_string());
-            out.push(':');
-            out.push_str(condition);
-            out.push_str(",val=");
-            let value = sub
-                .Value
-                .filter(|numeric| numeric.is_finite())
-                .unwrap_or(0.0);
-            // Normalize -0.0 to 0.0 for stable key equality.
-            let normalized_value = if value == 0.0 { 0.0 } else { value };
-            out.push_str(&normalized_value.to_string());
-        }
-    }
-    out
-}
-
-// Public canonical key export keeps rule normalization in Rust.
-
-// Hash helper mirrors useTesterMatchOrchestrator.ts::hashSignature.
-fn js_hash_signature(value: &str) -> i32 {
-    let mut hash: i32 = 0;
-    for code_point in value.chars().map(|ch| ch as i32) {
-        hash = hash.wrapping_shl(5).wrapping_sub(hash).wrapping_add(code_point);
-    }
-    hash
-}
-
-// Optional numeric field stringification mirrors String(value ?? '') behavior.
-fn optional_i64_to_js_string(value: Option<i64>) -> String {
-    value.map(|numeric| numeric.to_string()).unwrap_or_default()
-}
-
-// Batch fingerprint helper keeps merged-rule signature loops in Rust.
-#[wasm_bindgen]
-pub fn fingerprint_merged_rules_value(rules: JsValue) -> Result<JsValue, JsValue> {
-    let parsed: Vec<RuleRaw> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid merged-rules fingerprint payload: {error}")))?;
-    if parsed.is_empty() {
-        return Ok(JsValue::from_str("0:0"));
-    }
-    let mut hash: i32 = 0;
-    for (idx, rule) in parsed.iter().enumerate() {
-        let recipe_idx = rule
-            .RecipeID
-            .and_then(|cfg_id| if cfg_id > 0 { Some(cfg_id - 1) } else { None });
-        let parts = [
-            idx.to_string(),
-            rule.source.clone().unwrap_or_default(),
-            recipe_idx.map(|value| value.to_string()).unwrap_or_else(|| "none".to_string()),
-            rule.safeguard_rule_id.clone().unwrap_or_default(),
-            rule.safeguard_hash.clone().unwrap_or_default(),
-            optional_i64_to_js_string(rule.safeguard_required),
-            optional_i64_to_js_string(rule.safeguard_projected),
-            optional_i64_to_js_string(rule.safeguard_deficit),
-            canonical_rule_key_core(rule),
-        ];
-        let joined = parts.join("|");
-        let key_hash = js_hash_signature(&joined);
-        hash = hash.wrapping_shl(5).wrapping_sub(hash).wrapping_add(key_hash);
-    }
-    let signature = format!("{}:{}", parsed.len(), hash);
-    Ok(JsValue::from_str(&signature))
 }
 
 // Canonical array normalization mirrors JSON.stringify(canonArray(...)) semantics.
@@ -383,7 +300,7 @@ fn obsolete_dominates(
 }
 
 // Canonicalize non-substat fields for epic/legendary duplicate collapse.
-pub(crate) fn collapse_canonical_key(rule: &RuleRaw) -> String {
+pub(crate) fn collapse_canonical_key(rule: &RuleRaw) -> CollapseCanonicalKey {
     // Sort type ids so set/type selection order does not affect collapse grouping.
     let mut artifact_types = rule.ArtifactType.clone().unwrap_or_default();
     artifact_types.sort_unstable();
@@ -398,41 +315,28 @@ pub(crate) fn collapse_canonical_key(rule: &RuleRaw) -> String {
     // Serialize each slot to a compact primitive tuple for deterministic keys.
     let substats_key = substats
         .iter()
-        .map(|sub| {
+        .map(|sub| CollapseCanonicalSubstatKey {
             // Keep exactly the same tuple fields as the JS canonicalizer.
-            format!(
-                "{}:{}:{}:{}:{}",
-                sub.ID.unwrap_or(STAT_ID_ANY),
-                matches!(sub.IsFlat.as_ref(), Some(serde_json::Value::Bool(true))),
-                sub.NotAvailable.unwrap_or(false),
-                sub.Condition.as_deref().unwrap_or(""),
-                sub.Value.unwrap_or(0.0)
-            )
+            id: sub.ID.unwrap_or(STAT_ID_ANY),
+            is_flat_true: matches!(sub.IsFlat.as_ref(), Some(serde_json::Value::Bool(true))),
+            not_available: sub.NotAvailable.unwrap_or(false),
+            condition: sub.Condition.as_deref().unwrap_or("").to_string(),
+            value_bits: normalize_f64_bits(sub.Value.unwrap_or(0.0)),
         })
-        .collect::<Vec<_>>()
-        .join(",");
+        .collect::<Vec<_>>();
     // Build one full key that mirrors merge.ts::canonicalRuleKey dimensions.
-    format!(
-        "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
-        i64::from(rule.Keep.unwrap_or(false)),
-        i64::from(rule.Use.unwrap_or(true)),
-        rule.Rank.unwrap_or(0),
-        rule.LVLForCheck.unwrap_or(0),
-        rule.Faction.unwrap_or(0),
-        rule.MainStatID.unwrap_or(STAT_ID_ANY),
-        boolish_to_flag(rule.MainStatF.as_ref()),
-        artifact_types
-            .iter()
-            .map(i64::to_string)
-            .collect::<Vec<_>>()
-            .join(","),
-        artifact_sets
-            .iter()
-            .map(i64::to_string)
-            .collect::<Vec<_>>()
-            .join(","),
-        substats_key
-    )
+    CollapseCanonicalKey {
+        keep: rule.Keep.unwrap_or(false),
+        use_flag: rule.Use.unwrap_or(true),
+        rank: rule.Rank.unwrap_or(0),
+        level: rule.LVLForCheck.unwrap_or(0),
+        faction: rule.Faction.unwrap_or(0),
+        main_stat_id: rule.MainStatID.unwrap_or(STAT_ID_ANY),
+        main_stat_f: boolish_to_flag(rule.MainStatF.as_ref()),
+        artifact_types,
+        artifact_sets,
+        substats: substats_key,
+    }
 }
 
 // Shared obsolete-detector used by find_obsolete and generated-rule finalization.

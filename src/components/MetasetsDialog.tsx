@@ -38,6 +38,10 @@ import {
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useHsfcHistory'
 
+// Coalesce rapid per-click metaset edits into fewer App-level commits so the
+// dialog remains responsive while previews rebuild in the background.
+const METASETS_DIALOG_SYNC_DEBOUNCE_MS = 120 as const
+
 function normalizeSetArray(values: readonly number[]): number[] {
   const deduped = new Set<number>()
   for (const id of values) deduped.add(Number(id))
@@ -102,6 +106,67 @@ export default function MetasetsDialog({
   const { t, lang } = useI18n()
   // Note: Ordering state is owned by the Builder and passed in via props to keep
   // behavior identical between Builder and Metasets editor. No persistence here.
+  // Keep an in-dialog draft so click feedback never waits on App-wide rerenders.
+  const [draftMetasets, setDraftMetasets] = useState<Metaset[]>(metasets)
+  // Mirror the latest draft in a ref so delayed callbacks can read it safely.
+  const draftMetasetsRef = useRef<Metaset[]>(metasets)
+  // Track whether a delayed upstream publish is currently queued.
+  const hasPendingPublishRef = useRef(false)
+  // Timer handle for the delayed upstream publish.
+  const publishTimeoutRef = useRef<number | null>(null)
+  // Clear helper keeps timeout lifecycle in one place.
+  const clearPendingPublish = useCallback(() => {
+    if (publishTimeoutRef.current !== null) {
+      window.clearTimeout(publishTimeoutRef.current)
+      publishTimeoutRef.current = null
+    }
+  }, [])
+  // Push the latest draft to App immediately (used on close/critical actions).
+  const publishDraftNow = useCallback((next?: Metaset[]) => {
+    const payload = next ?? draftMetasetsRef.current
+    clearPendingPublish()
+    hasPendingPublishRef.current = false
+    onMetasetsChange(payload)
+  }, [clearPendingPublish, onMetasetsChange])
+  // Queue a debounced App sync so rapid toggles collapse into one expensive rebuild.
+  const scheduleDraftPublish = useCallback((next: Metaset[]) => {
+    draftMetasetsRef.current = next
+    setDraftMetasets(next)
+    hasPendingPublishRef.current = true
+    clearPendingPublish()
+    publishTimeoutRef.current = window.setTimeout(() => {
+      publishTimeoutRef.current = null
+      hasPendingPublishRef.current = false
+      onMetasetsChange(draftMetasetsRef.current)
+    }, METASETS_DIALOG_SYNC_DEBOUNCE_MS)
+  }, [clearPendingPublish, onMetasetsChange])
+  // Shared helper for destructive actions that depend on App-owned recipe/safeguard rewrites.
+  // Flush the draft first, then execute on the next frame so App callbacks read fresh state.
+  const flushDraftThen = useCallback((run: () => void) => {
+    publishDraftNow()
+    window.requestAnimationFrame(() => {
+      run()
+    })
+  }, [publishDraftNow])
+  // Dialog close should never drop unsynced local edits.
+  const handleDialogClose = useCallback(() => {
+    publishDraftNow()
+    onClose()
+  }, [onClose, publishDraftNow])
+  // Follow parent snapshots only when no local draft publish is queued.
+  useEffect(() => {
+    if (hasPendingPublishRef.current) return
+    draftMetasetsRef.current = metasets
+    // Local draft intentionally diverges from props while edits are queued.
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-derived-state
+    setDraftMetasets(metasets)
+  }, [metasets])
+  // Dialog close/unmount must flush pending local edits so state never drifts.
+  useEffect(() => {
+    return () => {
+      clearPendingPublish()
+    }
+  }, [clearPendingPublish])
   const [confirmResetMetasets, setConfirmResetMetasets] = useState(false)
   // Fixed screen anchor for per-row Sets menus so header position doesn't move when height changes
   const [setsMenuAnchorPos, setSetsMenuAnchorPos] = useState<{ top: number; left: number } | null>(null)
@@ -125,7 +190,7 @@ export default function MetasetsDialog({
   const skipSetsMenuAutoScrollRef = useRef(false)
   const [activeSetMenuMetaId, setActiveSetMenuMetaId] = useState<string | null>(null)
   {
-    const active = new Set(metasets.map(m => m.id))
+    const active = new Set(draftMetasets.map(m => m.id))
     for (const key of Object.keys(selectContainerRefs.current)) {
       if (!active.has(key)) delete selectContainerRefs.current[key]
     }
@@ -218,13 +283,13 @@ export default function MetasetsDialog({
   const recordHistory = useCallback((descriptor: HistoryEntryDescriptor | null, opts?: { mutated?: boolean; force?: boolean; nextMetasets?: Metaset[] }) => {
     const mutated = opts?.mutated === true
     const force = opts?.force === true
-    const nextState = opts?.nextMetasets ?? metasets
+    const nextState = opts?.nextMetasets ?? draftMetasets
 
     let effectiveDescriptor = descriptor
 
     if (mutated && open) {
       if (!metasetBaselineRef.current) {
-        metasetBaselineRef.current = cloneMetasetMap(metasets)
+        metasetBaselineRef.current = cloneMetasetMap(draftMetasets)
         metasetSessionHasEntryRef.current = false
       }
       const baselineMap = metasetBaselineRef.current
@@ -256,7 +321,7 @@ export default function MetasetsDialog({
       metasetBaselineRef.current = null
       metasetSessionHasEntryRef.current = false
     }
-  }, [buildMetasetsAggregateDescriptor, cloneMetasetMap, describeNextChange, metasets, open])
+  }, [buildMetasetsAggregateDescriptor, cloneMetasetMap, describeNextChange, draftMetasets, open])
 
   // Short golden glow effect reminiscent of a legendary pull. Intentionally subtle.
   const legendaryGlow = keyframes`
@@ -281,7 +346,7 @@ export default function MetasetsDialog({
     describe: (previous: Metaset, next: Metaset) => HistoryEntryDescriptor | null,
   ) => {
     // Resolve the current metaset so edits are scoped to a stable index.
-    const previousMeta = metasets[idx]
+    const previousMeta = draftMetasets[idx]
     if (!previousMeta) {
       recordHistory(null)
       return
@@ -294,10 +359,10 @@ export default function MetasetsDialog({
     }
     // Snapshot the metasets used for the history entry so future edits do not mutate it.
     const descriptor = describe(cloneMetaset(previousMeta), cloneMetaset(nextMeta))
-    const updated = metasets.map((meta, metaIdx) => (metaIdx === idx ? nextMeta : meta))
+    const updated = draftMetasets.map((meta, metaIdx) => (metaIdx === idx ? nextMeta : meta))
     recordHistory(descriptor ?? null, { mutated: true, nextMetasets: updated })
-    onMetasetsChange(updated)
-  }, [metasets, onMetasetsChange, recordHistory])
+    scheduleDraftPublish(updated)
+  }, [draftMetasets, recordHistory, scheduleDraftPublish])
 
   // Measure the widest possible confirm button label and lock the button width
   useEffect(() => {
@@ -349,14 +414,14 @@ export default function MetasetsDialog({
       })
       : null
     return () => { typeof raf === 'number' && window.cancelAnimationFrame(raf) }
-  }, [metasets, pendingScrollMetaId])
+  }, [draftMetasets, pendingScrollMetaId])
   const scrollMetasetSetsMenuToSelected = useCallback((metaId: string, orderOverride?: 'game' | 'az' | 'icons') => {
     if (!metaSetsMenuOpen) return
     const order = orderOverride ?? setsOrder
     if (order === 'icons') return
     const list = setsMenuListRefs.current[metaId]
     if (!list) return
-    const meta = metasets.find((m) => m.id === metaId)
+    const meta = draftMetasets.find((m) => m.id === metaId)
     if (!meta || meta.sets.length === 0) return
     const selectedIds = new Set(meta.sets)
     const sortedForOrder = sortedSetEntries[order] ?? sortedSetEntries.game
@@ -373,7 +438,7 @@ export default function MetasetsDialog({
       const item = list.querySelector<HTMLElement>(`[data-set-id="${target}"]`)
       item?.scrollIntoView({ block: 'nearest' })
     })
-  }, [metaSetsMenuOpen, metasets, setsMenuListRefs, setsOrder, sortedSetEntries])
+  }, [draftMetasets, metaSetsMenuOpen, setsMenuListRefs, setsOrder, sortedSetEntries])
   useEffect(() => {
     if (!metaSetsMenuOpen || !activeSetMenuMetaId) return
     if (skipSetsMenuAutoScrollRef.current) {
@@ -463,7 +528,7 @@ export default function MetasetsDialog({
 
   return (
     <>
-      <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
+      <Dialog open={open} onClose={handleDialogClose} maxWidth="lg" fullWidth>
         <DialogTitle>{t('titleManageMetasets')}</DialogTitle>
         <DialogContent dividers sx={{ p: 0, display: 'flex', flexDirection: 'column' }} data-tour-id="metasets.dialog">
           {/* Sticky header: description only */}
@@ -486,7 +551,7 @@ export default function MetasetsDialog({
             }}
           >
             <Stack spacing={1}>
-              {metasets.map((m, idx) => {
+              {draftMetasets.map((m, idx) => {
                 const iconId = (m.iconId ?? DEFAULT_METASET_ICON_ID) as MetasetIconId
                 const hasSelectedSets = (m.sets?.length ?? 0) > 0
                 const inlinePaddingPx = hasSelectedSets ? SETS_SELECT_INLINE_GUTTER_PX : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
@@ -509,12 +574,12 @@ export default function MetasetsDialog({
                       <span>
                         <IconButton size="small" onClick={() => {
                           if (idx === 0) return
-                          const arr = metasets.slice()
+                          const arr = draftMetasets.slice()
                           const tmp = arr[idx - 1]!
                           arr[idx - 1] = arr[idx]!
                           arr[idx] = tmp
                           recordHistory(null, { mutated: true, nextMetasets: arr })
-                          onMetasetsChange(arr)
+                          scheduleDraftPublish(arr)
                         }} disabled={idx === 0}>
                           <ArrowUpwardIcon fontSize="inherit" />
                         </IconButton>
@@ -523,14 +588,14 @@ export default function MetasetsDialog({
                     <MarkdownTooltip markdown={t('metasetsMoveDown')}>
                       <span>
                         <IconButton size="small" onClick={() => {
-                          if (idx === metasets.length - 1) return
-                          const arr = metasets.slice()
+                          if (idx === draftMetasets.length - 1) return
+                          const arr = draftMetasets.slice()
                           const tmp = arr[idx + 1]!
                           arr[idx + 1] = arr[idx]!
                           arr[idx] = tmp
                           recordHistory(null, { mutated: true, nextMetasets: arr })
-                          onMetasetsChange(arr)
-                        }} disabled={idx === metasets.length - 1}>
+                          scheduleDraftPublish(arr)
+                        }} disabled={idx === draftMetasets.length - 1}>
                           <ArrowDownwardIcon fontSize="inherit" />
                         </IconButton>
                       </span>
@@ -595,7 +660,13 @@ export default function MetasetsDialog({
                       }}
                       sx={{ position: 'relative' }}
                     >
-                      <Select
+                      {/* Only build the heavyweight menu tree for the actively opened row.
+                          This avoids remounting hundreds of set menu items for every metaset
+                          on each click, which was a major source of main-thread churn. */}
+                      {(() => {
+                        const setsMenuActive = metaSetsMenuOpen && activeSetMenuMetaId === m.id
+                        return (
+                          <Select
                         size="small"
                         multiple
                         fullWidth
@@ -664,7 +735,11 @@ export default function MetasetsDialog({
                             requestAnimationFrame(() => requestAnimationFrame(refine))
                           } catch { setSetsMenuAnchorPos(null) }
                         }}
-                        onClose={() => { setMetaSetsMenuOpen(false); setActiveSetMenuMetaId(null); setSetsMenuAnchorPos(null) }}
+                        onClose={() => {
+                          setMetaSetsMenuOpen(false)
+                          setActiveSetMenuMetaId(null)
+                          setSetsMenuAnchorPos(null)
+                        }}
                         MenuProps={{
                           PaperProps: { sx: { width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX }, maxWidth: SETS_MENU_WIDTH_PX, overflowX: 'hidden' }, ref: (el: HTMLDivElement | null) => { setsRowMenuPaperRef.current = el } },
                           MenuListProps: { sx: { width: '100%', maxWidth: '100%' } },
@@ -693,85 +768,87 @@ export default function MetasetsDialog({
                             right: 8,
                           },
                         }}
-                      >
-                        {(() => {
-                          const sorted = sortedSetEntries[setsOrder] ?? sortedSetEntries.game
-                          return (
-                            <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
-                              {/* Keep header outside the scrollable items to avoid position jumps */}
-                              <ListSubheader sx={{ opacity: 0.7, py: 0.5, my: 0, lineHeight: 2, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX }}>
-                                <Box
-                                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, pr: `${MENU_SCROLL_GUTTER_PX}px` }}
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <SetsOrderControls
-                                    setsSearch={setsSearch}
-                                    onSetsSearchChange={onSetsSearchChange}
-                                    setsOrder={setsOrder}
-                                    onSetsOrderChange={onSetsOrderChange}
-                                    zeroResults={sorted.length === 0}
-                                  />
+                          >
+                            {setsMenuActive ? (() => {
+                              const sorted = sortedSetEntries[setsOrder] ?? sortedSetEntries.game
+                              return (
+                                <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
+                                  {/* Keep header outside the scrollable items to avoid position jumps */}
+                                  <ListSubheader sx={{ opacity: 0.7, py: 0.5, my: 0, lineHeight: 2, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX }}>
+                                    <Box
+                                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, pr: `${MENU_SCROLL_GUTTER_PX}px` }}
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <SetsOrderControls
+                                        setsSearch={setsSearch}
+                                        onSetsSearchChange={onSetsSearchChange}
+                                        setsOrder={setsOrder}
+                                        onSetsOrderChange={onSetsOrderChange}
+                                        zeroResults={sorted.length === 0}
+                                      />
+                                    </Box>
+                                  </ListSubheader>
+                                  <Box
+                                    component="ul"
+                                    ref={(el: HTMLUListElement | null) => { setsMenuListRefs.current[m.id] = el }}
+                                    sx={{
+                                      listStyle: 'none',
+                                      p: 0,
+                                      m: 0,
+                                      ...(setsOrder === 'icons'
+                                        ? {
+                                            // Icon mode: never scroll; grid expands with content
+                                            maxHeight: 'none',
+                                            height: 'auto',
+                                            overflowY: 'visible',
+                                          }
+                                        : {
+                                        // List modes: fixed height and always show a vertical scrollbar
+                                        // to keep width identical to icon mode.
+                                            maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX,
+                                            height: MENU_MAX_HEIGHT_SETS_LIST_PX,
+                                            overflowY: 'scroll',
+                                          }),
+                                      pr: `${MENU_SCROLL_GUTTER_PX}px`,
+                                      ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
+                                    }}
+                                  >
+                                    <SetMenuSection
+                                      title={t('setsTitle')}
+                                      sorted={sorted}
+                                      setsOrder={setsOrder}
+                                      metasets={draftMetasets}
+                                      excludeMetasetId={m.id}
+                                      setUsageCounts={setUsageCounts}
+                                      valueForSet={(id) => String(id)}
+                                      hideHeader
+                                      selectedSetIds={m.sets}
+                                      onToggleSet={(id) => {
+                                        skipSetsMenuAutoScrollRef.current = true
+                                        commitMetasetUpdate(
+                                          idx,
+                                          (prevMeta) => {
+                                            const nextIds = new Set<number>(prevMeta.sets)
+                                            if (nextIds.has(id)) {
+                                              nextIds.delete(id)
+                                            } else {
+                                              nextIds.add(id)
+                                            }
+                                            const arr = Array.from(nextIds).sort((a, b) => a - b)
+                                            return { ...prevMeta, sets: arr }
+                                          },
+                                          (previousMeta, nextMeta) => ({ kind: 'metasetSetsChanged', previous: previousMeta, next: nextMeta }),
+                                        )
+                                      }}
+                                    />
+                                  </Box>
                                 </Box>
-                              </ListSubheader>
-                              <Box
-                                component="ul"
-                                ref={(el: HTMLUListElement | null) => { setsMenuListRefs.current[m.id] = el }}
-                                sx={{
-                                  listStyle: 'none',
-                                  p: 0,
-                                  m: 0,
-                                  ...(setsOrder === 'icons'
-                                    ? {
-                                        // Icon mode: never scroll; grid expands with content
-                                        maxHeight: 'none',
-                                        height: 'auto',
-                                        overflowY: 'visible',
-                                      }
-                                    : {
-                                    // List modes: fixed height and always show a vertical scrollbar
-                                    // to keep width identical to icon mode.
-                                        maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX,
-                                        height: MENU_MAX_HEIGHT_SETS_LIST_PX,
-                                        overflowY: 'scroll',
-                                      }),
-                                  pr: `${MENU_SCROLL_GUTTER_PX}px`,
-                                  ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
-                                }}
-                              >
-                                <SetMenuSection
-                                  title={t('setsTitle')}
-                                  sorted={sorted}
-                                  setsOrder={setsOrder}
-                                  metasets={metasets}
-                                  excludeMetasetId={m.id}
-                                  setUsageCounts={setUsageCounts}
-                                  valueForSet={(id) => String(id)}
-                                  hideHeader
-                                  selectedSetIds={m.sets}
-                                  onToggleSet={(id) => {
-                                    skipSetsMenuAutoScrollRef.current = true
-                                    commitMetasetUpdate(
-                                      idx,
-                                      (prevMeta) => {
-                                        const nextIds = new Set<number>(prevMeta.sets)
-                                        if (nextIds.has(id)) {
-                                          nextIds.delete(id)
-                                        } else {
-                                          nextIds.add(id)
-                                        }
-                                        const arr = Array.from(nextIds).sort((a, b) => a - b)
-                                        return { ...prevMeta, sets: arr }
-                                      },
-                                      (previousMeta, nextMeta) => ({ kind: 'metasetSetsChanged', previous: previousMeta, next: nextMeta }),
-                                    )
-                                  }}
-                                />
-                              </Box>
-                            </Box>
-                          )
-                        })()}
-                      </Select>
+                              )
+                            })() : null}
+                          </Select>
+                        )
+                      })()}
                       <InlineSelectClearButton
                         disabled={!hasSelectedSets}
                         label={t('clear')}
@@ -933,7 +1010,7 @@ export default function MetasetsDialog({
         </DialogContent>
         <DialogActions>
           <Button data-tour-id="metasets.add" onClick={() => {
-            const { name, isFun } = generateMetasetNameWithFlag(metasets.map(m => m.name))
+            const { name, isFun } = generateMetasetNameWithFlag(draftMetasets.map(m => m.name))
             const id = makeMetasetId()
             const iconId = randomMetasetIconId()
             setPendingScrollMetaId(id)
@@ -943,15 +1020,15 @@ export default function MetasetsDialog({
               window.setTimeout(() => setLegendaryMetaId(''), 1600)
             }
             const nextMeta = { id, name, sets: [], show: true, iconId }
-            const nextMetasets = metasets.concat(nextMeta)
+            const nextMetasets = draftMetasets.concat(nextMeta)
             recordHistory({ kind: 'metasetAdded', metaset: cloneMetaset(nextMeta) }, { mutated: true, nextMetasets })
-            onMetasetsChange(nextMetasets)
+            scheduleDraftPublish(nextMetasets)
           }}>{t('addMetaset')}</Button>
           
           <Button size="small" variant="outlined" color="error" onClick={() => {
             // Default selection mirrors Delete: prefer replace-with-sets when possible
             try {
-              const used = metasets.filter(m => (metasetUsageCounts[m.id] || 0) > 0 || (safeguardMetasetUsageCounts[m.id] || 0) > 0)
+              const used = draftMetasets.filter(m => (metasetUsageCounts[m.id] || 0) > 0 || (safeguardMetasetUsageCounts[m.id] || 0) > 0)
               const anyHasSets = used.some(m => m.sets.length > 0)
               setResetMode(anyHasSets ? 'replaceSets' : 'delete')
             } catch { setResetMode('delete') }
@@ -959,7 +1036,7 @@ export default function MetasetsDialog({
             setConfirmResetMetasets(true)
           }}>{t('resetToDefaults')}</Button>
           <Box sx={{ flex: 1 }} />
-          <Button onClick={onClose} data-tour-id="metasets.close">{t('close')}</Button>
+          <Button onClick={handleDialogClose} data-tour-id="metasets.close">{t('close')}</Button>
         </DialogActions>
       </Dialog>
 
@@ -977,7 +1054,7 @@ export default function MetasetsDialog({
             onClick={() => {
               const id = confirmClearMetaId!
               setConfirmClearMetaId(null)
-              const targetIdx = metasets.findIndex(m => m.id === id)
+              const targetIdx = draftMetasets.findIndex(m => m.id === id)
               if (targetIdx === -1) {
                 recordHistory(null)
                 return
@@ -1016,11 +1093,11 @@ export default function MetasetsDialog({
           )}
           {(() => {
             const id = confirmDeleteMetaId
-            const m = metasets.find(x => x.id === id)
+            const m = draftMetasets.find(x => x.id === id)
             const recipeUsed = id ? (metasetUsageCounts[id] || 0) : 0
             const safeguardUsed = id ? (safeguardMetasetUsageCounts[id] || 0) : 0
             const totalUsed = recipeUsed + safeguardUsed
-            const otherMetas = metasets.filter(x => x.id !== id)
+            const otherMetas = draftMetasets.filter(x => x.id !== id)
             const hasOtherMetas = otherMetas.length > 0
             const hasSets = Boolean(m && m.sets.length > 0)
 
@@ -1059,7 +1136,7 @@ export default function MetasetsDialog({
                       disabled={!hasOtherMetas || deleteMode !== 'replaceMeta'}
                       renderValue={(v) => {
                         if (!hasOtherMetas) return t('metasetsNoMetasetsToReplaceWith')
-                        return v ? (metasets.find(x => x.id === v)?.name ?? v) : t('metasetsChooseMetasetPlaceholder')
+                        return v ? (draftMetasets.find(x => x.id === v)?.name ?? v) : t('metasetsChooseMetasetPlaceholder')
                       }}
                     >
                       {otherMetas.map((mm) => (
@@ -1090,7 +1167,7 @@ export default function MetasetsDialog({
                       setConfirmDeleteMetaId(null)
                       setDeleteReplaceMetaId('')
                       setDeleteMode('delete')
-                      onDeleteMetaset(id2)
+                      flushDraftThen(() => onDeleteMetaset(id2))
                     }}
                   >
                     {t('delete')}
@@ -1110,11 +1187,11 @@ export default function MetasetsDialog({
                         setDeleteReplaceMetaId('')
                         setDeleteMode('delete')
                         if (mode === 'replaceSets') {
-                          onDeleteMetaset(id2, { replaceWithSets: true })
+                          flushDraftThen(() => onDeleteMetaset(id2, { replaceWithSets: true }))
                         } else if (mode === 'replaceMeta') {
-                          onDeleteMetaset(id2, { replaceWithMetaId: repId })
+                          flushDraftThen(() => onDeleteMetaset(id2, { replaceWithMetaId: repId }))
                         } else {
-                          onDeleteMetaset(id2)
+                          flushDraftThen(() => onDeleteMetaset(id2))
                         }
                       }}
                     >
@@ -1146,7 +1223,7 @@ export default function MetasetsDialog({
           )}
           {(() => {
             // Combine recipe + Safeguard references; reset flow must keep both in sync.
-            const totalRefs = metasets.reduce((acc, meta) => (
+            const totalRefs = draftMetasets.reduce((acc, meta) => (
               acc + (metasetUsageCounts[meta.id] || 0) + (safeguardMetasetUsageCounts[meta.id] || 0)
             ), 0)
             if (totalRefs === 0) {
@@ -1191,7 +1268,7 @@ export default function MetasetsDialog({
             sx={{ width: resetConfirmBtnWidth, whiteSpace: 'nowrap' }}
             onClick={() => {
               const replacement = resetMode === 'replaceMeta' ? resetReplaceMetaId : undefined
-              onResetMetasets(resetMode, replacement)
+              flushDraftThen(() => onResetMetasets(resetMode, replacement))
               setConfirmResetMetasets(false)
               setResetMode('delete')
               setResetReplaceMetaId('')

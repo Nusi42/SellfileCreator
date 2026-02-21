@@ -33,7 +33,6 @@ export const prepare_hsf_builder_recipe_value: (a: any) => [number, number, numb
 export const resolve_auto_rarity_code_for_builder_value: (a: any) => [number, number, number];
 export const resolve_safeguard_rules_with_metasets_value: (a: any, b: any) => [number, number, number];
 export const version: () => [number, number];
-export const fingerprint_merged_rules_value: (a: any) => [number, number, number];
 export const __wbindgen_malloc: (a: number, b: number) => number;
 export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
 export const __wbindgen_exn_store: (a: number) => void;

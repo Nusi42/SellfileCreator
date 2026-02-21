@@ -1,6 +1,16 @@
 use super::*;
 use crate::safeguards::{build_safeguard_rules_core, safeguard_clone_any_substats};
 
+// Safeguard-injected keep dedupe mirrors TS semantics with typed keys:
+// canonical for non-safeguard rows, placeholder canonical for synthetic rows,
+// and item+level for concrete safeguard item projections.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum SafeguardInjectedKeepKey {
+    Canonical(rule_dedupe::CollapseCanonicalKey),
+    PlaceholderCanonical(rule_dedupe::CollapseCanonicalKey),
+    ItemLevel { item_key: i64, level: i64 },
+}
+
 pub(crate) fn flatten_rule_batches_with_total_limit_value(
     base_count: i64,
     total_limit: i64,
@@ -281,7 +291,7 @@ fn merge_safeguard_injected_rules_core(
     candidate_keep_rules: Vec<RuleRaw>,
 ) -> Vec<RuleRaw> {
     // Remove previously injected safeguard rows from base key collection.
-    let mut base_custom_keep_keys = HashSet::<String>::new();
+    let mut base_custom_keep_keys = HashSet::<rule_dedupe::CollapseCanonicalKey>::new();
     for rule in base_rules
         .iter()
         .filter(|entry| entry.source.as_deref() != Some(RULE_SOURCE_SAFEGUARDS))
@@ -298,7 +308,7 @@ fn merge_safeguard_injected_rules_core(
     }
 
     // Preserve TS dedupe key behavior for placeholders vs item+level rows.
-    let mut injected_keep_keys = HashSet::<String>::new();
+    let mut injected_keep_keys = HashSet::<SafeguardInjectedKeepKey>::new();
     let mut filtered = Vec::<RuleRaw>::new();
     for rule in candidate_keep_rules {
         let canonical = rule_dedupe::collapse_canonical_key(&rule);
@@ -308,17 +318,14 @@ fn merge_safeguard_injected_rules_core(
         let is_safeguard_source = rule.source.as_deref() == Some(RULE_SOURCE_SAFEGUARDS);
         let dedupe_key = if is_safeguard_source {
             if rule.safeguard_placeholder.unwrap_or(false) {
-                format!("ku:placeholder:{canonical}")
+                SafeguardInjectedKeepKey::PlaceholderCanonical(canonical.clone())
             } else {
-                let item_key = rule
-                    .safeguard_item_key
-                    .map(|value| value.to_string())
-                    .unwrap_or_else(|| "na".to_string());
+                let item_key = rule.safeguard_item_key.unwrap_or(JS_MAX_SAFE_INTEGER_I64);
                 let level = rule.LVLForCheck.unwrap_or(LEVEL_ANY_SENTINEL);
-                format!("ku:item:{item_key}:lvl:{level}")
+                SafeguardInjectedKeepKey::ItemLevel { item_key, level }
             }
         } else {
-            canonical.clone()
+            SafeguardInjectedKeepKey::Canonical(canonical.clone())
         };
         if injected_keep_keys.contains(&dedupe_key) {
             continue;
@@ -419,7 +426,7 @@ fn finalize_generated_rules_core(
         .collect::<Vec<_>>();
 
     // Group by canonical key to detect strict epic+legendary duplicates.
-    let mut groups = HashMap::<String, Vec<usize>>::new();
+    let mut groups = HashMap::<rule_dedupe::CollapseCanonicalKey, Vec<usize>>::new();
     for (idx, entry) in entries.iter().enumerate() {
         let key = rule_dedupe::collapse_canonical_key(&entry.rule);
         groups.entry(key).or_default().push(idx);

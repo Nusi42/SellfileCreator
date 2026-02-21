@@ -1,20 +1,8 @@
-import type { SellfileExportMode } from '../lib/hsfBuilder'
-import type { HsfRuleWithRecipe } from '../lib/merge'
 import type { EvalResult, MatchingRecipeDecision, TestItem } from '../lib/ruleEval'
-import type { ProgressSnapshot } from '../types/progress'
-
-export type TesterMatchWorkerConfigurePayload = {
-  rules: HsfRuleWithRecipe[]
-  recipeModes: SellfileExportMode[]
-}
 
 export type TesterMatchWorkerEvaluateItem = {
   itemId: number
   item: TestItem
-}
-
-export type TesterMatchWorkerEvaluatePayload = {
-  items: TesterMatchWorkerEvaluateItem[]
 }
 
 export type TesterMatchWorkerItemResult = {
@@ -24,38 +12,3 @@ export type TesterMatchWorkerItemResult = {
   matchingRecipeIndices: number[]
   matchingRecipeDecisions: MatchingRecipeDecision[]
 }
-
-export type TesterMatchWorkerRequest =
-  | {
-      id: number
-      kind: 'configure'
-      payload: TesterMatchWorkerConfigurePayload
-    }
-  | {
-      id: number
-      kind: 'evaluate'
-      payload: TesterMatchWorkerEvaluatePayload
-    }
-
-export type TesterMatchWorkerResponse =
-  | {
-      id: number
-      kind: 'configure:done'
-    }
-  | {
-      id: number
-      kind: 'evaluate:done'
-      payload: {
-        results: TesterMatchWorkerItemResult[]
-      }
-    }
-  | {
-      id: number
-      kind: 'evaluate:progress'
-      payload: ProgressSnapshot
-    }
-  | {
-      id: number
-      kind: 'error'
-      error: string
-    }

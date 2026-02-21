@@ -1864,14 +1864,12 @@ fn safeguard_is_activation_off(raw: &str) -> bool {
     if trimmed.is_empty() {
         return false;
     }
-    trimmed.eq_ignore_ascii_case(SAFEGUARD_ACTIVATION_OFF) || trimmed.eq_ignore_ascii_case("disabled")
+    trimmed.eq_ignore_ascii_case(SAFEGUARD_ACTIVATION_OFF)
 }
 
 fn safeguard_is_activation_anticipate(raw: &str) -> bool {
     let trimmed = raw.trim();
     trimmed.eq_ignore_ascii_case(SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS)
-        || trimmed.eq_ignore_ascii_case("anticipate")
-        || trimmed.eq_ignore_ascii_case("placeholder")
 }
 
 pub(crate) fn build_safeguard_rules_core(
@@ -1883,11 +1881,9 @@ pub(crate) fn build_safeguard_rules_core(
         return Vec::<RuleRaw>::new();
     };
 
-    // Build lookup maps by both rule id and combination hash for legacy payloads.
+    // Build lookup map by normalized rule id.
     let mut detection_by_rule_id = HashMap::<String, &SafeguardWasmEntryOut>::new();
-    let mut detection_by_hash = HashMap::<String, &SafeguardWasmEntryOut>::new();
     for entry in &detection_snapshot.entries {
-        detection_by_hash.insert(entry.hash.clone(), entry);
         if let Some(rule_id) = entry.rule_id.as_deref() {
             detection_by_rule_id.insert(rule_id.to_string(), entry);
         }
@@ -1906,7 +1902,7 @@ pub(crate) fn build_safeguard_rules_core(
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(|value| value.to_string());
-        // Normalize combination + activation tokens so legacy null fields are tolerated.
+        // Normalize combination + activation tokens once for deterministic lookups.
         let combination = rule.combination.clone().unwrap_or_default();
         let rule_hash = safeguard_hash_combination(&combination);
         let rule_id = explicit_rule_id.unwrap_or_else(|| rule_hash.clone());
@@ -1917,10 +1913,7 @@ pub(crate) fn build_safeguard_rules_core(
         if safeguard_is_activation_off(&activation) {
             continue;
         }
-        let entry = detection_by_rule_id
-            .get(rule_id.as_str())
-            .copied()
-            .or_else(|| detection_by_hash.get(rule_hash.as_str()).copied());
+        let entry = detection_by_rule_id.get(rule_id.as_str()).copied();
         let Some(entry) = entry else {
             continue;
         };

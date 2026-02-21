@@ -17,6 +17,7 @@ The technical reference is now split across focused documents. Start here, then 
 - Multi-edit aggregations live in `builderPanel/useMultiEditSummary.ts` and the action button context menus + hint overlays live in `builderPanel/useBuilderPanelActionMenus.ts`; wire new behaviors through these hooks to keep the core component declarative.
 - Artifact set selections now use `ArtifactSetSelectionEntry` (with optional `excluded`) plus helpers in `src/lib/gearSets/selection.ts`; reuse those helpers whenever sets or metasets are merged or displayed.
 - Rule cache worker progress events are throttled to roughly once per second to prevent Firefox from backlogging main-thread message delivery on large datasets; avoid reintroducing verbose per-item logging or unthrottled progress forwarding.
+- `useAutosave` now tracks the last change-signal per storage key so enable/disable flips cannot reschedule expensive payload builders when the underlying content did not change.
 
 - [Build and Tooling](technical/build-and-tooling.md) — stack, scripts, packaging, project structure, and the Tauri wrapper.
 - [Application Behavior](technical/app-behavior.md) — builder guardrails, preview filters (including substat include/exclude), rule cache fast paths, clipboard/save flows, file import, recipe overrides prompt formatting (including group-level fallbacks and two-string label/value layouts), and the rule tester (including grouping + sort behavior and headerless mode).
@@ -42,16 +43,6 @@ All documents describe the *current* implementation; update the relevant file wh
 
 - Keep code self-documenting whenever possible, but add concise inline comments whenever the intent isn’t immediately obvious. For new or modified sections, aim to include a clarifying comment roughly every three lines; only skip a comment when you can plainly state that the code is trivial (and document that decision in the surrounding comment block). Remove stale comments that no longer represent the current behavior.
 
-### Performance Profiling (dev-only instrumentation)
-
-We keep perf instrumentation gated behind `import.meta.env.DEV` so production builds stay clean. When you need detailed HSFC/HSF timing data:
-- Use the shared helper at `src/lib/perfTimeline.ts` (it registers `window.__sellfilePerfTimeline` for Playwright snapshots).
-- Keep every `startPerfTimeline`/`markPerfEvent` call behind the DEV gate so only the dev server records data.
-- The Playwright perf specs (notably `tests/playwright/tester-matching-perf.spec.ts`) read the timeline and log deltas; they include rule-cache phase breakdowns (baseline/detection/final) and a `fast-path=1` flag when the worker skips full scans.
-- The rebuild perf spec is a fast sanity check on slim fixtures with short idle waits; use `npm run measure:rule-tester` when you need full matcher perf coverage on large datasets.
-
-Without the helper, the Playwright perf tests fall back to the built-in measurements (note dialog and first-row render) so routine CI runs stay stable.
-
 ## Artifact Rules
 
 ### Gear Slots
@@ -63,25 +54,23 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
 ### Safeguards State
 
 - Builder state carries safeguard rules in `keepUniqueRules` plus the global `safeguardsEnabled` flag. Each gear combination stores `(slot, set, rank, rarity, main stat, faction?)`, optional `substats` + `substatMatch`/`substatWeights` for substat-focused protection, `requiredCount`, and a per-rule activation mode (`off`, `protectExisting`, or `anticipateGaps`).
-- The Logic Hub dialog stores `logicHubDialogTab` (legacy autosaves still expose `FinalSellDialogTab`) alongside the rest of the builder payload so autosave/restore reopen whichever tab (Final Sell vs. Gear vs. Safeguards) the user last used. Safeguards launches with an empty rule list—enabling the feature exposes the inline editors, and the Reset button simply clears every rule and disables the toggle so re-enabling starts from a clean slate instead of resurrecting stale combinations.
+- The Logic Hub dialog stores `logicHubDialogTab` alongside the rest of the builder payload so autosave/restore reopen whichever tab (Final Sell vs. Gear vs. Safeguards) the user last used. Safeguards launches with an empty rule list—enabling the feature exposes the inline editors, and the Reset button simply clears every rule and disables the toggle so re-enabling starts from a clean slate instead of resurrecting stale combinations.
 - Autosave and HSFC payloads serialize the toggle plus combinations via `Safeguards` and `SafeguardsEnabled`. Autosave restore, clipboard import/export, and history snapshots treat them exactly like recipes/metasets so undo/redo remains accurate. The HSFC import path (`applyHsfcLoadResult`) always writes the file’s safeguard snapshot into state before we trigger a rule cache warm so a file with zero safeguard rules clears the previous session’s entries and lets the preview chip’s progress ring advance cleanly.
 - Safeguards history entries emit structured tooltip payloads: add/delete snapshots show the full rule breakdown, while updates render before/after diffs for only the changed fields (slots/sets/metasets/main stats plus rank/rarity/faction lines).
-- Safeguard scans only run while `safeguardsEnabled` is true; disabling the feature or rebuilding the gear queue clears `keepUniqueDetection` so the UI never shows stale combination stats. Detection fingerprints live only in memory to avoid bloating autosave payloads.
+- Safeguard scans only run while `safeguardsEnabled` is true; disabling the feature or rebuilding the gear queue clears `keepUniqueDetection` so the UI never shows stale combination stats. The app tracks the last applied detection snapshot by reference in memory (no persisted detection signature in autosave payloads).
 - Safeguard rule names debounce using `BUILDER_AUTO_APPLY_DEBOUNCE_MS`; tester match chips refresh from the live name map without forcing a rule-cache rebuild.
 - Recipes tagged `ignore_keep_unique` keep their items in previews but are ignored during safeguard coverage checks so rework fodder never satisfies the uniqueness quota.
-- The rule cache worker retains a per-run artifact cache; when the tester preview is empty the pipeline must set `resetArtifacts` so the worker drops that cache before recomputing safeguard injections. The app wires this flag already—preserve it on new pipeline call sites.
-- Pipeline requests now carry a monotonic `generation` id; worker runs process against a cloned artifact cache and only commit warm/artifact state if their generation is still current, preventing stale in-flight runs from mutating shared cache state after rapid toggles or DB updates.
-- Worker-backed matcher pipelines run through a single-flight scheduler (`useRuleCacheWorker`): one active run, one latest queued payload. New payloads abort the active run, wait for it to settle, then start only the newest queued request; superseded queued entries are rejected with `AbortError`.
-- Pipeline aborts are hard cancels: the hook terminates and respawns the rule-cache worker so long-running wasm calls stop immediately instead of finishing in the background.
-- After a hard-cancel worker respawn, `useRuleCacheWorker` rehydrates the new worker from a local artifact snapshot before applying patch-only updates; this prevents empty match lists when recipe modes change without artifact deltas.
-- App-side pipeline signatures (`lastPipelineSignatureRef` / artifact fingerprints) are committed only after successful pipeline completion; aborted/failed active runs clear those refs so deferred snapshots cannot get stuck behind stale "already processed" signatures.
+- Pipeline requests now carry a monotonic `generation` id; stale in-flight runs are discarded so only the newest payload can update preview state.
+- Worker-backed matcher pipelines run through a single-flight scheduler (`useRuleCacheWorker`): one active run, one latest queued payload. New payloads supersede active work immediately.
+- Pipeline calls now send full artifact arrays per run (no patch payloads, warm fingerprints, or artifact/detection signature caches).
+- Browser builds require worker-backed rule-cache execution; the hook no longer provides a main-thread fallback pipeline.
 - `computeKeepUniqueProtection` reads the normalized preview gear and emits combination stats (`currentCount`, `keptCount`, `projectedCount`, `coveredByExisting`, `deficit`, gear ids) that the UI and safeguard-rule generator consume.
 - Safeguard expected-group expansion (slot/set/faction/main-scope cartesian products used for per-group deficits) now runs entirely in WASM using a shared domain payload from TS.
 - Substat scoring always uses normalized substat scoring and keeps the top N per scope. Equal-score ties resolve only when we can prove one item is better (`same main stat => higher rank`, or `% HP/DEF/ATK beats the matching flat variant`); unresolved boundary ties are all kept, so the selected count can exceed N. Weights shift the ranking when **Any** or **All Substats** is active, while **Per Substat** sticks to equal weighting.
 - `TesterItemsGrid` exposes a `variant="safeguards"` path so the dialog can reuse the shared renderer with forced two-column cards and rule-linked highlighting.
 - `computeMergedRules` prepends Safeguard rules ahead of the Final Sell batch, tagging each rule with `RULE_SOURCE_SAFEGUARDS` and metadata (`__keepUniqueRuleId`, combination hash, required count, scan timestamp). Canonical safeguard-rule keys ensure we skip duplicates when HSFC/Final Sell already guarantee the same combination.
 - Safeguard rows in the HSF preview are informational-only: they show the hollow-star attribution but do not expose a row context menu.
-- The tester match rebuild + safeguard detection path lives in `useTesterMatchOrchestrator`, which batches rule/recipe/name changes into a single loop and logs each build start/finish with the relevant signatures. Matches use a single evaluation: the displayed match includes safeguard rules, while `baseMatch` excludes them for detection.
+- Tester match rebuild + safeguard detection now run inside the unified rule-cache worker pipeline (`runPipeline` in `App.tsx` + `ruleCacheWorker.ts`) so rules, matches, and safeguard detection resolve in one request/response cycle.
 
 ### Faction Coverage
 
@@ -234,7 +223,6 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
   - `tests/playwright/smoke.spec.ts` is the canonical health-check (run single-browser only for targeted debugging, e.g. `npx playwright test tests/playwright/smoke.spec.ts --project=chromium --reporter=list`).
   - `tests/playwright/config-insert-order.spec.ts` guards the “paste after” ordering regression by loading `tests/data/sample-small.sfr`, performing copy/paste, and verifying row ordering.
   - `tests/playwright/builder-config-switch-perf.spec.ts` seeds a tiny autosave payload (two recipes) to measure a single recipe switch without HSFC import overhead.
-  - `tests/playwright/tester-matching-perf.spec.ts` is a fast rebuild sanity check: it measures recipe-name rebuild latency in rules preview using `tests/data/sample-small.sfr` across all browsers.
   - `tests/playwright/safeguard-disabled-clone-sell.spec.ts` seeds a tiny Rule Tester autosave payload (no DB import) to verify recipe-duplicate behavior with recipe overrides disabled.
 - Default test runs:
   - `npm run test:unit` executes the node:test suite and HSFC fixture runner.

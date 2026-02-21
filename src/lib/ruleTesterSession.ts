@@ -153,15 +153,39 @@ const parseCompressedTesterItems = (base64: string): StoredTesterItem[] | null =
   }
 }
 
+type CachedTesterAutosaveCompression = {
+  itemsRef: RuleTesterItem[] | null
+  base64: string
+  byteLength: number
+  itemCount: number
+}
+
+// Cache the last tester compression result so repeated autosave flushes for the
+// same immutable tester array can skip JSON stringify + compression work.
+const cachedTesterAutosaveCompression: CachedTesterAutosaveCompression = {
+  itemsRef: null,
+  base64: '',
+  byteLength: 0,
+  itemCount: 0,
+}
+
 export function buildRuleTesterAutosavePayload(items: RuleTesterItem[]): RuleTesterAutosavePayload {
   try {
-    const json = JSON.stringify(items)
-    const { base64, byteLength } = compressToBase64(json)
+    if (cachedTesterAutosaveCompression.itemsRef !== items) {
+      // Immutable tester state changes should produce a new array reference.
+      // Recompress only on those reference changes.
+      const json = JSON.stringify(items)
+      const { base64, byteLength } = compressToBase64(json)
+      cachedTesterAutosaveCompression.itemsRef = items
+      cachedTesterAutosaveCompression.base64 = base64
+      cachedTesterAutosaveCompression.byteLength = byteLength
+      cachedTesterAutosaveCompression.itemCount = items.length
+    }
     return {
       Version: '3',
-      ItemsCompressed: base64,
-      ItemsCompressedBytes: byteLength,
-      ItemCount: items.length,
+      ItemsCompressed: cachedTesterAutosaveCompression.base64,
+      ItemsCompressedBytes: cachedTesterAutosaveCompression.byteLength,
+      ItemCount: cachedTesterAutosaveCompression.itemCount,
       SavedAt: new Date().toISOString(),
     }
   } catch {
@@ -580,15 +604,12 @@ const deserializeTesterItems = (
     for (const [key, value] of Object.entries(payloadValues)) {
       subValues[Number(key)] = Math.max(0, Number(value) || 0)
     }
-    const rawItem = raw as { itemId?: number; rowId?: number }
+    const rawItem = raw as { itemId?: number }
     const payloadItemId = typeof rawItem.itemId === 'number' && Number.isFinite(rawItem.itemId)
       ? rawItem.itemId
       : null
-    const legacyRowId = typeof rawItem.rowId === 'number' && Number.isFinite(rawItem.rowId)
-      ? rawItem.rowId
-      : null
     const fallbackId = -(idx + 1)
-    const itemId = payloadItemId ?? legacyRowId ?? opts.allocItemId() ?? fallbackId
+    const itemId = payloadItemId ?? opts.allocItemId() ?? fallbackId
     restored.push(math.adjustSubValuesFor({ ...(raw as TestItem), subValues, itemId }))
   })
   return restored.length > 0 ? restored : null

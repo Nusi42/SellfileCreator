@@ -15,7 +15,6 @@ import initRuleEngineWasm, {
   flatten_rule_batches_with_total_limit_value as flattenRuleBatchesWithTotalLimitWasmValueBinding,
   configure_value as configureRuleEngineWasmValueBinding,
   evaluate_value as evaluateRuleEngineWasmValueBinding,
-  fingerprint_merged_rules_value as fingerprintMergedRulesWasmValueBinding,
   finalize_generated_rules_value as finalizeGeneratedRulesWasmValueBinding,
   find_obsolete_value as findObsoleteRuleEngineWasmValueBinding,
   hash_safeguard_combination_value as hashSafeguardCombinationWasmValueBinding,
@@ -326,15 +325,6 @@ export const finalizeGeneratedRulesWithLoadedWasm = (params: {
   const result = finalizeGeneratedRulesWasmValueBinding(payload, params.applyObsoletePruning) as HsfRuleWithRecipe[]
   if (Array.isArray(result)) return result
   throw new Error('WASM finalize-generated-rules returned an invalid payload.')
-}
-
-// Batch merged-rule fingerprinting runs in Rust so orchestrator rebuild checks
-// avoid repeated per-rule JS normalization work on large merged rule sets.
-export const fingerprintMergedRulesWithLoadedWasm = (rules: readonly HsfRuleWithRecipe[]): string => {
-  assertWasmInitializedSync()
-  const signature = fingerprintMergedRulesWasmValueBinding(rules)
-  if (typeof signature === 'string') return signature
-  throw new Error('WASM merged-rule fingerprint helper returned an invalid payload.')
 }
 
 // Synchronous safeguard detector runs candidate/rule loops inside wasm.
