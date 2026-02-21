@@ -620,7 +620,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Record the fingerprints the worker most recently acknowledged so differential patches only
   // send artifacts whose content actually changed (manual edits happen frequently).
   const lastCommittedArtifactFingerprintsRef = useRef<Map<number, string>>(new Map())
-  const testerAutosaveBaselineRef = useRef<string | null>(null)
+  // Keep the initial tester array reference as a cheap "changed since load" baseline.
+  const testerAutosaveBaselineRef = useRef<RuleTesterItem[] | null>(null)
+  // Store latest tester items for lazy autosave payload generation.
+  const testerAutosaveItemsRef = useRef<RuleTesterItem[]>(testerItems)
+  useEffect(() => {
+    testerAutosaveItemsRef.current = testerItems
+  }, [testerItems])
   const testerPreviewArtifacts = useMemo<NormalizedGearArtifact[]>(() => {
     const cache = testerArtifactCacheRef.current
     const next: NormalizedGearArtifact[] = []
@@ -3950,17 +3956,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     debounceMs: 1000,
     beforeSave: persistRuntimeGearSetsNow,
   })
-  const testerAutosavePayload = useMemo(() => buildRuleTesterAutosavePayload(testerItems), [testerItems])
-  const testerAutosavePayloadSignature = `${testerAutosavePayload.ItemsCompressed ?? ''}#${testerAutosavePayload.ItemCount ?? 0}`
   if (testerAutosaveBaselineRef.current === null) {
-    testerAutosaveBaselineRef.current = testerAutosavePayloadSignature
+    testerAutosaveBaselineRef.current = testerItems
   }
   const testerGearTabActive = logicHubOpen && logicHubDialogTab === LOGIC_HUB_DIALOG_TAB_GEAR
-  const testerAutosaveEnabled = testerGearTabActive || testerAutosaveBaselineRef.current !== testerAutosavePayloadSignature
+  const testerAutosaveChangedSinceLoad = testerAutosaveBaselineRef.current !== testerItems
+  const testerAutosaveEnabled = testerGearTabActive || testerAutosaveChangedSinceLoad
+  // Build compressed tester autosave payload only when a save actually runs.
+  const buildTesterAutosavePayload = useCallback(
+    () => buildRuleTesterAutosavePayload(testerAutosaveItemsRef.current),
+    [],
+  )
   useAutosave({
     key: AUTOSAVE_TESTER_KEY,
-    payload: testerAutosavePayload,
+    payloadSignal: testerItems,
+    buildPayload: buildTesterAutosavePayload,
     enabled: testerAutosaveEnabled,
+    debounceMs: 1000,
     beforeSave: persistRuntimeGearSetsNow,
   })
   // Listen for child chip open-copy-dialog to open manual copy UI

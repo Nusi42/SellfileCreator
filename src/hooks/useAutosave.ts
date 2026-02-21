@@ -9,28 +9,45 @@ import { saveAutosave } from '../lib/autosave'
 
 type UseAutosaveOptions = {
   key: string
-  payload: unknown
+  // Eager payload path used by existing callers.
+  payload?: unknown
+  // Lightweight signal that marks "content changed"; this can avoid eagerly
+  // allocating/serializing heavy payloads every render.
+  payloadSignal?: unknown
+  // Lazy payload builder invoked only when we actually persist.
+  buildPayload?: () => unknown
   enabled: boolean
   debounceMs?: number
   beforeSave?: () => void
 }
 
 export function useAutosave(opts: UseAutosaveOptions) {
-  const { key, payload, enabled, debounceMs = 0, beforeSave } = opts
+  const { key, payload, payloadSignal, buildPayload, enabled, debounceMs = 0, beforeSave } = opts
   const lastRef = useRef<unknown>(null)
   const debounceRef = useRef<number | null>(null)
+  // Track the transition so "enabled=true" writes exactly once per activation.
+  const prevEnabledRef = useRef<boolean>(false)
+
+  // Stable payload resolver lets us decouple "when to save" from "how to build".
+  const resolvePayload = useCallback((): unknown => {
+    if (buildPayload) return buildPayload()
+    return payload
+  }, [buildPayload, payload])
 
   const writeSnapshot = useCallback(() => {
     try {
       beforeSave?.()
     } catch {}
-    lastRef.current = payload
-    saveAutosave(key, payload)
-  }, [beforeSave, key, payload])
+    const nextPayload = resolvePayload()
+    lastRef.current = nextPayload
+    saveAutosave(key, nextPayload)
+  }, [beforeSave, key, resolvePayload])
 
   // Persist immediately when enabled flips true so first-time sessions still get a snapshot right away.
   useEffect(() => {
-    if (!enabled) return
+    const wasEnabled = prevEnabledRef.current
+    prevEnabledRef.current = enabled
+    if (!enabled || wasEnabled) return
     try { writeSnapshot() } catch {}
   }, [enabled, writeSnapshot])
 
@@ -51,21 +68,21 @@ export function useAutosave(opts: UseAutosaveOptions) {
         debounceRef.current = null
       }
     }
-  }, [debounceMs, enabled, writeSnapshot])
+  }, [debounceMs, enabled, payloadSignal, payload, writeSnapshot])
 
   // Flush on unload / when tab becomes hidden
   useEffect(() => {
     if (!enabled) return
     // On unload/when tab gets hidden, persist the latest known payload.
-    // Fall back to the current payload prop if we never wrote yet.
+    // Fall back to a fresh payload resolve if we never wrote yet.
     const flush = () => {
       if (debounceRef.current !== null) {
         window.clearTimeout(debounceRef.current)
         debounceRef.current = null
       }
       try {
-        const cur = lastRef.current ?? payload
-        if (cur) saveAutosave(key, cur)
+        const cur = lastRef.current ?? resolvePayload()
+        saveAutosave(key, cur)
       } catch {}
     }
     const onVis = () => { if (document.hidden) flush() }
@@ -75,5 +92,5 @@ export function useAutosave(opts: UseAutosaveOptions) {
       window.removeEventListener('beforeunload', flush)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [enabled, key, payload])
+  }, [enabled, key, resolvePayload])
 }

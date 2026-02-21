@@ -34,6 +34,7 @@ import {
   getWasmRuleEngineVersion,
   warmupWasmRuleEngine,
 } from '../lib/wasm/wasmRuleEngine'
+import { createProgressThrottler } from '../types/progress'
 
 declare const self: DedicatedWorkerGlobalScope
 
@@ -199,6 +200,11 @@ const buildWarmState = (
   const recipesForRules = recipesForRuleBuild(payload.recipes)
   const baseRuleCount = Array.isArray(payload.hsf?.Rules) ? (payload.hsf?.Rules.length ?? 0) : 0
   let lastProgress = 0
+  const emitWarmProgress = options?.skipProgress === true
+    ? null
+    : createProgressThrottler((progress) => {
+      postWarmProgress(id, progress)
+    })
   const handleProgress = options?.skipProgress === true
     ? null
     : (progress: { completed: number; total: number }) => {
@@ -206,7 +212,7 @@ const buildWarmState = (
       // workload indicator stays in sync with heavy merges.
       if (progress.completed === lastProgress) return
       lastProgress = progress.completed
-      postWarmProgress(id, progress)
+      emitWarmProgress?.(progress)
     }
   const result = updateRecipeRulesCache({
     recipes: recipesForRules,
@@ -331,8 +337,7 @@ const buildPipelineMatches = async (
   ignoreSafeguardRecipeIndices: ReadonlySet<number> | null,
   total: number,
   completedRef: { value: number },
-  id: number,
-  emitProgress: boolean,
+  emitProgress: ((progress: { completed: number; total: number }) => void) | null,
   hasSafeguardOverrideRules: boolean,
 ) : Promise<TesterMatchWorkerItemResult[]> => {
   if (!artifactEntries.length) return []
@@ -374,7 +379,7 @@ const buildPipelineMatches = async (
     })
     if (!emitProgress) continue
     completedRef.value += 1
-    postPipelineProgress(id, { completed: completedRef.value, total })
+    emitProgress({ completed: completedRef.value, total })
   }
   return results
 }
@@ -533,7 +538,14 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     const matchPasses = needsMatches ? (needsDetection ? 2 : 1) : 0
     const total = warmTotal + (artifactEntries.length * matchPasses)
     let completed = warmTotal
-    if (total > 0 && completed > 0) postPipelineProgress(id, { completed, total })
+    // Throttle progress in the worker itself so the main thread receives far
+    // fewer message events during large matcher loops.
+    const emitPipelineProgress = total > 0
+      ? createProgressThrottler((progress) => {
+        postPipelineProgress(id, progress)
+      })
+      : null
+    if (total > 0 && completed > 0) emitPipelineProgress?.({ completed, total })
 
     const mergedRulesBaseline = computeMergedRules({
       hsf: payload.hsf,
@@ -564,7 +576,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       if (cachedCount > 0 && total > 0) {
         const cachedCompleted = warmTotal + cachedCount
         completed = cachedCompleted
-        postPipelineProgress(id, { completed: cachedCompleted, total })
+        emitPipelineProgress?.({ completed: cachedCompleted, total })
       }
       if (missingEntries.length > 0) {
         const baseProgressRef = { value: warmTotal + cachedCount }
@@ -576,8 +588,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           null,
           total,
           baseProgressRef,
-          id,
-          true,
+          emitPipelineProgress,
           hasActiveSafeguardOverrides,
         )
         if (runIsStale()) return
@@ -742,8 +753,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           ignoreSafeguardRecipeIndices,
           total,
           pendingProgressRef,
-          id,
-          true,
+          emitPipelineProgress,
           hasActiveSafeguardOverrides,
         )
         if (runIsStale()) return
@@ -766,7 +776,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         // Ensure progress reaches 100% when no work is pending.
         completed = total
         // Emit the final progress update for the UI.
-        postPipelineProgress(id, { completed, total })
+        emitPipelineProgress?.({ completed, total })
       }
       // Final phase complete: surface how many matches were produced.
       postPipelinePhase(id, 'final:done', { matches: matches.length })
