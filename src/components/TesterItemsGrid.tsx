@@ -483,6 +483,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const normalizedOverlayPrefs = useTesterGridNormalizedOverlayPreferences()
   const normalizedOverlayUseSortWeights = normalizedOverlayPrefs.state.useSortWeights
   const toggleNormalizedOverlayUseSortWeights = normalizedOverlayPrefs.toggleUseSortWeights
+  const toggleNormalizedOverlayEnabledPresetsFromLastUsed = normalizedOverlayPrefs.toggleEnabledPresetsFromLastUsed
   const normalizedOverlaySortSourceAllowed = Boolean(
     // [S] is only meaningful when sort is actively using normalized scoring (and is not in "Active" mode).
     effectiveSubstatSort?.normalized === true
@@ -2077,6 +2078,11 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         <MenuItem
           disableRipple
           sx={{ gap: 1, alignItems: 'center' }}
+          onClick={() => {
+            // Row click acts as a quick show/hide for preset overlays:
+            // non-empty -> hide all, empty -> restore last used (or first-run 1..6 fallback).
+            toggleNormalizedOverlayEnabledPresetsFromLastUsed()
+          }}
         >
           <MarkdownTooltip markdown={t('testerGridNormalizedTooltip')} placement="top-start">
             <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
