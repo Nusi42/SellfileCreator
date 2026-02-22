@@ -300,7 +300,12 @@ export function MarkdownTooltip({
   const childWithRef = React.isValidElement(children)
     ? (() => {
         const originalProps = (children as React.ReactElement).props ?? {}
-        const nextProps: Record<string, unknown> = { ref: mergedChildRef }
+        const nextProps: Record<string, unknown> = {
+          ref: mergedChildRef,
+          // MUI Tooltip warns when the wrapped child still carries a native
+          // title prop. MarkdownTooltip owns tooltip rendering end-to-end.
+          title: undefined,
+        }
         if (ellipsisEnabled) {
           // Mirror EllipsisTooltip semantics: only surface the native title when hover/focus hits a
           // truncated label. This keeps MarkdownTooltip the single popper owner while still exposing
