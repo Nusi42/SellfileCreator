@@ -1,8 +1,10 @@
 import { useCallback } from 'react'
 import {
+  SAFEGUARDS_GRID_SHOW_OTHER_MATCHES_KEY,
   TESTER_GRID_COLUMNS_KEY,
   TESTER_GRID_SHOW_CHAMP_ICONS_KEY,
   TESTER_GRID_SHOW_FIRST_MATCH_KEY,
+  TESTER_GRID_HIGHLIGHT_KEEP_SELL_KEY,
   TESTER_GRID_SHOW_MATCH_RECIPE_INDEX_KEY,
   TESTER_GRID_SHOW_MATCH_LINE_KEY,
   TESTER_GRID_SHOW_OTHER_MATCHES_KEY,
@@ -12,6 +14,7 @@ import {
 import { createLocalStorageStore } from './localStorageStore'
 
 export type TesterGridColumnMode = 4 | 5
+export type TesterGridPreferenceVariant = 'tester' | 'safeguards'
 
 const testerGridColumnsStore = createLocalStorageStore<TesterGridColumnMode>({
   key: TESTER_GRID_COLUMNS_KEY,
@@ -58,6 +61,14 @@ const testerGridShowOtherStore = createLocalStorageStore<boolean>({
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
+const safeguardsGridShowOtherStore = createLocalStorageStore<boolean>({
+  key: SAFEGUARDS_GRID_SHOW_OTHER_MATCHES_KEY,
+  // Safeguards starts with "other matches" hidden so cards stay focused on primary outcomes.
+  fallback: false,
+  parse: (raw) => raw === 'true',
+  serialize: (value) => (value ? 'true' : 'false'),
+})
+
 const testerGridShowChampIconsStore = createLocalStorageStore<boolean>({
   key: TESTER_GRID_SHOW_CHAMP_ICONS_KEY,
   fallback: true,
@@ -73,6 +84,14 @@ const testerGridShowRuleTemplatesStore = createLocalStorageStore<boolean>({
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
+const testerGridHighlightKeepSellStore = createLocalStorageStore<boolean>({
+  key: TESTER_GRID_HIGHLIGHT_KEEP_SELL_KEY,
+  // Default on so keep/sell outcomes are emphasized immediately for new sessions.
+  fallback: true,
+  parse: (raw) => raw === 'true',
+  serialize: (value) => (value ? 'true' : 'false'),
+})
+
 const testerGridShowSafeguardUpgradeChanceStore = createLocalStorageStore<boolean>({
   key: TESTER_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY,
   // Default on so users see improvement guidance immediately.
@@ -81,14 +100,19 @@ const testerGridShowSafeguardUpgradeChanceStore = createLocalStorageStore<boolea
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
-export function useTesterGridPreferences() {
+export function useTesterGridPreferences(variant: TesterGridPreferenceVariant = 'tester') {
   const columns = testerGridColumnsStore.useValue()
   const showFirstMatch = testerGridShowFirstStore.useValue()
   const showMatchRecipeIndex = testerGridShowMatchRecipeStore.useValue()
   const showMatchLine = testerGridShowMatchLineStore.useValue()
-  const showOtherMatches = testerGridShowOtherStore.useValue()
+  const testerShowOtherMatches = testerGridShowOtherStore.useValue()
+  const safeguardsShowOtherMatches = safeguardsGridShowOtherStore.useValue()
+  const showOtherMatches = variant === 'safeguards'
+    ? safeguardsShowOtherMatches
+    : testerShowOtherMatches
   const showChampionIcons = testerGridShowChampIconsStore.useValue()
   const showRuleTemplates = testerGridShowRuleTemplatesStore.useValue()
+  const highlightKeepSell = testerGridHighlightKeepSellStore.useValue()
   const showSafeguardUpgradeChance = testerGridShowSafeguardUpgradeChanceStore.useValue()
 
   const setColumns = useCallback((next: TesterGridColumnMode) => {
@@ -108,8 +132,12 @@ export function useTesterGridPreferences() {
   }, [])
 
   const setShowOtherMatches = useCallback((next: boolean) => {
+    if (variant === 'safeguards') {
+      safeguardsGridShowOtherStore.set(Boolean(next))
+      return
+    }
     testerGridShowOtherStore.set(Boolean(next))
-  }, [])
+  }, [variant])
 
   const setShowChampionIcons = useCallback((next: boolean) => {
     testerGridShowChampIconsStore.set(Boolean(next))
@@ -117,6 +145,10 @@ export function useTesterGridPreferences() {
 
   const setShowRuleTemplates = useCallback((next: boolean) => {
     testerGridShowRuleTemplatesStore.set(Boolean(next))
+  }, [])
+
+  const setHighlightKeepSell = useCallback((next: boolean) => {
+    testerGridHighlightKeepSellStore.set(Boolean(next))
   }, [])
 
   const setShowSafeguardUpgradeChance = useCallback((next: boolean) => {
@@ -131,6 +163,7 @@ export function useTesterGridPreferences() {
     showOtherMatches,
     showChampionIcons,
     showRuleTemplates,
+    highlightKeepSell,
     showSafeguardUpgradeChance,
     setColumns,
     setShowFirstMatch,
@@ -139,6 +172,7 @@ export function useTesterGridPreferences() {
     setShowOtherMatches,
     setShowChampionIcons,
     setShowRuleTemplates,
+    setHighlightKeepSell,
     setShowSafeguardUpgradeChance,
   }
 }

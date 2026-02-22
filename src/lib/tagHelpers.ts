@@ -28,11 +28,28 @@ export function normalizeTagValue(raw: string): string | null {
   return normalized
 }
 
-// Recipe tag that marks keep rules as ignorable for safeguard coverage checks.
-export const SAFEGUARD_IGNORE_TAG = 'ignore_safeguard'
-
-// Normalize once so tag checks stay consistent with recipe-tag grammar.
+// Canonical recipe tag that excludes recipe matches from safeguard coverage checks.
+export const SAFEGUARD_IGNORE_TAG = 'ignore_by_safeguards'
+// Legacy aliases kept for backward compatibility with older HSFC/test fixtures.
+export const SAFEGUARD_IGNORE_TAG_LEGACY_ALIASES = Object.freeze([
+  'ignore_keep_unique',
+  'ignore_safeguard',
+] as const)
+// Normalize once so token checks stay consistent with recipe-tag grammar.
 const SAFEGUARD_IGNORE_TAG_TOKEN = normalizeTagValue(SAFEGUARD_IGNORE_TAG) ?? SAFEGUARD_IGNORE_TAG
+// Build a normalized legacy alias set once to keep hot-path checks allocation-free.
+const SAFEGUARD_IGNORE_TAG_LEGACY_TOKEN_SET = new Set<string>(
+  SAFEGUARD_IGNORE_TAG_LEGACY_ALIASES
+    .map((token) => normalizeTagValue(token))
+    .filter((token): token is string => Boolean(token)),
+)
+
+// Canonicalize special safeguard-ignore aliases into the new tag token.
+const canonicalizeKnownTagAlias = (normalizedTag: string): string => (
+  SAFEGUARD_IGNORE_TAG_LEGACY_TOKEN_SET.has(normalizedTag)
+    ? SAFEGUARD_IGNORE_TAG_TOKEN
+    : normalizedTag
+)
 
 export const hasIgnoreSafeguardTag = (tags: readonly string[] | null | undefined): boolean => {
   // Skip empty or missing tag lists to keep hot paths tight.
@@ -41,8 +58,10 @@ export const hasIgnoreSafeguardTag = (tags: readonly string[] | null | undefined
   for (const rawTag of tags) {
     // Normalize to the same token grammar used elsewhere.
     const normalized = normalizeTagValue(String(rawTag))
-    // Treat the special tag as a positive match when present.
-    if (normalized === SAFEGUARD_IGNORE_TAG_TOKEN) return true
+    // Skip malformed tokens that collapse outside the tag grammar.
+    if (!normalized) continue
+    // Treat canonical and legacy aliases as the same logical tag.
+    if (canonicalizeKnownTagAlias(normalized) === SAFEGUARD_IGNORE_TAG_TOKEN) return true
   }
   // No matching tag found in this list.
   return false
@@ -59,15 +78,17 @@ export function normalizeTagList(source: unknown): string[] | undefined {
   for (const entry of source) {
     // Ignore non-string payloads to keep exports clean.
     if (typeof entry !== 'string') continue
-    // Normalize and validate the tag grammar.
+    // Normalize and validate the tag grammar first.
     const normalized = normalizeTagValue(entry)
     // Skip anything that collapses to an empty token.
     if (!normalized) continue
+    // Canonicalize known aliases so newly written payloads use one token.
+    const canonical = canonicalizeKnownTagAlias(normalized)
     // Prevent duplicates without reordering.
-    if (seen.has(normalized)) continue
+    if (seen.has(canonical)) continue
     // Record the new token for the output.
-    seen.add(normalized)
-    next.push(normalized)
+    seen.add(canonical)
+    next.push(canonical)
   }
   // Return undefined when the result is empty.
   return next.length > 0 ? next : undefined

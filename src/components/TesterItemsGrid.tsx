@@ -26,6 +26,7 @@ import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import SortIcon from '@mui/icons-material/Sort'
 import { useI18n } from '../lib/i18n'
 import type { TesterPreviewRow } from '../types/testerPreview'
+import TesterOutcomeSummaryChip from './TesterOutcomeSummaryChip'
 import { SetIcon } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
 import { NoGearSetIcon } from './NoGearSetIcon'
@@ -58,11 +59,12 @@ import { isAccessorySlot } from '../lib/testerDomain'
 import type { TesterSourceFilter } from '../lib/rulesFilter'
 import { TesterSummaryLabel } from './TesterSummaryLabel'
 import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
-import { getTesterMatchBorderColor } from './testerMatchStyles'
+import { getTesterMatchBorderColor, getTesterMatchSurfaceColors } from './testerMatchStyles'
 import { RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
 import { KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT } from '../lib/keepOverrideLayout'
 // MarkdownTooltip unifies the tester’s tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
 import MarkdownTooltip from './MarkdownTooltip'
+import EllipsisTooltip from './EllipsisTooltip'
 import { WithSetTooltip, buildNoSetTooltipMarkdown } from './SetTooltip'
 import { formatLocalDateTime } from '../lib/dateDisplay'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
@@ -119,6 +121,7 @@ import {
   TESTER_GRID_CONTAINER_PADDING_END_UNITS,
   TESTER_GRID_ROW_PADDING_UNITS,
 } from '../lib/testerGridLayout'
+import { buildTesterOutcomeSummary } from '../lib/testerOutcomeSummary'
 
 type EmptyStateWrapperProps = Omit<EmptyStateMessageProps, 'children'>
 
@@ -173,6 +176,16 @@ const ACCORDION_BORDER_RADIUS_PX = 8
 // Keep the per-card gear action compact so the stats column stays readable.
 const CARD_ACTION_BUTTON_SIZE_PX = 28
 const CARD_ACTION_ICON_SIZE_PX = 18
+// Keep/sell background tints stay subtle so stat colors remain readable.
+const CARD_OUTCOME_TINT_ALPHA_LIGHT = 0.1
+const CARD_OUTCOME_TINT_ALPHA_DARK = 0.2
+// Main/substat panel gets a neutral wash so colored text stays legible over keep/sell tints.
+const CARD_STATS_DIM_ALPHA_LIGHT = 0.67
+const CARD_STATS_DIM_ALPHA_DARK = 0.3
+// Match the card language: soft rounded rectangle, slightly tighter than the outer frame.
+const CARD_STATS_DIM_RADIUS_PX = 6
+// Expand the dim panel by 2px on every side to create breathing room around the stat text block.
+const CARD_STATS_DIM_OUTSET_PX = 2
 // Group-level virtualization uses light overscan because the heavy lifting happens at the card row level.
 const GRID_GROUP_VIRTUAL_OVERSCAN_ROWS = 2
 // Penalize off-screen rows so the reveal queue prefers on-screen cards even while overscanning nested accordions.
@@ -340,6 +353,8 @@ type TesterItemsGridVariant = 'tester' | 'safeguards'
 
 type TesterItemsGridProps = {
   rows: TesterPreviewRow[]
+  // Optional unfiltered source rows so group chips can show filtered/total pairs.
+  allRows?: readonly TesterPreviewRow[]
   // Optional source rows for safeguard chance math (defaults to visible rows).
   safeguardUpgradeChanceRows?: readonly TesterPreviewRow[]
   filterActive?: boolean
@@ -425,6 +440,7 @@ type TesterCardTopOverlay = {
 export function TesterItemsGrid(props: TesterItemsGridProps) {
   const {
     rows,
+    allRows,
     safeguardUpgradeChanceRows,
     filterActive = false,
     substatColors,
@@ -479,6 +495,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const normalizedOverlayPrefs = useTesterGridNormalizedOverlayPreferences()
   const normalizedOverlayUseSortWeights = normalizedOverlayPrefs.state.useSortWeights
   const toggleNormalizedOverlayUseSortWeights = normalizedOverlayPrefs.toggleUseSortWeights
+  const toggleNormalizedOverlayEnabledPresetsFromLastUsed = normalizedOverlayPrefs.toggleEnabledPresetsFromLastUsed
   const normalizedOverlaySortSourceAllowed = Boolean(
     // [S] is only meaningful when sort is actively using normalized scoring (and is not in "Active" mode).
     effectiveSubstatSort?.normalized === true
@@ -512,6 +529,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     showOtherMatches,
     showChampionIcons,
     showRuleTemplates,
+    highlightKeepSell,
     showSafeguardUpgradeChance,
     setColumns,
     setShowFirstMatch,
@@ -520,8 +538,9 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     setShowOtherMatches,
     setShowChampionIcons,
     setShowRuleTemplates,
+    setHighlightKeepSell,
     setShowSafeguardUpgradeChance,
-  } = useTesterGridPreferences()
+  } = useTesterGridPreferences(variant)
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
   // Overlay score uses the same glyph inclusion policy as the Sort UI (default excludes glyphs).
   // Why: avoids confusing users with two independent "glyph counting" toggles for the same scores.
@@ -610,6 +629,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   ])
   // Keep chance source separate from visible rows so filters do not affect chance math.
   const safeguardChanceSourceRows = safeguardUpgradeChanceRows ?? rows
+  // Group chips can optionally compare filtered rows against the original unfiltered dataset.
+  const groupSummarySourceRows = allRows ?? rows
   // Sorting can request chance data even when the overlay itself is hidden.
   const safeguardChanceSortEnabled = useMemo(
     () => (effectiveSubstatSort?.priorities ?? []).some((key) => Number(key) === TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE),
@@ -667,6 +688,10 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const groups = useMemo(
     () => groupRowsBySet(rows, t, lang, { grouping, substatSort: substatSortWithSafeguardChance }),
     [rows, t, lang, grouping, substatSortWithSafeguardChance],
+  )
+  const summaryGroups = useMemo(
+    () => groupRowsBySet(groupSummarySourceRows, t, lang, { grouping, substatSort: substatSortWithSafeguardChance }),
+    [groupSummarySourceRows, t, lang, grouping, substatSortWithSafeguardChance],
   )
   const safeguardUpgradeOverlayByArtifactId = useMemo(() => {
     // Tooltip-rich overlays are only needed when the card overlay toggle is enabled.
@@ -930,6 +955,26 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     groups.forEach(addGroup)
     return map
   }, [groups])
+  const groupOutcomeSummaryByKey = useMemo(() => {
+    // Cache one outcome summary per group so header rendering avoids repeated row scans.
+    const map = new Map<string, ReturnType<typeof buildTesterOutcomeSummary>>()
+    const addGroupSummary = (group: TesterGroup) => {
+      map.set(group.key, buildTesterOutcomeSummary(group.rows))
+      group.children?.forEach(addGroupSummary)
+    }
+    groups.forEach(addGroupSummary)
+    return map
+  }, [groups])
+  const groupTotalOutcomeSummaryByKey = useMemo(() => {
+    // Mirror the same lookup for unfiltered rows so filtered views can show X / Y like the global chip.
+    const map = new Map<string, ReturnType<typeof buildTesterOutcomeSummary>>()
+    const addGroupSummary = (group: TesterGroup) => {
+      map.set(group.key, buildTesterOutcomeSummary(group.rows))
+      group.children?.forEach(addGroupSummary)
+    }
+    summaryGroups.forEach(addGroupSummary)
+    return map
+  }, [summaryGroups])
   const getMultiToggleScope = useCallback((groupKey: string): Iterable<string> => {
     const group = groupLookup.get(groupKey)
     if (!group || !group.parentKey) {
@@ -1106,14 +1151,18 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const resolvedKeepOverrideColumnMode = keepOverrideColumnMode === 2 ? 2 : 1
   // Default to 1 column whenever the keep-override preference is missing.
   const preferredColumnCount = keepOverrideVariant ? resolvedKeepOverrideColumnMode : storedColumnPreference
+  // Safeguards keeps its 1/2-column layout, but card internals should mirror the tester 4-column profile.
+  const keepOverrideCardStyleColumnCount = keepOverrideVariant ? KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT : undefined
   const {
     accordionSpacingPx,
     cardHeightPx,
+    cardStyleColumnCount: cardStyleProfileColumnCount,
     gridColumnCount,
     gridGapPx,
     leafPaddingPx: gridLeafPaddingPx,
   } = useTesterGridLayoutMetrics({
     preferredColumnCount,
+    ...(keepOverrideCardStyleColumnCount != null ? { cardStyleColumnCount: keepOverrideCardStyleColumnCount } : {}),
     showFirstMatch,
     showOtherMatches,
     theme,
@@ -1193,7 +1242,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     observer.observe(container)
     return () => observer.disconnect()
   }, [onScrollbarWidthMeasured, shouldMeasureScrollbarWidth])
-  const groupCountChipBg = theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100]
   const accordionSummaryHeightPx = useMemo(() => parseSpacingPx(theme.spacing(5)), [theme])
   useEffect(() => () => {
     if (scrollHintHideTimerRef.current) {
@@ -1622,9 +1670,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     })
     if (item.kind === 'groupHeader') {
       const group = item.group
-      const groupCountLabel = group.rows.length === 1
-        ? t('testerItemsCountOne')
-        : t('testerItemsCountMany', { n: numberFormatter.format(group.rows.length) })
+      const groupOutcomeSummary = groupOutcomeSummaryByKey.get(group.key) ?? null
+      const groupTotalOutcomeSummary = groupTotalOutcomeSummaryByKey.get(group.key) ?? groupOutcomeSummary
       const expanded = item.expanded
       const numericSetId = typeof group.setId === 'number' && group.setId > 0 ? group.setId : null
       const groupSetTooltipName = numericSetId != null ? artifactSetName(numericSetId as ArtifactSetId) : null
@@ -1750,11 +1797,15 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
               >
                 {group.label}
               </Typography>
-              <Chip
-                size="small"
-                label={groupCountLabel}
-                sx={{ bgcolor: groupCountChipBg, flexShrink: 0 }}
-              />
+              <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                <TesterOutcomeSummaryChip
+                  summary={groupOutcomeSummary}
+                  totalSummary={groupTotalOutcomeSummary}
+                  showWhenEmpty
+                  showFilteredTotals={Boolean(filterActive)}
+                  metricMode={safeguardsVariant ? 'safeguardsOnly' : 'all'}
+                />
+              </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                 {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
               </Box>
@@ -1876,8 +1927,10 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   showMatchRecipeIndex={showMatchRecipeIndex}
                   showMatchLineNumber={showMatchLineNumber}
                   showChampionIcons={showChampionIcons}
+                  highlightKeepSell={highlightKeepSell}
                   cardHeightPx={cardHeightPx}
-                  gridColumnCount={gridColumnCount}
+                  // Preserve real row chunking (1/2) while card internals use the 4-column visual profile.
+                  gridColumnCount={cardStyleProfileColumnCount}
                   recipeNames={recipeNames}
                   onJumpToRule={onJumpToRule}
                   onCreateRuleTemplate={canShowRuleTemplateActions ? onCreateRuleTemplate : undefined}
@@ -2065,6 +2118,11 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         <MenuItem
           disableRipple
           sx={{ gap: 1, alignItems: 'center' }}
+          onClick={() => {
+            // Row click acts as a quick show/hide for preset overlays:
+            // non-empty -> hide all, empty -> restore last used (or first-run 1..6 fallback).
+            toggleNormalizedOverlayEnabledPresetsFromLastUsed()
+          }}
         >
           <MarkdownTooltip markdown={t('testerGridNormalizedTooltip')} placement="top-start">
             <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
@@ -2390,6 +2448,21 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             </Button>
           </MenuItem>
         ) : null}
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setHighlightKeepSell(!highlightKeepSell)}>
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuHighlightKeepSell')}</Typography>
+          <Button
+            size="small"
+            variant={highlightKeepSell ? 'contained' : 'outlined'}
+            color="success"
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(event) => {
+              event.stopPropagation()
+              setHighlightKeepSell(!highlightKeepSell)
+            }}
+          >
+            {highlightKeepSell ? t('commonOn') : t('commonOff')}
+          </Button>
+        </MenuItem>
         <Divider sx={{ my: 0.75 }} />
         {/* Keep appearance controls grouped at the bottom so the grid actions stay front-loaded. */}
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleStatColors(!useStatButtonColors)}>
@@ -2673,6 +2746,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   showMatchRecipeIndex,
   showMatchLineNumber,
   showChampionIcons,
+  highlightKeepSell = false,
   cardHeightPx,
   gridColumnCount,
   recipeNames,
@@ -2694,6 +2768,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   showMatchRecipeIndex: boolean
   showMatchLineNumber: boolean
   showChampionIcons: boolean
+  highlightKeepSell?: boolean
   cardHeightPx: number
   gridColumnCount: number
   recipeNames: Array<string | null>
@@ -2873,6 +2948,12 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     : normalizedVisibleLimit
   const visibleOtherMatching = otherMatchingEntries.slice(0, effectiveVisibleOtherMatchingLimit)
   const hiddenOtherMatching = otherMatchingEntries.slice(effectiveVisibleOtherMatchingLimit)
+  // When "other matches" is off, keep first-match text visible and expose all others behind a +N chip.
+  const shouldPinOtherMatchesToPrimaryRow = Boolean(!showOtherMatchesRow && shouldShowPrimaryMatchRow && totalOtherMatches > 0)
+  const matchingOverflowEntries = shouldPinOtherMatchesToPrimaryRow
+    ? otherMatchingEntries
+    : (shouldShowOtherMatchesRow ? hiddenOtherMatching : [])
+  const matchingOverflowCount = matchingOverflowEntries.length
   // Gap + refs let us squeeze as many chips as possible before handing the overflow to a popover.
   const matchingChipGapPx = parseSpacingPx(String(theme.spacing(MATCHING_CHIP_GAP_UNITS)))
   const visibleChipsContainerRef = useRef<HTMLDivElement | null>(null)
@@ -2930,7 +3011,11 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     otherMatchingEntriesSignature,
   ])
   const [matchingPopoverAnchor, setMatchingPopoverAnchor] = useState<HTMLElement | null>(null)
-  const matchingPopoverOpen = Boolean(matchingPopoverAnchor) && hiddenOtherMatching.length > 0
+  const matchingPopoverOpen = Boolean(matchingPopoverAnchor) && matchingOverflowCount > 0
+  useEffect(() => {
+    // Switching row modes should dismiss stale popovers anchored to unmounted chips.
+    setMatchingPopoverAnchor(null)
+  }, [shouldPinOtherMatchesToPrimaryRow])
   // Keep a ref for the popover so outside clicks can close cleanly.
   const matchingPopoverPaperRef = useRef<HTMLDivElement | null>(null)
   const handleMatchingPopoverClose = useCallback(() => {
@@ -2944,7 +3029,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   })
   // Overflow chip defers the popover until the user explicitly taps it to keep VT tree shallow.
   const handleMatchingMoreClick = (event: React.MouseEvent<HTMLElement>) => {
-    if (hiddenOtherMatching.length === 0) return
+    if (matchingOverflowCount <= 0) return
     setMatchingPopoverAnchor(event.currentTarget)
   }
   const handleMatchingRecipeJump = (recipeIdx: number) => {
@@ -2959,18 +3044,26 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     const key = `matching-chip-${entry.recipeIdx}`
     const clickable = allowPrimaryMatchJump
     const textColor = entry.textColor ?? null
-    // Dimmed outline mirrors the keep/sell outcome without overpowering the primary chip.
+    // Match first-row chips: same border and subtle surface tint for keep/sell.
     const borderColor = typeof entry.keep === 'boolean'
-      ? getTesterMatchBorderColor(theme, entry.keep, { dimmed: true })
+      ? getTesterMatchBorderColor(theme, entry.keep)
+      : null
+    const surfaceColors = typeof entry.keep === 'boolean'
+      ? getTesterMatchSurfaceColors(theme, entry.keep)
       : null
     const sharedChipProps = {
       label: entry.label,
       size: 'small' as const,
       variant: 'outlined' as const,
-      title: entry.label,
       sx: [
         MATCHING_RECIPE_CHIP_SX,
-        { cursor: clickable ? 'pointer' : 'default' },
+        {
+          cursor: clickable ? 'pointer' : 'default',
+          bgcolor: surfaceColors?.surface ?? 'background.paper',
+          ...(clickable
+            ? { '&:hover': { bgcolor: surfaceColors?.hover ?? 'action.hover' } }
+            : {}),
+        },
         ...(textColor ? [{ color: textColor, '& .MuiChip-label': { color: textColor } }] : []),
         ...(borderColor ? [{ borderColor }] : []),
       ],
@@ -2992,12 +3085,15 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     )
 
     const wrappedChip = (
-      <Box
-        component="span"
-        sx={MATCHING_CHIP_WRAPPER_SX}
-      >
-        {chipNode}
-      </Box>
+      // Use the chip-label class as the ellipsis target so native tooltips only appear for clipped labels.
+      <EllipsisTooltip title={entry.label} selector=".MuiChip-label">
+        <Box
+          component="span"
+          sx={MATCHING_CHIP_WRAPPER_SX}
+        >
+          {chipNode}
+        </Box>
+      </EllipsisTooltip>
     )
 
     if (!clickable) {
@@ -3253,6 +3349,19 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   // Surface stable match metadata for automation without forcing DOM text scraping.
   const cardMatchOutcome = match ? (match.keep === false ? 'sell' : 'keep') : 'none'
   const cardMatchRecipeIdx = match?.recipeIdx != null ? String(match.recipeIdx) : 'none'
+  // Outcome tint is optional and only applies when the row has a resolved keep/sell decision.
+  const outcomeTintBg = (() => {
+    if (!highlightKeepSell || !match) return null
+    const baseTone = match.keep === false ? theme.palette.error.main : theme.palette.success.main
+    const tintAlpha = theme.palette.mode === 'dark' ? CARD_OUTCOME_TINT_ALPHA_DARK : CARD_OUTCOME_TINT_ALPHA_LIGHT
+    return alpha(baseTone, tintAlpha)
+  })()
+  // Dim only the stats block so keep/sell tint remains visible while stat text regains contrast.
+  const statsBlockDimBg = (() => {
+    if (!highlightKeepSell || !match) return null
+    const dimAlpha = theme.palette.mode === 'dark' ? CARD_STATS_DIM_ALPHA_DARK : CARD_STATS_DIM_ALPHA_LIGHT
+    return alpha(theme.palette.background.paper, dimAlpha)
+  })()
   const mainSummaryLabel = (
     <Box
       component="span"
@@ -3422,11 +3531,11 @@ export const TesterGridCard = React.memo(function TesterGridCard({
         p: theme.spacing(CARD_PADDING_UNITS),
         borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
         border: `1px solid ${cardHighlighted ? theme.palette.info.light : theme.palette.divider}`,
-        bgcolor: theme.palette.background.paper,
+        bgcolor: outcomeTintBg ?? theme.palette.background.paper,
         // Expose baseline/peak palette values so the pulse animation can resolve to theme-safe colors.
         '--tester-focus-border-base': cardHighlighted ? theme.palette.info.light : theme.palette.divider,
         '--tester-focus-border-peak': theme.palette.info.main,
-        '--tester-focus-bg-base': theme.palette.background.paper,
+        '--tester-focus-bg-base': outcomeTintBg ?? theme.palette.background.paper,
         '--tester-focus-bg-peak': alpha(theme.palette.info.main, 0.07),
         '--tester-focus-shadow-base': cardHighlighted ? `0 0 0 1px ${alpha(theme.palette.info.main, 0.3)}` : 'none',
         '--tester-focus-shadow-peak': `0 0 0 2px ${alpha(theme.palette.info.main, 0.26)}, 0 8px 18px ${alpha(theme.palette.info.main, 0.2)}`,
@@ -3633,6 +3742,26 @@ export const TesterGridCard = React.memo(function TesterGridCard({
           minHeight: rightColumnHeightPx,
           height: rightColumnHeightPx,
           maxHeight: rightColumnHeightPx,
+          // Anchor the dim panel to the full main+substats area without changing layout metrics.
+          position: 'relative',
+          ...(statsBlockDimBg
+            ? {
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                inset: `${-CARD_STATS_DIM_OUTSET_PX}px`,
+                borderRadius: `${CARD_STATS_DIM_RADIUS_PX}px`,
+                backgroundColor: statsBlockDimBg,
+                pointerEvents: 'none',
+                zIndex: 0,
+              },
+              // Keep text and interactive rows above the dim layer.
+              '& > *': {
+                position: 'relative',
+                zIndex: 1,
+              },
+            }
+            : {}),
           // Let the card container handle clipping so mythic glow can escape horizontally.
           overflow: 'visible',
         }}
@@ -3850,6 +3979,8 @@ export const TesterGridCard = React.memo(function TesterGridCard({
             width: '100%',
             display: 'flex',
             alignItems: 'center',
+            gap: MATCHING_CHIP_GAP_UNITS,
+            minWidth: 0,
             mt: `${CARD_MATCH_ROW_MARGIN_PX}px`,
             mb: `${CARD_MATCH_ROW_MARGIN_PX}px`,
             minHeight: matchRowHeight,
@@ -3864,8 +3995,28 @@ export const TesterGridCard = React.memo(function TesterGridCard({
               {...(!matchDetailsFrozen && onJumpToRule ? { onJump: onJumpToRule } : {})}
               showRecipeIndex={showMatchRecipeIndex}
               showLineNumber={showMatchLineNumber}
-              sx={{ width: '100%' }}
+              sx={{ flex: 1, minWidth: 0 }}
             />
+          ) : null}
+          {shouldPinOtherMatchesToPrimaryRow ? (
+            // Reuse the +N affordance so hidden matches remain discoverable while first match stays fully visible.
+            <MarkdownTooltip markdown={`${t('testerRecipeMatches')} (+${matchingOverflowCount})`}>
+              <Box component="span" ref={handleMoreChipRef} sx={{ ...MATCHING_CHIP_WRAPPER_SX, ml: 'auto' }}>
+                <Chip
+                  label={`+${matchingOverflowCount}`}
+                  size="small"
+                  variant="outlined"
+                  component="button"
+                  type="button"
+                  onClick={handleMatchingMoreClick}
+                  sx={{
+                    ...MATCHING_RECIPE_CHIP_SX,
+                    minWidth: 'auto',
+                    cursor: 'pointer',
+                  }}
+                />
+              </Box>
+            </MarkdownTooltip>
           ) : null}
         </Box>
       ) : null}
@@ -3922,13 +4073,13 @@ export const TesterGridCard = React.memo(function TesterGridCard({
                 {visibleOtherMatching.map((entry) => renderMatchingChip(entry))}
               </Box>
             </Box>
-            {hiddenOtherMatching.length > 0 ? (
+            {matchingOverflowCount > 0 ? (
               <>
                 {/* MarkdownTooltip keeps the “+N” overflow chip consistent with other tester tooltips. */}
-                <MarkdownTooltip markdown={`${t('testerRecipeMatches')} (+${hiddenOtherMatching.length})`}>
+                <MarkdownTooltip markdown={`${t('testerRecipeMatches')} (+${matchingOverflowCount})`}>
                   <Box component="span" ref={handleMoreChipRef} sx={MATCHING_CHIP_WRAPPER_SX}>
                     <Chip
-                      label={`+${hiddenOtherMatching.length}`}
+                      label={`+${matchingOverflowCount}`}
                       size="small"
                       variant="outlined"
                       component="button"
@@ -3942,44 +4093,46 @@ export const TesterGridCard = React.memo(function TesterGridCard({
                     />
                   </Box>
                 </MarkdownTooltip>
-                <Popover
-                  open={matchingPopoverOpen}
-                  anchorEl={matchingPopoverAnchor}
-                  onClose={handleMatchingPopoverClose}
-                  anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                  transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                  disableRestoreFocus
-                  slotProps={{
-                    paper: buildContextMenuPaperSlotProps({
-                      component: ContextMenuPaper,
-                      contextMenuGuard: matchingPopoverGuard,
-                      onRequestClose: handleMatchingPopoverClose,
-                      closeLabel: t('close'),
-                      ref: matchingPopoverPaperRef,
-                      sx: {
-                        maxWidth: MATCHING_POPOVER_MAX_WIDTH_PX,
-                        width: `min(80vw, ${MATCHING_POPOVER_MAX_WIDTH_PX}px)`,
-                      },
-                    }),
-                  }}
-                >
-                  <Box
-                    sx={{
-                      p: 1,
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: 0.5,
-                      maxWidth: MATCHING_POPOVER_MAX_WIDTH_PX,
-                      width: `min(80vw, ${MATCHING_POPOVER_MAX_WIDTH_PX}px)`,
-                    }}
-                  >
-                    {hiddenOtherMatching.map((entry) => renderMatchingChip(entry, { onSelect: handleMatchingPopoverClose }))}
-                  </Box>
-                </Popover>
               </>
             ) : null}
           </Box>
         </Box>
+      ) : null}
+      {matchingOverflowCount > 0 ? (
+        <Popover
+          open={matchingPopoverOpen}
+          anchorEl={matchingPopoverAnchor}
+          onClose={handleMatchingPopoverClose}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          disableRestoreFocus
+          slotProps={{
+            paper: buildContextMenuPaperSlotProps({
+              component: ContextMenuPaper,
+              contextMenuGuard: matchingPopoverGuard,
+              onRequestClose: handleMatchingPopoverClose,
+              closeLabel: t('close'),
+              ref: matchingPopoverPaperRef,
+              sx: {
+                maxWidth: MATCHING_POPOVER_MAX_WIDTH_PX,
+                width: `min(80vw, ${MATCHING_POPOVER_MAX_WIDTH_PX}px)`,
+              },
+            }),
+          }}
+        >
+          <Box
+            sx={{
+              p: 1,
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 0.5,
+              maxWidth: MATCHING_POPOVER_MAX_WIDTH_PX,
+              width: `min(80vw, ${MATCHING_POPOVER_MAX_WIDTH_PX}px)`,
+            }}
+          >
+            {matchingOverflowEntries.map((entry) => renderMatchingChip(entry, { onSelect: handleMatchingPopoverClose }))}
+          </Box>
+        </Popover>
       ) : null}
     </Box>
   )
@@ -4837,6 +4990,7 @@ function getTesterGridCardColumnHeights(theme: Theme, gridColumnCount: number): 
 type TesterGridLayoutMetrics = {
   accordionSpacingPx: number
   cardHeightPx: number
+  cardStyleColumnCount: number
   gridColumnCount: number
   gridGapPx: number
   leafPaddingPx: number
@@ -4844,6 +4998,7 @@ type TesterGridLayoutMetrics = {
 
 type UseTesterGridLayoutMetricsOptions = {
   preferredColumnCount: number
+  cardStyleColumnCount?: number
   showFirstMatch: boolean
   showOtherMatches: boolean
   theme: Theme
@@ -4851,6 +5006,7 @@ type UseTesterGridLayoutMetricsOptions = {
 
 function useTesterGridLayoutMetrics({
   preferredColumnCount,
+  cardStyleColumnCount,
   showFirstMatch,
   showOtherMatches,
   theme,
@@ -4858,13 +5014,17 @@ function useTesterGridLayoutMetrics({
   // Layout metrics re-run only on breakpoint or toggle changes so the cards stay stable across renders.
   const isMultiColumn = useMediaQuery(theme.breakpoints.up('sm'))
   const gridColumnCount = isMultiColumn ? preferredColumnCount : 1
+  // Card internals can use a separate column profile so keep-override panes match tester card styling.
+  const resolvedCardStyleColumnCount = Number.isFinite(cardStyleColumnCount)
+    ? Math.max(1, Math.round(Number(cardStyleColumnCount)))
+    : gridColumnCount
   const accordionSpacingPx = useMemo(() => parseSpacingPx(theme.spacing(ACCORDION_MARGIN_UNITS)), [theme])
   const gridGapPx = useMemo(() => parseSpacingPx(theme.spacing(GRID_GAP)), [theme])
   const leafPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS)), [theme])
   const cardVerticalPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(CARD_PADDING_UNITS)) * 2, [theme])
   const { firstRowHeightPx: cardFirstRowHeightPx } = useMemo(
-    () => getTesterGridCardColumnHeights(theme, gridColumnCount),
-    [theme, gridColumnCount],
+    () => getTesterGridCardColumnHeights(theme, resolvedCardStyleColumnCount),
+    [theme, resolvedCardStyleColumnCount],
   )
   const cardHeightPx = useMemo(
     () => getTesterCardHeight(showFirstMatch, showOtherMatches, cardVerticalPaddingPx, cardFirstRowHeightPx),
@@ -4873,12 +5033,14 @@ function useTesterGridLayoutMetrics({
   return useMemo(() => ({
     accordionSpacingPx,
     cardHeightPx,
+    cardStyleColumnCount: resolvedCardStyleColumnCount,
     gridColumnCount,
     gridGapPx,
     leafPaddingPx,
   }), [
     accordionSpacingPx,
     cardHeightPx,
+    resolvedCardStyleColumnCount,
     gridColumnCount,
     gridGapPx,
     leafPaddingPx,

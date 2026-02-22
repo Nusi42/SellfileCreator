@@ -11,6 +11,7 @@ import {
   normalizeTesterGroupingState,
   type TesterGroupingState,
   TESTER_SORT_KEY_LAST_USAGE,
+  TESTER_SORT_KEY_NEWEST,
   TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE,
   TESTER_SORT_WEIGHT_DEFAULT,
   TESTER_SORT_WEIGHT_STEP,
@@ -85,6 +86,7 @@ export const isDefaultTesterSubstatSortState = (state: TesterSubstatSortState | 
 const SORT_KEY_SET = new Set<number>([
   ...STAT_VARIANTS_PRIORITY.map((variant) => Number(variant)),
   TESTER_SORT_KEY_LAST_USAGE,
+  TESTER_SORT_KEY_NEWEST,
   TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE,
 ])
 

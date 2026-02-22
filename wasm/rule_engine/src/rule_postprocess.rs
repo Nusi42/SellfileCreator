@@ -1,6 +1,16 @@
 use super::*;
 use crate::safeguards::{build_safeguard_rules_core, safeguard_clone_any_substats};
 
+// Safeguard-injected keep dedupe mirrors TS semantics with typed keys:
+// canonical for non-safeguard rows, placeholder canonical for synthetic rows,
+// and item+level for concrete safeguard item projections.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum SafeguardInjectedKeepKey {
+    Canonical(rule_dedupe::CollapseCanonicalKey),
+    PlaceholderCanonical(rule_dedupe::CollapseCanonicalKey),
+    ItemLevel { item_key: i64, level: i64 },
+}
+
 pub(crate) fn flatten_rule_batches_with_total_limit_value(
     base_count: i64,
     total_limit: i64,
@@ -197,6 +207,8 @@ fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
         custom_rules,
         final_sell_remainder,
         all_known_set_ids,
+        omit_disabled_before_safeguards,
+        dedupe_before_safeguards,
         safeguard_enabled,
         safeguard_rules,
         safeguard_detection,
@@ -225,9 +237,23 @@ fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
         &all_known_set_ids,
     );
 
-    // Safeguard merge prepends injected rows ahead of base when enabled.
-    let base_with_keep = if safeguard_enabled {
-        let base_without_keep = base_rules
+    // Merge generated rows before safeguards so app-level transforms can run once.
+    let mut generated_rules = Vec::<RuleRaw>::new();
+    generated_rules.extend(base_rules);
+    generated_rules.extend(custom_rules);
+    generated_rules.extend(final_sell_rules);
+    // Omit-disabled now applies to the in-app pipeline, not only file export.
+    if omit_disabled_before_safeguards {
+        generated_rules.retain(|rule| rule.Use.unwrap_or(true));
+    }
+    // Default dedupe now transforms the in-app ruleset before safeguards.
+    if dedupe_before_safeguards {
+        generated_rules = rule_dedupe::dedupe_hsf_rules_for_export_core(&generated_rules);
+    }
+
+    // Safeguard merge prepends injected rows ahead of the transformed base set.
+    let mut merged = if safeguard_enabled {
+        let base_without_keep = generated_rules
             .iter()
             .filter(|rule| rule.source.as_deref() != Some(RULE_SOURCE_SAFEGUARDS))
             .cloned()
@@ -241,23 +267,18 @@ fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
         } else {
             Vec::<RuleRaw>::new()
         };
+        // Base already includes custom/final rows after transforms, so one input is sufficient.
         let sorted_keep_rules = merge_safeguard_injected_rules_core(
             base_without_keep.clone(),
-            custom_rules.clone(),
+            Vec::<RuleRaw>::new(),
             candidate_keep_rules,
         );
-        let mut merged_base = sorted_keep_rules;
-        merged_base.extend(base_without_keep);
-        merged_base
+        let mut with_keep = sorted_keep_rules;
+        with_keep.extend(base_without_keep);
+        with_keep
     } else {
-        base_rules
+        generated_rules
     };
-
-    // Final merged ordering mirrors merge.ts: keep/base, then custom, then final-sell.
-    let mut merged = Vec::<RuleRaw>::new();
-    merged.extend(base_with_keep);
-    merged.extend(custom_rules);
-    merged.extend(final_sell_rules);
     // Assign stable preview line indices used by filtered tables.
     for (idx, rule) in merged.iter_mut().enumerate() {
         rule.line_idx = Some(idx as i64);
@@ -281,7 +302,7 @@ fn merge_safeguard_injected_rules_core(
     candidate_keep_rules: Vec<RuleRaw>,
 ) -> Vec<RuleRaw> {
     // Remove previously injected safeguard rows from base key collection.
-    let mut base_custom_keep_keys = HashSet::<String>::new();
+    let mut base_custom_keep_keys = HashSet::<rule_dedupe::CollapseCanonicalKey>::new();
     for rule in base_rules
         .iter()
         .filter(|entry| entry.source.as_deref() != Some(RULE_SOURCE_SAFEGUARDS))
@@ -298,7 +319,7 @@ fn merge_safeguard_injected_rules_core(
     }
 
     // Preserve TS dedupe key behavior for placeholders vs item+level rows.
-    let mut injected_keep_keys = HashSet::<String>::new();
+    let mut injected_keep_keys = HashSet::<SafeguardInjectedKeepKey>::new();
     let mut filtered = Vec::<RuleRaw>::new();
     for rule in candidate_keep_rules {
         let canonical = rule_dedupe::collapse_canonical_key(&rule);
@@ -308,17 +329,14 @@ fn merge_safeguard_injected_rules_core(
         let is_safeguard_source = rule.source.as_deref() == Some(RULE_SOURCE_SAFEGUARDS);
         let dedupe_key = if is_safeguard_source {
             if rule.safeguard_placeholder.unwrap_or(false) {
-                format!("ku:placeholder:{canonical}")
+                SafeguardInjectedKeepKey::PlaceholderCanonical(canonical.clone())
             } else {
-                let item_key = rule
-                    .safeguard_item_key
-                    .map(|value| value.to_string())
-                    .unwrap_or_else(|| "na".to_string());
+                let item_key = rule.safeguard_item_key.unwrap_or(JS_MAX_SAFE_INTEGER_I64);
                 let level = rule.LVLForCheck.unwrap_or(LEVEL_ANY_SENTINEL);
-                format!("ku:item:{item_key}:lvl:{level}")
+                SafeguardInjectedKeepKey::ItemLevel { item_key, level }
             }
         } else {
-            canonical.clone()
+            SafeguardInjectedKeepKey::Canonical(canonical.clone())
         };
         if injected_keep_keys.contains(&dedupe_key) {
             continue;
@@ -419,7 +437,7 @@ fn finalize_generated_rules_core(
         .collect::<Vec<_>>();
 
     // Group by canonical key to detect strict epic+legendary duplicates.
-    let mut groups = HashMap::<String, Vec<usize>>::new();
+    let mut groups = HashMap::<rule_dedupe::CollapseCanonicalKey, Vec<usize>>::new();
     for (idx, entry) in entries.iter().enumerate() {
         let key = rule_dedupe::collapse_canonical_key(&entry.rule);
         groups.entry(key).or_default().push(idx);

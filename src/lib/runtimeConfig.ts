@@ -30,8 +30,8 @@ function readPushEndpoint(): string | undefined {
   const win = window as AppWindow
   const raw = win.__APP_CONFIG__
   if (raw && typeof raw === 'object') {
-    const config = raw as { endpoint?: unknown; pushEndpoint?: unknown }
-    const fromConfig = sanitizePushEndpoint(config.endpoint ?? config.pushEndpoint)
+    const config = raw as { endpoint?: unknown }
+    const fromConfig = sanitizePushEndpoint(config.endpoint)
     if (fromConfig) {
       return fromConfig
     }
@@ -39,17 +39,13 @@ function readPushEndpoint(): string | undefined {
 
   try {
     const currentUrl = new URL(window.location.href)
-    const fromSearch = sanitizePushEndpoint(
-      currentUrl.searchParams.get('endpoint') ?? currentUrl.searchParams.get('push')
-    )
+    const fromSearch = sanitizePushEndpoint(currentUrl.searchParams.get('endpoint'))
     if (fromSearch) {
       return fromSearch
     }
     if (currentUrl.hash && currentUrl.hash.length > 1) {
       const hashParams = new URLSearchParams(currentUrl.hash.slice(1))
-      const fromHash = sanitizePushEndpoint(
-        hashParams.get('endpoint') ?? hashParams.get('push')
-      )
+      const fromHash = sanitizePushEndpoint(hashParams.get('endpoint'))
       if (fromHash) {
         return fromHash
       }

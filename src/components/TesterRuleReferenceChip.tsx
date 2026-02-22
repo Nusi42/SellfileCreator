@@ -1,4 +1,3 @@
-import { useCallback, useRef, useState } from 'react'
 import { Box, Chip } from '@mui/material'
 import type { ChipProps } from '@mui/material'
 import { alpha, useTheme, type SxProps, type Theme } from '@mui/material/styles'
@@ -9,9 +8,9 @@ import type { TesterPreviewMatch } from '../types/testerPreview'
 import { MATCHING_RECIPE_CHIP_MIN_WIDTH_PX } from '../lib/constants'
 // MarkdownTooltip keeps the jump hint aligned with the rest of the tooltip rollout.
 import MarkdownTooltip from './MarkdownTooltip'
-import EllipsisTooltip, { hasEllipsisOverflow } from './EllipsisTooltip'
+import EllipsisTooltip from './EllipsisTooltip'
 import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
-import { getTesterMatchBorderColor } from './testerMatchStyles'
+import { getTesterMatchBorderColor, getTesterMatchSurfaceColors } from './testerMatchStyles'
 
 type TesterRuleReferenceChipProps = {
   match: TesterPreviewMatch | null
@@ -42,8 +41,8 @@ const simpleMatchChipSx = (sx?: SxProps<Theme>): SxProps<Theme> => {
   return [...asArray, base] as SxProps<Theme>
 }
 
-const buildChipSurfaceTint = (theme: Theme, tone: string): { surface: string; hover: string } => {
-  // Tinted matches lean on translucent fills so the label stays legible in both themes.
+const buildSourceChipSurfaceTint = (theme: Theme, tone: string): { surface: string; hover: string } => {
+  // Source chips (Final Sell / Safeguards) keep the stronger legacy tint for quick scanning.
   const surfaceAlpha = theme.palette.mode === 'dark' ? 0.35 : 0.12
   const hoverAlpha = theme.palette.mode === 'dark' ? 0.45 : 0.18
   return {
@@ -71,7 +70,7 @@ export function TesterRuleReferenceChip({
   const jumpTooltip = isSafeguardSource ? t('testerJumpToSafeguard') : t('testerJumpToRecipe')
   if (isFinalSellSource) {
     if (!showFinalSellLabel) return null
-    const finalSellTint = buildChipSurfaceTint(theme, theme.palette.error.main)
+    const finalSellTint = buildSourceChipSurfaceTint(theme, theme.palette.error.main)
     return (
       <TesterRuleReferenceChipBody
         label={t('testerFinalSellChip')}
@@ -122,10 +121,12 @@ export function TesterRuleReferenceChip({
     : (ruleIndex != null ? `#${ruleIndex + 1}` : '')
   const clickable = typeof onJump === 'function' && ruleIndex != null
   if (!resolvedLabel) return null
-  // Safeguard matches share a green tint so they read as "protected".
+  // Keep source chips (Safeguards) on their legacy stronger tint.
   const keepOverrideTint = isSafeguardSource
-    ? buildChipSurfaceTint(theme, theme.palette.success.main)
+    ? buildSourceChipSurfaceTint(theme, theme.palette.success.main)
     : null
+  // Shared keep/sell surface keeps normal first-match chips consistent with other-match chips.
+  const chipSurfaceTint = keepOverrideTint ?? getTesterMatchSurfaceColors(theme, Boolean(match.keep))
   // Data attribute lets tests and analytics distinguish safeguard matches.
   const dataMatchSource = isSafeguardSource ? 'safeguard' : undefined
   return (
@@ -141,8 +142,8 @@ export function TesterRuleReferenceChip({
       {...(sx ? { sx } : {})}
       {...(icon ? { icon } : {})}
       borderColor={getTesterMatchBorderColor(theme, Boolean(match.keep))}
-      {...(keepOverrideTint ? { backgroundColor: keepOverrideTint.surface } : {})}
-      {...(keepOverrideTint ? { hoverBackgroundColor: keepOverrideTint.hover } : {})}
+      backgroundColor={chipSurfaceTint.surface}
+      hoverBackgroundColor={chipSurfaceTint.hover}
       {...(dataMatchSource ? { dataMatchSource } : {})}
       {...(onJump ? { onJump } : {})}
     />
@@ -184,22 +185,6 @@ function TesterRuleReferenceChipBody({
   hoverBackgroundColor,
   dataMatchSource,
 }: TesterRuleReferenceChipBodyProps) {
-  const chipWrapperRef = useRef<HTMLSpanElement | null>(null)
-  const [nativeEllipsisTitle, setNativeEllipsisTitle] = useState<string | undefined>(undefined)
-  const handleChipMouseEnter = useCallback(() => {
-    if (!clickable) return
-    const root = chipWrapperRef.current
-    // Only mirror the truncated label when it is actually ellipsized; otherwise we keep the tooltip copy focused on jumping.
-    if (hasEllipsisOverflow(root, '.MuiChip-label')) {
-      setNativeEllipsisTitle(label)
-    } else {
-      setNativeEllipsisTitle(undefined)
-    }
-  }, [clickable, label])
-  const handleChipMouseLeave = useCallback(() => {
-    if (!clickable) return
-    setNativeEllipsisTitle(undefined)
-  }, [clickable])
   const resolvedBackgroundColor = backgroundColor ?? 'background.paper'
   const resolvedHoverColor = clickable
     ? hoverBackgroundColor ?? 'action.hover'
@@ -261,27 +246,12 @@ function TesterRuleReferenceChipBody({
       </Box>
     )
   }
-  const chipWrapper = (
-    <Box
-      component="span"
-      ref={chipWrapperRef}
-      onMouseEnter={handleChipMouseEnter}
-      onMouseLeave={handleChipMouseLeave}
-      sx={{ display: 'block', maxWidth: '100%', minWidth: 0 }}
-    >
-      <Box
-        component="span"
-        {...(nativeEllipsisTitle ? { title: nativeEllipsisTitle } : {})}
-        sx={{ display: 'block', maxWidth: '100%', minWidth: 0 }}
-      >
-        {baseChip}
-      </Box>
-    </Box>
-  )
   return (
     // Keep jump hints in sync with other Markdown tooltips so multi-line copy stays readable.
     <MarkdownTooltip markdown={jumpTooltip}>
-      {chipWrapper}
+      <Box component="span" sx={{ display: 'block', maxWidth: '100%', minWidth: 0 }}>
+        {chipWithEllipsis}
+      </Box>
     </MarkdownTooltip>
   )
 }

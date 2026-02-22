@@ -1,6 +1,7 @@
 import { MenuItem, Select, Typography } from '@mui/material'
 import type { SelectChangeEvent, SelectProps } from '@mui/material/Select'
 import type { SxProps, Theme } from '@mui/material/styles'
+import { useMemo } from 'react'
 import { useI18n } from '../../lib/i18n'
 import type { RankValue } from '../../lib/types'
 
@@ -44,7 +45,11 @@ export function GearRaritySelect({
   const resolvedSx: SxProps<Theme> = sx ?? {}
   const menuPropsAttr = menuProps ? { MenuProps: menuProps } : {}
   const isMulti = Boolean(multiple)
-  const multiValues = isMulti ? ((value as RankValue[]) ?? []) : null
+  // Keep multi values stable so memoized closed-menu placeholders don't churn.
+  const multiValues = useMemo<RankValue[]>(() => {
+    if (!isMulti) return []
+    return (value as RankValue[]) ?? []
+  }, [isMulti, value])
   const singleValue = !isMulti ? (value as number | null) : null
   const selectValue: string | string[] = (() => {
     if (isMulti) return (multiValues ?? []).map((entry) => String(Math.max(1, Math.min(6, entry))))
@@ -84,8 +89,8 @@ export function GearRaritySelect({
   // Keep multi-select defaults visible so Safeguards shows "Any" instead of empty badges.
   const renderMultiValue = (() => {
     if (!isMulti) return undefined
-    return () => {
-      if (!multiValues || multiValues.length === 0) {
+      return () => {
+      if (multiValues.length === 0) {
         return <Typography variant="body2">{anyText}</Typography>
       }
       const summary = multiValues.map((rarity) => rarityLabel(Number(rarity))).join(', ')

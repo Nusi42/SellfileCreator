@@ -40,6 +40,8 @@ const UNKNOWN_ROLL_QUALITY_RATIO_AT_RANK_SIX = 0.83
 const UNKNOWN_ROLL_MIN_RANK_SCALE = 0.6
 
 type PreparedSafeguardRule = {
+  // Preserve source list order so tied overlays can pick the top-most safeguard.
+  ruleOrder: number
   // Rule id is preserved so the UI can deep-link from chance overlays.
   ruleId: string
   // Non-substat filters must mirror safeguard matcher eligibility.
@@ -65,8 +67,12 @@ type PreparedSafeguardRule = {
 }
 
 type RuleScenario = {
+  // Preserve source safeguard order for deterministic tie resolution.
+  ruleOrder: number
   // Every scenario maps back to one safeguard rule id for click-through navigation.
   ruleId: string
+  // Full safeguard substat selection (not per-scenario split) for tie-break matching count.
+  ruleSelectedSubstats: readonly number[]
   // Candidate must pass these non-substat filters before scenario applies.
   applicableArtifactIds: ReadonlySet<number>
   // Scenario substats are either the full rule set or one variant for per-substat mode.
@@ -212,7 +218,7 @@ const normalizeRuleWeights = (weights: Partial<Record<number, number>>): Readonl
 // Flatten active safeguard rules with selected substats into precomputed descriptors.
 const prepareSubstatSafeguardRules = (rules: readonly SafeguardRule[]): PreparedSafeguardRule[] => {
   const prepared: PreparedSafeguardRule[] = []
-  for (const rule of rules) {
+  for (const [ruleOrder, rule] of rules.entries()) {
     // Disabled safeguards cannot contribute upgrade chance.
     if (rule.activation === SafeguardRuleActivation.Off) continue
     // This overlay only uses safeguards that explicitly select substats.
@@ -243,6 +249,7 @@ const prepareSubstatSafeguardRules = (rules: readonly SafeguardRule[]): Prepared
         )
     )
     prepared.push({
+      ruleOrder,
       ruleId: typeof rule.id === 'string' ? rule.id.trim() : '',
       slots: (rule.combination.slots ?? []).map((value) => Number(value)).filter(Number.isFinite),
       ranks: (rule.combination.ranks ?? []).map((value) => Number(value)).filter(Number.isFinite),
@@ -479,7 +486,9 @@ const buildRuleScenarios = (
         }
       }
       scenarios.push({
+        ruleOrder: rule.ruleOrder,
         ruleId: rule.ruleId,
+        ruleSelectedSubstats: rule.selectedSubstats,
         applicableArtifactIds,
         selectedSubstats: def.selectedSubstats,
         substatMatch: def.substatMatch,
@@ -851,7 +860,45 @@ const resolveMostLikelyScenario = (
       bestScenarios.push(scenario)
     }
   }
-  return resolvePreferredScenario(bestScenarios)
+  if (bestScenarios.length <= 1) {
+    return resolvePreferredScenario(bestScenarios)
+  }
+  // Tie-break by safeguard-level substat coverage on this artifact.
+  // This intentionally uses the full rule substat set, not per-substat scenario splits.
+  let bestMatchedCount = Number.NEGATIVE_INFINITY
+  let matchedBestScenarios: RuleScenario[] = []
+  for (const scenario of bestScenarios) {
+    const matchedCount = countMatchedSelectedSubstatsOnArtifact(
+      artifact,
+      new Set<number>(scenario.ruleSelectedSubstats),
+    )
+    if (matchedCount > bestMatchedCount) {
+      bestMatchedCount = matchedCount
+      matchedBestScenarios = [scenario]
+      continue
+    }
+    if (matchedCount === bestMatchedCount) {
+      matchedBestScenarios.push(scenario)
+    }
+  }
+  if (matchedBestScenarios.length <= 1) {
+    return resolvePreferredScenario(matchedBestScenarios)
+  }
+  // Final tie-break: safeguard list order (higher up = smaller index).
+  let bestOrder = Number.POSITIVE_INFINITY
+  let orderBestScenarios: RuleScenario[] = []
+  for (const scenario of matchedBestScenarios) {
+    const order = Number.isFinite(scenario.ruleOrder) ? scenario.ruleOrder : Number.POSITIVE_INFINITY
+    if (order < bestOrder) {
+      bestOrder = order
+      orderBestScenarios = [scenario]
+      continue
+    }
+    if (order === bestOrder) {
+      orderBestScenarios.push(scenario)
+    }
+  }
+  return resolvePreferredScenario(orderBestScenarios)
 }
 
 // Build a concise snapshot of the preferred scenario so users can inspect chance math.

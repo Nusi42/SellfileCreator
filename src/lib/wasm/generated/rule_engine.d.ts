@@ -35,8 +35,6 @@ export function finalize_generated_rules_value(entries: any, apply_obsolete_prun
 
 export function find_obsolete_value(rules: any): any;
 
-export function fingerprint_merged_rules_value(rules: any): any;
-
 export function flatten_rule_batches_with_total_limit_value(base_count: bigint, total_limit: bigint, batches: any): any;
 
 export function hash_safeguard_combination_value(combination: any): string;
@@ -103,7 +101,6 @@ export interface InitOutput {
     readonly resolve_auto_rarity_code_for_builder_value: (a: any) => [number, number, number];
     readonly resolve_safeguard_rules_with_metasets_value: (a: any, b: any) => [number, number, number];
     readonly version: () => [number, number];
-    readonly fingerprint_merged_rules_value: (a: any) => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;

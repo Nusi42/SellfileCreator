@@ -1,4 +1,4 @@
-import { createTheme } from '@mui/material/styles'
+import { alpha, createTheme, darken } from '@mui/material/styles'
 import type { ColorBlindMode } from './lib/constants'
 import {
   FONT_SIZE_BASE_PX,
@@ -56,6 +56,16 @@ export function makeTheme(mode: ColorBlindMode) {
         },
       },
       MuiPaper: { styleOverrides: { root: { border: '1px solid #30363d' } } },
+      MuiAlert: {
+        styleOverrides: {
+          // Darken filled success alerts globally so toast surfaces are less neon/bright.
+          filledSuccess: ({ theme }) => ({
+            backgroundColor: darken(theme.palette.success.main, 0.42),
+            color: theme.palette.success.contrastText,
+            border: `1px solid ${alpha(theme.palette.success.light, 0.35)}`,
+          }),
+        },
+      },
       MuiTooltip: {
         defaultProps: {
           arrow: true,

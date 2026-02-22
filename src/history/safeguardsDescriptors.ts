@@ -25,6 +25,27 @@ type RuleChangeSummary = {
   updated: Array<{ previous: SafeguardRule; next: SafeguardRule }>
 }
 
+type SafeguardRuleSignature = {
+  id: string
+  name: string
+  requiredCount: number
+  activation: SafeguardRuleActivation
+  ignorePreviousSafeguards: boolean
+  ignoreEquippedInCollection: boolean
+  ignoreEquippedInVault: boolean
+  countMode: SafeguardRuleCountMode
+  slots: number[]
+  sets: Array<{ id: number; excluded: boolean }>
+  meta: string[]
+  ranks: number[]
+  rarities: number[]
+  mains: number[]
+  factions: number[]
+  substats: number[]
+  substatMatch: SafeguardSubstatMatch
+  substatWeights: Array<[number, number]>
+}
+
 // isSafeguardRuleOrderChanged flags pure reorders so history can record them.
 export const isSafeguardRuleOrderChanged = (previous: SafeguardRule[], next: SafeguardRule[]): boolean => {
   // Reorders only matter when the list lengths match.
@@ -168,7 +189,7 @@ function diffSafeguardRules(previous: SafeguardRule[], next: SafeguardRule[]): R
       continue
     }
     // Compare normalized signatures so ordering noise does not trigger updates.
-    if (buildSafeguardRuleSignature(prevRule) !== buildSafeguardRuleSignature(rule)) {
+    if (!safeguardRuleSignaturesEqual(buildSafeguardRuleSignature(prevRule), buildSafeguardRuleSignature(rule))) {
       updated.push({ previous: prevRule, next: rule })
     }
   }
@@ -179,14 +200,14 @@ function diffSafeguardRules(previous: SafeguardRule[], next: SafeguardRule[]): R
   return { added, removed, updated }
 }
 
-function buildSafeguardRuleSignature(rule: SafeguardRule): string {
+function buildSafeguardRuleSignature(rule: SafeguardRule): SafeguardRuleSignature {
   // Normalize array order so signatures ignore ordering noise.
   const combo = rule.combination
   // Normalize slots so set ordering differences do not count as edits.
   const slots = normalizeNumberArray(combo.slots).slice().sort(compareArtifactTypes)
   // Normalize set entries so exclusions are captured in the signature.
   const sets = normalizeArtifactSetSelections(combo.sets ?? [])
-    .map((entry) => (entry.excluded ? `!${Number(entry.id)}` : `${Number(entry.id)}`))
+    .map((entry) => ({ id: Number(entry.id), excluded: entry.excluded === true }))
   // Normalize metaset IDs so their order does not affect comparisons.
   const meta = Array.isArray(combo.metaSetIds) ? combo.metaSetIds.map(String).sort() : []
   // Normalize ranks so signatures match regardless of selection order.
@@ -207,13 +228,13 @@ function buildSafeguardRuleSignature(rule: SafeguardRule): string {
       .map(([key, raw]) => {
         const variant = Number(key)
         const normalized = normalizeTesterSortWeight(Number(raw))
-        return Number.isFinite(variant) ? `${variant}:${normalized.toFixed(2)}` : null
+        return Number.isFinite(variant) ? [variant, normalized] as [number, number] : null
       })
-      .filter((entry): entry is string => Boolean(entry && !entry.endsWith(`${TESTER_SORT_WEIGHT_DEFAULT.toFixed(2)}`)))
-      .sort()
+      .filter((entry): entry is [number, number] => Boolean(entry && entry[1] !== TESTER_SORT_WEIGHT_DEFAULT))
+      .sort((a, b) => a[0] - b[0] || a[1] - b[1])
     : []
-  // Serialize the normalized rule signature for comparison.
-  return JSON.stringify({
+  // Return the normalized typed signature so callers can compare structurally.
+  return {
     id: rule.id,
     name: rule.name,
     requiredCount: rule.requiredCount,
@@ -233,7 +254,54 @@ function buildSafeguardRuleSignature(rule: SafeguardRule): string {
     substats,
     substatMatch: normalizedSubstatMatch,
     substatWeights: weightEntries,
-  })
+  }
+}
+
+function safeguardRuleSignaturesEqual(left: SafeguardRuleSignature, right: SafeguardRuleSignature): boolean {
+  if (
+    left.id !== right.id
+    || left.name !== right.name
+    || left.requiredCount !== right.requiredCount
+    || left.activation !== right.activation
+    || left.ignorePreviousSafeguards !== right.ignorePreviousSafeguards
+    || left.ignoreEquippedInCollection !== right.ignoreEquippedInCollection
+    || left.ignoreEquippedInVault !== right.ignoreEquippedInVault
+    || left.substatMatch !== right.substatMatch
+  ) {
+    return false
+  }
+  if (left.countMode.perRule !== right.countMode.perRule) return false
+  if (left.countMode.perSet !== right.countMode.perSet) return false
+  if (left.countMode.perFaction !== right.countMode.perFaction) return false
+  if (left.countMode.perMainStat !== right.countMode.perMainStat) return false
+  if (left.countMode.perSlot !== right.countMode.perSlot) return false
+  if (left.slots.length !== right.slots.length) return false
+  for (let idx = 0; idx < left.slots.length; idx += 1) if (left.slots[idx] !== right.slots[idx]) return false
+  if (left.sets.length !== right.sets.length) return false
+  for (let idx = 0; idx < left.sets.length; idx += 1) {
+    const ls = left.sets[idx]!
+    const rs = right.sets[idx]!
+    if (ls.id !== rs.id || ls.excluded !== rs.excluded) return false
+  }
+  if (left.meta.length !== right.meta.length) return false
+  for (let idx = 0; idx < left.meta.length; idx += 1) if (left.meta[idx] !== right.meta[idx]) return false
+  if (left.ranks.length !== right.ranks.length) return false
+  for (let idx = 0; idx < left.ranks.length; idx += 1) if (left.ranks[idx] !== right.ranks[idx]) return false
+  if (left.rarities.length !== right.rarities.length) return false
+  for (let idx = 0; idx < left.rarities.length; idx += 1) if (left.rarities[idx] !== right.rarities[idx]) return false
+  if (left.mains.length !== right.mains.length) return false
+  for (let idx = 0; idx < left.mains.length; idx += 1) if (left.mains[idx] !== right.mains[idx]) return false
+  if (left.factions.length !== right.factions.length) return false
+  for (let idx = 0; idx < left.factions.length; idx += 1) if (left.factions[idx] !== right.factions[idx]) return false
+  if (left.substats.length !== right.substats.length) return false
+  for (let idx = 0; idx < left.substats.length; idx += 1) if (left.substats[idx] !== right.substats[idx]) return false
+  if (left.substatWeights.length !== right.substatWeights.length) return false
+  for (let idx = 0; idx < left.substatWeights.length; idx += 1) {
+    const lw = left.substatWeights[idx]!
+    const rw = right.substatWeights[idx]!
+    if (lw[0] !== rw[0] || lw[1] !== rw[1]) return false
+  }
+  return true
 }
 
 function normalizeCountMode(mode: SafeguardRuleCountMode): SafeguardRuleCountMode {

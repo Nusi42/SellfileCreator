@@ -3,6 +3,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   TESTER_SORT_KEY_LAST_USAGE,
+  TESTER_SORT_KEY_NEWEST,
   TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE,
   sortTesterRows,
   sortTesterRowsBySubstats,
@@ -301,6 +302,32 @@ test('sortTesterRowsBySubstats supports per-key flipped direction', () => {
     excludeGlyphs: true,
   })
   assert.deepEqual(sorted.map((row) => row.artifact.id), [1, 2, 3])
+})
+
+test('sortTesterRowsBySubstats sorts by newest artifact id first', () => {
+  const older = makeTesterRow({ id: 101 })
+  const newer = makeTesterRow({ id: 202 })
+  const newest = makeTesterRow({ id: 303 })
+  const sorted = sortTesterRowsBySubstats([older, newest, newer], {
+    priorities: [TESTER_SORT_KEY_NEWEST],
+    direction: 'desc',
+    flipped: [],
+    excludeGlyphs: true,
+  })
+  assert.deepEqual(sorted.map((row) => row.artifact.id), [303, 202, 101])
+})
+
+test('sortTesterRowsBySubstats supports flipped direction for newest artifact id', () => {
+  const older = makeTesterRow({ id: 101 })
+  const newer = makeTesterRow({ id: 202 })
+  const newest = makeTesterRow({ id: 303 })
+  const sorted = sortTesterRowsBySubstats([newer, older, newest], {
+    priorities: [TESTER_SORT_KEY_NEWEST],
+    direction: 'desc',
+    flipped: [TESTER_SORT_KEY_NEWEST],
+    excludeGlyphs: true,
+  })
+  assert.deepEqual(sorted.map((row) => row.artifact.id), [101, 202, 303])
 })
 
 test('sortTesterRowsBySubstats sorts by safeguard improvement chance (highest first)', () => {

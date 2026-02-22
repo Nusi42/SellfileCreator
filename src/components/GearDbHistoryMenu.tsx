@@ -13,6 +13,7 @@ import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuP
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { GearDbDiffToast } from './GearDbDiffToast'
 import {
+  GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX,
   HISTORY_MENU_MAX_HEIGHT_PX,
   HISTORY_TOOLTIP_MAX_WIDTH_PX,
   LIST_SUBHEADER_SX,
@@ -51,10 +52,18 @@ export function GearDbHistoryMenu({
   useStatButtonColors,
 }: GearDbHistoryMenuProps) {
   const { t } = useI18n()
+  // Keep the currently expanded history entry in a persistent popout.
+  const [previewPopout, setPreviewPopout] = React.useState<{
+    entryId: number
+    anchorPosition: { top: number; left: number }
+    payload: GearDbDiffToastPayload
+  } | null>(null)
   // Keep entries reversed so the latest update sits at the top.
   const reversed = React.useMemo(() => entries.slice().reverse(), [entries])
   // Disable the clear action when there is nothing to remove.
   const hasEntries = entries.length > 0
+  // Include the current stack size directly in the clear row label.
+  const clearHistoryLabel = `${t('builderHistoryClear')} (${entries.length})`
   // Build localized header lines so history re-renders on language changes.
   const buildHeaderLines = React.useCallback((lineSpecs: GearDbDiffHistoryEntry['lineSpecs']): string[] => (
     formatGearDbDiffHistoryLines(lineSpecs, t)
@@ -67,52 +76,91 @@ export function GearDbHistoryMenu({
   const paperRef = React.useRef<HTMLDivElement | null>(null)
   // Track the paper element so outside right-clicks can close the menu.
   const { contextMenuGuard } = useContextMenuPaperGuard({ open, onClose, menuRef: paperRef })
+  // Keep a dedicated paper ref + guard for the persistent detail popout.
+  const previewPaperRef = React.useRef<HTMLDivElement | null>(null)
+  // Stable closer keeps click-away and close-button paths aligned.
+  const closePreviewPopout = React.useCallback(() => {
+    setPreviewPopout(null)
+  }, [])
+  // Track outside right-clicks for the detail popout as well.
+  const { contextMenuGuard: previewPopoutGuard } = useContextMenuPaperGuard({
+    open: Boolean(previewPopout),
+    onClose: closePreviewPopout,
+    menuRef: previewPaperRef,
+  })
+  // Left-click converts the transient tooltip preview into a persistent popout.
+  const handleOpenPreviewPopout = React.useCallback((
+    event: React.MouseEvent<HTMLLIElement>,
+    entryId: number,
+    payload: GearDbDiffToastPayload,
+  ) => {
+    event.preventDefault()
+    event.stopPropagation()
+    // Position near the clicked row so the detail panel feels attached.
+    const rowRect = event.currentTarget.getBoundingClientRect()
+    setPreviewPopout({
+      entryId,
+      anchorPosition: {
+        top: Math.round(rowRect.top + window.scrollY),
+        left: Math.round(rowRect.right + window.scrollX + 8),
+      },
+      payload,
+    })
+  }, [])
+  // Resolve the active popout entry defensively so cleared histories auto-hide.
+  const activePreviewPopout = React.useMemo(() => {
+    if (!previewPopout) return null
+    return entries.some((entry) => entry.id === previewPopout.entryId) ? previewPopout : null
+  }, [entries, previewPopout])
+  // Suppress hover poppers while the persistent popout is open.
+  const disableHoverTooltips = activePreviewPopout !== null
 
   return (
-    <Menu
-      open={open}
-      anchorEl={anchorEl}
-      onClose={onClose}
-      anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-      transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-      slotProps={{
-        paper: buildContextMenuPaperSlotProps({
-          component: ContextMenuPaper,
-          contextMenuGuard,
-          onRequestClose: onClose,
-          closeLabel: t('close'),
-          ref: paperRef,
-          sx: (theme: Theme) => ({
-            minWidth: theme.spacing(32),
-            maxWidth: theme.spacing(54),
-            maxHeight: HISTORY_MENU_MAX_HEIGHT_PX,
-            px: 0,
-            py: 0,
-            boxShadow: theme.shadows[8],
+    <>
+      <Menu
+        open={open}
+        anchorEl={anchorEl}
+        onClose={onClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{
+          paper: buildContextMenuPaperSlotProps({
+            component: ContextMenuPaper,
+            contextMenuGuard,
+            onRequestClose: onClose,
+            closeLabel: t('close'),
+            ref: paperRef,
+            sx: (theme: Theme) => ({
+              minWidth: theme.spacing(32),
+              maxWidth: theme.spacing(54),
+              maxHeight: HISTORY_MENU_MAX_HEIGHT_PX,
+              px: 0,
+              py: 0,
+              boxShadow: theme.shadows[8],
+            }),
           }),
-        }),
-      }}
-      MenuListProps={{
-        dense: true,
-        disablePadding: true,
-        sx: {
-          py: 0,
-          maxHeight: HISTORY_MENU_MAX_HEIGHT_PX,
-          display: 'flex',
-          flexDirection: 'column',
-        },
-      }}
-    >
-      <ListSubheader disableSticky sx={[LIST_SUBHEADER_SX, { px: 2 }]}>
-        {t('builderHistoryMenuHeader')}
-      </ListSubheader>
-      <Box sx={{ flex: 1, overflowY: 'auto' }}>
-        {reversed.length === 0 ? (
-          <MenuItem disabled sx={{ opacity: 0.8, py: 1.25 }}>
-            <Typography variant="body2">{t('builderHistoryMenuEmpty')}</Typography>
-          </MenuItem>
-        ) : null}
-        {reversed.map((entry, index) => {
+        }}
+        MenuListProps={{
+          dense: true,
+          disablePadding: true,
+          sx: {
+            py: 0,
+            maxHeight: HISTORY_MENU_MAX_HEIGHT_PX,
+            display: 'flex',
+            flexDirection: 'column',
+          },
+        }}
+      >
+        <ListSubheader disableSticky sx={[LIST_SUBHEADER_SX, { px: 2 }]}>
+          {t('builderHistoryMenuHeader')}
+        </ListSubheader>
+        <Box sx={{ flex: 1, overflowY: 'auto' }}>
+          {reversed.length === 0 ? (
+            <MenuItem disabled sx={{ opacity: 0.8, py: 1.25 }}>
+              <Typography variant="body2">{t('builderHistoryMenuEmpty')}</Typography>
+            </MenuItem>
+          ) : null}
+          {reversed.map((entry, index) => {
           // Build localized lines so tooltip + list stay aligned.
           const headerLines = buildHeaderLines(entry.lineSpecs)
           // Build summary-only lines so the timestamp can be its own row.
@@ -134,9 +182,11 @@ export function GearDbHistoryMenu({
             entries: cappedEntries,
             overflowCount,
           }
-          return (
-            <MarkdownTooltip
-              key={entry.id}
+            return (
+              <MarkdownTooltip
+                key={entry.id}
+                // When the detail popout is open, keep transient hover poppers hidden.
+                {...(disableHoverTooltips ? { open: false } : {})}
               render={(
                 <Box
                   sx={{
@@ -151,15 +201,28 @@ export function GearDbHistoryMenu({
                   />
                 </Box>
               )}
-              slotProps={{ tooltip: { sx: { maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX } } }}
+              slotProps={{
+                tooltip: {
+                  sx: {
+                    maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX,
+                    // Tall history previews should scroll within the tooltip viewport.
+                    maxHeight: GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX,
+                    overflowY: 'auto',
+                  },
+                },
+              }}
             >
               <MenuItem
+                onClick={(event) => {
+                  handleOpenPreviewPopout(event, entry.id, tooltipPayload)
+                }}
                 sx={(theme) => ({
                   alignItems: 'flex-start',
                   gap: 0.5,
                   px: 2,
                   py: 1.1,
                   opacity: 0.95,
+                  cursor: 'pointer',
                   backgroundColor: index === 0 ? theme.palette.action.hover : undefined,
                 })}
               >
@@ -206,22 +269,66 @@ export function GearDbHistoryMenu({
                   ) : null}
                 </Stack>
               </MenuItem>
-            </MarkdownTooltip>
-          )
-        })}
-      </Box>
-      <MenuItem
-        onClick={(event) => {
-          event.preventDefault()
-          event.stopPropagation()
-          onClose()
-          onRequestClearHistory()
+              </MarkdownTooltip>
+            )
+          })}
+        </Box>
+        <MenuItem
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            closePreviewPopout()
+            onClose()
+            onRequestClearHistory()
+          }}
+          sx={{ color: hasEntries ? 'error.main' : 'text.secondary', fontWeight: 600 }}
+          disabled={!hasEntries}
+        >
+          {clearHistoryLabel}
+        </MenuItem>
+      </Menu>
+      <Menu
+        open={Boolean(activePreviewPopout)}
+        onClose={closePreviewPopout}
+        anchorReference="anchorPosition"
+        {...(activePreviewPopout ? { anchorPosition: activePreviewPopout.anchorPosition } : {})}
+        anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{
+          paper: buildContextMenuPaperSlotProps({
+            component: ContextMenuPaper,
+            contextMenuGuard: previewPopoutGuard,
+            onRequestClose: closePreviewPopout,
+            closeLabel: t('close'),
+            ref: previewPaperRef,
+            sx: (theme: Theme) => ({
+              minWidth: theme.spacing(36),
+              maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX,
+              px: 0,
+              py: 0,
+              boxShadow: theme.shadows[10],
+            }),
+          }),
         }}
-        sx={{ color: hasEntries ? 'error.main' : 'text.secondary', fontWeight: 600 }}
-        disabled={!hasEntries}
+        MenuListProps={{ disablePadding: true }}
       >
-        {t('builderHistoryClear')}
-      </MenuItem>
-    </Menu>
+        <Box
+          sx={{
+            p: 1,
+            // Keep large previews usable without requiring giant viewports.
+            maxHeight: GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX,
+            overflowY: 'auto',
+          }}
+        >
+          {activePreviewPopout ? (
+            <GearDbDiffToast
+              payload={activePreviewPopout.payload}
+              substatColors={substatColors}
+              useStatButtonColors={useStatButtonColors}
+            />
+          ) : null}
+        </Box>
+      </Menu>
+    </>
   )
 }

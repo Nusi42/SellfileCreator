@@ -297,6 +297,10 @@ struct ComputeMergedRulesIn {
     #[serde(default)]
     all_known_set_ids: Vec<i64>,
     #[serde(default)]
+    omit_disabled_before_safeguards: bool,
+    #[serde(default)]
+    dedupe_before_safeguards: bool,
+    #[serde(default)]
     safeguard_enabled: bool,
     #[serde(default)]
     safeguard_rules: Vec<SafeguardWasmRuleIn>,
@@ -371,7 +375,7 @@ struct SafeguardMergeSortEntry {
     rule_ordinal: i64,
     placeholder_rank: i64,
     item_key: i64,
-    canonical: String,
+    canonical: rule_dedupe::CollapseCanonicalKey,
 }
 
 // Internal carry type keeps branch ordering attached through finalization.

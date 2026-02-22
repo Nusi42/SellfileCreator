@@ -402,10 +402,41 @@ fn build_hsf_rules_base_rule(input: &BuildHsfRulesRuntimeIn) -> RuleRaw {
 }
 
 // Shared append helper keeps signature dedupe + emission metadata in one path.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct BuilderSubstatSignatureKey {
+    id: i64,
+    flat_true: bool,
+    condition: String,
+    value_bits: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct BuilderEmissionSignatureKey {
+    keep: bool,
+    use_flag: bool,
+    rank: i64,
+    faction: i64,
+    main_id: i64,
+    main_f_bits: u64,
+    level: i64,
+    sets: Vec<i64>,
+    types: Vec<i64>,
+    substats: Vec<BuilderSubstatSignatureKey>,
+}
+
+// Normalize NaN to one canonical bit pattern so all NaN payloads hash equally.
+fn normalize_f64_bits(value: f64) -> u64 {
+    if value.is_nan() {
+        f64::NAN.to_bits()
+    } else {
+        value.to_bits()
+    }
+}
+
 fn push_builder_runtime_rule(
     rule: RuleRaw,
     branch_idx: usize,
-    emitted_signatures: &mut HashSet<String>,
+    emitted_signatures: &mut HashSet<BuilderEmissionSignatureKey>,
     rules: &mut Vec<RuleRaw>,
     emission_meta: &mut Vec<BuilderFinalizeEmissionMetaIn>,
     next_seq: &mut i64,
@@ -445,15 +476,11 @@ fn main_stat_f_number(value: Option<&serde_json::Value>) -> f64 {
     }
 }
 
-// Keep rule signature set/type arrays aligned with TS map-sort-join behavior.
-fn canonical_join_sorted_numeric(values: Option<&Vec<i64>>) -> String {
+// Keep set/type arrays normalized so ordering does not affect dedupe keys.
+fn canonical_sorted_numeric(values: Option<&Vec<i64>>) -> Vec<i64> {
     let mut normalized = values.cloned().unwrap_or_default();
     normalized.sort_unstable();
     normalized
-        .into_iter()
-        .map(|value| value.to_string())
-        .collect::<Vec<_>>()
-        .join(",")
 }
 
 // JS truthiness for IsFlat mirrors the previous TypeScript signature helper.
@@ -468,42 +495,41 @@ fn is_truthy_is_flat(value: Option<&serde_json::Value>) -> bool {
     }
 }
 
-// Substat tokens mirror TS `${id}:${flat}:${cond}:${val}` tuple construction.
-fn rule_substats_signature(substats: Option<&Vec<RuleSubRaw>>) -> String {
+// Substat tuples mirror TS key dimensions while avoiding string concatenation.
+fn rule_substats_signature_key(substats: Option<&Vec<RuleSubRaw>>) -> Vec<BuilderSubstatSignatureKey> {
     substats
         .cloned()
         .unwrap_or_default()
         .into_iter()
-        .map(|entry| {
-            let id = entry.ID.unwrap_or(STAT_ID_ANY);
-            let flat = if is_truthy_is_flat(entry.IsFlat.as_ref()) { "1" } else { "0" };
-            let cond = entry.Condition.unwrap_or_default();
-            let value = entry.Value.unwrap_or(0.0);
-            format!("{id}:{flat}:{cond}:{value}")
+        .map(|entry| BuilderSubstatSignatureKey {
+            id: entry.ID.unwrap_or(STAT_ID_ANY),
+            flat_true: is_truthy_is_flat(entry.IsFlat.as_ref()),
+            condition: entry.Condition.unwrap_or_default(),
+            value_bits: normalize_f64_bits(entry.Value.unwrap_or(0.0)),
         })
         .collect::<Vec<_>>()
-        .join(";")
 }
 
 // Signature intentionally ignores rarity so cross-branch duplicates collapse.
-fn builder_emission_signature(rule: &RuleRaw) -> String {
-    let keep_bit = if rule.Keep == Some(true) { "1" } else { "0" };
-    let use_bit = if rule.Use != Some(false) { "1" } else { "0" };
-    let rank = rule.Rank.unwrap_or(0);
-    let faction = rule.Faction.unwrap_or(0);
-    let main_id = rule.MainStatID.unwrap_or(STAT_ID_ANY);
-    let main_f = main_stat_f_number(rule.MainStatF.as_ref());
-    let level = rule.LVLForCheck.unwrap_or(LEVEL_ANY_SENTINEL);
-    let sets = canonical_join_sorted_numeric(rule.ArtifactSet.as_ref());
-    let types = canonical_join_sorted_numeric(rule.ArtifactType.as_ref());
-    let substats = rule_substats_signature(rule.Substats.as_ref());
-    format!("{keep_bit}{use_bit}|{rank}|{faction}|{main_id}:{main_f}|{level}|{sets}|{types}|{substats}")
+fn builder_emission_signature(rule: &RuleRaw) -> BuilderEmissionSignatureKey {
+    BuilderEmissionSignatureKey {
+        keep: rule.Keep == Some(true),
+        use_flag: rule.Use != Some(false),
+        rank: rule.Rank.unwrap_or(0),
+        faction: rule.Faction.unwrap_or(0),
+        main_id: rule.MainStatID.unwrap_or(STAT_ID_ANY),
+        main_f_bits: normalize_f64_bits(main_stat_f_number(rule.MainStatF.as_ref())),
+        level: rule.LVLForCheck.unwrap_or(LEVEL_ANY_SENTINEL),
+        sets: canonical_sorted_numeric(rule.ArtifactSet.as_ref()),
+        types: canonical_sorted_numeric(rule.ArtifactType.as_ref()),
+        substats: rule_substats_signature_key(rule.Substats.as_ref()),
+    }
 }
 
 // Runtime core executes all branches and preserves TS-level dedupe/order rules.
 fn execute_hsf_builder_runtime_core(input: &ExecuteHsfBuilderRuntimeIn) -> Result<ExecuteHsfBuilderRuntimeOut, JsValue> {
     // Branch-level emission signatures collapse cross-rarity duplicates.
-    let mut emitted_signatures = HashSet::<String>::new();
+    let mut emitted_signatures = HashSet::<BuilderEmissionSignatureKey>::new();
     // Preserve rule rows and metadata for shared finalize ordering/pruning.
     let mut rules = Vec::<RuleRaw>::new();
     let mut emission_meta = Vec::<BuilderFinalizeEmissionMetaIn>::new();
@@ -593,7 +619,7 @@ fn build_hsf_rules_runtime_core(input: &BuildHsfRulesRuntimeIn) -> Result<Execut
             level_window_min: input.level_window_min,
             level_window_max: input.level_window_max,
         });
-        let mut emitted_signatures = HashSet::<String>::new();
+        let mut emitted_signatures = HashSet::<BuilderEmissionSignatureKey>::new();
         let mut rules = Vec::<RuleRaw>::new();
         let mut emission_meta = Vec::<BuilderFinalizeEmissionMetaIn>::new();
         let mut next_seq = 0i64;

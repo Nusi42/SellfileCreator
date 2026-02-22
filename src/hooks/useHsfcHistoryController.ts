@@ -13,6 +13,7 @@ import {
   type HistoryTimelineEntry,
 } from './useHsfcHistory'
 import type { SafeguardRule } from '../lib/safeguards'
+import { stableSerialize } from '../lib/stableSerialize'
 
 type Params = {
   customRecipes: BuilderRecipe[]
@@ -126,7 +127,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
       multiEditDraft,
     }
     const payloadTemplate = JSON.stringify(basePayload)
-    const signature = JSON.stringify({
+    const signature = stableSerialize({
       customRecipes,
       metasets,
       substatTargets,

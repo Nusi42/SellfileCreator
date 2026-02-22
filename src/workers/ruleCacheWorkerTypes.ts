@@ -8,40 +8,6 @@ import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { TesterMatchWorkerItemResult } from './testerMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
 
-export type RuleCacheWarmRequest = {
-  id: number
-  kind: 'warm'
-  payload: {
-    recipes: BuilderRecipe[]
-    metasets: Metaset[]
-    substatTargets: SubstatTargetTable
-    hsf: HsfFile | null
-    finalSellRemainder?: FinalSellRemainderConfig
-    safeguards: SafeguardsMergeInput
-  }
-}
-
-export type RuleCacheWarmResponse = {
-  id: number
-  kind: 'warm:done'
-  payload: {
-    rulesByRecipeEntries: Array<[number, HsfRuleWithRecipe[]]>
-    countsByRecipeEntries: Array<[number, number]>
-    keys: string[]
-    substatTargetsKey: string
-    mergedRules: HsfRuleWithRecipe[]
-    truncatedRecipeIndices: number[]
-    totalLimitHit: boolean
-    excludedByTotalLimitIndices: number[]
-  }
-}
-
-export type RuleCacheWarmProgressResponse = {
-  id: number
-  kind: 'warm:progress'
-  payload: ProgressSnapshot
-}
-
 export type RuleCacheBuilderCountRequest = {
   id: number
   kind: 'builderCount'
@@ -63,7 +29,6 @@ export type RuleCachePipelineRequest = {
   id: number
   kind: 'pipeline'
   payload: {
-    // Monotonic generation id from the app so worker runs can drop stale commits.
     generation: number
     recipes: BuilderRecipe[]
     metasets: Metaset[]
@@ -71,19 +36,12 @@ export type RuleCachePipelineRequest = {
     hsf: HsfFile | null
     finalSellRemainder?: FinalSellRemainderConfig
     safeguards: SafeguardsMergeInput
+    // Apply app-wide export-mode transforms before safeguard evaluation/injection.
+    omitDisabledBeforeSafeguards: boolean
+    dedupeBeforeSafeguards: boolean
     recipeModes: SellfileExportMode[]
-    artifacts?: NormalizedGearArtifact[]
-    artifactPatch?: {
-      changed: Array<[number, NormalizedGearArtifact]>
-      removed: number[]
-      signature: string | null
-    }
-    artifactSignature?: string | null
-    resetArtifacts?: boolean
-    fingerprint?: string | null
-    skipWarm?: boolean
-    skipMatches?: boolean
-    skipDetection?: boolean
+    artifacts: NormalizedGearArtifact[]
+    emitProgressEvents?: boolean
   }
 }
 
@@ -100,10 +58,7 @@ export type RuleCachePipelineResponse = {
     totalLimitHit: boolean
     excludedByTotalLimitIndices: number[]
     matches: TesterMatchWorkerItemResult[]
-    // Safeguard detection snapshot for UI inspection + cache parity.
     safeguardDetection: SafeguardDetectionSnapshot | null
-    fingerprint: string | null
-    artifactSignature: string | null
   }
 }
 
@@ -113,25 +68,6 @@ export type RuleCachePipelineProgressResponse = {
   payload: ProgressSnapshot
 }
 
-// Phase markers emitted by the worker for perf timeline breakdowns.
-export type RuleCachePipelinePhase =
-  | 'baseline:start'
-  | 'baseline:done'
-  | 'detection:start'
-  | 'detection:done'
-  | 'final:start'
-  | 'final:done'
-
-// Lightweight phase marker used by the perf timeline helper.
-export type RuleCachePipelinePhaseResponse = {
-  id: number
-  kind: 'pipeline:phase'
-  payload: {
-    phase: RuleCachePipelinePhase
-    data?: Record<string, string | number | boolean | null>
-  }
-}
-
 export type RuleCacheErrorResponse = {
   id: number
   kind: 'error'
@@ -139,15 +75,11 @@ export type RuleCacheErrorResponse = {
 }
 
 export type RuleCacheWorkerResponse =
-  | RuleCacheWarmResponse
-  | RuleCacheWarmProgressResponse
   | RuleCacheBuilderCountResponse
   | RuleCachePipelineResponse
   | RuleCachePipelineProgressResponse
-  | RuleCachePipelinePhaseResponse
   | RuleCacheErrorResponse
 
 export type RuleCacheWorkerRequest =
-  | RuleCacheWarmRequest
   | RuleCacheBuilderCountRequest
   | RuleCachePipelineRequest

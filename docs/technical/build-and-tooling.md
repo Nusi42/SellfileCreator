@@ -77,7 +77,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - WASM rule engine is mandatory in this branch; worker-side generation and matcher paths always run through `src/lib/wasm/wasmRuleEngine.ts`.
   - Worker matcher evaluation runs through WASM when enabled.
   - Worker warm/build generation now routes generated branch-rule finalization (epic/legendary collapse, obsolete pruning, stable ordering) through WASM and fails closed if the WASM module is unavailable.
-  - Cache reuse remains enabled in worker matcher paths; profiling should use fixture sizing and perf timelines rather than cache-disable runtime flags.
+  - Cache reuse remains enabled in worker matcher paths; profile with representative fixtures (`npm run measure:rule-tester`) instead of cache-disable runtime flags.
 
 ### Validation Before Handoff
 
@@ -94,7 +94,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 
 ### Runtime Launch Parameters
 
-- `SellfileCreator.html` (and the dev build at `dist/index.html`) reads the launch URL’s `endpoint` query parameter and exposes it via `window.__APP_CONFIG__`. Passing `?endpoint=ws://localhost:8765/` sets the WebSocket `pushEndpoint` for the entire session. The legacy `endpoint` hash (`#endpoint=`) and the older `push` query/hash names continue to work for backward compatibility as long as they point to a `ws://` or `wss://` URL.
+- `SellfileCreator.html` (and the dev build at `dist/index.html`) reads the launch URL’s `endpoint` query parameter and exposes it via `window.__APP_CONFIG__`. Passing `?endpoint=ws://localhost:8765/` sets the WebSocket `pushEndpoint` for the entire session. The `#endpoint=` hash alias also works as long as it points to a `ws://` or `wss://` URL.
 - When `pushEndpoint` is defined, “Export Sellfile” sends an `uploadSellfile` request over the active WebSocket. Without the parameter, the browser still downloads the file locally. The export button label switches to “Push …” and its tooltip references the active endpoint so users can confirm the target.
 - Incoming events are delivered over WebSocket notifications: `selectRule`, `gearDbFile`, `gearDbRawSnapshot`, and `gearDbRawDelta` (see the WebSocket protocol docs for exact payload shapes).
 - `scripts/watchers/run-db-watcher.ps1` and `scripts/watchers/run-db-watcher-helper.ps1` demonstrate how an external tool can open the packaged app via `Start-Process`, append the encoded WebSocket endpoint automatically, and host a local WebSocket listener that persists incoming `uploadSellfile` payloads to disk (defaults to `exported-sellfile.hsf`, configurable via `-OutputPath`). The scripts target PowerShell 7 (`pwsh`), emit demo events via `[R]`/`[T]`, provide `[F]` to force a DB snapshot, and optionally watch `%APPDATA%\RslHelper\Config` for `.db` changes so the Rule Tester refreshes without manual drag-and-drop.

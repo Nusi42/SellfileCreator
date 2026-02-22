@@ -57,7 +57,6 @@ export type RestoreDraft = {
   Filters?: AutosaveFiltersState
   TesterSort?: TesterSubstatSortState
   LogicHubDialogTab?: LogicHubDialogTab
-  FinalSellDialogTab?: LogicHubDialogTab
   SafeguardsGridFilterMode?: SafeguardsGridFilterMode
 }
 
@@ -138,63 +137,41 @@ const parseCollapsedSections = (raw: unknown): CollapsedSections => {
   return next
 }
 
-// Autosave payloads may come from older versions; decode both the new per-mode structure and the legacy single-mode shape.
+// Autosave payloads must use the current per-mode view structure.
+// Invalid or legacy payloads return null so restore can fail safely.
 const parseSavedFilters = (raw: unknown): AutosaveFiltersState | null => {
   if (!raw || typeof raw !== 'object') return null
   const rec = raw as Record<string, unknown>
-  if (rec['views'] && typeof rec['views'] === 'object') {
-    const viewsRaw = rec['views'] as Record<string, unknown>
-    const views = {} as Record<RulesFilterPreviewMode, AutosaveFilterView>
-    for (const mode of RULES_FILTER_PREVIEW_MODES) {
-      const viewRaw = viewsRaw[mode]
-      if (!viewRaw || typeof viewRaw !== 'object') {
-        views[mode] = {
-          open: RULES_FILTER_OPEN_DEFAULT,
-          state: cloneDefaultRulesFilterState(),
-          collapsed: cloneDefaultRulesFilterCollapsed(),
-        }
-        continue
-      }
-      const viewRec = viewRaw as Record<string, unknown>
-      const stateRaw = viewRec['state']
-      const state = (stateRaw && typeof stateRaw === 'object')
-        ? stateRaw as RulesFilterState
-        : cloneDefaultRulesFilterState()
+  if (!rec['views'] || typeof rec['views'] !== 'object') return null
+  const viewsRaw = rec['views'] as Record<string, unknown>
+  const views = {} as Record<RulesFilterPreviewMode, AutosaveFilterView>
+  for (const mode of RULES_FILTER_PREVIEW_MODES) {
+    const viewRaw = viewsRaw[mode]
+    if (!viewRaw || typeof viewRaw !== 'object') {
       views[mode] = {
-        open: viewRec['open'] === true,
-        state,
-        collapsed: parseCollapsedSections(viewRec['collapsed']),
+        open: RULES_FILTER_OPEN_DEFAULT,
+        state: cloneDefaultRulesFilterState(),
+        collapsed: cloneDefaultRulesFilterCollapsed(),
       }
+      continue
     }
-    const testerModeRaw = rec['testerRecipeFilterMode']
-    const testerRecipeFilterMode = parseTesterRecipeFilterMode(testerModeRaw)
-    const activeModeRaw = rec['activeMode']
-    const activeMode: RulesFilterPreviewMode = activeModeRaw === 'tester' ? 'tester' : 'rules'
-    return {
-      activeMode,
-      views,
-      ...(testerRecipeFilterMode ? { testerRecipeFilterMode } : {}),
+    const viewRec = viewRaw as Record<string, unknown>
+    const stateRaw = viewRec['state']
+    const state = (stateRaw && typeof stateRaw === 'object')
+      ? stateRaw as RulesFilterState
+      : cloneDefaultRulesFilterState()
+    views[mode] = {
+      open: viewRec['open'] === true,
+      state,
+      collapsed: parseCollapsedSections(viewRec['collapsed']),
     }
-  }
-  const stateRaw = rec['state']
-  if (!stateRaw || typeof stateRaw !== 'object') return null
-  const legacyView: AutosaveFilterView = {
-    open: rec['open'] === true,
-    state: stateRaw as RulesFilterState,
-    collapsed: parseCollapsedSections(rec['collapsed']),
   }
   const testerModeRaw = rec['testerRecipeFilterMode']
   const testerRecipeFilterMode = parseTesterRecipeFilterMode(testerModeRaw)
-  const views = RULES_FILTER_PREVIEW_MODES.reduce((acc, mode) => {
-    acc[mode] = {
-      open: legacyView.open,
-      state: legacyView.state,
-      collapsed: legacyView.collapsed,
-    }
-    return acc
-  }, {} as Record<RulesFilterPreviewMode, AutosaveFilterView>)
+  const activeModeRaw = rec['activeMode']
+  const activeMode: RulesFilterPreviewMode = activeModeRaw === 'tester' ? 'tester' : 'rules'
   return {
-    activeMode: 'rules',
+    activeMode,
     views,
     ...(testerRecipeFilterMode ? { testerRecipeFilterMode } : {}),
   }
@@ -359,7 +336,7 @@ function computeInitialAutosaveState(args: {
             ...(() => {
               const rawLogicHubTab = typeof payload['LogicHubDialogTab'] === 'string'
                 ? payload['LogicHubDialogTab']
-                : (typeof payload['FinalSellDialogTab'] === 'string' ? payload['FinalSellDialogTab'] : null)
+                : null
               if (!rawLogicHubTab) return {}
               const normalized = LOGIC_HUB_DIALOG_TABS.includes(rawLogicHubTab as LogicHubDialogTab)
                 ? rawLogicHubTab as LogicHubDialogTab

@@ -463,6 +463,17 @@ export default function GearSetsSelect({
     onChange([])
     if (allowMetasets && onChangeMetasetIds) onChangeMetasetIds([])
   }, [allowMetasets, onChange, onChangeMetasetIds])
+  // Keep the closed Select cheap: include only selected tokens so MUI value checks stay valid.
+  // Why: full set/metaset menu trees are expensive when many selectors mount at once.
+  const closedMenuItems = useMemo(() => (
+    selectedTokens.map((token) => (
+      <MenuItem
+        key={`closed-${token}`}
+        value={token}
+        sx={{ display: 'none' }}
+      />
+    ))
+  ), [selectedTokens])
 
   return (
     <Box
@@ -576,134 +587,138 @@ export default function GearSetsSelect({
           },
         }}
       >
-        {allowMetasets && metasetsMenu.length > 0 ? (
-          <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
-            <Box
-              component="ul"
-              ref={metasetsMenuListRef}
-              sx={{
-                listStyle: 'none',
-                p: 0,
-                m: 0,
-                maxHeight: MENU_MAX_HEIGHT_METASETS_PX,
-                overflowY: 'auto',
-                pr: `${MENU_SCROLL_GUTTER_PX}px`,
-                ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
-              }}
-              data-tour-id="menu.metasets.section"
-            >
-              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('menuMetasetsSection')}</ListSubheader>
-              {metasetsMenu.map((meta) => {
-                const { glyph, iconId } = metasetGlyph(meta)
-                const hasGlyph = glyph != null && !!iconId
-                const needsGap = iconId !== null && iconId !== 'empty'
-                const tooltipName = hasGlyph ? `${glyph}${needsGap ? ` ${meta.name}` : meta.name}` : meta.name
-                const displayGap = hasGlyph && needsGap ? 0.75 : 0.5
-                const selected = (selectedMetasetIds ?? []).includes(meta.id)
-                const setNames = meta.sets.map((id) => getLocalizedGearSetName(id, t, lang)).filter(Boolean)
-                const joined = setNames.join(', ')
-                return (
-                  <MenuItem
-                    key={meta.id}
-                    value={`m:${meta.id}`}
-                    selected={selected}
-                    data-metaset-id={meta.id}
-                    onMouseEnter={() => setHoveredMetasetId(meta.id)}
-                    onMouseLeave={() => setHoveredMetasetId((prev) => (prev === meta.id ? null : prev))}
-                    onClick={(evt) => {
-                      evt.preventDefault()
-                      evt.stopPropagation()
-                      if (!onChangeMetasetIds) return
-                      const token = `m:${meta.id}`
-                      const tokens = new Set(selectedTokens)
-                      if (tokens.has(token)) tokens.delete(token); else tokens.add(token)
-                      const metaIds = Array.from(tokens).filter((tok) => tok.startsWith('m:')).map((tok) => tok.slice(2))
-                      onChangeMetasetIds(orderMetasetIds(metaIds, orderBasis))
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
-                      <EllipsisTooltip title={tooltipName} wrap="block">
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: displayGap, minWidth: 0 }}>
-                          {hasGlyph ? (
-                            <Box component="span" aria-hidden sx={{ fontSize: 18, width: 22, textAlign: 'center', lineHeight: 1 }}>
-                              {glyph}
+        {menuOpen ? (
+          <>
+            {allowMetasets && metasetsMenu.length > 0 ? (
+              <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
+                <Box
+                  component="ul"
+                  ref={metasetsMenuListRef}
+                  sx={{
+                    listStyle: 'none',
+                    p: 0,
+                    m: 0,
+                    maxHeight: MENU_MAX_HEIGHT_METASETS_PX,
+                    overflowY: 'auto',
+                    pr: `${MENU_SCROLL_GUTTER_PX}px`,
+                    ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
+                  }}
+                  data-tour-id="menu.metasets.section"
+                >
+                  <ListSubheader sx={LIST_SUBHEADER_SX}>{t('menuMetasetsSection')}</ListSubheader>
+                  {metasetsMenu.map((meta) => {
+                    const { glyph, iconId } = metasetGlyph(meta)
+                    const hasGlyph = glyph != null && !!iconId
+                    const needsGap = iconId !== null && iconId !== 'empty'
+                    const tooltipName = hasGlyph ? `${glyph}${needsGap ? ` ${meta.name}` : meta.name}` : meta.name
+                    const displayGap = hasGlyph && needsGap ? 0.75 : 0.5
+                    const selected = (selectedMetasetIds ?? []).includes(meta.id)
+                    const setNames = meta.sets.map((id) => getLocalizedGearSetName(id, t, lang)).filter(Boolean)
+                    const joined = setNames.join(', ')
+                    return (
+                      <MenuItem
+                        key={meta.id}
+                        value={`m:${meta.id}`}
+                        selected={selected}
+                        data-metaset-id={meta.id}
+                        onMouseEnter={() => setHoveredMetasetId(meta.id)}
+                        onMouseLeave={() => setHoveredMetasetId((prev) => (prev === meta.id ? null : prev))}
+                        onClick={(evt) => {
+                          evt.preventDefault()
+                          evt.stopPropagation()
+                          if (!onChangeMetasetIds) return
+                          const token = `m:${meta.id}`
+                          const tokens = new Set(selectedTokens)
+                          if (tokens.has(token)) tokens.delete(token); else tokens.add(token)
+                          const metaIds = Array.from(tokens).filter((tok) => tok.startsWith('m:')).map((tok) => tok.slice(2))
+                          onChangeMetasetIds(orderMetasetIds(metaIds, orderBasis))
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
+                          <EllipsisTooltip title={tooltipName} wrap="block">
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: displayGap, minWidth: 0 }}>
+                              {hasGlyph ? (
+                                <Box component="span" aria-hidden sx={{ fontSize: 18, width: 22, textAlign: 'center', lineHeight: 1 }}>
+                                  {glyph}
+                                </Box>
+                              ) : null}
+                              <Box component="span" data-ellipsis-target sx={{ display: 'block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {meta.name}
+                              </Box>
                             </Box>
+                          </EllipsisTooltip>
+                          {setNames.length > 0 ? (
+                            <EllipsisTooltip title={joined} wrap="block">
+                              <Box component="span" data-ellipsis-target sx={{ fontSize: 12, color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}>
+                                {joined}
+                              </Box>
+                            </EllipsisTooltip>
                           ) : null}
-                          <Box component="span" data-ellipsis-target sx={{ display: 'block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {meta.name}
-                          </Box>
                         </Box>
-                      </EllipsisTooltip>
-                      {setNames.length > 0 ? (
-                        <EllipsisTooltip title={joined} wrap="block">
-                          <Box component="span" data-ellipsis-target sx={{ fontSize: 12, color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}>
-                            {joined}
-                          </Box>
-                        </EllipsisTooltip>
-                      ) : null}
-                    </Box>
-                  </MenuItem>
-                )
-              })}
-            </Box>
-          </Box>
-        ) : null}
-        <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
-          <ListSubheader
-            component="div"
-            sx={[LIST_SUBHEADER_SX, { py: 0.5, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, boxSizing: 'border-box', width: `calc(100% - ${MENU_SCROLL_GUTTER_PX}px)` }]}
-          >
-            <Box
-              sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <SetsOrderControls
-                setsSearch={setsSearch}
-                onSetsSearchChange={setSetsSearch}
-                setsOrder={setsOrder}
-                onSetsOrderChange={(next) => {
-                  if (!next) return
-                  setSetsOrder(next)
-                  scrollSetsMenuToSelected(next, { force: true })
+                      </MenuItem>
+                    )
+                  })}
+                </Box>
+              </Box>
+            ) : null}
+            <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
+              <ListSubheader
+                component="div"
+                sx={[LIST_SUBHEADER_SX, { py: 0.5, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, boxSizing: 'border-box', width: `calc(100% - ${MENU_SCROLL_GUTTER_PX}px)` }]}
+              >
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <SetsOrderControls
+                    setsSearch={setsSearch}
+                    onSetsSearchChange={setSetsSearch}
+                    setsOrder={setsOrder}
+                    onSetsOrderChange={(next) => {
+                      if (!next) return
+                      setSetsOrder(next)
+                      scrollSetsMenuToSelected(next, { force: true })
+                    }}
+                    zeroResults={sortedSets.length === 0}
+                  />
+                </Box>
+              </ListSubheader>
+              <Box
+                component="ul"
+                ref={setsMenuListRef}
+                sx={{
+                  listStyle: 'none',
+                  p: 0,
+                  m: 0,
+                  ...(setsOrder === 'icons'
+                    ? { maxHeight: 'none', height: 'auto', overflowY: 'visible' }
+                    : { maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX, height: MENU_MAX_HEIGHT_SETS_LIST_PX, overflowY: 'auto' }),
+                  pr: `${MENU_SCROLL_GUTTER_PX}px`,
+                  ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
                 }}
-                zeroResults={sortedSets.length === 0}
-              />
+              >
+                <SetMenuSection
+                  title="Sets"
+                  sorted={sortedSets}
+                  setsOrder={setsOrder}
+                  metasets={metasets}
+                  setUsageCounts={{}}
+                  showUsageCounts={false}
+                  hideHeader
+                  valueForSet={(id) => `s:${id}`}
+                  hoveredMetasetId={hoveredMetasetId}
+                  selectedMetasetIds={selectedMetasetIds}
+                  selectedSetIds={splitSelections.included.map(Number)}
+                  excludedSetIds={splitSelections.excluded.map(Number)}
+                  disabledSetIds={disabledSetIds ?? []}
+                  onToggleSet={handleToggleSet}
+                  onContextMenuSet={handleContextMenuSet}
+                />
+              </Box>
             </Box>
-          </ListSubheader>
-          <Box
-            component="ul"
-            ref={setsMenuListRef}
-            sx={{
-              listStyle: 'none',
-              p: 0,
-              m: 0,
-              ...(setsOrder === 'icons'
-                ? { maxHeight: 'none', height: 'auto', overflowY: 'visible' }
-                : { maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX, height: MENU_MAX_HEIGHT_SETS_LIST_PX, overflowY: 'auto' }),
-              pr: `${MENU_SCROLL_GUTTER_PX}px`,
-              ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
-            }}
-          >
-            <SetMenuSection
-              title="Sets"
-              sorted={sortedSets}
-              setsOrder={setsOrder}
-              metasets={metasets}
-              setUsageCounts={{}}
-              showUsageCounts={false}
-              hideHeader
-              valueForSet={(id) => `s:${id}`}
-              hoveredMetasetId={hoveredMetasetId}
-              selectedMetasetIds={selectedMetasetIds}
-              selectedSetIds={splitSelections.included.map(Number)}
-              excludedSetIds={splitSelections.excluded.map(Number)}
-              disabledSetIds={disabledSetIds ?? []}
-              onToggleSet={handleToggleSet}
-              onContextMenuSet={handleContextMenuSet}
-            />
-          </Box>
-        </Box>
+          </>
+        ) : closedMenuItems}
       </Select>
       <InlineSelectExtraBadge count={extraSelectionCount} />
       <InlineSelectClearButton

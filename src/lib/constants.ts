@@ -183,12 +183,10 @@ export const MULTI_EDIT_MIXED_TEXT_ALPHA = {
 // scrollable containers move. We add a short-lived body class to hide all
 // tooltips during active scroll interactions for visual stability.
 export const SCROLLING_TOOLTIP_HIDE_MS = 250
-// Explanatory tooltips attached to passive text should appear quickly to keep context visible.
-// Why: Informational labels rarely intercept clicks, so we bias toward responsiveness.
-export const MARKDOWN_TOOLTIP_INFO_ENTER_DELAY_MS = 500
-// Interactive controls (buttons/icons) need a longer hover delay so the tooltip does not obscure click targets.
-// Why: Left-click handlers should win over hover hints to avoid flicker while aiming for controls.
-export const MARKDOWN_TOOLTIP_INTERACTIVE_ENTER_DELAY_MS = 1000
+// Explanatory tooltips attached to passive text use the shared hover delay.
+export const MARKDOWN_TOOLTIP_INFO_ENTER_DELAY_MS = 2000
+// Interactive controls keep a separate constant so behavior can diverge later if needed.
+export const MARKDOWN_TOOLTIP_INTERACTIVE_ENTER_DELAY_MS = 2000
 // Consistent width cap for MarkdownTooltip content so longer translations wrap
 // gracefully without spanning the entire viewport.
 export const MARKDOWN_TOOLTIP_MAX_WIDTH_PX = 520
@@ -316,10 +314,16 @@ export const HISTORY_MENU_MAX_HEIGHT_PX = 360
 // Max width for builder history tooltips so multi-line diffs stay readable
 // without covering the entire viewport.
 export const HISTORY_TOOLTIP_MAX_WIDTH_PX = 728
-// Cap the number of per-item diffs shown in the Gear DB endpoint toast so the
-// notification stays compact and does not obscure the preview controls.
-// Cap the preview list so history/tooltips never need scrollbars.
-export const GEAR_DB_DIFF_TOAST_MAX_ITEMS = 3
+// Cap the number of per-item diffs shown in the Gear DB endpoint toast.
+export const GEAR_DB_DIFF_TOAST_MAX_ITEMS = 18
+// Single-sided (add-only/remove-only) toasts render in two columns, so allow
+// the toast payload to retain both columns before truncation.
+export const GEAR_DB_DIFF_TOAST_SINGLE_SIDED_MAX_ITEMS = GEAR_DB_DIFF_TOAST_MAX_ITEMS * 2
+// History can render single-sided add/remove updates in two columns, so retain
+// enough entries to fill both columns before truncating.
+export const GEAR_DB_DIFF_HISTORY_MAX_ITEMS = GEAR_DB_DIFF_TOAST_MAX_ITEMS * 2
+// Cap Gear DB history tooltip height so tall diff lists scroll inside the popper.
+export const GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX = 640
 // Scale factor for tester cards rendered inside the Gear DB diff toast/history.
 export const GEAR_DB_DIFF_TOAST_CARD_SCALE = 0.7
 // Idle gutter for substat toggles; shrinks the placeholder columns when no roll
@@ -472,8 +476,13 @@ export const TESTER_GRID_SHOW_FIRST_MATCH_KEY = 'sellfileCreator.tester.grid.sho
 export const TESTER_GRID_SHOW_MATCH_RECIPE_INDEX_KEY = 'sellfileCreator.tester.grid.showMatchRecipeIndex.v1'
 export const TESTER_GRID_SHOW_MATCH_LINE_KEY = 'sellfileCreator.tester.grid.showMatchLine.v1'
 export const TESTER_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.tester.grid.showOtherMatches.v1'
+// Safeguards keeps its own default for "show other matches" so Rule Tester stays unchanged.
+export const SAFEGUARDS_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.safeguards.grid.showOtherMatches.v1'
 export const TESTER_GRID_SHOW_CHAMP_ICONS_KEY = 'sellfileCreator.tester.grid.showChampIcons.v1'
 export const TESTER_GRID_SHOW_RULE_TEMPLATES_KEY = 'sellfileCreator.tester.grid.showRuleTemplates.v1'
+// Tester grid: keep/sell outcome background emphasis toggle.
+// Why: this is view-only card styling and should persist across sessions like other grid toggles.
+export const TESTER_GRID_HIGHLIGHT_KEEP_SELL_KEY = 'sellfileCreator.tester.grid.highlightKeepSell.v1'
 // Tester grid: safeguard upgrade chance overlay toggle.
 // Why: the overlay is view-only and should persist across sessions like other grid display toggles.
 export const TESTER_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY = 'sellfileCreator.tester.grid.showSafeguardUpgradeChance.v1'

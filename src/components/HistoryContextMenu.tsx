@@ -50,6 +50,8 @@ export function HistoryContextMenu({
   contextMenuGuard: ContextMenuPaperGuardToken
 }) {
   const hasMultipleEntries = entries.length > 1
+  // Include the current stack size directly in the clear row label.
+  const clearHistoryLabel = `${t('builderHistoryClear')} (${entries.length})`
   const reversed = React.useMemo(() => {
     return entries.slice().reverse()
   }, [entries])
@@ -181,7 +183,7 @@ export function HistoryContextMenu({
         sx={{ color: hasMultipleEntries ? 'error.main' : 'text.secondary', fontWeight: 600 }}
         disabled={!hasMultipleEntries}
       >
-        {t('builderHistoryClear')}
+        {clearHistoryLabel}
       </MenuItem>
     </Menu>
   )

@@ -714,8 +714,8 @@ export function buildReadableRecipe(recipe: BuilderRecipe, metasets: Metaset[]) 
       ? 'Disabled'
       : 'Active'
   const readableTargets = rollTargetsToReadable((recipe as BuilderRecipe).substatRollTargetsV)
-  // Normalize tags into a string array for HSFC output.
-  const tags = Array.isArray(recipe.tags) ? recipe.tags.map(String).filter(Boolean) : []
+  // Canonicalize tags for HSFC output (includes legacy safeguard-ignore aliases).
+  const tags = normalizeTagList(recipe.tags) ?? []
   return {
     name: recipe.name,
     // Emit tags only when non-empty to keep payloads clean.

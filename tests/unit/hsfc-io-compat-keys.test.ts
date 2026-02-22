@@ -157,3 +157,50 @@ test('HSFC parser preserves safeguard substatWeights from legacy KeepUniques pay
   assert.equal(exportedWeights['SPD'], 1.5)
   assert.equal(exportedWeights['ACC'], 0.9)
 })
+
+test('HSFC parser canonicalizes legacy safeguard-ignore recipe tags on roundtrip', () => {
+  const parsed = parseHsfcObject(
+    {
+      Version: 'legacy-ignore-tag',
+      Recipes: [
+        {
+          ...buildRecipe('Legacy Ignore Tag'),
+          Tags: ['ignore_keep_unique', 'speed'],
+        },
+      ],
+    },
+    { metasets: [], substatTargets: defaultSubstatTargets() },
+  )
+  // Read path should accept legacy ignore tag aliases.
+  assert.deepEqual(parsed.recipes[0]?.tags, ['ignore_by_safeguards', 'speed'])
+
+  const payload = buildHsfcPayload({
+    version: 'roundtrip-ignore-tag',
+    metasets: parsed.metasets,
+    substatTargets: parsed.substatTargets,
+    recipes: parsed.recipes,
+    selectedRecipeIndex: parsed.selectedIndex,
+  }) as Record<string, unknown>
+  const recipe = ((payload['Recipes'] as unknown[])?.[0] ?? null) as Record<string, unknown> | null
+  assert(recipe, 'expected exported recipe')
+  // Write path should emit only canonical safeguard-ignore tags.
+  assert.deepEqual(recipe['Tags'], ['ignore_by_safeguards', 'speed'])
+})
+
+test('HSFC writer canonicalizes legacy safeguard-ignore aliases from runtime recipe state', () => {
+  const legacyTaggedRecipe = {
+    ...buildRecipe('Legacy Writer Alias'),
+    tags: ['ignore_keep_unique', 'speed'],
+  }
+  const payload = buildHsfcPayload({
+    version: 'writer-legacy-ignore-tag',
+    metasets: [],
+    substatTargets: defaultSubstatTargets(),
+    recipes: [legacyTaggedRecipe],
+    selectedRecipeIndex: 0,
+  }) as Record<string, unknown>
+  const recipe = ((payload['Recipes'] as unknown[])?.[0] ?? null) as Record<string, unknown> | null
+  assert(recipe, 'expected exported recipe')
+  // Write boundary should emit canonical wording even for legacy runtime aliases.
+  assert.deepEqual(recipe['Tags'], ['ignore_by_safeguards', 'speed'])
+})

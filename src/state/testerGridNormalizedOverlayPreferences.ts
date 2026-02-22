@@ -45,6 +45,9 @@ export type TesterGridNormalizedOverlayState = {
   useSortWeights: boolean
   // Enabled presets; when multiple are enabled we show the best (max) score.
   enabledPresetIds: TesterGridNormalizedPresetId[]
+  // Last non-empty preset selection used by the quick "Show Substat Rating" toggle.
+  // When the current selection is empty, we restore this snapshot (or fallback to 1..6 on first use).
+  lastEnabledPresetIds: TesterGridNormalizedPresetId[]
   // All presets (fixed-count array so UI indexes remain stable).
   presets: TesterGridNormalizedPreset[]
 }
@@ -106,10 +109,32 @@ const createDefaultPreset = (presetId: TesterGridNormalizedPresetId): TesterGrid
   }
 }
 
+const DEFAULT_LAST_ENABLED_PRESET_IDS: TesterGridNormalizedPresetId[] = Array
+  .from({ length: Math.min(6, TESTER_NORMALIZED_PRESET_COUNT) })
+  .map((_, idx) => idx as TesterGridNormalizedPresetId)
+
+const normalizePresetIdList = (raw: unknown): TesterGridNormalizedPresetId[] => {
+  // Enabled/last-enabled lists share the same shape and validation rules.
+  if (!Array.isArray(raw)) return []
+  const seen = new Set<number>()
+  const out: TesterGridNormalizedPresetId[] = []
+  raw.forEach((entry) => {
+    const id = normalizePresetId(entry)
+    if (id == null) return
+    if (seen.has(id)) return
+    seen.add(id)
+    out.push(id)
+  })
+  out.sort((a, b) => a - b)
+  return out
+}
+
 const DEFAULT_STATE: TesterGridNormalizedOverlayState = {
   // Defaults keep overlay hidden until the user enables at least one preset.
   useSortWeights: false,
   enabledPresetIds: [],
+  // First-time quick-toggle fallback: presets 1..6 (or fewer if total preset count is smaller).
+  lastEnabledPresetIds: DEFAULT_LAST_ENABLED_PRESET_IDS.slice(),
   // Presets are fixed-count so indexes remain stable; each entry is a self-contained snapshot.
   presets: Array.from({ length: TESTER_NORMALIZED_PRESET_COUNT }).map((_, idx) => (
     createDefaultPreset(idx as TesterGridNormalizedPresetId)
@@ -123,21 +148,13 @@ export const normalizeTesterGridNormalizedOverlayState = (raw: unknown): TesterG
 
   const useSortWeights = obj.useSortWeights === true
 
-  const enabledPresetIds: TesterGridNormalizedPresetId[] = (() => {
-    // Enabled list is the user’s "show these scores" selection; ignore garbage values silently.
-    if (!Array.isArray(obj.enabledPresetIds)) return []
-    const seen = new Set<number>()
-    const out: TesterGridNormalizedPresetId[] = []
-    obj.enabledPresetIds.forEach((entry) => {
-      const id = normalizePresetId(entry)
-      if (id == null) return
-      if (seen.has(id)) return
-      seen.add(id)
-      out.push(id)
-    })
-    // Keep ordering stable so UI renders deterministically across sessions.
-    out.sort((a, b) => a - b)
-    return out
+  const enabledPresetIds = normalizePresetIdList(obj.enabledPresetIds)
+  const lastEnabledPresetIds = (() => {
+    // Restore explicit history when present; otherwise bootstrap from current selection or 1..6 fallback.
+    const parsed = normalizePresetIdList(obj.lastEnabledPresetIds)
+    if (parsed.length > 0) return parsed
+    if (enabledPresetIds.length > 0) return enabledPresetIds
+    return DEFAULT_LAST_ENABLED_PRESET_IDS.slice()
   })()
 
   const presets: TesterGridNormalizedPreset[] = (() => {
@@ -163,8 +180,8 @@ export const normalizeTesterGridNormalizedOverlayState = (raw: unknown): TesterG
 
   // Enforce exclusivity between [S] and [1..9] at hydration time so UI remains deterministic.
   return useSortWeights
-    ? { useSortWeights: true, enabledPresetIds: [], presets }
-    : { useSortWeights: false, enabledPresetIds, presets }
+    ? { useSortWeights: true, enabledPresetIds: [], lastEnabledPresetIds, presets }
+    : { useSortWeights: false, enabledPresetIds, lastEnabledPresetIds, presets }
 }
 
 const testerGridNormalizedOverlayStore = createLocalStorageStore<TesterGridNormalizedOverlayState>({
@@ -190,7 +207,15 @@ export function useTesterGridNormalizedOverlayPreferences() {
     testerGridNormalizedOverlayStore.update((prev) => {
       const enabling = !prev.useSortWeights
       return enabling
-        ? { ...prev, useSortWeights: true, enabledPresetIds: [] }
+        ? {
+            ...prev,
+            useSortWeights: true,
+            enabledPresetIds: [],
+            // Preserve current selection as the "last used" target for quick restore.
+            lastEnabledPresetIds: prev.enabledPresetIds.length > 0
+              ? prev.enabledPresetIds
+              : prev.lastEnabledPresetIds,
+          }
         : { ...prev, useSortWeights: false }
     })
   }, [])
@@ -207,7 +232,38 @@ export function useTesterGridNormalizedOverlayPreferences() {
         enabled.add(presetId)
       }
       const enabledPresetIds = [...enabled].sort((a, b) => a - b).map((id) => id as TesterGridNormalizedPresetId)
-      return { ...prev, useSortWeights, enabledPresetIds }
+      return {
+        ...prev,
+        useSortWeights,
+        enabledPresetIds,
+        // Only update history when selection remains non-empty; empty means "temporarily hidden."
+        lastEnabledPresetIds: enabledPresetIds.length > 0 ? enabledPresetIds : prev.lastEnabledPresetIds,
+      }
+    })
+  }, [])
+
+  const toggleEnabledPresetsFromLastUsed = useCallback(() => {
+    // Quick toggle behavior:
+    // - if any presets are enabled: hide all presets;
+    // - if none are enabled: restore last non-empty selection (or first-run 1..6 fallback).
+    testerGridNormalizedOverlayStore.update((prev) => {
+      if (prev.enabledPresetIds.length > 0) {
+        return {
+          ...prev,
+          useSortWeights: false,
+          enabledPresetIds: [],
+          lastEnabledPresetIds: prev.enabledPresetIds,
+        }
+      }
+      const restore = prev.lastEnabledPresetIds.length > 0
+        ? prev.lastEnabledPresetIds
+        : DEFAULT_LAST_ENABLED_PRESET_IDS
+      return {
+        ...prev,
+        useSortWeights: false,
+        enabledPresetIds: restore.slice(),
+        lastEnabledPresetIds: restore.slice(),
+      }
     })
   }, [])
 
@@ -303,6 +359,7 @@ export function useTesterGridNormalizedOverlayPreferences() {
     state,
     toggleUseSortWeights,
     togglePresetEnabled,
+    toggleEnabledPresetsFromLastUsed,
     toggleVariant,
     setPresetIconId,
     setWeight,

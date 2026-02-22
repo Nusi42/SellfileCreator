@@ -16,6 +16,9 @@ import MarkdownTooltip from './MarkdownTooltip'
 const GRID_ICON_BOX_SIZE_PX = 88
 const GRID_ICON_BORDER_RADIUS_PX = 8
 const GRID_ICON_BORDER_WIDTH_PX = 2
+// Stacked overlay chips need breathing room so chance + rating remain visually distinct.
+const STACKED_OVERLAY_TOP_Y_PERCENT = 23
+const STACKED_OVERLAY_CENTER_Y_PERCENT = 53
 
 const ACCESSORY_BADGED_SET_IDS = new Set<number>([
   ArtifactSet.Refresh,
@@ -312,10 +315,11 @@ export default function GridIconBox({
       sx={(theme) => {
         // Single-overlay mode mirrors the larger rating chip; stacked mode mirrors the compact chance chip.
         const compact = stackedOverlayMode
+        const overlayY = compact ? `${STACKED_OVERLAY_CENTER_Y_PERCENT}%` : '50%'
         return {
           position: 'absolute',
           left: '50%',
-          top: '50%',
+          top: overlayY,
           transform: 'translate(-50%, -50%)',
           px: compact ? 0.65 : 0.85,
           py: compact ? 0.2 : 0.35,
@@ -361,10 +365,11 @@ export default function GridIconBox({
       sx={(theme) => {
         // If chance is the only overlay, render it with the same prominent style as the rating chip.
         const prominent = !stackedOverlayMode
+        const overlayY = prominent ? '50%' : `${STACKED_OVERLAY_TOP_Y_PERCENT}%`
         return {
           position: 'absolute',
           left: '50%',
-          top: prominent ? '50%' : '26%',
+          top: overlayY,
           transform: 'translate(-50%, -50%)',
           px: prominent ? 0.85 : 0.65,
           py: prominent ? 0.35 : 0.2,
