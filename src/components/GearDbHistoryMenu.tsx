@@ -34,6 +34,74 @@ export type GearDbHistoryMenuProps = {
   useStatButtonColors: boolean
 }
 
+function ClippedPreviewBody({
+  maxHeightPx,
+  children,
+}: {
+  maxHeightPx: number
+  children: React.ReactNode
+}) {
+  const containerRef = React.useRef<HTMLDivElement | null>(null)
+  const [showOverflowCue, setShowOverflowCue] = React.useState(false)
+  React.useEffect(() => {
+    const node = containerRef.current
+    if (!node) return undefined
+    const measure = () => {
+      const nextOverflow = node.scrollHeight > node.clientHeight + 1
+      setShowOverflowCue((prev) => (prev === nextOverflow ? prev : nextOverflow))
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(() => { measure() })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [children, maxHeightPx])
+  return (
+    <Box
+      ref={containerRef}
+      sx={(theme) => ({
+        position: 'relative',
+        maxHeight: maxHeightPx,
+        overflow: 'hidden',
+        ...(showOverflowCue
+          ? {
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: theme.spacing(4),
+              background: `linear-gradient(to bottom, ${theme.palette.background.paper}00 0%, ${theme.palette.background.paper} 100%)`,
+              pointerEvents: 'none',
+            },
+          }
+          : {}),
+      })}
+    >
+      {children}
+      {showOverflowCue ? (
+        <Typography
+          variant="caption"
+          component="span"
+          sx={{
+            position: 'absolute',
+            right: 8,
+            bottom: 4,
+            lineHeight: 1,
+            fontSize: '0.95rem',
+            opacity: 0.8,
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+        >
+          ...
+        </Typography>
+      ) : null}
+    </Box>
+  )
+}
+
 // Format the local timestamp so history entries are easy to scan.
 const formatHistoryTimestamp = (value: number): string | null => (
   formatLocalDateTime(value, { dateStyle: 'medium', timeStyle: 'medium' })
@@ -201,26 +269,20 @@ export function GearDbHistoryMenu({
                   setHoveredEntryId((current) => (current === entry.id ? null : current))
                 }}
               render={tooltipPayload ? (
-                <Box
-                  sx={{
-                    // Let the tooltip expand to fit all preview cards + footer.
-                    overflow: 'visible',
-                  }}
-                >
+                <ClippedPreviewBody maxHeightPx={GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX}>
                   <GearDbDiffToast
                     payload={tooltipPayload}
                     substatColors={substatColors}
                     useStatButtonColors={useStatButtonColors}
                   />
-                </Box>
+                </ClippedPreviewBody>
               ) : ''}
               slotProps={{
                 tooltip: {
                   sx: {
                     maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX,
-                    // Tall history previews should scroll within the tooltip viewport.
-                    maxHeight: GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX,
-                    overflowY: 'auto',
+                    // Let the content wrapper own scrolling so nested scrollbars cannot appear.
+                    overflow: 'visible',
                   },
                 },
               }}
@@ -337,14 +399,22 @@ export function GearDbHistoryMenu({
             }),
           }),
         }}
-        MenuListProps={{ disablePadding: true }}
+        MenuListProps={{
+          disablePadding: true,
+          sx: {
+            // Disable MenuList scrolling so the inner preview panel is the only vertical scroller.
+            overflow: 'visible',
+            maxHeight: 'none',
+          },
+        }}
       >
         <Box
           sx={{
             p: 1,
-            // Keep large previews usable without requiring giant viewports.
+            // Popout is interactive/persistent, so preserve scrolling for full inspection.
             maxHeight: GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX,
             overflowY: 'auto',
+            overflowX: 'hidden',
           }}
         >
           {activePreviewPopout ? (

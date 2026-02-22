@@ -339,6 +339,8 @@ function ScaledTesterGridCard({
         flexShrink: 0,
         borderRadius: 1,
         boxSizing: 'border-box',
+        // Clip tester-card overflow inside history preview wrappers so no nested card scroll regions appear.
+        overflow: 'hidden',
         ...(accentBorderColor ? { border: `1px solid ${accentBorderColor}` } : {}),
       }}
     >
