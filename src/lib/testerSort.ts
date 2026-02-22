@@ -59,6 +59,14 @@ const ascensionLevel = (row: TesterPreviewRow): number => {
   return Number.isFinite(rolls) ? Number(rolls) : 0
 }
 
+const exactArtifactLevelForSort = (row: TesterPreviewRow): number => {
+  const exact = row.artifact.exactLevel
+  if (Number.isFinite(exact)) {
+    return Number(exact)
+  }
+  return Number(row.artifact.level)
+}
+
 const MAINSTAT_PRIORITY: readonly StatVariant[] = [
   StatVariant.HP,
   StatVariant.HP_FLAT,
@@ -100,7 +108,7 @@ export function compareTesterPreviewRows(a: TesterPreviewRow, b: TesterPreviewRo
     || compareDescendingNumbers(a.artifact.rarity, b.artifact.rarity)
     || compareDescendingNumbers(ascensionLevel(a), ascensionLevel(b))
     // Higher upgrade level should surface first before main-stat priority kicks in.
-    || compareDescendingNumbers(a.artifact.level, b.artifact.level)
+    || compareDescendingNumbers(exactArtifactLevelForSort(a), exactArtifactLevelForSort(b))
     || (mainStatPriority(a) - mainStatPriority(b))
     // When all UI keys match, artifact id decides position so DB row-order churn cannot move equal cards.
     || compareAscendingNumbers(artifactIdForSort(a), artifactIdForSort(b))
