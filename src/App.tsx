@@ -38,6 +38,7 @@ import {
   FONT_SIZE_HEADER_META_PX,
   FONT_SIZE_BASE_PX,
   GEAR_DB_DIFF_HISTORY_MAX_ITEMS,
+  GEAR_DB_DIFF_HISTORY_MAX_UPDATES,
   GEAR_DB_DIFF_TOAST_MAX_ITEMS,
   GEAR_DB_DIFF_TOAST_SINGLE_SIDED_MAX_ITEMS,
   SELECTION_SCROLL_SOURCE_SELECT_RULE,
@@ -102,6 +103,7 @@ import { stableSerialize } from './lib/stableSerialize'
 import {
   buildGearDbDiffSummary,
   collectGearDbDeltaArtifactIds,
+  encodeGearDbDiffToastEntries,
   formatGearDbDiffHistoryLines,
   snapshotGearDbDataset,
   type GearDbDiffEntry,
@@ -1706,15 +1708,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     gearDbDiffHistoryIdRef.current = nextId
     // Store a capped copy of the diff so history mirrors the toast surface.
     setGearDbDiffHistory((prev) => ([
+      // Append the new entry first, then trim from the front.
       ...prev,
       {
         id: nextId,
         createdAt: params.createdAt,
         lineSpecs: params.lineSpecs,
-        entries: params.entries,
+        // Store a compact payload; decode only when a history preview is shown.
+        compactEntries: encodeGearDbDiffToastEntries(params.entries),
         overflowCount: params.overflowCount,
       },
-    ]))
+    ].slice(-GEAR_DB_DIFF_HISTORY_MAX_UPDATES)))
   }, [])
   // Clear history on demand; session-only state should reset instantly.
   const clearGearDbDiffHistory = useCallback(() => {

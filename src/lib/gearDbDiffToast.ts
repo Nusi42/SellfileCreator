@@ -118,10 +118,32 @@ export type GearDbDiffHistoryEntry = {
   createdAt: number
   // Structured header specs so language switches re-render correctly.
   lineSpecs: GearDbDiffHistoryLineSpec[]
-  // Capped diff entries with match metadata (only the items shown in UI).
-  entries: GearDbDiffToastEntry[]
+  // Compact JSON payload for capped diff entries with match metadata.
+  // History rows decode this lazily only when a preview is opened/rendered.
+  compactEntries: string
   // Count of additional entries omitted from the capped list.
   overflowCount: number
+}
+
+/**
+ * Compact history diff entries into a plain JSON payload for low-overhead
+ * retention across long endpoint sessions.
+ */
+export const encodeGearDbDiffToastEntries = (entries: GearDbDiffToastEntry[]): string => (
+  JSON.stringify(entries)
+)
+
+/**
+ * Decode compact history diff entries on demand when the UI needs to show a
+ * preview tooltip or popout. Invalid payloads fall back to an empty list.
+ */
+export const decodeGearDbDiffToastEntries = (compactEntries: string): GearDbDiffToastEntry[] => {
+  try {
+    const parsed = JSON.parse(compactEntries) as unknown
+    return Array.isArray(parsed) ? (parsed as GearDbDiffToastEntry[]) : []
+  } catch {
+    return []
+  }
 }
 
 // Minimal translator signature for history line formatting helpers.

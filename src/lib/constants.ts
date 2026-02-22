@@ -322,6 +322,9 @@ export const GEAR_DB_DIFF_TOAST_SINGLE_SIDED_MAX_ITEMS = GEAR_DB_DIFF_TOAST_MAX_
 // History can render single-sided add/remove updates in two columns, so retain
 // enough entries to fill both columns before truncating.
 export const GEAR_DB_DIFF_HISTORY_MAX_ITEMS = GEAR_DB_DIFF_TOAST_MAX_ITEMS * 2
+// Keep 8 hours of endpoint updates at a 10-second push cadence.
+// The menu trims older updates first so retained memory stays bounded.
+export const GEAR_DB_DIFF_HISTORY_MAX_UPDATES = 2880
 // Cap Gear DB history tooltip height so tall diff lists scroll inside the popper.
 export const GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX = 640
 // Scale factor for tester cards rendered inside the Gear DB diff toast/history.

@@ -19,7 +19,7 @@ import {
   LIST_SUBHEADER_SX,
 } from '../lib/constants'
 import MarkdownTooltip from './MarkdownTooltip'
-import { formatGearDbDiffHistoryLines } from '../lib/gearDbDiffToast'
+import { decodeGearDbDiffToastEntries, formatGearDbDiffHistoryLines } from '../lib/gearDbDiffToast'
 import type { GearDbDiffHistoryEntry, GearDbDiffToastPayload } from '../lib/gearDbDiffToast'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
 import { buildGearDbDiffSummaryLineNodes } from './GearDbDiffSummaryLine'
@@ -173,8 +173,8 @@ export function GearDbHistoryMenu({
           // Always show the received timestamp as the final row.
           const timestampLine = formatHistoryTimestamp(entry.createdAt)
           const hasTimestampLine = Boolean(timestampLine && timestampLine.trim().length > 0)
-          // Entries are already capped in history so the tooltip matches the toast surface.
-          const cappedEntries = entry.entries
+          // Decode compact entries only while building the preview payload.
+          const cappedEntries = decodeGearDbDiffToastEntries(entry.compactEntries)
           const overflowCount = Math.max(0, entry.overflowCount)
           const tooltipPayload: GearDbDiffToastPayload = {
             headerLines,
