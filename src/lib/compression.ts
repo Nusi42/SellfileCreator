@@ -1,9 +1,9 @@
 /**
  * compression.ts
  *
- * Gzip/ungzip helpers with base64 transport that work in both browser and Node
- * contexts. Why: Undo history snapshots store compressed JSON payloads to keep
- * memory usage predictable without depending on environment-specific APIs.
+ * Gzip/ungzip helpers for both byte and base64 transport that work in browser
+ * and Node contexts. Byte helpers are preferred for in-memory history storage;
+ * base64 helpers remain for text-only persistence surfaces.
  */
 import { gzipSync, gunzipSync, strFromU8, strToU8 } from 'fflate'
 
@@ -74,13 +74,23 @@ function decodeBase64(str: string): Uint8Array {
 }
 
 export function compressToBase64(text: string): { base64: string; byteLength: number } {
-  const raw = strToU8(text)
-  const gzipped = gzipSync(raw, { level: 6 })
+  const gzipped = compressToBytes(text)
   return { base64: encodeBase64(gzipped), byteLength: gzipped.length }
 }
 
 export function decompressFromBase64(base64: string): string {
   const raw = decodeBase64(base64)
-  const unzipped = gunzipSync(raw)
+  return decompressFromBytes(raw)
+}
+
+// Compress plain text into gzipped bytes for efficient in-memory storage.
+export function compressToBytes(text: string): Uint8Array {
+  const raw = strToU8(text)
+  return gzipSync(raw, { level: 6 })
+}
+
+// Expand gzipped bytes back into plain text.
+export function decompressFromBytes(bytes: Uint8Array): string {
+  const unzipped = gunzipSync(bytes)
   return strFromU8(unzipped)
 }

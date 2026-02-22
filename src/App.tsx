@@ -3605,7 +3605,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       })
       return
     }
-  }, [customRecipes, describeNextChange, insertIndexAfter, metasets, pasteAfterIndex, setCopyDlgOpen, setCopyText, setCustomRecipesTransition, syncSelectedRecipeIdx])
+  }, [customRecipes, describeNextChange, insertIndexAfter, metasets, pasteAfterIndex, setCopyDlgOpen, setCopyText, setCustomRecipes, setCustomRecipesTransition, syncSelectedRecipeIdx])
 
   const handleMetasetsChange = useCallback((next: React.SetStateAction<Metaset[]>) => {
     // Reuse the shared transition dispatcher so metaset writes follow the same

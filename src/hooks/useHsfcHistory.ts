@@ -3,7 +3,7 @@ import type { BuilderRecipe, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import { computeCrc32 } from '../lib/autosave'
-import { compressToBase64, decompressFromBase64 } from '../lib/compression'
+import { compressToBytes, decompressFromBytes } from '../lib/compression'
 import type { MultiEditDraftState } from '../lib/multiEditDraft'
 import type { SafeguardRule } from '../lib/safeguards'
 import type { HistoryEntryDescriptor } from '../history/historyDescriptorTypes'
@@ -48,10 +48,10 @@ export type HistoryTimelineEntry = {
 }
 
 type HistoryEntry = {
-  compressed: string
+  compressedPayload: Uint8Array
   signatureCrc: string
   signatureSize: number
-  descriptor: HistoryEntryDescriptor | null
+  compressedDescriptor: Uint8Array | null
 }
 
 type HistoryState = {
@@ -62,19 +62,42 @@ type HistoryState = {
 
 type ResetOptions = { markSaved: boolean; descriptor?: HistoryEntryDescriptor | null }
 
+function compressDescriptor(descriptor: HistoryEntryDescriptor | null): Uint8Array | null {
+  if (!descriptor) return null
+  try {
+    return compressToBytes(JSON.stringify(descriptor))
+  } catch {
+    return null
+  }
+}
+
 function makeEntry(payload: string, signatureCrc: string, signatureSize: number, descriptor: HistoryEntryDescriptor | null = null): HistoryEntry {
-  const { base64 } = compressToBase64(payload)
   return {
-    compressed: base64,
+    compressedPayload: compressToBytes(payload),
     signatureCrc,
     signatureSize,
-    descriptor,
+    compressedDescriptor: compressDescriptor(descriptor),
+  }
+}
+
+function makeEntryWithCompressedDescriptor(
+  payload: string,
+  signatureCrc: string,
+  signatureSize: number,
+  compressedDescriptor: Uint8Array | null,
+): HistoryEntry {
+  return {
+    compressedPayload: compressToBytes(payload),
+    signatureCrc,
+    signatureSize,
+    // Preserve existing compressed descriptor bytes when only payload changes.
+    compressedDescriptor: compressedDescriptor ? compressedDescriptor.slice() : null,
   }
 }
 
 function parseSnapshot(entry: HistoryEntry): HsfcSnapshot | null {
   try {
-    const json = decompressFromBase64(entry.compressed)
+    const json = decompressFromBytes(entry.compressedPayload)
     const parsed = JSON.parse(json) as Partial<HsfcSnapshot>
     if (!parsed || typeof parsed !== 'object') return null
     const {
@@ -156,6 +179,19 @@ function parseSnapshot(entry: HistoryEntry): HsfcSnapshot | null {
   }
 }
 
+function parseDescriptor(entry: HistoryEntry): HistoryEntryDescriptor | null {
+  const compressed = entry.compressedDescriptor
+  if (!compressed) return null
+  try {
+    const json = decompressFromBytes(compressed)
+    const parsed = JSON.parse(json) as unknown
+    if (!parsed || typeof parsed !== 'object') return null
+    return parsed as HistoryEntryDescriptor
+  } catch {
+    return null
+  }
+}
+
 export function useHsfcHistory(params: {
   payload: string
   signature: string
@@ -182,6 +218,16 @@ export function useHsfcHistory(params: {
   const pendingDescriptorStateRef = useRef<'idle' | 'pending'>('idle')
   const pendingWriteModeRef = useRef<'append' | 'replace'>('append')
   const forceAppendRef = useRef(false)
+  // Cache descriptor decodes per-entry so preview/timeline reads stay cheap.
+  const descriptorCacheRef = useRef<WeakMap<HistoryEntry, HistoryEntryDescriptor | null>>(new WeakMap())
+  const readDescriptor = useCallback((entry: HistoryEntry | undefined): HistoryEntryDescriptor | null => {
+    if (!entry) return null
+    const cache = descriptorCacheRef.current
+    if (cache.has(entry)) return cache.get(entry) ?? null
+    const parsed = parseDescriptor(entry)
+    cache.set(entry, parsed)
+    return parsed
+  }, [])
 
   // Snapshot history whenever the serialized HSFC payload or signature changes; we intentionally
   // adjust internal state in this effect so history updates stay in sync with the latest inputs.
@@ -228,7 +274,12 @@ export function useHsfcHistory(params: {
           return { ...prev, savedIndex: prev.index }
         }
         if (prevPayload !== payload) {
-          const updatedEntry = makeEntry(payload, crc, signature.length, current.descriptor)
+          const updatedEntry = makeEntryWithCompressedDescriptor(
+            payload,
+            crc,
+            signature.length,
+            current.compressedDescriptor ?? null,
+          )
           const nextEntries = prev.entries.slice()
           nextEntries[prev.index] = updatedEntry
           return { ...prev, entries: nextEntries }
@@ -393,17 +444,17 @@ export function useHsfcHistory(params: {
   const canUndo = history.index > 0
   const canRedo = history.index < history.entries.length - 1
   const isDirty = history.savedIndex === null ? history.index > 0 : history.index !== history.savedIndex
-  const undoDescriptor = canUndo ? history.entries[history.index]?.descriptor ?? null : null
-  const redoDescriptor = canRedo ? history.entries[history.index + 1]?.descriptor ?? null : null
+  const undoDescriptor = canUndo ? readDescriptor(history.entries[history.index]) : null
+  const redoDescriptor = canRedo ? readDescriptor(history.entries[history.index + 1]) : null
   const undoPreview = useMemo<HistoryPreview>(() => ({ descriptor: undoDescriptor }), [undoDescriptor])
   const redoPreview = useMemo<HistoryPreview>(() => ({ descriptor: redoDescriptor }), [redoDescriptor])
   const historyTimeline = useMemo<HistoryTimelineEntry[]>(() => history.entries.map((entry, idx) => ({
     index: idx,
-    descriptor: entry.descriptor ?? null,
+    descriptor: readDescriptor(entry),
     isCurrent: idx === history.index,
     isSaved: history.savedIndex === idx,
     isInitial: idx === 0,
-  })), [history.entries, history.index, history.savedIndex])
+  })), [history.entries, history.index, history.savedIndex, readDescriptor])
   const jumpToHistoryIndex = useCallback((targetIndex: number) => {
     if (!Number.isInteger(targetIndex)) return false
     let snapshotToApply: HsfcSnapshot | null = null
