@@ -426,6 +426,13 @@ ${t('safeguardsIgnoreOptionsHint')}`
     }
     scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(0))
   }, [])
+  // Ensure pending scroll retries never outlive this tab instance.
+  useEffect(() => () => {
+    // Cancel the queued RAF and clear the handle to release captured refs.
+    if (scrollRafRef.current === null) return
+    window.cancelAnimationFrame(scrollRafRef.current)
+    scrollRafRef.current = null
+  }, [])
   const lastAppliedFocusTokenRef = useRef<number | null>(null)
   /* eslint-disable react-you-might-not-need-an-effect/no-derived-state -- External focus requests intentionally update local selection/expansion state. */
   useEffect(() => {
