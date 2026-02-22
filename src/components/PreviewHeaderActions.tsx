@@ -106,7 +106,7 @@ export default function PreviewHeaderActions(props: {
   filtersDirty?: boolean
   // Clears filter state back to defaults (mirrors the old Reset Filters button).
   onClearFilters?: () => void
-  onSelectFile: (file: File) => void | Promise<void>
+  onSelectFile: (file: File, context?: { shiftKey?: boolean }) => void | Promise<void>
   onClearBase: () => void
   baseRuleCount?: number
   onExport: () => void

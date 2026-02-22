@@ -71,7 +71,8 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - Storage: LocalStorage key from `src/lib/constants.ts` (`AUTOSAVE_KEY = 'sellfileCreator.autosave.sfr.v1'`). Value is `[crc32, payload]` where `payload` is a readable SFR object (`buildSfrPayload`) plus dialog-only metadata (filters, timestamps). `crc32` verifies integrity (`src/lib/autosave.ts`).
 - Load/restore gating: `useAutosaveRestore({ key, version, metasets, substatTargets, recipes, finalSellRemainder, selectedRecipeIndex, note, filters })` handles reading the entry, surfacing the Restore dialog, and re-enabling autosave after the user makes a choice. Rule Tester autosave (`AUTOSAVE_TESTER_KEY`) is loaded separately via `loadRuleTesterAutosaveDraft` and merged into the same dialog so the checkbox list can cover both builder and tester state.
 - Restore vs Dismiss:
-  - Restore: applies whichever sections the user checked — recipes (including the builder selection), metasets, Substat Target Values, Final Sell remainder, the pinned note, filter panel state, and optionally the Rule Tester queue — then enables autosave.
+  - Restore: applies whichever sections the user checked — recipes (including the builder selection), metasets, Substat Target Values, Final Sell remainder, Safeguards (rules + enabled state), the pinned note, filter panel state, and optionally the Rule Tester queue — then enables autosave.
+  - Constraint: restoring Recipes or Safeguards while Metasets is unchecked is allowed only if those restored sections do not reference any metaset IDs from the autosave payload.
   - Dismiss: preserves the previous autosave and keeps autosave disabled. A baseline snapshot of the current state is captured; autosave only enables after the user makes a change (state diverges from this baseline). This avoids overwriting the previous session just by dismissing the dialog. The gear queue behaves the same way: the saved list stays in localStorage until the user restores it or future autosaves overwrite it.
 - Writes: `useAutosave({ key, payload, enabled })` writes one snapshot immediately when enabled and on subsequent payload changes, and flushes the latest snapshot on `beforeunload`/visibility hidden. Rule Tester autosave writes compressed payloads via `buildRuleTesterAutosavePayload` (with a timestamp) as soon as the queue diverges from the startup baseline (imports, restores, edits) and continues even if the Gear tab is closed; opening the Logic Hub dialog also primes autosave immediately.
 - file:// note: LocalStorage behavior varies for file origins and can be non-persistent or path-scoped. Prefer `npm run dev` or `npm run preview` for reliable autosave persistence.
@@ -80,6 +81,8 @@ This document covers file schemas, builder semantics, and compatibility notes.
 ### App Delegation and Boundaries
 - `src/App.tsx` delegates all file IO to `hsfIO`/`sfrIO` and clipboard actions to `clipboard.ts`. Autosave restore flow is delegated to `useAutosaveRestore`.
 - App uses `CopyDialog`/`PasteDialog` components for manual workflows; no direct use of normalization functions from UI code.
+- Shift-modified `.sfr` imports (manual picker or drag/drop with Shift pressed) open a selective import dialog for Recipes, Note, Metasets, and Safeguards. Per-section import modes are supported (`replace`/`append` for recipes, note, safeguards; `replace`/`merge` for metasets), and metaset merge conflicts reuse the existing conflict dialog.
+- Shift-modified import uses the same metaset dependency constraint as autosave restore: Recipes/Safeguards without Metasets are blocked when they reference metaset IDs from the incoming file.
 
 ## HSF Semantics (as used here)
 

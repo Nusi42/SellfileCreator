@@ -1,4 +1,5 @@
 import { Box, Button, Chip, Typography } from '@mui/material'
+import type { MouseEvent } from 'react'
 import { ACCEPT_SFR_FILE_DIALOG, ELLIPSIS_TEXT_SX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
 import FilePickerButton from './FilePickerButton'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
@@ -9,8 +10,8 @@ import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
 
 export default function HeaderActions(props: {
-  onAboutToOpenSfr?: () => void
-  onSelectFile: (file: File) => void
+  onAboutToOpenSfr?: (event: MouseEvent<HTMLButtonElement>) => void
+  onSelectFile: (file: File, context?: { shiftKey?: boolean }) => void
   onSaveSfr: () => void
   onOpenNote: () => void
   notePresent: boolean
@@ -106,7 +107,7 @@ export default function HeaderActions(props: {
             label={t('loadRecipes')}
             startIcon={<UploadFileIcon />}
             accept={ACCEPT_SFR_FILE_DIALOG}
-            onBeforeOpen={() => { onAboutToOpenSfr?.() }}
+            onBeforeOpen={(event) => { onAboutToOpenSfr?.(event) }}
             onSelect={onSelectFile}
             data-tour-id="sfr.load"
             labelMaxWidth={LONG_LABEL_BUTTON_MAX_WIDTH_PX}

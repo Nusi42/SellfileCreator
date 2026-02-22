@@ -8,36 +8,43 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { GEAR_DB_FILE_EXTENSIONS } from '../lib/constants'
 
 export type FileRouteHandlers = {
-  onSfr: (file: File) => void | Promise<void>
-  onHsf: (file: File) => void | Promise<void>
-  onL10n?: (file: File) => void | Promise<void>
-  onGearDb?: (file: File) => void | Promise<void>
-  onGearSets?: (file: File) => void | Promise<void>
-  onUnknownFile?: (file: File) => void | Promise<void>
+  onSfr: (file: File, context?: FileRouteContext) => void | Promise<void>
+  onHsf: (file: File, context?: FileRouteContext) => void | Promise<void>
+  onL10n?: (file: File, context?: FileRouteContext) => void | Promise<void>
+  onGearDb?: (file: File, context?: FileRouteContext) => void | Promise<void>
+  onGearSets?: (file: File, context?: FileRouteContext) => void | Promise<void>
+  onUnknownFile?: (file: File, context?: FileRouteContext) => void | Promise<void>
 }
 
-export async function routeFileByExtension(file: File, handlers: FileRouteHandlers): Promise<void> {
+// Route context carries transient key modifiers from entry points.
+// Why: Shift-triggered SFR imports open the selective import dialog.
+export type FileRouteContext = {
+  shiftKey?: boolean
+  source?: 'manual' | 'command'
+}
+
+export async function routeFileByExtension(file: File, handlers: FileRouteHandlers, context?: FileRouteContext): Promise<void> {
   // Central router shared by drag/drop and manual file pickers.
   // Why: all supported file types should behave identically regardless of entry point.
   const name = String(file.name || '').toLowerCase()
   // `.sfr` (and legacy `.hsfc`) = app recipe bundle.
   if (name.endsWith('.sfr') || name.endsWith('.hsfc')) {
-    await handlers.onSfr(file)
+    await handlers.onSfr(file, context)
     return
   }
   // `.hsf` = RSL Helper sellfile.
   if (name.endsWith('.hsf')) {
-    await handlers.onHsf(file)
+    await handlers.onHsf(file, context)
     return
   }
   // Gear DB diffs/snapshots share multiple extensions.
   if (handlers.onGearDb && GEAR_DB_FILE_EXTENSIONS.some((ext) => name.endsWith(ext))) {
-    await handlers.onGearDb(file)
+    await handlers.onGearDb(file, context)
     return
   }
   // Runtime gear-set patch files (`.gearsets.json` / `.gearsets`).
   if (handlers.onGearSets && (name.endsWith('.gearsets.json') || name.endsWith('.gearsets'))) {
-    await handlers.onGearSets(file)
+    await handlers.onGearSets(file, context)
     return
   }
   // Runtime localization patches (`.l10n.json` / `.i18n.json` / `.l10n`).
@@ -45,12 +52,12 @@ export async function routeFileByExtension(file: File, handlers: FileRouteHandle
     handlers.onL10n
     && (name.endsWith('.l10n.json') || name.endsWith('.i18n.json') || name.endsWith('.l10n'))
   ) {
-    await handlers.onL10n(file)
+    await handlers.onL10n(file, context)
     return
   }
   // Anything else is rejected with a toast/dialog.
   if (handlers.onUnknownFile) {
-    await handlers.onUnknownFile(file)
+    await handlers.onUnknownFile(file, context)
   }
 }
 
@@ -102,8 +109,8 @@ export function useFileDragDrop(handlers: FileRouteHandlers & { onDragStart?: ()
     counterRef.current === 0 && setActive(false)
   }, [hasFiles])
 
-  const routeFile = useCallback(async (file: File) => {
-    await routeFileByExtension(file, handlersRef.current)
+  const routeFile = useCallback(async (file: File, context?: FileRouteContext) => {
+    await routeFileByExtension(file, handlersRef.current, context)
   }, [])
 
   const handleDrop = useCallback((e: DragEvent) => {
@@ -128,12 +135,12 @@ export function useFileDragDrop(handlers: FileRouteHandlers & { onDragStart?: ()
       })()
       if (!entryFile) return
       ;(async () => {
-        try { await routeFile(entryFile) } catch {}
+        try { await routeFile(entryFile, { source: 'manual', shiftKey: Boolean(e.shiftKey) }) } catch {}
       })()
       return
     }
     ;(async () => {
-      try { await routeFile(file) } catch {}
+      try { await routeFile(file, { source: 'manual', shiftKey: Boolean(e.shiftKey) }) } catch {}
     })()
   }, [hasFiles, routeFile])
 

@@ -8,8 +8,8 @@ type FilePickerButtonProps = Omit<ButtonProps, 'component' | 'children' | 'onSel
   label: string
   startIcon?: React.ReactNode
   accept: string
-  onSelect: (file: File) => void | Promise<void>
-  onBeforeOpen?: () => void
+  onSelect: (file: File, context?: { shiftKey?: boolean }) => void | Promise<void>
+  onBeforeOpen?: (event: React.MouseEvent<HTMLButtonElement>) => void
   buttonProps?: ButtonProps
   labelMaxWidth?: number
   children?: React.ReactNode
@@ -42,6 +42,9 @@ const FilePickerButton = React.forwardRef<HTMLButtonElement, FilePickerButtonPro
   } = props
   const buttonStartIcon = children ? undefined : startIcon
   const inputRef = React.useRef<HTMLInputElement | null>(null)
+  // Preserve key modifiers from the click that opened the picker.
+  // Why: `<input type="file">` change events do not expose the original click event.
+  const pendingModifierRef = React.useRef<{ shiftKey?: boolean }>({})
 
   const {
     sx: buttonSx,
@@ -86,7 +89,9 @@ const FilePickerButton = React.forwardRef<HTMLButtonElement, FilePickerButtonPro
   const handleClick = React.useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
       try {
-        onBeforeOpen?.()
+        // Capture modifiers before the native file chooser takes focus.
+        pendingModifierRef.current = { shiftKey: Boolean(event.shiftKey) }
+        onBeforeOpen?.(event)
       } catch {
         // keep file picker responsive even if observers throw
       }
@@ -123,7 +128,9 @@ const FilePickerButton = React.forwardRef<HTMLButtonElement, FilePickerButtonPro
         accept={accept}
         onChange={(e) => {
           const file = (e.target as HTMLInputElement).files?.[0]
-          if (file) void onSelect(file)
+          if (file) void onSelect(file, pendingModifierRef.current)
+          // Reset pending modifiers after each selection so stale keys do not leak.
+          pendingModifierRef.current = {}
           try { if (inputRef.current) inputRef.current.value = '' } catch {}
         }}
       />

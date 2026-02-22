@@ -1,10 +1,17 @@
-import { Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, FormGroup, Stack, Typography } from '@mui/material'
+import { Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormGroup, Stack, Typography } from '@mui/material'
 import { useMemo, useState, useEffect } from 'react'
 import { useI18n } from '../../lib/i18n'
 import { formatLocalDateTime } from '../../lib/dateDisplay'
+import EllipsisTooltip from '../EllipsisTooltip'
 import type { RestoreDraft } from '../../hooks/useAutosaveRestore'
 import { RESTORE_SELECTION_DEFAULT, RESTORE_SELECTION_KEYS, type RestoreOptionKey, type RestoreSelection } from '../../types/restoreAutosaveSelection'
 import { useRestoreAutosaveSelectionPreference } from '../../state/restoreAutosaveSelection'
+import {
+  collectMetasetIds,
+  collectRecipeMetasetIds,
+  collectSafeguardMetasetIds,
+  getMetasetDependencyIssues,
+} from '../../lib/sfrImportSelection'
 
 export type TesterRestoreDraftMeta = {
   count: number
@@ -75,6 +82,7 @@ export default function RestoreAutosaveDialog({
   )
   const hasFilters = Boolean(draft?.Filters)
   const hasSort = Boolean(draft && Object.prototype.hasOwnProperty.call(draft, 'TesterSort'))
+  const hasSafeguards = Boolean((draft?.Safeguards?.length ?? 0) > 0 || typeof draft?.SafeguardsEnabled === 'boolean')
   const builderSavedAt = formatSavedAt(draft?.AutosaveSavedAt ?? null)
   const testerSavedAt = formatSavedAt(testerDraft?.savedAt ?? null)
   const defaultSelection = useMemo<RestoreSelection>(() => {
@@ -83,12 +91,13 @@ export default function RestoreAutosaveDialog({
     if (metasCount > 0 && metasetsDiffer) next.metasets = true
     if (hasTargets && targetsDiffer) next.targets = true
     if (hasNote) next.note = true
+    if (hasSafeguards) next.safeguards = true
     if (hasFilters && filtersDiffer) next.filters = true
     if (hasSort && sortDiffer) next.sort = true
     if (testerDraft) next.tester = true
     if (gearSetsCount > 0) next.gearSets = true
     return next
-  }, [recipesCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, testerDraft])
+  }, [recipesCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSafeguards, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, testerDraft])
 
   useEffect(() => {
     if (!open) return
@@ -126,6 +135,13 @@ export default function RestoreAutosaveDialog({
         helper: t('restoreAutosaveNoteHelper'),
       })
     }
+    if (hasSafeguards) {
+      rows.push({
+        key: 'safeguards',
+        label: t('restoreAutosaveSafeguardsLabel', { count: draft?.Safeguards?.length ?? 0 }),
+        helper: t('restoreAutosaveSafeguardsHelper'),
+      })
+    }
     if (hasFilters && filtersDiffer) {
       rows.push({
         key: 'filters',
@@ -155,7 +171,34 @@ export default function RestoreAutosaveDialog({
       })
     }
     return rows
-  }, [recipesCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, testerDraft, t])
+  }, [draft?.Safeguards?.length, recipesCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSafeguards, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, testerDraft, t])
+
+  // Apply the same metaset dependency rule as Shift-load import options.
+  // Why: autosave restore can also import recipes/safeguards without metasets.
+  const dependencyIssues = useMemo(() => getMetasetDependencyIssues({
+    selection: {
+      recipes: selection.recipes,
+      safeguards: selection.safeguards,
+      metasets: selection.metasets,
+    },
+    incomingMetasetIds: collectMetasetIds(draft?.Metasets ?? []),
+    recipeMetasetIds: collectRecipeMetasetIds(draft?.Recipes ?? []),
+    safeguardMetasetIds: collectSafeguardMetasetIds(draft?.Safeguards ?? []),
+  }), [draft?.Metasets, draft?.Recipes, draft?.Safeguards, selection.metasets, selection.recipes, selection.safeguards])
+
+  const constraintMessages = useMemo(() => {
+    const messages: string[] = []
+    for (const issue of dependencyIssues) {
+      if (issue === 'recipesRequireMetasets') {
+        messages.push(t('restoreAutosaveConstraintRecipesNeedMetasets'))
+      }
+      if (issue === 'safeguardsRequireMetasets') {
+        messages.push(t('restoreAutosaveConstraintSafeguardsNeedMetasets'))
+      }
+    }
+    return messages
+  }, [dependencyIssues, t])
+  const constraintSummary = constraintMessages.join(' • ')
 
   const hasOptions = options.length > 0
   // Autosave prompts must feel invisible when there's nothing actionable.
@@ -178,6 +221,7 @@ export default function RestoreAutosaveDialog({
 
   const selectableOptions = options
   const hasAtLeastOne = selectableOptions.some(opt => selection[opt.key])
+  const canRestore = hasAtLeastOne && constraintMessages.length === 0
 
   return (
     <Dialog open={open} onClose={onDismiss} maxWidth="sm" fullWidth>
@@ -198,18 +242,16 @@ export default function RestoreAutosaveDialog({
             )}
           </Stack>
           <FormGroup>
-          <Stack spacing={1.25}>
-            {options.map((option) => (
-              <Box key={option.key}>
-                <FormControlLabel
-                  control={(
+            <Stack spacing={1}>
+              {options.map((option) => (
+                <Box key={option.key} sx={{ p: 0.25 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
                     <Checkbox
                       checked={selection[option.key]}
                       onChange={handleToggle(option.key)}
+                      sx={{ mt: -0.5, ml: -0.5 }}
                     />
-                  )}
-                  label={(
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
                       <Typography variant="body2">{option.label}</Typography>
                       {option.helper && (
                         <Typography variant="caption" color="text.secondary">
@@ -217,20 +259,29 @@ export default function RestoreAutosaveDialog({
                         </Typography>
                       )}
                     </Box>
-                  )}
-                  sx={{
-                    alignItems: 'flex-start',
-                    '& .MuiFormControlLabel-label': { width: '100%' },
-                  }}
-                />
-              </Box>
-            ))}
-          </Stack>
+                  </Box>
+                </Box>
+              ))}
+            </Stack>
           </FormGroup>
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button variant="contained" onClick={() => onRestore(selection)} disabled={!hasAtLeastOne}>
+        {constraintSummary ? (
+          <Box sx={{ flex: 1, minWidth: 0, pr: 1 }}>
+            <EllipsisTooltip title={constraintSummary} wrap="block">
+              <Typography
+                variant="caption"
+                color="error"
+                noWrap
+                sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              >
+                {constraintSummary}
+              </Typography>
+            </EllipsisTooltip>
+          </Box>
+        ) : <Box sx={{ flex: 1 }} />}
+        <Button variant="contained" onClick={() => onRestore(selection)} disabled={!canRestore}>
           {t('restoreAutosaveRestoreSelected')}
         </Button>
         <Button color="error" onClick={onDismiss}>{t('dismiss')}</Button>

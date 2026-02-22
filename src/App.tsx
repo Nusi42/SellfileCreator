@@ -120,7 +120,7 @@ import { useTesterGridNormalizedOverlayPreferences } from './state/testerGridNor
 import { FILTER_PRESETS_VERSION, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
-import { useFileDragDrop, routeFileByExtension } from './hooks/useFileDragDrop'
+import { useFileDragDrop, routeFileByExtension, type FileRouteContext } from './hooks/useFileDragDrop'
 import HeaderActions from './components/HeaderActions'
 import { GearDbDiffToast } from './components/GearDbDiffToast'
 import ManageColorsDialog from './components/dialogs/ManageColorsDialog'
@@ -131,6 +131,7 @@ import { TutorialCoach } from './components/tutorial/TutorialCoach'
 import RestoreAutosaveDialog from './components/dialogs/RestoreAutosaveDialog'
 import MetasetConflictDialog from './components/dialogs/MetasetConflictDialog'
 import FileFormatErrorDialog from './components/dialogs/FileFormatErrorDialog'
+import SfrImportOptionsDialog, { type SfrImportModes, type SfrImportSelection } from './components/dialogs/SfrImportOptionsDialog'
 import { useAutosave } from './hooks/useAutosave'
 import { useNonUrgentStateDispatch } from './hooks/useNonUrgentStateDispatch'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
@@ -301,6 +302,12 @@ import {
   resolveRecipeOverridesTags,
   type RecipeOverridesInstructions,
 } from './lib/noteRecipeOverrides'
+import {
+  collectMetasetIds,
+  collectRecipeMetasetIds,
+  collectSafeguardMetasetIds,
+  getMetasetDependencyIssues,
+} from './lib/sfrImportSelection'
 
 // Components are organized under src/components
 
@@ -3388,6 +3395,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // ---- SFR import conflict state ----
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null)
+  // Shift-load selective imports can also hit metaset ID conflicts.
+  // Why: merge mode reuses the same conflict dialog choices as clipboard imports.
+  const [pendingSfrLoadImport, setPendingSfrLoadImport] = useState<PendingSfrLoadImport | null>(null)
+  // Keep the parsed file in memory while the options dialog is open.
+  // Why: avoid re-reading the file between Shift-load prompt and confirm.
+  const [pendingSfrShiftDialogImport, setPendingSfrShiftDialogImport] = useState<{
+    fileName: string
+    payload: SfrLoadPayload
+  } | null>(null)
   const [metasetConflictOpen, setMetasetConflictOpen] = useState(false)
   const [conflictIds, setConflictIds] = useState<string[]>([])
   const [importIdMap, setImportIdMap] = useState<Map<string, string>>(new Map())
@@ -4368,7 +4384,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     recipeModes,
     recipeNames,
     recipeTags,
-    customRecipes.length,
+    customRecipes,
     editingRecipeIndex,
     evaluateRecipeAgainstFilters,
     filterActive,
@@ -5087,18 +5103,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     />
   )
 
+  // Shared SFR payload shape used by direct loads and selective Shift imports.
+  type SfrLoadPayload = {
+    recipes: BuilderRecipe[]
+    metasets: Metaset[]
+    substatTargets: SubstatTargetTable
+    selectedIndex: number | null
+    note?: string
+    finalSellRemainder: FinalSellRemainderConfig
+    safeguardRules: SafeguardRule[]
+    safeguardsEnabled: boolean
+  }
+
+  // Merge strategy for metaset conflict handling when selective import uses merge mode.
+  type MetasetConflictStrategy = 'keepCurrent' | 'useIncoming' | 'keepBoth'
+
+  type PendingSfrLoadImport = {
+    fileName: string
+    payload: SfrLoadPayload
+    selection: SfrImportSelection
+    modes: SfrImportModes
+  }
+
   const applySfrLoadResult = useCallback((
     fileName: string,
-    payload: {
-      recipes: BuilderRecipe[]
-      metasets: Metaset[]
-      substatTargets: SubstatTargetTable
-      selectedIndex: number | null
-      note?: string
-      finalSellRemainder: FinalSellRemainderConfig
-      safeguardRules: SafeguardRule[]
-      safeguardsEnabled: boolean
-    },
+    payload: SfrLoadPayload,
   ) => {
     const {
       recipes,
@@ -5187,11 +5216,203 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     beginTesterMatchReset,
   ])
 
-  const importSfrFile = useCallback(async (file: File) => {
+  // Guard selective imports so skipping metasets cannot break recipe/safeguard references.
+  const getSelectiveImportMetasetIssues = useCallback((
+    selection: SfrImportSelection,
+    payload: SfrLoadPayload,
+  ) => getMetasetDependencyIssues({
+    selection: {
+      recipes: selection.recipes,
+      safeguards: selection.safeguards,
+      metasets: selection.metasets,
+    },
+    incomingMetasetIds: collectMetasetIds(payload.metasets),
+    recipeMetasetIds: collectRecipeMetasetIds(payload.recipes),
+    safeguardMetasetIds: collectSafeguardMetasetIds(payload.safeguardRules),
+  }), [])
+
+  // Resolve incoming SFR data with selection + merge settings.
+  // Why: Shift-load applies only selected sections instead of replacing everything.
+  const applySelectiveSfrLoad = useCallback((args: {
+    fileName: string
+    payload: SfrLoadPayload
+    selection: SfrImportSelection
+    modes: SfrImportModes
+    metasetConflictStrategy?: MetasetConflictStrategy
+  }): { deferredConflict: boolean } => {
+    const { fileName, payload, selection, modes, metasetConflictStrategy } = args
+    const issues = getSelectiveImportMetasetIssues(selection, payload)
+    // Keep runtime guard in App even if dialog validation misses a stale update.
+    if (issues.length > 0) return { deferredConflict: false }
+    // Start from identity map; merge remaps update this for recipes/safeguards.
+    const metasetIdMap = new Map<string, string>()
+    let nextMetasets: Metaset[] | null = null
+    if (selection.metasets) {
+      if (modes.metasets === 'replace') {
+        nextMetasets = payload.metasets
+      } else {
+        const prep = prepareSfrImport(metasets, payload.metasets, payload.recipes)
+        if (prep.conflicts.length > 0 && !metasetConflictStrategy) {
+          // Defer apply until the metaset conflict dialog resolves merge strategy.
+          setPendingSfrLoadImport({ fileName, payload, selection, modes })
+          setConflictIds(prep.conflicts)
+          setImportIdMap(prep.idMap)
+          setMetasetConflictOpen(true)
+          return { deferredConflict: true }
+        }
+        const strategy: MetasetConflictStrategy = metasetConflictStrategy ?? 'keepCurrent'
+        const { nextMetas, remapForConflicts } = finalizeImport(metasets, prep, strategy)
+        nextMetasets = nextMetas
+        for (const [sourceId, targetId] of prep.idMap) metasetIdMap.set(sourceId, targetId)
+        for (const [sourceId, targetId] of remapForConflicts) metasetIdMap.set(sourceId, targetId)
+      }
+    }
+    // Remap recipe metaset references after merge conflict decisions.
+    const remappedRecipes = payload.recipes.map((recipe) => ({
+      ...recipe,
+      artifactMetaSets: (recipe.artifactMetaSets ?? []).map((id) => metasetIdMap.get(id) ?? id),
+    }))
+    // Remap safeguard metaset references through the same map.
+    const remappedSafeguards = payload.safeguardRules.map((rule) => ({
+      ...rule,
+      combination: {
+        ...rule.combination,
+        metaSetIds: (rule.combination.metaSetIds ?? []).map((id) => metasetIdMap.get(id) ?? id),
+      },
+    }))
+    // Track whether any section modifies recipe/tester match behavior.
+    const affectsRecipesOrSafeguards = selection.recipes || selection.safeguards
+    if (affectsRecipesOrSafeguards) beginTesterMatchReset('sfr')
+    // Prefix the descriptor so history shows selective load context.
+    describeNextChange(createSfrLoadedDescriptor(fileName))
+    if (selection.metasets && nextMetasets !== null) {
+      setMetasets(nextMetasets)
+    }
+    // Keep substat targets/final sell coupled to recipe imports.
+    if (selection.recipes) {
+      try {
+        applySubstatTargetsChange(payload.substatTargets, { mode: 'import', publish: false })
+      } catch {}
+      applyFinalSellChange(payload.finalSellRemainder, { mode: 'import', publish: false })
+      if (modes.recipes === 'replace') {
+        setCustomRecipes(remappedRecipes)
+        const selected = typeof payload.selectedIndex === 'number'
+          && payload.selectedIndex >= 0
+          && payload.selectedIndex < remappedRecipes.length
+          ? payload.selectedIndex
+          : (remappedRecipes.length > 0 ? 0 : null)
+        syncSelectedRecipeIdx(selected, { forceSync: true, suppressDraft: true })
+        if (selected !== null && remappedRecipes[selected]) {
+          setBuilder(remappedRecipes[selected]!)
+        }
+      } else {
+        setCustomRecipes((prev) => {
+          const next = [...prev, ...remappedRecipes]
+          return next
+        })
+        const selected = remappedRecipes.length > 0
+          ? customRecipes.length + remappedRecipes.length - 1
+          : selectedRecipeIdx
+        if (selected !== null && remappedRecipes.length > 0) {
+          syncSelectedRecipeIdx(selected, { forceSync: true, suppressDraft: true })
+          setBuilder(remappedRecipes[remappedRecipes.length - 1]!)
+        }
+      }
+    }
+    if (selection.note) {
+      const incomingNoteRaw = typeof payload.note === 'string' ? payload.note : ''
+      if (modes.note === 'append') {
+        const current = typeof sfrNote === 'string' ? sfrNote.trim() : ''
+        const incoming = incomingNoteRaw.trim()
+        const joined = current && incoming
+          ? `${current}\n\n${incoming}`
+          : (current || incoming || '')
+        if (joined.length > 0) {
+          setNoteAutoOpenedFromSfr(true)
+          applyNoteChange(joined, { mode: 'import', publish: false })
+          openNoteViewer()
+        } else {
+          applyNoteChange(null, { mode: 'import', publish: false })
+          handleCloseNote()
+        }
+      } else {
+        const importedNote = incomingNoteRaw.trim().length > 0 ? incomingNoteRaw : null
+        if (importedNote !== null) {
+          setNoteAutoOpenedFromSfr(true)
+          applyNoteChange(importedNote, { mode: 'import', publish: false })
+          openNoteViewer()
+        } else {
+          applyNoteChange(null, { mode: 'import', publish: false })
+          handleCloseNote()
+        }
+      }
+      // Shift-load note import still resets recipe-overrides answers to canonical defaults.
+      setNoteRecipeOverridesAnswers({})
+      setNoteRecipeOverridesDisabled(false)
+    }
+    if (selection.safeguards) {
+      if (modes.safeguards === 'replace') {
+        setSafeguardRules(remappedSafeguards)
+        setSafeguardsEnabled(payload.safeguardsEnabled)
+      } else {
+        setSafeguardRules((prev) => [...prev, ...remappedSafeguards])
+        setSafeguardsEnabled((prev) => prev || payload.safeguardsEnabled)
+      }
+    }
+    markNextSnapshotAsSaved()
+    setLastExportSig(null)
+    exportBaselineResetRef.current = true
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => { markSavedNow() })
+    } else {
+      setTimeout(() => { markSavedNow() }, 0)
+    }
+    flushTransientUi()
+    return { deferredConflict: false }
+  }, [
+    applyFinalSellChange,
+    applyNoteChange,
+    applySubstatTargetsChange,
+    beginTesterMatchReset,
+    customRecipes.length,
+    describeNextChange,
+    finalizeImport,
+    flushTransientUi,
+    getSelectiveImportMetasetIssues,
+    handleCloseNote,
+    markNextSnapshotAsSaved,
+    markSavedNow,
+    metasets,
+    openNoteViewer,
+    prepareSfrImport,
+    selectedRecipeIdx,
+    setBuilder,
+    setCustomRecipes,
+    setConflictIds,
+    setImportIdMap,
+    setLastExportSig,
+    setMetasetConflictOpen,
+    setMetasets,
+    setNoteAutoOpenedFromSfr,
+    setNoteRecipeOverridesAnswers,
+    setNoteRecipeOverridesDisabled,
+    setPendingSfrLoadImport,
+    setSafeguardRules,
+    setSafeguardsEnabled,
+    sfrNote,
+    syncSelectedRecipeIdx,
+  ])
+
+  const importSfrFile = useCallback(async (file: File, context?: FileRouteContext) => {
     flushTransientUi()
     try {
       const result = await readSfrFile(file, { metasets, substatTargets })
-      applySfrLoadResult(file.name, result)
+      // Shift modifier opens selective import options instead of immediate full replace.
+      if (context?.shiftKey) {
+        setPendingSfrShiftDialogImport({ fileName: file.name, payload: result })
+      } else {
+        applySfrLoadResult(file.name, result)
+      }
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error('Failed to parse recipe file (.sfr/.hsfc)', err)
@@ -5203,11 +5424,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     applySfrLoadResult,
     flushTransientUi,
     metasets,
+    setPendingSfrShiftDialogImport,
     substatTargets,
     showFileFormatError,
   ])
 
-  const handleSfrFile = useCallback(async (file: File) => {
+  const handleSfrFile = useCallback(async (file: File, context?: FileRouteContext) => {
     if (tutorial.helpOpen) {
       tutorial.setHelpOpen(false)
       tutorial.setHelpFirstRunMode(false)
@@ -5215,7 +5437,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     if (restoreDialogPending) dismissRestore()
     if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
-    await importSfrFile(file)
+    await importSfrFile(file, context)
   }, [
     confirmClearOpen,
     confirmDeleteIdx,
@@ -5255,7 +5477,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     showFileFormatError(file.name)
   }, [showFileFormatError])
 
-  const handleManualFileSelection = useCallback(async (file: File) => {
+  const handleManualFileSelection = useCallback(async (file: File, context?: FileRouteContext) => {
+    const routeContext: FileRouteContext = context?.shiftKey === undefined
+      ? { source: context?.source ?? 'manual' }
+      : { source: context?.source ?? 'manual', shiftKey: context.shiftKey }
     await routeFileByExtension(file, {
       onSfr: handleSfrFile,
       onHsf: handleHsfFile,
@@ -5263,7 +5488,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onGearDb: handleGearDbImport,
       onGearSets: handleRuntimeGearSets,
       onUnknownFile: handleUnknownImportedFile,
-    })
+    }, routeContext)
   }, [
     handleGearDbImport,
     handleSfrFile,
@@ -5336,10 +5561,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onCancel={() => {
         setMetasetConflictOpen(false)
         setPendingImport(null)
+        setPendingSfrLoadImport(null)
         setConflictIds([])
       }}
       onChoose={(choice) => {
         try {
+          if (pendingSfrLoadImport) {
+            applySelectiveSfrLoad({
+              fileName: pendingSfrLoadImport.fileName,
+              payload: pendingSfrLoadImport.payload,
+              selection: pendingSfrLoadImport.selection,
+              modes: pendingSfrLoadImport.modes,
+              metasetConflictStrategy: choice,
+            })
+            return
+          }
           if (!pendingImport) {
             setMetasetConflictOpen(false)
             return
@@ -5460,7 +5696,38 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         } finally {
           setMetasetConflictOpen(false)
           setPendingImport(null)
+          setPendingSfrLoadImport(null)
           setConflictIds([])
+        }
+      }}
+    />
+  ) : null
+
+  const sfrImportOptionsDialogElement = pendingSfrShiftDialogImport ? (
+    <SfrImportOptionsDialog
+      open={Boolean(pendingSfrShiftDialogImport)}
+      fileName={pendingSfrShiftDialogImport.fileName}
+      incomingRecipes={pendingSfrShiftDialogImport.payload.recipes}
+      incomingNote={typeof pendingSfrShiftDialogImport.payload.note === 'string' ? pendingSfrShiftDialogImport.payload.note : null}
+      incomingMetasets={pendingSfrShiftDialogImport.payload.metasets}
+      incomingSafeguards={pendingSfrShiftDialogImport.payload.safeguardRules}
+      onCancel={() => {
+        setPendingSfrShiftDialogImport(null)
+      }}
+      onConfirm={(selection, modes) => {
+        const pending = pendingSfrShiftDialogImport
+        if (!pending) return
+        const result = applySelectiveSfrLoad({
+          fileName: pending.fileName,
+          payload: pending.payload,
+          selection,
+          modes,
+        })
+        // Keep dialog closed after confirm even when conflict dialog opens next.
+        // Why: conflict choice is the follow-up step for the same import action.
+        setPendingSfrShiftDialogImport(null)
+        if (!result.deferredConflict) {
+          setPendingSfrLoadImport(null)
         }
       }}
     />
@@ -6138,6 +6405,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setClearHistoryOpen={setConfirmClearHistoryOpen}
         onConfirmClearHistory={handleConfirmClearHistory}
       />
+      {sfrImportOptionsDialogElement}
       {/* Restore autosaved SFR dialog */}
       {restoreDlgOpen ? (
         <RestoreAutosaveDialog
@@ -6156,8 +6424,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onRestore={(selection) => {
             flushTransientUi()
             const draft = restoreDraft
+            const restoreIssues = getMetasetDependencyIssues({
+              selection: {
+                recipes: selection.recipes,
+                safeguards: selection.safeguards,
+                metasets: selection.metasets,
+              },
+              incomingMetasetIds: collectMetasetIds(draft?.Metasets ?? []),
+              recipeMetasetIds: collectRecipeMetasetIds(draft?.Recipes ?? []),
+              safeguardMetasetIds: collectSafeguardMetasetIds(draft?.Safeguards ?? []),
+            })
+            // Keep restore idempotent if the UI somehow calls restore with invalid dependencies.
+            if (restoreIssues.length > 0) return
             const shouldResetTesterMatches = Boolean(
               (selection.recipes && Array.isArray(draft?.Recipes))
+              || (selection.safeguards && (Array.isArray(draft?.Safeguards) || typeof draft?.SafeguardsEnabled === 'boolean'))
               || (selection.tester && testerRestoreDraft)
             )
             if (shouldResetTesterMatches) beginTesterMatchReset('restore')
@@ -6293,11 +6574,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             if (savedSafeguardsGridFilterMode) {
               setSafeguardsGridFilterMode(sanitizeSafeguardsGridFilterMode(savedSafeguardsGridFilterMode))
             }
-            if (selection.recipes) {
+            if (selection.safeguards) {
               if (Array.isArray(draft?.Safeguards)) setSafeguardRules(draft.Safeguards)
-              if (typeof draft?.SafeguardsEnabled === 'boolean') {
-                setSafeguardsEnabled(Boolean(draft.SafeguardsEnabled))
-              }
+              if (typeof draft?.SafeguardsEnabled === 'boolean') setSafeguardsEnabled(Boolean(draft.SafeguardsEnabled))
             }
             // Coalesce downstream rebuilds into a single pass.
             restoringAutosaveRef.current = true
