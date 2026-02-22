@@ -149,8 +149,10 @@ import {
 import { makeManageColorsIcon } from './lib/icons'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
 const TESTER_MATCH_RESET_TIMEOUT_MS = 1500
-// Coalesce bursty endpoint snapshots so transient intermediate payloads do not churn the grid.
-const GEAR_DB_RAW_SNAPSHOT_COALESCE_MS = 200
+// Endpoint push processing polls until worker + preview pipelines settle.
+const ENDPOINT_PUSH_SETTLE_POLL_MS = 16
+// Hard timeout keeps a wedged pipeline from blocking endpoint traffic forever.
+const ENDPOINT_PUSH_SETTLE_TIMEOUT_MS = 15000
 type HsfRuleWithRecipe = ReturnType<typeof computeMergedRules>[number]
 // Keep the chip spinner visible with at least a whisper of progress so the pulse animation can show.
 const WORKLOAD_PENDING_MIN_RATIO = 0.02 as const
@@ -760,6 +762,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Shared spinner ratio merges both rule + tester builders so the UI has a single busy signal.
   const [workloadProgressRatio, setWorkloadProgressRatio] = useState(0)
   const workloadSpinnerHangTimeoutRef = useRef<number | null>(null)
+  const rulesBuildingRef = useRef(rulesBuilding)
+  useEffect(() => { rulesBuildingRef.current = rulesBuilding }, [rulesBuilding])
   const rulesWorkloadRatio = rulesBuilding ? clampProgressRatio(rulesBuildProgress) : 0
   const testerWorkloadRatio = gearEntriesBuilding ? clampProgressRatio(gearEntriesProgress) : 0
   const workloadDeterminateRatio = Math.max(rulesWorkloadRatio, testerWorkloadRatio)
@@ -3070,22 +3074,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleGearDbImport = useCallback(async (file: File, options?: { source?: 'manual' | 'command' }) => {
     const source = options?.source ?? 'manual'
     if (gearImportBusy) return
-    // Any manual import resets the JSON dataset so future deltas do not apply
-    // to stale rows pulled from a file.
-    gearDbRawDatasetRef.current = null
-    // Snapshot the current tester preview so command pushes can diff against it.
-    const previousTesterSnapshots = source === 'command'
-      ? snapshotGearDbDataset({
-        snapshotId: null,
-        champions: new Map(),
-        lastUsed: new Map(),
-        artifacts: new Map(
-          testerPreviewArtifacts
-            .filter((artifact) => Number.isFinite(Number(artifact.id)) && Number(artifact.id) > 0)
-            .map((artifact) => [Number(artifact.id), artifact]),
-        ),
-        inboxArtifacts: new Map(),
-      })
+    // Manual imports should not prime endpoint delta baselines.
+    if (source === 'manual') {
+      gearDbRawDatasetRef.current = null
+    }
+    // For command imports, diff against the canonical endpoint dataset baseline.
+    const previousTesterSnapshots = source === 'command' && gearDbRawDatasetRef.current
+      ? snapshotGearDbDataset(gearDbRawDatasetRef.current)
       : new Map()
     if (tutorial.helpOpen) {
       tutorial.setHelpOpen(false)
@@ -3136,16 +3131,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const importSummary = inboxCount > 0
         ? t('toastGearDbImportedShortWithInbox', { count: inventoryCount, inboxCount })
         : t('toastGearDbImportedShort', { count: totalCount })
+      // Build one canonical dataset so endpoint command pushes own a single baseline.
+      const importedDataset: GearDbRawDataset = {
+        snapshotId: null,
+        champions: new Map(),
+        lastUsed: new Map(),
+        artifacts: new Map(artifacts.map((artifact) => [artifact.id, artifact])),
+        inboxArtifacts: new Map(inboxArtifacts.map((artifact) => [artifact.id, artifact])),
+      }
+      const importedSnapshots = snapshotGearDbDataset(importedDataset)
       if (source === 'command') {
-        // Snapshot the imported dataset so we can compute a command diff preview.
-        const nextSnapshots = snapshotGearDbDataset({
-          snapshotId: null,
-          champions: new Map(),
-          lastUsed: new Map(),
-          artifacts: new Map(artifacts.map((artifact) => [artifact.id, artifact])),
-          inboxArtifacts: new Map(inboxArtifacts.map((artifact) => [artifact.id, artifact])),
-        })
-        const diffDetails = buildGearDbDiffSummary(previousTesterSnapshots, nextSnapshots)
+        // Command imports become the next canonical baseline for raw deltas.
+        gearDbRawDatasetRef.current = importedDataset
+        const diffDetails = buildGearDbDiffSummary(previousTesterSnapshots, importedSnapshots)
         // Capture a shared timestamp so toast + history stay aligned.
         const queuedAt = Date.now()
         // Build structured header specs so history can re-localize later.
@@ -3210,7 +3208,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     dismissGearDbCommandToast,
     showGearDbCommandToast,
     queueGearDbDiffToast,
-    testerPreviewArtifacts,
     beginGearImport,
     endGearImport,
   ])
@@ -4449,44 +4446,169 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     previewMode,
   ])
 
-  // Track the latest full snapshot while endpoint pushes are arriving in bursts.
-  const queuedRawSnapshotRef = useRef<GearDbRawSnapshotCommand | null>(null)
-  // Timer id for the snapshot coalescing window.
-  const queuedRawSnapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Cancel + clear any queued snapshot timer.
-  const clearQueuedRawSnapshotTimer = useCallback(() => {
-    if (queuedRawSnapshotTimerRef.current === null) return
-    clearTimeout(queuedRawSnapshotTimerRef.current)
-    queuedRawSnapshotTimerRef.current = null
-  }, [])
-  // Flush the queued snapshot immediately (used before deltas/imports to preserve ordering).
-  const flushQueuedRawSnapshot = useCallback(() => {
-    const queued = queuedRawSnapshotRef.current
-    queuedRawSnapshotRef.current = null
-    clearQueuedRawSnapshotTimer()
-    if (!queued) return
-    handleGearDbRawSnapshot(queued)
-  }, [clearQueuedRawSnapshotTimer, handleGearDbRawSnapshot])
-  // Queue snapshot updates so only the latest payload in a rapid burst is applied.
-  const queueRawSnapshot = useCallback((command: GearDbRawSnapshotCommand) => {
-    queuedRawSnapshotRef.current = command
-    clearQueuedRawSnapshotTimer()
-    queuedRawSnapshotTimerRef.current = setTimeout(() => {
-      // Consume the queued payload once the burst window settles.
-      const queued = queuedRawSnapshotRef.current
-      queuedRawSnapshotRef.current = null
-      queuedRawSnapshotTimerRef.current = null
-      if (!queued) return
-      handleGearDbRawSnapshot(queued)
-    }, GEAR_DB_RAW_SNAPSHOT_COALESCE_MS)
-  }, [clearQueuedRawSnapshotTimer, handleGearDbRawSnapshot])
-  // Ensure queued timers do not outlive the component.
-  useEffect(() => (
-    () => {
-      clearQueuedRawSnapshotTimer()
-      queuedRawSnapshotRef.current = null
+  // Endpoint pushes that mutate tester/preview state must run in strict sequence.
+  type EndpointPushCommand = Extract<ExternalCommand, {
+    kind: 'gearDbRawSnapshot' | 'gearDbRawDelta' | 'gearDbFile' | 'gearDbFileBinary'
+  }>
+  // Queue stores push commands while a prior push is still settling.
+  const endpointPushQueueRef = useRef<EndpointPushCommand[]>([])
+  // Guard ensures only one queue-drain loop runs at a time.
+  const endpointPushDrainInFlightRef = useRef(false)
+  // Cleanup flag prevents post-unmount queue work.
+  const endpointPushQueueClosedRef = useRef(false)
+  // Animation-frame helper allows waiting for paint/commit boundaries.
+  const waitForAnimationFrame = useCallback(() => (
+    new Promise<void>((resolve) => {
+      if (typeof window === 'undefined') {
+        resolve()
+        return
+      }
+      window.requestAnimationFrame(() => resolve())
+    })
+  ), [])
+  // Wait for worker + preview/tester commits before processing the next push.
+  const waitForEndpointPushSettle = useCallback(async () => {
+    // Let React commit immediate state updates before polling pipeline refs.
+    await waitForAnimationFrame()
+    const startedAt = Date.now()
+    while (!endpointPushQueueClosedRef.current) {
+      // Pending debounce/abort refs indicate the worker pipeline still has queued work.
+      const pipelinePending = pipelineDebounceRef.current !== null || pipelineAbortRef.current !== null
+      // Build flags reflect in-flight worker + result commits.
+      const buildPending = rulesBuildingRef.current || gearEntriesBuildingRef.current
+      // Tester commit id should never trail the latest requested token once idle.
+      const latestToken = rulesBuildingTokenRef.current ?? 0
+      const testerCommitCaughtUp = gearEntriesCommittedBuildIdRef.current >= latestToken
+      if (!pipelinePending && !buildPending && testerCommitCaughtUp) break
+      if (Date.now() - startedAt >= ENDPOINT_PUSH_SETTLE_TIMEOUT_MS) break
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, ENDPOINT_PUSH_SETTLE_POLL_MS)
+      })
     }
-  ), [clearQueuedRawSnapshotTimer])
+    // Give HSF preview + tester grid one extra paint turn before dequeuing.
+    await waitForAnimationFrame()
+    await waitForAnimationFrame()
+  }, [waitForAnimationFrame])
+  // Import command handler resolves only after file/download paths finish.
+  const applyGearDbFileCommand = useCallback(async (cmd: Extract<ExternalCommand, { kind: 'gearDbFile' }>) => {
+    const importFile = async (file: File | null): Promise<void> => {
+      if (!file) {
+        if (import.meta.env.DEV) {
+          console.error('Failed to decode gear DB payload from external command.')
+        }
+        return
+      }
+      await handleGearDbImport(file, { source: 'command' })
+    }
+    const downloadPath = cmd.downloadPath?.trim()
+    if (downloadPath) {
+      const resolveDownloadUrl = (): string | null => {
+        try {
+          if (/^https?:\/\//i.test(downloadPath)) {
+            return downloadPath
+          }
+          const base = pushEndpointHttpBase ?? ''
+          if (!base) return null
+          const baseUrl = base.endsWith('/') ? base : `${base}/`
+          const relative = downloadPath.startsWith('/') ? downloadPath.slice(1) : downloadPath
+          return new URL(relative, baseUrl).toString()
+        } catch {
+          return null
+        }
+      }
+      const url = resolveDownloadUrl()
+      if (url) {
+        try {
+          const response = await fetch(url, { cache: 'no-store' })
+          if (!response.ok) throw new Error(`HTTP ${response.status}`)
+          const blob = await response.blob()
+          const fileName = cmd.name && cmd.name.trim().length > 0 ? cmd.name : DEFAULT_GEAR_DB_FILENAME
+          const file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' })
+          await handleGearDbImport(file, { source: 'command' })
+          return
+        } catch (err) {
+          if (import.meta.env.DEV) {
+            console.error('Failed to download gear DB payload', err)
+          }
+        }
+      }
+    }
+    const fallbackFile = createGearDbFileFromBase64(cmd.name, cmd.base64)
+    await importFile(fallbackFile)
+  }, [handleGearDbImport, pushEndpointHttpBase])
+  // Apply one queued endpoint push and wait for full pipeline/UI settle.
+  const applyEndpointPushCommand = useCallback(async (cmd: EndpointPushCommand) => {
+    if (cmd.kind === 'gearDbRawSnapshot') {
+      handleGearDbRawSnapshot(cmd)
+      await waitForEndpointPushSettle()
+      return
+    }
+    if (cmd.kind === 'gearDbRawDelta') {
+      handleGearDbRawDelta(cmd)
+      await waitForEndpointPushSettle()
+      return
+    }
+    if (cmd.kind === 'gearDbFile') {
+      await applyGearDbFileCommand(cmd)
+      await waitForEndpointPushSettle()
+      return
+    }
+    if (cmd.kind === 'gearDbFileBinary') {
+      const file = createGearDbFileFromBytes(cmd.name, cmd.bytes, cmd.contentType)
+      if (!file) {
+        if (import.meta.env.DEV) {
+          console.error('Failed to decode gear DB binary payload from external command.')
+        }
+        return
+      }
+      await handleGearDbImport(file, { source: 'command' })
+      await waitForEndpointPushSettle()
+    }
+  }, [
+    applyGearDbFileCommand,
+    handleGearDbImport,
+    handleGearDbRawDelta,
+    handleGearDbRawSnapshot,
+    waitForEndpointPushSettle,
+  ])
+  // Drain queue sequentially so each push fully settles before the next starts.
+  const drainEndpointPushQueue = useCallback(async () => {
+    if (endpointPushDrainInFlightRef.current) return
+    endpointPushDrainInFlightRef.current = true
+    try {
+      while (!endpointPushQueueClosedRef.current) {
+        const next = endpointPushQueueRef.current.shift()
+        if (!next) break
+        try {
+          await applyEndpointPushCommand(next)
+        } catch (err) {
+          if (import.meta.env.DEV) {
+            console.error('Failed to process endpoint push command', err)
+          }
+        }
+      }
+    } finally {
+      endpointPushDrainInFlightRef.current = false
+      // Commands may have arrived after the final shift; drain again if needed.
+      if (!endpointPushQueueClosedRef.current && endpointPushQueueRef.current.length > 0) {
+        void drainEndpointPushQueue()
+      }
+    }
+  }, [applyEndpointPushCommand])
+  // Queue ingress helper used by the external command dispatcher.
+  const enqueueEndpointPush = useCallback((cmd: EndpointPushCommand) => {
+    endpointPushQueueRef.current.push(cmd)
+    void drainEndpointPushQueue()
+  }, [drainEndpointPushQueue])
+  // Ensure queue state does not survive component teardown.
+  useEffect(() => {
+    // Reset the closed flag on mount (StrictMode may run cleanup/effect twice).
+    endpointPushQueueClosedRef.current = false
+    return () => {
+      endpointPushQueueClosedRef.current = true
+      endpointPushQueueRef.current = []
+    }
+  }, [])
 
   const handleExternalCommand = useCallback((cmd: ExternalCommand) => {
     if (cmd.kind === 'selectRule') {
@@ -4503,91 +4625,27 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
 
     if (cmd.kind === 'gearDbRawSnapshot') {
-      queueRawSnapshot(cmd)
+      enqueueEndpointPush(cmd)
       return
     }
 
     if (cmd.kind === 'gearDbRawDelta') {
-      // Apply any queued full snapshot first so delta ops mutate the correct baseline.
-      flushQueuedRawSnapshot()
-      handleGearDbRawDelta(cmd)
+      enqueueEndpointPush(cmd)
       return
     }
 
     if (cmd.kind === 'gearDbFile') {
-      // File imports should supersede queued snapshots from the same endpoint burst.
-      flushQueuedRawSnapshot()
-      const queueImport = (file: File | null) => {
-        if (!file) {
-          if (import.meta.env.DEV) {
-            console.error('Failed to decode gear DB payload from external command.')
-          }
-          return
-        }
-        void handleGearDbImport(file, { source: 'command' })
-      }
-
-      const downloadPath = cmd.downloadPath?.trim()
-      if (downloadPath) {
-        const resolveDownloadUrl = (): string | null => {
-          try {
-            if (/^https?:\/\//i.test(downloadPath)) {
-              return downloadPath
-            }
-            const base = pushEndpointHttpBase ?? ''
-            if (!base) return null
-            const baseUrl = base.endsWith('/') ? base : `${base}/`
-            const relative = downloadPath.startsWith('/') ? downloadPath.slice(1) : downloadPath
-            return new URL(relative, baseUrl).toString()
-          } catch {
-            return null
-          }
-        }
-        const url = resolveDownloadUrl()
-        if (url) {
-          void (async () => {
-            try {
-              const response = await fetch(url, { cache: 'no-store' })
-              if (!response.ok) throw new Error(`HTTP ${response.status}`)
-              const blob = await response.blob()
-              const fileName = cmd.name && cmd.name.trim().length > 0 ? cmd.name : DEFAULT_GEAR_DB_FILENAME
-              const file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' })
-              await handleGearDbImport(file, { source: 'command' })
-            } catch (err) {
-              if (import.meta.env.DEV) {
-                console.error('Failed to download gear DB payload', err)
-              }
-              const fallbackFile = createGearDbFileFromBase64(cmd.name, cmd.base64)
-              queueImport(fallbackFile)
-            }
-          })()
-          return
-        }
-      }
-
-      const file = createGearDbFileFromBase64(cmd.name, cmd.base64)
-      queueImport(file)
+      enqueueEndpointPush(cmd)
+      return
     }
 
     if (cmd.kind === 'gearDbFileBinary') {
-      // Binary imports should supersede queued snapshots from the same endpoint burst.
-      flushQueuedRawSnapshot()
-      const file = createGearDbFileFromBytes(cmd.name, cmd.bytes, cmd.contentType)
-      if (!file) {
-        if (import.meta.env.DEV) {
-          console.error('Failed to decode gear DB binary payload from external command.')
-        }
-        return
-      }
-      void handleGearDbImport(file, { source: 'command' })
+      enqueueEndpointPush(cmd)
+      return
     }
   }, [
+    enqueueEndpointPush,
     focusRuleByIndex,
-    flushQueuedRawSnapshot,
-    handleGearDbImport,
-    handleGearDbRawDelta,
-    pushEndpointHttpBase,
-    queueRawSnapshot,
     requestSelectionScroll,
   ])
 

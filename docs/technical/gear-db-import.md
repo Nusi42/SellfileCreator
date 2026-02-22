@@ -132,6 +132,8 @@ Argonites currently assume a new `accset = 17` mapping until a sample database c
 
   External pushes continue to light up the indicator badge on the history button (left of Load) and emit a compact toast in the top-right corner that auto-dismisses after roughly 3 seconds so the notification never hides the preview controls. The history button’s context menu can hide that success toast while keeping the badge and history entries intact.
 
+  Endpoint push commands are processed strictly in arrival order. The app now waits for the worker pipeline to finish, the HSF preview to commit, and the tester grid commit to settle before consuming the next push, preventing overlapping endpoint bursts from racing each other.
+
   The endpoint toast includes a before/after diff preview (up to 18 items) rendered with scaled tester grid cards; any overflow is summarized with a `+X more` footer. Session history entries store the same preview depth (up to 18 items); hover still shows a quick preview, and left-click opens a persistent scrollable popout with an explicit close button for long diffs.
 
   Timestamp-only `LastUsed` updates are ignored, while source or champion metadata changes still produce a preview card. Endpoint pushes also populate a session-only history menu (icon left of the Load button) that replays the diff preview and offers a Clear History action. The menu keeps up to 2,880 endpoint updates per session (8 hours at 10-second pushes), storing each entry’s capped diff preview in compact JSON and decoding it on demand for display.
