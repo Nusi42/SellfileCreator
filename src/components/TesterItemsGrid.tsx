@@ -179,6 +179,13 @@ const CARD_ACTION_ICON_SIZE_PX = 18
 // Keep/sell background tints stay subtle so stat colors remain readable.
 const CARD_OUTCOME_TINT_ALPHA_LIGHT = 0.1
 const CARD_OUTCOME_TINT_ALPHA_DARK = 0.2
+// Main/substat panel gets a neutral wash so colored text stays legible over keep/sell tints.
+const CARD_STATS_DIM_ALPHA_LIGHT = 0.67
+const CARD_STATS_DIM_ALPHA_DARK = 0.3
+// Match the card language: soft rounded rectangle, slightly tighter than the outer frame.
+const CARD_STATS_DIM_RADIUS_PX = 6
+// Expand the dim panel by 2px on every side to create breathing room around the stat text block.
+const CARD_STATS_DIM_OUTSET_PX = 2
 // Group-level virtualization uses light overscan because the heavy lifting happens at the card row level.
 const GRID_GROUP_VIRTUAL_OVERSCAN_ROWS = 2
 // Penalize off-screen rows so the reveal queue prefers on-screen cards even while overscanning nested accordions.
@@ -3349,6 +3356,12 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     const tintAlpha = theme.palette.mode === 'dark' ? CARD_OUTCOME_TINT_ALPHA_DARK : CARD_OUTCOME_TINT_ALPHA_LIGHT
     return alpha(baseTone, tintAlpha)
   })()
+  // Dim only the stats block so keep/sell tint remains visible while stat text regains contrast.
+  const statsBlockDimBg = (() => {
+    if (!highlightKeepSell || !match) return null
+    const dimAlpha = theme.palette.mode === 'dark' ? CARD_STATS_DIM_ALPHA_DARK : CARD_STATS_DIM_ALPHA_LIGHT
+    return alpha(theme.palette.background.paper, dimAlpha)
+  })()
   const mainSummaryLabel = (
     <Box
       component="span"
@@ -3729,6 +3742,26 @@ export const TesterGridCard = React.memo(function TesterGridCard({
           minHeight: rightColumnHeightPx,
           height: rightColumnHeightPx,
           maxHeight: rightColumnHeightPx,
+          // Anchor the dim panel to the full main+substats area without changing layout metrics.
+          position: 'relative',
+          ...(statsBlockDimBg
+            ? {
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                inset: `${-CARD_STATS_DIM_OUTSET_PX}px`,
+                borderRadius: `${CARD_STATS_DIM_RADIUS_PX}px`,
+                backgroundColor: statsBlockDimBg,
+                pointerEvents: 'none',
+                zIndex: 0,
+              },
+              // Keep text and interactive rows above the dim layer.
+              '& > *': {
+                position: 'relative',
+                zIndex: 1,
+              },
+            }
+            : {}),
           // Let the card container handle clipping so mythic glow can escape horizontally.
           overflow: 'visible',
         }}
