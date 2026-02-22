@@ -2,7 +2,7 @@
  * filterPresetsPreference.ts
  *
  * Stores user-named snapshots of the preview filter panel + tester sort settings.
- * These are explicit "presets" (not autosave), so they live outside the HSFC payload
+ * These are explicit "presets" (not autosave), so they live outside the SFR payload
  * and must never participate in the Restore Autosave dialog.
  */
 import {

@@ -5,7 +5,7 @@
  * recipe overrides parsing so matching stays consistent across the app.
  */
 
-// Tag tokens stay compact so they travel well in filenames and HSFC notes.
+// Tag tokens stay compact so they travel well in filenames and SFR notes.
 // Reserve punctuation for future syntax; allow unicode letters/numbers plus underscores.
 // Tags must start with a letter, combining mark, or underscore.
 export const TAG_TOKEN_REGEX = /^[\p{L}\p{M}_][\p{L}\p{N}\p{M}_]*$/u
@@ -30,7 +30,7 @@ export function normalizeTagValue(raw: string): string | null {
 
 // Canonical recipe tag that excludes recipe matches from safeguard coverage checks.
 export const SAFEGUARD_IGNORE_TAG = 'ignore_by_safeguards'
-// Legacy aliases kept for backward compatibility with older HSFC/test fixtures.
+// Legacy aliases kept for backward compatibility with older SFR/test fixtures.
 export const SAFEGUARD_IGNORE_TAG_LEGACY_ALIASES = Object.freeze([
   'ignore_keep_unique',
   'ignore_safeguard',

@@ -125,14 +125,14 @@ impl EvaluateOptionsPrepared {
 }
 
 const RULE_SOURCE_BIT_HSF: u8 = 1 << 0;
-const RULE_SOURCE_BIT_HSFC: u8 = 1 << 1;
+const RULE_SOURCE_BIT_SFR: u8 = 1 << 1;
 const RULE_SOURCE_BIT_FINAL_SELL: u8 = 1 << 2;
 const RULE_SOURCE_BIT_SAFEGUARDS: u8 = 1 << 3;
 
 fn rule_source_bit(raw: &str) -> Option<u8> {
     match raw {
         RULE_SOURCE_HSF => Some(RULE_SOURCE_BIT_HSF),
-        RULE_SOURCE_HSFC => Some(RULE_SOURCE_BIT_HSFC),
+        RULE_SOURCE_SFR => Some(RULE_SOURCE_BIT_SFR),
         RULE_SOURCE_FINAL_SELL => Some(RULE_SOURCE_BIT_FINAL_SELL),
         RULE_SOURCE_SAFEGUARDS => Some(RULE_SOURCE_BIT_SAFEGUARDS),
         _ => None,

@@ -34,7 +34,7 @@
                     "test:all":  "npm run test:unit \u0026\u0026 npm run test:e2e",
                     "test:all:full":  "npm run test:unit \u0026\u0026 npm run test:e2e:all",
                     "test":  "npm run test:all",
-                    "tests:extract":  "tsc -p tsconfig.tests.json \u0026\u0026 node scripts/tooling/patch-esm-specifiers.cjs \u0026\u0026 node scripts/test/dump-tests-hsfc.mjs"
+                    "tests:extract":  "tsc -p tsconfig.tests.json \u0026\u0026 node scripts/tooling/patch-esm-specifiers.cjs \u0026\u0026 node scripts/test/dump-tests-sfr.mjs"
                 },
     "overrides":  {
                       "esbuild":  "\u003e=0.24.3"

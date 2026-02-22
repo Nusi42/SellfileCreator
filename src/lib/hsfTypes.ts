@@ -39,7 +39,7 @@ export interface HsfFile {
 
 // HSF wiring helpers: decode a StatVariant into HSF tuple shapes.
 // These helpers are used only when mapping app state to/from HSF schema
-// or when formatting for readability. Do not use them in HSFC parsing.
+// or when formatting for readability. Do not use them in SFR parsing.
 import type { RankValue, StatVariantLike } from './types'
 import { RANK_VALUES, StatId, StatVariant } from './types'
 

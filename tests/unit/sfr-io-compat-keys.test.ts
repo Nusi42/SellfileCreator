@@ -3,7 +3,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildHsfcPayload, parseHsfcObject } from '../../src/lib/hsfcIO.js'
+import { buildSfrPayload, parseSfrObject } from '../../src/lib/sfrIO.js'
 import { parseHsfFile } from '../../src/lib/hsfIO.js'
 import { defaultSubstatTargets, type BuilderRecipe } from '../../src/lib/hsfBuilder.js'
 
@@ -30,8 +30,8 @@ const buildRecipe = (name: string): BuilderRecipe => ({
   artifactMetaSets: [],
 })
 
-test('HSFC writer emits SelectedRecipeIndex and canonical note marker wording', () => {
-  const payload = buildHsfcPayload({
+test('SFR writer emits SelectedRecipeIndex and canonical note marker wording', () => {
+  const payload = buildSfrPayload({
     version: 'test-version',
     metasets: [],
     substatTargets: defaultSubstatTargets(),
@@ -56,11 +56,11 @@ test('HSFC writer emits SelectedRecipeIndex and canonical note marker wording', 
   assert.equal(/<!--\s*keep-uniques-re\b/i.test(note), false)
 })
 
-test('HSFC parser reads legacy SelectedConfigIndex/KeepUniques keys and canonicalizes note markers', () => {
-  const parsed = parseHsfcObject(
+test('SFR parser reads legacy SelectedConfigIndex/KeepUniques keys and canonicalizes note markers', () => {
+  const parsed = parseSfrObject(
     {
       Version: 'legacy-demo',
-      Recipes: [buildHsfcPayload({
+      Recipes: [buildSfrPayload({
         version: 'inner',
         metasets: [],
         substatTargets: defaultSubstatTargets(),
@@ -104,8 +104,8 @@ test('HSF parser resolves legacy ConfigID/ConfigName keys to recipe metadata at 
   assert.equal('ConfigName' in first, false)
 })
 
-test('HSFC parser preserves safeguard substatWeights from legacy KeepUniques payloads', () => {
-  const parsed = parseHsfcObject(
+test('SFR parser preserves safeguard substatWeights from legacy KeepUniques payloads', () => {
+  const parsed = parseSfrObject(
     {
       Version: 'legacy-keep-weights',
       Recipes: [buildRecipe('Legacy Keep Weights')],
@@ -141,7 +141,7 @@ test('HSFC parser preserves safeguard substatWeights from legacy KeepUniques pay
   const importedWeights = Object.values(importedRule.substatWeights ?? {}).sort((a, b) => a - b)
   assert.deepEqual(importedWeights, [0.9, 1.5])
 
-  const payload = buildHsfcPayload({
+  const payload = buildSfrPayload({
     version: 'roundtrip',
     metasets: parsed.metasets,
     substatTargets: parsed.substatTargets,
@@ -158,8 +158,8 @@ test('HSFC parser preserves safeguard substatWeights from legacy KeepUniques pay
   assert.equal(exportedWeights['ACC'], 0.9)
 })
 
-test('HSFC parser canonicalizes legacy safeguard-ignore recipe tags on roundtrip', () => {
-  const parsed = parseHsfcObject(
+test('SFR parser canonicalizes legacy safeguard-ignore recipe tags on roundtrip', () => {
+  const parsed = parseSfrObject(
     {
       Version: 'legacy-ignore-tag',
       Recipes: [
@@ -174,7 +174,7 @@ test('HSFC parser canonicalizes legacy safeguard-ignore recipe tags on roundtrip
   // Read path should accept legacy ignore tag aliases.
   assert.deepEqual(parsed.recipes[0]?.tags, ['ignore_by_safeguards', 'speed'])
 
-  const payload = buildHsfcPayload({
+  const payload = buildSfrPayload({
     version: 'roundtrip-ignore-tag',
     metasets: parsed.metasets,
     substatTargets: parsed.substatTargets,
@@ -187,12 +187,12 @@ test('HSFC parser canonicalizes legacy safeguard-ignore recipe tags on roundtrip
   assert.deepEqual(recipe['Tags'], ['ignore_by_safeguards', 'speed'])
 })
 
-test('HSFC writer canonicalizes legacy safeguard-ignore aliases from runtime recipe state', () => {
+test('SFR writer canonicalizes legacy safeguard-ignore aliases from runtime recipe state', () => {
   const legacyTaggedRecipe = {
     ...buildRecipe('Legacy Writer Alias'),
     tags: ['ignore_keep_unique', 'speed'],
   }
-  const payload = buildHsfcPayload({
+  const payload = buildSfrPayload({
     version: 'writer-legacy-ignore-tag',
     metasets: [],
     substatTargets: defaultSubstatTargets(),

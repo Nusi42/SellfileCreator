@@ -29,7 +29,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `npm run wasm:ensure:rule-engine` — rebuild `src/lib/wasm/generated/*` only when relevant Rust/domain inputs are newer than generated outputs
 - `npm run check:wasm-toolchain` — validate `rustc`, `cargo`, `rustup`, `wasm-bindgen`, and installed target `wasm32-unknown-unknown`
 - `npm run ensure:wasm-toolchain` — run the same checks plus auto-fix (`cargo install wasm-bindgen-cli --version 0.2.108` and `rustup target add wasm32-unknown-unknown`) when needed
-- `npm run test:unit` — compile + run node:test + HSFC fixture runner
+- `npm run test:unit` — compile + run node:test + SFR fixture runner
 - `npm run test:e2e` — run Playwright against the Vite dev server in Chromium
 - `npm run test:e2e:all` — run Playwright against the Vite dev server in all browsers
 - `npm run test:all` — run unit/integration plus Chromium Playwright
@@ -52,13 +52,13 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `build`, `typecheck`, and `test:unit` still run `npm run wasm:ensure:rule-engine` first, so non-dev workflows auto-regenerate wasm/bindings as needed.
 - `src/lib/wasm/generated/rule_engine_bg.wasm` is intentionally gitignored and should be regenerated locally by the ensure/build scripts instead of committed.
 - `scripts/tooling/patch-esm-specifiers.cjs` — patches compiled artifacts to add `.js` extensions for Node ESM.
-- `scripts/test/run-tests.mjs` — orchestrates `npm run test:unit` (cleans `tmp/tsc/tests`, runs `tsc -p tsconfig.tests.json`, patches ESM specifiers, executes the HSFC fixture runner, then runs all node:test specs emitted under `tmp/tsc/tests/tests/`).
-- `scripts/test/dump-tests-hsfc.mjs` — extracts HSFC‑readable configs from compiled tests (`npm run tests:extract`).
-- `scripts/test/dump-goldens-all.mjs` — writes golden snapshots for curated HSFC cases.
-- `scripts/test/gen-hsf-from-hsfc.mjs` — generates HSF from a readable HSFC file.
-- `scripts/test/build-hsf-from-recipe.mjs` — generates HSF from a single HSFC config object (stdin/stdout helper).
-- Fixture writers (`dump-tests-hsfc.mjs`, `dump-goldens-all.mjs`, `gen-hsf-from-hsfc.mjs`, `build-hsf-from-recipe.mjs`) reuse the builder output verbatim so JSON member order mirrors the RSL Helper export.
-- Fixture HSFs are kept in sync with the app pipeline: `tests/integration/hsfc-fixtures.runner.ts` routes every HSFC through `parseHsfcObject` and `computeMergedRules` so metaset expansion and obsolete-rule pruning match the UI/export behavior, then compares the full rule payloads exactly as emitted (no key reordering, no field trimming).
+- `scripts/test/run-tests.mjs` — orchestrates `npm run test:unit` (cleans `tmp/tsc/tests`, runs `tsc -p tsconfig.tests.json`, patches ESM specifiers, executes the SFR fixture runner, then runs all node:test specs emitted under `tmp/tsc/tests/tests/`).
+- `scripts/test/dump-tests-sfr.mjs` — extracts SFR‑readable configs from compiled tests (`npm run tests:extract`).
+- `scripts/test/dump-goldens-all.mjs` — writes golden snapshots for curated SFR cases.
+- `scripts/test/gen-hsf-from-sfr.mjs` — generates HSF from a readable SFR file.
+- `scripts/test/build-hsf-from-recipe.mjs` — generates HSF from a single SFR config object (stdin/stdout helper).
+- Fixture writers (`dump-tests-sfr.mjs`, `dump-goldens-all.mjs`, `gen-hsf-from-sfr.mjs`, `build-hsf-from-recipe.mjs`) reuse the builder output verbatim so JSON member order mirrors the RSL Helper export.
+- Fixture HSFs are kept in sync with the app pipeline: `tests/integration/sfr-fixtures.runner.ts` routes every SFR through `parseSfrObject` and `computeMergedRules` so metaset expansion and obsolete-rule pruning match the UI/export behavior, then compares the full rule payloads exactly as emitted (no key reordering, no field trimming).
 - Fixture organization and refresh workflow lives in `tests/FIXTURES.md` for quick reference when adding scenarios or re-generating targets.
   - `scripts/tooling/audit-l10n-widths.ts` — estimates per-locale string width/line growth to flag UI elements that need fixed sizing.
   - (one-off/migration helpers are not kept here; see below)
@@ -82,9 +82,9 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 ### Validation Before Handoff
 
 - For code changes (anything beyond docs and `constants.ts`), run `npm run typecheck`, `npm run lint`, and `npm run build` and fix any issues.
-- Always run tests when changes may influence HSFC/HSF IO or HSF rule generation logic: `npm test`.
-  - Includes edits to: HSFC normalize/parse/write, HSF parse/write, and any HSF rule generation behavior (e.g., permutations/minCount, thresholds Early/Late, rarity/roll schedules, level windows, wildcard and caps handling, pruning/feasibility filters).
-  - These end-to-end tests validate readable HSFC → normalize → builder → HSF output and catch regressions in thresholds, rarity/rank schedules, and rule shapes.
+- Always run tests when changes may influence SFR/HSF IO or HSF rule generation logic: `npm test`.
+  - Includes edits to: SFR normalize/parse/write, HSF parse/write, and any HSF rule generation behavior (e.g., permutations/minCount, thresholds Early/Late, rarity/roll schedules, level windows, wildcard and caps handling, pruning/feasibility filters).
+  - These end-to-end tests validate readable SFR → normalize → builder → HSF output and catch regressions in thresholds, rarity/rank schedules, and rule shapes.
   - If a test needs to be updated due to an intentional behavior change, adjust the test alongside the implementation so they remain in sync.
 - End-to-end coverage lives under `tests/playwright/` (Playwright). Use `npx playwright test tests/playwright/smoke.spec.ts --project=chromium --reporter=list` as a smoke check before running heavier specs.
   - The dev server binds `127.0.0.1:5182`; when the Codex sandbox reports `EPERM`, rerun the Playwright command with `with_escalated_permissions: true` so Vite can listen on that port.
@@ -160,10 +160,10 @@ Coding patterns adopted during the refactor (required for PRs):
   - `README.<lang>.txt` — localized README variants converted to UTF-8 BOM text
   - `HISTORY.txt` — copied from `docs/HISTORY.txt` so the release bundle ships with the full changelog
   - `i18n/*.l10n.json` — localization templates exported from `dist/l10n`
-  - `Sellfiles/_RECIPE_FOR_LATEGAME_AND_ENDGAME_.sfr` — prefers the most recent `Nusi_*.sfr` in `examples/`; falls back to `example.sfr` (legacy `example.hsfc`) if no timestamped sample is present
+  - `Sellfiles/_RECIPE_FOR_LATEGAME_AND_ENDGAME_.sfr` — prefers the most recent `Nusi_*.sfr` in `examples/`; falls back to `example.sfr` (legacy `example.sfr`) if no timestamped sample is present
   - `Sellfiles/lategame-sellfile.hsf` — copied from `examples/lategame.hsf` (legacy `Lategame.hsf` fallback) so the archive always ships the curated lategame baseline
   - `Sellfiles/endgame-sellfile.hsf` — copied from `examples/endgame.hsf` (legacy `Endgame.hsf` fallback) so the archive also ships the curated endgame baseline
-  - `Sellfiles/basic.sfr` — copied from `examples/Basic.sfr` (legacy `Basic.hsfc` fallback) as the minimal starter recipe
+  - `Sellfiles/basic.sfr` — copied from `examples/Basic.sfr` (legacy `Basic.sfr` fallback) as the minimal starter recipe
   - `runme.bat` — launches the HTML in the default browser
   - `dev/` — optional helper folder with the WebSocket watcher scripts and protocol docs when available
 
@@ -171,12 +171,12 @@ Coding patterns adopted during the refactor (required for PRs):
 
 - `src/App.tsx`: Main UI — orchestrates builder, configs, metasets, Substat Target Values (`substatTargets`), autosave, preview.
 - `src/components/HelpDialog.tsx`: In-app Help/README viewer. Bundles the top-level `README.md` (via Vite `?raw`) and renders it with the Markdown previewer used elsewhere (sanitized, read-only). The dialog paper pulls the favicon data URL from the `<link rel="icon">` tag (injected by `assetsPlugin`) to paint a richer but still translucent background that matches the app branding without duplicating the asset; the favicon layer scales to 80% of the dialog while preserving aspect ratio.
-- `src/state/appState.tsx`: Context + reducer for core app state. Exposes `AppStateProvider`, `useAppState`, `useAppActions`, and `makeInitialAppState`. Fields: `customRecipes`, `metasets`, `substatTargets` (Substat Target Values), `finalSellRemainder`, `logicHubDialogTab`, `keepUniqueRules`, `safeguardsEnabled`, `selectedRecipeIdx`, `hsfcNote`.
+- `src/state/appState.tsx`: Context + reducer for core app state. Exposes `AppStateProvider`, `useAppState`, `useAppActions`, and `makeInitialAppState`. Fields: `customRecipes`, `metasets`, `substatTargets` (Substat Target Values), `finalSellRemainder`, `logicHubDialogTab`, `keepUniqueRules`, `safeguardsEnabled`, `selectedRecipeIdx`, `sfrNote`.
 - `src/theme.ts`: MUI dark theme configuration.
 - `src/main.tsx`: App bootstrap with `ThemeProvider` and `CssBaseline`.
   - Wraps `<App />` in `AppStateProvider`, seeding with `defaultSubstatTargets()` (Substat Target Values) and `defaultMetasets()`.
 - `src/lib/constants.ts`: Centralized app-wide constants (storage keys, layout widths, UI sizes).
-  - UI helpers include `UI_BG_TRANSITION` (shared background-color transition) and file accept strings `ACCEPT_HSF`/`ACCEPT_HSFC` plus the dialog-specific filters `ACCEPT_HSFC_FILE_DIALOG` and `ACCEPT_HSF_OR_DB_FILE_DIALOG`.
+  - UI helpers include `UI_BG_TRANSITION` (shared background-color transition) and file accept strings `ACCEPT_HSF`/`ACCEPT_SFR` plus the dialog-specific filters `ACCEPT_SFR_FILE_DIALOG` and `ACCEPT_HSF_OR_DB_FILE_DIALOG`.
 - `src/lib/merge.ts`: Pure function to compute merged rules for preview (`computeMergedRules`).
 - `src/lib/hsfTypes.ts`: Shared HSF schema helpers (`variantToMain`, `variantToSub`, rank/rarity coverage, etc.) used across the builder, filters, and evaluator.
 - `src/lib/iconMaps/gearsetIconMap.ts`: Manually maintained map of artifact set IDs to icon asset imports. Update when Plarium adds or renames sets; do not rely on build-time regeneration.
@@ -185,10 +185,10 @@ Coding patterns adopted during the refactor (required for PRs):
 - `src/lib/ruleEval.ts`: Pure evaluator for testing items against HSF rules (first match wins). Used by the Gear tab inside Logic Hub.
 - `src/lib/hsfBuilder.ts`: Rule builder utilities for generating permutations and thresholds.
   - Supports fixed substats: `BuilderRecipe.fixedSubstatsV` (subset of `substatsV`) are always included in generated combinations.
-  - Exposes `defaultSubstatTargets()` and `SubstatTargetTable` to configure per-rank Substat Target Values (1★..6★). Internally these tables are StatVariant-keyed (numeric) for speed; HSFC export converts them to label-keyed maps for readability. `SubstatTargetTable.anyRankDefaultsTo` controls which star bucket fills in those values when a config uses Rank = Any (defaults to 6★). HSFC payloads continue to use the `Minima` property name for backward compatibility.
-- `src/lib/hsfcIO.ts`: HSFC read/write helpers used by Save/Copy/Paste and context menus (normalize readable HSFC → variant model; build readable HSFC payloads from variant state; serialize to Blob). Exports labels via `labelOfVariant` (no `{ id, isFlat }`).
+  - Exposes `defaultSubstatTargets()` and `SubstatTargetTable` to configure per-rank Substat Target Values (1★..6★). Internally these tables are StatVariant-keyed (numeric) for speed; SFR export converts them to label-keyed maps for readability. `SubstatTargetTable.anyRankDefaultsTo` controls which star bucket fills in those values when a config uses Rank = Any (defaults to 6★). SFR payloads continue to use the `Minima` property name for backward compatibility.
+- `src/lib/sfrIO.ts`: SFR read/write helpers used by Save/Copy/Paste and context menus (normalize readable SFR → variant model; build readable SFR payloads from variant state; serialize to Blob). Exports labels via `labelOfVariant` (no `{ id, isFlat }`).
 - `src/lib/icons.ts`: Small utility icon builders (e.g., `makeManageColorsIcon()` for the Manage Colors button).
-- `src/lib/filenames.ts`: Export filename helpers (`sellfileFilename`, `hsfcFilename`) with timestamping.
+- `src/lib/filenames.ts`: Export filename helpers (`sellfileFilename`, `sfrFilename`) with timestamping.
 - `src/lib/clipboard.ts`: Clipboard helpers (`writeTextSafe`, `readTextSafe`) and `COPY_DIALOG_EVENT` for opening the manual copy dialog.
 - `src/lib/i18n.tsx`: Minimal, strictly typed i18n layer. Exposes `I18nProvider` and `useI18n()` with `{ lang, setLang, t, registerRuntimeCatalog }`.
   - Environment behavior:
@@ -200,20 +200,20 @@ Coding patterns adopted during the refactor (required for PRs):
   - Tutorial strings, builder panel caption, and application toasts are localized via `t(...)` calls. Tutorial keys follow a `tut*` naming scheme.
 - `src/hooks/useSubstatColors.ts`: Hook for substat color map defaulting and persistence.
 - `src/hooks/useFileDragDrop.ts`: Hook for global file drag/drop listeners; exposes `active` overlay state.
-  - Recognized file types: `.sfr` (legacy `.hsfc`), `.hsf`, and `.l10n.json/.i18n.json/.l10n` (runtime localization catalogs).
+  - Recognized file types: `.sfr` (legacy `.sfr`), `.hsf`, and `.l10n.json/.i18n.json/.l10n` (runtime localization catalogs).
   - L10n JSON schema: either `{ "lang": "xx-XX", "catalog": { ... } }` or a plain key→string map named `xx-XX.l10n.json`/`xx-XX.i18n.json` to infer `lang`.
   - Dropping an l10n file registers it via `registerRuntimeCatalog` and applies it immediately (non-persistent).
   - Help dialog includes a dev-only language select dropdown (Empty/EN/DE/FR/ES/PT-BR/PT-PT/RU/UK/TR) for quick verification. “Empty (dev)” uses blank values for all keys to highlight non-localized text.
 - `src/hooks/useTutorialCoachState.ts`: Hook that owns tutorial/help gating, builds the scripted `TutorialStep[]`, maintains snapshot/restore for configs/substatTargets/metasets/final-sell state, and exposes navigation handlers (`startTutorial`, skip/next/prev) plus overlay guards to `App.tsx`.
-- `src/hooks/useHsfcClipboard.ts`: Consolidates HSFC copy/paste flows, prepares metaset conflict state, generates placeholder metasets for missing references, and exposes handlers used by `App.tsx` (note merging only runs when the current HSFC note is empty).
-- `src/hooks/useHsfcDialogs.ts`: Centralizes App-level dialogs tied to HSFC management (clear/delete confirmations, note view/edit modes, and manual copy/paste fallbacks), keeps the “Delete All” autosave suppression in sync, and exposes dialog setters so other hooks (e.g., `useHsfcClipboard`) reuse the shared UI.
+- `src/hooks/useSfrClipboard.ts`: Consolidates SFR copy/paste flows, prepares metaset conflict state, generates placeholder metasets for missing references, and exposes handlers used by `App.tsx` (note merging only runs when the current SFR note is empty).
+- `src/hooks/useSfrDialogs.ts`: Centralizes App-level dialogs tied to SFR management (clear/delete confirmations, note view/edit modes, and manual copy/paste fallbacks), keeps the “Delete All” autosave suppression in sync, and exposes dialog setters so other hooks (e.g., `useSfrClipboard`) reuse the shared UI.
 
 Localization status
 - Built-in catalogs: `en-US` (source of truth), `de-DE`, `fr-FR`, `es-ES`, `it-IT`, `pt-BR`, `pt-PT`, `ru-RU`, `uk-UA`, `tr-TR`.
 - New keys coverage: Tutorial content, builder caption, and toasts translated for DE/FR/ES/PT-BR/PT-PT.
 - `src/hooks/useAutosave.ts`: Hook to write autosave payloads and flush on exit/visibility.
 - `src/components/CopyDialog.tsx`: Fallback manual copy dialog (shown when clipboard writes are blocked).
-- `src/components/PasteDialog.tsx`: Manual paste dialog for HSFC content (single config, array, or full HSFC object).
+- `src/components/PasteDialog.tsx`: Manual paste dialog for SFR content (single config, array, or full SFR object).
 - `src/components/dialogs/GearTesterTabContent.tsx`: Multi-item test UI (rendered inside Logic Hub’s Gear tab) to check which rule/config matches first. Items are autosaved to `localStorage` under a dedicated key; disabled rules never match.
 - `src/components/dialogs/ManageColorsDialog.tsx`: Substat colors management dialog (variant-keyed map).
 - `src/components/dialogs/RestoreAutosaveDialog.tsx`: Restore autosave confirmation dialog.
@@ -230,7 +230,7 @@ Localization status
     - Sets: When “Sets as icons” is on, metasets with a non-`none` icon render the assigned glyph inline alongside explicit set icons; otherwise both metasets and sets render as text. `none` always shows the metaset name.
     - Separator dividers (`exportMode === 'separator'`) render as a full-width divider with an optional centered name, hide inline action icons, but remain selectable and expose the context menu for move/delete actions. Builder controls stay active so the config can double as a TODO note. Leading `#` characters tone down the divider (solid → dashed → dotted as the count grows) and `[RRGGBB]` tokens at the start recolor both the line and label (tokens are stripped from the rendered name, default color is the theme primary). The same color token, when used on a non-separator config name, recolors the inline name and context-menu icons.
 - `scripts/tooling/patch-esm-specifiers.cjs`: Post-compile helper that adds `.js` extensions to relative ESM imports in compiled artifacts under `tmp/tsc/tests/src/` so Node can resolve them without a bundler. Runs as part of `npm run test:unit`.
-- `npm run tests:extract`: Generates `examples/tests.extracted.sfr` containing all HSFC-readable configs used by tests (useful to load/paste into the app).
+- `npm run tests:extract`: Generates `examples/tests.extracted.sfr` containing all SFR-readable configs used by tests (useful to load/paste into the app).
 - `scripts/release/release-win.ps1`: Build-and-package script for Windows (runs tests first, builds, stages, archives). Pass `-DevBuild` to keep the current package.json version and suffix outputs with `-dev`.
 - `scripts/release/release-win-dev.ps1`: Thin wrapper that invokes `release-win.ps1 -DevBuild` so both entry points stay in sync.
 - `scripts/vite/assetsPlugin.ts`: Injects the favicon data URL during dev and build based on its explicit include list.

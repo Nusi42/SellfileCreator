@@ -175,7 +175,7 @@ export function getPersistedRuntimeGearSetNameMap(): Map<string, number> {
     const rawName = typeof entry.name === 'string' ? entry.name.trim() : ''
     if (!rawName) continue
     // Normalize to lower-case for case-insensitive matching.
-    // Why: HSFC/autosave names come from user text.
+    // Why: SFR/autosave names come from user text.
     const key = rawName.toLowerCase()
     // First writer wins so duplicates stay deterministic.
     if (!map.has(key)) map.set(key, entry.id)

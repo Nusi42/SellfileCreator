@@ -4,7 +4,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import type { HsfRuleWithRecipe } from '../../src/lib/merge.js'
-import { RULE_SOURCE_HSFC, RULE_SOURCE_SAFEGUARDS } from '../../src/lib/merge.js'
+import { RULE_SOURCE_SFR, RULE_SOURCE_SAFEGUARDS } from '../../src/lib/merge.js'
 import {
   hasConcreteSafeguardRowForRule,
   resolveSafeguardPreviewStarAction,
@@ -44,7 +44,7 @@ test('routes anticipate-only safeguard rows to safeguards tab', () => {
       __safeguardPlaceholder: true,
     }),
     makeRule({
-      __source: RULE_SOURCE_HSFC,
+      __source: RULE_SOURCE_SFR,
       RecipeID: 2,
     }),
   ]

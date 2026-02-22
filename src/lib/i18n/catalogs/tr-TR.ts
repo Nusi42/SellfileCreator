@@ -726,7 +726,7 @@ const overrides: Catalog = {
   historyFinalSellLevelsLabel: 'Seviye aralıkları',
   historyFinalSellSetsModeLabel: 'Set kapsamı',
   historyFinalSellSetsModeOff: 'Kapalı',
-  historyHsfcLoadedTitle: 'SFR yüklendi',
+  historySfrLoadedTitle: 'SFR yüklendi',
   historySourceFileLine: 'Kaynak dosya: {name}',
   historyAutosaveRestoredTitle: 'Otomatik kayıt geri yüklendi',
   historyAutosaveSavedAtSuffix: '{timestamp}',

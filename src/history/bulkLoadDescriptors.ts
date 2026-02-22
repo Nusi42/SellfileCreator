@@ -2,12 +2,12 @@
 import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
 import type { TranslateFn } from './builderUpdateDescriptor'
 
-// createHsfcLoadedDescriptor stores file metadata for history.
-export const createHsfcLoadedDescriptor = (fileName?: string | null): HistoryEntryDescriptor => {
+// createSfrLoadedDescriptor stores file metadata for history.
+export const createSfrLoadedDescriptor = (fileName?: string | null): HistoryEntryDescriptor => {
   // Normalize undefined to null so optional fields obey exactOptionalPropertyTypes.
   const normalized = fileName ?? null
   return {
-    kind: 'hsfcLoaded',
+    kind: 'sfrLoaded',
     fileName: normalized,
   }
 }
@@ -33,8 +33,8 @@ function normalizeFileName(name: string | null | undefined): string | null {
   return trimmed.length ? trimmed : null
 }
 
-// describeHsfcLoaded localizes HSFC load entries.
-export function describeHsfcLoaded(params: {
+// describeSfrLoaded localizes SFR load entries.
+export function describeSfrLoaded(params: {
   fileName?: string | null
   t: TranslateFn
 }): ResolvedHistoryEntryDescriptor {
@@ -44,7 +44,7 @@ export function describeHsfcLoaded(params: {
   if (normalized) {
     detailLines.push(t('historySourceFileLine', { name: normalized }))
   }
-  const title = t('historyHsfcLoadedTitle')
+  const title = t('historySfrLoadedTitle')
   return detailLines.length > 0 ? { title, detailLines } : { title }
 }
 

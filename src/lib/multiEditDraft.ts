@@ -716,7 +716,7 @@ function normalizeRollTargetEntryValue(
 }
 
 // Helper shared by equality/persist helpers. Treats `undefined` like `null` and
-// ignores trailing null increments so drafts line up with serialized HSFC.
+// ignores trailing null increments so drafts line up with serialized SFR.
 function targetEntriesEqual(
   left: SubstatRollTargetEntry | null | undefined,
   right: SubstatRollTargetEntry | null | undefined,

@@ -3,7 +3,7 @@
  *
  * Shared helpers that keep builder recipes internally consistent — deciding when
  * Auto Substat Flex applies, normalising keep modes, rarity supplements, level
- * windows, and related aggregate roll targets. Used by the builder UI, HSFC IO,
+ * windows, and related aggregate roll targets. Used by the builder UI, SFR IO,
  * and merge layer so they all agree on the same rules.
  */
 import type { BuilderRecipe } from './hsfBuilder'

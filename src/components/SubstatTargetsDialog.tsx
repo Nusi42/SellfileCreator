@@ -123,7 +123,7 @@ export default function SubstatTargetsDialog({
 
   const renderSubstatTargetInput = (starKey: SubstatTargetStarKey, variantKey: number, statLabel: string, starLabel: string) => {
     // Inputs write straight through to the variant map so Builder/Rule Tester see
-    // every keystroke; we still clamp to non-negative integers to match HSF/HSFC
+    // every keystroke; we still clamp to non-negative integers to match HSF/SFR
     // expectations and keep keyboard/spinner edits in sync.
     const currentValue = Number(substatTargets[starKey]?.[variantKey] ?? 0)
     const effectiveValue = Number(resolvedEffectiveSubstatTargets[starKey]?.[variantKey] ?? 0)

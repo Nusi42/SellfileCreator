@@ -1,12 +1,12 @@
 /**
- * HSFC IO Helpers
+ * SFR IO Helpers
  *
  * Responsibilities:
- * - Normalize readable HSFC payloads to the internal StatVariant-based model.
- * - Build readable HSFC payloads (labels, not numeric IDs) from internal state for Save/Copy.
- * - Parse pasted text that may be a single recipe, an array of recipes, or a full HSFC object.
+ * - Normalize readable SFR payloads to the internal StatVariant-based model.
+ * - Build readable SFR payloads (labels, not numeric IDs) from internal state for Save/Copy.
+ * - Parse pasted text that may be a single recipe, an array of recipes, or a full SFR object.
  *
- * This module deliberately contains only HSFC read/write concerns to keep UI code tidy.
+ * This module deliberately contains only SFR read/write concerns to keep UI code tidy.
  */
 import { normalizeExportModeFields, resolveExportModeField, coerceSellfileExportModeToken, normalizeRollTargetEntry, type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode, type Star, type SubstatRollTargetEntry, type SubstatRollTargets } from './hsfBuilder'
 import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeAutoSubstatFlex, normalizeAggregateRollTargets } from './recipeNormalization'
@@ -61,10 +61,10 @@ import { normalizeArtifactSetSelections } from './gearSets/selection'
 import { canonicalizeNoteRecipeOverridesMarkers } from './noteRecipeOverrides'
 
 // Legacy safeguard note markers used `keep-uniques` wording.
-// Normalize opening markers at the HSFC boundary so runtime/editor state stays canonical.
+// Normalize opening markers at the SFR boundary so runtime/editor state stays canonical.
 const NOTE_LEGACY_SAFEGUARDS_MARKER_OPEN_REGEX = /<!--(\s*)keep-uniques\b/gi
 
-// Canonicalize all known legacy note marker aliases at HSFC IO boundaries.
+// Canonicalize all known legacy note marker aliases at SFR IO boundaries.
 const canonicalizeLegacyNoteMarkers = (note: string): string => (
   canonicalizeNoteRecipeOverridesMarkers(note)
     .replace(NOTE_LEGACY_SAFEGUARDS_MARKER_OPEN_REGEX, '<!--$1safeguards')
@@ -73,7 +73,7 @@ const canonicalizeLegacyNoteMarkers = (note: string): string => (
 type LockedMinValue = Exclude<BuilderRecipe['lockedMinRequiredRolls'], undefined>
 type AggregateMinValue = Exclude<BuilderRecipe['minRequiredRolls'], undefined>
 
-// Readable HSFC substat payload that merges selection, fixed, and roll bounds.
+// Readable SFR substat payload that merges selection, fixed, and roll bounds.
 type ReadableSubstatBounds = {
   min?: number
   max?: number
@@ -95,20 +95,20 @@ const parseAggregateScopeToken = (value: unknown): 'locked' | 'selected' | null 
   return null
 }
 
-// Internal helpers for parsing unknown HSFC shapes
+// Internal helpers for parsing unknown SFR shapes
 function isRecord(v: unknown): v is Record<string, unknown> { return typeof v === 'object' && v !== null }
-// no longer used: only label-based parsing is accepted for HSFC
+// no longer used: only label-based parsing is accepted for SFR
 // function asNumber(v: unknown): number | undefined { return typeof v === 'number' && Number.isFinite(v) ? v : undefined }
 function asStringArray(v: unknown): string[] | undefined { return Array.isArray(v) ? (v as unknown[]).map((s) => String(s)) : undefined }
-// (Legacy helpers removed for HSFC schema simplification)
+// (Legacy helpers removed for SFR schema simplification)
 function parseSubstatLike(v: unknown): number | undefined {
   if (typeof v === 'string') { const vk = variantFromLabel(v); if (vk !== null) return vk as number }
-  // Objects like { id, isFlat } are no longer accepted in HSFC; labels only
+  // Objects like { id, isFlat } are no longer accepted in SFR; labels only
   return undefined
 }
 function parseMainStatLike(v: unknown): number | undefined {
   if (typeof v === 'string') { const vk = variantFromLabel(v); if (vk !== null) return vk as number }
-  // Objects like { id, f } are no longer accepted in HSFC; labels only
+  // Objects like { id, f } are no longer accepted in SFR; labels only
   return undefined
 }
 
@@ -119,7 +119,7 @@ function parseMainStatLike(v: unknown): number | undefined {
  * persisted-runtime name map supplied by autosave restore.
  */
 const resolveSetId = (value: unknown, runtimeNameMap?: Map<string, number>): number | undefined => {
-  // Accept readable names first so HSFC stays human-friendly.
+  // Accept readable names first so SFR stays human-friendly.
   // Why: users don’t memorize numeric IDs.
   if (typeof value === 'string') {
     const trimmed = value.trim()
@@ -318,7 +318,7 @@ const buildReadableArtifactSetEntries = (
 ): ReadableArtifactSetExportEntry[] => {
   // Normalize first so ordering/exclusion precedence is stable.
   const normalized = normalizeArtifactSetSelections(selections ?? [])
-  // Sort deterministically so HSFC diffs stay clean.
+  // Sort deterministically so SFR diffs stay clean.
   const sorted = normalized
     .slice()
     .sort((a, b) => compareArtifactSets(Number(a.id), Number(b.id)))
@@ -355,9 +355,9 @@ function mergeMetasetIds(base: BuilderRecipe, metasets: Metaset[], extras: reado
   return base
 }
 
-// Normalize HSFC recipes (readable schema) to current BuilderRecipe
+// Normalize SFR recipes (readable schema) to current BuilderRecipe
 /**
- * Normalize a readable HSFC recipe to BuilderRecipe with *V fields.
+ * Normalize a readable SFR recipe to BuilderRecipe with *V fields.
  *
  * `runtimeNameMap` is only supplied by autosave restore to resolve dormant
  * runtime set names without activating the runtime catalog.
@@ -548,7 +548,7 @@ export function normalizeRecipe(input: unknown, runtimeNameMap?: Map<string, num
   // Assemble normalized base
   let normalized: BuilderRecipe = { ...baseRecipe, ...opt }
 
-  // Post-normalization to align HSFC with in-app invariants:
+  // Post-normalization to align SFR with in-app invariants:
   // - Conflicting bounds: when min/max are present, drop 'any' (UI cannot represent both simultaneously).
   // - Clamp numeric bounds to valid ranges (already clamped above; re-apply defensively).
   try {
@@ -634,9 +634,9 @@ export function normalizeRecipe(input: unknown, runtimeNameMap?: Map<string, num
   return normalized
 }
 
-/** Normalize HSFC Minima (label-keyed) to the internal Substat Target table. */
+/** Normalize SFR Minima (label-keyed) to the internal Substat Target table. */
 export function normalizeSubstatTargets(src: unknown): SubstatTargetTable {
-  // HSFC stores per-rank targets keyed by stat label; convert them back to the
+  // SFR stores per-rank targets keyed by stat label; convert them back to the
   // variant IDs we use internally so builder math does not depend on labels.
   const coerceStar = (rec: unknown): Record<number, number> => {
     const out: Record<number, number> = {}
@@ -675,16 +675,16 @@ export function normalizeSubstatTargets(src: unknown): SubstatTargetTable {
   }
 }
 
-// Build a readable recipe object for HSFC export/copy (labels, not numeric IDs)
-/** Build a single readable HSFC recipe from internal BuilderRecipe state. */
+// Build a readable recipe object for SFR export/copy (labels, not numeric IDs)
+/** Build a single readable SFR recipe from internal BuilderRecipe state. */
 export function buildReadableRecipe(recipe: BuilderRecipe, metasets: Metaset[]) {
-  // Metasets are included in the HSFC payload separately; recipes now reference
+  // Metasets are included in the SFR payload separately; recipes now reference
   // metasets by ID. We keep the parameter for call‑site symmetry and future use.
   void metasets
   const mainV = (recipe as (BuilderRecipe & { mainStatsV?: number[] })).mainStatsV ?? []
   const subV = (recipe as (BuilderRecipe & { substatsV?: number[] })).substatsV ?? []
   const fixedV = (recipe as (BuilderRecipe & { fixedSubstatsV?: number[] })).fixedSubstatsV ?? []
-  // Canonicalize label order for HSFC: use preferred stat order via compareVariants.
+  // Canonicalize label order for SFR: use preferred stat order via compareVariants.
   const mainLabels = mainV.slice().sort(compareVariants).map(labelOfVariant)
   const substatEntries: ReadonlyArray<ReadableSubstatEntry> = (() => {
     const entries: ReadableSubstatEntry[] = []
@@ -714,7 +714,7 @@ export function buildReadableRecipe(recipe: BuilderRecipe, metasets: Metaset[]) 
       ? 'Disabled'
       : 'Active'
   const readableTargets = rollTargetsToReadable((recipe as BuilderRecipe).substatRollTargetsV)
-  // Canonicalize tags for HSFC output (includes legacy safeguard-ignore aliases).
+  // Canonicalize tags for SFR output (includes legacy safeguard-ignore aliases).
   const tags = normalizeTagList(recipe.tags) ?? []
   return {
     name: recipe.name,
@@ -722,7 +722,7 @@ export function buildReadableRecipe(recipe: BuilderRecipe, metasets: Metaset[]) 
     ...(tags.length > 0 ? { Tags: tags } : {}),
     keep: recipe.keep,
     SellfileVisibility: exportModeLabel,
-    // For readability in HSFC/clipboard, render Auto or explicit labels. "Any" when code is 0.
+    // For readability in SFR/clipboard, render Auto or explicit labels. "Any" when code is 0.
     Rank: (recipe.rankCode === RankCode.Any ? 'Any' : formatRank(recipe.rankCode)),
     Rarity: (recipe.rarityMode === 'auto' ? RARITY_AUTO_LABEL : (recipe.rarityCode === RarityCode.Any ? 'Any' : rarityCodeToName(recipe.rarityCode))),
     Faction: ((recipe.factionCode ?? 0) === 0 ? 'Any' : factionCodeToName(recipe.factionCode ?? 0)),
@@ -752,7 +752,7 @@ export function buildReadableRecipe(recipe: BuilderRecipe, metasets: Metaset[]) 
   }
 }
 
-/** Convert variant-keyed Substat Target tables to label-keyed maps for HSFC export (HSFC field remains "Minima"). */
+/** Convert variant-keyed Substat Target tables to label-keyed maps for SFR export (SFR field remains "Minima"). */
 export function substatTargetsToReadable(substatTargets: SubstatTargetTable) {
   const conv = (rec: Record<number, number>) => {
     const out: Record<string, number> = {}
@@ -781,8 +781,8 @@ export function substatTargetsToReadable(substatTargets: SubstatTargetTable) {
   }
 }
 
-// Parse text that may be a single recipe, an array, or an HSFC object with Recipes
-/** Parse text as HSFC content: returns normalized recipes array on success, [] on failure. */
+// Parse text that may be a single recipe, an array, or an SFR object with Recipes
+/** Parse text as SFR content: returns normalized recipes array on success, [] on failure. */
 export function parseRecipesFromText(text: string, metasetsForNames?: Metaset[]): BuilderRecipe[] {
   try {
     const parsed = JSON.parse(text) as unknown
@@ -840,10 +840,10 @@ export function parseRecipesFromText(text: string, metasetsForNames?: Metaset[])
 }
 
 /**
- * Parse a full HSFC text payload and return normalized state slices.
+ * Parse a full SFR text payload and return normalized state slices.
  * Accepts a previous snapshot for metasets/substatTargets/allExplicit defaults.
  */
-export function parseHsfcText(
+export function parseSfrText(
   text: string,
   prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
   options?: { runtimeSetNameMap?: Map<string, number> },
@@ -858,11 +858,11 @@ export function parseHsfcText(
   safeguardsEnabled: boolean
 } {
   const parsed = JSON.parse(text) as unknown
-  return parseHsfcObject(parsed, prev, options)
+  return parseSfrObject(parsed, prev, options)
 }
 
-/** Parse an HSFC object (readable schema) into normalized slices. */
-export function parseHsfcObject(
+/** Parse an SFR object (readable schema) into normalized slices. */
+export function parseSfrObject(
   parsed: unknown,
   prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
   options?: { runtimeSetNameMap?: Map<string, number> },
@@ -887,12 +887,12 @@ export function parseHsfcObject(
     )
   // Convenience: accept a single readable-recipe object (tests/fixtures/*.sfr use this simplified shape).
   // Why: Developers often drag these fixtures into the app while validating builder output. The shape
-  // matches what parseHsfcText expects for each recipe, so when no `Recipes` array is present but we
+  // matches what parseSfrText expects for each recipe, so when no `Recipes` array is present but we
   // detect the usual readable recipe keys, treat the payload as a one-item Recipes array.
   if (rawRecipes.length === 0 && parsedRec && typeof parsedRec === 'object') {
     const hasReadableRecipeKey = (() => {
       const keys = new Set(Object.keys(parsedRec))
-      // Heuristic: any of these readable HSFC recipe keys indicates a single-recipe payload.
+      // Heuristic: any of these readable SFR recipe keys indicates a single-recipe payload.
       const hints = [
         'substats', 'fixedSubstats', 'mainStats', 'Rank', 'Rarity', 'Faction',
         'artifactTypeNames', 'artifactSetNames', 'artifactMetaSetNames',
@@ -958,7 +958,7 @@ export function parseHsfcObject(
     return { artifacts, accessories, levels: finalLevels, setsMode }
   })()
   const safeguardRules: SafeguardRule[] = (() => {
-    // HSFC boundary compatibility: accept both canonical and legacy keys.
+    // SFR boundary compatibility: accept both canonical and legacy keys.
     const raws = Array.isArray(parsedRec['Safeguards'])
       ? parsedRec['Safeguards']
       : parsedRec['KeepUniques']
@@ -970,7 +970,7 @@ export function parseHsfcObject(
     }
     return normalized
   })()
-  // HSFC boundary compatibility: keep legacy toggle key support on read only.
+  // SFR boundary compatibility: keep legacy toggle key support on read only.
   const safeguardsEnabled = parsedRec['SafeguardsEnabled'] === true || parsedRec['KeepUniquesEnabled'] === true
   const savedSel = (() => {
     if (Array.isArray(parsed)) return recipes.length ? recipes.length - 1 : null
@@ -979,7 +979,7 @@ export function parseHsfcObject(
     return recipes.length ? recipes.length - 1 : null
   })()
   const selectedIndex = (savedSel !== null && savedSel >= 0 && savedSel < recipes.length) ? savedSel : (recipes.length ? recipes.length - 1 : null)
-  // Canonicalize legacy note markers during HSFC import so runtime state uses new wording only.
+  // Canonicalize legacy note markers during SFR import so runtime state uses new wording only.
   const note = (!Array.isArray(parsed) && typeof parsedRec['Note'] === 'string')
     ? canonicalizeLegacyNoteMarkers(String(parsedRec['Note']))
     : undefined
@@ -995,8 +995,8 @@ export function parseHsfcObject(
   }
 }
 
-/** Read a `.sfr` (legacy `.hsfc`)/JSON file and parse with parseHsfcText semantics. */
-export async function readHsfcFile(
+/** Read a `.sfr` (legacy `.hsfc`)/JSON file and parse with parseSfrText semantics. */
+export async function readSfrFile(
   file: File,
   prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
 ): Promise<{
@@ -1011,18 +1011,18 @@ export async function readHsfcFile(
 }>
 {
   const text = await file.text()
-  return parseHsfcText(text, prev)
+  return parseSfrText(text, prev)
 }
 
-/** Parse an internal autosave payload (not HSFC); expects variant-keyed substatTargets and full BuilderRecipe objects. */
+/** Parse an internal autosave payload (not SFR); expects variant-keyed substatTargets and full BuilderRecipe objects. */
 
 /**
- * Build a full, readable HSFC payload object for Save/Copy, given current state.
+ * Build a full, readable SFR payload object for Save/Copy, given current state.
  */
-// Safeguard entries in HSFC should stay human-readable; this tuple mirrors the
+// Safeguard entries in SFR should stay human-readable; this tuple mirrors the
 // in-memory shape but with labels instead of numeric IDs so saved files are self-explanatory.
 type ReadableArtifactSetExportEntry = {
-  // Human-readable set label for HSFC exports.
+  // Human-readable set label for SFR exports.
   name: string
   // Optional exclusion marker so safeguard exports preserve "not" selections.
   excluded?: true
@@ -1125,7 +1125,7 @@ export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSa
       substatWeights[key] = weight
     }
   }
-  // Build the base export entry in readable HSFC form.
+  // Build the base export entry in readable SFR form.
   const entry: ReadableSafeguardRuleEntry = {
     id: rule.id,
     requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
@@ -1153,7 +1153,7 @@ export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSa
   return entry
 }
 
-export function buildHsfcPayload(args: {
+export function buildSfrPayload(args: {
   version: string,
   metasets: Metaset[],
   substatTargets: SubstatTargetTable,
@@ -1239,7 +1239,7 @@ export function buildHsfcPayload(args: {
   }
 }
 
-/** Convert an HSFC payload object to a Blob ready to download. */
-export function hsfcToBlob(payload: unknown): Blob {
+/** Convert an SFR payload object to a Blob ready to download. */
+export function sfrToBlob(payload: unknown): Blob {
   return new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
 }

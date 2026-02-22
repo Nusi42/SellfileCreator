@@ -63,7 +63,7 @@ import {
   type SafeguardDetectionSnapshot,
   type SafeguardRule,
 } from '../../lib/safeguards'
-import { buildReadableSafeguardRuleEntry } from '../../lib/hsfcIO'
+import { buildReadableSafeguardRuleEntry } from '../../lib/sfrIO'
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import type { ColorBlindMode } from '../../lib/constants'
 import {
@@ -787,7 +787,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
     // Locate the source rule by id.
     const source = rules.find((rule) => rule.id === ruleId)
     if (!source) return
-    // Convert to a readable HSFC-style rule so clipboard JSON stays human-friendly.
+    // Convert to a readable SFR-style rule so clipboard JSON stays human-friendly.
     const snapshot = buildReadableSafeguardRuleEntry(source)
     // Wrap the payload to make safeguard rules detectable when pasting.
     const payload = { kind: 'safeguardRule', rule: snapshot }

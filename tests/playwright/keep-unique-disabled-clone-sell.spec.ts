@@ -12,12 +12,12 @@ import {
 import { buildRuleTesterAutosavePayload, type RuleTesterItem } from '../../src/lib/ruleTesterSession'
 import { computeCrc32 } from '../../src/lib/autosave'
 import { ArtifactSet, ArtifactType, StatVariant } from '../../src/lib/types'
-import { SAMPLE_SMALL_HSFC_DISABLED_RECIPE_OVERRIDES_PATH } from './fixture-paths'
-import { HSFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
+import { SAMPLE_SMALL_SFR_DISABLED_RECIPE_OVERRIDES_PATH } from './fixture-paths'
+import { SFR_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { warmupAppShell } from './app-warmup'
 
-// Point at the slim HSFC file with recipe overrides disabled.
-const HSFC_PATH = SAMPLE_SMALL_HSFC_DISABLED_RECIPE_OVERRIDES_PATH
+// Point at the slim SFR file with recipe overrides disabled.
+const SFR_PATH = SAMPLE_SMALL_SFR_DISABLED_RECIPE_OVERRIDES_PATH
 // Seed a tiny tester autosave payload so we avoid DB imports in this check.
 const TESTER_ITEMS: RuleTesterItem[] = [
   {
@@ -163,7 +163,7 @@ test.beforeAll(async ({ browser }) => {
   // Allow the long timeout so the cold Vite compile can finish during warmup.
   // Allow extra time for autosave restore + tester work on slower engines.
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
-  // Preload the shell once so the HSFC import does not pay the compile cost.
+  // Preload the shell once so the SFR import does not pay the compile cost.
   await warmupAppShell(browser)
 })
 
@@ -177,8 +177,8 @@ test('disable recipe overrides then duplicate disabled config changes sell count
   await seedTesterSellFilters(page)
   // Seed a minimal tester autosave payload so we avoid DB import costs.
   await seedTesterAutosave(page)
-  // Use the pre-built HSFC fixture so we avoid runtime file work.
-  const hsfcPath = HSFC_PATH
+  // Use the pre-built SFR fixture so we avoid runtime file work.
+  const sfrPath = SFR_PATH
   // Load the app shell so file inputs are ready.
   // Avoid waiting on the full load event during dev-server startup.
   await page.goto('/', APP_GOTO_OPTIONS)
@@ -187,15 +187,15 @@ test('disable recipe overrides then duplicate disabled config changes sell count
   // Clear any leftover dialogs before interacting with file inputs.
   await dismissBlockingDialogs(page)
 
-  // Import the HSFC snapshot that defines the recipes and options.
+  // Import the SFR snapshot that defines the recipes and options.
   // Use the stable tour id so the input is found even if the label is localized.
-  const hsfcInput = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
+  const sfrInput = page.locator(SFR_LOAD_INPUT_SELECTOR).first()
   // Wait for the input to mount so cold-start renders do not hit the action timeout.
-  await hsfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
+  await sfrInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
   // Ensure the input is enabled before we upload the fixture.
-  await expect(hsfcInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+  await expect(sfrInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
   // Use the file input so we hit the normal import path.
-  await hsfcInput.setInputFiles(hsfcPath)
+  await sfrInput.setInputFiles(sfrPath)
   // Clear any note/restore dialogs that appear after the import.
   await dismissBlockingDialogs(page)
   // Wait for the target chip to attach so we can duplicate it later.

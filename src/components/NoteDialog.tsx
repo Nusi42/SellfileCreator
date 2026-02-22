@@ -2405,7 +2405,7 @@ export default function NoteDialog({
   substatColors: Record<number, { fg: string; bg: string }>
   gearSummary: TesterOutcomeSummary | null
   summaryProgressRatio: number
-  // Hide the edit entry point when the dialog auto-opens after HSFC load.
+  // Hide the edit entry point when the dialog auto-opens after SFR load.
   hideEditButton: boolean
 }) {
   const { t, lang } = useI18n()

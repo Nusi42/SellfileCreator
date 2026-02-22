@@ -1,4 +1,4 @@
-// Generate golden snapshots for all curated cases in tests/integration/hsfc-fixtures.runner.ts
+// Generate golden snapshots for all curated cases in tests/integration/sfr-fixtures.runner.ts
 // Skips MATRIX auto-generated cases to avoid explosion of files.
 // Usage: tsc -p tsconfig.tests.json && node scripts/tooling/patch-esm-specifiers.cjs && node scripts/test/dump-goldens-all.mjs
 
@@ -10,11 +10,11 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 // Load the compiled fixture runner to reuse its CASES definitions.
-const compiled = resolve(__dirname, '..', '..', 'tmp', 'tsc', 'tests', 'tests', 'integration', 'hsfc-fixtures.runner.js')
+const compiled = resolve(__dirname, '..', '..', 'tmp', 'tsc', 'tests', 'tests', 'integration', 'sfr-fixtures.runner.js')
 const mod = await import(pathToFileURL(compiled).href)
 // Use compiled library code from the same test build output.
 const libRoot = resolve(__dirname, '..', '..', 'tmp', 'tsc', 'tests', 'src', 'lib')
-const io = await import(pathToFileURL(resolve(libRoot, 'hsfcIO.js')).href)
+const io = await import(pathToFileURL(resolve(libRoot, 'sfrIO.js')).href)
 const builder = await import(pathToFileURL(resolve(libRoot, 'hsfBuilder.js')).href)
 
 if (!mod || !Array.isArray(mod.CASES)) {
@@ -65,7 +65,7 @@ for (const c of mod.CASES) {
   if (name.startsWith('MATRIX')) continue
   const goldenName = String(c.goldenName || '').trim()
   if (!goldenName) continue
-  const cfg = io.normalizeRecipe(c.hsfc)
+  const cfg = io.normalizeRecipe(c.sfr)
   const rules = builder.buildHsfRules(cfg, builder.defaultSubstatTargets())
   const norm = rules.map(r => normalizeRule(r))
   const outPath = resolve(outDir, `${goldenName}.json`)

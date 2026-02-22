@@ -3,7 +3,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildSafeguardRules, buildRulesForRecipe, RULE_SOURCE_HSFC } from '../../src/lib/merge.js'
+import { buildSafeguardRules, buildRulesForRecipe, RULE_SOURCE_SFR } from '../../src/lib/merge.js'
 import { defaultSubstatTargets, type BuilderRecipe } from '../../src/lib/hsfBuilder.js'
 import { buildHsfFileFromMerged } from '../../src/lib/hsfIO.js'
 import { ArtifactSet, ArtifactType, Faction, StatVariant } from '../../src/lib/types.js'
@@ -109,7 +109,7 @@ test('HSF export strips every UI-only metadata field', () => {
     ...rule,
     __lineIdx: idx,
     __allKnownSets: true,
-    __source: RULE_SOURCE_HSFC,
+    __source: RULE_SOURCE_SFR,
     __rankMask: 0b1010,
     __rarityMask: 0b1001,
     __safeguardRuleId: `ku_${idx}`,

@@ -15,7 +15,7 @@
 - Manual start: `HelpDialog` includes a bottom-left “Start Tutorial” button. The dialog surfaces README content and acts as the entry point.
 - Steps: `src/hooks/useTutorialCoachState.ts` constructs the typed `TutorialStep[]` and wires the scripted examples (basic recipe followed by an advanced recipe that covers substats, Min Required Rolls, and Milestone Thresholds). Each step can register a `before` action to stage builder state before the overlay renders.
 - Targets: A step can highlight a single `targetId` or multiple `targetIds: string[]`. When multiple are given, the overlay hole covers the union of all target rects.
-- Targets: Key controls expose `data-tour-id` attributes: rank/rarity/faction selects, mainstat group, slots (Boots), sets Select, add-recipe button, HSFC load/save buttons, Min Required Rolls and Thresholds groups.
+- Targets: Key controls expose `data-tour-id` attributes: rank/rarity/faction selects, mainstat group, slots (Boots), sets Select, add-recipe button, SFR load/save buttons, Min Required Rolls and Thresholds groups.
 
 ### Navigation
 
@@ -40,7 +40,7 @@
 
 ### Session Handling
 
-- Snapshot/restore: On tutorial start, the app snapshots the full HSFC state in memory (recipes, selection, metasets, substatTargets, final-sell, note, builder) and resets to a clean default so the walkthrough is deterministic. On exit or finish, the snapshot is restored exactly.
+- Snapshot/restore: On tutorial start, the app snapshots the full SFR state in memory (recipes, selection, metasets, substatTargets, final-sell, note, builder) and resets to a clean default so the walkthrough is deterministic. On exit or finish, the snapshot is restored exactly.
 - Exit hygiene: On exit/finish, the app first closes all transient UI (menus, dialogs, context menus), then restores the snapshot, then closes the coach. Autosave resumes after the original state is back in place.
 - Autosave: Paused while the tutorial runs to avoid overwriting the user’s real session. Resumes after exit/finish.
 - History: Tutorial-driven resets, jumps, and snapshot restores suppress undo/redo history entries so the timeline only reflects user edits.

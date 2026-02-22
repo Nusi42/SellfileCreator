@@ -52,7 +52,7 @@ pub(crate) use matcher_evaluator::{
 };
 
 const RULE_SOURCE_HSF: &str = "hsf";
-const RULE_SOURCE_HSFC: &str = "hsfc";
+const RULE_SOURCE_SFR: &str = "sfr";
 const RULE_SOURCE_FINAL_SELL: &str = "finalSell";
 const RULE_SOURCE_SAFEGUARDS: &str = "safeguards";
 const FINAL_SELL_SETS_MODE_ANY: &str = "any";

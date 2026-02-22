@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defaultSubstatTargets, type SellfileExportMode } from '../../src/lib/hsfBuilder.js'
-import { parseHsfcObject } from '../../src/lib/hsfcIO.js'
+import { parseSfrObject } from '../../src/lib/sfrIO.js'
 import { importGearDatabaseFromArrayBuffer } from '../../src/lib/importers/gearDbImporter.js'
 import {
   RULE_SOURCE_SAFEGUARDS,
@@ -37,7 +37,7 @@ const requireNonEmptyString = (value: unknown, fieldName: string): string => {
 // We read only the paths needed for this runner so the manifest remains
 // the machine-readable source of truth for fixture locations.
 type Sample2BundleManifest = {
-  sourceHsfc: string
+  sourceSfr: string
   sharedDb: string
 }
 
@@ -48,9 +48,9 @@ const MANIFEST_PATH = resolve(ROOT_DIR, 'tests', 'data', 'sample2-bundle', 'mani
 // Read and minimally validate the manifest fields consumed by this runner.
 const loadManifest = (): Sample2BundleManifest => {
   const raw = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as Partial<Sample2BundleManifest>
-  const sourceHsfc = requireNonEmptyString(raw.sourceHsfc, 'sourceHsfc')
+  const sourceSfr = requireNonEmptyString(raw.sourceSfr, 'sourceSfr')
   const sharedDb = requireNonEmptyString(raw.sharedDb, 'sharedDb')
-  return { sourceHsfc, sharedDb }
+  return { sourceSfr, sharedDb }
 }
 
 // Convert Node Buffer slices into stable ArrayBuffer views for the importer.
@@ -81,12 +81,12 @@ const toPreviewMatch = (
 const main = async (): Promise<void> => {
   // Load fixture pointers from manifest so path updates stay centralized.
   const manifest = loadManifest()
-  const hsfcPath = resolve(ROOT_DIR, manifest.sourceHsfc)
+  const sfrPath = resolve(ROOT_DIR, manifest.sourceSfr)
   const dbPath = resolve(ROOT_DIR, manifest.sharedDb)
 
-  // Parse the source HSFC exactly like app startup does.
-  const hsfcRaw = JSON.parse(readFileSync(hsfcPath, 'utf8'))
-  const parsed = parseHsfcObject(hsfcRaw, {
+  // Parse the source SFR exactly like app startup does.
+  const sfrRaw = JSON.parse(readFileSync(sfrPath, 'utf8'))
+  const parsed = parseSfrObject(sfrRaw, {
     metasets: [],
     substatTargets: defaultSubstatTargets(),
   })

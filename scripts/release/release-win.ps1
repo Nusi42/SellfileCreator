@@ -161,15 +161,15 @@ try {
   # Why: Ship current, user-relevant examples without hardcoding old filenames.
   $samplesDir = Join-Path $RepoRoot 'examples'
 
-  $sampleHsfc = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.sfr' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-  if (-not $sampleHsfc) {
+  $sampleSfr = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.sfr' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  if (-not $sampleSfr) {
     $fallbackSfrPath = Join-Path $samplesDir 'example.sfr'
     if (Test-Path -LiteralPath $fallbackSfrPath) {
-      $sampleHsfc = Get-Item -LiteralPath $fallbackSfrPath
+      $sampleSfr = Get-Item -LiteralPath $fallbackSfrPath
     } else {
-      $fallbackHsfcPath = Join-Path $samplesDir 'example.hsfc'
-      if (Test-Path -LiteralPath $fallbackHsfcPath) {
-        $sampleHsfc = Get-Item -LiteralPath $fallbackHsfcPath
+      $fallbackSfrPath = Join-Path $samplesDir 'example.sfr'
+      if (Test-Path -LiteralPath $fallbackSfrPath) {
+        $sampleSfr = Get-Item -LiteralPath $fallbackSfrPath
       } else {
         throw "No Example recipe sample (.sfr/.hsfc) found in 'examples'"
       }
@@ -199,23 +199,23 @@ try {
     }
   }
 
-  Write-Host ("Using samples: {0}, {1}, and {2}" -f $sampleHsfc.Name, (Split-Path -Leaf $lategameHsfPath), (Split-Path -Leaf $endgameHsfPath))
+  Write-Host ("Using samples: {0}, {1}, and {2}" -f $sampleSfr.Name, (Split-Path -Leaf $lategameHsfPath), (Split-Path -Leaf $endgameHsfPath))
   $sellfilesDir = Join-Path $staging 'Sellfiles'
   if (-not (Test-Path $sellfilesDir)) { New-Item -ItemType Directory -Path $sellfilesDir | Out-Null }
-  Copy-Item -LiteralPath $sampleHsfc.FullName -Destination (Join-Path $sellfilesDir $ShippedRecipeFileName) -Force
+  Copy-Item -LiteralPath $sampleSfr.FullName -Destination (Join-Path $sellfilesDir $ShippedRecipeFileName) -Force
   Copy-Item -LiteralPath $lategameHsfPath -Destination (Join-Path $sellfilesDir "$ShippedSellfileBaseName-sellfile.hsf") -Force
   Copy-Item -LiteralPath $endgameHsfPath  -Destination (Join-Path $sellfilesDir 'endgame-sellfile.hsf') -Force
   # Ship the baseline Basic.sfr so newcomers can inspect an intentionally minimal recipe.
-  $basicHsfcPath = Join-Path $samplesDir 'Basic.sfr'
-  if (-not (Test-Path -LiteralPath $basicHsfcPath)) {
-    $legacyBasicHsfcPath = Join-Path $samplesDir 'Basic.hsfc'
-    if (Test-Path -LiteralPath $legacyBasicHsfcPath) {
-      $basicHsfcPath = $legacyBasicHsfcPath
+  $basicSfrPath = Join-Path $samplesDir 'Basic.sfr'
+  if (-not (Test-Path -LiteralPath $basicSfrPath)) {
+    $legacyBasicSfrPath = Join-Path $samplesDir 'Basic.sfr'
+    if (Test-Path -LiteralPath $legacyBasicSfrPath) {
+      $basicSfrPath = $legacyBasicSfrPath
     } else {
       throw "Basic recipe sample (.sfr/.hsfc) not found in 'examples'"
     }
   }
-  Copy-Item -LiteralPath $basicHsfcPath -Destination (Join-Path $sellfilesDir 'basic.sfr') -Force
+  Copy-Item -LiteralPath $basicSfrPath -Destination (Join-Path $sellfilesDir 'basic.sfr') -Force
 
   # Stage the WebSocket DB watchers under dev/ for helper integrations.
   $devDir = Join-Path $staging 'dev'

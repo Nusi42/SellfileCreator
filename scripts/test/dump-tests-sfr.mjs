@@ -7,15 +7,15 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
 // Prevent the test module from executing its runner when imported
-process.env.HSFC_DUMP = '1'
+process.env.SFR_DUMP = '1'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 // Path to compiled recipe fixture runner module.
-const compiled = resolve(__dirname, '..', '..', 'tmp', 'tsc', 'tests', 'tests', 'integration', 'hsfc-fixtures.runner.js')
+const compiled = resolve(__dirname, '..', '..', 'tmp', 'tsc', 'tests', 'tests', 'integration', 'sfr-fixtures.runner.js')
 
-/** @type {{ CASES?: ReadonlyArray<{ name: string; hsfc: Record<string, unknown> }> }} */
+/** @type {{ CASES?: ReadonlyArray<{ name: string; sfr: Record<string, unknown> }> }} */
 const mod = await import(pathToFileURL(compiled).href)
 
 if (!mod || !Array.isArray(mod.CASES)) {
@@ -23,11 +23,11 @@ if (!mod || !Array.isArray(mod.CASES)) {
 }
 
 const recipes = mod.CASES.map(c => {
-  // Start from hsfc to preserve any explicit keep/enabled; then set stable name.
-  const hsfc = { ...(c.hsfc || {}), name: c.name }
-  if (!('keep' in hsfc)) hsfc.keep = true
-  if (!('enabled' in hsfc)) hsfc.enabled = true
-  return hsfc
+  // Start from sfr to preserve any explicit keep/enabled; then set stable name.
+  const sfr = { ...(c.sfr || {}), name: c.name }
+  if (!('keep' in sfr)) sfr.keep = true
+  if (!('enabled' in sfr)) sfr.enabled = true
+  return sfr
 })
 
 const output = {

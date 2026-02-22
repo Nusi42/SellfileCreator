@@ -3,14 +3,14 @@
  * measure-rule-tester.ts
  *
  * CLI utility to profile the rule tester matching pipeline against a concrete
- * HSFC + gear database pairing. Loads the HSFC definition, imports the DB,
+ * SFR + gear database pairing. Loads the SFR definition, imports the DB,
  * runs the same matching logic used in the UI, and prints timing stats for
  * the base matcher, Safeguard detection, and the post-detection matcher.
  */
 import { cp, mkdir, readFile } from 'node:fs/promises'
 import { resolve as resolvePath } from 'node:path'
 import { performance } from 'node:perf_hooks'
-import { parseHsfcObject } from '../../src/lib/hsfcIO.js'
+import { parseSfrObject } from '../../src/lib/sfrIO.js'
 import { defaultSubstatTargets, type BuilderRecipe, type SellfileExportMode, type SubstatTargetTable } from '../../src/lib/hsfBuilder.js'
 import {
   computeMergedRules,
@@ -37,13 +37,13 @@ import type { FinalSellRemainderConfig } from '../../src/lib/logicHub.js'
 import { warmupWasmRuleEngine } from '../../src/lib/wasm/wasmRuleEngine.js'
 
 type ScenarioInput = {
-  hsfcPath: string
+  sfrPath: string
   gearDbPath: string
 }
 
 type ScenarioData = {
   recipes: BuilderRecipe[]
-  metasets: ReturnType<typeof parseHsfcObject>['metasets']
+  metasets: ReturnType<typeof parseSfrObject>['metasets']
   substatTargets: SubstatTargetTable
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
@@ -105,7 +105,7 @@ const syncCompiledWasmBindings = async (): Promise<void> => {
 
 // Default pairing mirrors the user-reported heavy scenario.
 const DEFAULT_SCENARIO: ScenarioInput = {
-  hsfcPath: 'examples/example.sfr',
+  sfrPath: 'examples/example.sfr',
   gearDbPath: 'examples/251112_042110.db',
 }
 
@@ -116,7 +116,7 @@ const formatPerItem = (durationMs: number, count: number): string => {
   return `${(durationMs / count).toFixed(3)} ms/item`
 }
 
-// Support --hsfc/--db overrides so perf runs can target arbitrary fixtures.
+// Support --sfr/--db overrides so perf runs can target arbitrary fixtures.
 const parseArgs = (): ScenarioInput => {
   const args = process.argv.slice(2)
   const result: ScenarioInput = { ...DEFAULT_SCENARIO }
@@ -128,15 +128,15 @@ const parseArgs = (): ScenarioInput => {
       : [arg, undefined]
     const nextValue = maybeValue ?? args[i + 1]
     const consumeNext = maybeValue === undefined
-    const assignPath = (target: 'hsfcPath' | 'gearDbPath') => {
+    const assignPath = (target: 'sfrPath' | 'gearDbPath') => {
       if (!nextValue) {
         throw new Error(`Missing value for ${key}`)
       }
       result[target] = nextValue
       if (consumeNext) i += 1
     }
-    if (key === '--hsfc') {
-      assignPath('hsfcPath')
+    if (key === '--sfr') {
+      assignPath('sfrPath')
       continue
     }
     if (key === '--db' || key === '--gear-db') {
@@ -145,33 +145,33 @@ const parseArgs = (): ScenarioInput => {
     }
   }
   return {
-    hsfcPath: resolvePath(process.cwd(), result.hsfcPath),
+    sfrPath: resolvePath(process.cwd(), result.sfrPath),
     gearDbPath: resolvePath(process.cwd(), result.gearDbPath),
   }
 }
 
-// Read and normalize the HSFC definition so we can rebuild the merged rules.
-const loadHsfc = async (hsfcPath: string): Promise<{
+// Read and normalize the SFR definition so we can rebuild the merged rules.
+const loadSfr = async (sfrPath: string): Promise<{
   recipes: BuilderRecipe[]
-  metasets: ReturnType<typeof parseHsfcObject>['metasets']
+  metasets: ReturnType<typeof parseSfrObject>['metasets']
   substatTargets: SubstatTargetTable
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
   finalSellRemainder: FinalSellRemainderConfig
 }> => {
-  const raw = await readFile(hsfcPath, 'utf8')
+  const raw = await readFile(sfrPath, 'utf8')
   const parsed = JSON.parse(raw) as unknown
-  const parsedHsfc = parseHsfcObject(parsed, {
+  const parsedSfr = parseSfrObject(parsed, {
     metasets: [],
     substatTargets: defaultSubstatTargets(),
   })
   return {
-    recipes: parsedHsfc.recipes,
-    metasets: parsedHsfc.metasets,
-    substatTargets: parsedHsfc.substatTargets,
-    safeguardRules: parsedHsfc.safeguardRules,
-    safeguardsEnabled: parsedHsfc.safeguardsEnabled,
-    finalSellRemainder: parsedHsfc.finalSellRemainder,
+    recipes: parsedSfr.recipes,
+    metasets: parsedSfr.metasets,
+    substatTargets: parsedSfr.substatTargets,
+    safeguardRules: parsedSfr.safeguardRules,
+    safeguardsEnabled: parsedSfr.safeguardsEnabled,
+    finalSellRemainder: parsedSfr.finalSellRemainder,
   }
 }
 
@@ -186,18 +186,18 @@ const loadGear = async (gearDbPath: string): Promise<NormalizedGearArtifact[]> =
   return [...imported.artifacts, ...imported.inboxArtifacts]
 }
 
-// Resolve HSFC + gear data into the inputs we need for matching.
+// Resolve SFR + gear data into the inputs we need for matching.
 const buildScenario = async (input: ScenarioInput): Promise<ScenarioData> => {
-  const hsfc = await loadHsfc(input.hsfcPath)
+  const sfr = await loadSfr(input.sfrPath)
   const gear = await loadGear(input.gearDbPath)
-  const recipeModes = hsfc.recipes.map((recipe) => recipe.exportMode)
+  const recipeModes = sfr.recipes.map((recipe) => recipe.exportMode)
   return {
-    recipes: hsfc.recipes,
-    metasets: hsfc.metasets,
-    substatTargets: hsfc.substatTargets,
-    safeguardRules: hsfc.safeguardRules,
-    safeguardsEnabled: hsfc.safeguardsEnabled,
-    finalSellRemainder: hsfc.finalSellRemainder,
+    recipes: sfr.recipes,
+    metasets: sfr.metasets,
+    substatTargets: sfr.substatTargets,
+    safeguardRules: sfr.safeguardRules,
+    safeguardsEnabled: sfr.safeguardsEnabled,
+    finalSellRemainder: sfr.finalSellRemainder,
     recipeModes,
     gear,
   }
@@ -322,7 +322,7 @@ const main = async (): Promise<void> => {
   await warmupWasmRuleEngine()
   const input = parseArgs()
   console.log('Rule Tester measurement')
-  console.log(`  HSFC: ${input.hsfcPath}`)
+  console.log(`  SFR: ${input.sfrPath}`)
   console.log(`  Gear DB: ${input.gearDbPath}`)
   const scenario = await buildScenario(input)
   const resolvedSafeguardRules = resolveSafeguardRulesWithMetasets(

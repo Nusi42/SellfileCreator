@@ -726,7 +726,7 @@ const overrides: Catalog = {
   historyFinalSellLevelsLabel: 'Stufenbereiche',
   historyFinalSellSetsModeLabel: 'Set-Abdeckung',
   historyFinalSellSetsModeOff: 'Aus',
-  historyHsfcLoadedTitle: 'Rezeptdatei geladen',
+  historySfrLoadedTitle: 'Rezeptdatei geladen',
   historySourceFileLine: 'Quelldatei: {name}',
   historyAutosaveRestoredTitle: 'Autosave wiederhergestellt',
   historyAutosaveSavedAtSuffix: '{timestamp}',

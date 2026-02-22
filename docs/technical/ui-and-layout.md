@@ -130,7 +130,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Builder integration: when deleting or replacing a metaset, the live builder selection is updated using the same mapping as configs.
   - Sets Select fallback: when a selection can’t be resolved (e.g., deleted ID), it renders “Any” instead of an empty label.
   - Clear buttons: “Clear” in Metasets editor is disabled for empty metasets; “Clear” in the builder’s Sets row is disabled when selection is Empty/Any.
-  - Icon picker: A compact dropdown to the right of the Sets selector assigns curated emoji/text glyph icons (plus “None”/“Empty”). The grid renders six columns for quick scanning, defaults to “None” for built-ins, picks a random emoji for generated names, and persists via HSFC `iconId` (missing IDs normalize to `none`).
+  - Icon picker: A compact dropdown to the right of the Sets selector assigns curated emoji/text glyph icons (plus “None”/“Empty”). The grid renders six columns for quick scanning, defaults to “None” for built-ins, picks a random emoji for generated names, and persists via SFR `iconId` (missing IDs normalize to `none`).
 
 - Reset metasets to defaults:
   - Presents the same three choices as Delete (remove references, explicit sets, or replace with metaset), applied across all configs and the builder.
@@ -148,7 +148,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - IDs and IO:
     - Built-ins: stable slugs (e.g., `meta_nuker`).
     - New metasets: base-36 IDs via `makeMetasetId()` (e.g., `m_ab12cd3`).
-    - HSFC configs reference metasets by ID via `artifactMetaSetIds`; the `Metasets` section stays readable with names + `setNames`.
+    - SFR configs reference metasets by ID via `artifactMetaSetIds`; the `Metasets` section stays readable with names + `setNames`.
 - Tooltip copy style: avoid HTML entities. Use backticks for titles and string expressions for labels containing quotes to satisfy ESLint.
 
 ## Preview Table Selection
@@ -171,7 +171,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - When tags are present (single or multi-edit), a compact clear (x) button appears next to the Tags button to reset the tag list quickly.
   - The Tags button has a right-click context menu with a `Show Tags` toggle (persisted). When off, the inline tag chips next to the button stay hidden.
   - Faction stays near Rarity. Only accessories care about faction; other gear ignores `Faction`.
-- Mainstat is multi-select with two rows of toggle buttons (HP/HP%/ATK/ATK%/DEF/DEF% and SPD/RES/ACC/CR%/CDMG%). Empty selection maps to Any; HSFC export converts selections to readable labels.
+- Mainstat is multi-select with two rows of toggle buttons (HP/HP%/ATK/ATK%/DEF/DEF% and SPD/RES/ACC/CR%/CDMG%). Empty selection maps to Any; SFR export converts selections to readable labels.
 - Substats reuse the two-row toggle grid. Empty selection represents Any. Toggle buttons manage selection while a separate lock badge handles fixed state (supports `aria-pressed="mixed"`).
   - Lock badge only appears when the stat is selected, locked, or mixed.
   - Context menu (right-click/Menu key) exposes lock/unlock, min rolls, and roll upper limit controls. Min/max grids reuse compact toggle layouts with mixed indicators.
@@ -194,7 +194,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Clicking the active lock again clears it and re-highlights that number as the new GMRR when none was selected.
   - GMRR = 0 is treated as a real manual value (the `0` button lights up) but the lock icon is hidden for that button. A lock never makes the `0` button appear highlighted.
   - Auto + lock cannot coexist: triggering Auto always resets both knobs.
-  - HSFC imports/clipboard pastes run through the same invariants so configs never load with “lock ≥ total” or multiple locks.
+  - SFR imports/clipboard pastes run through the same invariants so configs never load with “lock ≥ total” or multiple locks.
   - Distributions still fail Fast/Strict filtering when the aggregate cannot be reached by +16; Potential/Early keeps partial rows only when the aggregate is still attainable.
 - Defaults: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStatsV=[]`, `minLevel=0`, `maxLevel=16`, `minCount=0`, `autoMinCount=true`, `substatsV=[]`, `artifactTypes=[]`, `artifactSets=[]`.
 - Reset defaults restore the above and clear type/set/faction selections.
@@ -206,7 +206,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 
 ### Persistence & Autosave
 
-- Autosave payload key: `sellfileCreator.autosave.hsfc.v1`; value `[crc32, payload]`, where `payload = buildHsfcPayload(...)`.
+- Autosave payload key: `sellfileCreator.autosave.sfr.v1`; value `[crc32, payload]`, where `payload = buildSfrPayload(...)`.
   - CRC detects corruption; invalid entries are cleared automatically.
   - On load, a valid entry prompts Restore vs Dismiss. Dismiss keeps the previous snapshot until the user edits state.
 - Substat color preferences: `sellfileCreator.substatColors.v6` (variant-keyed `{ fg, bg }`, default alpha 25%).
@@ -299,14 +299,14 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Autosave & external IO: `useAutosave`, `useAutosaveRestore`, `useExternalCommands`, and the copy/push listeners in `App` manage persistence and long-polling with abort-aware cleanups.
   - Layout/virtualization observers: `useBuilderPreviewLayout`, `HsfRulesTable`, `GearTesterTabContent`, `MetasetsDialog` coordinate ResizeObservers and scroll alignment.
   - Attention/timer loops: `HelpDialog`, `PreviewHeaderActions`, `ConfigChipsPanel`, `attentionEffects` throttle requestAnimationFrame/timeouts behind explicit open/visibility checks.
-  - Tutorial/history refs: `useTutorialCoachState`, `useHsfcHistoryController`, and `App` maintain refs for undo/history flows when render-only derivation is insufficient.
+  - Tutorial/history refs: `useTutorialCoachState`, `useSfrHistoryController`, and `App` maintain refs for undo/history flows when render-only derivation is insufficient.
   - Dialog focus management: `NoteDialog`, `ManageColorsDialog`, and `RulesFilterPanel` keep focus traps, autosave overlays, or preference synchronization confined to dialog scope.
 
 ### Internal vs IO Representation
 
 - UI/builder state uses `StatVariant`-based fields: `mainStatsV`, `substatsV`, `fixedSubstatsV`, `substatRollBoundsV`.
 - Per-substat roll overrides live in `substatRollTargetsV` (variant-keyed `{ base?: number; increments?: number[] }`). Context menus expose Base/+1…+5 entries and a “Use global targets” reset.
-- HSFC write paths (Save, Copy All, Copy single config) emit compact metaset references `artifactMetaSetIds`. Read paths still accept `artifactMetaSetNames` and map them to IDs by name.
+- SFR write paths (Save, Copy All, Copy single config) emit compact metaset references `artifactMetaSetIds`. Read paths still accept `artifactMetaSetNames` and map them to IDs by name.
 - Copy single config writes `{ Version, Metasets: [subset], Configs: [config] }`.
 - Paste-only flows create hidden placeholder metasets with generated names when encountering unknown IDs so chips never show raw IDs.
 - HSF read/write behavior is unchanged; IO boundaries continue to enforce the legacy stat conversions.
@@ -327,7 +327,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - Sets (UI): modes for Game order, A–Z, and Icons. Choice persists via `sellfileCreator.setsOrder.v1`; search is transient.
 - Sets (export): numeric ID ascending (`compareArtifactSets`).
 - Formatting helpers (`formatArtifactTypes`, `formatArtifactSets`) sort before rendering; Config chips mirror the order.
-- HSFC export sorts `artifactTypeNames`, `artifactSetNames` (array of `{ name, excluded? }` entries), `mainStats`, merged `substats` entries (by stat label), and metaset `setNames` for stability.
+- SFR export sorts `artifactTypeNames`, `artifactSetNames` (array of `{ name, excluded? }` entries), `mainStats`, merged `substats` entries (by stat label), and metaset `setNames` for stability.
 - Per-substat overrides emit under `substatRollTargets` (label-keyed). Normalization rehydrates variant-keyed `substatRollTargetsV`.
 - HSF export sorts `ArtifactType`/`ArtifactSet` arrays and applies `[minLevel..maxLevel]` filtering with feasibility gating and pre-16 combo sizing.
 - Builder canonicalization uses `compareVariants` so generated rule order is deterministic regardless of click order. Merge sorting preserves `(level milestone → branch index → branch sequence)` so preview chips, flex branches, and exports share the same ordering.

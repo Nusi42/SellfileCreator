@@ -1,4 +1,4 @@
-import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
+import type { HistoryEntryDescriptor } from '../hooks/useSfrHistory'
 import { resolveHistoryEntryDescriptor, type HistoryDescriptorResolveContext } from './historyDescriptorResolver'
 
 /**

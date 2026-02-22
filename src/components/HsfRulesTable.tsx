@@ -7,7 +7,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
 import type { HsfRule } from '../lib/hsfTypes'
-import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_HSFC, RULE_SOURCE_SAFEGUARDS, type HsfRuleWithRecipe, type RuleSource } from '../lib/merge'
+import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_SFR, RULE_SOURCE_SAFEGUARDS, type HsfRuleWithRecipe, type RuleSource } from '../lib/merge'
 import { /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId, getLocalizedGearSetName } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
@@ -853,8 +853,8 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     const nextMode: ColMode = currentMode === 'auto' ? 'show' : (currentMode === 'show' ? 'hide' : 'auto')
     updateColumns(prev => prev.map((col, i) => (i === columnIndex ? { ...col, mode: nextMode } : col)))
   }, [updateColumns])
-  // Show the Faction column automatically when any rule (from HSFC or loaded HSF)
-  // has a non-zero faction filter. Previously this only reacted to HSFC-built rows
+  // Show the Faction column automatically when any rule (from SFR or loaded HSF)
+  // has a non-zero faction filter. Previously this only reacted to SFR-built rows
   // (those carrying RecipeID), which hid the column for loaded HSF files.
   const anyWithFaction = useMemo(() => rules.some((r) => r && typeof r.Faction === 'number' && (r.Faction as number) !== 0), [rules])
   const isColVisible = React.useCallback((c: ColConfig) => {
@@ -1104,13 +1104,13 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                     const resolvedSource: RuleSource = (() => {
                       if (
                         rule.__source === RULE_SOURCE_HSF
-                        || rule.__source === RULE_SOURCE_HSFC
+                        || rule.__source === RULE_SOURCE_SFR
                         || rule.__source === RULE_SOURCE_FINAL_SELL
                         || rule.__source === RULE_SOURCE_SAFEGUARDS
                       ) {
                         return rule.__source
                       }
-                      if (recipeIdxNumber !== null) return RULE_SOURCE_HSFC
+                      if (recipeIdxNumber !== null) return RULE_SOURCE_SFR
                       return RULE_SOURCE_HSF
                     })()
                     // Keep overrides include safeguards injection rows.
@@ -1786,7 +1786,7 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
         {rowMenu?.source === RULE_SOURCE_FINAL_SELL ? (
           <MenuItem onClick={() => { closeRowMenu(); onConfigureFinalSell() }}>{t('rowMenuEditFinalSell')}</MenuItem>
         ) : null}
-        {rowMenu?.source === RULE_SOURCE_HSFC ? (
+        {rowMenu?.source === RULE_SOURCE_SFR ? (
           <>
             <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'duplicate') }}>{t('rowMenuDuplicate')}</MenuItem>
             <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'move_top') }}>{t('rowMenuMoveTop')}</MenuItem>

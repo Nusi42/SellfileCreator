@@ -64,7 +64,7 @@ export default function RestoreAutosaveDialog({
   const [selection, setSelection] = useState<RestoreSelection>(RESTORE_SELECTION_DEFAULT)
   const recipesCount = draft?.Recipes?.length ?? 0
   const metasCount = draft?.Metasets?.length ?? 0
-  // Gear sets are not embedded in autosave/HSFC, so only storage matters here.
+  // Gear sets are not embedded in autosave/SFR, so only storage matters here.
   // Why: contributors share `.gearsets.json` separately.
   const gearSetsCount = storedGearSetsCount ?? 0
   const hasTargets = Boolean(draft?.substatTargets)

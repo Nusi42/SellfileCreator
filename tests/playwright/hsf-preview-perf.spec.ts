@@ -5,24 +5,24 @@ import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { warmupAppShell } from './app-warmup'
 import { PREVIEW_MODE_STORAGE_KEY } from '../../src/lib/constants'
 import { getWorkloadIndicator } from './workload-indicator'
-import { SAMPLE_HSFC_PATH } from './fixture-paths'
-import { HSFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
+import { SAMPLE_SFR_PATH } from './fixture-paths'
+import { SFR_LOAD_INPUT_SELECTOR } from './ui-selectors'
 
 // Reuse fixture assets so perf runs do not depend on external samples.
-const LARGE_HSFC_PATH = SAMPLE_HSFC_PATH
+const LARGE_SFR_PATH = SAMPLE_SFR_PATH
 const LOG_PREFIX = '[tester-grid]'
 
 test.describe('HSF preview performance', () => {
   test.beforeAll(async ({ browser }) => {
     // Allow the long timeout so the cold Vite compile can finish during warmup.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
-    // Preload the shell so perf timing focuses on HSFC import work.
+    // Preload the shell so perf timing focuses on SFR import work.
     await warmupAppShell(browser)
   })
 
   // Capture perf annotations in all browsers so regressions do not hide in one engine.
   test('measures time to first row render for large HSF', async ({ page }, testInfo) => {
-    // Allow the long timeout for HSFC parsing and the rebuild it triggers.
+    // Allow the long timeout for SFR parsing and the rebuild it triggers.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
 
     const testerLogs: string[] = []
@@ -52,15 +52,15 @@ test.describe('HSF preview performance', () => {
     // Load the shell without waiting for full asset completion.
     await page.goto('/', APP_GOTO_OPTIONS)
 
-    // Use the shared HSFC selector so input wiring stays consistent across tests.
-    const hsfcInput = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
+    // Use the shared SFR selector so input wiring stays consistent across tests.
+    const sfrInput = page.locator(SFR_LOAD_INPUT_SELECTOR).first()
     // Allow the app shell to mount before asserting on the import input.
-    await hsfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
-    await expect(hsfcInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    await sfrInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
+    await expect(sfrInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 
     const start = await page.evaluate(() => performance.now())
-    await hsfcInput.setInputFiles(LARGE_HSFC_PATH)
-    // Close any note dialogs that appear after HSFC import.
+    await sfrInput.setInputFiles(LARGE_SFR_PATH)
+    // Close any note dialogs that appear after SFR import.
     await dismissBlockingDialogs(page)
     // Wait for the rebuild to clear before loading the DB fixture.
     await getWorkloadIndicator(page).waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.expectLong })

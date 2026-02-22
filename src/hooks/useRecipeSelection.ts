@@ -21,7 +21,7 @@ import {
   type MultiEditFieldPatch,
 } from '../lib/multiEditDraft'
 import { SELECTION_SCROLL_SOURCE_USER, type SelectionScrollSource } from '../lib/constants'
-import type { DescribeNextChangeFn } from '../hooks/useHsfcHistory'
+import type { DescribeNextChangeFn } from '../hooks/useSfrHistory'
 import {
   createRecipesDuplicatedDescriptor,
   createRecipesMovedDescriptor,

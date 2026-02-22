@@ -152,8 +152,8 @@ export type UseTutorialCoachStateParams = {
   setTesterItems: Dispatch<SetStateAction<RuleTesterItem[]>>
   previewMode: 'rules' | 'tester'
   setPreviewMode: Dispatch<SetStateAction<'rules' | 'tester'>>
-  hsfcNote: string | null
-  setHsfcNote: Dispatch<SetStateAction<string | null>>
+  sfrNote: string | null
+  setSfrNote: Dispatch<SetStateAction<string | null>>
   builderRef: MutableRefObject<BuilderRecipe>
   setBuilder: Dispatch<SetStateAction<BuilderRecipe>>
   filterOpen: boolean
@@ -213,8 +213,8 @@ export function useTutorialCoachState({
   setTesterItems,
   previewMode,
   setPreviewMode,
-  hsfcNote,
-  setHsfcNote,
+  sfrNote,
+  setSfrNote,
   builderRef,
   setBuilder,
   filterOpen,
@@ -272,8 +272,8 @@ export function useTutorialCoachState({
   useEffect(() => { safeguardRulesRef.current = safeguardRules }, [safeguardRules])
   const safeguardsEnabledRef = useRef(safeguardsEnabled)
   useEffect(() => { safeguardsEnabledRef.current = safeguardsEnabled }, [safeguardsEnabled])
-  const noteRef = useRef(hsfcNote)
-  useEffect(() => { noteRef.current = hsfcNote }, [hsfcNote])
+  const noteRef = useRef(sfrNote)
+  useEffect(() => { noteRef.current = sfrNote }, [sfrNote])
   const filterOpenRef = useRef(filterOpen)
   useEffect(() => { filterOpenRef.current = filterOpen }, [filterOpen])
   const rulesFilterRef = useRef<RulesFilterState>(rulesFilter)
@@ -449,7 +449,7 @@ export function useTutorialCoachState({
         setFinalSellRemainder(snap.fsr)
         setSafeguardRules(snap.safeguardRules)
         setSafeguardsEnabled(snap.safeguardsEnabled)
-        setHsfcNote(snap.note)
+        setSfrNote(snap.note)
         setBuilder(snap.builder)
         setFilterOpen(snap.filterOpen)
         setRulesFilter(JSON.parse(JSON.stringify(snap.rulesFilter)) as RulesFilterState)
@@ -465,7 +465,7 @@ export function useTutorialCoachState({
     setFinalSellRemainder,
     setFilterOpen,
     setHsf,
-    setHsfcNote,
+    setSfrNote,
     setMetasets,
     setSubstatTargets,
     setRulesFilter,
@@ -701,7 +701,7 @@ export function useTutorialCoachState({
       setSubstatTargets(defaultSubstatTargets())
       setFinalSellRemainder({ artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[], setsMode: FINAL_SELL_DEFAULT_SETS_MODE })
       setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_FINAL_SELL)
-      setHsfcNote(null)
+      setSfrNote(null)
       setBuilder({
         name: '',
         keep: true,
@@ -1163,7 +1163,7 @@ export function useTutorialCoachState({
         id: 'save-explain',
         title: t('tutSaveExplainTitle'),
         body: t('tutSaveExplainBody'),
-        targetId: 'hsfc.save',
+        targetId: 'sfr.save',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null); try { setLogicHubOpen(false) } catch {} },
       },
       {
@@ -1217,7 +1217,7 @@ export function useTutorialCoachState({
     setLogicHubOpen,
     setFinalSellRemainder,
     setFilterOpen,
-    setHsfcNote,
+    setSfrNote,
     setHsf,
     setMetasets,
     setSubstatTargets,
@@ -1464,7 +1464,7 @@ export function useTutorialCoachState({
       setPreviewMode(nextPreviewMode)
       setLogicHubOpen(nextLogicHubOpen)
       setLogicHubDialogTab(nextLogicHubDialogTab)
-      setHsfcNote(nextNote)
+      setSfrNote(nextNote)
       setBuilder(nextBuilder)
       setTutorialIdx(idx)
     } catch {
@@ -1476,7 +1476,7 @@ export function useTutorialCoachState({
     setCustomRecipes,
     setFinalSellRemainder,
     setHsf,
-    setHsfcNote,
+    setSfrNote,
     setMetasets,
     setSubstatTargets,
     setSelectedRecipeIdx,

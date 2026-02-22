@@ -4,14 +4,14 @@ import type { Metaset } from '../lib/metasets'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import type { MultiEditDraftState } from '../lib/multiEditDraft'
 import {
-  useHsfcHistory,
-  type HsfcSnapshot,
+  useSfrHistory,
+  type SfrSnapshot,
   type HistoryEntryDescriptor,
   type HistoryPreview,
   type DescribeNextChangeFn,
   type SuppressNextSnapshotFn,
   type HistoryTimelineEntry,
-} from './useHsfcHistory'
+} from './useSfrHistory'
 import type { SafeguardRule } from '../lib/safeguards'
 import { stableSerialize } from '../lib/stableSerialize'
 
@@ -22,7 +22,7 @@ type Params = {
   finalSellRemainder: FinalSellRemainderConfig
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
-  hsfcNote: string | null
+  sfrNote: string | null
   selectedRecipeIdx: number | null
   selectedRecipeIndices: number[]
   selectionAnchor: number | null
@@ -36,7 +36,7 @@ type Params = {
   setFinalSellRemainder: (value: SetStateAction<FinalSellRemainderConfig>) => void
   setSafeguardRules: (value: SetStateAction<SafeguardRule[]>) => void
   setSafeguardsEnabled: (value: SetStateAction<boolean>) => void
-  setHsfcNote: (value: SetStateAction<string | null>) => void
+  setSfrNote: (value: SetStateAction<string | null>) => void
   setSelectedRecipeIdx: (value: SetStateAction<number | null>) => void
   setSelectedRecipeIndices: (value: number[]) => void
   setSelectionAnchor: (value: SetStateAction<number | null>) => void
@@ -67,7 +67,7 @@ type ControllerResult = {
   clearHistory: () => void
 }
 
-export function useHsfcHistoryController(params: Params): ControllerResult {
+export function useSfrHistoryController(params: Params): ControllerResult {
   const {
   customRecipes,
   metasets,
@@ -75,7 +75,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
   finalSellRemainder,
   safeguardRules,
   safeguardsEnabled,
-  hsfcNote,
+  sfrNote,
     selectedRecipeIdx,
     selectedRecipeIndices,
     selectionAnchor,
@@ -89,7 +89,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
   setFinalSellRemainder,
   setSafeguardRules,
   setSafeguardsEnabled,
-  setHsfcNote,
+  setSfrNote,
     setSelectedRecipeIdx,
     setSelectedRecipeIndices,
     setSelectionAnchor,
@@ -117,7 +117,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
       finalSellRemainder,
       safeguardRules,
       safeguardsEnabled,
-      note: hsfcNote ?? null,
+      note: sfrNote ?? null,
       selectedRecipeIdx: selectedIdx,
       selectedRecipeIndices,
       selectionAnchor,
@@ -134,7 +134,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
       finalSellRemainder,
       safeguardRules,
       safeguardsEnabled,
-      note: hsfcNote ?? null,
+      note: sfrNote ?? null,
     })
     return { payloadTemplate, signature }
   }, [
@@ -143,7 +143,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     metasets,
     substatTargets,
     finalSellRemainder,
-    hsfcNote,
+    sfrNote,
     multiEditDraft,
     safeSelectedIndex,
     selectedRecipeIndices,
@@ -166,14 +166,14 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     return { payload, signature }
   }, [builderNameDraft, builderNameDraftKey, historyBaseStrings])
 
-  const applySnapshot = useCallback((snap: HsfcSnapshot) => {
+  const applySnapshot = useCallback((snap: SfrSnapshot) => {
     setCustomRecipes(snap.customRecipes)
     setMetasets(snap.metasets)
     setSubstatTargets(snap.substatTargets)
     setFinalSellRemainder(snap.finalSellRemainder)
     setSafeguardRules(snap.safeguardRules)
     setSafeguardsEnabled(Boolean(snap.safeguardsEnabled))
-    setHsfcNote(snap.note)
+    setSfrNote(snap.note)
     const len = snap.customRecipes.length
     let restoredIdx: number | null = null
     suppressSelectionDraft(() => {
@@ -223,7 +223,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     setBuilderNameDraftKey,
     setCustomRecipes,
     setFinalSellRemainder,
-    setHsfcNote,
+    setSfrNote,
     setMetasets,
     setSubstatTargets,
     setMultiEditDraft,
@@ -253,7 +253,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     historyTimeline,
     jumpToHistoryIndex,
     clearHistory,
-  } = useHsfcHistory({
+  } = useSfrHistory({
     payload: historyStrings.payload,
     signature: historyStrings.signature,
     applySnapshot,

@@ -735,7 +735,7 @@ const enUS: Catalog = {
   historyFinalSellLevelsLabel: 'Levels',
   historyFinalSellSetsModeLabel: 'Sets Mode',
   historyFinalSellSetsModeOff: 'Off',
-  historyHsfcLoadedTitle: 'Loaded Recipe File',
+  historySfrLoadedTitle: 'Loaded Recipe File',
   historySourceFileLine: 'Source File: {name}',
   historyAutosaveRestoredTitle: 'Restored Autosave',
   historyAutosaveSavedAtSuffix: '{timestamp}',

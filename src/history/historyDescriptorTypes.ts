@@ -179,9 +179,9 @@ export type HistoryEntryDescriptor =
       next: string | null
       mode: NoteDescriptorMode
     }
-  // hsfcLoaded records file import metadata.
+  // sfrLoaded records file import metadata.
   | {
-      kind: 'hsfcLoaded'
+      kind: 'sfrLoaded'
       fileName?: string | null
     }
   // autosaveRestored records autosave metadata.

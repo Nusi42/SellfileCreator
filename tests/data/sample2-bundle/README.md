@@ -1,6 +1,6 @@
 # Example + sample2 Fixture Bundle
 
-- Source HSFC: `examples/example.sfr`
+- Source SFR: `examples/example.sfr`
 - Shared DB fixture: `tests/data/sample2.db`
 
 ## Layout

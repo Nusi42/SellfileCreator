@@ -8,7 +8,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { loadAutosave } from '../lib/autosave'
-import { parseHsfcObject } from '../lib/hsfcIO'
+import { parseSfrObject } from '../lib/sfrIO'
 import { getPersistedRuntimeGearSetNameMap } from '../lib/gearSets/runtimeStore'
 import { normalizeMetasetIconId } from '../lib/metasetIcons'
 import type { SubstatTargetTable, BuilderRecipe } from '../lib/hsfBuilder'
@@ -239,7 +239,7 @@ function computeInitialAutosaveState(args: {
       // Why: autosave drafts store readable set names even for runtime sets.
       // We must resolve those names without auto-applying runtime gear sets.
       const runtimeSetNameMap = getPersistedRuntimeGearSetNameMap()
-      const parsed = parseHsfcObject(
+      const parsed = parseSfrObject(
         entry.payload as unknown,
         { metasets: args.metasets, substatTargets: args.substatTargets },
         { runtimeSetNameMap },

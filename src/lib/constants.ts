@@ -55,8 +55,8 @@ export const SELLFILE_BUTTON_HEIGHT_PX = SMALL_BUTTON_HEIGHT_PX + 8
 export const BUILDER_STATUS_CHIP_HEIGHT_PX = 22
 export const STATUS_CHIP_BORDER_RADIUS_PX = 8
 
-// Autosave storage key for HSFC sessions
-export const AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfc.v1'
+// Autosave storage key for SFR sessions
+export const AUTOSAVE_KEY = 'sellfileCreator.autosave.sfr.v1'
 // Autosave storage key for the Gear dialog queue (tester items)
 export const AUTOSAVE_TESTER_KEY = 'sellfileCreator.autosave.tester.v1'
 // Persisted Sellfile Preview / Rule Tester toggle selection
@@ -211,8 +211,8 @@ const IMPORTABLE_FILE_EXTENSIONS = [
   'application/json',
 ] as const
 export const ACCEPT_HSF = IMPORTABLE_FILE_EXTENSIONS.join(',')
-export const ACCEPT_HSFC = ACCEPT_HSF
-export const ACCEPT_HSFC_FILE_DIALOG = '.sfr,.hsfc'
+export const ACCEPT_SFR = ACCEPT_HSF
+export const ACCEPT_SFR_FILE_DIALOG = '.sfr,.hsfc'
 export const ACCEPT_HSF_OR_DB_FILE_DIALOG = [
   '.hsf',
   ...GEAR_DB_FILE_EXTENSIONS,
@@ -346,7 +346,7 @@ export const BUILDER_DIRTY_NUDGE_IDLE_MS = 300 * 1000
 export const BUILDER_DIRTY_ATTENTION_INTERVAL_MS = 5 * 1000
 
 // Final-sell level milestones and defaults
-// Why: These values are used in multiple places (UI, merge/export, HSFC defaults)
+// Why: These values are used in multiple places (UI, merge/export, SFR defaults)
 // and must remain consistent. Centralizing avoids drift and keeps intent clear.
 export const FINAL_SELL_LEVEL_MILESTONES = [0, 4, 8, 12, 16] as const
 export const FINAL_SELL_DEFAULT_LEVELS = [0, 4, 8, 12] as const
@@ -462,7 +462,7 @@ export const SELLFILE_PUSH_PATH_SEGMENT = 'hsf'
 // still feeling responsive.
 export const BUILDER_AUTO_APPLY_DEBOUNCE_MS = 400
 
-// Rarity UI label for automatic resolution (HSFC writes this label; HSF export
+// Rarity UI label for automatic resolution (SFR writes this label; HSF export
 // always uses a concrete rarity code). Keeping it centralized avoids string
 // drift across IO and UI.
 export const RARITY_AUTO_LABEL = 'Auto'

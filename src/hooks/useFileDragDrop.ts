@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { GEAR_DB_FILE_EXTENSIONS } from '../lib/constants'
 
 export type FileRouteHandlers = {
-  onHsfc: (file: File) => void | Promise<void>
+  onSfr: (file: File) => void | Promise<void>
   onHsf: (file: File) => void | Promise<void>
   onL10n?: (file: File) => void | Promise<void>
   onGearDb?: (file: File) => void | Promise<void>
@@ -22,7 +22,7 @@ export async function routeFileByExtension(file: File, handlers: FileRouteHandle
   const name = String(file.name || '').toLowerCase()
   // `.sfr` (and legacy `.hsfc`) = app recipe bundle.
   if (name.endsWith('.sfr') || name.endsWith('.hsfc')) {
-    await handlers.onHsfc(file)
+    await handlers.onSfr(file)
     return
   }
   // `.hsf` = RSL Helper sellfile.

@@ -19,7 +19,7 @@ import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
-import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useHsfcHistory'
+import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useSfrHistory'
 import {
   LEVELS,
   normalizeExportModeFields,

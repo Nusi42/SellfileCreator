@@ -8,7 +8,7 @@ import { warmupAppShell } from './app-warmup'
 
 const RULE_CHIP_SELECTOR = '[data-testid="builder-rule-count-chip"] .MuiChip-label'
 
-// Minimal autosave payload to seed two recipes without HSFC imports.
+// Minimal autosave payload to seed two recipes without SFR imports.
 const AUTOSAVE_RECIPES = [
   {
     name: 'Perf Recipe A',
@@ -65,7 +65,7 @@ const RECIPE_AUTOSAVE_ENTRY = (() => {
       levels: [0, 4, 8, 12, 16],
       setsMode: 'any',
     },
-    // Seed the canonical selection key used by current HSFC/autosave exports.
+    // Seed the canonical selection key used by current SFR/autosave exports.
     SelectedRecipeIndex: 0,
     Note: 'Perf autosave payload',
   }
@@ -180,7 +180,7 @@ test.describe('builder recipe switching performance', () => {
 })
 
 async function seedRecipeAutosave(page: Page): Promise<void> {
-  // Seed the HSFC autosave entry so recipe chips are available without imports.
+  // Seed the SFR autosave entry so recipe chips are available without imports.
   await page.addInitScript(
     ({ autosaveKey, autosaveValue }) => {
       try {

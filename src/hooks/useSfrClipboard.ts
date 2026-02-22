@@ -2,11 +2,11 @@ import { useCallback } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { APP_VERSION } from '../version'
 import {
-  buildHsfcPayload,
+  buildSfrPayload,
   buildReadableRecipe,
   parseRecipesFromText,
-  parseHsfcText,
-} from '../lib/hsfcIO'
+  parseSfrText,
+} from '../lib/sfrIO'
 import type { BuilderRecipe, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { makeMetasetId } from '../lib/metasets'
@@ -18,7 +18,7 @@ import { readTextSafe, writeTextSafe } from '../lib/clipboard'
 import { createRecipesInsertedDescriptor } from '../history/recipeCollectionDescriptors'
 import type { TranslateFn } from '../history/historyI18n'
 import { buildInsertionLocation, snapshotRecipeLabel } from '../history/historyLabelUtils'
-import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useHsfcHistory'
+import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useSfrHistory'
 import { appendDescriptorDetails } from '../history/substatTargetDescriptors'
 import type { FinalSellDescriptorMode } from '../history/finalSellDescriptors'
 import { normalizeNoteValue, type NoteDescriptorMode } from '../history/noteDescriptors'
@@ -38,7 +38,7 @@ export type PendingImport = {
   afterIdx?: number
 }
 
-type PreparedHsfcImport = {
+type PreparedSfrImport = {
   idMap: Map<string, string>
   toAdd: Metaset[]
   conflicts: string[]
@@ -66,11 +66,11 @@ type ApplyNoteChangeFn = (
   options?: { mode?: NoteDescriptorMode; publish?: boolean },
 ) => HistoryEntryDescriptor | null
 
-type UseHsfcClipboardParams = {
+type UseSfrClipboardParams = {
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
   customRecipes: BuilderRecipe[]
-  hsfcNote: string | null
+  sfrNote: string | null
   finalSellRemainder: FinalSellRemainderConfig
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
@@ -102,7 +102,7 @@ type UseHsfcClipboardParams = {
   setCopyText: Dispatch<SetStateAction<string>>
 }
 
-export type UseHsfcClipboardResult = {
+export type UseSfrClipboardResult = {
   insertIndexAfter: (list: BuilderRecipe[], idx: number) => number
   handlePasteText: (text: string) => boolean
   pasteAfterIndex: (idx: number) => Promise<void>
@@ -110,10 +110,10 @@ export type UseHsfcClipboardResult = {
   handleCopyAllRecipes: () => Promise<void>
   handleCopyRecipe: (idx: number) => Promise<void>
   handlePasteAtEnd: () => Promise<void>
-  prepareHsfcImport: (current: Metaset[], incoming: Metaset[], recipesIn: BuilderRecipe[]) => PreparedHsfcImport
+  prepareSfrImport: (current: Metaset[], incoming: Metaset[], recipesIn: BuilderRecipe[]) => PreparedSfrImport
   finalizeImport: (
     baseCurrent: Metaset[],
-    prep: PreparedHsfcImport,
+    prep: PreparedSfrImport,
     strategy: 'keepCurrent' | 'useIncoming' | 'keepBoth'
   ) => FinalizeImportResult
 }
@@ -148,16 +148,16 @@ const ensureReferencedMetasets = (base: Metaset[], recipes: BuilderRecipe[]): Me
 }
 
 /**
- * Centralizes HSFC clipboard orchestration so App.tsx wires handlers instead of duplicating logic.
+ * Centralizes SFR clipboard orchestration so App.tsx wires handlers instead of duplicating logic.
  * - Note merging only replaces the current note when it is blank, matching the legacy behavior.
  * - Missing metaset IDs referenced by imported recipes receive generated placeholder entries so
- *   downstream lookups stay consistent even when the source HSFC references hidden metasets.
+ *   downstream lookups stay consistent even when the source SFR references hidden metasets.
  */
-export function useHsfcClipboard({
+export function useSfrClipboard({
   metasets,
   substatTargets,
   customRecipes,
-  hsfcNote,
+  sfrNote,
   finalSellRemainder,
   safeguardRules,
   safeguardsEnabled,
@@ -187,7 +187,7 @@ export function useHsfcClipboard({
   setSelectedRecipeIndices: _setSelectedRecipeIndices,
   setSelectionAnchor: _setSelectionAnchor,
   setPasteSelectOnEmpty: _setPasteSelectOnEmpty,
-}: UseHsfcClipboardParams): UseHsfcClipboardResult {
+}: UseSfrClipboardParams): UseSfrClipboardResult {
   void _setSelectedRecipeIndices
   void _setSelectionAnchor
   void _setPasteSelectOnEmpty
@@ -216,7 +216,7 @@ export function useHsfcClipboard({
     return labels
   }, [])
 
-  const prepareHsfcImport = useCallback((current: Metaset[], incoming: Metaset[], recipesIn: BuilderRecipe[]): PreparedHsfcImport => {
+  const prepareSfrImport = useCallback((current: Metaset[], incoming: Metaset[], recipesIn: BuilderRecipe[]): PreparedSfrImport => {
     const byIdCur = new Map(current.map(m => [m.id, m]))
     const byValCur = new Map<string, Metaset>()
     for (const m of current) byValCur.set(valueKey(m.sets), m)
@@ -280,7 +280,7 @@ export function useHsfcClipboard({
 
   const finalizeImport = useCallback((
     baseCurrent: Metaset[],
-    prep: PreparedHsfcImport,
+    prep: PreparedSfrImport,
     strategy: 'keepCurrent' | 'useIncoming' | 'keepBoth',
   ): FinalizeImportResult => {
     const { toAdd, conflicts: ids, conflictPairs } = prep
@@ -317,7 +317,7 @@ export function useHsfcClipboard({
 
   const handlePasteText = useCallback((text: string): boolean => {
     try {
-      const parsed = parseHsfcText(text, { metasets, substatTargets })
+      const parsed = parseSfrText(text, { metasets, substatTargets })
       const {
         recipes,
         metasets: nextMetas,
@@ -332,7 +332,7 @@ export function useHsfcClipboard({
         setPasteErr('No valid recipe found in pasted text')
         return false
       }
-      const prep = prepareHsfcImport(metasets, nextMetas, recipes)
+      const prep = prepareSfrImport(metasets, nextMetas, recipes)
       if (prep.conflicts.length) {
         setPendingImport({
           recipes: prep.recipesMapped,
@@ -358,7 +358,7 @@ export function useHsfcClipboard({
       const substatTargetsDescriptor = applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
       const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
       const incomingNote = typeof note === 'string' ? note : null
-      const shouldApplyNote = !normalizeNoteValue(hsfcNote) && Boolean(normalizeNoteValue(incomingNote))
+      const shouldApplyNote = !normalizeNoteValue(sfrNote) && Boolean(normalizeNoteValue(incomingNote))
       const noteDescriptor = shouldApplyNote
         ? applyNoteChange(incomingNote, { mode: 'import', publish: false })
         : null
@@ -432,11 +432,11 @@ export function useHsfcClipboard({
     applySubstatTargetsChange,
     publishClipboardDescriptor,
     finalizeImport,
-    hsfcNote,
+    sfrNote,
     makeInsertedLabels,
     metasets,
     substatTargets,
-    prepareHsfcImport,
+    prepareSfrImport,
     selectedRecipeIdx,
     setConflictIds,
     setCustomRecipes,
@@ -456,7 +456,7 @@ export function useHsfcClipboard({
     const text = await readTextSafe()
     if (text && text.trim()) {
       try {
-        const parsed = parseHsfcText(text, { metasets, substatTargets })
+        const parsed = parseSfrText(text, { metasets, substatTargets })
         const {
           recipes,
           metasets: nextMetas,
@@ -468,7 +468,7 @@ export function useHsfcClipboard({
           safeguardsEnabled: importedSafeguardsEnabled,
         } = parsed
         if (recipes.length > 0) {
-          const prep = prepareHsfcImport(metasets, nextMetas, recipes)
+          const prep = prepareSfrImport(metasets, nextMetas, recipes)
           if (prep.conflicts.length) {
             setPendingImport({
               recipes: prep.recipesMapped,
@@ -493,7 +493,7 @@ export function useHsfcClipboard({
           const substatTargetsDescriptor = applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
           const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
           const incomingNote = typeof note === 'string' ? note : null
-          const shouldApplyNote = !normalizeNoteValue(hsfcNote) && Boolean(normalizeNoteValue(incomingNote))
+          const shouldApplyNote = !normalizeNoteValue(sfrNote) && Boolean(normalizeNoteValue(incomingNote))
           const noteDescriptor = shouldApplyNote
             ? applyNoteChange(incomingNote, { mode: 'import', publish: false })
             : null
@@ -573,11 +573,11 @@ export function useHsfcClipboard({
     applySubstatTargetsChange,
     publishClipboardDescriptor,
     finalizeImport,
-    hsfcNote,
+    sfrNote,
     makeInsertedLabels,
     metasets,
     substatTargets,
-    prepareHsfcImport,
+    prepareSfrImport,
     setBuilder,
     setConflictIds,
     setCustomRecipes,
@@ -604,14 +604,14 @@ export function useHsfcClipboard({
   }, [selectedRecipeIndices, pasteAfterIndex])
 
   const handleCopyAllRecipes = useCallback(async () => {
-    const payload = buildHsfcPayload({
+    const payload = buildSfrPayload({
       version: APP_VERSION,
       metasets,
       substatTargets,
       recipes: customRecipes,
       finalSellRemainder,
       selectedRecipeIndex: selectedRecipeIdx,
-      ...(hsfcNote && hsfcNote.trim() ? { note: hsfcNote } : {}),
+      ...(sfrNote && sfrNote.trim() ? { note: sfrNote } : {}),
       safeguardRules,
       safeguardsEnabled,
     })
@@ -624,7 +624,7 @@ export function useHsfcClipboard({
   }, [
     customRecipes,
     finalSellRemainder,
-    hsfcNote,
+    sfrNote,
     metasets,
     substatTargets,
     selectedRecipeIdx,
@@ -694,7 +694,7 @@ export function useHsfcClipboard({
     const text = await readTextSafe()
     if (text && text.trim()) {
       try {
-        const parsed = parseHsfcText(text, { metasets, substatTargets })
+        const parsed = parseSfrText(text, { metasets, substatTargets })
         const {
           recipes,
           metasets: nextMetas,
@@ -706,7 +706,7 @@ export function useHsfcClipboard({
           safeguardsEnabled: importedSafeguardsEnabled,
         } = parsed
         if (recipes.length > 0) {
-          const prep = prepareHsfcImport(metasets, nextMetas, recipes)
+          const prep = prepareSfrImport(metasets, nextMetas, recipes)
           if (prep.conflicts.length) {
             setPendingImport({
               recipes: prep.recipesMapped,
@@ -731,7 +731,7 @@ export function useHsfcClipboard({
           const substatTargetsDescriptor = applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
           const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
           const incomingNote = typeof note === 'string' ? note : null
-          const shouldApplyNote = !normalizeNoteValue(hsfcNote) && Boolean(normalizeNoteValue(incomingNote))
+          const shouldApplyNote = !normalizeNoteValue(sfrNote) && Boolean(normalizeNoteValue(incomingNote))
           const noteDescriptor = shouldApplyNote
             ? applyNoteChange(incomingNote, { mode: 'import', publish: false })
             : null
@@ -804,11 +804,11 @@ export function useHsfcClipboard({
     customRecipes,
     applySubstatTargetsChange,
     finalizeImport,
-    hsfcNote,
+    sfrNote,
     makeInsertedLabels,
     metasets,
     substatTargets,
-    prepareHsfcImport,
+    prepareSfrImport,
     setBuilder,
     setConflictIds,
     setCustomRecipes,
@@ -836,7 +836,7 @@ export function useHsfcClipboard({
     handleCopyAllRecipes,
     handleCopyRecipe,
     handlePasteAtEnd,
-    prepareHsfcImport,
+    prepareSfrImport,
     finalizeImport,
   }
 }

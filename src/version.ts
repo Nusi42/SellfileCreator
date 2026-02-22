@@ -6,5 +6,5 @@ export const APP_VERSION: string = typeof __APP_VERSION__ !== 'undefined' ? __AP
 /**
  * version.ts
  *
- * Single source of truth for the app Version string used in HSFC exports.
+ * Single source of truth for the app Version string used in SFR exports.
  */

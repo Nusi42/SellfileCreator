@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-02-13T00:12:09.007Z",
-  "sourceHsfc": "examples/example.sfr",
+  "sourceSfr": "examples/example.sfr",
   "sharedDb": "tests/data/sample2.db",
   "profiles": [
     {

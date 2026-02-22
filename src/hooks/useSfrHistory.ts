@@ -10,7 +10,7 @@ import type { HistoryEntryDescriptor } from '../history/historyDescriptorTypes'
 
 export type { HistoryEntryDescriptor }
 
-export type HsfcSnapshot = {
+export type SfrSnapshot = {
   customRecipes: BuilderRecipe[]
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
@@ -95,10 +95,10 @@ function makeEntryWithCompressedDescriptor(
   }
 }
 
-function parseSnapshot(entry: HistoryEntry): HsfcSnapshot | null {
+function parseSnapshot(entry: HistoryEntry): SfrSnapshot | null {
   try {
     const json = decompressFromBytes(entry.compressedPayload)
-    const parsed = JSON.parse(json) as Partial<HsfcSnapshot>
+    const parsed = JSON.parse(json) as Partial<SfrSnapshot>
     if (!parsed || typeof parsed !== 'object') return null
     const {
       customRecipes,
@@ -192,10 +192,10 @@ function parseDescriptor(entry: HistoryEntry): HistoryEntryDescriptor | null {
   }
 }
 
-export function useHsfcHistory(params: {
+export function useSfrHistory(params: {
   payload: string
   signature: string
-  applySnapshot: (snapshot: HsfcSnapshot) => void
+  applySnapshot: (snapshot: SfrSnapshot) => void
 }) {
   const { payload, signature, applySnapshot } = params
   const initialEntryRef = useRef<HistoryEntry | null>(null)
@@ -229,7 +229,7 @@ export function useHsfcHistory(params: {
     return parsed
   }, [])
 
-  // Snapshot history whenever the serialized HSFC payload or signature changes; we intentionally
+  // Snapshot history whenever the serialized SFR payload or signature changes; we intentionally
   // adjust internal state in this effect so history updates stay in sync with the latest inputs.
   /* eslint-disable react-you-might-not-need-an-effect/no-adjust-state-on-prop-change */
   useEffect(() => {
@@ -321,7 +321,7 @@ export function useHsfcHistory(params: {
   /* eslint-enable react-you-might-not-need-an-effect/no-adjust-state-on-prop-change */
 
   const undo = useCallback(() => {
-    let snapshotToApply: HsfcSnapshot | null = null
+    let snapshotToApply: SfrSnapshot | null = null
     setHistory((prev) => {
       if (prev.index === 0) return prev
       const nextIndex = prev.index - 1
@@ -339,7 +339,7 @@ export function useHsfcHistory(params: {
   }, [applySnapshot])
 
   const redo = useCallback(() => {
-    let snapshotToApply: HsfcSnapshot | null = null
+    let snapshotToApply: SfrSnapshot | null = null
     setHistory((prev) => {
       if (prev.index >= prev.entries.length - 1) return prev
       const nextIndex = prev.index + 1
@@ -457,7 +457,7 @@ export function useHsfcHistory(params: {
   })), [history.entries, history.index, history.savedIndex, readDescriptor])
   const jumpToHistoryIndex = useCallback((targetIndex: number) => {
     if (!Number.isInteger(targetIndex)) return false
-    let snapshotToApply: HsfcSnapshot | null = null
+    let snapshotToApply: SfrSnapshot | null = null
     let applied = false
     setHistory((prev) => {
       if (targetIndex < 0 || targetIndex >= prev.entries.length || targetIndex === prev.index) {

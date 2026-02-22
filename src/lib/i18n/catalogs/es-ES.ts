@@ -726,7 +726,7 @@ const overrides: Catalog = {
   historyFinalSellLevelsLabel: 'Rangos de nivel',
   historyFinalSellSetsModeLabel: 'Cobertura de sets',
   historyFinalSellSetsModeOff: 'Desactivado',
-  historyHsfcLoadedTitle: 'Se cargó el SFR',
+  historySfrLoadedTitle: 'Se cargó el SFR',
   historySourceFileLine: 'Archivo de origen: {name}',
   historyAutosaveRestoredTitle: 'Autoguardado restaurado',
   historyAutosaveSavedAtSuffix: '{timestamp}',

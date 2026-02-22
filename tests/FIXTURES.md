@@ -1,23 +1,23 @@
 # Fixtures Overview
 
-This folder feeds the file-based HSFC → HSF tests and mirrors the rule set
+This folder feeds the file-based SFR → HSF tests and mirrors the rule set
 users can export from the app.
 
 ## File pairs
 - Each test case is a pair of files sharing the same base name.
-  - `<name>.sfr` (input) holds the readable HSFC config or config set.
+  - `<name>.sfr` (input) holds the readable SFR config or config set.
 - `<name>.hsf` (expected) captures the full HSF output produced by the
-  merged-rule pipeline (`parseHsfcObject` → `computeMergedRules` → metadata strip).
+  merged-rule pipeline (`parseSfrObject` → `computeMergedRules` → metadata strip).
 - The harness compares every field on each rule exactly as emitted, so stored snapshots must include the complete payload (no trimming allowed) and preserve the builder’s property order.
 - Legacy suffixes (`.sfr.json`, `.hsf.json`) also load for back-compat.
 - Keep payloads minimal and focused on the scenario under test.
-- When a case depends on specific roll floors, include a `Minima` block in the HSFC. Legacy fixtures now pin the pre-average minima so changes to the app defaults do not churn unrelated expectations.
+- When a case depends on specific roll floors, include a `Minima` block in the SFR. Legacy fixtures now pin the pre-average minima so changes to the app defaults do not churn unrelated expectations.
 
 ## Optional pinpoint checks
 - When behaviour needs targeted assertions beyond structural equality, add `<name>.assert.mjs` exporting `validate(rules: HsfRule[])`.
 - The fixture runner loads that helper dynamically after the fixture pair comparison.
 - Prefer the helper file only for expectations that cannot live in the static `.hsf` snapshot (e.g. ensuring dedupe across rarity tiers).
-- To regenerate a pair after logic changes, normalize the `.sfr` via the app pipeline and rewrite the `.hsf` using the helpers in `scripts/test/` (they re-use the builder output verbatim so key order matches the in-app export). The runner itself (`tests/integration/hsfc-fixtures.runner.ts`) can be executed after edits to refresh the expected output.
+- To regenerate a pair after logic changes, normalize the `.sfr` via the app pipeline and rewrite the `.hsf` using the helpers in `scripts/test/` (they re-use the builder output verbatim so key order matches the in-app export). The runner itself (`tests/integration/sfr-fixtures.runner.ts`) can be executed after edits to refresh the expected output.
 - When calling the helpers directly, run `tsc -p tsconfig.tests.json && node scripts/tooling/patch-esm-specifiers.cjs` first so `tmp/tsc/**` holds the latest compiled modules.
 
 ## Naming conventions

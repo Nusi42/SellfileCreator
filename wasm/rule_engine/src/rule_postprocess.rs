@@ -223,11 +223,11 @@ fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
             rule.source = Some(RULE_SOURCE_HSF.to_string());
         }
     }
-    // Custom rows default to hsfc source for downstream chip rendering.
+    // Custom rows default to sfr source for downstream chip rendering.
     let mut custom_rules = custom_rules;
     for rule in &mut custom_rules {
         if rule.source.is_none() {
-            rule.source = Some(RULE_SOURCE_HSFC.to_string());
+            rule.source = Some(RULE_SOURCE_SFR.to_string());
         }
     }
 

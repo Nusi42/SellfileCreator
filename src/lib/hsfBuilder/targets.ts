@@ -1,7 +1,7 @@
 import { SUBSTAT_TARGET_MAX_ROLLS } from '../constants'
 import type { SubstatRollTargetEntry } from './types'
 
-// User input (HSFC or Builder UI) is sanitized through this clamp to keep roll
+// User input (SFR or Builder UI) is sanitized through this clamp to keep roll
 // target math integer-only and within the supported range.
 export const clampTargetOverrideValue = (value: unknown): number | null => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null
@@ -52,7 +52,7 @@ export const normalizeRollTargetEntry = (
   return hasOverride ? normalized : null
 }
 
-// Loose parser accepts HSFC legacy shapes (numbers, strings, plain objects) and
+// Loose parser accepts SFR legacy shapes (numbers, strings, plain objects) and
 // converts them into the normalized structure used internally.
 export const normalizeLooseRollTargetEntry = (entry: unknown): SubstatRollTargetEntry | null => {
   if (entry == null) return null

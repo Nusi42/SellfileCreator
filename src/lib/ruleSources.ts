@@ -5,7 +5,7 @@
  */
 
 export const RULE_SOURCE_HSF = 'hsf' as const
-export const RULE_SOURCE_HSFC = 'hsfc' as const
+export const RULE_SOURCE_SFR = 'sfr' as const
 export const RULE_SOURCE_FINAL_SELL = 'finalSell' as const
 export const RULE_SOURCE_SAFEGUARDS = 'safeguards' as const
 
@@ -16,7 +16,7 @@ export const KEEP_OVERRIDE_RULE_SOURCES = [
 
 export type RuleSource =
   | typeof RULE_SOURCE_HSF
-  | typeof RULE_SOURCE_HSFC
+  | typeof RULE_SOURCE_SFR
   | typeof RULE_SOURCE_FINAL_SELL
   | typeof RULE_SOURCE_SAFEGUARDS
 
