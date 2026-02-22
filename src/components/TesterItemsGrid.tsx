@@ -937,7 +937,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }
   }, [shouldShowGridContextHint])
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set())
-  const allGroupKeys = useMemo(() => {
+  const visibleGroupKeys = useMemo(() => {
     const keys = new Set<string>()
     const addKeys = (group: TesterGroup) => {
       keys.add(group.key)
@@ -946,6 +946,16 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     groups.forEach(addKeys)
     return keys
   }, [groups])
+  const persistentGroupKeys = useMemo(() => {
+    const keys = new Set<string>()
+    const addKeys = (group: TesterGroup) => {
+      keys.add(group.key)
+      group.children?.forEach(addKeys)
+    }
+    // Keep collapse state keyed to the unfiltered tree so temporary filters do not wipe hidden groups.
+    summaryGroups.forEach(addKeys)
+    return keys
+  }, [summaryGroups])
   const groupLookup = useMemo(() => {
     const map = new Map<string, TesterGroup>()
     const addGroup = (group: TesterGroup) => {
@@ -978,14 +988,14 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const getMultiToggleScope = useCallback((groupKey: string): Iterable<string> => {
     const group = groupLookup.get(groupKey)
     if (!group || !group.parentKey) {
-      return allGroupKeys
+      return visibleGroupKeys
     }
     const parent = groupLookup.get(group.parentKey)
     if (parent?.children?.length) {
       return parent.children.map((child) => child.key)
     }
     return [groupKey]
-  }, [allGroupKeys, groupLookup])
+  }, [groupLookup, visibleGroupKeys])
 
   // Scroll anchors keep the toggled header pinned in place even when expansion collapses a large subtree.
   const pendingScrollAnchorRef = useRef<{
@@ -1059,7 +1069,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       let changed = false
       const next = new Set<string>()
       prev.forEach((key) => {
-        if (allGroupKeys.has(key)) {
+        if (persistentGroupKeys.has(key)) {
           next.add(key)
         } else {
           changed = true
@@ -1067,7 +1077,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       })
       return changed ? next : prev
     })
-  }, [allGroupKeys])
+  }, [persistentGroupKeys])
   const containerRef = useRef<HTMLDivElement | null>(null)
   // Cache the last scrollbar width so we only notify on real changes.
   const scrollbarWidthRef = useRef<number | null>(null)
