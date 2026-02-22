@@ -221,24 +221,26 @@ test('sortTesterRows orders identical-rank rows by main stat priority', () => {
   )
 })
 
-test('sortTesterRows falls back to rank, rarity, ascension, then main stat priority', () => {
+test('sortTesterRows falls back to rank, rarity, ascension, level, then main stat priority', () => {
   const rankSixRaritySixAscThree = makeTesterRow({
     rank: 6 as RankValue,
     rarity: 6 as RankValue,
     ascension: makeAscensionStat(3),
     mainStat: makeMainStat(StatVariant.SPD),
   })
+  const rankSixRaritySixAscOneLevelTwelveCdmg = makeTesterRow({
+    rank: 6 as RankValue,
+    rarity: 6 as RankValue,
+    level: 12 as LevelMilestone,
+    ascension: makeAscensionStat(1),
+    mainStat: makeMainStat(StatVariant.CDMG),
+  })
   const rankSixRaritySixAscOneHp = makeTesterRow({
     rank: 6 as RankValue,
     rarity: 6 as RankValue,
+    level: 8 as LevelMilestone,
     ascension: makeAscensionStat(1),
     mainStat: makeMainStat(StatVariant.HP),
-  })
-  const rankSixRaritySixAscOneCdmg = makeTesterRow({
-    rank: 6 as RankValue,
-    rarity: 6 as RankValue,
-    ascension: makeAscensionStat(1),
-    mainStat: makeMainStat(StatVariant.CDMG),
   })
   const rankSixRarityFourAscFive = makeTesterRow({
     rank: 6 as RankValue,
@@ -256,7 +258,7 @@ test('sortTesterRows falls back to rank, rarity, ascension, then main stat prior
   const sorted = sortTesterRows([
     rankFiveRaritySixAscTen,
     rankSixRarityFourAscFive,
-    rankSixRaritySixAscOneCdmg,
+    rankSixRaritySixAscOneLevelTwelveCdmg,
     rankSixRaritySixAscOneHp,
     rankSixRaritySixAscThree,
   ])
@@ -266,14 +268,15 @@ test('sortTesterRows falls back to rank, rarity, ascension, then main stat prior
       rank: Number(row.artifact.rank),
       rarity: Number(row.artifact.rarity),
       asc: row.artifact.ascension?.rolls ?? 0,
+      level: Number(row.artifact.level),
       main: row.artifact.mainStat?.variant,
     })),
     [
-      { rank: 6, rarity: 6, asc: 3, main: StatVariant.SPD },
-      { rank: 6, rarity: 6, asc: 1, main: StatVariant.HP },
-      { rank: 6, rarity: 6, asc: 1, main: StatVariant.CDMG },
-      { rank: 6, rarity: 4, asc: 5, main: StatVariant.SPD },
-      { rank: 5, rarity: 6, asc: 10, main: StatVariant.HP },
+      { rank: 6, rarity: 6, asc: 3, level: 16, main: StatVariant.SPD },
+      { rank: 6, rarity: 6, asc: 1, level: 12, main: StatVariant.CDMG },
+      { rank: 6, rarity: 6, asc: 1, level: 8, main: StatVariant.HP },
+      { rank: 6, rarity: 4, asc: 5, level: 16, main: StatVariant.SPD },
+      { rank: 5, rarity: 6, asc: 10, level: 16, main: StatVariant.HP },
     ],
   )
 })
@@ -405,9 +408,9 @@ test('sortTesterRowsBySubstats can flip only one key while keeping global direct
   assert.deepEqual(sorted.map((row) => row.artifact.id), [2, 1])
 })
 
-test('sortTesterRows preserves insertion order when all keys are equal', () => {
+test('sortTesterRows breaks full ties by artifact id', () => {
   const first = makeTesterRow({ set: ArtifactSet.Speed })
   const second = makeTesterRow({ set: ArtifactSet.Speed })
   const sorted = sortTesterRows([second, first])
-  assert.deepEqual(sorted, [second, first])
+  assert.deepEqual(sorted, [first, second])
 })
