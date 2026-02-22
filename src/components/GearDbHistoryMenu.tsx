@@ -58,6 +58,8 @@ export function GearDbHistoryMenu({
     anchorPosition: { top: number; left: number }
     payload: GearDbDiffToastPayload
   } | null>(null)
+  // Track the hovered entry so only one tooltip decodes payload data at a time.
+  const [hoveredEntryId, setHoveredEntryId] = React.useState<number | null>(null)
   // Keep entries reversed so the latest update sits at the top.
   const reversed = React.useMemo(() => entries.slice().reverse(), [entries])
   // Disable the clear action when there is nothing to remove.
@@ -173,21 +175,32 @@ export function GearDbHistoryMenu({
           // Always show the received timestamp as the final row.
           const timestampLine = formatHistoryTimestamp(entry.createdAt)
           const hasTimestampLine = Boolean(timestampLine && timestampLine.trim().length > 0)
-          // Decode compact entries only while building the preview payload.
-          const cappedEntries = decodeGearDbDiffToastEntries(entry.compactEntries)
+          // Decode previews only for the active hover row to limit peak allocations.
+          const tooltipOpen = !disableHoverTooltips && hoveredEntryId === entry.id
+          // Popout rows should decode too so click-open works without stale references.
+          const shouldBuildTooltipPayload = tooltipOpen || activePreviewPopout?.entryId === entry.id
+          const cappedEntries = shouldBuildTooltipPayload
+            ? decodeGearDbDiffToastEntries(entry.compactEntries)
+            : []
           const overflowCount = Math.max(0, entry.overflowCount)
-          const tooltipPayload: GearDbDiffToastPayload = {
-            headerLines,
-            lineSpecs: entry.lineSpecs,
-            entries: cappedEntries,
-            overflowCount,
-          }
+          const tooltipPayload: GearDbDiffToastPayload | null = shouldBuildTooltipPayload
+            ? {
+              headerLines,
+              lineSpecs: entry.lineSpecs,
+              entries: cappedEntries,
+              overflowCount,
+            }
+            : null
             return (
               <MarkdownTooltip
                 key={entry.id}
                 // When the detail popout is open, keep transient hover poppers hidden.
-                {...(disableHoverTooltips ? { open: false } : {})}
-              render={(
+                open={tooltipOpen}
+                onClose={() => {
+                  // Clear hover state so this row can be garbage-collected quickly.
+                  setHoveredEntryId((current) => (current === entry.id ? null : current))
+                }}
+              render={tooltipPayload ? (
                 <Box
                   sx={{
                     // Let the tooltip expand to fit all preview cards + footer.
@@ -200,7 +213,7 @@ export function GearDbHistoryMenu({
                     useStatButtonColors={useStatButtonColors}
                   />
                 </Box>
-              )}
+              ) : ''}
               slotProps={{
                 tooltip: {
                   sx: {
@@ -214,7 +227,21 @@ export function GearDbHistoryMenu({
             >
               <MenuItem
                 onClick={(event) => {
-                  handleOpenPreviewPopout(event, entry.id, tooltipPayload)
+                  // Decode on click so persistent previews only allocate when requested.
+                  const payload: GearDbDiffToastPayload = {
+                    headerLines,
+                    lineSpecs: entry.lineSpecs,
+                    entries: decodeGearDbDiffToastEntries(entry.compactEntries),
+                    overflowCount,
+                  }
+                  handleOpenPreviewPopout(event, entry.id, payload)
+                }}
+                onMouseEnter={() => {
+                  // Hover gates tooltip decoding to one row at a time.
+                  setHoveredEntryId(entry.id)
+                }}
+                onMouseLeave={() => {
+                  setHoveredEntryId((current) => (current === entry.id ? null : current))
                 }}
                 sx={(theme) => ({
                   alignItems: 'flex-start',
