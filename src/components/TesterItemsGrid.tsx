@@ -3334,6 +3334,18 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     const displayTimestamp = formatted ?? artifact.lastUseLocalTimestamp
     return t('testerLastUsedTooltip', { timestamp: displayTimestamp })
   })()
+  // Dev builds include artifact id in the icon tooltip for quick transcript/debug lookups.
+  const devArtifactIdTooltip = (() => {
+    if (!import.meta.env.DEV) return null
+    const artifactId = Number(artifact.id)
+    if (!Number.isFinite(artifactId)) return null
+    return `Artifact ID: ${Math.trunc(artifactId)}`
+  })()
+  // Keep production tooltip behavior intact; dev simply appends id context when available.
+  const gearTooltip = (() => {
+    if (lastUseTooltip && devArtifactIdTooltip) return `${lastUseTooltip}\n\n${devArtifactIdTooltip}`
+    return lastUseTooltip ?? devArtifactIdTooltip
+  })()
   const ascSummaryContent = ascSummary
   // Keep/sell outcome surfaces the rule chip inline so keyboard users do not need to open popovers.
   const cardOutcome = match
@@ -3589,7 +3601,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
           rerollTooltip={rerollTooltip || undefined}
           levelLabel={levelChipLabel}
           size={TESTER_GRID_ICON_BOX_SIZE_PX}
-          gearTooltip={lastUseTooltip}
+          gearTooltip={gearTooltip}
           // Center overlay is informational and is rendered click-through by GridIconBox.
           {...(centerOverlay ? { centerOverlay } : {})}
           // Top overlay stacks above the center score (used for safeguard upgrade chance).

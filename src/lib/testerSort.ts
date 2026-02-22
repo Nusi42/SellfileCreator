@@ -46,6 +46,14 @@ const compareDescendingNumbers = (left: unknown, right: unknown): number => {
   return safeB - safeA
 }
 
+const compareAscendingNumbers = (left: unknown, right: unknown): number => {
+  const a = Number(left)
+  const b = Number(right)
+  const safeA = Number.isFinite(a) ? a : 0
+  const safeB = Number.isFinite(b) ? b : 0
+  return safeA - safeB
+}
+
 const ascensionLevel = (row: TesterPreviewRow): number => {
   const rolls = row.artifact.ascension?.rolls
   return Number.isFinite(rolls) ? Number(rolls) : 0
@@ -75,6 +83,12 @@ const mainStatPriority = (row: TesterPreviewRow): number => {
   return MAINSTAT_PRIORITY_MAP.get(variant as StatVariant) ?? MAINSTAT_PRIORITY.length
 }
 
+const artifactIdForSort = (row: TesterPreviewRow): number => {
+  // DB artifact ids are the canonical identity, and we use them as the final deterministic tie-breaker.
+  const value = Number(row.artifact.id)
+  return Number.isFinite(value) ? value : 0
+}
+
 /** Comparator for tester preview rows following the default UI priority. */
 export function compareTesterPreviewRows(a: TesterPreviewRow, b: TesterPreviewRow): number {
   return (
@@ -85,7 +99,11 @@ export function compareTesterPreviewRows(a: TesterPreviewRow, b: TesterPreviewRo
     || compareDescendingNumbers(a.artifact.rank, b.artifact.rank)
     || compareDescendingNumbers(a.artifact.rarity, b.artifact.rarity)
     || compareDescendingNumbers(ascensionLevel(a), ascensionLevel(b))
+    // Higher upgrade level should surface first before main-stat priority kicks in.
+    || compareDescendingNumbers(a.artifact.level, b.artifact.level)
     || (mainStatPriority(a) - mainStatPriority(b))
+    // When all UI keys match, artifact id decides position so DB row-order churn cannot move equal cards.
+    || compareAscendingNumbers(artifactIdForSort(a), artifactIdForSort(b))
   )
 }
 
