@@ -999,6 +999,12 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                           updateDungeonBoost(dungeonId, { mode: 'off', setId: null })
                           return
                         }
+                        // Selecting a set from "none" while boost is off should enable 3x immediately.
+                        if (boostMode === 'off') {
+                          updateDungeonBoost(dungeonId, { mode: '3x', setId: nextSet })
+                          return
+                        }
+                        // Otherwise keep the current boost mode and just switch the set.
                         updateDungeonBoost(dungeonId, { setId: nextSet })
                       }}
                       allowedSetIds={boostOptions}
@@ -1007,7 +1013,6 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                       anyLabel={t('dungeonDropsBoostNone')}
                       singleSelect
                       size="small"
-                      disabled={boostMode === 'off'}
                       minWidthPx={220}
                       menuWidthPx={360}
                     />

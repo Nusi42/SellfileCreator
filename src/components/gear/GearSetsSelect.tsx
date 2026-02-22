@@ -268,14 +268,24 @@ export default function GearSetsSelect({
 
   const handleToggleSet = useCallback((setId: number) => {
     const numeric = Number(setId)
-    // Toggling only affects explicit includes; exclusions remain unless cleared.
-    const next = new Set(splitSelections.included.map(Number))
-    if (next.has(numeric)) {
-      next.delete(numeric)
-    } else {
-      next.add(numeric)
-    }
-    const normalized = Array.from(next).sort((a, b) => a - b).map((id) => id as ArtifactSetId)
+    // Single-select mode keeps exactly one include (or clears when re-clicked).
+    const normalized = singleSelect
+      ? (
+        splitSelections.included.some((id) => Number(id) === numeric)
+          ? []
+          : [numeric as ArtifactSetId]
+      )
+      : (() => {
+        // Multi-select toggles only affect explicit includes.
+        const next = new Set(splitSelections.included.map(Number))
+        if (next.has(numeric)) {
+          next.delete(numeric)
+        } else {
+          next.add(numeric)
+        }
+        // Keep stable ordering for deterministic payloads.
+        return Array.from(next).sort((a, b) => a - b).map((id) => id as ArtifactSetId)
+      })()
     // Drop exclusions when the set is explicitly re-added.
     const excluded = splitSelections.excluded.filter((id) => !normalized.includes(id))
     // Combine the updated include/exclude state into the selection payload.
@@ -284,7 +294,7 @@ export default function GearSetsSelect({
       ...excluded.map((id) => ({ id, excluded: true })),
     ])
     onChange(nextSelections)
-  }, [onChange, splitSelections.excluded, splitSelections.included])
+  }, [onChange, singleSelect, splitSelections.excluded, splitSelections.included])
 
   const metasetsMenu = useMemo(() => {
     if (!allowMetasets) return []
@@ -712,6 +722,7 @@ export default function GearSetsSelect({
                   selectedSetIds={splitSelections.included.map(Number)}
                   excludedSetIds={splitSelections.excluded.map(Number)}
                   disabledSetIds={disabledSetIds ?? []}
+                  singleSelect={singleSelect}
                   onToggleSet={handleToggleSet}
                   onContextMenuSet={handleContextMenuSet}
                 />
