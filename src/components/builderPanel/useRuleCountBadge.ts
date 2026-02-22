@@ -159,6 +159,17 @@ export function useRuleCountBadge({
       return
     }
 
+    // With no selected recipe and no draft edits, there is no active target to
+    // count yet. Skip worker calls so empty startup state stays silent.
+    if (!multiEditActive && editingIndex === null && !selectedIsDirty) {
+      pendingCountAbortRef.current?.abort()
+      pendingCountAbortRef.current = null
+      latestRuleCountRef.current = null
+      setAsyncRuleCount(null)
+      setAsyncCounting(false)
+      return
+    }
+
     // Select the active recipe list for either single-edit or multi-edit paths.
     const activeRecipes: readonly BuilderRecipe[] | null = multiEditActive
       ? (deferredMultiProjectedRecipes ?? multiProjectedRecipes ?? multiSourceRecipes ?? null)
@@ -237,6 +248,7 @@ export function useRuleCountBadge({
     deferredMultiProjectedRecipes,
     deferredRecipe,
     deferredSubstatTargets,
+    editingIndex,
     multiDirtyKeys,
     multiEditActive,
     multiProjectedRecipes,
