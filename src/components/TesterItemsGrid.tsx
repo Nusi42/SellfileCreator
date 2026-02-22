@@ -1735,6 +1735,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             width: headerIconSizePx,
             height: headerIconSizePx,
             fontSize: headerIconSizePx,
+            // Mirror SetIcon's built-in trailing margin so no-set/faction spacing matches set/faction spacing.
+            mr: 0.75,
           }}
         >
           <NoGearSetIcon fontSize="inherit" />
