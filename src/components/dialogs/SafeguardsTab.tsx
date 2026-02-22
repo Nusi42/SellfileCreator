@@ -1268,6 +1268,8 @@ ${t('safeguardsIgnoreOptionsHint')}`
                 event.preventDefault()
                 event.stopPropagation()
                 toggleAllExpandedRules()
+                // Expanding/collapsing all cards can shift content; restore the clicked card into view.
+                scheduleScrollToRule(rule.id)
               }}
             >
               {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
