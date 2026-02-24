@@ -179,3 +179,78 @@ avoid base64 overhead.
   ]
 }}
 ```
+
+### ArtifactLog Compatibility (Future Endpoint Shape)
+
+If your endpoint data is shaped like `docs/orig/sampleLog/ArtifactLog.json` and
+`docs/orig/sampleLog/ArtifactByHeroIDLog.json`, you can push it directly as:
+
+- `artifactLog` (payload can be an array, or an object that contains `artifactLog`)
+- `artifactLogSnapshot` (object payload; supports `artifactLog`, optional `artifactByHeroIDLog`, optional `inboxArtifactLog`)
+- `inboxArtifactLog` (treats the array as inbox-only artifacts)
+
+`artifactByHeroIDLog` is interpreted as a `heroId -> slotId -> artifactId`
+mapping and gets converted to artifact `cID` values automatically.
+
+Canonical full example (includes currently-optional but app-consumed data):
+- `docs/orig/sampleLog/ArtifactLogSnapshot.example.json`
+- Includes: `artifactLog`, `artifactByHeroIDLog`, `inboxArtifactLog`, `champions`, `lastUsed`.
+
+**Helper envelope example**
+```json
+{"type":"evt","name":"artifactLogSnapshot","payload":{
+  "snapshotId":"future-artifact-log",
+  "artifactLog":[{"id":1001,"kindId":5,"rankId":6,"rarityId":5,"level":16,"setKindId":19,"requiredFraction":0,"rerollsCount":2,"ascendLevel":1,"primary":{"id":1,"level":0,"isAbsolute":1,"statValue":14946486190080,"mValue":0,"glyphValue":0},"secondary":[{"id":7,"level":1,"isAbsolute":0,"statValue":472446401,"mValue":0,"glyphValue":0}]}],
+  "artifactByHeroIDLog":{"24120":{"5":1001}},
+  "inboxArtifactLog":[{"id":2001,"kindId":8,"rankId":5,"rarityId":3,"level":8,"setKindId":0,"requiredFraction":10,"rerollsCount":0,"ascendLevel":null,"primary":{"id":8,"level":0,"isAbsolute":0,"statValue":1073741824,"mValue":0,"glyphValue":0},"secondary":[{"id":6,"level":1,"isAbsolute":1,"statValue":85899345920,"mValue":0,"glyphValue":0}]}],
+  "champions":[{"ID":24120,"Name":"Example Champion","Vault":0,"RVault":0,"BaseHeroID":1010,"Rarity":6}],
+  "lastUsed":[{"id":1001,"lastUse":"2026-02-24 10:15:33.000"},{"id":2001,"lastUse":2460439.042424}]
+}}
+```
+
+**C++ sender example (ixwebsocket + nlohmann/json)**
+```cpp
+#include <ixwebsocket/IXWebSocket.h>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
+
+int main() {
+  ix::WebSocket ws;
+  ws.setUrl("ws://127.0.0.1:8765/");
+  ws.setSubProtocol("rws");
+  ws.start();
+
+  json payload = {
+    {"snapshotId", "future-artifact-log"},
+    {"artifactLog", json::array({
+      {
+        {"id", 1001}, {"kindId", 5}, {"rankId", 6}, {"rarityId", 5},
+        {"level", 16}, {"setKindId", 19}, {"requiredFraction", 0},
+        {"rerollsCount", 2}, {"ascendLevel", 1},
+        {"primary", {{"id", 1}, {"level", 0}, {"isAbsolute", 1}, {"statValue", 14946486190080LL}, {"mValue", 0}, {"glyphValue", 0}}},
+        {"secondary", json::array({{{"id", 7}, {"level", 1}, {"isAbsolute", 0}, {"statValue", 472446401}, {"mValue", 0}, {"glyphValue", 0}}})}
+      }
+    })},
+    {"artifactByHeroIDLog", {{"24120", {{"5", 1001}}}}},
+    {"inboxArtifactLog", json::array({
+      {
+        {"id", 2001}, {"kindId", 8}, {"rankId", 5}, {"rarityId", 3},
+        {"level", 8}, {"setKindId", 0}, {"requiredFraction", 10},
+        {"rerollsCount", 0}, {"ascendLevel", nullptr},
+        {"primary", {{"id", 8}, {"level", 0}, {"isAbsolute", 0}, {"statValue", 1073741824}, {"mValue", 0}, {"glyphValue", 0}}},
+        {"secondary", json::array({{{"id", 6}, {"level", 1}, {"isAbsolute", 1}, {"statValue", 85899345920LL}, {"mValue", 0}, {"glyphValue", 0}}})}
+      }
+    })},
+    {"champions", json::array({{{"ID", 24120}, {"Name", "Example Champion"}, {"Vault", 0}, {"RVault", 0}, {"BaseHeroID", 1010}, {"Rarity", 6}}})},
+    {"lastUsed", json::array({{{"id", 1001}, {"lastUse", "2026-02-24 10:15:33.000"}}, {{"id", 2001}, {"lastUse", 2460439.042424}}})}
+  };
+  json evt = {
+    {"type", "evt"},
+    {"name", "artifactLogSnapshot"},
+    {"payload", payload}
+  };
+  ws.send(evt.dump());
+  ws.stop();
+}
+```

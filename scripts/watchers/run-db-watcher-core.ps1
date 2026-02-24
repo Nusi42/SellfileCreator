@@ -1376,87 +1376,10 @@ function Sync-PendingGearDbSnapshots {
 }
 #endregion
 
-#region === Demo payloads ===
-$script:GearDbRawSnapshotExample = @'
-{
-  "payloadVersion": 1,
-  "snapshotId": "demo-raw-db",
-  "artifacts": [
-    {
-      "ID": 4010203,
-      "price": 0,
-      "rank": 6,
-      "type": 5,
-      "lvl": 16,
-      "mid": 2,
-      "mfl": 1,
-      "mlvl": 12,
-      "mlvlid": 75161927680,
-      "mgv": 0,
-      "s1id": 4,
-      "s1lvl": 2,
-      "s1fl": 1,
-      "s1lvlid": 16492674420,
-      "s1gv": 0,
-      "s1mlvlid": 0,
-      "s2id": 7,
-      "s2lvl": 1,
-      "s2fl": 0,
-      "s2lvlid": 5153960760,
-      "s2gv": 1288490188,
-      "s2mlvlid": 0,
-      "s3id": 8,
-      "s3lvl": 2,
-      "s3fl": 0,
-      "s3lvlid": 9448928050,
-      "s3gv": 0,
-      "s3mlvlid": 0,
-      "s4id": 0,
-      "s4lvl": 0,
-      "s4fl": 0,
-      "s4lvlid": 0,
-      "s4gv": 0,
-      "s4mlvlid": 0,
-      "rarity": 6,
-      "aset": 8,
-      "accset": 0,
-      "ss": 0,
-      "cID": 0,
-      "sumHP": 0,
-      "sumATK": 0,
-      "sumDEF": 0,
-      "sumSPD": 0,
-      "sumCQuote": 0,
-      "sumCDMG": 0,
-      "sumRES": 0,
-      "sumACC": 0,
-      "ASCID": 0,
-      "ASCLVL": 0,
-      "ASCFL": 0,
-      "ASCLVLID": 0,
-      "ASCGV": 0,
-      "ASCLEVEL": 0,
-      "REROLLCOUNT": 0
-    }
-  ],
-  "inboxArtifacts": [],
-  "champions": [
-    { "ID": 777001, "Name": "Arbiter", "Vault": 0, "RVault": 0, "BaseHeroID": 99001, "Rarity": 5 }
-  ],
-  "lastUsed": [
-    { "id": 4010203, "lastUse": "2024-05-08 14:33:27.123" }
-  ]
-}
-'@
-
-#endregion
-
 #region === Demo shortcuts ===
 $script:DemoState = [ordered]@{
-    SelectSamples        = @(5, 10, 15, 20, 25, 30, 35, 40)
-    Random               = [System.Random]::new()
-    SampleSnapshotPrimed = $false
-    SampleGearAdded      = $false
+    SelectSamples = @(5, 10, 15, 20, 25, 30, 35, 40)
+    Random        = [System.Random]::new()
 }
 
 function Get-RandomSelectSample {
@@ -1479,89 +1402,6 @@ function Queue-SampleSelectRule {
     $payload = @{ rowNumber = $sample.RowNumber }
     Send-ProtocolEvent -Name 'selectRule' -Payload $payload
     Write-Log -Message ("Queued selectRule sample ##{0} -> row {1}" -f $sample.Index, $sample.RowNumber) -Color DarkGray
-}
-
-function Get-SampleGearSnapshotPayload {
-    try {
-        return $script:GearDbRawSnapshotExample | ConvertFrom-Json -AsHashtable
-    } catch {
-        Write-Log -Message ("Failed to parse sample snapshot JSON: {0}" -f $_) -Color DarkYellow
-        return $null
-    }
-}
-
-function Build-BaseSnapshotPayload {
-    param([System.Collections.IDictionary]$SamplePayload)
-
-    if (-not $SamplePayload) { return $null }
-    return [ordered]@{
-        payloadVersion = $SamplePayload.payloadVersion
-        snapshotId     = $SamplePayload.snapshotId
-        artifacts      = @()
-        inboxArtifacts = @()
-        champions      = @()
-        lastUsed       = @()
-    }
-}
-
-function Build-SampleGearDeltaPayload {
-    param(
-        [System.Collections.IDictionary]$SamplePayload,
-        [switch]$Add
-    )
-
-    if (-not $SamplePayload) { return $null }
-    $artifactRows = @($SamplePayload.artifacts)
-    if (-not $artifactRows -or $artifactRows.Count -lt 1) { return $null }
-    $artifactRow = $artifactRows[0]
-    if (-not $artifactRow) { return $null }
-    $artifactId = $artifactRow.ID
-    if (-not $artifactId) { return $null }
-
-    $op = if ($Add) {
-        [ordered]@{ op = 'upsert'; table = 'Artifacts'; row = $artifactRow }
-    } else {
-        [ordered]@{ op = 'remove'; table = 'Artifacts'; id = [int]$artifactId }
-    }
-
-    return [ordered]@{
-        payloadVersion = $SamplePayload.payloadVersion
-        snapshotId     = $SamplePayload.snapshotId
-        ops            = @($op)
-    }
-}
-
-function Ensure-SampleSnapshotPrimed {
-    $state = $script:DemoState
-    if ($state.SampleSnapshotPrimed) { return $true }
-    $sample = Get-SampleGearSnapshotPayload
-    if (-not $sample) { return $false }
-    $baseSnapshot = Build-BaseSnapshotPayload -SamplePayload $sample
-    if (-not $baseSnapshot) { return $false }
-    Send-ProtocolEvent -Name 'gearDbRawSnapshot' -Payload $baseSnapshot
-    $state.SampleSnapshotPrimed = $true
-    $state.SampleGearAdded = $false
-    Write-Log -Message 'Queued base gearDbRawSnapshot for sample gear toggles' -Color DarkGray
-    return $true
-}
-
-function Toggle-SampleGearDelta {
-    $state = $script:DemoState
-    if (-not (Ensure-SampleSnapshotPrimed)) { return }
-    $sample = Get-SampleGearSnapshotPayload
-    if (-not $sample) { return }
-
-    $shouldAdd = -not $state.SampleGearAdded
-    $deltaPayload = Build-SampleGearDeltaPayload -SamplePayload $sample -Add:$shouldAdd
-    if (-not $deltaPayload) {
-        Write-Log -Message 'Failed to build sample gear delta payload.' -Color DarkYellow
-        return
-    }
-
-    Send-ProtocolEvent -Name 'gearDbRawDelta' -Payload $deltaPayload
-    $state.SampleGearAdded = $shouldAdd
-    $label = if ($shouldAdd) { 'add' } else { 'remove' }
-    Write-Log -Message ("Queued gearDbRawDelta sample ({0})" -f $label) -Color DarkGray
 }
 
 function Poll-ShortcutInput {
@@ -1609,11 +1449,6 @@ function Poll-ShortcutInput {
             ([System.ConsoleKey]::R) {
                 Write-Log -Message 'Shortcut detected: R' -Color DarkGray
                 Queue-SampleSelectRule
-                continue
-            }
-            ([System.ConsoleKey]::T) {
-                Write-Log -Message 'Shortcut detected: T (toggle sample gear)' -Color DarkGray
-                Toggle-SampleGearDelta
                 continue
             }
             ([System.ConsoleKey]::F) {
@@ -2172,7 +2007,7 @@ try {
     $relativeOutputDisplay = Get-RelativePathDisplay -Path $absoluteOutputPath
 
     Write-ConsoleHeader -Message ("Listening on {0} -> saving sellfiles to {1}" -f $prefix, $relativeOutputDisplay) -Color Yellow
-    Write-ConsoleHeader -Message 'Shortcuts: [T] queue sample raw gear, [F] force DB snapshot, [R] queue sample selectRule. Press Ctrl+C to stop.' -Color DarkGray
+    Write-ConsoleHeader -Message 'Shortcuts: [F] force DB snapshot, [R] queue sample selectRule. Press Ctrl+C to stop.' -Color DarkGray
 
     try { [System.Console]::CancelKeyPress += $cancelHandler } catch {}
 

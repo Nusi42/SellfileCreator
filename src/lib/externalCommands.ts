@@ -73,6 +73,27 @@ const isObject = (value: unknown): value is UnknownRecord => (
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 )
 
+// Helper payload dumps can include trailing NUL bytes when read from fixed-size
+// buffers. Strip them before attempting JSON parsing.
+const stripNullTerminators = (value: string): string => {
+  const nulIndex = value.indexOf('\u0000')
+  if (nulIndex < 0) return value
+  return value.slice(0, nulIndex)
+}
+
+// ArtifactLog payloads can arrive as stringified JSON; parse defensively so the
+// event parser can treat object and text inputs the same way.
+const parseJsonLikeValue = (value: unknown): unknown => {
+  if (typeof value !== 'string') return value
+  const trimmed = stripNullTerminators(value).trim()
+  if (!trimmed) return null
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    return null
+  }
+}
+
 const toNumber = (value: unknown): number | null => {
   if (value === null || value === undefined) return null
   const num = Number(value)
@@ -151,6 +172,24 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
     return delta
   }
 
+  // Accept endpoint payloads shaped like ArtifactLog.json and convert them to
+  // the existing raw snapshot command path used by the app today.
+  if (
+    normalized === 'artifactlog'
+    || normalized === 'artifactlogsnapshot'
+    || normalized === 'artifactsnapshot'
+    || normalized === 'artifactdump'
+  ) {
+    const snapshot = normalizeArtifactLogSnapshot(payload, 'artifacts')
+    return snapshot
+  }
+
+  // Inbox payloads mirror ArtifactLog structure but map to the inbox table.
+  if (normalized === 'inboxartifactlog' || normalized === 'inboxartifacts') {
+    const snapshot = normalizeArtifactLogSnapshot(payload, 'inbox')
+    return snapshot
+  }
+
   // Unknown commands are ignored to keep the parser strict.
   return null
 }
@@ -213,6 +252,215 @@ const normalizeGearDbRawDelta = (raw: UnknownRecord): GearDbRawDeltaCommand | nu
     payloadVersion,
     ops,
   }
+}
+
+type ArtifactLogStatBlock = {
+  id?: unknown
+  level?: unknown
+  isAbsolute?: unknown
+  statValue?: unknown
+  glyphValue?: unknown
+  mValue?: unknown
+}
+
+type ArtifactLogRow = {
+  id?: unknown
+  price?: unknown
+  level?: unknown
+  rankId?: unknown
+  kindId?: unknown
+  rarityId?: unknown
+  setKindId?: unknown
+  requiredFraction?: unknown
+  rerollsCount?: unknown
+  ascendLevel?: unknown
+  primary?: unknown
+  secondary?: unknown
+  ascend?: unknown
+}
+
+const normalizeArtifactLogSnapshot = (
+  payload: unknown,
+  defaultSource: 'artifacts' | 'inbox',
+): GearDbRawSnapshotCommand | null => {
+  // Parse JSON text payloads first so helper integrations can forward log
+  // files directly without pre-decoding.
+  const parsedPayload = parseJsonLikeValue(payload)
+  // Array payloads represent one flat artifact list.
+  if (Array.isArray(parsedPayload)) {
+    const rows = parseArtifactLogArray(parsedPayload, null)
+    if (rows.length === 0) return null
+    return {
+      kind: 'gearDbRawSnapshot',
+      snapshotId: null,
+      payloadVersion: 1,
+      artifacts: defaultSource === 'artifacts' ? rows : [],
+      inboxArtifacts: defaultSource === 'inbox' ? rows : [],
+      champions: [],
+      lastUsed: [],
+    }
+  }
+  // Object payloads can bundle artifact log + hero map + inferred inbox log.
+  if (!isObject(parsedPayload)) return null
+  const record = parsedPayload as UnknownRecord
+  // Some endpoints emit artifact and inbox arrays under different aliases.
+  const artifactLogRaw = (
+    record.artifactLog
+    ?? record.ArtifactLog
+    ?? record.artifacts
+    ?? record.Artifacts
+    ?? record.payload
+    ?? record.data
+  ) as unknown
+  const inboxLogRaw = (
+    record.inboxArtifactLog
+    ?? record.InboxArtifactLog
+    ?? record.inboxArtifacts
+    ?? record.InboxArtifacts
+    ?? record.inbox
+  ) as unknown
+  const heroMapRaw = (
+    record.artifactByHeroIDLog
+    ?? record.ArtifactByHeroIDLog
+    ?? record.artifactByHeroIdLog
+    ?? record.ArtifactByHeroIdLog
+    ?? record.byHero
+    ?? record.byHeroId
+  ) as unknown
+  const equippedByArtifact = parseArtifactByHeroMap(heroMapRaw)
+  const artifacts = parseArtifactLogArray(artifactLogRaw, equippedByArtifact)
+  const inboxArtifacts = parseArtifactLogArray(inboxLogRaw, null)
+  // Default-source mode keeps single-array envelopes deterministic.
+  if (artifacts.length === 0 && inboxArtifacts.length === 0) {
+    const fallbackRows = parseArtifactLogArray(record, defaultSource === 'artifacts' ? equippedByArtifact : null)
+    if (fallbackRows.length === 0) return null
+    return {
+      kind: 'gearDbRawSnapshot',
+      snapshotId: extractString(record.snapshotId ?? record.SnapshotId ?? record.snapshot) ?? null,
+      payloadVersion: toNumber(record.payloadVersion ?? record.PayloadVersion ?? record.version) ?? 1,
+      artifacts: defaultSource === 'artifacts' ? fallbackRows : [],
+      inboxArtifacts: defaultSource === 'inbox' ? fallbackRows : [],
+      champions: parseChampionArray(record.champions ?? record.Champions ?? []),
+      lastUsed: parseLastUsedArray(record.lastUsed ?? record.LastUsed ?? []),
+    }
+  }
+  return {
+    kind: 'gearDbRawSnapshot',
+    snapshotId: extractString(record.snapshotId ?? record.SnapshotId ?? record.snapshot) ?? null,
+    payloadVersion: toNumber(record.payloadVersion ?? record.PayloadVersion ?? record.version) ?? 1,
+    artifacts: defaultSource === 'artifacts' ? artifacts : [],
+    inboxArtifacts: defaultSource === 'inbox' ? (inboxArtifacts.length > 0 ? inboxArtifacts : artifacts) : inboxArtifacts,
+    champions: parseChampionArray(record.champions ?? record.Champions ?? []),
+    lastUsed: parseLastUsedArray(record.lastUsed ?? record.LastUsed ?? []),
+  }
+}
+
+const parseArtifactByHeroMap = (value: unknown): Map<number, number> | null => {
+  const parsed = parseJsonLikeValue(value)
+  if (!isObject(parsed)) return null
+  const byArtifactId = new Map<number, number>()
+  const heroes = parsed as UnknownRecord
+  // ArtifactByHeroIDLog uses hero-id keys and per-slot artifact id values.
+  for (const [heroIdRaw, slotsRaw] of Object.entries(heroes)) {
+    const heroId = toNumber(heroIdRaw)
+    if (!heroId || heroId <= 0) continue
+    const slots = parseJsonLikeValue(slotsRaw)
+    if (!isObject(slots)) continue
+    for (const artifactIdRaw of Object.values(slots as UnknownRecord)) {
+      const artifactId = toNumber(artifactIdRaw)
+      if (!artifactId || artifactId <= 0) continue
+      // First-writer wins to keep assignment stable if duplicates appear.
+      if (!byArtifactId.has(artifactId)) byArtifactId.set(artifactId, heroId)
+    }
+  }
+  return byArtifactId.size > 0 ? byArtifactId : null
+}
+
+const parseArtifactLogArray = (
+  value: unknown,
+  equippedByArtifact: Map<number, number> | null,
+): GearDbArtifactRow[] => {
+  const parsed = parseJsonLikeValue(value)
+  if (!Array.isArray(parsed)) return []
+  const rows: GearDbArtifactRow[] = []
+  for (const entry of parsed) {
+    const row = parseArtifactLogRow(entry, equippedByArtifact)
+    if (!row) continue
+    rows.push(row)
+  }
+  return rows
+}
+
+const parseArtifactLogRow = (
+  value: unknown,
+  equippedByArtifact: Map<number, number> | null,
+): GearDbArtifactRow | null => {
+  const parsed = parseJsonLikeValue(value)
+  if (!isObject(parsed)) return null
+  const row = parsed as ArtifactLogRow
+  const id = toNumber(row.id)
+  const slot = toNumber(row.kindId)
+  const rank = toNumber(row.rankId)
+  const rarity = toNumber(row.rarityId)
+  if (!id || id <= 0 || !slot || slot <= 0 || !rank || rank <= 0 || !rarity || rarity <= 0) return null
+  const primaryRaw = parseJsonLikeValue(row.primary)
+  const primary = isObject(primaryRaw) ? primaryRaw as ArtifactLogStatBlock : {}
+  const secondaryRaw = parseJsonLikeValue(row.secondary)
+  const secondary = Array.isArray(secondaryRaw) ? secondaryRaw as ArtifactLogStatBlock[] : []
+  const ascendRaw = parseJsonLikeValue(row.ascend)
+  const ascend = isObject(ascendRaw) ? ascendRaw as ArtifactLogStatBlock : null
+  // The adapter fills the SQL-like row shape expected by downstream helpers.
+  const result: GearDbArtifactRow = {
+    ID: id,
+    price: toNumber(row.price) ?? 0,
+    rank,
+    type: slot,
+    lvl: toNumber(row.level) ?? 0,
+    mid: toNumber(primary.id) ?? 0,
+    mlvl: toNumber(primary.level) ?? 0,
+    mfl: toNumber(primary.isAbsolute) ?? 0,
+    mlvlid: toNumber(primary.statValue) ?? 0,
+    mgv: toNumber(primary.glyphValue) ?? 0,
+    rarity,
+    aset: toNumber(row.setKindId) ?? 0,
+    accset: toNumber(row.requiredFraction) ?? 0,
+    ss: 0,
+    cID: equippedByArtifact?.get(id) ?? 0,
+    sumHP: 0,
+    sumATK: 0,
+    sumDEF: 0,
+    sumSPD: 0,
+    sumCQuote: 0,
+    sumCDMG: 0,
+    sumRES: 0,
+    sumACC: 0,
+    ASCID: toNumber(ascend?.id) ?? 0,
+    ASCLVL: toNumber(ascend?.level) ?? 0,
+    ASCFL: toNumber(ascend?.isAbsolute) ?? 0,
+    ASCLVLID: toNumber(ascend?.statValue) ?? 0,
+    ASCGV: toNumber(ascend?.glyphValue) ?? 0,
+    ASCLEVEL: toNumber(row.ascendLevel) ?? 0,
+    REROLLCOUNT: toNumber(row.rerollsCount) ?? 0,
+  }
+  // Flatten up to four substats into the canonical SQL-ish columns.
+  for (let index = 0; index < 4; index += 1) {
+    const stat = secondary[index]
+    const suffix = index + 1
+    const idKey = `s${suffix}id` as keyof GearDbArtifactRow
+    const levelKey = `s${suffix}lvl` as keyof GearDbArtifactRow
+    const flatKey = `s${suffix}fl` as keyof GearDbArtifactRow
+    const baseKey = `s${suffix}lvlid` as keyof GearDbArtifactRow
+    const glyphKey = `s${suffix}gv` as keyof GearDbArtifactRow
+    const mythKey = `s${suffix}mlvlid` as keyof GearDbArtifactRow
+    const target = result as Record<string, number | null>
+    target[idKey] = toNumber(stat?.id) ?? 0
+    target[levelKey] = toNumber(stat?.level) ?? 0
+    target[flatKey] = toNumber(stat?.isAbsolute) ?? 0
+    target[baseKey] = toNumber(stat?.statValue) ?? 0
+    target[glyphKey] = toNumber(stat?.glyphValue) ?? 0
+    target[mythKey] = toNumber(stat?.mValue) ?? 0
+  }
+  return result
 }
 
 const parseDeltaOperation = (raw: unknown): GearDbRawDeltaOperation | null => {
