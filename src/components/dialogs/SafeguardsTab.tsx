@@ -67,7 +67,6 @@ import { buildReadableSafeguardRuleEntry } from '../../lib/sfrIO'
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import type { ColorBlindMode } from '../../lib/constants'
 import {
-  ACCESSORY_NO_SET_ID,
   BUILDER_AUTO_APPLY_DEBOUNCE_MS,
   ELLIPSIS_TEXT_SX,
   MENU_CONTROL_HEIGHT_PX,
@@ -1457,7 +1456,6 @@ ${t('safeguardsIgnoreOptionsHint')}`
                   anyLabel={t('anySet')}
                   // Show the no-set option only when accessories are in scope.
                   includeNoSet={hasAccessorySlot}
-                  disabledSetIds={[ACCESSORY_NO_SET_ID]}
                 />
               </KeepOverrideScopeField>
             </Box>

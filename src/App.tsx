@@ -34,6 +34,7 @@ import {
   GRID_COLUMN_GAP_PX,
   PREVIEW_PAPER_PADDING_UNITS,
   FINAL_SELL_DEFAULT_LEVELS,
+  ACCESSORY_NO_SET_ID,
   FONT_SIZE_DISPLAY_REM,
   FONT_SIZE_HEADER_META_PX,
   FONT_SIZE_BASE_PX,
@@ -6505,7 +6506,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               // from restored artifacts/metasets so chips/selects don't show phantom sets.
               const bakedInSetIdSet = selection.gearSets
                 ? null
-                : new Set(getAllKnownArtifactSetIds().map((id) => Number(id)))
+                : new Set<number>([
+                  ...getAllKnownArtifactSetIds().map((id) => Number(id)),
+                  // Keep accessory no-set available even when runtime sets are declined.
+                  ACCESSORY_NO_SET_ID,
+                ])
               // Sanitize metasets by removing unknown set IDs.
               // Why: metasets are expanded into recipe rules and chip labels.
               const sanitizeMetasets = (incoming: Metaset[]): Metaset[] => (

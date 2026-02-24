@@ -724,10 +724,11 @@ export function GearTesterTabContent({
     const normalizedSetId = normalizeTesterSetForSlot(it.slot, (it.set ?? ACCESSORY_NO_SET_ID) as ArtifactSetId)
     const setIdNumber = Number(normalizedSetId)
     const setNameCanonical = setIdNumber > 0 ? artifactSetName(setIdNumber) : ''
-    const showSetChip = !(accessorySlot && setIdNumber === ACCESSORY_NO_SET_ID)
+    // Show set summary for any concrete set id, including the no-set sentinel.
+    const showSetChip = Number.isFinite(setIdNumber) && setIdNumber !== 0
     const setLabel = formatTesterSetLabel({ setId: setIdNumber, slot: it.slot, translate: t, lang })
-    const setIconNode = setIdNumber > 0
-      ? <SetIcon setId={setIdNumber} label={setNameCanonical} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
+    const setIconNode = Number.isFinite(setIdNumber) && setIdNumber !== 0
+      ? <SetIcon setId={setIdNumber} label={setNameCanonical || setLabel} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
       : null
     const slotIconNode = SlotIconComponent
       ? <SlotIconComponent fontSize="inherit" />

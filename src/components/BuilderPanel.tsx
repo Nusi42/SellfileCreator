@@ -7005,8 +7005,6 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           selectedMetasetIds={selectedMetaIds}
                           selectedSetIds={selectedSetIds}
                           excludedSetIds={excludedSetIds}
-                          // Show but disable the accessory no-set sentinel (HSF does not accept -99 here).
-                          disabledSetIds={[ACCESSORY_NO_SET_ID]}
                           onToggleSet={handleToggleSet}
                           onContextMenuSet={(id) => handleExcludeSet(id)}
                           {...(multiEditActive ? { triStateForSet: getSetState } : {})}

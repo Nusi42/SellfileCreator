@@ -415,21 +415,16 @@ export function filterAndSortSetEntries(
   const includeNoSet = Boolean(opts?.includeNoSet)
   // Use a localized label when possible, fallback to a stable English name.
   const noSetLabel = opts?.noSetLabel ?? NO_GEAR_SET_FALLBACK_NAME
-  // Pull the canonical runtime entries; optionally prepend the sentinel.
+  // Pull the canonical runtime entries and keep no-set as a separate token.
   const entries = getArtifactSetEntries()
   // Preserve tuple typing so downstream destructuring stays strict.
   const noSetEntry: [string, string] = [String(ACCESSORY_NO_SET_ID), noSetLabel]
-  const expandedEntries: Array<[string, string]> = includeNoSet
-    ? [noSetEntry, ...entries]
-    : entries
   // Normalize once so we can test both canonical + localized labels.
   const normalizedSearch = search.trim().toLowerCase()
   const filtered = normalizedSearch
-    ? expandedEntries.filter(([id, name]) => {
+    ? entries.filter(([id, name]) => {
       // Match the canonical name first to keep the fast path cheap.
       if (name.toLowerCase().includes(normalizedSearch)) return true
-      // The sentinel is already localized by `noSetLabel`; skip extra translate.
-      if (includeNoSet && Number(id) === ACCESSORY_NO_SET_ID) return false
       // Translate remaining set names for localized search.
       const translate = opts?.translate
       if (!translate) return false
@@ -437,19 +432,27 @@ export function filterAndSortSetEntries(
       const normalizedLocalized = localized.trim().toLowerCase()
       return normalizedLocalized.includes(normalizedSearch)
     })
-    : expandedEntries
+    : entries
+  // The sentinel label is already localized; match it directly.
+  const includeFilteredNoSet = includeNoSet
+    && (normalizedSearch.length === 0 || noSetLabel.trim().toLowerCase().includes(normalizedSearch))
+  const sorted = order === 'az'
+    ? filtered.slice().sort((a, b) => a[1].localeCompare(b[1]))
+    // 'game' and 'icons' both use numeric ID (in‑game) ordering for stability.
+    : filtered.slice().sort((a, b) => Number(a[0]) - Number(b[0]))
+  // A-Z keeps pure alphabetical placement, including no-set.
+  if (!includeFilteredNoSet) return sorted
   if (order === 'az') {
-    return filtered.slice().sort((a, b) => {
-      if (includeNoSet) {
-        const aNoSet = Number(a[0]) === ACCESSORY_NO_SET_ID
-        const bNoSet = Number(b[0]) === ACCESSORY_NO_SET_ID
-        if (aNoSet || bNoSet) return aNoSet ? -1 : 1
-      }
-      return a[1].localeCompare(b[1])
-    })
+    return [...sorted, noSetEntry].sort((a, b) => a[1].localeCompare(b[1]))
   }
-  // 'game' and 'icons' both use numeric ID (in‑game) ordering for stability
-  return filtered.slice().sort((a, b) => Number(a[0]) - Number(b[0]))
+  // Game/icons order keeps no-set anchored directly before Refresh.
+  const refreshIndex = sorted.findIndex(([id]) => Number(id) === ArtifactSet.Refresh)
+  if (refreshIndex < 0) return [noSetEntry, ...sorted]
+  return [
+    ...sorted.slice(0, refreshIndex),
+    noSetEntry,
+    ...sorted.slice(refreshIndex),
+  ]
 }
 
 // Rarity enum codes in HSF files (index-based, not bitmask)

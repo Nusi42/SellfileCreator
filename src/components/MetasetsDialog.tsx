@@ -210,7 +210,12 @@ export default function MetasetsDialog({
   // Shared set entries for the current search terms. Icons view reuses the in-game order.
   const sortedSetEntries = useMemo<Record<'game' | 'az' | 'icons', Array<[string, string]>>>(() => {
     void gearSetCatalogVersion
-    const baseOptions = { translate: t }
+    const baseOptions = {
+      translate: t,
+      // Keep metaset set-picking aligned with other selectors that surface no-set.
+      includeNoSet: true,
+      noSetLabel: t('noSetAccessories'),
+    }
     const sortedGame = filterAndSortSetEntries(setsSearch, 'game', baseOptions)
     const sortedAz = filterAndSortSetEntries(setsSearch, 'az', baseOptions)
     return {
