@@ -59,6 +59,11 @@ import { measureCssWidth } from '../../lib/domMeasurements'
 
 // Detail popover target for a single milestone cell.
 type DetailTarget = { kind: 'level'; dungeonId: DungeonId; setId: ArtifactSetId; level: LevelMilestone }
+// Cache generic stats with the run count used as the denominator.
+type GenericStatsCacheEntry = {
+  stats: DungeonSimGenericStats | null
+  sampledTotalDrops: number
+}
 
 // Keep dungeon labels centralized so each table shares the same i18n keys.
 const DUNGEON_LABEL_KEYS: Record<DungeonId, string> = {
@@ -292,8 +297,8 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
     onClose: handleDetailClose,
     menuRef: detailPopoverPaperRef,
   })
-  // Cache generic substat odds per slot/main to avoid repeat worker queries.
-  const [genericStatsByKey, setGenericStatsByKey] = useState<Record<string, DungeonSimGenericStats | null>>({})
+  // Cache generic substat odds per slot/main + sampled run count.
+  const [genericStatsByKey, setGenericStatsByKey] = useState<Record<string, GenericStatsCacheEntry | null>>({})
   const [genericLoadingByKey, setGenericLoadingByKey] = useState<Record<string, boolean>>({})
   // Keep refs synced so hover handlers can read fresh cache state.
   const genericStatsRef = useRef(genericStatsByKey)
@@ -498,14 +503,16 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
   const buildGenericStatsKey = (query: DungeonSimGenericQuery): string => (
     `${query.dungeonId}:${query.setId}:${query.level}:${query.slot}:${query.main}:${query.spotlight}`
   )
-  const requestGenericStatsForKey = (key: string, query: DungeonSimGenericQuery) => {
+  const requestGenericStatsForKey = (key: string, query: DungeonSimGenericQuery, sampledTotalDrops: number) => {
     // Avoid duplicate requests while a hover fetch is already in flight.
     if (genericLoadingRef.current[key]) return
-    // Keep the first computed stats so repeat hovers stay instant.
-    if (genericStatsRef.current[key]) return
+    // Reuse only entries sampled at the current run count.
+    const cached = genericStatsRef.current[key]
+    if (cached && cached.sampledTotalDrops === sampledTotalDrops) return
     setGenericLoadingByKey((prev) => ({ ...prev, [key]: true }))
     requestGenericStats(query).then((stats) => {
-      setGenericStatsByKey((prev) => ({ ...prev, [key]: stats }))
+      // Store both the stats and denominator so rates stay internally consistent.
+      setGenericStatsByKey((prev) => ({ ...prev, [key]: { stats, sampledTotalDrops } }))
       setGenericLoadingByKey((prev) => ({ ...prev, [key]: false }))
     })
   }
@@ -1300,18 +1307,21 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                                 }
                                 : null
                               const genericKey = genericQuery ? buildGenericStatsKey(genericQuery) : ''
-                              const genericStats = genericKey ? (genericStatsByKey[genericKey] ?? null) : null
+                              const genericStatsEntry = genericKey ? (genericStatsByKey[genericKey] ?? null) : null
+                              const genericStats = genericStatsEntry?.stats ?? null
+                              // Keep denominator aligned with the stats sample to avoid drift.
+                              const genericTotalDrops = genericStatsEntry?.sampledTotalDrops ?? detailTotalDrops
                               const genericLoading = genericKey ? Boolean(genericLoadingByKey[genericKey]) : false
                               return (
                                 <MarkdownTooltip
                                   key={`${entry.slot}-${entry.main}`}
-                                  render={renderGenericTooltipContent(genericStats, genericLoading, detailTotalDrops)}
+                                  render={renderGenericTooltipContent(genericStats, genericLoading, genericTotalDrops)}
                                   hoverIntent="informational"
                                   placement="right"
                                   maxWidth={360}
                                   onOpen={() => {
                                     if (!genericQuery) return
-                                    requestGenericStatsForKey(genericKey, genericQuery)
+                                    requestGenericStatsForKey(genericKey, genericQuery, detailTotalDrops)
                                   }}
                                 >
                                   <ButtonBase
