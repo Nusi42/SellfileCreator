@@ -1,7 +1,7 @@
 /* eslint-disable import/no-unused-modules */
 /// <reference lib="webworker" />
 
-import { updateRecipeRulesCache } from '../lib/ruleCache'
+import { updateRecipeRulesCache, type RecipeRulesCacheEntry } from '../lib/ruleCache'
 import {
   KEEP_OVERRIDE_RULE_SOURCES as SAFEGUARD_OVERRIDE_RULE_SOURCES,
   RULE_SOURCE_SAFEGUARDS,
@@ -51,6 +51,9 @@ let latestPipelineGeneration = 0
 // Log the loaded WASM version once per worker for transcript parity.
 let wasmVersionLogged = false
 let wasmWarmupPromise: Promise<void> | null = null
+// Persistent rule cache: fingerprint → built rules. Reused across pipeline runs
+// so unchanged recipes skip the WASM buildRulesForRecipe call entirely.
+const persistentRuleCache = new Map<string, RecipeRulesCacheEntry>()
 
 // Batch evaluate so long matcher passes yield between chunks.
 const PIPELINE_MATCH_BATCH_SIZE = 256 as const
@@ -117,6 +120,7 @@ const countRulesForRecipesWithWorkerCache = (
     // Count badges are per-recipe and should not be clipped by total limits.
     totalLimit: Number.POSITIVE_INFINITY,
     finalizeGeneratedRules: finalizeGeneratedRulesForWorker,
+    rulesCache: persistentRuleCache,
   })
   const counts: number[] = []
   for (let idx = 0; idx < recipesForRules.length; idx += 1) {
@@ -136,6 +140,7 @@ const buildPipelineState = (
     substatTargets: payload.substatTargets,
     baseRuleCount,
     finalizeGeneratedRules: finalizeGeneratedRulesForWorker,
+    rulesCache: persistentRuleCache,
   })
   const state: PipelineState = {
     rulesByRecipe: result.rulesByRecipe,

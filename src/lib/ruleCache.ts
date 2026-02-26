@@ -27,6 +27,13 @@ type UpdateArgs = {
   totalLimit?: number
   finalizeGeneratedRules?: BuildRulesFinalizeGeneratedFn
   onProgress?: (progress: ProgressSnapshot) => void
+  /**
+   * Optional persistent cache keyed by recipe fingerprint. When provided,
+   * entries whose fingerprint is already in the map are reused directly so the
+   * WASM rule-build and capacity-check calls are skipped for unchanged recipes.
+   * The map is updated in-place with any newly built entries.
+   */
+  rulesCache?: Map<string, RecipeRulesCacheEntry>
 }
 
 type UpdateResult = {
@@ -39,7 +46,11 @@ type UpdateResult = {
   excludedByTotalLimitIndices: number[]
 }
 
-type BuiltRecipeEntry = {
+/**
+ * Per-recipe rule entry used both by the internal builder and the persistent
+ * worker-side cache keyed by recipe fingerprint.
+ */
+export type RecipeRulesCacheEntry = {
   rules: HsfRuleWithRecipe[]
   truncated: boolean
 }
@@ -103,12 +114,23 @@ export function updateRecipeRulesCache(args: UpdateArgs): UpdateResult {
       continue
     }
 
+    // Look up the persistent cache before doing any WASM work.
+    const cachedEntry = args.rulesCache?.get(recipeKey)
+
     let mustExcludeByCapacity = false
-    if (remainingCapacity !== null && remainingCapacity < RULE_COUNT_LIMIT) {
-      const countLimit = Math.max(1, Math.floor(remainingCapacity + 1))
-      const counted = countRulesForRecipeEntry(resolvedRecipe, substatTargets, { limit: countLimit })
-      if (!Number.isFinite(counted) || counted > remainingCapacity) {
-        mustExcludeByCapacity = true
+    if (remainingCapacity !== null) {
+      if (cachedEntry) {
+        // Cached rules let us skip the countRulesForRecipeEntry WASM call.
+        if (cachedEntry.truncated || cachedEntry.rules.length > remainingCapacity) {
+          mustExcludeByCapacity = true
+        }
+      } else if (remainingCapacity < RULE_COUNT_LIMIT) {
+        // No cache entry: fall back to the WASM count for capacity estimation.
+        const countLimit = Math.max(1, Math.floor(remainingCapacity + 1))
+        const counted = countRulesForRecipeEntry(resolvedRecipe, substatTargets, { limit: countLimit })
+        if (!Number.isFinite(counted) || counted > remainingCapacity) {
+          mustExcludeByCapacity = true
+        }
       }
     }
 
@@ -122,7 +144,8 @@ export function updateRecipeRulesCache(args: UpdateArgs): UpdateResult {
       continue
     }
 
-    const entry = buildEntry(
+    // Reuse cached entry when the fingerprint matches; skip WASM rule building.
+    const entry: RecipeRulesCacheEntry = cachedEntry ?? buildEntry(
       resolvedRecipe,
       metasets,
       substatTargets,
@@ -131,6 +154,8 @@ export function updateRecipeRulesCache(args: UpdateArgs): UpdateResult {
         ...(args.finalizeGeneratedRules ? { finalizeGeneratedRules: args.finalizeGeneratedRules } : {}),
       },
     )
+    // Store newly built entries so subsequent runs can reuse them.
+    if (!cachedEntry) args.rulesCache?.set(recipeKey, entry)
 
     const rulesForPreview = entry.rules
     const ruleSpan = rulesForPreview.length
@@ -165,7 +190,7 @@ function buildEntry(
   substatTargets: SubstatTargetTable,
   recipeIdx: number,
   options?: { finalizeGeneratedRules?: BuildRulesFinalizeGeneratedFn },
-): BuiltRecipeEntry {
+): RecipeRulesCacheEntry {
   // Delegate to the shared builder so pruning and annotations stay unified.
   let truncated = false
   const rules = buildRulesForRecipe(
