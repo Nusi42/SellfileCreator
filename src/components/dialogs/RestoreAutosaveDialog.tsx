@@ -249,6 +249,7 @@ export default function RestoreAutosaveDialog({
                     <Checkbox
                       checked={selection[option.key]}
                       onChange={handleToggle(option.key)}
+                      slotProps={{ input: { 'aria-label': option.label } }}
                       sx={{ mt: -0.5, ml: -0.5 }}
                     />
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>

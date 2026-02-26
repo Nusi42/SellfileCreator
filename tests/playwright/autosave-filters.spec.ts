@@ -179,6 +179,9 @@ test.describe('autosave filter restore', () => {
         } catch {}
       },
       {
+        readmeKey: 'sellfileCreator.readme.seen.version',
+        tutorialKey: 'sellfileCreator.tutorial.seen.version',
+        version: APP_VERSION,
         autosaveKey: AUTOSAVE_KEY,
         entry: savedAutosaveEntry,
         filterStateKey: RULES_FILTER_STATE_STORAGE_KEY,

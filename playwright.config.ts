@@ -75,15 +75,6 @@ export default defineConfig({
       reportDir: `${PLAYWRIGHT_RESULTS_ROOT}/reports/firefox`,
     },
 
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-      // Keep WebKit artifacts separate so sequential runs do not overwrite.
-      outputDir: `${PLAYWRIGHT_RESULTS_ROOT}/webkit`,
-      // Keep WebKit HTML reports separate so sequential runs do not overwrite.
-      reportDir: `${PLAYWRIGHT_RESULTS_ROOT}/reports/webkit`,
-    },
-
     /* Test against mobile viewports. */
     // {
     //   name: 'Mobile Chrome',

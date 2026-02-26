@@ -103,7 +103,9 @@ const duplicateRecipeChip = async (page: Parameters<typeof test>[0]['page'], ind
     overlays.forEach((node) => node.remove())
   })
   await openContextMenu(page, chip)
-  await page.getByRole('menuitem', { name: /Duplicate/i }).click()
+  const duplicateItem = page.getByRole('menuitem', { name: /Duplicate/i })
+  await expect(duplicateItem).toBeVisible()
+  await duplicateItem.click()
   await page.waitForFunction((prev) => {
     const nodes = Array.from(document.querySelectorAll('[data-recipe-chip-index]'))
     const unique = new Set<string>()

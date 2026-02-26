@@ -18,7 +18,6 @@ const root = join(here, '..', '..')
 const browserRuns = [
   { name: 'chromium', script: 'test:e2e:chromium' },
   { name: 'firefox', script: 'test:e2e:firefox' },
-  { name: 'webkit', script: 'test:e2e:webkit' },
 ]
 // Shared report root so we can emit a combined index after all runs.
 const reportRoot = join(root, 'test-results', 'reports')

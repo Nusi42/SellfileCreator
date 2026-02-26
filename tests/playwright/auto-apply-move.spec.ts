@@ -162,16 +162,24 @@ const moveChipDown = async (chip: Locator): Promise<void> => {
 
 const moveChipToTop = async (page: Page, chip: Locator): Promise<void> => {
   // Open the chip context menu so we can access Move to Top.
-  await openContextMenu(page, chip)
-  // Choose the Move to Top entry from the menu.
-  await page.getByRole('menuitem', { name: 'Move to Top' }).click()
+  const menu = await openContextMenu(page, chip)
+  // Wait for the menu item to be stable before clicking.
+  const item = page.getByRole('menuitem', { name: 'Move to Top' })
+  await expect(item).toBeVisible()
+  await item.click()
+  // Wait for the MUI menu modal to fully teardown before continuing.
+  await menu.waitFor({ state: 'hidden' })
 }
 
 const moveChipToBottom = async (page: Page, chip: Locator): Promise<void> => {
   // Open the chip context menu so we can access Move to Bottom.
-  await openContextMenu(page, chip)
-  // Choose the Move to Bottom entry from the menu.
-  await page.getByRole('menuitem', { name: 'Move to Bottom' }).click()
+  const menu = await openContextMenu(page, chip)
+  // Wait for the menu item to be stable before clicking.
+  const item = page.getByRole('menuitem', { name: 'Move to Bottom' })
+  await expect(item).toBeVisible()
+  await item.click()
+  // Wait for the MUI menu modal to fully teardown before continuing.
+  await menu.waitFor({ state: 'hidden' })
 }
 
 const expectBuilderStats = async (page: Page, options: { main: string; substat: string; selected: boolean }): Promise<void> => {
