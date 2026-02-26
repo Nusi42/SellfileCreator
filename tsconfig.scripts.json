@@ -15,6 +15,7 @@
     "scripts/tooling/sync-catalog-comments.ts",
     "scripts/tooling/audit-l10n-widths.ts",
     "scripts/tooling/measure-rule-tester.ts",
+    "scripts/tooling/sim-upgrade-chance.ts",
     "src/types/globals.d.ts"
   ]
 }

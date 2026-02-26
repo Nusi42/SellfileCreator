@@ -1778,7 +1778,11 @@ fn resolve_safeguard_rules_with_metasets_core(
         });
     }
 
-    to_js_value(&resolved)
+    // Use serialize_maps_as_objects so HashMap<String, _> fields (e.g. substatWeights)
+    // round-trip as plain JS objects rather than JS Map instances. serde_wasm_bindgen 0.6
+    // defaults to JS Map for HashMap serialization, which TS code cannot read via Object.entries.
+    resolved
+        .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard metaset result: {error}")))
 }
 
