@@ -646,7 +646,7 @@ const withNbsp = (value: string | undefined | null): string => {
   return value.replace(/ /g, NBSP)
 }
 
-function summaryParts(
+export function summaryParts(
   recipe: BuilderRecipe,
   metasets: Metaset[],
   opts: {

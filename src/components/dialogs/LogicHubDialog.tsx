@@ -534,6 +534,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
             colorIconSrc={colorIconSrc}
             recipeNames={recipeNames}
             metasets={metasets}
+            recipes={customRecipes}
             focusRuleRequest={focusSafeguardRule}
             onJumpToRule={onJumpToRule}
             suppressMatchDetails={suppressMatchDetails}

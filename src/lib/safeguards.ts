@@ -11,6 +11,8 @@ import type {
 import {
   ALLOWED_MAIN_BY_SLOT,
   PREFERRED_ARTIFACT_TYPE_ORDER,
+  RankCode,
+  RarityCode,
   StatVariant as StatVariantEnum,
   artifactSetNames,
   artifactTypeNames,
@@ -23,6 +25,7 @@ import {
   rarityNames,
   variantFromLabel,
 } from './types'
+import { resolveAutoRarityCode } from './hsfBuilder'
 import type { BuilderRecipe, SellfileExportMode } from './hsfBuilder'
 import type { HsfRuleWithRecipe } from './merge'
 import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
@@ -937,6 +940,77 @@ type SafeguardLabelSource = SafeguardRule | HsfRuleWithRecipe | null | undefined
  * Resolve the label to display for a Safeguard rule or injected row.
  * Prefers trimmed rule names, then falls back to a `#id` sentinel when blank.
  */
+// Lookup tables map HSF rank/rarity codes to arrays of discrete RankValues.
+// Using explicit tables avoids arithmetic that breaks for non-sequential rarity codes.
+// Keys use the RankCode/RarityCode named constants (SSOT from types.ts).
+const RANK_CODE_TO_VALUES: Readonly<Partial<Record<number, readonly RankValue[]>>> = {
+  [RankCode.Any]:     [],
+  [RankCode.One]:     [1],
+  [RankCode.Two]:     [2],
+  [RankCode.Three]:   [3],
+  [RankCode.Four]:    [4],
+  [RankCode.Five]:    [5],
+  [RankCode.Six]:     [6],
+  [RankCode.GTE_One]:   [1,2,3,4,5,6],
+  [RankCode.GTE_Two]:   [2,3,4,5,6],
+  [RankCode.GTE_Three]: [3,4,5,6],
+  [RankCode.GTE_Four]:  [4,5,6],
+  [RankCode.GTE_Five]:  [5,6],
+  [RankCode.LTE_Two]:   [1,2],
+  [RankCode.LTE_Three]: [1,2,3],
+  [RankCode.LTE_Four]:  [1,2,3,4],
+  [RankCode.LTE_Five]:  [1,2,3,4,5],
+  [RankCode.LTE_Six]:   [1,2,3,4,5,6],
+}
+
+const RARITY_CODE_TO_VALUES: Readonly<Partial<Record<number, readonly RankValue[]>>> = {
+  [RarityCode.Any]:           [],
+  [RarityCode.Common]:        [1],
+  [RarityCode.Uncommon]:      [2],
+  [RarityCode.Rare]:          [3],
+  [RarityCode.Epic]:          [4],
+  [RarityCode.Legendary]:     [5],
+  [RarityCode.Mythical]:      [6],
+  [RarityCode.GTE_Common]:    [1,2,3,4,5,6],
+  [RarityCode.GTE_Uncommon]:  [2,3,4,5,6],
+  [RarityCode.GTE_Rare]:      [3,4,5,6],
+  [RarityCode.GTE_Epic]:      [4,5,6],
+  [RarityCode.GTE_Legendary]: [5,6],
+  [RarityCode.LTE_Uncommon]:  [1,2],
+  [RarityCode.LTE_Rare]:      [1,2,3],
+  [RarityCode.LTE_Epic]:      [1,2,3,4],
+  [RarityCode.LTE_Legendary]: [1,2,3,4,5],
+  [RarityCode.LTE_Mythical]:  [1,2,3,4,5,6],
+}
+
+/**
+ * Derive a SafeguardCombination from an existing BuilderRecipe.
+ * Rank/rarity codes are expanded to discrete RankValue arrays;
+ * factionCode is lifted into a single-element factions array (or empty if Any).
+ * Substat and roll-bounds info is intentionally not mapped — safeguards work
+ * by slot/set/stat presence, not by roll requirements.
+ */
+export function buildSafeguardCombinationFromRecipe(recipe: BuilderRecipe): SafeguardCombination {
+  // Expand single rank code to an array of matching star values.
+  const ranks = [...(RANK_CODE_TO_VALUES[recipe.rankCode] ?? [])] as RankValue[]
+  // Resolve effective rarity: auto mode derives the code from substat requirements.
+  const effectiveRarityCode = (recipe.rarityMode === 'auto') ? resolveAutoRarityCode(recipe) : recipe.rarityCode
+  const rarities = [...(RARITY_CODE_TO_VALUES[effectiveRarityCode] ?? [])] as RankValue[]
+  // Faction 0 means Any; lift non-zero codes to a single-element array.
+  const factions: FactionId[] = (recipe.factionCode && recipe.factionCode > 0)
+    ? [recipe.factionCode]
+    : []
+  return sortSafeguardCombination({
+    slots: [...(recipe.artifactTypes ?? [])],
+    sets: [...(recipe.artifactSets ?? [])],
+    metaSetIds: [...(recipe.artifactMetaSets ?? [])],
+    ranks,
+    rarities,
+    mainStats: [...(recipe.mainStatsV ?? [])],
+    factions,
+  })
+}
+
 export function resolveSafeguardRuleLabel(source: SafeguardLabelSource): string | null {
   if (!source) return null
   const rawName = 'name' in source ? source.name : source.RecipeName

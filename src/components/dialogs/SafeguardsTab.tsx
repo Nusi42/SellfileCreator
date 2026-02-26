@@ -22,6 +22,8 @@ import {
   FormControlLabel,
   IconButton,
   InputAdornment,
+  InputBase,
+  Popover,
   Stack,
   Switch,
   ToggleButton,
@@ -48,6 +50,7 @@ import {
   SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
   SafeguardRuleActivation,
   SafeguardSubstatMatch,
+  buildSafeguardCombinationFromRecipe,
   cloneSafeguardCombination,
   cloneSafeguardRule,
   createEmptySafeguardCombination,
@@ -64,6 +67,8 @@ import {
   type SafeguardRule,
 } from '../../lib/safeguards'
 import { buildReadableSafeguardRuleEntry } from '../../lib/sfrIO'
+import type { BuilderRecipe } from '../../lib/hsfBuilder/types'
+import { parseRecipeNameDirectives } from '../../lib/recipeNameDirectives'
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import type { ColorBlindMode } from '../../lib/constants'
 import {
@@ -77,7 +82,13 @@ import type { StatVariant } from '../../lib/types'
 import {
   StatVariant as StatVariantEnum,
   artifactTypeI18nKey,
+  artifactTypeName,
+  artifactSetName,
+  compareArtifactTypes,
   factionI18nKey,
+  formatRank,
+  labelOfVariant,
+  rarityCodeToName,
   statVariantI18nKey,
 } from '../../lib/types'
 import { slotSelectionAllowsAccessories } from '../../lib/testerDomain'
@@ -92,12 +103,15 @@ import WorkloadProgressIndicator from '../WorkloadProgressIndicator'
 import MarkdownTooltip from '../MarkdownTooltip'
 import EllipsisTooltip from '../EllipsisTooltip'
 import { RecipeContextMenu } from '../RecipeContextMenu'
+import ContextMenuPaper, { buildContextMenuPaperSlotProps } from '../ContextMenuPaper'
+import { summaryParts } from '../RecipeChip'
 import PasteDialog from '../PasteDialog'
 import type { SetStateAction } from 'react'
 import type { Metaset } from '../../lib/metasets'
 import { alpha, useTheme } from '@mui/material/styles'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import { useSafeguardsGridColumnMode, useSafeguardsGridFilterMode } from '../../state/safeguardsPreferences'
+import { useDisplayPreferences } from '../../state/preferencesState'
 import { normalizeArtifactSetSelections } from '../../lib/gearSets/selection'
 import { useKeepOverrideCombinationTools } from '../keepOverrides/useKeepOverrideCombinationTools'
 import { KeepOverridePaneToggle } from '../keepOverrides/KeepOverridePaneToggle'
@@ -146,6 +160,37 @@ const SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX = {
     whiteSpace: 'nowrap',
   },
 } as const
+// Build a plain-text scope string used only for search filtering in the scaffold picker.
+// The visual row uses summaryParts() from RecipeChip for full rich rendering.
+function buildScaffoldScopeText(recipe: BuilderRecipe): string {
+  const parts: string[] = []
+  const rank = formatRank(recipe.rankCode)
+  const rarity = rarityCodeToName(recipe.rarityCode)
+  const scope = [rank, rarity].filter(Boolean).join('\u00A0')
+  if (scope) parts.push(scope)
+  if (recipe.artifactTypes && recipe.artifactTypes.length > 0) {
+    const sorted = [...recipe.artifactTypes].sort(compareArtifactTypes)
+    parts.push(sorted.map(id => artifactTypeName(id)).join(', '))
+  }
+  if (recipe.mainStatsV && recipe.mainStatsV.length > 0) {
+    parts.push(recipe.mainStatsV.map(v => labelOfVariant(v)).join(', '))
+  }
+  if (recipe.artifactSets && recipe.artifactSets.length > 0) {
+    const included = recipe.artifactSets.filter(e => !e.excluded)
+    if (included.length > 0) {
+      const shown = included.slice(0, 3).map(e => artifactSetName(e.id))
+      const extra = included.length - 3
+      parts.push(extra > 0 ? `${shown.join(', ')} +${extra}` : shown.join(', '))
+    }
+  }
+  return parts.join(' | ')
+}
+
+// Extract the visible label from a separator recipe name, stripping color and style directives.
+function parseSeparatorLabel(rawName: string | undefined): string {
+  return parseRecipeNameDirectives(rawName, '').displayName.replace(/^#+\s*/, '').trim()
+}
+
 // areArraysEqual compares numeric arrays without allocating new copies.
 const areArraysEqual = (left: readonly number[], right: readonly number[]): boolean => {
   // Reuse the fast path when the arrays share identity.
@@ -256,6 +301,7 @@ type SafeguardsTabProps = {
   colorIconSrc: string
   recipeNames: Array<string | null>
   metasets: Metaset[]
+  recipes: readonly BuilderRecipe[]
   // One-shot parent request used by preview star clicks to focus this rule card.
   focusRuleRequest?: { ruleId: string; token: number } | null
   onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null) => void) | undefined
@@ -282,12 +328,14 @@ export default function SafeguardsTab({
   colorIconSrc,
   recipeNames,
   metasets,
+  recipes,
   focusRuleRequest = null,
   onJumpToRule,
   suppressMatchDetails = false,
   workloadProgressRatio,
 }: SafeguardsTabProps) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
+  const { showFactionIcons, showSetIcons, showSlotIcons } = useDisplayPreferences()
   const { resolveAllowedSetPool, sanitizeCombinationForSlots } = useKeepOverrideCombinationTools(metasets)
   const theme = useTheme()
   // Keep builder-status chip styling centralized so match chips align with scope toggles.
@@ -344,6 +392,8 @@ ${t('safeguardsIgnoreOptionsHint')}`
     return new Set()
   })
   const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
+  const [scaffoldMenuAnchor, setScaffoldMenuAnchor] = useState<HTMLElement | null>(null)
+  const [scaffoldSearchText, setScaffoldSearchText] = useState('')
   const [gridFilterMode, setGridFilterMode] = useSafeguardsGridFilterMode()
   const [gridColumnMode, setGridColumnMode] = useSafeguardsGridColumnMode()
   // Track which rule header is in inline rename mode.
@@ -380,6 +430,16 @@ ${t('safeguardsIgnoreOptionsHint')}`
     open: Boolean(ruleMenu),
     onClose: closeRuleMenu,
     menuRef: ruleMenuRef,
+  })
+  const scaffoldMenuPaperRef = useRef<HTMLDivElement | null>(null)
+  const closeScaffoldMenu = useCallback(() => {
+    setScaffoldMenuAnchor(null)
+    setScaffoldSearchText('')
+  }, [])
+  const { contextMenuGuard: scaffoldMenuGuard } = useContextMenuPaperGuard({
+    open: scaffoldMenuAnchor !== null,
+    onClose: closeScaffoldMenu,
+    menuRef: scaffoldMenuPaperRef,
   })
   // Column toggle between 1/2 keeps the grid width stable while changing density.
   const handleToggleGridColumns = useCallback(() => {
@@ -589,6 +649,61 @@ ${t('safeguardsIgnoreOptionsHint')}`
     // Scroll only for explicit creation so normal edits never jump the list.
     scheduleScrollToRule(newRule.id)
   }, [mutateRules, scheduleScrollToRule, setRespectManualDeselect])
+
+  const handleScaffoldFromRecipe = useCallback((recipeIndex: number) => {
+    closeScaffoldMenu()
+    const recipe = recipes[recipeIndex]
+    if (!recipe || recipe.exportMode === 'separator') return
+    const combination = buildSafeguardCombinationFromRecipe(recipe)
+    const rawName = parseRecipeNameDirectives(recipe.name, '').displayName.trim()
+    const fallback = `Recipe ${recipeIndex + 1}`
+    const safeguardName = `Protect: ${rawName || fallback}`
+    const newRule: SafeguardRule = {
+      id: createSafeguardRuleId(),
+      combination,
+      name: safeguardName,
+      requiredCount: 2,
+      activation: SafeguardRuleActivation.AnticipateGaps,
+      countMode: { ...SAFEGUARD_DEFAULT_COUNT_MODE },
+      ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
+      ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
+      ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
+      substats: [...(recipe.substatsV ?? [])],
+      substatMatch: SafeguardSubstatMatch.Any,
+      substatWeights: {},
+    }
+    mutateRules((prev) => {
+      const idx = selectedRuleId !== null ? prev.findIndex((r) => r.id === selectedRuleId) : -1
+      if (idx === -1) return [...prev, newRule]
+      const next = [...prev]
+      next.splice(idx + 1, 0, newRule)
+      return next
+    })
+    setSelectedRuleId(newRule.id)
+    setRespectManualDeselect(false)
+    setExpandedRuleIds((prev) => { const next = new Set(prev); next.add(newRule.id); return next })
+    scheduleScrollToRule(newRule.id)
+  }, [closeScaffoldMenu, recipes, selectedRuleId, mutateRules, scheduleScrollToRule, setRespectManualDeselect])
+
+  // Pre-compute display fields and apply search filter for the scaffold popover.
+  const filteredScaffoldEntries = useMemo(() => {
+    const query = scaffoldSearchText.trim().toLowerCase()
+    const hasQuery = query.length > 0
+    return recipes
+      .map((recipe, originalIdx) => {
+        const isSep = recipe.exportMode === 'separator'
+        const nameDecoration = isSep ? null : parseRecipeNameDirectives(recipe.name, '')
+        const displayName = nameDecoration?.displayName.trim() ?? ''
+        const nameColor = nameDecoration?.hasExplicitColor ? nameDecoration.resolvedColor : undefined
+        const scopeText = isSep ? '' : buildScaffoldScopeText(recipe)
+        return { recipe, originalIdx, displayName, nameColor, scopeText }
+      })
+      .filter(({ recipe, displayName, scopeText }) => {
+        if (recipe.exportMode === 'separator') return !hasQuery
+        if (!hasQuery) return true
+        return displayName.toLowerCase().includes(query) || scopeText.toLowerCase().includes(query)
+      })
+  }, [recipes, scaffoldSearchText])
 
   const handleDeleteRule = useCallback((ruleId: string) => {
     let filtered: SafeguardRule[] = []
@@ -2104,6 +2219,125 @@ ${t('safeguardsIgnoreOptionsHint')}`
               <Button variant="contained" onClick={handleAddRule} sx={{ minHeight: MENU_CONTROL_HEIGHT_PX }}>
                 {t('safeguardsAddRule')}
               </Button>
+              <Button
+                variant="outlined"
+                disabled={recipes.length === 0}
+                onClick={(e) => setScaffoldMenuAnchor(e.currentTarget)}
+                sx={{ minHeight: MENU_CONTROL_HEIGHT_PX }}
+                title={recipes.length === 0 ? t('safeguardsScaffoldFromRecipeEmpty') : undefined}
+              >
+                {t('safeguardsScaffoldFromRecipe')}
+              </Button>
+              <Popover
+                anchorEl={scaffoldMenuAnchor}
+                open={scaffoldMenuAnchor !== null}
+                onClose={closeScaffoldMenu}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                slotProps={{
+                  paper: buildContextMenuPaperSlotProps({
+                    component: ContextMenuPaper,
+                    contextMenuGuard: scaffoldMenuGuard,
+                    onRequestClose: closeScaffoldMenu,
+                    closeLabel: t('close'),
+                    ref: scaffoldMenuPaperRef,
+                    sx: { width: 480, maxWidth: 'calc(100vw - 32px)', display: 'flex', flexDirection: 'column', maxHeight: 'min(460px, 80vh)' },
+                  }),
+                }}
+              >
+                <Box sx={{ px: 1.5, py: 1, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
+                  <InputBase
+                    autoFocus
+                    fullWidth
+                    placeholder={t('safeguardsScaffoldSearchPlaceholder')}
+                    value={scaffoldSearchText}
+                    onChange={(e) => setScaffoldSearchText(e.target.value)}
+                    inputProps={{ 'aria-label': t('safeguardsScaffoldSearchPlaceholder') }}
+                  />
+                </Box>
+                <Box sx={{ overflowY: 'auto', flex: 1 }}>
+                  {filteredScaffoldEntries.length === 0 && (
+                    <Box sx={{ p: 2, textAlign: 'center' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {t('safeguardsScaffoldNoMatch')}
+                      </Typography>
+                    </Box>
+                  )}
+                  {filteredScaffoldEntries.map(({ recipe, originalIdx, displayName, nameColor }) => {
+                    if (recipe.exportMode === 'separator') {
+                      const sepLabel = parseSeparatorLabel(recipe.name)
+                      return (
+                        <Box key={originalIdx} sx={{ py: 0.5, px: 1.5 }}>
+                          <Divider>
+                            {sepLabel ? (
+                              <Typography variant="caption" sx={{ color: 'text.disabled', px: 0.5 }}>
+                                {sepLabel}
+                              </Typography>
+                            ) : null}
+                          </Divider>
+                        </Box>
+                      )
+                    }
+                    const isDisabled = recipe.exportMode === 'disabled'
+                    const recipeSummary = summaryParts(recipe, metasets, {
+                      substatColors,
+                      useStatButtonColors,
+                      showFactionIcons,
+                      showSetIcons,
+                      showSlotIcons,
+                      t,
+                      lang,
+                      tooltipsDisabled: true,
+                    })
+                    return (
+                      <ButtonBase
+                        key={originalIdx}
+                        onClick={() => handleScaffoldFromRecipe(originalIdx)}
+                        sx={{
+                          display: 'flex',
+                          width: '100%',
+                          px: 1.5,
+                          py: 0.75,
+                          textAlign: 'left',
+                          '&:hover': { bgcolor: 'action.hover' },
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            flex: '1 1 auto',
+                            minWidth: 0,
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere',
+                            opacity: isDisabled ? 0.55 : 1,
+                          }}
+                        >
+                          <Box component="span" sx={{ color: 'text.disabled', mr: 0.5 }}>
+                            {originalIdx + 1}.
+                          </Box>
+                          <Box component="span" sx={{ color: recipe.keep ? 'success.main' : 'error.main', fontWeight: 700 }}>
+                            {recipe.keep ? t('keepValueKeep') : t('keepValueSell')}
+                          </Box>
+                          {displayName ? (
+                            <>
+                              <Box component="span" sx={{ px: 0.25 }}>—</Box>
+                              <Box component="span" sx={{ color: nameColor || undefined }}>
+                                {displayName}
+                              </Box>
+                            </>
+                          ) : null}
+                          {recipeSummary && (
+                            <>
+                              {' | '}
+                              {recipeSummary}
+                            </>
+                          )}
+                        </Typography>
+                      </ButtonBase>
+                    )
+                  })}
+                </Box>
+              </Popover>
             </Box>
           </Box>
           <Box
