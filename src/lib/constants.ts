@@ -138,6 +138,10 @@ export const BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX = 300
 export const BUILDER_RECIPE_CHIPS_EMPTY_MIN_HEIGHT_PX = 340
 export const BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX = 3 * 8
 export const BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX = 12
+// Minimum usable height for the safeguard rule chip list before the list stops
+// shrinking further. Intentionally below the recipe default so the builder form
+// dominates the available space when both panels are visible.
+export const BUILDER_SAFEGUARD_CHIPS_MIN_HEIGHT_PX = 150
 
 // Shared UI transitions
 export const UI_BG_TRANSITION = 'background-color 220ms ease-in-out 60ms'

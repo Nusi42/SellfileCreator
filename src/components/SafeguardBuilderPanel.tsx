@@ -41,7 +41,9 @@ import {
   SAFEGUARD_DEFAULT_COUNT_MODE,
   SafeguardRuleActivation,
   SafeguardSubstatMatch,
+  constrainSafeguardSubstats,
   normalizeSafeguardSubstatMatch,
+  pruneSafeguardsSubstatWeights,
   sanitizeSafeguardCountMode,
   sortSafeguardCombination,
   sortSafeguardSubstats,
@@ -142,71 +144,9 @@ const SELECT_BOX_HEIGHT_SX = {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
+// Strips heading markers and color/style directives from separator names for display.
 function parseSeparatorLabel(rawName: string | undefined): string {
   return parseRecipeNameDirectives(rawName, '').displayName.replace(/^#+\s*/, '').trim()
-}
-
-function areArraysEqual(left: readonly number[], right: readonly number[]): boolean {
-  if (left === right) return true
-  if (left.length !== right.length) return false
-  for (let i = 0; i < left.length; i++) {
-    if (Number(left[i]) !== Number(right[i])) return false
-  }
-  return true
-}
-
-function areWeightMapsEqual(
-  left: Partial<Record<StatVariant, number>> | null | undefined,
-  right: Partial<Record<StatVariant, number>> | null | undefined,
-): boolean {
-  if (left === right) return true
-  const leftKeys = Object.keys(left ?? {})
-  const rightKeys = Object.keys(right ?? {})
-  if (leftKeys.length !== rightKeys.length) return false
-  for (const key of leftKeys) {
-    if (!Object.prototype.hasOwnProperty.call(right ?? {}, key)) return false
-    if (Number((left ?? {})[key as unknown as StatVariant]) !== Number((right ?? {})[key as unknown as StatVariant])) return false
-  }
-  return true
-}
-
-function pruneSafeguardsSubstatWeights(
-  weights: Partial<Record<StatVariant, number>> | null | undefined,
-  selected: readonly StatVariant[],
-): Partial<Record<StatVariant, number>> {
-  if (!weights || Object.keys(weights).length === 0) return {}
-  if (!selected.length) return {}
-  const allowed = new Set(selected.map((v) => Number(v)))
-  const next: Partial<Record<StatVariant, number>> = {}
-  for (const [key, raw] of Object.entries(weights)) {
-    const variant = Number(key)
-    if (!Number.isFinite(variant) || !allowed.has(variant)) continue
-    const normalized = normalizeTesterSortWeight(Number(raw))
-    if (normalized === TESTER_SORT_WEIGHT_DEFAULT) continue
-    next[variant as StatVariant] = normalized
-  }
-  return next
-}
-
-function constrainSafeguardSubstats(
-  rule: SafeguardRule,
-  combination: SafeguardRule['combination'],
-): SafeguardRule {
-  const sortedCombination = sortSafeguardCombination(combination)
-  const allowed = resolveAllowedSubstatsForSlotsAndMains({
-    slots: sortedCombination.slots,
-    mainStats: sortedCombination.mainStats,
-  })
-  const filtered = sortSafeguardSubstats((rule.substats ?? []).filter((v) => allowed.includes(v)))
-  const nextMatch = filtered.length > 0 ? rule.substatMatch : SafeguardSubstatMatch.Any
-  const nextWeights = pruneSafeguardsSubstatWeights(rule.substatWeights, filtered)
-  const substatsUnchanged = areArraysEqual(filtered, rule.substats ?? [])
-  const matchUnchanged = nextMatch === rule.substatMatch
-  const weightsUnchanged = areWeightMapsEqual(nextWeights, rule.substatWeights)
-  if (substatsUnchanged && matchUnchanged && weightsUnchanged) {
-    return { ...rule, combination: sortedCombination }
-  }
-  return { ...rule, combination: sortedCombination, substats: filtered, substatMatch: nextMatch, substatWeights: nextWeights }
 }
 
 // ── component ────────────────────────────────────────────────────────────────
@@ -377,22 +317,10 @@ export default function SafeguardBuilderPanel({
     perMainStat: t('safeguardsCountModePerMainHint'),
   }), [t])
 
-  // ── slot metrics (SSOT with BuilderPanel via useSlotMetrics hook) ───────────
+  // ── slot metrics — SSOT resolver shared with RecipeBuilderPanel and SafeguardChipsPanel ──
   const slotMetrics = useSlotMetrics()
-  const slotLabel = (id: number): string => {
-    switch (Number(id)) {
-      case 5: return t('slotWeapon')
-      case 1: return t('slotHelmet')
-      case 6: return t('slotShield')
-      case 3: return t('slotGauntlets')
-      case 2: return t('slotChestplate')
-      case 4: return t('slotBoots')
-      case 7: return t('slotRing')
-      case 8: return t('slotAmulet')
-      case 9: return t('slotBanner')
-      default: return String(id)
-    }
-  }
+  // slotLabel is now owned by the hook; no local switch/case needed.
+  const { slotLabel } = slotMetrics
 
   // ── state helpers ─────────────────────────────────────────────────────────
 

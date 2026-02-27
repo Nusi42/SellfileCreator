@@ -1630,23 +1630,11 @@ const maxLevelValue = multiEditActive
     if (value === 'epic') return t('rarityEpic')
     return t('rarityRare')
   }
-  const slotLabel = React.useCallback((id: number): string => {
-    switch (Number(id)) {
-      case 5: return t('slotWeapon')
-      case 1: return t('slotHelmet')
-      case 6: return t('slotShield')
-      case 3: return t('slotGauntlets')
-      case 2: return t('slotChestplate')
-      case 4: return t('slotBoots')
-      case 7: return t('slotRing')
-      case 8: return t('slotAmulet')
-      case 9: return t('slotBanner')
-      default: return String(id)
-    }
-  }, [t])
   const builderRootRef = useRef<HTMLDivElement | null>(null)
   const [cheatSheetMaxHeight, setCheatSheetMaxHeight] = useState<number | null>(null)
   const slotMetrics = useSlotMetrics()
+  // Use the SSOT slot-label resolver from the hook (removes duplicate switch/case).
+  const { slotLabel } = slotMetrics
   useEffect(() => {
     const node = builderRootRef.current
     if (!node) return

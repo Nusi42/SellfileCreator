@@ -62,6 +62,8 @@ import {
   sanitizeSafeguardCountMode,
   sortSafeguardCombination,
   sortSafeguardSubstats,
+  pruneSafeguardsSubstatWeights,
+  constrainSafeguardSubstats,
   type SafeguardDetectionEntry,
   type SafeguardDetectionSnapshot,
   type SafeguardRule,
@@ -191,96 +193,7 @@ function parseSeparatorLabel(rawName: string | undefined): string {
   return parseRecipeNameDirectives(rawName, '').displayName.replace(/^#+\s*/, '').trim()
 }
 
-// areArraysEqual compares numeric arrays without allocating new copies.
-const areArraysEqual = (left: readonly number[], right: readonly number[]): boolean => {
-  // Reuse the fast path when the arrays share identity.
-  if (left === right) return true
-  // Different sizes can never match element-wise.
-  if (left.length !== right.length) return false
-  // Walk in order so ordering changes are detected.
-  for (let index = 0; index < left.length; index += 1) {
-    // Coerce to number for defensive comparison.
-    if (Number(left[index]) !== Number(right[index])) return false
-  }
-  // All entries matched.
-  return true
-}
-// areWeightMapsEqual keeps substat weight comparisons cheap and stable.
-const areWeightMapsEqual = (
-  left: Partial<Record<StatVariant, number>> | null | undefined,
-  right: Partial<Record<StatVariant, number>> | null | undefined,
-): boolean => {
-  // Reuse the fast path when the objects share identity.
-  if (left === right) return true
-  // Key counts differ => maps cannot match.
-  const leftKeys = Object.keys(left ?? {})
-  const rightKeys = Object.keys(right ?? {})
-  if (leftKeys.length !== rightKeys.length) return false
-  // Compare each key/value pair without allocating new maps.
-  for (const key of leftKeys) {
-    // Missing key on either side means mismatch.
-    if (!Object.prototype.hasOwnProperty.call(right ?? {}, key)) return false
-    // Normalize the numeric values for a stable comparison.
-    if (Number((left ?? {})[key as unknown as StatVariant]) !== Number((right ?? {})[key as unknown as StatVariant])) {
-      return false
-    }
-  }
-  // All keys matched.
-  return true
-}
-// pruneSafeguardsSubstatWeights drops weights for unselected stats.
-const pruneSafeguardsSubstatWeights = (
-  weights: Partial<Record<StatVariant, number>> | null | undefined,
-  selected: readonly StatVariant[],
-): Partial<Record<StatVariant, number>> => {
-  if (!weights || Object.keys(weights).length === 0) return {}
-  if (!selected.length) return {}
-  const allowed = new Set(selected.map((variant) => Number(variant)))
-  const next: Partial<Record<StatVariant, number>> = {}
-  for (const [key, raw] of Object.entries(weights)) {
-    const variant = Number(key)
-    if (!Number.isFinite(variant)) continue
-    if (!allowed.has(variant)) continue
-    const normalized = normalizeTesterSortWeight(Number(raw))
-    if (normalized === TESTER_SORT_WEIGHT_DEFAULT) continue
-    next[variant as StatVariant] = normalized
-  }
-  return next
-}
-// constrainSafeguardSubstats applies slot/mainstat constraints to the rule's substat selection.
-const constrainSafeguardSubstats = (
-  rule: SafeguardRule,
-  combination: SafeguardRule['combination'],
-): SafeguardRule => {
-  // Sort the combination so UI and exports stay deterministic.
-  const sortedCombination = sortSafeguardCombination(combination)
-  // Resolve the allowed substats for the updated slot/main selection.
-  const allowed = resolveAllowedSubstatsForSlotsAndMains({
-    slots: sortedCombination.slots,
-    mainStats: sortedCombination.mainStats,
-  })
-  // Drop substats that are no longer possible for the slot/main combination.
-  const filtered = sortSafeguardSubstats((rule.substats ?? []).filter((variant) => allowed.includes(variant)))
-  // Match only applies when a substat selection exists.
-  const nextMatch = filtered.length > 0 ? rule.substatMatch : SafeguardSubstatMatch.Any
-  // Remove weight entries for substats that are no longer selected.
-  const nextWeights = pruneSafeguardsSubstatWeights(rule.substatWeights, filtered)
-  // Skip rebuilding the rule if nothing changed.
-  const substatsUnchanged = areArraysEqual(filtered, rule.substats ?? [])
-  const matchUnchanged = nextMatch === rule.substatMatch
-  const weightsUnchanged = areWeightMapsEqual(nextWeights, rule.substatWeights)
-  if (substatsUnchanged && matchUnchanged && weightsUnchanged) {
-    return { ...rule, combination: sortedCombination }
-  }
-  // Persist the constrained selection back onto the rule.
-  return {
-    ...rule,
-    combination: sortedCombination,
-    substats: filtered,
-    substatMatch: nextMatch,
-    substatWeights: nextWeights,
-  }
-}
+
 
 type SafeguardsTabProps = {
   rules: SafeguardRule[]

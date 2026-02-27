@@ -47,6 +47,7 @@ import { RecipeContextMenu } from './RecipeContextMenu'
 import PasteDialog from './PasteDialog'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
+import { useSlotMetrics } from '../hooks/useSlotMetrics'
 
 
 export type SafeguardChipsPanelProps = {
@@ -71,6 +72,8 @@ export default function SafeguardChipsPanel({
 }: SafeguardChipsPanelProps) {
   const { t } = useI18n()
   const theme = useTheme()
+  // slotLabel is the SSOT resolver — avoids duplicating the switch/case here.
+  const { slotLabel } = useSlotMetrics()
 
   // ── internal state ───────────────────────────────────────────────────────
   const [editingRuleNameId, setEditingRuleNameId] = useState<string | null>(null)
@@ -151,7 +154,10 @@ export default function SafeguardChipsPanel({
 
   // ── rule management ───────────────────────────────────────────────────────
 
+  // Scrolls the newly added/duplicated chip into view. Retries up to maxAttempts
+  // frames because React may not have flushed the DOM node yet when this fires.
   const scheduleScrollToRule = useCallback((ruleId: string) => {
+    // Cancel any in-flight scroll attempt for a previous rule.
     if (scrollRafRef.current !== null) {
       window.cancelAnimationFrame(scrollRafRef.current)
       scrollRafRef.current = null
@@ -159,18 +165,21 @@ export default function SafeguardChipsPanel({
     const maxAttempts = 8
     const tryScroll = (attempt: number) => {
       const root = scrollRootRef.current
+      // Look up by the data attribute stamped on each chip box.
       const target = root?.querySelector(`[data-safeguards-rule-id="${ruleId}"]`) as HTMLElement | null
       if (target) {
         target.scrollIntoView({ block: 'nearest' })
         scrollRafRef.current = null
         return
       }
+      // Give up after maxAttempts to avoid an unbounded rAF loop.
       if (attempt >= maxAttempts) { scrollRafRef.current = null; return }
       scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(attempt + 1))
     }
     scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(0))
   }, [])
 
+  // Cancel any pending scroll rAF on unmount to prevent post-unmount state updates.
   useEffect(() => () => {
     if (scrollRafRef.current === null) return
     window.cancelAnimationFrame(scrollRafRef.current)
@@ -183,7 +192,9 @@ export default function SafeguardChipsPanel({
       filtered = prev.filter((r) => r.id !== ruleId)
       return filtered
     })
+    // Close the context menu if it was open for the deleted rule.
     if (ruleMenu?.ruleId === ruleId) setRuleMenu(null)
+    // Auto-select the first remaining rule so the builder form doesn't go blank.
     if (filtered.length > 0 && selectedRuleId === ruleId) {
       onSelect(filtered[0]!.id)
     }
@@ -192,6 +203,7 @@ export default function SafeguardChipsPanel({
   const handleConfirmDeleteRule = useCallback(() => {
     if (!pendingDeleteRuleId) return
     handleDeleteRule(pendingDeleteRuleId)
+    // Clear the pending ID after the delete so the confirmation dialog closes.
     setPendingDeleteRuleId(null)
   }, [handleDeleteRule, pendingDeleteRuleId])
 
@@ -206,11 +218,13 @@ export default function SafeguardChipsPanel({
     if (sourceIndex === -1) return
     const source = rules[sourceIndex]
     if (!source) return
+    // Insert the clone immediately after the original in the list.
     const cloneId = createSafeguardRuleId()
     const duplicated: SafeguardRule = { ...source, id: cloneId, combination: { ...source.combination } }
     const next = rules.slice()
     next.splice(sourceIndex + 1, 0, duplicated)
     mutateRules(next)
+    // Select and scroll to the new clone so the user sees it right away.
     onSelect(cloneId)
     scheduleScrollToRule(cloneId)
   }, [mutateRules, rules, onSelect, scheduleScrollToRule])
@@ -219,6 +233,7 @@ export default function SafeguardChipsPanel({
     mutateRules((prev) => {
       const idx = prev.findIndex((r) => r.id === ruleId)
       if (idx === -1) return prev
+      // Clamp to valid bounds so arrow buttons at the edges don't no-op silently.
       const safeTarget = Math.min(Math.max(targetIndex, 0), prev.length - 1)
       if (safeTarget === idx) return prev
       const next = prev.slice()
@@ -241,32 +256,41 @@ export default function SafeguardChipsPanel({
 
   // ── clipboard / paste ─────────────────────────────────────────────────────
 
+  // Parses clipboard text into SafeguardRule objects. Accepts both the wrapped
+  // `{ kind: 'safeguardRule', rule: … }` envelope and bare rule/array payloads.
   const parseSafeguardClipboardRules = useCallback((raw: string | null): SafeguardRule[] => {
     if (!raw || raw.trim().length === 0) return []
     try {
       const parsed = JSON.parse(raw)
+      // Unwrap the envelope if present; otherwise treat the root as the rule payload.
       const candidate = (
         parsed && typeof parsed === 'object' && 'kind' in parsed && (parsed as { kind?: unknown }).kind === 'safeguardRule'
           ? (parsed as { rule?: unknown }).rule
           : parsed
       )
+      // Normalize to array so both single-rule and multi-rule pastes share one path.
       const rawList = Array.isArray(candidate) ? candidate : [candidate]
       const normalized = rawList
         .map((entry) => normalizeSafeguardRule(entry))
         .filter((entry): entry is SafeguardRule => Boolean(entry))
       if (normalized.length === 0) return []
+      // Clone each rule so the caller gets fresh identity references.
       return normalized.map((r) => cloneSafeguardRule(r))
     } catch { return [] }
   }, [])
 
+  // Inserts one or more rules at insertIndex, assigns fresh IDs, then selects and
+  // scrolls to the first inserted rule so the user sees the result immediately.
   const insertSafeguardRulesAt = useCallback((rulesToInsert: SafeguardRule[], insertIndex: number) => {
     const newRuleIds: string[] = []
     mutateRules((prev) => {
       if (rulesToInsert.length === 0) return prev
+      // Clamp so the caller doesn't have to worry about boundary conditions.
       const safeIndex = Math.min(Math.max(insertIndex, 0), prev.length)
       const next = prev.slice()
       let offset = 0
       for (const sourceRule of rulesToInsert) {
+        // Always clone + re-id so pasted rules never share references with the source.
         const clone = cloneSafeguardRule(sourceRule)
         const cloneId = createSafeguardRuleId()
         clone.id = cloneId
@@ -278,6 +302,7 @@ export default function SafeguardChipsPanel({
     })
     const [firstId] = newRuleIds
     if (!firstId) return
+    // Select and scroll to the first new rule so the builder panel updates.
     onSelect(firstId)
     scheduleScrollToRule(firstId)
   }, [mutateRules, onSelect, scheduleScrollToRule])
@@ -297,9 +322,11 @@ export default function SafeguardChipsPanel({
   const handleCopyRule = useCallback(async (ruleId: string) => {
     const source = rules.find((r) => r.id === ruleId)
     if (!source) return
+    // Serialize via the canonical readable entry builder so the format stays stable.
     const snapshot = buildReadableSafeguardRuleEntry(source)
     const payload = { kind: 'safeguardRule', rule: snapshot }
     const text = JSON.stringify(payload, null, 2)
+    // Fall back to the manual copy dialog when the Clipboard API is unavailable.
     const ok = await writeTextSafe(text)
     if (!ok) triggerCopyDialog(text)
   }, [rules])
@@ -308,10 +335,12 @@ export default function SafeguardChipsPanel({
     const text = await readTextSafe()
     const parsed = parseSafeguardClipboardRules(text)
     if (parsed.length > 0) {
+      // Happy path: clipboard already holds a valid rule payload.
       const idx = rules.findIndex((r) => r.id === ruleId)
       insertSafeguardRulesAt(parsed, idx === -1 ? rules.length : idx + 1)
       return
     }
+    // Clipboard content wasn't parseable; open the manual dialog pre-filled with it.
     openPasteDialog('after', ruleId, text ?? '')
   }, [insertSafeguardRulesAt, openPasteDialog, parseSafeguardClipboardRules, rules])
 
@@ -328,10 +357,12 @@ export default function SafeguardChipsPanel({
   const handleConfirmPasteDialog = useCallback(() => {
     const parsed = parseSafeguardClipboardRules(pasteDialogText)
     if (parsed.length === 0) {
+      // Show an inline error instead of silently closing; user can correct the text.
       setPasteDialogError('No valid safeguard rule found in pasted text')
       return
     }
     const mode = pasteDialogTarget?.mode ?? 'end'
+    // Resolve the insertion index from the mode and the optional anchor rule id.
     const insertIndex = mode === 'after'
       ? (() => {
         const idx = pasteDialogTarget?.ruleId ? rules.findIndex((r) => r.id === pasteDialogTarget!.ruleId) : -1
@@ -350,17 +381,21 @@ export default function SafeguardChipsPanel({
     return theme.palette.text.disabled
   }
 
+  // Produces a compact one-line summary shown after the rule name in the chip.
+  // Uses slotLabel (from useSlotMetrics) so labels are localized and consistent
+  // with the full builder panel — no hardcoded English strings here.
   const buildRuleSummary = (rule: SafeguardRule): string => {
     const parts: string[] = []
     const c = rule.combination
     if (c.slots && c.slots.length > 0) {
-      const slotNames: Record<number, string> = { 1: 'Helm', 2: 'Chest', 3: 'Gloves', 4: 'Boots', 5: 'Weapon', 6: 'Shield', 7: 'Ring', 8: 'Amulet', 9: 'Banner' }
-      parts.push(c.slots.map((s) => slotNames[s] ?? `S${s}`).join(', '))
+      // Map each numeric slot ID to its localized name via the shared SSOT resolver.
+      parts.push(c.slots.map((s) => slotLabel(s)).join(', '))
     }
     if (c.ranks && c.ranks.length > 0) {
       parts.push(c.ranks.map((r) => `${r}★`).join('/'))
     }
     if (c.mainStats && c.mainStats.length > 0) {
+      // Show count only — listing full stat names would exceed chip width.
       parts.push(`Main:${c.mainStats.length}`)
     }
     if (rule.substats && rule.substats.length > 0) {

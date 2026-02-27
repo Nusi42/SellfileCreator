@@ -4,6 +4,7 @@ import {
   BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX,
   BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX,
   BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX,
+  BUILDER_SAFEGUARD_CHIPS_MIN_HEIGHT_PX,
   SIDE_BY_SIDE_BREAKPOINT_PX,
 } from '../lib/constants'
 
@@ -254,9 +255,15 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
   }, [isSideBySide, scheduleChipsMeasurement])
 
   // ── Safeguard chips measurement (always runs, independent of side-by-side) ──
+  // Unlike recipe chips, safeguard chips always need a height cap because the
+  // builder form above them has fixed height and the panel is always in
+  // "side-by-side within the builder column" layout.
   const safeguardChipsContainerRef = useRef<HTMLDivElement | null>(null)
+  // Start at the recipe default so the panel renders a reasonable height before
+  // the first measurement fires; the ResizeObserver will correct it immediately.
   const [safeguardChipsMaxHeight, setSafeguardChipsMaxHeightState] = useState<number>(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX)
   const safeguardChipsMaxHeightRef = useRef(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX)
+  // Wrap the state setter to keep the ref in sync for reads inside callbacks.
   const setSafeguardChipsMaxHeight = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
     setSafeguardChipsMaxHeightState((prev) => {
       const next = typeof value === 'function' ? (value as (previous: number) => number)(prev) : value
@@ -270,22 +277,30 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
     const paper = leftPaperRef.current
     if (!container || !paper || typeof window === 'undefined') return
     try {
+      // Prefer visualViewport so the measurement stays correct on mobile/zoom.
       const viewportHeight = window.visualViewport?.height ?? window.innerHeight ?? document.documentElement?.clientHeight ?? 0
       const paperRect = paper.getBoundingClientRect()
       const containerRect = container.getBoundingClientRect()
+      // How much viewport height is available below the paper's top edge.
       const paperAvailable = viewportHeight - paperRect.top - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX
       if (!Number.isFinite(paperAvailable) || paperAvailable <= 0) return
+      // Subtract the container's vertical offset within the paper to get usable chip height.
       const offsetWithinPaper = containerRect.top - paperRect.top
       const rawAvailable = Math.floor(paperAvailable - offsetWithinPaper)
+      // Leave a safe gap at the bottom so the list never bumps the viewport edge.
       const safeAvailable = rawAvailable - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX
       if (!Number.isFinite(safeAvailable) || safeAvailable <= 0) return
-      const next = Math.max(150, safeAvailable)
+      // Floor at the named minimum so the chip list stays usable even in tight viewports.
+      const next = Math.max(BUILDER_SAFEGUARD_CHIPS_MIN_HEIGHT_PX, safeAvailable)
+      // Skip tiny sub-4px changes to avoid jitter from sub-pixel rounding.
       if (Math.abs(safeguardChipsMaxHeightRef.current - next) >= 4) {
         setSafeguardChipsMaxHeight(next)
       }
     } catch {}
   }, [setSafeguardChipsMaxHeight])
 
+  // Attach a ResizeObserver to the chips container. Poll with rAF until the
+  // container mounts (it may render after this effect runs).
   useEffect(() => {
     if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') return
     let frame: number | null = null
@@ -293,6 +308,7 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
     const attach = () => {
       const container = safeguardChipsContainerRef.current
       if (!container) {
+        // Retry next frame — container hasn't mounted yet.
         frame = window.requestAnimationFrame(attach)
         return
       }
@@ -306,14 +322,18 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
     }
   }, [runSafeguardChipsMeasurement])
 
+  // Re-measure whenever the builder paper height changes (form rows added/removed).
   useEffect(() => {
     if (leftHeight === 0) return
     runSafeguardChipsMeasurement()
   }, [leftHeight, runSafeguardChipsMeasurement])
 
+  // Re-measure on window/visualViewport resize so the cap stays correct after
+  // keyboard-open, zoom changes, or browser chrome adjustments.
   useEffect(() => {
     if (typeof window === 'undefined') return
     const handleResize: EventListener = (event) => {
+      // Ignore synthetic resize events fired by our own measurement code.
       if (isSyntheticResizeEvent(event)) return
       runSafeguardChipsMeasurement()
     }

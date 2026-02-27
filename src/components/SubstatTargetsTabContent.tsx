@@ -45,18 +45,24 @@ export function SubstatTargetsTabContent({
 }) {
   const { t } = useI18n()
   const theme = useTheme()
+  // colorStatTexts drives whether ACC/SPD tokens in help text render in stat colors.
   const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
 
   const substatTargetGridRef = useRef<HTMLDivElement | null>(null)
+  // The stored fallback is which star column's values apply when a recipe uses "Any Rank".
   const storedFallback = substatTargets.anyRankDefaultsTo
   const fallbackStar: Star = storedFallback ?? 6
+  // Reuse the builder status chip style for the selected star-header chip.
   const fallbackChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
   const substatTargetsHelp = t('msgSubstatTargetsHelp')
   const recipeOverridesOverrideHint = t('substatTargetsRecipeOverridesOverrideHint')
+  // Split the help text on blank lines so each paragraph renders as its own Typography block.
   const substatTargetsHelpParagraphs = useMemo(() => substatTargetsHelp.split('\n\n'), [substatTargetsHelp])
+  // When recipe overrides are active, show the effective (merged) values rather than stored ones.
   const resolvedEffectiveSubstatTargets = recipeOverridesActive ? effectiveSubstatTargets : substatTargets
   const storedFallbackValue = (substatTargets.anyRankDefaultsTo ?? 6) as Star
   const effectiveFallbackValue = (resolvedEffectiveSubstatTargets.anyRankDefaultsTo ?? 6) as Star
+  // Track whether a recipe override has changed the fallback star so we can badge the header cell.
   const anyRankOverrideActive = recipeOverridesActive && storedFallbackValue !== effectiveFallbackValue
 
   const substatTargetsStarColumns = useMemo(() => ([
@@ -88,13 +94,18 @@ export function SubstatTargetsTabContent({
     </MarkdownTooltip>
   ), [])
 
+  // Writes a single cell value back into the matching star-column slice.
   const updateSubstatTargetValue = React.useCallback((starKey: SubstatTargetStarKey, variantKey: number, nextValue: number) => {
     const slice = substatTargets[starKey]
+    // Spread to avoid mutating the existing slice reference.
     const nextSlice = { ...slice, [variantKey]: nextValue }
     onSubstatTargetsChange({ ...substatTargets, [starKey]: nextSlice })
   }, [substatTargets, onSubstatTargetsChange])
 
+  // Produces a stable Tab-order across the grid: column-major (star → stat)
+  // so pressing Tab moves down each star column before advancing to the next.
   const orderSubstatTargetInputs = React.useCallback((elements: readonly HTMLInputElement[]): readonly HTMLInputElement[] => {
+    // Index each input by its star+variant key for O(1) lookup.
     const byKey = new Map<string, HTMLInputElement>()
     for (const el of elements) {
       const star = el.getAttribute(SUBSTAT_TARGET_INPUT_STAR_ATTR)
@@ -102,6 +113,7 @@ export function SubstatTargetsTabContent({
       if (!star || !variant) continue
       byKey.set(`${star}:${variant}`, el)
     }
+    // Walk columns then rows to produce the desired Tab sequence.
     const ordered: HTMLInputElement[] = []
     for (const { key: starKey } of substatTargetsStarColumns) {
       for (const variant of STAT_VARIANTS_PRIORITY) {
@@ -109,14 +121,18 @@ export function SubstatTargetsTabContent({
         if (match) ordered.push(match)
       }
     }
+    // Fall back to DOM order when the lookup produced nothing.
     return ordered.length > 0 ? ordered : elements
   }, [substatTargetsStarColumns])
 
   const renderSubstatTargetInput = (starKey: SubstatTargetStarKey, variantKey: number, statLabel: string, starLabel: string) => {
+    // Read both stored and effective values so the override badge can compare them.
     const currentValue = Number(substatTargets[starKey]?.[variantKey] ?? 0)
     const effectiveValue = Number(resolvedEffectiveSubstatTargets[starKey]?.[variantKey] ?? 0)
+    // Show the override badge when a recipe override has shifted this cell's value.
     const valueOverrideActive = recipeOverridesActive && effectiveValue !== currentValue
     const ariaLabel = `${statLabel} ${starLabel}`
+    // Clamp to non-negative integers; NaN inputs reset to zero.
     const clampValue = (raw: number): number => {
       if (!Number.isFinite(raw)) return 0
       return Math.max(0, Math.round(raw))
@@ -189,17 +205,21 @@ export function SubstatTargetsTabContent({
     )
   }
 
+  // Replaces [ACC] and [SPD] tokens in help text with localized, optionally colored spans.
+  // Only these two stats need special call-outs in the help copy.
   const renderSubstatTokenizedText = (text: string) => {
     const tokens: React.ReactNode[] = []
     const regex = /\[(ACC|SPD)\]/g
     let lastIndex = 0
     let match: RegExpExecArray | null
     while ((match = regex.exec(text)) !== null) {
+      // Push any plain text that precedes this token.
       if (match.index > lastIndex) {
         tokens.push(text.slice(lastIndex, match.index))
       }
       const variant = match[1] === 'ACC' ? StatVariant.ACC : StatVariant.SPD
       if (colorStatTexts) {
+        // Resolve the foreground color from user's custom map, falling back to palette defaults.
         const color = substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? theme.palette.text.primary
         tokens.push(
           <Box
@@ -211,17 +231,24 @@ export function SubstatTargetsTabContent({
           </Box>,
         )
       } else {
+        // Plain text fallback when stat coloring is disabled.
         tokens.push(t(statVariantI18nKey(variant)))
       }
       lastIndex = regex.lastIndex
     }
+    // Append any trailing text after the last token.
     if (lastIndex < text.length) tokens.push(text.slice(lastIndex))
     return tokens
   }
 
+  // Renders a star column header as a clickable Chip that sets the "Any Rank" fallback.
+  // Selected star uses the active builder-status chip style; others render as plain text.
   const starHeaderCell = ({ label, star }: { label: string; star: Star }) => {
     const isSelected = fallbackStar === star
+    // baseSx comes from the shared builder status chip factory so the selected chip
+    // stays visually consistent with recipe-level status chips elsewhere in the UI.
     const baseSx = (fallbackChipSx(true) ?? {}) as SystemStyleObject<Theme>
+    // Override baseSx for the non-selected state: transparent background, secondary text.
     const plainSx: SystemStyleObject<Theme> = {
       ...baseSx,
       backgroundColor: 'transparent',

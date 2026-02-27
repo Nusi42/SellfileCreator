@@ -12,6 +12,8 @@ export type SlotMetrics = {
   contentWidthPx: string | undefined
   iconGapCss: string
   iconSizePx: string
+  /** Returns the localized display name for a slot numeric ID. SSOT for all slot grids. */
+  slotLabel: (id: number) => string
 }
 
 /**
@@ -19,43 +21,50 @@ export type SlotMetrics = {
  *
  * Measures the longest localized slot label via canvas so slot icon-grid buttons
  * can pin their icons to the same horizontal position regardless of label length.
- * Used by both BuilderPanel (recipe) and SafeguardBuilderPanel (safeguard) slot grids.
+ * Used by both RecipeBuilderPanel and SafeguardBuilderPanel slot grids, and by
+ * SafeguardChipsPanel for chip summaries. slotLabel is the SSOT for slot names.
  */
 export function useSlotMetrics(): SlotMetrics {
   const theme = useTheme()
   const { t } = useI18n()
 
+  // Stable slot-label resolver: all callers go through this function so
+  // the localized names stay consistent across every slot grid and summary.
+  const slotLabel = useMemo(() => (id: number): string => {
+    switch (Number(id)) {
+      case 5: return t('slotWeapon')
+      case 1: return t('slotHelmet')
+      case 6: return t('slotShield')
+      case 3: return t('slotGauntlets')
+      case 2: return t('slotChestplate')
+      case 4: return t('slotBoots')
+      case 7: return t('slotRing')
+      case 8: return t('slotAmulet')
+      case 9: return t('slotBanner')
+      default: return String(id)
+    }
+  }, [t])
+
   const slotLabels = useMemo(
-    () => artifactTypeIconList.map(({ id }) => {
-      switch (Number(id)) {
-        case 5: return t('slotWeapon')
-        case 1: return t('slotHelmet')
-        case 6: return t('slotShield')
-        case 3: return t('slotGauntlets')
-        case 2: return t('slotChestplate')
-        case 4: return t('slotBoots')
-        case 7: return t('slotRing')
-        case 8: return t('slotAmulet')
-        case 9: return t('slotBanner')
-        default: return String(id)
-      }
-    }),
-    [t],
+    // Map each icon-list entry through the shared label resolver for canvas measurement.
+    () => artifactTypeIconList.map(({ id }) => slotLabel(Number(id))),
+    [slotLabel],
   )
 
-  return useMemo<SlotMetrics>(() => {
+  // Measure geometry separately so slotLabel can be returned alongside the pixel values.
+  const geometry = useMemo(() => {
     const gapCss = theme.spacing(0.75)
-    const defaultResult: SlotMetrics = {
-      labelFlexBasis: undefined,
-      contentWidthPx: undefined,
+    const defaultGeometry = {
+      labelFlexBasis: undefined as string | undefined,
+      contentWidthPx: undefined as string | undefined,
       iconGapCss: gapCss,
       iconSizePx: `${SLOT_ICON_SIZE_PX}px`,
     }
-    if (!slotLabels.length) return defaultResult
-    if (typeof document === 'undefined') return defaultResult
+    if (!slotLabels.length) return defaultGeometry
+    if (typeof document === 'undefined') return defaultGeometry
     const canvas = document.createElement('canvas')
     const context = canvas.getContext('2d')
-    if (!context) return defaultResult
+    if (!context) return defaultGeometry
     const buttonTypography = theme.typography.button ?? {}
     const fontFamily = buttonTypography.fontFamily ?? theme.typography.fontFamily ?? 'sans-serif'
     const fontStyle = buttonTypography.fontStyle ?? 'normal'
@@ -66,6 +75,7 @@ export function useSlotMetrics(): SlotMetrics {
     const parentFontSize = typeof theme.typography.fontSize === 'number'
       ? theme.typography.fontSize
       : parseFloat(String(theme.typography.fontSize)) || 14
+    // Converts a CSS size token to pixels, handling rem/em/px and bare numbers.
     const parseSizeToPx = (value: unknown, fallbackPx: number, relativeToPx: number): number => {
       if (typeof value === 'number') return value
       if (value == null) return fallbackPx
@@ -81,6 +91,7 @@ export function useSlotMetrics(): SlotMetrics {
     const letterSpacingPx = parseSizeToPx(buttonTypography.letterSpacing, 0, fontSizePx)
     context.font = `${fontStyle} ${fontWeight} ${fontSizePx}px ${fontFamily}`
     let maxWidth = 0
+    // Find the widest label so all slot buttons can share that flex-basis.
     for (const label of slotLabels) {
       const measured = context.measureText(label).width
       const spacing = Math.max(label.length - 1, 0) * letterSpacingPx
@@ -97,4 +108,7 @@ export function useSlotMetrics(): SlotMetrics {
       iconSizePx: `${SLOT_ICON_SIZE_PX}px`,
     }
   }, [slotLabels, theme])
+
+  // Combine geometry measurements with the shared slotLabel resolver.
+  return useMemo<SlotMetrics>(() => ({ ...geometry, slotLabel }), [geometry, slotLabel])
 }
