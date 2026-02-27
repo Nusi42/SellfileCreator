@@ -357,7 +357,7 @@ const overrides: Catalog = {
   safeguardsSubstatRequirementAll: 'Tutte le Substat scelte',
   safeguardsSubstatRequirementPer: 'Per Substat scelta',
   safeguardsSubstatRequirementHint: '**Requisito di corrispondenza**\n- **Qualsiasi Substat scelta**: deve essere presente almeno una substat scelta.\n- **Tutte le Substat scelte**: devono essere presenti tutte le substat scelte.\n- **Per Substat scelta**: applica la quota separatamente per ogni substat scelta.',
-  safeguardsSubstatModeHint: '**Corrispondenza substat**\n- **Qualsiasi Substat scelta**: deve essere presente almeno una substat scelta.\n- **Tutte le Substat scelte**: devono essere presenti tutte le substat scelte.\n- **Per Substat scelta**: applica la quota separatamente per ogni substat scelta.\n\n**Ranking e pesi**\n- Le substat scelte sono sempre classificate in base al punteggio.\n- I controlli dei pesi sono disponibili solo con **Tutte le Substat scelte**; **Qualsiasi Substat scelta** e **Per Substat scelta** usano la ponderazione predefinita.',
+  safeguardsSubstatModeHint: '**Corrispondenza substat**\n- **Qualsiasi Substat scelta**: deve essere presente almeno una substat scelta.\n- **Tutte le Substat scelte**: devono essere presenti tutte le substat scelte.\n- **Per Substat scelta**: applica la quota separatamente per ogni substat scelta.\n\n**Ranking e pesi**\n- Le substat scelte sono sempre classificate in base al punteggio.\n- I controlli dei pesi sono disponibili con **Qualsiasi Substat scelta** e **Tutte le Substat scelte**; **Per Substat scelta** usa la ponderazione predefinita.',
   safeguardsSubstatWeightsLabel: 'Pesi',
   safeguardsNoRules: 'Nessuna regola di mantenimento.',
   safeguardsAddRule: 'Aggiungi regola di mantenimento',

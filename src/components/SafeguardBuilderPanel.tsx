@@ -918,9 +918,9 @@ export default function SafeguardBuilderPanel({
                         e.stopPropagation()
                         if (!hasSubstatSelection) return
                         if (option === effectiveSubstatMatch) return
-                        // Weights are only valid in All mode — close the popover immediately
-                        // when switching to Any or PerSubstat so it doesn't stay open.
-                        if (option !== SafeguardSubstatMatch.All) setWeightsAnchorEl(null)
+                        // Per Substat disables weights — close the popover immediately
+                        // so it doesn't stay open behind the new mode.
+                        if (option === SafeguardSubstatMatch.PerSubstat) setWeightsAnchorEl(null)
                         updateRule((prev) => ({ ...prev, substatMatch: option }))
                       }}
                       sx={builderStatusChipSx(active, { dimDisabled: true })}
