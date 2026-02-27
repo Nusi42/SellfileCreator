@@ -62,9 +62,11 @@ import {
   BUILDER_LABEL_TEXT_SX,
   BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
   CLEAR_ICON_BUTTON_SIZE_PX,
+  DANGER_TINT_BG,
   FONT_SIZE_BASE_PX,
   HISTORY_TOOLTIP_MAX_WIDTH_PX,
   SMALL_BUTTON_HEIGHT_PX,
+  UI_BG_HOVER_DANGER_TRANSITION,
 } from '../lib/constants'
 
 import type { BuilderRecipe } from '../lib/hsfBuilder/types'
@@ -327,6 +329,9 @@ export default function SafeguardBuilderPanel({
 
   const [weightsAnchorEl, setWeightsAnchorEl] = useState<HTMLElement | null>(null)
   const [scaffoldAnchorEl, setScaffoldAnchorEl] = useState<HTMLElement | null>(null)
+  // Tracks whether the Reset button is being hovered so all resettable sections
+  // can show a red tint — mirrors RecipeBuilderPanel's hoverReset pattern.
+  const [hoverReset, setHoverReset] = useState(false)
   const [scaffoldSearchText, setScaffoldSearchText] = useState('')
   const scaffoldMenuRef = React.useRef<HTMLDivElement | null>(null)
   const closeScaffoldMenu = useCallback(() => {
@@ -473,7 +478,7 @@ export default function SafeguardBuilderPanel({
     }}>
 
       {/* ── Row 0: Rule name (full-width) ─── */}
-      <Box sx={{ gridColumn: '1 / -1' }}>
+      <Box sx={(theme) => ({ gridColumn: '1 / -1', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <TextField
           label={t('safeguardBuilderRuleName')}
           value={rule.name ?? ''}
@@ -504,7 +509,7 @@ export default function SafeguardBuilderPanel({
         flexWrap: 'wrap',
       }}>
         {/* Mode toggle with label */}
-        <FormControl sx={{ flex: '0 0 auto' }}>
+        <FormControl sx={(theme) => ({ flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('safeguardsRuleModeLabel')}</Box>
@@ -571,7 +576,7 @@ export default function SafeguardBuilderPanel({
         </FormControl>
 
         {/* Required count */}
-        <Box sx={{ flex: '0 0 auto' }}>
+        <Box sx={(theme) => ({ flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
           <TextField
             size="small"
             type="number"
@@ -606,7 +611,7 @@ export default function SafeguardBuilderPanel({
         </Box>
 
         {/* Ignore chips — right of required count, stacked in 2 rows */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, flex: '1 1 auto', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
+        <Box sx={(theme) => ({ display: 'flex', flexDirection: 'column', gap: 0.75, flex: '1 1 auto', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
           {/* Row 1: ignore previous safeguards */}
           <Box sx={{ display: 'flex' }}>
             <MarkdownTooltip markdown={t('safeguardsIgnorePreviousSafeguardsHint')} ellipsisTitle={t('safeguardsIgnorePreviousSafeguards')} ellipsisSelector=".MuiChip-label">
@@ -711,13 +716,16 @@ export default function SafeguardBuilderPanel({
       </Box>
 
       {/* ── Row 2 left: Rank | Rarity | Faction (nested 3-col, mirrors BuilderPanel) ── */}
-      <Box sx={{
+      <Box sx={(theme) => ({
         gridColumn: '1 / 3',
         display: 'grid',
         gridTemplateColumns: 'repeat(3, minmax(180px, 1fr))',
         columnGap: 1,
         rowGap: 2,
-      }}>
+        borderRadius: 1,
+        transition: UI_BG_HOVER_DANGER_TRANSITION,
+        backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
+      })}>
 
         {/* Rank */}
         <FormControl fullWidth>
@@ -779,7 +787,7 @@ export default function SafeguardBuilderPanel({
 
 
       {/* ── Row 3 left: Main stat + perMainStat chip ──────────────────────── */}
-      <Box sx={{ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+      <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
@@ -840,7 +848,7 @@ export default function SafeguardBuilderPanel({
       </Box>
 
       {/* ── Row 3 right: Substats + match chips + weights ─────────────────── */}
-      <Box sx={{ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+      <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
@@ -944,7 +952,7 @@ export default function SafeguardBuilderPanel({
       </Box>
 
       {/* ── Row 4 left: Slots icon grid + perSlot chip ────────────────────── */}
-      <Box sx={{ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+      <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
@@ -1049,7 +1057,7 @@ export default function SafeguardBuilderPanel({
       </Box>
 
       {/* ── Row 4 right: Sets selector + perSet chip ──────────────────────── */}
-      <Box sx={{ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+      <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl fullWidth>
           <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
             <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderSets')}</Box>
@@ -1149,9 +1157,9 @@ export default function SafeguardBuilderPanel({
           <Box
             component="span"
             onContextMenu={handleResetContextMenu}
-            onMouseEnter={handleResetHintMouseEnter}
+            onMouseEnter={(e) => { setHoverReset(true); handleResetHintMouseEnter(e) }}
             onMouseMove={handleResetHintMouseMove}
-            onMouseLeave={handleResetHintMouseLeave}
+            onMouseLeave={() => { setHoverReset(false); handleResetHintMouseLeave() }}
           >
             <Button
               size="small"
