@@ -1206,7 +1206,8 @@ ${t('safeguardsIgnoreOptionsHint')}`
     const ruleCountsTooltip = [detectionScopeLine, ruleCountsMissingLine].filter(Boolean).join('\n')
     // Summary title: name is optional, so fall back to a muted placeholder for fast scanning.
     const rawName = (pendingNameById.get(rule.id) ?? rule.name ?? '').trim()
-    const summaryTitle = rawName || `${t('testerRule')} ${ruleIndex + 1}`
+    const nameDecoration = parseRecipeNameDirectives(rawName || undefined, '')
+    const summaryTitle = nameDecoration.displayName || `${t('testerRule')} ${ruleIndex + 1}`
     const isEditingRuleName = editingRuleNameId === rule.id
     // Summary status keeps the header scannable: checkmark when active, X when Off.
     const ruleActive = rule.activation !== SafeguardRuleActivation.Off
@@ -1314,7 +1315,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
                 }}
               />
             ) : (
-              <EllipsisTooltip title={rawName || summaryTitle}>
+              <EllipsisTooltip title={summaryTitle}>
                 <ButtonBase
                   onClick={handleRuleTitleClick}
                   onDoubleClick={(event) => {
@@ -1343,7 +1344,9 @@ ${t('safeguardsIgnoreOptionsHint')}`
                       minWidth: 0,
                       fontWeight: 400,
                       fontStyle: rawName ? 'normal' : 'italic',
-                      color: rawName ? 'text.primary' : 'text.secondary',
+                      color: rawName
+                        ? (nameDecoration.hasExplicitColor ? nameDecoration.resolvedColor : 'text.primary')
+                        : 'text.secondary',
                       // Clamp to 2 lines (with ellipsis) without changing header height.
                       display: '-webkit-box',
                       WebkitBoxOrient: 'vertical',

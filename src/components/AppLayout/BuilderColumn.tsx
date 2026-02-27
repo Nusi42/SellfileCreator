@@ -1,8 +1,7 @@
-import { Box, Button, Paper, Typography } from '@mui/material'
+import { Box, Paper, Typography } from '@mui/material'
 import type { MutableRefObject, ReactNode } from 'react'
 
 import { PANEL_WIDTH_PX, SIDE_BY_SIDE_BREAKPOINT_PX } from '../../lib/constants'
-import MarkdownTooltip from '../MarkdownTooltip'
 
 /**
  * BuilderColumn renders the builder-side layout: the rule form header, metaset controls, recipe chips,
@@ -13,11 +12,9 @@ export type BuilderColumnProps = {
   paperRef: MutableRefObject<HTMLDivElement | null>
   sideBySideMinPaperHeightPx: string | undefined
   forceSideBySide?: boolean
-  title: string
+  title: ReactNode
   caption?: string
-  substatTargetsLabel: string
-  substatTargetsTooltip: string
-  onOpenSubstatValues: () => void
+  substatTargets?: ReactNode
   builderPanel: ReactNode
   headerActions: ReactNode
   metasetConflictDialog: ReactNode
@@ -32,9 +29,7 @@ export function BuilderColumn({
   forceSideBySide = false,
   title,
   caption,
-  substatTargetsLabel,
-  substatTargetsTooltip,
-  onOpenSubstatValues,
+  substatTargets,
   builderPanel,
   headerActions,
   metasetConflictDialog,
@@ -62,10 +57,12 @@ export function BuilderColumn({
       data-tour-id="builder.panel"
     >
       <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column' }} data-tour-id="builder.core">
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', columnGap: 1, mb: 1.25 }}>
-          <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>
-            {title}
-          </Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', columnGap: 1, mb: 2 }}>
+          {typeof title === 'string' ? (
+            <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>
+              {title}
+            </Typography>
+          ) : title}
           {caption ? (
             <Typography variant="caption" color="text.secondary">
               {caption}
@@ -73,18 +70,7 @@ export function BuilderColumn({
           ) : (
             <Box />
           )}
-          <MarkdownTooltip markdown={substatTargetsTooltip}>
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={onOpenSubstatValues}
-              // Keep a stable test hook so Playwright can target the button without localized labels.
-              data-tour-id="builder.substat-targets"
-              sx={{ whiteSpace: 'nowrap', minWidth: 160, justifySelf: 'end' }}
-            >
-              {substatTargetsLabel}
-            </Button>
-          </MarkdownTooltip>
+          {substatTargets ?? <Box />}
         </Box>
         <Box sx={{ position: 'relative', flexShrink: 0 }}>{builderPanel}</Box>
         <Box sx={{ flexShrink: 0 }}>{headerActions}</Box>

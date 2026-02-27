@@ -146,6 +146,10 @@ interface RecipeChipProps {
   onDeleteAllRecipes?: () => void
   deleteAllDisabled?: boolean
   onHighlightDelete?: (active: boolean) => void
+  onInsertAsSafeguard?: () => void
+  insertAsSafeguardLabel?: string
+  onApplyAsSafeguard?: () => void
+  applyAsSafeguardLabel?: string
   isLast: boolean
   onHover: (enter: boolean) => void
   metasets: Metaset[]
@@ -183,6 +187,10 @@ function RecipeChip({
   onDeleteAllRecipes,
   deleteAllDisabled,
   onHighlightDelete,
+  onInsertAsSafeguard,
+  insertAsSafeguardLabel,
+  onApplyAsSafeguard,
+  applyAsSafeguardLabel,
   isLast,
   onHover,
   metasets,
@@ -571,6 +579,8 @@ function RecipeChip({
         onPaperContextMenu={handleMenuContextMenu}
         contextMenuGuard={contextMenuGuard}
         actions={{
+          ...(onInsertAsSafeguard ? { insertAsSafeguard: { handler: onInsertAsSafeguard, label: insertAsSafeguardLabel ?? '' } } : {}),
+          ...(onApplyAsSafeguard ? { applyAsSafeguard: { handler: onApplyAsSafeguard, label: applyAsSafeguardLabel ?? '' } } : {}),
           duplicate: onDuplicate,
           moveTop: { handler: onMoveTop, disabled: index === 0 },
           moveUp: { handler: onMoveUp, disabled: index === 0 },
@@ -636,6 +646,10 @@ function areRecipeChipPropsEqual(prev: Readonly<RecipeChipProps>, next: Readonly
     && prev.selectAllLabelKey === next.selectAllLabelKey
     && prev.onDeleteAllRecipes === next.onDeleteAllRecipes
     && prev.onHighlightDelete === next.onHighlightDelete
+    && prev.onInsertAsSafeguard === next.onInsertAsSafeguard
+    && prev.insertAsSafeguardLabel === next.insertAsSafeguardLabel
+    && prev.onApplyAsSafeguard === next.onApplyAsSafeguard
+    && prev.applyAsSafeguardLabel === next.applyAsSafeguardLabel
     && prev.onPasteAtEnd === next.onPasteAtEnd
 }
 

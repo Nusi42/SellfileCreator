@@ -49,6 +49,7 @@ export type RestoreDraft = {
   FinalSellRemainder?: FinalSellRemainderConfig
   Safeguards?: SafeguardRule[]
   SafeguardsEnabled?: boolean
+  RecipesEnabled?: boolean
   SelectedRecipeIndex?: number
   Note?: string
   NoteRecipeOverridesAnswers?: NoteRecipeOverridesAnswers
@@ -229,6 +230,7 @@ function computeInitialAutosaveState(args: {
   testerSort: TesterSubstatSortState
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
+  recipesEnabled: boolean
   safeguardsGridFilterMode: SafeguardsGridFilterMode
   storedRuntimeGearSetCount: number
 }): InitialAutosaveState {
@@ -367,6 +369,7 @@ export function useAutosaveRestore(opts: {
   testerSort: TesterSubstatSortState
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
+  recipesEnabled: boolean
   logicHubDialogTab: LogicHubDialogTab
   safeguardsGridFilterMode: SafeguardsGridFilterMode
   storedRuntimeGearSetCount: number
@@ -386,6 +389,7 @@ export function useAutosaveRestore(opts: {
     testerSort,
     safeguardRules,
     safeguardsEnabled,
+    recipesEnabled,
     logicHubDialogTab,
     safeguardsGridFilterMode,
     storedRuntimeGearSetCount,
@@ -405,6 +409,7 @@ export function useAutosaveRestore(opts: {
       testerSort,
       safeguardRules,
       safeguardsEnabled,
+      recipesEnabled,
       safeguardsGridFilterMode,
       storedRuntimeGearSetCount,
     })
@@ -431,6 +436,7 @@ export function useAutosaveRestore(opts: {
       FinalSellRemainder: finalSellRemainder,
       Safeguards: safeguardRules,
       SafeguardsEnabled: safeguardsEnabled,
+      RecipesEnabled: recipesEnabled,
       LogicHubDialogTab: logicHubDialogTab,
       SafeguardsGridFilterMode: safeguardsGridFilterMode,
       // Persist note content and recipe overrides answers only when present.
@@ -456,6 +462,7 @@ export function useAutosaveRestore(opts: {
     testerSort,
     safeguardRules,
     safeguardsEnabled,
+    recipesEnabled,
     logicHubDialogTab,
     safeguardsGridFilterMode,
   ])

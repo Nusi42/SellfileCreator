@@ -1,0 +1,627 @@
+/**
+ * SafeguardChipsPanel
+ *
+ * Rule chip list for the Safeguard Builder column. Manages add / delete / duplicate /
+ * reorder / rename and exposes the selected rule id so the builder form can display
+ * the right data. Mirrors the chip-management surface of SafeguardsTab without the
+ * detection grid.
+ */
+import React, { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  TextField,
+  Typography,
+} from '@mui/material'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
+import { alpha, useTheme } from '@mui/material/styles'
+import {
+  BUILDER_AUTO_APPLY_DEBOUNCE_MS,
+  BUILDER_RECIPE_CHIPS_EMPTY_MIN_HEIGHT_PX,
+  HOVER_BG_ALPHA,
+  RECIPE_CHIP_BORDER_RADIUS_PX,
+  RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
+  RECIPE_CHIP_VERTICAL_PADDING_PX,
+  SELECTED_HOVER_BG_ALPHA,
+} from '../lib/constants'
+import {
+  SafeguardRuleActivation,
+  cloneSafeguardRule,
+  createSafeguardRuleId,
+  normalizeSafeguardRule,
+  type SafeguardRule,
+} from '../lib/safeguards'
+import { buildReadableSafeguardRuleEntry } from '../lib/sfrIO'
+import { useI18n } from '../lib/i18n'
+import { readTextSafe, triggerCopyDialog, writeTextSafe } from '../lib/clipboard'
+import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
+import { RecipeContextMenu } from './RecipeContextMenu'
+import PasteDialog from './PasteDialog'
+import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
+import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
+
+
+export type SafeguardChipsPanelProps = {
+  rules: SafeguardRule[]
+  selectedRuleId: string | null
+  onSelect: (ruleId: string) => void
+  onRulesChange: (next: SafeguardRule[]) => void
+  maxHeightPx: number | undefined
+  containerRef?: React.MutableRefObject<HTMLDivElement | null>
+  /** When set, only chips whose rule ID is in this set are shown (mirrors recipe visibleIndices). */
+  visibleRuleIds?: ReadonlySet<string> | null
+}
+
+export default function SafeguardChipsPanel({
+  rules,
+  selectedRuleId,
+  onSelect,
+  onRulesChange,
+  maxHeightPx,
+  containerRef,
+  visibleRuleIds,
+}: SafeguardChipsPanelProps) {
+  const { t } = useI18n()
+  const theme = useTheme()
+
+  // ── internal state ───────────────────────────────────────────────────────
+  const [editingRuleNameId, setEditingRuleNameId] = useState<string | null>(null)
+  const [pendingNameById, setPendingNameById] = useState<Map<string, string>>(() => new Map())
+  const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
+  const [pendingDeleteAll, setPendingDeleteAll] = useState(false)
+  const [ruleMenu, setRuleMenu] = useState<{ ruleId: string; x: number; y: number } | null>(null)
+  const [pasteDialogTarget, setPasteDialogTarget] = useState<{ mode: 'after' | 'end'; ruleId?: string } | null>(null)
+  const [pasteDialogText, setPasteDialogText] = useState('')
+  const [pasteDialogError, setPasteDialogError] = useState<string | null>(null)
+
+  const ruleMenuRef = useRef<HTMLDivElement | null>(null)
+  const nameCommitTimerRef = useRef<number | null>(null)
+  const scrollRootRef = useRef<HTMLDivElement | null>(null)
+  const scrollRafRef = useRef<number | null>(null)
+
+  const { contextMenuGuard: ruleMenuGuard } = useContextMenuPaperGuard({
+    open: Boolean(ruleMenu),
+    onClose: useCallback(() => setRuleMenu(null), []),
+    menuRef: ruleMenuRef,
+  })
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+
+  const mutateRules = useCallback((action: SafeguardRule[] | ((prev: SafeguardRule[]) => SafeguardRule[])) => {
+    const next = typeof action === 'function' ? action(rules) : action
+    onRulesChange(next)
+  }, [rules, onRulesChange])
+
+  // ── name editing ─────────────────────────────────────────────────────────
+
+  const cancelNameCommitTimer = useCallback(() => {
+    if (nameCommitTimerRef.current !== null) {
+      window.clearTimeout(nameCommitTimerRef.current)
+      nameCommitTimerRef.current = null
+    }
+  }, [])
+
+  const flushPendingName = useCallback((ruleId: string) => {
+    const nextName = pendingNameById.get(ruleId)
+    if (nextName === undefined) return
+    mutateRules((prev) => prev.map((r) => r.id === ruleId ? (r.name === nextName ? r : { ...r, name: nextName }) : r))
+  }, [pendingNameById, mutateRules])
+
+  const scheduleNameCommit = useCallback((ruleId: string) => {
+    cancelNameCommitTimer()
+    nameCommitTimerRef.current = window.setTimeout(() => {
+      nameCommitTimerRef.current = null
+      flushPendingName(ruleId)
+    }, BUILDER_AUTO_APPLY_DEBOUNCE_MS)
+  }, [cancelNameCommitTimer, flushPendingName])
+
+  useEffect(() => () => cancelNameCommitTimer(), [cancelNameCommitTimer])
+
+  const startRuleNameEdit = useCallback((ruleId: string, persistedName: string) => {
+    setPendingNameById((prev) => {
+      const next = new Map(prev)
+      next.set(ruleId, persistedName ?? '')
+      return next
+    })
+    setEditingRuleNameId(ruleId)
+  }, [])
+
+  const finishRuleNameEdit = useCallback((ruleId: string, commit: boolean) => {
+    cancelNameCommitTimer()
+    if (commit) {
+      flushPendingName(ruleId)
+    } else {
+      setPendingNameById((prev) => {
+        if (!prev.has(ruleId)) return prev
+        const next = new Map(prev)
+        next.delete(ruleId)
+        return next
+      })
+    }
+    setEditingRuleNameId((prev) => (prev === ruleId ? null : prev))
+  }, [cancelNameCommitTimer, flushPendingName])
+
+  // ── rule management ───────────────────────────────────────────────────────
+
+  const scheduleScrollToRule = useCallback((ruleId: string) => {
+    if (scrollRafRef.current !== null) {
+      window.cancelAnimationFrame(scrollRafRef.current)
+      scrollRafRef.current = null
+    }
+    const maxAttempts = 8
+    const tryScroll = (attempt: number) => {
+      const root = scrollRootRef.current
+      const target = root?.querySelector(`[data-safeguards-rule-id="${ruleId}"]`) as HTMLElement | null
+      if (target) {
+        target.scrollIntoView({ block: 'nearest' })
+        scrollRafRef.current = null
+        return
+      }
+      if (attempt >= maxAttempts) { scrollRafRef.current = null; return }
+      scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(attempt + 1))
+    }
+    scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(0))
+  }, [])
+
+  useEffect(() => () => {
+    if (scrollRafRef.current === null) return
+    window.cancelAnimationFrame(scrollRafRef.current)
+    scrollRafRef.current = null
+  }, [])
+
+  const handleDeleteRule = useCallback((ruleId: string) => {
+    let filtered: SafeguardRule[] = []
+    mutateRules((prev) => {
+      filtered = prev.filter((r) => r.id !== ruleId)
+      return filtered
+    })
+    if (ruleMenu?.ruleId === ruleId) setRuleMenu(null)
+    if (filtered.length > 0 && selectedRuleId === ruleId) {
+      onSelect(filtered[0]!.id)
+    }
+  }, [mutateRules, ruleMenu, selectedRuleId, onSelect])
+
+  const handleConfirmDeleteRule = useCallback(() => {
+    if (!pendingDeleteRuleId) return
+    handleDeleteRule(pendingDeleteRuleId)
+    setPendingDeleteRuleId(null)
+  }, [handleDeleteRule, pendingDeleteRuleId])
+
+  const handleConfirmDeleteAll = useCallback(() => {
+    mutateRules([])
+    setPendingDeleteAll(false)
+    setRuleMenu(null)
+  }, [mutateRules])
+
+  const handleDuplicateRule = useCallback((ruleId: string) => {
+    const sourceIndex = rules.findIndex((r) => r.id === ruleId)
+    if (sourceIndex === -1) return
+    const source = rules[sourceIndex]
+    if (!source) return
+    const cloneId = createSafeguardRuleId()
+    const duplicated: SafeguardRule = { ...source, id: cloneId, combination: { ...source.combination } }
+    const next = rules.slice()
+    next.splice(sourceIndex + 1, 0, duplicated)
+    mutateRules(next)
+    onSelect(cloneId)
+    scheduleScrollToRule(cloneId)
+  }, [mutateRules, rules, onSelect, scheduleScrollToRule])
+
+  const moveRule = useCallback((ruleId: string, targetIndex: number) => {
+    mutateRules((prev) => {
+      const idx = prev.findIndex((r) => r.id === ruleId)
+      if (idx === -1) return prev
+      const safeTarget = Math.min(Math.max(targetIndex, 0), prev.length - 1)
+      if (safeTarget === idx) return prev
+      const next = prev.slice()
+      const [moved] = next.splice(idx, 1)
+      if (!moved) return prev
+      next.splice(safeTarget, 0, moved)
+      return next
+    })
+  }, [mutateRules])
+
+  const openRuleMenu = useCallback((event: ReactMouseEvent<HTMLElement>, ruleId: string) => {
+    event.preventDefault()
+    event.stopPropagation()
+    onSelect(ruleId)
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = event.clientX || Math.round(rect.left + rect.width / 2)
+    const y = event.clientY || Math.round(rect.top + rect.height / 2)
+    setRuleMenu({ ruleId, x, y })
+  }, [onSelect])
+
+  // ── clipboard / paste ─────────────────────────────────────────────────────
+
+  const parseSafeguardClipboardRules = useCallback((raw: string | null): SafeguardRule[] => {
+    if (!raw || raw.trim().length === 0) return []
+    try {
+      const parsed = JSON.parse(raw)
+      const candidate = (
+        parsed && typeof parsed === 'object' && 'kind' in parsed && (parsed as { kind?: unknown }).kind === 'safeguardRule'
+          ? (parsed as { rule?: unknown }).rule
+          : parsed
+      )
+      const rawList = Array.isArray(candidate) ? candidate : [candidate]
+      const normalized = rawList
+        .map((entry) => normalizeSafeguardRule(entry))
+        .filter((entry): entry is SafeguardRule => Boolean(entry))
+      if (normalized.length === 0) return []
+      return normalized.map((r) => cloneSafeguardRule(r))
+    } catch { return [] }
+  }, [])
+
+  const insertSafeguardRulesAt = useCallback((rulesToInsert: SafeguardRule[], insertIndex: number) => {
+    const newRuleIds: string[] = []
+    mutateRules((prev) => {
+      if (rulesToInsert.length === 0) return prev
+      const safeIndex = Math.min(Math.max(insertIndex, 0), prev.length)
+      const next = prev.slice()
+      let offset = 0
+      for (const sourceRule of rulesToInsert) {
+        const clone = cloneSafeguardRule(sourceRule)
+        const cloneId = createSafeguardRuleId()
+        clone.id = cloneId
+        newRuleIds.push(cloneId)
+        next.splice(safeIndex + offset, 0, clone)
+        offset += 1
+      }
+      return next
+    })
+    const [firstId] = newRuleIds
+    if (!firstId) return
+    onSelect(firstId)
+    scheduleScrollToRule(firstId)
+  }, [mutateRules, onSelect, scheduleScrollToRule])
+
+  const closePasteDialog = useCallback(() => {
+    setPasteDialogTarget(null)
+    setPasteDialogText('')
+    setPasteDialogError(null)
+  }, [])
+
+  const openPasteDialog = useCallback((mode: 'after' | 'end', ruleId?: string, text = '') => {
+    setPasteDialogTarget({ mode, ...(ruleId ? { ruleId } : {}) })
+    setPasteDialogText(text)
+    setPasteDialogError(null)
+  }, [])
+
+  const handleCopyRule = useCallback(async (ruleId: string) => {
+    const source = rules.find((r) => r.id === ruleId)
+    if (!source) return
+    const snapshot = buildReadableSafeguardRuleEntry(source)
+    const payload = { kind: 'safeguardRule', rule: snapshot }
+    const text = JSON.stringify(payload, null, 2)
+    const ok = await writeTextSafe(text)
+    if (!ok) triggerCopyDialog(text)
+  }, [rules])
+
+  const handlePasteAfterRule = useCallback(async (ruleId: string) => {
+    const text = await readTextSafe()
+    const parsed = parseSafeguardClipboardRules(text)
+    if (parsed.length > 0) {
+      const idx = rules.findIndex((r) => r.id === ruleId)
+      insertSafeguardRulesAt(parsed, idx === -1 ? rules.length : idx + 1)
+      return
+    }
+    openPasteDialog('after', ruleId, text ?? '')
+  }, [insertSafeguardRulesAt, openPasteDialog, parseSafeguardClipboardRules, rules])
+
+  const handlePasteAtEnd = useCallback(async () => {
+    const text = await readTextSafe()
+    const parsed = parseSafeguardClipboardRules(text)
+    if (parsed.length > 0) {
+      insertSafeguardRulesAt(parsed, rules.length)
+      return
+    }
+    openPasteDialog('end', undefined, text ?? '')
+  }, [insertSafeguardRulesAt, openPasteDialog, parseSafeguardClipboardRules, rules.length])
+
+  const handleConfirmPasteDialog = useCallback(() => {
+    const parsed = parseSafeguardClipboardRules(pasteDialogText)
+    if (parsed.length === 0) {
+      setPasteDialogError('No valid safeguard rule found in pasted text')
+      return
+    }
+    const mode = pasteDialogTarget?.mode ?? 'end'
+    const insertIndex = mode === 'after'
+      ? (() => {
+        const idx = pasteDialogTarget?.ruleId ? rules.findIndex((r) => r.id === pasteDialogTarget!.ruleId) : -1
+        return idx === -1 ? rules.length : idx + 1
+      })()
+      : rules.length
+    insertSafeguardRulesAt(parsed, insertIndex)
+    closePasteDialog()
+  }, [closePasteDialog, insertSafeguardRulesAt, parseSafeguardClipboardRules, pasteDialogTarget, pasteDialogText, rules])
+
+  // ── render ────────────────────────────────────────────────────────────────
+
+  const activationColor = (activation: SafeguardRule['activation']): string => {
+    if (activation === SafeguardRuleActivation.ProtectExisting) return theme.palette.success.main
+    if (activation === SafeguardRuleActivation.AnticipateGaps) return theme.palette.warning.main
+    return theme.palette.text.disabled
+  }
+
+  const buildRuleSummary = (rule: SafeguardRule): string => {
+    const parts: string[] = []
+    const c = rule.combination
+    if (c.slots && c.slots.length > 0) {
+      const slotNames: Record<number, string> = { 1: 'Helm', 2: 'Chest', 3: 'Gloves', 4: 'Boots', 5: 'Weapon', 6: 'Shield', 7: 'Ring', 8: 'Amulet', 9: 'Banner' }
+      parts.push(c.slots.map((s) => slotNames[s] ?? `S${s}`).join(', '))
+    }
+    if (c.ranks && c.ranks.length > 0) {
+      parts.push(c.ranks.map((r) => `${r}★`).join('/'))
+    }
+    if (c.mainStats && c.mainStats.length > 0) {
+      parts.push(`Main:${c.mainStats.length}`)
+    }
+    if (rule.substats && rule.substats.length > 0) {
+      parts.push(`Sub:${rule.substats.length}`)
+    }
+    return parts.join(' · ')
+  }
+
+  const renderChip = (rule: SafeguardRule, ruleIndex: number) => {
+    const selected = selectedRuleId === rule.id
+    const isEditingRuleName = editingRuleNameId === rule.id
+    const rawName = (pendingNameById.get(rule.id) ?? rule.name ?? '').trim()
+    const fallbackName = `${t('testerRule')} ${ruleIndex + 1}`
+    const nameDecoration = parseRecipeNameDirectives(rawName || undefined, 'inherit')
+    const displayName = nameDecoration.displayName || fallbackName
+    const actColor = activationColor(rule.activation)
+    const actText = rule.activation === SafeguardRuleActivation.ProtectExisting
+      ? t('safeguardsRuleModeProtectShort')
+      : rule.activation === SafeguardRuleActivation.AnticipateGaps
+        ? t('safeguardsRuleModeAnticipateShort')
+        : t('safeguardsRuleModeOffShort')
+    const summary = buildRuleSummary(rule)
+    const isFirst = ruleIndex === 0
+    const isLast = ruleIndex === rules.length - 1
+
+    return (
+      <Box
+        key={rule.id}
+        data-safeguards-rule-id={rule.id}
+        data-linked-hover="false"
+        onMouseEnter={(e) => (e.currentTarget as HTMLElement).setAttribute('data-linked-hover', 'true')}
+        onMouseLeave={(e) => (e.currentTarget as HTMLElement).setAttribute('data-linked-hover', 'false')}
+        onClick={() => onSelect(rule.id)}
+        onContextMenu={(event) => openRuleMenu(event, rule.id)}
+        sx={(themeCtx) => {
+          const hoverBg = alpha(themeCtx.palette.primary.main, themeCtx.palette.mode === 'dark' ? HOVER_BG_ALPHA.dark : HOVER_BG_ALPHA.light)
+          const selectedHoverBg = alpha(themeCtx.palette.primary.main, themeCtx.palette.mode === 'dark' ? SELECTED_HOVER_BG_ALPHA.dark : SELECTED_HOVER_BG_ALPHA.light)
+          return {
+            position: 'relative',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.5,
+            maxWidth: '100%',
+            width: '100%',
+            overflow: 'hidden',
+            border: '1px solid',
+            borderColor: selected ? themeCtx.palette.primary.main : themeCtx.palette.divider,
+            backgroundColor: selected ? themeCtx.palette.action.selected : 'transparent',
+            borderRadius: `${RECIPE_CHIP_BORDER_RADIUS_PX}px`,
+            pl: 1,
+            pr: 0.4,
+            py: `${RECIPE_CHIP_VERTICAL_PADDING_PX}px`,
+            cursor: 'pointer',
+            flex: '0 0 auto',
+            '&[data-linked-hover="true"]': {
+              backgroundColor: selected ? selectedHoverBg : hoverBg,
+              borderColor: themeCtx.palette.primary.main,
+            },
+          }
+        }}
+      >
+        {/* Text content */}
+        {isEditingRuleName ? (
+          <>
+            <Typography variant="caption" component="span" sx={{ flexShrink: 0, color: 'text.disabled', pr: 0.25 }}>
+              {`${ruleIndex + 1}.`}
+            </Typography>
+            <TextField
+              size="small"
+              autoFocus
+              value={pendingNameById.get(rule.id) ?? rule.name ?? ''}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
+              onChange={(e) => {
+                const raw = e.target.value ?? ''
+                setPendingNameById((prev) => { const next = new Map(prev); next.set(rule.id, raw); return next })
+                scheduleNameCommit(rule.id)
+              }}
+              onBlur={() => finishRuleNameEdit(rule.id, true)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); finishRuleNameEdit(rule.id, true); return }
+                if (e.key === 'Escape') { e.preventDefault(); finishRuleNameEdit(rule.id, false) }
+              }}
+              sx={{ flex: '1 1 auto', minWidth: 0, mr: 0.5 }}
+              inputProps={{ style: { fontSize: '0.75rem', padding: '2px 6px' } }}
+            />
+            <Box component="span" sx={{ color: actColor, fontWeight: 600, fontSize: '0.75rem', flexShrink: 0, mr: 0.5 }}>
+              {actText}
+            </Box>
+          </>
+        ) : (
+          <Typography
+            variant="caption"
+            sx={{ mr: 0.5, flex: '1 1 auto', minWidth: 0, overflow: 'hidden', wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+          >
+            <Box component="span" sx={{ display: 'inline' }}>
+              {`${ruleIndex + 1}. `}
+              <Box
+                component="span"
+                onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); startRuleNameEdit(rule.id, rule.name ?? '') }}
+                onKeyDown={(e) => {
+                  if (e.key !== 'F2') return
+                  e.preventDefault(); e.stopPropagation()
+                  startRuleNameEdit(rule.id, rule.name ?? '')
+                }}
+                sx={{
+                  fontStyle: rawName ? 'normal' : 'italic',
+                  color: rawName
+                    ? (nameDecoration.hasExplicitColor ? nameDecoration.resolvedColor : 'inherit')
+                    : 'text.secondary',
+                }}
+              >
+                {displayName}
+              </Box>
+              {' — '}
+              <Box component="span" sx={{ color: actColor, fontWeight: 600 }}>{actText}</Box>
+              {summary ? ` | ${summary}` : null}
+            </Box>
+          </Typography>
+        )}
+
+        {/* Action buttons — directly in the row, matching RecipeChip */}
+        <IconButton
+          size="small"
+          aria-label={t('chipMenuMoveUp')}
+          disabled={isFirst}
+          onClick={(e) => { e.stopPropagation(); moveRule(rule.id, ruleIndex - 1) }}
+          sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
+        >
+          <ArrowUpwardIcon fontSize="inherit" />
+        </IconButton>
+        <IconButton
+          size="small"
+          aria-label={t('chipMenuMoveDown')}
+          disabled={isLast}
+          onClick={(e) => { e.stopPropagation(); moveRule(rule.id, ruleIndex + 1) }}
+          sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
+        >
+          <ArrowDownwardIcon fontSize="inherit" />
+        </IconButton>
+        <IconButton
+          size="small"
+          aria-label={t('safeguardsDuplicateRule')}
+          onClick={(e) => { e.stopPropagation(); handleDuplicateRule(rule.id) }}
+          sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
+        >
+          <ContentCopyIcon fontSize="inherit" />
+        </IconButton>
+        <IconButton
+          size="small"
+          aria-label={t('safeguardsDeleteRule')}
+          onClick={(e) => { e.stopPropagation(); setPendingDeleteRuleId(rule.id) }}
+          color="error"
+          sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
+        >
+          <DeleteOutlineIcon fontSize="inherit" />
+        </IconButton>
+      </Box>
+    )
+  }
+
+  const pasteDialogConfirmLabel = pasteDialogTarget?.mode === 'after'
+    ? t('chipMenuPasteAfter')
+    : t('chipsMenuPasteAtEnd')
+
+  return (
+    <>
+      <RecipeContextMenu
+        open={Boolean(ruleMenu)}
+        anchorPosition={ruleMenu ? { top: ruleMenu.y, left: ruleMenu.x } : null}
+        onClose={() => setRuleMenu(null)}
+        paperRef={ruleMenuRef}
+        paperDataTourId="keepuniques.rule-menu"
+        onPaperContextMenu={(e) => { e.preventDefault(); e.stopPropagation() }}
+        contextMenuGuard={ruleMenuGuard}
+        actions={(() => {
+          if (!ruleMenu) return {}
+          const idx = rules.findIndex((r) => r.id === ruleMenu.ruleId)
+          const isFirst = idx <= 0
+          const isLast = idx < 0 || idx === rules.length - 1
+          return {
+            moveTop: { handler: () => moveRule(ruleMenu.ruleId, 0), disabled: isFirst },
+            moveUp: { handler: () => moveRule(ruleMenu.ruleId, idx - 1), disabled: isFirst },
+            moveDown: { handler: () => moveRule(ruleMenu.ruleId, idx + 1), disabled: isLast },
+            moveBottom: { handler: () => moveRule(ruleMenu.ruleId, rules.length - 1), disabled: isLast },
+            copyRecipe: () => handleCopyRule(ruleMenu.ruleId),
+            pasteAfter: () => handlePasteAfterRule(ruleMenu.ruleId),
+            pasteAtEnd: handlePasteAtEnd,
+            deleteAll: { handler: () => setPendingDeleteAll(true), disabled: rules.length === 0, labelKey: 'safeguardsDeleteAll' },
+          }
+        })()}
+      />
+      <PasteDialog
+        open={Boolean(pasteDialogTarget)}
+        text={pasteDialogText}
+        error={pasteDialogError}
+        confirmLabel={pasteDialogConfirmLabel}
+        onTextChange={(value) => { setPasteDialogText(value); if (pasteDialogError) setPasteDialogError(null) }}
+        onCancel={closePasteDialog}
+        onConfirm={handleConfirmPasteDialog}
+      />
+      <Dialog open={pendingDeleteRuleId !== null} onClose={() => setPendingDeleteRuleId(null)}>
+        <DialogTitle>{t('safeguardsDeleteRuleTitle')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">{t('safeguardsDeleteRuleMessage')}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingDeleteRuleId(null)}>{t('cancel')}</Button>
+          <Button color="error" onClick={handleConfirmDeleteRule}>{t('delete')}</Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={pendingDeleteAll} onClose={() => setPendingDeleteAll(false)}>
+        <DialogTitle>{t('safeguardsDeleteAllTitle')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">{t('safeguardsDeleteAllMessage')}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingDeleteAll(false)}>{t('cancel')}</Button>
+          <Button color="error" onClick={handleConfirmDeleteAll}>{t('delete')}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Scrollable rule chip list */}
+      <Box
+        ref={(el: HTMLDivElement | null) => {
+          scrollRootRef.current = el
+          if (containerRef) containerRef.current = el
+        }}
+        sx={(themeInner) => ({
+          mt: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          flexGrow: 1,
+          flexBasis: 0,
+          gap: 0.75,
+          maxHeight: maxHeightPx ?? undefined,
+          minHeight: (() => {
+            const max = maxHeightPx ?? 0
+            if (max <= 0) return 0
+            return rules.length === 0 ? Math.min(max, BUILDER_RECIPE_CHIPS_EMPTY_MIN_HEIGHT_PX) : max
+          })(),
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          alignItems: 'stretch',
+          position: 'relative',
+          pr: themeInner.spacing(1),
+          ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: themeInner.spacing(1) }),
+        })}
+      >
+        {rules.length === 0 ? (
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: 'text.secondary', py: 0.5 }}>
+            <Typography variant="body2" sx={{ textAlign: 'center' }}>{t('safeguardsNoRules')}</Typography>
+          </Box>
+        ) : (
+          rules.map((rule, index) => {
+            if (visibleRuleIds && !visibleRuleIds.has(rule.id)) return null
+            return renderChip(rule, index)
+          })
+        )}
+      </Box>
+
+    </>
+  )
+}

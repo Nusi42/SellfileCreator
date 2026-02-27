@@ -22,6 +22,8 @@ export type BuilderPreviewLayout = {
   leftPaperRef: React.MutableRefObject<HTMLDivElement | null>
   chipsContainerRef: React.MutableRefObject<HTMLDivElement | null>
   chipsMaxHeight: number
+  safeguardChipsContainerRef: React.MutableRefObject<HTMLDivElement | null>
+  safeguardChipsMaxHeight: number
   // Expose the resolved side-by-side state so other UI (e.g., empty states) can stay consistent
   // without re-deriving the breakpoint + force logic in multiple components.
   isSideBySide: boolean
@@ -251,6 +253,83 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
     }
   }, [isSideBySide, scheduleChipsMeasurement])
 
+  // ── Safeguard chips measurement (always runs, independent of side-by-side) ──
+  const safeguardChipsContainerRef = useRef<HTMLDivElement | null>(null)
+  const [safeguardChipsMaxHeight, setSafeguardChipsMaxHeightState] = useState<number>(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX)
+  const safeguardChipsMaxHeightRef = useRef(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX)
+  const setSafeguardChipsMaxHeight = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
+    setSafeguardChipsMaxHeightState((prev) => {
+      const next = typeof value === 'function' ? (value as (previous: number) => number)(prev) : value
+      safeguardChipsMaxHeightRef.current = next
+      return next
+    })
+  }, [setSafeguardChipsMaxHeightState])
+
+  const runSafeguardChipsMeasurement = useCallback(() => {
+    const container = safeguardChipsContainerRef.current
+    const paper = leftPaperRef.current
+    if (!container || !paper || typeof window === 'undefined') return
+    try {
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight ?? document.documentElement?.clientHeight ?? 0
+      const paperRect = paper.getBoundingClientRect()
+      const containerRect = container.getBoundingClientRect()
+      const paperAvailable = viewportHeight - paperRect.top - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX
+      if (!Number.isFinite(paperAvailable) || paperAvailable <= 0) return
+      const offsetWithinPaper = containerRect.top - paperRect.top
+      const rawAvailable = Math.floor(paperAvailable - offsetWithinPaper)
+      const safeAvailable = rawAvailable - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX
+      if (!Number.isFinite(safeAvailable) || safeAvailable <= 0) return
+      const next = Math.max(150, safeAvailable)
+      if (Math.abs(safeguardChipsMaxHeightRef.current - next) >= 4) {
+        setSafeguardChipsMaxHeight(next)
+      }
+    } catch {}
+  }, [setSafeguardChipsMaxHeight])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') return
+    let frame: number | null = null
+    let observer: ResizeObserver | null = null
+    const attach = () => {
+      const container = safeguardChipsContainerRef.current
+      if (!container) {
+        frame = window.requestAnimationFrame(attach)
+        return
+      }
+      observer = new ResizeObserver(() => { runSafeguardChipsMeasurement() })
+      observer.observe(container)
+    }
+    attach()
+    return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame)
+      if (observer) observer.disconnect()
+    }
+  }, [runSafeguardChipsMeasurement])
+
+  useEffect(() => {
+    if (leftHeight === 0) return
+    runSafeguardChipsMeasurement()
+  }, [leftHeight, runSafeguardChipsMeasurement])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handleResize: EventListener = (event) => {
+      if (isSyntheticResizeEvent(event)) return
+      runSafeguardChipsMeasurement()
+    }
+    window.addEventListener('resize', handleResize)
+    const viewport = window.visualViewport
+    if (viewport && typeof viewport.addEventListener === 'function') {
+      viewport.addEventListener('resize', handleResize)
+    }
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      if (viewport && typeof viewport.removeEventListener === 'function') {
+        viewport.removeEventListener('resize', handleResize)
+      }
+    }
+  }, [runSafeguardChipsMeasurement])
+
   const previewPaperHeightPx = useMemo(() => {
     const base = leftHeight
     const floor = sideBySideMinPaperHeight
@@ -268,6 +347,8 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
     leftPaperRef,
     chipsContainerRef,
     chipsMaxHeight,
+    safeguardChipsContainerRef,
+    safeguardChipsMaxHeight,
     isSideBySide,
     previewPaperHeightPx,
     previewPaperHeightStyle,

@@ -22,6 +22,7 @@ type Params = {
   finalSellRemainder: FinalSellRemainderConfig
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
+  recipesEnabled: boolean
   sfrNote: string | null
   selectedRecipeIdx: number | null
   selectedRecipeIndices: number[]
@@ -36,6 +37,7 @@ type Params = {
   setFinalSellRemainder: (value: SetStateAction<FinalSellRemainderConfig>) => void
   setSafeguardRules: (value: SetStateAction<SafeguardRule[]>) => void
   setSafeguardsEnabled: (value: SetStateAction<boolean>) => void
+  setRecipesEnabled: (value: SetStateAction<boolean>) => void
   setSfrNote: (value: SetStateAction<string | null>) => void
   setSelectedRecipeIdx: (value: SetStateAction<number | null>) => void
   setSelectedRecipeIndices: (value: number[]) => void
@@ -75,6 +77,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
   finalSellRemainder,
   safeguardRules,
   safeguardsEnabled,
+  recipesEnabled,
   sfrNote,
     selectedRecipeIdx,
     selectedRecipeIndices,
@@ -89,6 +92,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
   setFinalSellRemainder,
   setSafeguardRules,
   setSafeguardsEnabled,
+  setRecipesEnabled,
   setSfrNote,
     setSelectedRecipeIdx,
     setSelectedRecipeIndices,
@@ -117,6 +121,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
       finalSellRemainder,
       safeguardRules,
       safeguardsEnabled,
+      recipesEnabled,
       note: sfrNote ?? null,
       selectedRecipeIdx: selectedIdx,
       selectedRecipeIndices,
@@ -134,6 +139,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
       finalSellRemainder,
       safeguardRules,
       safeguardsEnabled,
+      recipesEnabled,
       note: sfrNote ?? null,
     })
     return { payloadTemplate, signature }
@@ -150,6 +156,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
     selectionAnchor,
     safeguardRules,
     safeguardsEnabled,
+    recipesEnabled,
   ])
 
   const historyStrings = useMemo(() => {
@@ -173,6 +180,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
     setFinalSellRemainder(snap.finalSellRemainder)
     setSafeguardRules(snap.safeguardRules)
     setSafeguardsEnabled(Boolean(snap.safeguardsEnabled))
+    setRecipesEnabled(snap.recipesEnabled !== false)
     setSfrNote(snap.note)
     const len = snap.customRecipes.length
     let restoredIdx: number | null = null

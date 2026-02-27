@@ -13,6 +13,7 @@ type MoveAction = {
 type HighlightableAction = {
   handler: MenuClickHandler
   disabled: boolean
+  labelKey?: string
   onHighlightChange?: (active: boolean) => void
 }
 
@@ -23,6 +24,8 @@ type SelectAllAction = {
 }
 
 export interface RecipeContextMenuActions {
+  insertAsSafeguard?: { handler: MenuClickHandler; label: string }
+  applyAsSafeguard?: { handler: MenuClickHandler; label: string }
   duplicate?: MenuClickHandler
   moveTop?: MoveAction
   moveUp?: MoveAction
@@ -124,6 +127,20 @@ export function RecipeContextMenu({
       </MenuItem>,
     )
   }
+  if (actions.insertAsSafeguard) {
+    primaryItems.push(
+      <MenuItem key="insertAsSafeguard" onClick={wrapClick(onClose, actions.insertAsSafeguard.handler)}>
+        {actions.insertAsSafeguard.label}
+      </MenuItem>,
+    )
+  }
+  if (actions.applyAsSafeguard) {
+    primaryItems.push(
+      <MenuItem key="applyAsSafeguard" onClick={wrapClick(onClose, actions.applyAsSafeguard.handler)}>
+        {actions.applyAsSafeguard.label}
+      </MenuItem>,
+    )
+  }
   if (actions.copyRecipe) {
     primaryItems.push(
       <MenuItem key="copyRecipe" onClick={wrapClick(onClose, actions.copyRecipe)}>
@@ -204,7 +221,7 @@ export function RecipeContextMenu({
         disabled={actions.deleteAll.disabled}
         sx={{ color: 'error.main', opacity: actions.deleteAll.disabled ? 0.6 : 1 }}
       >
-        {t('deleteRecipes')}
+        {t(actions.deleteAll.labelKey ?? 'deleteRecipes')}
       </MenuItem>,
     )
   }

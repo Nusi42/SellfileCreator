@@ -61,6 +61,8 @@ export const AUTOSAVE_KEY = 'sellfileCreator.autosave.sfr.v1'
 export const AUTOSAVE_TESTER_KEY = 'sellfileCreator.autosave.tester.v1'
 // Persisted Sellfile Preview / Rule Tester toggle selection
 export const PREVIEW_MODE_STORAGE_KEY = 'sellfileCreator.previewMode.v1'
+// Persisted Recipe Builder / Safeguard Builder toggle selection
+export const BUILDER_MODE_STORAGE_KEY = 'sellfileCreator.builderMode.v1'
 // Persisted toggle for coloring stat texts (chips/preview)
 export const STAT_BUTTON_BORDERS_KEY = 'sellfileCreator.statButtonBorders.v1'
 // Persisted safeguards grid filter toggle.
@@ -184,9 +186,9 @@ export const MULTI_EDIT_MIXED_TEXT_ALPHA = {
 // tooltips during active scroll interactions for visual stability.
 export const SCROLLING_TOOLTIP_HIDE_MS = 250
 // Explanatory tooltips attached to passive text use the shared hover delay.
-export const MARKDOWN_TOOLTIP_INFO_ENTER_DELAY_MS = 2000
+export const MARKDOWN_TOOLTIP_INFO_ENTER_DELAY_MS = 1500
 // Interactive controls keep a separate constant so behavior can diverge later if needed.
-export const MARKDOWN_TOOLTIP_INTERACTIVE_ENTER_DELAY_MS = 2000
+export const MARKDOWN_TOOLTIP_INTERACTIVE_ENTER_DELAY_MS = 1500
 // Consistent width cap for MarkdownTooltip content so longer translations wrap
 // gracefully without spanning the entire viewport.
 export const MARKDOWN_TOOLTIP_MAX_WIDTH_PX = 520

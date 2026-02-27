@@ -17,6 +17,7 @@ export type SfrSnapshot = {
   finalSellRemainder: FinalSellRemainderConfig
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
+  recipesEnabled: boolean
   note: string | null
   selectedRecipeIdx: number | null
   selectedRecipeIndices: number[]
@@ -115,6 +116,7 @@ function parseSnapshot(entry: HistoryEntry): SfrSnapshot | null {
       multiEditDraft,
       safeguardRules,
       safeguardsEnabled,
+      recipesEnabled,
     } = parsed
     if (!Array.isArray(customRecipes) || !Array.isArray(metasets) || !substatTargets || typeof finalSellRemainder !== 'object' || finalSellRemainder === null) {
       return null
@@ -165,6 +167,7 @@ function parseSnapshot(entry: HistoryEntry): SfrSnapshot | null {
       finalSellRemainder: finalSellRemainder as FinalSellRemainderConfig,
       safeguardRules: Array.isArray(safeguardRules) ? safeguardRules as SafeguardRule[] : [],
       safeguardsEnabled: safeguardsEnabled === true,
+      recipesEnabled: recipesEnabled !== false,
       note: normalizedNote,
       selectedRecipeIdx: sel,
       selectedRecipeIndices: normalizedSelectedIndices,

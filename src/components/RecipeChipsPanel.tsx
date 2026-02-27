@@ -85,6 +85,10 @@ function RecipeChipsPanel(props: {
   deleteAllDisabled: boolean
   highlightDelete: boolean
   onHighlightDelete: (active: boolean) => void
+  onInsertAsSafeguard?: (idx: number) => void
+  insertAsSafeguardLabel?: string
+  onApplyAsSafeguard?: (idx: number) => void
+  applyAsSafeguardLabel?: string
   onPrepareDragSelection: (idx: number) => number[]
   onReorderRecipes: (movingIndices: number[], targetIndex: number, options?: { mode?: 'move' | 'copy' }) => void
 }) {
@@ -121,6 +125,10 @@ function RecipeChipsPanel(props: {
     deleteAllDisabled,
     highlightDelete,
     onHighlightDelete,
+    onInsertAsSafeguard,
+    insertAsSafeguardLabel,
+    onApplyAsSafeguard,
+    applyAsSafeguardLabel,
     onPrepareDragSelection,
     onReorderRecipes,
   } = props
@@ -689,6 +697,8 @@ function RecipeChipsPanel(props: {
                 onCopyAllRecipes={onCopyAllRecipes}
                 onDeleteAllRecipes={onDeleteAll}
                 deleteAllDisabled={deleteAllDisabled}
+                {...(onInsertAsSafeguard ? { onInsertAsSafeguard: () => onInsertAsSafeguard(idx), insertAsSafeguardLabel } : {})}
+                {...(onApplyAsSafeguard ? { onApplyAsSafeguard: () => onApplyAsSafeguard(idx), applyAsSafeguardLabel } : {})}
                 onMoveUp={() => onMoveUp(idx)}
                 onMoveDown={() => onMoveDown(idx)}
                 onMoveTop={() => onMoveTop(idx)}
@@ -759,6 +769,10 @@ function areRecipeChipsPanelPropsEqual(prev: Readonly<React.ComponentProps<typeo
     && prev.onDeleteAll === next.onDeleteAll
     && prev.highlightDelete === next.highlightDelete
     && prev.onHighlightDelete === next.onHighlightDelete
+    && prev.onInsertAsSafeguard === next.onInsertAsSafeguard
+    && prev.insertAsSafeguardLabel === next.insertAsSafeguardLabel
+    && prev.onApplyAsSafeguard === next.onApplyAsSafeguard
+    && prev.applyAsSafeguardLabel === next.applyAsSafeguardLabel
     && prev.onPrepareDragSelection === next.onPrepareDragSelection
     && prev.onReorderRecipes === next.onReorderRecipes
 }

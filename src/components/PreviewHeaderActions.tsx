@@ -3,8 +3,6 @@ import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, I
 import { alpha, type Theme } from '@mui/material/styles'
 import {
   ELLIPSIS_TEXT_SX,
-  FINAL_SELL_BUTTON_MIN_WIDTH_PX,
-  FINAL_SELL_BUTTON_WIDTH_PX,
   COMPACT_HEADER_ACTION_BUTTON_BASE_SX,
   COMPACT_HEADER_ACTION_BUTTON_SX,
   SMALL_BUTTON_HEIGHT_PX,
@@ -23,7 +21,6 @@ import FilePickerButton from './FilePickerButton'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 import ClearIconButton from './ClearIconButton'
 import DirtyBadge from './DirtyBadge'
-import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
@@ -116,17 +113,11 @@ export default function PreviewHeaderActions(props: {
   onToggleOmitDisabled: (next: boolean) => void
   exportDisabled: boolean
   pushEndpoint?: string
-  safeguardsEnabled: boolean
-  onToggleSafeguards: (next: boolean) => void
   hsfDirty: boolean
   building?: boolean
   testerBuilding?: boolean
   workloadProgressRatio: number
   limitHit?: boolean
-  // Final sell remainder controls
-  finalSell: FinalSellRemainderConfig
-  onToggleFinalSell: (enabled: boolean) => void
-  onOpenLogicHubDialog: () => void
   previewMode: 'rules' | 'tester'
   onChangePreviewMode: (mode: 'rules' | 'tester') => void
   filterOpen: boolean
@@ -191,11 +182,6 @@ export default function PreviewHeaderActions(props: {
     onToggleOmitDisabled,
     exportDisabled,
     pushEndpoint,
-    finalSell,
-    safeguardsEnabled,
-    onToggleSafeguards,
-    onToggleFinalSell,
-    onOpenLogicHubDialog,
     hsfDirty,
     building = false,
     limitHit = false,
@@ -241,7 +227,6 @@ export default function PreviewHeaderActions(props: {
     onDeleteFilterPreset,
   } = props
   const isRulesMode = previewMode === 'rules'
-  const fsEnabled = (finalSell.artifacts || finalSell.accessories) && (finalSell.levels?.length ?? 0) > 0
   const { t } = useI18n()
   const mergedCountLabel = formatRulesCount(t, mergedCount, { limit: TOTAL_RULE_COUNT_LIMIT })
   const testerCountValue = Number.isFinite(testerCount) ? Math.max(0, Math.floor(testerCount ?? 0)) : 0
@@ -464,26 +449,10 @@ export default function PreviewHeaderActions(props: {
     setDeletePresetTarget(null)
   }, [deletePresetTarget, onDeleteFilterPreset])
   const filterLabel = filterActive ? t('filtersOn') : t('filtersOff')
-  const safeguardsToggleLabel = t('safeguardsToggleLabel')
   const filterHeaderLabel = t('filterHeader')
-  const finalSellLabel = t('finalSellToggleLabel')
   const filterToggleLabel = t('filterToggleLabel')
-  const logicHubLabel = t('titleLogicHub')
-  const safeguardsLabel = t('safeguardsToggleLabel')
   // History menu toggle label keeps the context menu consistent across locales.
   const gearDbHistoryHideToastLabel = t('gearDbHistoryHideToast')
-  const longestWarningToggleWidth = React.useMemo(() => {
-    const labels = [finalSellLabel, safeguardsLabel]
-    const ctx = document?.createElement?.('canvas')?.getContext?.('2d')
-    const font = typeof window !== 'undefined'
-      ? getComputedStyle(window.document.body).font || '500 14px Roboto'
-      : '500 14px Roboto'
-    if (!ctx) return FINAL_SELL_BUTTON_MIN_WIDTH_PX
-    ctx.font = font
-    const widths = labels.map((text) => ctx.measureText(text).width + 32)
-    const longest = Math.max(...widths, FINAL_SELL_BUTTON_MIN_WIDTH_PX)
-    return Math.min(longest, FINAL_SELL_BUTTON_WIDTH_PX)
-  }, [finalSellLabel, safeguardsLabel])
   const pushActive = !!pushEndpoint
   const exportLabel = pushActive
     ? (baseRuleCount ? t('pushMergedSellfile') : t('pushSellfile'))
@@ -807,20 +776,24 @@ export default function PreviewHeaderActions(props: {
             },
           }}
         >
-          <ToggleButton
-            value="rules"
-            aria-label={rulesModeLabel}
-            sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
-          >
-            <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{rulesModeLabel}</Typography>
-          </ToggleButton>
-          <ToggleButton
-            value="tester"
-            aria-label={testerModeLabel}
-            sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
-          >
-            <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{testerModeLabel}</Typography>
-          </ToggleButton>
+          <MarkdownTooltip markdown={t('previewModeRulesTooltip')}>
+            <ToggleButton
+              value="rules"
+              aria-label={rulesModeLabel}
+              sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
+            >
+              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{rulesModeLabel}</Typography>
+            </ToggleButton>
+          </MarkdownTooltip>
+          <MarkdownTooltip markdown={t('previewModeTesterTooltip')}>
+            <ToggleButton
+              value="tester"
+              aria-label={testerModeLabel}
+              sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
+            >
+              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{testerModeLabel}</Typography>
+            </ToggleButton>
+          </MarkdownTooltip>
         </ToggleButtonGroup>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0, minWidth: 0 }}>
           {limitHit && !building && isRulesMode ? (
@@ -1895,175 +1868,6 @@ export default function PreviewHeaderActions(props: {
 	            />
           </>
         )}
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0, minWidth: 0 }}>
-          <ToggleButtonGroup
-            size="small"
-            sx={{
-              height: SMALL_BUTTON_HEIGHT_PX,
-              flexShrink: 0,
-              minWidth: 0,
-              '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                marginLeft: 0,
-                borderLeft: '1px solid transparent',
-              },
-              '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-                marginLeft: 0,
-                borderLeft: '1px solid transparent',
-              },
-            }}
-          >
-            <>
-              {/* Final Sell toggle retains the warning palette so it is still visually linked to the catch-all sweeps. */}
-              <ToggleButton
-                value="finalSellToggle"
-                selected={fsEnabled}
-                onClick={() => onToggleFinalSell(!fsEnabled)}
-                data-tour-id="finalsell.toggle"
-                aria-label={finalSellLabel}
-                aria-pressed={fsEnabled}
-                sx={(theme) => ({
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 1,
-                  minWidth: longestWarningToggleWidth,
-                  width: longestWarningToggleWidth,
-                  maxWidth: FINAL_SELL_BUTTON_WIDTH_PX,
-                  height: SMALL_BUTTON_HEIGHT_PX,
-                  minHeight: SMALL_BUTTON_HEIGHT_PX,
-                  lineHeight: 1,
-                  textTransform: 'none',
-                  px: 1.25,
-                  borderColor: theme.palette.warning.main,
-                  color: theme.palette.warning.main,
-                  '&.Mui-selected': {
-                    color: theme.palette.warning.contrastText,
-                    backgroundColor: theme.palette.warning.main,
-                    '&:hover': {
-                      backgroundColor: theme.palette.warning.dark,
-                    },
-                  },
-                  '&:hover': {
-                    borderColor: theme.palette.warning.dark,
-                    backgroundColor: alpha(theme.palette.warning.main, 0.1),
-                  },
-                })}
-              >
-                <EllipsisTooltip title={finalSellLabel} selector='[data-ellipsis-target]' wrap="block">
-                  <Box
-                    component="span"
-                    data-ellipsis-target
-                    sx={{
-                      ...ELLIPSIS_TEXT_SX,
-                      width: '100%',
-                      typography: 'button',
-                      textAlign: 'center',
-                      lineHeight: 1,
-                      display: 'block',
-                    }}
-                  >
-                    {finalSellLabel}
-                  </Box>
-                </EllipsisTooltip>
-              </ToggleButton>
-            </>
-            <>
-              {/* Safeguards shares the inline toggle treatment so users can pause/resume protections without leaving the preview. */}
-              <ToggleButton
-                value="safeguardsToggle"
-                selected={safeguardsEnabled}
-                onClick={() => onToggleSafeguards(!safeguardsEnabled)}
-                data-tour-id="keepuniques.toggle"
-                aria-label={safeguardsToggleLabel}
-                aria-pressed={safeguardsEnabled}
-                sx={(theme) => ({
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                  flexShrink: 1,
-                  minWidth: longestWarningToggleWidth,
-                  width: longestWarningToggleWidth,
-                  maxWidth: FINAL_SELL_BUTTON_WIDTH_PX,
-                height: SMALL_BUTTON_HEIGHT_PX,
-                minHeight: SMALL_BUTTON_HEIGHT_PX,
-                lineHeight: 1,
-                textTransform: 'none',
-                  px: 1.25,
-                  borderColor: theme.palette.success.main,
-                  color: theme.palette.success.main,
-                  '&.Mui-selected': {
-                    color: theme.palette.success.contrastText,
-                    backgroundColor: theme.palette.success.main,
-                    '&:hover': {
-                      backgroundColor: theme.palette.success.dark,
-                    },
-                  },
-                  '&:hover': {
-                    borderColor: theme.palette.success.dark,
-                    backgroundColor: alpha(theme.palette.success.main, 0.08),
-                  },
-                })}
-              >
-                <EllipsisTooltip title={safeguardsToggleLabel} selector='[data-ellipsis-target]' wrap="block">
-                  <Typography
-                    component="span"
-                    noWrap
-                    data-ellipsis-target
-                    sx={{ ...ELLIPSIS_TEXT_SX, width: '100%', textAlign: 'center', lineHeight: 1, display: 'block' }}
-                  >
-                    {safeguardsToggleLabel}
-                  </Typography>
-                </EllipsisTooltip>
-              </ToggleButton>
-            </>
-          </ToggleButtonGroup>
-          <Box sx={{ minWidth: 0, flexShrink: 0 }}>
-            <MarkdownTooltip markdown={t('gearDialogOpenTooltip')}>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={onOpenLogicHubDialog}
-                data-tour-id="finalsell.recipe"
-                aria-label={t('openLogicHubAria')}
-                sx={{
-                  whiteSpace: 'nowrap',
-                  minWidth: 0,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  px: 1.25,
-                  flexShrink: 0,
-                  height: SMALL_BUTTON_HEIGHT_PX,
-                  minHeight: SMALL_BUTTON_HEIGHT_PX,
-                  lineHeight: 1,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  py: 0,
-                }}
-              >
-                <EllipsisTooltip title={logicHubLabel} selector='[data-ellipsis-target]' wrap="block">
-                  <Typography
-                    component="span"
-                    noWrap
-                    // Match the inline toggle label treatment so the Button's fixed height stays visually centered.
-                    sx={{
-                      ...ELLIPSIS_TEXT_SX,
-                      // Keep explicit width so ellipsis math matches the button body.
-                      width: '100%',
-                      // Center aligns the label with the small control cluster.
-                      textAlign: 'center',
-                      // Match Sort/Filter label handling by relying on the Typography default line height.
-                      display: 'block',
-                    }}
-                    data-ellipsis-target
-                  >
-                    {logicHubLabel}
-                  </Typography>
-                </EllipsisTooltip>
-              </Button>
-            </MarkdownTooltip>
-          </Box>
-        </Stack>
         <Box sx={{ flex: 1, minWidth: 0 }} />
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
           {historyMenuEnabled ? (

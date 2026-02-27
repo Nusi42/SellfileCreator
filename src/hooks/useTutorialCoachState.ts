@@ -12,7 +12,6 @@ import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
   LOGIC_HUB_DIALOG_TAB_GEAR,
-  LOGIC_HUB_DIALOG_TAB_SAFEGUARDS,
   type LogicHubDialogTab,
   type FinalSellRemainderConfig,
 } from '../lib/logicHub'
@@ -162,6 +161,7 @@ export type UseTutorialCoachStateParams = {
   setRulesFilter: Dispatch<SetStateAction<RulesFilterState>>
   logicHubOpen: boolean
   setLogicHubOpen: Dispatch<SetStateAction<boolean>>
+  setBuilderMode: (mode: 'recipe' | 'safeguard') => void
   // Suppress history snapshots during tutorial-driven resets and restores.
   suppressHistorySnapshot: () => void
   t: Translate
@@ -223,6 +223,7 @@ export function useTutorialCoachState({
   setRulesFilter,
   logicHubOpen,
   setLogicHubOpen,
+  setBuilderMode,
   suppressHistorySnapshot,
   t,
 }: UseTutorialCoachStateParams): UseTutorialCoachStateResult {
@@ -1130,8 +1131,8 @@ export function useTutorialCoachState({
         targetId: 'safeguards.tab',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
-          setLogicHubOpen(true)
-          setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_SAFEGUARDS)
+          setLogicHubOpen(false)
+          setBuilderMode('safeguard')
           setSafeguardRules(buildTutorialSafeguardRules())
           setSafeguardsEnabled(true)
         },
@@ -1143,8 +1144,8 @@ export function useTutorialCoachState({
         targetId: 'safeguards.rules',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
-          setLogicHubOpen(true)
-          setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_SAFEGUARDS)
+          setLogicHubOpen(false)
+          setBuilderMode('safeguard')
           setSafeguardRules(buildTutorialSafeguardRules())
           setSafeguardsEnabled(true)
         },
@@ -1264,6 +1265,7 @@ export function useTutorialCoachState({
       let nextSafeguardRules: SafeguardRule[] = []
       let nextSafeguardsEnabled = false
       let nextLogicHubDialogTab: LogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_FINAL_SELL
+      let nextBuilderMode: 'recipe' | 'safeguard' = 'recipe'
       let nextNote: string | null = null
       let nextBuilder: BuilderRecipe = {
         name: '',
@@ -1437,13 +1439,15 @@ export function useTutorialCoachState({
           case 'safeguards-intro': {
             nextSafeguardRules = buildTutorialSafeguardRules()
             nextSafeguardsEnabled = true
-            nextLogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_SAFEGUARDS
+            nextLogicHubOpen = false
+            nextBuilderMode = 'safeguard'
             break
           }
           case 'safeguards-rule': {
             if (nextSafeguardRules.length === 0) nextSafeguardRules = buildTutorialSafeguardRules()
             nextSafeguardsEnabled = true
-            nextLogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_SAFEGUARDS
+            nextLogicHubOpen = false
+            nextBuilderMode = 'safeguard'
             break
           }
           default:
@@ -1464,6 +1468,7 @@ export function useTutorialCoachState({
       setPreviewMode(nextPreviewMode)
       setLogicHubOpen(nextLogicHubOpen)
       setLogicHubDialogTab(nextLogicHubDialogTab)
+      setBuilderMode(nextBuilderMode)
       setSfrNote(nextNote)
       setBuilder(nextBuilder)
       setTutorialIdx(idx)

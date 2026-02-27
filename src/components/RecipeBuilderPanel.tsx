@@ -19,6 +19,7 @@ import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
+import { useSlotMetrics } from '../hooks/useSlotMetrics'
 import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useSfrHistory'
 import {
   LEVELS,
@@ -62,7 +63,6 @@ import { slotSelectionAllowsAccessories } from '../lib/testerDomain'
 
 import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu, Badge } from '@mui/material'
 import SetsOrderControls from './SetsOrderControls'
-import SubstatTargetsDialog from './SubstatTargetsDialog'
 import type { SelectChangeEvent } from '@mui/material/Select'
 import { IconButton, ToggleButton, ToggleButtonGroup } from '@mui/material'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
@@ -75,7 +75,7 @@ import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
 import BuilderCheatSheetPopover from './BuilderCheatSheetPopover'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
-import { SubstatToggleDisplay, substatToggleGroupSx } from './SubstatToggleDisplay'
+import { SubstatToggleDisplay, substatToggleGroupSx, mainStatToggleGroupSx } from './SubstatToggleDisplay'
 import { resolveSubstatChipPalette, SUBSTAT_CHIP_BORDER_RADIUS_PX } from './RuleSubstatChips'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
@@ -84,7 +84,7 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, COMPACT_HEADER_ACTION_BUTTON_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, SUBSTAT_TARGET_MAX_ROLLS, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_INLINE_SX, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, COMPACT_HEADER_ACTION_BUTTON_SX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, SUBSTAT_TARGET_MAX_ROLLS, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_INLINE_SX, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { buildWarningBadgeBase, warningBadgeSx } from '../lib/badgeStyles'
@@ -176,7 +176,7 @@ import {
 
 export { createFactoryBuilderDefaults } from './builderPanel/defaults'
 
-export default function BuilderPanel({ recipe, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, effectiveSubstatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, safeguardMetasetUsageCounts, substatColors: _substatColors, recipeCount: _recipeCount, recipeRuleCounts, recipesExcludedByTotalLimit, countRulesForRecipes, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectRecipesByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, recipeOverridesInstructions, substatTargetsOverridesActive, multiEdit: _multiEdit = null, multiSelectedRecipes = null, onBeforeMetasetsDialogClose }: {
+export default function BuilderPanel({ recipe, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, setUsageCounts, metasetUsageCounts, safeguardMetasetUsageCounts, substatColors: _substatColors, recipeCount: _recipeCount, recipeRuleCounts, recipesExcludedByTotalLimit, countRulesForRecipes, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectRecipesByMetaset, recipeOverridesInstructions, multiEdit: _multiEdit = null, multiSelectedRecipes = null, onBeforeMetasetsDialogClose, onRegisterOpenMetasetsDialog }: {
   recipe: BuilderRecipe,
   onChange: (c: BuilderRecipe) => void
   onAddToCustom: () => void
@@ -199,9 +199,6 @@ export default function BuilderPanel({ recipe, onChange, onAddToCustom, editingI
   onDeleteMetaset: (id: string, opts?: { replaceWithSets?: boolean; replaceWithMetaId?: string }) => void
   onResetMetasets: (mode: 'delete' | 'replaceSets' | 'replaceMeta', replacementMetaId?: string) => void
   substatTargets: SubstatTargetTable
-  effectiveSubstatTargets: SubstatTargetTable
-  onSubstatTargetsChange: (m: SubstatTargetTable, opts?: { mode?: 'edit' | 'reset' | 'import' }) => void
-  substatTargetsOverridesActive: boolean
   setUsageCounts: Record<number, number>
   metasetUsageCounts: Record<string, number>
   safeguardMetasetUsageCounts: Record<string, number>
@@ -216,12 +213,12 @@ export default function BuilderPanel({ recipe, onChange, onAddToCustom, editingI
   saveHiddenByFilters: boolean
   // Select all recipes that reference a given metaset ID (used from Metasets dialog "Used" chip)
   onSelectRecipesByMetaset: (id: string) => void
-  substatTargetsDialogOpen: boolean
-  onCloseSubstatTargetsDialog: () => void
   recipeOverridesInstructions: RecipeOverridesInstructions
   multiEdit?: MultiEditDraftHandle | null
   multiSelectedRecipes?: readonly BuilderRecipe[] | null
   onBeforeMetasetsDialogClose?: () => Promise<void> | void
+  /** Optional registration callback: receives openMetaDlg so sibling panels can share the dialog. */
+  onRegisterOpenMetasetsDialog?: (opener: () => void) => void
 }) {
   const multiEdit = _multiEdit
   const multiEditSelectionCount = multiEdit?.state.selection.length ?? 0
@@ -1647,74 +1644,9 @@ const maxLevelValue = multiEditActive
       default: return String(id)
     }
   }, [t])
-  // Pre-compute localized slot labels so we can measure their widths once per render.
   const builderRootRef = useRef<HTMLDivElement | null>(null)
   const [cheatSheetMaxHeight, setCheatSheetMaxHeight] = useState<number | null>(null)
-  const slotLabels = React.useMemo(
-    () => artifactTypeIconList.map(({ id }) => slotLabel(Number(id))),
-    [slotLabel]
-  )
-  // Icon fontSize="small" renders at 20px in our inline SVGs (see artifactTypeIcons).
-  const SLOT_ICON_SIZE_PX = 20
-  // Measure the longest button label in the current theme to keep slot icons aligned, including the icon/text gap.
-  const slotMetrics = React.useMemo(() => {
-    const defaultResult = {
-      labelWidthPx: 0,
-      labelFlexBasis: undefined as string | undefined,
-      contentWidthPx: undefined as string | undefined,
-      iconGapCss: theme.spacing(0.75),
-      iconSizePx: `${SLOT_ICON_SIZE_PX}px`,
-    }
-    if (!slotLabels.length) return defaultResult
-    if (typeof document === 'undefined') return defaultResult
-    const canvas = document.createElement('canvas')
-    const context = canvas.getContext('2d')
-    if (!context) return defaultResult
-    const buttonTypography = theme.typography.button ?? {}
-    const fontFamily = buttonTypography.fontFamily ?? theme.typography.fontFamily ?? 'sans-serif'
-    const fontStyle = buttonTypography.fontStyle ?? 'normal'
-    const fontWeight = `${buttonTypography.fontWeight ?? theme.typography.fontWeightMedium ?? 500}`
-    const htmlFontSize = typeof theme.typography.htmlFontSize === 'number'
-      ? theme.typography.htmlFontSize
-      : Number(theme.typography.htmlFontSize) || 16
-    const parentFontSize = typeof theme.typography.fontSize === 'number'
-      ? theme.typography.fontSize
-      : parseFloat(String(theme.typography.fontSize)) || 14
-    const parseSizeToPx = (value: unknown, fallbackPx: number, relativeToPx: number): number => {
-      if (typeof value === 'number') return value
-      if (value == null) return fallbackPx
-      const str = String(value).trim()
-      if (!str) return fallbackPx
-      if (str.endsWith('rem')) return parseFloat(str) * htmlFontSize
-      if (str.endsWith('em')) return parseFloat(str) * relativeToPx
-      if (str.endsWith('px')) return parseFloat(str)
-      const numeric = parseFloat(str)
-      return Number.isNaN(numeric) ? fallbackPx : numeric
-    }
-    const fontSizePx = parseSizeToPx(buttonTypography.fontSize, parentFontSize, parentFontSize)
-    const letterSpacingPx = parseSizeToPx(buttonTypography.letterSpacing, 0, fontSizePx)
-    context.font = `${fontStyle} ${fontWeight} ${fontSizePx}px ${fontFamily}`
-    let maxWidth = 0
-    for (const label of slotLabels) {
-      const measured = context.measureText(label).width
-      const spacing = Math.max(label.length - 1, 0) * letterSpacingPx
-      const total = measured + spacing
-      if (total > maxWidth) maxWidth = total
-    }
-    const labelWidthPx = Math.ceil(maxWidth + BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX)
-    // Account for icon/text gap (theme.spacing uses px units) so icons line up even with padding applied.
-    const gapCss = theme.spacing(0.75)
-    const gapPx = parseSizeToPx(gapCss, 0, fontSizePx)
-    // Icon components render 20px when fontSize="small" (matches artifactTypeIcons sizeFor('small')).
-    const contentWidthPx = Math.ceil(labelWidthPx + gapPx + SLOT_ICON_SIZE_PX)
-    return {
-      labelWidthPx,
-      labelFlexBasis: labelWidthPx > 0 ? `${labelWidthPx}px` : undefined,
-      contentWidthPx: contentWidthPx > 0 ? `${contentWidthPx}px` : undefined,
-      iconGapCss: gapCss,
-      iconSizePx: `${SLOT_ICON_SIZE_PX}px`,
-    }
-  }, [slotLabels, theme])
+  const slotMetrics = useSlotMetrics()
   useEffect(() => {
     const node = builderRootRef.current
     if (!node) return
@@ -1763,7 +1695,6 @@ const maxLevelValue = multiEditActive
   // Roll indicator sizing and hover gutter come from centralized constants.
   // Toggle button sizing stays centralized so widths remain aligned across builder surfaces.
   const TOGGLE_BUTTON_HEIGHT_PX = BUILDER_TOGGLE_BUTTON_HEIGHT_PX
-  const TOGGLE_BUTTON_MIN_WIDTH_PX = BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX
   const CLEAR_BUTTON_PLACEHOLDER_SX = useMemo(() => ({
     width: CLEAR_ICON_BUTTON_SIZE_PX,
     height: CLEAR_ICON_BUTTON_SIZE_PX,
@@ -2257,6 +2188,10 @@ const maxLevelValue = multiEditActive
       }
     })()
   }, [onBeforeMetasetsDialogClose, rawCloseMetaDlg])
+  // Register the opener so sibling panels (e.g. SafeguardBuilderPanel) can trigger this dialog.
+  useEffect(() => {
+    onRegisterOpenMetasetsDialog?.(openMetaDlg)
+  }, [onRegisterOpenMetasetsDialog, openMetaDlg])
   const [metaSetsMenuOpen, setMetaSetsMenuOpen] = useState(false)
   // Fixed screen anchor for the Sets menu so header position doesn't move when height changes
   const [setsMenuAnchorPos, setSetsMenuAnchorPos] = useState<{ top: number; left: number } | null>(null)
@@ -3833,26 +3768,7 @@ const maxLevelValue = multiEditActive
                       if (multiEditActive) return
                       handleChange(event, v as string[])
                     }}
-                    sx={{
-                      gap: 0.5,
-                      '& .MuiToggleButton-root': {
-                        px: 0.75,
-                        minWidth: TOGGLE_BUTTON_MIN_WIDTH_PX,
-                        width: TOGGLE_BUTTON_MIN_WIDTH_PX,
-                        height: TOGGLE_BUTTON_HEIGHT_PX,
-                        justifyContent: 'center',
-                        borderRadius: 1,
-                        border: '1px solid',
-                        borderColor: 'divider',
-                      },
-                      '& .MuiToggleButton-root.Mui-selected': {
-                        borderColor: (theme) => theme.palette.divider,
-                      },
-                      '& .MuiToggleButtonGroup-grouped': {
-                        margin: '0 !important',
-                        borderRadius: 1,
-                      },
-                    }}
+                    sx={mainStatToggleGroupSx}
                   >
                     {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => {
                       const state = resolveMainStatTriState(variant)
@@ -3891,26 +3807,7 @@ const maxLevelValue = multiEditActive
                       if (multiEditActive) return
                       handleChange(event, v as string[])
                     }}
-                    sx={{
-                      gap: 0.5,
-                      '& .MuiToggleButton-root': {
-                        px: 0.75,
-                        minWidth: TOGGLE_BUTTON_MIN_WIDTH_PX,
-                        width: TOGGLE_BUTTON_MIN_WIDTH_PX,
-                        height: TOGGLE_BUTTON_HEIGHT_PX,
-                        justifyContent: 'center',
-                        borderRadius: 1,
-                        border: '1px solid',
-                        borderColor: 'divider',
-                      },
-                      '& .MuiToggleButton-root.Mui-selected': {
-                        borderColor: (theme) => theme.palette.divider,
-                      },
-                      '& .MuiToggleButtonGroup-grouped': {
-                        margin: '0 !important',
-                        borderRadius: 1,
-                      },
-                    }}
+                    sx={mainStatToggleGroupSx}
                   >
                     {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => {
                       const state = resolveMainStatTriState(variant)
@@ -7102,17 +6999,6 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           />
         ) : null}
 
-        {substatTargetsDialogOpen ? (
-          <SubstatTargetsDialog
-            open={substatTargetsDialogOpen}
-            onClose={onCloseSubstatTargetsDialog}
-            substatTargets={substatTargets}
-            effectiveSubstatTargets={effectiveSubstatTargets}
-            onSubstatTargetsChange={onSubstatTargetsChange}
-            recipeOverridesActive={substatTargetsOverridesActive}
-            substatColors={substatColors}
-          />
-        ) : null}
 
       {/* Small separator above action buttons (matching the one below) */}
       <Divider sx={{ my: 1, opacity: 0.5 }} />
