@@ -60,6 +60,9 @@ import { type Metaset, metasetGlyph, orderMetasetIds, resolveMetasetIds } from '
 import type { ArtifactSetSelectionEntry } from '../lib/gearSets/selection'
 import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import { slotSelectionAllowsAccessories } from '../lib/testerDomain'
+import { getMainStatOptionsForSlots } from './keepOverrides/keepOverrideRuleUtils'
+import { resolveAllowedSubstatsForSlotsAndMains } from '../lib/statCompatibility'
+import { useKeepOverrideCombinationTools } from './keepOverrides/useKeepOverrideCombinationTools'
 
 import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu, Badge } from '@mui/material'
 import SetsOrderControls from './SetsOrderControls'
@@ -220,6 +223,7 @@ export default function BuilderPanel({ recipe, onChange, onAddToCustom, editingI
   /** Optional registration callback: receives openMetaDlg so sibling panels can share the dialog. */
   onRegisterOpenMetasetsDialog?: (opener: () => void) => void
 }) {
+  const { resolveAllowedSetPool } = useKeepOverrideCombinationTools(metasets)
   const multiEdit = _multiEdit
   const multiEditSelectionCount = multiEdit?.state.selection.length ?? 0
   const multiEditSelection: readonly number[] = multiEdit?.state.selection ?? EMPTY_SELECTION
@@ -1130,6 +1134,14 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   }, [recipe.artifactTypes, getSlotState, multiEditActive, multiSummary])
   // Accessory-only sets (like no-set) should only appear when accessories are in scope.
   const allowNoSet = slotSelectionAllowsAccessories(slotSelectionForNoSet)
+  // Slot-based filtering: compute allowed options for main stats, substats, and sets.
+  const slotSelection = recipe.artifactTypes ?? []
+  const mainStatOptions = getMainStatOptionsForSlots(slotSelection)
+  const allowedSubstatOptions = resolveAllowedSubstatsForSlotsAndMains({
+    slots: slotSelection,
+    mainStats: recipe.mainStatsV ?? [],
+  })
+  const allowedSetPool = resolveAllowedSetPool(slotSelection)
   React.useEffect(() => {
     // Avoid mutating multi-edit patches; only sanitize the active recipe.
     if (multiEditActive) return
@@ -3764,6 +3776,7 @@ const maxLevelValue = multiEditActive
                         <ToggleButton
                           key={variant}
                           value={`${variant}`}
+                          disabled={!mainStatOptions.includes(variant)}
                           selected={multiEditActive ? state === 'all' : value.includes(String(variant))}
                           onClick={(event) => {
                             if (!multiEditActive) return
@@ -3803,6 +3816,7 @@ const maxLevelValue = multiEditActive
                         <ToggleButton
                           key={variant}
                           value={`${variant}`}
+                          disabled={!mainStatOptions.includes(variant)}
                           selected={multiEditActive ? state === 'all' : value.includes(String(variant))}
                           onClick={(event) => {
                             if (!multiEditActive) return
@@ -4348,6 +4362,7 @@ const maxLevelValue = multiEditActive
                     key={variant}
                     value={`${variant}`}
                     selected={buttonSelected}
+                    disabled={!allowedSubstatOptions.includes(variant)}
                     onClick={handleClick}
                     onMouseMove={(e) => {
                       if (!showSubstatHint || substatMenu) return
@@ -6585,6 +6600,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               includeNoSet: allowNoSet,
               noSetLabel: t('noSetAccessories'),
             })
+            const allowedSetIdsSet = new Set(allowedSetPool.map(Number))
+            const disabledSetIds = sorted
+              .map(([id]) => Number(id))
+              .filter((id) => !allowedSetIdsSet.has(id))
 
             // Show metasets section only when there is at least one visible user metaset. Avoid empty metasets UI.
             const hasMetasetsSection = visibleMetasets.length > 0
@@ -6890,6 +6909,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           selectedMetasetIds={selectedMetaIds}
                           selectedSetIds={selectedSetIds}
                           excludedSetIds={excludedSetIds}
+                          disabledSetIds={disabledSetIds}
                           onToggleSet={handleToggleSet}
                           onContextMenuSet={(id) => handleExcludeSet(id)}
                           {...(multiEditActive ? { triStateForSet: getSetState } : {})}
