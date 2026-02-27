@@ -600,47 +600,53 @@ export default function SafeguardBuilderPanel({
           />
         </Box>
 
-        {/* Ignore chips — right of required count */}
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, alignItems: 'flex-end', flex: '1 1 auto', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
-          <MarkdownTooltip markdown={t('safeguardsIgnorePreviousSafeguardsHint')} ellipsisTitle={t('safeguardsIgnorePreviousSafeguards')} ellipsisSelector=".MuiChip-label">
-            <Chip
-              size="small"
-              variant="filled"
-              label={t('safeguardsIgnorePreviousSafeguards')}
-              aria-label={t('safeguardsIgnorePreviousSafeguards')}
-              clickable
-              onClick={() => {
-                updateRule((prev) => ({ ...prev, ignorePreviousSafeguards: !ignorePreviousSafeguards }))
-              }}
-              sx={builderStatusChipSx(ignorePreviousSafeguards, { dimDisabled: true })}
-            />
-          </MarkdownTooltip>
-          <MarkdownTooltip markdown={t('safeguardsIgnoreEquippedInCollectionHint')} ellipsisTitle={t('safeguardsIgnoreEquippedInCollection')} ellipsisSelector=".MuiChip-label">
-            <Chip
-              size="small"
-              variant="filled"
-              label={t('safeguardsIgnoreEquippedInCollection')}
-              aria-label={t('safeguardsIgnoreEquippedInCollection')}
-              clickable
-              onClick={() => {
-                updateRule((prev) => ({ ...prev, ignoreEquippedInCollection: !ignoreEquippedInCollection }))
-              }}
-              sx={builderStatusChipSx(ignoreEquippedInCollection, { dimDisabled: true })}
-            />
-          </MarkdownTooltip>
-          <MarkdownTooltip markdown={t('safeguardsIgnoreEquippedInVaultHint')} ellipsisTitle={t('safeguardsIgnoreEquippedInVault')} ellipsisSelector=".MuiChip-label">
-            <Chip
-              size="small"
-              variant="filled"
-              label={t('safeguardsIgnoreEquippedInVault')}
-              aria-label={t('safeguardsIgnoreEquippedInVault')}
-              clickable
-              onClick={() => {
-                updateRule((prev) => ({ ...prev, ignoreEquippedInVault: !ignoreEquippedInVault }))
-              }}
-              sx={builderStatusChipSx(ignoreEquippedInVault, { dimDisabled: true })}
-            />
-          </MarkdownTooltip>
+        {/* Ignore chips — right of required count, stacked in 2 rows */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, flex: '1 1 auto', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
+          {/* Row 1: ignore previous safeguards */}
+          <Box sx={{ display: 'flex' }}>
+            <MarkdownTooltip markdown={t('safeguardsIgnorePreviousSafeguardsHint')} ellipsisTitle={t('safeguardsIgnorePreviousSafeguards')} ellipsisSelector=".MuiChip-label">
+              <Chip
+                size="small"
+                variant="filled"
+                label={t('safeguardsIgnorePreviousSafeguards')}
+                aria-label={t('safeguardsIgnorePreviousSafeguards')}
+                clickable
+                onClick={() => {
+                  updateRule((prev) => ({ ...prev, ignorePreviousSafeguards: !ignorePreviousSafeguards }))
+                }}
+                sx={builderStatusChipSx(ignorePreviousSafeguards, { dimDisabled: true })}
+              />
+            </MarkdownTooltip>
+          </Box>
+          {/* Row 2: ignore equipped in collection + vault */}
+          <Box sx={{ display: 'flex', gap: 0.75 }}>
+            <MarkdownTooltip markdown={t('safeguardsIgnoreEquippedInCollectionHint')} ellipsisTitle={t('safeguardsIgnoreEquippedInCollection')} ellipsisSelector=".MuiChip-label">
+              <Chip
+                size="small"
+                variant="filled"
+                label={t('safeguardsIgnoreEquippedInCollection')}
+                aria-label={t('safeguardsIgnoreEquippedInCollection')}
+                clickable
+                onClick={() => {
+                  updateRule((prev) => ({ ...prev, ignoreEquippedInCollection: !ignoreEquippedInCollection }))
+                }}
+                sx={builderStatusChipSx(ignoreEquippedInCollection, { dimDisabled: true })}
+              />
+            </MarkdownTooltip>
+            <MarkdownTooltip markdown={t('safeguardsIgnoreEquippedInVaultHint')} ellipsisTitle={t('safeguardsIgnoreEquippedInVault')} ellipsisSelector=".MuiChip-label">
+              <Chip
+                size="small"
+                variant="filled"
+                label={t('safeguardsIgnoreEquippedInVault')}
+                aria-label={t('safeguardsIgnoreEquippedInVault')}
+                clickable
+                onClick={() => {
+                  updateRule((prev) => ({ ...prev, ignoreEquippedInVault: !ignoreEquippedInVault }))
+                }}
+                sx={builderStatusChipSx(ignoreEquippedInVault, { dimDisabled: true })}
+              />
+            </MarkdownTooltip>
+          </Box>
         </Box>
         {/* Undo / Redo — right-aligned, mirrors RecipeBuilderPanel position + right-click history */}
         <Box
