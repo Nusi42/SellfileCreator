@@ -6276,7 +6276,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         'body.chips-dragging': {
           cursor: 'grabbing',
         },
-        '.chips-dragging [data-recipe-chip="true"], .chips-dragging [data-recipe-chip="true"] *': {
+        '.chips-dragging [data-recipe-chip="true"], .chips-dragging [data-recipe-chip="true"] *, .chips-dragging [data-safeguard-chip="true"], .chips-dragging [data-safeguard-chip="true"] *': {
           pointerEvents: 'none !important',
         },
         '::-webkit-scrollbar': {

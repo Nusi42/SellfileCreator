@@ -48,6 +48,7 @@ import PasteDialog from './PasteDialog'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useSlotMetrics } from '../hooks/useSlotMetrics'
+import { useChipListDnd } from '../hooks/useChipListDnd'
 
 
 export type SafeguardChipsPanelProps = {
@@ -244,6 +245,24 @@ export default function SafeguardChipsPanel({
     })
   }, [mutateRules])
 
+  const dndEnabled = rules.length > 1
+
+  const {
+    dropGuide: dndDropGuide,
+    handleItemPointerDown: handleChipPointerDown,
+    hasActiveDrag,
+    dragGhostIndices,
+  } = useChipListDnd({
+    containerRef: scrollRootRef,
+    itemIndexAttr: 'data-safeguard-chip-index',
+    onReorder: (movingIndices, targetIndex) => {
+      const ruleId = rules[movingIndices[0]!]?.id
+      if (ruleId !== undefined) moveRule(ruleId, targetIndex)
+    },
+    copyModeEnabled: false,
+    enabled: dndEnabled,
+  })
+
   const openRuleMenu = useCallback((event: ReactMouseEvent<HTMLElement>, ruleId: string) => {
     event.preventDefault()
     event.stopPropagation()
@@ -425,11 +444,14 @@ export default function SafeguardChipsPanel({
       <Box
         key={rule.id}
         data-safeguards-rule-id={rule.id}
+        data-safeguard-chip-index={ruleIndex}
+        data-safeguard-chip="true"
         data-linked-hover="false"
         onMouseEnter={(e) => (e.currentTarget as HTMLElement).setAttribute('data-linked-hover', 'true')}
         onMouseLeave={(e) => (e.currentTarget as HTMLElement).setAttribute('data-linked-hover', 'false')}
         onClick={() => onSelect(rule.id)}
         onContextMenu={(event) => openRuleMenu(event, rule.id)}
+        onPointerDown={dndEnabled ? (e) => handleChipPointerDown(e, ruleIndex) : undefined}
         sx={(themeCtx) => {
           const hoverBg = alpha(themeCtx.palette.primary.main, themeCtx.palette.mode === 'dark' ? HOVER_BG_ALPHA.dark : HOVER_BG_ALPHA.light)
           const selectedHoverBg = alpha(themeCtx.palette.primary.main, themeCtx.palette.mode === 'dark' ? SELECTED_HOVER_BG_ALPHA.dark : SELECTED_HOVER_BG_ALPHA.light)
@@ -448,12 +470,19 @@ export default function SafeguardChipsPanel({
             pl: 1,
             pr: 0.4,
             py: `${RECIPE_CHIP_VERTICAL_PADDING_PX}px`,
-            cursor: 'pointer',
+            cursor: dndEnabled && !dragGhostIndices.has(ruleIndex)
+              ? (hasActiveDrag ? 'grabbing' : 'grab')
+              : 'pointer',
             flex: '0 0 auto',
             '&[data-linked-hover="true"]': {
               backgroundColor: selected ? selectedHoverBg : hoverBg,
               borderColor: themeCtx.palette.primary.main,
             },
+            ...(dragGhostIndices.has(ruleIndex) ? {
+              opacity: 0.35,
+              transform: 'scale(0.985)',
+              pointerEvents: 'none',
+            } : {}),
           }
         }}
       >
@@ -645,6 +674,18 @@ export default function SafeguardChipsPanel({
           ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: themeInner.spacing(1) }),
         })}
       >
+        {dndDropGuide ? (
+          <Box sx={(themeInner) => ({
+            position: 'absolute',
+            top: dndDropGuide.top, left: dndDropGuide.left,
+            width: dndDropGuide.width, height: dndDropGuide.height,
+            backgroundColor: themeInner.palette.primary.main,
+            borderRadius: dndDropGuide.height <= 4 ? 2 : 1,
+            pointerEvents: 'none',
+            boxShadow: `0 0 8px ${alpha(themeInner.palette.primary.main, 0.6)}`,
+            zIndex: 5,
+          })} />
+        ) : null}
         {rules.length === 0 ? (
           <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: 'text.secondary', py: 0.5 }}>
             <Typography variant="body2" sx={{ textAlign: 'center' }}>{t('safeguardsNoRules')}</Typography>
