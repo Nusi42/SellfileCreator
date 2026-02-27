@@ -357,7 +357,7 @@ const overrides: Catalog = {
   safeguardsSubstatRequirementAll: 'Tüm seçili Alt Statlar',
   safeguardsSubstatRequirementPer: 'Seçili Alt Stat başına',
   safeguardsSubstatRequirementHint: '**Eşleşme gereksinimi**\n- **Herhangi bir seçili Alt Stat**: seçilen alt statlardan en az biri olmalı.\n- **Tüm seçili Alt Statlar**: seçilen alt statların tamamı olmalı.\n- **Seçili Alt Stat başına**: kotayı her seçili alt stat için ayrı uygular.',
-  safeguardsSubstatModeHint: '**Alt stat eşleşmesi**\n- **Herhangi bir seçili Alt Stat**: seçilen alt statlardan en az biri olmalı.\n- **Tüm seçili Alt Statlar**: seçilen alt statların tamamı olmalı.\n- **Seçili Alt Stat başına**: kotayı her seçili alt stat için ayrı uygular.\n\n**Sıralama ve ağırlıklar**\n- Seçili alt statlar her zaman puanlarına göre sıralanır.\n- Ağırlık kontrolleri **Herhangi bir seçili Alt Stat** ve **Tüm seçili Alt Statlar** için kullanılabilir; **Seçili Alt Stat başına** standart ağırlık kullanır.',
+  safeguardsSubstatModeHint: '**Alt stat eşleşmesi**\n- **Herhangi bir seçili Alt Stat**: seçilen alt statlardan en az biri olmalı.\n- **Tüm seçili Alt Statlar**: seçilen alt statların tamamı olmalı.\n- **Seçili Alt Stat başına**: kotayı her seçili alt stat için ayrı uygular.\n\n**Sıralama ve ağırlıklar**\n- Seçili alt statlar her zaman puanlarına göre sıralanır.\n- Ağırlık kontrolleri yalnızca **Tüm seçili Alt Statlar** için kullanılabilir; **Herhangi bir seçili Alt Stat** ve **Seçili Alt Stat başına** standart ağırlık kullanır.',
   safeguardsSubstatWeightsLabel: 'Ağırlıklar',
   safeguardsNoRules: 'Henüz koruma kuralı yok.',
   safeguardsAddRule: 'Koruma kuralı ekle',

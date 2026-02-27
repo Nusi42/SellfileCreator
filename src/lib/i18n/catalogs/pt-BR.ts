@@ -357,7 +357,7 @@ const catalog: Catalog = {
   safeguardsSubstatRequirementAll: 'Todas as Substats escolhidas',
   safeguardsSubstatRequirementPer: 'Por Substat escolhida',
   safeguardsSubstatRequirementHint: '**Requisito de correspondência**\n- **Qualquer Substat escolhida**: pelo menos uma substat escolhida deve existir.\n- **Todas as Substats escolhidas**: todas as substats escolhidas devem existir.\n- **Por Substat escolhida**: aplica a cota separadamente para cada substat escolhida.',
-  safeguardsSubstatModeHint: '**Correspondência de substats**\n- **Qualquer Substat escolhida**: pelo menos uma substat escolhida deve existir.\n- **Todas as Substats escolhidas**: todas as substats escolhidas devem existir.\n- **Por Substat escolhida**: aplica a cota separadamente para cada substat escolhida.\n\n**Ranking e pesos**\n- As substats escolhidas sempre são ranqueadas pela pontuação.\n- Os controles de peso ficam disponíveis com **Qualquer Substat escolhida** e **Todas as Substats escolhidas**; **Por Substat escolhida** usa a ponderação padrão.',
+  safeguardsSubstatModeHint: '**Correspondência de substats**\n- **Qualquer Substat escolhida**: pelo menos uma substat escolhida deve existir.\n- **Todas as Substats escolhidas**: todas as substats escolhidas devem existir.\n- **Por Substat escolhida**: aplica a cota separadamente para cada substat escolhida.\n\n**Ranking e pesos**\n- As substats escolhidas sempre são ranqueadas pela pontuação.\n- Os controles de peso ficam disponíveis apenas com **Todas as Substats escolhidas**; **Qualquer Substat escolhida** e **Por Substat escolhida** usam a ponderação padrão.',
   safeguardsSubstatWeightsLabel: 'Pesos',
   safeguardsNoRules: 'Ainda não há regras de manutenção.',
   safeguardsAddRule: 'Adicionar regra de manutenção',

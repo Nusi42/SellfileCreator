@@ -357,7 +357,7 @@ const overrides: Catalog = {
   safeguardsSubstatRequirementAll: 'Alle gewählten Substats',
   safeguardsSubstatRequirementPer: 'Pro gewähltem Substat',
   safeguardsSubstatRequirementHint: '**Abgleich**\n- **Beliebige gewählte Substat**: mindestens eine gewählte Substat muss vorhanden sein.\n- **Alle gewählten Substats**: alle gewählten Substats müssen vorhanden sein.\n- **Pro gewähltem Substat**: Quote wird separat je gewähltem Substat angewendet.',
-  safeguardsSubstatModeHint: '**Substat-Abgleich**\n- **Beliebige gewählte Substat**: mindestens eine gewählte Substat muss vorhanden sein.\n- **Alle gewählten Substats**: alle gewählten Substats müssen vorhanden sein.\n- **Pro gewähltem Substat**: Quote wird separat je gewähltem Substat angewendet.\n\n**Ranking & Gewichte**\n- Gewählte Substats werden immer nach ihren Werten gerankt.\n- Gewichtungen sind verfügbar bei **Beliebige gewählte Substat** und **Alle gewählten Substats**; **Pro gewähltem Substat** nutzt die Standardgewichtung.',
+  safeguardsSubstatModeHint: '**Substat-Abgleich**\n- **Beliebige gewählte Substat**: mindestens eine gewählte Substat muss vorhanden sein.\n- **Alle gewählten Substats**: alle gewählten Substats müssen vorhanden sein.\n- **Pro gewähltem Substat**: Quote wird separat je gewähltem Substat angewendet.\n\n**Ranking & Gewichte**\n- Gewählte Substats werden immer nach ihren Werten gerankt.\n- Gewichtungen sind nur verfügbar bei \*\*Alle gewählten Substats\*\*; \*\*Beliebige gewählte Substat\*\* und \*\*Pro gewähltem Substat\*\* nutzen die Standardgewichtung.',
   safeguardsSubstatWeightsLabel: 'Gewichte',
   safeguardsNoRules: 'Noch keine Schutzmaßnahmen.',
   safeguardsAddRule: 'Schutzmaßnahme hinzufügen',

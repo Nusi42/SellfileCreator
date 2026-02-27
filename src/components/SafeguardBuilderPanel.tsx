@@ -44,6 +44,7 @@ import {
   constrainSafeguardSubstats,
   normalizeSafeguardSubstatMatch,
   pruneSafeguardsSubstatWeights,
+  safeguardWeightsEnabled,
   sanitizeSafeguardCountMode,
   sortSafeguardCombination,
   sortSafeguardSubstats,
@@ -383,7 +384,8 @@ export default function SafeguardBuilderPanel({
   const effectiveSubstatMatch = hasSubstatSelection
     ? normalizeSafeguardSubstatMatch(rule?.substatMatch)
     : SafeguardSubstatMatch.Any
-  const showSubstatWeights = hasSubstatSelection && effectiveSubstatMatch !== SafeguardSubstatMatch.PerSubstat
+  // SSOT: delegate to safeguardWeightsEnabled so the rule is defined once.
+  const showSubstatWeights = safeguardWeightsEnabled(rule?.substatMatch, hasSubstatSelection)
 
   const countMode = sanitizeSafeguardCountMode(rule?.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
   const effectiveCountMode = hasAccessorySlot
@@ -447,6 +449,9 @@ export default function SafeguardBuilderPanel({
         nextValues.map(Number).filter((n) => Number.isFinite(n) && allowedSubstatOptions.includes(n as StatVariant)),
       ) as StatVariant[],
     )
+    // Weights are irrelevant with no substats — close the popover immediately so
+    // it does not stay open after the last substat is deselected.
+    if (sorted.length === 0) setWeightsAnchorEl(null)
     updateRule((prev) => {
       const nextMatch = sorted.length > 0 ? prev.substatMatch : SafeguardSubstatMatch.Any
       const nextWeights = pruneSafeguardsSubstatWeights(prev.substatWeights, sorted)
@@ -913,6 +918,9 @@ export default function SafeguardBuilderPanel({
                         e.stopPropagation()
                         if (!hasSubstatSelection) return
                         if (option === effectiveSubstatMatch) return
+                        // Weights are only valid in All mode — close the popover immediately
+                        // when switching to Any or PerSubstat so it doesn't stay open.
+                        if (option !== SafeguardSubstatMatch.All) setWeightsAnchorEl(null)
                         updateRule((prev) => ({ ...prev, substatMatch: option }))
                       }}
                       sx={builderStatusChipSx(active, { dimDisabled: true })}

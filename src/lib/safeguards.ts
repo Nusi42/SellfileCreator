@@ -1125,3 +1125,21 @@ export function constrainSafeguardSubstats(
   }
   return { ...rule, combination: sortedCombination, substats: filtered, substatMatch: nextMatch, substatWeights: nextWeights }
 }
+
+/**
+ * Returns true when substat weight controls should be available for a rule.
+ * Weights only make sense in All mode: every substat must be present, so
+ * relative ranking weights shift scores in a meaningful way. Any mode just
+ * requires one stat — weighting the others adds no signal. Per Substat uses
+ * equal weighting by design. This is the single source of truth used by both
+ * SafeguardBuilderPanel and SafeguardsTab.
+ */
+export function safeguardWeightsEnabled(
+  substatMatch: SafeguardRule['substatMatch'],
+  hasSubstatSelection: boolean,
+): boolean {
+  // Short-circuit: weights are irrelevant with no substats regardless of mode.
+  if (!hasSubstatSelection) return false
+  // Only All mode benefits from relative weighting between required stats.
+  return normalizeSafeguardSubstatMatch(substatMatch) === SafeguardSubstatMatch.All
+}

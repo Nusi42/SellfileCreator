@@ -64,6 +64,7 @@ import {
   sortSafeguardSubstats,
   pruneSafeguardsSubstatWeights,
   constrainSafeguardSubstats,
+  safeguardWeightsEnabled,
   type SafeguardDetectionEntry,
   type SafeguardDetectionSnapshot,
   type SafeguardRule,
@@ -945,9 +946,8 @@ ${t('safeguardsIgnoreOptionsHint')}`
     const effectiveSubstatMatch = hasSubstatSelection
       ? normalizeSafeguardSubstatMatch(rule.substatMatch)
       : SafeguardSubstatMatch.Any
-    // Weight controls apply to Any/All but stay hidden for Per Substat.
-    const showSubstatWeights = hasSubstatSelection
-      && effectiveSubstatMatch !== SafeguardSubstatMatch.PerSubstat
+    // SSOT: delegate to safeguardWeightsEnabled (only All mode qualifies).
+    const showSubstatWeights = safeguardWeightsEnabled(rule.substatMatch, hasSubstatSelection)
     const selected = effectiveSelectedRuleId === rule.id
     const expanded = expandedRuleIds.has(rule.id)
     const selectRule = () => {
