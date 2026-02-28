@@ -148,6 +148,7 @@ type RulesFilterPanelProps = {
   gearInspectorRecipeFilterMode?: GearInspectorRecipeFilterMode
   onGearInspectorRecipeFilterModeChange?: (mode: GearInspectorRecipeFilterMode) => void
   recipeCount?: number
+  builderMode?: 'recipe' | 'safeguard'
   collapsed: CollapsedSections
   onCollapsedChange: (next: CollapsedSections) => void
   gearInspectorChampionOptions?: GearInspectorChampionOption[]
@@ -453,6 +454,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   gearInspectorRecipeFilterMode = GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
   onGearInspectorRecipeFilterModeChange,
   recipeCount = 0,
+  builderMode = 'recipe',
   collapsed,
   onCollapsedChange,
     gearInspectorChampionOptions = [],
@@ -1160,7 +1162,13 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const recipeFilterLabelWidthCh = React.useMemo(() => (
     Math.max(t('filterLimitSelectedRecipes').length, t('filterLimitSelectedRecipesGearInspector').length)
   ), [t])
-  const gearInspectorRecipeFilterTooltip = t('filterLimitSelectedRecipesTooltip')
+  // Pick the Selection/By Match tooltip from 4 variants: preview mode × builder mode.
+  const isSafeguardMode = builderMode === 'safeguard'
+  const gearInspectorRecipeFilterTooltip = isGearInspectorMode
+    ? (isSafeguardMode ? t('filterLimitSelectedSafeguardGearInspectorTooltip') : t('filterLimitSelectedGearInspectorTooltip'))
+    : (isSafeguardMode ? t('filterLimitSelectedSafeguardTooltip') : t('filterLimitSelectedRecipesTooltip'))
+  // Pick the Narrow tooltip: recipe mode uses column-filter match, safeguard mode uses gear-item match.
+  const narrowTooltip = isSafeguardMode ? t('filterLimitPreviewSafeguardTooltip') : t('filterLimitPreviewRecipesTooltip')
   const recipeFilterButtonActive = gearInspectorRecipeFilterOn
   const recipeFilterButtonDisabled = !hasRecipes || !onGearInspectorRecipeFilterModeChange
   const recipeFilterButtonVariant: 'contained' | 'outlined' = recipeFilterButtonActive ? 'contained' : 'outlined'
@@ -1596,7 +1604,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   </span>
                 </MarkdownTooltip>
               )}
-              <MarkdownTooltip markdown={t('filterLimitPreviewRecipesTooltip')}>
+              <MarkdownTooltip markdown={narrowTooltip}>
                 <span>
                   <SplitLabelValueButton
                     size="small"

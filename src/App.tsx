@@ -6548,6 +6548,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               onRecipeChipFilterChange={setLimitRecipesToFiltered}
               gearInspectorRecipeFilterMode={gearInspectorRecipeFilterMode}
               onGearInspectorRecipeFilterModeChange={setGearInspectorRecipeFilterMode}
+              builderMode={builderMode}
               recipeCount={builderMode === 'safeguard' ? safeguardRules.length : customRecipes.length}
               collapsed={filterCollapsed}
               onCollapsedChange={setFilterCollapsed}
