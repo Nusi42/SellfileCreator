@@ -1422,7 +1422,10 @@ export function useTutorialCoachState({
             nextBuilder = { ...nextBuilder, autoMinRequiredRolls: false, minRequiredRolls: 3 }
             break
           }
-          case 'auto-late-add': {
+          case 'preview-highlight': {
+            // Recipe is created on entering this step (not auto-late-add) so
+            // stepping back to auto-late-add shows the Add button without a
+            // pre-existing chip — matches the intent of that step.
             nextRecipes = nextRecipes.concat(nextBuilder)
             nextSel = nextRecipes.length - 1
             break
