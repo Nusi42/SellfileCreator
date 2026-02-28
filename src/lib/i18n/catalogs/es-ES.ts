@@ -355,7 +355,7 @@ const overrides: Catalog = {
   safeguardsSubstatRequirementAll: 'Todos los Substats elegidos',
   safeguardsSubstatRequirementPer: 'Por Substat elegida',
   safeguardsSubstatRequirementHint: '**Requisito de coincidencia**\n- **Cualquier Substat elegida**: debe existir al menos un substat elegido.\n- **Todos los Substats elegidos**: deben existir todos los substats elegidos.\n- **Por Substat elegida**: aplica la cuota por separado a cada substat elegido.',
-  safeguardsSubstatModeHint: '**Coincidencia de substats**\n- **Cualquier Substat elegida**: debe existir al menos un substat elegido.\n- **Todos los Substats elegidos**: deben existir todos los substats elegidos.\n- **Por Substat elegida**: aplica la cuota por separado a cada substat elegido.\n\n**Ranking y pesos**\n- Las substats elegidas siempre se clasifican por su puntuación.\n- Los controles de peso están disponibles solo con \*\*Todos los Substats elegidos\*\*; \*\*Cualquier Substat elegida\*\* y \*\*Por Substat elegida\*\* usan la ponderación estándar.',
+  safeguardsSubstatModeHint: '**Coincidencia de substats**\n- **Cualquier Substat elegida**: debe existir al menos un substat elegido.\n- **Todos los Substats elegidos**: deben existir todos los substats elegidos.\n- **Por Substat elegida**: aplica la cuota por separado a cada substat elegido.\n\n**Ranking y pesos**\n- Las substats elegidas siempre se clasifican por su puntuación.\n- Los controles de peso están disponibles solo con **Todos los Substats elegidos**; **Cualquier Substat elegida** y **Por Substat elegida** usan la ponderación estándar.',
   safeguardsSubstatWeightsLabel: 'Pesos',
   safeguardsNoRules: 'Aún no hay reglas de conservación.',
   safeguardsAddRule: 'Añadir regla de conservación',

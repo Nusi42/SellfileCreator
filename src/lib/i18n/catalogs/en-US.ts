@@ -360,7 +360,7 @@ const enUS: Catalog = {
   safeguardsSubstatRequirementAll: 'All Selected Substats',
   safeguardsSubstatRequirementPer: 'Per Selected Substat',
   safeguardsSubstatRequirementHint: '**Match requirement**\n- **Any Selected Substat**: at least one selected substat must be present.\n- **All Selected Substats**: every selected substat must be present.\n- **Per Selected Substat**: apply the quota separately to each selected substat.',
-  safeguardsSubstatModeHint: '**Substat matching**\n- **Any Selected Substat**: at least one selected substat must be present.\n- **All Selected Substats**: every selected substat must be present.\n- **Per Selected Substat**: apply the quota separately to each selected substat.\n\n**Ranking & weights**\n- Selected substats are always ranked by their scores.\n- Weight controls are available for \*\*All Selected Substats\*\* only; \*\*Any Selected Substat\*\* and \*\*Per Selected Substat\*\* use equal weighting.',
+  safeguardsSubstatModeHint: '**Substat matching**\n- **Any Selected Substat**: at least one selected substat must be present.\n- **All Selected Substats**: every selected substat must be present.\n- **Per Selected Substat**: apply the quota separately to each selected substat.\n\n**Ranking & weights**\n- Selected substats are always ranked by their scores.\n- Weight controls are available for **All Selected Substats** only; **Any Selected Substat** and **Per Selected Substat** use equal weighting.',
   safeguardsSubstatWeightsLabel: 'Weights',
   safeguardsNoRules: 'No safeguards yet.',
   safeguardsAddRule: 'Add Safeguard',
