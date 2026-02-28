@@ -3,17 +3,17 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   DEFAULT_RULES_FILTER_STATE,
-  normalizeRulesFilterForTester,
-  toggleTesterLastUsePresetSelection,
+  normalizeRulesFilterForGearInspector,
+  toggleGearInspectorLastUsePresetSelection,
   type RulesFilterState,
 } from '../../src/lib/rulesFilter.js'
 
-test('normalizeRulesFilterForTester returns the same object when no changes are required', () => {
-  const result = normalizeRulesFilterForTester(DEFAULT_RULES_FILTER_STATE)
+test('normalizeRulesFilterForGearInspector returns the same object when no changes are required', () => {
+  const result = normalizeRulesFilterForGearInspector(DEFAULT_RULES_FILTER_STATE)
   assert.equal(result, DEFAULT_RULES_FILTER_STATE)
 })
 
-test('normalizeRulesFilterForTester forces tester-incompatible Any modes back to include', () => {
+test('normalizeRulesFilterForGearInspector forces tester-incompatible Any modes back to include', () => {
   const dirty: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
     main: { ...DEFAULT_RULES_FILTER_STATE.main, anyMode: 'only' },
@@ -23,7 +23,7 @@ test('normalizeRulesFilterForTester forces tester-incompatible Any modes back to
     rarity: { ...DEFAULT_RULES_FILTER_STATE.rarity, anyMode: 'only' },
   }
 
-  const normalized = normalizeRulesFilterForTester(dirty)
+  const normalized = normalizeRulesFilterForGearInspector(dirty)
 
   assert.notEqual(normalized, dirty)
   assert.equal(normalized.main.anyMode, 'include')
@@ -36,16 +36,16 @@ test('normalizeRulesFilterForTester forces tester-incompatible Any modes back to
   assert.equal(normalized.sets, dirty.sets)
 })
 
-test('toggleTesterLastUsePresetSelection swaps recency buckets when choosing a narrower preset', () => {
-  const initial = toggleTesterLastUsePresetSelection([], 'recent90')
+test('toggleGearInspectorLastUsePresetSelection swaps recency buckets when choosing a narrower preset', () => {
+  const initial = toggleGearInspectorLastUsePresetSelection([], 'recent90')
   assert.deepEqual(initial, ['recent90'])
 
-  const narrowed = toggleTesterLastUsePresetSelection(initial, 'recent30')
+  const narrowed = toggleGearInspectorLastUsePresetSelection(initial, 'recent30')
   assert.deepEqual(narrowed, ['recent30'])
 
-  const narrowest = toggleTesterLastUsePresetSelection(narrowed, 'recent7')
+  const narrowest = toggleGearInspectorLastUsePresetSelection(narrowed, 'recent7')
   assert.deepEqual(narrowest, ['recent7'])
 
-  const cleared = toggleTesterLastUsePresetSelection(narrowest, 'recent7')
+  const cleared = toggleGearInspectorLastUsePresetSelection(narrowest, 'recent7')
   assert.deepEqual(cleared, [])
 })

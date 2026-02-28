@@ -21,7 +21,7 @@ type IdentityGearInspectorItemLike = {
 
 export type ArtifactIdentityLike = {
   id?: unknown
-  testerItem?: IdentityGearInspectorItemLike
+  gearInspectorItem?: IdentityGearInspectorItemLike
 } | null | undefined
 
 export type TestItemIdentityLike = {
@@ -53,9 +53,9 @@ export const resolveCanonicalTestItemId = (item: TestItemIdentityLike): number |
 export const resolveCanonicalArtifactItemId = (artifact: ArtifactIdentityLike): number | null => {
   const artifactId = toValidRealItemId(artifact?.id)
   if (artifactId != null) return artifactId
-  const gearInspectorPreviewId = toValidRealItemId(artifact?.testerItem?.previewExtras?.id)
+  const gearInspectorPreviewId = toValidRealItemId(artifact?.gearInspectorItem?.previewExtras?.id)
   if (gearInspectorPreviewId != null) return gearInspectorPreviewId
-  const gearInspectorItemId = toValidRealItemId(artifact?.testerItem?.itemId)
+  const gearInspectorItemId = toValidRealItemId(artifact?.gearInspectorItem?.itemId)
   if (gearInspectorItemId != null) return gearInspectorItemId
   return null
 }

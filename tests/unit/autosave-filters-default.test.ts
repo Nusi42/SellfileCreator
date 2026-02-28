@@ -7,7 +7,7 @@ import {
   RULES_FILTER_OPEN_DEFAULT,
   RULES_FILTER_PREVIEW_MODES,
 } from '../../src/state/rulesFilterPersistence.js'
-import { TESTER_RECIPE_FILTER_MODE_DEFAULT } from '../../src/types/testerRecipeFilterMode.js'
+import { GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT } from '../../src/types/gearInspectorRecipeFilterMode.js'
 
 type Mode = typeof RULES_FILTER_PREVIEW_MODES[number]
 
@@ -25,7 +25,7 @@ const buildFilters = (overrides: Partial<AutosaveFiltersState> = {}): AutosaveFi
   return {
     activeMode: overrides.activeMode ?? 'rules',
     views: overrides.views ?? baseViews,
-    testerRecipeFilterMode: overrides.testerRecipeFilterMode ?? TESTER_RECIPE_FILTER_MODE_DEFAULT,
+    testerRecipeFilterMode: overrides.testerRecipeFilterMode ?? GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
     ...overrides,
   }
 }
@@ -41,7 +41,7 @@ test('custom chips or toggles mark filters as non-default', () => {
   const openPanel = buildFilters({
     views: {
       rules: { ...buildView(), open: true },
-      tester: buildView(),
+      gearInspector: buildView(),
     },
   })
   assert.equal(areAutosaveFiltersDefault(openPanel), false)

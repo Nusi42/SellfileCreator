@@ -402,7 +402,7 @@ type RecipeRulesStateSnapshot = {
 }
 
 
-// One-shot signal for scrolling Rule Tester to a specific artifact card.
+// One-shot signal for scrolling Gear Inspector to a specific artifact card.
 // Token increments allow repeated jumps to the same artifact id.
 type GearInspectorArtifactFocusRequest = {
   artifactId: number
@@ -568,7 +568,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const gearInspectorMatchesByItemId = useMemo(() => {
     const map = new Map<number, GearInspectorPreviewMatch | null>()
     for (const row of gearInspectorPreviewRows) {
-      const itemId = Number((row.artifact.testerItem as GearInspectorItem | undefined)?.itemId ?? NaN)
+      const itemId = Number((row.artifact.gearInspectorItem as GearInspectorItem | undefined)?.itemId ?? NaN)
       if (Number.isFinite(itemId)) {
         map.set(itemId, row.match)
       }
@@ -797,9 +797,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [previewMode, setPreviewMode] = useState<'rules' | 'gearInspector'>(() => {
     if (typeof window === 'undefined') return 'rules'
     try {
-      // Support legacy 'tester' value stored in localStorage from older versions.
+      // Validate stored mode; unrecognized values fall back to 'rules'.
       const stored = localStorage.getItem(PREVIEW_MODE_STORAGE_KEY)
-      return stored === 'gearInspector' || stored === 'tester' ? 'gearInspector' : 'rules'
+      return stored === 'gearInspector' ? 'gearInspector' : 'rules'
     } catch {
       return 'rules'
     }
@@ -918,8 +918,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       nextGearInspectorBuildOriginRef.current = 'user'
       const requestToken = (rulesBuildingTokenRef.current ?? 0) + 1
       rulesBuildingTokenRef.current = requestToken
-      const shouldTrackTesterBuild = includeMatchesInPipeline || Boolean(gearInspectorMatchResetRef.current)
-      if (shouldTrackTesterBuild) setGearEntriesActiveBuildId(requestToken)
+      const shouldTrackGearInspectorBuild = includeMatchesInPipeline || Boolean(gearInspectorMatchResetRef.current)
+      if (shouldTrackGearInspectorBuild) setGearEntriesActiveBuildId(requestToken)
       // Build/progress toggles fan out through many memoized panels; transition them
       // so user input stays responsive while the worker pipeline spins up.
       startTransition(() => {
@@ -1048,7 +1048,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 matchingRecipeDecisions: matchEntry?.matchingRecipeDecisions ?? [],
               })
             }
-            // Tester row lists can be large; transition to avoid blocking edits.
+            // Gear Inspector row lists can be large; transition to avoid blocking edits.
             startTransition(() => {
               setGearInspectorPreviewRows(sortGearInspectorRows(rows))
             })
@@ -2116,7 +2116,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleFocusRuleSettled = useCallback(() => {
     setFocusRuleIndex(null)
   }, [])
-  // Rule Tester consumes this to expand + scroll to a targeted artifact card.
+  // Gear Inspector consumes this to expand + scroll to a targeted artifact card.
   const [gearInspectorArtifactFocusRequest, setGearInspectorArtifactFocusRequest] = useState<GearInspectorArtifactFocusRequest | null>(null)
   const gearInspectorArtifactFocusTokenRef = useRef(0)
   // Ref for the preview paper element (used for Paper sizing/layout).
@@ -2141,7 +2141,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [rulesFilter, setRulesFilterRaw, rulesFilterByMode] = useRulesFilterStatePreference(previewMode)
   const [filterCollapsed, setFilterCollapsedRaw, filterCollapsedByMode] = useRulesFilterCollapsedPreference(previewMode)
   const [filtersSynced, setFiltersSyncedRaw] = useRulesFilterSyncPreference()
-  // Rule Tester substat sorting is view-only but should persist across sessions like filters.
+  // Gear Inspector substat sorting is view-only but should persist across sessions like filters.
 	  const gearInspectorSubstatSortPrefs = useGearInspectorSubstatSortPreferences()
 	  const clearGearInspectorSubstatSort = gearInspectorSubstatSortPrefs.clear
 	  // Normalized overlay presets are reused by the Sort popout (shared presets + overwrite behavior).
@@ -2280,7 +2280,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [])
 
   const buildFilterPresetSnapshot = useCallback((): FilterPresetSnapshot => {
-    // Presets capture both modes so toggling between Sellfile preview and Rule Tester stays coherent.
+    // Presets capture both modes so toggling between Sellfile preview and Gear Inspector stays coherent.
     const views = {} as FilterPresetSnapshot['views']
     for (const mode of RULES_FILTER_PREVIEW_MODES) {
       const state = rulesFilterByMode[mode] ?? cloneDefaultRulesFilterState()
@@ -2333,7 +2333,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setFiltersSyncedRaw(Boolean(snap.filtersSynced))
     setLimitRecipesToFiltered(Boolean(snap.limitRecipesToFiltered))
     setGearInspectorRecipeFilterMode(snap.testerRecipeFilterMode)
-    // Tester sorting uses its own localStorage store; update it directly for immediate table refresh.
+    // Gear Inspector sorting uses its own localStorage store; update it directly for immediate table refresh.
     setGearInspectorSubstatSortState(snap.testerSubstatSort)
     // Apply per-mode filter views so switching tabs keeps the snapshot intact.
     for (const mode of RULES_FILTER_PREVIEW_MODES) {
@@ -3160,7 +3160,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       gearDbRawDatasetRef.current = null
     }
     // For command imports, diff against the canonical endpoint dataset baseline.
-    const previousTesterSnapshots = source === 'command' && gearDbRawDatasetRef.current
+    const previousGearInspectorSnapshots = source === 'command' && gearDbRawDatasetRef.current
       ? snapshotGearDbDataset(gearDbRawDatasetRef.current)
       : new Map()
     if (tutorial.helpOpen) {
@@ -3192,12 +3192,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
         return
       }
-      // Manual file/drag imports always open Tester preview so users see imported rows immediately.
+      // Manual file/drag imports always open Gear Inspector preview so users see imported rows immediately.
       // Endpoint command pushes intentionally keep the current preview mode.
       if (source === 'manual') {
         setPreviewMode('gearInspector')
       }
-      const desiredGearInspectorItems = combined.map((artifact) => artifact.testerItem)
+      const desiredGearInspectorItems = combined.map((artifact) => artifact.gearInspectorItem)
       const { removedCount, addedCount } = applyGearDbDiff(desiredGearInspectorItems)
       if (removedCount > 0 || addedCount > 0) {
         beginGearInspectorMatchReset(source === 'command' ? 'gearDbEndpoint' : 'gearDbManual')
@@ -3224,7 +3224,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (source === 'command') {
         // Command imports become the next canonical baseline for raw deltas.
         gearDbRawDatasetRef.current = importedDataset
-        const diffDetails = buildGearDbDiffSummary(previousTesterSnapshots, importedSnapshots)
+        const diffDetails = buildGearDbDiffSummary(previousGearInspectorSnapshots, importedSnapshots)
         // Capture a shared timestamp so toast + history stay aligned.
         const queuedAt = Date.now()
         // Build structured header specs so history can re-localize later.
@@ -4100,7 +4100,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setBuilderMode('safeguard')
       return
     }
-    // Prefer the clicked row's concrete item-key so we can scroll directly to it in Rule Tester.
+    // Prefer the clicked row's concrete item-key so we can scroll directly to it in Gear Inspector.
     const clickedItemKey = (
       typeof selection.safeguardItemKey === 'number'
       && Number.isFinite(selection.safeguardItemKey)
@@ -4116,7 +4116,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Concrete rows should jump only to the exact backing artifact referenced by that row's item key.
     const targetArtifactId = gearInspectorArtifactIdBySafeguardItemKey.get(clickedItemKey) ?? null
     if (targetArtifactId != null) {
-      // Concrete safeguards have real gear to inspect, so jump to Rule Tester immediately.
+      // Concrete safeguards have real gear to inspect, so jump to Gear Inspector immediately.
       setLogicHubOpen(false)
       setPreviewMode('gearInspector')
       gearInspectorArtifactFocusTokenRef.current += 1
@@ -4537,7 +4537,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const currentMatchIdx = row.match?.recipeIdx ?? null
       // If an earlier recipe already wins, inserting/saving cannot make this recipe the first match.
       if (currentMatchIdx !== null && currentMatchIdx < targetIndex) continue
-      if (evaluateFirst(rulesForBuilder, row.artifact.testerItem)) return true
+      if (evaluateFirst(rulesForBuilder, row.artifact.gearInspectorItem)) return true
     }
     return false
   }, [
@@ -4609,7 +4609,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const pipelinePending = pipelineDebounceRef.current !== null || pipelineAbortRef.current !== null
       // Build flags reflect in-flight worker + result commits.
       const buildPending = rulesBuildingRef.current || gearEntriesBuildingRef.current
-      // Tester commit id should never trail the latest requested token once idle.
+      // Gear Inspector commit id should never trail the latest requested token once idle.
       const latestToken = rulesBuildingTokenRef.current ?? 0
       const gearInspectorCommitCaughtUp = gearEntriesCommittedBuildIdRef.current >= latestToken
       if (!pipelinePending && !buildPending && gearInspectorCommitCaughtUp) break
@@ -6798,12 +6798,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             })
             // Keep restore idempotent if the UI somehow calls restore with invalid dependencies.
             if (restoreIssues.length > 0) return
-            const shouldResetTesterMatches = Boolean(
+            const shouldResetGearInspectorMatches = Boolean(
               (selection.recipes && Array.isArray(draft?.Recipes))
               || (selection.safeguards && (Array.isArray(draft?.Safeguards) || typeof draft?.SafeguardsEnabled === 'boolean'))
               || (selection.tester && gearInspectorRestoreDraft)
             )
-            if (shouldResetTesterMatches) beginGearInspectorMatchReset('restore')
+            if (shouldResetGearInspectorMatches) beginGearInspectorMatchReset('restore')
             const selectionKeys = Object.entries(selection).filter(([, value]) => value)
             if (selectionKeys.length > 0) {
               const autosaveDescriptor = createAutosaveRestoredDescriptor({
@@ -6833,7 +6833,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 try {
                   const views = draft.Filters.views
                   if (views && typeof views === 'object') {
-                    // Replay the saved view for every mode so toggling between Sellfile preview and Rule Tester feels seamless.
+                    // Replay the saved view for every mode so toggling between Sellfile preview and Gear Inspector feels seamless.
                     for (const mode of RULES_FILTER_PREVIEW_MODES) {
                       const view = views[mode]
                       if (!view) continue

@@ -170,8 +170,8 @@ const parseSavedFilters = (raw: unknown): AutosaveFiltersState | null => {
   const gearInspectorModeRaw = rec['testerRecipeFilterMode']
   const gearInspectorRecipeFilterMode = parseGearInspectorRecipeFilterMode(gearInspectorModeRaw)
   const activeModeRaw = rec['activeMode']
-  // Map legacy stored 'tester' value to current 'gearInspector' mode on read.
-  const activeMode: RulesFilterPreviewMode = (activeModeRaw === 'gearInspector' || activeModeRaw === 'tester') ? 'gearInspector' : 'rules'
+  // Validate stored mode; unrecognized values fall back to 'rules'.
+  const activeMode: RulesFilterPreviewMode = activeModeRaw === 'gearInspector' ? 'gearInspector' : 'rules'
   return {
     activeMode,
     views,

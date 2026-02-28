@@ -25,9 +25,9 @@ const catalog: Catalog = {
   sellfilePreview: 'Prévia Sellfile',
   previewModeAria: 'Alterar modo de visualização',
   previewModeRules: 'Prévia Sellfile',
-  previewModeTester: 'Teste de Regras',
+  previewModeTester: 'Inspetor de Equipamento',
   previewModeRulesTooltip: '**Prévia do Sellfile** — Mostra o equipamento que será incluído no seu sellfile com base nas suas receitas atuais.\n\nMude para o **Teste de Regras** para carregar seu próprio equipamento e ver exatamente qual receita cada peça corresponde.',
-  previewModeTesterTooltip: '**Teste de Regras** — Carregue seu inventário de equipamento real e teste-o contra suas receitas em tempo real. Cada peça mostra qual receita a identificou e por quê.\n\nMude para a **Prévia do Sellfile** para ver a saída combinada do sellfile.',
+  previewModeTesterTooltip: '**Inspetor de Equipamento** — Carregue seu inventário de equipamento real e teste-o contra suas receitas em tempo real. Cada peça mostra qual receita a identificou e por quê.\n\nMude para a **Prévia do Sellfile** para ver a saída combinada do sellfile.',
   manageColors: 'Gerenciar cores',
   titleLogicHub: 'Ferramentas',
   optionalLoadSellfile: 'Opcional: carregue um Sellfile existente para ver a mesclagem ou um banco de dados de gear (.db) para analisá-lo no Teste de Regras.',
@@ -234,7 +234,6 @@ const catalog: Catalog = {
   msgResetGearTester: 'Isso remove todas as entradas manuais e importadas da guia “Equipamentos” do diálogo Logic Hub e esvazia a fila do Teste de Regras.',
 
   tabFinalSellGear: 'Equipamentos',
-  tabSafeguards: 'Salvaguardas',
   tabSubstatTargets: 'Metas de substat',
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Simulador de drops de masmorra',
@@ -282,7 +281,6 @@ const catalog: Catalog = {
   // Boost multipliers and max-level toggle.
   dungeonDropsBoost2x: '2×',
   dungeonDropsBoost3x: '3×',
-  dungeonDropsAnyLevel: '+16',
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: 'Recolher tabela da masmorra',
   dungeonDropsExpandLabel: 'Expandir tabela da masmorra',
@@ -559,7 +557,7 @@ const catalog: Catalog = {
   setDesc_setMercurial_by_6: 'Grants the wearer 2 {buff:Total Guard} stacks at the start of the Round. Each stack blocks all incoming damage and any associated effects.',
   setDesc_setMercurial_by_7: '+20 [[stat:statRES]]',
   setDesc_setMercurial_by_8: '+12% [[stat:statSPD]]',
-  setDesc_setMercurial_by_9: 'Grants the wearer 3 {buff:Total Guard} stacks at the start of the Round. Each stack blocks all incoming damage and any associated effects.\nAlso places a {buff:Total Guard} stack at the start of this Champion’s turn, if they have no {buff:Total Guard} stacks.',
+  setDesc_setMercurial_by_9: 'Grants the wearer 3 {buff:Total Guard} stacks at the start of the Round. Each stack blocks all incoming damage and any associated effects.\nAlso places a {buff:Total Guard} stack at the start of this Champion\'s turn, if they have no {buff:Total Guard} stacks.',
 
   // Pinpoint
   setDesc_setPinpoint_by_1: '+20 [[stat:statACC]]',
@@ -1375,9 +1373,9 @@ const catalog: Catalog = {
   tutRecipeChipsTitle: 'Chips de receita',
   tutRecipeChipsBody: 'As receitas aparecem como `chips de receita`. Clique com o botão direito para abrir o menu — `Copiar para a área de transferência` envia só essa receita. Clique com o botão direito na área vazia para `Copiar todas as receitas` ou `Colar no fim`.',
   tutFinalSellIntroTitle: 'Venda final (opcional)',
-  tutFinalSellIntroBody: '`Venda final` adiciona regras `Vender` para itens não cobertos pelas regras principais. O botão sempre mostra `Venda final`; o preenchimento âmbar indica que está ativa e o contorno neutro indica que está desligada. Deixe desligado se quiser aplicar apenas suas receitas de ^^Venda^^ explícitas.\n\nClique em `Ferramentas` para configurar essa proteção. Abriremos o Logic Hub em seguida.',
-  tutLogicHubDialogTitle: 'Logic Hub',
-  tutLogicHubDialogBody: 'Logic Hub reúne a guia `Venda final`, o diálogo `Equipamentos` (guia Equipamentos) e `Salvaguardas` em um único diálogo. Em `Venda final` você continua escolhendo o que vender (`Artefatos`, `Acessórios`) e quais `Intervalos de níveis` (por exemplo `0–3`, `4–7`, … `16`). Só ativamos `Artefatos` — os acessórios não entram neste tutorial. `+16` fica desligado por padrão para evitar vender item já finalizado. Você pode ligar aqui ou depois no ~~RSL Helper~~, quando tiver certeza do que quer vender.',
+  tutFinalSellIntroBody: '`Venda final` adiciona regras `Vender` para itens não cobertos pelas regras principais. O botão sempre mostra `Venda final`; o preenchimento âmbar indica que está ativa e o contorno neutro indica que está desligada. Deixe desligado se quiser aplicar apenas suas receitas de ^^Venda^^ explícitas.\n\nClique em `Ferramentas` para abrir o diálogo Ferramentas. Abriremos em seguida para ver as configurações da Venda final.',
+  tutLogicHubDialogTitle: 'Ferramentas (Venda final)',
+  tutLogicHubDialogBody: 'O diálogo `Ferramentas` tem as guias `Venda final` e `Equipamentos`. Em `Venda final` você escolhe o que vender (`Artefatos`, `Acessórios`) e quais `Intervalos de níveis` (por exemplo `0–3`, `4–7`, … `16`). Só ativamos `Artefatos` — os acessórios não entram neste tutorial. `+16` fica desligado por padrão para evitar vender item já finalizado. Você pode ligar aqui ou depois no ~~RSL Helper~~, quando tiver certeza do que quer vender.',
   tutNoteTitle: 'Adicionar nota',
   tutNoteBody: 'Use `Adicionar nota` para registrar um lembrete. As notas são salvas no `.sfr`, não no `.hsf` exportado.',
   tutSaveExplainTitle: 'Salvar receitas (.sfr)',
@@ -1411,9 +1409,9 @@ const catalog: Catalog = {
   tutGearDialogPreviewTitle: 'Prévia do Gear Inspector',
   tutGearDialogPreviewBody: 'Feche o diálogo `Ferramentas` e coloque a prévia em modo `Gear Inspector` para ver apenas a lista de equipamentos. Os dois itens de exemplo são as únicas linhas por enquanto, então a grade deixa claro quando as receitas, a Venda final ou Salvaguardas batem.',
   tutSafeguardsIntroTitle: 'Visão geral de Salvaguardas',
-  tutSafeguardsIntroBody: 'A aba `Salvaguardas` protege equipamento insubstituível mesmo que suas receitas + Venda final o venderiam. Defina as combinações que importam e deixe o verificador gerar regras de “manter” sempre que os dados do Teste de Regras mostrarem lacunas.',
+  tutSafeguardsIntroBody: '`Salvaguardas` é um modo do builder (use o seletor no topo da coluna do builder para mudar). Protege equipamento insubstituível mesmo que suas receitas + Venda final o venderiam. Defina as combinações que importam e ative Salvaguardas — o sellfile incluirá linhas Manter que protegem o equipamento correspondente.',
   tutSafeguardsRuleTitle: 'Proteja os acessórios Refresh',
-  tutSafeguardsRuleBody: 'Adicionamos uma regra de Salvaguardas para os estandartes Refresh (5★ Raro, Banner Lords, stat principal RES) para garantir que pelo menos um sobreviva à Venda final. Ajuste os filtros sempre que encontrar uma nova lacuna — Salvaguardas recria automaticamente as regras de proteção.',
+  tutSafeguardsRuleBody: 'Adicionamos uma regra de Salvaguardas para os estandartes Refresh (5★ Raro, Banner Lords, stat principal RES) para garantir que pelo menos um sobreviva à Venda final. Cada regra aparece como chip na lista de regras. Ajuste os filtros no builder sempre que encontrar uma nova lacuna — Salvaguardas recria automaticamente as regras de proteção.',
   tutPreviewHighlightTitle: 'Compare verificações Épicas e Lendárias',
   tutPreviewHighlightBody: '`Tarde` dá à raridade Lendária uma rolagem extra para alcançar o objetivo azul `3× [[stat:statSPD]]`. A raridade Épica precisa acertar [[stat:statSPD]] em +4 para continuar valendo, enquanto a Lendária pode falhar na primeira melhoria e ainda chegar às três rolagens até +16. A prévia coloca esses caminhos lado a lado para você ver onde cada raridade vence.',
   // Chips context menus

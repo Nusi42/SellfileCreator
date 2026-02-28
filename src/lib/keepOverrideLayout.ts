@@ -9,7 +9,7 @@ export const KEEP_OVERRIDE_RULES_COLUMN_MIN_WIDTH_PX = 360
 // Two-column mode can spare a bit less width without crushing the editor controls.
 export const KEEP_OVERRIDE_RULES_COLUMN_MIN_WIDTH_COMPACT_PX = 320
 
-// Keep-override grids match the Rule Tester card width at 4 columns.
+// Keep-override grids match the Gear Inspector card width at 4 columns.
 export const KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT = 4
 
 type KeepOverrideGridPaneWidthParams = {

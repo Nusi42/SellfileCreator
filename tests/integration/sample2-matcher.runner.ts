@@ -19,7 +19,7 @@ import {
   resolveSafeguardRulesWithMetasets,
 } from '../../src/lib/safeguards.js'
 import { evaluateMatchesByRecipe, type EvalResult } from '../../src/lib/ruleEval.js'
-import type { TesterPreviewMatch, TesterPreviewRow } from '../../src/types/testerPreview.js'
+import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from '../../src/types/gearInspectorPreview.js'
 import '../setup/wasm-warmup.js'
 
 // Keep this runner fail-fast and explicit so CI errors stay actionable.
@@ -65,7 +65,7 @@ const toArrayBuffer = (bytes: Buffer): ArrayBuffer => {
 const toPreviewMatch = (
   result: EvalResult | null,
   rules: readonly HsfRuleWithRecipe[],
-): TesterPreviewMatch | null => {
+): GearInspectorPreviewMatch | null => {
   if (!result) return null
   const matchedRule = rules[result.ruleIndex] ?? null
   return {
@@ -122,10 +122,10 @@ const main = async (): Promise<void> => {
 
   // Evaluate the baseline rows so safeguard candidate collection can
   // reproduce the same row-level context used by the live tester pipeline.
-  const baselineRows: TesterPreviewRow[] = artifacts.map((artifact) => {
+  const baselineRows: GearInspectorPreviewRow[] = artifacts.map((artifact) => {
     const evalResult = evaluateMatchesByRecipe(
       baseMergedRules,
-      artifact.testerItem,
+      artifact.gearInspectorItem,
       {
         recipeModes,
         excludeSources: [RULE_SOURCE_SAFEGUARDS],
@@ -205,7 +205,7 @@ const main = async (): Promise<void> => {
   for (const artifact of artifacts) {
     const evalResult = evaluateMatchesByRecipe(
       mergedWithKeepRules,
-      artifact.testerItem,
+      artifact.gearInspectorItem,
       {
         recipeModes,
         excludeSources: [RULE_SOURCE_SAFEGUARDS],

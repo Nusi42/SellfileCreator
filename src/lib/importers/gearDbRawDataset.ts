@@ -141,9 +141,9 @@ const collectGearInspectorItems = (
 }
 
 const cloneGearInspectorItem = (artifact: NormalizedGearArtifact): TestItem => ({
-  ...artifact.testerItem,
+  ...artifact.gearInspectorItem,
   previewExtras: {
-    ...(artifact.testerItem.previewExtras ?? {}),
+    ...(artifact.gearInspectorItem.previewExtras ?? {}),
     equippedChampionName: artifact.equippedChampionName,
     equippedChampionBaseId: artifact.equippedChampionBaseId,
     equippedChampionRarity: artifact.equippedChampionRarity,
@@ -224,7 +224,7 @@ const refreshChampionMetadata = (dataset: GearDbRawDataset, championIds: Set<num
     artifact.equippedChampionLocation = record
       ? (record.reserveVault ? 'reserveVault' : (record.vault ? 'vault' : 'collection'))
       : null
-    artifact.testerItem = cloneGearInspectorItem(artifact)
+    artifact.gearInspectorItem = cloneGearInspectorItem(artifact)
   }
   dataset.artifacts.forEach(updateArtifact)
   dataset.inboxArtifacts.forEach(updateArtifact)
@@ -234,7 +234,7 @@ const refreshLastUsedMetadata = (dataset: GearDbRawDataset, artifactIds: Set<num
   const updateArtifact = (artifact: NormalizedGearArtifact) => {
     if (!artifactIds.has(artifact.id)) return
     artifact.lastUseLocalTimestamp = dataset.lastUsed.get(artifact.id) ?? null
-    artifact.testerItem = cloneGearInspectorItem(artifact)
+    artifact.gearInspectorItem = cloneGearInspectorItem(artifact)
   }
   dataset.artifacts.forEach(updateArtifact)
   dataset.inboxArtifacts.forEach(updateArtifact)

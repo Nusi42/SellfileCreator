@@ -235,7 +235,6 @@ const enUS: Catalog = {
   msgResetGearTester: 'This removes every manual and imported gear entry from the Final Sell Gear tab and clears the Gear Inspector queue.',
 
   tabFinalSellGear: 'Gear',
-  tabSafeguards: 'Safeguards',
   tabSubstatTargets: 'Substat Targets',
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Dungeon Drops Simulator',
@@ -283,7 +282,6 @@ const enUS: Catalog = {
   // Boost multipliers and max-level toggle.
   dungeonDropsBoost2x: '2×',
   dungeonDropsBoost3x: '3×',
-  dungeonDropsAnyLevel: '+16',
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: 'Collapse dungeon table',
   dungeonDropsExpandLabel: 'Expand dungeon table',
@@ -1384,9 +1382,9 @@ const enUS: Catalog = {
   tutRecipeChipsTitle: 'Recipe Chips',
   tutRecipeChipsBody: 'Recipes appear as `Recipe chips`. Right‑click a selected chip to open its menu — use `Copy to Clipboard` to share just that recipe (handy for Discord/Telegram). Right‑click empty space here to use `Copy all Recipes` or `Paste at End` for your whole list.',
   tutFinalSellIntroTitle: 'Final Sell (Optional)',
-  tutFinalSellIntroBody: 'Use `Final Sell` to add simple `Sell` rules for any items that do not match your recipes. The button always shows `Final Sell`; an amber fill means it is active, and the neutral outline means it\'s off. Keep it off if you only want your explicit ^^Sell^^-recipes to apply.\n\nClick `Tools` to configure those safeguards. We\'ll open Logic Hub next so you can see those controls.',
-  tutLogicHubDialogTitle: 'Logic Hub',
-  tutLogicHubDialogBody: 'Logic Hub combines the Final Sell tab, the Gear dialog (Gear tab), and Safeguards in one place. On `Final Sell` you still decide what to sell (`Artifacts`, `Accessories`) and which `Level Ranges` (like `0–3`, `4–7`, … `16`). We\'re turning on `Artifacts` only — we haven\'t targeted `Accessories` in this tutorial. `+16` stays off by default to avoid selling fully leveled gear. You can turn it on here, or flip it later in ~~RSL Helper~~ after you\'ve checked it will sell exactly what you want.',
+  tutFinalSellIntroBody: 'Use `Final Sell` to add simple `Sell` rules for any items that do not match your recipes. The button always shows `Final Sell`; an amber fill means it is active, and the neutral outline means it\'s off. Keep it off if you only want your explicit ^^Sell^^-recipes to apply.\n\nClick `Tools` to open the Tools dialog. We\'ll open it next so you can see the Final Sell controls.',
+  tutLogicHubDialogTitle: 'Tools (Final Sell)',
+  tutLogicHubDialogBody: 'The `Tools` dialog has a `Final Sell` tab and a `Gear` tab. On `Final Sell` you decide what to sell (`Artifacts`, `Accessories`) and which `Level Ranges` (like `0–3`, `4–7`, … `16`). We\'re turning on `Artifacts` only — we haven\'t targeted `Accessories` in this tutorial. `+16` stays off by default to avoid selling fully leveled gear. You can turn it on here, or flip it later in ~~RSL Helper~~ after you\'ve checked it will sell exactly what you want.',
   tutNoteTitle: 'Add a Note',
   tutNoteBody: 'Use `Add Note` to jot a simple reminder for future you — what this project is about, version links, or anything helpful. If you share your `.sfr`, this note helps anyone who opens it understand what to do next. Notes save with your recipes and don\'t go into the exported `.hsf` sellfile.',
   tutSaveExplainTitle: 'Save Recipes (.sfr)',
@@ -1420,9 +1418,9 @@ const enUS: Catalog = {
   tutGearDialogPreviewTitle: 'Preview the Gear Inspector',
   tutGearDialogPreviewBody: 'Close the `Tools` dialog, then flip the preview to `Gear Inspector` mode to see just the gear list. The two sample items are the only rows for now, so the grid makes it obvious when recipes, Final Sell, or Safeguards match them.',
   tutSafeguardsIntroTitle: 'Safeguards Overview',
-  tutSafeguardsIntroBody: 'The `Safeguards` tab protects hard-to-replace gear even if your recipes + Final Sell would otherwise sell it. Define the filters you care about, then let the scanner generate safeguard rows whenever tester data shows gaps.',
+  tutSafeguardsIntroBody: '`Safeguards Builder` is a builder mode (use the toggle at the top of the builder column to switch). It protects hard-to-replace gear even if your recipes + Final Sell would otherwise sell it. Define the filters you care about and enable Safeguards — the sell file output will include Keep rows that protect matching gear.',
   tutSafeguardsRuleTitle: 'Protect Refresh Accessories',
-  tutSafeguardsRuleBody: 'We added a safeguard for Refresh banners (5★ Rare, Banner Lords, RES main stat) so at least one lives through Final Sell. Tweak the filters whenever you find a new gap—Safeguards regenerates protection automatically.',
+  tutSafeguardsRuleBody: 'We added a safeguard for Refresh banners (5★ Rare, Banner Lords, RES main stat) so at least one lives through Final Sell. Each rule appears as a chip in the rule list. Tweak the filters in the builder form whenever you find a new gap — Safeguards regenerates protection automatically.',
   tutPreviewHighlightTitle: 'Compare Epic and Legendary Checks',
   tutPreviewHighlightBody: '`Late` gives Legendary an extra roll to find the blue `3× [[stat:statSPD]]` goal. Epic must land [[stat:statSPD]] at +4 to stay alive, while Legendary can miss the first upgrade and still reach three rolls by +16. The preview shows those paths side by side so you can see exactly where each rarity succeeds.',
   // Chips context menus

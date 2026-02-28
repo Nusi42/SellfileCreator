@@ -10,8 +10,6 @@ import type {
 import type { ArtifactSetSelectionEntry } from '../gearSets/selection'
 
 export type SellfileExportMode = 'active' | 'disabled' | 'separator'
-/** @deprecated Use SellfileExportMode instead. */
-export type SellfileMode = SellfileExportMode
 
 export type Star = RankValue
 
@@ -112,8 +110,8 @@ export type SubstatTargetTable = {
 // SellfileExportMode before persisting back to disk.
 export type LegacyVisibilityFields = {
   exportMode?: SellfileExportMode | null
-  visibility?: SellfileExportMode | SellfileMode | null
-  sellfileMode?: SellfileExportMode | SellfileMode | null
+  visibility?: SellfileExportMode | null
+  sellfileMode?: SellfileExportMode | null
   SellfileVisibility?: string | null
   enabled?: boolean | null
 }

@@ -192,7 +192,7 @@ const buildPipelineMatches = async (
     if (shouldAbort?.()) return results
     const end = Math.min(start + PIPELINE_MATCH_BATCH_SIZE, artifactEntries.length)
     const batchEntries = artifactEntries.slice(start, end)
-    const batchItems = batchEntries.map(([itemId, artifact]) => ({ itemId, item: artifact.testerItem }))
+    const batchItems = batchEntries.map(([itemId, artifact]) => ({ itemId, item: artifact.gearInspectorItem }))
     const batchResults = await evaluateWasmRuleEngineItems({
       items: batchItems,
       options: evaluateOptions,
@@ -243,7 +243,7 @@ const buildExcludedRecipeBaselineMap = async (
     if (shouldAbort?.()) return byItem
     const end = Math.min(start + PIPELINE_MATCH_BATCH_SIZE, artifactEntries.length)
     const batchEntries = artifactEntries.slice(start, end)
-    const batchItems = batchEntries.map(([itemId, artifact]) => ({ itemId, item: artifact.testerItem }))
+    const batchItems = batchEntries.map(([itemId, artifact]) => ({ itemId, item: artifact.gearInspectorItem }))
     const evaluated = await evaluateWasmRuleEngineItems({
       items: batchItems,
       options: { excludeRecipeIndices },

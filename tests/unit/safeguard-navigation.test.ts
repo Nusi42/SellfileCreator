@@ -33,7 +33,7 @@ test('detects concrete safeguard rows for the clicked safeguard id', () => {
     }),
   ]
   assert.equal(hasConcreteSafeguardRowForRule(rules, 'ku_a'), true)
-  assert.equal(resolveSafeguardPreviewStarAction(rules, 'ku_a'), 'openTester')
+  assert.equal(resolveSafeguardPreviewStarAction(rules, 'ku_a'), 'openGearInspector')
 })
 
 test('routes anticipate-only safeguard rows to safeguards tab', () => {

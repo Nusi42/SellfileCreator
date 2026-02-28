@@ -25,12 +25,12 @@ const overrides: Catalog = {
   sellfilePreview: 'Sellfile önizlemesi',
   previewModeAria: 'Önizleme modunu değiştir',
   previewModeRules: 'Sellfile önizlemesi',
-  previewModeTester: 'Kural Testi',
+  previewModeTester: 'Ekipman Denetçisi',
   previewModeRulesTooltip: '**Sellfile Önizleme** — Mevcut tariflerinize göre sellfile\'ınıza dahil edilecek ekipmanları gösterir.\n\nKendi ekipmanlarınızı yüklemek ve her parçanın hangi tarife uyduğunu tam olarak görmek için **Kural Testi**\'ne geçin.',
-  previewModeTesterTooltip: '**Kural Testi** — Gerçek ekipman envanterinizi yükleyin ve tariflerinize karşı gerçek zamanlı olarak test edin. Her parça hangi tarifin eşleştiğini ve nedenini gösterir.\n\nBirleşik sellfile çıktısını görmek için **Sellfile Önizleme**\'ye geçin.',
+  previewModeTesterTooltip: '**Ekipman Denetçisi** — Gerçek ekipman envanterinizi yükleyin ve tariflerinize karşı gerçek zamanlı olarak test edin. Her parça hangi tarifin eşleştiğini ve nedenini gösterir.\n\nBirleşik sellfile çıktısını görmek için **Sellfile Önizleme**\'ye geçin.',
   manageColors: 'Renkleri yönet',
   titleLogicHub: 'Araçlar',
-  optionalLoadSellfile: 'İsteğe bağlı: Birleşimi görmek için mevcut bir Sellfile veya Kural Testi’nde incelemek için bir gear veritabanı (.db) yükleyin.',
+  optionalLoadSellfile: 'İsteğe bağlı: Birleşimi görmek için mevcut bir Sellfile veya Kural Testi\'nde incelemek için bir gear veritabanı (.db) yükleyin.',
   fileFormatErrorTitle: 'Dosya formatı desteklenmiyor',
   fileFormatErrorUnknownName: 'seçilen dosya',
   fileFormatErrorMessage: '{fileName} içinde desteklenen içerik formatlarından hiçbirini algılayamadık. Sellfile Creator .sfr (reçeteler + meta setler), .hsf (Sellfile) ve .db (gear veritabanı) kabul eder.',
@@ -47,7 +47,7 @@ const overrides: Catalog = {
   filterTooltip: 'Tabloyu filtreler (yalnızca görüntüleme). Dışa aktarma filtreleri yok sayar.',
   finalSellToggleLabel: 'Nihai satış',
   safeguardsToggleLabel: 'Safeguards',
-  finalSellToggleTooltip: '**Nihai satış** — Tarif ve güvenceleri çalıştırdıktan sonra kalan eşyaları satan son tarama.\n\nSellfile’a nihai satış taraması eklemek için etkinleştirin.',
+  finalSellToggleTooltip: '**Nihai satış** — Tarif ve güvenceleri çalıştırdıktan sonra kalan eşyaları satan son tarama.\n\nSellfile\'a nihai satış taraması eklemek için etkinleştirin.',
   finalSellConfigureTooltip: 'Son taramasını yapılandırmak için **Nihai satış** sekmesindeki **Araçlar** iletisim kutusunu açın.',
   safeguardsToggleTooltip: '**Safeguards** — Tariflerinizden bağımsız olarak belirli eşyaları satıştan korur.\n\nGüvence kurallarını etkinleştirmek için açın.',
   recipesToggleLabel: 'Tarifler',
@@ -59,8 +59,8 @@ const overrides: Catalog = {
   exportSellfile: 'RSL Helper Sellfile dışa aktar',
   exportSellfileDedupDefault: 'Kuralları tekilleştir',
   exportSellfileOmitDisabled: 'Devre dışı kuralları atla',
-  pushMergedSellfile: 'Birleştirilmiş Sellfile’ı RSL Helper’a gönder',
-  pushSellfile: 'Sellfile’ı RSL Helper’a gönder',
+  pushMergedSellfile: 'Birleştirilmiş Sellfile\'ı RSL Helper\'a gönder',
+  pushSellfile: 'Sellfile\'ı RSL Helper\'a gönder',
   pushSellfileTooltip: '{endpoint} adresine Sellfile gönderir',
   manageColorsAria: 'Renkleri yönet',
   // Gear Inspector
@@ -204,9 +204,9 @@ const overrides: Catalog = {
   titleDeleteAllRecipes: 'Tüm reçeteler silinsin mi?',
   msgDeleteAllRecipes: 'Bu işlem tüm özel kural reçetelerini (SFR) silecek. Geri alınamaz.',
   titleDeleteRecipe: 'Bu reçete silinsin mi?',
-  msgDeleteRecipe: 'Yalnızca bu reçete SFR’dan kaldırılacak.',
+  msgDeleteRecipe: 'Yalnızca bu reçete SFR\'dan kaldırılacak.',
   titleDeleteSelectedRecipes: '{n} reçete silinsin mi?',
-  msgDeleteSelectedRecipes: 'Seçili {n} reçete SFR’dan kaldırılacak.',
+  msgDeleteSelectedRecipes: 'Seçili {n} reçete SFR\'dan kaldırılacak.',
 
   titlePasteRecipeJson: 'Reçete JSON yapıştır',
   msgPasteInstructions: 'Tek bir reçete, reçete dizisi veya Reçeteler içeren bir SFR nesnesi yapıştırın.',
@@ -234,7 +234,6 @@ const overrides: Catalog = {
   msgResetGearTester: 'Bu işlem Logic Hub iletişim kutusundaki “Ekipman” sekmesinden tüm manuel ve içe aktarılan kayıtları kaldırır ve kural testinin kuyruğunu temizler.',
 
   tabFinalSellGear: 'Ekipman',
-  tabSafeguards: 'Safeguards',
   tabSubstatTargets: 'Substat hedefleri',
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Zindan Düşüşü Simülatörü',
@@ -282,7 +281,6 @@ const overrides: Catalog = {
   // Boost multipliers and max-level toggle.
   dungeonDropsBoost2x: '2×',
   dungeonDropsBoost3x: '3×',
-  dungeonDropsAnyLevel: '+16',
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: 'Zindan tablosunu daralt',
   dungeonDropsExpandLabel: 'Zindan tablosunu genişlet',
@@ -350,7 +348,7 @@ const overrides: Catalog = {
   safeguardsCountModePerMainHint: '**Ana stat başına**\nKotayı ana statlara göre ayırır.',
   safeguardsCountModePerRule: 'Kural başına',
   // Tooltip mirrors the README examples so users see the same scenarios we use to explain the scope chips.
-  safeguardsCountModeHint: '**Kapsam çipleri**\n- **Kural başına**: bu safeguard ile eşleşen her drop için tek havuz (örn. [[stat:statSPD]] botları ≥5 setten bağımsız).\n- **Slot başına**: her slot için ayrı kota (yüzük, amulet ve sancak birbirini etkilemez).\n- **Set başına**: seçtiğiniz her set/metaset için kota çoğalır (Stoneskin vs Protection).\n- **Fraksiyon başına**: her fraksiyon için kota çoğalır (her fraksiyon ≥3 Merciless yüzük).\n- **Ana stat başına**: seçili ana statlara göre kota ayrılır (örn. [[stat:statACC]] ile [[stat:statRES_percent]] banner’larını ayırmak).\nÇipler Rank ve Nadirlik dışındaki tüm seçicilerin altında durur. İstediğiniz kombinasyonu kullanın; hepsi kapalıysa kural otomatik olarak “Kural başına” havuzuna döner. Alt stat çipleri her havuzun içinde uygulanır; **Alt Stat başına** bu havuzu alt statlara göre böler (varsayılan “Kural başına” dahil).',
+  safeguardsCountModeHint: '**Kapsam çipleri**\n- **Kural başına**: bu safeguard ile eşleşen her drop için tek havuz (örn. [[stat:statSPD]] botları ≥5 setten bağımsız).\n- **Slot başına**: her slot için ayrı kota (yüzük, amulet ve sancak birbirini etkilemez).\n- **Set başına**: seçtiğiniz her set/metaset için kota çoğalır (Stoneskin vs Protection).\n- **Fraksiyon başına**: her fraksiyon için kota çoğalır (her fraksiyon ≥3 Merciless yüzük).\n- **Ana stat başına**: seçili ana statlara göre kota ayrılır (örn. [[stat:statACC]] ile [[stat:statRES_percent]] banner\'larını ayırmak).\nÇipler Rank ve Nadirlik dışındaki tüm seçicilerin altında durur. İstediğiniz kombinasyonu kullanın; hepsi kapalıysa kural otomatik olarak “Kural başına” havuzuna döner. Alt stat çipleri her havuzun içinde uygulanır; **Alt Stat başına** bu havuzu alt statlara göre böler (varsayılan “Kural başına” dahil).',
   safeguardsSubstatLabel: 'Alt statlar',
   safeguardsSubstatRequirementLabel: 'Alt stat gereksinimi',
   safeguardsSubstatRequirementAny: 'Herhangi bir seçili Alt Stat',
@@ -559,7 +557,7 @@ const overrides: Catalog = {
   setDesc_setMercurial_by_6: 'Grants the wearer 2 {buff:Total Guard} stacks at the start of the Round. Each stack blocks all incoming damage and any associated effects.',
   setDesc_setMercurial_by_7: '+20 [[stat:statRES]]',
   setDesc_setMercurial_by_8: '+12% [[stat:statSPD]]',
-  setDesc_setMercurial_by_9: 'Grants the wearer 3 {buff:Total Guard} stacks at the start of the Round. Each stack blocks all incoming damage and any associated effects.\nAlso places a {buff:Total Guard} stack at the start of this Champion’s turn, if they have no {buff:Total Guard} stacks.',
+  setDesc_setMercurial_by_9: 'Grants the wearer 3 {buff:Total Guard} stacks at the start of the Round. Each stack blocks all incoming damage and any associated effects.\nAlso places a {buff:Total Guard} stack at the start of this Champion\'s turn, if they have no {buff:Total Guard} stacks.',
 
   // Pinpoint
   setDesc_setPinpoint_by_1: '+20 [[stat:statACC]]',
@@ -856,7 +854,7 @@ const overrides: Catalog = {
   builderSubstatLockTooltipMixed: 'Bazı reçeteler bu alt stati kilitliyor. Seçili tüm reçetelerde kilitlemek için tıkla.',
   builderSubstatMenuLock: 'Kilitle',
   builderSubstatMenuUnlock: 'Kilidi aç',
-  builderSubstatMenuLockTooltip: 'Bu alt stati kilitleyerek her oluşturulan kuralda zorunlu kılarsın. Diğer permütasyonlar gerektiğinde builder’ın onu kaldırmasına veya değiştirmesine izin vermek için kilidi aç.',
+  builderSubstatMenuLockTooltip: 'Bu alt stati kilitleyerek her oluşturulan kuralda zorunlu kılarsın. Diğer permütasyonlar gerektiğinde builder\'ın onu kaldırmasına veya değiştirmesine izin vermek için kilidi aç.',
   builderSubstatMenuMinRolls: 'Minimum rulo gereksinimi',
   builderSubstatMenuMinRollsTooltip: 'Bu alt statin geçerli sayılması için gereken minimum geliştirme sayısını belirler.\n• "Herhangi" değeri serbest bırakır.\n• 0-5 rakamları tam olarak o kadar başarılı ruloyu zorunlu kılar.',
   builderSubstatMenuMaxRolls: 'Üst rulo sınırı',
@@ -902,7 +900,7 @@ const overrides: Catalog = {
   builderMinRequiredRolls: 'Min. ruloları',
   builderMinRequiredRollsTipSummary: 'Gerekli alt statler için paylaşılan geliştirme rulo hedefini belirler.',
   builderMinRequiredRollsTip1: 'Auto senin için ortak bir rulo toplamı seçer:\n• 1 takip edilen alt stat → 0\'da kalır (yalnızca varlığını doğrular).\n• 2+ zorunlu alt stat → bu sayıyı eşler (hedef «Kilitli» ise kilitli olanları baz alır).\n• Seçilen nadirliğin +16\'da atabileceğinden fazlasını asla istemez; ince ayarlar ulaşılabilir kalır.',
-  builderMinRequiredRollsTip2: 'Manuel değerler, dışa aktarmadan önce hedefin +16’da hâlâ ulaşılabilir olduğunu doğrular.',
+  builderMinRequiredRollsTip2: 'Manuel değerler, dışa aktarmadan önce hedefin +16\'da hâlâ ulaşılabilir olduğunu doğrular.',
   builderMinRequiredRollsTargetLocked: 'Hedef: Kilitli alt statlar',
   builderMinRequiredRollsChipLocked: 'Sadece kilitli',
   builderMinRequiredRollsChipSelected: 'Tüm alt statlar',
@@ -951,7 +949,7 @@ const overrides: Catalog = {
   builderCheatSheetSubstatsLockTitle: 'Kilitli + opsiyonel',
   builderCheatSheetSubstatsLockBody: 'Kilitli statlar (🔒) her zaman görünür. Opsiyoneller diğer yuvaları doldurur ve farklı destek kombinasyonları verir.',
   builderCheatSheetSubstatsFlexTitle: 'Opsiyoneller için Flex',
-  builderCheatSheetSubstatsFlexBody: 'Flex zorunlu sayının üstündeki fazla seçimleri döndürür, böylece reçete kopyalamadan tüm geçerli kombinasyonları (ör. 3’ten herhangi 2) üretirsin. Sihirli değnek simgesi Flex çalışırken görünür.',
+  builderCheatSheetSubstatsFlexBody: 'Flex zorunlu sayının üstündeki fazla seçimleri döndürür, böylece reçete kopyalamadan tüm geçerli kombinasyonları (ör. 3\'ten herhangi 2) üretirsin. Sihirli değnek simgesi Flex çalışırken görünür.',
   builderCheatSheetSubstatsAutoTitle: 'Gereken = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto gereklilik sayısını seçtiğin alt statlarla (maks. 4) senkron tutar, elle ayarlama ihtiyacını kaldırır.',
 
@@ -968,10 +966,10 @@ const overrides: Catalog = {
   builderCheatSheetMilestonesEarlyBody: 'Erken, şu ana kadar aldığın rolleri listeler ve +16 hedefine ulaşabilen tüm dağılımları gösterir.',
   builderCheatSheetMilestonesEarlyRow0: '[[stat:statSPD]] ≥ 5 ve [[stat:statACC]] ≥ 5 — başlangıç rolleri',
   builderCheatSheetMilestonesEarlyRow4: '+4 ilk rolü ekler: [[stat:statSPD]] ≥ 10 veya [[stat:statACC]] ≥ 10',
-  builderCheatSheetMilestonesEarlyRow8: '+8, +16’da [[stat:statSPD]] ≥ 15 ve [[stat:statACC]] ≥ 10’a ulaşan tüm ikili rolleri gösterir',
-  builderCheatSheetMilestonesEarlyRow12: '+12/+16 [[stat:statSPD]] ≥ 15 ve [[stat:statACC]] ≥ 10’da birleşir',
+  builderCheatSheetMilestonesEarlyRow8: '+8, +16\'da [[stat:statSPD]] ≥ 15 ve [[stat:statACC]] ≥ 10\'a ulaşan tüm ikili rolleri gösterir',
+  builderCheatSheetMilestonesEarlyRow12: '+12/+16 [[stat:statSPD]] ≥ 15 ve [[stat:statACC]] ≥ 10\'da birleşir',
   builderCheatSheetMilestonesLateTitle: 'Geç (şimdi lazım olan)',
-  builderCheatSheetMilestonesLateBody: 'Geç, hedef +16’yı sürdürebilmek için şu anda hangi minimum değerlere ihtiyaç olduğunu listeler. Önceki seviyeler yalnızca mümkün seçenekleri gösterir. Kuşatma ya da etkinlik ganimeti gibi nadir düşen eşyalar için önerilir.',
+  builderCheatSheetMilestonesLateBody: 'Geç, hedef +16\'yı sürdürebilmek için şu anda hangi minimum değerlere ihtiyaç olduğunu listeler. Önceki seviyeler yalnızca mümkün seçenekleri gösterir. Kuşatma ya da etkinlik ganimeti gibi nadir düşen eşyalar için önerilir.',
   builderCheatSheetMilestonesLateRow0: '+0/+4 tabanı — [[stat:statSPD]] ≥ 5 ve [[stat:statACC]] ≥ 5',
   builderCheatSheetMilestonesLateRow8: '+8 ikinci role ihtiyaç duyar: [[stat:statSPD]] ≥ 10 veya [[stat:statACC]] ≥ 10',
   builderCheatSheetMilestonesLateRow12: '+12, rayında kalmak için [[stat:statSPD]] ≥ 15 veya [[stat:statACC]] ≥ 10 ister',
@@ -979,7 +977,7 @@ const overrides: Catalog = {
 
   builderCheatSheetSectionAdvanced: 'Hepsini birleştir',
   builderCheatSheetAdvancedTitle: 'Geç Auto ≥ Epik + Flex + üst sınırlar',
-  builderCheatSheetAdvancedBody: '[[stat:statSPD]]/[[stat:statACC]] için rol hedefleri koyar, [[stat:statRES]] jokerini döndürür, [[stat:statCDMG]]’ye 0 üst sınırı koyar ve {legendary} dalları {late}, {autoEpic} ve {locked} anahtarı açıkken görünür tutar.',
+  builderCheatSheetAdvancedBody: '[[stat:statSPD]]/[[stat:statACC]] için rol hedefleri koyar, [[stat:statRES]] jokerini döndürür, [[stat:statCDMG]]\'ye 0 üst sınırı koyar ve {legendary} dalları {late}, {autoEpic} ve {locked} anahtarı açıkken görünür tutar.',
 
 
   // Metasets dialog
@@ -1078,11 +1076,11 @@ const overrides: Catalog = {
   testerSortNormalized: 'Normalleştirilmiş',
   testerSortNormalizedTooltip: '**Normalized** öncelik sırasını yok sayar ve tek bir puana göre sıralar:\n\n- **Puan = ağırlıklı toplam** seçili alt statların toplamıdır.\n- Seçilen her alt statın bir **ağırlığı** vardır (`0.1–3.0`, varsayılan `1.0`).\n- Seçilen her alt stat, kendi **6★ rulo tavanına** göre ölçeklenir: `değer / tavan`.\n- Birden fazla ön ayar seçildiyse sıralama **en iyi (max)** puanı kullanır (ortalama değil).\n- **Yalnızca alt statlar sayılır**. Set, slot, rütbe, nadirlik ve ana stat yok sayılır.\n- Bir eşyada seçili bir alt stat yoksa katkısı **0** olur.\n- Normalized açıkken `Last Used` yok sayılır.\n\n**Örnek (seçili: [[stat:statSPD]] + [[stat:statCR]] + [[stat:statCDMG]])**\n**(n)**, bu alt stata gelen **upgrade rulo sayısını** gösterir.\n\n- Item A: `[[stat:statSPD]] 11 (1)`, `[[stat:statCR]] 20 (3)`, `[[stat:statCDMG]] 7 (0)`\n  - [[stat:statCR]] için **kötü üçlü**: `5 + 3×5 = 20`\n  - Puan = `11/6 + 20/7 + 7/7 = 1.83 + 2.86 + 1.00 = 5.69`\n- Item B: `[[stat:statSPD]] 10 (1)`, `[[stat:statCR]] 21 (2)`, `[[stat:statCDMG]] 12 (1)`\n  - [[stat:statCR]] için **iyi ikili**: `7 + 2×7 = 21`\n  - Puan = `10/6 + 21/7 + 12/7 = 1.67 + 3.00 + 1.71 = 6.38`\n\n[[stat:statCR]] rulo sayısı daha az olsa bile, rulolar daha kaliteli olduğu için Item B daha yukarıda olabilir — ayrıca puan diğer seçili statları da hesaba katar.',
   testerSortNormalizedUseActive: 'Aktif',
-  testerSortNormalizedUseActiveTooltip: '**Aktif**, normalleştirilmiş puan kaynağı olarak Kural Testi ızgarasındaki **Alt Stat Puanını Göster** ön ayar seçimini kullanır.\n\n- Izgarada birden fazla ön ayar açıksa sıralama **en iyi (max)** puanı kullanır.\n- Dairesel puanlamayı önlemek için ızgara overlay’i **Sıralama kaynağı** iken devre dışıdır.',
+  testerSortNormalizedUseActiveTooltip: '**Aktif**, normalleştirilmiş puan kaynağı olarak Kural Testi ızgarasındaki **Alt Stat Puanını Göster** ön ayar seçimini kullanır.\n\n- Izgarada birden fazla ön ayar açıksa sıralama **en iyi (max)** puanı kullanır.\n- Dairesel puanlamayı önlemek için ızgara overlay\'i **Sıralama kaynağı** iken devre dışıdır.',
   testerSortNormalizedPresetActionsOverwrite: 'Geçerli olandan üzerine yaz',
   testerSortWeightIncreaseAria: '{label} ağırlığını artır',
   testerSortWeightDecreaseAria: '{label} ağırlığını azalt',
-  testerSortWeightResetAria: '{label} ağırlığını 1.0’a sıfırla',
+  testerSortWeightResetAria: '{label} ağırlığını 1.0\'a sıfırla',
   recipeFilterOn: 'Açık',
   testerFilterRecipesOff: 'Kapalı',
   testerFilterRecipesFirst: 'İlk',
@@ -1131,7 +1129,7 @@ const overrides: Catalog = {
   // Note dialog
   noteTitle: 'Not ve reçete seçenekleri',
   titleClearNote: 'Not silinsin mi?',
-  msgClearNote: 'Bu işlem mevcut notu SFR’dan kaldırır. Geri alınamaz.',
+  msgClearNote: 'Bu işlem mevcut notu SFR\'dan kaldırır. Geri alınamaz.',
 
   // Restore autosave dialog
   restoreAutosaveTitle: 'Son kaydedilen durum geri yüklensin mi?',
@@ -1244,7 +1242,7 @@ const overrides: Catalog = {
   statRollCount: 'Rulo sayısı',
 
   // Builder panel caption and toasts
-  toastRecipesSaved: 'Reçeteler kaydedildi. İndirilenler’i kontrol edin.',
+  toastRecipesSaved: 'Reçeteler kaydedildi. İndirilenler\'i kontrol edin.',
   toastSellfileSaved: 'Sellfile dışa aktarıldı.',
   toastSellfileExportFailed: 'Sellfile dışa aktarma başarısız oldu. Ayrıntılar için konsola bakın.',
   toastGearDbImportedShort: 'İçe aktarıldı {count}',
@@ -1375,9 +1373,9 @@ const overrides: Catalog = {
   tutRecipeChipsTitle: 'Reçete çipleri',
   tutRecipeChipsBody: 'Reçeteler `reçete çipi` olarak görünür. Seçili bir çipe sağ tıklamak menüyü açar — `Panoya kopyala` yalnızca o reçeteyi paylaşır (Discord/Telegram için kullanışlı). Boş alana sağ tıklayınca `Tüm reçeteler kopyala` ve `Sona yapıştır` çıkar.',
   tutFinalSellIntroTitle: 'Nihai satış (isteğe bağlı)',
-  tutFinalSellIntroBody: '`Nihai satış`, reçetelerle eşleşmeyen öğeler için basit `Sat` kuralları ekler. Düğme her zaman `Nihai satış` yazar; kehribar dolgulu hâli açık olduğunu, nötr kenarlık ise kapalı olduğunu gösterir. Sadece açıkça tanımlı ^^Sat^^-kurallar uygulansın istiyorsanız kapalı tutun.\n\nBu ayarları yapmak için `Araçlar` düğmesine tıklayın. Sonraki adımda Logic Hub’ı göstereceğiz.',
-  tutLogicHubDialogTitle: 'Logic Hub',
-  tutLogicHubDialogBody: 'Logic Hub, `Nihai satış`, Ekipman diyaloğu (Gear sekmesi) ve `Benzersizleri koru` sekmelerini tek pencerede toplar. `Nihai satış` sekmesinde hâlâ ne satılacağını (`Eserler`, `Aksesuarlar`) ve hangi `Seviye aralıkları`nı (ör. `0–3`, `4–7`, … `16`) seçeceğinize karar verirsiniz. Bu eğitimde sadece `Eserler` açık — aksesuarlarla ilgilenmiyoruz. `+16` varsayılan olarak kapalıdır ki tam geliştirilmiş parçalar yanlışlıkla satılmasın. İsterseniz burada açabilir veya ~~RSL Helper~~ içinde daha sonra, satılacakları doğruladıktan sonra açabilirsiniz.',
+  tutFinalSellIntroBody: '`Nihai satış`, reçetelerle eşleşmeyen öğeler için basit `Sat` kuralları ekler. Düğme her zaman `Nihai satış` yazar; kehribar dolgulu hâli açık olduğunu, nötr kenarlık ise kapalı olduğunu gösterir. Sadece açıkça tanımlı ^^Sat^^-kurallar uygulansın istiyorsanız kapalı tutun.\n\nAraçlar iletişim kutusunu açmak için `Araçlar` düğmesine tıklayın. Sonraki adımda açarak Nihai satış ayarlarını göstereceğiz.',
+  tutLogicHubDialogTitle: 'Araçlar (Nihai satış)',
+  tutLogicHubDialogBody: '`Araçlar` iletişim kutusu `Nihai satış` ve `Ekipman` sekmelerini içerir. `Nihai satış` sekmesinde ne satılacağını (`Eserler`, `Aksesuarlar`) ve hangi `Seviye aralıkları`nı (ör. `0–3`, `4–7`, … `16`) seçersiniz. Bu eğitimde sadece `Eserler` açık — aksesuarlarla ilgilenmiyoruz. `+16` varsayılan olarak kapalıdır ki tam geliştirilmiş parçalar yanlışlıkla satılmasın. İsterseniz burada açabilir veya ~~RSL Helper~~ içinde daha sonra, satılacakları doğruladıktan sonra açabilirsiniz.',
   tutNoteTitle: 'Not ekleyin',
   tutNoteBody: '`Not ekle` ile gelecekteki kendinize kısa bir not bırakın — bu projenin amacı, sürüm bağlantıları vb. `.sfr` paylaşırsanız not, dosyayı açan kişiye bağlam ve sonraki adımlar için de yardımcı olur. Notlar `.sfr` içinde reçetelerle kaydedilir, dışa aktarılan `.hsf` içine girmez.',
   tutSaveExplainTitle: 'Reçeteleri kaydet (.sfr)',
@@ -1407,13 +1405,13 @@ const overrides: Catalog = {
   tutGearDialogOpenTitle: 'Ekipman',
   tutGearDialogOpenBody: '`Araçlar` düğmesini kullanarak iletişim kutusunu doğrudan `Ekipman` sekmesinde açın. Önizlemeden çıkmadan RSL Helper veritabanı içe aktarabilir veya manuel girdiler oluşturabilirsiniz.',
   tutGearDialogAddTitle: 'Özel ekipman ekle',
-  tutGearDialogAddBody: '`Araçlar` “Ekipman” sekmesinde açıkken bir RSL Helper `.db` dosyasını uygulamaya sürükleyin veya `%APPDATA%\\RslHelper\\Config` konumundan içeri almak için `Yükle`ye tıklayın. Ayrıca `Stream-Helper-DB-to-Creator.bat` çalıştırarak bu klasörden ekipman aktarabilirsin.\n\nManuel oluşturulan ekipman RSL Helper’dan gelen verilerin yanında listelenir. Rehber olarak Banner Lords’tan 5★ Nadir `Refresh` bir sancak ve 4★ Sıradan bir Knight Revenant muskası örnek parça olarak ekledik. Varsayımsal düşüşleri, el yapımı eşyaları veya yeniden ayarlanmış istatistikleri modellemek istediğinizde bu düğmeyi kullanın.',
+  tutGearDialogAddBody: '`Araçlar` “Ekipman” sekmesinde açıkken bir RSL Helper `.db` dosyasını uygulamaya sürükleyin veya `%APPDATA%\\RslHelper\\Config` konumundan içeri almak için `Yükle`ye tıklayın. Ayrıca `Stream-Helper-DB-to-Creator.bat` çalıştırarak bu klasörden ekipman aktarabilirsin.\n\nManuel oluşturulan ekipman RSL Helper\'dan gelen verilerin yanında listelenir. Rehber olarak Banner Lords\'tan 5★ Nadir `Refresh` bir sancak ve 4★ Sıradan bir Knight Revenant muskası örnek parça olarak ekledik. Varsayımsal düşüşleri, el yapımı eşyaları veya yeniden ayarlanmış istatistikleri modellemek istediğinizde bu düğmeyi kullanın.',
     tutGearDialogPreviewTitle: 'Gear Inspector\'ı önizle',
   tutGearDialogPreviewBody: '`Araçlar` iletişim kutusunu kapatıp önizlemeyi `Gear Inspector` moduna çevirerek sadece ekipman listesini görün. İki örnek parça şu anda tek satırlar olduğu için reçeteler, Nihai Satış veya Safeguards eşleştiğinde tablo bu farkı net gösteriyor.',
   tutSafeguardsIntroTitle: 'Safeguards genel bakış',
-  tutSafeguardsIntroBody: 'Safeguards sekmesi, reçeteler + Nihai Satış onu satacak olsa bile yerine koyulamayan eşyaları korur. Önemsediğiniz kombinasyonları tanımlayın; tester verisi boşluk gösterdiğinde tarayıcı otomatik olarak “koru” kuralları oluşturur.',
+  tutSafeguardsIntroBody: '`Safeguards Builder`, bir builder modudur (değiştirmek için builder sütununun üstündeki seçiciyi kullanın). Reçeteler + Nihai Satış onu satacak olsa bile yerine koyulamayan eşyaları korur. Önemsediğiniz kombinasyonları tanımlayın ve Safeguards\'ı etkinleştirin — sellfile, eşleşen eşyaları koruyan Koru satırları içerecektir.',
   tutSafeguardsRuleTitle: 'Refresh aksesuarlarını koru',
-  tutSafeguardsRuleBody: 'Refresh bayrakları (5★ Nadir, Banner Lords, RES ana stat) için bir koruma kuralı ekledik; böylece en az biri Nihai Satış\'tan sağ kurtulsun. Yeni bir boşluk bulduğunuzda filtreleri ayarlayın—Safeguards koruma kurallarını otomatik olarak yeniden oluşturur.',
+  tutSafeguardsRuleBody: 'Refresh bayrakları (5★ Nadir, Banner Lords, RES ana stat) için bir koruma kuralı ekledik; böylece en az biri Nihai Satış\'tan sağ kurtulsun. Her kural, kural listesinde bir çip olarak görünür. Yeni bir boşluk bulduğunuzda builder\'daki filtreleri ayarlayın — Safeguards koruma kurallarını otomatik olarak yeniden oluşturur.',
   tutPreviewHighlightTitle: 'Destansı ve Efsanevi kontrolleri karşılaştır',
   tutPreviewHighlightBody: '`Geç`, Efsanevi için mavi `3× [[stat:statSPD]]` hedefine ulaşmak adına ekstra bir rulo daha verir. Destansı sancakların oyunda kalabilmesi için [[stat:statSPD]]\'yi +4\'te yakalaması gerekir; Efsanevi ise ilk yükseltmeyi kaçırsa bile +16\'ya kadar üç ruloya ulaşabilir. Önizleme bu yolları yan yana gösterir, böylece her nadirliğin nerede başarılı olduğunu net biçimde görürsünüz.',
   // Chips context menus

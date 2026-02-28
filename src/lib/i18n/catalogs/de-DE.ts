@@ -234,7 +234,6 @@ const overrides: Catalog = {
   msgResetGearTester: 'Dadurch werden alle manuellen und importierten Ausrüstungs-Einträge aus dem Tab „Ausrüstung” im Logic-Hub-Dialog entfernt und die Warteschlange des Ausrüstungsinspektors geleert.',
 
   tabFinalSellGear: 'Ausrüstung',
-  tabSafeguards: 'Schutzmaßnahmen',
   tabSubstatTargets: 'Substat-Ziele',
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Dungeon-Drops-Simulator',
@@ -282,7 +281,6 @@ const overrides: Catalog = {
   // Boost multipliers and max-level toggle.
   dungeonDropsBoost2x: '2×',
   dungeonDropsBoost3x: '3×',
-  dungeonDropsAnyLevel: '+16',
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: 'Dungeon-Tabelle einklappen',
   dungeonDropsExpandLabel: 'Dungeon-Tabelle ausklappen',
@@ -1375,9 +1373,9 @@ const overrides: Catalog = {
   tutRecipeChipsTitle: 'Rezept-Chips',
   tutRecipeChipsBody: 'Rezepte erscheinen als `Rezept‑Chips`. Rechtsklick auf einen Chip öffnet das `Chip-Menü` — `In Zwischenablage kopieren` teilt nur dieses Rezept. Rechtsklick auf leeren Bereich bietet `Alle Rezepte kopieren`/`Am Ende einfügen`.',
   tutFinalSellIntroTitle: 'Finaler Verkauf (optional)',
-  tutFinalSellIntroBody: '`Finaler Verkauf` fügt einfache `Verkaufen`-Regeln für nicht passende Teile hinzu. Die Beschriftung lautet immer `Finaler Verkauf`; ein orangefarbener Hintergrund bedeutet aktiv, die neutrale Umrandung bedeutet aus. Lass ihn aus, wenn nur deine expliziten ^^Verkaufen^^-Rezepte gelten sollen.\n\nKlicke auf `Tools`, um diese Schutzschicht zu konfigurieren. Wir öffnen den Logic-Hub-Dialog im nächsten Schritt.',
-  tutLogicHubDialogTitle: 'Logic Hub',
-  tutLogicHubDialogBody: 'Logic Hub bündelt den Tab `Finaler Verkauf`, den Ausrüstungsdialog (Tab `Ausrüstung`) und `Schutzmaßnahmen` in einem Dialog. Im Tab `Finaler Verkauf` legst du weiterhin fest, was verkauft werden soll (`Artefakte`, `Schmuckstücke`) und welche `Stufenbereiche` (z. B. `0–3`, `4–7`, … `16`). Wir schalten nur `Artefakte` ein – `Schmuckstücke` brauchen wir in diesem Tutorial nicht. `+16` bleibt standardmäßig aus, damit voll geleveltes Gear nicht versehentlich verkauft wird. Du kannst es hier aktivieren oder später in ~~RSL Helper~~, sobald du geprüft hast, dass genau die gewünschten Teile verkauft werden.',
+  tutFinalSellIntroBody: '`Finaler Verkauf` fügt einfache `Verkaufen`-Regeln für nicht passende Teile hinzu. Die Beschriftung lautet immer `Finaler Verkauf`; ein orangefarbener Hintergrund bedeutet aktiv, die neutrale Umrandung bedeutet aus. Lass ihn aus, wenn nur deine expliziten ^^Verkaufen^^-Rezepte gelten sollen.\n\nKlicke auf `Tools`, um den Tools-Dialog zu öffnen. Wir öffnen ihn im nächsten Schritt, damit du die Finaler-Verkauf-Einstellungen siehst.',
+  tutLogicHubDialogTitle: 'Tools (Finaler Verkauf)',
+  tutLogicHubDialogBody: 'Der `Tools`-Dialog hat die Tabs `Finaler Verkauf` und `Ausrüstung`. Im Tab `Finaler Verkauf` legst du fest, was verkauft werden soll (`Artefakte`, `Schmuckstücke`) und welche `Stufenbereiche` (z. B. `0–3`, `4–7`, … `16`). Wir schalten nur `Artefakte` ein – `Schmuckstücke` brauchen wir in diesem Tutorial nicht. `+16` bleibt standardmäßig aus, damit voll geleveltes Gear nicht versehentlich verkauft wird. Du kannst es hier aktivieren oder später in ~~RSL Helper~~, sobald du geprüft hast, dass genau die gewünschten Teile verkauft werden.',
   tutNoteTitle: 'Notiz hinzufügen',
   tutNoteBody: 'Nutze `Notiz hinzufügen`, um dir kurz etwas zu merken. Notizen werden in `.sfr` gespeichert und landen nicht im exportierten `.hsf`.',
   tutSaveExplainTitle: 'Rezepte speichern (.sfr)',
@@ -1411,9 +1409,9 @@ const overrides: Catalog = {
   tutGearDialogPreviewTitle: 'Gear Inspector anzeigen',
   tutGearDialogPreviewBody: 'Schließe den `Tools`-Dialog und schalte die Vorschau anschließend in den `Gear Inspector`-Modus, um nur die Ausrüstungsliste zu sehen. Die beiden Beispielteile sind momentan die einzigen Zeilen, sodass das Raster sofort zeigt, wann Rezepte, Finaler Verkauf oder Schutzmaßnahmen sie abdecken.',
   tutSafeguardsIntroTitle: 'Schutzmaßnahmen: Überblick',
-  tutSafeguardsIntroBody: 'Die Registerkarte `Schutzmaßnahmen` schützt schwer ersetzbare Ausrüstung selbst dann, wenn deine Rezepte + Finaler Verkauf sie sonst verkaufen würden. Definiere die Filter, die dir wichtig sind, und lass den Scanner automatisch Schutzmaßnahmen erzeugen, sobald die Tester-Daten Lücken melden.',
+  tutSafeguardsIntroBody: '`Schutzmaßnahmen-Builder` ist ein Builder-Modus (nutze den Umschalter oben in der Builder-Spalte). Er schützt schwer ersetzbare Ausrüstung selbst dann, wenn deine Rezepte + Finaler Verkauf sie sonst verkaufen würden. Definiere die Filter, die dir wichtig sind, und aktiviere Schutzmaßnahmen — die Sellfile-Ausgabe enthält dann Behalten-Zeilen für passendes Gear.',
   tutSafeguardsRuleTitle: 'Refresh-Schmuck schützen',
-  tutSafeguardsRuleBody: 'Wir haben eine Schutzmaßnahme für Refresh-Banner (5★ Rare, Banner Lords, RES als Hauptstat) hinzugefügt, damit mindestens eines den Finalen Verkauf überlebt. Passe die Filter an, sobald du eine neue Lücke findest – Schutzmaßnahmen erneuern den Schutz automatisch.',
+  tutSafeguardsRuleBody: 'Wir haben eine Schutzmaßnahme für Refresh-Banner (5★ Rare, Banner Lords, RES als Hauptstat) hinzugefügt, damit mindestens eines den Finalen Verkauf überlebt. Jede Regel erscheint als Chip in der Regelliste. Passe die Filter im Builder an, sobald du eine neue Lücke findest – Schutzmaßnahmen erneuern den Schutz automatisch.',
   tutPreviewHighlightTitle: 'Epische und legendäre Prüfungen vergleichen',
   tutPreviewHighlightBody: '`Spät` verschafft legendären Bannern einen zusätzlichen Versuch auf das blaue `3× [[stat:statSPD]]`-Ziel. Epische Banner müssen [[stat:statSPD]] schon bei +4 treffen, um im Rennen zu bleiben, während legendäre das erste Upgrade verpassen dürfen und trotzdem bis +16 auf drei Rolls kommen. Die Vorschau stellt beide Pfade nebeneinander dar, damit du genau siehst, wo jede Seltenheit Erfolg hat.',
   // Chips context menus

@@ -2,7 +2,7 @@
  * gearDbLookups
  *
  * Shared Champion/LastUsed lookup wiring so both the SQL importer and the raw
- * JSON event path can derive identical metadata for Rule Tester artifacts.
+ * JSON event path can derive identical metadata for Gear Inspector artifacts.
  * Keep the helpers tiny and heavily commented so future schema tweaks only
  * require an edit in this one file.
  */
@@ -37,7 +37,7 @@ const sanitizeRarity = (value: unknown): RankValue | null => {
 }
 
 /**
- * Convert a Champs row into the normalized lookup entry the Rule Tester uses.
+ * Convert a Champs row into the normalized lookup entry the Gear Inspector uses.
  * Returns `null` when the row lacks a usable ID so callers can skip it.
  */
 export const championRowToLookupRecord = (row: GearDbChampionRow): ChampionLookupRecord | null => {

@@ -97,7 +97,7 @@ export default function RestoreAutosaveDialog({
     if (hasSafeguards) next.safeguards = true
     if (hasFilters && filtersDiffer) next.filters = true
     if (hasSort && sortDiffer) next.sort = true
-    // Skip tester if snapshot is empty — that equals the default state.
+    // Skip Gear Inspector if snapshot is empty — that equals the default state.
     if (hasGearInspectorContent) next.tester = true
     if (gearSetsCount > 0) next.gearSets = true
     return next
@@ -207,14 +207,16 @@ export default function RestoreAutosaveDialog({
   const constraintSummary = constraintMessages.join(' • ')
 
   const hasOptions = options.length > 0
-  // If every item in the list equals the current default (or would be a no-op restore),
-  // the dialog has nothing meaningful to offer. Dismiss immediately so the user never sees it.
+  // When all offered fields match their current defaults there is nothing to restore.
+  // Apply immediately (onRestore with all-false selection) so acceptRestore() runs and
+  // autosave re-enables — rather than leaving the session in the “dismissed” limbo state.
   useEffect(() => {
     if (!open || hasOptions) return
-    // Mirror legacy “no prompt” behavior by rolling back the open flag ASAP.
-    onDismiss()
-  }, [open, hasOptions, onDismiss])
+    // Pass the all-false default selection: no field will actually be written.
+    onRestore(RESTORE_SELECTION_DEFAULT)
+  }, [open, hasOptions, onRestore])
 
+  // Nothing to show — bail before rendering so MUI never mounts the Dialog.
   if (!hasOptions) return null
 
   const handleToggle = (key: RestoreOptionKey) => (_event: React.ChangeEvent<HTMLInputElement>, checked: boolean) => {

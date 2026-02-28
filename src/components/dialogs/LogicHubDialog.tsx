@@ -89,7 +89,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
   } = props
   const { t } = useI18n()
   // Gear resets also confirm so a stray click does not clear imported databases or manual samples.
-  const [confirmResetGearInspector, setConfirmResetGearTester] = useState(false)
+  const [confirmResetGearInspector, setConfirmResetGearInspector] = useState(false)
   const [confirmResetSubstatTargets, setConfirmResetSubstatTargets] = useState(false)
   // Fallback keeps the Gear Inspector grid handler stable even when no jump target is supplied.
   const noopGearInspectorRuleJump = useCallback(() => {}, [])
@@ -139,13 +139,13 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
       return
     }
     if (showGearTab && onResetGearInspector) {
-      setConfirmResetGearTester(true)
+      setConfirmResetGearInspector(true)
     }
   }
   // Clear the Gear Inspector items in one shot so manual + imported gear disappear together.
-  const handleConfirmResetGearTester = () => {
+  const handleConfirmResetGearInspector = () => {
     if (!onResetGearInspector) return
-    setConfirmResetGearTester(false)
+    setConfirmResetGearInspector(false)
     onResetGearInspector()
   }
   // Dialog follows the spec'd min width/height so both tabs have enough breathing room.
@@ -501,15 +501,15 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
       {/* Dedicated confirm dialog spells out the destructive Gear reset before wiping Gear Inspector entries. */}
       <Dialog
         open={confirmResetGearInspector}
-        onClose={() => setConfirmResetGearTester(false)}
+        onClose={() => setConfirmResetGearInspector(false)}
       >
         <DialogTitle>{t('titleResetGearTester')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2">{t('msgResetGearTester')}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmResetGearTester(false)}>{t('cancel')}</Button>
-          <Button color="error" onClick={handleConfirmResetGearTester}>{t('reset')}</Button>
+          <Button onClick={() => setConfirmResetGearInspector(false)}>{t('cancel')}</Button>
+          <Button color="error" onClick={handleConfirmResetGearInspector}>{t('reset')}</Button>
         </DialogActions>
       </Dialog>
       <Dialog

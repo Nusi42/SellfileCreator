@@ -92,9 +92,9 @@ const sanitizeIsoString = (raw: unknown): string => {
   return new Date().toISOString()
 }
 
-// Map legacy 'tester' stored value to current 'gearInspector' mode on read.
+// Validate stored mode; fall back to 'rules' for any unknown value.
 const sanitizeMode = (raw: unknown): RulesFilterPreviewMode => (
-  raw === 'gearInspector' || raw === 'tester' ? 'gearInspector' : 'rules'
+  raw === 'gearInspector' ? 'gearInspector' : 'rules'
 )
 
 const sanitizeGearInspectorRecipeFilterMode = (raw: unknown): GearInspectorRecipeFilterMode => (

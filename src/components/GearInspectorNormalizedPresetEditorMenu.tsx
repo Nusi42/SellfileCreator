@@ -1,7 +1,7 @@
 /**
- * TesterNormalizedPresetEditorMenu
+ * GearInspectorNormalizedPresetEditorMenu
  *
- * Context-menu style editor for a single Rule Tester grid "Normalized" preset.
+ * Context-menu style editor for a single Gear Inspector grid "Normalized" preset.
  * Why: The grid menu uses right-click for advanced actions, and this editor should
  * feel consistent with the existing Sort popout (row selection + weight bump chips).
  */

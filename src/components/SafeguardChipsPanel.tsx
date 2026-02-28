@@ -636,8 +636,9 @@ export default function SafeguardChipsPanel({
         </DialogActions>
       </Dialog>
 
-      {/* Scrollable rule chip list */}
+      {/* Scrollable rule chip list — tour target for the Safeguards tutorial step */}
       <Box
+        data-tour-id="safeguards.chips"
         ref={(el: HTMLDivElement | null) => {
           scrollRootRef.current = el
           if (containerRef) containerRef.current = el

@@ -367,6 +367,17 @@ export const computeSafeguardProtectionWithLoadedWasm = (params: {
 
 // Candidate collection keeps keep-flag resolution + item/group key derivation
 // in Rust; TS callers reattach row references for compatibility.
+// WASM boundary shim: Rust still serializes the item field as `testerItem`.
+// Backfill it from `gearInspectorItem` for rows whose artifact was created
+// after the TS rename but before the WASM is rebuilt with the new field name.
+function backfillTesterItemAlias(rows: readonly GearInspectorPreviewRow[]): readonly GearInspectorPreviewRow[] {
+  if (rows.every((r) => r.artifact.testerItem != null)) return rows
+  return rows.map((row) => {
+    if (row.artifact.testerItem != null) return row
+    return { ...row, artifact: { ...row.artifact, testerItem: row.artifact.gearInspectorItem } }
+  })
+}
+
 export const collectSafeguardCandidatesWithLoadedWasm = (params: {
   rows: readonly GearInspectorPreviewRow[]
   rules: HsfRuleWithRecipe[]
@@ -376,7 +387,7 @@ export const collectSafeguardCandidatesWithLoadedWasm = (params: {
   assertWasmInitializedSync()
   const ignored = toSortedNumberArray(params.ignoreSafeguardRecipeIndices) ?? null
   const result = collectSafeguardCandidatesWasmValueBinding(
-    params.rows,
+    backfillTesterItemAlias(params.rows),
     params.rules,
     params.recipeModes,
     ignored,
@@ -416,7 +427,7 @@ export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
     }
     : undefined
   const result = collectAndComputeSafeguardProtectionWasmValueBinding(
-    params.rows,
+    backfillTesterItemAlias(params.rows),
     params.rules,
     params.recipeModes,
     ignored,
@@ -747,7 +758,17 @@ export const hashSafeguardCombinationWithLoadedWasm = (combination: unknown): st
 // semantics used by candidate collection.
 export const getSafeguardItemKeyWithLoadedWasm = (artifact: unknown): number => {
   assertWasmInitializedSync()
-  const key = safeguardItemKeyValueWasmValueBinding(artifact)
+  // Backfill the WASM-facing `testerItem` alias when the artifact was created
+  // after the TS rename but before the Rust side is rebuilt.
+  const wasmArtifact = (
+    artifact != null
+    && typeof artifact === 'object'
+    && !('testerItem' in artifact)
+    && 'gearInspectorItem' in artifact
+  )
+    ? { ...artifact, testerItem: (artifact as Record<string, unknown>).gearInspectorItem }
+    : artifact
+  const key = safeguardItemKeyValueWasmValueBinding(wasmArtifact)
   // wasm-bindgen maps Rust `i64` to JS `bigint`, but older bindings may still
   // surface a JS number in some environments.
   if (typeof key === 'bigint') {

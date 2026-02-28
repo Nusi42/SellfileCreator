@@ -1,7 +1,7 @@
 /**
  * substatRollNormalization.ts
  *
- * Shared normalization helpers for substat-focused UI features (ex: Rule Tester sorting).
+ * Shared normalization helpers for substat-focused UI features (ex: Gear Inspector sorting).
  * These values intentionally reflect the 6★ in-game roll caps so mixed-star gear can be compared
  * on a consistent 0..1 scale without inventing additional tier-specific heuristics.
  */

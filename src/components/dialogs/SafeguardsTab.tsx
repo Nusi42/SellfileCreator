@@ -2033,7 +2033,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
         <Box
           sx={{
             display: { xs: 'block', md: 'grid' },
-            // Keep-override grid pane matches the Rule Tester 4-column card width.
+            // Keep-override grid pane matches the Gear Inspector 4-column card width.
             gridTemplateColumns: { md: (() => {
               // Allow a tighter rules column in 2-column mode so the grid doesn't shift right.
               const rulesColumnMinWidth = gridColumnMode === 2

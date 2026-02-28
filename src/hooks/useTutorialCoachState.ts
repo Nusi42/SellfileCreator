@@ -1151,10 +1151,13 @@ export function useTutorialCoachState({
         id: 'safeguards-intro',
         title: t('tutSafeguardsIntroTitle'),
         body: t('tutSafeguardsIntroBody'),
-        targetIds: ['safeguards.tab', 'safeguards.builder'],
+        // Highlight the builder core (contains the mode toggle) and the safeguard builder form.
+        // 'safeguards.tab' no longer exists — Safeguards is now a builder mode toggle, not a dialog tab.
+        targetIds: ['builder.core', 'safeguards.builder'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
           setLogicHubOpen(false)
+          // Switch to Safeguard Builder mode and pre-load a tutorial rule so the form is populated.
           setBuilderMode('safeguard')
           setSafeguardRules(buildTutorialSafeguardRules())
           setSafeguardsEnabled(true)
@@ -1164,7 +1167,9 @@ export function useTutorialCoachState({
         id: 'safeguards-rule',
         title: t('tutSafeguardsRuleTitle'),
         body: t('tutSafeguardsRuleBody'),
-        targetId: 'safeguards.rules',
+        // Show the chips panel (rule list) alongside the builder form so users see both surfaces.
+        // 'safeguards.rules' was on the old SafeguardsTab dialog; replaced by 'safeguards.chips'.
+        targetIds: ['safeguards.chips', 'safeguards.builder'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
           setLogicHubOpen(false)

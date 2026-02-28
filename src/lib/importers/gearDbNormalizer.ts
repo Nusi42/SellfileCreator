@@ -205,7 +205,9 @@ export type NormalizedGearArtifact = {
   mainStat: NormalizedStat | null
   substats: NormalizedStat[]
   ascension: NormalizedStat | null
-  testerItem: TestItem
+  gearInspectorItem: TestItem
+  /** @deprecated WASM boundary alias — Rust/WASM still serializes this field as `testerItem`; keep in sync with gearInspectorItem until WASM is rebuilt. */
+  testerItem?: TestItem
   rerollCount: number
   equippedToChampionId: number | null
   equippedChampionBaseId: number | null
@@ -455,7 +457,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
 
   const subValues = buildSubValueMap(substats)
 
-  const testerItem: TestItem = {
+  const gearInspectorItem: TestItem = {
     ...(options.name ? { name: options.name } : {}),
     slot,
     set,
@@ -494,7 +496,8 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
     mainStat,
     substats,
     ascension: ascension ?? null,
-    testerItem,
+    gearInspectorItem,
+    testerItem: gearInspectorItem, // WASM boundary alias; keep until Rust side renames the field
     rerollCount,
     equippedToChampionId,
     equippedChampionBaseId,

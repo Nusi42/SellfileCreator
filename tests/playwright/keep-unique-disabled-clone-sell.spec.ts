@@ -3,13 +3,13 @@ import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { openContextMenu } from './context-menu'
 import { RESTORE_DIALOG_TITLE, dismissBlockingDialogs } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
-import { AUTOSAVE_TESTER_KEY, PREVIEW_MODE_STORAGE_KEY } from '../../src/lib/constants'
+import { AUTOSAVE_GEAR_INSPECTOR_KEY, PREVIEW_MODE_STORAGE_KEY } from '../../src/lib/constants'
 import {
   RULES_FILTER_OPEN_STORAGE_KEY,
   RULES_FILTER_STATE_STORAGE_KEY,
   cloneDefaultRulesFilterState,
 } from '../../src/state/rulesFilterPersistence'
-import { buildRuleTesterAutosavePayload, type RuleTesterItem } from '../../src/lib/ruleTesterSession'
+import { buildGearInspectorAutosavePayload, type GearInspectorItem } from '../../src/lib/gearInspectorSession'
 import { computeCrc32 } from '../../src/lib/autosave'
 import { ArtifactSet, ArtifactType, StatVariant } from '../../src/lib/types'
 import { SAMPLE_SMALL_SFR_DISABLED_RECIPE_OVERRIDES_PATH } from './fixture-paths'
@@ -19,7 +19,7 @@ import { warmupAppShell } from './app-warmup'
 // Point at the slim SFR file with recipe overrides disabled.
 const SFR_PATH = SAMPLE_SMALL_SFR_DISABLED_RECIPE_OVERRIDES_PATH
 // Seed a tiny tester autosave payload so we avoid DB imports in this check.
-const TESTER_ITEMS: RuleTesterItem[] = [
+const GEAR_INSPECTOR_ITEMS: GearInspectorItem[] = [
   {
     itemId: 101,
     slot: ArtifactType.Weapon,
@@ -48,7 +48,7 @@ const TESTER_ITEMS: RuleTesterItem[] = [
   },
 ]
 // Build the autosave entry so the tester loads without hitting the DB importer.
-const TESTER_AUTOSAVE_PAYLOAD = buildRuleTesterAutosavePayload(TESTER_ITEMS)
+const TESTER_AUTOSAVE_PAYLOAD = buildGearInspectorAutosavePayload(GEAR_INSPECTOR_ITEMS)
 // Compute the CRC payload to satisfy autosave integrity checks.
 const TESTER_AUTOSAVE_ENTRY = (() => {
   const payloadJson = JSON.stringify(TESTER_AUTOSAVE_PAYLOAD)
@@ -130,7 +130,7 @@ const seedTesterAutosave = async (page: Parameters<typeof test.use>[0]['page']):
       }
     },
     {
-      autosaveKey: AUTOSAVE_TESTER_KEY,
+      autosaveKey: AUTOSAVE_GEAR_INSPECTOR_KEY,
       autosaveValue: TESTER_AUTOSAVE_ENTRY,
     },
   )

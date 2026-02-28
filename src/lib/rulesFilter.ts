@@ -433,7 +433,7 @@ export const sanitizeRulesFilterState = (raw: unknown): RulesFilterState => {
   return next
 }
 
-// Back-compat helpers: accept legacy range shapes (min/max) if present
+// Check whether any filter field deviates from the default (empty) state.
 export function isRulesFilterActive(f: RulesFilterState, options?: { includeGearInspectorRange?: boolean }): boolean {
   const includeGearInspectorRange = options?.includeGearInspectorRange ?? false
   let gearInspectorRangeActive = false
@@ -1225,21 +1225,13 @@ const normalizeGearInspectorRollsState = (input?: GearInspectorRollFilterState):
   }
 }
 
-type LegacyGearInspectorRollComparator = 'eq' | 'gte' | 'lte'
-
 type RollCountCarrier = {
   counts?: unknown
-  comparator?: LegacyGearInspectorRollComparator
-  value?: number
 }
 
 function resolveRollCountSet(carrier: RollCountCarrier | null | undefined): GearInspectorRollCountSet {
-  const normalized = normalizeRollCountSet(carrier?.counts)
-  if (normalized.length > 0) return normalized
-  if (carrier && 'value' in (carrier as Record<string, unknown>)) {
-    return deriveLegacyRollCountSet(carrier?.comparator, carrier?.value)
-  }
-  return []
+  // Only the current 'counts' array format is accepted; older shapes are ignored.
+  return normalizeRollCountSet(carrier?.counts)
 }
 
 function normalizeRollCountSet(input: unknown): GearInspectorRollCountSet {
@@ -1259,21 +1251,6 @@ function normalizeRollCountSet(input: unknown): GearInspectorRollCountSet {
   return next
 }
 
-function deriveLegacyRollCountSet(
-  comparator?: LegacyGearInspectorRollComparator,
-  value?: number | null,
-): GearInspectorRollCountSet {
-  const normalizedComparator: LegacyGearInspectorRollComparator =
-    comparator === 'gte' || comparator === 'lte' ? comparator : 'eq'
-  const clamped = clampRollTarget(value ?? 0) as GearInspectorRollCountValue
-  if (normalizedComparator === 'gte') {
-    return GEAR_INSPECTOR_ROLL_COUNT_VALUES.filter((candidate) => candidate >= clamped)
-  }
-  if (normalizedComparator === 'lte') {
-    return GEAR_INSPECTOR_ROLL_COUNT_VALUES.filter((candidate) => candidate <= clamped)
-  }
-  return [clamped]
-}
 const passesGearInspectorRollFilters = ({ filters, rollCounts }: RollFilterEvalArgs): boolean => {
   const wildcard = filters.wildcard
   const wildcardCounts = new Set<number>(wildcard.counts ?? [])

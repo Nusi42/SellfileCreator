@@ -73,7 +73,7 @@ const makeArtifact = (params: {
     mainStat: makeMainStat(main),
     substats: params.substats,
     ascension: null,
-    testerItem: {
+    gearInspectorItem: {
       slot: ArtifactType.Weapon,
       set: ArtifactSet.Speed,
       rank,

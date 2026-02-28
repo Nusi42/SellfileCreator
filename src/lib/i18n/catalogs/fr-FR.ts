@@ -234,7 +234,6 @@ const overrides: Catalog = {
   msgResetGearTester: 'Cela supprime toutes les entrées d’équipement manuelles et importées de l’onglet « Équipement » de la boîte de dialogue Logic Hub et vide la file du testeur de règles.',
 
   tabFinalSellGear: 'Équipement',
-  tabSafeguards: 'Protections',
   tabSubstatTargets: 'Cibles de sous-stat',
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Simulateur de butin de donjon',
@@ -282,7 +281,6 @@ const overrides: Catalog = {
   // Boost multipliers and max-level toggle.
   dungeonDropsBoost2x: '2×',
   dungeonDropsBoost3x: '3×',
-  dungeonDropsAnyLevel: '+16',
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: 'Réduire la table de donjon',
   dungeonDropsExpandLabel: 'Développer la table de donjon',
@@ -1045,6 +1043,7 @@ const overrides: Catalog = {
   filterLimitPreviewRecipes: 'Recettes aperçu',
   filterLimitPreviewRecipesTooltip: 'Activez pour n’afficher que les puces de recette dont les règles passent les filtres d’aperçu actuels.',
   filterLimitSelectedRecipes: 'Filtre recettes',
+  filterLimitSelectedRecipesGearInspector: 'Par correspondance',
   filterLimitSelectedRecipesTooltip: '**Aperçu du Sellfile**\n- **Désactivé** : affiche toutes les lignes.\n- **Activé** : masque les règles ou items dont la recette n’est pas dans votre sélection.\n**Inspecteur d’équipement**\n- Bascule **Désactivé** → **Première** → **N’importe** afin que les entrées suivent la politique de matching choisie.',
   testerSortLabel: 'Trier',
   testerSortTooltip: 'Trie les cartes du testeur de règles selon les priorités de sous-stats.',
@@ -1374,9 +1373,9 @@ const overrides: Catalog = {
   tutRecipeChipsTitle: 'Puce(s) de recette',
   tutRecipeChipsBody: 'Les recettes apparaissent en `puces de recette`. Clic droit pour ouvrir le menu — `Copier dans le presse‑papiers` partage seulement cette recette. Clic droit sur le vide pour `Copier toutes les recettes`/`Coller en fin`.',
   tutFinalSellIntroTitle: 'Vente finale (optionnel)',
-  tutFinalSellIntroBody: '`Vente finale` ajoute des règles `Vendre` pour les éléments non couverts. Le bouton affiche toujours `Vente finale` ; un remplissage ambré indique qu’elle est activée et un simple contour neutre qu’elle est désactivée. Laissez-la désactivée si vous ne voulez appliquer que vos recettes de ^^Vente^^ explicites.\n\nCliquez sur `Outils` pour configurer ces protections. Nous ouvrirons Logic Hub ensuite.',
-  tutLogicHubDialogTitle: 'Logic Hub',
-  tutLogicHubDialogBody: 'Logic Hub regroupe l’onglet `Vente finale`, le dialogue `Équipement` (onglet Équipement) et `Protections` dans un seul dialogue. Dans `Vente finale`, vous choisissez toujours quoi vendre (`Artefacts`, `Accessoires`) et quelles `Plages de niveaux` (par ex. `0–3`, `4–7`, … `16`). Nous activons uniquement `Artefacts` — les accessoires ne sont pas visés dans ce tutoriel. `+16` reste désactivé par défaut pour éviter de vendre des pièces déjà montées. Vous pouvez l’activer ici ou plus tard dans ~~RSL Helper~~ après avoir vérifié ce que la vente couvrira.',
+  tutFinalSellIntroBody: '`Vente finale` ajoute des règles `Vendre` pour les éléments non couverts. Le bouton affiche toujours `Vente finale` ; un remplissage ambré indique qu’elle est activée et un simple contour neutre qu’elle est désactivée. Laissez-la désactivée si vous ne voulez appliquer que vos recettes de ^^Vente^^ explicites.\n\nCliquez sur `Outils` pour configurer ces protections. Nous l’ouvrirons dans l’étape suivante pour voir les paramètres de Vente finale.',
+  tutLogicHubDialogTitle: 'Outils (Vente finale)',
+  tutLogicHubDialogBody: 'La boîte de dialogue `Outils` comporte les onglets `Vente finale` et `Équipement`. Dans `Vente finale`, vous choisissez toujours quoi vendre (`Artefacts`, `Accessoires`) et quelles `Plages de niveaux` (par ex. `0–3`, `4–7`, … `16`). Nous activons uniquement `Artefacts` — les accessoires ne sont pas visés dans ce tutoriel. `+16` reste désactivé par défaut pour éviter de vendre des pièces déjà montées. Vous pouvez l’activer ici ou plus tard dans ~~RSL Helper~~ après avoir vérifié ce que la vente couvrira.',
   tutNoteTitle: 'Ajouter une note',
   tutNoteBody: 'Utilisez `Ajouter une note` pour noter un rappel. Les notes se sauvegardent dans `.sfr`, pas dans le `.hsf` exporté.',
   tutSaveExplainTitle: 'Enregistrer les recettes (.sfr)',
@@ -1410,7 +1409,7 @@ const overrides: Catalog = {
   tutGearDialogPreviewTitle: 'Prévisualiser le Gear Inspector',
   tutGearDialogPreviewBody: 'Fermez la boîte de dialogue `Outils`, puis basculez la prévisualisation en mode `Gear Inspector` pour voir uniquement la liste d’équipement. Les deux pièces types sont les seules lignes pour l’instant, donc la grille montre clairement quand les recettes, la Vente finale ou Protections correspondent.',
   tutSafeguardsIntroTitle: 'Présentation de Protections',
-  tutSafeguardsIntroBody: 'L’onglet `Protections` protège l’équipement irremplaçable même si vos recettes et la Vente finale voudraient le vendre. Définissez les combinaisons qui comptent pour vous, puis laissez le scanner générer des règles « Conserver » dès que les données du testeur signalent un manque.',
+  tutSafeguardsIntroBody: '`Générateur de conservations` est un mode de build (utilisez le bouton bascule en haut de la colonne de build pour basculer). Il protège l’équipement difficile à remplacer même si vos recettes + Vente finale le vendraient. Définissez les filtres qui vous importent et activez Protections — la sortie Sellfile inclura des lignes Conserver protégeant l’équipement correspondant.',
   tutSafeguardsRuleTitle: 'Protéger les accessoires Refresh',
   tutSafeguardsRuleBody: 'Nous avons ajouté une règle Conserver pour les bannières Refresh (5★ Rare, Banner Lords, stat principale RES) afin qu’au moins une survive à la Vente finale. Ajustez les filtres chaque fois que vous découvrez un nouveau trou ; Protections régénère automatiquement les règles de protection.',
   tutPreviewHighlightTitle: 'Comparer les vérifications Épique/Légendaire',
