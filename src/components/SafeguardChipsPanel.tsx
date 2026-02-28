@@ -165,42 +165,71 @@ export default function SafeguardChipsPanel({
 
   // ── rule management ───────────────────────────────────────────────────────
 
-  // Scrolls the newly added/duplicated chip into view. Retries up to maxAttempts
-  // frames because React may not have flushed the DOM node yet when this fires.
-  // Once the chip is found, scrollIntoView is called and then re-checked for
-  // SCROLL_SETTLE_EXTRA more frames to guard against layout reflows (e.g. the
-  // ResizeObserver measurement that updates maxHeightPx after a builder mode switch)
-  // that could shrink the container and push the chip back out of view.
+  // Scrolls the targeted chip into view and keeps it there until the layout settles.
+  //
+  // Two-phase strategy:
+  //  Phase 1 (find): retry every frame until the chip element appears in the DOM.
+  //  Phase 2 (settle): once found, check visibility each frame and re-scroll whenever
+  //    the chip is out of view. Exit only after STABLE_FRAMES consecutive frames where
+  //    the chip is fully visible — this handles cascading layout reflows (e.g. the
+  //    ResizeObserver measurement that updates maxHeightPx after a builder mode switch,
+  //    or the SafeguardBuilderPanel growing into its final height) that would otherwise
+  //    push the chip back out of view after a single scrollIntoView call.
   const scheduleScrollToRule = useCallback((ruleId: string) => {
     // Cancel any in-flight scroll attempt for a previous rule.
     if (scrollRafRef.current !== null) {
       window.cancelAnimationFrame(scrollRafRef.current)
       scrollRafRef.current = null
     }
-    const maxAttempts = 8
-    const SCROLL_SETTLE_EXTRA = 4
-    const tryScroll = (attempt: number, scrolledAt: number | null) => {
+    // Phase 1: give up if the chip never appears (e.g. filtered out).
+    const MAX_FIND_ATTEMPTS = 8
+    // Phase 2: require this many stable frames in a row before exiting.
+    const STABLE_FRAMES = 3
+    // Hard cap on total settle frames to prevent runaway loops.
+    const MAX_SETTLE_ATTEMPTS = 24
+    const tryScroll = (findAttempt: number, stableCount: number, settleAttempt: number) => {
       const root = scrollRootRef.current
-      // Look up by the data attribute stamped on each chip box.
       const target = root?.querySelector(`[data-safeguards-rule-id="${ruleId}"]`) as HTMLElement | null
-      if (target) {
+      if (!target) {
+        // Phase 1: chip not in DOM yet — keep trying.
+        if (findAttempt >= MAX_FIND_ATTEMPTS) { scrollRafRef.current = null; return }
+        scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(findAttempt + 1, 0, 0))
+        return
+      }
+      // Phase 2: chip found — check whether it is fully visible inside the scroll container.
+      const rootRect = root!.getBoundingClientRect()
+      const targetRect = target.getBoundingClientRect()
+      const visible = targetRect.top >= rootRect.top - 1 && targetRect.bottom <= rootRect.bottom + 1
+      if (!visible) {
+        // Chip is out of view (layout reflow pushed it out) — re-scroll and reset stability.
         target.scrollIntoView({ block: 'nearest' })
-        // After the first successful scroll, keep re-scrolling for SCROLL_SETTLE_EXTRA
-        // frames so any post-mount layout reflow (e.g. maxHeight measurement update)
-        // doesn't leave the chip out of view.
-        const firstScrollAt = scrolledAt ?? attempt
-        if (attempt - firstScrollAt < SCROLL_SETTLE_EXTRA) {
-          scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(attempt + 1, firstScrollAt))
+        if (settleAttempt < MAX_SETTLE_ATTEMPTS) {
+          scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(findAttempt, 0, settleAttempt + 1))
         } else {
           scrollRafRef.current = null
         }
         return
       }
-      // Give up after maxAttempts to avoid an unbounded rAF loop.
-      if (attempt >= maxAttempts) { scrollRafRef.current = null; return }
-      scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(attempt + 1, null))
+      // Chip is visible this frame — count consecutive stable frames.
+      if (stableCount + 1 >= STABLE_FRAMES) {
+        // Stable for enough frames; layout has settled. Done.
+        scrollRafRef.current = null
+        return
+      }
+      if (settleAttempt < MAX_SETTLE_ATTEMPTS) {
+        scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(findAttempt, stableCount + 1, settleAttempt + 1))
+      } else {
+        scrollRafRef.current = null
+      }
     }
-    scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(0, null))
+    // Kick off with an initial scroll before the first visibility check so the chip is
+    // in view immediately even before the settle loop confirms stability.
+    scrollRafRef.current = window.requestAnimationFrame(() => {
+      const root = scrollRootRef.current
+      const target = root?.querySelector(`[data-safeguards-rule-id="${ruleId}"]`) as HTMLElement | null
+      if (target) target.scrollIntoView({ block: 'nearest' })
+      tryScroll(0, 0, 0)
+    })
   }, [])
 
   // Cancel any pending scroll rAF on unmount to prevent post-unmount state updates.
