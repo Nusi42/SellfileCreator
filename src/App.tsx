@@ -5209,6 +5209,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       maxHeightPx={safeguardChipsMaxHeight}
       containerRef={safeguardChipsContainerRef}
       visibleRuleIds={visibleSafeguardRuleIds}
+      metasets={metasetsForPreview}
+      substatColors={substatColors}
     />
   )
 

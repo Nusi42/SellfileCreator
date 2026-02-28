@@ -39,6 +39,7 @@ import {
   normalizeSafeguardRule,
   type SafeguardRule,
 } from '../lib/safeguards'
+import type { Metaset } from '../lib/metasets'
 import { buildReadableSafeguardRuleEntry } from '../lib/sfrIO'
 import { useI18n } from '../lib/i18n'
 import { readTextSafe, triggerCopyDialog, writeTextSafe } from '../lib/clipboard'
@@ -47,8 +48,9 @@ import { RecipeContextMenu } from './RecipeContextMenu'
 import PasteDialog from './PasteDialog'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
-import { useSlotMetrics } from '../hooks/useSlotMetrics'
 import { useChipListDnd } from '../hooks/useChipListDnd'
+import { useDisplayPreferences } from '../state/preferencesState'
+import { safeguardSummaryParts } from './safeguardSummaryParts'
 
 
 export type SafeguardChipsPanelProps = {
@@ -60,6 +62,8 @@ export type SafeguardChipsPanelProps = {
   containerRef?: React.MutableRefObject<HTMLDivElement | null>
   /** When set, only chips whose rule ID is in this set are shown (mirrors recipe visibleIndices). */
   visibleRuleIds?: ReadonlySet<string> | null
+  metasets?: Metaset[]
+  substatColors?: Record<number, { fg: string; bg: string }>
 }
 
 export default function SafeguardChipsPanel({
@@ -70,11 +74,12 @@ export default function SafeguardChipsPanel({
   maxHeightPx,
   containerRef,
   visibleRuleIds,
+  metasets = [],
+  substatColors = {},
 }: SafeguardChipsPanelProps) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const theme = useTheme()
-  // slotLabel is the SSOT resolver — avoids duplicating the switch/case here.
-  const { slotLabel } = useSlotMetrics()
+  const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
 
   // ── internal state ───────────────────────────────────────────────────────
   const [editingRuleNameId, setEditingRuleNameId] = useState<string | null>(null)
@@ -400,29 +405,6 @@ export default function SafeguardChipsPanel({
     return theme.palette.text.disabled
   }
 
-  // Produces a compact one-line summary shown after the rule name in the chip.
-  // Uses slotLabel (from useSlotMetrics) so labels are localized and consistent
-  // with the full builder panel — no hardcoded English strings here.
-  const buildRuleSummary = (rule: SafeguardRule): string => {
-    const parts: string[] = []
-    const c = rule.combination
-    if (c.slots && c.slots.length > 0) {
-      // Map each numeric slot ID to its localized name via the shared SSOT resolver.
-      parts.push(c.slots.map((s) => slotLabel(s)).join(', '))
-    }
-    if (c.ranks && c.ranks.length > 0) {
-      parts.push(c.ranks.map((r) => `${r}★`).join('/'))
-    }
-    if (c.mainStats && c.mainStats.length > 0) {
-      // Show count only — listing full stat names would exceed chip width.
-      parts.push(`Main:${c.mainStats.length}`)
-    }
-    if (rule.substats && rule.substats.length > 0) {
-      parts.push(`Sub:${rule.substats.length}`)
-    }
-    return parts.join(' · ')
-  }
-
   const renderChip = (rule: SafeguardRule, ruleIndex: number) => {
     const selected = selectedRuleId === rule.id
     const isEditingRuleName = editingRuleNameId === rule.id
@@ -436,7 +418,15 @@ export default function SafeguardChipsPanel({
       : rule.activation === SafeguardRuleActivation.AnticipateGaps
         ? t('safeguardsRuleModeAnticipateShort')
         : t('safeguardsRuleModeOffShort')
-    const summary = buildRuleSummary(rule)
+    const summary = safeguardSummaryParts(rule, metasets, {
+      substatColors,
+      useStatButtonColors: statButtonBorders,
+      showFactionIcons,
+      showSetIcons,
+      showSlotIcons,
+      t,
+      lang,
+    })
     const isFirst = ruleIndex === 0
     const isLast = ruleIndex === rules.length - 1
 
@@ -540,7 +530,7 @@ export default function SafeguardChipsPanel({
               </Box>
               {' — '}
               <Box component="span" sx={{ color: actColor, fontWeight: 600 }}>{actText}</Box>
-              {summary ? ` | ${summary}` : null}
+              {summary ? <>{' | '}{summary}</> : null}
             </Box>
           </Typography>
         )}
