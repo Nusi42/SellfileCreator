@@ -6,10 +6,12 @@ import type { SxProps, Theme } from '@mui/material/styles'
 // A small helper for filter toggles that must render a fixed label + a centered value.
 // The fixed right-column width prevents the button from "jumping" as values change.
 export type SplitLabelValueButtonProps = Omit<ButtonProps, 'children'> & {
-  // Left side: the stable, descriptive label (e.g. "Recipe Filter").
+  // Left side: the stable, descriptive label (e.g. "Selection").
   label: React.ReactNode
   // Right side: the current value (e.g. "Off" / "First-Match" / "Any-Match").
   value: React.ReactNode
+  // Fixed minimum width for the label cell, in `ch`, so the button won't resize when the label text changes (e.g. across modes).
+  labelWidthCh?: number
   // Fixed width for the value cell, in `ch`, to keep button width stable across states.
   valueWidthCh?: number
   // Optional extra styles for the inner grid wrapper.
@@ -19,16 +21,18 @@ export type SplitLabelValueButtonProps = Omit<ButtonProps, 'children'> & {
 export default function SplitLabelValueButton({
   label,
   value,
+  labelWidthCh,
   valueWidthCh,
   contentSx,
   sx,
   ...buttonProps
 }: SplitLabelValueButtonProps) {
   // Use a 2-column grid so the left label stays left-aligned while the value stays centered.
-  // `valueWidthCh` locks the second column width so the button never reflows across states.
-  const gridTemplateColumns = valueWidthCh
-    ? `minmax(0, 1fr) ${valueWidthCh}ch`
-    : 'minmax(0, 1fr) auto'
+  // `labelWidthCh` pins the first column so the button doesn't resize when the label changes across modes.
+  // `valueWidthCh` locks the second column so the button doesn't reflow when the value changes.
+  const labelColumn = labelWidthCh ? `${labelWidthCh}ch` : 'minmax(0, 1fr)'
+  const valueColumn = valueWidthCh ? `${valueWidthCh}ch` : 'auto'
+  const gridTemplateColumns = `${labelColumn} ${valueColumn}`
 
   // MUI `outlined` buttons include a 1px border while `contained` does not, which causes
   // subtle width changes when toggling variants. Add a transparent border for `contained`

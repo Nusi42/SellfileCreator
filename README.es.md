@@ -11,8 +11,8 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Mantén pulsado `Shift` al abrir/cargar un `.sfr` (selector de archivos o arrastrar y soltar) para mostrar un diálogo de importación adicional donde puedes elegir por separado Recetas, Nota, Metasets y Protecciones.
 - Metasets: agrupa conjuntos de equipo (por ejemplo, Velocidad + Percepción) y reutilízalos en varias reglas.
 - Exportación con un clic: genera un archivo HSF (Sellfile de RSL Helper) listo para cargar en RSL Helper.
-- Botón «Logic Hub»: abre el diálogo desde el encabezado para entrar a `Venta final`, `Conservar únicos`, `Botín de mazmorra` y el diálogo «Equipo» (pestaña Equipo dentro de Logic Hub) desde el mismo lugar. Crea equipo de ejemplo, pega filas o arrastra `%APPDATA%\\RslHelper\\Config`; después cierra el diálogo y deja el interruptor de vista previa en la tabla que necesites: la cola del Inspector de Equipo sigue visible sin reabrir nada.
-- Pestaña «Conservar únicos»: define las combinaciones que nunca quieres perder. El escáner genera reglas de conservación automáticamente cuando tus recetas más tus reglas de venta actualmente activas eliminarían todas las copias.
+- Botón «Herramientas»: abre el diálogo desde el encabezado para entrar a `Venta final`, `Botín de mazmorra` y el diálogo «Equipo» desde el mismo lugar. Crea equipo de ejemplo, pega filas o arrastra `%APPDATA%\\RslHelper\\Config`; después cierra el diálogo y deja el interruptor de vista previa en la tabla que necesites: la cola del Inspector de Equipo sigue visible sin reabrir nada.
+- Modo Protecciones: define las combinaciones que nunca quieres perder. El escáner genera reglas de conservación automáticamente cuando tus recetas más tus reglas de venta actualmente activas eliminarían todas las copias.
 
 ## Cómo usarlo
 
@@ -27,7 +27,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Cargar/Guardar: usa «Cargar recetas» y «Guardar recetas» para reutilizar tus reglas. Estas acciones guardan todo lo necesario para reconstruir la vista previa.
 - Menús de Reset/Insert/Apply: haz clic derecho en «Reset», «Insert as receta» o «Apply as receta» para abrir las opciones compartidas. Guarda el estado actual del constructor como plantilla predeterminada, vuelve a los valores de fábrica, habilita «Auto reset after Insert» (limpia el constructor en cuanto insertas una receta) o «Auto apply to selected receta» (envía los cambios a la receta seleccionada automáticamente tras ~400 ms de inactividad). Auto reset y Auto apply no pueden estar activos al mismo tiempo: al activar uno se apaga el otro, y ambas preferencias permanecen entre sesiones.
 - Nota: pulsa «Agregar nota…» (o «Editar nota…») para adjuntar un texto al archivo de recetas. Al cargar un archivo que contiene nota, se mostrará automáticamente. Usa `<!-- recipes:1,0 -->` para insertar chips de recetas concretas (0 toma la siguiente receta). Usa `<!-- recipes-re:"speed" -->` para mostrar todas las recetas cuyo nombre coincide con el patrón (sin distinguir mayúsculas/minúsculas).
-- Restaurar Autosave: al iniciar, el diálogo lista cada sección autoguardada con su propia casilla. Restaura solo lo que necesites — recetas (incluida la selección actual), metasets, Objetivos de substats, resto de Venta final, nota fijada, panel de filtros (estado, chips, secciones colapsadas) e importaciones del Inspector de Equipo. Deja una casilla desmarcada para conservar tu trabajo. Autosave también recuerda qué interruptores de Venta final (Artefactos, Accesorios y rangos de nivel) estaban activos, así que al reabrir Logic Hub refleja exactamente lo que exportaste la última vez.
+- Restaurar Autosave: al iniciar, el diálogo lista cada sección autoguardada con su propia casilla. Restaura solo lo que necesites — recetas (incluida la selección actual), metasets, Objetivos de substats, resto de Venta final, nota fijada, panel de filtros (estado, chips, secciones colapsadas) e importaciones del Inspector de Equipo. Deja una casilla desmarcada para conservar tu trabajo. Autosave también recuerda qué interruptores de Venta final (Artefactos, Accesorios y rangos de nivel) estaban activos, así que al reabrir el diálogo Herramientas refleja exactamente lo que exportaste la última vez.
 
 ### Diseño del constructor (de arriba hacia abajo)
 - Acción y Activado: Indica qué debe ocurrir cuando un objeto coincide con la receta.
@@ -93,12 +93,12 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 
 ### Venta final
 - Usa el interruptor `Venta final` en el encabezado de la vista previa para añadir reglas de venta para lo que no coincidió en otras recetas. La etiqueta no cambia nunca; el relleno ámbar indica que está activa y el contorno neutro indica que está apagada.
-- Haz clic en «Logic Hub» junto al interruptor para abrir la pestaña `Venta final` y decidir si afecta a Artefactos y/o Accesorios y qué rangos de nivel (0–3, 4–7, 8–11, 12–15, 16). Los valores predeterminados cubren 0–15 para no vender piezas ya subidas a +16.
+- Haz clic en «Herramientas» junto al interruptor para abrir la pestaña `Venta final` y decidir si afecta a Artefactos y/o Accesorios y qué rangos de nivel (0–3, 4–7, 8–11, 12–15, 16). Los valores predeterminados cubren 0–15 para no vender piezas ya subidas a +16.
 - Sin `Venta final`, RSL Helper conserva todo lo que no coincide con una regla. Solo se vende si una regla explícita indica Vender.
 - Con `Venta final` activa, las reglas generadas incluyen todos los sets conocidos. En la vista previa se muestra «Todos los sets conocidos» para reducir ruido, pero el archivo exportado enumera cada set.
 
 ### Conservar únicos
-- Haz clic en «Logic Hub» en el encabezado de la vista previa y cambia a la pestaña `Conservar únicos` para marcar las combinaciones que nunca quieres perder. Activa `Activar Conservar únicos` para que el escáner pueda añadir filas de conservación (las ediciones también lo activan automáticamente).
+- Cambia el constructor al modo **Protecciones** con el botón de alternancia situado encima del panel del constructor para marcar las combinaciones que nunca quieres perder. Activa `Activar Conservar únicos` para que el escáner pueda añadir filas de conservación (las ediciones también lo activan automáticamente).
 - Las reglas de Conservar únicos no «consumen» objetos—cada regla evalúa el mismo conjunto de candidatos. Si una pieza coincide con varias reglas, cuenta para todas.
 - Cada regla de conservación te deja elegir ranura, sets o metasets, rangos, rarezas, stats principales y (en accesorios) facciones. Sin selección significa «cualquiera».
 - El `Modo` decide cómo se emite la regla: `Apagada` la desactiva, `Proteger lo existente` añade filas de conservación para coincidencias que se venderían hasta cumplir la cuota, y `Anticipar huecos` agrega reglas de marcador para combinaciones faltantes para que los nuevos drops sigan protegidos hasta que la BD se actualice.
@@ -131,10 +131,10 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 | Accesorios con más SPD | Ranura = Anillo/Amuleto/Estandarte, Substats = SPD | `5` | `Por regla` | Conserva las cinco mejores tiradas de SPD en tus accesorios (empates incluidos). |
 | Estandartes de ACC con SPD | Ranura = Estandarte, Stat principal = ACC, Substats = SPD + ACC, Pesos: SPD alto | `3` | `Por facción` | Cada facción guarda los mejores estandartes de ACC donde SPD pesa más. |
 
-Consejo: Importa tu `.db` o pega equipo en el diálogo «Equipo» antes de abrir la pestaña Conservar únicos para que el escáner tenga objetos reales. Haz clic en una tarjeta de regla para resaltar coincidencias; cambia `Filtro` a `Selección` para ver solo esos objetos.
+Consejo: Importa tu `.db` o pega equipo en el diálogo «Equipo» antes de activar el modo Protecciones para que el escáner tenga objetos reales. Haz clic en una tarjeta de regla para resaltar coincidencias; cambia `Filtro` a `Selección` para ver solo esos objetos.
 
 ### Botín de mazmorra (Simulador)
-Abre Logic Hub y cambia a **Botín de mazmorra**. Simula el farmeo de mazmorras con tus reglas actuales del Sellfile para ver cuánto equipo conservarías por set y nivel de mejora.
+Abre «Herramientas» y cambia a **Botín de mazmorra**. Simula el farmeo de mazmorras con tus reglas actuales del Sellfile para ver cuánto equipo conservarías por set y nivel de mejora.
 
 - Elige una mazmorra y una etapa.
 - Modo de simulación:
@@ -156,12 +156,12 @@ Notas:
 - Copia alternativa: Si el acceso al portapapeles falla, se abre un diálogo con el texto seleccionado para copiarlo manualmente.
 
 ### Vista Sellfile (Reglas e Inspector de Equipo)
-- El encabezado reúne el interruptor `Reglas`/`Inspector de Equipo`, el botón «Logic Hub» y «Cargar Sellfile de RSL Helper», así siempre sabes dónde cambiar de tabla o abrir el diálogo «Equipo» (Logic Hub → pestaña Equipo).
+- El encabezado reúne el interruptor `Reglas`/`Inspector de Equipo`, el botón «Herramientas» y «Cargar Sellfile de RSL Helper», así siempre sabes dónde cambiar de tabla o abrir el diálogo «Equipo».
 - Vista `Reglas` (predeterminada): muestra todas las filas que se exportarán, incluidas las provenientes de la `.hsf` base opcional. Los contadores siguen en Conservar vs Vender, la fila de filtros mantiene los chips Cualquiera/Solo para Ranura/Rango/Rareza/Nivel y ahora muestra los dos botones de Recetas en paralelo: `Recetas vista` decide si se ocultan los chips fuera de los filtros actuales y el nuevo `Filtro de recetas` funciona como un interruptor Activado/Desactivado que limita las filas del Sellfile a tus chips seleccionados (dejando al mismo tiempo el filtro preparado para el Inspector de Equipo).
-- Vista `Inspector de Equipo`: cambia la tabla al listado del Inspector de Equipo para que revises piezas importadas o creadas sin reabrir el diálogo Logic Hub. Los contadores y chips pasan a Coincidencia vs Sin coincidencia (además de Conservar/Vender según la regla de «la primera coincidencia gana») y la fila de filtros mantiene ambos botones de Recetas lado a lado (`Recetas vista` + `Filtro de recetas`). El primero sigue controlando la visibilidad de chips, mientras que el `Filtro de recetas` se expande al triestado (`Off` → `Primera` → `Cualquiera`) para aislar las filas del Inspector de Equipo y sigue limitando las reglas del Sellfile cuando regreses a `Reglas`. A eso se suma el filtro de resultados específico (Conservar/Vender vs Coincidencia/Sin coincidencia), así puedes aislar piezas cuyo primer match, o cualquier match, pertenece a tu selección sin ocultar chips. Importar `.db` conmuta automáticamente a esta vista, pero puedes volver a `Reglas` cuando quieras.
+- Vista `Inspector de Equipo`: cambia la tabla al listado del Inspector de Equipo para que revises piezas importadas o creadas sin reabrir el diálogo Herramientas. Los contadores y chips pasan a Coincidencia vs Sin coincidencia (además de Conservar/Vender según la regla de «la primera coincidencia gana») y la fila de filtros mantiene ambos botones de Recetas lado a lado (`Recetas vista` + `Filtro de recetas`). El primero sigue controlando la visibilidad de chips, mientras que el `Filtro de recetas` se expande al triestado (`Off` → `Primera` → `Cualquiera`) para aislar las filas del Inspector de Equipo y sigue limitando las reglas del Sellfile cuando regreses a `Reglas`. A eso se suma el filtro de resultados específico (Conservar/Vender vs Coincidencia/Sin coincidencia), así puedes aislar piezas cuyo primer match, o cualquier match, pertenece a tu selección sin ocultar chips. Importar `.db` conmuta automáticamente a esta vista, pero puedes volver a `Reglas` cuando quieras.
 - «Cargar Sellfile de RSL Helper» se comporta igual que arrastrar y soltar: `.sfr` reemplaza el estado del constructor, `.hsf` añade la Sellfile base opcional y `.db` envían piezas directamente al Inspector de Equipo (sin tocar tus recetas). El botón «Limpiar» desacopla la `.hsf` base.
 - El icono de paleta abre Gestionar colores para personalizar texto y fondo de los substats.
-- En la vista `Reglas` las columnas «Idx» y «Cfg» se mantienen (las filas de la `.hsf` base dejan «Cfg» vacío). En la vista `Inspector de Equipo`, ese espacio muestra slot/set, estadísticas del objeto y la primera receta/regla que coincide, de modo que ves qué ocurriría con cada pieza desde la vista previa.
+- En la vista `Reglas` las columnas «Idx» y «Receta» se mantienen (las filas de la `.hsf` base dejan «Receta» vacío). En la vista `Inspector de Equipo`, ese espacio muestra slot/set, estadísticas del objeto y la primera receta/regla que coincide, de modo que ves qué ocurriría con cada pieza desde la vista previa.
 
 ### Controles de Vista Sellfile
 - Gestionar colores: usa el icono de la paleta; «Restablecer valores predeterminados» recupera los recomendados.
@@ -176,11 +176,11 @@ Notas:
 - Comportamiento de clic: una fila selecciona la receta correspondiente (sin desplazamiento automático). Un clic en el chip de la receta desplaza la tabla a la primera coincidencia.
 
 ### Inspector de Equipo
-- Haz clic en «Logic Hub» en el encabezado de la vista previa para abrir el diálogo «Equipo» (Logic Hub → pestaña Equipo). Crea equipo de ejemplo o pega filas (JSON/texto). Los objetos se sincronizan al instante con la vista previa, así que cerrar el diálogo no borra la cuadrícula del Inspector de Equipo.
+- Haz clic en «Herramientas» en el encabezado de la vista previa para abrir el diálogo «Equipo». Crea equipo de ejemplo. Los objetos se sincronizan al instante con la vista previa, así que cerrar el diálogo no borra la cuadrícula del Inspector de Equipo.
 - Importa tu base de datos de RSL Helper arrastrando archivos `.db` a la app o usando el botón «Cargar Sellfile de RSL Helper» (se comporta igual). Estas importaciones ponen en cola miles de artefactos más el buzón, cambian la vista al `Inspector de Equipo` y dejan intactos el constructor y el estado de exportación.
 - Cada fila del Inspector de Equipo muestra slot, set, nivel, stat principal, un resumen de substats (con glifos y recuentos de tiradas), la fuente (inventario vs bandeja) y chips de Conservar/Vender junto con la primera receta/regla que coincidió. Las reglas desactivadas nunca coinciden, por lo que «Sin coincidencia» representa equipo que la Sellfile dejaría intacto.
 - Los contadores del encabezado pasan a Coincidencia vs Sin coincidencia y también desglosan Conservar/Vender. Combínalos con los filtros del Inspector de Equipo (resultado + `Recetas tester` con `Off`/`Primera`/`Cualquiera`) para centrarte en casos límite antes de exportar.
-- Usa el interruptor de vista previa para alternar entre las tablas de Reglas y del Inspector de Equipo sin volver a abrir el diálogo Logic Hub, ideal para comparar el resultado de cada regla con la pieza que la activó.
+- Usa el interruptor de vista previa para alternar entre las tablas de Reglas y del Inspector de Equipo sin volver a abrir el diálogo Herramientas, ideal para comparar el resultado de cada regla con la pieza que la activó.
 - La tabla del Inspector de Equipo está virtualizada, de modo que incluso con más de 7000 filas importadas sigue respondiendo con fluidez.
 
 ### Exportar

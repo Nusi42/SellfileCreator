@@ -83,6 +83,9 @@ export default function RestoreAutosaveDialog({
   const hasFilters = Boolean(draft?.Filters)
   const hasSort = Boolean(draft && Object.prototype.hasOwnProperty.call(draft, 'TesterSort'))
   const hasSafeguards = (draft?.Safeguards?.length ?? 0) > 0
+  // Only offer the Gear Inspector restore when the saved snapshot has at least one item.
+  // An empty snapshot equals the app's default state — restoring it would be a no-op.
+  const hasGearInspectorContent = Boolean(gearInspectorDraft && gearInspectorDraft.count > 0)
   const builderSavedAt = formatSavedAt(draft?.AutosaveSavedAt ?? null)
   const gearInspectorSavedAt = formatSavedAt(gearInspectorDraft?.savedAt ?? null)
   const defaultSelection = useMemo<RestoreSelection>(() => {
@@ -94,10 +97,11 @@ export default function RestoreAutosaveDialog({
     if (hasSafeguards) next.safeguards = true
     if (hasFilters && filtersDiffer) next.filters = true
     if (hasSort && sortDiffer) next.sort = true
-    if (gearInspectorDraft) next.tester = true
+    // Skip tester if snapshot is empty — that equals the default state.
+    if (hasGearInspectorContent) next.tester = true
     if (gearSetsCount > 0) next.gearSets = true
     return next
-  }, [recipesCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSafeguards, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, gearInspectorDraft])
+  }, [recipesCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSafeguards, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, hasGearInspectorContent])
 
   useEffect(() => {
     if (!open) return
@@ -156,10 +160,12 @@ export default function RestoreAutosaveDialog({
         helper: t('restoreAutosaveSortHelper'),
       })
     }
-    if (gearInspectorDraft) {
+    // Only include the Gear Inspector row when the snapshot has actual content (count > 0).
+    // An empty snapshot equals the factory default and would be a no-op restore.
+    if (hasGearInspectorContent) {
       rows.push({
         key: 'tester',
-        label: t('restoreAutosaveTesterLabel', { count: gearInspectorDraft.count }),
+        label: t('restoreAutosaveTesterLabel', { count: gearInspectorDraft!.count }),
         helper: t('restoreAutosaveTesterHelper'),
       })
     }
@@ -171,7 +177,7 @@ export default function RestoreAutosaveDialog({
       })
     }
     return rows
-  }, [draft?.Safeguards?.length, recipesCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSafeguards, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, gearInspectorDraft, t])
+  }, [draft?.Safeguards?.length, recipesCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSafeguards, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, hasGearInspectorContent, gearInspectorDraft, t])
 
   // Apply the same metaset dependency rule as Shift-load import options.
   // Why: autosave restore can also import recipes/safeguards without metasets.
@@ -201,7 +207,8 @@ export default function RestoreAutosaveDialog({
   const constraintSummary = constraintMessages.join(' • ')
 
   const hasOptions = options.length > 0
-  // Autosave prompts must feel invisible when there's nothing actionable.
+  // If every item in the list equals the current default (or would be a no-op restore),
+  // the dialog has nothing meaningful to offer. Dismiss immediately so the user never sees it.
   useEffect(() => {
     if (!open || hasOptions) return
     // Mirror legacy “no prompt” behavior by rolling back the open flag ASAP.

@@ -1152,15 +1152,22 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       gearInspectorRecipeLabelStrings.off.length,
     )
   ), [gearInspectorRecipeLabelStrings])
-  // Keep the button width stable across Rules vs Gear Inspector by reserving space for
-  // the widest translated value that can appear in either view.
+  // Reserve space for the widest translated value across Rules mode (On/Off) and Gear Inspector mode (Off/First/Any).
   const recipeFilterValueWidthCh = React.useMemo(() => (
     Math.max(gearInspectorRecipeLabelWidthCh, t('recipeFilterOn').length)
   ), [t, gearInspectorRecipeLabelWidthCh])
+  // Reserve space for the widest translated label across both modes so the button width is stable when switching.
+  const recipeFilterLabelWidthCh = React.useMemo(() => (
+    Math.max(t('filterLimitSelectedRecipes').length, t('filterLimitSelectedRecipesGearInspector').length)
+  ), [t])
   const gearInspectorRecipeFilterTooltip = t('filterLimitSelectedRecipesTooltip')
   const recipeFilterButtonActive = gearInspectorRecipeFilterOn
   const recipeFilterButtonDisabled = !hasRecipes || !onGearInspectorRecipeFilterModeChange
   const recipeFilterButtonVariant: 'contained' | 'outlined' = recipeFilterButtonActive ? 'contained' : 'outlined'
+  // Label text is mode-aware: "Selection" in Rules mode, "By Match" in Gear Inspector mode.
+  const recipeFilterButtonLabelText = isGearInspectorMode
+    ? t('filterLimitSelectedRecipesGearInspector')
+    : t('filterLimitSelectedRecipes')
   const recipeFilterButtonLabel = (
     isGearInspectorMode
       ? (gearInspectorRecipeFilterOn ? gearInspectorRecipeFilterLabel : t('testerFilterRecipesOff'))
@@ -1169,11 +1176,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const previewRecipeButtonActive = recipeChipFilterActive
   const previewRecipeButtonVariant: 'contained' | 'outlined' = previewRecipeButtonActive ? 'contained' : 'outlined'
   const previewRecipeButtonLabel = previewRecipeButtonActive ? t('recipeFilterOn') : t('testerFilterRecipesOff')
-  // Match Recipe Filter's width stabilization pattern so the Preview Recipes button
+  // Match Recipe Filter's width stabilization pattern so the Narrow button
   // doesn't "jump" as Off/On switches (or across localized strings).
   const previewRecipesValueWidthCh = React.useMemo(() => (
     Math.max(t('recipeFilterOn').length, gearInspectorRecipeLabelStrings.off.length)
   ), [t, gearInspectorRecipeLabelStrings.off])
+  // "Narrow" label is fixed — a single ch reservation keeps the label column stable.
+  const previewRecipesLabelWidthCh = React.useMemo(() => (
+    t('filterLimitPreviewRecipes').length
+  ), [t])
   const gearInspectorSourceOptions = React.useMemo(() => {
     const options = [
       { value: 'inventory', label: t('testerSourceInventory') },
@@ -1568,7 +1579,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       size="small"
                       variant={recipeFilterButtonVariant}
                       color="success"
-                      aria-label={t('filterLimitSelectedRecipes')}
+                      aria-label={recipeFilterButtonLabelText}
                       aria-pressed={recipeFilterButtonDisabled ? undefined : gearInspectorRecipeFilterOn}
                       disabled={recipeFilterButtonDisabled}
                         onClick={handleGearInspectorRecipeFilterClick}
@@ -1577,7 +1588,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                         minHeight: SMALL_BUTTON_HEIGHT_PX,
                         px: 1.25,
                       }}
-                      label={t('filterLimitSelectedRecipes')}
+                      label={recipeFilterButtonLabelText}
+                      labelWidthCh={recipeFilterLabelWidthCh}
                       value={recipeFilterButtonLabel}
                       valueWidthCh={recipeFilterValueWidthCh}
                     />
@@ -1600,6 +1612,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       px: 1.25,
                     }}
                     label={t('filterLimitPreviewRecipes')}
+                    labelWidthCh={previewRecipesLabelWidthCh}
                     value={previewRecipeButtonLabel}
                     valueWidthCh={previewRecipesValueWidthCh}
                   />
@@ -2574,7 +2587,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
           <Box
             sx={{
               display: 'flex',
-              flexWrap: 'wrap',
+              // At sm+ keep mainstat and substat groups on a single row; xs stacks them naturally.
+              flexWrap: { xs: 'wrap', sm: 'nowrap' },
               columnGap: 1,
               rowGap: 0.75,
               mb: 0.75,
