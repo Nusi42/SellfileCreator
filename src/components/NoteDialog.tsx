@@ -8,6 +8,7 @@ import QuizIcon from '@mui/icons-material/Quiz'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import { useI18n } from '../lib/i18n'
+import '../lib/prismRecipeOverrides' // registers recipe-overrides DSL syntax coloring
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand, RefMDEditor } from '@uiw/react-md-editor'

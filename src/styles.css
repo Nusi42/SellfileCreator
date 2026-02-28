@@ -23,3 +23,39 @@ body.restrict-ui [data-allow-select="1"] {
 .MuiDialog-root[aria-hidden="true"] {
   pointer-events: none !important;
 }
+
+/* ── Recipe-overrides DSL syntax coloring in the note editor ──────────── */
+/* Scoped to .w-md-editor-text-pre, the Prism backdrop element in MDEditor. */
+.w-md-editor-text-pre .token.recipe-overrides-block .token.comment-delimiter          { color: #5c6370; }
+/* Strings default to green; nested spans override for inline markup. */
+.w-md-editor-text-pre .token.recipe-overrides-block .token.string                     { color: #98c379; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.string .token.string-bold  { color: #98c379; font-weight: bold; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.string .token.string-chip  { color: #7ec8e3; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.marker-option              { color: #98c379; }
+/* Default-option marker (* or default keyword) – bright gold so it jumps out. */
+.w-md-editor-text-pre .token.recipe-overrides-block .token.default-kw                 { color: #f9d54c; font-weight: bold; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.question-kw                { color: #c678dd; font-weight: bold; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.group-type                 { color: #c678dd; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.fallback-kw                { color: #e06c75; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.selector-builtin           { color: #61afef; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.selector-field             { color: #61afef; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.field                      { color: #56b6c2; }
+/* id=TOKEN definition is bright amber; referenced IDs inside constraints are muted. */
+.w-md-editor-text-pre .token.recipe-overrides-block .token.id-assign                                { color: #f0a757; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.constraint-block .token.constraint-kw    { color: #e5c07b; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.constraint-block .token.id-ref           { color: #c8a96e; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.logic-kw                   { color: #61afef; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.rarity-name                { color: #e5c07b; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.boolean-val                { color: #d19a66; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.stat-key                   { color: #56b6c2; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.number                     { color: #d19a66; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.selector-at                { color: #e06c75; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.operator                   { color: #abb2bf; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.punctuation                { color: #abb2bf; }
+
+/* ── Inline note markers (recipes / safeguards) ───────────────────────── */
+.w-md-editor-text-pre .token.note-markers-block .token.comment-delimiter { color: #5c6370; }
+.w-md-editor-text-pre .token.note-markers-block .token.marker-kw         { color: #c678dd; }
+.w-md-editor-text-pre .token.note-markers-block .token.string            { color: #98c379; }
+.w-md-editor-text-pre .token.note-markers-block .token.number            { color: #d19a66; }
+.w-md-editor-text-pre .token.note-markers-block .token.punctuation       { color: #abb2bf; }
