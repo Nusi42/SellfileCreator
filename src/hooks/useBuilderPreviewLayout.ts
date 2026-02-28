@@ -327,7 +327,10 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
   }, [runSafeguardChipsMeasurement])
 
   // Re-measure whenever the builder paper height changes (form rows added/removed).
+  // Calling runSafeguardChipsMeasurement in response to a state change is the correct
+  // React idiom here — there is no DOM event to attach to, only the measured height value.
   useEffect(() => {
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
     if (leftHeight === 0) return
     runSafeguardChipsMeasurement()
   }, [leftHeight, runSafeguardChipsMeasurement])

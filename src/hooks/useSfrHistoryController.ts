@@ -240,6 +240,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
     setSelectionAnchor,
     setSafeguardRules,
     setSafeguardsEnabled,
+    setRecipesEnabled,
     suppressSelectionDraft,
     autoApplySelectedRecipe,
   ])

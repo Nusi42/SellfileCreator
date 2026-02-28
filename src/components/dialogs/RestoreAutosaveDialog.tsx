@@ -212,7 +212,10 @@ export default function RestoreAutosaveDialog({
   // autosave re-enables — rather than leaving the session in the “dismissed” limbo state.
   useEffect(() => {
     if (!open || hasOptions) return
-    // Pass the all-false default selection: no field will actually be written.
+    // Calling onRestore here is intentional: the dialog itself must trigger this auto-accept
+    // once it determines hasOptions is false; the parent cannot know this without
+    // re-implementing the full options-computation logic outside the dialog.
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-pass-data-to-parent
     onRestore(RESTORE_SELECTION_DEFAULT)
   }, [open, hasOptions, onRestore])
 

@@ -2165,7 +2165,11 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     })()
   }, [onBeforeMetasetsDialogClose, rawCloseMetaDlg])
   // Register the opener so sibling panels (e.g. SafeguardBuilderPanel) can trigger this dialog.
+  // Imperative registration: we push a stable function reference up to the parent so it can
+  // call openMetaDlg without knowing the implementation. This effect is the correct pattern
+  // for wiring an imperative handle; the parent never needs to "fetch" data here.
   useEffect(() => {
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-pass-data-to-parent
     onRegisterOpenMetasetsDialog?.(openMetaDlg)
   }, [onRegisterOpenMetasetsDialog, openMetaDlg])
   const [metaSetsMenuOpen, setMetaSetsMenuOpen] = useState(false)

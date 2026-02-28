@@ -3780,6 +3780,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     noteRecipeOverridesAnswers,
     noteRecipeOverridesDisabled,
     safeguardRules,
+    recipesEnabled,
     safeguardsEnabled,
     safeguardsGridFilterMode,
     substatTargets,
@@ -5388,6 +5389,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setNoteAutoOpenedFromSfr,
     setSafeguardRules,
     setSafeguardsEnabled,
+    setRecipesEnabled,
     setBuilder,
     setCustomRecipes,
     setLastExportSig,
@@ -5584,6 +5586,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setPendingSfrLoadImport,
     setSafeguardRules,
     setSafeguardsEnabled,
+    setRecipesEnabled,
     sfrNote,
     syncSelectedRecipeIdx,
   ])
