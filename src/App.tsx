@@ -848,6 +848,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [builderMode, scheduleMeasurement])
   // Which safeguard rule is selected in the builder (transient — not persisted).
   const [selectedSafeguardRuleId, setSelectedSafeguardRuleId] = useState<string | null>(() => null)
+  // External scroll request for SafeguardChipsPanel (e.g. Gear Inspector jump). Token increments on each new request.
+  const [safeguardFocusRequest, setSafeguardFocusRequest] = useState<{ ruleId: string; token: number } | null>(null)
+  const safeguardFocusTokenRef = useRef(0)
 
   // Safeguard builder draft — separate from safeguardRules list so edits stay local until
   // the user explicitly inserts or applies, mirroring the recipe builder's draft model.
@@ -4109,6 +4112,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Switch to Safeguard Builder mode and select the targeted rule inline.
     setBuilderMode('safeguard')
     setSelectedSafeguardRuleId(normalizedRuleId)
+    // Request SafeguardChipsPanel to scroll the targeted chip into view.
+    const token = ++safeguardFocusTokenRef.current
+    setSafeguardFocusRequest({ ruleId: normalizedRuleId, token })
     return true
   }, [])
   const handleSafeguardPreviewStarSelect = useCallback((selection: SafeguardStarSelection) => {
@@ -5241,6 +5247,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       visibleRuleIds={visibleSafeguardRuleIds}
       metasets={metasetsForPreview}
       substatColors={substatColors}
+      focusRuleRequest={safeguardFocusRequest}
     />
   )
 

@@ -64,6 +64,8 @@ export type SafeguardChipsPanelProps = {
   visibleRuleIds?: ReadonlySet<string> | null
   metasets?: Metaset[]
   substatColors?: Record<number, { fg: string; bg: string }>
+  /** External scroll request (e.g. from Gear Inspector jump). Increment token each time to re-trigger. */
+  focusRuleRequest?: { ruleId: string; token: number } | null
 }
 
 export default function SafeguardChipsPanel({
@@ -76,6 +78,7 @@ export default function SafeguardChipsPanel({
   visibleRuleIds,
   metasets = [],
   substatColors = {},
+  focusRuleRequest,
 }: SafeguardChipsPanelProps) {
   const { t, lang } = useI18n()
   const theme = useTheme()
@@ -95,6 +98,8 @@ export default function SafeguardChipsPanel({
   const nameCommitTimerRef = useRef<number | null>(null)
   const scrollRootRef = useRef<HTMLDivElement | null>(null)
   const scrollRafRef = useRef<number | null>(null)
+  // Track the last focus token we acted on so re-renders don't re-trigger the scroll.
+  const lastAppliedFocusTokenRef = useRef<number | null>(null)
 
   const { contextMenuGuard: ruleMenuGuard } = useContextMenuPaperGuard({
     open: Boolean(ruleMenu),
@@ -191,6 +196,16 @@ export default function SafeguardChipsPanel({
     window.cancelAnimationFrame(scrollRafRef.current)
     scrollRafRef.current = null
   }, [])
+
+  // Scroll the targeted chip into view when an external jump request arrives
+  // (e.g. clicking a safeguard match chip in Gear Inspector). Token deduplication
+  // prevents re-firing on unrelated re-renders.
+  useEffect(() => {
+    if (!focusRuleRequest) return
+    if (lastAppliedFocusTokenRef.current === focusRuleRequest.token) return
+    lastAppliedFocusTokenRef.current = focusRuleRequest.token
+    scheduleScrollToRule(focusRuleRequest.ruleId)
+  }, [focusRuleRequest, scheduleScrollToRule])
 
   const handleDeleteRule = useCallback((ruleId: string) => {
     let filtered: SafeguardRule[] = []
