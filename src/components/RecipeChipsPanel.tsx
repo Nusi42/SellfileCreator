@@ -6,7 +6,6 @@ import {
   UI_BG_HOVER_DANGER_TRANSITION,
   DANGER_TINT_BG,
   SCROLLING_TOOLTIP_HIDE_MS,
-  BUILDER_RECIPE_CHIPS_EMPTY_MIN_HEIGHT_PX,
 } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import RecipeChip from './RecipeChip'
@@ -17,42 +16,11 @@ import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { RecipeContextMenu } from './RecipeContextMenu'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
-
-const AUTO_SCROLL_EDGE_PX = 80
-const AUTO_SCROLL_MAX_SPEED_PX = 28
-const DRAG_ACTIVATION_DISTANCE_PX = 4
+import { useChipListDnd } from '../hooks/useChipListDnd'
 
 // Shared localStorage key suffix for the Recipe Chips context-menu hint.
 // Why: Right-clicking either the empty chips area or an individual chip should dismiss the hint for both.
 const RECIPE_CHIPS_CONTEXT_HINT_ID = 'builderRecipeChips'
-
-type DropGuide = { top: number; left: number; width: number; height: number } | null
-
-type DragState = {
-  indices: number[]
-  activeIndex: number
-  dropIndex: number | null
-  copyMode: boolean
-}
-
-type ChipLayoutEntry = {
-  index: number
-  rect: DOMRect
-  offsetTop: number
-  height: number
-}
-
-type PointerDragSession = {
-  pointerId: number
-  activeIndex: number
-  selection: number[] | null
-  started: boolean
-  originX: number
-  originY: number
-  lastClientX: number
-  lastClientY: number
-  copyIntent: boolean
-}
 
 function RecipeChipsPanel(props: {
   containerRef: React.MutableRefObject<HTMLDivElement | null>
@@ -85,6 +53,10 @@ function RecipeChipsPanel(props: {
   deleteAllDisabled: boolean
   highlightDelete: boolean
   onHighlightDelete: (active: boolean) => void
+  onInsertAsSafeguard?: (idx: number) => void
+  insertAsSafeguardLabel?: string
+  onApplyAsSafeguard?: (idx: number) => void
+  applyAsSafeguardLabel?: string
   onPrepareDragSelection: (idx: number) => number[]
   onReorderRecipes: (movingIndices: number[], targetIndex: number, options?: { mode?: 'move' | 'copy' }) => void
 }) {
@@ -121,6 +93,10 @@ function RecipeChipsPanel(props: {
     deleteAllDisabled,
     highlightDelete,
     onHighlightDelete,
+    onInsertAsSafeguard,
+    insertAsSafeguardLabel,
+    onApplyAsSafeguard,
+    applyAsSafeguardLabel,
     onPrepareDragSelection,
     onReorderRecipes,
   } = props
@@ -188,342 +164,31 @@ function RecipeChipsPanel(props: {
     })
     return order
   }, [recipes, visibleSet])
+  // Always fill the full measured available height so the paper stays at a consistent height
+  // regardless of whether the list is empty or populated. Capping at an arbitrary constant
+  // when empty caused the paper to be shorter in empty-list mode, producing a visible height
+  // jump when toggling between builder modes with different item counts.
   const minHeightPx = React.useMemo(() => {
     if (maxHeightPx <= 0) return 0
-    if (recipes.length === 0) {
-      return Math.min(maxHeightPx, BUILDER_RECIPE_CHIPS_EMPTY_MIN_HEIGHT_PX)
-    }
     return maxHeightPx
-  }, [recipes.length, maxHeightPx])
+  }, [maxHeightPx])
 
   const [showFocusRing, setShowFocusRing] = React.useState(false)
   const dragAllowed = recipes.length > 1 && renderedIndices.length > 0
-  const [dragState, setDragState] = React.useState<DragState | null>(null)
-  const dragStateRef = React.useRef<DragState | null>(null)
-  React.useEffect(() => { dragStateRef.current = dragState }, [dragState])
-  const [dropGuide, setDropGuide] = React.useState<DropGuide>(null)
-  const chipRectsRef = React.useRef<ChipLayoutEntry[]>([])
-  const layoutDirtyRef = React.useRef(false)
-  const autoScrollVelocityRef = React.useRef(0)
-  const autoScrollFrameRef = React.useRef<number | null>(null)
-  const pointerSessionRef = React.useRef<PointerDragSession | null>(null)
 
-  const measureChipLayouts = React.useCallback(() => {
-    const container = containerRef.current
-    if (!container) {
-      chipRectsRef.current = []
-      layoutDirtyRef.current = false
-      return
-    }
-    // Pull chip DOM nodes so drag math stays synced with layout.
-    const nodes = container.querySelectorAll<HTMLElement>('[data-recipe-chip-index]')
-    const entries: ChipLayoutEntry[] = []
-    nodes.forEach((node) => {
-      // Skip nodes missing the index attribute.
-      const attr = node.getAttribute('data-recipe-chip-index')
-      if (!attr) return
-      // Ignore malformed indices to keep drag logic stable.
-      const index = Number(attr)
-      if (!Number.isFinite(index)) return
-      // Cache the rect + offsets for pointer math.
-      entries.push({
-        index,
-        rect: node.getBoundingClientRect(),
-        offsetTop: node.offsetTop,
-        height: node.offsetHeight,
-      })
-    })
-    // Keep the list sorted so callers can rely on order.
-    chipRectsRef.current = entries.sort((a, b) => a.index - b.index)
-    layoutDirtyRef.current = false
-  }, [containerRef])
-
-  const resolveDropTargetFromPoint = React.useCallback((_clientX: number, clientY: number) => {
-    // Resolve against the live container bounds.
-    const container = containerRef.current
-    if (!container) return null
-    // Read the cached chip rects from the last measurement.
-    const entries = chipRectsRef.current
-    if (entries.length === 0) return null
-    // Inset the guide so it stays inside the scroll padding.
-    const horizontalInset = 4
-    // Ensure the guide never collapses to zero width.
-    const horizontalWidth = Math.max(4, container.clientWidth - horizontalInset * 2)
-
-    // Single-column list: drop guide is always a horizontal rule across the row.
-    // Horizontal guide spans the full chip lane.
-    const horizontalGuideAt = (top: number): DropGuide => ({
-      top: Math.max(0, top),
-      left: horizontalInset,
-      width: horizontalWidth,
-      height: 4,
-    })
-
-    // Sort by vertical position so insert math stays consistent while dragging.
-    const sorted = [...entries].sort((a, b) => a.rect.top - b.rect.top)
-    // If the pointer is above the first chip, insert at the start.
-    const first = sorted[0]!
-    if (clientY < first.rect.top) {
-      const top = first.offsetTop - 2
-      return { insertIndex: first.index, guide: horizontalGuideAt(top) }
-    }
-    // Walk each chip midpoint to choose before/after insertion.
-    for (const entry of sorted) {
-      const midpoint = entry.rect.top + (entry.rect.height / 2)
-      if (clientY < midpoint) {
-        const top = entry.offsetTop - 2
-        return { insertIndex: entry.index, guide: horizontalGuideAt(top) }
-      }
-    }
-    // Pointer below the last chip always inserts after the final entry.
-    const last = sorted[sorted.length - 1]!
-    const top = last.offsetTop + last.height - 2
-    return { insertIndex: last.index + 1, guide: horizontalGuideAt(top) }
-  }, [containerRef])
-
-  const updateDropTarget = React.useCallback((clientX: number, clientY: number) => {
-    const current = dragStateRef.current
-    if (!current) return
-    if (layoutDirtyRef.current) {
-      measureChipLayouts()
-    }
-    const resolved = resolveDropTargetFromPoint(clientX, clientY)
-    const selection = current.indices
-    const selectionMin = selection[0] ?? 0
-    const selectionMax = (selection[selection.length - 1] ?? -1) + 1
-    let nextDrop: number | null = null
-    let nextGuide: DropGuide = null
-    const withinSelectionRange = resolved
-      ? resolved.insertIndex >= selectionMin && resolved.insertIndex <= selectionMax
-      : false
-    if (resolved && (current.copyMode || !withinSelectionRange)) {
-      nextDrop = resolved.insertIndex
-      nextGuide = resolved.guide
-    }
-    setDropGuide(nextGuide)
-    setDragState(prev => (prev ? { ...prev, dropIndex: nextDrop } : prev))
-  }, [measureChipLayouts, resolveDropTargetFromPoint])
-
-  const stopAutoScroll = React.useCallback(() => {
-    autoScrollVelocityRef.current = 0
-    if (autoScrollFrameRef.current !== null) {
-      cancelAnimationFrame(autoScrollFrameRef.current)
-      autoScrollFrameRef.current = null
-    }
-  }, [])
-
-  const stepAutoScroll = React.useCallback(() => {
-    const container = containerRef.current
-    if (!container) {
-      stopAutoScroll()
-      return
-    }
-    const velocity = autoScrollVelocityRef.current
-    if (velocity === 0) {
-      stopAutoScroll()
-      return
-    }
-    container.scrollTop += velocity
-    layoutDirtyRef.current = true
-    const pointerSession = pointerSessionRef.current
-    if (pointerSession?.started && dragStateRef.current) {
-      updateDropTarget(pointerSession.lastClientX, pointerSession.lastClientY)
-    }
-    autoScrollFrameRef.current = requestAnimationFrame(stepAutoScroll)
-  }, [containerRef, stopAutoScroll, updateDropTarget])
-
-  const requestAutoScroll = React.useCallback((clientY: number) => {
-    const container = containerRef.current
-    if (!container) {
-      stopAutoScroll()
-      return
-    }
-    const rect = container.getBoundingClientRect()
-    let velocity = 0
-    if (clientY < rect.top + AUTO_SCROLL_EDGE_PX) {
-      const distance = rect.top + AUTO_SCROLL_EDGE_PX - clientY
-      const ratio = Math.min(1, distance / AUTO_SCROLL_EDGE_PX)
-      velocity = -Math.max(1, Math.round(ratio * AUTO_SCROLL_MAX_SPEED_PX))
-    } else if (clientY > rect.bottom - AUTO_SCROLL_EDGE_PX) {
-      const distance = clientY - (rect.bottom - AUTO_SCROLL_EDGE_PX)
-      const ratio = Math.min(1, distance / AUTO_SCROLL_EDGE_PX)
-      velocity = Math.max(1, Math.round(ratio * AUTO_SCROLL_MAX_SPEED_PX))
-    }
-    autoScrollVelocityRef.current = velocity
-    if (velocity === 0) {
-      stopAutoScroll()
-      return
-    }
-    if (autoScrollFrameRef.current === null) {
-      autoScrollFrameRef.current = requestAnimationFrame(stepAutoScroll)
-    }
-  }, [containerRef, stepAutoScroll, stopAutoScroll])
-
-  const clearDragState = React.useCallback(() => {
-    setDragState(null)
-    setDropGuide(null)
-    stopAutoScroll()
-    dragStateRef.current = null
-  }, [stopAutoScroll])
-
-  const applyDrop = React.useCallback(() => {
-    const current = dragStateRef.current
-    if (!current) return
-    const { indices, dropIndex, copyMode } = current
-    if (dropIndex != null) {
-      if (copyMode) {
-        onReorderRecipes(indices, dropIndex, { mode: 'copy' })
-      } else {
-        const min = indices[0] ?? 0
-        const max = (indices[indices.length - 1] ?? -1) + 1
-        if (dropIndex < min || dropIndex > max) {
-          onReorderRecipes(indices, dropIndex)
-        }
-      }
-    }
-    clearDragState()
-  }, [clearDragState, onReorderRecipes])
-
-  const beginDragOperation = React.useCallback((idx: number, selection: number[], copyMode: boolean): boolean => {
-    if (selection.length === 0) return false
-    const next: DragState = {
-      indices: selection,
-      activeIndex: idx,
-      dropIndex: idx,
-      copyMode,
-    }
-    dragStateRef.current = next
-    setDragState(next)
-    setDropGuide(null)
-    measureChipLayouts()
-    return true
-  }, [measureChipLayouts])
-
-  const handleChipPointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>, idx: number) => {
-    if (!dragAllowed) return
-    if (event.button !== 0) return
-    pointerSessionRef.current = {
-      pointerId: event.pointerId,
-      activeIndex: idx,
-      selection: null,
-      started: false,
-      originX: event.clientX,
-      originY: event.clientY,
-      lastClientX: event.clientX,
-      lastClientY: event.clientY,
-      copyIntent: event.ctrlKey || event.metaKey || false,
-    }
-  }, [dragAllowed])
-
-  React.useEffect(() => {
-    const handlePointerMove = (event: PointerEvent) => {
-      const session = pointerSessionRef.current
-      if (!session || event.pointerId !== session.pointerId) return
-      session.lastClientX = event.clientX
-      session.lastClientY = event.clientY
-      const copyIntent = Boolean(event.ctrlKey || event.metaKey)
-      if (session.copyIntent !== copyIntent) {
-        session.copyIntent = copyIntent
-        if (dragStateRef.current) {
-          dragStateRef.current = { ...dragStateRef.current, copyMode: copyIntent }
-          setDragState(prev => (prev ? { ...prev, copyMode: copyIntent } : prev))
-        }
-      }
-      if (!session.started) {
-        const deltaX = event.clientX - session.originX
-        const deltaY = event.clientY - session.originY
-        const distance = Math.max(Math.abs(deltaX), Math.abs(deltaY))
-        if (distance < DRAG_ACTIVATION_DISTANCE_PX) {
-          return
-        }
-        const selection = onPrepareDragSelection(session.activeIndex)
-        if (selection.length === 0) {
-          pointerSessionRef.current = null
-          return
-        }
-        session.selection = selection
-        session.started = beginDragOperation(session.activeIndex, selection, session.copyIntent)
-        if (!session.started) {
-          pointerSessionRef.current = null
-          return
-        }
-      }
-      if (!dragStateRef.current) return
-      event.preventDefault()
-      updateDropTarget(event.clientX, event.clientY)
-      requestAutoScroll(event.clientY)
-    }
-    const finishDrag = (shouldCommit: boolean) => {
-      if (shouldCommit && dragStateRef.current) {
-        applyDrop()
-      } else if (dragStateRef.current) {
-        clearDragState()
-      }
-      pointerSessionRef.current = null
-    }
-    const handlePointerUp = (event: PointerEvent) => {
-      const session = pointerSessionRef.current
-      if (!session || event.pointerId !== session.pointerId) return
-      event.preventDefault()
-      finishDrag(true)
-    }
-    const handlePointerCancel = (event: PointerEvent) => {
-      const session = pointerSessionRef.current
-      if (!session || event.pointerId !== session.pointerId) return
-      finishDrag(false)
-    }
-    window.addEventListener('pointermove', handlePointerMove, { passive: false })
-    window.addEventListener('pointerup', handlePointerUp, { passive: false })
-    window.addEventListener('pointercancel', handlePointerCancel)
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', handlePointerUp)
-      window.removeEventListener('pointercancel', handlePointerCancel)
-    }
-  }, [applyDrop, beginDragOperation, clearDragState, onPrepareDragSelection, requestAutoScroll, updateDropTarget])
-
-  React.useEffect(() => {
-    const handleWindowBlur = () => {
-      pointerSessionRef.current = null
-      if (dragStateRef.current) {
-        clearDragState()
-      }
-    }
-    window.addEventListener('blur', handleWindowBlur)
-    return () => {
-      window.removeEventListener('blur', handleWindowBlur)
-    }
-  }, [clearDragState])
-
-  const hasActiveDrag = Boolean(dragState)
-
-  React.useEffect(() => {
-    if (!hasActiveDrag) return undefined
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      pointerSessionRef.current = null
-      clearDragState()
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [clearDragState, hasActiveDrag])
-
-  React.useEffect(() => {
-    const cls = 'chips-dragging'
-    if (hasActiveDrag) {
-      try { document.body.classList.add(cls) } catch {}
-    } else {
-      try { document.body.classList.remove(cls) } catch {}
-    }
-    return () => {
-      try { document.body.classList.remove(cls) } catch {}
-    }
-  }, [hasActiveDrag])
-
-  const dragGhostSet = React.useMemo(() => new Set(dragState?.indices ?? []), [dragState])
+  const {
+    dropGuide,
+    handleItemPointerDown,
+    hasActiveDrag,
+    dragGhostIndices: dragGhostSet,
+  } = useChipListDnd({
+    containerRef,
+    itemIndexAttr: 'data-recipe-chip-index',
+    onReorder: onReorderRecipes,
+    onPrepareSelection: onPrepareDragSelection,
+    copyModeEnabled: true,
+    enabled: dragAllowed,
+  })
 
   return (
     <>
@@ -563,9 +228,6 @@ function RecipeChipsPanel(props: {
         }}
         onScroll={() => {
           markScrolling()
-          if (dragStateRef.current) {
-            layoutDirtyRef.current = true
-          }
         }}
         onMouseMove={(e) => {
           if (hasActiveDrag || menu?.open) return
@@ -662,7 +324,7 @@ function RecipeChipsPanel(props: {
             const dragEnabled = dragAllowed
             const pointerHandlers: { onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void } | null = dragEnabled
               ? {
-                  onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => handleChipPointerDown(event, idx),
+                  onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => handleItemPointerDown(event, idx),
                 }
               : null
             return (
@@ -689,6 +351,8 @@ function RecipeChipsPanel(props: {
                 onCopyAllRecipes={onCopyAllRecipes}
                 onDeleteAllRecipes={onDeleteAll}
                 deleteAllDisabled={deleteAllDisabled}
+                {...(onInsertAsSafeguard ? { onInsertAsSafeguard: () => onInsertAsSafeguard(idx), insertAsSafeguardLabel } : {})}
+                {...(onApplyAsSafeguard ? { onApplyAsSafeguard: () => onApplyAsSafeguard(idx), applyAsSafeguardLabel } : {})}
                 onMoveUp={() => onMoveUp(idx)}
                 onMoveDown={() => onMoveDown(idx)}
                 onMoveTop={() => onMoveTop(idx)}
@@ -759,6 +423,10 @@ function areRecipeChipsPanelPropsEqual(prev: Readonly<React.ComponentProps<typeo
     && prev.onDeleteAll === next.onDeleteAll
     && prev.highlightDelete === next.highlightDelete
     && prev.onHighlightDelete === next.onHighlightDelete
+    && prev.onInsertAsSafeguard === next.onInsertAsSafeguard
+    && prev.insertAsSafeguardLabel === next.insertAsSafeguardLabel
+    && prev.onApplyAsSafeguard === next.onApplyAsSafeguard
+    && prev.applyAsSafeguardLabel === next.applyAsSafeguardLabel
     && prev.onPrepareDragSelection === next.onPrepareDragSelection
     && prev.onReorderRecipes === next.onReorderRecipes
 }

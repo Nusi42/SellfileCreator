@@ -26,7 +26,7 @@ import {
   cloneDefaultRulesFilterState,
   type CollapsedSections,
 } from '../state/rulesFilterPersistence'
-import { TESTER_RECIPE_FILTER_MODE_DEFAULT, type TesterRecipeFilterMode } from '../types/testerRecipeFilterMode'
+import { GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT, type GearInspectorRecipeFilterMode } from '../types/gearInspectorRecipeFilterMode'
 import type { SafeguardRule } from '../lib/safeguards'
 import { sanitizeSafeguardsGridFilterMode, type SafeguardsGridFilterMode } from '../state/safeguardsPreferences'
 import {
@@ -36,10 +36,15 @@ import {
   type NoteRecipeOverridesAnswers,
 } from '../lib/noteRecipeOverrides'
 import {
-  isDefaultTesterSubstatSortState,
-  normalizeTesterSubstatSortState,
-  type TesterSubstatSortState,
-} from '../state/testerSubstatSortPreferences'
+  isDefaultGearInspectorSubstatSortState,
+  normalizeGearInspectorSubstatSortState,
+  type GearInspectorSubstatSortState,
+} from '../state/gearInspectorSubstatSortPreferences'
+import {
+  cloneDefaultBuilderPanelCollapsed,
+  parseBuilderPanelCollapsedFromRaw,
+  type BuilderPanelCollapsedSections,
+} from '../state/builderPreferences'
 
 export type RestoreDraft = {
   Version?: string
@@ -49,13 +54,14 @@ export type RestoreDraft = {
   FinalSellRemainder?: FinalSellRemainderConfig
   Safeguards?: SafeguardRule[]
   SafeguardsEnabled?: boolean
+  RecipesEnabled?: boolean
   SelectedRecipeIndex?: number
   Note?: string
   NoteRecipeOverridesAnswers?: NoteRecipeOverridesAnswers
   NoteRecipeOverridesDisabled?: boolean
   AutosaveSavedAt?: string
   Filters?: AutosaveFiltersState
-  TesterSort?: TesterSubstatSortState
+  TesterSort?: GearInspectorSubstatSortState
   LogicHubDialogTab?: LogicHubDialogTab
   SafeguardsGridFilterMode?: SafeguardsGridFilterMode
 }
@@ -69,7 +75,11 @@ export type AutosaveFilterView = {
 export type AutosaveFiltersState = {
   activeMode: RulesFilterPreviewMode
   views: Record<RulesFilterPreviewMode, AutosaveFilterView>
-  testerRecipeFilterMode?: TesterRecipeFilterMode
+  testerRecipeFilterMode?: GearInspectorRecipeFilterMode
+  // Builder section collapse state — one entry per builder panel.
+  // Absent means all sections are expanded (defaults).
+  builderRecipeCollapsed?: BuilderPanelCollapsedSections
+  builderSafeguardCollapsed?: BuilderPanelCollapsedSections
 }
 
 type InitialAutosaveState = {
@@ -111,14 +121,19 @@ const normalizeAutosaveFilters = (filters: AutosaveFiltersState | null | undefin
       collapsed: view?.collapsed ?? cloneDefaultRulesFilterCollapsed(),
     }
   }
+  // Normalize builder collapsed to defaults when absent.
+  const builderRecipeCollapsed = filters.builderRecipeCollapsed ?? cloneDefaultBuilderPanelCollapsed()
+  const builderSafeguardCollapsed = filters.builderSafeguardCollapsed ?? cloneDefaultBuilderPanelCollapsed()
   return {
-    activeMode: filters.activeMode === 'tester' ? 'tester' : 'rules',
+    activeMode: filters.activeMode === 'gearInspector' ? 'gearInspector' : 'rules',
     views,
-    testerRecipeFilterMode: filters.testerRecipeFilterMode ?? TESTER_RECIPE_FILTER_MODE_DEFAULT,
+    testerRecipeFilterMode: filters.testerRecipeFilterMode ?? GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+    builderRecipeCollapsed,
+    builderSafeguardCollapsed,
   }
 }
 
-const parseTesterRecipeFilterMode = (raw: unknown): TesterRecipeFilterMode | undefined => (
+const parseGearInspectorRecipeFilterMode = (raw: unknown): GearInspectorRecipeFilterMode | undefined => (
   raw === 'first' || raw === 'any' || raw === 'off'
     ? raw
     : undefined
@@ -166,14 +181,20 @@ const parseSavedFilters = (raw: unknown): AutosaveFiltersState | null => {
       collapsed: parseCollapsedSections(viewRec['collapsed']),
     }
   }
-  const testerModeRaw = rec['testerRecipeFilterMode']
-  const testerRecipeFilterMode = parseTesterRecipeFilterMode(testerModeRaw)
+  const gearInspectorModeRaw = rec['testerRecipeFilterMode']
+  const gearInspectorRecipeFilterMode = parseGearInspectorRecipeFilterMode(gearInspectorModeRaw)
   const activeModeRaw = rec['activeMode']
-  const activeMode: RulesFilterPreviewMode = activeModeRaw === 'tester' ? 'tester' : 'rules'
+  // Validate stored mode; unrecognized values fall back to 'rules'.
+  const activeMode: RulesFilterPreviewMode = activeModeRaw === 'gearInspector' ? 'gearInspector' : 'rules'
+  // Parse builder section collapse state; missing or invalid values fall back to all-expanded defaults.
+  const builderRecipeCollapsed = parseBuilderPanelCollapsedFromRaw(rec['builderRecipeCollapsed'])
+  const builderSafeguardCollapsed = parseBuilderPanelCollapsedFromRaw(rec['builderSafeguardCollapsed'])
   return {
     activeMode,
     views,
-    ...(testerRecipeFilterMode ? { testerRecipeFilterMode } : {}),
+    ...(gearInspectorRecipeFilterMode ? { testerRecipeFilterMode: gearInspectorRecipeFilterMode } : {}),
+    builderRecipeCollapsed,
+    builderSafeguardCollapsed,
   }
 }
 
@@ -186,10 +207,13 @@ export const filtersSignature = (filters: AutosaveFiltersState | null | undefine
     state: canonicalize(normalized.views[mode].state),
     collapsed: canonicalize(normalized.views[mode].collapsed),
   }))
+  // Include builder section collapse so a non-default layout is not silently dropped.
   return JSON.stringify({
     activeMode: normalized.activeMode,
     views,
-    testerRecipeFilterMode: normalized.testerRecipeFilterMode ?? TESTER_RECIPE_FILTER_MODE_DEFAULT,
+    testerRecipeFilterMode: normalized.testerRecipeFilterMode ?? GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+    builderRecipeCollapsed: canonicalize(normalized.builderRecipeCollapsed),
+    builderSafeguardCollapsed: canonicalize(normalized.builderSafeguardCollapsed),
   })
 }
 
@@ -203,13 +227,54 @@ const DEFAULT_AUTOSAVE_FILTERS_SIGNATURE = filtersSignature({
     }
     return acc
   }, {} as Record<RulesFilterPreviewMode, AutosaveFilterView>),
-  testerRecipeFilterMode: TESTER_RECIPE_FILTER_MODE_DEFAULT,
+  testerRecipeFilterMode: GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
 })
 
 // Treat exact matches to the factory defaults as "no filters" so autosave stays clean.
 export const areAutosaveFiltersDefault = (filters: AutosaveFiltersState | null | undefined): boolean => {
   if (!filters) return true
   return filtersSignature(filters) === DEFAULT_AUTOSAVE_FILTERS_SIGNATURE
+}
+
+// Compare meaningful view state: filter criteria (state, activeMode, gearInspectorRecipeFilterMode)
+// plus builder section collapse state. Filter-panel open/collapsed is still excluded because
+// merely having a drawer open doesn't warrant a restore prompt — but builder section layout is
+// a deliberate workspace preference the user wants restored.
+const filterContentSignature = (filters: AutosaveFiltersState | null | undefined): string => {
+  const normalized = normalizeAutosaveFilters(filters)
+  if (!normalized) return ''
+  const views = RULES_FILTER_PREVIEW_MODES.map((mode) => ({
+    mode,
+    state: canonicalize(normalized.views[mode].state),
+  }))
+  return JSON.stringify({
+    activeMode: normalized.activeMode,
+    views,
+    testerRecipeFilterMode: normalized.testerRecipeFilterMode ?? GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+    builderRecipeCollapsed: canonicalize(normalized.builderRecipeCollapsed),
+    builderSafeguardCollapsed: canonicalize(normalized.builderSafeguardCollapsed),
+  })
+}
+
+const DEFAULT_FILTER_CONTENT_SIGNATURE = filterContentSignature({
+  activeMode: 'rules',
+  views: RULES_FILTER_PREVIEW_MODES.reduce((acc, mode) => {
+    acc[mode] = {
+      open: RULES_FILTER_OPEN_DEFAULT,
+      state: cloneDefaultRulesFilterState(),
+      collapsed: cloneDefaultRulesFilterCollapsed(),
+    }
+    return acc
+  }, {} as Record<RulesFilterPreviewMode, AutosaveFilterView>),
+  testerRecipeFilterMode: GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+})
+
+// Returns true when only UI state (panel open, collapsed sections) differs — no filter
+// criteria have actually changed. Used to suppress the "filter panel" restore prompt
+// and the pre-dialog filter reset when the user hasn't changed any active filters.
+export const areFilterContentsDefault = (filters: AutosaveFiltersState | null | undefined): boolean => {
+  if (!filters) return true
+  return filterContentSignature(filters) === DEFAULT_FILTER_CONTENT_SIGNATURE
 }
 
 export const finalSellSignature = (fsr?: FinalSellRemainderConfig | null): string => {
@@ -226,9 +291,10 @@ function computeInitialAutosaveState(args: {
   note: string | null
   noteRecipeOverridesAnswers: NoteRecipeOverridesAnswers
   filters: AutosaveFiltersState
-  testerSort: TesterSubstatSortState
+  gearInspectorSort: GearInspectorSubstatSortState
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
+  recipesEnabled: boolean
   safeguardsGridFilterMode: SafeguardsGridFilterMode
   storedRuntimeGearSetCount: number
 }): InitialAutosaveState {
@@ -261,14 +327,14 @@ function computeInitialAutosaveState(args: {
         : null
       const savedFilters = parseSavedFilters(savedFiltersRaw)
       const filtersMatchDefaults = areAutosaveFiltersDefault(savedFilters)
-      const savedTesterSortRaw = (entry.payload && typeof entry.payload === 'object')
+      const savedGearInspectorSortRaw = (entry.payload && typeof entry.payload === 'object')
         ? (entry.payload as Record<string, unknown>)['TesterSort']
         : null
-      const savedTesterSortNormalized = savedTesterSortRaw ? normalizeTesterSubstatSortState(savedTesterSortRaw) : null
-      const savedTesterSort = savedTesterSortNormalized && !isDefaultTesterSubstatSortState(savedTesterSortNormalized)
-        ? savedTesterSortNormalized
+      const savedGearInspectorSortNormalized = savedGearInspectorSortRaw ? normalizeGearInspectorSubstatSortState(savedGearInspectorSortRaw) : null
+      const savedGearInspectorSort = savedGearInspectorSortNormalized && !isDefaultGearInspectorSubstatSortState(savedGearInspectorSortNormalized)
+        ? savedGearInspectorSortNormalized
         : null
-      const testerSortMatchDefaults = savedTesterSort === null
+      const gearInspectorSortMatchDefaults = savedGearInspectorSort === null
       const safeguardsMatchDefaults = savedSafeguards.length === 0
         && !savedKeepEnabled
         && args.safeguardRules.length === 0
@@ -309,7 +375,7 @@ function computeInitialAutosaveState(args: {
         && finalSellMatches
         && !notePresent
         && filtersMatchDefaults
-        && testerSortMatchDefaults
+        && gearInspectorSortMatchDefaults
         && safeguardsMatchDefaults
         && !hasStoredRuntimeGearSets
       if (!essentiallyDefault) {
@@ -332,7 +398,7 @@ function computeInitialAutosaveState(args: {
             ...(savedRecipeOverridesDisabled ? { [NOTE_RECIPE_OVERRIDES_DISABLED_KEY]: true } : {}),
             ...(savedAtRaw ? { AutosaveSavedAt: savedAtRaw } : {}),
             ...(savedFilters ? { Filters: savedFilters } : {}),
-            ...(savedTesterSort ? { TesterSort: savedTesterSort } : {}),
+            ...(savedGearInspectorSort ? { TesterSort: savedGearInspectorSort } : {}),
             ...(() => {
               const rawLogicHubTab = typeof payload['LogicHubDialogTab'] === 'string'
                 ? payload['LogicHubDialogTab']
@@ -364,9 +430,10 @@ export function useAutosaveRestore(opts: {
   noteRecipeOverridesAnswers: NoteRecipeOverridesAnswers
   noteRecipeOverridesDisabled: boolean
   filters: AutosaveFiltersState
-  testerSort: TesterSubstatSortState
+  gearInspectorSort: GearInspectorSubstatSortState
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
+  recipesEnabled: boolean
   logicHubDialogTab: LogicHubDialogTab
   safeguardsGridFilterMode: SafeguardsGridFilterMode
   storedRuntimeGearSetCount: number
@@ -383,9 +450,10 @@ export function useAutosaveRestore(opts: {
     noteRecipeOverridesAnswers,
     noteRecipeOverridesDisabled,
     filters,
-    testerSort,
+    gearInspectorSort,
     safeguardRules,
     safeguardsEnabled,
+    recipesEnabled,
     logicHubDialogTab,
     safeguardsGridFilterMode,
     storedRuntimeGearSetCount,
@@ -402,9 +470,10 @@ export function useAutosaveRestore(opts: {
       note,
       noteRecipeOverridesAnswers,
       filters,
-      testerSort,
+      gearInspectorSort,
       safeguardRules,
       safeguardsEnabled,
+      recipesEnabled,
       safeguardsGridFilterMode,
       storedRuntimeGearSetCount,
     })
@@ -420,9 +489,9 @@ export function useAutosaveRestore(opts: {
     // Selection changes should not enable autosave by themselves.
     // Exclude SelectedRecipeIndex from the divergence snapshot.
     const filtersForSnapshot = areAutosaveFiltersDefault(filters) ? null : normalizeAutosaveFilters(filters)
-    const testerSortForSnapshot = isDefaultTesterSubstatSortState(testerSort)
+    const gearInspectorSortForSnapshot = isDefaultGearInspectorSubstatSortState(gearInspectorSort)
       ? null
-      : normalizeTesterSubstatSortState(testerSort)
+      : normalizeGearInspectorSubstatSortState(gearInspectorSort)
     const base = {
       Version: version,
       Metasets: metasets,
@@ -431,6 +500,7 @@ export function useAutosaveRestore(opts: {
       FinalSellRemainder: finalSellRemainder,
       Safeguards: safeguardRules,
       SafeguardsEnabled: safeguardsEnabled,
+      RecipesEnabled: recipesEnabled,
       LogicHubDialogTab: logicHubDialogTab,
       SafeguardsGridFilterMode: safeguardsGridFilterMode,
       // Persist note content and recipe overrides answers only when present.
@@ -440,7 +510,7 @@ export function useAutosaveRestore(opts: {
         : {}),
       ...(noteRecipeOverridesDisabled ? { [NOTE_RECIPE_OVERRIDES_DISABLED_KEY]: true } : {}),
       ...(filtersForSnapshot ? { Filters: filtersForSnapshot } : {}),
-      ...(testerSortForSnapshot ? { TesterSort: testerSortForSnapshot } : {}),
+      ...(gearInspectorSortForSnapshot ? { TesterSort: gearInspectorSortForSnapshot } : {}),
     }
     return JSON.stringify(base)
   }, [
@@ -453,9 +523,10 @@ export function useAutosaveRestore(opts: {
     noteRecipeOverridesAnswers,
     noteRecipeOverridesDisabled,
     filters,
-    testerSort,
+    gearInspectorSort,
     safeguardRules,
     safeguardsEnabled,
+    recipesEnabled,
     logicHubDialogTab,
     safeguardsGridFilterMode,
   ])

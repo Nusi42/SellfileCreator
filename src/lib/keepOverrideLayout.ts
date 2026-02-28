@@ -9,7 +9,7 @@ export const KEEP_OVERRIDE_RULES_COLUMN_MIN_WIDTH_PX = 360
 // Two-column mode can spare a bit less width without crushing the editor controls.
 export const KEEP_OVERRIDE_RULES_COLUMN_MIN_WIDTH_COMPACT_PX = 320
 
-// Keep-override grids match the Rule Tester card width at 4 columns.
+// Keep-override grids match the Gear Inspector card width at 4 columns.
 export const KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT = 4
 
 type KeepOverrideGridPaneWidthParams = {
@@ -21,7 +21,7 @@ type KeepOverrideGridPaneWidthParams = {
   rowPaddingPx: number
 }
 
-// Resolve the right-column width so keep-override cards mirror the tester grid width.
+// Resolve the right-column width so keep-override cards mirror the Gear Inspector grid width.
 export const resolveKeepOverrideGridPaneWidth = ({
   gridColumnMode,
   targetCardWidthPx,
@@ -30,7 +30,7 @@ export const resolveKeepOverrideGridPaneWidth = ({
   gridGapPx,
   rowPaddingPx,
 }: KeepOverrideGridPaneWidthParams): string | null => {
-  // Skip forcing a width until we know the tester card width.
+  // Skip forcing a width until we know the Gear Inspector card width.
   if (!Number.isFinite(targetCardWidthPx)) return null
   // Normalize card width so NaN/negative input cannot break layout.
   const normalizedCardWidth = Math.max(0, Number(targetCardWidthPx))

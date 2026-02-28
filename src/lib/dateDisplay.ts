@@ -2,7 +2,7 @@
  * dateDisplay.ts
  *
  * Shared helpers for parsing + formatting local date/time strings so UI copy
- * stays consistent (autosave banners, tester tooltips, etc.).
+ * stays consistent (autosave banners, Gear Inspector tooltips, etc.).
  */
 
 export type DateDisplayFormatOptions = Pick<Intl.DateTimeFormatOptions, 'dateStyle' | 'timeStyle'>

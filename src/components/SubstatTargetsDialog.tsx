@@ -2,7 +2,7 @@
  * SubstatTargetsDialog
  *
  * Lets users edit per-star substatTargets plus the global fallback star. Shares the
- * NumberSpinnerAdornment for consistency with Builder/Testers so pointer/touch
+ * NumberSpinnerAdornment for consistency with Builder/Gear Inspector so pointer/touch
  * interaction stays identical everywhere numeric substatTargets appear.
  */
 import React, { useMemo, useRef, useState } from 'react'
@@ -122,7 +122,7 @@ export default function SubstatTargetsDialog({
   }, [substatTargetsStarColumns])
 
   const renderSubstatTargetInput = (starKey: SubstatTargetStarKey, variantKey: number, statLabel: string, starLabel: string) => {
-    // Inputs write straight through to the variant map so Builder/Rule Tester see
+    // Inputs write straight through to the variant map so Builder/Gear Inspector see
     // every keystroke; we still clamp to non-negative integers to match HSF/SFR
     // expectations and keep keyboard/spinner edits in sync.
     const currentValue = Number(substatTargets[starKey]?.[variantKey] ?? 0)

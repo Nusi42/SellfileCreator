@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { SAFEGUARD_DEFAULT_COUNT_MODE, SafeguardRuleActivation, collectSafeguardCandidates, computeSafeguardProtection, hashSafeguardCombination, normalizeSafeguardRule, resolveSafeguardRuleLabel, resolveSafeguardRulesWithMetasets, buildDefaultSafeguardRules } from '../../src/lib/safeguards.js'
 import { normalizeArtifactSetSelections } from '../../src/lib/gearSets/selection.js'
 import { ArtifactSet, ArtifactType, Faction, StatVariant, LEVEL_ANY_SENTINEL, RarityCode, type RankValue } from '../../src/lib/types.js'
-import type { TesterPreviewRow } from '../../src/types/testerPreview.js'
+import type { GearInspectorPreviewRow } from '../../src/types/gearInspectorPreview.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../../src/lib/importers/gearDbNormalizer.js'
 import type { SafeguardRule } from '../../src/lib/safeguards.js'
 import type { Metaset } from '../../src/lib/metasets.js'
@@ -54,7 +54,7 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}, variant: 
     mainStat: overrides.mainStat ?? buildMainStat(variant),
     substats: overrides.substats ?? [],
     ascension: overrides.ascension ?? null,
-    testerItem: overrides.testerItem ?? {
+    gearInspectorItem: overrides.gearInspectorItem ?? {
       slot,
       set,
       rank: overrides.rank ?? 6,
@@ -73,7 +73,7 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}, variant: 
   }
 }
 
-const makeTesterRow = (overrides: Partial<NormalizedGearArtifact> = {}, keep = false, variant: StatVariant = StatVariant.ATK): TesterPreviewRow => {
+const makeTesterRow = (overrides: Partial<NormalizedGearArtifact> = {}, keep = false, variant: StatVariant = StatVariant.ATK): GearInspectorPreviewRow => {
   const artifact = makeArtifact(overrides, variant)
   const match = keep ? { keep: true, recipeIdx: 0, recipeName: 'Keep', ruleIndex: 0, ruleLabel: null, ruleSource: 'sfr' } : null
   return {
@@ -218,7 +218,7 @@ test('computeSafeguardProtection aggregates combination counts', () => {
       },
     }),
   ]
-  const rows: TesterPreviewRow[] = [
+  const rows: GearInspectorPreviewRow[] = [
     makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, rank: 6 as RankValue, rarity: 6 as RankValue }, false, StatVariant.ATK),
     makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, rank: 6 as RankValue, rarity: 6 as RankValue }, false, StatVariant.ATK),
   ]
@@ -260,7 +260,7 @@ test('projected count mirrors existing keep state when disabled', () => {
 
 test('coveredByExisting flips when existing keep rules meet requirement', () => {
   const rules = [makeRule({ requiredCount: 1 })]
-  const rows: TesterPreviewRow[] = []
+  const rows: GearInspectorPreviewRow[] = []
   const candidates = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] }).candidates
   const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
   assert.strictEqual(snapshot.entries[0]?.coveredByExisting, false, 'no gear means the quota still needs coverage')

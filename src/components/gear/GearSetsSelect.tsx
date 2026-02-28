@@ -227,16 +227,10 @@ export default function GearSetsSelect({
       includeNoSet,
       noSetLabel: t('noSetAccessories'),
     })
-    const filtered = allowedSetFilter
-      ? sortedForOrder.filter(([id]) => (
-        // Honor allowed ids but keep the no-set sentinel when enabled.
-        allowedSetFilter.has(Number(id)) || (includeNoSet && Number(id) === ACCESSORY_NO_SET_ID)
-      ))
-      : sortedForOrder
     // Scroll to the first explicitly included set to mirror builder behavior.
     const selectedIds = new Set(splitSelections.included.map(Number))
     let target: number | null = null
-    for (const [id] of filtered) {
+    for (const [id] of sortedForOrder) {
       const idNum = Number(id)
       if (selectedIds.has(idNum)) {
         target = idNum
@@ -249,22 +243,28 @@ export default function GearSetsSelect({
       item?.scrollIntoView({ block: 'nearest' })
     }
     requestAnimationFrame(() => requestAnimationFrame(scroll))
-  }, [allowedSetFilter, gearSetCatalogVersion, includeNoSet, menuOpen, setsOrder, setsSearch, splitSelections.included, t])
+  }, [gearSetCatalogVersion, includeNoSet, menuOpen, setsOrder, setsSearch, splitSelections.included, t])
 
   const sortedSets = useMemo(() => {
     void gearSetCatalogVersion
-    const base = filterAndSortSetEntries(setsSearch, setsOrder, {
+    return filterAndSortSetEntries(setsSearch, setsOrder, {
       translate: t,
       // Include the accessory no-set sentinel when requested by caller.
       includeNoSet,
       noSetLabel: t('noSetAccessories'),
     })
-    if (!allowedSetFilter) return base
-    return base.filter(([id]) => (
-      // Keep no-set visible even when allowed ids are filtered.
-      allowedSetFilter.has(Number(id)) || (includeNoSet && Number(id) === ACCESSORY_NO_SET_ID)
-    ))
-  }, [allowedSetFilter, gearSetCatalogVersion, includeNoSet, setsOrder, setsSearch, t])
+  }, [gearSetCatalogVersion, includeNoSet, setsOrder, setsSearch, t])
+
+  // When allowedSetIds is provided, disable sets outside the allowed pool instead of hiding them.
+  // Merge with any explicit disabledSetIds passed by the caller.
+  const effectiveDisabledSetIds = useMemo(() => {
+    if (!allowedSetFilter) return disabledSetIds ?? []
+    const fromAllowed = sortedSets
+      .map(([id]) => Number(id))
+      .filter((id) => !allowedSetFilter.has(id) && !(includeNoSet && id === ACCESSORY_NO_SET_ID))
+    if (!disabledSetIds || disabledSetIds.length === 0) return fromAllowed
+    return Array.from(new Set([...fromAllowed, ...disabledSetIds]))
+  }, [allowedSetFilter, disabledSetIds, includeNoSet, sortedSets])
 
   const handleToggleSet = useCallback((setId: number) => {
     const numeric = Number(setId)
@@ -296,11 +296,18 @@ export default function GearSetsSelect({
     onChange(nextSelections)
   }, [onChange, singleSelect, splitSelections.excluded, splitSelections.included])
 
-  const metasetsMenu = useMemo(() => {
-    if (!allowMetasets) return []
-    if (!allowedSetFilter) return visibleMetasets
-    return visibleMetasets.filter((meta) => meta.sets.every((setId) => allowedSetFilter.has(Number(setId))))
-  }, [allowMetasets, allowedSetFilter, visibleMetasets])
+  const metasetsMenu = useMemo(() => (
+    allowMetasets ? visibleMetasets : []
+  ), [allowMetasets, visibleMetasets])
+
+  const disabledMetasetIds = useMemo(() => {
+    if (!allowedSetFilter || !allowMetasets) return new Set<string>()
+    return new Set(
+      visibleMetasets
+        .filter((meta) => !meta.sets.every((setId) => allowedSetFilter.has(Number(setId))))
+        .map((meta) => meta.id)
+    )
+  }, [allowedSetFilter, allowMetasets, visibleMetasets])
   // Track which sets are implied by metasets so right-click only targets those.
   const metaDerivedSetIds = useMemo(() => (
     allowMetasets ? new Set(resolveMetasetIds(selectedMetasetIds ?? [], metasets)) : new Set<number>()
@@ -347,7 +354,7 @@ export default function GearSetsSelect({
   // Choose the active padding so the select width matches the badge state.
   const inlinePaddingPx = showExtraBadge ? paddingWithBadge : paddingWithoutBadge
   const contentMaxWidth = computeInlineSelectContentMaxWidth(inlinePaddingPx)
-  // Mirror the tester filter behavior by showing how many sets/metasets extend beyond the inline label.
+  // Mirror the Gear Inspector filter behavior by showing how many sets/metasets extend beyond the inline label.
   const extraSelectionCount = showExtraBadge ? hiddenCount : 0
 
   // Keep the badge synchronized with layout changes (1 vs 2 column width).
@@ -622,6 +629,7 @@ export default function GearSetsSelect({
                     const needsGap = iconId !== null && iconId !== 'empty'
                     const tooltipName = hasGlyph ? `${glyph}${needsGap ? ` ${meta.name}` : meta.name}` : meta.name
                     const displayGap = hasGlyph && needsGap ? 0.75 : 0.5
+                    const isMetaDisabled = disabledMetasetIds.has(meta.id)
                     const selected = (selectedMetasetIds ?? []).includes(meta.id)
                     const setNames = meta.sets.map((id) => getLocalizedGearSetName(id, t, lang)).filter(Boolean)
                     const joined = setNames.join(', ')
@@ -630,6 +638,7 @@ export default function GearSetsSelect({
                         key={meta.id}
                         value={`m:${meta.id}`}
                         selected={selected}
+                        disabled={isMetaDisabled}
                         data-metaset-id={meta.id}
                         onMouseEnter={() => setHoveredMetasetId(meta.id)}
                         onMouseLeave={() => setHoveredMetasetId((prev) => (prev === meta.id ? null : prev))}
@@ -637,6 +646,7 @@ export default function GearSetsSelect({
                           evt.preventDefault()
                           evt.stopPropagation()
                           if (!onChangeMetasetIds) return
+                          if (isMetaDisabled) return
                           const token = `m:${meta.id}`
                           const tokens = new Set(selectedTokens)
                           if (tokens.has(token)) tokens.delete(token); else tokens.add(token)
@@ -721,7 +731,7 @@ export default function GearSetsSelect({
                   selectedMetasetIds={selectedMetasetIds}
                   selectedSetIds={splitSelections.included.map(Number)}
                   excludedSetIds={splitSelections.excluded.map(Number)}
-                  disabledSetIds={disabledSetIds ?? []}
+                  disabledSetIds={effectiveDisabledSetIds}
                   singleSelect={singleSelect}
                   onToggleSet={handleToggleSet}
                   onContextMenuSet={handleContextMenuSet}

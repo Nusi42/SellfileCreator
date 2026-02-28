@@ -1,9 +1,9 @@
 import type { HsfRuleWithRecipe } from './merge'
 import { RULE_SOURCE_SAFEGUARDS } from './ruleSources'
 
-// Safeguard star clicks can either jump to Rule Tester or back into Safeguards.
+// Safeguard star clicks can either jump to Gear Inspector or back into Safeguards.
 // Keep this token centralized so App + tests share one decision contract.
-export type SafeguardPreviewStarAction = 'openTester' | 'openSafeguards'
+export type SafeguardPreviewStarAction = 'openGearInspector' | 'openSafeguards'
 
 // Concrete safeguard rows come from real gear matches.
 // Placeholder rows represent anticipate gaps and should route to Safeguards editing.
@@ -30,12 +30,12 @@ export function hasConcreteSafeguardRowForRule(
 }
 
 // Resolve where the UI should navigate when a safeguard-star row is clicked.
-// Real matches go to Rule Tester, while anticipate-only rules go to Safeguards.
+// Real matches go to Gear Inspector, while anticipate-only rules go to Safeguards.
 export function resolveSafeguardPreviewStarAction(
   rules: readonly HsfRuleWithRecipe[],
   safeguardRuleId: string | null | undefined,
 ): SafeguardPreviewStarAction {
   return hasConcreteSafeguardRowForRule(rules, safeguardRuleId)
-    ? 'openTester'
+    ? 'openGearInspector'
     : 'openSafeguards'
 }

@@ -137,7 +137,7 @@ ensure_history_entry() {
   fi
   parse_history_versions
   if ! version_in_history "$expected_version"; then
-    echo "Codex run finished, but docs/HISTORY.txt still lacks v${expected_version}." >&2
+    echo "Claude run finished, but docs/HISTORY.txt still lacks v${expected_version}." >&2
     echo "Review the output above and update the history entry manually if needed." >&2
     exit 1
   fi
@@ -222,7 +222,7 @@ collect_commit_chunks() {
   done
 }
 
-run_codex_chunk() {
+run_claude_chunk() {
   # Identify which workflow we are running.
   local mode="$1"
   # Track the target release version for this run.
@@ -321,9 +321,9 @@ EOF
     )
   fi
 
-  echo "Dispatching Codex for ${mode} v${target_version} chunk ${chunk_index}/${chunk_total} (range ${chunk_range})." >&2
+  echo "Dispatching Claude for ${mode} v${target_version} chunk ${chunk_index}/${chunk_total} (range ${chunk_range})." >&2
 
-  # Export all required inputs for the Codex prompt.
+  # Export all required inputs for the Claude prompt.
   # Core release identifiers.
   TARGET_VERSION="$target_version" \
   RELEASE_COMMIT="$release_commit" \
@@ -353,11 +353,11 @@ EOF
   PREVIOUS_DATE="$previous_date" \
   # Status flag used by the prompt instructions.
   RELEASE_STATUS="$release_status" \
-  # Use the current HOME for Codex auth.
+  # Use the current HOME for Claude auth.
   HOME="${HOME:-}" \
-  codex exec --sandbox workspace-write --cd "$REPO_ROOT" -- <<EOF
+  claude -p --dangerously-skip-permissions --add-dir "$REPO_ROOT" <<EOF
 !! AUTOMATION NOTICE !!
-- Immediately execute the shell command \`{"command":["bash","-lc","git log --reverse --stat \\"${chunk_range}\\""]}\`.
+- Immediately run: git log --reverse --stat "${chunk_range}"
 - Open every player-facing commit you rely on with individual \`git show <hash>\` commands before writing notes.
 - This is a non-interactive automation run; do not ask for confirmation. Proceed through the workflow immediately.
 - If you would normally ask a question, state your assumption in one line and continue.
@@ -398,7 +398,7 @@ EOF
 
   # Fail fast if we expected a new entry and it is still missing.
   ensure_history_entry "$target_version" "$require_entry"
-  echo "Completed Codex run for ${mode} v${target_version} chunk ${chunk_index}/${chunk_total}." >&2
+  echo "Completed Claude run for ${mode} v${target_version} chunk ${chunk_index}/${chunk_total}." >&2
 }
 
 parse_history_versions
@@ -502,8 +502,8 @@ for idx in "${missing_indices[@]}"; do
     if [[ "$chunk_idx" -eq 0 ]]; then
       require_entry="true"
     fi
-    # Dispatch the Codex run for this released chunk.
-    run_codex_chunk \
+    # Dispatch the Claude run for this released chunk.
+    run_claude_chunk \
       "released" \
       "$version" \
       "$commit" \
@@ -635,8 +635,8 @@ else
       if [[ "$entry_exists" != "true" && "$chunk_idx" -eq 0 ]]; then
         require_entry="true"
       fi
-      # Dispatch the Codex run for this in-progress chunk.
-      run_codex_chunk \
+      # Dispatch the Claude run for this in-progress chunk.
+      run_claude_chunk \
         "in-progress" \
         "$target_version" \
         "$release_commit_head" \
@@ -668,4 +668,4 @@ else
   fi
 fi
 
-echo "Release-notes workflow finished. Review docs/HISTORY.txt for the latest entries." >&2
+echo "Release-notes Claude workflow finished. Review docs/HISTORY.txt for the latest entries." >&2

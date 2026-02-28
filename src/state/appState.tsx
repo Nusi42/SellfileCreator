@@ -32,6 +32,7 @@ type AppState = {
   logicHubDialogTab: LogicHubDialogTab
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
+  recipesEnabled: boolean
   selectedRecipeIdx: number | null
   sfrNote: string | null
   // Session-only recipeOverrides answers keyed by question ID.
@@ -50,6 +51,7 @@ type Action =
   | { type: 'setLogicHubDialogTab'; value: Updater<LogicHubDialogTab> }
   | { type: 'setSafeguardRules'; value: Updater<SafeguardRule[]> }
   | { type: 'setSafeguardsEnabled'; value: Updater<boolean> }
+  | { type: 'setRecipesEnabled'; value: Updater<boolean> }
   | { type: 'setSelectedRecipeIdx'; value: Updater<number | null> }
   | { type: 'setSfrNote'; value: Updater<string | null> }
   | { type: 'setNoteRecipeOverridesAnswers'; value: Updater<NoteRecipeOverridesAnswers> }
@@ -94,6 +96,12 @@ function reducer(state: AppState, action: Action): AppState {
         : Boolean(action.value)
       return { ...state, safeguardsEnabled: next }
     }
+    case 'setRecipesEnabled': {
+      const next = typeof action.value === 'function'
+        ? (action.value as (p: boolean) => boolean)(state.recipesEnabled)
+        : Boolean(action.value)
+      return { ...state, recipesEnabled: next }
+    }
     case 'setSelectedRecipeIdx': {
       const next = typeof action.value === 'function' ? (action.value as (p: number | null) => number | null)(state.selectedRecipeIdx) : action.value
       return { ...state, selectedRecipeIdx: next }
@@ -126,6 +134,7 @@ type AppDispatchers = {
   setLogicHubDialogTab: (v: Updater<LogicHubDialogTab>) => void
   setSafeguardRules: (v: Updater<SafeguardRule[]>) => void
   setSafeguardsEnabled: (v: Updater<boolean>) => void
+  setRecipesEnabled: (v: Updater<boolean>) => void
   setSelectedRecipeIdx: (v: Updater<number | null>) => void
   setSfrNote: (v: Updater<string | null>) => void
   setNoteRecipeOverridesAnswers: (v: Updater<NoteRecipeOverridesAnswers>) => void
@@ -146,6 +155,7 @@ export function AppStateProvider({ initial, children }: { initial: AppState; chi
     setLogicHubDialogTab: (v) => dispatch({ type: 'setLogicHubDialogTab', value: v }),
     setSafeguardRules: (v) => dispatch({ type: 'setSafeguardRules', value: v }),
     setSafeguardsEnabled: (v) => dispatch({ type: 'setSafeguardsEnabled', value: v }),
+    setRecipesEnabled: (v) => dispatch({ type: 'setRecipesEnabled', value: v }),
     setSelectedRecipeIdx: (v) => dispatch({ type: 'setSelectedRecipeIdx', value: v }),
     setSfrNote: (v) => dispatch({ type: 'setSfrNote', value: v }),
     setNoteRecipeOverridesAnswers: (v) => dispatch({ type: 'setNoteRecipeOverridesAnswers', value: v }),
@@ -180,7 +190,8 @@ export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, '
     finalSellRemainder: { artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[], setsMode: FINAL_SELL_DEFAULT_SETS_MODE },
     logicHubDialogTab: LOGIC_HUB_DIALOG_TAB_FINAL_SELL, // Start new sessions on the classic Logic Hub tab for continuity.
     safeguardRules: buildDefaultSafeguardRules(),
-    safeguardsEnabled: false,
+    safeguardsEnabled: true,
+    recipesEnabled: true,
     selectedRecipeIdx: null,
     sfrNote: null,
     // Recipe overrides answers are stored only in autosave/session state.

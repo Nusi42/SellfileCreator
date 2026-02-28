@@ -18,14 +18,14 @@ import {
 import { resolveCanonicalTestItemId } from './itemIdentity'
 
 // Attach provenance (recipe index) as done in merge.ts.
-export type TesterItemPreviewExtras = {
+export type GearInspectorItemPreviewExtras = {
   // Stable numeric id used to correlate preview rows and matcher results.
   id?: number
-  // Origin of the row (imported artifacts, inbox, or manual tester rows).
+  // Origin of the row (imported artifacts, inbox, or manual Gear Inspector rows).
   source?: 'artifacts' | 'inbox' | 'tester'
-  // Re-roll count shown in tester card badges.
+  // Re-roll count shown in Gear Inspector card badges.
   rerollCount?: number
-  // Champion linkage fields mirrored from normalized tester rows.
+  // Champion linkage fields mirrored from normalized Gear Inspector rows.
   equippedToChampionId?: number | null
   // Champion base id keeps presets stable across duplicate names.
   equippedChampionBaseId?: number | null
@@ -33,7 +33,7 @@ export type TesterItemPreviewExtras = {
   equippedChampionRarity?: number | null
   // Champion display name used by preview row labels.
   equippedChampionName?: string | null
-  // Champion location helps filter/display context in tester tables.
+  // Champion location helps filter/display context in Gear Inspector tables.
   equippedChampionLocation?: ChampionLocation | null
   // Main stat payload retained for preview details and exports.
   mainStat?: NormalizedStat | null
@@ -43,12 +43,12 @@ export type TesterItemPreviewExtras = {
   ascension?: NormalizedStat | null
   // Exact level retains non-milestone values for imported rows.
   exactLevel?: number | null
-  // Last-use timestamp supports recency sorts in tester views.
+  // Last-use timestamp supports recency sorts in Gear Inspector views.
   lastUseLocalTimestamp?: string | null
 }
 
 export type TestItem = {
-  // Optional human-readable name used in tester-facing surfaces.
+  // Optional human-readable name used in Gear Inspector-facing surfaces.
   name?: string
   // Slot id (artifact/accessory type) used for HSF slot checks.
   slot: ArtifactTypeId
@@ -69,7 +69,7 @@ export type TestItem = {
   // Missing means 0.
   subValues?: Record<number, number>
   // Preview metadata carried through for UI and id fallbacks.
-  previewExtras?: TesterItemPreviewExtras
+  previewExtras?: GearInspectorItemPreviewExtras
 }
 
 export type EvalResult = { ruleIndex: number; keep: boolean; recipeIdx: number | null } | null
@@ -124,7 +124,7 @@ const createEmptyEvalMatchesByRecipeResult = (): EvalMatchesByRecipeResult => ({
 // Resolve the stable item key used by safeguard item-bound rules.
 // This mirrors worker inputs where itemId is carried alongside the payload.
 const resolveEvalItemId = (item: TestItem): number => {
-  // Some call sites still attach `itemId` directly onto the tester item object.
+  // Some call sites still attach `itemId` directly onto the Gear Inspector item object.
   const withItemId = item as TestItem & { itemId?: number }
   // Use shared canonical precedence so main-thread eval mirrors worker paths.
   const resolved = resolveCanonicalTestItemId(withItemId)
@@ -224,7 +224,7 @@ export function matchRule(rule: HsfRule, item: TestItem): boolean {
     EMPTY_RECIPE_MODES,
     item,
   )
-  // Rule at index 0 matched means this single rule matched the tester item.
+  // Rule at index 0 matched means this single rule matched the Gear Inspector item.
   return result.firstMatch?.ruleIndex === 0
 }
 

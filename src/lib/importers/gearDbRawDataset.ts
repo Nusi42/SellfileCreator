@@ -1,7 +1,7 @@
 /**
  * gearDbRawDataset
  *
- * Maintains the normalized Rule Tester snapshot derived from raw JSON commands.
+ * Maintains the normalized Gear Inspector snapshot derived from raw JSON commands.
  * We hang on to the canonical artifacts/inbox entries plus the Champion/LastUsed
  * lookups so a delta stream can mutate the dataset without shipping another
  * SQLite blob. Every helper keeps comments dense so endpoint authors can map
@@ -41,11 +41,11 @@ type ArtifactSource = 'artifacts' | 'inbox'
 
 /**
  * Build a full dataset from a JSON snapshot event so callers can diff it against
- * the currently rendered tester queue.
+ * the currently rendered Gear Inspector queue.
  */
 export const createDatasetFromSnapshot = (
   snapshot: GearDbRawSnapshotCommand,
-): { dataset: GearDbRawDataset; testerItems: TestItem[]; artifactCount: number; inboxCount: number } => {
+): { dataset: GearDbRawDataset; gearInspectorItems: TestItem[]; artifactCount: number; inboxCount: number } => {
   // Build champion/last-used lookups first so artifact normalization has all
   // of the metadata the SQL importer would have provided.
   const championLookup = createChampionLookup(snapshot.champions)
@@ -59,8 +59,8 @@ export const createDatasetFromSnapshot = (
     artifacts,
     inboxArtifacts,
   }
-  const { testerItems, artifactCount, inboxCount } = collectTesterItems(dataset)
-  return { dataset, testerItems, artifactCount, inboxCount }
+  const { gearInspectorItems, artifactCount, inboxCount } = collectGearInspectorItems(dataset)
+  return { dataset, gearInspectorItems, artifactCount, inboxCount }
 }
 
 /**
@@ -70,7 +70,7 @@ export const createDatasetFromSnapshot = (
 export const applyDeltaToDataset = (
   dataset: GearDbRawDataset,
   delta: GearDbRawDeltaCommand,
-): { testerItems: TestItem[]; artifactCount: number; inboxCount: number } => {
+): { gearInspectorItems: TestItem[]; artifactCount: number; inboxCount: number } => {
   const activeSnapshotId = dataset.snapshotId ?? null
   const deltaSnapshotId = delta.snapshotId ?? null
   if (activeSnapshotId !== null && deltaSnapshotId !== null && activeSnapshotId !== deltaSnapshotId) {
@@ -82,7 +82,7 @@ export const applyDeltaToDataset = (
   const touchedChampionIds = new Set<number>()
   const touchedLastUsedIds = new Set<number>()
   for (const op of delta.ops) {
-    // Walk every op eagerly so the tester always receives a fully reconciled view.
+    // Walk every op eagerly so the Gear Inspector always receives a fully reconciled view.
     applyDeltaOperation(dataset, op, touchedChampionIds, touchedLastUsedIds)
   }
   if (touchedChampionIds.size > 0) {
@@ -91,7 +91,7 @@ export const applyDeltaToDataset = (
   if (touchedLastUsedIds.size > 0) {
     refreshLastUsedMetadata(dataset, touchedLastUsedIds)
   }
-  return collectTesterItems(dataset)
+  return collectGearInspectorItems(dataset)
 }
 
 const buildArtifactMap = (
@@ -124,26 +124,26 @@ const buildArtifactMap = (
   return map
 }
 
-const collectTesterItems = (
+const collectGearInspectorItems = (
   dataset: GearDbRawDataset,
-): { testerItems: TestItem[]; artifactCount: number; inboxCount: number } => {
+): { gearInspectorItems: TestItem[]; artifactCount: number; inboxCount: number } => {
   const artifactList = Array.from(dataset.artifacts.values()).sort((a, b) => a.id - b.id)
   const inboxList = Array.from(dataset.inboxArtifacts.values()).sort((a, b) => a.id - b.id)
-  const testerItems: TestItem[] = []
+  const gearInspectorItems: TestItem[] = []
   for (const artifact of artifactList) {
-    // Always clone to detach the tester queue from the dataset cache.
-    testerItems.push(cloneTesterItem(artifact))
+    // Always clone to detach the Gear Inspector queue from the dataset cache.
+    gearInspectorItems.push(cloneGearInspectorItem(artifact))
   }
   for (const artifact of inboxList) {
-    testerItems.push(cloneTesterItem(artifact))
+    gearInspectorItems.push(cloneGearInspectorItem(artifact))
   }
-  return { testerItems, artifactCount: artifactList.length, inboxCount: inboxList.length }
+  return { gearInspectorItems, artifactCount: artifactList.length, inboxCount: inboxList.length }
 }
 
-const cloneTesterItem = (artifact: NormalizedGearArtifact): TestItem => ({
-  ...artifact.testerItem,
+const cloneGearInspectorItem = (artifact: NormalizedGearArtifact): TestItem => ({
+  ...artifact.gearInspectorItem,
   previewExtras: {
-    ...(artifact.testerItem.previewExtras ?? {}),
+    ...(artifact.gearInspectorItem.previewExtras ?? {}),
     equippedChampionName: artifact.equippedChampionName,
     equippedChampionBaseId: artifact.equippedChampionBaseId,
     equippedChampionRarity: artifact.equippedChampionRarity,
@@ -224,7 +224,7 @@ const refreshChampionMetadata = (dataset: GearDbRawDataset, championIds: Set<num
     artifact.equippedChampionLocation = record
       ? (record.reserveVault ? 'reserveVault' : (record.vault ? 'vault' : 'collection'))
       : null
-    artifact.testerItem = cloneTesterItem(artifact)
+    artifact.gearInspectorItem = cloneGearInspectorItem(artifact)
   }
   dataset.artifacts.forEach(updateArtifact)
   dataset.inboxArtifacts.forEach(updateArtifact)
@@ -234,7 +234,7 @@ const refreshLastUsedMetadata = (dataset: GearDbRawDataset, artifactIds: Set<num
   const updateArtifact = (artifact: NormalizedGearArtifact) => {
     if (!artifactIds.has(artifact.id)) return
     artifact.lastUseLocalTimestamp = dataset.lastUsed.get(artifact.id) ?? null
-    artifact.testerItem = cloneTesterItem(artifact)
+    artifact.gearInspectorItem = cloneGearInspectorItem(artifact)
   }
   dataset.artifacts.forEach(updateArtifact)
   dataset.inboxArtifacts.forEach(updateArtifact)

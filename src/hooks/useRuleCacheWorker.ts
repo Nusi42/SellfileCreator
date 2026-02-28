@@ -11,7 +11,7 @@ import type {
   SafeguardsMergeInput,
 } from '../lib/safeguards'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
-import type { TesterMatchWorkerItemResult } from '../workers/testerMatchWorkerTypes'
+import type { GearInspectorMatchWorkerItemResult } from '../workers/gearInspectorMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
 
 type PipelineParams = {
@@ -41,7 +41,7 @@ type RuleCacheStateSnapshot = {
 
 type PipelineResult = {
   state: RuleCacheStateSnapshot
-  matches: TesterMatchWorkerItemResult[]
+  matches: GearInspectorMatchWorkerItemResult[]
   safeguardDetection: SafeguardDetectionSnapshot | null
 }
 

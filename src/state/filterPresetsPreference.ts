@@ -1,7 +1,7 @@
 /**
  * filterPresetsPreference.ts
  *
- * Stores user-named snapshots of the preview filter panel + tester sort settings.
+ * Stores user-named snapshots of the preview filter panel + Gear Inspector sort settings.
  * These are explicit "presets" (not autosave), so they live outside the SFR payload
  * and must never participate in the Restore Autosave dialog.
  */
@@ -13,14 +13,14 @@ import {
   type RulesFilterPreviewMode,
   type CollapsedSections,
 } from './rulesFilterPersistence'
-import { TESTER_RECIPE_FILTER_MODE_DEFAULT, type TesterRecipeFilterMode } from '../types/testerRecipeFilterMode'
+import { GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT, type GearInspectorRecipeFilterMode } from '../types/gearInspectorRecipeFilterMode'
 import { sanitizeRulesFilterState, type RulesFilterState } from '../lib/rulesFilter'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 import {
-  DEFAULT_TESTER_SUBSTAT_SORT_STATE,
-  normalizeTesterSubstatSortState,
-  type TesterSubstatSortState,
-} from './testerSubstatSortPreferences'
+  DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
+  normalizeGearInspectorSubstatSortState,
+  type GearInspectorSubstatSortState,
+} from './gearInspectorSubstatSortPreferences'
 
 export const FILTER_PRESETS_STORAGE_KEY = 'sellfileCreator.filterPresets.v1'
 export const FILTER_PRESETS_VERSION = 1 as const
@@ -36,8 +36,8 @@ export type FilterPresetSnapshot = {
   activeMode: RulesFilterPreviewMode
   filtersSynced: boolean
   limitRecipesToFiltered: boolean
-  testerRecipeFilterMode: TesterRecipeFilterMode
-  testerSubstatSort: TesterSubstatSortState
+  testerRecipeFilterMode: GearInspectorRecipeFilterMode
+  testerSubstatSort: GearInspectorSubstatSortState
   views: Record<RulesFilterPreviewMode, FilterPresetView>
 }
 
@@ -64,8 +64,8 @@ const cloneDefaultSnapshot = (): FilterPresetSnapshot => {
     activeMode: 'rules',
     filtersSynced: false,
     limitRecipesToFiltered: false,
-    testerRecipeFilterMode: TESTER_RECIPE_FILTER_MODE_DEFAULT,
-    testerSubstatSort: DEFAULT_TESTER_SUBSTAT_SORT_STATE,
+    testerRecipeFilterMode: GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+    testerSubstatSort: DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
     views,
   }
 }
@@ -92,10 +92,13 @@ const sanitizeIsoString = (raw: unknown): string => {
   return new Date().toISOString()
 }
 
-const sanitizeMode = (raw: unknown): RulesFilterPreviewMode => (raw === 'tester' ? 'tester' : 'rules')
+// Validate stored mode; fall back to 'rules' for any unknown value.
+const sanitizeMode = (raw: unknown): RulesFilterPreviewMode => (
+  raw === 'gearInspector' ? 'gearInspector' : 'rules'
+)
 
-const sanitizeTesterRecipeFilterMode = (raw: unknown): TesterRecipeFilterMode => (
-  raw === 'first' || raw === 'any' || raw === 'off' ? raw : TESTER_RECIPE_FILTER_MODE_DEFAULT
+const sanitizeGearInspectorRecipeFilterMode = (raw: unknown): GearInspectorRecipeFilterMode => (
+  raw === 'first' || raw === 'any' || raw === 'off' ? raw : GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT
 )
 
 const sanitizeCollapsed = (raw: unknown): CollapsedSections => {
@@ -141,8 +144,8 @@ const sanitizeSnapshot = (raw: unknown): FilterPresetSnapshot => {
     activeMode: sanitizeMode(rec['activeMode']),
     filtersSynced: rec['filtersSynced'] === true,
     limitRecipesToFiltered: rec['limitRecipesToFiltered'] === true,
-    testerRecipeFilterMode: sanitizeTesterRecipeFilterMode(rec['testerRecipeFilterMode']),
-    testerSubstatSort: normalizeTesterSubstatSortState(rec['testerSubstatSort']),
+    testerRecipeFilterMode: sanitizeGearInspectorRecipeFilterMode(rec['testerRecipeFilterMode']),
+    testerSubstatSort: normalizeGearInspectorSubstatSortState(rec['testerSubstatSort']),
     views,
   }
 }

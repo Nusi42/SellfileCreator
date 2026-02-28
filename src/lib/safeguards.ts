@@ -1,5 +1,7 @@
-import { isAccessorySlot } from './testerDomain'
-import type { TesterPreviewRow } from '../types/testerPreview'
+import { isAccessorySlot } from './gearInspectorDomain'
+import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from './gearInspectorSort'
+import { resolveAllowedSubstatsForSlotsAndMains } from './statCompatibility'
+import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import type {
   ArtifactSetId,
   ArtifactTypeId,
@@ -316,6 +318,22 @@ export function buildDefaultSafeguardRules(): SafeguardRule[] {
   return []
 }
 
+// Returns the factory (shipping) default field values for the safeguard builder
+// draft, without an id. Used to seed user-defaults logic (save / reset).
+export const createFactorySafeguardBuilderDefaults = (): Omit<SafeguardRule, 'id'> => ({
+  combination: { slots: [], sets: [], metaSetIds: [], ranks: [], rarities: [], mainStats: [], factions: [] },
+  name: '',
+  requiredCount: 1,
+  activation: SafeguardRuleActivation.ProtectExisting,
+  countMode: { ...SAFEGUARD_DEFAULT_COUNT_MODE },
+  ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
+  ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
+  ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
+  substats: [],
+  substatMatch: SafeguardSubstatMatch.Any,
+  substatWeights: {},
+})
+
 export type SafeguardDetectionArtifact = {
   itemKey: number
   slot: ArtifactTypeId
@@ -368,7 +386,7 @@ export type SafeguardPlaceholderRequest = {
 }
 
 export type SafeguardCandidate = {
-  row: TesterPreviewRow
+  row: GearInspectorPreviewRow
   artifact: NormalizedGearArtifact
   itemKey: number
   groupKey: SafeguardGroupKey
@@ -404,7 +422,7 @@ export type SafeguardDetectionParams = {
 }
 
 export type SafeguardCollectAndDetectParams = {
-  rows: readonly TesterPreviewRow[]
+  rows: readonly GearInspectorPreviewRow[]
   baseRules: readonly HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
   rules: readonly SafeguardRule[]
@@ -737,7 +755,7 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   }
 }
 
-/** Shared helper for mapping tester artifacts to the detection item key. */
+/** Shared helper for mapping Gear Inspector artifacts to the detection item key. */
 export function getSafeguardItemKey(artifact: NormalizedGearArtifact): number {
   // Delegate item-key derivation to wasm so TS does not duplicate fallback rules.
   return getSafeguardItemKeyWithLoadedWasm(artifact)
@@ -819,7 +837,7 @@ const isSafeguardDetectionSnapshot = (value: unknown): value is SafeguardDetecti
 )
 
 export function collectSafeguardCandidates(params: {
-  rows: readonly TesterPreviewRow[]
+  rows: readonly GearInspectorPreviewRow[]
   baseRules: readonly HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
   ignoreSafeguardRecipeIndices?: ReadonlySet<number>
@@ -1031,4 +1049,112 @@ export function resolveSafeguardRuleLabel(source: SafeguardLabelSource): string 
     if (trimmed.length > 0) return `#${trimmed}`
   }
   return null
+}
+
+// ── Shared safeguard substat constraint helpers ───────────────────────────────
+// These are SSOT exports consumed by both SafeguardBuilderPanel and SafeguardsTab.
+// Keeping them here avoids duplicating the logic across component files.
+
+/** Compares two numeric arrays element-wise without allocating new copies. */
+export function areArraysEqual(left: readonly number[], right: readonly number[]): boolean {
+  // Fast path: shared reference means equal.
+  if (left === right) return true
+  // Different lengths can never match.
+  if (left.length !== right.length) return false
+  // Walk in order so position changes are detected.
+  for (let i = 0; i < left.length; i++) {
+    if (Number(left[i]) !== Number(right[i])) return false
+  }
+  return true
+}
+
+/** Compares two substat weight maps by key-value pairs (order-independent). */
+export function areWeightMapsEqual(
+  left: Partial<Record<StatVariant, number>> | null | undefined,
+  right: Partial<Record<StatVariant, number>> | null | undefined,
+): boolean {
+  // Fast path: same reference.
+  if (left === right) return true
+  const leftKeys = Object.keys(left ?? {})
+  const rightKeys = Object.keys(right ?? {})
+  // Different key counts → cannot match.
+  if (leftKeys.length !== rightKeys.length) return false
+  for (const key of leftKeys) {
+    if (!Object.prototype.hasOwnProperty.call(right ?? {}, key)) return false
+    // Normalize to number for a stable comparison across coercion.
+    if (Number((left ?? {})[key as unknown as StatVariant]) !== Number((right ?? {})[key as unknown as StatVariant])) {
+      return false
+    }
+  }
+  return true
+}
+
+/** Drops weight entries for substats that are not in the current selection. */
+export function pruneSafeguardsSubstatWeights(
+  weights: Partial<Record<StatVariant, number>> | null | undefined,
+  selected: readonly StatVariant[],
+): Partial<Record<StatVariant, number>> {
+  // Nothing to prune when weights are empty.
+  if (!weights || Object.keys(weights).length === 0) return {}
+  if (!selected.length) return {}
+  const allowed = new Set(selected.map((v) => Number(v)))
+  const next: Partial<Record<StatVariant, number>> = {}
+  for (const [key, raw] of Object.entries(weights)) {
+    const variant = Number(key)
+    // Skip non-numeric keys and unselected variants.
+    if (!Number.isFinite(variant) || !allowed.has(variant)) continue
+    const normalized = normalizeGearInspectorSortWeight(Number(raw))
+    // Omit entries that equal the default so the map stays compact.
+    if (normalized === GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT) continue
+    next[variant as StatVariant] = normalized
+  }
+  return next
+}
+
+/**
+ * Applies slot/main-stat constraints to the rule's substat selection and
+ * updates the substat match + weights accordingly. Returns the same reference
+ * when nothing changed so callers can do cheap identity checks.
+ */
+export function constrainSafeguardSubstats(
+  rule: SafeguardRule,
+  combination: SafeguardRule['combination'],
+): SafeguardRule {
+  // Sort the combination first so exports and comparisons stay deterministic.
+  const sortedCombination = sortSafeguardCombination(combination)
+  // Determine which substats are still valid for the updated slot/main scope.
+  const allowed = resolveAllowedSubstatsForSlotsAndMains({
+    slots: sortedCombination.slots,
+    mainStats: sortedCombination.mainStats,
+  })
+  const filtered = sortSafeguardSubstats((rule.substats ?? []).filter((v) => allowed.includes(v)))
+  // Substat match only applies when a selection exists; reset otherwise.
+  const nextMatch = filtered.length > 0 ? rule.substatMatch : SafeguardSubstatMatch.Any
+  // Drop weight entries that no longer have a corresponding substat.
+  const nextWeights = pruneSafeguardsSubstatWeights(rule.substatWeights, filtered)
+  // Bail early when only the combination changed; avoids a needless re-render.
+  const substatsUnchanged = areArraysEqual(filtered, rule.substats ?? [])
+  const matchUnchanged = nextMatch === rule.substatMatch
+  const weightsUnchanged = areWeightMapsEqual(nextWeights, rule.substatWeights)
+  if (substatsUnchanged && matchUnchanged && weightsUnchanged) {
+    return { ...rule, combination: sortedCombination }
+  }
+  return { ...rule, combination: sortedCombination, substats: filtered, substatMatch: nextMatch, substatWeights: nextWeights }
+}
+
+/**
+ * Returns true when substat weight controls should be available for a rule.
+ * Weights apply to Any and All modes: relative weighting shifts which substats
+ * score higher when ranking drops. Per Substat forces equal weighting by design
+ * since each stat is evaluated independently. This is the single source of
+ * truth used by both SafeguardBuilderPanel and SafeguardsTab.
+ */
+export function safeguardWeightsEnabled(
+  substatMatch: SafeguardRule['substatMatch'],
+  hasSubstatSelection: boolean,
+): boolean {
+  // Short-circuit: weights are irrelevant with no substats regardless of mode.
+  if (!hasSubstatSelection) return false
+  // Per Substat evaluates each stat independently with equal weighting.
+  return normalizeSafeguardSubstatMatch(substatMatch) !== SafeguardSubstatMatch.PerSubstat
 }

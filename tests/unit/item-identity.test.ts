@@ -13,7 +13,7 @@ test('resolveCanonicalArtifactItemId prefers artifact.id over tester ids', () =>
   const resolved = resolveCanonicalArtifactItemId({
     id: 9001,
     // Keep conflicting tester ids to prove precedence is strict.
-    testerItem: {
+    gearInspectorItem: {
       itemId: 1337,
       previewExtras: { id: 7331 },
     },
@@ -46,7 +46,7 @@ test('getSafeguardItemKey follows db-first precedence', () => {
   // Full payload with all ids proves DB id wins over tester ids.
   const withAllIds = {
     id: 4200,
-    testerItem: {
+    gearInspectorItem: {
       itemId: 42,
       previewExtras: { id: 777 },
     },
@@ -55,7 +55,7 @@ test('getSafeguardItemKey follows db-first precedence', () => {
 
   // Without artifact id, tester preview id should become the key.
   const withPreviewOnly = {
-    testerItem: {
+    gearInspectorItem: {
       itemId: 42,
       previewExtras: { id: 777 },
     },
@@ -64,7 +64,7 @@ test('getSafeguardItemKey follows db-first precedence', () => {
 
   // Legacy tester-only payloads still work as the third fallback.
   const withTesterOnly = {
-    testerItem: {
+    gearInspectorItem: {
       itemId: 42,
     },
   } as unknown as Parameters<typeof getSafeguardItemKey>[0]

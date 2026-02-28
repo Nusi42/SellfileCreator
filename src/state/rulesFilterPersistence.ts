@@ -2,7 +2,7 @@
  * rulesFilterPersistence.ts
  *
  * Shared persistence helpers for the view-only rules filter UI.
- * Every mode (Sellfile vs Rule Tester) keeps an independent snapshot so
+ * Every mode (Sellfile vs Gear Inspector) keeps an independent snapshot so
  * switching tabs never clobbers the other side’s state.
  */
 import { useCallback } from 'react'
@@ -20,7 +20,7 @@ export const RULES_FILTER_STATE_STORAGE_KEY = 'sellfileCreator.rulesFilter.state
 export const RULES_FILTER_COLLAPSED_STORAGE_KEY = 'sellfileCreator.rulesFilter.collapse.v3'
 const RULES_FILTER_SYNC_STORAGE_KEY = 'sellfileCreator.rulesFilter.sync.v1'
 
-export const RULES_FILTER_PREVIEW_MODES = Object.freeze(['rules', 'tester'] as const)
+export const RULES_FILTER_PREVIEW_MODES = Object.freeze(['rules', 'gearInspector'] as const)
 export type RulesFilterPreviewMode = typeof RULES_FILTER_PREVIEW_MODES[number]
 
 type ModeScoped<T> = Record<RulesFilterPreviewMode, T>

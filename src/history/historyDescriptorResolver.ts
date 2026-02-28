@@ -229,6 +229,11 @@ export const resolveHistoryEntryDescriptor = (
         savedAt: descriptor.savedAt ?? null,
         t: ctx.t,
       })
+    case 'recipesEnabledChange':
+      return {
+        title: descriptor.nextEnabled ? ctx.t('recipesToggleLabel') + ' Enabled' : ctx.t('recipesToggleLabel') + ' Disabled',
+        detailLines: [],
+      }
     case 'safeguardsEnabledChange':
       // Keep-unique toggles show the rule count context.
       return describeSafeguardsEnabledChange({

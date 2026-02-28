@@ -190,6 +190,12 @@ export type HistoryEntryDescriptor =
       version?: string | null
       savedAt?: string | null
     }
+  // recipesEnabledChange records whether recipes were toggled on or off.
+  | {
+      kind: 'recipesEnabledChange'
+      previousEnabled: boolean
+      nextEnabled: boolean
+    }
   // safeguardsEnabledChange records the toggle plus rule count.
   | {
       kind: 'safeguardsEnabledChange'

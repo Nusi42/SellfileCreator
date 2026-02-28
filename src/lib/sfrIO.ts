@@ -856,6 +856,7 @@ export function parseSfrText(
   finalSellRemainder: FinalSellRemainderConfig
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
+  recipesEnabled: boolean
 } {
   const parsed = JSON.parse(text) as unknown
   return parseSfrObject(parsed, prev, options)
@@ -875,6 +876,7 @@ export function parseSfrObject(
   finalSellRemainder: FinalSellRemainderConfig
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
+  recipesEnabled: boolean
 } {
   const parsedRec = (typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {})
   const runtimeSetNameMap = options?.runtimeSetNameMap
@@ -972,6 +974,7 @@ export function parseSfrObject(
   })()
   // SFR boundary compatibility: keep legacy toggle key support on read only.
   const safeguardsEnabled = parsedRec['SafeguardsEnabled'] === true || parsedRec['KeepUniquesEnabled'] === true
+  const recipesEnabled = parsedRec['RecipesEnabled'] !== false
   const savedSel = (() => {
     if (Array.isArray(parsed)) return recipes.length ? recipes.length - 1 : null
     if (typeof parsedRec['SelectedRecipeIndex'] === 'number') return parsedRec['SelectedRecipeIndex'] as number
@@ -992,6 +995,7 @@ export function parseSfrObject(
     finalSellRemainder: fsr,
     safeguardRules,
     safeguardsEnabled,
+    recipesEnabled,
   }
 }
 
@@ -1008,6 +1012,7 @@ export async function readSfrFile(
   finalSellRemainder: FinalSellRemainderConfig
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
+  recipesEnabled: boolean
 }>
 {
   const text = await file.text()
@@ -1163,6 +1168,7 @@ export function buildSfrPayload(args: {
   note?: string,
   safeguardRules?: SafeguardRule[],
   safeguardsEnabled?: boolean,
+  recipesEnabled?: boolean,
   }): {
     Version: string
     Metasets: Array<{ id: string; name: string; setNames: string[]; show?: boolean }>
@@ -1184,6 +1190,7 @@ export function buildSfrPayload(args: {
       substatWeights?: Record<string, number>
     }>
     SafeguardsEnabled: boolean
+    RecipesEnabled: boolean
     SelectedRecipeIndex?: number
     Note?: string
   } {
@@ -1197,6 +1204,7 @@ export function buildSfrPayload(args: {
     note,
     safeguardRules = [],
     safeguardsEnabled = false,
+    recipesEnabled = true,
   } = args
   const metasOut = metasets.map(m => {
     const iconId = normalizeMetasetIconId(m.iconId)
@@ -1231,6 +1239,7 @@ export function buildSfrPayload(args: {
     // Safeguard exports reuse the shared readable helper for clipboard parity.
     Safeguards: safeguardRules.map((rule) => buildReadableSafeguardRuleEntry(rule)),
     SafeguardsEnabled: safeguardsEnabled === true,
+    RecipesEnabled: recipesEnabled !== false,
     ...(selectedRecipeIndex != null
       ? { SelectedRecipeIndex: selectedRecipeIndex }
       : (recipes.length ? { SelectedRecipeIndex: recipes.length - 1 } : {})),

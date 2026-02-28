@@ -7,7 +7,7 @@
 import type { GearDbRawDataset } from './importers/gearDbRawDataset'
 import type { ChampionLocation, NormalizedGearArtifact, NormalizedStat } from './importers/gearDbNormalizer'
 import type { GearDbRawDeltaCommand, GearDbRawDeltaOperation } from './externalCommands'
-import type { TesterPreviewMatch } from '../types/testerPreview'
+import type { GearInspectorPreviewMatch } from '../types/gearInspectorPreview'
 import { formatLocalDateTime } from './dateDisplay'
 import type {
   ArtifactSetId,
@@ -44,7 +44,7 @@ export type GearArtifactSnapshot = {
   rerollCount: number
   // Source helps differentiate inbox vs inventory when needed.
   source: NormalizedGearArtifact['source']
-  // Champion metadata shows source + avatar context in tester cards.
+  // Champion metadata shows source + avatar context in Gear Inspector cards.
   equippedToChampionId: number | null
   equippedChampionBaseId: number | null
   equippedChampionRarity: RankValue | null
@@ -82,8 +82,8 @@ export type GearDbDiffSummary = {
  * Matches are nullable when the item is not present in a given state.
  */
 export type GearDbDiffToastEntry = GearDbDiffEntry & {
-  beforeMatch: TesterPreviewMatch | null
-  afterMatch: TesterPreviewMatch | null
+  beforeMatch: GearInspectorPreviewMatch | null
+  afterMatch: GearInspectorPreviewMatch | null
 }
 
 /**
@@ -286,7 +286,7 @@ const areGearSnapshotsEqual = (left: GearArtifactSnapshot, right: GearArtifactSn
   if (left.level !== right.level) return false
   // Exact level can change without shifting the milestone bucket.
   if (normalizeNumber(left.exactLevel) !== normalizeNumber(right.exactLevel)) return false
-  // Accessory faction and rerolls are meaningful to the tester view.
+  // Accessory faction and rerolls are meaningful to the Gear Inspector view.
   if (left.faction !== right.faction) return false
   if (left.rerollCount !== right.rerollCount) return false
   // Source changes (inventory vs inbox) should surface as updates.
@@ -405,7 +405,7 @@ export const buildGearDbDiffSummary = (
  * Extract artifact ids touched by a Gear DB delta so diffing stays scoped.
  */
 export const collectGearDbDeltaArtifactIds = (delta: GearDbRawDeltaCommand): Set<number> => {
-  // Only artifact table ops affect the tester grid diff.
+  // Only artifact table ops affect the Gear Inspector grid diff.
   const ids = new Set<number>()
   for (const op of delta.ops) {
     const nextId = extractDeltaArtifactId(op)

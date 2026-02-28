@@ -157,11 +157,11 @@ test('normalizeGearDbArtifact converts weapon row to gear entry', () => {
   assert.equal(normalized.rarity, 4)
   assert.equal(normalized.level, 16)
   assert.equal(normalized.exactLevel, 16)
-  assert.equal(normalized.testerItem.previewExtras?.exactLevel, 16)
+  assert.equal(normalized.gearInspectorItem.previewExtras?.exactLevel, 16)
   assert.equal(normalized.faction, 0)
   assert.equal(normalized.mainStat?.totalValue, 265)
   assert.equal(normalized.ascension?.totalValue, 408)
-  const subValues = normalized.testerItem.subValues ?? {}
+  const subValues = normalized.gearInspectorItem.subValues ?? {}
   assert.equal(subValues[StatVariant.HP_FLAT], 536)
   assert.equal(subValues[StatVariant.CDMG], 12)
   assert.equal(subValues[StatVariant.SPD], 18)
@@ -174,9 +174,9 @@ test('normalizeGearDbArtifact handles accessory rows and faction mapping', () =>
   assert.equal(normalized.set, ACCESSORY_NO_SET_ID)
   assert.equal(normalized.faction, Faction.DarkElves)
   assert.equal(normalized.exactLevel, 16)
-  assert.equal(normalized.testerItem.previewExtras?.exactLevel, 16)
+  assert.equal(normalized.gearInspectorItem.previewExtras?.exactLevel, 16)
   assert.equal(normalized.mainStat?.totalValue, 265)
-  const subValues = normalized.testerItem.subValues ?? {}
+  const subValues = normalized.gearInspectorItem.subValues ?? {}
   assert.equal(subValues[StatVariant.HP], 6)
   assert.equal(subValues[StatVariant.ATK], 19)
   assert.equal(subValues[StatVariant.DEF], 13)
@@ -187,7 +187,7 @@ test('normalizeGearDbArtifact keeps armor rows without sets as no-set entries', 
   const normalized = normalizeGearDbArtifact({ ...weaponRow, aset: 0 })
   assert.equal(normalized.slot, ArtifactType.Weapon)
   assert.equal(normalized.set, 0)
-  assert.equal(normalized.testerItem.set, 0)
+  assert.equal(normalized.gearInspectorItem.set, 0)
 })
 
 test('normalizeGearDbArtifact carries Mythical pre-roll bonus into totals', () => {
@@ -195,7 +195,7 @@ test('normalizeGearDbArtifact carries Mythical pre-roll bonus into totals', () =
   const crStat = normalized.substats.find((stat) => stat?.statId === StatId.CR)
   assert.equal(crStat?.mythValue, 7)
   assert.equal(crStat?.totalValue, 18)
-  const subValues = normalized.testerItem.subValues ?? {}
+  const subValues = normalized.gearInspectorItem.subValues ?? {}
   assert.equal(subValues[StatVariant.CR], 18)
 })
 
@@ -213,13 +213,13 @@ test('normalizeGearDbArtifact captures equipped champion rarity metadata', () =>
   ])
   const normalized = normalizeGearDbArtifact(weaponRow, { championLookup: lookup })
   assert.equal(normalized.equippedChampionRarity, 5)
-  assert.equal(normalized.testerItem.previewExtras?.equippedChampionRarity, 5)
+  assert.equal(normalized.gearInspectorItem.previewExtras?.equippedChampionRarity, 5)
 })
 
 test('normalizeGearDbArtifact records last-use timestamps from options', () => {
   const normalized = normalizeGearDbArtifact(weaponRow, { lastUseLocalTimestamp: '2024-05-07 12:34:56.789' })
   assert.equal(normalized.lastUseLocalTimestamp, '2024-05-07 12:34:56.789')
-  assert.equal(normalized.testerItem.previewExtras?.lastUseLocalTimestamp, '2024-05-07 12:34:56.789')
+  assert.equal(normalized.gearInspectorItem.previewExtras?.lastUseLocalTimestamp, '2024-05-07 12:34:56.789')
 })
 
 export {}

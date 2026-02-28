@@ -32,6 +32,7 @@ export type PendingImport = {
   finalSellRemainder: FinalSellRemainderConfig
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
+  recipesEnabled: boolean
   selectedIndex: number | null
   note?: string
   mode: 'append' | 'after'
@@ -74,6 +75,7 @@ type UseSfrClipboardParams = {
   finalSellRemainder: FinalSellRemainderConfig
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
+  recipesEnabled: boolean
   selectedRecipeIdx: number | null
   selectedRecipeIndices: number[]
   describeNextChange: DescribeNextChangeFn
@@ -84,6 +86,7 @@ type UseSfrClipboardParams = {
   applyFinalSellChange: ApplyFinalSellChangeFn
   setSafeguardRules: (value: SetStateAction<SafeguardRule[]>) => void
   setSafeguardsEnabled: (value: SetStateAction<boolean>) => void
+  setRecipesEnabled: (value: SetStateAction<boolean>) => void
   applyNoteChange: ApplyNoteChangeFn
   setSelectedRecipeIdx: (value: SetStateAction<number | null>) => void
   setSelectedRecipeIndices: (value: number[]) => void
@@ -161,6 +164,7 @@ export function useSfrClipboard({
   finalSellRemainder,
   safeguardRules,
   safeguardsEnabled,
+  recipesEnabled,
   selectedRecipeIdx,
   selectedRecipeIndices,
   describeNextChange,
@@ -171,6 +175,7 @@ export function useSfrClipboard({
   applyNoteChange,
   setSafeguardRules,
   setSafeguardsEnabled,
+  setRecipesEnabled,
   setSelectedRecipeIdx,
   setBuilder,
   setMetasetConflictOpen,
@@ -327,6 +332,7 @@ export function useSfrClipboard({
         finalSellRemainder: fsr,
         safeguardRules: importedSafeguardRules,
         safeguardsEnabled: importedSafeguardsEnabled,
+        recipesEnabled: importedRecipesEnabled,
       } = parsed
       if (recipes.length === 0) {
         setPasteErr('No valid recipe found in pasted text')
@@ -341,6 +347,7 @@ export function useSfrClipboard({
           finalSellRemainder: fsr,
           safeguardRules: importedSafeguardRules,
           safeguardsEnabled: importedSafeguardsEnabled,
+          recipesEnabled: importedRecipesEnabled !== false,
           selectedIndex,
           ...(note ? { note } : {}),
           mode: 'after',
@@ -394,6 +401,7 @@ export function useSfrClipboard({
       })
       setSafeguardRules(importedSafeguardRules)
       setSafeguardsEnabled(importedSafeguardsEnabled)
+      setRecipesEnabled(importedRecipesEnabled !== false)
       setPasteErr(null)
       return true
     } catch {
@@ -450,6 +458,7 @@ export function useSfrClipboard({
     setPendingImport,
     setSafeguardRules,
     setSafeguardsEnabled,
+    setRecipesEnabled,
   ])
 
   const pasteAfterIndex = useCallback(async (idx: number) => {
@@ -466,6 +475,7 @@ export function useSfrClipboard({
           finalSellRemainder: fsr,
           safeguardRules: importedSafeguardRules,
           safeguardsEnabled: importedSafeguardsEnabled,
+          recipesEnabled: importedRecipesEnabled,
         } = parsed
         if (recipes.length > 0) {
           const prep = prepareSfrImport(metasets, nextMetas, recipes)
@@ -477,6 +487,7 @@ export function useSfrClipboard({
               finalSellRemainder: fsr,
               safeguardRules: importedSafeguardRules,
               safeguardsEnabled: importedSafeguardsEnabled,
+              recipesEnabled: importedRecipesEnabled !== false,
               selectedIndex,
               ...(note ? { note } : {}),
               mode: 'after',
@@ -527,6 +538,7 @@ export function useSfrClipboard({
           })
           setSafeguardRules(importedSafeguardRules)
           setSafeguardsEnabled(importedSafeguardsEnabled)
+          setRecipesEnabled(importedRecipesEnabled !== false)
           try {
             setSelectedRecipeIdx(idx + recipes.length)
             setBuilder(recipes[recipes.length - 1]!)
@@ -594,6 +606,7 @@ export function useSfrClipboard({
     setSelectedRecipeIdx,
     setSafeguardRules,
     setSafeguardsEnabled,
+    setRecipesEnabled,
   ])
 
   const handleRecipePasteAfter = useCallback((idx: number) => {
@@ -614,6 +627,7 @@ export function useSfrClipboard({
       ...(sfrNote && sfrNote.trim() ? { note: sfrNote } : {}),
       safeguardRules,
       safeguardsEnabled,
+      recipesEnabled,
     })
     const text = JSON.stringify(payload, null, 2)
     const ok = await writeTextSafe(text)
@@ -630,6 +644,7 @@ export function useSfrClipboard({
     selectedRecipeIdx,
     safeguardRules,
     safeguardsEnabled,
+    recipesEnabled,
     setCopyDlgOpen,
     setCopyText,
   ])
@@ -704,6 +719,7 @@ export function useSfrClipboard({
           finalSellRemainder: fsr,
           safeguardRules: importedSafeguardRules,
           safeguardsEnabled: importedSafeguardsEnabled,
+          recipesEnabled: importedRecipesEnabled,
         } = parsed
         if (recipes.length > 0) {
           const prep = prepareSfrImport(metasets, nextMetas, recipes)
@@ -715,6 +731,7 @@ export function useSfrClipboard({
               finalSellRemainder: fsr,
               safeguardRules: importedSafeguardRules,
               safeguardsEnabled: importedSafeguardsEnabled,
+              recipesEnabled: importedRecipesEnabled !== false,
               selectedIndex,
               ...(note ? { note } : {}),
               mode: 'append',
@@ -761,6 +778,7 @@ export function useSfrClipboard({
           })
           setSafeguardRules(importedSafeguardRules)
           setSafeguardsEnabled(importedSafeguardsEnabled)
+          setRecipesEnabled(importedRecipesEnabled !== false)
           try {
             const sel = preLen + recipes.length - 1
             setSelectedRecipeIdx(sel)
@@ -826,6 +844,7 @@ export function useSfrClipboard({
     publishClipboardDescriptor,
     setSafeguardRules,
     setSafeguardsEnabled,
+    setRecipesEnabled,
   ])
 
   return {

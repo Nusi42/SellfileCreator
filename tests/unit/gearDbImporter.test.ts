@@ -47,8 +47,8 @@ test('gear DB importer normalizes artifacts and inbox items', async (t) => {
 
   const weapon = artifacts.find((item) => item.slot === 5)
   assert(weapon, 'expected weapon artifact in dataset')
-  assert.equal(weapon?.testerItem.rank, 6)
-  assert.equal(weapon?.testerItem.set, weapon?.set)
+  assert.equal(weapon?.gearInspectorItem.rank, 6)
+  assert.equal(weapon?.gearInspectorItem.set, weapon?.set)
   const equipped = artifacts.find((item) => item.equippedToChampionId != null)
   assert(equipped, 'expected equipped artifact in dataset')
   assert.notEqual(equipped?.equippedChampionName, null)
@@ -56,7 +56,7 @@ test('gear DB importer normalizes artifacts and inbox items', async (t) => {
 
   const inboxRing = inboxArtifacts.find((item) => item.slot === 7)
   assert(inboxRing, 'expected ring in inbox dataset')
-  assert.equal(inboxRing?.testerItem.faction, inboxRing?.faction)
+  assert.equal(inboxRing?.gearInspectorItem.faction, inboxRing?.faction)
   assert.equal(inboxRing?.equippedChampionName, null)
   assert.equal(inboxRing?.equippedChampionLocation, null)
 })
@@ -105,9 +105,9 @@ test('gear DB importer threads last-used timestamps onto artifacts', async () =>
   const directString = artifacts.find((item) => item.id === 1)
   const julianSource = artifacts.find((item) => item.id === 2)
   assert.equal(directString?.lastUseLocalTimestamp, '2024-05-08 14:33:27.123')
-  assert.equal(directString?.testerItem.previewExtras?.lastUseLocalTimestamp, '2024-05-08 14:33:27.123')
+  assert.equal(directString?.gearInspectorItem.previewExtras?.lastUseLocalTimestamp, '2024-05-08 14:33:27.123')
   assert.equal(julianSource?.lastUseLocalTimestamp, formattedJulian)
-  assert.equal(julianSource?.testerItem.previewExtras?.lastUseLocalTimestamp, formattedJulian)
+  assert.equal(julianSource?.gearInspectorItem.previewExtras?.lastUseLocalTimestamp, formattedJulian)
 })
 
 test('gear DB importer reads lastUse timestamps from sample2 fixture', async () => {
@@ -124,7 +124,7 @@ test('gear DB importer reads lastUse timestamps from sample2 fixture', async () 
   const target = artifacts.find((item) => item.id === 2817)
   assert(target, 'expected artifact 2817 in sample2 fixture')
   assert.equal(target?.lastUseLocalTimestamp, '2025-12-12 18:36:09.656')
-  assert.equal(target?.testerItem.previewExtras?.lastUseLocalTimestamp, '2025-12-12 18:36:09.656')
+  assert.equal(target?.gearInspectorItem.previewExtras?.lastUseLocalTimestamp, '2025-12-12 18:36:09.656')
 })
 
 export {}

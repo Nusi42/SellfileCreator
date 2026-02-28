@@ -1,14 +1,14 @@
 /**
  * substatRollNormalization.ts
  *
- * Shared normalization helpers for substat-focused UI features (ex: Rule Tester sorting).
+ * Shared normalization helpers for substat-focused UI features (ex: Gear Inspector sorting).
  * These values intentionally reflect the 6★ in-game roll caps so mixed-star gear can be compared
  * on a consistent 0..1 scale without inventing additional tier-specific heuristics.
  */
 import { StatVariant } from './types'
 
 // 6★ per-roll maximums for substats (same units as `totalValue` / `glyphValue` from gearDbNormalizer).
-// Why: these caps are the most stable reference point across the app (builder + tester) and match samples.
+// Why: these caps are the most stable reference point across the app (builder + Gear Inspector) and match samples.
 export const SUBSTAT_ROLL_MAX_6_BY_VARIANT: Readonly<Record<number, number>> = Object.freeze({
   [StatVariant.HP_FLAT]: 565,
   [StatVariant.HP]: 7,

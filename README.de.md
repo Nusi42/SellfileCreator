@@ -6,13 +6,13 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 
 ## Funktionen
 - Regeln erstellen und speichern: Baue Rezepte und behalte eine Bibliothek, die du wiederverwenden kannst.
-- Sellfile-Vorschau-Umschalter: Wechsle direkt im Header zwischen der Regel-Tabelle und der Regel Tester-Tabelle. Zähler/Ergebnis-Chips passen sich an (Behalten/Verkaufen für Regeln, Treffer/Kein Treffer für den Tester) und die Filter folgen dem gewählten Modus.
-- Drag & Drop oder Laden-Button: Ziehe `.sfr`, `.hsf` oder `.db` überall in die App (Overlay bestätigt) oder klicke auf „RSL Helper Sellfile laden“. Beide Wege verhalten sich identisch: `.sfr` ersetzt den Builder, `.hsf` ergänzt eine optionale Basis-Sellfile, `.db` landet direkt in der Regel Tester-Warteschlange ohne deine Rezepte anzurühren.
+- Sellfile-Vorschau-Umschalter: Wechsle direkt im Header zwischen der Regel-Tabelle und der Ausrüstungsinspektor-Tabelle. Zähler/Ergebnis-Chips passen sich an (Behalten/Verkaufen für Regeln, Treffer/Kein Treffer für den Ausrüstungsinspektor) und die Filter folgen dem gewählten Modus.
+- Drag & Drop oder Laden-Button: Ziehe `.sfr`, `.hsf` oder `.db` überall in die App (Overlay bestätigt) oder klicke auf „RSL Helper Sellfile laden”. Beide Wege verhalten sich identisch: `.sfr` ersetzt den Builder, `.hsf` ergänzt eine optionale Basis-Sellfile, `.db` landet direkt in der Ausrüstungsinspektor-Warteschlange ohne deine Rezepte anzurühren.
 - Halte beim Laden einer `.sfr`-Datei die `Shift`-Taste (Dateiauswahl oder Drag & Drop), um einen zusätzlichen Import-Dialog zu öffnen. Dort kannst du getrennt Rezepte, Notiz, Metasets und Schutzmaßnahmen auswählen.
 - Metasets: Benenne Set-Gruppen (z. B. Speed + Wahrnehmung) und nutze sie in mehreren Regeln.
 - Export mit einem Klick: Exportiere eine HSF-Datei (die RSL Helper Sellfile), die sofort in RSL Helper geladen werden kann.
-- „Logic Hub“-Button: Öffne den Dialog direkt aus dem Vorschau-Header, um `Finaler Verkauf`, `Schutzmaßnahmen`, `Dungeon-Beute` und den Dialog „Ausrüstung“ (Logic-Hub-Tab „Ausrüstung“) gemeinsam zu erreichen. Erstelle Beispielgear, füge Zeilen ein oder ziehe `%APPDATA%\\RslHelper\\Config` herüber; danach kannst du den Dialog schließen und die Vorschau auf der gewünschten Tabelle lassen — die Tester-Warteschlange bleibt sichtbar.
-- Tab „Schutzmaßnahmen“: Definiere Kombinationen, die du nie verlieren willst. Sobald deine Rezepte plus deine aktuell aktiven Verkaufsregeln jedes Exemplar dieser Kombination löschen würden, generiert der Scanner automatisch passende Behalte-Regeln.
+- „Tools”-Button: Öffne den Dialog direkt aus dem Vorschau-Header, um `Finaler Verkauf`, `Dungeon-Beute` und den Dialog „Ausrüstung” gemeinsam zu erreichen. Erstelle Beispielgear, füge Zeilen ein oder ziehe `%APPDATA%\\RslHelper\\Config` herüber; danach kannst du den Dialog schließen und die Vorschau auf der gewünschten Tabelle lassen — die Ausrüstungsinspektor-Warteschlange bleibt sichtbar.
+- Schutzmaßnahmen-Modus: Definiere Kombinationen, die du nie verlieren willst. Sobald deine Rezepte plus deine aktuell aktiven Verkaufsregeln jedes Exemplar dieser Kombination löschen würden, generiert der Scanner automatisch passende Behalte-Regeln.
 
 ## Nutzung
 
@@ -27,7 +27,7 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Laden/Speichern: Nutze „Rezepte laden“ und „Rezepte speichern“, um deine Regeln erneut zu verwenden. Beide Aktionen enthalten alles, was nötig ist, um die Vorschau exakt wiederherzustellen.
 - Reset/Einfügen/Anwenden-Menüs: Rechtsklick auf „Reset“, „Als Rezept einfügen“ oder „Rezept anwenden“ öffnet ein gemeinsames Optionsmenü. Speichere den aktuellen Builder-Zustand als neue Standardvorlage, springe auf die Werkseinstellungen zurück, aktiviere „Auto nach Einfügen zurücksetzen“ (räumt den Builder direkt nach dem Einfügen) oder „Auto auf ausgewähltes Rezept anwenden“ (schiebt Änderungen nach ca. 400 ms Inaktivität in das markierte Rezept). Auto-Reset und Auto-Apply schließen sich gegenseitig aus – das Aktivieren des einen schaltet das andere aus – und beide Einstellungen bleiben zwischen Sitzungen erhalten.
 - Notiz: Über „Notiz hinzufügen…“ (oder „Notiz bearbeiten…“) kannst du deiner Rezept-Datei eine Notiz anhängen. Beim Laden einer Rezept-Datei mit Notiz wird diese automatisch angezeigt. Verwende `<!-- recipes:1,0 -->`, um bestimmte Rezept-Chips einzufügen (0 nimmt das nächste Rezept). Mit `<!-- recipes-re:"speed" -->` erscheinen alle Rezepte, deren Name dem Muster entspricht (Groß/Kleinschreibung wird ignoriert).
-- Autosave-Wiederherstellung: Beim Start listet der Dialog jede gespeicherte Sektion mit eigener Checkbox auf. Lade nur, was du brauchst – Rezepte (inklusive gewähltem Chip), Metasets, Substat-Richtwerte, Final-Sell-Rest, angepinnte Notiz, Filterleiste (Offen/Zu, Chips, eingeklappte Bereiche) und Regel Tester-Importe. Alles, was du abwählst, bleibt unangetastet. Autosave merkt sich außerdem, welche Final-Sell-Schalter (Artefakte, Zubehör sowie die Levelbereiche) aktiv waren, damit der Dialog exakt den Exportzustand von zuletzt widerspiegelt.
+- Autosave-Wiederherstellung: Beim Start listet der Dialog jede gespeicherte Sektion mit eigener Checkbox auf. Lade nur, was du brauchst – Rezepte (inklusive gewähltem Chip), Metasets, Substat-Richtwerte, Final-Sell-Rest, angepinnte Notiz, Filterleiste (Offen/Zu, Chips, eingeklappte Bereiche) und Ausrüstungsinspektor-Importe. Alles, was du abwählst, bleibt unangetastet. Autosave merkt sich außerdem, welche Final-Sell-Schalter (Artefakte, Zubehör sowie die Levelbereiche) aktiv waren, damit der Tools-Dialog exakt den Exportzustand von zuletzt widerspiegelt.
 
 ### Aufbau des Builders (von oben nach unten)
 - Aktion & Aktiviert: Sage dem Sellfile, was passieren soll, sobald ein Gegenstand zur Rezept passt.
@@ -93,12 +93,12 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 
 ### Finaler Verkauf
 - Nutze den Schalter `Finaler Verkauf` im Vorschau-Header, um abschließende Verkaufsregeln für übrig gebliebene Items zu aktivieren. Die Beschriftung bleibt gleich: Ein orangefarbener Hintergrund bedeutet aktiv, die neutrale Umrandung bedeutet aus.
-- Klicke auf „Logic Hub“ neben dem Schalter, um den Tab `Finaler Verkauf` zu öffnen und festzulegen, ob Artefakte, Schmuckstücke und welche Stufenbereiche (0–3, 4–7, 8–11, 12–15, 16) gelten. Standardmäßig bleibt `+16` aus, damit voll gelevelte Teile geschützt bleiben.
+- Klicke auf „Tools” neben dem Schalter, um den Tab `Finaler Verkauf` zu öffnen und festzulegen, ob Artefakte, Schmuckstücke und welche Stufenbereiche (0–3, 4–7, 8–11, 12–15, 16) gelten. Standardmäßig bleibt `+16` aus, damit voll gelevelte Teile geschützt bleiben.
 - Ohne `Finaler Verkauf` behält RSL Helper alle Items, die keine Regel treffen. Verkauft wird nur, wenn eine Sell-Regel greift.
 - Bei aktivem `Finaler Verkauf` umfassen die erzeugten Sell-Regeln alle bekannten Sets. In der Vorschau steht „Alle bekannten Sets“, der Export listet trotzdem jedes Set einzeln.
 
 ### Schutzmaßnahmen
-- Klicke im Vorschau-Header auf „Logic Hub“ und wechsle zur Registerkarte `Schutzmaßnahmen`, um Kombinationen zu markieren, die niemals verloren gehen sollen. Aktiviere `Schutzmaßnahmen`, damit der Scanner Behalte-Zeilen hinzufügen kann (Bearbeitungen schalten es ebenfalls automatisch ein).
+- Schalte den Builder über den Umschalter oben am Builder-Panel in den **Schutzmaßnahmen**-Modus, um Kombinationen zu markieren, die niemals verloren gehen sollen. Aktiviere `Schutzmaßnahmen`, damit der Scanner Behalte-Zeilen hinzufügen kann (Bearbeitungen schalten es ebenfalls automatisch ein).
 - Schutzmaßnahmen „verbrauchen“ keine Items – jede Regel bewertet denselben Kandidatenpool. Wenn ein Teil mehreren Schutzmaßnahmen entspricht, zählt es für alle.
 - Jede Behalte-Regel lässt dich Slot, Sets oder Metasets, Ränge, Seltenheiten, Mainstats und (bei Zubehör) Fraktionen festlegen. Leer bedeutet „egal“.
 - `Modus` bestimmt, wie die Regel ausgegeben wird: `Aus` deaktiviert sie, `Bestehendes schützen` fügt Behalte-Zeilen für verkaufsgefährdete Treffer hinzu, bis die Quote erreicht ist, und `Lücken vorab sichern` ergänzt Platzhalter-Regeln für fehlende Kombinationen, damit neue Drops geschützt bleiben, bis die DB aktualisiert wurde.
@@ -132,10 +132,10 @@ Mehrere Bereichs-Chips stapeln die Kontingente. Lass `Pro Regel` aktiv, um einen
 | Schnellste SPD-Zubehörteile | Slot = Ring/Amulett/Banner, Substats = SPD | `5` | `Pro Regel` | Behält die besten fünf SPD-Substat-Rolls über dein Zubehör hinweg (inkl. Gleichstände). |
 | ACC-Banner mit SPD-Rolls | Slot = Banner, Mainstat = ACC, Substats = SPD + ACC, Gewichte: SPD höher | `3` | `Pro Fraktion` | Jede Fraktion behält die besten ACC-Banner, bei denen SPD besonders zählt. |
 
-Tipp: Importiere deine `.db` oder füge Items im Dialog „Ausrüstung” ein, bevor du die Registerkarte „Schutzmaßnahmen“ öffnest, damit der Scanner echte Ausrüstung bewertet. Klicke eine Schutzmaßnahme an, um passende Ausrüstung hervorzuheben; stelle `Filter` auf `Auswahl`, um nur diese Treffer zu sehen.
+Tipp: Importiere deine `.db` oder füge Items im Dialog „Ausrüstung” ein, bevor du in den Schutzmaßnahmen-Modus wechselst, damit der Scanner echte Ausrüstung bewertet. Klicke eine Schutzmaßnahme an, um passende Ausrüstung hervorzuheben; stelle `Filter` auf `Auswahl`, um nur diese Treffer zu sehen.
 
 ### Dungeon-Beute (Simulator)
-Öffne Logic Hub und wechsle zu **Dungeon-Beute**. Es simuliert Dungeon-Drops mit deinen aktuellen Sellfile-Regeln, damit du siehst, wie viel Ausrüstung du pro Set und Aufwertungsstufe behalten würdest.
+Öffne „Tools" und wechsle zu **Dungeon-Beute**. Es simuliert Dungeon-Drops mit deinen aktuellen Sellfile-Regeln, damit du siehst, wie viel Ausrüstung du pro Set und Aufwertungsstufe behalten würdest.
 
 - Wähle ein Dungeon und eine Stufe.
 - Simulationsmodus:
@@ -155,17 +155,17 @@ Hinweise:
 - Klick-Verknüpfung: Klick auf eine Tabellenzeile wählt automatisch die Rezept aus, von der sie stammt (Basis-HSF-Zeilen bleiben unberührt).
 - Zwischenablagen-Fallback: Wenn das Kopieren per API blockiert ist, öffnet ein Dialog mit vorausgewähltem Text zum manuellen Kopieren.
 
-### Sellfile-Vorschau (Regeln & Regel Tester)
-- Der Header bündelt den `Regeln`/`Regel Tester`-Schalter, den Button „Ausrüstung...” und „RSL Helper Sellfile laden“, damit du sofort siehst, wo du die Tabelle wechselst oder den Dialog „Ausrüstung” (Logic Hub → Tab „Ausrüstung”) öffnest.
-- Ansicht `Regeln` (Standard): zeigt alle exportierten Regeln inklusive optionaler Basis-`.hsf`-Zeilen. Die Header-Zähler bleiben bei Behalten vs. Verkaufen, die Filterleiste behält die Beliebig/Nur-Chips (`Any/Only`) für Slot/Rang/Seltenheit/Level und beide Rezept-Buttons sind immer sichtbar: „Vorschau-Rezepte“ blendet Chips aus, deren Regeln den aktuellen Filter nicht bestehen, und der „Rezept-Filter“ ist hier ein einfacher An/Aus-Schalter, der Sellfile-Zeilen außerhalb deiner ausgewählten Rezept-Chips versteckt (und dabei den Filterzustand für den Tester vormerkt).
-- Ansicht `Regel Tester`: schaltet auf die Liste der importierten Ausrüstung, sodass du externe oder manuell erstellte Items prüfen kannst, ohne den Logic-Hub-Dialog erneut zu öffnen. Zähler wechseln zu „Treffer“ vs. „Kein Treffer“ (plus Behalten/Verkaufen nach der Regel „erste passende Rezept gewinnt“), und die Filterleiste zeigt weiterhin beide Rezept-Buttons nebeneinander: „Vorschau-Rezepte“ für die Chip-Sichtbarkeit sowie den „Rezept-Filter“, der hier als Tri-State (`Off` → `First-Match-Auswertung` → `Beliebig`) arbeitet, um die Ausrüstungszeilen zwischen Ersttreffern und beliebigen Treffern zu trennen, während beim Zurückwechseln weiterhin nur die Regeln deiner Auswahl sichtbar bleiben. `.db`-Importe springen automatisch in diese Ansicht; zurück zu `Regeln` kannst du jederzeit.
-- Der Button „RSL Helper Sellfile laden“ macht genau dasselbe wie Drag & Drop: `.sfr` ersetzt den Builder-Zustand, `.hsf` ergänzt eine optionale Basis-Sellfile, `.db` schieben Ausrüstung direkt in die Regel Tester-Vorschau (ohne deine Rezepte zu ändern). „Leeren“ trennt die optionale Basis-`.hsf`.
-- Das Paletten-Icon öffnet „Farben verwalten“, um Text- und Hintergrundfarben für Substats anzupassen.
-- In `Regeln` bleiben die Spalten „Idx“ und „Rezept“ erhalten (Basisdatei-Zeilen haben einen leeren Rezept-Wert). In `Regel Tester` zeigen dieselben Flächen Slot/Set, Item-Stats und das Badge der zuerst passenden Rezept, damit du direkt im Preview siehst, was mit jedem Artefakt passieren würde.
+### Sellfile-Vorschau (Regeln & Ausrüstungsinspektor)
+- Der Header bündelt den `Regeln`/`Ausrüstungsinspektor`-Schalter, den Button „Tools” und „RSL Helper Sellfile laden”, damit du sofort siehst, wo du die Tabelle wechselst oder den Dialog „Ausrüstung” öffnest.
+- Ansicht `Regeln` (Standard): zeigt alle exportierten Regeln inklusive optionaler Basis-`.hsf`-Zeilen. Die Header-Zähler bleiben bei Behalten vs. Verkaufen, die Filterleiste behält die Beliebig/Nur-Chips (`Any/Only`) für Slot/Rang/Seltenheit/Level und beide Rezept-Buttons sind immer sichtbar: „Eingrenzen” blendet Chips aus, deren Regeln den aktuellen Filter nicht bestehen, und die „Auswahl” ist hier ein einfacher An/Aus-Schalter, der Sellfile-Zeilen außerhalb deiner ausgewählten Rezept-Chips versteckt (und dabei den Filterzustand für den Ausrüstungsinspektor vormerkt).
+- Ansicht `Ausrüstungsinspektor`: schaltet auf die Liste der importierten Ausrüstung, sodass du externe oder manuell erstellte Items prüfen kannst, ohne den Tools-Dialog erneut zu öffnen. Zähler wechseln zu „Treffer” vs. „Kein Treffer” (plus Behalten/Verkaufen nach der Regel „erste passende Rezept gewinnt”), und die Filterleiste zeigt weiterhin beide Rezept-Buttons nebeneinander: „Eingrenzen” für die Chip-Sichtbarkeit sowie die „Auswahl”, die hier als Tri-State (`Off` → `First-Match-Auswertung` → `Nach Treffer`) arbeitet, um die Ausrüstungszeilen zwischen Ersttreffern und beliebigen Treffern zu trennen, während beim Zurückwechseln weiterhin nur die Regeln deiner Auswahl sichtbar bleiben. `.db`-Importe springen automatisch in diese Ansicht; zurück zu `Regeln` kannst du jederzeit.
+- Der Button „RSL Helper Sellfile laden” macht genau dasselbe wie Drag & Drop: `.sfr` ersetzt den Builder-Zustand, `.hsf` ergänzt eine optionale Basis-Sellfile, `.db` schieben Ausrüstung direkt in den Ausrüstungsinspektor (ohne deine Rezepte zu ändern). „Leeren” trennt die optionale Basis-`.hsf`.
+- Das Paletten-Icon öffnet „Farben verwalten”, um Text- und Hintergrundfarben für Substats anzupassen.
+- In `Regeln` bleiben die Spalten „Idx” und „Rezept” erhalten (Basisdatei-Zeilen haben einen leeren Rezept-Wert). Im `Ausrüstungsinspektor` zeigen dieselben Flächen Slot/Set, Item-Stats und das Badge der zuerst passenden Rezept, damit du direkt im Vorschau siehst, was mit jedem Artefakt passieren würde.
 
 ### Sellfile-Vorschau: Steuerelemente
 - Farben verwalten: Über das Paletten-Icon Farben anpassen; „Auf Standard zurücksetzen“ stellt die empfohlenen Werte wieder her.
-- Filter: Drücke `Ctrl+F` (`Cmd+F` auf macOS), um das Panel zu öffnen und sofort die Rezept-Suche zu fokussieren. Rechtsklick auf eine Abschnittsüberschrift (oder `Ctrl`/`Cmd` + Klick auf den Chevron) klappt alle Bereiche gemeinsam ein oder aus. „Vorschau-Rezepte“ blendet Chips aus, die nicht zum aktiven Filter passen, damit die Tabelle übersichtlich bleibt. „Rezept-Filter“ entscheidet, welche Rezepte in der Tabelle erlaubt sind: In `Regeln` ist er ein An/Aus-Schalter, im `Regel Tester`-Modus rotiert er durch `Off` → `First-Match` → `Beliebig` (`Any-Match`).
+- Filter: Drücke `Ctrl+F` (`Cmd+F` auf macOS), um das Panel zu öffnen und sofort die Rezept-Suche zu fokussieren. Rechtsklick auf eine Abschnittsüberschrift (oder `Ctrl`/`Cmd` + Klick auf den Chevron) klappt alle Bereiche gemeinsam ein oder aus. „Eingrenzen” blendet Chips aus, die nicht zum aktiven Filter passen, damit die Tabelle übersichtlich bleibt. „Auswahl” entscheidet, welche Rezepte in der Tabelle erlaubt sind: In `Regeln` ist es ein An/Aus-Schalter, im `Ausrüstungsinspektor`-Modus rotiert es durch `Off` → `First-Match` → `Nach Treffer`.
 - Spaltenmenü (Rechtsklick auf Kopfzeile):
   - Spalten zurücksetzen: Standardspalten und -breiten wiederherstellen.
   - Spaltenbreiten anpassen: Breiten automatisch an die Ansicht anpassen.
@@ -175,12 +175,12 @@ Hinweise:
 - Spaltenbreite ändern: Rechte Kante der Kopfzeile ziehen.
 - Klickverhalten: Tabellenzeilen wählen die zugehörige Rezept (ohne Auto-Scroll). Klick auf einen Rezept-Chip scrollt zur ersten passenden Zeile.
 
-### Regel Tester-Vorschau
-- Klicke auf „Ausrüstung...” im Header der Sellfile-Vorschau, um den Dialog „Ausrüstung” (Logic Hub → Tab „Ausrüstung”) zu öffnen. Erstelle Beispielausrüstung oder füge Zeilen (JSON/Text) ein. Die Einträge landen sofort in der Vorschau, daher bleibt dein Raster auch bei geschlossenem Dialog erhalten.
-- Importiere deine RSL-Helper-Ausrüstungsdatenbank, indem du `.db`-Dateien in die App ziehst oder den Button „RSL Helper Sellfile laden“ nutzt (gleiches Verhalten). Diese Importe stellen tausende Artefakte plus Posteingang in die Warteschlange, schalten die Vorschau auf die Tester-Tabelle und lassen Builder sowie Exportzustand unangetastet.
-- Jede Zeile zeigt Slot, Set, Level, Mainstat, Substats (inkl. Glyphen und Rollen), die Quelle (Inventar vs. Posteingang) sowie Chips für Behalten/Verkaufen und die zuerst passende Regel/Rezept. Deaktivierte Regeln matchen nie, daher stehen „Kein Treffer“-Zeilen für Ausrüstung, die der Sellfile unverändert lassen würde.
-- Die Header-Zähler springen auf Treffer vs. Kein Treffer plus Behalten/Verkaufen. Kombiniere diese Totale mit den Regel Tester-Filtern (Keep/Sell-Ergebnis, Treffer/Kein Treffer sowie Rezept `Off`/`First-Match-Auswertung`/`Beliebig`), um Randfälle vor dem Export gezielt zu prüfen.
-- Nutze den Vorschau-Umschalter, um zwischen Regeln- und Regel Tester-Tabelle zu wechseln, ohne den Logic-Hub-Dialog erneut zu öffnen – perfekt, um die erzeugten Regelzeilen mit der Ausrüstung zu vergleichen, die sie ausgelöst hat.
+### Ausrüstungsinspektor
+- Klicke auf „Tools” im Header der Sellfile-Vorschau, um den Dialog „Ausrüstung” zu öffnen. Erstelle Beispielausrüstung. Die Einträge landen sofort in der Vorschau, daher bleibt dein Raster im Ausrüstungsinspektor auch bei geschlossenem Dialog erhalten.
+- Importiere deine RSL-Helper-Ausrüstungsdatenbank, indem du `.db`-Dateien in die App ziehst oder den Button „RSL Helper Sellfile laden” nutzt (gleiches Verhalten). Diese Importe stellen tausende Artefakte plus Posteingang in die Warteschlange, schalten die Vorschau auf den Ausrüstungsinspektor und lassen Builder sowie Exportzustand unangetastet.
+- Jede Zeile zeigt Slot, Set, Level, Mainstat, Substats (inkl. Glyphen und Rollen), die Quelle (Inventar vs. Posteingang) sowie Chips für Behalten/Verkaufen und die zuerst passende Regel/Rezept. Deaktivierte Regeln matchen nie, daher stehen „Kein Treffer”-Zeilen für Ausrüstung, die der Sellfile unverändert lassen würde.
+- Die Header-Zähler springen auf Treffer vs. Kein Treffer plus Behalten/Verkaufen. Kombiniere diese Totale mit den Ausrüstungsinspektor-Filtern (Keep/Sell-Ergebnis, Treffer/Kein Treffer sowie Auswahl `Off`/`First-Match-Auswertung`/`Nach Treffer`), um Randfälle vor dem Export gezielt zu prüfen.
+- Nutze den Vorschau-Umschalter, um zwischen der Regeln-Tabelle und dem Ausrüstungsinspektor zu wechseln, ohne den Tools-Dialog erneut zu öffnen – perfekt, um die erzeugten Regelzeilen mit der Ausrüstung zu vergleichen, die sie ausgelöst hat.
 
 ### Export
 - „Zusammengeführte RSL Helper Sellfile exportieren“ exportiert mit Basisdatei, sonst „RSL Helper Sellfile exportieren“.
@@ -225,6 +225,6 @@ und natürlich an **Farbstoff** für RSL Helper!
 
 ## Autor
 Erstellt von [STBL] Nusi㊷  
-Lokalisierung von Codex
+Lokalisierung von AI
 
 © Nusi㊷ - 2026
