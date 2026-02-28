@@ -1154,8 +1154,6 @@ const overrides: Catalog = {
   restoreAutosaveConstraintSafeguardsNeedMetasets: 'Для защит нужно восстановить метасеты из этого автосохранения.',
   restoreAutosaveFiltersLabel: 'Вид и Фильтр',
   restoreAutosaveFiltersHelper: 'Восстанавливает состояние открытия, выбор и свёрнутые секции.',
-  restoreAutosaveSortLabel: 'Сортировка тестера',
-  restoreAutosaveSortHelper: 'Восстанавливает приоритеты подстатов, режим Normalized, источники и веса.',
   restoreAutosaveTesterLabel: 'Инспектор снаряжения ({count})',
   restoreAutosaveTesterHelper: 'Загрузить автосохранённое снаряжение.',
   restoreAutosaveGearSetsLabel: 'Пользовательские сеты ({count})',

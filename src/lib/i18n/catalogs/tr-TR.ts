@@ -1154,8 +1154,6 @@ const overrides: Catalog = {
   restoreAutosaveConstraintSafeguardsNeedMetasets: 'Güvenceler bu otomatik kayıttaki metasetleri geri yüklemeyi gerektirir.',
   restoreAutosaveFiltersLabel: 'Görünüm & Filtre',
   restoreAutosaveFiltersHelper: 'Açık durumu, seçimi ve daraltılmış bölüleri geri yükler.',
-  restoreAutosaveSortLabel: 'Kural Testi sıralaması',
-  restoreAutosaveSortHelper: 'Alt stat önceliklerini, Normalized modunu, kaynakları ve ağırlıkları geri yükler.',
   restoreAutosaveTesterLabel: 'Ekipman Denetçisi ({count})',
   restoreAutosaveTesterHelper: 'Otomatik kaydedilen ekipmanı yükle.',
   restoreAutosaveGearSetsLabel: 'Özel gear setleri ({count})',

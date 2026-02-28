@@ -3137,31 +3137,26 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return substatTargetsSignature(restoreDraft.substatTargets) !== currentTargetsSignature
   }, [restoreDraft, currentTargetsSignature])
   const restoreFiltersDiffer = Boolean(restoreDraft?.Filters && !areFilterContentsDefault(restoreDraft.Filters))
+  // Sort (TesterSort) is bundled with filters; show the combined row when either differs.
   const restoreSortDiffer = Boolean(restoreDraft && Object.prototype.hasOwnProperty.call(restoreDraft, 'TesterSort'))
   const filtersResetRef = useRef(false)
   useLayoutEffect(() => {
-    if (!restoreDialogPending || !restoreDraft?.Filters || !restoreFiltersDiffer) return
+    // Reset filter/sort state to a clean baseline when either has changed, so the user
+    // sees the default before deciding whether to restore the autosaved layout.
+    const hasFilterChange = restoreDialogPending && restoreDraft?.Filters && restoreFiltersDiffer
+    const hasSortChange = restoreDialogPending && restoreSortDiffer
+    if (!hasFilterChange && !hasSortChange) return
     if (filtersResetRef.current) return
     filtersResetRef.current = true
-    // Reset filter panel and builder section collapse to defaults so the user sees
-    // a clean slate before deciding whether to restore the autosaved layout.
-    resetRulesFilterPreferences()
-    setGearInspectorRecipeFilterMode('off')
-    resetBuilderCollapsedPreferences()
-  }, [restoreDialogPending, restoreDraft, restoreFiltersDiffer, setGearInspectorRecipeFilterMode])
-  const sortResetRef = useRef(false)
-  useLayoutEffect(() => {
-    if (!restoreDialogPending || !restoreSortDiffer) return
-    if (sortResetRef.current) return
-    sortResetRef.current = true
-    // Match the filter restore UX: default to a known baseline unless the user explicitly restores.
-    clearGearInspectorSubstatSort()
-  }, [clearGearInspectorSubstatSort, restoreDialogPending, restoreSortDiffer])
+    if (hasFilterChange) {
+      resetRulesFilterPreferences()
+      setGearInspectorRecipeFilterMode('off')
+      resetBuilderCollapsedPreferences()
+    }
+    if (hasSortChange) clearGearInspectorSubstatSort()
+  }, [clearGearInspectorSubstatSort, restoreDialogPending, restoreDraft, restoreFiltersDiffer, restoreSortDiffer, setGearInspectorRecipeFilterMode])
   useEffect(() => {
     if (!restoreDialogPending) filtersResetRef.current = false
-  }, [restoreDialogPending])
-  useEffect(() => {
-    if (!restoreDialogPending) sortResetRef.current = false
   }, [restoreDialogPending])
   // Show the autosave restore prompt only after the README dialog is dismissed.
   const restoreDlgOpen = !tutorial.helpOpen && (restoreDialogPending || Boolean(gearInspectorRestoreDraft))
@@ -6806,8 +6801,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           storedGearSetsCount={storedRuntimeGearSetCount}
           metasetsDiffer={restoreMetasetsDiffer}
           targetsDiffer={restoreTargetsDiffer}
-          filtersDiffer={restoreFiltersDiffer}
-          sortDiffer={restoreSortDiffer}
+          viewFilterDiffer={restoreFiltersDiffer || restoreSortDiffer}
           onDismiss={() => {
             dismissRestore()
             setGearInspectorRestoreDraft(null)
@@ -6858,32 +6852,34 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 setNoteRecipeOverridesAnswers(pruneNoteRecipeOverridesAnswers(restoredNote, restoredAnswers))
                 setNoteRecipeOverridesDisabled(Boolean(draft.NoteRecipeOverridesDisabled))
               }
-              if (selection.filters && restoreFiltersDiffer && draft.Filters) {
-                try {
-                  const views = draft.Filters.views
-                  if (views && typeof views === 'object') {
-                    // Replay the saved view for every mode so toggling between Sellfile preview and Gear Inspector feels seamless.
-                    for (const mode of RULES_FILTER_PREVIEW_MODES) {
-                      const view = views[mode]
-                      if (!view) continue
-                      setRulesFilterOpenForMode(mode, Boolean(view.open))
-                      const clonedState = JSON.parse(JSON.stringify(view.state)) as RulesFilterState
-                      setRulesFilterStateForMode(mode, clonedState)
-                      const collapsed = view.collapsed ?? cloneDefaultRulesFilterCollapsed()
-                      setRulesFilterCollapsedForMode(mode, collapsed)
+              if (selection.filters) {
+                // Restore view/filter state when the draft has changed filter content.
+                if (restoreFiltersDiffer && draft.Filters) {
+                  try {
+                    const views = draft.Filters.views
+                    if (views && typeof views === 'object') {
+                      // Replay the saved view for every mode so toggling between Sellfile preview and Gear Inspector feels seamless.
+                      for (const mode of RULES_FILTER_PREVIEW_MODES) {
+                        const view = views[mode]
+                        if (!view) continue
+                        setRulesFilterOpenForMode(mode, Boolean(view.open))
+                        const clonedState = JSON.parse(JSON.stringify(view.state)) as RulesFilterState
+                        setRulesFilterStateForMode(mode, clonedState)
+                        const collapsed = view.collapsed ?? cloneDefaultRulesFilterCollapsed()
+                        setRulesFilterCollapsedForMode(mode, collapsed)
+                      }
                     }
-                  }
-                  setGearInspectorRecipeFilterMode(draft.Filters.testerRecipeFilterMode ?? 'off')
-                  if (draft.Filters.activeMode === 'rules' || draft.Filters.activeMode === 'gearInspector') {
-                    setPreviewMode(draft.Filters.activeMode)
-                  }
-                  // Restore builder section collapse layout alongside the filter state.
-                  if (draft.Filters.builderRecipeCollapsed) setBuilderRecipeCollapsed(draft.Filters.builderRecipeCollapsed)
-                  if (draft.Filters.builderSafeguardCollapsed) setBuilderSafeguardCollapsed(draft.Filters.builderSafeguardCollapsed)
-                } catch {}
-              }
-              if (selection.sort && restoreSortDiffer && draft.TesterSort) {
-                setGearInspectorSubstatSortState(draft.TesterSort)
+                    setGearInspectorRecipeFilterMode(draft.Filters.testerRecipeFilterMode ?? 'off')
+                    if (draft.Filters.activeMode === 'rules' || draft.Filters.activeMode === 'gearInspector') {
+                      setPreviewMode(draft.Filters.activeMode)
+                    }
+                    // Restore builder section collapse layout alongside the filter state.
+                    if (draft.Filters.builderRecipeCollapsed) setBuilderRecipeCollapsed(draft.Filters.builderRecipeCollapsed)
+                    if (draft.Filters.builderSafeguardCollapsed) setBuilderSafeguardCollapsed(draft.Filters.builderSafeguardCollapsed)
+                  } catch {}
+                }
+                // Sort (TesterSort) is bundled with filters — restore it together.
+                if (restoreSortDiffer && draft.TesterSort) setGearInspectorSubstatSortState(draft.TesterSort)
               }
               if (selection.gearSets) {
                 // User opted in: hydrate runtime sets from localStorage now.

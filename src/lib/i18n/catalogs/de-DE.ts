@@ -1154,8 +1154,6 @@ const overrides: Catalog = {
   restoreAutosaveConstraintSafeguardsNeedMetasets: 'Safeguards erfordern das Wiederherstellen der Metasets aus diesem Autosave.',
   restoreAutosaveFiltersLabel: 'Anzeige & Filter',
   restoreAutosaveFiltersHelper: 'Stellt Öffnungsstatus, Auswahl und eingeklappte Bereiche wieder her.',
-  restoreAutosaveSortLabel: 'Ausrüstungsinspektor-Sortierung',
-  restoreAutosaveSortHelper: 'Stellt Substat-Prioritäten, Normalized-Modus, Quellen und Gewichte wieder her.',
   restoreAutosaveTesterLabel: 'Ausrüstungsinspektor ({count})',
   restoreAutosaveTesterHelper: 'Autosave-Ausrüstung laden.',
   restoreAutosaveGearSetsLabel: 'Runtime-Gear-Sets ({count})',

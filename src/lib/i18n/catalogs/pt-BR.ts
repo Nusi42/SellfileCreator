@@ -1154,8 +1154,6 @@ const catalog: Catalog = {
   restoreAutosaveConstraintSafeguardsNeedMetasets: 'As salvaguardas exigem restaurar os metasets deste autosave.',
   restoreAutosaveFiltersLabel: 'Vista & Filtros',
   restoreAutosaveFiltersHelper: 'Restaura estado aberto, seleção e seções recolhidas.',
-  restoreAutosaveSortLabel: 'Ordenação do Teste de Regras',
-  restoreAutosaveSortHelper: 'Restaura prioridades de substats, modo Normalized, fontes e pesos.',
   restoreAutosaveTesterLabel: 'Inspetor de Equipamento ({count})',
   restoreAutosaveTesterHelper: 'Carrega o equipamento auto-salvo.',
   restoreAutosaveGearSetsLabel: 'Conjuntos personalizados ({count})',
