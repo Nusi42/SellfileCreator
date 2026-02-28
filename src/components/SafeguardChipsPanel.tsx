@@ -25,7 +25,6 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import { alpha, useTheme } from '@mui/material/styles'
 import {
   BUILDER_AUTO_APPLY_DEBOUNCE_MS,
-  BUILDER_RECIPE_CHIPS_EMPTY_MIN_HEIGHT_PX,
   HOVER_BG_ALPHA,
   RECIPE_CHIP_BORDER_RADIUS_PX,
   RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
@@ -165,71 +164,69 @@ export default function SafeguardChipsPanel({
 
   // ── rule management ───────────────────────────────────────────────────────
 
-  // Scrolls the targeted chip into view and keeps it there until the layout settles.
+  // Scrolls the targeted chip into view with smooth animation, mirroring the recipe chips pattern.
   //
-  // Two-phase strategy:
-  //  Phase 1 (find): retry every frame until the chip element appears in the DOM.
-  //  Phase 2 (settle): once found, check visibility each frame and re-scroll whenever
-  //    the chip is out of view. Exit only after STABLE_FRAMES consecutive frames where
-  //    the chip is fully visible — this handles cascading layout reflows (e.g. the
-  //    ResizeObserver measurement that updates maxHeightPx after a builder mode switch,
-  //    or the SafeguardBuilderPanel growing into its final height) that would otherwise
-  //    push the chip back out of view after a single scrollIntoView call.
+  // Retries up to MAX_FIND_ATTEMPTS frames in case the chip is briefly absent (e.g. paste/duplicate
+  // hasn't committed yet). Once found, waits one settle frame before computing the scroll target —
+  // this is necessary when the panel has just become visible (display:none → flex), because the
+  // ResizeObserver that updates maxHeightPx fires asynchronously; without the settle frame the
+  // container's clientHeight is briefly inflated, making scroll-down targets compute to zero.
+  // After settling, walks the offsetParent chain to get chipTop, then calls scrollTo with
+  // behavior:'smooth' — the same approach used by scrollSelectedRecipeIntoView in App.tsx.
   const scheduleScrollToRule = useCallback((ruleId: string) => {
     // Cancel any in-flight scroll attempt for a previous rule.
     if (scrollRafRef.current !== null) {
       window.cancelAnimationFrame(scrollRafRef.current)
       scrollRafRef.current = null
     }
-    // Phase 1: give up if the chip never appears (e.g. filtered out).
+    // Give up if the chip never appears (e.g. filtered out or not yet rendered).
     const MAX_FIND_ATTEMPTS = 8
-    // Phase 2: require this many stable frames in a row before exiting.
-    const STABLE_FRAMES = 3
-    // Hard cap on total settle frames to prevent runaway loops.
-    const MAX_SETTLE_ATTEMPTS = 24
-    const tryScroll = (findAttempt: number, stableCount: number, settleAttempt: number) => {
-      const root = scrollRootRef.current
-      const target = root?.querySelector(`[data-safeguards-rule-id="${ruleId}"]`) as HTMLElement | null
+    const tryScroll = (findAttempt: number, settled: boolean) => {
+      const container = scrollRootRef.current
+      const target = container?.querySelector(`[data-safeguards-rule-id="${ruleId}"]`) as HTMLElement | null
       if (!target) {
-        // Phase 1: chip not in DOM yet — keep trying.
+        // Chip not in DOM yet — retry next frame (reset settled; layout may shift further).
         if (findAttempt >= MAX_FIND_ATTEMPTS) { scrollRafRef.current = null; return }
-        scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(findAttempt + 1, 0, 0))
+        scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(findAttempt + 1, false))
         return
       }
-      // Phase 2: chip found — check whether it is fully visible inside the scroll container.
-      const rootRect = root!.getBoundingClientRect()
-      const targetRect = target.getBoundingClientRect()
-      const visible = targetRect.top >= rootRect.top - 1 && targetRect.bottom <= rootRect.bottom + 1
-      if (!visible) {
-        // Chip is out of view (layout reflow pushed it out) — re-scroll and reset stability.
-        target.scrollIntoView({ block: 'nearest' })
-        if (settleAttempt < MAX_SETTLE_ATTEMPTS) {
-          scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(findAttempt, 0, settleAttempt + 1))
-        } else {
-          scrollRafRef.current = null
-        }
+      if (!settled) {
+        // Wait one additional frame to let the ResizeObserver → React re-render cycle commit
+        // the final maxHeightPx to the container before we read clientHeight.
+        scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(findAttempt, true))
         return
       }
-      // Chip is visible this frame — count consecutive stable frames.
-      if (stableCount + 1 >= STABLE_FRAMES) {
-        // Stable for enough frames; layout has settled. Done.
-        scrollRafRef.current = null
-        return
+      // Walk the offsetParent chain to get chipTop relative to the scroll container.
+      let chipTop = target.offsetTop
+      let offsetParent = target.offsetParent as HTMLElement | null
+      while (offsetParent && offsetParent !== container) {
+        chipTop += offsetParent.offsetTop
+        offsetParent = offsetParent.offsetParent as HTMLElement | null
       }
-      if (settleAttempt < MAX_SETTLE_ATTEMPTS) {
-        scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(findAttempt, stableCount + 1, settleAttempt + 1))
-      } else {
-        scrollRafRef.current = null
+      if (!Number.isFinite(chipTop)) { scrollRafRef.current = null; return }
+      const chipHeight = target.offsetHeight
+      const viewTop = container!.scrollTop
+      const viewBottom = viewTop + container!.clientHeight
+      const chipBottom = chipTop + chipHeight
+      // Determine the scroll target — same logic as recipe chips.
+      let scrollTarget: number | null = null
+      if (chipHeight >= container!.clientHeight) {
+        scrollTarget = chipTop
+      } else if (chipTop < viewTop) {
+        scrollTarget = chipTop
+      } else if (chipBottom > viewBottom) {
+        scrollTarget = chipBottom - container!.clientHeight
       }
+      if (scrollTarget === null) { scrollRafRef.current = null; return }
+      const maxScrollTop = Math.max(0, container!.scrollHeight - container!.clientHeight)
+      const clampedTarget = Math.max(0, Math.min(scrollTarget, maxScrollTop))
+      // Only scroll if the chip is meaningfully out of view; smooth keeps the animation subtle.
+      if (Math.abs(clampedTarget - viewTop) > 0.5) {
+        container!.scrollTo({ top: clampedTarget, behavior: 'smooth' })
+      }
+      scrollRafRef.current = null
     }
-    // Kick off with an initial scroll before the first visibility check so the chip is
-    // in view immediately even before the settle loop confirms stability.
-    scrollRafRef.current = window.requestAnimationFrame(() => {
-      const root = scrollRootRef.current
-      const target = root?.querySelector(`[data-safeguards-rule-id="${ruleId}"]`) as HTMLElement | null
-      if (target) target.scrollIntoView({ block: 'nearest' })
-      tryScroll(0, 0, 0)
-    })
+    scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(0, false))
   }, [])
 
   // Cancel any pending scroll rAF on unmount to prevent post-unmount state updates.
@@ -712,7 +709,9 @@ export default function SafeguardChipsPanel({
           minHeight: (() => {
             const max = maxHeightPx ?? 0
             if (max <= 0) return 0
-            return rules.length === 0 ? Math.min(max, BUILDER_RECIPE_CHIPS_EMPTY_MIN_HEIGHT_PX) : max
+            // Always fill the full measured height — same logic as RecipeChipsPanel — so the paper
+            // stays at a consistent height whether the list has items or not.
+            return max
           })(),
           overflowY: 'auto',
           overflowX: 'hidden',

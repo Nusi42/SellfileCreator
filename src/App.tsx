@@ -4166,6 +4166,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setBuilderMode('safeguard')
       return
     }
+    // Recipe matches should switch to Recipe Builder mode.
+    setBuilderMode('recipe')
     setLogicHubOpen(false)
     const recipeSnapshot = customRecipesRef.current
     const hasValidRecipe = recipeIdx != null && recipeIdx >= 0 && recipeIdx < recipeSnapshot.length
@@ -4188,7 +4190,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } catch {
       setFocusRuleIndex(null)
     }
-  }, [openLogicHubSafeguardRule, setBuilder, setFocusRuleIndex, setPreviewMode, setLogicHubOpen, syncSelectedRecipeIdx])
+  }, [openLogicHubSafeguardRule, setBuilder, setBuilderMode, setFocusRuleIndex, setPreviewMode, setLogicHubOpen, syncSelectedRecipeIdx])
   const handleGearInspectorRuleTemplateCreate = useCallback((row: GearInspectorPreviewRow, intent: 'keep' | 'sell') => {
     const artifact = row.artifact
     // Build the baseline template based on level, rolls, and the item’s current stats.

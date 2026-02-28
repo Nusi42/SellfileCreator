@@ -6,7 +6,6 @@ import {
   UI_BG_HOVER_DANGER_TRANSITION,
   DANGER_TINT_BG,
   SCROLLING_TOOLTIP_HIDE_MS,
-  BUILDER_RECIPE_CHIPS_EMPTY_MIN_HEIGHT_PX,
 } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import RecipeChip from './RecipeChip'
@@ -165,13 +164,14 @@ function RecipeChipsPanel(props: {
     })
     return order
   }, [recipes, visibleSet])
+  // Always fill the full measured available height so the paper stays at a consistent height
+  // regardless of whether the list is empty or populated. Capping at an arbitrary constant
+  // when empty caused the paper to be shorter in empty-list mode, producing a visible height
+  // jump when toggling between builder modes with different item counts.
   const minHeightPx = React.useMemo(() => {
     if (maxHeightPx <= 0) return 0
-    if (recipes.length === 0) {
-      return Math.min(maxHeightPx, BUILDER_RECIPE_CHIPS_EMPTY_MIN_HEIGHT_PX)
-    }
     return maxHeightPx
-  }, [recipes.length, maxHeightPx])
+  }, [maxHeightPx])
 
   const [showFocusRing, setShowFocusRing] = React.useState(false)
   const dragAllowed = recipes.length > 1 && renderedIndices.length > 0

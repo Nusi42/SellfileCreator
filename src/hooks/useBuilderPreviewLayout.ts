@@ -126,6 +126,10 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
       const viewportHeight = window.visualViewport?.height ?? window.innerHeight ?? document.documentElement?.clientHeight ?? 0
       const paperRect = paper.getBoundingClientRect()
       const containerRect = container.getBoundingClientRect()
+      // When the container is hidden (display: none → all-zero rect), skip — offsetWithinPaper would
+      // be negative (containerRect.top=0 minus positive paperRect.top), inflating rawAvailable to a
+      // garbage large value that would flash the panel open when it becomes visible again.
+      if (containerRect.width === 0 && containerRect.height === 0) return
       const paperAvailable = viewportHeight - paperRect.top - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX
       const minPaperHeight = Math.max(0, Math.floor(paperAvailable))
       if (sideBySideMinPaperHeightRef.current !== minPaperHeight) {
