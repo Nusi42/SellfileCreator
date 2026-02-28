@@ -1532,8 +1532,22 @@ export function useTutorialCoachState({
 
   const handleTutorialPrev = useCallback(() => {
     try {
+      const cur = tutorialSteps[tutorialIdx]
       const prevIdx = Math.max(0, tutorialIdx - 1)
       const target = tutorialSteps[prevIdx]
+
+      // Going back from preview-highlight to auto-late-add: undo the recipe insertion
+      // so the Add button is visible again and the recipe doesn't pre-exist at step 34.
+      if (cur?.id === 'preview-highlight') {
+        suppressHistorySnapshot()
+        const removeIdx = selectedRecipeIdx !== null ? selectedRecipeIdx : -1
+        if (removeIdx >= 0) {
+          setCustomRecipes((prev) => prev.filter((_, i) => i !== removeIdx))
+          setSelectedRecipeIdx(removeIdx > 0 ? removeIdx - 1 : null)
+        }
+        setTutorialAddedAutoLate(false)
+      }
+
       if (target && target.id === 'sets-metasets') {
         const openMenu = () => {
           try {
@@ -1558,7 +1572,7 @@ export function useTutorialCoachState({
       }
     } catch {}
     setTutorialIdx((value) => Math.max(0, value - 1))
-  }, [tutorialIdx, tutorialSteps])
+  }, [tutorialIdx, tutorialSteps, selectedRecipeIdx, setCustomRecipes, setSelectedRecipeIdx, setTutorialAddedAutoLate, suppressHistorySnapshot])
 
   const handleTutorialNext = useCallback(() => {
     try {
