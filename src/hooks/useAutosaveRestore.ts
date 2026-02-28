@@ -40,6 +40,11 @@ import {
   normalizeGearInspectorSubstatSortState,
   type GearInspectorSubstatSortState,
 } from '../state/gearInspectorSubstatSortPreferences'
+import {
+  cloneDefaultBuilderPanelCollapsed,
+  parseBuilderPanelCollapsedFromRaw,
+  type BuilderPanelCollapsedSections,
+} from '../state/builderPreferences'
 
 export type RestoreDraft = {
   Version?: string
@@ -71,6 +76,10 @@ export type AutosaveFiltersState = {
   activeMode: RulesFilterPreviewMode
   views: Record<RulesFilterPreviewMode, AutosaveFilterView>
   testerRecipeFilterMode?: GearInspectorRecipeFilterMode
+  // Builder section collapse state — one entry per builder panel.
+  // Absent means all sections are expanded (defaults).
+  builderRecipeCollapsed?: BuilderPanelCollapsedSections
+  builderSafeguardCollapsed?: BuilderPanelCollapsedSections
 }
 
 type InitialAutosaveState = {
@@ -112,10 +121,15 @@ const normalizeAutosaveFilters = (filters: AutosaveFiltersState | null | undefin
       collapsed: view?.collapsed ?? cloneDefaultRulesFilterCollapsed(),
     }
   }
+  // Normalize builder collapsed to defaults when absent.
+  const builderRecipeCollapsed = filters.builderRecipeCollapsed ?? cloneDefaultBuilderPanelCollapsed()
+  const builderSafeguardCollapsed = filters.builderSafeguardCollapsed ?? cloneDefaultBuilderPanelCollapsed()
   return {
     activeMode: filters.activeMode === 'gearInspector' ? 'gearInspector' : 'rules',
     views,
     testerRecipeFilterMode: filters.testerRecipeFilterMode ?? GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+    builderRecipeCollapsed,
+    builderSafeguardCollapsed,
   }
 }
 
@@ -172,10 +186,15 @@ const parseSavedFilters = (raw: unknown): AutosaveFiltersState | null => {
   const activeModeRaw = rec['activeMode']
   // Validate stored mode; unrecognized values fall back to 'rules'.
   const activeMode: RulesFilterPreviewMode = activeModeRaw === 'gearInspector' ? 'gearInspector' : 'rules'
+  // Parse builder section collapse state; missing or invalid values fall back to all-expanded defaults.
+  const builderRecipeCollapsed = parseBuilderPanelCollapsedFromRaw(rec['builderRecipeCollapsed'])
+  const builderSafeguardCollapsed = parseBuilderPanelCollapsedFromRaw(rec['builderSafeguardCollapsed'])
   return {
     activeMode,
     views,
     ...(gearInspectorRecipeFilterMode ? { testerRecipeFilterMode: gearInspectorRecipeFilterMode } : {}),
+    builderRecipeCollapsed,
+    builderSafeguardCollapsed,
   }
 }
 
@@ -188,10 +207,13 @@ export const filtersSignature = (filters: AutosaveFiltersState | null | undefine
     state: canonicalize(normalized.views[mode].state),
     collapsed: canonicalize(normalized.views[mode].collapsed),
   }))
+  // Include builder section collapse so a non-default layout is not silently dropped.
   return JSON.stringify({
     activeMode: normalized.activeMode,
     views,
     testerRecipeFilterMode: normalized.testerRecipeFilterMode ?? GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+    builderRecipeCollapsed: canonicalize(normalized.builderRecipeCollapsed),
+    builderSafeguardCollapsed: canonicalize(normalized.builderSafeguardCollapsed),
   })
 }
 
@@ -214,10 +236,10 @@ export const areAutosaveFiltersDefault = (filters: AutosaveFiltersState | null |
   return filtersSignature(filters) === DEFAULT_AUTOSAVE_FILTERS_SIGNATURE
 }
 
-// Compare only the meaningful filter content (state, activeMode, gearInspectorRecipeFilterMode),
-// ignoring UI-only fields (open, collapsed). Used by the restore dialog so that
-// having the filter panel open or sections collapsed doesn't trigger a false "filter panel"
-// entry — only actual filter criteria changes count as a difference.
+// Compare meaningful view state: filter criteria (state, activeMode, gearInspectorRecipeFilterMode)
+// plus builder section collapse state. Filter-panel open/collapsed is still excluded because
+// merely having a drawer open doesn't warrant a restore prompt — but builder section layout is
+// a deliberate workspace preference the user wants restored.
 const filterContentSignature = (filters: AutosaveFiltersState | null | undefined): string => {
   const normalized = normalizeAutosaveFilters(filters)
   if (!normalized) return ''
@@ -229,6 +251,8 @@ const filterContentSignature = (filters: AutosaveFiltersState | null | undefined
     activeMode: normalized.activeMode,
     views,
     testerRecipeFilterMode: normalized.testerRecipeFilterMode ?? GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+    builderRecipeCollapsed: canonicalize(normalized.builderRecipeCollapsed),
+    builderSafeguardCollapsed: canonicalize(normalized.builderSafeguardCollapsed),
   })
 }
 

@@ -209,7 +209,14 @@ import { cloneMetaset, defaultMetasets, type Metaset } from './lib/metasets'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections, type ArtifactSetSelectionEntry } from './lib/gearSets/selection'
 import { generateMetasetNameWithFlag } from './lib/namegen'
 import { useDisplayPreferences, useDisplayPreferenceActions } from './state/preferencesState'
-import { useAutoApplySelectedRecipePreference } from './state/builderPreferences'
+import {
+  useAutoApplySelectedRecipePreference,
+  useBuilderRecipeCollapsedPreference,
+  useBuilderSafeguardCollapsedPreference,
+  resetBuilderCollapsedPreferences,
+  setBuilderRecipeCollapsed,
+  setBuilderSafeguardCollapsed,
+} from './state/builderPreferences'
 import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/recipeDuplicates'
@@ -453,6 +460,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [omitDisabledForExport, setOmitDisabledForExport] = useSellfileOmitDisabledPreference()
   const { statButtonBorders } = useDisplayPreferences()
   const [autoApplySelectedRecipe] = useAutoApplySelectedRecipePreference()
+  // Builder section collapse state — read here so the autosave memo can include it.
+  // Both panel hooks share the same underlying stores, so updates from the panels are
+  // immediately visible here and vice-versa (imperative reset/restore also updates the panels).
+  const [builderRecipeCollapsed] = useBuilderRecipeCollapsedPreference()
+  const [builderSafeguardCollapsed] = useBuilderSafeguardCollapsedPreference()
   const { setStatButtonBorders } = useDisplayPreferenceActions()
   // Normalize the note text so recipe overrides parsing never sees null.
   const recipeOverridesNoteText = (!noteRecipeOverridesDisabled && typeof sfrNote === 'string') ? sfrNote : ''
@@ -3064,7 +3076,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   
 
 
-  // Keep filter persistence snapshot sharable across autosave restore and writes.
+  // Keep filter and builder-layout persistence snapshot sharable across autosave restore and writes.
   const autosaveFiltersState = useMemo(() => {
     const views = RULES_FILTER_PREVIEW_MODES.reduce<Record<RulesFilterPreviewMode, AutosaveFilterView>>((acc, mode) => {
       // Each preview mode tracks its own drawer state so autosave restores the exact surface the user left.
@@ -3079,8 +3091,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       activeMode: previewMode,
       views,
       gearInspectorRecipeFilterMode,
+      // Builder section collapse is session state — autosave so the user's
+      // working layout is offered for restore alongside the filter panel state.
+      builderRecipeCollapsed,
+      builderSafeguardCollapsed,
     }
-  }, [filterOpenByMode, rulesFilterByMode, filterCollapsedByMode, previewMode, gearInspectorRecipeFilterMode])
+  }, [filterOpenByMode, rulesFilterByMode, filterCollapsedByMode, previewMode, gearInspectorRecipeFilterMode, builderRecipeCollapsed, builderSafeguardCollapsed])
 
   const {
     restoreDlgOpen: restoreDialogPending,
@@ -3125,8 +3141,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!restoreDialogPending || !restoreDraft?.Filters || !restoreFiltersDiffer) return
     if (filtersResetRef.current) return
     filtersResetRef.current = true
+    // Reset filter panel and builder section collapse to defaults so the user sees
+    // a clean slate before deciding whether to restore the autosaved layout.
     resetRulesFilterPreferences()
     setGearInspectorRecipeFilterMode('off')
+    resetBuilderCollapsedPreferences()
   }, [restoreDialogPending, restoreDraft, restoreFiltersDiffer, setGearInspectorRecipeFilterMode])
   const sortResetRef = useRef(false)
   useLayoutEffect(() => {
@@ -6848,6 +6867,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   if (draft.Filters.activeMode === 'rules' || draft.Filters.activeMode === 'gearInspector') {
                     setPreviewMode(draft.Filters.activeMode)
                   }
+                  // Restore builder section collapse layout alongside the filter state.
+                  if (draft.Filters.builderRecipeCollapsed) setBuilderRecipeCollapsed(draft.Filters.builderRecipeCollapsed)
+                  if (draft.Filters.builderSafeguardCollapsed) setBuilderSafeguardCollapsed(draft.Filters.builderSafeguardCollapsed)
                 } catch {}
               }
               if (selection.sort && restoreSortDiffer && draft.TesterSort) {
