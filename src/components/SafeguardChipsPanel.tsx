@@ -167,6 +167,10 @@ export default function SafeguardChipsPanel({
 
   // Scrolls the newly added/duplicated chip into view. Retries up to maxAttempts
   // frames because React may not have flushed the DOM node yet when this fires.
+  // Once the chip is found, scrollIntoView is called and then re-checked for
+  // SCROLL_SETTLE_EXTRA more frames to guard against layout reflows (e.g. the
+  // ResizeObserver measurement that updates maxHeightPx after a builder mode switch)
+  // that could shrink the container and push the chip back out of view.
   const scheduleScrollToRule = useCallback((ruleId: string) => {
     // Cancel any in-flight scroll attempt for a previous rule.
     if (scrollRafRef.current !== null) {
@@ -174,20 +178,29 @@ export default function SafeguardChipsPanel({
       scrollRafRef.current = null
     }
     const maxAttempts = 8
-    const tryScroll = (attempt: number) => {
+    const SCROLL_SETTLE_EXTRA = 4
+    const tryScroll = (attempt: number, scrolledAt: number | null) => {
       const root = scrollRootRef.current
       // Look up by the data attribute stamped on each chip box.
       const target = root?.querySelector(`[data-safeguards-rule-id="${ruleId}"]`) as HTMLElement | null
       if (target) {
         target.scrollIntoView({ block: 'nearest' })
-        scrollRafRef.current = null
+        // After the first successful scroll, keep re-scrolling for SCROLL_SETTLE_EXTRA
+        // frames so any post-mount layout reflow (e.g. maxHeight measurement update)
+        // doesn't leave the chip out of view.
+        const firstScrollAt = scrolledAt ?? attempt
+        if (attempt - firstScrollAt < SCROLL_SETTLE_EXTRA) {
+          scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(attempt + 1, firstScrollAt))
+        } else {
+          scrollRafRef.current = null
+        }
         return
       }
       // Give up after maxAttempts to avoid an unbounded rAF loop.
       if (attempt >= maxAttempts) { scrollRafRef.current = null; return }
-      scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(attempt + 1))
+      scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(attempt + 1, null))
     }
-    scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(0))
+    scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(0, null))
   }, [])
 
   // Cancel any pending scroll rAF on unmount to prevent post-unmount state updates.

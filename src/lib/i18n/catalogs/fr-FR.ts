@@ -1153,7 +1153,7 @@ const overrides: Catalog = {
   restoreAutosaveSafeguardsHelper: 'Restaure les règles de protection et leur état activé.',
   restoreAutosaveConstraintRecipesNeedMetasets: 'Les recettes exigent de restaurer les metasets de cette sauvegarde.',
   restoreAutosaveConstraintSafeguardsNeedMetasets: 'Les protections exigent de restaurer les metasets de cette sauvegarde.',
-  restoreAutosaveFiltersLabel: 'Vue & Filtres',
+  restoreAutosaveFiltersLabel: 'Vue, Filtres & Tri',
   restoreAutosaveFiltersHelper: 'Restaure l’état ouvert, la sélection et les sections réduites.',
   restoreAutosaveTesterLabel: 'Inspecteur d’équipement ({count})',
   restoreAutosaveTesterHelper: 'Charger l’équipement auto‑sauvegardé.',

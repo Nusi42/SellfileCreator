@@ -1161,7 +1161,7 @@ const enUS: Catalog = {
   restoreAutosaveSafeguardsHelper: 'Restores safeguard rules and enabled state.',
   restoreAutosaveConstraintRecipesNeedMetasets: 'Recipes require restoring metasets from this autosave.',
   restoreAutosaveConstraintSafeguardsNeedMetasets: 'Safeguards require restoring metasets from this autosave.',
-  restoreAutosaveFiltersLabel: 'View & Filter',
+  restoreAutosaveFiltersLabel: 'View, Filter & Sort',
   restoreAutosaveFiltersHelper: 'Restores panel open state, selection, collapsed sections, and sort preferences.',
   restoreAutosaveTesterLabel: 'Gear Inspector ({count})',
   restoreAutosaveTesterHelper: 'Load autosaved gear.',

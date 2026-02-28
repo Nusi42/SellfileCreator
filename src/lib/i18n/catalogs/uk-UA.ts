@@ -1153,7 +1153,7 @@ const overrides: Catalog = {
   restoreAutosaveSafeguardsHelper: 'Відновлює правила захистів і стан увімкнення.',
   restoreAutosaveConstraintRecipesNeedMetasets: 'Для рецептів потрібно відновити метасети з цього автозбереження.',
   restoreAutosaveConstraintSafeguardsNeedMetasets: 'Для захистів потрібно відновити метасети з цього автозбереження.',
-  restoreAutosaveFiltersLabel: 'Вигляд і Фільтр',
+  restoreAutosaveFiltersLabel: 'Вигляд, Фільтр і Сортування',
   restoreAutosaveFiltersHelper: 'Відновлює стан відкриття, вибір та згортання секцій.',
   restoreAutosaveTesterLabel: 'Інспектор спорядження ({count})',
   restoreAutosaveTesterHelper: 'Завантажити автозбережене спорядження.',

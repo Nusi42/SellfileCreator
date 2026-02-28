@@ -3137,8 +3137,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return substatTargetsSignature(restoreDraft.substatTargets) !== currentTargetsSignature
   }, [restoreDraft, currentTargetsSignature])
   const restoreFiltersDiffer = Boolean(restoreDraft?.Filters && !areFilterContentsDefault(restoreDraft.Filters))
-  // Sort (TesterSort) is bundled with filters; show the combined row when either differs.
-  const restoreSortDiffer = Boolean(restoreDraft && Object.prototype.hasOwnProperty.call(restoreDraft, 'TesterSort'))
+  // Sort differs when the saved TesterSort is present AND non-default — mirrors the Filters differ check.
+  const restoreSortDiffer = Boolean(restoreDraft?.TesterSort && !isDefaultGearInspectorSubstatSortState(restoreDraft.TesterSort))
   const filtersResetRef = useRef(false)
   useLayoutEffect(() => {
     // Reset filter/sort state to a clean baseline when either has changed, so the user
