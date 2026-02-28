@@ -2653,23 +2653,37 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
           {/* Keep the Action label glued to the toggle width so translations never wrap. */}
-          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
-            <MarkdownTooltip
-              // ellipsisTitle mirrors the inline ellipsis span so DE strings expose their full text via
-              // the OS tooltip without stacking another Markdown popper.
-              ellipsisTitle={t('builderAction')}
-              render={(
-                <BuilderTooltipContent
-                  text={[
-                    t('builderActionHelp'),
-                    t('builderMultiMixedTooltipSuffix'),
-                  ].join('\n')}
-                />
-              )}
-            >
-              <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderAction')}</Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0 }]}>
+              <MarkdownTooltip
+                // ellipsisTitle mirrors the inline ellipsis span so DE strings expose their full text via
+                // the OS tooltip without stacking another Markdown popper.
+                ellipsisTitle={t('builderAction')}
+                render={(
+                  <BuilderTooltipContent
+                    text={[
+                      t('builderActionHelp'),
+                      t('builderMultiMixedTooltipSuffix'),
+                    ].join('\n')}
+                  />
+                )}
+              >
+                <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderAction')}</Box>
+              </MarkdownTooltip>
+            </FormLabel>
+            {/* Help button sits beside the Action label for quick access. */}
+            <MarkdownTooltip markdown={t('builderHelpOpen')}>
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={(e) => setHelpAnchor(e.currentTarget as HTMLElement)}
+                aria-label={t('builderHelpOpen')}
+                sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
+              >
+                <HelpOutlineIcon fontSize="small" />
+              </IconButton>
             </MarkdownTooltip>
-          </FormLabel>
+          </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Box>
@@ -3067,17 +3081,6 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                     <RedoIcon fontSize="small" />
                   </IconButton>
                 </span>
-              </MarkdownTooltip>
-              <MarkdownTooltip markdown={t('builderHelpOpen')}>
-                <IconButton
-                  size="small"
-                  color="primary"
-                  onClick={(e) => setHelpAnchor(e.currentTarget as HTMLElement)}
-                  aria-label={t('builderHelpOpen')}
-                  sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
-                >
-                  <HelpOutlineIcon fontSize="small" />
-                </IconButton>
               </MarkdownTooltip>
             </Box>
             <ContextMenuHintOverlay text={t('contextMenuHint')} position={historyHintActive ? historyHintPos : null} />
@@ -3527,7 +3530,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         </Box>
         {/* Row 2: Right half (Level Window — range slider snapping to 0/4/8/12/16) */}
         <Box sx={(theme) => ({
-          gridColumn: '3 / 5',
+          gridColumn: '3 / 4',
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
@@ -3535,9 +3538,14 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           pt: 0.5,
           pb: 2,
         })} data-tour-id="builder.level-window">
-          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 1.5, display: 'block' }]}>
-            <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderLevelWindow')}</Box>
-          </FormLabel>
+          {/* Level label row mirrors Rank/Rarity/Faction pattern with a collapsible chevron. */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <BuilderSectionToggle id="level" />
+            <FormLabel sx={BUILDER_LABEL_INLINE_SX}>
+              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderLevelWindow')}</Box>
+            </FormLabel>
+          </Box>
+          <Collapse in={!builderCollapsed.level} timeout="auto" unmountOnExit>
           <Box sx={{ px: 1.5, position: 'relative' }}>
             <Slider
               size="small"
@@ -3578,6 +3586,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               `${levelLabel(effectiveMinLevel)}–${levelLabel(effectiveMaxLevel)}`,
             ))}
           </Box>
+          </Collapse>
         </Box>
         {/* Help popover */}
         <BuilderCheatSheetPopover
