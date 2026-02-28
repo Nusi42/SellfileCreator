@@ -46,14 +46,17 @@ import {
   SafeguardSubstatMatch,
   constrainSafeguardSubstats,
   normalizeSafeguardSubstatMatch,
+  normalizeSafeguardRule,
   pruneSafeguardsSubstatWeights,
   safeguardWeightsEnabled,
   sanitizeSafeguardCountMode,
   sortSafeguardCombination,
   sortSafeguardSubstats,
+  createFactorySafeguardBuilderDefaults,
   type SafeguardRule,
 } from '../lib/safeguards'
 import type { ColorBlindMode } from '../lib/constants'
+import { SAFEGUARD_BUILDER_USER_DEFAULTS_KEY } from '../lib/constants'
 import {
   STAT_VARIANTS_PRIORITY_ROW1,
   STAT_VARIANTS_PRIORITY_ROW2,
@@ -252,22 +255,40 @@ export default function SafeguardBuilderPanel({
   } = useBuilderHistoryMenu({ undoPreview, redoPreview, t, lang, onRequestClearHistory, onJumpToHistoryIndex })
 
   // ── action menus (Insert / Apply / Reset context menus + hover hints) ─────
+  // Incremented whenever user defaults are saved/cleared so isDefaultRule re-evaluates.
+  const [defaultsEpoch, setDefaultsEpoch] = useState(0)
+
   const isDefaultRule = useMemo(() => {
-    // A rule is "default" when nothing meaningful has been configured.
-    const c = rule.combination
-    return (
-      rule.activation === SafeguardRuleActivation.ProtectExisting &&
-      rule.requiredCount === 1 &&
-      (!c.slots || c.slots.length === 0) &&
-      (!c.sets || c.sets.length === 0) &&
-      (!c.ranks || c.ranks.length === 0) &&
-      (!c.rarities || c.rarities.length === 0) &&
-      (!c.mainStats || c.mainStats.length === 0) &&
-      (!c.factions || c.factions.length === 0) &&
-      (!rule.substats || rule.substats.length === 0) &&
-      !rule.name
-    )
-  }, [rule])
+    void defaultsEpoch // recompute when user defaults change
+    // Build effective defaults: user-saved if present, factory otherwise.
+    const factory = createFactorySafeguardBuilderDefaults()
+    let effectiveDefaults: Omit<SafeguardRule, 'id'> = factory
+    try {
+      const raw = localStorage.getItem(SAFEGUARD_BUILDER_USER_DEFAULTS_KEY)
+      if (raw) {
+        const normalized = normalizeSafeguardRule(JSON.parse(raw))
+        if (normalized) {
+          const { id: _id, ...rest } = normalized
+          effectiveDefaults = { ...factory, ...rest }
+        }
+      }
+    } catch {}
+    // Snapshot current rule fields in the same order as createFactorySafeguardBuilderDefaults.
+    const currentSnapshot: Omit<SafeguardRule, 'id'> = {
+      combination: rule.combination,
+      name: rule.name ?? '',
+      requiredCount: rule.requiredCount,
+      activation: rule.activation,
+      countMode: rule.countMode,
+      ignorePreviousSafeguards: rule.ignorePreviousSafeguards,
+      ignoreEquippedInCollection: rule.ignoreEquippedInCollection,
+      ignoreEquippedInVault: rule.ignoreEquippedInVault,
+      substats: rule.substats ?? [],
+      substatMatch: rule.substatMatch ?? SafeguardSubstatMatch.Any,
+      substatWeights: rule.substatWeights ?? {},
+    }
+    return JSON.stringify(currentSnapshot) === JSON.stringify(effectiveDefaults)
+  }, [rule, defaultsEpoch])
 
   const [builderCollapsed, setBuilderCollapsed] = useBuilderSafeguardCollapsedPreference()
 
@@ -1279,15 +1300,56 @@ export default function SafeguardBuilderPanel({
           </MenuItem>
         </Menu>
 
-        {/* Reset context menu (empty — reserved for future options) */}
+        {/* Reset context menu — save user defaults or revert to factory, mirrors recipe builder */}
         <Menu
           anchorEl={resetMenuAnchor}
           open={Boolean(resetMenuAnchor)}
           onClose={closeResetMenu}
           PaperProps={{ ref: resetMenuPaperRef }}
         >
-          <MenuItem disabled sx={{ fontSize: '0.75rem', color: 'text.disabled' }}>
-            {t('safeguardsBuilderReset')}
+          {(() => { void defaultsEpoch; return null })()}
+          <MenuItem
+            onClick={() => {
+              closeResetMenu()
+              // Save current rule (minus id) as user defaults; if identical to factory, clear the override.
+              const factory = createFactorySafeguardBuilderDefaults()
+              const current: Omit<SafeguardRule, 'id'> = {
+                combination: rule.combination,
+                name: rule.name ?? '',
+                requiredCount: rule.requiredCount,
+                activation: rule.activation,
+                countMode: rule.countMode,
+                ignorePreviousSafeguards: rule.ignorePreviousSafeguards,
+                ignoreEquippedInCollection: rule.ignoreEquippedInCollection,
+                ignoreEquippedInVault: rule.ignoreEquippedInVault,
+                substats: rule.substats ?? [],
+                substatMatch: rule.substatMatch ?? SafeguardSubstatMatch.Any,
+                substatWeights: rule.substatWeights ?? {},
+              }
+              const same = JSON.stringify(current) === JSON.stringify(factory)
+              try {
+                if (same) {
+                  localStorage.removeItem(SAFEGUARD_BUILDER_USER_DEFAULTS_KEY)
+                } else {
+                  // Store with a placeholder id so normalizeSafeguardRule can parse it on read.
+                  localStorage.setItem(SAFEGUARD_BUILDER_USER_DEFAULTS_KEY, JSON.stringify({ id: '__defaults__', ...current }))
+                }
+              } catch {}
+              setDefaultsEpoch((x) => x + 1)
+            }}
+          >
+            {t('builderMenuSaveUserDefaults')}
+          </MenuItem>
+          <MenuItem
+            disabled={(() => { try { return !localStorage.getItem(SAFEGUARD_BUILDER_USER_DEFAULTS_KEY) } catch { return true } })()}
+            onClick={() => {
+              closeResetMenu()
+              // Apply factory defaults to the current draft (keeps the same id).
+              const factory = createFactorySafeguardBuilderDefaults()
+              onChange((prev) => ({ id: prev.id, ...factory }))
+            }}
+          >
+            {t('builderMenuResetFactoryDefaults')}
           </MenuItem>
         </Menu>
       </Box>

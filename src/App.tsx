@@ -100,6 +100,8 @@ import {
   SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
   SafeguardRuleActivation,
   SafeguardSubstatMatch,
+  createFactorySafeguardBuilderDefaults,
+  normalizeSafeguardRule,
 } from './lib/safeguards'
 import { updateRecipeRulesCache } from './lib/ruleCache'
 import { hasRecipeMeaningfulDifferences } from './lib/recipeDiff'
@@ -203,7 +205,7 @@ function coerceWsEndpointToHttp(endpoint: string): string | null {
   return null
 }
 import { sellfileFilename, sfrFilename } from './lib/filenames'
-import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
+import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT, SAFEGUARD_BUILDER_USER_DEFAULTS_KEY } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
 import { cloneMetaset, defaultMetasets, type Metaset } from './lib/metasets'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections, type ArtifactSetSelectionEntry } from './lib/gearSets/selection'
@@ -1706,22 +1708,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return next
     })
   }, [describeNextChange, metasets, setSafeguardRulesTransition])
-  // Create a new safeguard rule object with defaults (also used for reset).
-  const createNewSafeguardRule = (): SafeguardRule => ({
-    id: createSafeguardRuleId(),
-    combination: { slots: [], sets: [], metaSetIds: [], ranks: [], rarities: [], mainStats: [], factions: [] },
-    name: '',
-    requiredCount: 1,
-    activation: SafeguardRuleActivation.ProtectExisting,
-    countMode: { ...SAFEGUARD_DEFAULT_COUNT_MODE },
-    ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
-    ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
-    ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
-    substats: [],
-    substatMatch: SafeguardSubstatMatch.Any,
-    substatWeights: {},
-  })
-
   // Insert the draft as a new rule after the currently selected rule (or at end).
   // Auto-reset-after-insert is applied by SafeguardBuilderPanel after calling this.
   const handleInsertSafeguardFromBuilder = useCallback(() => {
@@ -1748,9 +1734,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     applySafeguardRulesChange((prev) => prev.map((r) => (r.id === selectedSafeguardRuleId ? updated : r)))
   }, [applySafeguardRulesChange, selectedSafeguardRuleId])
 
-  // Reset the builder draft to factory defaults.
+  // Reset the builder draft to effective defaults: user-saved defaults if present, factory otherwise.
   const handleResetSafeguardBuilder = useCallback(() => {
-    setSafeguardBuilder(createNewSafeguardRule())
+    const factory = createFactorySafeguardBuilderDefaults()
+    let effectiveDefaults = factory
+    try {
+      const raw = localStorage.getItem(SAFEGUARD_BUILDER_USER_DEFAULTS_KEY)
+      if (raw) {
+        // Validate via normalizeSafeguardRule, then strip the generated id.
+        const normalized = normalizeSafeguardRule(JSON.parse(raw))
+        if (normalized) {
+          const { id: _id, ...rest } = normalized
+          effectiveDefaults = { ...factory, ...rest }
+        }
+      }
+    } catch {}
+    setSafeguardBuilder({ id: createSafeguardRuleId(), ...effectiveDefaults })
   }, [setSafeguardBuilder])
 
   // Select a rule chip: auto-apply the current draft, then load the new rule into the draft.

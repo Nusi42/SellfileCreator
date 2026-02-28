@@ -442,6 +442,9 @@ export const TUTORIAL_SEEN_VERSION_KEY = 'sellfileCreator.tutorial.seen.version'
 // builder's "Reset to defaults" uses this profile; otherwise it uses factory
 // defaults. Removing this key restores factory default behavior.
 export const BUILDER_USER_DEFAULTS_KEY = 'sellfileCreator.builder.userDefaults.v1'
+// Same concept for the safeguard builder: stores the user's preferred starting
+// state. When absent the builder resets to factory defaults.
+export const SAFEGUARD_BUILDER_USER_DEFAULTS_KEY = 'sellfileCreator.safeguardBuilder.userDefaults.v1'
 
 // Builder: when enabled, resets the builder controls to defaults immediately
 // after inserting a recipe (no confirmation). Default Off. Persisted here so

@@ -318,6 +318,22 @@ export function buildDefaultSafeguardRules(): SafeguardRule[] {
   return []
 }
 
+// Returns the factory (shipping) default field values for the safeguard builder
+// draft, without an id. Used to seed user-defaults logic (save / reset).
+export const createFactorySafeguardBuilderDefaults = (): Omit<SafeguardRule, 'id'> => ({
+  combination: { slots: [], sets: [], metaSetIds: [], ranks: [], rarities: [], mainStats: [], factions: [] },
+  name: '',
+  requiredCount: 1,
+  activation: SafeguardRuleActivation.ProtectExisting,
+  countMode: { ...SAFEGUARD_DEFAULT_COUNT_MODE },
+  ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
+  ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
+  ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
+  substats: [],
+  substatMatch: SafeguardSubstatMatch.Any,
+  substatWeights: {},
+})
+
 export type SafeguardDetectionArtifact = {
   itemKey: number
   slot: ArtifactTypeId
