@@ -1,24 +1,24 @@
 import { useCallback } from 'react'
 import {
   SAFEGUARDS_GRID_SHOW_OTHER_MATCHES_KEY,
-  TESTER_GRID_COLUMNS_KEY,
-  TESTER_GRID_SHOW_CHAMP_ICONS_KEY,
-  TESTER_GRID_SHOW_FIRST_MATCH_KEY,
-  TESTER_GRID_HIGHLIGHT_KEEP_SELL_KEY,
-  TESTER_GRID_SHOW_MATCH_RECIPE_INDEX_KEY,
-  TESTER_GRID_SHOW_MATCH_LINE_KEY,
-  TESTER_GRID_SHOW_OTHER_MATCHES_KEY,
-  TESTER_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY,
-  TESTER_GRID_SHOW_RULE_TEMPLATES_KEY,
+  GEAR_INSPECTOR_GRID_COLUMNS_KEY,
+  GEAR_INSPECTOR_GRID_SHOW_CHAMP_ICONS_KEY,
+  GEAR_INSPECTOR_GRID_SHOW_FIRST_MATCH_KEY,
+  GEAR_INSPECTOR_GRID_HIGHLIGHT_KEEP_SELL_KEY,
+  GEAR_INSPECTOR_GRID_SHOW_MATCH_RECIPE_INDEX_KEY,
+  GEAR_INSPECTOR_GRID_SHOW_MATCH_LINE_KEY,
+  GEAR_INSPECTOR_GRID_SHOW_OTHER_MATCHES_KEY,
+  GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY,
+  GEAR_INSPECTOR_GRID_SHOW_RULE_TEMPLATES_KEY,
 } from '../lib/constants'
 import { createLocalStorageStore } from './localStorageStore'
 
-export type TesterGridColumnMode = 4 | 5
-export type TesterGridPreferenceVariant = 'tester' | 'safeguards'
+export type GearInspectorGridColumnMode = 4 | 5
+export type GearInspectorGridPreferenceVariant = 'gearInspector' | 'safeguards'
 
-const testerGridColumnsStore = createLocalStorageStore<TesterGridColumnMode>({
-  key: TESTER_GRID_COLUMNS_KEY,
-  // Default to 4 columns so new sessions land on the denser tester-grid layout.
+const gearInspectorGridColumnsStore = createLocalStorageStore<GearInspectorGridColumnMode>({
+  key: GEAR_INSPECTOR_GRID_COLUMNS_KEY,
+  // Default to 4 columns so new sessions land on the denser Gear Inspector grid layout.
   fallback: 4,
   parse: (raw) => {
     // Treat missing or malformed values as the 4-column default.
@@ -31,15 +31,15 @@ const testerGridColumnsStore = createLocalStorageStore<TesterGridColumnMode>({
   serialize: (value) => (value === 4 ? '4' : '5'),
 })
 
-const testerGridShowFirstStore = createLocalStorageStore<boolean>({
-  key: TESTER_GRID_SHOW_FIRST_MATCH_KEY,
+const gearInspectorGridShowFirstStore = createLocalStorageStore<boolean>({
+  key: GEAR_INSPECTOR_GRID_SHOW_FIRST_MATCH_KEY,
   fallback: true,
   parse: (raw) => raw === 'false' ? false : true,
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
-const testerGridShowMatchRecipeStore = createLocalStorageStore<boolean>({
-  key: TESTER_GRID_SHOW_MATCH_RECIPE_INDEX_KEY,
+const gearInspectorGridShowMatchRecipeStore = createLocalStorageStore<boolean>({
+  key: GEAR_INSPECTOR_GRID_SHOW_MATCH_RECIPE_INDEX_KEY,
   // New installs should hide recipe indices in first-match chips until users opt in.
   fallback: false,
   // Missing or malformed storage should stay aligned with the "off by default" intent.
@@ -47,15 +47,15 @@ const testerGridShowMatchRecipeStore = createLocalStorageStore<boolean>({
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
-const testerGridShowMatchLineStore = createLocalStorageStore<boolean>({
-  key: TESTER_GRID_SHOW_MATCH_LINE_KEY,
+const gearInspectorGridShowMatchLineStore = createLocalStorageStore<boolean>({
+  key: GEAR_INSPECTOR_GRID_SHOW_MATCH_LINE_KEY,
   fallback: false,
   parse: (raw) => raw === 'true',
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
-const testerGridShowOtherStore = createLocalStorageStore<boolean>({
-  key: TESTER_GRID_SHOW_OTHER_MATCHES_KEY,
+const gearInspectorGridShowOtherStore = createLocalStorageStore<boolean>({
+  key: GEAR_INSPECTOR_GRID_SHOW_OTHER_MATCHES_KEY,
   fallback: true,
   parse: (raw) => raw === 'false' ? false : true,
   serialize: (value) => (value ? 'true' : 'false'),
@@ -69,66 +69,66 @@ const safeguardsGridShowOtherStore = createLocalStorageStore<boolean>({
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
-const testerGridShowChampIconsStore = createLocalStorageStore<boolean>({
-  key: TESTER_GRID_SHOW_CHAMP_ICONS_KEY,
+const gearInspectorGridShowChampIconsStore = createLocalStorageStore<boolean>({
+  key: GEAR_INSPECTOR_GRID_SHOW_CHAMP_ICONS_KEY,
   fallback: true,
   parse: (raw) => raw === 'false' ? false : true,
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
-const testerGridShowRuleTemplatesStore = createLocalStorageStore<boolean>({
-  key: TESTER_GRID_SHOW_RULE_TEMPLATES_KEY,
+const gearInspectorGridShowRuleTemplatesStore = createLocalStorageStore<boolean>({
+  key: GEAR_INSPECTOR_GRID_SHOW_RULE_TEMPLATES_KEY,
   // Default off so the grid stays clean unless the user opts in.
   fallback: false,
   parse: (raw) => raw === 'true',
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
-const testerGridHighlightKeepSellStore = createLocalStorageStore<boolean>({
-  key: TESTER_GRID_HIGHLIGHT_KEEP_SELL_KEY,
+const gearInspectorGridHighlightKeepSellStore = createLocalStorageStore<boolean>({
+  key: GEAR_INSPECTOR_GRID_HIGHLIGHT_KEEP_SELL_KEY,
   // Default on so keep/sell outcomes are emphasized immediately for new sessions.
   fallback: true,
   parse: (raw) => raw === 'true',
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
-const testerGridShowSafeguardUpgradeChanceStore = createLocalStorageStore<boolean>({
-  key: TESTER_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY,
+const gearInspectorGridShowSafeguardUpgradeChanceStore = createLocalStorageStore<boolean>({
+  key: GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY,
   // Default on so users see improvement guidance immediately.
   fallback: true,
   parse: (raw) => raw === 'true',
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
-export function useTesterGridPreferences(variant: TesterGridPreferenceVariant = 'tester') {
-  const columns = testerGridColumnsStore.useValue()
-  const showFirstMatch = testerGridShowFirstStore.useValue()
-  const showMatchRecipeIndex = testerGridShowMatchRecipeStore.useValue()
-  const showMatchLine = testerGridShowMatchLineStore.useValue()
-  const testerShowOtherMatches = testerGridShowOtherStore.useValue()
+export function useGearInspectorGridPreferences(variant: GearInspectorGridPreferenceVariant = 'gearInspector') {
+  const columns = gearInspectorGridColumnsStore.useValue()
+  const showFirstMatch = gearInspectorGridShowFirstStore.useValue()
+  const showMatchRecipeIndex = gearInspectorGridShowMatchRecipeStore.useValue()
+  const showMatchLine = gearInspectorGridShowMatchLineStore.useValue()
+  const gearInspectorShowOtherMatches = gearInspectorGridShowOtherStore.useValue()
   const safeguardsShowOtherMatches = safeguardsGridShowOtherStore.useValue()
   const showOtherMatches = variant === 'safeguards'
     ? safeguardsShowOtherMatches
-    : testerShowOtherMatches
-  const showChampionIcons = testerGridShowChampIconsStore.useValue()
-  const showRuleTemplates = testerGridShowRuleTemplatesStore.useValue()
-  const highlightKeepSell = testerGridHighlightKeepSellStore.useValue()
-  const showSafeguardUpgradeChance = testerGridShowSafeguardUpgradeChanceStore.useValue()
+    : gearInspectorShowOtherMatches
+  const showChampionIcons = gearInspectorGridShowChampIconsStore.useValue()
+  const showRuleTemplates = gearInspectorGridShowRuleTemplatesStore.useValue()
+  const highlightKeepSell = gearInspectorGridHighlightKeepSellStore.useValue()
+  const showSafeguardUpgradeChance = gearInspectorGridShowSafeguardUpgradeChanceStore.useValue()
 
-  const setColumns = useCallback((next: TesterGridColumnMode) => {
-    testerGridColumnsStore.set(next === 4 ? 4 : 5)
+  const setColumns = useCallback((next: GearInspectorGridColumnMode) => {
+    gearInspectorGridColumnsStore.set(next === 4 ? 4 : 5)
   }, [])
 
   const setShowFirstMatch = useCallback((next: boolean) => {
-    testerGridShowFirstStore.set(Boolean(next))
+    gearInspectorGridShowFirstStore.set(Boolean(next))
   }, [])
 
   const setShowMatchRecipeIndex = useCallback((next: boolean) => {
-    testerGridShowMatchRecipeStore.set(Boolean(next))
+    gearInspectorGridShowMatchRecipeStore.set(Boolean(next))
   }, [])
 
   const setShowMatchLine = useCallback((next: boolean) => {
-    testerGridShowMatchLineStore.set(Boolean(next))
+    gearInspectorGridShowMatchLineStore.set(Boolean(next))
   }, [])
 
   const setShowOtherMatches = useCallback((next: boolean) => {
@@ -136,23 +136,23 @@ export function useTesterGridPreferences(variant: TesterGridPreferenceVariant = 
       safeguardsGridShowOtherStore.set(Boolean(next))
       return
     }
-    testerGridShowOtherStore.set(Boolean(next))
+    gearInspectorGridShowOtherStore.set(Boolean(next))
   }, [variant])
 
   const setShowChampionIcons = useCallback((next: boolean) => {
-    testerGridShowChampIconsStore.set(Boolean(next))
+    gearInspectorGridShowChampIconsStore.set(Boolean(next))
   }, [])
 
   const setShowRuleTemplates = useCallback((next: boolean) => {
-    testerGridShowRuleTemplatesStore.set(Boolean(next))
+    gearInspectorGridShowRuleTemplatesStore.set(Boolean(next))
   }, [])
 
   const setHighlightKeepSell = useCallback((next: boolean) => {
-    testerGridHighlightKeepSellStore.set(Boolean(next))
+    gearInspectorGridHighlightKeepSellStore.set(Boolean(next))
   }, [])
 
   const setShowSafeguardUpgradeChance = useCallback((next: boolean) => {
-    testerGridShowSafeguardUpgradeChanceStore.set(Boolean(next))
+    gearInspectorGridShowSafeguardUpgradeChanceStore.set(Boolean(next))
   }, [])
 
   return {

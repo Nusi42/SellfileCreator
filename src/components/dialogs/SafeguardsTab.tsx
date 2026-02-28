@@ -72,7 +72,7 @@ import {
 import { buildReadableSafeguardRuleEntry } from '../../lib/sfrIO'
 import type { BuilderRecipe } from '../../lib/hsfBuilder/types'
 import { parseRecipeNameDirectives } from '../../lib/recipeNameDirectives'
-import type { TesterPreviewRow } from '../../types/testerPreview'
+import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
 import type { ColorBlindMode } from '../../lib/constants'
 import {
   BUILDER_AUTO_APPLY_DEBOUNCE_MS,
@@ -94,12 +94,12 @@ import {
   rarityCodeToName,
   statVariantI18nKey,
 } from '../../lib/types'
-import { slotSelectionAllowsAccessories } from '../../lib/testerDomain'
+import { slotSelectionAllowsAccessories } from '../../lib/gearInspectorDomain'
 import { useI18n } from '../../lib/i18n'
 import { readTextSafe, triggerCopyDialog, writeTextSafe } from '../../lib/clipboard'
 import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSetsSelect, GearSlotSelect, GearSubstatSelect } from '../gear'
-import { TesterItemsGrid } from '../TesterItemsGrid'
-import TesterOutcomeSummaryChip from '../TesterOutcomeSummaryChip'
+import { GearInspectorItemsGrid } from '../GearInspectorItemsGrid'
+import GearInspectorOutcomeSummaryChip from '../GearInspectorOutcomeSummaryChip'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
 import WorkloadProgressIndicator from '../WorkloadProgressIndicator'
 // MarkdownTooltip keeps the rule-count hints and info icons synchronized with the broader tooltip refactor.
@@ -140,12 +140,12 @@ import {
 } from '../../lib/keepOverrideLayout'
 import {
   parseSpacingPx,
-  TESTER_GRID_COLUMN_GAP_UNITS,
-  TESTER_GRID_CONTAINER_PADDING_END_UNITS,
-  TESTER_GRID_ROW_PADDING_UNITS,
-} from '../../lib/testerGridLayout'
-import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT, TESTER_SORT_WEIGHT_STEP } from '../../lib/testerSort'
-import { TesterSortWeightControls } from '../TesterSortWeightControls'
+  GEAR_INSPECTOR_GRID_COLUMN_GAP_UNITS,
+  GEAR_INSPECTOR_GRID_CONTAINER_PADDING_END_UNITS,
+  GEAR_INSPECTOR_GRID_ROW_PADDING_UNITS,
+} from '../../lib/gearInspectorGridLayout'
+import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT, GEAR_INSPECTOR_SORT_WEIGHT_STEP } from '../../lib/gearInspectorSort'
+import { GearInspectorSortWeightControls } from '../GearInspectorSortWeightControls'
 import { useContextMenuPaperGuard } from '../../hooks/useContextMenuPaperGuard'
 import { createBuilderStatusChipSx } from '../builderStatusChipStyles'
 
@@ -203,9 +203,9 @@ type SafeguardsTabProps = {
   onRulesChange: (next: SetStateAction<SafeguardRule[]>) => void
   onToggleEnabled: (next: SetStateAction<boolean>) => void
   detection: SafeguardDetectionSnapshot | null
-  gearEntries: TesterPreviewRow[]
+  gearEntries: GearInspectorPreviewRow[]
   uniqueItemKeys: ReadonlySet<number>
-  testerCardWidthPx: number | null
+  gearInspectorCardWidthPx: number | null
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
   onToggleStatColors: (next: boolean) => void
@@ -232,7 +232,7 @@ export default function SafeguardsTab({
   detection,
   gearEntries,
   uniqueItemKeys,
-  testerCardWidthPx,
+  gearInspectorCardWidthPx,
   substatColors,
   useStatButtonColors,
   onToggleStatColors,
@@ -254,13 +254,13 @@ export default function SafeguardsTab({
   const theme = useTheme()
   // Keep builder-status chip styling centralized so match chips align with scope toggles.
   const builderStatusChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
-  // Grid layout uses the same spacing units as the tester grid.
-  const gridGapPx = useMemo(() => parseSpacingPx(theme.spacing(TESTER_GRID_COLUMN_GAP_UNITS)), [theme])
+  // Grid layout uses the same spacing units as the Gear Inspector grid.
+  const gridGapPx = useMemo(() => parseSpacingPx(theme.spacing(GEAR_INSPECTOR_GRID_COLUMN_GAP_UNITS)), [theme])
   // Row padding is applied on both sides of the card row container.
-  const gridRowPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(TESTER_GRID_ROW_PADDING_UNITS)), [theme])
+  const gridRowPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(GEAR_INSPECTOR_GRID_ROW_PADDING_UNITS)), [theme])
   // Scroll container padding must be accounted for when sizing the grid pane.
   const gridContainerPaddingEndPx = useMemo(
-    () => parseSpacingPx(theme.spacing(TESTER_GRID_CONTAINER_PADDING_END_UNITS)),
+    () => parseSpacingPx(theme.spacing(GEAR_INSPECTOR_GRID_CONTAINER_PADDING_END_UNITS)),
     [theme],
   )
   // Scrollbar width is measured from the grid so pane width stays aligned.
@@ -298,7 +298,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
   const safeguardsFinalSellWarning = enabled && finalSellCoverageWarningActive
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(() => rules[0]?.id ?? null)
   const [respectManualDeselect, setRespectManualDeselect] = useState(false)
-  // Keep expansion state separate from the selection used to highlight tester rows; multiple cards can stay open.
+  // Keep expansion state separate from the selection used to highlight Gear Inspector rows; multiple cards can stay open.
   const [expandedRuleIds, setExpandedRuleIds] = useState<ReadonlySet<string>>(() => {
     const firstId = rules[0]?.id
     // When opening the tab, only auto-expand if there is exactly one rule; otherwise start fully collapsed.
@@ -463,7 +463,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
   /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
 
   const detectionEntries = useMemo(() => detection?.entries ?? [], [detection])
-  // Resolve metaset-backed safeguards so the tester overlay evaluates the same concrete set filters as detection.
+  // Resolve metaset-backed safeguards so the Gear Inspector overlay evaluates the same concrete set filters as detection.
   const resolvedRulesForUpgradeChance = useMemo(
     () => resolveSafeguardRulesWithMetasets(rules, metasets),
     [metasets, rules],
@@ -484,10 +484,10 @@ ${t('safeguardsIgnoreOptionsHint')}`
     return gearEntries.filter((row) => uniqueItemKeySet.has(getSafeguardItemKey(row.artifact)))
   }, [gearEntries, uniqueItemKeySet])
   const uniqueFilterActive = gearEntries.length > uniqueRows.length
-  // Highlight callback lets the tester grid fade non-matching cards instead of mutating the dataset.
+  // Highlight callback lets the Gear Inspector grid fade non-matching cards instead of mutating the dataset.
   const highlightRowPredicate = useMemo(() => {
     if (!selectedEntry || selectedItemKeys.size === 0) return null
-    return (row: TesterPreviewRow) => selectedItemKeys.has(getSafeguardItemKey(row.artifact))
+    return (row: GearInspectorPreviewRow) => selectedItemKeys.has(getSafeguardItemKey(row.artifact))
   }, [selectedEntry, selectedItemKeys])
   const highlightActive = Boolean(highlightRowPredicate)
   // Treat selection mode as active whenever a rule is selected, even with zero matches.
@@ -1643,8 +1643,8 @@ ${t('safeguardsIgnoreOptionsHint')}`
                         // Only show weight controls for selected substats; unselected rows keep the ghost badge.
                         if (!selected) return null
                         // Normalize the stored weight so the control stays in the shared 0.05 step grid.
-                        const rawWeight = Number(rule.substatWeights?.[variant] ?? TESTER_SORT_WEIGHT_DEFAULT)
-                        const weight = normalizeTesterSortWeight(rawWeight)
+                        const rawWeight = Number(rule.substatWeights?.[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
+                        const weight = normalizeGearInspectorSortWeight(rawWeight)
                         return (
                           <Box
                             // Stop menu row toggles when the user clicks the weight controls.
@@ -1652,7 +1652,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
                             onMouseDown={(event) => event.stopPropagation()}
                             sx={{ display: 'inline-flex' }}
                           >
-                            <TesterSortWeightControls
+                            <GearInspectorSortWeightControls
                               label={label}
                               enabled={!ruleDisabled}
                               weight={weight}
@@ -1661,11 +1661,11 @@ ${t('safeguardsIgnoreOptionsHint')}`
                                 updateRule(rule.id, (prev) => {
                                   // Always normalize the weight so stored values stay consistent.
                                   const rawWeights = prev.substatWeights ?? {}
-                                  const currentRaw = Number(rawWeights[variant] ?? TESTER_SORT_WEIGHT_DEFAULT)
-                                  const current = normalizeTesterSortWeight(currentRaw)
-                                  const nextValue = normalizeTesterSortWeight(current + (deltaSteps * TESTER_SORT_WEIGHT_STEP))
+                                  const currentRaw = Number(rawWeights[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
+                                  const current = normalizeGearInspectorSortWeight(currentRaw)
+                                  const nextValue = normalizeGearInspectorSortWeight(current + (deltaSteps * GEAR_INSPECTOR_SORT_WEIGHT_STEP))
                                   const nextWeights = { ...rawWeights }
-                                  if (nextValue === TESTER_SORT_WEIGHT_DEFAULT) {
+                                  if (nextValue === GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT) {
                                     delete nextWeights[variant]
                                   } else {
                                     nextWeights[variant] = nextValue
@@ -2039,16 +2039,16 @@ ${t('safeguardsIgnoreOptionsHint')}`
               const rulesColumnMinWidth = gridColumnMode === 2
                 ? KEEP_OVERRIDE_RULES_COLUMN_MIN_WIDTH_COMPACT_PX
                 : KEEP_OVERRIDE_RULES_COLUMN_MIN_WIDTH_PX
-              // Use the measured tester card width so 1/2-column modes keep cards identical.
+              // Use the measured Gear Inspector card width so 1/2-column modes keep cards identical.
               const gridPaneWidth = resolveKeepOverrideGridPaneWidth({
                 gridColumnMode,
-                targetCardWidthPx: testerCardWidthPx,
+                targetCardWidthPx: gearInspectorCardWidthPx,
                 containerPaddingInlineEndPx: gridContainerPaddingEndPx,
                 containerScrollbarWidthPx: gridScrollbarWidthPx,
                 gridGapPx,
                 rowPaddingPx: gridRowPaddingPx,
               })
-              // Fall back to a flexible grid pane if the tester width is unknown.
+              // Fall back to a flexible grid pane if the Gear Inspector card width is unknown.
               return gridPaneWidth
                 ? `minmax(${rulesColumnMinWidth}px, 1fr) ${gridPaneWidth}`
                 : `minmax(${rulesColumnMinWidth}px, 1fr) minmax(0, 1fr)`
@@ -2324,7 +2324,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
                 {/* Shared spinner keeps the dialog aligned with the preview chip busy indicator. */}
                 <WorkloadProgressIndicator progressRatio={workloadProgressRatio} ariaLabel={t('safeguardsScanPending')} />
                 {selectionChipLabel ? (
-                  <TesterOutcomeSummaryChip
+                  <GearInspectorOutcomeSummaryChip
                     summary={selectionChipSummary}
                     showWhenEmpty
                     metricMode="safeguardsOnly"
@@ -2334,7 +2334,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
               </Box>
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
-              <TesterItemsGrid
+              <GearInspectorItemsGrid
                 // Use keep-override variant for 1/2 column toggles and empty-state copy.
                 rows={gridRows}
                 allRows={uniqueRows}
@@ -2357,7 +2357,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
                 suppressMatchDetails={suppressMatchDetails}
                 safeguardsEnabled={enabled}
                 safeguardUpgradeChanceRules={resolvedRulesForUpgradeChance}
-                hasTesterData={hasPreviewGear}
+                hasGearInspectorData={hasPreviewGear}
                 emptyStateOptions={!hasPreviewGear ? {
                   borderVariant: 'dashed',
                   minHeight: '100%',

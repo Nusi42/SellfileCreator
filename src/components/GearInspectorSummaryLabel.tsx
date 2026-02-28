@@ -1,8 +1,8 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
-import { TESTER_COMPACT_ICON_SIZE_PX } from '../lib/constants'
+import { GEAR_INSPECTOR_COMPACT_ICON_SIZE_PX } from '../lib/constants'
 
-export type TesterSummaryLabelProps = {
+export type GearInspectorSummaryLabelProps = {
   label: React.ReactNode
   icon?: React.ReactNode | undefined
   color?: string | undefined
@@ -10,12 +10,12 @@ export type TesterSummaryLabelProps = {
 }
 
 /**
- * TesterSummaryLabel
+ * GearInspectorSummaryLabel
  *
- * Consistent inline label + optional icon treatment shared between the Rule
- * Tester dialog and preview rows so item summaries stay visually aligned.
+ * Consistent inline label + optional icon treatment shared between the Gear
+ * Inspector dialog and preview rows so item summaries stay visually aligned.
  */
-export function TesterSummaryLabel({ label, icon, color, wrap = false }: TesterSummaryLabelProps) {
+export function GearInspectorSummaryLabel({ label, icon, color, wrap = false }: GearInspectorSummaryLabelProps) {
   return (
     <Box
       sx={{
@@ -35,13 +35,13 @@ export function TesterSummaryLabel({ label, icon, color, wrap = false }: TesterS
       {icon ? (
         <Box
           sx={{
-            width: `${TESTER_COMPACT_ICON_SIZE_PX}px`,
-            height: `${TESTER_COMPACT_ICON_SIZE_PX}px`,
+            width: `${GEAR_INSPECTOR_COMPACT_ICON_SIZE_PX}px`,
+            height: `${GEAR_INSPECTOR_COMPACT_ICON_SIZE_PX}px`,
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
-            fontSize: `${TESTER_COMPACT_ICON_SIZE_PX}px`,
+            fontSize: `${GEAR_INSPECTOR_COMPACT_ICON_SIZE_PX}px`,
             '& svg, & img': {
               width: '100%',
               height: '100%',
@@ -70,4 +70,4 @@ export function TesterSummaryLabel({ label, icon, color, wrap = false }: TesterS
   )
 }
 
-export default TesterSummaryLabel
+export default GearInspectorSummaryLabel

@@ -13,8 +13,8 @@ import type {
 import type { ChampionLookupRecord } from './gearDbNormalizer'
 import type { RankValue } from '../types'
 import {
-  coerceTesterRarity,
-} from '../testerDomain'
+  coerceGearInspectorRarity,
+} from '../gearInspectorDomain'
 import { coerceLastUseValue } from './gearDbTime'
 
 export type ChampionLookup = Map<number, ChampionLookupRecord>
@@ -29,11 +29,11 @@ const sanitizeBaseHeroId = (value: unknown): number | null => {
 }
 
 const sanitizeRarity = (value: unknown): RankValue | null => {
-  // Reuse the tester-domain coercion so JSON snapshots and SQL blobs normalize
+  // Reuse the Gear Inspector domain coercion so JSON snapshots and SQL blobs normalize
   // rarities the exact same way.
   const num = typeof value === 'number' ? value : Number(value)
   if (!Number.isFinite(num)) return null
-  return coerceTesterRarity(num, 6)
+  return coerceGearInspectorRarity(num, 6)
 }
 
 /**

@@ -1,20 +1,20 @@
 /**
- * TesterSortWeightControls
+ * GearInspectorSortWeightControls
  *
  * Shared weight control strip used by:
  * - Sort popout (Normalized weight editing)
- * - Tester grid normalized preset editor
+ * - Gear Inspector grid normalized preset editor
  *
  * Why: Keep the weight interaction and chip styling in one place so updates stay consistent.
  */
 import React from 'react'
 import { Box } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT } from '../lib/testerSort'
+import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
 import { STATUS_CHIP_BORDER_RADIUS_PX } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
 
-export type TesterSortWeightControlsProps = {
+export type GearInspectorSortWeightControlsProps = {
   // Human label for aria strings (e.g., "SPD").
   label: string
   // Whether the controls are interactive; disabled state also affects visuals.
@@ -31,22 +31,22 @@ export type TesterSortWeightControlsProps = {
 
 const formatWeight = (value: number, prefix: string): string => {
   // Weight values are normalized to 2 decimals (0.05 steps); keep display stable across locales.
-  const safe = Number.isFinite(value) ? value : TESTER_SORT_WEIGHT_DEFAULT
+  const safe = Number.isFinite(value) ? value : GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT
   return `${prefix}${safe.toFixed(2)}`
 }
 
-export function TesterSortWeightControls({
+export function GearInspectorSortWeightControls({
   label,
   enabled,
   weight,
   weightPrefix = '×',
   onBump,
   onReset,
-}: TesterSortWeightControlsProps) {
+}: GearInspectorSortWeightControlsProps) {
   const { t } = useI18n()
 
   // Normalize weight so the UI never shows floating point drift (0.05 steps).
-  const resolvedWeight = normalizeTesterSortWeight(weight)
+  const resolvedWeight = normalizeGearInspectorSortWeight(weight)
   const weightLabel = formatWeight(resolvedWeight, weightPrefix)
 
   const holdRef = React.useRef<{

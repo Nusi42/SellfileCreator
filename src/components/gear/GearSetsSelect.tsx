@@ -354,7 +354,7 @@ export default function GearSetsSelect({
   // Choose the active padding so the select width matches the badge state.
   const inlinePaddingPx = showExtraBadge ? paddingWithBadge : paddingWithoutBadge
   const contentMaxWidth = computeInlineSelectContentMaxWidth(inlinePaddingPx)
-  // Mirror the tester filter behavior by showing how many sets/metasets extend beyond the inline label.
+  // Mirror the Gear Inspector filter behavior by showing how many sets/metasets extend beyond the inline label.
   const extraSelectionCount = showExtraBadge ? hiddenCount : 0
 
   // Keep the badge synchronized with layout changes (1 vs 2 column width).

@@ -1,9 +1,9 @@
 /**
- * testerNormalizedPresets.ts
+ * gearInspectorNormalizedPresets.ts
  *
  * Shared "Normalized score" preset metadata used by:
- * - Rule Tester grid score overlay presets
- * - Rule Tester "Normalized" sort source selection
+ * - Gear Inspector grid score overlay presets
+ * - Gear Inspector "Normalized" sort source selection
  *
  * Keeping these constants/types centralized prevents UI state and persistence formats
  * from drifting when new presets are added or reordered.
@@ -13,21 +13,21 @@ import { metasetIconOptionById, type MetasetIconId } from './metasetIcons'
 import { StatVariant, STAT_VARIANTS_PRIORITY } from './types'
 
 // Presets are UI-facing as [1..9], but stored internally as [0..8] to keep arrays compact.
-export const TESTER_NORMALIZED_PRESET_COUNT = 9 as const
+export const GEAR_INSPECTOR_NORMALIZED_PRESET_COUNT = 9 as const
 
-export type TesterNormalizedPresetId =
+export type GearInspectorNormalizedPresetId =
   | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 
-export type TesterNormalizedPresetDefinition = {
+export type GearInspectorNormalizedPresetDefinition = {
   // Optional icon/glyph to represent the preset.
-  // Note: 'none' renders as the numeric id on the preset button (see `formatTesterNormalizedPresetButtonLabel`).
+  // Note: 'none' renders as the numeric id on the preset button (see `formatGearInspectorNormalizedPresetButtonLabel`).
   iconId: MetasetIconId
   // Selected substats that participate in the normalized score sum (with optional weight overrides).
   // This avoids redundant storage of "selected variants" and "weights" as separate structures.
   entries: readonly { variant: StatVariant; weight?: number | undefined }[]
 }
 
-const DEFAULT_TESTER_NORMALIZED_PRESET_DEFINITIONS: readonly TesterNormalizedPresetDefinition[] = [
+const DEFAULT_GEAR_INSPECTOR_NORMALIZED_PRESET_DEFINITIONS: readonly GearInspectorNormalizedPresetDefinition[] = [
   // [1] SPD only
   { iconId: 'glyph.lightning', entries: [{ variant: StatVariant.SPD }] },
   // [2] SPD *1.05, ACC *1.0
@@ -65,11 +65,11 @@ const DEFAULT_TESTER_NORMALIZED_PRESET_DEFINITIONS: readonly TesterNormalizedPre
   { iconId: 'glyph.sparkles', entries: STAT_VARIANTS_PRIORITY.map((variant) => ({ variant })) },
 ] as const
 
-export function defaultTesterNormalizedPreset(
-  presetId: TesterNormalizedPresetId,
+export function defaultGearInspectorNormalizedPreset(
+  presetId: GearInspectorNormalizedPresetId,
 ): { iconId: MetasetIconId; variants: StatVariant[]; weights: Partial<Record<StatVariant, number>> } {
   // Preset ids are array indexes by design; keep the fallback deterministic for corrupted persistence.
-  const preset = DEFAULT_TESTER_NORMALIZED_PRESET_DEFINITIONS[presetId] ?? { iconId: 'none', entries: [] }
+  const preset = DEFAULT_GEAR_INSPECTOR_NORMALIZED_PRESET_DEFINITIONS[presetId] ?? { iconId: 'none', entries: [] }
   const variants: StatVariant[] = []
   const weights: Partial<Record<StatVariant, number>> = {}
   preset.entries.forEach((entry) => {
@@ -81,8 +81,8 @@ export function defaultTesterNormalizedPreset(
   return { iconId: preset.iconId, variants, weights }
 }
 
-export function formatTesterNormalizedPresetButtonLabel(
-  presetId: TesterNormalizedPresetId,
+export function formatGearInspectorNormalizedPresetButtonLabel(
+  presetId: GearInspectorNormalizedPresetId,
   iconId: MetasetIconId,
 ): string {
   // Display behavior:
@@ -93,14 +93,14 @@ export function formatTesterNormalizedPresetButtonLabel(
   return metasetIconOptionById(iconId).glyph
 }
 
-export function buildTesterNormalizedPresetTooltipMarkdown(args: {
+export function buildGearInspectorNormalizedPresetTooltipMarkdown(args: {
   title: string
   preset: { variants: readonly StatVariant[]; weights?: Partial<Record<StatVariant, number>> | null | undefined }
   labelForVariant: (variant: StatVariant) => string
   emptyLabel: string
   rightClickHint?: string | null | undefined
 }): string {
-  // Tooltip content is shared between the Sort popout and the tester-grid context menu so the user sees
+  // Tooltip content is shared between the Sort popout and the Gear Inspector grid context menu so the user sees
   // identical information for a given preset regardless of where it is toggled.
   const { title, preset, labelForVariant, emptyLabel, rightClickHint } = args
   const lines: string[] = [`**${title}**`]

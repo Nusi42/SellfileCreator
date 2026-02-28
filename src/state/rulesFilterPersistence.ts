@@ -2,8 +2,11 @@
  * rulesFilterPersistence.ts
  *
  * Shared persistence helpers for the view-only rules filter UI.
- * Every mode (Sellfile vs Rule Tester) keeps an independent snapshot so
+ * Every mode (Sellfile vs Gear Inspector) keeps an independent snapshot so
  * switching tabs never clobbers the other side’s state.
+ *
+ * Migration note: older builds stored the Gear Inspector mode as ‘tester’.
+ * The parse helpers below silently promote that to ‘gearInspector’ on read.
  */
 import { useCallback } from 'react'
 import {
@@ -20,8 +23,10 @@ export const RULES_FILTER_STATE_STORAGE_KEY = 'sellfileCreator.rulesFilter.state
 export const RULES_FILTER_COLLAPSED_STORAGE_KEY = 'sellfileCreator.rulesFilter.collapse.v3'
 const RULES_FILTER_SYNC_STORAGE_KEY = 'sellfileCreator.rulesFilter.sync.v1'
 
-export const RULES_FILTER_PREVIEW_MODES = Object.freeze(['rules', 'tester'] as const)
+export const RULES_FILTER_PREVIEW_MODES = Object.freeze(['rules', 'gearInspector'] as const)
 export type RulesFilterPreviewMode = typeof RULES_FILTER_PREVIEW_MODES[number]
+// Legacy key used by builds before the Rule Tester → Gear Inspector rename; used for migration only.
+const LEGACY_TESTER_MODE_KEY = 'tester' as const
 
 type ModeScoped<T> = Record<RulesFilterPreviewMode, T>
 
@@ -90,6 +95,7 @@ function createModeScopedValue<T>(factory: () => T): ModeScoped<T> {
 }
 
 // LocalStorage entries are user-editable, so sanitize them back into a complete per-mode map.
+// Entries stored under the legacy 'tester' key are promoted to 'gearInspector' on read.
 const parseBooleanMap = (raw: string | null): ModeScoped<boolean> => {
   if (!raw) return cloneDefaultFilterOpenByMode()
   try {
@@ -97,7 +103,8 @@ const parseBooleanMap = (raw: string | null): ModeScoped<boolean> => {
     if (!parsed || typeof parsed !== 'object') return cloneDefaultFilterOpenByMode()
     const next = cloneDefaultFilterOpenByMode()
     for (const mode of RULES_FILTER_PREVIEW_MODES) {
-      const candidate = parsed[mode]
+      // Fall back to the legacy 'tester' key if the canonical 'gearInspector' key is absent.
+      const candidate = parsed[mode] ?? (mode === 'gearInspector' ? parsed[LEGACY_TESTER_MODE_KEY] : undefined)
       next[mode] = typeof candidate === 'boolean' ? candidate : RULES_FILTER_OPEN_DEFAULT
     }
     return next
@@ -129,6 +136,7 @@ const filterOpenStore = createLocalStorageStore<ModeScoped<boolean>>({
 })
 
 // Rules filter state can be large; treat malformed payloads as fresh clones so UI never crashes.
+// Legacy 'tester' key data is promoted to 'gearInspector' on read for backward compatibility.
 const parseRulesFilterStateMap = (raw: string | null): ModeScoped<RulesFilterState> => {
   if (!raw) return cloneDefaultRulesFilterStateByMode()
   try {
@@ -136,7 +144,8 @@ const parseRulesFilterStateMap = (raw: string | null): ModeScoped<RulesFilterSta
     if (!parsed || typeof parsed !== 'object') return cloneDefaultRulesFilterStateByMode()
     const next = cloneDefaultRulesFilterStateByMode()
     for (const mode of RULES_FILTER_PREVIEW_MODES) {
-      next[mode] = sanitizeRulesFilterState(parsed[mode])
+      const raw = parsed[mode] ?? (mode === 'gearInspector' ? parsed[LEGACY_TESTER_MODE_KEY] : undefined)
+      next[mode] = sanitizeRulesFilterState(raw)
     }
     return next
   } catch {
@@ -168,6 +177,7 @@ const filterStateStore = createLocalStorageStore<ModeScoped<RulesFilterState>>({
 })
 
 // Collapsed sections are stored per mode; clamp unknown keys back to the default collapsed map.
+// Legacy 'tester' key is promoted to 'gearInspector' on read.
 const parseCollapsedMap = (raw: string | null): ModeScoped<CollapsedSections> => {
   if (!raw) return cloneDefaultRulesFilterCollapsedByMode()
   try {
@@ -175,7 +185,7 @@ const parseCollapsedMap = (raw: string | null): ModeScoped<CollapsedSections> =>
     if (!parsed || typeof parsed !== 'object') return cloneDefaultRulesFilterCollapsedByMode()
     const next = cloneDefaultRulesFilterCollapsedByMode()
     for (const mode of RULES_FILTER_PREVIEW_MODES) {
-      const candidate = parsed[mode]
+      const candidate = parsed[mode] ?? (mode === 'gearInspector' ? parsed[LEGACY_TESTER_MODE_KEY] : undefined)
       if (!candidate || typeof candidate !== 'object') continue
       const snapshot = cloneDefaultRulesFilterCollapsed()
       for (const section of RULES_FILTER_COLLAPSIBLE_SECTION_IDS) {

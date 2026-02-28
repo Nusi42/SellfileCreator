@@ -1,22 +1,22 @@
 /**
- * testerGridLayout.ts
+ * gearInspectorGridLayout.ts
  *
- * Shared layout constants + helpers for the tester grid.
+ * Shared layout constants + helpers for the Gear Inspector grid.
  */
 
-// Column gap units inside the tester grid (theme.spacing multiplier).
-export const TESTER_GRID_COLUMN_GAP_UNITS = 0.375
+// Column gap units inside the Gear Inspector grid (theme.spacing multiplier).
+export const GEAR_INSPECTOR_GRID_COLUMN_GAP_UNITS = 0.375
 
 // Horizontal padding units applied to each grid row container.
-export const TESTER_GRID_ROW_PADDING_UNITS = 0.75
+export const GEAR_INSPECTOR_GRID_ROW_PADDING_UNITS = 0.75
 
-// Inline end padding applied to the tester grid scroll container.
-export const TESTER_GRID_CONTAINER_PADDING_END_UNITS = 0.5
+// Inline end padding applied to the Gear Inspector grid scroll container.
+export const GEAR_INSPECTOR_GRID_CONTAINER_PADDING_END_UNITS = 0.5
 
 // Parse a spacing string (e.g. "12px") into a numeric pixel value.
 export const parseSpacingPx = (value: string): number => Number.parseFloat(value) || 0
 
-type ResolveTesterCardWidthParams = {
+type ResolveGearInspectorCardWidthParams = {
   panelWidthPx: number | null
   panelPaddingPx: number
   containerPaddingInlineEndPx: number
@@ -26,8 +26,8 @@ type ResolveTesterCardWidthParams = {
   columnCount: number
 }
 
-// Resolve the Rule Tester card width from a panel width + spacing constants.
-export const resolveTesterCardWidthPx = ({
+// Resolve the Gear Inspector card width from a panel width + spacing constants.
+export const resolveGearInspectorCardWidthPx = ({
   panelWidthPx,
   panelPaddingPx,
   containerPaddingInlineEndPx,
@@ -35,7 +35,7 @@ export const resolveTesterCardWidthPx = ({
   gridGapPx,
   rowPaddingPx,
   columnCount,
-}: ResolveTesterCardWidthParams): number | null => {
+}: ResolveGearInspectorCardWidthParams): number | null => {
   // Guard against missing measurements or invalid inputs.
   if (!Number.isFinite(panelWidthPx)) return null
   const normalizedPanelWidth = Math.max(0, Number(panelWidthPx))

@@ -1,8 +1,8 @@
 import * as React from 'react'
-import type { TesterSortKey } from '../lib/testerSort'
+import type { GearInspectorSortKey } from '../lib/gearInspectorSort'
 
 /**
- * TesterSortPopout easter egg (UI-only mischief).
+ * GearInspectorSortPopout easter egg (UI-only mischief).
  *
  * Contract:
  * - Trigger a “burst” when the user toggles the same priority key 10x within 10s.
@@ -12,7 +12,7 @@ import type { TesterSortKey } from '../lib/testerSort'
  * - Animations are driven via WAAPI (compositor-friendly) so they stay smoother under load.
  * - Overlay strings are intentionally hardcoded (not localized) per request.
  */
-export type TesterSortPopoutEasterEggVariant =
+export type GearInspectorSortPopoutEasterEggVariant =
   | 'stopSign'
   | 'microConfirm'
   | 'rowYeet'
@@ -27,10 +27,10 @@ export type TesterSortPopoutEasterEggVariant =
 
 type OverlayPhase = 'hidden' | 'enter' | 'latched' | 'exit'
 
-export type TesterSortPopoutEasterEggOverlayState = Readonly<{
+export type GearInspectorSortPopoutEasterEggOverlayState = Readonly<{
   active: boolean
-  variant: TesterSortPopoutEasterEggVariant | null
-  targetKey: TesterSortKey | null
+  variant: GearInspectorSortPopoutEasterEggVariant | null
+  targetKey: GearInspectorSortKey | null
   stopSign: Readonly<{
     phase: OverlayPhase
     blocksClicks: boolean
@@ -55,7 +55,7 @@ const EASTER_EGG_RULES = {
   stopSignEatClicksMs: 2_500,
 } as const
 
-const VARIANTS: readonly TesterSortPopoutEasterEggVariant[] = [
+const VARIANTS: readonly GearInspectorSortPopoutEasterEggVariant[] = [
   'stopSign',
   'microConfirm',
   'rowYeet',
@@ -74,14 +74,14 @@ const easingSlam = 'cubic-bezier(0.18, 1.15, 0.22, 1)'
 const easingGlitch = 'steps(6, end)'
 
 type ToggleStreak = Readonly<{
-  key: TesterSortKey | null
+  key: GearInspectorSortKey | null
   times: readonly number[]
 }>
 
 type Burst = {
   id: number
-  variant: TesterSortPopoutEasterEggVariant
-  targetKey: TesterSortKey
+  variant: GearInspectorSortPopoutEasterEggVariant
+  targetKey: GearInspectorSortKey
   phase: 'active' | 'exiting'
   lastToggleAtMs: number
   animations: readonly Animation[]
@@ -94,10 +94,10 @@ type Burst = {
 type Options = Readonly<{
   enabled: boolean
   getPaperEl: () => HTMLDivElement | null
-  onTogglePriority: (key: TesterSortKey) => void
+  onTogglePriority: (key: GearInspectorSortKey) => void
 }>
 
-const emptyOverlayState: TesterSortPopoutEasterEggOverlayState = {
+const emptyOverlayState: GearInspectorSortPopoutEasterEggOverlayState = {
   active: false,
   variant: null,
   targetKey: null,
@@ -121,8 +121,8 @@ const menuItemsForPaper = (paper: HTMLElement): readonly HTMLElement[] => {
   return menuItems.length > 0 ? menuItems : Array.from(paper.querySelectorAll<HTMLElement>('[role="menuitem"]'))
 }
 
-const priorityRowForKey = (paper: HTMLElement, key: TesterSortKey): HTMLElement | null =>
-  paper.querySelector<HTMLElement>(`[data-tester-sort-key="${Number(key)}"]`)
+const priorityRowForKey = (paper: HTMLElement, key: GearInspectorSortKey): HTMLElement | null =>
+  paper.querySelector<HTMLElement>(`[data-gear-inspector-sort-key="${Number(key)}"]`)
 
 const badgeForPriorityRow = (row: HTMLElement): HTMLElement | null =>
   row.querySelector<HTMLElement>('[data-sort-popout-badge]')
@@ -138,13 +138,13 @@ const animateAll = (targets: readonly HTMLElement[], keyframes: Keyframe[], opti
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value))
 
-const pickVariant = (): TesterSortPopoutEasterEggVariant => {
+const pickVariant = (): GearInspectorSortPopoutEasterEggVariant => {
   // Keep the selection simple: one random pick per burst, stable until the idle timeout clears it.
   const idx = Math.floor(Math.random() * VARIANTS.length)
   return VARIANTS[Math.max(0, Math.min(VARIANTS.length - 1, idx))]!
 }
 
-const overlayForBurst = (paper: HTMLElement, variant: TesterSortPopoutEasterEggVariant, targetKey: TesterSortKey): Partial<TesterSortPopoutEasterEggOverlayState> => {
+const overlayForBurst = (paper: HTMLElement, variant: GearInspectorSortPopoutEasterEggVariant, targetKey: GearInspectorSortKey): Partial<GearInspectorSortPopoutEasterEggOverlayState> => {
   // Most variants are purely animated via WAAPI; overlays are opt-in for a few “big” gags.
   if (variant === 'timeoutBanner') {
     return {
@@ -170,8 +170,8 @@ const overlayForBurst = (paper: HTMLElement, variant: TesterSortPopoutEasterEggV
 
 const runEnterAnimations = (
   paper: HTMLElement,
-  variant: TesterSortPopoutEasterEggVariant,
-  targetKey: TesterSortKey,
+  variant: GearInspectorSortPopoutEasterEggVariant,
+  targetKey: GearInspectorSortKey,
   cleanup: (() => void)[],
 ): readonly Animation[] => {
   // Prefer animating the menu list so we don’t fight Popover positioning/transform state.
@@ -323,8 +323,8 @@ const runEnterAnimations = (
   ], { duration: 420, easing: easingSnappy, fill: 'forwards' })
 }
 
-export function useTesterSortPopoutEasterEgg({ enabled, getPaperEl, onTogglePriority }: Options) {
-  const [overlay, setOverlay] = React.useState<TesterSortPopoutEasterEggOverlayState>(emptyOverlayState)
+export function useGearInspectorSortPopoutEasterEgg({ enabled, getPaperEl, onTogglePriority }: Options) {
+  const [overlay, setOverlay] = React.useState<GearInspectorSortPopoutEasterEggOverlayState>(emptyOverlayState)
 
   // Toggle streak tracking is intentionally separate from “burst” state:
   // - streak: decides when we *enter* a burst
@@ -450,7 +450,7 @@ export function useTesterSortPopoutEasterEgg({ enabled, getPaperEl, onTogglePrio
   // Keep a stable reference for timer callbacks without creating dependency cycles.
   startExitRef.current = startExit
 
-  const beginBurst = React.useCallback((paper: HTMLElement, key: TesterSortKey) => {
+  const beginBurst = React.useCallback((paper: HTMLElement, key: GearInspectorSortKey) => {
     // One variant per burst: once picked, keep it stable until idle clears the state.
     const variant = pickVariant()
     const cleanup: Array<() => void> = []
@@ -490,7 +490,7 @@ export function useTesterSortPopoutEasterEgg({ enabled, getPaperEl, onTogglePrio
     scheduleIdleExit(id)
   }, [clearStopSignEatClicksTimer, scheduleIdleExit])
 
-  const onPriorityToggle = React.useCallback((key: TesterSortKey, event: React.MouseEvent) => {
+  const onPriorityToggle = React.useCallback((key: GearInspectorSortKey, event: React.MouseEvent) => {
     // Keep the core behavior deterministic: the priority toggle always executes unless the stop-sign is actively eating clicks.
     const paper = getPaperEl()
     const currentBurst = burstRef.current

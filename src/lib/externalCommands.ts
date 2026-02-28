@@ -215,7 +215,7 @@ const normalizeGearDbRawSnapshot = (raw: UnknownRecord): GearDbRawSnapshotComman
   const artifacts = parseArtifactArray(raw.artifacts ?? raw.Artifacts)
   const inboxArtifacts = parseArtifactArray(raw.inboxArtifacts ?? raw.InboxArtifacts ?? raw.inbox)
   // Allow snapshots that only carry inbox items as long as at least one table
-  // has payloads the tester can render.
+  // has payloads the Gear Inspector can render.
   if (artifacts.length === 0 && inboxArtifacts.length === 0) return null
   const champions = parseChampionArray(raw.champions ?? raw.Champions ?? raw.champs)
   const lastUsed = parseLastUsedArray(raw.lastUsed ?? raw.LastUsed ?? raw.lastused)

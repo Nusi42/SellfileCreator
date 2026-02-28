@@ -14,31 +14,31 @@ import { useI18n } from '../lib/i18n'
 import { DEFAULT_METASET_ICON_ID, METASET_ICON_OPTIONS, metasetIconOptionById, type MetasetIconId } from '../lib/metasetIcons'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, type StatVariant, statVariantI18nKey } from '../lib/types'
 import {
-  TESTER_SORT_WEIGHT_DEFAULT,
-} from '../lib/testerSort'
+  GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT,
+} from '../lib/gearInspectorSort'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
-import type { TesterGridNormalizedPreset, TesterGridNormalizedPresetId } from '../state/testerGridNormalizedOverlayPreferences'
-import { TesterSortWeightControls } from './TesterSortWeightControls'
+import type { GearInspectorGridNormalizedPreset, GearInspectorGridNormalizedPresetId } from '../state/gearInspectorGridNormalizedOverlayPreferences'
+import { GearInspectorSortWeightControls } from './GearInspectorSortWeightControls'
 
-export type TesterNormalizedPresetEditorMenuProps = {
+export type GearInspectorNormalizedPresetEditorMenuProps = {
   open: boolean
   anchorPosition: { x: number; y: number } | null
-  presetId: TesterGridNormalizedPresetId
-  preset: TesterGridNormalizedPreset
+  presetId: GearInspectorGridNormalizedPresetId
+  preset: GearInspectorGridNormalizedPreset
   onClose: () => void
-  // Optional "overwrite from current" action used by the Sort popout (not the tester grid context menu).
-  onOverwriteFromCurrent?: ((presetId: TesterGridNormalizedPresetId) => void) | undefined
+  // Optional "overwrite from current" action used by the Sort popout (not the Gear Inspector grid context menu).
+  onOverwriteFromCurrent?: ((presetId: GearInspectorGridNormalizedPresetId) => void) | undefined
   overwriteFromCurrentLabel?: string | undefined
   overwriteFromCurrentDisabled?: boolean | undefined
   // Optional glyph override shown when the app is in "glyph label" mode.
-  onSetIconId: (presetId: TesterGridNormalizedPresetId, iconId: MetasetIconId) => void
-  // Color-stats inputs mirror the main tester grid setting so labels stay consistent.
+  onSetIconId: (presetId: GearInspectorGridNormalizedPresetId, iconId: MetasetIconId) => void
+  // Color-stats inputs mirror the main Gear Inspector grid setting so labels stay consistent.
   useStatButtonColors: boolean
   substatColors: Record<number, { fg: string; bg: string }>
-  onToggleVariant: (presetId: TesterGridNormalizedPresetId, variant: StatVariant) => void
-  onBumpWeight: (presetId: TesterGridNormalizedPresetId, variant: StatVariant, deltaSteps: number) => void
-  onSetWeight: (presetId: TesterGridNormalizedPresetId, variant: StatVariant, next: number) => void
-  onResetPreset: (presetId: TesterGridNormalizedPresetId) => void
+  onToggleVariant: (presetId: GearInspectorGridNormalizedPresetId, variant: StatVariant) => void
+  onBumpWeight: (presetId: GearInspectorGridNormalizedPresetId, variant: StatVariant, deltaSteps: number) => void
+  onSetWeight: (presetId: GearInspectorGridNormalizedPresetId, variant: StatVariant, next: number) => void
+  onResetPreset: (presetId: GearInspectorGridNormalizedPresetId) => void
   // Optional paper ref allows parent menus to treat this menu as "inside" for outside-click logic.
   paperRef?: React.RefObject<HTMLDivElement>
 }
@@ -49,7 +49,7 @@ const formatInactiveWeight = (): string => {
   return 'x0.00'
 }
 
-export function TesterNormalizedPresetEditorMenu({
+export function GearInspectorNormalizedPresetEditorMenu({
   open,
   anchorPosition,
   presetId,
@@ -66,7 +66,7 @@ export function TesterNormalizedPresetEditorMenu({
   onSetWeight,
   onResetPreset,
   paperRef: paperRefProp,
-}: TesterNormalizedPresetEditorMenuProps) {
+}: GearInspectorNormalizedPresetEditorMenuProps) {
   const { t } = useI18n()
   // Reuse a parent-provided ref when nesting under another context menu.
   const localPaperRef = React.useRef<HTMLDivElement | null>(null)
@@ -203,7 +203,7 @@ export function TesterNormalizedPresetEditorMenu({
       {STAT_VARIANTS_PRIORITY.map((variant) => {
         // Selection is the SSOT: if the stat is not selected, it is not counted (no 0-weight sentinel).
         const selected = selectedSet.has(Number(variant))
-        const rawWeight = Number(weights?.[variant] ?? TESTER_SORT_WEIGHT_DEFAULT)
+        const rawWeight = Number(weights?.[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
         const weightControlsEnabled = selected
         const statLabel = t(statVariantI18nKey(variant))
         const fg = useStatButtonColors
@@ -261,13 +261,13 @@ export function TesterNormalizedPresetEditorMenu({
             >
               {selected ? (
                 <>
-                  <TesterSortWeightControls
+                  <GearInspectorSortWeightControls
                     label={statLabel}
                     enabled={weightControlsEnabled}
                     weight={rawWeight}
                     weightPrefix="x"
                     onBump={(deltaSteps) => onBumpWeight(presetId, variant, deltaSteps)}
-                    onReset={() => onSetWeight(presetId, variant, TESTER_SORT_WEIGHT_DEFAULT)}
+                    onReset={() => onSetWeight(presetId, variant, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)}
                   />
                 </>
               ) : (

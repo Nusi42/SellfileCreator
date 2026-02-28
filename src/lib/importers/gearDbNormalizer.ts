@@ -13,13 +13,13 @@ import {
   type RankValue,
 } from '../types'
 import {
-  coerceTesterLevel,
-  coerceTesterRank,
-  coerceTesterRarity,
+  coerceGearInspectorLevel,
+  coerceGearInspectorRank,
+  coerceGearInspectorRarity,
   isAccessorySlot,
-  normalizeTesterFaction,
-  normalizeTesterSetForSlot,
-} from '../testerDomain'
+  normalizeGearInspectorFaction,
+  normalizeGearInspectorSetForSlot,
+} from '../gearInspectorDomain'
 import type { TestItem } from '../ruleEval'
 
 export const STAT_SCALE = 2 ** 32 // 4_294_967_296
@@ -394,7 +394,7 @@ const buildSubValueMap = (stats: NormalizedStat[]): Record<number, number> => {
   for (const stat of stats) {
     // Skip the "Any" placeholder so the payload stays semantically meaningful.
     if (stat.variant === StatVariant.Any) continue
-    // Combine base + myth rolls to match the tester's pre-glyph expectations.
+    // Combine base + myth rolls to match the Gear Inspector's pre-glyph expectations.
     const baseAmount = stat.baseValue + (stat.mythValue ?? 0)
     // Drop zero-ish entries so we don't bloat the serialized subValues payload.
     if (Math.abs(baseAmount) <= 0) continue
@@ -419,16 +419,16 @@ const sanitizeLastUseTimestamp = (value?: string | null): string | null => {
 export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: NormalizeOptions = {}): NormalizedGearArtifact {
   const slot = determineSlot(row.type)
   const rawSet = determineSet(slot, row.aset)
-  const set = normalizeTesterSetForSlot(slot, rawSet) as ArtifactSetId
-  const rank = coerceTesterRank(row.rank, 6)
-  const rarity = coerceTesterRarity(row.rarity, 6)
+  const set = normalizeGearInspectorSetForSlot(slot, rawSet) as ArtifactSetId
+  const rank = coerceGearInspectorRank(row.rank, 6)
+  const rarity = coerceGearInspectorRarity(row.rarity, 6)
   const exactLevel = (() => {
     const value = toNumber(row.lvl)
     if (value === null) return null
     return Math.max(0, Math.min(16, Math.round(value)))
   })()
-  const level = coerceTesterLevel(row.lvl, 0)
-  const faction = normalizeTesterFaction(slot, determineFaction(slot, row.accset))
+  const level = coerceGearInspectorLevel(row.lvl, 0)
+  const faction = normalizeGearInspectorFaction(slot, determineFaction(slot, row.accset))
 
   const mainStat = extractMainStat(row)
   const substats = extractSubstats(row)

@@ -13,7 +13,7 @@ import {
   getMetasetDependencyIssues,
 } from '../../lib/sfrImportSelection'
 
-export type TesterRestoreDraftMeta = {
+export type GearInspectorRestoreDraftMeta = {
   count: number
   savedAt: string | null
 }
@@ -21,7 +21,7 @@ export type TesterRestoreDraftMeta = {
 type RestoreAutosaveDialogProps = {
   open: boolean
   draft: RestoreDraft | null
-  testerDraft: TesterRestoreDraftMeta | null
+  gearInspectorDraft: GearInspectorRestoreDraftMeta | null
   storedGearSetsCount: number
   metasetsDiffer: boolean
   targetsDiffer: boolean
@@ -57,7 +57,7 @@ const selectionsEqual = (a: RestoreSelection, b: RestoreSelection): boolean => (
 export default function RestoreAutosaveDialog({
   open,
   draft,
-  testerDraft,
+  gearInspectorDraft,
   storedGearSetsCount,
   metasetsDiffer,
   targetsDiffer,
@@ -84,7 +84,7 @@ export default function RestoreAutosaveDialog({
   const hasSort = Boolean(draft && Object.prototype.hasOwnProperty.call(draft, 'TesterSort'))
   const hasSafeguards = (draft?.Safeguards?.length ?? 0) > 0
   const builderSavedAt = formatSavedAt(draft?.AutosaveSavedAt ?? null)
-  const testerSavedAt = formatSavedAt(testerDraft?.savedAt ?? null)
+  const gearInspectorSavedAt = formatSavedAt(gearInspectorDraft?.savedAt ?? null)
   const defaultSelection = useMemo<RestoreSelection>(() => {
     const next: RestoreSelection = { ...RESTORE_SELECTION_DEFAULT }
     if (recipesCount > 0) next.recipes = true
@@ -94,10 +94,10 @@ export default function RestoreAutosaveDialog({
     if (hasSafeguards) next.safeguards = true
     if (hasFilters && filtersDiffer) next.filters = true
     if (hasSort && sortDiffer) next.sort = true
-    if (testerDraft) next.tester = true
+    if (gearInspectorDraft) next.tester = true
     if (gearSetsCount > 0) next.gearSets = true
     return next
-  }, [recipesCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSafeguards, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, testerDraft])
+  }, [recipesCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSafeguards, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, gearInspectorDraft])
 
   useEffect(() => {
     if (!open) return
@@ -156,10 +156,10 @@ export default function RestoreAutosaveDialog({
         helper: t('restoreAutosaveSortHelper'),
       })
     }
-    if (testerDraft) {
+    if (gearInspectorDraft) {
       rows.push({
         key: 'tester',
-        label: t('restoreAutosaveTesterLabel', { count: testerDraft.count }),
+        label: t('restoreAutosaveTesterLabel', { count: gearInspectorDraft.count }),
         helper: t('restoreAutosaveTesterHelper'),
       })
     }
@@ -171,7 +171,7 @@ export default function RestoreAutosaveDialog({
       })
     }
     return rows
-  }, [draft?.Safeguards?.length, recipesCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSafeguards, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, testerDraft, t])
+  }, [draft?.Safeguards?.length, recipesCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSafeguards, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, gearInspectorDraft, t])
 
   // Apply the same metaset dependency rule as Shift-load import options.
   // Why: autosave restore can also import recipes/safeguards without metasets.
@@ -235,9 +235,9 @@ export default function RestoreAutosaveDialog({
                 {t('restoreAutosaveSavedAt', { timestamp: builderSavedAt })}
               </Typography>
             )}
-            {testerSavedAt && (
+            {gearInspectorSavedAt && (
               <Typography variant="caption" color="text.secondary">
-                {t('restoreAutosaveTesterSavedAt', { timestamp: testerSavedAt })}
+                {t('restoreAutosaveTesterSavedAt', { timestamp: gearInspectorSavedAt })}
               </Typography>
             )}
           </Stack>

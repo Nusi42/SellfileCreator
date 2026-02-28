@@ -1,10 +1,10 @@
 /**
- * testerDomain.ts
+ * gearInspectorDomain.ts
  *
- * Shared helpers for the Rule Tester queue so slot/set normalization and rank/rarity
+ * Shared helpers for the Gear Inspector queue so slot/set normalization and rank/rarity
  * coercion stay consistent across external command ingestion and the UI.
  */
-import { ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID } from './constants'
+import { ACCESSORY_NO_SET_ID, GEAR_INSPECTOR_ANY_SLOT_ID } from './constants'
 import {
   type ArtifactSetId,
   ArtifactType,
@@ -40,7 +40,7 @@ export function slotSelectionAllowsAccessories(slots?: readonly ArtifactTypeId[]
     // Ignore non-finite inputs so they cannot unlock accessories accidentally.
     if (!Number.isFinite(numeric)) continue
     // Any-slot sentinels always include accessories.
-    if (numeric === TESTER_ANY_SLOT_ID) return true
+    if (numeric === GEAR_INSPECTOR_ANY_SLOT_ID) return true
     // Concrete accessory slots are the only valid carriers for no-set gear.
     if (isAccessorySlot(numeric)) return true
   }
@@ -49,12 +49,12 @@ export function slotSelectionAllowsAccessories(slots?: readonly ArtifactTypeId[]
 }
 
 /**
- * Valid artifact set IDs for a tester slot. Accessories allow accessory-only
+ * Valid artifact set IDs for a Gear Inspector slot. Accessories allow accessory-only
  * sets plus the "no set" sentinel, while armor limits to <1000 IDs.
  */
-export function allowedTesterSetIds(slot: ArtifactTypeId): number[] {
+export function allowedGearInspectorSetIds(slot: ArtifactTypeId): number[] {
   const numeric = Number(slot)
-  if (numeric === TESTER_ANY_SLOT_ID) {
+  if (numeric === GEAR_INSPECTOR_ANY_SLOT_ID) {
     const merged = new Set<number>([
       ACCESSORY_NO_SET_ID,
       ...getAllKnownArtifactSetIds(),
@@ -80,8 +80,8 @@ export function allowedTesterSetIds(slot: ArtifactTypeId): number[] {
  * Normalize a raw set ID for the given slot. Falls back to the first allowed
  * value when the incoming set is missing or disallowed.
  */
-export function normalizeTesterSetForSlot(slot: ArtifactTypeId, setId: unknown): ArtifactSetId {
-  const allowed = allowedTesterSetIds(slot)
+export function normalizeGearInspectorSetForSlot(slot: ArtifactTypeId, setId: unknown): ArtifactSetId {
+  const allowed = allowedGearInspectorSetIds(slot)
   const defaultFallback = isAccessorySlot(slot) ? ACCESSORY_NO_SET_ID : 0
   const numeric = Number(setId ?? defaultFallback)
   if (!Number.isFinite(numeric)) {
@@ -105,20 +105,20 @@ export function normalizeTesterSetForSlot(slot: ArtifactTypeId, setId: unknown):
 }
 
 /**
- * Clamp a raw slot identifier to a tester-friendly value.
+ * Clamp a raw slot identifier to a Gear Inspector-friendly value.
  * Accepts 0 (any slot) and armor/accessory numeric IDs.
  */
-export function normalizeTesterSlot(value: unknown): ArtifactTypeId | null {
+export function normalizeGearInspectorSlot(value: unknown): ArtifactTypeId | null {
   const num = Number(value)
   if (!Number.isFinite(num)) return null
   const int = Math.floor(num)
-  if (int === TESTER_ANY_SLOT_ID) return int as ArtifactTypeId
+  if (int === GEAR_INSPECTOR_ANY_SLOT_ID) return int as ArtifactTypeId
   if (int >= ArtifactType.Helmet && int <= ArtifactType.Banner) return int as ArtifactTypeId
   return null
 }
 
 /** Accessory slots carry faction; armor slots always force faction 0. */
-export function normalizeTesterFaction(slot: ArtifactTypeId, value: unknown): FactionId {
+export function normalizeGearInspectorFaction(slot: ArtifactTypeId, value: unknown): FactionId {
   if (!isAccessorySlot(slot)) return 0 as FactionId
   const num = Number(value)
   if (!Number.isFinite(num)) return 0 as FactionId
@@ -127,7 +127,7 @@ export function normalizeTesterFaction(slot: ArtifactTypeId, value: unknown): Fa
 }
 
 /** Coerce unknown rank input to a 1..6 value (default fallback = 6★). */
-export function coerceTesterRank(value: unknown, fallback: 1 | 2 | 3 | 4 | 5 | 6 = 6): 1 | 2 | 3 | 4 | 5 | 6 {
+export function coerceGearInspectorRank(value: unknown, fallback: 1 | 2 | 3 | 4 | 5 | 6 = 6): 1 | 2 | 3 | 4 | 5 | 6 {
   const num = Number(value)
   if (Number.isFinite(num)) {
     const int = Math.floor(num)
@@ -139,7 +139,7 @@ export function coerceTesterRank(value: unknown, fallback: 1 | 2 | 3 | 4 | 5 | 6
 }
 
 /** Coerce unknown rarity input to a 1..6 value (default fallback = 6★). */
-export function coerceTesterRarity(value: unknown, fallback: 1 | 2 | 3 | 4 | 5 | 6 = 6): 1 | 2 | 3 | 4 | 5 | 6 {
+export function coerceGearInspectorRarity(value: unknown, fallback: 1 | 2 | 3 | 4 | 5 | 6 = 6): 1 | 2 | 3 | 4 | 5 | 6 {
   const num = Number(value)
   if (Number.isFinite(num)) {
     const int = Math.floor(num)
@@ -151,7 +151,7 @@ export function coerceTesterRarity(value: unknown, fallback: 1 | 2 | 3 | 4 | 5 |
 }
 
 /** Map raw level to the nearest milestone (0/4/8/12/16). */
-export function coerceTesterLevel(value: unknown, fallback: LevelMilestone = LEVEL_MILESTONES[0]!): LevelMilestone {
+export function coerceGearInspectorLevel(value: unknown, fallback: LevelMilestone = LEVEL_MILESTONES[0]!): LevelMilestone {
   const num = Number(value)
   if (!Number.isFinite(num)) return fallback
   const minMilestone = LEVEL_MILESTONES[0] ?? fallback

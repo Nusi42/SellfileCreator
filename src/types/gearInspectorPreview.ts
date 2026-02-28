@@ -1,7 +1,7 @@
-import type { TesterFilterRow } from '../lib/rulesFilter'
+import type { GearInspectorFilterRow } from '../lib/rulesFilter'
 import type { MatchingRecipeDecision } from '../lib/ruleEval'
 
-export type TesterPreviewMatch = {
+export type GearInspectorPreviewMatch = {
   keep: boolean
   recipeIdx: number | null
   recipeName: string | null
@@ -10,15 +10,15 @@ export type TesterPreviewMatch = {
   ruleSource: string | null
 }
 
-export type TesterPreviewRow = TesterFilterRow & {
-  match: TesterPreviewMatch | null
-  baseMatch: TesterPreviewMatch | null
+export type GearInspectorPreviewRow = GearInspectorFilterRow & {
+  match: GearInspectorPreviewMatch | null
+  baseMatch: GearInspectorPreviewMatch | null
   matchingRecipeIndices: number[]
   matchingRecipeDecisions: MatchingRecipeDecision[]
 }
 
-// Aggregate outcome totals for Rule Tester preview rows.
-export type TesterOutcomeSummary = {
+// Aggregate outcome totals for Gear Inspector preview rows.
+export type GearInspectorOutcomeSummary = {
   // Total number of evaluated items in the summary set.
   total: number
   // Count of items explicitly sold by a matching rule.

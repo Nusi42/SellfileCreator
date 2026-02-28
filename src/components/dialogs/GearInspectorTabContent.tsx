@@ -1,9 +1,9 @@
 /**
- * GearTesterTabContent
+ * GearInspectorTabContent
  *
- * Gear dialog body: virtualized editor for tester items that mirrors the Builder
+ * Gear dialog body: virtualized editor for Gear Inspector items that mirrors the Builder
  * controls (spinners, metasets, attention cues) while producing the queue that
- * feeds the Rule Tester preview grid on the main screen.
+ * feeds the Gear Inspector preview grid on the main screen.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode, UIEvent, Dispatch, SetStateAction, MouseEvent } from 'react'
@@ -19,11 +19,11 @@ import type { ArtifactSetId, ArtifactTypeId, FactionId, LevelMilestone } from '.
 import { ArtifactType, /* rarityCodeToName, */ formatLevel, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, artifactSetName, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, StatId, LEVEL_MILESTONES, STAT_VARIANTS_PRIORITY, getLocalizedGearSetName } from '../../lib/types'
 // MarkdownTooltip keeps all dialog hints (add/delete toggles, source glyphs, copy buttons) consistent with global styling.
 import MarkdownTooltip from '../MarkdownTooltip'
-import { allowedTesterSetIds, isAccessorySlot, normalizeTesterSetForSlot } from '../../lib/testerDomain'
-import { formatTesterSetLabel } from '../../lib/testerFormatters'
+import { allowedGearInspectorSetIds, isAccessorySlot, normalizeGearInspectorSetForSlot } from '../../lib/gearInspectorDomain'
+import { formatGearInspectorSetLabel } from '../../lib/gearInspectorFormatters'
 import { variantToSub, variantToMain } from '../../lib/hsfTypes'
 import { artifactTypeIconList } from '../artifactTypeIcons'
-import type { TesterItemPreviewExtras } from '../../lib/ruleEval'
+import type { GearInspectorItemPreviewExtras } from '../../lib/ruleEval'
 import type { NormalizedStat } from '../../lib/importers/gearDbNormalizer'
 import { useI18n } from '../../lib/i18n'
 import { useGearSetCatalogVersion } from '../../hooks/useGearSetCatalogVersion'
@@ -33,23 +33,23 @@ import { SetIcon } from '../SetIcon'
 import { FactionIcon } from '../FactionIcon'
 import SetsOrderControls from '../SetsOrderControls'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
-import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_RECIPE_CHIP_MAX_WIDTH_PX, TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_COMPACT_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX, TESTER_COMPACT_ICON_SIZE_PX, RSL_HELPER_CONFIG_PATH } from '../../lib/constants'
+import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, GEAR_INSPECTOR_SUBSTAT_EDITOR_WIDTH_PX, GEAR_INSPECTOR_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, GEAR_INSPECTOR_ANY_SLOT_ID, GEAR_INSPECTOR_MAINSTAT_SELECT_MIN_WIDTH_PX, GEAR_INSPECTOR_SUBSTAT_SELECT_MIN_WIDTH_PX, GEAR_INSPECTOR_SLOT_SELECT_WIDTH_PX, GEAR_INSPECTOR_SET_SELECT_WIDTH_PX, GEAR_INSPECTOR_FACTION_SELECT_WIDTH_PX, GEAR_INSPECTOR_RANK_SELECT_WIDTH_PX, GEAR_INSPECTOR_RARITY_SELECT_WIDTH_PX, GEAR_INSPECTOR_LEVEL_SELECT_WIDTH_PX, GEAR_INSPECTOR_SELECT_HEIGHT_PX, GEAR_INSPECTOR_RESULT_ROW_MIN_HEIGHT_PX, GEAR_INSPECTOR_RECIPE_CHIP_MAX_WIDTH_PX, GEAR_INSPECTOR_VIRTUAL_OVERSCAN_PX, GEAR_INSPECTOR_ROW_ESTIMATE_COMPACT_PX, GEAR_INSPECTOR_ROW_ESTIMATE_EXPANDED_PX, GEAR_INSPECTOR_COMPACT_ICON_SIZE_PX, RSL_HELPER_CONFIG_PATH } from '../../lib/constants'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import { useDisplayPreferences } from '../../state/preferencesState'
 import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import {
-  createRuleTesterMath,
+  createGearInspectorMath,
   entriesInOrder,
-  isManualTesterItem,
+  isManualGearInspectorItem,
   mainOptionsForSlot,
-  testerSourceCategoryForItem,
-  type RuleTesterItem,
-  type TesterSourceCategory,
-} from '../../lib/ruleTesterSession'
-import type { TesterPreviewMatch } from '../../types/testerPreview'
-import { TesterSummaryLabel } from '../TesterSummaryLabel'
-import { TesterRuleReferenceChip } from '../TesterRuleReferenceChip'
+  gearInspectorSourceCategoryForItem,
+  type GearInspectorItem,
+  type GearInspectorSourceCategory,
+} from '../../lib/gearInspectorSession'
+import type { GearInspectorPreviewMatch } from '../../types/gearInspectorPreview'
+import { GearInspectorSummaryLabel } from '../GearInspectorSummaryLabel'
+import { GearInspectorRuleReferenceChip } from '../GearInspectorRuleReferenceChip'
 import GridIconBox, { GRID_ICON_BOX_SIZE_PX } from '../GridIconBox'
 import EllipsisTooltip from '../EllipsisTooltip'
 import { triggerCopyDialog, writeTextSafe } from '../../lib/clipboard'
@@ -58,42 +58,42 @@ import { ContextMenuHintOverlay } from '../ContextMenuHintOverlay'
 import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSlotSelect } from '../gear'
 import { EmptyStateMessage, type EmptyStateMessageProps } from '../EmptyStateMessage'
 
-type TesterSourceCountMap = Record<TesterSourceCategory, number>
+type GearInspectorSourceCountMap = Record<GearInspectorSourceCategory, number>
 
-export type GearTesterTabLayoutSlots = {
+export type GearInspectorTabLayoutSlots = {
   content: ReactNode
   actions: ReactNode
 }
 
-export type GearTesterTabContentProps = {
+export type GearInspectorTabContentProps = {
   customRecipes: BuilderRecipe[]
   onView: (ruleIndex: number, recipeIdx: number | null) => void
   substatColors: Record<number, { fg: string; bg: string }>
-  testerItems: RuleTesterItem[]
-  setTesterItems: Dispatch<SetStateAction<RuleTesterItem[]>>
-  allocTesterItemId: () => number
-  testerMatches: ReadonlyMap<number, TesterPreviewMatch | null>
+  gearInspectorItems: GearInspectorItem[]
+  setGearInspectorItems: Dispatch<SetStateAction<GearInspectorItem[]>>
+  allocGearInspectorItemId: () => number
+  gearInspectorMatches: ReadonlyMap<number, GearInspectorPreviewMatch | null>
   isActive?: boolean
   // Empty-state messaging should match the main preview pane: stacked layout anchors to the top edge,
   // while side-by-side layout centers within the available space.
   emptyStateVerticalAlign?: EmptyStateMessageProps['verticalAlign']
   onRequestClose?: () => void
-  renderLayout?: (slots: GearTesterTabLayoutSlots) => ReactNode
+  renderLayout?: (slots: GearInspectorTabLayoutSlots) => ReactNode
 }
 
 // Single grid template keeps the first two rows of controls perfectly aligned.
-const TESTER_CONTROL_GRID_TEMPLATE = `${TESTER_SLOT_SELECT_WIDTH_PX}px ${TESTER_RANK_SELECT_WIDTH_PX}px ${TESTER_RARITY_SELECT_WIDTH_PX}px ${TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX}px`
-const TESTER_SELECT_GAP_DEFAULT_PX = 8
-const TESTER_SELECT_GAP_COMPACT_PX = 6
-const TESTER_ICON_COLUMN_WIDTH_PX = GRID_ICON_BOX_SIZE_PX + 16
+const GEAR_INSPECTOR_CONTROL_GRID_TEMPLATE = `${GEAR_INSPECTOR_SLOT_SELECT_WIDTH_PX}px ${GEAR_INSPECTOR_RANK_SELECT_WIDTH_PX}px ${GEAR_INSPECTOR_RARITY_SELECT_WIDTH_PX}px ${GEAR_INSPECTOR_MAINSTAT_SELECT_MIN_WIDTH_PX}px`
+const GEAR_INSPECTOR_SELECT_GAP_DEFAULT_PX = 8
+const GEAR_INSPECTOR_SELECT_GAP_COMPACT_PX = 6
+const GEAR_INSPECTOR_ICON_COLUMN_WIDTH_PX = GRID_ICON_BOX_SIZE_PX + 16
 
-const TESTER_SELECT_VALUE_BASE_SX: SystemStyleObject<Theme> = {
+const GEAR_INSPECTOR_SELECT_VALUE_BASE_SX: SystemStyleObject<Theme> = {
   display: 'inline-flex',
   alignItems: 'center',
-  minHeight: TESTER_SELECT_HEIGHT_PX,
-  height: TESTER_SELECT_HEIGHT_PX,
-  lineHeight: `${TESTER_SELECT_HEIGHT_PX}px`,
-  columnGap: TESTER_SELECT_GAP_DEFAULT_PX,
+  minHeight: GEAR_INSPECTOR_SELECT_HEIGHT_PX,
+  height: GEAR_INSPECTOR_SELECT_HEIGHT_PX,
+  lineHeight: `${GEAR_INSPECTOR_SELECT_HEIGHT_PX}px`,
+  columnGap: GEAR_INSPECTOR_SELECT_GAP_DEFAULT_PX,
   paddingTop: '0 !important',
   paddingBottom: '0 !important',
   transition: 'none !important',
@@ -101,20 +101,20 @@ const TESTER_SELECT_VALUE_BASE_SX: SystemStyleObject<Theme> = {
 }
 
 // Cookie Monster easter egg tuning: 10 toggles within a 10s window activates a 4.5s animation.
-const TESTER_COOKIE_TOGGLE_THRESHOLD = 10
-const TESTER_COOKIE_WINDOW_MS = 10_000
-const TESTER_COOKIE_ANIMATION_MS = 4_500
+const GEAR_INSPECTOR_COOKIE_TOGGLE_THRESHOLD = 10
+const GEAR_INSPECTOR_COOKIE_WINDOW_MS = 10_000
+const GEAR_INSPECTOR_COOKIE_ANIMATION_MS = 4_500
 
-const TESTER_COOKIE_HALO_DIAMETER_PX = 96
+const GEAR_INSPECTOR_COOKIE_HALO_DIAMETER_PX = 96
 
-const testerCookiePulse = keyframes`
+const gearInspectorCookiePulse = keyframes`
   0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.75; }
   40% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
   70% { transform: translate(-50%, -50%) scale(0.95); opacity: 0.85; }
   100% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.75; }
 `
 
-const testerCookieIconWobble = keyframes`
+const gearInspectorCookieIconWobble = keyframes`
   0% { transform: rotate(0deg); }
   20% { transform: rotate(16deg); }
   45% { transform: rotate(-18deg); }
@@ -123,7 +123,7 @@ const testerCookieIconWobble = keyframes`
   100% { transform: rotate(0deg); }
 `
 
-const testerCookieFlip = keyframes`
+const gearInspectorCookieFlip = keyframes`
   0% { transform: rotate(0deg); }
   50% { transform: rotate(90deg); }
   100% { transform: rotate(0deg); }
@@ -135,27 +135,27 @@ const cloneNormalizedStat = (stat?: NormalizedStat | null): NormalizedStat | nul
   return { ...stat }
 }
 
-// cloneTesterPreviewExtras copies nested preview payloads so “duplicate” rows stay isolated.
-const cloneTesterPreviewExtras = (extras: TesterItemPreviewExtras): TesterItemPreviewExtras => {
+// cloneGearInspectorPreviewExtras copies nested preview payloads so “duplicate” rows stay isolated.
+const cloneGearInspectorPreviewExtras = (extras: GearInspectorItemPreviewExtras): GearInspectorItemPreviewExtras => {
   const { substats, mainStat, ascension, ...rest } = extras
-  const next: TesterItemPreviewExtras = {
+  const next: GearInspectorItemPreviewExtras = {
     ...rest,
     mainStat: cloneNormalizedStat(mainStat),
     ascension: cloneNormalizedStat(ascension),
   }
   if (substats) {
-    next.substats = substats.map((entry) => ({ ...entry }))
+    next.substats = substats.map((entry: NormalizedStat) => ({ ...entry }))
   }
   return next
 }
 
-// cloneManualTesterItem reuses the preview clones and assigns a brand-new item id.
-const cloneManualTesterItem = (
-  item: RuleTesterItem,
+// cloneManualGearInspectorItem reuses the preview clones and assigns a brand-new item id.
+const cloneManualGearInspectorItem = (
+  item: GearInspectorItem,
   allocItemId: () => number,
-): RuleTesterItem => {
+): GearInspectorItem => {
   const { subValues, subOrder, previewExtras, itemId: _ignored, ...rest } = item
-  const next: RuleTesterItem = {
+  const next: GearInspectorItem = {
     ...rest,
     itemId: allocItemId(),
   }
@@ -166,7 +166,7 @@ const cloneManualTesterItem = (
     next.subOrder = [...subOrder]
   }
   if (previewExtras) {
-    next.previewExtras = cloneTesterPreviewExtras(previewExtras)
+    next.previewExtras = cloneGearInspectorPreviewExtras(previewExtras)
   }
   return next
 }
@@ -195,28 +195,28 @@ const pickRandomAccessoryFaction = (): FactionId => {
   return ACCESSORY_FACTION_POOL[Math.max(0, Math.min(idx, ACCESSORY_FACTION_POOL.length - 1))] ?? Faction.BannerLords
 }
 
-export function GearTesterTabContent({
+export function GearInspectorTabContent({
   customRecipes,
   onView,
   substatColors,
-  testerItems,
-  setTesterItems,
-  allocTesterItemId,
-  testerMatches,
+  gearInspectorItems,
+  setGearInspectorItems,
+  allocGearInspectorItemId,
+  gearInspectorMatches,
   isActive = true,
   emptyStateVerticalAlign = 'center',
   onRequestClose,
   renderLayout,
-}: GearTesterTabContentProps) {
+}: GearInspectorTabContentProps) {
   const { t, lang } = useI18n()
   useGearSetCatalogVersion()
   const { substatTargets, metasets } = useAppState()
   const { showFactionIcons, statButtonBorders } = useDisplayPreferences()
-  const testerMath = useMemo(() => createRuleTesterMath(substatTargets), [substatTargets])
+  const gearInspectorMath = useMemo(() => createGearInspectorMath(substatTargets), [substatTargets])
   const {
     adjustSubValuesFor,
     makeDefaultItem,
-  } = testerMath
+  } = gearInspectorMath
   const subEqualsMainVariant = useCallback((subV: number, mainV?: number): boolean => {
     if (mainV == null || Number(mainV) === StatId.Any) return false
     const sub = variantToSub(subV)
@@ -229,26 +229,26 @@ export function GearTesterTabContent({
     return sub.id === main.id
   }, [])
 
-  type TesterItem = RuleTesterItem
-  const setItems = setTesterItems
-  const sourceCounts = useMemo<TesterSourceCountMap>(() => {
-    const counts: TesterSourceCountMap = {
+  type GearInspectorItemLocal = GearInspectorItem
+  const setItems = setGearInspectorItems
+  const sourceCounts = useMemo<GearInspectorSourceCountMap>(() => {
+    const counts: GearInspectorSourceCountMap = {
       manual: 0,
       inventory: 0,
       collection: 0,
       vault: 0,
       inbox: 0,
     }
-    testerItems.forEach((item) => {
-      const category = testerSourceCategoryForItem(item)
+    gearInspectorItems.forEach((item) => {
+      const category = gearInspectorSourceCategoryForItem(item)
       counts[category] += 1
     })
     return counts
-  }, [testerItems])
+  }, [gearInspectorItems])
   const {
     shouldShow: shouldShowCompactHint,
     markSeen: markCompactHintSeen,
-  } = useContextMenuHint('ruleTesterCompact')
+  } = useContextMenuHint('gearInspectorCompact')
   const [compactHintPos, setCompactHintPos] = useState<{ x: number; y: number } | null>(null)
   const compactHintActive = shouldShowCompactHint && compactHintPos !== null
   const handleCompactHintPointerMove = useCallback((event: MouseEvent<HTMLButtonElement>) => {
@@ -268,10 +268,10 @@ export function GearTesterTabContent({
     }
   }, [shouldShowCompactHint])
   const manualEntries = useMemo(() => (
-    testerItems
-      .filter((item) => testerSourceCategoryForItem(item) === 'manual')
+    gearInspectorItems
+      .filter((item) => gearInspectorSourceCategoryForItem(item) === 'manual')
       .map((item) => ({ item }))
-  ), [testerItems])
+  ), [gearInspectorItems])
   const items = useMemo(() => manualEntries.map((entry) => entry.item), [manualEntries])
   const itemsRef = useRef(items)
   useEffect(() => { itemsRef.current = items }, [items])
@@ -304,9 +304,9 @@ export function GearTesterTabContent({
   const measuredHeightsRef = useRef<Map<number, number>>(new Map())
   const [rowHeightsVersion, setRowHeightsVersion] = useState(0)
   const estimateRowHeight = useCallback((isCompact: boolean): number => (
-    isCompact ? TESTER_ROW_ESTIMATE_COMPACT_PX : TESTER_ROW_ESTIMATE_EXPANDED_PX
+    isCompact ? GEAR_INSPECTOR_ROW_ESTIMATE_COMPACT_PX : GEAR_INSPECTOR_ROW_ESTIMATE_EXPANDED_PX
   ), [])
-  const isItemCompact = useCallback((item: TesterItem): boolean => {
+  const isItemCompact = useCallback((item: GearInspectorItemLocal): boolean => {
     const itemId = Number(item.itemId)
     if (Number.isFinite(itemId) && compactByItemId.has(itemId)) {
       return compactByItemId.get(itemId)!
@@ -320,7 +320,7 @@ export function GearTesterTabContent({
   const [setsMenuOpenIdx, setSetsMenuOpenIdx] = useState<number | null>(null)
   const setsMenuPaperRef = useRef<HTMLDivElement | null>(null)
   const setsMenuListRefs = useRef<Record<number, HTMLUListElement | null>>({})
-  const [pendingDeleteSource, setPendingDeleteSource] = useState<TesterSourceCategory | null>(null)
+  const [pendingDeleteSource, setPendingDeleteSource] = useState<GearInspectorSourceCategory | null>(null)
   const gearDialogIntroText = t('gearDialogIntro')
   const gearDialogIntroPathIndex = gearDialogIntroText.indexOf(RSL_HELPER_CONFIG_PATH)
   const gearDialogIntroHasPath = gearDialogIntroPathIndex >= 0
@@ -332,9 +332,9 @@ export function GearTesterTabContent({
     if (!ok) triggerCopyDialog(RSL_HELPER_CONFIG_PATH)
   }, [])
   // Faction options are grouped like Builder/Filters; precomputed flat list no longer used here.
-  // Keeping the grouped structure inline for clarity in the Rule Tester.
+  // Keeping the grouped structure inline for clarity in the Gear Inspector.
 
-  // Observe the tester scroll container while open so virtualization keeps viewport height and scroll offsets in sync.
+  // Observe the Gear Inspector scroll container while open so virtualization keeps viewport height and scroll offsets in sync.
   useEffect(() => {
     const node = scrollContainerRef.current
     if (!node) return
@@ -371,7 +371,7 @@ export function GearTesterTabContent({
     map.set(itemId, nextHeight)
     setRowHeightsVersion((v) => v + 1)
   }, [])
-  const scrollTesterSetsMenuToSelected = useCallback((itemIdx: number, orderOverride?: 'game' | 'az' | 'icons', opts?: { force?: boolean }) => {
+  const scrollGearInspectorSetsMenuToSelected = useCallback((itemIdx: number, orderOverride?: 'game' | 'az' | 'icons', opts?: { force?: boolean }) => {
     if (!opts?.force && setsMenuOpenIdx !== itemIdx) return
     const order = orderOverride ?? setsOrder
     if (order === 'icons') return
@@ -381,10 +381,10 @@ export function GearTesterTabContent({
     if (!item) return
     const setIdNumber = Number(item.set ?? 0)
     if (!Number.isFinite(setIdNumber) || setIdNumber === 0) return
-    const validIds = new Set<number>(allowedTesterSetIds(item.slot))
+    const validIds = new Set<number>(allowedGearInspectorSetIds(item.slot))
     const sortedForOrder = filterAndSortSetEntries(setsSearch, order, {
       translate: t,
-      // Allow the accessory no-set sentinel in the tester dropdown.
+      // Allow the accessory no-set sentinel in the Gear Inspector dropdown.
       includeNoSet: true,
       noSetLabel: t('noSetAccessories'),
     }).filter(([id]) => validIds.has(Number(id)))
@@ -407,7 +407,7 @@ export function GearTesterTabContent({
     const heights: number[] = []
     let total = 0
     for (let i = 0; i < items.length; i += 1) {
-      const item = items[i] as TesterItem
+      const item = items[i] as GearInspectorItemLocal
       offsets.push(total)
       const measured = map.get(item.itemId)
       const compact = isItemCompact(item)
@@ -424,8 +424,8 @@ export function GearTesterTabContent({
     if (items.length === 0) return []
     const fallbackViewport = viewportHeight > 0
       ? viewportHeight
-      : TESTER_ROW_ESTIMATE_COMPACT_PX * 4
-    const overscan = Math.max(TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX)
+      : GEAR_INSPECTOR_ROW_ESTIMATE_COMPACT_PX * 4
+    const overscan = Math.max(GEAR_INSPECTOR_VIRTUAL_OVERSCAN_PX, GEAR_INSPECTOR_ROW_ESTIMATE_EXPANDED_PX)
     const minY = Math.max(0, scrollTop - overscan)
     const maxY = Math.min(totalContentHeight, scrollTop + fallbackViewport + overscan)
     let start = 0
@@ -504,7 +504,7 @@ export function GearTesterTabContent({
 
   const compactColumnTemplate = 'max-content max-content max-content minmax(0, 1fr)'
 
-  const pruneEasterEggStateForItems = useCallback((nextItems: TesterItem[]) => {
+  const pruneEasterEggStateForItems = useCallback((nextItems: GearInspectorItemLocal[]) => {
     const activeRowIds = new Set(nextItems.map((item) => item.itemId))
     const history = toggleHistoryRef.current
     for (const key of Array.from(history.keys())) {
@@ -544,7 +544,7 @@ export function GearTesterTabContent({
     })
   }, [setCompactByRowId])
 
-  const updateItemAt = useCallback((index: number, updater: (item: TesterItem) => TesterItem) => {
+  const updateItemAt = useCallback((index: number, updater: (item: GearInspectorItemLocal) => GearInspectorItemLocal) => {
     const target = manualEntries[index]
     if (!target) return
     const itemId = target.item.itemId
@@ -562,7 +562,7 @@ export function GearTesterTabContent({
   const duplicateItemAt = useCallback((index: number) => {
     const anchor = manualEntries[index]
     if (!anchor) return
-    const duplicate = cloneManualTesterItem(anchor.item, allocTesterItemId)
+    const duplicate = cloneManualGearInspectorItem(anchor.item, allocGearInspectorItemId)
     setItems((prev) => {
       // Insert immediately after the source row to keep surrounding context intact.
       const anchorIdx = prev.findIndex((entry) => entry.itemId === anchor.item.itemId)
@@ -572,7 +572,7 @@ export function GearTesterTabContent({
       pruneEasterEggStateForItems(next)
       return next
     })
-  }, [allocTesterItemId, manualEntries, pruneEasterEggStateForItems, setItems])
+  }, [allocGearInspectorItemId, manualEntries, pruneEasterEggStateForItems, setItems])
 
   const deleteItemAt = useCallback((index: number) => {
     const target = manualEntries[index]
@@ -588,7 +588,7 @@ export function GearTesterTabContent({
 
   const handleAddManualGear = useCallback(() => {
     setItems((prev) => {
-      const next = prev.concat(makeDefaultItem(allocTesterItemId))
+      const next = prev.concat(makeDefaultItem(allocGearInspectorItemId))
       pruneEasterEggStateForItems(next)
       return next
     })
@@ -600,7 +600,7 @@ export function GearTesterTabContent({
 	        node.scrollTo({ top: node.scrollHeight, behavior: 'smooth' })
 	      }
 	    })
-	  }, [allocTesterItemId, makeDefaultItem, pruneEasterEggStateForItems, setItems])
+	  }, [allocGearInspectorItemId, makeDefaultItem, pruneEasterEggStateForItems, setItems])
 
   const deletableSources = useMemo(() => ([
     { key: 'manual' as const, label: t('testerSourceManual') },
@@ -621,9 +621,9 @@ export function GearTesterTabContent({
     }
   }, [pendingDeleteSource, deletableSources, sourceCounts])
 
-  const handleDeleteBySource = useCallback((category: TesterSourceCategory) => {
+  const handleDeleteBySource = useCallback((category: GearInspectorSourceCategory) => {
     setItems((prev) => {
-      const next = prev.filter((entry) => testerSourceCategoryForItem(entry) !== category)
+      const next = prev.filter((entry) => gearInspectorSourceCategoryForItem(entry) !== category)
       if (next.length === prev.length) return prev
       pruneEasterEggStateForItems(next)
       return next
@@ -635,14 +635,14 @@ export function GearTesterTabContent({
     const now = Date.now()
     const history = toggleHistoryRef.current
     const existing = history.get(itemId) ?? []
-    const recent = existing.filter((ts) => (now - ts) <= TESTER_COOKIE_WINDOW_MS)
+    const recent = existing.filter((ts) => (now - ts) <= GEAR_INSPECTOR_COOKIE_WINDOW_MS)
     recent.push(now)
     history.set(itemId, recent)
-    if (recent.length >= TESTER_COOKIE_TOGGLE_THRESHOLD) {
+    if (recent.length >= GEAR_INSPECTOR_COOKIE_TOGGLE_THRESHOLD) {
       history.set(itemId, [])
       setCookieMonsterExpiryByRow((prev) => ({
         ...prev,
-        [itemId]: now + TESTER_COOKIE_ANIMATION_MS,
+        [itemId]: now + GEAR_INSPECTOR_COOKIE_ANIMATION_MS,
       }))
       const activeTimeout = cookieTimeoutRef.current.get(itemId)
       if (activeTimeout != null) {
@@ -656,7 +656,7 @@ export function GearTesterTabContent({
           return next
         })
         cookieTimeoutRef.current.delete(itemId)
-      }, TESTER_COOKIE_ANIMATION_MS)
+      }, GEAR_INSPECTOR_COOKIE_ANIMATION_MS)
       cookieTimeoutRef.current.set(itemId, timeoutId)
     }
   }, [])
@@ -702,33 +702,33 @@ export function GearTesterTabContent({
     registerCompactToggle(itemId)
   }, [applyGlobalCompactState, compactByItemId, registerCompactToggle])
 
-  const renderTesterRow = (it: TesterItem, idx: number): JSX.Element => {
+  const renderGearInspectorRow = (it: GearInspectorItemLocal, idx: number): JSX.Element => {
     const itemId = Number(it.itemId)
     const isCompact = isItemCompact(it)
-    const match = Number.isFinite(itemId) ? testerMatches.get(itemId) ?? null : null
+    const match = Number.isFinite(itemId) ? gearInspectorMatches.get(itemId) ?? null : null
     const recipeIdx = match?.recipeIdx ?? null
     const recipe = (recipeIdx != null ? customRecipes[recipeIdx] : undefined)
     const recipeFactionCode = recipe ? Number((recipe as { factionCode?: number }).factionCode ?? 0) : 0
     const recipeIcon = (showFactionIcons && recipeFactionCode > 0)
-      ? <FactionIcon faction={recipeFactionCode as FactionId} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
+      ? <FactionIcon faction={recipeFactionCode as FactionId} size={GEAR_INSPECTOR_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
       : undefined
     const subEntries = entriesInOrder(it)
     const slotValue = Number(it.slot)
     const slotDef = Number.isFinite(slotValue) ? artifactTypeIconList.find(d => Number(d.id) === slotValue) : undefined
     const SlotIconComponent = slotDef?.Icon
-    const slotLabel = slotValue === TESTER_ANY_SLOT_ID
+    const slotLabel = slotValue === GEAR_INSPECTOR_ANY_SLOT_ID
       ? t('any')
       : (slotDef ? t(artifactTypeI18nKey(slotDef.id)) : '')
     const accessorySlot = isAccessorySlot(it.slot)
-    const allowedSetIdsForSlot = allowedTesterSetIds(it.slot)
-    const normalizedSetId = normalizeTesterSetForSlot(it.slot, (it.set ?? ACCESSORY_NO_SET_ID) as ArtifactSetId)
+    const allowedSetIdsForSlot = allowedGearInspectorSetIds(it.slot)
+    const normalizedSetId = normalizeGearInspectorSetForSlot(it.slot, (it.set ?? ACCESSORY_NO_SET_ID) as ArtifactSetId)
     const setIdNumber = Number(normalizedSetId)
     const setNameCanonical = setIdNumber > 0 ? artifactSetName(setIdNumber) : ''
     // Show set summary for any concrete set id, including the no-set sentinel.
     const showSetChip = Number.isFinite(setIdNumber) && setIdNumber !== 0
-    const setLabel = formatTesterSetLabel({ setId: setIdNumber, slot: it.slot, translate: t, lang })
+    const setLabel = formatGearInspectorSetLabel({ setId: setIdNumber, slot: it.slot, translate: t, lang })
     const setIconNode = Number.isFinite(setIdNumber) && setIdNumber !== 0
-      ? <SetIcon setId={setIdNumber} label={setNameCanonical || setLabel} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
+      ? <SetIcon setId={setIdNumber} label={setNameCanonical || setLabel} size={GEAR_INSPECTOR_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
       : null
     const slotIconNode = SlotIconComponent
       ? <SlotIconComponent fontSize="inherit" />
@@ -740,7 +740,7 @@ export function GearTesterTabContent({
     const levelLabel = hasExactLevel
       ? (exactLevelLabel ?? levelBucketLabel)
       : levelBucketLabel
-    const manualItem = isManualTesterItem(it)
+    const manualItem = isManualGearInspectorItem(it)
     const factionValue = Number(it.faction ?? 0)
     const showFactionChip = accessorySlot && factionValue !== 0
     const factionLabel = showFactionChip ? t(factionI18nKey(factionValue)) : ''
@@ -757,7 +757,7 @@ export function GearTesterTabContent({
     const mainSummaryColor = (statButtonBorders && mainColor) ? mainColor : undefined
     const factionChipLabel = factionLabel
     const factionIconNode = showFactionIcon
-      ? <FactionIcon faction={factionValue as FactionId} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
+      ? <FactionIcon faction={factionValue as FactionId} size={GEAR_INSPECTOR_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
       : null
     const gridIconBoxNode = (
       <GridIconBox
@@ -785,13 +785,13 @@ export function GearTesterTabContent({
     const cookieMonsterActive = Object.prototype.hasOwnProperty.call(cookieMonsterExpiryByRow, it.itemId)
     const toggleTooltip = cookieMonsterActive ? 'Coookieees!' : (isCompact ? t('expanded') : t('compact'))
     const ruleChipNode = (
-      <TesterRuleReferenceChip
+      <GearInspectorRuleReferenceChip
         match={match}
         onJump={onView}
         showFinalSellLabel
         icon={recipeIcon}
         sx={{
-          maxWidth: TESTER_RECIPE_CHIP_MAX_WIDTH_PX,
+          maxWidth: GEAR_INSPECTOR_RECIPE_CHIP_MAX_WIDTH_PX,
           width: '100%',
           '& .MuiChip-label': {
             whiteSpace: 'nowrap',
@@ -807,7 +807,7 @@ export function GearTesterTabContent({
       />
     )
     return (
-      <Box sx={{ borderBottom: theme => `1px solid ${theme.palette.divider}`, pb: 1, display: 'grid', gridTemplateColumns: `${TESTER_ROW_CONTROLS_WIDTH_PX}px minmax(0,1fr) ${TESTER_ICON_COLUMN_WIDTH_PX}px`, columnGap: 1 }}>
+      <Box sx={{ borderBottom: theme => `1px solid ${theme.palette.divider}`, pb: 1, display: 'grid', gridTemplateColumns: `${GEAR_INSPECTOR_ROW_CONTROLS_WIDTH_PX}px minmax(0,1fr) ${GEAR_INSPECTOR_ICON_COLUMN_WIDTH_PX}px`, columnGap: 1 }}>
         <Stack
           direction="column"
           spacing={0.5}
@@ -817,7 +817,7 @@ export function GearTesterTabContent({
             gridColumn: '1',
             gridRow: '1',
             position: 'relative',
-            width: TESTER_ROW_CONTROLS_WIDTH_PX,
+            width: GEAR_INSPECTOR_ROW_CONTROLS_WIDTH_PX,
             ...(cookieMonsterActive
               ? {
                   '&::after': {
@@ -825,15 +825,15 @@ export function GearTesterTabContent({
                     position: 'absolute',
                     left: '50%',
                     top: '50%',
-                    width: TESTER_COOKIE_HALO_DIAMETER_PX,
-                    height: TESTER_COOKIE_HALO_DIAMETER_PX,
+                    width: GEAR_INSPECTOR_COOKIE_HALO_DIAMETER_PX,
+                    height: GEAR_INSPECTOR_COOKIE_HALO_DIAMETER_PX,
                     borderRadius: '50%',
                     bgcolor: 'primary.main',
                     opacity: 0.92,
                     transform: 'translate(-50%, -50%)',
                     pointerEvents: 'none',
                     boxShadow: (theme) => `0 0 18px ${theme.palette.primary.light}b0`,
-                    animation: `${testerCookiePulse} 1.5s ease-in-out infinite`,
+                    animation: `${gearInspectorCookiePulse} 1.5s ease-in-out infinite`,
                     zIndex: 0,
                   },
                   '& > *': {
@@ -851,7 +851,7 @@ export function GearTesterTabContent({
                 p: 0.25,
                 ...(cookieMonsterActive ? {
                   '& svg': {
-                    animation: `${testerCookieIconWobble} 1.15s ease-in-out infinite`,
+                    animation: `${gearInspectorCookieIconWobble} 1.15s ease-in-out infinite`,
                     transformOrigin: '50% 50%',
                   },
                 } : {}),
@@ -870,7 +870,7 @@ export function GearTesterTabContent({
                     p: 0.25,
                     ...(cookieMonsterActive ? {
                       '& svg': {
-                        animation: `${testerCookieIconWobble} 1.15s ease-in-out infinite`,
+                        animation: `${gearInspectorCookieIconWobble} 1.15s ease-in-out infinite`,
                         animationDelay: '0.18s',
                         transformOrigin: '50% 50%',
                       },
@@ -898,7 +898,7 @@ export function GearTesterTabContent({
                 width: '100%',
                 ...(cookieMonsterActive ? {
                   '& svg': {
-                    animation: `${testerCookieFlip} 1.2s ease-in-out infinite`,
+                    animation: `${gearInspectorCookieFlip} 1.2s ease-in-out infinite`,
                     transformOrigin: '50% 50%',
                   },
                 } : {}),
@@ -932,13 +932,13 @@ export function GearTesterTabContent({
             }}
           >
             <Box sx={{ gridColumn: '1', gridRow: '1', display: 'flex', alignItems: 'center', minWidth: 0 }}>
-              <TesterSummaryLabel label={slotLabel} icon={slotIconNode || undefined} />
+              <GearInspectorSummaryLabel label={slotLabel} icon={slotIconNode || undefined} />
             </Box>
             <Box sx={{ gridColumn: '2', gridRow: '1', display: 'flex', alignItems: 'center', minWidth: 0 }}>
-              <TesterSummaryLabel label={rankLabel(it.rank)} />
+              <GearInspectorSummaryLabel label={rankLabel(it.rank)} />
             </Box>
             <Box sx={{ gridColumn: '3', gridRow: '1', display: 'flex', alignItems: 'center', minWidth: 0 }}>
-              <TesterSummaryLabel label={rarityLabel(it.rarity)} />
+              <GearInspectorSummaryLabel label={rarityLabel(it.rarity)} />
             </Box>
             <Box
               sx={{
@@ -953,13 +953,13 @@ export function GearTesterTabContent({
                 minWidth: 0,
               }}
             >
-              <TesterSummaryLabel label={mainLabel} color={mainSummaryColor} />
+              <GearInspectorSummaryLabel label={mainLabel} color={mainSummaryColor} />
             </Box>
             <Box sx={{ gridColumn: '1', gridRow: '2', display: showSetChip ? 'flex' : 'none', alignItems: 'center', minWidth: 0 }}>
-              {showSetChip ? <TesterSummaryLabel label={setLabel} icon={setIconNode || undefined} /> : null}
+              {showSetChip ? <GearInspectorSummaryLabel label={setLabel} icon={setIconNode || undefined} /> : null}
             </Box>
             <Box sx={{ gridColumn: '2', gridRow: '2', display: 'flex', alignItems: 'center', minWidth: 0 }}>
-              <TesterSummaryLabel label={levelChipLabel} />
+              <GearInspectorSummaryLabel label={levelChipLabel} />
             </Box>
             <Box
               sx={{
@@ -974,11 +974,11 @@ export function GearTesterTabContent({
                 showFactionIcon && factionIconNode ? (
                   <MarkdownTooltip markdown={factionLabel}>
                     <Box sx={{ minWidth: 0 }}>
-                      <TesterSummaryLabel label={factionChipLabel} icon={factionIconNode} />
+                      <GearInspectorSummaryLabel label={factionChipLabel} icon={factionIconNode} />
                     </Box>
                   </MarkdownTooltip>
                 ) : (
-                  <TesterSummaryLabel label={factionChipLabel} />
+                  <GearInspectorSummaryLabel label={factionChipLabel} />
                 )
               ) : null}
             </Box>
@@ -999,7 +999,7 @@ export function GearTesterTabContent({
                 const subSummaryColor = statButtonBorders ? entry.color : undefined
                 return (
                   <Box key={`sub-${entry.variant}`} sx={{ minWidth: 0 }}>
-                    <TesterSummaryLabel label={entry.label} color={subSummaryColor} />
+                    <GearInspectorSummaryLabel label={entry.label} color={subSummaryColor} />
                   </Box>
                 )
               })}
@@ -1008,19 +1008,19 @@ export function GearTesterTabContent({
         ) : (
           <Box
             // Control strip mirrors Builder selectors: slot/rank/rarity/main stay aligned in one row.
-          sx={{ gridColumn: '2', display: 'grid', gridTemplateColumns: TESTER_CONTROL_GRID_TEMPLATE, columnGap: 1, rowGap: 1, alignItems: 'center' }}
+          sx={{ gridColumn: '2', display: 'grid', gridTemplateColumns: GEAR_INSPECTOR_CONTROL_GRID_TEMPLATE, columnGap: 1, rowGap: 1, alignItems: 'center' }}
         >
           <GearSlotSelect
-            value={slotValue === TESTER_ANY_SLOT_ID ? null : (slotValue as ArtifactTypeId)}
+            value={slotValue === GEAR_INSPECTOR_ANY_SLOT_ID ? null : (slotValue as ArtifactTypeId)}
             onChange={(nextSlot) => {
               updateItemAt(idx, (v) => {
-                const resolvedSlot = (nextSlot == null ? TESTER_ANY_SLOT_ID : nextSlot) as ArtifactTypeId
+                const resolvedSlot = (nextSlot == null ? GEAR_INSPECTOR_ANY_SLOT_ID : nextSlot) as ArtifactTypeId
                 const currentMain = Number(v.main ?? -1)
-                const supportsMain = (Number(resolvedSlot) === TESTER_ANY_SLOT_ID) || slotSupportsMain(resolvedSlot, currentMain)
+                const supportsMain = (Number(resolvedSlot) === GEAR_INSPECTOR_ANY_SLOT_ID) || slotSupportsMain(resolvedSlot, currentMain)
                 const fixedMain = (currentMain === -1 || Number.isNaN(currentMain) || supportsMain)
                   ? currentMain
                   : (Array.from(ALLOWED_MAIN_BY_SLOT[Number(resolvedSlot) as ArtifactType] || [])[0] ?? -1)
-                const allowedForSlot = new Set<number>(allowedTesterSetIds(resolvedSlot))
+                const allowedForSlot = new Set<number>(allowedGearInspectorSetIds(resolvedSlot))
                 const fixedSet = allowedForSlot.has(Number(v.set))
                   ? v.set
                   : (allowedForSlot.size > 0 ? (Array.from(allowedForSlot)[0] as ArtifactSetId) : v.set)
@@ -1038,12 +1038,12 @@ export function GearTesterTabContent({
             }}
             size="small"
             sx={{
-              width: TESTER_SLOT_SELECT_WIDTH_PX,
-              height: TESTER_SELECT_HEIGHT_PX,
+              width: GEAR_INSPECTOR_SLOT_SELECT_WIDTH_PX,
+              height: GEAR_INSPECTOR_SELECT_HEIGHT_PX,
               display: 'inline-flex',
               alignItems: 'center',
               '& .MuiSelect-select': {
-                ...TESTER_SELECT_VALUE_BASE_SX,
+                ...GEAR_INSPECTOR_SELECT_VALUE_BASE_SX,
               },
             }}
           />
@@ -1056,11 +1056,11 @@ export function GearTesterTabContent({
             }}
             size="small"
             sx={{
-              width: TESTER_RANK_SELECT_WIDTH_PX,
-              height: TESTER_SELECT_HEIGHT_PX,
+              width: GEAR_INSPECTOR_RANK_SELECT_WIDTH_PX,
+              height: GEAR_INSPECTOR_SELECT_HEIGHT_PX,
               display: 'inline-flex',
               alignItems: 'center',
-              '& .MuiSelect-select': TESTER_SELECT_VALUE_BASE_SX,
+              '& .MuiSelect-select': GEAR_INSPECTOR_SELECT_VALUE_BASE_SX,
             }}
           />
           <GearRaritySelect
@@ -1071,11 +1071,11 @@ export function GearTesterTabContent({
             }}
             size="small"
             sx={{
-              width: TESTER_RARITY_SELECT_WIDTH_PX,
-              height: TESTER_SELECT_HEIGHT_PX,
+              width: GEAR_INSPECTOR_RARITY_SELECT_WIDTH_PX,
+              height: GEAR_INSPECTOR_SELECT_HEIGHT_PX,
               display: 'inline-flex',
               alignItems: 'center',
-              '& .MuiSelect-select': TESTER_SELECT_VALUE_BASE_SX,
+              '& .MuiSelect-select': GEAR_INSPECTOR_SELECT_VALUE_BASE_SX,
             }}
           />
           <GearMainStatSelect
@@ -1088,11 +1088,11 @@ export function GearTesterTabContent({
             showBorderColors={statButtonBorders}
             size="small"
             sx={{
-              width: TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX,
-              height: TESTER_SELECT_HEIGHT_PX,
+              width: GEAR_INSPECTOR_MAINSTAT_SELECT_MIN_WIDTH_PX,
+              height: GEAR_INSPECTOR_SELECT_HEIGHT_PX,
               display: 'inline-flex',
               alignItems: 'center',
-              '& .MuiSelect-select': TESTER_SELECT_VALUE_BASE_SX,
+              '& .MuiSelect-select': GEAR_INSPECTOR_SELECT_VALUE_BASE_SX,
             }}
           />
           </Box>
@@ -1106,7 +1106,7 @@ export function GearTesterTabContent({
               alignItems: 'center',
               gap: 0.5,
               flexWrap: 'wrap',
-              minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX,
+              minHeight: GEAR_INSPECTOR_RESULT_ROW_MIN_HEIGHT_PX,
             }}
           >
             <Box
@@ -1137,7 +1137,7 @@ export function GearTesterTabContent({
           </Box>
         )}
         {!isCompact && (
-          <Box sx={{ gridColumn: '2', gridRow: '2', display: 'grid', gridTemplateColumns: TESTER_CONTROL_GRID_TEMPLATE, columnGap: 1, rowGap: 1, mt: 0.5, alignItems: 'center' }}>
+          <Box sx={{ gridColumn: '2', gridRow: '2', display: 'grid', gridTemplateColumns: GEAR_INSPECTOR_CONTROL_GRID_TEMPLATE, columnGap: 1, rowGap: 1, mt: 0.5, alignItems: 'center' }}>
             {(() => {
               const validIds = new Set<number>(allowedSetIdsForSlot)
               const sorted = filterAndSortSetEntries(setsSearch, setsOrder, {
@@ -1148,7 +1148,7 @@ export function GearTesterTabContent({
               }).filter(([id]) => validIds.has(Number(id)))
               const setValue = Number.isFinite(setIdNumber) ? String(setIdNumber) : ''
               const setOptionMissing = setValue !== '' && !sorted.some(([id]) => id === setValue)
-              const currentSetLabel = formatTesterSetLabel({ setId: setIdNumber, slot: it.slot, translate: t, lang })
+              const currentSetLabel = formatGearInspectorSetLabel({ setId: setIdNumber, slot: it.slot, translate: t, lang })
               return (
                 <Select
                   size="small"
@@ -1164,14 +1164,14 @@ export function GearTesterTabContent({
                       if (numeric === ACCESSORY_NO_SET_ID) {
                         return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
                       }
-                      const allowedForSlot = allowedTesterSetIds(v.slot)
+                      const allowedForSlot = allowedGearInspectorSetIds(v.slot)
                       if (allowedForSlot.includes(numeric)) {
                         return adjustSubValuesFor({ ...v, set: numeric as ArtifactSetId })
                       }
                       if (isAccessorySlot(v.slot)) {
                         return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
                       }
-                      return adjustSubValuesFor({ ...v, set: normalizeTesterSetForSlot(v.slot, numeric as ArtifactSetId) })
+                      return adjustSubValuesFor({ ...v, set: normalizeGearInspectorSetForSlot(v.slot, numeric as ArtifactSetId) })
                     })
                     requestAnimationFrame(() => setSetsMenuOpenIdx(null))
                   }}
@@ -1184,7 +1184,7 @@ export function GearTesterTabContent({
                     setSetsMenuAnchorPos({ top: rect.bottom, left: rect.left })
                     setSetsMenuOpenIdx(idx)
                     requestAnimationFrame(() => requestAnimationFrame(() => {
-                      scrollTesterSetsMenuToSelected(idx, setsOrder, { force: true })
+                      scrollGearInspectorSetsMenuToSelected(idx, setsOrder, { force: true })
                     }))
                   }}
                   renderValue={(value) => {
@@ -1240,13 +1240,13 @@ export function GearTesterTabContent({
                       : { transformOrigin: { vertical: 'top', horizontal: 'left' as const } }),
                   }}
                   sx={{
-                    width: TESTER_SET_SELECT_WIDTH_PX,
-                    height: TESTER_SELECT_HEIGHT_PX,
+                    width: GEAR_INSPECTOR_SET_SELECT_WIDTH_PX,
+                    height: GEAR_INSPECTOR_SELECT_HEIGHT_PX,
                     display: 'inline-flex',
                     alignItems: 'center',
                     '& .MuiSelect-select': {
-                      ...TESTER_SELECT_VALUE_BASE_SX,
-                      columnGap: TESTER_SELECT_GAP_COMPACT_PX,
+                      ...GEAR_INSPECTOR_SELECT_VALUE_BASE_SX,
+                      columnGap: GEAR_INSPECTOR_SELECT_GAP_COMPACT_PX,
                       whiteSpace: 'nowrap',
                     },
                   }}
@@ -1280,7 +1280,7 @@ export function GearTesterTabContent({
                               if (!v) return
                               setSetsOrder(v)
                               if (setsMenuOpenIdx !== null) {
-                                requestAnimationFrame(() => scrollTesterSetsMenuToSelected(setsMenuOpenIdx, v, { force: true }))
+                                requestAnimationFrame(() => scrollGearInspectorSetsMenuToSelected(setsMenuOpenIdx, v, { force: true }))
                               }
                             }}
                             zeroResults={sorted.length === 0}
@@ -1324,7 +1324,7 @@ export function GearTesterTabContent({
                         singleSelect
                         onToggleSet={(id: number) => {
                           updateItemAt(idx, (v) => {
-                            const allowedForSlot = allowedTesterSetIds(v.slot)
+                            const allowedForSlot = allowedGearInspectorSetIds(v.slot)
                             if (isAccessorySlot(v.slot) && Number(v.set) === Number(id)) {
                               return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
                             }
@@ -1334,7 +1334,7 @@ export function GearTesterTabContent({
                             if (isAccessorySlot(v.slot)) {
                               return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
                             }
-                            return adjustSubValuesFor({ ...v, set: normalizeTesterSetForSlot(v.slot, id as ArtifactSetId) })
+                            return adjustSubValuesFor({ ...v, set: normalizeGearInspectorSetForSlot(v.slot, id as ArtifactSetId) })
                           })
                           requestAnimationFrame(() => setSetsMenuOpenIdx(null))
                         }}
@@ -1348,11 +1348,11 @@ export function GearTesterTabContent({
               const updated = { ...v, level: Number(e.target.value) as LevelMilestone }
               return adjustSubValuesFor(updated)
             })} sx={{
-              width: TESTER_LEVEL_SELECT_WIDTH_PX,
-              height: TESTER_SELECT_HEIGHT_PX,
+              width: GEAR_INSPECTOR_LEVEL_SELECT_WIDTH_PX,
+              height: GEAR_INSPECTOR_SELECT_HEIGHT_PX,
               display: 'inline-flex',
               alignItems: 'center',
-              '& .MuiSelect-select': TESTER_SELECT_VALUE_BASE_SX,
+              '& .MuiSelect-select': GEAR_INSPECTOR_SELECT_VALUE_BASE_SX,
             }}>
               {LEVEL_MILESTONES.map(n => (<MenuItem key={n} value={n}>{formatLevel(n)}</MenuItem>))}
             </Select>
@@ -1364,19 +1364,19 @@ export function GearTesterTabContent({
               }}
               size="small"
               sx={{
-                width: TESTER_FACTION_SELECT_WIDTH_PX,
-                height: TESTER_SELECT_HEIGHT_PX,
+                width: GEAR_INSPECTOR_FACTION_SELECT_WIDTH_PX,
+                height: GEAR_INSPECTOR_SELECT_HEIGHT_PX,
                 display: 'inline-flex',
                 alignItems: 'center',
                 '& .MuiSelect-select': {
-                  ...TESTER_SELECT_VALUE_BASE_SX,
+                  ...GEAR_INSPECTOR_SELECT_VALUE_BASE_SX,
                 },
               }}
             />
           </Box>
         )}
         {!isCompact && (
-          <Box sx={{ gridColumn: '2', display: 'grid', gridTemplateColumns: `repeat(2, ${TESTER_SUBSTAT_EDITOR_WIDTH_PX}px)`, columnGap: 1, rowGap: 0.5, mt: 0.5 }}>
+          <Box sx={{ gridColumn: '2', display: 'grid', gridTemplateColumns: `repeat(2, ${GEAR_INSPECTOR_SUBSTAT_EDITOR_WIDTH_PX}px)`, columnGap: 1, rowGap: 0.5, mt: 0.5 }}>
             {subEntries.map(([v, value]) => {
               const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1|2|3|4|5|6
               const baseStep = (
@@ -1387,8 +1387,8 @@ export function GearTesterTabContent({
               const numericValue = Number.isFinite(parsedValue) ? parsedValue : 0
               const usedOthers = new Set<number>(subEntries.filter(([kk]) => Number(kk) !== v).map(([kk]) => Number(kk)))
               const candidates = STAT_VARIANTS_PRIORITY
-                .filter(x => (Number(it.slot) === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, x)) && !usedOthers.has(Number(x)) && !subEqualsMainVariant(x, mainValue))
-              const clampTesterValue = (raw: number): number => {
+                .filter(x => (Number(it.slot) === GEAR_INSPECTOR_ANY_SLOT_ID || slotSupportsSub(it.slot, x)) && !usedOthers.has(Number(x)) && !subEqualsMainVariant(x, mainValue))
+              const clampGearInspectorValue = (raw: number): number => {
                 if (!Number.isFinite(raw)) return 1
                 return Math.max(1, Math.round(raw))
               }
@@ -1396,12 +1396,12 @@ export function GearTesterTabContent({
                 updateItemAt(idx, (it2) => {
                   const base = { ...it2, subValues: { ...(it2.subValues || {}), [v]: nextValue } }
                   const updated = (it2.subOrder && it2.subOrder.length > 0) ? { ...base, subOrder: [...it2.subOrder] } : base
-                  return adjustSubValuesFor(updated as TesterItem)
+                  return adjustSubValuesFor(updated as GearInspectorItemLocal)
                 })
               }
               const applyStepDelta = (delta: number) => {
                 const next = numericValue + (delta * step)
-                commitSubstatValue(clampTesterValue(next))
+                commitSubstatValue(clampGearInspectorValue(next))
               }
               // Per-row key keeps hover state stable across repeated stats/rows.
               const hoverKey = `${Number(it.itemId)}:${Number(v)}`
@@ -1413,7 +1413,7 @@ export function GearTesterTabContent({
                   spacing={0.5}
                   alignItems="center"
                   sx={{
-                    width: `${TESTER_SUBSTAT_EDITOR_WIDTH_PX}px`,
+                    width: `${GEAR_INSPECTOR_SUBSTAT_EDITOR_WIDTH_PX}px`,
                     borderRadius: 1,
                     px: 0.75,
                     py: 0.25,
@@ -1439,12 +1439,12 @@ export function GearTesterTabContent({
                       })
                     }}
                     sx={{
-                      width: TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX,
-                      height: TESTER_SELECT_HEIGHT_PX,
+                      width: GEAR_INSPECTOR_SUBSTAT_SELECT_MIN_WIDTH_PX,
+                      height: GEAR_INSPECTOR_SELECT_HEIGHT_PX,
                       display: 'inline-flex',
                       alignItems: 'center',
                       '& .MuiSelect-select': {
-                        ...TESTER_SELECT_VALUE_BASE_SX,
+                        ...GEAR_INSPECTOR_SELECT_VALUE_BASE_SX,
                         color: statButtonBorders ? (substatColors[v]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[v]) : undefined,
                       },
                     }}
@@ -1473,7 +1473,7 @@ export function GearTesterTabContent({
                       value={numericValue}
                       onChange={(event) => {
                         const raw = Number(event.target.value)
-                        commitSubstatValue(clampTesterValue(raw))
+                        commitSubstatValue(clampGearInspectorValue(raw))
                       }}
                       inputProps={{
                         inputMode: 'numeric',
@@ -1508,7 +1508,7 @@ export function GearTesterTabContent({
                             ariaLabel={t(statVariantI18nKey(v))}
                             onStep={(delta) => {
                               const next = numericValue + delta
-                              commitSubstatValue(clampTesterValue(next))
+                              commitSubstatValue(clampGearInspectorValue(next))
                             }}
                           />
                         ),
@@ -1543,7 +1543,7 @@ export function GearTesterTabContent({
               alignItems: 'center',
               gap: 0.5,
               flexWrap: 'wrap',
-              minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX,
+              minHeight: GEAR_INSPECTOR_RESULT_ROW_MIN_HEIGHT_PX,
             }}
           >
             <Box
@@ -1589,13 +1589,13 @@ export function GearTesterTabContent({
     )
   }
 
-  // No Import/Export buttons; autosave restores when the tester view mounts.
+  // No Import/Export buttons; autosave restores when the Gear Inspector view mounts.
 
-  const layoutRenderer = renderLayout ?? defaultGearTesterTabLayout
+  const layoutRenderer = renderLayout ?? defaultGearInspectorTabLayout
 
   const contentNode = (
     <Box
-      data-tour-id="tester.dialog"
+      data-tour-id="gear-inspector.dialog"
       sx={{
         display: 'flex',
         flexDirection: 'column',
@@ -1657,11 +1657,11 @@ export function GearTesterTabContent({
           <Box sx={{ position: 'relative' }}>
             {topSpacerHeight > 0 ? <Box sx={{ height: topSpacerHeight }} /> : null}
             {visibleIndices.map((idx) => {
-              const item = items[idx] as TesterItem
+              const item = items[idx] as GearInspectorItemLocal
               return (
-                <MeasuredTesterRow key={item.itemId} itemId={item.itemId} registerHeight={registerRowHeight}>
-                  {renderTesterRow(item, idx)}
-                </MeasuredTesterRow>
+                <MeasuredGearInspectorRow key={item.itemId} itemId={item.itemId} registerHeight={registerRowHeight}>
+                  {renderGearInspectorRow(item, idx)}
+                </MeasuredGearInspectorRow>
               )
             })}
             {bottomSpacerHeight > 0 ? <Box sx={{ height: bottomSpacerHeight }} /> : null}
@@ -1759,7 +1759,7 @@ export function GearTesterTabContent({
           gap: 1,
         }}
       >
-        <Button data-tour-id="tester.add-manual" onClick={handleAddManualGear}>{t('gearDialogAddManualGear')}</Button>
+        <Button data-tour-id="gear-inspector.add-manual" onClick={handleAddManualGear}>{t('gearDialogAddManualGear')}</Button>
         <Box sx={{ flex: 1 }} />
         {onRequestClose ? <Button onClick={onRequestClose}>{t('close')}</Button> : null}
       </Box>
@@ -1802,7 +1802,7 @@ export function GearTesterTabContent({
   )
 }
 
-const defaultGearTesterTabLayout = ({ content, actions }: GearTesterTabLayoutSlots): ReactNode => (
+const defaultGearInspectorTabLayout = ({ content, actions }: GearInspectorTabLayoutSlots): ReactNode => (
   <>
     <DialogContent
       dividers
@@ -1829,13 +1829,13 @@ const defaultGearTesterTabLayout = ({ content, actions }: GearTesterTabLayoutSlo
   </>
 )
 
-type MeasuredTesterRowProps = {
+type MeasuredGearInspectorRowProps = {
   itemId: number
   registerHeight: (itemId: number, height: number) => void
   children: ReactNode
 }
 
-function MeasuredTesterRow({ itemId, registerHeight, children }: MeasuredTesterRowProps) {
+function MeasuredGearInspectorRow({ itemId, registerHeight, children }: MeasuredGearInspectorRowProps) {
   const rowRef = useRef<HTMLDivElement | null>(null)
 
   useLayoutEffect(() => {
@@ -1854,7 +1854,7 @@ function MeasuredTesterRow({ itemId, registerHeight, children }: MeasuredTesterR
     }
   }, [itemId, registerHeight])
 
-  return <Box ref={rowRef} data-tour-id={`tester.item.${itemId}`}>{children}</Box>
+  return <Box ref={rowRef} data-tour-id={`gear-inspector.item.${itemId}`}>{children}</Box>
 }
 
-export default GearTesterTabContent
+export default GearInspectorTabContent

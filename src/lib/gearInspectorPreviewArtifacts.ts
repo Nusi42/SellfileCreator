@@ -74,7 +74,7 @@ const buildManualSubstats = (
   return entries
 }
 
-export function buildPreviewArtifactFromTesterItem(
+export function buildPreviewArtifactFromGearInspectorItem(
   item: TestItem,
   options?: BuildOptions,
 ): NormalizedGearArtifact {

@@ -14,7 +14,7 @@ import {
   type RankValue,
 } from './types'
 
-export type TesterRuleTemplateIntent = 'keep' | 'sell'
+export type GearInspectorRuleTemplateIntent = 'keep' | 'sell'
 
 type LevelBracket = 'early' | 'mid' | 'late'
 
@@ -159,9 +159,9 @@ const resolveSetSelection = (artifact: NormalizedGearArtifact): ArtifactSetSelec
   return [{ id: Math.floor(setId) as ArtifactSetId }]
 }
 
-export const buildTesterRuleTemplateRecipe = (params: {
+export const buildGearInspectorRuleTemplateRecipe = (params: {
   artifact: NormalizedGearArtifact
-  intent: TesterRuleTemplateIntent
+  intent: GearInspectorRuleTemplateIntent
 }): BuilderRecipe => {
   const { artifact, intent } = params
   const base = createFactoryBuilderDefaults()

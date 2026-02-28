@@ -31,6 +31,10 @@ export type BuilderPreviewLayout = {
   previewPaperHeightPx: number | null
   previewPaperHeightStyle: string | undefined
   sideBySideMinPaperHeightPx: string | undefined
+  // Trigger a re-measurement of the builder Paper min-height from current DOM state.
+  // Call this whenever the builder content changes in a way that the chips ResizeObserver
+  // may not detect (e.g. switching builderMode hides the recipe chips container).
+  scheduleMeasurement: () => void
 }
 
 export type UseBuilderPreviewLayoutOptions = {
@@ -373,5 +377,8 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
     previewPaperHeightPx,
     previewPaperHeightStyle,
     sideBySideMinPaperHeightPx,
+    // Delegates to the chips measurement path so callers (e.g. App.tsx on builderMode
+    // change) can force a recalculation without coupling to internal implementation.
+    scheduleMeasurement: scheduleChipsMeasurement,
   }
 }

@@ -1,13 +1,13 @@
 import { ACCESSORY_NO_SET_ID } from './constants'
 import { getLocalizedGearSetName, type ArtifactSetId, type ArtifactTypeId } from './types'
-import { isAccessorySlot } from './testerDomain'
+import { isAccessorySlot } from './gearInspectorDomain'
 
 type TranslateFn = (key: string | number, params?: Record<string, string | number>) => string
 
-export function formatTesterSetLabel({ setId, slot, translate, lang }: { setId: number | null | undefined; slot: ArtifactTypeId; translate: TranslateFn; lang: string }): string {
+export function formatGearInspectorSetLabel({ setId, slot, translate, lang }: { setId: number | null | undefined; slot: ArtifactTypeId; translate: TranslateFn; lang: string }): string {
   // Normalize to a numeric id so we can treat sentinels consistently.
   const numeric = Number(setId)
-  // Unknown/invalid ids should show the tester "unknown" placeholder.
+  // Unknown/invalid ids should show the Gear Inspector "unknown" placeholder.
   if (!Number.isFinite(numeric)) {
     return translate('testerValueUnknown')
   }

@@ -1,7 +1,7 @@
-import { isAccessorySlot } from './testerDomain'
-import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT } from './testerSort'
+import { isAccessorySlot } from './gearInspectorDomain'
+import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from './gearInspectorSort'
 import { resolveAllowedSubstatsForSlotsAndMains } from './statCompatibility'
-import type { TesterPreviewRow } from '../types/testerPreview'
+import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import type {
   ArtifactSetId,
   ArtifactTypeId,
@@ -370,7 +370,7 @@ export type SafeguardPlaceholderRequest = {
 }
 
 export type SafeguardCandidate = {
-  row: TesterPreviewRow
+  row: GearInspectorPreviewRow
   artifact: NormalizedGearArtifact
   itemKey: number
   groupKey: SafeguardGroupKey
@@ -406,7 +406,7 @@ export type SafeguardDetectionParams = {
 }
 
 export type SafeguardCollectAndDetectParams = {
-  rows: readonly TesterPreviewRow[]
+  rows: readonly GearInspectorPreviewRow[]
   baseRules: readonly HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
   rules: readonly SafeguardRule[]
@@ -739,7 +739,7 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   }
 }
 
-/** Shared helper for mapping tester artifacts to the detection item key. */
+/** Shared helper for mapping Gear Inspector artifacts to the detection item key. */
 export function getSafeguardItemKey(artifact: NormalizedGearArtifact): number {
   // Delegate item-key derivation to wasm so TS does not duplicate fallback rules.
   return getSafeguardItemKeyWithLoadedWasm(artifact)
@@ -821,7 +821,7 @@ const isSafeguardDetectionSnapshot = (value: unknown): value is SafeguardDetecti
 )
 
 export function collectSafeguardCandidates(params: {
-  rows: readonly TesterPreviewRow[]
+  rows: readonly GearInspectorPreviewRow[]
   baseRules: readonly HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
   ignoreSafeguardRecipeIndices?: ReadonlySet<number>
@@ -1087,9 +1087,9 @@ export function pruneSafeguardsSubstatWeights(
     const variant = Number(key)
     // Skip non-numeric keys and unselected variants.
     if (!Number.isFinite(variant) || !allowed.has(variant)) continue
-    const normalized = normalizeTesterSortWeight(Number(raw))
+    const normalized = normalizeGearInspectorSortWeight(Number(raw))
     // Omit entries that equal the default so the map stays compact.
-    if (normalized === TESTER_SORT_WEIGHT_DEFAULT) continue
+    if (normalized === GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT) continue
     next[variant as StatVariant] = normalized
   }
   return next

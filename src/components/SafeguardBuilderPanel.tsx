@@ -86,13 +86,13 @@ import { summaryParts } from './RecipeChip'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSlotMetrics } from '../hooks/useSlotMetrics'
 import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
-import { slotSelectionAllowsAccessories } from '../lib/testerDomain'
+import { slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import { useI18n } from '../lib/i18n'
 import { GearFactionSelect, GearRankSelect, GearRaritySelect, GearSetsSelect } from './gear'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
 import MarkdownTooltip from './MarkdownTooltip'
 import EllipsisTooltip from './EllipsisTooltip'
-import { TesterSortWeightControls } from './TesterSortWeightControls'
+import { GearInspectorSortWeightControls } from './GearInspectorSortWeightControls'
 import { useKeepOverrideCombinationTools } from './keepOverrides/useKeepOverrideCombinationTools'
 import {
   dedupeNumericArray,
@@ -107,7 +107,7 @@ import {
 import { KeepOverrideScopeChip } from './keepOverrides/KeepOverrideScopeChip'
 import { normalizeArtifactSetSelections } from '../lib/gearSets/selection'
 import { resolveAllowedSubstatsForSlotsAndMains } from '../lib/statCompatibility'
-import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT, TESTER_SORT_WEIGHT_STEP } from '../lib/testerSort'
+import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT, GEAR_INSPECTOR_SORT_WEIGHT_STEP } from '../lib/gearInspectorSort'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import ClearIconButton from './ClearIconButton'
@@ -134,7 +134,10 @@ const CLEAR_PLACEHOLDER_SX = {
 } as const
 
 // Mirrors BuilderPanel's selectBoxHeightSx / selectContentHeightSx.
+// width: '100% ensures the Select fills its FormControl column rather than
+// growing to fit the rendered value text when items are selected.
 const SELECT_BOX_HEIGHT_SX = {
+  width: '100%',
   height: BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
   minHeight: BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
   '& .MuiSelect-select': {
@@ -807,16 +810,16 @@ export default function SafeguardBuilderPanel({
           </Collapse>
         </FormControl>
 
-        {/* Faction + perFaction chip */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-          <FormControl fullWidth disabled={!hasAccessorySlot}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-              <BuilderSectionToggle id="faction" />
-              <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
-                <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
-              </FormLabel>
-            </Box>
-            <Collapse in={!builderCollapsed.faction} timeout="auto" unmountOnExit>
+        {/* Faction + perFaction chip — chip collapses with the select since it belongs to this section */}
+        <FormControl fullWidth disabled={!hasAccessorySlot}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <BuilderSectionToggle id="faction" />
+            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
+            </FormLabel>
+          </Box>
+          <Collapse in={!builderCollapsed.faction} timeout="auto" unmountOnExit>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
               <GearFactionSelect
                 multiple
                 disabled={!hasAccessorySlot}
@@ -828,10 +831,10 @@ export default function SafeguardBuilderPanel({
                 anyLabel={t('any')}
                 sx={SELECT_BOX_HEIGHT_SX}
               />
-            </Collapse>
-          </FormControl>
-          {renderScopeChip('perFaction', t('safeguardsCountModePerFaction'), scopeActive.perFaction, !hasAccessorySlot)}
-        </Box>
+              {renderScopeChip('perFaction', t('safeguardsCountModePerFaction'), scopeActive.perFaction, !hasAccessorySlot)}
+            </Box>
+          </Collapse>
+        </FormControl>
       </Box>
 
 
@@ -858,6 +861,7 @@ export default function SafeguardBuilderPanel({
             }
           </Box>
           <Collapse in={!builderCollapsed.mainStat} timeout="auto" unmountOnExit>
+            {/* Toggle rows + perMainStat chip collapse together as a unit */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
               <ToggleButtonGroup
@@ -893,10 +897,10 @@ export default function SafeguardBuilderPanel({
                   </ToggleButton>
                 ))}
               </ToggleButtonGroup>
+              {renderScopeChip('perMainStat', t('safeguardsCountModePerMain'), scopeActive.perMainStat)}
             </Box>
           </Collapse>
         </FormControl>
-        {renderScopeChip('perMainStat', t('safeguardsCountModePerMain'), scopeActive.perMainStat)}
       </Box>
 
       {/* ── Row 3 right: Substats + match chips + weights ─────────────────── */}
@@ -1034,86 +1038,89 @@ export default function SafeguardBuilderPanel({
             }
           </Box>
           <Collapse in={!builderCollapsed.slots} timeout="auto" unmountOnExit>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }}>
-            {artifactTypeIconList.map(({ id, Icon }) => {
-              const selected = slotSelection.includes(id)
-              return (
-                <ToggleButton
-                  key={id}
-                  value={`${id}`}
-                  selected={selected}
-                  onClick={() => {
-                    updateRule((prev) => {
-                      const set = new Set(prev.combination.slots)
-                      if (set.has(id)) set.delete(id); else set.add(id)
-                      const nextCombination = sanitizeCombinationForSlots(Array.from(set), prev.combination)
-                      return constrainSafeguardSubstats(prev, nextCombination)
-                    })
-                  }}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '100%',
-                    minWidth: 0,
-                    height: BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
-                    px: 1,
-                    py: 0,
-                    textTransform: 'none',
-                    gap: slotMetrics.iconGapCss,
-                    borderRadius: 1,
-                  }}
-                >
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: slotMetrics.contentWidthPx ?? 'auto',
-                      maxWidth: '100%',
-                      height: '100%',
-                    }}
-                  >
-                    <Box
-                      component="span"
+            {/* Slot grid and perSlot chip collapse together as a unit */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }}>
+                {artifactTypeIconList.map(({ id, Icon }) => {
+                  const selected = slotSelection.includes(id)
+                  return (
+                    <ToggleButton
+                      key={id}
+                      value={`${id}`}
+                      selected={selected}
+                      onClick={() => {
+                        updateRule((prev) => {
+                          const set = new Set(prev.combination.slots)
+                          if (set.has(id)) set.delete(id); else set.add(id)
+                          const nextCombination = sanitizeCombinationForSlots(Array.from(set), prev.combination)
+                          return constrainSafeguardSubstats(prev, nextCombination)
+                        })
+                      }}
                       sx={{
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'flex-start',
-                        width: slotMetrics.iconSizePx,
-                        minWidth: slotMetrics.iconSizePx,
-                        mr: slotMetrics.iconGapCss,
+                        justifyContent: 'center',
+                        width: '100%',
+                        minWidth: 0,
+                        height: BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
+                        px: 1,
+                        py: 0,
+                        textTransform: 'none',
+                        gap: slotMetrics.iconGapCss,
+                        borderRadius: 1,
                       }}
                     >
-                      <Icon fontSize="small" />
-                    </Box>
-                    <Typography
-                      variant="button"
-                      component="span"
-                      sx={(themeCtx) => ({
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        textAlign: 'center',
-                        minWidth: slotMetrics.labelFlexBasis,
-                        flex: slotMetrics.labelFlexBasis ? `0 0 ${slotMetrics.labelFlexBasis}` : undefined,
-                        fontSize: FONT_SIZE_BASE_PX,
-                        fontFamily: themeCtx.typography.button?.fontFamily ?? themeCtx.typography.fontFamily,
-                        fontWeight: themeCtx.typography.button?.fontWeight ?? themeCtx.typography.fontWeightMedium ?? 500,
-                        letterSpacing: themeCtx.typography.button?.letterSpacing,
-                        lineHeight: themeCtx.typography.button?.lineHeight ?? 1.2,
-                      })}
-                    >
-                      {slotLabel(Number(id))}
-                    </Typography>
-                  </Box>
-                </ToggleButton>
-              )
-            })}
-          </Box>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: slotMetrics.contentWidthPx ?? 'auto',
+                          maxWidth: '100%',
+                          height: '100%',
+                        }}
+                      >
+                        <Box
+                          component="span"
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'flex-start',
+                            width: slotMetrics.iconSizePx,
+                            minWidth: slotMetrics.iconSizePx,
+                            mr: slotMetrics.iconGapCss,
+                          }}
+                        >
+                          <Icon fontSize="small" />
+                        </Box>
+                        <Typography
+                          variant="button"
+                          component="span"
+                          sx={(themeCtx) => ({
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            minWidth: slotMetrics.labelFlexBasis,
+                            flex: slotMetrics.labelFlexBasis ? `0 0 ${slotMetrics.labelFlexBasis}` : undefined,
+                            fontSize: FONT_SIZE_BASE_PX,
+                            fontFamily: themeCtx.typography.button?.fontFamily ?? themeCtx.typography.fontFamily,
+                            fontWeight: themeCtx.typography.button?.fontWeight ?? themeCtx.typography.fontWeightMedium ?? 500,
+                            letterSpacing: themeCtx.typography.button?.letterSpacing,
+                            lineHeight: themeCtx.typography.button?.lineHeight ?? 1.2,
+                          })}
+                        >
+                          {slotLabel(Number(id))}
+                        </Typography>
+                      </Box>
+                    </ToggleButton>
+                  )
+                })}
+              </Box>
+              {renderScopeChip('perSlot', t('safeguardsCountModePerSlot'), scopeActive.perSlot)}
+            </Box>
           </Collapse>
         </FormControl>
-        {renderScopeChip('perSlot', t('safeguardsCountModePerSlot'), scopeActive.perSlot)}
       </Box>
 
       {/* ── Row 4 right: Sets selector + perSet chip ──────────────────────── */}
@@ -1139,25 +1146,28 @@ export default function SafeguardBuilderPanel({
             </FormLabel>
           </Box>
           <Collapse in={!builderCollapsed.sets} timeout="auto" unmountOnExit>
-            <GearSetsSelect
-              value={setSelection}
-              onChange={(nextSets) => {
-                setRuleCombination((prev) => ({ ...prev, sets: normalizeArtifactSetSelections(nextSets) }))
-              }}
-              metasets={metasets}
-              selectedMetasetIds={combination.metaSetIds}
-              onChangeMetasetIds={(nextMetaIds) => {
-                setRuleCombination((prev) => ({ ...prev, metaSetIds: dedupeStringArray(nextMetaIds) }))
-              }}
-              allowedSetIds={allowedSetPool}
-              showMetasets
-              layoutVersion={1}
-              anyLabel={t('anySet')}
-              includeNoSet={hasAccessorySlot}
-            />
+            {/* Sets selector and perSet chip collapse together as a unit */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+              <GearSetsSelect
+                value={setSelection}
+                onChange={(nextSets) => {
+                  setRuleCombination((prev) => ({ ...prev, sets: normalizeArtifactSetSelections(nextSets) }))
+                }}
+                metasets={metasets}
+                selectedMetasetIds={combination.metaSetIds}
+                onChangeMetasetIds={(nextMetaIds) => {
+                  setRuleCombination((prev) => ({ ...prev, metaSetIds: dedupeStringArray(nextMetaIds) }))
+                }}
+                allowedSetIds={allowedSetPool}
+                showMetasets
+                layoutVersion={1}
+                anyLabel={t('anySet')}
+                includeNoSet={hasAccessorySlot}
+              />
+              {renderScopeChip('perSet', t('safeguardsCountModePerSet'), scopeActive.perSet)}
+            </Box>
           </Collapse>
         </FormControl>
-        {renderScopeChip('perSet', t('safeguardsCountModePerSet'), scopeActive.perSet)}
       </Box>
 
       {/* ── Insert / Apply / Reset buttons + Scaffold (mirrors recipe builder) ── */}
@@ -1410,26 +1420,26 @@ export default function SafeguardBuilderPanel({
             {t('safeguardsSubstatWeightsLabel')}
           </Typography>
           {substatSelection.map((variant) => {
-            const rawWeight = Number(rule?.substatWeights?.[variant] ?? TESTER_SORT_WEIGHT_DEFAULT)
-            const weight = normalizeTesterSortWeight(rawWeight)
+            const rawWeight = Number(rule?.substatWeights?.[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
+            const weight = normalizeGearInspectorSortWeight(rawWeight)
             return (
               <Box key={variant} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Typography variant="caption" sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {t(statVariantI18nKey(variant))}
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-                  <TesterSortWeightControls
+                  <GearInspectorSortWeightControls
                     label={t(statVariantI18nKey(variant))}
                     enabled={true}
                     weight={weight}
                     onBump={(deltaSteps) => {
                       updateRule((prev) => {
                         const rawWeights = prev.substatWeights ?? {}
-                        const currentRaw = Number(rawWeights[variant] ?? TESTER_SORT_WEIGHT_DEFAULT)
-                        const current = normalizeTesterSortWeight(currentRaw)
-                        const nextValue = normalizeTesterSortWeight(current + (deltaSteps * TESTER_SORT_WEIGHT_STEP))
+                        const currentRaw = Number(rawWeights[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
+                        const current = normalizeGearInspectorSortWeight(currentRaw)
+                        const nextValue = normalizeGearInspectorSortWeight(current + (deltaSteps * GEAR_INSPECTOR_SORT_WEIGHT_STEP))
                         const nextWeights = { ...rawWeights }
-                        if (nextValue === TESTER_SORT_WEIGHT_DEFAULT) {
+                        if (nextValue === GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT) {
                           delete nextWeights[variant]
                         } else {
                           nextWeights[variant] = nextValue

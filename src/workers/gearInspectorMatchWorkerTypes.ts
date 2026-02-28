@@ -1,11 +1,11 @@
 import type { EvalResult, MatchingRecipeDecision, TestItem } from '../lib/ruleEval'
 
-export type TesterMatchWorkerEvaluateItem = {
+export type GearInspectorMatchWorkerEvaluateItem = {
   itemId: number
   item: TestItem
 }
 
-export type TesterMatchWorkerItemResult = {
+export type GearInspectorMatchWorkerItemResult = {
   itemId: number
   firstMatch: EvalResult | null
   firstNonExcludedMatch: EvalResult | null

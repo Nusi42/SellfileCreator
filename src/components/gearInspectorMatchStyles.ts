@@ -3,8 +3,8 @@ import { alpha, type Theme } from '@mui/material/styles'
 type BorderColorOptions = { dimmed?: boolean }
 type SurfaceColorOptions = { dimmed?: boolean }
 
-// Shared keep/sell border helper keeps tester chips aligned across primary and overflow rows.
-export function getTesterMatchBorderColor(theme: Theme, keep: boolean, options?: BorderColorOptions): string {
+// Shared keep/sell border helper keeps Gear Inspector chips aligned across primary and overflow rows.
+export function getGearInspectorMatchBorderColor(theme: Theme, keep: boolean, options?: BorderColorOptions): string {
   const baseColor = keep ? theme.palette.success.main : theme.palette.error.main
   const shouldDim = Boolean(options?.dimmed)
   if (!shouldDim) return baseColor
@@ -13,7 +13,7 @@ export function getTesterMatchBorderColor(theme: Theme, keep: boolean, options?:
 }
 
 // Shared keep/sell surface helper keeps first/other match chips visually aligned.
-export function getTesterMatchSurfaceColors(theme: Theme, keep: boolean, options?: SurfaceColorOptions): {
+export function getGearInspectorMatchSurfaceColors(theme: Theme, keep: boolean, options?: SurfaceColorOptions): {
   surface: string
   hover: string
 } {

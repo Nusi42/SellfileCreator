@@ -1,7 +1,7 @@
 import { statVariantI18nKey, rarityCodeToName } from './types'
 import type { NormalizedGearArtifact, NormalizedStat } from './importers/gearDbNormalizer'
 import { StatVariant } from './types'
-import { determineTesterSourceCategory, type TesterSourceFilter } from './rulesFilter'
+import { determineGearInspectorSourceCategory, type GearInspectorSourceFilter } from './rulesFilter'
 
 export type TranslateFn = (key: string, params?: Record<string, string | number>) => string
 
@@ -10,7 +10,7 @@ export const CIRCLED_ONE_CODE_POINT = 0x2460
 export const CIRCLED_TWENTY_CODE_POINT = 0x2473
 
 export type ItemSourceDescriptor = {
-  category: TesterSourceFilter
+  category: GearInspectorSourceFilter
   label: string
   tooltip?: string
 } | null
@@ -83,7 +83,7 @@ export function resolveRarityLabel(translate: TranslateFn, rarityCode: number): 
 }
 
 export function getItemSourceDescriptor(artifact: NormalizedGearArtifact, translate: TranslateFn): ItemSourceDescriptor {
-  const category = determineTesterSourceCategory(artifact)
+  const category = determineGearInspectorSourceCategory(artifact)
   if (category === 'manual') {
     return { category, label: translate('testerSourceManual') }
   }

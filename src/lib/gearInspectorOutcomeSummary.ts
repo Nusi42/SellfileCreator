@@ -1,8 +1,8 @@
 import { RULE_SOURCE_SAFEGUARDS } from './merge'
-import type { TesterOutcomeSummary, TesterPreviewRow } from '../types/testerPreview'
+import type { GearInspectorOutcomeSummary, GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 
-// Summarize sell/keep outcomes for a given set of tester rows.
-export function buildTesterOutcomeSummary(rows: readonly TesterPreviewRow[]): TesterOutcomeSummary {
+// Summarize sell/keep outcomes for a given set of Gear Inspector rows.
+export function buildGearInspectorOutcomeSummary(rows: readonly GearInspectorPreviewRow[]): GearInspectorOutcomeSummary {
   // Track sold outcomes separately so kept can be derived without re-scanning.
   let soldCount = 0
   // Track Safeguard wins so the summary can highlight protections.

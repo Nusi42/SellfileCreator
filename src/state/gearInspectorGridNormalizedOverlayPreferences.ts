@@ -1,29 +1,29 @@
 /**
- * testerGridNormalizedOverlayPreferences.ts
+ * gearInspectorGridNormalizedOverlayPreferences.ts
  *
- * Persists the Rule Tester grid "Normalized score overlay" presets:
+ * Persists the Gear Inspector grid "Normalized score overlay" presets:
  * - Which presets are enabled (overlay shows the best score across them)
  * - Which substats each preset considers + their per-substat weights
  *
- * This is intentionally UI-only: it affects how items are annotated in the tester grid,
+ * This is intentionally UI-only: it affects how items are annotated in the Gear Inspector grid,
  * but it never affects exports or rule evaluation.
  */
 import { useCallback } from 'react'
-import { TESTER_GRID_NORMALIZED_OVERLAY_KEY } from '../lib/constants'
+import { GEAR_INSPECTOR_GRID_NORMALIZED_OVERLAY_KEY } from '../lib/constants'
 import {
-  TESTER_SORT_WEIGHT_DEFAULT,
-  TESTER_SORT_WEIGHT_STEP,
-  isNeutralTesterSortWeight,
-  normalizeTesterSortWeight,
-} from '../lib/testerSort'
-import { defaultTesterNormalizedPreset, TESTER_NORMALIZED_PRESET_COUNT, type TesterNormalizedPresetId } from '../lib/testerNormalizedPresets'
+  GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT,
+  GEAR_INSPECTOR_SORT_WEIGHT_STEP,
+  isNeutralGearInspectorSortWeight,
+  normalizeGearInspectorSortWeight,
+} from '../lib/gearInspectorSort'
+import { defaultGearInspectorNormalizedPreset, GEAR_INSPECTOR_NORMALIZED_PRESET_COUNT, type GearInspectorNormalizedPresetId } from '../lib/gearInspectorNormalizedPresets'
 import { normalizeMetasetIconId, type MetasetIconId } from '../lib/metasetIcons'
 import { StatVariant, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import { createLocalStorageStore } from './localStorageStore'
 
-export type TesterGridNormalizedPresetId = TesterNormalizedPresetId
+export type GearInspectorGridNormalizedPresetId = GearInspectorNormalizedPresetId
 
-export type TesterGridNormalizedPreset = {
+export type GearInspectorGridNormalizedPreset = {
   // Optional glyph/icon shown for this preset; 'none' renders as the numeric preset id on the buttons.
   iconId: MetasetIconId
   // Selected substats that participate in the normalized score sum.
@@ -32,36 +32,36 @@ export type TesterGridNormalizedPreset = {
   weights: Partial<Record<StatVariant, number>>
 }
 
-export type TesterGridNormalizedPresetOverwrite = {
+export type GearInspectorGridNormalizedPresetOverwrite = {
   // Optional: when omitted, the existing preset icon stays unchanged.
   iconId?: MetasetIconId | undefined
   variants: StatVariant[]
   weights: Partial<Record<StatVariant, number>>
 }
 
-export type TesterGridNormalizedOverlayState = {
+export type GearInspectorGridNormalizedOverlayState = {
   // When true, the overlay uses the current Sort-popout selection + weights (shown as [S]).
   // Exclusive: enabling [S] clears preset selection, and enabling any preset clears [S].
   useSortWeights: boolean
   // Enabled presets; when multiple are enabled we show the best (max) score.
-  enabledPresetIds: TesterGridNormalizedPresetId[]
+  enabledPresetIds: GearInspectorGridNormalizedPresetId[]
   // Last non-empty preset selection used by the quick "Show Substat Rating" toggle.
   // When the current selection is empty, we restore this snapshot (or fallback to 1..6 on first use).
-  lastEnabledPresetIds: TesterGridNormalizedPresetId[]
+  lastEnabledPresetIds: GearInspectorGridNormalizedPresetId[]
   // All presets (fixed-count array so UI indexes remain stable).
-  presets: TesterGridNormalizedPreset[]
+  presets: GearInspectorGridNormalizedPreset[]
 }
 
 const VARIANT_SET = new Set<number>(STAT_VARIANTS_PRIORITY.map((variant) => Number(variant)))
 
-const normalizePresetId = (raw: unknown): TesterGridNormalizedPresetId | null => {
+const normalizePresetId = (raw: unknown): GearInspectorGridNormalizedPresetId | null => {
   // Preset ids are always array indexes; reject floats/strings that cannot be a safe index.
   const num = Number(raw)
   if (!Number.isFinite(num)) return null
   const int = Math.floor(num)
   if (int !== num) return null
-  if (int < 0 || int >= TESTER_NORMALIZED_PRESET_COUNT) return null
-  return int as TesterGridNormalizedPresetId
+  if (int < 0 || int >= GEAR_INSPECTOR_NORMALIZED_PRESET_COUNT) return null
+  return int as GearInspectorGridNormalizedPresetId
 }
 
 const normalizeVariants = (raw: unknown): StatVariant[] => {
@@ -90,18 +90,18 @@ const normalizeWeights = (raw: unknown): Partial<Record<StatVariant, number>> =>
     const keyNum = Number(keyRaw)
     if (!Number.isFinite(keyNum)) continue
     if (!VARIANT_SET.has(keyNum)) continue
-    const weight = normalizeTesterSortWeight(Number(valueRaw))
+    const weight = normalizeGearInspectorSortWeight(Number(valueRaw))
     if (!Number.isFinite(weight)) continue
     // Neutral weights are omitted so the stored schema stays compact and unambiguous.
-    if (isNeutralTesterSortWeight(weight)) continue
+    if (isNeutralGearInspectorSortWeight(weight)) continue
     out[keyNum as StatVariant] = weight
   }
   return out
 }
 
-const createDefaultPreset = (presetId: TesterGridNormalizedPresetId): TesterGridNormalizedPreset => {
-  // Keep defaults SSOT in `testerNormalizedPresets.ts`, but clone here so state updates never mutate shared arrays.
-  const preset = defaultTesterNormalizedPreset(presetId)
+const createDefaultPreset = (presetId: GearInspectorGridNormalizedPresetId): GearInspectorGridNormalizedPreset => {
+  // Keep defaults SSOT in `gearInspectorNormalizedPresets.ts`, but clone here so state updates never mutate shared arrays.
+  const preset = defaultGearInspectorNormalizedPreset(presetId)
   return {
     iconId: preset.iconId,
     variants: preset.variants.slice(),
@@ -109,15 +109,15 @@ const createDefaultPreset = (presetId: TesterGridNormalizedPresetId): TesterGrid
   }
 }
 
-const DEFAULT_LAST_ENABLED_PRESET_IDS: TesterGridNormalizedPresetId[] = Array
-  .from({ length: Math.min(6, TESTER_NORMALIZED_PRESET_COUNT) })
-  .map((_, idx) => idx as TesterGridNormalizedPresetId)
+const DEFAULT_LAST_ENABLED_PRESET_IDS: GearInspectorGridNormalizedPresetId[] = Array
+  .from({ length: Math.min(6, GEAR_INSPECTOR_NORMALIZED_PRESET_COUNT) })
+  .map((_, idx) => idx as GearInspectorGridNormalizedPresetId)
 
-const normalizePresetIdList = (raw: unknown): TesterGridNormalizedPresetId[] => {
+const normalizePresetIdList = (raw: unknown): GearInspectorGridNormalizedPresetId[] => {
   // Enabled/last-enabled lists share the same shape and validation rules.
   if (!Array.isArray(raw)) return []
   const seen = new Set<number>()
-  const out: TesterGridNormalizedPresetId[] = []
+  const out: GearInspectorGridNormalizedPresetId[] = []
   raw.forEach((entry) => {
     const id = normalizePresetId(entry)
     if (id == null) return
@@ -129,19 +129,19 @@ const normalizePresetIdList = (raw: unknown): TesterGridNormalizedPresetId[] => 
   return out
 }
 
-const DEFAULT_STATE: TesterGridNormalizedOverlayState = {
+const DEFAULT_STATE: GearInspectorGridNormalizedOverlayState = {
   // Defaults keep overlay hidden until the user enables at least one preset.
   useSortWeights: false,
   enabledPresetIds: [],
   // First-time quick-toggle fallback: presets 1..6 (or fewer if total preset count is smaller).
   lastEnabledPresetIds: DEFAULT_LAST_ENABLED_PRESET_IDS.slice(),
   // Presets are fixed-count so indexes remain stable; each entry is a self-contained snapshot.
-  presets: Array.from({ length: TESTER_NORMALIZED_PRESET_COUNT }).map((_, idx) => (
-    createDefaultPreset(idx as TesterGridNormalizedPresetId)
+  presets: Array.from({ length: GEAR_INSPECTOR_NORMALIZED_PRESET_COUNT }).map((_, idx) => (
+    createDefaultPreset(idx as GearInspectorGridNormalizedPresetId)
   )),
 }
 
-export const normalizeTesterGridNormalizedOverlayState = (raw: unknown): TesterGridNormalizedOverlayState => {
+export const normalizeGearInspectorGridNormalizedOverlayState = (raw: unknown): GearInspectorGridNormalizedOverlayState => {
   // Stored JSON can be missing or partially valid; normalize field-by-field to keep hydration resilient.
   if (!raw || typeof raw !== 'object') return DEFAULT_STATE
   const obj = raw as Record<string, unknown>
@@ -157,12 +157,12 @@ export const normalizeTesterGridNormalizedOverlayState = (raw: unknown): TesterG
     return DEFAULT_LAST_ENABLED_PRESET_IDS.slice()
   })()
 
-  const presets: TesterGridNormalizedPreset[] = (() => {
+  const presets: GearInspectorGridNormalizedPreset[] = (() => {
     // Presets are fixed-count; missing entries fall back to the factory defaults for that slot.
     const rawPresets = Array.isArray(obj.presets) ? obj.presets : []
-    const out: TesterGridNormalizedPreset[] = []
-    for (let idx = 0; idx < TESTER_NORMALIZED_PRESET_COUNT; idx += 1) {
-      const fallback = createDefaultPreset(idx as TesterGridNormalizedPresetId)
+    const out: GearInspectorGridNormalizedPreset[] = []
+    for (let idx = 0; idx < GEAR_INSPECTOR_NORMALIZED_PRESET_COUNT; idx += 1) {
+      const fallback = createDefaultPreset(idx as GearInspectorGridNormalizedPresetId)
       const rawPreset = rawPresets[idx]
       if (!rawPreset || typeof rawPreset !== 'object') {
         out.push(fallback)
@@ -184,14 +184,14 @@ export const normalizeTesterGridNormalizedOverlayState = (raw: unknown): TesterG
     : { useSortWeights: false, enabledPresetIds, lastEnabledPresetIds, presets }
 }
 
-const testerGridNormalizedOverlayStore = createLocalStorageStore<TesterGridNormalizedOverlayState>({
-  key: TESTER_GRID_NORMALIZED_OVERLAY_KEY,
+const gearInspectorGridNormalizedOverlayStore = createLocalStorageStore<GearInspectorGridNormalizedOverlayState>({
+  key: GEAR_INSPECTOR_GRID_NORMALIZED_OVERLAY_KEY,
   fallback: DEFAULT_STATE,
   parse: (raw) => {
     // Empty storage is the first-run path; keep the fast path obvious.
     if (!raw) return DEFAULT_STATE
     try {
-      return normalizeTesterGridNormalizedOverlayState(JSON.parse(raw) as unknown)
+      return normalizeGearInspectorGridNormalizedOverlayState(JSON.parse(raw) as unknown)
     } catch {
       return DEFAULT_STATE
     }
@@ -199,12 +199,12 @@ const testerGridNormalizedOverlayStore = createLocalStorageStore<TesterGridNorma
   serialize: (value) => JSON.stringify(value),
 })
 
-export function useTesterGridNormalizedOverlayPreferences() {
-  const state = testerGridNormalizedOverlayStore.useValue()
+export function useGearInspectorGridNormalizedOverlayPreferences() {
+  const state = gearInspectorGridNormalizedOverlayStore.useValue()
 
   const toggleUseSortWeights = useCallback(() => {
     // [S] is exclusive: enabling it clears presets; disabling it keeps presets cleared.
-    testerGridNormalizedOverlayStore.update((prev) => {
+    gearInspectorGridNormalizedOverlayStore.update((prev) => {
       const enabling = !prev.useSortWeights
       return enabling
         ? {
@@ -220,9 +220,9 @@ export function useTesterGridNormalizedOverlayPreferences() {
     })
   }, [])
 
-  const togglePresetEnabled = useCallback((presetId: TesterGridNormalizedPresetId) => {
+  const togglePresetEnabled = useCallback((presetId: GearInspectorGridNormalizedPresetId) => {
     // Toggling is the primary interaction: selection drives whether the overlay renders at all.
-    testerGridNormalizedOverlayStore.update((prev) => {
+    gearInspectorGridNormalizedOverlayStore.update((prev) => {
       // Enabling any preset implicitly disables [S] so selection stays exclusive.
       const useSortWeights = false
       const enabled = new Set<number>(prev.enabledPresetIds.map((id) => Number(id)))
@@ -231,7 +231,7 @@ export function useTesterGridNormalizedOverlayPreferences() {
       } else {
         enabled.add(presetId)
       }
-      const enabledPresetIds = [...enabled].sort((a, b) => a - b).map((id) => id as TesterGridNormalizedPresetId)
+      const enabledPresetIds = [...enabled].sort((a, b) => a - b).map((id) => id as GearInspectorGridNormalizedPresetId)
       return {
         ...prev,
         useSortWeights,
@@ -246,7 +246,7 @@ export function useTesterGridNormalizedOverlayPreferences() {
     // Quick toggle behavior:
     // - if any presets are enabled: hide all presets;
     // - if none are enabled: restore last non-empty selection (or first-run 1..6 fallback).
-    testerGridNormalizedOverlayStore.update((prev) => {
+    gearInspectorGridNormalizedOverlayStore.update((prev) => {
       if (prev.enabledPresetIds.length > 0) {
         return {
           ...prev,
@@ -267,9 +267,9 @@ export function useTesterGridNormalizedOverlayPreferences() {
     })
   }, [])
 
-  const toggleVariant = useCallback((presetId: TesterGridNormalizedPresetId, variant: StatVariant) => {
+  const toggleVariant = useCallback((presetId: GearInspectorGridNormalizedPresetId, variant: StatVariant) => {
     // Variant selection is the "include / exclude" semantics (weights never use a 0 sentinel).
-    testerGridNormalizedOverlayStore.update((prev) => {
+    gearInspectorGridNormalizedOverlayStore.update((prev) => {
       const presets = prev.presets.slice()
       const preset = presets[presetId] ?? createDefaultPreset(presetId)
       const existing = preset.variants.some((v) => Number(v) === Number(variant))
@@ -282,10 +282,10 @@ export function useTesterGridNormalizedOverlayPreferences() {
     })
   }, [])
 
-  const setPresetIconId = useCallback((presetId: TesterGridNormalizedPresetId, iconIdRaw: MetasetIconId) => {
+  const setPresetIconId = useCallback((presetId: GearInspectorGridNormalizedPresetId, iconIdRaw: MetasetIconId) => {
     // Icon selection is purely cosmetic; normalize against the shared metaset icon catalog.
     const iconId = normalizeMetasetIconId(iconIdRaw) as MetasetIconId
-    testerGridNormalizedOverlayStore.update((prev) => {
+    gearInspectorGridNormalizedOverlayStore.update((prev) => {
       const presets = prev.presets.slice()
       const preset = presets[presetId] ?? createDefaultPreset(presetId)
       presets[presetId] = { ...preset, iconId }
@@ -293,16 +293,16 @@ export function useTesterGridNormalizedOverlayPreferences() {
     })
   }, [])
 
-  const setWeight = useCallback((presetId: TesterGridNormalizedPresetId, variant: StatVariant, nextRaw: number) => {
+  const setWeight = useCallback((presetId: GearInspectorGridNormalizedPresetId, variant: StatVariant, nextRaw: number) => {
     // Weights are clamped/stepped to match the Sort UI and prevent float drift in persistence.
-    testerGridNormalizedOverlayStore.update((prev) => {
+    gearInspectorGridNormalizedOverlayStore.update((prev) => {
       const presets = prev.presets.slice()
       const preset = presets[presetId] ?? createDefaultPreset(presetId)
       const selected = preset.variants.some((v) => Number(v) === Number(variant))
       if (!selected) return prev
-      const weight = normalizeTesterSortWeight(nextRaw)
+      const weight = normalizeGearInspectorSortWeight(nextRaw)
       const weights = { ...preset.weights }
-      if (isNeutralTesterSortWeight(weight)) {
+      if (isNeutralGearInspectorSortWeight(weight)) {
         delete weights[variant]
       } else {
         weights[variant] = weight
@@ -312,17 +312,17 @@ export function useTesterGridNormalizedOverlayPreferences() {
     })
   }, [])
 
-  const bumpWeight = useCallback((presetId: TesterGridNormalizedPresetId, variant: StatVariant, deltaSteps: number) => {
+  const bumpWeight = useCallback((presetId: GearInspectorGridNormalizedPresetId, variant: StatVariant, deltaSteps: number) => {
     // Bumping uses the same step size as Sort, but only applies when the variant is selected.
-    testerGridNormalizedOverlayStore.update((prev) => {
+    gearInspectorGridNormalizedOverlayStore.update((prev) => {
       const presets = prev.presets.slice()
       const preset = presets[presetId] ?? createDefaultPreset(presetId)
       const selected = preset.variants.some((v) => Number(v) === Number(variant))
       if (!selected) return prev
-      const current = preset.weights?.[variant] ?? TESTER_SORT_WEIGHT_DEFAULT
-      const next = normalizeTesterSortWeight(current + (deltaSteps * TESTER_SORT_WEIGHT_STEP))
+      const current = preset.weights?.[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT
+      const next = normalizeGearInspectorSortWeight(current + (deltaSteps * GEAR_INSPECTOR_SORT_WEIGHT_STEP))
       const weights = { ...preset.weights }
-      if (isNeutralTesterSortWeight(next)) {
+      if (isNeutralGearInspectorSortWeight(next)) {
         delete weights[variant]
       } else {
         weights[variant] = next
@@ -332,18 +332,18 @@ export function useTesterGridNormalizedOverlayPreferences() {
     })
   }, [])
 
-  const resetPreset = useCallback((presetId: TesterGridNormalizedPresetId) => {
+  const resetPreset = useCallback((presetId: GearInspectorGridNormalizedPresetId) => {
     // Reset is a convenience for experimentation; it restores the factory preset for that slot.
-    testerGridNormalizedOverlayStore.update((prev) => {
+    gearInspectorGridNormalizedOverlayStore.update((prev) => {
       const presets = prev.presets.slice()
       presets[presetId] = createDefaultPreset(presetId)
       return { ...prev, presets }
     })
   }, [])
 
-  const overwritePreset = useCallback((presetId: TesterGridNormalizedPresetId, next: TesterGridNormalizedPresetOverwrite) => {
+  const overwritePreset = useCallback((presetId: GearInspectorGridNormalizedPresetId, next: GearInspectorGridNormalizedPresetOverwrite) => {
     // Overwrite is used by the Sort popout to snapshot current "custom" weights into a numbered preset.
-    testerGridNormalizedOverlayStore.update((prev) => {
+    gearInspectorGridNormalizedOverlayStore.update((prev) => {
       const presets = prev.presets.slice()
       const fallback = presets[presetId] ?? createDefaultPreset(presetId)
       presets[presetId] = {

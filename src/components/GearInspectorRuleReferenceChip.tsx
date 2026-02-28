@@ -4,16 +4,16 @@ import { alpha, useTheme, type SxProps, type Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
 import { useI18n } from '../lib/i18n'
-import type { TesterPreviewMatch } from '../types/testerPreview'
+import type { GearInspectorPreviewMatch } from '../types/gearInspectorPreview'
 import { MATCHING_RECIPE_CHIP_MIN_WIDTH_PX } from '../lib/constants'
 // MarkdownTooltip keeps the jump hint aligned with the rest of the tooltip rollout.
 import MarkdownTooltip from './MarkdownTooltip'
 import EllipsisTooltip from './EllipsisTooltip'
 import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
-import { getTesterMatchBorderColor, getTesterMatchSurfaceColors } from './testerMatchStyles'
+import { getGearInspectorMatchBorderColor, getGearInspectorMatchSurfaceColors } from './gearInspectorMatchStyles'
 
-type TesterRuleReferenceChipProps = {
-  match: TesterPreviewMatch | null
+type GearInspectorRuleReferenceChipProps = {
+  match: GearInspectorPreviewMatch | null
   onJump?: (ruleIndex: number, recipeIdx: number | null) => void
   size?: ChipProps['size']
   sx?: SxProps<Theme>
@@ -28,7 +28,7 @@ const simpleMatchChipSx = (sx?: SxProps<Theme>): SxProps<Theme> => {
     width: 'auto',
     maxWidth: '100%',
     flexShrink: 0,
-    // Keep parity with tester overflow chips so the first match stays tap-friendly.
+    // Keep parity with Gear Inspector overflow chips so the first match stays tap-friendly.
     minWidth: MATCHING_RECIPE_CHIP_MIN_WIDTH_PX,
     '& .MuiChip-label': {
       display: 'inline-flex',
@@ -51,7 +51,7 @@ const buildSourceChipSurfaceTint = (theme: Theme, tone: string): { surface: stri
   }
 }
 
-export function TesterRuleReferenceChip({
+export function GearInspectorRuleReferenceChip({
   match,
   onJump,
   size = 'small',
@@ -60,7 +60,7 @@ export function TesterRuleReferenceChip({
   icon,
   showRecipeIndex = true,
   showLineNumber = false,
-}: TesterRuleReferenceChipProps) {
+}: GearInspectorRuleReferenceChipProps) {
   const { t } = useI18n()
   const theme = useTheme()
   if (!match) return null
@@ -72,7 +72,7 @@ export function TesterRuleReferenceChip({
     if (!showFinalSellLabel) return null
     const finalSellTint = buildSourceChipSurfaceTint(theme, theme.palette.error.main)
     return (
-      <TesterRuleReferenceChipBody
+      <GearInspectorRuleReferenceChipBody
         label={t('testerFinalSellChip')}
         variant="outlined"
         clickable={false}
@@ -81,7 +81,7 @@ export function TesterRuleReferenceChip({
         size={size}
         jumpTooltip={jumpTooltip}
         sx={simpleMatchChipSx(sx)}
-        borderColor={getTesterMatchBorderColor(theme, false)}
+        borderColor={getGearInspectorMatchBorderColor(theme, false)}
         backgroundColor={finalSellTint.surface}
         hoverBackgroundColor={finalSellTint.hover}
         dataMatchSource="final-sell"
@@ -126,11 +126,11 @@ export function TesterRuleReferenceChip({
     ? buildSourceChipSurfaceTint(theme, theme.palette.success.main)
     : null
   // Shared keep/sell surface keeps normal first-match chips consistent with other-match chips.
-  const chipSurfaceTint = keepOverrideTint ?? getTesterMatchSurfaceColors(theme, Boolean(match.keep))
+  const chipSurfaceTint = keepOverrideTint ?? getGearInspectorMatchSurfaceColors(theme, Boolean(match.keep))
   // Data attribute lets tests and analytics distinguish safeguard matches.
   const dataMatchSource = isSafeguardSource ? 'safeguard' : undefined
   return (
-    <TesterRuleReferenceChipBody
+    <GearInspectorRuleReferenceChipBody
       label={resolvedLabel}
       variant="outlined"
       clickable={clickable}
@@ -141,7 +141,7 @@ export function TesterRuleReferenceChip({
       textColor={textColor}
       {...(sx ? { sx } : {})}
       {...(icon ? { icon } : {})}
-      borderColor={getTesterMatchBorderColor(theme, Boolean(match.keep))}
+      borderColor={getGearInspectorMatchBorderColor(theme, Boolean(match.keep))}
       backgroundColor={chipSurfaceTint.surface}
       hoverBackgroundColor={chipSurfaceTint.hover}
       {...(dataMatchSource ? { dataMatchSource } : {})}
@@ -150,7 +150,7 @@ export function TesterRuleReferenceChip({
   )
 }
 
-type TesterRuleReferenceChipBodyProps = {
+type GearInspectorRuleReferenceChipBodyProps = {
   label: string
   variant?: ChipProps['variant']
   clickable: boolean
@@ -168,7 +168,7 @@ type TesterRuleReferenceChipBodyProps = {
   dataMatchSource?: string
 }
 
-function TesterRuleReferenceChipBody({
+function GearInspectorRuleReferenceChipBody({
   label,
   variant = 'outlined',
   clickable,
@@ -184,7 +184,7 @@ function TesterRuleReferenceChipBody({
   backgroundColor,
   hoverBackgroundColor,
   dataMatchSource,
-}: TesterRuleReferenceChipBodyProps) {
+}: GearInspectorRuleReferenceChipBodyProps) {
   const resolvedBackgroundColor = backgroundColor ?? 'background.paper'
   const resolvedHoverColor = clickable
     ? hoverBackgroundColor ?? 'action.hover'
@@ -234,7 +234,7 @@ function TesterRuleReferenceChipBody({
     />
   )
   const chipWithEllipsis = (
-    // Force the tooltip wrapper to behave like the old block-level chip so tester cards never overflow.
+    // Force the tooltip wrapper to behave like the old block-level chip so Gear Inspector cards never overflow.
     <EllipsisTooltip title={label} selector=".MuiChip-label" wrap="block">
       {baseChip}
     </EllipsisTooltip>

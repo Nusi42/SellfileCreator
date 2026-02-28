@@ -7,26 +7,26 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import StarsIcon from '@mui/icons-material/Stars'
 import { useI18n } from '../lib/i18n'
 import MarkdownTooltip from './MarkdownTooltip'
-import type { TesterOutcomeSummary } from '../types/testerPreview'
+import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
 
 // Tone tokens keep summary metric colors consistent across the chip.
-type TesterOutcomeSummaryTone = 'total' | 'sell' | 'keep' | 'unique'
+type GearInspectorOutcomeSummaryTone = 'total' | 'sell' | 'keep' | 'unique'
 
 // Keep the summary chip compact so it fits in headers and dialogs.
-const TESTER_SUMMARY_CHIP_RADIUS_PX = 999
+const GEAR_INSPECTOR_SUMMARY_CHIP_RADIUS_PX = 999
 // Match icon sizing to the compact chip typography.
-const TESTER_SUMMARY_ICON_FONT_SIZE_PX = 14
+const GEAR_INSPECTOR_SUMMARY_ICON_FONT_SIZE_PX = 14
 // Dim the summary metrics while gear recalculation is in flight.
-const TESTER_SUMMARY_DIMMED_OPACITY = 0.55
-// Shared chip chrome for the tester outcome summary.
-const TESTER_SUMMARY_CHIP_SX = (theme: Theme) => ({
+const GEAR_INSPECTOR_SUMMARY_DIMMED_OPACITY = 0.55
+// Shared chip chrome for the Gear Inspector outcome summary.
+const GEAR_INSPECTOR_SUMMARY_CHIP_SX = (theme: Theme) => ({
   // Inline flex keeps the chip aligned with surrounding controls.
   display: 'inline-flex',
   alignItems: 'center',
   // Padding keeps the pill readable without stealing space.
   px: 1.25,
   py: 0.5,
-  borderRadius: TESTER_SUMMARY_CHIP_RADIUS_PX,
+  borderRadius: GEAR_INSPECTOR_SUMMARY_CHIP_RADIUS_PX,
   // Use info tinting so the chip reads as guidance, not a warning.
   backgroundColor: alpha(theme.palette.info.main, 0.12),
   border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
@@ -34,11 +34,11 @@ const TESTER_SUMMARY_CHIP_SX = (theme: Theme) => ({
   boxShadow: theme.shadows[1],
 })
 // Divider styling keeps metric separators faint but legible.
-const TESTER_SUMMARY_DIVIDER_SX = (theme: Theme) => ({
+const GEAR_INSPECTOR_SUMMARY_DIVIDER_SX = (theme: Theme) => ({
   borderColor: alpha(theme.palette.divider, 0.6),
 })
 // Shared metric layout for summary chip sections.
-const TESTER_SUMMARY_METRIC_BASE_SX = {
+const GEAR_INSPECTOR_SUMMARY_METRIC_BASE_SX = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 0.45,
@@ -47,14 +47,14 @@ const TESTER_SUMMARY_METRIC_BASE_SX = {
 }
 
 // Props for rendering one metric inside the summary chip.
-type TesterOutcomeSummaryMetricProps = {
+type GearInspectorOutcomeSummaryMetricProps = {
   icon: React.ReactNode
   value: string
-  tone: TesterOutcomeSummaryTone
+  tone: GearInspectorOutcomeSummaryTone
   dimmed: boolean
 }
 
-function resolveTesterSummaryToneColor(theme: Theme, tone: TesterOutcomeSummaryTone): string {
+function resolveGearInspectorSummaryToneColor(theme: Theme, tone: GearInspectorOutcomeSummaryTone): string {
   // Total uses a neutral tint so it reads as context, not status.
   if (tone === 'total') return theme.palette.text.secondary
   // Sell outcomes should mirror the error palette used elsewhere.
@@ -65,18 +65,18 @@ function resolveTesterSummaryToneColor(theme: Theme, tone: TesterOutcomeSummaryT
   return theme.palette.warning.main
 }
 
-function TesterOutcomeSummaryMetric({ icon, value, tone, dimmed }: TesterOutcomeSummaryMetricProps) {
+function GearInspectorOutcomeSummaryMetric({ icon, value, tone, dimmed }: GearInspectorOutcomeSummaryMetricProps) {
   return (
     <Box
       component="span"
       sx={(theme) => ({
-        ...TESTER_SUMMARY_METRIC_BASE_SX,
+        ...GEAR_INSPECTOR_SUMMARY_METRIC_BASE_SX,
         // Apply tone colors so keep/sell reads at a glance.
-        color: resolveTesterSummaryToneColor(theme, tone),
+        color: resolveGearInspectorSummaryToneColor(theme, tone),
         // Match the chip body scale for the numeric value.
         fontSize: theme.typography.pxToRem(12),
         // Fade the metric group while a recalculation spinner is active.
-        opacity: dimmed ? TESTER_SUMMARY_DIMMED_OPACITY : 1,
+        opacity: dimmed ? GEAR_INSPECTOR_SUMMARY_DIMMED_OPACITY : 1,
       })}
     >
       <Box
@@ -84,7 +84,7 @@ function TesterOutcomeSummaryMetric({ icon, value, tone, dimmed }: TesterOutcome
         sx={{
           display: 'inline-flex',
           alignItems: 'center',
-          fontSize: TESTER_SUMMARY_ICON_FONT_SIZE_PX,
+          fontSize: GEAR_INSPECTOR_SUMMARY_ICON_FONT_SIZE_PX,
         }}
       >
         {icon}
@@ -96,9 +96,9 @@ function TesterOutcomeSummaryMetric({ icon, value, tone, dimmed }: TesterOutcome
   )
 }
 
-export type TesterOutcomeSummaryChipProps = {
-  summary: TesterOutcomeSummary | null
-  totalSummary?: TesterOutcomeSummary | null
+export type GearInspectorOutcomeSummaryChipProps = {
+  summary: GearInspectorOutcomeSummary | null
+  totalSummary?: GearInspectorOutcomeSummary | null
   dimmed?: boolean
   showWhenEmpty?: boolean
   showFilteredTotals?: boolean
@@ -106,7 +106,7 @@ export type TesterOutcomeSummaryChipProps = {
   ariaLabel?: string | undefined
 }
 
-export default function TesterOutcomeSummaryChip({
+export default function GearInspectorOutcomeSummaryChip({
   summary,
   totalSummary = null,
   dimmed = false,
@@ -114,7 +114,7 @@ export default function TesterOutcomeSummaryChip({
   showFilteredTotals = false,
   metricMode = 'all',
   ariaLabel,
-}: TesterOutcomeSummaryChipProps) {
+}: GearInspectorOutcomeSummaryChipProps) {
   const { t, lang } = useI18n()
   const formattedSummary = React.useMemo(() => {
     // Skip rendering when no summary is available.
@@ -161,7 +161,7 @@ export default function TesterOutcomeSummaryChip({
     <MarkdownTooltip markdown={formattedSummary.tooltip}>
       {/* Outer pill matches the note dialog styling and scan order. */}
       <Box
-        sx={TESTER_SUMMARY_CHIP_SX}
+        sx={GEAR_INSPECTOR_SUMMARY_CHIP_SX}
         aria-label={ariaLabel ?? formattedSummary.tooltip}
       >
         {/* Row layout keeps metric icons aligned and evenly spaced. */}
@@ -169,25 +169,25 @@ export default function TesterOutcomeSummaryChip({
           direction="row"
           alignItems="center"
           spacing={0.75}
-          divider={<Divider orientation="vertical" flexItem sx={TESTER_SUMMARY_DIVIDER_SX} />}
+          divider={<Divider orientation="vertical" flexItem sx={GEAR_INSPECTOR_SUMMARY_DIVIDER_SX} />}
         >
           {/* Safeguards tab only needs the safeguard metric because rows are already scoped. */}
           {metricMode === 'all' ? (
             <>
               {/* Total / Sell / Keep / Unique segments mirror the note dialog order. */}
-              <TesterOutcomeSummaryMetric
+              <GearInspectorOutcomeSummaryMetric
                 icon={<ViewListIcon fontSize="inherit" />}
                 value={formattedSummary.total}
                 tone="total"
                 dimmed={dimmed}
               />
-              <TesterOutcomeSummaryMetric
+              <GearInspectorOutcomeSummaryMetric
                 icon={<SellIcon fontSize="inherit" />}
                 value={formattedSummary.sold}
                 tone="sell"
                 dimmed={dimmed}
               />
-              <TesterOutcomeSummaryMetric
+              <GearInspectorOutcomeSummaryMetric
                 icon={<CheckCircleIcon fontSize="inherit" />}
                 value={formattedSummary.kept}
                 tone="keep"
@@ -195,7 +195,7 @@ export default function TesterOutcomeSummaryChip({
               />
             </>
           ) : null}
-          <TesterOutcomeSummaryMetric
+          <GearInspectorOutcomeSummaryMetric
             icon={<StarsIcon fontSize="inherit" />}
             value={formattedSummary.safeguards}
             tone="unique"

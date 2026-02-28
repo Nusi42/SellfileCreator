@@ -7,7 +7,7 @@ import {
   getAllKnownArtifactSetIds,
 } from '../../lib/types'
 import type { Metaset } from '../../lib/metasets'
-import { isAccessorySlot } from '../../lib/testerDomain'
+import { isAccessorySlot } from '../../lib/gearInspectorDomain'
 import { useGearSetCatalogVersion } from '../../hooks/useGearSetCatalogVersion'
 import { normalizeArtifactSetSelections } from '../../lib/gearSets/selection'
 import type { SafeguardRule } from '../../lib/safeguards'

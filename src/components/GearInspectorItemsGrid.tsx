@@ -25,8 +25,8 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline'
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import SortIcon from '@mui/icons-material/Sort'
 import { useI18n } from '../lib/i18n'
-import type { TesterPreviewRow } from '../types/testerPreview'
-import TesterOutcomeSummaryChip from './TesterOutcomeSummaryChip'
+import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
+import GearInspectorOutcomeSummaryChip from './GearInspectorOutcomeSummaryChip'
 import { SetIcon } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
 import { NoGearSetIcon } from './NoGearSetIcon'
@@ -46,23 +46,23 @@ import {
   StatVariant,
 } from '../lib/types'
 import { resolveRarityAccentColor } from '../lib/rarityColors'
-import { formatTesterSetLabel } from '../lib/testerFormatters'
+import { formatGearInspectorSetLabel } from '../lib/gearInspectorFormatters'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import {
   formatCircledDigit,
   formatStatNumber,
   formatStatPreGlyph,
   getItemSourceDescriptor,
-} from '../lib/testerPreviewFormatting'
+} from '../lib/gearInspectorPreviewFormatting'
 import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
-import { isAccessorySlot } from '../lib/testerDomain'
-import type { TesterSourceFilter } from '../lib/rulesFilter'
-import { TesterSummaryLabel } from './TesterSummaryLabel'
-import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
-import { getTesterMatchBorderColor, getTesterMatchSurfaceColors } from './testerMatchStyles'
+import { isAccessorySlot } from '../lib/gearInspectorDomain'
+import type { GearInspectorSourceFilter } from '../lib/rulesFilter'
+import { GearInspectorSummaryLabel } from './GearInspectorSummaryLabel'
+import { GearInspectorRuleReferenceChip } from './GearInspectorRuleReferenceChip'
+import { getGearInspectorMatchBorderColor, getGearInspectorMatchSurfaceColors } from './gearInspectorMatchStyles'
 import { RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
 import { KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT } from '../lib/keepOverrideLayout'
-// MarkdownTooltip unifies the tester’s tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
+// MarkdownTooltip unifies the Gear Inspector’s tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
 import MarkdownTooltip from './MarkdownTooltip'
 import EllipsisTooltip from './EllipsisTooltip'
 import { WithSetTooltip, buildNoSetTooltipMarkdown } from './SetTooltip'
@@ -71,7 +71,7 @@ import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuP
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import GridIconBox from './GridIconBox'
-import { buildTesterNormalizedPresetTooltipMarkdown, formatTesterNormalizedPresetButtonLabel } from '../lib/testerNormalizedPresets'
+import { buildGearInspectorNormalizedPresetTooltipMarkdown, formatGearInspectorNormalizedPresetButtonLabel } from '../lib/gearInspectorNormalizedPresets'
 import {
   ACCESSORY_NO_SET_ID,
   MENU_CONTROL_HEIGHT_PX,
@@ -86,7 +86,7 @@ import {
   type ColorBlindMode,
 } from '../lib/constants'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
-import { useTesterGridPreferences } from '../state/testerGridPreferences'
+import { useGearInspectorGridPreferences } from '../state/gearInspectorGridPreferences'
 import {
   SAFEGUARD_DEFAULT_COUNT_MODE,
   SafeguardSubstatMatch,
@@ -97,47 +97,47 @@ import { buildSafeguardUpgradeChanceByArtifactId } from '../lib/safeguardUpgrade
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
 import EmptyStateMessage, { type EmptyStateMessageProps } from './EmptyStateMessage'
 import {
-  computeTesterNormalizedSubstatScore,
-  isTesterSyntheticSortKey,
-  sortTesterRowsBySubstats,
-  TESTER_GROUPING_DEFAULT_STATE,
-  isDefaultTesterGroupingState,
-  TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE,
-  type TesterGroupingState,
-  type TesterSubstatSortSpec,
-} from '../lib/testerSort'
-import { TESTER_NORMALIZED_PRESET_COUNT } from '../lib/testerNormalizedPresets'
-import type { TesterSubstatSortState } from '../state/testerSubstatSortPreferences'
-import { useTesterSubstatSortPreferences } from '../state/testerSubstatSortPreferences'
+  computeGearInspectorNormalizedSubstatScore,
+  isGearInspectorSyntheticSortKey,
+  sortGearInspectorRowsBySubstats,
+  GEAR_INSPECTOR_GROUPING_DEFAULT_STATE,
+  isDefaultGearInspectorGroupingState,
+  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE,
+  type GearInspectorGroupingState,
+  type GearInspectorSubstatSortSpec,
+} from '../lib/gearInspectorSort'
+import { GEAR_INSPECTOR_NORMALIZED_PRESET_COUNT } from '../lib/gearInspectorNormalizedPresets'
+import type { GearInspectorSubstatSortState } from '../state/gearInspectorSubstatSortPreferences'
+import { useGearInspectorSubstatSortPreferences } from '../state/gearInspectorSubstatSortPreferences'
 import {
-  type TesterGridNormalizedPresetId,
-  useTesterGridNormalizedOverlayPreferences,
-} from '../state/testerGridNormalizedOverlayPreferences'
-import { TesterNormalizedPresetEditorMenu } from './TesterNormalizedPresetEditorMenu'
-import type { TesterRuleTemplateIntent } from '../lib/testerRuleTemplates'
+  type GearInspectorGridNormalizedPresetId,
+  useGearInspectorGridNormalizedOverlayPreferences,
+} from '../state/gearInspectorGridNormalizedOverlayPreferences'
+import { GearInspectorNormalizedPresetEditorMenu } from './GearInspectorNormalizedPresetEditorMenu'
+import type { GearInspectorRuleTemplateIntent } from '../lib/gearInspectorRuleTemplates'
 import {
   parseSpacingPx,
-  TESTER_GRID_COLUMN_GAP_UNITS,
-  TESTER_GRID_CONTAINER_PADDING_END_UNITS,
-  TESTER_GRID_ROW_PADDING_UNITS,
-} from '../lib/testerGridLayout'
-import { buildTesterOutcomeSummary } from '../lib/testerOutcomeSummary'
+  GEAR_INSPECTOR_GRID_COLUMN_GAP_UNITS,
+  GEAR_INSPECTOR_GRID_CONTAINER_PADDING_END_UNITS,
+  GEAR_INSPECTOR_GRID_ROW_PADDING_UNITS,
+} from '../lib/gearInspectorGridLayout'
+import { buildGearInspectorOutcomeSummary } from '../lib/gearInspectorOutcomeSummary'
 
 type EmptyStateWrapperProps = Omit<EmptyStateMessageProps, 'children'>
 
 const GRID_CARD_SINGLE_COLUMN_TEMPLATE = 'minmax(0, 1fr)'
-const TESTER_GRID_ICON_BOX_SIZE_PX = 72
-const GRID_CARD_ICON_COLUMN_PX = TESTER_GRID_ICON_BOX_SIZE_PX
+const GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX = 72
+const GRID_CARD_ICON_COLUMN_PX = GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX
 const GRID_CARD_STATS_MIN_COLUMN_PX = 112
 const GRID_CARD_TEMPLATE = `${GRID_CARD_ICON_COLUMN_PX}px minmax(${GRID_CARD_STATS_MIN_COLUMN_PX}px, 1fr)`
-const GRID_GAP = TESTER_GRID_COLUMN_GAP_UNITS
+const GRID_GAP = GEAR_INSPECTOR_GRID_COLUMN_GAP_UNITS
 const CARD_COLUMN_GAP_UNITS = 1.5
 const CARD_BORDER_RADIUS_PX = 8
 const CARD_PADDING_UNITS = 1
 const CARD_MATCH_ROW_HEIGHT_PX = 24
 const CARD_MATCH_ROW_GAP_PX = 2
 const CARD_MATCH_ROW_MARGIN_PX = 2
-const GRID_CARD_CONTAINER_PADDING_UNITS = TESTER_GRID_ROW_PADDING_UNITS
+const GRID_CARD_CONTAINER_PADDING_UNITS = GEAR_INSPECTOR_GRID_ROW_PADDING_UNITS
 const GRID_CARD_LEFT_COLUMN_GAP_UNITS = 0.5
 const GRID_CARD_SOURCE_ICON_SIZE_PX = 24
 const VAULT_GLYPH_SIZE_PX = 20
@@ -296,40 +296,40 @@ const GRID_CARD_SKELETON_FRAME_DELAY_MS = 24
 const GRID_CARD_FOCUS_PULSE_DURATION_MS = 1500
 // Pulse keyframes intentionally return to baseline so focused cards never look permanently selected.
 // CSS variables provide theme-aware colors without rebuilding keyframes at runtime.
-const TESTER_GRID_CARD_FOCUS_PULSE_KEYFRAMES = keyframes`
+const GEAR_INSPECTOR_GRID_CARD_FOCUS_PULSE_KEYFRAMES = keyframes`
   0% {
-    border-color: var(--tester-focus-border-base);
-    background-color: var(--tester-focus-bg-base);
-    box-shadow: var(--tester-focus-shadow-base);
+    border-color: var(--gear-inspector-focus-border-base);
+    background-color: var(--gear-inspector-focus-bg-base);
+    box-shadow: var(--gear-inspector-focus-shadow-base);
   }
   18% {
-    border-color: var(--tester-focus-border-peak);
-    background-color: var(--tester-focus-bg-peak);
-    box-shadow: var(--tester-focus-shadow-peak);
+    border-color: var(--gear-inspector-focus-border-peak);
+    background-color: var(--gear-inspector-focus-bg-peak);
+    box-shadow: var(--gear-inspector-focus-shadow-peak);
   }
   36% {
-    border-color: var(--tester-focus-border-base);
-    background-color: var(--tester-focus-bg-base);
-    box-shadow: var(--tester-focus-shadow-base);
+    border-color: var(--gear-inspector-focus-border-base);
+    background-color: var(--gear-inspector-focus-bg-base);
+    box-shadow: var(--gear-inspector-focus-shadow-base);
   }
   62% {
-    border-color: var(--tester-focus-border-peak);
-    background-color: var(--tester-focus-bg-peak);
-    box-shadow: var(--tester-focus-shadow-peak);
+    border-color: var(--gear-inspector-focus-border-peak);
+    background-color: var(--gear-inspector-focus-bg-peak);
+    box-shadow: var(--gear-inspector-focus-shadow-peak);
   }
   80% {
-    border-color: var(--tester-focus-border-base);
-    background-color: var(--tester-focus-bg-base);
-    box-shadow: var(--tester-focus-shadow-base);
+    border-color: var(--gear-inspector-focus-border-base);
+    background-color: var(--gear-inspector-focus-bg-base);
+    box-shadow: var(--gear-inspector-focus-shadow-base);
   }
   100% {
-    border-color: var(--tester-focus-border-base);
-    background-color: var(--tester-focus-bg-base);
-    box-shadow: var(--tester-focus-shadow-base);
+    border-color: var(--gear-inspector-focus-border-base);
+    background-color: var(--gear-inspector-focus-bg-base);
+    box-shadow: var(--gear-inspector-focus-shadow-base);
   }
 `
 
-const SOURCE_ICON_MAP: Record<TesterSourceFilter, React.ElementType | null> = {
+const SOURCE_ICON_MAP: Record<GearInspectorSourceFilter, React.ElementType | null> = {
   manual: BuildOutlinedIcon,
   inventory: null,
   collection: PersonOutlineIcon,
@@ -348,15 +348,15 @@ const measureMatchingRowContentWidth = (node: HTMLElement): number => {
 }
 type TranslateFn = ReturnType<typeof useI18n>['t']
 
-// Variant toggles keep-override specific layout while keeping the base tester grid intact.
-type TesterItemsGridVariant = 'tester' | 'safeguards'
+// Variant toggles keep-override specific layout while keeping the base Gear Inspector grid intact.
+type GearInspectorItemsGridVariant = 'gearInspector' | 'safeguards'
 
-type TesterItemsGridProps = {
-  rows: TesterPreviewRow[]
+type GearInspectorItemsGridProps = {
+  rows: GearInspectorPreviewRow[]
   // Optional unfiltered source rows so group chips can show filtered/total pairs.
-  allRows?: readonly TesterPreviewRow[]
+  allRows?: readonly GearInspectorPreviewRow[]
   // Optional source rows for safeguard chance math (defaults to visible rows).
-  safeguardUpgradeChanceRows?: readonly TesterPreviewRow[]
+  safeguardUpgradeChanceRows?: readonly GearInspectorPreviewRow[]
   filterActive?: boolean
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors?: boolean
@@ -368,58 +368,58 @@ type TesterItemsGridProps = {
   recipeNames: Array<string | null>
   // Optional one-shot request to expand + scroll to a concrete artifact card.
   focusArtifactRequest?: { artifactId: number; token: number } | null
-  // Optional callback when the requested artifact is hidden by active tester filters.
+  // Optional callback when the requested artifact is hidden by active Gear Inspector filters.
   onFocusArtifactFilteredOut?: ((artifactId: number) => void) | undefined
   onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null) => void) | undefined
   // Optional safeguard deep-link used by the upgrade chance overlay click action.
   onJumpToSafeguardRule?: ((ruleId: string) => void) | undefined
-  onCreateRuleTemplate?: ((row: TesterPreviewRow, intent: TesterRuleTemplateIntent) => void) | undefined
-  variant?: TesterItemsGridVariant
+  onCreateRuleTemplate?: ((row: GearInspectorPreviewRow, intent: GearInspectorRuleTemplateIntent) => void) | undefined
+  variant?: GearInspectorItemsGridVariant
   safeguardsEnabled?: boolean
   keepOverrideColumnMode?: 1 | 2
   onKeepOverrideColumnModeChange?: (next: 1 | 2) => void
-  hasTesterData?: boolean
+  hasGearInspectorData?: boolean
   emptyStateOptions?: Partial<EmptyStateMessageProps> | undefined
   // Vertical anchoring for empty-state messaging: stacked layout reads better when top-aligned,
   // side-by-side layout looks balanced when centered.
   emptyStateVerticalAlign?: EmptyStateMessageProps['verticalAlign']
   suppressMatchDetails?: boolean
   // Optional highlighter lets Safeguards fade non-matching cards without forking the grid.
-  highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
+  highlightedRowPredicate?: ((row: GearInspectorPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
-  // Optional card-width tap for keep-override layout (measures Rule Tester 4-col cards).
+  // Optional card-width tap for keep-override layout (measures Gear Inspector 4-col cards).
   onCardWidthMeasured?: (widthPx: number) => void
   // Optional scrollbar-width tap for keep-override layout (keeps pane width aligned).
   onScrollbarWidthMeasured?: (widthPx: number) => void
-  // Optional Rule Tester sort controls; view-only ordering that does not affect exports.
-  substatSort?: TesterSubstatSortSpec | null
+  // Optional Gear Inspector sort controls; view-only ordering that does not affect exports.
+  substatSort?: GearInspectorSubstatSortSpec | null
   // Full sort preference state so the grid can gate the [S] overlay option.
-  sortState?: TesterSubstatSortState | null
-  // Grouping settings for the tester grid; independent of sorting.
-  grouping?: TesterGroupingState
-  // Resolved safeguard rules used by the tester-grid upgrade-chance overlay.
+  sortState?: GearInspectorSubstatSortState | null
+  // Grouping settings for the Gear Inspector grid; independent of sorting.
+  grouping?: GearInspectorGroupingState
+  // Resolved safeguard rules used by the Gear Inspector grid upgrade-chance overlay.
   safeguardUpgradeChanceRules?: readonly SafeguardRule[]
 }
 
-type TesterGroupKind = 'artifactSet' | 'artifactSlot' | 'accessorySet' | 'accessoryFaction'
+type GearInspectorGroupKind ='artifactSet' | 'artifactSlot' | 'accessorySet' | 'accessoryFaction'
 
-type TesterGroup = {
+type GearInspectorGroup = {
   key: string
   label: string
   setId: number | null
   slot: ArtifactTypeId | null
   factionId: FactionId | null
-  rows: TesterPreviewRow[]
+  rows: GearInspectorPreviewRow[]
   order: number
-  kind: TesterGroupKind
+  kind: GearInspectorGroupKind
   showHeader?: boolean
-  children?: TesterGroup[]
+  children?: GearInspectorGroup[]
   parentKey?: string | null
 }
 
 type GroupRowsBySetOptions = {
-  grouping: TesterGroupingState
-  substatSort: TesterSubstatSortSpec | null
+  grouping: GearInspectorGroupingState
+  substatSort: GearInspectorSubstatSortSpec | null
 }
 
 type MatchingRecipeEntry = {
@@ -429,7 +429,7 @@ type MatchingRecipeEntry = {
   keep: boolean | null
 }
 
-type TesterCardTopOverlay = {
+type GearInspectorCardTopOverlay = {
   text: string
   color?: string
   onClick?: () => void
@@ -437,7 +437,7 @@ type TesterCardTopOverlay = {
   tooltipRender?: React.ReactNode
 }
 
-export function TesterItemsGrid(props: TesterItemsGridProps) {
+export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const {
     rows,
     allRows,
@@ -456,11 +456,11 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     onJumpToRule,
     onJumpToSafeguardRule,
     onCreateRuleTemplate,
-    variant = 'tester',
+    variant = 'gearInspector',
     safeguardsEnabled = true,
     keepOverrideColumnMode,
     onKeepOverrideColumnModeChange,
-    hasTesterData = true,
+    hasGearInspectorData = true,
     emptyStateOptions,
     emptyStateVerticalAlign = 'center',
     suppressMatchDetails: suppressMatchDetailsProp = false,
@@ -470,7 +470,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     onScrollbarWidthMeasured,
     substatSort = null,
     sortState = null,
-    grouping = TESTER_GROUPING_DEFAULT_STATE,
+    grouping = GEAR_INSPECTOR_GROUPING_DEFAULT_STATE,
     safeguardUpgradeChanceRules = [],
   } = props
   // Variant flags control keep-override behavior without forking the grid.
@@ -483,16 +483,16 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const { t, lang } = useI18n()
   const theme = useTheme()
   // Sort prefs are the SSOT for glyph inclusion so the Sort popout and grid context menu stay in sync.
-  const testerSubstatSortPreferences = useTesterSubstatSortPreferences()
+  const gearInspectorSubstatSortPreferences = useGearInspectorSubstatSortPreferences()
   const effectiveSubstatSort = useMemo(
     () => (
       // Keep the parent-provided spec (priorities, direction, normalized sources) but force the shared glyph toggle.
       // Why: the grid context menu edits the shared preference store directly.
-      substatSort ? { ...substatSort, excludeGlyphs: testerSubstatSortPreferences.state.excludeGlyphs } : substatSort
+      substatSort ? { ...substatSort, excludeGlyphs: gearInspectorSubstatSortPreferences.state.excludeGlyphs } : substatSort
     ),
-    [substatSort, testerSubstatSortPreferences.state.excludeGlyphs],
+    [substatSort, gearInspectorSubstatSortPreferences.state.excludeGlyphs],
   )
-  const normalizedOverlayPrefs = useTesterGridNormalizedOverlayPreferences()
+  const normalizedOverlayPrefs = useGearInspectorGridNormalizedOverlayPreferences()
   const normalizedOverlayUseSortWeights = normalizedOverlayPrefs.state.useSortWeights
   const toggleNormalizedOverlayUseSortWeights = normalizedOverlayPrefs.toggleUseSortWeights
   const toggleNormalizedOverlayEnabledPresetsFromLastUsed = normalizedOverlayPrefs.toggleEnabledPresetsFromLastUsed
@@ -510,7 +510,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const normalizedOverlayEnabled = normalizedOverlayUseSortWeights
     || normalizedOverlayPrefs.state.enabledPresetIds.length > 0
   const [normalizedPresetEditor, setNormalizedPresetEditor] = useState<{
-    presetId: TesterGridNormalizedPresetId
+    presetId: GearInspectorGridNormalizedPresetId
     position: { x: number; y: number }
   } | null>(null)
   useEffect(() => {
@@ -540,11 +540,11 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     setShowRuleTemplates,
     setHighlightKeepSell,
     setShowSafeguardUpgradeChance,
-  } = useTesterGridPreferences(variant)
+  } = useGearInspectorGridPreferences(variant)
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
   // Overlay score uses the same glyph inclusion policy as the Sort UI (default excludes glyphs).
   // Why: avoids confusing users with two independent "glyph counting" toggles for the same scores.
-  const normalizedOverlayExcludeGlyphs = testerSubstatSortPreferences.state.excludeGlyphs !== false
+  const normalizedOverlayExcludeGlyphs = gearInspectorSubstatSortPreferences.state.excludeGlyphs !== false
   const normalizedOverlayByArtifactId = useMemo(() => {
     // When nothing is enabled, keep the fast path obvious: no overlay map.
     if (!normalizedOverlayEnabled) return new Map<number, { text: string; color?: string }>()
@@ -553,7 +553,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     const presets = normalizedOverlayPrefs.state.presets
     // [S] uses the Sort popout’s currently selected substats + weights.
     const sortSelectedVariants = useSortWeights
-      ? (effectiveSubstatSort?.priorities ?? []).filter((key) => !isTesterSyntheticSortKey(Number(key))) as StatVariant[]
+      ? (effectiveSubstatSort?.priorities ?? []).filter((key) => !isGearInspectorSyntheticSortKey(Number(key))) as StatVariant[]
       : []
     const sortWeights = useSortWeights ? (effectiveSubstatSort?.weights ?? {}) : {}
 
@@ -569,7 +569,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       const best = (() => {
         // [S] is exclusive: score comes from the Sort popout state only.
         if (useSortWeights) {
-          return computeTesterNormalizedSubstatScore(row, {
+          return computeGearInspectorNormalizedSubstatScore(row, {
             variants: sortSelectedVariants,
             weights: sortWeights,
             excludeGlyphs: normalizedOverlayExcludeGlyphs,
@@ -582,7 +582,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           const presetId = enabledPresetIds[presetIdx]!
           const preset = presets[presetId]
           if (!preset) continue
-          const score = computeTesterNormalizedSubstatScore(row, {
+          const score = computeGearInspectorNormalizedSubstatScore(row, {
             variants: preset.variants,
             weights: preset.weights,
             excludeGlyphs: normalizedOverlayExcludeGlyphs,
@@ -633,7 +633,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const groupSummarySourceRows = allRows ?? rows
   // Sorting can request chance data even when the overlay itself is hidden.
   const safeguardChanceSortEnabled = useMemo(
-    () => (effectiveSubstatSort?.priorities ?? []).some((key) => Number(key) === TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE),
+    () => (effectiveSubstatSort?.priorities ?? []).some((key) => Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE),
     [effectiveSubstatSort?.priorities],
   )
   // Artifacts are projected as a batch once; tooltip-only updates should not rebuild this list.
@@ -696,7 +696,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const safeguardUpgradeOverlayByArtifactId = useMemo(() => {
     // Tooltip-rich overlays are only needed when the card overlay toggle is enabled.
     if (!showSafeguardUpgradeChance) {
-      return new Map<number, TesterCardTopOverlay>()
+      return new Map<number, GearInspectorCardTopOverlay>()
     }
     const normalizeSelectedSubstatsForTooltip = (values: readonly number[]): number[] => {
       const out: number[] = []
@@ -716,7 +716,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     // Hide overlay chips when the artifact does not match any substat safeguard.
     const matchedEntries = Array.from(safeguardUpgradeChanceByArtifactId.entries()).filter(([, entry]) => entry.hasMatchingSafeguard)
     if (matchedEntries.length === 0) {
-      return new Map<number, TesterCardTopOverlay>()
+      return new Map<number, GearInspectorCardTopOverlay>()
     }
     // Color scale mirrors normalized substat ratings: low=red, high=green.
     let min = Number.POSITIVE_INFINITY
@@ -730,7 +730,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     const range = max - min
     const requirementSubstatsToken = '__REQUIREMENT_SUBSTATS__'
     // Pre-format percentage labels + click handlers so row rendering stays allocation-light.
-    const overlays = new Map<number, TesterCardTopOverlay>()
+    const overlays = new Map<number, GearInspectorCardTopOverlay>()
     for (const [artifactId, entry] of matchedEntries) {
       const ratio = range > 0 ? (entry.chancePercent - min) / range : 1
       const color = rgbToCss(mixRgb(lowRgb, highRgb, ratio))
@@ -908,8 +908,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     theme.palette.error.main,
     theme.palette.success.main,
   ])
-  // Gear actions only apply to the Rule Tester grid and must be explicitly enabled.
-  const canShowRuleTemplateActions = variant === 'tester'
+  // Gear actions only apply to the Gear Inspector grid and must be explicitly enabled.
+  const canShowRuleTemplateActions = variant === 'gearInspector'
     && showRuleTemplates
     && typeof onCreateRuleTemplate === 'function'
   // Preferences keep the old 4/5 column toggle alive while keep-override tabs use their own 1/2 columns.
@@ -918,7 +918,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const {
     shouldShow: shouldShowGridContextHint,
     markSeen: markGridContextHintSeen,
-  } = useContextMenuHint('testerGridContextMenu')
+  } = useContextMenuHint('gearInspectorGridContextMenu')
   const [gridContextHintPos, setGridContextHintPos] = useState<{ x: number; y: number } | null>(null)
   const handleGridHintPointerMove = useCallback((event: React.MouseEvent<Element>) => {
     if (!shouldShowGridContextHint) return
@@ -939,7 +939,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set())
   const visibleGroupKeys = useMemo(() => {
     const keys = new Set<string>()
-    const addKeys = (group: TesterGroup) => {
+    const addKeys = (group: GearInspectorGroup) => {
       keys.add(group.key)
       group.children?.forEach(addKeys)
     }
@@ -948,7 +948,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   }, [groups])
   const persistentGroupKeys = useMemo(() => {
     const keys = new Set<string>()
-    const addKeys = (group: TesterGroup) => {
+    const addKeys = (group: GearInspectorGroup) => {
       keys.add(group.key)
       group.children?.forEach(addKeys)
     }
@@ -957,8 +957,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     return keys
   }, [summaryGroups])
   const groupLookup = useMemo(() => {
-    const map = new Map<string, TesterGroup>()
-    const addGroup = (group: TesterGroup) => {
+    const map = new Map<string, GearInspectorGroup>()
+    const addGroup = (group: GearInspectorGroup) => {
       map.set(group.key, group)
       group.children?.forEach(addGroup)
     }
@@ -967,9 +967,9 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   }, [groups])
   const groupOutcomeSummaryByKey = useMemo(() => {
     // Cache one outcome summary per group so header rendering avoids repeated row scans.
-    const map = new Map<string, ReturnType<typeof buildTesterOutcomeSummary>>()
-    const addGroupSummary = (group: TesterGroup) => {
-      map.set(group.key, buildTesterOutcomeSummary(group.rows))
+    const map = new Map<string, ReturnType<typeof buildGearInspectorOutcomeSummary>>()
+    const addGroupSummary = (group: GearInspectorGroup) => {
+      map.set(group.key, buildGearInspectorOutcomeSummary(group.rows))
       group.children?.forEach(addGroupSummary)
     }
     groups.forEach(addGroupSummary)
@@ -977,9 +977,9 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   }, [groups])
   const groupTotalOutcomeSummaryByKey = useMemo(() => {
     // Mirror the same lookup for unfiltered rows so filtered views can show X / Y like the global chip.
-    const map = new Map<string, ReturnType<typeof buildTesterOutcomeSummary>>()
-    const addGroupSummary = (group: TesterGroup) => {
-      map.set(group.key, buildTesterOutcomeSummary(group.rows))
+    const map = new Map<string, ReturnType<typeof buildGearInspectorOutcomeSummary>>()
+    const addGroupSummary = (group: GearInspectorGroup) => {
+      map.set(group.key, buildGearInspectorOutcomeSummary(group.rows))
       group.children?.forEach(addGroupSummary)
     }
     summaryGroups.forEach(addGroupSummary)
@@ -1008,7 +1008,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     if (!container) return
     // When we have a live header node (e.g., header click) use it; otherwise defer and let the virtualizer jump later.
     const resolvedNode = node ?? container.querySelector<HTMLElement>(
-      `[data-tester-grid-header="true"][data-header-key="${groupKey}"]`,
+      `[data-gear-inspector-grid-header="true"][data-header-key="${groupKey}"]`,
     )
     if (!resolvedNode) {
       pendingScrollAnchorRef.current = {
@@ -1031,7 +1031,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     options?: { applyToAll?: boolean },
   ) => {
     if (event?.currentTarget) {
-      const headerNode = (event.currentTarget as HTMLElement).closest('[data-tester-grid-header="true"]')
+      const headerNode = (event.currentTarget as HTMLElement).closest('[data-gear-inspector-grid-header="true"]')
       recordScrollAnchor(groupKey, headerNode)
     } else {
       recordScrollAnchor(groupKey)
@@ -1153,7 +1153,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       }
       revealIdleDrainTimerRef.current = window.setTimeout(() => {
         revealIdleDrainTimerRef.current = null
-        flushTesterGridCardRevealQueue(true)
+        flushGearInspectorGridCardRevealQueue(true)
       }, GRID_CARD_REVEAL_IDLE_DRAIN_DELAY_MS)
     }
   }, [])
@@ -1161,7 +1161,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const resolvedKeepOverrideColumnMode = keepOverrideColumnMode === 2 ? 2 : 1
   // Default to 1 column whenever the keep-override preference is missing.
   const preferredColumnCount = keepOverrideVariant ? resolvedKeepOverrideColumnMode : storedColumnPreference
-  // Safeguards keeps its 1/2-column layout, but card internals should mirror the tester 4-column profile.
+  // Safeguards keeps its 1/2-column layout, but card internals should mirror the Gear Inspector 4-column profile.
   const keepOverrideCardStyleColumnCount = keepOverrideVariant ? KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT : undefined
   const {
     accordionSpacingPx,
@@ -1170,15 +1170,15 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     gridColumnCount,
     gridGapPx,
     leafPaddingPx: gridLeafPaddingPx,
-  } = useTesterGridLayoutMetrics({
+  } = useGearInspectorGridLayoutMetrics({
     preferredColumnCount,
     ...(keepOverrideCardStyleColumnCount != null ? { cardStyleColumnCount: keepOverrideCardStyleColumnCount } : {}),
     showFirstMatch,
     showOtherMatches,
     theme,
   })
-  // Only measure card width in the Rule Tester so keep-override tabs can mirror it.
-  const shouldMeasureCardWidth = variant === 'tester' && typeof onCardWidthMeasured === 'function'
+  // Only measure card width in the Gear Inspector so keep-override tabs can mirror it.
+  const shouldMeasureCardWidth = variant === 'gearInspector' && typeof onCardWidthMeasured === 'function'
   const shouldMeasureScrollbarWidth = typeof onScrollbarWidthMeasured === 'function'
   // Re-run on row-count changes so late-loading data still triggers a measurement.
   useLayoutEffect(() => {
@@ -1190,7 +1190,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     // Measure the first rendered card so keep-override tabs can match its width.
     const measure = () => {
       // Grab the first visible card; virtualization may render only a subset.
-      const cardNode = container.querySelector<HTMLElement>('[data-tester-grid-card="true"]')
+      const cardNode = container.querySelector<HTMLElement>('[data-gear-inspector-grid-card="true"]')
       if (!cardNode) return
       // Read both CSS and visible widths so keep-override math stays zoom-safe.
       const cardRect = cardNode.getBoundingClientRect()
@@ -1288,7 +1288,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     groups,
   ])
   const getFlattenedItemKey = useCallback(
-    (index: number) => flattenedItems[index]?.key ?? `tester-grid-item-${index}`,
+    (index: number) => flattenedItems[index]?.key ?? `gear-inspector-grid-item-${index}`,
     [flattenedItems],
   )
   // Single virtualizer now covers headers + rows; item height hints keep scroll position stable when toggling groups.
@@ -1315,7 +1315,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       return
     }
     // After the flattened list settles, measure the header again and nudge scrollTop so it stays in-frame.
-    const targetNode = container.querySelector<HTMLElement>(`[data-tester-grid-header="true"][data-header-key="${pending.key}"]`)
+    const targetNode = container.querySelector<HTMLElement>(`[data-gear-inspector-grid-header="true"][data-header-key="${pending.key}"]`)
     if (!targetNode) {
       // Header is not in the DOM yet (collapsed list, new sibling), so scroll the virtualizer to it explicitly.
       const targetIndex = flattenedItems.findIndex(
@@ -1338,7 +1338,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     pendingScrollAnchorRef.current = null
   }, [flattenedItems, rowVirtualizer, virtualizationRangeStartIndex, virtualizationRangeEndIndex])
   const rowLookup = useMemo(() => {
-    const map = new Map<number, TesterPreviewRow>()
+    const map = new Map<number, GearInspectorPreviewRow>()
     rows.forEach((row) => {
       const artifactId = Number(row.artifact?.id)
       if (Number.isFinite(artifactId)) {
@@ -1350,7 +1350,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const rowGroupKeyLookup = useMemo(() => {
     // Map every rendered artifact id to its leaf group so context-menu actions can scope themselves correctly.
     const map = new Map<number, string>()
-    const assignGroup = (group: TesterGroup) => {
+    const assignGroup = (group: GearInspectorGroup) => {
       const hasChildren = Boolean(group.children?.length)
       if (hasChildren) {
         // Keep walking to leaves so nested accessories resolve to the concrete accordion we can collapse.
@@ -1438,7 +1438,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       window.requestAnimationFrame(() => {
         const container = containerRef.current
         const card = container?.querySelector<HTMLElement>(
-          `[data-tester-grid-card="true"][data-row-id="${targetArtifactId}"]`,
+          `[data-gear-inspector-grid-card="true"][data-row-id="${targetArtifactId}"]`,
         )
         card?.scrollIntoView({ block: 'center', inline: 'nearest' })
       })
@@ -1476,13 +1476,13 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     // Headers expose their group key directly while cards rely on the artifact id to locate the owning group.
     const element = target as Element | null
     if (!element || typeof element.closest !== 'function') return null
-    const headerNode = element.closest<HTMLElement>('[data-tester-grid-header="true"]')
+    const headerNode = element.closest<HTMLElement>('[data-gear-inspector-grid-header="true"]')
     const headerKey = headerNode?.getAttribute('data-header-key')
     if (headerKey && groupLookup.has(headerKey)) {
       // Clicking inside a header keeps the lookup cheap by reading the exported data attribute.
       return headerKey
     }
-    const cardNode = element.closest<HTMLElement>('[data-tester-grid-card="true"]')
+    const cardNode = element.closest<HTMLElement>('[data-gear-inspector-grid-card="true"]')
     const rowIdAttr = cardNode?.getAttribute('data-row-id')
     if (rowIdAttr) {
       const rowId = Number(rowIdAttr)
@@ -1516,7 +1516,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }
     closeGridMenu()
   }, [closeGridMenu, normalizedPresetEditor])
-  // Keep overrides use their own 1/2 column preference; base tester stays on 4/5.
+  // Keep overrides use their own 1/2 column preference; base Gear Inspector stays on 4/5.
   const handleColumnToggle = useCallback(() => {
     if (keepOverrideVariant) {
       if (typeof onKeepOverrideColumnModeChange !== 'function') return
@@ -1594,7 +1594,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     const factionLabel = slotIsAccessory && typeof artifact.faction === 'number'
       ? t(factionI18nKey(artifact.faction as FactionId))
       : ''
-    const setLabel = formatTesterSetLabel({
+    const setLabel = formatGearInspectorSetLabel({
       setId: artifact.set ?? null,
       slot: resolvedSlotId,
       translate: t,
@@ -1603,8 +1603,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     const slotLabel = Number.isFinite(slotValue)
       ? t(artifactTypeI18nKey(resolvedSlotId))
       : fallback
-    const rankLabel = formatTesterRankLabel(artifact.rank, t)
-    const rarityLabel = formatTesterRarityLabel(artifact.rarity, t)
+    const rankLabel = formatGearInspectorRankLabel(artifact.rank, t)
+    const rarityLabel = formatGearInspectorRarityLabel(artifact.rarity, t)
     return {
       factionLabel,
       showFactionRow: factionLabel.length > 0,
@@ -1643,13 +1643,13 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     // Empty-state copy depends on whether we are in a keep-override tab.
     const emptyStateMessage = (() => {
       if (safeguardsVariant) {
-        // Safeguards empty states explain missing tester data or disabled rules.
-        if (!hasTesterData) return t('safeguardsNoTesterData')
+        // Safeguards empty states explain missing Gear Inspector data or disabled rules.
+        if (!hasGearInspectorData) return t('safeguardsNoTesterData')
         if (!safeguardsEnabled) return t('testerTableEmptySafeguardsDisabled')
         if (filterActive) return t('testerTableEmptyFilter')
         return t('testerTableEmptySafeguardsNoMatches')
       }
-      // Base tester grid falls back to the generic filter/empty messages.
+      // Base Gear Inspector grid falls back to the generic filter/empty messages.
       return filterActive ? t('testerTableEmptyFilter') : t('testerGridEmpty')
     })()
     const emptyStateProps: EmptyStateWrapperProps = {
@@ -1750,7 +1750,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       const headerRadius = Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)
       return (
         <Box
-          data-tester-grid-header="true"
+          data-gear-inspector-grid-header="true"
           data-header-key={group.key}
           sx={(theme) => ({
             borderRadius: `${headerRadius}px`,
@@ -1810,7 +1810,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                 {group.label}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                <TesterOutcomeSummaryChip
+                <GearInspectorOutcomeSummaryChip
                   summary={groupOutcomeSummary}
                   totalSummary={groupTotalOutcomeSummary}
                   showWhenEmpty
@@ -1926,7 +1926,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                 )
                 : null
               return (
-                <TesterGridCard
+                <GearInspectorGridCard
                   key={row.artifact.id}
                   row={row}
                   centerOverlay={centerOverlay}
@@ -1973,17 +1973,17 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         onMouseMove={handleGridHintPointerMove}
         onMouseLeave={handleGridHintPointerLeave}
         onContextMenu={handleGridContextMenu}
-        data-tester-grid-container="true"
+        data-gear-inspector-grid-container="true"
         sx={(theme) => ({
           flex: 1,
           minHeight: 0,
           overflowY: 'auto',
           // Prevent Firefox from surfacing a horizontal scrollbar due to box-shadow overflow.
           overflowX: 'hidden',
-          pr: TESTER_GRID_CONTAINER_PADDING_END_UNITS,
+          pr: GEAR_INSPECTOR_GRID_CONTAINER_PADDING_END_UNITS,
           ...reserveScrollbarGutterSpace({
             reserveStart: false,
-            basePaddingInlineEnd: theme.spacing(TESTER_GRID_CONTAINER_PADDING_END_UNITS),
+            basePaddingInlineEnd: theme.spacing(GEAR_INSPECTOR_GRID_CONTAINER_PADDING_END_UNITS),
           }),
         })}
       >
@@ -2156,7 +2156,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
               <MarkdownTooltip markdown={t('testerGridNormalizedSortSourceTooltip')} placement="top-start">
                 <Box component="span">
                   <Button
-                    key="tester-grid-normalized-preset-s"
+                    key="gear-inspector-grid-normalized-preset-s"
                     size="small"
                     variant={normalizedOverlayPrefs.state.useSortWeights ? 'contained' : 'outlined'}
                     color="success"
@@ -2187,14 +2187,14 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                 </Box>
               </MarkdownTooltip>
               {Array.from({ length: 4 }).map((_, idx) => {
-                const presetId = idx as TesterGridNormalizedPresetId
+                const presetId = idx as GearInspectorGridNormalizedPresetId
                 const enabled = normalizedOverlayEnabledPresetSet.has(presetId)
                 const preset = normalizedOverlayPrefs.state.presets[presetId]
                 const label = preset
-                  ? formatTesterNormalizedPresetButtonLabel(presetId, preset.iconId)
+                  ? formatGearInspectorNormalizedPresetButtonLabel(presetId, preset.iconId)
                   : String(presetId + 1)
                 const tooltipMarkdown = preset
-                  ? buildTesterNormalizedPresetTooltipMarkdown({
+                  ? buildGearInspectorNormalizedPresetTooltipMarkdown({
                       title: t('testerGridNormalizedPresetTitle', { n: presetId + 1 }),
                       preset,
                       labelForVariant: (variant) => t(statVariantI18nKey(variant)),
@@ -2204,7 +2204,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   : t('testerNormalizedPresetTooltipEmpty')
                 return (
                   <MarkdownTooltip
-                    key={`tester-grid-normalized-preset-tooltip-${presetId}`}
+                    key={`gear-inspector-grid-normalized-preset-tooltip-${presetId}`}
                     markdown={tooltipMarkdown}
                     placement="top-start"
                   >
@@ -2242,16 +2242,16 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
               })}
             </Box>
             <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-              {Array.from({ length: TESTER_NORMALIZED_PRESET_COUNT - 4 }).map((_, offset) => {
+              {Array.from({ length: GEAR_INSPECTOR_NORMALIZED_PRESET_COUNT - 4 }).map((_, offset) => {
                 const idx = offset + 4
-                const presetId = idx as TesterGridNormalizedPresetId
+                const presetId = idx as GearInspectorGridNormalizedPresetId
                 const enabled = normalizedOverlayEnabledPresetSet.has(presetId)
                 const preset = normalizedOverlayPrefs.state.presets[presetId]
                 const label = preset
-                  ? formatTesterNormalizedPresetButtonLabel(presetId, preset.iconId)
+                  ? formatGearInspectorNormalizedPresetButtonLabel(presetId, preset.iconId)
                   : String(presetId + 1)
                 const tooltipMarkdown = preset
-                  ? buildTesterNormalizedPresetTooltipMarkdown({
+                  ? buildGearInspectorNormalizedPresetTooltipMarkdown({
                       title: t('testerGridNormalizedPresetTitle', { n: presetId + 1 }),
                       preset,
                       labelForVariant: (variant) => t(statVariantI18nKey(variant)),
@@ -2261,7 +2261,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   : t('testerNormalizedPresetTooltipEmpty')
                 return (
                   <MarkdownTooltip
-                    key={`tester-grid-normalized-preset-tooltip-${presetId}`}
+                    key={`gear-inspector-grid-normalized-preset-tooltip-${presetId}`}
                     markdown={tooltipMarkdown}
                     placement="top-start"
                   >
@@ -2306,7 +2306,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           disabled={!normalizedOverlayEnabled}
           onClick={() => {
             if (!normalizedOverlayEnabled) return
-            testerSubstatSortPreferences.toggleExcludeGlyphs()
+            gearInspectorSubstatSortPreferences.toggleExcludeGlyphs()
           }}
         >
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
@@ -2322,7 +2322,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             onClick={(event) => {
               event.stopPropagation()
               if (!normalizedOverlayEnabled) return
-              testerSubstatSortPreferences.toggleExcludeGlyphs()
+              gearInspectorSubstatSortPreferences.toggleExcludeGlyphs()
             }}
           >
             {normalizedOverlayExcludeGlyphs ? t('testerSortGlyphsExclude') : t('testerSortGlyphsInclude')}
@@ -2442,8 +2442,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             {showChampionIcons ? t('commonOn') : t('commonOff')}
           </Button>
         </MenuItem>
-        {/* Rule template button is opt-in so we surface it only for the main tester grid. */}
-        {variant === 'tester' ? (
+        {/* Rule template button is opt-in so we surface it only for the main Gear Inspector grid. */}
+        {variant === 'gearInspector' ? (
           <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowRuleTemplates(!showRuleTemplates)}>
             <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('testerGridShowRuleTemplates')}</Typography>
             <Button
@@ -2549,7 +2549,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         </MenuItem>
       </Menu>
       {normalizedPresetEditor ? (
-        <TesterNormalizedPresetEditorMenu
+        <GearInspectorNormalizedPresetEditorMenu
           open
           anchorPosition={normalizedPresetEditor.position}
           presetId={normalizedPresetEditor.presetId}
@@ -2576,7 +2576,7 @@ type FlattenedGridItem =
   | {
       kind: 'groupHeader'
       key: string
-      group: TesterGroup
+      group: GearInspectorGroup
       depth: number
       expanded: boolean
       height: number
@@ -2591,7 +2591,7 @@ type FlattenedGridItem =
   | {
       kind: 'cardPadding'
       key: string
-      group: TesterGroup
+      group: GearInspectorGroup
       depth: number
       position: 'top' | 'bottom'
       height: number
@@ -2599,19 +2599,19 @@ type FlattenedGridItem =
   | {
       kind: 'cardRow'
       key: string
-      group: TesterGroup
+      group: GearInspectorGroup
       depth: number
-      rowEntries: TesterPreviewRow[]
+      rowEntries: GearInspectorPreviewRow[]
       rowIndex: number
       rowCount: number
       height: number
     }
 
-// Leaf grids still render as chunked rows per column count so Safeguards + tester variants share one calculator.
-function chunkGroupRows(group: TesterGroup, gridColumnCount: number): TesterPreviewRow[][] {
+// Leaf grids still render as chunked rows per column count so Safeguards + Gear Inspector variants share one calculator.
+function chunkGroupRows(group: GearInspectorGroup, gridColumnCount: number): GearInspectorPreviewRow[][] {
   // Every chunk mirrors one rendered row so the flattened list can translate heights straight into DOM slots.
   const columns = Math.max(1, gridColumnCount)
-  const rows: TesterPreviewRow[][] = []
+  const rows: GearInspectorPreviewRow[][] = []
   for (let idx = 0; idx < group.rows.length; idx += columns) {
     rows.push(group.rows.slice(idx, idx + columns))
   }
@@ -2619,7 +2619,7 @@ function chunkGroupRows(group: TesterGroup, gridColumnCount: number): TesterPrev
 }
 
 type BuildFlattenedGridItemsOptions = {
-  groups: TesterGroup[]
+  groups: GearInspectorGroup[]
   collapsedGroups: Set<string>
   gridColumnCount: number
   accordionSummaryHeightPx: number
@@ -2641,8 +2641,8 @@ function buildFlattenedGridItems({
   cardHeightPx,
 }: BuildFlattenedGridItemsOptions): FlattenedGridItem[] {
   const items: FlattenedGridItem[] = []
-  const rowChunkCache = new Map<string, TesterPreviewRow[][]>()
-  const getRowChunks = (group: TesterGroup): TesterPreviewRow[][] => {
+  const rowChunkCache = new Map<string, GearInspectorPreviewRow[][]>()
+  const getRowChunks = (group: GearInspectorGroup): GearInspectorPreviewRow[][] => {
     // Chunked rows depend solely on the column count, so keep a short-lived cache per flatten pass.
     let cached = rowChunkCache.get(group.key)
     if (!cached) {
@@ -2651,7 +2651,7 @@ function buildFlattenedGridItems({
     }
     return cached
   }
-  const visit = (group: TesterGroup, depth: number) => {
+  const visit = (group: GearInspectorGroup, depth: number) => {
     // Headerless groups render as a plain grid slice; they never collapse.
     const hasHeader = group.showHeader !== false
     const expanded = hasHeader ? !collapsedGroups.has(group.key) : true
@@ -2745,8 +2745,8 @@ function buildFlattenedGridItems({
   return items
 }
 
-// Exported for endpoint diff previews that need the exact tester card visuals.
-export const TesterGridCard = React.memo(function TesterGridCard({
+// Exported for endpoint diff previews that need the exact Gear Inspector card visuals.
+export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   row,
   centerOverlay,
   topOverlay,
@@ -2769,9 +2769,9 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   focusPulseActive = false,
   cardPriority,
 }: {
-  row: TesterPreviewRow
+  row: GearInspectorPreviewRow
   centerOverlay?: { text: string; color?: string } | null
-  topOverlay?: TesterCardTopOverlay | null
+  topOverlay?: GearInspectorCardTopOverlay | null
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
   suppressMatchDetails: boolean
@@ -2785,8 +2785,8 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   gridColumnCount: number
   recipeNames: Array<string | null>
   onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null) => void) | undefined
-  onCreateRuleTemplate?: ((row: TesterPreviewRow, intent: TesterRuleTemplateIntent) => void) | undefined
-  highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
+  onCreateRuleTemplate?: ((row: GearInspectorPreviewRow, intent: GearInspectorRuleTemplateIntent) => void) | undefined
+  highlightedRowPredicate?: ((row: GearInspectorPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
   focusPulseActive?: boolean
   cardPriority: { base: number; order: number }
@@ -2824,10 +2824,10 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   const basePrimaryMatchRowVisible = showFirstMatchRow
   const baseOtherMatchesRowVisible = showOtherMatchesRow && mightShowOtherMatchesRow
   const { leftColumnHeightPx, rightColumnHeightPx } = useMemo(
-    () => getTesterGridCardColumnHeights(theme, gridColumnCount),
+    () => getGearInspectorGridCardColumnHeights(theme, gridColumnCount),
     [theme, gridColumnCount],
   )
-  const cardContentReady = useTesterGridCardContentReady(normalizedArtifactId, priorityBase, priorityOrder)
+  const cardContentReady = useGearInspectorGridCardContentReady(normalizedArtifactId, priorityBase, priorityOrder)
   const match = row.match
   const primaryRuleIndex = typeof match?.ruleIndex === 'number' ? match.ruleIndex : null
   const primaryRecipeIndex = typeof match?.recipeIdx === 'number' ? match.recipeIdx : null
@@ -2862,7 +2862,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     setRuleTemplateAnchor(event.currentTarget)
   }
   // Picking an action forwards the intent to the parent for recipe creation.
-  const handleRuleTemplateSelect = (intent: TesterRuleTemplateIntent) => {
+  const handleRuleTemplateSelect = (intent: GearInspectorRuleTemplateIntent) => {
     onCreateRuleTemplate?.(row, intent)
     handleRuleTemplateClose()
   }
@@ -3058,10 +3058,10 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     const textColor = entry.textColor ?? null
     // Match first-row chips: same border and subtle surface tint for keep/sell.
     const borderColor = typeof entry.keep === 'boolean'
-      ? getTesterMatchBorderColor(theme, entry.keep)
+      ? getGearInspectorMatchBorderColor(theme, entry.keep)
       : null
     const surfaceColors = typeof entry.keep === 'boolean'
-      ? getTesterMatchSurfaceColors(theme, entry.keep)
+      ? getGearInspectorMatchSurfaceColors(theme, entry.keep)
       : null
     const sharedChipProps = {
       label: entry.label,
@@ -3124,7 +3124,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   }
   if (!cardContentReady) {
     return (
-      <TesterGridCardSkeleton
+      <GearInspectorGridCardSkeleton
         cardHeightPx={cardHeightPx}
         leftColumnHeightPx={leftColumnHeightPx}
         rightColumnHeightPx={rightColumnHeightPx}
@@ -3136,7 +3136,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     )
   }
   const setIdNumber = Number(artifact.set) || 0
-  const setLabelRaw = formatTesterSetLabel({ setId: setIdNumber, slot: artifact.slot as ArtifactTypeId, translate: t, lang })
+  const setLabelRaw = formatGearInspectorSetLabel({ setId: setIdNumber, slot: artifact.slot as ArtifactTypeId, translate: t, lang })
   const setLabel = setLabelRaw.trim().length > 0 ? setLabelRaw : undefined
   const setTooltipName = Number.isFinite(setIdNumber) ? artifactSetName(setIdNumber as ArtifactSetId) : null
   const levelBucketLabel = formatLevel(artifact.level)
@@ -3544,7 +3544,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   // Cards tint when highlighted so Safeguards can spotlight the matching combinations.
   return (
     <Box
-      data-tester-grid-card="true"
+      data-gear-inspector-grid-card="true"
       data-row-id={artifact.id}
       data-match-outcome={cardMatchOutcome}
       data-match-recipe-index={cardMatchRecipeIdx}
@@ -3557,12 +3557,12 @@ export const TesterGridCard = React.memo(function TesterGridCard({
         border: `1px solid ${cardHighlighted ? theme.palette.info.light : theme.palette.divider}`,
         bgcolor: outcomeTintBg ?? theme.palette.background.paper,
         // Expose baseline/peak palette values so the pulse animation can resolve to theme-safe colors.
-        '--tester-focus-border-base': cardHighlighted ? theme.palette.info.light : theme.palette.divider,
-        '--tester-focus-border-peak': theme.palette.info.main,
-        '--tester-focus-bg-base': outcomeTintBg ?? theme.palette.background.paper,
-        '--tester-focus-bg-peak': alpha(theme.palette.info.main, 0.07),
-        '--tester-focus-shadow-base': cardHighlighted ? `0 0 0 1px ${alpha(theme.palette.info.main, 0.3)}` : 'none',
-        '--tester-focus-shadow-peak': `0 0 0 2px ${alpha(theme.palette.info.main, 0.26)}, 0 8px 18px ${alpha(theme.palette.info.main, 0.2)}`,
+        '--gear-inspector-focus-border-base': cardHighlighted ? theme.palette.info.light : theme.palette.divider,
+        '--gear-inspector-focus-border-peak': theme.palette.info.main,
+        '--gear-inspector-focus-bg-base': outcomeTintBg ?? theme.palette.background.paper,
+        '--gear-inspector-focus-bg-peak': alpha(theme.palette.info.main, 0.07),
+        '--gear-inspector-focus-shadow-base': cardHighlighted ? `0 0 0 1px ${alpha(theme.palette.info.main, 0.3)}` : 'none',
+        '--gear-inspector-focus-shadow-peak': `0 0 0 2px ${alpha(theme.palette.info.main, 0.26)}, 0 8px 18px ${alpha(theme.palette.info.main, 0.2)}`,
         // Relative positioning anchors the overlay button to the card frame.
         position: 'relative',
         minHeight: cardHeightStyle,
@@ -3580,7 +3580,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
         transition: 'opacity 220ms ease, border-color 260ms ease, box-shadow 280ms ease, background-color 280ms ease',
         // Programmatic focus should blink once and then settle back to baseline (no persistent selection affordance).
         animation: focusPulseActive
-          ? `${TESTER_GRID_CARD_FOCUS_PULSE_KEYFRAMES} ${GRID_CARD_FOCUS_PULSE_DURATION_MS}ms ease-in-out 1`
+          ? `${GEAR_INSPECTOR_GRID_CARD_FOCUS_PULSE_KEYFRAMES} ${GRID_CARD_FOCUS_PULSE_DURATION_MS}ms ease-in-out 1`
           : 'none',
       })}
     >
@@ -3612,7 +3612,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
           rerollLabel={rerollLabel || undefined}
           rerollTooltip={rerollTooltip || undefined}
           levelLabel={levelChipLabel}
-          size={TESTER_GRID_ICON_BOX_SIZE_PX}
+          size={GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX}
           gearTooltip={gearTooltip}
           // Center overlay is informational and is rendered click-through by GridIconBox.
           {...(centerOverlay ? { centerOverlay } : {})}
@@ -3623,7 +3623,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
         {shouldShowChampionIcon || shouldShowMissingChampionIconFallback ? (
           <Box
             sx={{
-              width: TESTER_GRID_ICON_BOX_SIZE_PX,
+              width: GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX,
               height: championIconSize.height,
               position: 'relative',
               mt: championIconMode === 'large' ? 1.25 : -0.25,
@@ -3700,7 +3700,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
                   sx={{
                     position: 'absolute',
                     top: `calc(50% + ${championIconMode === 'large' ? 0 : 3}px)`,
-                    left: `${TESTER_GRID_ICON_BOX_SIZE_PX - 5}px`,
+                    left: `${GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX - 5}px`,
                     transform: 'translate(-50%, -50%)',
                     width: VAULT_GLYPH_SIZE_PX,
                     height: VAULT_GLYPH_SIZE_PX,
@@ -3790,7 +3790,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
           overflow: 'visible',
         }}
       >
-        <TesterSummaryLabel label={mainSummaryLabel} wrap />
+        <GearInspectorSummaryLabel label={mainSummaryLabel} wrap />
         <Box
           sx={{
             display: 'flex',
@@ -3991,7 +3991,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
               )
             })
           ) : (
-            <TesterSummaryLabel label="—" />
+            <GearInspectorSummaryLabel label="—" />
           )}
         </Box>
       </Stack>
@@ -4014,7 +4014,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
           }}
         >
           {match ? (
-            <TesterRuleReferenceChip
+            <GearInspectorRuleReferenceChip
               match={match}
               {...(!matchDetailsFrozen && onJumpToRule ? { onJump: onJumpToRule } : {})}
               showRecipeIndex={showMatchRecipeIndex}
@@ -4099,7 +4099,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
             </Box>
             {matchingOverflowCount > 0 ? (
               <>
-                {/* MarkdownTooltip keeps the “+N” overflow chip consistent with other tester tooltips. */}
+                {/* MarkdownTooltip keeps the “+N” overflow chip consistent with other Gear Inspector tooltips. */}
                 <MarkdownTooltip markdown={`${t('testerRecipeMatches')} (+${matchingOverflowCount})`}>
                   <Box component="span" ref={handleMoreChipRef} sx={MATCHING_CHIP_WRAPPER_SX}>
                     <Chip
@@ -4163,7 +4163,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
 });
 
 
-type TesterGridCardSkeletonProps = {
+type GearInspectorGridCardSkeletonProps = {
   cardHeightPx: number
   leftColumnHeightPx: number
   rightColumnHeightPx: number
@@ -4174,7 +4174,7 @@ type TesterGridCardSkeletonProps = {
 }
 
 // Skeleton cards borrow the real grid metrics so TanStack virtualization keeps accurate heights while assets defer.
-function TesterGridCardSkeleton({
+function GearInspectorGridCardSkeleton({
   cardHeightPx,
   leftColumnHeightPx,
   rightColumnHeightPx,
@@ -4182,7 +4182,7 @@ function TesterGridCardSkeleton({
   showOtherMatchesRow,
   highlighted,
   dimmed,
-}: TesterGridCardSkeletonProps) {
+}: GearInspectorGridCardSkeletonProps) {
   const skeletonTheme = useTheme()
   const cardHeightStyle = `${cardHeightPx}px`
   const matchRowHeight = `${CARD_MATCH_ROW_HEIGHT_PX}px`
@@ -4217,7 +4217,7 @@ function TesterGridCardSkeleton({
           justifyContent: 'flex-start',
         }}
       >
-        <Skeleton variant="rounded" width={TESTER_GRID_ICON_BOX_SIZE_PX} height={TESTER_GRID_ICON_BOX_SIZE_PX} />
+        <Skeleton variant="rounded" width={GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX} height={GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX} />
         <Skeleton
           variant="rounded"
           width={CHAMPION_ICON_LARGE_SIZE.width}
@@ -4287,36 +4287,36 @@ function TesterGridCardSkeleton({
   )
 }
 
-type TesterGridCardRevealTask = {
+type GearInspectorGridCardRevealTask = {
   priorityBase: number
   priorityOrder: number
   run: () => void
 }
 
 // Queue gated reveals throttle IMG decode churn so expanding large accordions stays interactive.
-const testerGridCardRevealQueue: TesterGridCardRevealTask[] = []
-let testerGridCardRevealScheduled = false
-let testerGridCardRevealQueueDirty = false
-const testerGridCardSeenIds = new Set<number>()
+const gearInspectorGridCardRevealQueue: GearInspectorGridCardRevealTask[] = []
+let gearInspectorGridCardRevealScheduled = false
+let gearInspectorGridCardRevealQueueDirty = false
+const gearInspectorGridCardSeenIds = new Set<number>()
 
-function useTesterGridCardContentReady(rowId: number | null, priorityBase: number, priorityOrder: number): boolean {
+function useGearInspectorGridCardContentReady(rowId: number | null, priorityBase: number, priorityOrder: number): boolean {
   // Priority values keep row order deterministic while cards are still in their skeleton state.
   const normalizedBase = Number.isFinite(priorityBase) ? Math.max(0, priorityBase) : 0
   const normalizedOrder = Number.isFinite(priorityOrder) ? Math.max(0, priorityOrder) : 0
   const [ready, setReady] = useState(() => (
-    typeof window === 'undefined' || rowId === null || testerGridCardSeenIds.has(rowId)
+    typeof window === 'undefined' || rowId === null || gearInspectorGridCardSeenIds.has(rowId)
   ))
   useEffect(() => {
     if (ready) return undefined
-    if (rowId !== null && testerGridCardSeenIds.has(rowId)) {
+    if (rowId !== null && gearInspectorGridCardSeenIds.has(rowId)) {
       setReady(true)
       return undefined
     }
     let cancelled = false
-    const cleanup = enqueueTesterGridCardReveal(normalizedBase, normalizedOrder, () => {
+    const cleanup = enqueueGearInspectorGridCardReveal(normalizedBase, normalizedOrder, () => {
       if (cancelled) return
       if (rowId !== null) {
-        testerGridCardSeenIds.add(rowId)
+        gearInspectorGridCardSeenIds.add(rowId)
       }
       setReady(true)
     })
@@ -4328,39 +4328,39 @@ function useTesterGridCardContentReady(rowId: number | null, priorityBase: numbe
   return ready
 }
 
-function enqueueTesterGridCardReveal(priorityBase: number, priorityOrder: number, run: () => void): () => void {
+function enqueueGearInspectorGridCardReveal(priorityBase: number, priorityOrder: number, run: () => void): () => void {
   if (typeof window === 'undefined') {
     run()
     return () => {}
   }
-  const task: TesterGridCardRevealTask = {
+  const task: GearInspectorGridCardRevealTask = {
     priorityBase,
     priorityOrder,
     run,
   }
-  testerGridCardRevealQueue.push(task)
-  testerGridCardRevealQueueDirty = true
-  const queueSize = testerGridCardRevealQueue.length
+  gearInspectorGridCardRevealQueue.push(task)
+  gearInspectorGridCardRevealQueueDirty = true
+  const queueSize = gearInspectorGridCardRevealQueue.length
   if (queueSize >= GRID_CARD_REVEAL_EMERGENCY_THRESHOLD) {
-    flushTesterGridCardRevealQueue(true)
+    flushGearInspectorGridCardRevealQueue(true)
   } else {
-    scheduleTesterGridCardRevealFlush()
+    scheduleGearInspectorGridCardRevealFlush()
   }
   return () => {
-    const idx = testerGridCardRevealQueue.indexOf(task)
+    const idx = gearInspectorGridCardRevealQueue.indexOf(task)
     if (idx >= 0) {
-      testerGridCardRevealQueue.splice(idx, 1)
+      gearInspectorGridCardRevealQueue.splice(idx, 1)
     }
   }
 }
 
-function scheduleTesterGridCardRevealFlush() {
-  if (testerGridCardRevealScheduled) return
+function scheduleGearInspectorGridCardRevealFlush() {
+  if (gearInspectorGridCardRevealScheduled) return
   if (typeof window === 'undefined') {
-    flushTesterGridCardRevealQueue()
+    flushGearInspectorGridCardRevealQueue()
     return
   }
-  testerGridCardRevealScheduled = true
+  gearInspectorGridCardRevealScheduled = true
   const scheduleFrame: (cb: FrameRequestCallback) => number = typeof window.requestAnimationFrame === 'function'
     ? window.requestAnimationFrame.bind(window)
     : (cb) => window.setTimeout(
@@ -4368,26 +4368,26 @@ function scheduleTesterGridCardRevealFlush() {
       GRID_CARD_SKELETON_FRAME_DELAY_MS,
     )
   scheduleFrame(() => {
-    testerGridCardRevealScheduled = false
-    flushTesterGridCardRevealQueue()
+    gearInspectorGridCardRevealScheduled = false
+    flushGearInspectorGridCardRevealQueue()
   })
 }
 
 // Off-screen pruning trims queued rows that are several viewports away; they re-enqueue automatically when scroll moves.
-const shouldPruneRevealTask = (task: TesterGridCardRevealTask): boolean => (
+const shouldPruneRevealTask = (task: GearInspectorGridCardRevealTask): boolean => (
   task.priorityOrder >= GRID_CARD_OFFSCREEN_PRIORITY_PENALTY
     && task.priorityOrder > (GRID_CARD_OFFSCREEN_PRIORITY_PENALTY + GRID_CARD_REVEAL_MAX_OFFSCREEN_DISTANCE_PX)
 )
 
 // Mutates the queue in place so stale rows never dominate the backlog; returns the number of discarded tasks.
 const pruneOffscreenRevealTasks = (): number => {
-  if (testerGridCardRevealQueue.length < GRID_CARD_REVEAL_PRUNE_THRESHOLD) {
+  if (gearInspectorGridCardRevealQueue.length < GRID_CARD_REVEAL_PRUNE_THRESHOLD) {
     return 0
   }
   let writeIdx = 0
   let dropped = 0
-  for (let idx = 0; idx < testerGridCardRevealQueue.length; idx += 1) {
-    const task = testerGridCardRevealQueue[idx]
+  for (let idx = 0; idx < gearInspectorGridCardRevealQueue.length; idx += 1) {
+    const task = gearInspectorGridCardRevealQueue[idx]
     if (!task) {
       continue
     }
@@ -4395,41 +4395,41 @@ const pruneOffscreenRevealTasks = (): number => {
       dropped += 1
       continue
     }
-    testerGridCardRevealQueue[writeIdx] = task
+    gearInspectorGridCardRevealQueue[writeIdx] = task
     writeIdx += 1
   }
   if (dropped > 0) {
-    testerGridCardRevealQueue.length = writeIdx
+    gearInspectorGridCardRevealQueue.length = writeIdx
   }
   return dropped
 }
 
-function flushTesterGridCardRevealQueue(forceDrain = false) {
-  if (!testerGridCardRevealQueue.length) return
+function flushGearInspectorGridCardRevealQueue(forceDrain = false) {
+  if (!gearInspectorGridCardRevealQueue.length) return
   if (!forceDrain) {
     pruneOffscreenRevealTasks()
   }
-  if (testerGridCardRevealQueueDirty) {
-    testerGridCardRevealQueue.sort((a, b) => {
+  if (gearInspectorGridCardRevealQueueDirty) {
+    gearInspectorGridCardRevealQueue.sort((a, b) => {
       if (a.priorityBase !== b.priorityBase) {
         return b.priorityBase - a.priorityBase
       }
       return a.priorityOrder - b.priorityOrder
     })
-    testerGridCardRevealQueueDirty = false
+    gearInspectorGridCardRevealQueueDirty = false
   }
   const flushStart = typeof performance !== 'undefined' ? performance.now() : Date.now()
   const frameBudgetMs = forceDrain ? Number.POSITIVE_INFINITY : GRID_CARD_REVEAL_FRAME_BUDGET_MS
   const maxBatchSize = forceDrain
-    ? testerGridCardRevealQueue.length
+    ? gearInspectorGridCardRevealQueue.length
     : (
-      testerGridCardRevealQueue.length >= GRID_CARD_REVEAL_FAST_BATCH_THRESHOLD
+      gearInspectorGridCardRevealQueue.length >= GRID_CARD_REVEAL_FAST_BATCH_THRESHOLD
         ? GRID_CARD_SKELETON_BATCH_SIZE * GRID_CARD_REVEAL_BATCH_MULTIPLIER
         : GRID_CARD_SKELETON_BATCH_SIZE
     )
   let processed = 0
-  while (testerGridCardRevealQueue.length && processed < maxBatchSize) {
-    const task = testerGridCardRevealQueue.shift()!
+  while (gearInspectorGridCardRevealQueue.length && processed < maxBatchSize) {
+    const task = gearInspectorGridCardRevealQueue.shift()!
     processed += 1
     task.run()
     if (!forceDrain) {
@@ -4439,45 +4439,45 @@ function flushTesterGridCardRevealQueue(forceDrain = false) {
       }
     }
   }
-  if (testerGridCardRevealQueue.length) {
-    scheduleTesterGridCardRevealFlush()
+  if (gearInspectorGridCardRevealQueue.length) {
+    scheduleGearInspectorGridCardRevealFlush()
   }
 }
 
 type AccessorySetGroupBuilder = {
-  group: TesterGroup
-  slots: Map<string, TesterGroup>
+  group: GearInspectorGroup
+  slots: Map<string, GearInspectorGroup>
 }
 
 type FactionGroupBuilder = {
-  group: TesterGroup
+  group: GearInspectorGroup
   sets: Map<string, AccessorySetGroupBuilder>
-  slots: Map<string, TesterGroup>
+  slots: Map<string, GearInspectorGroup>
 }
 
 function groupRowsBySet(
-  rows: readonly TesterPreviewRow[],
+  rows: readonly GearInspectorPreviewRow[],
   translate: TranslateFn,
   lang: string,
   options: GroupRowsBySetOptions,
-): TesterGroup[] {
+): GearInspectorGroup[] {
   // Artifact sets form flat accordions, while accessories can nest faction->set->slot accordions.
-  const grouping = options.grouping ?? TESTER_GROUPING_DEFAULT_STATE
+  const grouping = options.grouping ?? GEAR_INSPECTOR_GROUPING_DEFAULT_STATE
   const substatSort = options.substatSort
   // Sorting stays orthogonal to grouping; grouping only controls section boundaries.
   const hasSubstatOrdering = Boolean(
     substatSort && (substatSort.priorities.length > 0 || substatSort.normalized === true),
   )
   // Non-default grouping uses a global sort order instead of per-section sorting.
-  const useGlobalSort = hasSubstatOrdering && !isDefaultTesterGroupingState(grouping)
+  const useGlobalSort = hasSubstatOrdering && !isDefaultGearInspectorGroupingState(grouping)
   const sortedRows = useGlobalSort && substatSort
-    ? sortTesterRowsBySubstats(rows, substatSort)
+    ? sortGearInspectorRowsBySubstats(rows, substatSort)
     : rows
 
   if (grouping.hideHeaders) {
     // "No headers" renders everything in a single headerless group.
-    const group: TesterGroup = {
-      key: 'tester:all',
+    const group: GearInspectorGroup = {
+      key: 'gear-inspector:all',
       label: '',
       setId: null,
       slot: null,
@@ -4502,12 +4502,12 @@ function groupRowsBySet(
   const useAccessoryFlat = !accessoryByFaction && !accessoryBySet && !accessoryBySlot
 
   // Map structures keep group creation cheap during the row scan.
-  const artifactSetGroups = new Map<string, { group: TesterGroup; slots: Map<string, TesterGroup> }>()
-  const artifactSlotGroups = new Map<string, TesterGroup>()
-  let artifactFlatGroup: TesterGroup | null = null
+  const artifactSetGroups = new Map<string, { group: GearInspectorGroup; slots: Map<string, GearInspectorGroup> }>()
+  const artifactSlotGroups = new Map<string, GearInspectorGroup>()
+  let artifactFlatGroup: GearInspectorGroup | null = null
   const accessorySetGroups = new Map<string, AccessorySetGroupBuilder>()
-  const accessorySlotGroups = new Map<string, TesterGroup>()
-  let accessoryFlatGroup: TesterGroup | null = null
+  const accessorySlotGroups = new Map<string, GearInspectorGroup>()
+  let accessoryFlatGroup: GearInspectorGroup | null = null
   // Faction groups only populate when faction grouping is enabled.
   const factionGroups = new Map<string, FactionGroupBuilder>()
 
@@ -4518,7 +4518,7 @@ function groupRowsBySet(
     return translate(artifactTypeI18nKey(slotValue as ArtifactTypeId))
   }
 
-  const ensureArtifactFlatGroup = (index: number): TesterGroup => {
+  const ensureArtifactFlatGroup = (index: number): GearInspectorGroup => {
     if (artifactFlatGroup) return artifactFlatGroup
     artifactFlatGroup = {
       key: 'art:all',
@@ -4534,7 +4534,7 @@ function groupRowsBySet(
     return artifactFlatGroup
   }
 
-  const ensureAccessoryFlatGroup = (index: number): TesterGroup => {
+  const ensureAccessoryFlatGroup = (index: number): GearInspectorGroup => {
     if (accessoryFlatGroup) return accessoryFlatGroup
     accessoryFlatGroup = {
       key: 'acc:all',
@@ -4565,8 +4565,8 @@ function groupRowsBySet(
       if (artifactBySet) {
         const key = `art:set:${setId}`
         const builder = artifactSetGroups.get(key) ?? (() => {
-          const setLabel = formatTesterSetLabel({ setId, slot, translate, lang })
-          const group: TesterGroup = {
+          const setLabel = formatGearInspectorSetLabel({ setId, slot, translate, lang })
+          const group: GearInspectorGroup = {
             key,
             label: setLabel,
             setId,
@@ -4578,7 +4578,7 @@ function groupRowsBySet(
             ...(artifactBySlot ? { children: [] } : {}),
             parentKey: null,
           }
-          const next = { group, slots: new Map<string, TesterGroup>() }
+          const next = { group, slots: new Map<string, GearInspectorGroup>() }
           artifactSetGroups.set(key, next)
           return next
         })()
@@ -4674,8 +4674,8 @@ function groupRowsBySet(
         const setBuilder = factionGroup.sets.get(setKey) ?? (() => {
           const accessoryHasNoSet = setId === 0 || setId === ACCESSORY_NO_SET_ID
           // No-set accessories should still surface a readable header.
-          const setLabel = accessoryHasNoSet ? translate('noSetAccessories') : formatTesterSetLabel({ setId, slot, translate, lang })
-          const group: TesterGroup = {
+          const setLabel = accessoryHasNoSet ? translate('noSetAccessories') : formatGearInspectorSetLabel({ setId, slot, translate, lang })
+          const group: GearInspectorGroup = {
             key: setKey,
             label: setLabel,
             setId,
@@ -4687,7 +4687,7 @@ function groupRowsBySet(
             ...(accessoryBySlot ? { children: [] } : {}),
             parentKey: factionKey,
           }
-          const next: AccessorySetGroupBuilder = { group, slots: new Map<string, TesterGroup>() }
+          const next: AccessorySetGroupBuilder = { group, slots: new Map<string, GearInspectorGroup>() }
           factionGroup.sets.set(setKey, next)
           return next
         })()
@@ -4749,8 +4749,8 @@ function groupRowsBySet(
       const setBuilder = accessorySetGroups.get(setKey) ?? (() => {
         const accessoryHasNoSet = setId === 0 || setId === ACCESSORY_NO_SET_ID
         // Keep the no-set group labeled so headers don't collapse to blank.
-        const setLabel = accessoryHasNoSet ? translate('noSetAccessories') : formatTesterSetLabel({ setId, slot, translate, lang })
-        const group: TesterGroup = {
+        const setLabel = accessoryHasNoSet ? translate('noSetAccessories') : formatGearInspectorSetLabel({ setId, slot, translate, lang })
+        const group: GearInspectorGroup = {
           key: setKey,
           label: setLabel,
           setId,
@@ -4762,7 +4762,7 @@ function groupRowsBySet(
           ...(accessoryBySlot ? { children: [] } : {}),
           parentKey: null,
         }
-        const next: AccessorySetGroupBuilder = { group, slots: new Map<string, TesterGroup>() }
+        const next: AccessorySetGroupBuilder = { group, slots: new Map<string, GearInspectorGroup>() }
         accessorySetGroups.set(setKey, next)
         return next
       })()
@@ -4819,13 +4819,13 @@ function groupRowsBySet(
     }
   })
 
-  const sortSlotGroups = (groups: TesterGroup[]): TesterGroup[] => {
+  const sortSlotGroups = (groups: GearInspectorGroup[]): GearInspectorGroup[] => {
     // Slot groups follow the canonical slot ordering unless global sort is active.
     if (useGlobalSort) return groups.sort((a, b) => a.order - b.order)
     return groups.sort((a, b) => compareArtifactTypes(a.slot ?? 0, b.slot ?? 0))
   }
 
-  const resolveArtifactGroups = (): TesterGroup[] => {
+  const resolveArtifactGroups = (): GearInspectorGroup[] => {
     if (useArtifactFlat) {
       return artifactFlatGroup ? [artifactFlatGroup] : []
     }
@@ -4842,7 +4842,7 @@ function groupRowsBySet(
     return []
   }
 
-  const resolveAccessoryGroups = (): TesterGroup[] => {
+  const resolveAccessoryGroups = (): GearInspectorGroup[] => {
     if (useAccessoryFlat) {
       return accessoryFlatGroup ? [accessoryFlatGroup] : []
     }
@@ -4882,12 +4882,12 @@ function groupRowsBySet(
     ? [...resolvedArtifactGroups, ...resolvedAccessoryGroups].sort((a, b) => a.order - b.order)
     : [...resolvedArtifactGroups, ...resolvedAccessoryGroups]
 
-  const applySort = (group: TesterGroup) => {
+  const applySort = (group: GearInspectorGroup) => {
     // Substat sorting is per-group; we keep group order stable for predictability.
     if (!hasSubstatOrdering || !substatSort) return
     if (useGlobalSort) return
     // Sort every group deterministically; leaf groups render cards while parents mainly provide counts.
-    group.rows = sortTesterRowsBySubstats(group.rows, substatSort)
+    group.rows = sortGearInspectorRowsBySubstats(group.rows, substatSort)
     group.children?.forEach(applySort)
   }
 
@@ -4895,7 +4895,7 @@ function groupRowsBySet(
   return grouped
 }
 
-function getTesterCardHeight(
+function getGearInspectorCardHeight(
   showFirst: boolean,
   showOther: boolean,
   cardVerticalPaddingPx: number,
@@ -4914,7 +4914,7 @@ function getTesterCardHeight(
   return height
 }
 
-export type TesterGridCardSizing = {
+export type GearInspectorGridCardSizing = {
   // Fixed height used for the card container so layout stays stable.
   cardHeightPx: number
   // Minimum width needed for icon + stats columns before scaling.
@@ -4924,17 +4924,17 @@ export type TesterGridCardSizing = {
 /**
  * Compute card sizing for external previews (diff toasts, history tooltips).
  */
-export function getTesterGridCardSizing(
+export function getGearInspectorGridCardSizing(
   theme: Theme,
   gridColumnCount: number,
   options: { showFirstMatchRow: boolean; showOtherMatchesRow: boolean },
-): TesterGridCardSizing {
+): GearInspectorGridCardSizing {
   // Vertical padding uses the same units as the main grid cards.
   const cardVerticalPaddingPx = parseSpacingPx(theme.spacing(CARD_PADDING_UNITS)) * 2
   // Column heights feed the deterministic card height calculation.
-  const { firstRowHeightPx } = getTesterGridCardColumnHeights(theme, gridColumnCount)
+  const { firstRowHeightPx } = getGearInspectorGridCardColumnHeights(theme, gridColumnCount)
   // Match rows add fixed-height blocks beneath the main summary row.
-  const cardHeightPx = getTesterCardHeight(
+  const cardHeightPx = getGearInspectorCardHeight(
     options.showFirstMatchRow,
     options.showOtherMatchesRow,
     cardVerticalPaddingPx,
@@ -4981,7 +4981,7 @@ const typographySizeToPx = (value: string | number | undefined, htmlFontSize: nu
   return Number.isFinite(numeric) ? numeric : 0
 }
 
-function getTesterGridCardColumnHeights(theme: Theme, gridColumnCount: number): GridCardColumnHeights {
+function getGearInspectorGridCardColumnHeights(theme: Theme, gridColumnCount: number): GridCardColumnHeights {
   // Both columns feed into card height + virtualization, so we translate theme typography to raw px once.
   const htmlFontSize = Number(theme.typography.htmlFontSize) || DEFAULT_HTML_FONT_SIZE_PX
   const summaryFontSizePx = CARD_SUMMARY_FONT_SIZE_REM * htmlFontSize
@@ -5001,7 +5001,7 @@ function getTesterGridCardColumnHeights(theme: Theme, gridColumnCount: number): 
   const summarySectionHeightPx = summaryLineHeightPx + ascMarginPx + ascLineHeightPx
   const rightColumnHeightPx = summarySectionHeightPx + stackGapPx + totalSubstatHeightPx
   const leftColumnGapPx = parseSpacingPx(theme.spacing(GRID_CARD_LEFT_COLUMN_GAP_UNITS))
-  const leftColumnHeightPx = TESTER_GRID_ICON_BOX_SIZE_PX + GRID_CARD_SOURCE_ICON_SIZE_PX + leftColumnGapPx
+  const leftColumnHeightPx = GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX + GRID_CARD_SOURCE_ICON_SIZE_PX + leftColumnGapPx
   const normalizedLeftPx = Math.max(0, Math.ceil(leftColumnHeightPx + CARD_COLUMN_HEIGHT_BUFFER_PX))
   const normalizedRightPx = Math.max(0, Math.ceil(rightColumnHeightPx + CARD_COLUMN_HEIGHT_BUFFER_PX))
   return {
@@ -5011,7 +5011,7 @@ function getTesterGridCardColumnHeights(theme: Theme, gridColumnCount: number): 
   }
 }
 
-type TesterGridLayoutMetrics = {
+type GearInspectorGridLayoutMetrics = {
   accordionSpacingPx: number
   cardHeightPx: number
   cardStyleColumnCount: number
@@ -5020,7 +5020,7 @@ type TesterGridLayoutMetrics = {
   leafPaddingPx: number
 }
 
-type UseTesterGridLayoutMetricsOptions = {
+type UseGearInspectorGridLayoutMetricsOptions = {
   preferredColumnCount: number
   cardStyleColumnCount?: number
   showFirstMatch: boolean
@@ -5028,17 +5028,17 @@ type UseTesterGridLayoutMetricsOptions = {
   theme: Theme
 }
 
-function useTesterGridLayoutMetrics({
+function useGearInspectorGridLayoutMetrics({
   preferredColumnCount,
   cardStyleColumnCount,
   showFirstMatch,
   showOtherMatches,
   theme,
-}: UseTesterGridLayoutMetricsOptions): TesterGridLayoutMetrics {
+}: UseGearInspectorGridLayoutMetricsOptions): GearInspectorGridLayoutMetrics {
   // Layout metrics re-run only on breakpoint or toggle changes so the cards stay stable across renders.
   const isMultiColumn = useMediaQuery(theme.breakpoints.up('sm'))
   const gridColumnCount = isMultiColumn ? preferredColumnCount : 1
-  // Card internals can use a separate column profile so keep-override panes match tester card styling.
+  // Card internals can use a separate column profile so keep-override panes match Gear Inspector card styling.
   const resolvedCardStyleColumnCount = Number.isFinite(cardStyleColumnCount)
     ? Math.max(1, Math.round(Number(cardStyleColumnCount)))
     : gridColumnCount
@@ -5047,11 +5047,11 @@ function useTesterGridLayoutMetrics({
   const leafPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS)), [theme])
   const cardVerticalPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(CARD_PADDING_UNITS)) * 2, [theme])
   const { firstRowHeightPx: cardFirstRowHeightPx } = useMemo(
-    () => getTesterGridCardColumnHeights(theme, resolvedCardStyleColumnCount),
+    () => getGearInspectorGridCardColumnHeights(theme, resolvedCardStyleColumnCount),
     [theme, resolvedCardStyleColumnCount],
   )
   const cardHeightPx = useMemo(
-    () => getTesterCardHeight(showFirstMatch, showOtherMatches, cardVerticalPaddingPx, cardFirstRowHeightPx),
+    () => getGearInspectorCardHeight(showFirstMatch, showOtherMatches, cardVerticalPaddingPx, cardFirstRowHeightPx),
     [cardFirstRowHeightPx, cardVerticalPaddingPx, showFirstMatch, showOtherMatches],
   )
   return useMemo(() => ({
@@ -5080,7 +5080,7 @@ const STAR_LABEL_KEYS: readonly ['star1', 'star2', 'star3', 'star4', 'star5', 's
   'star6',
 ] as const
 
-function formatTesterRankLabel(rank: number | null | undefined, translate: TranslateFn): string {
+function formatGearInspectorRankLabel(rank: number | null | undefined, translate: TranslateFn): string {
   if (rank === null || rank === undefined) return ''
   const numeric = Number(rank)
   if (!Number.isFinite(numeric)) return ''
@@ -5088,7 +5088,7 @@ function formatTesterRankLabel(rank: number | null | undefined, translate: Trans
   return translate(STAR_LABEL_KEYS[clamped - 1] ?? 'star1')
 }
 
-function formatTesterRarityLabel(rarity: number | null | undefined, translate: TranslateFn): string {
+function formatGearInspectorRarityLabel(rarity: number | null | undefined, translate: TranslateFn): string {
   if (rarity === null || rarity === undefined) return ''
   const numeric = Number(rarity)
   if (!Number.isFinite(numeric)) return ''
@@ -5103,4 +5103,4 @@ function formatTesterRarityLabel(rarity: number | null | undefined, translate: T
   }
 }
 
-export default TesterItemsGrid
+export default GearInspectorItemsGrid

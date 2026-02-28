@@ -26,7 +26,7 @@ import {
 import { rankCoverage, rarityCoverage } from './hsfTypes'
 import type { HsfRuleWithRecipe } from './merge'
 import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
-import { isAccessorySlot } from './testerDomain'
+import { isAccessorySlot } from './gearInspectorDomain'
 import { ACCESSORY_NO_SET_ID } from './constants'
 import { getRuleRecipeIndex, resolveMatchRecipeName } from './ruleRecipeIndex'
 import { getDaysSince } from './dateDisplay'
@@ -40,91 +40,91 @@ export type SubstatMatchMode = 'all' | 'any'
 // 'any' leaves the field unfiltered; 'yes' matches true/enabled; 'no' matches false/disabled.
 export type Bool3 = 'any' | 'yes' | 'no'
 
-export type TesterSourceFilter = 'inventory' | 'collection' | 'vault' | 'inbox' | 'manual'
-export type TesterChaosFilterMode = 'any' | 'notRerolled' | 'rerolled'
-export type TesterGlyphFilterMode = 'any' | 'on' | 'off' | 'selected'
-export type TesterRollWildcardMode = 'off' | 'any'
+export type GearInspectorSourceFilter = 'inventory' | 'collection' | 'vault' | 'inbox' | 'manual'
+export type GearInspectorChaosFilterMode = 'any' | 'notRerolled' | 'rerolled'
+export type GearInspectorGlyphFilterMode = 'any' | 'on' | 'off' | 'selected'
+export type GearInspectorRollWildcardMode = 'off' | 'any'
 
-export const TESTER_LAST_USE_PRESETS = ['never', 'recent7', 'recent30', 'recent90', 'older90'] as const
-export type TesterLastUsePreset = typeof TESTER_LAST_USE_PRESETS[number]
+export const GEAR_INSPECTOR_LAST_USE_PRESETS = ['never', 'recent7', 'recent30', 'recent90', 'older90'] as const
+export type GearInspectorLastUsePreset = typeof GEAR_INSPECTOR_LAST_USE_PRESETS[number]
 
-export type TesterLastUseCustomFilter = {
+export type GearInspectorLastUseCustomFilter = {
   enabled: boolean
   minDays: number
   maxDays: number
 }
 
-export type TesterLastUseFilter = {
-  presets: TesterLastUsePreset[]
-  custom: TesterLastUseCustomFilter
+export type GearInspectorLastUseFilter = {
+  presets: GearInspectorLastUsePreset[]
+  custom: GearInspectorLastUseCustomFilter
 }
 
 export type RuleSourceLabelMap = Record<string, readonly string[]>
 
-export const TESTER_ROLL_COUNT_VALUES = [0, 1, 2, 3, 4, 5] as const
-export type TesterRollCountValue = typeof TESTER_ROLL_COUNT_VALUES[number]
+export const GEAR_INSPECTOR_ROLL_COUNT_VALUES = [0, 1, 2, 3, 4, 5] as const
+export type GearInspectorRollCountValue = typeof GEAR_INSPECTOR_ROLL_COUNT_VALUES[number]
 
-export type TesterRollCountSet = readonly TesterRollCountValue[]
+export type GearInspectorRollCountSet = readonly GearInspectorRollCountValue[]
 
-export const normalizeTesterRollCountSelection = (counts: readonly number[]): TesterRollCountSet => (
+export const normalizeGearInspectorRollCountSelection = (counts: readonly number[]): GearInspectorRollCountSet => (
   normalizeRollCountSet(counts)
 )
 
-export type TesterRollFilterRow = {
+export type GearInspectorRollFilterRow = {
   stat: StatVariant
-  counts: TesterRollCountSet
+  counts: GearInspectorRollCountSet
 }
 
-export type TesterRollWildcardFilter = {
-  mode: TesterRollWildcardMode
-  counts: TesterRollCountSet
+export type GearInspectorRollWildcardFilter = {
+  mode: GearInspectorRollWildcardMode
+  counts: GearInspectorRollCountSet
 }
 
-const DEFAULT_TESTER_ROLL_COUNT_SET: TesterRollCountSet = []
+const DEFAULT_GEAR_INSPECTOR_ROLL_COUNT_SET: GearInspectorRollCountSet = []
 
-export type TesterRollFilterState = {
-  wildcard: TesterRollWildcardFilter
-  perStat: TesterRollFilterRow[]
+export type GearInspectorRollFilterState = {
+  wildcard: GearInspectorRollWildcardFilter
+  perStat: GearInspectorRollFilterRow[]
 }
 
-export const createDefaultTesterRollsState = (): TesterRollFilterState => ({
-  wildcard: { mode: 'off', counts: DEFAULT_TESTER_ROLL_COUNT_SET },
+export const createDefaultGearInspectorRollsState = (): GearInspectorRollFilterState => ({
+  wildcard: { mode: 'off', counts: DEFAULT_GEAR_INSPECTOR_ROLL_COUNT_SET },
   perStat: [],
 })
 
-export type TesterLevelRange = {
+export type GearInspectorLevelRange = {
   min: number
   max: number
 }
 
-export const TESTER_LEVEL_MIN = 0
-export const TESTER_LEVEL_MAX = 16
+export const GEAR_INSPECTOR_LEVEL_MIN = 0
+export const GEAR_INSPECTOR_LEVEL_MAX = 16
 
-export const DEFAULT_TESTER_LEVEL_RANGE: TesterLevelRange = Object.freeze({
-  min: TESTER_LEVEL_MIN,
-  max: TESTER_LEVEL_MAX,
+export const DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE: GearInspectorLevelRange = Object.freeze({
+  min: GEAR_INSPECTOR_LEVEL_MIN,
+  max: GEAR_INSPECTOR_LEVEL_MAX,
 })
 
-export const TESTER_LAST_USE_MIN_DAYS = 0
-export const TESTER_LAST_USE_MAX_DAYS = 365
+export const GEAR_INSPECTOR_LAST_USE_MIN_DAYS = 0
+export const GEAR_INSPECTOR_LAST_USE_MAX_DAYS = 365
 
-const LAST_USE_PRESET_ORDER: readonly TesterLastUsePreset[] = TESTER_LAST_USE_PRESETS
+const LAST_USE_PRESET_ORDER: readonly GearInspectorLastUsePreset[] = GEAR_INSPECTOR_LAST_USE_PRESETS
 
-const DEFAULT_TESTER_LAST_USE_CUSTOM: TesterLastUseCustomFilter = Object.freeze({
+const DEFAULT_GEAR_INSPECTOR_LAST_USE_CUSTOM: GearInspectorLastUseCustomFilter = Object.freeze({
   enabled: false,
-  minDays: TESTER_LAST_USE_MIN_DAYS,
-  maxDays: TESTER_LAST_USE_MAX_DAYS,
+  minDays: GEAR_INSPECTOR_LAST_USE_MIN_DAYS,
+  maxDays: GEAR_INSPECTOR_LAST_USE_MAX_DAYS,
 })
 
-export const createDefaultTesterLastUseCustom = (): TesterLastUseCustomFilter => ({
-  enabled: DEFAULT_TESTER_LAST_USE_CUSTOM.enabled,
-  minDays: DEFAULT_TESTER_LAST_USE_CUSTOM.minDays,
-  maxDays: DEFAULT_TESTER_LAST_USE_CUSTOM.maxDays,
+export const createDefaultGearInspectorLastUseCustom = (): GearInspectorLastUseCustomFilter => ({
+  enabled: DEFAULT_GEAR_INSPECTOR_LAST_USE_CUSTOM.enabled,
+  minDays: DEFAULT_GEAR_INSPECTOR_LAST_USE_CUSTOM.minDays,
+  maxDays: DEFAULT_GEAR_INSPECTOR_LAST_USE_CUSTOM.maxDays,
 })
 
-export const createDefaultTesterLastUseFilter = (): TesterLastUseFilter => ({
+export const createDefaultGearInspectorLastUseFilter = (): GearInspectorLastUseFilter => ({
   presets: [],
-  custom: createDefaultTesterLastUseCustom(),
+  custom: createDefaultGearInspectorLastUseCustom(),
 })
 
 export interface RulesFilterState {
@@ -137,7 +137,7 @@ export interface RulesFilterState {
   rank: { selected: RankValue[]; anyMode: AnyMode }
   // Rarity: discrete buttons (Common..Mythical) instead of a contiguous range
   rarity: { selected: RankValue[]; anyMode: AnyMode }
-  level: { selected: LevelMilestone[]; anyMode: AnyMode; testerRange?: TesterLevelRange }
+  level: { selected: LevelMilestone[]; anyMode: AnyMode; testerRange?: GearInspectorLevelRange }
   main: { selected: StatVariant[]; anyMode: AnyMode }
   sub: {
     // "Must have": include rules/items that match these selected substats.
@@ -151,27 +151,27 @@ export interface RulesFilterState {
   }
   faction: { selected: FactionId[]; anyMode: AnyMode }
   recipeName?: { query: string }
-  testerSources?: { selected: TesterSourceFilter[] }
-  testerChaos?: { mode: TesterChaosFilterMode }
-  testerGlyphs?: { mode: TesterGlyphFilterMode }
+  testerSources?: { selected: GearInspectorSourceFilter[] }
+  testerChaos?: { mode: GearInspectorChaosFilterMode }
+  testerGlyphs?: { mode: GearInspectorGlyphFilterMode }
   testerAscension?: { stars: number[]; stats: StatVariant[] }
   testerChampions?: { selected: number[] }
-  testerRolls?: TesterRollFilterState
-  testerLastUse?: TesterLastUseFilter
+  testerRolls?: GearInspectorRollFilterState
+  testerLastUse?: GearInspectorLastUseFilter
 }
 
-const clampTesterLevelValue = (value: number | null | undefined): number => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return TESTER_LEVEL_MIN
+const clampGearInspectorLevelValue = (value: number | null | undefined): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return GEAR_INSPECTOR_LEVEL_MIN
   const rounded = Math.round(value)
-  if (rounded < TESTER_LEVEL_MIN) return TESTER_LEVEL_MIN
-  if (rounded > TESTER_LEVEL_MAX) return TESTER_LEVEL_MAX
+  if (rounded < GEAR_INSPECTOR_LEVEL_MIN) return GEAR_INSPECTOR_LEVEL_MIN
+  if (rounded > GEAR_INSPECTOR_LEVEL_MAX) return GEAR_INSPECTOR_LEVEL_MAX
   return rounded
 }
 
-export function resolveTesterLevelRange(levelState?: RulesFilterState['level']): TesterLevelRange {
-  const baseRange = levelState?.testerRange ?? DEFAULT_TESTER_LEVEL_RANGE
-  const min = clampTesterLevelValue(baseRange?.min ?? DEFAULT_TESTER_LEVEL_RANGE.min)
-  const max = clampTesterLevelValue(baseRange?.max ?? DEFAULT_TESTER_LEVEL_RANGE.max)
+export function resolveGearInspectorLevelRange(levelState?: RulesFilterState['level']): GearInspectorLevelRange {
+  const baseRange = levelState?.testerRange ?? DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE
+  const min = clampGearInspectorLevelValue(baseRange?.min ?? DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.min)
+  const max = clampGearInspectorLevelValue(baseRange?.max ?? DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.max)
   if (min <= max) return { min, max }
   return { min: max, max: min }
 }
@@ -183,7 +183,7 @@ export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
   slots: { selected: [], anyMode: 'include' },
   rank: { selected: [], anyMode: 'include' },
   rarity: { selected: [], anyMode: 'include' },
-  level: { selected: [], anyMode: 'include', testerRange: { ...DEFAULT_TESTER_LEVEL_RANGE } },
+  level: { selected: [], anyMode: 'include', testerRange: { ...DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE } },
   main: { selected: [], anyMode: 'include' },
   sub: { selected: [], notSelected: [], mode: 'all', wildcardMode: 'include' },
   faction: { selected: [], anyMode: 'include' },
@@ -193,8 +193,8 @@ export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
   testerGlyphs: { mode: 'any' },
   testerAscension: { stars: [], stats: [] },
   testerChampions: { selected: [] },
-  testerRolls: createDefaultTesterRollsState(),
-  testerLastUse: createDefaultTesterLastUseFilter(),
+  testerRolls: createDefaultGearInspectorRollsState(),
+  testerLastUse: createDefaultGearInspectorLastUseFilter(),
 }
 
 /**
@@ -265,9 +265,9 @@ const sanitizeUniqueNumberArrayFromSet = <T extends number>(
   return next
 }
 
-const TESTER_SOURCE_FILTERS = Object.freeze(['inventory', 'collection', 'vault', 'inbox', 'manual'] as const)
-const TESTER_CHAOS_MODES = Object.freeze(['any', 'notRerolled', 'rerolled'] as const)
-const TESTER_GLYPH_MODES = Object.freeze(['any', 'on', 'off', 'selected'] as const)
+const GEAR_INSPECTOR_SOURCE_FILTERS = Object.freeze(['inventory', 'collection', 'vault', 'inbox', 'manual'] as const)
+const GEAR_INSPECTOR_CHAOS_MODES = Object.freeze(['any', 'notRerolled', 'rerolled'] as const)
+const GEAR_INSPECTOR_GLYPH_MODES = Object.freeze(['any', 'on', 'off', 'selected'] as const)
 
 /**
  * Sanitize arbitrary input back into a complete `RulesFilterState`.
@@ -339,13 +339,13 @@ export const sanitizeRulesFilterState = (raw: unknown): RulesFilterState => {
   }
   {
     const candidate = isRecord(rec['level']) ? (rec['level'] as UnknownRecord) : null
-    const testerRangeRaw = isRecord(candidate?.['testerRange']) ? (candidate?.['testerRange'] as UnknownRecord) : null
-    const baseRange = resolveTesterLevelRange({
+    const gearInspectorRangeRaw = isRecord(candidate?.['testerRange']) ? (candidate?.['testerRange'] as UnknownRecord) : null
+    const baseRange = resolveGearInspectorLevelRange({
       selected: [],
       anyMode: 'include',
       testerRange: {
-        min: Number(testerRangeRaw?.['min'] ?? DEFAULT_TESTER_LEVEL_RANGE.min),
-        max: Number(testerRangeRaw?.['max'] ?? DEFAULT_TESTER_LEVEL_RANGE.max),
+        min: Number(gearInspectorRangeRaw?.['min'] ?? DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.min),
+        max: Number(gearInspectorRangeRaw?.['max'] ?? DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.max),
       },
     })
     next.level = {
@@ -392,20 +392,20 @@ export const sanitizeRulesFilterState = (raw: unknown): RulesFilterState => {
     const candidate = isRecord(rec['testerSources']) ? (rec['testerSources'] as UnknownRecord) : null
     next.testerSources = {
       selected: sanitizeUniqueStringArray(candidate?.['selected']).filter(
-        (value): value is TesterSourceFilter => TESTER_SOURCE_FILTERS.includes(value as TesterSourceFilter),
+        (value): value is GearInspectorSourceFilter => GEAR_INSPECTOR_SOURCE_FILTERS.includes(value as GearInspectorSourceFilter),
       ),
     }
   }
   {
     const candidate = isRecord(rec['testerChaos']) ? (rec['testerChaos'] as UnknownRecord) : null
     next.testerChaos = {
-      mode: sanitizeStringEnum(candidate?.['mode'], TESTER_CHAOS_MODES, next.testerChaos?.mode ?? 'any'),
+      mode: sanitizeStringEnum(candidate?.['mode'], GEAR_INSPECTOR_CHAOS_MODES, next.testerChaos?.mode ?? 'any'),
     }
   }
   {
     const candidate = isRecord(rec['testerGlyphs']) ? (rec['testerGlyphs'] as UnknownRecord) : null
     next.testerGlyphs = {
-      mode: sanitizeStringEnum(candidate?.['mode'], TESTER_GLYPH_MODES, next.testerGlyphs?.mode ?? 'any'),
+      mode: sanitizeStringEnum(candidate?.['mode'], GEAR_INSPECTOR_GLYPH_MODES, next.testerGlyphs?.mode ?? 'any'),
     }
   }
   {
@@ -427,19 +427,19 @@ export const sanitizeRulesFilterState = (raw: unknown): RulesFilterState => {
   }
 
   // Legacy + partial shapes are handled by the existing normalizers.
-  next.testerRolls = normalizeTesterRollsState(isRecord(rec['testerRolls']) ? (rec['testerRolls'] as TesterRollFilterState) : undefined)
-  next.testerLastUse = normalizeTesterLastUseFilter(rec['testerLastUse'] as RulesFilterState['testerLastUse'])
+  next.testerRolls = normalizeGearInspectorRollsState(isRecord(rec['testerRolls']) ? (rec['testerRolls'] as GearInspectorRollFilterState) : undefined)
+  next.testerLastUse = normalizeGearInspectorLastUseFilter(rec['testerLastUse'] as RulesFilterState['testerLastUse'])
 
   return next
 }
 
 // Back-compat helpers: accept legacy range shapes (min/max) if present
-export function isRulesFilterActive(f: RulesFilterState, options?: { includeTesterRange?: boolean }): boolean {
-  const includeTesterRange = options?.includeTesterRange ?? false
-  let testerRangeActive = false
-  if (includeTesterRange) {
-    const { min, max } = resolveTesterLevelRange(f.level)
-    testerRangeActive = min > DEFAULT_TESTER_LEVEL_RANGE.min || max < DEFAULT_TESTER_LEVEL_RANGE.max
+export function isRulesFilterActive(f: RulesFilterState, options?: { includeGearInspectorRange?: boolean }): boolean {
+  const includeGearInspectorRange = options?.includeGearInspectorRange ?? false
+  let gearInspectorRangeActive = false
+  if (includeGearInspectorRange) {
+    const { min, max } = resolveGearInspectorLevelRange(f.level)
+    gearInspectorRangeActive = min > DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.min || max < DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.max
   }
   const ra = (f.rule?.keep ?? 'any') !== 'any' || (f.rule?.use ?? 'any') !== 'any'
   const tr = (f.testerResult?.keep ?? 'any') !== 'any' || (f.testerResult?.matched ?? 'any') !== 'any'
@@ -447,7 +447,7 @@ export function isRulesFilterActive(f: RulesFilterState, options?: { includeTest
   const b = (f.slots?.selected?.length ?? 0) > 0 || (f.slots?.anyMode ?? 'include') !== 'include'
   const c = ((f.rank?.selected?.length ?? 0) > 0) || ((f.rank?.anyMode) ?? 'include') !== 'include'
   const d = ((f.rarity?.selected?.length ?? 0) > 0) || ((f.rarity?.anyMode) ?? 'include') !== 'include'
-  const e = (f.level?.selected?.length ?? 0) > 0 || (f.level?.anyMode ?? 'include') !== 'include' || testerRangeActive
+  const e = (f.level?.selected?.length ?? 0) > 0 || (f.level?.anyMode ?? 'include') !== 'include' || gearInspectorRangeActive
   const g = (f.main?.selected?.length ?? 0) > 0 || (f.main?.anyMode ?? 'include') !== 'include'
   const h = (f.sub?.selected?.length ?? 0) > 0
     || (f.sub?.notSelected?.length ?? 0) > 0
@@ -458,10 +458,10 @@ export function isRulesFilterActive(f: RulesFilterState, options?: { includeTest
   const k = (f.testerSources?.selected?.length ?? 0) > 0
   const l = (f.testerChaos?.mode ?? 'any') !== 'any'
   const m = (f.testerGlyphs?.mode ?? 'any') !== 'any'
-  const p = isTesterRollFilterActive(f.testerRolls)
+  const p = isGearInspectorRollFilterActive(f.testerRolls)
   const n = ((f.testerAscension?.stars?.length ?? 0) > 0) || ((f.testerAscension?.stats?.length ?? 0) > 0)
   const o = (f.testerChampions?.selected?.length ?? 0) > 0
-  const q = isTesterLastUseFilterActive(f.testerLastUse)
+  const q = isGearInspectorLastUseFilterActive(f.testerLastUse)
   return ra || tr || a || b || c || d || e || g || h || i || j || k || l || m || p || n || o || q
 }
 
@@ -767,44 +767,44 @@ export function filterHsfRules<T extends HsfRule>(
   return { rules: filtered, matchingRecipeIndices, recipeRuleCounts }
 }
 
-export type TesterFilterRowMatch = {
+export type GearInspectorFilterRowMatch = {
   keep: boolean
   recipeIdx: number | null
   recipeName?: string | null
   ruleSource?: string | null
 }
 
-export type TesterFilterRow = {
+export type GearInspectorFilterRow = {
   artifact: NormalizedGearArtifact
-  match: TesterFilterRowMatch | null
+  match: GearInspectorFilterRowMatch | null
   matchingRecipeIndices?: number[]
 }
 
-export interface FilterTesterItemsOptions {
+export interface FilterGearInspectorItemsOptions {
   recipeNames?: Array<string | null | undefined>
   recipeTags?: Array<string[] | null | undefined>
   specialRuleLabels?: RuleSourceLabelMap
 }
 
-export interface FilterTesterItemsResult<T extends TesterFilterRow> {
+export interface FilterGearInspectorItemsResult<T extends GearInspectorFilterRow> {
   items: T[]
   matchingRecipeIndices: Set<number>
 }
 
-export function filterTesterItems<T extends TesterFilterRow>(
+export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
   rows: readonly T[],
   f: RulesFilterState,
   metasets?: Metaset[],
-  options?: FilterTesterItemsOptions,
-): FilterTesterItemsResult<T> {
+  options?: FilterGearInspectorItemsOptions,
+): FilterGearInspectorItemsResult<T> {
   if (!rows.length) return { items: [], matchingRecipeIndices: new Set() }
 
-  const testerRolls = normalizeTesterRollsState(f.testerRolls)
-  const testerRollsActive = isTesterRollFilterActive(testerRolls)
+  const gearInspectorRolls = normalizeGearInspectorRollsState(f.testerRolls)
+  const gearInspectorRollsActive = isGearInspectorRollFilterActive(gearInspectorRolls)
 
-  const testerKeepMode = f.testerResult?.keep ?? 'any'
-  const testerMatchedMode = f.testerResult?.matched ?? 'any'
-  // Split include/exclude entries for tester filtering.
+  const gearInspectorKeepMode = f.testerResult?.keep ?? 'any'
+  const gearInspectorMatchedMode = f.testerResult?.matched ?? 'any'
+  // Split include/exclude entries for Gear Inspector filtering.
   const setSelection = splitArtifactSetSelections(f.sets?.selected ?? [])
   const selectedSets = new Set(setSelection.included.map(Number))
   const excludedSets = new Set(setSelection.excluded.map(Number))
@@ -825,14 +825,14 @@ export function filterTesterItems<T extends TesterFilterRow>(
   const excludedSubVariants = new Set((f.sub?.notSelected ?? []).map(Number))
   const selectedFactions = new Set((f.faction?.selected ?? []).map(Number))
   const selectedChampionIds = new Set((f.testerChampions?.selected ?? []).map(Number))
-  const testerLevelRange = resolveTesterLevelRange(f.level)
-  const testerExactLevelRangeActive =
-    testerLevelRange.min > DEFAULT_TESTER_LEVEL_RANGE.min || testerLevelRange.max < DEFAULT_TESTER_LEVEL_RANGE.max
-  const testerLastUse = normalizeTesterLastUseFilter(f.testerLastUse)
-  const testerLastUsePresetSet = new Set<TesterLastUsePreset>(testerLastUse.presets)
-  const testerLastUsePresetsActive = testerLastUsePresetSet.size > 0
-  const testerLastUseCustom = testerLastUse.custom
-  const testerLastUseCustomActive = testerLastUseCustom.enabled
+  const gearInspectorLevelRange = resolveGearInspectorLevelRange(f.level)
+  const gearInspectorExactLevelRangeActive =
+    gearInspectorLevelRange.min > DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.min || gearInspectorLevelRange.max < DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.max
+  const gearInspectorLastUse = normalizeGearInspectorLastUseFilter(f.testerLastUse)
+  const gearInspectorLastUsePresetSet = new Set<GearInspectorLastUsePreset>(gearInspectorLastUse.presets)
+  const gearInspectorLastUsePresetsActive = gearInspectorLastUsePresetSet.size > 0
+  const gearInspectorLastUseCustom = gearInspectorLastUse.custom
+  const gearInspectorLastUseCustomActive = gearInspectorLastUseCustom.enabled
 
   const subMode = f.sub?.mode ?? 'all'
   const subWildcardMode = f.sub?.wildcardMode ?? 'include'
@@ -851,7 +851,7 @@ export function filterTesterItems<T extends TesterFilterRow>(
   }
 
   const matchingRecipeIndices = new Set<number>()
-  const selectedSources = new Set<TesterSourceFilter>(f.testerSources?.selected ?? [])
+  const selectedSources = new Set<GearInspectorSourceFilter>(f.testerSources?.selected ?? [])
   const chaosMode = f.testerChaos?.mode ?? 'any'
   const glyphMode = f.testerGlyphs?.mode ?? 'any'
   const ascensionStars = new Set<number>(f.testerAscension?.stars ?? [])
@@ -862,14 +862,14 @@ export function filterTesterItems<T extends TesterFilterRow>(
     const artifact = row.artifact
     const match = row.match
 
-    if (testerMatchedMode === 'yes') {
+    if (gearInspectorMatchedMode === 'yes') {
       if (!match) continue
-    } else if (testerMatchedMode === 'no') {
+    } else if (gearInspectorMatchedMode === 'no') {
       if (match) continue
     }
-    if (testerKeepMode === 'yes') {
+    if (gearInspectorKeepMode === 'yes') {
       if (match?.keep !== true) continue
-    } else if (testerKeepMode === 'no') {
+    } else if (gearInspectorKeepMode === 'no') {
       if (match?.keep !== false) continue
     }
 
@@ -931,7 +931,7 @@ export function filterTesterItems<T extends TesterFilterRow>(
     if (rankMode === 'only') {
       continue
     } else if (rankMode === 'off') {
-      // Rank is always specified for the Rule Tester queue.
+      // Rank is always specified for the Gear Inspector queue.
     }
     if (selectedRanks.size > 0 && !selectedRanks.has(rank as RankValue)) continue
 
@@ -957,9 +957,9 @@ export function filterTesterItems<T extends TesterFilterRow>(
       if (typeof candidate === 'number' && Number.isFinite(candidate)) return Number(candidate)
       return level
     })()
-    const exactLevel = clampTesterLevelValue(rawExactLevel)
-    if (testerExactLevelRangeActive) {
-      if (exactLevel < testerLevelRange.min || exactLevel > testerLevelRange.max) continue
+    const exactLevel = clampGearInspectorLevelValue(rawExactLevel)
+    if (gearInspectorExactLevelRangeActive) {
+      if (exactLevel < gearInspectorLevelRange.min || exactLevel > gearInspectorLevelRange.max) continue
     }
 
     const mainMode = f.main?.anyMode ?? 'include'
@@ -977,7 +977,7 @@ export function filterTesterItems<T extends TesterFilterRow>(
     const subVariants = new Set<number>()
     const glyphedVariants = new Set<number>()
     let hasGlyph = false
-    const rollCounts = testerRollsActive ? new Map<number, number>() : null
+    const rollCounts = gearInspectorRollsActive ? new Map<number, number>() : null
     for (const stat of artifact.substats) {
       if (stat.variant !== StatVariant.Any) {
         const variantNumber = Number(stat.variant)
@@ -1038,7 +1038,7 @@ export function filterTesterItems<T extends TesterFilterRow>(
     if (selectedFactions.size > 0 && !selectedFactions.has(faction)) continue
 
     if (selectedSources.size > 0) {
-      const category = determineTesterSourceCategory(artifact)
+      const category = determineGearInspectorSourceCategory(artifact)
       if (!selectedSources.has(category)) continue
     }
 
@@ -1047,23 +1047,23 @@ export function filterTesterItems<T extends TesterFilterRow>(
       if (championId == null || !selectedChampionIds.has(Number(championId))) continue
     }
 
-    if (testerLastUsePresetsActive || testerLastUseCustomActive) {
+    if (gearInspectorLastUsePresetsActive || gearInspectorLastUseCustomActive) {
       const timestamp = typeof artifact.lastUseLocalTimestamp === 'string' ? artifact.lastUseLocalTimestamp : null
       const hasTimestamp = Boolean(timestamp)
       const daysSince = hasTimestamp ? getDaysSince(timestamp) : null
 
-      if (testerLastUsePresetsActive || testerLastUseCustomActive) {
+      if (gearInspectorLastUsePresetsActive || gearInspectorLastUseCustomActive) {
         // Evaluate presets/custom as a union so the row survives if either path wins.
         let presetMatch: boolean | null = null
-        if (testerLastUsePresetsActive) {
+        if (gearInspectorLastUsePresetsActive) {
           // Presets boil down to discrete buckets, so null timestamps only pass if "never" is active.
           presetMatch = false
           if (!hasTimestamp || daysSince == null) {
-            presetMatch = testerLastUsePresetSet.has('never')
+            presetMatch = gearInspectorLastUsePresetSet.has('never')
           } else {
-            for (const preset of testerLastUsePresetSet) {
+            for (const preset of gearInspectorLastUsePresetSet) {
               if (preset === 'never') continue
-              if (matchesTesterLastUsePreset(daysSince, preset)) {
+              if (matchesGearInspectorLastUsePreset(daysSince, preset)) {
                 presetMatch = true
                 break
               }
@@ -1072,12 +1072,12 @@ export function filterTesterItems<T extends TesterFilterRow>(
         }
 
         let customMatch: boolean | null = null
-        if (testerLastUseCustomActive) {
+        if (gearInspectorLastUseCustomActive) {
           // Custom ranges only check timestamped gear; null timestamps route through the "Never used" preset.
           if (!hasTimestamp || daysSince == null) customMatch = false
           else {
             customMatch =
-              daysSince >= testerLastUseCustom.minDays && daysSince <= testerLastUseCustom.maxDays
+              daysSince >= gearInspectorLastUseCustom.minDays && daysSince <= gearInspectorLastUseCustom.maxDays
           }
         }
 
@@ -1118,9 +1118,9 @@ export function filterTesterItems<T extends TesterFilterRow>(
       }
     }
 
-    if (testerRollsActive) {
-      if (!rollCounts || !passesTesterRollFilters({
-        filters: testerRolls,
+    if (gearInspectorRollsActive) {
+      if (!rollCounts || !passesGearInspectorRollFilters({
+        filters: gearInspectorRolls,
         rollCounts,
       })) continue
     }
@@ -1135,7 +1135,7 @@ export function filterTesterItems<T extends TesterFilterRow>(
   return { items: filtered, matchingRecipeIndices }
 }
 
-export const determineTesterSourceCategory = (artifact: NormalizedGearArtifact): TesterSourceFilter => {
+export const determineGearInspectorSourceCategory = (artifact: NormalizedGearArtifact): GearInspectorSourceFilter => {
   if (artifact.source === 'tester') return 'manual'
   if (artifact.source === 'inbox') return 'inbox'
   if (artifact.equippedToChampionId != null) {
@@ -1145,20 +1145,20 @@ export const determineTesterSourceCategory = (artifact: NormalizedGearArtifact):
   return 'inventory'
 }
 
-const TESTER_DISABLED_ANY_FIELDS = ['main', 'level', 'slots', 'rank', 'rarity'] as const
+const GEAR_INSPECTOR_DISABLED_ANY_FIELDS = ['main', 'level', 'slots', 'rank', 'rarity'] as const
 
-export type TesterIncompatibleAnyField = typeof TESTER_DISABLED_ANY_FIELDS[number]
+export type GearInspectorIncompatibleAnyField = typeof GEAR_INSPECTOR_DISABLED_ANY_FIELDS[number]
 
 /**
- * Tester mode hides the "Any" toggles for select fields, so the sellfile preview's
- * stricter interpretations (Only Any / Hide Any) should not leak into tester results.
+ * Gear Inspector mode hides the "Any" toggles for select fields, so the sellfile preview's
+ * stricter interpretations (Only Any / Hide Any) should not leak into Gear Inspector results.
  * Create a shallow clone of the filter state with those sections forced back to
- * the neutral `'include'` mode so the tester behaves consistently across locales.
+ * the neutral `'include'` mode so the Gear Inspector behaves consistently across locales.
  */
-export function normalizeRulesFilterForTester(filter: RulesFilterState): RulesFilterState {
+export function normalizeRulesFilterForGearInspector(filter: RulesFilterState): RulesFilterState {
   let normalized: RulesFilterState | null = null
 
-  const ensureInclude = <K extends TesterIncompatibleAnyField>(field: K) => {
+  const ensureInclude = <K extends GearInspectorIncompatibleAnyField>(field: K) => {
     const base = (normalized ?? filter)[field]
     const current: RulesFilterState[K] = (base ?? DEFAULT_RULES_FILTER_STATE[field]) as RulesFilterState[K]
     const anyMode = current.anyMode ?? DEFAULT_RULES_FILTER_STATE[field].anyMode
@@ -1172,7 +1172,7 @@ export function normalizeRulesFilterForTester(filter: RulesFilterState): RulesFi
     }
   }
 
-  for (const field of TESTER_DISABLED_ANY_FIELDS) {
+  for (const field of GEAR_INSPECTOR_DISABLED_ANY_FIELDS) {
     ensureInclude(field)
   }
 
@@ -1180,20 +1180,20 @@ export function normalizeRulesFilterForTester(filter: RulesFilterState): RulesFi
 }
 
 type RollFilterEvalArgs = {
-  filters: TesterRollFilterState
+  filters: GearInspectorRollFilterState
   rollCounts: Map<number, number>
 }
 
-export function isTesterRollFilterActive(rolls?: TesterRollFilterState): boolean {
+export function isGearInspectorRollFilterActive(rolls?: GearInspectorRollFilterState): boolean {
   if (!rolls) return false
-  const wildcard = rolls.wildcard ?? createDefaultTesterRollsState().wildcard
+  const wildcard = rolls.wildcard ?? createDefaultGearInspectorRollsState().wildcard
   const wildcardMode = wildcard.mode ?? 'off'
   const wildcardActive = wildcardMode !== 'off' && (wildcard.counts?.length ?? 0) > 0
   if (wildcardActive) return true
   return Boolean(rolls.perStat?.some((row) => (row?.counts?.length ?? 0) > 0))
 }
 
-const normalizeTesterRollFilterRow = (row: TesterRollFilterRow | null | undefined): TesterRollFilterRow | null => {
+const normalizeGearInspectorRollFilterRow = (row: GearInspectorRollFilterRow | null | undefined): GearInspectorRollFilterRow | null => {
   if (!row) return null
   const stat = Number(row.stat)
   if (!Number.isFinite(stat) || stat <= 0) return null
@@ -1205,14 +1205,14 @@ const normalizeTesterRollFilterRow = (row: TesterRollFilterRow | null | undefine
   }
 }
 
-const normalizeRollMode = (mode?: TesterRollWildcardMode | string): TesterRollWildcardMode => {
+const normalizeRollMode = (mode?: GearInspectorRollWildcardMode | string): GearInspectorRollWildcardMode => {
   if (mode === 'any' || mode === 'selected') return 'any'
   return 'off'
 }
 
-const normalizeTesterRollsState = (input?: TesterRollFilterState): TesterRollFilterState => {
-  const base = input ?? createDefaultTesterRollsState()
-  const wildcard = base.wildcard ?? createDefaultTesterRollsState().wildcard
+const normalizeGearInspectorRollsState = (input?: GearInspectorRollFilterState): GearInspectorRollFilterState => {
+  const base = input ?? createDefaultGearInspectorRollsState()
+  const wildcard = base.wildcard ?? createDefaultGearInspectorRollsState().wildcard
   const rows = Array.isArray(base.perStat) ? base.perStat : []
   return {
     wildcard: {
@@ -1220,20 +1220,20 @@ const normalizeTesterRollsState = (input?: TesterRollFilterState): TesterRollFil
       counts: resolveRollCountSet(wildcard),
     },
     perStat: rows
-      .map((row) => normalizeTesterRollFilterRow(row))
-      .filter((row): row is TesterRollFilterRow => Boolean(row)),
+      .map((row) => normalizeGearInspectorRollFilterRow(row))
+      .filter((row): row is GearInspectorRollFilterRow => Boolean(row)),
   }
 }
 
-type LegacyTesterRollComparator = 'eq' | 'gte' | 'lte'
+type LegacyGearInspectorRollComparator = 'eq' | 'gte' | 'lte'
 
 type RollCountCarrier = {
   counts?: unknown
-  comparator?: LegacyTesterRollComparator
+  comparator?: LegacyGearInspectorRollComparator
   value?: number
 }
 
-function resolveRollCountSet(carrier: RollCountCarrier | null | undefined): TesterRollCountSet {
+function resolveRollCountSet(carrier: RollCountCarrier | null | undefined): GearInspectorRollCountSet {
   const normalized = normalizeRollCountSet(carrier?.counts)
   if (normalized.length > 0) return normalized
   if (carrier && 'value' in (carrier as Record<string, unknown>)) {
@@ -1242,15 +1242,15 @@ function resolveRollCountSet(carrier: RollCountCarrier | null | undefined): Test
   return []
 }
 
-function normalizeRollCountSet(input: unknown): TesterRollCountSet {
+function normalizeRollCountSet(input: unknown): GearInspectorRollCountSet {
   if (!Array.isArray(input)) return []
   const seen = new Set<number>()
-  const next: TesterRollCountValue[] = []
+  const next: GearInspectorRollCountValue[] = []
   for (const raw of input) {
     if (typeof raw !== 'number' && typeof raw !== 'string') continue
     const numeric = Number(raw)
     if (!Number.isFinite(numeric)) continue
-    const clamped = clampRollTarget(numeric) as TesterRollCountValue
+    const clamped = clampRollTarget(numeric) as GearInspectorRollCountValue
     if (seen.has(clamped)) continue
     seen.add(clamped)
     next.push(clamped)
@@ -1260,21 +1260,21 @@ function normalizeRollCountSet(input: unknown): TesterRollCountSet {
 }
 
 function deriveLegacyRollCountSet(
-  comparator?: LegacyTesterRollComparator,
+  comparator?: LegacyGearInspectorRollComparator,
   value?: number | null,
-): TesterRollCountSet {
-  const normalizedComparator: LegacyTesterRollComparator =
+): GearInspectorRollCountSet {
+  const normalizedComparator: LegacyGearInspectorRollComparator =
     comparator === 'gte' || comparator === 'lte' ? comparator : 'eq'
-  const clamped = clampRollTarget(value ?? 0) as TesterRollCountValue
+  const clamped = clampRollTarget(value ?? 0) as GearInspectorRollCountValue
   if (normalizedComparator === 'gte') {
-    return TESTER_ROLL_COUNT_VALUES.filter((candidate) => candidate >= clamped)
+    return GEAR_INSPECTOR_ROLL_COUNT_VALUES.filter((candidate) => candidate >= clamped)
   }
   if (normalizedComparator === 'lte') {
-    return TESTER_ROLL_COUNT_VALUES.filter((candidate) => candidate <= clamped)
+    return GEAR_INSPECTOR_ROLL_COUNT_VALUES.filter((candidate) => candidate <= clamped)
   }
   return [clamped]
 }
-const passesTesterRollFilters = ({ filters, rollCounts }: RollFilterEvalArgs): boolean => {
+const passesGearInspectorRollFilters = ({ filters, rollCounts }: RollFilterEvalArgs): boolean => {
   const wildcard = filters.wildcard
   const wildcardCounts = new Set<number>(wildcard.counts ?? [])
   if (wildcard.mode === 'any' && wildcardCounts.size > 0) {
@@ -1309,9 +1309,9 @@ const clampRollTarget = (value: number | null | undefined): number => {
 }
 
 const clampLastUseDays = (value: number | null | undefined): number => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return TESTER_LAST_USE_MIN_DAYS
-  if (value < TESTER_LAST_USE_MIN_DAYS) return TESTER_LAST_USE_MIN_DAYS
-  if (value > TESTER_LAST_USE_MAX_DAYS) return TESTER_LAST_USE_MAX_DAYS
+  if (typeof value !== 'number' || !Number.isFinite(value)) return GEAR_INSPECTOR_LAST_USE_MIN_DAYS
+  if (value < GEAR_INSPECTOR_LAST_USE_MIN_DAYS) return GEAR_INSPECTOR_LAST_USE_MIN_DAYS
+  if (value > GEAR_INSPECTOR_LAST_USE_MAX_DAYS) return GEAR_INSPECTOR_LAST_USE_MAX_DAYS
   return Math.round(value)
 }
 
@@ -1325,9 +1325,9 @@ const normalizeLastUseRange = (
   return { min: max, max: min }
 }
 
-const TESTER_LAST_USE_RECENT_PRESETS: TesterLastUsePreset[] = ['recent7', 'recent30', 'recent90']
+const GEAR_INSPECTOR_LAST_USE_RECENT_PRESETS: GearInspectorLastUsePreset[] = ['recent7', 'recent30', 'recent90']
 const RECENT_PRESET_PRIORITY = new Map(
-  TESTER_LAST_USE_RECENT_PRESETS.map((preset, index) => [preset, index]),
+  GEAR_INSPECTOR_LAST_USE_RECENT_PRESETS.map((preset, index) => [preset, index]),
 )
 
 /**
@@ -1336,13 +1336,13 @@ const RECENT_PRESET_PRIORITY = new Map(
  * UI expose toggle-like affordances without pushing duplicated predicates into
  * the core filter logic.
  */
-export const sanitizeTesterLastUsePresets = (
-  rawPresets: Iterable<TesterLastUsePreset>,
-): TesterLastUsePreset[] => {
-  const base = new Set<TesterLastUsePreset>()
-  let widestRecent: TesterLastUsePreset | null = null
+export const sanitizeGearInspectorLastUsePresets = (
+  rawPresets: Iterable<GearInspectorLastUsePreset>,
+): GearInspectorLastUsePreset[] => {
+  const base = new Set<GearInspectorLastUsePreset>()
+  let widestRecent: GearInspectorLastUsePreset | null = null
   for (const preset of rawPresets) {
-    if (TESTER_LAST_USE_RECENT_PRESETS.includes(preset)) {
+    if (GEAR_INSPECTOR_LAST_USE_RECENT_PRESETS.includes(preset)) {
       const currentRank = RECENT_PRESET_PRIORITY.get(widestRecent ?? preset) ?? -1
       const nextRank = RECENT_PRESET_PRIORITY.get(preset) ?? -1
       if (nextRank >= currentRank) widestRecent = preset
@@ -1360,39 +1360,39 @@ export const sanitizeTesterLastUsePresets = (
  * Toggle helper used by the filter UI to add/remove presets while enforcing the
  * sanitized shape described above (only one "recent" bucket at a time).
  */
-export const toggleTesterLastUsePresetSelection = (
-  current: readonly TesterLastUsePreset[],
-  preset: TesterLastUsePreset,
-): TesterLastUsePreset[] => {
-  const draft = new Set<TesterLastUsePreset>(current)
+export const toggleGearInspectorLastUsePresetSelection = (
+  current: readonly GearInspectorLastUsePreset[],
+  preset: GearInspectorLastUsePreset,
+): GearInspectorLastUsePreset[] => {
+  const draft = new Set<GearInspectorLastUsePreset>(current)
   if (draft.has(preset)) {
     draft.delete(preset)
   } else {
-    if (TESTER_LAST_USE_RECENT_PRESETS.includes(preset)) {
-      for (const recent of TESTER_LAST_USE_RECENT_PRESETS) draft.delete(recent)
+    if (GEAR_INSPECTOR_LAST_USE_RECENT_PRESETS.includes(preset)) {
+      for (const recent of GEAR_INSPECTOR_LAST_USE_RECENT_PRESETS) draft.delete(recent)
     }
     draft.add(preset)
   }
-  return sanitizeTesterLastUsePresets(draft)
+  return sanitizeGearInspectorLastUsePresets(draft)
 }
 
-export const normalizeTesterLastUseFilter = (
+export const normalizeGearInspectorLastUseFilter = (
   input?: RulesFilterState['testerLastUse'] | null,
-): TesterLastUseFilter => {
-  if (!input) return createDefaultTesterLastUseFilter()
+): GearInspectorLastUseFilter => {
+  if (!input) return createDefaultGearInspectorLastUseFilter()
   const rawPresets = Array.isArray(input.presets) ? input.presets : []
-  const seen = new Set<TesterLastUsePreset>()
-  const presets: TesterLastUsePreset[] = []
+  const seen = new Set<GearInspectorLastUsePreset>()
+  const presets: GearInspectorLastUsePreset[] = []
   for (const raw of rawPresets) {
-    if (TESTER_LAST_USE_PRESETS.includes(raw as TesterLastUsePreset)) {
-      const value = raw as TesterLastUsePreset
+    if (GEAR_INSPECTOR_LAST_USE_PRESETS.includes(raw as GearInspectorLastUsePreset)) {
+      const value = raw as GearInspectorLastUsePreset
       if (seen.has(value)) continue
       seen.add(value)
       presets.push(value)
     }
   }
-  const collapsedPresets = sanitizeTesterLastUsePresets(presets)
-  const baseCustom = input.custom ?? DEFAULT_TESTER_LAST_USE_CUSTOM
+  const collapsedPresets = sanitizeGearInspectorLastUsePresets(presets)
+  const baseCustom = input.custom ?? DEFAULT_GEAR_INSPECTOR_LAST_USE_CUSTOM
   const range = normalizeLastUseRange(baseCustom.minDays, baseCustom.maxDays)
   return {
     presets: collapsedPresets,
@@ -1404,16 +1404,16 @@ export const normalizeTesterLastUseFilter = (
   }
 }
 
-export const isTesterLastUseFilterActive = (value?: RulesFilterState['testerLastUse']): boolean => {
-  const filter = normalizeTesterLastUseFilter(value)
+export const isGearInspectorLastUseFilterActive = (value?: RulesFilterState['testerLastUse']): boolean => {
+  const filter = normalizeGearInspectorLastUseFilter(value)
   if (filter.presets.length > 0) return true
   if (!filter.custom.enabled) return false
-  if (filter.custom.minDays > TESTER_LAST_USE_MIN_DAYS) return true
-  if (filter.custom.maxDays < TESTER_LAST_USE_MAX_DAYS) return true
+  if (filter.custom.minDays > GEAR_INSPECTOR_LAST_USE_MIN_DAYS) return true
+  if (filter.custom.maxDays < GEAR_INSPECTOR_LAST_USE_MAX_DAYS) return true
   return false
 }
 
-const matchesTesterLastUsePreset = (days: number, preset: TesterLastUsePreset): boolean => {
+const matchesGearInspectorLastUsePreset = (days: number, preset: GearInspectorLastUsePreset): boolean => {
   switch (preset) {
     case 'recent7':
       return days <= 7

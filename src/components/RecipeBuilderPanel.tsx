@@ -58,7 +58,7 @@ import {
 import { type Metaset, metasetGlyph, orderMetasetIds, resolveMetasetIds } from '../lib/metasets'
 import type { ArtifactSetSelectionEntry } from '../lib/gearSets/selection'
 import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
-import { slotSelectionAllowsAccessories } from '../lib/testerDomain'
+import { slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import { getMainStatOptionsForSlots } from './keepOverrides/keepOverrideRuleUtils'
 import { resolveAllowedSubstatsForSlotsAndMains } from '../lib/statCompatibility'
 import { useKeepOverrideCombinationTools } from './keepOverrides/useKeepOverrideCombinationTools'

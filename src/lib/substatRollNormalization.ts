@@ -8,7 +8,7 @@
 import { StatVariant } from './types'
 
 // 6★ per-roll maximums for substats (same units as `totalValue` / `glyphValue` from gearDbNormalizer).
-// Why: these caps are the most stable reference point across the app (builder + tester) and match samples.
+// Why: these caps are the most stable reference point across the app (builder + Gear Inspector) and match samples.
 export const SUBSTAT_ROLL_MAX_6_BY_VARIANT: Readonly<Record<number, number>> = Object.freeze({
   [StatVariant.HP_FLAT]: 565,
   [StatVariant.HP]: 7,

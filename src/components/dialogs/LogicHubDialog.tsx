@@ -22,9 +22,9 @@ import {
   type FinalSellSetsMode,
 } from '../../lib/logicHub'
 import type { BuilderRecipe } from '../../lib/hsfBuilder'
-import type { RuleTesterItem } from '../../lib/ruleTesterSession'
-import type { TesterPreviewMatch } from '../../types/testerPreview'
-import { GearTesterTabContent, type GearTesterTabLayoutSlots } from './GearTesterTabContent'
+import type { GearInspectorItem } from '../../lib/gearInspectorSession'
+import type { GearInspectorPreviewMatch } from '../../types/gearInspectorPreview'
+import { GearInspectorTabContent, type GearInspectorTabLayoutSlots } from './GearInspectorTabContent'
 import DungeonSimulatorTab from './DungeonSimulatorTab'
 // MarkdownTooltip keeps the level-hint copy behavior aligned with the rest of the app.
 import MarkdownTooltip from '../MarkdownTooltip'
@@ -48,11 +48,11 @@ type LogicHubDialogProps = {
   useStatButtonColors: boolean
   onJumpToRule?: (ruleIndex: number, recipeIdx: number | null) => void
   customRecipes: BuilderRecipe[]
-  testerItems: RuleTesterItem[]
-  setTesterItems: Dispatch<SetStateAction<RuleTesterItem[]>>
-  allocTesterItemId: () => number
-  testerMatches: ReadonlyMap<number, TesterPreviewMatch | null>
-  onResetGearTester?: () => void
+  gearInspectorItems: GearInspectorItem[]
+  setGearInspectorItems: Dispatch<SetStateAction<GearInspectorItem[]>>
+  allocGearInspectorItemId: () => number
+  gearInspectorMatches: ReadonlyMap<number, GearInspectorPreviewMatch | null>
+  onResetGearInspector?: () => void
   rules: HsfRuleWithRecipe[]
   substatTargets: SubstatTargetTable
   effectiveSubstatTargets: SubstatTargetTable
@@ -75,11 +75,11 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     useStatButtonColors,
     onJumpToRule,
     customRecipes,
-    testerItems,
-    setTesterItems,
-    allocTesterItemId,
-    testerMatches,
-    onResetGearTester,
+    gearInspectorItems,
+    setGearInspectorItems,
+    allocGearInspectorItemId,
+    gearInspectorMatches,
+    onResetGearInspector,
     rules,
     substatTargets,
     effectiveSubstatTargets,
@@ -89,11 +89,11 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
   } = props
   const { t } = useI18n()
   // Gear resets also confirm so a stray click does not clear imported databases or manual samples.
-  const [confirmResetGearTester, setConfirmResetGearTester] = useState(false)
+  const [confirmResetGearInspector, setConfirmResetGearTester] = useState(false)
   const [confirmResetSubstatTargets, setConfirmResetSubstatTargets] = useState(false)
-  // Fallback keeps the tester grid handler stable even when no jump target is supplied.
-  const noopTesterRuleJump = useCallback(() => {}, [])
-  const gearTabOnView = onJumpToRule ?? noopTesterRuleJump
+  // Fallback keeps the Gear Inspector grid handler stable even when no jump target is supplied.
+  const noopGearInspectorRuleJump = useCallback(() => {}, [])
+  const gearTabOnView = onJumpToRule ?? noopGearInspectorRuleJump
   // Clamp unknown tab ids back to the Logic Hub default so autosave/restore can't wedge the dialog.
   const normalizedTab = LOGIC_HUB_DIALOG_TABS.includes(activeTab) ? activeTab : LOGIC_HUB_DIALOG_TAB_FINAL_SELL
   const hasGear = value.artifacts || value.accessories
@@ -127,7 +127,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     : showSubstatTargetsTab
       ? true
       : showGearTab
-        ? Boolean(onResetGearTester)
+        ? Boolean(onResetGearInspector)
         : false
   const handleResetButtonClick = () => {
     if (showFinalSellTab) {
@@ -138,15 +138,15 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
       setConfirmResetSubstatTargets(true)
       return
     }
-    if (showGearTab && onResetGearTester) {
+    if (showGearTab && onResetGearInspector) {
       setConfirmResetGearTester(true)
     }
   }
-  // Clear the tester items in one shot so manual + imported gear disappear together.
+  // Clear the Gear Inspector items in one shot so manual + imported gear disappear together.
   const handleConfirmResetGearTester = () => {
-    if (!onResetGearTester) return
+    if (!onResetGearInspector) return
     setConfirmResetGearTester(false)
-    onResetGearTester()
+    onResetGearInspector()
   }
   // Dialog follows the spec'd min width/height so both tabs have enough breathing room.
   const paperSx = {
@@ -154,8 +154,8 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     maxWidth: 'min(960px, calc(100vw - 32px))',
     height: 'min(800px, calc(100vh - 48px))',
   }
-  // Layout wrapper mirrors the placeholder padding and keeps the tester content/actions vertically stacked.
-  const renderGearTesterLayout = useCallback(({ content, actions }: GearTesterTabLayoutSlots) => (
+  // Layout wrapper mirrors the placeholder padding and keeps the Gear Inspector content/actions vertically stacked.
+  const renderGearInspectorLayout = useCallback(({ content, actions }: GearInspectorTabLayoutSlots) => (
     <Box
       data-tour-id="finalsell.dialog.gear"
       sx={(theme) => ({
@@ -459,18 +459,18 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
           />
         )}
         {showGearTab && (
-          // Gear tab reuses the tester tab content without duplicating dialog chrome.
-          <GearTesterTabContent
+          // Gear tab reuses the Gear Inspector tab content without duplicating dialog chrome.
+          <GearInspectorTabContent
             customRecipes={customRecipes}
             onView={gearTabOnView}
             substatColors={substatColors}
-            testerItems={testerItems}
-            setTesterItems={setTesterItems}
-            allocTesterItemId={allocTesterItemId}
-            testerMatches={testerMatches}
+            gearInspectorItems={gearInspectorItems}
+            setGearInspectorItems={setGearInspectorItems}
+            allocGearInspectorItemId={allocGearInspectorItemId}
+            gearInspectorMatches={gearInspectorMatches}
             isActive={open && showGearTab}
             emptyStateVerticalAlign={emptyStateVerticalAlign}
-            renderLayout={renderGearTesterLayout}
+            renderLayout={renderGearInspectorLayout}
           />
         )}
         {showDungeonTab && (
@@ -498,9 +498,9 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
         <Button onClick={onClose} data-tour-id="finalsell.dialog.close">{t('close')}</Button>
       </DialogActions>
     </Dialog>
-      {/* Dedicated confirm dialog spells out the destructive Gear reset before wiping tester entries. */}
+      {/* Dedicated confirm dialog spells out the destructive Gear reset before wiping Gear Inspector entries. */}
       <Dialog
-        open={confirmResetGearTester}
+        open={confirmResetGearInspector}
         onClose={() => setConfirmResetGearTester(false)}
       >
         <DialogTitle>{t('titleResetGearTester')}</DialogTitle>

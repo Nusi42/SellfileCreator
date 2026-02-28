@@ -1,8 +1,8 @@
 import { loadAutosave } from './autosave'
 import { compressToBase64, decompressFromBase64 } from './compression'
-import { AUTOSAVE_TESTER_KEY, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID } from './constants'
+import { AUTOSAVE_GEAR_INSPECTOR_KEY, ACCESSORY_NO_SET_ID, GEAR_INSPECTOR_ANY_SLOT_ID } from './constants'
 import { additionLevelsForRarityCode, type SubstatTargetTable } from './hsfBuilder'
-import { allowedTesterSetIds, normalizeTesterSetForSlot } from './testerDomain'
+import { allowedGearInspectorSetIds, normalizeGearInspectorSetForSlot } from './gearInspectorDomain'
 import {
   LEVEL_MILESTONES,
   type LevelMilestone,
@@ -22,20 +22,20 @@ import {
 } from './types'
 import { variantToSub, variantToMain } from './hsfTypes'
 import type { NormalizedStat } from './importers/gearDbNormalizer'
-import type { TestItem, TesterItemPreviewExtras } from './ruleEval'
+import type { TestItem, GearInspectorItemPreviewExtras } from './ruleEval'
 
-export type RuleTesterItem = Omit<TestItem, 'subRolls'> & {
+export type GearInspectorItem = Omit<TestItem, 'subRolls'> & {
   itemId: number
   subValues?: Record<number, number>
   subOrder?: number[]
   compact?: boolean
 }
 
-type StoredTesterItem = RuleTesterItem
+type StoredGearInspectorItem = GearInspectorItem
 
-export type TesterSourceCategory = 'manual' | 'inventory' | 'collection' | 'vault' | 'inbox'
+export type GearInspectorSourceCategory = 'manual' | 'inventory' | 'collection' | 'vault' | 'inbox'
 
-export const testerSourceCategoryForItem = (item: RuleTesterItem): TesterSourceCategory => {
+export const gearInspectorSourceCategoryForItem = (item: GearInspectorItem): GearInspectorSourceCategory => {
   const extras = item.previewExtras
   const baseSource = extras?.source
   if (!baseSource || baseSource === 'tester') return 'manual'
@@ -47,9 +47,9 @@ export const testerSourceCategoryForItem = (item: RuleTesterItem): TesterSourceC
   return 'inventory'
 }
 
-export const isManualTesterItem = (item: RuleTesterItem): boolean => testerSourceCategoryForItem(item) === 'manual'
+export const isManualGearInspectorItem = (item: GearInspectorItem): boolean => gearInspectorSourceCategoryForItem(item) === 'manual'
 
-export type RuleTesterAutosavePayload = {
+export type GearInspectorAutosavePayload = {
   Version?: string | number
   ItemsCompressed: string
   ItemsCompressedBytes?: number
@@ -73,7 +73,7 @@ const ANY_SLOT_MAIN_VARIANTS: number[] = (() => {
 })()
 
 export const baseMainVariantsForSlot = (slot: ArtifactTypeId): number[] => {
-  if (Number(slot) === TESTER_ANY_SLOT_ID) return [...ANY_SLOT_MAIN_VARIANTS]
+  if (Number(slot) === GEAR_INSPECTOR_ANY_SLOT_ID) return [...ANY_SLOT_MAIN_VARIANTS]
   const allowed = ALLOWED_MAIN_BY_SLOT[Number(slot) as ArtifactType]
   if (!allowed || allowed.size === 0) return [...MAIN_FALLBACK_VARIANTS]
   return Array.from(allowed).sort(compareVariants)
@@ -94,7 +94,7 @@ export const mainOptionsForSlot = (slot: ArtifactTypeId, currentMain: number): n
   return base
 }
 
-export const entriesInOrder = (it: RuleTesterItem): Array<[number, number]> => {
+export const entriesInOrder = (it: GearInspectorItem): Array<[number, number]> => {
   const vals = it.subValues || {}
   const presentKeys = new Set(Object.keys(vals).map(Number))
   const baseOrder = (it.subOrder && it.subOrder.length > 0)
@@ -140,61 +140,61 @@ const subEqualsMainVariant = (subV: number, mainV?: number): boolean => {
   return sub.id === main.id
 }
 
-export type RuleTesterMath = ReturnType<typeof createRuleTesterMath>
+export type GearInspectorMath = ReturnType<typeof createGearInspectorMath>
 
-const parseCompressedTesterItems = (base64: string): StoredTesterItem[] | null => {
+const parseCompressedGearInspectorItems = (base64: string): StoredGearInspectorItem[] | null => {
   try {
     const json = decompressFromBase64(base64)
     const parsed = JSON.parse(json)
     if (!Array.isArray(parsed)) return null
-    return parsed as StoredTesterItem[]
+    return parsed as StoredGearInspectorItem[]
   } catch {
     return null
   }
 }
 
-type CachedTesterAutosaveCompression = {
-  itemsRef: RuleTesterItem[] | null
+type CachedGearInspectorAutosaveCompression = {
+  itemsRef: GearInspectorItem[] | null
   base64: string
   byteLength: number
   itemCount: number
 }
 
-// Cache the last tester compression result so repeated autosave flushes for the
-// same immutable tester array can skip JSON stringify + compression work.
-const cachedTesterAutosaveCompression: CachedTesterAutosaveCompression = {
+// Cache the last Gear Inspector compression result so repeated autosave flushes for the
+// same immutable item array can skip JSON stringify + compression work.
+const cachedGearInspectorAutosaveCompression: CachedGearInspectorAutosaveCompression = {
   itemsRef: null,
   base64: '',
   byteLength: 0,
   itemCount: 0,
 }
 
-export function buildRuleTesterAutosavePayload(items: RuleTesterItem[]): RuleTesterAutosavePayload {
+export function buildGearInspectorAutosavePayload(items: GearInspectorItem[]): GearInspectorAutosavePayload {
   try {
-    if (cachedTesterAutosaveCompression.itemsRef !== items) {
-      // Immutable tester state changes should produce a new array reference.
+    if (cachedGearInspectorAutosaveCompression.itemsRef !== items) {
+      // Immutable Gear Inspector state changes should produce a new array reference.
       // Recompress only on those reference changes.
       const json = JSON.stringify(items)
       const { base64, byteLength } = compressToBase64(json)
-      cachedTesterAutosaveCompression.itemsRef = items
-      cachedTesterAutosaveCompression.base64 = base64
-      cachedTesterAutosaveCompression.byteLength = byteLength
-      cachedTesterAutosaveCompression.itemCount = items.length
+      cachedGearInspectorAutosaveCompression.itemsRef = items
+      cachedGearInspectorAutosaveCompression.base64 = base64
+      cachedGearInspectorAutosaveCompression.byteLength = byteLength
+      cachedGearInspectorAutosaveCompression.itemCount = items.length
     }
     return {
       Version: '3',
-      ItemsCompressed: cachedTesterAutosaveCompression.base64,
-      ItemsCompressedBytes: cachedTesterAutosaveCompression.byteLength,
-      ItemCount: cachedTesterAutosaveCompression.itemCount,
+      ItemsCompressed: cachedGearInspectorAutosaveCompression.base64,
+      ItemsCompressedBytes: cachedGearInspectorAutosaveCompression.byteLength,
+      ItemCount: cachedGearInspectorAutosaveCompression.itemCount,
       SavedAt: new Date().toISOString(),
     }
   } catch {
-    // Allow the caller to continue even if compression fails; worst case the tester resets.
+    // Allow the caller to continue even if compression fails; worst case the Gear Inspector resets.
     return { Version: '3', ItemsCompressed: '', SavedAt: new Date().toISOString() }
   }
 }
 
-export function createRuleTesterMath(substatTargets: SubstatTargetTable) {
+export function createGearInspectorMath(substatTargets: SubstatTargetTable) {
   const baseStepForRank = (variant: number, star: 1|2|3|4|5|6): number => {
     if (star === 6) return substatTargets.six[variant] ?? 0
     if (star === 5) return substatTargets.five[variant] ?? 0
@@ -204,14 +204,14 @@ export function createRuleTesterMath(substatTargets: SubstatTargetTable) {
     return substatTargets.one[variant] ?? 0
   }
 
-  const adjustSubValuesFor = (it: RuleTesterItem): RuleTesterItem => {
+  const adjustSubValuesFor = (it: GearInspectorItem): GearInspectorItem => {
     const slotValue = Number(it.slot)
     const normalizedMain = normalizeMainVariantForSlot(it.slot, Number(it.main ?? -1))
-    const normalizedSet = normalizeTesterSetForSlot(it.slot, (it.set ?? ACCESSORY_NO_SET_ID) as ArtifactSetId)
+    const normalizedSet = normalizeGearInspectorSetForSlot(it.slot, (it.set ?? ACCESSORY_NO_SET_ID) as ArtifactSetId)
     const need = presentSubCount(it.rarity, it.level)
     const orderedEntries = entriesInOrder(it)
     const allowedFiltered = orderedEntries.filter(([variant]) => (
-      (slotValue === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, variant)) && !subEqualsMainVariant(variant, normalizedMain)
+      (slotValue === GEAR_INSPECTOR_ANY_SLOT_ID || slotSupportsSub(it.slot, variant)) && !subEqualsMainVariant(variant, normalizedMain)
     ))
     const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1|2|3|4|5|6
     const baseFor = (variant: number): number => baseStepForRank(variant, star)
@@ -235,7 +235,7 @@ export function createRuleTesterMath(substatTargets: SubstatTargetTable) {
         StatVariant.CR,
         StatVariant.CDMG,
       ].filter((variant) => (
-        (slotValue === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, variant))
+        (slotValue === GEAR_INSPECTOR_ANY_SLOT_ID || slotSupportsSub(it.slot, variant))
         && !have.has(Number(variant))
         && !subEqualsMainVariant(variant, normalizedMain)
       ))
@@ -259,7 +259,7 @@ export function createRuleTesterMath(substatTargets: SubstatTargetTable) {
     }
   }
 
-  const applyRandomRollsForLevel = (it: RuleTesterItem): RuleTesterItem => {
+  const applyRandomRollsForLevel = (it: GearInspectorItem): GearInspectorItem => {
     const level = it.level
     const entries = entriesInOrder(it)
     if (entries.length === 0) return it
@@ -328,7 +328,7 @@ export function createRuleTesterMath(substatTargets: SubstatTargetTable) {
     return { ...it, subValues: values }
   }
 
-  const makeDefaultItem = (allocItemId: () => number): RuleTesterItem => {
+  const makeDefaultItem = (allocItemId: () => number): GearInspectorItem => {
     const pick = <T,>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]!
     const slotIds = Object.keys(artifactTypeNames).map(Number)
     const levelMilestones: readonly LevelMilestone[] = LEVEL_MILESTONES
@@ -344,10 +344,10 @@ export function createRuleTesterMath(substatTargets: SubstatTargetTable) {
       Faction.Shadowkin, Faction.SylvanWatchers, Faction.Dwarves,
     ] as const
     const subValues: Record<number, number> = {}
-    const baseItem: RuleTesterItem = {
+    const baseItem: GearInspectorItem = {
       slot,
       set: ((): ArtifactSetId => {
-        const pool = allowedTesterSetIds(slot)
+        const pool = allowedGearInspectorSetIds(slot)
         const id = pool.length ? pool[Math.floor(Math.random() * pool.length)]! : ArtifactSet.Speed
         return id as ArtifactSetId
       })(),
@@ -379,13 +379,13 @@ type CanonicalNormalizedStat = {
 }
 
 type CanonicalPreviewExtras = {
-  source: TesterItemPreviewExtras['source'] | null
+  source: GearInspectorItemPreviewExtras['source'] | null
   rerollCount: number | null
   equippedToChampionId: number | null
   equippedChampionBaseId: number | null
   equippedChampionRarity: number | null
   equippedChampionName: string | null
-  equippedChampionLocation: TesterItemPreviewExtras['equippedChampionLocation'] | null
+  equippedChampionLocation: GearInspectorItemPreviewExtras['equippedChampionLocation'] | null
   mainStat: CanonicalNormalizedStat | null
   substats: CanonicalNormalizedStat[] | null
   ascension: CanonicalNormalizedStat | null
@@ -454,7 +454,7 @@ const canonicalizeStatArray = (stats?: NormalizedStat[] | null): CanonicalNormal
   return canonical
 }
 
-const canonicalizePreviewExtras = (extras?: TesterItemPreviewExtras): CanonicalPreviewExtras | null => {
+const canonicalizePreviewExtras = (extras?: GearInspectorItemPreviewExtras): CanonicalPreviewExtras | null => {
   if (!extras) return null
   return {
     source: extras.source ?? null,
@@ -473,12 +473,12 @@ const canonicalizePreviewExtras = (extras?: TesterItemPreviewExtras): CanonicalP
   }
 }
 
-const normalizeTesterName = (value: unknown): string | null => {
+const normalizeGearInspectorItemName = (value: unknown): string | null => {
   if (typeof value === 'string') return value
   return null
 }
 
-type RuleTesterItemSignature = {
+type GearInspectorItemSignature = {
   name: string | null
   slot: number
   set: number
@@ -491,12 +491,12 @@ type RuleTesterItemSignature = {
   previewExtras: CanonicalPreviewExtras | null
 }
 
-type RuleTesterItemSignatureToken = {
+type GearInspectorItemSignatureToken = {
   hash: number
-  signature: RuleTesterItemSignature
+  signature: GearInspectorItemSignature
 }
 
-type RuleTesterItemSignatureCountMap = Map<RuleTesterItemSignatureToken, number>
+type GearInspectorItemSignatureCountMap = Map<GearInspectorItemSignatureToken, number>
 
 // Keep one deterministic non-crypt hash for interning typed signatures.
 const HASH_FNV_OFFSET = 0x811c9dc5
@@ -568,8 +568,8 @@ const hashFoldPreviewExtras = (hash: number, extras: CanonicalPreviewExtras | nu
   return next
 }
 
-const buildRuleTesterItemSignature = (item: RuleTesterItem | TestItem): RuleTesterItemSignature => ({
-  name: normalizeTesterName((item as { name?: unknown }).name),
+const buildGearInspectorItemSignature = (item: GearInspectorItem | TestItem): GearInspectorItemSignature => ({
+  name: normalizeGearInspectorItemName((item as { name?: unknown }).name),
   slot: coerceFiniteNumber(item.slot, 0),
   set: coerceFiniteNumber(item.set, 0),
   rank: coerceFiniteNumber(item.rank, 0),
@@ -581,7 +581,7 @@ const buildRuleTesterItemSignature = (item: RuleTesterItem | TestItem): RuleTest
   previewExtras: canonicalizePreviewExtras(item.previewExtras),
 })
 
-const hashRuleTesterItemSignature = (signature: RuleTesterItemSignature): number => {
+const hashGearInspectorItemSignature = (signature: GearInspectorItemSignature): number => {
   let hash = HASH_FNV_OFFSET
   hash = hashFoldNullableString(hash, signature.name)
   hash = hashFoldNumber(hash, signature.slot)
@@ -653,7 +653,7 @@ const previewExtrasEqual = (left: CanonicalPreviewExtras | null, right: Canonica
   return true
 }
 
-const ruleTesterItemSignaturesEqual = (left: RuleTesterItemSignature, right: RuleTesterItemSignature): boolean => {
+const gearInspectorItemSignaturesEqual = (left: GearInspectorItemSignature, right: GearInspectorItemSignature): boolean => {
   if (left === right) return true
   if (
     left.name !== right.name
@@ -676,27 +676,27 @@ const ruleTesterItemSignaturesEqual = (left: RuleTesterItemSignature, right: Rul
   return previewExtrasEqual(left.previewExtras, right.previewExtras)
 }
 
-const createRuleTesterSignatureInterner = () => {
-  const internedByHash = new Map<number, RuleTesterItemSignatureToken[]>()
-  const byReference = new WeakMap<object, RuleTesterItemSignatureToken>()
+const createGearInspectorSignatureInterner = () => {
+  const internedByHash = new Map<number, GearInspectorItemSignatureToken[]>()
+  const byReference = new WeakMap<object, GearInspectorItemSignatureToken>()
 
-  const intern = (item: RuleTesterItem | TestItem): RuleTesterItemSignatureToken => {
+  const intern = (item: GearInspectorItem | TestItem): GearInspectorItemSignatureToken => {
     if (item && typeof item === 'object') {
       const cached = byReference.get(item as object)
       if (cached) return cached
     }
-    const signature = buildRuleTesterItemSignature(item)
-    const hash = hashRuleTesterItemSignature(signature)
+    const signature = buildGearInspectorItemSignature(item)
+    const hash = hashGearInspectorItemSignature(signature)
     const bucket = internedByHash.get(hash)
     if (bucket) {
       for (const token of bucket) {
-        if (ruleTesterItemSignaturesEqual(token.signature, signature)) {
+        if (gearInspectorItemSignaturesEqual(token.signature, signature)) {
           if (item && typeof item === 'object') byReference.set(item as object, token)
           return token
         }
       }
     }
-    const created: RuleTesterItemSignatureToken = { hash, signature }
+    const created: GearInspectorItemSignatureToken = { hash, signature }
     if (bucket) {
       bucket.push(created)
     } else {
@@ -710,47 +710,47 @@ const createRuleTesterSignatureInterner = () => {
 }
 
 const incrementSignatureCount = (
-  map: RuleTesterItemSignatureCountMap,
-  key: RuleTesterItemSignatureToken,
+  map: GearInspectorItemSignatureCountMap,
+  key: GearInspectorItemSignatureToken,
   delta = 1,
 ): void => {
   map.set(key, (map.get(key) ?? 0) + delta)
 }
 
 const readSignatureCount = (
-  map: RuleTesterItemSignatureCountMap,
-  key: RuleTesterItemSignatureToken,
+  map: GearInspectorItemSignatureCountMap,
+  key: GearInspectorItemSignatureToken,
 ): number => map.get(key) ?? 0
 
-export function fingerprintRuleTesterItem(item: RuleTesterItem | TestItem): string {
+export function fingerprintGearInspectorItem(item: GearInspectorItem | TestItem): string {
   // Keep the public helper stable for tests/dev tooling.
-  return JSON.stringify(buildRuleTesterItemSignature(item))
+  return JSON.stringify(buildGearInspectorItemSignature(item))
 }
 
-export type DiffRuleTesterItemsOptions = {
+export type DiffGearInspectorItemsOptions = {
   retainManualItems?: boolean
 }
 
-export function diffRuleTesterItems(
-  currentItems: RuleTesterItem[],
+export function diffGearInspectorItems(
+  currentItems: GearInspectorItem[],
   desiredItems: TestItem[],
   pendingQueue: TestItem[] = [],
-  options?: DiffRuleTesterItemsOptions,
+  options?: DiffGearInspectorItemsOptions,
 ): { removalItemIds: number[]; nextPendingQueue: TestItem[]; additions: TestItem[] } {
   const retainManualItems = Boolean(options?.retainManualItems)
-  const signatureInterner = createRuleTesterSignatureInterner()
-  const desiredCounts: RuleTesterItemSignatureCountMap = new Map()
+  const signatureInterner = createGearInspectorSignatureInterner()
+  const desiredCounts: GearInspectorItemSignatureCountMap = new Map()
   for (const desired of desiredItems) {
     incrementSignatureCount(desiredCounts, signatureInterner.intern(desired))
   }
 
-  const currentCounts: RuleTesterItemSignatureCountMap = new Map()
+  const currentCounts: GearInspectorItemSignatureCountMap = new Map()
   for (const item of currentItems) {
-    if (retainManualItems && isManualTesterItem(item)) continue
+    if (retainManualItems && isManualGearInspectorItem(item)) continue
     incrementSignatureCount(currentCounts, signatureInterner.intern(item))
   }
 
-  const currentKeepLimits: RuleTesterItemSignatureCountMap = new Map()
+  const currentKeepLimits: GearInspectorItemSignatureCountMap = new Map()
   for (const [key, desiredCount] of desiredCounts.entries()) {
     if (desiredCount <= 0) continue
     const currentCount = readSignatureCount(currentCounts, key)
@@ -761,9 +761,9 @@ export function diffRuleTesterItems(
   }
 
   const removalItemIds: number[] = []
-  const currentKeptCounts: RuleTesterItemSignatureCountMap = new Map()
+  const currentKeptCounts: GearInspectorItemSignatureCountMap = new Map()
   for (const item of currentItems) {
-    if (retainManualItems && isManualTesterItem(item)) continue
+    if (retainManualItems && isManualGearInspectorItem(item)) continue
     const key = signatureInterner.intern(item)
     const keepLimit = readSignatureCount(currentKeepLimits, key)
     const kept = readSignatureCount(currentKeptCounts, key)
@@ -774,7 +774,7 @@ export function diffRuleTesterItems(
     removalItemIds.push(item.itemId)
   }
 
-  const pendingKeepLimits: RuleTesterItemSignatureCountMap = new Map()
+  const pendingKeepLimits: GearInspectorItemSignatureCountMap = new Map()
   for (const [key, desiredCount] of desiredCounts.entries()) {
     const keptCurrent = readSignatureCount(currentKeepLimits, key)
     const needFromPending = desiredCount - keptCurrent
@@ -783,7 +783,7 @@ export function diffRuleTesterItems(
     }
   }
 
-  const pendingRetainedCounts: RuleTesterItemSignatureCountMap = new Map()
+  const pendingRetainedCounts: GearInspectorItemSignatureCountMap = new Map()
   const retainedPending: TestItem[] = []
   for (const pending of pendingQueue) {
     const key = signatureInterner.intern(pending)
@@ -796,7 +796,7 @@ export function diffRuleTesterItems(
   }
 
   const additions: TestItem[] = []
-  const satisfiedCounts: RuleTesterItemSignatureCountMap = new Map()
+  const satisfiedCounts: GearInspectorItemSignatureCountMap = new Map()
   for (const desired of desiredItems) {
     const key = signatureInterner.intern(desired)
     const satisfied = readSignatureCount(satisfiedCounts, key)
@@ -818,17 +818,17 @@ export function diffRuleTesterItems(
   return { removalItemIds, nextPendingQueue, additions }
 }
 
-const deserializeTesterItems = (
-  payload: RuleTesterAutosavePayload | null | undefined,
-  opts: { math: RuleTesterMath; allocItemId: () => number },
-): RuleTesterItem[] | null => {
+const deserializeGearInspectorItems = (
+  payload: GearInspectorAutosavePayload | null | undefined,
+  opts: { math: GearInspectorMath; allocItemId: () => number },
+): GearInspectorItem[] | null => {
   if (!payload) return null
   const compressed = payload.ItemsCompressed
   if (typeof compressed !== 'string' || compressed.length === 0) return null
-  const savedItems = parseCompressedTesterItems(compressed)
+  const savedItems = parseCompressedGearInspectorItems(compressed)
   if (!Array.isArray(savedItems) || savedItems.length === 0) return null
   const { math } = opts
-  const restored: RuleTesterItem[] = []
+  const restored: GearInspectorItem[] = []
   savedItems.forEach((raw, idx) => {
     if (!raw || typeof raw !== 'object') return
     const subValues: Record<number, number> = {}
@@ -847,14 +847,14 @@ const deserializeTesterItems = (
   return restored.length > 0 ? restored : null
 }
 
-export function loadRuleTesterAutosaveDraft(opts: { math: RuleTesterMath; allocItemId: () => number }): {
-  items: RuleTesterItem[]
+export function loadGearInspectorAutosaveDraft(opts: { math: GearInspectorMath; allocItemId: () => number }): {
+  items: GearInspectorItem[]
   savedAt: string | null
   itemCount: number
 } | null {
   try {
-    const entry = loadAutosave<RuleTesterAutosavePayload>(AUTOSAVE_TESTER_KEY)
-    const restored = deserializeTesterItems(entry?.payload ?? null, opts)
+    const entry = loadAutosave<GearInspectorAutosavePayload>(AUTOSAVE_GEAR_INSPECTOR_KEY)
+    const restored = deserializeGearInspectorItems(entry?.payload ?? null, opts)
     if (!restored || restored.length === 0) return null
     const savedAtRaw = entry?.payload?.SavedAt
     const count = typeof entry?.payload?.ItemCount === 'number' ? Number(entry?.payload?.ItemCount) : restored.length

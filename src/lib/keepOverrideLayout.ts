@@ -21,7 +21,7 @@ type KeepOverrideGridPaneWidthParams = {
   rowPaddingPx: number
 }
 
-// Resolve the right-column width so keep-override cards mirror the tester grid width.
+// Resolve the right-column width so keep-override cards mirror the Gear Inspector grid width.
 export const resolveKeepOverrideGridPaneWidth = ({
   gridColumnMode,
   targetCardWidthPx,
@@ -30,7 +30,7 @@ export const resolveKeepOverrideGridPaneWidth = ({
   gridGapPx,
   rowPaddingPx,
 }: KeepOverrideGridPaneWidthParams): string | null => {
-  // Skip forcing a width until we know the tester card width.
+  // Skip forcing a width until we know the Gear Inspector card width.
   if (!Number.isFinite(targetCardWidthPx)) return null
   // Normalize card width so NaN/negative input cannot break layout.
   const normalizedCardWidth = Math.max(0, Number(targetCardWidthPx))

@@ -3,7 +3,7 @@ import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
 import { alpha } from '@mui/material/styles'
 import type { Theme } from '@mui/material/styles'
-import type { TesterSortPopoutEasterEggOverlayState } from '../hooks/useTesterSortPopoutEasterEgg'
+import type { GearInspectorSortPopoutEasterEggOverlayState } from '../hooks/useGearInspectorSortPopoutEasterEgg'
 
 /**
  * Sort popout easter-egg overlays.
@@ -14,7 +14,7 @@ import type { TesterSortPopoutEasterEggOverlayState } from '../hooks/useTesterSo
  * - Strings are intentionally hardcoded (not localized) per request.
  */
 type Props = Readonly<{
-  state: TesterSortPopoutEasterEggOverlayState
+  state: GearInspectorSortPopoutEasterEggOverlayState
   onMicroConfirmYep: () => void
   onMicroConfirmStop: () => void
 }>
@@ -96,7 +96,7 @@ const microConfirmBubbleSx = (theme: Theme, visible: boolean, anchor: { x: numbe
   boxShadow: theme.shadows[6],
 } as const)
 
-export default function TesterSortPopoutEasterEggOverlay({ state, onMicroConfirmYep, onMicroConfirmStop }: Props) {
+export default function GearInspectorSortPopoutEasterEggOverlay({ state, onMicroConfirmYep, onMicroConfirmStop }: Props) {
   // Overlays are visual-only until activated by the hook; keeping them mounted avoids reflow surprises.
   const showStopSign = state.variant === 'stopSign' && state.stopSign.phase !== 'hidden' && state.stopSign.phase !== 'exit'
   const showBanner = state.variant === 'timeoutBanner' && state.banner.phase !== 'hidden' && state.banner.phase !== 'exit'
