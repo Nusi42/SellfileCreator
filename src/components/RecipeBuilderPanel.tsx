@@ -22,7 +22,6 @@ import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { useSlotMetrics } from '../hooks/useSlotMetrics'
 import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useSfrHistory'
 import {
-  LEVELS,
   normalizeExportModeFields,
   resolveAutoRarityCode,
   baseMinForStarV,
@@ -64,7 +63,7 @@ import { getMainStatOptionsForSlots } from './keepOverrides/keepOverrideRuleUtil
 import { resolveAllowedSubstatsForSlotsAndMains } from '../lib/statCompatibility'
 import { useKeepOverrideCombinationTools } from './keepOverrides/useKeepOverrideCombinationTools'
 
-import { Box, Button, Collapse, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu, Badge } from '@mui/material'
+import { Box, Button, Collapse, Divider, Slider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu, Badge } from '@mui/material'
 import SetsOrderControls from './SetsOrderControls'
 import type { SelectChangeEvent } from '@mui/material/Select'
 import { IconButton, ToggleButton, ToggleButtonGroup } from '@mui/material'
@@ -104,7 +103,7 @@ import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { resolveRecipeOverridesEffectiveRecipe, type RecipeOverridesInstructions } from '../lib/noteRecipeOverrides'
 import {
   type MultiEditDraftHandle,
-  type MultiEditFieldState,
+
   type MultiEditArrayPatch,
   type MultiEditRollPatch,
   type MultiEditRollPatchEntry,
@@ -1348,16 +1347,6 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         return max as LevelMilestone
       })()
     : singleMaxLevel
-  const minLevelValue = multiEditActive
-    ? (multiMinLevelField?.status === 'common'
-      ? String((multiMinLevelField?.value as number | undefined) ?? aggregatedMinLevel)
-      : MULTI_VALUE_SENTINEL)
-    : String(singleMinLevel)
-const maxLevelValue = multiEditActive
-  ? (multiMaxLevelField?.status === 'common'
-    ? String((multiMaxLevelField?.value as number | undefined) ?? aggregatedMaxLevel)
-    : MULTI_VALUE_SENTINEL)
-  : String(singleMaxLevel)
   const computeTriState = React.useCallback((matches: number, total: number): 'on' | 'mixed' | 'off' => {
     if (matches <= 0) return 'off'
     if (matches >= total) return 'on'
@@ -1499,21 +1488,6 @@ const maxLevelValue = multiEditActive
     }
     return computeTriState(enabled, eligible)
   }, [computeTriState, effectiveRecipe, multiAutoRaritySupplementsField, multiEditActive, multiSourceRecipes])
-  const getLevelTriState = (field: MultiEditFieldState | null, fallback: number, level: number): 'on' | 'mixed' | 'off' => {
-    if (!multiEditActive || !field) {
-      return fallback === level ? 'on' : 'off'
-    }
-    if (field.status === 'common') {
-      return Number(field.value) === level ? 'on' : 'off'
-    }
-    const values = field.mixedValues ?? []
-    for (const entry of values) {
-      if (Number(entry) === level) {
-        return 'mixed'
-      }
-    }
-    return 'off'
-  }
   const {
     undoTooltipText,
     redoTooltipText,
@@ -3551,204 +3525,59 @@ const maxLevelValue = multiEditActive
           </Collapse>
         </FormControl>
         </Box>
-        {/* Row 2: Right half (Level Window) */}
+        {/* Row 2: Right half (Level Window — range slider snapping to 0/4/8/12/16) */}
         <Box sx={(theme) => ({
           gridColumn: '3 / 5',
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
-        })}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="level" />
-            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderLevelWindow')}</Box>
-            </FormLabel>
-          </Box>
-          <Collapse in={!builderCollapsed.level} timeout="auto" unmountOnExit>
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, flexWrap: 'wrap' }}>
-        <FormControl data-tour-id="builder.min-level">
-          {/* Min level header shares the ellipsis style with the toggle group. */}
-          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
-            <MarkdownTooltip
-              ellipsisTitle={t('builderMinLevel')}
-              render={(
-                <BuilderTooltipContent
-                  text={buildOverrideTooltip(
-                    [
-                      t('builderMinLevelHelp'),
-                      t('builderMultiMixedTooltipSuffix'),
-                    ].join('\n'),
-                  )}
-                />
-              )}
-            >
-              <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderMinLevel')}</Box>
-            </MarkdownTooltip>
+          pt: 0.5,
+          pb: 2,
+        })} data-tour-id="builder.level-window">
+          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 1.5, display: 'block' }]}>
+            <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderLevelWindow')}</Box>
           </FormLabel>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-              <ToggleButtonGroup
-                exclusive
-                size="small"
-                value={minLevelValue}
-                onChange={(_, v) => {
-                  if (!v) return
-                  const num = Number(v)
-                  if (!LEVEL_MILESTONES.includes(num as LevelMilestone)) return
-                  const nextMin = num as LevelMilestone
-                  if (multiEditActive) {
-                    multiEdit?.updateField('minLevel', { value: nextMin, status: 'common' })
-                    const currentMax = aggregatedMaxLevel
-                    if (currentMax < nextMin) {
-                      multiEdit?.updateField('maxLevel', { value: nextMin, status: 'common' })
-                    }
-                  } else {
-                    const currentMax = ((recipe as BuilderRecipe).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!) as LevelMilestone
-                    const nextMax = (nextMin > currentMax ? nextMin : currentMax) as LevelMilestone
-                    updateLevelWindow(nextMin, nextMax)
-                  }
-                }}
-                sx={{
-                  height: TOGGLE_BUTTON_HEIGHT_PX,
-                  position: 'relative',
-                  '& .MuiToggleButton-root': {
-                    height: TOGGLE_BUTTON_HEIGHT_PX,
-                    justifyContent: 'center',
-                  },
-                }}
-              >
-                {LEVELS.map((l) => {
-                  const state = getLevelTriState(multiMinLevelField, singleMinLevel, l)
-                  return (
-                    <ToggleButton
-                      key={l}
-                      value={String(l)}
-                      selected={state === 'on'}
-                      sx={(theme) => ({
-                        ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
-                        ...(state === 'mixed' ? {
-                          borderStyle: 'dashed',
-                          borderColor: mixedBorderColor,
-                          color: mixedTextColor,
-                          backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                        } : {}),
-                      })}
-                      onClick={() => {
-                        // When an override is active, allow clicking the effective value to accept it.
-                        if (multiEditActive || !levelOverrideActive) return
-                        if (storedMinLevel === effectiveMinLevel && storedMaxLevel === effectiveMaxLevel) return
-                        if (effectiveMinLevel !== l) return
-                        updateLevelWindow(effectiveMinLevel, effectiveMaxLevel)
-                      }}
-                    >
-                      +{l}
-                    </ToggleButton>
-                  )
-                })}
-              </ToggleButtonGroup>
-              {levelOverrideActive
-                ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
-                    levelLabel(storedMinLevel),
-                    levelLabel(effectiveMinLevel),
-                  ))
-                : null}
-            </Box>
+          <Box sx={{ px: 1.5, position: 'relative' }}>
+            <Slider
+              size="small"
+              min={0}
+              max={16}
+              step={null}
+              disableSwap
+              marks={LEVEL_MILESTONES.map((v) => ({ value: v, label: `+${v}` }))}
+              value={[aggregatedMinLevel, aggregatedMaxLevel]}
+              valueLabelDisplay="auto"
+              valueLabelFormat={(v) => `+${v}`}
+              getAriaLabel={() => t('builderLevelWindow')}
+              getAriaValueText={(v) => `+${v}`}
+              onChange={(_, value) => {
+                if (!Array.isArray(value) || value.length !== 2) return
+                const [rawMin, rawMax] = value as [number, number]
+                if (!LEVEL_MILESTONES.includes(rawMin as LevelMilestone) || !LEVEL_MILESTONES.includes(rawMax as LevelMilestone)) return
+                const nextMin = rawMin as LevelMilestone
+                const nextMax = rawMax as LevelMilestone
+                if (multiEditActive) {
+                  if (nextMin !== aggregatedMinLevel) multiEdit?.updateField('minLevel', { value: nextMin, status: 'common' })
+                  if (nextMax !== aggregatedMaxLevel) multiEdit?.updateField('maxLevel', { value: nextMax, status: 'common' })
+                } else {
+                  if (nextMin === aggregatedMinLevel && nextMax === aggregatedMaxLevel) return
+                  updateLevelWindow(nextMin, nextMax)
+                }
+              }}
+              sx={{
+                '& .MuiSlider-track': { height: 4 },
+                '& .MuiSlider-rail': { height: 4 },
+                '& .MuiSlider-thumb': { width: 16, height: 16 },
+                '& .MuiSlider-mark': { height: 8 },
+                '& .MuiSlider-markLabel': { fontSize: '0.75rem', mt: 0.5 },
+              }}
+            />
+            {levelOverrideActive && renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+              `${levelLabel(storedMinLevel)}–${levelLabel(storedMaxLevel)}`,
+              `${levelLabel(effectiveMinLevel)}–${levelLabel(effectiveMaxLevel)}`,
+            ))}
           </Box>
-        </FormControl>
-
-        <FormControl data-tour-id="builder.max-level">
-          {/* Max level header also clamps to the toggle button row to avoid wraps. */}
-          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
-            <MarkdownTooltip
-              ellipsisTitle={t('builderMaxLevel')}
-              render={(
-                <BuilderTooltipContent
-                  text={buildOverrideTooltip(
-                    [
-                      t('builderMaxLevelHelp'),
-                      t('builderMultiMixedTooltipSuffix'),
-                    ].join('\n'),
-                  )}
-                />
-              )}
-            >
-              <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderMaxLevel')}</Box>
-            </MarkdownTooltip>
-          </FormLabel>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-              <ToggleButtonGroup
-                exclusive
-                size="small"
-                value={maxLevelValue}
-                onChange={(_, v) => {
-                  if (!v) return
-                  const num = Number(v)
-                  if (!LEVEL_MILESTONES.includes(num as LevelMilestone)) return
-                  const nextMax = num as LevelMilestone
-                  if (multiEditActive) {
-                    multiEdit?.updateField('maxLevel', { value: nextMax, status: 'common' })
-                    const currentMin = aggregatedMinLevel
-                    if (nextMax < currentMin) {
-                      multiEdit?.updateField('minLevel', { value: nextMax, status: 'common' })
-                    }
-                  } else {
-                    const currentMin = ((recipe as BuilderRecipe).minLevel ?? LEVEL_MILESTONES[0]!) as LevelMilestone
-                    const nextMin = (nextMax < currentMin ? nextMax : currentMin) as LevelMilestone
-                    updateLevelWindow(nextMin, nextMax)
-                  }
-                }}
-                sx={{
-                  height: TOGGLE_BUTTON_HEIGHT_PX,
-                  position: 'relative',
-                  '& .MuiToggleButton-root': {
-                    height: TOGGLE_BUTTON_HEIGHT_PX,
-                    justifyContent: 'center',
-                  },
-                }}
-              >
-                {LEVELS.map((l) => {
-                  const state = getLevelTriState(multiMaxLevelField, singleMaxLevel, l)
-                  return (
-                    <ToggleButton
-                      key={l}
-                      value={String(l)}
-                      selected={state === 'on'}
-                      sx={(theme) => ({
-                        ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
-                        ...(state === 'mixed' ? {
-                          borderStyle: 'dashed',
-                          borderColor: mixedBorderColor,
-                          color: mixedTextColor,
-                          backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                        } : {}),
-                      })}
-                      onClick={() => {
-                        // When an override is active, allow clicking the effective value to accept it.
-                        if (multiEditActive || !levelOverrideActive) return
-                        if (storedMinLevel === effectiveMinLevel && storedMaxLevel === effectiveMaxLevel) return
-                        if (effectiveMaxLevel !== l) return
-                        updateLevelWindow(effectiveMinLevel, effectiveMaxLevel)
-                      }}
-                    >
-                      +{l}
-                    </ToggleButton>
-                  )
-                })}
-              </ToggleButtonGroup>
-              {levelOverrideActive
-                ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
-                    levelLabel(storedMaxLevel),
-                    levelLabel(effectiveMaxLevel),
-                  ))
-                : null}
-            </Box>
-          </Box>
-        </FormControl>
-        {/* Roll Strategy removed — level window controls replace it. */}
-          </Box>
-          </Collapse>
         </Box>
         {/* Help popover */}
         <BuilderCheatSheetPopover

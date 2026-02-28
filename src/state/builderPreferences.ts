@@ -6,7 +6,7 @@
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 import { BUILDER_AUTO_APPLY_SELECTED_RECIPE_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_SHOW_TAG_CHIPS_KEY, BUILDER_RECIPE_COLLAPSED_KEY, BUILDER_SAFEGUARD_COLLAPSED_KEY } from '../lib/constants'
 
-export const BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS = Object.freeze(['rank', 'rarity', 'faction', 'mainStat', 'substats', 'slots', 'sets', 'level', 'minRolls', 'requiredSubstats', 'milestoneThresholds'] as const)
+export const BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS = Object.freeze(['rank', 'rarity', 'faction', 'mainStat', 'substats', 'slots', 'sets', 'minRolls', 'requiredSubstats', 'milestoneThresholds'] as const)
 export type BuilderPanelCollapsibleSectionId = typeof BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS[number]
 export type BuilderPanelCollapsedSections = Record<BuilderPanelCollapsibleSectionId, boolean>
 

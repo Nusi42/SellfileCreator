@@ -786,7 +786,7 @@ export function useTutorialCoachState({
         id: 'basics',
         title: t('tutBasicsTitle'),
         body: t('tutBasicsBody'),
-        targetIds: ['builder.rank', 'builder.rarity', 'builder.faction', 'builder.min-level', 'builder.max-level'],
+        targetIds: ['builder.rank', 'builder.rarity', 'builder.faction', 'builder.level-window'],
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
