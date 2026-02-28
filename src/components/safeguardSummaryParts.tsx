@@ -312,6 +312,14 @@ export function safeguardSummaryParts(
     }
   }
 
+  // ── Required count ────────────────────────────────────────────────────────
+  // Always shown — it's the core safeguard quota. Format mirrors the builder
+  // field which uses a ≥ prefix adornment (e.g. "≥ 2").
+  {
+    const count = rule.requiredCount ?? 1
+    addText(`≥${NBSP}${count}`)
+  }
+
   if (parts.length === 0) return null
   // Interleave sections with pipe separators, exactly like RecipeChip.
   const withSeps: JSX.Element[] = []
