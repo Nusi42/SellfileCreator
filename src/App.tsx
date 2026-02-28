@@ -153,6 +153,7 @@ import {
   metasetsSignature,
   substatTargetsSignature,
   areAutosaveFiltersDefault,
+  areFilterContentsDefault,
   type AutosaveFilterView,
 } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
@@ -3107,7 +3108,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!restoreDraft?.substatTargets) return false
     return substatTargetsSignature(restoreDraft.substatTargets) !== currentTargetsSignature
   }, [restoreDraft, currentTargetsSignature])
-  const restoreFiltersDiffer = Boolean(restoreDraft?.Filters && !areAutosaveFiltersDefault(restoreDraft.Filters))
+  const restoreFiltersDiffer = Boolean(restoreDraft?.Filters && !areFilterContentsDefault(restoreDraft.Filters))
   const restoreSortDiffer = Boolean(restoreDraft && Object.prototype.hasOwnProperty.call(restoreDraft, 'TesterSort'))
   const filtersResetRef = useRef(false)
   useLayoutEffect(() => {

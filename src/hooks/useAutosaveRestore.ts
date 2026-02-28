@@ -213,6 +213,45 @@ export const areAutosaveFiltersDefault = (filters: AutosaveFiltersState | null |
   return filtersSignature(filters) === DEFAULT_AUTOSAVE_FILTERS_SIGNATURE
 }
 
+// Compare only the meaningful filter content (state, activeMode, testerRecipeFilterMode),
+// ignoring UI-only fields (open, collapsed). Used by the restore dialog so that
+// having the filter panel open or sections collapsed doesn't trigger a false "filter panel"
+// entry — only actual filter criteria changes count as a difference.
+const filterContentSignature = (filters: AutosaveFiltersState | null | undefined): string => {
+  const normalized = normalizeAutosaveFilters(filters)
+  if (!normalized) return ''
+  const views = RULES_FILTER_PREVIEW_MODES.map((mode) => ({
+    mode,
+    state: canonicalize(normalized.views[mode].state),
+  }))
+  return JSON.stringify({
+    activeMode: normalized.activeMode,
+    views,
+    testerRecipeFilterMode: normalized.testerRecipeFilterMode ?? TESTER_RECIPE_FILTER_MODE_DEFAULT,
+  })
+}
+
+const DEFAULT_FILTER_CONTENT_SIGNATURE = filterContentSignature({
+  activeMode: 'rules',
+  views: RULES_FILTER_PREVIEW_MODES.reduce((acc, mode) => {
+    acc[mode] = {
+      open: RULES_FILTER_OPEN_DEFAULT,
+      state: cloneDefaultRulesFilterState(),
+      collapsed: cloneDefaultRulesFilterCollapsed(),
+    }
+    return acc
+  }, {} as Record<RulesFilterPreviewMode, AutosaveFilterView>),
+  testerRecipeFilterMode: TESTER_RECIPE_FILTER_MODE_DEFAULT,
+})
+
+// Returns true when only UI state (panel open, collapsed sections) differs — no filter
+// criteria have actually changed. Used to suppress the "filter panel" restore prompt
+// and the pre-dialog filter reset when the user hasn't changed any active filters.
+export const areFilterContentsDefault = (filters: AutosaveFiltersState | null | undefined): boolean => {
+  if (!filters) return true
+  return filterContentSignature(filters) === DEFAULT_FILTER_CONTENT_SIGNATURE
+}
+
 export const finalSellSignature = (fsr?: FinalSellRemainderConfig | null): string => {
   if (!fsr) return ''
   return JSON.stringify(canonicalize(fsr))
