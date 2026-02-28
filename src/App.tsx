@@ -3107,7 +3107,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!restoreDraft?.substatTargets) return false
     return substatTargetsSignature(restoreDraft.substatTargets) !== currentTargetsSignature
   }, [restoreDraft, currentTargetsSignature])
-  const restoreFiltersDiffer = Boolean(restoreDraft?.Filters)
+  const restoreFiltersDiffer = Boolean(restoreDraft?.Filters && !areAutosaveFiltersDefault(restoreDraft.Filters))
   const restoreSortDiffer = Boolean(restoreDraft && Object.prototype.hasOwnProperty.call(restoreDraft, 'TesterSort'))
   const filtersResetRef = useRef(false)
   useLayoutEffect(() => {
@@ -5872,6 +5872,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           variant="outlined"
           onClick={() => setLogicHubOpen(true)}
           aria-label={t('openLogicHubAria')}
+          data-tour-id="builder.tools-button"
           sx={{
             whiteSpace: 'nowrap',
             height: SMALL_BUTTON_HEIGHT_PX,

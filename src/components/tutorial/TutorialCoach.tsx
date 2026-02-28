@@ -462,13 +462,19 @@ export function TutorialCoach({
           </Box>
         )
       }
-      // Non-brand: process backtick UI keywords
-      const ticks = seg.split('`')
-      return ticks.map((p, i) => (
-        i % 2 === 1
-          ? <Box key={`k-${idx}-${i}`} component="span" sx={{ color: 'primary.main', fontWeight: 600 }}>{p}</Box>
-          : <Box key={`t-${idx}-${i}`} component="span">{p}</Box>
-      ))
+      // Non-brand: split by ^^ for error/red segments, then within plain segments split by backticks
+      const caretParts = seg.split('^^')
+      return caretParts.map((caretSeg, ci) => {
+        if (ci % 2 === 1) {
+          return <Box key={`e-${idx}-${ci}`} component="span" sx={{ color: 'error.main', fontWeight: 600 }}>{caretSeg}</Box>
+        }
+        const ticks = caretSeg.split('`')
+        return ticks.map((p, i) => (
+          i % 2 === 1
+            ? <Box key={`k-${idx}-${ci}-${i}`} component="span" sx={{ color: 'primary.main', fontWeight: 600 }}>{p}</Box>
+            : <Box key={`t-${idx}-${ci}-${i}`} component="span">{p}</Box>
+        ))
+      })
     })
   }, [brandBeat])
 

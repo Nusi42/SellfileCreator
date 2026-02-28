@@ -64,10 +64,12 @@ import { getMainStatOptionsForSlots } from './keepOverrides/keepOverrideRuleUtil
 import { resolveAllowedSubstatsForSlotsAndMains } from '../lib/statCompatibility'
 import { useKeepOverrideCombinationTools } from './keepOverrides/useKeepOverrideCombinationTools'
 
-import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu, Badge } from '@mui/material'
+import { Box, Button, Collapse, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu, Badge } from '@mui/material'
 import SetsOrderControls from './SetsOrderControls'
 import type { SelectChangeEvent } from '@mui/material/Select'
 import { IconButton, ToggleButton, ToggleButtonGroup } from '@mui/material'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
@@ -113,7 +115,7 @@ import {
 import { mergeTagList, normalizeTagValue, summarizeTagPresence } from '../lib/tagHelpers'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
-import { useAutoApplySelectedRecipePreference, useAutoResetAfterInsertPreference, useShowTagsChipsPreference } from '../state/builderPreferences'
+import { useAutoApplySelectedRecipePreference, useAutoResetAfterInsertPreference, useShowTagsChipsPreference, useBuilderRecipeCollapsedPreference, BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS } from '../state/builderPreferences'
 import { HistoryContextMenu } from './HistoryContextMenu'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
 import { createFactoryBuilderDefaults } from './builderPanel/defaults'
@@ -894,7 +896,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   const menuAnchor = substatMenu?.anchor ?? { x: 0, y: 0 }
   const chipWidth = Math.max(substatMenuChipWidths.min, substatMenuChipWidths.max)
   // Target fallback context: resolves the baseline substatTargets value for the
-  // selected variant given the recipe’s current rank window plus roll budget.
+  // selected variant given the recipe's current rank window plus roll budget.
   // When multi-edit is active we disable overrides, so the fallback only applies
   // to single-recipe edits.
   const targetContext = React.useMemo(() => {
@@ -940,7 +942,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     menuRef: substatMenuPaperRef,
   })
   // Shared helper: update fixedSubstatsV via multi-edit so every entry point (toggle, menu, etc.)
-  // produces the same patch behavior without collapsing other stats’ mixed states.
+  // produces the same patch behavior without collapsing other stats' mixed states.
   const applyMultiFixedState = React.useCallback((variant: number, target: 'locked' | 'unlocked'): boolean => {
     if (!multiEditActive || !multiEdit || !multiSummary) return false
     const desired: 'all' | 'none' = target === 'locked' ? 'all' : 'none'
@@ -1561,7 +1563,7 @@ const maxLevelValue = multiEditActive
   )
   const substatColors = _substatColors
   const recipeCount = _recipeCount
-  // Shared styling for the builder’s status chips (Flex, Only locked, Auto ≥ …). The helper keeps
+  // Shared styling for the builder's status chips (Flex, Only locked, Auto ≥ …). The helper keeps
   // BuilderPanel and the cheat sheet visuals in sync.
   const builderToggleChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
   const singleRequiredCountValue = recipe.autoMinCount ? 'auto' : ((recipe.minCount ?? 0) > 0 ? String(recipe.minCount) : 'auto')
@@ -1824,7 +1826,7 @@ const maxLevelValue = multiEditActive
     const source = (multiProjectedRecipes && multiProjectedRecipes.length > 0)
       ? multiProjectedRecipes
       : (multiSourceRecipes ?? [])
-    // Convert each recipe’s tag list into a stable string array.
+    // Convert each recipe's tag list into a stable string array.
     const lists = source.map((recipe) => (
       Array.isArray(recipe.tags) ? recipe.tags.map(String) : []
     ))
@@ -2420,6 +2422,8 @@ const maxLevelValue = multiEditActive
   const [autoApplySelectedRecipe, setAutoApplySelectedRecipe] = useAutoApplySelectedRecipePreference()
   // Persisted toggle: show tag chips next to the Tags button.
   const [showTagsChips, setShowTagsChips] = useShowTagsChipsPreference()
+  // Persisted collapsed state for the 7 per-group collapsible sections.
+  const [builderCollapsed, setBuilderCollapsed] = useBuilderRecipeCollapsedPreference()
   const autoApplyTimeoutRef = useRef<number | null>(null)
   const clearAutoApplyTimeout = useCallback(() => {
     const handle = autoApplyTimeoutRef.current
@@ -2577,6 +2581,33 @@ const maxLevelValue = multiEditActive
 
   // Legendary 42 overlay (centralized in attentionEffects). Triggers when the builder expects 2 required substats and 4 min required rolls.
   const fortyTwoOverlay = useFortyTwoLegendaryOverlay((Number(recipe.minCount) === 2) && (Number((recipe as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0) === 4))
+
+  // Inline section toggle: mirrors SafeguardBuilderPanel pattern.
+  const BuilderSectionToggle = ({ id }: { id: typeof BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS[number] }) => {
+    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+      const nextValue = !builderCollapsed[id]
+      if (event.ctrlKey || event.metaKey) {
+        const nextAll = { ...builderCollapsed }
+        for (const k of BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS) nextAll[k] = nextValue
+        setBuilderCollapsed(nextAll)
+      } else {
+        setBuilderCollapsed({ ...builderCollapsed, [id]: nextValue })
+      }
+    }
+    const handleContextMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault()
+      event.stopPropagation()
+      const nextValue = !builderCollapsed[id]
+      const nextAll = { ...builderCollapsed }
+      for (const k of BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS) nextAll[k] = nextValue
+      setBuilderCollapsed(nextAll)
+    }
+    return (
+      <IconButton size="small" onClick={handleClick} onContextMenu={handleContextMenu} aria-label={builderCollapsed[id] ? 'Expand' : 'Collapse'}>
+        {builderCollapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+      </IconButton>
+    )
+  }
 
   return (
     <Box ref={builderRootRef} sx={{ position: 'relative' }}>
@@ -3107,23 +3138,27 @@ const maxLevelValue = multiEditActive
         })}>
         <FormControl fullWidth sx={{ position: 'relative' }}>
           {/* Rank label mirrors the select width and ellipsizes when German strings run long. */}
-          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
-            <MarkdownTooltip
-              ellipsisTitle={t('builderRank')}
-              render={(
-                <BuilderTooltipContent
-                  text={buildOverrideTooltip(
-                    [
-                      t('builderRankHelp'),
-                      t('builderMultiMixedTooltipSuffix'),
-                    ].join('\n'),
-                  )}
-                />
-              )}
-            >
-              <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
-            </MarkdownTooltip>
-          </FormLabel>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <BuilderSectionToggle id="rank" />
+            <FormLabel sx={BUILDER_LABEL_INLINE_SX}>
+              <MarkdownTooltip
+                ellipsisTitle={t('builderRank')}
+                render={(
+                  <BuilderTooltipContent
+                    text={buildOverrideTooltip(
+                      [
+                        t('builderRankHelp'),
+                        t('builderMultiMixedTooltipSuffix'),
+                      ].join('\n'),
+                    )}
+                  />
+                )}
+              >
+                <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
+              </MarkdownTooltip>
+            </FormLabel>
+          </Box>
+          <Collapse in={!builderCollapsed.rank} timeout="auto" unmountOnExit>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Box sx={{ flex: 1, position: 'relative', display: 'flex' }}>
               <Select
@@ -3224,31 +3259,36 @@ const maxLevelValue = multiEditActive
                 : null}
             </Box>
           </Box>
+          </Collapse>
         </FormControl>
 
         <FormControl fullWidth>
           {/* Rarity label uses the shared inline span so Auto/GTE text stays single-line. */}
-          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
-            <MarkdownTooltip
-              ellipsisTitle={t('filterRarity')}
-              render={(
-                <BuilderTooltipContent
-                  text={buildOverrideTooltip(
-                    [
-                      t('builderRarityHelpIntro'),
-                      `• ${t('builderRarityHelpNoMinRolls')}`,
-                      `• ${t('builderRarityHelpStartSubs')}`,
-                      `• ${t('builderRarityHelpMinTotalRolls')}`,
-                      `• ${t('builderAutoPlusLateHelp')}`,
-                      t('builderMultiMixedTooltipSuffix'),
-                    ].join('\n'),
-                  )}
-                />
-              )}
-            >
-              <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
-            </MarkdownTooltip>
-          </FormLabel>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <BuilderSectionToggle id="rarity" />
+            <FormLabel sx={BUILDER_LABEL_INLINE_SX}>
+              <MarkdownTooltip
+                ellipsisTitle={t('filterRarity')}
+                render={(
+                  <BuilderTooltipContent
+                    text={buildOverrideTooltip(
+                      [
+                        t('builderRarityHelpIntro'),
+                        `• ${t('builderRarityHelpNoMinRolls')}`,
+                        `• ${t('builderRarityHelpStartSubs')}`,
+                        `• ${t('builderRarityHelpMinTotalRolls')}`,
+                        `• ${t('builderAutoPlusLateHelp')}`,
+                        t('builderMultiMixedTooltipSuffix'),
+                      ].join('\n'),
+                    )}
+                  />
+                )}
+              >
+                <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
+              </MarkdownTooltip>
+            </FormLabel>
+          </Box>
+          <Collapse in={!builderCollapsed.rarity} timeout="auto" unmountOnExit>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Box sx={{ flex: 1, position: 'relative', display: 'flex' }}>
               <Select
@@ -3402,26 +3442,31 @@ const maxLevelValue = multiEditActive
                 : null}
             </Box>
           </Box>
+          </Collapse>
         </FormControl>
 
         {/* Faction selection (accessories only) */}
         <FormControl fullWidth>
           {/* Faction label stays constrained to the Select width for DE translations. */}
-          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
-            <MarkdownTooltip
-              ellipsisTitle={t('builderFaction')}
-              render={(
-                <BuilderTooltipContent
-                  text={[
-                    t('builderFactionHelp'),
-                    t('builderMultiMixedTooltipSuffix'),
-                  ].join('\n')}
-                />
-              )}
-            >
-              <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
-            </MarkdownTooltip>
-          </FormLabel>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <BuilderSectionToggle id="faction" />
+            <FormLabel sx={BUILDER_LABEL_INLINE_SX}>
+              <MarkdownTooltip
+                ellipsisTitle={t('builderFaction')}
+                render={(
+                  <BuilderTooltipContent
+                    text={[
+                      t('builderFactionHelp'),
+                      t('builderMultiMixedTooltipSuffix'),
+                    ].join('\n')}
+                  />
+                )}
+              >
+                <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
+              </MarkdownTooltip>
+            </FormLabel>
+          </Box>
+          <Collapse in={!builderCollapsed.faction} timeout="auto" unmountOnExit>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Select
               size="small"
@@ -3503,19 +3548,25 @@ const maxLevelValue = multiEditActive
               ))}
             </Select>
           </Box>
+          </Collapse>
         </FormControl>
         </Box>
-        {/* Row 2: Right half (Count Rolls, Evaluate From, Roll Strategy) */}
+        {/* Row 2: Right half (Level Window) */}
         <Box sx={(theme) => ({
           gridColumn: '3 / 5',
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 1,
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <BuilderSectionToggle id="level" />
+            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderLevelWindow')}</Box>
+            </FormLabel>
+          </Box>
+          <Collapse in={!builderCollapsed.level} timeout="auto" unmountOnExit>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, flexWrap: 'wrap' }}>
         <FormControl data-tour-id="builder.min-level">
           {/* Min level header shares the ellipsis style with the toggle group. */}
           <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
@@ -3696,7 +3747,8 @@ const maxLevelValue = multiEditActive
           </Box>
         </FormControl>
         {/* Roll Strategy removed — level window controls replace it. */}
-        
+          </Box>
+          </Collapse>
         </Box>
         {/* Help popover */}
         <BuilderCheatSheetPopover
@@ -3716,6 +3768,7 @@ const maxLevelValue = multiEditActive
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })} data-tour-id="builder.mainstat">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <BuilderSectionToggle id="mainStat" />
             {/* Mainstat label tracks the toggle width so it never pushes the clear button. */}
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <MarkdownTooltip
@@ -3746,6 +3799,7 @@ const maxLevelValue = multiEditActive
                 : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
             })()}
           </Box>
+          <Collapse in={!builderCollapsed.mainStat} timeout="auto" unmountOnExit>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
               const value: string[] = ((recipe as (BuilderRecipe & { mainStatsV?: number[] })).mainStatsV ?? []).map(String)
@@ -3844,6 +3898,7 @@ const maxLevelValue = multiEditActive
               )
             })()}
           </Box>
+          </Collapse>
         </FormControl>
 
         <FormControl sx={(theme) => ({
@@ -3854,6 +3909,7 @@ const maxLevelValue = multiEditActive
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })} data-tour-id="builder.substats">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <BuilderSectionToggle id="substats" />
             {/* Substats label uses the same inline span to keep the reset button aligned. */}
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <MarkdownTooltip
@@ -3939,9 +3995,10 @@ const maxLevelValue = multiEditActive
                 : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
             })()}
           </Box>
+          <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
-              
+
               // Prefer recipe-overrides overrides for display-only UI so roll badges match previews.
               // Keep edits bound to the stored recipe so interactions stay deterministic.
               const displayRecipe = (!multiEditActive && effectiveRecipe !== recipe) ? effectiveRecipe : recipe
@@ -5435,6 +5492,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               )
             })()}
           </Box>
+          </Collapse>
         </FormControl>
 
         {/* Slots grid 3x3 with icons */}
@@ -5446,6 +5504,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })} data-tour-id="builder.slots">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <BuilderSectionToggle id="slots" />
             {/* Slot label clamps to the toggle width so translations don't wrap under icons. */}
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <MarkdownTooltip
@@ -5505,6 +5564,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
             })()}
           </Box>
+          <Collapse in={!builderCollapsed.slots} timeout="auto" unmountOnExit>
           {/* Tighten the slot matrix spacing to 4px (0.5 spacing unit) so nine buttons remain compact. */}
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }}>
             {artifactTypeIconList.map(({ id, name, Icon }) => {
@@ -5602,6 +5662,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               )
             })}
           </Box>
+          </Collapse>
         </FormControl>
 
         {/* Right column combined: Required substats + Sets in one grid cell */}
@@ -5665,12 +5726,16 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 const autoState = getMinRequiredRollsTriState('auto')
                 return (
                   <>
-                    {/* Keep the German “Mindestwürfe” label from wrapping under the toggles. */}
-                    <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]} data-tour-id="builder.min-rolls.label">
-                      <MarkdownTooltip render={tooltipContent} ellipsisTitle={t('builderMinRequiredRolls')}>
-                        <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderMinRequiredRolls')}</Box>
-                      </MarkdownTooltip>
-                    </FormLabel>
+                    {/* Keep the German "Mindestwürfe" label from wrapping under the toggles. */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                      <BuilderSectionToggle id="minRolls" />
+                      <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]} data-tour-id="builder.min-rolls.label">
+                        <MarkdownTooltip render={tooltipContent} ellipsisTitle={t('builderMinRequiredRolls')}>
+                          <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderMinRequiredRolls')}</Box>
+                        </MarkdownTooltip>
+                      </FormLabel>
+                    </Box>
+                    <Collapse in={!builderCollapsed.minRolls} timeout="auto" unmountOnExit>
                     <Box
                       data-tour-id="builder.min-rolls"
                       sx={{
@@ -5821,6 +5886,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         )
                       })}
                     </Box>
+                    </Collapse>
                   </>
                 )
               })()}
@@ -5886,21 +5952,25 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 return (
                   <>
                     {/* Required substats caption exposes overflow through the shared label helper. */}
-                    <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]} data-tour-id="builder.required.label">
-                      <MarkdownTooltip
-                        ellipsisTitle={t('builderRequiredSubstats')}
-                        render={(
-                          <BuilderTooltipContent
-                            text={[
-                              t('builderRequiredSubstatsHelp'),
-                              t('builderMultiMixedTooltipSuffix'),
-                            ].join('\n')}
-                          />
-                        )}
-                      >
-                        <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderRequiredSubstats')}</Box>
-                      </MarkdownTooltip>
-                    </FormLabel>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                      <BuilderSectionToggle id="requiredSubstats" />
+                      <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]} data-tour-id="builder.required.label">
+                        <MarkdownTooltip
+                          ellipsisTitle={t('builderRequiredSubstats')}
+                          render={(
+                            <BuilderTooltipContent
+                              text={[
+                                t('builderRequiredSubstatsHelp'),
+                                t('builderMultiMixedTooltipSuffix'),
+                              ].join('\n')}
+                            />
+                          )}
+                        >
+                          <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderRequiredSubstats')}</Box>
+                        </MarkdownTooltip>
+                      </FormLabel>
+                    </Box>
+                    <Collapse in={!builderCollapsed.requiredSubstats} timeout="auto" unmountOnExit>
                     <ToggleButtonGroup
                       exclusive
                       size="small"
@@ -6013,6 +6083,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         </Box>
                       </MarkdownTooltip>
                     </Box>
+                    </Collapse>
                   </>
                 )
               })()}
@@ -6092,23 +6163,27 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   }}
                 >
                   {/* Milestone Thresholds label also clamps to the 146px column width. */}
-                  <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]} data-tour-id="builder.thresholds.label">
-                    <MarkdownTooltip
-                      ellipsisTitle={t('builderMilestoneThresholds')}
-                      render={(
-                        <BuilderTooltipContent
-                          text={buildOverrideTooltip(
-                            [
-                              t('builderMilestoneThresholdsHelp'),
-                              t('builderMultiMixedTooltipSuffix'),
-                            ].join('\n'),
-                          )}
-                        />
-                      )}
-                    >
-                      <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderMilestoneThresholds')}</Box>
-                    </MarkdownTooltip>
-                  </FormLabel>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                    <BuilderSectionToggle id="milestoneThresholds" />
+                    <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]} data-tour-id="builder.thresholds.label">
+                      <MarkdownTooltip
+                        ellipsisTitle={t('builderMilestoneThresholds')}
+                        render={(
+                          <BuilderTooltipContent
+                            text={buildOverrideTooltip(
+                              [
+                                t('builderMilestoneThresholdsHelp'),
+                                t('builderMultiMixedTooltipSuffix'),
+                              ].join('\n'),
+                            )}
+                          />
+                        )}
+                      >
+                        <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderMilestoneThresholds')}</Box>
+                      </MarkdownTooltip>
+                    </FormLabel>
+                  </Box>
+                  <Collapse in={!builderCollapsed.milestoneThresholds} timeout="auto" unmountOnExit>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Box sx={{ position: 'relative', display: 'inline-flex' }}>
                       <ToggleButtonGroup
@@ -6211,6 +6286,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         : null}
                     </Box>
                   </Box>
+                  </Collapse>
                 </FormControl>
               )
             })()}
@@ -6313,6 +6389,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         <FormControl sx={{ m: 0 }}>
           {/* Header row: label on the left, Manage metasets on the right */}
           <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, mb: 0.5 }}>
+            <BuilderSectionToggle id="sets" />
             {/* Sets label mirrors the ellipsis span so the Manage Metasets button stays put. */}
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0, mr: 1, flex: '0 1 auto' }]}>
               <MarkdownTooltip
@@ -6342,6 +6419,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               </Button>
             </MarkdownTooltip>
           </Box>
+          <Collapse in={!builderCollapsed.sets} timeout="auto" unmountOnExit>
           {(() => {
             // Token helpers keep metasets + sets in a single select control.
             const tokenOf = {
@@ -6971,6 +7049,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               </Box>
             )
           })()}
+          </Collapse>
         </FormControl>
         {/* Reserved spacer keeps layout consistent even without a dirty indicator. */}
         <Box sx={{ mt: 'auto', height: 6 }} />

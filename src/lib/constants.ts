@@ -454,6 +454,12 @@ export const BUILDER_AUTO_APPLY_SELECTED_RECIPE_KEY = 'sellfileCreator.builder.a
 // Builder: controls whether tag chips render next to the Tags button.
 // Default Off so the chip row stays hidden until explicitly enabled.
 export const BUILDER_SHOW_TAG_CHIPS_KEY = 'sellfileCreator.builder.showTagsChips.v1'
+// Builder: persisted collapsed state for the 7 per-group collapsible sections
+// in the recipe builder panel.
+export const BUILDER_RECIPE_COLLAPSED_KEY = 'sellfileCreator.builder.recipeCollapsed.v1'
+// Builder: persisted collapsed state for the 7 per-group collapsible sections
+// in the safeguard builder panel.
+export const BUILDER_SAFEGUARD_COLLAPSED_KEY = 'sellfileCreator.builder.safeguardCollapsed.v1'
 // Sellfile export: when enabled, dedupe merged rules before exporting/pushing
 // the .hsf. Stored so users can persist their preference.
 export const SELLFILE_DEDUP_DEFAULT_KEY = 'sellfileCreator.sellfile.dedupDefault.v1'

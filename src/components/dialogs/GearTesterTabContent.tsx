@@ -1854,7 +1854,7 @@ function MeasuredTesterRow({ itemId, registerHeight, children }: MeasuredTesterR
     }
   }, [itemId, registerHeight])
 
-  return <Box ref={rowRef}>{children}</Box>
+  return <Box ref={rowRef} data-tour-id={`tester.item.${itemId}`}>{children}</Box>
 }
 
 export default GearTesterTabContent

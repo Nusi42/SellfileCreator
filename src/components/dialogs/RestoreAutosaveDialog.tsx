@@ -82,7 +82,7 @@ export default function RestoreAutosaveDialog({
   )
   const hasFilters = Boolean(draft?.Filters)
   const hasSort = Boolean(draft && Object.prototype.hasOwnProperty.call(draft, 'TesterSort'))
-  const hasSafeguards = Boolean((draft?.Safeguards?.length ?? 0) > 0 || typeof draft?.SafeguardsEnabled === 'boolean')
+  const hasSafeguards = (draft?.Safeguards?.length ?? 0) > 0
   const builderSavedAt = formatSavedAt(draft?.AutosaveSavedAt ?? null)
   const testerSavedAt = formatSavedAt(testerDraft?.savedAt ?? null)
   const defaultSelection = useMemo<RestoreSelection>(() => {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import { flushSync } from 'react-dom'
 
 import { APP_VERSION } from '../version'
-import { FINAL_SELL_DEFAULT_LEVELS, README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY } from '../lib/constants'
+import { ACCESSORY_NO_SET_ID, FINAL_SELL_DEFAULT_LEVELS, README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY } from '../lib/constants'
 import { defaultSubstatTargets, type BuilderRecipe, type SubstatTargetTable } from '../lib/hsfBuilder'
 import { cloneBuilderRecipe } from '../lib/multiEditDraft'
 import type { HsfFile } from '../lib/hsfTypes'
@@ -52,37 +52,59 @@ type TutorialSnapshot = {
   logicHubDialogTab: LogicHubDialogTab
 }
 
-const buildTutorialTesterItems = (): RuleTesterItem[] => [{
-  itemId: 1,
-  name: 'Refresh Bannerlords Amulet',
-  slot: ArtifactType.Amulet,
-  set: ArtifactSet.Refresh,
-  rank: 5,
-  rarity: 3,
-  level: LEVEL_MILESTONES[0]!,
-  faction: Faction.BannerLords,
-  main: StatVariant.CDMG,
-  subValues: {
-    [StatVariant.SPD]: 12,
-    [StatVariant.ACC]: 11,
-    [StatVariant.RES]: 15,
+const buildTutorialTesterItems = (): RuleTesterItem[] => [
+  {
+    itemId: 1,
+    name: 'Refresh Bannerlords Banner',
+    slot: ArtifactType.Banner,
+    set: ArtifactSet.Refresh,
+    rank: 5,
+    rarity: 3,
+    level: LEVEL_MILESTONES[3]!,
+    faction: Faction.BannerLords,
+    main: StatVariant.RES,
+    subValues: {
+      [StatVariant.HP]: 5,
+      [StatVariant.SPD]: 16,
+      [StatVariant.DEF_FLAT]: 8,
+      [StatVariant.ATK_FLAT]: 6,
+    },
+    subOrder: [StatVariant.HP, StatVariant.SPD, StatVariant.DEF_FLAT, StatVariant.ATK_FLAT],
+    previewExtras: {
+      source: 'tester',
+      exactLevel: LEVEL_MILESTONES[3]!,
+    },
   },
-  previewExtras: {
-    source: 'tester',
-    exactLevel: LEVEL_MILESTONES[0]!,
+  {
+    itemId: 2,
+    name: 'Knight Revenant Amulet',
+    slot: ArtifactType.Amulet,
+    set: ACCESSORY_NO_SET_ID as ArtifactSet,
+    rank: 4,
+    rarity: RarityCode.Uncommon,
+    level: LEVEL_MILESTONES[0]!,
+    faction: Faction.KnightRevenant,
+    main: StatVariant.ATK,
+    subValues: {
+      [StatVariant.DEF_FLAT]: 9,
+    },
+    previewExtras: {
+      source: 'tester',
+      exactLevel: LEVEL_MILESTONES[0]!,
+    },
   },
-}]
+]
 
 const buildTutorialSafeguardRules = (): SafeguardRule[] => [{
   id: 'tutorial-refresh-safeguard',
-  name: 'Refresh Bannerlords Amulet',
+  name: 'Refresh Bannerlords Banner',
   combination: {
-    slots: [ArtifactType.Amulet],
+    slots: [ArtifactType.Banner],
     sets: [{ id: ArtifactSet.Refresh }],
     metaSetIds: [],
     ranks: [5],
     rarities: [3],
-    mainStats: [StatVariant.CDMG],
+    mainStats: [StatVariant.RES],
     factions: [Faction.BannerLords],
   },
   requiredCount: 1,
@@ -1068,7 +1090,7 @@ export function useTutorialCoachState({
         id: 'tester-open',
         title: t('tutGearDialogOpenTitle'),
         body: t('tutGearDialogOpenBody'),
-        targetId: 'preview.rule-tester-button',
+        targetId: 'builder.tools-button',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false); ensurePreviewHighlight(null)
           setPreviewMode('rules')
@@ -1079,7 +1101,7 @@ export function useTutorialCoachState({
         id: 'tester-add-manual',
         title: t('tutGearDialogAddTitle'),
         body: t('tutGearDialogAddBody'),
-        targetId: 'tester.add-manual',
+        targetIds: ['tester.add-manual', 'tester.item.1', 'tester.item.2'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false); ensurePreviewHighlight(null)
           setPreviewMode('rules')

@@ -16,6 +16,7 @@ import {
   ButtonBase,
   Checkbox,
   Chip,
+  Collapse,
   Divider,
   FormControl,
   FormLabel,
@@ -31,6 +32,8 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd'
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
@@ -78,7 +81,7 @@ import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { HistoryContextMenu } from './HistoryContextMenu'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import type { HistoryPreview, HistoryTimelineEntry } from '../hooks/useSfrHistory'
-import { useAutoResetAfterInsertPreference, useAutoApplySelectedRecipePreference } from '../state/builderPreferences'
+import { useAutoResetAfterInsertPreference, useAutoApplySelectedRecipePreference, useBuilderSafeguardCollapsedPreference, BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS } from '../state/builderPreferences'
 import { summaryParts } from './RecipeChip'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSlotMetrics } from '../hooks/useSlotMetrics'
@@ -262,6 +265,34 @@ export default function SafeguardBuilderPanel({
       !rule.name
     )
   }, [rule])
+
+  const [builderCollapsed, setBuilderCollapsed] = useBuilderSafeguardCollapsedPreference()
+
+  const BuilderSectionToggle = ({ id }: { id: typeof BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS[number] }) => {
+    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+      const nextValue = !builderCollapsed[id]
+      if (event.ctrlKey || event.metaKey) {
+        const nextAll = { ...builderCollapsed }
+        for (const k of BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS) nextAll[k] = nextValue
+        setBuilderCollapsed(nextAll)
+      } else {
+        setBuilderCollapsed({ ...builderCollapsed, [id]: nextValue })
+      }
+    }
+    const handleContextMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault()
+      event.stopPropagation()
+      const nextValue = !builderCollapsed[id]
+      const nextAll = { ...builderCollapsed }
+      for (const k of BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS) nextAll[k] = nextValue
+      setBuilderCollapsed(nextAll)
+    }
+    return (
+      <IconButton size="small" onClick={handleClick} onContextMenu={handleContextMenu} aria-label={builderCollapsed[id] ? 'Expand' : 'Collapse'}>
+        {builderCollapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+      </IconButton>
+    )
+  }
 
   const applyDisabled = editingRuleId === null
 
@@ -729,57 +760,72 @@ export default function SafeguardBuilderPanel({
 
         {/* Rank */}
         <FormControl fullWidth>
-          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
-            <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
-          </FormLabel>
-          <GearRankSelect
-            multiple
-            value={rankSelection}
-            onChange={(nextRanks) => {
-              setRuleCombination((prev) => ({ ...prev, ranks: nextRanks }))
-            }}
-            allowAny
-            anyLabel={t('any')}
-            menuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
-            sx={SELECT_BOX_HEIGHT_SX}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <BuilderSectionToggle id="rank" />
+            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
+            </FormLabel>
+          </Box>
+          <Collapse in={!builderCollapsed.rank} timeout="auto" unmountOnExit>
+            <GearRankSelect
+              multiple
+              value={rankSelection}
+              onChange={(nextRanks) => {
+                setRuleCombination((prev) => ({ ...prev, ranks: nextRanks }))
+              }}
+              allowAny
+              anyLabel={t('any')}
+              menuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
+              sx={SELECT_BOX_HEIGHT_SX}
+            />
+          </Collapse>
         </FormControl>
 
         {/* Rarity */}
         <FormControl fullWidth>
-          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
-            <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
-          </FormLabel>
-          <GearRaritySelect
-            multiple
-            value={raritySelection}
-            onChange={(nextRarities) => {
-              setRuleCombination((prev) => ({ ...prev, rarities: nextRarities }))
-            }}
-            allowAny
-            anyLabel={t('any')}
-            menuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
-            sx={SELECT_BOX_HEIGHT_SX}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <BuilderSectionToggle id="rarity" />
+            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
+            </FormLabel>
+          </Box>
+          <Collapse in={!builderCollapsed.rarity} timeout="auto" unmountOnExit>
+            <GearRaritySelect
+              multiple
+              value={raritySelection}
+              onChange={(nextRarities) => {
+                setRuleCombination((prev) => ({ ...prev, rarities: nextRarities }))
+              }}
+              allowAny
+              anyLabel={t('any')}
+              menuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
+              sx={SELECT_BOX_HEIGHT_SX}
+            />
+          </Collapse>
         </FormControl>
 
         {/* Faction + perFaction chip */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
           <FormControl fullWidth disabled={!hasAccessorySlot}>
-            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
-            </FormLabel>
-            <GearFactionSelect
-              multiple
-              disabled={!hasAccessorySlot}
-              value={factionSelection}
-              onChange={(nextFactions) => {
-                if (!hasAccessorySlot) return
-                setRuleCombination((prev) => ({ ...prev, factions: nextFactions }))
-              }}
-              anyLabel={t('any')}
-              sx={SELECT_BOX_HEIGHT_SX}
-            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+              <BuilderSectionToggle id="faction" />
+              <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+                <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
+              </FormLabel>
+            </Box>
+            <Collapse in={!builderCollapsed.faction} timeout="auto" unmountOnExit>
+              <GearFactionSelect
+                multiple
+                disabled={!hasAccessorySlot}
+                value={factionSelection}
+                onChange={(nextFactions) => {
+                  if (!hasAccessorySlot) return
+                  setRuleCombination((prev) => ({ ...prev, factions: nextFactions }))
+                }}
+                anyLabel={t('any')}
+                sx={SELECT_BOX_HEIGHT_SX}
+              />
+            </Collapse>
           </FormControl>
           {renderScopeChip('perFaction', t('safeguardsCountModePerFaction'), scopeActive.perFaction, !hasAccessorySlot)}
         </Box>
@@ -790,6 +836,7 @@ export default function SafeguardBuilderPanel({
       <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <BuilderSectionToggle id="mainStat" />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
             </FormLabel>
@@ -807,42 +854,44 @@ export default function SafeguardBuilderPanel({
               : <Box sx={CLEAR_PLACEHOLDER_SX} />
             }
           </Box>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
-            <ToggleButtonGroup
-              size="small"
-              value={mainStatValueStrings}
-              onChange={handleMainStatChange}
-              sx={mainStatToggleGroupSx}
-            >
-              {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => (
-                <ToggleButton
-                  key={variant}
-                  value={String(variant)}
-                  disabled={!mainStatOptions.includes(variant)}
-                >
-                  {t(statVariantI18nKey(variant))}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-            {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
-            <ToggleButtonGroup
-              size="small"
-              value={mainStatValueStrings}
-              onChange={handleMainStatChange}
-              sx={mainStatToggleGroupSx}
-            >
-              {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => (
-                <ToggleButton
-                  key={variant}
-                  value={String(variant)}
-                  disabled={!mainStatOptions.includes(variant)}
-                >
-                  {t(statVariantI18nKey(variant))}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-          </Box>
+          <Collapse in={!builderCollapsed.mainStat} timeout="auto" unmountOnExit>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
+              <ToggleButtonGroup
+                size="small"
+                value={mainStatValueStrings}
+                onChange={handleMainStatChange}
+                sx={mainStatToggleGroupSx}
+              >
+                {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => (
+                  <ToggleButton
+                    key={variant}
+                    value={String(variant)}
+                    disabled={!mainStatOptions.includes(variant)}
+                  >
+                    {t(statVariantI18nKey(variant))}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+              {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
+              <ToggleButtonGroup
+                size="small"
+                value={mainStatValueStrings}
+                onChange={handleMainStatChange}
+                sx={mainStatToggleGroupSx}
+              >
+                {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => (
+                  <ToggleButton
+                    key={variant}
+                    value={String(variant)}
+                    disabled={!mainStatOptions.includes(variant)}
+                  >
+                    {t(statVariantI18nKey(variant))}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            </Box>
+          </Collapse>
         </FormControl>
         {renderScopeChip('perMainStat', t('safeguardsCountModePerMain'), scopeActive.perMainStat)}
       </Box>
@@ -851,6 +900,7 @@ export default function SafeguardBuilderPanel({
       <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <BuilderSectionToggle id="substats" />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
             </FormLabel>
@@ -868,44 +918,47 @@ export default function SafeguardBuilderPanel({
               : <Box sx={CLEAR_PLACEHOLDER_SX} />
             }
           </Box>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
-            <ToggleButtonGroup
-              size="small"
-              value={substatValueStrings}
-              onChange={handleSubstatChange}
-              sx={substatToggleGroupSx}
-            >
-              {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => (
-                <ToggleButton
-                  key={variant}
-                  value={String(variant)}
-                  disabled={!allowedSubstatOptions.includes(variant)}
-                >
-                  {t(statVariantI18nKey(variant))}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-            {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
-            <ToggleButtonGroup
-              size="small"
-              value={substatValueStrings}
-              onChange={handleSubstatChange}
-              sx={substatToggleGroupSx}
-            >
-              {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => (
-                <ToggleButton
-                  key={variant}
-                  value={String(variant)}
-                  disabled={!allowedSubstatOptions.includes(variant)}
-                >
-                  {t(statVariantI18nKey(variant))}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-          </Box>
+          <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
+              <ToggleButtonGroup
+                size="small"
+                value={substatValueStrings}
+                onChange={handleSubstatChange}
+                sx={substatToggleGroupSx}
+              >
+                {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => (
+                  <ToggleButton
+                    key={variant}
+                    value={String(variant)}
+                    disabled={!allowedSubstatOptions.includes(variant)}
+                  >
+                    {t(statVariantI18nKey(variant))}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+              {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
+              <ToggleButtonGroup
+                size="small"
+                value={substatValueStrings}
+                onChange={handleSubstatChange}
+                sx={substatToggleGroupSx}
+              >
+                {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => (
+                  <ToggleButton
+                    key={variant}
+                    value={String(variant)}
+                    disabled={!allowedSubstatOptions.includes(variant)}
+                  >
+                    {t(statVariantI18nKey(variant))}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            </Box>
+          </Collapse>
         </FormControl>
         {/* Substat match mode chips + weights button */}
+        <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
           <MarkdownTooltip markdown={t('safeguardsSubstatRequirementHint')}>
             <Box component="span" sx={{ display: 'inline-flex', gap: 0.75, flexWrap: 'wrap', alignItems: 'center', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
@@ -949,12 +1002,14 @@ export default function SafeguardBuilderPanel({
             <TuneIcon fontSize="small" />
           </IconButton>
         </Box>
+        </Collapse>
       </Box>
 
       {/* ── Row 4 left: Slots icon grid + perSlot chip ────────────────────── */}
       <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <BuilderSectionToggle id="slots" />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
             </FormLabel>
@@ -975,6 +1030,7 @@ export default function SafeguardBuilderPanel({
               : <Box sx={CLEAR_PLACEHOLDER_SX} />
             }
           </Box>
+          <Collapse in={!builderCollapsed.slots} timeout="auto" unmountOnExit>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }}>
             {artifactTypeIconList.map(({ id, Icon }) => {
               const selected = slotSelection.includes(id)
@@ -1052,6 +1108,7 @@ export default function SafeguardBuilderPanel({
               )
             })}
           </Box>
+          </Collapse>
         </FormControl>
         {renderScopeChip('perSlot', t('safeguardsCountModePerSlot'), scopeActive.perSlot)}
       </Box>
@@ -1059,38 +1116,43 @@ export default function SafeguardBuilderPanel({
       {/* ── Row 4 right: Sets selector + perSet chip ──────────────────────── */}
       <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl fullWidth>
-          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
-            <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderSets')}</Box>
-            <Box sx={{ flex: 1, minWidth: 0 }} />
-            <MarkdownTooltip markdown={t('builderManageMetasetsTooltip')}>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={onManageMetasets}
-                sx={{ minWidth: 160, whiteSpace: 'nowrap', ml: 'auto', overflow: 'hidden', textOverflow: 'ellipsis' }}
-              >
-                <Box component="span" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {t('builderManageMetasetsButton')}
-                </Box>
-              </Button>
-            </MarkdownTooltip>
-          </FormLabel>
-          <GearSetsSelect
-            value={setSelection}
-            onChange={(nextSets) => {
-              setRuleCombination((prev) => ({ ...prev, sets: normalizeArtifactSetSelections(nextSets) }))
-            }}
-            metasets={metasets}
-            selectedMetasetIds={combination.metaSetIds}
-            onChangeMetasetIds={(nextMetaIds) => {
-              setRuleCombination((prev) => ({ ...prev, metaSetIds: dedupeStringArray(nextMetaIds) }))
-            }}
-            allowedSetIds={allowedSetPool}
-            showMetasets
-            layoutVersion={1}
-            anyLabel={t('anySet')}
-            includeNoSet={hasAccessorySlot}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <BuilderSectionToggle id="sets" />
+            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderSets')}</Box>
+              <Box sx={{ flex: 1, minWidth: 0 }} />
+              <MarkdownTooltip markdown={t('builderManageMetasetsTooltip')}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={onManageMetasets}
+                  sx={{ minWidth: 160, whiteSpace: 'nowrap', ml: 'auto', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                >
+                  <Box component="span" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {t('builderManageMetasetsButton')}
+                  </Box>
+                </Button>
+              </MarkdownTooltip>
+            </FormLabel>
+          </Box>
+          <Collapse in={!builderCollapsed.sets} timeout="auto" unmountOnExit>
+            <GearSetsSelect
+              value={setSelection}
+              onChange={(nextSets) => {
+                setRuleCombination((prev) => ({ ...prev, sets: normalizeArtifactSetSelections(nextSets) }))
+              }}
+              metasets={metasets}
+              selectedMetasetIds={combination.metaSetIds}
+              onChangeMetasetIds={(nextMetaIds) => {
+                setRuleCombination((prev) => ({ ...prev, metaSetIds: dedupeStringArray(nextMetaIds) }))
+              }}
+              allowedSetIds={allowedSetPool}
+              showMetasets
+              layoutVersion={1}
+              anyLabel={t('anySet')}
+              includeNoSet={hasAccessorySlot}
+            />
+          </Collapse>
         </FormControl>
         {renderScopeChip('perSet', t('safeguardsCountModePerSet'), scopeActive.perSet)}
       </Box>
