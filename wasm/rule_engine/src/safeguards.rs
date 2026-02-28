@@ -528,7 +528,10 @@ pub fn normalize_safeguard_expected_group_domain_value(payload: JsValue) -> Resu
         all_faction_ids,
     };
 
-    to_js_value(&normalized)
+    // Use serialize_maps_as_objects so allowed_main_by_slot (HashMap<String, Vec<i64>>)
+    // serializes as a plain JS object rather than a JS Map instance.
+    normalized
+        .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard expected-group domain: {error}")))
 }
 
