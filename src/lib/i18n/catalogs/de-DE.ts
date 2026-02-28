@@ -1404,7 +1404,7 @@ const overrides: Catalog = {
   tutAutoLateAddTitle: 'Diese Rezept hinzufügen',
   tutAutoLateAddBody: 'Klicke auf die markierte Schaltfläche `Als Rezept #3 einfügen`. Wir klicken für dich, sobald du `Weiter` drückst.',
   tutGearDialogOpenTitle: 'Ausrüstung',
-  tutGearDialogOpenBody: 'Nutze `Logic Hub`, um den Dialog direkt im Tab `Ausrüstung` zu öffnen. Dort kannst du eine RSL-Helper-Datenbank importieren oder manuelle Einträge erstellen, ohne die Vorschau zu verlassen.',
+  tutGearDialogOpenBody: 'Nutze `Tools`, um den Dialog direkt im Tab `Ausrüstung` zu öffnen. Dort kannst du eine RSL-Helper-Datenbank importieren oder manuelle Einträge erstellen, ohne die Vorschau zu verlassen.',
   tutGearDialogAddTitle: 'Benutzerdefinierte Ausrüstung hinzufügen',
   tutGearDialogAddBody: 'Lass den Logic-Hub-Dialog im Tab `Ausrüstung` geöffnet und ziehe eine RSL Helper `.db`-Datei in die App oder klicke auf `Laden`, um sie aus `%APPDATA%\\RslHelper\\Config` zu importieren. Du kannst auch `Stream-Helper-DB-to-Creator.bat` ausführen, um Ausrüstung direkt aus diesem Ordner zu streamen.\n\nManuell erstellte Ausrüstung liegt neben der aus RSL Helper. Wir haben gerade ein 5★ Rare `Refresh`-Banner der Banner Lords und ein 4★ Uncommon Knight-Revenant-Amulett als Beispielteile hinzugefügt, damit du mitverfolgen kannst. Nutze diesen Button jederzeit, wenn du hypothetische Drops, manuell erstellte Ausrüstung oder angepasste Werte simulieren willst.',
   tutGearDialogPreviewTitle: 'Gear Inspector anzeigen',
@@ -1412,7 +1412,7 @@ const overrides: Catalog = {
   tutSafeguardsIntroTitle: 'Schutzmaßnahmen: Überblick',
   tutSafeguardsIntroBody: 'Die Registerkarte `Schutzmaßnahmen` schützt schwer ersetzbare Ausrüstung selbst dann, wenn deine Rezepte + Finaler Verkauf sie sonst verkaufen würden. Definiere die Filter, die dir wichtig sind, und lass den Scanner automatisch Schutzmaßnahmen erzeugen, sobald die Tester-Daten Lücken melden.',
   tutSafeguardsRuleTitle: 'Refresh-Schmuck schützen',
-  tutSafeguardsRuleBody: 'Wir haben eine Schutzmaßnahme für Refresh-Amulette (5★ Rare, Banner Lords, CDMG als Hauptstat) hinzugefügt, damit mindestens eines den Finalen Verkauf überlebt. Passe die Filter an, sobald du eine neue Lücke findest – Schutzmaßnahmen erneuern den Schutz automatisch.',
+  tutSafeguardsRuleBody: 'Wir haben eine Schutzmaßnahme für Refresh-Banner (5★ Rare, Banner Lords, RES als Hauptstat) hinzugefügt, damit mindestens eines den Finalen Verkauf überlebt. Passe die Filter an, sobald du eine neue Lücke findest – Schutzmaßnahmen erneuern den Schutz automatisch.',
   tutPreviewHighlightTitle: 'Epische und legendäre Prüfungen vergleichen',
   tutPreviewHighlightBody: '`Spät` verschafft legendären Bannern einen zusätzlichen Versuch auf das blaue `3× [[stat:statSPD]]`-Ziel. Epische Banner müssen [[stat:statSPD]] schon bei +4 treffen, um im Rennen zu bleiben, während legendäre das erste Upgrade verpassen dürfen und trotzdem bis +16 auf drei Rolls kommen. Die Vorschau stellt beide Pfade nebeneinander dar, damit du genau siehst, wo jede Seltenheit Erfolg hat.',
   // Chips context menus

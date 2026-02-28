@@ -1404,7 +1404,7 @@ const overrides: Catalog = {
   tutAutoLateAddTitle: 'Añadir esta receta',
   tutAutoLateAddBody: 'Haz clic en `Insert as receta #3` en el botón resaltado. Cuando pulses `Next`, lo pulsaremos por ti.',
   tutGearDialogOpenTitle: 'Equipo',
-  tutGearDialogOpenBody: 'Usa `Logic Hub` para abrir el diálogo directamente en la pestaña `Equipo`. Allí puedes importar una base de datos de RSL Helper o crear entradas manuales sin salir de la vista previa.',
+  tutGearDialogOpenBody: 'Usa `Herramientas` para abrir el diálogo directamente en la pestaña `Equipo`. Allí puedes importar una base de datos de RSL Helper o crear entradas manuales sin salir de la vista previa.',
   tutGearDialogAddTitle: 'Añadir equipo personalizado',
   tutGearDialogAddBody: 'Con Logic Hub aún abierto en `Equipo`, arrastra un archivo `.db` de RSL Helper a la app o haz clic en `Cargar` para importarlo desde `%APPDATA%\\RslHelper\\Receta`. También puedes ejecutar `Stream-Helper-DB-to-Creator.bat` para transmitir equipo desde esa carpeta.\n\nEl equipo creado manualmente convive con el de RSL Helper. Acabamos de añadir un estandarte `Refresh` Raro de 5★ de los Banner Lords y un amuleto Poco común 4★ de Knight Revenant como piezas de ejemplo. Usa este botón cada vez que quieras simular drops hipotéticos, creaciones manuales o estadísticas reajustadas.',
   tutGearDialogPreviewTitle: 'Previsualizar el Gear Inspector',
@@ -1412,7 +1412,7 @@ const overrides: Catalog = {
   tutSafeguardsIntroTitle: 'Resumen de Salvaguardas',
   tutSafeguardsIntroBody: 'La pestaña `Salvaguardas` protege equipo irreemplazable incluso si tus recetas + Venta final lo venderían. Define las combinaciones que te interesan y deja que el escáner genere reglas de “conservar” siempre que los datos del Probador muestren huecos.',
   tutSafeguardsRuleTitle: 'Protege los accesorios Refresh',
-  tutSafeguardsRuleBody: 'Añadimos una regla de Salvaguardas para los amuletos Refresh (5★ Raro, Banner Lords, stat principal CDMG) para que al menos uno sobreviva a la Venta final. Ajusta los filtros cada vez que detectes un hueco nuevo: Salvaguardas regenera las reglas de protección automáticamente.',
+  tutSafeguardsRuleBody: 'Añadimos una regla de Salvaguardas para los banderas Refresh (5★ Raro, Banner Lords, stat principal RES) para que al menos uno sobreviva a la Venta final. Ajusta los filtros cada vez que detectes un hueco nuevo: Salvaguardas regenera las reglas de protección automáticamente.',
   tutPreviewHighlightTitle: 'Compara las comprobaciones Épica y Legendaria',
   tutPreviewHighlightBody: '`Tardío` concede a la rareza Legendaria un intento extra para alcanzar el objetivo azul `3× [[stat:statSPD]]`. Las piezas Épicas deben clavar [[stat:statSPD]] en +4 para seguir vivas, mientras que las Legendarias pueden fallar la primera mejora y aun así llegar a las tres tiradas en +16. La vista previa muestra ambos recorridos en paralelo para que veas exactamente dónde acierta cada rareza.',
   // Chips context menus

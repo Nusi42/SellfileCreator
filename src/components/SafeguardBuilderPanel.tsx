@@ -501,12 +501,15 @@ export default function SafeguardBuilderPanel({
   // ── render ────────────────────────────────────────────────────────────────
 
   return (
-    <Box sx={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(4, minmax(220px, 1fr))',
-      columnGap: 1,
-      rowGap: 2,
-    }}>
+    <Box
+      data-tour-id="safeguards.builder"
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, minmax(220px, 1fr))',
+        columnGap: 1,
+        rowGap: 2,
+      }}
+    >
 
       {/* ── Row 0: Rule name (full-width) ─── */}
       <Box sx={(theme) => ({ gridColumn: '1 / -1', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>

@@ -1404,7 +1404,7 @@ const overrides: Catalog = {
   tutAutoLateAddTitle: 'Ajouter cette recette',
   tutAutoLateAddBody: 'Cliquez `Insérer comme recette n°3` sur le bouton surligné. Nous cliquerons pour vous lorsque vous appuierez sur `Suivant`.',
   tutGearDialogOpenTitle: 'Équipement',
-  tutGearDialogOpenBody: 'Utilisez `Logic Hub` pour ouvrir la boîte de dialogue directement sur l’onglet `Équipement`. Vous pouvez y importer une base RSL Helper ou créer des entrées manuelles sans quitter l’aperçu.',
+  tutGearDialogOpenBody: 'Utilisez `Outils` pour ouvrir la boîte de dialogue directement sur l’onglet `Équipement`. Vous pouvez y importer une base RSL Helper ou créer des entrées manuelles sans quitter l’aperçu.',
   tutGearDialogAddTitle: 'Ajouter un équipement personnalisé',
   tutGearDialogAddBody: 'En laissant la boîte de dialogue Logic Hub ouverte sur `Équipement`, faites glisser un fichier `.db` RSL Helper dans l’application ou cliquez sur `Charger` pour l’importer depuis `%APPDATA%\\RslHelper\\Recette`. Vous pouvez aussi lancer `Stream-Helper-DB-to-Creator.bat` pour streamer l’équipement depuis ce dossier.\n\nLes objets créés manuellement cohabitent avec ceux de RSL Helper. Nous venons d’ajouter une bannière `Refresh` 5★ Rare des Banner Lords et une amulette Knight Revenant 4★ Peu commune pour que vous puissiez suivre. Utilisez ce bouton chaque fois que vous voulez simuler des drops hypothétiques, un artisanat manuel ou des statistiques rééquilibrées.',
   tutGearDialogPreviewTitle: 'Prévisualiser le Gear Inspector',
@@ -1412,7 +1412,7 @@ const overrides: Catalog = {
   tutSafeguardsIntroTitle: 'Présentation de Protections',
   tutSafeguardsIntroBody: 'L’onglet `Protections` protège l’équipement irremplaçable même si vos recettes et la Vente finale voudraient le vendre. Définissez les combinaisons qui comptent pour vous, puis laissez le scanner générer des règles « Conserver » dès que les données du testeur signalent un manque.',
   tutSafeguardsRuleTitle: 'Protéger les accessoires Refresh',
-  tutSafeguardsRuleBody: 'Nous avons ajouté une règle Conserver pour les amulettes Refresh (5★ Rare, Banner Lords, stat principale CDMG) afin qu’au moins une survive à la Vente finale. Ajustez les filtres chaque fois que vous découvrez un nouveau trou ; Protections régénère automatiquement les règles de protection.',
+  tutSafeguardsRuleBody: 'Nous avons ajouté une règle Conserver pour les bannières Refresh (5★ Rare, Banner Lords, stat principale RES) afin qu’au moins une survive à la Vente finale. Ajustez les filtres chaque fois que vous découvrez un nouveau trou ; Protections régénère automatiquement les règles de protection.',
   tutPreviewHighlightTitle: 'Comparer les vérifications Épique/Légendaire',
   tutPreviewHighlightBody: '`Tard` offre à Légendaire un lancer supplémentaire pour atteindre l’objectif `3× [[stat:statSPD]]` bleu. Épique doit obtenir [[stat:statSPD]] à +4 pour rester en course, tandis que Légendaire peut manquer la première amélioration et atteindre quand même trois lancers à +16. La prévisualisation juxtapose ces parcours pour montrer exactement où chaque rareté réussit.',
   // Chips context menus

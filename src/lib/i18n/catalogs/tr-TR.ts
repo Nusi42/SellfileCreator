@@ -1404,7 +1404,7 @@ const overrides: Catalog = {
   tutAutoLateAddTitle: 'Bu reçeteyi ekle',
   tutAutoLateAddBody: 'Vurgulanan düğmede `Reçete #3 olarak ekle`ye tıklayın. `İleri`ye bastığınızda sizin için tıklayacağız.',
   tutGearDialogOpenTitle: 'Ekipman',
-  tutGearDialogOpenBody: '`Logic Hub` düğmesini kullanarak iletişim kutusunu doğrudan `Ekipman` sekmesinde açın. Önizlemeden çıkmadan RSL Helper veritabanı içe aktarabilir veya manuel girdiler oluşturabilirsiniz.',
+  tutGearDialogOpenBody: '`Araçlar` düğmesini kullanarak iletişim kutusunu doğrudan `Ekipman` sekmesinde açın. Önizlemeden çıkmadan RSL Helper veritabanı içe aktarabilir veya manuel girdiler oluşturabilirsiniz.',
   tutGearDialogAddTitle: 'Özel ekipman ekle',
   tutGearDialogAddBody: '`Araçlar` “Ekipman” sekmesinde açıkken bir RSL Helper `.db` dosyasını uygulamaya sürükleyin veya `%APPDATA%\\RslHelper\\Config` konumundan içeri almak için `Yükle`ye tıklayın. Ayrıca `Stream-Helper-DB-to-Creator.bat` çalıştırarak bu klasörden ekipman aktarabilirsin.\n\nManuel oluşturulan ekipman RSL Helper’dan gelen verilerin yanında listelenir. Rehber olarak Banner Lords’tan 5★ Nadir `Refresh` bir sancak ve 4★ Sıradan bir Knight Revenant muskası örnek parça olarak ekledik. Varsayımsal düşüşleri, el yapımı eşyaları veya yeniden ayarlanmış istatistikleri modellemek istediğinizde bu düğmeyi kullanın.',
     tutGearDialogPreviewTitle: 'Gear Inspector\'ı önizle',
@@ -1412,7 +1412,7 @@ const overrides: Catalog = {
   tutSafeguardsIntroTitle: 'Safeguards genel bakış',
   tutSafeguardsIntroBody: 'Safeguards sekmesi, reçeteler + Nihai Satış onu satacak olsa bile yerine koyulamayan eşyaları korur. Önemsediğiniz kombinasyonları tanımlayın; tester verisi boşluk gösterdiğinde tarayıcı otomatik olarak “koru” kuralları oluşturur.',
   tutSafeguardsRuleTitle: 'Refresh aksesuarlarını koru',
-  tutSafeguardsRuleBody: 'Refresh muskaları (5★ Nadir, Banner Lords, CDMG ana stat) için bir koruma kuralı ekledik; böylece en az biri Nihai Satış\'tan sağ kurtulsun. Yeni bir boşluk bulduğunuzda filtreleri ayarlayın—Safeguards koruma kurallarını otomatik olarak yeniden oluşturur.',
+  tutSafeguardsRuleBody: 'Refresh bayrakları (5★ Nadir, Banner Lords, RES ana stat) için bir koruma kuralı ekledik; böylece en az biri Nihai Satış\'tan sağ kurtulsun. Yeni bir boşluk bulduğunuzda filtreleri ayarlayın—Safeguards koruma kurallarını otomatik olarak yeniden oluşturur.',
   tutPreviewHighlightTitle: 'Destansı ve Efsanevi kontrolleri karşılaştır',
   tutPreviewHighlightBody: '`Geç`, Efsanevi için mavi `3× [[stat:statSPD]]` hedefine ulaşmak adına ekstra bir rulo daha verir. Destansı sancakların oyunda kalabilmesi için [[stat:statSPD]]\'yi +4\'te yakalaması gerekir; Efsanevi ise ilk yükseltmeyi kaçırsa bile +16\'ya kadar üç ruloya ulaşabilir. Önizleme bu yolları yan yana gösterir, böylece her nadirliğin nerede başarılı olduğunu net biçimde görürsünüz.',
   // Chips context menus

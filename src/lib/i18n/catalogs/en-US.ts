@@ -1413,7 +1413,7 @@ const enUS: Catalog = {
   tutAutoLateAddTitle: 'Add This Recipe',
   tutAutoLateAddBody: 'Click `Insert as recipe #3` on the highlighted button. We will click it for you when you press `Next`.',
   tutGearDialogOpenTitle: 'Gear',
-  tutGearDialogOpenBody: 'Use `Logic Hub` to open the dialog directly on the Gear tab so you can import an RSL Helper database or craft manual entries without leaving the preview.',
+  tutGearDialogOpenBody: 'Use `Tools` to open the dialog directly on the Gear tab so you can import an RSL Helper database or craft manual entries without leaving the preview.',
   tutGearDialogAddTitle: 'Add a Custom Gear',
   tutGearDialogAddBody: 'With the `Tools` dialog still open on `Gear`, drag an RSL Helper `.db` file into the app or click `Load` to import it from `%APPDATA%\\RslHelper\\Config`. You can also run `Stream-Helper-DB-to-Creator.bat` to stream gear from that folder.\n\nManual created gear lives alongside gear from RSL Helper. We just added a 5★ Rare `Refresh` banner from the Banner Lords and a 4★ Uncommon Knight Revenant amulet as sample pieces to follow along. Use this button any time you want to model hypothetical drops, manual crafts, or rebalanced stats.',
   tutGearDialogPreviewTitle: 'Preview the Gear Inspector',
@@ -1421,7 +1421,7 @@ const enUS: Catalog = {
   tutSafeguardsIntroTitle: 'Safeguards Overview',
   tutSafeguardsIntroBody: 'The `Safeguards` tab protects hard-to-replace gear even if your recipes + Final Sell would otherwise sell it. Define the filters you care about, then let the scanner generate safeguard rows whenever tester data shows gaps.',
   tutSafeguardsRuleTitle: 'Protect Refresh Accessories',
-  tutSafeguardsRuleBody: 'We added a safeguard for Refresh amulets (5★ Rare, Banner Lords, CDMG main stat) so at least one lives through Final Sell. Tweak the filters whenever you find a new gap—Safeguards regenerates protection automatically.',
+  tutSafeguardsRuleBody: 'We added a safeguard for Refresh banners (5★ Rare, Banner Lords, RES main stat) so at least one lives through Final Sell. Tweak the filters whenever you find a new gap—Safeguards regenerates protection automatically.',
   tutPreviewHighlightTitle: 'Compare Epic and Legendary Checks',
   tutPreviewHighlightBody: '`Late` gives Legendary an extra roll to find the blue `3× [[stat:statSPD]]` goal. Epic must land [[stat:statSPD]] at +4 to stay alive, while Legendary can miss the first upgrade and still reach three rolls by +16. The preview shows those paths side by side so you can see exactly where each rarity succeeds.',
   // Chips context menus

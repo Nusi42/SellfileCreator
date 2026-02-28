@@ -1404,7 +1404,7 @@ const overrides: Catalog = {
   tutAutoLateAddTitle: 'Aggiungi questa ricetta',
   tutAutoLateAddBody: 'Clicca `Inserisci come ricetta #3` sul pulsante evidenziato. Quando premi `Avanti` lo faremo noi per te.',
   tutGearDialogOpenTitle: 'Equipaggiamento',
-  tutGearDialogOpenBody: 'Usa `Logic Hub` per aprire la finestra di dialogo direttamente sulla scheda `Equipaggiamento`. Lì puoi importare un database RSL Helper o creare voci manuali senza lasciare l’anteprima.',
+  tutGearDialogOpenBody: 'Usa `Strumenti` per aprire la finestra di dialogo direttamente sulla scheda `Equipaggiamento`. Lì puoi importare un database RSL Helper o creare voci manuali senza lasciare l’anteprima.',
   tutGearDialogAddTitle: 'Aggiungi equipaggiamento personalizzato',
   tutGearDialogAddBody: 'Con la finestra Logic Hub ancora aperta su `Equipaggiamento`, trascina un file `.db` di RSL Helper nell’app oppure clicca `Carica` per importarlo da `%APPDATA%\\RslHelper\\Ricetta`. Puoi anche eseguire `Stream-Helper-DB-to-Creator.bat` per trasmettere l’equipaggiamento da quella cartella.\n\nL’equipaggiamento creato manualmente vive insieme a quello importato da RSL Helper. Abbiamo appena aggiunto uno stendardo `Refresh` Raro 5★ dei Banner Lords e un amuleto Knight Revenant Non comune 4★ come pezzi di esempio così puoi seguirci. Usa questo pulsante quando vuoi simulare drop ipotetici, craft manuali o statistiche ribilanciate.',
   tutGearDialogPreviewTitle: 'Anteprima del Gear Inspector',
@@ -1412,7 +1412,7 @@ const overrides: Catalog = {
   tutSafeguardsIntroTitle: 'Panoramica di Salvaguardie',
   tutSafeguardsIntroBody: 'La scheda `Salvaguardie` protegge equipaggiamento insostituibile anche se le tue ricetta + la Vendita finale lo venderebbero. Definisci le combinazioni che ti interessano e lascia che lo scanner generi regole “mantieni” ogni volta che i dati del tester mostrano vuoti.',
   tutSafeguardsRuleTitle: 'Proteggi gli accessori Refresh',
-  tutSafeguardsRuleBody: 'Abbiamo aggiunto una regola di Salvaguardie per gli amuleti Refresh (5★ Raro, Banner Lords, stat principale CDMG) così almeno uno sopravvive alla Vendita finale. Ritocca i filtri ogni volta che trovi un nuovo vuoto: Salvaguardie rigenera automaticamente le regole di protezione.',
+  tutSafeguardsRuleBody: 'Abbiamo aggiunto una regola di Salvaguardie per gli stendardi Refresh (5★ Raro, Banner Lords, stat principale RES) così almeno uno sopravvive alla Vendita finale. Ritocca i filtri ogni volta che trovi un nuovo vuoto: Salvaguardie rigenera automaticamente le regole di protezione.',
   tutPreviewHighlightTitle: 'Confronta i controlli Epici e Leggendari',
   tutPreviewHighlightBody: '`Tardivo` concede a Leggendaria un roll extra per trovare l’obiettivo blu `3× [[stat:statSPD]]`. Epica deve ottenere [[stat:statSPD]] già a +4 per restare valida, mentre Leggendaria può fallire il primo potenziamento e arrivare comunque a tre roll entro +16. L’anteprima mostra questi percorsi affiancati così vedi esattamente dove ogni rarità riesce.',
   // Chips context menus

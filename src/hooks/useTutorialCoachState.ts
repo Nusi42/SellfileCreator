@@ -84,7 +84,7 @@ const buildTutorialTesterItems = (): RuleTesterItem[] => [
     rarity: RarityCode.Uncommon,
     level: LEVEL_MILESTONES[0]!,
     faction: Faction.KnightRevenant,
-    main: StatVariant.ATK,
+    main: StatVariant.ATK_FLAT,
     subValues: {
       [StatVariant.DEF_FLAT]: 9,
     },
@@ -1150,7 +1150,7 @@ export function useTutorialCoachState({
         id: 'safeguards-intro',
         title: t('tutSafeguardsIntroTitle'),
         body: t('tutSafeguardsIntroBody'),
-        targetId: 'safeguards.tab',
+        targetIds: ['safeguards.tab', 'safeguards.builder'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
           setLogicHubOpen(false)
