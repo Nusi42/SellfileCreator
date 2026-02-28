@@ -225,6 +225,6 @@ ve elbette RSL Helper için **Farbstoff**’a teşekkürler!
 
 ## Yazar
 Hazırlayan [STBL] Nusi㊷  
-Yerelleştirme Codex
+Yerelleştirme AI
 
 © Nusi㊷ - 2026

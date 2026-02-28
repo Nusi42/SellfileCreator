@@ -225,6 +225,6 @@ und natürlich an **Farbstoff** für RSL Helper!
 
 ## Autor
 Erstellt von [STBL] Nusi㊷  
-Lokalisierung von Codex
+Lokalisierung von AI
 
 © Nusi㊷ - 2026

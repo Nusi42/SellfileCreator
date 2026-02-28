@@ -226,6 +226,6 @@ y por supuesto a **Farbstoff** por RSL Helper.
 
 ## Autoría
 Hecho por [STBL] Nusi㊷  
-Localización de Codex
+Localización de AI
 
 © Nusi㊷ - 2026

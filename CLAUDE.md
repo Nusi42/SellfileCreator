@@ -1,4 +1,4 @@
-# AI Agent Guidelines
+# Claude Code Guidelines
 
 This document summarizes how we collaborate on Sellfile Creator. Detailed technical references live in [`docs/TECHNICAL.md`](docs/TECHNICAL.md); that index links to (and may contain) additional guidance beyond the highlights mentioned here.
 
@@ -28,7 +28,7 @@ This document summarizes how we collaborate on Sellfile Creator. Detailed techni
 - Do not wait for confirmation when run without interactive UI, e.g. if run as commandline prompt in a script.
 - Before committing, review earlier iterations and drop any obsolete changes that no longer apply after corrective prompts.
 - Update docs when behavior, datasets, or workflows change. Add or edit entries in `docs/TECHNICAL.md` (and create new referenced files when needed) without waiting for an explicit user request.
-- Treat the git history as immutable unless the user tells you otherwise. You **must not** stage, commit, amend, revert, or otherwise write to the repository unless the current prompt explicitly authorizes that exact action. A past “please commit” does **not** carry forward; if the user wants additional commits they will say so. When in doubt, ask—never assume permission. The lone exception is when you are dispatched by an orchestration script that sets the `CODEX_AUTOMATION` environment variable; those runs already include explicit commit instructions inside the plan, so you may follow the plan’s commit/rename steps without asking the user again.
+- Treat the git history as immutable unless the user tells you otherwise. You **must not** stage, commit, amend, revert, or otherwise write to the repository unless the current prompt explicitly authorizes that exact action. A past “please commit” does **not** carry forward; if the user wants additional commits they will say so. When in doubt, ask—never assume permission. The lone exception is when you are dispatched by an orchestration script that sets the `CLAUDE_AUTOMATION` environment variable; those runs already include explicit commit instructions inside the plan, so you may follow the plan’s commit/rename steps without asking the user again.
 - Never imply that code edits or commits are expected unless the user has explicitly asked for them in the current prompt.
 - Playwright runs may need elevated permissions to let Vite bind `127.0.0.1:5182`; rerun the shell command with `with_escalated_permissions: true` plus a one-line `justification` describing the port bind whenever the harness responds with `EPERM`.
 
