@@ -63,7 +63,7 @@ const catalog: Catalog = {
   pushSellfile: 'Enviar Sellfile para o RSL Helper',
   pushSellfileTooltip: 'Envia o Sellfile para {endpoint}',
   manageColorsAria: 'Gerenciar cores',
-  // Rule Tester
+  // Gear Inspector
   gearDialogOpenTooltip: 'Abra o diálogo Ferramentas na guia “Equipamentos” para carregar um banco de dados do RSL Helper ou montar itens de exemplo sem sair da prévia.',
   gearDialogIntro: 'Use o diálogo Equipamentos (`Ferramentas` → guia Equipamentos) para criar peças de exemplo e ver qual regra mantém ou vende o item. Carregue ou arraste um banco de dados do RSL Helper (geralmente em %APPDATA%\\RslHelper\\Receita) para que a visualização do Teste de Regras reflita equipamentos reais.',
   gearDialogManualOnlyNotice: 'Este painel mostra apenas as entradas personalizadas. Os itens importados do inventário, coleção, cofre e caixa de entrada continuam visíveis na visualização do Teste de Regras; use os botões abaixo para remover essas origens, se necessário.',
@@ -151,7 +151,7 @@ const catalog: Catalog = {
   testerLastUsedCustomSummaryRange: '{minDays}–{maxDays} dias atrás',
   testerLastUsedCustomSummaryMin: '≥{minDays} dias atrás',
   testerLastUsedCustomSummaryMax: '≤{maxDays} dias atrás',
-  // Common UI bits used in Rule Tester
+  // Common UI bits used in Gear Inspector
   add: 'Adicionar',
   compact: 'Compacto',
   expanded: 'Expandido',
@@ -1045,7 +1045,7 @@ const catalog: Catalog = {
   filterLimitPreviewRecipes: 'Receitas prévia',
   filterLimitPreviewRecipesTooltip: 'Ative para mostrar apenas os chips de receita cujas regras passam pelos filtros atuais da prévia.',
   filterLimitSelectedRecipes: 'Filtro de receitas',
-  filterLimitSelectedRecipesTooltip: '**Prévia Sellfile**\n- **Desligado**: mostra todas as linhas.\n- **Ligado**: oculta as linhas cujas receitas não estão na sua seleção.\n**Rule Tester**\n- Alterna **Desligado** → **Primeira** → **Qualquer** para que as entradas sigam a política de matching escolhida.',
+  filterLimitSelectedRecipesTooltip: '**Prévia Sellfile**\n- **Desligado**: mostra todas as linhas.\n- **Ligado**: oculta as linhas cujas receitas não estão na sua seleção.\n**Inspetor de Equipamento**\n- Alterna **Desligado** → **Primeira** → **Qualquer** para que as entradas sigam a política de matching escolhida.',
   testerSortLabel: 'Ordenar',
   testerSortTooltip: 'Ordena os itens do Teste de Regras por prioridades de substats.',
   testerSortPopoverDescription: 'Selecione prioridades para ordenar.',
@@ -1149,8 +1149,8 @@ const catalog: Catalog = {
   restoreAutosaveSafeguardsHelper: 'Restaura regras de salvaguarda e estado ativado.',
   restoreAutosaveConstraintRecipesNeedMetasets: 'As receitas exigem restaurar os metasets deste autosave.',
   restoreAutosaveConstraintSafeguardsNeedMetasets: 'As salvaguardas exigem restaurar os metasets deste autosave.',
-  restoreAutosaveFiltersLabel: 'Painel de filtros',
-  restoreAutosaveFiltersHelper: 'Restaura estado aberto, chips e seções recolhidas.',
+  restoreAutosaveFiltersLabel: 'Vista & Filtros',
+  restoreAutosaveFiltersHelper: 'Restaura estado aberto, seleção e seções recolhidas.',
   restoreAutosaveSortLabel: 'Ordenação do Teste de Regras',
   restoreAutosaveSortHelper: 'Restaura prioridades de substats, modo Normalized, fontes e pesos.',
   restoreAutosaveTesterLabel: 'Importações do Teste de Regras ({count})',

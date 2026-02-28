@@ -63,7 +63,7 @@ const overrides: Catalog = {
   pushSellfile: 'Enviar Sellfile a RSL Helper',
   pushSellfileTooltip: 'Envía el Sellfile a {endpoint}',
   manageColorsAria: 'Gestionar colores',
-  // Rule Tester
+  // Gear Inspector
   gearDialogOpenTooltip: 'Abre el diálogo Herramientas en la pestaña «Equipo» para cargar una base de datos de RSL Helper o crear equipo de ejemplo sin salir de la vista previa.',
   gearDialogIntro: 'Usa el diálogo Equipo (`Herramientas` → pestaña Equipo) para crear equipo de muestra y ver qué regla lo mantiene o vende. Carga o arrastra una base de datos de RSL Helper (normalmente en %APPDATA%\\RslHelper\\Receta) para que la vista del Probador refleje equipo real.',
   gearDialogManualOnlyNotice: 'Este panel solo muestra las entradas personalizadas. El equipo importado del inventario, la colección, la bóveda y la bandeja de entrada permanece visible en la vista del Probador; usa los botones de abajo para borrar esas fuentes si lo necesitas.',
@@ -151,7 +151,7 @@ const overrides: Catalog = {
   testerLastUsedCustomSummaryRange: '{minDays}–{maxDays} días atrás',
   testerLastUsedCustomSummaryMin: '≥{minDays} días atrás',
   testerLastUsedCustomSummaryMax: '≤{maxDays} días atrás',
-  // Common UI bits used in Rule Tester
+  // Common UI bits used in Gear Inspector
   add: 'Añadir',
   compact: 'Compacto',
   expanded: 'Expandido',
@@ -1045,7 +1045,7 @@ const overrides: Catalog = {
   filterLimitPreviewRecipes: 'Recetas vista',
   filterLimitPreviewRecipesTooltip: 'Alterna para mostrar solo los chips de receta cuyas reglas superan los filtros actuales de la vista previa.',
   filterLimitSelectedRecipes: 'Filtro de recetas',
-  filterLimitSelectedRecipesTooltip: '**Vista Sellfile**\n- **Desactivado**: muestra todas las filas.\n- **Activado**: oculta las filas cuyas recetas no están en tu selección.\n**Rule Tester**\n- Alterna **Desactivado** → **Primera** → **Cualquiera** para que las entradas sigan la política de matching que elijas.',
+  filterLimitSelectedRecipesTooltip: '**Vista Sellfile**\n- **Desactivado**: muestra todas las filas.\n- **Activado**: oculta las filas cuyas recetas no están en tu selección.\n**Inspector de Equipo**\n- Alterna **Desactivado** → **Primera** → **Cualquiera** para que las entradas sigan la política de matching que elijas.',
   testerSortLabel: 'Ordenar',
   testerSortTooltip: 'Ordena las tarjetas del Probador según las prioridades de substats.',
   testerSortPopoverDescription: 'Selecciona prioridades para ordenar.',
@@ -1149,8 +1149,8 @@ const overrides: Catalog = {
   restoreAutosaveSafeguardsHelper: 'Restaura las reglas de protección y su estado activado.',
   restoreAutosaveConstraintRecipesNeedMetasets: 'Las recetas requieren restaurar los metasets de este autoguardado.',
   restoreAutosaveConstraintSafeguardsNeedMetasets: 'Las protecciones requieren restaurar los metasets de este autoguardado.',
-  restoreAutosaveFiltersLabel: 'Panel de filtros',
-  restoreAutosaveFiltersHelper: 'Restaura el estado abierto, los chips y las secciones contraídas.',
+  restoreAutosaveFiltersLabel: 'Vista y Filtros',
+  restoreAutosaveFiltersHelper: 'Restaura el estado abierto, la selección y las secciones contraídas.',
   restoreAutosaveSortLabel: 'Orden del Probador',
   restoreAutosaveSortHelper: 'Restaura prioridades de substats, modo Normalized, fuentes y pesos.',
   restoreAutosaveTesterLabel: 'Importaciones del Probador ({count})',

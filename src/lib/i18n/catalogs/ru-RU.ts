@@ -63,7 +63,7 @@ const overrides: Catalog = {
   pushSellfile: 'Отправить Sellfile в RSL Helper',
   pushSellfileTooltip: 'Отправляет Sellfile на {endpoint}',
   manageColorsAria: 'Управление цветами',
-  // Rule Tester
+  // Gear Inspector
   gearDialogOpenTooltip: 'Откройте диалог Инструменты на вкладке «Снаряжение», чтобы загрузить базу RSL Helper или собрать примерные предметы, не выходя из предпросмотра.',
   gearDialogIntro: 'Используйте диалог «Снаряжение» (`Инструменты` → вкладка) чтобы создать примерные вещи и увидеть, какое правило их оставит или продаст. Загрузите или перетащите базу RSL Helper (обычно в %APPDATA%\\RslHelper\\Config), чтобы режим тестера показывал реальные предметы.',
   gearDialogManualOnlyNotice: 'В этой панели показываются только пользовательские записи. Импортированные предметы из инвентаря, коллекции, хранилища и почты остаются видимыми в тестере; при необходимости удаляйте эти источники кнопками ниже.',
@@ -151,7 +151,7 @@ const overrides: Catalog = {
   testerLastUsedCustomSummaryRange: '{minDays}–{maxDays} дней назад',
   testerLastUsedCustomSummaryMin: '≥{minDays} дней назад',
   testerLastUsedCustomSummaryMax: '≤{maxDays} дней назад',
-  // Common UI bits used in Rule Tester
+  // Common UI bits used in Gear Inspector
   add: 'Добавить',
   compact: 'Компактный',
   expanded: 'Развёрнутый',
@@ -1045,7 +1045,7 @@ const overrides: Catalog = {
   filterLimitPreviewRecipes: 'Рецепты (обзор)',
   filterLimitPreviewRecipesTooltip: 'Показывать только рецепт-чипы, чьи правила проходят текущие фильтры превью.',
   filterLimitSelectedRecipes: 'Фильтр рецептов',
-  filterLimitSelectedRecipesTooltip: '**Превью Sellfile**\n- **Выкл.**: показывает все строки.\n- **Вкл.**: скрывает строки рецептов вне выбранных чипов.\n**Rule Tester**\n- Переключается **Выкл.** → **Первая** → **Любая**, чтобы записи тестера соответствовали выбранной политике.',
+  filterLimitSelectedRecipesTooltip: '**Превью Sellfile**\n- **Выкл.**: показывает все строки.\n- **Вкл.**: скрывает строки рецептов вне выбранных чипов.\n**Инспектор снаряжения**\n- Переключается **Выкл.** → **Первая** → **Любая**, чтобы записи тестера соответствовали выбранной политике.',
   testerSortLabel: 'Сортировка',
   testerSortTooltip: 'Сортирует элементы Тестера по приоритетам подстатов.',
   testerSortPopoverDescription: 'Выберите приоритеты сортировки.',
@@ -1149,8 +1149,8 @@ const overrides: Catalog = {
   restoreAutosaveSafeguardsHelper: 'Восстанавливает правила защит и состояние включения.',
   restoreAutosaveConstraintRecipesNeedMetasets: 'Для рецептов нужно восстановить метасеты из этого автосохранения.',
   restoreAutosaveConstraintSafeguardsNeedMetasets: 'Для защит нужно восстановить метасеты из этого автосохранения.',
-  restoreAutosaveFiltersLabel: 'Панель фильтров',
-  restoreAutosaveFiltersHelper: 'Восстанавливает состояние открытия, чипы и свёрнутые секции.',
+  restoreAutosaveFiltersLabel: 'Вид и Фильтр',
+  restoreAutosaveFiltersHelper: 'Восстанавливает состояние открытия, выбор и свёрнутые секции.',
   restoreAutosaveSortLabel: 'Сортировка тестера',
   restoreAutosaveSortHelper: 'Восстанавливает приоритеты подстатов, режим Normalized, источники и веса.',
   restoreAutosaveTesterLabel: 'Очередь тестера ({count})',

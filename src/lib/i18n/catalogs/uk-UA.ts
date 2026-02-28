@@ -63,7 +63,7 @@ const overrides: Catalog = {
   pushSellfile: 'Надіслати Sellfile до RSL Helper',
   pushSellfileTooltip: 'Надсилає Sellfile на {endpoint}',
   manageColorsAria: 'Керування кольорами',
-  // Rule Tester
+  // Gear Inspector
   gearDialogOpenTooltip: 'Відкрийте діалог Інструменти на вкладці «Спорядження», щоб завантажити базу RSL Helper або зібрати зразкові речі, не виходячи з перегляду.',
   gearDialogIntro: 'Користуйтесь діалогом Gear (`Інструменти` → вкладка Gear), щоб створити приклади спорядження і побачити, яке правило його залишить чи продасть. Завантажуйте або перетягуйте базу RSL Helper (зазвичай %APPDATA%\\RslHelper\\Config), щоб у тестері були реальні предмети.',
   gearDialogManualOnlyNotice: 'Ця панель показує лише користувацькі записи. Імпортовані предмети з інвентарю, колекції, сховища та скриньки залишаються видимими у тестері; за потреби очищайте ці джерела кнопками нижче.',
@@ -151,7 +151,7 @@ const overrides: Catalog = {
   testerLastUsedCustomSummaryRange: '{minDays}–{maxDays} днів тому',
   testerLastUsedCustomSummaryMin: '≥{minDays} днів тому',
   testerLastUsedCustomSummaryMax: '≤{maxDays} днів тому',
-  // Common UI bits used in Rule Tester
+  // Common UI bits used in Gear Inspector
   add: 'Додати',
   compact: 'Компактний',
   expanded: 'Розгорнутий',
@@ -1045,7 +1045,7 @@ const overrides: Catalog = {
   filterLimitPreviewRecipes: 'Рецепти (превʼю)',
   filterLimitPreviewRecipesTooltip: 'Увімкніть, щоб показувати лише рецепт-чипи, чиї правила проходять поточні фільтри превʼю.',
   filterLimitSelectedRecipes: 'Фільтр рецептів',
-  filterLimitSelectedRecipesTooltip: '**Превʼю Sellfile**\n- **Вимк.**: показує всі рядки.\n- **Увімк.**: приховує рядки рецептів, що не входять до вибраних чипів.\n**Rule Tester**\n- Крутіть **Вимк.** → **Перша** → **Будь-яка**, щоб записи тестера дотримувалися обраної політики.',
+  filterLimitSelectedRecipesTooltip: '**Превʼю Sellfile**\n- **Вимк.**: показує всі рядки.\n- **Увімк.**: приховує рядки рецептів, що не входять до вибраних чипів.\n**Інспектор спорядження**\n- Крутіть **Вимк.** → **Перша** → **Будь-яка**, щоб записи тестера дотримувалися обраної політики.',
   testerSortLabel: 'Сортування',
   testerSortTooltip: 'Сортує елементи Тестера за пріоритетами підстатів.',
   testerSortPopoverDescription: 'Виберіть пріоритети для сортування.',
@@ -1149,8 +1149,8 @@ const overrides: Catalog = {
   restoreAutosaveSafeguardsHelper: 'Відновлює правила захистів і стан увімкнення.',
   restoreAutosaveConstraintRecipesNeedMetasets: 'Для рецептів потрібно відновити метасети з цього автозбереження.',
   restoreAutosaveConstraintSafeguardsNeedMetasets: 'Для захистів потрібно відновити метасети з цього автозбереження.',
-  restoreAutosaveFiltersLabel: 'Панель фільтрів',
-  restoreAutosaveFiltersHelper: 'Відновлює стан відкриття, чипи та згортання секцій.',
+  restoreAutosaveFiltersLabel: 'Вигляд і Фільтр',
+  restoreAutosaveFiltersHelper: 'Відновлює стан відкриття, вибір та згортання секцій.',
   restoreAutosaveSortLabel: 'Сортування тестера',
   restoreAutosaveSortHelper: 'Відновлює пріоритети підстатів, режим Normalized, джерела та ваги.',
   restoreAutosaveTesterLabel: 'Черга тестера ({count})',

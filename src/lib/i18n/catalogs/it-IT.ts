@@ -63,7 +63,7 @@ const overrides: Catalog = {
   pushSellfile: 'Invia Sellfile a RSL Helper',
   pushSellfileTooltip: 'Invia il Sellfile a {endpoint}',
   manageColorsAria: 'Gestisci colori',
-  // Rule Tester
+  // Gear Inspector
   gearDialogOpenTooltip: 'Apri la finestra di dialogo Strumenti nella scheda “Equipaggiamento” per caricare un database di RSL Helper o creare equip di esempio senza uscire dall’anteprima.',
   gearDialogIntro: 'Usa il dialogo Equipaggiamento (`Strumenti` → scheda Equipaggiamento) per creare equip di esempio e vedere quale regola lo conserva o lo vende. Carica o trascina un database di RSL Helper (di solito in %APPDATA%\\RslHelper\\Ricetta) così la vista del Tester mostra equip reale.',
   gearDialogManualOnlyNotice: 'Questo riquadro mostra solo le voci personalizzate. Gli oggetti importati da inventario, collezione, deposito e posta rimangono visibili nella vista del Tester regole; usa i pulsanti qui sotto per rimuovere tali sorgenti se necessario.',
@@ -151,7 +151,7 @@ const overrides: Catalog = {
   testerLastUsedCustomSummaryRange: '{minDays}–{maxDays} giorni fa',
   testerLastUsedCustomSummaryMin: '≥{minDays} giorni fa',
   testerLastUsedCustomSummaryMax: '≤{maxDays} giorni fa',
-  // Common UI bits used in Rule Tester
+  // Common UI bits used in Gear Inspector
   add: 'Aggiungi',
   compact: 'Compatta',
   expanded: 'Espansa',
@@ -1045,7 +1045,7 @@ const overrides: Catalog = {
   filterLimitPreviewRecipes: 'Ricette anteprima',
   filterLimitPreviewRecipesTooltip: 'Attiva per mostrare solo i chip delle ricette le cui regole superano i filtri attuali dell’anteprima.',
   filterLimitSelectedRecipes: 'Filtro ricetta',
-  filterLimitSelectedRecipesTooltip: '**Anteprima Sellfile**\n- **Disattivato**: mostra tutte le righe.\n- **Attivo**: nasconde le righe delle ricetta fuori dalla tua selezione.\n**Rule Tester**\n- Alterna **Disattivato** → **Prima** → **Qualsiasi** affinché le righe del tester seguano la politica di matching scelta.',
+  filterLimitSelectedRecipesTooltip: '**Anteprima Sellfile**\n- **Disattivato**: mostra tutte le righe.\n- **Attivo**: nasconde le righe delle ricetta fuori dalla tua selezione.\n**Ispettore Equipaggiamento**\n- Alterna **Disattivato** → **Prima** → **Qualsiasi** affinché le righe del tester seguano la politica di matching scelta.',
   testerSortLabel: 'Ordina',
   testerSortTooltip: 'Ordina le schede del Tester regole in base alle priorità delle sotto-stat.',
   testerSortPopoverDescription: 'Seleziona le priorità di ordinamento.',
@@ -1077,7 +1077,7 @@ const overrides: Catalog = {
   testerSortNormalized: 'Normalizzato',
   testerSortNormalizedTooltip: '**Normalized** ignora l’ordine di priorità e ordina in base a un unico punteggio:\n\n- **Punteggio = somma ponderata** delle substat selezionate.\n- Ogni substat selezionata ha un **peso** (`0.1–3.0`, predefinito `1.0`).\n- Ogni substat selezionata viene scalata in base al suo **cap di roll 6★**: `valore / cap`.\n- Se vengono selezionati più preset, l’ordinamento usa il **miglior (max)** punteggio (non una media).\n- **Contano solo le substat**. Set, slot, rango, rarità e statistica principale vengono ignorati.\n- Se un item non ha una substat selezionata, contribuisce **0**.\n- `Last Used` viene ignorato mentre Normalized è attivo.\n\n**Esempio (selezionato: [[stat:statSPD]] + [[stat:statCR]] + [[stat:statCDMG]])**\n**(n)** indica il **numero di rolls di upgrade** su quella substat.\n\n- Item A: `[[stat:statSPD]] 11 (1)`, `[[stat:statCR]] 20 (3)`, `[[stat:statCDMG]] 7 (0)`\n  - [[stat:statCR]] ha un **triplo scarso**: `5 + 3×5 = 20`\n  - Punteggio = `11/6 + 20/7 + 7/7 = 1.83 + 2.86 + 1.00 = 5.69`\n- Item B: `[[stat:statSPD]] 10 (1)`, `[[stat:statCR]] 21 (2)`, `[[stat:statCDMG]] 12 (1)`\n  - [[stat:statCR]] ha un **doppio buono**: `7 + 2×7 = 21`\n  - Punteggio = `10/6 + 21/7 + 12/7 = 1.67 + 3.00 + 1.71 = 6.38`\n\nAnche con meno rolls su [[stat:statCR]], l’Item B può risultare più in alto perché i rolls sono di qualità migliore — e il punteggio considera anche le altre statistiche selezionate.',
   testerSortNormalizedUseActive: 'Attivo',
-  testerSortNormalizedUseActiveTooltip: '**Attivo** usa la selezione dei preset della griglia del Rule Tester in **Mostra valutazione substat** come sorgente di punteggio normalizzato.\n\n- Se più preset sono abilitati nella griglia, l’ordinamento usa il **miglior (max)** punteggio.\n- Disabilitato quando l’overlay della griglia è impostato su **Sorgente di ordinamento** per evitare un punteggio circolare.',
+  testerSortNormalizedUseActiveTooltip: '**Attivo** usa la selezione dei preset della griglia del Ispettore Equipaggiamento in **Mostra valutazione substat** come sorgente di punteggio normalizzato.\n\n- Se più preset sono abilitati nella griglia, l’ordinamento usa il **miglior (max)** punteggio.\n- Disabilitato quando l’overlay della griglia è impostato su **Sorgente di ordinamento** per evitare un punteggio circolare.',
   testerSortNormalizedPresetActionsOverwrite: 'Sovrascrivi dall’attuale',
   testerSortWeightIncreaseAria: 'Aumenta il peso di {label}',
   testerSortWeightDecreaseAria: 'Riduci il peso di {label}',
@@ -1149,8 +1149,8 @@ const overrides: Catalog = {
   restoreAutosaveSafeguardsHelper: 'Ripristina regole di salvaguardia e stato attivo.',
   restoreAutosaveConstraintRecipesNeedMetasets: 'Le ricette richiedono di ripristinare i metaset da questo autosalvataggio.',
   restoreAutosaveConstraintSafeguardsNeedMetasets: 'Le salvaguardie richiedono di ripristinare i metaset da questo autosalvataggio.',
-  restoreAutosaveFiltersLabel: 'Pannello filtri',
-  restoreAutosaveFiltersHelper: 'Ripristina stato di apertura, chip e sezioni compresse.',
+  restoreAutosaveFiltersLabel: 'Vista & Filtri',
+  restoreAutosaveFiltersHelper: 'Ripristina stato di apertura, selezione e sezioni compresse.',
   restoreAutosaveSortLabel: 'Ordine del Tester regole',
   restoreAutosaveSortHelper: 'Ripristina priorità substat, modalità Normalized, sorgenti e pesi.',
   restoreAutosaveTesterLabel: 'Importazioni del tester ({count})',
