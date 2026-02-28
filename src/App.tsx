@@ -6451,10 +6451,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           forceSideBySide={forceSideBySideLayout}
           title={builderModeToggle}
           substatTargets={substatTargetsElement}
-          builderPanel={builderMode === 'safeguard' ? safeguardBuilderPanelElement : builderPanelElement}
+          builderPanel={
+            // Always mount both builder panels; hide the inactive one with display:none so
+            // the layout is already settled when the mode switch happens (no cascading reflows).
+            <>
+              <Box sx={{ display: builderMode === 'safeguard' ? undefined : 'none' }}>{safeguardBuilderPanelElement}</Box>
+              <Box sx={{ display: builderMode === 'recipe' ? undefined : 'none' }}>{builderPanelElement}</Box>
+            </>
+          }
           headerActions={headerActionsElement}
           metasetConflictDialog={metasetConflictDialogElement}
-          recipeChipsPanel={builderMode === 'safeguard' ? safeguardChipsPanelElement : recipeChipsPanelElement}
+          recipeChipsPanel={
+            // Always mount both chips panels. Chips wrappers use display:flex so the
+            // inner panel's flexGrow fills the available column space correctly.
+            <>
+              <Box sx={{ display: builderMode === 'safeguard' ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0 }}>{safeguardChipsPanelElement}</Box>
+              <Box sx={{ display: builderMode === 'recipe' ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0 }}>{recipeChipsPanelElement}</Box>
+            </>
+          }
           pasteDialog={builderMode === 'safeguard' ? null : pasteDialogElement}
           copyDialog={builderMode === 'safeguard' ? null : copyDialogElement}
         />

@@ -285,6 +285,9 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
       const viewportHeight = window.visualViewport?.height ?? window.innerHeight ?? document.documentElement?.clientHeight ?? 0
       const paperRect = paper.getBoundingClientRect()
       const containerRect = container.getBoundingClientRect()
+      // When the container is hidden (display: none gives an all-zero rect), skip — the
+      // measurement would be meaningless and produce a garbage maxHeight value.
+      if (containerRect.width === 0 && containerRect.height === 0) return
       // How much viewport height is available below the paper's top edge.
       const paperAvailable = viewportHeight - paperRect.top - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX
       if (!Number.isFinite(paperAvailable) || paperAvailable <= 0) return
