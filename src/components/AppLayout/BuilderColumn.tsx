@@ -54,10 +54,14 @@ export function BuilderColumn({
         ...(forceSideBySide && sideBySideMinPaperHeightPx
           ? { minHeight: sideBySideMinPaperHeightPx, maxHeight: sideBySideMinPaperHeightPx, overflow: 'hidden' }
           : {}),
+        // Native side-by-side (no zoom) gets the same fixed-height treatment so that
+        // chipsMaxHeight updates on mode switch cannot nudge the paper height up or down.
         [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
           mx: 0,
           width: PANEL_WIDTH_PX,
-          ...(sideBySideMinPaperHeightPx ? { minHeight: sideBySideMinPaperHeightPx } : {}),
+          ...(sideBySideMinPaperHeightPx
+            ? { minHeight: sideBySideMinPaperHeightPx, maxHeight: sideBySideMinPaperHeightPx, overflow: 'hidden' }
+            : {}),
         },
       }}
       data-tour-id="builder.panel"

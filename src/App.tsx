@@ -5241,6 +5241,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onSelect={handleSelectSafeguardRule}
       onRulesChange={(next) => applySafeguardRulesChange(next)}
       maxHeightPx={safeguardChipsMaxHeight}
+      isSideBySide={isSideBySide}
       containerRef={safeguardChipsContainerRef}
       visibleRuleIds={visibleSafeguardRuleIds}
       metasets={metasetsForPreview}

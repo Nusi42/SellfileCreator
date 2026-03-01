@@ -345,6 +345,31 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - Preview height cap: right Paper height matches the left Paper during side-by-side; the preview table scrolls inside an overflow-hidden flex column.
 - Header layout: Builder caption uses a three-column grid; Preview caption shares its row with filters/tester controls and wraps as needed.
 
+### Top-down paper height constraint (side-by-side mode)
+
+In both native side-by-side (viewport ≥ `SIDE_BY_SIDE_BREAKPOINT_PX`) and forced/zoom side-by-side, the builder Paper is given a fixed height so its internal content never causes a document-level scrollbar:
+
+- **`M` (available height in CSS px)**: computed by `useBuilderPreviewLayout` as
+  `M = floor((viewportHeight − paperRect.top) / zoom − BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX)`,
+  where `zoom = AUTO_SIDE_BY_SIDE_FORCED_ZOOM` in forced mode, `1` in native mode.
+  `getBoundingClientRect()` returns visual (zoomed) coordinates; dividing by `zoom` converts back to CSS pixels, keeping the arithmetic consistent with `window.innerHeight`.
+- **Paper constraint**: `BuilderColumn` applies `minHeight = maxHeight = M` + `overflow: hidden` to the Paper in both the `forceSideBySide` code path and the `@media (min-width: SIDE_BY_SIDE_BREAKPOINT_PX)` path. Both paths use `maxHeight` (not just `minHeight`) so that `chipsMaxHeight` updates on mode switch cannot nudge the paper height up or down.
+- **M initialization**: `sideBySideMinPaperHeight` is seeded at `useState` init time with `floor(window.innerHeight / AUTO_SIDE_BY_SIDE_FORCED_ZOOM − INSET)` when `forceSideBySide` is detected. This upper-bound estimate is live from the very first render, preventing a scrollbar flash before the rAF measurement produces the refined value.
+- **M decoupled from chips visibility**: `runChipsMeasurement` computes and applies M from the paper position alone, before checking whether the chips container is visible. This ensures the paper height is always constrained on reload even when the app starts in safeguard builder mode (where the recipe chips container is hidden).
+- **Internal flex layout**: Inside the fixed-height Paper, the core section (`flexShrink: 0`) stacks above the chips wrapper (`flex: 1; minHeight: 0`). The chips wrapper fills all remaining space naturally without the paper ever exceeding M.
+
+### `chipsAvailableHeight` signal
+
+`useBuilderPreviewLayout` returns `chipsAvailableHeight: number | null`:
+- `null` — not in side-by-side mode (stacked layout). `RecipeChipsPanel` uses the legacy `minHeight = maxHeight = chipsMaxHeight` sizing for stability.
+- non-null (including `0`) — side-by-side mode is active. `RecipeChipsPanel` switches to `minHeight: 0` (flex-fill); the Paper's `maxHeight` is the real constraint.
+
+When the mode transitions away from side-by-side, `chipsAvailableHeight` is reset to `null` (not `0`) so the legacy sizing resumes. When the chips container is hidden (e.g., safeguard mode with recipe chips offscreen), the measurement sets `chipsAvailableHeight = 0` to signal "side-by-side, but no chips data yet" without blocking M from being applied.
+
+### `isSideBySide` prop on `SafeguardChipsPanel`
+
+`SafeguardChipsPanel` accepts `isSideBySide?: boolean` (passed from `App.tsx` via the `isSideBySide` value from `useBuilderPreviewLayout`). When `true`, the chips container uses `minHeight: 0; maxHeight: '100%'` (flex-fill) instead of `minHeight = maxHeight = maxHeightPx` (fixed size). This matches the flex-fill behaviour of `RecipeChipsPanel` in side-by-side mode, giving both chip lists a consistent bottom edge.
+
 ## Legal
 
 This is an independent, fan-made utility. It is not affiliated with, endorsed by, or sponsored by Plarium Global Ltd., Raid: Shadow Legends, or the authors of RSL Helper. “Raid: Shadow Legends” and related names are trademarks of their respective owners. Any references are for descriptive purposes only.

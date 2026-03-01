@@ -58,6 +58,9 @@ export type SafeguardChipsPanelProps = {
   onSelect: (ruleId: string) => void
   onRulesChange: (next: SafeguardRule[]) => void
   maxHeightPx: number | undefined
+  // When true the paper is a fixed-height flex container; use minHeight:0 + maxHeight:100%
+  // so the chips list flex-fills the available wrapper space rather than holding a fixed size.
+  isSideBySide?: boolean
   containerRef?: React.MutableRefObject<HTMLDivElement | null>
   /** When set, only chips whose rule ID is in this set are shown (mirrors recipe visibleIndices). */
   visibleRuleIds?: ReadonlySet<string> | null
@@ -73,6 +76,7 @@ export default function SafeguardChipsPanel({
   onSelect,
   onRulesChange,
   maxHeightPx,
+  isSideBySide = false,
   containerRef,
   visibleRuleIds,
   metasets = [],
@@ -705,12 +709,15 @@ export default function SafeguardChipsPanel({
           flexGrow: 1,
           flexBasis: 0,
           gap: 0.75,
-          maxHeight: maxHeightPx ?? undefined,
-          minHeight: (() => {
+          // In side-by-side mode the paper is a fixed-height container (overflow:hidden), so
+          // flex-fill with no fixed size — the chips list grows to fill whatever the wrapper
+          // allocates, matching the recipe chips panel behaviour and giving a consistent bottom edge.
+          // Outside side-by-side the legacy minHeight=maxHeight trick keeps the paper height stable
+          // across mode switches with different chip counts.
+          maxHeight: isSideBySide ? '100%' : (maxHeightPx ?? undefined),
+          minHeight: isSideBySide ? 0 : (() => {
             const max = maxHeightPx ?? 0
             if (max <= 0) return 0
-            // Always fill the full measured height — same logic as RecipeChipsPanel — so the paper
-            // stays at a consistent height whether the list has items or not.
             return max
           })(),
           overflowY: 'auto',
