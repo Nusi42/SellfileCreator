@@ -70,11 +70,16 @@ import {
   CLEAR_ICON_BUTTON_SIZE_PX,
   DANGER_TINT_BG,
   FONT_SIZE_BASE_PX,
+  GLYPH_IGNORE_COLLECTION,
+  GLYPH_IGNORE_PREVIOUS,
+  GLYPH_IGNORE_VAULT,
   GLYPH_PER_FACTION,
   GLYPH_PER_MAIN_STAT,
   GLYPH_PER_SET,
   GLYPH_PER_SLOT,
   GLYPH_PER_SUBSTAT,
+  GLYPH_SUBSTAT_ALL,
+  GLYPH_SUBSTAT_ANY,
   HISTORY_TOOLTIP_MAX_WIDTH_PX,
   NBSP,
   SMALL_BUTTON_HEIGHT_PX,
@@ -682,7 +687,7 @@ export default function SafeguardBuilderPanel({
               <Chip
                 size="small"
                 variant="filled"
-                label={t('safeguardsIgnorePreviousSafeguards')}
+                label={`${GLYPH_IGNORE_PREVIOUS}${NBSP}${t('safeguardsIgnorePreviousSafeguards')}`}
                 aria-label={t('safeguardsIgnorePreviousSafeguards')}
                 clickable
                 onClick={() => {
@@ -698,7 +703,7 @@ export default function SafeguardBuilderPanel({
               <Chip
                 size="small"
                 variant="filled"
-                label={t('safeguardsIgnoreEquippedInCollection')}
+                label={`${GLYPH_IGNORE_COLLECTION}${NBSP}${t('safeguardsIgnoreEquippedInCollection')}`}
                 aria-label={t('safeguardsIgnoreEquippedInCollection')}
                 clickable
                 onClick={() => {
@@ -711,7 +716,7 @@ export default function SafeguardBuilderPanel({
               <Chip
                 size="small"
                 variant="filled"
-                label={t('safeguardsIgnoreEquippedInVault')}
+                label={`${GLYPH_IGNORE_VAULT}${NBSP}${t('safeguardsIgnoreEquippedInVault')}`}
                 aria-label={t('safeguardsIgnoreEquippedInVault')}
                 clickable
                 onClick={() => {
@@ -998,9 +1003,13 @@ export default function SafeguardBuilderPanel({
             <Box component="span" sx={{ display: 'inline-flex', gap: 0.75, flexWrap: 'wrap', alignItems: 'center', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
               {substatMatchOptions.map((option) => {
                 const active = effectiveSubstatMatch === option
-                // Prefix PerSubstat with the per-dim glyph so it visually matches scope chips.
+                // Prefix each match mode with its distinct glyph.
                 const baseLabel = substatMatchLabels[option] ?? substatMatchLabels[SafeguardSubstatMatch.Any]
-                const label = option === SafeguardSubstatMatch.PerSubstat ? `${GLYPH_PER_SUBSTAT}${NBSP}${baseLabel}` : baseLabel
+                const matchGlyph =
+                  option === SafeguardSubstatMatch.Any ? GLYPH_SUBSTAT_ANY
+                  : option === SafeguardSubstatMatch.All ? GLYPH_SUBSTAT_ALL
+                  : GLYPH_PER_SUBSTAT
+                const label = `${matchGlyph}${NBSP}${baseLabel}`
                 return (
                   <EllipsisTooltip key={option} title={label} selector=".MuiChip-label">
                     <Chip

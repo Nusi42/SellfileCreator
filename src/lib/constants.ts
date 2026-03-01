@@ -93,6 +93,13 @@ export const GLYPH_PER_MAIN_STAT = '⭐' // star — primary stat marker
 export const GLYPH_PER_SET = '🎯'      // direct hit/bullseye — set collection target
 export const GLYPH_PER_SUBSTAT = '➕'  // heavy plus — secondary stat addition
 export const GLYPH_FOR_ALL = '∀'        // "every" indicator for empty (any) selections
+// Ignore-option chip glyphs — shown on the three ignore toggle chips.
+export const GLYPH_IGNORE_PREVIOUS = '⏩'    // skip/bypass previous safeguard results
+export const GLYPH_IGNORE_COLLECTION = '🏆'  // gear worn by collection champions
+export const GLYPH_IGNORE_VAULT = '🏦'       // gear worn by vault champions
+// Substat match chip glyphs — one per mode option.
+export const GLYPH_SUBSTAT_ANY = '🔀'  // any one selected substat qualifies
+export const GLYPH_SUBSTAT_ALL = '🔗'  // all selected substats must be present
 
 // Persisted substat color map (v6 schema with alpha support)
 export const COLORS_STORAGE_KEY_V6 = 'sellfileCreator.substatColors.v6'
