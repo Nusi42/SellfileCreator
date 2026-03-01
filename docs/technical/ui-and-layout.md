@@ -230,7 +230,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Hover highlights only while pointer stays inside the preview.
   - Clicking a row selects the config but suppresses auto-scroll (prevents loops).
   - Safeguard rows suppress the "right-click for actions" hint because they intentionally expose no row context menu actions.
-  - Clicking a safeguard star now branches by data: concrete safeguard matches switch to `Rule Tester`, while anticipate-only placeholders open `Logic Hub → Safeguards`, select the matching rule, and expand its card.
+  - Clicking a safeguard star now branches by data: concrete safeguard matches switch to `Gear Inspector`, while anticipate-only placeholders open `Tools → Safeguards`, select the matching rule, and expand its card.
 
 ### Tester Grid Virtualization
 
@@ -256,22 +256,43 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Hover propagation syncs builder highlights via throttled `requestAnimationFrame` coordination.
 - Runtime-only metadata (e.g., `__lineIdx`) never enters exported HSF files.
 
-## Safeguards Tab
+## Safeguard Builder Mode
 
-- Layout: the dialog switches to a `Tabs` layout but keeps the existing shell size. On medium+ breakpoints the Safeguards tab renders a left rules column plus a tester grid column; the grid pane width is pinned to the Rule Tester 4-column card width for both 1- and 2-column modes so cards stay identical while the rules pane absorbs the remaining space (stacked on small screens).
-- Header block: the left column starts with explanatory copy, the enable toggle, and a contextual alert (`disabled`, `no tester data`, `scan pending`). Alerts stay above the scroll area so status never scrolls away, while deficit counts now surface via the inline detection chip instead of a success banner.
-- Rule list: rows map 1:1 with gear combinations and render as compact cards. Each card has a collapsed summary header (status icon + name/placeholder + actions) and expands inline to reveal the full editor. The expanded editor reuses the shared select components (`GearSlotSelect`, `GearRankSelect`, `GearRaritySelect`, `GearMainStatSelect`, `GearFactionSelect`) plus the filtered set picker. Slots/Ranks/Rarities/Main stats run in multi-select mode now: empty slot or main-stat selections read as Any, while Rank/Rarity menus expose an explicit Any option that clears other picks so combination filters mirror the builder affordances.
-- Substats: optional multi-select with the normalized-sort menu layout, plus a match-requirement chip (`Any Substat` / `All Substats` / `Per Substat`). The match chip controls whether one, all, or each selected substat gets its own quota. Weight controls are embedded in the substat menu rows (same controls as the Rule Tester sort menu) so selected substats can be prioritized without a separate popover.
-- Empty state: when no rules exist the column shows descriptive text plus a contained “Add rule” button. The same button lives in the footer alongside `Reset` (clears rules + disables Safeguards only).
-- Tester grid: the right column renders `TesterItemsGrid` with `variant="safeguards"`. The variant uses the keep-override column toggle (1 or 2 columns, default 1) and passes `highlightedRowPredicate`/`dimUnhighlightedRows` so non-matching cards fade instead of being removed. Source glyphs, color-blind toggles, and Manage Colors wiring mirror the Rule Tester.
-- Selection: clicking a rule highlights it and pushes its detection items into the tester grid highlight set. Adding a new rule scrolls the list to the newly created card. Chips above the grid show how many gear entries are currently highlighted.
-- Accessibility: all selectors remain keyboard navigable because they reuse the Gear tab components inside the Logic Hub dialog. The dense layouts rely on `MENU_CONTROL_HEIGHT_PX` so buttons remain reachable with consistent hit targets.
+Safeguards are edited in a dedicated builder mode accessed via the builder-column mode toggle (Recipe / Safeguard). This is **not** a tab inside the Tools dialog; it lives entirely in the builder column alongside `RecipeBuilderPanel`.
+
+### `SafeguardBuilderPanel` (inline rule editor)
+
+- Layout mirrors `RecipeBuilderPanel` — a 4-row CSS grid with identical column widths and control heights:
+  - **Row 1**: Mode toggle (`KeepOverrideScopeChip` — per-slot / per-set / per-main-stat / total) + Required count spinner.
+  - **Row 2**: Rank / Rarity / Faction selects (nested 3-column sub-grid) + Ignore chips (`ignorePreviousSafeguards`, `ignoreEquippedInCollection`, `ignoreEquippedInVault`).
+  - **Row 3**: Main-stat toggle grid + per-main-stat chip | Substat toggle grid + match chips (`Any Substat` / `All Substats` / `Per Substat`) + sort weight controls (`GearInspectorSortWeightControls`).
+  - **Row 4**: Slot icon grid + per-slot chip | Sets selector + per-set chip.
+- **Collapsible sections**: three sections are collapsible independently via `useBuilderSafeguardCollapsedPreference` (shared preference key, same sections as `RecipeBuilderPanel`).
+- **Undo / Redo**: full history with context menu, mirrors `RecipeBuilderPanel` via `useBuilderHistoryMenu`.
+- **Action buttons**: Insert, Apply, Reset — same layout as the recipe builder. Auto-apply and auto-reset preferences are shared with the recipe builder (mutually exclusive toggles).
+- **Scaffold from recipe**: a popover lists existing recipe configs; selecting one pre-fills the safeguard combination from that recipe's slot/set/faction/mainstat selectors, giving a quick starting point.
+- **Metasets**: the Sets picker uses the same filtered set pool as `RecipeBuilderPanel` via `useKeepOverrideCombinationTools`; the Manage Metasets entry point is forwarded from `App.tsx`.
+- **Auto-enable**: the first inserted safeguard rule automatically enables the Safeguards feature (mirrors the old SafeguardsTab behaviour).
+- **Empty state**: when no rule is selected the form renders disabled so the panel height remains stable.
+- When no rule is selected the form renders disabled so the panel height remains stable.
+
+### `SafeguardChipsPanel` (rule chip list)
+
+Rendered in the builder column below the form panel, occupying the same scrollable flex region as `RecipeChipsPanel` in recipe mode.
+
+- Add / delete / duplicate / reorder rules. Drag-and-drop reordering via `useChipListDnd`.
+- Context menu (right-click): Duplicate, Move Up/Down, Copy, Paste After, Delete.
+- Copy / paste via the shared clipboard helpers; paste opens `PasteDialog` for validation.
+- Compact chip labels use `safeguardSummaryParts` to summarise slot / set / substat selections.
+- `visibleRuleIds` prop: when provided (e.g., from a Gear Inspector highlight), only matching chips are shown — mirrors `RecipeChipsPanel`'s `visibleIndices` filter.
+- `focusRuleRequest` prop: incremented token causes the panel to scroll the specified rule chip into view; used when Gear Inspector jumps to a safeguard rule.
+- **Side-by-side mode**: `isSideBySide` prop switches the chips container to `minHeight: 0; maxHeight: '100%'` (flex-fill) so the chip list fills the Paper correctly — see *Top-down paper height constraint* in Layout Notes.
 
 ## Hooks and Shared Components
 
 - `src/hooks/useAutosaveRestore.ts`: Encapsulates autosave restore prompt, dismiss baseline, and enablement.
 - `src/hooks/useManageColorsDialog.ts`: Manages Manage Colors dialog state plus persisted substat colors.
-- `src/hooks/useSubstatTargetsDialog.ts`: Controls the Substat Target Values dialog (always renders 6★→1★ columns).
+- Substat Targets is a tab inside the Tools dialog (`LOGIC_HUB_DIALOG_TAB_SUBSTAT_TARGETS`), not a standalone dialog. It is rendered as `SubstatTargetsTabContent` within `LogicHubDialog`. `useSubstatTargetsDialog.ts` still exists in the repo but is no longer imported; `SubstatTargetsDialog.tsx` is similarly dead code left over from the previous standalone-dialog era.
 - `src/hooks/useMetasetsDialog.ts`: Governs the Manage Metasets dialog lifecycle.
 - `src/hooks/useConfirmDialog.ts`: Generic confirm dialog state.
 - `src/components/FilePickerButton.tsx`: Shared file-picker button (label + hidden input) with `accept` and `onSelect` props.
@@ -340,10 +361,35 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 
 - Fixed widths ensure both panels share `PANEL_WIDTH_PX` in stacked and side-by-side layouts. Stacked mode centers each Paper and caps width.
 - Side-by-side breakpoint: viewport ≥ `SIDE_BY_SIDE_BREAKPOINT_PX` renders the two Papers side-by-side, centered with a fixed grid and `GRID_COLUMN_GAP_PX` spacing.
-- Chips height guard: `chipsMaxHeight` starts at `BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX`, then grows to the measured safe height; the empty state clamps its floor to `BUILDER_CONFIG_CHIPS_EMPTY_MIN_HEIGHT_PX` without exceeding the measured cap. Resize observers keep the value fresh across layout changes.
+- Chips height guard: `chipsMaxHeight` starts at `BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX`, then grows to the measured safe height; the empty state clamps its floor to `BUILDER_CONFIG_CHIPS_EMPTY_MIN_HEIGHT_PX` without exceeding the measured cap. Resize observers keep the value fresh across layout changes. This drives chip sizing in stacked mode only; in side-by-side mode the Paper's `maxHeight = M` is the real constraint and chips flex-fill (see *Top-down paper height constraint* below).
 - Auto zoom fallback: `useAutoSideBySideZoom` applies the fixed `AUTO_SIDE_BY_SIDE_FORCED_ZOOM` whenever the viewport is narrower than `SIDE_BY_SIDE_BREAKPOINT_PX` but still at least `AUTO_SIDE_BY_SIDE_FORCE_MIN_WIDTH_PX`; otherwise it restores zoom 1 and reverts to the stacked layout.
 - Preview height cap: right Paper height matches the left Paper during side-by-side; the preview table scrolls inside an overflow-hidden flex column.
 - Header layout: Builder caption uses a three-column grid; Preview caption shares its row with filters/tester controls and wraps as needed.
+
+### Top-down paper height constraint (side-by-side mode)
+
+In both native side-by-side (viewport ≥ `SIDE_BY_SIDE_BREAKPOINT_PX`) and forced/zoom side-by-side, the builder Paper is given a fixed height so its internal content never causes a document-level scrollbar:
+
+- **`M` (available height in CSS px)**: computed by `useBuilderPreviewLayout` as
+  `M = floor((viewportHeight − paperRect.top) / zoom − BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX)`,
+  where `zoom = AUTO_SIDE_BY_SIDE_FORCED_ZOOM` in forced mode, `1` in native mode.
+  `getBoundingClientRect()` returns visual (zoomed) coordinates; dividing by `zoom` converts back to CSS pixels, keeping the arithmetic consistent with `window.innerHeight`.
+- **Paper constraint**: `BuilderColumn` applies `minHeight = maxHeight = M` + `overflow: hidden` to the Paper in both the `forceSideBySide` code path and the `@media (min-width: SIDE_BY_SIDE_BREAKPOINT_PX)` path. Both paths use `maxHeight` (not just `minHeight`) so that `chipsMaxHeight` updates on mode switch cannot nudge the paper height up or down.
+- **M initialization**: `sideBySideMinPaperHeight` is seeded at `useState` init time with `floor(window.innerHeight / AUTO_SIDE_BY_SIDE_FORCED_ZOOM − INSET)` when `forceSideBySide` is detected. This upper-bound estimate is live from the very first render, preventing a scrollbar flash before the rAF measurement produces the refined value.
+- **M decoupled from chips visibility**: `runChipsMeasurement` computes and applies M from the paper position alone, before checking whether the chips container is visible. This ensures the paper height is always constrained on reload even when the app starts in safeguard builder mode (where the recipe chips container is hidden).
+- **Internal flex layout**: Inside the fixed-height Paper, the core section (`flexShrink: 0`) stacks above the chips wrapper (`flex: 1; minHeight: 0`). The chips wrapper fills all remaining space naturally without the paper ever exceeding M.
+
+### `chipsAvailableHeight` signal
+
+`useBuilderPreviewLayout` returns `chipsAvailableHeight: number | null`:
+- `null` — not in side-by-side mode (stacked layout). `RecipeChipsPanel` uses the legacy `minHeight = maxHeight = chipsMaxHeight` sizing for stability.
+- non-null (including `0`) — side-by-side mode is active. `RecipeChipsPanel` switches to `minHeight: 0` (flex-fill); the Paper's `maxHeight` is the real constraint.
+
+When the mode transitions away from side-by-side, `chipsAvailableHeight` is reset to `null` (not `0`) so the legacy sizing resumes. When the chips container is hidden (e.g., safeguard mode with recipe chips offscreen), the measurement sets `chipsAvailableHeight = 0` to signal "side-by-side, but no chips data yet" without blocking M from being applied.
+
+### `isSideBySide` prop on `SafeguardChipsPanel`
+
+`SafeguardChipsPanel` accepts `isSideBySide?: boolean` (passed from `App.tsx` via the `isSideBySide` value from `useBuilderPreviewLayout`). When `true`, the chips container uses `minHeight: 0; maxHeight: '100%'` (flex-fill) instead of `minHeight = maxHeight = maxHeightPx` (fixed size). This matches the flex-fill behaviour of `RecipeChipsPanel` in side-by-side mode, giving both chip lists a consistent bottom edge.
 
 ## Legal
 

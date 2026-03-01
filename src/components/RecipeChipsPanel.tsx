@@ -27,6 +27,11 @@ function RecipeChipsPanel(props: {
   recipes: BuilderRecipe[]
   exportModeOverrides?: SellfileExportMode[]
   maxHeightPx: number
+  // Zoom-corrected available height from useBuilderPreviewLayout.
+  // null = not in side-by-side mode (legacy minHeight=maxHeight behaviour).
+  // non-null (including 0) = side-by-side mode; paper has a fixed maxHeight so minHeight
+  // is set to 0 and flex fills the available space.
+  chipsAvailableHeight?: number | null
   selectedIndices: number[]
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
@@ -67,6 +72,7 @@ function RecipeChipsPanel(props: {
     recipes,
     exportModeOverrides,
     maxHeightPx,
+    chipsAvailableHeight,
     selectedIndices,
     metasets,
     substatColors,
@@ -164,14 +170,16 @@ function RecipeChipsPanel(props: {
     })
     return order
   }, [recipes, visibleSet])
-  // Always fill the full measured available height so the paper stays at a consistent height
-  // regardless of whether the list is empty or populated. Capping at an arbitrary constant
-  // when empty caused the paper to be shorter in empty-list mode, producing a visible height
-  // jump when toggling between builder modes with different item counts.
+  // In side-by-side mode (chipsAvailableHeight is non-null), the Paper is locked to a fixed
+  // maxHeight that acts as the top-down constraint. Setting minHeight to 0 lets the chips
+  // container fill available flex space naturally — the Paper's overflow:hidden is the safety net.
+  // In stacked / non-measured mode (null), keep minHeight=maxHeight to stabilise the paper
+  // height across mode switches with different chip counts.
   const minHeightPx = React.useMemo(() => {
     if (maxHeightPx <= 0) return 0
+    if (chipsAvailableHeight != null) return 0
     return maxHeightPx
-  }, [maxHeightPx])
+  }, [maxHeightPx, chipsAvailableHeight])
 
   const [showFocusRing, setShowFocusRing] = React.useState(false)
   const dragAllowed = recipes.length > 1 && renderedIndices.length > 0

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
+  AUTO_SIDE_BY_SIDE_FORCED_ZOOM,
   BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX,
   BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX,
   BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX,
@@ -23,6 +24,11 @@ export type BuilderPreviewLayout = {
   leftPaperRef: React.MutableRefObject<HTMLDivElement | null>
   chipsContainerRef: React.MutableRefObject<HTMLDivElement | null>
   chipsMaxHeight: number
+  // Zoom-corrected available height for the chips container, with no minimum floor.
+  // null = not in side-by-side mode (use legacy minHeight=maxHeight stability trick).
+  // 0 = in side-by-side mode but no space available.
+  // >0 = space available; RecipeChipsPanel can use flex-fill and ignore the legacy trick.
+  chipsAvailableHeight: number | null
   safeguardChipsContainerRef: React.MutableRefObject<HTMLDivElement | null>
   safeguardChipsMaxHeight: number
   // Expose the resolved side-by-side state so other UI (e.g., empty states) can stay consistent
@@ -44,8 +50,15 @@ export type UseBuilderPreviewLayoutOptions = {
 export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderPreviewLayoutOptions = {}): BuilderPreviewLayout {
   const leftPaperRef = useRef<HTMLDivElement | null>(null)
   const [leftHeight, setLeftHeight] = useState<number>(0)
-  const [sideBySideMinPaperHeight, setSideBySideMinPaperHeightState] = useState<number>(0)
-  const sideBySideMinPaperHeightRef = useRef(0)
+  // When forceSideBySide, seed an immediate upper-bound estimate (viewport/zoom minus bottom inset)
+  // so the Paper's maxHeight constraint is live from the very first render — preventing any
+  // scrollbar flash before the accurate rAF measurement fires and refines the value.
+  const [sideBySideMinPaperHeight, setSideBySideMinPaperHeightState] = useState<number>(() => {
+    if (!forceSideBySide || typeof window === 'undefined') return 0
+    const vh = window.innerHeight ?? 0
+    return Math.max(0, Math.floor(vh / AUTO_SIDE_BY_SIDE_FORCED_ZOOM - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX))
+  })
+  const sideBySideMinPaperHeightRef = useRef(sideBySideMinPaperHeight)
   const setSideBySideMinPaperHeight = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
     setSideBySideMinPaperHeightState((prev) => {
       const next = typeof value === 'function' ? (value as (previous: number) => number)(prev) : value
@@ -100,6 +113,20 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
     })
   }, [setChipsMaxHeightState])
 
+  // Zoom-corrected available height for the chips container (no minimum floor).
+  // null = not in side-by-side mode; RecipeChipsPanel falls back to the legacy minHeight=maxHeight
+  // stability trick. Non-null (including 0) = we are in side-by-side mode; RecipeChipsPanel lets
+  // flex fill the available space and relies on the Paper's maxHeight as the true constraint.
+  const [chipsAvailableHeight, setChipsAvailableHeightState] = useState<number | null>(null)
+  const chipsAvailableHeightRef = useRef<number | null>(null)
+  const setChipsAvailableHeight = useCallback<React.Dispatch<React.SetStateAction<number | null>>>((value) => {
+    setChipsAvailableHeightState((prev) => {
+      const next = typeof value === 'function' ? (value as (previous: number | null) => number | null)(prev) : value
+      chipsAvailableHeightRef.current = next
+      return next
+    })
+  }, [setChipsAvailableHeightState])
+
   const chipsMeasureQueuedRef = useRef(false)
   const chipsMeasureFrameRef = useRef<number | null>(null)
 
@@ -117,35 +144,63 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
       if (chipsMaxHeightRef.current !== BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX) {
         setChipsMaxHeight(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX)
       }
+      // null signals "not in side-by-side mode"; RecipeChipsPanel uses the legacy minHeight trick.
+      if (chipsAvailableHeightRef.current !== null) setChipsAvailableHeight(null)
       return
     }
-    const container = chipsContainerRef.current
     const paper = leftPaperRef.current
-    if (!container || !paper || typeof window === 'undefined') return
+    if (!paper || typeof window === 'undefined') return
     try {
       const viewportHeight = window.visualViewport?.height ?? window.innerHeight ?? document.documentElement?.clientHeight ?? 0
       const paperRect = paper.getBoundingClientRect()
-      const containerRect = container.getBoundingClientRect()
-      // When the container is hidden (display: none → all-zero rect), skip — offsetWithinPaper would
-      // be negative (containerRect.top=0 minus positive paperRect.top), inflating rawAvailable to a
-      // garbage large value that would flash the panel open when it becomes visible again.
-      if (containerRect.width === 0 && containerRect.height === 0) return
-      const paperAvailable = viewportHeight - paperRect.top - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX
+      // In forceSideBySide mode, CSS zoom is applied to #root. getBoundingClientRect() returns
+      // visual (zoomed) coordinates while window.innerHeight / visualViewport.height are CSS pixels.
+      // Dividing by zoom converts rect positions back to CSS pixel space so minPaperHeight and
+      // all downstream heights remain consistent with MUI sx values.
+      const zoom = forceSideBySideRef.current ? AUTO_SIDE_BY_SIDE_FORCED_ZOOM : 1
+      const paperAvailable = (viewportHeight - paperRect.top) / zoom - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX
       const minPaperHeight = Math.max(0, Math.floor(paperAvailable))
+      // Always update M from the paper's own position — this must run regardless of whether the
+      // recipe chips container is visible, so safeguard mode on reload also gets a correct M.
       if (sideBySideMinPaperHeightRef.current !== minPaperHeight) {
         setSideBySideMinPaperHeight(minPaperHeight)
       }
+      // Below here: chips-specific calculation that needs the container to be visible.
+      // A hidden container (display:none in safeguard mode) still contributes the non-null signal
+      // so RecipeChipsPanel knows we're in side-by-side mode and should not use the legacy trick.
+      const container = chipsContainerRef.current
+      if (!container) {
+        if (chipsAvailableHeightRef.current === null) setChipsAvailableHeight(0)
+        return
+      }
+      const containerRect = container.getBoundingClientRect()
+      if (containerRect.width === 0 && containerRect.height === 0) {
+        // Container is hidden (safeguard mode) — M is already updated above.
+        // Set a non-null zero to suppress the legacy minHeight trick in RecipeChipsPanel.
+        if (chipsAvailableHeightRef.current === null) setChipsAvailableHeight(0)
+        return
+      }
       if (!Number.isFinite(paperAvailable) || paperAvailable <= 0) return
-      const offsetWithinPaper = containerRect.top - paperRect.top
+      // Same zoom correction for the container offset — both rects are in visual px.
+      const offsetWithinPaper = (containerRect.top - paperRect.top) / zoom
       const rawAvailable = Math.floor(paperAvailable - offsetWithinPaper)
       const safeAvailable = rawAvailable - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX
+      // Signal to RecipeChipsPanel that we are in side-by-side mode (non-null value).
+      // The value itself (≥0) is the zoom-corrected space available for the chips container.
+      // A non-null value tells the panel to rely on the Paper's maxHeight as the true constraint.
+      const availFloor = Math.max(0, safeAvailable)
+      const prevAvail = chipsAvailableHeightRef.current
+      // null → any transition always fires; number → skip tiny sub-4px jitter.
+      if (prevAvail === null || Math.abs(prevAvail - availFloor) >= 4) {
+        setChipsAvailableHeight(availFloor)
+      }
       if (!Number.isFinite(safeAvailable) || safeAvailable <= 0) return
       const next = Math.max(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX, safeAvailable)
       if (Math.abs(chipsMaxHeightRef.current - next) >= 4) {
         setChipsMaxHeight(next)
       }
     } catch {}
-  }, [setChipsMaxHeight, setSideBySideMinPaperHeight])
+  }, [setChipsAvailableHeight, setChipsMaxHeight, setSideBySideMinPaperHeight])
 
   const scheduleChipsMeasurement = useCallback(() => {
     if (!isSideBySideRef.current || typeof window === 'undefined') return
@@ -203,11 +258,13 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
         setChipsMaxHeight((prevHeight) =>
           prevHeight === BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX ? prevHeight : BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX,
         )
+        // null = "not in side-by-side mode"; RecipeChipsPanel reverts to legacy behaviour.
+        setChipsAvailableHeight((prev) => (prev === null ? prev : null))
         return
       }
       scheduleChipsMeasurement()
     },
-    [cancelScheduledChipsMeasure, scheduleChipsMeasurement, setChipsMaxHeight, setSideBySideMinPaperHeight],
+    [cancelScheduledChipsMeasure, scheduleChipsMeasurement, setChipsAvailableHeight, setChipsMaxHeight, setSideBySideMinPaperHeight],
   )
 
   useEffect(() => {
@@ -292,11 +349,15 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
       // When the container is hidden (display: none gives an all-zero rect), skip — the
       // measurement would be meaningless and produce a garbage maxHeight value.
       if (containerRect.width === 0 && containerRect.height === 0) return
-      // How much viewport height is available below the paper's top edge.
-      const paperAvailable = viewportHeight - paperRect.top - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX
+      // Apply the same zoom correction used in runChipsMeasurement for coordinate consistency.
+      // In forceSideBySide mode, getBoundingClientRect() returns visual (zoomed) coordinates
+      // while viewportHeight is in CSS pixels; dividing by zoom aligns the coordinate spaces.
+      const zoom = forceSideBySideRef.current ? AUTO_SIDE_BY_SIDE_FORCED_ZOOM : 1
+      // How much CSS-pixel height is available below the paper's top edge.
+      const paperAvailable = (viewportHeight - paperRect.top) / zoom - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX
       if (!Number.isFinite(paperAvailable) || paperAvailable <= 0) return
       // Subtract the container's vertical offset within the paper to get usable chip height.
-      const offsetWithinPaper = containerRect.top - paperRect.top
+      const offsetWithinPaper = (containerRect.top - paperRect.top) / zoom
       const rawAvailable = Math.floor(paperAvailable - offsetWithinPaper)
       // Leave a safe gap at the bottom so the list never bumps the viewport edge.
       const safeAvailable = rawAvailable - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX
@@ -381,6 +442,7 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
     leftPaperRef,
     chipsContainerRef,
     chipsMaxHeight,
+    chipsAvailableHeight,
     safeguardChipsContainerRef,
     safeguardChipsMaxHeight,
     isSideBySide,

@@ -675,6 +675,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     leftPaperRef,
     chipsContainerRef,
     chipsMaxHeight,
+    chipsAvailableHeight,
     safeguardChipsContainerRef,
     safeguardChipsMaxHeight,
     previewPaperHeightStyle,
@@ -5240,6 +5241,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onSelect={handleSelectSafeguardRule}
       onRulesChange={(next) => applySafeguardRulesChange(next)}
       maxHeightPx={safeguardChipsMaxHeight}
+      isSideBySide={isSideBySide}
       containerRef={safeguardChipsContainerRef}
       visibleRuleIds={visibleSafeguardRuleIds}
       metasets={metasetsForPreview}
@@ -5254,6 +5256,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       recipes={recipeOverridesRecipesForRules}
       exportModeOverrides={recipeOverridesExportModes.modes}
       maxHeightPx={chipsMaxHeight}
+      chipsAvailableHeight={chipsAvailableHeight}
       selectedIndices={selectedRecipeIndices}
       // Chip relabeling across large recipe lists is expensive; consume the deferred
       // metaset snapshot so picker clicks can paint before chip refresh work starts.
