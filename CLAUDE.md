@@ -16,6 +16,7 @@ This document summarizes how we collaborate on Sellfile Creator. Detailed techni
 - Comments and docs must reflect the *current* state. Update or remove anything that has drifted, even if the surrounding code was not otherwise touched.
 - When adding console debug output for transcripts, log formatted primitives (e.g. ``console.log(`[builder-count] pending=${pendingId}`)``) instead of passing raw objects—DevTools collapses objects and they do not copy well into chat.
 - Cap files at roughly 1,500 lines; split large modules (without breaking SSOT) before they become unwieldy.
+- **i18n catalog edits — Unicode apostrophe trap**: Catalog values are TypeScript single-quoted strings. Languages like Ukrainian embed U+2019 (`'`) in words (`обов'язкові`). When editing those strings, always verify the closing delimiter is plain U+0027 and any embedded bare apostrophe is escaped as `\'`. An accidental U+2019 as the closing quote causes an unterminated string literal that TypeScript will not catch until `npm run typecheck`. See the detailed rule in `docs/technical/ui-and-layout.md` → "Unicode apostrophes in catalog strings".
 - Keep modules focused and diffs small. Follow existing patterns before introducing new abstractions, unless doing so would violate the single-source-of-truth / One Definition Rule—then factor the shared abstraction instead of duplicating logic.
 - UI code must keep parallel entry points in sync (e.g., toggles, badges, multi-edit). Shared helpers exist for a reason — extend them, don't fork them.
 

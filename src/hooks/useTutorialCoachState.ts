@@ -776,13 +776,6 @@ export function useTutorialCoachState({
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false) },
       },
       {
-        id: 'enabled',
-        title: t('tutEnabledTitle'),
-        body: t('tutEnabledBody'),
-        targetId: 'builder.exportMode',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
-      {
         id: 'basics',
         title: t('tutBasicsTitle'),
         body: t('tutBasicsBody'),

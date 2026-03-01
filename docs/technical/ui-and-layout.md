@@ -28,6 +28,11 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 - Catalog audits:
   - Compile the scripts bundle (`npx tsc -p tsconfig.scripts.json && node scripts/tooling/patch-esm-specifiers.cjs`) and run `node tmp/tsc/scripts/scripts/tooling/sync-catalog-comments.js` to print the English comment index, rewrite non-English comment blocks to match those headings, and verify every catalog has the exact same key order/count as `en-US.ts`.
   - The script exits non-zero when keys drift; fix the reported locales (add/remove/reorder keys plus translations) before re-running so the audit passes.
+- **Unicode apostrophes in catalog strings — hard rule**: Several languages (Ukrainian, Russian, French, etc.) embed Unicode typographic apostrophes inside words (e.g., `обов'язкові` uses U+2019 RIGHT SINGLE QUOTATION MARK, not U+0027). All catalog values are TypeScript **single-quoted** string literals. This creates two failure modes that must never be introduced:
+  1. **Bare ASCII apostrophe inside the string** — `'don't'` → TypeScript sees the string end at the second `'`. Fix: escape it as `'don\'t'`.
+  2. **Unicode apostrophe used as the closing delimiter** — if a replacement value ends with a Unicode apostrophe (U+2019 `'`, U+02BC `ʼ`), and the proper ASCII closing `'` (U+0027) is accidentally omitted, TypeScript reports an unterminated string literal. Fix: verify U+0027 is the closing character, not any Unicode lookalike.
+  - Before finalising any edit to a catalog file, confirm that every modified string has a matching pair of plain U+0027 quotes and that any embedded apostrophe is either a Unicode character (safe inside the string) or a `\'` escape — never an unescaped U+0027 mid-string.
+  - When replacing a substring that contains U+2019 (e.g., `Обов'язкові`), double-check the resulting line still ends with `',` or `'` as appropriate; the Unicode character survives in place, but the outer delimiters must remain U+0027.
 - Contribution workflow:
   - Keep keys identical to `en-US.ts`; do not rename/remove without scope discussion.
   - Submit updates by editing `src/lib/i18n/catalogs/<lang>.ts` (overrides only) or attach `.l10n.json` files.
