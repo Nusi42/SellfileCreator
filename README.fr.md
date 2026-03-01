@@ -11,7 +11,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 - Maintenez `Shift` pendant l’ouverture d’un `.sfr` (sélecteur de fichier ou glisser-déposer) pour afficher un dialogue d’import avancé où vous choisissez séparément Recettes, Note, Metasets et Protections.
 - Méta-sets : nommez des groupes de sets (ex. Vitesse + Perception) et réutilisez-les dans plusieurs règles.
 - Export en un clic : exportez un fichier HSF (Sellfile RSL Helper) prêt à être chargé dans RSL Helper.
-- Bouton « Outils » : ouvrez le dialogue depuis l’en-tête pour accéder à `Vente finale`, `Butin de donjon` et au dialogue « Équipement » au même endroit. Créez un équipement d’exemple, collez des lignes ou glissez `%APPDATA%\\RslHelper\\Config`, puis refermez le dialogue et laissez l’interrupteur d’aperçu sur la table voulue — la file de l’Inspecteur d’équipement reste visible sans rouvrir.
+- Bouton « Outils » : ouvrez le dialogue depuis l’en-tête pour accéder à `Vente finale`, `Objectifs de sous-stats`, `Butin de donjon` et au dialogue « Équipement » au même endroit. Créez un équipement d’exemple, collez des lignes ou glissez `%APPDATA%\\RslHelper\\Config`, puis refermez le dialogue et laissez l’interrupteur d’aperçu sur la table voulue — la file de l’Inspecteur d’équipement reste visible sans rouvrir.
 - Mode Protections : définissez les combinaisons que vous ne voulez jamais perdre. Dès que vos recettes plus vos règles de vente actuellement actives supprimeraient toutes les copies, l’analyse génère automatiquement des règles de conservation.
 - Dialogue de restauration Autosave : lorsqu’un Autosave est détecté, choisissez précisément quoi recharger — recettes, méta-sets, Objectifs de sous-stats, reste de Vente finale, note épinglée, état du panneau de filtres et même les importations de l’Inspecteur d’équipement.
 - Copier le dossier RSL Helper : le bandeau de l’aperçu expose un bouton presse-papiers qui copie `%APPDATA%\\RslHelper\\Config` pour coller le chemin dans l’Explorateur avant de faire glisser la `.db` dans Sellfile Creator.
@@ -82,7 +82,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 - Mythique (5 jets) : La rareté Mythique peut atteindre cinq jets sur un sous-stat à +16 (contre quatre sinon). Lorsqu’elle est autorisée, le générateur tient compte du jet supplémentaire dès +0.
 
 ### Objectifs de sous-stats
-- Ouvrez le dialogue « Objectifs de sous-stats… » dans l’angle supérieur droit du builder.
+- Le bouton « Objectifs de sous-stats… » en haut à droite du builder ouvre l’onglet **Objectifs de sous-stats** dans la fenêtre Outils.
 - Ces objectifs sont globaux : ils s’appliquent à toutes les recettes.
 - Ils déterminent les seuils par plage de niveau (0–3, 4–7, 8–11, 12–15, 16) et servent de repli dans la grille des Objectifs de jets.
 - « Réinitialiser » restaure les objectifs recommandés.

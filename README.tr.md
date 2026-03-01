@@ -11,7 +11,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Bir `.sfr` açarken/yüklerken (dosya seçici veya sürükle-bırak) `Shift` tuşunu basılı tutarsanız ek bir içe aktarma diyaloğu açılır; burada Reçeteler, Not, Metasetler ve Güvenceler bölümlerini ayrı ayrı seçebilirsiniz.
 - Metasetler: Ekipman setlerini (ör. Hız + Algı) gruplayın ve birçok kuralda tekrar kullanın.
 - Tek tıkla dışa aktarma: RSL Helper’da kullanılmaya hazır bir HSF dosyası üretin.
-- “Araçlar” düğmesi: Önizleme başlığından bu düğmeye basarak `Nihai satış`, `Benzersizleri Koru`, `Zindan Düşüşleri` ve Ekipman diyaloğuna (Araçlar içindeki Gear sekmesi) tek noktadan ulaşın. Örnek ekipman oluşturun, satırları yapıştırın veya `%APPDATA%\\RslHelper\\Config` yolunu sürükleyin; ardından diyaloğu kapatıp önizleme anahtarını ihtiyacınız olan tabloda bırakın — Ekipman Denetçisi kuyruğu yeniden açmadan görünür kalır.
+- “Araçlar” düğmesi: Önizleme başlığından bu düğmeye basarak `Nihai satış`, `Alt stat hedefleri`, `Zindan Düşüşleri` ve Ekipman diyaloğuna (Araçlar içindeki Gear sekmesi) tek noktadan ulaşın. Örnek ekipman oluşturun, satırları yapıştırın veya `%APPDATA%\\RslHelper\\Config` yolunu sürükleyin; ardından diyaloğu kapatıp önizleme anahtarını ihtiyacınız olan tabloda bırakın — Ekipman Denetçisi kuyruğu yeniden açmadan görünür kalır.
 - «Benzersizleri Koru» sekmesi: Kaybetmenize asla izin vermek istemediğiniz kombinasyonları tanımlayın. Reçeteleriniz + şu anda aktif olan Satış kurallarınız tüm kopyaları siliyorsa tarayıcı otomatik olarak koruma kuralları üretir.
 
 ## Nasıl kullanılır
@@ -80,7 +80,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Mitik (5 rulo): Mitik nadirlik +16’da tek alt statta beş rulo alabilir (diğerleri dörtte kalır). Mitik dahilse jeneratör ekstra başlangıç rulonu da hesaplar.
 
 ### Alt stat hedefleri
-- Oluşturucunun sağ üst köşesindeki «Alt stat hedefleri…» düğmesiyle açılır.
+- Oluşturucunun sağ üst köşesindeki «Alt stat hedefleri…» düğmesi, Araçlar diyaloğundaki **Alt stat hedefleri** sekmesini açar.
 - Hedefler globaldir; tüm reçetelere uygulanır.
 - Bu hedefler seviye aralıklarına göre (0–3, 4–7, 8–11, 12–15, 16) kullanılan eşikleri belirler ve Rulo hedefleri ızgarası için geri dönüş değeri sağlar.
 - «Varsayılanlara döndür» önerilen hedefleri geri yükler.

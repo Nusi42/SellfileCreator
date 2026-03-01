@@ -11,7 +11,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Mantém `Shift` premido ao abrir/carregar um `.sfr` (seletor de ficheiros ou arrastar e largar) para abrir um diálogo de importação adicional onde escolhes separadamente Receitas, Nota, Metasets e Salvaguardas.
 - Meta-sets: agrupe conjuntos de equipamento (por exemplo, Velocidade + Perceção) e volte a usá-los em várias regras.
 - Exportação com um clique: gere um ficheiro HSF (Sellfile do RSL Helper) pronto a carregar no RSL Helper.
-- Botão «Ferramentas»: abre o diálogo no cabeçalho para aceder a `Venda final`, `Drops de masmorra` e ao diálogo Equipamento num só lugar. Cria equipamento de exemplo, cola linhas ou arrasta `%APPDATA%\\RslHelper\\Config`; depois fecha o diálogo e mantém o interruptor da pré-visualização na tabela que precisares — a fila do Inspetor de Equipamento continua visível sem reabrir.
+- Botão «Ferramentas»: abre o diálogo no cabeçalho para aceder a `Venda final`, `Alvos de substats`, `Drops de masmorra` e ao diálogo Equipamento num só lugar. Cria equipamento de exemplo, cola linhas ou arrasta `%APPDATA%\\RslHelper\\Config`; depois fecha o diálogo e mantém o interruptor da pré-visualização na tabela que precisares — a fila do Inspetor de Equipamento continua visível sem reabrir.
 - Modo Salvaguardas: define as combinações que não queres perder. Quando as tuas receitas mais as tuas regras de venda atualmente ativas removerem todas as cópias, o scanner gera automaticamente regras de manutenção.
 - Diálogo de restauro do Autosave: quando existe um autosave, escolhe exatamente o que carregar — receitas, meta-sets, Alvos de substats, resto da Venda final, nota fixada, estado do painel de filtros e até importações do Inspetor de Equipamento.
 - Copiar a pasta da base de dados do RSL Helper: o cabeçalho da prévia mostra um botão que copia `%APPDATA%\RslHelper\Config` para o porta‑papéis para que possas colar a rota no Explorador antes de arrastar a `.db` para o Sellfile Creator.
@@ -82,7 +82,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Mítica (5 rolagens): A raridade Mítica pode atingir cinco rolagens num substat em +16 (o resto fica pelas quatro). Se Mítica estiver disponível, o gerador conta o roll extra logo em +0.
 
 ### Alvos de substats
-- Abra o diálogo «Alvos de substats…» no canto superior direito do builder.
+- O botão «Alvos de substats…» no canto superior direito do builder abre o separador **Alvos de substats** no diálogo Ferramentas.
 - Os alvos são globais e afetam todas as receitas.
 - Estes alvos definem os limiares usados por intervalo de nível (0–3, 4–7, 8–11, 12–15, 16) e servem de fallback na grelha de Alvos de rolagem.
 - Use «Repor predefinições» dentro da janela para voltar aos alvos recomendados.

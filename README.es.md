@@ -11,7 +11,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Mantén pulsado `Shift` al abrir/cargar un `.sfr` (selector de archivos o arrastrar y soltar) para mostrar un diálogo de importación adicional donde puedes elegir por separado Recetas, Nota, Metasets y Protecciones.
 - Metasets: agrupa conjuntos de equipo (por ejemplo, Velocidad + Percepción) y reutilízalos en varias reglas.
 - Exportación con un clic: genera un archivo HSF (Sellfile de RSL Helper) listo para cargar en RSL Helper.
-- Botón «Herramientas»: abre el diálogo desde el encabezado para entrar a `Venta final`, `Botín de mazmorra` y el diálogo «Equipo» desde el mismo lugar. Crea equipo de ejemplo, pega filas o arrastra `%APPDATA%\\RslHelper\\Config`; después cierra el diálogo y deja el interruptor de vista previa en la tabla que necesites: la cola del Inspector de Equipo sigue visible sin reabrir nada.
+- Botón «Herramientas»: abre el diálogo desde el encabezado para entrar a `Venta final`, `Objetivos de substats`, `Botín de mazmorra` y el diálogo «Equipo» desde el mismo lugar. Crea equipo de ejemplo, pega filas o arrastra `%APPDATA%\\RslHelper\\Config`; después cierra el diálogo y deja el interruptor de vista previa en la tabla que necesites: la cola del Inspector de Equipo sigue visible sin reabrir nada.
 - Modo Protecciones: define las combinaciones que nunca quieres perder. El escáner genera reglas de conservación automáticamente cuando tus recetas más tus reglas de venta actualmente activas eliminarían todas las copias.
 
 ## Cómo usarlo
@@ -80,7 +80,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Mítico (5 tiradas): El equipo Mítico puede alcanzar cinco tiradas en un substat a +16 (el resto se queda en cuatro). Cuando las opciones incluyen Mítico, el generador deja constancia del roll extra desde +0.
 
 ### Objetivos de substats
-- Abre el diálogo mediante «Objetivos de substats…» en la esquina superior derecha del constructor.
+- El botón «Objetivos de substats…» en la esquina superior derecha del constructor abre la pestaña **Objetivos de substats** en el diálogo Herramientas.
 - Los objetivos son globales: afectan a todas las recetas.
 - Estos objetivos definen las referencias por rango de nivel (0–3, 4–7, 8–11, 12–15, 16) y sirven como respaldo en la cuadrícula de Objetivos de tiradas.
 - Usa «Restablecer valores predeterminados» para volver a los objetivos recomendados.

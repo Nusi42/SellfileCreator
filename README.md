@@ -11,7 +11,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Hold `Shift` while opening/loading an `.sfr` (file picker or drag/drop) to open an additional import dialog where you can choose Recipes, Note, Metasets, and Safeguards.
 - Metasets: name groups of gear sets (e.g., Speed + Perception) and reuse them across rules.
 - One-click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
-- `Tools` button: open the dialog from the preview header to reach `Final Sell`, `Dungeon Drops`, and the Gear dialog from the same place. Load example gear, paste drops, or drag `%APPDATA%\\RslHelper\\Config`, then close the dialog and leave the preview toggle on whichever table you need — the Gear Inspector queue stays visible without reopening.
+- `Tools` button: open the dialog from the preview header to reach `Final Sell`, `Substat Targets`, `Dungeon Drops`, and the Gear Inspector from the same place. Load example gear, paste drops, or drag `%APPDATA%\\RslHelper\\Config`, then close the dialog and leave the preview toggle on whichever table you need — the Gear Inspector queue stays visible without reopening.
 - Safeguards builder mode: define combinations you never want to lose, and the scanner injects keep rules automatically whenever your recipes plus your current active Sell rules would sell every piece in that combination.
 
 ## How To Use
@@ -81,7 +81,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Mythical (5 rolls): Mythical can reach 5 rolls in a substat by +16 (vs 4 otherwise). When your Rarity selection includes Mythical, the generator accounts for its pre‑roll. With Rarity = Any, setting Min Required Rolls to 5 (or per‑stat mins summing to 5) is treated as Mythical‑capable and also accounts for a pre‑roll at +0.
 
 ### Substat Target Values
-- Open via the “Substat Targets…” button in the top‑right of the builder — it launches the Substat Target Values dialog.
+- Open via the “Substat Targets…” button in the top‑right of the builder — it opens the **Substat Targets** tab in the Tools dialog.
 - Global: These values apply to every recipe, not just the one currently selected.
 - The builder uses them to compute thresholds at each level range (0–3, 4–7, 8–11, 12–15, 16) and as the fallback in the Roll Targets grid.
 - Use “Reset to defaults” inside the dialog to restore the recommended values.
