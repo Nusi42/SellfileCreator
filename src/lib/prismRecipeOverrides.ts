@@ -11,7 +11,10 @@
  *
  * Import this module for its side effect only:
  *   import '../lib/prismRecipeOverrides';
+ *
+ * This module is intentionally side-effect-only (no exports).
  */
+/* eslint-disable import/no-unused-modules */
 
 import { refractor } from 'refractor';
 import type { Refractor, Syntax } from 'refractor/lib/core.js';
@@ -92,7 +95,6 @@ function recipeOverrides(Prism: Refractor): void {
         'boolean-val': /\b(?:true|false|on|off|active|disabled|toggle)\b/,
 
         // Stat key tokens including percentage variants.
-        // eslint-disable-next-line no-useless-escape
         'stat-key': /\b(?:HP%?|ATK%?|DEF%?|CR%|CDMG%|ACC|RES|SPD)\b/,
 
         // Plain integer literals.
