@@ -718,6 +718,28 @@ test('resolveSafeguardRulesWithMetasets preserves rules without metaset expansio
   assert.strictEqual(kept.substatMatch, 'perSubstat')
 })
 
+test('resolveSafeguardRulesWithMetasets preserves substatWeights as a plain object after WASM round-trip', () => {
+  // Regression guard: serde_wasm_bindgen 0.6 serializes HashMap as JS Map by default.
+  // If the Rust output site is ever changed back to to_js_value() without
+  // serialize_maps_as_objects(true), substatWeights will come back as a JS Map instance
+  // and Object.entries() / bracket access will silently return empty results, producing
+  // incorrect (100%) improvement-chance values for weighted safeguard rules.
+  const weights = { [StatVariant.HP]: 1.1, [StatVariant.SPD]: 1.2 }
+  const rules = [
+    makeRule({
+      substats: [StatVariant.HP, StatVariant.SPD],
+      substatMatch: 'perSubstat',
+      substatWeights: weights,
+    }),
+  ]
+  const resolved = resolveSafeguardRulesWithMetasets(rules, [])
+  const kept = resolved[0]
+  assert.ok(kept)
+  // Must be a plain object — not a JS Map — so Object.entries works correctly downstream.
+  assert.ok(!(kept.substatWeights instanceof Map), 'substatWeights must not be a JS Map after WASM round-trip')
+  assert.deepStrictEqual(kept.substatWeights, weights, 'substatWeights values must survive the WASM round-trip intact')
+})
+
 test('default safeguard rules start empty', () => {
   const rules = buildDefaultSafeguardRules()
   assert.strictEqual(rules.length, 0)

@@ -661,30 +661,37 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
       />
     )
 
-    const wrappedChip = (
-      // Use the chip-label class as the ellipsis target so native tooltips only appear for clipped labels.
-      <EllipsisTooltip title={entry.label} selector=".MuiChip-label">
-        <Box
-          component="span"
-          sx={MATCHING_CHIP_WRAPPER_SX}
-        >
-          {chipNode}
-        </Box>
-      </EllipsisTooltip>
+    // Inner chip box — shared between both return paths below.
+    const chipBox = (
+      <Box
+        component="span"
+        sx={MATCHING_CHIP_WRAPPER_SX}
+      >
+        {chipNode}
+      </Box>
     )
 
-    if (!clickable) {
-      return (
-        <React.Fragment key={key}>
-          {wrappedChip}
-        </React.Fragment>
-      )
-    }
-
+    // flexShrink: 0 keeps each chip at its natural pixel width as a flex item of the visible-chips
+    // container. Without this the browser shrinks items to fit and scrollWidth === clientWidth always,
+    // so the overflow-detection useLayoutEffect never fires and chips that genuinely don't fit are
+    // never trimmed — their padding and minimum widths effectively get ignored.
+    // EllipsisTooltip must be inside the outer wrapper, not the outermost element itself, so that
+    // MarkdownTooltip.cloneElement (which injects title=undefined onto its direct child) targets the
+    // inner Box rather than EllipsisTooltip's title prop (which would produce "undefined" tooltips).
     return (
-      <MarkdownTooltip key={key} markdown={t('testerJumpToRecipe')}>
-        {wrappedChip}
-      </MarkdownTooltip>
+      <Box key={key} component="span" sx={{ flexShrink: 0, display: 'inline-flex', minWidth: 0 }}>
+        {/* Use the chip-label class as the ellipsis target so native tooltips only appear for clipped labels. */}
+        <EllipsisTooltip title={entry.label} selector=".MuiChip-label">
+          {clickable
+            ? (
+                <MarkdownTooltip markdown={t('testerJumpToRecipe')}>
+                  {chipBox}
+                </MarkdownTooltip>
+              )
+            : chipBox
+          }
+        </EllipsisTooltip>
+      </Box>
     )
   }
   if (!cardContentReady) {
@@ -1636,31 +1643,24 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
             }}
           >
             <Box
+              ref={handleVisibleChipsContainerRef}
               sx={{
                 display: 'flex',
                 flexWrap: 'nowrap',
                 gap: MATCHING_CHIP_GAP_UNITS,
                 minWidth: 0,
-                width: '100%',
+                // overflow: hidden clips chips that temporarily exceed the container width while the
+                // overflow-detection useLayoutEffect is still converging on the correct chip count.
+                overflow: 'hidden',
+                width: hasHiddenMatches
+                  ? `${visibleChipsAvailableWidth}px`
+                  : '100%',
+                maxWidth: hasHiddenMatches
+                  ? `${visibleChipsAvailableWidth}px`
+                  : '100%',
               }}
             >
-              <Box
-                ref={handleVisibleChipsContainerRef}
-                sx={{
-                  display: 'flex',
-                  flexWrap: 'nowrap',
-                  gap: MATCHING_CHIP_GAP_UNITS,
-                  minWidth: 0,
-                  width: hasHiddenMatches
-                    ? `${visibleChipsAvailableWidth}px`
-                    : '100%',
-                  maxWidth: hasHiddenMatches
-                    ? `${visibleChipsAvailableWidth}px`
-                    : '100%',
-                }}
-              >
-                {visibleOtherMatching.map((entry) => renderMatchingChip(entry))}
-              </Box>
+              {visibleOtherMatching.map((entry) => renderMatchingChip(entry))}
             </Box>
             {matchingOverflowCount > 0 ? (
               <>
