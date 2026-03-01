@@ -49,23 +49,28 @@ export function makeMetasetId(seed: number = Date.now()): string {
 }
 
 // Default metasets (curated).
-// Note: These defaults intentionally mirror `examples/example.sfr` so a fresh run
-// starts with the same metaset list/order as that reference configuration.
+// Note: These defaults mirror the current state of `examples/example.sfr` so a
+// fresh run starts with the same metaset list/order as that reference file.
 // Tutorial note: `useTutorialCoachState` adds a small subset of these by *name*;
-// update the tutorial’s "wanted" list if you rename any metasets here.
+// update the tutorial's "wanted" list if you rename any metasets here.
 
 export function defaultMetasets(): Metaset[] {
   // Default metaset IDs must never collide with user-generated IDs.
   // Why: User metasets use `makeMetasetId()` (prefix `m_`), so defaults reserve `dmeta_`.
   const DEFAULT_ID_VERSION = 'v1'
-  const defaultMetasetId = (slug: string): string => `dmeta_${slug}_${DEFAULT_ID_VERSION}`
+  // Modified or new metasets get a `ver` suffix so existing saved SFR files
+  // that reference old v1 IDs continue to load with their original behaviour.
+  const defaultMetasetId = (slug: string, ver: string = DEFAULT_ID_VERSION): string =>
+    `dmeta_${slug}_${ver}`
   const NO_ICON = DEFAULT_METASET_ICON_ID
   return [
     {
-      id: defaultMetasetId('nuker_limited'),
+      // v2: added SwiftParry after Cruel (synced with example.sfr)
+      id: defaultMetasetId('nuker_limited', 'v2'),
       name: 'Nuker - Limited Sets',
       sets: [
         ArtifactSet.Cruel,
+        ArtifactSet.SwiftParry,
         ArtifactSet.Lethal,
         ArtifactSet.Instinct,
         ArtifactSet.Zeal,
@@ -77,12 +82,14 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      id: defaultMetasetId('nuker'),
+      // v2: added SwiftParry after Cruel (synced with example.sfr)
+      id: defaultMetasetId('nuker', 'v2'),
       name: 'Nuker',
       sets: [
         ArtifactSet.CritDamage,
         ArtifactSet.Savage,
         ArtifactSet.Cruel,
+        ArtifactSet.SwiftParry,
         ArtifactSet.Lethal,
         ArtifactSet.Stoneskin,
         ArtifactSet.Killstroke,
@@ -113,12 +120,14 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      id: defaultMetasetId('need_4_speed'),
+      // v2: added Deflection after SwiftParry (synced with example.sfr)
+      id: defaultMetasetId('need_4_speed', 'v2'),
       name: 'Need 4 Speed',
       sets: [
         ArtifactSet.Speed,
         ArtifactSet.DivineSpeed,
         ArtifactSet.SwiftParry,
+        ArtifactSet.Deflection,
         ArtifactSet.Perception,
         ArtifactSet.Protection,
         ArtifactSet.Stoneskin,
@@ -136,12 +145,14 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      id: defaultMetasetId('debuffer'),
+      // v2: added Deflection after DivineSpeed (synced with example.sfr)
+      id: defaultMetasetId('debuffer', 'v2'),
       name: 'Debuffer',
       sets: [
         ArtifactSet.Speed,
         ArtifactSet.Accuracy,
         ArtifactSet.DivineSpeed,
+        ArtifactSet.Deflection,
         ArtifactSet.Perception,
         ArtifactSet.Protection,
         ArtifactSet.Stoneskin,
@@ -220,9 +231,12 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      id: defaultMetasetId('accessory_specific'),
+      // v2: prepended SwiftParry and Deflection before Protection (synced with example.sfr)
+      id: defaultMetasetId('accessory_specific', 'v2'),
       name: 'Accessory Specific',
       sets: [
+        ArtifactSet.SwiftParry,
+        ArtifactSet.Deflection,
         ArtifactSet.Protection,
         ArtifactSet.Stoneskin,
         ArtifactSet.Supersonic,
@@ -244,9 +258,11 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      id: defaultMetasetId('debuffer_limited'),
+      // v2: prepended Deflection before Stoneskin (synced with example.sfr)
+      id: defaultMetasetId('debuffer_limited', 'v2'),
       name: 'Debuffer - Limited Sets',
       sets: [
+        ArtifactSet.Deflection,
         ArtifactSet.Stoneskin,
         ArtifactSet.Impulse,
         ArtifactSet.Righteous,
@@ -258,6 +274,41 @@ export function defaultMetasets(): Metaset[] {
         ArtifactSet.Mercurial,
         ArtifactSet.Refresh,
         ArtifactSet.Reaction,
+      ],
+      show: true,
+      iconId: NO_ICON,
+    },
+    {
+      // New in v2: accessory-specific sets restricted to modern (non-legacy) options.
+      id: defaultMetasetId('accessory_specific_modern', 'v2'),
+      name: 'Accessory Specific - Modern',
+      sets: [
+        ArtifactSet.SwiftParry,
+        ArtifactSet.Deflection,
+        ArtifactSet.Protection,
+        ArtifactSet.Stoneskin,
+        ArtifactSet.Supersonic,
+        ArtifactSet.Merciless,
+        ArtifactSet.Slayer,
+        ArtifactSet.Feral,
+        ArtifactSet.Pinpoint,
+        ArtifactSet.Stonecleaver,
+        ArtifactSet.Rebirth,
+        ArtifactSet.Chronophage,
+        ArtifactSet.Mercurial,
+      ],
+      show: true,
+      iconId: NO_ICON,
+    },
+    {
+      // New in v2: legacy / low-value sets grouped for easy exclusion in rules.
+      id: defaultMetasetId('useless', 'v2'),
+      name: 'Useless',
+      sets: [
+        ArtifactSet.Life,
+        ArtifactSet.Offense,
+        ArtifactSet.Defense,
+        ArtifactSet.DivineOffense,
       ],
       show: true,
       iconId: NO_ICON,
