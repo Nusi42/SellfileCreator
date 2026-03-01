@@ -11,7 +11,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Tieni premuto `Shift` durante il caricamento di un `.sfr` (selettore file o drag & drop) per aprire un dialogo di import aggiuntivo in cui puoi scegliere separatamente Ricette, Nota, Metaset e Salvaguardie.
 - Metaset: assegna un nome a gruppi di set (es. Velocità + Percezione) e riutilizzali nelle regole.
 - Esporta con un clic: esporta un file HSF (il Sellfile di RSL Helper) pronto per RSL Helper.
-- Pulsante "Strumenti": apri il dialogo dall'intestazione per raggiungere `Vendita finale`, `Drop dei dungeon` e il dialogo Equipaggiamento nello stesso punto. Crea equip di esempio, incolla righe oppure trascina `%APPDATA%\\RslHelper\\Config`, poi chiudi il dialogo e lascia l'interruttore dell'anteprima sulla tabella che ti serve: la coda dell'Ispettore Equipaggiamento resta visibile senza riaprire nulla.
+- Pulsante "Strumenti": apri il dialogo dall'intestazione per raggiungere `Vendita finale`, `Obiettivi di substat`, `Drop dei dungeon` e il dialogo Equipaggiamento nello stesso punto. Crea equip di esempio, incolla righe oppure trascina `%APPDATA%\\RslHelper\\Config`, poi chiudi il dialogo e lascia l'interruttore dell'anteprima sulla tabella che ti serve: la coda dell'Ispettore Equipaggiamento resta visibile senza riaprire nulla.
 - Modalità Salvaguardie: definisci le combinazioni che non vuoi perdere mai. Quando le tue ricette più le tue regole di vendita attualmente attive eliminerebbero tutte le copie, lo scanner genera automaticamente regole di mantenimento.
 - Dialogo di ripristino Autosave: quando troviamo un Autosave, scegli con precisione cosa ricaricare: ricette, Metaset, Valori obiettivo delle sotto-stat, resto di Vendita finale, nota fissata, stato del pannello filtri e perfino le importazioni dell'Ispettore Equipaggiamento.
 - Copia la cartella del DB di RSL Helper: l'intestazione dell'anteprima offre un pulsante negli appunti che copia `%APPDATA%\RslHelper\Config` così puoi incollare subito il percorso in Esplora risorse prima di trascinare dentro il `.db`.
@@ -67,7 +67,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Mitica (5 roll): la rarità Mitica può raggiungere 5 roll su una sotto-stat a +16 (contro 4 delle altre). Quando la tua selezione di Rarità include Mitica, il generatore considera il pre-roll. Con Rarità = Qualsiasi, impostare Minimo richiesto a 5 (o minimi per statistica che sommano a 5) viene trattato come compatibile con Mitica e considera anche un pre-roll a +0.
 
 ### Obiettivi di substat
-- Apri la finestra tramite «Obiettivi di substat…» nell’angolo in alto a destra del builder.
+- Il pulsante «Obiettivi di substat…» in alto a destra del builder apre la scheda **Obiettivi di substat** nella finestra Strumenti.
 - Gli obiettivi sono globali: si applicano a tutte le ricette, non solo a quella selezionata.
 - Vengono usati per calcolare le soglie per ogni intervallo di livello (0–3, 4–7, 8–11, 12–15, 16) e come fallback nella griglia degli Obiettivi di roll.
 - Usa «Ripristina predefiniti» per tornare agli obiettivi consigliati.

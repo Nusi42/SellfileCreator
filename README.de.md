@@ -11,7 +11,7 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Halte beim Laden einer `.sfr`-Datei die `Shift`-Taste (Dateiauswahl oder Drag & Drop), um einen zusätzlichen Import-Dialog zu öffnen. Dort kannst du getrennt Rezepte, Notiz, Metasets und Schutzmaßnahmen auswählen.
 - Metasets: Benenne Set-Gruppen (z. B. Speed + Wahrnehmung) und nutze sie in mehreren Regeln.
 - Export mit einem Klick: Exportiere eine HSF-Datei (die RSL Helper Sellfile), die sofort in RSL Helper geladen werden kann.
-- „Tools”-Button: Öffne den Dialog direkt aus dem Vorschau-Header, um `Finaler Verkauf`, `Dungeon-Beute` und den Dialog „Ausrüstung” gemeinsam zu erreichen. Erstelle Beispielgear, füge Zeilen ein oder ziehe `%APPDATA%\\RslHelper\\Config` herüber; danach kannst du den Dialog schließen und die Vorschau auf der gewünschten Tabelle lassen — die Ausrüstungsinspektor-Warteschlange bleibt sichtbar.
+- „Tools”-Button: Öffne den Dialog direkt aus dem Vorschau-Header, um `Finaler Verkauf`, `Substat-Richtwerte`, `Dungeon-Beute` und den Dialog „Ausrüstung” gemeinsam zu erreichen. Erstelle Beispielgear, füge Zeilen ein oder ziehe `%APPDATA%\\RslHelper\\Config` herüber; danach kannst du den Dialog schließen und die Vorschau auf der gewünschten Tabelle lassen — die Ausrüstungsinspektor-Warteschlange bleibt sichtbar.
 - Schutzmaßnahmen-Modus: Definiere Kombinationen, die du nie verlieren willst. Sobald deine Rezepte plus deine aktuell aktiven Verkaufsregeln jedes Exemplar dieser Kombination löschen würden, generiert der Scanner automatisch passende Behalte-Regeln.
 
 ## Nutzung
@@ -80,7 +80,7 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Mythisch (5 Rollen): Mythische Seltenheit kann bis +16 fünf Rollen auf einen Substat bringen (sonst max. vier). Sobald Mythos erlaubt ist, berücksichtigt der Generator den zusätzlichen Start-Roll.
 
 ### Substat-Richtwerte
-- Öffne das Dialogfeld über „Substat-Richtwerte…“ in der oberen rechten Ecke des Builders.
+- Über „Substat-Richtwerte…” oben rechts im Builder öffnest du den gleichnamigen **Substat-Richtwerte**-Tab im Tools-Dialog.
 - Die Richtwerte gelten global für alle Rezepte.
 - Sie bestimmen die Schwellen für die Levelbereiche (0–3, 4–7, 8–11, 12–15, 16) und dienen als Fallback im Roll-Richtwerte-Raster.
 - „Auf Standard zurücksetzen“ stellt die empfohlenen Richtwerte wieder her.
