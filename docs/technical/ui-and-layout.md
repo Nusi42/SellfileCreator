@@ -256,22 +256,43 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Hover propagation syncs builder highlights via throttled `requestAnimationFrame` coordination.
 - Runtime-only metadata (e.g., `__lineIdx`) never enters exported HSF files.
 
-## Safeguards Tab
+## Safeguard Builder Mode
 
-- Layout: the dialog switches to a `Tabs` layout but keeps the existing shell size. On medium+ breakpoints the Safeguards tab renders a left rules column plus a tester grid column; the grid pane width is pinned to the Rule Tester 4-column card width for both 1- and 2-column modes so cards stay identical while the rules pane absorbs the remaining space (stacked on small screens).
-- Header block: the left column starts with explanatory copy, the enable toggle, and a contextual alert (`disabled`, `no tester data`, `scan pending`). Alerts stay above the scroll area so status never scrolls away, while deficit counts now surface via the inline detection chip instead of a success banner.
-- Rule list: rows map 1:1 with gear combinations and render as compact cards. Each card has a collapsed summary header (status icon + name/placeholder + actions) and expands inline to reveal the full editor. The expanded editor reuses the shared select components (`GearSlotSelect`, `GearRankSelect`, `GearRaritySelect`, `GearMainStatSelect`, `GearFactionSelect`) plus the filtered set picker. Slots/Ranks/Rarities/Main stats run in multi-select mode now: empty slot or main-stat selections read as Any, while Rank/Rarity menus expose an explicit Any option that clears other picks so combination filters mirror the builder affordances.
-- Substats: optional multi-select with the normalized-sort menu layout, plus a match-requirement chip (`Any Substat` / `All Substats` / `Per Substat`). The match chip controls whether one, all, or each selected substat gets its own quota. Weight controls are embedded in the substat menu rows (same controls as the Rule Tester sort menu) so selected substats can be prioritized without a separate popover.
-- Empty state: when no rules exist the column shows descriptive text plus a contained “Add rule” button. The same button lives in the footer alongside `Reset` (clears rules + disables Safeguards only).
-- Tester grid: the right column renders `TesterItemsGrid` with `variant="safeguards"`. The variant uses the keep-override column toggle (1 or 2 columns, default 1) and passes `highlightedRowPredicate`/`dimUnhighlightedRows` so non-matching cards fade instead of being removed. Source glyphs, color-blind toggles, and Manage Colors wiring mirror the Rule Tester.
-- Selection: clicking a rule highlights it and pushes its detection items into the tester grid highlight set. Adding a new rule scrolls the list to the newly created card. Chips above the grid show how many gear entries are currently highlighted.
-- Accessibility: all selectors remain keyboard navigable because they reuse the Gear tab components inside the Logic Hub dialog. The dense layouts rely on `MENU_CONTROL_HEIGHT_PX` so buttons remain reachable with consistent hit targets.
+Safeguards are edited in a dedicated builder mode accessed via the builder-column mode toggle (Recipe / Safeguard). This is **not** a tab inside the Tools dialog; it lives entirely in the builder column alongside `RecipeBuilderPanel`.
+
+### `SafeguardBuilderPanel` (inline rule editor)
+
+- Layout mirrors `RecipeBuilderPanel` — a 4-row CSS grid with identical column widths and control heights:
+  - **Row 1**: Mode toggle (`KeepOverrideScopeChip` — per-slot / per-set / per-main-stat / total) + Required count spinner.
+  - **Row 2**: Rank / Rarity / Faction selects (nested 3-column sub-grid) + Ignore chips (`ignorePreviousSafeguards`, `ignoreEquippedInCollection`, `ignoreEquippedInVault`).
+  - **Row 3**: Main-stat toggle grid + per-main-stat chip | Substat toggle grid + match chips (`Any Substat` / `All Substats` / `Per Substat`) + sort weight controls (`GearInspectorSortWeightControls`).
+  - **Row 4**: Slot icon grid + per-slot chip | Sets selector + per-set chip.
+- **Collapsible sections**: three sections are collapsible independently via `useBuilderSafeguardCollapsedPreference` (shared preference key, same sections as `RecipeBuilderPanel`).
+- **Undo / Redo**: full history with context menu, mirrors `RecipeBuilderPanel` via `useBuilderHistoryMenu`.
+- **Action buttons**: Insert, Apply, Reset — same layout as the recipe builder. Auto-apply and auto-reset preferences are shared with the recipe builder (mutually exclusive toggles).
+- **Scaffold from recipe**: a popover lists existing recipe configs; selecting one pre-fills the safeguard combination from that recipe's slot/set/faction/mainstat selectors, giving a quick starting point.
+- **Metasets**: the Sets picker uses the same filtered set pool as `RecipeBuilderPanel` via `useKeepOverrideCombinationTools`; the Manage Metasets entry point is forwarded from `App.tsx`.
+- **Auto-enable**: the first inserted safeguard rule automatically enables the Safeguards feature (mirrors the old SafeguardsTab behaviour).
+- **Empty state**: when no rule is selected the form renders disabled so the panel height remains stable.
+- When no rule is selected the form renders disabled so the panel height remains stable.
+
+### `SafeguardChipsPanel` (rule chip list)
+
+Rendered in the builder column below the form panel, occupying the same scrollable flex region as `RecipeChipsPanel` in recipe mode.
+
+- Add / delete / duplicate / reorder rules. Drag-and-drop reordering via `useChipListDnd`.
+- Context menu (right-click): Duplicate, Move Up/Down, Copy, Paste After, Delete.
+- Copy / paste via the shared clipboard helpers; paste opens `PasteDialog` for validation.
+- Compact chip labels use `safeguardSummaryParts` to summarise slot / set / substat selections.
+- `visibleRuleIds` prop: when provided (e.g., from a Gear Inspector highlight), only matching chips are shown — mirrors `RecipeChipsPanel`'s `visibleIndices` filter.
+- `focusRuleRequest` prop: incremented token causes the panel to scroll the specified rule chip into view; used when Gear Inspector jumps to a safeguard rule.
+- **Side-by-side mode**: `isSideBySide` prop switches the chips container to `minHeight: 0; maxHeight: '100%'` (flex-fill) so the chip list fills the Paper correctly — see *Top-down paper height constraint* in Layout Notes.
 
 ## Hooks and Shared Components
 
 - `src/hooks/useAutosaveRestore.ts`: Encapsulates autosave restore prompt, dismiss baseline, and enablement.
 - `src/hooks/useManageColorsDialog.ts`: Manages Manage Colors dialog state plus persisted substat colors.
-- `src/hooks/useSubstatTargetsDialog.ts`: Controls the Substat Target Values dialog (always renders 6★→1★ columns).
+- Substat Targets is a tab inside the Tools dialog (`LOGIC_HUB_DIALOG_TAB_SUBSTAT_TARGETS`), not a standalone dialog. It is rendered as `SubstatTargetsTabContent` within `LogicHubDialog`. `useSubstatTargetsDialog.ts` still exists in the repo but is no longer imported; `SubstatTargetsDialog.tsx` is similarly dead code left over from the previous standalone-dialog era.
 - `src/hooks/useMetasetsDialog.ts`: Governs the Manage Metasets dialog lifecycle.
 - `src/hooks/useConfirmDialog.ts`: Generic confirm dialog state.
 - `src/components/FilePickerButton.tsx`: Shared file-picker button (label + hidden input) with `accept` and `onSelect` props.
