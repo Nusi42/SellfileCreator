@@ -5,7 +5,7 @@ import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import type { SafeguardDetectionSnapshot, SafeguardsMergeInput } from '../lib/safeguards'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
-import type { TesterMatchWorkerItemResult } from './testerMatchWorkerTypes'
+import type { GearInspectorMatchWorkerItemResult } from './gearInspectorMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
 
 export type RuleCacheBuilderCountRequest = {
@@ -57,7 +57,7 @@ export type RuleCachePipelineResponse = {
     truncatedRecipeIndices: number[]
     totalLimitHit: boolean
     excludedByTotalLimitIndices: number[]
-    matches: TesterMatchWorkerItemResult[]
+    matches: GearInspectorMatchWorkerItemResult[]
     safeguardDetection: SafeguardDetectionSnapshot | null
   }
 }

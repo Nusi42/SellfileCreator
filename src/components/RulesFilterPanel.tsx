@@ -35,7 +35,7 @@ import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIG
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { metasetGlyph, orderMetasetIds, resolveMetasetIds, type Metaset } from '../lib/metasets'
 import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
-import { slotSelectionAllowsAccessories } from '../lib/testerDomain'
+import { slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
@@ -45,33 +45,33 @@ import { RULES_FILTER_COLLAPSIBLE_SECTION_IDS } from '../state/rulesFilterPersis
 import type { CollapsedSections } from '../state/rulesFilterPersistence'
 import {
   DEFAULT_RULES_FILTER_STATE,
-  TESTER_LEVEL_MAX,
-  TESTER_LEVEL_MIN,
-  TESTER_ROLL_COUNT_VALUES,
-  TESTER_LAST_USE_MAX_DAYS,
-  TESTER_LAST_USE_MIN_DAYS,
-  createDefaultTesterLastUseCustom,
-  createDefaultTesterLastUseFilter,
-  createDefaultTesterRollsState,
-  isTesterRollFilterActive,
-  normalizeTesterLastUseFilter,
-  normalizeTesterRollCountSelection,
-  resolveTesterLevelRange,
+  GEAR_INSPECTOR_LEVEL_MAX,
+  GEAR_INSPECTOR_LEVEL_MIN,
+  GEAR_INSPECTOR_ROLL_COUNT_VALUES,
+  GEAR_INSPECTOR_LAST_USE_MAX_DAYS,
+  GEAR_INSPECTOR_LAST_USE_MIN_DAYS,
+  createDefaultGearInspectorLastUseCustom,
+  createDefaultGearInspectorLastUseFilter,
+  createDefaultGearInspectorRollsState,
+  isGearInspectorRollFilterActive,
+  normalizeGearInspectorLastUseFilter,
+  normalizeGearInspectorRollCountSelection,
+  resolveGearInspectorLevelRange,
   sanitizeRulesFilterState,
   type AnyMode,
   type Bool3,
   type RulesFilterState,
-  type TesterChaosFilterMode,
-  type TesterGlyphFilterMode,
-  type TesterLastUsePreset,
-  type TesterLastUseCustomFilter,
-  type TesterRollCountSet,
-  type TesterRollCountValue,
-  type TesterRollFilterRow,
-  type TesterRollFilterState,
-  type TesterRollWildcardMode,
-  type TesterSourceFilter,
-  toggleTesterLastUsePresetSelection,
+  type GearInspectorChaosFilterMode,
+  type GearInspectorGlyphFilterMode,
+  type GearInspectorLastUsePreset,
+  type GearInspectorLastUseCustomFilter,
+  type GearInspectorRollCountSet,
+  type GearInspectorRollCountValue,
+  type GearInspectorRollFilterRow,
+  type GearInspectorRollFilterState,
+  type GearInspectorRollWildcardMode,
+  type GearInspectorSourceFilter,
+  toggleGearInspectorLastUsePresetSelection,
 } from '../lib/rulesFilter'
 import { FactionOptionLabel } from './FactionIcon'
 import InlineSelectClearButton from './InlineSelectClearButton'
@@ -83,7 +83,7 @@ import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuP
 import ContextMenuTitle from './ContextMenuTitle'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
-import { TESTER_RECIPE_FILTER_MODE_DEFAULT, type TesterRecipeFilterMode } from '../types/testerRecipeFilterMode'
+import { GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT, type GearInspectorRecipeFilterMode } from '../types/gearInspectorRecipeFilterMode'
 import type { ChampionLocation } from '../lib/importers/gearDbNormalizer'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
 import { computeInlineSelectContentMaxWidth, computeInlineSelectPadding } from '../lib/inlineSelectAffordances'
@@ -91,7 +91,7 @@ import { championIconUrl } from '../lib/iconMaps/championIconMap'
 import { resolveRarityAccentColor } from '../lib/rarityColors'
 
 // Filter options bundle metadata for consistent champion icons + rarity borders.
-type TesterChampionOption = {
+type GearInspectorChampionOption = {
   id: number
   baseId: number | null
   rarity: RankValue | null
@@ -138,22 +138,23 @@ export type RulesFilterPanelHandle = {
 }
 
 type RulesFilterPanelProps = {
-  mode?: 'rules' | 'tester'
+  mode?: 'rules' | 'gearInspector'
   state: RulesFilterState
   onChange: (next: RulesFilterState) => void
   metasets: Metaset[]
   showFaction: boolean
   recipeChipFilterActive: boolean
   onRecipeChipFilterChange: (value: boolean) => void
-  testerRecipeFilterMode?: TesterRecipeFilterMode
-  onTesterRecipeFilterModeChange?: (mode: TesterRecipeFilterMode) => void
+  gearInspectorRecipeFilterMode?: GearInspectorRecipeFilterMode
+  onGearInspectorRecipeFilterModeChange?: (mode: GearInspectorRecipeFilterMode) => void
   recipeCount?: number
+  builderMode?: 'recipe' | 'safeguard'
   collapsed: CollapsedSections
   onCollapsedChange: (next: CollapsedSections) => void
-  testerChampionOptions?: TesterChampionOption[]
+  gearInspectorChampionOptions?: GearInspectorChampionOption[]
   substatColors?: SubstatColorMap
   useStatButtonColors?: boolean
-  hasManualTesterItems?: boolean
+  hasManualGearInspectorItems?: boolean
 }
 
 const STAT_VARIANT_ORDER_LOOKUP = new Map<number, number>(
@@ -356,8 +357,8 @@ const ZERO_RESULTS_PULSE = keyframes`
   60% { background-color: rgba(244, 67, 54, 0.28); }
 `
 
-const EMPTY_ROLL_ROWS: readonly TesterRollFilterRow[] = []
-const ROLL_COUNT_LABELS: Record<TesterRollCountValue, string> = {
+const EMPTY_ROLL_ROWS: readonly GearInspectorRollFilterRow[] = []
+const ROLL_COUNT_LABELS: Record<GearInspectorRollCountValue, string> = {
   0: GLYPH_NOT_REROLLED,
   1: '1',
   2: '2',
@@ -378,7 +379,7 @@ const rollCountToggleGroupSx: SxProps<Theme> = (theme) => {
   )
   return {
     display: 'grid',
-    gridTemplateColumns: `repeat(${TESTER_ROLL_COUNT_VALUES.length}, ${ROLL_COUNT_TOGGLE_SIZE_PX}px)`,
+    gridTemplateColumns: `repeat(${GEAR_INSPECTOR_ROLL_COUNT_VALUES.length}, ${ROLL_COUNT_TOGGLE_SIZE_PX}px)`,
     columnGap: `${ROLL_BADGE_HOVER_GUTTER_PX}px`,
     rowGap: `${ROLL_BADGE_HOVER_GUTTER_PX}px`,
     '& .MuiToggleButtonGroup-grouped': {
@@ -422,7 +423,7 @@ const rollCountToggleGroupSx: SxProps<Theme> = (theme) => {
   }
 }
 
-const sortTesterRollRows = (rows: readonly TesterRollFilterRow[]): TesterRollFilterRow[] => (
+const sortGearInspectorRollRows = (rows: readonly GearInspectorRollFilterRow[]): GearInspectorRollFilterRow[] => (
   [...rows].sort((a, b) => {
     const left = STAT_VARIANT_ORDER_LOOKUP.get(Number(a.stat)) ?? 0
     const right = STAT_VARIANT_ORDER_LOOKUP.get(Number(b.stat)) ?? 0
@@ -430,14 +431,14 @@ const sortTesterRollRows = (rows: readonly TesterRollFilterRow[]): TesterRollFil
   })
 )
 
-const summarizeRollCounts = (counts: TesterRollCountSet): string => {
+const summarizeRollCounts = (counts: GearInspectorRollCountSet): string => {
   if (!counts || counts.length === 0) return ''
   return `{${counts.map((value) => ROLL_COUNT_LABELS[value]).join(', ')}}`
 }
-const EMPTY_TESTER_ROLL_COUNT_SET: TesterRollCountSet = []
-const rollSetCoversAllCounts = (counts: TesterRollCountSet): boolean => {
-  if (counts.length !== TESTER_ROLL_COUNT_VALUES.length) return false
-  return TESTER_ROLL_COUNT_VALUES.every((value, index) => counts[index] === value)
+const EMPTY_GEAR_INSPECTOR_ROLL_COUNT_SET: GearInspectorRollCountSet = []
+const rollSetCoversAllCounts = (counts: GearInspectorRollCountSet): boolean => {
+  if (counts.length !== GEAR_INSPECTOR_ROLL_COUNT_VALUES.length) return false
+  return GEAR_INSPECTOR_ROLL_COUNT_VALUES.every((value, index) => counts[index] === value)
 }
 
 // UI-only component that lets users filter the preview table. View-only; export ignores filters.
@@ -450,38 +451,39 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     showFaction,
   recipeChipFilterActive,
   onRecipeChipFilterChange,
-  testerRecipeFilterMode = TESTER_RECIPE_FILTER_MODE_DEFAULT,
-  onTesterRecipeFilterModeChange,
+  gearInspectorRecipeFilterMode = GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+  onGearInspectorRecipeFilterModeChange,
   recipeCount = 0,
+  builderMode = 'recipe',
   collapsed,
   onCollapsedChange,
-    testerChampionOptions = [],
+    gearInspectorChampionOptions = [],
     substatColors,
     useStatButtonColors = false,
-    hasManualTesterItems = false,
+    hasManualGearInspectorItems = false,
   },
   ref,
 ) {
   // Why: persisted filter state can be partially-written or come from older builds; sanitize once per render
   // so the panel never crashes while computing `.length`/`.map` on required nested arrays.
   const state = React.useMemo(() => sanitizeRulesFilterState(rawState as unknown), [rawState])
-  const isTesterMode = mode === 'tester'
+  const isGearInspectorMode = mode === 'gearInspector'
   const { t, lang } = useI18n()
   useGearSetCatalogVersion()
   const theme = useTheme()
-  const testerRollsState: TesterRollFilterState = state.testerRolls ?? DEFAULT_RULES_FILTER_STATE.testerRolls ?? createDefaultTesterRollsState()
-  const testerRollsActive = isTesterRollFilterActive(state.testerRolls)
-  const [testerRollsAnchorEl, setTesterRollsAnchorEl] = React.useState<HTMLElement | null>(null)
-  const testerRollsPaperRef = React.useRef<HTMLDivElement | null>(null)
-  const testerRollsOpen = Boolean(testerRollsAnchorEl)
-  const handleTesterRollsClose = React.useCallback(() => {
-    setTesterRollsAnchorEl(null)
+  const gearInspectorRollsState: GearInspectorRollFilterState = state.testerRolls ?? DEFAULT_RULES_FILTER_STATE.testerRolls ?? createDefaultGearInspectorRollsState()
+  const gearInspectorRollsActive = isGearInspectorRollFilterActive(state.testerRolls)
+  const [gearInspectorRollsAnchorEl, setGearInspectorRollsAnchorEl] = React.useState<HTMLElement | null>(null)
+  const gearInspectorRollsPaperRef = React.useRef<HTMLDivElement | null>(null)
+  const gearInspectorRollsOpen = Boolean(gearInspectorRollsAnchorEl)
+  const handleGearInspectorRollsClose = React.useCallback(() => {
+    setGearInspectorRollsAnchorEl(null)
   }, [])
-  // Guard the tester rolls popover so outside clicks cannot leave a stuck overlay.
-  const { contextMenuGuard: testerRollsGuard } = useContextMenuPaperGuard({
-    open: testerRollsOpen,
-    onClose: handleTesterRollsClose,
-    menuRef: testerRollsPaperRef,
+  // Guard the Gear Inspector rolls popover so outside clicks cannot leave a stuck overlay.
+  const { contextMenuGuard: gearInspectorRollsGuard } = useContextMenuPaperGuard({
+    open: gearInspectorRollsOpen,
+    onClose: handleGearInspectorRollsClose,
+    menuRef: gearInspectorRollsPaperRef,
   })
   const [lastUseAnchorEl, setLastUseAnchorEl] = React.useState<HTMLElement | null>(null)
   const lastUsePopoverPaperRef = React.useRef<HTMLDivElement | null>(null)
@@ -665,21 +667,21 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       </MarkdownTooltip>
     )
   }
-  const wildcardState = testerRollsState.wildcard ?? createDefaultTesterRollsState().wildcard
-  const wildcardCounts: TesterRollCountSet = React.useMemo(
+  const wildcardState = gearInspectorRollsState.wildcard ?? createDefaultGearInspectorRollsState().wildcard
+  const wildcardCounts: GearInspectorRollCountSet = React.useMemo(
     () => wildcardState.counts ?? [],
     [wildcardState.counts],
   )
   const wildcardIsActive = (wildcardState.mode ?? 'off') === 'any' && wildcardCounts.length > 0
-  const wildcardDisplayCounts = wildcardIsActive ? wildcardCounts : EMPTY_TESTER_ROLL_COUNT_SET
-  const testerRollsPerStat = testerRollsState.perStat ?? EMPTY_ROLL_ROWS
+  const wildcardDisplayCounts = wildcardIsActive ? wildcardCounts : EMPTY_GEAR_INSPECTOR_ROLL_COUNT_SET
+  const gearInspectorRollsPerStat = gearInspectorRollsState.perStat ?? EMPTY_ROLL_ROWS
   const activePerStatRows = React.useMemo(
-    () => testerRollsPerStat.filter((row) => (row.counts?.length ?? 0) > 0),
-    [testerRollsPerStat],
+    () => gearInspectorRollsPerStat.filter((row) => (row.counts?.length ?? 0) > 0),
+    [gearInspectorRollsPerStat],
   )
-  const testerRollRowCount = activePerStatRows.length
+  const gearInspectorRollRowCount = activePerStatRows.length
   const perStatCounts = React.useMemo(() => {
-    const map = new Map<number, TesterRollCountSet>()
+    const map = new Map<number, GearInspectorRollCountSet>()
     activePerStatRows.forEach((row) => {
       map.set(Number(row.stat), row.counts ?? [])
     })
@@ -695,7 +697,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     }
   }
 
-    if (testerRollRowCount > 0) {
+    if (gearInspectorRollRowCount > 0) {
       const joiner = t('filterRollsChipPerStatJoiner')
       const entries = activePerStatRows
         .map((row) => {
@@ -711,7 +713,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     if (parts.length === 0) return t('filterRollsSummaryNone')
     const separator = t('filterRollsChipSeparator')
     return parts.join(separator)
-  }, [activePerStatRows, t, testerRollRowCount, wildcardCounts, wildcardIsActive])
+  }, [activePerStatRows, t, gearInspectorRollRowCount, wildcardCounts, wildcardIsActive])
 
   // SectionHeader pairs the toggle with an ellipsized label so every section handles long translations uniformly.
   const SectionHeader = ({
@@ -758,18 +760,18 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   }
 
   const rollChipGlyph = React.useMemo(() => {
-    if (!testerRollsActive) return GLYPH_GTE_ZERO
+    if (!gearInspectorRollsActive) return GLYPH_GTE_ZERO
     if (wildcardIsActive) return GLYPH_GLYPHS_ON
-    if (testerRollRowCount > 0) return GLYPH_ONLY
+    if (gearInspectorRollRowCount > 0) return GLYPH_ONLY
     return GLYPH_GTE_ONE
-  }, [testerRollRowCount, testerRollsActive, wildcardIsActive])
+  }, [gearInspectorRollRowCount, gearInspectorRollsActive, wildcardIsActive])
 
   const rollChipLabel = `${t('filterRolls')}: ${rollChipGlyph}`
   const rollChipAria = t('filterRollsChipAria', { summary: rollSummaryDescription })
 
-  const applyTesterRollsChange = React.useCallback((mutator: (current: TesterRollFilterState) => TesterRollFilterState) => {
-    const nextRolls = mutator(state.testerRolls ?? createDefaultTesterRollsState())
-    if (!isTesterRollFilterActive(nextRolls) && nextRolls.wildcard.mode === 'off') {
+  const applyGearInspectorRollsChange = React.useCallback((mutator: (current: GearInspectorRollFilterState) => GearInspectorRollFilterState) => {
+    const nextRolls = mutator(state.testerRolls ?? createDefaultGearInspectorRollsState())
+    if (!isGearInspectorRollFilterActive(nextRolls) && nextRolls.wildcard.mode === 'off') {
       const { testerRolls: _ignored, ...rest } = state
       onChange(rest as RulesFilterState)
       return
@@ -782,16 +784,16 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 
   const applyExclusiveRollsChange = React.useCallback((
     scope: 'wildcard' | 'perStat',
-    mutator: (current: TesterRollFilterState) => TesterRollFilterState,
+    mutator: (current: GearInspectorRollFilterState) => GearInspectorRollFilterState,
   ) => {
-    applyTesterRollsChange((current) => {
+    applyGearInspectorRollsChange((current) => {
       let next = mutator(current)
       if (scope === 'wildcard') {
         if (next.perStat.length > 0) {
           next = { ...next, perStat: [] }
         }
       } else {
-        const wildcard = next.wildcard ?? createDefaultTesterRollsState().wildcard
+        const wildcard = next.wildcard ?? createDefaultGearInspectorRollsState().wildcard
         if ((wildcard.counts?.length ?? 0) > 0 || wildcard.mode !== 'off') {
           next = {
             ...next,
@@ -801,18 +803,18 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       }
       return next
     })
-  }, [applyTesterRollsChange])
+  }, [applyGearInspectorRollsChange])
 
-  const updateWildcardCounts = React.useCallback((updater: (current: TesterRollCountSet) => TesterRollCountSet) => {
+  const updateWildcardCounts = React.useCallback((updater: (current: GearInspectorRollCountSet) => GearInspectorRollCountSet) => {
     applyExclusiveRollsChange('wildcard', (current) => {
-      const base = current.wildcard ?? createDefaultTesterRollsState().wildcard
-      const seed = (base.mode ?? 'off') === 'any' ? base.counts ?? [] : EMPTY_TESTER_ROLL_COUNT_SET
-      let counts = normalizeTesterRollCountSelection(updater([...seed]))
+      const base = current.wildcard ?? createDefaultGearInspectorRollsState().wildcard
+      const seed = (base.mode ?? 'off') === 'any' ? base.counts ?? [] : EMPTY_GEAR_INSPECTOR_ROLL_COUNT_SET
+      let counts = normalizeGearInspectorRollCountSelection(updater([...seed]))
       const coversAll = rollSetCoversAllCounts(counts)
       if (coversAll) {
-        counts = EMPTY_TESTER_ROLL_COUNT_SET
+        counts = EMPTY_GEAR_INSPECTOR_ROLL_COUNT_SET
       }
-      const nextMode: TesterRollWildcardMode = counts.length > 0 ? 'any' : 'off'
+      const nextMode: GearInspectorRollWildcardMode = counts.length > 0 ? 'any' : 'off'
       return {
         ...current,
         wildcard: {
@@ -824,12 +826,12 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     })
   }, [applyExclusiveRollsChange])
 
-  const handleWildcardToggleValue = React.useCallback((value: TesterRollCountValue) => {
+  const handleWildcardToggleValue = React.useCallback((value: GearInspectorRollCountValue) => {
     updateWildcardCounts((current) => {
       const next = new Set(current ?? [])
       if (next.has(value)) next.delete(value)
       else next.add(value)
-      return normalizeTesterRollCountSelection(Array.from(next))
+      return normalizeGearInspectorRollCountSelection(Array.from(next))
     })
   }, [updateWildcardCounts])
 
@@ -837,16 +839,16 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     updateWildcardCounts(() => [])
   }, [updateWildcardCounts])
 
-  const getPerStatCounts = React.useCallback((variant: StatVariant): TesterRollCountSet => (
+  const getPerStatCounts = React.useCallback((variant: StatVariant): GearInspectorRollCountSet => (
     perStatCounts.get(Number(variant)) ?? []
   ), [perStatCounts])
 
-  const handlePerStatCountsChange = React.useCallback((variant: StatVariant, counts: TesterRollCountSet) => {
+  const handlePerStatCountsChange = React.useCallback((variant: StatVariant, counts: GearInspectorRollCountSet) => {
     applyExclusiveRollsChange('perStat', (current) => {
       const perStat = current.perStat ?? []
       const filtered = perStat.filter((row) => Number(row.stat) !== Number(variant))
       const nextRows = counts.length > 0
-        ? sortTesterRollRows([...filtered, { stat: variant, counts }])
+        ? sortGearInspectorRollRows([...filtered, { stat: variant, counts }])
         : filtered
       return {
         ...current,
@@ -855,12 +857,12 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     })
   }, [applyExclusiveRollsChange])
 
-  const handlePerStatToggleValue = React.useCallback((variant: StatVariant, value: TesterRollCountValue) => {
+  const handlePerStatToggleValue = React.useCallback((variant: StatVariant, value: GearInspectorRollCountValue) => {
     const currentCounts = perStatCounts.get(Number(variant)) ?? []
     const next = new Set(currentCounts)
     if (next.has(value)) next.delete(value)
     else next.add(value)
-    handlePerStatCountsChange(variant, normalizeTesterRollCountSelection(Array.from(next)))
+    handlePerStatCountsChange(variant, normalizeGearInspectorRollCountSelection(Array.from(next)))
   }, [handlePerStatCountsChange, perStatCounts])
 
   const handlePerStatSelectNone = React.useCallback((variant: StatVariant) => {
@@ -947,19 +949,19 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     )
   }
 
-  const testerLastUseFilter = React.useMemo(
-    () => normalizeTesterLastUseFilter(state.testerLastUse),
+  const gearInspectorLastUseFilter = React.useMemo(
+    () => normalizeGearInspectorLastUseFilter(state.testerLastUse),
     [state.testerLastUse],
   )
-  const lastUsePresetSelection = testerLastUseFilter.presets
-  const lastUseCustom = testerLastUseFilter.custom
+  const lastUsePresetSelection = gearInspectorLastUseFilter.presets
+  const lastUseCustom = gearInspectorLastUseFilter.custom
   const dayShort = React.useMemo(() => {
     const raw = t('testerLastUsedDayShort')
     const trimmed = typeof raw === 'string' ? raw.trim() : ''
     return trimmed.length > 0 ? trimmed : 'd'
   }, [t])
   const lastUsePresetOptions = React.useMemo(() => {
-    const labels: Record<TesterLastUsePreset, string> = {
+    const labels: Record<GearInspectorLastUsePreset, string> = {
       never: '∅',
       recent7: `≤7${dayShort}`,
       recent30: `≤30${dayShort}`,
@@ -977,8 +979,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const lastUseCustomSummary = React.useMemo(() => {
     if (!lastUseCustom.enabled) return null
     const parts: string[] = []
-    const minActive = lastUseCustom.minDays > TESTER_LAST_USE_MIN_DAYS
-    const maxActive = lastUseCustom.maxDays < TESTER_LAST_USE_MAX_DAYS
+    const minActive = lastUseCustom.minDays > GEAR_INSPECTOR_LAST_USE_MIN_DAYS
+    const maxActive = lastUseCustom.maxDays < GEAR_INSPECTOR_LAST_USE_MAX_DAYS
     if (minActive && maxActive) {
       parts.push(t('testerLastUsedCustomSummaryRange', { minDays: lastUseCustom.minDays, maxDays: lastUseCustom.maxDays }))
     } else if (minActive) {
@@ -1013,37 +1015,37 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const resetLastUseCustom = React.useCallback(() => {
     onChange({
       ...state,
-      testerLastUse: normalizeTesterLastUseFilter({
-        presets: testerLastUseFilter.presets,
-        custom: { ...createDefaultTesterLastUseCustom(), enabled: false },
+      testerLastUse: normalizeGearInspectorLastUseFilter({
+        presets: gearInspectorLastUseFilter.presets,
+        custom: { ...createDefaultGearInspectorLastUseCustom(), enabled: false },
       }),
     })
-  }, [onChange, state, testerLastUseFilter.presets])
-  const applyLastUsePresets = React.useCallback((presets: TesterLastUsePreset[]) => {
+  }, [onChange, state, gearInspectorLastUseFilter.presets])
+  const applyLastUsePresets = React.useCallback((presets: GearInspectorLastUsePreset[]) => {
     // Keep the custom range intact so users can stack presets + range without re-entering values.
     onChange({
       ...state,
-      testerLastUse: normalizeTesterLastUseFilter({
+      testerLastUse: normalizeGearInspectorLastUseFilter({
         presets,
-        custom: testerLastUseFilter.custom,
+        custom: gearInspectorLastUseFilter.custom,
       }),
     })
-  }, [onChange, state, testerLastUseFilter.custom])
-  const applyLastUseCustom = React.useCallback((partial: Partial<TesterLastUseCustomFilter>) => {
-    const merged: TesterLastUseCustomFilter = {
-      ...testerLastUseFilter.custom,
+  }, [onChange, state, gearInspectorLastUseFilter.custom])
+  const applyLastUseCustom = React.useCallback((partial: Partial<GearInspectorLastUseCustomFilter>) => {
+    const merged: GearInspectorLastUseCustomFilter = {
+      ...gearInspectorLastUseFilter.custom,
       ...partial,
       enabled: true,
     }
     // Preserve preset selection while toggling the custom slider so both act as a union.
     onChange({
       ...state,
-      testerLastUse: normalizeTesterLastUseFilter({
-        presets: testerLastUseFilter.presets,
+      testerLastUse: normalizeGearInspectorLastUseFilter({
+        presets: gearInspectorLastUseFilter.presets,
         custom: merged,
       }),
     })
-  }, [onChange, state, testerLastUseFilter.custom, testerLastUseFilter.presets])
+  }, [onChange, state, gearInspectorLastUseFilter.custom, gearInspectorLastUseFilter.presets])
   const handleLastUsePopoverOpen = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
     setLastUseAnchorEl(event.currentTarget as HTMLElement)
   }, [])
@@ -1051,9 +1053,9 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     resetLastUseCustom()
   }, [resetLastUseCustom])
 
-  const handleLastUsePresetToggle = React.useCallback((preset: TesterLastUsePreset) => {
+  const handleLastUsePresetToggle = React.useCallback((preset: GearInspectorLastUsePreset) => {
     // Collapse redundant recency choices whenever a button toggles so the selection stays meaningful.
-    const nextSelection = toggleTesterLastUsePresetSelection(lastUsePresetSelection, preset)
+    const nextSelection = toggleGearInspectorLastUsePresetSelection(lastUsePresetSelection, preset)
     applyLastUsePresets(nextSelection)
   }, [applyLastUsePresets, lastUsePresetSelection])
   const handleLastUseSliderChange = React.useCallback((_: Event, value: number | number[]) => {
@@ -1064,8 +1066,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const handleLastUseInputChange = React.useCallback((field: 'minDays' | 'maxDays') => (event: React.ChangeEvent<HTMLInputElement>) => {
     const parsed = Number(event.target.value)
     const isValid = Number.isFinite(parsed)
-    const fallback = field === 'minDays' ? TESTER_LAST_USE_MIN_DAYS : TESTER_LAST_USE_MAX_DAYS
-    const payload: Partial<TesterLastUseCustomFilter> = field === 'minDays'
+    const fallback = field === 'minDays' ? GEAR_INSPECTOR_LAST_USE_MIN_DAYS : GEAR_INSPECTOR_LAST_USE_MAX_DAYS
+    const payload: Partial<GearInspectorLastUseCustomFilter> = field === 'minDays'
       ? { minDays: isValid ? parsed : fallback }
       : { maxDays: isValid ? parsed : fallback }
     applyLastUseCustom(payload)
@@ -1120,8 +1122,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 
   // Level buttons
   const levelValues: readonly LevelMilestone[] = LEVEL_MILESTONES
-  const testerLevelRange = resolveTesterLevelRange(state.level)
-  const testerLevelSliderMarks = levelValues.map((value) => ({ value, label: `+${value}` }))
+  const gearInspectorLevelRange = resolveGearInspectorLevelRange(state.level)
+  const gearInspectorLevelSliderMarks = levelValues.map((value) => ({ value, label: `+${value}` }))
   const levelControlWidthPx = levelValues.length * 36
   const levelControlWidthCss = `${levelControlWidthPx}px`
   const levelControlResponsiveWidth = { xs: '100%', sm: levelControlWidthCss }
@@ -1134,91 +1136,108 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   // Group toggles handled inline in onChange for Rank/Rarity condensed controls
 
   const toggleLabelSx = [ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', textAlign: 'center', fontSize: 'inherit' as const }]
-  const testerRecipeFilterOn = testerRecipeFilterMode !== TESTER_RECIPE_FILTER_MODE_DEFAULT
-  const testerRecipeLabelStrings = React.useMemo(() => ({
+  const gearInspectorRecipeFilterOn = gearInspectorRecipeFilterMode !== GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT
+  const gearInspectorRecipeLabelStrings = React.useMemo(() => ({
     first: t('testerFilterRecipesFirst'),
     any: t('testerFilterRecipesAny'),
     off: t('testerFilterRecipesOff'),
   }), [t])
-  const testerRecipeFilterLabel = testerRecipeFilterMode === 'first'
-    ? testerRecipeLabelStrings.first
-    : testerRecipeFilterMode === 'any'
-      ? testerRecipeLabelStrings.any
-      : testerRecipeLabelStrings.off
-  const testerRecipeLabelWidthCh = React.useMemo(() => (
+  const gearInspectorRecipeFilterLabel = gearInspectorRecipeFilterMode === 'first'
+    ? gearInspectorRecipeLabelStrings.first
+    : gearInspectorRecipeFilterMode === 'any'
+      ? gearInspectorRecipeLabelStrings.any
+      : gearInspectorRecipeLabelStrings.off
+  const gearInspectorRecipeLabelWidthCh = React.useMemo(() => (
     Math.max(
-      testerRecipeLabelStrings.first.length,
-      testerRecipeLabelStrings.any.length,
-      testerRecipeLabelStrings.off.length,
+      gearInspectorRecipeLabelStrings.first.length,
+      gearInspectorRecipeLabelStrings.any.length,
+      gearInspectorRecipeLabelStrings.off.length,
     )
-  ), [testerRecipeLabelStrings])
-  // Keep the button width stable across Rules vs Rule Tester by reserving space for
-  // the widest translated value that can appear in either view.
+  ), [gearInspectorRecipeLabelStrings])
+  // Reserve space for the widest translated value across Rules mode (On/Off) and Gear Inspector mode (Off/First/Any).
   const recipeFilterValueWidthCh = React.useMemo(() => (
-    Math.max(testerRecipeLabelWidthCh, t('recipeFilterOn').length)
-  ), [t, testerRecipeLabelWidthCh])
-  const testerRecipeFilterTooltip = t('filterLimitSelectedRecipesTooltip')
-  const recipeFilterButtonActive = testerRecipeFilterOn
-  const recipeFilterButtonDisabled = !hasRecipes || !onTesterRecipeFilterModeChange
+    Math.max(gearInspectorRecipeLabelWidthCh, t('recipeFilterOn').length)
+  ), [t, gearInspectorRecipeLabelWidthCh])
+  // Reserve space for the widest translated label across both modes so the button width is stable when switching.
+  const recipeFilterLabelWidthCh = React.useMemo(() => (
+    Math.max(t('filterLimitSelectedRecipes').length, t('filterLimitSelectedRecipesGearInspector').length)
+  ), [t])
+  // Pick the Selection/By Match tooltip from 4 variants: preview mode × builder mode.
+  const isSafeguardMode = builderMode === 'safeguard'
+  const gearInspectorRecipeFilterTooltip = isGearInspectorMode
+    ? (isSafeguardMode ? t('filterLimitSelectedSafeguardGearInspectorTooltip') : t('filterLimitSelectedGearInspectorTooltip'))
+    : (isSafeguardMode ? t('filterLimitSelectedSafeguardTooltip') : t('filterLimitSelectedRecipesTooltip'))
+  // Pick the Narrow tooltip: recipe mode uses column-filter match, safeguard mode uses gear-item match.
+  const narrowTooltip = isSafeguardMode ? t('filterLimitPreviewSafeguardTooltip') : t('filterLimitPreviewRecipesTooltip')
+  const recipeFilterButtonActive = gearInspectorRecipeFilterOn
+  const recipeFilterButtonDisabled = !hasRecipes || !onGearInspectorRecipeFilterModeChange
   const recipeFilterButtonVariant: 'contained' | 'outlined' = recipeFilterButtonActive ? 'contained' : 'outlined'
+  // Label text is mode-aware: "Selection" in Rules mode, "By Match" in Gear Inspector mode.
+  const recipeFilterButtonLabelText = isGearInspectorMode
+    ? t('filterLimitSelectedRecipesGearInspector')
+    : t('filterLimitSelectedRecipes')
   const recipeFilterButtonLabel = (
-    isTesterMode
-      ? (testerRecipeFilterOn ? testerRecipeFilterLabel : t('testerFilterRecipesOff'))
-      : (testerRecipeFilterOn ? t('recipeFilterOn') : t('testerFilterRecipesOff'))
+    isGearInspectorMode
+      ? (gearInspectorRecipeFilterOn ? gearInspectorRecipeFilterLabel : t('testerFilterRecipesOff'))
+      : (gearInspectorRecipeFilterOn ? t('recipeFilterOn') : t('testerFilterRecipesOff'))
   )
   const previewRecipeButtonActive = recipeChipFilterActive
   const previewRecipeButtonVariant: 'contained' | 'outlined' = previewRecipeButtonActive ? 'contained' : 'outlined'
   const previewRecipeButtonLabel = previewRecipeButtonActive ? t('recipeFilterOn') : t('testerFilterRecipesOff')
-  // Match Recipe Filter's width stabilization pattern so the Preview Recipes button
+  // Match Recipe Filter's width stabilization pattern so the Narrow button
   // doesn't "jump" as Off/On switches (or across localized strings).
   const previewRecipesValueWidthCh = React.useMemo(() => (
-    Math.max(t('recipeFilterOn').length, testerRecipeLabelStrings.off.length)
-  ), [t, testerRecipeLabelStrings.off])
-  const testerSourceOptions = React.useMemo(() => {
+    Math.max(t('recipeFilterOn').length, gearInspectorRecipeLabelStrings.off.length)
+  ), [t, gearInspectorRecipeLabelStrings.off])
+  // "Narrow" label is fixed — a single ch reservation keeps the label column stable.
+  const previewRecipesLabelWidthCh = React.useMemo(() => (
+    t('filterLimitPreviewRecipes').length
+  ), [t])
+  const gearInspectorSourceOptions = React.useMemo(() => {
     const options = [
       { value: 'inventory', label: t('testerSourceInventory') },
       { value: 'collection', label: t('testerSourceEquippedCollection') },
       { value: 'vault', label: t('testerSourceEquippedVault') },
       { value: 'inbox', label: t('testerSourceInbox') },
     ] as const
-    return hasManualTesterItems
+    return hasManualGearInspectorItems
       ? [...options, { value: 'manual', label: t('testerSourceManual') }]
       : options.slice()
-  }, [hasManualTesterItems, t])
+  }, [hasManualGearInspectorItems, t])
   // Keep the first two options anchored on the top row so the base grid stays 2x2.
-  const testerSourceRows = React.useMemo(() => {
-    const firstRow = testerSourceOptions.slice(0, 2)
+  const gearInspectorSourceRows = React.useMemo(() => {
+    const firstRow = gearInspectorSourceOptions.slice(0, 2)
     // The second row absorbs the remaining options (manual gear adds the third column here).
-    const remaining = testerSourceOptions.slice(2)
+    const remaining = gearInspectorSourceOptions.slice(2)
     return [firstRow, remaining]
-  }, [testerSourceOptions])
-  const testerSourcesSelected = state.testerSources?.selected
-  const testerSourceSelectionRaw = React.useMemo(
-    () => testerSourcesSelected ?? [],
-    [testerSourcesSelected],
+  }, [gearInspectorSourceOptions])
+  const gearInspectorSourcesSelected = state.testerSources?.selected
+  const gearInspectorSourceSelectionRaw = React.useMemo(
+    () => gearInspectorSourcesSelected ?? [],
+    [gearInspectorSourcesSelected],
   )
-  const testerSourceSelection = hasManualTesterItems
-    ? testerSourceSelectionRaw
-    : testerSourceSelectionRaw.filter((value) => value !== 'manual')
+  const gearInspectorSourceSelection = hasManualGearInspectorItems
+    ? gearInspectorSourceSelectionRaw
+    : gearInspectorSourceSelectionRaw.filter((value) => value !== 'manual')
   React.useEffect(() => {
-    if (!isTesterMode) return
-    if (hasManualTesterItems) return
-    if (!testerSourceSelectionRaw.includes('manual')) return
-    const filtered = testerSourceSelectionRaw.filter((value) => value !== 'manual')
+    if (!isGearInspectorMode) return
+    if (hasManualGearInspectorItems) return
+    if (!gearInspectorSourceSelectionRaw.includes('manual')) return
+    const filtered = gearInspectorSourceSelectionRaw.filter((value) => value !== 'manual')
     onChange({
       ...state,
       testerSources: { selected: filtered },
     })
-  }, [hasManualTesterItems, isTesterMode, onChange, state, testerSourceSelectionRaw])
-  // Shared handler so both toggle rows update the same testerSources payload.
-  const handleTesterSourceToggleChange = React.useCallback((_: React.MouseEvent<HTMLElement>, vals: string[]) => {
-    const parsed = vals.map((v) => v as TesterSourceFilter)
+  }, [hasManualGearInspectorItems, isGearInspectorMode, onChange, state, gearInspectorSourceSelectionRaw])
+  // Shared handler so both toggle rows update the same gearInspectorSources payload.
+  const handleGearInspectorSourceToggleChange = React.useCallback((_: React.MouseEvent<HTMLElement>, vals: string[]) => {
+    const parsed = vals.map((v) => v as GearInspectorSourceFilter)
     onChange({ ...state, testerSources: { selected: parsed } })
   }, [onChange, state])
-  const testerChaosMode: TesterChaosFilterMode = state.testerChaos?.mode ?? 'any'
-  const testerGlyphMode: TesterGlyphFilterMode = state.testerGlyphs?.mode ?? 'any'
-  const testerAscStars = state.testerAscension?.stars ?? []
-  const testerAscStats = state.testerAscension?.stats ?? []
+  const gearInspectorChaosMode: GearInspectorChaosFilterMode = state.testerChaos?.mode ?? 'any'
+  const gearInspectorGlyphMode: GearInspectorGlyphFilterMode = state.testerGlyphs?.mode ?? 'any'
+  const gearInspectorAscStars = state.testerAscension?.stars ?? []
+  const gearInspectorAscStats = state.testerAscension?.stats ?? []
   const championSelection = state.testerChampions?.selected ?? []
   const championSelectionCount = championSelection.length
   const extraChampionCount = Math.max(0, championSelectionCount - 1)
@@ -1239,12 +1258,12 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     () => computeInlineSelectContentMaxWidth(factionInlinePaddingPx),
     [factionInlinePaddingPx],
   )
-  const showChampionFilter = isTesterMode && (testerChampionOptions?.length ?? 0) > 0
+  const showChampionFilter = isGearInspectorMode && (gearInspectorChampionOptions?.length ?? 0) > 0
   const [championSearch, setChampionSearch] = React.useState('')
   const normalizedChampionSearch = championSearch.trim()
-  const championOptions = React.useMemo(() => testerChampionOptions ?? [], [testerChampionOptions])
+  const championOptions = React.useMemo(() => gearInspectorChampionOptions ?? [], [gearInspectorChampionOptions])
   const championOptionMap = React.useMemo(() => {
-    const map = new Map<number, TesterChampionOption>()
+    const map = new Map<number, GearInspectorChampionOption>()
     championOptions.forEach((option) => { map.set(option.id, option) })
     return map
   }, [championOptions])
@@ -1284,14 +1303,14 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       }
       : {}),
   }), [championSearch, championZeroResults])
-  const formatChampionName = React.useCallback((option?: TesterChampionOption | null): string => {
+  const formatChampionName = React.useCallback((option?: GearInspectorChampionOption | null): string => {
     if (!option) return ''
     if (option.name && option.name.trim().length > 0) return option.name.trim()
     return t('testerChampionUnknownName', { id: option.id })
   }, [t])
   // Dev builds benefit from showing ids inline so missing icon assets are faster to diagnose.
   // Keep prod labels clean by gating behind `import.meta.env.DEV`.
-  const formatChampionNameWithDebugId = React.useCallback((option?: TesterChampionOption | null): string => {
+  const formatChampionNameWithDebugId = React.useCallback((option?: GearInspectorChampionOption | null): string => {
     const base = formatChampionName(option)
     if (!import.meta.env.DEV) return base
     if (!option) return base
@@ -1301,30 +1320,30 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     const baseHeroLabel = baseHeroId !== null ? String(baseHeroId) : '?'
     return `${base} (${baseHeroLabel} / ${option.id})`
   }, [formatChampionName])
-  const formatChampionLocation = React.useCallback((option?: TesterChampionOption | null): string | null => {
+  const formatChampionLocation = React.useCallback((option?: GearInspectorChampionOption | null): string | null => {
     if (!option?.location) return null
     if (option.location === 'vault' || option.location === 'reserveVault') return t('testerSourceEquippedVault')
     if (option.location === 'collection') return t('testerSourceEquippedCollection')
     return null
   }, [t])
-  const handleTesterRecipeFilterClick = () => {
+  const handleGearInspectorRecipeFilterClick = () => {
     if (!hasRecipes) return
-    if (!onTesterRecipeFilterModeChange) return
-    if (isTesterMode) {
-      const next: TesterRecipeFilterMode = testerRecipeFilterMode === 'off'
+    if (!onGearInspectorRecipeFilterModeChange) return
+    if (isGearInspectorMode) {
+      const next: GearInspectorRecipeFilterMode = gearInspectorRecipeFilterMode === 'off'
         ? 'first'
-        : testerRecipeFilterMode === 'first'
+        : gearInspectorRecipeFilterMode === 'first'
           ? 'any'
           : 'off'
-      onTesterRecipeFilterModeChange(next)
+      onGearInspectorRecipeFilterModeChange(next)
       return
     }
-    const next: TesterRecipeFilterMode = testerRecipeFilterMode === 'off' ? 'first' : 'off'
-    onTesterRecipeFilterModeChange(next)
+    const next: GearInspectorRecipeFilterMode = gearInspectorRecipeFilterMode === 'off' ? 'first' : 'off'
+    onGearInspectorRecipeFilterModeChange(next)
   }
 
   // Section labels feed both the header copy and the clear-button tooltips so we only translate once per render.
-  const ruleSectionLabel = t(isTesterMode ? 'filterTesterResult' : 'filterRule')
+  const ruleSectionLabel = t(isGearInspectorMode ? 'filterTesterResult' : 'filterRule')
   const setsSectionLabel = t('filterSets')
   const sourcesSectionLabel = t('filterSource')
   const championsSectionLabel = t('testerChampionFilterLabel')
@@ -1364,7 +1383,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 
   // Each clear helper targets the fields surfaced inside that section so partial resets never clobber other filters.
   const clearRuleSection = () => {
-    if (isTesterMode) {
+    if (isGearInspectorMode) {
       onChange({ ...state, testerResult: { ...(DEFAULT_RULES_FILTER_STATE.testerResult ?? { keep: 'any', matched: 'any' }) } })
       return
     }
@@ -1395,7 +1414,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const clearLastUseSection = () => {
     onChange({
       ...state,
-      testerLastUse: createDefaultTesterLastUseFilter(),
+      testerLastUse: createDefaultGearInspectorLastUseFilter(),
     })
   }
   const clearMainSection = () => {
@@ -1403,7 +1422,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       ...state,
       main: { ...(DEFAULT_RULES_FILTER_STATE.main ?? { selected: [], anyMode: 'include' }) },
     }
-    if (isTesterMode) {
+    if (isGearInspectorMode) {
       next.testerChaos = { ...(DEFAULT_RULES_FILTER_STATE.testerChaos ?? { mode: 'any' }) }
     }
     onChange(next)
@@ -1413,15 +1432,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       ...state,
       sub: { ...(DEFAULT_RULES_FILTER_STATE.sub ?? { selected: [], notSelected: [], mode: 'all', wildcardMode: 'include' }) },
     }
-    if (isTesterMode) {
+    if (isGearInspectorMode) {
       next.testerGlyphs = { ...(DEFAULT_RULES_FILTER_STATE.testerGlyphs ?? { mode: 'any' }) }
-      next.testerRolls = createDefaultTesterRollsState()
+      next.testerRolls = createDefaultGearInspectorRollsState()
     }
     onChange(next)
   }
   const clearLevelSection = () => {
     const defaultLevel = DEFAULT_RULES_FILTER_STATE.level ?? { selected: [], anyMode: 'include', testerRange: undefined }
-    const defaultRange = resolveTesterLevelRange(defaultLevel)
+    const defaultRange = resolveGearInspectorLevelRange(defaultLevel)
     onChange({
       ...state,
       level: {
@@ -1463,10 +1482,10 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 
   // Dirty-state probes ensure the clear affordance only lights up when this section diverged from factory defaults.
   const defaultRuleFilter = DEFAULT_RULES_FILTER_STATE.rule ?? { keep: 'any', use: 'any' }
-  const defaultTesterResult = DEFAULT_RULES_FILTER_STATE.testerResult ?? { keep: 'any', matched: 'any' }
-  const ruleSectionDirty = isTesterMode
-    ? ((state.testerResult?.keep ?? defaultTesterResult.keep) !== defaultTesterResult.keep
-      || (state.testerResult?.matched ?? defaultTesterResult.matched) !== defaultTesterResult.matched)
+  const defaultGearInspectorResult = DEFAULT_RULES_FILTER_STATE.testerResult ?? { keep: 'any', matched: 'any' }
+  const ruleSectionDirty = isGearInspectorMode
+    ? ((state.testerResult?.keep ?? defaultGearInspectorResult.keep) !== defaultGearInspectorResult.keep
+      || (state.testerResult?.matched ?? defaultGearInspectorResult.matched) !== defaultGearInspectorResult.matched)
     : ((state.rule?.keep ?? defaultRuleFilter.keep) !== defaultRuleFilter.keep
       || (state.rule?.use ?? defaultRuleFilter.use) !== defaultRuleFilter.use)
   const setsSectionDirty = (
@@ -1475,32 +1494,32 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     || ((state.sets.anyMode ?? DEFAULT_RULES_FILTER_STATE.sets.anyMode) !== DEFAULT_RULES_FILTER_STATE.sets.anyMode)
     || ((state.sets.match ?? DEFAULT_RULES_FILTER_STATE.sets.match) !== DEFAULT_RULES_FILTER_STATE.sets.match)
   )
-  const sourcesSectionDirty = isTesterMode && (testerSourceSelectionRaw.length > 0)
-  const championsSectionDirty = isTesterMode && (championSelection.length > 0)
-  const lastUseSectionDirty = isTesterMode && (
+  const sourcesSectionDirty = isGearInspectorMode && (gearInspectorSourceSelectionRaw.length > 0)
+  const championsSectionDirty = isGearInspectorMode && (championSelection.length > 0)
+  const lastUseSectionDirty = isGearInspectorMode && (
     lastUsePresetSelection.length > 0
     || lastUseCustom.enabled
-    || lastUseCustom.minDays > TESTER_LAST_USE_MIN_DAYS
-    || lastUseCustom.maxDays < TESTER_LAST_USE_MAX_DAYS
+    || lastUseCustom.minDays > GEAR_INSPECTOR_LAST_USE_MIN_DAYS
+    || lastUseCustom.maxDays < GEAR_INSPECTOR_LAST_USE_MAX_DAYS
   )
   const mainSectionDirty = (
     (state.main.selected.length > 0)
-    || (!isTesterMode && ((state.main.anyMode ?? DEFAULT_RULES_FILTER_STATE.main.anyMode) !== DEFAULT_RULES_FILTER_STATE.main.anyMode))
-    || (isTesterMode && (testerChaosMode !== (DEFAULT_RULES_FILTER_STATE.testerChaos?.mode ?? 'any')))
+    || (!isGearInspectorMode && ((state.main.anyMode ?? DEFAULT_RULES_FILTER_STATE.main.anyMode) !== DEFAULT_RULES_FILTER_STATE.main.anyMode))
+    || (isGearInspectorMode && (gearInspectorChaosMode !== (DEFAULT_RULES_FILTER_STATE.testerChaos?.mode ?? 'any')))
   )
   const subSectionDirty = (
     (state.sub.selected.length > 0)
     || (state.sub.notSelected.length > 0)
     || (state.sub.mode !== DEFAULT_RULES_FILTER_STATE.sub.mode)
-    || (isTesterMode && testerGlyphMode !== (DEFAULT_RULES_FILTER_STATE.testerGlyphs?.mode ?? 'any'))
-    || (isTesterMode && testerRollsActive)
+    || (isGearInspectorMode && gearInspectorGlyphMode !== (DEFAULT_RULES_FILTER_STATE.testerGlyphs?.mode ?? 'any'))
+    || (isGearInspectorMode && gearInspectorRollsActive)
   )
   const levelSectionDirty = (
     (state.level.selected.length > 0)
-    || (!isTesterMode && ((state.level.anyMode ?? DEFAULT_RULES_FILTER_STATE.level.anyMode) !== DEFAULT_RULES_FILTER_STATE.level.anyMode))
-    || (isTesterMode && (
-      testerLevelRange.min > TESTER_LEVEL_MIN
-      || testerLevelRange.max < TESTER_LEVEL_MAX
+    || (!isGearInspectorMode && ((state.level.anyMode ?? DEFAULT_RULES_FILTER_STATE.level.anyMode) !== DEFAULT_RULES_FILTER_STATE.level.anyMode))
+    || (isGearInspectorMode && (
+      gearInspectorLevelRange.min > GEAR_INSPECTOR_LEVEL_MIN
+      || gearInspectorLevelRange.max < GEAR_INSPECTOR_LEVEL_MAX
     ))
   )
   const factionSectionDirty = (
@@ -1509,19 +1528,19 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   )
   const slotsSectionDirty = (
     (selectedSlots.size > 0)
-    || (!isTesterMode && ((state.slots.anyMode ?? DEFAULT_RULES_FILTER_STATE.slots.anyMode) !== DEFAULT_RULES_FILTER_STATE.slots.anyMode))
+    || (!isGearInspectorMode && ((state.slots.anyMode ?? DEFAULT_RULES_FILTER_STATE.slots.anyMode) !== DEFAULT_RULES_FILTER_STATE.slots.anyMode))
   )
   const rankSectionDirty = (
     (rankSelected.size > 0)
-    || (!isTesterMode && ((state.rank.anyMode ?? DEFAULT_RULES_FILTER_STATE.rank.anyMode) !== DEFAULT_RULES_FILTER_STATE.rank.anyMode))
+    || (!isGearInspectorMode && ((state.rank.anyMode ?? DEFAULT_RULES_FILTER_STATE.rank.anyMode) !== DEFAULT_RULES_FILTER_STATE.rank.anyMode))
   )
   const raritySectionDirty = (
     (raritySelected.size > 0)
-    || (!isTesterMode && ((state.rarity.anyMode ?? DEFAULT_RULES_FILTER_STATE.rarity.anyMode) !== DEFAULT_RULES_FILTER_STATE.rarity.anyMode))
+    || (!isGearInspectorMode && ((state.rarity.anyMode ?? DEFAULT_RULES_FILTER_STATE.rarity.anyMode) !== DEFAULT_RULES_FILTER_STATE.rarity.anyMode))
   )
-  const ascensionSectionDirty = isTesterMode && (
-    (testerAscStars.length > 0)
-    || (testerAscStats.length > 0)
+  const ascensionSectionDirty = isGearInspectorMode && (
+    (gearInspectorAscStars.length > 0)
+    || (gearInspectorAscStats.length > 0)
   )
 
   return (
@@ -1561,30 +1580,31 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             alignItems="center"
             sx={{ flexWrap: 'wrap', justifyContent: 'flex-start' }}
           >
-              {Boolean(onTesterRecipeFilterModeChange) && (
-                <MarkdownTooltip markdown={testerRecipeFilterTooltip}>
+              {Boolean(onGearInspectorRecipeFilterModeChange) && (
+                <MarkdownTooltip markdown={gearInspectorRecipeFilterTooltip}>
                   <span>
                     <SplitLabelValueButton
                       size="small"
                       variant={recipeFilterButtonVariant}
                       color="success"
-                      aria-label={t('filterLimitSelectedRecipes')}
-                      aria-pressed={recipeFilterButtonDisabled ? undefined : testerRecipeFilterOn}
+                      aria-label={recipeFilterButtonLabelText}
+                      aria-pressed={recipeFilterButtonDisabled ? undefined : gearInspectorRecipeFilterOn}
                       disabled={recipeFilterButtonDisabled}
-                        onClick={handleTesterRecipeFilterClick}
+                        onClick={handleGearInspectorRecipeFilterClick}
                       sx={{
                         height: SMALL_BUTTON_HEIGHT_PX,
                         minHeight: SMALL_BUTTON_HEIGHT_PX,
                         px: 1.25,
                       }}
-                      label={t('filterLimitSelectedRecipes')}
+                      label={recipeFilterButtonLabelText}
+                      labelWidthCh={recipeFilterLabelWidthCh}
                       value={recipeFilterButtonLabel}
                       valueWidthCh={recipeFilterValueWidthCh}
                     />
                   </span>
                 </MarkdownTooltip>
               )}
-              <MarkdownTooltip markdown={t('filterLimitPreviewRecipesTooltip')}>
+              <MarkdownTooltip markdown={narrowTooltip}>
                 <span>
                   <SplitLabelValueButton
                     size="small"
@@ -1600,6 +1620,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       px: 1.25,
                     }}
                     label={t('filterLimitPreviewRecipes')}
+                    labelWidthCh={previewRecipesLabelWidthCh}
                     value={previewRecipeButtonLabel}
                     valueWidthCh={previewRecipesValueWidthCh}
                   />
@@ -1670,7 +1691,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               )}
             />
             <Collapse in={!collapsed.rule} timeout="auto" unmountOnExit>
-            {isTesterMode ? (
+            {isGearInspectorMode ? (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
                   <ToggleButtonGroup
@@ -2202,7 +2223,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             </Collapse>
           </FormControl>
           </Box>
-          {isTesterMode && (
+          {isGearInspectorMode && (
             <Box
               sx={{
                 display: 'flex',
@@ -2233,14 +2254,14 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       gap: 0.5,
                     }}
                   >
-                    {testerSourceRows.map((rowOptions, rowIdx) => {
+                    {gearInspectorSourceRows.map((rowOptions, rowIdx) => {
                       if (rowOptions.length === 0) return null
                       return (
                         <ToggleButtonGroup
-                          key={`tester-sources-row-${rowIdx}`}
+                          key={`gear-inspector-sources-row-${rowIdx}`}
                           size="small"
-                          value={testerSourceSelection}
-                          onChange={handleTesterSourceToggleChange}
+                          value={gearInspectorSourceSelection}
+                          onChange={handleGearInspectorSourceToggleChange}
                           sx={[{
                             display: 'grid',
                             gridTemplateColumns: `repeat(${rowOptions.length}, minmax(0, ${FILTER_TOGGLE_BUTTON_WIDTH_PX}px))`,
@@ -2427,7 +2448,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 	                        const championLabel = formatChampionNameWithDebugId(option)
 	                        // Prefer base hero ids for icons so duplicate champion copies share the same avatar.
 	                        const championIconSrc = championIconUrl(option.baseId ?? option.id)
-	                        // Mirror the tester grid rarity border so the dropdown signals overall quality at a glance.
+	                        // Mirror the Gear Inspector grid rarity border so the dropdown signals overall quality at a glance.
 	                        const championBorderColor = resolveRarityAccentColor(option.rarity) ?? theme.palette.divider
                         const championFallbackInitial = (() => {
                           const trimmed = championLabel.trim()
@@ -2536,7 +2557,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                           onClick={(event) => {
                             event.preventDefault()
                             event.stopPropagation()
-                            handleLastUsePresetToggle(option.value as TesterLastUsePreset)
+                            handleLastUsePresetToggle(option.value as GearInspectorLastUsePreset)
                           }}
                         >
                           <MarkdownTooltip
@@ -2574,7 +2595,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
           <Box
             sx={{
               display: 'flex',
-              flexWrap: 'wrap',
+              // At sm+ keep mainstat and substat groups on a single row; xs stacks them naturally.
+              flexWrap: { xs: 'wrap', sm: 'nowrap' },
               columnGap: 1,
               rowGap: 0.75,
               mb: 0.75,
@@ -2625,7 +2647,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   ))}
                 </ToggleButtonGroup>
               </Box>
-              {isTesterMode ? (
+              {isGearInspectorMode ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: FILTER_CHIP_TOP_MARGIN }}>
                   <MarkdownTooltip
                     markdown={renderGlyphTooltip(t('filterChaosOreTooltip'), [
@@ -2637,29 +2659,29 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     <Chip
                       size="small"
                       label={`${t('filterChaosOre')}: ${
-                        testerChaosMode === 'notRerolled'
+                        gearInspectorChaosMode === 'notRerolled'
                           ? GLYPH_NOT_REROLLED
-                          : testerChaosMode === 'rerolled'
+                          : gearInspectorChaosMode === 'rerolled'
                             ? GLYPH_REROLLED
                             : GLYPH_GTE_ZERO
                       }`}
                       aria-label={`${t('filterChaosOre')}: ${
-                        testerChaosMode === 'notRerolled'
+                        gearInspectorChaosMode === 'notRerolled'
                           ? t('filterChaosOreNotRerolled')
-                          : testerChaosMode === 'rerolled'
+                          : gearInspectorChaosMode === 'rerolled'
                             ? t('filterChaosOreRerolled')
                             : t('filterChaosOreAny')
                       }`}
                       onClick={() => {
-                        const next: TesterChaosFilterMode =
-                          testerChaosMode === 'any'
+                        const next: GearInspectorChaosFilterMode =
+                          gearInspectorChaosMode === 'any'
                             ? 'notRerolled'
-                            : testerChaosMode === 'notRerolled'
+                            : gearInspectorChaosMode === 'notRerolled'
                               ? 'rerolled'
                               : 'any'
                         onChange({ ...state, testerChaos: { mode: next } })
                       }}
-                      sx={tintedChipSx(testerChaosMode === 'any' ? theme.palette.success : testerChaosMode === 'notRerolled' ? theme.palette.info : theme.palette.warning)}
+                      sx={tintedChipSx(gearInspectorChaosMode === 'any' ? theme.palette.success : gearInspectorChaosMode === 'notRerolled' ? theme.palette.info : theme.palette.warning)}
                     />
                   </MarkdownTooltip>
                 </Box>
@@ -2810,7 +2832,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     sx={tintedChipSx(state.sub.mode === 'any' ? theme.palette.success : theme.palette.info)}
                   />
                 </MarkdownTooltip>
-                {isTesterMode && (
+                {isGearInspectorMode && (
                   <MarkdownTooltip
                     markdown={renderGlyphTooltip(t('filterGlyphsTooltip'), [
                       { glyph: GLYPH_GTE_ZERO, label: t('filterGlyphsAny') },
@@ -2822,55 +2844,55 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     <Chip
                       size="small"
                       label={`${t('filterGlyphs')}: ${
-                        testerGlyphMode === 'on'
+                        gearInspectorGlyphMode === 'on'
                           ? GLYPH_GLYPHS_ON
-                          : testerGlyphMode === 'selected'
+                          : gearInspectorGlyphMode === 'selected'
                             ? GLYPH_GLYPHS_SELECTED
-                            : testerGlyphMode === 'off'
+                            : gearInspectorGlyphMode === 'off'
                               ? GLYPH_GLYPHS_OFF
                               : GLYPH_GTE_ZERO
                       }`}
                       aria-label={`${t('filterGlyphs')}: ${
-                        testerGlyphMode === 'on'
+                        gearInspectorGlyphMode === 'on'
                           ? t('filterGlyphsOn')
-                          : testerGlyphMode === 'selected'
+                          : gearInspectorGlyphMode === 'selected'
                             ? t('filterGlyphsSelected')
-                            : testerGlyphMode === 'off'
+                            : gearInspectorGlyphMode === 'off'
                               ? t('filterGlyphsOff')
                               : t('filterGlyphsAny')
                       }`}
                       onClick={() => {
-                        const next: TesterGlyphFilterMode =
-                          testerGlyphMode === 'any'
+                        const next: GearInspectorGlyphFilterMode =
+                          gearInspectorGlyphMode === 'any'
                             ? 'on'
-                            : testerGlyphMode === 'on'
+                            : gearInspectorGlyphMode === 'on'
                               ? 'selected'
-                              : testerGlyphMode === 'selected'
+                              : gearInspectorGlyphMode === 'selected'
                                 ? 'off'
                                 : 'any'
                         onChange({ ...state, testerGlyphs: { mode: next } })
                       }}
                       sx={tintedChipSx(
-                        testerGlyphMode === 'any'
+                        gearInspectorGlyphMode === 'any'
                           ? theme.palette.success
-                          : testerGlyphMode === 'on'
+                          : gearInspectorGlyphMode === 'on'
                             ? theme.palette.info
-                            : testerGlyphMode === 'selected'
+                            : gearInspectorGlyphMode === 'selected'
                               ? theme.palette.secondary
                               : theme.palette.warning,
                       )}
                     />
                   </MarkdownTooltip>
                 )}
-                {isTesterMode && (
+                {isGearInspectorMode && (
                   <MarkdownTooltip markdown={rollSummaryDescription}>
                     <Chip
                       size="small"
                       label={rollChipLabel}
                       aria-label={rollChipAria}
-                      onClick={(event) => setTesterRollsAnchorEl(event.currentTarget)}
+                      onClick={(event) => setGearInspectorRollsAnchorEl(event.currentTarget)}
                       variant="filled"
-                      sx={tintedChipSx(testerRollsActive ? theme.palette.info : theme.palette.success)}
+                      sx={tintedChipSx(gearInspectorRollsActive ? theme.palette.info : theme.palette.success)}
                     />
                   </MarkdownTooltip>
                 )}
@@ -2899,7 +2921,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 )}
               />
               <Collapse in={!collapsed.level} timeout="auto" unmountOnExit>
-                {isTesterMode ? (
+                {isGearInspectorMode ? (
                   <Box sx={{
                     mt: 0.25,
                     width: levelControlResponsiveWidth,
@@ -2910,12 +2932,12 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   }}>
                     <Slider
                       size="small"
-                      min={TESTER_LEVEL_MIN}
-                      max={TESTER_LEVEL_MAX}
+                      min={GEAR_INSPECTOR_LEVEL_MIN}
+                      max={GEAR_INSPECTOR_LEVEL_MAX}
                       step={1}
                       disableSwap
-                      value={[testerLevelRange.min, testerLevelRange.max]}
-                      marks={testerLevelSliderMarks}
+                      value={[gearInspectorLevelRange.min, gearInspectorLevelRange.max]}
+                      marks={gearInspectorLevelSliderMarks}
                       valueLabelDisplay="auto"
                       getAriaLabel={() => t('filterLevel')}
                       getAriaValueText={(value) => `+${value}`}
@@ -2923,11 +2945,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       onChange={(_, value) => {
                         if (!Array.isArray(value) || value.length !== 2) return
                         const [rawMin, rawMax] = value as [number, number]
-                        const normalized = resolveTesterLevelRange({
+                        const normalized = resolveGearInspectorLevelRange({
                           ...state.level,
                           testerRange: { min: rawMin, max: rawMax },
                         })
-                        if (normalized.min === testerLevelRange.min && normalized.max === testerLevelRange.max) return
+                        if (normalized.min === gearInspectorLevelRange.min && normalized.max === gearInspectorLevelRange.max) return
                         onChange({ ...state, level: { ...state.level, testerRange: normalized } })
                       }}
                       sx={{
@@ -3178,7 +3200,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   )
                 })}
               </ToggleButtonGroup>
-              {!isTesterMode && (
+              {!isGearInspectorMode && (
                 <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
                   {anyChip(t('filterSlots'), state.slots.anyMode, (v) => onChange({ ...state, slots: { ...state.slots, anyMode: v } }), t('filterAnyTooltip', { field: t('filterSlots') }))}
                 </Box>
@@ -3222,7 +3244,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     </ToggleButton>
                   ))}
                 </ToggleButtonGroup>
-                {!isTesterMode && (
+                {!isGearInspectorMode && (
                   <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
                     {anyChip(t('filterRank'), state.rank.anyMode, (v) => onChange({ ...state, rank: { ...state.rank, anyMode: v } }), t('filterAnyTooltip', { field: t('filterRank') }))}
                   </Box>
@@ -3288,7 +3310,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     </ToggleButton>
                   ))}
                 </ToggleButtonGroup>
-                {!isTesterMode && (
+                {!isGearInspectorMode && (
                   <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
                     {anyChip(t('filterRarity'), state.rarity.anyMode, (v) => onChange({ ...state, rarity: { ...state.rarity, anyMode: v } }), t('filterAnyTooltip', { field: t('filterRarity') }))}
                   </Box>
@@ -3296,7 +3318,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               </Collapse>
             </FormControl>
         </Box>
-        {isTesterMode && (
+        {isGearInspectorMode && (
           <FormControl sx={{ ...collapsibleSectionSx, mb: 0.75 }}>
             <SectionHeader
               id="ascension"
@@ -3312,7 +3334,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 auto' }, minWidth: 0 }}>
                   <ToggleButtonGroup
                     size="small"
-                    value={testerAscStars.map(String)}
+                    value={gearInspectorAscStars.map(String)}
                     onChange={(_, vals: string[]) => {
                       const parsed = vals
                         .map((v) => Number(v))
@@ -3346,7 +3368,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 >
                   <ToggleButtonGroup
                     size="small"
-                    value={filterRowSelection(testerAscStats, STAT_VARIANTS_PRIORITY_ROW1)}
+                    value={filterRowSelection(gearInspectorAscStats, STAT_VARIANTS_PRIORITY_ROW1)}
                     onChange={(_, vals: string[]) => {
                       const prev = state.testerAscension ?? DEFAULT_RULES_FILTER_STATE.testerAscension!
                       const nextStats = mergeRowSelection(prev.stats ?? [], STAT_VARIANTS_PRIORITY_ROW1, vals)
@@ -3362,7 +3384,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   </ToggleButtonGroup>
                   <ToggleButtonGroup
                     size="small"
-                    value={filterRowSelection(testerAscStats, STAT_VARIANTS_PRIORITY_ROW2)}
+                    value={filterRowSelection(gearInspectorAscStats, STAT_VARIANTS_PRIORITY_ROW2)}
                     onChange={(_, vals: string[]) => {
                       const prev = state.testerAscension ?? DEFAULT_RULES_FILTER_STATE.testerAscension!
                       const nextStats = mergeRowSelection(prev.stats ?? [], STAT_VARIANTS_PRIORITY_ROW2, vals)
@@ -3388,21 +3410,21 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         {/* Full-width rows */}
         {/* No full-width Main/Sub section: they live under Sets in the left column */}
       </Box>
-      {isTesterMode && (
+      {isGearInspectorMode && (
         <>
           <Popover
-            open={testerRollsOpen}
-            anchorEl={testerRollsAnchorEl}
-            onClose={handleTesterRollsClose}
+            open={gearInspectorRollsOpen}
+            anchorEl={gearInspectorRollsAnchorEl}
+            onClose={handleGearInspectorRollsClose}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
             transformOrigin={{ vertical: 'top', horizontal: 'left' }}
             slotProps={{
               paper: buildContextMenuPaperSlotProps({
                 component: ContextMenuPaper,
-                contextMenuGuard: testerRollsGuard,
-                onRequestClose: handleTesterRollsClose,
+                contextMenuGuard: gearInspectorRollsGuard,
+                onRequestClose: handleGearInspectorRollsClose,
                 closeLabel: t('close'),
-                ref: testerRollsPaperRef,
+                ref: gearInspectorRollsPaperRef,
                 sx: { width: 310, maxWidth: 'calc(100vw - 32px)', p: 2.25 },
               }),
             }}
@@ -3531,7 +3553,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   type="number"
                   size="small"
                   label={t('testerLastUsedRangeMinLabel')}
-                  inputProps={{ min: TESTER_LAST_USE_MIN_DAYS, max: TESTER_LAST_USE_MAX_DAYS }}
+                  inputProps={{ min: GEAR_INSPECTOR_LAST_USE_MIN_DAYS, max: GEAR_INSPECTOR_LAST_USE_MAX_DAYS }}
                   value={lastUseCustom.minDays}
                   onChange={handleLastUseInputChange('minDays')}
                   sx={{ flex: '1 1 120px' }}
@@ -3540,7 +3562,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   type="number"
                   size="small"
                   label={t('testerLastUsedRangeMaxLabel')}
-                  inputProps={{ min: TESTER_LAST_USE_MIN_DAYS, max: TESTER_LAST_USE_MAX_DAYS }}
+                  inputProps={{ min: GEAR_INSPECTOR_LAST_USE_MIN_DAYS, max: GEAR_INSPECTOR_LAST_USE_MAX_DAYS }}
                   value={lastUseCustom.maxDays}
                   onChange={handleLastUseInputChange('maxDays')}
                   sx={{ flex: '1 1 120px' }}
@@ -3548,8 +3570,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               </Box>
               <Slider
                 value={[lastUseCustom.minDays, lastUseCustom.maxDays]}
-                min={TESTER_LAST_USE_MIN_DAYS}
-                max={TESTER_LAST_USE_MAX_DAYS}
+                min={GEAR_INSPECTOR_LAST_USE_MIN_DAYS}
+                max={GEAR_INSPECTOR_LAST_USE_MAX_DAYS}
                 onChange={handleLastUseSliderChange}
                 valueLabelDisplay="auto"
               />
@@ -3574,9 +3596,9 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 export default RulesFilterPanel
 
 type RollCountToggleButtonsProps = {
-  counts: TesterRollCountSet
+  counts: GearInspectorRollCountSet
   ariaLabelPrefix: string
-  onToggle: (value: TesterRollCountValue) => void
+  onToggle: (value: GearInspectorRollCountValue) => void
 }
 
 const RollCountToggleButtons = React.memo(function RollCountToggleButtons({
@@ -3592,7 +3614,7 @@ const RollCountToggleButtons = React.memo(function RollCountToggleButtons({
       onChange={() => {}}
       sx={rollCountToggleGroupSx}
     >
-      {TESTER_ROLL_COUNT_VALUES.map((value) => (
+      {GEAR_INSPECTOR_ROLL_COUNT_VALUES.map((value) => (
         <ToggleButton
           key={value}
           value={String(value)}

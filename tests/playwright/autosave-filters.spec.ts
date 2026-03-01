@@ -99,7 +99,7 @@ const savedAutosaveEntry = (() => {
           collapsed: savedCollapsedState,
         },
       },
-      testerRecipeFilterMode: 'first',
+      gearInspectorRecipeFilterMode: 'first',
     },
   }
   const serialized = JSON.stringify(payload)

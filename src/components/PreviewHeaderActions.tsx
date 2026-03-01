@@ -3,8 +3,6 @@ import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, I
 import { alpha, type Theme } from '@mui/material/styles'
 import {
   ELLIPSIS_TEXT_SX,
-  FINAL_SELL_BUTTON_MIN_WIDTH_PX,
-  FINAL_SELL_BUTTON_WIDTH_PX,
   COMPACT_HEADER_ACTION_BUTTON_BASE_SX,
   COMPACT_HEADER_ACTION_BUTTON_SX,
   SMALL_BUTTON_HEIGHT_PX,
@@ -23,7 +21,6 @@ import FilePickerButton from './FilePickerButton'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 import ClearIconButton from './ClearIconButton'
 import DirtyBadge from './DirtyBadge'
-import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
@@ -33,7 +30,7 @@ import Checkbox from '@mui/material/Checkbox'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
-import TesterOutcomeSummaryChip from './TesterOutcomeSummaryChip'
+import GearInspectorOutcomeSummaryChip from './GearInspectorOutcomeSummaryChip'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
@@ -45,34 +42,34 @@ import GroupsIcon from '@mui/icons-material/Groups'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import HistoryIcon from '@mui/icons-material/History'
 import {
-  TESTER_SORT_KEY_NEWEST,
-  isTesterSyntheticSortKey,
-  TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE,
-  TESTER_SORT_KEY_LAST_USAGE,
-  TESTER_SORT_WEIGHT_DEFAULT,
-  isNeutralTesterSortWeight,
-  isDefaultTesterGroupingState,
-  type TesterSortKey,
-  type TesterSubstatSortDirection,
-} from '../lib/testerSort'
+  GEAR_INSPECTOR_SORT_KEY_NEWEST,
+  isGearInspectorSyntheticSortKey,
+  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE,
+  GEAR_INSPECTOR_SORT_KEY_LAST_USAGE,
+  GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT,
+  isNeutralGearInspectorSortWeight,
+  isDefaultGearInspectorGroupingState,
+  type GearInspectorSortKey,
+  type GearInspectorSubstatSortDirection,
+} from '../lib/gearInspectorSort'
 import {
-  TESTER_NORMALIZED_PRESET_COUNT,
-  buildTesterNormalizedPresetTooltipMarkdown,
-  formatTesterNormalizedPresetButtonLabel,
-  type TesterNormalizedPresetId,
-} from '../lib/testerNormalizedPresets'
+  GEAR_INSPECTOR_NORMALIZED_PRESET_COUNT,
+  buildGearInspectorNormalizedPresetTooltipMarkdown,
+  formatGearInspectorNormalizedPresetButtonLabel,
+  type GearInspectorNormalizedPresetId,
+} from '../lib/gearInspectorNormalizedPresets'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, StatVariant, statVariantI18nKey } from '../lib/types'
-import type { TesterSubstatSortState } from '../state/testerSubstatSortPreferences'
-import { useTesterGridNormalizedOverlayPreferences } from '../state/testerGridNormalizedOverlayPreferences'
+import type { GearInspectorSubstatSortState } from '../state/gearInspectorSubstatSortPreferences'
+import { useGearInspectorGridNormalizedOverlayPreferences } from '../state/gearInspectorGridNormalizedOverlayPreferences'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
 import type { FilterPreset } from '../state/filterPresetsPreference'
 import { formatLocalDateTime } from '../lib/dateDisplay'
-import { useTesterSortPopoutEasterEgg } from '../hooks/useTesterSortPopoutEasterEgg'
-import TesterSortPopoutEasterEggOverlay from './TesterSortPopoutEasterEggOverlay'
-import { TesterSortWeightControls } from './TesterSortWeightControls'
-import { TesterNormalizedPresetEditorMenu } from './TesterNormalizedPresetEditorMenu'
+import { useGearInspectorSortPopoutEasterEgg } from '../hooks/useGearInspectorSortPopoutEasterEgg'
+import GearInspectorSortPopoutEasterEggOverlay from './GearInspectorSortPopoutEasterEggOverlay'
+import { GearInspectorSortWeightControls } from './GearInspectorSortWeightControls'
+import { GearInspectorNormalizedPresetEditorMenu } from './GearInspectorNormalizedPresetEditorMenu'
 import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
-import type { TesterOutcomeSummary } from '../types/testerPreview'
+import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
 import { GearDbHistoryMenu } from './GearDbHistoryMenu'
 import type { GearDbDiffHistoryEntry } from '../lib/gearDbDiffToast'
 
@@ -116,45 +113,39 @@ export default function PreviewHeaderActions(props: {
   onToggleOmitDisabled: (next: boolean) => void
   exportDisabled: boolean
   pushEndpoint?: string
-  safeguardsEnabled: boolean
-  onToggleSafeguards: (next: boolean) => void
   hsfDirty: boolean
   building?: boolean
-  testerBuilding?: boolean
+  gearInspectorBuilding?: boolean
   workloadProgressRatio: number
   limitHit?: boolean
-  // Final sell remainder controls
-  finalSell: FinalSellRemainderConfig
-  onToggleFinalSell: (enabled: boolean) => void
-  onOpenLogicHubDialog: () => void
-  previewMode: 'rules' | 'tester'
-  onChangePreviewMode: (mode: 'rules' | 'tester') => void
+  previewMode: 'rules' | 'gearInspector'
+  onChangePreviewMode: (mode: 'rules' | 'gearInspector') => void
   filterOpen: boolean
-  testerCount?: number
-  testerFilteredCount?: number
-  // Outcome summary for the tester header chip (filtered to current view).
-  testerOutcomeSummary: TesterOutcomeSummary
+  gearInspectorCount?: number
+  gearInspectorFilteredCount?: number
+  // Outcome summary for the Gear Inspector header chip (filtered to current view).
+  gearInspectorOutcomeSummary: GearInspectorOutcomeSummary
   // Unfiltered outcome summary so filtered ratios can show total context.
-  testerOutcomeSummaryTotal: TesterOutcomeSummary
-  testerSubstatSort: TesterSubstatSortState
-  // Mirrors the Rule Tester grid preference so the sort popover can match stat coloring.
+  gearInspectorOutcomeSummaryTotal: GearInspectorOutcomeSummary
+  gearInspectorSubstatSort: GearInspectorSubstatSortState
+  // Mirrors the Gear Inspector grid preference so the sort popover can match stat coloring.
   useStatButtonColors: boolean
   // Full color map so the sort popover can match the same per-stat colors as chips/toggles.
   substatColors: SubstatColorMap
-	  onClearTesterSubstatSort: () => void
-	  onSetTesterSubstatSortState: (next: TesterSubstatSortState) => void
-	  onSetTesterSubstatSortDirection: (direction: TesterSubstatSortDirection) => void
-	  onToggleTesterArtifactGroupBySet: () => void
-	  onToggleTesterArtifactGroupBySlot: () => void
-	  onToggleTesterAccessoryGroupByFaction: () => void
-	  onToggleTesterAccessoryGroupBySet: () => void
-	  onToggleTesterAccessoryGroupBySlot: () => void
-	  onToggleTesterGroupingHeaders: () => void
-	  onToggleTesterSubstatSortExcludeGlyphs: () => void
-	  onToggleTesterSubstatSortPriority: (key: TesterSortKey) => void
-	  onToggleTesterSubstatSortPriorityFlipped: (key: TesterSortKey) => void
-	  onSetTesterSubstatSortWeight: (variant: StatVariant, next: number) => void
-	  onBumpTesterSubstatSortWeight: (variant: StatVariant, deltaSteps: number) => void
+	  onClearGearInspectorSubstatSort: () => void
+	  onSetGearInspectorSubstatSortState: (next: GearInspectorSubstatSortState) => void
+	  onSetGearInspectorSubstatSortDirection: (direction: GearInspectorSubstatSortDirection) => void
+	  onToggleGearInspectorArtifactGroupBySet: () => void
+	  onToggleGearInspectorArtifactGroupBySlot: () => void
+	  onToggleGearInspectorAccessoryGroupByFaction: () => void
+	  onToggleGearInspectorAccessoryGroupBySet: () => void
+	  onToggleGearInspectorAccessoryGroupBySlot: () => void
+	  onToggleGearInspectorGroupingHeaders: () => void
+	  onToggleGearInspectorSubstatSortExcludeGlyphs: () => void
+	  onToggleGearInspectorSubstatSortPriority: (key: GearInspectorSortKey) => void
+	  onToggleGearInspectorSubstatSortPriorityFlipped: (key: GearInspectorSortKey) => void
+	  onSetGearInspectorSubstatSortWeight: (variant: StatVariant, next: number) => void
+	  onBumpGearInspectorSubstatSortWeight: (variant: StatVariant, deltaSteps: number) => void
 	  gearDbCommandError?: string | null
 	  onClearGearDbCommandError?: () => void
 	  gearDbCommandSuccess?: string | null
@@ -191,39 +182,34 @@ export default function PreviewHeaderActions(props: {
     onToggleOmitDisabled,
     exportDisabled,
     pushEndpoint,
-    finalSell,
-    safeguardsEnabled,
-    onToggleSafeguards,
-    onToggleFinalSell,
-    onOpenLogicHubDialog,
     hsfDirty,
     building = false,
     limitHit = false,
     previewMode,
     onChangePreviewMode,
     filterOpen,
-    testerCount,
-    testerFilteredCount,
-    testerOutcomeSummary,
-    testerOutcomeSummaryTotal,
-    testerSubstatSort,
+    gearInspectorCount,
+    gearInspectorFilteredCount,
+    gearInspectorOutcomeSummary,
+    gearInspectorOutcomeSummaryTotal,
+    gearInspectorSubstatSort,
     useStatButtonColors,
     substatColors,
-    onClearTesterSubstatSort,
-    onSetTesterSubstatSortState,
-	    onSetTesterSubstatSortDirection,
-	    onToggleTesterArtifactGroupBySet,
-	    onToggleTesterArtifactGroupBySlot,
-	    onToggleTesterAccessoryGroupByFaction,
-	    onToggleTesterAccessoryGroupBySet,
-	    onToggleTesterAccessoryGroupBySlot,
-	    onToggleTesterGroupingHeaders,
-	    onToggleTesterSubstatSortExcludeGlyphs,
-		    onToggleTesterSubstatSortPriority,
-		    onToggleTesterSubstatSortPriorityFlipped,
-		    onSetTesterSubstatSortWeight,
-		    onBumpTesterSubstatSortWeight,
-		    testerBuilding = false,
+    onClearGearInspectorSubstatSort,
+    onSetGearInspectorSubstatSortState,
+	    onSetGearInspectorSubstatSortDirection,
+	    onToggleGearInspectorArtifactGroupBySet,
+	    onToggleGearInspectorArtifactGroupBySlot,
+	    onToggleGearInspectorAccessoryGroupByFaction,
+	    onToggleGearInspectorAccessoryGroupBySet,
+	    onToggleGearInspectorAccessoryGroupBySlot,
+	    onToggleGearInspectorGroupingHeaders,
+	    onToggleGearInspectorSubstatSortExcludeGlyphs,
+		    onToggleGearInspectorSubstatSortPriority,
+		    onToggleGearInspectorSubstatSortPriorityFlipped,
+		    onSetGearInspectorSubstatSortWeight,
+		    onBumpGearInspectorSubstatSortWeight,
+		    gearInspectorBuilding = false,
 		    workloadProgressRatio,
 		    gearDbCommandError,
 		    onClearGearDbCommandError,
@@ -241,11 +227,10 @@ export default function PreviewHeaderActions(props: {
     onDeleteFilterPreset,
   } = props
   const isRulesMode = previewMode === 'rules'
-  const fsEnabled = (finalSell.artifacts || finalSell.accessories) && (finalSell.levels?.length ?? 0) > 0
   const { t } = useI18n()
   const mergedCountLabel = formatRulesCount(t, mergedCount, { limit: TOTAL_RULE_COUNT_LIMIT })
-  const testerCountValue = Number.isFinite(testerCount) ? Math.max(0, Math.floor(testerCount ?? 0)) : 0
-  const testerFilteredValue = Number.isFinite(testerFilteredCount) ? Math.max(0, Math.floor(testerFilteredCount ?? 0)) : testerCountValue
+  const gearInspectorCountValue = Number.isFinite(gearInspectorCount) ? Math.max(0, Math.floor(gearInspectorCount ?? 0)) : 0
+  const gearInspectorFilteredValue = Number.isFinite(gearInspectorFilteredCount) ? Math.max(0, Math.floor(gearInspectorFilteredCount ?? 0)) : gearInspectorCountValue
   const numberFormatter = React.useMemo(() => new Intl.NumberFormat(undefined), [])
   const formattedBaseRuleCount = typeof baseRuleCount === 'number' && baseRuleCount > 0
     ? numberFormatter.format(baseRuleCount)
@@ -253,28 +238,28 @@ export default function PreviewHeaderActions(props: {
   const baseRulesLabel = formattedBaseRuleCount
     ? (baseRuleCount === 1 ? t('loadedBaseRuleOne') : t('loadedBaseRuleMany', { n: formattedBaseRuleCount }))
     : null
-  const testerTotalLabel = testerCountValue === 1
+  const gearInspectorTotalLabel = gearInspectorCountValue === 1
     ? t('testerItemsCountOne')
-    : t('testerItemsCountMany', { n: numberFormatter.format(testerCountValue) })
-  const testerFilteredLabel = testerFilteredValue === 1
+    : t('testerItemsCountMany', { n: numberFormatter.format(gearInspectorCountValue) })
+  const gearInspectorFilteredLabel = gearInspectorFilteredValue === 1
     ? t('testerItemsCountOne')
-    : t('testerItemsCountMany', { n: numberFormatter.format(testerFilteredValue) })
+    : t('testerItemsCountMany', { n: numberFormatter.format(gearInspectorFilteredValue) })
   const chipBaseLabel = isRulesMode
     ? (filterActive && typeof filteredCount === 'number'
       ? `${formatRulesCount(t, filteredCount, { limit: TOTAL_RULE_COUNT_LIMIT })} / ${mergedCountLabel}`
       : mergedCountLabel)
-    : (filterActive && Number.isFinite(testerFilteredCount)
-      ? `${testerFilteredLabel} / ${testerTotalLabel}`
-      : testerTotalLabel)
+    : (filterActive && Number.isFinite(gearInspectorFilteredCount)
+      ? `${gearInspectorFilteredLabel} / ${gearInspectorTotalLabel}`
+      : gearInspectorTotalLabel)
   const buildingLabel = t('rulesBuilding')
-  const isBuilding = isRulesMode ? building : testerBuilding
+  const isBuilding = isRulesMode ? building : gearInspectorBuilding
   const rulesChipLabel = chipBaseLabel
   const rulesChipMinChars = React.useMemo(
     () => Array.from(chipBaseLabel).length,
     [chipBaseLabel],
   )
   const rulesChipMinWidth = rulesChipMinChars > 0 ? `${rulesChipMinChars}ch` : undefined
-  // Clamp determinate values from both rule and tester builders so the UI never overflows.
+  // Clamp determinate values from both rule and Gear Inspector builders so the UI never overflows.
   const chipProgressRatio = workloadProgressRatio
   const spinnerAriaLabel = chipProgressRatio > 0 ? buildingLabel : undefined
   const rulesChipBaseSx = React.useMemo(() => {
@@ -297,28 +282,28 @@ export default function PreviewHeaderActions(props: {
     const formattedLimit = new Intl.NumberFormat(undefined).format(TOTAL_RULE_COUNT_LIMIT)
     return t('rulesLimitExceeded', { limit: formattedLimit })
   }, [building, isRulesMode, limitHit, t])
-  // Filtered totals only apply to the tester header chip.
-  const showTesterFilteredTotals = !isRulesMode && Boolean(filterActive)
+  // Filtered totals only apply to the Gear Inspector header chip.
+  const showGearInspectorFilteredTotals = !isRulesMode && Boolean(filterActive)
   // Build the rules-mode chip once so limit warnings can wrap it cleanly.
   const rulesModeChip = (
     <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} aria-label={isBuilding ? buildingLabel : undefined} />
   )
-  // Build the tester summary chip so the header mirrors the note dialog.
-  const testerModeChip = (
-    <TesterOutcomeSummaryChip
-      summary={testerOutcomeSummary}
-      totalSummary={testerOutcomeSummaryTotal}
+  // Build the Gear Inspector summary chip so the header mirrors the note dialog.
+  const gearInspectorModeChip = (
+    <GearInspectorOutcomeSummaryChip
+      summary={gearInspectorOutcomeSummary}
+      totalSummary={gearInspectorOutcomeSummaryTotal}
       dimmed={chipProgressRatio > 0}
       showWhenEmpty
-      showFilteredTotals={showTesterFilteredTotals}
+      showFilteredTotals={showGearInspectorFilteredTotals}
       ariaLabel={isBuilding ? buildingLabel : undefined}
     />
   )
   // Pick the chip that matches the active preview mode.
-  const previewModeChip = isRulesMode ? rulesModeChip : testerModeChip
+  const previewModeChip = isRulesMode ? rulesModeChip : gearInspectorModeChip
 
   const rulesModeLabel = t('previewModeRules')
-  const testerModeLabel = t('previewModeTester')
+  const gearInspectorModeLabel = t('previewModeTester')
   const sortLabel = t('testerSortLabel')
   const sortClearLabel = t('testerSortClear')
   const sortDirectionLabel = t('testerSortDirection')
@@ -464,26 +449,10 @@ export default function PreviewHeaderActions(props: {
     setDeletePresetTarget(null)
   }, [deletePresetTarget, onDeleteFilterPreset])
   const filterLabel = filterActive ? t('filtersOn') : t('filtersOff')
-  const safeguardsToggleLabel = t('safeguardsToggleLabel')
   const filterHeaderLabel = t('filterHeader')
-  const finalSellLabel = t('finalSellToggleLabel')
   const filterToggleLabel = t('filterToggleLabel')
-  const logicHubLabel = t('titleLogicHub')
-  const safeguardsLabel = t('safeguardsToggleLabel')
   // History menu toggle label keeps the context menu consistent across locales.
   const gearDbHistoryHideToastLabel = t('gearDbHistoryHideToast')
-  const longestWarningToggleWidth = React.useMemo(() => {
-    const labels = [finalSellLabel, safeguardsLabel]
-    const ctx = document?.createElement?.('canvas')?.getContext?.('2d')
-    const font = typeof window !== 'undefined'
-      ? getComputedStyle(window.document.body).font || '500 14px Roboto'
-      : '500 14px Roboto'
-    if (!ctx) return FINAL_SELL_BUTTON_MIN_WIDTH_PX
-    ctx.font = font
-    const widths = labels.map((text) => ctx.measureText(text).width + 32)
-    const longest = Math.max(...widths, FINAL_SELL_BUTTON_MIN_WIDTH_PX)
-    return Math.min(longest, FINAL_SELL_BUTTON_WIDTH_PX)
-  }, [finalSellLabel, safeguardsLabel])
   const pushActive = !!pushEndpoint
   const exportLabel = pushActive
     ? (baseRuleCount ? t('pushMergedSellfile') : t('pushSellfile'))
@@ -529,43 +498,43 @@ export default function PreviewHeaderActions(props: {
       setExportMenuAnchor(null)
     }
   }, [exportMenuAnchor, exportMenuEnabled])
-	  // Normalized presets live in the tester-grid preference store; Sort reuses them for source selection + overwrite.
-	  const normalizedOverlayPrefs = useTesterGridNormalizedOverlayPreferences()
+	  // Normalized presets live in the gear-inspector-grid preference store; Sort reuses them for source selection + overwrite.
+	  const normalizedOverlayPrefs = useGearInspectorGridNormalizedOverlayPreferences()
 	  const normalizedOverlayActive = normalizedOverlayPrefs.state.useSortWeights
 	    || normalizedOverlayPrefs.state.enabledPresetIds.length > 0
 	  const normalizedOverlayActiveAllowed = normalizedOverlayActive && !normalizedOverlayPrefs.state.useSortWeights
-	  const sortPriorities = React.useMemo<readonly TesterSortKey[]>(() => {
+	  const sortPriorities = React.useMemo<readonly GearInspectorSortKey[]>(() => {
 	    // Prefer the persisted ordering, but keep a stable empty array so hooks remain deterministic.
-	    return testerSubstatSort.priorities ?? []
-	  }, [testerSubstatSort.priorities])
-	  const sortFlipped = React.useMemo<readonly TesterSortKey[]>(() => {
+	    return gearInspectorSubstatSort.priorities ?? []
+	  }, [gearInspectorSubstatSort.priorities])
+	  const sortFlipped = React.useMemo<readonly GearInspectorSortKey[]>(() => {
 	    // "Flipped" is a UI convenience: it means "sort opposite of the global direction for this key."
-	    return testerSubstatSort.flipped ?? []
-	  }, [testerSubstatSort.flipped])
+	    return gearInspectorSubstatSort.flipped ?? []
+	  }, [gearInspectorSubstatSort.flipped])
 	  const sortSelectedSubstats = React.useMemo(
-	    () => sortPriorities.filter((key) => !isTesterSyntheticSortKey(Number(key))),
+	    () => sortPriorities.filter((key) => !isGearInspectorSyntheticSortKey(Number(key))),
 	    [sortPriorities],
 	  )
 	  const sortNormalizedPresetIdSet = React.useMemo(
-	    () => new Set<number>((testerSubstatSort.normalizedSourcePresetIds ?? []).map((id) => Number(id))),
-	    [testerSubstatSort.normalizedSourcePresetIds],
+	    () => new Set<number>((gearInspectorSubstatSort.normalizedSourcePresetIds ?? []).map((id) => Number(id))),
+	    [gearInspectorSubstatSort.normalizedSourcePresetIds],
 	  )
-	  const sortNormalizedHasPresets = (testerSubstatSort.normalizedSourcePresetIds?.length ?? 0) > 0
+	  const sortNormalizedHasPresets = (gearInspectorSubstatSort.normalizedSourcePresetIds?.length ?? 0) > 0
 	  // Normalized is allowed when the current mode has at least one score source:
-	  // - Active: uses the tester-grid overlay selection (but never when the overlay is [S] to avoid circular scoring).
+	  // - Active: uses the gear-inspector-grid overlay selection (but never when the overlay is [S] to avoid circular scoring).
 	  // - Presets: best-of [1..9]
 	  // - Custom: current selection/weights above
-	  const sortNormalizedAllowed = testerSubstatSort.normalizedUseActiveOverlay
+	  const sortNormalizedAllowed = gearInspectorSubstatSort.normalizedUseActiveOverlay
 	    ? normalizedOverlayActiveAllowed
 	    : (sortNormalizedHasPresets || sortSelectedSubstats.length > 0)
-	  const sortNormalizedEnabled = Boolean(testerSubstatSort.normalized)
+	  const sortNormalizedEnabled = Boolean(gearInspectorSubstatSort.normalized)
 	  const sortNormalizedEffective = sortNormalizedEnabled && sortNormalizedAllowed
 	  const sortNormalizedMultiPresetMode = sortNormalizedEffective
-	    && testerSubstatSort.normalizedUseActiveOverlay !== true
-	    && (testerSubstatSort.normalizedSourcePresetIds?.length ?? 0) > 1
+	    && gearInspectorSubstatSort.normalizedUseActiveOverlay !== true
+	    && (gearInspectorSubstatSort.normalizedSourcePresetIds?.length ?? 0) > 1
 	  const sortNormalizedAmbiguousWeights = sortNormalizedEffective
 	    // In Active mode we may be sourcing from multiple overlay presets, so no single weight vector can be shown.
-	    && (testerSubstatSort.normalizedUseActiveOverlay === true || sortNormalizedMultiPresetMode)
+	    && (gearInspectorSubstatSort.normalizedUseActiveOverlay === true || sortNormalizedMultiPresetMode)
 	  const sortNormalizedDisplayedVariantSet = React.useMemo(() => {
 	    // In Normalized mode, the "selected substats" row should reflect the *source* selection, not the transient
 	    // weights/ordering state (especially when multiple sources are selected and we cannot show a single weight).
@@ -574,8 +543,8 @@ export default function PreviewHeaderActions(props: {
 	      sortSelectedSubstats.forEach((key) => set.add(Number(key)))
 	      return set
 	    }
-	    // Active overlay = union of the tester-grid enabled preset variants.
-	    if (testerSubstatSort.normalizedUseActiveOverlay) {
+	    // Active overlay = union of the gear-inspector-grid enabled preset variants.
+	    if (gearInspectorSubstatSort.normalizedUseActiveOverlay) {
 	      normalizedOverlayPrefs.state.enabledPresetIds.forEach((presetId) => {
 	        const preset = normalizedOverlayPrefs.state.presets[presetId]
 	        preset?.variants?.forEach((variant) => set.add(Number(variant)))
@@ -583,13 +552,13 @@ export default function PreviewHeaderActions(props: {
 	      return set
 	    }
 	    // Presets mode = union of enabled preset variants.
-	    const presetIds = testerSubstatSort.normalizedSourcePresetIds ?? []
+	    const presetIds = gearInspectorSubstatSort.normalizedSourcePresetIds ?? []
 	    presetIds.forEach((presetId) => {
 	      const preset = normalizedOverlayPrefs.state.presets[presetId]
 	      preset?.variants?.forEach((variant) => set.add(Number(variant)))
 	    })
 	    // Custom weights can be included as an extra source; include its selected keys in the union as well.
-	    if (testerSubstatSort.normalizedSourceIncludeCustom) {
+	    if (gearInspectorSubstatSort.normalizedSourceIncludeCustom) {
 	      sortSelectedSubstats.forEach((key) => set.add(Number(key)))
 	    }
 	    return set
@@ -598,9 +567,9 @@ export default function PreviewHeaderActions(props: {
 	    normalizedOverlayPrefs.state.presets,
 	    sortNormalizedEffective,
 	    sortSelectedSubstats,
-	    testerSubstatSort.normalizedSourceIncludeCustom,
-	    testerSubstatSort.normalizedSourcePresetIds,
-	    testerSubstatSort.normalizedUseActiveOverlay,
+	    gearInspectorSubstatSort.normalizedSourceIncludeCustom,
+	    gearInspectorSubstatSort.normalizedSourcePresetIds,
+	    gearInspectorSubstatSort.normalizedUseActiveOverlay,
 	  ])
 	  const sortActive = !isRulesMode && (sortPriorities.length > 0 || sortNormalizedEffective)
 	  // Disable non-normalized controls when they would do nothing (no priorities and normalized isn't effective).
@@ -608,14 +577,14 @@ export default function PreviewHeaderActions(props: {
 	  // Grouping is independent of sorting, but still irrelevant in Rules mode.
 	  const groupingControlsDisabled = isRulesMode
 	  // Grouping defaults keep the Sort clear button hidden until a user actually changes layout.
-	  const groupingIsDefault = isDefaultTesterGroupingState(testerSubstatSort.grouping)
+	  const groupingIsDefault = isDefaultGearInspectorGroupingState(gearInspectorSubstatSort.grouping)
 	  // Snapshot the grouping choices once so the render logic stays readable.
-	  const artifactGroupBySet = testerSubstatSort.grouping.artifacts.bySet
-	  const artifactGroupBySlot = testerSubstatSort.grouping.artifacts.bySlot
-	  const accessoryGroupByFaction = testerSubstatSort.grouping.accessories.byFaction
-	  const accessoryGroupBySet = testerSubstatSort.grouping.accessories.bySet
-	  const accessoryGroupBySlot = testerSubstatSort.grouping.accessories.bySlot
-	  const groupingHideHeaders = testerSubstatSort.grouping.hideHeaders
+	  const artifactGroupBySet = gearInspectorSubstatSort.grouping.artifacts.bySet
+	  const artifactGroupBySlot = gearInspectorSubstatSort.grouping.artifacts.bySlot
+	  const accessoryGroupByFaction = gearInspectorSubstatSort.grouping.accessories.byFaction
+	  const accessoryGroupBySet = gearInspectorSubstatSort.grouping.accessories.bySet
+	  const accessoryGroupBySlot = gearInspectorSubstatSort.grouping.accessories.bySlot
+	  const groupingHideHeaders = gearInspectorSubstatSort.grouping.hideHeaders
 	  // Localized grouping toggles drive the artifact/accessory rows in the sort popover.
 	  const artifactGroupingToggles = [
 	    {
@@ -624,7 +593,7 @@ export default function PreviewHeaderActions(props: {
 	      tooltip: t('testerSortGroupingArtifactsSetTooltip'),
 	      icon: <CategoryIcon sx={GROUPING_ICON_PRIMARY_SX} />,
 	      active: artifactGroupBySet,
-	      onToggle: onToggleTesterArtifactGroupBySet,
+	      onToggle: onToggleGearInspectorArtifactGroupBySet,
 	    },
 	    {
 	      key: 'slot',
@@ -632,7 +601,7 @@ export default function PreviewHeaderActions(props: {
 	      tooltip: t('testerSortGroupingArtifactsSlotTooltip'),
 	      icon: <GridViewIcon sx={GROUPING_ICON_PRIMARY_SX} />,
 	      active: artifactGroupBySlot,
-	      onToggle: onToggleTesterArtifactGroupBySlot,
+	      onToggle: onToggleGearInspectorArtifactGroupBySlot,
 	    },
 	  ] as const
 	  const accessoryGroupingToggles = [
@@ -642,7 +611,7 @@ export default function PreviewHeaderActions(props: {
 	      tooltip: t('testerSortGroupingAccessoriesFactionTooltip'),
 	      icon: <GroupsIcon sx={GROUPING_ICON_PRIMARY_SX} />,
 	      active: accessoryGroupByFaction,
-	      onToggle: onToggleTesterAccessoryGroupByFaction,
+	      onToggle: onToggleGearInspectorAccessoryGroupByFaction,
 	    },
 	    {
 	      key: 'set',
@@ -650,7 +619,7 @@ export default function PreviewHeaderActions(props: {
 	      tooltip: t('testerSortGroupingAccessoriesSetTooltip'),
 	      icon: <CategoryIcon sx={GROUPING_ICON_PRIMARY_SX} />,
 	      active: accessoryGroupBySet,
-	      onToggle: onToggleTesterAccessoryGroupBySet,
+	      onToggle: onToggleGearInspectorAccessoryGroupBySet,
 	    },
 	    {
 	      key: 'slot',
@@ -658,13 +627,13 @@ export default function PreviewHeaderActions(props: {
 	      tooltip: t('testerSortGroupingAccessoriesSlotTooltip'),
 	      icon: <GridViewIcon sx={GROUPING_ICON_PRIMARY_SX} />,
 	      active: accessoryGroupBySlot,
-	      onToggle: onToggleTesterAccessoryGroupBySlot,
+	      onToggle: onToggleGearInspectorAccessoryGroupBySlot,
 	    },
 	  ] as const
-	  const sortLabelForKey = React.useCallback((key: TesterSortKey): string => {
-	    if (Number(key) === TESTER_SORT_KEY_LAST_USAGE) return sortLastUsedLabel
-	    if (Number(key) === TESTER_SORT_KEY_NEWEST) return sortNewestLabel
-	    if (Number(key) === TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE) return sortImprovementChanceLabel
+	  const sortLabelForKey = React.useCallback((key: GearInspectorSortKey): string => {
+	    if (Number(key) === GEAR_INSPECTOR_SORT_KEY_LAST_USAGE) return sortLastUsedLabel
+	    if (Number(key) === GEAR_INSPECTOR_SORT_KEY_NEWEST) return sortNewestLabel
+	    if (Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE) return sortImprovementChanceLabel
 	    return t(statVariantI18nKey(key as StatVariant))
 	  }, [sortImprovementChanceLabel, sortLastUsedLabel, sortNewestLabel, t])
 	  const sortButtonLabel = React.useMemo(() => {
@@ -677,11 +646,11 @@ export default function PreviewHeaderActions(props: {
 	  }, [isRulesMode, sortLabel, sortLabelForKey, sortNormalizedEffective, sortNormalizedLabel, sortPriorities])
 	  const sortSpec = React.useMemo(() => ({
 	    priorities: sortPriorities,
-	    direction: testerSubstatSort.direction,
+	    direction: gearInspectorSubstatSort.direction,
 	    flipped: sortFlipped,
-	    excludeGlyphs: testerSubstatSort.excludeGlyphs,
+	    excludeGlyphs: gearInspectorSubstatSort.excludeGlyphs,
 	    normalized: sortNormalizedEffective,
-	  }), [sortFlipped, sortNormalizedEffective, sortPriorities, testerSubstatSort.direction, testerSubstatSort.excludeGlyphs])
+	  }), [sortFlipped, sortNormalizedEffective, sortPriorities, gearInspectorSubstatSort.direction, gearInspectorSubstatSort.excludeGlyphs])
   const sortStatFg = React.useCallback((variant: StatVariant) => {
     if (!useStatButtonColors) return undefined
     return substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
@@ -692,7 +661,7 @@ export default function PreviewHeaderActions(props: {
 	  const closeSortMenu = React.useCallback(() => { setSortMenuAnchor(null) }, [])
 	  const sortMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
 	  const [sortNormalizedPresetEditor, setSortNormalizedPresetEditor] = React.useState<{
-	    presetId: TesterNormalizedPresetId
+	    presetId: GearInspectorNormalizedPresetId
 	    position: { x: number; y: number }
 	  } | null>(null)
 	  const sortNormalizedPresetEditorPaperRef = React.useRef<HTMLDivElement | null>(null)
@@ -713,67 +682,67 @@ export default function PreviewHeaderActions(props: {
 
 	  const breakNormalizedLinkToCustom = React.useCallback(() => {
 	    // When a preset/active source is selected, editing should "fork" into custom weights.
-	    const linked = testerSubstatSort.normalizedUseActiveOverlay
-	      || (testerSubstatSort.normalizedSourcePresetIds?.length ?? 0) > 0
+	    const linked = gearInspectorSubstatSort.normalizedUseActiveOverlay
+	      || (gearInspectorSubstatSort.normalizedSourcePresetIds?.length ?? 0) > 0
 	    if (!linked) return
-	    onSetTesterSubstatSortState({
-	      ...testerSubstatSort,
+	    onSetGearInspectorSubstatSortState({
+	      ...gearInspectorSubstatSort,
 	      normalizedUseActiveOverlay: false,
 	      normalizedSourcePresetIds: [],
 	      normalizedSourceIncludeCustom: true,
 	    })
-	  }, [onSetTesterSubstatSortState, testerSubstatSort])
-	  const handleToggleFlippedKey = React.useCallback((key: TesterSortKey) => {
+	  }, [onSetGearInspectorSubstatSortState, gearInspectorSubstatSort])
+	  const handleToggleFlippedKey = React.useCallback((key: GearInspectorSortKey) => {
 	    breakNormalizedLinkToCustom()
-	    onToggleTesterSubstatSortPriorityFlipped(key)
-	  }, [breakNormalizedLinkToCustom, onToggleTesterSubstatSortPriorityFlipped])
+	    onToggleGearInspectorSubstatSortPriorityFlipped(key)
+	  }, [breakNormalizedLinkToCustom, onToggleGearInspectorSubstatSortPriorityFlipped])
 	  const handleBumpWeight = React.useCallback((variant: StatVariant, deltaSteps: number) => {
 	    breakNormalizedLinkToCustom()
-	    onBumpTesterSubstatSortWeight(variant, deltaSteps)
-	  }, [breakNormalizedLinkToCustom, onBumpTesterSubstatSortWeight])
+	    onBumpGearInspectorSubstatSortWeight(variant, deltaSteps)
+	  }, [breakNormalizedLinkToCustom, onBumpGearInspectorSubstatSortWeight])
 	  const handleSetWeight = React.useCallback((variant: StatVariant, next: number) => {
 	    breakNormalizedLinkToCustom()
-	    onSetTesterSubstatSortWeight(variant, next)
-	  }, [breakNormalizedLinkToCustom, onSetTesterSubstatSortWeight])
-  const sortPopoutEasterEgg = useTesterSortPopoutEasterEgg({
+	    onSetGearInspectorSubstatSortWeight(variant, next)
+	  }, [breakNormalizedLinkToCustom, onSetGearInspectorSubstatSortWeight])
+  const sortPopoutEasterEgg = useGearInspectorSortPopoutEasterEgg({
     // Keep the “punishment” scoped to the open Sort popout so we don’t animate hidden nodes.
     enabled: sortMenuOpen,
     getPaperEl: () => sortMenuPaperRef.current,
 	    onTogglePriority: (key) => {
 	      breakNormalizedLinkToCustom()
-	      onToggleTesterSubstatSortPriority(key)
+	      onToggleGearInspectorSubstatSortPriority(key)
 	    },
 	  })
 	  React.useEffect(() => {
 	    // Guardrail: "Active" mode cannot mirror an overlay that is itself [S] (it would be circular).
 	    // Important: do NOT unlink just because the overlay is temporarily "off" (no preset selected).
-	    // Why: the tester-grid context menu can clear presets briefly while switching combinations; Sort should
+	    // Why: the gear-inspector-grid context menu can clear presets briefly while switching combinations; Sort should
 	    // remain in "Active/Grid" mode and resume once the overlay has a valid selection again.
-	    if (!testerSubstatSort.normalizedUseActiveOverlay) return
+	    if (!gearInspectorSubstatSort.normalizedUseActiveOverlay) return
 	    if (!normalizedOverlayPrefs.state.useSortWeights) return
-	    onSetTesterSubstatSortState({
-	      ...testerSubstatSort,
+	    onSetGearInspectorSubstatSortState({
+	      ...gearInspectorSubstatSort,
 	      normalizedUseActiveOverlay: false,
-	      normalizedSourceIncludeCustom: (testerSubstatSort.normalizedSourcePresetIds?.length ?? 0) === 0,
+	      normalizedSourceIncludeCustom: (gearInspectorSubstatSort.normalizedSourcePresetIds?.length ?? 0) === 0,
 	    })
 	  }, [
 	    normalizedOverlayPrefs.state.useSortWeights,
-	    onSetTesterSubstatSortState,
-	    testerSubstatSort,
-	    testerSubstatSort.normalizedUseActiveOverlay,
+	    onSetGearInspectorSubstatSortState,
+	    gearInspectorSubstatSort,
+	    gearInspectorSubstatSort.normalizedUseActiveOverlay,
 	  ])
 	  const buildCustomNormalizedPresetSnapshot = React.useCallback(() => {
 	    // Preset overwrite uses the current Sort selection+weights as the snapshot source.
 	    const variants = sortSelectedSubstats.map((key) => key as StatVariant)
 	    const weights: Partial<Record<StatVariant, number>> = {}
 	    variants.forEach((variant) => {
-	      const raw = Number(testerSubstatSort.weights?.[variant] ?? TESTER_SORT_WEIGHT_DEFAULT)
+	      const raw = Number(gearInspectorSubstatSort.weights?.[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
 	      // Neutral weights are omitted so preset storage stays compact and unambiguous.
-	      if (isNeutralTesterSortWeight(raw)) return
+	      if (isNeutralGearInspectorSortWeight(raw)) return
 	      weights[variant] = raw
 	    })
 	    return { variants, weights }
-	  }, [sortSelectedSubstats, testerSubstatSort.weights])
+	  }, [sortSelectedSubstats, gearInspectorSubstatSort.weights])
 	  // Keep clear icons from shifting layout when they appear/disappear.
 	  const HEADER_CLEAR_PLACEHOLDER_SX = {
 	    width: CLEAR_ICON_BUTTON_SIZE_PX,
@@ -781,7 +750,7 @@ export default function PreviewHeaderActions(props: {
 	    flexShrink: 0,
 	  } as const
 
-	  // Weight controls now live in `TesterSortWeightControls` so the Sort popout and tester-grid presets stay in sync.
+	  // Weight controls now live in `GearInspectorSortWeightControls` so the Sort popout and gear-inspector-grid presets stay in sync.
 
   return (
     <>
@@ -790,7 +759,7 @@ export default function PreviewHeaderActions(props: {
           size="small"
           value={previewMode}
           exclusive
-          onChange={(_, next) => { if (next === 'rules' || next === 'tester') onChangePreviewMode(next) }}
+          onChange={(_, next) => { if (next === 'rules' || next === 'gearInspector') onChangePreviewMode(next) }}
           aria-label={t('previewModeAria')}
           data-tour-id="preview.mode-toggle"
           sx={{
@@ -807,20 +776,24 @@ export default function PreviewHeaderActions(props: {
             },
           }}
         >
-          <ToggleButton
-            value="rules"
-            aria-label={rulesModeLabel}
-            sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
-          >
-            <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{rulesModeLabel}</Typography>
-          </ToggleButton>
-          <ToggleButton
-            value="tester"
-            aria-label={testerModeLabel}
-            sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
-          >
-            <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{testerModeLabel}</Typography>
-          </ToggleButton>
+          <MarkdownTooltip markdown={t('previewModeRulesTooltip')}>
+            <ToggleButton
+              value="rules"
+              aria-label={rulesModeLabel}
+              sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
+            >
+              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{rulesModeLabel}</Typography>
+            </ToggleButton>
+          </MarkdownTooltip>
+          <MarkdownTooltip markdown={t('previewModeTesterTooltip')}>
+            <ToggleButton
+              value="gearInspector"
+              aria-label={gearInspectorModeLabel}
+              sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
+            >
+              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{gearInspectorModeLabel}</Typography>
+            </ToggleButton>
+          </MarkdownTooltip>
         </ToggleButtonGroup>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0, minWidth: 0 }}>
           {limitHit && !building && isRulesMode ? (
@@ -971,14 +944,14 @@ export default function PreviewHeaderActions(props: {
               </MarkdownTooltip>
               {!isRulesMode && (
                 sortPriorities.length > 0
-                || Boolean(testerSubstatSort.normalized)
+                || Boolean(gearInspectorSubstatSort.normalized)
                 || !groupingIsDefault
               ) ? (
                 <ClearIconButton
                   size="small"
                   aria-label={sortClearLabel}
                   tooltip={sortClearLabel}
-                  onClick={() => onClearTesterSubstatSort()}
+                  onClick={() => onClearGearInspectorSubstatSort()}
                 />
               ) : (
                 <Box sx={{ ...HEADER_CLEAR_PLACEHOLDER_SX, pointerEvents: 'none' }} />
@@ -1155,7 +1128,7 @@ export default function PreviewHeaderActions(props: {
                   onRequestClose: closeSortMenu,
                   closeLabel: t('close'),
                   overlay: (
-                    <TesterSortPopoutEasterEggOverlay
+                    <GearInspectorSortPopoutEasterEggOverlay
                       state={sortPopoutEasterEgg.overlay}
                       onMicroConfirmYep={sortPopoutEasterEgg.microConfirmToggle}
                       onMicroConfirmStop={sortPopoutEasterEgg.forceExit}
@@ -1172,19 +1145,19 @@ export default function PreviewHeaderActions(props: {
               </Box>
 	              {[
 	                ...STAT_VARIANTS_PRIORITY,
-	                TESTER_SORT_KEY_LAST_USAGE as TesterSortKey,
-	                TESTER_SORT_KEY_NEWEST as TesterSortKey,
-	                TESTER_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE as TesterSortKey,
+	                GEAR_INSPECTOR_SORT_KEY_LAST_USAGE as GearInspectorSortKey,
+	                GEAR_INSPECTOR_SORT_KEY_NEWEST as GearInspectorSortKey,
+	                GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE as GearInspectorSortKey,
 	              ].map((key) => {
 	                const idx = sortPriorities.findIndex((v) => Number(v) === Number(key))
 	                const label = sortLabelForKey(key)
-	                const fg = isTesterSyntheticSortKey(Number(key)) ? undefined : sortStatFg(key as StatVariant)
+	                const fg = isGearInspectorSyntheticSortKey(Number(key)) ? undefined : sortStatFg(key as StatVariant)
 	                const active = sortNormalizedEffective
 	                  ? sortNormalizedDisplayedVariantSet.has(Number(key))
 	                  : idx >= 0
 	                const perKeyFlipped = sortFlipped.some((v) => Number(v) === Number(key))
 	                const priorityDisabled = sortNormalizedEffective
-	                const isSyntheticKey = isTesterSyntheticSortKey(Number(key))
+	                const isSyntheticKey = isGearInspectorSyntheticSortKey(Number(key))
 	                const rowDisabled = priorityDisabled && isSyntheticKey
 	                const showPriorityBadges = active && !sortNormalizedEffective
 	                // Weight controls only replace the active badges. When the row is not selected, always show the two ghost badges
@@ -1193,12 +1166,12 @@ export default function PreviewHeaderActions(props: {
 	                const showWeightControls = sortNormalizedEffective && active && !isSyntheticKey && !sortNormalizedAmbiguousWeights
 	                const weightControlsEnabled = showWeightControls
 	                const rawWeight = isSyntheticKey
-	                  ? TESTER_SORT_WEIGHT_DEFAULT
-	                  : Number(testerSubstatSort.weights?.[key as StatVariant] ?? TESTER_SORT_WEIGHT_DEFAULT)
+	                  ? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT
+	                  : Number(gearInspectorSubstatSort.weights?.[key as StatVariant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
 		                return (
 		                  <MenuItem
 		                    key={key}
-		                    data-tester-sort-key={Number(key)}
+		                    data-gear-inspector-sort-key={Number(key)}
 	                    disabled={rowDisabled}
 	                    onClick={(event) => {
 	                      if (rowDisabled) return
@@ -1278,12 +1251,12 @@ export default function PreviewHeaderActions(props: {
 	                          {idx + 1}
 	                        </Box>
 	                      ) : showWeightControls ? (
-		                        <TesterSortWeightControls
+		                        <GearInspectorSortWeightControls
 		                          label={label}
 		                          enabled={weightControlsEnabled}
 		                          weight={rawWeight}
 		                          onBump={(deltaSteps) => handleBumpWeight(key as StatVariant, deltaSteps)}
-		                          onReset={() => handleSetWeight(key as StatVariant, TESTER_SORT_WEIGHT_DEFAULT)}
+		                          onReset={() => handleSetWeight(key as StatVariant, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)}
 		                        />
 	                      ) : showNormalizedSelectedBadge ? (
 	                        <Box
@@ -1403,7 +1376,7 @@ export default function PreviewHeaderActions(props: {
               <MenuItem
                 sx={{ gap: 1, alignItems: 'center' }}
                 disabled={sortControlsDisabled}
-                onClick={() => onSetTesterSubstatSortDirection(sortSpec.direction === 'desc' ? 'asc' : 'desc')}
+                onClick={() => onSetGearInspectorSubstatSortDirection(sortSpec.direction === 'desc' ? 'asc' : 'desc')}
               >
                 <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortDirectionLabel}</Typography>
                 <Button
@@ -1414,7 +1387,7 @@ export default function PreviewHeaderActions(props: {
                   sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
                   onClick={(event) => {
                     event.stopPropagation()
-                    onSetTesterSubstatSortDirection(sortSpec.direction === 'desc' ? 'asc' : 'desc')
+                    onSetGearInspectorSubstatSortDirection(sortSpec.direction === 'desc' ? 'asc' : 'desc')
                   }}
                 >
 	                  {sortSpec.direction === 'desc' ? sortHighToLowLabel : sortLowToHighLabel}
@@ -1449,8 +1422,8 @@ export default function PreviewHeaderActions(props: {
 	                                if (!sortNormalizedAllowed && !sortNormalizedEnabled) return
 	                                // Turning Normalized off clears source selection so the UI is unambiguous.
 	                                if (sortNormalizedEnabled) {
-	                                  onSetTesterSubstatSortState({
-	                                    ...testerSubstatSort,
+	                                  onSetGearInspectorSubstatSortState({
+	                                    ...gearInspectorSubstatSort,
 	                                    normalized: false,
 	                                    normalizedUseActiveOverlay: false,
 	                                    normalizedSourcePresetIds: [],
@@ -1458,7 +1431,7 @@ export default function PreviewHeaderActions(props: {
 	                                  })
 	                                  return
 	                                }
-	                                onSetTesterSubstatSortState({ ...testerSubstatSort, normalized: true })
+	                                onSetGearInspectorSubstatSortState({ ...gearInspectorSubstatSort, normalized: true })
 	                              }}
 	                            >
 	                              {t('commonOn')}
@@ -1471,7 +1444,7 @@ export default function PreviewHeaderActions(props: {
 	                          <Box component="span">
 	                            <Button
 	                              size="small"
-	                              variant={testerSubstatSort.normalizedUseActiveOverlay ? 'contained' : 'outlined'}
+	                              variant={gearInspectorSubstatSort.normalizedUseActiveOverlay ? 'contained' : 'outlined'}
 	                              color="success"
 	                              disabled={!normalizedOverlayActiveAllowed}
 	                              sx={{
@@ -1486,7 +1459,7 @@ export default function PreviewHeaderActions(props: {
 	                              onClick={(event) => {
 	                                event.stopPropagation()
 	                                if (!normalizedOverlayActiveAllowed) return
-	                                const enabling = !testerSubstatSort.normalizedUseActiveOverlay
+	                                const enabling = !gearInspectorSubstatSort.normalizedUseActiveOverlay
 	                                if (enabling) {
 	                                  const overlayPresetId = normalizedOverlayPrefs.state.enabledPresetIds.length === 1
 	                                    ? normalizedOverlayPrefs.state.enabledPresetIds[0] ?? null
@@ -1498,12 +1471,12 @@ export default function PreviewHeaderActions(props: {
 	                                      const variant = Number(variantRaw) as StatVariant
 	                                      const weight = Number(weightRaw)
 	                                      if (!Number.isFinite(weight)) continue
-	                                      if (isNeutralTesterSortWeight(weight)) continue
+	                                      if (isNeutralGearInspectorSortWeight(weight)) continue
 	                                      overlayWeights[variant] = weight
 	                                    }
 	                                  }
-	                                  onSetTesterSubstatSortState({
-	                                    ...testerSubstatSort,
+	                                  onSetGearInspectorSubstatSortState({
+	                                    ...gearInspectorSubstatSort,
 	                                    normalized: true,
 	                                    normalizedUseActiveOverlay: true,
 	                                    normalizedSourcePresetIds: [],
@@ -1512,10 +1485,10 @@ export default function PreviewHeaderActions(props: {
 	                                  })
 	                                  return
 	                                }
-	                                onSetTesterSubstatSortState({
-	                                  ...testerSubstatSort,
+	                                onSetGearInspectorSubstatSortState({
+	                                  ...gearInspectorSubstatSort,
 	                                  normalizedUseActiveOverlay: false,
-	                                  normalizedSourceIncludeCustom: (testerSubstatSort.normalizedSourcePresetIds?.length ?? 0) === 0,
+	                                  normalizedSourceIncludeCustom: (gearInspectorSubstatSort.normalizedSourcePresetIds?.length ?? 0) === 0,
 	                                })
 	                              }}
 	                              aria-label={sortNormalizedUseActiveLabel}
@@ -1525,14 +1498,14 @@ export default function PreviewHeaderActions(props: {
 	                          </Box>
 	                        </MarkdownTooltip>
 	                        {Array.from({ length: 4 }).map((_, idx) => {
-	                          const presetId = idx as TesterNormalizedPresetId
+	                          const presetId = idx as GearInspectorNormalizedPresetId
 	                          const enabled = sortNormalizedPresetIdSet.has(presetId)
 	                          const preset = normalizedOverlayPrefs.state.presets[presetId]
 	                          const label = preset
-	                            ? formatTesterNormalizedPresetButtonLabel(presetId, preset.iconId)
+	                            ? formatGearInspectorNormalizedPresetButtonLabel(presetId, preset.iconId)
 	                            : String(presetId + 1)
 	                          const tooltipMarkdown = preset
-	                            ? buildTesterNormalizedPresetTooltipMarkdown({
+	                            ? buildGearInspectorNormalizedPresetTooltipMarkdown({
 	                                title: t('testerGridNormalizedPresetTitle', { n: presetId + 1 }),
 	                                preset,
 	                                labelForVariant: (variant) => t(statVariantI18nKey(variant)),
@@ -1542,7 +1515,7 @@ export default function PreviewHeaderActions(props: {
 	                            : normalizedPresetTooltipEmptyLabel
 	                          return (
 	                            <MarkdownTooltip
-	                              key={`tester-sort-normalized-preset-tooltip-${presetId}`}
+	                              key={`gear-inspector-sort-normalized-preset-tooltip-${presetId}`}
 	                              markdown={tooltipMarkdown}
 	                              placement="top-start"
 	                            >
@@ -1566,14 +1539,14 @@ export default function PreviewHeaderActions(props: {
 	                                    const nextPresetIds = (() => {
 	                                      // When Normalized is off, selecting a preset immediately enables Normalized and uses that preset.
 	                                      if (!sortNormalizedEnabled) return [presetId]
-	                                      const current = testerSubstatSort.normalizedSourcePresetIds ?? []
+	                                      const current = gearInspectorSubstatSort.normalizedSourcePresetIds ?? []
 	                                      const set = new Set<number>(current.map((id) => Number(id)))
 	                                      if (set.has(presetId)) {
 	                                        set.delete(presetId)
 	                                      } else {
 	                                        set.add(presetId)
 	                                      }
-	                                      return [...set].sort((a, b) => a - b).map((id) => id as TesterNormalizedPresetId)
+	                                      return [...set].sort((a, b) => a - b).map((id) => id as GearInspectorNormalizedPresetId)
 	                                    })()
 	                                    const singlePresetId = nextPresetIds.length === 1 ? nextPresetIds[0]! : null
 	                                    const singlePreset = singlePresetId != null ? normalizedOverlayPrefs.state.presets[singlePresetId] : null
@@ -1583,12 +1556,12 @@ export default function PreviewHeaderActions(props: {
 	                                        const variant = Number(variantRaw) as StatVariant
 	                                        const weight = Number(weightRaw)
 	                                        if (!Number.isFinite(weight)) continue
-	                                        if (isNeutralTesterSortWeight(weight)) continue
+	                                        if (isNeutralGearInspectorSortWeight(weight)) continue
 	                                        presetWeights[variant] = weight
 	                                      }
 	                                    }
-	                                    onSetTesterSubstatSortState({
-	                                      ...testerSubstatSort,
+	                                    onSetGearInspectorSubstatSortState({
+	                                      ...gearInspectorSubstatSort,
 	                                      ...(sortNormalizedEnabled ? {} : { normalized: true }),
 	                                      normalizedUseActiveOverlay: false,
 	                                      normalizedSourcePresetIds: nextPresetIds,
@@ -1611,16 +1584,16 @@ export default function PreviewHeaderActions(props: {
 	                        })}
 	                      </Stack>
 	                      <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
-	                        {Array.from({ length: TESTER_NORMALIZED_PRESET_COUNT - 4 }).map((_, offset) => {
+	                        {Array.from({ length: GEAR_INSPECTOR_NORMALIZED_PRESET_COUNT - 4 }).map((_, offset) => {
 	                          const idx = offset + 4
-	                          const presetId = idx as TesterNormalizedPresetId
+	                          const presetId = idx as GearInspectorNormalizedPresetId
 	                          const enabled = sortNormalizedPresetIdSet.has(presetId)
 	                          const preset = normalizedOverlayPrefs.state.presets[presetId]
 	                          const label = preset
-	                            ? formatTesterNormalizedPresetButtonLabel(presetId, preset.iconId)
+	                            ? formatGearInspectorNormalizedPresetButtonLabel(presetId, preset.iconId)
 	                            : String(presetId + 1)
 	                          const tooltipMarkdown = preset
-	                            ? buildTesterNormalizedPresetTooltipMarkdown({
+	                            ? buildGearInspectorNormalizedPresetTooltipMarkdown({
 	                                title: t('testerGridNormalizedPresetTitle', { n: presetId + 1 }),
 	                                preset,
 	                                labelForVariant: (variant) => t(statVariantI18nKey(variant)),
@@ -1630,7 +1603,7 @@ export default function PreviewHeaderActions(props: {
 	                            : normalizedPresetTooltipEmptyLabel
 	                          return (
 	                            <MarkdownTooltip
-	                              key={`tester-sort-normalized-preset-tooltip-${presetId}`}
+	                              key={`gear-inspector-sort-normalized-preset-tooltip-${presetId}`}
 	                              markdown={tooltipMarkdown}
 	                              placement="top-start"
 	                            >
@@ -1654,14 +1627,14 @@ export default function PreviewHeaderActions(props: {
 	                                    const nextPresetIds = (() => {
 	                                      // When Normalized is off, selecting a preset immediately enables Normalized and uses that preset.
 	                                      if (!sortNormalizedEnabled) return [presetId]
-	                                      const current = testerSubstatSort.normalizedSourcePresetIds ?? []
+	                                      const current = gearInspectorSubstatSort.normalizedSourcePresetIds ?? []
 	                                      const set = new Set<number>(current.map((id) => Number(id)))
 	                                      if (set.has(presetId)) {
 	                                        set.delete(presetId)
 	                                      } else {
 	                                        set.add(presetId)
 	                                      }
-	                                      return [...set].sort((a, b) => a - b).map((id) => id as TesterNormalizedPresetId)
+	                                      return [...set].sort((a, b) => a - b).map((id) => id as GearInspectorNormalizedPresetId)
 	                                    })()
 	                                    const singlePresetId = nextPresetIds.length === 1 ? nextPresetIds[0]! : null
 	                                    const singlePreset = singlePresetId != null ? normalizedOverlayPrefs.state.presets[singlePresetId] : null
@@ -1671,12 +1644,12 @@ export default function PreviewHeaderActions(props: {
 	                                        const variant = Number(variantRaw) as StatVariant
 	                                        const weight = Number(weightRaw)
 	                                        if (!Number.isFinite(weight)) continue
-	                                        if (isNeutralTesterSortWeight(weight)) continue
+	                                        if (isNeutralGearInspectorSortWeight(weight)) continue
 	                                        presetWeights[variant] = weight
 	                                      }
 	                                    }
-	                                    onSetTesterSubstatSortState({
-	                                      ...testerSubstatSort,
+	                                    onSetGearInspectorSubstatSortState({
+	                                      ...gearInspectorSubstatSort,
 	                                      ...(sortNormalizedEnabled ? {} : { normalized: true }),
 	                                      normalizedUseActiveOverlay: false,
 	                                      normalizedSourcePresetIds: nextPresetIds,
@@ -1704,7 +1677,7 @@ export default function PreviewHeaderActions(props: {
               <MenuItem
                 sx={{ gap: 1, alignItems: 'center' }}
                 disabled={sortControlsDisabled}
-                onClick={() => onToggleTesterSubstatSortExcludeGlyphs()}
+                onClick={() => onToggleGearInspectorSubstatSortExcludeGlyphs()}
               >
 	                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortGlyphsLabel}</Typography>
 	                <Button
@@ -1716,10 +1689,10 @@ export default function PreviewHeaderActions(props: {
                   sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
                   onClick={(event) => {
                     event.stopPropagation()
-                    onToggleTesterSubstatSortExcludeGlyphs()
+                    onToggleGearInspectorSubstatSortExcludeGlyphs()
                   }}
                 >
-                  {testerSubstatSort.excludeGlyphs ? sortGlyphsExcludeLabel : sortGlyphsIncludeLabel}
+                  {gearInspectorSubstatSort.excludeGlyphs ? sortGlyphsExcludeLabel : sortGlyphsIncludeLabel}
                 </Button>
               </MenuItem>
               <MenuItem
@@ -1789,7 +1762,7 @@ export default function PreviewHeaderActions(props: {
                         }}
                         onClick={(event) => {
                           event.stopPropagation()
-                          onToggleTesterGroupingHeaders()
+                          onToggleGearInspectorGroupingHeaders()
                         }}
                       >
                         <VisibilityOffIcon sx={GROUPING_ICON_PRIMARY_SX} />
@@ -1861,7 +1834,7 @@ export default function PreviewHeaderActions(props: {
                         }}
                         onClick={(event) => {
                           event.stopPropagation()
-                          onToggleTesterGroupingHeaders()
+                          onToggleGearInspectorGroupingHeaders()
                         }}
                       >
                         <VisibilityOffIcon sx={GROUPING_ICON_PRIMARY_SX} />
@@ -1871,11 +1844,11 @@ export default function PreviewHeaderActions(props: {
                 </Stack>
               </MenuItem>
             </Menu>
-	            <TesterNormalizedPresetEditorMenu
+	            <GearInspectorNormalizedPresetEditorMenu
 	              open={Boolean(sortNormalizedPresetEditor)}
 	              anchorPosition={sortNormalizedPresetEditor?.position ?? null}
-	              presetId={(sortNormalizedPresetEditor?.presetId ?? 0) as TesterNormalizedPresetId}
-	              preset={normalizedOverlayPrefs.state.presets[(sortNormalizedPresetEditor?.presetId ?? 0) as TesterNormalizedPresetId] ?? { iconId: DEFAULT_METASET_ICON_ID, variants: [], weights: {} }}
+	              presetId={(sortNormalizedPresetEditor?.presetId ?? 0) as GearInspectorNormalizedPresetId}
+	              preset={normalizedOverlayPrefs.state.presets[(sortNormalizedPresetEditor?.presetId ?? 0) as GearInspectorNormalizedPresetId] ?? { iconId: DEFAULT_METASET_ICON_ID, variants: [], weights: {} }}
 	              onClose={() => setSortNormalizedPresetEditor(null)}
 	              onSetIconId={normalizedOverlayPrefs.setPresetIconId}
 	              onOverwriteFromCurrent={(presetId) => {
@@ -1895,175 +1868,6 @@ export default function PreviewHeaderActions(props: {
 	            />
           </>
         )}
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0, minWidth: 0 }}>
-          <ToggleButtonGroup
-            size="small"
-            sx={{
-              height: SMALL_BUTTON_HEIGHT_PX,
-              flexShrink: 0,
-              minWidth: 0,
-              '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                marginLeft: 0,
-                borderLeft: '1px solid transparent',
-              },
-              '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-                marginLeft: 0,
-                borderLeft: '1px solid transparent',
-              },
-            }}
-          >
-            <>
-              {/* Final Sell toggle retains the warning palette so it is still visually linked to the catch-all sweeps. */}
-              <ToggleButton
-                value="finalSellToggle"
-                selected={fsEnabled}
-                onClick={() => onToggleFinalSell(!fsEnabled)}
-                data-tour-id="finalsell.toggle"
-                aria-label={finalSellLabel}
-                aria-pressed={fsEnabled}
-                sx={(theme) => ({
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 1,
-                  minWidth: longestWarningToggleWidth,
-                  width: longestWarningToggleWidth,
-                  maxWidth: FINAL_SELL_BUTTON_WIDTH_PX,
-                  height: SMALL_BUTTON_HEIGHT_PX,
-                  minHeight: SMALL_BUTTON_HEIGHT_PX,
-                  lineHeight: 1,
-                  textTransform: 'none',
-                  px: 1.25,
-                  borderColor: theme.palette.warning.main,
-                  color: theme.palette.warning.main,
-                  '&.Mui-selected': {
-                    color: theme.palette.warning.contrastText,
-                    backgroundColor: theme.palette.warning.main,
-                    '&:hover': {
-                      backgroundColor: theme.palette.warning.dark,
-                    },
-                  },
-                  '&:hover': {
-                    borderColor: theme.palette.warning.dark,
-                    backgroundColor: alpha(theme.palette.warning.main, 0.1),
-                  },
-                })}
-              >
-                <EllipsisTooltip title={finalSellLabel} selector='[data-ellipsis-target]' wrap="block">
-                  <Box
-                    component="span"
-                    data-ellipsis-target
-                    sx={{
-                      ...ELLIPSIS_TEXT_SX,
-                      width: '100%',
-                      typography: 'button',
-                      textAlign: 'center',
-                      lineHeight: 1,
-                      display: 'block',
-                    }}
-                  >
-                    {finalSellLabel}
-                  </Box>
-                </EllipsisTooltip>
-              </ToggleButton>
-            </>
-            <>
-              {/* Safeguards shares the inline toggle treatment so users can pause/resume protections without leaving the preview. */}
-              <ToggleButton
-                value="safeguardsToggle"
-                selected={safeguardsEnabled}
-                onClick={() => onToggleSafeguards(!safeguardsEnabled)}
-                data-tour-id="keepuniques.toggle"
-                aria-label={safeguardsToggleLabel}
-                aria-pressed={safeguardsEnabled}
-                sx={(theme) => ({
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                  flexShrink: 1,
-                  minWidth: longestWarningToggleWidth,
-                  width: longestWarningToggleWidth,
-                  maxWidth: FINAL_SELL_BUTTON_WIDTH_PX,
-                height: SMALL_BUTTON_HEIGHT_PX,
-                minHeight: SMALL_BUTTON_HEIGHT_PX,
-                lineHeight: 1,
-                textTransform: 'none',
-                  px: 1.25,
-                  borderColor: theme.palette.success.main,
-                  color: theme.palette.success.main,
-                  '&.Mui-selected': {
-                    color: theme.palette.success.contrastText,
-                    backgroundColor: theme.palette.success.main,
-                    '&:hover': {
-                      backgroundColor: theme.palette.success.dark,
-                    },
-                  },
-                  '&:hover': {
-                    borderColor: theme.palette.success.dark,
-                    backgroundColor: alpha(theme.palette.success.main, 0.08),
-                  },
-                })}
-              >
-                <EllipsisTooltip title={safeguardsToggleLabel} selector='[data-ellipsis-target]' wrap="block">
-                  <Typography
-                    component="span"
-                    noWrap
-                    data-ellipsis-target
-                    sx={{ ...ELLIPSIS_TEXT_SX, width: '100%', textAlign: 'center', lineHeight: 1, display: 'block' }}
-                  >
-                    {safeguardsToggleLabel}
-                  </Typography>
-                </EllipsisTooltip>
-              </ToggleButton>
-            </>
-          </ToggleButtonGroup>
-          <Box sx={{ minWidth: 0, flexShrink: 0 }}>
-            <MarkdownTooltip markdown={t('gearDialogOpenTooltip')}>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={onOpenLogicHubDialog}
-                data-tour-id="finalsell.recipe"
-                aria-label={t('openLogicHubAria')}
-                sx={{
-                  whiteSpace: 'nowrap',
-                  minWidth: 0,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  px: 1.25,
-                  flexShrink: 0,
-                  height: SMALL_BUTTON_HEIGHT_PX,
-                  minHeight: SMALL_BUTTON_HEIGHT_PX,
-                  lineHeight: 1,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  py: 0,
-                }}
-              >
-                <EllipsisTooltip title={logicHubLabel} selector='[data-ellipsis-target]' wrap="block">
-                  <Typography
-                    component="span"
-                    noWrap
-                    // Match the inline toggle label treatment so the Button's fixed height stays visually centered.
-                    sx={{
-                      ...ELLIPSIS_TEXT_SX,
-                      // Keep explicit width so ellipsis math matches the button body.
-                      width: '100%',
-                      // Center aligns the label with the small control cluster.
-                      textAlign: 'center',
-                      // Match Sort/Filter label handling by relying on the Typography default line height.
-                      display: 'block',
-                    }}
-                    data-ellipsis-target
-                  >
-                    {logicHubLabel}
-                  </Typography>
-                </EllipsisTooltip>
-              </Button>
-            </MarkdownTooltip>
-          </Box>
-        </Stack>
         <Box sx={{ flex: 1, minWidth: 0 }} />
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
           {historyMenuEnabled ? (

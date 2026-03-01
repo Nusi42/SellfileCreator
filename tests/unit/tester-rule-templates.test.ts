@@ -11,7 +11,7 @@ import {
   type LevelMilestone,
   type RankValue,
 } from '../../src/lib/types.js'
-import { buildTesterRuleTemplateRecipe } from '../../src/lib/testerRuleTemplates.js'
+import { buildGearInspectorRuleTemplateRecipe } from '../../src/lib/gearInspectorRuleTemplates.js'
 import type {
   NormalizedGearArtifact,
   NormalizedStat,
@@ -41,7 +41,7 @@ const buildArtifact = (params: {
   slot: ArtifactType
   substats: NormalizedStat[]
 }): NormalizedGearArtifact => {
-  const testerItem: TestItem = {
+  const gearInspectorItem: TestItem = {
     slot: params.slot,
     set: ArtifactSet.Speed,
     rank: 6 as RankValue,
@@ -61,7 +61,7 @@ const buildArtifact = (params: {
     mainStat: null,
     substats: params.substats,
     ascension: null,
-    testerItem,
+    gearInspectorItem,
     rerollCount: 0,
     equippedToChampionId: null,
     equippedChampionBaseId: null,
@@ -83,7 +83,7 @@ test('keep templates ignore flat top substats for non-amulets', () => {
       buildSubstat({ variant: StatVariant.CR, statId: StatId.CR, isFlat: false, rolls: 2, position: 3 }),
     ],
   })
-  const config = buildTesterRuleTemplateRecipe({ artifact, intent: 'keep' })
+  const config = buildGearInspectorRuleTemplateRecipe({ artifact, intent: 'keep' })
   assert.equal(config.keep, true)
   // Mid-level templates should keep the top two non-flat entries.
   assert.deepStrictEqual(config.fixedSubstatsV, [StatVariant.SPD, StatVariant.CR])
@@ -109,7 +109,7 @@ test('keep templates still consider flat top substats for amulets', () => {
       buildSubstat({ variant: StatVariant.CR, statId: StatId.CR, isFlat: false, rolls: 2, position: 3 }),
     ],
   })
-  const config = buildTesterRuleTemplateRecipe({ artifact, intent: 'keep' })
+  const config = buildGearInspectorRuleTemplateRecipe({ artifact, intent: 'keep' })
   assert.equal(config.keep, true)
   // Mid-level templates should include the top two entries, including flat HP on amulets.
   assert.deepStrictEqual(config.fixedSubstatsV, [StatVariant.HP_FLAT, StatVariant.SPD])

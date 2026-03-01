@@ -1,9 +1,9 @@
 # Release Notes Prompt
 
-Use this prompt when Codex must assemble or refresh the Sellfile Creator release history.
+Use this prompt when Claude must assemble or refresh the Sellfile Creator release history.
 
 ## Baseline Context
-- Re-read `AGENTS.md`, `docs/TECHNICAL.md`, and the existing `docs/HISTORY.txt` entry list before investigating the commits.
+- Re-read `CLAUDE.md`, `docs/TECHNICAL.md`, and the existing `docs/HISTORY.txt` entry list before investigating the commits.
 - Keep the One Definition Rule in mind: reuse existing helpers and constants; do not fork logic when summarising behaviour.
 - The authoritative release ledger lives at `docs/HISTORY.txt` (UTF-8 with BOM). Only that file should change during a release-notes run.
 
@@ -16,7 +16,7 @@ Use this prompt when Codex must assemble or refresh the Sellfile Creator release
 - If a feature was added and removed within the same release window, leave it out of the notes.
 
 ## Inputs Provided by the Runner
-The orchestration script injects these environment variables for every Codex execution:
+The orchestration script injects these environment variables for every Claude execution:
 
 | Variable | Meaning |
 | --- | --- |

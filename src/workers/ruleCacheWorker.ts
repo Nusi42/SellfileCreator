@@ -19,8 +19,8 @@ import type { SafeguardDetectionSnapshot } from '../lib/safeguards'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { HsfRuleWithRecipe } from '../lib/merge'
 import type { BuilderRecipe, SellfileExportMode, SubstatTargetTable } from '../lib/hsfBuilder'
-import type { TesterMatchWorkerItemResult } from './testerMatchWorkerTypes'
-import type { TesterPreviewMatch } from '../types/testerPreview'
+import type { GearInspectorMatchWorkerItemResult } from './gearInspectorMatchWorkerTypes'
+import type { GearInspectorPreviewMatch } from '../types/gearInspectorPreview'
 import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from './ruleCacheWorkerTypes'
 import { resolveMatchRecipeName } from '../lib/ruleRecipeIndex'
 import { resolveArtifactItemIdWithFallback } from '../lib/itemIdentity'
@@ -170,7 +170,7 @@ const buildPipelineMatches = async (
   emitProgress: ((progress: { completed: number; total: number }) => void) | null,
   hasSafeguardOverrideRules: boolean,
   shouldAbort: (() => boolean) | null,
-) : Promise<TesterMatchWorkerItemResult[]> => {
+) : Promise<GearInspectorMatchWorkerItemResult[]> => {
   if (!artifactEntries.length) return []
   // Configure for this matcher pass; no signature-based configure cache is used.
   await configureWasmRuleEngine({
@@ -187,18 +187,18 @@ const buildPipelineMatches = async (
     ...(ignoreSafeguardRecipeIndices ? { ignoreSafeguardRecipeIndices } : {}),
     ...(hasSafeguardOverrideRules ? { baselineExcludeSources: SAFEGUARD_OVERRIDE_RULE_SOURCES } : {}),
   }
-  const results: TesterMatchWorkerItemResult[] = []
+  const results: GearInspectorMatchWorkerItemResult[] = []
   for (let start = 0; start < artifactEntries.length; start += PIPELINE_MATCH_BATCH_SIZE) {
     if (shouldAbort?.()) return results
     const end = Math.min(start + PIPELINE_MATCH_BATCH_SIZE, artifactEntries.length)
     const batchEntries = artifactEntries.slice(start, end)
-    const batchItems = batchEntries.map(([itemId, artifact]) => ({ itemId, item: artifact.testerItem }))
+    const batchItems = batchEntries.map(([itemId, artifact]) => ({ itemId, item: artifact.gearInspectorItem }))
     const batchResults = await evaluateWasmRuleEngineItems({
       items: batchItems,
       options: evaluateOptions,
     })
     if (shouldAbort?.()) return results
-    const batchByItemId = new Map<number, TesterMatchWorkerItemResult>()
+    const batchByItemId = new Map<number, GearInspectorMatchWorkerItemResult>()
     batchResults.forEach((entry) => batchByItemId.set(entry.itemId, entry))
     for (const [itemId] of batchEntries) {
       const fullEval = batchByItemId.get(itemId)
@@ -231,8 +231,8 @@ const buildExcludedRecipeBaselineMap = async (
   recipeModes: SellfileExportMode[] | undefined,
   excludeRecipeIndices: ReadonlySet<number>,
   shouldAbort: (() => boolean) | null,
-): Promise<Map<number, TesterMatchWorkerItemResult>> => {
-  const byItem = new Map<number, TesterMatchWorkerItemResult>()
+): Promise<Map<number, GearInspectorMatchWorkerItemResult>> => {
+  const byItem = new Map<number, GearInspectorMatchWorkerItemResult>()
   if (!artifactEntries.length || excludeRecipeIndices.size === 0) return byItem
   await configureWasmRuleEngine({
     rules: mergedRules,
@@ -243,7 +243,7 @@ const buildExcludedRecipeBaselineMap = async (
     if (shouldAbort?.()) return byItem
     const end = Math.min(start + PIPELINE_MATCH_BATCH_SIZE, artifactEntries.length)
     const batchEntries = artifactEntries.slice(start, end)
-    const batchItems = batchEntries.map(([itemId, artifact]) => ({ itemId, item: artifact.testerItem }))
+    const batchItems = batchEntries.map(([itemId, artifact]) => ({ itemId, item: artifact.gearInspectorItem }))
     const evaluated = await evaluateWasmRuleEngineItems({
       items: batchItems,
       options: { excludeRecipeIndices },
@@ -343,7 +343,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       dedupeBeforeSafeguards: payload.dedupeBeforeSafeguards,
     })
 
-    const baselineMatchMap = new Map<number, TesterMatchWorkerItemResult>()
+    const baselineMatchMap = new Map<number, GearInspectorMatchWorkerItemResult>()
     if (needsDetection) {
       const baseProgressRef = { value: warmTotal }
       const baseMatchResults = await buildPipelineMatches(
@@ -364,7 +364,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       completed = warmTotal
     }
 
-    const toPreviewMatch = (result: EvalResult | null, rules: HsfRuleWithRecipe[]): TesterPreviewMatch | null => {
+    const toPreviewMatch = (result: EvalResult | null, rules: HsfRuleWithRecipe[]): GearInspectorPreviewMatch | null => {
       if (!result) return null
       const rule = rules[result.ruleIndex]
       const recipeIdx = result.recipeIdx ?? null

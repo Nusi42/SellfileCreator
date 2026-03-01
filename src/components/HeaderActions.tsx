@@ -19,6 +19,7 @@ export default function HeaderActions(props: {
   selectedCount: number
   visibleCount: number
   sfrDirty: boolean
+  chipLabel?: string
 }) {
   const {
     onAboutToOpenSfr,
@@ -38,7 +39,7 @@ export default function HeaderActions(props: {
     selectedCount > 0 ? selectedCount : null,
     visibleCount,
   )
-  const chipLabel = recipeChipLabel
+  const chipLabel = props.chipLabel ?? recipeChipLabel
 
   return (
     <Box

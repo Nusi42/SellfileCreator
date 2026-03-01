@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import test from 'node:test'
 
 import { importGearDatabaseFromArrayBuffer } from '../../src/lib/importers/gearDbImporter.js'
-import { diffRuleTesterItems, fingerprintRuleTesterItem, type RuleTesterItem } from '../../src/lib/ruleTesterSession.js'
+import { diffGearInspectorItems, fingerprintGearInspectorItem, type GearInspectorItem } from '../../src/lib/gearInspectorSession.js'
 import type { TestItem } from '../../src/lib/ruleEval.js'
 
 // Use cwd so compiled tests still resolve repo assets.
@@ -20,16 +20,16 @@ function bufferToArrayBuffer(buffer: Buffer): ArrayBuffer {
   return copy.buffer
 }
 
-const fingerprintSnapshot = (items: Array<RuleTesterItem | TestItem>): Array<[string, number]> => {
+const fingerprintSnapshot = (items: Array<GearInspectorItem | TestItem>): Array<[string, number]> => {
   const counts = new Map<string, number>()
   items.forEach((item) => {
-    const key = fingerprintRuleTesterItem(item)
+    const key = fingerprintGearInspectorItem(item)
     counts.set(key, (counts.get(key) ?? 0) + 1)
   })
   return Array.from(counts.entries()).sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
 }
 
-const stripItemId = (items: RuleTesterItem[], removalItemIds: Set<number>): RuleTesterItem[] => (
+const stripItemId = (items: GearInspectorItem[], removalItemIds: Set<number>): GearInspectorItem[] => (
   items.filter((item) => !removalItemIds.has(item.itemId))
 )
 
@@ -49,13 +49,13 @@ test('gear DB diff reuses entries across example backups', async () => {
   assert(first.length > 0, 'expected first DB to have artifacts')
   assert(second.length > 0, 'expected second DB to have artifacts')
 
-  const currentItems: RuleTesterItem[] = first.map((artifact, idx) => ({
-    ...(artifact.testerItem as RuleTesterItem),
+  const currentItems: GearInspectorItem[] = first.map((artifact, idx) => ({
+    ...(artifact.gearInspectorItem as GearInspectorItem),
     itemId: idx + 1,
   }))
-  const desiredItems = second.map((artifact) => artifact.testerItem)
+  const desiredItems = second.map((artifact) => artifact.gearInspectorItem)
 
-  const { removalItemIds, nextPendingQueue, additions } = diffRuleTesterItems(currentItems, desiredItems)
+  const { removalItemIds, nextPendingQueue, additions } = diffGearInspectorItems(currentItems, desiredItems)
   assert(removalItemIds.length < currentItems.length, 'diff should keep some existing rows')
   assert(additions.length >= 0, 'added count should be non-negative')
 
@@ -68,7 +68,7 @@ test('gear DB diff reuses entries across example backups', async () => {
 
 test('gear DB diff retains manually added gear when requested', () => {
   const makePreviewExtras = (source: 'tester' | 'artifacts') => ({ source })
-  const manual: RuleTesterItem = {
+  const manual: GearInspectorItem = {
     itemId: 1,
     slot: 1,
     set: 0,
@@ -78,7 +78,7 @@ test('gear DB diff retains manually added gear when requested', () => {
     faction: 0,
     previewExtras: makePreviewExtras('tester'),
   }
-  const imported: RuleTesterItem = {
+  const imported: GearInspectorItem = {
     itemId: 2,
     slot: 1,
     set: 0,
@@ -89,11 +89,11 @@ test('gear DB diff retains manually added gear when requested', () => {
     previewExtras: makePreviewExtras('artifacts'),
   }
   {
-    const { removalItemIds } = diffRuleTesterItems([manual, imported], [])
+    const { removalItemIds } = diffGearInspectorItems([manual, imported], [])
     assert(removalItemIds.includes(manual.itemId), 'manual gear should be removed without retention flag')
   }
   {
-    const { removalItemIds } = diffRuleTesterItems([manual, imported], [], [], { retainManualItems: true })
+    const { removalItemIds } = diffGearInspectorItems([manual, imported], [], [], { retainManualItems: true })
     assert(!removalItemIds.includes(manual.itemId), 'manual gear should persist when retention flag is on')
     assert(removalItemIds.includes(imported.itemId), 'non-manual gear should still be removed when desired list is empty')
   }

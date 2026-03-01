@@ -5,7 +5,6 @@ import {
   MENU_CONTROL_HEIGHT_PX,
   STANDARD_DIALOG_PADDING_BLOCK_UNITS,
   STANDARD_DIALOG_PADDING_INLINE_UNITS,
-  type ColorBlindMode,
 } from '../../lib/constants'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
@@ -13,30 +12,28 @@ import {
   FINAL_SELL_SETS_MODE_EXPLICIT,
   FINAL_SELL_LEVEL_CHOICES,
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
+  LOGIC_HUB_DIALOG_TAB_SUBSTAT_TARGETS,
   LOGIC_HUB_DIALOG_TAB_GEAR,
   LOGIC_HUB_DIALOG_TAB_DUNGEON,
-  LOGIC_HUB_DIALOG_TAB_SAFEGUARDS,
   LOGIC_HUB_DIALOG_TABS,
-  finalSellCoversFullLevelRange,
   type LogicHubDialogTab,
   type FinalSellLevel,
   type FinalSellRemainderConfig,
   type FinalSellSetsMode,
 } from '../../lib/logicHub'
-import type { SafeguardDetectionSnapshot, SafeguardRule } from '../../lib/safeguards'
 import type { BuilderRecipe } from '../../lib/hsfBuilder'
-import type { RuleTesterItem } from '../../lib/ruleTesterSession'
-import type { TesterPreviewMatch, TesterPreviewRow } from '../../types/testerPreview'
-import { GearTesterTabContent, type GearTesterTabLayoutSlots } from './GearTesterTabContent'
-import SafeguardsTab from './SafeguardsTab'
+import type { GearInspectorItem } from '../../lib/gearInspectorSession'
+import type { GearInspectorPreviewMatch } from '../../types/gearInspectorPreview'
+import { GearInspectorTabContent, type GearInspectorTabLayoutSlots } from './GearInspectorTabContent'
 import DungeonSimulatorTab from './DungeonSimulatorTab'
 // MarkdownTooltip keeps the level-hint copy behavior aligned with the rest of the app.
 import MarkdownTooltip from '../MarkdownTooltip'
-import type { Metaset } from '../../lib/metasets'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import type { EmptyStateMessageProps } from '../EmptyStateMessage'
 import type { HsfRuleWithRecipe } from '../../lib/merge'
 import type { SubstatTargetTable } from '../../lib/hsfBuilder/types'
+import { SubstatTargetsTabContent } from '../SubstatTargetsTabContent'
+import { defaultSubstatTargets } from '../../lib/hsfBuilder'
 
 
 type LogicHubDialogProps = {
@@ -47,37 +44,20 @@ type LogicHubDialogProps = {
   onReset?: () => void
   activeTab: LogicHubDialogTab
   onChangeTab: (next: LogicHubDialogTab) => void
-  // Optional one-shot request to select + expand a specific safeguard card.
-  focusSafeguardRule?: { ruleId: string; token: number } | null
-  safeguardRules: SafeguardRule[]
-  onSafeguardRulesChange: (next: SetStateAction<SafeguardRule[]>) => void
-  safeguardsEnabled: boolean
-  onSafeguardsEnabledChange: (next: SetStateAction<boolean>) => void
-  safeguardDetection: SafeguardDetectionSnapshot | null
-  gearEntries: TesterPreviewRow[]
-  safeguardItemKeys: ReadonlySet<number>
-  testerCardWidthPx: number | null
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
-  onToggleStatColors: (next: boolean) => void
-  onOpenManageColors: () => void
-  colorBlindMode: ColorBlindMode
-  onChangeColorBlindMode: (mode: ColorBlindMode) => void
-  colorIconSrc: string
-  recipeNames: Array<string | null>
-  metasets: Metaset[]
-  suppressMatchDetails?: boolean
-  onResetSafeguards?: () => void
   onJumpToRule?: (ruleIndex: number, recipeIdx: number | null) => void
-  workloadProgressRatio: number
   customRecipes: BuilderRecipe[]
-  testerItems: RuleTesterItem[]
-  setTesterItems: Dispatch<SetStateAction<RuleTesterItem[]>>
-  allocTesterItemId: () => number
-  testerMatches: ReadonlyMap<number, TesterPreviewMatch | null>
-  onResetGearTester?: () => void
+  gearInspectorItems: GearInspectorItem[]
+  setGearInspectorItems: Dispatch<SetStateAction<GearInspectorItem[]>>
+  allocGearInspectorItemId: () => number
+  gearInspectorMatches: ReadonlyMap<number, GearInspectorPreviewMatch | null>
+  onResetGearInspector?: () => void
   rules: HsfRuleWithRecipe[]
   substatTargets: SubstatTargetTable
+  effectiveSubstatTargets: SubstatTargetTable
+  onSubstatTargetsChange: (m: SubstatTargetTable, opts?: { mode?: 'edit' | 'reset' | 'import' }) => void
+  recipeOverridesActive: boolean
   // Propagates the main app's layout choice so empty-state messaging stays consistent across panes.
   emptyStateVerticalAlign?: EmptyStateMessageProps['verticalAlign']
 }
@@ -91,54 +71,34 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     onReset,
     activeTab,
     onChangeTab,
-    focusSafeguardRule = null,
-    safeguardRules,
-    onSafeguardRulesChange,
-    safeguardsEnabled,
-    onSafeguardsEnabledChange,
-    safeguardDetection,
-    gearEntries,
-    safeguardItemKeys,
-    testerCardWidthPx,
     substatColors,
     useStatButtonColors,
-    onToggleStatColors,
-    onOpenManageColors,
-    colorBlindMode,
-    onChangeColorBlindMode,
-    colorIconSrc,
-    recipeNames,
-    metasets,
-    suppressMatchDetails = false,
-    onResetSafeguards,
     onJumpToRule,
-    workloadProgressRatio,
     customRecipes,
-    testerItems,
-    setTesterItems,
-    allocTesterItemId,
-    testerMatches,
-    onResetGearTester,
+    gearInspectorItems,
+    setGearInspectorItems,
+    allocGearInspectorItemId,
+    gearInspectorMatches,
+    onResetGearInspector,
     rules,
     substatTargets,
+    effectiveSubstatTargets,
+    onSubstatTargetsChange,
+    recipeOverridesActive,
     emptyStateVerticalAlign = 'center',
   } = props
   const { t } = useI18n()
-  // Safeguards resets need their own confirmation flow so accidental clicks do not wipe custom rules.
-  const [confirmResetSafeguards, setConfirmResetSafeguards] = useState(false)
   // Gear resets also confirm so a stray click does not clear imported databases or manual samples.
-  const [confirmResetGearTester, setConfirmResetGearTester] = useState(false)
-  // Fallback keeps the tester grid handler stable even when no jump target is supplied.
-  const noopTesterRuleJump = useCallback(() => {}, [])
-  const gearTabOnView = onJumpToRule ?? noopTesterRuleJump
+  const [confirmResetGearInspector, setConfirmResetGearInspector] = useState(false)
+  const [confirmResetSubstatTargets, setConfirmResetSubstatTargets] = useState(false)
+  // Fallback keeps the Gear Inspector grid handler stable even when no jump target is supplied.
+  const noopGearInspectorRuleJump = useCallback(() => {}, [])
+  const gearTabOnView = onJumpToRule ?? noopGearInspectorRuleJump
   // Clamp unknown tab ids back to the Logic Hub default so autosave/restore can't wedge the dialog.
   const normalizedTab = LOGIC_HUB_DIALOG_TABS.includes(activeTab) ? activeTab : LOGIC_HUB_DIALOG_TAB_FINAL_SELL
   const hasGear = value.artifacts || value.accessories
   const hasLevelRanges = value.levels.length > 0
   const finalSellActive = hasGear && hasLevelRanges
-  const finalSellFullRange = finalSellCoversFullLevelRange(value.levels)
-  // Safeguards depends on Final Sell covering the full ladder so protection rules stay aligned.
-  const safeguardsFinalSellWarning = safeguardsEnabled && (!finalSellActive || !finalSellFullRange)
   const statusWordKey = finalSellActive ? 'hintFinalSellStatusWordOn' : 'hintFinalSellStatusWordOff'
   const statusDetailKey = finalSellActive ? 'hintFinalSellStatusOnDetail' : 'hintFinalSellStatusOffDetail'
   const setsMode: FinalSellSetsMode = value.setsMode ?? FINAL_SELL_DEFAULT_SETS_MODE
@@ -159,39 +119,34 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     onChange({ ...value, levels: Array.from(next.values()).sort((a,b)=>a-b) as FinalSellLevel[] })
   }
   const showFinalSellTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_FINAL_SELL
+  const showSubstatTargetsTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_SUBSTAT_TARGETS
   const showGearTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_GEAR
-  const showSafeguardsTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_SAFEGUARDS
   const showDungeonTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_DUNGEON
-  // The reset affordance still sits in the Dialog actions, but Safeguards routes through a confirm prompt.
   const showResetButton = showFinalSellTab
     ? Boolean(onReset)
-    : showGearTab
-      ? Boolean(onResetGearTester)
-      : showSafeguardsTab
-      ? Boolean(onResetSafeguards)
-      : false
+    : showSubstatTargetsTab
+      ? true
+      : showGearTab
+        ? Boolean(onResetGearInspector)
+        : false
   const handleResetButtonClick = () => {
     if (showFinalSellTab) {
       onReset?.()
       return
     }
-    if (showGearTab && onResetGearTester) {
-      setConfirmResetGearTester(true)
+    if (showSubstatTargetsTab) {
+      setConfirmResetSubstatTargets(true)
       return
     }
-    if (showSafeguardsTab && onResetSafeguards) setConfirmResetSafeguards(true)
+    if (showGearTab && onResetGearInspector) {
+      setConfirmResetGearInspector(true)
+    }
   }
-  // Once confirmed we immediately run the safeguard reset so custom overrides do not linger in a half-reset state.
-  const handleConfirmResetSafeguards = () => {
-    if (!onResetSafeguards) return
-    setConfirmResetSafeguards(false)
-    onResetSafeguards()
-  }
-  // Clear the tester items in one shot so manual + imported gear disappear together.
-  const handleConfirmResetGearTester = () => {
-    if (!onResetGearTester) return
-    setConfirmResetGearTester(false)
-    onResetGearTester()
+  // Clear the Gear Inspector items in one shot so manual + imported gear disappear together.
+  const handleConfirmResetGearInspector = () => {
+    if (!onResetGearInspector) return
+    setConfirmResetGearInspector(false)
+    onResetGearInspector()
   }
   // Dialog follows the spec'd min width/height so both tabs have enough breathing room.
   const paperSx = {
@@ -199,8 +154,8 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     maxWidth: 'min(960px, calc(100vw - 32px))',
     height: 'min(800px, calc(100vh - 48px))',
   }
-  // Layout wrapper mirrors the placeholder padding and keeps the tester content/actions vertically stacked.
-  const renderGearTesterLayout = useCallback(({ content, actions }: GearTesterTabLayoutSlots) => (
+  // Layout wrapper mirrors the placeholder padding and keeps the Gear Inspector content/actions vertically stacked.
+  const renderGearInspectorLayout = useCallback(({ content, actions }: GearInspectorTabLayoutSlots) => (
     <Box
       data-tour-id="finalsell.dialog.gear"
       sx={(theme) => ({
@@ -247,11 +202,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
               indicatorColor="primary"
             >
               <Tab value={LOGIC_HUB_DIALOG_TAB_FINAL_SELL} label={t('testerFinalSell')} />
-              <Tab
-                value={LOGIC_HUB_DIALOG_TAB_SAFEGUARDS}
-                label={t('tabSafeguards')}
-                data-tour-id="safeguards.tab"
-              />
+              <Tab value={LOGIC_HUB_DIALOG_TAB_SUBSTAT_TARGETS} label={t('tabSubstatTargets')} />
               <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
               <Tab value={LOGIC_HUB_DIALOG_TAB_DUNGEON} label={t('tabDungeonDrops')} />
             </Tabs>
@@ -498,47 +449,28 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
         </Stack>
           </Box>
         )}
+        {showSubstatTargetsTab && (
+          <SubstatTargetsTabContent
+            substatTargets={substatTargets}
+            effectiveSubstatTargets={effectiveSubstatTargets}
+            onSubstatTargetsChange={onSubstatTargetsChange}
+            recipeOverridesActive={recipeOverridesActive}
+            substatColors={substatColors}
+          />
+        )}
         {showGearTab && (
-          // Gear tab reuses the tester tab content without duplicating dialog chrome.
-          <GearTesterTabContent
+          // Gear tab reuses the Gear Inspector tab content without duplicating dialog chrome.
+          <GearInspectorTabContent
             customRecipes={customRecipes}
             onView={gearTabOnView}
             substatColors={substatColors}
-            testerItems={testerItems}
-            setTesterItems={setTesterItems}
-            allocTesterItemId={allocTesterItemId}
-            testerMatches={testerMatches}
+            gearInspectorItems={gearInspectorItems}
+            setGearInspectorItems={setGearInspectorItems}
+            allocGearInspectorItemId={allocGearInspectorItemId}
+            gearInspectorMatches={gearInspectorMatches}
             isActive={open && showGearTab}
             emptyStateVerticalAlign={emptyStateVerticalAlign}
-            renderLayout={renderGearTesterLayout}
-          />
-        )}
-        {showSafeguardsTab && (
-          // Safeguards tab reuses tester grid context; props land even while the UI is under construction.
-          <SafeguardsTab
-            rules={safeguardRules}
-            enabled={safeguardsEnabled}
-            finalSellCoverageWarningActive={safeguardsFinalSellWarning}
-            onRulesChange={onSafeguardRulesChange}
-            onToggleEnabled={onSafeguardsEnabledChange}
-            detection={safeguardDetection}
-            gearEntries={gearEntries}
-            uniqueItemKeys={safeguardItemKeys}
-            testerCardWidthPx={testerCardWidthPx}
-            substatColors={substatColors}
-            useStatButtonColors={useStatButtonColors}
-            onToggleStatColors={onToggleStatColors}
-            onOpenManageColors={onOpenManageColors}
-            colorBlindMode={colorBlindMode}
-            onChangeColorBlindMode={onChangeColorBlindMode}
-            colorIconSrc={colorIconSrc}
-            recipeNames={recipeNames}
-            metasets={metasets}
-            recipes={customRecipes}
-            focusRuleRequest={focusSafeguardRule}
-            onJumpToRule={onJumpToRule}
-            suppressMatchDetails={suppressMatchDetails}
-            workloadProgressRatio={workloadProgressRatio}
+            renderLayout={renderGearInspectorLayout}
           />
         )}
         {showDungeonTab && (
@@ -566,32 +498,34 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
         <Button onClick={onClose} data-tour-id="finalsell.dialog.close">{t('close')}</Button>
       </DialogActions>
     </Dialog>
-      {/* Dedicated confirm dialog spells out the destructive Gear reset before wiping tester entries. */}
+      {/* Dedicated confirm dialog spells out the destructive Gear reset before wiping Gear Inspector entries. */}
       <Dialog
-        open={confirmResetGearTester}
-        onClose={() => setConfirmResetGearTester(false)}
+        open={confirmResetGearInspector}
+        onClose={() => setConfirmResetGearInspector(false)}
       >
         <DialogTitle>{t('titleResetGearTester')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2">{t('msgResetGearTester')}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmResetGearTester(false)}>{t('cancel')}</Button>
-          <Button color="error" onClick={handleConfirmResetGearTester}>{t('reset')}</Button>
+          <Button onClick={() => setConfirmResetGearInspector(false)}>{t('cancel')}</Button>
+          <Button color="error" onClick={handleConfirmResetGearInspector}>{t('reset')}</Button>
         </DialogActions>
       </Dialog>
-      {/* Dedicated confirm dialog spells out the destructive Safeguards reset details before applying the change. */}
       <Dialog
-        open={confirmResetSafeguards}
-        onClose={() => setConfirmResetSafeguards(false)}
+        open={confirmResetSubstatTargets}
+        onClose={() => setConfirmResetSubstatTargets(false)}
       >
-        <DialogTitle>{t('titleResetSafeguards')}</DialogTitle>
+        <DialogTitle>{t('titleResetSubstatTargets')}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">{t('msgResetSafeguards')}</Typography>
+          <Typography variant="body2">{t('msgResetSubstatTargets')}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmResetSafeguards(false)}>{t('cancel')}</Button>
-          <Button color="error" onClick={handleConfirmResetSafeguards}>{t('reset')}</Button>
+          <Button onClick={() => setConfirmResetSubstatTargets(false)}>{t('cancel')}</Button>
+          <Button color="error" onClick={() => {
+            setConfirmResetSubstatTargets(false)
+            onSubstatTargetsChange(defaultSubstatTargets(), { mode: 'reset' })
+          }}>{t('reset')}</Button>
         </DialogActions>
       </Dialog>
     </>

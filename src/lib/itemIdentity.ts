@@ -14,14 +14,14 @@ type IdentityPreviewExtrasLike = {
   id?: unknown
 } | null | undefined
 
-type IdentityTesterItemLike = {
+type IdentityGearInspectorItemLike = {
   itemId?: unknown
   previewExtras?: IdentityPreviewExtrasLike
 } | null | undefined
 
 export type ArtifactIdentityLike = {
   id?: unknown
-  testerItem?: IdentityTesterItemLike
+  gearInspectorItem?: IdentityGearInspectorItemLike
 } | null | undefined
 
 export type TestItemIdentityLike = {
@@ -49,14 +49,14 @@ export const resolveCanonicalTestItemId = (item: TestItemIdentityLike): number |
 }
 
 // Canonical artifact resolution keeps the same precedence everywhere:
-// DB artifact id, then tester preview id, then runtime tester row id.
+// DB artifact id, then Gear Inspector preview id, then runtime Gear Inspector row id.
 export const resolveCanonicalArtifactItemId = (artifact: ArtifactIdentityLike): number | null => {
   const artifactId = toValidRealItemId(artifact?.id)
   if (artifactId != null) return artifactId
-  const testerPreviewId = toValidRealItemId(artifact?.testerItem?.previewExtras?.id)
-  if (testerPreviewId != null) return testerPreviewId
-  const testerItemId = toValidRealItemId(artifact?.testerItem?.itemId)
-  if (testerItemId != null) return testerItemId
+  const gearInspectorPreviewId = toValidRealItemId(artifact?.gearInspectorItem?.previewExtras?.id)
+  if (gearInspectorPreviewId != null) return gearInspectorPreviewId
+  const gearInspectorItemId = toValidRealItemId(artifact?.gearInspectorItem?.itemId)
+  if (gearInspectorItemId != null) return gearInspectorItemId
   return null
 }
 

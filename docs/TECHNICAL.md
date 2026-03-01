@@ -32,10 +32,10 @@ The technical reference is now split across focused documents. Start here, then 
 - [UI and Layout](technical/ui-and-layout.md) — localization, metasets, preview UX (including dimmed disabled recipes), shared hooks, effect guidelines, and responsive layout constraints.
 - [Rule Tester Rule Templates](technical/tester-rule-templates.md) — gear-card actions, UX behaviors, and default keep/sell template logic.
 - [Tooltip & Context Hints](technical/ui-and-layout.md#tooltips-and-context-hints) — canonical guidance for Markdown/Ellipsis tooltips, context-menu hints, and overflow handling.
-- [Release Notes Prompt](CREATE-RELEASE-NOTES.md) — Codex orchestration instructions for maintaining `docs/HISTORY.txt`.
+- [Release Notes Prompt](CREATE-RELEASE-NOTES.md) — Claude orchestration instructions for maintaining `docs/HISTORY.txt`.
 - [Artifact Rules](#artifact-rules) — slot catalogs, rarity/rank expectations, stat restrictions, and roll behavior.
 
-> **Playwright in the Codex sandbox:** Run the Vite dev server on ports above `5180` (we default to `5182`). When the harness blocks the bind with an `EPERM` error, rerun the Playwright command with `with_escalated_permissions: true` and a concise `justification` so the server can listen on `127.0.0.1`.
+> **Playwright in the Claude sandbox:** Run the Vite dev server on ports above `5180` (we default to `5182`). When the harness blocks the bind with an `EPERM` error, rerun the Playwright command with `with_escalated_permissions: true` and a concise `justification` so the server can listen on `127.0.0.1`.
 
 All documents describe the *current* implementation; update the relevant file whenever the behavior changes so this index stays accurate.
 

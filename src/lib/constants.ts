@@ -57,10 +57,12 @@ export const STATUS_CHIP_BORDER_RADIUS_PX = 8
 
 // Autosave storage key for SFR sessions
 export const AUTOSAVE_KEY = 'sellfileCreator.autosave.sfr.v1'
-// Autosave storage key for the Gear dialog queue (tester items)
-export const AUTOSAVE_TESTER_KEY = 'sellfileCreator.autosave.tester.v1'
-// Persisted Sellfile Preview / Rule Tester toggle selection
+// Autosave storage key for the Gear Inspector dialog item queue
+export const AUTOSAVE_GEAR_INSPECTOR_KEY = 'sellfileCreator.autosave.tester.v1'
+// Persisted Sellfile Preview / Gear Inspector toggle selection
 export const PREVIEW_MODE_STORAGE_KEY = 'sellfileCreator.previewMode.v1'
+// Persisted Recipe Builder / Safeguard Builder toggle selection
+export const BUILDER_MODE_STORAGE_KEY = 'sellfileCreator.builderMode.v1'
 // Persisted toggle for coloring stat texts (chips/preview)
 export const STAT_BUTTON_BORDERS_KEY = 'sellfileCreator.statButtonBorders.v1'
 // Persisted safeguards grid filter toggle.
@@ -83,6 +85,21 @@ export const GLYPH_ARROW_RIGHT = '→'
 export const GLYPH_TOGGLE_ON = '⦿'
 export const GLYPH_TOGGLE_OFF = '⭘'
 export const GLYPH_GLYPHS_SELECTED = '✓'
+// Per-dimension count glyphs — each scope gets a distinct colored emoji shown iff the flag is on.
+// When the selection for that dimension is empty (any), ∀ is appended to signal "every".
+export const GLYPH_PER_SLOT = '🔲'     // black square button — slot/grid position
+export const GLYPH_PER_FACTION = '🚩'  // triangular flag — faction banner
+export const GLYPH_PER_MAIN_STAT = '⭐' // star — primary stat marker
+export const GLYPH_PER_SET = '🎯'      // direct hit/bullseye — set collection target
+export const GLYPH_PER_SUBSTAT = '➕'  // heavy plus — secondary stat addition
+export const GLYPH_FOR_ALL = '∀'        // "every" indicator for empty (any) selections
+// Ignore-option chip glyphs — shown on the three ignore toggle chips.
+export const GLYPH_IGNORE_PREVIOUS = '⏩'    // skip/bypass previous safeguard results
+export const GLYPH_IGNORE_COLLECTION = '🏆'  // gear worn by collection champions
+export const GLYPH_IGNORE_VAULT = '🏦'       // gear worn by vault champions
+// Substat match chip glyphs — one per mode option.
+export const GLYPH_SUBSTAT_ANY = '🔀'  // any one selected substat qualifies
+export const GLYPH_SUBSTAT_ALL = '🔗'  // all selected substats must be present
 
 // Persisted substat color map (v6 schema with alpha support)
 export const COLORS_STORAGE_KEY_V6 = 'sellfileCreator.substatColors.v6'
@@ -136,6 +153,10 @@ export const BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX = 300
 export const BUILDER_RECIPE_CHIPS_EMPTY_MIN_HEIGHT_PX = 340
 export const BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX = 3 * 8
 export const BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX = 12
+// Minimum usable height for the safeguard rule chip list before the list stops
+// shrinking further. Intentionally below the recipe default so the builder form
+// dominates the available space when both panels are visible.
+export const BUILDER_SAFEGUARD_CHIPS_MIN_HEIGHT_PX = 150
 
 // Shared UI transitions
 export const UI_BG_TRANSITION = 'background-color 220ms ease-in-out 60ms'
@@ -184,9 +205,9 @@ export const MULTI_EDIT_MIXED_TEXT_ALPHA = {
 // tooltips during active scroll interactions for visual stability.
 export const SCROLLING_TOOLTIP_HIDE_MS = 250
 // Explanatory tooltips attached to passive text use the shared hover delay.
-export const MARKDOWN_TOOLTIP_INFO_ENTER_DELAY_MS = 2000
+export const MARKDOWN_TOOLTIP_INFO_ENTER_DELAY_MS = 1500
 // Interactive controls keep a separate constant so behavior can diverge later if needed.
-export const MARKDOWN_TOOLTIP_INTERACTIVE_ENTER_DELAY_MS = 2000
+export const MARKDOWN_TOOLTIP_INTERACTIVE_ENTER_DELAY_MS = 1500
 // Consistent width cap for MarkdownTooltip content so longer translations wrap
 // gracefully without spanning the entire viewport.
 export const MARKDOWN_TOOLTIP_MAX_WIDTH_PX = 520
@@ -250,7 +271,7 @@ export const FILTER_HEADER_CONTAINER_MAX_WIDTH_PX = 540
 // Compact max width for color chip buttons inside the Manage Colors dialog. Keeps the swatch +
 // label on one line without letting long translations (e.g., German “Hintergrund”) stretch the row.
 export const COLOR_FIELD_BUTTON_MAX_WIDTH_PX = 144
-// Tester recipe chips (matches + overflow) stay tap-friendly by enforcing a shared minimum width.
+// Gear Inspector recipe chips (matches + overflow) stay tap-friendly by enforcing a shared minimum width.
 export const MATCHING_RECIPE_CHIP_MIN_WIDTH_PX = 50
 // Reusable ellipsis style for inline text elements (typically button labels) that need to clamp to a
 // single line while remaining accessible via title/tooltips.
@@ -327,7 +348,7 @@ export const GEAR_DB_DIFF_HISTORY_MAX_ITEMS = GEAR_DB_DIFF_TOAST_MAX_ITEMS * 2
 export const GEAR_DB_DIFF_HISTORY_MAX_UPDATES = 2880
 // Cap Gear DB history tooltip height so tall diff lists scroll inside the popper.
 export const GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX = 640
-// Scale factor for tester cards rendered inside the Gear DB diff toast/history.
+// Scale factor for Gear Inspector cards rendered inside the Gear DB diff toast/history.
 export const GEAR_DB_DIFF_TOAST_CARD_SCALE = 0.7
 // Idle gutter for substat toggles; shrinks the placeholder columns when no roll
 // badge is visible so long labels (e.g., CDMG%) avoid clipping without widening
@@ -436,6 +457,9 @@ export const TUTORIAL_SEEN_VERSION_KEY = 'sellfileCreator.tutorial.seen.version'
 // builder's "Reset to defaults" uses this profile; otherwise it uses factory
 // defaults. Removing this key restores factory default behavior.
 export const BUILDER_USER_DEFAULTS_KEY = 'sellfileCreator.builder.userDefaults.v1'
+// Same concept for the safeguard builder: stores the user's preferred starting
+// state. When absent the builder resets to factory defaults.
+export const SAFEGUARD_BUILDER_USER_DEFAULTS_KEY = 'sellfileCreator.safeguardBuilder.userDefaults.v1'
 
 // Builder: when enabled, resets the builder controls to defaults immediately
 // after inserting a recipe (no confirmation). Default Off. Persisted here so
@@ -448,6 +472,12 @@ export const BUILDER_AUTO_APPLY_SELECTED_RECIPE_KEY = 'sellfileCreator.builder.a
 // Builder: controls whether tag chips render next to the Tags button.
 // Default Off so the chip row stays hidden until explicitly enabled.
 export const BUILDER_SHOW_TAG_CHIPS_KEY = 'sellfileCreator.builder.showTagsChips.v1'
+// Builder: persisted collapsed state for the 7 per-group collapsible sections
+// in the recipe builder panel.
+export const BUILDER_RECIPE_COLLAPSED_KEY = 'sellfileCreator.builder.recipeCollapsed.v1'
+// Builder: persisted collapsed state for the 7 per-group collapsible sections
+// in the safeguard builder panel.
+export const BUILDER_SAFEGUARD_COLLAPSED_KEY = 'sellfileCreator.builder.safeguardCollapsed.v1'
 // Sellfile export: when enabled, dedupe merged rules before exporting/pushing
 // the .hsf. Stored so users can persist their preference.
 export const SELLFILE_DEDUP_DEFAULT_KEY = 'sellfileCreator.sellfile.dedupDefault.v1'
@@ -473,28 +503,28 @@ export const RARITY_AUTO_LABEL = 'Auto'
 export const RULES_TABLE_SHOW_SLOT_ICONS_KEY = 'sellfileCreator.rulesTable.slotIcons.v2'
 export const RULES_TABLE_SHOW_SET_ICONS_KEY = 'sellfileCreator.rulesTable.setIcons.v2'
 export const RULES_TABLE_SHOW_FACTION_ICONS_KEY = 'sellfileCreator.rulesTable.factionIcons.v1'
-export const TESTER_PREVIEW_LAYOUT_KEY = 'sellfileCreator.tester.previewLayout.v1'
-export const TESTER_GRID_COLUMNS_KEY = 'sellfileCreator.tester.grid.columns.v1'
-export const TESTER_GRID_SHOW_FIRST_MATCH_KEY = 'sellfileCreator.tester.grid.showFirstMatch.v1'
-export const TESTER_GRID_SHOW_MATCH_RECIPE_INDEX_KEY = 'sellfileCreator.tester.grid.showMatchRecipeIndex.v1'
-export const TESTER_GRID_SHOW_MATCH_LINE_KEY = 'sellfileCreator.tester.grid.showMatchLine.v1'
-export const TESTER_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.tester.grid.showOtherMatches.v1'
-// Safeguards keeps its own default for "show other matches" so Rule Tester stays unchanged.
+export const GEAR_INSPECTOR_PREVIEW_LAYOUT_KEY = 'sellfileCreator.tester.previewLayout.v1'
+export const GEAR_INSPECTOR_GRID_COLUMNS_KEY = 'sellfileCreator.tester.grid.columns.v1'
+export const GEAR_INSPECTOR_GRID_SHOW_FIRST_MATCH_KEY = 'sellfileCreator.tester.grid.showFirstMatch.v1'
+export const GEAR_INSPECTOR_GRID_SHOW_MATCH_RECIPE_INDEX_KEY = 'sellfileCreator.tester.grid.showMatchRecipeIndex.v1'
+export const GEAR_INSPECTOR_GRID_SHOW_MATCH_LINE_KEY = 'sellfileCreator.tester.grid.showMatchLine.v1'
+export const GEAR_INSPECTOR_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.tester.grid.showOtherMatches.v1'
+// Safeguards keeps its own default for "show other matches" so Gear Inspector stays unchanged.
 export const SAFEGUARDS_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.safeguards.grid.showOtherMatches.v1'
-export const TESTER_GRID_SHOW_CHAMP_ICONS_KEY = 'sellfileCreator.tester.grid.showChampIcons.v1'
-export const TESTER_GRID_SHOW_RULE_TEMPLATES_KEY = 'sellfileCreator.tester.grid.showRuleTemplates.v1'
-// Tester grid: keep/sell outcome background emphasis toggle.
+export const GEAR_INSPECTOR_GRID_SHOW_CHAMP_ICONS_KEY = 'sellfileCreator.tester.grid.showChampIcons.v1'
+export const GEAR_INSPECTOR_GRID_SHOW_RULE_TEMPLATES_KEY = 'sellfileCreator.tester.grid.showRuleTemplates.v1'
+// Gear Inspector grid: keep/sell outcome background emphasis toggle.
 // Why: this is view-only card styling and should persist across sessions like other grid toggles.
-export const TESTER_GRID_HIGHLIGHT_KEEP_SELL_KEY = 'sellfileCreator.tester.grid.highlightKeepSell.v1'
-// Tester grid: safeguard upgrade chance overlay toggle.
+export const GEAR_INSPECTOR_GRID_HIGHLIGHT_KEEP_SELL_KEY = 'sellfileCreator.tester.grid.highlightKeepSell.v1'
+// Gear Inspector grid: safeguard upgrade chance overlay toggle.
 // Why: the overlay is view-only and should persist across sessions like other grid display toggles.
-export const TESTER_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY = 'sellfileCreator.tester.grid.showSafeguardUpgradeChance.v1'
-// Tester preview: substat sorting controls for the rule tester grid.
+export const GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY = 'sellfileCreator.tester.grid.showSafeguardUpgradeChance.v1'
+// Gear Inspector grid: substat sorting controls.
 // Why: Sorting is view-only (like filters) but should persist across sessions.
-export const TESTER_SUBSTAT_SORT_KEY = 'sellfileCreator.tester.sort.substats.v1'
-// Tester grid: normalized overlay presets + selection.
+export const GEAR_INSPECTOR_SUBSTAT_SORT_KEY = 'sellfileCreator.tester.sort.substats.v1'
+// Gear Inspector grid: normalized overlay presets + selection.
 // Why: Overlay is view-only, but users need the presets to persist across sessions.
-export const TESTER_GRID_NORMALIZED_OVERLAY_KEY = 'sellfileCreator.tester.grid.normalizedOverlay.v1'
+export const GEAR_INSPECTOR_GRID_NORMALIZED_OVERLAY_KEY = 'sellfileCreator.tester.grid.normalizedOverlay.v1'
 // Preview selection scroll sources.
 // Why: Auto-scroll should only fire from explicit user/command signals.
 export const SELECTION_SCROLL_SOURCE_USER = 'user' as const
@@ -604,68 +634,68 @@ export const EASTER_EGG_42_DURATION_MS = 4200
 // Fixed width for a single substat editor (variant + steppers + value field).
 // Slightly narrower to reduce unused space after the + button while keeping
 // a stable two‑column grid across locales and label lengths.
-export const TESTER_SUBSTAT_EDITOR_WIDTH_PX = Math.round(320 * 0.84)
+export const GEAR_INSPECTOR_SUBSTAT_EDITOR_WIDTH_PX = Math.round(320 * 0.84)
 // Reserved width for the per-row control column (add/remove buttons) in the
 // Gear dialog so substats/results align with the first selector (slot).
-export const TESTER_ROW_CONTROLS_WIDTH_PX = 56
+export const GEAR_INSPECTOR_ROW_CONTROLS_WIDTH_PX = 56
 // Fixed min-widths for selects inside the Gear dialog (slightly narrower for better fit)
 // Keep these centralized to avoid magic numbers and ensure consistent sizing.
 // Reduced by ~15% for tighter layout
 // Reduced by another 3% for a tighter layout while keeping readability.
 // Keep as a calculation to preserve intent for future tuning.
 // Reduce a bit further to improve fit in the gear row
-export const TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX = 125
-export const TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX = 125
+export const GEAR_INSPECTOR_MAINSTAT_SELECT_MIN_WIDTH_PX = 125
+export const GEAR_INSPECTOR_SUBSTAT_SELECT_MIN_WIDTH_PX = 125
 // Fixed widths so Select content changes don't shift layout
 // Shared width keeps the slot and set selectors perfectly aligned across rows.
-const TESTER_SLOT_SET_COLUMN_WIDTH_PX = Math.round(200 * 1.10)
-export const TESTER_SLOT_SELECT_WIDTH_PX = TESTER_SLOT_SET_COLUMN_WIDTH_PX
-export const TESTER_SET_SELECT_WIDTH_PX = TESTER_SLOT_SET_COLUMN_WIDTH_PX
-export const TESTER_FACTION_SELECT_WIDTH_PX = 180
-export const TESTER_RANK_SELECT_WIDTH_PX = 90
+const GEAR_INSPECTOR_SLOT_SET_COLUMN_WIDTH_PX = Math.round(200 * 1.10)
+export const GEAR_INSPECTOR_SLOT_SELECT_WIDTH_PX = GEAR_INSPECTOR_SLOT_SET_COLUMN_WIDTH_PX
+export const GEAR_INSPECTOR_SET_SELECT_WIDTH_PX = GEAR_INSPECTOR_SLOT_SET_COLUMN_WIDTH_PX
+export const GEAR_INSPECTOR_FACTION_SELECT_WIDTH_PX = 180
+export const GEAR_INSPECTOR_RANK_SELECT_WIDTH_PX = 90
 // Rarity column mirrors faction width so the two rows stay aligned.
-export const TESTER_RARITY_SELECT_WIDTH_PX = TESTER_FACTION_SELECT_WIDTH_PX
-export const TESTER_LEVEL_SELECT_WIDTH_PX = 90
+export const GEAR_INSPECTOR_RARITY_SELECT_WIDTH_PX = GEAR_INSPECTOR_FACTION_SELECT_WIDTH_PX
+export const GEAR_INSPECTOR_LEVEL_SELECT_WIDTH_PX = 90
 // Uniform Select height for Gear dialog controls
-export const TESTER_SELECT_HEIGHT_PX = 40
+export const GEAR_INSPECTOR_SELECT_HEIGHT_PX = 40
 
 // Sentinel for accessories that do not belong to any set (e.g., base banners/rings/amulets).
-// Shared by the Rule Tester and Final Sell remainder rules so no-set accessories are matched.
+// Shared by the Gear Inspector and Final Sell remainder rules so no-set accessories are matched.
 // Value is generated from shared/domain-constants.json to keep TS and Rust aligned.
 export const ACCESSORY_NO_SET_ID = GENERATED_ACCESSORY_NO_SET_ID
 
-// Special ID used only by the Rule Tester for "Any slot" (no slot restriction).
+// Special ID used only by the Gear Inspector for "Any slot" (no slot restriction).
 // Semantics: Matches only HSF rules whose ArtifactType is Any (empty list);
 // rules that restrict to specific slots do not match this sentinel.
-export const TESTER_ANY_SLOT_ID = 0
+export const GEAR_INSPECTOR_ANY_SLOT_ID = 0
 
-// Minimum height for the Rule Tester result row so layout does not shift
+// Minimum height for the Gear Inspector result row so layout does not shift
 // when switching between a detailed match (chip + text + button) and the
 // compact "No match" text. Chosen to comfortably fit a small Chip and a
 // small Button in a single line.
-export const TESTER_RESULT_ROW_MIN_HEIGHT_PX = 36
+export const GEAR_INSPECTOR_RESULT_ROW_MIN_HEIGHT_PX = 36
 
-// Maximum width for the Rule Tester config chip before truncating with ellipsis.
+// Maximum width for the Gear Inspector config chip before truncating with ellipsis.
 // Chosen to balance long names without forcing the row to wrap unexpectedly.
-export const TESTER_RECIPE_CHIP_MAX_WIDTH_PX = 520
+export const GEAR_INSPECTOR_RECIPE_CHIP_MAX_WIDTH_PX = 520
 
 // Fixed dimensions for the Gear dialog so its layout remains predictable.
 // Width is trimmed below the previous 1120px cap for a tighter footprint; height
 // keeps the content scrollable without overwhelming shorter displays.
-export const TESTER_DIALOG_WIDTH_PX = 920
-export const TESTER_DIALOG_HEIGHT_PX = 780
-// Virtualization heuristics keep the tester responsive even with many expanded rows.
-export const TESTER_VIRTUAL_OVERSCAN_PX = 320
-export const TESTER_ROW_ESTIMATE_COMPACT_PX = 180
-export const TESTER_ROW_ESTIMATE_EXPANDED_PX = 420
-// Shared inline icon size for Rule Tester compact chips (preview + safeguards).
+export const GEAR_INSPECTOR_DIALOG_WIDTH_PX = 920
+export const GEAR_INSPECTOR_DIALOG_HEIGHT_PX = 780
+// Virtualization heuristics keep the Gear Inspector responsive even with many expanded rows.
+export const GEAR_INSPECTOR_VIRTUAL_OVERSCAN_PX = 320
+export const GEAR_INSPECTOR_ROW_ESTIMATE_COMPACT_PX = 180
+export const GEAR_INSPECTOR_ROW_ESTIMATE_EXPANDED_PX = 420
+// Shared inline icon size for Gear Inspector compact chips (preview + safeguards).
 // Keeps slot/set/faction icons from hitting the chip border while staying recognizable.
-export const TESTER_COMPACT_ICON_SIZE_PX = 16
+export const GEAR_INSPECTOR_COMPACT_ICON_SIZE_PX = 16
 // Extra padding applied to compact chips that render icons; tuned high right now
 // while validating spacing. Reduce once the desired inset is confirmed visually.
-export const TESTER_COMPACT_ICON_LEFT_PADDING_PX = 5
+export const GEAR_INSPECTOR_COMPACT_ICON_LEFT_PADDING_PX = 5
 
-// Champion avatars share sizing across the tester grid and filters so rarity borders stay consistent.
+// Champion avatars share sizing across the Gear Inspector grid and filters so rarity borders stay consistent.
 export const CHAMPION_ICON_BASE_SIZE = Object.freeze({ width: 26, height: 26 })
 export const CHAMPION_ICON_LARGE_SIZE = Object.freeze({ width: 38, height: 38 })
 export const CHAMPION_ICON_LARGE_THRESHOLD = 5

@@ -76,7 +76,7 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
   // Explicit scroll request for selection-driven preview jumps.
   selectionScrollRequest: SelectionScrollRequest
   onSelectRecipeIdx: (idx: number) => void
-  // Safeguard star rows route either to Rule Tester or Safeguards management.
+  // Safeguard star rows route either to Gear Inspector or Safeguards management.
   onSelectSafeguardRule?: (selection: SafeguardStarSelection) => void
   onRecipeAction: (idx: number, action: 'duplicate' | 'delete' | 'copy' | 'paste_after' | 'move_top' | 'move_bottom' | 'move_up' | 'move_down') => void
   onClearBase: () => void
@@ -1192,7 +1192,7 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                             recipeSpecialContent = (
                               <MarkdownTooltip markdown={previewRuleName}>
                                 <ButtonBase
-                                  // Star clicks branch into Rule Tester or Safeguards editing based on row metadata.
+                                  // Star clicks branch into Gear Inspector or Safeguards editing based on row metadata.
                                   onClick={(event) => {
                                     event.preventDefault()
                                     event.stopPropagation()

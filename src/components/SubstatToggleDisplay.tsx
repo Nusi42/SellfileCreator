@@ -350,6 +350,30 @@ export function SubstatToggleDisplay({
   )
 }
 
+// Shared sx for main-stat ToggleButtonGroup rows (Recipe Builder and Safeguard Builder).
+// Main stats use a small horizontal padding (px: 0.75) because they don't have a lock/roll
+// badge overlay — unlike substats which require px: 0 for the badge gutter alignment.
+export const mainStatToggleGroupSx = {
+  gap: 0.5,
+  '& .MuiToggleButton-root': {
+    px: 0.75,
+    minWidth: BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX,
+    width: BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX,
+    height: BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
+    justifyContent: 'center',
+    borderRadius: 1,
+    border: '1px solid',
+    borderColor: 'divider',
+    '&.Mui-selected': {
+      borderColor: 'divider',
+    },
+  },
+  '& .MuiToggleButtonGroup-grouped': {
+    margin: '0 !important',
+    borderRadius: 1,
+  },
+} as const
+
 export const substatToggleGroupSx = {
   gap: 0.5,
   '& .MuiToggleButton-root': {

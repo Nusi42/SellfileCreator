@@ -194,7 +194,7 @@ function getSetTooltipContentNamed(
   )
 }
 
-// Shared no-set tooltip text so menus and tester grid stay in sync.
+// Shared no-set tooltip text so menus and Gear Inspector grid stay in sync.
 export function buildNoSetTooltipMarkdown(
   t: (k: string, p?: Record<string, string | number>) => string,
   options?: { includeDisabled?: boolean; label?: string },

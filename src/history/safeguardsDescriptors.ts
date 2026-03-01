@@ -15,7 +15,7 @@ import { collectMetasetSnapshotEntries, normalizeNumberArray } from './historyDe
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import type { SafeguardsRulesDescriptorMode } from './historyDescriptorTypes'
 import { snapshotSafeguardRules, snapshotMetasets } from './historySnapshotUtils'
-import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT } from '../lib/testerSort'
+import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
 
 export type { SafeguardsRulesDescriptorMode }
 
@@ -227,10 +227,10 @@ function buildSafeguardRuleSignature(rule: SafeguardRule): SafeguardRuleSignatur
     ? Object.entries(rule.substatWeights ?? {})
       .map(([key, raw]) => {
         const variant = Number(key)
-        const normalized = normalizeTesterSortWeight(Number(raw))
+        const normalized = normalizeGearInspectorSortWeight(Number(raw))
         return Number.isFinite(variant) ? [variant, normalized] as [number, number] : null
       })
-      .filter((entry): entry is [number, number] => Boolean(entry && entry[1] !== TESTER_SORT_WEIGHT_DEFAULT))
+      .filter((entry): entry is [number, number] => Boolean(entry && entry[1] !== GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT))
       .sort((a, b) => a[0] - b[0] || a[1] - b[1])
     : []
   // Return the normalized typed signature so callers can compare structurally.
@@ -402,8 +402,8 @@ const formatSubstatWeights = (rule: SafeguardRule, t: TranslateFn): string => {
     const variant = Number(key)
     if (!Number.isFinite(variant)) continue
     if (variant === 0) continue
-    const normalized = normalizeTesterSortWeight(Number(raw))
-    if (normalized === TESTER_SORT_WEIGHT_DEFAULT) continue
+    const normalized = normalizeGearInspectorSortWeight(Number(raw))
+    if (normalized === GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT) continue
     entries.push({ variant: variant as StatVariant, weight: normalized })
   }
   if (entries.length === 0) return ''

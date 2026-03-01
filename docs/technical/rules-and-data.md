@@ -14,7 +14,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - `cleanHsfForExport` strips every UI-only metadata field (anything prefixed with `__`, e.g., `__rankMask`, `__safeguardRuleId`, `__safeguardHash`, diagnostics from safeguard detection) before serializing. Push uploads reuse the same sanitized payload so endpoints never see transient fields.
 
 ### SFR (this app)
-- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": SubstatTargetTable, "Recipes": ReadableRecipe[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: LevelMilestone[]; setsMode: 'any' | 'explicit' }, "SelectedRecipeIndex"?: number }`. `Minima` stores the Substat Target Values table; the legacy name is preserved for compatibility. Loader compatibility still accepts legacy `Configs` arrays and `SelectedConfigIndex`.
+- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": SubstatTargetTable, "Recipes": ReadableRecipe[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: LevelMilestone[]; setsMode: 'any' | 'explicit' } }`. `Minima` stores the Substat Target Values table; the legacy name is preserved for compatibility. Recipe selection is not persisted in the SFR format; the first recipe and first safeguard rule are always selected on load.
   - Writer always includes `FinalSellRemainder` (even when off).
 - Reader: when `FinalSellRemainder` is missing (older files), treat it as off with default ranges `[0,4,8,12]` and `setsMode = 'any'`.
   - Loader convenience applies to all builds: in addition to full SFR objects and `ReadableRecipe[]`, a single readable recipe object is accepted (matching `tests/fixtures/*.sfr`) so dragging fixtures into the app works everywhere.
@@ -63,13 +63,14 @@ This document covers file schemas, builder semantics, and compatibility notes.
   - `writeTextSafe(text)` and `readTextSafe()` wrap the async Clipboard API with security checks and failure handling.
   - When writes are blocked, components dispatch `COPY_DIALOG_EVENT` to request that the App open a manual copy dialog prefilled with the content.
   - Fallback UI lives in `src/components/CopyDialog.tsx` (copy) and `src/components/PasteDialog.tsx` (paste).
-- Copy All copies a full SFR: `{ Version, Metasets, Minima (Substat Target Values), Recipes, FinalSellRemainder, SelectedRecipeIndex? }`.
+- Copy All copies a full SFR: `{ Version, Metasets, Minima (Substat Target Values), Recipes, FinalSellRemainder }`.
 - Copy single recipe copies a minimal SFR: `{ Version, Metasets: [only those referenced by the recipe], Recipes: [readable recipe] }` so pasting elsewhere brings required metasets.
 - Paste accepts: a single recipe, an array of recipes, or a full SFR object (readable schema). Legacy shapes are not normalized.
 
 ### Autosave
 - Storage: LocalStorage key from `src/lib/constants.ts` (`AUTOSAVE_KEY = 'sellfileCreator.autosave.sfr.v1'`). Value is `[crc32, payload]` where `payload` is a readable SFR object (`buildSfrPayload`) plus dialog-only metadata (filters, timestamps). `crc32` verifies integrity (`src/lib/autosave.ts`).
 - Load/restore gating: `useAutosaveRestore({ key, version, metasets, substatTargets, recipes, finalSellRemainder, selectedRecipeIndex, note, filters })` handles reading the entry, surfacing the Restore dialog, and re-enabling autosave after the user makes a choice. Rule Tester autosave (`AUTOSAVE_TESTER_KEY`) is loaded separately via `loadRuleTesterAutosaveDraft` and merged into the same dialog so the checkbox list can cover both builder and tester state.
+- `AutosaveFiltersState` (the `Filters` field inside the autosave payload) now includes `builderRecipeCollapsed` and `builderSafeguardCollapsed` alongside the filter-panel views. Builder section collapse is treated as session state — not a permanent preference — so the app starts with all sections expanded, resets to defaults when the restore dialog opens, and applies the saved layout only if the user checks "View & Filter" and confirms. Non-default builder collapse counts as a meaningful difference (i.e., it affects `restoreFiltersDiffer` and shows the checkbox), unlike filter-panel open/collapsed which is considered UI-only.
 - Restore vs Dismiss:
   - Restore: applies whichever sections the user checked — recipes (including the builder selection), metasets, Substat Target Values, Final Sell remainder, Safeguards (rules + enabled state), the pinned note, filter panel state, and optionally the Rule Tester queue — then enables autosave.
   - Constraint: restoring Recipes or Safeguards while Metasets is unchecked is allowed only if those restored sections do not reference any metaset IDs from the autosave payload.

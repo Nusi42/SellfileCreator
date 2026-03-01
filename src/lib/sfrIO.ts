@@ -856,6 +856,7 @@ export function parseSfrText(
   finalSellRemainder: FinalSellRemainderConfig
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
+  recipesEnabled: boolean
 } {
   const parsed = JSON.parse(text) as unknown
   return parseSfrObject(parsed, prev, options)
@@ -875,6 +876,7 @@ export function parseSfrObject(
   finalSellRemainder: FinalSellRemainderConfig
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
+  recipesEnabled: boolean
 } {
   const parsedRec = (typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {})
   const runtimeSetNameMap = options?.runtimeSetNameMap
@@ -972,13 +974,9 @@ export function parseSfrObject(
   })()
   // SFR boundary compatibility: keep legacy toggle key support on read only.
   const safeguardsEnabled = parsedRec['SafeguardsEnabled'] === true || parsedRec['KeepUniquesEnabled'] === true
-  const savedSel = (() => {
-    if (Array.isArray(parsed)) return recipes.length ? recipes.length - 1 : null
-    if (typeof parsedRec['SelectedRecipeIndex'] === 'number') return parsedRec['SelectedRecipeIndex'] as number
-    if (typeof parsedRec['SelectedConfigIndex'] === 'number') return parsedRec['SelectedConfigIndex'] as number
-    return recipes.length ? recipes.length - 1 : null
-  })()
-  const selectedIndex = (savedSel !== null && savedSel >= 0 && savedSel < recipes.length) ? savedSel : (recipes.length ? recipes.length - 1 : null)
+  const recipesEnabled = parsedRec['RecipesEnabled'] !== false
+  // Manual loads always start at the first recipe; selection is not persisted in SFR.
+  const selectedIndex = recipes.length > 0 ? 0 : null
   // Canonicalize legacy note markers during SFR import so runtime state uses new wording only.
   const note = (!Array.isArray(parsed) && typeof parsedRec['Note'] === 'string')
     ? canonicalizeLegacyNoteMarkers(String(parsedRec['Note']))
@@ -992,6 +990,7 @@ export function parseSfrObject(
     finalSellRemainder: fsr,
     safeguardRules,
     safeguardsEnabled,
+    recipesEnabled,
   }
 }
 
@@ -1008,6 +1007,7 @@ export async function readSfrFile(
   finalSellRemainder: FinalSellRemainderConfig
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
+  recipesEnabled: boolean
 }>
 {
   const text = await file.text()
@@ -1159,10 +1159,10 @@ export function buildSfrPayload(args: {
   substatTargets: SubstatTargetTable,
   recipes: BuilderRecipe[],
   finalSellRemainder?: FinalSellRemainderConfig,
-  selectedRecipeIndex: number | null,
   note?: string,
   safeguardRules?: SafeguardRule[],
   safeguardsEnabled?: boolean,
+  recipesEnabled?: boolean,
   }): {
     Version: string
     Metasets: Array<{ id: string; name: string; setNames: string[]; show?: boolean }>
@@ -1184,7 +1184,7 @@ export function buildSfrPayload(args: {
       substatWeights?: Record<string, number>
     }>
     SafeguardsEnabled: boolean
-    SelectedRecipeIndex?: number
+    RecipesEnabled: boolean
     Note?: string
   } {
   const {
@@ -1193,10 +1193,10 @@ export function buildSfrPayload(args: {
     substatTargets,
     recipes,
     finalSellRemainder,
-    selectedRecipeIndex,
     note,
     safeguardRules = [],
     safeguardsEnabled = false,
+    recipesEnabled = true,
   } = args
   const metasOut = metasets.map(m => {
     const iconId = normalizeMetasetIconId(m.iconId)
@@ -1231,9 +1231,7 @@ export function buildSfrPayload(args: {
     // Safeguard exports reuse the shared readable helper for clipboard parity.
     Safeguards: safeguardRules.map((rule) => buildReadableSafeguardRuleEntry(rule)),
     SafeguardsEnabled: safeguardsEnabled === true,
-    ...(selectedRecipeIndex != null
-      ? { SelectedRecipeIndex: selectedRecipeIndex }
-      : (recipes.length ? { SelectedRecipeIndex: recipes.length - 1 } : {})),
+    RecipesEnabled: recipesEnabled !== false,
     // Canonicalize legacy marker aliases so exports never re-emit old note keywords.
     ...(note ? { Note: canonicalizeLegacyNoteMarkers(note) } : {}),
   }

@@ -200,7 +200,7 @@ const getRowValueIgnoreCase = (row: Record<string, unknown>, target: string): un
 }
 
 // LastUsedArtifacts stores `{ id, lastUse }` rows with local timestamps so we
-// can annotate tester entries with “last equipped” metadata.
+// can annotate Gear Inspector entries with “last equipped” metadata.
 function readLastUsedArtifacts(db: Database): LastUsedLookup {
   if (!tableExists(db, 'LastUsedArtifacts')) return createLastUsedLookup([])
   const rows: GearDbLastUsedRow[] = []
@@ -218,7 +218,7 @@ function readLastUsedArtifacts(db: Database): LastUsedLookup {
         if (typeof tsValue === 'bigint') return Number(tsValue)
         return null
       })()
-      // Store a trimmed union shape; conversion into tester timestamps happens
+      // Store a trimmed union shape; conversion into Gear Inspector timestamps happens
       // inside `gearDbTime` so both SQL + JSON flows share the same formatting.
       rows.push({ id: idNumber, lastUse: normalizedTimestamp })
     }

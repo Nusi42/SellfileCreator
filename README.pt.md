@@ -6,14 +6,14 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 
 ## Funcionalidades
 - Criar e guardar regras: construa receitas e mantenha uma biblioteca reutilizável.
-- Interruptor da Prévia Sellfile: alterna entre a tabela de Regras e a tabela do Teste de Regras diretamente no cabeçalho. Os contadores/badges adaptam-se (Manter/Vender para regras, `Matched`/`No Match` para o tester) e os filtros seguem a tabela escolhida.
-- Arrastar e largar ou botão “Load RSL Helper Sellfile”: larga `.sfr`, `.hsf` ou `.db` em qualquer ponto (a sobreposição confirma) ou clica no botão para carregar. Ambos os caminhos fazem exatamente o mesmo: `.sfr` substitui o builder, `.hsf` acrescenta o Sellfile base opcional e `.db` entra diretamente na fila do Teste de Regras sem tocar no builder/export.
+- Interruptor da Prévia Sellfile: alterna entre a tabela de Regras e a tabela do Inspetor de Equipamento diretamente no cabeçalho. Os contadores/badges adaptam-se (Manter/Vender para regras, `Matched`/`No Match` para o Inspetor de Equipamento) e os filtros seguem a tabela escolhida.
+- Arrastar e largar ou botão “Load RSL Helper Sellfile”: larga `.sfr`, `.hsf` ou `.db` em qualquer ponto (a sobreposição confirma) ou clica no botão para carregar. Ambos os caminhos fazem exatamente o mesmo: `.sfr` substitui o builder, `.hsf` acrescenta o Sellfile base opcional e `.db` entra diretamente na fila do Inspetor de Equipamento sem tocar no builder/export.
 - Mantém `Shift` premido ao abrir/carregar um `.sfr` (seletor de ficheiros ou arrastar e largar) para abrir um diálogo de importação adicional onde escolhes separadamente Receitas, Nota, Metasets e Salvaguardas.
 - Meta-sets: agrupe conjuntos de equipamento (por exemplo, Velocidade + Perceção) e volte a usá-los em várias regras.
 - Exportação com um clique: gere um ficheiro HSF (Sellfile do RSL Helper) pronto a carregar no RSL Helper.
-- Botão «Logic Hub»: abre o diálogo no cabeçalho para aceder a `Venda final`, `Conservar únicos`, `Drops de masmorra` e ao diálogo Equipamento (separador Equipamento dentro do Logic Hub) num só lugar. Cria equipamento de exemplo, cola linhas ou arrasta `%APPDATA%\\RslHelper\\Config`; depois fecha o diálogo e mantém o interruptor da pré-visualização na tabela que precisares — a fila do Teste de Regras continua visível sem reabrir.
-- Aba «Manter únicos»: define as combinações que não queres perder. Quando as tuas receitas mais as tuas regras de venda atualmente ativas removerem todas as cópias, o scanner gera automaticamente regras de manutenção.
-- Diálogo de restauro do Autosave: quando existe um autosave, escolhe exatamente o que carregar — receitas, meta-sets, Alvos de substats, resto da Venda final, nota fixada, estado do painel de filtros e até importações do Teste de Regras.
+- Botão «Ferramentas»: abre o diálogo no cabeçalho para aceder a `Venda final`, `Alvos de substats`, `Drops de masmorra` e ao diálogo Equipamento num só lugar. Cria equipamento de exemplo, cola linhas ou arrasta `%APPDATA%\\RslHelper\\Config`; depois fecha o diálogo e mantém o interruptor da pré-visualização na tabela que precisares — a fila do Inspetor de Equipamento continua visível sem reabrir.
+- Modo Salvaguardas: define as combinações que não queres perder. Quando as tuas receitas mais as tuas regras de venda atualmente ativas removerem todas as cópias, o scanner gera automaticamente regras de manutenção.
+- Diálogo de restauro do Autosave: quando existe um autosave, escolhe exatamente o que carregar — receitas, meta-sets, Alvos de substats, resto da Venda final, nota fixada, estado do painel de filtros e até importações do Inspetor de Equipamento.
 - Copiar a pasta da base de dados do RSL Helper: o cabeçalho da prévia mostra um botão que copia `%APPDATA%\RslHelper\Config` para o porta‑papéis para que possas colar a rota no Explorador antes de arrastar a `.db` para o Sellfile Creator.
 
 ## Como utilizar
@@ -29,7 +29,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Carregar/Guardar: use «Carregar receitas» e «Guardar receitas» para reutilizar as regras. Estas ações mantêm tudo o que é necessário para reconstruir a prévia.
 - Menus de Reset/Insert/Apply: clique com o botão direito em «Reset», «Insert as receita» ou «Apply as receita» para abrir o menu partilhado. Guarde o estado atual do builder como modelo predefinido, volte às definições de fábrica, ative «Auto reset after Insert» (limpa o builder imediatamente após inserir uma receita) ou ative «Auto apply to selected receita» (envia as edições para a receita destacada automaticamente após ~400 ms de inatividade). Auto reset e Auto apply não podem ficar ativos ao mesmo tempo — ligar um desliga o outro — e ambas as preferências mantêm-se entre sessões.
 - Nota: clique em «Adicionar nota…» (ou «Editar nota…») para anexar um texto ao ficheiro de receitas. Ao carregar um ficheiro que contenha nota, esta é mostrada automaticamente. Use `<!-- recipes:1,0 -->` para inserir chips de receitas específicas (0 escolhe a seguinte). Use `<!-- recipes-re:"speed" -->` para mostrar todas as receitas cujo nome corresponde ao padrão (ignorando maiúsculas/minúsculas).
-- Restauro do Autosave: ao iniciar, o diálogo lista cada secção auto-guardada com a sua própria caixa. Restaure apenas o que precisa — receitas (incluindo o chip selecionado), meta-sets, Alvos de substats, resto da Venda final, nota fixada, painel de filtros (estado aberto, chips, secções recolhidas) e importações do Teste de Regras. Deixe uma caixa desmarcada para manter o trabalho atual. O Autosave também recorda quais os interruptores da Venda final (Artefactos, Acessórios e intervalos de nível) estavam ativos, por isso reabrir o Logic Hub reflete exatamente o que exportou da última vez.
+- Restauro do Autosave: ao iniciar, o diálogo lista cada secção auto-guardada com a sua própria caixa. Restaure apenas o que precisa — receitas (incluindo o chip selecionado), meta-sets, Alvos de substats, resto da Venda final, nota fixada, painel de filtros (estado aberto, chips, secções recolhidas) e importações do Inspetor de Equipamento. Deixe uma caixa desmarcada para manter o trabalho atual. O Autosave também recorda quais os interruptores da Venda final (Artefactos, Acessórios e intervalos de nível) estavam ativos, por isso reabrir Ferramentas reflete exatamente o que exportou da última vez.
 
 ### Estrutura do builder (de cima para baixo)
 - Ação e Ativo: Defina o que acontece quando um item coincide.
@@ -82,7 +82,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Mítica (5 rolagens): A raridade Mítica pode atingir cinco rolagens num substat em +16 (o resto fica pelas quatro). Se Mítica estiver disponível, o gerador conta o roll extra logo em +0.
 
 ### Alvos de substats
-- Abra o diálogo «Alvos de substats…» no canto superior direito do builder.
+- O botão «Alvos de substats…» no canto superior direito do builder abre o separador **Alvos de substats** no diálogo Ferramentas.
 - Os alvos são globais e afetam todas as receitas.
 - Estes alvos definem os limiares usados por intervalo de nível (0–3, 4–7, 8–11, 12–15, 16) e servem de fallback na grelha de Alvos de rolagem.
 - Use «Repor predefinições» dentro da janela para voltar aos alvos recomendados.
@@ -95,12 +95,12 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 
 ### Venda final
 - Use o interruptor `Venda final` no cabeçalho da pré-visualização para ativar regras de venda para os itens restantes. A etiqueta não muda; o preenchimento âmbar indica que está ativa e o contorno neutro indica que está desligada.
-- Clique em «Logic Hub» ao lado do interruptor para abrir o separador `Venda final` e decidir se abrange Artefactos, Acessórios e quais os intervalos de nível (0–3, 4–7, 8–11, 12–15, 16). A predefinição cobre 0–15, por isso o `+16` só entra quando o ativares.
+- Clique em «Ferramentas» ao lado do interruptor para abrir o separador `Venda final` e decidir se abrange Artefactos, Acessórios e quais os intervalos de nível (0–3, 4–7, 8–11, 12–15, 16). A predefinição cobre 0–15, por isso o `+16` só entra quando o ativares.
 - Sem `Venda final`, o RSL Helper mantém tudo o que não coincide com uma regra. Só vende quando uma regra explícita diz Vender.
 - Com `Venda final` ativa, as regras geradas incluem todos os sets conhecidos. Na prévia surge «Todos os sets conhecidos» para reduzir ruído; o ficheiro exportado lista os sets um a um.
 
 ### Manter únicos
-- Clica em «Logic Hub» no cabeçalho da pré-visualização e muda para o separador `Manter únicos` para marcar as combinações que nunca queres perder. Ativa `Manter únicos` para deixar o scanner adicionar linhas de manter (editar uma regra também ativa automaticamente).
+- Muda o builder para o modo **Salvaguardas** usando o botão de alternância acima do painel do builder para marcar as combinações que nunca queres perder. Ativa `Manter únicos` para deixar o scanner adicionar linhas de manter (editar uma regra também ativa automaticamente).
 - As regras de Manter únicos não «consomem» itens—cada regra avalia o mesmo conjunto de candidatos. Se uma peça corresponder a várias regras, conta para todas.
 - Cada regra de Manter únicos permite escolher slot, sets ou meta-sets, ranks, raridades, atributos principais e, no caso dos acessórios, facções. Deixar um seletor vazio significa «qualquer».
 - `Modo` decide como a regra é emitida: `Desligada` desliga, `Proteger existentes` injeta linhas de manter para itens que seriam vendidos até cumprir a quota, e `Antecipar lacunas` também emite regras fictícias para combinações em falta para proteger novos drops até a BD ser atualizada.
@@ -133,10 +133,10 @@ Empilhar os chips de âmbito altera quem recebe quota própria. Mantém `Por reg
 | Acessórios com SPD mais alto | Slot = Anel/Amuleto/Estandarte, Substats = SPD | `5` | `Por regra` | Mantém os cinco melhores rolls de SPD entre os acessórios (empates incluídos). |
 | Estandartes de ACC com SPD | Slot = Estandarte, Atributo principal = ACC, Substats = SPD + ACC, Pesos: SPD mais alto | `3` | `Por facção` | Cada facção guarda os melhores estandartes de ACC onde SPD conta mais. |
 
-Dica: importa a tua `.db` ou cola itens no diálogo Equipamento antes de abrir Manter únicos para que o scanner veja equipamento real. Clica numa regra de salvaguarda para realçar o equipamento correspondente; muda `Filtro` para `Seleção` para veres apenas essas correspondências.
+Dica: importa a tua `.db` ou cola itens no diálogo Equipamento antes de ativar o modo Salvaguardas para que o scanner veja equipamento real. Clica numa regra de salvaguarda para realçar o equipamento correspondente; muda `Filtro` para `Seleção` para veres apenas essas correspondências.
 
 ### Drops de masmorra (Simulador)
-Abra o Logic Hub e mude para **Drops de masmorra**. Simula o farm em masmorras com as suas regras atuais do Sellfile para ver quanto equipamento manteria por conjunto e nível de melhoria.
+Abra «Ferramentas» e mude para **Drops de masmorra**. Simula o farm em masmorras com as suas regras atuais do Sellfile para ver quanto equipamento manteria por conjunto e nível de melhoria.
 
 - Escolha uma masmorra e uma etapa.
 - Modo de simulação:
@@ -157,17 +157,17 @@ Notas:
 - Ligação por clique: clicar uma linha da tabela seleciona a receita de origem (linhas da HSF base não alteram a seleção).
 - Cópia alternativa: Se o acesso ao porta‑papéis falhar, abre-se um diálogo com o texto já selecionado para copiar manualmente.
 
-### Prévia Sellfile (Regras e Teste de Regras)
-- O cabeçalho da prévia mantém o interruptor «Rules»/«Teste de Regras», o botão «Logic Hub» e o botão “Load RSL Helper Sellfile” juntos para saber sempre onde alternar de tabela ou abrir o diálogo Equipamento (Logic Hub → separador Equipamento).
-- Vista «Rules» (padrão): mostra todas as linhas que serão exportadas, incluindo quaisquer `.hsf` base opcionais. Os contadores mantêm o resumo Manter vs Vender, a linha de filtros conserva os chips Qualquer/Apenas (`Any/Only`) para Slots/Rank/Raridade/Nível e agora apresenta os dois botões de Receitas em paralelo: «Receitas prévia» decide se as etiquetas fora dos filtros atuais ficam ocultas e o «Filtro de receitas» funciona como um interruptor Ligado/Desligado que limita as linhas do Sellfile às etiquetas selecionadas (deixando a mesma seleção pronta para o tester).
-- Vista «Teste de Regras»: muda a tabela para a lista de equipamento importado ou criado sem precisares de reabrir o Logic Hub. Os contadores passam a `Matched` vs `No Match` (mais Manter/Vender) segundo a regra “a primeira coincidência ganha” e a linha de filtros mantém ambos os botões de Receitas («Receitas prévia» + «Filtro de receitas»). O primeiro continua a gerir a visibilidade das etiquetas, enquanto o «Filtro de receitas» aplica o triestado (`Off` → `Primeira` → `Qualquer`) para isolar as linhas do Teste de Regras e continua a limitar as regras do Sellfile à mesma seleção quando regressas a «Rules». Soma-se ainda o filtro de resultados (Manter/Vender vs `Matched`/`No Match`), permitindo isolar peças cujo primeiro — ou qualquer — match pertence à tua seleção sem esconder as etiquetas. Importar um `.db` alterna automaticamente para esta vista, mas podes voltar a «Rules» a qualquer momento.
-- O botão “Load RSL Helper Sellfile” comporta-se da mesma forma que o arrastar-e-largar: `.sfr` substitui o estado do builder, `.hsf` adiciona o Sellfile base opcional e `.db` envia itens para a prévia do Teste de Regras sem tocar em receitas ou export. «Limpar» remove o `.hsf` base quando existir.
+### Prévia Sellfile (Regras e Inspetor de Equipamento)
+- O cabeçalho da prévia mantém o interruptor «Rules»/«Inspetor de Equipamento», o botão «Ferramentas» e o botão “Load RSL Helper Sellfile” juntos para saber sempre onde alternar de tabela ou abrir o diálogo Equipamento.
+- Vista «Rules» (padrão): mostra todas as linhas que serão exportadas, incluindo quaisquer `.hsf` base opcionais. Os contadores mantêm o resumo Manter vs Vender, a linha de filtros conserva os chips Qualquer/Apenas (`Any/Only`) para Slots/Rank/Raridade/Nível e agora apresenta os dois botões de Receitas em paralelo: «Restringir» decide se as etiquetas fora dos filtros atuais ficam ocultas e a «Seleção» funciona como um interruptor Ligado/Desligado que limita as linhas do Sellfile às etiquetas selecionadas (deixando a mesma seleção pronta para o Inspetor de Equipamento).
+- Vista «Inspetor de Equipamento»: muda a tabela para a lista de equipamento importado ou criado sem precisares de reabrir Ferramentas. Os contadores passam a `Matched` vs `No Match` (mais Manter/Vender) segundo a regra “a primeira coincidência ganha” e a linha de filtros mantém ambos os botões de Receitas («Restringir» + «Seleção»). O primeiro continua a gerir a visibilidade das etiquetas, enquanto a «Seleção» aplica o triestado (`Off` → `Primeira` → `Por correspondência`) para isolar as linhas do Inspetor de Equipamento e continua a limitar as regras do Sellfile à mesma seleção quando regressas a «Rules». Soma-se ainda o filtro de resultados (Manter/Vender vs `Matched`/`No Match`), permitindo isolar peças cujo primeiro — ou qualquer — match pertence à tua seleção sem esconder as etiquetas. Importar um `.db` alterna automaticamente para esta vista, mas podes voltar a «Rules» a qualquer momento.
+- O botão “Load RSL Helper Sellfile” comporta-se da mesma forma que o arrastar-e-largar: `.sfr` substitui o estado do builder, `.hsf` adiciona o Sellfile base opcional e `.db` envia itens para o Inspetor de Equipamento sem tocar em receitas ou export. «Limpar» remove o `.hsf` base quando existir.
 - O ícone da paleta abre a gestão de cores para personalizar texto e fundo dos substats.
-- Na vista «Rules» a tabela continua a mostrar «Idx» e «Cfg» (linhas do ficheiro base deixam «Cfg» em branco). Na vista «Teste de Regras», o mesmo espaço lista slot/set, estatísticas e o chip da primeira receita correspondente para veres diretamente o que acontece a cada artefacto.
+- Na vista «Rules» a tabela continua a mostrar «Idx» e «Receita» (linhas do ficheiro base deixam «Receita» em branco). Na vista «Inspetor de Equipamento», o mesmo espaço lista slot/set, estatísticas e o chip da primeira receita correspondente para veres diretamente o que acontece a cada artefacto.
 
 ### Controlos da prévia
 - Gerir cores: através do ícone da paleta; «Repor predefinições» restaura as recomendações.
-- Filtros: prima `Ctrl+F` (`Cmd+F` no macOS) para abrir o painel e focar de imediato a pesquisa de receitas. Clique direito em qualquer cabeçalho de secção (ou `Ctrl`/`Cmd`+clique no respetivo chevron) para recolher ou expandir todas as secções de uma só vez. `Receitas prévia` oculta chips que não correspondem ao filtro ativo para manter a tabela legível. `Filtro de receitas` decide quais as receitas permitidas na tabela: em «Rules» funciona como um simples interruptor Ligado/Desligado, e na vista do Teste de Regras alterna por `Off` → `Primeira` → `Qualquer` para controlares também como respondem as linhas do Teste de Regras.
+- Filtros: prima `Ctrl+F` (`Cmd+F` no macOS) para abrir o painel e focar de imediato a pesquisa de receitas. Clique direito em qualquer cabeçalho de secção (ou `Ctrl`/`Cmd`+clique no respetivo chevron) para recolher ou expandir todas as secções de uma só vez. `Restringir` oculta chips que não correspondem ao filtro ativo para manter a tabela legível. `Seleção` decide quais as receitas permitidas na tabela: em «Rules» funciona como um simples interruptor Ligado/Desligado, e no Inspetor de Equipamento alterna por `Off` → `Primeira` → `Por correspondência` para controlares também como respondem as linhas do Inspetor de Equipamento.
 - Menu de colunas (clique direito na cabeça da tabela):
   - Repor colunas: restaura colunas e larguras padrão.
   - Ajustar largura: adapta as colunas à janela.
@@ -177,12 +177,12 @@ Notas:
 - Redimensionar: arraste o bordo direito da cabeça.
 - Comportamento de clique: uma linha seleciona a receita correspondente (sem deslocação automática). Clicar uma etiqueta de receita desloca a tabela até à primeira linha associada.
 
-### Prévia do Teste de Regras
-- Clique em «Logic Hub» no cabeçalho da Prévia Sellfile para abrir o diálogo Equipamento (Logic Hub → separador Equipamento). Crie equipamento de exemplo ou cole linhas (JSON/texto). Os itens sincronizam imediatamente com a prévia, por isso fechar o diálogo não limpa a grelha do Teste de Regras.
-- Importe a base de dados do RSL Helper arrastando `.db` para a aplicação ou usando o botão “Load RSL Helper Sellfile” (mesmo comportamento). Estes imports enfileiram milhares de artefactos (incluindo itens da caixa de entrada), mudam a prévia para a tabela do Teste de Regras e deixam o estado do builder/export inalterado.
-- Cada linha do Teste de Regras mostra slot, set, nível, mainstat, substats (com glifos e rolagens), a origem (inventário vs inbox) e os chips Keep/Sell + a primeira receita/regra correspondente. Regras desativadas nunca fazem match, portanto `No Match` identifica peças que o Sellfile deixaria passar.
-- Os contadores no cabeçalho passam a `Matched` vs `No Match` juntamente com o resumo Manter/Vender. Combina-os com os filtros do Teste de Regras (resultado + «Receitas tester» em `Off`/`Primeira`/`Qualquer`) para focar casos-limite antes de exportar.
-- Usa o interruptor da prévia para alternar entre as tabelas de Regras e do Teste de Regras sem reabrir o Logic Hub — ideal para comparar as linhas geradas com o equipamento que as ativou.
+### Inspetor de Equipamento
+- Clique em «Ferramentas» no cabeçalho da Prévia Sellfile para abrir o diálogo Equipamento. Crie equipamento de exemplo. Os itens sincronizam imediatamente com a prévia, por isso fechar o diálogo não limpa a grelha do Inspetor de Equipamento.
+- Importe a base de dados do RSL Helper arrastando `.db` para a aplicação ou usando o botão “Load RSL Helper Sellfile” (mesmo comportamento). Estes imports enfileiram milhares de artefactos (incluindo itens da caixa de entrada), mudam a prévia para o Inspetor de Equipamento e deixam o estado do builder/export inalterado.
+- Cada linha do Inspetor de Equipamento mostra slot, set, nível, mainstat, substats (com glifos e rolagens), a origem (inventário vs inbox) e os chips Keep/Sell + a primeira receita/regra correspondente. Regras desativadas nunca fazem match, portanto `No Match` identifica peças que o Sellfile deixaria passar.
+- Os contadores no cabeçalho passam a `Matched` vs `No Match` juntamente com o resumo Manter/Vender. Combina-os com os filtros do Inspetor de Equipamento (resultado + «Receitas do Inspetor de Equipamento» em `Off`/`Primeira`/`Por correspondência`) para focar casos-limite antes de exportar.
+- Usa o interruptor da prévia para alternar entre a tabela de Regras e o Inspetor de Equipamento sem reabrir Ferramentas — ideal para comparar as linhas geradas com o equipamento que as ativou.
 
 ### Exportar
 - «Exportar Sellfile do RSL Helper combinado» aparece quando existe ficheiro base; caso contrário verá «Exportar Sellfile do RSL Helper».
@@ -227,6 +227,6 @@ e claro a **Farbstoff** pelo RSL Helper!
 
 ## Autor
 Criado por [STBL] Nusi㊷  
-Localização por Codex
+Localização por AI
 
 © Nusi㊷ - 2026

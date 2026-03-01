@@ -2,13 +2,13 @@ import { Box, Stack, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import { useI18n } from '../lib/i18n'
 import { CHAMPION_ICON_LARGE_THRESHOLD, GEAR_DB_DIFF_TOAST_CARD_SCALE, GLYPH_ARROW_RIGHT } from '../lib/constants'
-import { buildPreviewArtifactFromTesterItem } from '../lib/testerPreviewArtifacts'
+import { buildPreviewArtifactFromGearInspectorItem } from '../lib/gearInspectorPreviewArtifacts'
 import type { TestItem } from '../lib/ruleEval'
 import type { MatchingRecipeDecision } from '../lib/ruleEval'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
-import type { TesterPreviewMatch, TesterPreviewRow } from '../types/testerPreview'
+import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import type { GearArtifactSnapshot, GearDbDiffToastEntry, GearDbDiffToastPayload } from '../lib/gearDbDiffToast'
-import { TesterGridCard, getTesterGridCardSizing } from './TesterItemsGrid'
+import { GearInspectorGridCard, getGearInspectorGridCardSizing } from './GearInspectorItemsGrid'
 import { buildGearDbDiffSummaryLineNodes } from './GearDbDiffSummaryLine'
 
 // Use a tight gap so five entries can still fit in the toast window.
@@ -154,15 +154,15 @@ type ToastItemProps = {
 }
 
 /**
- * Render a single before/after diff row using scaled tester cards.
+ * Render a single before/after diff row using scaled Gear Inspector cards.
  */
 function GearDbDiffToastItem({ entry, substatColors, useStatButtonColors }: ToastItemProps) {
   // Use theme colors for added/removed cues.
   const theme = useTheme()
-  // Match rows are only needed when either side has a tester match.
+  // Match rows are only needed when either side has a Gear Inspector match.
   const showMatchRow = Boolean(entry.beforeMatch || entry.afterMatch)
   // Compute the base card sizing once so both sides stay aligned.
-  const cardSizing = getTesterGridCardSizing(theme, TOAST_CARD_COLUMN_COUNT, {
+  const cardSizing = getGearInspectorGridCardSizing(theme, TOAST_CARD_COLUMN_COUNT, {
     showFirstMatchRow: showMatchRow,
     showOtherMatchesRow: TOAST_SHOW_OTHER_MATCH_ROWS,
   })
@@ -178,7 +178,7 @@ function GearDbDiffToastItem({ entry, substatColors, useStatButtonColors }: Toas
   // Precompute the left-hand side based on diff type.
   const left = entry.before
     ? (
-      <ScaledTesterGridCard
+      <ScaledGearInspectorGridCard
         snapshot={entry.before}
         match={entry.beforeMatch}
         showMatchRow={showMatchRow}
@@ -192,7 +192,7 @@ function GearDbDiffToastItem({ entry, substatColors, useStatButtonColors }: Toas
   // Precompute the right-hand side based on diff type.
   const right = entry.after
     ? (
-      <ScaledTesterGridCard
+      <ScaledGearInspectorGridCard
         snapshot={entry.after}
         match={entry.afterMatch}
         showMatchRow={showMatchRow}
@@ -248,7 +248,7 @@ function GearDbDiffSingleSidedGrid({
     ? Boolean(entry.afterMatch)
     : Boolean(entry.beforeMatch))
   // Reuse the same sizing pipeline as the before/after renderer.
-  const cardSizing = getTesterGridCardSizing(theme, TOAST_CARD_COLUMN_COUNT, {
+  const cardSizing = getGearInspectorGridCardSizing(theme, TOAST_CARD_COLUMN_COUNT, {
     showFirstMatchRow: showMatchRow,
     showOtherMatchesRow: TOAST_SHOW_OTHER_MATCH_ROWS,
   })
@@ -279,7 +279,7 @@ function GearDbDiffSingleSidedGrid({
         if (!snapshot) return null
         const match = kind === 'added' ? entry.afterMatch : entry.beforeMatch
         return (
-          <ScaledTesterGridCard
+          <ScaledGearInspectorGridCard
             key={`gear-db-diff-single-sided-${entry.id}`}
             snapshot={snapshot}
             match={match}
@@ -296,9 +296,9 @@ function GearDbDiffSingleSidedGrid({
   )
 }
 
-type ScaledTesterGridCardProps = {
+type ScaledGearInspectorGridCardProps = {
   snapshot: GearArtifactSnapshot
-  match: TesterPreviewMatch | null
+  match: GearInspectorPreviewMatch | null
   showMatchRow: boolean
   size: { cardSizing: { cardHeightPx: number; minWidthPx: number }; scaledWidthPx: number; scaledHeightPx: number }
   substatColors: SubstatColorMap
@@ -308,9 +308,9 @@ type ScaledTesterGridCardProps = {
 }
 
 /**
- * Render a tester card scaled down for toast previews.
+ * Render a Gear Inspector card scaled down for toast previews.
  */
-function ScaledTesterGridCard({
+function ScaledGearInspectorGridCard({
   snapshot,
   match,
   showMatchRow,
@@ -319,9 +319,9 @@ function ScaledTesterGridCard({
   useStatButtonColors,
   priorityOrder,
   tone = null,
-}: ScaledTesterGridCardProps) {
-  // Build a full tester preview row from the snapshot payload.
-  const row = buildTesterPreviewRow(snapshot, match)
+}: ScaledGearInspectorGridCardProps) {
+  // Build a full Gear Inspector preview row from the snapshot payload.
+  const row = buildGearInspectorPreviewRow(snapshot, match)
   const theme = useTheme()
   // Single-sided add/remove grids tint borders so direction is obvious at a glance.
   const accentBorderColor = tone === 'added'
@@ -339,7 +339,7 @@ function ScaledTesterGridCard({
         flexShrink: 0,
         borderRadius: 1,
         boxSizing: 'border-box',
-        // Clip tester-card overflow inside history preview wrappers so no nested card scroll regions appear.
+        // Clip Gear Inspector card overflow inside history preview wrappers so no nested card scroll regions appear.
         overflow: 'hidden',
         ...(accentBorderColor ? { border: `1px solid ${accentBorderColor}` } : {}),
       }}
@@ -352,7 +352,7 @@ function ScaledTesterGridCard({
           transformOrigin: 'top left',
         }}
       >
-        <TesterGridCard
+        <GearInspectorGridCard
           row={row}
           substatColors={substatColors}
           useStatButtonColors={useStatButtonColors}
@@ -384,7 +384,7 @@ type EmptyDiffCardProps = {
  * Render a placeholder when an item only exists on one side of the diff.
  */
 function EmptyDiffCard({ tone, size }: EmptyDiffCardProps) {
-  // Reuse the tester unknown token so placeholders stay consistent.
+  // Reuse the Gear Inspector unknown token so placeholders stay consistent.
   const { t } = useI18n()
   const theme = useTheme()
   // Tint the border when the diff implies add/remove intent.
@@ -422,10 +422,10 @@ function EmptyDiffCard({ tone, size }: EmptyDiffCardProps) {
 }
 
 /**
- * Build a tester preview row from a Gear DB snapshot so the card renderer can reuse it.
+ * Build a Gear Inspector preview row from a Gear DB snapshot so the card renderer can reuse it.
  */
-function buildTesterPreviewRow(snapshot: GearArtifactSnapshot, match: TesterPreviewMatch | null): TesterPreviewRow {
-  // Preview extras let the tester renderer reuse the gear DB stats directly.
+function buildGearInspectorPreviewRow(snapshot: GearArtifactSnapshot, match: GearInspectorPreviewMatch | null): GearInspectorPreviewRow {
+  // Preview extras let the Gear Inspector renderer reuse the gear DB stats directly.
   const previewExtras = {
     id: snapshot.id,
     source: snapshot.source,
@@ -443,7 +443,7 @@ function buildTesterPreviewRow(snapshot: GearArtifactSnapshot, match: TesterPrev
     lastUseLocalTimestamp: null,
   }
   // Minimal test item is enough because preview extras hold the UI details.
-  const testerItem: TestItem = {
+  const gearInspectorItem: TestItem = {
     slot: snapshot.slot,
     set: snapshot.set,
     rank: snapshot.rank,
@@ -453,8 +453,8 @@ function buildTesterPreviewRow(snapshot: GearArtifactSnapshot, match: TesterPrev
     ...(snapshot.mainStat ? { main: snapshot.mainStat.variant } : {}),
     previewExtras,
   }
-  // Translate to the normalized artifact shape used by the tester grid card.
-  const artifact = buildPreviewArtifactFromTesterItem(testerItem)
+  // Translate to the normalized artifact shape used by the Gear Inspector grid card.
+  const artifact = buildPreviewArtifactFromGearInspectorItem(gearInspectorItem)
   return {
     artifact,
     match,

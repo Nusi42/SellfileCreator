@@ -62,6 +62,9 @@ import {
   sanitizeSafeguardCountMode,
   sortSafeguardCombination,
   sortSafeguardSubstats,
+  pruneSafeguardsSubstatWeights,
+  constrainSafeguardSubstats,
+  safeguardWeightsEnabled,
   type SafeguardDetectionEntry,
   type SafeguardDetectionSnapshot,
   type SafeguardRule,
@@ -69,7 +72,7 @@ import {
 import { buildReadableSafeguardRuleEntry } from '../../lib/sfrIO'
 import type { BuilderRecipe } from '../../lib/hsfBuilder/types'
 import { parseRecipeNameDirectives } from '../../lib/recipeNameDirectives'
-import type { TesterPreviewRow } from '../../types/testerPreview'
+import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
 import type { ColorBlindMode } from '../../lib/constants'
 import {
   BUILDER_AUTO_APPLY_DEBOUNCE_MS,
@@ -91,12 +94,12 @@ import {
   rarityCodeToName,
   statVariantI18nKey,
 } from '../../lib/types'
-import { slotSelectionAllowsAccessories } from '../../lib/testerDomain'
+import { slotSelectionAllowsAccessories } from '../../lib/gearInspectorDomain'
 import { useI18n } from '../../lib/i18n'
 import { readTextSafe, triggerCopyDialog, writeTextSafe } from '../../lib/clipboard'
 import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSetsSelect, GearSlotSelect, GearSubstatSelect } from '../gear'
-import { TesterItemsGrid } from '../TesterItemsGrid'
-import TesterOutcomeSummaryChip from '../TesterOutcomeSummaryChip'
+import { GearInspectorItemsGrid } from '../GearInspectorItemsGrid'
+import GearInspectorOutcomeSummaryChip from '../GearInspectorOutcomeSummaryChip'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
 import WorkloadProgressIndicator from '../WorkloadProgressIndicator'
 // MarkdownTooltip keeps the rule-count hints and info icons synchronized with the broader tooltip refactor.
@@ -137,12 +140,12 @@ import {
 } from '../../lib/keepOverrideLayout'
 import {
   parseSpacingPx,
-  TESTER_GRID_COLUMN_GAP_UNITS,
-  TESTER_GRID_CONTAINER_PADDING_END_UNITS,
-  TESTER_GRID_ROW_PADDING_UNITS,
-} from '../../lib/testerGridLayout'
-import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT, TESTER_SORT_WEIGHT_STEP } from '../../lib/testerSort'
-import { TesterSortWeightControls } from '../TesterSortWeightControls'
+  GEAR_INSPECTOR_GRID_COLUMN_GAP_UNITS,
+  GEAR_INSPECTOR_GRID_CONTAINER_PADDING_END_UNITS,
+  GEAR_INSPECTOR_GRID_ROW_PADDING_UNITS,
+} from '../../lib/gearInspectorGridLayout'
+import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT, GEAR_INSPECTOR_SORT_WEIGHT_STEP } from '../../lib/gearInspectorSort'
+import { GearInspectorSortWeightControls } from '../GearInspectorSortWeightControls'
 import { useContextMenuPaperGuard } from '../../hooks/useContextMenuPaperGuard'
 import { createBuilderStatusChipSx } from '../builderStatusChipStyles'
 
@@ -191,96 +194,7 @@ function parseSeparatorLabel(rawName: string | undefined): string {
   return parseRecipeNameDirectives(rawName, '').displayName.replace(/^#+\s*/, '').trim()
 }
 
-// areArraysEqual compares numeric arrays without allocating new copies.
-const areArraysEqual = (left: readonly number[], right: readonly number[]): boolean => {
-  // Reuse the fast path when the arrays share identity.
-  if (left === right) return true
-  // Different sizes can never match element-wise.
-  if (left.length !== right.length) return false
-  // Walk in order so ordering changes are detected.
-  for (let index = 0; index < left.length; index += 1) {
-    // Coerce to number for defensive comparison.
-    if (Number(left[index]) !== Number(right[index])) return false
-  }
-  // All entries matched.
-  return true
-}
-// areWeightMapsEqual keeps substat weight comparisons cheap and stable.
-const areWeightMapsEqual = (
-  left: Partial<Record<StatVariant, number>> | null | undefined,
-  right: Partial<Record<StatVariant, number>> | null | undefined,
-): boolean => {
-  // Reuse the fast path when the objects share identity.
-  if (left === right) return true
-  // Key counts differ => maps cannot match.
-  const leftKeys = Object.keys(left ?? {})
-  const rightKeys = Object.keys(right ?? {})
-  if (leftKeys.length !== rightKeys.length) return false
-  // Compare each key/value pair without allocating new maps.
-  for (const key of leftKeys) {
-    // Missing key on either side means mismatch.
-    if (!Object.prototype.hasOwnProperty.call(right ?? {}, key)) return false
-    // Normalize the numeric values for a stable comparison.
-    if (Number((left ?? {})[key as unknown as StatVariant]) !== Number((right ?? {})[key as unknown as StatVariant])) {
-      return false
-    }
-  }
-  // All keys matched.
-  return true
-}
-// pruneSafeguardsSubstatWeights drops weights for unselected stats.
-const pruneSafeguardsSubstatWeights = (
-  weights: Partial<Record<StatVariant, number>> | null | undefined,
-  selected: readonly StatVariant[],
-): Partial<Record<StatVariant, number>> => {
-  if (!weights || Object.keys(weights).length === 0) return {}
-  if (!selected.length) return {}
-  const allowed = new Set(selected.map((variant) => Number(variant)))
-  const next: Partial<Record<StatVariant, number>> = {}
-  for (const [key, raw] of Object.entries(weights)) {
-    const variant = Number(key)
-    if (!Number.isFinite(variant)) continue
-    if (!allowed.has(variant)) continue
-    const normalized = normalizeTesterSortWeight(Number(raw))
-    if (normalized === TESTER_SORT_WEIGHT_DEFAULT) continue
-    next[variant as StatVariant] = normalized
-  }
-  return next
-}
-// constrainSafeguardSubstats applies slot/mainstat constraints to the rule's substat selection.
-const constrainSafeguardSubstats = (
-  rule: SafeguardRule,
-  combination: SafeguardRule['combination'],
-): SafeguardRule => {
-  // Sort the combination so UI and exports stay deterministic.
-  const sortedCombination = sortSafeguardCombination(combination)
-  // Resolve the allowed substats for the updated slot/main selection.
-  const allowed = resolveAllowedSubstatsForSlotsAndMains({
-    slots: sortedCombination.slots,
-    mainStats: sortedCombination.mainStats,
-  })
-  // Drop substats that are no longer possible for the slot/main combination.
-  const filtered = sortSafeguardSubstats((rule.substats ?? []).filter((variant) => allowed.includes(variant)))
-  // Match only applies when a substat selection exists.
-  const nextMatch = filtered.length > 0 ? rule.substatMatch : SafeguardSubstatMatch.Any
-  // Remove weight entries for substats that are no longer selected.
-  const nextWeights = pruneSafeguardsSubstatWeights(rule.substatWeights, filtered)
-  // Skip rebuilding the rule if nothing changed.
-  const substatsUnchanged = areArraysEqual(filtered, rule.substats ?? [])
-  const matchUnchanged = nextMatch === rule.substatMatch
-  const weightsUnchanged = areWeightMapsEqual(nextWeights, rule.substatWeights)
-  if (substatsUnchanged && matchUnchanged && weightsUnchanged) {
-    return { ...rule, combination: sortedCombination }
-  }
-  // Persist the constrained selection back onto the rule.
-  return {
-    ...rule,
-    combination: sortedCombination,
-    substats: filtered,
-    substatMatch: nextMatch,
-    substatWeights: nextWeights,
-  }
-}
+
 
 type SafeguardsTabProps = {
   rules: SafeguardRule[]
@@ -289,9 +203,9 @@ type SafeguardsTabProps = {
   onRulesChange: (next: SetStateAction<SafeguardRule[]>) => void
   onToggleEnabled: (next: SetStateAction<boolean>) => void
   detection: SafeguardDetectionSnapshot | null
-  gearEntries: TesterPreviewRow[]
+  gearEntries: GearInspectorPreviewRow[]
   uniqueItemKeys: ReadonlySet<number>
-  testerCardWidthPx: number | null
+  gearInspectorCardWidthPx: number | null
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
   onToggleStatColors: (next: boolean) => void
@@ -318,7 +232,7 @@ export default function SafeguardsTab({
   detection,
   gearEntries,
   uniqueItemKeys,
-  testerCardWidthPx,
+  gearInspectorCardWidthPx,
   substatColors,
   useStatButtonColors,
   onToggleStatColors,
@@ -340,13 +254,13 @@ export default function SafeguardsTab({
   const theme = useTheme()
   // Keep builder-status chip styling centralized so match chips align with scope toggles.
   const builderStatusChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
-  // Grid layout uses the same spacing units as the tester grid.
-  const gridGapPx = useMemo(() => parseSpacingPx(theme.spacing(TESTER_GRID_COLUMN_GAP_UNITS)), [theme])
+  // Grid layout uses the same spacing units as the Gear Inspector grid.
+  const gridGapPx = useMemo(() => parseSpacingPx(theme.spacing(GEAR_INSPECTOR_GRID_COLUMN_GAP_UNITS)), [theme])
   // Row padding is applied on both sides of the card row container.
-  const gridRowPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(TESTER_GRID_ROW_PADDING_UNITS)), [theme])
+  const gridRowPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(GEAR_INSPECTOR_GRID_ROW_PADDING_UNITS)), [theme])
   // Scroll container padding must be accounted for when sizing the grid pane.
   const gridContainerPaddingEndPx = useMemo(
-    () => parseSpacingPx(theme.spacing(TESTER_GRID_CONTAINER_PADDING_END_UNITS)),
+    () => parseSpacingPx(theme.spacing(GEAR_INSPECTOR_GRID_CONTAINER_PADDING_END_UNITS)),
     [theme],
   )
   // Scrollbar width is measured from the grid so pane width stays aligned.
@@ -384,7 +298,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
   const safeguardsFinalSellWarning = enabled && finalSellCoverageWarningActive
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(() => rules[0]?.id ?? null)
   const [respectManualDeselect, setRespectManualDeselect] = useState(false)
-  // Keep expansion state separate from the selection used to highlight tester rows; multiple cards can stay open.
+  // Keep expansion state separate from the selection used to highlight Gear Inspector rows; multiple cards can stay open.
   const [expandedRuleIds, setExpandedRuleIds] = useState<ReadonlySet<string>>(() => {
     const firstId = rules[0]?.id
     // When opening the tab, only auto-expand if there is exactly one rule; otherwise start fully collapsed.
@@ -549,7 +463,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
   /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
 
   const detectionEntries = useMemo(() => detection?.entries ?? [], [detection])
-  // Resolve metaset-backed safeguards so the tester overlay evaluates the same concrete set filters as detection.
+  // Resolve metaset-backed safeguards so the Gear Inspector overlay evaluates the same concrete set filters as detection.
   const resolvedRulesForUpgradeChance = useMemo(
     () => resolveSafeguardRulesWithMetasets(rules, metasets),
     [metasets, rules],
@@ -570,10 +484,10 @@ ${t('safeguardsIgnoreOptionsHint')}`
     return gearEntries.filter((row) => uniqueItemKeySet.has(getSafeguardItemKey(row.artifact)))
   }, [gearEntries, uniqueItemKeySet])
   const uniqueFilterActive = gearEntries.length > uniqueRows.length
-  // Highlight callback lets the tester grid fade non-matching cards instead of mutating the dataset.
+  // Highlight callback lets the Gear Inspector grid fade non-matching cards instead of mutating the dataset.
   const highlightRowPredicate = useMemo(() => {
     if (!selectedEntry || selectedItemKeys.size === 0) return null
-    return (row: TesterPreviewRow) => selectedItemKeys.has(getSafeguardItemKey(row.artifact))
+    return (row: GearInspectorPreviewRow) => selectedItemKeys.has(getSafeguardItemKey(row.artifact))
   }, [selectedEntry, selectedItemKeys])
   const highlightActive = Boolean(highlightRowPredicate)
   // Treat selection mode as active whenever a rule is selected, even with zero matches.
@@ -1032,9 +946,8 @@ ${t('safeguardsIgnoreOptionsHint')}`
     const effectiveSubstatMatch = hasSubstatSelection
       ? normalizeSafeguardSubstatMatch(rule.substatMatch)
       : SafeguardSubstatMatch.Any
-    // Weight controls apply to Any/All but stay hidden for Per Substat.
-    const showSubstatWeights = hasSubstatSelection
-      && effectiveSubstatMatch !== SafeguardSubstatMatch.PerSubstat
+    // SSOT: delegate to safeguardWeightsEnabled (only All mode qualifies).
+    const showSubstatWeights = safeguardWeightsEnabled(rule.substatMatch, hasSubstatSelection)
     const selected = effectiveSelectedRuleId === rule.id
     const expanded = expandedRuleIds.has(rule.id)
     const selectRule = () => {
@@ -1206,7 +1119,8 @@ ${t('safeguardsIgnoreOptionsHint')}`
     const ruleCountsTooltip = [detectionScopeLine, ruleCountsMissingLine].filter(Boolean).join('\n')
     // Summary title: name is optional, so fall back to a muted placeholder for fast scanning.
     const rawName = (pendingNameById.get(rule.id) ?? rule.name ?? '').trim()
-    const summaryTitle = rawName || `${t('testerRule')} ${ruleIndex + 1}`
+    const nameDecoration = parseRecipeNameDirectives(rawName || undefined, '')
+    const summaryTitle = nameDecoration.displayName || `${t('testerRule')} ${ruleIndex + 1}`
     const isEditingRuleName = editingRuleNameId === rule.id
     // Summary status keeps the header scannable: checkmark when active, X when Off.
     const ruleActive = rule.activation !== SafeguardRuleActivation.Off
@@ -1314,7 +1228,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
                 }}
               />
             ) : (
-              <EllipsisTooltip title={rawName || summaryTitle}>
+              <EllipsisTooltip title={summaryTitle}>
                 <ButtonBase
                   onClick={handleRuleTitleClick}
                   onDoubleClick={(event) => {
@@ -1343,7 +1257,9 @@ ${t('safeguardsIgnoreOptionsHint')}`
                       minWidth: 0,
                       fontWeight: 400,
                       fontStyle: rawName ? 'normal' : 'italic',
-                      color: rawName ? 'text.primary' : 'text.secondary',
+                      color: rawName
+                        ? (nameDecoration.hasExplicitColor ? nameDecoration.resolvedColor : 'text.primary')
+                        : 'text.secondary',
                       // Clamp to 2 lines (with ellipsis) without changing header height.
                       display: '-webkit-box',
                       WebkitBoxOrient: 'vertical',
@@ -1727,8 +1643,8 @@ ${t('safeguardsIgnoreOptionsHint')}`
                         // Only show weight controls for selected substats; unselected rows keep the ghost badge.
                         if (!selected) return null
                         // Normalize the stored weight so the control stays in the shared 0.05 step grid.
-                        const rawWeight = Number(rule.substatWeights?.[variant] ?? TESTER_SORT_WEIGHT_DEFAULT)
-                        const weight = normalizeTesterSortWeight(rawWeight)
+                        const rawWeight = Number(rule.substatWeights?.[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
+                        const weight = normalizeGearInspectorSortWeight(rawWeight)
                         return (
                           <Box
                             // Stop menu row toggles when the user clicks the weight controls.
@@ -1736,7 +1652,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
                             onMouseDown={(event) => event.stopPropagation()}
                             sx={{ display: 'inline-flex' }}
                           >
-                            <TesterSortWeightControls
+                            <GearInspectorSortWeightControls
                               label={label}
                               enabled={!ruleDisabled}
                               weight={weight}
@@ -1745,11 +1661,11 @@ ${t('safeguardsIgnoreOptionsHint')}`
                                 updateRule(rule.id, (prev) => {
                                   // Always normalize the weight so stored values stay consistent.
                                   const rawWeights = prev.substatWeights ?? {}
-                                  const currentRaw = Number(rawWeights[variant] ?? TESTER_SORT_WEIGHT_DEFAULT)
-                                  const current = normalizeTesterSortWeight(currentRaw)
-                                  const nextValue = normalizeTesterSortWeight(current + (deltaSteps * TESTER_SORT_WEIGHT_STEP))
+                                  const currentRaw = Number(rawWeights[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
+                                  const current = normalizeGearInspectorSortWeight(currentRaw)
+                                  const nextValue = normalizeGearInspectorSortWeight(current + (deltaSteps * GEAR_INSPECTOR_SORT_WEIGHT_STEP))
                                   const nextWeights = { ...rawWeights }
-                                  if (nextValue === TESTER_SORT_WEIGHT_DEFAULT) {
+                                  if (nextValue === GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT) {
                                     delete nextWeights[variant]
                                   } else {
                                     nextWeights[variant] = nextValue
@@ -2117,22 +2033,22 @@ ${t('safeguardsIgnoreOptionsHint')}`
         <Box
           sx={{
             display: { xs: 'block', md: 'grid' },
-            // Keep-override grid pane matches the Rule Tester 4-column card width.
+            // Keep-override grid pane matches the Gear Inspector 4-column card width.
             gridTemplateColumns: { md: (() => {
               // Allow a tighter rules column in 2-column mode so the grid doesn't shift right.
               const rulesColumnMinWidth = gridColumnMode === 2
                 ? KEEP_OVERRIDE_RULES_COLUMN_MIN_WIDTH_COMPACT_PX
                 : KEEP_OVERRIDE_RULES_COLUMN_MIN_WIDTH_PX
-              // Use the measured tester card width so 1/2-column modes keep cards identical.
+              // Use the measured Gear Inspector card width so 1/2-column modes keep cards identical.
               const gridPaneWidth = resolveKeepOverrideGridPaneWidth({
                 gridColumnMode,
-                targetCardWidthPx: testerCardWidthPx,
+                targetCardWidthPx: gearInspectorCardWidthPx,
                 containerPaddingInlineEndPx: gridContainerPaddingEndPx,
                 containerScrollbarWidthPx: gridScrollbarWidthPx,
                 gridGapPx,
                 rowPaddingPx: gridRowPaddingPx,
               })
-              // Fall back to a flexible grid pane if the tester width is unknown.
+              // Fall back to a flexible grid pane if the Gear Inspector card width is unknown.
               return gridPaneWidth
                 ? `minmax(${rulesColumnMinWidth}px, 1fr) ${gridPaneWidth}`
                 : `minmax(${rulesColumnMinWidth}px, 1fr) minmax(0, 1fr)`
@@ -2408,7 +2324,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
                 {/* Shared spinner keeps the dialog aligned with the preview chip busy indicator. */}
                 <WorkloadProgressIndicator progressRatio={workloadProgressRatio} ariaLabel={t('safeguardsScanPending')} />
                 {selectionChipLabel ? (
-                  <TesterOutcomeSummaryChip
+                  <GearInspectorOutcomeSummaryChip
                     summary={selectionChipSummary}
                     showWhenEmpty
                     metricMode="safeguardsOnly"
@@ -2418,7 +2334,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
               </Box>
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
-              <TesterItemsGrid
+              <GearInspectorItemsGrid
                 // Use keep-override variant for 1/2 column toggles and empty-state copy.
                 rows={gridRows}
                 allRows={uniqueRows}
@@ -2441,7 +2357,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
                 suppressMatchDetails={suppressMatchDetails}
                 safeguardsEnabled={enabled}
                 safeguardUpgradeChanceRules={resolvedRulesForUpgradeChance}
-                hasTesterData={hasPreviewGear}
+                hasGearInspectorData={hasPreviewGear}
                 emptyStateOptions={!hasPreviewGear ? {
                   borderVariant: 'dashed',
                   minHeight: '100%',

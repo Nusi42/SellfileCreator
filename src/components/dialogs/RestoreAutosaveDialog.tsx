@@ -13,7 +13,7 @@ import {
   getMetasetDependencyIssues,
 } from '../../lib/sfrImportSelection'
 
-export type TesterRestoreDraftMeta = {
+export type GearInspectorRestoreDraftMeta = {
   count: number
   savedAt: string | null
 }
@@ -21,12 +21,12 @@ export type TesterRestoreDraftMeta = {
 type RestoreAutosaveDialogProps = {
   open: boolean
   draft: RestoreDraft | null
-  testerDraft: TesterRestoreDraftMeta | null
+  gearInspectorDraft: GearInspectorRestoreDraftMeta | null
   storedGearSetsCount: number
   metasetsDiffer: boolean
   targetsDiffer: boolean
-  filtersDiffer: boolean
-  sortDiffer: boolean
+  /** True when view/filter state or sort state differs from the current session. */
+  viewFilterDiffer: boolean
   onDismiss: () => void
   onRestore: (selection: RestoreSelection) => void
 }
@@ -57,12 +57,11 @@ const selectionsEqual = (a: RestoreSelection, b: RestoreSelection): boolean => (
 export default function RestoreAutosaveDialog({
   open,
   draft,
-  testerDraft,
+  gearInspectorDraft,
   storedGearSetsCount,
   metasetsDiffer,
   targetsDiffer,
-  filtersDiffer,
-  sortDiffer,
+  viewFilterDiffer,
   onDismiss,
   onRestore,
 }: RestoreAutosaveDialogProps) {
@@ -80,11 +79,12 @@ export default function RestoreAutosaveDialog({
     || (draft?.NoteRecipeOverridesAnswers && Object.keys(draft.NoteRecipeOverridesAnswers).length > 0)
     || draft?.NoteRecipeOverridesDisabled
   )
-  const hasFilters = Boolean(draft?.Filters)
-  const hasSort = Boolean(draft && Object.prototype.hasOwnProperty.call(draft, 'TesterSort'))
-  const hasSafeguards = Boolean((draft?.Safeguards?.length ?? 0) > 0 || typeof draft?.SafeguardsEnabled === 'boolean')
+  const hasSafeguards = (draft?.Safeguards?.length ?? 0) > 0
+  // Only offer the Gear Inspector restore when the saved snapshot has at least one item.
+  // An empty snapshot equals the app's default state — restoring it would be a no-op.
+  const hasGearInspectorContent = Boolean(gearInspectorDraft && gearInspectorDraft.count > 0)
   const builderSavedAt = formatSavedAt(draft?.AutosaveSavedAt ?? null)
-  const testerSavedAt = formatSavedAt(testerDraft?.savedAt ?? null)
+  const gearInspectorSavedAt = formatSavedAt(gearInspectorDraft?.savedAt ?? null)
   const defaultSelection = useMemo<RestoreSelection>(() => {
     const next: RestoreSelection = { ...RESTORE_SELECTION_DEFAULT }
     if (recipesCount > 0) next.recipes = true
@@ -92,12 +92,13 @@ export default function RestoreAutosaveDialog({
     if (hasTargets && targetsDiffer) next.targets = true
     if (hasNote) next.note = true
     if (hasSafeguards) next.safeguards = true
-    if (hasFilters && filtersDiffer) next.filters = true
-    if (hasSort && sortDiffer) next.sort = true
-    if (testerDraft) next.tester = true
+    // viewFilterDiffer covers both view/filter and sort; show the combined row when either differs.
+    if (viewFilterDiffer) next.filters = true
+    // Skip Gear Inspector if snapshot is empty — that equals the default state.
+    if (hasGearInspectorContent) next.tester = true
     if (gearSetsCount > 0) next.gearSets = true
     return next
-  }, [recipesCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSafeguards, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, testerDraft])
+  }, [recipesCount, viewFilterDiffer, gearSetsCount, hasNote, hasSafeguards, hasTargets, metasCount, metasetsDiffer, targetsDiffer, hasGearInspectorContent])
 
   useEffect(() => {
     if (!open) return
@@ -142,24 +143,20 @@ export default function RestoreAutosaveDialog({
         helper: t('restoreAutosaveSafeguardsHelper'),
       })
     }
-    if (hasFilters && filtersDiffer) {
+    // viewFilterDiffer covers both view/filter and sort state; one combined row.
+    if (viewFilterDiffer) {
       rows.push({
         key: 'filters',
         label: t('restoreAutosaveFiltersLabel'),
         helper: t('restoreAutosaveFiltersHelper'),
       })
     }
-    if (hasSort && sortDiffer) {
-      rows.push({
-        key: 'sort',
-        label: t('restoreAutosaveSortLabel'),
-        helper: t('restoreAutosaveSortHelper'),
-      })
-    }
-    if (testerDraft) {
+    // Only include the Gear Inspector row when the snapshot has actual content (count > 0).
+    // An empty snapshot equals the factory default and would be a no-op restore.
+    if (hasGearInspectorContent) {
       rows.push({
         key: 'tester',
-        label: t('restoreAutosaveTesterLabel', { count: testerDraft.count }),
+        label: t('restoreAutosaveTesterLabel', { count: gearInspectorDraft!.count }),
         helper: t('restoreAutosaveTesterHelper'),
       })
     }
@@ -171,7 +168,7 @@ export default function RestoreAutosaveDialog({
       })
     }
     return rows
-  }, [draft?.Safeguards?.length, recipesCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSafeguards, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, testerDraft, t])
+  }, [draft?.Safeguards?.length, recipesCount, viewFilterDiffer, gearSetsCount, hasNote, hasSafeguards, hasTargets, metasCount, metasetsDiffer, targetsDiffer, hasGearInspectorContent, gearInspectorDraft, t])
 
   // Apply the same metaset dependency rule as Shift-load import options.
   // Why: autosave restore can also import recipes/safeguards without metasets.
@@ -201,13 +198,19 @@ export default function RestoreAutosaveDialog({
   const constraintSummary = constraintMessages.join(' • ')
 
   const hasOptions = options.length > 0
-  // Autosave prompts must feel invisible when there's nothing actionable.
+  // When all offered fields match their current defaults there is nothing to restore.
+  // Apply immediately (onRestore with all-false selection) so acceptRestore() runs and
+  // autosave re-enables — rather than leaving the session in the “dismissed” limbo state.
   useEffect(() => {
     if (!open || hasOptions) return
-    // Mirror legacy “no prompt” behavior by rolling back the open flag ASAP.
-    onDismiss()
-  }, [open, hasOptions, onDismiss])
+    // Calling onRestore here is intentional: the dialog itself must trigger this auto-accept
+    // once it determines hasOptions is false; the parent cannot know this without
+    // re-implementing the full options-computation logic outside the dialog.
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-pass-data-to-parent
+    onRestore(RESTORE_SELECTION_DEFAULT)
+  }, [open, hasOptions, onRestore])
 
+  // Nothing to show — bail before rendering so MUI never mounts the Dialog.
   if (!hasOptions) return null
 
   const handleToggle = (key: RestoreOptionKey) => (_event: React.ChangeEvent<HTMLInputElement>, checked: boolean) => {
@@ -235,9 +238,9 @@ export default function RestoreAutosaveDialog({
                 {t('restoreAutosaveSavedAt', { timestamp: builderSavedAt })}
               </Typography>
             )}
-            {testerSavedAt && (
+            {gearInspectorSavedAt && (
               <Typography variant="caption" color="text.secondary">
-                {t('restoreAutosaveTesterSavedAt', { timestamp: testerSavedAt })}
+                {t('restoreAutosaveTesterSavedAt', { timestamp: gearInspectorSavedAt })}
               </Typography>
             )}
           </Stack>

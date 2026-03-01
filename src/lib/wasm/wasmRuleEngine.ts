@@ -37,8 +37,8 @@ import type { HsfRule } from '../hsfTypes'
 import type { BuilderRecipe, SellfileExportMode } from '../hsfBuilder'
 import type { SafeguardCandidate, SafeguardDetectionSnapshot, SafeguardRule } from '../safeguards'
 import type { FinalSellRemainderConfig } from '../logicHub'
-import type { TesterMatchWorkerEvaluateItem, TesterMatchWorkerItemResult } from '../../workers/testerMatchWorkerTypes'
-import type { TesterPreviewRow } from '../../types/testerPreview'
+import type { GearInspectorMatchWorkerEvaluateItem, GearInspectorMatchWorkerItemResult } from '../../workers/gearInspectorMatchWorkerTypes'
+import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
 
 // Evaluate options mirror evaluateMatchesByRecipe inputs used by worker paths.
 // The WASM engine accepts object values and applies the same source/recipe gating.
@@ -204,12 +204,12 @@ export const configureWasmRuleEngine = async (params: {
   configureRuleEngineWasmValueBinding(params.rules, params.recipeModes)
 }
 
-// Evaluate a batch of tester items through the WASM matcher implementation.
+// Evaluate a batch of Gear Inspector items through the WASM matcher implementation.
 // Results are parsed back into the existing worker item-result shape.
 export const evaluateWasmRuleEngineItems = async (params: {
-  items: TesterMatchWorkerEvaluateItem[]
+  items: GearInspectorMatchWorkerEvaluateItem[]
   options?: WasmRuleEngineEvaluateOptions
-}): Promise<TesterMatchWorkerItemResult[]> => {
+}): Promise<GearInspectorMatchWorkerItemResult[]> => {
   // Ensure module init before invoking wasm evaluate binding.
   await ensureWasmInitialized()
   // Normalize optional filters into the compact wasm payload shape.
@@ -217,7 +217,7 @@ export const evaluateWasmRuleEngineItems = async (params: {
   // Evaluate all provided items using the configured matcher state.
   const result = evaluateRuleEngineWasmValueBinding(params.items, optionsPayload)
   // Return parsed results when binding returned the expected array payload.
-  if (Array.isArray(result)) return result as TesterMatchWorkerItemResult[]
+  if (Array.isArray(result)) return result as GearInspectorMatchWorkerItemResult[]
   // Fail loudly on malformed payloads instead of masking with fallback rows.
   throw new Error('WASM matcher evaluate returned an invalid payload.')
 }
@@ -237,9 +237,9 @@ export const configureWasmRuleEngineWithLoadedWasm = (params: {
 // Sync evaluate helper mirrors the async wrapper but skips init checks.
 // This keeps matcher adapters WASM-only while still exposing sync call sites.
 export const evaluateWasmRuleEngineItemsWithLoadedWasm = (params: {
-  items: TesterMatchWorkerEvaluateItem[]
+  items: GearInspectorMatchWorkerEvaluateItem[]
   options?: WasmRuleEngineEvaluateOptions
-}): TesterMatchWorkerItemResult[] => {
+}): GearInspectorMatchWorkerItemResult[] => {
   // Sync helper is fail-closed: caller must have warmed wasm already.
   assertWasmInitializedSync()
   // Normalize optional filters into the compact wasm payload shape.
@@ -247,7 +247,7 @@ export const evaluateWasmRuleEngineItemsWithLoadedWasm = (params: {
   // Evaluate all provided items using the configured matcher state.
   const result = evaluateRuleEngineWasmValueBinding(params.items, optionsPayload)
   // Return parsed results when binding returned the expected array payload.
-  if (Array.isArray(result)) return result as TesterMatchWorkerItemResult[]
+  if (Array.isArray(result)) return result as GearInspectorMatchWorkerItemResult[]
   // Fail loudly when wasm returns an unexpected payload type.
   throw new Error('WASM matcher evaluate returned an invalid payload.')
 }
@@ -367,8 +367,19 @@ export const computeSafeguardProtectionWithLoadedWasm = (params: {
 
 // Candidate collection keeps keep-flag resolution + item/group key derivation
 // in Rust; TS callers reattach row references for compatibility.
+// WASM boundary shim: Rust still serializes the item field as `testerItem`.
+// Backfill it from `gearInspectorItem` for rows whose artifact was created
+// after the TS rename but before the WASM is rebuilt with the new field name.
+function backfillTesterItemAlias(rows: readonly GearInspectorPreviewRow[]): readonly GearInspectorPreviewRow[] {
+  if (rows.every((r) => r.artifact.testerItem != null)) return rows
+  return rows.map((row) => {
+    if (row.artifact.testerItem != null) return row
+    return { ...row, artifact: { ...row.artifact, testerItem: row.artifact.gearInspectorItem } }
+  })
+}
+
 export const collectSafeguardCandidatesWithLoadedWasm = (params: {
-  rows: readonly TesterPreviewRow[]
+  rows: readonly GearInspectorPreviewRow[]
   rules: HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
   ignoreSafeguardRecipeIndices?: ReadonlySet<number>
@@ -376,7 +387,7 @@ export const collectSafeguardCandidatesWithLoadedWasm = (params: {
   assertWasmInitializedSync()
   const ignored = toSortedNumberArray(params.ignoreSafeguardRecipeIndices) ?? null
   const result = collectSafeguardCandidatesWasmValueBinding(
-    params.rows,
+    backfillTesterItemAlias(params.rows),
     params.rules,
     params.recipeModes,
     ignored,
@@ -390,7 +401,7 @@ export const collectSafeguardCandidatesWithLoadedWasm = (params: {
 // Combined safeguard pipeline runs candidate collection + detection in one
 // wasm call so TS orchestration avoids two separate Rust roundtrips.
 export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
-  rows: readonly TesterPreviewRow[]
+  rows: readonly GearInspectorPreviewRow[]
   rules: HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
   ignoreSafeguardRecipeIndices?: ReadonlySet<number>
@@ -416,7 +427,7 @@ export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
     }
     : undefined
   const result = collectAndComputeSafeguardProtectionWasmValueBinding(
-    params.rows,
+    backfillTesterItemAlias(params.rows),
     params.rules,
     params.recipeModes,
     ignored,
@@ -747,7 +758,17 @@ export const hashSafeguardCombinationWithLoadedWasm = (combination: unknown): st
 // semantics used by candidate collection.
 export const getSafeguardItemKeyWithLoadedWasm = (artifact: unknown): number => {
   assertWasmInitializedSync()
-  const key = safeguardItemKeyValueWasmValueBinding(artifact)
+  // Backfill the WASM-facing `testerItem` alias when the artifact was created
+  // after the TS rename but before the Rust side is rebuilt.
+  const wasmArtifact = (
+    artifact != null
+    && typeof artifact === 'object'
+    && !('testerItem' in artifact)
+    && 'gearInspectorItem' in artifact
+  )
+    ? { ...artifact, testerItem: (artifact as Record<string, unknown>).gearInspectorItem }
+    : artifact
+  const key = safeguardItemKeyValueWasmValueBinding(wasmArtifact)
   // wasm-bindgen maps Rust `i64` to JS `bigint`, but older bindings may still
   // surface a JS number in some environments.
   if (typeof key === 'bigint') {

@@ -11,7 +11,7 @@ import {
   sanitizeSafeguardCountMode,
 } from './safeguards'
 import { substatMatchesMainVariant } from './statCompatibility'
-import { isAccessorySlot } from './testerDomain'
+import { isAccessorySlot } from './gearInspectorDomain'
 import { SUBSTAT_ROLL_MAX_6_BY_VARIANT, normalizeSubstatByMax6 } from './substatRollNormalization'
 import { ALLOWED_SUB_BY_SLOT, StatVariant } from './types'
 
@@ -950,7 +950,7 @@ const resolvePreferredRuleId = (artifactScenarios: readonly RuleScenario[]): str
   return null
 }
 
-// Build artifact-id keyed percentages for tester grid overlay lookup.
+// Build artifact-id keyed percentages for Gear Inspector grid overlay lookup.
 export const buildSafeguardUpgradeChanceByArtifactId = (
   artifacts: readonly NormalizedGearArtifact[],
   rules: readonly SafeguardRule[],

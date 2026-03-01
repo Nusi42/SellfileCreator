@@ -8,6 +8,7 @@ import QuizIcon from '@mui/icons-material/Quiz'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import { useI18n } from '../lib/i18n'
+import '../lib/prismRecipeOverrides' // registers recipe-overrides DSL syntax coloring
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand, RefMDEditor } from '@uiw/react-md-editor'
@@ -46,10 +47,10 @@ import {
   SafeguardSubstatMatch,
   normalizeSafeguardSubstatMatch,
 } from '../lib/safeguards'
-import { resolveRarityLabel } from '../lib/testerPreviewFormatting'
+import { resolveRarityLabel } from '../lib/gearInspectorPreviewFormatting'
 import { warningBadgeSx } from '../lib/badgeStyles'
-import TesterOutcomeSummaryChip from './TesterOutcomeSummaryChip'
-import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT } from '../lib/testerSort'
+import GearInspectorOutcomeSummaryChip from './GearInspectorOutcomeSummaryChip'
+import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
 import {
   buildNoteRecipeOverridesSignature,
   applyQuestionSelectionRules,
@@ -63,7 +64,7 @@ import {
   type NoteRecipeOverridesAnswers,
 } from '../lib/noteRecipeOverrides'
 import { normalizeTagValue } from '../lib/tagHelpers'
-import type { TesterOutcomeSummary } from '../types/testerPreview'
+import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
 
 // Limited color palette for Note highlighting rendered from Markdown via
 //   <span data-color="{name}">…</span>
@@ -2057,8 +2058,8 @@ function SafeguardSummaryCard({
     for (const [key, raw] of Object.entries(weights)) {
       const variant = Number(key)
       if (!Number.isFinite(variant)) continue
-      const normalized = normalizeTesterSortWeight(Number(raw))
-      if (normalized === TESTER_SORT_WEIGHT_DEFAULT) continue
+      const normalized = normalizeGearInspectorSortWeight(Number(raw))
+      if (normalized === GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT) continue
       entries.push({ variant, weight: normalized })
     }
     if (entries.length === 0) return null
@@ -2403,7 +2404,7 @@ export default function NoteDialog({
   safeguardRules: SafeguardRule[]
   useStatButtonColors: boolean
   substatColors: Record<number, { fg: string; bg: string }>
-  gearSummary: TesterOutcomeSummary | null
+  gearSummary: GearInspectorOutcomeSummary | null
   summaryProgressRatio: number
   // Hide the edit entry point when the dialog auto-opens after SFR load.
   hideEditButton: boolean
@@ -2434,9 +2435,9 @@ export default function NoteDialog({
   // View-only renders lean on the deferred snapshot so toggling loads does not stutter the dialog content.
   const renderNote = mode === 'view' ? deferredNote : note
   const notePending = mode === 'view' && deferredNote !== note
-  // Consider any positive ratio as a sign the tester/rule workload is still rebuilding.
+  // Consider any positive ratio as a sign the Gear Inspector/rule workload is still rebuilding.
   const noteSummaryInFlight = summaryProgressRatio > 0
-  // Only render the summary chip when at least one tester row exists.
+  // Only render the summary chip when at least one Gear Inspector row exists.
   const showNoteSummaryChip = Boolean(gearSummary && gearSummary.total > 0)
   // Keep disable-confirm actions visually equal to avoid implying a preferred choice.
   const disableConfirmButtonProps = { color: 'primary', variant: 'contained' } as const
@@ -2703,7 +2704,7 @@ export default function NoteDialog({
               progressRatio={summaryProgressRatio}
               ariaLabel={noteSummaryInFlight ? t('rulesBuilding') : undefined}
             />
-            <TesterOutcomeSummaryChip
+            <GearInspectorOutcomeSummaryChip
               summary={gearSummary}
               dimmed={noteSummaryInFlight}
             />

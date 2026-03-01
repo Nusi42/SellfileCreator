@@ -36,7 +36,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `npm run test:all:full` — run unit/integration plus full Playwright coverage
 - `npm run release:win` — Windows: build and create a versioned zip archive in repo root
 - `npm run release:win-dev` — Windows: dev build/package; leaves package.json version unchanged and creates a `-dev` suffixed archive
-- `npm run release-notes:catchup` — back-fill `docs/HISTORY.txt` for past releases and refresh the entry for the in-progress version (default updates only the newest missing release; pass `-- --all` to replay the entire backlog; Codex writes the notes and no other files change). The script now auto-splits large commit windows into sequential Codex runs so context stays within limits—tune the chunk size with `RELEASE_NOTES_MAX_COMMITS_PER_CHUNK=120 npm run release-notes:catchup` when a different cadence works better for the backlog you are curating.
+- `npm run release-notes:catchup` — back-fill `docs/HISTORY.txt` for past releases and refresh the entry for the in-progress version (default updates only the newest missing release; pass `-- --all` to replay the entire backlog; Claude writes the notes and no other files change). The script now auto-splits large commit windows into sequential Claude runs so context stays within limits—tune the chunk size with `RELEASE_NOTES_MAX_COMMITS_PER_CHUNK=120 npm run release-notes:catchup` when a different cadence works better for the backlog you are curating.
 
 ### Scripts Layout
 
@@ -88,7 +88,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
   - These end-to-end tests validate readable SFR → normalize → builder → HSF output and catch regressions in thresholds, rarity/rank schedules, and rule shapes.
   - If a test needs to be updated due to an intentional behavior change, adjust the test alongside the implementation so they remain in sync.
 - End-to-end coverage lives under `tests/playwright/` (Playwright). Use `npx playwright test tests/playwright/smoke.spec.ts --project=chromium --reporter=list` as a smoke check before running heavier specs.
-  - The dev server binds `127.0.0.1:5182`; when the Codex sandbox reports `EPERM`, rerun the Playwright command with `with_escalated_permissions: true` so Vite can listen on that port.
+  - The dev server binds `127.0.0.1:5182`; when the Claude sandbox reports `EPERM`, rerun the Playwright command with `with_escalated_permissions: true` so Vite can listen on that port.
   - All specs import `test`/`expect` from `tests/playwright/fixtures.ts`; that fixture streams browser console output and page errors to the CLI so debugging works even without an interactive browser.
 - Remove temporary debugging, scaffolding, or exploratory code once a change is validated so the repository only reflects the final implementation.
 - Production bundles must stay silent: wrap `console.*` calls in `if (import.meta.env.DEV)` or remove them so release builds never write to the browser console.
@@ -247,13 +247,13 @@ Localization status
 
 ## Release Notes Workflow
 
-Release history lives in `docs/HISTORY.txt` (UTF-8 with BOM). The automation scripts delegate the heavy lifting to Codex using the shared prompt in `docs/CREATE-RELEASE-NOTES.md`. Only the history file should change after each run—no plan files, commits, or artefact directories are touched.
+Release history lives in `docs/HISTORY.txt` (UTF-8 with BOM). The automation scripts delegate the heavy lifting to Claude using the shared prompt in `docs/CREATE-RELEASE-NOTES.md`. Only the history file should change after each run—no plan files, commits, or artefact directories are touched.
 
 1. **Sync history** — `npm run release-notes:catchup`  
-   On first run (or when invoked with `npm run release-notes:catchup -- --all`) it back-fills every missing `vX.Y.Z` release by replaying the commit ranges. Subsequent runs without flags update only the newest missing release entry plus the in-progress version derived from `package.json`, so you can refresh notes after each feature lands without rehashing the entire backlog. The script automatically slices very long commit windows into sequential Codex runs—watch the chunk index printed in the prompt and continue writing within `docs/HISTORY.txt` between slices. Override the heading date by exporting `RELEASE_NOTES_DATE=yyyy-mm-dd` when you already know the intended ship date; adjust the chunk size with `RELEASE_NOTES_MAX_COMMITS_PER_CHUNK=120` (or another value) when you need finer or coarser passes.
+   On first run (or when invoked with `npm run release-notes:catchup -- --all`) it back-fills every missing `vX.Y.Z` release by replaying the commit ranges. Subsequent runs without flags update only the newest missing release entry plus the in-progress version derived from `package.json`, so you can refresh notes after each feature lands without rehashing the entire backlog. The script automatically slices very long commit windows into sequential Claude runs—watch the chunk index printed in the prompt and continue writing within `docs/HISTORY.txt` between slices. Override the heading date by exporting `RELEASE_NOTES_DATE=yyyy-mm-dd` when you already know the intended ship date; adjust the chunk size with `RELEASE_NOTES_MAX_COMMITS_PER_CHUNK=120` (or another value) when you need finer or coarser passes.
 2. **Gate the release** — Before packaging, confirm `docs/HISTORY.txt` already includes the upcoming `vX.Y.Z` entry. `npm run release-notes:catchup` keeps the file in sync; review the generated diff (or open the file directly) ahead of `npm run release:win` so the notes ship with the build.
 
-The Codex agent must inspect diffs, not just commit messages. Large asset updates under `examples/` may be skipped unless they change player-facing behaviour. The final notes list the English bullets first, then German translations covering the same points.
+Claude must inspect diffs, not just commit messages. Large asset updates under `examples/` may be skipped unless they change player-facing behaviour. The final notes list the English bullets first, then German translations covering the same points.
 
 ## Desktop App (Tauri)
 

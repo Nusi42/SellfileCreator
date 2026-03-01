@@ -6,14 +6,14 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 
 ## Funzionalità
 - Crea regole e salvale: costruisci ricette e mantieni una libreria da riutilizzare.
-- Interruttore Anteprima Sellfile: passa dalla tabella Regole alla tabella del Tester regole direttamente dall'intestazione. I contatori/gli indicatori di esito si adattano (Mantieni/Vendi per le regole, `Matched`/`No Match` per il tester) e i filtri seguono la tabella scelta.
-- Drag & drop o pulsante Carica: rilascia `.sfr`, `.hsf` o `.db` ovunque (l'overlay conferma) oppure clicca "Load RSL Helper Sellfile". Entrambe le opzioni si comportano allo stesso modo: `.sfr` sostituisce il builder, `.hsf` si affianca come Sellfile base opzionale e i dump `.db` finiscono direttamente nella coda del Tester regole senza toccare il builder.
+- Interruttore Anteprima Sellfile: passa dalla tabella Regole alla tabella dell'Ispettore Equipaggiamento direttamente dall'intestazione. I contatori/gli indicatori di esito si adattano (Mantieni/Vendi per le regole, `Matched`/`No Match` per l'Ispettore Equipaggiamento) e i filtri seguono la tabella scelta.
+- Drag & drop o pulsante Carica: rilascia `.sfr`, `.hsf` o `.db` ovunque (l'overlay conferma) oppure clicca "Load RSL Helper Sellfile". Entrambe le opzioni si comportano allo stesso modo: `.sfr` sostituisce il builder, `.hsf` si affianca come Sellfile base opzionale e i dump `.db` finiscono direttamente nella coda dell'Ispettore Equipaggiamento senza toccare il builder.
 - Tieni premuto `Shift` durante il caricamento di un `.sfr` (selettore file o drag & drop) per aprire un dialogo di import aggiuntivo in cui puoi scegliere separatamente Ricette, Nota, Metaset e Salvaguardie.
 - Metaset: assegna un nome a gruppi di set (es. Velocità + Percezione) e riutilizzali nelle regole.
 - Esporta con un clic: esporta un file HSF (il Sellfile di RSL Helper) pronto per RSL Helper.
-- Pulsante "Logic Hub": apri il dialogo dall'intestazione per raggiungere `Vendita finale`, `Mantieni unici`, `Drop dei dungeon` e il dialogo Equipaggiamento (scheda Equipaggiamento dentro Logic Hub) nello stesso punto. Crea equip di esempio, incolla righe oppure trascina `%APPDATA%\\RslHelper\\Config`, poi chiudi il dialogo e lascia l'interruttore dell'anteprima sulla tabella che ti serve: la coda del Tester resta visibile senza riaprire nulla.
-- Scheda "Mantieni unici": definisci le combinazioni che non vuoi perdere mai. Quando le tue ricette più le tue regole di vendita attualmente attive eliminerebbero tutte le copie, lo scanner genera automaticamente regole di mantenimento.
-- Dialogo di ripristino Autosave: quando troviamo un Autosave, scegli con precisione cosa ricaricare: ricette, Metaset, Valori obiettivo delle sotto-stat, resto di Vendita finale, nota fissata, stato del pannello filtri e perfino le importazioni del Tester regole.
+- Pulsante "Strumenti": apri il dialogo dall'intestazione per raggiungere `Vendita finale`, `Obiettivi di substat`, `Drop dei dungeon` e il dialogo Equipaggiamento nello stesso punto. Crea equip di esempio, incolla righe oppure trascina `%APPDATA%\\RslHelper\\Config`, poi chiudi il dialogo e lascia l'interruttore dell'anteprima sulla tabella che ti serve: la coda dell'Ispettore Equipaggiamento resta visibile senza riaprire nulla.
+- Modalità Salvaguardie: definisci le combinazioni che non vuoi perdere mai. Quando le tue ricette più le tue regole di vendita attualmente attive eliminerebbero tutte le copie, lo scanner genera automaticamente regole di mantenimento.
+- Dialogo di ripristino Autosave: quando troviamo un Autosave, scegli con precisione cosa ricaricare: ricette, Metaset, Valori obiettivo delle sotto-stat, resto di Vendita finale, nota fissata, stato del pannello filtri e perfino le importazioni dell'Ispettore Equipaggiamento.
 - Copia la cartella del DB di RSL Helper: l'intestazione dell'anteprima offre un pulsante negli appunti che copia `%APPDATA%\RslHelper\Config` così puoi incollare subito il percorso in Esplora risorse prima di trascinare dentro il `.db`.
 
 ## Come si usa
@@ -29,7 +29,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Carica/Salva: usa "Carica ricette" e "Salva ricette" per riutilizzare le tue regole personalizzate. Queste azioni salvano tutto ciò che serve per ricostruire l'anteprima dentro un file di ricette.
 - Menu Reset/Inserisci/Applica: clic destro su Reset, "Inserisci come ricetta" o "Applica come ricetta" per aprire il menu condiviso. Salva lo stato corrente del builder come modello predefinito, torna ai valori di fabbrica, abilita "Reset automatico dopo Inserisci" (svuota il builder subito dopo aver inserito una ricetta) oppure abilita "Applica automaticamente alla ricetta selezionata" (invia le modifiche nella ricetta evidenziata dopo ~400 ms di inattività). I due interruttori sono mutuamente esclusivi: attivarne uno disattiva l'altro e le preferenze restano salvate tra le sessioni.
 - Nota: clicca "Aggiungi nota…" (o "Modifica nota…") per allegare una nota al tuo file di ricette. La nota viene mostrata automaticamente dopo aver caricato un file di ricette che la contiene. Usa `<!-- recipes:1,0 -->` per inserire i chip delle ricette desiderate (0 prende quella successiva). Usa `<!-- recipes-re:"speed" -->` per mostrare tutte le ricette con un nome che corrisponde al pattern (ignorando maiuscole/minuscole).
-- Ripristino Autosave: all'avvio il dialogo mostra ogni sezione salvata con la propria casella. Ripristina solo ciò che ti serve — ricette (incluso il chip selezionato), Metaset, Valori obiettivo delle sotto-stat, resto di Vendita finale, nota fissata, pannello filtri (stato aperto, chip, sezioni collassate) e importazioni del Tester regole. Lascia deselezionata una casella per tenere intatto il lavoro corrente. Autosave ricorda anche quali interruttori di Vendita finale (Artefatti, Accessori e intervalli di livello) erano attivi, quindi riaprire Logic Hub replica esattamente ciò che avevi esportato l'ultima volta.
+- Ripristino Autosave: all'avvio il dialogo mostra ogni sezione salvata con la propria casella. Ripristina solo ciò che ti serve — ricette (incluso il chip selezionato), Metaset, Valori obiettivo delle sotto-stat, resto di Vendita finale, nota fissata, pannello filtri (stato aperto, chip, sezioni collassate) e importazioni dell'Ispettore Equipaggiamento. Lascia deselezionata una casella per tenere intatto il lavoro corrente. Autosave ricorda anche quali interruttori di Vendita finale (Artefatti, Accessori e intervalli di livello) erano attivi, quindi riaprire Strumenti replica esattamente ciò che avevi esportato l'ultima volta.
 
 ### Struttura del builder (dall'alto verso il basso)
 - Azione e attivazione: indica al Sellfile cosa fare quando un oggetto corrisponde alla ricetta.
@@ -67,7 +67,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Mitica (5 roll): la rarità Mitica può raggiungere 5 roll su una sotto-stat a +16 (contro 4 delle altre). Quando la tua selezione di Rarità include Mitica, il generatore considera il pre-roll. Con Rarità = Qualsiasi, impostare Minimo richiesto a 5 (o minimi per statistica che sommano a 5) viene trattato come compatibile con Mitica e considera anche un pre-roll a +0.
 
 ### Obiettivi di substat
-- Apri la finestra tramite «Obiettivi di substat…» nell’angolo in alto a destra del builder.
+- Il pulsante «Obiettivi di substat…» in alto a destra del builder apre la scheda **Obiettivi di substat** nella finestra Strumenti.
 - Gli obiettivi sono globali: si applicano a tutte le ricette, non solo a quella selezionata.
 - Vengono usati per calcolare le soglie per ogni intervallo di livello (0–3, 4–7, 8–11, 12–15, 16) e come fallback nella griglia degli Obiettivi di roll.
 - Usa «Ripristina predefiniti» per tornare agli obiettivi consigliati.
@@ -83,12 +83,12 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 
 ### Vendita finale
 - Usa l’interruttore `Vendita finale` nell’intestazione dell’anteprima per aggiungere regole Vendi finali per gli oggetti non coperti dalle regole Mantieni. L’etichetta non cambia mai: il riempimento color ambra indica che è attiva e il bordo neutro indica che è disattivata.
-- Clicca `Logic Hub` accanto all’interruttore per aprire la scheda `Vendita finale` e decidere se copre Artefatti, Accessori e quali intervalli di livello (0–3, 4–7, 8–11, 12–15, 16). L’impostazione predefinita prende di mira 0–15 così gli oggetti a +16 restano al sicuro finché non abiliti `+16`.
+- Clicca `Strumenti` accanto all’interruttore per aprire la scheda `Vendita finale` e decidere se copre Artefatti, Accessori e quali intervalli di livello (0–3, 4–7, 8–11, 12–15, 16). L’impostazione predefinita prende di mira 0–15 così gli oggetti a +16 restano al sicuro finché non abiliti `+16`.
 - Senza `Vendita finale` gli oggetti che non corrispondono a nessuna regola vengono mantenuti automaticamente da RSL Helper. La vendita avviene solo quando una regola Vendi si attiva.
 - Quando `Vendita finale` è attiva, le regole Vendi generate includono esplicitamente tutti i set conosciuti. Nell’anteprima la colonna Set mostra "Tutti i set attualmente noti" per ridurre il rumore; il file esportato elenca comunque ogni set.
 
 ### Mantieni unici
-- Clicca `Logic Hub` nell’intestazione dell’anteprima e passa alla scheda `Mantieni unici` per segnare le combinazioni che non vuoi vendere mai. Attiva `Mantieni unici` per permettere allo scanner di aggiungere righe di mantenimento (le modifiche lo attivano automaticamente).
+- Porta il builder in modalità **Salvaguardie** usando il pulsante di alternanza sopra il pannello builder per segnare le combinazioni che non vuoi vendere mai. Attiva `Mantieni unici` per permettere allo scanner di aggiungere righe di mantenimento (le modifiche lo attivano automaticamente).
 - Le regole “Mantieni unici” non “consumano” gli oggetti—ogni regola valuta lo stesso pool di candidati. Se un pezzo corrisponde a più regole, conta per tutte.
 - Ogni regola ti permette di scegliere slot, set o Metaset, ranghi, rarità, statistiche principali e (per gli accessori) fazioni. Lasciare un selettore vuoto significa «qualsiasi».
 - La `Modalità` decide come viene emessa la regola: `Disattiva` la spegne, `Proteggi esistenti` aggiunge righe di mantenimento per le corrispondenze che verrebbero vendute finché la quota non è raggiunta, e `Anticipa lacune` aggiunge regole segnaposto per le combinazioni mancanti così i nuovi drop restano protetti finché il DB non viene aggiornato.
@@ -122,10 +122,10 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 | Accessori SPD più veloci | Slot = Anello/Amuleto/Vessillo, Substat = SPD | `5` | `Per regola` | Conserva i cinque migliori roll SPD sugli accessori (inclusi i pareggi). |
 | Vessilli ACC con SPD | Slot = Vessillo, Stat principale = ACC, Substat = SPD + ACC, Pesi: SPD più alto | `3` | `Per fazione` | Ogni fazione tiene i migliori vessilli ACC dove SPD conta di più. |
 
-Suggerimento: importa il tuo `.db` o incolla equipaggiamento nel dialogo Equipaggiamento prima di aprire la scheda Mantieni unici, così lo scanner analizza oggetti reali. Clicca una scheda regola per evidenziare le corrispondenze; imposta `Filtro` su `Selezione` per vedere solo quelle.
+Suggerimento: importa il tuo `.db` o incolla equipaggiamento nel dialogo Equipaggiamento prima di passare alla modalità Salvaguardie, così lo scanner analizza oggetti reali. Clicca una scheda regola per evidenziare le corrispondenze; imposta `Filtro` su `Selezione` per vedere solo quelle.
 
 ### Drop dei dungeon (Simulatore)
-Apri Logic Hub e passa a **Drop dei dungeon**. Simula il farming dei dungeon con le tue regole Sellfile attuali per vedere quanto equipaggiamento manterresti per set e livello di potenziamento.
+Apri "Strumenti" e passa a **Drop dei dungeon**. Simula il farming dei dungeon con le tue regole Sellfile attuali per vedere quanto equipaggiamento manterresti per set e livello di potenziamento.
 
 - Scegli un dungeon e una fase.
 - Modalità di simulazione:
@@ -146,17 +146,17 @@ Note:
 - Menu contestuali: sulle ricette salvate (Duplica/Sposta/Copia/Elimina) e sull'area delle ricette salvate (Copia tutto, Incolla).
 - Copia di backup: se l'accesso agli appunti è bloccato, si apre una finestra con il contenuto già selezionato — premi Ctrl/Cmd+C per copiarlo oppure incollalo nella finestra Incolla.
 
-### Anteprima Sellfile (Regole e Tester regole)
-- L'intestazione dell'anteprima tiene insieme l'interruttore `Rules`/`Tester regole`, il pulsante "Logic Hub" e il pulsante "Load RSL Helper Sellfile", così sai sempre dove cambiare tabella o aprire il dialogo Equipaggiamento (Logic Hub → scheda Equipaggiamento).
-- Vista `Rules` (predefinita): mostra tutte le regole che verranno esportate, incluse le righe del `.hsf` base opzionale. I contatori rimangono su Mantieni vs Vendi, la riga dei filtri conserva i chip Qualsiasi/Solo per Slot/Rango/Rarità/Livello e ora offre entrambi i pulsanti Ricette in parallelo: `Ricette anteprima` decide se nascondere i chip fuori dai filtri correnti, mentre il `Filtro ricetta` funziona come un interruttore On/Off che limita le righe del Sellfile ai chip selezionati (e mantiene pronta la stessa selezione per il tester).
-- Vista `Tester regole`: ribalta la tabella sulla lista importata del tester così puoi scorrere gli import senza riaprire Logic Hub. I contatori/indicatori passano a `Matched` vs `No Match` (più il riepilogo Mantieni/Vendi) secondo la regola “vince la prima ricetta corrispondente”, e la riga dei filtri mantiene entrambi i pulsanti Ricette (`Ricette anteprima` + `Filtro ricetta`). Il primo continua a governare la visibilità dei chip, mentre il `Filtro ricetta` applica il tri-stato (`Off` → `Prima` → `Qualsiasi`) per isolare le righe del tester e continua a limitare le righe del Sellfile alla tua selezione quando torni su `Rules`. Si aggiunge anche il filtro sugli esiti (Mantieni/Vendi vs `Matched`/`No Match`), così puoi isolare gli oggetti colpiti per primi (o ovunque) dalla tua selezione senza nascondere i chip. Importare un `.db` commuta automaticamente su questa vista, ma puoi tornare alle Regole in qualsiasi momento.
-- Il pulsante "Load RSL Helper Sellfile" si comporta esattamente come il drag & drop: `.sfr` sostituisce lo stato del builder, `.hsf` si sovrappone come Sellfile base opzionale e `.db` accodano gli oggetti nella preview del Tester regole senza toccare il builder. Il pulsante "Svuota" scollega il `.hsf` base opzionale.
+### Anteprima Sellfile (Regole e Ispettore Equipaggiamento)
+- L'intestazione dell'anteprima tiene insieme l'interruttore `Rules`/`Ispettore Equipaggiamento`, il pulsante “Strumenti” e il pulsante “Load RSL Helper Sellfile”, così sai sempre dove cambiare tabella o aprire il dialogo Equipaggiamento.
+- Vista `Rules` (predefinita): mostra tutte le regole che verranno esportate, incluse le righe del `.hsf` base opzionale. I contatori rimangono su Mantieni vs Vendi, la riga dei filtri conserva i chip Qualsiasi/Solo per Slot/Rango/Rarità/Livello e ora offre entrambi i pulsanti Ricette in parallelo: `Restringi` decide se nascondere i chip fuori dai filtri correnti, mentre la `Selezione` funziona come un interruttore On/Off che limita le righe del Sellfile ai chip selezionati (e mantiene pronta la stessa selezione per l'Ispettore Equipaggiamento).
+- Vista `Ispettore Equipaggiamento`: ribalta la tabella sulla lista importata così puoi scorrere gli import senza riaprire Strumenti. I contatori/indicatori passano a `Matched` vs `No Match` (più il riepilogo Mantieni/Vendi) secondo la regola “vince la prima ricetta corrispondente”, e la riga dei filtri mantiene entrambi i pulsanti Ricette (`Restringi` + `Selezione`). Il primo continua a governare la visibilità dei chip, mentre la `Selezione` applica il tri-stato (`Off` → `Prima` → `Per corrispondenza`) per isolare le righe dell'Ispettore Equipaggiamento e continua a limitare le righe del Sellfile alla tua selezione quando torni su `Rules`. Si aggiunge anche il filtro sugli esiti (Mantieni/Vendi vs `Matched`/`No Match`), così puoi isolare gli oggetti colpiti per primi (o ovunque) dalla tua selezione senza nascondere i chip. Importare un `.db` commuta automaticamente su questa vista, ma puoi tornare alle Regole in qualsiasi momento.
+- Il pulsante “Load RSL Helper Sellfile” si comporta esattamente come il drag & drop: `.sfr` sostituisce lo stato del builder, `.hsf` si sovrappone come Sellfile base opzionale e `.db` accodano gli oggetti nell'Ispettore Equipaggiamento senza toccare il builder. Il pulsante “Svuota” scollega il `.hsf` base opzionale.
 - Usa l'icona della tavolozza per aprire Gestione colori per le etichette delle sotto-stat.
-- In vista Regole la tabella mantiene le colonne "N." e "Cfg" (vuota per le righe del file base). In vista Tester regole nello stesso spazio vedi slot/set, statistiche dell'oggetto e il badge della prima ricetta corrispondente per capire subito cosa accadrà a ogni artefatto.
+- In vista Regole la tabella mantiene le colonne “N.” e “Ricetta” (vuota per le righe del file base). In vista Ispettore Equipaggiamento nello stesso spazio vedi slot/set, statistiche dell'oggetto e il badge della prima ricetta corrispondente per capire subito cosa accadrà a ogni artefatto.
 
 ### Controlli dell'Anteprima Sellfile
 - Gestisci colori: clicca l'icona della tavolozza sopra la tabella per personalizzare colori di testo/sfondo delle etichette delle sotto-stat. Usa "Ripristina predefiniti" nella finestra per tornare ai colori consigliati.
-- Filtri: premi `Ctrl+F` (`Cmd+F` su macOS) per aprire il pannello e mettere subito a fuoco la ricerca Ricetta. Clic destro su qualsiasi intestazione di sezione (oppure `Ctrl`/`Cmd`+clic sul suo chevron) per collassare o espandere tutte le sezioni in un colpo solo. `Ricette anteprima` nasconde i chip delle ricette che non corrispondono al filtro attivo così l'anteprima resta leggibile. `Filtro ricetta` decide quali ricette sono ammesse nella tabella: resta un semplice On/Off in modalità Regole e passa da `Off` → `Prima` → `Qualsiasi` quando l'anteprima del Tester regole è attiva.
+- Filtri: premi `Ctrl+F` (`Cmd+F` su macOS) per aprire il pannello e mettere subito a fuoco la ricerca Ricetta. Clic destro su qualsiasi intestazione di sezione (oppure `Ctrl`/`Cmd`+clic sul suo chevron) per collassare o espandere tutte le sezioni in un colpo solo. `Restringi` nasconde i chip delle ricette che non corrispondono al filtro attivo così l'anteprima resta leggibile. `Selezione` decide quali ricette sono ammesse nella tabella: resta un semplice On/Off in modalità Regole e passa da `Off` → `Prima` → `Per corrispondenza` quando l'Ispettore Equipaggiamento è attivo.
 - Menu delle colonne: clic destro sull'intestazione della tabella per aprire i controlli:
   - Ripristina colonne: ripristina colonne e larghezze predefinite.
   - Adatta automaticamente: adatta le colonne alla larghezza della finestra.
@@ -166,12 +166,12 @@ Note:
 - Ridimensiona colonne: trascina il bordo destro di un'intestazione.
 - Clic: cliccando una riga selezioni la ricetta collegata (senza scorrimento automatico). Cliccando una ricetta salvata la tabella scorre fino alla prima riga corrispondente.
 
-### Anteprima del Tester regole
-- Clicca "Logic Hub" nell'intestazione dell'anteprima per aprire il dialogo Equipaggiamento (Logic Hub → scheda Equipaggiamento). Crea equipaggiamento di esempio o incolla righe (JSON/testo). Gli oggetti si sincronizzano subito con l'anteprima, quindi chiudere il dialogo non svuota la griglia del tester.
-- Importa il database dell'equipaggiamento di RSL Helper trascinando file `.db` sull'app oppure usando il pulsante "Load RSL Helper Sellfile" (stesso comportamento). Questi import accodano migliaia di artefatti (più gli oggetti dell'inbox), commutano l'anteprima sulla tabella del tester e lasciano invariati builder ed esportazione.
-- Ogni riga del tester mostra slot, set, livello, statistica principale, sotto-stat (con glifi e roll), provenienza (inventario vs inbox) e i chip Mantieni/Vendi + la prima ricetta/regola che ha fatto match. Le regole disattivate non corrispondono mai, quindi le righe "No match" rappresentano equipaggiamento che il Sellfile lascerebbe stare.
-- I contatori dell'intestazione mostrano i totali `Matched` vs `No Match` più la ripartizione Mantieni/Vendi. Combinali con i filtri del tester (esito + Matched/No Match + `Ricette tester` impostato su `Off`/`Prima`/`Qualsiasi`) per concentrarti sui casi limite prima di esportare.
-- Usa l'interruttore dell'anteprima per passare tra le tabelle Regole e Tester regole senza riaprire Logic Hub — perfetto per confrontare le righe generate con gli oggetti che le attivano.
+### Ispettore Equipaggiamento
+- Clicca "Strumenti" nell'intestazione dell'anteprima per aprire il dialogo Equipaggiamento. Crea equipaggiamento di esempio. Gli oggetti si sincronizzano subito con l'anteprima, quindi chiudere il dialogo non svuota la griglia dell'Ispettore Equipaggiamento.
+- Importa il database dell'equipaggiamento di RSL Helper trascinando file `.db` sull'app oppure usando il pulsante "Load RSL Helper Sellfile" (stesso comportamento). Questi import accodano migliaia di artefatti (più gli oggetti dell'inbox), commutano l'anteprima sull'Ispettore Equipaggiamento e lasciano invariati builder ed esportazione.
+- Ogni riga dell'Ispettore Equipaggiamento mostra slot, set, livello, statistica principale, sotto-stat (con glifi e roll), provenienza (inventario vs inbox) e i chip Mantieni/Vendi + la prima ricetta/regola che ha fatto match. Le regole disattivate non corrispondono mai, quindi le righe "No match" rappresentano equipaggiamento che il Sellfile lascerebbe stare.
+- I contatori dell'intestazione mostrano i totali `Matched` vs `No Match` più la ripartizione Mantieni/Vendi. Combinali con i filtri dell'Ispettore Equipaggiamento (esito + Matched/No Match + `Ricette dell'Ispettore Equipaggiamento` impostato su `Off`/`Prima`/`Per corrispondenza`) per concentrarti sui casi limite prima di esportare.
+- Usa l'interruttore dell'anteprima per passare tra la tabella Regole e l'Ispettore Equipaggiamento senza riaprire Strumenti — perfetto per confrontare le righe generate con gli oggetti che le attivano.
 
 ### Esportazione
 - Clicca "Esporta Sellfile di RSL Helper unito" (o "Esporta Sellfile di RSL Helper" quando non è caricato alcun file base).
@@ -258,6 +258,6 @@ e naturalmente a **Farbstoff** per RSL Helper!
 
 ## Autore
 Creato da [STBL] Nusi㊷  
-Localizzazione a cura di Codex
+Localizzazione a cura di AI
 
 © Nusi㊷ - 2026

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import { flushSync } from 'react-dom'
 
 import { APP_VERSION } from '../version'
-import { FINAL_SELL_DEFAULT_LEVELS, README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY } from '../lib/constants'
+import { ACCESSORY_NO_SET_ID, FINAL_SELL_DEFAULT_LEVELS, README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY } from '../lib/constants'
 import { defaultSubstatTargets, type BuilderRecipe, type SubstatTargetTable } from '../lib/hsfBuilder'
 import { cloneBuilderRecipe } from '../lib/multiEditDraft'
 import type { HsfFile } from '../lib/hsfTypes'
@@ -12,7 +12,6 @@ import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
   LOGIC_HUB_DIALOG_TAB_GEAR,
-  LOGIC_HUB_DIALOG_TAB_SAFEGUARDS,
   type LogicHubDialogTab,
   type FinalSellRemainderConfig,
 } from '../lib/logicHub'
@@ -29,7 +28,7 @@ import {
   SafeguardSubstatMatch,
   type SafeguardRule,
 } from '../lib/safeguards'
-import type { RuleTesterItem } from '../lib/ruleTesterSession'
+import type { GearInspectorItem } from '../lib/gearInspectorSession'
 
 type Translate = ReturnType<typeof useI18n>['t']
 type SubstatTargetsState = SubstatTargetTable
@@ -47,43 +46,64 @@ type TutorialSnapshot = {
   builder: BuilderRecipe
   filterOpen: boolean
   rulesFilter: RulesFilterState
-  testerItems: RuleTesterItem[]
-  previewMode: 'rules' | 'tester'
+  gearInspectorItems: GearInspectorItem[]
+  previewMode: 'rules' | 'gearInspector'
   logicHubOpen: boolean
   logicHubDialogTab: LogicHubDialogTab
 }
 
-const buildTutorialTesterItems = (): RuleTesterItem[] => [{
-  itemId: 1,
-  name: 'Refresh Bannerlords Amulet',
-  slot: ArtifactType.Amulet,
-  set: ArtifactSet.Refresh,
-  rank: 5,
-  rarity: 3,
-  level: LEVEL_MILESTONES[0]!,
-  faction: Faction.BannerLords,
-  main: StatVariant.CDMG,
-  subValues: {
-    [StatVariant.SPD]: 12,
-    [StatVariant.ACC]: 11,
-    [StatVariant.RES]: 15,
+const buildTutorialGearInspectorItems = (): GearInspectorItem[] => [
+  {
+    itemId: 1,
+    name: 'Refresh Bannerlords Banner',
+    slot: ArtifactType.Banner,
+    set: ArtifactSet.Refresh,
+    rank: 5,
+    rarity: RarityCode.Epic,
+    level: LEVEL_MILESTONES[3]!,
+    faction: Faction.BannerLords,
+    main: StatVariant.RES,
+    subValues: {
+      [StatVariant.HP]: 5,
+      [StatVariant.SPD]: 16,
+      [StatVariant.DEF_FLAT]: 8,
+    },
+    subOrder: [StatVariant.HP, StatVariant.SPD, StatVariant.DEF_FLAT],
+    previewExtras: {
+      source: 'tester',
+      exactLevel: LEVEL_MILESTONES[3]!,
+    },
   },
-  previewExtras: {
-    source: 'tester',
-    exactLevel: LEVEL_MILESTONES[0]!,
+  {
+    itemId: 2,
+    name: 'Knight Revenant Amulet',
+    slot: ArtifactType.Amulet,
+    set: ACCESSORY_NO_SET_ID as ArtifactSet,
+    rank: 4,
+    rarity: RarityCode.Uncommon,
+    level: LEVEL_MILESTONES[0]!,
+    faction: Faction.KnightRevenant,
+    main: StatVariant.CDMG,
+    subValues: {
+      [StatVariant.DEF_FLAT]: 9,
+    },
+    previewExtras: {
+      source: 'tester',
+      exactLevel: LEVEL_MILESTONES[0]!,
+    },
   },
-}]
+]
 
 const buildTutorialSafeguardRules = (): SafeguardRule[] => [{
   id: 'tutorial-refresh-safeguard',
-  name: 'Refresh Bannerlords Amulet',
+  name: 'Refresh Bannerlords Banner',
   combination: {
-    slots: [ArtifactType.Amulet],
+    slots: [ArtifactType.Banner],
     sets: [{ id: ArtifactSet.Refresh }],
     metaSetIds: [],
     ranks: [5],
     rarities: [3],
-    mainStats: [StatVariant.CDMG],
+    mainStats: [StatVariant.RES],
     factions: [Faction.BannerLords],
   },
   requiredCount: 1,
@@ -101,7 +121,7 @@ const buildTutorialSafeguardRules = (): SafeguardRule[] => [{
   substatWeights: {},
 }]
 
-const cloneTesterItem = (item: RuleTesterItem): RuleTesterItem => ({
+const cloneGearInspectorItem = (item: GearInspectorItem): GearInspectorItem => ({
   ...item,
   ...(item.subValues ? { subValues: { ...item.subValues } } : {}),
   ...(item.subOrder ? { subOrder: [...item.subOrder] } : {}),
@@ -148,10 +168,10 @@ export type UseTutorialCoachStateParams = {
   setSafeguardRules: Dispatch<SetStateAction<SafeguardRule[]>>
   safeguardsEnabled: boolean
   setSafeguardsEnabled: Dispatch<SetStateAction<boolean>>
-  testerItems: RuleTesterItem[]
-  setTesterItems: Dispatch<SetStateAction<RuleTesterItem[]>>
-  previewMode: 'rules' | 'tester'
-  setPreviewMode: Dispatch<SetStateAction<'rules' | 'tester'>>
+  gearInspectorItems: GearInspectorItem[]
+  setGearInspectorItems: Dispatch<SetStateAction<GearInspectorItem[]>>
+  previewMode: 'rules' | 'gearInspector'
+  setPreviewMode: Dispatch<SetStateAction<'rules' | 'gearInspector'>>
   sfrNote: string | null
   setSfrNote: Dispatch<SetStateAction<string | null>>
   builderRef: MutableRefObject<BuilderRecipe>
@@ -162,6 +182,7 @@ export type UseTutorialCoachStateParams = {
   setRulesFilter: Dispatch<SetStateAction<RulesFilterState>>
   logicHubOpen: boolean
   setLogicHubOpen: Dispatch<SetStateAction<boolean>>
+  setBuilderMode: (mode: 'recipe' | 'safeguard') => void
   // Suppress history snapshots during tutorial-driven resets and restores.
   suppressHistorySnapshot: () => void
   t: Translate
@@ -209,8 +230,8 @@ export function useTutorialCoachState({
   setSafeguardRules,
   safeguardsEnabled,
   setSafeguardsEnabled,
-  testerItems,
-  setTesterItems,
+  gearInspectorItems,
+  setGearInspectorItems,
   previewMode,
   setPreviewMode,
   sfrNote,
@@ -223,6 +244,7 @@ export function useTutorialCoachState({
   setRulesFilter,
   logicHubOpen,
   setLogicHubOpen,
+  setBuilderMode,
   suppressHistorySnapshot,
   t,
 }: UseTutorialCoachStateParams): UseTutorialCoachStateResult {
@@ -278,10 +300,10 @@ export function useTutorialCoachState({
   useEffect(() => { filterOpenRef.current = filterOpen }, [filterOpen])
   const rulesFilterRef = useRef<RulesFilterState>(rulesFilter)
   useEffect(() => { rulesFilterRef.current = rulesFilter }, [rulesFilter])
-  const testerItemsRef = useRef<RuleTesterItem[]>(testerItems)
-  useEffect(() => { testerItemsRef.current = testerItems }, [testerItems])
-  const previewModeRef = useRef<'rules' | 'tester'>(previewMode)
-  useEffect(() => { previewModeRef.current = previewMode }, [previewMode])
+  const gearInspectorItemsRef = useRef<GearInspectorItem[]>(gearInspectorItems)
+  useEffect(() => { gearInspectorItemsRef.current = gearInspectorItems }, [gearInspectorItems])
+  const gearInspectorPreviewModeRef = useRef<'rules' | 'gearInspector'>(previewMode)
+  useEffect(() => { gearInspectorPreviewModeRef.current = previewMode }, [previewMode])
   const logicHubOpenRef = useRef<boolean>(logicHubOpen)
   useEffect(() => { logicHubOpenRef.current = logicHubOpen }, [logicHubOpen])
   const logicHubDialogTabRef = useRef<LogicHubDialogTab>(logicHubDialogTab)
@@ -453,7 +475,7 @@ export function useTutorialCoachState({
         setBuilder(snap.builder)
         setFilterOpen(snap.filterOpen)
         setRulesFilter(JSON.parse(JSON.stringify(snap.rulesFilter)) as RulesFilterState)
-        setTesterItems(snap.testerItems)
+        setGearInspectorItems(snap.gearInspectorItems)
         setPreviewMode(snap.previewMode)
         setLogicHubOpen(snap.logicHubOpen)
         setLogicHubDialogTab(snap.logicHubDialogTab)
@@ -472,7 +494,7 @@ export function useTutorialCoachState({
     setSelectedRecipeIdx,
     setSafeguardRules,
     setSafeguardsEnabled,
-    setTesterItems,
+    setGearInspectorItems,
     setPreviewMode,
     setLogicHubOpen,
     setLogicHubDialogTab,
@@ -500,7 +522,7 @@ export function useTutorialCoachState({
         // Always pivot to the Gear tab before toggling visibility so overlays never land on stale sections.
         setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_GEAR)
         if (open) {
-          // Showing the dialog exposes the integrated tester grid so the tutorial can highlight its controls.
+          // Showing the dialog exposes the integrated Gear Inspector grid so the tutorial can highlight its controls.
           setLogicHubOpen(true)
         } else {
           // Closing the dialog keeps earlier steps uncluttered once we leave the Gear walkthrough.
@@ -684,8 +706,8 @@ export function useTutorialCoachState({
         builder: cloneBuilder,
         filterOpen: filterOpenRef.current,
         rulesFilter: cloneRulesFilter,
-        testerItems: testerItemsRef.current.map((item) => cloneTesterItem(item)),
-        previewMode: previewModeRef.current,
+        gearInspectorItems: gearInspectorItemsRef.current.map((item) => cloneGearInspectorItem(item)),
+        previewMode: gearInspectorPreviewModeRef.current,
         logicHubOpen: logicHubOpenRef.current,
         logicHubDialogTab: logicHubDialogTabRef.current,
       })
@@ -724,7 +746,7 @@ export function useTutorialCoachState({
       })
       setFilterOpen(false)
       setRulesFilter(JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState)
-      setTesterItems([])
+      setGearInspectorItems([])
       setLogicHubOpen(false)
       setPreviewMode('rules')
       setSafeguardRules([])
@@ -754,17 +776,10 @@ export function useTutorialCoachState({
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false) },
       },
       {
-        id: 'enabled',
-        title: t('tutEnabledTitle'),
-        body: t('tutEnabledBody'),
-        targetId: 'builder.exportMode',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
-      {
         id: 'basics',
         title: t('tutBasicsTitle'),
         body: t('tutBasicsBody'),
-        targetIds: ['builder.rank', 'builder.rarity', 'builder.faction', 'builder.min-level', 'builder.max-level'],
+        targetIds: ['builder.rank', 'builder.rarity', 'builder.faction', 'builder.level-window'],
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
@@ -1006,6 +1021,8 @@ export function useTutorialCoachState({
             ...prev,
             name: 'Banner SPD — Late 3 rolls',
             artifactTypes: [ArtifactType.Banner],
+            artifactSets: [{ id: ArtifactSet.Refresh }],
+            artifactMetaSets: [],
             mainStatsV: [],
             substatsV: [StatVariant.SPD],
             fixedSubstatsV: [],
@@ -1064,10 +1081,10 @@ export function useTutorialCoachState({
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight('lower') },
       },
       {
-        id: 'tester-open',
+        id: 'gear-inspector-open',
         title: t('tutGearDialogOpenTitle'),
         body: t('tutGearDialogOpenBody'),
-        targetId: 'preview.rule-tester-button',
+        targetId: 'builder.tools-button',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false); ensurePreviewHighlight(null)
           setPreviewMode('rules')
@@ -1075,27 +1092,27 @@ export function useTutorialCoachState({
         },
       },
       {
-        id: 'tester-add-manual',
+        id: 'gear-inspector-add-manual',
         title: t('tutGearDialogAddTitle'),
         body: t('tutGearDialogAddBody'),
-        targetId: 'tester.add-manual',
+        targetIds: ['gear-inspector.add-manual', 'gear-inspector.item.1', 'gear-inspector.item.2'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false); ensurePreviewHighlight(null)
           setPreviewMode('rules')
           ensureFinalSellGearTab(true)
-          setTesterItems(buildTutorialTesterItems())
+          setGearInspectorItems(buildTutorialGearInspectorItems())
         },
       },
       {
-        id: 'tester-preview',
+        id: 'gear-inspector-preview',
         title: t('tutGearDialogPreviewTitle'),
         body: t('tutGearDialogPreviewBody'),
-        targetIds: ['preview.mode-toggle', 'preview.tester-grid-top'],
+        targetIds: ['preview.mode-toggle', 'preview.gear-inspector-grid-top'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false); ensurePreviewHighlight(null)
           // Close the integrated Gear tab before flipping the preview so the overlay only tracks the table.
           ensureFinalSellGearTab(false)
-          setPreviewMode('tester')
+          setPreviewMode('gearInspector')
         },
       },
       {
@@ -1127,11 +1144,14 @@ export function useTutorialCoachState({
         id: 'safeguards-intro',
         title: t('tutSafeguardsIntroTitle'),
         body: t('tutSafeguardsIntroBody'),
-        targetId: 'safeguards.tab',
+        // Highlight the builder core (contains the mode toggle) and the safeguard builder form.
+        // 'safeguards.tab' no longer exists — Safeguards is now a builder mode toggle, not a dialog tab.
+        targetIds: ['builder.core', 'safeguards.builder'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
-          setLogicHubOpen(true)
-          setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_SAFEGUARDS)
+          setLogicHubOpen(false)
+          // Switch to Safeguard Builder mode and pre-load a tutorial rule so the form is populated.
+          setBuilderMode('safeguard')
           setSafeguardRules(buildTutorialSafeguardRules())
           setSafeguardsEnabled(true)
         },
@@ -1140,11 +1160,13 @@ export function useTutorialCoachState({
         id: 'safeguards-rule',
         title: t('tutSafeguardsRuleTitle'),
         body: t('tutSafeguardsRuleBody'),
-        targetId: 'safeguards.rules',
+        // Show the chips panel (rule list) alongside the builder form so users see both surfaces.
+        // 'safeguards.rules' was on the old SafeguardsTab dialog; replaced by 'safeguards.chips'.
+        targetIds: ['safeguards.chips', 'safeguards.builder'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
-          setLogicHubOpen(true)
-          setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_SAFEGUARDS)
+          setLogicHubOpen(false)
+          setBuilderMode('safeguard')
           setSafeguardRules(buildTutorialSafeguardRules())
           setSafeguardsEnabled(true)
         },
@@ -1203,7 +1225,7 @@ export function useTutorialCoachState({
       { label: t('tutSectionMetasetsLabel'), index: find('metasets-open') },
       { label: t('tutSectionRecipeChipsLabel'), index: find('adv-add') },
       { label: t('tutSectionAutoLateLabel'), index: find('auto-late-slot') },
-      { label: t('tutSectionGearDialogLabel'), index: find('tester-open') },
+      { label: t('tutSectionGearDialogLabel'), index: find('gear-inspector-open') },
       { label: t('tutSectionFinalSellLabel'), index: find('finalsell-intro') },
       { label: t('tutSectionSaveExportLabel'), index: find('note') },
     ].filter((section) => section.index >= 0)
@@ -1223,7 +1245,7 @@ export function useTutorialCoachState({
     setSubstatTargets,
     setRulesFilter,
     setSelectedRecipeIdx,
-    setTesterItems,
+    setGearInspectorItems,
     setPreviewMode,
     setLogicHubDialogTab,
     setSafeguardRules,
@@ -1236,6 +1258,7 @@ export function useTutorialCoachState({
     setTutorialIdx,
     setTutorialOpen,
     setTutorialSections,
+    setBuilderMode,
     setTutorialSnapshot,
     setTutorialSteps,
     suppressHistorySnapshot,
@@ -1258,12 +1281,13 @@ export function useTutorialCoachState({
         levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[],
         setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
       }
-      let nextTesterItems: RuleTesterItem[] = []
-      let nextPreviewMode: 'rules' | 'tester' = 'rules'
+      let nextGearInspectorItems: GearInspectorItem[] = []
+      let nextPreviewMode: 'rules' | 'gearInspector' = 'rules'
       let nextLogicHubOpen = false
       let nextSafeguardRules: SafeguardRule[] = []
       let nextSafeguardsEnabled = false
       let nextLogicHubDialogTab: LogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_FINAL_SELL
+      let nextBuilderMode: 'recipe' | 'safeguard' = 'recipe'
       let nextNote: string | null = null
       let nextBuilder: BuilderRecipe = {
         name: '',
@@ -1371,6 +1395,8 @@ export function useTutorialCoachState({
               ...nextBuilder,
               name: 'Banner SPD — Late 3 rolls',
               artifactTypes: [ArtifactType.Banner],
+              artifactSets: [{ id: ArtifactSet.Refresh }],
+              artifactMetaSets: [],
               mainStatsV: [],
               substatsV: [StatVariant.SPD],
               fixedSubstatsV: [],
@@ -1398,34 +1424,37 @@ export function useTutorialCoachState({
             nextBuilder = { ...nextBuilder, autoMinRequiredRolls: false, minRequiredRolls: 3 }
             break
           }
-          case 'auto-late-add': {
+          case 'preview-highlight': {
+            // Recipe is created on entering this step (not auto-late-add) so
+            // stepping back to auto-late-add shows the Add button without a
+            // pre-existing chip — matches the intent of that step.
             nextRecipes = nextRecipes.concat(nextBuilder)
             nextSel = nextRecipes.length - 1
             break
           }
-          case 'tester-open': {
+          case 'gear-inspector-open': {
             nextLogicHubOpen = false
             nextLogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_GEAR
             nextPreviewMode = 'rules'
             break
           }
-          case 'tester-dialog': {
+          case 'gear-inspector-dialog': {
             nextLogicHubOpen = true
             nextLogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_GEAR
             nextPreviewMode = 'rules'
             break
           }
-          case 'tester-add-manual': {
+          case 'gear-inspector-add-manual': {
             nextLogicHubOpen = true
             nextLogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_GEAR
             nextPreviewMode = 'rules'
-            nextTesterItems = buildTutorialTesterItems()
+            nextGearInspectorItems = buildTutorialGearInspectorItems()
             break
           }
-          case 'tester-preview': {
-            if (nextTesterItems.length === 0) nextTesterItems = buildTutorialTesterItems()
+          case 'gear-inspector-preview': {
+            if (nextGearInspectorItems.length === 0) nextGearInspectorItems = buildTutorialGearInspectorItems()
             nextLogicHubOpen = false
-            nextPreviewMode = 'tester'
+            nextPreviewMode = 'gearInspector'
             break
           }
           case 'finalsell-dialog': {
@@ -1437,13 +1466,15 @@ export function useTutorialCoachState({
           case 'safeguards-intro': {
             nextSafeguardRules = buildTutorialSafeguardRules()
             nextSafeguardsEnabled = true
-            nextLogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_SAFEGUARDS
+            nextLogicHubOpen = false
+            nextBuilderMode = 'safeguard'
             break
           }
           case 'safeguards-rule': {
             if (nextSafeguardRules.length === 0) nextSafeguardRules = buildTutorialSafeguardRules()
             nextSafeguardsEnabled = true
-            nextLogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_SAFEGUARDS
+            nextLogicHubOpen = false
+            nextBuilderMode = 'safeguard'
             break
           }
           default:
@@ -1460,10 +1491,11 @@ export function useTutorialCoachState({
       setFinalSellRemainder(nextFsr)
       setSafeguardRules(nextSafeguardRules)
       setSafeguardsEnabled(nextSafeguardsEnabled)
-      setTesterItems(nextTesterItems)
+      setGearInspectorItems(nextGearInspectorItems)
       setPreviewMode(nextPreviewMode)
       setLogicHubOpen(nextLogicHubOpen)
       setLogicHubDialogTab(nextLogicHubDialogTab)
+      setBuilderMode(nextBuilderMode)
       setSfrNote(nextNote)
       setBuilder(nextBuilder)
       setTutorialIdx(idx)
@@ -1482,8 +1514,9 @@ export function useTutorialCoachState({
     setSelectedRecipeIdx,
     setSafeguardRules,
     setSafeguardsEnabled,
-    setTesterItems,
+    setGearInspectorItems,
     setPreviewMode,
+    setBuilderMode,
     setLogicHubOpen,
     setLogicHubDialogTab,
     suppressHistorySnapshot,
@@ -1499,8 +1532,22 @@ export function useTutorialCoachState({
 
   const handleTutorialPrev = useCallback(() => {
     try {
+      const cur = tutorialSteps[tutorialIdx]
       const prevIdx = Math.max(0, tutorialIdx - 1)
       const target = tutorialSteps[prevIdx]
+
+      // Going back from preview-highlight to auto-late-add: undo the recipe insertion
+      // so the Add button is visible again and the recipe doesn't pre-exist at step 34.
+      if (cur?.id === 'preview-highlight') {
+        suppressHistorySnapshot()
+        const removeIdx = selectedRecipeIdx !== null ? selectedRecipeIdx : -1
+        if (removeIdx >= 0) {
+          setCustomRecipes((prev) => prev.filter((_, i) => i !== removeIdx))
+          setSelectedRecipeIdx(removeIdx > 0 ? removeIdx - 1 : null)
+        }
+        setTutorialAddedAutoLate(false)
+      }
+
       if (target && target.id === 'sets-metasets') {
         const openMenu = () => {
           try {
@@ -1525,7 +1572,7 @@ export function useTutorialCoachState({
       }
     } catch {}
     setTutorialIdx((value) => Math.max(0, value - 1))
-  }, [tutorialIdx, tutorialSteps])
+  }, [tutorialIdx, tutorialSteps, selectedRecipeIdx, setCustomRecipes, setSelectedRecipeIdx, setTutorialAddedAutoLate, suppressHistorySnapshot])
 
   const handleTutorialNext = useCallback(() => {
     try {

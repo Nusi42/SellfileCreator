@@ -2,7 +2,7 @@
  * gearDbLookups
  *
  * Shared Champion/LastUsed lookup wiring so both the SQL importer and the raw
- * JSON event path can derive identical metadata for Rule Tester artifacts.
+ * JSON event path can derive identical metadata for Gear Inspector artifacts.
  * Keep the helpers tiny and heavily commented so future schema tweaks only
  * require an edit in this one file.
  */
@@ -13,8 +13,8 @@ import type {
 import type { ChampionLookupRecord } from './gearDbNormalizer'
 import type { RankValue } from '../types'
 import {
-  coerceTesterRarity,
-} from '../testerDomain'
+  coerceGearInspectorRarity,
+} from '../gearInspectorDomain'
 import { coerceLastUseValue } from './gearDbTime'
 
 export type ChampionLookup = Map<number, ChampionLookupRecord>
@@ -29,15 +29,15 @@ const sanitizeBaseHeroId = (value: unknown): number | null => {
 }
 
 const sanitizeRarity = (value: unknown): RankValue | null => {
-  // Reuse the tester-domain coercion so JSON snapshots and SQL blobs normalize
+  // Reuse the Gear Inspector domain coercion so JSON snapshots and SQL blobs normalize
   // rarities the exact same way.
   const num = typeof value === 'number' ? value : Number(value)
   if (!Number.isFinite(num)) return null
-  return coerceTesterRarity(num, 6)
+  return coerceGearInspectorRarity(num, 6)
 }
 
 /**
- * Convert a Champs row into the normalized lookup entry the Rule Tester uses.
+ * Convert a Champs row into the normalized lookup entry the Gear Inspector uses.
  * Returns `null` when the row lacks a usable ID so callers can skip it.
  */
 export const championRowToLookupRecord = (row: GearDbChampionRow): ChampionLookupRecord | null => {

@@ -70,7 +70,7 @@ export const ARTIFACT_COLUMN_KEYS: readonly (keyof GearDbArtifactRow)[] = [
 
 // Canonical columns for the Champs table; kept in sync with helper dumps.
 // The importer depends on this array to coerce JSON champ rows back into the
-// map the tester references, so treat this as a shared schema contract.
+// map the Gear Inspector references, so treat this as a shared schema contract.
 export const CHAMPION_COLUMN_KEYS: readonly (keyof GearDbChampionRow)[] = [
   'ID',
   'Name',

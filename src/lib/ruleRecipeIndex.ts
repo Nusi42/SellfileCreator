@@ -63,7 +63,7 @@ export function cloneRuleWithRecipeIndex(rule: HsfRuleWithRecipe, recipeIdx: num
 type RecipeNameList = readonly (string | null | undefined)[] | null | undefined
 
 /**
- * Resolve the label to show for tester matches.
+ * Resolve the label to show for Gear Inspector matches.
  * Safeguard sentinel rules do not map to builder recipes, so we fall back to the trimmed rule name.
  */
 export function resolveMatchRecipeName(

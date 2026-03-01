@@ -2492,7 +2492,7 @@ pub fn configure_value(rules: JsValue, recipe_modes: JsValue) -> Result<(), JsVa
     Ok(())
 }
 
-// Evaluate a batch of tester items against the configured rules.
+// Evaluate a batch of Gear Inspector items against the configured rules.
 // Returns a JSON payload matching the existing worker result shape.
 
 // Fast evaluate variant accepts JS objects directly and returns a JS value.
