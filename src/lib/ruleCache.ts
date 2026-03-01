@@ -11,6 +11,7 @@ import {
   type BuildRulesFinalizeGeneratedFn,
   type HsfRuleWithRecipe,
 } from './merge'
+import { cloneRuleWithRecipeIndex } from './ruleRecipeIndex'
 import { countRulesForRecipeEntry } from './ruleCacheHelpers'
 import type { BuilderRecipe, SubstatTargetTable } from './hsfBuilder'
 import type { Metaset } from './metasets'
@@ -144,18 +145,27 @@ export function updateRecipeRulesCache(args: UpdateArgs): UpdateResult {
       continue
     }
 
-    // Reuse cached entry when the fingerprint matches; skip WASM rule building.
-    const entry: RecipeRulesCacheEntry = cachedEntry ?? buildEntry(
-      resolvedRecipe,
-      metasets,
-      substatTargets,
-      recipeIdx,
-      {
-        ...(args.finalizeGeneratedRules ? { finalizeGeneratedRules: args.finalizeGeneratedRules } : {}),
-      },
-    )
-    // Store newly built entries so subsequent runs can reuse them.
-    if (!cachedEntry) args.rulesCache?.set(recipeKey, entry)
+    // Reuse cached entry when fingerprint matches, but re-stamp RecipeID to the
+    // current position. Duplicate recipes share a fingerprint but sit at
+    // different indices — serving cached rules as-is would give every duplicate
+    // the RecipeID of whichever recipe was built first (always 1).
+    let entry: RecipeRulesCacheEntry
+    if (cachedEntry) {
+      const restampedRules = cachedEntry.rules.map((rule) => cloneRuleWithRecipeIndex(rule, recipeIdx))
+      entry = { rules: restampedRules, truncated: cachedEntry.truncated }
+    } else {
+      entry = buildEntry(
+        resolvedRecipe,
+        metasets,
+        substatTargets,
+        recipeIdx,
+        {
+          ...(args.finalizeGeneratedRules ? { finalizeGeneratedRules: args.finalizeGeneratedRules } : {}),
+        },
+      )
+      // Store newly built entries so subsequent runs can reuse them.
+      args.rulesCache?.set(recipeKey, entry)
+    }
 
     const rulesForPreview = entry.rules
     const ruleSpan = rulesForPreview.length
