@@ -3742,8 +3742,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       substatTargets,
       recipes: customRecipes,
       finalSellRemainder,
-      // Autosave should not change from selection-only updates.
-      selectedRecipeIndex: null,
       ...(trimmedSfrNote ? { note: trimmedSfrNote } : {}),
       safeguardRules,
       safeguardsEnabled,
@@ -5366,10 +5364,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setSafeguardsEnabled(safeguardsEnabled)
       setRecipesEnabled(payloadRecipesEnabled)
       applyFinalSellChange(fsr, { mode: 'import', publish: false })
+      // Always select first recipe on manual SFR load (index is not persisted in the file).
       syncSelectedRecipeIdx(resolvedSel, { forceSync: true, suppressDraft: true })
       if (resolvedSel !== null && recipes[resolvedSel]) {
         setBuilder(recipes[resolvedSel]!)
       }
+      // Always land on the first safeguard rule when loading a file.
+      setSelectedSafeguardRuleId(safeguardRules.length > 0 ? safeguardRules[0]!.id : null)
     })
 
     markNextSnapshotAsSaved()
@@ -5404,6 +5405,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setNoteRecipeOverridesDisabled,
     substatTargets,
     syncSelectedRecipeIdx,
+    setSelectedSafeguardRuleId,
     beginGearInspectorMatchReset,
   ])
 
@@ -5945,7 +5947,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           substatTargets,
           recipes: customRecipes,
           finalSellRemainder,
-          selectedRecipeIndex: selectedRecipeIdx,
           ...(sfrNote ? { note: sfrNote } : {}),
           safeguardRules,
           safeguardsEnabled,

@@ -14,7 +14,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - `cleanHsfForExport` strips every UI-only metadata field (anything prefixed with `__`, e.g., `__rankMask`, `__safeguardRuleId`, `__safeguardHash`, diagnostics from safeguard detection) before serializing. Push uploads reuse the same sanitized payload so endpoints never see transient fields.
 
 ### SFR (this app)
-- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": SubstatTargetTable, "Recipes": ReadableRecipe[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: LevelMilestone[]; setsMode: 'any' | 'explicit' }, "SelectedRecipeIndex"?: number }`. `Minima` stores the Substat Target Values table; the legacy name is preserved for compatibility. Loader compatibility still accepts legacy `Configs` arrays and `SelectedConfigIndex`.
+- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": SubstatTargetTable, "Recipes": ReadableRecipe[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: LevelMilestone[]; setsMode: 'any' | 'explicit' } }`. `Minima` stores the Substat Target Values table; the legacy name is preserved for compatibility. Recipe selection is not persisted in the SFR format; the first recipe and first safeguard rule are always selected on load.
   - Writer always includes `FinalSellRemainder` (even when off).
 - Reader: when `FinalSellRemainder` is missing (older files), treat it as off with default ranges `[0,4,8,12]` and `setsMode = 'any'`.
   - Loader convenience applies to all builds: in addition to full SFR objects and `ReadableRecipe[]`, a single readable recipe object is accepted (matching `tests/fixtures/*.sfr`) so dragging fixtures into the app works everywhere.
@@ -63,7 +63,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
   - `writeTextSafe(text)` and `readTextSafe()` wrap the async Clipboard API with security checks and failure handling.
   - When writes are blocked, components dispatch `COPY_DIALOG_EVENT` to request that the App open a manual copy dialog prefilled with the content.
   - Fallback UI lives in `src/components/CopyDialog.tsx` (copy) and `src/components/PasteDialog.tsx` (paste).
-- Copy All copies a full SFR: `{ Version, Metasets, Minima (Substat Target Values), Recipes, FinalSellRemainder, SelectedRecipeIndex? }`.
+- Copy All copies a full SFR: `{ Version, Metasets, Minima (Substat Target Values), Recipes, FinalSellRemainder }`.
 - Copy single recipe copies a minimal SFR: `{ Version, Metasets: [only those referenced by the recipe], Recipes: [readable recipe] }` so pasting elsewhere brings required metasets.
 - Paste accepts: a single recipe, an array of recipes, or a full SFR object (readable schema). Legacy shapes are not normalized.
 

@@ -30,13 +30,12 @@ const buildRecipe = (name: string): BuilderRecipe => ({
   artifactMetaSets: [],
 })
 
-test('SFR writer emits SelectedRecipeIndex and canonical note marker wording', () => {
+test('SFR writer does not emit SelectedRecipeIndex and canonicalizes note marker wording', () => {
   const payload = buildSfrPayload({
     version: 'test-version',
     metasets: [],
     substatTargets: defaultSubstatTargets(),
     recipes: [buildRecipe('IO Demo')],
-    selectedRecipeIndex: 0,
     note: [
       '<!-- config-options',
       '  q "Legacy marker"',
@@ -45,8 +44,8 @@ test('SFR writer emits SelectedRecipeIndex and canonical note marker wording', (
     ].join('\n'),
   }) as Record<string, unknown>
 
-  // New exports should emit recipe wording for selection metadata.
-  assert.equal(payload['SelectedRecipeIndex'], 0)
+  // Selection is no longer persisted in the SFR format.
+  assert.equal('SelectedRecipeIndex' in payload, false)
   assert.equal('SelectedConfigIndex' in payload, false)
   // New exports should canonicalize legacy recipe/safeguard note markers.
   const note = String(payload['Note'] ?? '')
@@ -56,7 +55,7 @@ test('SFR writer emits SelectedRecipeIndex and canonical note marker wording', (
   assert.equal(/<!--\s*keep-uniques-re\b/i.test(note), false)
 })
 
-test('SFR parser reads legacy SelectedConfigIndex/KeepUniques keys and canonicalizes note markers', () => {
+test('SFR parser ignores SelectedConfigIndex (always selects first recipe) and canonicalizes note markers', () => {
   const parsed = parseSfrObject(
     {
       Version: 'legacy-demo',
@@ -65,11 +64,10 @@ test('SFR parser reads legacy SelectedConfigIndex/KeepUniques keys and canonical
         metasets: [],
         substatTargets: defaultSubstatTargets(),
         recipes: [buildRecipe('Legacy Recipe')],
-        selectedRecipeIndex: 0,
       }).Recipes[0]],
       KeepUniques: [],
       KeepUniquesEnabled: true,
-      SelectedConfigIndex: 0,
+      SelectedConfigIndex: 99,
       Note: [
         '<!-- config-options q "Legacy question" -->',
         '<!-- keep-uniques-re: "Legacy safeguard marker" -->',
@@ -78,7 +76,7 @@ test('SFR parser reads legacy SelectedConfigIndex/KeepUniques keys and canonical
     { metasets: [], substatTargets: defaultSubstatTargets() },
   )
 
-  // Legacy keys remain accepted on read.
+  // Parser always returns first recipe regardless of stored index.
   assert.equal(parsed.selectedIndex, 0)
   assert.equal(parsed.safeguardsEnabled, true)
   assert.equal(Array.isArray(parsed.safeguardRules), true)
@@ -146,7 +144,6 @@ test('SFR parser preserves safeguard substatWeights from legacy KeepUniques payl
     metasets: parsed.metasets,
     substatTargets: parsed.substatTargets,
     recipes: parsed.recipes,
-    selectedRecipeIndex: parsed.selectedIndex,
     safeguardRules: parsed.safeguardRules,
     safeguardsEnabled: parsed.safeguardsEnabled,
   }) as Record<string, unknown>
@@ -179,7 +176,6 @@ test('SFR parser canonicalizes legacy safeguard-ignore recipe tags on roundtrip'
     metasets: parsed.metasets,
     substatTargets: parsed.substatTargets,
     recipes: parsed.recipes,
-    selectedRecipeIndex: parsed.selectedIndex,
   }) as Record<string, unknown>
   const recipe = ((payload['Recipes'] as unknown[])?.[0] ?? null) as Record<string, unknown> | null
   assert(recipe, 'expected exported recipe')
@@ -197,7 +193,6 @@ test('SFR writer canonicalizes legacy safeguard-ignore aliases from runtime reci
     metasets: [],
     substatTargets: defaultSubstatTargets(),
     recipes: [legacyTaggedRecipe],
-    selectedRecipeIndex: 0,
   }) as Record<string, unknown>
   const recipe = ((payload['Recipes'] as unknown[])?.[0] ?? null) as Record<string, unknown> | null
   assert(recipe, 'expected exported recipe')
