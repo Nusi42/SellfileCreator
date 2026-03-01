@@ -228,6 +228,30 @@ export function setGearInspectorSubstatSortState(next: GearInspectorSubstatSortS
   gearInspectorSubstatSortStore.set(normalizeGearInspectorSubstatSortState(next))
 }
 
+/**
+ * Capture the current sort state for tutorial snapshot/restore.
+ * Deep-clones so subsequent mutations do not corrupt the saved value.
+ */
+export function snapshotGearInspectorSubstatSort(): GearInspectorSubstatSortState {
+  return JSON.parse(JSON.stringify(gearInspectorSubstatSortStore.getSnapshot())) as GearInspectorSubstatSortState
+}
+
+/**
+ * Restore sort state from a previously captured snapshot.
+ * Standalone (not a hook) so it can be called outside the React lifecycle.
+ */
+export function restoreGearInspectorSubstatSortSnapshot(snapshot: GearInspectorSubstatSortState) {
+  gearInspectorSubstatSortStore.set(snapshot)
+}
+
+/**
+ * Reset sort to defaults without needing a hook reference.
+ * Mirrors the `clear` method on `useGearInspectorSubstatSortPreferences` for use at tutorial start.
+ */
+export function clearGearInspectorSubstatSortStandalone() {
+  gearInspectorSubstatSortStore.set(DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE)
+}
+
 export function useGearInspectorSubstatSortPreferences() {
   // Store read: subscribed so the preview header + grid stay in sync without extra effects.
   const state = gearInspectorSubstatSortStore.useValue()

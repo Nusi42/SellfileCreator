@@ -717,7 +717,10 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const levelLabel = exactLevelLabel ?? levelBucketLabel
   const levelChipLabel = levelLabel || t('any')
   const mainLabel = artifact.mainStat ? t(statVariantI18nKey(artifact.mainStat.variant)) : t('any')
-  const mainValue = formatStatPreGlyph(artifact.mainStat ?? null)
+  // Manual/custom gear items carry totalValue:NaN because the actual value is unknown.
+  // Skip the numeric portion for those so the card doesn't display a spurious "0".
+  const mainStatValueKnown = artifact.mainStat != null && Number.isFinite(artifact.mainStat.totalValue)
+  const mainValue = mainStatValueKnown ? formatStatPreGlyph(artifact.mainStat ?? null) : ''
   const mainInline = mainValue ? t('testerMainStatInline', { stat: mainLabel, value: mainValue }) : mainLabel
   const mainVariant = artifact.mainStat?.variant
   const mainColor = useStatButtonColors && typeof mainVariant === 'number'

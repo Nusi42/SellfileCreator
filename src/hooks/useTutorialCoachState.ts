@@ -16,8 +16,19 @@ import {
   type FinalSellRemainderConfig,
 } from '../lib/logicHub'
 import { ArtifactSet, ArtifactType, Faction, StatVariant, RankCode, RarityCode, LEVEL_MILESTONES, type LevelMilestone } from '../lib/types'
-import { DEFAULT_RULES_FILTER_STATE, type RulesFilterState } from '../lib/rulesFilter'
 import type { TutorialStep } from '../components/tutorial/TutorialCoach'
+import {
+  resetRulesFilterPreferences,
+  snapshotRulesFilterPreferences,
+  restoreRulesFilterPreferencesSnapshot,
+  type RulesFilterPreferencesSnapshot,
+} from '../state/rulesFilterPersistence'
+import {
+  snapshotGearInspectorSubstatSort,
+  restoreGearInspectorSubstatSortSnapshot,
+  clearGearInspectorSubstatSortStandalone,
+  type GearInspectorSubstatSortState,
+} from '../state/gearInspectorSubstatSortPreferences'
 import type { useI18n } from '../lib/i18n'
 import {
   SAFEGUARD_DEFAULT_COUNT_MODE,
@@ -42,40 +53,77 @@ type TutorialSnapshot = {
   fsr: FinalSellRemainderConfig
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
+  recipesEnabled: boolean
   note: string | null
   builder: BuilderRecipe
-  filterOpen: boolean
-  rulesFilter: RulesFilterState
+  // Filter/sort state is captured per-store (all modes) in viewStateSnapshotRef and restored
+  // via restoreRulesFilterPreferencesSnapshot / restoreGearInspectorSubstatSortSnapshot.
   gearInspectorItems: GearInspectorItem[]
   previewMode: 'rules' | 'gearInspector'
   logicHubOpen: boolean
   logicHubDialogTab: LogicHubDialogTab
 }
 
+// Snapshot of view-only state that lives outside the main app snapshot (filter panels, sort).
+type ViewStateSnapshot = {
+  filterPrefs: RulesFilterPreferencesSnapshot
+  sortState: GearInspectorSubstatSortState
+}
+
+// Blank builder state used to start a fresh tutorial session and as the base for the
+// handleTutorialSkipTo replay pass. Single source of truth — do not duplicate inline.
+const TUTORIAL_INITIAL_BUILDER: BuilderRecipe = {
+  name: '',
+  keep: true,
+  exportMode: 'active',
+  rankCode: RankCode.Any,
+  rarityCode: RarityCode.Any,
+  rarityMode: 'auto',
+  factionCode: 0,
+  mainStatsV: [],
+  minLevel: LEVEL_MILESTONES[0]!,
+  maxLevel: LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!,
+  earlyKeepMode: 'early',
+  substatsV: [],
+  fixedSubstatsV: [],
+  minCount: 1,
+  autoMinCount: true,
+  autoSubstatFlex: false,
+  minRequiredRolls: 0,
+  autoMinRequiredRolls: true,
+}
+
 const buildTutorialGearInspectorItems = (): GearInspectorItem[] => [
   {
+    // Item 1: matches Recipe #3 (Banner, Refresh, SPD substat, ≥3 rolls, Late).
+    // ACC main keeps it distinct from the RES-main safeguard item below.
+    // SPD=20: recipes use rankCode=0 which defaults to 6-star conservative base=5;
+    // 3-roll threshold = base*(1+3) = 5*4 = 20, so SPD must be ≥20 to match.
     itemId: 1,
     name: 'Refresh Bannerlords Banner',
     slot: ArtifactType.Banner,
     set: ArtifactSet.Refresh,
     rank: 5,
     rarity: RarityCode.Epic,
-    level: LEVEL_MILESTONES[3]!,
+    level: LEVEL_MILESTONES[4]!,
     faction: Faction.BannerLords,
-    main: StatVariant.RES,
+    main: StatVariant.ACC,
     subValues: {
+      [StatVariant.SPD]: 20,
+      [StatVariant.CR]: 8,
       [StatVariant.HP]: 5,
-      [StatVariant.SPD]: 16,
-      [StatVariant.DEF_FLAT]: 8,
     },
-    subOrder: [StatVariant.HP, StatVariant.SPD, StatVariant.DEF_FLAT],
+    subOrder: [StatVariant.SPD, StatVariant.CR, StatVariant.HP],
     previewExtras: {
       source: 'tester',
-      exactLevel: LEVEL_MILESTONES[3]!,
+      exactLevel: LEVEL_MILESTONES[4]!,
     },
   },
   {
+    // Item 2: no recipe match → caught by Final Sell (accessories enabled).
+    // Start compact so items 2–4 stay collapsed; only item 1 is expanded by default.
     itemId: 2,
+    compact: true,
     name: 'Knight Revenant Amulet',
     slot: ArtifactType.Amulet,
     set: ACCESSORY_NO_SET_ID as ArtifactSet,
@@ -90,6 +138,57 @@ const buildTutorialGearInspectorItems = (): GearInspectorItem[] => [
     previewExtras: {
       source: 'tester',
       exactLevel: LEVEL_MILESTONES[0]!,
+    },
+  },
+  {
+    // Item 3: no SPD substat → fails Recipe #3 roll filter → Final Sell would sell it.
+    // Rarity matches safeguard rarities: [3] (Rare) → Safeguard keeps it.
+    itemId: 3,
+    compact: true,
+    name: 'Refresh Bannerlords Banner',
+    slot: ArtifactType.Banner,
+    set: ArtifactSet.Refresh,
+    rank: 5,
+    rarity: RarityCode.Rare,
+    level: LEVEL_MILESTONES[2]!,
+    faction: Faction.BannerLords,
+    main: StatVariant.RES,
+    subValues: {
+      [StatVariant.HP]: 5,
+      [StatVariant.DEF_FLAT]: 13,
+      [StatVariant.ACC]: 6,
+    },
+    subOrder: [StatVariant.HP, StatVariant.DEF_FLAT, StatVariant.ACC],
+    previewExtras: {
+      source: 'tester',
+      exactLevel: LEVEL_MILESTONES[2]!,
+    },
+  },
+  {
+    // Item 4: matches Recipe #2 (DPS Core Rolls — Boots, Slow DD metaset, HP% main,
+    // SPD locked ≥1 roll, CR+CDMG required unlocked, 3 total rolls).
+    // 6-star conservative base=5 for SPD/CR/CDMG; 1-roll threshold = base*2 = 10.
+    // SPD=12≥10 (1 roll), CR=10≥10 (1 roll), CDMG=13≥10 (1 roll) → total 3 ✓.
+    itemId: 4,
+    compact: true,
+    name: 'Lethal Boots',
+    slot: ArtifactType.Boots,
+    set: ArtifactSet.Lethal,
+    rank: 5,
+    rarity: RarityCode.Epic,
+    level: LEVEL_MILESTONES[4]!,  // +16 max
+    faction: Faction.BannerLords,
+    main: StatVariant.HP,
+    subValues: {
+      [StatVariant.SPD]: 12,
+      [StatVariant.CR]: 10,
+      [StatVariant.CDMG]: 13,
+      [StatVariant.ATK]: 5,
+    },
+    subOrder: [StatVariant.SPD, StatVariant.CR, StatVariant.CDMG, StatVariant.ATK],
+    previewExtras: {
+      source: 'tester',
+      exactLevel: LEVEL_MILESTONES[4]!,
     },
   },
 ]
@@ -168,6 +267,8 @@ export type UseTutorialCoachStateParams = {
   setSafeguardRules: Dispatch<SetStateAction<SafeguardRule[]>>
   safeguardsEnabled: boolean
   setSafeguardsEnabled: Dispatch<SetStateAction<boolean>>
+  recipesEnabled: boolean
+  setRecipesEnabled: Dispatch<SetStateAction<boolean>>
   gearInspectorItems: GearInspectorItem[]
   setGearInspectorItems: Dispatch<SetStateAction<GearInspectorItem[]>>
   previewMode: 'rules' | 'gearInspector'
@@ -176,10 +277,8 @@ export type UseTutorialCoachStateParams = {
   setSfrNote: Dispatch<SetStateAction<string | null>>
   builderRef: MutableRefObject<BuilderRecipe>
   setBuilder: Dispatch<SetStateAction<BuilderRecipe>>
-  filterOpen: boolean
-  setFilterOpen: Dispatch<SetStateAction<boolean>>
-  rulesFilter: RulesFilterState
-  setRulesFilter: Dispatch<SetStateAction<RulesFilterState>>
+  // Filter/sort state is managed via store-level snapshot/restore functions;
+  // these params are no longer needed by the tutorial hook.
   logicHubOpen: boolean
   setLogicHubOpen: Dispatch<SetStateAction<boolean>>
   setBuilderMode: (mode: 'recipe' | 'safeguard') => void
@@ -230,6 +329,8 @@ export function useTutorialCoachState({
   setSafeguardRules,
   safeguardsEnabled,
   setSafeguardsEnabled,
+  recipesEnabled,
+  setRecipesEnabled,
   gearInspectorItems,
   setGearInspectorItems,
   previewMode,
@@ -238,10 +339,6 @@ export function useTutorialCoachState({
   setSfrNote,
   builderRef,
   setBuilder,
-  filterOpen,
-  setFilterOpen,
-  rulesFilter,
-  setRulesFilter,
   logicHubOpen,
   setLogicHubOpen,
   setBuilderMode,
@@ -294,12 +391,12 @@ export function useTutorialCoachState({
   useEffect(() => { safeguardRulesRef.current = safeguardRules }, [safeguardRules])
   const safeguardsEnabledRef = useRef(safeguardsEnabled)
   useEffect(() => { safeguardsEnabledRef.current = safeguardsEnabled }, [safeguardsEnabled])
+  const recipesEnabledRef = useRef(recipesEnabled)
+  useEffect(() => { recipesEnabledRef.current = recipesEnabled }, [recipesEnabled])
   const noteRef = useRef(sfrNote)
   useEffect(() => { noteRef.current = sfrNote }, [sfrNote])
-  const filterOpenRef = useRef(filterOpen)
-  useEffect(() => { filterOpenRef.current = filterOpen }, [filterOpen])
-  const rulesFilterRef = useRef<RulesFilterState>(rulesFilter)
-  useEffect(() => { rulesFilterRef.current = rulesFilter }, [rulesFilter])
+  // Filter/sort state is captured from stores directly; no per-render refs needed.
+  const viewStateSnapshotRef = useRef<ViewStateSnapshot | null>(null)
   const gearInspectorItemsRef = useRef<GearInspectorItem[]>(gearInspectorItems)
   useEffect(() => { gearInspectorItemsRef.current = gearInspectorItems }, [gearInspectorItems])
   const gearInspectorPreviewModeRef = useRef<'rules' | 'gearInspector'>(previewMode)
@@ -462,6 +559,13 @@ export function useTutorialCoachState({
     try {
       // Suppress history so tutorial restores do not create undo/redo entries.
       suppressHistorySnapshot()
+      // Restore filter/sort first (outside React batching) so panels paint correctly.
+      const viewSnap = viewStateSnapshotRef.current
+      if (viewSnap) {
+        restoreRulesFilterPreferencesSnapshot(viewSnap.filterPrefs)
+        restoreGearInspectorSubstatSortSnapshot(viewSnap.sortState)
+        viewStateSnapshotRef.current = null
+      }
       flushSync(() => {
         setHsf(snap.hsf)
         setCustomRecipes(snap.recipes)
@@ -471,10 +575,9 @@ export function useTutorialCoachState({
         setFinalSellRemainder(snap.fsr)
         setSafeguardRules(snap.safeguardRules)
         setSafeguardsEnabled(snap.safeguardsEnabled)
+        setRecipesEnabled(snap.recipesEnabled)
         setSfrNote(snap.note)
         setBuilder(snap.builder)
-        setFilterOpen(snap.filterOpen)
-        setRulesFilter(JSON.parse(JSON.stringify(snap.rulesFilter)) as RulesFilterState)
         setGearInspectorItems(snap.gearInspectorItems)
         setPreviewMode(snap.previewMode)
         setLogicHubOpen(snap.logicHubOpen)
@@ -485,15 +588,14 @@ export function useTutorialCoachState({
     setBuilder,
     setCustomRecipes,
     setFinalSellRemainder,
-    setFilterOpen,
     setHsf,
     setSfrNote,
     setMetasets,
     setSubstatTargets,
-    setRulesFilter,
     setSelectedRecipeIdx,
     setSafeguardRules,
     setSafeguardsEnabled,
+    setRecipesEnabled,
     setGearInspectorItems,
     setPreviewMode,
     setLogicHubOpen,
@@ -656,14 +758,9 @@ export function useTutorialCoachState({
       try {
         const container = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
         if (!container) return
-        // Start from the top so the animation is deterministic.
-        // Why: tutorial steps should behave the same regardless of the user's current scroll position.
+        // Start from the top so the animation is deterministic regardless of prior scroll position.
         try { container.scrollTop = 0 } catch {}
-        const startTop = container.scrollTop
-        const endTop = Math.max(0, container.scrollHeight - container.clientHeight)
-        if (endTop <= startTop) return
         // Keep this short and bounded; it's a guided demo, not a "smooth page scroll".
-        // Why: long animations feel sluggish and can fight user input.
         const DURATION_MS = 2400
         const startAt = performance.now()
         const easeInOut = (time: number) => (time < 0.5 ? 2 * time * time : -1 + (4 - 2 * time) * time)
@@ -671,8 +768,11 @@ export function useTutorialCoachState({
         const step = (now: number) => {
           const p = Math.min(1, (now - startAt) / DURATION_MS)
           const eased = easeInOut(p)
-          const nextTop = Math.round(startTop + (endTop - startTop) * eased)
-          try { container.scrollTop = nextTop } catch {}
+          // Re-read scrollHeight every frame so rows added asynchronously by WASM (e.g. flex
+          // permutations, a new recipe) are included and the animation always converges on the
+          // true bottom rather than an early snapshot that undershoots.
+          const currentEnd = Math.max(0, container.scrollHeight - container.clientHeight)
+          try { container.scrollTop = Math.round(currentEnd * eased) } catch {}
           if (p < 1) { timers.scrollAnimId = requestAnimationFrame(step) } else { timers.scrollAnimId = null }
         }
         if (timers.scrollAnimId !== null) { try { cancelAnimationFrame(timers.scrollAnimId) } catch {} ; timers.scrollAnimId = null }
@@ -692,7 +792,11 @@ export function useTutorialCoachState({
       const clonedSubstatTargets = JSON.parse(JSON.stringify(srcSubstatTargets)) as SubstatTargetsState
       const cloneFsr = JSON.parse(JSON.stringify(srcFsr)) as FinalSellRemainderConfig
       const cloneBuilder = JSON.parse(JSON.stringify(srcBuilder)) as BuilderRecipe
-      const cloneRulesFilter = JSON.parse(JSON.stringify(rulesFilterRef.current)) as RulesFilterState
+      // Snapshot filter/sort state across all modes before we wipe them.
+      viewStateSnapshotRef.current = {
+        filterPrefs: snapshotRulesFilterPreferences(),
+        sortState: snapshotGearInspectorSubstatSort(),
+      }
       setTutorialSnapshot({
         hsf: cloneHsf,
         recipes: cloneRecipes,
@@ -702,10 +806,9 @@ export function useTutorialCoachState({
         fsr: cloneFsr,
         safeguardRules: safeguardRulesRef.current?.map((rule) => cloneSafeguardRule(rule)) ?? [],
         safeguardsEnabled: safeguardsEnabledRef.current,
+        recipesEnabled: recipesEnabledRef.current,
         note: noteRef.current,
         builder: cloneBuilder,
-        filterOpen: filterOpenRef.current,
-        rulesFilter: cloneRulesFilter,
         gearInspectorItems: gearInspectorItemsRef.current.map((item) => cloneGearInspectorItem(item)),
         previewMode: gearInspectorPreviewModeRef.current,
         logicHubOpen: logicHubOpenRef.current,
@@ -724,33 +827,19 @@ export function useTutorialCoachState({
       setFinalSellRemainder({ artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[], setsMode: FINAL_SELL_DEFAULT_SETS_MODE })
       setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_FINAL_SELL)
       setSfrNote(null)
-      setBuilder({
-        name: '',
-        keep: true,
-        exportMode: 'active',
-        rankCode: RankCode.Any,
-        rarityCode: RarityCode.Any,
-        rarityMode: 'auto',
-        factionCode: 0,
-        mainStatsV: [],
-        minLevel: LEVEL_MILESTONES[0]!,
-        maxLevel: LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!,
-        earlyKeepMode: 'early',
-        substatsV: [],
-        fixedSubstatsV: [],
-        minCount: 0,
-        autoMinCount: true,
-        autoSubstatFlex: false,
-        minRequiredRolls: 0,
-        autoMinRequiredRolls: true,
-      })
-      setFilterOpen(false)
-      setRulesFilter(JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState)
+      setBuilder(TUTORIAL_INITIAL_BUILDER)
+      // Reset all-modes filter state and gear inspector sort so the tutorial starts clean.
+      resetRulesFilterPreferences()
+      clearGearInspectorSubstatSortStandalone()
       setGearInspectorItems([])
       setLogicHubOpen(false)
       setPreviewMode('rules')
+      // Always start in Recipe Builder mode so the first steps target the right panel.
+      setBuilderMode('recipe')
       setSafeguardRules([])
-      setSafeguardsEnabled(false)
+      // Reset to app defaults: both toggles on, no safeguard rules to interfere.
+      setSafeguardsEnabled(true)
+      setRecipesEnabled(true)
     } catch {}
 
     setTutorialIdx(0)
@@ -833,68 +922,8 @@ export function useTutorialCoachState({
 
     const advanced: TutorialStep[] = [
       {
-        id: 'adv-intro',
-        title: t('tutAdvIntroTitle'),
-        body: t('tutAdvIntroBody'),
-        targetId: 'builder.core',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null) },
-      },
-      {
-        id: 'adv-select-slots-main',
-        title: t('tutAdvSelectSlotsMainTitle'),
-        body: t('tutAdvSelectSlotsMainBody'),
-        targetIds: ['builder.slots', 'builder.mainstat'],
-        before: () => setBuilder((prev) => ({
-          ...prev,
-          artifactTypes: [ArtifactType.Chestplate, ArtifactType.Boots],
-          mainStatsV: [StatVariant.HP, StatVariant.ATK, StatVariant.DEF],
-        })),
-      },
-      {
-        id: 'name',
-        title: t('tutAdvNameTitle'),
-        body: t('tutAdvNameBody'),
-        targetId: 'builder.name',
-        before: () => setBuilder((prev) => ({ ...prev, name: 'DPS Core Rolls' })),
-      },
-      {
-        id: 'subs',
-        title: t('tutAdvChooseSubstatsTitle'),
-        body: t('tutAdvChooseSubstatsBody'),
-        targetId: 'builder.substats',
-        before: () => setBuilder((prev) => ({
-          ...prev,
-          substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.CDMG],
-          fixedSubstatsV: [StatVariant.CDMG],
-        })),
-      },
-      {
-        id: 'min-rolls',
-        title: t('tutAdvMinRollsTitle'),
-        body: t('tutAdvMinRollsBody'),
-        targetIds: ['builder.min-rolls.label', 'builder.min-rolls', 'builder.min-rolls.toggle'],
-        before: () => setBuilder((prev) => ({ ...prev, autoMinRequiredRolls: false, minRequiredRolls: 3 })),
-      },
-      {
-        id: 'required',
-        title: t('tutAdvRequiredTitle'),
-        body: t('tutAdvRequiredBody'),
-        targetIds: ['builder.required.label', 'builder.required', 'builder.flex-chip'],
-        before: () => {
-          setBuilder((prev) => ({ ...prev, autoMinCount: false, autoSubstatFlex: false, minCount: 2 }))
-          setTimeout(() => {
-            try { setBuilder((prev) => ({ ...prev, autoSubstatFlex: false })) } catch {}
-          }, 0)
-        },
-      },
-      {
-        id: 'thresholds',
-        title: t('builderMilestoneThresholds'),
-        body: t('tutAdvMilestonesBody'),
-        targetIds: ['builder.thresholds.label', 'builder.thresholds', 'builder.thresholds.auto-chip'],
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
-      {
+        // Explain metasets before the advanced recipe so the concept is available when
+        // Recipe #2 needs Slow DD later. Context: Recipe #1 (Speed Boots) is already committed.
         id: 'metasets-open',
         title: t('tutMetasetsManageTitle'),
         body: t('tutMetasetsManageBody'),
@@ -902,40 +931,27 @@ export function useTutorialCoachState({
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
+        // Show the dialog with Speed-Sets + Slow DD + defaults pre-created; highlight the first row.
         id: 'metasets-add',
         title: t('tutMetasetsAddTitle'),
         body: t('tutMetasetsAddBody'),
-        targetId: 'metasets.add',
-        before: () => { ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
-      {
-        id: 'metasets-added',
-        title: t('tutMetasetsAddedTitle'),
-        body: t('tutMetasetsAddedBody'),
-        targetId: 'metasets.dialog',
-        before: () => { ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
-      {
-        id: 'metasets-defaults',
-        title: t('tutMetasetsIncludedTitle'),
-        body: t('tutMetasetsIncludedBody'),
-        targetId: 'metasets.dialog',
+        targetId: 'metasets.row.first',
         before: () => {
           ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false)
-          if (!tutorialAddedDefaultMetas) {
-            // Keep this list in sync with `defaultMetasets()` in `src/lib/metasets.ts`.
-            // Why: The tutorial “auto-add defaults” step filters by metaset *name* so it can
-            // demonstrate the UI even when a fresh workspace started empty.
-            // If default metaset names change, update this list (and the later mirror block).
+          // Pre-create Speed, Slow DD, and the three default metasets so the dialog shows
+          // a realistic populated list. All creates are idempotent (no-op if already present).
+          setMetasets((prev) => {
+            let next = prev
+            if (!next.some((m) => m.name.trim().toLowerCase() === 'speed-sets'))
+              next = next.concat({ id: makeMetasetId(), name: 'Speed-Sets', sets: [ArtifactSet.Speed, ArtifactSet.Perception, ArtifactSet.Protection], show: true, iconId: DEFAULT_METASET_ICON_ID })
+            if (!next.some((m) => m.name.trim().toLowerCase() === 'slow dd'))
+              next = next.concat({ id: makeMetasetId(), name: 'Slow DD', sets: [ArtifactSet.Lethal, ArtifactSet.Savage, ArtifactSet.Stoneskin], show: true, iconId: DEFAULT_METASET_ICON_ID })
             const wanted = new Set(['Nuker', 'Debuffer', 'Survivability'])
             const defs = defaultMetasets().filter((meta) => wanted.has(meta.name))
-            setMetasets((prev) => {
-              const have = new Set(prev.map((meta) => meta.name))
-              const add = defs.filter((meta) => !have.has(meta.name))
-              return add.length ? prev.concat(add) : prev
-            })
-            setTutorialAddedDefaultMetas(true)
-          }
+            const have = new Set(next.map((m) => m.name))
+            const add = defs.filter((meta) => !have.has(meta.name))
+            return add.length ? next.concat(add) : next
+          })
         },
       },
       {
@@ -946,11 +962,130 @@ export function useTutorialCoachState({
         before: () => { ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
-        id: 'sets-open',
-        title: t('tutMetasetsSelectTitle'),
-        body: t('tutMetasetsSelectBody'),
-        targetId: 'builder.sets',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
+        // Open Sets menu with Speed-Sets already selected — the user can see it highlighted in the
+        // dropdown. The menu stays open; step 14 then closes it and points at Apply.
+        id: 'sets-metasets-basic',
+        title: t('tutMetasetsApplyBasicTitle'),
+        body: t('tutMetasetsApplyBasicBody'),
+        targetId: 'menu.metasets.section',
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(true); ensureChipsMenu(false)
+          // Apply Speed-Sets to Recipe #1 and builder so the dropdown renders it as selected.
+          // Use metasRef.current (not the closure-captured `metasets`) to get the live state
+          // — metasets-add adds Speed-Sets after startTutorial's callback was memoized.
+          const speed = metasRef.current.find((m) => m.name.trim().toLowerCase() === 'speed-sets')
+          if (speed) {
+            suppressHistorySnapshot()
+            setBuilder((prev) => ({ ...prev, artifactMetaSets: [speed.id], artifactSets: [] }))
+            setCustomRecipes((prev) => prev.map((r, i) => i === 0 ? { ...r, artifactMetaSets: [speed.id], artifactSets: [] } : r))
+          }
+          setSelectedRecipeIdx(0)
+          const timers = tutorialTimersRef.current
+          if (timers.setsMenuRetryId !== null) { try { clearTimeout(timers.setsMenuRetryId) } catch {} ; timers.setsMenuRetryId = null }
+          timers.setsMenuRetryId = window.setTimeout(() => { try { ensureSetsMenu(true) } catch {} }, 60)
+        },
+      },
+      {
+        // Dropdown is closed; Apply button is highlighted. This is the teaching moment for the
+        // pending-draft concept — metaset is already applied to show the result.
+        id: 'sets-metasets-apply',
+        title: t('tutMetasetsApplyConfirmTitle'),
+        body: t('tutMetasetsApplyConfirmBody'),
+        targetId: 'builder.apply-recipe',
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
+          // Close the menu and commit Speed-Sets to Recipe #1 (simulates the user picking it
+          // then hitting Apply), so the preview already reflects the applied metaset.
+          // Use metasRef.current for the same reason as sets-metasets-basic above.
+          const speed = metasRef.current.find((m) => m.name.trim().toLowerCase() === 'speed-sets')
+          if (speed) {
+            suppressHistorySnapshot()
+            setBuilder((prev) => ({ ...prev, artifactMetaSets: [speed.id], artifactSets: [] }))
+            setCustomRecipes((prev) => prev.map((r, i) => i === 0 ? { ...r, artifactMetaSets: [speed.id], artifactSets: [] } : r))
+          }
+          setSelectedRecipeIdx(0)
+        },
+      },
+      {
+        // Show the preview with the Speed-Sets metaset applied to Recipe #1.
+        id: 'metasets-preview-basic',
+        title: t('tutMetasetsPreviewBasicTitle'),
+        body: t('tutMetasetsPreviewBasicBody'),
+        targetId: 'preview.table',
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
+          // Ensure Recipe #1 is selected so the preview highlights its rows.
+          setSelectedRecipeIdx(0)
+        },
+      },
+      {
+        id: 'adv-intro',
+        title: t('tutAdvIntroTitle'),
+        body: t('tutAdvIntroBody'),
+        targetId: 'builder.core',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null) },
+      },
+      {
+        id: 'name',
+        title: t('tutAdvNameTitle'),
+        body: t('tutAdvNameBody'),
+        targetId: 'builder.name',
+        before: () => setBuilder((prev) => ({ ...prev, name: 'DPS Core Rolls' })),
+      },
+      {
+        id: 'adv-select-slots-main',
+        title: t('tutAdvSelectSlotsMainTitle'),
+        body: t('tutAdvSelectSlotsMainBody'),
+        targetIds: ['builder.slots', 'builder.mainstat'],
+        // Two mains only (HP% + ATK%) — DEF% is mentioned in the body text but omitted to keep the demo tight.
+        before: () => setBuilder((prev) => ({
+          ...prev,
+          artifactTypes: [ArtifactType.Chestplate, ArtifactType.Boots],
+          mainStatsV: [StatVariant.HP, StatVariant.ATK],
+        })),
+      },
+      {
+        id: 'subs',
+        title: t('tutAdvChooseSubstatsTitle'),
+        body: t('tutAdvChooseSubstatsBody'),
+        targetId: 'builder.substats',
+        // Lock only SPD — CR and CDMG are required but unlocked (no per-stat roll floor).
+        // Pre-set Required=2 so the "required equals locked" warning does not fire (2 ≠ 1 locked).
+        // Flex stays OFF here; it is explained and enabled in the dedicated Flex section later.
+        before: () => setBuilder((prev) => ({
+          ...prev,
+          substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.CDMG],
+          fixedSubstatsV: [StatVariant.SPD],
+          autoMinCount: false,
+          minCount: 2,
+          autoSubstatFlex: false,
+        })),
+      },
+      {
+        id: 'required',
+        title: t('tutAdvRequiredTitle'),
+        body: t('tutAdvRequiredBody'),
+        targetIds: ['builder.required.label', 'builder.required'],
+        // Required = 2: SPD (locked) always fills one slot; CR or CDMG fills the other.
+        // Flex remains OFF — the Flex section after adv-add explains and enables it.
+        before: () => setBuilder((prev) => ({ ...prev, autoMinCount: false, minCount: 2 })),
+      },
+      {
+        id: 'min-rolls',
+        title: t('tutAdvMinRollsTitle'),
+        body: t('tutAdvMinRollsBody'),
+        // Remove stale builder.min-rolls.toggle (no such element in the DOM).
+        targetIds: ['builder.min-rolls.label', 'builder.min-rolls'],
+        before: () => setBuilder((prev) => ({ ...prev, autoMinRequiredRolls: false, minRequiredRolls: 3 })),
+      },
+      {
+        // Introduces lockedMinRequiredRolls via the lock icon on button 1.
+        // Only SPD is locked so the floor applies to that single stat only.
+        id: 'locked-min-rolls',
+        title: t('tutLockedMinRollsTitle'),
+        body: t('tutLockedMinRollsBody'),
+        targetId: 'builder.min-rolls.lock-icon.1',
+        before: () => setBuilder((prev) => ({ ...prev, lockedMinRequiredRolls: 1 })),
       },
       {
         id: 'sets-metasets',
@@ -971,43 +1106,60 @@ export function useTutorialCoachState({
         targetId: 'builder.add-recipe',
       },
       {
-        id: 'adv-added',
-        title: t('tutAdvAddedTitle'),
-        body: t('tutAdvAddedBody'),
-        targetId: 'chips.container',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
+        // Preview the committed recipe WITHOUT Flex so users see the strict baseline:
+        // all three substats must be present on every matched piece.
+        id: 'flex-no-flex',
+        title: t('tutFlexNoFlexTitle'),
+        body: t('tutFlexNoFlexBody'),
+        targetId: 'preview.table',
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
+          // Confirm Recipe #2 is committed with flex=false and keep it selected for preview highlighting.
+          setCustomRecipes((prev) => prev.map((r, i) => i === 1 ? { ...r, autoSubstatFlex: false } : r))
+          setSelectedRecipeIdx(1)
+          setTimeout(() => { try { smoothScrollPreviewToEnd() } catch {} }, 120)
+        },
       },
-	      {
-	        id: 'adv-preview-early',
+      {
+        // Point at the Flex chip — flex is toggled ON in the builder but not yet applied to Recipe #2.
+        // The preview still shows the strict no-flex rows so the contrast is visible before apply.
+        id: 'flex-toggle',
+        title: t('tutFlexToggleTitle'),
+        body: t('tutFlexToggleBody'),
+        targetId: 'builder.flex-chip',
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
+          // Flex ON in the builder (chip shows as active) but Recipe #2 still has flex=false
+          // so the preview keeps the strict-mode rows until the user hits Apply.
+          setBuilder((prev) => ({ ...prev, autoSubstatFlex: true }))
+          setCustomRecipes((prev) => prev.map((r, i) => i === 1 ? { ...r, autoSubstatFlex: false } : r))
+          setSelectedRecipeIdx(1)
+        },
+      },
+      {
+        // Apply button — pushes the pending flex change from the builder to the committed Recipe #2.
+        // The preview expands once the change is committed.
+        id: 'flex-apply',
+        title: t('tutFlexApplyTitle'),
+        body: t('tutFlexApplyBody'),
+        targetId: 'builder.apply-recipe',
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
+          // Commit flex=true to Recipe #2 (mirrors what Apply does), expanding the preview rows.
+          setCustomRecipes((prev) => prev.map((r, i) => i === 1 ? { ...r, autoSubstatFlex: true } : r))
+          setSelectedRecipeIdx(1)
+        },
+      },
+      {
+        // Show the expanded preview: two rows per milestone, one per flex combination.
+        id: 'flex-preview',
         title: t('tutAdvPreviewEarlyTitle'),
         body: t('tutAdvPreviewEarlyBody'),
         targetId: 'preview.table',
-	        before: () => {
-	          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
+          setSelectedRecipeIdx(1)
           setTimeout(() => { try { smoothScrollPreviewToEnd() } catch {} }, 120)
-	        },
-	      },
-	      {
-	        id: 'chips',
-        title: t('tutRecipeChipsTitle'),
-        body: t('tutRecipeChipsBody'),
-        targetIds: ['chip.selected', 'chip.menu'],
-        expand: 10,
-	        before: () => {
-	          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
-          try {
-            const el = document.querySelector('[data-tour-id="chips.container"]') as HTMLElement | null
-            // Smoothly re-center the chips list before introducing the chip menu.
-            // Why: this is a tutorial affordance and should feel guided rather than jumpy.
-            el?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
-          } catch {}
-	          try {
-	            const chip = document.querySelector('[data-tour-id="chip.selected"]') as HTMLElement | null
-	            if (chip) {
-              const rect = chip.getBoundingClientRect()
-              chip.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: window, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 }))
-            }
-          } catch {}
         },
       },
       {
@@ -1039,17 +1191,12 @@ export function useTutorialCoachState({
         },
       },
       {
-        id: 'auto-late-substats',
-        title: t('tutAutoLateSubstatsTitle'),
-        body: t('tutAutoLateSubstatsBody'),
-        targetId: 'builder.substats',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null) },
-      },
-      {
-        id: 'auto-late-rolls',
-        title: t('tutAutoLateRollsTitle'),
-        body: t('tutAutoLateRollsBody'),
-        targetIds: ['builder.min-rolls.label', 'builder.min-rolls', 'builder.min-rolls.toggle'],
+        // Milestone concept intro — moved here from the advanced section so Early/Late
+        // is explained in context, right before the user sets Late mode for this recipe.
+        id: 'thresholds',
+        title: t('builderMilestoneThresholds'),
+        body: t('tutAdvMilestonesBody'),
+        targetIds: ['builder.thresholds.label', 'builder.thresholds', 'builder.thresholds.auto-chip'],
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null) },
       },
       {
@@ -1078,7 +1225,14 @@ export function useTutorialCoachState({
         title: t('tutPreviewHighlightTitle'),
         body: t('tutPreviewHighlightBody'),
         targetId: 'preview.table.lower',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight('lower') },
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false)
+          // Scroll to the end so the newly added Recipe #3 rows are visible, then arm the lower overlay.
+          setTimeout(() => {
+            try { smoothScrollPreviewToEnd() } catch {}
+            try { ensurePreviewHighlight('lower') } catch {}
+          }, 120)
+        },
       },
       {
         id: 'gear-inspector-open',
@@ -1095,7 +1249,9 @@ export function useTutorialCoachState({
         id: 'gear-inspector-add-manual',
         title: t('tutGearDialogAddTitle'),
         body: t('tutGearDialogAddBody'),
-        targetIds: ['gear-inspector.add-manual', 'gear-inspector.item.1', 'gear-inspector.item.2'],
+        // Target the dialog container so the highlight stays within its bounds;
+        // individual item rects can overflow when the list is taller than the dialog.
+        targetId: 'gear-inspector.dialog',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false); ensurePreviewHighlight(null)
           setPreviewMode('rules')
@@ -1107,7 +1263,8 @@ export function useTutorialCoachState({
         id: 'gear-inspector-preview',
         title: t('tutGearDialogPreviewTitle'),
         body: t('tutGearDialogPreviewBody'),
-        targetIds: ['preview.mode-toggle', 'preview.gear-inspector-grid-top'],
+        // Use the full grid container so all tutorial gear items are covered by the highlight.
+        targetIds: ['preview.mode-toggle', 'preview.gear-inspector-grid'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false); ensurePreviewHighlight(null)
           // Close the integrated Gear tab before flipping the preview so the overlay only tracks the table.
@@ -1119,8 +1276,12 @@ export function useTutorialCoachState({
         id: 'finalsell-intro',
         title: t('tutFinalSellIntroTitle'),
         body: t('tutFinalSellIntroBody'),
-        targetIds: ['finalsell.toggle', 'finalsell.recipe'],
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null) },
+        targetId: 'finalsell.toggle',
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null)
+          // Reset Final Sell to disabled so stepping back from finalsell-dialog undoes its before-hook.
+          setFinalSellRemainder({ artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[], setsMode: FINAL_SELL_DEFAULT_SETS_MODE })
+        },
       },
       {
         id: 'finalsell-dialog',
@@ -1135,7 +1296,7 @@ export function useTutorialCoachState({
             setFinalSellRemainder((prev) => {
               const safePrev = prev ?? { artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[], setsMode: FINAL_SELL_DEFAULT_SETS_MODE }
               const levels = safePrev.levels?.length ? safePrev.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[])
-              return { ...safePrev, artifacts: true, accessories: false, levels }
+              return { ...safePrev, artifacts: true, accessories: true, levels }
             })
           } catch {}
         },
@@ -1172,6 +1333,24 @@ export function useTutorialCoachState({
         },
       },
       {
+        // Payoff step: flip to Gear Inspector so users see all four outcomes at once.
+        // Why: the four sample items demonstrate recipe keep (×2) / Final Sell sell / Safeguard keep
+        // in one view — this step makes the full pipeline visible.
+        id: 'safeguards-payoff',
+        title: t('tutSafeguardsPayoffTitle'),
+        body: t('tutSafeguardsPayoffBody'),
+        targetIds: ['gear-inspector.item.1', 'gear-inspector.item.2', 'gear-inspector.item.3', 'gear-inspector.item.4'],
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
+          setLogicHubOpen(false)
+          setBuilderMode('safeguard')
+          setSafeguardRules(buildTutorialSafeguardRules())
+          setSafeguardsEnabled(true)
+          setGearInspectorItems(buildTutorialGearInspectorItems())
+          setPreviewMode('gearInspector')
+        },
+      },
+      {
         id: 'note',
         title: t('tutNoteTitle'),
         body: t('tutNoteBody'),
@@ -1182,29 +1361,17 @@ export function useTutorialCoachState({
         },
       },
       {
-        id: 'save-explain',
-        title: t('tutSaveExplainTitle'),
-        body: t('tutSaveExplainBody'),
-        targetId: 'sfr.save',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null); try { setLogicHubOpen(false) } catch {} },
-      },
-      {
-        id: 'preview',
-        title: t('tutPreviewFinishTitle'),
-        body: t('tutPreviewFinishBody'),
-        targetId: 'preview.paper',
+        // Merged: was save-explain + preview + export-explain.
+        // Resets preview to rules mode (was the 'preview' step's job) before pointing at export.
+        id: 'export-explain',
+        title: t('tutExportExplainTitle'),
+        body: t('tutExportExplainBody'),
+        targetIds: ['hsf.export', 'sfr.save'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null)
           setPreviewMode('rules')
           try { setLogicHubOpen(false) } catch {}
         },
-      },
-      {
-        id: 'export-explain',
-        title: t('tutExportExplainTitle'),
-        body: t('tutExportExplainBody'),
-        targetId: 'hsf.export',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null); try { setLogicHubOpen(false) } catch {} },
       },
       {
         id: 'preview-header-menu',
@@ -1221,11 +1388,13 @@ export function useTutorialCoachState({
     const find = (id: string) => steps.findIndex((step) => step.id === id)
     const sections: Array<{ label: string; index: number }> = [
       { label: t('tutSectionBasicsLabel'), index: find('welcome') },
-      { label: t('tutSectionAdvancedLabel'), index: find('adv-intro') },
+      // Metasets comes before Advanced — concept is introduced while Recipe #1 is selected.
       { label: t('tutSectionMetasetsLabel'), index: find('metasets-open') },
-      { label: t('tutSectionRecipeChipsLabel'), index: find('adv-add') },
+      { label: t('tutSectionAdvancedLabel'), index: find('adv-intro') },
+      // Flex: adding Recipe #2 then showing before/after Flex permutations in the preview.
+      { label: t('tutSectionFlexLabel'), index: find('adv-add') },
       { label: t('tutSectionAutoLateLabel'), index: find('auto-late-slot') },
-      { label: t('tutSectionGearDialogLabel'), index: find('gear-inspector-open') },
+      { label: t('tutSectionGearInspectorLabel'), index: find('gear-inspector-open') },
       { label: t('tutSectionFinalSellLabel'), index: find('finalsell-intro') },
       { label: t('tutSectionSaveExportLabel'), index: find('note') },
     ].filter((section) => section.index >= 0)
@@ -1238,18 +1407,17 @@ export function useTutorialCoachState({
     setCustomRecipes,
     setLogicHubOpen,
     setFinalSellRemainder,
-    setFilterOpen,
     setSfrNote,
     setHsf,
     setMetasets,
     setSubstatTargets,
-    setRulesFilter,
     setSelectedRecipeIdx,
     setGearInspectorItems,
     setPreviewMode,
     setLogicHubDialogTab,
     setSafeguardRules,
     setSafeguardsEnabled,
+    setRecipesEnabled,
     setTutorialAddedAutoLate,
     setTutorialAddedAdvanced,
     setTutorialAddedBasic,
@@ -1285,36 +1453,26 @@ export function useTutorialCoachState({
       let nextPreviewMode: 'rules' | 'gearInspector' = 'rules'
       let nextLogicHubOpen = false
       let nextSafeguardRules: SafeguardRule[] = []
-      let nextSafeguardsEnabled = false
+      // App defaults: both toggles on, final sell off — mirror startTutorial() and app initial state.
+      let nextSafeguardsEnabled = true
+      let nextRecipesEnabled = true
       let nextLogicHubDialogTab: LogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_FINAL_SELL
       let nextBuilderMode: 'recipe' | 'safeguard' = 'recipe'
       let nextNote: string | null = null
-      let nextBuilder: BuilderRecipe = {
-        name: '',
-        keep: true,
-        exportMode: 'active',
-        rankCode: 0,
-        rarityCode: 0,
-        rarityMode: 'auto',
-        factionCode: 0,
-        mainStatsV: [],
-        minLevel: 0,
-        maxLevel: 16,
-        earlyKeepMode: 'early',
-        substatsV: [],
-        fixedSubstatsV: [],
-        minCount: 0,
-        autoMinCount: true,
-        autoSubstatFlex: false,
-        minRequiredRolls: 0,
-        autoMinRequiredRolls: true,
-      }
+      let nextBuilder: BuilderRecipe = { ...TUTORIAL_INITIAL_BUILDER }
       const ensureSlowDD = () => {
         if (!nextMetas.some((meta) => meta.name.trim().toLowerCase() === 'slow dd')) {
           const id = makeMetasetId()
           nextMetas = nextMetas.concat({ id, name: 'Slow DD', sets: [ArtifactSet.Lethal, ArtifactSet.Savage, ArtifactSet.Stoneskin], show: true, iconId: DEFAULT_METASET_ICON_ID })
         }
       }
+      // Track which tutorial-driven additions have been replayed so the flags
+      // can be written back after the loop — keeping Next button logic in sync.
+      let basicAdded = false
+      let advancedAdded = false
+      let autoLateAdded = false
+      let slowDDAdded = false
+      let defaultMetasAdded = false
       for (let i = 0; i <= idx && i < steps.length; i += 1) {
         const sid = steps[i]?.id
         if (!sid) continue
@@ -1331,16 +1489,19 @@ export function useTutorialCoachState({
             nextBuilder = { ...nextBuilder, artifactSets: [{ id: ArtifactSet.Speed }] }
             break
           }
-          case 'add': {
+          case 'added': {
+            // Commit Recipe #1 here, not at 'add' — 'add' shows the button before the click.
             nextRecipes = nextRecipes.concat(nextBuilder)
             nextSel = nextRecipes.length - 1
+            basicAdded = true
             break
           }
           case 'adv-select-slots-main': {
+            // DEF% omitted from the demo to keep it tight — body text mentions it as an option.
             nextBuilder = {
               ...nextBuilder,
               artifactTypes: [ArtifactType.Chestplate, ArtifactType.Boots],
-              mainStatsV: [StatVariant.HP, StatVariant.ATK, StatVariant.DEF],
+              mainStatsV: [StatVariant.HP, StatVariant.ATK],
             }
             break
           }
@@ -1349,34 +1510,67 @@ export function useTutorialCoachState({
             break
           }
           case 'subs': {
+            // Lock only SPD — CR and CDMG are required but carry no per-stat roll floor.
+            // Required=2 avoids the "required equals locked" warning (2 ≠ 1 locked).
+            // Flex remains OFF until the dedicated Flex section explains and enables it.
             nextBuilder = {
               ...nextBuilder,
               substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.CDMG],
-              fixedSubstatsV: [StatVariant.CDMG],
+              fixedSubstatsV: [StatVariant.SPD],
+              autoMinCount: false,
+              minCount: 2,
+              autoSubstatFlex: false,
             }
             break
           }
           case 'required': {
-            nextBuilder = { ...nextBuilder, autoMinCount: false, autoSubstatFlex: false, minCount: 2 }
+            // Required = 2: locked SPD always fills one slot, CR or CDMG fills the other.
+            // Flex stays OFF until the Flex section — mirrors the step's before() hook.
+            nextBuilder = { ...nextBuilder, autoMinCount: false, minCount: 2 }
             break
           }
           case 'min-rolls': {
             nextBuilder = { ...nextBuilder, autoMinRequiredRolls: false, minRequiredRolls: 3 }
             break
           }
-          case 'metasets-add': {
-            ensureSlowDD()
+          case 'locked-min-rolls': {
+            // SPD (the only locked substat) must carry at least 1 roll.
+            nextBuilder = { ...nextBuilder, lockedMinRequiredRolls: 1 }
             break
           }
-          case 'metasets-defaults': {
-            // Keep this list in sync with `defaultMetasets()` in `src/lib/metasets.ts`.
-            // Why: The tutorial “auto-add defaults” step filters by metaset *name* so it can
-            // demonstrate the UI even when a fresh workspace started empty.
+          case 'metasets-add': {
+            // All tutorial metasets are pre-created in this step's before() hook.
+            // Mirror that here: add Speed, Slow DD, and the three defaults to nextMetas.
+            if (!nextMetas.some((m) => m.name.trim().toLowerCase() === 'speed-sets'))
+              nextMetas = nextMetas.concat({ id: makeMetasetId(), name: 'Speed-Sets', sets: [ArtifactSet.Speed, ArtifactSet.Perception, ArtifactSet.Protection], show: true, iconId: DEFAULT_METASET_ICON_ID })
+            ensureSlowDD()
+            slowDDAdded = true
             const wanted = new Set(['Nuker', 'Debuffer', 'Survivability'])
             const defs = defaultMetasets().filter((meta) => wanted.has(meta.name))
             const have = new Set(nextMetas.map((meta) => meta.name))
             const add = defs.filter((meta) => !have.has(meta.name))
             if (add.length) nextMetas = nextMetas.concat(add)
+            defaultMetasAdded = true
+            break
+          }
+          case 'sets-metasets-basic': {
+            // Mirror the before() hook: Speed-Sets is selected and visible in the open dropdown.
+            const speed = nextMetas.find((m) => m.name.trim().toLowerCase() === 'speed-sets')
+            if (speed && nextRecipes.length > 0) {
+              nextRecipes = nextRecipes.map((r, i) => i === 0 ? { ...r, artifactMetaSets: [speed.id], artifactSets: [] } : r)
+              nextBuilder = { ...nextBuilder, artifactMetaSets: [speed.id], artifactSets: [] }
+            }
+            nextSel = 0
+            break
+          }
+          case 'sets-metasets-apply': {
+            // Commit Speed-Sets metaset to Recipe #1 — mirrors the before() hook of this step.
+            const speed = nextMetas.find((m) => m.name.trim().toLowerCase() === 'speed-sets')
+            if (speed && nextRecipes.length > 0) {
+              nextRecipes = nextRecipes.map((r, i) => i === 0 ? { ...r, artifactMetaSets: [speed.id], artifactSets: [] } : r)
+              nextBuilder = { ...nextBuilder, artifactMetaSets: [speed.id], artifactSets: [] }
+            }
+            nextSel = 0
             break
           }
           case 'sets-metasets': {
@@ -1386,8 +1580,24 @@ export function useTutorialCoachState({
             break
           }
           case 'adv-add': {
+            // Commit Recipe #2 here — matches handleTutorialNext which commits on leaving adv-add.
             nextRecipes = nextRecipes.concat(nextBuilder)
             nextSel = nextRecipes.length - 1
+            advancedAdded = true
+            break
+          }
+          case 'flex-toggle': {
+            // Mirror flex-toggle before(): builder has flex=true but committed recipe stays false
+            // (the preview keeps strict rows until flex-apply commits the change).
+            nextBuilder = { ...nextBuilder, autoSubstatFlex: true }
+            const flexToggleIdx = nextRecipes.length - 1
+            if (flexToggleIdx >= 0) nextRecipes = nextRecipes.map((r, i) => i === flexToggleIdx ? { ...r, autoSubstatFlex: false } : r)
+            break
+          }
+          case 'flex-apply': {
+            // Mirror flex-apply before(): commit flex=true to Recipe #2 — preview now expands.
+            const flexApplyIdx = nextRecipes.length - 1
+            if (flexApplyIdx >= 0) nextRecipes = nextRecipes.map((r, i) => i === flexApplyIdx ? { ...r, autoSubstatFlex: true } : r)
             break
           }
           case 'auto-late-slot': {
@@ -1425,11 +1635,11 @@ export function useTutorialCoachState({
             break
           }
           case 'preview-highlight': {
-            // Recipe is created on entering this step (not auto-late-add) so
-            // stepping back to auto-late-add shows the Add button without a
-            // pre-existing chip — matches the intent of that step.
+            // Recipe #3 is committed here (not at 'auto-late-add') so that stepping
+            // back to auto-late-add shows the Add button without a pre-existing recipe.
             nextRecipes = nextRecipes.concat(nextBuilder)
             nextSel = nextRecipes.length - 1
+            autoLateAdded = true
             break
           }
           case 'gear-inspector-open': {
@@ -1459,7 +1669,9 @@ export function useTutorialCoachState({
           }
           case 'finalsell-dialog': {
             const levels = nextFsr.levels?.length ? nextFsr.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[])
-            nextFsr = { ...nextFsr, artifacts: true, accessories: false, levels }
+            // Both artifact and accessory types enabled to demonstrate the full pipeline
+            // (banner accessories fall through to Final Sell without a safeguard).
+            nextFsr = { ...nextFsr, artifacts: true, accessories: true, levels }
             nextLogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_FINAL_SELL
             break
           }
@@ -1477,6 +1689,16 @@ export function useTutorialCoachState({
             nextBuilderMode = 'safeguard'
             break
           }
+          case 'safeguards-payoff': {
+            // Payoff: show all three items in Gear Inspector with rules fully active.
+            if (nextSafeguardRules.length === 0) nextSafeguardRules = buildTutorialSafeguardRules()
+            nextSafeguardsEnabled = true
+            nextLogicHubOpen = false
+            nextBuilderMode = 'safeguard'
+            if (nextGearInspectorItems.length === 0) nextGearInspectorItems = buildTutorialGearInspectorItems()
+            nextPreviewMode = 'gearInspector'
+            break
+          }
           default:
             break
         }
@@ -1491,6 +1713,7 @@ export function useTutorialCoachState({
       setFinalSellRemainder(nextFsr)
       setSafeguardRules(nextSafeguardRules)
       setSafeguardsEnabled(nextSafeguardsEnabled)
+      setRecipesEnabled(nextRecipesEnabled)
       setGearInspectorItems(nextGearInspectorItems)
       setPreviewMode(nextPreviewMode)
       setLogicHubOpen(nextLogicHubOpen)
@@ -1498,6 +1721,13 @@ export function useTutorialCoachState({
       setBuilderMode(nextBuilderMode)
       setSfrNote(nextNote)
       setBuilder(nextBuilder)
+      // Write the tutorial-added flags back so Next-button guards stay in sync
+      // after any breadcrumb jump or backward navigation via this replay path.
+      setTutorialAddedBasic(basicAdded)
+      setTutorialAddedAdvanced(advancedAdded)
+      setTutorialAddedAutoLate(autoLateAdded)
+      setTutorialAddedSlowDD(slowDDAdded)
+      setTutorialAddedDefaultMetas(defaultMetasAdded)
       setTutorialIdx(idx)
     } catch {
       setTutorialIdx(idx)
@@ -1514,11 +1744,17 @@ export function useTutorialCoachState({
     setSelectedRecipeIdx,
     setSafeguardRules,
     setSafeguardsEnabled,
+    setRecipesEnabled,
     setGearInspectorItems,
     setPreviewMode,
     setBuilderMode,
     setLogicHubOpen,
     setLogicHubDialogTab,
+    setTutorialAddedBasic,
+    setTutorialAddedAdvanced,
+    setTutorialAddedAutoLate,
+    setTutorialAddedSlowDD,
+    setTutorialAddedDefaultMetas,
     suppressHistorySnapshot,
     tutorialSteps,
   ])
@@ -1531,48 +1767,10 @@ export function useTutorialCoachState({
   }, [closeAllTransientUi, restoreFromTutorialSnapshot])
 
   const handleTutorialPrev = useCallback(() => {
-    try {
-      const cur = tutorialSteps[tutorialIdx]
-      const prevIdx = Math.max(0, tutorialIdx - 1)
-      const target = tutorialSteps[prevIdx]
-
-      // Going back from preview-highlight to auto-late-add: undo the recipe insertion
-      // so the Add button is visible again and the recipe doesn't pre-exist at step 34.
-      if (cur?.id === 'preview-highlight') {
-        suppressHistorySnapshot()
-        const removeIdx = selectedRecipeIdx !== null ? selectedRecipeIdx : -1
-        if (removeIdx >= 0) {
-          setCustomRecipes((prev) => prev.filter((_, i) => i !== removeIdx))
-          setSelectedRecipeIdx(removeIdx > 0 ? removeIdx - 1 : null)
-        }
-        setTutorialAddedAutoLate(false)
-      }
-
-      if (target && target.id === 'sets-metasets') {
-        const openMenu = () => {
-          try {
-            const selEl = document.querySelector('[data-tour-id="builder.sets"] .MuiSelect-select') as HTMLElement | null
-            const trigger = selEl || (document.querySelector('[data-tour-id="builder.sets"]') as HTMLElement | null)
-            if (trigger) trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }))
-          } catch {}
-        }
-        openMenu()
-        setTimeout(openMenu, 60)
-      } else if (target && target.id === 'sets-open') {
-        try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {}
-        setTimeout(() => {
-          try {
-            const targetEl = document.body as HTMLElement
-            const opts = { bubbles: true, cancelable: true, view: window } as MouseEventInit
-            targetEl.dispatchEvent(new MouseEvent('mousedown', opts))
-            targetEl.dispatchEvent(new MouseEvent('mouseup', opts))
-            targetEl.dispatchEvent(new MouseEvent('click', opts))
-          } catch {}
-        }, 60)
-      }
-    } catch {}
-    setTutorialIdx((value) => Math.max(0, value - 1))
-  }, [tutorialIdx, tutorialSteps, selectedRecipeIdx, setCustomRecipes, setSelectedRecipeIdx, setTutorialAddedAutoLate, suppressHistorySnapshot])
+    // Delegate to the replay path so all state changes (recipes, metasets, flags)
+    // are always derived from a clean forward pass — no separate undo logic needed.
+    handleTutorialSkipTo(Math.max(0, tutorialIdx - 1))
+  }, [handleTutorialSkipTo, tutorialIdx])
 
   const handleTutorialNext = useCallback(() => {
     try {
@@ -1604,14 +1802,27 @@ export function useTutorialCoachState({
           return next
         })
       } else if (cur?.id === 'metasets-add' && !tutorialAddedSlowDD) {
+        // Metasets are pre-created in the step's before() hook; just record that they exist.
         setTutorialAddedSlowDD(true)
-        // Suppress history so tutorial metaset inserts do not add undo/redo entries.
-        suppressHistorySnapshot()
-        setMetasets((prev) => {
-          if (prev.some((meta) => meta.name.trim().toLowerCase() === 'slow dd')) return prev
-          const id = makeMetasetId()
-          return prev.concat({ id, name: 'Slow DD', sets: [ArtifactSet.Lethal, ArtifactSet.Savage, ArtifactSet.Stoneskin], show: true, iconId: DEFAULT_METASET_ICON_ID })
-        })
+      } else if (cur?.id === 'sets-metasets-apply') {
+        // Apply the Speed-Sets metaset to committed Recipe #1 — mirrors the step's before() hook.
+        // The DOM click is a best-effort visual cue; state is set directly for reliability.
+        try {
+          const speed = metasets.find((meta) => meta.name.trim().toLowerCase() === 'speed-sets')
+          if (speed) {
+            try {
+              const section = document.querySelector('[data-tour-id="menu.metasets.section"]') as HTMLElement | null
+              if (section) {
+                const items = Array.from(section.querySelectorAll('*')) as HTMLElement[]
+                const match = items.find((el) => (el.textContent || '').trim().toLowerCase() === 'speed-sets')
+                match?.click()
+              }
+            } catch {}
+            suppressHistorySnapshot()
+            setBuilder((prev) => ({ ...prev, artifactMetaSets: [speed.id], artifactSets: [] }))
+            setCustomRecipes((prev) => prev.map((r, i) => i === 0 ? { ...r, artifactMetaSets: [speed.id], artifactSets: [] } : r))
+          }
+        } catch {}
       } else if (cur?.id === 'sets-metasets') {
         try {
           const slow = metasets.find((meta) => meta.name.trim().toLowerCase() === 'slow dd')

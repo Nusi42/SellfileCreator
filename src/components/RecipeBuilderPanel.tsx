@@ -6986,6 +6986,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             })}
           >
             <Button
+              data-tour-id="builder.apply-recipe"
               onClick={() => {
                 setSaveTooltipOpen(false)
                 if (multiEditActive) {

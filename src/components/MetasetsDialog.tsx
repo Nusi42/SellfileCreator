@@ -564,6 +564,8 @@ export default function MetasetsDialog({
                 <Box
                   key={m.id}
                   data-meta-id={m.id}
+                  // First row gets a stable tour-id so the tutorial can spotlight it individually.
+                  data-tour-id={idx === 0 ? 'metasets.row.first' : undefined}
                   sx={{
                     display: 'grid',
                     gridTemplateColumns: 'auto auto 240px minmax(0,1fr) 80px auto',

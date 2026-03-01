@@ -283,6 +283,35 @@ export function resetRulesFilterPreferences() {
   filterCollapsedStore.set(cloneDefaultRulesFilterCollapsedByMode())
 }
 
+// Shape of the all-modes filter snapshot taken before the tutorial overwrites state.
+export type RulesFilterPreferencesSnapshot = {
+  filterOpen: Record<RulesFilterPreviewMode, boolean>
+  filterState: Record<RulesFilterPreviewMode, RulesFilterState>
+  filterCollapsed: Record<RulesFilterPreviewMode, CollapsedSections>
+}
+
+/**
+ * Capture the current all-modes filter state before tutorial overwrite.
+ * Deep-clones each store so subsequent store mutations do not corrupt the snapshot.
+ */
+export function snapshotRulesFilterPreferences(): RulesFilterPreferencesSnapshot {
+  return {
+    filterOpen: { ...filterOpenStore.getSnapshot() },
+    filterState: JSON.parse(JSON.stringify(filterStateStore.getSnapshot())) as Record<RulesFilterPreviewMode, RulesFilterState>,
+    filterCollapsed: JSON.parse(JSON.stringify(filterCollapsedStore.getSnapshot())) as Record<RulesFilterPreviewMode, CollapsedSections>,
+  }
+}
+
+/**
+ * Restore all-modes filter state from a previously captured snapshot.
+ * Bypasses React per-mode wrappers so all modes are written atomically.
+ */
+export function restoreRulesFilterPreferencesSnapshot(snapshot: RulesFilterPreferencesSnapshot) {
+  filterOpenStore.set(snapshot.filterOpen as Record<RulesFilterPreviewMode, boolean>)
+  filterStateStore.set(snapshot.filterState as Record<RulesFilterPreviewMode, RulesFilterState>)
+  filterCollapsedStore.set(snapshot.filterCollapsed as Record<RulesFilterPreviewMode, CollapsedSections>)
+}
+
 // Imperative helpers allow restores/autosave to write individual modes without juggling hooks.
 export function setRulesFilterOpenForMode(mode: RulesFilterPreviewMode, value: boolean) {
   filterOpenStore.update((prev) => {

@@ -2684,6 +2684,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSafeguardRules,
     safeguardsEnabled,
     setSafeguardsEnabled,
+    recipesEnabled,
+    setRecipesEnabled,
     gearInspectorItems,
     // Keep tutorial-driven Gear Inspector mutations on the same transition path as dialogs/imports.
     setGearInspectorItems: setGearInspectorItemsTransition,
@@ -2693,10 +2695,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSfrNote,
     builderRef,
     setBuilder,
-    filterOpen,
-    setFilterOpen,
-    rulesFilter,
-    setRulesFilter,
     logicHubOpen,
     setLogicHubOpen,
     setBuilderMode,
@@ -4764,6 +4762,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [])
 
+  // Capture as a stable primitive so the useCallback dep array stays tight.
+  const tutorialOpen = tutorial.tutorialOpen
   const handleExternalCommand = useCallback((cmd: ExternalCommand) => {
     if (cmd.kind === 'selectRule') {
       if (cmd.rowNumber != null) {
@@ -4777,6 +4777,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       return
     }
+
+    // Block gear-DB pushes while the tutorial is running.
+    // The tutorial manages its own gear items; an endpoint push would corrupt that state.
+    // selectRule (above) is left through since it only affects scroll position.
+    if (tutorialOpen) return
 
     if (cmd.kind === 'gearDbRawSnapshot') {
       enqueueEndpointPush(cmd)
@@ -4801,6 +4806,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     enqueueEndpointPush,
     focusRuleByIndex,
     requestSelectionScroll,
+    tutorialOpen,
   ])
 
   const { sendRequest: sendExternalRequest } = useExternalCommands({
@@ -5694,18 +5700,25 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     handleUnknownImportedFile,
   ])
 
-  // Global file-drag overlay and file routing handled by hook
+  // Global file-drag overlay and file routing handled by hook.
+  // During the tutorial all file drops are silently ignored so the user cannot
+  // accidentally import data that would clobber tutorial-driven state.
   const { active: fileDragActive } = useFileDragDrop({
     onDragStart: () => {
-      // Close context menus/popovers when a file drag starts so drop works cleanly
-      try { tutorial.closeAllTransientUi() } catch {}
+      // Close context menus/popovers when a file drag starts so drop works cleanly.
+      // Skip when the tutorial is open — the drop will be blocked anyway.
+      if (!tutorial.tutorialOpen) {
+        try { tutorial.closeAllTransientUi() } catch {}
+      }
     },
-    onSfr: handleSfrFile,
-    onHsf: handleHsfFile,
-    onL10n: handleRuntimeCatalog,
-    onGearDb: handleGearDbImport,
-    onGearSets: handleRuntimeGearSets,
-    onUnknownFile: handleUnknownImportedFile,
+    // Use `void` so the arrow function always returns void regardless of the branch taken.
+    // Handlers that don't accept a context arg are called with file only.
+    onSfr: (file, ctx) => { if (!tutorial.tutorialOpen) void handleSfrFile(file, ctx) },
+    onHsf: (file) => { if (!tutorial.tutorialOpen) void handleHsfFile(file) },
+    onL10n: (file) => { if (!tutorial.tutorialOpen) void handleRuntimeCatalog(file) },
+    onGearDb: (file, ctx) => { if (!tutorial.tutorialOpen) void handleGearDbImport(file, ctx) },
+    onGearSets: (file) => { if (!tutorial.tutorialOpen) void handleRuntimeGearSets(file) },
+    onUnknownFile: (file) => { if (!tutorial.tutorialOpen) void handleUnknownImportedFile(file) },
   })
 
   // Track whether a note exists so we can open in view mode.
@@ -5782,7 +5795,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         </ToggleButton>
       </MarkdownTooltip>
       {/* Final Sell split button: toggle + configure */}
-      <Box sx={{ display: 'flex', flexShrink: 0 }}>
+      <Box data-tour-id="finalsell.toggle" sx={{ display: 'flex', flexShrink: 0 }}>
         <MarkdownTooltip markdown={t('finalSellToggleTooltip')}>
           <ToggleButton
             value="finalSellToggle"
@@ -6295,7 +6308,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       {/* Full-screen, non-interactive overlay shown while dragging files over the app.
           We keep pointerEvents: 'none' so drops still reach the window handler. */}
       {(() => {
-        const dragOverlayVisible = fileDragActive && !confirmClearOpen && confirmDeleteIdx === null && confirmDeleteTargets === null
+        // Suppress overlay during tutorial — drops are blocked so the overlay would be misleading.
+        const dragOverlayVisible = fileDragActive && !tutorial.tutorialOpen && !confirmClearOpen && confirmDeleteIdx === null && confirmDeleteTargets === null
         return <FileDragOverlay active={dragOverlayVisible} />
       })()}
       <GlobalStyles styles={(theme) => ({

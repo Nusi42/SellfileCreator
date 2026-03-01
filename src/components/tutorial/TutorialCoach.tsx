@@ -10,6 +10,10 @@ const HIGHLIGHT_SETTLE_DELAY_MS = 260
 const PANEL_MOVE_ANIM_MS = 220
 const NAV_UNLOCK_PADDING_MS = 40
 const RECT_EPSILON_PX = 0.5
+// Safety ceiling: force-unlock nav if the settle timer is repeatedly reset (e.g. cascading
+// re-renders from a large state reset on tutorial open). 1.5 s gives enough room for the
+// initial layout to stabilise without leaving the user with a permanently disabled Next button.
+const NAV_LOCK_MAX_MS = 1500
 const BREADCRUMB_MIN_WIDTH_PX = 240
 
 const cloneRect = (source: DOMRect): DOMRect => new DOMRect(source.left, source.top, source.width, source.height)
@@ -116,6 +120,8 @@ export function TutorialCoach({
   const [navLocked, setNavLocked] = React.useState(false)
   const highlightSettleTimerRef = React.useRef<number | null>(null)
   const panelUnlockTimerRef = React.useRef<number | null>(null)
+  // Ceiling timer ref: clears itself and force-unlocks nav after NAV_LOCK_MAX_MS.
+  const navLockCeilingTimerRef = React.useRef<number | null>(null)
   const pendingPlacementRef = React.useRef<null | { target: DOMRect; animate: boolean }>(null)
   const [placementRequestTick, setPlacementRequestTick] = React.useState(0)
   const latestRectRef = React.useRef<DOMRect | null>(null)
@@ -250,6 +256,8 @@ export function TutorialCoach({
       setNavLocked(false)
       if (highlightSettleTimerRef.current !== null) { window.clearTimeout(highlightSettleTimerRef.current); highlightSettleTimerRef.current = null }
       if (panelUnlockTimerRef.current !== null) { window.clearTimeout(panelUnlockTimerRef.current); panelUnlockTimerRef.current = null }
+      // Cancel the ceiling timer when the tutorial closes so it cannot fire late.
+      if (navLockCeilingTimerRef.current !== null) { window.clearTimeout(navLockCeilingTimerRef.current); navLockCeilingTimerRef.current = null }
       pendingPlacementRef.current = null
       processedRectRef.current = null
       settleRectRef.current = null
@@ -258,6 +266,14 @@ export function TutorialCoach({
     setNavLocked(true)
     processedRectRef.current = null
     settleRectRef.current = null
+    // Arm the ceiling timer: if the settle mechanism has not fired within NAV_LOCK_MAX_MS
+    // (e.g. because cascading re-renders keep resetting it), force-unlock so the button
+    // is never permanently stuck disabled for the user.
+    if (navLockCeilingTimerRef.current !== null) { window.clearTimeout(navLockCeilingTimerRef.current) }
+    navLockCeilingTimerRef.current = window.setTimeout(() => {
+      navLockCeilingTimerRef.current = null
+      setNavLocked(false)
+    }, NAV_LOCK_MAX_MS)
   }, [open, stepIndex])
 
   React.useEffect(() => () => {
@@ -283,6 +299,8 @@ export function TutorialCoach({
           if (panelUnlockTimerRef.current !== null) { window.clearTimeout(panelUnlockTimerRef.current); panelUnlockTimerRef.current = null }
           panelUnlockTimerRef.current = window.setTimeout(() => {
             panelUnlockTimerRef.current = null
+            // Cancel ceiling timer — the normal settle mechanism got here first.
+            if (navLockCeilingTimerRef.current !== null) { window.clearTimeout(navLockCeilingTimerRef.current); navLockCeilingTimerRef.current = null }
             setNavLocked(false)
           }, NAV_UNLOCK_PADDING_MS)
         }, HIGHLIGHT_SETTLE_DELAY_MS)
@@ -304,6 +322,8 @@ export function TutorialCoach({
           if (panelUnlockTimerRef.current !== null) { window.clearTimeout(panelUnlockTimerRef.current); panelUnlockTimerRef.current = null }
           panelUnlockTimerRef.current = window.setTimeout(() => {
             panelUnlockTimerRef.current = null
+            // Cancel ceiling timer — the normal settle mechanism got here first.
+            if (navLockCeilingTimerRef.current !== null) { window.clearTimeout(navLockCeilingTimerRef.current); navLockCeilingTimerRef.current = null }
             setNavLocked(false)
           }, NAV_UNLOCK_PADDING_MS)
           return
@@ -429,6 +449,8 @@ export function TutorialCoach({
       if (panelUnlockTimerRef.current !== null) { window.clearTimeout(panelUnlockTimerRef.current) }
       panelUnlockTimerRef.current = window.setTimeout(() => {
         panelUnlockTimerRef.current = null
+        // Cancel ceiling timer — the normal settle mechanism got here first.
+        if (navLockCeilingTimerRef.current !== null) { window.clearTimeout(navLockCeilingTimerRef.current); navLockCeilingTimerRef.current = null }
         setNavLocked(false)
       }, unlockDelay)
     }
@@ -622,7 +644,7 @@ export function TutorialCoach({
               }}
             >
               {!!sections && sections.length > 0 && (
-                <Breadcrumbs separator="›" sx={{ '& .MuiBreadcrumbs-ol': { alignItems: 'center' } }}>
+                <Breadcrumbs separator="›" maxItems={sections.length} sx={{ '& .MuiBreadcrumbs-ol': { alignItems: 'center' } }}>
                   {(() => {
                     const curIdx = sections.findIndex((s, i) => stepIndex >= s.index && (i === sections.length - 1 || stepIndex < sections[i+1]!.index))
                     return sections.map((s, i) => {
