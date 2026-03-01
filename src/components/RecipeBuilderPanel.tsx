@@ -5580,6 +5580,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             value={String(n)}
                             selected={isSelected}
                             onClick={() => handleManualMinRequiredRolls(n)}
+                            data-tour-id={`builder.min-rolls.button.${n}`}
                             sx={(theme) => ({
                               position: 'relative',
                               minWidth: 24,

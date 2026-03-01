@@ -970,14 +970,14 @@ export function useTutorialCoachState({
         targetId: 'menu.metasets.section',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(true); ensureChipsMenu(false)
-          // Apply Speed-Sets to Recipe #1 and builder so the dropdown renders it as selected.
+          // Set builder to Speed-Sets so the dropdown renders it as selected (dirty state).
+          // The committed recipe keeps no metaset yet — Apply is enabled because builder ≠ recipe.
           // Use metasRef.current (not the closure-captured `metasets`) to get the live state
           // — metasets-add adds Speed-Sets after startTutorial's callback was memoized.
           const speed = metasRef.current.find((m) => m.name.trim().toLowerCase() === 'speed-sets')
           if (speed) {
             suppressHistorySnapshot()
             setBuilder((prev) => ({ ...prev, artifactMetaSets: [speed.id], artifactSets: [] }))
-            setCustomRecipes((prev) => prev.map((r, i) => i === 0 ? { ...r, artifactMetaSets: [speed.id], artifactSets: [] } : r))
           }
           setSelectedRecipeIdx(0)
           const timers = tutorialTimersRef.current
@@ -986,35 +986,42 @@ export function useTutorialCoachState({
         },
       },
       {
-        // Dropdown is closed; Apply button is highlighted. This is the teaching moment for the
-        // pending-draft concept — metaset is already applied to show the result.
+        // Dropdown is closed; Apply button is highlighted. Builder still has Speed-Sets (dirty)
+        // so Apply is enabled. handleTutorialNext commits it when the user presses Next.
         id: 'sets-metasets-apply',
         title: t('tutMetasetsApplyConfirmTitle'),
         body: t('tutMetasetsApplyConfirmBody'),
         targetId: 'builder.apply-recipe',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
-          // Close the menu and commit Speed-Sets to Recipe #1 (simulates the user picking it
-          // then hitting Apply), so the preview already reflects the applied metaset.
-          // Use metasRef.current for the same reason as sets-metasets-basic above.
+          // Keep builder at Speed-Sets (dirty) so Apply button remains enabled.
+          // Do not commit to the recipe here — that happens in handleTutorialNext.
           const speed = metasRef.current.find((m) => m.name.trim().toLowerCase() === 'speed-sets')
           if (speed) {
             suppressHistorySnapshot()
             setBuilder((prev) => ({ ...prev, artifactMetaSets: [speed.id], artifactSets: [] }))
-            setCustomRecipes((prev) => prev.map((r, i) => i === 0 ? { ...r, artifactMetaSets: [speed.id], artifactSets: [] } : r))
           }
           setSelectedRecipeIdx(0)
         },
       },
       {
         // Show the preview with the Speed-Sets metaset applied to Recipe #1.
+        // Highlight only the top third of the preview table (Recipe #1's rows are at the top).
         id: 'metasets-preview-basic',
         title: t('tutMetasetsPreviewBasicTitle'),
         body: t('tutMetasetsPreviewBasicBody'),
-        targetId: 'preview.table',
+        targetId: 'preview.table-top',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
-          // Ensure Recipe #1 is selected so the preview highlights its rows.
+          // Commit Speed-Sets to Recipe #1 so the preview reflects the applied metaset.
+          // (Natural flow: handleTutorialNext on sets-metasets-apply already did this.
+          //  Replay/back-nav: before() ensures the state is correct regardless of path.)
+          const speed = metasRef.current.find((m) => m.name.trim().toLowerCase() === 'speed-sets')
+          if (speed) {
+            suppressHistorySnapshot()
+            setBuilder((prev) => ({ ...prev, artifactMetaSets: [speed.id], artifactSets: [] }))
+            setCustomRecipes((prev) => prev.map((r, i) => i === 0 ? { ...r, artifactMetaSets: [speed.id], artifactSets: [] } : r))
+          }
           setSelectedRecipeIdx(0)
         },
       },
@@ -1079,12 +1086,12 @@ export function useTutorialCoachState({
         before: () => setBuilder((prev) => ({ ...prev, autoMinRequiredRolls: false, minRequiredRolls: 3 })),
       },
       {
-        // Introduces lockedMinRequiredRolls via the lock icon on button 1.
-        // Only SPD is locked so the floor applies to that single stat only.
+        // Introduces lockedMinRequiredRolls. Highlights both the number 2 button and its lock icon
+        // so it is obvious where to click — the lock icon alone is too small to spot easily.
         id: 'locked-min-rolls',
         title: t('tutLockedMinRollsTitle'),
         body: t('tutLockedMinRollsBody'),
-        targetId: 'builder.min-rolls.lock-icon.1',
+        targetIds: ['builder.min-rolls.button.1', 'builder.min-rolls.lock-icon.1'],
         before: () => setBuilder((prev) => ({ ...prev, lockedMinRequiredRolls: 1 })),
       },
       {
@@ -1094,6 +1101,14 @@ export function useTutorialCoachState({
         targetId: 'menu.metasets.section',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(true); ensureChipsMenu(false)
+          // Pre-select Slow DD in the builder so the dropdown renders it as selected.
+          // The recipe is not committed yet (dirty state); handleTutorialNext applies it on Next.
+          const slow = metasRef.current.find((m) => m.name.trim().toLowerCase() === 'slow dd')
+          if (slow) {
+            suppressHistorySnapshot()
+            setBuilder((prev) => ({ ...prev, artifactMetaSets: [slow.id], artifactSets: [] }))
+          }
+          setSelectedRecipeIdx(1)
           const timers = tutorialTimersRef.current
           if (timers.setsMenuRetryId !== null) { try { clearTimeout(timers.setsMenuRetryId) } catch {} ; timers.setsMenuRetryId = null }
           timers.setsMenuRetryId = window.setTimeout(() => { try { ensureSetsMenu(true) } catch {} }, 60)
@@ -1121,8 +1136,9 @@ export function useTutorialCoachState({
         },
       },
       {
-        // Point at the Flex chip — flex is toggled ON in the builder but not yet applied to Recipe #2.
-        // The preview still shows the strict no-flex rows so the contrast is visible before apply.
+        // Merged flex-toggle + flex-apply: Flex chip is on in the builder but Recipe #2 still
+        // has flex=false — the preview keeps strict rows. Pressing Next commits flex (via
+        // flex-preview's before()), so Back/Next lets users compare before and after.
         id: 'flex-toggle',
         title: t('tutFlexToggleTitle'),
         body: t('tutFlexToggleBody'),
@@ -1130,39 +1146,29 @@ export function useTutorialCoachState({
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
           // Flex ON in the builder (chip shows as active) but Recipe #2 still has flex=false
-          // so the preview keeps the strict-mode rows until the user hits Apply.
+          // so the preview keeps strict rows — the contrast is visible when toggling Back/Next.
           setBuilder((prev) => ({ ...prev, autoSubstatFlex: true }))
           setCustomRecipes((prev) => prev.map((r, i) => i === 1 ? { ...r, autoSubstatFlex: false } : r))
           setSelectedRecipeIdx(1)
         },
       },
       {
-        // Apply button — pushes the pending flex change from the builder to the committed Recipe #2.
-        // The preview expands once the change is committed.
-        id: 'flex-apply',
-        title: t('tutFlexApplyTitle'),
-        body: t('tutFlexApplyBody'),
-        targetId: 'builder.apply-recipe',
-        before: () => {
-          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
-          // Commit flex=true to Recipe #2 (mirrors what Apply does), expanding the preview rows.
-          setCustomRecipes((prev) => prev.map((r, i) => i === 1 ? { ...r, autoSubstatFlex: true } : r))
-          setSelectedRecipeIdx(1)
-        },
-      },
-      {
-        // Show the expanded preview: two rows per milestone, one per flex combination.
+        // Show the expanded preview after flex is committed. Flex is committed here (not in
+        // flex-toggle) so that Back → flex-toggle restores strict rows and Next re-expands them.
         id: 'flex-preview',
         title: t('tutAdvPreviewEarlyTitle'),
         body: t('tutAdvPreviewEarlyBody'),
         targetId: 'preview.table',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
+          // Commit flex=true to Recipe #2 — preview expands to one row per flex combination.
+          setCustomRecipes((prev) => prev.map((r, i) => i === 1 ? { ...r, autoSubstatFlex: true } : r))
           setSelectedRecipeIdx(1)
           setTimeout(() => { try { smoothScrollPreviewToEnd() } catch {} }, 120)
         },
       },
       {
+        // Spotlights the slot picker. Min Rolls starts at Auto here; the substats step sets it to 3.
         id: 'auto-late-slot',
         title: t('tutAutoLateSlotTitle'),
         body: t('tutAutoLateSlotBody'),
@@ -1173,21 +1179,32 @@ export function useTutorialCoachState({
             ...prev,
             name: 'Banner SPD — Late 3 rolls',
             artifactTypes: [ArtifactType.Banner],
-            artifactSets: [{ id: ArtifactSet.Refresh }],
+            artifactSets: [],
             artifactMetaSets: [],
             mainStatsV: [],
             substatsV: [StatVariant.SPD],
             fixedSubstatsV: [],
-            autoMinCount: false,
+            autoMinCount: true,
+            minCount: 1, // explicit sync — setBuilder bypasses normalizeKeepWithAuto
             autoSubstatFlex: false,
-            minCount: 1,
-            autoMinRequiredRolls: false,
-            minRequiredRolls: 3,
+            autoMinRequiredRolls: true,
             rarityCode: 0,
             rarityMode: 'auto',
-            earlyKeepMode: 'late',
+            earlyKeepMode: 'early',
             autoRaritySupplementsThreshold: 'rare',
           }))
+        },
+      },
+      {
+        // Spotlights substats and sets Min Rolls to 3 — since SPD is the only stat, this means 3 SPD rolls.
+        id: 'auto-late-substats',
+        title: t('tutAutoLateSubstatsTitle'),
+        body: t('tutAutoLateSubstatsBody'),
+        targetId: 'builder.substats',
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
+          // Per-stat roll minimum of 3 for SPD via substatRollBoundsV — shows the green badge on the chip.
+          setBuilder((prev) => ({ ...prev, substatRollBoundsV: { [StatVariant.SPD]: { min: 3 } } }))
         },
       },
       {
@@ -1204,7 +1221,11 @@ export function useTutorialCoachState({
         title: t('tutAutoLateModeTitle'),
         body: t('tutAutoLateModeBody'),
         targetIds: ['builder.thresholds.label', 'builder.thresholds', 'builder.thresholds.auto-chip'],
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null) },
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
+          // Switch builder to Late mode — this step explains the Late/Early tradeoff and shows the button active.
+          setBuilder((prev) => ({ ...prev, earlyKeepMode: 'late' }))
+        },
       },
       {
         id: 'auto-late-chip',
@@ -1227,7 +1248,28 @@ export function useTutorialCoachState({
         targetId: 'preview.table.lower',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false)
+          // Select Recipe #3 (index 2) explicitly — the handleTutorialNext selection may not be
+          // committed before this before() fires, leaving Recipe #2 highlighted instead.
+          // Also restore Late mode in case we're stepping back from preview-highlight-early.
+          setCustomRecipes(prev => prev.map((r, i) => i === 2 && r.earlyKeepMode !== 'late' ? { ...r, earlyKeepMode: 'late' as const } : r))
+          setSelectedRecipeIdx(2)
           // Scroll to the end so the newly added Recipe #3 rows are visible, then arm the lower overlay.
+          setTimeout(() => {
+            try { smoothScrollPreviewToEnd() } catch {}
+            try { ensurePreviewHighlight('lower') } catch {}
+          }, 120)
+        },
+      },
+      {
+        id: 'preview-highlight-early',
+        title: t('tutPreviewHighlightEarlyTitle'),
+        body: t('tutPreviewHighlightEarlyBody'),
+        targetId: 'preview.table.lower',
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false)
+          // Swap Recipe #3 to Early mode so the user can compare against the Late version on Back.
+          setCustomRecipes(prev => prev.map((r, i) => i === 2 && r.earlyKeepMode !== 'early' ? { ...r, earlyKeepMode: 'early' as const } : r))
+          setSelectedRecipeIdx(2)
           setTimeout(() => {
             try { smoothScrollPreviewToEnd() } catch {}
             try { ensurePreviewHighlight('lower') } catch {}
@@ -1249,9 +1291,8 @@ export function useTutorialCoachState({
         id: 'gear-inspector-add-manual',
         title: t('tutGearDialogAddTitle'),
         body: t('tutGearDialogAddBody'),
-        // Target the dialog container so the highlight stays within its bounds;
-        // individual item rects can overflow when the list is taller than the dialog.
-        targetId: 'gear-inspector.dialog',
+        // Union the dialog container with the Add button so both are spotlit together.
+        targetIds: ['gear-inspector.dialog', 'gear-inspector.add-manual'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false); ensurePreviewHighlight(null)
           setPreviewMode('rules')
@@ -1391,8 +1432,8 @@ export function useTutorialCoachState({
       // Metasets comes before Advanced — concept is introduced while Recipe #1 is selected.
       { label: t('tutSectionMetasetsLabel'), index: find('metasets-open') },
       { label: t('tutSectionAdvancedLabel'), index: find('adv-intro') },
-      // Flex: adding Recipe #2 then showing before/after Flex permutations in the preview.
-      { label: t('tutSectionFlexLabel'), index: find('adv-add') },
+      // Flex: toggle + apply + preview — adding Recipe #2 and the no-flex baseline belong to Advanced.
+      { label: t('tutSectionFlexLabel'), index: find('flex-toggle') },
       { label: t('tutSectionAutoLateLabel'), index: find('auto-late-slot') },
       { label: t('tutSectionGearInspectorLabel'), index: find('gear-inspector-open') },
       { label: t('tutSectionFinalSellLabel'), index: find('finalsell-intro') },
@@ -1554,21 +1595,29 @@ export function useTutorialCoachState({
             break
           }
           case 'sets-metasets-basic': {
-            // Mirror the before() hook: Speed-Sets is selected and visible in the open dropdown.
+            // Builder gets Speed-Sets (dirty); recipe stays empty so Apply button is enabled.
             const speed = nextMetas.find((m) => m.name.trim().toLowerCase() === 'speed-sets')
-            if (speed && nextRecipes.length > 0) {
-              nextRecipes = nextRecipes.map((r, i) => i === 0 ? { ...r, artifactMetaSets: [speed.id], artifactSets: [] } : r)
+            if (speed) {
               nextBuilder = { ...nextBuilder, artifactMetaSets: [speed.id], artifactSets: [] }
             }
             nextSel = 0
             break
           }
           case 'sets-metasets-apply': {
-            // Commit Speed-Sets metaset to Recipe #1 — mirrors the before() hook of this step.
+            // Still dirty at step 14: builder has Speed-Sets, recipe does not yet.
+            const speed = nextMetas.find((m) => m.name.trim().toLowerCase() === 'speed-sets')
+            if (speed) {
+              nextBuilder = { ...nextBuilder, artifactMetaSets: [speed.id], artifactSets: [] }
+            }
+            nextSel = 0
+            break
+          }
+          case 'metasets-preview-basic': {
+            // Speed-Sets is now committed — mirrors the state after the user clicked Apply.
             const speed = nextMetas.find((m) => m.name.trim().toLowerCase() === 'speed-sets')
             if (speed && nextRecipes.length > 0) {
-              nextRecipes = nextRecipes.map((r, i) => i === 0 ? { ...r, artifactMetaSets: [speed.id], artifactSets: [] } : r)
               nextBuilder = { ...nextBuilder, artifactMetaSets: [speed.id], artifactSets: [] }
+              nextRecipes = nextRecipes.map((r, i) => i === 0 ? { ...r, artifactMetaSets: [speed.id], artifactSets: [] } : r)
             }
             nextSel = 0
             break
@@ -1587,39 +1636,44 @@ export function useTutorialCoachState({
             break
           }
           case 'flex-toggle': {
-            // Mirror flex-toggle before(): builder has flex=true but committed recipe stays false
-            // (the preview keeps strict rows until flex-apply commits the change).
+            // Builder has flex=true but committed recipe stays false — strict preview, dirty state.
             nextBuilder = { ...nextBuilder, autoSubstatFlex: true }
             const flexToggleIdx = nextRecipes.length - 1
             if (flexToggleIdx >= 0) nextRecipes = nextRecipes.map((r, i) => i === flexToggleIdx ? { ...r, autoSubstatFlex: false } : r)
             break
           }
-          case 'flex-apply': {
-            // Mirror flex-apply before(): commit flex=true to Recipe #2 — preview now expands.
-            const flexApplyIdx = nextRecipes.length - 1
-            if (flexApplyIdx >= 0) nextRecipes = nextRecipes.map((r, i) => i === flexApplyIdx ? { ...r, autoSubstatFlex: true } : r)
+          case 'flex-preview': {
+            // Flex is committed here (mirrors flex-preview before()) — preview expands.
+            nextBuilder = { ...nextBuilder, autoSubstatFlex: true }
+            const flexPreviewIdx = nextRecipes.length - 1
+            if (flexPreviewIdx >= 0) nextRecipes = nextRecipes.map((r, i) => i === flexPreviewIdx ? { ...r, autoSubstatFlex: true } : r)
             break
           }
           case 'auto-late-slot': {
+            // Min Rolls is Auto here — the substats step overrides it to 3.
             nextBuilder = {
               ...nextBuilder,
               name: 'Banner SPD — Late 3 rolls',
               artifactTypes: [ArtifactType.Banner],
-              artifactSets: [{ id: ArtifactSet.Refresh }],
+              artifactSets: [],
               artifactMetaSets: [],
               mainStatsV: [],
               substatsV: [StatVariant.SPD],
               fixedSubstatsV: [],
-              autoMinCount: false,
+              autoMinCount: true,
+              minCount: 1, // explicit sync — replay accumulates state without normalizeKeepWithAuto
               autoSubstatFlex: false,
-              minCount: 1,
-              autoMinRequiredRolls: false,
-              minRequiredRolls: 3,
+              autoMinRequiredRolls: true,
               rarityCode: 0,
               rarityMode: 'auto',
-              earlyKeepMode: 'late',
+              earlyKeepMode: 'early',
               autoRaritySupplementsThreshold: 'rare',
             }
+            break
+          }
+          case 'auto-late-substats': {
+            // Per-stat roll minimum of 3 for SPD — shows the green badge on the chip.
+            nextBuilder = { ...nextBuilder, substatRollBoundsV: { [StatVariant.SPD]: { min: 3 } } }
             break
           }
           case 'auto-late-mode': {
@@ -1638,6 +1692,13 @@ export function useTutorialCoachState({
             // Recipe #3 is committed here (not at 'auto-late-add') so that stepping
             // back to auto-late-add shows the Add button without a pre-existing recipe.
             nextRecipes = nextRecipes.concat(nextBuilder)
+            nextSel = nextRecipes.length - 1
+            autoLateAdded = true
+            break
+          }
+          case 'preview-highlight-early': {
+            // Same recipe as preview-highlight but with earlyKeepMode swapped to 'early' for comparison.
+            nextRecipes = nextRecipes.map((r, i) => i === nextRecipes.length - 1 ? { ...r, earlyKeepMode: 'early' as const } : r)
             nextSel = nextRecipes.length - 1
             autoLateAdded = true
             break

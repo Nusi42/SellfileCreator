@@ -6659,6 +6659,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 zIndex: previewMode === 'gearInspector' ? 0 : 1,
               }}
             >
+              {/* Transparent top-third overlay — tutorial can spotlight Recipe #1 rows without covering the full table. */}
+              <Box
+                data-tour-id={previewMode !== 'gearInspector' ? 'preview.table-top' : undefined}
+                sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '66.67%', pointerEvents: 'none', zIndex: 1 }}
+              />
               <HsfRulesTableMemo
                 rules={hsfRulesForTable}
                 recipeNames={recipeNamesForGrid}
