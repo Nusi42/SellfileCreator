@@ -230,7 +230,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Hover highlights only while pointer stays inside the preview.
   - Clicking a row selects the config but suppresses auto-scroll (prevents loops).
   - Safeguard rows suppress the "right-click for actions" hint because they intentionally expose no row context menu actions.
-  - Clicking a safeguard star now branches by data: concrete safeguard matches switch to `Rule Tester`, while anticipate-only placeholders open `Logic Hub → Safeguards`, select the matching rule, and expand its card.
+  - Clicking a safeguard star now branches by data: concrete safeguard matches switch to `Gear Inspector`, while anticipate-only placeholders open `Tools → Safeguards`, select the matching rule, and expand its card.
 
 ### Tester Grid Virtualization
 
@@ -340,7 +340,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 
 - Fixed widths ensure both panels share `PANEL_WIDTH_PX` in stacked and side-by-side layouts. Stacked mode centers each Paper and caps width.
 - Side-by-side breakpoint: viewport ≥ `SIDE_BY_SIDE_BREAKPOINT_PX` renders the two Papers side-by-side, centered with a fixed grid and `GRID_COLUMN_GAP_PX` spacing.
-- Chips height guard: `chipsMaxHeight` starts at `BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX`, then grows to the measured safe height; the empty state clamps its floor to `BUILDER_CONFIG_CHIPS_EMPTY_MIN_HEIGHT_PX` without exceeding the measured cap. Resize observers keep the value fresh across layout changes.
+- Chips height guard: `chipsMaxHeight` starts at `BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX`, then grows to the measured safe height; the empty state clamps its floor to `BUILDER_CONFIG_CHIPS_EMPTY_MIN_HEIGHT_PX` without exceeding the measured cap. Resize observers keep the value fresh across layout changes. This drives chip sizing in stacked mode only; in side-by-side mode the Paper's `maxHeight = M` is the real constraint and chips flex-fill (see *Top-down paper height constraint* below).
 - Auto zoom fallback: `useAutoSideBySideZoom` applies the fixed `AUTO_SIDE_BY_SIDE_FORCED_ZOOM` whenever the viewport is narrower than `SIDE_BY_SIDE_BREAKPOINT_PX` but still at least `AUTO_SIDE_BY_SIDE_FORCE_MIN_WIDTH_PX`; otherwise it restores zoom 1 and reverts to the stacked layout.
 - Preview height cap: right Paper height matches the left Paper during side-by-side; the preview table scrolls inside an overflow-hidden flex column.
 - Header layout: Builder caption uses a three-column grid; Preview caption shares its row with filters/tester controls and wraps as needed.
