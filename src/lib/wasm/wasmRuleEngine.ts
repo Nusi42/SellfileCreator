@@ -110,33 +110,6 @@ const toFlooredI32 = (values: ReadonlyArray<number> | Int32Array): Int32Array =>
   return out
 }
 
-// wasm-bindgen payloads may decode nested maps as JS Map objects depending on
-// serde source types. Normalize them into plain objects for TS call sites.
-const toPlainObjectDeep = (value: unknown): unknown => {
-  // Convert map payloads into plain object literals recursively.
-  if (value instanceof Map) {
-    const out: Record<string, unknown> = {}
-    for (const [key, nested] of value.entries()) {
-      out[String(key)] = toPlainObjectDeep(nested)
-    }
-    return out
-  }
-  // Recurse arrays so map/object children are normalized too.
-  if (Array.isArray(value)) {
-    return value.map((entry) => toPlainObjectDeep(entry))
-  }
-  // Recurse plain object records while preserving scalar primitives.
-  if (value && typeof value === 'object') {
-    const out: Record<string, unknown> = {}
-    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
-      out[key] = toPlainObjectDeep(nested)
-    }
-    return out
-  }
-  // Primitive/null payloads pass through unchanged.
-  return value
-}
-
 // Convert Set inputs into plain arrays before serializing into the WASM payload.
 // This keeps call sites typed while preserving deterministic JSON output ordering.
 const toSortedNumberArray = (input?: ReadonlySet<number>): number[] | undefined => {
@@ -561,8 +534,8 @@ export const expandAutoFlexRarityBranchesWithLoadedWasm = (params: {
     params.recipe,
     Math.floor(params.baseRarityCode),
   )
-  const result = toPlainObjectDeep(rawResult)
-  if (Array.isArray(result)) return result as BuilderRecipe[]
+  // Rust now emits plain objects via serialize_maps_as_objects; cast directly.
+  if (Array.isArray(rawResult)) return rawResult as BuilderRecipe[]
   throw new Error('WASM auto-flex rarity branch expansion returned an invalid payload.')
 }
 
@@ -710,10 +683,11 @@ export const prepareHsfBuilderRecipeWithLoadedWasm = (payload: {
     maxSelectableCount: Math.floor(Number(result.maxSelectableCount ?? 0)),
     hadRequestedSubstats: result.hadRequestedSubstats === true,
     hasPerStatMin: result.hasPerStatMin === true,
-    currentBaseByVariant: toPlainObjectDeep(result.currentBaseByVariant) as Record<string, number>,
-    factoryBaseByVariant: toPlainObjectDeep(result.factoryBaseByVariant) as Record<string, number | null>,
-    targetBaseOverrideByVariant: toPlainObjectDeep(result.targetBaseOverrideByVariant) as Record<string, number | null>,
-    targetEntriesByVariant: toPlainObjectDeep(result.targetEntriesByVariant) as Record<string, { base?: number; increments?: Array<number | null> }>,
+    // Rust emits plain objects via serialize_maps_as_objects; no Map → object conversion needed.
+    currentBaseByVariant: result.currentBaseByVariant as Record<string, number>,
+    factoryBaseByVariant: result.factoryBaseByVariant as Record<string, number | null>,
+    targetBaseOverrideByVariant: result.targetBaseOverrideByVariant as Record<string, number | null>,
+    targetEntriesByVariant: result.targetEntriesByVariant as Record<string, { base?: number; increments?: Array<number | null> }>,
   }
 }
 

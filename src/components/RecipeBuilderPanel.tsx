@@ -69,7 +69,7 @@ import type { SelectChangeEvent } from '@mui/material/Select'
 import { IconButton, ToggleButton, ToggleButtonGroup } from '@mui/material'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
@@ -77,7 +77,6 @@ import MarkdownTooltip from './MarkdownTooltip'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
-import BuilderCheatSheetPopover from './BuilderCheatSheetPopover'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { SubstatToggleDisplay, substatToggleGroupSx, mainStatToggleGroupSx } from './SubstatToggleDisplay'
 import { resolveSubstatChipPalette, SUBSTAT_CHIP_BORDER_RADIUS_PX } from './RuleSubstatChips'
@@ -1537,8 +1536,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   )
   const substatColors = _substatColors
   const recipeCount = _recipeCount
-  // Shared styling for the builder's status chips (Flex, Only locked, Auto ≥ …). The helper keeps
-  // BuilderPanel and the cheat sheet visuals in sync.
+  // Shared styling for the builder's status chips (Flex, Only locked, Auto ≥ …).
   const builderToggleChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
   const singleRequiredCountValue = recipe.autoMinCount ? 'auto' : ((recipe.minCount ?? 0) > 0 ? String(recipe.minCount) : 'auto')
   const requiredCountValue = multiEditActive
@@ -1618,30 +1616,9 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     if (value === 'epic') return t('rarityEpic')
     return t('rarityRare')
   }
-  const builderRootRef = useRef<HTMLDivElement | null>(null)
-  const [cheatSheetMaxHeight, setCheatSheetMaxHeight] = useState<number | null>(null)
   const slotMetrics = useSlotMetrics()
   // Use the SSOT slot-label resolver from the hook (removes duplicate switch/case).
   const { slotLabel } = slotMetrics
-  useEffect(() => {
-    const node = builderRootRef.current
-    if (!node) return
-    const setHeight = (next: number) => {
-      if (!Number.isFinite(next) || next <= 0) return
-      setCheatSheetMaxHeight((prev) => (prev === next ? prev : next))
-    }
-    setHeight(Math.round(node.getBoundingClientRect().height))
-    if (typeof ResizeObserver === 'undefined') {
-      return
-    }
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0]
-      if (!entry) return
-      setHeight(Math.round(entry.contentRect.height))
-    })
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [])
   const slotLabelFlexBasis = slotMetrics.labelFlexBasis
   const slotContentWidth = slotMetrics.contentWidthPx
   const slotIconGap = slotMetrics.iconGapCss
@@ -2130,24 +2107,6 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   const buttonBorderSx = (_variant: number) => {
     return {}
   }
-  // Help popover (legacy copy still present); retained to avoid unused code churn.
-  const [helpAnchor, setHelpAnchor] = useState<HTMLElement | null>(null)
-  const [helpPos, setHelpPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
-  useEffect(() => {
-    const updateHelpPos = () => {
-      try {
-        setHelpPos({ top: Math.round(window.innerHeight / 2), left: Math.round(window.innerWidth / 2) })
-      } catch {}
-    }
-    const cleanup = helpAnchor
-      ? (() => {
-        updateHelpPos()
-        window.addEventListener('resize', updateHelpPos)
-        return () => window.removeEventListener('resize', updateHelpPos)
-      })()
-      : undefined
-    return cleanup
-  }, [helpAnchor])
   // Sets selector ordering/display mode. 'icons' switches the regular Sets list
   // to an icon-only grid; metasets continue to render as a text list.
   const [setsOrder, setSetsOrder] = useSetsOrderPreference()
@@ -2588,7 +2547,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   }
 
   return (
-    <Box ref={builderRootRef} sx={{ position: 'relative' }}>
+    <Box sx={{ position: 'relative' }}>
       {fortyTwoOverlay}
       <Box sx={{
         display: 'grid',
@@ -2675,16 +2634,15 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                 <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderAction')}</Box>
               </MarkdownTooltip>
             </FormLabel>
-            {/* Help button sits beside the Action label for quick access. */}
-            <MarkdownTooltip markdown={t('builderHelpOpen')}>
+            {/* Info icon beside the Action label — hover to see builder overview. */}
+            <MarkdownTooltip markdown={t('builderInfoTooltip')}>
               <IconButton
                 size="small"
-                color="primary"
-                onClick={(e) => setHelpAnchor(e.currentTarget as HTMLElement)}
+                color="inherit"
                 aria-label={t('builderHelpOpen')}
-                sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
+                sx={{ p: 0.25, fontSize: 16, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}
               >
-                <HelpOutlineIcon fontSize="small" />
+                <InfoOutlinedIcon fontSize="inherit" />
               </IconButton>
             </MarkdownTooltip>
           </Box>
@@ -3592,14 +3550,6 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           </Box>
           </Collapse>
         </Box>
-        {/* Help popover */}
-        <BuilderCheatSheetPopover
-          open={Boolean(helpAnchor)}
-          anchorPosition={helpAnchor ? helpPos : undefined}
-          maxHeight={cheatSheetMaxHeight ?? null}
-          onClose={() => setHelpAnchor(null)}
-          substatColors={substatColors}
-        />
         {/* Row 3: Mainstat (left), Substats (right) */}
         <FormControl sx={(theme) => ({
           gridColumn: '1 / 3',

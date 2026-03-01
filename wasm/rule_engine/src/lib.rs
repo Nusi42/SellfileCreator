@@ -6,6 +6,15 @@ use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
 use wasm_bindgen::prelude::*;
 
+// Shared serializer used for all wasm outputs that contain HashMap fields.
+// serialize_maps_as_objects ensures HashMap<K, V> round-trips as a plain JS
+// object rather than an ES2015 Map, removing the need for TS-side toPlainObjectDeep.
+fn wasm_to_js<T: serde::Serialize>(value: &T) -> Result<JsValue, JsValue> {
+    value
+        .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
+        .map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
 // Shared domain constants are generated from shared/domain-constants.json.
 // This keeps TS and Rust sentinel/enum values synchronized automatically.
 mod generated_domain_constants;
@@ -205,6 +214,26 @@ where
         .into_iter()
         .filter_map(|(key, value)| key.parse::<i64>().ok().map(|variant| (variant, value)))
         .collect::<HashMap<i64, V>>())
+}
+
+// Serialize HashMap<i64, V> as a string-keyed map so serialize_maps_as_objects
+// can convert it to a plain JS object.  Paired with deserialize_i64_key_map.
+pub(crate) fn serialize_i64_key_map<S, V>(
+    map: &HashMap<i64, V>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+    V: serde::Serialize,
+{
+    use serde::ser::SerializeMap;
+    // Emit each entry with the i64 key stringified so the JS side receives a
+    // plain object rather than a Map (which cannot have numeric object keys).
+    let mut ser = serializer.serialize_map(Some(map.len()))?;
+    for (key, value) in map {
+        ser.serialize_entry(&key.to_string(), value)?;
+    }
+    ser.end()
 }
 
 // Optional-map variant keeps legacy `null`/`undefined` payloads compatible.

@@ -441,7 +441,8 @@ struct AutoFlexRarityRecipeIn {
     substats_v: Vec<i64>,
     #[serde(default)]
     fixed_substats_v: Vec<i64>,
-    #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
+    // deserialize_with parses string keys → i64; serialize_with reverses for output.
+    #[serde(default, deserialize_with = "crate::deserialize_i64_key_map", serialize_with = "crate::serialize_i64_key_map")]
     substat_roll_bounds_v: HashMap<i64, AutoFlexRarityBoundsIn>,
     #[serde(default)]
     min_level: Option<f64>,
@@ -600,6 +601,6 @@ pub(crate) fn expand_auto_flex_rarity_branches_value(
     let parsed_typed: AutoFlexRarityRecipeIn = from_js_value(recipe)
         .map_err(|error| JsValue::from_str(&format!("Invalid auto-flex branch recipe: {error}")))?;
     let branches = expand_auto_flex_rarity_branches_typed_core(&parsed_typed, base_rarity_code as i64);
-    to_js_value(&branches)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize auto-flex branches: {error}")))
+    // Use shared helper so HashMap fields serialize as plain JS objects, not ES2015 Maps.
+    crate::wasm_to_js(&branches)
 }

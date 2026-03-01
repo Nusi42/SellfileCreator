@@ -160,12 +160,12 @@ function RecipeChipsPanel(props: {
   const selectedSet = React.useMemo(() => new Set(selectedIndices), [selectedIndices])
   const visibleSet = visibleIndices ?? null
   const visibleCount = visibleSet
-    ? recipes.reduce((count, _cfg, idx) => count + (visibleSet.has(idx) ? 1 : 0), 0)
+    ? recipes.reduce((count, _recipe, idx) => count + (visibleSet.has(idx) ? 1 : 0), 0)
     : recipes.length
   const renderedIndices = React.useMemo(() => {
     if (!visibleSet) return recipes.map((_, idx) => idx)
     const order: number[] = []
-    recipes.forEach((_cfg, idx) => {
+    recipes.forEach((_recipe, idx) => {
       if (visibleSet.has(idx)) order.push(idx)
     })
     return order

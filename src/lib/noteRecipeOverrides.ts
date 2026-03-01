@@ -43,6 +43,54 @@ export const NOTE_RECIPE_OVERRIDES_MARKER_LAYOUT_OPTIONS = [NOTE_RECIPE_OVERRIDE
 export const NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY = 'columns' as const
 // Default column count for wholeline option grids (0 = auto-fit).
 export const NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT = 0
+
+// ── Keyword sets (single source of truth shared with the syntax highlighter) ──
+// Each array is the canonical list; prismRecipeOverrides.ts imports and builds
+// regex alternations from these so no keyword is duplicated across files.
+
+/** Keywords that open an interactive question block. */
+export const NOTE_RECIPE_OVERRIDES_QUESTION_KEYWORDS = ['q', 'question'] as const
+/** Keywords that open a fallback / default-answer block. */
+export const NOTE_RECIPE_OVERRIDES_FALLBACK_KEYWORDS = ['fallback', 'else'] as const
+/** Canonical map from every group-type surface keyword to its logical type. */
+export const NOTE_RECIPE_OVERRIDES_GROUP_TYPE_MAP: Record<string, NoteQuestionGroupType> = {
+  single: 'single', s: 'single', radiobutton: 'single', radio: 'single', rb: 'single',
+  multi:  'multi',  m: 'multi',  checkbox:    'multi',  check: 'multi',  cb: 'multi',
+}
+/** All surface keywords that denote a group type (derived from the map above). */
+export const NOTE_RECIPE_OVERRIDES_GROUP_TYPE_KEYWORDS = (
+  Object.keys(NOTE_RECIPE_OVERRIDES_GROUP_TYPE_MAP) as readonly string[]
+)
+/** Rarity tier names accepted by the DSL (includes `any` and `auto`). */
+export const NOTE_RECIPE_OVERRIDES_RARITY_NAMES = [
+  'any', 'common', 'uncommon', 'rare', 'epic', 'legendary', 'mythical', 'auto',
+] as const
+/** Enumerated string values for non-numeric fields (export=, keep=, flex=). */
+export const NOTE_RECIPE_OVERRIDES_ENUM_VALS = [
+  'active', 'disabled', 'toggle',  // export=
+  'early', 'late',                  // keep=
+  'true', 'false', 'on', 'off',     // flex=
+] as const
+/** Built-in selector and tag-match keywords. */
+export const NOTE_RECIPE_OVERRIDES_SELECTOR_BUILTINS = [
+  'all', 'tagged', 'untagged', 'any', 'none',
+] as const
+/** Word-form constraint keywords (symbolic forms ! + - ^ are handled separately). */
+export const NOTE_RECIPE_OVERRIDES_CONSTRAINT_KEYWORDS = [
+  'set', 'unset', 'only', 'excl',
+] as const
+/** Boolean logic connectors for compound selector expressions. */
+export const NOTE_RECIPE_OVERRIDES_LOGIC_KEYWORDS = ['and', 'or'] as const
+/** Field names valid on the left-hand side of assignment blocks. */
+export const NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS = [
+  'export', 'rank', 'rarity', 'lvl', 'keep', 'autolate',
+  'minrolls', 'lockedminrolls', 'minsubstats', 'flex', 'substatmin', 'minima',
+] as const
+/** Field names valid in selector term comparisons. */
+export const NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS = [
+  'tag', 'rank', 'rarity', 'minrolls', 'minsubstats', 'flex',
+] as const
+
 // Layout choices exposed on parsed question definitions.
 export type NoteQuestionLayout =
   | typeof NOTE_RECIPE_OVERRIDES_LAYOUT_DEFAULT
@@ -459,6 +507,18 @@ const tokenizeRecipeOverrides = (input: string): Token[] => {
       idx += 1
       continue
     }
+    // Skip single-line comments (// … end-of-line).
+    if (ch === '/' && input.charAt(idx + 1) === '/') {
+      const eol = input.indexOf('\n', idx)
+      idx = eol >= 0 ? eol + 1 : input.length
+      continue
+    }
+    // Skip block comments (/* … */); treat as whitespace.
+    if (ch === '/' && input.charAt(idx + 1) === '*') {
+      const close = input.indexOf('*/', idx + 2)
+      idx = close >= 0 ? close + 2 : input.length
+      continue
+    }
     // Parse quoted strings.
     if (ch === '"') {
       let cursor = idx + 1
@@ -473,13 +533,16 @@ const tokenizeRecipeOverrides = (input: string): Token[] => {
           value = ''
           break
         }
-        // Support escaped newlines/tabs so prompt text stays readable.
-        if (next === '\\\\') {
+        // Support escape sequences so prompt text can embed newlines without
+        // requiring a literal newline in the source:
+        //   \n → newline   \t → tab   \r → carriage return   \\ → backslash
+        //   \" → quote (keeps the string open)   \<other> → literal char
+        if (next === '\\') {
           const esc = input.charAt(cursor + 1)
           if (esc === 'n') value += '\n'
           else if (esc === 't') value += '\t'
           else if (esc === 'r') value += '\r'
-          else if (esc === '\\\\') value += '\\\\'
+          else if (esc === '\\') value += '\\'
           else if (esc) value += esc
           cursor += 2
           continue
@@ -570,19 +633,19 @@ class TokenCursor {
 }
 
 const isQuestionKeyword = (token: Token | null): boolean => (
-  Boolean(token && token.kind === 'word' && ['q', 'question'].includes(token.value.toLowerCase()))
+  Boolean(token && token.kind === 'word'
+    && (NOTE_RECIPE_OVERRIDES_QUESTION_KEYWORDS as readonly string[]).includes(token.value.toLowerCase()))
 )
 
 const isFallbackKeyword = (token: Token | null): boolean => (
-  Boolean(token && token.kind === 'word' && ['fallback', 'else'].includes(token.value.toLowerCase()))
+  Boolean(token && token.kind === 'word'
+    && (NOTE_RECIPE_OVERRIDES_FALLBACK_KEYWORDS as readonly string[]).includes(token.value.toLowerCase()))
 )
 
-const parseGroupType = (raw: string): NoteQuestionGroupType | null => {
-  const value = raw.toLowerCase()
-  if (['single', 's', 'rb', 'radiobutton', 'radio'].includes(value)) return 'single'
-  if (['multi', 'm', 'cb', 'checkbox', 'check'].includes(value)) return 'multi'
-  return null
-}
+// Derive group type from the shared keyword map so no keyword list is duplicated.
+const parseGroupType = (raw: string): NoteQuestionGroupType | null => (
+  NOTE_RECIPE_OVERRIDES_GROUP_TYPE_MAP[raw.toLowerCase()] ?? null
+)
 
 const normalizeQuestionLayoutToken = (raw: string): NoteQuestionLayout | null => {
   // Normalize casing + spacing so marker options stay forgiving.

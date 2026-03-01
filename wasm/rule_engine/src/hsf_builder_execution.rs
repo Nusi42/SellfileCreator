@@ -63,9 +63,14 @@ struct PrepareHsfBuilderRecipeOut {
     max_selectable_count: i32,
     had_requested_substats: bool,
     has_per_stat_min: bool,
+    // serialize_with stringifies i64 keys so wasm_to_js can emit plain JS objects.
+    #[serde(serialize_with = "crate::serialize_i64_key_map")]
     current_base_by_variant: HashMap<i64, i32>,
+    #[serde(serialize_with = "crate::serialize_i64_key_map")]
     factory_base_by_variant: HashMap<i64, Option<i32>>,
+    #[serde(serialize_with = "crate::serialize_i64_key_map")]
     target_base_override_by_variant: HashMap<i64, Option<i32>>,
+    #[serde(serialize_with = "crate::serialize_i64_key_map")]
     target_entries_by_variant: HashMap<i64, PrepareHsfBuilderTargetEntryOut>,
 }
 
@@ -238,8 +243,8 @@ pub(crate) fn prepare_hsf_builder_recipe_value(payload: JsValue) -> Result<JsVal
     let input: PrepareHsfBuilderRecipeIn = from_js_value(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid prepare-hsf-builder-recipe payload: {error}")))?;
     let out = prepare_hsf_builder_recipe_core(&input);
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize prepare-hsf-builder-recipe output: {error}")))
+    // Use shared helper so HashMap fields serialize as plain JS objects, not ES2015 Maps.
+    crate::wasm_to_js(&out)
 }
 
 // Branch descriptor mirrors TS rarity branch objects for one-call runtime.
