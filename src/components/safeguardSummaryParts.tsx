@@ -108,7 +108,7 @@ export function safeguardSummaryParts(
         const label = withNbsp(opts.t ? opts.t(artifactTypeI18nKey(typeId)) : artifactTypeName(typeId))
         return <Box key={`slot-${typeId}-${i}`} component="span" sx={{ mr: 0.5 }}>{label}</Box>
       })
-      // Per-slot glyph follows the icons when the flag is on.
+      // Per-slot glyph follows the icons; ∀ when no specific slots selected.
       addNode(<>{nodes}{rule.countMode.perSlot ? <Box key="slot-per" component="span">{NBSP}{GLYPH_PER_SLOT}</Box> : null}</>)
     } else {
       const labels = sorted.map((typeId) =>
@@ -117,8 +117,7 @@ export function safeguardSummaryParts(
       addText(labels.join(', ') + (rule.countMode.perSlot ? `${NBSP}${GLYPH_PER_SLOT}` : ''))
     }
   } else if (rule.countMode.perSlot) {
-    // No slot filter selected — perSlot still applies, meaning every slot is counted
-    // independently. Show the glyph + ∀ so the "any → every" change is visible.
+    // No slot filter — perSlot applies to every slot; show glyph + ∀.
     addText(`${GLYPH_PER_SLOT}${NBSP}${GLYPH_FOR_ALL}`)
   }
 
@@ -168,10 +167,9 @@ export function safeguardSummaryParts(
       }
       return <Box key={`f-${factionCode}-${i}`} component="span">{label}</Box>
     })
-    // Per-faction glyph follows the content when the flag is on.
+    // Per-faction glyph follows the content; ∀ when no specific factions selected.
     addNode(<>{factNodes}{rule.countMode.perFaction ? <Box key="fact-per" component="span">{NBSP}{GLYPH_PER_FACTION}</Box> : null}</>)
   } else if (rule.countMode.perFaction) {
-    // No faction filter — perFaction applies to every faction. Show glyph + ∀.
     addText(`${GLYPH_PER_FACTION}${NBSP}${GLYPH_FOR_ALL}`)
   }
 
@@ -192,10 +190,9 @@ export function safeguardSummaryParts(
       interleaved.push(n)
       if (i < nodes.length - 1) interleaved.push(<Box key={`m-sep-${i}`} component="span">, </Box>)
     })
-    // Per-main-stat glyph follows the content when the flag is on.
+    // Per-mainstat glyph follows the content; ∀ when no specific main stats selected.
     addNode(<>{interleaved}{rule.countMode.perMainStat ? <Box key="main-per" component="span">{NBSP}{GLYPH_PER_MAIN_STAT}</Box> : null}</>)
   } else if (rule.countMode.perMainStat) {
-    // No main-stat filter — perMainStat applies to every main stat. Show glyph + ∀.
     addText(`${GLYPH_PER_MAIN_STAT}${NBSP}${GLYPH_FOR_ALL}`)
   }
 
@@ -219,7 +216,7 @@ export function safeguardSummaryParts(
       if (i < nodes.length - 1) interleaved.push(<Box key={`s-sep-${i}`} component="span">, </Box>)
     })
     const tr = opts.t
-    // Append per-dim glyph when each substat is counted separately (PerSubstat mode).
+    // Per-substat glyph when each substat is counted separately (PerSubstat mode).
     addNode(
       <>
         <Box component="span">{`${tr ? tr('chipSubs') : 'Subs'}:${NBSP}`}</Box>
@@ -304,7 +301,7 @@ export function safeguardSummaryParts(
       })
 
       if (nodes.length > 0) {
-        // Per-set glyph follows the set icons when the flag is on.
+        // Per-set glyph follows the set icons; ∀ when no specific sets selected.
         addNode(
           <Box component="span" sx={{ display: 'inline', whiteSpace: 'normal' }}>
             {nodes}
@@ -312,7 +309,6 @@ export function safeguardSummaryParts(
           </Box>,
         )
       } else if (rule.countMode.perSet) {
-        // No set filter — perSet applies to every set. Show glyph + ∀.
         addText(`${GLYPH_PER_SET}${NBSP}${GLYPH_FOR_ALL}`)
       }
     } else {
@@ -336,7 +332,6 @@ export function safeguardSummaryParts(
       includedNames.forEach((name, idx) => pushText(`set-${idx}`, name))
       excludedNames.forEach((name, idx) => pushText(`set-excluded-${idx}`, name, true))
       if (nodes.length > 0) {
-        // Per-set glyph follows the text content when the flag is on.
         addNode(
           <Box component="span">
             {nodes}
@@ -344,7 +339,6 @@ export function safeguardSummaryParts(
           </Box>,
         )
       } else if (rule.countMode.perSet) {
-        // No set filter — perSet applies to every set. Show glyph + ∀.
         addText(`${GLYPH_PER_SET}${NBSP}${GLYPH_FOR_ALL}`)
       }
     }

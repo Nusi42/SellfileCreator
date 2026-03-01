@@ -25,6 +25,9 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import { alpha, useTheme } from '@mui/material/styles'
 import {
   BUILDER_AUTO_APPLY_DEBOUNCE_MS,
+  GLYPH_IGNORE_COLLECTION,
+  GLYPH_IGNORE_PREVIOUS,
+  GLYPH_IGNORE_VAULT,
   HOVER_BG_ALPHA,
   NBSP,
   RECIPE_CHIP_BORDER_RADIUS_PX,
@@ -477,6 +480,14 @@ export default function SafeguardChipsPanel({
       : rule.activation === SafeguardRuleActivation.AnticipateGaps
         ? t('safeguardsRuleModeAnticipateShort')
         : t('safeguardsRuleModeOffShort')
+    // Build the ignore-flag glyph string shown after ≥ N in the mode badge.
+    // These mirror the three ignore chips positioned right of the required-count
+    // input in the builder: ⏩ ignore-previous, 🏆 ignore-collection, 🏦 ignore-vault.
+    const ignoreParts: string[] = []
+    if (rule.ignorePreviousSafeguards !== false) ignoreParts.push(GLYPH_IGNORE_PREVIOUS)
+    if (rule.ignoreEquippedInCollection === true) ignoreParts.push(GLYPH_IGNORE_COLLECTION)
+    if (rule.ignoreEquippedInVault === true) ignoreParts.push(GLYPH_IGNORE_VAULT)
+    const perDimSuffix = ignoreParts.length > 0 ? NBSP + ignoreParts.join('') : ''
     const summary = safeguardSummaryParts(rule, metasets, {
       substatColors,
       useStatButtonColors: statButtonBorders,
@@ -560,7 +571,7 @@ export default function SafeguardChipsPanel({
               inputProps={{ style: { fontSize: '0.75rem', padding: '2px 6px' } }}
             />
             <Box component="span" sx={{ color: actColor, fontWeight: 600, fontSize: '0.75rem', flexShrink: 0, mr: 0.5 }}>
-              {actText}{NBSP}≥{NBSP}{rule.requiredCount ?? 1}
+              {actText}{NBSP}≥{NBSP}{rule.requiredCount ?? 1}{perDimSuffix}
             </Box>
           </>
         ) : (
@@ -588,8 +599,8 @@ export default function SafeguardChipsPanel({
                 {displayName}
               </Box>
               {' — '}
-              {/* Required count shown inline with the mode badge so the summary sections only carry dimension flags. */}
-              <Box component="span" sx={{ color: actColor, fontWeight: 600 }}>{actText}{NBSP}≥{NBSP}{rule.requiredCount ?? 1}</Box>
+              {/* Mode badge: activation label + quota + active per-dim glyphs (with ∀ when selection is any). */}
+              <Box component="span" sx={{ color: actColor, fontWeight: 600 }}>{actText}{NBSP}≥{NBSP}{rule.requiredCount ?? 1}{perDimSuffix}</Box>
               {summary ? <>{' | '}{summary}</> : null}
             </Box>
           </Typography>
