@@ -47,7 +47,13 @@ export function BuilderColumn({
         width: forceSideBySide ? PANEL_WIDTH_PX : '100%',
         maxWidth: PANEL_WIDTH_PX,
         mx: forceSideBySide ? 0 : 'auto',
-        ...(forceSideBySide && sideBySideMinPaperHeightPx ? { minHeight: sideBySideMinPaperHeightPx } : {}),
+        // In forced side-by-side (zoom) mode, lock the paper to exactly the available viewport
+        // height. minHeight + maxHeight together make it a fixed-height container so internal
+        // flex children (form + chips) fill the paper without the paper itself ever growing
+        // beyond the viewport and causing a document scrollbar.
+        ...(forceSideBySide && sideBySideMinPaperHeightPx
+          ? { minHeight: sideBySideMinPaperHeightPx, maxHeight: sideBySideMinPaperHeightPx, overflow: 'hidden' }
+          : {}),
         [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
           mx: 0,
           width: PANEL_WIDTH_PX,
