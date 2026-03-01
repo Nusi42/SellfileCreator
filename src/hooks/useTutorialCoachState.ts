@@ -1244,26 +1244,25 @@ export function useTutorialCoachState({
           // Also restore Late mode in case we're stepping back from preview-highlight-early.
           setCustomRecipes(prev => prev.map((r, i) => i === 2 && r.earlyKeepMode !== 'late' ? { ...r, earlyKeepMode: 'late' as const } : r))
           setSelectedRecipeIdx(2)
-          // Poll for Recipe #3 rows (data-recipe-idx="2") to appear in the table — the WASM worker
-          // delivers them asynchronously. Once found, snap-scroll so the first row sits just below
-          // the header. Up to 20 attempts × 150 ms = 3 s maximum wait.
+          // The table is TanStack-virtualized — Recipe #3 rows are not in the DOM until the
+          // container is scrolled near them. Poll on scrollHeight growth instead: once the
+          // virtualizer extends its total height for the new recipe's rules, snap to the bottom.
+          const baseContainer = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
+          const baseHeight = baseContainer?.scrollHeight ?? 0
           let attempts = 0
-          const scrollToRecipe3 = () => {
+          const snapToRecipe3 = () => {
             try {
-              const container = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
-              const firstRow = container?.querySelector('tr[data-recipe-idx="2"]') as HTMLElement | null
-              if (container && firstRow) {
-                const headerEl = container.querySelector('thead') as HTMLElement | null
-                const headerHeight = headerEl ? headerEl.offsetHeight : 0
-                // offsetTop is relative to the scrollable container so no rect arithmetic needed.
-                container.scrollTop = Math.max(0, firstRow.offsetTop - headerHeight)
+              const el = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
+              // Fire when new rows are reflected in virtual height, or fall back after ~3 s.
+              if (el && (el.scrollHeight > baseHeight + 50 || attempts >= 18)) {
+                el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight)
                 try { ensurePreviewHighlight('lower') } catch {}
                 return
               }
             } catch {}
-            if (attempts < 20) { attempts++; setTimeout(scrollToRecipe3, 150) }
+            if (attempts < 20) { attempts++; setTimeout(snapToRecipe3, 150) }
           }
-          setTimeout(scrollToRecipe3, 80)
+          setTimeout(snapToRecipe3, 80)
         },
       },
       {
@@ -1276,23 +1275,23 @@ export function useTutorialCoachState({
           // Swap Recipe #3 to Early mode so the user can compare against the Late version on Back.
           setCustomRecipes(prev => prev.map((r, i) => i === 2 && r.earlyKeepMode !== 'early' ? { ...r, earlyKeepMode: 'early' as const } : r))
           setSelectedRecipeIdx(2)
-          // Same polling approach as preview-highlight — earlyKeepMode change retriggers the worker.
+          // Same approach as preview-highlight — earlyKeepMode change retriggers the worker.
+          // Capture height before the state change propagates; snap once virtual height updates.
+          const baseContainerE = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
+          const baseHeightE = baseContainerE?.scrollHeight ?? 0
           let attemptsE = 0
-          const scrollToRecipe3E = () => {
+          const snapToRecipe3E = () => {
             try {
-              const container = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
-              const firstRow = container?.querySelector('tr[data-recipe-idx="2"]') as HTMLElement | null
-              if (container && firstRow) {
-                const headerEl = container.querySelector('thead') as HTMLElement | null
-                const headerHeight = headerEl ? headerEl.offsetHeight : 0
-                container.scrollTop = Math.max(0, firstRow.offsetTop - headerHeight)
+              const el = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
+              if (el && (el.scrollHeight !== baseHeightE || attemptsE >= 10)) {
+                el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight)
                 try { ensurePreviewHighlight('lower') } catch {}
                 return
               }
             } catch {}
-            if (attemptsE < 20) { attemptsE++; setTimeout(scrollToRecipe3E, 150) }
+            if (attemptsE < 20) { attemptsE++; setTimeout(snapToRecipe3E, 150) }
           }
-          setTimeout(scrollToRecipe3E, 80)
+          setTimeout(snapToRecipe3E, 80)
         },
       },
       {
