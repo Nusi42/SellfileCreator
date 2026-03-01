@@ -18,6 +18,43 @@
 
 import { refractor } from 'refractor';
 import type { Refractor, Syntax } from 'refractor/lib/core.js';
+import {
+  NOTE_RECIPE_OVERRIDES_QUESTION_KEYWORDS,
+  NOTE_RECIPE_OVERRIDES_FALLBACK_KEYWORDS,
+  NOTE_RECIPE_OVERRIDES_GROUP_TYPE_KEYWORDS,
+  NOTE_RECIPE_OVERRIDES_RARITY_NAMES,
+  NOTE_RECIPE_OVERRIDES_ENUM_VALS,
+  NOTE_RECIPE_OVERRIDES_SELECTOR_BUILTINS,
+  NOTE_RECIPE_OVERRIDES_CONSTRAINT_KEYWORDS,
+  NOTE_RECIPE_OVERRIDES_LOGIC_KEYWORDS,
+  NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS,
+  NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS,
+  NOTE_RECIPE_OVERRIDES_MARKER_LAYOUT_OPTIONS,
+  NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY,
+} from './noteRecipeOverrides';
+
+// Build a \b-bounded alternation regex from a keyword array.
+// Single source of truth: Prism patterns are derived from parser constants, not
+// maintained as parallel hardcoded strings.
+const wordAlt = (words: readonly string[]): RegExp => (
+  new RegExp(`\\b(?:${words.join('|')})\\b`)
+)
+
+// ── marker-option patterns (built from shared constants) ──────────────────
+// Derive the marker-option token pattern from the same arrays the parser uses
+// so adding a new layout option only requires updating noteRecipeOverrides.ts.
+const _markerLayoutAlt = NOTE_RECIPE_OVERRIDES_MARKER_LAYOUT_OPTIONS.join('|')
+const _markerColKey    = NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY
+// Matches one option unit: a layout keyword or `columns=N`.
+const _markerOptUnit = `(?:${_markerLayoutAlt}|${_markerColKey}=\\d+)`
+// Full bracket expression, allowing comma- or space-separated options.
+const MARKER_OPTION_PATTERN = new RegExp(
+  `\\[\\s*(?:${_markerOptUnit}(?:[,\\s]+${_markerOptUnit})*)\\s*\\]`
+)
+// Inner keyword pattern for the marker-option-kw sub-token.
+const MARKER_OPTION_KW_PATTERN = new RegExp(
+  `\\b(?:${_markerLayoutAlt}|${_markerColKey})\\b`
+)
 
 // ── recipe-overrides grammar ───────────────────────────────────────────────
 // Tokens are ordered from most-specific to least-specific so that Prism's
@@ -62,16 +99,17 @@ function recipeOverrides(Prism: Refractor): void {
 
         // Inline marker-option block, e.g. [wholeline], [columns=3], or combined
         // [wholeline columns=4] / [wholeline,columns=4].
+        // Pattern is built from shared parser constants (SSOT).
         // Uses `inside` so each piece gets its own color rather than one flat hue:
         //   marker-option-kw  – option keyword name (wholeline, columns)
         //   operator          – the `=` separator
         //   number            – the numeric column count
         //   punctuation       – brackets and commas
         'marker-option': {
-            pattern: /\[\s*(?:(?:wholeline|columns=\d+)(?:[,\s]+(?:wholeline|columns=\d+))*)\s*\]/,
+            pattern: MARKER_OPTION_PATTERN,
             inside: {
                 // Option keyword names – teal, same family as field names.
-                'marker-option-kw': /\b(?:wholeline|columns)\b/,
+                'marker-option-kw': MARKER_OPTION_KW_PATTERN,
                 // `=` separator between key and value.
                 'operator': /=/,
                 // Numeric column-count value.
@@ -88,40 +126,40 @@ function recipeOverrides(Prism: Refractor): void {
         // Must precede `punctuation` so `*` is claimed here rather than going gray.
         'default-kw': /\bdefault\b|(?<=\s)\*/,
 
-        // `q` / `question` – the keyword that introduces an interactive question.
-        'question-kw': /\b(?:q|question)\b/,
+        // Keywords that open a question block – derived from parser constant (SSOT).
+        'question-kw': wordAlt(NOTE_RECIPE_OVERRIDES_QUESTION_KEYWORDS),
 
-        // Group-type tokens – how answers within a question are presented.
-        'group-type': /\b(?:single|s|radiobutton|radio|rb|multi|m|checkbox|check|cb)\b/,
+        // Group-type tokens – derived from parser constant (SSOT).
+        'group-type': wordAlt(NOTE_RECIPE_OVERRIDES_GROUP_TYPE_KEYWORDS),
 
-        // `fallback` / `else` – introduces the default answer branch.
-        'fallback-kw': /\b(?:fallback|else)\b/,
+        // Keywords that open a fallback / default-answer block (SSOT).
+        'fallback-kw': wordAlt(NOTE_RECIPE_OVERRIDES_FALLBACK_KEYWORDS),
 
-        // Built-in collection selectors and tag-match modifiers.
+        // Built-in selector and tag-match keywords (SSOT).
         // `any` / `none` appear in `tag any` / `tag none` / `rank=any`.
-        'selector-builtin': /\b(?:all|tagged|untagged|any|none)\b/,
+        'selector-builtin': wordAlt(NOTE_RECIPE_OVERRIDES_SELECTOR_BUILTINS),
 
-        // `tag=TOKEN` – captures the full tag-equality expression so the user-supplied
-        // tag value gets its own color.  Must precede `selector-field` so `tag=value`
-        // is consumed here before `tag` alone is claimed by `selector-field`.
+        // `tag=TOKEN` or `tag:TOKEN` – captures the full tag-equality expression.
+        // Accepts both `=` and `:` as the parser does (bug #8 fix).
+        // Must precede `selector-field` so `tag=value` is consumed before bare `tag`.
         'tag-comparison': {
-            pattern: /\btag\s*=\s*\w[\w-]*/,
+            pattern: /\btag\s*[=:]\s*\w[\w-]*/,
             inside: {
                 // The `tag` keyword remains in the blue selector-field family.
                 'selector-field': /\btag\b/,
-                // The `=` separator is a plain operator.
-                'operator': /=/,
+                // The `=` or `:` separator is a plain operator.
+                'operator': /[=:]/,
                 // The user-supplied tag name is a referenced value (muted amber).
                 'id-ref': /\w[\w-]*$/,
             },
         },
 
-        // Field names used in selector expressions (e.g. `tag`, `rank`, …).
-        // Plain `tag` (without `=`) is handled here after `tag-comparison` takes precedence.
-        'selector-field': /\b(?:tag|rank|rarity|minrolls|minsubstats|flex)\b/,
+        // Field names used in selector expressions (SSOT).
+        // Plain `tag` (without `=`/`:`) is handled here after `tag-comparison`.
+        'selector-field': wordAlt(NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS),
 
-        // Field names used on the left-hand side of rule assignments.
-        'field': /\b(?:export|rank|rarity|lvl|keep|autolate|minrolls|lockedminrolls|minsubstats|flex|substatmin|minima)\b/,
+        // Field names used on the left-hand side of rule assignments (SSOT).
+        'field': wordAlt(NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS),
 
         // `id=TOKEN` – defines a stable cross-question option identifier.
         // Split into three inner tokens so the `id` keyword joins the blue structural-keyword
@@ -138,25 +176,28 @@ function recipeOverrides(Prism: Refractor): void {
             },
         },
 
-        // Constraint keywords optionally followed by one or more ID token arguments.
+        // Constraint keywords optionally followed by one or more ID token arguments (SSOT).
         // The nested grammar gives the keyword its own color while each space-separated
         // bare-word argument is colored as an id-ref (used ID), distinct from id-assign.
         'constraint-block': {
-            pattern: /\b(?:set|unset|only|excl)\b(?:\s+\w[\w-]*)*/,
+            pattern: new RegExp(
+                `\\b(?:${NOTE_RECIPE_OVERRIDES_CONSTRAINT_KEYWORDS.join('|')})\\b(?:\\s+\\w[\\w-]*)*`
+            ),
             inside: {
                 // The constraint keyword itself.
-                'constraint-kw': /\b(?:set|unset|only|excl)\b/,
+                'constraint-kw': wordAlt(NOTE_RECIPE_OVERRIDES_CONSTRAINT_KEYWORDS),
                 // Each following bare-word is a referenced (used) ID token.
                 'id-ref': /\w[\w-]*/,
             },
         },
 
         // Symbolic shorthand constraint operators: ! → excl, + → set, - → unset, ^ → only.
-        // Matches only when the argument starts with a letter so numeric arguments like !14
-        // are excluded (they keep `!` as punctuation and `14` as number color).
+        // Optional whitespace between operator and id covers both `!token` and `! token`
+        // forms (bug #7 fix). Matches only when the argument starts with a letter so
+        // numeric arguments like !14 are excluded.
         // Must precede `punctuation` so the operator character is not consumed first.
         'shorthand-constraint': {
-            pattern: /[!+\-^][a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*/,
+            pattern: /[!+\-^]\s*[a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*/,
             inside: {
                 // The single-character operator gets its own color (distinct from the
                 // word-form constraint-kw so that `^` / `+` / `-` / `!` visually read
@@ -167,14 +208,17 @@ function recipeOverrides(Prism: Refractor): void {
             },
         },
 
-        // Boolean logic connectors.
-        'logic-kw': /\b(?:and|or)\b/,
+        // Boolean logic connectors (SSOT).
+        'logic-kw': wordAlt(NOTE_RECIPE_OVERRIDES_LOGIC_KEYWORDS),
 
-        // Rarity tier names used as values.
-        'rarity-name': /\b(?:common|uncommon|rare|epic|legendary|mythical|auto)\b/,
+        // Rarity tier names used as values (SSOT).
+        // `any` is also in selector-builtin which precedes this token, so it gets the
+        // blue builtin color when used as a bare selector; rarity-name catches it in
+        // `rarity=any` assignment context if selector-builtin doesn't match first.
+        'rarity-name': wordAlt(NOTE_RECIPE_OVERRIDES_RARITY_NAMES),
 
-        // Enumerated field values: boolean/toggle flags, export-mode words, and keep-mode words.
-        'boolean-val': /\b(?:true|false|on|off|active|disabled|toggle|early|late)\b/,
+        // Enumerated field values: export=, keep=, flex= (SSOT).
+        'boolean-val': wordAlt(NOTE_RECIPE_OVERRIDES_ENUM_VALS),
 
         // Stat key tokens including percentage variants.
         'stat-key': /\b(?:HP%?|ATK%?|DEF%?|CR%|CDMG%|ACC|RES|SPD)\b/,
@@ -186,7 +230,9 @@ function recipeOverrides(Prism: Refractor): void {
         'selector-at': /@/,
 
         // Comparison and logical operators.
-        'operator': />=|<=|&&|\|\||[=<>]/,
+        // Bare `<` and `>` are intentionally excluded: the parser only accepts `>=`,
+        // `<=`, and `=`; coloring standalone `<`/`>` would suggest they are valid (bug #9 fix).
+        'operator': />=|<=|&&|\|\||=/,
 
         // Structural punctuation. `*` is intentionally excluded – it is handled by
         // `default-kw` above so the default-option marker gets its own bright color.

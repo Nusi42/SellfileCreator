@@ -1274,14 +1274,15 @@ headerToken   := "id" "=" token | "*" | "default"
 selectorBlock := "@" selector "{" assignment+ "}"
 selector      := "all" | "tagged" | "untagged" | expr
 expr          := term (("and" | "or" | "&&" | "||") term)*
-term          := "tag" ("=" token
-             | "in" "[" tokenList "]" | "any" | "none")
-             | "rank" ("=" | ">=" | "<=") rankVal
+term          := "tag" ("=" | ":") token
+             | "tag" ("in" "[" tokenList "]" | "any" | "none")
+             | "rank" "=" rankVal | "rank" (">=" | "<=") rankNum
              | "rarity" ("=" | ">=" | "<=") rarityName
              | "minrolls" ("=" | ">=" | "<=") number
              | "minsubstats" ("=" | ">=" | "<=") number
-             | "flex" ("=" | ":") ("on" | "off" | "true" | "false")
-assignment    := field ("=" | ">=" | "<=") value
+             | "flex" ("=" | ":") flexVal
+assignment    := ("rank" | "rarity") ("=" | ">=" | "<=") value
+             | field "=" value
 fallbackBlock := ("fallback" | "else") "{" selectorBlock+ "}"
 constraints   := "!" tokenList | "excl" tokenList
              | "set" tokenList | "+" tokenList
@@ -1298,7 +1299,8 @@ value         := exportVal | keepVal | flexVal | rankVal
 exportVal     := "active" | "disabled" | "toggle"
 keepVal       := "early" | "late"
 flexVal       := "on" | "off" | "true" | "false"
-rankVal       := "any" | "1" | "2" | "3" | "4" | "5" | "6"
+rankVal       := "any" | rankNum
+rankNum       := "1" | "2" | "3" | "4" | "5" | "6"
 lvlVal        := lvlMilestone | lvlMilestone "-" lvlMilestone
 lvlMilestone  := "0" | "4" | "8" | "12" | "16"
 string        := '"' {char | escape} '"'
@@ -1309,8 +1311,9 @@ comment       := "//" {any} eol
 token         := /[\\p{L}\\p{M}_][\\p{L}\\p{N}\\p{M}_]*/
                 (unicode letters/marks, underscore)
 rarityName    := "common" | "uncommon" | "rare" | "epic"
-             | "legendary" | "mythical" | "auto"
-starKey       := "1" | "2" | "3" | "4" | "5" | "6"`
+             | "legendary" | "mythical" | "auto" | "any"
+starKey       := "1" | "2" | "3" | "4" | "5" | "6"
+             | "one" | "two" | "three" | "four" | "five" | "six"`
 
 // Full insertable example used in the markdown sample block.
 const RECIPE_OVERRIDES_SAMPLE_EXAMPLE_TEXT = [
