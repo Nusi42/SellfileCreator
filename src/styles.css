@@ -29,12 +29,12 @@ body.restrict-ui [data-allow-select="1"] {
 .w-md-editor-text-pre .token.recipe-overrides-block .token.comment-delimiter          { color: #5c6370; }
 /* Strings default to green; nested spans override for inline markup. */
 .w-md-editor-text-pre .token.recipe-overrides-block .token.string                     { color: #98c379; }
-.w-md-editor-text-pre .token.recipe-overrides-block .token.string .token.string-bold  { color: #98c379; font-weight: bold; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.string .token.string-bold  { color: #c3e88d; }
 .w-md-editor-text-pre .token.recipe-overrides-block .token.string .token.string-chip  { color: #7ec8e3; }
 .w-md-editor-text-pre .token.recipe-overrides-block .token.marker-option              { color: #98c379; }
 /* Default-option marker (* or default keyword) – bright gold so it jumps out. */
-.w-md-editor-text-pre .token.recipe-overrides-block .token.default-kw                 { color: #f9d54c; font-weight: bold; }
-.w-md-editor-text-pre .token.recipe-overrides-block .token.question-kw                { color: #c678dd; font-weight: bold; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.default-kw                 { color: #f9d54c; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.question-kw                { color: #e0a0f0; }
 .w-md-editor-text-pre .token.recipe-overrides-block .token.group-type                 { color: #c678dd; }
 .w-md-editor-text-pre .token.recipe-overrides-block .token.fallback-kw                { color: #e06c75; }
 .w-md-editor-text-pre .token.recipe-overrides-block .token.selector-builtin           { color: #61afef; }
