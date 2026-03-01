@@ -1276,7 +1276,7 @@ selector      := "all" | "tagged" | "untagged" | expr
 expr          := term (("and" | "or" | "&&" | "||") term)*
 term          := "tag" ("=" token
              | "in" "[" tokenList "]" | "any" | "none")
-             | "rank" ("=" | ">=" | "<=") number
+             | "rank" ("=" | ">=" | "<=") rankVal
              | "rarity" ("=" | ">=" | "<=") rarityName
              | "minrolls" ("=" | ">=" | "<=") number
              | "minsubstats" ("=" | ">=" | "<=") number
@@ -1293,7 +1293,14 @@ field         := "export" | "rank" | "rarity" | "lvl" | "keep"
              | "minsubstats" | "flex" | "substatmin"
              | "substatmin." statKey | "minima.any"
              | "minima." starKey "." statKey
-value         := string | number | token
+value         := exportVal | keepVal | flexVal | rankVal
+             | lvlVal | rarityName | number | string
+exportVal     := "active" | "disabled" | "toggle"
+keepVal       := "early" | "late"
+flexVal       := "on" | "off" | "true" | "false"
+rankVal       := "any" | "1" | "2" | "3" | "4" | "5" | "6"
+lvlVal        := lvlMilestone | lvlMilestone "-" lvlMilestone
+lvlMilestone  := "0" | "4" | "8" | "12" | "16"
 string        := '"' {char | escape} '"'
 escape        := "\\" ("n" | "t" | "r" | "\\" | '"')
                  (\\n = newline, \\\\ = literal backslash)

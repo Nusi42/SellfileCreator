@@ -97,8 +97,9 @@ function recipeOverrides(Prism: Refractor): void {
         // `fallback` / `else` – introduces the default answer branch.
         'fallback-kw': /\b(?:fallback|else)\b/,
 
-        // Built-in collection selectors (`all`, `tagged`, `untagged`).
-        'selector-builtin': /\b(?:all|tagged|untagged)\b/,
+        // Built-in collection selectors and tag-match modifiers.
+        // `any` / `none` appear in `tag any` / `tag none` / `rank=any`.
+        'selector-builtin': /\b(?:all|tagged|untagged|any|none)\b/,
 
         // `tag=TOKEN` – captures the full tag-equality expression so the user-supplied
         // tag value gets its own color.  Must precede `selector-field` so `tag=value`
@@ -172,8 +173,8 @@ function recipeOverrides(Prism: Refractor): void {
         // Rarity tier names used as values.
         'rarity-name': /\b(?:common|uncommon|rare|epic|legendary|mythical|auto)\b/,
 
-        // Boolean / toggle values.
-        'boolean-val': /\b(?:true|false|on|off|active|disabled|toggle)\b/,
+        // Enumerated field values: boolean/toggle flags, export-mode words, and keep-mode words.
+        'boolean-val': /\b(?:true|false|on|off|active|disabled|toggle|early|late)\b/,
 
         // Stat key tokens including percentage variants.
         'stat-key': /\b(?:HP%?|ATK%?|DEF%?|CR%|CDMG%|ACC|RES|SPD)\b/,
