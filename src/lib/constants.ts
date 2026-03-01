@@ -85,6 +85,14 @@ export const GLYPH_ARROW_RIGHT = '→'
 export const GLYPH_TOGGLE_ON = '⦿'
 export const GLYPH_TOGGLE_OFF = '⭘'
 export const GLYPH_GLYPHS_SELECTED = '✓'
+// Per-dimension count glyphs — each scope gets a distinct colored emoji shown iff the flag is on.
+// When the selection for that dimension is empty (any), ∀ is appended to signal "every".
+export const GLYPH_PER_SLOT = '🔲'     // black square button — slot/grid position
+export const GLYPH_PER_FACTION = '🚩'  // triangular flag — faction banner
+export const GLYPH_PER_MAIN_STAT = '⭐' // star — primary stat marker
+export const GLYPH_PER_SET = '🎯'      // direct hit/bullseye — set collection target
+export const GLYPH_PER_SUBSTAT = '➕'  // heavy plus — secondary stat addition
+export const GLYPH_FOR_ALL = '∀'        // "every" indicator for empty (any) selections
 
 // Persisted substat color map (v6 schema with alpha support)
 export const COLORS_STORAGE_KEY_V6 = 'sellfileCreator.substatColors.v6'

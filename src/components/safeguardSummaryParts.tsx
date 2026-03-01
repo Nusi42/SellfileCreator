@@ -24,9 +24,18 @@ import {
   factionCodeToName,
   factionI18nKey,
 } from '../lib/types'
-import { NBSP } from '../lib/constants'
+import {
+  GLYPH_FOR_ALL,
+  GLYPH_PER_FACTION,
+  GLYPH_PER_MAIN_STAT,
+  GLYPH_PER_SET,
+  GLYPH_PER_SLOT,
+  GLYPH_PER_SUBSTAT,
+  NBSP,
+} from '../lib/constants'
 
 const METASET_ICON_BOX_PX = 16
+import { SafeguardSubstatMatch } from '../lib/safeguards'
 import type { SafeguardRule } from '../lib/safeguards'
 import type { Metaset } from '../lib/metasets'
 import { artifactTypeIconFor } from './artifactTypeIcons'
@@ -99,13 +108,18 @@ export function safeguardSummaryParts(
         const label = withNbsp(opts.t ? opts.t(artifactTypeI18nKey(typeId)) : artifactTypeName(typeId))
         return <Box key={`slot-${typeId}-${i}`} component="span" sx={{ mr: 0.5 }}>{label}</Box>
       })
-      addNode(<>{nodes}</>)
+      // Per-slot glyph follows the icons when the flag is on.
+      addNode(<>{nodes}{rule.countMode.perSlot ? <Box key="slot-per" component="span">{NBSP}{GLYPH_PER_SLOT}</Box> : null}</>)
     } else {
       const labels = sorted.map((typeId) =>
         withNbsp(opts.t ? opts.t(artifactTypeI18nKey(typeId)) : artifactTypeName(typeId)),
       )
-      addText(labels.join(', '))
+      addText(labels.join(', ') + (rule.countMode.perSlot ? `${NBSP}${GLYPH_PER_SLOT}` : ''))
     }
+  } else if (rule.countMode.perSlot) {
+    // No slot filter selected — perSlot still applies, meaning every slot is counted
+    // independently. Show the glyph + ∀ so the "any → every" change is visible.
+    addText(`${GLYPH_PER_SLOT}${NBSP}${GLYPH_FOR_ALL}`)
   }
 
   // ── Ranks ─────────────────────────────────────────────────────────────────
@@ -154,7 +168,11 @@ export function safeguardSummaryParts(
       }
       return <Box key={`f-${factionCode}-${i}`} component="span">{label}</Box>
     })
-    addNode(<>{factNodes}</>)
+    // Per-faction glyph follows the content when the flag is on.
+    addNode(<>{factNodes}{rule.countMode.perFaction ? <Box key="fact-per" component="span">{NBSP}{GLYPH_PER_FACTION}</Box> : null}</>)
+  } else if (rule.countMode.perFaction) {
+    // No faction filter — perFaction applies to every faction. Show glyph + ∀.
+    addText(`${GLYPH_PER_FACTION}${NBSP}${GLYPH_FOR_ALL}`)
   }
 
   // ── Main stats ────────────────────────────────────────────────────────────
@@ -174,7 +192,11 @@ export function safeguardSummaryParts(
       interleaved.push(n)
       if (i < nodes.length - 1) interleaved.push(<Box key={`m-sep-${i}`} component="span">, </Box>)
     })
-    addNode(<>{interleaved}</>)
+    // Per-main-stat glyph follows the content when the flag is on.
+    addNode(<>{interleaved}{rule.countMode.perMainStat ? <Box key="main-per" component="span">{NBSP}{GLYPH_PER_MAIN_STAT}</Box> : null}</>)
+  } else if (rule.countMode.perMainStat) {
+    // No main-stat filter — perMainStat applies to every main stat. Show glyph + ∀.
+    addText(`${GLYPH_PER_MAIN_STAT}${NBSP}${GLYPH_FOR_ALL}`)
   }
 
   // ── Substats ──────────────────────────────────────────────────────────────
@@ -197,10 +219,12 @@ export function safeguardSummaryParts(
       if (i < nodes.length - 1) interleaved.push(<Box key={`s-sep-${i}`} component="span">, </Box>)
     })
     const tr = opts.t
+    // Append per-dim glyph when each substat is counted separately (PerSubstat mode).
     addNode(
       <>
         <Box component="span">{`${tr ? tr('chipSubs') : 'Subs'}:${NBSP}`}</Box>
         {interleaved}
+        {rule.substatMatch === SafeguardSubstatMatch.PerSubstat ? <Box key="sub-per" component="span">{NBSP}{GLYPH_PER_SUBSTAT}</Box> : null}
       </>,
     )
   }
@@ -280,11 +304,16 @@ export function safeguardSummaryParts(
       })
 
       if (nodes.length > 0) {
+        // Per-set glyph follows the set icons when the flag is on.
         addNode(
           <Box component="span" sx={{ display: 'inline', whiteSpace: 'normal' }}>
             {nodes}
+            {rule.countMode.perSet ? <Box key="set-per" component="span">{NBSP}{GLYPH_PER_SET}</Box> : null}
           </Box>,
         )
+      } else if (rule.countMode.perSet) {
+        // No set filter — perSet applies to every set. Show glyph + ∀.
+        addText(`${GLYPH_PER_SET}${NBSP}${GLYPH_FOR_ALL}`)
       }
     } else {
       const metaNames = metaEntries.map((e) => String(e.name))
@@ -307,17 +336,18 @@ export function safeguardSummaryParts(
       includedNames.forEach((name, idx) => pushText(`set-${idx}`, name))
       excludedNames.forEach((name, idx) => pushText(`set-excluded-${idx}`, name, true))
       if (nodes.length > 0) {
-        addNode(<Box component="span">{nodes}</Box>)
+        // Per-set glyph follows the text content when the flag is on.
+        addNode(
+          <Box component="span">
+            {nodes}
+            {rule.countMode.perSet ? <Box key="set-per" component="span">{NBSP}{GLYPH_PER_SET}</Box> : null}
+          </Box>,
+        )
+      } else if (rule.countMode.perSet) {
+        // No set filter — perSet applies to every set. Show glyph + ∀.
+        addText(`${GLYPH_PER_SET}${NBSP}${GLYPH_FOR_ALL}`)
       }
     }
-  }
-
-  // ── Required count ────────────────────────────────────────────────────────
-  // Always shown — it's the core safeguard quota. Format mirrors the builder
-  // field which uses a ≥ prefix adornment (e.g. "≥ 2").
-  {
-    const count = rule.requiredCount ?? 1
-    addText(`≥${NBSP}${count}`)
   }
 
   if (parts.length === 0) return null

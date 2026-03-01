@@ -70,7 +70,13 @@ import {
   CLEAR_ICON_BUTTON_SIZE_PX,
   DANGER_TINT_BG,
   FONT_SIZE_BASE_PX,
+  GLYPH_PER_FACTION,
+  GLYPH_PER_MAIN_STAT,
+  GLYPH_PER_SET,
+  GLYPH_PER_SLOT,
+  GLYPH_PER_SUBSTAT,
   HISTORY_TOOLTIP_MAX_WIDTH_PX,
+  NBSP,
   SMALL_BUTTON_HEIGHT_PX,
   UI_BG_HOVER_DANGER_TRANSITION,
 } from '../lib/constants'
@@ -852,7 +858,7 @@ export default function SafeguardBuilderPanel({
                 anyLabel={t('any')}
                 sx={SELECT_BOX_HEIGHT_SX}
               />
-              {renderScopeChip('perFaction', t('safeguardsCountModePerFaction'), scopeActive.perFaction, !hasAccessorySlot)}
+              {renderScopeChip('perFaction', `${GLYPH_PER_FACTION}${NBSP}${t('safeguardsCountModePerFaction')}`, scopeActive.perFaction, !hasAccessorySlot)}
             </Box>
           </Collapse>
         </FormControl>
@@ -918,7 +924,7 @@ export default function SafeguardBuilderPanel({
                   </ToggleButton>
                 ))}
               </ToggleButtonGroup>
-              {renderScopeChip('perMainStat', t('safeguardsCountModePerMain'), scopeActive.perMainStat)}
+              {renderScopeChip('perMainStat', `${GLYPH_PER_MAIN_STAT}${NBSP}${t('safeguardsCountModePerMain')}`, scopeActive.perMainStat)}
             </Box>
           </Collapse>
         </FormControl>
@@ -992,7 +998,9 @@ export default function SafeguardBuilderPanel({
             <Box component="span" sx={{ display: 'inline-flex', gap: 0.75, flexWrap: 'wrap', alignItems: 'center', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
               {substatMatchOptions.map((option) => {
                 const active = effectiveSubstatMatch === option
-                const label = substatMatchLabels[option] ?? substatMatchLabels[SafeguardSubstatMatch.Any]
+                // Prefix PerSubstat with the per-dim glyph so it visually matches scope chips.
+                const baseLabel = substatMatchLabels[option] ?? substatMatchLabels[SafeguardSubstatMatch.Any]
+                const label = option === SafeguardSubstatMatch.PerSubstat ? `${GLYPH_PER_SUBSTAT}${NBSP}${baseLabel}` : baseLabel
                 return (
                   <EllipsisTooltip key={option} title={label} selector=".MuiChip-label">
                     <Chip
@@ -1138,7 +1146,7 @@ export default function SafeguardBuilderPanel({
                   )
                 })}
               </Box>
-              {renderScopeChip('perSlot', t('safeguardsCountModePerSlot'), scopeActive.perSlot)}
+              {renderScopeChip('perSlot', `${GLYPH_PER_SLOT}${NBSP}${t('safeguardsCountModePerSlot')}`, scopeActive.perSlot)}
             </Box>
           </Collapse>
         </FormControl>
@@ -1185,7 +1193,7 @@ export default function SafeguardBuilderPanel({
                 anyLabel={t('anySet')}
                 includeNoSet={hasAccessorySlot}
               />
-              {renderScopeChip('perSet', t('safeguardsCountModePerSet'), scopeActive.perSet)}
+              {renderScopeChip('perSet', `${GLYPH_PER_SET}${NBSP}${t('safeguardsCountModePerSet')}`, scopeActive.perSet)}
             </Box>
           </Collapse>
         </FormControl>
