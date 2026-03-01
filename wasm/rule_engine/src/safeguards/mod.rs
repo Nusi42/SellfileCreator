@@ -1,5 +1,21 @@
 use super::*;
 
+// Fast-path input types and conversion functions live in a dedicated submodule
+// to keep this file focused on rule resolution and scoring logic.
+mod fast_path_types;
+// Re-export pub(crate) structs that lib.rs imports via `use safeguards::*`.
+pub(crate) use fast_path_types::SafeguardWasmArtifactIn;
+// Pull in internal types and conversion helpers used by the functions below.
+use fast_path_types::{
+    SafeguardWasmCandidateFastIn,
+    SafeguardWasmCandidateIn,
+    SafeguardWasmMainStatRawIn,
+    SafeguardCollectRowFastIn,
+    safeguard_collect_row_from_fast_payload,
+    safeguard_convert_fast_artifact,
+    safeguard_main_stat_from_fast_payload,
+};
+
 // Epsilon is used only for tie expansion at the score boundary.
 const SAFEGUARD_SCORE_TIE_EPSILON: f64 = 1e-9;
 // Placeholder samples need stable defaults when no group sample exists.
@@ -22,211 +38,6 @@ const SAFEGUARD_COUNT_KEY_GLOBAL: &str = "global";
 const SAFEGUARD_EQUIPPED_LOCATION_COLLECTION: &str = "collection";
 const SAFEGUARD_EQUIPPED_LOCATION_VAULT: &str = "vault";
 const SAFEGUARD_EQUIPPED_LOCATION_RESERVE_VAULT: &str = "reserveVault";
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct SafeguardWasmSubstatIn {
-    pub(crate) variant: i64,
-    #[serde(default)]
-    pub(crate) is_flat: bool,
-    pub(crate) value: f64,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct SafeguardWasmArtifactIn {
-    pub(crate) id: Option<i64>,
-    pub(crate) slot: i64,
-    pub(crate) set: i64,
-    pub(crate) rank: i64,
-    pub(crate) rarity: i64,
-    pub(crate) level: i64,
-    pub(crate) exact_level: Option<i64>,
-    pub(crate) faction: i64,
-    pub(crate) main_stat: i64,
-    #[serde(default)]
-    pub(crate) equipped_in_collection: bool,
-    #[serde(default)]
-    pub(crate) equipped_in_vault: bool,
-    #[serde(default)]
-    pub(crate) substats: Vec<SafeguardWasmSubstatIn>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct SafeguardWasmCandidateIn {
-    item_key: i64,
-    group_key: String,
-    is_sold: bool,
-    artifact: SafeguardWasmArtifactIn,
-}
-
-// Fast-path main-stat decoder accepts either numeric variants or `{ variant }` records.
-#[derive(Debug, Deserialize, Clone)]
-#[serde(untagged)]
-enum SafeguardWasmMainStatRawIn {
-    Variant(i64),
-    Record {
-        #[serde(default)]
-        variant: Option<i64>,
-    },
-}
-
-// Fast-path substat decoder accepts normalized preview payload fields directly.
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct SafeguardWasmSubstatRawIn {
-    #[serde(default)]
-    variant: i64,
-    #[serde(default)]
-    is_flat: bool,
-    #[serde(default)]
-    value: Option<f64>,
-    #[serde(default)]
-    total_value: Option<f64>,
-}
-
-// Fast-path artifact decoder mirrors normalized tester artifact payloads.
-// The optional `testerItem` keeps row payloads compact when `item` is omitted.
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct SafeguardWasmArtifactRawIn {
-    id: Option<i64>,
-    slot: i64,
-    set: i64,
-    rank: i64,
-    rarity: i64,
-    level: i64,
-    #[serde(default)]
-    exact_level: Option<i64>,
-    #[serde(default)]
-    faction: i64,
-    #[serde(default)]
-    main_stat: Option<SafeguardWasmMainStatRawIn>,
-    #[serde(default)]
-    substats: Vec<SafeguardWasmSubstatRawIn>,
-    #[serde(default)]
-    equipped_champion_location: Option<String>,
-    #[serde(default)]
-    tester_item: Option<TestItemRaw>,
-}
-
-// Fast-path collect row payload mirrors normalized preview rows consumed in TS.
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct SafeguardCollectRowFastIn {
-    artifact: SafeguardWasmArtifactRawIn,
-    #[serde(default)]
-    item: Option<TestItemRaw>,
-    #[serde(default)]
-    base_match_defined: Option<bool>,
-    #[serde(default)]
-    base_match: Option<SafeguardCandidateResolveBaseMatchIn>,
-}
-
-// Fast-path candidate payload mirrors compact safeguard candidate snapshots.
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct SafeguardWasmCandidateFastIn {
-    #[serde(default)]
-    item_key: Option<i64>,
-    #[serde(default)]
-    group_key: Option<String>,
-    #[serde(default)]
-    is_sold: bool,
-    artifact: SafeguardWasmArtifactRawIn,
-}
-
-// Fast-path main-stat extraction avoids `serde_json::Value` traversal on hot rows.
-fn safeguard_main_stat_from_fast_payload(value: Option<SafeguardWasmMainStatRawIn>) -> i64 {
-    match value {
-        Some(SafeguardWasmMainStatRawIn::Variant(variant)) => variant,
-        Some(SafeguardWasmMainStatRawIn::Record { variant }) => {
-            variant.unwrap_or(SAFEGUARD_MAIN_ANY)
-        }
-        None => SAFEGUARD_MAIN_ANY,
-    }
-}
-
-// Fast-path substat conversion keeps finite numeric fallbacks deterministic.
-fn safeguard_substats_from_fast_payload(
-    value: Vec<SafeguardWasmSubstatRawIn>,
-) -> Vec<SafeguardWasmSubstatIn> {
-    let mut out = Vec::<SafeguardWasmSubstatIn>::with_capacity(value.len());
-    for substat in value {
-        let numeric_value = substat
-            .value
-            .filter(|inner| inner.is_finite())
-            .or_else(|| substat.total_value.filter(|inner| inner.is_finite()))
-            .unwrap_or(0.0);
-        out.push(SafeguardWasmSubstatIn {
-            variant: substat.variant,
-            is_flat: substat.is_flat,
-            value: numeric_value,
-        });
-    }
-    out
-}
-
-// Normalize raw equipped-location token into collection/vault flags.
-// Reserve-vault is treated as vault for safeguard filtering purposes.
-fn safeguard_parse_equipped_location(raw: Option<&str>) -> (bool, bool) {
-    let Some(location) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
-        return (false, false);
-    };
-    if location.eq_ignore_ascii_case(SAFEGUARD_EQUIPPED_LOCATION_COLLECTION) {
-        return (true, false);
-    }
-    if location.eq_ignore_ascii_case(SAFEGUARD_EQUIPPED_LOCATION_VAULT)
-        || location.eq_ignore_ascii_case(SAFEGUARD_EQUIPPED_LOCATION_RESERVE_VAULT)
-    {
-        return (false, true);
-    }
-    (false, false)
-}
-
-// Convert fast-path artifacts into the canonical candidate/matcher artifact shape.
-fn safeguard_convert_fast_artifact(
-    artifact: SafeguardWasmArtifactRawIn,
-) -> (SafeguardWasmArtifactIn, Option<TestItemRaw>) {
-    let (equipped_in_collection, equipped_in_vault) = safeguard_parse_equipped_location(
-        artifact.equipped_champion_location.as_deref(),
-    );
-    (
-        SafeguardWasmArtifactIn {
-            id: artifact.id,
-            slot: artifact.slot,
-            set: artifact.set,
-            rank: artifact.rank,
-            rarity: artifact.rarity,
-            level: artifact.level,
-            exact_level: artifact.exact_level,
-            faction: artifact.faction,
-            main_stat: safeguard_main_stat_from_fast_payload(artifact.main_stat),
-            equipped_in_collection,
-            equipped_in_vault,
-            substats: safeguard_substats_from_fast_payload(artifact.substats),
-        },
-        artifact.tester_item,
-    )
-}
-
-// Convert fast-path collect rows into matcher collect inputs with strict required-item checks.
-fn safeguard_collect_row_from_fast_payload(
-    row: SafeguardCollectRowFastIn,
-) -> Result<SafeguardCollectRowIn, String> {
-    let (artifact, fallback_item) = safeguard_convert_fast_artifact(row.artifact);
-    let item = row
-        .item
-        .or(fallback_item)
-        .ok_or_else(|| "collect row requires item or artifact.testerItem".to_string())?;
-    Ok(SafeguardCollectRowIn {
-        item,
-        base_match_defined: row.base_match_defined.unwrap_or(row.base_match.is_some()),
-        base_match: row.base_match,
-        artifact,
-    })
-}
 
 // Convert fast-path candidates into protection candidates with deterministic fallbacks.
 fn safeguard_candidate_from_fast_payload(
@@ -701,7 +512,7 @@ struct SafeguardWasmItemKeyArtifactIn {
     #[serde(default)]
     id: Option<i64>,
     #[serde(default)]
-    tester_item: Option<SafeguardWasmItemKeyTesterItemIn>,
+    gear_inspector_item: Option<SafeguardWasmItemKeyTesterItemIn>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -2497,18 +2308,18 @@ pub fn safeguard_count_key_value(artifact: JsValue, count_mode: JsValue) -> Resu
 pub fn safeguard_item_key_value(artifact: JsValue) -> Result<i64, JsValue> {
     let parsed_artifact: SafeguardWasmItemKeyArtifactIn = from_js_value(artifact)
         .map_err(|error| JsValue::from_str(&format!("Invalid safeguard item-key artifact payload: {error}")))?;
-    // Canonical precedence: artifact.id (db) -> tester.previewExtras.id -> tester.itemId.
+    // Canonical precedence: artifact.id (db) -> gearInspectorItem.previewExtras.id -> gearInspectorItem.itemId.
     let artifact_id = parsed_artifact.id;
-    let tester_preview_id = parsed_artifact
-        .tester_item
+    let gear_inspector_preview_id = parsed_artifact
+        .gear_inspector_item
         .as_ref()
-        .and_then(|tester_item| tester_item.preview_extras.as_ref())
+        .and_then(|gear_inspector_item| gear_inspector_item.preview_extras.as_ref())
         .and_then(|preview_extras| preview_extras.id);
-    let tester_item_id = parsed_artifact
-        .tester_item
+    let gear_inspector_item_id = parsed_artifact
+        .gear_inspector_item
         .as_ref()
-        .and_then(|tester_item| tester_item.item_id);
-    Ok(artifact_id.or(tester_preview_id).or(tester_item_id).unwrap_or(0))
+        .and_then(|gear_inspector_item| gear_inspector_item.item_id);
+    Ok(artifact_id.or(gear_inspector_preview_id).or(gear_inspector_item_id).unwrap_or(0))
 }
 
 // Expose group-key derivation so TS reuses Rust accessory-faction normalization.
