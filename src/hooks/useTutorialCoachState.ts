@@ -1208,15 +1208,6 @@ export function useTutorialCoachState({
         },
       },
       {
-        // Milestone concept intro — moved here from the advanced section so Early/Late
-        // is explained in context, right before the user sets Late mode for this recipe.
-        id: 'thresholds',
-        title: t('builderMilestoneThresholds'),
-        body: t('tutAdvMilestonesBody'),
-        targetIds: ['builder.thresholds.label', 'builder.thresholds', 'builder.thresholds.auto-chip'],
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null) },
-      },
-      {
         id: 'auto-late-mode',
         title: t('tutAutoLateModeTitle'),
         body: t('tutAutoLateModeBody'),
@@ -1253,11 +1244,26 @@ export function useTutorialCoachState({
           // Also restore Late mode in case we're stepping back from preview-highlight-early.
           setCustomRecipes(prev => prev.map((r, i) => i === 2 && r.earlyKeepMode !== 'late' ? { ...r, earlyKeepMode: 'late' as const } : r))
           setSelectedRecipeIdx(2)
-          // Scroll to the end so the newly added Recipe #3 rows are visible, then arm the lower overlay.
-          setTimeout(() => {
-            try { smoothScrollPreviewToEnd() } catch {}
-            try { ensurePreviewHighlight('lower') } catch {}
-          }, 120)
+          // Poll for Recipe #3 rows (data-recipe-idx="2") to appear in the table — the WASM worker
+          // delivers them asynchronously. Once found, snap-scroll so the first row sits just below
+          // the header. Up to 20 attempts × 150 ms = 3 s maximum wait.
+          let attempts = 0
+          const scrollToRecipe3 = () => {
+            try {
+              const container = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
+              const firstRow = container?.querySelector('tr[data-recipe-idx="2"]') as HTMLElement | null
+              if (container && firstRow) {
+                const headerEl = container.querySelector('thead') as HTMLElement | null
+                const headerHeight = headerEl ? headerEl.offsetHeight : 0
+                // offsetTop is relative to the scrollable container so no rect arithmetic needed.
+                container.scrollTop = Math.max(0, firstRow.offsetTop - headerHeight)
+                try { ensurePreviewHighlight('lower') } catch {}
+                return
+              }
+            } catch {}
+            if (attempts < 20) { attempts++; setTimeout(scrollToRecipe3, 150) }
+          }
+          setTimeout(scrollToRecipe3, 80)
         },
       },
       {
@@ -1270,10 +1276,23 @@ export function useTutorialCoachState({
           // Swap Recipe #3 to Early mode so the user can compare against the Late version on Back.
           setCustomRecipes(prev => prev.map((r, i) => i === 2 && r.earlyKeepMode !== 'early' ? { ...r, earlyKeepMode: 'early' as const } : r))
           setSelectedRecipeIdx(2)
-          setTimeout(() => {
-            try { smoothScrollPreviewToEnd() } catch {}
-            try { ensurePreviewHighlight('lower') } catch {}
-          }, 120)
+          // Same polling approach as preview-highlight — earlyKeepMode change retriggers the worker.
+          let attemptsE = 0
+          const scrollToRecipe3E = () => {
+            try {
+              const container = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
+              const firstRow = container?.querySelector('tr[data-recipe-idx="2"]') as HTMLElement | null
+              if (container && firstRow) {
+                const headerEl = container.querySelector('thead') as HTMLElement | null
+                const headerHeight = headerEl ? headerEl.offsetHeight : 0
+                container.scrollTop = Math.max(0, firstRow.offsetTop - headerHeight)
+                try { ensurePreviewHighlight('lower') } catch {}
+                return
+              }
+            } catch {}
+            if (attemptsE < 20) { attemptsE++; setTimeout(scrollToRecipe3E, 150) }
+          }
+          setTimeout(scrollToRecipe3E, 80)
         },
       },
       {
