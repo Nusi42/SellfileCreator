@@ -111,7 +111,6 @@ export function buildPreviewArtifactFromGearInspectorItem(
     substats,
     ascension,
     gearInspectorItem: item,
-    testerItem: item, // WASM boundary alias; keep until Rust side renames the field
     rerollCount,
     equippedToChampionId,
     equippedChampionBaseId,

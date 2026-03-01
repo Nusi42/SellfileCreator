@@ -8,7 +8,9 @@ import type { MatchingRecipeDecision } from '../lib/ruleEval'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
 import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import type { GearArtifactSnapshot, GearDbDiffToastEntry, GearDbDiffToastPayload } from '../lib/gearDbDiffToast'
-import { GearInspectorGridCard, getGearInspectorGridCardSizing } from './GearInspectorItemsGrid'
+// GearInspectorGridCard and getGearInspectorGridCardSizing were extracted from GearInspectorItemsGrid
+// into a dedicated module to keep both files under the 1,500-line cap.
+import { GearInspectorGridCard, getGearInspectorGridCardSizing } from './GearInspectorGridCard'
 import { buildGearDbDiffSummaryLineNodes } from './GearDbDiffSummaryLine'
 
 // Use a tight gap so five entries can still fit in the toast window.
