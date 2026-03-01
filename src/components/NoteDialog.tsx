@@ -9,6 +9,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import { useI18n } from '../lib/i18n'
 import '../lib/prismRecipeOverrides' // registers recipe-overrides DSL syntax coloring
+import { refractor } from 'refractor'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand, RefMDEditor } from '@uiw/react-md-editor'
@@ -85,6 +86,80 @@ const NOTE_COLOR_SX_SELECTORS: Record<string, { color: string }> = Object.fromEn
     { color: hex },
   ]),
 )
+// Maps each recipe-overrides Prism token class to its display color.
+// Mirrors styles.css so the same palette is applied both in the editor backdrop
+// and in tooltip <pre> blocks (where the .w-md-editor-text-pre scope doesn't apply).
+const RECIPE_OVERRIDES_TOKEN_COLORS: Record<string, string> = {
+  'comment-delimiter': '#5c8baf',
+  'directive-kw':      '#c678dd',
+  'line-comment':      '#5c6370',
+  'block-comment':     '#5c6370',
+  // id=TOKEN split: `id` keyword (blue keyword family) + defined name (bright amber)
+  'id-kw':             '#7ab3d4',
+  'id-name':           '#f0a757',
+  'string':            '#98c379',
+  'string-bold':       '#c3e88d',
+  'string-chip':       '#7ec8e3',
+  // marker-option outer span intentionally has no color; inner tokens are colored individually.
+  'marker-option-kw':  '#56b6c2',  // wholeline / columns – teal, same family as field names
+  'default-kw':        '#e06c75',  // same as selector-at (@) – both are sigil-level markers
+  'question-kw':       '#7ab3d4',
+  'group-type':        '#4a8aad',
+  'fallback-kw':       '#e06c75',
+  'selector-builtin':  '#61afef',
+  'selector-field':    '#61afef',
+  'field':             '#56b6c2',
+  'id-assign':         '#f0a757',
+  'constraint-kw':     '#e5c07b',  // word-form: set / unset / only / excl
+  'constraint-op':     '#e87c3e',  // symbolic-form: ! + - ^ (operator sigil, distinct from keyword)
+  'id-ref':            '#c8a96e',
+  'logic-kw':          '#61afef',
+  'rarity-name':       '#e5c07b',
+  'boolean-val':       '#d19a66',
+  'stat-key':          '#56b6c2',
+  'number':            '#d19a66',
+  'selector-at':       '#e06c75',
+  'operator':          '#abb2bf',
+  'punctuation':       '#abb2bf',
+  // note-markers sub-tokens
+  'marker-kw':         '#c678dd',
+}
+
+// Recursively converts a refractor (HAST) node to React elements.
+// Inline colors come from RECIPE_OVERRIDES_TOKEN_COLORS so the tooltip
+// inherits the same palette as the editor backdrop without extra CSS scope.
+function renderPrismNode(node: RootContent, key: number): React.ReactNode {
+  if (node.type === 'text') return node.value
+  if (node.type === 'element') {
+    const classes = (node.properties?.className as string[]) ?? []
+    // Pick the first token class that has a mapped color; skip the generic 'token' wrapper.
+    const tokenClass = classes.find((c) => c !== 'token' && Boolean(RECIPE_OVERRIDES_TOKEN_COLORS[c]))
+    const color = tokenClass ? RECIPE_OVERRIDES_TOKEN_COLORS[tokenClass] : undefined
+    return (
+      <span key={key} style={color ? { color } : undefined}>
+        {node.children.map((child, i) => renderPrismNode(child as RootContent, i))}
+      </span>
+    )
+  }
+  return null
+}
+
+// Highlights `text` with the given refractor grammar and returns a styled <pre>.
+// Falls back to plain text if the grammar is not registered or highlighting fails.
+function renderPrismHighlighted(text: string, grammar: string, sx: Record<string, unknown>): React.ReactNode {
+  try {
+    const tree = refractor.highlight(text, grammar)
+    return (
+      <Box component="pre" sx={sx}>
+        {tree.children.map((child, i) => renderPrismNode(child as RootContent, i))}
+      </Box>
+    )
+  } catch {
+    // Grammar not yet registered or unsupported – fall back to plain text.
+    return <Box component="pre" sx={sx}>{text}</Box>
+  }
+}
+
 const NOTE_EDITOR_BG_COLOR = '#0d1117'
 // Keep the note dialog size constant so view/edit stays aligned.
 const NOTE_DIALOG_HEIGHT = '84vh'
@@ -1184,7 +1259,8 @@ const RECIPE_OVERRIDES_SAMPLE_COMMAND_KEY = 'insert-recipeOverrides-sample'
 
 // Static EBNF text; the statKey row is appended at runtime.
 const RECIPE_OVERRIDES_EBNF_BASE =
-`marker        := "<!--" "recipe-overrides" [markerOptions] question "-->"
+`marker        := "<!--" "recipe-overrides"
+             [markerOptions] question "-->"
 markerOptions := "[" markerOption ("," markerOption)* "]"
 ${RECIPE_OVERRIDES_EBNF_MARKER_OPTION_LINE}
 ${RECIPE_OVERRIDES_EBNF_REFERENCE_LINE}
@@ -1218,6 +1294,11 @@ field         := "export" | "rank" | "rarity" | "lvl" | "keep"
              | "substatmin." statKey | "minima.any"
              | "minima." starKey "." statKey
 value         := string | number | token
+string        := '"' {char | escape} '"'
+escape        := "\\" ("n" | "t" | "r" | "\\" | '"')
+                 (\\n = newline, \\\\ = literal backslash)
+comment       := "//" {any} eol
+             | "/*" {any} "*/"
 token         := /[\\p{L}\\p{M}_][\\p{L}\\p{N}\\p{M}_]*/
                 (unicode letters/marks, underscore)
 rarityName    := "common" | "uncommon" | "rare" | "epic"
@@ -1272,11 +1353,15 @@ const RECIPE_OVERRIDES_SAMPLE_EXAMPLE_TEXT = [
 ].join('\n')
 
 // Compact tooltip example keeps the popper readable.
+// Comment lines (// …) are colored muted gray by the line-comment grammar token.
 const RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_TEXT = [
   '<!-- recipe-overrides',
+  '// q introduces a question; prompt is shown above the option buttons',
   'q "Enable arena recipes?"',
+  '// radio = single-choice; * marks the option selected by default',
   'radio "Yes" * { @tag=arena { export=active } }',
-  'radio "No" { @tag=arena { export=disabled } }',
+  '// option without * is not the default',
+  'radio "No"  { @tag=arena { export=disabled } }',
   RECIPE_OVERRIDES_SAMPLE_CLOSE,
 ].join('\n')
 
@@ -1303,6 +1388,12 @@ const RECIPE_OVERRIDES_TOOLTIP_CODE_SX = {
   lineHeight: 1.35,
   // Reset default <pre> margins to avoid extra gaps.
   m: 0,
+  // Dark background matches the editor so Prism token colors read correctly
+  // against the same palette they were designed for.
+  backgroundColor: NOTE_EDITOR_BG_COLOR,
+  borderRadius: '4px',
+  p: '6px 8px',
+  color: '#abb2bf',
 } satisfies Record<string, unknown>
 
 function buildRecipeOverridesStatKeys(): string[] {
@@ -3109,19 +3200,19 @@ function NoteEditorContent({
   const recipeOverridesSampleTooltipContent = useMemo(() => {
     // Build the shared EBNF text for the tooltip.
     const ebnfText = buildRecipeOverridesEbnfText()
-    // Reuse the compact example for the tooltip body.
-    const exampleText = RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_TEXT
-    // Render the tooltip with headers and preformatted blocks.
+    // Render the tooltip with syntax-highlighted EBNF and annotated example.
+    // Both blocks use the recipe-overrides grammar so DSL keywords and string
+    // literals carry the same colors as they do in the editor backdrop.
     return (
       <Box sx={RECIPE_OVERRIDES_TOOLTIP_WRAP_SX}>
         <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
           {RECIPE_OVERRIDES_EBNF_HEADER}
         </Typography>
-        <Box component="pre" sx={RECIPE_OVERRIDES_TOOLTIP_CODE_SX}>{ebnfText}</Box>
+        {renderPrismHighlighted(ebnfText, 'recipe-overrides', RECIPE_OVERRIDES_TOOLTIP_CODE_SX)}
         <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
           {RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_HEADER}
         </Typography>
-        <Box component="pre" sx={RECIPE_OVERRIDES_TOOLTIP_CODE_SX}>{exampleText}</Box>
+        {renderPrismHighlighted(RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_TEXT, 'recipe-overrides', RECIPE_OVERRIDES_TOOLTIP_CODE_SX)}
       </Box>
     )
   }, [])

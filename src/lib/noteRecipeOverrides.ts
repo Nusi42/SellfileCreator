@@ -459,6 +459,18 @@ const tokenizeRecipeOverrides = (input: string): Token[] => {
       idx += 1
       continue
     }
+    // Skip single-line comments (// … end-of-line).
+    if (ch === '/' && input.charAt(idx + 1) === '/') {
+      const eol = input.indexOf('\n', idx)
+      idx = eol >= 0 ? eol + 1 : input.length
+      continue
+    }
+    // Skip block comments (/* … */); treat as whitespace.
+    if (ch === '/' && input.charAt(idx + 1) === '*') {
+      const close = input.indexOf('*/', idx + 2)
+      idx = close >= 0 ? close + 2 : input.length
+      continue
+    }
     // Parse quoted strings.
     if (ch === '"') {
       let cursor = idx + 1
@@ -473,13 +485,16 @@ const tokenizeRecipeOverrides = (input: string): Token[] => {
           value = ''
           break
         }
-        // Support escaped newlines/tabs so prompt text stays readable.
-        if (next === '\\\\') {
+        // Support escape sequences so prompt text can embed newlines without
+        // requiring a literal newline in the source:
+        //   \n → newline   \t → tab   \r → carriage return   \\ → backslash
+        //   \" → quote (keeps the string open)   \<other> → literal char
+        if (next === '\\') {
           const esc = input.charAt(cursor + 1)
           if (esc === 'n') value += '\n'
           else if (esc === 't') value += '\t'
           else if (esc === 'r') value += '\r'
-          else if (esc === '\\\\') value += '\\\\'
+          else if (esc === '\\') value += '\\'
           else if (esc) value += esc
           cursor += 2
           continue
