@@ -13,15 +13,15 @@ import { cloneSafeguardRules } from '../lib/safeguards'
 import { cloneSubstatTargets } from '../lib/substatTargets'
 
 // snapshotBuilderRecipe detaches a builder recipe for history storage.
-export const snapshotBuilderRecipe = (cfg: BuilderRecipe): BuilderRecipe => (
+export const snapshotBuilderRecipe = (recipe: BuilderRecipe): BuilderRecipe => (
   // Use the shared clone helper so nested arrays are copied.
-  cloneBuilderRecipe(cfg)
+  cloneBuilderRecipe(recipe)
 )
 
 // snapshotBuilderRecipes clones a list of recipes in one pass.
 export const snapshotBuilderRecipes = (recipes: readonly BuilderRecipe[]): BuilderRecipe[] => (
   // Reuse the per-recipe clone to keep behavior consistent.
-  recipes.map((cfg) => cloneBuilderRecipe(cfg))
+  recipes.map((recipe) => cloneBuilderRecipe(recipe))
 )
 
 // snapshotMetasets clones metasets so name/icon changes do not rewrite history.

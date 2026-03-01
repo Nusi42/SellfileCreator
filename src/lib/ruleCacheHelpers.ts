@@ -3,7 +3,7 @@ import { buildHsfRules, RuleLimitReachedError, type BuilderRecipe, type SubstatT
 import { findObsoleteRules } from './hsfObsolete'
 
 export function recipesForRuleBuild(recipes: readonly BuilderRecipe[]): BuilderRecipe[] {
-  return recipes.map((cfg) => ({ ...cfg }))
+  return recipes.map((recipe) => ({ ...recipe }))
 }
 
 export function countRulesForRecipeEntry(
@@ -38,5 +38,5 @@ export function countRulesForRecipeEntry(
 }
 
 export function countRulesForRecipes(recipes: readonly BuilderRecipe[], substatTargets: SubstatTargetTable): number[] {
-  return recipes.map((cfg) => countRulesForRecipeEntry(cfg, substatTargets))
+  return recipes.map((recipe) => countRulesForRecipeEntry(recipe, substatTargets))
 }
