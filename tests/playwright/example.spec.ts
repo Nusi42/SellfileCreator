@@ -11,27 +11,27 @@ test.beforeAll(async ({ browser }) => {
 })
 
 test('app renders the builder shell', async ({ page }) => {
-  // Allow the long timeout so the initial app boot does not flake.
+  // Allow the long timeout so slower engines (Firefox) can finish the shell render.
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
   // Seed storage so the README dialog does not block the shell.
   await prepareApp(page)
   // Load the app shell without waiting on the full load event.
   await page.goto('/', APP_GOTO_OPTIONS)
-  // Confirm the builder heading is present to validate the shell is mounted.
+  // Confirm the builder toggle button is present to validate the shell is mounted.
   // Allow slower engines to finish the shell render before asserting.
-  await expect(page.getByRole('heading', { name: 'Recipe Builder' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await expect(page.getByRole('button', { name: 'Recipe Builder' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 })
 
 test('help entry point remains visible', async ({ page }) => {
-  // Allow the long timeout so the initial app boot does not flake.
+  // Allow the long timeout so slower engines (Firefox) can finish the shell render.
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
   // Seed storage so the README dialog does not block the header.
   await prepareApp(page)
   // Load the app shell without waiting on the full load event.
   await page.goto('/', APP_GOTO_OPTIONS)
-  // Wait for the builder heading before asserting on header controls.
+  // Wait for the builder toggle button before asserting on header controls.
   // Allow slower engines to finish the shell render before asserting.
-  await expect(page.getByRole('heading', { name: 'Recipe Builder' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await expect(page.getByRole('button', { name: 'Recipe Builder' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   // Ensure the Help button remains accessible for guidance.
   await expect(page.getByRole('button', { name: 'Help / README' })).toBeVisible()
 })
