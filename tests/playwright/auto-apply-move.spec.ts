@@ -160,6 +160,21 @@ const moveChipDown = async (chip: Locator): Promise<void> => {
   await clickChipControlButton(chip, 1)
 }
 
+const waitForMenuOverlayGone = async (page: Page): Promise<void> => {
+  // MUI's Popover leaves a backdrop div that intercepts pointer events on Chromium.
+  // Target the specific MUI Menu overlay so we don't conflict with other modals.
+  const overlay = page.locator('.MuiPopover-root.MuiMenu-root')
+  // Wait for the overlay to be fully removed from the DOM.
+  await overlay.waitFor({ state: 'detached', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    .catch(() => {
+      // If still present, force-dismiss with a click on a neutral spot.
+      return page.mouse.click(1, 1).then(() =>
+        overlay.waitFor({ state: 'detached', timeout: PLAYWRIGHT_TIMEOUTS.uiMenu }),
+      )
+    })
+    .catch(() => undefined)
+}
+
 const moveChipToTop = async (page: Page, chip: Locator): Promise<void> => {
   // Open the chip context menu so we can access Move to Top.
   const menu = await openContextMenu(page, chip)
@@ -167,8 +182,13 @@ const moveChipToTop = async (page: Page, chip: Locator): Promise<void> => {
   const item = page.getByRole('menuitem', { name: 'Move to Top' })
   await expect(item).toBeVisible()
   await item.click()
-  // Wait for the MUI menu modal to fully teardown before continuing.
-  await menu.waitFor({ state: 'hidden' })
+  // Dismiss the MUI Popover backdrop that Chromium leaves behind after click.
+  await page.keyboard.press('Escape')
+  // Wait for the menu overlay to fully teardown before continuing.
+  await menu.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.uiMenu })
+    .catch(() => menu.waitFor({ state: 'detached', timeout: PLAYWRIGHT_TIMEOUTS.uiMenu }))
+  // Ensure the MUI modal backdrop is also gone so clicks are not intercepted.
+  await waitForMenuOverlayGone(page)
 }
 
 const moveChipToBottom = async (page: Page, chip: Locator): Promise<void> => {
@@ -178,8 +198,13 @@ const moveChipToBottom = async (page: Page, chip: Locator): Promise<void> => {
   const item = page.getByRole('menuitem', { name: 'Move to Bottom' })
   await expect(item).toBeVisible()
   await item.click()
-  // Wait for the MUI menu modal to fully teardown before continuing.
-  await menu.waitFor({ state: 'hidden' })
+  // Dismiss the MUI Popover backdrop that Chromium leaves behind after click.
+  await page.keyboard.press('Escape')
+  // Wait for the menu overlay to fully teardown before continuing.
+  await menu.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.uiMenu })
+    .catch(() => menu.waitFor({ state: 'detached', timeout: PLAYWRIGHT_TIMEOUTS.uiMenu }))
+  // Ensure the MUI modal backdrop is also gone so clicks are not intercepted.
+  await waitForMenuOverlayGone(page)
 }
 
 const expectBuilderStats = async (page: Page, options: { main: string; substat: string; selected: boolean }): Promise<void> => {
@@ -250,27 +275,24 @@ const setupAutoApplyScenario = async (page: Page): Promise<void> => {
 }
 
 test.describe('auto apply move', () => {
-  // Extend timeouts for all hooks/tests so autosave restore does not trip the default 15s limit.
+  // Extend timeouts for all hooks/tests so autosave restore has headroom after warmup.
   test.describe.configure({ timeout: PLAYWRIGHT_TIMEOUTS.testHeavy })
 
   test.beforeAll(async ({ browser }) => {
-    // Allow the long timeout so the cold Vite compile can finish during warmup.
+    // Allow extra time so the cold Vite compile can finish during warmup.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
     // Preload the shell once so the first test does not pay the compile cost.
     await warmupAppShell(browser)
   })
 
   test.beforeEach(async ({ page }) => {
-    // Allow the long timeout so autosave restore completes on slower hosts.
+    // Allow extra time for autosave restore + scenario setup on slower hosts.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
     // Reset the app state before each move test to keep scenarios isolated.
     await setupAutoApplyScenario(page)
   })
 
   test('auto apply stays on the moved recipe for move up/down', async ({ page }) => {
-    // Allow time for SFR parsing and the rebuild it triggers.
-    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
-
   // Move Up using the chip button while the builder is dirty.
   await moveChipUp(getRecipeChipByName(page, MARIUS_RECIPE_NAME))
   // Auto-apply should persist the dirty builder state before assertions.
@@ -302,9 +324,6 @@ test.describe('auto apply move', () => {
   })
 
   test('auto apply stays on the moved recipe for move to top', async ({ page }) => {
-    // Allow time for SFR parsing and the rebuild it triggers.
-    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
-
   // Move to Top via the context menu entry.
   await ensureChipSelected(getRecipeChipByName(page, MARIUS_RECIPE_NAME))
   await moveChipToTop(page, getRecipeChipByName(page, MARIUS_RECIPE_NAME))
@@ -322,9 +341,6 @@ test.describe('auto apply move', () => {
   })
 
   test('auto apply stays on the moved recipe for move to bottom', async ({ page }) => {
-    // Allow time for SFR parsing and the rebuild it triggers.
-    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
-
   // Move to Bottom via the context menu entry.
   await ensureChipSelected(getRecipeChipByName(page, MARIUS_RECIPE_NAME))
   await moveChipToBottom(page, getRecipeChipByName(page, MARIUS_RECIPE_NAME))

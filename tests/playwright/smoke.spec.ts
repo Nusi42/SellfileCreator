@@ -11,13 +11,13 @@ test.describe('smoke', () => {
     await prepareApp(page)
     // Avoid waiting for the full load event during dev-server startup.
     await page.goto('/', APP_GOTO_OPTIONS)
-    // Confirm the builder header renders to prove the shell is ready.
-    // Allow slower engines to finish the shell render before asserting.
-    await expect(page.getByRole('heading', { name: 'Recipe Builder' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+    // Confirm the builder toggle button renders to prove the shell is ready.
+    // Allow extra time for cold boot since smoke has no warmup pass.
+    await expect(page.getByRole('button', { name: 'Recipe Builder' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
     // Capture the toolbar action by accessible name so it survives layout changes.
     // Use the stable test hook so the label can stay localized/ellipsized.
     const substatTargetsButton = page.locator(SUBSTAT_TARGETS_BUTTON_SELECTOR)
-    // Confirm the toolbar renders without extending the default timeout.
-    await expect(substatTargetsButton).toBeVisible()
+    // Confirm the toolbar renders — allow extra time since smoke has no warmup.
+    await expect(substatTargetsButton).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   })
 })

@@ -95,9 +95,9 @@ const seedTesterSellFilters = async (page: Parameters<typeof test.use>[0]['page'
   // Filter tester results to Sell-only so the count chip is scoped.
   testerFilters.testerResult = { keep: 'no', matched: 'any' }
   // Store both views together so the app boots in tester mode with the Sell filter active.
-  const filterState = { rules: rulesFilters, tester: testerFilters }
+  const filterState = { rules: rulesFilters, gearInspector: testerFilters }
   // Keep the tester filter panel open so the UI state matches the seed.
-  const filterOpen = { rules: false, tester: true }
+  const filterOpen = { rules: false, gearInspector: true }
   await page.addInitScript(
     ({ previewKey, previewMode, filterKey, filterValue, filterOpenKey, filterOpenValue }) => {
       try {
@@ -110,7 +110,7 @@ const seedTesterSellFilters = async (page: Parameters<typeof test.use>[0]['page'
     },
     {
       previewKey: PREVIEW_MODE_STORAGE_KEY,
-      previewMode: 'tester',
+      previewMode: 'gearInspector',
       filterKey: RULES_FILTER_STATE_STORAGE_KEY,
       filterValue: JSON.stringify(filterState),
       filterOpenKey: RULES_FILTER_OPEN_STORAGE_KEY,
@@ -145,7 +145,7 @@ const acceptTesterRestoreDialog = async (page: Parameters<typeof test.use>[0]['p
   const isVisible = await dialog.isVisible().catch(() => false)
   if (!isVisible) return
   // Accept the default selection so tester items load without extra clicks.
-  const testerCheckbox = dialog.getByRole('checkbox', { name: /Rule Tester Imports/i })
+  const testerCheckbox = dialog.getByRole('checkbox', { name: /Gear Inspector/i })
   // Ensure the tester payload is selected even if persisted preferences cleared it.
   if (await testerCheckbox.isVisible().catch(() => false)) {
     if (!(await testerCheckbox.isChecked().catch(() => false))) {
@@ -160,16 +160,14 @@ const acceptTesterRestoreDialog = async (page: Parameters<typeof test.use>[0]['p
 }
 
 test.beforeAll(async ({ browser }) => {
-  // Allow the long timeout so the cold Vite compile can finish during warmup.
-  // Allow extra time for autosave restore + tester work on slower engines.
+  // Allow extra time so the cold Vite compile can finish during warmup.
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
   // Preload the shell once so the SFR import does not pay the compile cost.
   await warmupAppShell(browser)
 })
 
 test('disable recipe overrides then duplicate disabled config changes sell counts', async ({ page }) => {
-  // Allow the long timeout for matcher rebuilds during DB import and duplication.
-    // Allow extra time for autosave restore + tester work on slower engines.
+  // Allow extra time for matcher rebuilds during DB import and duplication.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
   // Start with clean localStorage so the filters are predictable.
   await prepareApp(page)

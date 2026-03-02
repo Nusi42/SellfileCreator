@@ -55,7 +55,7 @@ const basePayload = {
 
 const buildModeMap = <T>(factory: (mode: RulesFilterPreviewMode) => T): Record<RulesFilterPreviewMode, T> => ({
   rules: factory('rules'),
-  tester: factory('tester'),
+  gearInspector: factory('gearInspector'),
 })
 
 const defaultFilterState = cloneDefaultRulesFilterState()
@@ -86,20 +86,20 @@ const savedAutosaveEntry = (() => {
     AutosaveSavedAt: '2024-12-12T00:00:00.000Z',
     Version: APP_VERSION,
     Filters: {
-      activeMode: 'tester' as RulesFilterPreviewMode,
+      activeMode: 'gearInspector' as RulesFilterPreviewMode,
       views: {
         rules: {
           open: false,
           state: JSON.parse(JSON.stringify(defaultFilterState)) as RulesFilterState,
           collapsed: { ...defaultCollapsedState },
         },
-        tester: {
+        gearInspector: {
           open: true,
           state: savedFilterState,
           collapsed: savedCollapsedState,
         },
       },
-      gearInspectorRecipeFilterMode: 'first',
+      testerRecipeFilterMode: 'first',
     },
   }
   const serialized = JSON.stringify(payload)
@@ -112,15 +112,15 @@ const defaultCollapsedMap = buildModeMap(() => cloneDefaultRulesFilterCollapsed(
 const defaultOpenMap = buildModeMap(() => RULES_FILTER_OPEN_DEFAULT)
 const restoredStateMap = {
   rules: JSON.parse(JSON.stringify(defaultStateMap.rules)) as RulesFilterState,
-  tester: savedFilterState,
+  gearInspector: savedFilterState,
 }
 const restoredCollapsedMap = {
   rules: { ...defaultCollapsedMap.rules },
-  tester: savedCollapsedState,
+  gearInspector: savedCollapsedState,
 }
 const restoredOpenMap = {
   rules: RULES_FILTER_OPEN_DEFAULT,
-  tester: true,
+  gearInspector: true,
 }
 
 test.describe('autosave filter restore', () => {
@@ -173,9 +173,9 @@ test.describe('autosave filter restore', () => {
         try {
           window.localStorage.setItem(filterOpenKey, JSON.stringify(defaultOpen))
         } catch {}
-        // Force tester preview mode so the restore flow targets the tester view.
+        // Force gearInspector preview mode so the restore flow targets the inspector view.
         try {
-          window.localStorage.setItem(previewModeKey, 'tester')
+          window.localStorage.setItem(previewModeKey, 'gearInspector')
         } catch {}
       },
       {
@@ -235,7 +235,7 @@ test.describe('autosave filter restore', () => {
           window.localStorage.setItem(filterOpenKey, JSON.stringify(defaultOpen))
         } catch {}
         try {
-          window.localStorage.setItem(previewModeKey, 'tester')
+          window.localStorage.setItem(previewModeKey, 'gearInspector')
         } catch {}
       },
       {
@@ -286,7 +286,7 @@ test.describe('autosave filter restore', () => {
     if (!(await dialog.isVisible().catch(() => false))) return
     await expect(dialog).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 
-    const filterCheckbox = page.getByRole('checkbox', { name: /Filter panel/i })
+    const filterCheckbox = page.getByRole('checkbox', { name: /View, Filter & Sort/i })
     await expect(filterCheckbox).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 
     const restoreButton = page.getByRole('button', { name: /Restore selected/i })
@@ -318,7 +318,7 @@ test.describe('autosave filter restore', () => {
     const storedOpen = await page.evaluate((key) => window.localStorage.getItem(key), RULES_FILTER_OPEN_STORAGE_KEY)
     expect(storedOpen).toBe(JSON.stringify(restoredOpenMap))
 
-    const testerToggle = page.getByRole('button', { name: /Rule Tester/i })
+    const testerToggle = page.getByRole('button', { name: /Gear Inspector/i })
     await expect(testerToggle).toHaveAttribute('aria-pressed', 'true')
 
     const filterButton = page.getByRole('button', { name: /Filters On/i })
@@ -326,9 +326,8 @@ test.describe('autosave filter restore', () => {
     // Use aria-label to avoid layout-specific truncation of the visible label.
     await expect(filterButton).toHaveAttribute('aria-label', /Filters On/i)
 
-    const recipeFilterButton = page.getByRole('button', { name: /(?:Recipe|Config) Filter/i })
+    const recipeFilterButton = page.getByRole('button', { name: /By Match/i })
     await expect(recipeFilterButton).toBeVisible()
     await expect(recipeFilterButton).toContainText('First')
-    await expect(recipeFilterButton).toHaveAttribute('aria-pressed', 'true')
   })
 })

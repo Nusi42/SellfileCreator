@@ -12,16 +12,19 @@ test.describe('substat targets dialog', () => {
     // Load the app shell without waiting for full asset load.
     await page.goto('/', APP_GOTO_OPTIONS)
 
-    // Open the "Substat Targets" modal (aka the Substat Values popout).
+    // Open the Tools dialog (LogicHub) which hosts the Substat Targets tab.
     // Use the stable tour id so localized labels or ellipses do not break the selector.
     const openButton = page.locator(SUBSTAT_TARGETS_BUTTON_SELECTOR)
     // Allow the app shell to finish mounting before we assert on the trigger.
     await openButton.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
     await openButton.click()
 
-    // Scope to the dialog so future UI additions do not affect the selector.
-    const dialog = page.getByRole('dialog', { name: 'Manage Substat Targets' })
+    // Scope to the LogicHub dialog so future UI additions do not affect the selector.
+    const dialog = page.getByRole('dialog', { name: 'Tools' })
     await expect(dialog).toBeVisible()
+    // Navigate to the Substat Targets tab within the LogicHub.
+    const substatTab = dialog.getByRole('tab', { name: 'Substat Targets' })
+    await substatTab.click()
 
     // The dialog renders a dense grid, and each value input carries stable keys.
     const inputs = dialog.locator('input[data-substat-target-input="true"]')
