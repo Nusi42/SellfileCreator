@@ -172,16 +172,20 @@ export default function RestoreAutosaveDialog({
 
   // Apply the same metaset dependency rule as Shift-load import options.
   // Why: autosave restore can also import recipes/safeguards without metasets.
+  // When metasets haven't changed the current session already holds them;
+  // treat as no "new" incoming IDs so the dependency check never fires.
   const dependencyIssues = useMemo(() => getMetasetDependencyIssues({
     selection: {
       recipes: selection.recipes,
       safeguards: selection.safeguards,
       metasets: selection.metasets,
     },
-    incomingMetasetIds: collectMetasetIds(draft?.Metasets ?? []),
+    incomingMetasetIds: metasetsDiffer
+      ? collectMetasetIds(draft?.Metasets ?? [])
+      : new Set<string>(),
     recipeMetasetIds: collectRecipeMetasetIds(draft?.Recipes ?? []),
     safeguardMetasetIds: collectSafeguardMetasetIds(draft?.Safeguards ?? []),
-  }), [draft?.Metasets, draft?.Recipes, draft?.Safeguards, selection.metasets, selection.recipes, selection.safeguards])
+  }), [draft?.Metasets, draft?.Recipes, draft?.Safeguards, metasetsDiffer, selection.metasets, selection.recipes, selection.safeguards])
 
   const constraintMessages = useMemo(() => {
     const messages: string[] = []

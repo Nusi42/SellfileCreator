@@ -6864,7 +6864,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 safeguards: selection.safeguards,
                 metasets: selection.metasets,
               },
-              incomingMetasetIds: collectMetasetIds(draft?.Metasets ?? []),
+              // When metasets haven't changed the current session already holds them;
+              // treat as no "new" incoming IDs so the dependency check never fires.
+              incomingMetasetIds: restoreMetasetsDiffer
+                ? collectMetasetIds(draft?.Metasets ?? [])
+                : new Set<string>(),
               recipeMetasetIds: collectRecipeMetasetIds(draft?.Recipes ?? []),
               safeguardMetasetIds: collectSafeguardMetasetIds(draft?.Safeguards ?? []),
             })
