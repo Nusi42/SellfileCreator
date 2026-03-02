@@ -105,60 +105,6 @@ export const metasetsSignature = (mets?: Metaset[] | null): string => {
   return JSON.stringify(copy)
 }
 
-// Stable per-metaset fingerprint used for ID remapping (not sorting-based like metasetsSignature).
-// Matches metasets by the three fields the signature already considers, excluding id.
-const metaContentKey = (m: Metaset): string =>
-  JSON.stringify({
-    name: m.name,
-    sets: [...(m.sets ?? [])].sort((a, b) => a - b),
-    iconId: normalizeMetasetIconId(m.iconId),
-  })
-
-/**
- * Build a map from saved-autosave metaset IDs to current-session metaset IDs
- * for entries whose content (name + sets + iconId) is identical but whose ID
- * differs. This happens when default metasets are versioned (e.g. dmeta_nuker_v1
- * → dmeta_nuker_v2) or when an older autosave used timestamp-based IDs.
- * Only entries that actually differ in ID are included so callers can skip the
- * remapping step cheaply when the map is empty.
- */
-function buildMetasetIdRemap(saved: Metaset[], current: Metaset[]): Map<string, string> {
-  // Index current metasets by content key for O(n) lookup.
-  const currentByKey = new Map<string, string>()
-  for (const m of current) {
-    const key = metaContentKey(m)
-    // First occurrence wins — duplicate-content metasets are unusual but safe to skip.
-    if (!currentByKey.has(key)) currentByKey.set(key, m.id)
-  }
-  const remap = new Map<string, string>()
-  for (const s of saved) {
-    const currentId = currentByKey.get(metaContentKey(s))
-    // Only remap when a match exists and the IDs actually differ.
-    if (currentId && currentId !== s.id) remap.set(s.id, currentId)
-  }
-  return remap
-}
-
-/** Apply a metaset ID remap to a recipe's artifactMetaSets list. */
-function remapRecipeMetaIds(recipe: BuilderRecipe, remap: Map<string, string>): BuilderRecipe {
-  const ids = recipe.artifactMetaSets
-  if (!ids || ids.length === 0) return recipe
-  // Only clone when at least one ID actually needs remapping to avoid churn.
-  const remapped = ids.map((id) => remap.get(id) ?? id)
-  const changed = remapped.some((id, i) => id !== ids[i])
-  if (!changed) return recipe
-  return { ...recipe, artifactMetaSets: remapped }
-}
-
-/** Apply a metaset ID remap to a safeguard rule's combination.metaSetIds list. */
-function remapSafeguardMetaIds(rule: SafeguardRule, remap: Map<string, string>): SafeguardRule {
-  const ids = rule.combination?.metaSetIds
-  if (!ids || ids.length === 0) return rule
-  const remapped = ids.map((id) => remap.get(id) ?? id)
-  const changed = remapped.some((id, i) => id !== ids[i])
-  if (!changed) return rule
-  return { ...rule, combination: { ...rule.combination, metaSetIds: remapped } }
-}
 
 export const substatTargetsSignature = (targets?: SubstatTargetTable | null): string => {
   if (!targets) return ''
@@ -371,23 +317,18 @@ function computeInitialAutosaveState(args: {
       const savedFinalSell = parsed.finalSellRemainder
       const savedSafeguards = parsed.safeguardRules ?? []
       const savedKeepEnabled = parsed.safeguardsEnabled ?? false
-      const metasetsMatchDefaults = metasetsSignature(savedMetasets as Metaset[]) === metasetsSignature(args.metasets)
-      // When metasets match by content but have different IDs (e.g. autosave
-      // written before a default-metaset ID versioning bump, or before the
-      // dmeta_ prefix was introduced), recipes and safeguards in the autosave
-      // still carry the old IDs. Remap them to the current session IDs so
-      // restored recipes render their metaset chips correctly.
-      // Why here: parseSfrObject resolves recipe metaset IDs from the *saved*
-      // metaset list, not the session list, so stale IDs always come through.
-      const metaIdRemap = metasetsMatchDefaults
-        ? buildMetasetIdRemap(savedMetasets as Metaset[], args.metasets)
-        : new Map<string, string>()
-      const remappedRecipes = metaIdRemap.size > 0
-        ? recipes.map((r) => remapRecipeMetaIds(r, metaIdRemap))
-        : recipes
-      const remappedSafeguards = metaIdRemap.size > 0
-        ? savedSafeguards.map((r) => remapSafeguardMetaIds(r, metaIdRemap))
-        : savedSafeguards
+      // Content comparison (name + sets + iconId, ignoring id) to detect structural changes.
+      const metasetsContentMatch = metasetsSignature(savedMetasets as Metaset[]) === metasetsSignature(args.metasets)
+      // ID comparison: even when content is identical, differing IDs mean recipes/safeguards
+      // in the autosave reference IDs that no longer exist in the current session (e.g. after
+      // a default-metaset versioning bump). Treating the IDs as mismatched causes the metasets
+      // checkbox to appear so the autosave metasets — and their IDs — are restored alongside
+      // the recipes, keeping references consistent without any remapping logic.
+      const savedMetasetIds = new Set((savedMetasets as Metaset[]).map((m) => m.id))
+      const currentMetasetIds = new Set(args.metasets.map((m) => m.id))
+      const metasetIdsMatch = savedMetasetIds.size === currentMetasetIds.size
+        && [...savedMetasetIds].every((id) => currentMetasetIds.has(id))
+      const metasetsMatchDefaults = metasetsContentMatch && metasetIdsMatch
       // Compare canonicalized copies so reordering the variant keys (common when
       // editing via the dialog) does not trick autosave into thinking the
       // session diverged.
@@ -458,9 +399,9 @@ function computeInitialAutosaveState(args: {
             Version: String(payload['Version'] ?? ''),
             Metasets: savedMetasets,
             substatTargets: savedSubstatTargets,
-            Recipes: remappedRecipes,
+            Recipes: recipes,
             ...(savedFinalSell ? { FinalSellRemainder: savedFinalSell } : {}),
-            ...(remappedSafeguards.length ? { Safeguards: remappedSafeguards } : {}),
+            ...(savedSafeguards.length ? { Safeguards: savedSafeguards } : {}),
             ...(savedKeepEnabled ? { SafeguardsEnabled: savedKeepEnabled } : {}),
             ...(savedGridFilterMode ? { SafeguardsGridFilterMode: savedGridFilterMode } : {}),
             ...(parsed.selectedIndex != null ? { SelectedRecipeIndex: parsed.selectedIndex } : {}),

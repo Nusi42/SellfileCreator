@@ -3132,8 +3132,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const currentTargetsSignature = useMemo(() => substatTargetsSignature(substatTargets), [substatTargets])
   const restoreMetasetsDiffer = useMemo(() => {
     if (!restoreDraft?.Metasets) return false
-    return metasetsSignature(restoreDraft.Metasets) !== currentMetasetSignature
-  }, [restoreDraft, currentMetasetSignature])
+    // Content check: structural changes (sets, names, icons).
+    if (metasetsSignature(restoreDraft.Metasets) !== currentMetasetSignature) return true
+    // ID check: content-equal but stale IDs (e.g. after a default-metaset versioning
+    // bump). Recipes/safeguards reference the old IDs so we must restore the metasets
+    // to make those references valid again.
+    const savedIds = new Set(restoreDraft.Metasets.map((m) => m.id))
+    const currentIds = new Set(metasets.map((m) => m.id))
+    return savedIds.size !== currentIds.size || [...savedIds].some((id) => !currentIds.has(id))
+  }, [restoreDraft, currentMetasetSignature, metasets])
   const restoreTargetsDiffer = useMemo(() => {
     if (!restoreDraft?.substatTargets) return false
     return substatTargetsSignature(restoreDraft.substatTargets) !== currentTargetsSignature
