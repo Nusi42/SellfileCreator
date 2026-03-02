@@ -297,10 +297,13 @@ fn resolve_item_key(item: &TestItemRaw) -> Option<i64> {
 }
 
 // Keep one helper for candidate snapshots so item-key precedence is explicit:
-// artifact.id (db) -> item.previewExtras.id -> item.itemId -> 0.
+// artifact.id (db, positive only) -> item.previewExtras.id -> item.itemId -> 0.
+// Negative artifact ids are synthetic placeholders set by App.tsx for custom gear;
+// filtering them out keeps detection consistent with resolve_item_key used in match_rule.
 fn resolve_collect_row_item_key(row: &SafeguardCollectRowIn) -> i64 {
     row.artifact
         .id
+        .filter(|&id| id > 0)
         .or(resolve_item_key(&row.item))
         .unwrap_or(0)
 }
