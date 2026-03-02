@@ -504,6 +504,7 @@ export default function SafeguardChipsPanel({
       <Box
         key={rule.id}
         data-safeguards-rule-id={rule.id}
+        data-tour-id={`safeguards.chip.${rule.id}`}
         data-safeguard-chip-index={ruleIndex}
         data-safeguard-chip="true"
         data-linked-hover="false"

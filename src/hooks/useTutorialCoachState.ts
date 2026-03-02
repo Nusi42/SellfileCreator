@@ -29,6 +29,10 @@ import {
   clearGearInspectorSubstatSortStandalone,
   type GearInspectorSubstatSortState,
 } from '../state/gearInspectorSubstatSortPreferences'
+import {
+  snapshotSafeguardUpgradeChance,
+  restoreSafeguardUpgradeChance,
+} from '../state/gearInspectorGridPreferences'
 import type { useI18n } from '../lib/i18n'
 import {
   SAFEGUARD_DEFAULT_COUNT_MODE,
@@ -62,6 +66,8 @@ type TutorialSnapshot = {
   previewMode: 'rules' | 'gearInspector'
   logicHubOpen: boolean
   logicHubDialogTab: LogicHubDialogTab
+  // Gear Inspector display flags that the tutorial forces on and must restore afterward.
+  safeguardUpgradeChance: boolean
 }
 
 // Snapshot of view-only state that lives outside the main app snapshot (filter panels, sort).
@@ -142,7 +148,7 @@ const buildTutorialGearInspectorItems = (): GearInspectorItem[] => [
   },
   {
     // Item 3: no SPD substat → fails Recipe #3 roll filter → Final Sell would sell it.
-    // Rarity matches safeguard rarities: [3] (Rare) → Safeguard keeps it.
+    // Rarity (Rare=3) matches safeguard rarities: [3,4,5] → Safeguard keeps it.
     itemId: 3,
     compact: true,
     name: 'Refresh Bannerlords Banner',
@@ -195,15 +201,18 @@ const buildTutorialGearInspectorItems = (): GearInspectorItem[] => [
 
 const buildTutorialSafeguardRules = (): SafeguardRule[] => [{
   id: 'tutorial-refresh-safeguard',
-  name: 'Refresh Bannerlords Banner',
+  name: 'Refresh RES Banner',
   combination: {
     slots: [ArtifactType.Banner],
     sets: [{ id: ArtifactSet.Refresh }],
     metaSetIds: [],
-    ranks: [5],
-    rarities: [3],
+    // 5★ and 6★ only — low-rank pieces are not worth protecting.
+    ranks: [5, 6],
+    // Rare and higher — Common/Uncommon drops are not worth protecting.
+    rarities: [3, 4, 5],
     mainStats: [StatVariant.RES],
-    factions: [Faction.BannerLords],
+    // No faction restriction — Refresh RES banners drop across multiple factions.
+    factions: [],
   },
   requiredCount: 1,
   activation: SafeguardRuleActivation.ProtectExisting,
@@ -214,8 +223,8 @@ const buildTutorialSafeguardRules = (): SafeguardRule[] => [{
   ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
   ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
   ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
-  // Keep tutorial samples aligned with the classic (no substat filter) behavior.
-  substats: [],
+  // HP% and DEF% substats — any of them is sufficient (substatMatch: Any).
+  substats: [StatVariant.HP, StatVariant.DEF],
   substatMatch: SafeguardSubstatMatch.Any,
   substatWeights: {},
 }]
@@ -265,6 +274,9 @@ export type UseTutorialCoachStateParams = {
   setLogicHubDialogTab: Dispatch<SetStateAction<LogicHubDialogTab>>
   safeguardRules: SafeguardRule[]
   setSafeguardRules: Dispatch<SetStateAction<SafeguardRule[]>>
+  selectedSafeguardRuleId: string | null
+  setSelectedSafeguardRuleId: Dispatch<SetStateAction<string | null>>
+  setSafeguardBuilder: Dispatch<SetStateAction<SafeguardRule>>
   safeguardsEnabled: boolean
   setSafeguardsEnabled: Dispatch<SetStateAction<boolean>>
   recipesEnabled: boolean
@@ -327,6 +339,9 @@ export function useTutorialCoachState({
   setLogicHubDialogTab,
   safeguardRules,
   setSafeguardRules,
+  selectedSafeguardRuleId: _selectedSafeguardRuleId,
+  setSelectedSafeguardRuleId,
+  setSafeguardBuilder,
   safeguardsEnabled,
   setSafeguardsEnabled,
   recipesEnabled,
@@ -559,13 +574,14 @@ export function useTutorialCoachState({
     try {
       // Suppress history so tutorial restores do not create undo/redo entries.
       suppressHistorySnapshot()
-      // Restore filter/sort first (outside React batching) so panels paint correctly.
+      // Restore filter/sort and display flags first (outside React batching) so panels paint correctly.
       const viewSnap = viewStateSnapshotRef.current
       if (viewSnap) {
         restoreRulesFilterPreferencesSnapshot(viewSnap.filterPrefs)
         restoreGearInspectorSubstatSortSnapshot(viewSnap.sortState)
         viewStateSnapshotRef.current = null
       }
+      restoreSafeguardUpgradeChance(snap.safeguardUpgradeChance)
       flushSync(() => {
         setHsf(snap.hsf)
         setCustomRecipes(snap.recipes)
@@ -574,6 +590,7 @@ export function useTutorialCoachState({
         setSubstatTargets(snap.substatTargets)
         setFinalSellRemainder(snap.fsr)
         setSafeguardRules(snap.safeguardRules)
+        setSelectedSafeguardRuleId(null)
         setSafeguardsEnabled(snap.safeguardsEnabled)
         setRecipesEnabled(snap.recipesEnabled)
         setSfrNote(snap.note)
@@ -594,6 +611,7 @@ export function useTutorialCoachState({
     setSubstatTargets,
     setSelectedRecipeIdx,
     setSafeguardRules,
+    setSelectedSafeguardRuleId,
     setSafeguardsEnabled,
     setRecipesEnabled,
     setGearInspectorItems,
@@ -813,6 +831,7 @@ export function useTutorialCoachState({
         previewMode: gearInspectorPreviewModeRef.current,
         logicHubOpen: logicHubOpenRef.current,
         logicHubDialogTab: logicHubDialogTabRef.current,
+        safeguardUpgradeChance: snapshotSafeguardUpgradeChance(),
       })
     } catch {}
 
@@ -837,9 +856,12 @@ export function useTutorialCoachState({
       // Always start in Recipe Builder mode so the first steps target the right panel.
       setBuilderMode('recipe')
       setSafeguardRules([])
+      setSelectedSafeguardRuleId(null)
       // Reset to app defaults: both toggles on, no safeguard rules to interfere.
       setSafeguardsEnabled(true)
       setRecipesEnabled(true)
+      // Ensure upgrade chance column is visible for the safeguards payoff step.
+      restoreSafeguardUpgradeChance(true)
     } catch {}
 
     setTutorialIdx(0)
@@ -1322,8 +1344,8 @@ export function useTutorialCoachState({
         id: 'gear-inspector-preview',
         title: t('tutGearDialogPreviewTitle'),
         body: t('tutGearDialogPreviewBody'),
-        // Use the full grid container so all tutorial gear items are covered by the highlight.
-        targetIds: ['preview.mode-toggle', 'preview.gear-inspector-grid'],
+        // Highlight the upper 75 % of the paper — covers the mode toggle + visible gear grid rows.
+        targetId: 'preview.paper-top',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false); ensurePreviewHighlight(null)
           // Close the integrated Gear tab before flipping the preview so the overlay only tracks the table.
@@ -1361,6 +1383,20 @@ export function useTutorialCoachState({
         },
       },
       {
+        id: 'finalsell-preview',
+        title: t('tutFinalSellPreviewTitle'),
+        body: t('tutFinalSellPreviewBody'),
+        // Show the upper 75 % of the paper — covers the mode toggle + visible gear grid rows.
+        targetId: 'preview.paper-top',
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
+          setLogicHubOpen(false)
+          // Switch to Gear Inspector so the Final Sell outcomes are visible alongside the items.
+          setPreviewMode('gearInspector')
+          if (!gearInspectorItemsRef.current.length) setGearInspectorItems(buildTutorialGearInspectorItems())
+        },
+      },
+      {
         id: 'safeguards-intro',
         title: t('tutSafeguardsIntroTitle'),
         body: t('tutSafeguardsIntroBody'),
@@ -1370,9 +1406,10 @@ export function useTutorialCoachState({
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
           setLogicHubOpen(false)
-          // Switch to Safeguard Builder mode and pre-load a tutorial rule so the form is populated.
+          // Switch to Safeguard Builder mode — no rule added yet; the form starts blank.
           setBuilderMode('safeguard')
-          setSafeguardRules(buildTutorialSafeguardRules())
+          setSafeguardRules([])
+          setSelectedSafeguardRuleId(null)
           setSafeguardsEnabled(true)
         },
       },
@@ -1380,15 +1417,19 @@ export function useTutorialCoachState({
         id: 'safeguards-rule',
         title: t('tutSafeguardsRuleTitle'),
         body: t('tutSafeguardsRuleBody'),
-        // Show the chips panel (rule list) alongside the builder form so users see both surfaces.
-        // 'safeguards.rules' was on the old SafeguardsTab dialog; replaced by 'safeguards.chips'.
-        targetIds: ['safeguards.chips', 'safeguards.builder'],
+        // Target the single tutorial chip + builder form — avoids highlighting the empty chips area.
+        targetIds: ['safeguards.chip.tutorial-refresh-safeguard', 'safeguards.builder'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
           setLogicHubOpen(false)
           setBuilderMode('safeguard')
-          setSafeguardRules(buildTutorialSafeguardRules())
+          const rules = buildTutorialSafeguardRules()
+          setSafeguardRules(rules)
           setSafeguardsEnabled(true)
+          // Mirror handleSelectSafeguardRule: set selection AND load the rule into the builder
+          // so the form controls reflect its values, exactly as a manual chip click would.
+          const rule = rules[0]
+          if (rule) { setSelectedSafeguardRuleId(rule.id); setSafeguardBuilder(cloneSafeguardRule(rule)) }
         },
       },
       {
@@ -1398,7 +1439,7 @@ export function useTutorialCoachState({
         id: 'safeguards-payoff',
         title: t('tutSafeguardsPayoffTitle'),
         body: t('tutSafeguardsPayoffBody'),
-        targetIds: ['gear-inspector.item.1', 'gear-inspector.item.2', 'gear-inspector.item.3', 'gear-inspector.item.4'],
+        targetId: 'preview.paper-top',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
           setLogicHubOpen(false)
@@ -1432,14 +1473,6 @@ export function useTutorialCoachState({
           try { setLogicHubOpen(false) } catch {}
         },
       },
-      {
-        id: 'preview-header-menu',
-        title: t('tutPreviewHeaderMenuTitle'),
-        body: t('tutPreviewHeaderMenuBody'),
-        targetIds: ['preview.header', 'preview.header.menu'],
-        expand: 10,
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false); ensurePreviewHeaderMenu(true); ensurePreviewHighlight('lower') },
-      },
     ]
 
     const steps = [...basic, ...advanced]
@@ -1455,6 +1488,7 @@ export function useTutorialCoachState({
       { label: t('tutSectionAutoLateLabel'), index: find('auto-late-slot') },
       { label: t('tutSectionGearInspectorLabel'), index: find('gear-inspector-open') },
       { label: t('tutSectionFinalSellLabel'), index: find('finalsell-intro') },
+      { label: t('tutSectionSafeguardsLabel'), index: find('safeguards-intro') },
       { label: t('tutSectionSaveExportLabel'), index: find('note') },
     ].filter((section) => section.index >= 0)
     setTutorialSections(sections)
@@ -1754,8 +1788,16 @@ export function useTutorialCoachState({
             nextLogicHubDialogTab = LOGIC_HUB_DIALOG_TAB_FINAL_SELL
             break
           }
+          case 'finalsell-preview': {
+            // Show gear outcomes with Final Sell active but no safeguards yet.
+            if (nextGearInspectorItems.length === 0) nextGearInspectorItems = buildTutorialGearInspectorItems()
+            nextLogicHubOpen = false
+            nextPreviewMode = 'gearInspector'
+            break
+          }
           case 'safeguards-intro': {
-            nextSafeguardRules = buildTutorialSafeguardRules()
+            // No rule yet at this step — the form starts blank.
+            nextSafeguardRules = []
             nextSafeguardsEnabled = true
             nextLogicHubOpen = false
             nextBuilderMode = 'safeguard'

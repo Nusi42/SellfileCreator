@@ -2682,6 +2682,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setLogicHubDialogTab,
     safeguardRules,
     setSafeguardRules,
+    selectedSafeguardRuleId,
+    setSelectedSafeguardRuleId,
+    setSafeguardBuilder,
     safeguardsEnabled,
     setSafeguardsEnabled,
     recipesEnabled,
@@ -6495,6 +6498,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
         <Paper ref={previewPaperRef} sx={{
           p: PREVIEW_PAPER_PADDING_UNITS,
+          position: 'relative',
           width: forceSideBySideLayout ? PANEL_WIDTH_PX : '100%',
           maxWidth: PANEL_WIDTH_PX,
           mx: forceSideBySideLayout ? 0 : 'auto',
@@ -6511,6 +6515,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             overflow: 'hidden',
           }
         }} data-tour-id="preview.paper">
+          {/* Transparent top-75% overlay — tutorial can spotlight the mode toggle + gear grid
+              without covering the full paper height. */}
+          <Box
+            data-tour-id="preview.paper-top"
+            sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '25%', pointerEvents: 'none', zIndex: 1 }}
+          />
         <PreviewHeaderActions
         mergedCount={totalLimitHit ? Number.POSITIVE_INFINITY : mergedRules.length}
         {...(filterActive ? { filteredCount: totalLimitHit ? Number.POSITIVE_INFINITY : filteredRules.length } : {})}

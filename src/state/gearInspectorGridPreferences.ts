@@ -100,6 +100,12 @@ const gearInspectorGridShowSafeguardUpgradeChanceStore = createLocalStorageStore
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
+// Standalone helpers for tutorial snapshot/restore — avoids passing the setter as a prop.
+export const snapshotSafeguardUpgradeChance = (): boolean =>
+  gearInspectorGridShowSafeguardUpgradeChanceStore.getSnapshot()
+export const restoreSafeguardUpgradeChance = (value: boolean): void =>
+  gearInspectorGridShowSafeguardUpgradeChanceStore.set(value)
+
 export function useGearInspectorGridPreferences(variant: GearInspectorGridPreferenceVariant = 'gearInspector') {
   const columns = gearInspectorGridColumnsStore.useValue()
   const showFirstMatch = gearInspectorGridShowFirstStore.useValue()
