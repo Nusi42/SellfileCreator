@@ -73,6 +73,8 @@ type RuleScenario = {
   ruleId: string
   // Full safeguard substat selection (not per-scenario split) for tie-break matching count.
   ruleSelectedSubstats: readonly number[]
+  // Original rule match mode before per-substat expansion (used by debug snapshots for tooltip display).
+  ruleSubstatMatch: SafeguardSubstatMatch
   // Candidate must pass these non-substat filters before scenario applies.
   applicableArtifactIds: ReadonlySet<number>
   // Scenario substats are either the full rule set or one variant for per-substat mode.
@@ -489,6 +491,8 @@ const buildRuleScenarios = (
         ruleOrder: rule.ruleOrder,
         ruleId: rule.ruleId,
         ruleSelectedSubstats: rule.selectedSubstats,
+        // Preserve original match mode so per-substat expansion does not erase PerSubstat in debug.
+        ruleSubstatMatch: rule.substatMatch,
         applicableArtifactIds,
         selectedSubstats: def.selectedSubstats,
         substatMatch: def.substatMatch,
@@ -928,11 +932,15 @@ const buildChanceDebugSnapshot = (
       betterCandidateCount += 1
     }
   }
+  // For per-substat rules the expansion splits substats into individual Any scenarios; restore the
+  // original rule-level mode and full substat list so tooltips show all substats + correct mode.
+  const isPerSubstat = preferredScenario.ruleSubstatMatch === SafeguardSubstatMatchToken.PerSubstat
+  const debugSubstats = isPerSubstat ? preferredScenario.ruleSelectedSubstats : preferredScenario.selectedSubstats
   return {
     sourceArtifactCount,
     viableScenarioCount,
-    selectedSubstats: preferredScenario.selectedSubstats,
-    substatMatch: preferredScenario.substatMatch,
+    selectedSubstats: debugSubstats,
+    substatMatch: preferredScenario.ruleSubstatMatch,
     requiredPerGroup: preferredScenario.requiredPerGroup,
     bucketCandidateCount,
     betterCandidateCount,

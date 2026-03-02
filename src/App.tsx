@@ -4105,12 +4105,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setGearInspectorArtifactFocusRequest(null)
     // Switch to Safeguard Builder mode and select the targeted rule inline.
     setBuilderMode('safeguard')
-    setSelectedSafeguardRuleId(normalizedRuleId)
+    // Load the rule into the draft builder so controls update immediately;
+    // handleSelectSafeguardRule also auto-applies any pending draft changes first.
+    handleSelectSafeguardRule(normalizedRuleId)
     // Request SafeguardChipsPanel to scroll the targeted chip into view.
     const token = ++safeguardFocusTokenRef.current
     setSafeguardFocusRequest({ ruleId: normalizedRuleId, token })
     return true
-  }, [])
+  }, [handleSelectSafeguardRule])
   const handleSafeguardPreviewStarSelect = useCallback((selection: SafeguardStarSelection) => {
     const normalizedRuleId = typeof selection.safeguardRuleId === 'string' ? selection.safeguardRuleId.trim() : ''
     // Missing ids can happen with malformed/legacy rows; still route users into Safeguard Builder.
