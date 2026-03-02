@@ -2308,8 +2308,10 @@ pub fn safeguard_count_key_value(artifact: JsValue, count_mode: JsValue) -> Resu
 pub fn safeguard_item_key_value(artifact: JsValue) -> Result<i64, JsValue> {
     let parsed_artifact: SafeguardWasmItemKeyArtifactIn = from_js_value(artifact)
         .map_err(|error| JsValue::from_str(&format!("Invalid safeguard item-key artifact payload: {error}")))?;
-    // Canonical precedence: artifact.id (db) -> gearInspectorItem.previewExtras.id -> gearInspectorItem.itemId.
-    let artifact_id = parsed_artifact.id;
+    // Canonical precedence: artifact.id (db, positive only) -> gearInspectorItem.previewExtras.id -> gearInspectorItem.itemId.
+    // Negative artifact ids are synthetic App.tsx placeholders for custom gear; skip them so the
+    // key returned here stays consistent with resolve_collect_row_item_key and resolve_item_key.
+    let artifact_id = parsed_artifact.id.filter(|&id| id > 0);
     let gear_inspector_preview_id = parsed_artifact
         .gear_inspector_item
         .as_ref()
