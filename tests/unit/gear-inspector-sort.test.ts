@@ -116,7 +116,7 @@ const makeSubstat = (variant: StatVariant, totalValue: number): NormalizedStat =
   }
 }
 
-const makeTesterRow = (overrides: Partial<NormalizedGearArtifact> = {}): GearInspectorPreviewRow => {
+const makeGearInspectorRow = (overrides: Partial<NormalizedGearArtifact> = {}): GearInspectorPreviewRow => {
   const slot = overrides.slot ?? ArtifactType.Weapon
   const set = overrides.set ?? ArtifactSet.Speed
   const rank = (overrides.rank ?? 6) as RankValue
@@ -167,39 +167,39 @@ const makeTesterRow = (overrides: Partial<NormalizedGearArtifact> = {}): GearIns
 }
 
 test('sortGearInspectorRows keeps armor before accessories', () => {
-  const armor = makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed })
-  const accessory = makeTesterRow({ slot: ArtifactType.Ring, set: ArtifactSet.Refresh, faction: 123 })
+  const armor = makeGearInspectorRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed })
+  const accessory = makeGearInspectorRow({ slot: ArtifactType.Ring, set: ArtifactSet.Refresh, faction: 123 })
   const sorted = sortGearInspectorRows([accessory, armor])
   assert.deepEqual(sorted.map((row) => row.artifact.slot), [ArtifactType.Weapon, ArtifactType.Ring])
 })
 
 test('sortGearInspectorRows sorts by set order once general slot matches', () => {
-  const life = makeTesterRow({ set: ArtifactSet.Life })
-  const savage = makeTesterRow({ set: ArtifactSet.Savage })
+  const life = makeGearInspectorRow({ set: ArtifactSet.Life })
+  const savage = makeGearInspectorRow({ set: ArtifactSet.Savage })
   const sorted = sortGearInspectorRows([savage, life])
   assert.deepEqual(sorted.map((row) => row.artifact.set), [ArtifactSet.Life, ArtifactSet.Savage])
 })
 
 test('sortGearInspectorRows respects preferred slot ordering after set comparison', () => {
-  const gauntlets = makeTesterRow({ slot: ArtifactType.Gauntlets, set: ArtifactSet.Speed })
-  const boots = makeTesterRow({ slot: ArtifactType.Boots, set: ArtifactSet.Speed })
+  const gauntlets = makeGearInspectorRow({ slot: ArtifactType.Gauntlets, set: ArtifactSet.Speed })
+  const boots = makeGearInspectorRow({ slot: ArtifactType.Boots, set: ArtifactSet.Speed })
   const sorted = sortGearInspectorRows([boots, gauntlets])
   assert.deepEqual(sorted.map((row) => row.artifact.slot), [ArtifactType.Gauntlets, ArtifactType.Boots])
 })
 
 test('sortGearInspectorRows orders identical-rank rows by main stat priority', () => {
   const rows = [
-    makeTesterRow({ mainStat: makeMainStat(StatVariant.CDMG) }),
-    makeTesterRow({ mainStat: makeMainStat(StatVariant.CR) }),
-    makeTesterRow({ mainStat: makeMainStat(StatVariant.ACC) }),
-    makeTesterRow({ mainStat: makeMainStat(StatVariant.RES) }),
-    makeTesterRow({ mainStat: makeMainStat(StatVariant.SPD) }),
-    makeTesterRow({ mainStat: makeMainStat(StatVariant.DEF_FLAT) }),
-    makeTesterRow({ mainStat: makeMainStat(StatVariant.DEF) }),
-    makeTesterRow({ mainStat: makeMainStat(StatVariant.ATK_FLAT) }),
-    makeTesterRow({ mainStat: makeMainStat(StatVariant.ATK) }),
-    makeTesterRow({ mainStat: makeMainStat(StatVariant.HP_FLAT) }),
-    makeTesterRow({ mainStat: makeMainStat(StatVariant.HP) }),
+    makeGearInspectorRow({ mainStat: makeMainStat(StatVariant.CDMG) }),
+    makeGearInspectorRow({ mainStat: makeMainStat(StatVariant.CR) }),
+    makeGearInspectorRow({ mainStat: makeMainStat(StatVariant.ACC) }),
+    makeGearInspectorRow({ mainStat: makeMainStat(StatVariant.RES) }),
+    makeGearInspectorRow({ mainStat: makeMainStat(StatVariant.SPD) }),
+    makeGearInspectorRow({ mainStat: makeMainStat(StatVariant.DEF_FLAT) }),
+    makeGearInspectorRow({ mainStat: makeMainStat(StatVariant.DEF) }),
+    makeGearInspectorRow({ mainStat: makeMainStat(StatVariant.ATK_FLAT) }),
+    makeGearInspectorRow({ mainStat: makeMainStat(StatVariant.ATK) }),
+    makeGearInspectorRow({ mainStat: makeMainStat(StatVariant.HP_FLAT) }),
+    makeGearInspectorRow({ mainStat: makeMainStat(StatVariant.HP) }),
   ]
 
   const sorted = sortGearInspectorRows(rows.slice().reverse())
@@ -222,33 +222,33 @@ test('sortGearInspectorRows orders identical-rank rows by main stat priority', (
 })
 
 test('sortGearInspectorRows falls back to rank, rarity, ascension, level, then main stat priority', () => {
-  const rankSixRaritySixAscThree = makeTesterRow({
+  const rankSixRaritySixAscThree = makeGearInspectorRow({
     rank: 6 as RankValue,
     rarity: 6 as RankValue,
     ascension: makeAscensionStat(3),
     mainStat: makeMainStat(StatVariant.SPD),
   })
-  const rankSixRaritySixAscOneLevelTwelveCdmg = makeTesterRow({
+  const rankSixRaritySixAscOneLevelTwelveCdmg = makeGearInspectorRow({
     rank: 6 as RankValue,
     rarity: 6 as RankValue,
     level: 12 as LevelMilestone,
     ascension: makeAscensionStat(1),
     mainStat: makeMainStat(StatVariant.CDMG),
   })
-  const rankSixRaritySixAscOneHp = makeTesterRow({
+  const rankSixRaritySixAscOneHp = makeGearInspectorRow({
     rank: 6 as RankValue,
     rarity: 6 as RankValue,
     level: 8 as LevelMilestone,
     ascension: makeAscensionStat(1),
     mainStat: makeMainStat(StatVariant.HP),
   })
-  const rankSixRarityFourAscFive = makeTesterRow({
+  const rankSixRarityFourAscFive = makeGearInspectorRow({
     rank: 6 as RankValue,
     rarity: 4 as RankValue,
     ascension: makeAscensionStat(5),
     mainStat: makeMainStat(StatVariant.SPD),
   })
-  const rankFiveRaritySixAscTen = makeTesterRow({
+  const rankFiveRaritySixAscTen = makeGearInspectorRow({
     rank: 5 as RankValue,
     rarity: 6 as RankValue,
     ascension: makeAscensionStat(10),
@@ -282,9 +282,9 @@ test('sortGearInspectorRows falls back to rank, rarity, ascension, level, then m
 })
 
 test('sortGearInspectorRowsBySubstats sorts by last usage (most recent first)', () => {
-  const old = makeTesterRow({ id: 1, lastUseLocalTimestamp: '2020-01-01T00:00:00.000Z' })
-  const recent = makeTesterRow({ id: 2, lastUseLocalTimestamp: '2024-01-01T00:00:00.000Z' })
-  const never = makeTesterRow({ id: 3, lastUseLocalTimestamp: null })
+  const old = makeGearInspectorRow({ id: 1, lastUseLocalTimestamp: '2020-01-01T00:00:00.000Z' })
+  const recent = makeGearInspectorRow({ id: 2, lastUseLocalTimestamp: '2024-01-01T00:00:00.000Z' })
+  const never = makeGearInspectorRow({ id: 3, lastUseLocalTimestamp: null })
   const sorted = sortGearInspectorRowsBySubstats([old, never, recent], {
     priorities: [GEAR_INSPECTOR_SORT_KEY_LAST_USAGE],
     direction: 'desc',
@@ -295,9 +295,9 @@ test('sortGearInspectorRowsBySubstats sorts by last usage (most recent first)', 
 })
 
 test('sortGearInspectorRowsBySubstats supports per-key flipped direction', () => {
-  const old = makeTesterRow({ id: 1, lastUseLocalTimestamp: '2020-01-01T00:00:00.000Z' })
-  const recent = makeTesterRow({ id: 2, lastUseLocalTimestamp: '2024-01-01T00:00:00.000Z' })
-  const never = makeTesterRow({ id: 3, lastUseLocalTimestamp: null })
+  const old = makeGearInspectorRow({ id: 1, lastUseLocalTimestamp: '2020-01-01T00:00:00.000Z' })
+  const recent = makeGearInspectorRow({ id: 2, lastUseLocalTimestamp: '2024-01-01T00:00:00.000Z' })
+  const never = makeGearInspectorRow({ id: 3, lastUseLocalTimestamp: null })
   const sorted = sortGearInspectorRowsBySubstats([old, never, recent], {
     priorities: [GEAR_INSPECTOR_SORT_KEY_LAST_USAGE],
     direction: 'desc',
@@ -308,9 +308,9 @@ test('sortGearInspectorRowsBySubstats supports per-key flipped direction', () =>
 })
 
 test('sortGearInspectorRowsBySubstats sorts by newest artifact id first', () => {
-  const older = makeTesterRow({ id: 101 })
-  const newer = makeTesterRow({ id: 202 })
-  const newest = makeTesterRow({ id: 303 })
+  const older = makeGearInspectorRow({ id: 101 })
+  const newer = makeGearInspectorRow({ id: 202 })
+  const newest = makeGearInspectorRow({ id: 303 })
   const sorted = sortGearInspectorRowsBySubstats([older, newest, newer], {
     priorities: [GEAR_INSPECTOR_SORT_KEY_NEWEST],
     direction: 'desc',
@@ -321,9 +321,9 @@ test('sortGearInspectorRowsBySubstats sorts by newest artifact id first', () => 
 })
 
 test('sortGearInspectorRowsBySubstats supports flipped direction for newest artifact id', () => {
-  const older = makeTesterRow({ id: 101 })
-  const newer = makeTesterRow({ id: 202 })
-  const newest = makeTesterRow({ id: 303 })
+  const older = makeGearInspectorRow({ id: 101 })
+  const newer = makeGearInspectorRow({ id: 202 })
+  const newest = makeGearInspectorRow({ id: 303 })
   const sorted = sortGearInspectorRowsBySubstats([newer, older, newest], {
     priorities: [GEAR_INSPECTOR_SORT_KEY_NEWEST],
     direction: 'desc',
@@ -334,9 +334,9 @@ test('sortGearInspectorRowsBySubstats supports flipped direction for newest arti
 })
 
 test('sortGearInspectorRowsBySubstats sorts by safeguard improvement chance (highest first)', () => {
-  const high = makeTesterRow({ id: 1 })
-  const low = makeTesterRow({ id: 2 })
-  const none = makeTesterRow({ id: 3 })
+  const high = makeGearInspectorRow({ id: 1 })
+  const low = makeGearInspectorRow({ id: 2 })
+  const none = makeGearInspectorRow({ id: 3 })
   const sorted = sortGearInspectorRowsBySubstats([low, none, high], {
     priorities: [GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE],
     direction: 'desc',
@@ -351,9 +351,9 @@ test('sortGearInspectorRowsBySubstats sorts by safeguard improvement chance (hig
 })
 
 test('sortGearInspectorRowsBySubstats supports flipped direction for safeguard improvement chance', () => {
-  const high = makeTesterRow({ id: 1 })
-  const low = makeTesterRow({ id: 2 })
-  const none = makeTesterRow({ id: 3 })
+  const high = makeGearInspectorRow({ id: 1 })
+  const low = makeGearInspectorRow({ id: 2 })
+  const none = makeGearInspectorRow({ id: 3 })
   const sorted = sortGearInspectorRowsBySubstats([high, none, low], {
     priorities: [GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE],
     direction: 'desc',
@@ -369,8 +369,8 @@ test('sortGearInspectorRowsBySubstats supports flipped direction for safeguard i
 
 test('sortGearInspectorRowsBySubstats composes last usage and substat priorities', () => {
   const timestamp = '2024-01-01T00:00:00.000Z'
-  const spdHigh = makeTesterRow({ id: 1, lastUseLocalTimestamp: timestamp, substats: [makeSubstat(StatVariant.SPD, 20)] })
-  const spdLow = makeTesterRow({ id: 2, lastUseLocalTimestamp: timestamp, substats: [makeSubstat(StatVariant.SPD, 5)] })
+  const spdHigh = makeGearInspectorRow({ id: 1, lastUseLocalTimestamp: timestamp, substats: [makeSubstat(StatVariant.SPD, 20)] })
+  const spdLow = makeGearInspectorRow({ id: 2, lastUseLocalTimestamp: timestamp, substats: [makeSubstat(StatVariant.SPD, 5)] })
   const sorted = sortGearInspectorRowsBySubstats([spdLow, spdHigh], {
     priorities: [GEAR_INSPECTOR_SORT_KEY_LAST_USAGE, StatVariant.SPD],
     direction: 'desc',
@@ -381,8 +381,8 @@ test('sortGearInspectorRowsBySubstats composes last usage and substat priorities
 })
 
 test('sortGearInspectorRowsBySubstats composes safeguard chance and substat priorities', () => {
-  const spdHigh = makeTesterRow({ id: 1, substats: [makeSubstat(StatVariant.SPD, 20)] })
-  const spdLow = makeTesterRow({ id: 2, substats: [makeSubstat(StatVariant.SPD, 5)] })
+  const spdHigh = makeGearInspectorRow({ id: 1, substats: [makeSubstat(StatVariant.SPD, 20)] })
+  const spdLow = makeGearInspectorRow({ id: 2, substats: [makeSubstat(StatVariant.SPD, 5)] })
   const sorted = sortGearInspectorRowsBySubstats([spdLow, spdHigh], {
     priorities: [GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE, StatVariant.SPD],
     direction: 'desc',
@@ -397,8 +397,8 @@ test('sortGearInspectorRowsBySubstats composes safeguard chance and substat prio
 })
 
 test('sortGearInspectorRowsBySubstats can flip only one key while keeping global direction', () => {
-  const spdHigh = makeTesterRow({ id: 1, substats: [makeSubstat(StatVariant.SPD, 20)] })
-  const spdLow = makeTesterRow({ id: 2, substats: [makeSubstat(StatVariant.SPD, 5)] })
+  const spdHigh = makeGearInspectorRow({ id: 1, substats: [makeSubstat(StatVariant.SPD, 20)] })
+  const spdLow = makeGearInspectorRow({ id: 2, substats: [makeSubstat(StatVariant.SPD, 5)] })
   const sorted = sortGearInspectorRowsBySubstats([spdLow, spdHigh], {
     priorities: [StatVariant.SPD],
     direction: 'desc',
@@ -409,8 +409,8 @@ test('sortGearInspectorRowsBySubstats can flip only one key while keeping global
 })
 
 test('sortGearInspectorRows breaks full ties by artifact id', () => {
-  const first = makeTesterRow({ set: ArtifactSet.Speed })
-  const second = makeTesterRow({ set: ArtifactSet.Speed })
+  const first = makeGearInspectorRow({ set: ArtifactSet.Speed })
+  const second = makeGearInspectorRow({ set: ArtifactSet.Speed })
   const sorted = sortGearInspectorRows([second, first])
   assert.deepEqual(sorted, [first, second])
 })

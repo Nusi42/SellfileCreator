@@ -4,7 +4,7 @@ import { openContextMenu } from './context-menu'
 import { dismissBlockingDialogs } from './dialog-helpers'
 import { PREVIEW_MODE_STORAGE_KEY } from '../../src/lib/constants'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
-import { ensureTesterMode } from './tester-mode'
+import { ensureGearInspectorMode } from './gear-inspector-mode'
 import {
   RULES_FILTER_OPEN_STORAGE_KEY,
   RULES_FILTER_STATE_STORAGE_KEY,
@@ -16,20 +16,20 @@ import { warmupAppShell } from './app-warmup'
 
 // Use the slim SFR fixture so config duplication stays fast across browsers.
 const SFR_PATH = SAMPLE_SMALL_SFR_PATH
-// Use the slim DB fixture to keep tester setup fast across browsers.
+// Use the slim DB fixture to keep Gear Inspector setup fast across browsers.
 const DB_PATH = SAMPLE_SMALL_DB_PATH
 const TARGET_CONFIG_INDEX = 2 // zero-based: config #3
 
 type GridSnapshot = Array<{ id: number; outcome: string }>
 
-const seedTesterFilters = async (page: Parameters<typeof test>[0]['page']) => {
-  // Preload tester mode and default filters so the grid uses all rows in the sample DB.
+const seedGearInspectorFilters = async (page: Parameters<typeof test>[0]['page']) => {
+  // Preload Gear Inspector mode and default filters so the grid uses all rows in the sample DB.
   const rulesFilters = cloneDefaultRulesFilterState()
-  // Keep the tester filters aligned with defaults so we do not depend on a specific set/slot presence.
-  const testerFilters = cloneDefaultRulesFilterState()
+  // Keep the Gear Inspector filters aligned with defaults so we do not depend on a specific set/slot presence.
+  const gearInspectorFilters = cloneDefaultRulesFilterState()
   // Store both filter views together so the UI boots in a deterministic state.
-  const filterState = { rules: rulesFilters, tester: testerFilters }
-  // Open the tester filter panel so the grid uses the correct view right away.
+  const filterState = { rules: rulesFilters, tester: gearInspectorFilters }
+  // Open the Gear Inspector filter panel so the grid uses the correct view right away.
   const filterOpen = { rules: false, tester: true }
   await page.addInitScript(
     ({ previewKey, previewMode, filterKey, filterValue, filterOpenKey, filterOpenValue }) => {
@@ -43,7 +43,7 @@ const seedTesterFilters = async (page: Parameters<typeof test>[0]['page']) => {
     },
     {
       previewKey: PREVIEW_MODE_STORAGE_KEY,
-      previewMode: 'tester',
+      previewMode: 'gearInspector',
       filterKey: RULES_FILTER_STATE_STORAGE_KEY,
       filterValue: JSON.stringify(filterState),
       filterOpenKey: RULES_FILTER_OPEN_STORAGE_KEY,
@@ -52,10 +52,10 @@ const seedTesterFilters = async (page: Parameters<typeof test>[0]['page']) => {
   )
 }
 
-const waitForTesterGrid = async (page: Parameters<typeof test>[0]['page']) => {
+const waitForGearInspectorGrid = async (page: Parameters<typeof test>[0]['page']) => {
   // Cards expose stable data-match-* attrs; wait until the filtered set is populated and annotated.
   await page.waitForFunction(
-    () => document.querySelectorAll('[data-tester-grid-card="true"]').length > 0,
+    () => document.querySelectorAll('[data-gear-inspector-grid-card="true"]').length > 0,
     undefined,
     { timeout: PLAYWRIGHT_TIMEOUTS.expectLong },
   )
@@ -64,7 +64,7 @@ const waitForTesterGrid = async (page: Parameters<typeof test>[0]['page']) => {
 const waitForMatchingResults = async (page: Parameters<typeof test>[0]['page']) => {
   // Ensure at least one card has a keep/sell result before snapshotting.
   await page.waitForFunction(() => (
-    Array.from(document.querySelectorAll('[data-tester-grid-card="true"]'))
+    Array.from(document.querySelectorAll('[data-gear-inspector-grid-card="true"]'))
       .some((card) => {
         const outcome = card.getAttribute('data-match-outcome')
         return outcome === 'keep' || outcome === 'sell'
@@ -75,7 +75,7 @@ const waitForMatchingResults = async (page: Parameters<typeof test>[0]['page']) 
 const readGridSnapshot = async (page: Parameters<typeof test>[0]['page']): Promise<GridSnapshot> => {
   // Snapshot the rendered grid state so we can diff outcomes across config mutations.
   const rows = await page.evaluate(() => (
-    Array.from(document.querySelectorAll('[data-tester-grid-card="true"]')).map((card) => ({
+    Array.from(document.querySelectorAll('[data-gear-inspector-grid-card="true"]')).map((card) => ({
       id: Number(card.getAttribute('data-row-id')),
       outcome: card.getAttribute('data-match-outcome') ?? 'unknown',
     }))
@@ -125,13 +125,13 @@ test.beforeAll(async ({ browser }) => {
   await warmupAppShell(browser)
 })
 
-test.describe('tester grid matches remain stable', () => {
-  test('duplicating config #3 keeps tester outcomes unchanged', async ({ page }) => {
+test.describe('Gear Inspector grid matches remain stable', () => {
+  test('duplicating config #3 keeps Gear Inspector outcomes unchanged', async ({ page }) => {
     // Allow the long timeout for matcher rebuilds during duplication.
     // Allow extra time for autosave restore + duplication on slower engines.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
     await prepareApp(page)
-    await seedTesterFilters(page)
+    await seedGearInspectorFilters(page)
     // Load the shell without waiting for the full window load event.
     await page.goto('/', APP_GOTO_OPTIONS)
     await dismissBlockingDialogs(page)
@@ -152,19 +152,19 @@ test.describe('tester grid matches remain stable', () => {
     await dbInput.setInputFiles(DB_PATH)
     await dismissBlockingDialogs(page)
 
-    // Re-check for late dialogs before waiting on the tester grid.
+    // Re-check for late dialogs before waiting on the Gear Inspector grid.
     await dismissBlockingDialogs(page)
-    // Ensure the tester mode toggle is active before reading grid results.
-    await ensureTesterMode(page)
+    // Ensure the Gear Inspector toggle is active before reading grid results.
+    await ensureGearInspectorMode(page)
 
-    await waitForTesterGrid(page)
+    await waitForGearInspectorGrid(page)
     await waitForMatchingResults(page)
     const initialRows = await readGridSnapshot(page)
     // Ensure we actually have grid data before we mutate recipes.
     expect(initialRows.length).toBeGreaterThan(0)
 
     await duplicateRecipeChip(page, TARGET_CONFIG_INDEX)
-    await waitForTesterGrid(page)
+    await waitForGearInspectorGrid(page)
     await waitForMatchingResults(page)
     const postDuplicateRows = await readGridSnapshot(page)
     expect(postDuplicateRows.length).toBe(initialRows.length)

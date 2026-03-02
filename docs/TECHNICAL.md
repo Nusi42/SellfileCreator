@@ -30,7 +30,7 @@ The technical reference is now split across focused documents. Start here, then 
 - [WebSocket Protocol (JSON-RPC)](technical/websocket-jsonrpc.md) — formal JSON-RPC 2.0 message shapes, request/response flow, and push notifications.
 - [WebSocket Protocol (Lightweight RSL Helper)](technical/websocket-helper.md) — compact `type/cmd/evt` envelopes for RSL Helper integrations.
 - [UI and Layout](technical/ui-and-layout.md) — localization, metasets, preview UX (including dimmed disabled recipes), shared hooks, effect guidelines, and responsive layout constraints.
-- [Rule Tester Rule Templates](technical/tester-rule-templates.md) — gear-card actions, UX behaviors, and default keep/sell template logic.
+- [Gear Inspector Rule Templates](technical/gear-inspector-rule-templates.md) — gear-card actions, UX behaviors, and default keep/sell template logic.
 - [Tooltip & Context Hints](technical/ui-and-layout.md#tooltips-and-context-hints) — canonical guidance for Markdown/Ellipsis tooltips, context-menu hints, and overflow handling.
 - [Release Notes Prompt](CREATE-RELEASE-NOTES.md) — Claude orchestration instructions for maintaining `docs/HISTORY.txt`.
 - [Artifact Rules](#artifact-rules) — slot catalogs, rarity/rank expectations, stat restrictions, and roll behavior.

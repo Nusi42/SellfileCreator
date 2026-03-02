@@ -25,7 +25,7 @@ import { buildSafeguardUpgradeChanceByArtifactId } from '../../src/lib/safeguard
 import { warmupWasmRuleEngine } from '../../src/lib/wasm/wasmRuleEngine.js'
 import { StatVariant } from '../../src/lib/types.js'
 import { normalizeSubstatByMax6 } from '../../src/lib/substatRollNormalization.js'
-import type { TesterPreviewRow } from '../../src/types/testerPreview.js'
+import type { GearInspectorPreviewRow } from '../../src/types/gearInspectorPreview.js'
 
 const TARGET_ARTIFACT_ID = 70081
 const MODIFIED_CDMG_PERCENT = 12   // percent
@@ -217,7 +217,7 @@ const run = async (): Promise<void> => {
   }
 
   // --- WASM safeguard detection via full collect+detect pipeline ---
-  // Pass minimal TesterPreviewRow objects with match=null so the WASM collect step
+  // Pass minimal GearInspectorPreviewRow objects with match=null so the WASM collect step
   // treats every item as sold. baseRules=[] means no HSF keep-rules exist.
   const SURVIVABILITY_TOP_ROW_RULE_ID = 'ku_mlcx259q_y3j768i3'
 
@@ -228,7 +228,7 @@ const run = async (): Promise<void> => {
       baseMatch: null,
       matchingRecipeIndices: [],
       matchingRecipeDecisions: [],
-    })) as unknown as TesterPreviewRow[]
+    })) as unknown as GearInspectorPreviewRow[]
 
     const { candidates: candidateSnapshot, detection } = collectAndComputeSafeguardProtection({
       rows,
