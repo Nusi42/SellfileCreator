@@ -152,7 +152,7 @@ import { formatGearInspectorSetLabel } from './lib/gearInspectorFormatters'
 import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, filterGearInspectorItems, isRulesFilterActive, normalizeRulesFilterForGearInspector, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
 import {
   useAutosaveRestore,
-  metasetsSignature,
+  metasetsEqualSession,
   substatTargetsSignature,
   areAutosaveFiltersDefault,
   areFilterContentsDefault,
@@ -3128,19 +3128,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     safeguardsGridFilterMode,
     storedRuntimeGearSetCount,
   })
-  const currentMetasetSignature = useMemo(() => metasetsSignature(metasets), [metasets])
   const currentTargetsSignature = useMemo(() => substatTargetsSignature(substatTargets), [substatTargets])
   const restoreMetasetsDiffer = useMemo(() => {
     if (!restoreDraft?.Metasets) return false
-    // Content check: structural changes (sets, names, icons).
-    if (metasetsSignature(restoreDraft.Metasets) !== currentMetasetSignature) return true
-    // ID check: content-equal but stale IDs (e.g. after a default-metaset versioning
-    // bump). Recipes/safeguards reference the old IDs so we must restore the metasets
-    // to make those references valid again.
-    const savedIds = new Set(restoreDraft.Metasets.map((m) => m.id))
-    const currentIds = new Set(metasets.map((m) => m.id))
-    return savedIds.size !== currentIds.size || [...savedIds].some((id) => !currentIds.has(id))
-  }, [restoreDraft, currentMetasetSignature, metasets])
+    return !metasetsEqualSession(restoreDraft.Metasets, metasets)
+  }, [restoreDraft, metasets])
   const restoreTargetsDiffer = useMemo(() => {
     if (!restoreDraft?.substatTargets) return false
     return substatTargetsSignature(restoreDraft.substatTargets) !== currentTargetsSignature

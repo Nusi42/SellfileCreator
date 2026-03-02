@@ -105,6 +105,23 @@ export const metasetsSignature = (mets?: Metaset[] | null): string => {
   return JSON.stringify(copy)
 }
 
+/**
+ * True when two metaset lists are interchangeable from the session's perspective:
+ * same content (name + sets + iconId via metasetsSignature) AND same IDs.
+ * The ID check matters because recipes/safeguards reference metasets by ID —
+ * if the saved IDs differ from the session's IDs the references are broken even
+ * when the content is identical (e.g. after a default-metaset versioning bump).
+ */
+export const metasetsEqualSession = (a: Metaset[] | null | undefined, b: Metaset[] | null | undefined): boolean => {
+  // Treat missing/empty as equal to empty.
+  const aList = a ?? []
+  const bList = b ?? []
+  if (metasetsSignature(aList) !== metasetsSignature(bList)) return false
+  const aIds = new Set(aList.map((m) => m.id))
+  const bIds = new Set(bList.map((m) => m.id))
+  return aIds.size === bIds.size && [...aIds].every((id) => bIds.has(id))
+}
+
 
 export const substatTargetsSignature = (targets?: SubstatTargetTable | null): string => {
   if (!targets) return ''
@@ -317,18 +334,7 @@ function computeInitialAutosaveState(args: {
       const savedFinalSell = parsed.finalSellRemainder
       const savedSafeguards = parsed.safeguardRules ?? []
       const savedKeepEnabled = parsed.safeguardsEnabled ?? false
-      // Content comparison (name + sets + iconId, ignoring id) to detect structural changes.
-      const metasetsContentMatch = metasetsSignature(savedMetasets as Metaset[]) === metasetsSignature(args.metasets)
-      // ID comparison: even when content is identical, differing IDs mean recipes/safeguards
-      // in the autosave reference IDs that no longer exist in the current session (e.g. after
-      // a default-metaset versioning bump). Treating the IDs as mismatched causes the metasets
-      // checkbox to appear so the autosave metasets — and their IDs — are restored alongside
-      // the recipes, keeping references consistent without any remapping logic.
-      const savedMetasetIds = new Set((savedMetasets as Metaset[]).map((m) => m.id))
-      const currentMetasetIds = new Set(args.metasets.map((m) => m.id))
-      const metasetIdsMatch = savedMetasetIds.size === currentMetasetIds.size
-        && [...savedMetasetIds].every((id) => currentMetasetIds.has(id))
-      const metasetsMatchDefaults = metasetsContentMatch && metasetIdsMatch
+      const metasetsMatchDefaults = metasetsEqualSession(savedMetasets as Metaset[], args.metasets)
       // Compare canonicalized copies so reordering the variant keys (common when
       // editing via the dialog) does not trick autosave into thinking the
       // session diverged.
