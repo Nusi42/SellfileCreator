@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * measure-rule-tester.ts
+ * measure-gear-inspector.ts
  *
- * CLI utility to profile the rule tester matching pipeline against a concrete
+ * CLI utility to profile the Gear Inspector matching pipeline against a concrete
  * SFR + gear database pairing. Loads the SFR definition, imports the DB,
  * runs the same matching logic used in the UI, and prints timing stats for
  * the base matcher, Safeguard detection, and the post-detection matcher.
@@ -31,7 +31,7 @@ import { importGearDatabaseFromArrayBuffer, type GearDbImportResult } from '../.
 import type { NormalizedGearArtifact } from '../../src/lib/importers/gearDbNormalizer.js'
 import { evaluateMatchesByRecipe } from '../../src/lib/ruleEval.js'
 import type { EvalResult } from '../../src/lib/ruleEval.js'
-import type { TesterPreviewMatch, TesterPreviewRow } from '../../src/types/testerPreview.js'
+import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from '../../src/types/gearInspectorPreview.js'
 // Final Sell config stays centralized in Logic Hub so tooling mirrors UI + IO types.
 import type { FinalSellRemainderConfig } from '../../src/lib/logicHub.js'
 import { warmupWasmRuleEngine } from '../../src/lib/wasm/wasmRuleEngine.js'
@@ -53,7 +53,7 @@ type ScenarioData = {
 }
 
 type MatchPhaseResult = {
-  rows: TesterPreviewRow[]
+  rows: GearInspectorPreviewRow[]
   durationMs: number
   kept: number
   sold: number
@@ -204,16 +204,16 @@ const buildScenario = async (input: ScenarioInput): Promise<ScenarioData> => {
 }
 
 // Run the core matcher (evaluateMatchesByRecipe) against every artifact and
-// capture the same per-row metadata the UI stores in testerPreviewRows.
+// capture the same per-row metadata the UI stores in gearInspectorPreviewRows.
 const evaluateArtifacts = (
   artifacts: readonly NormalizedGearArtifact[],
   rules: readonly HsfRuleWithRecipe[],
   recipeModes: readonly SellfileExportMode[],
 ): MatchPhaseResult => {
-  const rows: TesterPreviewRow[] = []
+  const rows: GearInspectorPreviewRow[] = []
   const startedAt = performance.now()
   let kept = 0
-  const toTesterMatch = (result: EvalResult | null): TesterPreviewMatch | null => {
+  const toTesterMatch = (result: EvalResult | null): GearInspectorPreviewMatch | null => {
     if (!result) return null
     const rule = rules[result.ruleIndex] ?? null
     const safeguardLabel = rule?.__source === RULE_SOURCE_SAFEGUARDS
@@ -236,7 +236,7 @@ const evaluateArtifacts = (
       matchingRecipeDecisions,
     } = evaluateMatchesByRecipe(
       rules as HsfRuleWithRecipe[],
-      artifact.testerItem,
+      artifact.gearInspectorItem,
       {
         recipeModes: recipeModes as SellfileExportMode[],
         excludeSources: [RULE_SOURCE_SAFEGUARDS],
@@ -259,7 +259,7 @@ const evaluateArtifacts = (
 
 // Recreate the Safeguard detection flow and return its timing stats.
 const measureSafeguards = (
-  rows: readonly TesterPreviewRow[],
+  rows: readonly GearInspectorPreviewRow[],
   baseRules: readonly HsfRuleWithRecipe[],
   safeguardRules: readonly SafeguardRule[],
   safeguardsEnabled: boolean,

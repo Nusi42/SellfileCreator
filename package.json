@@ -12,7 +12,7 @@
     "postinstall": "npm run ensure:wasm-toolchain && npx playwright install",
     "generate:third-party-notices": "node scripts/tooling/update-third-party-notices.mjs",
     "export:l10n": "tsc -p tsconfig.scripts.json && node scripts/tooling/patch-esm-specifiers.cjs && node tmp/tsc/scripts/scripts/tooling/export-catalogs.js",
-    "measure:rule-tester": "tsc -p tsconfig.scripts.json && node scripts/tooling/patch-esm-specifiers.cjs && node tmp/tsc/scripts/scripts/tooling/measure-rule-tester.js",
+    "measure:gear-inspector": "tsc -p tsconfig.scripts.json && node scripts/tooling/patch-esm-specifiers.cjs && node tmp/tsc/scripts/scripts/tooling/measure-gear-inspector.js",
     "check:wasm-toolchain": "node scripts/tooling/check-rust-wasm-toolchain.mjs",
     "ensure:wasm-toolchain": "node scripts/tooling/check-rust-wasm-toolchain.mjs --fix",
     "generate:domain-constants": "node scripts/tooling/generate-domain-constants.mjs",

@@ -1,20 +1,20 @@
-# Rule Tester Rule Templates
+# Gear Inspector Rule Templates
 
-This document describes the Rule Tester gear actions (UX) and the default
+This document describes the Gear Inspector gear actions (UX) and the default
 configs that are generated for "Add Keep Config" and "Add Sell Config".
 
 ## UX Spec
 
-- Entry point: each Rule Tester card can show a compact gear button in the
+- Entry point: each Gear Inspector card can show a compact gear button in the
   top-right corner. The button is hidden by default and enabled via the
-  tester grid context menu. Tooltip: "Add a keep or sell config based on this item."
+  Gear Inspector grid context menu. Tooltip: "Add a keep or sell config based on this item."
 - Click behavior: opens a small menu with two actions:
   - Add Keep Rule
   - Add Sell Rule
 - Result: the new config is inserted after the currently selected config
   (or appended when no config is selected) and the builder selection jumps
   to the new config so users can fine-tune it immediately.
-- Availability: the gear action appears only in the main Rule Tester grid
+- Availability: the gear action appears only in the main Gear Inspector grid
   (not in the Safeguards tab).
 
 ## Generated Config Defaults
