@@ -24,7 +24,7 @@ This document summarizes how we collaborate on Sellfile Creator. Detailed techni
 
 - Propose a brief plan before sizable changes and update it as work progresses.
 - When a prompt is ambiguous, summarize your understanding and ask the user to confirm before proceeding.
-- For code changes, always run `npm run typecheck`, `npm run lint`, and `npm run build` before handoff. Also run `npm test` when the change touches logic, hooks, or flows covered by e2e specs. Fix regressions instead of punting them downstream.
+- For code changes, always run `npm run typecheck`, `npm run lint`, `npm run build`, and `npm run test:unit` before handoff. Also run `npm run test:e2e:chromium` when the change touches flows covered by e2e specs. Fix regressions instead of punting them downstream. (`npm run release:win` gates automatically on `npm run test:all`; `npm run release:win-dev` skips tests for fast iteration.)
 - Remove exploratory logs, diagnostics, and scaffolding once the fix is validated. If a commit is requested while any remain, pause and obtain explicit user confirmation before proceeding.
 - Do not wait for confirmation when run without interactive UI, e.g. if run as commandline prompt in a script.
 - Before committing, review earlier iterations and drop any obsolete changes that no longer apply after corrective prompts.

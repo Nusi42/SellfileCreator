@@ -101,12 +101,14 @@ try {
     throw "Failed to update third-party notices (exit code $LASTEXITCODE)"
   }
 
-  # Run the full automated test suite (all Playwright browsers) before building the release.
-  # Write-Host 'Running test suite (npm run test:all:full)...'
-  # npm run --silent test:all:full
-  # if ($LASTEXITCODE -ne 0) {
-  #   throw "Tests failed with exit code $LASTEXITCODE"
-  # }
+  # Run unit + e2e tests for production releases; skip for dev builds to keep iteration fast.
+  if (-not $DevBuild) {
+    Write-Host 'Running test suite (npm run test:all)...'
+    npm run --silent test:all
+    if ($LASTEXITCODE -ne 0) {
+      throw "Tests failed with exit code $LASTEXITCODE"
+    }
+  }
 
 
 
