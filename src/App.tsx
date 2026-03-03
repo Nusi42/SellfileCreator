@@ -101,6 +101,7 @@ import {
   SafeguardRuleActivation,
   SafeguardSubstatMatch,
   createFactorySafeguardBuilderDefaults,
+  createSafeguardRuleContentSnapshot,
   normalizeSafeguardRule,
 } from './lib/safeguards'
 import { updateRecipeRulesCache } from './lib/ruleCache'
@@ -4971,6 +4972,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const selectedSafeguardRuleIndex = selectedSafeguardRuleId !== null
     ? safeguardRules.findIndex((r) => r.id === selectedSafeguardRuleId)
     : -1
+  // True when the builder's content differs from the currently-selected rule's saved state.
+  // Mirrors the selectedIsDirty pattern used by the recipe builder.
+  const safeguardBuilderIsDirty = useMemo(() => {
+    if (selectedSafeguardRuleId === null) return false
+    const selectedRule = safeguardRules.find((r) => r.id === selectedSafeguardRuleId)
+    if (!selectedRule) return false
+    return JSON.stringify(createSafeguardRuleContentSnapshot(safeguardBuilder))
+      !== JSON.stringify(createSafeguardRuleContentSnapshot(selectedRule))
+  }, [safeguardBuilder, selectedSafeguardRuleId, safeguardRules])
   const safeguardBuilderPanelElement = (
     <SafeguardBuilderPanel
       rule={safeguardBuilder}
@@ -4982,6 +4992,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       useStatButtonColors={statButtonBorders}
       colorBlindMode={colorBlindMode}
       recipes={customRecipes}
+      selectedIsDirty={safeguardBuilderIsDirty}
       onInsertSafeguard={handleInsertSafeguardFromBuilder}
       onApplySafeguard={handleApplySafeguardFromBuilder}
       onResetSafeguard={handleResetSafeguardBuilder}

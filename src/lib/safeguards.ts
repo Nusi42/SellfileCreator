@@ -334,6 +334,23 @@ export const createFactorySafeguardBuilderDefaults = (): Omit<SafeguardRule, 'id
   substatWeights: {},
 })
 
+// Extracts the content fields of a SafeguardRule in the same stable key order as
+// createFactorySafeguardBuilderDefaults. Used as the SSOT for equality checks:
+// isDefaultRule (vs effective defaults) and dirty detection (vs selected rule).
+export const createSafeguardRuleContentSnapshot = (rule: SafeguardRule): Omit<SafeguardRule, 'id'> => ({
+  combination: rule.combination,
+  name: rule.name ?? '',
+  requiredCount: rule.requiredCount,
+  activation: rule.activation,
+  countMode: rule.countMode,
+  ignorePreviousSafeguards: rule.ignorePreviousSafeguards,
+  ignoreEquippedInCollection: rule.ignoreEquippedInCollection,
+  ignoreEquippedInVault: rule.ignoreEquippedInVault,
+  substats: rule.substats ?? [],
+  substatMatch: rule.substatMatch ?? SafeguardSubstatMatch.Any,
+  substatWeights: rule.substatWeights ?? {},
+})
+
 export type SafeguardDetectionArtifact = {
   itemKey: number
   slot: ArtifactTypeId

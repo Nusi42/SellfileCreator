@@ -53,6 +53,7 @@ import {
   sortSafeguardCombination,
   sortSafeguardSubstats,
   createFactorySafeguardBuilderDefaults,
+  createSafeguardRuleContentSnapshot,
   type SafeguardRule,
 } from '../lib/safeguards'
 import type { ColorBlindMode } from '../lib/constants'
@@ -184,6 +185,8 @@ export type SafeguardBuilderPanelProps = {
   useStatButtonColors: boolean
   colorBlindMode: ColorBlindMode
   recipes: readonly BuilderRecipe[]
+  // True when the builder state differs from the currently-selected rule's saved content.
+  selectedIsDirty: boolean
   onInsertSafeguard: () => void
   onApplySafeguard: () => void
   onResetSafeguard: () => void
@@ -210,6 +213,7 @@ export default function SafeguardBuilderPanel({
   substatColors,
   useStatButtonColors,
   recipes,
+  selectedIsDirty,
   onInsertSafeguard,
   onApplySafeguard,
   onResetSafeguard,
@@ -284,21 +288,8 @@ export default function SafeguardBuilderPanel({
         }
       }
     } catch {}
-    // Snapshot current rule fields in the same order as createFactorySafeguardBuilderDefaults.
-    const currentSnapshot: Omit<SafeguardRule, 'id'> = {
-      combination: rule.combination,
-      name: rule.name ?? '',
-      requiredCount: rule.requiredCount,
-      activation: rule.activation,
-      countMode: rule.countMode,
-      ignorePreviousSafeguards: rule.ignorePreviousSafeguards,
-      ignoreEquippedInCollection: rule.ignoreEquippedInCollection,
-      ignoreEquippedInVault: rule.ignoreEquippedInVault,
-      substats: rule.substats ?? [],
-      substatMatch: rule.substatMatch ?? SafeguardSubstatMatch.Any,
-      substatWeights: rule.substatWeights ?? {},
-    }
-    return JSON.stringify(currentSnapshot) === JSON.stringify(effectiveDefaults)
+    // Compare via SSOT snapshot so key order matches createFactorySafeguardBuilderDefaults.
+    return JSON.stringify(createSafeguardRuleContentSnapshot(rule)) === JSON.stringify(effectiveDefaults)
   }, [rule, defaultsEpoch])
 
   const [builderCollapsed, setBuilderCollapsed] = useBuilderSafeguardCollapsedPreference()
@@ -329,7 +320,8 @@ export default function SafeguardBuilderPanel({
     )
   }
 
-  const applyDisabled = editingRuleId === null
+  // Apply is only meaningful when a rule is selected AND the builder state differs from it.
+  const applyDisabled = editingRuleId === null || !selectedIsDirty
 
   const {
     insert: {
