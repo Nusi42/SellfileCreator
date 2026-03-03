@@ -8,6 +8,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
 import type { HsfRule } from '../lib/hsfTypes'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_SFR, RULE_SOURCE_SAFEGUARDS, type HsfRuleWithRecipe, type RuleSource } from '../lib/merge'
+import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
 import { /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId, getLocalizedGearSetName } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
@@ -331,6 +332,8 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     for (let i = 0; i < rules.length; i += 1) {
       const rule = rules[i] as HsfRuleWithRecipe | undefined
       if (!rule) continue
+      // HSF-embedded indices reference a foreign SFR — exclude them so chip selection targets only active SFR rows.
+      if (rule.__source === RULE_SOURCE_HSF) continue
       const recipeIdx = resolveDisplayRecipeIdx(rule as HsfRuleWithRecipe)
       if (recipeIdx === null) continue
       const existing = spans.get(recipeIdx)
@@ -1115,7 +1118,12 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                     })()
                     // Keep overrides include safeguards injection rows.
                     const isKeepOverrideSource = resolvedSource === RULE_SOURCE_SAFEGUARDS
-                    const previewRuleName = resolvePreviewRuleName(rule, isKeepOverrideSource)
+                    const rawPreviewRuleName = resolvePreviewRuleName(rule, isKeepOverrideSource)
+                    // Parse [rrggbb] color directives so the display name is clean and the color can tint recipe-related columns.
+                    const ruleDecoration = parseRecipeNameDirectives(rawPreviewRuleName, '')
+                    const previewRuleName = ruleDecoration.displayName || rawPreviewRuleName
+                    // Resolved color from the directive (empty string when absent).
+                    const previewRuleColor = ruleDecoration.hasExplicitColor ? ruleDecoration.resolvedColor : ''
                     return (
 		                      <TableRow
 		                        key={virtualItem.key}
@@ -1125,7 +1133,7 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
 		                        data-index={idx}
 			                        data-row-index={idx}
 		                        data-rule-source={resolvedSource}
-		                        {...(recipeIdxNumber !== null ? { 'data-recipe-idx': String(recipeIdxNumber) } : {})}
+		                        {...(recipeIdxNumber !== null && resolvedSource !== RULE_SOURCE_HSF ? { 'data-recipe-idx': String(recipeIdxNumber) } : {})}
 		                        // Wrap mode needs measured heights so TanStack can compute correct scroll offsets.
 		                        // Why: single-line mode is strict fixed-height, so measuring would unnecessarily enable dynamic mode.
 		                        ref={(el) => {
@@ -1135,11 +1143,15 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
 		                        }}
                         onMouseEnter={() => {
                           if (!isHoveringArea) return
+                          // HSF-embedded indices reference a foreign SFR, so hovering should not highlight active recipes.
+                          if (resolvedSource === RULE_SOURCE_HSF) return
                           const next = recipeIdxNumber
                           scheduleLocalHover(next)
                         }}
                         // Do not clear on row leave; container onMouseLeave clears once.
                         onClick={() => {
+                          // HSF-embedded indices reference a foreign SFR; clicking must not navigate to active recipes.
+                          if (resolvedSource === RULE_SOURCE_HSF) return
                           if (recipeIdxNumber !== null) {
                             // Keep-override rows surface in the preview but do not map to chips, so only real recipes trigger selection + auto-scroll.
                             suppressNextScrollRef.current = true
@@ -1239,6 +1251,8 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                     else value = ''
                         const isSub = c.key === 'SubstatsSummary'
                         const isIdx = c.key === 'Idx'
+                        // HSF-embedded recipe indices reference a foreign SFR — render them italic with a default cursor.
+                        const isHsfRecipeIdx = c.key === 'RecipeIdx' && resolvedSource === RULE_SOURCE_HSF && recipeIdxNumber !== null
                         const keep = Boolean(rule.Keep)
                         // Dim disabled rules instead of applying a strikethrough.
                         const isRuleDisabled = rule.Use === false
@@ -1416,7 +1430,13 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                             : substatSpan
                         } else if (showRecipeIdxNameTooltip) {
                           cellInner = (
-                            <MarkdownTooltip markdown={previewRuleName}>
+                            <MarkdownTooltip
+                              // Apply the [rrggbb] directive color inside the tooltip when present.
+                              {...(previewRuleColor
+                                ? { render: <Typography variant="body2" component="span" sx={{ color: previewRuleColor }}>{previewRuleName}</Typography> }
+                                : { markdown: previewRuleName }
+                              )}
+                            >
                               <span
                                 style={{
                                   display: 'inline-block',
@@ -1464,7 +1484,15 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                               width: c.width,
                               // Apply per-row opacity so disabled rules dim without striking text.
                               opacity: rowOpacity,
-                              color: isIdx ? (keep ? 'success.main' : 'error.main') : undefined,
+                              color: isIdx
+                                ? (keep ? 'success.main' : 'error.main')
+                                // Apply the [rrggbb] directive color to the recipe name column only (not the index).
+                                : (previewRuleColor && c.key === 'RuleName')
+                                  ? previewRuleColor
+                                  : undefined,
+                              // HSF-embedded recipe indices use italic + default cursor to signal they are non-interactive foreign references.
+                              fontStyle: isHsfRecipeIdx ? 'italic' : undefined,
+                              cursor: isHsfRecipeIdx ? 'default' : undefined,
                               overflow: wrapRows || factionIconOverflow ? 'visible' : 'hidden',
                               textOverflow: wrapRows || factionIconOverflow ? 'clip' : 'ellipsis',
                               whiteSpace: wrapRows ? 'normal' : 'nowrap',
