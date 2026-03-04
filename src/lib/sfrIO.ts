@@ -978,9 +978,12 @@ export function parseSfrObject(
   // Manual loads always start at the first recipe; selection is not persisted in SFR.
   const selectedIndex = recipes.length > 0 ? 0 : null
   // Canonicalize legacy note markers during SFR import so runtime state uses new wording only.
-  const note = (!Array.isArray(parsed) && typeof parsedRec['Note'] === 'string')
-    ? canonicalizeLegacyNoteMarkers(String(parsedRec['Note']))
-    : undefined
+  // Accept both the legacy plain-string form and the current array-of-lines form.
+  const rawNote = parsedRec['Note']
+  const noteStr = Array.isArray(rawNote)
+    ? rawNote.map(String).join('\n')
+    : typeof rawNote === 'string' ? rawNote : undefined
+  const note = noteStr ? canonicalizeLegacyNoteMarkers(noteStr) : undefined
   return {
     recipes,
     metasets,
@@ -1185,7 +1188,8 @@ export function buildSfrPayload(args: {
     }>
     SafeguardsEnabled: boolean
     RecipesEnabled: boolean
-    Note?: string
+    // Array of lines for diff-friendliness; legacy files may still carry a plain string.
+    Note?: string[]
   } {
   const {
     version,
@@ -1233,7 +1237,8 @@ export function buildSfrPayload(args: {
     SafeguardsEnabled: safeguardsEnabled === true,
     RecipesEnabled: recipesEnabled !== false,
     // Canonicalize legacy marker aliases so exports never re-emit old note keywords.
-    ...(note ? { Note: canonicalizeLegacyNoteMarkers(note) } : {}),
+    // Store as an array of lines so the saved file is diff-friendly and copy-readable.
+    ...(note ? { Note: canonicalizeLegacyNoteMarkers(note).split('\n') } : {}),
   }
 }
 
