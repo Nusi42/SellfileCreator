@@ -76,10 +76,6 @@ import {
   GLYPH_IGNORE_COLLECTION,
   GLYPH_IGNORE_PREVIOUS,
   GLYPH_IGNORE_VAULT,
-  GLYPH_PER_FACTION,
-  GLYPH_PER_MAIN_STAT,
-  GLYPH_PER_SET,
-  GLYPH_PER_SLOT,
   HISTORY_TOOLTIP_MAX_WIDTH_PX,
   NBSP,
   SMALL_BUTTON_HEIGHT_PX,
@@ -851,7 +847,7 @@ export default function SafeguardBuilderPanel({
                 anyLabel={t('any')}
                 sx={SELECT_BOX_HEIGHT_SX}
               />
-              {renderScopeChip('perFaction', `${GLYPH_PER_FACTION}${NBSP}${t('safeguardsCountModePerFaction')}`, scopeActive.perFaction, !hasAccessorySlot)}
+              {renderScopeChip('perFaction', t('safeguardsCountModePerFaction'), scopeActive.perFaction, !hasAccessorySlot)}
             </Box>
           </Collapse>
         </FormControl>
@@ -917,7 +913,7 @@ export default function SafeguardBuilderPanel({
                   </ToggleButton>
                 ))}
               </ToggleButtonGroup>
-              {renderScopeChip('perMainStat', `${GLYPH_PER_MAIN_STAT}${NBSP}${t('safeguardsCountModePerMain')}`, scopeActive.perMainStat)}
+              {renderScopeChip('perMainStat', t('safeguardsCountModePerMain'), scopeActive.perMainStat)}
             </Box>
           </Collapse>
         </FormControl>
@@ -1163,7 +1159,7 @@ export default function SafeguardBuilderPanel({
                   )
                 })}
               </Box>
-              {renderScopeChip('perSlot', `${GLYPH_PER_SLOT}${NBSP}${t('safeguardsCountModePerSlot')}`, scopeActive.perSlot)}
+              {renderScopeChip('perSlot', t('safeguardsCountModePerSlot'), scopeActive.perSlot)}
             </Box>
           </Collapse>
         </FormControl>
@@ -1209,7 +1205,7 @@ export default function SafeguardBuilderPanel({
                 anyLabel={t('anySet')}
                 includeNoSet={hasAccessorySlot}
               />
-              {renderScopeChip('perSet', `${GLYPH_PER_SET}${NBSP}${t('safeguardsCountModePerSet')}`, scopeActive.perSet)}
+              {renderScopeChip('perSet', t('safeguardsCountModePerSet'), scopeActive.perSet)}
             </Box>
           </Collapse>
         </FormControl>

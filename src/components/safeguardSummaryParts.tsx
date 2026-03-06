@@ -26,17 +26,10 @@ import {
 } from '../lib/types'
 import {
   GLYPH_BEAT_EQUIPPED,
-  GLYPH_FOR_ALL,
-  GLYPH_PER_FACTION,
-  GLYPH_PER_MAIN_STAT,
-  GLYPH_PER_SET,
-  GLYPH_PER_SLOT,
-  GLYPH_PER_SUBSTAT,
   NBSP,
 } from '../lib/constants'
 
 const METASET_ICON_BOX_PX = 16
-import { SafeguardSubstatMatch } from '../lib/safeguards'
 import type { SafeguardRule } from '../lib/safeguards'
 import type { Metaset } from '../lib/metasets'
 import { artifactTypeIconFor } from './artifactTypeIcons'
@@ -109,17 +102,14 @@ export function safeguardSummaryParts(
         const label = withNbsp(opts.t ? opts.t(artifactTypeI18nKey(typeId)) : artifactTypeName(typeId))
         return <Box key={`slot-${typeId}-${i}`} component="span" sx={{ mr: 0.5 }}>{label}</Box>
       })
-      // Per-slot glyph follows the icons; ∀ when no specific slots selected.
-      addNode(<>{nodes}{rule.countMode.perSlot ? <Box key="slot-per" component="span">{NBSP}{GLYPH_PER_SLOT}</Box> : null}</>)
+      // perSlot indicator removed — glyph-free display.
+      addNode(<>{nodes}</>)
     } else {
       const labels = sorted.map((typeId) =>
         withNbsp(opts.t ? opts.t(artifactTypeI18nKey(typeId)) : artifactTypeName(typeId)),
       )
-      addText(labels.join(', ') + (rule.countMode.perSlot ? `${NBSP}${GLYPH_PER_SLOT}` : ''))
+      addText(labels.join(', '))
     }
-  } else if (rule.countMode.perSlot) {
-    // No slot filter — perSlot applies to every slot; show glyph + ∀.
-    addText(`${GLYPH_PER_SLOT}${NBSP}${GLYPH_FOR_ALL}`)
   }
 
   // ── Ranks ─────────────────────────────────────────────────────────────────
@@ -168,10 +158,8 @@ export function safeguardSummaryParts(
       }
       return <Box key={`f-${factionCode}-${i}`} component="span">{label}</Box>
     })
-    // Per-faction glyph follows the content; ∀ when no specific factions selected.
-    addNode(<>{factNodes}{rule.countMode.perFaction ? <Box key="fact-per" component="span">{NBSP}{GLYPH_PER_FACTION}</Box> : null}</>)
-  } else if (rule.countMode.perFaction) {
-    addText(`${GLYPH_PER_FACTION}${NBSP}${GLYPH_FOR_ALL}`)
+    // perFaction indicator removed — glyph-free display.
+    addNode(<>{factNodes}</>)
   }
 
   // ── Main stats ────────────────────────────────────────────────────────────
@@ -191,10 +179,8 @@ export function safeguardSummaryParts(
       interleaved.push(n)
       if (i < nodes.length - 1) interleaved.push(<Box key={`m-sep-${i}`} component="span">, </Box>)
     })
-    // Per-mainstat glyph follows the content; ∀ when no specific main stats selected.
-    addNode(<>{interleaved}{rule.countMode.perMainStat ? <Box key="main-per" component="span">{NBSP}{GLYPH_PER_MAIN_STAT}</Box> : null}</>)
-  } else if (rule.countMode.perMainStat) {
-    addText(`${GLYPH_PER_MAIN_STAT}${NBSP}${GLYPH_FOR_ALL}`)
+    // perMainStat indicator removed — glyph-free display.
+    addNode(<>{interleaved}</>)
   }
 
   // ── Substats ──────────────────────────────────────────────────────────────
@@ -222,7 +208,6 @@ export function safeguardSummaryParts(
       <>
         <Box component="span">{`${tr ? tr('chipSubs') : 'Subs'}:${NBSP}`}</Box>
         {interleaved}
-        {rule.substatMatch === SafeguardSubstatMatch.PerSubstat ? <Box key="sub-per" component="span">{NBSP}{GLYPH_PER_SUBSTAT}</Box> : null}
       </>,
     )
   }
@@ -308,15 +293,11 @@ export function safeguardSummaryParts(
       })
 
       if (nodes.length > 0) {
-        // Per-set glyph follows the set icons; ∀ when no specific sets selected.
         addNode(
           <Box component="span" sx={{ display: 'inline', whiteSpace: 'normal' }}>
             {nodes}
-            {rule.countMode.perSet ? <Box key="set-per" component="span">{NBSP}{GLYPH_PER_SET}</Box> : null}
           </Box>,
         )
-      } else if (rule.countMode.perSet) {
-        addText(`${GLYPH_PER_SET}${NBSP}${GLYPH_FOR_ALL}`)
       }
     } else {
       const metaNames = metaEntries.map((e) => String(e.name))
@@ -342,11 +323,8 @@ export function safeguardSummaryParts(
         addNode(
           <Box component="span">
             {nodes}
-            {rule.countMode.perSet ? <Box key="set-per" component="span">{NBSP}{GLYPH_PER_SET}</Box> : null}
           </Box>,
         )
-      } else if (rule.countMode.perSet) {
-        addText(`${GLYPH_PER_SET}${NBSP}${GLYPH_FOR_ALL}`)
       }
     }
   }
