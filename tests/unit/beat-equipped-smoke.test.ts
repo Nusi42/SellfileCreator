@@ -107,16 +107,17 @@ test('beatEquippedPercentile smoke — real example.sfr + RSLHelper.db', async (
     )
 
     // Compute floor scores directly for diagnostic output.
-    const slots = (rule.combination.slots ?? []).map(Number).filter(Number.isFinite)
     const substats = (rule.substats ?? []).map(Number).filter(Number.isFinite)
     const weights = normalizeRuleWeights(rule.substatWeights ?? {})
+    // refPool is a rough slot-only count for the log line (full filter is inside the helper).
+    const slots = (rule.combination.slots ?? []).map(Number).filter(Number.isFinite)
     const refPool = artifacts.filter((a) => {
       if (a.equippedChampionLocation !== 'collection') return false
       const slot = Number(a.slot)
       return slots.length === 0 || slots.includes(slot)
     })
-    const floorAt100 = computeEquippedCollectionFloorScore(artifacts, slots, substats, weights, 100)
-    const floorAt50  = computeEquippedCollectionFloorScore(artifacts, slots, substats, weights, 50)
+    const floorAt100 = computeEquippedCollectionFloorScore(artifacts, rule.combination, substats, weights, 100)
+    const floorAt50  = computeEquippedCollectionFloorScore(artifacts, rule.combination, substats, weights, 50)
 
     const label = rule.name?.trim() || rule.id
     console.log(

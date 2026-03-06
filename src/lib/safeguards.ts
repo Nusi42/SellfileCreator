@@ -833,25 +833,77 @@ export const normalizeRuleWeights = (weights: Partial<Record<number, number>>): 
   return out
 }
 
-// Compute the Nth-percentile quality floor from collection-equipped artifacts in
-// the matching slots. Returns 0 when no reference artifacts are available.
+// Empty selection means wildcard; otherwise candidate must be explicitly listed.
+// Exported so safeguardUpgradeChance.ts shares the same semantics (SSOT).
+export const matchesCombinationFilter = (selection: readonly number[], candidate: number): boolean => (
+  selection.length === 0 || selection.includes(candidate)
+)
+
+// Resolve include/exclude set ID sets from a combination's sets array.
+// Excluded entries take priority over included ones; duplicates collapse.
+// Exported so safeguardUpgradeChance.ts reuses this logic instead of duplicating.
+export function resolveSetIdFilter(sets: readonly ArtifactSetSelectionEntry[]): {
+  includeSetIds: ReadonlySet<number>
+  excludeSetIds: ReadonlySet<number>
+} {
+  const includeSetIds = new Set<number>()
+  const excludeSetIds = new Set<number>()
+  for (const entry of sets ?? []) {
+    const setId = Number(entry?.id)
+    if (!Number.isFinite(setId)) continue
+    // Excluded entries win; remove from include if it was already there.
+    if (entry?.excluded === true) {
+      excludeSetIds.add(setId)
+      includeSetIds.delete(setId)
+      continue
+    }
+    // Skip if already in the exclude list.
+    if (excludeSetIds.has(setId)) continue
+    includeSetIds.add(setId)
+  }
+  return { includeSetIds, excludeSetIds }
+}
+
+// Compute the Nth-percentile quality floor from collection-equipped artifacts that
+// match the full combination filters (slot, set, rank, rarity, main stat, faction).
+// Returns 0 when no reference artifacts satisfy the filters.
 // Used by both the WASM pre-computation path and the upgrade-chance TS path.
 export function computeEquippedCollectionFloorScore(
   artifacts: readonly NormalizedGearArtifact[],
-  slots: readonly number[],
+  combination: SafeguardCombination,
   selectedSubstats: readonly number[],
   weights: ReadonlyMap<number, number>,
   percentile: number,
 ): number {
   // No substats means scoring is undefined; skip the floor check.
   if (selectedSubstats.length === 0) return 0
+  // Pre-compute filter values once so the inner loop stays allocation-free.
+  const slots = (combination.slots ?? []).map(Number).filter(Number.isFinite)
+  const ranks = (combination.ranks ?? []).map(Number).filter(Number.isFinite)
+  const rarities = (combination.rarities ?? []).map(Number).filter(Number.isFinite)
+  const mainStats = (combination.mainStats ?? []).map(Number).filter(Number.isFinite)
+  const factions = (combination.factions ?? []).map(Number).filter(Number.isFinite)
+  const { includeSetIds, excludeSetIds } = resolveSetIdFilter(combination.sets ?? [])
   const scores: number[] = []
   for (const artifact of artifacts) {
     // Reference pool: only gear actively equipped on collection champions.
     if (artifact.equippedChampionLocation !== 'collection') continue
-    // Slot filter: empty slots list = wildcard (match any slot).
+    // Slot filter: empty list = wildcard.
     const slot = Number(artifact.slot)
-    if (slots.length > 0 && !slots.includes(slot)) continue
+    if (!matchesCombinationFilter(slots, slot)) continue
+    // Set filter: excluded entries win; non-empty include list restricts.
+    const setId = Number(artifact.set)
+    if (excludeSetIds.has(setId)) continue
+    if (includeSetIds.size > 0 && !includeSetIds.has(setId)) continue
+    // Rank and rarity: empty = wildcard.
+    if (!matchesCombinationFilter(ranks, Number(artifact.rank))) continue
+    if (!matchesCombinationFilter(rarities, Number(artifact.rarity))) continue
+    // Main stat: fall back to Any sentinel when artifact carries none.
+    const mainStatVariant = Number(artifact.mainStat?.variant ?? StatVariantEnum.Any)
+    if (!matchesCombinationFilter(mainStats, mainStatVariant)) continue
+    // Faction: armor slots always normalize to 0 (no faction differentiation).
+    const faction = isAccessorySlot(slot) ? Number(artifact.faction ?? 0) : 0
+    if (!matchesCombinationFilter(factions, faction)) continue
     scores.push(computeSafeguardScoreFromArtifact(artifact, selectedSubstats, weights))
   }
   if (scores.length === 0) return 0
@@ -1010,10 +1062,10 @@ export function collectAndComputeSafeguardProtection(
   const rulesForWasm: SafeguardRuleForWasm[] = rules.map((rule) => {
     const percentile = rule.beatEquippedPercentile
     if (percentile === null || percentile === undefined || !Number.isFinite(percentile)) return rule
-    const slots = (rule.combination.slots ?? []).map(Number).filter(Number.isFinite)
     const substats = (rule.substats ?? []).map(Number).filter(Number.isFinite)
     const weights = normalizeRuleWeights(rule.substatWeights ?? {})
-    const equippedFloorScore = computeEquippedCollectionFloorScore(artifacts, slots, substats, weights, percentile)
+    // Pass the full combination so the reference pool is filtered to true peers.
+    const equippedFloorScore = computeEquippedCollectionFloorScore(artifacts, rule.combination, substats, weights, percentile)
     return { ...rule, equippedFloorScore }
   })
   // Pass canonical rows/rules and let wasm produce the detection payload.

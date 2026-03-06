@@ -8,7 +8,9 @@ import {
   computeEquippedCollectionFloorScore,
   computeSafeguardScoreFromArtifact,
   getSafeguardCountKey,
+  matchesCombinationFilter,
   normalizeRuleWeights,
+  resolveSetIdFilter,
   SafeguardRuleActivation,
   SafeguardSubstatMatch as SafeguardSubstatMatchToken,
   sanitizeSafeguardCountMode,
@@ -158,11 +160,6 @@ export type SafeguardUpgradeChanceDebug = {
   maxAdditionEventsTo16: number
 }
 
-// Empty selection means wildcard; otherwise candidate must be explicitly selected.
-const matchesSelection = (selection: readonly number[], candidate: number): boolean => (
-  selection.length === 0 || selection.includes(candidate)
-)
-
 // Clamp numeric levels so malformed snapshots cannot break upgrade scheduling.
 const clampLevel = (value: unknown): number => {
   const numeric = Number(value)
@@ -222,20 +219,8 @@ const prepareSubstatSafeguardRules = (
     // This overlay only uses safeguards that explicitly select substats.
     const selectedSubstats = normalizeSelectedSubstats(rule.substats ?? [])
     if (selectedSubstats.length === 0) continue
-    // Include/exclude set precedence mirrors safeguard matching behavior.
-    const includeSetIds = new Set<number>()
-    const excludeSetIds = new Set<number>()
-    for (const entry of rule.combination.sets ?? []) {
-      const setId = Number(entry?.id)
-      if (!Number.isFinite(setId)) continue
-      if (entry?.excluded === true) {
-        excludeSetIds.add(setId)
-        includeSetIds.delete(setId)
-        continue
-      }
-      if (excludeSetIds.has(setId)) continue
-      includeSetIds.add(setId)
-    }
+    // Resolve include/exclude set IDs via shared helper (SSOT).
+    const { includeSetIds, excludeSetIds } = resolveSetIdFilter(rule.combination.sets ?? [])
     // Substat match defaults to `any` unless `all` was explicitly selected.
     const normalizedMatch = (
       rule.substatMatch === SafeguardSubstatMatchToken.All
@@ -246,13 +231,14 @@ const prepareSubstatSafeguardRules = (
             : SafeguardSubstatMatchToken.Any
         )
     )
-    // Extract slots and weights as locals so the floor score can reuse them.
+    // Extract slots and weights as locals for use in prepared.push below.
     const slots = (rule.combination.slots ?? []).map((value) => Number(value)).filter(Number.isFinite)
     const weights = normalizeRuleWeights(rule.substatWeights ?? {})
     // Compute equipped quality floor when beatEquippedPercentile is configured.
+    // Pass the full combination so the reference pool is filtered to true peers.
     const percentile = rule.beatEquippedPercentile
     const equippedFloorScore = (percentile !== null && percentile !== undefined && Number.isFinite(percentile))
-      ? computeEquippedCollectionFloorScore(artifacts, slots, selectedSubstats, weights, percentile)
+      ? computeEquippedCollectionFloorScore(artifacts, rule.combination, selectedSubstats, weights, percentile)
       : null
     prepared.push({
       ruleOrder,
@@ -297,17 +283,17 @@ const ruleAppliesToArtifact = (rule: PreparedSafeguardRule, artifact: Normalized
   const setId = Number(artifact.set)
   const rank = Number(artifact.rank)
   const rarity = Number(artifact.rarity)
-  if (!matchesSelection(rule.slots, slot)) return false
+  if (!matchesCombinationFilter(rule.slots, slot)) return false
   if (rule.excludeSetIds.has(setId)) return false
   if (rule.includeSetIds.size > 0 && !rule.includeSetIds.has(setId)) return false
-  if (!matchesSelection(rule.ranks, rank)) return false
-  if (!matchesSelection(rule.rarities, rarity)) return false
+  if (!matchesCombinationFilter(rule.ranks, rank)) return false
+  if (!matchesCombinationFilter(rule.rarities, rarity)) return false
   // Missing main stat falls back to the Any sentinel for filtering.
   const mainStat = Number(artifact.mainStat?.variant ?? StatVariant.Any)
-  if (!matchesSelection(rule.mainStats, mainStat)) return false
+  if (!matchesCombinationFilter(rule.mainStats, mainStat)) return false
   // Armor slots normalize faction to zero to match safeguard grouping behavior.
   const faction = isAccessorySlot(slot) ? Number(artifact.faction) : 0
-  if (!matchesSelection(rule.factions, faction)) return false
+  if (!matchesCombinationFilter(rule.factions, faction)) return false
   return true
 }
 
