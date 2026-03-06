@@ -35,6 +35,7 @@ import {
 } from '../state/gearInspectorGridPreferences'
 import type { useI18n } from '../lib/i18n'
 import {
+  SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
   SAFEGUARD_DEFAULT_COUNT_MODE,
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
@@ -223,6 +224,7 @@ const buildTutorialSafeguardRules = (): SafeguardRule[] => [{
   ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
   ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
   ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
+  beatEquippedPercentile: SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
   // HP% and DEF% substats — any of them is sufficient (substatMatch: Any).
   substats: [StatVariant.HP, StatVariant.DEF],
   substatMatch: SafeguardSubstatMatch.Any,

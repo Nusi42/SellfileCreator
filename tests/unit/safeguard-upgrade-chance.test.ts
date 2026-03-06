@@ -112,6 +112,7 @@ const makeSpdSafeguardRule = (id: string): SafeguardRule => ({
   ignorePreviousSafeguards: true,
   ignoreEquippedInCollection: false,
   ignoreEquippedInVault: false,
+  beatEquippedPercentile: null,
   substats: [StatVariant.SPD],
   substatMatch: SafeguardSubstatMatch.Any,
   substatWeights: {},

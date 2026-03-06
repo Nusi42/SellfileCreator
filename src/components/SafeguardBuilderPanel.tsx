@@ -4,7 +4,7 @@
  * Inline editor for a single SafeguardRule. Controls mirror BuilderPanel styling and layout:
  * - Row 1: Mode toggle + Required count
  * - Row 2: [Rank | Rarity | Faction Select (nested 3-col)] | [Ignore chips]
- * - Row 3: [Main stat toggles + perMainStat chip] | [Substats toggles + match chips + weights]
+ * - Row 3: [Main stat toggles + perMainStat chip] | [Substats toggles + match chips + beat-equipped floor chip + weights]
  * - Row 4: [Slots icon grid + perSlot chip] | [Sets selector + perSet chip]
  *
  * When no rule is selected the form renders disabled so the panel height remains stable.
@@ -41,6 +41,7 @@ import RedoIcon from '@mui/icons-material/Redo'
 import TuneIcon from '@mui/icons-material/Tune'
 import UndoIcon from '@mui/icons-material/Undo'
 import {
+  SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
   SAFEGUARD_DEFAULT_COUNT_MODE,
   SafeguardRuleActivation,
   SafeguardSubstatMatch,
@@ -71,6 +72,7 @@ import {
   CLEAR_ICON_BUTTON_SIZE_PX,
   DANGER_TINT_BG,
   FONT_SIZE_BASE_PX,
+  GLYPH_BEAT_EQUIPPED,
   GLYPH_IGNORE_COLLECTION,
   GLYPH_IGNORE_PREVIOUS,
   GLYPH_IGNORE_VAULT,
@@ -78,9 +80,6 @@ import {
   GLYPH_PER_MAIN_STAT,
   GLYPH_PER_SET,
   GLYPH_PER_SLOT,
-  GLYPH_PER_SUBSTAT,
-  GLYPH_SUBSTAT_ALL,
-  GLYPH_SUBSTAT_ANY,
   HISTORY_TOOLTIP_MAX_WIDTH_PX,
   NBSP,
   SMALL_BUTTON_HEIGHT_PX,
@@ -106,7 +105,6 @@ import { useI18n } from '../lib/i18n'
 import { GearFactionSelect, GearRankSelect, GearRaritySelect, GearSetsSelect } from './gear'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
 import MarkdownTooltip from './MarkdownTooltip'
-import EllipsisTooltip from './EllipsisTooltip'
 import { GearInspectorSortWeightControls } from './GearInspectorSortWeightControls'
 import { useKeepOverrideCombinationTools } from './keepOverrides/useKeepOverrideCombinationTools'
 import {
@@ -359,17 +357,6 @@ export default function SafeguardBuilderPanel({
     `${t('safeguardsRuleModeHint')}\n\n${t('safeguardsCountModeHint')}\n\n${t('safeguardsSubstatModeHint')}\n\n${t('safeguardsIgnoreOptionsHint')}`
   ), [t])
 
-  const substatMatchLabels = useMemo(() => ({
-    [SafeguardSubstatMatch.Any]: t('safeguardsSubstatRequirementAny'),
-    [SafeguardSubstatMatch.All]: t('safeguardsSubstatRequirementAll'),
-    [SafeguardSubstatMatch.PerSubstat]: t('safeguardsSubstatRequirementPer'),
-  }), [t])
-
-  const substatMatchOptions = useMemo(() => ([
-    SafeguardSubstatMatch.Any,
-    SafeguardSubstatMatch.All,
-    SafeguardSubstatMatch.PerSubstat,
-  ]), [])
 
   const safeguardScopeChipTooltips = useMemo(() => ({
     perSlot: t('safeguardsCountModePerSlotHint'),
@@ -386,6 +373,7 @@ export default function SafeguardBuilderPanel({
   // ── state helpers ─────────────────────────────────────────────────────────
 
   const [weightsAnchorEl, setWeightsAnchorEl] = useState<HTMLElement | null>(null)
+  const [beatEquippedAnchorEl, setBeatEquippedAnchorEl] = useState<HTMLElement | null>(null)
   const [scaffoldAnchorEl, setScaffoldAnchorEl] = useState<HTMLElement | null>(null)
   // Tracks whether the Reset button is being hovered so all resettable sections
   // can show a red tint — mirrors RecipeBuilderPanel's hoverReset pattern.
@@ -447,6 +435,11 @@ export default function SafeguardBuilderPanel({
   const effectiveSubstatMatch = hasSubstatSelection
     ? normalizeSafeguardSubstatMatch(rule?.substatMatch)
     : SafeguardSubstatMatch.Any
+  // Map effective match mode to its short text label for the cycling chip.
+  // Map effective match mode to its label for the cycling chip — reuse the requirement keys for consistency.
+  const currentMatchLabel = effectiveSubstatMatch === SafeguardSubstatMatch.Any ? t('safeguardsSubstatRequirementAny')
+    : effectiveSubstatMatch === SafeguardSubstatMatch.All ? t('safeguardsSubstatRequirementAll')
+    : t('safeguardsSubstatRequirementPer')
   // SSOT: delegate to safeguardWeightsEnabled so the rule is defined once.
   const showSubstatWeights = safeguardWeightsEnabled(rule?.substatMatch, hasSubstatSelection)
 
@@ -459,6 +452,9 @@ export default function SafeguardBuilderPanel({
   const ignorePreviousSafeguards = rule?.ignorePreviousSafeguards !== false
   const ignoreEquippedInCollection = rule?.ignoreEquippedInCollection === true
   const ignoreEquippedInVault = rule?.ignoreEquippedInVault === true
+  // beatEquippedPercentile: null means disabled; a number (0–100) means active.
+  const beatEquippedPercentile = rule?.beatEquippedPercentile ?? null
+  const beatEquippedEnabled = beatEquippedPercentile !== null
 
   const handleScopeChipToggle = (scope: KeepOverrideScopeKey) => {
     updateRule((prev) => {
@@ -534,7 +530,7 @@ export default function SafeguardBuilderPanel({
         display: 'grid',
         gridTemplateColumns: 'repeat(4, minmax(220px, 1fr))',
         columnGap: 1,
-        rowGap: 2,
+        rowGap: 1,
       }}
     >
 
@@ -782,7 +778,7 @@ export default function SafeguardBuilderPanel({
         display: 'grid',
         gridTemplateColumns: 'repeat(3, minmax(180px, 1fr))',
         columnGap: 1,
-        rowGap: 2,
+        rowGap: 1,
         borderRadius: 1,
         transition: UI_BG_HOVER_DANGER_TRANSITION,
         backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
@@ -988,53 +984,73 @@ export default function SafeguardBuilderPanel({
             </Box>
           </Collapse>
         </FormControl>
-        {/* Substat match mode chips + weights button */}
+        {/* Substat match mode chips + weights button + beat-equipped quality floor — all inline */}
         <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
+          {/* Single cycling chip rotates through Any → All → Per Substat on each click. */}
           <MarkdownTooltip markdown={t('safeguardsSubstatRequirementHint')}>
-            <Box component="span" sx={{ display: 'inline-flex', gap: 0.75, flexWrap: 'wrap', alignItems: 'center', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
-              {substatMatchOptions.map((option) => {
-                const active = effectiveSubstatMatch === option
-                // Prefix each match mode with its distinct glyph.
-                const baseLabel = substatMatchLabels[option] ?? substatMatchLabels[SafeguardSubstatMatch.Any]
-                const matchGlyph =
-                  option === SafeguardSubstatMatch.Any ? GLYPH_SUBSTAT_ANY
-                  : option === SafeguardSubstatMatch.All ? GLYPH_SUBSTAT_ALL
-                  : GLYPH_PER_SUBSTAT
-                const label = `${matchGlyph}${NBSP}${baseLabel}`
-                return (
-                  <EllipsisTooltip key={option} title={label} selector=".MuiChip-label">
-                    <Chip
-                      size="small"
-                      variant="filled"
-                      label={label}
-                      aria-label={t('safeguardsSubstatRequirementLabel')}
-                      clickable
-                      disabled={!hasSubstatSelection}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        if (!hasSubstatSelection) return
-                        if (option === effectiveSubstatMatch) return
-                        // Per Substat disables weights — close the popover immediately
-                        // so it doesn't stay open behind the new mode.
-                        if (option === SafeguardSubstatMatch.PerSubstat) setWeightsAnchorEl(null)
-                        updateRule((prev) => ({ ...prev, substatMatch: option }))
-                      }}
-                      sx={builderStatusChipSx(active, { dimDisabled: true })}
-                    />
-                  </EllipsisTooltip>
-                )
-              })}
-            </Box>
+            <Chip
+              size="small"
+              variant="filled"
+              label={`${t('filterMatch')}:${NBSP}${currentMatchLabel}`}
+              aria-label={t('safeguardsSubstatRequirementLabel')}
+              clickable
+              disabled={!hasSubstatSelection}
+              onClick={() => {
+                if (!hasSubstatSelection) return
+                // Cycle Any → All → PerSubstat → Any.
+                const next = effectiveSubstatMatch === SafeguardSubstatMatch.Any ? SafeguardSubstatMatch.All
+                  : effectiveSubstatMatch === SafeguardSubstatMatch.All ? SafeguardSubstatMatch.PerSubstat
+                  : SafeguardSubstatMatch.Any
+                // Per Substat disables weights — close the popover so it doesn't linger.
+                if (next === SafeguardSubstatMatch.PerSubstat) setWeightsAnchorEl(null)
+                updateRule((prev) => ({ ...prev, substatMatch: next }))
+              }}
+              sx={builderStatusChipSx(true, { dimDisabled: true })}
+            />
           </MarkdownTooltip>
-          {/* Weights button — always visible, disabled when no substats or PerSubstat mode */}
+          {/* Weights configure button — always visible, disabled when no substats or PerSubstat mode */}
           <IconButton
             size="small"
             aria-label={t('safeguardsSubstatWeightsLabel')}
             disabled={!hasSubstatSelection || !showSubstatWeights}
             onClick={(e) => setWeightsAnchorEl(e.currentTarget)}
             sx={{ p: 0.25, color: hasSubstatSelection && Object.keys(rule.substatWeights ?? {}).length > 0 ? 'primary.main' : 'text.secondary' }}
+          >
+            <TuneIcon fontSize="small" />
+          </IconButton>
+          {/* Beat-equipped quality floor chip — shows actual percentile when enabled.
+              Disabled when no substats selected; configure button opens a popover. */}
+          <MarkdownTooltip markdown={t('safeguardsBeatEquippedPercentileHint')} ellipsisTitle={t('safeguardsBeatEquippedPercentile')} ellipsisSelector=".MuiChip-label">
+            <Chip
+              size="small"
+              variant="filled"
+              label={beatEquippedEnabled
+                ? `${GLYPH_BEAT_EQUIPPED}${NBSP}${t('safeguardsBeatEquippedShort')}${NBSP}≥${NBSP}${beatEquippedPercentile}%`
+                : `${GLYPH_BEAT_EQUIPPED}${NBSP}${t('safeguardsBeatEquippedShort')}`}
+              aria-label={t('safeguardsBeatEquippedPercentile')}
+              clickable
+              disabled={!hasSubstatSelection}
+              onClick={() => {
+                if (!hasSubstatSelection) return
+                // Toggle: disable when active (reset to null), enable with 50 when inactive.
+                updateRule((prev) => ({
+                  ...prev,
+                  beatEquippedPercentile: prev.beatEquippedPercentile !== null
+                    ? SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE
+                    : 50,
+                }))
+              }}
+              sx={builderStatusChipSx(beatEquippedEnabled, { dimDisabled: true })}
+            />
+          </MarkdownTooltip>
+          {/* Configure button — always visible, disabled when floor is inactive or no substats */}
+          <IconButton
+            size="small"
+            aria-label={t('safeguardsBeatEquippedPercentile')}
+            disabled={!hasSubstatSelection || !beatEquippedEnabled}
+            onClick={(e) => setBeatEquippedAnchorEl(e.currentTarget)}
+            sx={{ p: 0.25, color: hasSubstatSelection && beatEquippedEnabled ? 'primary.main' : 'text.secondary' }}
           >
             <TuneIcon fontSize="small" />
           </IconButton>
@@ -1158,22 +1174,21 @@ export default function SafeguardBuilderPanel({
         <FormControl fullWidth>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="sets" />
-            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0, flex: 1 }]}>
               <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderSets')}</Box>
-              <Box sx={{ flex: 1, minWidth: 0 }} />
-              <MarkdownTooltip markdown={t('builderManageMetasetsTooltip')}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={onManageMetasets}
-                  sx={{ minWidth: 160, whiteSpace: 'nowrap', ml: 'auto', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                >
-                  <Box component="span" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {t('builderManageMetasetsButton')}
-                  </Box>
-                </Button>
-              </MarkdownTooltip>
             </FormLabel>
+            <MarkdownTooltip markdown={t('builderManageMetasetsTooltip')}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={onManageMetasets}
+                sx={{ minWidth: 160, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+              >
+                <Box component="span" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {t('builderManageMetasetsButton')}
+                </Box>
+              </Button>
+            </MarkdownTooltip>
           </Box>
           <Collapse in={!builderCollapsed.sets} timeout="auto" unmountOnExit>
             {/* Sets selector and perSet chip collapse together as a unit */}
@@ -1331,6 +1346,7 @@ export default function SafeguardBuilderPanel({
                 ignorePreviousSafeguards: rule.ignorePreviousSafeguards,
                 ignoreEquippedInCollection: rule.ignoreEquippedInCollection,
                 ignoreEquippedInVault: rule.ignoreEquippedInVault,
+                beatEquippedPercentile: rule.beatEquippedPercentile ?? null,
                 substats: rule.substats ?? [],
                 substatMatch: rule.substatMatch ?? SafeguardSubstatMatch.Any,
                 substatWeights: rule.substatWeights ?? {},
@@ -1475,6 +1491,52 @@ export default function SafeguardBuilderPanel({
               </ButtonBase>
             )
           })}
+        </Box>
+      </Popover>
+
+      {/* ── Beat-equipped quality floor configure popover ────────────────── */}
+      <Popover
+        open={Boolean(beatEquippedAnchorEl)}
+        anchorEl={beatEquippedAnchorEl}
+        onClose={() => setBeatEquippedAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+      >
+        <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.25 }}>
+            {t('safeguardsBeatEquippedPercentile')}
+          </Typography>
+          <TextField
+            size="small"
+            type="number"
+            autoFocus
+            InputProps={{
+              startAdornment: <InputAdornment position="start">≥</InputAdornment>,
+              endAdornment: (
+                <NumberSpinnerAdornment
+                  ariaLabel={t('safeguardsBeatEquippedPercentile')}
+                  onStep={(delta) => {
+                    updateRule((prev) => {
+                      const next = Math.max(0, Math.min(100, Math.floor((prev.beatEquippedPercentile ?? 50) + delta)))
+                      return { ...prev, beatEquippedPercentile: next }
+                    })
+                  }}
+                />
+              ),
+            }}
+            value={beatEquippedPercentile ?? 50}
+            onChange={(event) => {
+              const raw = Math.min(100, Math.max(0, Math.floor(Number(event.target.value) || 0)))
+              updateRule((prev) => ({ ...prev, beatEquippedPercentile: raw }))
+            }}
+            sx={(themeInner) => ({
+              width: 120,
+              '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+              '& input[type=number]': { MozAppearance: 'textfield' },
+              '& input': { textAlign: 'right', paddingRight: themeInner.spacing(1), paddingLeft: themeInner.spacing(0.5) },
+            })}
+            inputProps={{ min: 0, step: 1, max: 100 }}
+          />
         </Box>
       </Popover>
 

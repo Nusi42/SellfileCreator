@@ -25,6 +25,7 @@ import {
   factionI18nKey,
 } from '../lib/types'
 import {
+  GLYPH_BEAT_EQUIPPED,
   GLYPH_FOR_ALL,
   GLYPH_PER_FACTION,
   GLYPH_PER_MAIN_STAT,
@@ -224,6 +225,12 @@ export function safeguardSummaryParts(
         {rule.substatMatch === SafeguardSubstatMatch.PerSubstat ? <Box key="sub-per" component="span">{NBSP}{GLYPH_PER_SUBSTAT}</Box> : null}
       </>,
     )
+  }
+
+  // ── Beat-equipped quality floor ───────────────────────────────────────────
+  // Only shown when the floor is active; rendered as "📈 ≥ N%" after substats.
+  if (rule.beatEquippedPercentile !== null && rule.beatEquippedPercentile !== undefined) {
+    addText(`${GLYPH_BEAT_EQUIPPED}${NBSP}≥${NBSP}${rule.beatEquippedPercentile}%`)
   }
 
   // ── Sets + Metasets ───────────────────────────────────────────────────────

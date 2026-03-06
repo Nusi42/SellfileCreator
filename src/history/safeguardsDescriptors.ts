@@ -44,6 +44,8 @@ type SafeguardRuleSignature = {
   substats: number[]
   substatMatch: SafeguardSubstatMatch
   substatWeights: Array<[number, number]>
+  // Quality floor — null means disabled.
+  beatEquippedPercentile: number | null
 }
 
 // isSafeguardRuleOrderChanged flags pure reorders so history can record them.
@@ -254,6 +256,8 @@ function buildSafeguardRuleSignature(rule: SafeguardRule): SafeguardRuleSignatur
     substats,
     substatMatch: normalizedSubstatMatch,
     substatWeights: weightEntries,
+    // Normalize the quality floor so null and undefined both map to null.
+    beatEquippedPercentile: rule.beatEquippedPercentile ?? null,
   }
 }
 
@@ -301,6 +305,8 @@ function safeguardRuleSignaturesEqual(left: SafeguardRuleSignature, right: Safeg
     const rw = right.substatWeights[idx]!
     if (lw[0] !== rw[0] || lw[1] !== rw[1]) return false
   }
+  // Compare quality floor so toggling beat-equipped is never a no-op.
+  if (left.beatEquippedPercentile !== right.beatEquippedPercentile) return false
   return true
 }
 
@@ -510,6 +516,18 @@ function buildSafeguardRuleDiffLines(
     if (prevWeights || nextWeights) {
       pushDiffLine(detailLines, t, t('safeguardsSubstatWeightsLabel'), prevWeights || t('historyValueEmpty'), nextWeights || t('historyValueEmpty'))
     }
+  }
+  // Compare quality floor so enabling/disabling beat-equipped appears in history.
+  const prevFloor = previous.beatEquippedPercentile ?? null
+  const nextFloor = next.beatEquippedPercentile ?? null
+  if (prevFloor !== nextFloor) {
+    pushDiffLine(
+      detailLines,
+      t,
+      t('safeguardsBeatEquippedPercentile'),
+      prevFloor === null ? t('historyValueEmpty') : `≥ ${prevFloor}%`,
+      nextFloor === null ? t('historyValueEmpty') : `≥ ${nextFloor}%`,
+    )
   }
   return detailLines
 }

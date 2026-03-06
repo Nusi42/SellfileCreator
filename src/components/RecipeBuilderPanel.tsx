@@ -2553,7 +2553,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         display: 'grid',
         gridTemplateColumns: 'repeat(4, minmax(220px, 1fr))',
         columnGap: 1,
-        rowGap: 2,
+        rowGap: 1,
       }}>
         <Box sx={(theme) => ({
           gridColumn: '1 / -1',
@@ -3069,7 +3069,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           display: 'grid',
           gridTemplateColumns: 'repeat(3, minmax(180px, 1fr))',
           columnGap: 1,
-          rowGap: 2,
+          rowGap: 1,
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
