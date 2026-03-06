@@ -336,6 +336,7 @@ const overrides: Catalog = {
   safeguardsIgnoreEquippedInVaultHint: 'Bu koruma eşleşme sayarken kasadaki kahramanlarda kuşanılı olan eşyaları hariç tutar.',
   safeguardsBeatEquippedPercentile: 'Kuşanılmışı aş ≥ N%',
   safeguardsBeatEquippedShort: 'Kuşanılmışı aş',
+  safeguardsBeatEquippedWithValue: '≥ {value}% kuşanılmışı aş',
   safeguardsBeatEquippedPercentileHint: '**Kuşanılmışı aş ≥ N%**\n\nBir parçayı yalnızca, ağırlıklı alt stat puanı bu kuralın slot, ana stat, set ve diğer filtreleriyle de eşleşen koleksiyonda kuşanılı ekipmanın en az **N%**\'ini geçiyorsa koruma adayı olarak değerlendir.\n\n- **50** → eşleşen kuşanılan parçaların yarısını geçmeli (önerilen varsayılan)\n- **75** → üst çeyrek eşiği\n- **100** → her eşleşen kuşanılan parçayı geçmeli (en katı)\n\nKoleksiyonda kuşanılan ekipman her zaman geçer (referans havuzudur). Seviye 12 altındaki ekipman atlanır — erken seviye filtrelemesi için Yükseltme Şansı\'nı kullan. Kuralın filtreleriyle eşleşen koleksiyon ekipmanı yoksa, eşik 0\'dır (tüm adaylar geçer).',
   safeguardsIgnoreOptionsHint: '**Yoksay seçenekleri**\n- **Önceki korumaları yoksay**: Önceki korumalar bu eşyaları zaten tuttuysa bile, bu korumayı tüm eşleşen havuza göre sayar.\n- **Kuşanılmışları yoksay (Koleksiyon)**: Bu koruma eşleşme sayarken koleksiyon kahramanlarında kuşanılı olan eşyaları hariç tutar.\n- **Kuşanılmışları yoksay (Kasada)**: Bu koruma eşleşme sayarken kasadaki kahramanlarda kuşanılı olan eşyaları hariç tutar.',
   safeguardsCountModePerSlot: 'Slot başına',

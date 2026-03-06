@@ -72,7 +72,6 @@ import {
   CLEAR_ICON_BUTTON_SIZE_PX,
   DANGER_TINT_BG,
   FONT_SIZE_BASE_PX,
-  GLYPH_BEAT_EQUIPPED,
   GLYPH_IGNORE_COLLECTION,
   GLYPH_IGNORE_PREVIOUS,
   GLYPH_IGNORE_VAULT,
@@ -1022,8 +1021,8 @@ export default function SafeguardBuilderPanel({
               size="small"
               variant="filled"
               label={beatEquippedEnabled
-                ? `${GLYPH_BEAT_EQUIPPED}${NBSP}${t('safeguardsBeatEquippedShort')}${NBSP}≥${NBSP}${beatEquippedPercentile}%`
-                : `${GLYPH_BEAT_EQUIPPED}${NBSP}${t('safeguardsBeatEquippedShort')}`}
+                ? t('safeguardsBeatEquippedWithValue', { value: beatEquippedPercentile })
+                : t('safeguardsBeatEquippedShort')}
               aria-label={t('safeguardsBeatEquippedPercentile')}
               clickable
               disabled={!hasSubstatSelection}

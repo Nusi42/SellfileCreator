@@ -341,6 +341,7 @@ const enUS: Catalog = {
   safeguardsIgnoreEquippedInVaultHint: 'Exclude items equipped on vault champions when counting matches for this safeguard.',
   safeguardsBeatEquippedPercentile: 'Beat equipped ≥ N%',
   safeguardsBeatEquippedShort: 'Beat equipped',
+  safeguardsBeatEquippedWithValue: 'Beat ≥ {value}% equipped',
   safeguardsBeatEquippedPercentileHint: '**Beat equipped ≥ N%**\n\nOnly consider a piece a safeguard candidate if its weighted substat score beats at least **N%** of the collection-equipped gear that also matches this rule\'s slot, main stat, set, and other filters.\n\n- **50** → must beat half of the matching equipped pieces (reasonable default)\n- **75** → top-quartile bar\n- **100** → must beat every matching equipped piece (strictest)\n\nCollection-equipped gear always passes (it is the reference pool). Gear below level 12 is skipped — use Upgrade Chance for early-level filtering. If no collection gear matches the rule\'s filters, the floor is 0 (all candidates pass).',
   safeguardsIgnoreOptionsHint: '**Ignore toggles**\n- **Ignore previous safeguards**: Count this safeguard against the full matching pool, even if earlier safeguards already kept those items.\n- **Ignore equipped (Collection)**: Exclude items equipped on collection champions while this safeguard counts matches.\n- **Ignore equipped (Vault)**: Exclude items equipped on vault champions while this safeguard counts matches.',
   safeguardsCountModePerSlot: 'Per Slot',
