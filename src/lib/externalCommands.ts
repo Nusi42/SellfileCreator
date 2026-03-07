@@ -40,6 +40,12 @@ export type ExternalCommand =
   | { kind: 'gearDbFileBinary'; name: string; bytes: Uint8Array; contentType?: string | null }
   | GearDbRawSnapshotCommand
   | GearDbRawDeltaCommand
+  // Separate per-type messages — the sender streams each collection individually
+  // instead of bundling all four into a single gearDbRawSnapshot envelope.
+  | GearDbArtifactsCommand
+  | GearDbChampionsCommand
+  | GearDbInboxArtifactsCommand
+  | GearDbLastUsedCommand
 
 // Raw snapshot payload — mirrors what Helper serializes over JSON.
 // Snapshot payload typed so downstream callers can reuse the SQL importer without branching.
@@ -67,6 +73,25 @@ export type GearDbRawDeltaCommand = {
   snapshotId: string | null
   payloadVersion: number | null
   ops: GearDbRawDeltaOperation[]
+}
+
+// Individual per-type payloads — each carries exactly one collection so the
+// sender can publish them independently rather than in a combined snapshot.
+export type GearDbArtifactsCommand = {
+  kind: 'gearDbArtifacts'
+  artifacts: GearDbArtifactRow[]
+}
+export type GearDbChampionsCommand = {
+  kind: 'gearDbChampions'
+  champions: GearDbChampionRow[]
+}
+export type GearDbInboxArtifactsCommand = {
+  kind: 'gearDbInboxArtifacts'
+  inboxArtifacts: GearDbArtifactRow[]
+}
+export type GearDbLastUsedCommand = {
+  kind: 'gearDbLastUsed'
+  lastUsed: GearDbLastUsedRow[]
 }
 
 const isObject = (value: unknown): value is UnknownRecord => (
@@ -172,6 +197,34 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
     return delta
   }
 
+  // Separate per-type gear messages — each carries a single collection so the
+  // sender can publish them individually rather than in one combined snapshot.
+  if (normalized === 'artifacts') {
+    // Params key matches the method name: { artifacts: GearDbArtifactRow[] }.
+    const rows = parseArtifactArray(payloadRecord.artifacts ?? payload)
+    const command: GearDbArtifactsCommand = { kind: 'gearDbArtifacts', artifacts: rows }
+    return command
+  }
+  if (normalized === 'champions') {
+    // Params key matches the method name: { champions: GearDbChampionRow[] }.
+    const rows = parseChampionArray(payloadRecord.champions ?? payload)
+    const command: GearDbChampionsCommand = { kind: 'gearDbChampions', champions: rows }
+    return command
+  }
+  if (normalized === 'inboxartifacts') {
+    // Params key matches the method name: { inboxArtifacts: GearDbArtifactRow[] }.
+    // Also check lowercase variant for protocol flexibility.
+    const rows = parseArtifactArray(payloadRecord.inboxArtifacts ?? payloadRecord.inboxartifacts ?? payload)
+    const command: GearDbInboxArtifactsCommand = { kind: 'gearDbInboxArtifacts', inboxArtifacts: rows }
+    return command
+  }
+  if (normalized === 'lastused') {
+    // Params key matches the method name: { lastUsed: GearDbLastUsedRow[] }.
+    const rows = parseLastUsedArray(payloadRecord.lastUsed ?? payloadRecord.lastused ?? payload)
+    const command: GearDbLastUsedCommand = { kind: 'gearDbLastUsed', lastUsed: rows }
+    return command
+  }
+
   // Accept endpoint payloads shaped like ArtifactLog.json and convert them to
   // the existing raw snapshot command path used by the app today.
   if (
@@ -185,7 +238,7 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
   }
 
   // Inbox payloads mirror ArtifactLog structure but map to the inbox table.
-  if (normalized === 'inboxartifactlog' || normalized === 'inboxartifacts') {
+  if (normalized === 'inboxartifactlog') {
     const snapshot = normalizeArtifactLogSnapshot(payload, 'inbox')
     return snapshot
   }

@@ -12,7 +12,15 @@ import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
 import { EXTERNAL_WS_METHOD_UPLOAD_SELLFILE } from './lib/externalWsProtocol'
-import type { ExternalCommand, GearDbRawDeltaCommand, GearDbRawSnapshotCommand } from './lib/externalCommands'
+import type {
+  ExternalCommand,
+  GearDbArtifactsCommand,
+  GearDbChampionsCommand,
+  GearDbInboxArtifactsCommand,
+  GearDbLastUsedCommand,
+  GearDbRawDeltaCommand,
+  GearDbRawSnapshotCommand,
+} from './lib/externalCommands'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { parseRecipesFromText, buildReadableRecipe, readSfrFile, buildSfrPayload, sfrToBlob } from './lib/sfrIO'
@@ -232,7 +240,12 @@ import {
   applyDeltaToDataset,
   type GearDbRawDataset,
 } from './lib/importers/gearDbRawDataset'
-import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
+import type {
+  GearDbArtifactRow,
+  GearDbChampionRow,
+  GearDbLastUsedRow,
+  NormalizedGearArtifact,
+} from './lib/importers/gearDbNormalizer'
 import { GearInspectorItemsGrid } from './components/GearInspectorItemsGrid'
 import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from './types/gearInspectorPreview'
 import type { GearInspectorMatchWorkerItemResult } from './workers/gearInspectorMatchWorkerTypes'
@@ -530,6 +543,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Raw JSON endpoints stream their own dataset; keep the normalized snapshot
   // cached so deltas can mutate it without rebuilding from SQL blobs.
   const gearDbRawDatasetRef = useRef<GearDbRawDataset | null>(null)
+  // Accumulator for the separate per-type messages (artifacts/champions/inboxArtifacts/lastUsed).
+  // When all four fields are populated the app synthesizes a snapshot and processes it.
+  // Reset to all-null whenever a combined gearDbRawSnapshot arrives (different protocol).
+  const gearDbRawPartsRef = useRef<{
+    artifacts: GearDbArtifactRow[] | null
+    inboxArtifacts: GearDbArtifactRow[] | null
+    champions: GearDbChampionRow[] | null
+    lastUsed: GearDbLastUsedRow[] | null
+  }>({ artifacts: null, inboxArtifacts: null, champions: null, lastUsed: null })
   const [gearInspectorItems, setGearInspectorItems] = useState<GearInspectorItem[]>([])
   const gearInspectorItemsRef = useRef(gearInspectorItems)
   useEffect(() => { gearInspectorItemsRef.current = gearInspectorItems }, [gearInspectorItems])
@@ -3335,6 +3357,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const diffDetails = buildGearDbDiffSummary(previousSnapshots, nextSnapshots)
       // Persist the dataset so future deltas can apply correctly.
       gearDbRawDatasetRef.current = dataset
+      // Keep raw parts in sync so partial per-type updates merge against this baseline.
+      gearDbRawPartsRef.current = {
+        artifacts: command.artifacts,
+        inboxArtifacts: command.inboxArtifacts,
+        champions: command.champions,
+        lastUsed: command.lastUsed,
+      }
       // Diff the Gear Inspector queue so only net changes are enqueued.
       const { removedCount, addedCount } = applyGearDbDiff(gearInspectorItems)
       if (removedCount > 0 || addedCount > 0) {
@@ -3380,6 +3409,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         console.error('Failed to apply gear DB snapshot', err)
       }
       gearDbRawDatasetRef.current = null
+      // Clear accumulated parts so stale data does not seed the next snapshot.
+      gearDbRawPartsRef.current = { artifacts: null, inboxArtifacts: null, champions: null, lastUsed: null }
       const errorMessage = formatFileFormatErrorMessage('gearDbRawSnapshot.json')
       setGearDbCommandError(errorMessage)
       setGearDbCommandSuccess(null)
@@ -3486,6 +3517,41 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setGearDbCommandSuccess,
     showGearDbCommandToast,
   ])
+
+  // Handles the four separate per-type messages (artifacts / champions / inboxArtifacts / lastUsed).
+  // Each message updates one slot of gearDbRawPartsRef and immediately synthesizes a snapshot so
+  // that partial updates are never silently dropped — the endpoint may only send one or two types.
+  // Missing slots default to empty arrays, so an "artifacts-only" message produces a valid result
+  // with no champions or lastUsed data until those messages arrive.
+  const handleGearDbRawPart = useCallback((
+    cmd: GearDbArtifactsCommand | GearDbChampionsCommand | GearDbInboxArtifactsCommand | GearDbLastUsedCommand,
+  ) => {
+    const parts = gearDbRawPartsRef.current
+    // Apply the incoming collection to the appropriate slot.
+    if (cmd.kind === 'gearDbArtifacts') {
+      parts.artifacts = cmd.artifacts
+    } else if (cmd.kind === 'gearDbChampions') {
+      parts.champions = cmd.champions
+    } else if (cmd.kind === 'gearDbInboxArtifacts') {
+      parts.inboxArtifacts = cmd.inboxArtifacts
+    } else {
+      // gearDbLastUsed — the only remaining variant.
+      parts.lastUsed = cmd.lastUsed
+    }
+    // Synthesize a snapshot immediately using whatever parts are available.
+    // Null slots fall back to empty arrays so normalization always succeeds.
+    const syntheticSnapshot: GearDbRawSnapshotCommand = {
+      kind: 'gearDbRawSnapshot',
+      // Parts messages carry no shared snapshot id or version.
+      snapshotId: null,
+      payloadVersion: null,
+      artifacts: parts.artifacts ?? [],
+      inboxArtifacts: parts.inboxArtifacts ?? [],
+      champions: parts.champions ?? [],
+      lastUsed: parts.lastUsed ?? [],
+    }
+    handleGearDbRawSnapshot(syntheticSnapshot)
+  }, [handleGearDbRawSnapshot])
 
   // ---- SFR import conflict state ----
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null)
@@ -4607,7 +4673,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // Endpoint pushes that mutate Gear Inspector/preview state must run in strict sequence.
   type EndpointPushCommand = Extract<ExternalCommand, {
-    kind: 'gearDbRawSnapshot' | 'gearDbRawDelta' | 'gearDbFile' | 'gearDbFileBinary'
+    kind:
+      | 'gearDbRawSnapshot'
+      | 'gearDbRawDelta'
+      | 'gearDbFile'
+      | 'gearDbFileBinary'
+      // Per-type messages that build up a synthetic snapshot through accumulation.
+      | 'gearDbArtifacts'
+      | 'gearDbChampions'
+      | 'gearDbInboxArtifacts'
+      | 'gearDbLastUsed'
   }>
   // Queue stores push commands while a prior push is still settling.
   const endpointPushQueueRef = useRef<EndpointPushCommand[]>([])
@@ -4730,10 +4805,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       await handleGearDbImport(file, { source: 'command' })
       await waitForEndpointPushSettle()
     }
+    // Per-type partial messages — each one immediately synthesizes a snapshot from the
+    // accumulated parts, so every arrival triggers a Gear Inspector update.
+    if (
+      cmd.kind === 'gearDbArtifacts'
+      || cmd.kind === 'gearDbChampions'
+      || cmd.kind === 'gearDbInboxArtifacts'
+      || cmd.kind === 'gearDbLastUsed'
+    ) {
+      handleGearDbRawPart(cmd)
+      await waitForEndpointPushSettle()
+    }
   }, [
     applyGearDbFileCommand,
     handleGearDbImport,
     handleGearDbRawDelta,
+    handleGearDbRawPart,
     handleGearDbRawSnapshot,
     waitForEndpointPushSettle,
   ])
@@ -4746,6 +4833,34 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const next = endpointPushQueueRef.current.shift()
         if (!next) break
         try {
+          // Coalesce consecutive per-type messages: if more part commands are
+          // queued right after this one, merge only the ref slot here and skip
+          // the snapshot/settle cycle — the burst is not complete yet.
+          // This avoids triggering the worker N times for a single 4-part burst.
+          const isPartCmd = (
+            next.kind === 'gearDbArtifacts'
+            || next.kind === 'gearDbChampions'
+            || next.kind === 'gearDbInboxArtifacts'
+            || next.kind === 'gearDbLastUsed'
+          )
+          if (isPartCmd) {
+            const queueHead = endpointPushQueueRef.current[0]
+            const morePartsFollow = queueHead && (
+              queueHead.kind === 'gearDbArtifacts'
+              || queueHead.kind === 'gearDbChampions'
+              || queueHead.kind === 'gearDbInboxArtifacts'
+              || queueHead.kind === 'gearDbLastUsed'
+            )
+            if (morePartsFollow) {
+              // Accumulate without processing; let the final burst element trigger the snapshot.
+              const parts = gearDbRawPartsRef.current
+              if (next.kind === 'gearDbArtifacts') parts.artifacts = next.artifacts
+              else if (next.kind === 'gearDbChampions') parts.champions = next.champions
+              else if (next.kind === 'gearDbInboxArtifacts') parts.inboxArtifacts = next.inboxArtifacts
+              else parts.lastUsed = next.lastUsed
+              continue
+            }
+          }
           await applyEndpointPushCommand(next)
         } catch (err) {
           if (import.meta.env.DEV) {
@@ -4839,6 +4954,25 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
 
     if (cmd.kind === 'gearDbFileBinary') {
+      enqueueEndpointPush(cmd)
+      return
+    }
+
+    // Per-type messages must be queued too so they are processed in arrival order
+    // and do not interleave with concurrent snapshot / delta / file commands.
+    if (cmd.kind === 'gearDbArtifacts') {
+      enqueueEndpointPush(cmd)
+      return
+    }
+    if (cmd.kind === 'gearDbChampions') {
+      enqueueEndpointPush(cmd)
+      return
+    }
+    if (cmd.kind === 'gearDbInboxArtifacts') {
+      enqueueEndpointPush(cmd)
+      return
+    }
+    if (cmd.kind === 'gearDbLastUsed') {
       enqueueEndpointPush(cmd)
       return
     }
