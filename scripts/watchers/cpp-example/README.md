@@ -5,14 +5,14 @@ This example is a standalone C++ watcher for Sellfile Creator integration:
 - hosts a WebSocket endpoint (`ws://127.0.0.1:<port>/`)
 - uses JSON-RPC 2.0 for all messages
 - accepts `uploadSellfile` requests and writes `.hsf` payloads to disk
-- watches the RSL Helper `.db` file, reads SQL tables, and emits `artifactLogSnapshot`
+- watches the RSL Helper `.db` file, reads SQL tables, and emits per-type notifications (`artifacts`, `inboxArtifacts`, `champions`, `lastUsed`)
 - replays the latest converted snapshot to newly connected clients
 - prints and opens the app launch URL with `?endpoint=...` by default
 
 ## Console shortcuts
 
 - `R` queues a sample `selectRule` event (rotates through fixed row numbers).
-- `F` forces the next DB poll to rebroadcast `artifactLogSnapshot`, even if the DB file signature is unchanged.
+- `F` forces the next DB poll to rebroadcast per-type notifications, even if the DB file signature is unchanged.
 
 ## Dependencies
 
@@ -63,20 +63,21 @@ Optional flags:
 
 ## Endpoint payload behavior
 
-For DB updates this watcher emits a JSON-RPC 2.0 notification:
+For each DB change this watcher emits four separate JSON-RPC 2.0 notifications, one per table, matching the RSL Helper live endpoint format:
 
 ```json
-{"jsonrpc":"2.0","method":"artifactLogSnapshot","params":{...}}
+{"jsonrpc":"2.0","method":"artifacts",      "params":{"artifacts":[...]}}
+{"jsonrpc":"2.0","method":"inboxArtifacts", "params":{"inboxArtifacts":[...]}}
+{"jsonrpc":"2.0","method":"champions",      "params":{"champions":[...]}}
+{"jsonrpc":"2.0","method":"lastUsed",       "params":{"lastUsed":[...]}}
 ```
 
-The payload is built from SQLite tables and shaped as:
+Each array is read from the corresponding SQLite table:
 
-- `snapshotId` (derived from db filename + mtime signature)
-- `payloadVersion` (`1`)
-- `artifactLog` (from `Artifacts`)
-- `artifactByHeroIDLog` (derived from equipped rows: `cID` + `type`)
-- `inboxArtifactLog` (from `InboxArtifacts`, if present)
-- `champions` (from `Champs`, if present)
-- `lastUsed` (from `LastUsedArtifacts`, if present)
+- `artifacts` — from `Artifacts`; each row carries `cID` (0 if unequipped)
+- `inboxArtifacts` — from `InboxArtifacts` (empty array if table absent)
+- `champions` — from `Champs` (empty array if table absent)
+- `lastUsed` — from `LastUsedArtifacts` (empty array if table absent)
 
-This is the endpoint shape consumed by Sellfile Creator’s artifact-log pipeline.
+All four are sent even when empty so the app always receives a complete state update.
+Late-joining clients receive a replay of the last cached snapshot immediately on connect.

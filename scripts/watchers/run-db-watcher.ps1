@@ -1369,7 +1369,6 @@ function Write-ProtocolQuickReference {
     #>
     $reqLabel = 'req uploadSellfile'.PadRight(22)
     $evtLabel = 'evt selectRule'.PadRight(22)
-    $gearLabel = 'evt gearDb*'.PadRight(22)
     $binaryLabel = 'evt gearDbFileBinary'.PadRight(22)
 
     Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
@@ -1390,13 +1389,8 @@ function Write-ProtocolQuickReference {
         ))
 
     Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
-            @{ Text = $gearLabel; Color = [ConsoleColor]::Magenta }
-            @{ Text = 'raw snapshot/delta + binary DB payloads'; Color = [ConsoleColor]::Gray }
-        ))
-
-    Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
             @{ Text = $binaryLabel; Color = [ConsoleColor]::Magenta }
-            @{ Text = 'metadata + binary frame'; Color = [ConsoleColor]::Gray }
+            @{ Text = 'JSON metadata notification + binary SQLite frame'; Color = [ConsoleColor]::Gray }
         ))
 }
 #endregion
@@ -1961,7 +1955,9 @@ try {
             if ($context.Request.IsWebSocketRequest) {
                 try {
                     # Accept without selecting a subprotocol — clients no longer advertise one.
-                    $wsContext = $context.AcceptWebSocketAsync($null).GetAwaiter().GetResult()
+                    # Use [NullString]::Value instead of $null because PowerShell coerces $null
+                    # to "" for .NET string parameters; AcceptWebSocketAsync("") throws.
+                    $wsContext = $context.AcceptWebSocketAsync([NullString]::Value).GetAwaiter().GetResult()
                     $client = Add-WsClient -Socket $wsContext.WebSocket
                     Write-ConsoleLog -Message "Client connected" -Color DarkGray
                     Start-WebSocketReceiveLoop -Client $client

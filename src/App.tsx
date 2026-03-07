@@ -18,7 +18,6 @@ import type {
   GearDbChampionsCommand,
   GearDbInboxArtifactsCommand,
   GearDbLastUsedCommand,
-  GearDbRawDeltaCommand,
   GearDbRawSnapshotCommand,
 } from './lib/externalCommands'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
@@ -119,7 +118,6 @@ import { buildGearInspectorAutosavePayload, createGearInspectorMath, loadGearIns
 import { stableSerialize } from './lib/stableSerialize'
 import {
   buildGearDbDiffSummary,
-  collectGearDbDeltaArtifactIds,
   encodeGearDbDiffToastEntries,
   formatGearDbDiffHistoryLines,
   snapshotGearDbDataset,
@@ -198,22 +196,6 @@ function isAbortError(error: unknown): boolean {
 }
 
 // WebSocket endpoints may still host HTTP downloads; map ws(s) -> http(s).
-function coerceWsEndpointToHttp(endpoint: string): string | null {
-  try {
-    const url = new URL(endpoint)
-    if (url.protocol === 'ws:') {
-      url.protocol = 'http:'
-      return url.toString()
-    }
-    if (url.protocol === 'wss:') {
-      url.protocol = 'https:'
-      return url.toString()
-    }
-  } catch {
-    // ignore invalid values
-  }
-  return null
-}
 import { sellfileFilename, sfrFilename } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT, SAFEGUARD_BUILDER_USER_DEFAULTS_KEY } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
@@ -237,7 +219,6 @@ import { evaluateFirst } from './lib/ruleEval'
 import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import {
   createDatasetFromSnapshot,
-  applyDeltaToDataset,
   type GearDbRawDataset,
 } from './lib/importers/gearDbRawDataset'
 import type {
@@ -351,34 +332,6 @@ const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: b
 const NO_AUTO_APPLY: () => boolean = () => false
 
 const DEFAULT_GEAR_DB_FILENAME = 'RslHelper.db'
-const createGearDbFileFromBase64 = (name: string, base64?: string | null): File | null => {
-  const atobFn = typeof globalThis !== 'undefined' && typeof globalThis.atob === 'function'
-    ? globalThis.atob.bind(globalThis)
-    : null
-  if (!atobFn || typeof File !== 'function') {
-    return null
-  }
-  const sanitized = (base64 ?? '').replace(/[\r\n\s]+/g, '')
-  if (!sanitized) {
-    return null
-  }
-  let binary: string
-  try {
-    binary = atobFn(sanitized)
-  } catch {
-    return null
-  }
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i)
-  }
-  const fileName = name && name.trim().length > 0 ? name : DEFAULT_GEAR_DB_FILENAME
-  try {
-    return new File([bytes], fileName, { type: 'application/octet-stream' })
-  } catch {
-    return null
-  }
-}
 
 const createGearDbFileFromBytes = (name: string, bytes: Uint8Array, contentType?: string | null): File | null => {
   if (!bytes || bytes.length === 0 || typeof File !== 'function') {
@@ -544,8 +497,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // cached so deltas can mutate it without rebuilding from SQL blobs.
   const gearDbRawDatasetRef = useRef<GearDbRawDataset | null>(null)
   // Accumulator for the separate per-type messages (artifacts/champions/inboxArtifacts/lastUsed).
-  // When all four fields are populated the app synthesizes a snapshot and processes it.
-  // Reset to all-null whenever a combined gearDbRawSnapshot arrives (different protocol).
+  // Each arrival synthesizes a snapshot immediately so partial updates are never dropped.
   const gearDbRawPartsRef = useRef<{
     artifacts: GearDbArtifactRow[] | null
     inboxArtifacts: GearDbArtifactRow[] | null
@@ -2063,6 +2015,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Advance the request id so stale updates do not leak through.
     const requestId = gearDbDiffToastRequestIdRef.current + 1
     gearDbDiffToastRequestIdRef.current = requestId
+    if (import.meta.env.DEV) console.log(`[endpoint-toast] queuing requestId=${requestId} baselineBuildId=${gearEntriesCommittedBuildIdRef.current} entries=${params.entries.length}`)
     // Capture the current build id so we can wait for the next commit.
     gearDbDiffToastPendingRef.current = {
       requestId,
@@ -2088,6 +2041,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const pending = gearDbDiffToastPendingRef.current
     // Nothing queued means nothing to render.
     if (!pending) return
+    if (import.meta.env.DEV) console.log(`[endpoint-toast-effect] requestId=${pending.requestId} currentRequestId=${gearDbDiffToastRequestIdRef.current} building=${gearEntriesBuildingRef.current} committedBuildId=${gearEntriesCommittedBuildIdRef.current} baselineBuildId=${pending.baselineBuildId}`)
     // Ignore stale entries if a newer diff request superseded this one.
     if (pending.requestId !== gearDbDiffToastRequestIdRef.current) return
     // Wait until the Gear Inspector grid has committed a new build for the update.
@@ -2475,11 +2429,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     t,
   })
   const pushEndpoint = useMemo(() => getPushEndpoint(), [])
-  // Keep an HTTP-compatible base for optional download paths.
-  const pushEndpointHttpBase = useMemo(
-    () => (pushEndpoint ? coerceWsEndpointToHttp(pushEndpoint) : null),
-    [pushEndpoint],
-  )
   const [pushEndpointReachable, setPushEndpointReachableState] = useState(() => Boolean(pushEndpoint))
   const setPushEndpointReachable = useCallback((next: boolean) => {
     setPushEndpointReachableState((prev) => (prev === next ? prev : next))
@@ -3365,7 +3314,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         lastUsed: command.lastUsed,
       }
       // Diff the Gear Inspector queue so only net changes are enqueued.
+      if (import.meta.env.DEV) console.log(`[endpoint-snapshot] artifactCount=${artifactCount} inboxCount=${inboxCount} snapshotDiff added=${diffDetails.addedCount} removed=${diffDetails.removedCount} updated=${diffDetails.updatedCount} gearInspectorItems=${gearInspectorItems.length}`)
       const { removedCount, addedCount } = applyGearDbDiff(gearInspectorItems)
+      if (import.meta.env.DEV) console.log(`[endpoint-snapshot] signatureDiff addedCount=${addedCount} removedCount=${removedCount} willResetMatches=${removedCount > 0 || addedCount > 0} committedBuildId=${gearEntriesCommittedBuildIdRef.current}`)
       if (removedCount > 0 || addedCount > 0) {
         // Endpoint snapshots should refresh matches without dimming card details.
         beginGearInspectorMatchReset('gearDbEndpoint')
@@ -3434,90 +3385,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     t,
   ])
 
-  // Deltas mutate the existing dataset; fall back to a file-format style error when no snapshot is active.
-  const handleGearDbRawDelta = useCallback((command: GearDbRawDeltaCommand) => {
-    const dataset = gearDbRawDatasetRef.current
-    if (!dataset) {
-      const missingMessage = formatFileFormatErrorMessage('gearDbRawDelta.json')
-      setGearDbCommandError(missingMessage)
-      setGearDbCommandSuccess(null)
-      showGearDbCommandToast(missingMessage, 'error')
-      return
-    }
-    // Mark the import as busy so controls can show progress.
-    beginGearImport()
-    // Clear prior status so the delta owns the indicators.
-    setGearDbCommandError(null)
-    setGearDbCommandSuccess(null)
-    // Drop the live toast so the diff payload can take over.
-    dismissGearDbCommandToast()
-    try {
-      // Limit diff work to artifact rows touched by the delta.
-      const touchedIds = collectGearDbDeltaArtifactIds(command)
-      // Snapshot the affected items before mutating the dataset.
-      const previousSnapshots = touchedIds.size > 0 ? snapshotGearDbDataset(dataset, touchedIds) : new Map()
-      // Apply the mutation set to the cached dataset, then regenerate the Gear Inspector payload.
-      const { gearInspectorItems } = applyDeltaToDataset(dataset, command)
-      // Snapshot the affected items after the delta so we can diff.
-      const nextSnapshots = touchedIds.size > 0 ? snapshotGearDbDataset(dataset, touchedIds) : new Map()
-      // Build the per-item diff list for the endpoint toast.
-      const diffDetails = buildGearDbDiffSummary(previousSnapshots, nextSnapshots)
-      // Apply the gear diff so only net changes hit the Gear Inspector queue.
-      const { removedCount, addedCount } = applyGearDbDiff(gearInspectorItems)
-      if (removedCount > 0 || addedCount > 0) {
-        // Endpoint deltas should refresh matches without dimming card details.
-        beginGearInspectorMatchReset('gearDbEndpoint')
-      }
-      // Capture a shared timestamp so badge + history remain aligned.
-      const queuedAt = Date.now()
-      // Build structured header specs so history stays localizable.
-      const lineSpecs = appendGearDbTimestampLineSpec([
-        {
-          // Use snapshot diff counts so summary lines mirror the toast entries.
-          kind: 'diff',
-          addedCount: diffDetails.addedCount,
-          removedCount: diffDetails.removedCount,
-          updatedCount: diffDetails.updatedCount,
-        },
-      ], queuedAt)
-      // Build the tooltip copy from the structured line specs.
-      const { tooltipMessage } = buildGearDbCommandMessages(lineSpecs)
-      setGearDbCommandError(null)
-      // Update the badge tooltip so users see the latest status.
-      setGearDbCommandSuccess(tooltipMessage)
-      // Queue the toast payload to render after match rebuild.
-      queueGearDbDiffToast({
-        lineSpecs,
-        entries: diffDetails.entries,
-        queuedAt,
-      })
-    } catch (err) {
-      if (import.meta.env.DEV) {
-        console.error('Failed to apply gear DB delta', err)
-      }
-      gearDbRawDatasetRef.current = null
-      const errorMessage = formatFileFormatErrorMessage('gearDbRawDelta.json')
-      setGearDbCommandError(errorMessage)
-      setGearDbCommandSuccess(null)
-      showGearDbCommandToast(errorMessage, 'error')
-    } finally {
-      endGearImport()
-    }
-  }, [
-    applyGearDbDiff,
-    beginGearImport,
-    beginGearInspectorMatchReset,
-    appendGearDbTimestampLineSpec,
-    buildGearDbCommandMessages,
-    dismissGearDbCommandToast,
-    endGearImport,
-    formatFileFormatErrorMessage,
-    queueGearDbDiffToast,
-    setGearDbCommandError,
-    setGearDbCommandSuccess,
-    showGearDbCommandToast,
-  ])
-
   // Handles the four separate per-type messages (artifacts / champions / inboxArtifacts / lastUsed).
   // Each message updates one slot of gearDbRawPartsRef and immediately synthesizes a snapshot so
   // that partial updates are never silently dropped — the endpoint may only send one or two types.
@@ -3529,13 +3396,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const parts = gearDbRawPartsRef.current
     // Apply the incoming collection to the appropriate slot.
     if (cmd.kind === 'gearDbArtifacts') {
+      if (import.meta.env.DEV) console.log(`[endpoint-part] kind=gearDbArtifacts count=${cmd.artifacts.length} prevArtifacts=${parts.artifacts?.length ?? 'null'}`)
       parts.artifacts = cmd.artifacts
     } else if (cmd.kind === 'gearDbChampions') {
+      if (import.meta.env.DEV) console.log(`[endpoint-part] kind=gearDbChampions count=${cmd.champions.length}`)
       parts.champions = cmd.champions
     } else if (cmd.kind === 'gearDbInboxArtifacts') {
+      if (import.meta.env.DEV) console.log(`[endpoint-part] kind=gearDbInboxArtifacts count=${cmd.inboxArtifacts.length}`)
       parts.inboxArtifacts = cmd.inboxArtifacts
     } else {
       // gearDbLastUsed — the only remaining variant.
+      if (import.meta.env.DEV) console.log(`[endpoint-part] kind=gearDbLastUsed count=${cmd.lastUsed.length}`)
       parts.lastUsed = cmd.lastUsed
     }
     // Synthesize a snapshot immediately using whatever parts are available.
@@ -4674,9 +4545,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Endpoint pushes that mutate Gear Inspector/preview state must run in strict sequence.
   type EndpointPushCommand = Extract<ExternalCommand, {
     kind:
-      | 'gearDbRawSnapshot'
-      | 'gearDbRawDelta'
-      | 'gearDbFile'
       | 'gearDbFileBinary'
       // Per-type messages that build up a synthetic snapshot through accumulation.
       | 'gearDbArtifacts'
@@ -4723,70 +4591,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     await waitForAnimationFrame()
     await waitForAnimationFrame()
   }, [waitForAnimationFrame])
-  // Import command handler resolves only after file/download paths finish.
-  const applyGearDbFileCommand = useCallback(async (cmd: Extract<ExternalCommand, { kind: 'gearDbFile' }>) => {
-    const importFile = async (file: File | null): Promise<void> => {
-      if (!file) {
-        if (import.meta.env.DEV) {
-          console.error('Failed to decode gear DB payload from external command.')
-        }
-        return
-      }
-      await handleGearDbImport(file, { source: 'command' })
-    }
-    const downloadPath = cmd.downloadPath?.trim()
-    if (downloadPath) {
-      const resolveDownloadUrl = (): string | null => {
-        try {
-          if (/^https?:\/\//i.test(downloadPath)) {
-            return downloadPath
-          }
-          const base = pushEndpointHttpBase ?? ''
-          if (!base) return null
-          const baseUrl = base.endsWith('/') ? base : `${base}/`
-          const relative = downloadPath.startsWith('/') ? downloadPath.slice(1) : downloadPath
-          return new URL(relative, baseUrl).toString()
-        } catch {
-          return null
-        }
-      }
-      const url = resolveDownloadUrl()
-      if (url) {
-        try {
-          const response = await fetch(url, { cache: 'no-store' })
-          if (!response.ok) throw new Error(`HTTP ${response.status}`)
-          const blob = await response.blob()
-          const fileName = cmd.name && cmd.name.trim().length > 0 ? cmd.name : DEFAULT_GEAR_DB_FILENAME
-          const file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' })
-          await handleGearDbImport(file, { source: 'command' })
-          return
-        } catch (err) {
-          if (import.meta.env.DEV) {
-            console.error('Failed to download gear DB payload', err)
-          }
-        }
-      }
-    }
-    const fallbackFile = createGearDbFileFromBase64(cmd.name, cmd.base64)
-    await importFile(fallbackFile)
-  }, [handleGearDbImport, pushEndpointHttpBase])
   // Apply one queued endpoint push and wait for full pipeline/UI settle.
   const applyEndpointPushCommand = useCallback(async (cmd: EndpointPushCommand) => {
-    if (cmd.kind === 'gearDbRawSnapshot') {
-      handleGearDbRawSnapshot(cmd)
-      await waitForEndpointPushSettle()
-      return
-    }
-    if (cmd.kind === 'gearDbRawDelta') {
-      handleGearDbRawDelta(cmd)
-      await waitForEndpointPushSettle()
-      return
-    }
-    if (cmd.kind === 'gearDbFile') {
-      await applyGearDbFileCommand(cmd)
-      await waitForEndpointPushSettle()
-      return
-    }
     if (cmd.kind === 'gearDbFileBinary') {
       // Destructure before File construction so the local refs go out of scope
       // at the end of this block — before the long settle wait begins.
@@ -4817,11 +4623,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       await waitForEndpointPushSettle()
     }
   }, [
-    applyGearDbFileCommand,
     handleGearDbImport,
-    handleGearDbRawDelta,
     handleGearDbRawPart,
-    handleGearDbRawSnapshot,
     waitForEndpointPushSettle,
   ])
   // Drain queue sequentially so each push fully settles before the next starts.
@@ -4881,8 +4684,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Each gearDbFileBinary is a complete SQLite snapshot that supersedes any
     // pending copies waiting in the tail of the queue. Discard that trailing
     // run to avoid accumulating N large Uint8Array buffers simultaneously.
-    // Stop scanning at the first gearDbRawDelta — it depends on the preceding
-    // file load and cannot be orphaned. Also stop at gearDbFile conservatively.
     if (cmd.kind === 'gearDbFileBinary') {
       const queue = endpointPushQueueRef.current
       let coalesceTo = -1
@@ -4890,15 +4691,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const entry = queue[i]
         // Bounds guard: noUncheckedIndexedAccess makes array[i] T | undefined.
         if (!entry) break
-        // A delta depends on its preceding file load; stop here without resetting
-        // coalesceTo — any binary/snapshot entries already found in the tail
-        // (after this delta) are still superseded by the incoming binary.
-        if (entry.kind === 'gearDbRawDelta') { break }
-        // Full-snapshot entries are superseded by the incoming binary.
-        if (entry.kind === 'gearDbFileBinary' || entry.kind === 'gearDbRawSnapshot') {
-          coalesceTo = i; continue
-        }
-        // gearDbFile — stop conservatively; anything before it is unknown.
+        // Full-snapshot binary entries are superseded by the incoming binary.
+        if (entry.kind === 'gearDbFileBinary') { coalesceTo = i; continue }
+        // Per-type part commands are superseded by an incoming full binary.
+        if (
+          entry.kind === 'gearDbArtifacts'
+          || entry.kind === 'gearDbChampions'
+          || entry.kind === 'gearDbInboxArtifacts'
+          || entry.kind === 'gearDbLastUsed'
+        ) { coalesceTo = i; continue }
         break
       }
       // Remove the superseded suffix so its Uint8Array buffers can be GC'd.
@@ -4937,21 +4738,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // The tutorial manages its own gear items; an endpoint push would corrupt that state.
     // selectRule (above) is left through since it only affects scroll position.
     if (tutorialOpen) return
-
-    if (cmd.kind === 'gearDbRawSnapshot') {
-      enqueueEndpointPush(cmd)
-      return
-    }
-
-    if (cmd.kind === 'gearDbRawDelta') {
-      enqueueEndpointPush(cmd)
-      return
-    }
-
-    if (cmd.kind === 'gearDbFile') {
-      enqueueEndpointPush(cmd)
-      return
-    }
 
     if (cmd.kind === 'gearDbFileBinary') {
       enqueueEndpointPush(cmd)
