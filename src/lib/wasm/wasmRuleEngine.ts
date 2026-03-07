@@ -35,7 +35,7 @@ import initRuleEngineWasm, {
 import type { GeneratedBranchRuleEntry, HsfRuleWithRecipe } from '../merge'
 import type { HsfRule } from '../hsfTypes'
 import type { BuilderRecipe, SellfileExportMode } from '../hsfBuilder'
-import type { SafeguardCandidate, SafeguardDetectionSnapshot, SafeguardRule } from '../safeguards'
+import type { SafeguardCandidate, SafeguardDetectionSnapshot, SafeguardRule, SafeguardRuleForWasm } from '../safeguards'
 import type { FinalSellRemainderConfig } from '../logicHub'
 import type { GearInspectorMatchWorkerEvaluateItem, GearInspectorMatchWorkerItemResult } from '../../workers/gearInspectorMatchWorkerTypes'
 import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
@@ -367,7 +367,7 @@ export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
   rules: HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
   ignoreSafeguardRecipeIndices?: ReadonlySet<number>
-  safeguardRules: readonly SafeguardRule[]
+  safeguardRules: readonly SafeguardRuleForWasm[]
   expectedGroupsByRuleId?: Record<string, unknown>
   expectedGroupDomain?: Record<string, unknown>
   enabled: boolean

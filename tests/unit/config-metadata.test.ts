@@ -157,6 +157,7 @@ test('safeguard exports include sentinel RecipeID/RecipeName', () => {
     ignorePreviousSafeguards: true,
     ignoreEquippedInCollection: false,
     ignoreEquippedInVault: false,
+    beatEquippedPercentile: null,
     // Keep the sample rule unfiltered by substats to mirror classic behavior.
     substats: [],
     substatMatch: SafeguardSubstatMatch.Any,

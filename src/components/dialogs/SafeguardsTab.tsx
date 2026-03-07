@@ -44,6 +44,7 @@ import FilterListOffIcon from '@mui/icons-material/FilterListOff'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded'
 import {
+  SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
   SAFEGUARD_DEFAULT_COUNT_MODE,
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
@@ -548,6 +549,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
       ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
       ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
       ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
+      beatEquippedPercentile: SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
       substats: [],
       substatMatch: SafeguardSubstatMatch.Any,
       substatWeights: {},
@@ -582,6 +584,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
       ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
       ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
       ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
+      beatEquippedPercentile: SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
       substats: [...(recipe.substatsV ?? [])],
       substatMatch: SafeguardSubstatMatch.Any,
       substatWeights: {},

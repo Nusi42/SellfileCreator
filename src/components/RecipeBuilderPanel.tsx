@@ -58,7 +58,7 @@ import {
 import { type Metaset, metasetGlyph, orderMetasetIds, resolveMetasetIds } from '../lib/metasets'
 import type { ArtifactSetSelectionEntry } from '../lib/gearSets/selection'
 import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
-import { slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
+import { isAccessorySlot, slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import { getMainStatOptionsForSlots } from './keepOverrides/keepOverrideRuleUtils'
 import { resolveAllowedSubstatsForSlotsAndMains } from '../lib/statCompatibility'
 import { useKeepOverrideCombinationTools } from './keepOverrides/useKeepOverrideCombinationTools'
@@ -2553,7 +2553,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         display: 'grid',
         gridTemplateColumns: 'repeat(4, minmax(220px, 1fr))',
         columnGap: 1,
-        rowGap: 2,
+        rowGap: 1,
       }}>
         <Box sx={(theme) => ({
           gridColumn: '1 / -1',
@@ -3069,7 +3069,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           display: 'grid',
           gridTemplateColumns: 'repeat(3, minmax(180px, 1fr))',
           columnGap: 1,
-          rowGap: 2,
+          rowGap: 1,
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
@@ -5376,6 +5376,21 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     }
                     const set = new Set(recipe.artifactTypes ?? [])
                     if (set.has(id)) set.delete(id); else set.add(id)
+                    update('artifactTypes', Array.from(set))
+                  }}
+                  onDoubleClick={(event) => {
+                    // Double-click selects/deselects the entire group (artefacts or accessories).
+                    // Multi-edit uses a different toggle model; skip there.
+                    event.preventDefault(); event.stopPropagation()
+                    if (multiEditActive && multiEdit) return
+                    const groupIds = artifactTypeIconList
+                      .map((entry) => entry.id)
+                      .filter((sid) => isAccessorySlot(sid) === isAccessorySlot(id))
+                    const current = recipe.artifactTypes ?? []
+                    const allSelected = groupIds.every((sid) => current.includes(sid))
+                    const set = new Set(current)
+                    if (allSelected) groupIds.forEach((sid) => set.delete(sid))
+                    else groupIds.forEach((sid) => set.add(sid))
                     update('artifactTypes', Array.from(set))
                   }}
                   sx={(theme) => ({

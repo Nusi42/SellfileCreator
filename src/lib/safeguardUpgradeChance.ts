@@ -5,7 +5,12 @@ import type {
   SafeguardSubstatMatch,
 } from './safeguards'
 import {
+  computeEquippedCollectionFloorScore,
+  computeSafeguardScoreFromArtifact,
   getSafeguardCountKey,
+  matchesCombinationFilter,
+  normalizeRuleWeights,
+  resolveSetIdFilter,
   SafeguardRuleActivation,
   SafeguardSubstatMatch as SafeguardSubstatMatchToken,
   sanitizeSafeguardCountMode,
@@ -64,6 +69,8 @@ type PreparedSafeguardRule = {
   // Equipped ignore toggles must match safeguard rule semantics.
   ignoreEquippedInCollection: boolean
   ignoreEquippedInVault: boolean
+  // Pre-computed score floor derived from beatEquippedPercentile; null = disabled.
+  equippedFloorScore: number | null
 }
 
 type RuleScenario = {
@@ -153,11 +160,6 @@ export type SafeguardUpgradeChanceDebug = {
   maxAdditionEventsTo16: number
 }
 
-// Empty selection means wildcard; otherwise candidate must be explicitly selected.
-const matchesSelection = (selection: readonly number[], candidate: number): boolean => (
-  selection.length === 0 || selection.includes(candidate)
-)
-
 // Clamp numeric levels so malformed snapshots cannot break upgrade scheduling.
 const clampLevel = (value: unknown): number => {
   const numeric = Number(value)
@@ -204,21 +206,12 @@ const normalizeSelectedSubstats = (values: readonly number[]): number[] => {
   return out
 }
 
-// Parse rule weight maps into numeric variant->weight entries.
-const normalizeRuleWeights = (weights: Partial<Record<number, number>>): ReadonlyMap<number, number> => {
-  const out = new Map<number, number>()
-  for (const [rawVariant, rawWeight] of Object.entries(weights ?? {})) {
-    const variant = Number(rawVariant)
-    const weight = Number(rawWeight)
-    if (!Number.isFinite(variant) || !Number.isFinite(weight)) continue
-    if (variant <= 0) continue
-    out.set(Math.floor(variant), weight)
-  }
-  return out
-}
-
 // Flatten active safeguard rules with selected substats into precomputed descriptors.
-const prepareSubstatSafeguardRules = (rules: readonly SafeguardRule[]): PreparedSafeguardRule[] => {
+// Accepts the current artifact list so floor scores can be derived per rule.
+const prepareSubstatSafeguardRules = (
+  rules: readonly SafeguardRule[],
+  artifacts: readonly NormalizedGearArtifact[],
+): PreparedSafeguardRule[] => {
   const prepared: PreparedSafeguardRule[] = []
   for (const [ruleOrder, rule] of rules.entries()) {
     // Disabled safeguards cannot contribute upgrade chance.
@@ -226,20 +219,8 @@ const prepareSubstatSafeguardRules = (rules: readonly SafeguardRule[]): Prepared
     // This overlay only uses safeguards that explicitly select substats.
     const selectedSubstats = normalizeSelectedSubstats(rule.substats ?? [])
     if (selectedSubstats.length === 0) continue
-    // Include/exclude set precedence mirrors safeguard matching behavior.
-    const includeSetIds = new Set<number>()
-    const excludeSetIds = new Set<number>()
-    for (const entry of rule.combination.sets ?? []) {
-      const setId = Number(entry?.id)
-      if (!Number.isFinite(setId)) continue
-      if (entry?.excluded === true) {
-        excludeSetIds.add(setId)
-        includeSetIds.delete(setId)
-        continue
-      }
-      if (excludeSetIds.has(setId)) continue
-      includeSetIds.add(setId)
-    }
+    // Resolve include/exclude set IDs via shared helper (SSOT).
+    const { includeSetIds, excludeSetIds } = resolveSetIdFilter(rule.combination.sets ?? [])
     // Substat match defaults to `any` unless `all` was explicitly selected.
     const normalizedMatch = (
       rule.substatMatch === SafeguardSubstatMatchToken.All
@@ -250,10 +231,19 @@ const prepareSubstatSafeguardRules = (rules: readonly SafeguardRule[]): Prepared
             : SafeguardSubstatMatchToken.Any
         )
     )
+    // Extract slots and weights as locals for use in prepared.push below.
+    const slots = (rule.combination.slots ?? []).map((value) => Number(value)).filter(Number.isFinite)
+    const weights = normalizeRuleWeights(rule.substatWeights ?? {})
+    // Compute equipped quality floor when beatEquippedPercentile is configured.
+    // Pass the full combination so the reference pool is filtered to true peers.
+    const percentile = rule.beatEquippedPercentile
+    const equippedFloorScore = (percentile !== null && percentile !== undefined && Number.isFinite(percentile))
+      ? computeEquippedCollectionFloorScore(artifacts, rule.combination, selectedSubstats, weights, percentile)
+      : null
     prepared.push({
       ruleOrder,
       ruleId: typeof rule.id === 'string' ? rule.id.trim() : '',
-      slots: (rule.combination.slots ?? []).map((value) => Number(value)).filter(Number.isFinite),
+      slots,
       ranks: (rule.combination.ranks ?? []).map((value) => Number(value)).filter(Number.isFinite),
       rarities: (rule.combination.rarities ?? []).map((value) => Number(value)).filter(Number.isFinite),
       mainStats: (rule.combination.mainStats ?? []).map((value) => Number(value)).filter(Number.isFinite),
@@ -264,9 +254,10 @@ const prepareSubstatSafeguardRules = (rules: readonly SafeguardRule[]): Prepared
       countMode: sanitizeSafeguardCountMode(rule.countMode),
       selectedSubstats,
       substatMatch: normalizedMatch,
-      weights: normalizeRuleWeights(rule.substatWeights ?? {}),
+      weights,
       ignoreEquippedInCollection: rule.ignoreEquippedInCollection === true,
       ignoreEquippedInVault: rule.ignoreEquippedInVault === true,
+      equippedFloorScore,
     })
   }
   return prepared
@@ -278,22 +269,31 @@ const ruleAppliesToArtifact = (rule: PreparedSafeguardRule, artifact: Normalized
   const equippedLocation = artifact.equippedChampionLocation
   if (rule.ignoreEquippedInCollection && equippedLocation === 'collection') return false
   if (rule.ignoreEquippedInVault && (equippedLocation === 'vault' || equippedLocation === 'reserveVault')) return false
+  // Quality floor: collection-equipped pieces are the reference and always pass.
+  // Skip the check for low-level gear (<12); upgrade-chance handles those instead.
+  if (rule.equippedFloorScore !== null && equippedLocation !== 'collection') {
+    const level = clampLevel(artifact.exactLevel ?? artifact.level)
+    if (level >= 12) {
+      const score = computeSafeguardScoreFromArtifact(artifact, rule.selectedSubstats, rule.weights)
+      if (score < rule.equippedFloorScore) return false
+    }
+  }
   // Slot, set, rank, and rarity all use wildcard-aware selection matching.
   const slot = Number(artifact.slot)
   const setId = Number(artifact.set)
   const rank = Number(artifact.rank)
   const rarity = Number(artifact.rarity)
-  if (!matchesSelection(rule.slots, slot)) return false
+  if (!matchesCombinationFilter(rule.slots, slot)) return false
   if (rule.excludeSetIds.has(setId)) return false
   if (rule.includeSetIds.size > 0 && !rule.includeSetIds.has(setId)) return false
-  if (!matchesSelection(rule.ranks, rank)) return false
-  if (!matchesSelection(rule.rarities, rarity)) return false
+  if (!matchesCombinationFilter(rule.ranks, rank)) return false
+  if (!matchesCombinationFilter(rule.rarities, rarity)) return false
   // Missing main stat falls back to the Any sentinel for filtering.
   const mainStat = Number(artifact.mainStat?.variant ?? StatVariant.Any)
-  if (!matchesSelection(rule.mainStats, mainStat)) return false
+  if (!matchesCombinationFilter(rule.mainStats, mainStat)) return false
   // Armor slots normalize faction to zero to match safeguard grouping behavior.
   const faction = isAccessorySlot(slot) ? Number(artifact.faction) : 0
-  if (!matchesSelection(rule.factions, faction)) return false
+  if (!matchesCombinationFilter(rule.factions, faction)) return false
   return true
 }
 
@@ -325,17 +325,6 @@ const resolveRemainingAdditionMilestones = (rarity: number, currentLevel: number
     (milestone) => milestone > currentLevel && milestone <= SAFEGUARD_UPGRADE_TARGET_LEVEL,
   ))
 )
-
-// Read finite positive value for one substat variant from the artifact.
-const getArtifactSubstatValue = (artifact: NormalizedGearArtifact, variant: number): number => {
-  for (const substat of artifact.substats ?? []) {
-    if (Number(substat.variant) !== variant) continue
-    const value = Number(substat.totalValue)
-    if (!Number.isFinite(value) || value <= 0) return 0
-    return value
-  }
-  return 0
-}
 
 // Count matched selected substats (presence + positive value), deduped by variant.
 const countMatchedSelectedSubstatsOnArtifact = (
@@ -371,22 +360,6 @@ const artifactMatchesScenarioSubstats = (
     return matched >= selectedSet.size
   }
   return matched > 0
-}
-
-// Compute safeguard ranking score using weighted normalized selected substats.
-const computeSafeguardScoreFromArtifact = (
-  artifact: NormalizedGearArtifact,
-  selectedSubstats: readonly number[],
-  weights: ReadonlyMap<number, number>,
-): number => {
-  let total = 0
-  for (const variant of selectedSubstats) {
-    const raw = getArtifactSubstatValue(artifact, variant)
-    const normalized = normalizeSubstatByMax6(variant as StatVariant, raw)
-    const weight = Number(weights.get(variant) ?? 1)
-    total += weight * normalized
-  }
-  return Number.isFinite(total) ? total : 0
 }
 
 // Strict tie comparator parity: returns true when challenger is strictly better.
@@ -979,7 +952,7 @@ export const buildSafeguardUpgradeChanceByArtifactId = (
   }
   if (artifacts.length === 0 || rules.length === 0 || upgradableArtifactIds.size === 0) return output
   // Precompute active substat safeguards first.
-  const preparedRules = prepareSubstatSafeguardRules(rules)
+  const preparedRules = prepareSubstatSafeguardRules(rules, artifacts)
   if (preparedRules.length === 0) return output
   // Build shared challenger scenarios once for this grid snapshot.
   const scenarios = buildRuleScenarios(artifacts, preparedRules)

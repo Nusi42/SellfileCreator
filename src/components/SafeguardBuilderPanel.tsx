@@ -4,7 +4,7 @@
  * Inline editor for a single SafeguardRule. Controls mirror BuilderPanel styling and layout:
  * - Row 1: Mode toggle + Required count
  * - Row 2: [Rank | Rarity | Faction Select (nested 3-col)] | [Ignore chips]
- * - Row 3: [Main stat toggles + perMainStat chip] | [Substats toggles + match chips + weights]
+ * - Row 3: [Main stat toggles + perMainStat chip] | [Substats toggles + match chips + beat-equipped floor chip + weights]
  * - Row 4: [Slots icon grid + perSlot chip] | [Sets selector + perSet chip]
  *
  * When no rule is selected the form renders disabled so the panel height remains stable.
@@ -41,6 +41,7 @@ import RedoIcon from '@mui/icons-material/Redo'
 import TuneIcon from '@mui/icons-material/Tune'
 import UndoIcon from '@mui/icons-material/Undo'
 import {
+  SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
   SAFEGUARD_DEFAULT_COUNT_MODE,
   SafeguardRuleActivation,
   SafeguardSubstatMatch,
@@ -67,6 +68,7 @@ import {
 import {
   BUILDER_LABEL_INLINE_SX,
   BUILDER_LABEL_TEXT_SX,
+  BUILDER_STATUS_CHIP_HEIGHT_PX,
   BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
   CLEAR_ICON_BUTTON_SIZE_PX,
   DANGER_TINT_BG,
@@ -74,16 +76,10 @@ import {
   GLYPH_IGNORE_COLLECTION,
   GLYPH_IGNORE_PREVIOUS,
   GLYPH_IGNORE_VAULT,
-  GLYPH_PER_FACTION,
-  GLYPH_PER_MAIN_STAT,
-  GLYPH_PER_SET,
-  GLYPH_PER_SLOT,
-  GLYPH_PER_SUBSTAT,
-  GLYPH_SUBSTAT_ALL,
-  GLYPH_SUBSTAT_ANY,
   HISTORY_TOOLTIP_MAX_WIDTH_PX,
   NBSP,
   SMALL_BUTTON_HEIGHT_PX,
+  STATUS_CHIP_BORDER_RADIUS_PX,
   UI_BG_HOVER_DANGER_TRANSITION,
 } from '../lib/constants'
 
@@ -101,12 +97,11 @@ import { summaryParts } from './RecipeChip'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSlotMetrics } from '../hooks/useSlotMetrics'
 import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
-import { slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
+import { isAccessorySlot, slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import { useI18n } from '../lib/i18n'
 import { GearFactionSelect, GearRankSelect, GearRaritySelect, GearSetsSelect } from './gear'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
 import MarkdownTooltip from './MarkdownTooltip'
-import EllipsisTooltip from './EllipsisTooltip'
 import { GearInspectorSortWeightControls } from './GearInspectorSortWeightControls'
 import { useKeepOverrideCombinationTools } from './keepOverrides/useKeepOverrideCombinationTools'
 import {
@@ -127,7 +122,7 @@ import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import ClearIconButton from './ClearIconButton'
 import { mainStatToggleGroupSx, substatToggleGroupSx } from './SubstatToggleDisplay'
-import { useTheme } from '@mui/material/styles'
+import { alpha, useTheme } from '@mui/material/styles'
 import type { Metaset } from '../lib/metasets'
 
 // ── constants ────────────────────────────────────────────────────────────────
@@ -359,17 +354,6 @@ export default function SafeguardBuilderPanel({
     `${t('safeguardsRuleModeHint')}\n\n${t('safeguardsCountModeHint')}\n\n${t('safeguardsSubstatModeHint')}\n\n${t('safeguardsIgnoreOptionsHint')}`
   ), [t])
 
-  const substatMatchLabels = useMemo(() => ({
-    [SafeguardSubstatMatch.Any]: t('safeguardsSubstatRequirementAny'),
-    [SafeguardSubstatMatch.All]: t('safeguardsSubstatRequirementAll'),
-    [SafeguardSubstatMatch.PerSubstat]: t('safeguardsSubstatRequirementPer'),
-  }), [t])
-
-  const substatMatchOptions = useMemo(() => ([
-    SafeguardSubstatMatch.Any,
-    SafeguardSubstatMatch.All,
-    SafeguardSubstatMatch.PerSubstat,
-  ]), [])
 
   const safeguardScopeChipTooltips = useMemo(() => ({
     perSlot: t('safeguardsCountModePerSlotHint'),
@@ -386,6 +370,7 @@ export default function SafeguardBuilderPanel({
   // ── state helpers ─────────────────────────────────────────────────────────
 
   const [weightsAnchorEl, setWeightsAnchorEl] = useState<HTMLElement | null>(null)
+  const [beatEquippedAnchorEl, setBeatEquippedAnchorEl] = useState<HTMLElement | null>(null)
   const [scaffoldAnchorEl, setScaffoldAnchorEl] = useState<HTMLElement | null>(null)
   // Tracks whether the Reset button is being hovered so all resettable sections
   // can show a red tint — mirrors RecipeBuilderPanel's hoverReset pattern.
@@ -447,6 +432,11 @@ export default function SafeguardBuilderPanel({
   const effectiveSubstatMatch = hasSubstatSelection
     ? normalizeSafeguardSubstatMatch(rule?.substatMatch)
     : SafeguardSubstatMatch.Any
+  // Map effective match mode to its short text label for the cycling chip.
+  // Map effective match mode to its label for the cycling chip — reuse the requirement keys for consistency.
+  const currentMatchLabel = effectiveSubstatMatch === SafeguardSubstatMatch.Any ? t('safeguardsSubstatRequirementAny')
+    : effectiveSubstatMatch === SafeguardSubstatMatch.All ? t('safeguardsSubstatRequirementAll')
+    : t('safeguardsSubstatRequirementPer')
   // SSOT: delegate to safeguardWeightsEnabled so the rule is defined once.
   const showSubstatWeights = safeguardWeightsEnabled(rule?.substatMatch, hasSubstatSelection)
 
@@ -459,6 +449,9 @@ export default function SafeguardBuilderPanel({
   const ignorePreviousSafeguards = rule?.ignorePreviousSafeguards !== false
   const ignoreEquippedInCollection = rule?.ignoreEquippedInCollection === true
   const ignoreEquippedInVault = rule?.ignoreEquippedInVault === true
+  // beatEquippedPercentile: null means disabled; a number (0–100) means active.
+  const beatEquippedPercentile = rule?.beatEquippedPercentile ?? null
+  const beatEquippedEnabled = beatEquippedPercentile !== null
 
   const handleScopeChipToggle = (scope: KeepOverrideScopeKey) => {
     updateRule((prev) => {
@@ -534,7 +527,7 @@ export default function SafeguardBuilderPanel({
         display: 'grid',
         gridTemplateColumns: 'repeat(4, minmax(220px, 1fr))',
         columnGap: 1,
-        rowGap: 2,
+        rowGap: 1,
       }}
     >
 
@@ -782,7 +775,7 @@ export default function SafeguardBuilderPanel({
         display: 'grid',
         gridTemplateColumns: 'repeat(3, minmax(180px, 1fr))',
         columnGap: 1,
-        rowGap: 2,
+        rowGap: 1,
         borderRadius: 1,
         transition: UI_BG_HOVER_DANGER_TRANSITION,
         backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
@@ -855,7 +848,7 @@ export default function SafeguardBuilderPanel({
                 anyLabel={t('any')}
                 sx={SELECT_BOX_HEIGHT_SX}
               />
-              {renderScopeChip('perFaction', `${GLYPH_PER_FACTION}${NBSP}${t('safeguardsCountModePerFaction')}`, scopeActive.perFaction, !hasAccessorySlot)}
+              {renderScopeChip('perFaction', t('safeguardsCountModePerFaction'), scopeActive.perFaction, !hasAccessorySlot)}
             </Box>
           </Collapse>
         </FormControl>
@@ -921,7 +914,7 @@ export default function SafeguardBuilderPanel({
                   </ToggleButton>
                 ))}
               </ToggleButtonGroup>
-              {renderScopeChip('perMainStat', `${GLYPH_PER_MAIN_STAT}${NBSP}${t('safeguardsCountModePerMain')}`, scopeActive.perMainStat)}
+              {renderScopeChip('perMainStat', t('safeguardsCountModePerMain'), scopeActive.perMainStat)}
             </Box>
           </Collapse>
         </FormControl>
@@ -988,56 +981,129 @@ export default function SafeguardBuilderPanel({
             </Box>
           </Collapse>
         </FormControl>
-        {/* Substat match mode chips + weights button */}
+        {/* Substat match mode chips + weights button + beat-equipped quality floor — all inline */}
         <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
-          <MarkdownTooltip markdown={t('safeguardsSubstatRequirementHint')}>
-            <Box component="span" sx={{ display: 'inline-flex', gap: 0.75, flexWrap: 'wrap', alignItems: 'center', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
-              {substatMatchOptions.map((option) => {
-                const active = effectiveSubstatMatch === option
-                // Prefix each match mode with its distinct glyph.
-                const baseLabel = substatMatchLabels[option] ?? substatMatchLabels[SafeguardSubstatMatch.Any]
-                const matchGlyph =
-                  option === SafeguardSubstatMatch.Any ? GLYPH_SUBSTAT_ANY
-                  : option === SafeguardSubstatMatch.All ? GLYPH_SUBSTAT_ALL
-                  : GLYPH_PER_SUBSTAT
-                const label = `${matchGlyph}${NBSP}${baseLabel}`
-                return (
-                  <EllipsisTooltip key={option} title={label} selector=".MuiChip-label">
-                    <Chip
-                      size="small"
-                      variant="filled"
-                      label={label}
-                      aria-label={t('safeguardsSubstatRequirementLabel')}
-                      clickable
-                      disabled={!hasSubstatSelection}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        if (!hasSubstatSelection) return
-                        if (option === effectiveSubstatMatch) return
-                        // Per Substat disables weights — close the popover immediately
-                        // so it doesn't stay open behind the new mode.
-                        if (option === SafeguardSubstatMatch.PerSubstat) setWeightsAnchorEl(null)
-                        updateRule((prev) => ({ ...prev, substatMatch: option }))
-                      }}
-                      sx={builderStatusChipSx(active, { dimDisabled: true })}
-                    />
-                  </EllipsisTooltip>
-                )
-              })}
-            </Box>
-          </MarkdownTooltip>
-          {/* Weights button — always visible, disabled when no substats or PerSubstat mode */}
-          <IconButton
-            size="small"
-            aria-label={t('safeguardsSubstatWeightsLabel')}
-            disabled={!hasSubstatSelection || !showSubstatWeights}
-            onClick={(e) => setWeightsAnchorEl(e.currentTarget)}
-            sx={{ p: 0.25, color: hasSubstatSelection && Object.keys(rule.substatWeights ?? {}).length > 0 ? 'primary.main' : 'text.secondary' }}
-          >
-            <TuneIcon fontSize="small" />
-          </IconButton>
+          {/* Match mode chip woven with weights configure button.
+              Chip cycles Any→All→Per Substat; button opens weights popover.
+              Split-button pattern mirrors Final Sell: chip has flat right side,
+              button attaches with matching background and a thin separator. */}
+          <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            <MarkdownTooltip markdown={t('safeguardsSubstatRequirementHint')}>
+              <Chip
+                size="small"
+                variant="filled"
+                label={`${t('filterMatch')}:${NBSP}${currentMatchLabel}`}
+                aria-label={t('safeguardsSubstatRequirementLabel')}
+                clickable
+                disabled={!hasSubstatSelection}
+                onClick={() => {
+                  if (!hasSubstatSelection) return
+                  // Cycle Any → All → PerSubstat → Any.
+                  const next = effectiveSubstatMatch === SafeguardSubstatMatch.Any ? SafeguardSubstatMatch.All
+                    : effectiveSubstatMatch === SafeguardSubstatMatch.All ? SafeguardSubstatMatch.PerSubstat
+                    : SafeguardSubstatMatch.Any
+                  // Per Substat disables weights — close the popover so it doesn't linger.
+                  if (next === SafeguardSubstatMatch.PerSubstat) setWeightsAnchorEl(null)
+                  updateRule((prev) => ({ ...prev, substatMatch: next }))
+                }}
+                sx={{
+                  ...builderStatusChipSx(true, { dimDisabled: true }),
+                  // Flatten right corners so the configure button fits flush.
+                  borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px 0 0 ${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                }}
+              />
+            </MarkdownTooltip>
+            {/* Weights configure button — square left side continues the chip shape */}
+            <IconButton
+              size="small"
+              aria-label={t('safeguardsSubstatWeightsLabel')}
+              disabled={!hasSubstatSelection || !showSubstatWeights}
+              onClick={(e) => setWeightsAnchorEl(e.currentTarget)}
+              sx={(theme) => {
+                const canInteract = hasSubstatSelection && showSubstatWeights
+                // Match chip is always "enabled" colored (true) when substats are selected.
+                const chipEnabled = hasSubstatSelection
+                const bg = chipEnabled ? alpha(theme.palette.success.main, 0.18) : alpha(theme.palette.text.disabled, 0.08)
+                const color = chipEnabled
+                  ? (theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark)
+                  : theme.palette.text.disabled
+                return {
+                  height: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                  minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                  width: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                  borderRadius: `0 ${STATUS_CHIP_BORDER_RADIUS_PX}px ${STATUS_CHIP_BORDER_RADIUS_PX}px 0`,
+                  backgroundColor: bg,
+                  color: canInteract ? color : alpha(color, 0.45),
+                  borderLeft: `1px solid ${chipEnabled ? alpha(theme.palette.success.main, 0.28) : alpha(theme.palette.divider, 0.5)}`,
+                  '&:hover': canInteract ? { backgroundColor: alpha(theme.palette.success.main, 0.28) } : {},
+                  '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: alpha(color, 0.35) },
+                }
+              }}
+            >
+              <TuneIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Box>
+          {/* Beat-equipped quality floor chip woven with configure button.
+              Chip toggles the floor on/off; button opens the percentile popover.
+              Same split-button pattern as Match: flat right side on chip, button attaches flush. */}
+          <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            <MarkdownTooltip markdown={t('safeguardsBeatEquippedPercentileHint')} ellipsisTitle={t('safeguardsBeatEquippedPercentile')} ellipsisSelector=".MuiChip-label">
+              <Chip
+                size="small"
+                variant="filled"
+                label={beatEquippedEnabled
+                  ? t('safeguardsBeatEquippedWithValue', { value: beatEquippedPercentile })
+                  : t('safeguardsBeatEquippedShort')}
+                aria-label={t('safeguardsBeatEquippedPercentile')}
+                clickable
+                disabled={!hasSubstatSelection}
+                onClick={() => {
+                  if (!hasSubstatSelection) return
+                  // Toggle: disable when active (reset to null), enable with 50 when inactive.
+                  updateRule((prev) => ({
+                    ...prev,
+                    beatEquippedPercentile: prev.beatEquippedPercentile !== null
+                      ? SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE
+                      : 50,
+                  }))
+                }}
+                sx={{
+                  ...builderStatusChipSx(beatEquippedEnabled, { dimDisabled: true }),
+                  // Flatten right corners so the configure button fits flush.
+                  borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px 0 0 ${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                }}
+              />
+            </MarkdownTooltip>
+            {/* Configure button — only interactive when the floor is active */}
+            <IconButton
+              size="small"
+              aria-label={t('safeguardsBeatEquippedPercentile')}
+              disabled={!hasSubstatSelection || !beatEquippedEnabled}
+              onClick={(e) => setBeatEquippedAnchorEl(e.currentTarget)}
+              sx={(theme) => {
+                const canInteract = hasSubstatSelection && beatEquippedEnabled
+                const chipEnabled = beatEquippedEnabled
+                const bg = chipEnabled ? alpha(theme.palette.success.main, 0.18) : alpha(theme.palette.text.disabled, 0.08)
+                const color = chipEnabled
+                  ? (theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark)
+                  : theme.palette.text.disabled
+                return {
+                  height: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                  minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                  width: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                  borderRadius: `0 ${STATUS_CHIP_BORDER_RADIUS_PX}px ${STATUS_CHIP_BORDER_RADIUS_PX}px 0`,
+                  backgroundColor: bg,
+                  color: canInteract ? color : alpha(color, 0.45),
+                  borderLeft: `1px solid ${chipEnabled ? alpha(theme.palette.success.main, 0.28) : alpha(theme.palette.divider, 0.5)}`,
+                  '&:hover': canInteract ? { backgroundColor: alpha(theme.palette.success.main, 0.28) } : {},
+                  '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: alpha(color, 0.35) },
+                }
+              }}
+            >
+              <TuneIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Box>
         </Box>
         </Collapse>
       </Box>
@@ -1082,6 +1148,24 @@ export default function SafeguardBuilderPanel({
                         updateRule((prev) => {
                           const set = new Set(prev.combination.slots)
                           if (set.has(id)) set.delete(id); else set.add(id)
+                          const nextCombination = sanitizeCombinationForSlots(Array.from(set), prev.combination)
+                          return constrainSafeguardSubstats(prev, nextCombination)
+                        })
+                      }}
+                      onDoubleClick={(e) => {
+                        // Double-click selects/deselects the entire group (artefacts or accessories).
+                        // The two single-click events that precede dblclick toggle the same slot twice
+                        // and cancel out, so this functional update sees the correct pre-click state.
+                        e.preventDefault(); e.stopPropagation()
+                        const groupIds = artifactTypeIconList
+                          .map((entry) => entry.id)
+                          .filter((sid) => isAccessorySlot(sid) === isAccessorySlot(id))
+                        updateRule((prev) => {
+                          const slots = prev.combination.slots
+                          const allSelected = groupIds.every((sid) => slots.includes(sid))
+                          const set = new Set(slots)
+                          if (allSelected) groupIds.forEach((sid) => set.delete(sid))
+                          else groupIds.forEach((sid) => set.add(sid))
                           const nextCombination = sanitizeCombinationForSlots(Array.from(set), prev.combination)
                           return constrainSafeguardSubstats(prev, nextCombination)
                         })
@@ -1147,7 +1231,7 @@ export default function SafeguardBuilderPanel({
                   )
                 })}
               </Box>
-              {renderScopeChip('perSlot', `${GLYPH_PER_SLOT}${NBSP}${t('safeguardsCountModePerSlot')}`, scopeActive.perSlot)}
+              {renderScopeChip('perSlot', t('safeguardsCountModePerSlot'), scopeActive.perSlot)}
             </Box>
           </Collapse>
         </FormControl>
@@ -1158,22 +1242,21 @@ export default function SafeguardBuilderPanel({
         <FormControl fullWidth>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="sets" />
-            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0, flex: 1 }]}>
               <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderSets')}</Box>
-              <Box sx={{ flex: 1, minWidth: 0 }} />
-              <MarkdownTooltip markdown={t('builderManageMetasetsTooltip')}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={onManageMetasets}
-                  sx={{ minWidth: 160, whiteSpace: 'nowrap', ml: 'auto', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                >
-                  <Box component="span" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {t('builderManageMetasetsButton')}
-                  </Box>
-                </Button>
-              </MarkdownTooltip>
             </FormLabel>
+            <MarkdownTooltip markdown={t('builderManageMetasetsTooltip')}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={onManageMetasets}
+                sx={{ minWidth: 160, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+              >
+                <Box component="span" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {t('builderManageMetasetsButton')}
+                </Box>
+              </Button>
+            </MarkdownTooltip>
           </Box>
           <Collapse in={!builderCollapsed.sets} timeout="auto" unmountOnExit>
             {/* Sets selector and perSet chip collapse together as a unit */}
@@ -1194,7 +1277,7 @@ export default function SafeguardBuilderPanel({
                 anyLabel={t('anySet')}
                 includeNoSet={hasAccessorySlot}
               />
-              {renderScopeChip('perSet', `${GLYPH_PER_SET}${NBSP}${t('safeguardsCountModePerSet')}`, scopeActive.perSet)}
+              {renderScopeChip('perSet', t('safeguardsCountModePerSet'), scopeActive.perSet)}
             </Box>
           </Collapse>
         </FormControl>
@@ -1331,6 +1414,7 @@ export default function SafeguardBuilderPanel({
                 ignorePreviousSafeguards: rule.ignorePreviousSafeguards,
                 ignoreEquippedInCollection: rule.ignoreEquippedInCollection,
                 ignoreEquippedInVault: rule.ignoreEquippedInVault,
+                beatEquippedPercentile: rule.beatEquippedPercentile ?? null,
                 substats: rule.substats ?? [],
                 substatMatch: rule.substatMatch ?? SafeguardSubstatMatch.Any,
                 substatWeights: rule.substatWeights ?? {},
@@ -1475,6 +1559,52 @@ export default function SafeguardBuilderPanel({
               </ButtonBase>
             )
           })}
+        </Box>
+      </Popover>
+
+      {/* ── Beat-equipped quality floor configure popover ────────────────── */}
+      <Popover
+        open={Boolean(beatEquippedAnchorEl)}
+        anchorEl={beatEquippedAnchorEl}
+        onClose={() => setBeatEquippedAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+      >
+        <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.25 }}>
+            {t('safeguardsBeatEquippedPercentile')}
+          </Typography>
+          <TextField
+            size="small"
+            type="number"
+            autoFocus
+            InputProps={{
+              startAdornment: <InputAdornment position="start">≥</InputAdornment>,
+              endAdornment: (
+                <NumberSpinnerAdornment
+                  ariaLabel={t('safeguardsBeatEquippedPercentile')}
+                  onStep={(delta) => {
+                    updateRule((prev) => {
+                      const next = Math.max(0, Math.min(100, Math.floor((prev.beatEquippedPercentile ?? 50) + delta)))
+                      return { ...prev, beatEquippedPercentile: next }
+                    })
+                  }}
+                />
+              ),
+            }}
+            value={beatEquippedPercentile ?? 50}
+            onChange={(event) => {
+              const raw = Math.min(100, Math.max(0, Math.floor(Number(event.target.value) || 0)))
+              updateRule((prev) => ({ ...prev, beatEquippedPercentile: raw }))
+            }}
+            sx={(themeInner) => ({
+              width: 120,
+              '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+              '& input[type=number]': { MozAppearance: 'textfield' },
+              '& input': { textAlign: 'right', paddingRight: themeInner.spacing(1), paddingLeft: themeInner.spacing(0.5) },
+            })}
+            inputProps={{ min: 0, step: 1, max: 100 }}
+          />
         </Box>
       </Popover>
 

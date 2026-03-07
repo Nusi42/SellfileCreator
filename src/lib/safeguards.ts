@@ -1,5 +1,6 @@
 import { isAccessorySlot } from './gearInspectorDomain'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from './gearInspectorSort'
+import { normalizeSubstatByMax6 } from './substatRollNormalization'
 import { resolveAllowedSubstatsForSlotsAndMains } from './statCompatibility'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import type {
@@ -133,6 +134,8 @@ export const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION =
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION_CONST
 export const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT =
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT_CONST
+// Quality floor defaults disabled; users opt in per rule.
+export const SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE: number | null = null
 
 export const SafeguardRuleActivation = {
   Off: SAFEGUARD_ACTIVATION_OFF,
@@ -283,6 +286,8 @@ export const cloneSafeguardRule = (rule: SafeguardRule): SafeguardRule => ({
   substatMatch: rule.substatMatch,
   // Copy weights so ranking edits are isolated.
   substatWeights: { ...(rule.substatWeights ?? {}) },
+  // Preserve quality floor; null means disabled.
+  beatEquippedPercentile: rule.beatEquippedPercentile ?? null,
 })
 
 // cloneSafeguardRules clones a list into detached rule objects.
@@ -310,6 +315,10 @@ export type SafeguardRule = {
   substatMatch: SafeguardSubstatMatch
   // Per-substat weights for ranked scoring (only non-default values are stored).
   substatWeights: Partial<Record<StatVariant, number>>
+  // When set (0–100), a candidate must beat at least this percentile of equipped
+  // collection gear in the same slot(s) to qualify as a safeguard candidate.
+  // null = disabled (default behavior).
+  beatEquippedPercentile: number | null
 }
 
 /** Build the default Safeguard rule list for new sessions (empty by design). */
@@ -332,6 +341,7 @@ export const createFactorySafeguardBuilderDefaults = (): Omit<SafeguardRule, 'id
   substats: [],
   substatMatch: SafeguardSubstatMatch.Any,
   substatWeights: {},
+  beatEquippedPercentile: SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
 })
 
 // Extracts the content fields of a SafeguardRule in the same stable key order as
@@ -349,6 +359,7 @@ export const createSafeguardRuleContentSnapshot = (rule: SafeguardRule): Omit<Sa
   substats: rule.substats ?? [],
   substatMatch: rule.substatMatch ?? SafeguardSubstatMatch.Any,
   substatWeights: rule.substatWeights ?? {},
+  beatEquippedPercentile: rule.beatEquippedPercentile ?? null,
 })
 
 export type SafeguardDetectionArtifact = {
@@ -756,6 +767,11 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
       ? record.substatWeights
       : record.substatWeighting
   )
+  // Parse optional quality floor; clamp to 0–100 or fall back to null.
+  const rawPercentile = record.beatEquippedPercentile
+  const beatEquippedPercentile = (typeof rawPercentile === 'number' && Number.isFinite(rawPercentile))
+    ? Math.max(0, Math.min(100, Math.floor(rawPercentile)))
+    : SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE
   return {
     id,
     name,
@@ -769,8 +785,138 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
     substats: parsedSubstats,
     substatMatch,
     substatWeights: parseSubstatWeights(weightsSource),
+    beatEquippedPercentile,
   }
 }
+
+// Read finite positive value for one substat variant from the artifact.
+// Shared by both the scoring helper below and safeguardUpgradeChance.ts.
+const getArtifactSubstatValue = (artifact: NormalizedGearArtifact, variant: number): number => {
+  for (const substat of artifact.substats ?? []) {
+    if (Number(substat.variant) !== variant) continue
+    const value = Number(substat.totalValue)
+    if (!Number.isFinite(value) || value <= 0) return 0
+    return value
+  }
+  return 0
+}
+
+// Compute safeguard ranking score using weighted normalized selected substats.
+// Exported so safeguardUpgradeChance.ts and computeEquippedCollectionFloorScore
+// share one definition (SSOT).
+export const computeSafeguardScoreFromArtifact = (
+  artifact: NormalizedGearArtifact,
+  selectedSubstats: readonly number[],
+  weights: ReadonlyMap<number, number>,
+): number => {
+  let total = 0
+  for (const variant of selectedSubstats) {
+    const raw = getArtifactSubstatValue(artifact, variant)
+    const normalized = normalizeSubstatByMax6(variant as StatVariant, raw)
+    const weight = Number(weights.get(variant) ?? 1)
+    total += weight * normalized
+  }
+  return Number.isFinite(total) ? total : 0
+}
+
+// Normalize a rule's substatWeights map into a numeric variant→weight map.
+// Exported so safeguardUpgradeChance.ts imports this instead of duplicating.
+export const normalizeRuleWeights = (weights: Partial<Record<number, number>>): ReadonlyMap<number, number> => {
+  const out = new Map<number, number>()
+  for (const [rawVariant, rawWeight] of Object.entries(weights ?? {})) {
+    const variant = Number(rawVariant)
+    const weight = Number(rawWeight)
+    if (!Number.isFinite(variant) || !Number.isFinite(weight)) continue
+    if (variant <= 0) continue
+    out.set(Math.floor(variant), weight)
+  }
+  return out
+}
+
+// Empty selection means wildcard; otherwise candidate must be explicitly listed.
+// Exported so safeguardUpgradeChance.ts shares the same semantics (SSOT).
+export const matchesCombinationFilter = (selection: readonly number[], candidate: number): boolean => (
+  selection.length === 0 || selection.includes(candidate)
+)
+
+// Resolve include/exclude set ID sets from a combination's sets array.
+// Excluded entries take priority over included ones; duplicates collapse.
+// Exported so safeguardUpgradeChance.ts reuses this logic instead of duplicating.
+export function resolveSetIdFilter(sets: readonly ArtifactSetSelectionEntry[]): {
+  includeSetIds: ReadonlySet<number>
+  excludeSetIds: ReadonlySet<number>
+} {
+  const includeSetIds = new Set<number>()
+  const excludeSetIds = new Set<number>()
+  for (const entry of sets ?? []) {
+    const setId = Number(entry?.id)
+    if (!Number.isFinite(setId)) continue
+    // Excluded entries win; remove from include if it was already there.
+    if (entry?.excluded === true) {
+      excludeSetIds.add(setId)
+      includeSetIds.delete(setId)
+      continue
+    }
+    // Skip if already in the exclude list.
+    if (excludeSetIds.has(setId)) continue
+    includeSetIds.add(setId)
+  }
+  return { includeSetIds, excludeSetIds }
+}
+
+// Compute the Nth-percentile quality floor from collection-equipped artifacts that
+// match the full combination filters (slot, set, rank, rarity, main stat, faction).
+// Returns 0 when no reference artifacts satisfy the filters.
+// Used by both the WASM pre-computation path and the upgrade-chance TS path.
+export function computeEquippedCollectionFloorScore(
+  artifacts: readonly NormalizedGearArtifact[],
+  combination: SafeguardCombination,
+  selectedSubstats: readonly number[],
+  weights: ReadonlyMap<number, number>,
+  percentile: number,
+): number {
+  // No substats means scoring is undefined; skip the floor check.
+  if (selectedSubstats.length === 0) return 0
+  // Pre-compute filter values once so the inner loop stays allocation-free.
+  const slots = (combination.slots ?? []).map(Number).filter(Number.isFinite)
+  const ranks = (combination.ranks ?? []).map(Number).filter(Number.isFinite)
+  const rarities = (combination.rarities ?? []).map(Number).filter(Number.isFinite)
+  const mainStats = (combination.mainStats ?? []).map(Number).filter(Number.isFinite)
+  const factions = (combination.factions ?? []).map(Number).filter(Number.isFinite)
+  const { includeSetIds, excludeSetIds } = resolveSetIdFilter(combination.sets ?? [])
+  const scores: number[] = []
+  for (const artifact of artifacts) {
+    // Reference pool: only gear actively equipped on collection champions.
+    if (artifact.equippedChampionLocation !== 'collection') continue
+    // Slot filter: empty list = wildcard.
+    const slot = Number(artifact.slot)
+    if (!matchesCombinationFilter(slots, slot)) continue
+    // Set filter: excluded entries win; non-empty include list restricts.
+    const setId = Number(artifact.set)
+    if (excludeSetIds.has(setId)) continue
+    if (includeSetIds.size > 0 && !includeSetIds.has(setId)) continue
+    // Rank and rarity: empty = wildcard.
+    if (!matchesCombinationFilter(ranks, Number(artifact.rank))) continue
+    if (!matchesCombinationFilter(rarities, Number(artifact.rarity))) continue
+    // Main stat: fall back to Any sentinel when artifact carries none.
+    const mainStatVariant = Number(artifact.mainStat?.variant ?? StatVariantEnum.Any)
+    if (!matchesCombinationFilter(mainStats, mainStatVariant)) continue
+    // Faction: armor slots always normalize to 0 (no faction differentiation).
+    const faction = isAccessorySlot(slot) ? Number(artifact.faction ?? 0) : 0
+    if (!matchesCombinationFilter(factions, faction)) continue
+    scores.push(computeSafeguardScoreFromArtifact(artifact, selectedSubstats, weights))
+  }
+  if (scores.length === 0) return 0
+  scores.sort((a, b) => a - b)
+  // Map percentile (0–100) to a score threshold; clamp index to valid range.
+  const index = Math.floor((percentile / 100) * scores.length)
+  return scores[Math.min(index, scores.length - 1)] ?? 0
+}
+
+// Runtime-only extension that adds the pre-computed floor score for WASM delivery.
+// The floor is derived from beatEquippedPercentile + the current artifact set;
+// it is never persisted in SFR files.
+export type SafeguardRuleForWasm = SafeguardRule & { equippedFloorScore?: number }
 
 /** Shared helper for mapping Gear Inspector artifacts to the detection item key. */
 export function getSafeguardItemKey(artifact: NormalizedGearArtifact): number {
@@ -910,13 +1056,25 @@ export function collectAndComputeSafeguardProtection(
     }
   }
   const baseRuleList: HsfRuleWithRecipe[] = Array.isArray(baseRules) ? [...baseRules] : []
+  // Derive artifact list from rows for quality-floor computation.
+  const artifacts = rows.map((r) => r.artifact)
+  // Augment rules with pre-computed floor scores when beatEquippedPercentile is set.
+  const rulesForWasm: SafeguardRuleForWasm[] = rules.map((rule) => {
+    const percentile = rule.beatEquippedPercentile
+    if (percentile === null || percentile === undefined || !Number.isFinite(percentile)) return rule
+    const substats = (rule.substats ?? []).map(Number).filter(Number.isFinite)
+    const weights = normalizeRuleWeights(rule.substatWeights ?? {})
+    // Pass the full combination so the reference pool is filtered to true peers.
+    const equippedFloorScore = computeEquippedCollectionFloorScore(artifacts, rule.combination, substats, weights, percentile)
+    return { ...rule, equippedFloorScore }
+  })
   // Pass canonical rows/rules and let wasm produce the detection payload.
   const combined = collectAndComputeSafeguardProtectionWithLoadedWasm({
     rows,
     rules: baseRuleList,
     recipeModes,
     ...(ignoreRecipeSet ? { ignoreSafeguardRecipeIndices: ignoreRecipeSet } : {}),
-    safeguardRules: rules,
+    safeguardRules: rulesForWasm,
     expectedGroupDomain: buildSafeguardExpectedGroupDomain(),
     enabled,
     now: timestamp,

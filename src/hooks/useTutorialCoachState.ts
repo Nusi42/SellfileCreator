@@ -35,6 +35,7 @@ import {
 } from '../state/gearInspectorGridPreferences'
 import type { useI18n } from '../lib/i18n'
 import {
+  SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
   SAFEGUARD_DEFAULT_COUNT_MODE,
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
@@ -223,6 +224,7 @@ const buildTutorialSafeguardRules = (): SafeguardRule[] => [{
   ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
   ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
   ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
+  beatEquippedPercentile: SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
   // HP% and DEF% substats — any of them is sufficient (substatMatch: Any).
   substats: [StatVariant.HP, StatVariant.DEF],
   substatMatch: SafeguardSubstatMatch.Any,
@@ -378,7 +380,7 @@ export function useTutorialCoachState({
   const [tutorialAddedAdvanced, setTutorialAddedAdvanced] = useState<boolean>(false)
   const [tutorialAddedSlowDD, setTutorialAddedSlowDD] = useState<boolean>(false)
   const [tutorialAddedAutoLate, setTutorialAddedAutoLate] = useState<boolean>(false)
-  const [tutorialAddedDefaultMetas, setTutorialAddedDefaultMetas] = useState<boolean>(false)
+  const [, setTutorialAddedDefaultMetas] = useState<boolean>(false)
 
   // Timers/raf ids used by tutorial "helper actions" (open menus, scroll previews, etc.).
   // Why: tutorial steps can be aborted mid-flight and must always clean up scheduled work.
@@ -1508,9 +1510,11 @@ export function useTutorialCoachState({
     setGearInspectorItems,
     setPreviewMode,
     setLogicHubDialogTab,
+    setSafeguardBuilder,
     setSafeguardRules,
     setSafeguardsEnabled,
     setRecipesEnabled,
+    setSelectedSafeguardRuleId,
     setTutorialAddedAutoLate,
     setTutorialAddedAdvanced,
     setTutorialAddedBasic,
@@ -1524,7 +1528,6 @@ export function useTutorialCoachState({
     setTutorialSteps,
     suppressHistorySnapshot,
     t,
-    tutorialAddedDefaultMetas,
   ])
 
   const handleTutorialSkipTo = useCallback((idx: number) => {
@@ -2015,7 +2018,6 @@ export function useTutorialCoachState({
     selectedRecipeIdx,
     setBuilder,
     setCustomRecipes,
-    setMetasets,
     setSelectedRecipeIdx,
     suppressHistorySnapshot,
     setTutorialAddedAdvanced,

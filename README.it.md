@@ -98,6 +98,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Il tooltip di `Quantità richiesta` mostra la suddivisione attiva degli ambiti (`X per slot × per set × ...`) e una semplice riga dei mancanti (`({missing} mancanti)`).
 - Usa il selettore `Filtro: Tutti / Selezione` sopra la griglia per passare da tutta la tua attrezzatura unica solo agli oggetti che corrispondono alla regola evidenziata; Selezione si comporta come Tutti finché nessuna regola è selezionata.
 - Lo scanner aggiunge righe di mantenimento solo per gli oggetti che verrebbero venduti e solo quando la quota non è soddisfatta. In `Anticipa lacune`, aggiunge anche regole segnaposto per combinazioni mancanti.
+- `Superare equipaggiati ≥ N%` (soglia di qualità opzionale): un candidato si qualifica solo se il suo punteggio di substat ponderato supera almeno il **N%** dell'equipaggiamento di collezione indossato che corrisponde anche allo slot, al stat principale, al set, al rango, alla rarità e alla fazione della regola. **50** = superare la mediana (buon valore predefinito), **75** = quartile superiore, **100** = superare ogni pezzo equipaggiato corrispondente. I pezzi equipaggiati in collezione superano sempre la soglia — costituiscono il pool di riferimento. L'equipaggiamento sotto il livello 12 è esente. Se nessun equipaggiamento di collezione corrisponde ai filtri della regola, la soglia è 0 (tutti i candidati passano).
 
 #### Ambiti della quota in breve
 

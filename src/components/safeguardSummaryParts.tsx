@@ -25,17 +25,10 @@ import {
   factionI18nKey,
 } from '../lib/types'
 import {
-  GLYPH_FOR_ALL,
-  GLYPH_PER_FACTION,
-  GLYPH_PER_MAIN_STAT,
-  GLYPH_PER_SET,
-  GLYPH_PER_SLOT,
-  GLYPH_PER_SUBSTAT,
   NBSP,
 } from '../lib/constants'
 
 const METASET_ICON_BOX_PX = 16
-import { SafeguardSubstatMatch } from '../lib/safeguards'
 import type { SafeguardRule } from '../lib/safeguards'
 import type { Metaset } from '../lib/metasets'
 import { artifactTypeIconFor } from './artifactTypeIcons'
@@ -83,8 +76,11 @@ export function safeguardSummaryParts(
   const c = rule.combination
 
   // ── Slots ─────────────────────────────────────────────────────────────────
+  const perSlot = rule.countMode?.perSlot ?? false
   if (c.slots && c.slots.length > 0) {
     const sorted = [...c.slots].sort(compareArtifactTypes)
+    // "Per Slot: " prefix when this rule splits its quota by slot.
+    const slotLbl = perSlot ? `${opts.t ? opts.t('safeguardsCountModePerSlot') : 'Per Slot'}:${NBSP}` : ''
     if (opts.showSlotIcons) {
       const nodes = sorted.map((typeId, i) => {
         const Icon = artifactTypeIconFor(typeId)
@@ -108,17 +104,21 @@ export function safeguardSummaryParts(
         const label = withNbsp(opts.t ? opts.t(artifactTypeI18nKey(typeId)) : artifactTypeName(typeId))
         return <Box key={`slot-${typeId}-${i}`} component="span" sx={{ mr: 0.5 }}>{label}</Box>
       })
-      // Per-slot glyph follows the icons; ∀ when no specific slots selected.
-      addNode(<>{nodes}{rule.countMode.perSlot ? <Box key="slot-per" component="span">{NBSP}{GLYPH_PER_SLOT}</Box> : null}</>)
+      addNode(
+        <>
+          {slotLbl && <Box component="span">{slotLbl}</Box>}
+          {nodes}
+        </>,
+      )
     } else {
       const labels = sorted.map((typeId) =>
         withNbsp(opts.t ? opts.t(artifactTypeI18nKey(typeId)) : artifactTypeName(typeId)),
       )
-      addText(labels.join(', ') + (rule.countMode.perSlot ? `${NBSP}${GLYPH_PER_SLOT}` : ''))
+      addText(`${slotLbl}${labels.join(', ')}`)
     }
-  } else if (rule.countMode.perSlot) {
-    // No slot filter — perSlot applies to every slot; show glyph + ∀.
-    addText(`${GLYPH_PER_SLOT}${NBSP}${GLYPH_FOR_ALL}`)
+  } else if (perSlot) {
+    // Wildcard slots (all slots): show the Per Slot scope label alone.
+    addText(opts.t ? opts.t('safeguardsCountModePerSlot') : 'Per Slot')
   }
 
   // ── Ranks ─────────────────────────────────────────────────────────────────
@@ -146,7 +146,10 @@ export function safeguardSummaryParts(
   }
 
   // ── Factions ──────────────────────────────────────────────────────────────
+  const perFaction = rule.countMode?.perFaction ?? false
   if (c.factions && c.factions.length > 0) {
+    // "Per Faction: " prefix when this rule splits its quota by faction.
+    const factionLbl = perFaction ? `${opts.t ? opts.t('safeguardsCountModePerFaction') : 'Per Faction'}:${NBSP}` : ''
     const factNodes = c.factions.map((factionCode, i) => {
       const rawLabel = opts.t ? opts.t(factionI18nKey(factionCode)) : factionCodeToName(factionCode)
       const label = withNbsp(rawLabel)
@@ -167,14 +170,22 @@ export function safeguardSummaryParts(
       }
       return <Box key={`f-${factionCode}-${i}`} component="span">{label}</Box>
     })
-    // Per-faction glyph follows the content; ∀ when no specific factions selected.
-    addNode(<>{factNodes}{rule.countMode.perFaction ? <Box key="fact-per" component="span">{NBSP}{GLYPH_PER_FACTION}</Box> : null}</>)
-  } else if (rule.countMode.perFaction) {
-    addText(`${GLYPH_PER_FACTION}${NBSP}${GLYPH_FOR_ALL}`)
+    addNode(
+      <>
+        {factionLbl && <Box component="span">{factionLbl}</Box>}
+        {factNodes}
+      </>,
+    )
+  } else if (perFaction) {
+    // Wildcard factions (all factions): show the Per Faction scope label alone.
+    addText(opts.t ? opts.t('safeguardsCountModePerFaction') : 'Per Faction')
   }
 
   // ── Main stats ────────────────────────────────────────────────────────────
+  const perMainStat = rule.countMode?.perMainStat ?? false
   if (c.mainStats && c.mainStats.length > 0) {
+    // "Per Mainstat: " prefix when this rule splits its quota by main stat.
+    const mainLbl = perMainStat ? `${opts.t ? opts.t('safeguardsCountModePerMain') : 'Per Mainstat'}:${NBSP}` : ''
     const sorted = [...c.mainStats].sort(compareVariants)
     const nodes = sorted.map((vk, i) => {
       const name = withNbsp(opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
@@ -190,10 +201,15 @@ export function safeguardSummaryParts(
       interleaved.push(n)
       if (i < nodes.length - 1) interleaved.push(<Box key={`m-sep-${i}`} component="span">, </Box>)
     })
-    // Per-mainstat glyph follows the content; ∀ when no specific main stats selected.
-    addNode(<>{interleaved}{rule.countMode.perMainStat ? <Box key="main-per" component="span">{NBSP}{GLYPH_PER_MAIN_STAT}</Box> : null}</>)
-  } else if (rule.countMode.perMainStat) {
-    addText(`${GLYPH_PER_MAIN_STAT}${NBSP}${GLYPH_FOR_ALL}`)
+    addNode(
+      <>
+        {mainLbl && <Box component="span">{mainLbl}</Box>}
+        {interleaved}
+      </>,
+    )
+  } else if (perMainStat) {
+    // Wildcard main stats (all main stats): show the Per Mainstat scope label alone.
+    addText(opts.t ? opts.t('safeguardsCountModePerMain') : 'Per Mainstat')
   }
 
   // ── Substats ──────────────────────────────────────────────────────────────
@@ -221,12 +237,21 @@ export function safeguardSummaryParts(
       <>
         <Box component="span">{`${tr ? tr('chipSubs') : 'Subs'}:${NBSP}`}</Box>
         {interleaved}
-        {rule.substatMatch === SafeguardSubstatMatch.PerSubstat ? <Box key="sub-per" component="span">{NBSP}{GLYPH_PER_SUBSTAT}</Box> : null}
       </>,
     )
   }
 
+  // ── Beat-equipped quality floor ───────────────────────────────────────────
+  // Only shown when the floor is active; rendered as "Beat ≥ N% equipped".
+  if (rule.beatEquippedPercentile !== null && rule.beatEquippedPercentile !== undefined) {
+    const pct = rule.beatEquippedPercentile
+    addText(opts.t
+      ? opts.t('safeguardsBeatEquippedWithValue', { value: pct })
+      : `Beat ≥ ${pct}% equipped`)
+  }
+
   // ── Sets + Metasets ───────────────────────────────────────────────────────
+  const perSet = rule.countMode?.perSet ?? false
   {
     const setSelection = splitArtifactSetSelections(c.sets)
     const setIdsSorted = setSelection.included.slice().sort((a, b) => Number(a) - Number(b))
@@ -301,15 +326,15 @@ export function safeguardSummaryParts(
       })
 
       if (nodes.length > 0) {
-        // Per-set glyph follows the set icons; ∀ when no specific sets selected.
+        // "Per Set: " prefix when this rule splits its quota by set/metaset.
         addNode(
           <Box component="span" sx={{ display: 'inline', whiteSpace: 'normal' }}>
+            {perSet && <Box component="span">{`${opts.t ? opts.t('safeguardsCountModePerSet') : 'Per Set'}:${NBSP}`}</Box>}
             {nodes}
-            {rule.countMode.perSet ? <Box key="set-per" component="span">{NBSP}{GLYPH_PER_SET}</Box> : null}
           </Box>,
         )
-      } else if (rule.countMode.perSet) {
-        addText(`${GLYPH_PER_SET}${NBSP}${GLYPH_FOR_ALL}`)
+      } else if (perSet) {
+        addText(opts.t ? opts.t('safeguardsCountModePerSet') : 'Per Set')
       }
     } else {
       const metaNames = metaEntries.map((e) => String(e.name))
@@ -332,14 +357,15 @@ export function safeguardSummaryParts(
       includedNames.forEach((name, idx) => pushText(`set-${idx}`, name))
       excludedNames.forEach((name, idx) => pushText(`set-excluded-${idx}`, name, true))
       if (nodes.length > 0) {
+        // "Per Set: " prefix when this rule splits its quota by set/metaset.
         addNode(
           <Box component="span">
+            {perSet && <Box component="span">{`${opts.t ? opts.t('safeguardsCountModePerSet') : 'Per Set'}:${NBSP}`}</Box>}
             {nodes}
-            {rule.countMode.perSet ? <Box key="set-per" component="span">{NBSP}{GLYPH_PER_SET}</Box> : null}
           </Box>,
         )
-      } else if (rule.countMode.perSet) {
-        addText(`${GLYPH_PER_SET}${NBSP}${GLYPH_FOR_ALL}`)
+      } else if (perSet) {
+        addText(opts.t ? opts.t('safeguardsCountModePerSet') : 'Per Set')
       }
     }
   }

@@ -111,6 +111,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - `≥ Required Count` is the promise you want the app to keep. Scope chips directly under each picker (everything except `Rank` and `Rarity`) decide how that quota is split: `Per slot`, `Per set`, `Per faction`, and `Per main stat` can be combined freely. Turning every chip off automatically falls back to the shared `Per rule` pool.
 - The info tooltip behind `Required Count` shows the active scope split (`X per slot × per set × ...`) and a simple deficit line (`({missing} missing)`).
 - The scanner only adds keep rows for matching items that would otherwise be sold, and only when the quota is not met. In `Anticipate gaps`, placeholder keep rules cover missing combinations.
+- `Beat equipped ≥ N%` (optional quality floor): a candidate only qualifies if its weighted substat score beats at least **N%** of collection-equipped gear that also matches the rule's slot, main stat, set, rank, rarity, and faction. Set **50** to beat the median (good default), **75** for the top quartile, or **100** to beat every matching equipped piece. Collection-equipped pieces always pass — they form the reference pool. Gear below level 12 is exempt. If no collection gear matches the rule's filters, the floor is 0 and all candidates pass.
 
 #### Quota scopes at a glance
 Stacking the scope chips changes who gets their own quota. Leave `Per rule` on to share one pool, then layer `Per slot`, `Per set`, `Per faction`, and `Per main stat` to enforce Slot × Set × Faction × Main stat mixes independently.

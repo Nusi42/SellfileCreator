@@ -107,6 +107,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - `≥ Cantidad necesaria` es la promesa que quieres cumplir. Los chips justo debajo de cada selector (todo salvo Rango y Rareza) comparten o duplican la cuota: `Por ranura`, `Por conjunto`, `Por facción` y `Por stat principal` se pueden combinar libremente, y al apagarlos todos la regla vuelve automáticamente a `Por regla`.
 - El tooltip de `Cantidad necesaria` muestra la división activa de ámbitos (`X por ranura × por conjunto × ...`) y una línea simple de faltantes (`({missing} faltan)`).
 - El escáner solo añade filas de conservación para coincidencias que se venderían y solo cuando la cuota no se cumple. En `Anticipar huecos`, también emite reglas de marcador para combinaciones faltantes.
+- `Superar equipados ≥ N%` (umbral de calidad opcional): un candidato solo se califica si su puntuación ponderada de substats supera al menos el **N%** del equipo de colección equipado que también coincide con el slot, stat principal, set, rango, rareza y facción de la regla. **50** = superar la mediana (valor predeterminado recomendado), **75** = cuartil superior, **100** = superar cada pieza equipada correspondente. Las piezas equipadas en la colección siempre pasan — forman el pool de referencia. El equipo por debajo del nivel 12 está exento. Si no hay equipo de colección que coincida con los filtros de la regla, el umbral es 0 (todos los candidatos pasan).
 
 #### Alcances de cuota de un vistazo
 

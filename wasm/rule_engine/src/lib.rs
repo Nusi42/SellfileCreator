@@ -860,6 +860,9 @@ fn resolve_safeguard_rules_with_metasets_core(
                 .into_iter()
                 .map(|(variant, weight)| (variant.to_string(), weight))
                 .collect::<HashMap<String, f64>>(),
+            // Pass the raw percentile through so the TS pipeline can pre-compute
+            // equippedFloorScore after metaset resolution with the full artifact list.
+            beat_equipped_percentile: rule.beat_equipped_percentile.filter(|v| v.is_finite()),
         });
     }
 

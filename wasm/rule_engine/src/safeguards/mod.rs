@@ -214,6 +214,14 @@ pub(crate) struct SafeguardWasmRuleIn {
     pub(crate) substat_match: Option<String>,
     #[serde(default, deserialize_with = "safeguard_deserialize_optional_i64_weight_map")]
     pub(crate) substat_weights: Option<HashMap<i64, f64>>,
+    // Pre-computed quality floor passed from TypeScript; None = disabled.
+    // Candidates scoring below this threshold are rejected (collection-equipped exempt).
+    #[serde(default)]
+    pub(crate) equipped_floor_score: Option<f64>,
+    // Raw percentile from the TS SafeguardRule; passed through the metaset resolver
+    // unchanged so TS can compute equippedFloorScore after resolution.
+    #[serde(default)]
+    pub(crate) beat_equipped_percentile: Option<f64>,
 }
 
 // Resolved safeguard rule payload returned after metaset expansion in lib.rs.
@@ -232,6 +240,9 @@ pub(crate) struct SafeguardWasmResolvedRuleOut {
     pub(crate) substats: Vec<i64>,
     pub(crate) substat_match: String,
     pub(crate) substat_weights: HashMap<String, f64>,
+    // Quality floor passed through unchanged so the TS pipeline can pre-compute
+    // equippedFloorScore after metaset resolution. None = disabled.
+    pub(crate) beat_equipped_percentile: Option<f64>,
 }
 
 // Canonical metaset-id list is sorted and deduped for deterministic hashes.
@@ -427,6 +438,8 @@ struct SafeguardWasmPreparedRule {
     ignore_previous_safeguards: bool,
     ignore_equipped_in_collection: bool,
     ignore_equipped_in_vault: bool,
+    // Pre-computed quality floor score from TypeScript; None = disabled.
+    equipped_floor_score: Option<f64>,
     selected_substats: Vec<i64>,
     substat_match: String,
     weights: HashMap<i64, f64>,
@@ -1952,6 +1965,16 @@ fn safeguard_artifact_matches_rule(
     if rule.ignore_equipped_in_vault && artifact.equipped_in_vault {
         return false;
     }
+    // Quality floor: collection-equipped pieces are the reference and always pass.
+    // Skip the check for low-level gear (<12); upgrade-chance handles those.
+    if let Some(floor_score) = rule.equipped_floor_score {
+        if !artifact.equipped_in_collection && artifact.level >= 12 {
+            let score = safeguard_compute_score(artifact, &rule.selected_substats, &rule.weights);
+            if score < floor_score {
+                return false;
+            }
+        }
+    }
     // Slot filter is always evaluated first to fail fast.
     if !safeguard_matches_selection(&rule.combination.slots, artifact.slot) {
         return false;
@@ -3009,6 +3032,8 @@ fn compute_safeguard_protection_core(
             let ignore_equipped_in_vault = rule
                 .ignore_equipped_in_vault
                 .unwrap_or(SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT);
+            // Preserve the pre-computed floor score from TypeScript; None disables it.
+            let equipped_floor_score = rule.equipped_floor_score.filter(|v| v.is_finite());
             // Required count is clamped to at least one.
             let required_per_group = rule.required_count.unwrap_or(1).max(1);
             // Normalize match mode token for deterministic branching.
@@ -3054,6 +3079,7 @@ fn compute_safeguard_protection_core(
                 ignore_previous_safeguards,
                 ignore_equipped_in_collection,
                 ignore_equipped_in_vault,
+                equipped_floor_score,
                 selected_substats,
                 substat_match,
                 weights,

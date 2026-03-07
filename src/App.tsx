@@ -95,6 +95,7 @@ import {
   createSafeguardRuleId,
   cloneSafeguardRule,
   SAFEGUARD_DEFAULT_COUNT_MODE,
+  SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
   SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
@@ -866,6 +867,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
     ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
     ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
+    beatEquippedPercentile: SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
     substats: [],
     substatMatch: SafeguardSubstatMatch.Any,
     substatWeights: {},
@@ -5390,8 +5392,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (resolvedSel !== null && recipes[resolvedSel]) {
         setBuilder(recipes[resolvedSel]!)
       }
-      // Always land on the first safeguard rule when loading a file.
-      setSelectedSafeguardRuleId(safeguardRules.length > 0 ? safeguardRules[0]!.id : null)
+      // Always land on the first safeguard rule when loading a file, and load its data into the builder.
+      // Why: setSelectedSafeguardRuleId alone only updates the chip highlight; the builder draft must
+      // also be replaced so the panel does not display stale state from the previous SFR.
+      const firstSafeguardRule = safeguardRules.length > 0 ? safeguardRules[0]! : null
+      setSelectedSafeguardRuleId(firstSafeguardRule?.id ?? null)
+      if (firstSafeguardRule) setSafeguardBuilder(cloneSafeguardRule(firstSafeguardRule))
     })
 
     markNextSnapshotAsSaved()
@@ -5427,6 +5433,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     substatTargets,
     syncSelectedRecipeIdx,
     setSelectedSafeguardRuleId,
+    setSafeguardBuilder,
     beginGearInspectorMatchReset,
   ])
 
@@ -5569,6 +5576,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setSafeguardRules(remappedSafeguards)
         setSafeguardsEnabled(payload.safeguardsEnabled)
         setRecipesEnabled(payload.recipesEnabled !== false)
+        // Replace mode wipes existing rules, so the old selection is always stale.
+        // Load the first incoming rule into the builder draft to match the landing chip.
+        const firstRemapped = remappedSafeguards.length > 0 ? remappedSafeguards[0]! : null
+        setSelectedSafeguardRuleId(firstRemapped?.id ?? null)
+        if (firstRemapped) setSafeguardBuilder(cloneSafeguardRule(firstRemapped))
       } else {
         setSafeguardRules((prev) => [...prev, ...remappedSafeguards])
         setSafeguardsEnabled((prev) => prev || payload.safeguardsEnabled)
@@ -5616,6 +5628,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSafeguardRules,
     setSafeguardsEnabled,
     setRecipesEnabled,
+    setSelectedSafeguardRuleId,
+    setSafeguardBuilder,
     sfrNote,
     syncSelectedRecipeIdx,
   ])
