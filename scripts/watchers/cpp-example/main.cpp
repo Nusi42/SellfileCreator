@@ -46,8 +46,11 @@ constexpr const char* kProtocolJsonRpc = "jsonrpc";
 // Keep request method names centralized for both protocols.
 constexpr const char* kUploadSellfileMethod = "uploadSellfile";
 
-// New endpoint event name we send after SQL conversion.
-constexpr const char* kArtifactLogSnapshotEvent = "artifactLogSnapshot";
+// Per-type event names matching RSL Helper's notification format.
+constexpr const char* kArtifactsEvent       = "artifacts";
+constexpr const char* kInboxArtifactsEvent  = "inboxArtifacts";
+constexpr const char* kChampionsEvent       = "champions";
+constexpr const char* kLastUsedEvent        = "lastUsed";
 
 // Poll and read staleness windows are tuned to avoid partial file reads.
 constexpr std::chrono::milliseconds kWatchPollInterval(500);
@@ -71,8 +74,11 @@ struct AppConfig {
 };
 
 struct SnapshotCache {
-  // Serialized payload event body reused for late joiners.
-  json payload;
+  // Per-type payload arrays sent as separate notifications, replayed to late joiners.
+  json artifacts;
+  json inboxArtifacts;
+  json champions;
+  json lastUsed;
   // Signature avoids rebroadcasting unchanged snapshots.
   std::string signature;
 };
@@ -246,6 +252,7 @@ static std::optional<json> convertArtifactRow(sqlite3_stmt* stmt, const Statemen
     {"rarityId", getIntOr(stmt, cols, {"rarity"})},
     {"setKindId", getIntOr(stmt, cols, {"aset"})},
     {"requiredFraction", getIntOr(stmt, cols, {"accset"})},
+    {"cID", getIntOr(stmt, cols, {"cID"})},
     {"failedUpgrades", 0},
     {"isActivated", true},
     {"isSeen", true},
@@ -257,7 +264,7 @@ static std::optional<json> convertArtifactRow(sqlite3_stmt* stmt, const Statemen
   return row;
 }
 
-static json readArtifactTable(sqlite3* db, const std::string& tableName, std::unordered_map<int64_t, std::unordered_map<std::string, int64_t>>* byHero) {
+static json readArtifactTable(sqlite3* db, const std::string& tableName) {
   // Read Artifacts/InboxArtifacts and convert each row into ArtifactLog shape.
   json rows = json::array();
   if (!tableExists(db, tableName)) return rows;
@@ -273,16 +280,6 @@ static json readArtifactTable(sqlite3* db, const std::string& tableName, std::un
     const auto converted = convertArtifactRow(stmt, cols);
     if (!converted.has_value()) continue;
     rows.push_back(converted.value());
-
-    // Build hero->slot->artifact map from equipped artifacts only.
-    if (byHero != nullptr) {
-      const int64_t heroId = getIntOr(stmt, cols, {"cID"});
-      const int64_t slotId = getIntOr(stmt, cols, {"type"});
-      const int64_t artifactId = getIntOr(stmt, cols, {"ID"});
-      if (heroId > 0 && slotId > 0 && artifactId > 0) {
-        (*byHero)[heroId][std::to_string(slotId)] = artifactId;
-      }
-    }
   }
   sqlite3_finalize(stmt);
   return rows;
@@ -350,7 +347,7 @@ static json readLastUsed(sqlite3* db) {
   return entries;
 }
 
-static std::optional<json> buildArtifactLogSnapshotFromSqlite(const fs::path& dbPath, const std::string& snapshotId) {
+static std::optional<SnapshotCache> buildPerTypeSnapshot(const fs::path& dbPath) {
   // Open sqlite read-only to avoid locking side-effects on Helper writes.
   sqlite3* rawDb = nullptr;
   if (sqlite3_open_v2(dbPath.string().c_str(), &rawDb, SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK) {
@@ -363,35 +360,13 @@ static std::optional<json> buildArtifactLogSnapshotFromSqlite(const fs::path& db
     if (ptr != nullptr) sqlite3_close(ptr);
   });
 
-  // Build hero mapping while reading main artifacts table.
-  std::unordered_map<int64_t, std::unordered_map<std::string, int64_t>> byHeroMap;
-  const json artifactLog = readArtifactTable(db.get(), "Artifacts", &byHeroMap);
-  const json inboxArtifactLog = readArtifactTable(db.get(), "InboxArtifacts", nullptr);
-  const json champions = readChampions(db.get());
-  const json lastUsed = readLastUsed(db.get());
-
-  // Convert hero map into JSON object using string keys like sample file.
-  json artifactByHero = json::object();
-  for (const auto& [heroId, slotMap] : byHeroMap) {
-    json slots = json::object();
-    for (const auto& [slotId, artifactId] : slotMap) {
-      slots[slotId] = artifactId;
-    }
-    artifactByHero[std::to_string(heroId)] = slots;
-  }
-
-  // Emit payload shape consumed by new artifactLogSnapshot pathway.
-  json payload = {
-    {"snapshotId", snapshotId},
-    {"payloadVersion", 1},
-    {"artifactLog", artifactLog},
-    {"artifactByHeroIDLog", artifactByHero},
-    {"inboxArtifactLog", inboxArtifactLog},
-    {"champions", champions},
-    {"lastUsed", lastUsed}
-  };
-
-  return payload;
+  // Read each table into its own array; signature is filled in by the caller.
+  SnapshotCache cache;
+  cache.artifacts     = readArtifactTable(db.get(), "Artifacts");
+  cache.inboxArtifacts = readArtifactTable(db.get(), "InboxArtifacts");
+  cache.champions     = readChampions(db.get());
+  cache.lastUsed      = readLastUsed(db.get());
+  return cache;
 }
 
 #if !defined(_WIN32)
@@ -508,7 +483,7 @@ private:
       clients_.insert(hdl);
       std::cout << "[cpp-watcher] client connected\n";
       if (lastSnapshot_.has_value()) {
-        sendSnapshotToClient(hdl, lastSnapshot_.value().payload);
+        sendSnapshotToClient(hdl, lastSnapshot_.value());
       }
     });
 
@@ -621,7 +596,7 @@ private:
       return;
     }
     forceSnapshotRequested_.store(true, std::memory_order_relaxed);
-    std::cout << "[cpp-watcher] shortcut F -> forcing artifactLogSnapshot refresh\n";
+    std::cout << "[cpp-watcher] shortcut F -> forcing per-type snapshot refresh\n";
   }
 
   void stop() {
@@ -805,28 +780,28 @@ private:
     const bool forceSnapshot = forceSnapshotRequested_.exchange(false, std::memory_order_relaxed);
     if (lastSignature_ == signature && !forceSnapshot) return;
 
-    // Convert SQL tables into new artifactLogSnapshot payload shape.
-    const std::string snapshotId = dbFile.filename().string() + ":" + signature;
-    const auto converted = buildArtifactLogSnapshotFromSqlite(dbFile, snapshotId);
-    if (!converted.has_value()) {
+    // Read SQL tables and build per-type snapshot matching RSL Helper's format.
+    auto maybeCache = buildPerTypeSnapshot(dbFile);
+    if (!maybeCache.has_value()) {
       return;
     }
 
-    SnapshotCache cache{converted.value(), signature};
+    maybeCache->signature = signature;
+    SnapshotCache cache = std::move(maybeCache.value());
 
     {
       std::lock_guard<std::mutex> lock(mutex_);
       lastSnapshot_ = cache;
-      // Broadcast converted payload to every connected client.
+      // Broadcast all four per-type notifications to every connected client.
       for (const auto& hdl : clients_) {
-        sendSnapshotToClient(hdl, cache.payload);
+        sendSnapshotToClient(hdl, cache);
       }
     }
 
     lastSignature_ = signature;
-    std::cout << "[cpp-watcher] queued artifactLogSnapshot from " << dbFile
-              << " (artifacts=" << converted->value("artifactLog", json::array()).size()
-              << ", inbox=" << converted->value("inboxArtifactLog", json::array()).size()
+    std::cout << "[cpp-watcher] pushed per-type snapshot from " << dbFile
+              << " (artifacts=" << cache.artifacts.size()
+              << ", inbox=" << cache.inboxArtifacts.size()
               << (forceSnapshot ? ", forced=1" : ", forced=0")
               << ")\n";
   }
@@ -860,16 +835,19 @@ private:
     return hasCandidate ? newest : fs::path{};
   }
 
-  void sendSnapshotToClient(ConnectionHdl hdl, const json& payload) {
-    // JSON-RPC 2.0 notification envelope.
-    const json envelope = {
-      {"jsonrpc", "2.0"},
-      {"method", kArtifactLogSnapshotEvent},
-      {"params", payload}
-    };
-
+  void sendJsonRpcNotification(ConnectionHdl hdl, const char* method, const json& params) {
+    // Build and send a JSON-RPC 2.0 notification (no id, no response expected).
+    const json envelope = {{"jsonrpc", "2.0"}, {"method", method}, {"params", params}};
     std::error_code ec;
     server_.send(hdl, envelope.dump(), websocketpp::frame::opcode::text, ec);
+  }
+
+  void sendSnapshotToClient(ConnectionHdl hdl, const SnapshotCache& snapshot) {
+    // Emit one notification per table to match RSL Helper's per-type format.
+    sendJsonRpcNotification(hdl, kArtifactsEvent,      {{"artifacts",      snapshot.artifacts}});
+    sendJsonRpcNotification(hdl, kInboxArtifactsEvent, {{"inboxArtifacts", snapshot.inboxArtifacts}});
+    sendJsonRpcNotification(hdl, kChampionsEvent,      {{"champions",      snapshot.champions}});
+    sendJsonRpcNotification(hdl, kLastUsedEvent,       {{"lastUsed",       snapshot.lastUsed}});
   }
 
   void sendSelectRuleToClient(ConnectionHdl hdl, int rowNumber) {

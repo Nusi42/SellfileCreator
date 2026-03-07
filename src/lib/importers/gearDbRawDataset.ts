@@ -16,18 +16,10 @@ import {
 import {
   createChampionLookup,
   createLastUsedLookup,
-  removeChampion,
-  removeLastUsed,
   type ChampionLookup,
   type LastUsedLookup,
-  upsertChampionRow,
-  upsertLastUsedRow,
 } from './gearDbLookups'
-import type {
-  GearDbRawSnapshotCommand,
-  GearDbRawDeltaCommand,
-  GearDbRawDeltaOperation,
-} from '../externalCommands'
+import type { GearDbRawSnapshotCommand } from '../externalCommands'
 
 export type GearDbRawDataset = {
   snapshotId: string | null
@@ -61,37 +53,6 @@ export const createDatasetFromSnapshot = (
   }
   const { gearInspectorItems, artifactCount, inboxCount } = collectGearInspectorItems(dataset)
   return { dataset, gearInspectorItems, artifactCount, inboxCount }
-}
-
-/**
- * Apply a delta event to the existing dataset. Throws when the snapshot id
- * mismatches so callers can explicitly request a new snapshot.
- */
-export const applyDeltaToDataset = (
-  dataset: GearDbRawDataset,
-  delta: GearDbRawDeltaCommand,
-): { gearInspectorItems: TestItem[]; artifactCount: number; inboxCount: number } => {
-  const activeSnapshotId = dataset.snapshotId ?? null
-  const deltaSnapshotId = delta.snapshotId ?? null
-  if (activeSnapshotId !== null && deltaSnapshotId !== null && activeSnapshotId !== deltaSnapshotId) {
-    throw new Error(`gearDbRawDelta snapshot mismatch (have "${activeSnapshotId}", got "${deltaSnapshotId}")`)
-  }
-  if (deltaSnapshotId && !activeSnapshotId) {
-    dataset.snapshotId = deltaSnapshotId
-  }
-  const touchedChampionIds = new Set<number>()
-  const touchedLastUsedIds = new Set<number>()
-  for (const op of delta.ops) {
-    // Walk every op eagerly so the Gear Inspector always receives a fully reconciled view.
-    applyDeltaOperation(dataset, op, touchedChampionIds, touchedLastUsedIds)
-  }
-  if (touchedChampionIds.size > 0) {
-    refreshChampionMetadata(dataset, touchedChampionIds)
-  }
-  if (touchedLastUsedIds.size > 0) {
-    refreshLastUsedMetadata(dataset, touchedLastUsedIds)
-  }
-  return collectGearInspectorItems(dataset)
 }
 
 const buildArtifactMap = (
@@ -153,89 +114,3 @@ const cloneGearInspectorItem = (artifact: NormalizedGearArtifact): TestItem => (
   },
 })
 
-const applyDeltaOperation = (
-  dataset: GearDbRawDataset,
-  op: GearDbRawDeltaOperation,
-  touchedChampionIds: Set<number>,
-  touchedLastUsedIds: Set<number>,
-): void => {
-  // The op union mirrors the JSON payload; each branch mutates the cached maps
-  // so subsequent deltas see the freshly updated dataset.
-  if (op.op === 'remove') {
-    handleRemoval(dataset, op)
-    if (op.table === 'Champs') touchedChampionIds.add(op.id)
-    if (op.table === 'LastUsed') touchedLastUsedIds.add(op.id)
-    return
-  }
-  if (op.table === 'Artifacts' || op.table === 'InboxArtifacts') {
-    const target = op.table === 'Artifacts' ? dataset.artifacts : dataset.inboxArtifacts
-    const source: ArtifactSource = op.table === 'Artifacts' ? 'artifacts' : 'inbox'
-    const id = Number(op.row.ID)
-    if (!Number.isFinite(id) || id <= 0) return
-    try {
-      const normalized = normalizeGearDbArtifact(op.row, {
-        source,
-        championLookup: dataset.champions,
-        lastUseLocalTimestamp: dataset.lastUsed.get(id) ?? null,
-      })
-      target.set(id, normalized)
-    } catch {
-      target.delete(id)
-    }
-    return
-  }
-  if (op.table === 'Champs') {
-    const record = upsertChampionRow(dataset.champions, op.row)
-    if (record) touchedChampionIds.add(record.id)
-    return
-  }
-  if (op.table === 'LastUsed') {
-    const timestamp = upsertLastUsedRow(dataset.lastUsed, op.row)
-    if (timestamp) touchedLastUsedIds.add(op.row.id)
-  }
-}
-
-const handleRemoval = (dataset: GearDbRawDataset, op: Extract<GearDbRawDeltaOperation, { op: 'remove' }>): void => {
-  if (op.table === 'Artifacts') {
-    dataset.artifacts.delete(op.id)
-    return
-  }
-  if (op.table === 'InboxArtifacts') {
-    dataset.inboxArtifacts.delete(op.id)
-    return
-  }
-  if (op.table === 'Champs') {
-    removeChampion(dataset.champions, op.id)
-    return
-  }
-  if (op.table === 'LastUsed') {
-    removeLastUsed(dataset.lastUsed, op.id)
-  }
-}
-
-const refreshChampionMetadata = (dataset: GearDbRawDataset, championIds: Set<number>): void => {
-  const updateArtifact = (artifact: NormalizedGearArtifact) => {
-    const championId = artifact.equippedToChampionId
-    if (championId == null || !championIds.has(championId)) return
-    const record = dataset.champions.get(championId) ?? null
-    artifact.equippedChampionName = record?.name ?? null
-    artifact.equippedChampionBaseId = record?.baseHeroId ?? null
-    artifact.equippedChampionRarity = record?.rarity ?? null
-    artifact.equippedChampionLocation = record
-      ? (record.reserveVault ? 'reserveVault' : (record.vault ? 'vault' : 'collection'))
-      : null
-    artifact.gearInspectorItem = cloneGearInspectorItem(artifact)
-  }
-  dataset.artifacts.forEach(updateArtifact)
-  dataset.inboxArtifacts.forEach(updateArtifact)
-}
-
-const refreshLastUsedMetadata = (dataset: GearDbRawDataset, artifactIds: Set<number>): void => {
-  const updateArtifact = (artifact: NormalizedGearArtifact) => {
-    if (!artifactIds.has(artifact.id)) return
-    artifact.lastUseLocalTimestamp = dataset.lastUsed.get(artifact.id) ?? null
-    artifact.gearInspectorItem = cloneGearInspectorItem(artifact)
-  }
-  dataset.artifacts.forEach(updateArtifact)
-  dataset.inboxArtifacts.forEach(updateArtifact)
-}

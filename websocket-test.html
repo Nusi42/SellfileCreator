@@ -1,0 +1,335 @@
+﻿<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Delphi WebSocket JSON-RPC Test</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --text: #162238;
+      --muted: #5b6a84;
+      --accent: #0a66c2;
+      --accent2: #0d8a54;
+      --warn: #b86a00;
+      --error: #bf1b1b;
+      --line: #d7dfef;
+      --logbg: #0d152a;
+      --logfg: #d9e9ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at top right, #e9f1ff, var(--bg) 46%);
+    }
+
+    .wrap { max-width: 1080px; margin: 18px auto; padding: 12px; }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      padding: 14px;
+      box-shadow: 0 7px 18px rgba(0,0,0,.05);
+    }
+
+    h1 { margin: 0 0 6px; font-size: 22px; }
+    .sub { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+
+    .box {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f9fbff;
+      padding: 10px;
+    }
+
+    .box h2 { margin: 0 0 8px; font-size: 15px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+
+    input, textarea, button {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+
+    input, textarea { background: #fff; }
+    input { min-width: 160px; flex: 1; }
+    textarea { width: 100%; min-height: 120px; resize: vertical; font-family: Consolas, "Courier New", monospace; }
+
+    button { background: #fff; cursor: pointer; }
+    button.primary { color: #fff; border-color: var(--accent); background: var(--accent); }
+    button.success { color: #fff; border-color: var(--accent2); background: var(--accent2); }
+
+    .status { margin: 2px 0 8px; font-weight: 600; }
+    .status.ok { color: var(--accent2); }
+    .status.warn { color: var(--warn); }
+    .status.error { color: var(--error); }
+
+    .meta { display: flex; gap: 14px; flex-wrap: wrap; color: var(--muted); font-size: 13px; }
+
+    #log {
+      height: 320px;
+      overflow: auto;
+      border-radius: 10px;
+      padding: 10px;
+      border: 1px solid #1f2c4d;
+      background: var(--logbg);
+      color: var(--logfg);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+
+    code { background: #eef3ff; border-radius: 6px; padding: 1px 5px; }
+
+    @media (max-width: 860px) {
+      .grid { grid-template-columns: 1fr; }
+      #log { height: 260px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h1>Delphi WebSocket JSON-RPC Test</h1>
+      <p class="sub">Sende exakt: <code>{"jsonrpc":"2.0","method":"X","params":{"X":&lt;payload&gt;}}</code></p>
+
+      <div class="grid">
+        <div class="box">
+          <h2>Verbindung</h2>
+          <div class="row">
+            <input id="url" value="ws://127.0.0.1:8080" aria-label="WebSocket URL">
+            <input id="method" value="artifacts" aria-label="Method">
+          </div>
+          <div class="row">
+            <button id="connect" class="primary">Verbinden</button>
+            <button id="disconnect">Trennen</button>
+          </div>
+          <div id="status" class="status warn">Status: getrennt</div>
+          <div class="meta">
+            <span>Gesendet: <strong id="sentCount">0</strong></span>
+            <span>Empfangen: <strong id="recvCount">0</strong></span>
+          </div>
+        </div>
+
+        <div class="box">
+          <h2>Presets</h2>
+          <div class="row">
+            <button id="presetArtifacts">Method=artifacts / []</button>
+            <button id="presetChampions">Method=champions / []</button>
+            <button id="formatPayload">Payload formatieren</button>
+          </div>
+          <div class="row">
+            <button id="sendLong" class="success">Long Array senden</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <textarea id="payload" aria-label="Payload JSON">[]</textarea>
+      </div>
+
+      <div class="row">
+        <button id="send" class="success">Senden JSON-RPC</button>
+        <button id="clear">Log leeren</button>
+      </div>
+
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <script>
+    const urlEl = document.getElementById('url');
+    const methodEl = document.getElementById('method');
+    const payloadEl = document.getElementById('payload');
+
+    const connectBtn = document.getElementById('connect');
+    const disconnectBtn = document.getElementById('disconnect');
+    const sendBtn = document.getElementById('send');
+    const sendLongBtn = document.getElementById('sendLong');
+    const clearBtn = document.getElementById('clear');
+    const presetArtifactsBtn = document.getElementById('presetArtifacts');
+    const presetChampionsBtn = document.getElementById('presetChampions');
+    const formatPayloadBtn = document.getElementById('formatPayload');
+
+    const statusEl = document.getElementById('status');
+    const logEl = document.getElementById('log');
+    const sentCountEl = document.getElementById('sentCount');
+    const recvCountEl = document.getElementById('recvCount');
+
+    let ws = null;
+    let sentCount = 0;
+    let recvCount = 0;
+
+    function now() {
+      return new Date().toLocaleTimeString();
+    }
+
+    function log(text) {
+      logEl.textContent += `[${now()}] ${text}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function setStatus(text, cls) {
+      statusEl.textContent = `Status: ${text}`;
+      statusEl.className = `status ${cls}`;
+    }
+
+    function refreshCounters() {
+      sentCountEl.textContent = String(sentCount);
+      recvCountEl.textContent = String(recvCount);
+    }
+
+    function isOpen() {
+      return ws && ws.readyState === WebSocket.OPEN;
+    }
+
+    function parsePayloadStrict(raw) {
+      const text = (raw || '').trim();
+      if (!text) {
+        return null;
+      }
+      return JSON.parse(text);
+    }
+
+    function buildJsonRpc(methodName, payloadValue) {
+      const method = methodName && methodName.trim() ? methodName.trim() : 'message';
+      return {
+        jsonrpc: '2.0',
+        method,
+        params: {
+          [method]: payloadValue
+        }
+      };
+    }
+
+    function connect() {
+      if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
+        log('Bereits verbunden oder im Verbindungsaufbau.');
+        return;
+      }
+
+      const url = urlEl.value.trim();
+      if (!url) {
+        log('Keine URL eingetragen.');
+        return;
+      }
+
+      ws = new WebSocket(url);
+      setStatus('verbinde...', 'warn');
+
+      ws.onopen = () => {
+        setStatus('verbunden', 'ok');
+        log(`Verbunden mit ${url}`);
+      };
+
+      ws.onmessage = (ev) => {
+        recvCount += 1;
+        refreshCounters();
+
+        try {
+          const obj = JSON.parse(ev.data);
+          const method = obj.method || '(kein method)';
+          const data = obj.params ? obj.params[method] : undefined;
+          log(`Empfangen method=${method} payloadType=${Array.isArray(data) ? 'array' : typeof data} size=${JSON.stringify(data).length}`);
+        } catch {
+          log(`Empfangen RAW: ${ev.data}`);
+        }
+      };
+
+      ws.onerror = () => {
+        setStatus('Fehler', 'error');
+        log('WebSocket-Fehler. Details in Browser-Konsole.');
+      };
+
+      ws.onclose = () => {
+        setStatus('getrennt', 'warn');
+        log('Verbindung geschlossen.');
+      };
+    }
+
+    function disconnect() {
+      if (!ws) return;
+      ws.close();
+      ws = null;
+    }
+
+    function sendJsonRpc(payloadObj) {
+      if (!isOpen()) {
+        log('Nicht verbunden.');
+        return;
+      }
+
+      const text = JSON.stringify(payloadObj);
+      ws.send(text);
+      sentCount += 1;
+      refreshCounters();
+      log(`Gesendet ${text.length} Byte, method=${payloadObj.method}`);
+    }
+
+    function sendDefault() {
+      const method = methodEl.value.trim();
+      let payloadValue;
+      try {
+        payloadValue = parsePayloadStrict(payloadEl.value);
+      } catch (err) {
+        log(`Payload ist kein gueltiges JSON: ${err.message}`);
+        return;
+      }
+
+      sendJsonRpc(buildJsonRpc(method, payloadValue));
+    }
+
+    function sendLong() {
+      const method = methodEl.value.trim() || 'artifacts';
+      const arr = [];
+      for (let i = 0; i < 1600; i += 1) {
+        arr.push({ id: i + 1, kindId: 6, rarityId: 4, primary: { statValue: 966367641600 + i } });
+      }
+      sendJsonRpc(buildJsonRpc(method, arr));
+      log(`Long-Array erstellt: ${arr.length} Elemente`);
+    }
+
+    function setPreset(methodName) {
+      methodEl.value = methodName;
+      payloadEl.value = '[]';
+    }
+
+    function formatPayload() {
+      try {
+        const parsed = parsePayloadStrict(payloadEl.value);
+        payloadEl.value = JSON.stringify(parsed, null, 2);
+      } catch (err) {
+        log(`Formatieren fehlgeschlagen: ${err.message}`);
+      }
+    }
+
+    connectBtn.addEventListener('click', connect);
+    disconnectBtn.addEventListener('click', disconnect);
+    sendBtn.addEventListener('click', sendDefault);
+    sendLongBtn.addEventListener('click', sendLong);
+    clearBtn.addEventListener('click', () => { logEl.textContent = ''; });
+    presetArtifactsBtn.addEventListener('click', () => setPreset('artifacts'));
+    presetChampionsBtn.addEventListener('click', () => setPreset('champions'));
+    formatPayloadBtn.addEventListener('click', formatPayload);
+
+    payloadEl.addEventListener('keydown', (ev) => {
+      if (ev.ctrlKey && ev.key === 'Enter') {
+        sendDefault();
+      }
+    });
+
+    refreshCounters();
+    log('Bereit. Method setzen, JSON-Array einfuellen, senden.');
+  </script>
+</body>
+</html>

@@ -6,7 +6,6 @@
  */
 import type { GearDbRawDataset } from './importers/gearDbRawDataset'
 import type { ChampionLocation, NormalizedGearArtifact, NormalizedStat } from './importers/gearDbNormalizer'
-import type { GearDbRawDeltaCommand, GearDbRawDeltaOperation } from './externalCommands'
 import type { GearInspectorPreviewMatch } from '../types/gearInspectorPreview'
 import { formatLocalDateTime } from './dateDisplay'
 import type {
@@ -401,30 +400,3 @@ export const buildGearDbDiffSummary = (
   return { entries, addedCount, removedCount, updatedCount }
 }
 
-/**
- * Extract artifact ids touched by a Gear DB delta so diffing stays scoped.
- */
-export const collectGearDbDeltaArtifactIds = (delta: GearDbRawDeltaCommand): Set<number> => {
-  // Only artifact table ops affect the Gear Inspector grid diff.
-  const ids = new Set<number>()
-  for (const op of delta.ops) {
-    const nextId = extractDeltaArtifactId(op)
-    if (nextId == null) continue
-    ids.add(nextId)
-  }
-  return ids
-}
-
-/**
- * Pull the artifact id from a delta op when the operation targets gear rows.
- */
-const extractDeltaArtifactId = (op: GearDbRawDeltaOperation): number | null => {
-  // Ignore champion/last-used updates since they do not alter stats.
-  if (op.table !== 'Artifacts' && op.table !== 'InboxArtifacts') return null
-  // Normalize ids from remove or upsert operations.
-  const rawId = op.op === 'remove' ? op.id : Number(op.row.ID)
-  // Guard against malformed payloads.
-  if (!Number.isFinite(rawId)) return null
-  if (rawId <= 0) return null
-  return rawId
-}
