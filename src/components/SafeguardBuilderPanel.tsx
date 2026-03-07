@@ -68,6 +68,7 @@ import {
 import {
   BUILDER_LABEL_INLINE_SX,
   BUILDER_LABEL_TEXT_SX,
+  BUILDER_STATUS_CHIP_HEIGHT_PX,
   BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
   CLEAR_ICON_BUTTON_SIZE_PX,
   DANGER_TINT_BG,
@@ -78,6 +79,7 @@ import {
   HISTORY_TOOLTIP_MAX_WIDTH_PX,
   NBSP,
   SMALL_BUTTON_HEIGHT_PX,
+  STATUS_CHIP_BORDER_RADIUS_PX,
   UI_BG_HOVER_DANGER_TRANSITION,
 } from '../lib/constants'
 
@@ -120,7 +122,7 @@ import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import ClearIconButton from './ClearIconButton'
 import { mainStatToggleGroupSx, substatToggleGroupSx } from './SubstatToggleDisplay'
-import { useTheme } from '@mui/material/styles'
+import { alpha, useTheme } from '@mui/material/styles'
 import type { Metaset } from '../lib/metasets'
 
 // ── constants ────────────────────────────────────────────────────────────────
@@ -982,73 +984,126 @@ export default function SafeguardBuilderPanel({
         {/* Substat match mode chips + weights button + beat-equipped quality floor — all inline */}
         <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
-          {/* Single cycling chip rotates through Any → All → Per Substat on each click. */}
-          <MarkdownTooltip markdown={t('safeguardsSubstatRequirementHint')}>
-            <Chip
+          {/* Match mode chip woven with weights configure button.
+              Chip cycles Any→All→Per Substat; button opens weights popover.
+              Split-button pattern mirrors Final Sell: chip has flat right side,
+              button attaches with matching background and a thin separator. */}
+          <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            <MarkdownTooltip markdown={t('safeguardsSubstatRequirementHint')}>
+              <Chip
+                size="small"
+                variant="filled"
+                label={`${t('filterMatch')}:${NBSP}${currentMatchLabel}`}
+                aria-label={t('safeguardsSubstatRequirementLabel')}
+                clickable
+                disabled={!hasSubstatSelection}
+                onClick={() => {
+                  if (!hasSubstatSelection) return
+                  // Cycle Any → All → PerSubstat → Any.
+                  const next = effectiveSubstatMatch === SafeguardSubstatMatch.Any ? SafeguardSubstatMatch.All
+                    : effectiveSubstatMatch === SafeguardSubstatMatch.All ? SafeguardSubstatMatch.PerSubstat
+                    : SafeguardSubstatMatch.Any
+                  // Per Substat disables weights — close the popover so it doesn't linger.
+                  if (next === SafeguardSubstatMatch.PerSubstat) setWeightsAnchorEl(null)
+                  updateRule((prev) => ({ ...prev, substatMatch: next }))
+                }}
+                sx={{
+                  ...builderStatusChipSx(true, { dimDisabled: true }),
+                  // Flatten right corners so the configure button fits flush.
+                  borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px 0 0 ${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                }}
+              />
+            </MarkdownTooltip>
+            {/* Weights configure button — square left side continues the chip shape */}
+            <IconButton
               size="small"
-              variant="filled"
-              label={`${t('filterMatch')}:${NBSP}${currentMatchLabel}`}
-              aria-label={t('safeguardsSubstatRequirementLabel')}
-              clickable
-              disabled={!hasSubstatSelection}
-              onClick={() => {
-                if (!hasSubstatSelection) return
-                // Cycle Any → All → PerSubstat → Any.
-                const next = effectiveSubstatMatch === SafeguardSubstatMatch.Any ? SafeguardSubstatMatch.All
-                  : effectiveSubstatMatch === SafeguardSubstatMatch.All ? SafeguardSubstatMatch.PerSubstat
-                  : SafeguardSubstatMatch.Any
-                // Per Substat disables weights — close the popover so it doesn't linger.
-                if (next === SafeguardSubstatMatch.PerSubstat) setWeightsAnchorEl(null)
-                updateRule((prev) => ({ ...prev, substatMatch: next }))
+              aria-label={t('safeguardsSubstatWeightsLabel')}
+              disabled={!hasSubstatSelection || !showSubstatWeights}
+              onClick={(e) => setWeightsAnchorEl(e.currentTarget)}
+              sx={(theme) => {
+                const canInteract = hasSubstatSelection && showSubstatWeights
+                // Match chip is always "enabled" colored (true) when substats are selected.
+                const chipEnabled = hasSubstatSelection
+                const bg = chipEnabled ? alpha(theme.palette.success.main, 0.18) : alpha(theme.palette.text.disabled, 0.08)
+                const color = chipEnabled
+                  ? (theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark)
+                  : theme.palette.text.disabled
+                return {
+                  height: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                  minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                  width: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                  borderRadius: `0 ${STATUS_CHIP_BORDER_RADIUS_PX}px ${STATUS_CHIP_BORDER_RADIUS_PX}px 0`,
+                  backgroundColor: bg,
+                  color: canInteract ? color : alpha(color, 0.45),
+                  borderLeft: `1px solid ${chipEnabled ? alpha(theme.palette.success.main, 0.28) : alpha(theme.palette.divider, 0.5)}`,
+                  '&:hover': canInteract ? { backgroundColor: alpha(theme.palette.success.main, 0.28) } : {},
+                  '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: alpha(color, 0.35) },
+                }
               }}
-              sx={builderStatusChipSx(true, { dimDisabled: true })}
-            />
-          </MarkdownTooltip>
-          {/* Weights configure button — always visible, disabled when no substats or PerSubstat mode */}
-          <IconButton
-            size="small"
-            aria-label={t('safeguardsSubstatWeightsLabel')}
-            disabled={!hasSubstatSelection || !showSubstatWeights}
-            onClick={(e) => setWeightsAnchorEl(e.currentTarget)}
-            sx={{ p: 0.25, color: hasSubstatSelection && Object.keys(rule.substatWeights ?? {}).length > 0 ? 'primary.main' : 'text.secondary' }}
-          >
-            <TuneIcon fontSize="small" />
-          </IconButton>
-          {/* Beat-equipped quality floor chip — shows actual percentile when enabled.
-              Disabled when no substats selected; configure button opens a popover. */}
-          <MarkdownTooltip markdown={t('safeguardsBeatEquippedPercentileHint')} ellipsisTitle={t('safeguardsBeatEquippedPercentile')} ellipsisSelector=".MuiChip-label">
-            <Chip
+            >
+              <TuneIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Box>
+          {/* Beat-equipped quality floor chip woven with configure button.
+              Chip toggles the floor on/off; button opens the percentile popover.
+              Same split-button pattern as Match: flat right side on chip, button attaches flush. */}
+          <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            <MarkdownTooltip markdown={t('safeguardsBeatEquippedPercentileHint')} ellipsisTitle={t('safeguardsBeatEquippedPercentile')} ellipsisSelector=".MuiChip-label">
+              <Chip
+                size="small"
+                variant="filled"
+                label={beatEquippedEnabled
+                  ? t('safeguardsBeatEquippedWithValue', { value: beatEquippedPercentile })
+                  : t('safeguardsBeatEquippedShort')}
+                aria-label={t('safeguardsBeatEquippedPercentile')}
+                clickable
+                disabled={!hasSubstatSelection}
+                onClick={() => {
+                  if (!hasSubstatSelection) return
+                  // Toggle: disable when active (reset to null), enable with 50 when inactive.
+                  updateRule((prev) => ({
+                    ...prev,
+                    beatEquippedPercentile: prev.beatEquippedPercentile !== null
+                      ? SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE
+                      : 50,
+                  }))
+                }}
+                sx={{
+                  ...builderStatusChipSx(beatEquippedEnabled, { dimDisabled: true }),
+                  // Flatten right corners so the configure button fits flush.
+                  borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px 0 0 ${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                }}
+              />
+            </MarkdownTooltip>
+            {/* Configure button — only interactive when the floor is active */}
+            <IconButton
               size="small"
-              variant="filled"
-              label={beatEquippedEnabled
-                ? t('safeguardsBeatEquippedWithValue', { value: beatEquippedPercentile })
-                : t('safeguardsBeatEquippedShort')}
               aria-label={t('safeguardsBeatEquippedPercentile')}
-              clickable
-              disabled={!hasSubstatSelection}
-              onClick={() => {
-                if (!hasSubstatSelection) return
-                // Toggle: disable when active (reset to null), enable with 50 when inactive.
-                updateRule((prev) => ({
-                  ...prev,
-                  beatEquippedPercentile: prev.beatEquippedPercentile !== null
-                    ? SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE
-                    : 50,
-                }))
+              disabled={!hasSubstatSelection || !beatEquippedEnabled}
+              onClick={(e) => setBeatEquippedAnchorEl(e.currentTarget)}
+              sx={(theme) => {
+                const canInteract = hasSubstatSelection && beatEquippedEnabled
+                const chipEnabled = beatEquippedEnabled
+                const bg = chipEnabled ? alpha(theme.palette.success.main, 0.18) : alpha(theme.palette.text.disabled, 0.08)
+                const color = chipEnabled
+                  ? (theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark)
+                  : theme.palette.text.disabled
+                return {
+                  height: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                  minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                  width: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                  borderRadius: `0 ${STATUS_CHIP_BORDER_RADIUS_PX}px ${STATUS_CHIP_BORDER_RADIUS_PX}px 0`,
+                  backgroundColor: bg,
+                  color: canInteract ? color : alpha(color, 0.45),
+                  borderLeft: `1px solid ${chipEnabled ? alpha(theme.palette.success.main, 0.28) : alpha(theme.palette.divider, 0.5)}`,
+                  '&:hover': canInteract ? { backgroundColor: alpha(theme.palette.success.main, 0.28) } : {},
+                  '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: alpha(color, 0.35) },
+                }
               }}
-              sx={builderStatusChipSx(beatEquippedEnabled, { dimDisabled: true })}
-            />
-          </MarkdownTooltip>
-          {/* Configure button — always visible, disabled when floor is inactive or no substats */}
-          <IconButton
-            size="small"
-            aria-label={t('safeguardsBeatEquippedPercentile')}
-            disabled={!hasSubstatSelection || !beatEquippedEnabled}
-            onClick={(e) => setBeatEquippedAnchorEl(e.currentTarget)}
-            sx={{ p: 0.25, color: hasSubstatSelection && beatEquippedEnabled ? 'primary.main' : 'text.secondary' }}
-          >
-            <TuneIcon fontSize="small" />
-          </IconButton>
+            >
+              <TuneIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Box>
         </Box>
         </Collapse>
       </Box>
