@@ -1282,6 +1282,7 @@ term          := "tag" ("=" | ":") token
              | "minsubstats" ("=" | ">=" | "<=") number
              | "flex" ("=" | ":") flexVal
 assignment    := ("rank" | "rarity") ("=" | ">=" | "<=") value
+             | ("slots" | "substats" | "mainstats") "=" token ("," token)*
              | field "=" value
 fallbackBlock := ("fallback" | "else") "{" selectorBlock+ "}"
 constraints   := "!" tokenList | "excl" tokenList
@@ -1312,6 +1313,8 @@ token         := /[\\p{L}\\p{M}_][\\p{L}\\p{N}\\p{M}_]*/
                 (unicode letters/marks, underscore)
 rarityName    := "common" | "uncommon" | "rare" | "epic"
              | "legendary" | "mythical" | "auto" | "any"
+slotName      := "Weapon" | "Helmet" | "Shield" | "Gauntlets" | "Chestplate"
+             | "Boots" | "Ring" | "Amulet" | "Banner"
 starKey       := "1" | "2" | "3" | "4" | "5" | "6"
              | "one" | "two" | "three" | "four" | "five" | "six"`
 
@@ -1358,6 +1361,10 @@ const RECIPE_OVERRIDES_SAMPLE_EXAMPLE_TEXT = [
   // Global minima overrides.
   'check "Global minima: use Rank 5 targets for Any" { @all { minima.any=5 } }',
   'check "Global minima: Rank 6 SPD = 6" { @all { minima.6.SPD=6 } }',
+  // Slot type, substat, and main-stat list overrides (comma-separated, case-insensitive).
+  'check "Restrict to Weapon and Helmet slots" { @all { slots=Weapon,Helmet } }',
+  'check "Override substats to SPD and ATK%" { @all { substats=SPD,ATK% } }',
+  'check "Override main stats to ATK%" { @all { mainstats=ATK% } }',
   // Close the comment block.
   RECIPE_OVERRIDES_SAMPLE_CLOSE,
 ].join('\n')
