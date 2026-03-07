@@ -95,6 +95,9 @@ const SUBSTAT_COLUMNS: readonly SubstatColumn[] = [
 
 export type GearDbArtifactRow = {
   ID: number
+  // Revision counter from the JSON endpoint — incremented by RSL Helper on every
+  // attribute change.  Not present in SQLite rows; optional so both sources share the type.
+  revision?: number | null
   price?: number | null
   rank?: number | null
   type?: number | null

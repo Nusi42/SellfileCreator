@@ -197,6 +197,9 @@ type ArtifactLogStatBlock = {
 
 type ArtifactLogRow = {
   id?: unknown
+  // Monotonically increasing counter incremented by RSL Helper whenever any
+  // attribute of the artifact changes.  Used for cheap change detection.
+  revision?: unknown
   price?: unknown
   level?: unknown
   rankId?: unknown
@@ -247,6 +250,8 @@ const parseArtifactLogRow = (
   // The adapter fills the SQL-like row shape expected by downstream helpers.
   const result: GearDbArtifactRow = {
     ID: id,
+    // Preserve revision so App.tsx can skip deep snapshot clones for unchanged artifacts.
+    revision: toNumber(row.revision) ?? null,
     price: toNumber(row.price) ?? 0,
     rank,
     type: slot,
