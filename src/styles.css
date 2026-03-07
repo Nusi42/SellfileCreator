@@ -29,7 +29,7 @@ body.restrict-ui [data-allow-select="1"] {
 .w-md-editor-text-pre .token.recipe-overrides-block .token.comment-delimiter          { color: #5c8baf; }
 /* Directive keyword (recipe-overrides / config-options) matches note-markers hue. */
 .w-md-editor-text-pre .token.recipe-overrides-block .token.comment-delimiter .token.directive-kw { color: #c678dd; }
-/* Line comments (// …) and block comments (/* … */) share the muted delimiter color. */
+/* Line comments (// …) and block comments share the muted delimiter color. */
 .w-md-editor-text-pre .token.recipe-overrides-block .token.line-comment            { color: #5c6370; }
 .w-md-editor-text-pre .token.recipe-overrides-block .token.block-comment           { color: #5c6370; }
 /* Strings default to green; nested spans override for inline markup. */

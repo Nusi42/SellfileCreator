@@ -380,7 +380,7 @@ export function useTutorialCoachState({
   const [tutorialAddedAdvanced, setTutorialAddedAdvanced] = useState<boolean>(false)
   const [tutorialAddedSlowDD, setTutorialAddedSlowDD] = useState<boolean>(false)
   const [tutorialAddedAutoLate, setTutorialAddedAutoLate] = useState<boolean>(false)
-  const [tutorialAddedDefaultMetas, setTutorialAddedDefaultMetas] = useState<boolean>(false)
+  const [, setTutorialAddedDefaultMetas] = useState<boolean>(false)
 
   // Timers/raf ids used by tutorial "helper actions" (open menus, scroll previews, etc.).
   // Why: tutorial steps can be aborted mid-flight and must always clean up scheduled work.
@@ -1510,9 +1510,11 @@ export function useTutorialCoachState({
     setGearInspectorItems,
     setPreviewMode,
     setLogicHubDialogTab,
+    setSafeguardBuilder,
     setSafeguardRules,
     setSafeguardsEnabled,
     setRecipesEnabled,
+    setSelectedSafeguardRuleId,
     setTutorialAddedAutoLate,
     setTutorialAddedAdvanced,
     setTutorialAddedBasic,
@@ -1526,7 +1528,6 @@ export function useTutorialCoachState({
     setTutorialSteps,
     suppressHistorySnapshot,
     t,
-    tutorialAddedDefaultMetas,
   ])
 
   const handleTutorialSkipTo = useCallback((idx: number) => {
@@ -2017,7 +2018,6 @@ export function useTutorialCoachState({
     selectedRecipeIdx,
     setBuilder,
     setCustomRecipes,
-    setMetasets,
     setSelectedRecipeIdx,
     suppressHistorySnapshot,
     setTutorialAddedAdvanced,
