@@ -937,6 +937,11 @@ const rehypeQuestionGroups: Pluggable = () => {
       const value = (node as { value?: string }).value ?? ''
       return value.trim().length === 0
     }
+    // A <br> between question elements acts as an explicit row-break sentinel:
+    // it terminates the current flex group without being emitted into the output.
+    const isBrElement = (node: RootContent): boolean => {
+      return node.type === 'element' && (node as Element).tagName === 'br'
+    }
     const transform = (node: Root | Element): void => {
       const nodeChildren = (node.children ?? []) as RootContent[]
       for (const child of nodeChildren) {
@@ -961,7 +966,13 @@ const rehypeQuestionGroups: Pluggable = () => {
             grouped.push(candidate)
             continue
           }
+          // Whitespace text is transparent to grouping — skip over it.
           if (isWhitespaceText(candidate)) continue
+          // A <br> explicitly terminates the current group; consume it silently
+          // so it does not render as a visible element between card rows.
+          if (isBrElement(candidate)) {
+            cursor += 1
+          }
           break
         }
         nextChildren.push({
@@ -970,6 +981,9 @@ const rehypeQuestionGroups: Pluggable = () => {
           properties: {},
           children: grouped,
         })
+        // cursor always points one past the last consumed node (whether the
+        // boundary was a <br> sentinel or another block element); back up by one
+        // so the outer loop's i += 1 lands on the correct next child.
         i = cursor - 1
       }
       nodeChildren.splice(0, nodeChildren.length, ...nextChildren)
