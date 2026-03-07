@@ -225,7 +225,6 @@ try {
 
   $sampleServerScripts = @(
     'run-db-watcher.ps1',
-    'run-db-watcher-helper.ps1',
     'run-db-watcher-core.ps1'
   )
   foreach ($scriptName in $sampleServerScripts) {
@@ -237,8 +236,7 @@ try {
   }
 
   $protocolDocs = @(
-    'docs\\technical\\websocket-jsonrpc.md',
-    'docs\\technical\\websocket-helper.md'
+    'docs\\technical\\websocket-jsonrpc.md'
   )
   foreach ($docPath in $protocolDocs) {
     $docSrc = Join-Path $RepoRoot $docPath

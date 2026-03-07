@@ -4,11 +4,11 @@ setlocal ENABLEDELAYEDEXPANSION
 REM Stream the live RSL Helper DB into Sellfile Creator without typing commands.
 REM Double-click this file to start the db watcher with the defaults that
 REM most users expect: it requires PowerShell 7 (pwsh), launches
-REM run-db-watcher-helper.ps1 with the gear DB watcher already pointing at
+REM run-db-watcher.ps1 with the gear DB watcher already pointing at
 REM %APPDATA%\RslHelper\Config, and still forwards any extra arguments.
 
 set "SCRIPT_DIR=%~dp0"
-set "PS_SCRIPT=!SCRIPT_DIR!run-db-watcher-helper.ps1"
+set "PS_SCRIPT=!SCRIPT_DIR!run-db-watcher.ps1"
 REM Pin the app entry file in source control for local dev runs.
 REM Build/package tooling can rewrite this value for the target layout.
 set "APP_ENTRY_PATH=!SCRIPT_DIR!..\..\dist\index.html"

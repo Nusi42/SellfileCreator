@@ -140,7 +140,7 @@ Argonites currently assume a new `accset = 17` mapping until a sample database c
 
 ## Raw JSON WebSocket events
 
-- Endpoints can skip uploading SQLite blobs entirely by sending `gearDbRawSnapshot` and `gearDbRawDelta` notifications over the WebSocket protocol. See `docs/technical/websocket-jsonrpc.md` and `docs/technical/websocket-helper.md` for the exact message shapes expected by the UI.
+- Endpoints can skip uploading SQLite blobs entirely by sending `gearDbRawSnapshot` and `gearDbRawDelta` notifications over the WebSocket protocol. See `docs/technical/websocket-jsonrpc.md` for the exact message shapes expected by the UI.
 - The snapshot payload ships every row from `Artifacts`, `InboxArtifacts`, `Champs`, and `LastUsedArtifacts`. The UI normalizes those rows through `createDatasetFromSnapshot` (`src/lib/importers/gearDbRawDataset.ts`) and pushes the resulting tester queue through the same diff logic as `.db` imports, so users still get the added/removed counts plus the command toast.
 - Delta payloads mirror Helper’s SQL mutations (`upsert` or `remove` for each table). The dataset helper applies the operations incrementally, rehydrates champion metadata, and emits a fresh tester payload so matcher diffs stay exact even when RSL Helper only changes one row.
 - Both commands honor `snapshotId`: when it regresses or is omitted after a prior snapshot, the browser drops the delta and requests a fresh snapshot so endpoints never have to guess which dataset is active.

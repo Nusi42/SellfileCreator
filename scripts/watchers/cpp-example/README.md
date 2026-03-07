@@ -3,7 +3,7 @@
 This example is a standalone C++ watcher for Sellfile Creator integration:
 
 - hosts a WebSocket endpoint (`ws://127.0.0.1:<port>/`)
-- supports either helper protocol (`type/cmd/evt`) or JSON-RPC 2.0
+- uses JSON-RPC 2.0 for all messages
 - accepts `uploadSellfile` requests and writes `.hsf` payloads to disk
 - watches the RSL Helper `.db` file, reads SQL tables, and emits `artifactLogSnapshot`
 - replays the latest converted snapshot to newly connected clients
@@ -42,7 +42,6 @@ cmake --build build --config Release
 ./build/cpp_watcher_example \
   --app-entry-path ../../dist/index.html \
   --port 8765 \
-  --protocol helper \
   --watch-gear-db 1
 ```
 
@@ -52,7 +51,6 @@ On Windows:
 .\build\Release\cpp_watcher_example.exe `
   --app-entry-path ..\..\dist\index.html `
   --port 8765 `
-  --protocol helper `
   --watch-gear-db 1
 ```
 
@@ -60,16 +58,16 @@ Optional flags:
 
 - `--output-path <path>` (default `exported-sellfile.hsf`)
 - `--gear-db-path <path>` (default `%APPDATA%\RslHelper\Config`)
-- `--protocol helper|jsonrpc` (default `helper`)
 - `--watch-gear-db 0|1` (default `1`)
 - `--open-browser 0|1` (default `1`)
 
 ## Endpoint payload behavior
 
-For DB updates this watcher emits:
+For DB updates this watcher emits a JSON-RPC 2.0 notification:
 
-1. `artifactLogSnapshot` helper event (`type: "evt", name: "artifactLogSnapshot"`)
-2. or JSON-RPC notification (`jsonrpc: "2.0", method: "artifactLogSnapshot"`)
+```json
+{"jsonrpc":"2.0","method":"artifactLogSnapshot","params":{...}}
+```
 
 The payload is built from SQLite tables and shaped as:
 

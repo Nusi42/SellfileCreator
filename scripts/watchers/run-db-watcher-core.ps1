@@ -10,15 +10,8 @@ This core script is dot-sourced by protocol-specific wrappers.
 #>
 Set-StrictMode -Version Latest
 
-# Read the desired protocol mode from the wrapper (defaults to jsonrpc).
-$protocolMode = $script:ProtocolMode
-if ([string]::IsNullOrWhiteSpace($protocolMode)) {
-    $protocolMode = 'jsonrpc'
-}
-
-# Map the protocol mode to a WebSocket subprotocol token.
-$protocolMode = $protocolMode.Trim().ToLowerInvariant()
-$protocolSubprotocol = if ($protocolMode -eq 'helper') { 'rws' } else { 'jsonrpc' }
+# JSON-RPC 2.0 is the sole supported wire protocol.
+$protocolMode = 'jsonrpc'
 
 # Explorer's "Run with PowerShell" host fails on advanced `param` blocks. The
 # script still needs defaults and optional switches, so we emulate the binder.
@@ -889,58 +882,13 @@ function Send-JsonRpcResponse {
     Send-WebSocketText -Socket $Socket -Text $json | Out-Null
 }
 
-function Send-RslResponse {
-    param(
-        [System.Net.WebSockets.WebSocket]$Socket,
-        [int]$Id,
-        [bool]$Ok,
-        [string]$ErrorMessage,
-        $Payload
-    )
-
-    # Escape any string so we can safely inline it into JSON.
-    $escapeString = {
-        param([string]$Value)
-        if ($null -eq $Value) { return 'null' }
-        return ($Value | ConvertTo-Json -Depth 2 -Compress).Trim()
-    }
-
-    # Normalize booleans to JSON literals.
-    $okJson = if ($Ok) { 'true' } else { 'false' }
-    # Default payload to an empty object to keep the schema stable.
-    $payloadJson = '{}'
-    if ($Ok) {
-        # Ok responses only include the saved filename.
-        $savedAs = $null
-        if ($Payload -is [System.Collections.IDictionary]) {
-            $savedAs = $Payload['savedAs']
-        }
-        $savedAsJson = & $escapeString ([string]$savedAs)
-        $payloadJson = "{`"savedAs`":$savedAsJson}"
-    }
-
-    # Build the response envelope without ConvertTo-Json warnings.
-    if ($Ok) {
-        $json = "{`"id`":$Id,`"type`":`"res`",`"ok`":$okJson,`"payload`":$payloadJson}"
-    } else {
-        $errorJson = & $escapeString $ErrorMessage
-        $json = "{`"id`":$Id,`"type`":`"res`",`"ok`":$okJson,`"error`":$errorJson,`"payload`":$payloadJson}"
-    }
-
-    # Send the response as a text frame.
-    Send-WebSocketText -Socket $Socket -Text $json | Out-Null
-}
-
 function Build-ProtocolEventBody {
     param(
         [string]$Name,
         $Payload
     )
 
-    # Keep the envelope format centralized so events stay consistent.
-        if ($protocolMode -eq 'helper') {
-        return @{ type = 'evt'; name = $Name; payload = $Payload }
-    }
+    # JSON-RPC 2.0 notification envelope.
     return @{ jsonrpc = '2.0'; method = $Name; params = $Payload }
 }
 
@@ -1136,49 +1084,6 @@ function Handle-JsonRpcRequest {
     Send-JsonRpcResponse -Socket $Socket -Id $id -Ok $false -ErrorMessage 'Method not found' -ResultPayload $null
 }
 
-function Handle-RslRequest {
-    param(
-        [System.Net.WebSockets.WebSocket]$Socket,
-        [hashtable]$Message
-    )
-
-    $idValue = $Message.id
-    if (-not ($idValue -is [int] -or $idValue -is [long])) { return }
-    $id = [int]$idValue
-
-    $cmd = $Message.cmd
-    if (-not ($cmd -is [string]) -or [string]::IsNullOrWhiteSpace($cmd)) { return }
-
-    if ($cmd -eq 'uploadSellfile') {
-        $payload = $Message.payload
-        if (-not ($payload -is [System.Collections.IDictionary])) {
-            Send-RslResponse -Socket $Socket -Id $id -Ok $false -ErrorMessage 'Invalid payload' -Payload @{}
-            return
-        }
-
-        $name = $payload.name
-        $data = $payload.data
-        if (-not ($data -is [string])) {
-            Send-RslResponse -Socket $Socket -Id $id -Ok $false -ErrorMessage 'Missing data' -Payload @{}
-            return
-        }
-
-        try {
-            $savedAs = Save-SellfilePayload -PayloadText $data -FileName ([string]$name)
-        }
-        catch {
-            Write-Log -Message ("uploadSellfile write failed (bytes={0}): {1}" -f $data.Length, $_) -Color DarkYellow
-            throw
-        }
-        $result = @{ savedAs = $savedAs }
-        Send-RslResponse -Socket $Socket -Id $id -Ok $true -ErrorMessage $null -Payload $result
-        Write-LogOutbound -Message "res uploadSellfile ok (helper)"
-        return
-    }
-
-    Send-RslResponse -Socket $Socket -Id $id -Ok $false -ErrorMessage 'Unknown cmd' -Payload @{}
-}
-
 function Handle-ClientMessage {
     param(
         [System.Net.WebSockets.WebSocket]$Socket,
@@ -1196,22 +1101,13 @@ function Handle-ClientMessage {
 
     if (-not ($parsed -is [System.Collections.IDictionary])) { return }
 
-    if ($protocolMode -eq 'helper') {
-        $typeValue = $parsed.type
-        if ($typeValue -is [string] -and $typeValue.ToLowerInvariant() -eq 'req') {
-            Write-LogInbound -Message "req $($parsed.cmd)"
-            Handle-RslRequest -Socket $Socket -Message $parsed
-        }
-        return
-    }
-
     if ($parsed.jsonrpc -eq '2.0' -and $parsed.method) {
         Write-LogInbound -Message "req $($parsed.method)"
         Handle-JsonRpcRequest -Socket $Socket -Message $parsed
         return
     }
 
-    Write-Log -Message ("Ignored WebSocket payload (protocolMode={0}; keys={1})" -f $protocolMode, (($parsed.Keys | Sort-Object) -join ',')) -Color DarkYellow
+    Write-Log -Message ("Ignored WebSocket payload (keys={0})" -f (($parsed.Keys | Sort-Object) -join ',')) -Color DarkYellow
 }
 #endregion
 
@@ -1962,7 +1858,7 @@ Reset-ConsoleUi
 
 Write-ConsoleHeader -Message "Launching Sellfile Creator with endpoint $wsEndpoint" -Color Cyan
 Write-ConsoleHeader -Message "Launch URL: $launchUrl" -Color DarkGray
-Write-ConsoleHeader -Message "Protocol: $protocolMode ($protocolSubprotocol)" -Color DarkGray
+Write-ConsoleHeader -Message "Protocol: JSON-RPC 2.0" -Color DarkGray
 Write-ProtocolQuickReference
 
 $script:GearDbWatchState = $null
@@ -2064,20 +1960,11 @@ try {
 
         if ($context) {
             if ($context.Request.IsWebSocketRequest) {
-                $requestedProtocols = $context.Request.Headers['Sec-WebSocket-Protocol']
-                $selectedProtocol = $null
-                if ($requestedProtocols) {
-                    $tokens = $requestedProtocols.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-                    if ($tokens -contains $protocolSubprotocol) {
-                        $selectedProtocol = $protocolSubprotocol
-                    }
-                }
-
                 try {
-                    $wsContext = $context.AcceptWebSocketAsync($selectedProtocol).GetAwaiter().GetResult()
+                    # Accept without selecting a subprotocol — clients no longer advertise one.
+                    $wsContext = $context.AcceptWebSocketAsync($null).GetAwaiter().GetResult()
                     $client = Add-WsClient -Socket $wsContext.WebSocket
-                    $requestedSummary = if ($requestedProtocols) { $requestedProtocols } else { 'none' }
-                    Write-ConsoleLog -Message ("Client connected (protocol: {0}; requested: {1})" -f ($selectedProtocol ?? 'none'), $requestedSummary) -Color DarkGray
+                    Write-ConsoleLog -Message "Client connected" -Color DarkGray
                     Start-WebSocketReceiveLoop -Client $client
                     # Send the cached DB payload immediately when available.
                     $sentSnapshot = $false
