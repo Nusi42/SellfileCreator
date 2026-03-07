@@ -36,8 +36,8 @@ body.restrict-ui [data-allow-select="1"] {
 .w-md-editor-text-pre .token.recipe-overrides-block .token.string                     { color: #98c379; }
 .w-md-editor-text-pre .token.recipe-overrides-block .token.string .token.string-bold  { color: #c3e88d; }
 .w-md-editor-text-pre .token.recipe-overrides-block .token.string .token.string-chip  { color: #7ec8e3; }
-/* marker-option [wholeline columns=N]: inner tokens carry colors; no flat outer color.
-   marker-option-kw (wholeline/columns) – teal, same family as field names.
+/* marker-option [columns=N]: inner tokens carry colors; no flat outer color.
+   marker-option-kw (columns) – teal, same family as field names.
    operator (=) and number (N) pick up the general operator/number rules below. */
 .w-md-editor-text-pre .token.recipe-overrides-block .token.marker-option .token.marker-option-kw { color: #56b6c2; }
 /* Default-option marker (* or default keyword) – same red as @ so both read as sigil-level markers. */
