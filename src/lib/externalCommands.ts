@@ -200,8 +200,10 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
   // Separate per-type gear messages — each carries a single collection so the
   // sender can publish them individually rather than in one combined snapshot.
   if (normalized === 'artifacts') {
-    // Params key matches the method name: { artifacts: GearDbArtifactRow[] }.
-    const rows = parseArtifactArray(payloadRecord.artifacts ?? payload)
+    // Params carry ArtifactLog-style rows: { artifacts: ArtifactLog[] }.
+    // The endpoint switched to the ArtifactLog shape (kindId/rankId/rarityId),
+    // so we delegate to the ArtifactLog parser instead of the raw DB row parser.
+    const rows = parseArtifactLogArray(payloadRecord.artifacts ?? payload, null)
     const command: GearDbArtifactsCommand = { kind: 'gearDbArtifacts', artifacts: rows }
     return command
   }
@@ -212,9 +214,10 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
     return command
   }
   if (normalized === 'inboxartifacts') {
-    // Params key matches the method name: { inboxArtifacts: GearDbArtifactRow[] }.
+    // Params carry ArtifactLog-style rows: { inboxArtifacts: ArtifactLog[] }.
+    // Mirrors the artifacts branch — same schema change applies to inbox items.
     // Also check lowercase variant for protocol flexibility.
-    const rows = parseArtifactArray(payloadRecord.inboxArtifacts ?? payloadRecord.inboxartifacts ?? payload)
+    const rows = parseArtifactLogArray(payloadRecord.inboxArtifacts ?? payloadRecord.inboxartifacts ?? payload, null)
     const command: GearDbInboxArtifactsCommand = { kind: 'gearDbInboxArtifacts', inboxArtifacts: rows }
     return command
   }

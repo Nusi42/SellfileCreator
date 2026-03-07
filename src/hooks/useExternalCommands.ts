@@ -3,8 +3,6 @@ import { useCallback, useEffect, useRef } from 'react'
 import {
   buildExternalWsRequest,
   EXTERNAL_WS_PROTOCOL_DEFAULT,
-  EXTERNAL_WS_SUBPROTOCOL_JSONRPC,
-  EXTERNAL_WS_SUBPROTOCOL_HELPER,
   EXTERNAL_WS_EVENT_GEAR_DB_FILE_BINARY,
   EXTERNAL_WS_METHOD_UPLOAD_SELLFILE,
   isRecord,
@@ -166,15 +164,16 @@ export function useExternalCommands({
       if (closedRef.current) return
 
       try {
-        // Attempt to negotiate the protocol with the preferred order.
-        const socket = new WebSocket(pushEndpoint, [
-          EXTERNAL_WS_SUBPROTOCOL_JSONRPC,
-          EXTERNAL_WS_SUBPROTOCOL_HELPER,
-        ])
+        // Connect without advertising subprotocols — many server implementations
+        // (e.g. Delphi) reject the upgrade when they receive unknown
+        // Sec-WebSocket-Protocol headers, even though RFC 6455 allows ignoring
+        // them. Protocol detection falls back to inspecting the first inbound
+        // frame, which works reliably without negotiation.
+        const socket = new WebSocket(pushEndpoint)
         socketRef.current = socket
 
         socket.onopen = () => {
-          // Record the negotiated protocol so outbound requests match it.
+          // Check if the server voluntarily echoed a subprotocol anyway.
           const negotiated = resolveProtocolFromSubprotocol(socket.protocol)
           // Lock inference only when the server selects a subprotocol explicitly.
           protocolLockedRef.current = Boolean(negotiated)

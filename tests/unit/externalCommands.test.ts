@@ -98,4 +98,32 @@ test('inboxArtifactLog events map rows to inboxArtifacts in snapshots', () => {
   assert.equal(row.ID, 1001)
 })
 
+// The endpoint now sends ArtifactLog-shaped rows (kindId/rankId/rarityId) wrapped
+// under a matching key: { artifacts: ArtifactLog[] }.
+test('artifacts event with ArtifactLog rows produces gearDbArtifacts command', () => {
+  const command = normalizeExternalEvent('artifacts', { artifacts: [baseArtifactLogRow] })
+  assert(command, 'expected command for artifacts event')
+  assert.equal(command.kind, 'gearDbArtifacts')
+  assert.equal(command.artifacts.length, 1)
+  const row = command.artifacts[0]
+  assert(row, 'expected normalized artifact row')
+  assert.equal(row.ID, 1001)
+  assert.equal(row.type, 5)   // kindId
+  assert.equal(row.rank, 6)   // rankId
+  assert.equal(row.rarity, 5) // rarityId
+  assert.equal(row.REROLLCOUNT, 2)
+  assert.equal(row.ASCLEVEL, 1)
+})
+
+test('inboxArtifacts event with ArtifactLog rows produces gearDbInboxArtifacts command', () => {
+  const command = normalizeExternalEvent('inboxArtifacts', { inboxArtifacts: [baseArtifactLogRow] })
+  assert(command, 'expected command for inboxArtifacts event')
+  assert.equal(command.kind, 'gearDbInboxArtifacts')
+  assert.equal(command.inboxArtifacts.length, 1)
+  const row = command.inboxArtifacts[0]
+  assert(row, 'expected normalized inbox artifact row')
+  assert.equal(row.ID, 1001)
+  assert.equal(row.type, 5)
+})
+
 export {}
