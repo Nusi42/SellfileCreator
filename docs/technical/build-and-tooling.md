@@ -65,7 +65,6 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
   - `scripts/tooling/export-catalogs.ts` — builds localized catalogs into `dist/l10n/*.l10n.json` (`npm run export:l10n`).
 - `scripts/release/release-win.ps1` — Windows packaging script (`-DevBuild` opt-in for dev bundles). `scripts/release/release-win-dev.ps1` forwards to it.
 - `scripts/watchers/run-db-watcher.ps1` — JSON-RPC 2.0 WebSocket db watcher. Launches the UI with a `ws://` endpoint, accepts `uploadSellfile` requests, emits `selectRule` + gear DB events, and watches `%APPDATA%\RslHelper\Config` for `.db` updates by default (disable via `-WatchGearDb:false` or override with `-GearDbPath`). Requires PowerShell 7 (`pwsh`) and will re-launch under `pwsh` if needed. Uses `[R]` to queue a sample selectRule and `[F]` to force a DB snapshot.
-- `scripts/watchers/run-db-watcher-core.ps1` — shared implementation dot-sourced by the watcher wrappers.
 - `scripts/watchers/Stream-Helper-DB-to-Creator.bat` — double-click helper that requires PowerShell 7 (`pwsh`), prompts to open the official download page when `pwsh` is missing, and passes a fixed `-AppEntryPath` plus `-GearDbPath "%APPDATA%\RslHelper\Config"` into `run-db-watcher.ps1`. In-repo source points to `..\dist\index.html` for local development; release packaging rewrites that line to `..\SellfileCreator.html` before staging the `dev/` copy, so shipped bundles contain no runtime dev-vs-prod path branching.
 - `scripts/watchers/cpp-example/` — standalone C++ watcher sample that mirrors the core PowerShell flow (accepts `uploadSellfile`, reads the Helper sqlite DB, converts it to `artifactLogSnapshot`, uses JSON-RPC 2.0). Build/run steps live in `scripts/watchers/cpp-example/README.md`.
 
@@ -97,7 +96,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `SellfileCreator.html` (and the dev build at `dist/index.html`) reads the launch URL’s `endpoint` query parameter and exposes it via `window.__APP_CONFIG__`. Passing `?endpoint=ws://localhost:8765/` sets the WebSocket `pushEndpoint` for the entire session. The `#endpoint=` hash alias also works as long as it points to a `ws://` or `wss://` URL.
 - When `pushEndpoint` is defined, “Export Sellfile” sends an `uploadSellfile` request over the active WebSocket. Without the parameter, the browser still downloads the file locally. The export button label switches to “Push …” and its tooltip references the active endpoint so users can confirm the target.
 - Incoming events are delivered over WebSocket notifications: `selectRule`, `gearDbFile`, `gearDbRawSnapshot`, and `gearDbRawDelta` (see the WebSocket protocol docs for exact payload shapes).
-- `scripts/watchers/run-db-watcher.ps1` and `scripts/watchers/run-db-watcher-helper.ps1` demonstrate how an external tool can open the packaged app via `Start-Process`, append the encoded WebSocket endpoint automatically, and host a local WebSocket listener that persists incoming `uploadSellfile` payloads to disk (defaults to `exported-sellfile.hsf`, configurable via `-OutputPath`). The scripts target PowerShell 7 (`pwsh`), emit demo `selectRule` events via `[R]`, provide `[F]` to force a DB snapshot, and optionally watch `%APPDATA%\RslHelper\Config` for `.db` changes so the Rule Tester refreshes without manual drag-and-drop.
+- `scripts/watchers/run-db-watcher.ps1` demonstrates how an external tool can open the packaged app via `Start-Process`, append the encoded WebSocket endpoint automatically, and host a local WebSocket listener that persists incoming `uploadSellfile` payloads to disk (defaults to `exported-sellfile.hsf`, configurable via `-OutputPath`). The script targets PowerShell 7 (`pwsh`), emits demo `selectRule` events via `[R]`, provides `[F]` to force a DB snapshot, and optionally watches `%APPDATA%\RslHelper\Config` for `.db` changes so the Rule Tester refreshes without manual drag-and-drop.
 
 ### Single Source of Truth
 
@@ -152,7 +151,7 @@ Coding patterns adopted during the refactor (required for PRs):
 
 - Uses native Windows `Compress-Archive` to create ZIP files with predictable metadata (no PowerShell community modules).
 - Build via `npm run build`, export localization catalogs (`npm run export:l10n`), and stage README translations so the ZIP ships with ready-to-edit templates under `i18n/`.
-- Stage helper resources under a `dev/` subdirectory when present (`scripts/watchers/run-db-watcher.ps1`, `scripts/watchers/run-db-watcher-core.ps1`, `scripts/watchers/Stream-Helper-DB-to-Creator.bat`, `websocket-jsonrpc.md`).
+- Stage helper resources under a `dev/` subdirectory when present (`scripts/watchers/run-db-watcher.ps1`, `scripts/watchers/Stream-Helper-DB-to-Creator.bat`, `websocket-jsonrpc.md`).
 - Create a flat `release_staging` workspace, rename `dist/index.html` to `SellfileCreator.html`, generate UTF-8 BOM README `.txt` files with a `###### vX.Y.Z` badge, and add a `runme.bat` launcher.
 - Archive contents:
   - `SellfileCreator.html` — from `dist/index.html`

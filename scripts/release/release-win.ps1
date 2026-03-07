@@ -224,8 +224,7 @@ try {
   if (-not (Test-Path $devDir)) { New-Item -ItemType Directory -Path $devDir | Out-Null }
 
   $sampleServerScripts = @(
-    'run-db-watcher.ps1',
-    'run-db-watcher-core.ps1'
+    'run-db-watcher.ps1'
   )
   foreach ($scriptName in $sampleServerScripts) {
     # Pull watcher scripts from the dedicated scripts/watchers folder.
