@@ -40,7 +40,7 @@ type Params = {
   setRecipesEnabled: (value: SetStateAction<boolean>) => void
   setSfrNote: (value: SetStateAction<string | null>) => void
   setSelectedRecipeIdx: (value: SetStateAction<number | null>) => void
-  setSelectedRecipeIndices: (value: number[]) => void
+  setSelectedRecipeIndices: (value: number[], options?: { suppressWillChange?: boolean }) => void
   setSelectionAnchor: (value: SetStateAction<number | null>) => void
   setBuilder: (value: SetStateAction<BuilderRecipe>) => void
   setBuilderNameDraft: (value: SetStateAction<string>) => void
@@ -197,7 +197,9 @@ export function useSfrHistoryController(params: Params): ControllerResult {
       const resolvedSelection = restoredSelection.length > 0
         ? restoredSelection
         : (restoredIdx !== null ? [restoredIdx] : [])
-      setSelectedRecipeIndices(resolvedSelection)
+      // Suppress the will-change callback so selection restoration during undo/redo does not
+      // trigger a pending auto-apply that would overwrite the just-restored customRecipes.
+      setSelectedRecipeIndices(resolvedSelection, { suppressWillChange: true })
       const resolvedAnchor = typeof snap.selectionAnchor === 'number' && snap.selectionAnchor >= 0 && snap.selectionAnchor < len
         ? snap.selectionAnchor
         : (resolvedSelection.length > 0
