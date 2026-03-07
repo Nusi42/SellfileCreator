@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, type SetStateAction } from 're
 import type { BuilderRecipe, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
-import type { MultiEditDraftState } from '../lib/multiEditDraft'
+import type { MultiEditDraftState } from '../lib/recipeMultiEditDraft'
 import {
   useSfrHistory,
   type SfrSnapshot,

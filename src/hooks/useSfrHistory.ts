@@ -4,7 +4,7 @@ import type { Metaset } from '../lib/metasets'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import { computeCrc32 } from '../lib/autosave'
 import { compressToBytes, decompressFromBytes } from '../lib/compression'
-import type { MultiEditDraftState } from '../lib/multiEditDraft'
+import type { MultiEditDraftState } from '../lib/recipeMultiEditDraft'
 import type { SafeguardRule } from '../lib/safeguards'
 import type { HistoryEntryDescriptor } from '../history/historyDescriptorTypes'
 

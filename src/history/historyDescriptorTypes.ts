@@ -8,7 +8,7 @@ import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import type { SafeguardRule } from '../lib/safeguards'
 import type { Metaset } from '../lib/metasets'
 import type { SubstatTargetTable } from '../lib/hsfBuilder'
-import type { BuilderFieldKey } from '../lib/multiEditDraft'
+import type { BuilderFieldKey } from '../lib/recipeMultiEditDraft'
 import type { RecipeInsertionLocation, RecipeLabelSnapshot } from './historyLabelUtils'
 
 // Descriptor modes mirror the old localized helper inputs.

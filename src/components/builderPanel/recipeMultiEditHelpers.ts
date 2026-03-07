@@ -3,7 +3,7 @@ import type {
   MultiEditRollPatch,
   MultiEditRollPatchEntry,
   MultiEditTargetPatch,
-} from '../../lib/multiEditDraft'
+} from '../../lib/recipeMultiEditDraft'
 import type { SubstatRollTargetEntry } from '../../lib/hsfBuilder'
 import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
 import { normalizeArtifactSetSelections } from '../../lib/gearSets/selection'

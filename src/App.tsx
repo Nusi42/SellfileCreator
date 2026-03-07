@@ -252,7 +252,7 @@ import {
 type GearInspectorMatchResetReason = 'restore' | 'sfr' | 'gearDbManual' | 'gearDbEndpoint'
 import { getRecipeHoverIndex, setRecipeHoverIndex, subscribeRecipeHover } from './lib/recipeHoverBridge'
 import { useBuilderPreviewLayout } from './hooks/useBuilderPreviewLayout'
-import { getDirtyBuilderFieldKeys, cloneBuilderRecipe } from './lib/multiEditDraft'
+import { getDirtyBuilderFieldKeys, cloneBuilderRecipe } from './lib/recipeMultiEditDraft'
 import { useTooltipScrollGuard } from './hooks/useTooltipScrollGuard'
 import { useModalCleanup } from './hooks/useModalCleanup'
 import { useTutorialCoachState } from './hooks/useTutorialCoachState'

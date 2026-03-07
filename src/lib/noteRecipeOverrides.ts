@@ -8,7 +8,7 @@ import type { BuilderRecipe, SellfileExportMode, Star, SubstatTargetTable } from
 import { clampAggregateRollValue } from './aggregateRollState'
 import { RARITY_AUTO_LABEL } from './constants'
 import { TAG_TOKEN_REGEX, normalizeTagValue } from './tagHelpers'
-import { cloneBuilderRecipe } from './multiEditDraft'
+import { cloneBuilderRecipe } from './recipeMultiEditDraft'
 import { cloneSubstatTargets } from './substatTargets'
 import {
   ArtifactType,

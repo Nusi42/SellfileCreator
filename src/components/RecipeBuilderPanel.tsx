@@ -109,7 +109,7 @@ import {
   type MultiEditTargetPatch,
   applyMultiEditFieldsToRecipe,
   getDirtyBuilderFieldKeys,
-} from '../lib/multiEditDraft'
+} from '../lib/recipeMultiEditDraft'
 import { mergeTagList, normalizeTagValue, summarizeTagPresence } from '../lib/tagHelpers'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
@@ -129,7 +129,7 @@ import {
   mergeRollPatchForVariant,
   mergeTargetPatchForVariant,
   toTriStateBase,
-} from './builderPanel/multiEditHelpers'
+} from './builderPanel/recipeMultiEditHelpers'
 import {
   buildTargetEntryFromDraft,
   clampRollMax,
@@ -148,7 +148,7 @@ import {
 } from './builderPanel/substatMenuHelpers'
 import { useBuilderHistoryMenu } from './builderPanel/useBuilderHistoryMenu'
 import { useRuleCountBadge } from './builderPanel/useRuleCountBadge'
-import { useMultiEditSummary } from './builderPanel/useMultiEditSummary'
+import { useMultiEditSummary } from './builderPanel/useRecipeMultiEditSummary'
 import { useBuilderPanelActionMenus } from './builderPanel/useBuilderPanelActionMenus'
 import {
   computeRollBudgetForRecipe,

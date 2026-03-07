@@ -25,7 +25,7 @@ import {
   BUILDER_FIELD_KEYS,
   areBuilderFieldValuesEqual,
   type BuilderFieldKey,
-} from '../lib/multiEditDraft'
+} from '../lib/recipeMultiEditDraft'
 import { createFactoryBuilderDefaults } from '../lib/builderDefaults'
 
 export type { TranslateFn }

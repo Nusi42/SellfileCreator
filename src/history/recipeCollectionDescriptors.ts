@@ -2,7 +2,7 @@
 import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
 import type { BuilderRecipe } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
-import type { BuilderFieldKey } from '../lib/multiEditDraft'
+import type { BuilderFieldKey } from '../lib/recipeMultiEditDraft'
 import { makeBuilderRecipeSnapshotLines } from './builderUpdateDescriptor'
 import type { TranslateFn } from './historyI18n'
 import type { RecipeInsertionLocation, RecipeLabelSnapshot } from './historyLabelUtils'
