@@ -48,7 +48,7 @@ type UseRecipeSelectionParams = {
 
 export type UseRecipeSelectionResult = {
   selectedRecipeIndices: number[]
-  setSelectedRecipeIndices: (next: number[]) => void
+  setSelectedRecipeIndices: (next: number[], options?: { suppressWillChange?: boolean }) => void
   multiselectActive: boolean
   selectionAnchor: number | null
   prepareDragSelection: (idx: number) => number[]
