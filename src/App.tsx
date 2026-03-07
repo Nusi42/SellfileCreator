@@ -218,6 +218,7 @@ import { recipesForRuleBuild } from './lib/ruleCacheHelpers'
 import { evaluateFirst } from './lib/ruleEval'
 import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import {
+  buildArtifactRevisionMap,
   createDatasetFromSnapshot,
   type GearDbRawDataset,
 } from './lib/importers/gearDbRawDataset'
@@ -496,6 +497,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Raw JSON endpoints stream their own dataset; keep the normalized snapshot
   // cached so deltas can mutate it without rebuilding from SQL blobs.
   const gearDbRawDatasetRef = useRef<GearDbRawDataset | null>(null)
+  // Persists the artifact id → revision map from the last successfully applied push.
+  // Compared against the incoming push to find the changed subset before snapshotting,
+  // so unchanged artifacts skip the deep stat clone entirely.
+  const gearDbRevisionMapRef = useRef<Map<number, number>>(new Map())
   // Accumulator for the separate per-type messages (artifacts/champions/inboxArtifacts/lastUsed).
   // Each arrival synthesizes a snapshot immediately so partial updates are never dropped.
   const gearDbRawPartsRef = useRef<{
@@ -588,21 +593,29 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { gearEntriesBuildingRef.current = gearEntriesBuilding }, [gearEntriesBuilding])
   const gearEntriesCommittedBuildIdRef = useRef(gearEntriesCommittedBuildId)
   useEffect(() => { gearEntriesCommittedBuildIdRef.current = gearEntriesCommittedBuildId }, [gearEntriesCommittedBuildId])
+  // Mirror the active build id in a ref so beginGearInspectorMatchReset can read it
+  // without closing over the state value — keeping the callback stable for the component lifetime.
+  const gearEntriesActiveBuildIdRef = useRef(gearEntriesActiveBuildId)
+  useEffect(() => { gearEntriesActiveBuildIdRef.current = gearEntriesActiveBuildId }, [gearEntriesActiveBuildId])
   const gearInspectorMatchResetRef = useRef<{ reason: GearInspectorMatchResetReason; targetBuildId: number; startedAt: number } | null>(null)
   const [gearInspectorMatchResetReason, setGearInspectorMatchResetReason] = useState<GearInspectorMatchResetReason | null>(null)
   const beginGearInspectorMatchReset = useCallback((reason: GearInspectorMatchResetReason) => {
     // Endpoint pushes should keep grid interactions available during rebuilds.
     nextGearInspectorBuildOriginRef.current = reason === 'gearDbEndpoint' ? 'endpoint' : 'user'
-    const targetBuildId = gearEntriesActiveBuildId > gearEntriesCommittedBuildId
-      ? gearEntriesActiveBuildId
-      : gearEntriesCommittedBuildId + 1
+    // Read build ids from refs so this callback never re-creates when pipeline commits advance
+    // state — a recreation would cascade through handleGearDbRawSnapshot → handleGearDbRawPart →
+    // applyEndpointPushCommand → drainEndpointPushQueue → enqueueEndpointPush, causing stale
+    // closures in the drain loop and unnecessary GC churn on every pipeline completion.
+    const activeBuildId = gearEntriesActiveBuildIdRef.current
+    const committedBuildId = gearEntriesCommittedBuildIdRef.current
+    const targetBuildId = activeBuildId > committedBuildId ? activeBuildId : committedBuildId + 1
     gearInspectorMatchResetRef.current = {
       reason,
       targetBuildId,
       startedAt: Date.now(),
     }
     setGearInspectorMatchResetReason(reason)
-  }, [gearEntriesActiveBuildId, gearEntriesCommittedBuildId])
+  }, [])
   const gearInspectorMatchDetailsFrozen = Boolean(gearInspectorMatchResetReason)
   useEffect(() => {
     if (!gearInspectorMatchResetReason) return
@@ -2015,7 +2028,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Advance the request id so stale updates do not leak through.
     const requestId = gearDbDiffToastRequestIdRef.current + 1
     gearDbDiffToastRequestIdRef.current = requestId
-    if (import.meta.env.DEV) console.log(`[endpoint-toast] queuing requestId=${requestId} baselineBuildId=${gearEntriesCommittedBuildIdRef.current} entries=${params.entries.length}`)
     // Capture the current build id so we can wait for the next commit.
     gearDbDiffToastPendingRef.current = {
       requestId,
@@ -2041,7 +2053,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const pending = gearDbDiffToastPendingRef.current
     // Nothing queued means nothing to render.
     if (!pending) return
-    if (import.meta.env.DEV) console.log(`[endpoint-toast-effect] requestId=${pending.requestId} currentRequestId=${gearDbDiffToastRequestIdRef.current} building=${gearEntriesBuildingRef.current} committedBuildId=${gearEntriesCommittedBuildIdRef.current} baselineBuildId=${pending.baselineBuildId}`)
     // Ignore stale entries if a newer diff request superseded this one.
     if (pending.requestId !== gearDbDiffToastRequestIdRef.current) return
     // Wait until the Gear Inspector grid has committed a new build for the update.
@@ -3286,10 +3297,32 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // Accepts the raw snapshot payload pushed by the helper and rewires the Gear Inspector queue.
   const handleGearDbRawSnapshot = useCallback((command: GearDbRawSnapshotCommand) => {
+    // Build a revision map for the incoming push before any normalization work.
+    // Covering both arrays in one call keeps the iteration count minimal.
+    const incomingRevisions = buildArtifactRevisionMap(command.artifacts, command.inboxArtifacts ?? [])
+    // Compute which artifact ids actually changed relative to the last accepted push.
+    // An id is "changed" when it is new, removed, or carries a different revision number.
+    // Ids whose revision matches are unchanged and can skip the expensive deep clone.
+    const previousRevisions = gearDbRevisionMapRef.current
+    const changedIds = new Set<number>()
+    // New or updated ids — present in incoming but absent/different in previous.
+    for (const [id, rev] of incomingRevisions) {
+      if (previousRevisions.get(id) !== rev) changedIds.add(id)
+    }
+    // Removed ids — present in previous but absent in incoming.
+    for (const id of previousRevisions.keys()) {
+      if (!incomingRevisions.has(id)) changedIds.add(id)
+    }
+    // If no revision data is available (e.g. SQLite path, first push with no revisions)
+    // fall back to a full snapshot by passing null — snapshotGearDbDataset treats null
+    // as "include all ids" while an empty Set means "include nothing".
+    const changedIdsFilter = incomingRevisions.size > 0 ? changedIds : null
     // Capture the previous dataset so we can compute before/after diffs.
     const previousDataset = gearDbRawDatasetRef.current
-    // Snapshot the previous artifacts to diff against the incoming snapshot.
-    const previousSnapshots = previousDataset ? snapshotGearDbDataset(previousDataset) : new Map()
+    // Snapshot only the changed subset of previous artifacts — unchanged ones produce no diff entry.
+    const previousSnapshots = previousDataset
+      ? snapshotGearDbDataset(previousDataset, changedIdsFilter)
+      : new Map()
     // Flag the import as busy so UI controls can reflect the update.
     beginGearImport()
     // Clear prior command results so the new push owns the status line.
@@ -3300,12 +3333,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     try {
       // Normalize the raw rows into the canonical Gear Inspector dataset before diffing.
       const { dataset, gearInspectorItems, artifactCount, inboxCount } = createDatasetFromSnapshot(command)
-      // Snapshot the incoming dataset so we can compute per-item diffs.
-      const nextSnapshots = snapshotGearDbDataset(dataset)
+      // Snapshot only the changed subset of incoming artifacts for the diff.
+      const nextSnapshots = snapshotGearDbDataset(dataset, changedIdsFilter)
       // Build the per-item diff list for the endpoint toast.
       const diffDetails = buildGearDbDiffSummary(previousSnapshots, nextSnapshots)
       // Persist the dataset so future deltas can apply correctly.
       gearDbRawDatasetRef.current = dataset
+      // Advance the revision baseline so the next push can skip its own unchanged artifacts.
+      gearDbRevisionMapRef.current = incomingRevisions
       // Keep raw parts in sync so partial per-type updates merge against this baseline.
       gearDbRawPartsRef.current = {
         artifacts: command.artifacts,
@@ -3314,9 +3349,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         lastUsed: command.lastUsed,
       }
       // Diff the Gear Inspector queue so only net changes are enqueued.
-      if (import.meta.env.DEV) console.log(`[endpoint-snapshot] artifactCount=${artifactCount} inboxCount=${inboxCount} snapshotDiff added=${diffDetails.addedCount} removed=${diffDetails.removedCount} updated=${diffDetails.updatedCount} gearInspectorItems=${gearInspectorItems.length}`)
       const { removedCount, addedCount } = applyGearDbDiff(gearInspectorItems)
-      if (import.meta.env.DEV) console.log(`[endpoint-snapshot] signatureDiff addedCount=${addedCount} removedCount=${removedCount} willResetMatches=${removedCount > 0 || addedCount > 0} committedBuildId=${gearEntriesCommittedBuildIdRef.current}`)
       if (removedCount > 0 || addedCount > 0) {
         // Endpoint snapshots should refresh matches without dimming card details.
         beginGearInspectorMatchReset('gearDbEndpoint')
@@ -3362,6 +3395,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       gearDbRawDatasetRef.current = null
       // Clear accumulated parts so stale data does not seed the next snapshot.
       gearDbRawPartsRef.current = { artifacts: null, inboxArtifacts: null, champions: null, lastUsed: null }
+      // Reset the revision baseline so the next push falls back to a full snapshot.
+      gearDbRevisionMapRef.current = new Map()
       const errorMessage = formatFileFormatErrorMessage('gearDbRawSnapshot.json')
       setGearDbCommandError(errorMessage)
       setGearDbCommandSuccess(null)
@@ -3396,17 +3431,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const parts = gearDbRawPartsRef.current
     // Apply the incoming collection to the appropriate slot.
     if (cmd.kind === 'gearDbArtifacts') {
-      if (import.meta.env.DEV) console.log(`[endpoint-part] kind=gearDbArtifacts count=${cmd.artifacts.length} prevArtifacts=${parts.artifacts?.length ?? 'null'}`)
       parts.artifacts = cmd.artifacts
     } else if (cmd.kind === 'gearDbChampions') {
-      if (import.meta.env.DEV) console.log(`[endpoint-part] kind=gearDbChampions count=${cmd.champions.length}`)
       parts.champions = cmd.champions
     } else if (cmd.kind === 'gearDbInboxArtifacts') {
-      if (import.meta.env.DEV) console.log(`[endpoint-part] kind=gearDbInboxArtifacts count=${cmd.inboxArtifacts.length}`)
       parts.inboxArtifacts = cmd.inboxArtifacts
     } else {
       // gearDbLastUsed — the only remaining variant.
-      if (import.meta.env.DEV) console.log(`[endpoint-part] kind=gearDbLastUsed count=${cmd.lastUsed.length}`)
       parts.lastUsed = cmd.lastUsed
     }
     // Synthesize a snapshot immediately using whatever parts are available.

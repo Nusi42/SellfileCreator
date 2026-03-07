@@ -55,6 +55,31 @@ export const createDatasetFromSnapshot = (
   return { dataset, gearInspectorItems, artifactCount, inboxCount }
 }
 
+/**
+ * Build a map of artifact id → revision from raw rows.
+ * Covers both inventory and inbox arrays in one pass so the caller
+ * can compare the combined set against a persisted baseline.
+ * Rows without a valid revision are skipped — they will never match an
+ * existing baseline entry and so will always be treated as changed.
+ */
+export const buildArtifactRevisionMap = (
+  ...rowArrays: readonly (readonly GearDbArtifactRow[])[]
+): Map<number, number> => {
+  const map = new Map<number, number>()
+  for (const rows of rowArrays) {
+    for (const row of rows) {
+      const id = Number(row.ID)
+      // Skip rows with invalid ids; they cannot be diff-keyed.
+      if (!Number.isFinite(id) || id <= 0) continue
+      const rev = Number(row.revision)
+      // Only record rows that carry a valid revision number.
+      if (!Number.isFinite(rev) || rev <= 0) continue
+      map.set(id, rev)
+    }
+  }
+  return map
+}
+
 const buildArtifactMap = (
   rows: readonly GearDbArtifactRow[],
   source: ArtifactSource,

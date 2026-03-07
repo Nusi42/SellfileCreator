@@ -344,8 +344,9 @@ export const snapshotGearDbDataset = (
 ): Map<number, GearArtifactSnapshot> => {
   // Build a new map so callers can mutate safely.
   const map = new Map<number, GearArtifactSnapshot>()
-  // Allow full snapshots when no id filter is provided.
-  const shouldInclude = (id: number): boolean => (!ids || ids.size === 0 || ids.has(id))
+  // null / undefined → no filter, include everything.
+  // An empty set → include nothing (caller determined no ids changed).
+  const shouldInclude = (id: number): boolean => (ids == null || ids.has(id))
   // Snapshot inventory artifacts first for stable ordering.
   dataset.artifacts.forEach((artifact) => {
     if (!shouldInclude(artifact.id)) return
