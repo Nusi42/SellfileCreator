@@ -305,6 +305,76 @@ const areGearSnapshotsEqual = (left: GearArtifactSnapshot, right: GearArtifactSn
 }
 
 /**
+ * Compare a NormalizedGearArtifact against a cached GearArtifactSnapshot without
+ * allocating a new snapshot object. Mirrors areGearSnapshotsEqual field-for-field
+ * so the binary import fast-path can detect no-change cycles without any cloning.
+ */
+const isNormalizedArtifactMatchingSnapshot = (
+  artifact: NormalizedGearArtifact,
+  snapshot: GearArtifactSnapshot,
+): boolean => {
+  // Identity must match — a different id cannot be the same artifact.
+  if (artifact.id !== snapshot.id) return false
+  // Core layout fields determine gear slot and set identity.
+  if (artifact.slot !== snapshot.slot) return false
+  if (artifact.set !== snapshot.set) return false
+  if (artifact.rank !== snapshot.rank) return false
+  if (artifact.rarity !== snapshot.rarity) return false
+  if (artifact.level !== snapshot.level) return false
+  // Exact level can change without shifting the milestone bucket.
+  if (normalizeNumber(artifact.exactLevel) !== normalizeNumber(snapshot.exactLevel)) return false
+  // Accessory faction and rerolls are meaningful to the Gear Inspector view.
+  if (artifact.faction !== snapshot.faction) return false
+  if (artifact.rerollCount !== snapshot.rerollCount) return false
+  // Source changes (inventory vs inbox) should surface as updates.
+  if (artifact.source !== snapshot.source) return false
+  // Champion metadata changes should surface in endpoint updates.
+  if (artifact.equippedToChampionId !== snapshot.equippedToChampionId) return false
+  if (artifact.equippedChampionBaseId !== snapshot.equippedChampionBaseId) return false
+  if (artifact.equippedChampionRarity !== snapshot.equippedChampionRarity) return false
+  if (artifact.equippedChampionName !== snapshot.equippedChampionName) return false
+  if (artifact.equippedChampionLocation !== snapshot.equippedChampionLocation) return false
+  // Stats must match using the same field-level comparison as the snapshot differ.
+  if (!areNormalizedStatsEqual(artifact.mainStat, snapshot.mainStat)) return false
+  if (!areNormalizedStatsEqual(artifact.ascension, snapshot.ascension)) return false
+  if (!areSubstatListsEqual(artifact.substats, snapshot.substats)) return false
+  // All tracked fields align.
+  return true
+}
+
+/**
+ * Fast check: does a freshly imported dataset match an existing snapshot cache?
+ * Returns true only when every field tracked by GearArtifactSnapshot is unchanged.
+ *
+ * Used by the binary (SQLite) import path to skip both snapshotGearDbDataset calls
+ * when only non-tracked fields changed — most commonly LastUse timestamps written
+ * by RSL Helper on every farming battle even when no gear was acquired.
+ */
+export const isGearDbDatasetMatchingSnapshotCache = (
+  dataset: GearDbRawDataset,
+  cache: Map<number, GearArtifactSnapshot>,
+): boolean => {
+  // Size mismatch immediately signals an addition or removal.
+  if (dataset.artifacts.size + dataset.inboxArtifacts.size !== cache.size) return false
+  // Compare each inventory artifact against its cached snapshot.
+  for (const [id, artifact] of dataset.artifacts) {
+    const snapshot = cache.get(id)
+    // Missing snapshot means this artifact was not present last cycle.
+    if (!snapshot) return false
+    if (!isNormalizedArtifactMatchingSnapshot(artifact, snapshot)) return false
+  }
+  // Compare each inbox artifact against its cached snapshot.
+  for (const [id, artifact] of dataset.inboxArtifacts) {
+    const snapshot = cache.get(id)
+    // Missing snapshot means this artifact was not present last cycle.
+    if (!snapshot) return false
+    if (!isNormalizedArtifactMatchingSnapshot(artifact, snapshot)) return false
+  }
+  // All tracked fields align across both inventory and inbox.
+  return true
+}
+
+/**
  * Snapshot a gear artifact so diff comparisons are stable across mutations.
  */
 const snapshotGearArtifact = (artifact: NormalizedGearArtifact): GearArtifactSnapshot => ({

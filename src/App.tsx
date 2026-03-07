@@ -120,7 +120,9 @@ import {
   buildGearDbDiffSummary,
   encodeGearDbDiffToastEntries,
   formatGearDbDiffHistoryLines,
+  isGearDbDatasetMatchingSnapshotCache,
   snapshotGearDbDataset,
+  type GearArtifactSnapshot,
   type GearDbDiffEntry,
   type GearDbDiffHistoryEntry,
   type GearDbDiffHistoryLineSpec,
@@ -501,6 +503,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Compared against the incoming push to find the changed subset before snapshotting,
   // so unchanged artifacts skip the deep stat clone entirely.
   const gearDbRevisionMapRef = useRef<Map<number, number>>(new Map())
+  // Snapshot map produced at the end of the last successful binary (SQLite) command import.
+  // Reused as the "before" baseline for the next push and compared against the new import
+  // via isGearDbDatasetMatchingSnapshotCache to skip all stat cloning when only non-tracked
+  // fields (e.g. LastUse timestamps) changed — the most common case during active farming.
+  const gearDbBinarySnapshotCacheRef = useRef<Map<number, GearArtifactSnapshot> | null>(null)
   // Accumulator for the separate per-type messages (artifacts/champions/inboxArtifacts/lastUsed).
   // Each arrival synthesizes a snapshot immediately so partial updates are never dropped.
   const gearDbRawPartsRef = useRef<{
@@ -3160,11 +3167,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Manual imports should not prime endpoint delta baselines.
     if (source === 'manual') {
       gearDbRawDatasetRef.current = null
+      // Reset the binary snapshot cache so command imports cannot diff against a
+      // manual baseline that predates the raw dataset reset.
+      gearDbBinarySnapshotCacheRef.current = null
     }
-    // For command imports, diff against the canonical endpoint dataset baseline.
-    const previousGearInspectorSnapshots = source === 'command' && gearDbRawDatasetRef.current
-      ? snapshotGearDbDataset(gearDbRawDatasetRef.current)
-      : new Map()
+    // Capture the binary snapshot cache before the async import begins.
+    // This holds the "after" snapshot from the previous binary push cycle so
+    // we do not need to re-clone the prior dataset on each import call.
+    const previousBinarySnapshot = source === 'command' ? gearDbBinarySnapshotCacheRef.current : null
     if (tutorial.helpOpen) {
       tutorial.setHelpOpen(false)
       tutorial.setHelpFirstRunMode(false)
@@ -3222,8 +3232,25 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         artifacts: new Map(artifacts.map((artifact) => [artifact.id, artifact])),
         inboxArtifacts: new Map(inboxArtifacts.map((artifact) => [artifact.id, artifact])),
       }
-      const importedSnapshots = snapshotGearDbDataset(importedDataset)
       if (source === 'command') {
+        // Fast-path: if the newly imported dataset matches the cached snapshot from
+        // the previous cycle, no tracked fields changed (e.g., only LastUse timestamps
+        // were written by RSL Helper). Skip both snapshotGearDbDataset calls entirely.
+        const isUnchanged = previousBinarySnapshot !== null
+          && isGearDbDatasetMatchingSnapshotCache(importedDataset, previousBinarySnapshot)
+        // "After" snapshot: reuse the cache when nothing changed; otherwise clone fresh.
+        const importedSnapshots = isUnchanged
+          ? previousBinarySnapshot
+          : snapshotGearDbDataset(importedDataset)
+        // "Before" snapshot: use the cached result from the previous cycle — it already
+        // holds the prior state with no re-cloning. Fall back to a fresh clone only on
+        // the very first binary import (cache is null) or after a reset.
+        const previousGearInspectorSnapshots: Map<number, GearArtifactSnapshot> = previousBinarySnapshot
+          ?? (gearDbRawDatasetRef.current
+            ? snapshotGearDbDataset(gearDbRawDatasetRef.current)
+            : new Map())
+        // Advance the binary snapshot cache so the next cycle has a stable baseline.
+        gearDbBinarySnapshotCacheRef.current = importedSnapshots
         // Command imports become the next canonical baseline for raw deltas.
         gearDbRawDatasetRef.current = importedDataset
         const diffDetails = buildGearDbDiffSummary(previousGearInspectorSnapshots, importedSnapshots)
@@ -3258,6 +3285,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         console.error('Failed to import gear database', err)
       }
       if (source === 'command') {
+        // Clear the binary snapshot cache so a corrupt/partial payload does not
+        // become the baseline for the next push — force a full diff next cycle.
+        gearDbBinarySnapshotCacheRef.current = null
         const fileErrorMessage = formatFileFormatErrorMessage(file.name)
         setGearDbCommandError(fileErrorMessage)
         setGearDbCommandSuccess(null)
@@ -3341,6 +3371,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       gearDbRawDatasetRef.current = dataset
       // Advance the revision baseline so the next push can skip its own unchanged artifacts.
       gearDbRevisionMapRef.current = incomingRevisions
+      // Invalidate the binary snapshot cache — the JSON path has its own baseline now.
+      // A subsequent binary push must build its "before" snapshot from the JSON dataset.
+      gearDbBinarySnapshotCacheRef.current = null
       // Keep raw parts in sync so partial per-type updates merge against this baseline.
       gearDbRawPartsRef.current = {
         artifacts: command.artifacts,
@@ -3397,6 +3430,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       gearDbRawPartsRef.current = { artifacts: null, inboxArtifacts: null, champions: null, lastUsed: null }
       // Reset the revision baseline so the next push falls back to a full snapshot.
       gearDbRevisionMapRef.current = new Map()
+      // Clear the binary snapshot cache so the next binary push starts fresh too.
+      gearDbBinarySnapshotCacheRef.current = null
       const errorMessage = formatFileFormatErrorMessage('gearDbRawSnapshot.json')
       setGearDbCommandError(errorMessage)
       setGearDbCommandSuccess(null)
