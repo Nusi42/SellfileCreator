@@ -6,17 +6,8 @@ when communicating over WebSockets.
 ## Transport
 
 - WebSocket URL: `ws://<host>:<port>/`
-- Subprotocol: `jsonrpc`
+- Protocol: JSON-RPC 2.0 (no `Sec-WebSocket-Protocol` header is sent or required)
 - Payloads: JSON text frames (binary frames allowed for `gearDbFile`, see below)
-
-### Subprotocol negotiation
-
-- The browser offers `jsonrpc` and `rws` in the WebSocket handshake.
-- JSON-RPC servers must select `jsonrpc` in `Sec-WebSocket-Protocol` and then
-  accept only JSON-RPC envelopes.
-- If the server omits subprotocol selection, Sellfile Creator infers the
-  protocol from the first inbound message and otherwise defaults to JSON-RPC
-  for outbound requests.
 
 ## JSON-RPC Envelope
 
@@ -188,7 +179,7 @@ avoid base64 overhead.
 }}
 ```
 
-### ArtifactLog Compatibility (Future Endpoint Shape)
+### ArtifactLog Endpoint Shape
 
 If your endpoint data is shaped like `docs/orig/sampleLog/ArtifactLog.json` and
 `docs/orig/sampleLog/ArtifactByHeroIDLog.json`, you can push it directly as:
@@ -226,7 +217,6 @@ using json = nlohmann::json;
 int main() {
   ix::WebSocket ws;
   ws.setUrl("ws://127.0.0.1:8765/");
-  ws.setSubProtocol("jsonrpc");
   ws.start();
 
   json params = {

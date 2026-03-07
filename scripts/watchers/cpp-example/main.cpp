@@ -40,9 +40,8 @@ using WsServer = websocketpp::server<websocketpp::config::asio>;
 using ConnectionHdl = websocketpp::connection_hdl;
 using ClientSet = std::set<ConnectionHdl, std::owner_less<ConnectionHdl>>;
 
-// Keep protocol names centralized so parsing + framing stay aligned.
+// JSON-RPC 2.0 is the sole supported wire protocol.
 constexpr const char* kProtocolJsonRpc = "jsonrpc";
-constexpr const char* kProtocolHelper = "helper";
 
 // Keep request method names centralized for both protocols.
 constexpr const char* kUploadSellfileMethod = "uploadSellfile";
@@ -65,8 +64,8 @@ struct AppConfig {
   fs::path gearDbPath;
   // Enable/disable DB watcher loop.
   bool watchGearDb = true;
-  // Protocol mode controls request/notification envelope shape.
-  std::string protocol = kProtocolHelper;
+  // Protocol is always JSON-RPC 2.0.
+  std::string protocol = kProtocolJsonRpc;
   // Browser auto-open flag for launch URL parity.
   bool openBrowser = true;
 };
@@ -494,13 +493,6 @@ private:
       }
     }
 
-    // Normalize protocol token for deterministic comparisons.
-    config_.protocol = toLower(config_.protocol);
-    if (config_.protocol != kProtocolHelper && config_.protocol != kProtocolJsonRpc) {
-      std::cerr << "[cpp-watcher] unsupported protocol: " << config_.protocol << "\n";
-      return false;
-    }
-
     return true;
   }
 
@@ -691,38 +683,8 @@ private:
       return;
     }
 
-    // Dispatch inbound request by configured protocol mode.
-    if (config_.protocol == kProtocolHelper) {
-      handleHelperRequest(hdl, message);
-      return;
-    }
+    // All inbound requests use JSON-RPC 2.0.
     handleJsonRpcRequest(hdl, message);
-  }
-
-  void handleHelperRequest(ConnectionHdl hdl, const json& message) {
-    // Accept only helper request envelopes.
-    if (!message.is_object()) return;
-    if (message.value("type", "") != "req") return;
-    if (message.value("cmd", "") != kUploadSellfileMethod) return;
-
-    // Validate payload fields before disk write.
-    const json payload = message.value("payload", json::object());
-    const std::string data = payload.value("data", "");
-    const std::string requestedName = payload.value("name", "");
-    const int id = message.value("id", 0);
-
-    if (data.empty()) {
-      sendHelperResponse(hdl, id, false, "Missing data", json::object());
-      return;
-    }
-
-    const auto saved = saveSellfilePayload(data, requestedName);
-    if (!saved.has_value()) {
-      sendHelperResponse(hdl, id, false, "Failed to save", json::object());
-      return;
-    }
-
-    sendHelperResponse(hdl, id, true, "", json{{"savedAs", saved.value()}});
   }
 
   void handleJsonRpcRequest(ConnectionHdl hdl, const json& message) {
@@ -749,20 +711,6 @@ private:
     }
 
     sendJsonRpcResult(hdl, id, json{{"ok", true}, {"savedAs", saved.value()}});
-  }
-
-  void sendHelperResponse(ConnectionHdl hdl, int id, bool ok, const std::string& error, const json& payload) {
-    // Build helper response with optional error field.
-    json response = {
-      {"id", id},
-      {"type", "res"},
-      {"ok", ok},
-      {"payload", payload}
-    };
-    if (!error.empty()) response["error"] = error;
-
-    std::error_code ec;
-    server_.send(hdl, response.dump(), websocketpp::frame::opcode::text, ec);
   }
 
   void sendJsonRpcResult(ConnectionHdl hdl, int id, const json& result) {
@@ -913,42 +861,24 @@ private:
   }
 
   void sendSnapshotToClient(ConnectionHdl hdl, const json& payload) {
-    // Emit helper or JSON-RPC event envelope around converted payload.
-    json envelope;
-    if (config_.protocol == kProtocolHelper) {
-      envelope = {
-        {"type", "evt"},
-        {"name", kArtifactLogSnapshotEvent},
-        {"payload", payload}
-      };
-    } else {
-      envelope = {
-        {"jsonrpc", "2.0"},
-        {"method", kArtifactLogSnapshotEvent},
-        {"params", payload}
-      };
-    }
+    // JSON-RPC 2.0 notification envelope.
+    const json envelope = {
+      {"jsonrpc", "2.0"},
+      {"method", kArtifactLogSnapshotEvent},
+      {"params", payload}
+    };
 
     std::error_code ec;
     server_.send(hdl, envelope.dump(), websocketpp::frame::opcode::text, ec);
   }
 
   void sendSelectRuleToClient(ConnectionHdl hdl, int rowNumber) {
-    // Emit selectRule in the same protocol mode as other outbound events.
-    json envelope;
-    if (config_.protocol == kProtocolHelper) {
-      envelope = {
-        {"type", "evt"},
-        {"name", "selectRule"},
-        {"payload", {{"rowNumber", rowNumber}}}
-      };
-    } else {
-      envelope = {
-        {"jsonrpc", "2.0"},
-        {"method", "selectRule"},
-        {"params", {{"rowNumber", rowNumber}}}
-      };
-    }
+    // JSON-RPC 2.0 notification envelope.
+    const json envelope = {
+      {"jsonrpc", "2.0"},
+      {"method", "selectRule"},
+      {"params", {{"rowNumber", rowNumber}}}
+    };
 
     std::error_code ec;
     server_.send(hdl, envelope.dump(), websocketpp::frame::opcode::text, ec);
@@ -977,8 +907,7 @@ static void printUsage() {
     << "  [--output-path <path>]    (default exported-sellfile.hsf)\n"
     << "  [--gear-db-path <path>]   (default %APPDATA%/RslHelper/Config)\n"
     << "  [--watch-gear-db 0|1]     (default 1)\n"
-    << "  [--open-browser 0|1]      (default 1)\n"
-    << "  [--protocol helper|jsonrpc] (default helper)\n";
+    << "  [--open-browser 0|1]      (default 1)\n";
 }
 
 static std::optional<AppConfig> parseArgs(int argc, char** argv) {
@@ -1040,13 +969,6 @@ static std::optional<AppConfig> parseArgs(int argc, char** argv) {
       cfg.openBrowser = (v.value() == "1" || v.value() == "true" || v.value() == "on");
       continue;
     }
-    if (arg == "--protocol") {
-      const auto v = requireValue(arg);
-      if (!v.has_value()) return std::nullopt;
-      cfg.protocol = v.value();
-      continue;
-    }
-
     std::cerr << "unknown argument: " << arg << "\n";
     return std::nullopt;
   }

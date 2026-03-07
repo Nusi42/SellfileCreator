@@ -1,11 +1,9 @@
 import type { ExternalCommand } from './externalCommands'
 
-// Protocol identifiers map to WebSocket subprotocols so we can negotiate format
-// without changing URLs or adding extra query params.
+// JSON-RPC 2.0 is the sole supported wire protocol.
 export const EXTERNAL_WS_SUBPROTOCOL_JSONRPC = 'jsonrpc'
-export const EXTERNAL_WS_SUBPROTOCOL_HELPER = 'rws'
 
-// Keep a single default to avoid guessing when the server skips subprotocols.
+// Keep a single default so outbound requests always have a known protocol.
 export const EXTERNAL_WS_PROTOCOL_DEFAULT = EXTERNAL_WS_SUBPROTOCOL_JSONRPC
 
 // Request method names double as shared identifiers across both protocol shapes.
@@ -37,10 +35,8 @@ export type ExternalWsEventName =
   | typeof EXTERNAL_WS_EVENT_GEAR_DB_INBOX_ARTIFACTS
   | typeof EXTERNAL_WS_EVENT_GEAR_DB_LAST_USED
 
-// Enumerate the supported wire protocols so inference stays explicit.
-export type ExternalWsProtocol =
-  | typeof EXTERNAL_WS_SUBPROTOCOL_JSONRPC
-  | typeof EXTERNAL_WS_SUBPROTOCOL_HELPER
+// Only JSON-RPC is supported; keep the type alias for call-site clarity.
+export type ExternalWsProtocol = typeof EXTERNAL_WS_SUBPROTOCOL_JSONRPC
 
 // Normalized response shape for both protocols.
 export type ExternalWsResponse = {
@@ -83,10 +79,8 @@ const toId = (value: unknown): number | null => {
 export const resolveProtocolFromSubprotocol = (value: string | null): string | null => {
   // Null means the server skipped subprotocol negotiation.
   if (!value) return null
-  // Return the exact token so callers can compare against constants.
+  // Only JSON-RPC is recognized; anything else is ignored.
   if (value === EXTERNAL_WS_SUBPROTOCOL_JSONRPC) return EXTERNAL_WS_SUBPROTOCOL_JSONRPC
-  // Allow the lightweight protocol when the server opts into it.
-  if (value === EXTERNAL_WS_SUBPROTOCOL_HELPER) return EXTERNAL_WS_SUBPROTOCOL_HELPER
   return null
 }
 
@@ -146,73 +140,19 @@ const parseJsonRpcMessage = (raw: unknown): ExternalWsInboundMessage | null => {
   return null
 }
 
-// Lightweight parsing: explicit message type differentiates events vs responses.
-const parseHelperMessage = (raw: unknown): ExternalWsInboundMessage | null => {
-  // Lightweight messages always include a lowercase-able type field.
-  if (!isRecord(raw)) return null
-  const typeValue = typeof raw.type === 'string' ? raw.type.toLowerCase() : null
-
-  if (typeValue === 'evt') {
-    // Events specify their name separately and carry a payload object.
-    const nameValue = typeof raw.name === 'string' ? raw.name : null
-    if (!nameValue) return null
-    // Tag the lightweight event so callers can adapt their outbound format.
-    return {
-      kind: 'event',
-      name: nameValue as ExternalWsEventName,
-      payload: raw.payload ?? {},
-      protocol: EXTERNAL_WS_SUBPROTOCOL_HELPER,
-    }
-  }
-
-  if (typeValue === 'res') {
-    // Responses should always include a numeric id plus ok/error info.
-    const id = toId(raw.id)
-    if (id === null) return null
-    const ok = raw.ok === true
-    const errorMessage = typeof raw.error === 'string' ? raw.error : undefined
-    const response: ExternalWsResponse = {
-      ok,
-      payload: raw.payload,
-      ...(errorMessage ? { error: errorMessage } : {}),
-    }
-    // Preserve the helper protocol for response handling.
-    return { kind: 'response', id, response, protocol: EXTERNAL_WS_SUBPROTOCOL_HELPER }
-  }
-
-  return null
-}
-
-// Try both codecs to keep the client tolerant to either wire format.
+// Parse the sole supported wire format.
 export const parseExternalWsMessage = (raw: unknown): ExternalWsInboundMessage | null => (
-  // Try JSON-RPC first so explicit jsonrpc: "2.0" wins over fallback parsing.
-  parseJsonRpcMessage(raw) ?? parseHelperMessage(raw)
+  parseJsonRpcMessage(raw)
 )
 
-// Encode a request message in the chosen protocol format.
+// Encode a request message in JSON-RPC 2.0 format.
 export const buildExternalWsRequest = (
-  protocol: string,
+  _protocol: string,
   id: number,
   method: ExternalWsRequestMethod,
   payload: unknown,
 ): string => {
-  if (protocol === EXTERNAL_WS_SUBPROTOCOL_HELPER) {
-    // Lightweight requests use cmd/payload under a req envelope.
-    const envelope = { id, type: 'req', cmd: method, payload }
-    return JSON.stringify(envelope)
-  }
-
   // JSON-RPC requests use method/params with the standard version tag.
   const envelope = { jsonrpc: '2.0', id, method, params: payload ?? {} }
   return JSON.stringify(envelope)
-}
-
-// Normalize event payloads into a shape the existing command parser expects.
-export const buildExternalCommandEnvelope = (
-  name: ExternalWsEventName,
-  payload: unknown,
-): Record<string, unknown> => {
-  // Flatten the payload so the existing parser sees fields at the top level.
-  const recordPayload = isRecord(payload) ? payload : {}
-  return { type: name, ...recordPayload }
 }

@@ -224,9 +224,7 @@ try {
   if (-not (Test-Path $devDir)) { New-Item -ItemType Directory -Path $devDir | Out-Null }
 
   $sampleServerScripts = @(
-    'run-db-watcher.ps1',
-    'run-db-watcher-helper.ps1',
-    'run-db-watcher-core.ps1'
+    'run-db-watcher.ps1'
   )
   foreach ($scriptName in $sampleServerScripts) {
     # Pull watcher scripts from the dedicated scripts/watchers folder.
@@ -237,8 +235,7 @@ try {
   }
 
   $protocolDocs = @(
-    'docs\\technical\\websocket-jsonrpc.md',
-    'docs\\technical\\websocket-helper.md'
+    'docs\\technical\\websocket-jsonrpc.md'
   )
   foreach ($docPath in $protocolDocs) {
     $docSrc = Join-Path $RepoRoot $docPath
