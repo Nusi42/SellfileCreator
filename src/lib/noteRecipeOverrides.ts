@@ -35,15 +35,10 @@ import { pickAutoRaritySupplementsThreshold } from './raritySupplements'
 // Supported group types in the note markers.
 export type NoteQuestionGroupType = 'single' | 'multi'
 
-// Default layout for question cards when no marker option is supplied.
-export const NOTE_RECIPE_OVERRIDES_LAYOUT_DEFAULT = 'default' as const
-// Marker option that expands a question card to span the full line.
-export const NOTE_RECIPE_OVERRIDES_LAYOUT_WHOLELINE = 'wholeline' as const
-// Supported layout tokens parsed from recipe-overrides marker options.
-export const NOTE_RECIPE_OVERRIDES_MARKER_LAYOUT_OPTIONS = [NOTE_RECIPE_OVERRIDES_LAYOUT_WHOLELINE] as const
-// Marker option key used to override the answer grid column count.
+// Marker option key for the card-width multiplier; a value ≥ 1 also enables
+// horizontal (grid) option layout. columns=0 (or omitted) = vertical layout.
 export const NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY = 'columns' as const
-// Default column count for wholeline option grids (0 = auto-fit).
+// Default columns value: 0 means vertical layout at standard card width.
 export const NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT = 0
 
 // ── Keyword sets (single source of truth shared with the syntax highlighter) ──
@@ -94,11 +89,6 @@ export const NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS = [
 export const NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS = [
   'tag', 'rank', 'rarity', 'minrolls', 'minsubstats', 'flex',
 ] as const
-
-// Layout choices exposed on parsed question definitions.
-export type NoteQuestionLayout =
-  | typeof NOTE_RECIPE_OVERRIDES_LAYOUT_DEFAULT
-  | (typeof NOTE_RECIPE_OVERRIDES_MARKER_LAYOUT_OPTIONS)[number]
 
 export type RecipeOverridesSelector =
   | { kind: 'all' }
@@ -176,8 +166,7 @@ export type NoteQuestionDefinition = {
   id: string
   index: number
   prompt: string
-  layout: NoteQuestionLayout
-  // Column override for wholeline option grids (0 = auto-fit).
+  // columns ≥ 1 enables horizontal (grid) option layout; 0 = vertical.
   layoutColumns: number
   groups: NoteQuestionGroup[]
   options: NoteQuestionOption[]
@@ -244,9 +233,6 @@ const QUESTION_MARKER_REGEX = new RegExp(
 const QUESTION_TOKEN_REGEX = TAG_TOKEN_REGEX
 // Leading asterisk marks default answers.
 const QUESTION_OPTION_DEFAULT_MARKER = '*'
-// Known layout tokens extracted from marker options.
-const QUESTION_LAYOUT_TOKEN_SET = new Set<string>(NOTE_RECIPE_OVERRIDES_MARKER_LAYOUT_OPTIONS)
-
 type TokenKind = 'word' | 'string' | 'symbol'
 
 type Token = {
@@ -675,14 +661,6 @@ const parseGroupType = (raw: string): NoteQuestionGroupType | null => (
   NOTE_RECIPE_OVERRIDES_GROUP_TYPE_MAP[raw.toLowerCase()] ?? null
 )
 
-const normalizeQuestionLayoutToken = (raw: string): NoteQuestionLayout | null => {
-  // Normalize casing + spacing so marker options stay forgiving.
-  const trimmed = raw.trim().toLowerCase()
-  // Accept only the known marker layout tokens for now.
-  if (!QUESTION_LAYOUT_TOKEN_SET.has(trimmed)) return null
-  return trimmed as NoteQuestionLayout
-}
-
 const normalizeQuestionColumnsValue = (raw: string): number | null => {
   // Parse an integer so marker options accept numeric literals.
   const parsed = parseIntegerValue(raw)
@@ -695,18 +673,14 @@ const normalizeQuestionColumnsValue = (raw: string): number | null => {
 
 const parseQuestionMarkerOptions = (
   cursor: TokenCursor,
-): { layout: NoteQuestionLayout; columns: number } => {
+): { columns: number } => {
   const token = cursor.peek()
-  // Default to the standard layout unless a marker option list appears.
+  // Return the default when no marker option block is present.
   if (!token || token.kind !== 'symbol' || token.value !== '[') {
-    return {
-      layout: NOTE_RECIPE_OVERRIDES_LAYOUT_DEFAULT,
-      columns: NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT,
-    }
+    return { columns: NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT }
   }
   // Consume the opening bracket before reading option tokens.
   cursor.next()
-  let layout: NoteQuestionLayout = NOTE_RECIPE_OVERRIDES_LAYOUT_DEFAULT
   let columns = NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT
   while (true) {
     const next = cursor.peek()
@@ -726,13 +700,6 @@ const parseQuestionMarkerOptions = (
     }
     if (next.kind === 'word') {
       const word = next.value
-      const normalizedLayout = normalizeQuestionLayoutToken(word)
-      // Apply known layout tokens while ignoring unknowns.
-      if (normalizedLayout) {
-        layout = normalizedLayout
-        cursor.next()
-        continue
-      }
       // Parse column overrides when the marker option key is present.
       if (word.toLowerCase() === NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY) {
         cursor.next()
@@ -754,7 +721,7 @@ const parseQuestionMarkerOptions = (
     // Consume unknown tokens to avoid infinite loops.
     cursor.next()
   }
-  return { layout, columns }
+  return { columns }
 }
 
 const parseSelectorTokens = (tokens: Token[]): RecipeOverridesSelector | null => {
@@ -1131,8 +1098,7 @@ type ParsedQuestionOption = {
 // Parsed question content before tokens/exclusions are resolved globally.
 type ParsedQuestionDefinition = {
   prompt: string
-  layout: NoteQuestionLayout
-  // Parsed column override for wholeline option grids (0 = auto-fit).
+  // columns ≥ 1 enables horizontal (grid) option layout; 0 = vertical.
   layoutColumns: number
   questionId: string
   options: ParsedQuestionOption[]
@@ -1480,7 +1446,6 @@ const parseQuestionMarker = (inner: string): ParsedQuestionDefinition | null => 
   // Return the parsed question for global token resolution later.
   return {
     prompt,
-    layout: markerOptions.layout,
     layoutColumns: markerOptions.columns,
     questionId,
     options: parsedOptions,
@@ -1778,7 +1743,6 @@ const buildResolvedQuestion = (
     id,
     index,
     prompt: question.prompt,
-    layout: question.layout,
     layoutColumns: question.layoutColumns,
     groups,
     options,
@@ -2136,7 +2100,7 @@ export const buildNoteRecipeOverridesSignature = (note: string): string => {
   // Parse the questions using the same parser as the UI.
   const questions = parseNoteRecipeOverrides(note)
   // Preserve marker order plus layout metadata so formatting changes still register.
-  const signature = questions.map((question) => [question.id, question.layout, question.layoutColumns])
+  const signature = questions.map((question) => [question.id, question.layoutColumns])
   // Serialize the signature so comparisons are cheap and stable.
   return JSON.stringify(signature)
 }

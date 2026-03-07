@@ -57,9 +57,7 @@ import {
   applyQuestionSelectionRules,
   NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN,
   resolveRecipeOverridesTags,
-  NOTE_RECIPE_OVERRIDES_LAYOUT_WHOLELINE,
   NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY,
-  NOTE_RECIPE_OVERRIDES_MARKER_LAYOUT_OPTIONS,
   type RecipeOverridesInstructions,
   type NoteQuestionDefinition,
   type NoteRecipeOverridesAnswers,
@@ -101,7 +99,7 @@ const RECIPE_OVERRIDES_TOKEN_COLORS: Record<string, string> = {
   'string-bold':       '#c3e88d',
   'string-chip':       '#7ec8e3',
   // marker-option outer span intentionally has no color; inner tokens are colored individually.
-  'marker-option-kw':  '#56b6c2',  // wholeline / columns – teal, same family as field names
+  'marker-option-kw':  '#56b6c2',  // columns – teal, same family as field names
   'default-kw':        '#e06c75',  // same as selector-at (@) – both are sigil-level markers
   'question-kw':       '#7ab3d4',
   'group-type':        '#4a8aad',
@@ -203,6 +201,8 @@ const SAFEGUARD_ELEMENT_INDEX_ATTR = 'data-ku-marker-index'
 const SAFEGUARD_FILTER_IDS = 'ids'
 const SAFEGUARD_FILTER_REGEXP = 'regexp'
 const NOTE_CARD_GAP = 1.5
+// Pixel equivalent of NOTE_CARD_GAP (MUI default spacing unit = 8 px).
+const NOTE_CARD_GAP_PX = NOTE_CARD_GAP * 8
 const NOTE_CARD_WIDTHS: Record<NoteCardWidthPreset, { flexBasis: number; minWidth: number; maxWidth: number }> = {
   note: { flexBasis: 242, minWidth: 209, maxWidth: 322 },
 }
@@ -315,7 +315,7 @@ function buildNoteQuestionOptionGridSx(
 ) {
   // Determine whether a fixed column count was provided.
   const hasFixedColumns = columns > 0
-  // Favor auto-fit with a min width derived from non-wholeline cards.
+  // Favor auto-fit with a min width derived from non-horizontal cards.
   const autoFitColumns = `repeat(auto-fit, minmax(${minColumnWidth}px, 1fr))`
   // Use a fixed repeat when the marker overrides column count explicitly.
   const fixedColumns = `repeat(${columns}, minmax(0, 1fr))`
@@ -327,7 +327,7 @@ function buildNoteQuestionOptionGridSx(
     // Keep row/column spacing consistent with stacked cards.
     rowGap: 0.35,
     columnGap: 1.5,
-    // Align entire option rows based on wholeline label usage.
+    // Align entire option rows based on horizontal label usage.
     alignItems: rowAlign,
     // Let the grid stretch across the full card width.
     width: '100%',
@@ -1252,7 +1252,6 @@ const RECIPE_OVERRIDES_EBNF_REFERENCE_LINE = 'question      := ("q" | "question"
 const RECIPE_OVERRIDES_EBNF_MAX_LINE_LENGTH = RECIPE_OVERRIDES_EBNF_REFERENCE_LINE.length
 // Marker options shown in the EBNF block.
 const RECIPE_OVERRIDES_EBNF_MARKER_OPTION_TOKENS = [
-  ...NOTE_RECIPE_OVERRIDES_MARKER_LAYOUT_OPTIONS.map((token) => `"${token}"`),
   `"${NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY}" "=" number`,
 ]
 // Render the marker option line from the shared token list.
@@ -1296,7 +1295,8 @@ term          := "tag" ("=" | ":") token
              | "minsubstats" ("=" | ">=" | "<=") number
              | "flex" ("=" | ":") flexVal
 assignment    := ("rank" | "rarity") ("=" | ">=" | "<=") value
-             | ("slots" | "substats" | "mainstats") "=" token ("," token)*
+             | ("slots" | "substats"
+             | "mainstats") "=" token ("," token)*
              | field "=" value
 fallbackBlock := ("fallback" | "else") "{" selectorBlock+ "}"
 constraints   := "!" tokenList | "excl" tokenList
@@ -1327,8 +1327,9 @@ token         := /[\\p{L}\\p{M}_][\\p{L}\\p{N}\\p{M}_]*/
                 (unicode letters/marks, underscore)
 rarityName    := "common" | "uncommon" | "rare" | "epic"
              | "legendary" | "mythical" | "auto" | "any"
-slotName      := "Weapon" | "Helmet" | "Shield" | "Gauntlets" | "Chestplate"
-             | "Boots" | "Ring" | "Amulet" | "Banner"
+slotName      := "Weapon" | "Helmet" | "Shield"
+             | "Gauntlets" | "Chestplate" | "Boots"
+             | "Ring" | "Amulet" | "Banner"
 starKey       := "1" | "2" | "3" | "4" | "5" | "6"
              | "one" | "two" | "three" | "four" | "five" | "six"`
 
@@ -1721,8 +1722,8 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
     () => (question?.options ?? []),
     [question],
   )
-  // Wholeline alignment changes only when every option provides a detail label.
-  const allWholelineOptionsHaveLabels = useMemo(
+  // Horizontal alignment changes only when every option provides a detail label.
+  const allHorizontalOptionsHaveLabels = useMemo(
     () => questionOptions.length > 0 && questionOptions.every((option) => Boolean(option.detail)),
     [questionOptions],
   )
@@ -1742,8 +1743,8 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
     return hasLabelColumn ? Math.min(paddedMax, 24) : 0
   }, [questionOptions])
   if (!question) return null
-  // Switch layout styling when the marker opts into full-width rendering.
-  const isWholeline = question.layout === NOTE_RECIPE_OVERRIDES_LAYOUT_WHOLELINE
+  // columns ≥ 1 enables horizontal (grid) option layout.
+  const isHorizontal = question.layoutColumns > 0
   // Resolve the selected answers into a set for fast checks.
   const selected = Array.isArray(question.answer) ? question.answer : []
   const selectedSet = new Set<string>(selected)
@@ -1753,27 +1754,35 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   }
   // Shared sizing keeps question cards in lockstep with safeguard cards.
   const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
-  // Reuse the non-wholeline min width as the grid's minimum column width.
+  // Reuse the non-horizontal min width as the grid's minimum column width.
   const optionColumnMinWidth = minWidth
   // Pick the option group layout based on the marker-level layout mode.
-  const optionGroupSx = isWholeline
+  // Always pass 0 (auto-fit) — card width is the constraint, not a fixed column count.
+  const optionGroupSx = isHorizontal
     ? buildNoteQuestionOptionGridSx(
       optionColumnMinWidth,
-      question.layoutColumns,
-      // Align the full row to the top when every wholeline option has a label.
-      allWholelineOptionsHaveLabels ? 'flex-start' : 'center',
+      0,
+      // Align the full row to the top when every horizontal option has a label.
+      allHorizontalOptionsHaveLabels ? 'flex-start' : 'center',
     )
     : NOTE_QUESTION_OPTION_GROUP_STACK_SX
-  // Expand the card width when wholeline layout is enabled.
-  const cardWidthSx = isWholeline
-    ? { flex: '1 1 100%', minWidth: '100%', maxWidth: '100%', width: '100%' }
+  // When columns=X is given, scale the card to span X standard card widths plus
+  // the inter-card gaps so the card aligns naturally with its neighbours.
+  const cols = Math.max(1, question.layoutColumns)
+  const gapPx = NOTE_CARD_GAP_PX * (cols - 1)
+  const cardWidthSx = isHorizontal && cols > 1
+    ? {
+      flex: `1 1 ${cols * flexBasis + gapPx}px`,
+      minWidth: cols * minWidth + gapPx,
+      maxWidth: cols * maxWidth + gapPx,
+    }
     : { flex: `1 1 ${flexBasis}px`, minWidth, maxWidth }
   const cardOpacity = recipeOverridesDisabled ? 0.55 : 1
   // Build per-option row styling so alignment can differ per label presence.
   const buildOptionRowSx = (): Record<string, unknown> => {
-    if (isWholeline) {
+    if (isHorizontal) {
       // Keep the default alignment when labels are mixed or absent.
-      if (!allWholelineOptionsHaveLabels) return NOTE_QUESTION_OPTION_SX
+      if (!allHorizontalOptionsHaveLabels) return NOTE_QUESTION_OPTION_SX
       // Align the control to the first label line when every option is labeled.
       return {
         ...NOTE_QUESTION_OPTION_SX,
@@ -1876,7 +1885,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                     sx={optionGroupSx}
                   >
                     {group.options.map((option) => {
-                      // Keep row spacing consistent across all non-wholeline options.
+                      // Keep row spacing consistent across all non-horizontal options.
                       const rowSx = buildOptionRowSx()
                       return (
                         <FormControlLabel
@@ -1888,7 +1897,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                             chipSx: promptChipSx,
                             labelSx: promptLabelSx,
                             labelColumnCh,
-                            layout: isWholeline ? 'rows' : 'columns',
+                            layout: isHorizontal ? 'rows' : 'columns',
                           })}
                           disabled={!recipeOverridesEditable}
                           sx={rowSx}
@@ -1904,7 +1913,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                 {group.options.map((option) => {
                   // Compute the checked state once per option.
                   const checked = selectedSet.has(option.id)
-                  // Keep row spacing consistent across all non-wholeline options.
+                  // Keep row spacing consistent across all non-horizontal options.
                   const rowSx = buildOptionRowSx()
                   return (
                     <FormControlLabel
@@ -1937,7 +1946,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                         chipSx: promptChipSx,
                         labelSx: promptLabelSx,
                         labelColumnCh,
-                        layout: isWholeline ? 'rows' : 'columns',
+                        layout: isHorizontal ? 'rows' : 'columns',
                       })}
                       disabled={!recipeOverridesEditable}
                       sx={rowSx}

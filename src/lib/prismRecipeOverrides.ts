@@ -29,7 +29,6 @@ import {
   NOTE_RECIPE_OVERRIDES_LOGIC_KEYWORDS,
   NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS,
   NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS,
-  NOTE_RECIPE_OVERRIDES_MARKER_LAYOUT_OPTIONS,
   NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY,
 } from './noteRecipeOverrides';
 
@@ -40,21 +39,16 @@ const wordAlt = (words: readonly string[]): RegExp => (
   new RegExp(`\\b(?:${words.join('|')})\\b`)
 )
 
-// ── marker-option patterns (built from shared constants) ──────────────────
-// Derive the marker-option token pattern from the same arrays the parser uses
-// so adding a new layout option only requires updating noteRecipeOverrides.ts.
-const _markerLayoutAlt = NOTE_RECIPE_OVERRIDES_MARKER_LAYOUT_OPTIONS.join('|')
-const _markerColKey    = NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY
-// Matches one option unit: a layout keyword or `columns=N`.
-const _markerOptUnit = `(?:${_markerLayoutAlt}|${_markerColKey}=\\d+)`
-// Full bracket expression, allowing comma- or space-separated options.
+// ── marker-option patterns ──────────────────────────────────────────────────
+// The only supported marker option is `columns=N`; the pattern is built from
+// the shared constant so the key name stays a single source of truth.
+const _markerColKey = NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY
+// Matches `[columns=N]`.
 const MARKER_OPTION_PATTERN = new RegExp(
-  `\\[\\s*(?:${_markerOptUnit}(?:[,\\s]+${_markerOptUnit})*)\\s*\\]`
+  `\\[\\s*${_markerColKey}=\\d+\\s*\\]`
 )
 // Inner keyword pattern for the marker-option-kw sub-token.
-const MARKER_OPTION_KW_PATTERN = new RegExp(
-  `\\b(?:${_markerLayoutAlt}|${_markerColKey})\\b`
-)
+const MARKER_OPTION_KW_PATTERN = new RegExp(`\\b${_markerColKey}\\b`)
 
 // ── recipe-overrides grammar ───────────────────────────────────────────────
 // Tokens are ordered from most-specific to least-specific so that Prism's
@@ -97,14 +91,13 @@ function recipeOverrides(Prism: Refractor): void {
         // Block comments (`/* … */`).  Same reasoning as `line-comment` above.
         'block-comment': /\/\*[\s\S]*?\*\//,
 
-        // Inline marker-option block, e.g. [wholeline], [columns=3], or combined
-        // [wholeline columns=4] / [wholeline,columns=4].
-        // Pattern is built from shared parser constants (SSOT).
-        // Uses `inside` so each piece gets its own color rather than one flat hue:
-        //   marker-option-kw  – option keyword name (wholeline, columns)
+        // Inline marker-option block: `[columns=N]`.
+        // Pattern is built from the shared constant (SSOT).
+        // Uses `inside` so each piece gets its own color:
+        //   marker-option-kw  – the `columns` keyword
         //   operator          – the `=` separator
-        //   number            – the numeric column count
-        //   punctuation       – brackets and commas
+        //   number            – the numeric card-width multiplier
+        //   punctuation       – surrounding brackets
         'marker-option': {
             pattern: MARKER_OPTION_PATTERN,
             inside: {

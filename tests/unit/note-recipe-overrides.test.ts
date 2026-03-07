@@ -3,7 +3,6 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   resolveRecipeOverridesTags,
-  NOTE_RECIPE_OVERRIDES_LAYOUT_WHOLELINE,
   NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT,
 } from '../../src/lib/noteRecipeOverrides.js'
 
@@ -344,7 +343,7 @@ test('preferred single-select overrides clear conflicting set presets', () => {
 test('full lategame/endgame/endgame+ block releases lategame on conflicting yes selections', () => {
   // Build the real preset block text plus dependent override questions.
   const note = [
-    '<!-- recipe-overrides [wholeline columns=4]',
+    '<!-- recipe-overrides [columns=4]',
     '  q "Which account level do you think you have?"',
     '  cb "`Lategame`" "I can finish all **Normal** game modes and a lot of the stages in any **Hard** mode.',
     'Different than accessories, **5★** and **6★ Rare** gear is usually sold!"',
@@ -613,10 +612,10 @@ test('preferred selections survive when labels repeat across questions', () => {
   assert.equal(resolvedSecond?.answer.includes(lateDefaultId), false)
 })
 
-test('marker options can request wholeline layout and column overrides', () => {
-  // Build a note with marker options before the question header.
+test('columns marker option enables horizontal layout and sets card-width multiplier', () => {
+  // Build a note with a columns marker option before the question header.
   const note = [
-    '<!-- recipe-overrides [wholeline columns=3]',
+    '<!-- recipe-overrides [columns=3]',
     'q "Wide Question"',
     'radio "Yes" * { @all { export=active } }',
     '-->',
@@ -626,17 +625,15 @@ test('marker options can request wholeline layout and column overrides', () => {
   const question = questions[0]
   // Guard against missing parsed content.
   assert.ok(question, 'expected the question to be parsed')
-  // Confirm the marker layout option was captured.
-  assert.equal(question?.layout, NOTE_RECIPE_OVERRIDES_LAYOUT_WHOLELINE)
-  // Confirm the column override was captured.
+  // Confirm the column multiplier was captured.
   assert.equal(question?.layoutColumns, 3)
 })
 
-test('marker options default columns to auto-fit', () => {
-  // Build a note without column overrides.
+test('omitting the columns marker defaults to vertical layout', () => {
+  // Build a note without any marker options.
   const note = [
-    '<!-- recipe-overrides [wholeline]',
-    'q "Wide Question"',
+    '<!-- recipe-overrides',
+    'q "Standard Question"',
     'radio "Yes" * { @all { export=active } }',
     '-->',
   ].join('\n')
@@ -645,7 +642,7 @@ test('marker options default columns to auto-fit', () => {
   const question = questions[0]
   // Guard against missing parsed content.
   assert.ok(question, 'expected the question to be parsed')
-  // Confirm the default column count remains auto-fit.
+  // Confirm the default column value means vertical layout.
   assert.equal(question?.layoutColumns, NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT)
 })
 

@@ -17,6 +17,12 @@ export const EXTERNAL_WS_EVENT_GEAR_DB_FILE = 'gearDbFile'
 export const EXTERNAL_WS_EVENT_GEAR_DB_FILE_BINARY = 'gearDbFileBinary'
 export const EXTERNAL_WS_EVENT_GEAR_DB_RAW_SNAPSHOT = 'gearDbRawSnapshot'
 export const EXTERNAL_WS_EVENT_GEAR_DB_RAW_DELTA = 'gearDbRawDelta'
+// Separate per-type gear data messages — alternative to the combined snapshot.
+// Each carries one collection so the sender can stream them independently.
+export const EXTERNAL_WS_EVENT_GEAR_DB_ARTIFACTS = 'artifacts'
+export const EXTERNAL_WS_EVENT_GEAR_DB_CHAMPIONS = 'champions'
+export const EXTERNAL_WS_EVENT_GEAR_DB_INBOX_ARTIFACTS = 'inboxArtifacts'
+export const EXTERNAL_WS_EVENT_GEAR_DB_LAST_USED = 'lastUsed'
 
 // Limit accepted method and event values so callers do not drift.
 export type ExternalWsRequestMethod = typeof EXTERNAL_WS_METHOD_UPLOAD_SELLFILE
@@ -26,6 +32,10 @@ export type ExternalWsEventName =
   | typeof EXTERNAL_WS_EVENT_GEAR_DB_FILE_BINARY
   | typeof EXTERNAL_WS_EVENT_GEAR_DB_RAW_SNAPSHOT
   | typeof EXTERNAL_WS_EVENT_GEAR_DB_RAW_DELTA
+  | typeof EXTERNAL_WS_EVENT_GEAR_DB_ARTIFACTS
+  | typeof EXTERNAL_WS_EVENT_GEAR_DB_CHAMPIONS
+  | typeof EXTERNAL_WS_EVENT_GEAR_DB_INBOX_ARTIFACTS
+  | typeof EXTERNAL_WS_EVENT_GEAR_DB_LAST_USED
 
 // Enumerate the supported wire protocols so inference stays explicit.
 export type ExternalWsProtocol =
