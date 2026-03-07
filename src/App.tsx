@@ -4713,7 +4713,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
     if (cmd.kind === 'gearDbFileBinary') {
-      const file = createGearDbFileFromBytes(cmd.name, cmd.bytes, cmd.contentType)
+      // Destructure before File construction so the local refs go out of scope
+      // at the end of this block — before the long settle wait begins.
+      const { name, bytes, contentType } = cmd
+      // File's ctor copies data into internal Blob storage; the original buffer
+      // is now redundant. Release the reference so GC can reclaim it during the
+      // settle wait instead of holding both copies alive for up to 15 s.
+      ;(cmd as { bytes: Uint8Array | null }).bytes = null
+      const file = createGearDbFileFromBytes(name, bytes, contentType)
       if (!file) {
         if (import.meta.env.DEV) {
           console.error('Failed to decode gear DB binary payload from external command.')
@@ -4756,6 +4763,32 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [applyEndpointPushCommand])
   // Queue ingress helper used by the external command dispatcher.
   const enqueueEndpointPush = useCallback((cmd: EndpointPushCommand) => {
+    // Each gearDbFileBinary is a complete SQLite snapshot that supersedes any
+    // pending copies waiting in the tail of the queue. Discard that trailing
+    // run to avoid accumulating N large Uint8Array buffers simultaneously.
+    // Stop scanning at the first gearDbRawDelta — it depends on the preceding
+    // file load and cannot be orphaned. Also stop at gearDbFile conservatively.
+    if (cmd.kind === 'gearDbFileBinary') {
+      const queue = endpointPushQueueRef.current
+      let coalesceTo = -1
+      for (let i = queue.length - 1; i >= 0; i -= 1) {
+        const entry = queue[i]
+        // Bounds guard: noUncheckedIndexedAccess makes array[i] T | undefined.
+        if (!entry) break
+        // A delta depends on its preceding file load; stop here without resetting
+        // coalesceTo — any binary/snapshot entries already found in the tail
+        // (after this delta) are still superseded by the incoming binary.
+        if (entry.kind === 'gearDbRawDelta') { break }
+        // Full-snapshot entries are superseded by the incoming binary.
+        if (entry.kind === 'gearDbFileBinary' || entry.kind === 'gearDbRawSnapshot') {
+          coalesceTo = i; continue
+        }
+        // gearDbFile — stop conservatively; anything before it is unknown.
+        break
+      }
+      // Remove the superseded suffix so its Uint8Array buffers can be GC'd.
+      if (coalesceTo >= 0) queue.splice(coalesceTo)
+    }
     endpointPushQueueRef.current.push(cmd)
     void drainEndpointPushQueue()
   }, [drainEndpointPushQueue])
