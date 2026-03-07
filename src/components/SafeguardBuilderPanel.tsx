@@ -97,7 +97,7 @@ import { summaryParts } from './RecipeChip'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSlotMetrics } from '../hooks/useSlotMetrics'
 import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
-import { slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
+import { isAccessorySlot, slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import { useI18n } from '../lib/i18n'
 import { GearFactionSelect, GearRankSelect, GearRaritySelect, GearSetsSelect } from './gear'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
@@ -1148,6 +1148,24 @@ export default function SafeguardBuilderPanel({
                         updateRule((prev) => {
                           const set = new Set(prev.combination.slots)
                           if (set.has(id)) set.delete(id); else set.add(id)
+                          const nextCombination = sanitizeCombinationForSlots(Array.from(set), prev.combination)
+                          return constrainSafeguardSubstats(prev, nextCombination)
+                        })
+                      }}
+                      onDoubleClick={(e) => {
+                        // Double-click selects/deselects the entire group (artefacts or accessories).
+                        // The two single-click events that precede dblclick toggle the same slot twice
+                        // and cancel out, so this functional update sees the correct pre-click state.
+                        e.preventDefault(); e.stopPropagation()
+                        const groupIds = artifactTypeIconList
+                          .map((entry) => entry.id)
+                          .filter((sid) => isAccessorySlot(sid) === isAccessorySlot(id))
+                        updateRule((prev) => {
+                          const slots = prev.combination.slots
+                          const allSelected = groupIds.every((sid) => slots.includes(sid))
+                          const set = new Set(slots)
+                          if (allSelected) groupIds.forEach((sid) => set.delete(sid))
+                          else groupIds.forEach((sid) => set.add(sid))
                           const nextCombination = sanitizeCombinationForSlots(Array.from(set), prev.combination)
                           return constrainSafeguardSubstats(prev, nextCombination)
                         })

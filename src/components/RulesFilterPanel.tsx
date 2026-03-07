@@ -35,7 +35,7 @@ import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIG
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { metasetGlyph, orderMetasetIds, resolveMetasetIds, type Metaset } from '../lib/metasets'
 import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
-import { slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
+import { isAccessorySlot, slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
@@ -554,6 +554,10 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     const height = el.offsetHeight
     setHeaderMaxHeight(prev => (height > prev ? height : prev || height))
   }, [recipeNameQuery])
+  // Snapshot of slot selection taken at the start of a double-click (before click1 modifies state).
+  // React flushes state between click1 and dblclick, so onDoubleClick must use this ref rather
+  // than the potentially-stale selectedSlots closure to correctly determine "were all selected?".
+  const slotPreDoubleClickRef = React.useRef<number[]>(state.slots.selected.map(Number))
   const setsSelectContainerRef = React.useRef<HTMLDivElement | null>(null)
   const setsMenuListRef = React.useRef<HTMLUListElement | null>(null)
   const metasetsMenuListRef = React.useRef<HTMLUListElement | null>(null)
@@ -3172,7 +3176,12 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               <ToggleButtonGroup
                 size="small"
                 value={Array.from(selectedSlots).map(String)}
-                onChange={(_, vals: string[]) => {
+                onChange={(event, vals: string[]) => {
+                  // Snapshot pre-click state on click1 so onDoubleClick can use it reliably
+                  // (React flushes between click1 and dblclick, making selectedSlots stale).
+                  if (event.detail === 1) slotPreDoubleClickRef.current = Array.from(selectedSlots)
+                  // Skip the second click of a double-click — onDoubleClick handles group toggle.
+                  if (event.detail >= 2) return
                   const ids = vals.map(v => Number(v))
                   onChange({ ...state, slots: { ...state.slots, selected: ids } })
                 }}
@@ -3193,7 +3202,25 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   }
                   return (
                     <MarkdownTooltip key={s.id} markdown={s.name} placement="bottom">
-                      <ToggleButton value={String(s.id)} aria-label={s.name}>
+                      <ToggleButton
+                        value={String(s.id)}
+                        aria-label={s.name}
+                        onDoubleClick={(e) => {
+                          // Double-click toggles the whole group (artefacts or accessories).
+                          // Use the pre-click snapshot so the allSelected check is based on the
+                          // state before click1 modified it (React may have flushed in between).
+                          e.stopPropagation()
+                          const groupIds = slotButtons
+                            .map((b) => b.id)
+                            .filter((sid) => isAccessorySlot(sid) === isAccessorySlot(s.id))
+                          const preClickSet = new Set(slotPreDoubleClickRef.current)
+                          const allSelected = groupIds.every((sid) => preClickSet.has(sid))
+                          const next = new Set(slotPreDoubleClickRef.current)
+                          if (allSelected) groupIds.forEach((sid) => next.delete(sid))
+                          else groupIds.forEach((sid) => next.add(sid))
+                          onChange({ ...state, slots: { ...state.slots, selected: Array.from(next) } })
+                        }}
+                      >
                         <Icon fontSize="inherit" />
                       </ToggleButton>
                     </MarkdownTooltip>
