@@ -11,6 +11,8 @@ import { TAG_TOKEN_REGEX, normalizeTagValue } from './tagHelpers'
 import { cloneBuilderRecipe } from './multiEditDraft'
 import { cloneSubstatTargets } from './substatTargets'
 import {
+  ArtifactType,
+  type ArtifactTypeId,
   type LevelMilestone,
   type RankCode,
   RankCode as RankCodeEnum,
@@ -85,6 +87,8 @@ export const NOTE_RECIPE_OVERRIDES_LOGIC_KEYWORDS = ['and', 'or'] as const
 export const NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS = [
   'export', 'rank', 'rarity', 'lvl', 'keep', 'autolate',
   'minrolls', 'lockedminrolls', 'minsubstats', 'flex', 'substatmin', 'minima',
+  // List-valued fields for slot, substat, and main-stat filtering (comma-separated).
+  'slots', 'substats', 'mainstats',
 ] as const
 /** Field names valid in selector term comparisons. */
 export const NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS = [
@@ -124,6 +128,10 @@ export type RecipeOverridesOperation =
   | { kind: 'substatMinVariant'; variant: StatVariant; value: number }
   | { kind: 'minimaAnyRank'; value: Star }
   | { kind: 'minimaTarget'; star: Star; variant: StatVariant; value: number }
+  // List-replacement operations — replace the corresponding recipe list outright.
+  | { kind: 'artifactTypes'; values: ArtifactTypeId[] }
+  | { kind: 'substats'; variants: StatVariant[] }
+  | { kind: 'mainStats'; variants: StatVariant[] }
 
 export type RecipeOverridesSelectorBlock = {
   selector: RecipeOverridesSelector
@@ -494,6 +502,26 @@ const parseMinimaField = (field: string): MinimaFieldParse | null => {
   const statKey = parts.slice(2).join('.')
   if (!statKey) return null
   return { kind: 'stat', star, statKey }
+}
+
+// Case-insensitive lookup: artifact slot name → numeric ArtifactTypeId.
+// Derived from the canonical ArtifactType map so additions in types.ts are picked up automatically.
+const ARTIFACT_TYPE_NAME_MAP = new Map<string, ArtifactTypeId>(
+  Object.entries(ArtifactType).map(([name, id]) => [name.toLowerCase(), id as ArtifactTypeId]),
+)
+
+// After the first value token of a list field has been consumed, collect any
+// remaining comma-separated word/string tokens that continue the list.
+const consumeCommaSeparatedRemainder = (cursor: TokenCursor): string[] => {
+  const extras: string[] = []
+  while (cursor.consumeSymbol(',')) {
+    // Require a word or quoted string token after each comma.
+    const next = cursor.peek()
+    if (!next || (next.kind !== 'word' && next.kind !== 'string')) break
+    cursor.next()
+    extras.push(next.value)
+  }
+  return extras
 }
 
 // Tokenize recipe overrides blocks for the parser.
@@ -1046,6 +1074,37 @@ const parseOperations = (cursor: TokenCursor, endSymbol: string): RecipeOverride
       const numeric = parseIntegerValue(valueRaw)
       if (numeric == null) continue
       operations.push({ kind: 'substatMinAll', value: numeric })
+      continue
+    }
+    if (field === 'slots') {
+      // Collect comma-separated slot names and resolve each to an ArtifactTypeId.
+      if (op !== 'eq') continue
+      const names = [valueRaw, ...consumeCommaSeparatedRemainder(cursor)]
+      const values = names
+        .map((n) => ARTIFACT_TYPE_NAME_MAP.get(n.trim().toLowerCase()))
+        .filter((v): v is ArtifactTypeId => v != null)
+      if (values.length > 0) operations.push({ kind: 'artifactTypes', values })
+      continue
+    }
+    if (field === 'substats') {
+      // Collect comma-separated stat labels and resolve each to a StatVariant.
+      if (op !== 'eq') continue
+      const labels = [valueRaw, ...consumeCommaSeparatedRemainder(cursor)]
+      const variants = labels
+        .map((l) => variantFromLabel(l.trim()))
+        .filter((v): v is StatVariant => v != null)
+      if (variants.length > 0) operations.push({ kind: 'substats', variants })
+      continue
+    }
+    if (field === 'mainstats') {
+      // Collect comma-separated main-stat labels and resolve each to a StatVariant.
+      if (op !== 'eq') continue
+      const labels = [valueRaw, ...consumeCommaSeparatedRemainder(cursor)]
+      const variants = labels
+        .map((l) => variantFromLabel(l.trim()))
+        .filter((v): v is StatVariant => v != null)
+      if (variants.length > 0) operations.push({ kind: 'mainStats', variants })
+      continue
     }
   }
   return operations
@@ -2397,6 +2456,10 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   let appliedMinCount = false
   let appliedFlex = false
   let appliedSubstatMin = false
+  // List-replacement fields: undefined = not yet overridden, array = override applied.
+  let nextArtifactTypes: ArtifactTypeId[] | undefined
+  let nextSubstats: StatVariant[] | undefined
+  let nextMainStats: StatVariant[] | undefined
   let hasInstruction = false
   for (const instruction of instructions) {
     if (!matchesSelector(instruction.selector, recipe)) continue
@@ -2468,7 +2531,12 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
       if (op.kind === 'substatMinVariant') {
         substatMinByVariant.set(op.variant, op.value)
         appliedSubstatMin = true
+        return
       }
+      // List-replacement operations: last writer wins within the instruction set.
+      if (op.kind === 'artifactTypes') { nextArtifactTypes = op.values; return }
+      if (op.kind === 'substats')      { nextSubstats      = op.variants; return }
+      if (op.kind === 'mainStats')     { nextMainStats     = op.variants }
     })
   }
   if (!hasInstruction) return recipe
@@ -2485,6 +2553,10 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   const lockedMinChanged = appliedLockedMin && nextLockedMinRequiredRolls !== recipe.lockedMinRequiredRolls
   const minCountChanged = appliedMinCount && nextMinCount !== recipe.minCount
   const flexChanged = appliedFlex && nextFlex !== recipe.autoSubstatFlex
+  // Detect whether any list-replacement operation actually changed the recipe.
+  const artifactTypesChanged = nextArtifactTypes !== undefined
+  const substatsChanged = nextSubstats !== undefined
+  const mainStatsChanged = nextMainStats !== undefined
   if (!exportModeChanged
     && !rankChanged
     && !rarityChanged
@@ -2495,7 +2567,10 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
     && !lockedMinChanged
     && !minCountChanged
     && !flexChanged
-    && !appliedSubstatMin) {
+    && !appliedSubstatMin
+    && !artifactTypesChanged
+    && !substatsChanged
+    && !mainStatsChanged) {
     return recipe
   }
   let next = cloneBuilderRecipe(recipe)
@@ -2542,6 +2617,11 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   if (appliedMinCount || appliedFlex) {
     next = normalizeAutoSubstatFlex(next)
   }
+  // Apply list-replacement operations last so they do not interact with normalizers above.
+  // The non-null assertions are safe: these flags are only set when the arrays are defined.
+  if (artifactTypesChanged) next.artifactTypes = nextArtifactTypes!
+  if (substatsChanged) next.substatsV = nextSubstats!
+  if (mainStatsChanged) next.mainStatsV = nextMainStats!
   return next
 }
 
