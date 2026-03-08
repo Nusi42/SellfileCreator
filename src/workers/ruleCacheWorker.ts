@@ -5,7 +5,9 @@ import { updateRecipeRulesCache, type RecipeRulesCacheEntry } from '../lib/ruleC
 import {
   KEEP_OVERRIDE_RULE_SOURCES as SAFEGUARD_OVERRIDE_RULE_SOURCES,
   RULE_SOURCE_SAFEGUARDS,
-  computeMergedRules,
+  buildMergedRulesComponents,
+  computeMergedRulesFromComponents,
+  type MergedRulesComponents,
 } from '../lib/merge'
 import { recipesForRuleBuild } from '../lib/ruleCacheHelpers'
 import type { EvalResult } from '../lib/ruleEval'
@@ -224,29 +226,42 @@ const buildPipelineMatches = async (
   return results
 }
 
-// Safeguard detection needs baseline keep/sell decisions with ignored recipes excluded.
+// Produce baseline results with ignored-recipe matches excluded.
+// Only the K items whose firstNonExcludedMatch matched an ignored recipe are
+// re-evaluated via WASM; all other items are copied from baselineMatchMap.
+// The WASM engine is assumed already configured with mergedRulesBaseline from the
+// preceding detection pass — no configureWasmRuleEngine call is needed here.
 const buildExcludedRecipeBaselineMap = async (
-  mergedRules: HsfRuleWithRecipe[],
+  baselineMatchMap: ReadonlyMap<number, GearInspectorMatchWorkerItemResult>,
   artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,
-  recipeModes: SellfileExportMode[] | undefined,
-  excludeRecipeIndices: ReadonlySet<number>,
+  ignoreSafeguardRecipeIndices: ReadonlySet<number>,
   shouldAbort: (() => boolean) | null,
 ): Promise<Map<number, GearInspectorMatchWorkerItemResult>> => {
-  const byItem = new Map<number, GearInspectorMatchWorkerItemResult>()
-  if (!artifactEntries.length || excludeRecipeIndices.size === 0) return byItem
-  await configureWasmRuleEngine({
-    rules: mergedRules,
-    recipeModes: Array.isArray(recipeModes) ? recipeModes : [],
+  // Start with a full copy from the baseline; only K items will be overwritten below.
+  const byItem = new Map<number, GearInspectorMatchWorkerItemResult>(baselineMatchMap)
+  if (!artifactEntries.length || ignoreSafeguardRecipeIndices.size === 0) return byItem
+
+  // Filter to only entries whose first non-excluded match came from an ignored recipe.
+  // Items with no match or a non-ignored match have the same result with/without exclusion.
+  const kEntries = artifactEntries.filter(([itemId]) => {
+    const result = baselineMatchMap.get(itemId)
+    const recipeIdx = result?.firstNonExcludedMatch?.recipeIdx
+    return recipeIdx != null && ignoreSafeguardRecipeIndices.has(recipeIdx)
   })
+
+  if (!kEntries.length) return byItem
   if (shouldAbort?.()) return byItem
-  for (let start = 0; start < artifactEntries.length; start += PIPELINE_MATCH_BATCH_SIZE) {
+
+  // Engine is already configured with mergedRulesBaseline from the detection pass.
+  // Evaluate only the K candidates with ignored recipes excluded.
+  for (let start = 0; start < kEntries.length; start += PIPELINE_MATCH_BATCH_SIZE) {
     if (shouldAbort?.()) return byItem
-    const end = Math.min(start + PIPELINE_MATCH_BATCH_SIZE, artifactEntries.length)
-    const batchEntries = artifactEntries.slice(start, end)
+    const end = Math.min(start + PIPELINE_MATCH_BATCH_SIZE, kEntries.length)
+    const batchEntries = kEntries.slice(start, end)
     const batchItems = batchEntries.map(([itemId, artifact]) => ({ itemId, item: artifact.gearInspectorItem }))
     const evaluated = await evaluateWasmRuleEngineItems({
       items: batchItems,
-      options: { excludeRecipeIndices },
+      options: { excludeRecipeIndices: ignoreSafeguardRecipeIndices },
     })
     if (shouldAbort?.()) return byItem
     for (const entry of evaluated) {
@@ -258,18 +273,7 @@ const buildExcludedRecipeBaselineMap = async (
         matchingRecipeDecisions: entry.matchingRecipeDecisions,
       })
     }
-    if (end < artifactEntries.length) await yieldWorkerMacrotask()
-  }
-  // Fill any unexpected gaps so downstream assembly can treat the map as complete.
-  for (const [itemId] of artifactEntries) {
-    if (byItem.has(itemId)) continue
-    byItem.set(itemId, {
-      itemId,
-      firstMatch: null,
-      firstNonExcludedMatch: null,
-      matchingRecipeIndices: [],
-      matchingRecipeDecisions: [],
-    })
+    if (end < kEntries.length) await yieldWorkerMacrotask()
   }
   return byItem
 }
@@ -330,17 +334,24 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       : null
     if (total > 0 && completed > 0) emitPipelineProgress?.({ completed, total })
 
-    const mergedRulesBaseline = computeMergedRules({
+    // Build base + flattened-customs once; both baseline and final merged-rules
+    // calls reuse this to skip the redundant WASM flattenRuleBatches step.
+    const sharedComponents: MergedRulesComponents = buildMergedRulesComponents({
       hsf: payload.hsf,
       customRecipes: recipesForRules,
       metasets: payload.metasets,
       substatTargets: payload.substatTargets,
-      ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
       prebuiltCustomRules,
-      safeguards: baseSafeguards,
-      // Apply app-level transforms before safeguard detection/injection.
+    })
+    const mergeParams = {
+      ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
       omitDisabledBeforeSafeguards: payload.omitDisabledBeforeSafeguards,
       dedupeBeforeSafeguards: payload.dedupeBeforeSafeguards,
+    }
+
+    const mergedRulesBaseline = computeMergedRulesFromComponents(sharedComponents, {
+      ...mergeParams,
+      safeguards: baseSafeguards,
     })
 
     const baselineMatchMap = new Map<number, GearInspectorMatchWorkerItemResult>()
@@ -386,11 +397,13 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     }
 
     const ignoreSafeguardRecipeIndices = buildIgnoreSafeguardRecipeIndices(recipesForRules)
+    // Only the K items whose firstNonExcludedMatch came from an ignored recipe need
+    // re-evaluation; the rest are copied from baselineMatchMap inside the helper.
+    // The engine stays configured with mergedRulesBaseline — no extra configure call.
     const filteredBaselineMatchMap = (needsDetection && ignoreSafeguardRecipeIndices.size > 0)
       ? await buildExcludedRecipeBaselineMap(
-        mergedRulesBaseline,
+        baselineMatchMap,
         artifactEntries,
-        payload.recipeModes,
         ignoreSafeguardRecipeIndices,
         runIsStale,
       )
@@ -420,39 +433,51 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       safeguardDetectionSnapshot = combinedDetection.detection
     }
 
-    const mergedRulesFinal = computeMergedRules({
-      hsf: payload.hsf,
-      customRecipes: recipesForRules,
-      metasets: payload.metasets,
-      substatTargets: payload.substatTargets,
-      ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
-      prebuiltCustomRules,
+    // Use shared components so flattenRuleBatches is not called a second time.
+    const mergedRulesFinal = computeMergedRulesFromComponents(sharedComponents, {
+      ...mergeParams,
       safeguards: {
         ...payload.safeguards,
         detection: safeguardDetectionSnapshot,
       },
-      // Keep final matcher output aligned with baseline transformed rules.
-      omitDisabledBeforeSafeguards: payload.omitDisabledBeforeSafeguards,
-      dedupeBeforeSafeguards: payload.dedupeBeforeSafeguards,
     })
 
-    const finalProgressRef = { value: completed }
-    const matches = await buildPipelineMatches(
-      mergedRulesFinal,
-      artifactEntries,
-      payload.recipeModes,
-      ignoreSafeguardRecipeIndices,
-      total,
-      finalProgressRef,
-      emitPipelineProgress,
-      hasActiveSafeguards,
-      runIsStale,
-    )
-    if (runIsStale()) return
-
-    if (total > 0 && finalProgressRef.value < total) {
-      finalProgressRef.value = total
-      emitPipelineProgress?.({ completed: total, total })
+    // Optimisation: when detection found nothing to protect (no injected safeguard
+    // rules), the final merged rules are functionally identical to baseline and the
+    // baseline match map is already authoritative. Skip the second O(N×M) scan.
+    const detectionFoundNothing = safeguardDetectionSnapshot != null
+      && safeguardDetectionSnapshot.entries.length === 0
+    let matches: GearInspectorMatchWorkerItemResult[]
+    if (needsDetection && detectionFoundNothing) {
+      // Copy results from the baseline map in artifact order.
+      matches = artifactEntries.map(([itemId]) => baselineMatchMap.get(itemId) ?? {
+        itemId,
+        firstMatch: null,
+        firstNonExcludedMatch: null,
+        matchingRecipeIndices: [],
+        matchingRecipeDecisions: [],
+      })
+      if (total > 0) {
+        emitPipelineProgress?.({ completed: total, total })
+      }
+    } else {
+      const finalProgressRef = { value: completed }
+      matches = await buildPipelineMatches(
+        mergedRulesFinal,
+        artifactEntries,
+        payload.recipeModes,
+        ignoreSafeguardRecipeIndices,
+        total,
+        finalProgressRef,
+        emitPipelineProgress,
+        hasActiveSafeguards,
+        runIsStale,
+      )
+      if (runIsStale()) return
+      if (total > 0 && finalProgressRef.value < total) {
+        finalProgressRef.value = total
+        emitPipelineProgress?.({ completed: total, total })
+      }
     }
 
     if (runIsStale()) return

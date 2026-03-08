@@ -3217,6 +3217,8 @@ pub fn collect_and_compute_safeguard_protection_value(
         &ignore_safeguard_recipe_indices.unwrap_or_default(),
     )?;
     // Convert collected rows into protection candidate payload shape.
+    // artifact is reconstructed from rows[row_index] rather than cloned from the
+    // candidate: SafeguardCollectedCandidateOut no longer carries the artifact field.
     let protection_candidates = collected
         .candidates
         .iter()
@@ -3224,7 +3226,7 @@ pub fn collect_and_compute_safeguard_protection_value(
             item_key: candidate.item_key,
             group_key: candidate.group_key.clone(),
             is_sold: candidate.is_sold,
-            artifact: candidate.artifact.clone(),
+            artifact: rows[candidate.row_index].artifact.clone(),
         })
         .collect::<Vec<_>>();
     // Run detection against collected candidates without a second JS roundtrip.

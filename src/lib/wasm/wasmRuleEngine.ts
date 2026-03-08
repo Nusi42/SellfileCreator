@@ -255,7 +255,7 @@ type WasmCollectedSafeguardCandidate = {
   itemKey: number
   groupKey: string
   isSold: boolean
-  artifact: unknown
+  // artifact removed: Rust no longer emits it; callers use rows[rowIndex].artifact.
 }
 
 type WasmCollectedSafeguardSnapshot = {

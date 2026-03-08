@@ -56,7 +56,9 @@ pub(crate) use matcher_evaluator::{
     prepare_evaluate_options,
     prepare_rule,
     EvaluateItemResult,
+    EvaluateItemScratch,
     EvaluateOptionsRaw,
+    MatchingRecipeDecision,
     SafeguardCandidateResolveBaseMatchIn,
     SafeguardCollectRowIn,
     SafeguardCollectedCandidateOut,
@@ -176,8 +178,9 @@ struct TestItemRaw {
     faction: Option<i64>,
     main: Option<i64>,
     // Keys are parsed to i64 once at deserialize-time to avoid hot-loop coercion.
-    #[serde(default, deserialize_with = "deserialize_sub_values_map")]
-    sub_values: Option<HashMap<i64, f64>>,
+    // Vec instead of HashMap: items have ≤4 substats so linear scan beats hashing.
+    #[serde(default, deserialize_with = "deserialize_sub_values_vec")]
+    sub_values: Option<Vec<(i64, f64)>>,
     item_id: Option<i64>,
     preview_extras: Option<PreviewExtrasRaw>,
 }
@@ -189,15 +192,21 @@ struct PreviewExtrasRaw {
     id: Option<i64>,
 }
 
-// Deserialize `subValues` from JS object keys into numeric variant ids.
-pub(crate) fn deserialize_sub_values_map<'de, D>(
+// Vec-based variant for TestItemRaw.sub_values so the hot matcher path uses
+// a linear scan instead of HashMap lookups (≤4 substats per item).
+pub(crate) fn deserialize_sub_values_vec<'de, D>(
     deserializer: D,
-) -> Result<Option<HashMap<i64, f64>>, D::Error>
+) -> Result<Option<Vec<(i64, f64)>>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    // Keep accepting null/undefined maps from older payloads.
-    deserialize_optional_i64_key_map(deserializer)
+    // Deserialize via the existing string-keyed map path then convert to Vec.
+    let raw = Option::<HashMap<String, f64>>::deserialize(deserializer)?;
+    Ok(raw.map(|map| {
+        map.into_iter()
+            .filter_map(|(key, value)| key.parse::<i64>().ok().map(|variant| (variant, value)))
+            .collect::<Vec<_>>()
+    }))
 }
 
 // Deserialize object-keyed maps into numeric-variant maps once at the boundary.
@@ -234,23 +243,6 @@ where
         ser.serialize_entry(&key.to_string(), value)?;
     }
     ser.end()
-}
-
-// Optional-map variant keeps legacy `null`/`undefined` payloads compatible.
-pub(crate) fn deserialize_optional_i64_key_map<'de, D, V>(
-    deserializer: D,
-) -> Result<Option<HashMap<i64, V>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    V: Deserialize<'de>,
-{
-    let raw = Option::<HashMap<String, V>>::deserialize(deserializer)?;
-    Ok(raw.map(|entries| {
-        entries
-            .into_iter()
-            .filter_map(|(key, value)| key.parse::<i64>().ok().map(|variant| (variant, value)))
-            .collect::<HashMap<i64, V>>()
-    }))
 }
 
 // Combined safeguard payload lets TS request candidate collection + detection
@@ -1521,46 +1513,60 @@ fn evaluate_engine(
                 prepare_evaluate_options(&cloned)
             });
 
-        let results = items
-            .iter()
-            .map(|entry| {
-                let (first_match, first_non_excluded_match, matching_recipe_indices, matching_recipe_decisions) =
-                    evaluate_item(
+        // Shared scratch reused across all items to avoid per-item HashSet/HashMap
+        // allocations in the evaluate_item hot loop.
+        let mut scratch = EvaluateItemScratch::new();
+        let mut results = Vec::with_capacity(items.len());
+        for entry in &items {
+            let (first_match, first_non_excluded) = evaluate_item(
+                &engine.rules,
+                &engine.recipe_modes,
+                &entry.item,
+                &prepared_options,
+                &mut scratch,
+            );
+            // Extract recipe data from scratch before any second call overwrites it.
+            let matching_recipe_indices: Vec<i64> =
+                scratch.recipe_matches.iter().map(|(k, _)| *k).collect();
+            let matching_recipe_decisions: Vec<MatchingRecipeDecision> = scratch
+                .recipe_matches
+                .iter()
+                .map(|(recipe_idx, keep)| MatchingRecipeDecision {
+                    recipe_idx: *recipe_idx,
+                    keep: *keep,
+                })
+                .collect();
+
+            let mut resolved_first_non_excluded = first_non_excluded;
+            if let Some(baseline) = baseline_options.as_ref() {
+                let needs_baseline = first_match
+                    .as_ref()
+                    .and_then(|matched| engine.rules.get(matched.rule_index))
+                    .map(|rule| rule.is_keep_override_source)
+                    .unwrap_or(false);
+                if needs_baseline {
+                    // Second call overwrites scratch; recipe data already extracted above.
+                    let (_, baseline_non_excluded) = evaluate_item(
                         &engine.rules,
                         &engine.recipe_modes,
                         &entry.item,
-                        &prepared_options,
+                        baseline,
+                        &mut scratch,
                     );
-                let mut resolved_first_non_excluded = first_non_excluded_match.clone();
-                if let Some(baseline) = baseline_options.as_ref() {
-                    let needs_baseline = first_match
-                        .as_ref()
-                        .and_then(|matched| engine.rules.get(matched.rule_index))
-                        .map(|rule| rule.is_keep_override_source)
-                        .unwrap_or(false);
-                    if needs_baseline {
-                        let (_, baseline_non_excluded, _, _) =
-                            evaluate_item(
-                                &engine.rules,
-                                &engine.recipe_modes,
-                                &entry.item,
-                                baseline,
-                            );
-                        if baseline_non_excluded.is_some() {
-                            resolved_first_non_excluded = baseline_non_excluded;
-                        }
+                    if baseline_non_excluded.is_some() {
+                        resolved_first_non_excluded = baseline_non_excluded;
                     }
                 }
+            }
 
-                EvaluateItemResult {
-                    item_id: entry.item_id,
-                    first_match,
-                    first_non_excluded_match: resolved_first_non_excluded,
-                    matching_recipe_indices,
-                    matching_recipe_decisions,
-                }
-            })
-            .collect::<Vec<_>>();
+            results.push(EvaluateItemResult {
+                item_id: entry.item_id,
+                first_match,
+                first_non_excluded_match: resolved_first_non_excluded,
+                matching_recipe_indices,
+                matching_recipe_decisions,
+            });
+        }
 
         Ok(results)
     })
