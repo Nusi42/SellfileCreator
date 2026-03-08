@@ -63,6 +63,10 @@ export type GearDbArtifactsCommand = {
 export type GearDbChampionsCommand = {
   kind: 'gearDbChampions'
   champions: GearDbChampionRow[]
+  // Inverse of the per-champion artifacts slot map: artifactId → championId.
+  // Built from the endpoint's { "1": artifactId, ... } structure so artifact
+  // rows can have their cID field populated without a separate equipped-by feed.
+  equippedByArtifact: Map<number, number>
 }
 export type GearDbInboxArtifactsCommand = {
   kind: 'gearDbInboxArtifacts'
@@ -150,8 +154,12 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
   }
   if (normalized === 'champions') {
     // Params key matches the method name: { champions: GearDbChampionRow[] }.
-    const rows = parseChampionArray(payloadRecord.champions ?? payload)
-    const command: GearDbChampionsCommand = { kind: 'gearDbChampions', champions: rows }
+    // Read the raw array once — champion rows carry an `artifacts` slot map that
+    // must be inverted before parseChampionRow strips those extra fields.
+    const rawArray = payloadRecord.champions ?? payload
+    const equippedByArtifact = buildEquippedByArtifactMap(rawArray)
+    const rows = parseChampionArray(rawArray)
+    const command: GearDbChampionsCommand = { kind: 'gearDbChampions', champions: rows, equippedByArtifact }
     return command
   }
   if (normalized === 'inboxartifacts') {
@@ -303,6 +311,32 @@ const parseArtifactLogRow = (
   return result
 }
 
+// Build the artifact→champion inverse map from raw champion array entries.
+// Each champion carries an `artifacts` object of shape { "1": artifactId, ... }
+// (slot number → artifact id). We invert it so artifact rows can look up which
+// champion they belong to and fill their cID field.
+const buildEquippedByArtifactMap = (value: unknown): Map<number, number> => {
+  const map = new Map<number, number>()
+  if (!Array.isArray(value)) return map
+  for (const entry of value) {
+    if (!isObject(entry)) continue
+    // Champion id may be `id` (endpoint) or `ID` (SQL dump) — resolve both.
+    const rawId = getValueIgnoreCase(entry as UnknownRecord, 'id')
+    const championId = toNumber(rawId)
+    if (!championId || championId <= 0) continue
+    // `artifacts` is { "1": artifactId, "2": artifactId, ... } — slot → artifact.
+    const slotMap = (entry as UnknownRecord).artifacts
+    if (!isObject(slotMap)) continue
+    for (const artifactId of Object.values(slotMap)) {
+      const aid = toNumber(artifactId)
+      // Skip null/zero — those slots are empty.
+      if (!aid || aid <= 0) continue
+      map.set(aid, championId)
+    }
+  }
+  return map
+}
+
 const parseChampionArray = (value: unknown): GearDbChampionRow[] => {
   if (!Array.isArray(value)) return []
   const result: GearDbChampionRow[] = []
@@ -323,6 +357,42 @@ const parseLastUsedArray = (value: unknown): GearDbLastUsedRow[] => {
   return result
 }
 
+// Endpoint field aliases for champion rows.
+// The JSON endpoint uses camelCase names that differ from the SQL column names;
+// each canonical key maps to the alternate names to try when the primary lookup
+// returns undefined.
+const CHAMPION_FIELD_ALIASES: Partial<Record<keyof GearDbChampionRow, readonly string[]>> = {
+  // typeId is the variant/template reference in the endpoint — its floored base
+  // ID (nearest lower multiple of 10) corresponds to the SQL BaseHeroID column
+  // and the icon file name; see the flooring step in parseChampionRow.
+  BaseHeroID: ['typeId'],
+  // The endpoint carries no rarity tier field — grade is the star ascension
+  // level (1–6), not Rare/Epic/Legendary. Leaving Rarity unmapped means
+  // equippedChampionRarity stays null and the border renders neutral rather
+  // than incorrectly showing every champion as mythical.
+  // inStorage is a boolean flag; Number(true/false) → 1/0 so coercion is fine.
+  Vault: ['inStorage'],
+}
+
+// Try the canonical SQL column name first, then any known endpoint aliases.
+const resolveChampionField = (
+  record: UnknownRecord,
+  key: string,
+  aliases: readonly string[] | undefined,
+): unknown => {
+  // Check the canonical casing first (case-insensitive via getValueIgnoreCase).
+  const canonical = getValueIgnoreCase(record, key)
+  if (canonical !== undefined) return canonical
+  // Fall through each alias so endpoint names resolve to the right column.
+  if (aliases) {
+    for (const alias of aliases) {
+      const aliased = getValueIgnoreCase(record, alias)
+      if (aliased !== undefined) return aliased
+    }
+  }
+  return undefined
+}
+
 const parseChampionRow = (value: unknown): GearDbChampionRow | null => {
   if (!isObject(value)) return null
   const row: Partial<GearDbChampionRow> = {}
@@ -330,8 +400,9 @@ const parseChampionRow = (value: unknown): GearDbChampionRow | null => {
   const target = row as Record<string, number | string | null>
   // Iterate the canonical column list so unknown keys get ignored automatically.
   for (const column of CHAMPION_COLUMN_KEYS) {
-    const key = column as string
-    const candidate = getValueIgnoreCase(record, key)
+    const key = column as keyof GearDbChampionRow
+    // Resolve via canonical name or any registered alias for this field.
+    const candidate = resolveChampionField(record, key as string, CHAMPION_FIELD_ALIASES[key])
     if (candidate === undefined) continue
     if (key === 'Name') {
       // Champs.Name stays string-based; numbers get stringified so helper logs
@@ -340,11 +411,18 @@ const parseChampionRow = (value: unknown): GearDbChampionRow | null => {
       continue
     }
     const normalized = toNumber(candidate)
-    target[key] = normalized ?? null
+    target[key as string] = normalized ?? null
   }
   const id = toNumber(row.ID)
   if (!id || id <= 0) return null
   row.ID = id
+  // Endpoint typeId values are variant IDs (e.g. 2066); icon files live at the
+  // base template ID — the nearest lower multiple of 10 (e.g. 2060). Floor here
+  // so both the SQL path (already multiples of 10) and the endpoint path resolve
+  // to the same icon file name; Math.floor(2060/10)*10 === 2060 is idempotent.
+  if (row.BaseHeroID != null && row.BaseHeroID > 0) {
+    row.BaseHeroID = Math.floor(row.BaseHeroID / 10) * 10
+  }
   return row as GearDbChampionRow
 }
 
