@@ -71,6 +71,18 @@ const collectFilesRecursively = async (rootDir) => {
 
 // Build only when at least one output is missing or stale relative to sources.
 const ensureRuleEngineWasm = async () => {
+  // If the Cargo target directory is absent (e.g. after `cargo clean`) the
+  // intermediate build artifacts are gone; treat this as a forced rebuild
+  // regardless of output mtimes, because the outputs cannot be trusted to
+  // match what a fresh compile would produce.
+  const cargoTargetDir = path.join(WORKSPACE_DIR, 'target')
+  let cargoTargetMissing = false
+  try {
+    await fs.access(cargoTargetDir)
+  } catch {
+    cargoTargetMissing = true
+  }
+
   // Collect Rust sources from both crates so any edit in core or the wasm shim triggers rebuild.
   const coreSources = await collectFilesRecursively(RULE_ENGINE_CORE_SRC_DIR)
   const wasmSources = await collectFilesRecursively(RULE_ENGINE_WASM_SRC_DIR)
@@ -101,7 +113,7 @@ const ensureRuleEngineWasm = async () => {
 
   const hasMissingOutput = missingOutputs.length > 0
   const hasStaleOutput = oldestOutputMtime < newestSourceMtime
-  if (!hasMissingOutput && !hasStaleOutput) {
+  if (!hasMissingOutput && !hasStaleOutput && !cargoTargetMissing) {
     console.log('[wasm:ensure] rule engine outputs are up to date.')
     return
   }
@@ -110,6 +122,8 @@ const ensureRuleEngineWasm = async () => {
   if (hasMissingOutput) {
     const missingLabels = missingOutputs.map((filePath) => path.relative(REPO_ROOT, filePath)).join(', ')
     console.log(`[wasm:ensure] rebuilding (missing outputs: ${missingLabels})`)
+  } else if (cargoTargetMissing) {
+    console.log('[wasm:ensure] rebuilding (cargo target/ absent — cargo clean was run).')
   } else {
     console.log('[wasm:ensure] rebuilding (sources changed after generated outputs).')
   }

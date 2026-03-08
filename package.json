@@ -18,6 +18,7 @@
     "generate:domain-constants": "node scripts/tooling/generate-domain-constants.mjs",
     "wasm:build:rule-engine": "node scripts/tooling/build-rule-engine-wasm.mjs",
     "wasm:ensure:rule-engine": "node scripts/tooling/ensure-rule-engine-wasm.mjs",
+    "wasm:clean": "node scripts/tooling/clean-rule-engine-wasm.mjs",
     "lint": "eslint . --ext .ts,.tsx",
     "release:win": "powershell -ExecutionPolicy Bypass -File ./scripts/release/release-win.ps1",
     "release:win-dev": "powershell -ExecutionPolicy Bypass -File ./scripts/release/release-win-dev.ps1",

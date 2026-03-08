@@ -7,7 +7,7 @@ package-lock.json
 dist/
 src-tauri/target/
 wasm/target/
-src/lib/wasm/generated/rule_engine_bg.wasm
+src/lib/wasm/generated/
 
 # Build/test artifacts
 tmp/tsc/
