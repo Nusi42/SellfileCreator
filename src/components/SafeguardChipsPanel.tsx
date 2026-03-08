@@ -5,6 +5,11 @@
  * reorder / rename and exposes the selected rule id so the builder form can display
  * the right data. Mirrors the chip-management surface of SafeguardsTab without the
  * detection grid.
+ *
+ * When the optional multi-select props (selectedRuleIds, onRuleSelect, …) are
+ * provided the panel enters multi-select mode: all rules in the set receive
+ * selected styling and click events are forwarded to the parent hook so
+ * shift/ctrl range selection is handled centrally.
  */
 import React, { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import {
@@ -25,6 +30,7 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import { alpha, useTheme } from '@mui/material/styles'
 import {
   BUILDER_AUTO_APPLY_DEBOUNCE_MS,
+  DANGER_TINT_BG,
   GLYPH_IGNORE_COLLECTION,
   GLYPH_IGNORE_PREVIOUS,
   GLYPH_IGNORE_VAULT,
@@ -34,6 +40,7 @@ import {
   RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
   RECIPE_CHIP_VERTICAL_PADDING_PX,
   SELECTED_HOVER_BG_ALPHA,
+  UI_BG_HOVER_DANGER_TRANSITION,
 } from '../lib/constants'
 import {
   SafeguardRuleActivation,
@@ -52,6 +59,7 @@ import PasteDialog from './PasteDialog'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useChipListDnd } from '../hooks/useChipListDnd'
+import { useChipListKeyboard } from '../hooks/useChipListKeyboard'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { safeguardSummaryParts } from './safeguardSummaryParts'
 
@@ -72,6 +80,54 @@ export type SafeguardChipsPanelProps = {
   substatColors?: Record<number, { fg: string; bg: string }>
   /** External scroll request (e.g. from Gear Inspector jump). Increment token each time to re-trigger. */
   focusRuleRequest?: { ruleId: string; token: number } | null
+
+  // ── multi-select (optional — omit to keep single-select behaviour) ──────
+  /** Full set of selected rule IDs when multi-select is active. */
+  selectedRuleIds?: readonly string[] | null
+  /** Shift/ctrl-aware click handler forwarded from useSafeguardSelection. */
+  onRuleSelect?: ((event: ReactMouseEvent, ruleId: string) => void) | null
+  /** Delegated delete so multi-rule deletes are handled centrally. */
+  onRuleDelete?: ((ruleId: string) => void) | null
+  /** Delegated duplicate so multi-rule duplicates are handled centrally. */
+  onRuleDuplicate?: ((ruleId: string) => void) | null
+  /** Delegated move-up aware of multi-select grouping. */
+  onRuleMoveUp?: ((ruleId: string) => void) | null
+  /** Delegated move-down aware of multi-select grouping. */
+  onRuleMoveDown?: ((ruleId: string) => void) | null
+  /** Delegated move-to-top aware of multi-select grouping. */
+  onRuleMoveTop?: ((ruleId: string) => void) | null
+  /** Delegated move-to-bottom aware of multi-select grouping. */
+  onRuleMoveBottom?: ((ruleId: string) => void) | null
+
+  // ── drag-and-drop (mirrors RecipeChipsPanel) ─────────────────────────────
+  /**
+   * Called by useChipListDnd at drag-start; returns the indices to drag
+   * (full sorted selection when dragging a selected item, else [idx]).
+   * Mirrors RecipeChipsPanel.onPrepareDragSelection.
+   */
+  onPrepareDragSelection?: ((idx: number) => number[]) | null
+  /**
+   * Full multi-index reorder handler for useChipListDnd.
+   * Handles contiguous/non-contiguous multi-rule moves and copy mode.
+   * Mirrors RecipeChipsPanel.onReorderRecipes.
+   */
+  onReorderRules?: ((movingIndices: number[], targetIndex: number, options?: { mode?: 'move' | 'copy' }) => void) | null
+
+  // ── keyboard / focus / selection actions (mirrors RecipeChipsPanel) ──────
+  /** Delete all currently-selected rules (Delete/Backspace shortcut). */
+  onDeleteSelected?: (() => void) | null
+  /** Select all visible rules (Ctrl/Cmd+A shortcut and context menu). */
+  onSelectAll?: (() => void) | null
+  /** Clear the selection when the empty container background is clicked. */
+  onClearSelection?: (() => void) | null
+  /** When true the container shows the danger-tint background (Delete All hover). */
+  highlightDelete?: boolean
+  /** Called with true/false when the Delete All menu item is hovered/blurred. */
+  onHighlightDelete?: ((active: boolean) => void) | null
+  /** Delete All action — clears every rule; passed to context menu. */
+  onDeleteAll?: (() => void) | null
+  /** When true the Delete All menu item is disabled (no rules exist). */
+  deleteAllDisabled?: boolean
 }
 
 export default function SafeguardChipsPanel({
@@ -86,7 +142,32 @@ export default function SafeguardChipsPanel({
   metasets = [],
   substatColors = {},
   focusRuleRequest,
+  // Multi-select — all optional; omit to keep single-select behaviour.
+  selectedRuleIds,
+  onRuleSelect,
+  onRuleDelete,
+  onRuleDuplicate,
+  onRuleMoveUp,
+  onRuleMoveDown,
+  onRuleMoveTop,
+  onRuleMoveBottom,
+  // Drag-and-drop — mirrors RecipeChipsPanel surface.
+  onPrepareDragSelection,
+  onReorderRules,
+  // Keyboard / focus / selection — mirrors RecipeChipsPanel surface.
+  onDeleteSelected,
+  onSelectAll,
+  onClearSelection,
+  highlightDelete = false,
+  onHighlightDelete,
+  onDeleteAll,
+  deleteAllDisabled = false,
 }: SafeguardChipsPanelProps) {
+  // Multi-select is active when the caller supplies the extended props.
+  const multiselectMode = Boolean(onRuleSelect)
+  const effectiveSelectedIds: ReadonlySet<string> = multiselectMode && selectedRuleIds
+    ? new Set(selectedRuleIds)
+    : new Set(selectedRuleId ? [selectedRuleId] : [])
   const { t, lang } = useI18n()
   const theme = useTheme()
   const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
@@ -255,6 +336,8 @@ export default function SafeguardChipsPanel({
   }, [focusRuleRequest, scheduleScrollToRule])
 
   const handleDeleteRule = useCallback((ruleId: string) => {
+    // When multi-select is active, delegate to the parent hook so bulk deletes work.
+    if (onRuleDelete) { onRuleDelete(ruleId); setRuleMenu(null); return }
     let filtered: SafeguardRule[] = []
     mutateRules((prev) => {
       filtered = prev.filter((r) => r.id !== ruleId)
@@ -266,7 +349,7 @@ export default function SafeguardChipsPanel({
     if (filtered.length > 0 && selectedRuleId === ruleId) {
       onSelect(filtered[0]!.id)
     }
-  }, [mutateRules, ruleMenu, selectedRuleId, onSelect])
+  }, [mutateRules, onRuleDelete, ruleMenu, selectedRuleId, onSelect])
 
   const handleConfirmDeleteRule = useCallback(() => {
     if (!pendingDeleteRuleId) return
@@ -282,6 +365,8 @@ export default function SafeguardChipsPanel({
   }, [mutateRules])
 
   const handleDuplicateRule = useCallback((ruleId: string) => {
+    // Delegate to parent when in multi-select mode so grouped duplicates work.
+    if (onRuleDuplicate) { onRuleDuplicate(ruleId); return }
     const sourceIndex = rules.findIndex((r) => r.id === ruleId)
     if (sourceIndex === -1) return
     const source = rules[sourceIndex]
@@ -295,9 +380,14 @@ export default function SafeguardChipsPanel({
     // Select and scroll to the new clone so the user sees it right away.
     onSelect(cloneId)
     scheduleScrollToRule(cloneId)
-  }, [mutateRules, rules, onSelect, scheduleScrollToRule])
+  }, [mutateRules, onRuleDuplicate, rules, onSelect, scheduleScrollToRule])
 
-  const moveRule = useCallback((ruleId: string, targetIndex: number) => {
+  const moveRule = useCallback((ruleId: string, targetIndex: number, direction?: 'up' | 'down' | 'top' | 'bottom') => {
+    // In multi-select mode, delegate directional moves to the parent hook.
+    if (direction === 'up' && onRuleMoveUp) { onRuleMoveUp(ruleId); return }
+    if (direction === 'down' && onRuleMoveDown) { onRuleMoveDown(ruleId); return }
+    if (direction === 'top' && onRuleMoveTop) { onRuleMoveTop(ruleId); return }
+    if (direction === 'bottom' && onRuleMoveBottom) { onRuleMoveBottom(ruleId); return }
     mutateRules((prev) => {
       const idx = prev.findIndex((r) => r.id === ruleId)
       if (idx === -1) return prev
@@ -310,7 +400,7 @@ export default function SafeguardChipsPanel({
       next.splice(safeTarget, 0, moved)
       return next
     })
-  }, [mutateRules])
+  }, [mutateRules, onRuleMoveUp, onRuleMoveDown, onRuleMoveTop, onRuleMoveBottom])
 
   const dndEnabled = rules.length > 1
 
@@ -322,12 +412,38 @@ export default function SafeguardChipsPanel({
   } = useChipListDnd({
     containerRef: scrollRootRef,
     itemIndexAttr: 'data-safeguard-chip-index',
-    onReorder: (movingIndices, targetIndex) => {
+    // Prefer the parent-supplied multi-select reorder handler; fall back to
+    // the legacy single-item move so the panel stays functional when invoked
+    // without the full multi-select prop set (e.g. standalone usage).
+    onReorder: onReorderRules ?? ((movingIndices, targetIndex) => {
       const ruleId = rules[movingIndices[0]!]?.id
       if (ruleId !== undefined) moveRule(ruleId, targetIndex)
-    },
-    copyModeEnabled: false,
+    }),
+    ...(onPrepareDragSelection ? { onPrepareSelection: onPrepareDragSelection } : {}),
+    copyModeEnabled: true,
     enabled: dndEnabled,
+  })
+
+  // Visible rule count drives Ctrl+A; selected count drives Delete/Backspace.
+  const visibleRuleCount = visibleRuleIds
+    ? rules.filter((r) => visibleRuleIds.has(r.id)).length
+    : rules.length
+  const selectedCount = multiselectMode && selectedRuleIds ? selectedRuleIds.length : (selectedRuleId ? 1 : 0)
+
+  // Shared SSOT hook: keyboard shortcuts (Delete, Ctrl+A), focus ring, empty-click-to-deselect.
+  const {
+    showFocusRing,
+    handleKeyDown: chipListHandleKeyDown,
+    handleFocus: chipListHandleFocus,
+    handleBlur: chipListHandleBlur,
+    handleMouseDown: chipListHandleMouseDown,
+    handleClick: chipListHandleClick,
+  } = useChipListKeyboard({
+    visibleCount: visibleRuleCount,
+    selectedCount,
+    onDeleteSelected: onDeleteSelected ?? (() => {}),
+    onSelectAll: onSelectAll ?? (() => {}),
+    onClearSelection: onClearSelection ?? (() => {}),
   })
 
   const openRuleMenu = useCallback((event: ReactMouseEvent<HTMLElement>, ruleId: string) => {
@@ -468,7 +584,8 @@ export default function SafeguardChipsPanel({
   }
 
   const renderChip = (rule: SafeguardRule, ruleIndex: number) => {
-    const selected = selectedRuleId === rule.id
+    // In multi-select mode, any rule in the selection set receives selected styling.
+    const selected = effectiveSelectedIds.has(rule.id)
     const isEditingRuleName = editingRuleNameId === rule.id
     const rawName = (pendingNameById.get(rule.id) ?? rule.name ?? '').trim()
     const fallbackName = `${t('testerRule')} ${ruleIndex + 1}`
@@ -510,7 +627,11 @@ export default function SafeguardChipsPanel({
         data-linked-hover="false"
         onMouseEnter={(e) => (e.currentTarget as HTMLElement).setAttribute('data-linked-hover', 'true')}
         onMouseLeave={(e) => (e.currentTarget as HTMLElement).setAttribute('data-linked-hover', 'false')}
-        onClick={() => onSelect(rule.id)}
+        onClick={(e) => {
+          // In multi-select mode, forward the full MouseEvent so shift/ctrl is handled.
+          if (onRuleSelect) { onRuleSelect(e, rule.id); return }
+          onSelect(rule.id)
+        }}
         onContextMenu={(event) => openRuleMenu(event, rule.id)}
         onPointerDown={dndEnabled ? (e) => handleChipPointerDown(e, ruleIndex) : undefined}
         sx={(themeCtx) => {
@@ -612,7 +733,7 @@ export default function SafeguardChipsPanel({
           size="small"
           aria-label={t('chipMenuMoveUp')}
           disabled={isFirst}
-          onClick={(e) => { e.stopPropagation(); moveRule(rule.id, ruleIndex - 1) }}
+          onClick={(e) => { e.stopPropagation(); moveRule(rule.id, ruleIndex - 1, 'up') }}
           sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
         >
           <ArrowUpwardIcon fontSize="inherit" />
@@ -621,7 +742,7 @@ export default function SafeguardChipsPanel({
           size="small"
           aria-label={t('chipMenuMoveDown')}
           disabled={isLast}
-          onClick={(e) => { e.stopPropagation(); moveRule(rule.id, ruleIndex + 1) }}
+          onClick={(e) => { e.stopPropagation(); moveRule(rule.id, ruleIndex + 1, 'down') }}
           sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
         >
           <ArrowDownwardIcon fontSize="inherit" />
@@ -667,14 +788,25 @@ export default function SafeguardChipsPanel({
           const isFirst = idx <= 0
           const isLast = idx < 0 || idx === rules.length - 1
           return {
-            moveTop: { handler: () => moveRule(ruleMenu.ruleId, 0), disabled: isFirst },
-            moveUp: { handler: () => moveRule(ruleMenu.ruleId, idx - 1), disabled: isFirst },
-            moveDown: { handler: () => moveRule(ruleMenu.ruleId, idx + 1), disabled: isLast },
-            moveBottom: { handler: () => moveRule(ruleMenu.ruleId, rules.length - 1), disabled: isLast },
+            moveTop: { handler: () => moveRule(ruleMenu.ruleId, 0, 'top'), disabled: isFirst },
+            moveUp: { handler: () => moveRule(ruleMenu.ruleId, idx - 1, 'up'), disabled: isFirst },
+            moveDown: { handler: () => moveRule(ruleMenu.ruleId, idx + 1, 'down'), disabled: isLast },
+            moveBottom: { handler: () => moveRule(ruleMenu.ruleId, rules.length - 1, 'bottom'), disabled: isLast },
             copyRecipe: () => handleCopyRule(ruleMenu.ruleId),
             pasteAfter: () => handlePasteAfterRule(ruleMenu.ruleId),
             pasteAtEnd: handlePasteAtEnd,
-            deleteAll: { handler: () => setPendingDeleteAll(true), disabled: rules.length === 0, labelKey: 'safeguardsDeleteAll' },
+            // Select All — same as Ctrl+A shortcut, available when rules exist.
+            ...(onSelectAll ? {
+              selectAll: { handler: onSelectAll, disabled: visibleRuleCount === 0, labelKey: 'chipsMenuSelectAll' },
+            } : {}),
+            deleteAll: {
+              // Prefer the parent-supplied handler (App.tsx can hook history/dialog).
+              handler: onDeleteAll ?? (() => setPendingDeleteAll(true)),
+              disabled: deleteAllDisabled || rules.length === 0,
+              labelKey: 'safeguardsDeleteAll',
+              // Drive the danger-tint background from menu hover state.
+              onHighlightChange: onHighlightDelete ?? undefined,
+            },
           }
         })()}
       />
@@ -715,6 +847,12 @@ export default function SafeguardChipsPanel({
           scrollRootRef.current = el
           if (containerRef) containerRef.current = el
         }}
+        tabIndex={0}
+        onClick={chipListHandleClick}
+        onKeyDown={chipListHandleKeyDown}
+        onFocus={chipListHandleFocus}
+        onBlur={chipListHandleBlur}
+        onMouseDown={chipListHandleMouseDown}
         sx={(themeInner) => ({
           mt: 1,
           display: 'flex',
@@ -739,6 +877,15 @@ export default function SafeguardChipsPanel({
           alignItems: 'stretch',
           position: 'relative',
           pr: themeInner.spacing(1),
+          // Danger tint when Delete All is hovered — mirrors RecipeChipsPanel.
+          transition: UI_BG_HOVER_DANGER_TRANSITION,
+          backgroundColor: highlightDelete
+            ? (themeInner.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light)
+            : 'transparent',
+          borderRadius: 1,
+          // Suppress browser default outline; we render our own keyboard focus ring.
+          outline: 'none',
+          boxShadow: showFocusRing ? `0 0 0 2px ${themeInner.palette.primary.main}` : 'none',
           ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: themeInner.spacing(1) }),
         })}
       >

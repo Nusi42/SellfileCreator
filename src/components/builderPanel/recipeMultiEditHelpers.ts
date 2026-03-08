@@ -12,6 +12,29 @@ import { normalizeArtifactSetSelections } from '../../lib/gearSets/selection'
 // are patched at once; the UI needs a canonical "all/mixed/none" baseline.
 export type TriStateBase = 'all' | 'mixed' | 'none'
 
+/**
+ * applyArrayPatchCount
+ *
+ * Given a base count (how many of the N total rules/recipes include `element`),
+ * applies a pending multi-edit number-array patch and returns the effective count.
+ * Encodes the shared patch-application logic used by both RecipeBuilderPanel
+ * (as resolveTokenPresence) and SafeguardBuilderPanel (as getArrayPresence) — SSOT.
+ */
+export const applyArrayPatchCount = (
+  baseCount: number,
+  total: number,
+  patch: MultiEditArrayPatch<number> | null | undefined,
+  element: number,
+): number => {
+  if (!patch) return baseCount
+  if (patch.clear) return 0
+  if (patch.replace) return patch.replace.map(Number).includes(element) ? total : 0
+  let count = baseCount
+  if (patch.remove?.map(Number).includes(element)) count = 0
+  else if (patch.add?.map(Number).includes(element)) count = total
+  return Math.max(0, Math.min(total, count))
+}
+
 export const deriveBaseTriState = (count: number, total: number): TriStateBase => {
   if (total <= 0 || count <= 0) return 'none'
   if (count >= total) return 'all'

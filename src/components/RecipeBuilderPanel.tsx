@@ -119,6 +119,7 @@ import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
 import { createFactoryBuilderDefaults } from './builderPanel/defaults'
 import {
   applyArtifactSetPatchPreview,
+  applyArrayPatchCount,
   applyNumberPatchPreview,
   applyStringPatchPreview,
   computeArtifactSetPatchToggle,
@@ -449,21 +450,11 @@ const [interactiveHoverVariant, setInteractiveHoverVariant] = React.useState<Sta
 const canFlexSubstats = canEnableSubstatFlex(recipe)
 const milestoneThresholdsActive = isMilestoneThresholdsActive(recipe)
 const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
+  // Delegates to applyArrayPatchCount (shared SSOT in recipeMultiEditHelpers) so the
+  // patch-application logic lives in exactly one place across recipe and safeguard panels.
   const resolveTokenPresence = React.useCallback((token: number, baseCount: number, patch: MultiEditArrayPatch<number> | null | undefined): number => {
     if (!multiSummary) return baseCount
-    if (!patch) return baseCount
-    if (patch.clear) return 0
-    if (patch.replace && patch.replace.length >= 0) {
-      return patch.replace.map(Number).includes(token) ? multiSummary.total : 0
-    }
-    let next = baseCount
-    if (patch.remove && patch.remove.map(Number).includes(token)) {
-      next = 0
-    }
-    if (patch.add && patch.add.map(Number).includes(token)) {
-      next = multiSummary.total
-    }
-    return Math.max(0, Math.min(multiSummary.total, next))
+    return applyArrayPatchCount(baseCount, multiSummary.total, patch, token)
   }, [multiSummary])
   const resolveSetPresence = React.useCallback((
     token: number,
@@ -2661,10 +2652,13 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                       update('keep', v === 'keep')
                     }
                   }}
-                  sx={(theme) => ({
+                  sx={{
                     height: `${TOGGLE_BUTTON_HEIGHT_PX}px`,
                     minHeight: `${TOGGLE_BUTTON_HEIGHT_PX}px`,
                     position: 'relative',
+                    // Rounded corners match the safeguard builder mode toggle group.
+                    borderRadius: '8px',
+                    overflow: 'hidden',
                     '& .MuiToggleButton-root': {
                       position: 'relative',
                       zIndex: 1,
@@ -2672,19 +2666,18 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                       minHeight: `${TOGGLE_BUTTON_HEIGHT_PX}px`,
                     },
                     ...(keepMixed ? {
-                      borderRadius: theme.shape.borderRadius,
                       '&::before': {
                         content: '""',
                         position: 'absolute',
                         inset: 0,
-                        borderRadius: theme.shape.borderRadius,
+                        borderRadius: '8px',
                         border: `1px dashed ${mixedBorderColor}`,
                         backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                         pointerEvents: 'none',
                         zIndex: 0,
                       },
                     } : {}),
-                  })}
+                  }}
                   data-tour-id="builder.action"
                 >
                 <ToggleButton

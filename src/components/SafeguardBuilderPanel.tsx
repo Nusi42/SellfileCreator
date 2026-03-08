@@ -58,7 +58,12 @@ import {
   type SafeguardRule,
 } from '../lib/safeguards'
 import type { ColorBlindMode } from '../lib/constants'
-import { SAFEGUARD_BUILDER_USER_DEFAULTS_KEY } from '../lib/constants'
+import {
+  MULTI_EDIT_MIXED_BG_ALPHA,
+  MULTI_EDIT_MIXED_BORDER_ALPHA,
+  MULTI_EDIT_MIXED_TEXT_ALPHA,
+  SAFEGUARD_BUILDER_USER_DEFAULTS_KEY,
+} from '../lib/constants'
 import {
   STAT_VARIANTS_PRIORITY_ROW1,
   STAT_VARIANTS_PRIORITY_ROW2,
@@ -124,6 +129,16 @@ import ClearIconButton from './ClearIconButton'
 import { mainStatToggleGroupSx, substatToggleGroupSx } from './SubstatToggleDisplay'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { Metaset } from '../lib/metasets'
+import type { SafeguardMultiEditDraftHandle } from '../lib/safeguardMultiEditDraft'
+import {
+  deriveBaseTriState,
+  applyArrayPatchCount,
+  computeSlotPatchToggle,
+  computeMainStatPatchToggle,
+  computeSubstatPatchToggle,
+} from './builderPanel/safeguardMultiEditHelpers'
+import type { MultiEditArrayPatch } from '../lib/recipeMultiEditDraft'
+import { useSafeguardMultiEditSummary } from './builderPanel/useSafeguardMultiEditSummary'
 
 // ── constants ────────────────────────────────────────────────────────────────
 
@@ -161,6 +176,18 @@ const SELECT_BOX_HEIGHT_SX = {
 
 
 
+// ── multi-edit mixed-state toggle styling ──────────────────────────────────
+// Applied as a CSS selector override on top of existing toggle groups.
+// Mirrors RecipeBuilderPanel's data-mixed pattern.
+const MIXED_TOGGLE_GROUP_OVERRIDES = (mixedBorderColor: string, mixedTextColor: string, mixedPatternColor: string) => ({
+  '& .MuiToggleButton-root[data-mixed="true"]': {
+    borderStyle: 'dashed',
+    borderColor: mixedBorderColor,
+    color: mixedTextColor,
+    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+  },
+} as const)
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 // Strips heading markers and color/style directives from separator names for display.
@@ -197,6 +224,10 @@ export type SafeguardBuilderPanelProps = {
   onJumpToHistoryIndex: (index: number) => void
   onRequestClearHistory: () => void
   onManageMetasets: () => void
+  // Multi-edit props — all optional; absent means single-rule editing mode.
+  multiEdit?: SafeguardMultiEditDraftHandle | null
+  multiSelectedRules?: readonly SafeguardRule[] | null
+  onApplyMultiEdit?: (() => void) | null
 }
 
 export default function SafeguardBuilderPanel({
@@ -224,10 +255,63 @@ export default function SafeguardBuilderPanel({
   onJumpToHistoryIndex,
   onRequestClearHistory,
   onManageMetasets,
+  multiEdit,
+  multiSelectedRules,
+  onApplyMultiEdit,
 }: SafeguardBuilderPanelProps) {
   const { t, lang } = useI18n()
+  // ── multi-edit mode derived state ─────────────────────────────────────────
+  const multiEditSelectionCount = multiEdit?.state.selection.length ?? 0
+  // Multi-edit is active when 2+ rules are selected together.
+  const multiEditActive = multiEditSelectionCount >= 2
+  const multiFields = multiEdit?.state.fields ?? null
+  // Per-field state shortcuts — null when single-edit mode.
+  const multiNameField = multiFields?.name ?? null
+  const multiActivationField = multiFields?.activation ?? null
+  // True when the selected rules have different activation modes and no staged change yet.
+  const activationMixed = multiEditActive && multiActivationField?.status === 'mixed' && !multiActivationField.dirty
+  const multiRequiredCountField = multiFields?.requiredCount ?? null
+  const multiIgnorePreviousField = multiFields?.ignorePreviousSafeguards ?? null
+  const multiIgnoreCollectionField = multiFields?.ignoreEquippedInCollection ?? null
+  const multiIgnoreVaultField = multiFields?.ignoreEquippedInVault ?? null
+  const multiSlotsField = multiFields?.slots ?? null
+  // Ranks/rarities/factions are select-based; summary counts drive their mixed badge only.
+  const multiMainStatsField = multiFields?.mainStats ?? null
+  const multiSubstatsField = multiFields?.substats ?? null
+  const multiSubstatMatchField = multiFields?.substatMatch ?? null
+  const multiSubstatWeightsField = multiFields?.substatWeights ?? null
+  const multiBeatEquippedField = multiFields?.beatEquippedPercentile ?? null
+  // True when at least one field has a staged (unsaved) change.
+  const multiDraftDirty = multiEditActive && multiFields
+    ? Object.values(multiFields).some((field) => field?.dirty)
+    : false
+  // Per-element count aggregates for tri-state toggle derivation.
+  const multiSummary = useSafeguardMultiEditSummary(multiEditActive, multiSelectedRules ?? null)
+  // Rank is mixed when any rank value appears in some but not all selected rules.
+  const rankMixed = multiEditActive && multiSummary !== null
+    && Array.from(multiSummary.rankCounts.values()).some(c => c > 0 && c < multiSummary.total)
+  // Rarity is mixed by the same logic applied to rarity counts.
+  const rarityMixed = multiEditActive && multiSummary !== null
+    && Array.from(multiSummary.rarityCounts.values()).some(c => c > 0 && c < multiSummary.total)
   const theme = useTheme()
   const builderStatusChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
+  // Mixed-state colors — mirror RecipeBuilderPanel: use text.primary + shared alpha constants.
+  const mixedBorderColor = useMemo(
+    () => alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BORDER_ALPHA.dark : MULTI_EDIT_MIXED_BORDER_ALPHA.light),
+    [theme],
+  )
+  const mixedPatternColor = useMemo(
+    () => alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BG_ALPHA.dark : MULTI_EDIT_MIXED_BG_ALPHA.light),
+    [theme],
+  )
+  const mixedTextColor = useMemo(
+    () => alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_TEXT_ALPHA.dark : MULTI_EDIT_MIXED_TEXT_ALPHA.light),
+    [theme],
+  )
+  const mixedToggleOverrides = useMemo(
+    () => MIXED_TOGGLE_GROUP_OVERRIDES(mixedBorderColor, mixedTextColor, mixedPatternColor),
+    [mixedBorderColor, mixedTextColor, mixedPatternColor],
+  )
   const { showFactionIcons, showSetIcons, showSlotIcons } = useDisplayPreferences()
   const { resolveAllowedSetPool, sanitizeCombinationForSlots } = useKeepOverrideCombinationTools(metasets)
 
@@ -332,9 +416,9 @@ export default function SafeguardBuilderPanel({
       hint: { active: resetHintActive, pos: resetHintPos, onMouseEnter: handleResetHintMouseEnter, onMouseMove: handleResetHintMouseMove, onMouseLeave: handleResetHintMouseLeave },
     },
   } = useBuilderPanelActionMenus({
-    builderCanAdd: true,
-    multiEditActive: false,
-    saveDisabled: applyDisabled,
+    builderCanAdd: !multiEditActive,
+    multiEditActive,
+    saveDisabled: multiEditActive ? !multiDraftDirty : applyDisabled,
     isDefaultBuilder: isDefaultRule,
   })
 
@@ -432,11 +516,7 @@ export default function SafeguardBuilderPanel({
   const effectiveSubstatMatch = hasSubstatSelection
     ? normalizeSafeguardSubstatMatch(rule?.substatMatch)
     : SafeguardSubstatMatch.Any
-  // Map effective match mode to its short text label for the cycling chip.
-  // Map effective match mode to its label for the cycling chip — reuse the requirement keys for consistency.
-  const currentMatchLabel = effectiveSubstatMatch === SafeguardSubstatMatch.Any ? t('safeguardsSubstatRequirementAny')
-    : effectiveSubstatMatch === SafeguardSubstatMatch.All ? t('safeguardsSubstatRequirementAll')
-    : t('safeguardsSubstatRequirementPer')
+  // currentMatchLabel moved to displayMatchLabel below (multi-edit-aware version).
   // SSOT: delegate to safeguardWeightsEnabled so the rule is defined once.
   const showSubstatWeights = safeguardWeightsEnabled(rule?.substatMatch, hasSubstatSelection)
 
@@ -453,6 +533,28 @@ export default function SafeguardBuilderPanel({
   const beatEquippedPercentile = rule?.beatEquippedPercentile ?? null
   const beatEquippedEnabled = beatEquippedPercentile !== null
 
+  // ── multi-edit derived display values for substat/beat-equipped chips ─────
+  // Staged substat match value: prefer staged if active, else live effective value.
+  const displaySubstatMatch = multiEditActive
+    ? (multiSubstatMatchField?.value as SafeguardSubstatMatch ?? effectiveSubstatMatch)
+    : effectiveSubstatMatch
+  // Mixed indicator: true when selection has differing values not yet staged.
+  const substatMatchMixed = multiEditActive && multiSubstatMatchField?.status === 'mixed' && !multiSubstatMatchField.dirty
+  const displayMatchLabel = displaySubstatMatch === SafeguardSubstatMatch.Any ? t('safeguardsSubstatRequirementAny')
+    : displaySubstatMatch === SafeguardSubstatMatch.All ? t('safeguardsSubstatRequirementAll')
+    : t('safeguardsSubstatRequirementPer')
+  // Beat-equipped display and mixed state for multi-edit.
+  const displayBeatEquippedPercentile = multiEditActive
+    ? (multiBeatEquippedField?.value !== undefined && multiBeatEquippedField.value !== null
+      ? (multiBeatEquippedField.value as number)
+      : beatEquippedPercentile)
+    : beatEquippedPercentile
+  const beatEquippedMixed = multiEditActive && multiBeatEquippedField?.status === 'mixed' && !multiBeatEquippedField.dirty
+  // In multi-edit, enabled = any rule has it on OR it has been staged as a change.
+  const displayBeatEquippedEnabled = multiEditActive
+    ? (multiBeatEquippedField?.dirty ? displayBeatEquippedPercentile !== null : beatEquippedEnabled)
+    : beatEquippedEnabled
+
   const handleScopeChipToggle = (scope: KeepOverrideScopeKey) => {
     updateRule((prev) => {
       const prevMode = prev.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE
@@ -461,11 +563,29 @@ export default function SafeguardBuilderPanel({
     })
   }
 
+  // Per-scope mixed state: some selected rules have the scope on while others have it off.
+  // Computed directly from multiSelectedRules since countMode is tracked as a whole object,
+  // not per individual scope key — so we derive scope-level granularity here.
+  const perScopeMixed = useMemo(() => {
+    if (!multiEditActive || !multiSelectedRules) {
+      return { perSlot: false, perSet: false, perFaction: false, perMainStat: false }
+    }
+    const hasSome = (key: KeepOverrideScopeKey) => multiSelectedRules.some(r => r.countMode?.[key] ?? false)
+    const hasMissing = (key: KeepOverrideScopeKey) => multiSelectedRules.some(r => !(r.countMode?.[key] ?? false))
+    return {
+      perSlot: hasSome('perSlot') && hasMissing('perSlot'),
+      perSet: hasSome('perSet') && hasMissing('perSet'),
+      perFaction: hasSome('perFaction') && hasMissing('perFaction'),
+      perMainStat: hasSome('perMainStat') && hasMissing('perMainStat'),
+    }
+  }, [multiEditActive, multiSelectedRules])
+
   const renderScopeChip = (
     scope: KeepOverrideScopeKey,
     label: string,
     active: boolean,
     disabledOverride = false,
+    mixed = false,
   ) => (
     <MarkdownTooltip key={scope} markdown={safeguardScopeChipTooltips[scope]}>
       <span>
@@ -473,6 +593,7 @@ export default function SafeguardBuilderPanel({
           scope={scope}
           label={label}
           active={active}
+          mixed={mixed}
           disabled={disabledOverride}
           onToggle={handleScopeChipToggle}
         />
@@ -535,17 +656,37 @@ export default function SafeguardBuilderPanel({
       <Box sx={(theme) => ({ gridColumn: '1 / -1', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <TextField
           label={t('safeguardBuilderRuleName')}
-          value={rule.name ?? ''}
-          onChange={(e) => updateRule((prev) => ({ ...prev, name: e.target.value }))}
+          // In multi-edit mode show staged name value (or placeholder when mixed).
+          value={multiEditActive
+            ? (multiNameField?.status === 'mixed' && !multiNameField.dirty
+              ? ''
+              : String(multiNameField?.value ?? rule.name ?? ''))
+            : (rule.name ?? '')}
+          {...(multiEditActive && multiNameField?.status === 'mixed' && !multiNameField.dirty
+            ? { placeholder: t('builderMultiEditMixedPlaceholder') }
+            : {})}
+          onChange={(e) => {
+            if (multiEditActive && multiEdit) {
+              multiEdit.updateField('name', { value: e.target.value, status: 'common' })
+            } else {
+              updateRule((prev) => ({ ...prev, name: e.target.value }))
+            }
+          }}
           InputProps={{
-            endAdornment: rule.name ? (
+            endAdornment: (multiEditActive ? (multiNameField?.dirty) : rule.name) ? (
               <InputAdornment position="end">
                 <ClearIconButton
                   size="small"
                   edge="end"
                   aria-label={t('builderClearRecipeName')}
                   tooltip={t('builderClearRecipeName')}
-                  onClick={() => updateRule((prev) => ({ ...prev, name: '' }))}
+                  onClick={() => {
+                    if (multiEditActive && multiEdit) {
+                      multiEdit.updateField('name', { value: '', status: 'common' })
+                    } else {
+                      updateRule((prev) => ({ ...prev, name: '' }))
+                    }
+                  }}
                 />
               </InputAdornment>
             ) : undefined,
@@ -579,13 +720,24 @@ export default function SafeguardBuilderPanel({
               </IconButton>
             </MarkdownTooltip>
           </Box>
+          {/* Relative-positioned wrapper enables the mixed-state ::before overlay pattern. */}
+          <Box sx={{ position: 'relative' }}>
           <ToggleButtonGroup
             size="small"
             exclusive
-            value={activation}
+            // In multi-edit mode, show the staged value; null when mixed (no button highlighted).
+            value={multiEditActive
+              ? (activationMixed
+                ? null
+                : (multiActivationField?.value as SafeguardRuleActivation ?? activation))
+              : activation}
             onChange={(_event, next) => {
               if (!next) return
-              updateRule((prev) => (prev.activation === next ? prev : { ...prev, activation: next }))
+              if (multiEditActive && multiEdit) {
+                multiEdit.updateField('activation', { value: next as SafeguardRuleActivation, status: 'common' })
+              } else {
+                updateRule((prev) => (prev.activation === next ? prev : { ...prev, activation: next }))
+              }
             }}
             sx={{ borderRadius: '8px', overflow: 'hidden' }}
           >
@@ -627,6 +779,16 @@ export default function SafeguardBuilderPanel({
               {t('safeguardsRuleModeAnticipateShort')}
             </ToggleButton>
           </ToggleButtonGroup>
+          {/* Dashed-border gradient overlay when activation modes differ across selected rules. */}
+          {activationMixed && (
+            <Box sx={{
+              position: 'absolute', inset: 0, borderRadius: '8px',
+              border: `1px dashed ${mixedBorderColor}`,
+              backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+              pointerEvents: 'none', zIndex: 1,
+            }} />
+          )}
+          </Box>
         </FormControl>
 
         {/* Required count */}
@@ -635,10 +797,22 @@ export default function SafeguardBuilderPanel({
             size="small"
             type="number"
             label={t('safeguardsRequiredCount')}
-            value={rule.requiredCount ?? 1}
+            // In multi-edit mode show staged value; when mixed (not yet staged) placeholder shows.
+            value={multiEditActive
+              ? (multiRequiredCountField?.status === 'mixed' && !multiRequiredCountField.dirty
+                ? ''
+                : Number(multiRequiredCountField?.value ?? rule.requiredCount ?? 1))
+              : (rule.requiredCount ?? 1)}
+            {...(multiEditActive && multiRequiredCountField?.status === 'mixed' && !multiRequiredCountField.dirty
+              ? { placeholder: t('builderMultiEditMixedPlaceholder') }
+              : {})}
             onChange={(event) => {
               const raw = Math.min(9999, Math.max(1, Math.floor(Number(event.target.value) || 1)))
-              updateRule((prev) => ({ ...prev, requiredCount: raw }))
+              if (multiEditActive && multiEdit) {
+                multiEdit.updateField('requiredCount', { value: raw, status: 'common' })
+              } else {
+                updateRule((prev) => ({ ...prev, requiredCount: raw }))
+              }
             }}
             InputProps={{
               startAdornment: <InputAdornment position="start">≥</InputAdornment>,
@@ -646,10 +820,16 @@ export default function SafeguardBuilderPanel({
                 <NumberSpinnerAdornment
                   ariaLabel={t('safeguardsRequiredCount')}
                   onStep={(delta) => {
-                    updateRule((prev) => {
-                      const next = Math.max(1, Math.min(9999, Math.floor((prev.requiredCount ?? 1) + delta)))
-                      return { ...prev, requiredCount: next }
-                    })
+                    if (multiEditActive && multiEdit) {
+                      const current = Number(multiRequiredCountField?.value ?? rule.requiredCount ?? 1)
+                      const next = Math.max(1, Math.min(9999, Math.floor(current + delta)))
+                      multiEdit.updateField('requiredCount', { value: next, status: 'common' })
+                    } else {
+                      updateRule((prev) => {
+                        const next = Math.max(1, Math.min(9999, Math.floor((prev.requiredCount ?? 1) + delta)))
+                        return { ...prev, requiredCount: next }
+                      })
+                    }
                   }}
                 />
               ),
@@ -667,50 +847,108 @@ export default function SafeguardBuilderPanel({
         {/* Ignore chips — right of required count, stacked in 2 rows */}
         <Box sx={(theme) => ({ display: 'flex', flexDirection: 'column', gap: 0.75, flex: '1 1 auto', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
           {/* Row 1: ignore previous safeguards */}
-          <Box sx={{ display: 'flex' }}>
-            <MarkdownTooltip markdown={t('safeguardsIgnorePreviousSafeguardsHint')} ellipsisTitle={t('safeguardsIgnorePreviousSafeguards')} ellipsisSelector=".MuiChip-label">
-              <Chip
-                size="small"
-                variant="filled"
-                label={`${GLYPH_IGNORE_PREVIOUS}${NBSP}${t('safeguardsIgnorePreviousSafeguards')}`}
-                aria-label={t('safeguardsIgnorePreviousSafeguards')}
-                clickable
-                onClick={() => {
-                  updateRule((prev) => ({ ...prev, ignorePreviousSafeguards: !ignorePreviousSafeguards }))
-                }}
-                sx={builderStatusChipSx(ignorePreviousSafeguards, { dimDisabled: true })}
-              />
-            </MarkdownTooltip>
-          </Box>
-          {/* Row 2: ignore equipped in collection + vault */}
-          <Box sx={{ display: 'flex', gap: 0.75 }}>
-            <MarkdownTooltip markdown={t('safeguardsIgnoreEquippedInCollectionHint')} ellipsisTitle={t('safeguardsIgnoreEquippedInCollection')} ellipsisSelector=".MuiChip-label">
-              <Chip
-                size="small"
-                variant="filled"
-                label={`${GLYPH_IGNORE_COLLECTION}${NBSP}${t('safeguardsIgnoreEquippedInCollection')}`}
-                aria-label={t('safeguardsIgnoreEquippedInCollection')}
-                clickable
-                onClick={() => {
-                  updateRule((prev) => ({ ...prev, ignoreEquippedInCollection: !ignoreEquippedInCollection }))
-                }}
-                sx={builderStatusChipSx(ignoreEquippedInCollection, { dimDisabled: true })}
-              />
-            </MarkdownTooltip>
-            <MarkdownTooltip markdown={t('safeguardsIgnoreEquippedInVaultHint')} ellipsisTitle={t('safeguardsIgnoreEquippedInVault')} ellipsisSelector=".MuiChip-label">
-              <Chip
-                size="small"
-                variant="filled"
-                label={`${GLYPH_IGNORE_VAULT}${NBSP}${t('safeguardsIgnoreEquippedInVault')}`}
-                aria-label={t('safeguardsIgnoreEquippedInVault')}
-                clickable
-                onClick={() => {
-                  updateRule((prev) => ({ ...prev, ignoreEquippedInVault: !ignoreEquippedInVault }))
-                }}
-                sx={builderStatusChipSx(ignoreEquippedInVault, { dimDisabled: true })}
-              />
-            </MarkdownTooltip>
-          </Box>
+          {(() => {
+            // Derive effective value and mixed indicator for each ignore toggle.
+            const prevMixed = multiEditActive && multiIgnorePreviousField?.status === 'mixed' && !multiIgnorePreviousField.dirty
+            const prevValue = multiEditActive
+              ? Boolean(multiIgnorePreviousField?.value ?? ignorePreviousSafeguards)
+              : ignorePreviousSafeguards
+            const collMixed = multiEditActive && multiIgnoreCollectionField?.status === 'mixed' && !multiIgnoreCollectionField.dirty
+            const collValue = multiEditActive
+              ? Boolean(multiIgnoreCollectionField?.value ?? ignoreEquippedInCollection)
+              : ignoreEquippedInCollection
+            const vaultMixed = multiEditActive && multiIgnoreVaultField?.status === 'mixed' && !multiIgnoreVaultField.dirty
+            const vaultValue = multiEditActive
+              ? Boolean(multiIgnoreVaultField?.value ?? ignoreEquippedInVault)
+              : ignoreEquippedInVault
+            return (
+              <>
+                <Box sx={{ display: 'flex' }}>
+                  <MarkdownTooltip markdown={t('safeguardsIgnorePreviousSafeguardsHint')} ellipsisTitle={t('safeguardsIgnorePreviousSafeguards')} ellipsisSelector=".MuiChip-label">
+                    <Chip
+                      size="small"
+                      variant="filled"
+                      label={`${GLYPH_IGNORE_PREVIOUS}${NBSP}${t('safeguardsIgnorePreviousSafeguards')}`}
+                      aria-label={t('safeguardsIgnorePreviousSafeguards')}
+                      clickable
+                      onClick={() => {
+                        if (multiEditActive && multiEdit) {
+                          multiEdit.updateField('ignorePreviousSafeguards', { value: !prevValue, status: 'common' })
+                        } else {
+                          updateRule((prev) => ({ ...prev, ignorePreviousSafeguards: !ignorePreviousSafeguards }))
+                        }
+                      }}
+                      sx={{
+                        // Green when enabled OR mixed — base matches recipe builder flex chip.
+                        ...builderStatusChipSx(prevValue || prevMixed, { dimDisabled: true }),
+                        // Full mixed overlay: dashed border + hatched gradient + muted text,
+                        // identical to the flex chip pattern in RecipeBuilderPanel.
+                        ...(prevMixed ? {
+                          borderStyle: 'dashed',
+                          borderColor: mixedBorderColor,
+                          color: mixedTextColor,
+                          backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                        } : {}),
+                      }}
+                    />
+                  </MarkdownTooltip>
+                </Box>
+                {/* Row 2: ignore equipped in collection + vault */}
+                <Box sx={{ display: 'flex', gap: 0.75 }}>
+                  <MarkdownTooltip markdown={t('safeguardsIgnoreEquippedInCollectionHint')} ellipsisTitle={t('safeguardsIgnoreEquippedInCollection')} ellipsisSelector=".MuiChip-label">
+                    <Chip
+                      size="small"
+                      variant="filled"
+                      label={`${GLYPH_IGNORE_COLLECTION}${NBSP}${t('safeguardsIgnoreEquippedInCollection')}`}
+                      aria-label={t('safeguardsIgnoreEquippedInCollection')}
+                      clickable
+                      onClick={() => {
+                        if (multiEditActive && multiEdit) {
+                          multiEdit.updateField('ignoreEquippedInCollection', { value: !collValue, status: 'common' })
+                        } else {
+                          updateRule((prev) => ({ ...prev, ignoreEquippedInCollection: !ignoreEquippedInCollection }))
+                        }
+                      }}
+                      sx={{
+                        ...builderStatusChipSx(collValue || collMixed, { dimDisabled: true }),
+                        ...(collMixed ? {
+                          borderStyle: 'dashed',
+                          borderColor: mixedBorderColor,
+                          color: mixedTextColor,
+                          backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                        } : {}),
+                      }}
+                    />
+                  </MarkdownTooltip>
+                  <MarkdownTooltip markdown={t('safeguardsIgnoreEquippedInVaultHint')} ellipsisTitle={t('safeguardsIgnoreEquippedInVault')} ellipsisSelector=".MuiChip-label">
+                    <Chip
+                      size="small"
+                      variant="filled"
+                      label={`${GLYPH_IGNORE_VAULT}${NBSP}${t('safeguardsIgnoreEquippedInVault')}`}
+                      aria-label={t('safeguardsIgnoreEquippedInVault')}
+                      clickable
+                      onClick={() => {
+                        if (multiEditActive && multiEdit) {
+                          multiEdit.updateField('ignoreEquippedInVault', { value: !vaultValue, status: 'common' })
+                        } else {
+                          updateRule((prev) => ({ ...prev, ignoreEquippedInVault: !ignoreEquippedInVault }))
+                        }
+                      }}
+                      sx={{
+                        ...builderStatusChipSx(vaultValue || vaultMixed, { dimDisabled: true }),
+                        ...(vaultMixed ? {
+                          borderStyle: 'dashed',
+                          borderColor: mixedBorderColor,
+                          color: mixedTextColor,
+                          backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                        } : {}),
+                      }}
+                    />
+                  </MarkdownTooltip>
+                </Box>
+              </>
+            )
+          })()}
         </Box>
         {/* Undo / Redo — right-aligned, mirrors RecipeBuilderPanel position + right-click history */}
         <Box
@@ -792,14 +1030,23 @@ export default function SafeguardBuilderPanel({
           <Collapse in={!builderCollapsed.rank} timeout="auto" unmountOnExit>
             <GearRankSelect
               multiple
-              value={rankSelection}
+              // When mixed, collapse to empty so renderValue shows the mixed label instead of
+              // a potentially-misleading partial rank list from only one of the selected rules.
+              value={rankMixed ? [] : rankSelection}
               onChange={(nextRanks) => {
                 setRuleCombination((prev) => ({ ...prev, ranks: nextRanks }))
               }}
               allowAny
               anyLabel={t('any')}
+              // Override closed-select display text to "Mixed" when state differs across rules.
+              {...(rankMixed ? { mixedLabel: t('builderMultiMixedValue') } : {})}
               menuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
-              sx={SELECT_BOX_HEIGHT_SX}
+              sx={rankMixed ? {
+                ...SELECT_BOX_HEIGHT_SX,
+                // Dashed border + diagonal gradient mirrors the data-mixed toggle button pattern.
+                '& .MuiOutlinedInput-notchedOutline': { borderStyle: 'dashed', borderColor: mixedBorderColor },
+                backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+              } : SELECT_BOX_HEIGHT_SX}
             />
           </Collapse>
         </FormControl>
@@ -815,14 +1062,20 @@ export default function SafeguardBuilderPanel({
           <Collapse in={!builderCollapsed.rarity} timeout="auto" unmountOnExit>
             <GearRaritySelect
               multiple
-              value={raritySelection}
+              // When mixed, collapse to empty so renderValue shows the mixed label.
+              value={rarityMixed ? [] : raritySelection}
               onChange={(nextRarities) => {
                 setRuleCombination((prev) => ({ ...prev, rarities: nextRarities }))
               }}
               allowAny
               anyLabel={t('any')}
+              {...(rarityMixed ? { mixedLabel: t('builderMultiMixedValue') } : {})}
               menuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
-              sx={SELECT_BOX_HEIGHT_SX}
+              sx={rarityMixed ? {
+                ...SELECT_BOX_HEIGHT_SX,
+                '& .MuiOutlinedInput-notchedOutline': { borderStyle: 'dashed', borderColor: mixedBorderColor },
+                backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+              } : SELECT_BOX_HEIGHT_SX}
             />
           </Collapse>
         </FormControl>
@@ -848,7 +1101,7 @@ export default function SafeguardBuilderPanel({
                 anyLabel={t('any')}
                 sx={SELECT_BOX_HEIGHT_SX}
               />
-              {renderScopeChip('perFaction', t('safeguardsCountModePerFaction'), scopeActive.perFaction, !hasAccessorySlot)}
+              {renderScopeChip('perFaction', t('safeguardsCountModePerFaction'), scopeActive.perFaction, !hasAccessorySlot, perScopeMixed.perFaction)}
             </Box>
           </Collapse>
         </FormControl>
@@ -880,41 +1133,98 @@ export default function SafeguardBuilderPanel({
           <Collapse in={!builderCollapsed.mainStat} timeout="auto" unmountOnExit>
             {/* Toggle rows + perMainStat chip collapse together as a unit */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
-              <ToggleButtonGroup
-                size="small"
-                value={mainStatValueStrings}
-                onChange={handleMainStatChange}
-                sx={mainStatToggleGroupSx}
-              >
-                {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => (
-                  <ToggleButton
-                    key={variant}
-                    value={String(variant)}
-                    disabled={!mainStatOptions.includes(variant)}
-                  >
-                    {t(statVariantI18nKey(variant))}
-                  </ToggleButton>
-                ))}
-              </ToggleButtonGroup>
-              {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
-              <ToggleButtonGroup
-                size="small"
-                value={mainStatValueStrings}
-                onChange={handleMainStatChange}
-                sx={mainStatToggleGroupSx}
-              >
-                {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => (
-                  <ToggleButton
-                    key={variant}
-                    value={String(variant)}
-                    disabled={!mainStatOptions.includes(variant)}
-                  >
-                    {t(statVariantI18nKey(variant))}
-                  </ToggleButton>
-                ))}
-              </ToggleButtonGroup>
-              {renderScopeChip('perMainStat', t('safeguardsCountModePerMain'), scopeActive.perMainStat)}
+              {(() => {
+                // Multi-edit: compute per-variant presence from summary + pending patch.
+                const getMainStatPresence = (variant: number): 'none' | 'partial' | 'all' => {
+                  if (!multiEditActive || !multiSummary) {
+                    return mainStatSelection.includes(variant) ? 'all' : 'none'
+                  }
+                  const base = multiSummary.mainStatCounts.get(variant) ?? 0
+                  const state = deriveBaseTriState(applyArrayPatchCount(base, multiSummary.total, multiMainStatsField?.patch as MultiEditArrayPatch<number> | null, variant), multiSummary.total)
+                  return state === 'mixed' ? 'partial' : state
+                }
+                // Shared sx: add mixed-toggle overrides on top of base.
+                const groupSx = multiEditActive ? [mainStatToggleGroupSx, mixedToggleOverrides] : mainStatToggleGroupSx
+                // In multi-edit, group value must list only 'all' variants so MUI renders
+                // selected state correctly (MUI overrides individual button selected prop).
+                // Buttons with 'partial' presence show the data-mixed CSS indicator instead.
+                const groupProps = multiEditActive
+                  ? {
+                      value: [...STAT_VARIANTS_PRIORITY_ROW1, ...STAT_VARIANTS_PRIORITY_ROW2]
+                        .filter(v => getMainStatPresence(v) === 'all').map(String),
+                    }
+                  : { value: mainStatValueStrings, onChange: handleMainStatChange }
+                return (
+                  <>
+                    {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
+                    <ToggleButtonGroup size="small" {...groupProps} sx={groupSx}>
+                      {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => {
+                        const presence = getMainStatPresence(variant)
+                        const isMixed = presence === 'partial'
+                        const handleMultiClick = (multiEditActive && multiEdit && multiSummary) ? () => {
+                          // Determine the next target: mixed/none → 'all', all → 'none'.
+                          const target = presence === 'all' ? 'none' : 'all'
+                          const base = deriveBaseTriState(
+                            multiSummary.mainStatCounts.get(variant) ?? 0,
+                            multiSummary.total,
+                          )
+                          const nextPatch = computeMainStatPatchToggle(
+                            multiMainStatsField?.patch as MultiEditArrayPatch<number> | null,
+                            variant,
+                            base,
+                            target,
+                          )
+                          multiEdit.updateField('mainStats', { value: mainStatSelection as number[], status: 'common', patch: nextPatch ?? null })
+                        } : undefined
+                        return (
+                          <ToggleButton
+                            key={variant}
+                            value={String(variant)}
+                            disabled={!mainStatOptions.includes(variant)}
+                            {...(isMixed ? { 'data-mixed': 'true' } : {})}
+                            {...(handleMultiClick ? { onClick: handleMultiClick } : {})}
+                          >
+                            {t(statVariantI18nKey(variant))}
+                          </ToggleButton>
+                        )
+                      })}
+                    </ToggleButtonGroup>
+                    {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
+                    <ToggleButtonGroup size="small" {...groupProps} sx={groupSx}>
+                      {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => {
+                        const presence = getMainStatPresence(variant)
+                        const isMixed = presence === 'partial'
+                        const handleMultiClick = (multiEditActive && multiEdit && multiSummary) ? () => {
+                          const target = presence === 'all' ? 'none' : 'all'
+                          const base = deriveBaseTriState(
+                            multiSummary.mainStatCounts.get(variant) ?? 0,
+                            multiSummary.total,
+                          )
+                          const nextPatch = computeMainStatPatchToggle(
+                            multiMainStatsField?.patch as MultiEditArrayPatch<number> | null,
+                            variant,
+                            base,
+                            target,
+                          )
+                          multiEdit.updateField('mainStats', { value: mainStatSelection as number[], status: 'common', patch: nextPatch ?? null })
+                        } : undefined
+                        return (
+                          <ToggleButton
+                            key={variant}
+                            value={String(variant)}
+                            disabled={!mainStatOptions.includes(variant)}
+                            {...(isMixed ? { 'data-mixed': 'true' } : {})}
+                            {...(handleMultiClick ? { onClick: handleMultiClick } : {})}
+                          >
+                            {t(statVariantI18nKey(variant))}
+                          </ToggleButton>
+                        )
+                      })}
+                    </ToggleButtonGroup>
+                  </>
+                )
+              })()}
+              {renderScopeChip('perMainStat', t('safeguardsCountModePerMain'), scopeActive.perMainStat, false, perScopeMixed.perMainStat)}
             </Box>
           </Collapse>
         </FormControl>
@@ -944,40 +1254,96 @@ export default function SafeguardBuilderPanel({
           </Box>
           <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
-              <ToggleButtonGroup
-                size="small"
-                value={substatValueStrings}
-                onChange={handleSubstatChange}
-                sx={substatToggleGroupSx}
-              >
-                {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => (
-                  <ToggleButton
-                    key={variant}
-                    value={String(variant)}
-                    disabled={!allowedSubstatOptions.includes(variant)}
-                  >
-                    {t(statVariantI18nKey(variant))}
-                  </ToggleButton>
-                ))}
-              </ToggleButtonGroup>
-              {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
-              <ToggleButtonGroup
-                size="small"
-                value={substatValueStrings}
-                onChange={handleSubstatChange}
-                sx={substatToggleGroupSx}
-              >
-                {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => (
-                  <ToggleButton
-                    key={variant}
-                    value={String(variant)}
-                    disabled={!allowedSubstatOptions.includes(variant)}
-                  >
-                    {t(statVariantI18nKey(variant))}
-                  </ToggleButton>
-                ))}
-              </ToggleButtonGroup>
+              {(() => {
+                // Multi-edit: compute per-variant presence from summary + pending patch.
+                const getSubstatPresence = (variant: number): 'none' | 'partial' | 'all' => {
+                  if (!multiEditActive || !multiSummary) {
+                    return substatSelection.includes(variant as StatVariant) ? 'all' : 'none'
+                  }
+                  const base = multiSummary.substatCounts.get(variant) ?? 0
+                  const state = deriveBaseTriState(applyArrayPatchCount(base, multiSummary.total, multiSubstatsField?.patch as MultiEditArrayPatch<number> | null, variant), multiSummary.total)
+                  return state === 'mixed' ? 'partial' : state
+                }
+                // Group value lists only 'all' variants — MUI uses it to compute each button's
+                // selected state; 'partial' variants stay unselected and get data-mixed CSS instead.
+                const groupProps = multiEditActive
+                  ? {
+                      value: [...STAT_VARIANTS_PRIORITY_ROW1, ...STAT_VARIANTS_PRIORITY_ROW2]
+                        .filter(v => getSubstatPresence(v) === 'all').map(String),
+                    }
+                  : { value: substatValueStrings, onChange: handleSubstatChange }
+                const groupSx = multiEditActive ? [substatToggleGroupSx, mixedToggleOverrides] : substatToggleGroupSx
+                return (
+                  <>
+                    {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
+                    <ToggleButtonGroup size="small" {...groupProps} sx={groupSx}>
+                      {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => {
+                        const presence = getSubstatPresence(variant)
+                        const isMixed = presence === 'partial'
+                        // Hoist multi-edit click handler to satisfy exactOptionalPropertyTypes.
+                        const handleMultiClick = (multiEditActive && multiEdit && multiSummary) ? () => {
+                          const target = presence === 'all' ? 'none' : 'all'
+                          const base = deriveBaseTriState(
+                            multiSummary.substatCounts.get(variant) ?? 0,
+                            multiSummary.total,
+                          )
+                          const nextPatch = computeSubstatPatchToggle(
+                            multiSubstatsField?.patch as MultiEditArrayPatch<number> | null,
+                            variant as StatVariant,
+                            base,
+                            target,
+                          )
+                          multiEdit.updateField('substats', { value: substatSelection as number[], status: 'common', patch: nextPatch ?? null })
+                        } : undefined
+                        return (
+                          <ToggleButton
+                            key={variant}
+                            value={String(variant)}
+                            disabled={!allowedSubstatOptions.includes(variant as StatVariant)}
+                            {...(isMixed ? { 'data-mixed': 'true' } : {})}
+                            {...(handleMultiClick ? { onClick: handleMultiClick } : {})}
+                          >
+                            {t(statVariantI18nKey(variant))}
+                          </ToggleButton>
+                        )
+                      })}
+                    </ToggleButtonGroup>
+                    {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
+                    <ToggleButtonGroup size="small" {...groupProps} sx={groupSx}>
+                      {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => {
+                        const presence = getSubstatPresence(variant)
+                        const isMixed = presence === 'partial'
+                        // Hoist multi-edit click handler to satisfy exactOptionalPropertyTypes.
+                        const handleMultiClick = (multiEditActive && multiEdit && multiSummary) ? () => {
+                          const target = presence === 'all' ? 'none' : 'all'
+                          const base = deriveBaseTriState(
+                            multiSummary.substatCounts.get(variant) ?? 0,
+                            multiSummary.total,
+                          )
+                          const nextPatch = computeSubstatPatchToggle(
+                            multiSubstatsField?.patch as MultiEditArrayPatch<number> | null,
+                            variant as StatVariant,
+                            base,
+                            target,
+                          )
+                          multiEdit.updateField('substats', { value: substatSelection as number[], status: 'common', patch: nextPatch ?? null })
+                        } : undefined
+                        return (
+                          <ToggleButton
+                            key={variant}
+                            value={String(variant)}
+                            disabled={!allowedSubstatOptions.includes(variant as StatVariant)}
+                            {...(isMixed ? { 'data-mixed': 'true' } : {})}
+                            {...(handleMultiClick ? { onClick: handleMultiClick } : {})}
+                          >
+                            {t(statVariantI18nKey(variant))}
+                          </ToggleButton>
+                        )
+                      })}
+                    </ToggleButtonGroup>
+                  </>
+                )
+              })()}
             </Box>
           </Collapse>
         </FormControl>
@@ -993,13 +1359,24 @@ export default function SafeguardBuilderPanel({
               <Chip
                 size="small"
                 variant="filled"
-                label={`${t('filterMatch')}:${NBSP}${currentMatchLabel}`}
+                label={substatMatchMixed
+                  ? `${t('filterMatch')}:${NBSP}(${t('builderMultiEditMixedShort')})`
+                  : `${t('filterMatch')}:${NBSP}${displayMatchLabel}`}
                 aria-label={t('safeguardsSubstatRequirementLabel')}
                 clickable
-                disabled={!hasSubstatSelection}
+                disabled={!hasSubstatSelection && !multiEditActive}
                 onClick={() => {
-                  if (!hasSubstatSelection) return
-                  // Cycle Any → All → PerSubstat → Any.
+                  if (!hasSubstatSelection && !multiEditActive) return
+                  if (multiEditActive && multiEdit) {
+                    // Cycle from current staged match value.
+                    const next = displaySubstatMatch === SafeguardSubstatMatch.Any ? SafeguardSubstatMatch.All
+                      : displaySubstatMatch === SafeguardSubstatMatch.All ? SafeguardSubstatMatch.PerSubstat
+                      : SafeguardSubstatMatch.Any
+                    if (next === SafeguardSubstatMatch.PerSubstat) setWeightsAnchorEl(null)
+                    multiEdit.updateField('substatMatch', { value: next, status: 'common' })
+                    return
+                  }
+                  // Single-edit: cycle Any → All → PerSubstat → Any.
                   const next = effectiveSubstatMatch === SafeguardSubstatMatch.Any ? SafeguardSubstatMatch.All
                     : effectiveSubstatMatch === SafeguardSubstatMatch.All ? SafeguardSubstatMatch.PerSubstat
                     : SafeguardSubstatMatch.Any
@@ -1011,6 +1388,13 @@ export default function SafeguardBuilderPanel({
                   ...builderStatusChipSx(true, { dimDisabled: true }),
                   // Flatten right corners so the configure button fits flush.
                   borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px 0 0 ${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                  // Mixed overlay: dashed border + hatched gradient + muted text.
+                  ...(substatMatchMixed ? {
+                    borderStyle: 'dashed',
+                    borderColor: mixedBorderColor,
+                    color: mixedTextColor,
+                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                  } : {}),
                 }}
               />
             </MarkdownTooltip>
@@ -1018,11 +1402,12 @@ export default function SafeguardBuilderPanel({
             <IconButton
               size="small"
               aria-label={t('safeguardsSubstatWeightsLabel')}
-              disabled={!hasSubstatSelection || !showSubstatWeights}
+              disabled={(!hasSubstatSelection && !multiEditActive) || (!showSubstatWeights && !substatMatchMixed)}
               onClick={(e) => setWeightsAnchorEl(e.currentTarget)}
               sx={(theme) => {
-                const canInteract = hasSubstatSelection && showSubstatWeights
-                // Match chip is always "enabled" colored (true) when substats are selected.
+                // Enable interaction when weights apply or match is mixed across selected rules.
+                const canInteract = (hasSubstatSelection || multiEditActive) && (showSubstatWeights || substatMatchMixed)
+                // Match chip background uses green when substats are selected (always green-colored).
                 const chipEnabled = hasSubstatSelection
                 const bg = chipEnabled ? alpha(theme.palette.success.main, 0.18) : alpha(theme.palette.text.disabled, 0.08)
                 const color = chipEnabled
@@ -1038,6 +1423,11 @@ export default function SafeguardBuilderPanel({
                   borderLeft: `1px solid ${chipEnabled ? alpha(theme.palette.success.main, 0.28) : alpha(theme.palette.divider, 0.5)}`,
                   '&:hover': canInteract ? { backgroundColor: alpha(theme.palette.success.main, 0.28) } : {},
                   '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: alpha(color, 0.35) },
+                  // Mixed overlay when match mode differs across selected rules.
+                  ...(substatMatchMixed ? {
+                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                    color: mixedTextColor,
+                  } : {}),
                 }
               }}
             >
@@ -1052,15 +1442,23 @@ export default function SafeguardBuilderPanel({
               <Chip
                 size="small"
                 variant="filled"
-                label={beatEquippedEnabled
-                  ? t('safeguardsBeatEquippedWithValue', { value: beatEquippedPercentile })
-                  : t('safeguardsBeatEquippedShort')}
+                label={beatEquippedMixed
+                  ? `${t('safeguardsBeatEquippedShort')}${NBSP}(${t('builderMultiEditMixedShort')})`
+                  : (displayBeatEquippedEnabled
+                    ? t('safeguardsBeatEquippedWithValue', { value: displayBeatEquippedPercentile ?? 50 })
+                    : t('safeguardsBeatEquippedShort'))}
                 aria-label={t('safeguardsBeatEquippedPercentile')}
                 clickable
-                disabled={!hasSubstatSelection}
+                disabled={!hasSubstatSelection && !multiEditActive}
                 onClick={() => {
-                  if (!hasSubstatSelection) return
-                  // Toggle: disable when active (reset to null), enable with 50 when inactive.
+                  if (!hasSubstatSelection && !multiEditActive) return
+                  if (multiEditActive && multiEdit) {
+                    // Toggle: null ↔ 50 in multi-edit mode.
+                    const next = displayBeatEquippedEnabled ? SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE : 50
+                    multiEdit.updateField('beatEquippedPercentile', { value: next, status: 'common' })
+                    return
+                  }
+                  // Single-edit toggle.
                   updateRule((prev) => ({
                     ...prev,
                     beatEquippedPercentile: prev.beatEquippedPercentile !== null
@@ -1069,21 +1467,31 @@ export default function SafeguardBuilderPanel({
                   }))
                 }}
                 sx={{
-                  ...builderStatusChipSx(beatEquippedEnabled, { dimDisabled: true }),
+                  // Show enabled (green) color when mixed — mirrors the flex chip pattern.
+                  ...builderStatusChipSx(displayBeatEquippedEnabled || beatEquippedMixed, { dimDisabled: true }),
                   // Flatten right corners so the configure button fits flush.
                   borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px 0 0 ${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                  // Full mixed overlay: dashed border + hatched gradient + muted text.
+                  ...(beatEquippedMixed ? {
+                    borderStyle: 'dashed',
+                    borderColor: mixedBorderColor,
+                    color: mixedTextColor,
+                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                  } : {}),
                 }}
               />
             </MarkdownTooltip>
-            {/* Configure button — only interactive when the floor is active */}
+            {/* Configure button — interactive when the floor is active or mixed across rules */}
             <IconButton
               size="small"
               aria-label={t('safeguardsBeatEquippedPercentile')}
-              disabled={!hasSubstatSelection || !beatEquippedEnabled}
+              disabled={(!hasSubstatSelection && !multiEditActive) || (!displayBeatEquippedEnabled && !beatEquippedMixed)}
               onClick={(e) => setBeatEquippedAnchorEl(e.currentTarget)}
               sx={(theme) => {
-                const canInteract = hasSubstatSelection && beatEquippedEnabled
-                const chipEnabled = beatEquippedEnabled
+                // Treat mixed as effectively enabled so the button stays interactive.
+                const isEffectivelyEnabled = displayBeatEquippedEnabled || beatEquippedMixed
+                const canInteract = (hasSubstatSelection || multiEditActive) && isEffectivelyEnabled
+                const chipEnabled = isEffectivelyEnabled
                 const bg = chipEnabled ? alpha(theme.palette.success.main, 0.18) : alpha(theme.palette.text.disabled, 0.08)
                 const color = chipEnabled
                   ? (theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark)
@@ -1098,6 +1506,11 @@ export default function SafeguardBuilderPanel({
                   borderLeft: `1px solid ${chipEnabled ? alpha(theme.palette.success.main, 0.28) : alpha(theme.palette.divider, 0.5)}`,
                   '&:hover': canInteract ? { backgroundColor: alpha(theme.palette.success.main, 0.28) } : {},
                   '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: alpha(color, 0.35) },
+                  // Mixed overlay when beat-equipped differs across selected rules.
+                  ...(beatEquippedMixed ? {
+                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                    color: mixedTextColor,
+                  } : {}),
                 }
               }}
             >
@@ -1136,27 +1549,49 @@ export default function SafeguardBuilderPanel({
           <Collapse in={!builderCollapsed.slots} timeout="auto" unmountOnExit>
             {/* Slot grid and perSlot chip collapse together as a unit */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }}>
+              <Box sx={multiEditActive ? [{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }, mixedToggleOverrides] : { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }}>
                 {artifactTypeIconList.map(({ id, Icon }) => {
-                  const selected = slotSelection.includes(id)
+                  // Multi-edit: derive per-slot tri-state presence.
+                  const slotPresence = multiEditActive && multiSummary
+                    ? deriveBaseTriState(applyArrayPatchCount(multiSummary.slotCounts.get(id) ?? 0, multiSummary.total, multiSlotsField?.patch as MultiEditArrayPatch<number> | null, id), multiSummary.total)
+                    : (slotSelection.includes(id) ? 'all' : 'none')
+                  const slotMixed = slotPresence === 'mixed'
+                  // Selected only when ALL rules include the slot; mixed shows dashed indicator only.
+                  const selected = slotPresence === 'all'
                   return (
                     <ToggleButton
                       key={id}
                       value={`${id}`}
                       selected={selected}
+                      {...(slotMixed ? { 'data-mixed': 'true' } : {})}
                       onClick={() => {
-                        updateRule((prev) => {
-                          const set = new Set(prev.combination.slots)
-                          if (set.has(id)) set.delete(id); else set.add(id)
-                          const nextCombination = sanitizeCombinationForSlots(Array.from(set), prev.combination)
-                          return constrainSafeguardSubstats(prev, nextCombination)
-                        })
+                        if (multiEditActive && multiEdit && multiSummary) {
+                          // Compute patch: mixed/none → add (target='all'), all → remove (target='none').
+                          const target = slotPresence === 'all' ? 'none' : 'all'
+                          const base = deriveBaseTriState(multiSummary.slotCounts.get(id) ?? 0, multiSummary.total)
+                          const nextPatch = computeSlotPatchToggle(
+                            multiSlotsField?.patch as MultiEditArrayPatch<number> | null,
+                            id,
+                            base,
+                            target,
+                          )
+                          multiEdit.updateField('slots', { value: slotSelection as number[], status: 'common', patch: nextPatch })
+                        } else {
+                          updateRule((prev) => {
+                            const set = new Set(prev.combination.slots)
+                            if (set.has(id)) set.delete(id); else set.add(id)
+                            const nextCombination = sanitizeCombinationForSlots(Array.from(set), prev.combination)
+                            return constrainSafeguardSubstats(prev, nextCombination)
+                          })
+                        }
                       }}
                       onDoubleClick={(e) => {
-                        // Double-click selects/deselects the entire group (artefacts or accessories).
+                        // Double-click selects/deselects the entire group (artifacts or accessories).
                         // The two single-click events that precede dblclick toggle the same slot twice
                         // and cancel out, so this functional update sees the correct pre-click state.
                         e.preventDefault(); e.stopPropagation()
+                        // Multi-edit double-click not implemented; defer to single-rule path.
+                        if (multiEditActive) return
                         const groupIds = artifactTypeIconList
                           .map((entry) => entry.id)
                           .filter((sid) => isAccessorySlot(sid) === isAccessorySlot(id))
@@ -1231,7 +1666,7 @@ export default function SafeguardBuilderPanel({
                   )
                 })}
               </Box>
-              {renderScopeChip('perSlot', t('safeguardsCountModePerSlot'), scopeActive.perSlot)}
+              {renderScopeChip('perSlot', t('safeguardsCountModePerSlot'), scopeActive.perSlot, false, perScopeMixed.perSlot)}
             </Box>
           </Collapse>
         </FormControl>
@@ -1277,7 +1712,7 @@ export default function SafeguardBuilderPanel({
                 anyLabel={t('anySet')}
                 includeNoSet={hasAccessorySlot}
               />
-              {renderScopeChip('perSet', t('safeguardsCountModePerSet'), scopeActive.perSet)}
+              {renderScopeChip('perSet', t('safeguardsCountModePerSet'), scopeActive.perSet, false, perScopeMixed.perSet)}
             </Box>
           </Collapse>
         </FormControl>
@@ -1286,29 +1721,33 @@ export default function SafeguardBuilderPanel({
       {/* ── Insert / Apply / Reset buttons + Scaffold (mirrors recipe builder) ── */}
       <Box sx={{ gridColumn: '1 / -1' }}>
         <Divider sx={{ my: 1, opacity: 0.5 }} />
+        {/* Unified action row — Insert/Scaffold/Reset hidden in multi-edit mode;
+            Apply label and handler adapt to single vs. multi-edit. Mirrors RecipeBuilderPanel. */}
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* Insert button */}
-          <Box
-            component="span"
-            onContextMenu={handleInsertContextMenu}
-            onMouseEnter={handleInsertHintMouseEnter}
-            onMouseMove={handleInsertHintMouseMove}
-            onMouseLeave={handleInsertHintMouseLeave}
-            sx={{ display: 'inline-flex' }}
-          >
-            <Button
-              startIcon={<PlaylistAddIcon fontSize="small" />}
-              sx={{ whiteSpace: 'nowrap', gap: 0.75, '& .MuiButton-startIcon': { marginLeft: 0, marginRight: 0 } }}
-              onClick={() => {
-                onInsertSafeguard()
-                if (autoResetAfterInsert) onResetSafeguard()
-              }}
+          {/* Insert button — hidden while multi-edit is active */}
+          {!multiEditActive && (
+            <Box
+              component="span"
+              onContextMenu={handleInsertContextMenu}
+              onMouseEnter={handleInsertHintMouseEnter}
+              onMouseMove={handleInsertHintMouseMove}
+              onMouseLeave={handleInsertHintMouseLeave}
+              sx={{ display: 'inline-flex' }}
             >
-              {editingRuleIndex !== null ? t('safeguardsBuilderInsertAs', { n: editingRuleIndex + 2 }) : t('safeguardsAddRule')}
-            </Button>
-          </Box>
+              <Button
+                startIcon={<PlaylistAddIcon fontSize="small" />}
+                sx={{ whiteSpace: 'nowrap', gap: 0.75, '& .MuiButton-startIcon': { marginLeft: 0, marginRight: 0 } }}
+                onClick={() => {
+                  onInsertSafeguard()
+                  if (autoResetAfterInsert) onResetSafeguard()
+                }}
+              >
+                {editingRuleIndex !== null ? t('safeguardsBuilderInsertAs', { n: editingRuleIndex + 2 }) : t('safeguardsAddRule')}
+              </Button>
+            </Box>
+          )}
 
-          {/* Apply button */}
+          {/* Apply / multi-edit apply — label and handler adapt to mode */}
           <Box
             component="span"
             onContextMenu={handleApplyContextMenu}
@@ -1319,46 +1758,55 @@ export default function SafeguardBuilderPanel({
           >
             <Button
               startIcon={<PlaylistAddCheckIcon fontSize="small" />}
-              disabled={applyDisabled}
+              disabled={multiEditActive ? !multiDraftDirty : applyDisabled}
               sx={{ whiteSpace: 'nowrap', gap: 0.75, '& .MuiButton-startIcon': { marginLeft: 0, marginRight: 0 } }}
-              onClick={() => { if (!applyDisabled) onApplySafeguard() }}
+              onClick={() => {
+                if (multiEditActive) { if (multiDraftDirty) onApplyMultiEdit?.() }
+                else { if (!applyDisabled) onApplySafeguard() }
+              }}
             >
-              {editingRuleIndex !== null ? t('safeguardsBuilderApplyAs', { n: editingRuleIndex + 1 }) : t('safeguardsBuilderApply')}
+              {multiEditActive
+                ? t('builderApplyToRecipes', { n: multiEditSelectionCount })
+                : (editingRuleIndex !== null ? t('safeguardsBuilderApplyAs', { n: editingRuleIndex + 1 }) : t('safeguardsBuilderApply'))}
             </Button>
           </Box>
 
-          {/* Scaffold from Recipe */}
-          <Button
-            variant="outlined"
-            disabled={recipes.length === 0}
-            sx={{ whiteSpace: 'nowrap' }}
-            title={recipes.length === 0 ? t('safeguardsScaffoldFromRecipeEmpty') : undefined}
-            onClick={(e) => setScaffoldAnchorEl(e.currentTarget)}
-          >
-            {t('safeguardsScaffoldFromRecipe')}
-          </Button>
+          {/* Scaffold from Recipe — hidden in multi-edit mode */}
+          {!multiEditActive && (
+            <Button
+              variant="outlined"
+              disabled={recipes.length === 0}
+              sx={{ whiteSpace: 'nowrap' }}
+              title={recipes.length === 0 ? t('safeguardsScaffoldFromRecipeEmpty') : undefined}
+              onClick={(e) => setScaffoldAnchorEl(e.currentTarget)}
+            >
+              {t('safeguardsScaffoldFromRecipe')}
+            </Button>
+          )}
 
           {/* Spacer — pushes Reset to the right */}
           <Box sx={{ flex: 1 }} />
 
-          {/* Reset button */}
-          <Box
-            component="span"
-            onContextMenu={handleResetContextMenu}
-            onMouseEnter={(e) => { setHoverReset(true); handleResetHintMouseEnter(e) }}
-            onMouseMove={handleResetHintMouseMove}
-            onMouseLeave={() => { setHoverReset(false); handleResetHintMouseLeave() }}
-          >
-            <Button
-              size="small"
-              color="warning"
-              disabled={isDefaultRule}
-              onClick={onResetSafeguard}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
+          {/* Reset button — hidden in multi-edit mode */}
+          {!multiEditActive && (
+            <Box
+              component="span"
+              onContextMenu={handleResetContextMenu}
+              onMouseEnter={(e) => { setHoverReset(true); handleResetHintMouseEnter(e) }}
+              onMouseMove={handleResetHintMouseMove}
+              onMouseLeave={() => { setHoverReset(false); handleResetHintMouseLeave() }}
             >
-              {t('safeguardsBuilderReset')}
-            </Button>
-          </Box>
+              <Button
+                size="small"
+                color="warning"
+                disabled={isDefaultRule}
+                onClick={onResetSafeguard}
+                sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
+              >
+                {t('safeguardsBuilderReset')}
+              </Button>
+            </Box>
+          )}
         </Stack>
 
         {/* Context menu hint overlays */}
@@ -1584,18 +2032,28 @@ export default function SafeguardBuilderPanel({
                 <NumberSpinnerAdornment
                   ariaLabel={t('safeguardsBeatEquippedPercentile')}
                   onStep={(delta) => {
-                    updateRule((prev) => {
-                      const next = Math.max(0, Math.min(100, Math.floor((prev.beatEquippedPercentile ?? 50) + delta)))
-                      return { ...prev, beatEquippedPercentile: next }
-                    })
+                    if (multiEditActive && multiEdit) {
+                      const current = displayBeatEquippedPercentile ?? 50
+                      const next = Math.max(0, Math.min(100, Math.floor(current + delta)))
+                      multiEdit.updateField('beatEquippedPercentile', { value: next, status: 'common' })
+                    } else {
+                      updateRule((prev) => {
+                        const next = Math.max(0, Math.min(100, Math.floor((prev.beatEquippedPercentile ?? 50) + delta)))
+                        return { ...prev, beatEquippedPercentile: next }
+                      })
+                    }
                   }}
                 />
               ),
             }}
-            value={beatEquippedPercentile ?? 50}
+            value={displayBeatEquippedPercentile ?? 50}
             onChange={(event) => {
               const raw = Math.min(100, Math.max(0, Math.floor(Number(event.target.value) || 0)))
-              updateRule((prev) => ({ ...prev, beatEquippedPercentile: raw }))
+              if (multiEditActive && multiEdit) {
+                multiEdit.updateField('beatEquippedPercentile', { value: raw, status: 'common' })
+              } else {
+                updateRule((prev) => ({ ...prev, beatEquippedPercentile: raw }))
+              }
             }}
             sx={(themeInner) => ({
               width: 120,
@@ -1621,12 +2079,26 @@ export default function SafeguardBuilderPanel({
             {t('safeguardsSubstatWeightsLabel')}
           </Typography>
           {substatSelection.map((variant) => {
-            const rawWeight = Number(rule?.substatWeights?.[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
+            // In multi-edit mode, read staged weight from draft; fall back to rule's weight.
+            const stagedWeights = multiEditActive && multiSubstatWeightsField?.dirty
+              ? (multiSubstatWeightsField.value as Partial<Record<StatVariant, number>> ?? {})
+              : (rule?.substatWeights ?? {})
+            // Flag when the weight for this substat differs across the selection (and not yet staged).
+            const weightMixed = multiEditActive
+              && multiSubstatWeightsField?.status === 'mixed'
+              && !multiSubstatWeightsField.dirty
+            const rawWeight = Number(stagedWeights[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
             const weight = normalizeGearInspectorSortWeight(rawWeight)
             return (
               <Box key={variant} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Typography variant="caption" sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {t(statVariantI18nKey(variant))}
+                  {/* Mixed indicator shown when weights differ across the selection */}
+                  {weightMixed && (
+                    <Box component="span" sx={{ ml: 0.5, color: 'text.disabled', fontSize: '0.7em' }}>
+                      ({t('builderMultiEditMixedShort')})
+                    </Box>
+                  )}
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
                   <GearInspectorSortWeightControls
@@ -1634,28 +2106,47 @@ export default function SafeguardBuilderPanel({
                     enabled={true}
                     weight={weight}
                     onBump={(deltaSteps) => {
-                      updateRule((prev) => {
-                        const rawWeights = prev.substatWeights ?? {}
-                        const currentRaw = Number(rawWeights[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
-                        const current = normalizeGearInspectorSortWeight(currentRaw)
+                      if (multiEditActive && multiEdit) {
+                        // Stage a full weight-map replacement with the new value for this variant.
+                        const current = normalizeGearInspectorSortWeight(rawWeight)
                         const nextValue = normalizeGearInspectorSortWeight(current + (deltaSteps * GEAR_INSPECTOR_SORT_WEIGHT_STEP))
-                        const nextWeights = { ...rawWeights }
+                        const nextWeights = { ...stagedWeights }
                         if (nextValue === GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT) {
                           delete nextWeights[variant]
                         } else {
                           nextWeights[variant] = nextValue
                         }
-                        return { ...prev, substatWeights: nextWeights }
-                      })
+                        multiEdit.updateField('substatWeights', { value: nextWeights, status: 'common' })
+                      } else {
+                        updateRule((prev) => {
+                          const rawWeights = prev.substatWeights ?? {}
+                          const currentRaw = Number(rawWeights[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
+                          const current = normalizeGearInspectorSortWeight(currentRaw)
+                          const nextValue = normalizeGearInspectorSortWeight(current + (deltaSteps * GEAR_INSPECTOR_SORT_WEIGHT_STEP))
+                          const nextWeights = { ...rawWeights }
+                          if (nextValue === GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT) {
+                            delete nextWeights[variant]
+                          } else {
+                            nextWeights[variant] = nextValue
+                          }
+                          return { ...prev, substatWeights: nextWeights }
+                        })
+                      }
                     }}
                     onReset={() => {
-                      updateRule((prev) => {
-                        const rawWeights = prev.substatWeights ?? {}
-                        if (!rawWeights[variant]) return prev
-                        const nextWeights = { ...rawWeights }
+                      if (multiEditActive && multiEdit) {
+                        const nextWeights = { ...stagedWeights }
                         delete nextWeights[variant]
-                        return { ...prev, substatWeights: nextWeights }
-                      })
+                        multiEdit.updateField('substatWeights', { value: nextWeights, status: 'common' })
+                      } else {
+                        updateRule((prev) => {
+                          const rawWeights = prev.substatWeights ?? {}
+                          if (!rawWeights[variant]) return prev
+                          const nextWeights = { ...rawWeights }
+                          delete nextWeights[variant]
+                          return { ...prev, substatWeights: nextWeights }
+                        })
+                      }
                     }}
                   />
                 </Box>

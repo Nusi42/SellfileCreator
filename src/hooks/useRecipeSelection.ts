@@ -30,6 +30,12 @@ import {
 import { buildInsertionLocation, snapshotRecipeLabel } from '../history/historyLabelUtils'
 import { collectChangedFields } from '../history/builderUpdateDescriptor'
 import { setRecipeHoverIndex } from '../lib/recipeHoverBridge'
+import {
+  sanitizeDragIndices,
+  moveReorderItems,
+  copyReorderItems,
+  resolveDragSelectionIndices,
+} from '../lib/chipListReorder'
 
 type UseRecipeSelectionParams = {
   customRecipes: BuilderRecipe[]
@@ -425,19 +431,14 @@ export function useRecipeSelection({
   }, [])
 
   const prepareDragSelection = useCallback((idx: number): number[] => {
-    if (!Number.isInteger(idx) || idx < 0 || idx >= customRecipes.length) return []
-    const alreadySelected = selectedRecipeIndices.includes(idx) && selectedRecipeIndices.length > 0
-    if (alreadySelected) {
-      return selectedRecipeIndices.slice().sort((a, b) => a - b)
-    }
-    const recipe = customRecipes[idx]
-    applySelection([idx])
-    setSelectedRecipeIdx(idx)
-    setSelectionAnchor(idx)
-    if (recipe) {
-      setBuilder(recipe)
-    }
-    return [idx]
+    return resolveDragSelectionIndices(idx, customRecipes.length, selectedRecipeIndices, (singleIdx) => {
+      // Collapse selection to the single dragged item and load it into the builder.
+      const recipe = customRecipes[singleIdx]
+      applySelection([singleIdx])
+      setSelectedRecipeIdx(singleIdx)
+      setSelectionAnchor(singleIdx)
+      if (recipe) setBuilder(recipe)
+    })
   }, [applySelection, customRecipes, selectedRecipeIndices, setBuilder, setSelectedRecipeIdx, setSelectionAnchor])
 
   const handleRecipeSelect = useCallback((event: MouseEvent, idx: number) => {
@@ -725,93 +726,46 @@ export function useRecipeSelection({
         describeNextChange(null)
         return
       }
-      // Sanitize the incoming indices against the current list length.
-      const sanitized = Array.from(new Set(
-        movingIndices
-          .map((idx) => (Number.isInteger(idx) ? Number(idx) : -1))
-          .filter((idx) => idx >= 0 && idx < customRecipes.length),
-      )).sort((a, b) => a - b)
+      // Sanitize indices and delegate all array manipulation to the shared utility.
+      const prev = customRecipes
+      const sanitized = sanitizeDragIndices(movingIndices, prev.length)
       if (sanitized.length === 0) {
         describeNextChange(null)
         return
       }
-      // Resolve the moving recipes by identity before mutating the list.
-      const prev = customRecipes
-      const movingItems = sanitized
-        .map((idx) => prev[idx])
-        .filter((recipe): recipe is BuilderRecipe => Boolean(recipe))
-      if (movingItems.length === 0) {
-        describeNextChange(null)
-        return
-      }
-      // Clamp the insertion target into the current bounds.
-      const clampedTarget = Math.max(0, Math.min(prev.length, rawTargetIndex))
       if (mode === 'copy') {
-        // Copy entries with fresh identity so selection mapping stays stable.
-        const copies = movingItems.map(recipe => cloneBuilderRecipe(recipe))
-        if (copies.length === 0) {
+        const result = copyReorderItems(prev, sanitized, rawTargetIndex, cloneBuilderRecipe)
+        if (!result) {
           describeNextChange(null)
           return
         }
-        const next = [
-          ...prev.slice(0, clampedTarget),
-          ...copies,
-          ...prev.slice(clampedTarget),
-        ]
+        const { next, copies, insertIdx } = result
         const labels = copies
           .map((_, offset) => {
-            const newIdx = clampedTarget + offset
+            const newIdx = insertIdx + offset
             const recipe = next[newIdx]
             return recipe ? snapshotRecipeLabel(newIdx, recipe) : null
           })
           .filter((label): label is ReturnType<typeof snapshotRecipeLabel> => Boolean(label))
         const descriptor = createRecipesDuplicatedDescriptor({
           labels,
-          location: buildInsertionLocation(clampedTarget, prev),
+          location: buildInsertionLocation(insertIdx, prev),
         })
         describeNextChange(descriptor)
-        // Commit the copied list before switching selection.
         setCustomRecipes(next)
-        const newSelection = copies.map((_, offset) => clampedTarget + offset)
-        // Copy inserts should still trigger auto-apply before selection changes.
+        const newSelection = copies.map((_, offset) => insertIdx + offset)
         applySelection(newSelection)
         const last = newSelection[newSelection.length - 1] ?? null
         setSelectedRecipeIdx(last)
         setSelectionAnchor(last)
         return
       }
-      const minSel = sanitized[0]!
-      const maxSel = sanitized[sanitized.length - 1]!
-      // Ignore drops that land inside the existing selection span.
-      if (clampedTarget >= minSel && clampedTarget <= maxSel + 1) {
+      const moveResult = moveReorderItems(prev, sanitized, rawTargetIndex)
+      if (!moveResult) {
         describeNextChange(null)
         return
       }
-      const selectionSet = new Set(sanitized)
-      const remaining = prev.filter((_, idx) => !selectionSet.has(idx))
-      let insertIdx = clampedTarget
-      // Adjust for the items removed before the insertion point.
-      for (const idx of sanitized) {
-        if (idx < clampedTarget) insertIdx -= 1
-      }
-      insertIdx = Math.max(0, Math.min(remaining.length, insertIdx))
-      const next = [
-        ...remaining.slice(0, insertIdx),
-        ...movingItems,
-        ...remaining.slice(insertIdx),
-      ]
-      const atTop = insertIdx === 0
-      const atBottom = insertIdx === remaining.length
-      let direction: 'up' | 'down' | 'top' | 'bottom' = 'down'
-      if (atTop) {
-        direction = 'top'
-      } else if (atBottom) {
-        direction = 'bottom'
-      } else if (insertIdx < minSel) {
-        direction = 'up'
-      } else {
-        direction = 'down'
-      }
+      const { next, direction } = moveResult
       const newSelection = mapSelectionByIdentity(prev, next, sanitized)
       const labels = newSelection
         .map((idxNew) => {

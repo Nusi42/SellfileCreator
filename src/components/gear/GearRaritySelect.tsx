@@ -10,6 +10,13 @@ const ANY_SENTINEL = '__rarity_any'
 type RaritySelectBaseProps = {
   allowAny?: boolean
   anyLabel?: string
+  /**
+   * When provided, replaces the empty-value display text without changing the
+   * "Any" menu item label. Use for multi-edit mixed-state display — pass
+   * mixedLabel and value=[] to show "mixed" in the closed select while keeping
+   * the dropdown items unchanged.
+   */
+  mixedLabel?: string
   size?: SelectProps<string>['size']
   menuProps?: SelectProps<string>['MenuProps']
   sx?: SxProps<Theme>
@@ -34,6 +41,7 @@ export function GearRaritySelect({
   onChange,
   allowAny = false,
   anyLabel,
+  mixedLabel,
   size = 'small',
   menuProps,
   sx,
@@ -42,6 +50,8 @@ export function GearRaritySelect({
   const { t } = useI18n()
   // Allow callers to replace the "Any" label without touching global strings.
   const anyText = anyLabel ?? t('any')
+  // When mixedLabel is set, override the empty display (but not the menu item).
+  const emptyDisplayText = mixedLabel ?? anyText
   const resolvedSx: SxProps<Theme> = sx ?? {}
   const menuPropsAttr = menuProps ? { MenuProps: menuProps } : {}
   const isMulti = Boolean(multiple)
@@ -83,7 +93,7 @@ export function GearRaritySelect({
               : t('rarityMythical')
   )
   const renderSelected = (() => {
-    if (singleValue == null) return <Typography variant="body2">{anyText}</Typography>
+    if (singleValue == null) return <Typography variant="body2">{emptyDisplayText}</Typography>
     return <Typography variant="body2">{rarityLabel(Number(singleValue))}</Typography>
   })()
   // Keep multi-select defaults visible so Safeguards shows "Any" instead of empty badges.
@@ -91,7 +101,7 @@ export function GearRaritySelect({
     if (!isMulti) return undefined
       return () => {
       if (multiValues.length === 0) {
-        return <Typography variant="body2">{anyText}</Typography>
+        return <Typography variant="body2">{emptyDisplayText}</Typography>
       }
       const summary = multiValues.map((rarity) => rarityLabel(Number(rarity))).join(', ')
       return (

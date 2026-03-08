@@ -10,6 +10,13 @@ const ANY_SENTINEL = '__rank_any'
 type RankSelectBaseProps = {
   allowAny?: boolean
   anyLabel?: string
+  /**
+   * When provided, replaces the empty-value display text (shown when no ranks are
+   * selected) without changing the "Any" menu item label. Use this for multi-edit
+   * mixed-state display — pass mixedLabel and value=[] to show "mixed" in the
+   * closed select while keeping the dropdown items unchanged.
+   */
+  mixedLabel?: string
   size?: SelectProps<string>['size']
   menuProps?: SelectProps<string>['MenuProps']
   sx?: SxProps<Theme>
@@ -34,6 +41,7 @@ export function GearRankSelect({
   onChange,
   allowAny = false,
   anyLabel,
+  mixedLabel,
   size = 'small',
   menuProps,
   sx,
@@ -42,6 +50,8 @@ export function GearRankSelect({
   const { t } = useI18n()
   // Keep the default label localized unless the caller overrides it.
   const anyText = anyLabel ?? t('any')
+  // When mixedLabel is set, override the empty display (but not the menu item).
+  const emptyDisplayText = mixedLabel ?? anyText
   const resolvedSx: SxProps<Theme> = sx ?? {}
   const menuPropsAttr = menuProps ? { MenuProps: menuProps } : {}
   const rankLabel = useMemo(() => {
@@ -73,7 +83,7 @@ export function GearRankSelect({
     if (!isMulti) return undefined
     return () => {
       if (multiValues.length === 0) {
-        return <Typography variant="body2">{anyText}</Typography>
+        return <Typography variant="body2">{emptyDisplayText}</Typography>
       }
       const summary = multiValues.map((rank) => rankLabel(Number(rank))).join(', ')
       return (
@@ -86,7 +96,7 @@ export function GearRankSelect({
         </Typography>
       )
     }
-  }, [anyText, isMulti, multiValues, rankLabel])
+  }, [emptyDisplayText, isMulti, multiValues, rankLabel])
   const handleChange = (event: SelectChangeEvent<string | string[]>) => {
     const raw = event.target.value
     if (isMulti) {
@@ -106,9 +116,9 @@ export function GearRankSelect({
     singleHandler(valueString === '' ? null : (Math.max(1, Math.min(6, Number(valueString))) as RankValue))
   }
   const renderSelected = useMemo(() => {
-    if (singleValue == null) return <Typography variant="body2">{anyText}</Typography>
+    if (singleValue == null) return <Typography variant="body2">{emptyDisplayText}</Typography>
     return <Typography variant="body2">{rankLabel(Number(singleValue))}</Typography>
-  }, [anyText, rankLabel, singleValue])
+  }, [emptyDisplayText, rankLabel, singleValue])
   const selectRenderValue = isMulti
     ? (renderMultiValue ?? (() => null))
     : (() => renderSelected)

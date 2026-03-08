@@ -242,6 +242,7 @@ import {
 } from './lib/logicHub'
 import type { FinalSellRemainderConfig, FinalSellLevel, LogicHubDialogTab } from './lib/logicHub'
 import { useRecipeSelection } from './hooks/useRecipeSelection'
+import { useSafeguardSelection } from './hooks/useSafeguardSelection'
 import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
 import { useGearInspectorItemsActions } from './hooks/useGearInspectorItemsActions'
 import {
@@ -881,6 +882,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const registerSafeguardAutoApplyHandler = useCallback((fn: (() => boolean) | null) => {
     safeguardAutoApplyNowRef.current = fn ?? NO_AUTO_APPLY
   }, [])
+
+  // Ref kept in sync with the visible-rule-ids set so shift-click in useSafeguardSelection
+  // respects filters; declared early so it's stable across renders.
+  const visibleSafeguardRuleIdsRef = useRef<ReadonlySet<string> | null>(null)
+
   // Shared metasets dialog opener registered by RecipeBuilderPanel; called by SafeguardBuilderPanel.
   const openMetasetsDialogRef = useRef<() => void>(() => {})
   const restoringAutosaveRef = useRef(false)
@@ -1367,6 +1373,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [hoverDeleteRecipes, setHoverDeleteRecipes] = useState(false)
   const deleteAllDisabled = (!customRecipes.length) || (selectedRecipeIndices.length > 1)
   const highlightDeleteRecipes = hoverDeleteRecipes && !deleteAllDisabled
+  // Danger-tint state for safeguard chips (mirrors recipes pattern).
+  const [hoverDeleteSafeguards, setHoverDeleteSafeguards] = useState(false)
+  const safeguardDeleteAllDisabled = safeguardRules.length === 0
+  const highlightDeleteSafeguards = hoverDeleteSafeguards && !safeguardDeleteAllDisabled
   const editingRecipeIndex = useMemo(() => (
     selectedRecipeIndices.length === 1 ? selectedRecipeIndices[0]! : null
   ), [selectedRecipeIndices])
@@ -1709,6 +1719,44 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return next
     })
   }, [describeNextChange, metasets, setSafeguardRulesTransition])
+
+  // ── safeguard multi-select / multi-edit (mirrors useRecipeSelection wiring) ─
+  // Auto-apply the current draft before any selection change, just like the recipe builder.
+  const handleSafeguardWillChangeSelection = useCallback(() => {
+    safeguardAutoApplyNowRef.current()
+  }, [])
+  const {
+    selectedRuleIds: selectedSafeguardRuleIds,
+    multiselectActive: safeguardMultiselectActive,
+    multiSelectedRules: multiSelectedSafeguardRules,
+    multiEditHandle: safeguardMultiEditHandle,
+    applyMultiEditDraft: applySafeguardMultiEditDraft,
+    handleRuleSelect: handleSafeguardRuleSelect,
+    handleRuleDelete: handleSafeguardRuleDelete,
+    handleRuleDuplicate: handleSafeguardRuleDuplicate,
+    handleRuleMoveUp: handleSafeguardRuleMoveUp,
+    handleRuleMoveDown: handleSafeguardRuleMoveDown,
+    handleRuleMoveTop: handleSafeguardRuleMoveTop,
+    handleRuleMoveBottom: handleSafeguardRuleMoveBottom,
+    handleSelectAllRules: handleSelectAllSafeguardRules,
+    handleClearSelection: handleClearSafeguardSelection,
+    handleDeleteSelected: handleSafeguardDeleteSelected,
+    prepareDragSelection: prepareSafeguardDragSelection,
+    handleRuleReorder: handleSafeguardRuleReorder,
+  } = useSafeguardSelection({
+    safeguardRules,
+    applySafeguardRulesChange,
+    selectedRuleId: selectedSafeguardRuleId,
+    setSelectedRuleId: setSelectedSafeguardRuleId,
+    onWillChangeSelection: handleSafeguardWillChangeSelection,
+    onSelectionScrollRequest: (ruleId) => {
+      safeguardFocusTokenRef.current += 1
+      setSafeguardFocusRequest({ ruleId, token: safeguardFocusTokenRef.current })
+    },
+    visibleRuleIdsRef: visibleSafeguardRuleIdsRef,
+    setSafeguardBuilder,
+  })
+
   // Insert the draft as a new rule after the currently selected rule (or at end).
   // Auto-reset-after-insert is applied by SafeguardBuilderPanel after calling this.
   const handleInsertSafeguardFromBuilder = useCallback(() => {
@@ -4274,6 +4322,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return visible
   }, [limitRecipesToFiltered, builderMode, safeguardDetection, gearEntriesForTable])
+  // Keep the ref in sync so shift-click in useSafeguardSelection reads the latest visible set.
+  visibleSafeguardRuleIdsRef.current = visibleSafeguardRuleIds
   const selectAllLabelKey = visibleRecipeIndices ? 'chipsMenuSelectVisible' : 'chipsMenuSelectAll'
   const scrollSelectedRecipeIntoView = useCallback(() => {
     if (multiselectActive || selectedRecipeIdx === null) return
@@ -5029,6 +5079,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onJumpToHistoryIndex={jumpToHistoryIndex}
       onRequestClearHistory={requestClearHistory}
       onManageMetasets={() => openMetasetsDialogRef.current()}
+      multiEdit={safeguardMultiEditHandle}
+      multiSelectedRules={multiSelectedSafeguardRules}
+      onApplyMultiEdit={safeguardMultiselectActive ? applySafeguardMultiEditDraft : null}
     />
   )
 
@@ -5287,6 +5340,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       metasets={metasetsForPreview}
       substatColors={substatColors}
       focusRuleRequest={safeguardFocusRequest}
+      selectedRuleIds={selectedSafeguardRuleIds}
+      onRuleSelect={handleSafeguardRuleSelect}
+      onRuleDelete={handleSafeguardRuleDelete}
+      onRuleDuplicate={handleSafeguardRuleDuplicate}
+      onRuleMoveUp={handleSafeguardRuleMoveUp}
+      onRuleMoveDown={handleSafeguardRuleMoveDown}
+      onRuleMoveTop={handleSafeguardRuleMoveTop}
+      onRuleMoveBottom={handleSafeguardRuleMoveBottom}
+      onDeleteSelected={handleSafeguardDeleteSelected}
+      onSelectAll={handleSelectAllSafeguardRules}
+      onClearSelection={handleClearSafeguardSelection}
+      highlightDelete={highlightDeleteSafeguards}
+      onHighlightDelete={setHoverDeleteSafeguards}
+      deleteAllDisabled={safeguardDeleteAllDisabled}
+      onPrepareDragSelection={prepareSafeguardDragSelection}
+      onReorderRules={handleSafeguardRuleReorder}
     />
   )
 
@@ -6026,9 +6095,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onOpenNote={() => { notePresent ? openNoteViewerManual() : openNoteEditorManual() }}
       notePresent={notePresent}
       count={builderMode === 'safeguard' ? safeguardRules.length : customRecipes.length}
-      selectedCount={builderMode === 'safeguard' ? 0 : selectedRecipeIndices.length}
+      selectedCount={builderMode === 'safeguard' ? selectedSafeguardRuleIds.length : selectedRecipeIndices.length}
       visibleCount={builderMode === 'safeguard' ? safeguardRules.length : visibleRecipeCount}
-      {...(builderMode === 'safeguard' ? { chipLabel: `${safeguardRules.length}\u00a0${safeguardRules.length === 1 ? t('safeguardOne') : t('safeguardMany')}` } : {})}
+      {...(builderMode === 'safeguard' ? {
+        // Compute the safeguard-specific chip label with the same "N of M" selection pattern used
+        // for recipes, but substituting safeguard-singular/plural words via recipesSelectedCount key.
+        chipLabel: (() => {
+          const n = safeguardRules.length
+          const word = n === 1 ? t('safeguardOne') : t('safeguardMany')
+          const sel = selectedSafeguardRuleIds.length
+          if (sel >= 2 && sel < n) return t('recipesSelectedCount', { selected: sel, total: n, word })
+          return `${n}\u00a0${word}`
+        })(),
+      } : {})}
       sfrDirty={isDirty}
     />
   )

@@ -17,6 +17,7 @@ import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { RecipeContextMenu } from './RecipeContextMenu'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { useChipListDnd } from '../hooks/useChipListDnd'
+import { useChipListKeyboard } from '../hooks/useChipListKeyboard'
 
 // Shared localStorage key suffix for the Recipe Chips context-menu hint.
 // Why: Right-clicking either the empty chips area or an individual chip should dismiss the hint for both.
@@ -181,7 +182,21 @@ function RecipeChipsPanel(props: {
     return maxHeightPx
   }, [maxHeightPx, chipsAvailableHeight])
 
-  const [showFocusRing, setShowFocusRing] = React.useState(false)
+  // Shared SSOT hook: keyboard shortcuts (Delete, Ctrl+A), focus ring, empty-click-to-deselect.
+  const {
+    showFocusRing,
+    handleKeyDown: chipListHandleKeyDown,
+    handleFocus: chipListHandleFocus,
+    handleBlur: chipListHandleBlur,
+    handleMouseDown: chipListHandleMouseDown,
+    handleClick: chipListHandleClick,
+  } = useChipListKeyboard({
+    visibleCount,
+    selectedCount: selectedIndices.length,
+    onDeleteSelected,
+    onSelectAll,
+    onClearSelection,
+  })
   const dragAllowed = recipes.length > 1 && renderedIndices.length > 0
 
   const {
@@ -257,43 +272,18 @@ function RecipeChipsPanel(props: {
           resetHint()
           setMenu({ open: true, x: e.clientX, y: e.clientY })
         }}
-        onClick={(e) => {
-          if (e.button !== 0) return
-          if (e.shiftKey || e.ctrlKey || (e as unknown as MouseEvent).metaKey) return
-          if (e.currentTarget === e.target) onClearSelection()
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Shift') {
-            setShowFocusRing(false)
-            return
-          }
-          if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (e.target !== e.currentTarget) return
-            if (selectedIndices.length === 0) return
-            e.preventDefault()
-            onDeleteSelected()
-            return
-          }
-          if (e.key.toLowerCase() !== 'a') return
-          if (!(e.ctrlKey || e.metaKey)) return
-          if (e.target !== e.currentTarget) return
-          e.preventDefault()
-          if (visibleCount > 0) onSelectAll()
-        }}
+        onClick={chipListHandleClick}
+        onKeyDown={chipListHandleKeyDown}
         onFocus={(e) => {
-          if (e.currentTarget !== e.target) return
-          try {
-            if (e.currentTarget.matches(':focus-visible')) setShowFocusRing(true)
-          } catch {
-            setShowFocusRing(true)
-          }
-          if (shouldShowContextHint) {
+          // Delegate focus-ring tracking to the shared hook, then handle hint separately.
+          chipListHandleFocus(e)
+          if (shouldShowContextHint && e.currentTarget === e.target) {
             const rect = e.currentTarget.getBoundingClientRect()
             setHintPos({ x: rect.left + rect.width / 2, y: rect.top })
           }
         }}
-        onBlur={() => setShowFocusRing(false)}
-        onMouseDown={() => setShowFocusRing(false)}
+        onBlur={chipListHandleBlur}
+        onMouseDown={chipListHandleMouseDown}
       >
       {dropGuide ? (
           <Box
