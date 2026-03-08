@@ -73,12 +73,15 @@ impl EvaluateItemScratch {
 }
 
 // Prepared options keep all exclusion sets prebuilt for repeated item scans.
+// Recipe index lists are stored as Vec rather than HashSet: the sets are small
+// (typically <50 entries) and Vec linear scan beats HashSet for that range
+// because it avoids hash computation overhead and is cache-friendlier.
 #[derive(Debug, Default, Clone)]
 pub(crate) struct EvaluateOptionsPrepared {
     exclude_source_bits: u8,
     exclude_source_fallback_set: HashSet<String>,
-    exclude_recipe_indices: HashSet<i64>,
-    ignore_safeguard_recipe_indices: HashSet<i64>,
+    exclude_recipe_indices: Vec<i64>,
+    ignore_safeguard_recipe_indices: Vec<i64>,
 }
 
 impl EvaluateOptionsPrepared {
@@ -108,12 +111,12 @@ impl EvaluateOptionsPrepared {
             exclude_recipe_indices: raw
                 .exclude_recipe_indices
                 .as_ref()
-                .map(|indices| indices.iter().copied().collect::<HashSet<_>>())
+                .map(|indices| indices.iter().copied().collect::<Vec<_>>())
                 .unwrap_or_default(),
             ignore_safeguard_recipe_indices: raw
                 .ignore_safeguard_recipe_indices
                 .as_ref()
-                .map(|indices| indices.iter().copied().collect::<HashSet<_>>())
+                .map(|indices| indices.iter().copied().collect::<Vec<_>>())
                 .unwrap_or_default(),
         }
     }
@@ -121,7 +124,7 @@ impl EvaluateOptionsPrepared {
     // Safeguard fallback only needs recipe exclusions, not source filtering.
     fn from_excluded_recipe_indices(exclude_recipe_indices: &[i64]) -> Self {
         Self {
-            exclude_recipe_indices: exclude_recipe_indices.iter().copied().collect::<HashSet<_>>(),
+            exclude_recipe_indices: exclude_recipe_indices.to_vec(),
             ..Self::default()
         }
     }
@@ -138,6 +141,7 @@ impl EvaluateOptionsPrepared {
 
     // Safeguard ignore checks are option-aware because recipe indices are optional.
     fn safeguard_cfg_is_ignored(&self, recipe_idx: Option<i64>) -> bool {
+        // Vec linear scan is correct here; ignore lists are small (<50 entries).
         recipe_idx
             .map(|idx| self.ignore_safeguard_recipe_indices.contains(&idx))
             .unwrap_or(false)
@@ -573,10 +577,7 @@ fn resolve_safeguard_candidate_keep_flags_core(
     ignore_safeguard_recipe_indices: &[i64],
 ) -> Vec<bool> {
     let has_ignored_recipes = !ignore_safeguard_recipe_indices.is_empty();
-    let ignored_set = ignore_safeguard_recipe_indices
-        .iter()
-        .copied()
-        .collect::<HashSet<_>>();
+    // eval_options reuses the same Vec slice (already a Vec<i64>) — no extra allocation.
     let eval_options =
         EvaluateOptionsPrepared::from_excluded_recipe_indices(ignore_safeguard_recipe_indices);
 
@@ -587,9 +588,10 @@ fn resolve_safeguard_candidate_keep_flags_core(
         // Reuse explicit base-match decisions unless the owning recipe is ignored.
         if row.base_match_defined {
             let base_recipe_idx = row.base_match.as_ref().and_then(|entry| entry.recipe_idx);
+            // Vec linear scan; ignore_safeguard_recipe_indices is small (<50 entries).
             let base_recipe_ignored = has_ignored_recipes
                 && base_recipe_idx
-                    .map(|recipe_idx| ignored_set.contains(&recipe_idx))
+                    .map(|recipe_idx| ignore_safeguard_recipe_indices.contains(&recipe_idx))
                     .unwrap_or(false);
             if !base_recipe_ignored {
                 keep_flags.push(row.base_match.as_ref().map(|entry| entry.keep).unwrap_or(false));
@@ -603,7 +605,12 @@ fn resolve_safeguard_candidate_keep_flags_core(
             continue;
         }
 
-        // Re-evaluate with ignored recipes excluded to mirror TS semantics.
+        // Two-pass evaluate_item for rows whose base match came from an ignored recipe.
+        // The base_match was computed with the full rule set (ignored recipe included), so
+        // its keep/sell decision cannot be reused — the ignored recipe may have been the
+        // first matching rule, masking a different outcome from the remaining rules.
+        // We re-evaluate with eval_options excluding the ignored recipe so the result
+        // reflects what the sell engine would decide without safeguard interference.
         let (first_match, _) =
             evaluate_item(prepared_rules, recipe_modes, &row.item, &eval_options, &mut scratch);
         keep_flags.push(first_match.map(|entry| entry.keep).unwrap_or(false));

@@ -229,8 +229,12 @@ const buildPipelineMatches = async (
 // Produce baseline results with ignored-recipe matches excluded.
 // Only the K items whose firstNonExcludedMatch matched an ignored recipe are
 // re-evaluated via WASM; all other items are copied from baselineMatchMap.
-// The WASM engine is assumed already configured with mergedRulesBaseline from the
-// preceding detection pass — no configureWasmRuleEngine call is needed here.
+//
+// Implicit engine-state contract: the WASM engine must already be configured
+// with mergedRulesBaseline.  This is guaranteed by buildPipelineMatches, which
+// calls configureWasmRuleEngine at its very top before iterating any items.
+// Even a partially-aborted baseline scan leaves the engine correctly configured,
+// so no additional configureWasmRuleEngine call is needed here.
 const buildExcludedRecipeBaselineMap = async (
   baselineMatchMap: ReadonlyMap<number, GearInspectorMatchWorkerItemResult>,
   artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,

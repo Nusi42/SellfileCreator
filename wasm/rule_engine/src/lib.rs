@@ -192,21 +192,68 @@ struct PreviewExtrasRaw {
     id: Option<i64>,
 }
 
+// Custom serde visitor that builds Vec<(i64, f64)> directly from a string-keyed
+// map without allocating an intermediate HashMap.  Items are capped at 4 substats
+// so with_capacity(4) avoids any reallocation in the common case.
+struct SubValuesVisitor;
+
+impl<'de> serde::de::Visitor<'de> for SubValuesVisitor {
+    type Value = Vec<(i64, f64)>;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("a string-keyed map of substat variant ids to values")
+    }
+
+    fn visit_map<A: serde::de::MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+        // Substats are capped at 4 entries; pre-allocate to avoid reallocation.
+        let mut vec = Vec::with_capacity(4);
+        // Use String (not &str): serde_wasm_bindgen cannot provide borrowed keys
+        // from JS strings because they have no stable Rust lifetime anchor.
+        while let Some(key) = map.next_key::<String>()? {
+            let value: f64 = map.next_value()?;
+            // Skip entries whose key cannot be parsed as an i64 variant id.
+            if let Ok(variant) = key.parse::<i64>() {
+                vec.push((variant, value));
+            }
+        }
+        Ok(vec)
+    }
+}
+
+// Wrapper visitor so None (null/undefined) and Some(vec) are both handled.
+struct OptionSubValuesVisitor;
+
+impl<'de> serde::de::Visitor<'de> for OptionSubValuesVisitor {
+    type Value = Option<Vec<(i64, f64)>>;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("null or a string-keyed map of substat variant ids to values")
+    }
+
+    fn visit_none<E: serde::de::Error>(self) -> Result<Self::Value, E> {
+        Ok(None)
+    }
+
+    fn visit_some<D: serde::Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+        d.deserialize_map(SubValuesVisitor).map(Some)
+    }
+
+    // serde_wasm_bindgen may call visit_unit for JS undefined/null.
+    fn visit_unit<E: serde::de::Error>(self) -> Result<Self::Value, E> {
+        Ok(None)
+    }
+}
+
 // Vec-based variant for TestItemRaw.sub_values so the hot matcher path uses
 // a linear scan instead of HashMap lookups (≤4 substats per item).
+// Builds directly into Vec without an intermediate HashMap allocation.
 pub(crate) fn deserialize_sub_values_vec<'de, D>(
     deserializer: D,
 ) -> Result<Option<Vec<(i64, f64)>>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    // Deserialize via the existing string-keyed map path then convert to Vec.
-    let raw = Option::<HashMap<String, f64>>::deserialize(deserializer)?;
-    Ok(raw.map(|map| {
-        map.into_iter()
-            .filter_map(|(key, value)| key.parse::<i64>().ok().map(|variant| (variant, value)))
-            .collect::<Vec<_>>()
-    }))
+    deserializer.deserialize_option(OptionSubValuesVisitor)
 }
 
 // Deserialize object-keyed maps into numeric-variant maps once at the boundary.
