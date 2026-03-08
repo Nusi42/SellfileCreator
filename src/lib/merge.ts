@@ -235,6 +235,99 @@ export function prependSafeguardRules({
   return { baseRules: nextBaseRules, mergedRules }
 }
 
+/**
+ * Pre-computed base + customs that can be reused across multiple
+ * computeMergedRulesFromComponents calls when only safeguard detection changes.
+ * Build once with buildMergedRulesComponents, then pass to both baseline and
+ * final calls to skip the redundant flattenRuleBatches WASM step.
+ */
+export type MergedRulesComponents = {
+  base: HsfRuleWithRecipe[]
+  customs: HsfRuleWithRecipe[]
+  allKnownSetIds: number[]
+}
+
+/**
+ * Extract the invariant parts of computeMergedRules (base rule wrapping and
+ * WASM batch flattening) so callers that call computeMergedRules twice with
+ * the same inputs but different safeguardDetection can skip the flatten step.
+ */
+export function buildMergedRulesComponents(params: {
+  hsf: HsfFile | null
+  customRecipes: BuilderRecipe[]
+  metasets: Metaset[]
+  substatTargets: SubstatTargetTable
+  prebuiltCustomRules?: ReadonlyMap<number, readonly HsfRuleWithRecipe[]>
+}): MergedRulesComponents {
+  const { hsf, customRecipes, metasets, substatTargets, prebuiltCustomRules } = params
+
+  // Strip foreign fields from base HSF rules once.
+  const baseRaw = hsf?.Rules ?? []
+  const base: HsfRuleWithRecipe[] = baseRaw.map((r: HsfRule) => ({ ...r, __source: RULE_SOURCE_HSF }))
+
+  const metasetsEffective: Metaset[] = metasets
+  const normalizedTotalLimit = Number.isFinite(TOTAL_RULE_COUNT_LIMIT) && TOTAL_RULE_COUNT_LIMIT > 0
+    ? Math.max(1, Math.floor(TOTAL_RULE_COUNT_LIMIT))
+    : null
+  const customBatches: HsfRuleWithRecipe[][] = []
+
+  if (prebuiltCustomRules) {
+    const ordered = Array.from(prebuiltCustomRules.entries())
+    ordered.sort((a, b) => a[0] - b[0])
+    for (const [, rules] of ordered) {
+      customBatches.push(Array.from(rules))
+    }
+  } else {
+    for (let recipeIdx = 0; recipeIdx < customRecipes.length; recipeIdx += 1) {
+      const recipe = customRecipes[recipeIdx]!
+      const built = buildRulesForRecipe(
+        { recipe, metasets: metasetsEffective, substatTargets, recipeIdx },
+        { limit: RULE_COUNT_LIMIT + 1 },
+      )
+      customBatches.push(built)
+    }
+  }
+  // Flatten once; both baseline and final computeMergedRulesFromComponents reuse this.
+  const customs = flattenRuleBatchesWithTotalLimitWithLoadedWasm({
+    baseCount: base.length,
+    totalLimit: normalizedTotalLimit,
+    batches: customBatches,
+  })
+
+  return { base, customs, allKnownSetIds: getAllKnownArtifactSetIds().map((id) => Number(id)) }
+}
+
+/**
+ * Compute merged rules from pre-built components to avoid redundant WASM flatten.
+ * Callers that need both baseline and final rules should call buildMergedRulesComponents
+ * once and call this function twice with different safeguards.detection values.
+ */
+export function computeMergedRulesFromComponents(
+  components: MergedRulesComponents,
+  params: {
+    finalSellRemainder?: FinalSellRemainderConfig
+    safeguards?: SafeguardsMergeInput
+    omitDisabledBeforeSafeguards?: boolean
+    dedupeBeforeSafeguards?: boolean
+  },
+): HsfRuleWithRecipe[] {
+  const { base, customs, allKnownSetIds } = components
+  const { finalSellRemainder, safeguards, omitDisabledBeforeSafeguards, dedupeBeforeSafeguards } = params
+  const safeguardsInput = hasActiveSafeguardRules(safeguards) ? safeguards : null
+  return computeMergedRulesWithLoadedWasm({
+    baseRules: base,
+    customRules: customs,
+    finalSellRemainder: finalSellRemainder ?? null,
+    allKnownSetIds,
+    omitDisabledBeforeSafeguards: omitDisabledBeforeSafeguards === true,
+    dedupeBeforeSafeguards: dedupeBeforeSafeguards === true,
+    safeguardEnabled: safeguardsInput != null,
+    safeguardRules: safeguardsInput?.rules ?? [],
+    safeguardDetection: safeguardsInput?.detection ?? null,
+    safeguardRecipeIdBase: SAFEGUARD_RECIPE_ID_BASE,
+  })
+}
+
 export function computeMergedRules(params: {
   hsf: HsfFile | null
   customRecipes: BuilderRecipe[]
@@ -247,72 +340,7 @@ export function computeMergedRules(params: {
   omitDisabledBeforeSafeguards?: boolean
   dedupeBeforeSafeguards?: boolean
 }): HsfRuleWithRecipe[] {
-  const {
-    hsf,
-    customRecipes,
-    metasets,
-    substatTargets,
-    finalSellRemainder,
-    prebuiltCustomRules,
-    safeguards,
-    omitDisabledBeforeSafeguards,
-    dedupeBeforeSafeguards,
-  } = params
-
-  // Always strip any foreign/internal fields (e.g., __lineIdx) from base HSF rules
-  const baseRaw = hsf?.Rules ?? []
-  const base: HsfRuleWithRecipe[] = baseRaw.map((r: HsfRule) => ({ ...r, __source: RULE_SOURCE_HSF }))
-
-  // The legacy "All Sets (Explicit)" metaset is removed; use provided metasets only.
-  const metasetsEffective: Metaset[] = metasets
-
-  const normalizedTotalLimit = Number.isFinite(TOTAL_RULE_COUNT_LIMIT) && TOTAL_RULE_COUNT_LIMIT > 0
-    ? Math.max(1, Math.floor(TOTAL_RULE_COUNT_LIMIT))
-    : null
-  // Collect custom-rule batches first so wasm can apply the exact total-limit gate.
-  const customBatches: HsfRuleWithRecipe[][] = []
-
-  if (prebuiltCustomRules) {
-    const ordered = Array.from(prebuiltCustomRules.entries())
-    ordered.sort((a, b) => a[0] - b[0])
-    for (const [, rules] of ordered) {
-      customBatches.push(Array.from(rules))
-    }
-  } else {
-    // Fallback: build on demand when no cache is supplied.
-    for (let recipeIdx = 0; recipeIdx < customRecipes.length; recipeIdx += 1) {
-      const recipe = customRecipes[recipeIdx]!
-      const built = buildRulesForRecipe(
-        { recipe, metasets: metasetsEffective, substatTargets, recipeIdx },
-        {
-          limit: RULE_COUNT_LIMIT + 1,
-        },
-      )
-      customBatches.push(built)
-    }
-  }
-  // Delegate batch flattening + overflow stop behavior to wasm for SSOT parity.
-  const customs = flattenRuleBatchesWithTotalLimitWithLoadedWasm({
-    baseCount: base.length,
-    totalLimit: normalizedTotalLimit,
-    batches: customBatches,
-  })
-
-  // Safeguard active gate remains in TS so UI toggle semantics stay explicit.
-  const safeguardsInput = hasActiveSafeguardRules(safeguards)
-    ? safeguards
-    : null
-  // Delegate merged-rule orchestration (+ __lineIdx assignment) to wasm.
-  return computeMergedRulesWithLoadedWasm({
-    baseRules: base,
-    customRules: customs,
-    finalSellRemainder: finalSellRemainder ?? null,
-    allKnownSetIds: getAllKnownArtifactSetIds().map((id) => Number(id)),
-    omitDisabledBeforeSafeguards: omitDisabledBeforeSafeguards === true,
-    dedupeBeforeSafeguards: dedupeBeforeSafeguards === true,
-    safeguardEnabled: safeguardsInput != null,
-    safeguardRules: safeguardsInput?.rules ?? [],
-    safeguardDetection: safeguardsInput?.detection ?? null,
-    safeguardRecipeIdBase: SAFEGUARD_RECIPE_ID_BASE,
-  })
+  // Delegate to the two-step path so the single-call API stays available.
+  const components = buildMergedRulesComponents(params)
+  return computeMergedRulesFromComponents(components, params)
 }

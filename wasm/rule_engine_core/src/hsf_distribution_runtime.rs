@@ -315,7 +315,7 @@ pub(crate) fn filter_roll_distributions_core(input: &FilterRollDistributionsIn<'
 }
 
 // Shared combinations core to serve JSON and fast-array bindings.
-pub(crate) fn compute_combinations_i32(values: &[i32], pick: i32) -> Vec<Vec<i32>> {
+pub fn compute_combinations_i32(values: &[i32], pick: i32) -> Vec<Vec<i32>> {
     if pick <= 0 {
         return vec![Vec::<i32>::new()];
     }
@@ -330,7 +330,7 @@ pub(crate) fn compute_combinations_i32(values: &[i32], pick: i32) -> Vec<Vec<i32
 }
 
 // Shared permutations core to serve JSON and fast-array bindings.
-pub(crate) fn compute_permutations_i32(values: &[i32]) -> Vec<Vec<i32>> {
+pub fn compute_permutations_i32(values: &[i32]) -> Vec<Vec<i32>> {
     if values.len() <= 1 {
         return vec![values.to_vec()];
     }
@@ -642,7 +642,7 @@ pub(crate) fn build_hsf_late_bounded_rows_core(input: &BuildHsfLateBoundedRowsIn
 }
 
 // Shared intro-assignment core to serve JSON and fast-array bindings.
-pub(crate) fn compute_intro_assignments_for_combo(
+pub fn compute_intro_assignments_for_combo(
     count: i32,
     base_slots: i32,
     addition_levels: &[i32],

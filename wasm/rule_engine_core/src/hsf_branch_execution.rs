@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use serde::Deserialize;
-use wasm_bindgen::JsValue;
+
 
 use crate::build_hsf_branch_collapse_profile_core;
 use crate::build_hsf_factory_combo_rows_from_parts;
@@ -104,7 +104,7 @@ fn is_collapse_rarity_eligible(rarity_code: i64) -> bool {
 
 // Core branch execution loops through all level contexts and level combos.
 // It reuses lower-level cores so the only moved logic is orchestration.
-pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn) -> Result<Vec<RuleRaw>, JsValue> {
+pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn) -> Result<Vec<RuleRaw>, String> {
     // Decode rarity additions once so combo runtime can test event-level changes.
     let addition_timeline_all = addition_timeline_for_rarity(input.rarity_code);
     // Base present slots are four minus total branch additions.

@@ -3,67 +3,90 @@ use super::*;
 // Keep only the data needed in hot matcher loops.
 // Masks and recipe indices are precomputed at configure time.
 #[derive(Debug)]
-pub(crate) struct PreparedRule {
-    pub(crate) use_flag: bool,
-    pub(crate) keep_flag: bool,
-    pub(crate) artifact_types: Vec<i64>,
-    pub(crate) artifact_sets: Vec<i64>,
-    pub(crate) faction: i64,
-    pub(crate) level_for_check: i64,
-    pub(crate) main_stat_id: i64,
-    pub(crate) main_stat_f: i64,
-    pub(crate) substats: Vec<PreparedRuleSub>,
-    pub(crate) recipe_idx: Option<i64>,
-    pub(crate) source_bits: u8,
-    pub(crate) source_fallback: Option<String>,
-    pub(crate) safeguard_item_key: Option<i64>,
-    pub(crate) rank_mask: u8,
-    pub(crate) rarity_mask: u8,
-    pub(crate) is_keep_override_source: bool,
+pub struct PreparedRule {
+    pub use_flag: bool,
+    pub keep_flag: bool,
+    pub artifact_types: Vec<i64>,
+    pub artifact_sets: Vec<i64>,
+    pub faction: i64,
+    pub level_for_check: i64,
+    pub main_stat_id: i64,
+    pub main_stat_f: i64,
+    pub substats: Vec<PreparedRuleSub>,
+    pub recipe_idx: Option<i64>,
+    pub source_bits: u8,
+    pub source_fallback: Option<String>,
+    pub safeguard_item_key: Option<i64>,
+    pub rank_mask: u8,
+    pub rarity_mask: u8,
+    pub is_keep_override_source: bool,
 }
 
 // Prepared substats normalize condition/value flags for direct comparisons.
 #[derive(Debug)]
-pub(crate) struct PreparedRuleSub {
+pub struct PreparedRuleSub {
     // Variant is precomputed during configure so matcher loops do zero coercion.
-    pub(crate) variant: i64,
+    pub variant: i64,
     // Threshold stays as f64 because substat values are floating-point in payloads.
-    pub(crate) value: f64,
+    pub value: f64,
     // Condition is parsed once; hot loops use enum dispatch instead of strings.
-    pub(crate) condition: PreparedRuleSubCondition,
+    pub condition: PreparedRuleSubCondition,
 }
 
 // Evaluate options mirror EvalMatchesByRecipeOverrides from TS.
 // Sets are converted once so each rule scan stays allocation-free.
 #[derive(Debug, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct EvaluateOptionsRaw {
-    pub(crate) exclude_sources: Option<Vec<String>>,
-    pub(crate) exclude_recipe_indices: Option<Vec<i64>>,
-    pub(crate) ignore_safeguard_recipe_indices: Option<Vec<i64>>,
-    pub(crate) baseline_exclude_sources: Option<Vec<String>>,
+pub struct EvaluateOptionsRaw {
+    pub exclude_sources: Option<Vec<String>>,
+    pub exclude_recipe_indices: Option<Vec<i64>>,
+    pub ignore_safeguard_recipe_indices: Option<Vec<i64>>,
+    pub baseline_exclude_sources: Option<Vec<String>>,
 }
 
 // Matcher loops compare only three condition families from TS semantics.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub(crate) enum PreparedRuleSubCondition {
+pub enum PreparedRuleSubCondition {
     AtLeast,
     AtMost,
     Equal,
 }
 
+// Scratch buffers reused across items in evaluate_engine so each item avoids
+// per-item HashSet and HashMap allocations in the hot evaluation loop.
+pub struct EvaluateItemScratch {
+    // (recipe_idx, first_keep_decision) pairs in encounter order.
+    // Combines the roles of the old matching_recipe_seen HashSet and
+    // matching_recipe_decisions HashMap into one linear Vec with no heap churn.
+    pub recipe_matches: Vec<(i64, bool)>,
+}
+
+impl EvaluateItemScratch {
+    pub fn new() -> Self {
+        Self { recipe_matches: Vec::new() }
+    }
+
+    // Clear before each item so the capacity is retained and reused.
+    fn clear(&mut self) {
+        self.recipe_matches.clear();
+    }
+}
+
 // Prepared options keep all exclusion sets prebuilt for repeated item scans.
+// Recipe index lists are stored as Vec rather than HashSet: the sets are small
+// (typically <50 entries) and Vec linear scan beats HashSet for that range
+// because it avoids hash computation overhead and is cache-friendlier.
 #[derive(Debug, Default, Clone)]
-pub(crate) struct EvaluateOptionsPrepared {
+pub struct EvaluateOptionsPrepared {
     exclude_source_bits: u8,
     exclude_source_fallback_set: HashSet<String>,
-    exclude_recipe_indices: HashSet<i64>,
-    ignore_safeguard_recipe_indices: HashSet<i64>,
+    exclude_recipe_indices: Vec<i64>,
+    ignore_safeguard_recipe_indices: Vec<i64>,
 }
 
 impl EvaluateOptionsPrepared {
     // Convert vector-based JS payloads once per evaluate batch.
-    pub(crate) fn from_raw(raw: &EvaluateOptionsRaw) -> Self {
+    pub fn from_raw(raw: &EvaluateOptionsRaw) -> Self {
         Self {
             exclude_source_bits: raw
                 .exclude_sources
@@ -88,12 +111,12 @@ impl EvaluateOptionsPrepared {
             exclude_recipe_indices: raw
                 .exclude_recipe_indices
                 .as_ref()
-                .map(|indices| indices.iter().copied().collect::<HashSet<_>>())
+                .map(|indices| indices.iter().copied().collect::<Vec<_>>())
                 .unwrap_or_default(),
             ignore_safeguard_recipe_indices: raw
                 .ignore_safeguard_recipe_indices
                 .as_ref()
-                .map(|indices| indices.iter().copied().collect::<HashSet<_>>())
+                .map(|indices| indices.iter().copied().collect::<Vec<_>>())
                 .unwrap_or_default(),
         }
     }
@@ -101,7 +124,7 @@ impl EvaluateOptionsPrepared {
     // Safeguard fallback only needs recipe exclusions, not source filtering.
     fn from_excluded_recipe_indices(exclude_recipe_indices: &[i64]) -> Self {
         Self {
-            exclude_recipe_indices: exclude_recipe_indices.iter().copied().collect::<HashSet<_>>(),
+            exclude_recipe_indices: exclude_recipe_indices.to_vec(),
             ..Self::default()
         }
     }
@@ -118,6 +141,7 @@ impl EvaluateOptionsPrepared {
 
     // Safeguard ignore checks are option-aware because recipe indices are optional.
     fn safeguard_cfg_is_ignored(&self, recipe_idx: Option<i64>) -> bool {
+        // Vec linear scan is correct here; ignore lists are small (<50 entries).
         recipe_idx
             .map(|idx| self.ignore_safeguard_recipe_indices.contains(&idx))
             .unwrap_or(false)
@@ -140,74 +164,74 @@ fn rule_source_bit(raw: &str) -> Option<u8> {
 }
 
 // Keep options conversion in one helper so all call sites share the same rules.
-pub(crate) fn prepare_evaluate_options(raw: &EvaluateOptionsRaw) -> EvaluateOptionsPrepared {
+pub fn prepare_evaluate_options(raw: &EvaluateOptionsRaw) -> EvaluateOptionsPrepared {
     EvaluateOptionsPrepared::from_raw(raw)
 }
 
 // Serialized match result shape consumed by existing worker hooks.
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct EvalMatch {
-    pub(crate) rule_index: usize,
-    pub(crate) keep: bool,
-    pub(crate) recipe_idx: Option<i64>,
+pub struct EvalMatch {
+    pub rule_index: usize,
+    pub keep: bool,
+    pub recipe_idx: Option<i64>,
 }
 
 // Serialized per-recipe keep/sell decision list.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct MatchingRecipeDecision {
-    pub(crate) recipe_idx: i64,
-    pub(crate) keep: bool,
+pub struct MatchingRecipeDecision {
+    pub recipe_idx: i64,
+    pub keep: bool,
 }
 
 // Serialized item result shape mirrors TesterMatchWorkerItemResult.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct EvaluateItemResult {
-    pub(crate) item_id: i64,
-    pub(crate) first_match: Option<EvalMatch>,
-    pub(crate) first_non_excluded_match: Option<EvalMatch>,
-    pub(crate) matching_recipe_indices: Vec<i64>,
-    pub(crate) matching_recipe_decisions: Vec<MatchingRecipeDecision>,
+pub struct EvaluateItemResult {
+    pub item_id: i64,
+    pub first_match: Option<EvalMatch>,
+    pub first_non_excluded_match: Option<EvalMatch>,
+    pub matching_recipe_indices: Vec<i64>,
+    pub matching_recipe_decisions: Vec<MatchingRecipeDecision>,
 }
 
 // Only the fields needed for keep/sell fallback logic cross the boundary.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct SafeguardCandidateResolveBaseMatchIn {
-    pub(crate) keep: bool,
-    pub(crate) recipe_idx: Option<i64>,
+pub struct SafeguardCandidateResolveBaseMatchIn {
+    pub keep: bool,
+    pub recipe_idx: Option<i64>,
 }
 
 // Candidate collection input extends resolver rows with normalized artifact data.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct SafeguardCollectRowIn {
-    pub(crate) item: TestItemRaw,
+pub struct SafeguardCollectRowIn {
+    pub item: TestItemRaw,
     #[serde(default)]
-    pub(crate) base_match_defined: bool,
-    pub(crate) base_match: Option<SafeguardCandidateResolveBaseMatchIn>,
-    pub(crate) artifact: SafeguardWasmArtifactIn,
+    pub base_match_defined: bool,
+    pub base_match: Option<SafeguardCandidateResolveBaseMatchIn>,
+    pub artifact: SafeguardWasmArtifactIn,
 }
 
 // Candidate snapshot entry mirrors safeguards.ts SafeguardCandidate shape.
+// artifact is intentionally omitted: TS callers reconstruct it from rows[rowIndex].
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct SafeguardCollectedCandidateOut {
-    pub(crate) row_index: usize,
-    pub(crate) item_key: i64,
-    pub(crate) group_key: String,
-    pub(crate) is_sold: bool,
-    pub(crate) artifact: SafeguardWasmArtifactIn,
+pub struct SafeguardCollectedCandidateOut {
+    pub row_index: usize,
+    pub item_key: i64,
+    pub group_key: String,
+    pub is_sold: bool,
 }
 
 // Candidate snapshot payload also includes sold-item key dedupe set.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct SafeguardCollectedSnapshotOut {
-    pub(crate) candidates: Vec<SafeguardCollectedCandidateOut>,
-    pub(crate) unique_item_keys: Vec<i64>,
+pub struct SafeguardCollectedSnapshotOut {
+    pub candidates: Vec<SafeguardCollectedCandidateOut>,
+    pub unique_item_keys: Vec<i64>,
 }
 
 // Normalize the optional TS condition token into a compact matcher enum.
@@ -225,7 +249,7 @@ fn parse_sub_condition(raw_condition: Option<&str>) -> PreparedRuleSubCondition 
 }
 
 // Prepare one rule for fast repeated item evaluation.
-pub(crate) fn prepare_rule(raw: RuleRaw) -> PreparedRule {
+pub fn prepare_rule(raw: RuleRaw) -> PreparedRule {
     let use_flag = raw.Use.unwrap_or(true);
     let keep_flag = raw.Keep.unwrap_or(false);
     let artifact_types = raw.ArtifactType.unwrap_or_default();
@@ -300,7 +324,7 @@ fn resolve_item_key(item: &TestItemRaw) -> Option<i64> {
 // artifact.id (db, positive only) -> item.previewExtras.id -> item.itemId -> 0.
 // Negative artifact ids are synthetic placeholders set by App.tsx for custom gear;
 // filtering them out keeps detection consistent with resolve_item_key used in match_rule.
-fn resolve_collect_row_item_key(row: &SafeguardCollectRowIn) -> i64 {
+pub(crate) fn resolve_collect_row_item_key(row: &SafeguardCollectRowIn) -> i64 {
     row.artifact
         .id
         .filter(|&id| id > 0)
@@ -308,11 +332,12 @@ fn resolve_collect_row_item_key(row: &SafeguardCollectRowIn) -> i64 {
         .unwrap_or(0)
 }
 
-// Fast helper for optional numeric value map lookup by encoded variant key.
-fn read_sub_value(sub_values: &Option<HashMap<i64, f64>>, variant: i64) -> Option<f64> {
+// Linear scan for substat value by encoded variant key.
+// Items have ≤4 substats, so linear scan has better cache behavior than HashMap.
+fn read_sub_value(sub_values: &Option<Vec<(i64, f64)>>, variant: i64) -> Option<f64> {
     sub_values
         .as_ref()
-        .and_then(|values| values.get(&variant).copied())
+        .and_then(|values| values.iter().find(|(k, _)| *k == variant).map(|(_, v)| *v))
 }
 
 // Rule-level predicate copied from src/lib/ruleEval.ts::matchRule.
@@ -404,25 +429,25 @@ fn should_include_recipe(
     true
 }
 
-// Hot-path evaluator takes prepared options to avoid per-item set allocations.
-pub(crate) fn evaluate_item(
+// Hot-path evaluator writes recipe matches into scratch to avoid per-item
+// HashSet and HashMap allocations. Returns only the two first-match results;
+// callers read recipe data from scratch.recipe_matches after the call.
+pub fn evaluate_item(
     rules: &[PreparedRule],
     recipe_modes: &[String],
     item: &TestItemRaw,
     options: &EvaluateOptionsPrepared,
-) -> (Option<EvalMatch>, Option<EvalMatch>, Vec<i64>, Vec<MatchingRecipeDecision>) {
+    scratch: &mut EvaluateItemScratch,
+) -> (Option<EvalMatch>, Option<EvalMatch>) {
+    // Reuse scratch capacity; clear retains the allocation.
+    scratch.clear();
+
     let mut first_match: Option<EvalMatch> = None;
     let mut first_non_excluded_match: Option<EvalMatch> = None;
     let mut non_keep_override_keep_matched = false;
     let mut pending_keep_override: Option<EvalMatch> = None;
     let mut fallback_keep_override: Option<EvalMatch> = None;
     let mut any_keep_override_match: Option<EvalMatch> = None;
-    // Preserve first-seen recipe order so UI chips can remove only the true
-    // primary recipe entry without relying on sorted index order.
-    let mut matching_recipes = Vec::<i64>::new();
-    // Keep O(1) duplicate suppression while retaining encounter order.
-    let mut matching_recipe_seen = HashSet::<i64>::new();
-    let mut matching_recipe_decisions = HashMap::<i64, bool>::new();
 
     let mut prekeep_override: Option<EvalMatch> = None;
 
@@ -500,12 +525,11 @@ pub(crate) fn evaluate_item(
         }
 
         if let Some(recipe_idx) = rule.recipe_idx {
-            // Keep first-seen ordering for compatibility with legacy JS matcher output.
-            if matching_recipe_seen.insert(recipe_idx) {
-                matching_recipes.push(recipe_idx);
+            // Linear dedup + first-decision tracking in one pass; recipe counts
+            // are small (typically < 50) so linear scan beats HashSet allocation.
+            if !scratch.recipe_matches.iter().any(|(k, _)| *k == recipe_idx) {
+                scratch.recipe_matches.push((recipe_idx, keep));
             }
-            // First keep/sell decision per recipe still wins, matching prior behavior.
-            matching_recipe_decisions.entry(recipe_idx).or_insert(keep);
         }
     }
 
@@ -533,16 +557,6 @@ pub(crate) fn evaluate_item(
         }
     }
 
-    // Recipe indices are already in encounter order; clone into the output payload.
-    let matching_recipe_indices = matching_recipes;
-    let matching_recipe_decisions = matching_recipe_indices
-        .iter()
-        .map(|recipe_idx| MatchingRecipeDecision {
-            recipe_idx: *recipe_idx,
-            keep: *matching_recipe_decisions.get(recipe_idx).unwrap_or(&false),
-        })
-        .collect::<Vec<_>>();
-
     // Keep first-match ownership while mirroring fallback semantics for non-excluded.
     let resolved_first_non_excluded = first_non_excluded_match.or_else(|| {
         first_match.as_ref().map(|entry| EvalMatch {
@@ -551,12 +565,7 @@ pub(crate) fn evaluate_item(
             recipe_idx: entry.recipe_idx,
         })
     });
-    (
-        first_match,
-        resolved_first_non_excluded,
-        matching_recipe_indices,
-        matching_recipe_decisions,
-    )
+    (first_match, resolved_first_non_excluded)
 }
 
 // Resolve keep/sell outcomes for safeguard candidate rows.
@@ -568,21 +577,21 @@ fn resolve_safeguard_candidate_keep_flags_core(
     ignore_safeguard_recipe_indices: &[i64],
 ) -> Vec<bool> {
     let has_ignored_recipes = !ignore_safeguard_recipe_indices.is_empty();
-    let ignored_set = ignore_safeguard_recipe_indices
-        .iter()
-        .copied()
-        .collect::<HashSet<_>>();
+    // eval_options reuses the same Vec slice (already a Vec<i64>) — no extra allocation.
     let eval_options =
         EvaluateOptionsPrepared::from_excluded_recipe_indices(ignore_safeguard_recipe_indices);
 
+    // One shared scratch per evaluation pass avoids per-row allocations.
+    let mut scratch = EvaluateItemScratch::new();
     let mut keep_flags = Vec::<bool>::with_capacity(rows.len());
     for row in rows {
         // Reuse explicit base-match decisions unless the owning recipe is ignored.
         if row.base_match_defined {
             let base_recipe_idx = row.base_match.as_ref().and_then(|entry| entry.recipe_idx);
+            // Vec linear scan; ignore_safeguard_recipe_indices is small (<50 entries).
             let base_recipe_ignored = has_ignored_recipes
                 && base_recipe_idx
-                    .map(|recipe_idx| ignored_set.contains(&recipe_idx))
+                    .map(|recipe_idx| ignore_safeguard_recipe_indices.contains(&recipe_idx))
                     .unwrap_or(false);
             if !base_recipe_ignored {
                 keep_flags.push(row.base_match.as_ref().map(|entry| entry.keep).unwrap_or(false));
@@ -596,9 +605,14 @@ fn resolve_safeguard_candidate_keep_flags_core(
             continue;
         }
 
-        // Re-evaluate with ignored recipes excluded to mirror TS semantics.
-        let (first_match, _, _, _) =
-            evaluate_item(prepared_rules, recipe_modes, &row.item, &eval_options);
+        // Two-pass evaluate_item for rows whose base match came from an ignored recipe.
+        // The base_match was computed with the full rule set (ignored recipe included), so
+        // its keep/sell decision cannot be reused — the ignored recipe may have been the
+        // first matching rule, masking a different outcome from the remaining rules.
+        // We re-evaluate with eval_options excluding the ignored recipe so the result
+        // reflects what the sell engine would decide without safeguard interference.
+        let (first_match, _) =
+            evaluate_item(prepared_rules, recipe_modes, &row.item, &eval_options, &mut scratch);
         keep_flags.push(first_match.map(|entry| entry.keep).unwrap_or(false));
     }
     keep_flags
@@ -609,12 +623,12 @@ fn resolve_safeguard_candidate_keep_flags_core(
 
 // Safeguard candidate snapshot builder keeps key derivation + sold filtering
 // in Rust so TS only reattaches row references for existing call sites.
-pub(crate) fn collect_safeguard_candidates_core(
+pub fn collect_safeguard_candidates_core(
     rows: &[SafeguardCollectRowIn],
     prepared_rules: &[PreparedRule],
     recipe_modes: &[String],
     ignore_safeguard_recipe_indices: &[i64],
-) -> Result<SafeguardCollectedSnapshotOut, JsValue> {
+) -> Result<SafeguardCollectedSnapshotOut, String> {
     let keep_flags = resolve_safeguard_candidate_keep_flags_core(
         rows,
         prepared_rules,
@@ -623,9 +637,9 @@ pub(crate) fn collect_safeguard_candidates_core(
     );
     // Keep candidate/flag vectors aligned so item ownership never shifts.
     if keep_flags.len() != rows.len() {
-        return Err(JsValue::from_str(
-            "Safeguard candidate collect produced mismatched keep-flag length",
-        ));
+        return Err(
+            "Safeguard candidate collect produced mismatched keep-flag length".to_string(),
+        );
     }
 
     // Build candidate rows in encounter order for deterministic UI snapshots.
@@ -645,12 +659,12 @@ pub(crate) fn collect_safeguard_candidates_core(
         if is_sold {
             unique_item_keys.insert(item_key);
         }
+        // artifact is omitted: TS callers look it up via rows[rowIndex] directly.
         candidates.push(SafeguardCollectedCandidateOut {
             row_index: idx,
             item_key,
             group_key,
             is_sold,
-            artifact: row.artifact.clone(),
         });
     }
 

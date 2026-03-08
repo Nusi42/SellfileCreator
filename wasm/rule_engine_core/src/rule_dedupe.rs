@@ -67,7 +67,7 @@ pub(crate) struct CollapseCanonicalSubstatKey {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub(crate) struct CollapseCanonicalKey {
+pub struct CollapseCanonicalKey {
     keep: bool,
     use_flag: bool,
     rank: i64,
@@ -340,7 +340,7 @@ pub(crate) fn collapse_canonical_key(rule: &RuleRaw) -> CollapseCanonicalKey {
 }
 
 // Shared obsolete-detector used by find_obsolete and generated-rule finalization.
-pub(crate) fn collect_obsolete_entries(rules: &[RuleRaw]) -> Vec<ObsoleteEntryOut> {
+pub fn collect_obsolete_entries(rules: &[RuleRaw]) -> Vec<ObsoleteEntryOut> {
     let mut norm_subs = Vec::<Option<Vec<NormalizedSubstat>>>::with_capacity(rules.len());
     let mut groups = HashMap::<ObsoleteGroupKey, Vec<usize>>::new();
     let mut group_order = Vec::<ObsoleteGroupKey>::new();

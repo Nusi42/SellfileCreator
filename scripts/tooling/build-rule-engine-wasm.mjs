@@ -9,7 +9,11 @@ import { fileURLToPath } from 'node:url'
 // Resolve absolute paths once so every command can run from any cwd.
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '..', '..')
-const CRATE_DIR = path.join(REPO_ROOT, 'wasm', 'rule_engine')
+// Workspace root contains both crates; cargo must be invoked from here so that
+// the shared Cargo.lock and profile overrides (e.g. js-sys opt-level cap) apply.
+const WORKSPACE_DIR = path.join(REPO_ROOT, 'wasm')
+// The cdylib crate is rule_engine_wasm; core logic lives in rule_engine_core.
+const CRATE_NAME = 'rule_engine_wasm'
 const OUT_DIR = path.join(REPO_ROOT, 'src', 'lib', 'wasm', 'generated')
 
 // Keep profile logic centralized so command selection is deterministic.
@@ -67,22 +71,27 @@ if (!wasmBindgenBin) {
 run(process.execPath, [path.join(REPO_ROOT, 'scripts', 'tooling', 'generate-domain-constants.mjs')])
 
 // Build crate for wasm32 using selected profile and deterministic strip default.
+// Run from workspace root so the shared Cargo.toml profile overrides take effect.
 const cargoEnv = { ...process.env }
 if (PROFILE === 'release' && !cargoEnv.CARGO_PROFILE_RELEASE_STRIP) {
   cargoEnv.CARGO_PROFILE_RELEASE_STRIP = 'none'
 }
 const cargoArgs =
   PROFILE === 'release'
-    ? ['build', '--release', '--target', REQUIRED_TARGET]
-    : ['build', '--target', REQUIRED_TARGET]
-run(cargoBin, cargoArgs, { cwd: CRATE_DIR, env: cargoEnv })
+    ? ['build', '--release', '--target', REQUIRED_TARGET, '-p', CRATE_NAME]
+    : ['build', '--target', REQUIRED_TARGET, '-p', CRATE_NAME]
+run(cargoBin, cargoArgs, { cwd: WORKSPACE_DIR, env: cargoEnv })
 
 // Regenerate wasm-bindgen outputs consumed by TS imports/runtime.
+// The wasm binary is named after the cdylib crate (rule_engine_wasm); --out-name
+// keeps the generated JS/TS files named rule_engine.* for TS import compatibility.
 fs.mkdirSync(OUT_DIR, { recursive: true })
 run(wasmBindgenBin, [
-  path.join(CRATE_DIR, 'target', REQUIRED_TARGET, TARGET_DIR_NAME, 'rule_engine.wasm'),
+  path.join(WORKSPACE_DIR, 'target', REQUIRED_TARGET, TARGET_DIR_NAME, `${CRATE_NAME}.wasm`),
   '--target',
   'web',
   '--out-dir',
   OUT_DIR,
+  '--out-name',
+  'rule_engine',
 ])

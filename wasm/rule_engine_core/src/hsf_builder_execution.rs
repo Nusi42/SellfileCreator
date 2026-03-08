@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
-use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
-use wasm_bindgen::JsValue;
+
+
 
 use crate::build_hsf_preflight_flags_core;
 use crate::build_hsf_presence_only_rules_core;
@@ -29,7 +29,7 @@ use crate::STAT_ID_ANY;
 // preparation out of hsfBuilder.ts so TS no longer loops large variant sets.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct PrepareHsfBuilderRecipeIn {
+pub struct PrepareHsfBuilderRecipeIn {
     min_count: i64,
     auto_substat_flex: bool,
     flex_eligible: bool,
@@ -54,7 +54,7 @@ struct PrepareHsfBuilderRecipeIn {
 // Output carries normalized pools and per-variant maps consumed by branch runtime.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct PrepareHsfBuilderRecipeOut {
+pub struct PrepareHsfBuilderRecipeOut {
     selected_pool_v: Vec<i32>,
     required_v: Vec<i32>,
     optional_pool_v: Vec<i32>,
@@ -78,7 +78,7 @@ struct PrepareHsfBuilderRecipeOut {
 // We keep this local so serialization does not depend on internal input-only types.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct PrepareHsfBuilderTargetEntryOut {
+pub struct PrepareHsfBuilderTargetEntryOut {
     base: Option<f64>,
     increments: Option<Vec<Option<f64>>>,
 }
@@ -238,14 +238,11 @@ fn prepare_hsf_builder_recipe_core(input: &PrepareHsfBuilderRecipeIn) -> Prepare
     }
 }
 
-// JsValue wrapper centralizes parsing/serialization for TS prep helper calls.
-pub(crate) fn prepare_hsf_builder_recipe_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: PrepareHsfBuilderRecipeIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid prepare-hsf-builder-recipe payload: {error}")))?;
-    let out = prepare_hsf_builder_recipe_core(&input);
-    // Use shared helper so HashMap fields serialize as plain JS objects, not ES2015 Maps.
-    crate::wasm_to_js(&out)
+// Core prepare function returns typed Rust struct; wasm crate wraps with serde_wasm_bindgen.
+pub fn prepare_hsf_builder_recipe_core_fn(input: &PrepareHsfBuilderRecipeIn) -> PrepareHsfBuilderRecipeOut {
+    prepare_hsf_builder_recipe_core(input)
 }
+
 
 // Branch descriptor mirrors TS rarity branch objects for one-call runtime.
 #[derive(Debug, Deserialize, Clone)]
@@ -294,7 +291,7 @@ struct ExecuteHsfBuilderRuntimeIn {
 // Builder runtime output carries rules plus a hard-limit signal for TS parity.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct ExecuteHsfBuilderRuntimeOut {
+pub struct ExecuteHsfBuilderRuntimeOut {
     rules: Vec<RuleRaw>,
     limit_hit: bool,
 }
@@ -303,7 +300,7 @@ struct ExecuteHsfBuilderRuntimeOut {
 // Rust then runs preflight, rarity-branch planning, and final execution.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct BuildHsfRulesRuntimeIn {
+pub struct BuildHsfRulesRuntimeIn {
     recipe_id: Option<i64>,
     keep: Option<bool>,
     use_flag: bool,
@@ -532,7 +529,7 @@ fn builder_emission_signature(rule: &RuleRaw) -> BuilderEmissionSignatureKey {
 }
 
 // Runtime core executes all branches and preserves TS-level dedupe/order rules.
-fn execute_hsf_builder_runtime_core(input: &ExecuteHsfBuilderRuntimeIn) -> Result<ExecuteHsfBuilderRuntimeOut, JsValue> {
+fn execute_hsf_builder_runtime_core(input: &ExecuteHsfBuilderRuntimeIn) -> Result<ExecuteHsfBuilderRuntimeOut, String> {
     // Branch-level emission signatures collapse cross-rarity duplicates.
     let mut emitted_signatures = HashSet::<BuilderEmissionSignatureKey>::new();
     // Preserve rule rows and metadata for shared finalize ordering/pruning.
@@ -602,7 +599,7 @@ fn execute_hsf_builder_runtime_core(input: &ExecuteHsfBuilderRuntimeIn) -> Resul
 
     // Finalize builder rows in Rust so prune/sort stays single-sourced.
     let finalized = finalize_builder_rules_core(rules, emission_meta)
-        .map_err(|error| JsValue::from_str(&format!("Failed to finalize builder runtime rows: {error}")))?;
+        .map_err(|error| format!("Failed to finalize builder runtime rows: {error}"))?;
     Ok(ExecuteHsfBuilderRuntimeOut {
         rules: finalized,
         limit_hit: false,
@@ -610,7 +607,7 @@ fn execute_hsf_builder_runtime_core(input: &ExecuteHsfBuilderRuntimeIn) -> Resul
 }
 
 // Full builder runtime core (post-prep) keeps one-call orchestration in Rust.
-fn build_hsf_rules_runtime_core(input: &BuildHsfRulesRuntimeIn) -> Result<ExecuteHsfBuilderRuntimeOut, JsValue> {
+fn build_hsf_rules_runtime_core(input: &BuildHsfRulesRuntimeIn) -> Result<ExecuteHsfBuilderRuntimeOut, String> {
     // Build selector-only base rule once for both presence and branch runtime.
     let base_rule = build_hsf_rules_base_rule(input);
     // Normalize positive limits once; non-positive values mean "no limit".
@@ -646,7 +643,7 @@ fn build_hsf_rules_runtime_core(input: &BuildHsfRulesRuntimeIn) -> Result<Execut
             }
         }
         let finalized = finalize_builder_rules_core(rules, emission_meta)
-            .map_err(|error| JsValue::from_str(&format!("Failed to finalize presence-only builder rows: {error}")))?;
+            .map_err(|error| format!("Failed to finalize presence-only builder rows: {error}"))?;
         return Ok(ExecuteHsfBuilderRuntimeOut {
             rules: finalized,
             limit_hit: false,
@@ -725,11 +722,7 @@ fn build_hsf_rules_runtime_core(input: &BuildHsfRulesRuntimeIn) -> Result<Execut
     })
 }
 
-// One-call wrapper runs preflight + branch orchestration + presence emission.
-pub(crate) fn build_hsf_rules_runtime_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: BuildHsfRulesRuntimeIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid build-hsf-rules-runtime payload: {error}")))?;
-    let out = build_hsf_rules_runtime_core(&input)?;
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize build-hsf-rules-runtime output: {error}")))
+// Exposed for wasm crate: run the full runtime from a typed input.
+pub fn build_hsf_rules_runtime_core_fn(input: &BuildHsfRulesRuntimeIn) -> Result<ExecuteHsfBuilderRuntimeOut, String> {
+    build_hsf_rules_runtime_core(input)
 }

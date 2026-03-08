@@ -26,6 +26,7 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "test:unit": "npm run wasm:ensure:rule-engine && node scripts/test/run-tests.mjs",
+    "bench:pipeline": "npm run wasm:ensure:rule-engine && node node_modules/typescript/bin/tsc -p tsconfig.tests.json --noEmit false && node scripts/tooling/patch-esm-specifiers.cjs && node --experimental-wasm-modules --import ./tmp/tsc/tests/tests/setup/wasm-warmup.js tmp/tsc/tests/tests/benchmarks/pipeline-perf.bench.js",
     "test:e2e:chromium": "playwright test --project=chromium",
     "test:e2e:firefox": "playwright test --project=firefox",
     "test:e2e": "node scripts/test/run-e2e.mjs",

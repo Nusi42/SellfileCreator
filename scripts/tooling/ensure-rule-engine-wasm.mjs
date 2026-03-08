@@ -11,8 +11,11 @@ const REPO_ROOT = path.resolve(SCRIPT_DIR, '..', '..')
 
 // Keep source roots explicit so "relevant files" are deterministic and easy
 // to audit when Rust/domain-constant inputs change.
-const RULE_ENGINE_CRATE_DIR = path.join(REPO_ROOT, 'wasm', 'rule_engine')
-const RULE_ENGINE_SRC_DIR = path.join(RULE_ENGINE_CRATE_DIR, 'src')
+// The workspace root holds the shared Cargo.toml/Cargo.lock; each crate has
+// its own src/ directory tracked separately for fine-grained rebuild detection.
+const WORKSPACE_DIR = path.join(REPO_ROOT, 'wasm')
+const RULE_ENGINE_CORE_SRC_DIR = path.join(WORKSPACE_DIR, 'rule_engine_core', 'src')
+const RULE_ENGINE_WASM_SRC_DIR = path.join(WORKSPACE_DIR, 'rule_engine_wasm', 'src')
 const GENERATED_OUT_DIR = path.join(REPO_ROOT, 'src', 'lib', 'wasm', 'generated')
 
 // Track all generated files required by TS imports/runtime wasm loading.
@@ -24,9 +27,12 @@ const GENERATED_OUTPUTS = [
 ]
 
 // Track non-recursive source files that can affect final wasm/bindings.
+// Cargo.toml/Cargo.lock live at the workspace root, not inside individual crates.
 const DIRECT_RELEVANT_SOURCES = [
-  path.join(RULE_ENGINE_CRATE_DIR, 'Cargo.toml'),
-  path.join(RULE_ENGINE_CRATE_DIR, 'Cargo.lock'),
+  path.join(WORKSPACE_DIR, 'Cargo.toml'),
+  path.join(WORKSPACE_DIR, 'Cargo.lock'),
+  path.join(WORKSPACE_DIR, 'rule_engine_core', 'Cargo.toml'),
+  path.join(WORKSPACE_DIR, 'rule_engine_wasm', 'Cargo.toml'),
   path.join(REPO_ROOT, 'shared', 'domain-constants.json'),
   path.join(REPO_ROOT, 'scripts', 'tooling', 'generate-domain-constants.mjs'),
   path.join(REPO_ROOT, 'scripts', 'tooling', 'build-rule-engine-wasm.mjs'),
@@ -65,8 +71,10 @@ const collectFilesRecursively = async (rootDir) => {
 
 // Build only when at least one output is missing or stale relative to sources.
 const ensureRuleEngineWasm = async () => {
-  const recursiveSources = await collectFilesRecursively(RULE_ENGINE_SRC_DIR)
-  const relevantSources = [...DIRECT_RELEVANT_SOURCES, ...recursiveSources]
+  // Collect Rust sources from both crates so any edit in core or the wasm shim triggers rebuild.
+  const coreSources = await collectFilesRecursively(RULE_ENGINE_CORE_SRC_DIR)
+  const wasmSources = await collectFilesRecursively(RULE_ENGINE_WASM_SRC_DIR)
+  const relevantSources = [...DIRECT_RELEVANT_SOURCES, ...coreSources, ...wasmSources]
 
   // Fail early when a declared source vanished, because comparisons would be
   // misleading and we want deterministic rebuild decisions.

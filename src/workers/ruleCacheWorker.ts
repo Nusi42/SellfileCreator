@@ -4,25 +4,22 @@
 import { updateRecipeRulesCache, type RecipeRulesCacheEntry } from '../lib/ruleCache'
 import {
   KEEP_OVERRIDE_RULE_SOURCES as SAFEGUARD_OVERRIDE_RULE_SOURCES,
-  RULE_SOURCE_SAFEGUARDS,
-  computeMergedRules,
+  buildMergedRulesComponents,
+  computeMergedRulesFromComponents,
+  type MergedRulesComponents,
 } from '../lib/merge'
 import { recipesForRuleBuild } from '../lib/ruleCacheHelpers'
-import type { EvalResult } from '../lib/ruleEval'
 import {
   buildIgnoreSafeguardRecipeIndices,
-  collectAndComputeSafeguardProtection,
+  evaluateAndCollectSafeguardProtection,
   hasActiveSafeguardRules,
-  resolveSafeguardRuleLabel,
 } from '../lib/safeguards'
 import type { SafeguardDetectionSnapshot } from '../lib/safeguards'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { HsfRuleWithRecipe } from '../lib/merge'
 import type { BuilderRecipe, SellfileExportMode, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { GearInspectorMatchWorkerItemResult } from './gearInspectorMatchWorkerTypes'
-import type { GearInspectorPreviewMatch } from '../types/gearInspectorPreview'
 import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from './ruleCacheWorkerTypes'
-import { resolveMatchRecipeName } from '../lib/ruleRecipeIndex'
 import { resolveArtifactItemIdWithFallback } from '../lib/itemIdentity'
 import {
   configureWasmRuleEngine,
@@ -224,55 +221,6 @@ const buildPipelineMatches = async (
   return results
 }
 
-// Safeguard detection needs baseline keep/sell decisions with ignored recipes excluded.
-const buildExcludedRecipeBaselineMap = async (
-  mergedRules: HsfRuleWithRecipe[],
-  artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,
-  recipeModes: SellfileExportMode[] | undefined,
-  excludeRecipeIndices: ReadonlySet<number>,
-  shouldAbort: (() => boolean) | null,
-): Promise<Map<number, GearInspectorMatchWorkerItemResult>> => {
-  const byItem = new Map<number, GearInspectorMatchWorkerItemResult>()
-  if (!artifactEntries.length || excludeRecipeIndices.size === 0) return byItem
-  await configureWasmRuleEngine({
-    rules: mergedRules,
-    recipeModes: Array.isArray(recipeModes) ? recipeModes : [],
-  })
-  if (shouldAbort?.()) return byItem
-  for (let start = 0; start < artifactEntries.length; start += PIPELINE_MATCH_BATCH_SIZE) {
-    if (shouldAbort?.()) return byItem
-    const end = Math.min(start + PIPELINE_MATCH_BATCH_SIZE, artifactEntries.length)
-    const batchEntries = artifactEntries.slice(start, end)
-    const batchItems = batchEntries.map(([itemId, artifact]) => ({ itemId, item: artifact.gearInspectorItem }))
-    const evaluated = await evaluateWasmRuleEngineItems({
-      items: batchItems,
-      options: { excludeRecipeIndices },
-    })
-    if (shouldAbort?.()) return byItem
-    for (const entry of evaluated) {
-      byItem.set(entry.itemId, {
-        itemId: entry.itemId,
-        firstMatch: entry.firstMatch,
-        firstNonExcludedMatch: entry.firstNonExcludedMatch ?? entry.firstMatch,
-        matchingRecipeIndices: entry.matchingRecipeIndices,
-        matchingRecipeDecisions: entry.matchingRecipeDecisions,
-      })
-    }
-    if (end < artifactEntries.length) await yieldWorkerMacrotask()
-  }
-  // Fill any unexpected gaps so downstream assembly can treat the map as complete.
-  for (const [itemId] of artifactEntries) {
-    if (byItem.has(itemId)) continue
-    byItem.set(itemId, {
-      itemId,
-      firstMatch: null,
-      firstNonExcludedMatch: null,
-      matchingRecipeIndices: [],
-      matchingRecipeDecisions: [],
-    })
-  }
-  return byItem
-}
 
 self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
   const message = event.data
@@ -330,129 +278,126 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       : null
     if (total > 0 && completed > 0) emitPipelineProgress?.({ completed, total })
 
-    const mergedRulesBaseline = computeMergedRules({
+    // Build base + flattened-customs once; both baseline and final merged-rules
+    // calls reuse this to skip the redundant WASM flattenRuleBatches step.
+    const sharedComponents: MergedRulesComponents = buildMergedRulesComponents({
       hsf: payload.hsf,
       customRecipes: recipesForRules,
       metasets: payload.metasets,
       substatTargets: payload.substatTargets,
-      ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
       prebuiltCustomRules,
-      safeguards: baseSafeguards,
-      // Apply app-level transforms before safeguard detection/injection.
+    })
+    const mergeParams = {
+      ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
       omitDisabledBeforeSafeguards: payload.omitDisabledBeforeSafeguards,
       dedupeBeforeSafeguards: payload.dedupeBeforeSafeguards,
+    }
+
+    const mergedRulesBaseline = computeMergedRulesFromComponents(sharedComponents, {
+      ...mergeParams,
+      safeguards: baseSafeguards,
     })
 
+    // ignoreSafeguardRecipeIndices is needed by both detection and final passes.
+    const ignoreSafeguardRecipeIndices = buildIgnoreSafeguardRecipeIndices(recipesForRules)
     const baselineMatchMap = new Map<number, GearInspectorMatchWorkerItemResult>()
+    let safeguardDetectionSnapshot: SafeguardDetectionSnapshot | null = null
     if (needsDetection) {
-      const baseProgressRef = { value: warmTotal }
-      const baseMatchResults = await buildPipelineMatches(
-        mergedRulesBaseline,
+      // Configure baseline rules so the combined WASM evaluate+collect call uses them.
+      await configureWasmRuleEngine({
+        rules: mergedRulesBaseline,
+        recipeModes: Array.isArray(payload.recipeModes) ? payload.recipeModes : [],
+      })
+      if (!wasmVersionLogged) {
+        await getWasmRuleEngineVersion()
+        wasmVersionLogged = true
+      }
+      if (runIsStale()) return
+      // Build minimal detection rows — artifact (including gearInspectorItem) only.
+      // The combined WASM call evaluates each item internally so no pre-built
+      // baseMatch is needed; ignore_safeguard_recipe_indices is handled by Rust.
+      const detectionRows = artifactEntries.map(([, artifact]) => ({
+        artifact,
+        match: null,
+        baseMatch: null,
+        matchingRecipeIndices: [],
+        matchingRecipeDecisions: [],
+      }))
+      // Pass baselineExcludeSources so keep-override sources are excluded from the
+      // safeguard base-match the same way as the regular evaluate pass.
+      const detectionOptions = hasActiveSafeguards
+        ? { baselineExcludeSources: SAFEGUARD_OVERRIDE_RULE_SOURCES }
+        : undefined
+      const detectionResult = evaluateAndCollectSafeguardProtection({
+        rows: detectionRows,
+        ...(detectionOptions ? { options: detectionOptions } : {}),
+        rules: payload.safeguards.rules,
+        enabled: payload.safeguards.enabled,
+        ignoreSafeguardRecipeIndices,
+      })
+      if (runIsStale()) return
+      // Populate baseline match map from per-item evaluation results.
+      for (const entry of detectionResult.evaluateResults) {
+        baselineMatchMap.set(entry.itemId, {
+          itemId: entry.itemId,
+          firstMatch: entry.firstMatch,
+          firstNonExcludedMatch: (entry.firstNonExcludedMatch ?? entry.firstMatch ?? null),
+          matchingRecipeIndices: entry.matchingRecipeIndices,
+          matchingRecipeDecisions: entry.matchingRecipeDecisions,
+        })
+      }
+      safeguardDetectionSnapshot = detectionResult.detection
+      completed = warmTotal + artifactEntries.length
+      emitPipelineProgress?.({ completed, total })
+    } else {
+      completed = warmTotal
+    }
+
+    // Use shared components so flattenRuleBatches is not called a second time.
+    const mergedRulesFinal = computeMergedRulesFromComponents(sharedComponents, {
+      ...mergeParams,
+      safeguards: {
+        ...payload.safeguards,
+        detection: safeguardDetectionSnapshot,
+      },
+    })
+
+    // Optimisation: when detection found nothing to protect (no injected safeguard
+    // rules), the final merged rules are functionally identical to baseline and the
+    // baseline match map is already authoritative. Skip the second O(N×M) scan.
+    const detectionFoundNothing = safeguardDetectionSnapshot != null
+      && safeguardDetectionSnapshot.entries.length === 0
+    let matches: GearInspectorMatchWorkerItemResult[]
+    if (needsDetection && detectionFoundNothing) {
+      // Copy results from the baseline map in artifact order.
+      matches = artifactEntries.map(([itemId]) => baselineMatchMap.get(itemId) ?? {
+        itemId,
+        firstMatch: null,
+        firstNonExcludedMatch: null,
+        matchingRecipeIndices: [],
+        matchingRecipeDecisions: [],
+      })
+      if (total > 0) {
+        emitPipelineProgress?.({ completed: total, total })
+      }
+    } else {
+      const finalProgressRef = { value: completed }
+      matches = await buildPipelineMatches(
+        mergedRulesFinal,
         artifactEntries,
         payload.recipeModes,
-        null,
+        ignoreSafeguardRecipeIndices,
         total,
-        baseProgressRef,
+        finalProgressRef,
         emitPipelineProgress,
         hasActiveSafeguards,
         runIsStale,
       )
       if (runIsStale()) return
-      for (const result of baseMatchResults) baselineMatchMap.set(result.itemId, result)
-      completed = baseProgressRef.value
-    } else {
-      completed = warmTotal
-    }
-
-    const toPreviewMatch = (result: EvalResult | null, rules: HsfRuleWithRecipe[]): GearInspectorPreviewMatch | null => {
-      if (!result) return null
-      const rule = rules[result.ruleIndex]
-      const recipeIdx = result.recipeIdx ?? null
-      const recipeName = resolveMatchRecipeName(recipeIdx, null, rule)
-      const safeguardLabel = rule?.__source === RULE_SOURCE_SAFEGUARDS
-        ? resolveSafeguardRuleLabel(rule)
-        : null
-      const effectiveRecipeName = recipeName && recipeName.length > 0
-        ? recipeName
-        : safeguardLabel
-      return {
-        ruleIndex: result.ruleIndex,
-        keep: result.keep,
-        recipeIdx,
-        recipeName: effectiveRecipeName && effectiveRecipeName.length > 0 ? effectiveRecipeName : null,
-        ruleLabel: safeguardLabel ?? null,
-        ruleSource: rule?.__source ?? null,
+      if (total > 0 && finalProgressRef.value < total) {
+        finalProgressRef.value = total
+        emitPipelineProgress?.({ completed: total, total })
       }
-    }
-
-    const ignoreSafeguardRecipeIndices = buildIgnoreSafeguardRecipeIndices(recipesForRules)
-    const filteredBaselineMatchMap = (needsDetection && ignoreSafeguardRecipeIndices.size > 0)
-      ? await buildExcludedRecipeBaselineMap(
-        mergedRulesBaseline,
-        artifactEntries,
-        payload.recipeModes,
-        ignoreSafeguardRecipeIndices,
-        runIsStale,
-      )
-      : null
-    if (runIsStale()) return
-
-    let safeguardDetectionSnapshot: SafeguardDetectionSnapshot | null = null
-    if (needsDetection) {
-      const rows = artifactEntries.map(([itemId, artifact]) => {
-        const match = filteredBaselineMatchMap?.get(itemId) ?? baselineMatchMap.get(itemId)
-        return {
-          artifact,
-          match: null,
-          baseMatch: toPreviewMatch(match?.firstNonExcludedMatch ?? match?.firstMatch ?? null, mergedRulesBaseline),
-          matchingRecipeIndices: match?.matchingRecipeIndices ?? [],
-          matchingRecipeDecisions: match?.matchingRecipeDecisions ?? [],
-        }
-      })
-      const combinedDetection = collectAndComputeSafeguardProtection({
-        rows,
-        baseRules: mergedRulesBaseline,
-        recipeModes: payload.recipeModes,
-        rules: payload.safeguards.rules,
-        enabled: payload.safeguards.enabled,
-        ...(filteredBaselineMatchMap ? {} : { ignoreSafeguardRecipeIndices }),
-      })
-      safeguardDetectionSnapshot = combinedDetection.detection
-    }
-
-    const mergedRulesFinal = computeMergedRules({
-      hsf: payload.hsf,
-      customRecipes: recipesForRules,
-      metasets: payload.metasets,
-      substatTargets: payload.substatTargets,
-      ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
-      prebuiltCustomRules,
-      safeguards: {
-        ...payload.safeguards,
-        detection: safeguardDetectionSnapshot,
-      },
-      // Keep final matcher output aligned with baseline transformed rules.
-      omitDisabledBeforeSafeguards: payload.omitDisabledBeforeSafeguards,
-      dedupeBeforeSafeguards: payload.dedupeBeforeSafeguards,
-    })
-
-    const finalProgressRef = { value: completed }
-    const matches = await buildPipelineMatches(
-      mergedRulesFinal,
-      artifactEntries,
-      payload.recipeModes,
-      ignoreSafeguardRecipeIndices,
-      total,
-      finalProgressRef,
-      emitPipelineProgress,
-      hasActiveSafeguards,
-      runIsStale,
-    )
-    if (runIsStale()) return
-
-    if (total > 0 && finalProgressRef.value < total) {
-      finalProgressRef.value = total
-      emitPipelineProgress?.({ completed: total, total })
     }
 
     if (runIsStale()) return

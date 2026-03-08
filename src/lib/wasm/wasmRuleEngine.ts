@@ -8,6 +8,7 @@ import initRuleEngineWasm, {
   combinations_i32_fast_flat as combinationsI32FastFlatWasmBinding,
   collect_safeguard_candidates_value as collectSafeguardCandidatesWasmValueBinding,
   collect_and_compute_safeguard_protection_value as collectAndComputeSafeguardProtectionWasmValueBinding,
+  evaluate_and_collect_safeguard_protection_value as evaluateAndCollectSafeguardProtectionWasmValueBinding,
   compute_merged_rules_value as computeMergedRulesWasmValueBinding,
   compute_safeguard_protection_value as computeSafeguardProtectionValueWasmBinding,
   dedupe_hsf_rules_for_export_value as dedupeHsfRulesForExportWasmValueBinding,
@@ -255,7 +256,7 @@ type WasmCollectedSafeguardCandidate = {
   itemKey: number
   groupKey: string
   isSold: boolean
-  artifact: unknown
+  // artifact removed: Rust no longer emits it; callers use rows[rowIndex].artifact.
 }
 
 type WasmCollectedSafeguardSnapshot = {
@@ -410,6 +411,63 @@ export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
   throw new Error('WASM safeguard combined collector/detector returned an invalid payload.')
 }
 
+// Output shape for the combined evaluate+collect WASM call.
+// evaluateResults mirrors the Vec<EvaluateItemResult> shape from evaluate_value;
+// the remaining fields match WasmCollectedAndProtectedSafeguardSnapshot.
+export type WasmEvaluateAndCollectSnapshot = {
+  evaluateResults: GearInspectorMatchWorkerItemResult[]
+  candidates: WasmCollectedSafeguardCandidate[]
+  uniqueItemKeys: number[]
+  detection: SafeguardDetectionSnapshot
+}
+
+// Combined evaluate + safeguard-collect wrapper — replaces the two-step
+// evaluate_value + collect_and_compute_safeguard_protection_value call pattern.
+// Caller must configure the engine via configureWasmRuleEngine first.
+// rows must include artifact + gearInspectorItem per entry.
+export const evaluateAndCollectSafeguardProtectionWithLoadedWasm = (params: {
+  rows: readonly GearInspectorPreviewRow[]
+  options?: WasmRuleEngineEvaluateOptions
+  ignoreSafeguardRecipeIndices?: ReadonlySet<number>
+  safeguardRules: readonly SafeguardRuleForWasm[]
+  expectedGroupDomain?: Record<string, unknown>
+  enabled: boolean
+  now: number
+}): WasmEvaluateAndCollectSnapshot => {
+  assertWasmInitializedSync()
+  const ignored = toSortedNumberArray(params.ignoreSafeguardRecipeIndices) ?? null
+  // Build evaluate options payload (mirrors evaluateWasmRuleEngineItems).
+  const evaluatePayload: WasmRuleEngineEvaluatePayload = {}
+  const opts = params.options
+  if (opts?.excludeSources?.length) evaluatePayload.excludeSources = [...opts.excludeSources]
+  if (opts?.baselineExcludeSources?.length) evaluatePayload.baselineExcludeSources = [...opts.baselineExcludeSources]
+  if (opts?.excludeRecipeIndices?.size) evaluatePayload.excludeRecipeIndices = [...opts.excludeRecipeIndices]
+  if (opts?.ignoreSafeguardRecipeIndices?.size) evaluatePayload.ignoreSafeguardRecipeIndices = [...opts.ignoreSafeguardRecipeIndices]
+  const expectedGroupsPayload = params.expectedGroupDomain !== undefined
+    ? { expectedGroupDomain: params.expectedGroupDomain }
+    : undefined
+  const result = evaluateAndCollectSafeguardProtectionWasmValueBinding(
+    params.rows,
+    Object.keys(evaluatePayload).length ? evaluatePayload : null,
+    ignored,
+    params.safeguardRules,
+    expectedGroupsPayload,
+    params.enabled === true,
+    Number.isFinite(params.now) ? params.now : 0,
+  ) as WasmEvaluateAndCollectSnapshot
+  if (
+    result
+    && Array.isArray(result.evaluateResults)
+    && Array.isArray(result.candidates)
+    && Array.isArray(result.uniqueItemKeys)
+    && result.detection
+    && Array.isArray(result.detection.entries)
+  ) {
+    return result
+  }
+  throw new Error('WASM evaluate-and-collect safeguard snapshot returned an invalid payload.')
+}
+
 // Metaset expansion for safeguard rules now runs in Rust so include/exclude
 // precedence stays single-sourced across app and workers.
 export const resolveSafeguardRulesWithMetasetsWithLoadedWasm = <T extends { combination: unknown }>(
@@ -534,8 +592,17 @@ export const expandAutoFlexRarityBranchesWithLoadedWasm = (params: {
     params.recipe,
     Math.floor(params.baseRarityCode),
   )
-  // Rust now emits plain objects via serialize_maps_as_objects; cast directly.
-  if (Array.isArray(rawResult)) return rawResult as BuilderRecipe[]
+  // Rust emits only the declared AutoFlexRarityRecipeIn fields (rarity-related
+  // fields + substatsV/bounds used for branch logic).  Merge each branch with
+  // the original recipe so non-declared fields (minCount, mainStats, etc.) are
+  // preserved.  Branch-specific overrides (rarityMode, rarityCode, minLevel,
+  // etc.) from WASM take precedence via the right-side spread.
+  if (Array.isArray(rawResult)) {
+    return rawResult.map((branch) => ({
+      ...params.recipe,
+      ...(branch as Partial<BuilderRecipe>),
+    }))
+  }
   throw new Error('WASM auto-flex rarity branch expansion returned an invalid payload.')
 }
 

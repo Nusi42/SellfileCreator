@@ -11,21 +11,20 @@ enum SafeguardInjectedKeepKey {
     ItemLevel { item_key: i64, level: i64 },
 }
 
-pub(crate) fn flatten_rule_batches_with_total_limit_value(
+// Core implementation flattens rule batches respecting an optional total limit.
+// Renamed from `flatten_rule_batches_with_total_limit_value` (JsValue I/O removed).
+pub fn flatten_rule_batches_with_total_limit_core(
     base_count: i64,
     total_limit: i64,
-    batches: JsValue,
-) -> Result<JsValue, JsValue> {
-    // Parse as Vec<Vec<RuleRaw>> so TS can pass prebuilt/build batches directly.
-    let parsed_batches: Vec<Vec<RuleRaw>> = from_js_value(batches)
-        .map_err(|error| JsValue::from_str(&format!("Invalid flatten-rule-batches payload: {error}")))?;
+    batches: Vec<Vec<RuleRaw>>,
+) -> Vec<RuleRaw> {
     // Negative limit means unlimited mode (same as TS null branch).
     let has_limit = total_limit > 0;
     let limit = if has_limit { total_limit } else { i64::MAX };
     // Running total starts from base-rule length exactly like merge.ts.
     let mut running_total = base_count.max(0);
     let mut out = Vec::<RuleRaw>::new();
-    for batch in parsed_batches {
+    for batch in batches {
         // Ignore empty batches to mirror TS addBatch helper behavior.
         if batch.is_empty() {
             continue;
@@ -42,8 +41,7 @@ pub(crate) fn flatten_rule_batches_with_total_limit_value(
         out.extend(batch.into_iter());
     }
     // Return flattened custom rules ready for merged-rule orchestration.
-    to_js_value(&out)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize flatten-rule-batches output: {error}")))
+    out
 }
 
 // Shared helper returns sorted + deduped explicit set ids (including no-set).
@@ -57,7 +55,7 @@ fn final_sell_explicit_set_ids(all_known_set_ids: &[i64]) -> Vec<i64> {
 }
 
 // Build Final Sell rules in Rust so merge.ts no longer owns level/type loops.
-fn build_final_sell_rules_core(
+pub fn build_final_sell_rules_core(
     remainder: Option<&FinalSellRemainderIn>,
     all_known_set_ids: &[i64],
 ) -> Vec<RuleRaw> {
@@ -174,33 +172,9 @@ fn build_final_sell_rules_core(
     rules
 }
 
-// Public Final Sell builder export used by merge.ts and worker orchestration.
-pub(crate) fn build_final_sell_rules_value(
-    remainder: JsValue,
-    all_known_set_ids: JsValue,
-) -> Result<JsValue, JsValue> {
-    // Parse nullable remainder payload; null/undefined means disabled.
-    let parsed_remainder: Option<FinalSellRemainderIn> = if remainder.is_null() || remainder.is_undefined() {
-        None
-    } else {
-        Some(from_js_value(remainder)
-            .map_err(|error| JsValue::from_str(&format!("Invalid final-sell remainder payload: {error}")))?)
-    };
-    // Parse known set ids list used by explicit-sets mode.
-    let parsed_set_ids: Vec<i64> = if all_known_set_ids.is_null() || all_known_set_ids.is_undefined() {
-        Vec::<i64>::new()
-    } else {
-        from_js_value(all_known_set_ids)
-            .map_err(|error| JsValue::from_str(&format!("Invalid final-sell set-id payload: {error}")))?
-    };
-    let rules = build_final_sell_rules_core(parsed_remainder.as_ref(), &parsed_set_ids);
-    to_js_value(&rules)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize final-sell rules value: {error}")))
-}
-
 // Merge pipeline core combines base/custom/final-sell/safeguard rows and
 // assigns stable preview line indices in one Rust-owned orchestration step.
-fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
+pub fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
     // Destructure once so field ownership is explicit and borrow-checker-friendly.
     let ComputeMergedRulesIn {
         base_rules,
@@ -284,15 +258,6 @@ fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
         rule.line_idx = Some(idx as i64);
     }
     merged
-}
-
-// Compute merged rules in one wasm call from prebuilt base/custom batches.
-pub(crate) fn compute_merged_rules_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let parsed: ComputeMergedRulesIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid compute-merged-rules payload: {error}")))?;
-    let merged = compute_merged_rules_core(parsed);
-    to_js_value(&merged)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize compute-merged-rules value: {error}")))
 }
 
 // Safeguard merge helper mirrors merge.ts injected-rule filtering/sorting.
@@ -390,38 +355,22 @@ fn merge_safeguard_injected_rules_core(
         .collect::<Vec<_>>()
 }
 
-// Safeguard merge export filters/dedupes/sorts injected rules in one wasm call.
-pub(crate) fn merge_safeguard_injected_rules_value(
-    base_rules: JsValue,
-    custom_rules: JsValue,
-    candidate_keep_rules: JsValue,
-) -> Result<JsValue, JsValue> {
-    let parsed_base_rules: Vec<RuleRaw> = from_js_value(base_rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard merge base rules: {error}")))?;
-    let parsed_custom_rules: Vec<RuleRaw> = from_js_value(custom_rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard merge custom rules: {error}")))?;
-    let parsed_candidate_keep_rules: Vec<RuleRaw> = from_js_value(candidate_keep_rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard merge candidate rules: {error}")))?;
-    let merged = merge_safeguard_injected_rules_core(
-        parsed_base_rules,
-        parsed_custom_rules,
-        parsed_candidate_keep_rules,
-    );
-    to_js_value(&merged)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard merge value: {error}")))
+// Public merge helper — renamed from `merge_safeguard_injected_rules_value` (JsValue I/O removed).
+pub fn merge_safeguard_injected_rules_core_fn(
+    base_rules: Vec<RuleRaw>,
+    custom_rules: Vec<RuleRaw>,
+    candidate_keep_rules: Vec<RuleRaw>,
+) -> Vec<RuleRaw> {
+    merge_safeguard_injected_rules_core(base_rules, custom_rules, candidate_keep_rules)
 }
 
-// Export dedupe keeps keep-segment matching/collapse in Rust for SSOT semantics.
-pub(crate) fn dedupe_hsf_rules_for_export_value(rules: JsValue) -> Result<JsValue, JsValue> {
-    let parsed_rules: Vec<RuleRaw> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid export-dedupe value: {error}")))?;
-    let deduped = rule_dedupe::dedupe_hsf_rules_for_export_core(&parsed_rules);
-    to_js_value(&deduped)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize export-dedupe value: {error}")))
+// Export dedupe — renamed from `dedupe_hsf_rules_for_export_value`.
+pub fn dedupe_hsf_rules_for_export_core(rules: &[RuleRaw]) -> Vec<RuleRaw> {
+    rule_dedupe::dedupe_hsf_rules_for_export_core(rules)
 }
 
 // Shared generated-rule finalizer used by JSON and JsValue exports.
-fn finalize_generated_rules_core(
+pub fn finalize_generated_rules_core(
     raw_entries: Vec<GeneratedRuleEntryIn>,
     apply_obsolete_pruning: bool,
 ) -> Vec<RuleRaw> {
@@ -538,19 +487,4 @@ fn finalize_generated_rules_core(
     });
 
     sorted.into_iter().map(|entry| entry.rule).collect::<Vec<_>>()
-}
-
-// Finalize generated branch rules in one WASM step:
-// collapse epic/legendary duplicates, optional obsolete pruning, then stable sort.
-
-// Fast finalizer export accepts JS arrays directly and returns a JS array.
-pub(crate) fn finalize_generated_rules_value(
-    entries: JsValue,
-    apply_obsolete_pruning: bool,
-) -> Result<JsValue, JsValue> {
-    let parsed_entries: Vec<GeneratedRuleEntryIn> = from_js_value(entries)
-        .map_err(|error| JsValue::from_str(&format!("Invalid generated-rules value: {error}")))?;
-    let output = finalize_generated_rules_core(parsed_entries, apply_obsolete_pruning);
-    to_js_value(&output)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize finalized rules value: {error}")))
 }
