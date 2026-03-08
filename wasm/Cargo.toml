@@ -3,8 +3,12 @@ members = ["rule_engine_core", "rule_engine_wasm"]
 exclude = ["rule_engine"]
 resolver = "2"
 
-# js-sys 0.3.91 triggers a const-eval panic in rustc 1.93 at opt-level=3.
-# Capping its optimization to level 2 avoids the compiler bug while keeping
-# our own crates fully optimized.
+# rustc 1.93 introduced a const-eval regression (E0080 "scalar size mismatch")
+# that fires when wasm-bindgen's flat_byte_slices is inlined into js-sys const
+# initialisers during a wasm32 release build at opt-level=3.  Capping both
+# packages to opt-level=2 avoids the inlining path that triggers the bug while
+# keeping our own crates fully optimised.
 [profile.release.package.js-sys]
+opt-level = 2
+[profile.release.package.wasm-bindgen]
 opt-level = 2
