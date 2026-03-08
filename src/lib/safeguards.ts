@@ -37,10 +37,12 @@ import { normalizeRecipeName } from './ruleRecipeIndex'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
 import { hasIgnoreSafeguardTag } from './tagHelpers'
+import type { WasmRuleEngineEvaluateOptions } from './wasm/wasmRuleEngine'
 import {
   collectAndComputeSafeguardProtectionWithLoadedWasm,
   collectSafeguardCandidatesWithLoadedWasm,
   computeSafeguardProtectionWithLoadedWasm,
+  evaluateAndCollectSafeguardProtectionWithLoadedWasm,
   getSafeguardGroupKeyWithLoadedWasm,
   getSafeguardItemKeyWithLoadedWasm,
   getSafeguardCountKeyWithLoadedWasm,
@@ -50,6 +52,7 @@ import {
   sortSafeguardCombinationWithLoadedWasm,
   sortSafeguardSubstatsWithLoadedWasm,
 } from './wasm/wasmRuleEngine'
+import type { WasmEvaluateAndCollectSnapshot } from './wasm/wasmRuleEngine'
 import {
   SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS,
   SAFEGUARD_ACTIVATION_OFF,
@@ -1098,6 +1101,53 @@ export function collectAndComputeSafeguardProtection(
     candidates: { candidates, uniqueItemKeys },
     detection: combined.detection,
   }
+}
+
+// Combined evaluate + safeguard-detect helper — replaces the detection phase's
+// buildPipelineMatches + collectAndComputeSafeguardProtection two-step sequence.
+// Caller must configure the WASM engine via configureWasmRuleEngine first.
+// The engine evaluates items internally so no pre-built baseMatch is required;
+// the rows need only artifact (including gearInspectorItem) to be present.
+export function evaluateAndCollectSafeguardProtection(params: {
+  rows: readonly GearInspectorPreviewRow[]
+  options?: WasmRuleEngineEvaluateOptions
+  rules: readonly SafeguardRule[]
+  ignoreSafeguardRecipeIndices?: ReadonlySet<number>
+  enabled: boolean
+  now?: number
+}): { evaluateResults: WasmEvaluateAndCollectSnapshot['evaluateResults']; detection: SafeguardDetectionSnapshot } {
+  const { rows, options, rules, enabled } = params
+  const timestamp = Number.isFinite(params.now) ? Number(params.now) : Date.now()
+  if (!rows.length) {
+    return {
+      evaluateResults: [],
+      detection: { scannedAt: timestamp, entries: [] },
+    }
+  }
+  // Derive artifact list for quality-floor computation (same as collectAndComputeSafeguardProtection).
+  const artifacts = rows.map((r) => r.artifact)
+  // Augment safeguard rules with pre-computed equippedFloorScore where beatEquippedPercentile is set.
+  const rulesForWasm: SafeguardRuleForWasm[] = rules.map((rule) => {
+    const percentile = rule.beatEquippedPercentile
+    if (percentile === null || percentile === undefined || !Number.isFinite(percentile)) return rule
+    const substats = (rule.substats ?? []).map(Number).filter(Number.isFinite)
+    const weights = normalizeRuleWeights(rule.substatWeights ?? {})
+    const equippedFloorScore = computeEquippedCollectionFloorScore(artifacts, rule.combination, substats, weights, percentile)
+    return { ...rule, equippedFloorScore }
+  })
+  const result = evaluateAndCollectSafeguardProtectionWithLoadedWasm({
+    rows,
+    ...(options !== undefined ? { options } : {}),
+    ...(params.ignoreSafeguardRecipeIndices !== undefined ? { ignoreSafeguardRecipeIndices: params.ignoreSafeguardRecipeIndices } : {}),
+    safeguardRules: rulesForWasm,
+    expectedGroupDomain: buildSafeguardExpectedGroupDomain(),
+    enabled,
+    now: timestamp,
+  })
+  if (!isSafeguardDetectionSnapshot(result.detection)) {
+    throw new Error('WASM evaluate-and-collect safeguard pipeline returned an invalid detection payload.')
+  }
+  return { evaluateResults: result.evaluateResults, detection: result.detection }
 }
 
 /** Compute Safeguard combination coverage against the candidate sold rows. */

@@ -170,6 +170,24 @@ export function dedupe_hsf_rules_for_export_value(rules) {
 }
 
 /**
+ * @param {any} rows
+ * @param {any} options
+ * @param {any} ignore_safeguard_recipe_indices
+ * @param {any} safeguard_rules
+ * @param {any} expected_groups_payload
+ * @param {boolean} enabled
+ * @param {number} now
+ * @returns {any}
+ */
+export function evaluate_and_collect_safeguard_protection_value(rows, options, ignore_safeguard_recipe_indices, safeguard_rules, expected_groups_payload, enabled, now) {
+    const ret = wasm.evaluate_and_collect_safeguard_protection_value(rows, options, ignore_safeguard_recipe_indices, safeguard_rules, expected_groups_payload, enabled, now);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * @param {any} items
  * @param {any} options
  * @returns {any}

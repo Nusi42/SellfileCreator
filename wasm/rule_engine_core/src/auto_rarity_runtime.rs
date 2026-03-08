@@ -57,19 +57,19 @@ pub(crate) fn auto_rarity_includes_mythical(rarity_code: i64) -> bool {
 }
 
 // Expose roll-level milestones so TS can reuse Rust schedule decoding directly.
-pub(crate) fn auto_rarity_roll_levels_for_code_value(rarity_code: i32) -> Vec<i32> {
+pub fn auto_rarity_roll_levels_for_code_value(rarity_code: i32) -> Vec<i32> {
     let mask = auto_rarity_roll_mask_for_code(rarity_code as i64);
     auto_rarity_levels_from_mask(mask)
 }
 
 // Expose addition-level milestones so TS does not duplicate mask decoding.
-pub(crate) fn auto_rarity_addition_levels_for_code_value(rarity_code: i32) -> Vec<i32> {
+pub fn auto_rarity_addition_levels_for_code_value(rarity_code: i32) -> Vec<i32> {
     let mask = auto_rarity_addition_mask_for_code(rarity_code as i64);
     auto_rarity_levels_from_mask(mask)
 }
 
 // Expose mythical-membership checks for schedule/UI helpers on the TS side.
-pub(crate) fn auto_rarity_includes_mythical_for_code_value(rarity_code: i32) -> bool {
+pub fn auto_rarity_includes_mythical_for_code_value(rarity_code: i32) -> bool {
     auto_rarity_includes_mythical(rarity_code as i64)
 }
 
@@ -346,22 +346,22 @@ pub(crate) fn resolve_auto_rarity_code_core(input: &AutoRarityResolveIn) -> i64 
 }
 
 // Builder-facing auto-rarity resolver compacts selected/fixed/bounds in Rust.
-pub(crate) fn resolve_auto_rarity_code_for_builder_value(payload: JsValue) -> Result<i32, JsValue> {
-    // Parse typed payload first so malformed callers fail deterministically.
-    let parsed: AutoRarityResolveBuilderIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid auto-rarity-builder payload: {error}")))?;
+// Renamed from `resolve_auto_rarity_code_for_builder_value` to core variant.
+pub fn resolve_auto_rarity_code_for_builder_core(input: &AutoRarityResolveBuilderIn) -> i32 {
     // Normalize allowed ids into a lookup set for fast filtering.
-    let allowed = parsed.allowed_substats.into_iter().collect::<HashSet<_>>();
+    let allowed = input.allowed_substats.iter().copied().collect::<HashSet<_>>();
     // Keep selected stats only when physically compatible with slot/main filters.
-    let selected_pool_v = parsed
+    let selected_pool_v = input
         .substats_v
-        .into_iter()
+        .iter()
+        .copied()
         .filter(|variant| allowed.contains(variant))
         .collect::<Vec<_>>();
     // Fixed stats must also pass the allowed-substat gate.
-    let fixed_pool_raw_v = parsed
+    let fixed_pool_raw_v = input
         .fixed_substats_v
-        .into_iter()
+        .iter()
+        .copied()
         .filter(|variant| allowed.contains(variant))
         .collect::<Vec<_>>();
     // Resolve locked subset in selected ordering, mirroring TS filter/includes.
@@ -373,31 +373,31 @@ pub(crate) fn resolve_auto_rarity_code_for_builder_value(payload: JsValue) -> Re
     // Keep bounds payload compact by forwarding only selected variants.
     let selected_set = selected_pool_v.iter().copied().collect::<HashSet<_>>();
     let mut substat_roll_bounds_v = HashMap::<i64, AutoRarityResolveRollBoundsIn>::new();
-    for (variant, bounds) in parsed.substat_roll_bounds_v {
-        if !selected_set.contains(&variant) {
+    for (variant, bounds) in &input.substat_roll_bounds_v {
+        if !selected_set.contains(variant) {
             continue;
         }
         let normalized = AutoRarityResolveRollBoundsIn {
             min: bounds.min.filter(|value| value.is_finite()),
         };
         if normalized.min.is_some() {
-            substat_roll_bounds_v.insert(variant, normalized);
+            substat_roll_bounds_v.insert(*variant, normalized);
         }
     }
     // Reuse the shared core so builder and direct payload paths stay aligned.
     let core_payload = AutoRarityResolveIn {
-        auto_rarity_supplements_threshold: parsed.auto_rarity_supplements_threshold,
-        auto_min_required_rolls: parsed.auto_min_required_rolls,
-        min_required_rolls: parsed.min_required_rolls,
-        locked_min_required_rolls: parsed.locked_min_required_rolls,
-        min_count: parsed.min_count,
-        early_keep_mode: parsed.early_keep_mode,
+        auto_rarity_supplements_threshold: input.auto_rarity_supplements_threshold.clone(),
+        auto_min_required_rolls: input.auto_min_required_rolls,
+        min_required_rolls: input.min_required_rolls,
+        locked_min_required_rolls: input.locked_min_required_rolls,
+        min_count: input.min_count,
+        early_keep_mode: input.early_keep_mode.clone(),
         selected_pool_v,
         fixed_pool_v,
         substat_roll_bounds_v,
     };
     let code = resolve_auto_rarity_code_core(&core_payload);
-    Ok(code as i32)
+    code as i32
 }
 
 // Clamp builder min-count domains to the supported 0..4 range.
@@ -405,51 +405,54 @@ fn clamp_builder_min_count(value: i64) -> i64 {
     value.clamp(0, 4)
 }
 
-// Typed auto-flex bounds preserve known fields plus unknown extras.
+// Typed auto-flex bounds carry only the three fields the builder uses.
+// serde_wasm_bindgen does not support #[serde(flatten)] for HashMap fields;
+// extra bound keys (if any) are silently dropped here and do not affect logic.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct AutoFlexRarityBoundsIn {
+pub struct AutoFlexRarityBoundsIn {
     #[serde(default)]
-    min: Option<f64>,
+    pub min: Option<f64>,
     #[serde(default)]
-    max: Option<f64>,
+    pub max: Option<f64>,
     #[serde(default)]
-    any: Option<bool>,
-    #[serde(flatten)]
-    extra: HashMap<String, serde_json::Value>,
+    pub any: Option<bool>,
 }
 
-// Typed auto-flex recipe shape keeps common fields fast and unknown keys intact.
+// Typed auto-flex recipe shape carries only the fields that the branch splitter
+// reads or patches.  serde_wasm_bindgen does not support #[serde(flatten)]
+// for HashMap<String, serde_json::Value> — adding it causes serde_wasm_bindgen
+// to emit an empty JS Map instead of a plain object, making all fields invisible
+// to TS callers.  Non-declared recipe fields are restored by the TS wrapper via
+// {...originalRecipe, ...wasmBranch} after the WASM call returns.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct AutoFlexRarityRecipeIn {
+pub struct AutoFlexRarityRecipeIn {
     #[serde(default)]
-    rarity_mode: Option<String>,
+    pub rarity_mode: Option<String>,
     #[serde(default)]
-    rarity_code: Option<i64>,
+    pub rarity_code: Option<i64>,
     #[serde(default)]
-    auto_substat_flex: Option<bool>,
+    pub auto_substat_flex: Option<bool>,
     #[serde(default)]
-    auto_min_count: Option<bool>,
+    pub auto_min_count: Option<bool>,
     #[serde(default)]
-    min_count: Option<f64>,
+    pub min_count: Option<f64>,
     #[serde(default)]
-    auto_min_required_rolls: Option<bool>,
+    pub auto_min_required_rolls: Option<bool>,
     #[serde(default)]
-    min_required_rolls: Option<f64>,
+    pub min_required_rolls: Option<f64>,
     #[serde(default)]
-    substats_v: Vec<i64>,
+    pub substats_v: Vec<i64>,
     #[serde(default)]
-    fixed_substats_v: Vec<i64>,
+    pub fixed_substats_v: Vec<i64>,
     // deserialize_with parses string keys → i64; serialize_with reverses for output.
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map", serialize_with = "crate::serialize_i64_key_map")]
-    substat_roll_bounds_v: HashMap<i64, AutoFlexRarityBoundsIn>,
+    pub substat_roll_bounds_v: HashMap<i64, AutoFlexRarityBoundsIn>,
     #[serde(default)]
-    min_level: Option<f64>,
+    pub min_level: Option<f64>,
     #[serde(default)]
-    max_level: Option<f64>,
-    #[serde(flatten)]
-    extra: HashMap<String, serde_json::Value>,
+    pub max_level: Option<f64>,
 }
 
 // Normalize optional finite numeric fields using floor semantics.
@@ -593,14 +596,11 @@ fn expand_auto_flex_rarity_branches_typed_core(
 }
 
 // Public merge helper export keeps branch expansion logic in Rust.
-pub(crate) fn expand_auto_flex_rarity_branches_value(
-    recipe: JsValue,
+// Renamed from `expand_auto_flex_rarity_branches_value` to core variant.
+pub fn expand_auto_flex_rarity_branches_core(
+    recipe: &AutoFlexRarityRecipeIn,
     base_rarity_code: i32,
-) -> Result<JsValue, JsValue> {
-    // Strict contract: callers provide canonical typed recipe payloads.
-    let parsed_typed: AutoFlexRarityRecipeIn = from_js_value(recipe)
-        .map_err(|error| JsValue::from_str(&format!("Invalid auto-flex branch recipe: {error}")))?;
-    let branches = expand_auto_flex_rarity_branches_typed_core(&parsed_typed, base_rarity_code as i64);
-    // Use shared helper so HashMap fields serialize as plain JS objects, not ES2015 Maps.
-    crate::wasm_to_js(&branches)
+) -> Vec<AutoFlexRarityRecipeIn> {
+    // Delegate to the typed core so builder and direct payload paths stay aligned.
+    expand_auto_flex_rarity_branches_typed_core(recipe, base_rarity_code as i64)
 }

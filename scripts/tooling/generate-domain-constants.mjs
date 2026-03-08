@@ -12,7 +12,7 @@ const REPO_ROOT = path.resolve(SCRIPT_DIR, '..', '..')
 // outputs are generated from to prevent cross-language sentinel drift.
 const SPEC_PATH = path.join(REPO_ROOT, 'shared', 'domain-constants.json')
 const TS_OUT_PATH = path.join(REPO_ROOT, 'src', 'lib', 'generated', 'domainConstants.ts')
-const RUST_OUT_PATH = path.join(REPO_ROOT, 'wasm', 'rule_engine', 'src', 'generated_domain_constants.rs')
+const RUST_OUT_PATH = path.join(REPO_ROOT, 'wasm', 'rule_engine_core', 'src', 'generated_domain_constants.rs')
 
 // Read and parse the canonical JSON source once so both emitters consume the
 // exact same values in this process.

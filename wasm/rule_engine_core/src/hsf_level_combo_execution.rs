@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::JsValue;
+
 
 use crate::build_hsf_presence_only_rules_core;
 use crate::emit_hsf_rules_for_distributions_core;
@@ -65,7 +65,7 @@ enum CollapseMode {
 
 // Compute collapse mode using the same constraints as the TS branch.
 // This preserves factory-minima gating semantics while rust owns execution.
-fn resolve_collapse_mode(input: &ExecuteHsfLevelComboIn) -> Result<CollapseMode, JsValue> {
+fn resolve_collapse_mode(input: &ExecuteHsfLevelComboIn) -> Result<CollapseMode, String> {
     let m = input.combo.len() as i32;
     // Collapse never applies to empty combos.
     if m == 0 {
@@ -99,9 +99,7 @@ fn resolve_collapse_mode(input: &ExecuteHsfLevelComboIn) -> Result<CollapseMode,
         && input.rarity_code != RARITY_CODE_RARE
         && input.addition_levels_count > 0
     {
-        return Err(JsValue::from_str(
-            "Factory minima collapse triggered for non-rare/epic rarity with additions.",
-        ));
+        return Err("Factory minima collapse triggered for non-rare/epic rarity with additions.".to_string());
     }
 
     // Sentinel collapse applies only at level 0 when branch allows it.
@@ -158,7 +156,7 @@ fn emit_presence_only_rules(input: &ExecuteHsfLevelComboIn) -> Vec<RuleRaw> {
 
 // Core execution for one (branch, level, combo) slot.
 // Returns emitted rules plus sentinel collapse state update.
-pub(crate) fn execute_hsf_level_combo_core(input: &ExecuteHsfLevelComboIn) -> Result<ExecuteHsfLevelComboOut, JsValue> {
+pub(crate) fn execute_hsf_level_combo_core(input: &ExecuteHsfLevelComboIn) -> Result<ExecuteHsfLevelComboOut, String> {
     // Sentinel-collapsed combos are already covered by LEVEL_ANY rows.
     if input.sentinel_already_collapsed {
         return Ok(ExecuteHsfLevelComboOut {

@@ -12,31 +12,31 @@ use crate::{SafeguardCandidateResolveBaseMatchIn, SafeguardCollectRowIn, TestIte
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct SafeguardWasmSubstatIn {
-    pub(crate) variant: i64,
+pub struct SafeguardWasmSubstatIn {
+    pub variant: i64,
     #[serde(default)]
-    pub(crate) is_flat: bool,
-    pub(crate) value: f64,
+    pub is_flat: bool,
+    pub value: f64,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct SafeguardWasmArtifactIn {
-    pub(crate) id: Option<i64>,
-    pub(crate) slot: i64,
-    pub(crate) set: i64,
-    pub(crate) rank: i64,
-    pub(crate) rarity: i64,
-    pub(crate) level: i64,
-    pub(crate) exact_level: Option<i64>,
-    pub(crate) faction: i64,
-    pub(crate) main_stat: i64,
+pub struct SafeguardWasmArtifactIn {
+    pub id: Option<i64>,
+    pub slot: i64,
+    pub set: i64,
+    pub rank: i64,
+    pub rarity: i64,
+    pub level: i64,
+    pub exact_level: Option<i64>,
+    pub faction: i64,
+    pub main_stat: i64,
     #[serde(default)]
-    pub(crate) equipped_in_collection: bool,
+    pub equipped_in_collection: bool,
     #[serde(default)]
-    pub(crate) equipped_in_vault: bool,
+    pub equipped_in_vault: bool,
     #[serde(default)]
-    pub(crate) substats: Vec<SafeguardWasmSubstatIn>,
+    pub substats: Vec<SafeguardWasmSubstatIn>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -51,7 +51,7 @@ pub(super) struct SafeguardWasmCandidateIn {
 // Fast-path main-stat decoder accepts either numeric variants or `{ variant }` records.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
-pub(super) enum SafeguardWasmMainStatRawIn {
+pub enum SafeguardWasmMainStatRawIn {
     Variant(i64),
     Record {
         #[serde(default)]
@@ -62,66 +62,71 @@ pub(super) enum SafeguardWasmMainStatRawIn {
 // Fast-path substat decoder accepts normalized preview payload fields directly.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct SafeguardWasmSubstatRawIn {
+pub struct SafeguardWasmSubstatRawIn {
     #[serde(default)]
-    pub(super) variant: i64,
+    pub variant: i64,
     #[serde(default)]
-    pub(super) is_flat: bool,
+    pub is_flat: bool,
     #[serde(default)]
-    pub(super) value: Option<f64>,
+    pub value: Option<f64>,
     #[serde(default)]
-    pub(super) total_value: Option<f64>,
+    pub total_value: Option<f64>,
 }
 
 // Fast-path artifact decoder mirrors normalized gear inspector artifact payloads.
 // The optional `gearInspectorItem` keeps row payloads compact when `item` is omitted.
+// Made pub because SafeguardCollectRowFastIn/SafeguardWasmCandidateFastIn (also pub) embed it.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct SafeguardWasmArtifactRawIn {
-    pub(super) id: Option<i64>,
-    pub(super) slot: i64,
-    pub(super) set: i64,
-    pub(super) rank: i64,
-    pub(super) rarity: i64,
-    pub(super) level: i64,
+pub struct SafeguardWasmArtifactRawIn {
+    pub id: Option<i64>,
+    pub slot: i64,
+    pub set: i64,
+    pub rank: i64,
+    pub rarity: i64,
+    pub level: i64,
     #[serde(default)]
-    pub(super) exact_level: Option<i64>,
+    pub exact_level: Option<i64>,
     #[serde(default)]
-    pub(super) faction: i64,
+    pub faction: i64,
     #[serde(default)]
-    pub(super) main_stat: Option<SafeguardWasmMainStatRawIn>,
+    pub main_stat: Option<SafeguardWasmMainStatRawIn>,
     #[serde(default)]
-    pub(super) substats: Vec<SafeguardWasmSubstatRawIn>,
+    pub substats: Vec<SafeguardWasmSubstatRawIn>,
     #[serde(default)]
-    pub(super) equipped_champion_location: Option<String>,
+    pub equipped_champion_location: Option<String>,
     #[serde(default)]
-    pub(super) gear_inspector_item: Option<TestItemRaw>,
+    pub gear_inspector_item: Option<TestItemRaw>,
 }
 
 // Fast-path collect row payload mirrors normalized preview rows consumed in TS.
+// Made pub so rule_engine_wasm can deserialize JsValue → Vec<SafeguardCollectRowFastIn>
+// and pass the result to safeguard_parse_collect_rows_payload.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct SafeguardCollectRowFastIn {
-    pub(super) artifact: SafeguardWasmArtifactRawIn,
+pub struct SafeguardCollectRowFastIn {
+    pub artifact: SafeguardWasmArtifactRawIn,
     #[serde(default)]
-    pub(super) item: Option<TestItemRaw>,
+    pub item: Option<TestItemRaw>,
     #[serde(default)]
-    pub(super) base_match_defined: Option<bool>,
+    pub base_match_defined: Option<bool>,
     #[serde(default)]
-    pub(super) base_match: Option<SafeguardCandidateResolveBaseMatchIn>,
+    pub base_match: Option<SafeguardCandidateResolveBaseMatchIn>,
 }
 
 // Fast-path candidate payload mirrors compact safeguard candidate snapshots.
+// Made pub so rule_engine_wasm can deserialize JsValue → Vec<SafeguardWasmCandidateFastIn>
+// and pass the result to compute_safeguard_protection_core_pub.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct SafeguardWasmCandidateFastIn {
+pub struct SafeguardWasmCandidateFastIn {
     #[serde(default)]
-    pub(super) item_key: Option<i64>,
+    pub item_key: Option<i64>,
     #[serde(default)]
-    pub(super) group_key: Option<String>,
+    pub group_key: Option<String>,
     #[serde(default)]
-    pub(super) is_sold: bool,
-    pub(super) artifact: SafeguardWasmArtifactRawIn,
+    pub is_sold: bool,
+    pub artifact: SafeguardWasmArtifactRawIn,
 }
 
 // Fast-path main-stat extraction avoids `serde_json::Value` traversal on hot rows.

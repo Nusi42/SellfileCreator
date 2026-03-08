@@ -3,40 +3,33 @@ use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
-use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
-use wasm_bindgen::prelude::*;
-
-// Shared serializer used for all wasm outputs that contain HashMap fields.
-// serialize_maps_as_objects ensures HashMap<K, V> round-trips as a plain JS
-// object rather than an ES2015 Map, removing the need for TS-side toPlainObjectDeep.
-fn wasm_to_js<T: serde::Serialize>(value: &T) -> Result<JsValue, JsValue> {
-    value
-        .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
-        .map_err(|e| JsValue::from_str(&e.to_string()))
-}
 
 // Shared domain constants are generated from shared/domain-constants.json.
 // This keeps TS and Rust sentinel/enum values synchronized automatically.
 mod generated_domain_constants;
-mod auto_rarity_runtime;
+// Re-export all domain constants so the wasm crate and any other consumers
+// can import them without duplicating the generated_domain_constants module.
+pub use generated_domain_constants::*;
+pub mod auto_rarity_runtime;
 mod hsf_branch_execution;
-mod hsf_builder_core;
-mod hsf_builder_execution;
+pub mod hsf_builder_core;
+pub mod hsf_builder_execution;
 mod hsf_combo_runtime;
-mod hsf_distribution_runtime;
+pub mod hsf_distribution_runtime;
 mod hsf_full_selected_fallback;
 mod hsf_intro_execution;
 mod hsf_intro_mode_plan;
 mod hsf_level_combo_execution;
-mod safeguards;
-mod matcher_evaluator;
-mod rule_dedupe;
-mod rule_postprocess;
+pub mod safeguards;
+pub mod matcher_evaluator;
+pub mod rule_dedupe;
+pub mod rule_postprocess;
+
 // Re-export all HSF builder structs and core functions at the crate root so
 // sibling execution modules continue to import them via `crate::*` unchanged.
-pub(crate) use hsf_builder_core::*;
-use generated_domain_constants::*;
-use safeguards::{
+// `use` (not `pub use`) — these types are internal to the core crate only.
+use hsf_builder_core::*;
+pub use safeguards::{
     safeguard_group_key_from_parts,
     safeguard_hash_combination,
     safeguard_normalize_set_selections,
@@ -49,8 +42,11 @@ use safeguards::{
     SafeguardWasmRuleIn,
     SafeguardWasmSetSelection,
     SafeguardWasmSnapshotOut,
+    SafeguardWasmCombination,
+    SafeguardWasmCountMode,
+    SafeguardWasmExpectedGroupsPayloadIn,
 };
-pub(crate) use matcher_evaluator::{
+pub use matcher_evaluator::{
     collect_safeguard_candidates_core,
     evaluate_item,
     prepare_evaluate_options,
@@ -62,32 +58,76 @@ pub(crate) use matcher_evaluator::{
     SafeguardCandidateResolveBaseMatchIn,
     SafeguardCollectRowIn,
     SafeguardCollectedCandidateOut,
+    SafeguardCollectedSnapshotOut,
     PreparedRule,
 };
+pub use rule_postprocess::{
+    flatten_rule_batches_with_total_limit_core,
+    build_final_sell_rules_core,
+    compute_merged_rules_core,
+    merge_safeguard_injected_rules_core_fn,
+    dedupe_hsf_rules_for_export_core,
+    finalize_generated_rules_core,
+};
+pub use auto_rarity_runtime::{
+    resolve_auto_rarity_code_for_builder_core,
+    expand_auto_flex_rarity_branches_core,
+    AutoFlexRarityRecipeIn,
+};
+pub use safeguards::{
+    build_safeguard_rules_core,
+    SafeguardWasmExpectedGroupDomainIn,
+    SafeguardWasmCountKeyArtifactIn,
+    SafeguardWasmItemKeyArtifactIn,
+    SafeguardWasmGroupKeyArtifactIn,
+    compute_safeguard_protection_core_pub,
+    compute_safeguard_protection_from_collected_core,
+    collect_and_compute_safeguard_protection_core,
+    normalize_safeguard_expected_group_domain_core,
+    hash_safeguard_combination_core,
+    sort_safeguard_substats_core,
+    sort_safeguard_combination_core,
+    build_safeguard_rules_core_typed,
+    safeguard_count_key_core,
+    safeguard_item_key_core,
+    safeguard_group_key_core,
+};
+pub use safeguards::fast_path_types::{
+    SafeguardCollectRowFastIn,
+    SafeguardWasmCandidateFastIn,
+};
+pub use hsf_builder_execution::{
+    prepare_hsf_builder_recipe_core_fn,
+    build_hsf_rules_runtime_core_fn,
+    PrepareHsfBuilderRecipeIn,
+    PrepareHsfBuilderRecipeOut,
+    BuildHsfRulesRuntimeIn,
+    ExecuteHsfBuilderRuntimeOut,
+};
 
-const RULE_SOURCE_HSF: &str = "hsf";
-const RULE_SOURCE_SFR: &str = "sfr";
-const RULE_SOURCE_FINAL_SELL: &str = "finalSell";
-const RULE_SOURCE_SAFEGUARDS: &str = "safeguards";
-const FINAL_SELL_SETS_MODE_ANY: &str = "any";
-const FINAL_SELL_SETS_MODE_EXPLICIT: &str = "explicit";
-const RULE_FIELD_UNSET_SENTINEL: i64 = STAT_ID_ANY;
-const FILTER_OPTION_NONE_I32: i32 = STAT_ID_ANY as i32;
-const MAIN_STAT_F_DEFAULT_FLAG: i64 = 1;
-const MAIN_STAT_F_DEFAULT_STR: &str = "1";
-const HSF_SUBSTAT_SLOT_COUNT: usize = 4;
-const LEVEL_ORDER_INDEX_0: i64 = 0;
-const LEVEL_ORDER_INDEX_4: i64 = 1;
-const LEVEL_ORDER_INDEX_8: i64 = 2;
-const LEVEL_ORDER_INDEX_12: i64 = 3;
-const LEVEL_ORDER_INDEX_16: i64 = 4;
-const LEVEL_ORDER_INDEX_ANY: i64 = 5;
-const LEVEL_ORDER_FALLBACK_OFFSET: i64 = 6;
-const ARTIFACT_TYPE_ORDER_FALLBACK_OFFSET: i64 = 100;
-const JS_MAX_SAFE_INTEGER_I64: i64 = 9_007_199_254_740_991;
+pub const RULE_SOURCE_HSF: &str = "hsf";
+pub const RULE_SOURCE_SFR: &str = "sfr";
+pub const RULE_SOURCE_FINAL_SELL: &str = "finalSell";
+pub const RULE_SOURCE_SAFEGUARDS: &str = "safeguards";
+pub const FINAL_SELL_SETS_MODE_ANY: &str = "any";
+pub const FINAL_SELL_SETS_MODE_EXPLICIT: &str = "explicit";
+pub const RULE_FIELD_UNSET_SENTINEL: i64 = STAT_ID_ANY;
+pub const FILTER_OPTION_NONE_I32: i32 = STAT_ID_ANY as i32;
+pub const MAIN_STAT_F_DEFAULT_FLAG: i64 = 1;
+pub const MAIN_STAT_F_DEFAULT_STR: &str = "1";
+pub const HSF_SUBSTAT_SLOT_COUNT: usize = 4;
+pub const LEVEL_ORDER_INDEX_0: i64 = 0;
+pub const LEVEL_ORDER_INDEX_4: i64 = 1;
+pub const LEVEL_ORDER_INDEX_8: i64 = 2;
+pub const LEVEL_ORDER_INDEX_12: i64 = 3;
+pub const LEVEL_ORDER_INDEX_16: i64 = 4;
+pub const LEVEL_ORDER_INDEX_ANY: i64 = 5;
+pub const LEVEL_ORDER_FALLBACK_OFFSET: i64 = 6;
+pub const ARTIFACT_TYPE_ORDER_FALLBACK_OFFSET: i64 = 100;
+pub const JS_MAX_SAFE_INTEGER_I64: i64 = 9_007_199_254_740_991;
 
 // Rank/rarity masks operate on the generated shared rank range (1..6).
-const RANK_RARITY_FULL_MASK: u8 = 0b11_1111;
+pub const RANK_RARITY_FULL_MASK: u8 = 0b11_1111;
 
 // The worker configures one ruleset, then evaluates many item batches.
 // Store the prepared state in-thread for fast repeated lookups.
@@ -99,97 +139,97 @@ thread_local! {
 // Keep fields optional because exports may omit values for "Any".
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[allow(non_snake_case)]
-struct RuleRaw {
-    RecipeID: Option<i64>,
-    RecipeName: Option<String>,
-    Keep: Option<bool>,
-    IsRuleTypeAND: Option<bool>,
-    Use: Option<bool>,
-    ArtifactSet: Option<Vec<i64>>,
-    ArtifactType: Option<Vec<i64>>,
-    Rank: Option<i64>,
-    Rarity: Option<i64>,
-    MainStatID: Option<i64>,
-    MainStatF: Option<serde_json::Value>,
-    LVLForCheck: Option<i64>,
-    Faction: Option<i64>,
-    Substats: Option<Vec<RuleSubRaw>>,
+pub struct RuleRaw {
+    pub RecipeID: Option<i64>,
+    pub RecipeName: Option<String>,
+    pub Keep: Option<bool>,
+    pub IsRuleTypeAND: Option<bool>,
+    pub Use: Option<bool>,
+    pub ArtifactSet: Option<Vec<i64>>,
+    pub ArtifactType: Option<Vec<i64>>,
+    pub Rank: Option<i64>,
+    pub Rarity: Option<i64>,
+    pub MainStatID: Option<i64>,
+    pub MainStatF: Option<serde_json::Value>,
+    pub LVLForCheck: Option<i64>,
+    pub Faction: Option<i64>,
+    pub Substats: Option<Vec<RuleSubRaw>>,
     #[serde(default, rename = "__source")]
-    source: Option<String>,
+    pub source: Option<String>,
     #[serde(default, rename = "__lineIdx")]
-    line_idx: Option<i64>,
+    pub line_idx: Option<i64>,
     #[serde(default, rename = "__allKnownSets")]
-    all_known_sets: Option<bool>,
+    pub all_known_sets: Option<bool>,
     #[serde(default, rename = "__rankMask")]
-    rank_mask: Option<i64>,
+    pub rank_mask: Option<i64>,
     #[serde(default, rename = "__rarityMask")]
-    rarity_mask: Option<i64>,
+    pub rarity_mask: Option<i64>,
     #[serde(default, rename = "__safeguardRuleId")]
-    safeguard_rule_id: Option<String>,
+    pub safeguard_rule_id: Option<String>,
     #[serde(default, rename = "__safeguardRuleOrdinal")]
-    safeguard_rule_ordinal: Option<i64>,
+    pub safeguard_rule_ordinal: Option<i64>,
     #[serde(default, rename = "__safeguardHash")]
-    safeguard_hash: Option<String>,
+    pub safeguard_hash: Option<String>,
     #[serde(default, rename = "__safeguardRequired")]
-    safeguard_required: Option<i64>,
+    pub safeguard_required: Option<i64>,
     #[serde(default, rename = "__safeguardScanMs")]
-    safeguard_scan_ms: Option<f64>,
+    pub safeguard_scan_ms: Option<f64>,
     #[serde(default, rename = "__safeguardProjected")]
-    safeguard_projected: Option<i64>,
+    pub safeguard_projected: Option<i64>,
     #[serde(default, rename = "__safeguardDeficit")]
-    safeguard_deficit: Option<i64>,
+    pub safeguard_deficit: Option<i64>,
     #[serde(default, rename = "__safeguardItemKey")]
-    safeguard_item_key: Option<i64>,
+    pub safeguard_item_key: Option<i64>,
     #[serde(default, rename = "__safeguardPlaceholder")]
-    safeguard_placeholder: Option<bool>,
+    pub safeguard_placeholder: Option<bool>,
     #[serde(default, rename = "__safeguardPlaceholderMissing")]
-    safeguard_placeholder_missing: Option<i64>,
+    pub safeguard_placeholder_missing: Option<i64>,
 }
 
 // Substat row shape follows the HSF payload fields.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[allow(non_snake_case)]
-struct RuleSubRaw {
-    ID: Option<i64>,
-    Value: Option<f64>,
-    IsFlat: Option<serde_json::Value>,
-    NotAvailable: Option<bool>,
-    Condition: Option<String>,
+pub struct RuleSubRaw {
+    pub ID: Option<i64>,
+    pub Value: Option<f64>,
+    pub IsFlat: Option<serde_json::Value>,
+    pub NotAvailable: Option<bool>,
+    pub Condition: Option<String>,
 }
 
 // Top-level item payload passed from worker evaluate calls.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct EvaluateItemRaw {
-    item_id: i64,
-    item: TestItemRaw,
+pub struct EvaluateItemRaw {
+    pub item_id: i64,
+    pub item: TestItemRaw,
 }
 
 // TestItem mirrors src/lib/ruleEval.ts fields used for matching.
 // All optional fields remain optional for backward compatibility.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct TestItemRaw {
-    slot: i64,
-    set: i64,
-    rank: i64,
-    rarity: i64,
-    level: i64,
-    faction: Option<i64>,
-    main: Option<i64>,
+pub struct TestItemRaw {
+    pub slot: i64,
+    pub set: i64,
+    pub rank: i64,
+    pub rarity: i64,
+    pub level: i64,
+    pub faction: Option<i64>,
+    pub main: Option<i64>,
     // Keys are parsed to i64 once at deserialize-time to avoid hot-loop coercion.
     // Vec instead of HashMap: items have ≤4 substats so linear scan beats hashing.
     #[serde(default, deserialize_with = "deserialize_sub_values_vec")]
-    sub_values: Option<Vec<(i64, f64)>>,
-    item_id: Option<i64>,
-    preview_extras: Option<PreviewExtrasRaw>,
+    pub sub_values: Option<Vec<(i64, f64)>>,
+    pub item_id: Option<i64>,
+    pub preview_extras: Option<PreviewExtrasRaw>,
 }
 
 // previewExtras carries the fallback ID used by safeguard bindings.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct PreviewExtrasRaw {
-    id: Option<i64>,
+pub struct PreviewExtrasRaw {
+    pub id: Option<i64>,
 }
 
 // Custom serde visitor that builds Vec<(i64, f64)> directly from a string-keyed
@@ -247,7 +287,7 @@ impl<'de> serde::de::Visitor<'de> for OptionSubValuesVisitor {
 // Vec-based variant for TestItemRaw.sub_values so the hot matcher path uses
 // a linear scan instead of HashMap lookups (≤4 substats per item).
 // Builds directly into Vec without an intermediate HashMap allocation.
-pub(crate) fn deserialize_sub_values_vec<'de, D>(
+pub fn deserialize_sub_values_vec<'de, D>(
     deserializer: D,
 ) -> Result<Option<Vec<(i64, f64)>>, D::Error>
 where
@@ -258,7 +298,7 @@ where
 
 // Deserialize object-keyed maps into numeric-variant maps once at the boundary.
 // Invalid keys are skipped so malformed entries remain non-fatal by design.
-pub(crate) fn deserialize_i64_key_map<'de, D, V>(
+pub fn deserialize_i64_key_map<'de, D, V>(
     deserializer: D,
 ) -> Result<HashMap<i64, V>, D::Error>
 where
@@ -274,7 +314,7 @@ where
 
 // Serialize HashMap<i64, V> as a string-keyed map so serialize_maps_as_objects
 // can convert it to a plain JS object.  Paired with deserialize_i64_key_map.
-pub(crate) fn serialize_i64_key_map<S, V>(
+pub fn serialize_i64_key_map<S, V>(
     map: &HashMap<i64, V>,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
@@ -296,177 +336,177 @@ where
 // in one wasm call while preserving both legacy output shapes.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct SafeguardCollectedAndProtectedSnapshotOut {
-    candidates: Vec<SafeguardCollectedCandidateOut>,
-    unique_item_keys: Vec<i64>,
-    detection: SafeguardWasmSnapshotOut,
+pub struct SafeguardCollectedAndProtectedSnapshotOut {
+    pub candidates: Vec<SafeguardCollectedCandidateOut>,
+    pub unique_item_keys: Vec<i64>,
+    pub detection: SafeguardWasmSnapshotOut,
 }
 
 // Obsolete-report payload mirrors src/lib/hsfObsolete.ts return shape.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct ObsoleteEntryOut {
-    index: usize,
-    covered_by: usize,
-    reason: String,
+pub struct ObsoleteEntryOut {
+    pub index: usize,
+    pub covered_by: usize,
+    pub reason: String,
 }
 
 // Obsolete report root keeps the same top-level property name.
 #[derive(Debug, Serialize)]
-struct ObsoleteReportOut {
-    obsolete: Vec<ObsoleteEntryOut>,
+pub struct ObsoleteReportOut {
+    pub obsolete: Vec<ObsoleteEntryOut>,
 }
 
 // Branch metadata mirrors merge.ts generated-entry shape.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct GeneratedRuleEntryIn {
-    rule: RuleRaw,
-    branch_order: i64,
-    branch_seq: i64,
-    original_idx: i64,
+pub struct GeneratedRuleEntryIn {
+    pub rule: RuleRaw,
+    pub branch_order: i64,
+    pub branch_seq: i64,
+    pub original_idx: i64,
 }
 
 // Builder finalize payload carries per-rule emission ordering metadata.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct BuilderFinalizeEmissionMetaIn {
-    pub(crate) level_idx: i64,
-    pub(crate) branch_idx: i64,
-    pub(crate) seq: i64,
+pub struct BuilderFinalizeEmissionMetaIn {
+    pub level_idx: i64,
+    pub branch_idx: i64,
+    pub seq: i64,
 }
 
 // Keep emitted metadata paired with each rule while pruning/sorting in wasm.
 #[derive(Debug)]
-struct BuilderFinalizeEntry {
-    rule: RuleRaw,
-    meta: BuilderFinalizeEmissionMetaIn,
-    original_idx: usize,
+pub struct BuilderFinalizeEntry {
+    pub rule: RuleRaw,
+    pub meta: BuilderFinalizeEmissionMetaIn,
+    pub original_idx: usize,
 }
 
 // Final-sell remainder recipe mirrors src/lib/logicHub.ts payload shape.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct FinalSellRemainderIn {
-    artifacts: bool,
-    accessories: bool,
+pub struct FinalSellRemainderIn {
+    pub artifacts: bool,
+    pub accessories: bool,
     #[serde(default)]
-    levels: Vec<i64>,
+    pub levels: Vec<i64>,
     #[serde(default)]
-    sets_mode: Option<String>,
+    pub sets_mode: Option<String>,
 }
 
 // Merged-rule payload keeps orchestration inputs compact for one wasm call.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ComputeMergedRulesIn {
+pub struct ComputeMergedRulesIn {
     #[serde(default)]
-    base_rules: Vec<RuleRaw>,
+    pub base_rules: Vec<RuleRaw>,
     #[serde(default)]
-    custom_rules: Vec<RuleRaw>,
-    final_sell_remainder: Option<FinalSellRemainderIn>,
+    pub custom_rules: Vec<RuleRaw>,
+    pub final_sell_remainder: Option<FinalSellRemainderIn>,
     #[serde(default)]
-    all_known_set_ids: Vec<i64>,
+    pub all_known_set_ids: Vec<i64>,
     #[serde(default)]
-    omit_disabled_before_safeguards: bool,
+    pub omit_disabled_before_safeguards: bool,
     #[serde(default)]
-    dedupe_before_safeguards: bool,
+    pub dedupe_before_safeguards: bool,
     #[serde(default)]
-    safeguard_enabled: bool,
+    pub safeguard_enabled: bool,
     #[serde(default)]
-    safeguard_rules: Vec<SafeguardWasmRuleIn>,
-    safeguard_detection: Option<SafeguardWasmSnapshotOut>,
+    pub safeguard_rules: Vec<SafeguardWasmRuleIn>,
+    pub safeguard_detection: Option<SafeguardWasmSnapshotOut>,
     #[serde(default)]
-    safeguard_recipe_id_base: Option<i64>,
+    pub safeguard_recipe_id_base: Option<i64>,
 }
 
 // Auto-rarity bounds mirror BuilderRecipe.substatRollBoundsV row shape.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct AutoRarityResolveRollBoundsIn {
-    min: Option<f64>,
+pub struct AutoRarityResolveRollBoundsIn {
+    pub min: Option<f64>,
 }
 
 // Auto-rarity payload keeps only fields consumed by resolveAutoRarityCode.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct AutoRarityResolveIn {
+pub struct AutoRarityResolveIn {
     #[serde(default)]
-    auto_rarity_supplements_threshold: Option<String>,
+    pub auto_rarity_supplements_threshold: Option<String>,
     #[serde(default)]
-    auto_min_required_rolls: Option<bool>,
+    pub auto_min_required_rolls: Option<bool>,
     #[serde(default)]
-    min_required_rolls: Option<f64>,
+    pub min_required_rolls: Option<f64>,
     #[serde(default)]
-    locked_min_required_rolls: Option<f64>,
+    pub locked_min_required_rolls: Option<f64>,
     #[serde(default)]
-    min_count: Option<f64>,
+    pub min_count: Option<f64>,
     #[serde(default)]
-    early_keep_mode: Option<String>,
+    pub early_keep_mode: Option<String>,
     #[serde(default)]
-    selected_pool_v: Vec<i64>,
+    pub selected_pool_v: Vec<i64>,
     #[serde(default)]
-    fixed_pool_v: Vec<i64>,
+    pub fixed_pool_v: Vec<i64>,
     #[serde(default, deserialize_with = "deserialize_i64_key_map")]
-    substat_roll_bounds_v: HashMap<i64, AutoRarityResolveRollBoundsIn>,
+    pub substat_roll_bounds_v: HashMap<i64, AutoRarityResolveRollBoundsIn>,
 }
 
 // Builder-facing auto-rarity payload accepts raw recipe vectors plus allowed ids.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct AutoRarityResolveBuilderIn {
+pub struct AutoRarityResolveBuilderIn {
     #[serde(default)]
-    auto_rarity_supplements_threshold: Option<String>,
+    pub auto_rarity_supplements_threshold: Option<String>,
     #[serde(default)]
-    auto_min_required_rolls: Option<bool>,
+    pub auto_min_required_rolls: Option<bool>,
     #[serde(default)]
-    min_required_rolls: Option<f64>,
+    pub min_required_rolls: Option<f64>,
     #[serde(default)]
-    locked_min_required_rolls: Option<f64>,
+    pub locked_min_required_rolls: Option<f64>,
     #[serde(default)]
-    min_count: Option<f64>,
+    pub min_count: Option<f64>,
     #[serde(default)]
-    early_keep_mode: Option<String>,
+    pub early_keep_mode: Option<String>,
     #[serde(default)]
-    substats_v: Vec<i64>,
+    pub substats_v: Vec<i64>,
     #[serde(default)]
-    fixed_substats_v: Vec<i64>,
+    pub fixed_substats_v: Vec<i64>,
     #[serde(default, deserialize_with = "deserialize_i64_key_map")]
-    substat_roll_bounds_v: HashMap<i64, AutoRarityResolveRollBoundsIn>,
+    pub substat_roll_bounds_v: HashMap<i64, AutoRarityResolveRollBoundsIn>,
     #[serde(default)]
-    allowed_substats: Vec<i64>,
+    pub allowed_substats: Vec<i64>,
 }
 
 // Sort payload stores computed keys so comparator work stays branch-light.
 #[derive(Debug)]
-struct SafeguardMergeSortEntry {
-    rule: RuleRaw,
-    idx: usize,
-    level_idx: i64,
-    rule_ordinal: i64,
-    placeholder_rank: i64,
-    item_key: i64,
-    canonical: rule_dedupe::CollapseCanonicalKey,
+pub struct SafeguardMergeSortEntry {
+    pub rule: RuleRaw,
+    pub idx: usize,
+    pub level_idx: i64,
+    pub rule_ordinal: i64,
+    pub placeholder_rank: i64,
+    pub item_key: i64,
+    pub canonical: rule_dedupe::CollapseCanonicalKey,
 }
 
 // Internal carry type keeps branch ordering attached through finalization.
 #[derive(Debug, Clone)]
-struct GeneratedRuleEntry {
-    rule: RuleRaw,
-    branch_order: i64,
-    branch_seq: i64,
-    original_idx: i64,
+pub struct GeneratedRuleEntry {
+    pub rule: RuleRaw,
+    pub branch_order: i64,
+    pub branch_seq: i64,
+    pub original_idx: i64,
 }
 
 
 // Stateful engine keeps prepared rules + mode gating table.
-struct EngineState {
-    rules: Vec<PreparedRule>,
-    recipe_modes: Vec<String>,
+pub struct EngineState {
+    pub rules: Vec<PreparedRule>,
+    pub recipe_modes: Vec<String>,
 }
 
 // Normalize unknown rank/rarity values into supported 1..6 domain.
-fn clamp_rank_or_rarity(value: i64) -> i64 {
+pub fn clamp_rank_or_rarity(value: i64) -> i64 {
     if value <= RANK_VALUE_MIN {
         return RANK_VALUE_MIN;
     }
@@ -477,13 +517,13 @@ fn clamp_rank_or_rarity(value: i64) -> i64 {
 }
 
 // Rank/rarity bit helper keeps the mask check branchless in matcher loops.
-fn bit_for_rank_or_rarity(value: i64) -> u8 {
+pub fn bit_for_rank_or_rarity(value: i64) -> u8 {
     let clamped = clamp_rank_or_rarity(value);
     1u8 << ((clamped - 1) as u8)
 }
 
 // HSF rank code conversion copied from src/lib/hsfTypes.ts.
-fn rank_mask(code: i64) -> u8 {
+pub fn rank_mask(code: i64) -> u8 {
     if code == 0 {
         return RANK_RARITY_FULL_MASK;
     }
@@ -502,7 +542,7 @@ fn rank_mask(code: i64) -> u8 {
 }
 
 // Shared range-mask helper for rank/rarity HSF code branches.
-fn rank_range_mask(min: i64, max: i64) -> u8 {
+pub fn rank_range_mask(min: i64, max: i64) -> u8 {
     let lo = min.clamp(1, 6);
     let hi = max.clamp(lo, 6);
     let mut mask = 0u8;
@@ -515,7 +555,7 @@ fn rank_range_mask(min: i64, max: i64) -> u8 {
 }
 
 // HSF rarity code conversion copied from src/lib/hsfTypes.ts.
-fn rarity_mask(code: i64) -> u8 {
+pub fn rarity_mask(code: i64) -> u8 {
     match code {
         0 | 6 | 14 => RANK_RARITY_FULL_MASK,
         1..=5 => 1u8 << ((code - 1) as u8),
@@ -533,61 +573,27 @@ fn rarity_mask(code: i64) -> u8 {
 }
 
 // Roll schedule mask uses bit positions [4, 8, 12, 16].
-fn auto_rarity_roll_mask_for_code(rarity_code: i64) -> i64 {
+pub fn auto_rarity_roll_mask_for_code(rarity_code: i64) -> i64 {
     auto_rarity_runtime::auto_rarity_roll_mask_for_code(rarity_code)
 }
 
 // Addition schedule mask uses bit positions [4, 8, 12, 16].
-fn auto_rarity_addition_mask_for_code(rarity_code: i64) -> i64 {
+pub fn auto_rarity_addition_mask_for_code(rarity_code: i64) -> i64 {
     auto_rarity_runtime::auto_rarity_addition_mask_for_code(rarity_code)
 }
 
 // Mythical pre-roll membership comes from the shared auto-rarity table.
-fn auto_rarity_includes_mythical(rarity_code: i64) -> bool {
+pub fn auto_rarity_includes_mythical(rarity_code: i64) -> bool {
     auto_rarity_runtime::auto_rarity_includes_mythical(rarity_code)
 }
 
 // Count helper keeps roll-target math readable in all auto-rarity consumers.
-fn auto_rarity_count_levels_up_to_mask(mask: i64, ceiling: i64) -> i64 {
+pub fn auto_rarity_count_levels_up_to_mask(mask: i64, ceiling: i64) -> i64 {
     auto_rarity_runtime::auto_rarity_count_levels_up_to_mask(mask, ceiling)
 }
 
-// Expose roll-level milestones so TS can reuse Rust schedule decoding directly.
-#[wasm_bindgen]
-pub fn auto_rarity_roll_levels_for_code_value(rarity_code: i32) -> Vec<i32> {
-    auto_rarity_runtime::auto_rarity_roll_levels_for_code_value(rarity_code)
-}
-
-// Expose addition-level milestones so TS does not duplicate mask decoding.
-#[wasm_bindgen]
-pub fn auto_rarity_addition_levels_for_code_value(rarity_code: i32) -> Vec<i32> {
-    auto_rarity_runtime::auto_rarity_addition_levels_for_code_value(rarity_code)
-}
-
-// Expose mythical-membership checks for schedule/UI helpers on the TS side.
-#[wasm_bindgen]
-pub fn auto_rarity_includes_mythical_for_code_value(rarity_code: i32) -> bool {
-    auto_rarity_runtime::auto_rarity_includes_mythical_for_code_value(rarity_code)
-}
-
-// Builder-facing auto-rarity resolver compacts selected/fixed/bounds in Rust.
-#[wasm_bindgen]
-pub fn resolve_auto_rarity_code_for_builder_value(payload: JsValue) -> Result<i32, JsValue> {
-    auto_rarity_runtime::resolve_auto_rarity_code_for_builder_value(payload)
-}
-
-
-// Public merge helper export keeps branch expansion logic in Rust.
-#[wasm_bindgen]
-pub fn expand_auto_flex_rarity_branches_value(
-    recipe: JsValue,
-    base_rarity_code: i32,
-) -> Result<JsValue, JsValue> {
-    auto_rarity_runtime::expand_auto_flex_rarity_branches_value(recipe, base_rarity_code)
-}
-
 // Coerce flat/percent flags from number/string/bool payloads.
-fn boolish_to_flag(value: Option<&serde_json::Value>) -> i64 {
+pub fn boolish_to_flag(value: Option<&serde_json::Value>) -> i64 {
     match value {
         Some(serde_json::Value::Bool(v)) => i64::from(*v),
         Some(serde_json::Value::Number(v)) => {
@@ -604,7 +610,7 @@ fn boolish_to_flag(value: Option<&serde_json::Value>) -> i64 {
 
 // Shared number-ish coercer accepts number/string/bool payloads.
 // Keep this behavior centralized so export and safeguard paths stay aligned.
-fn numberish_to_f64(value: Option<&serde_json::Value>) -> Option<f64> {
+pub fn numberish_to_f64(value: Option<&serde_json::Value>) -> Option<f64> {
     match value {
         Some(serde_json::Value::Number(raw)) => raw.as_f64(),
         Some(serde_json::Value::Bool(raw)) => Some(if *raw { 1.0 } else { 0.0 }),
@@ -615,13 +621,13 @@ fn numberish_to_f64(value: Option<&serde_json::Value>) -> Option<f64> {
 
 // Keep compatibility helpers available at crate root for included modules.
 // Implementations live in `rule_dedupe` so conversion semantics are SSOT.
-fn numberish_or_default(value: Option<&serde_json::Value>, default: f64) -> f64 {
+pub fn numberish_or_default(value: Option<&serde_json::Value>, default: f64) -> f64 {
     rule_dedupe::numberish_or_default(value, default)
 }
 
 // Shared sort+dedupe helper keeps integer selector normalization single-sourced.
 // Callers use this for set/type arrays plus safeguard domain lists.
-fn sorted_unique_i64(values: &[i64]) -> Vec<i64> {
+pub fn sorted_unique_i64(values: &[i64]) -> Vec<i64> {
     let mut normalized = values.to_vec();
     normalized.sort_unstable();
     normalized.dedup();
@@ -630,7 +636,7 @@ fn sorted_unique_i64(values: &[i64]) -> Vec<i64> {
 
 // Keep optional-array normalization centralized at crate root.
 // This preserves one path for `None` -> empty plus sorted+unique semantics.
-fn normalize_i64_array(values: Option<&Vec<i64>>) -> Vec<i64> {
+pub fn normalize_i64_array(values: Option<&Vec<i64>>) -> Vec<i64> {
     values
         .as_ref()
         .map(|raw| sorted_unique_i64(raw))
@@ -638,7 +644,7 @@ fn normalize_i64_array(values: Option<&Vec<i64>>) -> Vec<i64> {
 }
 
 // Convert HSF main stat tuple to unified StatVariant encoding.
-fn main_to_variant(id: i64, f_flag: i64) -> i64 {
+pub fn main_to_variant(id: i64, f_flag: i64) -> i64 {
     if id == STAT_ID_ANY {
         return STAT_ID_ANY;
     }
@@ -658,7 +664,7 @@ fn main_to_variant(id: i64, f_flag: i64) -> i64 {
 }
 
 // Convert HSF substat tuple to unified StatVariant encoding.
-fn sub_to_variant(id: i64, is_flat_flag: i64) -> i64 {
+pub fn sub_to_variant(id: i64, is_flat_flag: i64) -> i64 {
     if id == STAT_ID_ANY {
         return STAT_ID_ANY;
     }
@@ -678,7 +684,7 @@ fn sub_to_variant(id: i64, is_flat_flag: i64) -> i64 {
 }
 
 // JS-compatible floor(Number(value) || 0) conversion.
-fn floor_number_or_zero(value: Option<f64>) -> i64 {
+pub fn floor_number_or_zero(value: Option<f64>) -> i64 {
     let numeric = value.unwrap_or(0.0);
     if !numeric.is_finite() {
         return 0;
@@ -688,7 +694,7 @@ fn floor_number_or_zero(value: Option<f64>) -> i64 {
 
 
 // Keep level ordering aligned with merge.ts.
-pub(crate) fn level_order_value(level: Option<i64>) -> i64 {
+pub fn level_order_value(level: Option<i64>) -> i64 {
     match level.unwrap_or(i64::MAX) {
         LEVEL_MILESTONE_0 => LEVEL_ORDER_INDEX_0,
         LEVEL_MILESTONE_4 => LEVEL_ORDER_INDEX_4,
@@ -707,7 +713,7 @@ pub(crate) fn level_order_value(level: Option<i64>) -> i64 {
 }
 
 // Artifact type ordering mirrors src/lib/types.ts preferred slot order.
-fn shared_order_index(order: &[i64], value: i64) -> Option<i64> {
+pub fn shared_order_index(order: &[i64], value: i64) -> Option<i64> {
     // Use generated arrays as SSOT for ordering lookups.
     // Missing values return None so callers can apply local fallbacks.
     order
@@ -717,7 +723,7 @@ fn shared_order_index(order: &[i64], value: i64) -> Option<i64> {
 }
 
 // Artifact type ordering mirrors src/lib/types.ts preferred slot order.
-fn artifact_type_order_value(slot: i64) -> i64 {
+pub fn artifact_type_order_value(slot: i64) -> i64 {
     // Resolve order from generated constants to keep TS and Rust aligned.
     if let Some(index) = shared_order_index(&PREFERRED_ARTIFACT_TYPE_ORDER, slot) {
         return index;
@@ -727,7 +733,7 @@ fn artifact_type_order_value(slot: i64) -> i64 {
 }
 
 // Sort slot arrays with preferred-order parity and numeric fallback.
-fn sort_artifact_types_in_place(values: &mut [i64]) {
+pub fn sort_artifact_types_in_place(values: &mut [i64]) {
     values.sort_unstable_by(|left, right| {
         let left_key = artifact_type_order_value(*left);
         let right_key = artifact_type_order_value(*right);
@@ -739,7 +745,7 @@ fn sort_artifact_types_in_place(values: &mut [i64]) {
 }
 
 // Flatten 2D rows into one contiguous vector for low-overhead wasm transfer.
-fn flatten_i32_rows(rows: &[Vec<i32>]) -> Vec<i32> {
+pub fn flatten_i32_rows(rows: &[Vec<i32>]) -> Vec<i32> {
     let mut out = Vec::<i32>::new();
     let total_len = rows.iter().map(|row| row.len()).sum::<usize>();
     out.reserve(total_len);
@@ -751,24 +757,12 @@ fn flatten_i32_rows(rows: &[Vec<i32>]) -> Vec<i32> {
 
 // Safeguard candidate snapshot builder keeps key derivation + sold filtering
 // in Rust so TS call sites avoid re-implementing evaluator precedence.
-fn collect_safeguard_candidates_value_impl(
-    rows: JsValue,
-    rules: JsValue,
-    recipe_modes: JsValue,
-    ignore_safeguard_recipe_indices: JsValue,
-) -> Result<JsValue, JsValue> {
-    // Parse raw/compact row payloads into the normalized collect row shape.
-    let rows = safeguard_parse_collect_rows_payload(rows)?;
-    // Parse merged base rules used by keep/sell resolution.
-    let rules: Vec<RuleRaw> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect rules payload: {error}")))?;
-    // Parse per-recipe mode visibility needed by evaluate-item parity.
-    let recipe_modes: Vec<String> = from_js_value(recipe_modes)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect recipe-modes payload: {error}")))?;
-    // Parse optional ignored recipe indices; null/undefined maps to empty list.
-    let ignore_safeguard_recipe_indices: Option<Vec<i64>> = from_js_value(ignore_safeguard_recipe_indices)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect ignored-recipe payload: {error}")))?;
-
+pub fn collect_safeguard_candidates_value_impl(
+    rows: Vec<SafeguardCollectRowIn>,
+    rules: Vec<RuleRaw>,
+    recipe_modes: Vec<String>,
+    ignore_safeguard_recipe_indices: Option<Vec<i64>>,
+) -> Result<SafeguardCollectedSnapshotOut, String> {
     // Prepare rules once so each row evaluation reuses precomputed masks.
     let prepared_rules = rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
     let snapshot = collect_safeguard_candidates_core(
@@ -777,38 +771,15 @@ fn collect_safeguard_candidates_value_impl(
         &recipe_modes,
         &ignore_safeguard_recipe_indices.unwrap_or_default(),
     )?;
-    // Return the compact candidate payload used by TS row re-attachment.
-    to_js_value(&snapshot)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard candidate snapshot: {error}")))
-}
-
-// Safeguard wasm export uses canonical recipe/safeguard naming.
-#[wasm_bindgen]
-pub fn collect_safeguard_candidates_value(
-    rows: JsValue,
-    rules: JsValue,
-    recipe_modes: JsValue,
-    ignore_safeguard_recipe_indices: JsValue,
-) -> Result<JsValue, JsValue> {
-    collect_safeguard_candidates_value_impl(
-        rows,
-        rules,
-        recipe_modes,
-        ignore_safeguard_recipe_indices,
-    )
+    Ok(snapshot)
 }
 
 // Expand safeguard metaset ids into concrete set selections inside wasm.
-fn resolve_safeguard_rules_with_metasets_core(
-    rules: JsValue,
-    metasets: JsValue,
-) -> Result<JsValue, JsValue> {
-    // Parse safeguard rule payloads with nullable-field tolerance.
-    let mut rules: Vec<SafeguardWasmRuleIn> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard rules payload: {error}")))?;
+pub fn resolve_safeguard_rules_with_metasets_core(
+    mut rules: Vec<SafeguardWasmRuleIn>,
+    metasets: Vec<SafeguardWasmMetasetIn>,
+) -> Vec<SafeguardWasmResolvedRuleOut> {
     // Parse metaset definitions into a fast lookup table.
-    let metasets: Vec<SafeguardWasmMetasetIn> = from_js_value(metasets)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard metasets payload: {error}")))?;
     let mut meta_map = HashMap::<String, Vec<i64>>::new();
     for meta in metasets {
         meta_map.insert(meta.id, meta.sets);
@@ -904,111 +875,388 @@ fn resolve_safeguard_rules_with_metasets_core(
             beat_equipped_percentile: rule.beat_equipped_percentile.filter(|v| v.is_finite()),
         });
     }
-
-    // Use serialize_maps_as_objects so HashMap<String, _> fields (e.g. substatWeights)
-    // round-trip as plain JS objects rather than JS Map instances. serde_wasm_bindgen 0.6
-    // defaults to JS Map for HashMap serialization, which TS code cannot read via Object.entries.
     resolved
-        .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard metaset result: {error}")))
 }
 
-// Safeguard wasm export uses canonical recipe/safeguard naming.
-#[wasm_bindgen]
-pub fn resolve_safeguard_rules_with_metasets_value(
-    rules: JsValue,
-    metasets: JsValue,
-) -> Result<JsValue, JsValue> {
-    resolve_safeguard_rules_with_metasets_core(rules, metasets)
+// Shared obsolete-report builder used by JSON and JsValue exports.
+pub fn find_obsolete_report(rules: &[RuleRaw]) -> ObsoleteReportOut {
+    let obsolete = rule_dedupe::collect_obsolete_entries(rules);
+    ObsoleteReportOut { obsolete }
 }
 
-// Expose a fixed version token so diagnostics can verify which WASM build loaded.
-#[wasm_bindgen]
-pub fn version() -> String {
-    "rule-engine-wasm-v0.15".to_string()
+// Builder finalize mirrors hsfBuilder.ts post-emission behavior:
+// prune builder-obsolete rows, then stable sort by emission metadata.
+pub fn finalize_builder_rules_core(
+    rules: Vec<RuleRaw>,
+    emission_meta: Vec<BuilderFinalizeEmissionMetaIn>,
+) -> Result<Vec<RuleRaw>, String> {
+    // Metadata length must match emitted rule count.
+    if rules.len() != emission_meta.len() {
+        return Err(format!(
+            "Builder finalize payload mismatch (rules={}, emissionMeta={})",
+            rules.len(),
+            emission_meta.len(),
+        ));
+    }
+    // Zero/one-rule payloads are already finalized.
+    if rules.len() <= 1 {
+        return Ok(rules);
+    }
+    // Reuse the existing builder obsolete detector for SSOT pruning semantics.
+    let obsolete = rule_dedupe::collect_builder_pruning_obsolete_entries(&rules);
+    let obsolete_indices = obsolete
+        .into_iter()
+        .map(|entry| entry.index)
+        .collect::<HashSet<_>>();
+
+    // Keep metadata and rules aligned while pruning.
+    let mut paired = Vec::<BuilderFinalizeEntry>::new();
+    for (idx, (rule, meta)) in rules.into_iter().zip(emission_meta.into_iter()).enumerate() {
+        if obsolete_indices.contains(&idx) {
+            continue;
+        }
+        paired.push(BuilderFinalizeEntry {
+            rule,
+            meta,
+            original_idx: idx,
+        });
+    }
+    // Preserve deterministic grouping: level index, branch index, sequence, index.
+    paired.sort_by(|left, right| {
+        if left.meta.level_idx != right.meta.level_idx {
+            return left.meta.level_idx.cmp(&right.meta.level_idx);
+        }
+        if left.meta.branch_idx != right.meta.branch_idx {
+            return left.meta.branch_idx.cmp(&right.meta.branch_idx);
+        }
+        if left.meta.seq != right.meta.seq {
+            return left.meta.seq.cmp(&right.meta.seq);
+        }
+        left.original_idx.cmp(&right.original_idx)
+    });
+    Ok(paired.into_iter().map(|entry| entry.rule).collect::<Vec<_>>())
 }
 
-// Build integer roll distributions used by hsfBuilder's combinatorics loops.
+// Shared configure implementation used by both JSON and JsValue bindings.
+pub fn configure_engine(raw_rules: Vec<RuleRaw>, recipe_modes: Vec<String>) {
+    let prepared_rules = raw_rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
+    ENGINE_STATE.with(|state| {
+        *state.borrow_mut() = Some(EngineState {
+            rules: prepared_rules,
+            recipe_modes,
+        });
+    });
+}
 
-// Flat-array variant avoids JSON parsing on the result path.
+// Shared evaluation implementation — returns String error instead of JsValue.
+pub fn evaluate_engine(
+    items: Vec<EvaluateItemRaw>,
+    options: EvaluateOptionsRaw,
+) -> Result<Vec<EvaluateItemResult>, String> {
+    ENGINE_STATE.with(|state| {
+        let guard = state.borrow();
+        let Some(engine) = guard.as_ref() else {
+            return Err("WASM rule engine is not configured".to_string());
+        };
 
-// Filtered distribution helper keeps the hottest per-level loops inside Rust so
-// JS only evaluates branch-specific predicates on already-feasible rows.
+        // Prepare all option sets once so each item scan stays allocation-free.
+        let prepared_options = prepare_evaluate_options(&options);
+        // Optional baseline path excludes keep-override sources when primary
+        // first-match came from those sources.
+        let baseline_options = options
+            .baseline_exclude_sources
+            .as_ref()
+            .map(|sources| {
+                let mut cloned = options.clone();
+                cloned.exclude_sources = Some(sources.clone());
+                cloned.baseline_exclude_sources = None;
+                prepare_evaluate_options(&cloned)
+            });
 
-// Fast variant takes compact numeric arrays directly to avoid per-call JSON
-// stringify/parse overhead across the JS/WASM boundary.
+        // Shared scratch reused across all items to avoid per-item HashSet/HashMap
+        // allocations in the evaluate_item hot loop.
+        let mut scratch = EvaluateItemScratch::new();
+        let mut results = Vec::with_capacity(items.len());
+        for entry in &items {
+            let (first_match, first_non_excluded) = evaluate_item(
+                &engine.rules,
+                &engine.recipe_modes,
+                &entry.item,
+                &prepared_options,
+                &mut scratch,
+            );
+            // Extract recipe data from scratch before any second call overwrites it.
+            let matching_recipe_indices: Vec<i64> =
+                scratch.recipe_matches.iter().map(|(k, _)| *k).collect();
+            let matching_recipe_decisions: Vec<MatchingRecipeDecision> = scratch
+                .recipe_matches
+                .iter()
+                .map(|(recipe_idx, keep)| MatchingRecipeDecision {
+                    recipe_idx: *recipe_idx,
+                    keep: *keep,
+                })
+                .collect();
 
-// Flat-array variant avoids JSON parsing on the result path.
+            let mut resolved_first_non_excluded = first_non_excluded;
+            if let Some(baseline) = baseline_options.as_ref() {
+                let needs_baseline = first_match
+                    .as_ref()
+                    .and_then(|matched| engine.rules.get(matched.rule_index))
+                    .map(|rule| rule.is_keep_override_source)
+                    .unwrap_or(false);
+                if needs_baseline {
+                    // Second call overwrites scratch; recipe data already extracted above.
+                    let (_, baseline_non_excluded) = evaluate_item(
+                        &engine.rules,
+                        &engine.recipe_modes,
+                        &entry.item,
+                        baseline,
+                        &mut scratch,
+                    );
+                    if baseline_non_excluded.is_some() {
+                        resolved_first_non_excluded = baseline_non_excluded;
+                    }
+                }
+            }
+
+            results.push(EvaluateItemResult {
+                item_id: entry.item_id,
+                first_match,
+                first_non_excluded_match: resolved_first_non_excluded,
+                matching_recipe_indices,
+                matching_recipe_decisions,
+            });
+        }
+
+        Ok(results)
+    })
+}
+
+// Combined output for evaluate_engine_and_collect_safeguard_protection.
+// Carries per-item evaluation results alongside the safeguard candidate/detection payloads
+// so TS callers cross the WASM boundary only once for the detection phase.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EvaluateAndCollectSnapshotOut {
+    // Per-item evaluation results (mirrors Vec<EvaluateItemResult> from evaluate_engine).
+    pub evaluate_results: Vec<EvaluateItemResult>,
+    // Safeguard candidate rows in row-index order for TS row re-attachment.
+    pub candidates: Vec<SafeguardCollectedCandidateOut>,
+    // Deduplicated sold-item keys for protection quota tracking.
+    pub unique_item_keys: Vec<i64>,
+    // Detection snapshot produced by protection scoring.
+    pub detection: SafeguardWasmSnapshotOut,
+}
+
+// Combined evaluate + safeguard-collect entry point.
+// Reads ENGINE_STATE (configured via configure_engine) so the caller must have
+// called configure_value before invoking this function.
+// For each fast_row the function:
+//   1. Evaluates the item against prepared rules (with baseline-exclude support).
+//   2. Derives base_match from the resolved first-non-excluded (or first) match.
+//   3. Feeds the patched SafeguardCollectRowIn into collect_safeguard_candidates_core.
+//   4. Runs protection scoring and returns all outputs in one snapshot.
+// This eliminates the JS→WASM→JS→WASM round-trip present in the separate
+// evaluate_value + collect_and_compute_safeguard_protection_value call sequence.
+#[allow(clippy::too_many_arguments)]
+pub fn evaluate_engine_and_collect_safeguard_protection(
+    fast_rows: Vec<SafeguardCollectRowFastIn>,
+    options: EvaluateOptionsRaw,
+    ignore_safeguard_recipe_indices: Option<Vec<i64>>,
+    parsed_safeguard_rules: Vec<SafeguardWasmRuleIn>,
+    expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
+    enabled: bool,
+    now: f64,
+) -> Result<EvaluateAndCollectSnapshotOut, String> {
+    ENGINE_STATE.with(|state| {
+        let guard = state.borrow();
+        let Some(engine) = guard.as_ref() else {
+            return Err("WASM rule engine is not configured".to_string());
+        };
+
+        // Prepare evaluate options once; baseline handles keep-override source exclusions.
+        let prepared_options = prepare_evaluate_options(&options);
+        let baseline_options = options
+            .baseline_exclude_sources
+            .as_ref()
+            .map(|sources| {
+                let mut cloned = options.clone();
+                cloned.exclude_sources = Some(sources.clone());
+                cloned.baseline_exclude_sources = None;
+                prepare_evaluate_options(&cloned)
+            });
+        let ignore_indices = ignore_safeguard_recipe_indices.unwrap_or_default();
+
+        // Parse all rows upfront so each row holds typed artifact + TestItemRaw.
+        let mut collect_rows = safeguard_parse_collect_rows_payload(fast_rows)?;
+
+        // Shared scratch reused across items to avoid per-row HashSet/HashMap allocations.
+        let mut scratch = EvaluateItemScratch::new();
+        let mut evaluate_results = Vec::<EvaluateItemResult>::with_capacity(collect_rows.len());
+
+        // Evaluate each item and patch base_match into the row so the subsequent
+        // collect_safeguard_candidates_core call uses the engine result directly.
+        for row in &mut collect_rows {
+            let (first_match, first_non_excluded) = evaluate_item(
+                &engine.rules,
+                &engine.recipe_modes,
+                &row.item,
+                &prepared_options,
+                &mut scratch,
+            );
+            // Extract recipe data before any baseline call overwrites scratch.
+            let matching_recipe_indices: Vec<i64> =
+                scratch.recipe_matches.iter().map(|(k, _)| *k).collect();
+            let matching_recipe_decisions: Vec<MatchingRecipeDecision> = scratch
+                .recipe_matches
+                .iter()
+                .map(|(recipe_idx, keep)| MatchingRecipeDecision {
+                    recipe_idx: *recipe_idx,
+                    keep: *keep,
+                })
+                .collect();
+
+            // Baseline re-evaluation mirrors evaluate_engine: if the primary match
+            // came from a keep-override source, re-run with baseline_exclude_sources
+            // to find the first non-excluded match without keep-override interference.
+            let mut resolved_first_non_excluded = first_non_excluded;
+            if let Some(baseline) = baseline_options.as_ref() {
+                let needs_baseline = first_match
+                    .as_ref()
+                    .and_then(|matched| engine.rules.get(matched.rule_index))
+                    .map(|rule| rule.is_keep_override_source)
+                    .unwrap_or(false);
+                if needs_baseline {
+                    let (_, baseline_non_excluded) = evaluate_item(
+                        &engine.rules,
+                        &engine.recipe_modes,
+                        &row.item,
+                        baseline,
+                        &mut scratch,
+                    );
+                    if baseline_non_excluded.is_some() {
+                        resolved_first_non_excluded = baseline_non_excluded;
+                    }
+                }
+            }
+
+            // Resolve item_id using the same precedence as resolve_collect_row_item_key.
+            let item_id = matcher_evaluator::resolve_collect_row_item_key(row);
+            evaluate_results.push(EvaluateItemResult {
+                item_id,
+                first_match: first_match.clone(),
+                first_non_excluded_match: resolved_first_non_excluded.clone(),
+                matching_recipe_indices,
+                matching_recipe_decisions,
+            });
+
+            // Patch base_match so collect_safeguard_candidates_core skips re-evaluation.
+            // Use the resolved non-excluded match (or primary match) as the safeguard
+            // candidate base-match — same as the TS toPreviewMatch helper.
+            let effective = resolved_first_non_excluded.as_ref().or(first_match.as_ref());
+            row.base_match_defined = true;
+            row.base_match = effective.map(|m| SafeguardCandidateResolveBaseMatchIn {
+                keep: m.keep,
+                recipe_idx: m.recipe_idx,
+            });
+        }
+
+        // Collect candidates using engine's already-prepared rules — no re-prepare needed.
+        let collected = collect_safeguard_candidates_core(
+            &collect_rows,
+            &engine.rules,
+            &engine.recipe_modes,
+            &ignore_indices,
+        )?;
+
+        // Run protection scoring from collected candidates + typed row artifacts.
+        let detection = compute_safeguard_protection_from_collected_core(
+            &collected.candidates,
+            &collect_rows,
+            parsed_safeguard_rules,
+            expected_payload,
+            enabled,
+            now,
+        );
+
+        Ok(EvaluateAndCollectSnapshotOut {
+            evaluate_results,
+            candidates: collected.candidates,
+            unique_item_keys: collected.unique_item_keys,
+            detection,
+        })
+    })
+}
 
 // Input payload for batch HSF rule emission from pre-filtered distributions.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct EmitHsfSubstatIn {
-    id: i64,
+pub struct EmitHsfSubstatIn {
+    pub id: i64,
     #[serde(default)]
-    is_flat: bool,
+    pub is_flat: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct EmitHsfMainChoiceIn {
-    id: i64,
-    f: Option<i64>,
+pub struct EmitHsfMainChoiceIn {
+    pub id: i64,
+    pub f: Option<i64>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct EmitHsfRulesForDistributionsIn {
-    base_rule: RuleRaw,
-    substats: Vec<EmitHsfSubstatIn>,
+pub struct EmitHsfRulesForDistributionsIn {
+    pub base_rule: RuleRaw,
+    pub substats: Vec<EmitHsfSubstatIn>,
     // Execute-intro-plan reuses this payload as an emit template and injects
     // row vectors separately, so distributions may be omitted on input.
     #[serde(default)]
-    distributions: Vec<Vec<i32>>,
-    base_vals: Vec<i32>,
-    mins: Vec<i32>,
-    max_caps: Vec<i32>,
-    optional_mask: Vec<bool>,
-    skip_optional_baseline: bool,
-    main_choices: Vec<EmitHsfMainChoiceIn>,
-    emit_any_main_when_no_choices: bool,
-    target_bases: Vec<Option<i32>>,
-    target_increments: Vec<Vec<Option<i32>>>,
+    pub distributions: Vec<Vec<i32>>,
+    pub base_vals: Vec<i32>,
+    pub mins: Vec<i32>,
+    pub max_caps: Vec<i32>,
+    pub optional_mask: Vec<bool>,
+    pub skip_optional_baseline: bool,
+    pub main_choices: Vec<EmitHsfMainChoiceIn>,
+    pub emit_any_main_when_no_choices: bool,
+    pub target_bases: Vec<Option<i32>>,
+    pub target_increments: Vec<Vec<Option<i32>>>,
 }
 
 // Compact filtered-emission payload keeps only base vectors at selected dims.
 // Rust widens them to requested dimensions for sink/other expansion.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct EmitHsfRulesForFilteredDistributionsCompactIn {
-    dimensions: i32,
-    total: i32,
-    base_max_caps: Vec<i32>,
-    base_timeline_caps: Vec<i32>,
-    base_targeted_mask: Vec<u8>,
-    base_locked_mask: Vec<u8>,
-    min_floors: Vec<i32>,
-    targeted_exact: i32,
-    deficit_floors: Vec<i32>,
-    deficit_max: i32,
-    global_min: i32,
-    global_remaining: i32,
-    global_mode: i32,
-    locked_min: i32,
-    locked_remaining: i32,
-    locked_mode: i32,
-    emit: EmitHsfRulesForDistributionsIn,
+pub struct EmitHsfRulesForFilteredDistributionsCompactIn {
+    pub dimensions: i32,
+    pub total: i32,
+    pub base_max_caps: Vec<i32>,
+    pub base_timeline_caps: Vec<i32>,
+    pub base_targeted_mask: Vec<u8>,
+    pub base_locked_mask: Vec<u8>,
+    pub min_floors: Vec<i32>,
+    pub targeted_exact: i32,
+    pub deficit_floors: Vec<i32>,
+    pub deficit_max: i32,
+    pub global_min: i32,
+    pub global_remaining: i32,
+    pub global_mode: i32,
+    pub locked_min: i32,
+    pub locked_remaining: i32,
+    pub locked_mode: i32,
+    pub emit: EmitHsfRulesForDistributionsIn,
 }
 
 // Presence-only builder payload mirrors the selectedPoolV.length===0 branch in
 // hsfBuilder.ts while keeping the level/main unroll loops in Rust.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct BuildHsfPresenceOnlyRulesIn {
-    base_core: RuleRaw,
-    main_choices: Vec<EmitHsfMainChoiceIn>,
-    level_window_min: i64,
-    level_window_max: i64,
+pub struct BuildHsfPresenceOnlyRulesIn {
+    pub base_core: RuleRaw,
+    pub main_choices: Vec<EmitHsfMainChoiceIn>,
+    pub level_window_min: i64,
+    pub level_window_max: i64,
 }
 
 fn emit_hsf_sub_equals_main(sub: &EmitHsfSubstatIn, main: &EmitHsfMainChoiceIn) -> bool {
@@ -1065,7 +1313,7 @@ fn emit_hsf_padded_substats(mut substats: Vec<RuleSubRaw>) -> Vec<RuleSubRaw> {
 
 // Shared emitter core keeps row-to-rule expansion in one place for both
 // direct distribution payloads and filtered-in-wasm payloads.
-fn emit_hsf_rules_for_distributions_core(
+pub fn emit_hsf_rules_for_distributions_core(
     input: &EmitHsfRulesForDistributionsIn,
     distributions: &[Vec<i32>],
 ) -> Vec<RuleRaw> {
@@ -1165,13 +1413,8 @@ fn emit_hsf_rules_for_distributions_core(
     out
 }
 
-// Emit concrete HSF rules from distribution rows in one wasm call so
-// level/combo emission loops avoid per-row JS object construction overhead.
-
-// Build presence-only HSF rows for recipes that select no substats.
-
 // Shared presence-only core keeps no-substat row emission in one Rust path.
-pub(crate) fn build_hsf_presence_only_rules_core(input: &BuildHsfPresenceOnlyRulesIn) -> Vec<RuleRaw> {
+pub fn build_hsf_presence_only_rules_core(input: &BuildHsfPresenceOnlyRulesIn) -> Vec<RuleRaw> {
     // Normalize window ordering so callers can pass unsorted min/max safely.
     let min_level = input.level_window_min.min(input.level_window_max);
     let max_level = input.level_window_min.max(input.level_window_max);
@@ -1219,14 +1462,8 @@ pub(crate) fn build_hsf_presence_only_rules_core(input: &BuildHsfPresenceOnlyRul
     out
 }
 
-// Combined filtered-emission helper removes large intermediate row transfers
-// for always-true branches where JS does not need per-row predicates.
-
-// Compact filtered-emission helper widens base vectors in Rust so JS no longer
-// rebuilds per-dimension cap/mask arrays inside hsfBuilder inner loops.
-
 // Shared compact filtered-emission core keeps sink-dimension widening in one implementation.
-pub(crate) fn emit_hsf_rules_for_filtered_distributions_compact_core(
+pub fn emit_hsf_rules_for_filtered_distributions_compact_core(
     input: &EmitHsfRulesForFilteredDistributionsCompactIn,
 ) -> Vec<RuleRaw> {
     // Keep parity with the expanded helper for degenerate dimensions.
@@ -1315,339 +1552,4 @@ pub(crate) fn emit_hsf_rules_for_filtered_distributions_compact_core(
     };
     let rows = hsf_distribution_runtime::filter_roll_distributions_core(&filter_input);
     emit_hsf_rules_for_distributions_core(&input.emit, &rows)
-}
-
-// Full builder runtime keeps preflight + branch orchestration in Rust.
-// TS calls this once per recipe instead of re-running branch loops in JS.
-#[wasm_bindgen]
-pub fn build_hsf_rules_runtime_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    hsf_builder_execution::build_hsf_rules_runtime_value(payload)
-}
-
-// Builder prep normalizes selected/fixed pools and target maps in Rust.
-// TS uses this to avoid large per-recipe prep loops before runtime dispatch.
-#[wasm_bindgen]
-pub fn prepare_hsf_builder_recipe_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    hsf_builder_execution::prepare_hsf_builder_recipe_value(payload)
-}
-
-// Numeric combinations helper keeps high-volume choose(N, K) expansion in wasm.
-
-// Fast variant avoids JSON serialization for numeric combinations calls.
-
-// Flat-array variant avoids JSON parsing on the result path.
-#[wasm_bindgen]
-pub fn combinations_i32_fast_flat(values: Vec<i32>, pick: i32) -> Vec<i32> {
-    let out = hsf_distribution_runtime::compute_combinations_i32(&values, pick);
-    flatten_i32_rows(&out)
-}
-
-// Numeric permutations helper mirrors TS backtracking index order.
-
-// Fast variant avoids JSON serialization for numeric permutations calls.
-
-// Flat-array variant avoids JSON parsing on the result path.
-#[wasm_bindgen]
-pub fn permutations_i32_fast_flat(values: Vec<i32>) -> Vec<i32> {
-    let out = hsf_distribution_runtime::compute_permutations_i32(&values);
-    flatten_i32_rows(&out)
-}
-
-// Numeric bounded-compositions helper for late-mode extra allocation loops.
-
-// Flat-array variant avoids JSON parsing on the result path.
-
-// Flat helper for late-mode bounded-composition loops with inline filtering.
-
-// Build intro assignment schedules used by hsfBuilder combinatorics loops.
-
-// Fast variant avoids JSON serialization for intro assignment combinatorics.
-
-// Flat-array variant avoids JSON parsing on the result path.
-#[wasm_bindgen]
-pub fn intro_assignments_for_combo_fast_flat(
-    count: i32,
-    base_slots: i32,
-    addition_levels: Vec<i32>,
-    forced_base: Vec<i32>,
-) -> Vec<i32> {
-    let results = hsf_distribution_runtime::compute_intro_assignments_for_combo(
-        count,
-        base_slots,
-        &addition_levels,
-        &forced_base,
-    );
-    flatten_i32_rows(&results)
-}
-
-// Shared obsolete-report builder used by JSON and JsValue exports.
-fn find_obsolete_report(rules: &[RuleRaw]) -> ObsoleteReportOut {
-    let obsolete = rule_dedupe::collect_obsolete_entries(rules);
-    ObsoleteReportOut { obsolete }
-}
-
-// Builder-pruning obsolete report mirrors hsfBuilder.ts::pruneDominatedRules semantics.
-
-// Detect obsolete rules using the same domination semantics as src/lib/hsfObsolete.ts.
-
-// Fast obsolete export accepts JS arrays directly and returns a JS object.
-#[wasm_bindgen]
-pub fn find_obsolete_value(rules: JsValue) -> Result<JsValue, JsValue> {
-    let parsed_rules: Vec<RuleRaw> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid obsolete-rules value: {error}")))?;
-    let report = find_obsolete_report(&parsed_rules);
-    to_js_value(&report)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize obsolete value: {error}")))
-}
-
-// Builder-specific obsolete export keeps hsfBuilder pruning loops inside wasm.
-
-// Builder finalize mirrors hsfBuilder.ts post-emission behavior:
-// prune builder-obsolete rows, then stable sort by emission metadata.
-pub(crate) fn finalize_builder_rules_core(
-    rules: Vec<RuleRaw>,
-    emission_meta: Vec<BuilderFinalizeEmissionMetaIn>,
-) -> Result<Vec<RuleRaw>, String> {
-    // Metadata length must match emitted rule count.
-    if rules.len() != emission_meta.len() {
-        return Err(format!(
-            "Builder finalize payload mismatch (rules={}, emissionMeta={})",
-            rules.len(),
-            emission_meta.len(),
-        ));
-    }
-    // Zero/one-rule payloads are already finalized.
-    if rules.len() <= 1 {
-        return Ok(rules);
-    }
-    // Reuse the existing builder obsolete detector for SSOT pruning semantics.
-    let obsolete = rule_dedupe::collect_builder_pruning_obsolete_entries(&rules);
-    let obsolete_indices = obsolete
-        .into_iter()
-        .map(|entry| entry.index)
-        .collect::<HashSet<_>>();
-
-    // Keep metadata and rules aligned while pruning.
-    let mut paired = Vec::<BuilderFinalizeEntry>::new();
-    for (idx, (rule, meta)) in rules.into_iter().zip(emission_meta.into_iter()).enumerate() {
-        if obsolete_indices.contains(&idx) {
-            continue;
-        }
-        paired.push(BuilderFinalizeEntry {
-            rule,
-            meta,
-            original_idx: idx,
-        });
-    }
-    // Preserve deterministic grouping: level index, branch index, sequence, index.
-    paired.sort_by(|left, right| {
-        if left.meta.level_idx != right.meta.level_idx {
-            return left.meta.level_idx.cmp(&right.meta.level_idx);
-        }
-        if left.meta.branch_idx != right.meta.branch_idx {
-            return left.meta.branch_idx.cmp(&right.meta.branch_idx);
-        }
-        if left.meta.seq != right.meta.seq {
-            return left.meta.seq.cmp(&right.meta.seq);
-        }
-        left.original_idx.cmp(&right.original_idx)
-    });
-    Ok(paired.into_iter().map(|entry| entry.rule).collect::<Vec<_>>())
-}
-
-// Builder-postprocess exports are delegated to a focused module so lib.rs stays
-// primarily about shared types, engine wiring, and wasm export entrypoints.
-#[wasm_bindgen]
-pub fn flatten_rule_batches_with_total_limit_value(
-    base_count: i64,
-    total_limit: i64,
-    batches: JsValue,
-) -> Result<JsValue, JsValue> {
-    rule_postprocess::flatten_rule_batches_with_total_limit_value(base_count, total_limit, batches)
-}
-
-// Final Sell builder/export lives in the postprocess module to keep merge
-// orchestration logic grouped with other rule-assembly helpers.
-#[wasm_bindgen]
-pub fn build_final_sell_rules_value(
-    remainder: JsValue,
-    all_known_set_ids: JsValue,
-) -> Result<JsValue, JsValue> {
-    rule_postprocess::build_final_sell_rules_value(remainder, all_known_set_ids)
-}
-
-// Merged-rule orchestration delegates to the postprocess module.
-#[wasm_bindgen]
-pub fn compute_merged_rules_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    rule_postprocess::compute_merged_rules_value(payload)
-}
-
-// Safeguard injected merge/dedupe/sort delegates to postprocess helpers.
-fn merge_safeguard_injected_rules_core(
-    base_rules: JsValue,
-    custom_rules: JsValue,
-    candidate_keep_rules: JsValue,
-) -> Result<JsValue, JsValue> {
-    rule_postprocess::merge_safeguard_injected_rules_value(
-        base_rules,
-        custom_rules,
-        candidate_keep_rules,
-    )
-}
-
-// Safeguard wasm export uses canonical recipe/safeguard naming.
-#[wasm_bindgen]
-pub fn merge_safeguard_injected_rules_value(
-    base_rules: JsValue,
-    custom_rules: JsValue,
-    candidate_safeguard_rules: JsValue,
-) -> Result<JsValue, JsValue> {
-    merge_safeguard_injected_rules_core(
-        base_rules,
-        custom_rules,
-        candidate_safeguard_rules,
-    )
-}
-
-// Export-dedupe path reuses the same postprocess module for consistency.
-#[wasm_bindgen]
-pub fn dedupe_hsf_rules_for_export_value(rules: JsValue) -> Result<JsValue, JsValue> {
-    rule_postprocess::dedupe_hsf_rules_for_export_value(rules)
-}
-
-// Generated-rule finalization also delegates to the postprocess module.
-#[wasm_bindgen]
-pub fn finalize_generated_rules_value(
-    entries: JsValue,
-    apply_obsolete_pruning: bool,
-) -> Result<JsValue, JsValue> {
-    rule_postprocess::finalize_generated_rules_value(entries, apply_obsolete_pruning)
-}
-
-// Shared configure implementation used by both JSON and JsValue bindings.
-fn configure_engine(raw_rules: Vec<RuleRaw>, recipe_modes: Vec<String>) {
-    let prepared_rules = raw_rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
-    ENGINE_STATE.with(|state| {
-        *state.borrow_mut() = Some(EngineState {
-            rules: prepared_rules,
-            recipe_modes,
-        });
-    });
-}
-
-// Shared evaluation implementation used by both JSON and JsValue bindings.
-fn evaluate_engine(
-    items: Vec<EvaluateItemRaw>,
-    options: EvaluateOptionsRaw,
-) -> Result<Vec<EvaluateItemResult>, JsValue> {
-    ENGINE_STATE.with(|state| {
-        let guard = state.borrow();
-        let Some(engine) = guard.as_ref() else {
-            return Err(JsValue::from_str("WASM rule engine is not configured"));
-        };
-
-        // Prepare all option sets once so each item scan stays allocation-free.
-        let prepared_options = prepare_evaluate_options(&options);
-        // Optional baseline path excludes keep-override sources when primary
-        // first-match came from those sources.
-        let baseline_options = options
-            .baseline_exclude_sources
-            .as_ref()
-            .map(|sources| {
-                let mut cloned = options.clone();
-                cloned.exclude_sources = Some(sources.clone());
-                cloned.baseline_exclude_sources = None;
-                prepare_evaluate_options(&cloned)
-            });
-
-        // Shared scratch reused across all items to avoid per-item HashSet/HashMap
-        // allocations in the evaluate_item hot loop.
-        let mut scratch = EvaluateItemScratch::new();
-        let mut results = Vec::with_capacity(items.len());
-        for entry in &items {
-            let (first_match, first_non_excluded) = evaluate_item(
-                &engine.rules,
-                &engine.recipe_modes,
-                &entry.item,
-                &prepared_options,
-                &mut scratch,
-            );
-            // Extract recipe data from scratch before any second call overwrites it.
-            let matching_recipe_indices: Vec<i64> =
-                scratch.recipe_matches.iter().map(|(k, _)| *k).collect();
-            let matching_recipe_decisions: Vec<MatchingRecipeDecision> = scratch
-                .recipe_matches
-                .iter()
-                .map(|(recipe_idx, keep)| MatchingRecipeDecision {
-                    recipe_idx: *recipe_idx,
-                    keep: *keep,
-                })
-                .collect();
-
-            let mut resolved_first_non_excluded = first_non_excluded;
-            if let Some(baseline) = baseline_options.as_ref() {
-                let needs_baseline = first_match
-                    .as_ref()
-                    .and_then(|matched| engine.rules.get(matched.rule_index))
-                    .map(|rule| rule.is_keep_override_source)
-                    .unwrap_or(false);
-                if needs_baseline {
-                    // Second call overwrites scratch; recipe data already extracted above.
-                    let (_, baseline_non_excluded) = evaluate_item(
-                        &engine.rules,
-                        &engine.recipe_modes,
-                        &entry.item,
-                        baseline,
-                        &mut scratch,
-                    );
-                    if baseline_non_excluded.is_some() {
-                        resolved_first_non_excluded = baseline_non_excluded;
-                    }
-                }
-            }
-
-            results.push(EvaluateItemResult {
-                item_id: entry.item_id,
-                first_match,
-                first_non_excluded_match: resolved_first_non_excluded,
-                matching_recipe_indices,
-                matching_recipe_decisions,
-            });
-        }
-
-        Ok(results)
-    })
-}
-
-// Configure rules + recipe modes once per pipeline run.
-// The worker calls this before evaluating one or more item batches.
-
-// Fast configure variant accepts JS objects directly (no JSON stringify).
-#[wasm_bindgen]
-pub fn configure_value(rules: JsValue, recipe_modes: JsValue) -> Result<(), JsValue> {
-    let raw_rules: Vec<RuleRaw> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid rules value: {error}")))?;
-    let recipe_modes: Vec<String> = from_js_value(recipe_modes)
-        .map_err(|error| JsValue::from_str(&format!("Invalid recipeModes value: {error}")))?;
-    configure_engine(raw_rules, recipe_modes);
-    Ok(())
-}
-
-// Evaluate a batch of Gear Inspector items against the configured rules.
-// Returns a JSON payload matching the existing worker result shape.
-
-// Fast evaluate variant accepts JS objects directly and returns a JS value.
-#[wasm_bindgen]
-pub fn evaluate_value(items: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
-    let parsed_items: Vec<EvaluateItemRaw> = from_js_value(items)
-        .map_err(|error| JsValue::from_str(&format!("Invalid items value: {error}")))?;
-    let parsed_options: EvaluateOptionsRaw = if options.is_undefined() || options.is_null() {
-        EvaluateOptionsRaw::default()
-    } else {
-        from_js_value(options)
-            .map_err(|error| JsValue::from_str(&format!("Invalid options value: {error}")))?
-    };
-    let results = evaluate_engine(parsed_items, parsed_options)?;
-    to_js_value(&results)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize evaluate value: {error}")))
 }

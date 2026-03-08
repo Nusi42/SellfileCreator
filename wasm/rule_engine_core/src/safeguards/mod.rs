@@ -1,10 +1,12 @@
 use super::*;
+use crate::matcher_evaluator::{collect_safeguard_candidates_core, prepare_rule};
+use crate::SafeguardCollectedAndProtectedSnapshotOut;
 
 // Fast-path input types and conversion functions live in a dedicated submodule
 // to keep this file focused on rule resolution and scoring logic.
-mod fast_path_types;
+pub mod fast_path_types;
 // Re-export pub(crate) structs that lib.rs imports via `use safeguards::*`.
-pub(crate) use fast_path_types::SafeguardWasmArtifactIn;
+pub use fast_path_types::SafeguardWasmArtifactIn;
 // Pull in internal types and conversion helpers used by the functions below.
 use fast_path_types::{
     SafeguardWasmCandidateFastIn,
@@ -59,7 +61,7 @@ fn safeguard_candidate_from_fast_payload(
 
 // Accessory slots keep faction while armor slots collapse to zero by design.
 // This helper keeps all faction-normalization branches single-sourced.
-pub(crate) fn safeguard_normalized_faction_for_slot(slot: i64, faction: i64) -> i64 {
+pub fn safeguard_normalized_faction_for_slot(slot: i64, faction: i64) -> i64 {
     if safeguard_is_accessory_slot(slot) {
         faction
     } else {
@@ -69,7 +71,7 @@ pub(crate) fn safeguard_normalized_faction_for_slot(slot: i64, faction: i64) -> 
 
 // Group-key dimensions always normalize faction the same way before encoding.
 // Export this so matcher and parser call sites reuse one formatting helper.
-pub(crate) fn safeguard_group_key_from_parts(
+pub fn safeguard_group_key_from_parts(
     slot: i64,
     set: i64,
     main_stat: i64,
@@ -92,67 +94,61 @@ fn safeguard_group_key_from_artifact(artifact: &SafeguardWasmArtifactIn) -> Stri
 
 // Shared row decoder centralizes collect-row normalization for both bindings.
 // Every index is validated so callers get actionable error messages on failure.
-pub(crate) fn safeguard_parse_collect_rows_payload(
-    rows: JsValue,
-) -> Result<Vec<SafeguardCollectRowIn>, JsValue> {
-    // Canonical payloads decode directly without `serde_json::Value` fallback parsing.
-    let fast_rows: Vec<SafeguardCollectRowFastIn> = from_js_value(rows)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect rows payload: {error}")))?;
+// Core version accepts pre-parsed fast rows (JsValue parsing done in wasm crate).
+pub fn safeguard_parse_collect_rows_payload(
+    fast_rows: Vec<SafeguardCollectRowFastIn>,
+) -> Result<Vec<SafeguardCollectRowIn>, String> {
     let mut parsed_rows = Vec::<SafeguardCollectRowIn>::with_capacity(fast_rows.len());
     for (idx, row) in fast_rows.into_iter().enumerate() {
-        let parsed = safeguard_collect_row_from_fast_payload(row).map_err(|error| {
-            JsValue::from_str(&format!("Invalid safeguard collect row at index {idx}: {error}"))
-        })?;
+        let parsed = safeguard_collect_row_from_fast_payload(row)
+            .map_err(|error| format!("Invalid safeguard collect row at index {idx}: {error}"))?;
         parsed_rows.push(parsed);
     }
     Ok(parsed_rows)
 }
 
 // Shared candidate decoder centralizes raw/compact safeguard candidate parsing.
-// Candidate index is included so malformed rows are easy to locate in fixtures.
+// Core version accepts pre-parsed fast candidates (no JsValue).
 fn safeguard_parse_candidates_payload(
-    candidates: JsValue,
-) -> Result<Vec<SafeguardWasmCandidateIn>, JsValue> {
-    // Canonical payloads decode directly into typed structs.
-    let fast_candidates: Vec<SafeguardWasmCandidateFastIn> = from_js_value(candidates)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard candidates: {error}")))?;
-    Ok(fast_candidates
+    fast_candidates: Vec<SafeguardWasmCandidateFastIn>,
+) -> Vec<SafeguardWasmCandidateIn> {
+    fast_candidates
         .into_iter()
         .map(safeguard_candidate_from_fast_payload)
-        .collect::<Vec<_>>())
+        .collect::<Vec<_>>()
 }
 
 // Safeguard rule decoder expects canonical typed rows from app-side normalization.
-fn safeguard_parse_rules_payload(rules: JsValue) -> Result<Vec<SafeguardWasmRuleIn>, JsValue> {
-    from_js_value::<Vec<SafeguardWasmRuleIn>>(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard rules payload: {error}")))
+// Core version accepts already-parsed rules (no JsValue).
+fn safeguard_parse_rules_payload(rules: Vec<SafeguardWasmRuleIn>) -> Vec<SafeguardWasmRuleIn> {
+    rules
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct SafeguardWasmSetSelection {
-    pub(crate) id: i64,
+pub struct SafeguardWasmSetSelection {
+    pub id: i64,
     #[serde(default)]
-    pub(crate) excluded: bool,
+    pub excluded: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct SafeguardWasmCombination {
+pub struct SafeguardWasmCombination {
     #[serde(default)]
-    pub(crate) slots: Vec<i64>,
+    pub slots: Vec<i64>,
     #[serde(default)]
-    pub(crate) sets: Vec<SafeguardWasmSetSelection>,
+    pub sets: Vec<SafeguardWasmSetSelection>,
     #[serde(default)]
-    pub(crate) meta_set_ids: Vec<String>,
+    pub meta_set_ids: Vec<String>,
     #[serde(default)]
-    pub(crate) ranks: Vec<i64>,
+    pub ranks: Vec<i64>,
     #[serde(default)]
-    pub(crate) rarities: Vec<i64>,
+    pub rarities: Vec<i64>,
     #[serde(default)]
-    pub(crate) main_stats: Vec<i64>,
+    pub main_stats: Vec<i64>,
     #[serde(default)]
-    pub(crate) factions: Vec<i64>,
+    pub factions: Vec<i64>,
 }
 
 // Decode optional numeric-keyed weight maps once at deserialize time.
@@ -174,75 +170,75 @@ where
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy, Default)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct SafeguardWasmCountMode {
+pub struct SafeguardWasmCountMode {
     #[serde(default)]
-    pub(crate) per_rule: bool,
+    pub per_rule: bool,
     #[serde(default)]
-    pub(crate) per_set: bool,
+    pub per_set: bool,
     #[serde(default)]
-    pub(crate) per_faction: bool,
+    pub per_faction: bool,
     #[serde(default)]
-    pub(crate) per_main_stat: bool,
+    pub per_main_stat: bool,
     #[serde(default)]
-    pub(crate) per_slot: bool,
+    pub per_slot: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct SafeguardWasmRuleIn {
+pub struct SafeguardWasmRuleIn {
     #[serde(default)]
-    pub(crate) id: Option<String>,
+    pub id: Option<String>,
     #[serde(default)]
-    pub(crate) name: Option<String>,
+    pub name: Option<String>,
     #[serde(default)]
-    pub(crate) combination: Option<SafeguardWasmCombination>,
+    pub combination: Option<SafeguardWasmCombination>,
     #[serde(default)]
-    pub(crate) required_count: Option<i64>,
+    pub required_count: Option<i64>,
     #[serde(default)]
-    pub(crate) activation: Option<String>,
+    pub activation: Option<String>,
     #[serde(default)]
-    pub(crate) count_mode: Option<SafeguardWasmCountMode>,
+    pub count_mode: Option<SafeguardWasmCountMode>,
     #[serde(default)]
-    pub(crate) ignore_previous_safeguards: Option<bool>,
+    pub ignore_previous_safeguards: Option<bool>,
     #[serde(default)]
-    pub(crate) ignore_equipped_in_collection: Option<bool>,
+    pub ignore_equipped_in_collection: Option<bool>,
     #[serde(default)]
-    pub(crate) ignore_equipped_in_vault: Option<bool>,
+    pub ignore_equipped_in_vault: Option<bool>,
     #[serde(default)]
-    pub(crate) substats: Option<Vec<i64>>,
+    pub substats: Option<Vec<i64>>,
     #[serde(default)]
-    pub(crate) substat_match: Option<String>,
+    pub substat_match: Option<String>,
     #[serde(default, deserialize_with = "safeguard_deserialize_optional_i64_weight_map")]
-    pub(crate) substat_weights: Option<HashMap<i64, f64>>,
+    pub substat_weights: Option<HashMap<i64, f64>>,
     // Pre-computed quality floor passed from TypeScript; None = disabled.
     // Candidates scoring below this threshold are rejected (collection-equipped exempt).
     #[serde(default)]
-    pub(crate) equipped_floor_score: Option<f64>,
+    pub equipped_floor_score: Option<f64>,
     // Raw percentile from the TS SafeguardRule; passed through the metaset resolver
     // unchanged so TS can compute equippedFloorScore after resolution.
     #[serde(default)]
-    pub(crate) beat_equipped_percentile: Option<f64>,
+    pub beat_equipped_percentile: Option<f64>,
 }
 
 // Resolved safeguard rule payload returned after metaset expansion in lib.rs.
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct SafeguardWasmResolvedRuleOut {
-    pub(crate) id: String,
-    pub(crate) name: String,
-    pub(crate) combination: SafeguardWasmCombination,
-    pub(crate) required_count: i64,
-    pub(crate) activation: String,
-    pub(crate) count_mode: SafeguardWasmCountMode,
-    pub(crate) ignore_previous_safeguards: bool,
-    pub(crate) ignore_equipped_in_collection: bool,
-    pub(crate) ignore_equipped_in_vault: bool,
-    pub(crate) substats: Vec<i64>,
-    pub(crate) substat_match: String,
-    pub(crate) substat_weights: HashMap<String, f64>,
+pub struct SafeguardWasmResolvedRuleOut {
+    pub id: String,
+    pub name: String,
+    pub combination: SafeguardWasmCombination,
+    pub required_count: i64,
+    pub activation: String,
+    pub count_mode: SafeguardWasmCountMode,
+    pub ignore_previous_safeguards: bool,
+    pub ignore_equipped_in_collection: bool,
+    pub ignore_equipped_in_vault: bool,
+    pub substats: Vec<i64>,
+    pub substat_match: String,
+    pub substat_weights: HashMap<String, f64>,
     // Quality floor passed through unchanged so the TS pipeline can pre-compute
     // equippedFloorScore after metaset resolution. None = disabled.
-    pub(crate) beat_equipped_percentile: Option<f64>,
+    pub beat_equipped_percentile: Option<f64>,
 }
 
 // Canonical metaset-id list is sorted and deduped for deterministic hashes.
@@ -304,7 +300,7 @@ struct SafeguardWasmExpectedGroupIn {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct SafeguardWasmExpectedGroupDomainIn {
+pub struct SafeguardWasmExpectedGroupDomainIn {
     slot_order: Vec<i64>,
     accessory_compatible_set_ids: Vec<i64>,
     armor_compatible_set_ids: Vec<i64>,
@@ -314,7 +310,7 @@ struct SafeguardWasmExpectedGroupDomainIn {
 
 #[derive(Debug, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
-struct SafeguardWasmExpectedGroupsPayloadIn {
+pub struct SafeguardWasmExpectedGroupsPayloadIn {
     #[serde(default)]
     expected_groups_by_rule_id: HashMap<String, Vec<SafeguardWasmExpectedGroupIn>>,
     expected_group_domain: Option<SafeguardWasmExpectedGroupDomainIn>,
@@ -322,11 +318,7 @@ struct SafeguardWasmExpectedGroupsPayloadIn {
 
 // Normalize safeguard expected-group domain arrays/maps in Rust so sorting,
 // de-duplication, and slot ordering remain single-sourced with matcher logic.
-#[wasm_bindgen]
-pub fn normalize_safeguard_expected_group_domain_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let parsed: SafeguardWasmExpectedGroupDomainIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard expected-group domain payload: {error}")))?;
-
+pub fn normalize_safeguard_expected_group_domain_core(parsed: SafeguardWasmExpectedGroupDomainIn) -> SafeguardWasmExpectedGroupDomainIn {
     // Slot order uses domain helper so fallback ordering stays consistent.
     let slot_order = safeguard_domain_slot_order(&parsed);
     // Set/faction arrays collapse to sorted unique integer domains.
@@ -350,20 +342,17 @@ pub fn normalize_safeguard_expected_group_domain_value(payload: JsValue) -> Resu
         all_faction_ids,
     };
 
-    // Use serialize_maps_as_objects so allowed_main_by_slot (HashMap<String, Vec<i64>>)
-    // serializes as a plain JS object rather than a JS Map instance.
+    // Return the normalized domain payload for use in Rust pipelines.
     normalized
-        .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard expected-group domain: {error}")))
 }
 
 // Metaset payload for in-wasm safeguard set expansion.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct SafeguardWasmMetasetIn {
-    pub(crate) id: String,
+pub struct SafeguardWasmMetasetIn {
+    pub id: String,
     #[serde(default)]
-    pub(crate) sets: Vec<i64>,
+    pub sets: Vec<i64>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -421,7 +410,7 @@ struct SafeguardWasmEntryOut {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct SafeguardWasmSnapshotOut {
+pub struct SafeguardWasmSnapshotOut {
     scanned_at: f64,
     entries: Vec<SafeguardWasmEntryOut>,
 }
@@ -496,7 +485,7 @@ struct SafeguardWasmEntryEvalOut {
 
 #[derive(Debug, Deserialize, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
-struct SafeguardWasmCountKeyArtifactIn {
+pub struct SafeguardWasmCountKeyArtifactIn {
     slot: i64,
     set: i64,
     faction: i64,
@@ -521,7 +510,7 @@ struct SafeguardWasmItemKeyTesterItemIn {
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct SafeguardWasmItemKeyArtifactIn {
+pub struct SafeguardWasmItemKeyArtifactIn {
     #[serde(default)]
     id: Option<i64>,
     #[serde(default)]
@@ -530,7 +519,7 @@ struct SafeguardWasmItemKeyArtifactIn {
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct SafeguardWasmGroupKeyArtifactIn {
+pub struct SafeguardWasmGroupKeyArtifactIn {
     slot: i64,
     set: i64,
     #[serde(default)]
@@ -590,14 +579,14 @@ fn safeguard_default_count_mode() -> SafeguardWasmCountMode {
 }
 
 // Resolve optional count-mode payloads into the canonical sanitized shape.
-pub(crate) fn safeguard_resolve_count_mode(
+pub fn safeguard_resolve_count_mode(
     mode: Option<SafeguardWasmCountMode>,
 ) -> SafeguardWasmCountMode {
     let seeded = mode.unwrap_or_else(safeguard_default_count_mode);
     safeguard_sanitize_count_mode(seeded)
 }
 
-pub(crate) fn safeguard_normalize_substat_match(raw: &str) -> String {
+pub fn safeguard_normalize_substat_match(raw: &str) -> String {
     // Normalize whitespace/casing so persisted files and UI payloads match.
     let trimmed = raw.trim();
     // Unknown tokens collapse to `any` to stay backward compatible.
@@ -667,7 +656,7 @@ fn safeguard_percent_to_flat_main(variant: i64) -> Option<i64> {
     }
 }
 
-pub(crate) fn safeguard_normalize_set_selections(
+pub fn safeguard_normalize_set_selections(
     values: &[SafeguardWasmSetSelection],
 ) -> Vec<SafeguardWasmSetSelection> {
     // Use map-by-id so duplicates collapse deterministically.
@@ -1148,7 +1137,7 @@ fn safeguard_canonicalize_string_list(values: &[String]) -> String {
     cleaned.join(",")
 }
 
-pub(crate) fn safeguard_hash_combination(combination: &SafeguardWasmCombination) -> String {
+pub fn safeguard_hash_combination(combination: &SafeguardWasmCombination) -> String {
     // Hash token order mirrors TS combination fingerprint construction.
     [
         safeguard_canonicalize_number_list(&combination.slots),
@@ -1163,28 +1152,17 @@ pub(crate) fn safeguard_hash_combination(combination: &SafeguardWasmCombination)
 }
 
 // Expose combination hashing so TS reuses Rust canonical token construction.
-#[wasm_bindgen]
-pub fn hash_safeguard_combination_value(combination: JsValue) -> Result<String, JsValue> {
-    let parsed: SafeguardWasmCombination = from_js_value(combination)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard combination hash payload: {error}")))?;
-    Ok(safeguard_hash_combination(&parsed))
+pub fn hash_safeguard_combination_core(combination: &SafeguardWasmCombination) -> String {
+    safeguard_hash_combination(combination)
 }
 
 // Expose substat sorting so TS can reuse Rust priority + dedupe semantics.
-#[wasm_bindgen]
-pub fn sort_safeguard_substats_value(values: JsValue) -> Result<JsValue, JsValue> {
-    let parsed: Vec<i64> = from_js_value(values)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard substats payload: {error}")))?;
-    let sorted = safeguard_sort_unique_substats(parsed);
-    to_js_value(&sorted)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard sorted substats: {error}")))
+pub fn sort_safeguard_substats_core(values: Vec<i64>) -> Vec<i64> {
+    safeguard_sort_unique_substats(values)
 }
 
 // Expose full-combination sorting so TS can reuse Rust canonical ordering.
-#[wasm_bindgen]
-pub fn sort_safeguard_combination_value(combination: JsValue) -> Result<JsValue, JsValue> {
-    let parsed: SafeguardWasmCombination = from_js_value(combination)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard combination payload: {error}")))?;
+pub fn sort_safeguard_combination_core(combination: SafeguardWasmCombination) -> SafeguardWasmCombination {
     let SafeguardWasmCombination {
         slots,
         sets,
@@ -1193,8 +1171,8 @@ pub fn sort_safeguard_combination_value(combination: JsValue) -> Result<JsValue,
         rarities,
         main_stats,
         factions,
-    } = parsed;
-    let sorted = SafeguardWasmCombination {
+    } = combination;
+    SafeguardWasmCombination {
         slots: safeguard_sort_unique_slots(&slots),
         sets: safeguard_normalize_set_selections(&sets),
         meta_set_ids: safeguard_sort_unique_meta_set_ids(meta_set_ids),
@@ -1202,9 +1180,7 @@ pub fn sort_safeguard_combination_value(combination: JsValue) -> Result<JsValue,
         rarities: safeguard_sorted_unique_i64(&rarities),
         main_stats: safeguard_sort_unique_main_stats(&main_stats),
         factions: safeguard_sorted_unique_i64(&factions),
-    };
-    to_js_value(&sorted)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard sorted combination: {error}")))
+    }
 }
 
 // Keep rank/rarity clamp behavior aligned with merge.ts helper logic.
@@ -1275,7 +1251,7 @@ fn safeguard_variant_to_main(variant: i64) -> (i64, i64) {
 }
 
 // Convert StatVariant to HSF sub tuple (id + isFlat) matching hsfTypes.ts.
-pub(crate) fn safeguard_variant_to_sub(variant: i64) -> (i64, bool) {
+pub fn safeguard_variant_to_sub(variant: i64) -> (i64, bool) {
     match variant {
         STAT_VARIANT_HP_PERCENT => (STAT_ID_HP, false),
         STAT_VARIANT_HP_FLAT => (STAT_ID_HP, true),
@@ -1294,7 +1270,7 @@ pub(crate) fn safeguard_variant_to_sub(variant: i64) -> (i64, bool) {
 }
 
 // Keep four-substat padding aligned with merge.ts::cloneAnySubstats.
-pub(crate) fn safeguard_clone_any_substats() -> Vec<RuleSubRaw> {
+pub fn safeguard_clone_any_substats() -> Vec<RuleSubRaw> {
     vec![
         RuleSubRaw {
             ID: Some(STAT_ID_ANY),
@@ -1713,7 +1689,7 @@ fn safeguard_is_activation_anticipate(raw: &str) -> bool {
     trimmed.eq_ignore_ascii_case(SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS)
 }
 
-pub(crate) fn build_safeguard_rules_core(
+pub fn build_safeguard_rules_core(
     rules: &[SafeguardWasmRuleIn],
     detection: Option<&SafeguardWasmSnapshotOut>,
     recipe_id_base: i64,
@@ -1838,29 +1814,14 @@ pub(crate) fn build_safeguard_rules_core(
     safeguard_rules
 }
 
-// Safeguard HSF rule generation now lives in wasm (merge.ts SSOT path).
-#[wasm_bindgen]
-pub fn build_safeguard_rules_value(
-    rules: JsValue,
-    detection: JsValue,
+// Typed core entry for safeguard rule generation — no JsValue I/O.
+// The wasm crate provides the public #[wasm_bindgen] wrapper.
+pub fn build_safeguard_rules_core_typed(
+    rules: Vec<SafeguardWasmRuleIn>,
+    detection: Option<SafeguardWasmSnapshotOut>,
     recipe_id_base: i64,
-) -> Result<JsValue, JsValue> {
-    let parsed_rules: Vec<SafeguardWasmRuleIn> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard rules payload: {error}")))?;
-    let parsed_detection: Option<SafeguardWasmSnapshotOut> = if detection.is_undefined() || detection.is_null() {
-        None
-    } else {
-        Some(from_js_value(detection).map_err(|error| {
-            JsValue::from_str(&format!("Invalid safeguard detection payload: {error}"))
-        })?)
-    };
-    let safeguard_rules = build_safeguard_rules_core(
-        &parsed_rules,
-        parsed_detection.as_ref(),
-        recipe_id_base,
-    );
-    to_js_value(&safeguard_rules)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard rules value: {error}")))
+) -> Vec<RuleRaw> {
+    build_safeguard_rules_core(&rules, detection.as_ref(), recipe_id_base)
 }
 
 fn safeguard_group_sample_from_artifact(artifact: &SafeguardWasmArtifactIn) -> SafeguardWasmGroupSample {
@@ -2307,30 +2268,21 @@ fn safeguard_count_key_to_string(key: &SafeguardCountKey) -> String {
 
 // Expose safeguard count-key derivation so JS expected-group precomputation
 // uses the exact same grouping semantics as Rust detection scans.
-#[wasm_bindgen]
-pub fn safeguard_count_key_value(artifact: JsValue, count_mode: JsValue) -> Result<String, JsValue> {
-    // Parse compact artifact tuple (slot/set/faction/mainStat) from JS.
-    let parsed_artifact: SafeguardWasmCountKeyArtifactIn = from_js_value(artifact)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard count-key artifact: {error}")))?;
-    // Parse and sanitize count-mode flags before key computation.
-    let parsed_mode: SafeguardWasmCountMode = from_js_value(count_mode)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard count mode: {error}")))?;
+pub fn safeguard_count_key_core(parsed_artifact: SafeguardWasmCountKeyArtifactIn, parsed_mode: SafeguardWasmCountMode) -> String {
+    // Sanitize count-mode flags before key computation.
     let mode = safeguard_sanitize_count_mode(parsed_mode);
     // Delegate to the shared Rust helper so key semantics stay SSOT.
-    Ok(safeguard_count_key_to_string(&safeguard_count_key_from_parts(
+    safeguard_count_key_to_string(&safeguard_count_key_from_parts(
         parsed_artifact.slot,
         parsed_artifact.set,
         parsed_artifact.faction,
         parsed_artifact.main_stat,
         mode,
-    )))
+    ))
 }
 
 // Expose item-key resolution so TS and Rust share DB-id-first fallback logic.
-#[wasm_bindgen]
-pub fn safeguard_item_key_value(artifact: JsValue) -> Result<i64, JsValue> {
-    let parsed_artifact: SafeguardWasmItemKeyArtifactIn = from_js_value(artifact)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard item-key artifact payload: {error}")))?;
+pub fn safeguard_item_key_core(parsed_artifact: SafeguardWasmItemKeyArtifactIn) -> i64 {
     // Canonical precedence: artifact.id (db, positive only) -> gearInspectorItem.previewExtras.id -> gearInspectorItem.itemId.
     // Negative artifact ids are synthetic App.tsx placeholders for custom gear; skip them so the
     // key returned here stays consistent with resolve_collect_row_item_key and resolve_item_key.
@@ -2344,22 +2296,19 @@ pub fn safeguard_item_key_value(artifact: JsValue) -> Result<i64, JsValue> {
         .gear_inspector_item
         .as_ref()
         .and_then(|gear_inspector_item| gear_inspector_item.item_id);
-    Ok(artifact_id.or(gear_inspector_preview_id).or(gear_inspector_item_id).unwrap_or(0))
+    artifact_id.or(gear_inspector_preview_id).or(gear_inspector_item_id).unwrap_or(0)
 }
 
 // Expose group-key derivation so TS reuses Rust accessory-faction normalization.
-#[wasm_bindgen]
-pub fn safeguard_group_key_value(artifact: JsValue) -> Result<String, JsValue> {
-    let parsed_artifact: SafeguardWasmGroupKeyArtifactIn = from_js_value(artifact)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard group-key artifact payload: {error}")))?;
+pub fn safeguard_group_key_core(parsed_artifact: SafeguardWasmGroupKeyArtifactIn) -> String {
     let main_stat = safeguard_main_stat_from_fast_payload(parsed_artifact.main_stat);
     // Delegate to shared formatter so all group-key callers stay in lockstep.
-    Ok(safeguard_group_key_from_parts(
+    safeguard_group_key_from_parts(
         parsed_artifact.slot,
         parsed_artifact.set,
         main_stat,
         parsed_artifact.faction,
-    ))
+    )
 }
 
 fn safeguard_round_three(value: f64) -> f64 {
@@ -2977,16 +2926,12 @@ fn safeguard_merge_substat_entries(
 }
 
 // Expected-group payload uses the canonical wrapper shape from app-side callers.
+// Core version accepts typed input (JsValue parsing is done in the wasm crate).
 fn parse_safeguard_expected_groups_payload(
-    expected_groups_payload: JsValue,
-) -> Result<SafeguardWasmExpectedGroupsPayloadIn, JsValue> {
-    // Null/undefined means no explicit expected-group metadata was supplied.
-    if expected_groups_payload.is_undefined() || expected_groups_payload.is_null() {
-        return Ok(SafeguardWasmExpectedGroupsPayloadIn::default());
-    }
-    from_js_value::<SafeguardWasmExpectedGroupsPayloadIn>(expected_groups_payload).map_err(|error| {
-        JsValue::from_str(&format!("Invalid safeguard expected groups payload: {error}"))
-    })
+    expected_groups_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
+) -> SafeguardWasmExpectedGroupsPayloadIn {
+    // None means no explicit expected-group metadata was supplied.
+    expected_groups_payload.unwrap_or_default()
 }
 
 // Safeguard protection core evaluates prepared rules against candidate rows.
@@ -3153,60 +3098,44 @@ fn compute_safeguard_protection_core(
     SafeguardWasmSnapshotOut { scanned_at, entries }
 }
 
-#[wasm_bindgen]
-pub fn compute_safeguard_protection_value(
-    candidates: JsValue,
-    rules: JsValue,
-    expected_groups_by_rule_id: JsValue,
+pub fn compute_safeguard_protection_core_pub(
+    fast_candidates: Vec<SafeguardWasmCandidateFastIn>,
+    rules: Vec<SafeguardWasmRuleIn>,
+    expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
     enabled: bool,
     now: f64,
-) -> Result<JsValue, JsValue> {
-    // Parse canonical candidate payloads into normalized detection candidates.
-    let parsed_candidates = safeguard_parse_candidates_payload(candidates)?;
-    // Parse canonical safeguard rule rows prepared by app-side normalization.
-    let parsed_rules = safeguard_parse_rules_payload(rules)?;
-    // Parse canonical expected-group wrapper payload.
-    let expected_payload = parse_safeguard_expected_groups_payload(expected_groups_by_rule_id)?;
-    // Run the shared protection core and return the serialized snapshot.
-    let snapshot = compute_safeguard_protection_core(
+) -> SafeguardWasmSnapshotOut {
+    // Parse candidates from fast-path format.
+    let parsed_candidates = safeguard_parse_candidates_payload(fast_candidates);
+    // Parse rules (identity in core; parsing done in wasm crate).
+    let parsed_rules = safeguard_parse_rules_payload(rules);
+    // Resolve expected groups payload (None = empty default).
+    let resolved_payload = parse_safeguard_expected_groups_payload(expected_payload);
+    // Run the shared protection core.
+    compute_safeguard_protection_core(
         parsed_candidates,
         parsed_rules,
-        expected_payload,
+        resolved_payload,
         enabled,
         now,
-    );
-    to_js_value(&snapshot)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard snapshot: {error}")))
+    )
 }
 
 // Combined safeguard export runs candidate collection + protection in one pass.
+// Core version accepts pre-parsed typed inputs (JsValue parsing done in wasm crate).
 #[allow(clippy::too_many_arguments)]
-#[wasm_bindgen]
-pub fn collect_and_compute_safeguard_protection_value(
-    rows: JsValue,
-    rules: JsValue,
-    recipe_modes: JsValue,
-    ignore_safeguard_recipe_indices: JsValue,
-    safeguard_rules: JsValue,
-    expected_groups_payload: JsValue,
+pub fn collect_and_compute_safeguard_protection_core(
+    rows: Vec<SafeguardCollectRowIn>,
+    rules: Vec<RuleRaw>,
+    recipe_modes: Vec<String>,
+    ignore_safeguard_recipe_indices: Option<Vec<i64>>,
+    parsed_rules: Vec<SafeguardWasmRuleIn>,
+    expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
     enabled: bool,
     now: f64,
-) -> Result<JsValue, JsValue> {
-    // Parse canonical collect rows into the normalized collect row shape.
-    let rows = safeguard_parse_collect_rows_payload(rows)?;
-    // Parse base rules used by keep/sell candidate resolution.
-    let rules: Vec<RuleRaw> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect rules payload: {error}")))?;
-    // Parse visibility modes used by evaluate-item rule filtering.
-    let recipe_modes: Vec<String> = from_js_value(recipe_modes)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect recipe-modes payload: {error}")))?;
-    // Parse optional ignored-recipe list for safeguard suppression modes.
-    let ignore_safeguard_recipe_indices: Option<Vec<i64>> = from_js_value(ignore_safeguard_recipe_indices)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect ignored-recipe payload: {error}")))?;
-    // Parse canonical safeguard rules used by protection scoring/counting logic.
-    let parsed_rules = safeguard_parse_rules_payload(safeguard_rules)?;
-    // Parse canonical expected-group wrapper payload.
-    let expected_payload = parse_safeguard_expected_groups_payload(expected_groups_payload)?;
+) -> Result<SafeguardCollectedAndProtectedSnapshotOut, String> {
+    // Resolve expected groups payload (None = empty default).
+    let expected_payload = parse_safeguard_expected_groups_payload(expected_payload);
 
     // Prepare base rules once; collect-core reuses these for every row.
     let prepared_rules = rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
@@ -3238,11 +3167,38 @@ pub fn collect_and_compute_safeguard_protection_value(
         now,
     );
     // Return both candidate and detection payloads for TS call sites.
-    let combined = SafeguardCollectedAndProtectedSnapshotOut {
+    Ok(SafeguardCollectedAndProtectedSnapshotOut {
         candidates: collected.candidates,
         unique_item_keys: collected.unique_item_keys,
         detection,
-    };
-    to_js_value(&combined)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard combined snapshot: {error}")))
+    })
+}
+
+// Protection scoring from pre-parsed typed candidates — used by the combined
+// evaluate+collect engine path where SafeguardCollectRowIn is already available.
+// Reconstructs SafeguardWasmCandidateIn entries from collected candidates + rows
+// so the private compute_safeguard_protection_core can run without raw-format
+// artifact conversion.
+pub fn compute_safeguard_protection_from_collected_core(
+    candidates: &[crate::SafeguardCollectedCandidateOut],
+    rows: &[crate::SafeguardCollectRowIn],
+    safeguard_rules: Vec<SafeguardWasmRuleIn>,
+    expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
+    enabled: bool,
+    now: f64,
+) -> SafeguardWasmSnapshotOut {
+    // Resolve expected groups payload (None = empty default).
+    let expected = parse_safeguard_expected_groups_payload(expected_payload);
+    // Rebuild inner candidate list from already-typed row artifacts.
+    // row_index is validated by collect_safeguard_candidates_core so this cannot OOB.
+    let protection_candidates = candidates
+        .iter()
+        .map(|candidate| SafeguardWasmCandidateIn {
+            item_key: candidate.item_key,
+            group_key: candidate.group_key.clone(),
+            is_sold: candidate.is_sold,
+            artifact: rows[candidate.row_index].artifact.clone(),
+        })
+        .collect::<Vec<_>>();
+    compute_safeguard_protection_core(protection_candidates, safeguard_rules, expected, enabled, now)
 }
