@@ -1724,28 +1724,27 @@ export default function SafeguardBuilderPanel({
         {/* Unified action row — Insert/Scaffold/Reset hidden in multi-edit mode;
             Apply label and handler adapt to single vs. multi-edit. Mirrors RecipeBuilderPanel. */}
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* Insert button — hidden while multi-edit is active */}
-          {!multiEditActive && (
-            <Box
-              component="span"
-              onContextMenu={handleInsertContextMenu}
-              onMouseEnter={handleInsertHintMouseEnter}
-              onMouseMove={handleInsertHintMouseMove}
-              onMouseLeave={handleInsertHintMouseLeave}
-              sx={{ display: 'inline-flex' }}
+          {/* Insert button — disabled in multi-edit mode, mirrors RecipeBuilderPanel. */}
+          <Box
+            component="span"
+            onContextMenu={handleInsertContextMenu}
+            onMouseEnter={handleInsertHintMouseEnter}
+            onMouseMove={handleInsertHintMouseMove}
+            onMouseLeave={handleInsertHintMouseLeave}
+            sx={{ display: 'inline-flex' }}
+          >
+            <Button
+              startIcon={<PlaylistAddIcon fontSize="small" />}
+              disabled={multiEditActive}
+              sx={{ whiteSpace: 'nowrap', gap: 0.75, '& .MuiButton-startIcon': { marginLeft: 0, marginRight: 0 } }}
+              onClick={() => {
+                onInsertSafeguard()
+                if (autoResetAfterInsert) onResetSafeguard()
+              }}
             >
-              <Button
-                startIcon={<PlaylistAddIcon fontSize="small" />}
-                sx={{ whiteSpace: 'nowrap', gap: 0.75, '& .MuiButton-startIcon': { marginLeft: 0, marginRight: 0 } }}
-                onClick={() => {
-                  onInsertSafeguard()
-                  if (autoResetAfterInsert) onResetSafeguard()
-                }}
-              >
-                {editingRuleIndex !== null ? t('safeguardsBuilderInsertAs', { n: editingRuleIndex + 2 }) : t('safeguardsAddRule')}
-              </Button>
-            </Box>
-          )}
+              {editingRuleIndex !== null ? t('safeguardsBuilderInsertAs', { n: editingRuleIndex + 2 }) : t('safeguardsAddRule')}
+            </Button>
+          </Box>
 
           {/* Apply / multi-edit apply — label and handler adapt to mode */}
           <Box
