@@ -1,0 +1,6 @@
+# Limit parallel cargo jobs to avoid intermittent compiler crashes on Windows
+# with high core counts.  The wasm workspace has ~10 crates so j=1 barely
+# affects wall-clock time while eliminating the flaky ICE / heap-corruption
+# failures observed at higher parallelism with rustc 1.94 + MSVC.
+[build]
+jobs = 1

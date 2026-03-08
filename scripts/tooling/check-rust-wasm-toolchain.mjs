@@ -7,17 +7,18 @@ import process from 'node:process'
 // Keep required versions/targets in one place so check + bootstrap behavior
 // stays synchronized across every call site.
 const REQUIRED_WASM_TARGET = 'wasm32-unknown-unknown'
-const REQUIRED_WASM_BINDGEN_VERSION = '0.2.108'
 const AUTO_FIX = process.argv.includes('--fix')
 
 // Prefix every line so install logs remain searchable in long npm output.
 const LOG_PREFIX = '[wasm:toolchain-check]'
 
 // Spawn commands without a shell so command resolution mirrors real script use.
-const run = (command, args) =>
+// Accepts optional extra spawnSync options (e.g. env overrides) as a third arg.
+const run = (command, args, opts = {}) =>
   spawnSync(command, args, {
     encoding: 'utf8',
     shell: false,
+    ...opts,
   })
 
 // Build per-command fallback candidates so we can probe environments where PATH
@@ -116,22 +117,40 @@ const resolveCommandPath = (command) => {
   return probe.ok ? probe.winner : null
 }
 
+// Try cargo-binstall first since it downloads a prebuilt binary and avoids
+// compiling wasm-bindgen-cli's heavy dep tree (ring, rustls, ureq) entirely.
+// Returns true if binstall succeeded, false if unavailable or failed.
+const tryBinstallWasmBindgen = () => {
+  // Probe with --help because cargo-binstall interprets --version as a package
+  // version specifier, not a self-version flag, so --version exits non-zero.
+  const probe = runCommandCandidates('cargo-binstall', ['--help'])
+  if (!probe.ok) return false
+  log('auto-fix: installing wasm-bindgen-cli via cargo-binstall (prebuilt)')
+  // Install latest; wasm-bindgen enforces CLI/crate version parity at build
+  // time, so a mismatch produces a clear error without needing a pin here.
+  // --no-confirm skips the interactive prompt.
+  const result = run(probe.winner, ['wasm-bindgen-cli', '--no-confirm'])
+  if (result.stdout?.trim()) console.log(result.stdout.trim())
+  if (result.stderr?.trim()) console.error(result.stderr.trim())
+  return result.status === 0
+}
+
 // Install wasm-bindgen via cargo when requested and when cargo is available.
+// Prefers cargo-binstall (prebuilt binary) to avoid compilation issues with
+// wasm-bindgen-cli's dependency on ring/rustls, which crash the rustc process
+// on some Windows/CPU combinations (heap corruption, illegal instruction).
 const installWasmBindgen = () => {
+  // Prebuilt path: skip the problematic compilation entirely.
+  if (tryBinstallWasmBindgen()) return true
   // Resolve cargo path using the same candidate strategy as the checks.
   const cargoBin = resolveCommandPath('cargo')
   // Without cargo we cannot self-heal; caller handles final failure summary.
   if (!cargoBin) return false
-  // Emit a clear action line so install logs show we entered auto-fix.
-  log(`auto-fix: installing wasm-bindgen-cli ${REQUIRED_WASM_BINDGEN_VERSION}`)
-  // Use --locked for reproducible dependency resolution on user machines.
-  const result = run(cargoBin, [
-    'install',
-    '--locked',
-    'wasm-bindgen-cli',
-    '--version',
-    REQUIRED_WASM_BINDGEN_VERSION,
-  ])
+  log('auto-fix: installing wasm-bindgen-cli via cargo install (compiling from source)')
+  // Install the latest release; wasm-bindgen enforces CLI/crate version parity
+  // at build time, and avoiding --locked lets cargo pick deps that compile on
+  // the current toolchain.
+  const result = run(cargoBin, ['install', 'wasm-bindgen-cli'])
   // Stream rust error text so failures include real cargo context.
   if (result.stdout?.trim()) console.log(result.stdout.trim())
   if (result.stderr?.trim()) console.error(result.stderr.trim())
