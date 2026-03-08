@@ -43,6 +43,7 @@ import {
   collectSafeguardCandidatesWithLoadedWasm,
   computeSafeguardProtectionWithLoadedWasm,
   evaluateAndCollectSafeguardProtectionWithLoadedWasm,
+  storeArtifactRowsWithLoadedWasm,
   getSafeguardGroupKeyWithLoadedWasm,
   getSafeguardItemKeyWithLoadedWasm,
   getSafeguardCountKeyWithLoadedWasm,
@@ -1103,29 +1104,34 @@ export function collectAndComputeSafeguardProtection(
   }
 }
 
+// Store pre-parsed artifact rows in WASM engine state for the combined evaluate+collect path.
+// Must be called after configureWasmRuleEngine and before evaluateAndCollectSafeguardProtection.
+// Re-call whenever the artifact DB changes. Rows must include artifact.gearInspectorItem.
+export function storeArtifactRows(rows: readonly GearInspectorPreviewRow[]): void {
+  storeArtifactRowsWithLoadedWasm({ rows })
+}
+
 // Combined evaluate + safeguard-detect helper — replaces the detection phase's
 // buildPipelineMatches + collectAndComputeSafeguardProtection two-step sequence.
-// Caller must configure the WASM engine via configureWasmRuleEngine first.
-// The engine evaluates items internally so no pre-built baseMatch is required;
-// the rows need only artifact (including gearInspectorItem) to be present.
+// Caller must configure the WASM engine via configureWasmRuleEngine and store artifact
+// rows via storeArtifactRows before calling this function.
+// artifacts is used only for equippedFloorScore computation (never sent to WASM).
 export function evaluateAndCollectSafeguardProtection(params: {
-  rows: readonly GearInspectorPreviewRow[]
+  artifacts: readonly NormalizedGearArtifact[]
   options?: WasmRuleEngineEvaluateOptions
   rules: readonly SafeguardRule[]
   ignoreSafeguardRecipeIndices?: ReadonlySet<number>
   enabled: boolean
   now?: number
 }): { evaluateResults: WasmEvaluateAndCollectSnapshot['evaluateResults']; detection: SafeguardDetectionSnapshot } {
-  const { rows, options, rules, enabled } = params
+  const { artifacts, options, rules, enabled } = params
   const timestamp = Number.isFinite(params.now) ? Number(params.now) : Date.now()
-  if (!rows.length) {
+  if (!artifacts.length) {
     return {
       evaluateResults: [],
       detection: { scannedAt: timestamp, entries: [] },
     }
   }
-  // Derive artifact list for quality-floor computation (same as collectAndComputeSafeguardProtection).
-  const artifacts = rows.map((r) => r.artifact)
   // Augment safeguard rules with pre-computed equippedFloorScore where beatEquippedPercentile is set.
   const rulesForWasm: SafeguardRuleForWasm[] = rules.map((rule) => {
     const percentile = rule.beatEquippedPercentile
@@ -1135,8 +1141,8 @@ export function evaluateAndCollectSafeguardProtection(params: {
     const equippedFloorScore = computeEquippedCollectionFloorScore(artifacts, rule.combination, substats, weights, percentile)
     return { ...rule, equippedFloorScore }
   })
+  // Rows are read from WASM engine state (stored via storeArtifactRows); no row param needed.
   const result = evaluateAndCollectSafeguardProtectionWithLoadedWasm({
-    rows,
     ...(options !== undefined ? { options } : {}),
     ...(params.ignoreSafeguardRecipeIndices !== undefined ? { ignoreSafeguardRecipeIndices: params.ignoreSafeguardRecipeIndices } : {}),
     safeguardRules: rulesForWasm,

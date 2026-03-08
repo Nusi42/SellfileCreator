@@ -27,7 +27,7 @@ export function configure_value(rules: any, recipe_modes: any): void;
 
 export function dedupe_hsf_rules_for_export_value(rules: any): any;
 
-export function evaluate_and_collect_safeguard_protection_value(rows: any, options: any, ignore_safeguard_recipe_indices: any, safeguard_rules: any, expected_groups_payload: any, enabled: boolean, now: number): any;
+export function evaluate_and_collect_safeguard_protection_value(options: any, ignore_safeguard_recipe_indices: any, safeguard_rules: any, expected_groups_payload: any, enabled: boolean, now: number): any;
 
 export function evaluate_value(items: any, options: any): any;
 
@@ -65,6 +65,8 @@ export function sort_safeguard_combination_value(combination: any): any;
 
 export function sort_safeguard_substats_value(values: any): any;
 
+export function store_artifact_rows_value(rows: any): any;
+
 export function version(): string;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -84,7 +86,7 @@ export interface InitOutput {
     readonly compute_safeguard_protection_value: (a: any, b: any, c: any, d: number, e: number) => [number, number, number];
     readonly configure_value: (a: any, b: any) => [number, number];
     readonly dedupe_hsf_rules_for_export_value: (a: any) => [number, number, number];
-    readonly evaluate_and_collect_safeguard_protection_value: (a: any, b: any, c: any, d: any, e: any, f: number, g: number) => [number, number, number];
+    readonly evaluate_and_collect_safeguard_protection_value: (a: any, b: any, c: any, d: any, e: number, f: number) => [number, number, number];
     readonly evaluate_value: (a: any, b: any) => [number, number, number];
     readonly expand_auto_flex_rarity_branches_value: (a: any, b: number) => [number, number, number];
     readonly finalize_generated_rules_value: (a: any, b: number) => [number, number, number];
@@ -103,6 +105,7 @@ export interface InitOutput {
     readonly safeguard_item_key_value: (a: any) => [bigint, number, number];
     readonly sort_safeguard_combination_value: (a: any) => [number, number, number];
     readonly sort_safeguard_substats_value: (a: any) => [number, number, number];
+    readonly store_artifact_rows_value: (a: any) => [number, number, number];
     readonly version: () => [number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

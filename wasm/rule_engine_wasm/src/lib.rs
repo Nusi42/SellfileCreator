@@ -269,11 +269,13 @@ pub fn collect_safeguard_candidates_value(
     // Parse optional ignored recipe indices; null/undefined maps to empty list.
     let parsed_ignore: Option<Vec<i64>> = from_js_value(ignore_safeguard_recipe_indices)
         .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect ignored-recipe payload: {error}")))?;
-    // Prepare rules once so each row evaluation reuses precomputed masks.
+    // Prepare and bucket rules so candidate resolution uses slot-aware evaluation.
     let prepared_rules = parsed_rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
+    let bucketed_rules = BucketedRules::from_rules(prepared_rules);
     let snapshot = collect_safeguard_candidates_core(
         &parsed_rows,
-        &prepared_rules,
+        None, // no sidecar; row fields carry base_match_defined/base_match
+        &bucketed_rules,
         &parsed_recipe_modes,
         &parsed_ignore.unwrap_or_default(),
     ).map_err(|error| JsValue::from_str(&error))?;
@@ -592,17 +594,30 @@ pub fn configure_value(rules: JsValue, recipe_modes: JsValue) -> Result<(), JsVa
     Ok(())
 }
 
+// Store pre-parsed artifact rows in ENGINE_STATE so the combined evaluate+collect
+// entry point can read them without re-deserializing on every detection call.
+// Must be called after configure_value and before evaluate_and_collect_safeguard_protection_value.
+// Re-call whenever the artifact DB changes (not just when rules change).
+// Returns the number of rows stored as a JS number.
+#[wasm_bindgen]
+pub fn store_artifact_rows_value(rows: JsValue) -> Result<JsValue, JsValue> {
+    // Parse compact fast-path rows; same format as the former rows param.
+    let fast_rows: Vec<SafeguardCollectRowFastIn> = from_js_value(rows)
+        .map_err(|error| JsValue::from_str(&format!("Invalid artifact rows payload: {error}")))?;
+    let count = store_artifact_rows_engine(fast_rows)
+        .map_err(|error| JsValue::from_str(&error))?;
+    to_js_value(&count)
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize stored row count: {error}")))
+}
+
 // Combined evaluate + safeguard-collect entry point — replaces the two-step
 // evaluate_value + collect_and_compute_safeguard_protection_value call pattern.
-// The caller must configure the engine first via configure_value.
-// Accepts SafeguardCollectRowFastIn[] (artifact + gearInspectorItem per row),
-// evaluates each item using ENGINE_STATE rules, fills in base_match from the
-// result, collects safeguard candidates, and runs protection scoring — all in
-// one Rust call so the JS boundary is crossed only once for the detection phase.
-#[allow(clippy::too_many_arguments)]
+// Requires configure_value and store_artifact_rows_value to have been called first.
+// Evaluates each stored item against ENGINE_STATE rules, records base_match in a
+// per-call sidecar (stored rows remain immutable), collects safeguard candidates,
+// and runs protection scoring — all in one Rust call for a single JS boundary crossing.
 #[wasm_bindgen]
 pub fn evaluate_and_collect_safeguard_protection_value(
-    rows: JsValue,
     options: JsValue,
     ignore_safeguard_recipe_indices: JsValue,
     safeguard_rules: JsValue,
@@ -610,9 +625,6 @@ pub fn evaluate_and_collect_safeguard_protection_value(
     enabled: bool,
     now: f64,
 ) -> Result<JsValue, JsValue> {
-    // Parse compact collect rows that each carry artifact + gearInspectorItem.
-    let fast_rows: Vec<SafeguardCollectRowFastIn> = from_js_value(rows)
-        .map_err(|error| JsValue::from_str(&format!("Invalid evaluate-and-collect rows payload: {error}")))?;
     // Parse evaluate options (null/undefined = defaults).
     let parsed_options: EvaluateOptionsRaw = if options.is_undefined() || options.is_null() {
         EvaluateOptionsRaw::default()
@@ -635,7 +647,6 @@ pub fn evaluate_and_collect_safeguard_protection_value(
                 .map_err(|error| JsValue::from_str(&format!("Invalid evaluate-and-collect expected-groups payload: {error}")))?)
         };
     let snapshot = evaluate_engine_and_collect_safeguard_protection(
-        fast_rows,
         parsed_options,
         parsed_ignore,
         parsed_safeguard_rules,

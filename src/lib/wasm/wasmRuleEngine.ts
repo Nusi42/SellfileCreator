@@ -9,6 +9,7 @@ import initRuleEngineWasm, {
   collect_safeguard_candidates_value as collectSafeguardCandidatesWasmValueBinding,
   collect_and_compute_safeguard_protection_value as collectAndComputeSafeguardProtectionWasmValueBinding,
   evaluate_and_collect_safeguard_protection_value as evaluateAndCollectSafeguardProtectionWasmValueBinding,
+  store_artifact_rows_value as storeArtifactRowsWasmValueBinding,
   compute_merged_rules_value as computeMergedRulesWasmValueBinding,
   compute_safeguard_protection_value as computeSafeguardProtectionValueWasmBinding,
   dedupe_hsf_rules_for_export_value as dedupeHsfRulesForExportWasmValueBinding,
@@ -421,12 +422,23 @@ export type WasmEvaluateAndCollectSnapshot = {
   detection: SafeguardDetectionSnapshot
 }
 
+// Store pre-parsed artifact rows in WASM engine state so the combined evaluate+collect
+// entry point can read them without re-deserializing on every detection call.
+// Caller must have called configureWasmRuleEngine first; re-call when the artifact DB changes.
+// Returns the number of rows stored.
+export const storeArtifactRowsWithLoadedWasm = (params: {
+  rows: readonly GearInspectorPreviewRow[]
+}): number => {
+  assertWasmInitializedSync()
+  // Rows are passed in their preview-row format; WASM extracts artifact + gearInspectorItem.
+  return storeArtifactRowsWasmValueBinding(params.rows) as number
+}
+
 // Combined evaluate + safeguard-collect wrapper — replaces the two-step
 // evaluate_value + collect_and_compute_safeguard_protection_value call pattern.
-// Caller must configure the engine via configureWasmRuleEngine first.
-// rows must include artifact + gearInspectorItem per entry.
+// Caller must configure the engine via configureWasmRuleEngine and store artifact rows
+// via storeArtifactRowsWithLoadedWasm before calling this function.
 export const evaluateAndCollectSafeguardProtectionWithLoadedWasm = (params: {
-  rows: readonly GearInspectorPreviewRow[]
   options?: WasmRuleEngineEvaluateOptions
   ignoreSafeguardRecipeIndices?: ReadonlySet<number>
   safeguardRules: readonly SafeguardRuleForWasm[]
@@ -446,8 +458,8 @@ export const evaluateAndCollectSafeguardProtectionWithLoadedWasm = (params: {
   const expectedGroupsPayload = params.expectedGroupDomain !== undefined
     ? { expectedGroupDomain: params.expectedGroupDomain }
     : undefined
+  // Rows are read from ENGINE_STATE.stored_rows (populated by storeArtifactRowsWithLoadedWasm).
   const result = evaluateAndCollectSafeguardProtectionWasmValueBinding(
-    params.rows,
     Object.keys(evaluatePayload).length ? evaluatePayload : null,
     ignored,
     params.safeguardRules,
