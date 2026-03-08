@@ -1,9 +1,58 @@
 use super::*;
 
+// Rules bucketed by artifact slot for fast per-item evaluation.
+// At configure time, rules with empty artifact_types go into `shared` (every item sees them)
+// and rules with specific types go into per_slot buckets (only items with that slot see them).
+// A rule spanning multiple slot ids is cloned into each relevant bucket at configure time
+// so hot-path evaluation stays allocation-free.
+#[derive(Debug, Default)]
+pub struct BucketedRules {
+    // Applies to every item regardless of slot.
+    pub shared: Vec<PreparedRule>,
+    // Applies only to items whose slot id matches the map key.
+    pub per_slot: HashMap<i64, Vec<PreparedRule>>,
+}
+
+impl BucketedRules {
+    // Partition a flat rule list into shared vs per-slot buckets.
+    // original_index is stamped onto each rule here so EvalMatch.rule_index always
+    // refers to the flat-list position that TS callers use to look up rule metadata.
+    pub fn from_rules(rules: Vec<PreparedRule>) -> Self {
+        let mut bucketed = Self::default();
+        for (idx, mut rule) in rules.into_iter().enumerate() {
+            // Stamp the flat-list position before distributing into buckets.
+            rule.original_index = idx;
+            if rule.artifact_types.is_empty() {
+                // No slot constraint — every item evaluates this rule.
+                bucketed.shared.push(rule);
+            } else {
+                // Push into each declared slot bucket (clone for multi-slot rules).
+                let mut types_iter = rule.artifact_types.iter().copied();
+                // Move the rule into the first slot bucket; clone for any additional slots.
+                let first_slot = types_iter.next().expect("non-empty artifact_types");
+                for extra_slot in types_iter {
+                    bucketed.per_slot.entry(extra_slot).or_default().push(rule.clone());
+                }
+                bucketed.per_slot.entry(first_slot).or_default().push(rule);
+            }
+        }
+        bucketed
+    }
+
+    // Return the slice of slot-specific rules for an item's slot (empty if none).
+    pub fn slot_rules(&self, slot: i64) -> &[PreparedRule] {
+        self.per_slot.get(&slot).map_or(&[], Vec::as_slice)
+    }
+}
+
 // Keep only the data needed in hot matcher loops.
 // Masks and recipe indices are precomputed at configure time.
-#[derive(Debug)]
+// Clone is derived so BucketedRules can duplicate multi-slot rules into each relevant bucket.
+#[derive(Debug, Clone)]
 pub struct PreparedRule {
+    // Position of this rule in the original flat rule list passed to configure_engine.
+    // Preserved through bucketing so EvalMatch.rule_index stays consistent with TS rule arrays.
+    pub original_index: usize,
     pub use_flag: bool,
     pub keep_flag: bool,
     pub artifact_types: Vec<i64>,
@@ -23,7 +72,7 @@ pub struct PreparedRule {
 }
 
 // Prepared substats normalize condition/value flags for direct comparisons.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PreparedRuleSub {
     // Variant is precomputed during configure so matcher loops do zero coercion.
     pub variant: i64,
@@ -169,12 +218,17 @@ pub fn prepare_evaluate_options(raw: &EvaluateOptionsRaw) -> EvaluateOptionsPrep
 }
 
 // Serialized match result shape consumed by existing worker hooks.
-#[derive(Debug, Serialize, Clone)]
+// All fields are plain data; Copy avoids manual field-by-field reconstruction at use sites.
+#[derive(Debug, Serialize, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 pub struct EvalMatch {
     pub rule_index: usize,
     pub keep: bool,
     pub recipe_idx: Option<i64>,
+    // Runtime-only flag; not serialized to JS — used to decide if a baseline re-evaluation
+    // is needed without looking up the rule from the bucketed structure.
+    #[serde(skip)]
+    pub is_keep_override_source: bool,
 }
 
 // Serialized per-recipe keep/sell decision list.
@@ -292,6 +346,8 @@ pub fn prepare_rule(raw: RuleRaw) -> PreparedRule {
         .collect::<Vec<_>>();
 
     PreparedRule {
+        // original_index is 0 here; configure_engine sets the real value after bucketing.
+        original_index: 0,
         use_flag,
         keep_flag,
         artifact_types,
@@ -432,8 +488,13 @@ fn should_include_recipe(
 // Hot-path evaluator writes recipe matches into scratch to avoid per-item
 // HashSet and HashMap allocations. Returns only the two first-match results;
 // callers read recipe data from scratch.recipe_matches after the call.
+//
+// shared_rules: slot-agnostic rules (artifact_types empty) evaluated for every item.
+// slot_rules: rules pre-filtered to the item's slot at configure time (BucketedRules::slot_rules).
+// Callers derive slot_rules from BucketedRules::slot_rules(item.slot) — zero allocation.
 pub fn evaluate_item(
-    rules: &[PreparedRule],
+    shared_rules: &[PreparedRule],
+    slot_rules: &[PreparedRule],
     recipe_modes: &[String],
     item: &TestItemRaw,
     options: &EvaluateOptionsPrepared,
@@ -445,13 +506,17 @@ pub fn evaluate_item(
     let mut first_match: Option<EvalMatch> = None;
     let mut first_non_excluded_match: Option<EvalMatch> = None;
     let mut non_keep_override_keep_matched = false;
+    // First keep_override rule that passes the recipe gate and is not source-excluded.
+    // prekeep_override captures the first keep_override match before recipe gating,
+    // used as a fallback when no post-gate keep_override is available.
     let mut pending_keep_override: Option<EvalMatch> = None;
-    let mut fallback_keep_override: Option<EvalMatch> = None;
-    let mut any_keep_override_match: Option<EvalMatch> = None;
-
     let mut prekeep_override: Option<EvalMatch> = None;
 
-    for (rule_index, rule) in rules.iter().enumerate() {
+    // Chain shared (all-slot) rules first, then slot-specific rules — zero-copy iterator.
+    // Use rule.original_index (stamped at configure time) so EvalMatch.rule_index always
+    // matches the original flat-list position that TS callers use to look up rule metadata.
+    for rule in shared_rules.iter().chain(slot_rules.iter()) {
+        let rule_index = rule.original_index;
         if !match_rule(rule, item) {
             continue;
         }
@@ -463,6 +528,7 @@ pub fn evaluate_item(
                 rule_index,
                 keep: true,
                 recipe_idx: rule.recipe_idx,
+                is_keep_override_source: true,
             });
         }
 
@@ -482,25 +548,13 @@ pub fn evaluate_item(
         };
 
         if rule.is_keep_override_source {
+            // All three former variables (pending/fallback/any) set identically — collapsed to one.
             if pending_keep_override.is_none() && !is_excluded {
                 pending_keep_override = Some(EvalMatch {
                     rule_index,
                     keep,
                     recipe_idx: rule.recipe_idx,
-                });
-            }
-            if fallback_keep_override.is_none() && !is_excluded {
-                fallback_keep_override = Some(EvalMatch {
-                    rule_index,
-                    keep,
-                    recipe_idx: rule.recipe_idx,
-                });
-            }
-            if any_keep_override_match.is_none() && !is_excluded {
-                any_keep_override_match = Some(EvalMatch {
-                    rule_index,
-                    keep,
-                    recipe_idx: rule.recipe_idx,
+                    is_keep_override_source: true,
                 });
             }
         } else {
@@ -513,6 +567,7 @@ pub fn evaluate_item(
                     rule_index,
                     keep,
                     recipe_idx: rule.recipe_idx,
+                    is_keep_override_source: false,
                 });
             }
             if first_non_excluded_match.is_none() && !is_excluded {
@@ -520,6 +575,7 @@ pub fn evaluate_item(
                     rule_index,
                     keep,
                     recipe_idx: rule.recipe_idx,
+                    is_keep_override_source: false,
                 });
             }
         }
@@ -533,50 +589,45 @@ pub fn evaluate_item(
         }
     }
 
+    // EvalMatch is Copy; no need for as_ref() to avoid consuming the Option.
     let first_match_is_keep = first_match
-        .as_ref()
         .map(|entry| entry.keep && !options.safeguard_cfg_is_ignored(entry.recipe_idx))
         .unwrap_or(false);
 
     let allow_keep_override = !non_keep_override_keep_matched && !first_match_is_keep;
     if allow_keep_override {
-        let keep_candidate = pending_keep_override
-            .or(fallback_keep_override)
-            .or(any_keep_override_match)
-            .or(prekeep_override);
-
-        if let Some(candidate) = keep_candidate {
+        // pending_keep_override: first post-gate, non-excluded keep_override hit.
+        // prekeep_override: pre-gate fallback (matched before recipe visibility check).
+        if let Some(candidate) = pending_keep_override.or(prekeep_override) {
+            // EvalMatch is Copy; no field-by-field reconstruction needed.
             if first_non_excluded_match.is_none() {
-                first_non_excluded_match = Some(EvalMatch {
-                    rule_index: candidate.rule_index,
-                    keep: candidate.keep,
-                    recipe_idx: candidate.recipe_idx,
-                });
+                first_non_excluded_match = Some(candidate);
             }
             first_match = Some(candidate);
         }
     }
 
-    // Keep first-match ownership while mirroring fallback semantics for non-excluded.
-    let resolved_first_non_excluded = first_non_excluded_match.or_else(|| {
-        first_match.as_ref().map(|entry| EvalMatch {
-            rule_index: entry.rule_index,
-            keep: entry.keep,
-            recipe_idx: entry.recipe_idx,
-        })
-    });
+    // Mirror non-excluded fallback from first_match when no explicit non-excluded hit exists.
+    // EvalMatch is Copy so .or() copies the value without consuming first_match.
+    let resolved_first_non_excluded = first_non_excluded_match.or(first_match);
     (first_match, resolved_first_non_excluded)
 }
 
 // Resolve keep/sell outcomes for safeguard candidate rows.
 // Rows reuse cached base matches when possible and only re-evaluate as needed.
+//
+// base_matches: per-row sidecar supplied by the combined evaluate+collect entry point.
+// When Some, the sidecar takes precedence over row.base_match_defined/base_match so
+// stored rows can remain immutable across calls. When None, falls back to row fields.
 fn resolve_safeguard_candidate_keep_flags_core(
     rows: &[SafeguardCollectRowIn],
-    prepared_rules: &[PreparedRule],
+    base_matches: Option<&[Option<SafeguardCandidateResolveBaseMatchIn>]>,
+    bucketed_rules: &BucketedRules,
     recipe_modes: &[String],
     ignore_safeguard_recipe_indices: &[i64],
 ) -> Vec<bool> {
     let has_ignored_recipes = !ignore_safeguard_recipe_indices.is_empty();
+    let no_rules = bucketed_rules.shared.is_empty() && bucketed_rules.per_slot.is_empty();
     // eval_options reuses the same Vec slice (already a Vec<i64>) — no extra allocation.
     let eval_options =
         EvaluateOptionsPrepared::from_excluded_recipe_indices(ignore_safeguard_recipe_indices);
@@ -584,23 +635,35 @@ fn resolve_safeguard_candidate_keep_flags_core(
     // One shared scratch per evaluation pass avoids per-row allocations.
     let mut scratch = EvaluateItemScratch::new();
     let mut keep_flags = Vec::<bool>::with_capacity(rows.len());
-    for row in rows {
+    for (idx, row) in rows.iter().enumerate() {
+        // Resolve the base-match for this row: sidecar takes priority over row fields.
+        // Sidecar is Some when the combined entry point evaluated items in this call;
+        // row fields are used by standalone collect calls that patch rows directly.
+        let (base_match_defined, base_match_ref) = if let Some(sidecar) = base_matches {
+            // sidecar always has one entry per row (caller guarantees same length).
+            let entry = sidecar.get(idx);
+            let defined = entry.is_some();
+            (defined, entry.and_then(|o| o.as_ref()))
+        } else {
+            (row.base_match_defined, row.base_match.as_ref())
+        };
+
         // Reuse explicit base-match decisions unless the owning recipe is ignored.
-        if row.base_match_defined {
-            let base_recipe_idx = row.base_match.as_ref().and_then(|entry| entry.recipe_idx);
+        if base_match_defined {
+            let base_recipe_idx = base_match_ref.and_then(|entry| entry.recipe_idx);
             // Vec linear scan; ignore_safeguard_recipe_indices is small (<50 entries).
             let base_recipe_ignored = has_ignored_recipes
                 && base_recipe_idx
                     .map(|recipe_idx| ignore_safeguard_recipe_indices.contains(&recipe_idx))
                     .unwrap_or(false);
             if !base_recipe_ignored {
-                keep_flags.push(row.base_match.as_ref().map(|entry| entry.keep).unwrap_or(false));
+                keep_flags.push(base_match_ref.map(|entry| entry.keep).unwrap_or(false));
                 continue;
             }
         }
 
-        // No base rules means the row is sold by default.
-        if prepared_rules.is_empty() {
+        // No rules means the row is sold by default.
+        if no_rules {
             keep_flags.push(false);
             continue;
         }
@@ -611,8 +674,15 @@ fn resolve_safeguard_candidate_keep_flags_core(
         // first matching rule, masking a different outcome from the remaining rules.
         // We re-evaluate with eval_options excluding the ignored recipe so the result
         // reflects what the sell engine would decide without safeguard interference.
-        let (first_match, _) =
-            evaluate_item(prepared_rules, recipe_modes, &row.item, &eval_options, &mut scratch);
+        let slot_rules = bucketed_rules.slot_rules(row.item.slot);
+        let (first_match, _) = evaluate_item(
+            &bucketed_rules.shared,
+            slot_rules,
+            recipe_modes,
+            &row.item,
+            &eval_options,
+            &mut scratch,
+        );
         keep_flags.push(first_match.map(|entry| entry.keep).unwrap_or(false));
     }
     keep_flags
@@ -623,15 +693,21 @@ fn resolve_safeguard_candidate_keep_flags_core(
 
 // Safeguard candidate snapshot builder keeps key derivation + sold filtering
 // in Rust so TS only reattaches row references for existing call sites.
+// Collect safeguard candidates from rows, resolving keep/sell per item.
+// base_matches: optional per-row sidecar from the combined evaluate+collect entry point
+// that avoids mutating stored rows. Pass None for standalone collect calls where row
+// fields (base_match_defined/base_match) already carry the evaluation result.
 pub fn collect_safeguard_candidates_core(
     rows: &[SafeguardCollectRowIn],
-    prepared_rules: &[PreparedRule],
+    base_matches: Option<&[Option<SafeguardCandidateResolveBaseMatchIn>]>,
+    bucketed_rules: &BucketedRules,
     recipe_modes: &[String],
     ignore_safeguard_recipe_indices: &[i64],
 ) -> Result<SafeguardCollectedSnapshotOut, String> {
     let keep_flags = resolve_safeguard_candidate_keep_flags_core(
         rows,
-        prepared_rules,
+        base_matches,
+        bucketed_rules,
         recipe_modes,
         ignore_safeguard_recipe_indices,
     );

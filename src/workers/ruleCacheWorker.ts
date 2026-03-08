@@ -13,6 +13,7 @@ import {
   buildIgnoreSafeguardRecipeIndices,
   evaluateAndCollectSafeguardProtection,
   hasActiveSafeguardRules,
+  storeArtifactRows,
 } from '../lib/safeguards'
 import type { SafeguardDetectionSnapshot } from '../lib/safeguards'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
@@ -313,9 +314,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         wasmVersionLogged = true
       }
       if (runIsStale()) return
-      // Build minimal detection rows — artifact (including gearInspectorItem) only.
-      // The combined WASM call evaluates each item internally so no pre-built
-      // baseMatch is needed; ignore_safeguard_recipe_indices is handled by Rust.
+      // Build detection rows — artifact (including gearInspectorItem) per item.
+      // Rows are stored in WASM state so the combined call avoids re-deserializing
+      // the artifact table on every detection pass.
       const detectionRows = artifactEntries.map(([, artifact]) => ({
         artifact,
         match: null,
@@ -323,13 +324,16 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         matchingRecipeIndices: [],
         matchingRecipeDecisions: [],
       }))
+      storeArtifactRows(detectionRows)
       // Pass baselineExcludeSources so keep-override sources are excluded from the
       // safeguard base-match the same way as the regular evaluate pass.
       const detectionOptions = hasActiveSafeguards
         ? { baselineExcludeSources: SAFEGUARD_OVERRIDE_RULE_SOURCES }
         : undefined
+      // Artifacts are extracted from detectionRows for equippedFloorScore computation.
+      // The WASM engine reads stored rows directly — no rows param needed here.
       const detectionResult = evaluateAndCollectSafeguardProtection({
-        rows: detectionRows,
+        artifacts: artifactEntries.map(([, artifact]) => artifact),
         ...(detectionOptions ? { options: detectionOptions } : {}),
         rules: payload.safeguards.rules,
         enabled: payload.safeguards.enabled,

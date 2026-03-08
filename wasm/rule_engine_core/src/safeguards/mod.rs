@@ -1,5 +1,5 @@
 use super::*;
-use crate::matcher_evaluator::{collect_safeguard_candidates_core, prepare_rule};
+use crate::matcher_evaluator::{collect_safeguard_candidates_core, prepare_rule, BucketedRules};
 use crate::SafeguardCollectedAndProtectedSnapshotOut;
 
 // Fast-path input types and conversion functions live in a dedicated submodule
@@ -3137,11 +3137,13 @@ pub fn collect_and_compute_safeguard_protection_core(
     // Resolve expected groups payload (None = empty default).
     let expected_payload = parse_safeguard_expected_groups_payload(expected_payload);
 
-    // Prepare base rules once; collect-core reuses these for every row.
+    // Prepare and bucket base rules; collect-core uses slot-aware evaluation per row.
     let prepared_rules = rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
+    let bucketed_rules = BucketedRules::from_rules(prepared_rules);
     let collected = collect_safeguard_candidates_core(
         &rows,
-        &prepared_rules,
+        None, // no sidecar; row fields carry base_match_defined/base_match
+        &bucketed_rules,
         &recipe_modes,
         &ignore_safeguard_recipe_indices.unwrap_or_default(),
     )?;

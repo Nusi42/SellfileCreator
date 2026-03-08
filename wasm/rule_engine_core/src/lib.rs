@@ -51,6 +51,8 @@ pub use matcher_evaluator::{
     evaluate_item,
     prepare_evaluate_options,
     prepare_rule,
+    BucketedRules,
+    EvalMatch,
     EvaluateItemResult,
     EvaluateItemScratch,
     EvaluateOptionsRaw,
@@ -499,10 +501,16 @@ pub struct GeneratedRuleEntry {
 }
 
 
-// Stateful engine keeps prepared rules + mode gating table.
+// Stateful engine keeps bucketed prepared rules + mode gating table.
+// Rules are bucketed by artifact slot at configure time for fast per-item evaluation:
+// shared rules (artifact_types empty) apply to every item; per_slot rules apply only
+// to items whose slot id is in the bucket key.
+// stored_rows caches pre-parsed artifact rows so the combined evaluate+collect entry point
+// does not need to re-deserialize the artifact table on every call.
 pub struct EngineState {
-    pub rules: Vec<PreparedRule>,
+    pub bucketed_rules: BucketedRules,
     pub recipe_modes: Vec<String>,
+    pub stored_rows: Option<Vec<SafeguardCollectRowIn>>,
 }
 
 // Normalize unknown rank/rarity values into supported 1..6 domain.
@@ -763,11 +771,13 @@ pub fn collect_safeguard_candidates_value_impl(
     recipe_modes: Vec<String>,
     ignore_safeguard_recipe_indices: Option<Vec<i64>>,
 ) -> Result<SafeguardCollectedSnapshotOut, String> {
-    // Prepare rules once so each row evaluation reuses precomputed masks.
+    // Prepare and bucket rules so candidate resolution uses slot-aware evaluation.
     let prepared_rules = rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
+    let bucketed_rules = BucketedRules::from_rules(prepared_rules);
     let snapshot = collect_safeguard_candidates_core(
         &rows,
-        &prepared_rules,
+        None, // no sidecar; row fields carry base_match_defined/base_match
+        &bucketed_rules,
         &recipe_modes,
         &ignore_safeguard_recipe_indices.unwrap_or_default(),
     )?;
@@ -938,14 +948,38 @@ pub fn finalize_builder_rules_core(
 }
 
 // Shared configure implementation used by both JSON and JsValue bindings.
+// Rules are prepared then immediately bucketed by artifact slot so hot-path
+// evaluate_item calls only iterate rules relevant to each item's slot.
 pub fn configure_engine(raw_rules: Vec<RuleRaw>, recipe_modes: Vec<String>) {
     let prepared_rules = raw_rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
+    let bucketed_rules = BucketedRules::from_rules(prepared_rules);
     ENGINE_STATE.with(|state| {
+        // Preserve stored_rows across reconfigures — artifact table changes independently
+        // of rule changes and callers re-store rows explicitly when the DB changes.
+        let existing_rows = state.borrow_mut().take().and_then(|s| s.stored_rows);
         *state.borrow_mut() = Some(EngineState {
-            rules: prepared_rules,
+            bucketed_rules,
             recipe_modes,
+            stored_rows: existing_rows,
         });
     });
+}
+
+// Store pre-parsed artifact rows in ENGINE_STATE so the combined evaluate+collect entry point
+// can read them without re-deserializing on every call. Returns the stored row count.
+// Must be called after configure_engine (engine must exist) and before the combined fn.
+// Callers re-invoke this whenever the artifact DB changes (not just when rules change).
+pub fn store_artifact_rows_engine(fast_rows: Vec<SafeguardCollectRowFastIn>) -> Result<usize, String> {
+    let rows = safeguard_parse_collect_rows_payload(fast_rows)?;
+    let count = rows.len();
+    ENGINE_STATE.with(|state| {
+        let mut guard = state.borrow_mut();
+        let Some(engine) = guard.as_mut() else {
+            return;
+        };
+        engine.stored_rows = Some(rows);
+    });
+    Ok(count)
 }
 
 // Shared evaluation implementation — returns String error instead of JsValue.
@@ -978,8 +1012,11 @@ pub fn evaluate_engine(
         let mut scratch = EvaluateItemScratch::new();
         let mut results = Vec::with_capacity(items.len());
         for entry in &items {
+            // Derive slot-specific rules for this item; zero allocation per-item.
+            let slot_rules = engine.bucketed_rules.slot_rules(entry.item.slot);
             let (first_match, first_non_excluded) = evaluate_item(
-                &engine.rules,
+                &engine.bucketed_rules.shared,
+                slot_rules,
                 &engine.recipe_modes,
                 &entry.item,
                 &prepared_options,
@@ -999,15 +1036,14 @@ pub fn evaluate_engine(
 
             let mut resolved_first_non_excluded = first_non_excluded;
             if let Some(baseline) = baseline_options.as_ref() {
-                let needs_baseline = first_match
-                    .as_ref()
-                    .and_then(|matched| engine.rules.get(matched.rule_index))
-                    .map(|rule| rule.is_keep_override_source)
-                    .unwrap_or(false);
+                // is_keep_override_source is embedded in EvalMatch; no rule lookup needed.
+                let needs_baseline =
+                    first_match.map(|m| m.is_keep_override_source).unwrap_or(false);
                 if needs_baseline {
                     // Second call overwrites scratch; recipe data already extracted above.
                     let (_, baseline_non_excluded) = evaluate_item(
-                        &engine.rules,
+                        &engine.bucketed_rules.shared,
+                        slot_rules,
                         &engine.recipe_modes,
                         &entry.item,
                         baseline,
@@ -1049,18 +1085,16 @@ pub struct EvaluateAndCollectSnapshotOut {
 }
 
 // Combined evaluate + safeguard-collect entry point.
-// Reads ENGINE_STATE (configured via configure_engine) so the caller must have
-// called configure_value before invoking this function.
-// For each fast_row the function:
-//   1. Evaluates the item against prepared rules (with baseline-exclude support).
-//   2. Derives base_match from the resolved first-non-excluded (or first) match.
-//   3. Feeds the patched SafeguardCollectRowIn into collect_safeguard_candidates_core.
+// Reads ENGINE_STATE configured via configure_engine and stored_rows stored via
+// store_artifact_rows_engine — both must be called before invoking this function.
+// For each stored row the function:
+//   1. Evaluates the item against bucketed rules (with baseline-exclude support).
+//   2. Records the base_match result in a per-call sidecar (stored rows stay immutable).
+//   3. Feeds the sidecar into collect_safeguard_candidates_core.
 //   4. Runs protection scoring and returns all outputs in one snapshot.
-// This eliminates the JS→WASM→JS→WASM round-trip present in the separate
-// evaluate_value + collect_and_compute_safeguard_protection_value call sequence.
-#[allow(clippy::too_many_arguments)]
+// This eliminates: (a) JS→WASM artifact deserialization (rows cached in state) and
+// (b) the JS→WASM→JS→WASM round-trip in the separate evaluate+collect call sequence.
 pub fn evaluate_engine_and_collect_safeguard_protection(
-    fast_rows: Vec<SafeguardCollectRowFastIn>,
     options: EvaluateOptionsRaw,
     ignore_safeguard_recipe_indices: Option<Vec<i64>>,
     parsed_safeguard_rules: Vec<SafeguardWasmRuleIn>,
@@ -1073,6 +1107,10 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
         let Some(engine) = guard.as_ref() else {
             return Err("WASM rule engine is not configured".to_string());
         };
+        let collect_rows = engine
+            .stored_rows
+            .as_ref()
+            .ok_or("WASM artifact rows are not stored; call store_artifact_rows_value first")?;
 
         // Prepare evaluate options once; baseline handles keep-override source exclusions.
         let prepared_options = prepare_evaluate_options(&options);
@@ -1087,18 +1125,23 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
             });
         let ignore_indices = ignore_safeguard_recipe_indices.unwrap_or_default();
 
-        // Parse all rows upfront so each row holds typed artifact + TestItemRaw.
-        let mut collect_rows = safeguard_parse_collect_rows_payload(fast_rows)?;
+        // Per-call sidecar holds evaluation base_match results without mutating stored rows.
+        // One entry per row: None = no match (item sold); Some(m) = base match for candidate
+        // resolution. Passed to collect_safeguard_candidates_core instead of row.base_match.
+        let mut base_matches = Vec::<Option<SafeguardCandidateResolveBaseMatchIn>>::with_capacity(
+            collect_rows.len(),
+        );
 
         // Shared scratch reused across items to avoid per-row HashSet/HashMap allocations.
         let mut scratch = EvaluateItemScratch::new();
         let mut evaluate_results = Vec::<EvaluateItemResult>::with_capacity(collect_rows.len());
 
-        // Evaluate each item and patch base_match into the row so the subsequent
-        // collect_safeguard_candidates_core call uses the engine result directly.
-        for row in &mut collect_rows {
+        for row in collect_rows.iter() {
+            // Derive slot-specific rules for this item; zero allocation per-item.
+            let slot_rules = engine.bucketed_rules.slot_rules(row.item.slot);
             let (first_match, first_non_excluded) = evaluate_item(
-                &engine.rules,
+                &engine.bucketed_rules.shared,
+                slot_rules,
                 &engine.recipe_modes,
                 &row.item,
                 &prepared_options,
@@ -1121,14 +1164,13 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
             // to find the first non-excluded match without keep-override interference.
             let mut resolved_first_non_excluded = first_non_excluded;
             if let Some(baseline) = baseline_options.as_ref() {
-                let needs_baseline = first_match
-                    .as_ref()
-                    .and_then(|matched| engine.rules.get(matched.rule_index))
-                    .map(|rule| rule.is_keep_override_source)
-                    .unwrap_or(false);
+                // is_keep_override_source is embedded in EvalMatch; no rule lookup needed.
+                let needs_baseline =
+                    first_match.map(|m| m.is_keep_override_source).unwrap_or(false);
                 if needs_baseline {
                     let (_, baseline_non_excluded) = evaluate_item(
-                        &engine.rules,
+                        &engine.bucketed_rules.shared,
+                        slot_rules,
                         &engine.recipe_modes,
                         &row.item,
                         baseline,
@@ -1142,29 +1184,32 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
 
             // Resolve item_id using the same precedence as resolve_collect_row_item_key.
             let item_id = matcher_evaluator::resolve_collect_row_item_key(row);
+            // EvalMatch is Copy; no .clone() needed.
             evaluate_results.push(EvaluateItemResult {
                 item_id,
-                first_match: first_match.clone(),
-                first_non_excluded_match: resolved_first_non_excluded.clone(),
+                first_match,
+                first_non_excluded_match: resolved_first_non_excluded,
                 matching_recipe_indices,
                 matching_recipe_decisions,
             });
 
-            // Patch base_match so collect_safeguard_candidates_core skips re-evaluation.
+            // Record base_match in the sidecar — stored rows remain immutable.
             // Use the resolved non-excluded match (or primary match) as the safeguard
-            // candidate base-match — same as the TS toPreviewMatch helper.
-            let effective = resolved_first_non_excluded.as_ref().or(first_match.as_ref());
-            row.base_match_defined = true;
-            row.base_match = effective.map(|m| SafeguardCandidateResolveBaseMatchIn {
+            // candidate base-match — same semantics as the former TS toPreviewMatch helper.
+            // EvalMatch is Copy; .or() works without as_ref().
+            let effective = resolved_first_non_excluded.or(first_match);
+            base_matches.push(effective.map(|m| SafeguardCandidateResolveBaseMatchIn {
                 keep: m.keep,
                 recipe_idx: m.recipe_idx,
-            });
+            }));
         }
 
-        // Collect candidates using engine's already-prepared rules — no re-prepare needed.
+        // Collect candidates using stored rows + per-call base_match sidecar.
+        // No re-prepare needed — engine's bucketed_rules are already configured.
         let collected = collect_safeguard_candidates_core(
-            &collect_rows,
-            &engine.rules,
+            collect_rows,
+            Some(&base_matches),
+            &engine.bucketed_rules,
             &engine.recipe_modes,
             &ignore_indices,
         )?;
@@ -1172,7 +1217,7 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
         // Run protection scoring from collected candidates + typed row artifacts.
         let detection = compute_safeguard_protection_from_collected_core(
             &collected.candidates,
-            &collect_rows,
+            collect_rows,
             parsed_safeguard_rules,
             expected_payload,
             enabled,

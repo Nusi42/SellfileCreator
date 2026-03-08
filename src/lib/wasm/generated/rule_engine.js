@@ -170,7 +170,6 @@ export function dedupe_hsf_rules_for_export_value(rules) {
 }
 
 /**
- * @param {any} rows
  * @param {any} options
  * @param {any} ignore_safeguard_recipe_indices
  * @param {any} safeguard_rules
@@ -179,8 +178,8 @@ export function dedupe_hsf_rules_for_export_value(rules) {
  * @param {number} now
  * @returns {any}
  */
-export function evaluate_and_collect_safeguard_protection_value(rows, options, ignore_safeguard_recipe_indices, safeguard_rules, expected_groups_payload, enabled, now) {
-    const ret = wasm.evaluate_and_collect_safeguard_protection_value(rows, options, ignore_safeguard_recipe_indices, safeguard_rules, expected_groups_payload, enabled, now);
+export function evaluate_and_collect_safeguard_protection_value(options, ignore_safeguard_recipe_indices, safeguard_rules, expected_groups_payload, enabled, now) {
+    const ret = wasm.evaluate_and_collect_safeguard_protection_value(options, ignore_safeguard_recipe_indices, safeguard_rules, expected_groups_payload, enabled, now);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -446,6 +445,18 @@ export function sort_safeguard_combination_value(combination) {
  */
 export function sort_safeguard_substats_value(values) {
     const ret = wasm.sort_safeguard_substats_value(values);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} rows
+ * @returns {any}
+ */
+export function store_artifact_rows_value(rows) {
+    const ret = wasm.store_artifact_rows_value(rows);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
