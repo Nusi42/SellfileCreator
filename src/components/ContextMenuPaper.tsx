@@ -22,6 +22,7 @@ export interface ContextMenuPaperProps extends PaperProps {
   contextMenuGuard: ContextMenuPaperGuardToken
   // Allow data-tour-id for guided overlays without extra casting.
   'data-tour-id'?: string
+  ref?: React.Ref<HTMLDivElement>
 }
 
 const basePaperSx: SxProps<Theme> = {
@@ -79,9 +80,8 @@ const closeButtonSx: SxProps<Theme> = (theme) => {
  * affordance visible across all context menus without requiring each menu to
  * manage absolute positioning or spacing individually.
  */
-const ContextMenuPaper = React.forwardRef<HTMLDivElement, ContextMenuPaperProps>(function ContextMenuPaper(
-  { contextMenuGuard: _contextMenuGuard, onRequestClose, closeLabel, overlay, children, sx, ...paperProps },
-  ref,
+function ContextMenuPaper(
+  { contextMenuGuard: _contextMenuGuard, onRequestClose, closeLabel, overlay, children, sx, ref, ...paperProps }: ContextMenuPaperProps,
 ) {
   const mergedSx = React.useMemo<SxProps<Theme>>(() => {
     if (!sx) return basePaperSx
@@ -116,11 +116,14 @@ const ContextMenuPaper = React.forwardRef<HTMLDivElement, ContextMenuPaperProps>
       {children}
     </Paper>
   )
-})
+}
 
 // Helper for slotProps.paper so ContextMenuPaper requirements are type-checked.
-export function buildContextMenuPaperSlotProps(props: ContextMenuPaperProps): PaperProps {
-  return props
+// Accepts all ContextMenuPaperProps except `ref` — callers must spread the ref
+// separately (e.g. `{ ...buildContextMenuPaperSlotProps({...}), ref: myRef }`)
+// so the React Compiler does not flag the ref as "passed to a function during render".
+export function buildContextMenuPaperSlotProps(props: Omit<ContextMenuPaperProps, 'ref'>): PaperProps {
+  return props as PaperProps
 }
 
 export default ContextMenuPaper

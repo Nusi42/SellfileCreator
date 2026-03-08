@@ -4,7 +4,7 @@
  * Centralizes preview/display preferences so every surface reads the same
  * values. Each preference persists to localStorage under the existing keys.
  */
-import React, { createContext, useContext, useMemo, useState } from 'react'
+import React, { createContext, use, useMemo, useState } from 'react'
 import { RULES_TABLE_SHOW_FACTION_ICONS_KEY, RULES_TABLE_SHOW_SET_ICONS_KEY, RULES_TABLE_SHOW_SLOT_ICONS_KEY, STAT_BUTTON_BORDERS_KEY } from '../lib/constants'
 
 type BooleanPreferenceKey = typeof RULES_TABLE_SHOW_SLOT_ICONS_KEY
@@ -33,8 +33,8 @@ const DEFAULT_PREFERENCES: DisplayPreferencesState = {
   statButtonBorders: true,
 }
 
-const PreferencesStateCtx = createContext<DisplayPreferencesState | null>(null)
-const PreferencesDispatchCtx = createContext<DisplayPreferenceDispatchers | null>(null)
+const PreferencesStateContext = createContext<DisplayPreferencesState | null>(null)
+const PreferencesDispatchContext = createContext<DisplayPreferenceDispatchers | null>(null)
 
 function writeBooleanPref(key: BooleanPreferenceKey, value: boolean): void {
   if (typeof window === 'undefined') return
@@ -89,22 +89,22 @@ export function DisplayPreferencesProvider({ children }: { children: React.React
   }), [])
 
   return (
-    <PreferencesStateCtx.Provider value={prefs}>
-      <PreferencesDispatchCtx.Provider value={actions}>
+    <PreferencesStateContext value={prefs}>
+      <PreferencesDispatchContext value={actions}>
         {children}
-      </PreferencesDispatchCtx.Provider>
-    </PreferencesStateCtx.Provider>
+      </PreferencesDispatchContext>
+    </PreferencesStateContext>
   )
 }
 
 export function useDisplayPreferences(): DisplayPreferencesState {
-  const ctx = useContext(PreferencesStateCtx)
+  const ctx = use(PreferencesStateContext)
   if (!ctx) throw new Error('useDisplayPreferences must be used within DisplayPreferencesProvider')
   return ctx
 }
 
 export function useDisplayPreferenceActions(): DisplayPreferenceDispatchers {
-  const ctx = useContext(PreferencesDispatchCtx)
+  const ctx = use(PreferencesDispatchContext)
   if (!ctx) throw new Error('useDisplayPreferenceActions must be used within DisplayPreferencesProvider')
   return ctx
 }

@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
@@ -19,6 +20,21 @@ export interface BuilderTooltipContentProps {
 
 // Formats builder tooltips into readable blocks with optional bullet lists.
 const TOOLTIP_MAX_WIDTH_PX = 720
+
+/**
+ * Build a stable, non-index key for an element inside a string array.
+ * Uses the string value itself; when the same value appears more than once
+ * a 1-based occurrence suffix is appended so every key stays unique.
+ */
+function dedupKey(arr: string[], idx: number): string {
+  const val = arr[idx] ?? ''
+  // Count how many times this value appears before the current position.
+  let occBefore = 0
+  for (let i = 0; i < idx; i++) { if (arr[i] === val) occBefore++ }
+  // Only append an occurrence suffix when the value is duplicated in the array.
+  const total = arr.filter((v) => v === val).length
+  return total > 1 ? `${val}__${occBefore + 1}` : val
+}
 
 export function BuilderTooltipContent({ text, colorizeStats = false, substatColors }: BuilderTooltipContentProps) {
   const { t, lang } = useI18n()
@@ -58,14 +74,26 @@ export function BuilderTooltipContent({ text, colorizeStats = false, substatColo
     return [...acc, { type: 'text', lines: [rawLine] }]
   }, [])
 
+  // Build stable keys for segments: prefix with type and use a running
+  // occurrence counter so duplicate segment types still get unique keys.
+  const segmentKeys = (() => {
+    const counts: Record<string, number> = {}
+    return segments.map((seg) => {
+      const n = (counts[seg.type] = (counts[seg.type] ?? 0) + 1)
+      return `${seg.type}-${n}`
+    })
+  })()
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, maxWidth: TOOLTIP_MAX_WIDTH_PX }}>
       {segments.map((segment, segmentIdx) => {
+        // Stable key for this segment (not index-based).
+        const segKey = segmentKeys[segmentIdx]
         if (segment.type === 'text') {
           return segment.lines.map((line, lineIdx) =>
             renderPossibleStructuredLine({
               line,
-              key: `text-${segmentIdx}-${lineIdx}`,
+              key: `${segKey}-L${dedupKey(segment.lines, lineIdx)}`,
               shouldColorize,
               colors,
               theme,
@@ -78,7 +106,7 @@ export function BuilderTooltipContent({ text, colorizeStats = false, substatColo
         return (
           <Box
             component="ul"
-            key={`list-${segmentIdx}`}
+            key={segKey}
             sx={{
               pl: 2,
               m: 0,
@@ -90,10 +118,10 @@ export function BuilderTooltipContent({ text, colorizeStats = false, substatColo
             }}
           >
             {segment.lines.map((line, lineIdx) => (
-              <Box component="li" key={`list-${segmentIdx}-${lineIdx}`} sx={{ p: 0 }}>
+              <Box component="li" key={`${segKey}-L${dedupKey(segment.lines, lineIdx)}`} sx={{ p: 0 }}>
                 {renderPossibleStructuredLine({
                   line,
-                  key: `list-${segmentIdx}-${lineIdx}`,
+                  key: `${segKey}-L${dedupKey(segment.lines, lineIdx)}`,
                   shouldColorize,
                   colors,
                   theme,

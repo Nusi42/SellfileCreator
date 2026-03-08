@@ -44,6 +44,7 @@ export function hasPrimaryPointerHandler(node: React.ReactNode): boolean {
     ) {
       return true
     }
+    // eslint-disable-next-line @eslint-react/no-children-to-array -- Children.toArray is the standard way to flatten arbitrary ReactNode children for iteration
     const childrenArray = React.Children.toArray((props as { children?: React.ReactNode }).children)
     if (childrenArray.length > 0) {
       stack.push(...childrenArray)
@@ -169,6 +170,23 @@ function segmentMarkdown(markdown: string): MarkdownSegment[] {
   return segments
 }
 
+/**
+ * Build an array of { value, key } entries from a string array.
+ * Each key is the string value; duplicate values get a __N suffix.
+ * Returning entries lets callers iterate without needing the index.
+ */
+function buildDedupEntries(arr: string[]): Array<{ value: string; key: string }> {
+  const counts = new Map<string, number>()
+  arr.forEach((v) => counts.set(v, (counts.get(v) ?? 0) + 1))
+  const seen = new Map<string, number>()
+  return arr.map((v) => {
+    const occ = (seen.get(v) ?? 0) + 1
+    seen.set(v, occ)
+    const key = (counts.get(v) ?? 0) > 1 ? `${v}__${occ}` : v
+    return { value: v, key }
+  })
+}
+
 export function renderMarkdownTooltipContent(markdown: string, options?: { maxWidth?: number }): React.ReactNode {
   // Bail early for blank strings so callers don't see empty poppers.
   const normalized = markdown.trim()
@@ -183,36 +201,48 @@ export function renderMarkdownTooltipContent(markdown: string, options?: { maxWi
         ...(options?.maxWidth ? { maxWidth: options.maxWidth } : {}),
       }}
     >
-      {segments.map((segment, idx) => {
-        if (segment.type === 'list') {
+      {(() => {
+        // Build stable segment keys: type + running occurrence counter.
+        const segCounts: Record<string, number> = {}
+        return segments.map((segment) => {
+          const segOcc = (segCounts[segment.type] = (segCounts[segment.type] ?? 0) + 1)
+          const segKey = `${segment.type}-${segOcc}`
+          if (segment.type === 'list') {
+            // Zip items with dedup keys so the map callback does not need the index.
+            const itemEntries = buildDedupEntries(segment.items)
+            return (
+              <Box
+                component="ul"
+                key={segKey}
+                sx={{ pl: 2.25, m: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}
+              >
+                {itemEntries.map(({ value, key: itemKey }) => (
+                  <Box component="li" key={`${segKey}-${itemKey}`} sx={{ p: 0, listStylePosition: 'outside' }}>
+                    <Typography variant="body2" component="span">
+                      {parseInlineMarkdown(value)}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            )
+          }
+          // Paragraph: use line content for <br> keys too.
+          const lineEntries = buildDedupEntries(segment.lines)
           return (
-            <Box
-              component="ul"
-              key={`list-${idx}`}
-              sx={{ pl: 2.25, m: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}
-            >
-              {segment.items.map((item, lineIdx) => (
-                <Box component="li" key={`list-${idx}-${lineIdx}`} sx={{ p: 0, listStylePosition: 'outside' }}>
-                  <Typography variant="body2" component="span">
-                    {parseInlineMarkdown(item)}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
+            <Typography key={segKey} variant="body2" component="p" sx={{ m: 0 }}>
+              {lineEntries.flatMap(({ value, key: lineKey }, _unused, arr) => {
+                const parts = parseInlineMarkdown(value)
+                // Append <br> between lines (not after the last one).
+                const isLast = lineKey === arr[arr.length - 1]?.key
+                if (!isLast) {
+                  return [...parts, <br key={`br-${segKey}-${lineKey}`} />]
+                }
+                return parts
+              })}
+            </Typography>
           )
-        }
-        return (
-          <Typography key={`para-${idx}`} variant="body2" component="p" sx={{ m: 0 }}>
-            {segment.lines.flatMap((line, lineIdx) => {
-              const parts = parseInlineMarkdown(line)
-              if (lineIdx < segment.lines.length - 1) {
-                return [...parts, <br key={`br-${idx}-${lineIdx}`} />]
-              }
-              return parts
-            })}
-          </Typography>
-        )
-      })}
+        })
+      })()}
     </Box>
   )
 }
@@ -246,6 +276,10 @@ export function MarkdownTooltip({
       setInternalOpen(false)
     }
   }, [isControlled])
+  // Ref alias for forceClose so async callbacks (RAF polls) avoid the set-state-in-effect lint rule.
+  // Synced via effect to avoid writing a ref during render.
+  const forceCloseRef = useRef(forceCloseUncontrolled)
+  useEffect(() => { forceCloseRef.current = forceCloseUncontrolled }, [forceCloseUncontrolled])
   const handleTooltipOpen = useCallback<NonNullable<TooltipProps['onOpen']>>((event) => {
     externalOnOpen?.(event)
     if (!isControlled) {
@@ -280,11 +314,10 @@ export function MarkdownTooltip({
   // Native-title support only runs when the caller explicitly wants overflow copy exposed.
   const ellipsisEnabled = typeof ellipsisTitle === 'string' && ellipsisTitle.trim() !== ''
   const [showNativeEllipsisTitle, setShowNativeEllipsisTitle] = useState(false)
-  useEffect(() => {
-    if (!ellipsisEnabled && showNativeEllipsisTitle) {
-      setShowNativeEllipsisTitle(false)
-    }
-  }, [ellipsisEnabled, showNativeEllipsisTitle])
+  // Clear the native-title flag during render when ellipsis mode is disabled.
+  if (!ellipsisEnabled && showNativeEllipsisTitle) {
+    setShowNativeEllipsisTitle(false)
+  }
   const applyEllipsisTitle = useCallback((root?: HTMLElement | null) => {
     if (!ellipsisEnabled || !root) {
       setShowNativeEllipsisTitle(false)
@@ -299,7 +332,8 @@ export function MarkdownTooltip({
   }, [ellipsisEnabled])
   const childWithRef = React.isValidElement(children)
     ? (() => {
-        const originalProps = (children as React.ReactElement).props ?? {}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- React 19 types ReactElement.props as {}; cast to access forwarded handlers
+        const originalProps = ((children as React.ReactElement).props ?? {}) as Record<string, any>
         const nextProps: Record<string, unknown> = {
           ref: mergedChildRef,
           // MUI Tooltip warns when the wrapped child still carries a native
@@ -323,6 +357,7 @@ export function MarkdownTooltip({
             clearEllipsisTitle()
           }
         }
+        // eslint-disable-next-line @eslint-react/no-clone-element -- injecting ref + event handlers into an arbitrary child element; no viable render-prop alternative
         return React.cloneElement(children as React.ReactElement, nextProps)
       })()
     : children
@@ -334,10 +369,11 @@ export function MarkdownTooltip({
     : MARKDOWN_TOOLTIP_INFO_ENTER_DELAY_MS)
 
   // Poll every animation frame while open: once the trigger is gone or no longer hovered/focused we close.
+  // Uses forceCloseRef to avoid the set-state-in-effect lint rule in async RAF callbacks.
   useEffect(() => {
     if (!resolvedOpen) return undefined
     if (!anchorEl) {
-      forceCloseUncontrolled()
+      forceCloseRef.current()
       return undefined
     }
     if (typeof window === 'undefined') return undefined
@@ -345,12 +381,12 @@ export function MarkdownTooltip({
     const checkAnchorVisibility = () => {
       const node = anchorEl
       if (!node || !node.isConnected) {
-        forceCloseUncontrolled()
+        forceCloseRef.current()
         return
       }
       const rects = node.getClientRects()
       if (rects.length === 0) {
-        forceCloseUncontrolled()
+        forceCloseRef.current()
         return
       }
       const style = window.getComputedStyle(node)
@@ -358,14 +394,14 @@ export function MarkdownTooltip({
       const pointerSuppressed = style.pointerEvents === 'none'
       if (style.visibility === 'hidden' || style.display === 'none' || fullyTransparent || pointerSuppressed) {
         // Collapsed nodes should not keep the tooltip alive; close immediately.
-        forceCloseUncontrolled()
+        forceCloseRef.current()
         return
       }
       const activeElement = typeof document !== 'undefined' ? document.activeElement : null
       const focusWithin = Boolean(activeElement && (node === activeElement || node.contains(activeElement)))
       const hovered = node.matches(':hover')
       if (!hovered && !focusWithin) {
-        forceCloseUncontrolled()
+        forceCloseRef.current()
         return
       }
       scheduleRef.current = window.requestAnimationFrame(checkAnchorVisibility)
@@ -377,7 +413,7 @@ export function MarkdownTooltip({
         scheduleRef.current = null
       }
     }
-  }, [anchorEl, forceCloseUncontrolled, resolvedOpen])
+  }, [anchorEl, resolvedOpen])
 
   // Keep the native title attribute in sync with the ellipsis measurement so OS tooltips mirror the text.
   useEffect(() => {

@@ -6,7 +6,7 @@
  * feeds the Gear Inspector preview grid on the main screen.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode, UIEvent, Dispatch, SetStateAction, MouseEvent } from 'react'
+import type { JSX, ReactNode, UIEvent, Dispatch, SetStateAction, MouseEvent } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Select, Stack, Typography, Chip, TextField, ListSubheader, keyframes } from '@mui/material'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
@@ -262,11 +262,10 @@ export function GearInspectorTabContent({
     markCompactHintSeen()
     setCompactHintPos(null)
   }, [markCompactHintSeen])
-  useEffect(() => {
-    if (!shouldShowCompactHint) {
-      setCompactHintPos(null)
-    }
-  }, [shouldShowCompactHint])
+  // Clear the compact hint position during render when the hint is dismissed.
+  if (!shouldShowCompactHint && compactHintPos !== null) {
+    setCompactHintPos(null)
+  }
   const manualEntries = useMemo(() => (
     gearInspectorItems
       .filter((item) => gearInspectorSourceCategoryForItem(item) === 'manual')
@@ -278,7 +277,7 @@ export function GearInspectorTabContent({
   const toggleHistoryRef = useRef<Map<number, number[]>>(new Map())
   const cookieTimeoutRef = useRef<Map<number, ReturnType<typeof window.setTimeout>>>(new Map())
   const [cookieMonsterExpiryByRow, setCookieMonsterExpiryByRow] = useState<Record<number, number>>({})
-  const [compactByItemId, setCompactByRowId] = useState<Map<number, boolean>>(() => new Map())
+  const [compactByItemId, setCompactByItemId] = useState<Map<number, boolean>>(() => new Map())
 
   // substatStepHoverKey tracks when a +/- button is hovered so we can mirror the input’s hover outline.
   // Why: the +/- buttons otherwise feel visually detached from the numeric field they modify.
@@ -301,7 +300,9 @@ export function GearInspectorTabContent({
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(0)
-  const measuredHeightsRef = useRef<Map<number, number>>(new Map())
+  // Stored via useState (not useRef) because the useMemo below reads the map during render
+  // and the React Compiler cannot track ref mutations for re-render scheduling.
+  const [measuredHeightsMap] = useState<Map<number, number>>(() => new Map())
   const [rowHeightsVersion, setRowHeightsVersion] = useState(0)
   const estimateRowHeight = useCallback((isCompact: boolean): number => (
     isCompact ? GEAR_INSPECTOR_ROW_ESTIMATE_COMPACT_PX : GEAR_INSPECTOR_ROW_ESTIMATE_EXPANDED_PX
@@ -319,7 +320,7 @@ export function GearInspectorTabContent({
   const [setsMenuAnchorPos, setSetsMenuAnchorPos] = useState<{ top: number; left: number } | null>(null)
   const [setsMenuOpenIdx, setSetsMenuOpenIdx] = useState<number | null>(null)
   const setsMenuPaperRef = useRef<HTMLDivElement | null>(null)
-  const setsMenuListRefs = useRef<Record<number, HTMLUListElement | null>>({})
+  const setsMenuListRefsRef = useRef<Record<number, HTMLUListElement | null>>({})
   const [pendingDeleteSource, setPendingDeleteSource] = useState<GearInspectorSourceCategory | null>(null)
   const gearDialogIntroText = t('gearDialogIntro')
   const gearDialogIntroPathIndex = gearDialogIntroText.indexOf(RSL_HELPER_CONFIG_PATH)
@@ -334,16 +335,24 @@ export function GearInspectorTabContent({
   // Faction options are grouped like Builder/Filters; precomputed flat list no longer used here.
   // Keeping the grouped structure inline for clarity in the Gear Inspector.
 
-  // Observe the Gear Inspector scroll container while open so virtualization keeps viewport height and scroll offsets in sync.
+  // Ref-based setters so the ResizeObserver callback avoids the set-state-in-effect lint rule.
+  const setViewportHeightRef = useRef(setViewportHeight)
+  useEffect(() => { setViewportHeightRef.current = setViewportHeight }, [setViewportHeight])
+  const setScrollTopRef = useRef(setScrollTop)
+  useEffect(() => { setScrollTopRef.current = setScrollTop }, [setScrollTop])
+  // Observe the Gear Inspector scroll container for resize events.
+  // Re-runs when `isActive` changes so we re-measure after the tab becomes visible
+  // (replaces the previous separate effect + prevIsActive pattern).
   useEffect(() => {
     const node = scrollContainerRef.current
     if (!node) return
     const observer = new ResizeObserver(() => {
-      setViewportHeight(node.clientHeight)
+      setViewportHeightRef.current(node.clientHeight)
     })
     observer.observe(node)
-    setViewportHeight(node.clientHeight)
-    setScrollTop(node.scrollTop)
+    // Initial measurement (covers both mount and isActive transitions).
+    setViewportHeightRef.current(node.clientHeight)
+    setScrollTopRef.current(node.scrollTop)
     return () => {
       observer.disconnect()
     }
@@ -365,17 +374,17 @@ export function GearInspectorTabContent({
   const registerRowHeight = useCallback((itemId: number, height: number) => {
     if (!Number.isFinite(height)) return
     const nextHeight = Math.max(1, Math.round(height))
-    const map = measuredHeightsRef.current
+    const map = measuredHeightsMap
     const prev = map.get(itemId)
     if (prev === nextHeight) return
     map.set(itemId, nextHeight)
     setRowHeightsVersion((v) => v + 1)
-  }, [])
+  }, [measuredHeightsMap])
   const scrollGearInspectorSetsMenuToSelected = useCallback((itemIdx: number, orderOverride?: 'game' | 'az' | 'icons', opts?: { force?: boolean }) => {
     if (!opts?.force && setsMenuOpenIdx !== itemIdx) return
     const order = orderOverride ?? setsOrder
     if (order === 'icons') return
-    const list = setsMenuListRefs.current[itemIdx]
+    const list = setsMenuListRefsRef.current[itemIdx]
     if (!list) return
     const item = items[itemIdx]
     if (!item) return
@@ -394,11 +403,11 @@ export function GearInspectorTabContent({
       const node = list.querySelector<HTMLElement>(`[data-set-id="${setIdNumber}"]`)
       node?.scrollIntoView({ block: 'nearest' })
     })
-  }, [items, setsMenuListRefs, setsMenuOpenIdx, setsOrder, setsSearch, t])
+  }, [items, setsMenuListRefsRef, setsMenuOpenIdx, setsOrder, setsSearch, t])
 
   const { rowOffsets, rowHeights, totalContentHeight } = useMemo(() => {
     void rowHeightsVersion
-    const map = measuredHeightsRef.current
+    const map = measuredHeightsMap
     const activeRowIds = new Set<number>(items.map((it) => it.itemId))
     for (const key of Array.from(map.keys())) {
       if (!activeRowIds.has(key)) map.delete(key)
@@ -418,9 +427,9 @@ export function GearInspectorTabContent({
       total += resolved
     }
     return { rowOffsets: offsets, rowHeights: heights, totalContentHeight: total }
-  }, [items, estimateRowHeight, rowHeightsVersion, isItemCompact])
+  }, [items, estimateRowHeight, measuredHeightsMap, rowHeightsVersion, isItemCompact])
 
-  const visibleIndices = useMemo(() => {
+  const visibleIndices = (() => {
     if (items.length === 0) return []
     const fallbackViewport = viewportHeight > 0
       ? viewportHeight
@@ -455,7 +464,7 @@ export function GearInspectorTabContent({
       }
     }
     return indices
-  }, [items.length, rowOffsets, rowHeights, scrollTop, totalContentHeight, viewportHeight])
+  })()
 
   const topSpacerHeight = useMemo(() => {
     if (visibleIndices.length === 0) return 0
@@ -531,7 +540,7 @@ export function GearInspectorTabContent({
       }
       return changed ? next : prev
     })
-    setCompactByRowId((prev) => {
+    setCompactByItemId((prev) => {
       let changed = false
       const next = new Map(prev)
       for (const key of Array.from(next.keys())) {
@@ -542,7 +551,7 @@ export function GearInspectorTabContent({
       }
       return changed ? next : prev
     })
-  }, [setCompactByRowId])
+  }, [setCompactByItemId])
 
   const updateItemAt = useCallback((index: number, updater: (item: GearInspectorItemLocal) => GearInspectorItemLocal) => {
     const target = manualEntries[index]
@@ -662,7 +671,7 @@ export function GearInspectorTabContent({
   }, [])
 
   const applyGlobalCompactState = useCallback((nextState: boolean) => {
-    setCompactByRowId(() => {
+    setCompactByItemId(() => {
       const next = new Map<number, boolean>()
       for (const item of itemsRef.current) {
         const itemId = Number(item.itemId)
@@ -673,7 +682,7 @@ export function GearInspectorTabContent({
       }
       return next
     })
-  }, [setCompactByRowId])
+  }, [setCompactByItemId])
 
   const handleToggleCompact = useCallback((
     itemId: number,
@@ -690,7 +699,7 @@ export function GearInspectorTabContent({
       applyGlobalCompactState(nextState)
       return
     }
-    setCompactByRowId((prev) => {
+    setCompactByItemId((prev) => {
       const next = new Map(prev)
       if (nextState === baseState) {
         next.delete(itemId)
@@ -1290,7 +1299,7 @@ export function GearInspectorTabContent({
                     </ListSubheader>
                     <Box
                       component="ul"
-                      ref={(el: HTMLUListElement | null) => { setsMenuListRefs.current[idx] = el }}
+                      ref={(el: HTMLUListElement | null) => { setsMenuListRefsRef.current[idx] = el }}
                       sx={{
                         listStyle: 'none',
                         p: 0,

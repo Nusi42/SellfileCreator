@@ -75,7 +75,7 @@ export type UseRecipeSelectionResult = {
   handleRecipeReorder: (movingIndices: number[], targetIndex: number, options?: { mode?: 'move' | 'copy' }) => void
   handleSelectAllRecipes: () => void
   handleClearSelection: () => void
-  setSelectionAnchor: Dispatch<SetStateAction<number | null>>
+  updateSelectionAnchor: Dispatch<SetStateAction<number | null>>
 }
 
 // Extra flags for selection updates that should skip auto-apply/draft capture.
@@ -129,9 +129,9 @@ export function useRecipeSelection({
   suppressSelectionDraft,
   visibleRecipeIndicesRef,
 }: UseRecipeSelectionParams): UseRecipeSelectionResult {
-  const [selectedRecipeIndices, setSelectedRecipeIndicesState] = useState<number[]>([])
+  const [selectedRecipeIndices, setSelectedRecipeIndices] = useState<number[]>([])
   const selectionAnchorRef = useRef<number | null>(null)
-  const [selectionAnchor, setSelectionAnchorState] = useState<number | null>(null)
+  const [selectionAnchor, setSelectionAnchor] = useState<number | null>(null)
   const selectedIndicesRef = useRef<number[]>([])
   const multiselectActive = selectedRecipeIndices.length > 1
 
@@ -175,25 +175,35 @@ export function useRecipeSelection({
     }
     // Keep refs in sync before we trigger a re-render.
     selectedIndicesRef.current = normalized
-    setSelectedRecipeIndicesState(normalized)
+    setSelectedRecipeIndices(normalized)
   }, [onWillChangeSelection])
 
-  useEffect(() => {
+  // Rebuild the multi-edit draft during render when the multi-selection changes.
+  // Uses identity checks on the memoized arrays to detect actual changes.
+  // Track previous values in state so comparisons don't trigger react-hooks/refs.
+  const [prevMultiSelectedRecipes, setPrevMultiSelectedRecipes] = useState(multiSelectedRecipes)
+  const [prevMultiSelectedIndices, setPrevMultiSelectedIndices] = useState(multiSelectedIndices)
+  if (
+    multiSelectedRecipes !== prevMultiSelectedRecipes
+    || multiSelectedIndices !== prevMultiSelectedIndices
+  ) {
+    setPrevMultiSelectedRecipes(multiSelectedRecipes)
+    setPrevMultiSelectedIndices(multiSelectedIndices)
     if (multiSelectedRecipes.length < 2) {
-      setMultiEditDraftState(prev => (prev === null ? prev : null))
-      return
+      if (multiEditDraftState !== null) setMultiEditDraftState(null)
+    } else {
+      const base = createMultiEditDraft(multiSelectedRecipes, multiSelectedIndices)
+      setMultiEditDraftState(prev => syncMultiEditDraft(prev, base))
     }
-    const base = createMultiEditDraft(multiSelectedRecipes, multiSelectedIndices)
-    setMultiEditDraftState(prev => syncMultiEditDraft(prev, base))
-  }, [multiSelectedRecipes, multiSelectedIndices])
+  }
 
-  const setSelectionAnchor = useCallback<Dispatch<SetStateAction<number | null>>>((value) => {
+  const updateSelectionAnchor = useCallback<Dispatch<SetStateAction<number | null>>>((value) => {
     const next = typeof value === 'function'
       ? (value as (prev: number | null) => number | null)(selectionAnchorRef.current)
       : (value ?? null)
     if (selectionAnchorRef.current === next) return
     selectionAnchorRef.current = next
-    setSelectionAnchorState(next)
+    setSelectionAnchor(next)
   }, [])
 
   const syncSelectionAfterReorder = useCallback((nextSelection: number[]) => {
@@ -202,8 +212,8 @@ export function useRecipeSelection({
     // Anchor to the last selected index so keyboard navigation stays intuitive.
     const last = nextSelection.length > 0 ? nextSelection[nextSelection.length - 1]! : null
     setSelectedRecipeIdx(last)
-    setSelectionAnchor(last)
-  }, [applySelection, setSelectedRecipeIdx, setSelectionAnchor])
+    updateSelectionAnchor(last)
+  }, [applySelection, setSelectedRecipeIdx, updateSelectionAnchor])
 
   const updateMultiEditField = useCallback(<K extends BuilderFieldKey>(
     key: K,
@@ -436,10 +446,10 @@ export function useRecipeSelection({
       const recipe = customRecipes[singleIdx]
       applySelection([singleIdx])
       setSelectedRecipeIdx(singleIdx)
-      setSelectionAnchor(singleIdx)
+      updateSelectionAnchor(singleIdx)
       if (recipe) setBuilder(recipe)
     })
-  }, [applySelection, customRecipes, selectedRecipeIndices, setBuilder, setSelectedRecipeIdx, setSelectionAnchor])
+  }, [applySelection, customRecipes, selectedRecipeIndices, setBuilder, setSelectedRecipeIdx, updateSelectionAnchor])
 
   const handleRecipeSelect = useCallback((event: MouseEvent, idx: number) => {
     const recipe = customRecipes[idx]
@@ -490,7 +500,7 @@ export function useRecipeSelection({
     const last = finalSelection.length ? finalSelection[finalSelection.length - 1] : null
 
     if (selectionAnchorRef.current !== (last ?? null)) {
-      setSelectionAnchor(last ?? null)
+      updateSelectionAnchor(last ?? null)
     }
     if (selectedRecipeIdx !== (last ?? null)) {
       setSelectedRecipeIdx(last ?? null)
@@ -508,7 +518,7 @@ export function useRecipeSelection({
       const targetRecipeIdx = finalSelection[0] ?? null
       onSelectionScrollRequest?.(SELECTION_SCROLL_SOURCE_USER, targetRecipeIdx)
     }
-  }, [applySelection, customRecipes, onSelectionScrollRequest, selectedRecipeIdx, selectedRecipeIndices, setBuilder, setSelectedRecipeIdx, setSelectionAnchor, visibleRecipeIndicesRef])
+  }, [applySelection, customRecipes, onSelectionScrollRequest, selectedRecipeIdx, selectedRecipeIndices, setBuilder, setSelectedRecipeIdx, updateSelectionAnchor, visibleRecipeIndicesRef])
 
   const handleRecipeDelete = useCallback((idx: number) => {
     if (selectedRecipeIndices.length > 1 && selectedRecipeIndices.includes(idx)) {
@@ -561,9 +571,9 @@ export function useRecipeSelection({
       applySelection(newIdxs)
       const last = newIdxs[newIdxs.length - 1] ?? null
       setSelectedRecipeIdx(last)
-      setSelectionAnchor(last)
+      updateSelectionAnchor(last)
     })
-  }, [applySelection, customRecipes, describeNextChange, selectedRecipeIndices, setCustomRecipes, setSelectedRecipeIdx, setSelectionAnchor, suppressSelectionDraft])
+  }, [applySelection, customRecipes, describeNextChange, selectedRecipeIndices, setCustomRecipes, setSelectedRecipeIdx, updateSelectionAnchor, suppressSelectionDraft])
 
   const handleRecipeMoveUp = useCallback((idx: number) => {
     suppressSelectionDraft(() => {
@@ -757,7 +767,7 @@ export function useRecipeSelection({
         applySelection(newSelection)
         const last = newSelection[newSelection.length - 1] ?? null
         setSelectedRecipeIdx(last)
-        setSelectionAnchor(last)
+        updateSelectionAnchor(last)
         return
       }
       const moveResult = moveReorderItems(prev, sanitized, rawTargetIndex)
@@ -783,7 +793,7 @@ export function useRecipeSelection({
       // Reorders should not trigger auto-apply or draft capture.
       syncSelectionAfterReorder(newSelection)
     })
-  }, [applySelection, customRecipes, describeNextChange, setCustomRecipes, setSelectedRecipeIdx, setSelectionAnchor, suppressSelectionDraft, syncSelectionAfterReorder])
+  }, [applySelection, customRecipes, describeNextChange, setCustomRecipes, setSelectedRecipeIdx, updateSelectionAnchor, suppressSelectionDraft, syncSelectionAfterReorder])
 
   const handleSelectAllRecipes = useCallback(() => {
     const visibleSet = visibleRecipeIndicesRef?.current ?? null
@@ -801,14 +811,14 @@ export function useRecipeSelection({
       return all[0]!
     })()
     setSelectedRecipeIdx(nextSelected)
-    setSelectionAnchor(nextSelected)
-  }, [applySelection, customRecipes, selectedRecipeIdx, setSelectedRecipeIdx, setSelectionAnchor, visibleRecipeIndicesRef])
+    updateSelectionAnchor(nextSelected)
+  }, [applySelection, customRecipes, selectedRecipeIdx, setSelectedRecipeIdx, updateSelectionAnchor, visibleRecipeIndicesRef])
 
   const handleClearSelection = useCallback(() => {
     applySelection([])
     setSelectedRecipeIdx(null)
-    setSelectionAnchor(null)
-  }, [applySelection, setSelectedRecipeIdx, setSelectionAnchor])
+    updateSelectionAnchor(null)
+  }, [applySelection, setSelectedRecipeIdx, updateSelectionAnchor])
 
   return {
     selectedRecipeIndices,
@@ -833,6 +843,6 @@ export function useRecipeSelection({
     handleRecipeReorder,
     handleSelectAllRecipes,
     handleClearSelection,
-    setSelectionAnchor,
+    updateSelectionAnchor,
   }
 }

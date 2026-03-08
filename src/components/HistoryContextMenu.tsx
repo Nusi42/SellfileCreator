@@ -65,12 +65,11 @@ export function HistoryContextMenu({
       {...(resolvedAnchorPosition ? { anchorPosition: resolvedAnchorPosition } : {})}
       transformOrigin={{ vertical: 'top', horizontal: 'left' }}
       slotProps={{
-        paper: buildContextMenuPaperSlotProps({
+        paper: { ...buildContextMenuPaperSlotProps({
           component: ContextMenuPaper,
           contextMenuGuard,
           onRequestClose: onClose,
           closeLabel: t('close'),
-          ref: paperRef,
           onContextMenu: onPaperContextMenu,
           sx: (theme: Theme) => ({
             minWidth: theme.spacing(30),
@@ -80,7 +79,7 @@ export function HistoryContextMenu({
             py: 0,
             boxShadow: theme.shadows[8],
           }),
-        }),
+        }), ref: paperRef },
       }}
       MenuListProps={{
         dense: true,

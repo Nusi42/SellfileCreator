@@ -225,15 +225,12 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       countMap.clear()
     }
 
+    // AbortController per worker instance lets the lint rule trace listener cleanup.
+    let workerAc = new AbortController()
     const attachWorkerListeners = (worker: Worker) => {
-      worker.addEventListener('message', handleMessage)
-      worker.addEventListener('error', handleError)
-      worker.addEventListener('messageerror', handleError)
-    }
-    const detachWorkerListeners = (worker: Worker) => {
-      worker.removeEventListener('message', handleMessage)
-      worker.removeEventListener('error', handleError)
-      worker.removeEventListener('messageerror', handleError)
+      worker.addEventListener('message', handleMessage, { signal: workerAc.signal })
+      worker.addEventListener('error', handleError, { signal: workerAc.signal })
+      worker.addEventListener('messageerror', handleError, { signal: workerAc.signal })
     }
     const spawnWorker = () => {
       const worker = new RuleCacheWorker()
@@ -251,7 +248,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       activePipelineRunRef.current = null
       const activeWorker = workerRef.current
       if (activeWorker) {
-        detachWorkerListeners(activeWorker)
+        // Abort all listeners on the old worker before terminating.
+        workerAc.abort()
+        workerAc = new AbortController()
         activeWorker.terminate()
         if (workerRef.current === activeWorker) workerRef.current = null
       }
@@ -266,7 +265,8 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     return () => {
       const activeWorker = workerRef.current
       if (activeWorker) {
-        detachWorkerListeners(activeWorker)
+        // Abort all listeners registered via the shared AbortController.
+        workerAc.abort()
         activeWorker.terminate()
         if (workerRef.current === activeWorker) workerRef.current = null
       }
@@ -365,6 +365,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     return { promise, abort }
   }, [])
 
+  // Ref indirection breaks the self-reference cycle so the lint rule sees a stable binding.
+  const promoteQueuedPipelineRef = useRef<() => void>(() => {})
+
   const promoteQueuedPipeline = useCallback(() => {
     // Exactly one active run at a time.
     if (activePipelineRunRef.current) return
@@ -380,9 +383,12 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     }).finally(() => {
       // Promote the next queued run once this one settles.
       if (activePipelineRunRef.current === activeRun) activePipelineRunRef.current = null
-      promoteQueuedPipeline()
+      promoteQueuedPipelineRef.current()
     })
   }, [startPipelineRunOnWorker])
+
+  // Keep the ref in sync so recursive .finally() calls always reach the latest closure.
+  useEffect(() => { promoteQueuedPipelineRef.current = promoteQueuedPipeline }, [promoteQueuedPipeline])
 
   const runPipeline = useCallback<UseRuleCacheWorkerResult['runPipeline']>((params, options) => {
     const signal = options?.signal ?? null

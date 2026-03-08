@@ -1,5 +1,6 @@
-import { memo, useCallback, useMemo, useRef, useState, useEffect } from 'react'
+import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import type React from 'react'
+import type { JSX } from 'react'
 import { Box, IconButton, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
@@ -270,15 +271,11 @@ function RecipeChip({
   const deleteAllDisabledFlag = Boolean(deleteAllDisabled)
   const [overControls, setOverControls] = useState(false)
   const [chipHover, setChipHover] = useState(false)
-  /* eslint-disable react-you-might-not-need-an-effect/no-adjust-state-on-prop-change */
   // Suppress tooltips immediately when dragging begins so they do not reopen after drop.
-  useEffect(() => {
-    if (hideTooltip) {
-      setChipHover(false)
-      setOverControls(false)
-    }
-  }, [hideTooltip])
-  /* eslint-enable react-you-might-not-need-an-effect/no-adjust-state-on-prop-change */
+  if (hideTooltip && (chipHover || overControls)) {
+    setChipHover(false)
+    setOverControls(false)
+  }
   const tooltipTitle = useMemo(() => {
     if (showDuplicateFrame && typeof duplicateOfIndex === 'number') {
       return t('chipTooltipDuplicateOf', { n: duplicateOfIndex + 1 })
@@ -786,14 +783,14 @@ export function summaryParts(
     if (types && types.length > 0) {
       const sorted = [...types].sort(compareArtifactTypes)
       if (opts.showSlotIcons) {
-        const nodes = sorted.map((typeId, i) => {
+        const nodes = sorted.map((typeId) => {
           const Icon = artifactTypeIconFor(typeId)
           if (Icon) {
             return (
               // Inline icon baseline tends to sit a bit high next to caption text;
               // nudge it down slightly for visual centering in the chip.
               <Box
-                key={`slot-${typeId}-${i}`}
+                key={`slot-${typeId}`}
                 component="span"
                 sx={{
                   display: 'inline-flex',
@@ -809,7 +806,7 @@ export function summaryParts(
           // Fallback to text if icon not found (should not happen)
           const tr = opts.t
           const label = withNbsp(tr ? tr(artifactTypeI18nKey(typeId)) : artifactTypeName(typeId))
-          return <Box key={`slot-${typeId}-${i}`} component="span" sx={{ mr: 0.5 }}>{label}</Box>
+          return <Box key={`slot-${typeId}`} component="span" sx={{ mr: 0.5 }}>{label}</Box>
         })
         addNode(<>{nodes}</>)
       } else {
@@ -826,15 +823,15 @@ export function summaryParts(
     // Preferred stat ordering used across the app (same as substat chips/table)
     v.sort(compareVariants)
     if (v.length > 0) {
-      const nodes = v.map((vk, i) => {
+      const nodes = v.map((vk) => {
         const name = withNbsp(opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
         const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
         return (
-          <Box key={`m-${vk}-${i}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>{name}</Box>
+          <Box key={`m-${vk}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>{name}</Box>
         )
       })
       const interleaved: JSX.Element[] = []
-      nodes.forEach((n, i) => { interleaved.push(n); if (i < nodes.length - 1) interleaved.push(<Box key={`m-sep-${i}`} component="span">, </Box>) })
+      nodes.forEach((n, i) => { interleaved.push(n); if (i < nodes.length - 1) interleaved.push(<Box key={`m-sep-${v[i]}`} component="span">, </Box>) })
       addNode(<>{interleaved}</>)
     }
   }
@@ -850,7 +847,7 @@ export function summaryParts(
       const fixedSet = new Set<number>(fv as number[])
       let nodes: JSX.Element[]
       try {
-        nodes = sv.map((vk, i) => {
+        nodes = sv.map((vk) => {
           const name = withNbsp(opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
           const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
         // Render per-substat roll bounds using a compact, readable indicator circle
@@ -888,7 +885,7 @@ export function summaryParts(
         // Indicator: show only one state. UI enforces mutual exclusivity; if both present (legacy), prefer cap.
           const indicator = (showCap || showMin) ? (
           <Box
-            key={`ri-${vk}-${i}`}
+            key={`ri-${vk}`}
             component="span"
             sx={{
               display: 'inline-flex',
@@ -925,7 +922,7 @@ export function summaryParts(
         // custom target override” without needing another badge.
           const content = (
           <Box
-            key={`s-${vk}-${i}`}
+            key={`s-${vk}`}
             component="span"
             sx={{
               color: opts.useStatButtonColors ? fg : undefined,
@@ -949,7 +946,7 @@ export function summaryParts(
           if (tooltipSections.length > 0 && !opts.tooltipsDisabled) {
             return (
               <MarkdownTooltip
-                key={`s-${vk}-${i}`}
+                key={`s-${vk}`}
                 render={<BuilderTooltipContent text={tooltipSections.join('\n')} />}
                 arrow
               >
@@ -968,7 +965,7 @@ export function summaryParts(
         ]
       }
       const interleaved: JSX.Element[] = []
-      nodes.forEach((n, i) => { interleaved.push(n); if (i < nodes.length - 1) interleaved.push(<Box key={`s-sep-${i}`} component="span">, </Box>) })
+      nodes.forEach((n, i) => { interleaved.push(n); if (i < nodes.length - 1) interleaved.push(<Box key={`s-sep-${sv[i]}`} component="span">, </Box>) })
       addNode(<><Box component="span">{`${(opts.t ? opts.t('chipSubs') : 'Subs')}:${NBSP}`}</Box>{interleaved}</>)
     } else {
       const tr = opts.t
@@ -1161,7 +1158,7 @@ export function summaryParts(
   if (parts.length === 0) return null
   // Interleave with separators
   const withSeps: JSX.Element[] = []
-  parts.forEach((p, i) => { withSeps.push(p); if (i < parts.length - 1) withSeps.push(<Box key={`sep-${i}`} component="span"> | </Box>) })
+  parts.forEach((p, i) => { withSeps.push(p); if (i < parts.length - 1) withSeps.push(<Box key={`sep-after-${p.key}`} component="span"> | </Box>) })
   return <>{withSeps}</>
 }
 /**

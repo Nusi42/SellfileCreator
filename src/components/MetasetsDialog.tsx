@@ -65,6 +65,98 @@ function metasetStateEqual(a: Metaset, b: Metaset): boolean {
   return true
 }
 
+// Short golden glow effect reminiscent of a legendary pull. Intentionally subtle.
+const legendaryGlow = keyframes`
+  0% { box-shadow: 0 0 0px 0 rgba(255, 204, 0, 0), inset 0 0 0px 0 rgba(255, 230, 150, 0); }
+  25% { box-shadow: 0 0 14px 3px rgba(255, 204, 0, 0.55), inset 0 0 8px 2px rgba(255, 230, 150, 0.45); }
+  60% { box-shadow: 0 0 18px 6px rgba(255, 184, 0, 0.50), inset 0 0 12px 3px rgba(255, 224, 140, 0.45); }
+  100% { box-shadow: 0 0 0px 0 rgba(255, 204, 0, 0), inset 0 0 0px 0 rgba(255, 230, 150, 0); }
+`
+const sparkleRise = keyframes`
+  0% { transform: translateY(6px) scale(0.9); opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 0.85; }
+  100% { transform: translateY(-10px) scale(1.05); opacity: 0; }
+`
+
+// Inner component handles draft state for a single metaset name field.
+const MetasetNameFieldInner = React.memo(function MetasetNameFieldInner({ initialName, idx, highlight, onCommitName }: { initialName: string; idx: number; highlight: boolean; onCommitName: (value: string) => void }) {
+  const [draft, setDraft] = useState(initialName)
+  return (
+    <Box sx={{ position: 'relative', display: 'block', width: '100%', borderRadius: 1, overflow: 'visible' }}>
+      {highlight && (
+        <Box
+          aria-hidden
+          sx={{
+            position: 'absolute',
+            // Keep glow tightly around the input box; avoid label overlay.
+            top: 6,
+            right: 0,
+            bottom: 0,
+            left: 0,
+            borderRadius: 'inherit',
+            pointerEvents: 'none',
+            animation: `${legendaryGlow} 1400ms ease-out`,
+            background: 'linear-gradient(145deg, rgba(255,240,180,0.15), rgba(255,208,0,0.12) 40%, rgba(255,150,0,0.10))',
+            mixBlendMode: 'screen',
+            filter: 'saturate(1.1)',
+          }}
+        />
+      )}
+      {highlight && (
+        <>
+          {[0,1,2,3,4].map((i) => (
+            <Box key={i} aria-hidden sx={{
+              position: 'absolute',
+              left: `${10 + i*16}%`,
+              top: '56%',
+              width: 4,
+              height: 4,
+              borderRadius: '50%',
+              background: 'rgba(255, 240, 200, 0.9)',
+              boxShadow: '0 0 6px 2px rgba(255, 210, 120, 0.6)',
+              pointerEvents: 'none',
+              animation: `${sparkleRise} 900ms ease-out`,
+              animationDelay: `${80 * i}ms`,
+            }} />
+          ))}
+        </>
+      )}
+      <MuiTextField
+        size="small"
+        label={`Metaset #${idx + 1}`}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          if (draft !== initialName) {
+            onCommitName(draft)
+          }
+        }}
+        onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
+        fullWidth
+        sx={{
+          // No margin to keep grid gap uniform
+          m: 0,
+        }}
+      />
+    </Box>
+  )
+})
+
+// Outer wrapper resets draft state via key when name/id changes.
+const MetasetNameField = React.memo(function MetasetNameField({ id, name, idx, highlight, onCommitName }: { id: string; name: string; idx: number; highlight?: boolean; onCommitName: (value: string) => void }) {
+  const highlightActive = Boolean(highlight)
+  return (
+    <MetasetNameFieldInner
+      key={`${id}:${name}`}
+      initialName={name}
+      idx={idx}
+      highlight={highlightActive}
+      onCommitName={onCommitName}
+    />
+  )
+})
+
 export default function MetasetsDialog({
   open,
   onClose,
@@ -154,13 +246,15 @@ export default function MetasetsDialog({
     onClose()
   }, [onClose, publishDraftNow])
   // Follow parent snapshots only when no local draft publish is queued.
-  useEffect(() => {
-    if (hasPendingPublishRef.current) return
-    draftMetasetsRef.current = metasets
-    // Local draft intentionally diverges from props while edits are queued.
-    // eslint-disable-next-line react-you-might-not-need-an-effect/no-derived-state
-    setDraftMetasets(metasets)
-  }, [metasets])
+  // Render-time state adjustment: sync draft to parent metasets when no publish is pending.
+  const [prevMetasets, setPrevMetasets] = useState(metasets)
+  if (metasets !== prevMetasets) {
+    setPrevMetasets(metasets)
+    if (!hasPendingPublishRef.current) {
+      draftMetasetsRef.current = metasets
+      setDraftMetasets(metasets)
+    }
+  }
   // Dialog close/unmount must flush pending local edits so state never drifts.
   useEffect(() => {
     return () => {
@@ -184,18 +278,18 @@ export default function MetasetsDialog({
   // Paper element for the per-row Sets select menu; used to measure actual
   // height after mount to refine the anchored position precisely.
   const setsRowMenuPaperRef = useRef<HTMLDivElement | null>(null)
-  const selectContainerRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  const setsMenuListRefs = useRef<Record<string, HTMLUListElement | null>>({})
+  const selectContainerRefsRef = useRef<Record<string, HTMLDivElement | null>>({})
+  const setsMenuListRefsRef = useRef<Record<string, HTMLUListElement | null>>({})
   // Skip auto-scrolling after manual toggles so the list stays anchored where the user clicked.
   const skipSetsMenuAutoScrollRef = useRef(false)
   const [activeSetMenuMetaId, setActiveSetMenuMetaId] = useState<string | null>(null)
   {
     const active = new Set(draftMetasets.map(m => m.id))
-    for (const key of Object.keys(selectContainerRefs.current)) {
-      if (!active.has(key)) delete selectContainerRefs.current[key]
+    for (const key of Object.keys(selectContainerRefsRef.current)) {
+      if (!active.has(key)) delete selectContainerRefsRef.current[key]
     }
-    for (const key of Object.keys(setsMenuListRefs.current)) {
-      if (!active.has(key)) delete setsMenuListRefs.current[key]
+    for (const key of Object.keys(setsMenuListRefsRef.current)) {
+      if (!active.has(key)) delete setsMenuListRefsRef.current[key]
     }
   }
   const [pendingScrollMetaId, setPendingScrollMetaId] = useState<string>('')
@@ -328,20 +422,6 @@ export default function MetasetsDialog({
     }
   }, [buildMetasetsAggregateDescriptor, cloneMetasetMap, describeNextChange, draftMetasets, open])
 
-  // Short golden glow effect reminiscent of a legendary pull. Intentionally subtle.
-  const legendaryGlow = keyframes`
-    0% { box-shadow: 0 0 0px 0 rgba(255, 204, 0, 0), inset 0 0 0px 0 rgba(255, 230, 150, 0); }
-    25% { box-shadow: 0 0 14px 3px rgba(255, 204, 0, 0.55), inset 0 0 8px 2px rgba(255, 230, 150, 0.45); }
-    60% { box-shadow: 0 0 18px 6px rgba(255, 184, 0, 0.50), inset 0 0 12px 3px rgba(255, 224, 140, 0.45); }
-    100% { box-shadow: 0 0 0px 0 rgba(255, 204, 0, 0), inset 0 0 0px 0 rgba(255, 230, 150, 0); }
-  `
-  const sparkleRise = keyframes`
-    0% { transform: translateY(6px) scale(0.9); opacity: 0; }
-    20% { opacity: 1; }
-    80% { opacity: 0.85; }
-    100% { transform: translateY(-10px) scale(1.05); opacity: 0; }
-  `
-
   // No dynamic width measurements: keep the header width fixed to the menu
   // Paper width so it does not jump when switching modes.
 
@@ -424,7 +504,7 @@ export default function MetasetsDialog({
     if (!metaSetsMenuOpen) return
     const order = orderOverride ?? setsOrder
     if (order === 'icons') return
-    const list = setsMenuListRefs.current[metaId]
+    const list = setsMenuListRefsRef.current[metaId]
     if (!list) return
     const meta = draftMetasets.find((m) => m.id === metaId)
     if (!meta || meta.sets.length === 0) return
@@ -443,93 +523,21 @@ export default function MetasetsDialog({
       const item = list.querySelector<HTMLElement>(`[data-set-id="${target}"]`)
       item?.scrollIntoView({ block: 'nearest' })
     })
-  }, [draftMetasets, metaSetsMenuOpen, setsMenuListRefs, setsOrder, sortedSetEntries])
-  useEffect(() => {
-    if (!metaSetsMenuOpen || !activeSetMenuMetaId) return
-    if (skipSetsMenuAutoScrollRef.current) {
-      skipSetsMenuAutoScrollRef.current = false
-      return
+  }, [draftMetasets, metaSetsMenuOpen, setsMenuListRefsRef, setsOrder, sortedSetEntries])
+  // Auto-scroll to selected set when the active metaset changes — render-time comparison.
+  const [prevActiveSetMenuMetaId, setPrevActiveSetMenuMetaId] = useState(activeSetMenuMetaId)
+  if (activeSetMenuMetaId !== prevActiveSetMenuMetaId) {
+    setPrevActiveSetMenuMetaId(activeSetMenuMetaId)
+    if (metaSetsMenuOpen && activeSetMenuMetaId) {
+      if (skipSetsMenuAutoScrollRef.current) {
+        skipSetsMenuAutoScrollRef.current = false
+      } else {
+        // Schedule scroll after commit so the DOM nodes exist.
+        queueMicrotask(() => scrollMetasetSetsMenuToSelected(activeSetMenuMetaId))
+      }
     }
-    scrollMetasetSetsMenuToSelected(activeSetMenuMetaId)
-  }, [activeSetMenuMetaId, metaSetsMenuOpen, scrollMetasetSetsMenuToSelected, setsOrder])
+  }
 
-  const MetasetNameField = React.useMemo(() => {
-    const Inner = React.memo(function MetasetNameFieldInner({ initialName, idx, highlight, onCommitName }: { initialName: string; idx: number; highlight: boolean; onCommitName: (value: string) => void }) {
-      const [draft, setDraft] = useState(initialName)
-      return (
-        <Box sx={{ position: 'relative', display: 'block', width: '100%', borderRadius: 1, overflow: 'visible' }}>
-          {highlight && (
-            <Box
-              aria-hidden
-              sx={{
-                position: 'absolute',
-                // Keep glow tightly around the input box; avoid label overlay.
-                top: 6,
-                right: 0,
-                bottom: 0,
-                left: 0,
-                borderRadius: 'inherit',
-                pointerEvents: 'none',
-                animation: `${legendaryGlow} 1400ms ease-out`,
-                background: 'linear-gradient(145deg, rgba(255,240,180,0.15), rgba(255,208,0,0.12) 40%, rgba(255,150,0,0.10))',
-                mixBlendMode: 'screen',
-                filter: 'saturate(1.1)',
-              }}
-            />
-          )}
-          {highlight && (
-            <>
-              {[0,1,2,3,4].map((i) => (
-                <Box key={i} aria-hidden sx={{
-                  position: 'absolute',
-                  left: `${10 + i*16}%`,
-                  top: '56%',
-                  width: 4,
-                  height: 4,
-                  borderRadius: '50%',
-                  background: 'rgba(255, 240, 200, 0.9)',
-                  boxShadow: '0 0 6px 2px rgba(255, 210, 120, 0.6)',
-                  pointerEvents: 'none',
-                  animation: `${sparkleRise} 900ms ease-out`,
-                  animationDelay: `${80 * i}ms`,
-                }} />
-              ))}
-            </>
-          )}
-          <MuiTextField
-            size="small"
-            label={`Metaset #${idx + 1}`}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={() => {
-              if (draft !== initialName) {
-                onCommitName(draft)
-              }
-            }}
-            onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
-            fullWidth
-            sx={{
-              // No margin to keep grid gap uniform
-              m: 0,
-            }}
-          />
-        </Box>
-      )
-    })
-    return React.memo(function MetasetNameField({ id, name, idx, highlight, onCommitName }: { id: string; name: string; idx: number; highlight?: boolean; onCommitName: (value: string) => void }) {
-      const highlightActive = Boolean(highlight)
-      return (
-        <Inner
-          key={`${id}:${name}`}
-          initialName={name}
-          idx={idx}
-          highlight={highlightActive}
-          onCommitName={onCommitName}
-        />
-      )
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   return (
     <>
@@ -663,7 +671,7 @@ export default function MetasetsDialog({
                   >
                     <Box
                       ref={(el: HTMLDivElement | null) => {
-                        selectContainerRefs.current[m.id] = el
+                        selectContainerRefsRef.current[m.id] = el
                       }}
                       sx={{ position: 'relative' }}
                     >
@@ -731,7 +739,7 @@ export default function MetasetsDialog({
                               } catch {}
                               if (typeof targetSetId === 'number') {
                                 try {
-                                  const list = setsMenuListRefs.current[m.id]
+                                  const list = setsMenuListRefsRef.current[m.id]
                                   if (!list) return
                                   const item = list.querySelector<HTMLElement>(`[data-set-id="${targetSetId}"]`)
                                   if (item) item.scrollIntoView({ block: 'nearest' })
@@ -798,7 +806,7 @@ export default function MetasetsDialog({
                                   </ListSubheader>
                                   <Box
                                     component="ul"
-                                    ref={(el: HTMLUListElement | null) => { setsMenuListRefs.current[m.id] = el }}
+                                    ref={(el: HTMLUListElement | null) => { setsMenuListRefsRef.current[m.id] = el }}
                                     sx={{
                                       listStyle: 'none',
                                       p: 0,
@@ -863,7 +871,7 @@ export default function MetasetsDialog({
                       />
                       <SelectDropdownActivator
                         getDisplayNode={() => {
-                          const root = selectContainerRefs.current[m.id]
+                          const root = selectContainerRefsRef.current[m.id]
                           if (!root) return null
                           return root.querySelector('[role="combobox"]') as HTMLElement | null
                         }}

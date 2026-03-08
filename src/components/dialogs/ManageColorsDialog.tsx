@@ -39,10 +39,12 @@ export default function ManageColorsDialog(props: {
   const { open, onClose, substatColors, setSubstatColors, onReset } = props
   const { t } = useI18n()
   const [draftAlphas, setDraftAlphas] = React.useState<Record<number, number>>({})
-
-  React.useEffect(() => {
+  // Reset draft alphas when dialog closes — render-time state adjustment pattern.
+  const [prevOpen, setPrevOpen] = React.useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
     if (!open) setDraftAlphas({})
-  }, [open])
+  }
   return (
     <Dialog
       open={open}

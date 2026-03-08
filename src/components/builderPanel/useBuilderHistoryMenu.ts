@@ -5,7 +5,7 @@
  * builder history controls. Keeping this logic isolated makes BuilderPanel leaner while
  * preserving the dense inline documentation requirements.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
+import { useCallback, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import type { HistoryPreview } from '../../hooks/useSfrHistory'
 import { formatHistoryTooltipText } from '../../history/historyTooltip'
 import { useContextMenuPaperGuard } from '../../hooks/useContextMenuPaperGuard'
@@ -99,9 +99,10 @@ export function useBuilderHistoryMenu({
   // Hints teach the context-menu affordance; once dismissed they never return.
   const { shouldShow: shouldShowHistoryHint, markSeen: markHistoryHintSeen } = useContextMenuHint('builderHistoryMenu')
   const [historyHintPos, setHistoryHintPos] = useState<{ x: number; y: number } | null>(null)
-  useEffect(() => {
-    if (!shouldShowHistoryHint) setHistoryHintPos(null)
-  }, [shouldShowHistoryHint])
+  // Clear the hint position during render when the hint is dismissed.
+  if (!shouldShowHistoryHint && historyHintPos !== null) {
+    setHistoryHintPos(null)
+  }
   const historyHintActive = shouldShowHistoryHint && historyHintPos !== null && !historyMenuOpen
 
   // Pointer-tracking handlers drive both hint positioning and menu activation.

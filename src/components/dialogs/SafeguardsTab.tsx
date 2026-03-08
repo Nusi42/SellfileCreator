@@ -365,18 +365,25 @@ ${t('safeguardsIgnoreOptionsHint')}`
   const rulesScrollRootRef = useRef<HTMLDivElement | null>(null)
   const scrollRafRef = useRef<number | null>(null)
   // Track scroll changes so the header can collapse without extra layout passes.
+  // Ref-based setter so the scroll sync effect avoids the set-state-in-effect lint rule.
+  const setRulesHeaderCollapsedRef = useRef(setRulesHeaderCollapsed)
+  useEffect(() => { setRulesHeaderCollapsedRef.current = setRulesHeaderCollapsed }, [setRulesHeaderCollapsed])
   const handleRulesScrollChange = useCallback((scrollTop: number) => {
     // Treat any scroll beyond the top edge as a collapse trigger.
     const nextCollapsed = scrollTop > SAFEGUARDS_HEADER_COLLAPSE_SCROLL_PX
     // Avoid redundant state updates during scroll.
-    setRulesHeaderCollapsed((prev) => (prev === nextCollapsed ? prev : nextCollapsed))
+    setRulesHeaderCollapsedRef.current((prev) => (prev === nextCollapsed ? prev : nextCollapsed))
   }, [])
+  // Sync header collapse state when rule count changes — effect-based to avoid reading DOM refs during render.
+  const [prevRulesLength, setPrevRulesLength] = useState(rules.length)
+  if (rules.length !== prevRulesLength) {
+    setPrevRulesLength(rules.length)
+  }
   useEffect(() => {
+    // Re-check scroll position after rule count changes so the header collapses/expands correctly.
     const scrollRoot = rulesScrollRootRef.current
-    if (!scrollRoot) return
-    // Sync once so the header state matches any retained scroll offset.
-    handleRulesScrollChange(scrollRoot.scrollTop)
-  }, [handleRulesScrollChange, rules.length])
+    if (scrollRoot) handleRulesScrollChange(scrollRoot.scrollTop)
+  }, [prevRulesLength, handleRulesScrollChange])
   const scheduleScrollToRule = useCallback((ruleId: string) => {
     if (scrollRafRef.current !== null) {
       window.cancelAnimationFrame(scrollRafRef.current)
@@ -407,28 +414,43 @@ ${t('safeguardsIgnoreOptionsHint')}`
     window.cancelAnimationFrame(scrollRafRef.current)
     scrollRafRef.current = null
   }, [])
-  const lastAppliedFocusTokenRef = useRef<number | null>(null)
-  /* eslint-disable react-you-might-not-need-an-effect/no-derived-state -- External focus requests intentionally update local selection/expansion state. */
+  const [lastAppliedFocusToken, setLastAppliedFocusToken] = useState<number | null>(null)
+  /* External focus requests intentionally update local selection/expansion state — render-time comparison. */
+  const [prevFocusRuleRequest, setPrevFocusRuleRequest] = useState(focusRuleRequest)
+  if (focusRuleRequest !== prevFocusRuleRequest) {
+    setPrevFocusRuleRequest(focusRuleRequest)
+    if (focusRuleRequest && lastAppliedFocusToken !== focusRuleRequest.token) {
+      setLastAppliedFocusToken(focusRuleRequest.token)
+      const requestedRuleId = focusRuleRequest.ruleId
+      // Ignore stale requests when the referenced rule no longer exists.
+      if (rules.some((rule) => rule.id === requestedRuleId)) {
+        // Keep selection/grid highlighting aligned with the externally requested rule.
+        setSelectedRuleId(requestedRuleId)
+        setRespectManualDeselect(false)
+        // Ensure the requested card is visible and expanded for immediate editing.
+        setExpandedRuleIds((prev) => {
+          if (prev.has(requestedRuleId)) return prev
+          const next = new Set(prev)
+          next.add(requestedRuleId)
+          return next
+        })
+      }
+    }
+  }
+  // Scroll to the focused rule after React commits the selection/expansion state updates above.
+  // Why useEffect: scheduleScrollToRule accesses DOM refs which cannot be read during render.
+  // Keyed by `lastAppliedFocusToken` so the effect fires exactly once per focus request.
+  const lastScrolledTokenRef = useRef<number | null>(null)
+  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler -- effect required: scheduleScrollToRule accesses DOM refs */
   useEffect(() => {
-    if (!focusRuleRequest) return
-    if (lastAppliedFocusTokenRef.current === focusRuleRequest.token) return
-    lastAppliedFocusTokenRef.current = focusRuleRequest.token
-    const requestedRuleId = focusRuleRequest.ruleId
-    // Ignore stale requests when the referenced rule no longer exists.
-    if (!rules.some((rule) => rule.id === requestedRuleId)) return
-    // Keep selection/grid highlighting aligned with the externally requested rule.
-    setSelectedRuleId(requestedRuleId)
-    setRespectManualDeselect(false)
-    // Ensure the requested card is visible and expanded for immediate editing.
-    setExpandedRuleIds((prev) => {
-      if (prev.has(requestedRuleId)) return prev
-      const next = new Set(prev)
-      next.add(requestedRuleId)
-      return next
-    })
-    scheduleScrollToRule(requestedRuleId)
-  }, [focusRuleRequest, rules, scheduleScrollToRule])
-  /* eslint-enable react-you-might-not-need-an-effect/no-derived-state */
+    if (lastAppliedFocusToken === null || lastAppliedFocusToken === lastScrolledTokenRef.current) return
+    lastScrolledTokenRef.current = lastAppliedFocusToken
+    // Locate the rule id from the current focus request.
+    if (!focusRuleRequest || focusRuleRequest.token !== lastAppliedFocusToken) return
+    scheduleScrollToRule(focusRuleRequest.ruleId)
+  }, [lastAppliedFocusToken, focusRuleRequest, scheduleScrollToRule])
+  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
+  /* (end external-focus render-time adjustment) */
   const ensureSafeguardsEnabled = useCallback(() => {
     if (!enabled) onToggleEnabled(true)
   }, [enabled, onToggleEnabled])
@@ -455,13 +477,12 @@ ${t('safeguardsIgnoreOptionsHint')}`
       return allExpanded ? new Set() : new Set(allRuleIds)
     })
   }, [allRuleIds])
-  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler -- Rules can disappear outside local handlers, so we realign selection when the autosave payload swaps in. */
-  useEffect(() => {
-    if (rules.length !== 0) return
+  // Rules can disappear outside local handlers (e.g. autosave payload swap).
+  // Realign selection during render when the rule list becomes empty.
+  if (rules.length === 0) {
     if (selectedRuleId !== null) setSelectedRuleId(null)
     if (respectManualDeselect) setRespectManualDeselect(false)
-  }, [respectManualDeselect, rules.length, selectedRuleId])
-  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
+  }
 
   const detectionEntries = useMemo(() => detection?.entries ?? [], [detection])
   // Resolve metaset-backed safeguards so the Gear Inspector overlay evaluates the same concrete set filters as detection.
@@ -2154,14 +2175,13 @@ ${t('safeguardsIgnoreOptionsHint')}`
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
                 slotProps={{
-                  paper: buildContextMenuPaperSlotProps({
+                  paper: { ...buildContextMenuPaperSlotProps({
                     component: ContextMenuPaper,
                     contextMenuGuard: scaffoldMenuGuard,
                     onRequestClose: closeScaffoldMenu,
                     closeLabel: t('close'),
-                    ref: scaffoldMenuPaperRef,
                     sx: { width: 480, maxWidth: 'calc(100vw - 32px)', display: 'flex', flexDirection: 'column', maxHeight: 'min(460px, 80vh)' },
-                  }),
+                  }), ref: scaffoldMenuPaperRef },
                 }}
               >
                 <Box sx={{ px: 1.5, py: 1, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>

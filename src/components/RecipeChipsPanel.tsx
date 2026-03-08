@@ -23,6 +23,22 @@ import { useChipListKeyboard } from '../hooks/useChipListKeyboard'
 // Why: Right-clicking either the empty chips area or an individual chip should dismiss the hint for both.
 const RECIPE_CHIPS_CONTEXT_HINT_ID = 'builderRecipeChips'
 
+/**
+ * Derive a stable, unique key for each recipe in a list.
+ * Combines several immutable recipe fields into a fingerprint;
+ * appends an occurrence counter when two recipes share the same fingerprint
+ * (e.g. after duplication).
+ */
+function buildRecipeKeys(recipes: BuilderRecipe[]): string[] {
+  const counts = new Map<string, number>()
+  return recipes.map((r) => {
+    const fp = `${r.name ?? ''}_${r.exportMode}_${r.keep}_${r.rankCode}_${r.rarityCode}`
+    const n = (counts.get(fp) ?? 0) + 1
+    counts.set(fp, n)
+    return `${fp}__${n}`
+  })
+}
+
 function RecipeChipsPanel(props: {
   containerRef: React.MutableRefObject<HTMLDivElement | null>
   recipes: BuilderRecipe[]
@@ -158,6 +174,8 @@ function RecipeChipsPanel(props: {
   }, [])
 
   const duplicateOf = duplicateOfIndices
+  // Stable, content-derived keys so the chip list avoids index-based React keys.
+  const recipeStableKeys = React.useMemo(() => buildRecipeKeys(recipes), [recipes])
   const selectedSet = React.useMemo(() => new Set(selectedIndices), [selectedIndices])
   const visibleSet = visibleIndices ?? null
   const visibleCount = visibleSet
@@ -327,7 +345,7 @@ function RecipeChipsPanel(props: {
               : null
             return (
               <RecipeChip
-                key={idx}
+                key={recipeStableKeys[idx]}
                 index={idx}
                 recipe={c}
                 {...(overrideMode ? { exportModeOverride: overrideMode } : {})}

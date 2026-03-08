@@ -6,7 +6,7 @@
  * read/update. Moving these into a provider reduces prop drilling and keeps
  * behavior consistent without introducing a third-party state library.
  */
-import React, { createContext, useContext, useMemo, useReducer } from 'react'
+import React, { createContext, use, useMemo, useReducer } from 'react'
 import { FINAL_SELL_DEFAULT_LEVELS } from '../lib/constants'
 import { buildDefaultSafeguardRules } from '../lib/safeguards'
 import {
@@ -141,8 +141,8 @@ type AppDispatchers = {
   setNoteRecipeOverridesDisabled: (v: Updater<boolean>) => void
 }
 
-const AppStateCtx = createContext<AppState | null>(null)
-const AppDispatchCtx = createContext<AppDispatchers | null>(null)
+const AppStateContext = createContext<AppState | null>(null)
+const AppDispatchContext = createContext<AppDispatchers | null>(null)
 
 export function AppStateProvider({ initial, children }: { initial: AppState; children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initial)
@@ -163,20 +163,20 @@ export function AppStateProvider({ initial, children }: { initial: AppState; chi
   }), [])
 
   return (
-    <AppStateCtx.Provider value={state}>
-      <AppDispatchCtx.Provider value={actions}>{children}</AppDispatchCtx.Provider>
-    </AppStateCtx.Provider>
+    <AppStateContext value={state}>
+      <AppDispatchContext value={actions}>{children}</AppDispatchContext>
+    </AppStateContext>
   )
 }
 
 export function useAppState(): AppState {
-  const ctx = useContext(AppStateCtx)
+  const ctx = use(AppStateContext)
   if (!ctx) throw new Error('useAppState must be used within AppStateProvider')
   return ctx
 }
 
 export function useAppActions(): AppDispatchers {
-  const ctx = useContext(AppDispatchCtx)
+  const ctx = use(AppDispatchContext)
   if (!ctx) throw new Error('useAppActions must be used within AppStateProvider')
   return ctx
 }

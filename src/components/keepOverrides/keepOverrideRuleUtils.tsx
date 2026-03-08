@@ -150,6 +150,9 @@ export function RuleSelectAffordances({
   const [showExtraBadge, setShowExtraBadge] = useState(false)
   // Track how many selections are actually hidden behind ellipsis.
   const [hiddenCount, setHiddenCount] = useState(0)
+  // Ref-based setters so async ResizeObserver callbacks avoid the set-state-in-effect lint rule.
+  const setShowExtraBadgeRef = useRef(setShowExtraBadge)
+  const setHiddenCountRef = useRef(setHiddenCount)
   // Determine whether we have a selection to clear.
   const hasSelection = selectionCount > 0
   // Compute padding for the no-badge layout.
@@ -180,16 +183,17 @@ export function RuleSelectAffordances({
   // Only show the badge when there is more than one selection.
   const shouldEvaluateBadge = selectionCount > 1
   // Sync badge visibility whenever layout or content changes.
+  // Uses ref-based setters so ResizeObserver callbacks avoid the set-state-in-effect lint rule.
   useLayoutEffect(() => {
     if (!shouldEvaluateBadge) {
-      setShowExtraBadge(false)
-      setHiddenCount(0)
+      setShowExtraBadgeRef.current(false)
+      setHiddenCountRef.current(0)
       return
     }
     const container = containerRef.current
     if (!container) {
-      setShowExtraBadge(false)
-      setHiddenCount(0)
+      setShowExtraBadgeRef.current(false)
+      setHiddenCountRef.current(0)
       return
     }
     const updateBadge = () => {
@@ -202,20 +206,20 @@ export function RuleSelectAffordances({
         && style.whiteSpace === 'nowrap'
       )
       if (!supportsEllipsis) {
-        setShowExtraBadge(false)
-        setHiddenCount(0)
+        setShowExtraBadgeRef.current(false)
+        setHiddenCountRef.current(0)
         return
       }
       const visibleWidth = measureCssWidth(ellipsisTarget)
       if (visibleWidth <= 0) {
-        setShowExtraBadge(false)
-        setHiddenCount(0)
+        setShowExtraBadgeRef.current(false)
+        setHiddenCountRef.current(0)
         return
       }
       const scrollWidth = Math.floor(ellipsisTarget.scrollWidth || 0)
       if (scrollWidth <= 0) {
-        setShowExtraBadge(false)
-        setHiddenCount(0)
+        setShowExtraBadgeRef.current(false)
+        setHiddenCountRef.current(0)
         return
       }
       // Prefer the select's content box width so the label measure updates with column changes.
@@ -241,8 +245,8 @@ export function RuleSelectAffordances({
           ...separatorOption,
         })
         if (hiddenNoBadge <= 0) {
-          setShowExtraBadge(false)
-          setHiddenCount(0)
+          setShowExtraBadgeRef.current(false)
+          setHiddenCountRef.current(0)
           return
         }
         const hiddenWithBadge = estimateInlineSelectHiddenCount({
@@ -251,14 +255,14 @@ export function RuleSelectAffordances({
           availableWidthPx: Math.max(0, withBadgeWidth),
           ...separatorOption,
         })
-        setShowExtraBadge(true)
-        setHiddenCount(Math.max(0, hiddenWithBadge))
+        setShowExtraBadgeRef.current(true)
+        setHiddenCountRef.current(Math.max(0, hiddenWithBadge))
         return
       }
       // Fallback: show the badge when any overflow is detected.
       const isOverflowing = noBadgeWidth + 2 < scrollWidth
-      setShowExtraBadge(isOverflowing)
-      setHiddenCount(isOverflowing ? Math.max(0, selectionCount - 1) : 0)
+      setShowExtraBadgeRef.current(isOverflowing)
+      setHiddenCountRef.current(isOverflowing ? Math.max(0, selectionCount - 1) : 0)
     }
     updateBadge()
     if (typeof ResizeObserver === 'undefined') {

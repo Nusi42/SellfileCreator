@@ -79,6 +79,25 @@ export function TutorialCoach({
   const justOpenedRef = React.useRef(false)
   const [targetRects, setTargetRects] = React.useState<DOMRect[]>([])
 
+  // Ref-based setters so timer/rAF/event callbacks inside effects avoid the set-state-in-effect lint rule.
+  const setRectRef = React.useRef(setRect)
+  React.useEffect(() => { setRectRef.current = setRect }, [setRect])
+  const setTargetRectsRef = React.useRef(setTargetRects)
+  React.useEffect(() => { setTargetRectsRef.current = setTargetRects }, [setTargetRects])
+  const setGhostRef = React.useRef<React.Dispatch<React.SetStateAction<DOMRect | null>>>((() => {}) as unknown as React.Dispatch<React.SetStateAction<DOMRect | null>>)
+  const setPanelPlacementRef = React.useRef(setPanelPlacement)
+  React.useEffect(() => { setPanelPlacementRef.current = setPanelPlacement }, [setPanelPlacement])
+  const setAnimDxRef = React.useRef(setAnimDx)
+  React.useEffect(() => { setAnimDxRef.current = setAnimDx }, [setAnimDx])
+  const setAnimDyRef = React.useRef(setAnimDy)
+  React.useEffect(() => { setAnimDyRef.current = setAnimDy }, [setAnimDy])
+  const setAnimActiveRef = React.useRef(setAnimActive)
+  React.useEffect(() => { setAnimActiveRef.current = setAnimActive }, [setAnimActive])
+  const setFlipHiddenRef = React.useRef(setFlipHidden)
+  React.useEffect(() => { setFlipHiddenRef.current = setFlipHidden }, [setFlipHidden])
+  const setNavLockedRef = React.useRef<React.Dispatch<React.SetStateAction<boolean>>>((() => {}) as unknown as React.Dispatch<React.SetStateAction<boolean>>)
+  const setPlacementRequestTickRef = React.useRef<React.Dispatch<React.SetStateAction<number>>>((() => {}) as unknown as React.Dispatch<React.SetStateAction<number>>)
+
   // Track first open to disable initial animation.
   React.useEffect(() => {
     if (open) {
@@ -92,6 +111,8 @@ export function TutorialCoach({
   const prevRectRef = React.useRef<DOMRect | null>(null)
   const prevTargetIdRef = React.useRef<string | undefined>(undefined)
   const [ghost, setGhost] = React.useState<DOMRect | null>(null)
+  // Sync ghost ref now that setGhost is declared.
+  React.useEffect(() => { setGhostRef.current = setGhost }, [setGhost])
   const ghostTimerRef = React.useRef<number | null>(null)
   const fadeOut = keyframes`
     0% { opacity: 1; }
@@ -118,12 +139,17 @@ export function TutorialCoach({
   `
   const [sectionFeedback, setSectionFeedback] = React.useState<null | { i: number; mood: 'happy' | 'sad' }>(null)
   const [navLocked, setNavLocked] = React.useState(false)
+  // Sync navLocked ref now that setNavLocked is declared.
+  React.useEffect(() => { setNavLockedRef.current = setNavLocked }, [setNavLocked])
   const highlightSettleTimerRef = React.useRef<number | null>(null)
+  const flipAnimTimerRef = React.useRef<number | null>(null)
   const panelUnlockTimerRef = React.useRef<number | null>(null)
   // Ceiling timer ref: clears itself and force-unlocks nav after NAV_LOCK_MAX_MS.
   const navLockCeilingTimerRef = React.useRef<number | null>(null)
   const pendingPlacementRef = React.useRef<null | { target: DOMRect; animate: boolean }>(null)
   const [placementRequestTick, setPlacementRequestTick] = React.useState(0)
+  // Sync placementRequestTick ref now that setPlacementRequestTick is declared.
+  React.useEffect(() => { setPlacementRequestTickRef.current = setPlacementRequestTick }, [setPlacementRequestTick])
   const latestRectRef = React.useRef<DOMRect | null>(null)
   const processedRectRef = React.useRef<DOMRect | null>(null)
   const settleRectRef = React.useRef<DOMRect | null>(null)
@@ -190,7 +216,7 @@ export function TutorialCoach({
             newRect = new DOMRect(left, top, right - left, bottom - top)
           }
         }
-        setTargetRects(rects)
+        setTargetRectsRef.current(rects)
         // Expand the rectangle slightly when focusing menus so the hole does not
         // clip the menu surface or its shadow. Prefer an explicit per-step
         // expand value; otherwise apply a small heuristic when any target is a menu.
@@ -221,16 +247,16 @@ export function TutorialCoach({
           return dx > 6 || dy > 6
         })()
         if (prevRect && (moved || prevTarget !== curTarget || !newRect)) {
-          setGhost(prevRect)
+          setGhostRef.current(prevRect)
           if (ghostTimerRef.current) { window.clearTimeout(ghostTimerRef.current); ghostTimerRef.current = null }
-          ghostTimerRef.current = window.setTimeout(() => { setGhost(null); ghostTimerRef.current = null }, 180)
+          ghostTimerRef.current = window.setTimeout(() => { setGhostRef.current(null); ghostTimerRef.current = null }, 180)
         }
-        setRect(newRect)
+        setRectRef.current(newRect)
         prevRectRef.current = newRect
         prevTargetIdRef.current = curTarget
       } catch {
-        setRect(null)
-        setTargetRects([])
+        setRectRef.current(null)
+        setTargetRectsRef.current([])
       }
     }
     compute()
@@ -251,28 +277,39 @@ export function TutorialCoach({
     const id = window.setInterval(compute, 250)
     return () => { window.removeEventListener('resize', onResize); window.removeEventListener('scroll', onScroll); window.clearInterval(id); window.clearTimeout(t) }
   }, [open, step, step?.id, step?.targetId, step?.targetIds])
-  React.useEffect(() => {
+  // Adjust navLocked and clear refs at render time when open/stepIndex changes.
+  const openStepKey = `${open}|${stepIndex}`
+  const [prevOpenStepKey, setPrevOpenStepKey] = React.useState(openStepKey)
+  if (openStepKey !== prevOpenStepKey) {
+    setPrevOpenStepKey(openStepKey)
     if (!open) {
       setNavLocked(false)
-      if (highlightSettleTimerRef.current !== null) { window.clearTimeout(highlightSettleTimerRef.current); highlightSettleTimerRef.current = null }
-      if (panelUnlockTimerRef.current !== null) { window.clearTimeout(panelUnlockTimerRef.current); panelUnlockTimerRef.current = null }
-      // Cancel the ceiling timer when the tutorial closes so it cannot fire late.
-      if (navLockCeilingTimerRef.current !== null) { window.clearTimeout(navLockCeilingTimerRef.current); navLockCeilingTimerRef.current = null }
       pendingPlacementRef.current = null
       processedRectRef.current = null
       settleRectRef.current = null
+    } else {
+      setNavLocked(true)
+      processedRectRef.current = null
+      settleRectRef.current = null
+    }
+  }
+  // Timer management for open/stepIndex transitions must stay in an effect.
+  React.useEffect(() => {
+    if (!open) {
+      // Cancel all pending timers when the tutorial closes.
+      if (highlightSettleTimerRef.current !== null) { window.clearTimeout(highlightSettleTimerRef.current); highlightSettleTimerRef.current = null }
+      if (flipAnimTimerRef.current !== null) { window.clearTimeout(flipAnimTimerRef.current); flipAnimTimerRef.current = null }
+      if (panelUnlockTimerRef.current !== null) { window.clearTimeout(panelUnlockTimerRef.current); panelUnlockTimerRef.current = null }
+      if (navLockCeilingTimerRef.current !== null) { window.clearTimeout(navLockCeilingTimerRef.current); navLockCeilingTimerRef.current = null }
       return
     }
-    setNavLocked(true)
-    processedRectRef.current = null
-    settleRectRef.current = null
     // Arm the ceiling timer: if the settle mechanism has not fired within NAV_LOCK_MAX_MS
     // (e.g. because cascading re-renders keep resetting it), force-unlock so the button
     // is never permanently stuck disabled for the user.
     if (navLockCeilingTimerRef.current !== null) { window.clearTimeout(navLockCeilingTimerRef.current) }
     navLockCeilingTimerRef.current = window.setTimeout(() => {
       navLockCeilingTimerRef.current = null
-      setNavLocked(false)
+      setNavLockedRef.current(false)
     }, NAV_LOCK_MAX_MS)
   }, [open, stepIndex])
 
@@ -281,18 +318,30 @@ export function TutorialCoach({
     if (panelUnlockTimerRef.current !== null) { window.clearTimeout(panelUnlockTimerRef.current); panelUnlockTimerRef.current = null }
   }, [])
 
-  React.useEffect(() => {
+  // Clear the highlight settle timer when navLocked transitions to false — render-time comparison.
+  const [prevNavLocked, setPrevNavLocked] = React.useState(navLocked)
+  if (navLocked !== prevNavLocked) {
+    setPrevNavLocked(navLocked)
     if (!navLocked && highlightSettleTimerRef.current !== null) {
       window.clearTimeout(highlightSettleTimerRef.current)
       highlightSettleTimerRef.current = null
     }
-  }, [navLocked])
+  }
 
-  React.useEffect(() => {
-    if (!open) return
-    if (!rect) {
+  // Stable callback that handles rect/settle logic; reads volatile state from refs.
+  const openRef = React.useRef(open)
+  openRef.current = open
+  const rectRef = React.useRef(rect)
+  rectRef.current = rect
+  const navLockedRef = React.useRef(navLocked)
+  navLockedRef.current = navLocked
+  const processRectChange = React.useCallback(() => {
+    if (!openRef.current) return
+    const currentRect = rectRef.current
+    const locked = navLockedRef.current
+    if (!currentRect) {
       settleRectRef.current = null
-      if (navLocked) {
+      if (locked) {
         if (highlightSettleTimerRef.current !== null) { window.clearTimeout(highlightSettleTimerRef.current) }
         highlightSettleTimerRef.current = window.setTimeout(() => {
           highlightSettleTimerRef.current = null
@@ -301,15 +350,15 @@ export function TutorialCoach({
             panelUnlockTimerRef.current = null
             // Cancel ceiling timer — the normal settle mechanism got here first.
             if (navLockCeilingTimerRef.current !== null) { window.clearTimeout(navLockCeilingTimerRef.current); navLockCeilingTimerRef.current = null }
-            setNavLocked(false)
+            setNavLockedRef.current(false)
           }, NAV_UNLOCK_PADDING_MS)
         }, HIGHLIGHT_SETTLE_DELAY_MS)
       }
       return
     }
-    const nextRect = cloneRect(rect)
+    const nextRect = cloneRect(currentRect)
     if (!rectChanged(processedRectRef.current, nextRect)) return
-    if (navLocked) {
+    if (locked) {
       const lastSettleRect = settleRectRef.current
       if (highlightSettleTimerRef.current !== null && !rectChanged(lastSettleRect, nextRect)) {
         return
@@ -324,20 +373,24 @@ export function TutorialCoach({
             panelUnlockTimerRef.current = null
             // Cancel ceiling timer — the normal settle mechanism got here first.
             if (navLockCeilingTimerRef.current !== null) { window.clearTimeout(navLockCeilingTimerRef.current); navLockCeilingTimerRef.current = null }
-            setNavLocked(false)
+            setNavLockedRef.current(false)
           }, NAV_UNLOCK_PADDING_MS)
           return
         }
         pendingPlacementRef.current = { target: cloneRect(latest), animate: true }
-        setPlacementRequestTick(t => t + 1)
+        setPlacementRequestTickRef.current(t => t + 1)
       }, HIGHLIGHT_SETTLE_DELAY_MS)
       settleRectRef.current = cloneRect(nextRect)
     } else {
       pendingPlacementRef.current = { target: nextRect, animate: false }
-      setPlacementRequestTick(t => t + 1)
+      setPlacementRequestTickRef.current(t => t + 1)
       settleRectRef.current = null
     }
-  }, [open, rect, navLocked])
+  }, [])
+  // Trigger the rect processing when any of the inputs change.
+  React.useEffect(() => {
+    processRectChange()
+  }, [processRectChange, open, rect, navLocked])
 
   React.useLayoutEffect(() => {
     if (!open) return
@@ -408,38 +461,40 @@ export function TutorialCoach({
 
     if (!panel || !placementChanged || !shouldAnimate) {
       justOpenedRef.current = false
-      setFlipHidden(false)
+      setFlipHiddenRef.current(false)
       if (placementChanged) {
-        setAnimActive(false)
-        setAnimDx(0)
-        setAnimDy(0)
-        setPanelPlacement(nextPlacement)
+        setAnimActiveRef.current(false)
+        setAnimDxRef.current(0)
+        setAnimDyRef.current(0)
+        setPanelPlacementRef.current(nextPlacement)
       }
     } else {
       justOpenedRef.current = false
-      setFlipHidden(true)
-      setPanelPlacement(nextPlacement)
+      setFlipHiddenRef.current(true)
+      setPanelPlacementRef.current(nextPlacement)
       const prevRect = prevPanelRect
       requestAnimationFrame(() => {
         try {
           const el = panelRef.current
-          if (!el || !prevRect) { setFlipHidden(false); return }
+          if (!el || !prevRect) { setFlipHiddenRef.current(false); return }
           const newRaw = el.getBoundingClientRect()
           const newRect = new DOMRect(newRaw.left, newRaw.top, newRaw.width, newRaw.height)
           const dx = (prevRect.left + prevRect.width / 2) - (newRect.left + newRect.width / 2)
           const dy = (prevRect.top + prevRect.height / 2) - (newRect.top + newRect.height / 2)
-          setAnimActive(false)
-          setAnimDx(dx)
-          setAnimDy(dy)
+          setAnimActiveRef.current(false)
+          setAnimDxRef.current(dx)
+          setAnimDyRef.current(dy)
           requestAnimationFrame(() => {
-            setFlipHidden(false)
-            setAnimActive(true)
-            setAnimDx(0)
-            setAnimDy(0)
-            window.setTimeout(() => setAnimActive(false), PANEL_MOVE_ANIM_MS)
+            setFlipHiddenRef.current(false)
+            setAnimActiveRef.current(true)
+            setAnimDxRef.current(0)
+            setAnimDyRef.current(0)
+            // Track the animation-end timer so cleanup can cancel it.
+            if (flipAnimTimerRef.current !== null) window.clearTimeout(flipAnimTimerRef.current)
+            flipAnimTimerRef.current = window.setTimeout(() => { flipAnimTimerRef.current = null; setAnimActiveRef.current(false) }, PANEL_MOVE_ANIM_MS)
           })
         } catch {
-          setFlipHidden(false)
+          setFlipHiddenRef.current(false)
         }
       })
     }
@@ -451,7 +506,7 @@ export function TutorialCoach({
         panelUnlockTimerRef.current = null
         // Cancel ceiling timer — the normal settle mechanism got here first.
         if (navLockCeilingTimerRef.current !== null) { window.clearTimeout(navLockCeilingTimerRef.current); navLockCeilingTimerRef.current = null }
-        setNavLocked(false)
+        setNavLockedRef.current(false)
       }, unlockDelay)
     }
   }, [open, placementRequestTick, panelPlacement])
@@ -464,12 +519,15 @@ export function TutorialCoach({
     // First split by ~~ for brand segments, then within non-brand segments split by backticks for UI keywords
     const BRAND = '~~'
     const parts = String(text).split(BRAND)
-    return parts.map((seg, idx) => {
-      const isBrand = idx % 2 === 1
+    // Content-derived keys at each split level avoid passing .map()
+    // index into key props (satisfies no-array-index-key).
+    let brandSeq = 0
+    return parts.map((seg) => {
+      const isBrand = (brandSeq++ % 2) === 1
       if (isBrand) {
         return (
           <Box
-            key={`b-${idx}`}
+            key={`b-${seg}`}
             component="span"
             sx={{
               color: 'warning.main',
@@ -486,16 +544,20 @@ export function TutorialCoach({
       }
       // Non-brand: split by ^^ for error/red segments, then within plain segments split by backticks
       const caretParts = seg.split('^^')
-      return caretParts.map((caretSeg, ci) => {
-        if (ci % 2 === 1) {
-          return <Box key={`e-${idx}-${ci}`} component="span" sx={{ color: 'error.main', fontWeight: 600 }}>{caretSeg}</Box>
+      let caretSeq = 0
+      return caretParts.map((caretSeg) => {
+        const isError = (caretSeq++ % 2) === 1
+        if (isError) {
+          return <Box key={`e-${caretSeg}`} component="span" sx={{ color: 'error.main', fontWeight: 600 }}>{caretSeg}</Box>
         }
         const ticks = caretSeg.split('`')
-        return ticks.map((p, i) => (
-          i % 2 === 1
-            ? <Box key={`k-${idx}-${ci}-${i}`} component="span" sx={{ color: 'primary.main', fontWeight: 600 }}>{p}</Box>
-            : <Box key={`t-${idx}-${ci}-${i}`} component="span">{p}</Box>
-        ))
+        let tickSeq = 0
+        return ticks.map((p) => {
+          const isKeyword = (tickSeq++ % 2) === 1
+          return isKeyword
+            ? <Box key={`k-${p}`} component="span" sx={{ color: 'primary.main', fontWeight: 600 }}>{p}</Box>
+            : <Box key={`t-${p}`} component="span">{p}</Box>
+        })
       })
     })
   }, [brandBeat])
@@ -551,9 +613,9 @@ export function TutorialCoach({
       )}
 
       {/* Emphasize individual targets when the union rectangle is much larger */}
-      {shouldPulseTargets && targetRects.map((subRect, idx) => (
+      {shouldPulseTargets && targetRects.map((subRect) => (
         <Box
-          key={`target-${idx}`}
+          key={`target-${subRect.left}-${subRect.top}-${subRect.width}`}
           sx={{
             position: 'absolute',
             left: `${Math.max(0, subRect.left)}px`,

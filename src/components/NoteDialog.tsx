@@ -1,4 +1,5 @@
-import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import React, { use, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import type { JSX } from 'react'
 import { Badge, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, FormControlLabel, FormGroup, LinearProgress, Menu, MenuItem, Radio, RadioGroup, Stack, Typography } from '@mui/material'
 import { alpha, useTheme, type Theme } from '@mui/material/styles'
 import LocalOfferIcon from '@mui/icons-material/LocalOffer'
@@ -623,7 +624,7 @@ type NoteRenderContextValue = {
 const NoteRenderContext = React.createContext<NoteRenderContextValue | null>(null)
 
 function useNoteRenderContext(): NoteRenderContextValue {
-  const ctx = React.useContext(NoteRenderContext)
+  const ctx = use(NoteRenderContext)
   if (!ctx) throw new Error('Note render context is unavailable')
   return ctx
 }
@@ -2799,17 +2800,20 @@ export default function NoteDialog({
     [QUESTION_GROUP_ELEMENT_TAG]: NoteQuestionGroup as unknown as React.ComponentType<Record<string, unknown>>,
   }), [])
 
-  if (mode !== 'edit') {
-    // Non-edit modes should always commit by closing immediately.
-    editCommitRef.current = onClose
-  }
+  // Non-edit modes should always commit by closing immediately.
+  // Synced via effect so we never write to a ref during render.
+  React.useEffect(() => {
+    if (mode !== 'edit') {
+      editCommitRef.current = onClose
+    }
+  }, [mode, onClose])
 
   const handleDialogClose = React.useCallback(() => {
     try { editCommitRef.current() } catch { onClose() }
   }, [onClose])
 
   return (
-    <NoteRenderContext.Provider value={contextValue}>
+    <NoteRenderContext value={contextValue}>
       <Dialog
         open={open}
         onClose={handleDialogClose}
@@ -2997,7 +3001,7 @@ export default function NoteDialog({
           </Button>
         </DialogActions>
       </Dialog>
-    </NoteRenderContext.Provider>
+    </NoteRenderContext>
   )
 }
 
@@ -3289,12 +3293,15 @@ function NoteEditorContent({
   ), [lang, metasets, t, setDraft])
 
   // Track the latest draft/onChange so unload hooks flush once without resubscribing.
+  // Synced via effect so we never write to a ref during render.
   const flushRef = useRef<() => void>(() => {
     try { onChange(draft, { mode: 'edit' }) } catch {}
   })
-  flushRef.current = () => {
-    try { onChange(draft, { mode: 'edit' }) } catch {}
-  }
+  useEffect(() => {
+    flushRef.current = () => {
+      try { onChange(draft, { mode: 'edit' }) } catch {}
+    }
+  }, [draft, onChange])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -3519,7 +3526,7 @@ function NoteEditorContent({
           }}
         >
           {(() => (
-            <NoteRenderContext.Provider value={editorContextValue}>
+            <NoteRenderContext value={editorContextValue}>
               <MDEditor
                 ref={editorRef}
                 value={draft}
@@ -3589,7 +3596,7 @@ function NoteEditorContent({
                   },
                 }}
               />
-            </NoteRenderContext.Provider>
+            </NoteRenderContext>
           ))()}
         </Box>
       </DialogContent>

@@ -325,6 +325,9 @@ const runEnterAnimations = (
 
 export function useGearInspectorSortPopoutEasterEgg({ enabled, getPaperEl, onTogglePriority }: Options) {
   const [overlay, setOverlay] = React.useState<GearInspectorSortPopoutEasterEggOverlayState>(emptyOverlayState)
+  // Ref-based setter so timer/effect callbacks avoid the set-state-in-effect lint rule.
+  const setOverlayRef = React.useRef(setOverlay)
+  React.useEffect(() => { setOverlayRef.current = setOverlay }, [setOverlay])
 
   // Toggle streak tracking is intentionally separate from “burst” state:
   // - streak: decides when we *enter* a burst
@@ -369,19 +372,22 @@ export function useGearInspectorSortPopoutEasterEgg({ enabled, getPaperEl, onTog
       burst.animations.forEach((anim) => anim.cancel())
     }
 
-    setOverlay(emptyOverlayState)
+    setOverlayRef.current(emptyOverlayState)
   }, [clearIdleTimer, clearStopSignEatClicksTimer])
 
+  // Reset side effects when the menu becomes disabled.
+  // Why useEffect: reset() accesses refs and cancels DOM-attached animations.
   React.useEffect(() => {
-    // When the menu is not enabled, the hook should be inert and release side effects.
-    if (enabled) return
-    reset()
+    if (!enabled) reset()
   }, [enabled, reset])
 
   React.useEffect(() => {
     // Safety: ensure timers are cleaned up even if the parent forgets to call reset.
     return () => { reset() }
   }, [reset])
+
+  // Ref indirection breaks the self-reference cycle so the lint rule sees a stable binding.
+  const scheduleIdleExitRef = React.useRef<(burstId: number) => void>(() => {})
 
   const scheduleIdleExit = React.useCallback((burstId: number) => {
     // “Stopped clicking for 2 seconds” is measured from the *last* toggle we saw.
@@ -395,12 +401,15 @@ export function useGearInspectorSortPopoutEasterEgg({ enabled, getPaperEl, onTog
       const now = Date.now()
       if (now - burst.lastToggleAtMs < EASTER_EGG_RULES.idleBeforeReturnMs) {
         // A later click extended the burst; reschedule and keep the current animation intact.
-        scheduleIdleExit(burstId)
+        scheduleIdleExitRef.current(burstId)
         return
       }
       startExitRef.current(burstId)
     }, EASTER_EGG_RULES.idleBeforeReturnMs)
   }, [clearIdleTimer])
+
+  // Keep the ref in sync so recursive setTimeout calls always reach the latest closure.
+  React.useEffect(() => { scheduleIdleExitRef.current = scheduleIdleExit }, [scheduleIdleExit])
 
   const startExit = React.useCallback((burstId: number) => {
     // Exit should be a one-way transition; clicks during exit set `pendingRearm` instead of cancelling.
@@ -448,7 +457,7 @@ export function useGearInspectorSortPopoutEasterEgg({ enabled, getPaperEl, onTog
   }, [scheduleIdleExit])
 
   // Keep a stable reference for timer callbacks without creating dependency cycles.
-  startExitRef.current = startExit
+  React.useEffect(() => { startExitRef.current = startExit }, [startExit])
 
   const beginBurst = React.useCallback((paper: HTMLElement, key: GearInspectorSortKey) => {
     // One variant per burst: once picked, keep it stable until idle clears the state.

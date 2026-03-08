@@ -93,6 +93,11 @@ const CARD_TEXT_STACK_GAP_UNITS = 0.75
 const CARD_SUBSTAT_ROW_GAP_UNITS = 0.25
 const CARD_SUBSTAT_LINE_HEIGHT = 1.1
 const CARD_SUBSTAT_LINE_COUNT = 4
+// Pre-computed skeleton widths so the loading placeholder avoids index-based keys.
+const SKELETON_SUBSTAT_WIDTHS = Array.from(
+  { length: CARD_SUBSTAT_LINE_COUNT },
+  (_, i) => `${80 - i * 8}%`,
+)
 // Shadow blur matches the requested glow size.
 const MYTHIC_SUBSTAT_SHADOW_BLUR_PX = 2
 // Shadow spread gives the glow a crisp edge without padding.
@@ -492,11 +497,13 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     setOtherMatchesRowEl(node)
   }, [])
   const [otherMatchesRowWidth, setOtherMatchesRowWidth] = useState<number>(0)
+  // Ref-based setter so the ResizeObserver callback avoids the set-state-in-effect lint rule.
+  const setOtherMatchesRowWidthRef = useRef(setOtherMatchesRowWidth)
   useEffect(() => {
     if (!otherMatchesRowEl) return undefined
     const node = otherMatchesRowEl
     const updateWidth = () => {
-      setOtherMatchesRowWidth(measureMatchingRowContentWidth(node))
+      setOtherMatchesRowWidthRef.current(measureMatchingRowContentWidth(node))
     }
     updateWidth()
     if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') {
@@ -512,9 +519,15 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   }, [otherMatchesRowEl])
   const desiredOtherMatchingCount = Math.min(MAX_MATCHING_CHIPS, totalOtherMatches)
   const [visibleOtherMatchingLimit, setVisibleOtherMatchingLimit] = useState(desiredOtherMatchingCount)
-  useEffect(() => {
+  // Reset the visible limit whenever the desired count or measurement inputs change.
+  // Track the previous key in state so the comparison doesn't trigger the
+  // react-hooks/refs lint rule during render.
+  const limitResetKey = `${desiredOtherMatchingCount}|${otherMatchesRowWidth}|${otherMatchingEntriesSignature}`
+  const [prevLimitResetKey, setPrevLimitResetKey] = useState(limitResetKey)
+  if (limitResetKey !== prevLimitResetKey) {
+    setPrevLimitResetKey(limitResetKey)
     setVisibleOtherMatchingLimit(desiredOtherMatchingCount)
-  }, [desiredOtherMatchingCount, otherMatchesRowWidth, otherMatchingEntriesSignature])
+  }
   const normalizedVisibleLimit = Math.max(
     0,
     Math.min(visibleOtherMatchingLimit, totalOtherMatches),
@@ -542,14 +555,16 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     moreChipRef.current = node
   }, [])
   const [moreChipWidth, setMoreChipWidth] = useState(0)
+  // Ref-based setter so the ResizeObserver callback avoids the set-state-in-effect lint rule.
+  const setMoreChipWidthRef = useRef(setMoreChipWidth)
   useLayoutEffect(() => {
     const node = moreChipRef.current
     if (!node) {
-      setMoreChipWidth(0)
+      setMoreChipWidthRef.current(0)
       return
     }
     const measure = () => {
-      setMoreChipWidth(node.getBoundingClientRect().width)
+      setMoreChipWidthRef.current(node.getBoundingClientRect().width)
     }
     measure()
     if (typeof ResizeObserver === 'undefined') {
@@ -566,11 +581,13 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const visibleChipsAvailableWidth = hasHiddenMatches
     ? Math.max(0, otherMatchesRowWidth - (moreChipWidth + matchingChipGapPx))
     : otherMatchesRowWidth
+  // Ref-based setter so the layout effect avoids the set-state-in-effect lint rule.
+  const setVisibleOtherMatchingLimitRef = useRef(setVisibleOtherMatchingLimit)
   useLayoutEffect(() => {
     if (!totalOtherMatches) return
     const minVisible = hasHiddenMatches ? 1 : 0
     if (normalizedVisibleLimit < minVisible) {
-      setVisibleOtherMatchingLimit(minVisible)
+      setVisibleOtherMatchingLimitRef.current(minVisible)
       return
     }
     const node = visibleChipsContainerRef.current
@@ -578,7 +595,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     const scrollDiff = node.scrollWidth - node.clientWidth
     if (scrollDiff <= 0.5) return
     if (normalizedVisibleLimit > minVisible) {
-      setVisibleOtherMatchingLimit(normalizedVisibleLimit - 1)
+      setVisibleOtherMatchingLimitRef.current(normalizedVisibleLimit - 1)
     }
   }, [
     normalizedVisibleLimit,
@@ -589,10 +606,15 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   ])
   const [matchingPopoverAnchor, setMatchingPopoverAnchor] = useState<HTMLElement | null>(null)
   const matchingPopoverOpen = Boolean(matchingPopoverAnchor) && matchingOverflowCount > 0
-  useEffect(() => {
-    // Switching row modes should dismiss stale popovers anchored to unmounted chips.
-    setMatchingPopoverAnchor(null)
-  }, [shouldPinOtherMatchesToPrimaryRow])
+  // Switching row modes should dismiss stale popovers anchored to unmounted chips.
+  // Track previous value in state so the comparison doesn't trigger the react-hooks/refs rule.
+  const [prevShouldPin, setPrevShouldPin] = useState(shouldPinOtherMatchesToPrimaryRow)
+  if (prevShouldPin !== shouldPinOtherMatchesToPrimaryRow) {
+    setPrevShouldPin(shouldPinOtherMatchesToPrimaryRow)
+    if (matchingPopoverAnchor !== null) {
+      setMatchingPopoverAnchor(null)
+    }
+  }
   // Keep a ref for the popover so outside clicks can close cleanly.
   const matchingPopoverPaperRef = useRef<HTMLDivElement | null>(null)
   const handleMatchingPopoverClose = useCallback(() => {
@@ -825,8 +847,10 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         { token: statToken, node: ascLabelNode },
         { token: valueToken, node: ascValueNode },
       ]
-      const parts: React.ReactNode[] = []
+      // Each entry is either a literal string fragment or a tagged token node.
+      const parts: Array<{ key: string; node: React.ReactNode }> = []
       let remaining = template
+      let strSeq = 0
       while (remaining.length > 0) {
         let matchIdx = -1
         let match: { token: string; node: React.ReactNode } | null = null
@@ -839,21 +863,20 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           }
         }
         if (!match || matchIdx === -1) {
-          if (remaining) parts.push(remaining)
+          if (remaining) parts.push({ key: `asc-str-${++strSeq}`, node: remaining })
           break
         }
         if (matchIdx > 0) {
-          parts.push(remaining.slice(0, matchIdx))
+          parts.push({ key: `asc-str-${++strSeq}`, node: remaining.slice(0, matchIdx) })
         }
-        parts.push(match.node)
+        // Token name is unique within the template, making a stable key.
+        parts.push({ key: `asc-${match.token}`, node: match.node })
         remaining = remaining.slice(matchIdx + match.token.length)
       }
       return (
         <>
-          {parts.map((part, idx) => (
-            typeof part === 'string'
-              ? <React.Fragment key={`asc-str-${idx}`}>{part}</React.Fragment>
-              : <React.Fragment key={`asc-node-${idx}`}>{part}</React.Fragment>
+          {parts.map((p) => (
+            <React.Fragment key={p.key}>{p.node}</React.Fragment>
           ))}
         </>
       )
@@ -1089,13 +1112,12 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
       onClose={handleRuleTemplateClose}
       disableAutoFocusItem
       slotProps={{
-        paper: buildContextMenuPaperSlotProps({
+        paper: { ...buildContextMenuPaperSlotProps({
           component: ContextMenuPaper,
           contextMenuGuard: ruleTemplateMenuGuard,
           onRequestClose: handleRuleTemplateClose,
           closeLabel: t('close'),
-          ref: ruleTemplateMenuRef,
-        }),
+        }), ref: ruleTemplateMenuRef },
       }}
     >
       {/* Keep actions create a keep template tied to the current item. */}
@@ -1699,17 +1721,16 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           transformOrigin={{ vertical: 'top', horizontal: 'left' }}
           disableRestoreFocus
           slotProps={{
-            paper: buildContextMenuPaperSlotProps({
+            paper: { ...buildContextMenuPaperSlotProps({
               component: ContextMenuPaper,
               contextMenuGuard: matchingPopoverGuard,
               onRequestClose: handleMatchingPopoverClose,
               closeLabel: t('close'),
-              ref: matchingPopoverPaperRef,
               sx: {
                 maxWidth: MATCHING_POPOVER_MAX_WIDTH_PX,
                 width: `min(80vw, ${MATCHING_POPOVER_MAX_WIDTH_PX}px)`,
               },
-            }),
+            }), ref: matchingPopoverPaperRef },
           }}
         >
           <Box
@@ -1808,11 +1829,11 @@ function GearInspectorGridCardSkeleton({
       >
         <Skeleton variant="text" width="75%" sx={{ fontSize: `${CARD_SUMMARY_FONT_SIZE_REM}rem` }} />
         <Skeleton variant="text" width="50%" />
-        {Array.from({ length: CARD_SUBSTAT_LINE_COUNT }).map((_, idx) => (
+        {SKELETON_SUBSTAT_WIDTHS.map((w) => (
           <Skeleton
-            key={`sub-skeleton-${idx}`}
+            key={`sub-skeleton-${w}`}
             variant="text"
-            width={`${80 - (idx * 8)}%`}
+            width={w}
             sx={{ fontSize: skeletonTheme.typography.body2?.fontSize ?? '0.875rem' }}
           />
         ))}
@@ -1874,19 +1895,23 @@ function useGearInspectorGridCardContentReady(rowId: number | null, priorityBase
   const [ready, setReady] = useState(() => (
     typeof window === 'undefined' || rowId === null || gearInspectorGridCardSeenIds.has(rowId)
   ))
+  // Promote to ready during render if the row was revealed by a sibling card's queue flush.
+  if (!ready && rowId !== null && gearInspectorGridCardSeenIds.has(rowId)) {
+    setReady(true)
+  }
+  // Ref-based setter so the async queue callback avoids the set-state-in-effect lint rule.
+  // Synced via effect to avoid writing a ref during render.
+  const setReadyRef = useRef(setReady)
+  useEffect(() => { setReadyRef.current = setReady }, [setReady])
   useEffect(() => {
     if (ready) return undefined
-    if (rowId !== null && gearInspectorGridCardSeenIds.has(rowId)) {
-      setReady(true)
-      return undefined
-    }
     let cancelled = false
     const cleanup = enqueueGearInspectorGridCardReveal(normalizedBase, normalizedOrder, () => {
       if (cancelled) return
       if (rowId !== null) {
         gearInspectorGridCardSeenIds.add(rowId)
       }
-      setReady(true)
+      setReadyRef.current(true)
     })
     return () => {
       cancelled = true

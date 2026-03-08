@@ -40,7 +40,7 @@ export type GearInspectorNormalizedPresetEditorMenuProps = {
   onSetWeight: (presetId: GearInspectorGridNormalizedPresetId, variant: StatVariant, next: number) => void
   onResetPreset: (presetId: GearInspectorGridNormalizedPresetId) => void
   // Optional paper ref allows parent menus to treat this menu as "inside" for outside-click logic.
-  paperRef?: React.RefObject<HTMLDivElement>
+  paperRef?: React.RefObject<HTMLDivElement | null>
 }
 
 const formatInactiveWeight = (): string => {
@@ -92,14 +92,13 @@ export function GearInspectorNormalizedPresetEditorMenu({
       {...(anchorPosition ? { anchorPosition: { top: anchorPosition.y, left: anchorPosition.x } } : {})}
       MenuListProps={{ disablePadding: true }}
       slotProps={{
-        paper: buildContextMenuPaperSlotProps({
+        paper: { ...buildContextMenuPaperSlotProps({
           component: ContextMenuPaper,
           contextMenuGuard,
           onRequestClose: onClose,
           closeLabel: t('close'),
-          ref: paperRef,
           sx: { width: 340, maxWidth: 'calc(100vw - 32px)', px: 0, py: 0 },
-        }),
+        }), ref: paperRef },
       }}
     >
       <Box sx={{ px: 2.25, pt: 2.25, pb: 1 }}>

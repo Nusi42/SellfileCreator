@@ -75,15 +75,24 @@ export function GearDbDiffToast({
     >
       {headerLineNodes.length > 0 ? (
         <Stack spacing={0.35}>
-          {headerLineNodes.map((line, index) => (
-            <Typography
-              key={`gear-db-diff-header-${index}`}
-              variant="body2"
-              sx={{ fontSize: `${TOAST_HEADER_FONT_SIZE_REM}rem`, lineHeight: 1.35 }}
-            >
-              {line}
-            </Typography>
-          ))}
+          {/* Stable keys derived from lineSpecs or string content. */}
+          {(() => {
+            // Pre-compute keys: string nodes use content; JSX nodes
+            // use a running counter scoped outside the map callback.
+            let nodeSeq = 0
+            return headerLineNodes.map((line) => {
+              const k = typeof line === 'string' ? `hdr-${line}` : `hdr-node-${++nodeSeq}`
+              return (
+                <Typography
+                  key={k}
+                  variant="body2"
+                  sx={{ fontSize: `${TOAST_HEADER_FONT_SIZE_REM}rem`, lineHeight: 1.35 }}
+                >
+                  {line}
+                </Typography>
+              )
+            })
+          })()}
         </Stack>
       ) : null}
       {payload.entries.length > 0 ? (

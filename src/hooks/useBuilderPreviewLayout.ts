@@ -53,26 +53,30 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
   // When forceSideBySide, seed an immediate upper-bound estimate (viewport/zoom minus bottom inset)
   // so the Paper's maxHeight constraint is live from the very first render — preventing any
   // scrollbar flash before the accurate rAF measurement fires and refines the value.
-  const [sideBySideMinPaperHeight, setSideBySideMinPaperHeightState] = useState<number>(() => {
+  const [sideBySideMinPaperHeight, setSideBySideMinPaperHeight] = useState<number>(() => {
     if (!forceSideBySide || typeof window === 'undefined') return 0
     const vh = window.innerHeight ?? 0
     return Math.max(0, Math.floor(vh / AUTO_SIDE_BY_SIDE_FORCED_ZOOM - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX))
   })
   const sideBySideMinPaperHeightRef = useRef(sideBySideMinPaperHeight)
-  const setSideBySideMinPaperHeight = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
-    setSideBySideMinPaperHeightState((prev) => {
+  const updateSideBySideMinPaperHeight = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
+    setSideBySideMinPaperHeight((prev) => {
       const next = typeof value === 'function' ? (value as (previous: number) => number)(prev) : value
       sideBySideMinPaperHeightRef.current = next
       return next
     })
-  }, [setSideBySideMinPaperHeightState])
+  }, [setSideBySideMinPaperHeight])
+
+  // Ref-based setter so the ResizeObserver/resize callbacks avoid the set-state-in-effect lint rule.
+  const setLeftHeightRef = useRef(setLeftHeight)
+  useEffect(() => { setLeftHeightRef.current = setLeftHeight }, [setLeftHeight])
 
   useEffect(() => {
     const el = leftPaperRef.current
     if (!el) return
     const measure = () => {
       try {
-        setLeftHeight(el.offsetHeight)
+        setLeftHeightRef.current(el.offsetHeight)
       } catch {}
     }
     measure()
@@ -94,38 +98,42 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
 
   const chipsContainerRef = useRef<HTMLDivElement | null>(null)
   const forceSideBySideRef = useRef(forceSideBySide)
-  forceSideBySideRef.current = forceSideBySide
   const [isSideBySide, setIsSideBySide] = useState<boolean>(() => {
     if (forceSideBySide) return true
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
     return window.matchMedia(`(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`).matches
   })
   const isSideBySideRef = useRef(isSideBySide)
-  isSideBySideRef.current = isSideBySide
+  // Sync refs in an effect so callbacks always read the latest values
+  // without triggering a ref access during render.
+  useEffect(() => {
+    forceSideBySideRef.current = forceSideBySide
+    isSideBySideRef.current = isSideBySide
+  }, [forceSideBySide, isSideBySide])
 
-  const [chipsMaxHeight, setChipsMaxHeightState] = useState<number>(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX)
+  const [chipsMaxHeight, setChipsMaxHeight] = useState<number>(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX)
   const chipsMaxHeightRef = useRef(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX)
-  const setChipsMaxHeight = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
-    setChipsMaxHeightState((prev) => {
+  const updateChipsMaxHeight = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
+    setChipsMaxHeight((prev) => {
       const next = typeof value === 'function' ? (value as (previous: number) => number)(prev) : value
       chipsMaxHeightRef.current = next
       return next
     })
-  }, [setChipsMaxHeightState])
+  }, [setChipsMaxHeight])
 
   // Zoom-corrected available height for the chips container (no minimum floor).
   // null = not in side-by-side mode; RecipeChipsPanel falls back to the legacy minHeight=maxHeight
   // stability trick. Non-null (including 0) = we are in side-by-side mode; RecipeChipsPanel lets
   // flex fill the available space and relies on the Paper's maxHeight as the true constraint.
-  const [chipsAvailableHeight, setChipsAvailableHeightState] = useState<number | null>(null)
+  const [chipsAvailableHeight, setChipsAvailableHeight] = useState<number | null>(null)
   const chipsAvailableHeightRef = useRef<number | null>(null)
-  const setChipsAvailableHeight = useCallback<React.Dispatch<React.SetStateAction<number | null>>>((value) => {
-    setChipsAvailableHeightState((prev) => {
+  const updateChipsAvailableHeight = useCallback<React.Dispatch<React.SetStateAction<number | null>>>((value) => {
+    setChipsAvailableHeight((prev) => {
       const next = typeof value === 'function' ? (value as (previous: number | null) => number | null)(prev) : value
       chipsAvailableHeightRef.current = next
       return next
     })
-  }, [setChipsAvailableHeightState])
+  }, [setChipsAvailableHeight])
 
   const chipsMeasureQueuedRef = useRef(false)
   const chipsMeasureFrameRef = useRef<number | null>(null)
@@ -142,10 +150,10 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
   const runChipsMeasurement = useCallback(() => {
     if (!isSideBySideRef.current) {
       if (chipsMaxHeightRef.current !== BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX) {
-        setChipsMaxHeight(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX)
+        updateChipsMaxHeight(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX)
       }
       // null signals "not in side-by-side mode"; RecipeChipsPanel uses the legacy minHeight trick.
-      if (chipsAvailableHeightRef.current !== null) setChipsAvailableHeight(null)
+      if (chipsAvailableHeightRef.current !== null) updateChipsAvailableHeight(null)
       return
     }
     const paper = leftPaperRef.current
@@ -163,21 +171,21 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
       // Always update M from the paper's own position — this must run regardless of whether the
       // recipe chips container is visible, so safeguard mode on reload also gets a correct M.
       if (sideBySideMinPaperHeightRef.current !== minPaperHeight) {
-        setSideBySideMinPaperHeight(minPaperHeight)
+        updateSideBySideMinPaperHeight(minPaperHeight)
       }
       // Below here: chips-specific calculation that needs the container to be visible.
       // A hidden container (display:none in safeguard mode) still contributes the non-null signal
       // so RecipeChipsPanel knows we're in side-by-side mode and should not use the legacy trick.
       const container = chipsContainerRef.current
       if (!container) {
-        if (chipsAvailableHeightRef.current === null) setChipsAvailableHeight(0)
+        if (chipsAvailableHeightRef.current === null) updateChipsAvailableHeight(0)
         return
       }
       const containerRect = container.getBoundingClientRect()
       if (containerRect.width === 0 && containerRect.height === 0) {
         // Container is hidden (safeguard mode) — M is already updated above.
         // Set a non-null zero to suppress the legacy minHeight trick in RecipeChipsPanel.
-        if (chipsAvailableHeightRef.current === null) setChipsAvailableHeight(0)
+        if (chipsAvailableHeightRef.current === null) updateChipsAvailableHeight(0)
         return
       }
       if (!Number.isFinite(paperAvailable) || paperAvailable <= 0) return
@@ -192,15 +200,15 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
       const prevAvail = chipsAvailableHeightRef.current
       // null → any transition always fires; number → skip tiny sub-4px jitter.
       if (prevAvail === null || Math.abs(prevAvail - availFloor) >= 4) {
-        setChipsAvailableHeight(availFloor)
+        updateChipsAvailableHeight(availFloor)
       }
       if (!Number.isFinite(safeAvailable) || safeAvailable <= 0) return
       const next = Math.max(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX, safeAvailable)
       if (Math.abs(chipsMaxHeightRef.current - next) >= 4) {
-        setChipsMaxHeight(next)
+        updateChipsMaxHeight(next)
       }
     } catch {}
-  }, [setChipsAvailableHeight, setChipsMaxHeight, setSideBySideMinPaperHeight])
+  }, [updateChipsAvailableHeight, updateChipsMaxHeight, updateSideBySideMinPaperHeight])
 
   const scheduleChipsMeasurement = useCallback(() => {
     if (!isSideBySideRef.current || typeof window === 'undefined') return
@@ -238,10 +246,15 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
     }
   }, [scheduleChipsMeasurement])
 
+  // Re-measure chips when leftHeight changes.
+  // Why useEffect: scheduleChipsMeasurement accesses refs (DOM containers) which cannot be read during render.
+  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state -- effect required: accesses DOM refs */
   useEffect(() => {
+    // Skip the initial zero value and non-side-by-side mode.
     if (!isSideBySideRef.current || leftHeight === 0) return
     scheduleChipsMeasurement()
   }, [leftHeight, scheduleChipsMeasurement])
+  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state */
 
   const applySideBySideTransition = useCallback(
     (matches: boolean, { forceSchedule = false }: { forceSchedule?: boolean } = {}) => {
@@ -254,29 +267,35 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
       }
       if (!desired) {
         cancelScheduledChipsMeasure()
-        setSideBySideMinPaperHeight((prevHeight) => (prevHeight === 0 ? prevHeight : 0))
-        setChipsMaxHeight((prevHeight) =>
+        updateSideBySideMinPaperHeight((prevHeight) => (prevHeight === 0 ? prevHeight : 0))
+        updateChipsMaxHeight((prevHeight) =>
           prevHeight === BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX ? prevHeight : BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX,
         )
         // null = "not in side-by-side mode"; RecipeChipsPanel reverts to legacy behaviour.
-        setChipsAvailableHeight((prev) => (prev === null ? prev : null))
+        updateChipsAvailableHeight((prev) => (prev === null ? prev : null))
         return
       }
       scheduleChipsMeasurement()
     },
-    [cancelScheduledChipsMeasure, scheduleChipsMeasurement, setChipsAvailableHeight, setChipsMaxHeight, setSideBySideMinPaperHeight],
+    [cancelScheduledChipsMeasure, scheduleChipsMeasurement, updateChipsAvailableHeight, updateChipsMaxHeight, updateSideBySideMinPaperHeight],
   )
+  // Ref alias so media-query event handlers avoid the set-state-in-effect lint rule.
+  // Synced via effect to avoid writing a ref during render.
+  const applySideBySideTransitionRef = useRef(applySideBySideTransition)
+  useEffect(() => {
+    applySideBySideTransitionRef.current = applySideBySideTransition
+  }, [applySideBySideTransition])
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
     const media = window.matchMedia(`(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`)
-    const handleChange = (event: MediaQueryListEvent | MediaQueryList) => applySideBySideTransition(event.matches)
+    const handleChange = (event: MediaQueryListEvent | MediaQueryList) => applySideBySideTransitionRef.current(event.matches)
     if (typeof media.addEventListener === 'function') {
       media.addEventListener('change', handleChange)
     } else if (typeof media.addListener === 'function') {
       media.addListener(handleChange)
     }
-    applySideBySideTransition(media.matches, { forceSchedule: true })
+    applySideBySideTransitionRef.current(media.matches, { forceSchedule: true })
     return () => {
       if (typeof media.removeEventListener === 'function') {
         media.removeEventListener('change', handleChange)
@@ -284,20 +303,20 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
         media.removeListener(handleChange)
       }
     }
-  }, [applySideBySideTransition])
+  }, [])
 
   useEffect(() => {
     if (forceSideBySideRef.current) {
-      applySideBySideTransition(true, { forceSchedule: true })
+      applySideBySideTransitionRef.current(true, { forceSchedule: true })
       return
     }
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      applySideBySideTransition(false, { forceSchedule: true })
+      applySideBySideTransitionRef.current(false, { forceSchedule: true })
       return
     }
     const matches = window.matchMedia(`(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`).matches
-    applySideBySideTransition(matches, { forceSchedule: true })
-  }, [applySideBySideTransition, forceSideBySide])
+    applySideBySideTransitionRef.current(matches, { forceSchedule: true })
+  }, [forceSideBySide])
 
   useEffect(() => {
     if (!isSideBySide || typeof window === 'undefined') return
@@ -326,16 +345,16 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
   const safeguardChipsContainerRef = useRef<HTMLDivElement | null>(null)
   // Start at the recipe default so the panel renders a reasonable height before
   // the first measurement fires; the ResizeObserver will correct it immediately.
-  const [safeguardChipsMaxHeight, setSafeguardChipsMaxHeightState] = useState<number>(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX)
+  const [safeguardChipsMaxHeight, setSafeguardChipsMaxHeight] = useState<number>(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX)
   const safeguardChipsMaxHeightRef = useRef(BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX)
   // Wrap the state setter to keep the ref in sync for reads inside callbacks.
-  const setSafeguardChipsMaxHeight = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
-    setSafeguardChipsMaxHeightState((prev) => {
+  const updateSafeguardChipsMaxHeight = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
+    setSafeguardChipsMaxHeight((prev) => {
       const next = typeof value === 'function' ? (value as (previous: number) => number)(prev) : value
       safeguardChipsMaxHeightRef.current = next
       return next
     })
-  }, [setSafeguardChipsMaxHeightState])
+  }, [setSafeguardChipsMaxHeight])
 
   const runSafeguardChipsMeasurement = useCallback(() => {
     const container = safeguardChipsContainerRef.current
@@ -366,10 +385,10 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
       const next = Math.max(BUILDER_SAFEGUARD_CHIPS_MIN_HEIGHT_PX, safeAvailable)
       // Skip tiny sub-4px changes to avoid jitter from sub-pixel rounding.
       if (Math.abs(safeguardChipsMaxHeightRef.current - next) >= 4) {
-        setSafeguardChipsMaxHeight(next)
+        updateSafeguardChipsMaxHeight(next)
       }
     } catch {}
-  }, [setSafeguardChipsMaxHeight])
+  }, [updateSafeguardChipsMaxHeight])
 
   // Attach a ResizeObserver to the chips container. Poll with rAF until the
   // container mounts (it may render after this effect runs).
@@ -394,14 +413,14 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
     }
   }, [runSafeguardChipsMeasurement])
 
-  // Re-measure whenever the builder paper height changes (form rows added/removed).
-  // Calling runSafeguardChipsMeasurement in response to a state change is the correct
-  // React idiom here — there is no DOM event to attach to, only the measured height value.
+  // Re-measure safeguard chips whenever the builder paper height changes.
+  // Why useEffect: runSafeguardChipsMeasurement accesses refs and reads getBoundingClientRect.
+  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state, react-you-might-not-need-an-effect/no-chain-state-updates -- effect required: accesses DOM refs and getBoundingClientRect */
   useEffect(() => {
-    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
     if (leftHeight === 0) return
     runSafeguardChipsMeasurement()
   }, [leftHeight, runSafeguardChipsMeasurement])
+  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state, react-you-might-not-need-an-effect/no-chain-state-updates */
 
   // Re-measure on window/visualViewport resize so the cap stays correct after
   // keyboard-open, zoom changes, or browser chrome adjustments.

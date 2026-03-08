@@ -67,7 +67,10 @@ export function useFileDragDrop(handlers: FileRouteHandlers & { onDragStart?: ()
   const counterRef = useRef(0)
 
   const handlersRef = useRef({ ...routeHandlers, onDragStart })
-  handlersRef.current = { ...routeHandlers, onDragStart }
+  // Sync the ref in an effect so we never write during render.
+  useEffect(() => {
+    handlersRef.current = { ...routeHandlers, onDragStart }
+  })
 
   const activeRef = useRef(active)
   useEffect(() => { activeRef.current = active }, [active])

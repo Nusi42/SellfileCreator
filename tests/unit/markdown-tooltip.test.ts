@@ -4,6 +4,11 @@ import assert from 'node:assert/strict'
 import React from 'react'
 import { renderMarkdownTooltipContent } from '../../src/components/MarkdownTooltip.js'
 
+/** React 19 types `ReactElement.props` as `{}`. Cast through this to access children/component. */
+type TooltipSegmentProps = { children?: React.ReactNode; component?: string }
+/** Typed accessor for ReactElement props in these tests. */
+const propsOf = (el: React.ReactElement): TooltipSegmentProps => el.props as TooltipSegmentProps
+
 test('renderMarkdownTooltipContent splits paragraphs and lists', () => {
   const markdown = [
     'Primary line',
@@ -13,13 +18,15 @@ test('renderMarkdownTooltipContent splits paragraphs and lists', () => {
   ].join('\n')
   const content = renderMarkdownTooltipContent(markdown)
   assert.ok(React.isValidElement(content))
-  const segments = React.Children.toArray(content.props.children)
+  // eslint-disable-next-line @eslint-react/no-children-to-array -- test inspects rendered tree structure
+  const segments = React.Children.toArray(propsOf(content).children)
   assert.equal(segments.length, 2)
   const paragraph = segments[0] as React.ReactElement
-  assert.equal(paragraph.props.component, 'p')
+  assert.equal(propsOf(paragraph).component, 'p')
   const list = segments[1] as React.ReactElement
-  assert.equal(list.props.component, 'ul')
-  const items = React.Children.toArray(list.props.children)
+  assert.equal(propsOf(list).component, 'ul')
+  // eslint-disable-next-line @eslint-react/no-children-to-array -- test inspects rendered tree structure
+  const items = React.Children.toArray(propsOf(list).children)
   assert.equal(items.length, 2)
 })
 
@@ -27,16 +34,18 @@ test('renderMarkdownTooltipContent formats inline markdown tokens', () => {
   const markdown = '**Bold** text with _italics_ and `code`.'
   const content = renderMarkdownTooltipContent(markdown)
   assert.ok(React.isValidElement(content))
-  const childElements = React.Children.toArray(content.props.children) as React.ReactElement[]
-  const paragraph = childElements.find((node) => (node as React.ReactElement).props?.component === 'p') as React.ReactElement | undefined
+  // eslint-disable-next-line @eslint-react/no-children-to-array -- test inspects rendered tree structure
+  const childElements = React.Children.toArray(propsOf(content).children) as React.ReactElement[]
+  const paragraph = childElements.find((node) => React.isValidElement(node) && propsOf(node).component === 'p') as React.ReactElement | undefined
   assert.ok(paragraph, 'expected a paragraph element')
-  const inlineNodes = React.Children.toArray(paragraph.props.children).filter(Boolean) as React.ReactElement[]
-  const strong = inlineNodes.find((node) => node.props?.component === 'strong')
-  const em = inlineNodes.find((node) => node.props?.component === 'em')
-  const code = inlineNodes.find((node) => node.props?.component === 'code')
-  assert.equal(strong?.props.children, 'Bold')
-  assert.equal(em?.props.children, 'italics')
-  assert.equal(code?.props.children, 'code')
+  // eslint-disable-next-line @eslint-react/no-children-to-array -- test inspects rendered tree structure
+  const inlineNodes = React.Children.toArray(propsOf(paragraph).children).filter(Boolean) as React.ReactElement[]
+  const strong = inlineNodes.find((node) => React.isValidElement(node) && propsOf(node).component === 'strong')
+  const em = inlineNodes.find((node) => React.isValidElement(node) && propsOf(node).component === 'em')
+  const code = inlineNodes.find((node) => React.isValidElement(node) && propsOf(node).component === 'code')
+  assert.equal(propsOf(strong!).children, 'Bold')
+  assert.equal(propsOf(em!).children, 'italics')
+  assert.equal(propsOf(code!).children, 'code')
 })
 
 export {}

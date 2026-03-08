@@ -100,11 +100,12 @@ export default function RestoreAutosaveDialog({
     return next
   }, [recipesCount, viewFilterDiffer, gearSetsCount, hasNote, hasSafeguards, hasTargets, metasCount, metasetsDiffer, targetsDiffer, hasGearInspectorContent])
 
-  useEffect(() => {
-    if (!open) return
-    const merged = mergeStoredSelection(defaultSelection, persistedSelection)
-    setSelection((prev) => (selectionsEqual(prev, merged) ? prev : merged))
-  }, [open, defaultSelection, persistedSelection])
+  // Merge persisted and default selection during render when the dialog is open.
+  // This replaces a useEffect to avoid an extra re-render cycle.
+  const mergedSelection = open ? mergeStoredSelection(defaultSelection, persistedSelection) : selection
+  if (open && !selectionsEqual(selection, mergedSelection)) {
+    setSelection(mergedSelection)
+  }
 
   const options = useMemo<RestoreOption[]>(() => {
     const rows: RestoreOption[] = []

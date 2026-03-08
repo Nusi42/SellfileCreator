@@ -584,6 +584,7 @@ export function useTutorialCoachState({
         viewStateSnapshotRef.current = null
       }
       restoreSafeguardUpgradeChance(snap.safeguardUpgradeChance)
+      // eslint-disable-next-line @eslint-react/dom/no-flush-sync -- Tutorial restore must synchronously commit all state setters so the DOM reflects the restored snapshot before the next coach step measures element positions.
       flushSync(() => {
         setHsf(snap.hsf)
         setCustomRecipes(snap.recipes)

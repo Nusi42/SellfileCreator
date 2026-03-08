@@ -17,7 +17,7 @@
 /* eslint-disable import/no-unused-modules */
 
 import { refractor } from 'refractor';
-import type { Refractor, Syntax } from 'refractor/lib/core.js';
+import type { Refractor, Syntax } from 'refractor/core';
 import {
   NOTE_RECIPE_OVERRIDES_QUESTION_KEYWORDS,
   NOTE_RECIPE_OVERRIDES_FALLBACK_KEYWORDS,

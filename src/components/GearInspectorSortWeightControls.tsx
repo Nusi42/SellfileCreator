@@ -89,14 +89,20 @@ export function GearInspectorSortWeightControls({
     return 40
   }, [])
 
+  // Ref indirection breaks the self-reference cycle so the lint rule sees a stable binding.
+  const scheduleTickRef = React.useRef<() => void>(() => {})
+
   const scheduleTick = React.useCallback(() => {
     // Tick re-schedules itself with an adaptive delay so long holds feel responsive.
     const state = holdRef.current
     if (!state) return
     onBump(state.deltaSteps)
     const elapsedMs = Date.now() - state.startedAtMs
-    state.timeoutId = window.setTimeout(scheduleTick, holdDelayMs(elapsedMs))
+    state.timeoutId = window.setTimeout(scheduleTickRef.current, holdDelayMs(elapsedMs))
   }, [holdDelayMs, onBump])
+
+  // Keep the ref in sync so recursive setTimeout calls always reach the latest closure.
+  React.useEffect(() => { scheduleTickRef.current = scheduleTick }, [scheduleTick])
 
   const beginHold = React.useCallback((
     event: React.PointerEvent<HTMLElement>,

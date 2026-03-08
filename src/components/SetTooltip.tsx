@@ -152,8 +152,8 @@ function localizeDescription(
   const text = stem ? tDyn(key) : d.text
   return (
     <Box sx={{ mt: 0.5 }}>
-      {splitEffects(text).map((line, idx) => (
-        <Typography key={idx} variant="caption" sx={{ display: 'block' }}>{renderTagged(localizeStatsInline(line, (k) => t(k)))}</Typography>
+      {splitEffects(text).map((line) => (
+        <Typography key={line} variant="caption" sx={{ display: 'block' }}>{renderTagged(localizeStatsInline(line, (k) => t(k)))}</Typography>
       ))}
     </Box>
   )

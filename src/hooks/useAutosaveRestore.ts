@@ -6,7 +6,7 @@
  * change after dismissing. Exposes dialog state and whether autosave is
  * currently enabled.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { loadAutosave } from '../lib/autosave'
 import { parseSfrObject } from '../lib/sfrIO'
 import { getPersistedRuntimeGearSetNameMap } from '../lib/gearSets/runtimeStore'
@@ -477,30 +477,28 @@ export function useAutosaveRestore(opts: {
     storedRuntimeGearSetCount,
   } = opts
 
-  const initialAutosaveStateRef = useRef<InitialAutosaveState | null>(null)
-  if (initialAutosaveStateRef.current === null) {
-    initialAutosaveStateRef.current = computeInitialAutosaveState({
-      key,
-      metasets,
-      substatTargets,
-      recipes,
-      finalSellRemainder,
-      note,
-      noteRecipeOverridesAnswers,
-      filters,
-      gearInspectorSort,
-      safeguardRules,
-      safeguardsEnabled,
-      recipesEnabled,
-      safeguardsGridFilterMode,
-      storedRuntimeGearSetCount,
-    })
-  }
-  const { restoreDlgOpen: initialRestoreDlgOpen, restoreDraft: initialRestoreDraft, enabled: initialEnabled } = initialAutosaveStateRef.current
-  const [restoreDlgOpen, setRestoreDlgOpen] = useState(initialRestoreDlgOpen)
-  const [restoreDraft, setRestoreDraft] = useState<RestoreDraft | null>(initialRestoreDraft)
-  const [enabled, setEnabled] = useState(initialEnabled)
-  const dismissBaselineRef = useRef<string | null>(null)
+  // Compute initial autosave state once via useState's lazy initializer so we never
+  // need a ref read during render for the lazy-init gate.
+  const [initialAutosaveState] = useState<InitialAutosaveState>(() => computeInitialAutosaveState({
+    key,
+    metasets,
+    substatTargets,
+    recipes,
+    finalSellRemainder,
+    note,
+    noteRecipeOverridesAnswers,
+    filters,
+    gearInspectorSort,
+    safeguardRules,
+    safeguardsEnabled,
+    recipesEnabled,
+    safeguardsGridFilterMode,
+    storedRuntimeGearSetCount,
+  }))
+  const [restoreDlgOpen, setRestoreDlgOpen] = useState(initialAutosaveState.restoreDlgOpen)
+  const [restoreDraft, setRestoreDraft] = useState<RestoreDraft | null>(initialAutosaveState.restoreDraft)
+  const [enabled, setEnabled] = useState(initialAutosaveState.enabled)
+  const [dismissBaseline, setDismissBaseline] = useState<string | null>(null)
 
   // Snapshot of current state used for divergence detection
   const snapshot = useMemo(() => {
@@ -549,18 +547,18 @@ export function useAutosaveRestore(opts: {
     safeguardsGridFilterMode,
   ])
 
-  // After dismissing, enable autosave only after divergence from baseline
-  useEffect(() => {
-    const baseline = dismissBaselineRef.current
-    const canEnable = !enabled && !restoreDlgOpen && baseline !== null
-    canEnable && (() => {
-      try { snapshot !== baseline && setEnabled(true) } catch {}
-    })()
-  }, [enabled, restoreDlgOpen, snapshot])
+  // After dismissing, enable autosave only after divergence from baseline.
+  // Render-time state adjustment: when snapshot diverges from baseline, enable immediately.
+  const canEnableFromDivergence = !enabled && !restoreDlgOpen && dismissBaseline !== null
+  if (canEnableFromDivergence) {
+    try {
+      if (snapshot !== dismissBaseline) setEnabled(true)
+    } catch {}
+  }
 
   const dismiss = () => {
     setRestoreDlgOpen(false)
-    try { dismissBaselineRef.current = snapshot } catch { dismissBaselineRef.current = null }
+    try { setDismissBaseline(snapshot) } catch { setDismissBaseline(null) }
     // Keep previous autosave intact by not enabling here
   }
 

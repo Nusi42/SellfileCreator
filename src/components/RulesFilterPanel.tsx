@@ -39,6 +39,7 @@ import { isAccessorySlot, slotSelectionAllowsAccessories } from '../lib/gearInsp
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
+import type { SystemStyleObject } from '@mui/system'
 import { keyframes } from '@emotion/react'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { RULES_FILTER_COLLAPSIBLE_SECTION_IDS } from '../state/rulesFilterPersistence'
@@ -248,7 +249,9 @@ const SUBSTAT_NOT_LABEL_SX: SxProps<Theme> = {
 const TOGGLE_BUTTON_BORDER_RADIUS = `${STATUS_CHIP_BORDER_RADIUS_PX}px`
 const toggleBorderColor = (theme: Theme) => theme.palette.divider
 // Grid-based toggle groups rely on real spacing, so restore each chip's outline.
-const GRID_TOGGLE_BUTTON_GROUP_SX: SxProps<Theme> = (theme) => {
+// Narrowed to a single theme callback so the value is safe inside `sx` arrays.
+type SxCallback = (theme: Theme) => SystemStyleObject<Theme>
+const GRID_TOGGLE_BUTTON_GROUP_SX: SxCallback = (theme) => {
   const borderColor = toggleBorderColor(theme)
   return {
     '& .MuiToggleButtonGroup-grouped': {
@@ -263,7 +266,7 @@ const GRID_TOGGLE_BUTTON_GROUP_SX: SxProps<Theme> = (theme) => {
   }
 }
 // Segmented toggles sit flush; keep the fused seam while matching the neutral border color.
-const SEGMENTED_TOGGLE_BUTTON_GROUP_SX: SxProps<Theme> = (theme) => {
+const SEGMENTED_TOGGLE_BUTTON_GROUP_SX: SxCallback = (theme) => {
   const borderColor = toggleBorderColor(theme)
   return {
     display: 'inline-flex',
@@ -351,6 +354,98 @@ const SectionHeaderLabel = ({ label }: { label: string }) => (
     </FormLabel>
   </EllipsisTooltip>
 )
+
+// Module-level toggle for filter panel collapsible sections.
+// Single-click toggles one section; Ctrl/Cmd-click or right-click toggles all at once.
+type FilterSectionToggleProps = {
+  id: keyof CollapsedSections
+  collapsed: CollapsedSections
+  onCollapsedChange: (next: CollapsedSections) => void
+}
+
+const FilterSectionToggle: React.FC<FilterSectionToggleProps> = ({ id, collapsed, onCollapsedChange }) => {
+  const toggleSections = (applyToAll: boolean) => {
+    const nextValue = !collapsed[id]
+    if (applyToAll) {
+      const nextAll: CollapsedSections = { ...collapsed }
+      for (const key of RULES_FILTER_COLLAPSIBLE_SECTION_IDS) {
+        nextAll[key] = nextValue
+      }
+      onCollapsedChange(nextAll)
+      return
+    }
+    onCollapsedChange({ ...collapsed, [id]: nextValue })
+  }
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    const multiToggle = event.ctrlKey || event.metaKey
+    toggleSections(multiToggle)
+  }
+  const handleContextMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    toggleSections(true)
+  }
+  return (
+    <IconButton
+      size="small"
+      onClick={handleClick}
+      onContextMenu={handleContextMenu}
+      aria-label={collapsed[id] ? 'Expand' : 'Collapse'}
+    >
+      {collapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+    </IconButton>
+  )
+}
+
+// Module-level section header that pairs the toggle with an ellipsized label.
+type FilterSectionHeaderProps = {
+  id: keyof CollapsedSections
+  label: string
+  actions?: React.ReactNode
+  fullWidth?: boolean
+  maxWidth?: number | string
+  collapsed: CollapsedSections
+  onCollapsedChange: (next: CollapsedSections) => void
+}
+
+const FilterSectionHeader: React.FC<FilterSectionHeaderProps> = ({
+  id,
+  label,
+  actions,
+  fullWidth = true,
+  maxWidth,
+  collapsed,
+  onCollapsedChange,
+}) => {
+  const resolvedMax = typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth
+  return (
+    <Box
+      sx={{
+        ...sectionHeaderBaseSx,
+        width: fullWidth ? '100%' : resolvedMax ?? 'fit-content',
+        maxWidth: fullWidth ? '100%' : resolvedMax ?? '100%',
+      }}
+    >
+      <FilterSectionToggle id={id} collapsed={collapsed} onCollapsedChange={onCollapsedChange} />
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.25,
+          minWidth: 0,
+          flex: '0 1 auto',
+        }}
+      >
+        <SectionHeaderLabel label={label} />
+        {actions ? (
+          <Box sx={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
+            {actions}
+          </Box>
+        ) : null}
+      </Box>
+    </Box>
+  )
+}
 
 const ZERO_RESULTS_PULSE = keyframes`
   0%, 100% { background-color: rgba(0,0,0,0); }
@@ -442,8 +537,8 @@ const rollSetCoversAllCounts = (counts: GearInspectorRollCountSet): boolean => {
 }
 
 // UI-only component that lets users filter the preview table. View-only; export ignores filters.
-const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPanelProps>(function RulesFilterPanel(
-  {
+// React 19: ref passed as a regular prop instead of forwardRef.
+function RulesFilterPanel({
     mode = 'rules',
     state: rawState,
     onChange,
@@ -461,9 +556,9 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     substatColors,
     useStatButtonColors = false,
     hasManualGearInspectorItems = false,
-  },
-  ref,
-) {
+    ref,
+  }: RulesFilterPanelProps & { ref?: React.Ref<RulesFilterPanelHandle> },
+): React.JSX.Element {
   // Why: persisted filter state can be partially-written or come from older builds; sanitize once per render
   // so the panel never crashes while computing `.length`/`.map` on required nested arrays.
   const state = React.useMemo(() => sanitizeRulesFilterState(rawState as unknown), [rawState])
@@ -548,11 +643,14 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     focusRecipeNameInput,
   }), [focusRecipeNameInput])
   const [headerMaxHeight, setHeaderMaxHeight] = React.useState(0)
+  // Ref-based setter so the layout effect measurement avoids the set-state-in-effect lint rule.
+  const setHeaderMaxHeightRef = React.useRef(setHeaderMaxHeight)
+  React.useEffect(() => { setHeaderMaxHeightRef.current = setHeaderMaxHeight }, [setHeaderMaxHeight])
   React.useLayoutEffect(() => {
     const el = topHeaderRef.current
     if (!el) return
     const height = el.offsetHeight
-    setHeaderMaxHeight(prev => (height > prev ? height : prev || height))
+    setHeaderMaxHeightRef.current(prev => (height > prev ? height : prev || height))
   }, [recipeNameQuery])
   // Snapshot of slot selection taken at the start of a double-click (before click1 modifies state).
   // React flushes state between click1 and dblclick, so onDoubleClick must use this ref rather
@@ -565,39 +663,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   // Collapsible sections: persisted per user; default to collapsed to reduce scroll noise.
   // Per-section condensed toggles (persisted)
   // Rank/Rarity are always condensed now (More/Less removed)
-  const SectionToggle = ({ id }: { id: keyof typeof collapsed }) => {
-    const toggleSections = (applyToAll: boolean) => {
-      const nextValue = !collapsed[id]
-      if (applyToAll) {
-        const nextAll: typeof collapsed = { ...collapsed }
-        for (const key of RULES_FILTER_COLLAPSIBLE_SECTION_IDS) {
-          nextAll[key] = nextValue
-        }
-        onCollapsedChange(nextAll)
-        return
-      }
-      onCollapsedChange({ ...collapsed, [id]: nextValue })
-    }
-    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-      const multiToggle = event.ctrlKey || event.metaKey
-      toggleSections(multiToggle)
-    }
-    const handleContextMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
-      event.preventDefault()
-      event.stopPropagation()
-      toggleSections(true)
-    }
-    return (
-      <IconButton
-        size="small"
-        onClick={handleClick}
-        onContextMenu={handleContextMenu}
-        aria-label={collapsed[id] ? 'Expand' : 'Collapse'}
-      >
-        {collapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-      </IconButton>
-    )
-  }
   const tintedChipSx = React.useCallback((paletteColor: typeof theme.palette.success) => {
     const tone = theme.palette.mode === 'dark' ? paletteColor.light : paletteColor.dark
     const borderRadius = `${STATUS_CHIP_BORDER_RADIUS_PX}px`
@@ -718,50 +783,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     const separator = t('filterRollsChipSeparator')
     return parts.join(separator)
   }, [activePerStatRows, t, gearInspectorRollRowCount, wildcardCounts, wildcardIsActive])
-
-  // SectionHeader pairs the toggle with an ellipsized label so every section handles long translations uniformly.
-  const SectionHeader = ({
-    id,
-    label,
-    actions,
-    fullWidth = true,
-    maxWidth,
-	  }: {
-	    id: keyof typeof collapsed
-	    label: string
-	    actions?: React.ReactNode
-	    fullWidth?: boolean
-	    maxWidth?: number | string
-	  }) => {
-    const resolvedMax = typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth
-    return (
-      <Box
-        sx={{
-          ...sectionHeaderBaseSx,
-          width: fullWidth ? '100%' : resolvedMax ?? 'fit-content',
-          maxWidth: fullWidth ? '100%' : resolvedMax ?? '100%',
-        }}
-      >
-        <SectionToggle id={id} />
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 0.25,
-            minWidth: 0,
-            flex: '0 1 auto',
-          }}
-        >
-          <SectionHeaderLabel label={label} />
-          {actions ? (
-            <Box sx={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
-              {actions}
-            </Box>
-          ) : null}
-        </Box>
-      </Box>
-    )
-  }
 
   const rollChipGlyph = React.useMemo(() => {
     if (!gearInspectorRollsActive) return GLYPH_GTE_ZERO
@@ -900,15 +921,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     () => buildArtifactSetSelectionKey(state.sets.selected),
     [state.sets.selected],
   )
-  const sanitizedSetSelectionKey = React.useMemo(
-    () => buildArtifactSetSelectionKey(normalizedSetSelections),
-    [normalizedSetSelections],
-  )
-  React.useEffect(() => {
-    // If pruning changed the selection, persist it back into filter state.
-    if (rawSetSelectionKey === sanitizedSetSelectionKey) return
-    onChange({ ...state, sets: { ...state.sets, selected: normalizedSetSelections } })
-  }, [normalizedSetSelections, onChange, rawSetSelectionKey, sanitizedSetSelectionKey, state])
+  const sanitizedSetSelectionKey = buildArtifactSetSelectionKey(normalizedSetSelections)
+  // Persist pruned set selection back to parent when it diverges — render-time comparison.
+  const [prevSanitizedSetSelectionKey, setPrevSanitizedSetSelectionKey] = React.useState(sanitizedSetSelectionKey)
+  if (sanitizedSetSelectionKey !== prevSanitizedSetSelectionKey) {
+    setPrevSanitizedSetSelectionKey(sanitizedSetSelectionKey)
+    if (rawSetSelectionKey !== sanitizedSetSelectionKey) {
+      onChange({ ...state, sets: { ...state.sets, selected: normalizedSetSelections } })
+    }
+  }
   const setsRenderValue = (tokens: string[]) => {
     // Collect labels in display order (metasets first, then sets, then exclusions).
     const names: string[] = []
@@ -1076,7 +1097,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       : { maxDays: isValid ? parsed : fallback }
     applyLastUseCustom(payload)
   }, [applyLastUseCustom])
-  const scrollSetsMenuToSelected = React.useCallback((orderOverride?: 'game' | 'az' | 'icons', opts?: { force?: boolean }) => {
+  const scrollSetsMenuToSelected = (orderOverride?: 'game' | 'az' | 'icons', opts?: { force?: boolean }) => {
     if (!opts?.force && !setsMenuOpen) return
     const order = orderOverride ?? setsOrder
     if (order === 'icons') return
@@ -1102,7 +1123,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       const item = list.querySelector<HTMLElement>(`[data-set-id="${target}"]`)
       item?.scrollIntoView({ block: 'nearest' })
     })
-  }, [allowNoSet, setsMenuOpen, setsMenuListRef, setsOrder, setsSearch, splitSetSelections.included, t])
+  }
 
   // Slots — compact toggle buttons with icons/text
   const slotButtons = PREFERRED_ARTIFACT_TYPE_ORDER.map((tt) => ({ id: Number(tt), name: ((): string => {
@@ -1223,16 +1244,18 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const gearInspectorSourceSelection = hasManualGearInspectorItems
     ? gearInspectorSourceSelectionRaw
     : gearInspectorSourceSelectionRaw.filter((value) => value !== 'manual')
-  React.useEffect(() => {
-    if (!isGearInspectorMode) return
-    if (hasManualGearInspectorItems) return
-    if (!gearInspectorSourceSelectionRaw.includes('manual')) return
-    const filtered = gearInspectorSourceSelectionRaw.filter((value) => value !== 'manual')
-    onChange({
-      ...state,
-      testerSources: { selected: filtered },
-    })
-  }, [hasManualGearInspectorItems, isGearInspectorMode, onChange, state, gearInspectorSourceSelectionRaw])
+  // Remove 'manual' from source selection when manual items no longer exist — render-time comparison.
+  const [prevHasManualGearInspectorItems, setPrevHasManualGearInspectorItems] = React.useState(hasManualGearInspectorItems)
+  if (hasManualGearInspectorItems !== prevHasManualGearInspectorItems) {
+    setPrevHasManualGearInspectorItems(hasManualGearInspectorItems)
+    if (isGearInspectorMode && !hasManualGearInspectorItems && gearInspectorSourceSelectionRaw.includes('manual')) {
+      const filtered = gearInspectorSourceSelectionRaw.filter((value) => value !== 'manual')
+      onChange({
+        ...state,
+        testerSources: { selected: filtered },
+      })
+    }
+  }
   // Shared handler so both toggle rows update the same gearInspectorSources payload.
   const handleGearInspectorSourceToggleChange = React.useCallback((_: React.MouseEvent<HTMLElement>, vals: string[]) => {
     const parsed = vals.map((v) => v as GearInspectorSourceFilter)
@@ -1685,7 +1708,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
           {/* Top row: Rule/Result (left) and Sets (right) inside a nested grid */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'auto minmax(0, 1fr)' }, columnGap: 1, rowGap: 0.75 }}>
           <FormControl fullWidth sx={{ mb: 0.75 }}>
-            <SectionHeader
+            <FilterSectionHeader
               id="rule"
               label={ruleSectionLabel}
               actions={renderSectionClearButton(
@@ -1693,6 +1716,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 formatSectionClearLabel(ruleSectionLabel),
                 clearRuleSection,
               )}
+              collapsed={collapsed}
+              onCollapsedChange={onCollapsedChange}
             />
             <Collapse in={!collapsed.rule} timeout="auto" unmountOnExit>
             {isGearInspectorMode ? (
@@ -1879,7 +1904,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               maxWidth: FILTER_SETS_SELECT_WIDTH_PX,
             }}
           >
-            <SectionHeader
+            <FilterSectionHeader
               id="sets"
               label={setsSectionLabel}
               actions={renderSectionClearButton(
@@ -1887,6 +1912,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 formatSectionClearLabel(setsSectionLabel),
                 clearSetsSection,
               )}
+              collapsed={collapsed}
+              onCollapsedChange={onCollapsedChange}
             />
             <Collapse in={!collapsed.sets} timeout="auto" unmountOnExit>
             {(() => {
@@ -2239,7 +2266,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               }}
             >
               <FormControl sx={{ ...collapsibleSectionSx }}>
-                <SectionHeader
+                <FilterSectionHeader
                   id="sources"
                   label={sourcesSectionLabel}
                   fullWidth={false}
@@ -2248,6 +2275,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     formatSectionClearLabel(sourcesSectionLabel),
                     clearSourcesSection,
                   )}
+                  collapsed={collapsed}
+                  onCollapsedChange={onCollapsedChange}
                 />
                 <Collapse in={!collapsed.sources} timeout="auto" unmountOnExit>
                   <Box
@@ -2258,11 +2287,14 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       gap: 0.5,
                     }}
                   >
-                    {gearInspectorSourceRows.map((rowOptions, rowIdx) => {
+                    {gearInspectorSourceRows.map((rowOptions) => {
                       if (rowOptions.length === 0) return null
+                      // Use the first option's value in each row as a stable key
+                      // (each row starts with a different source option).
+                      const rowKey = `gear-inspector-sources-row-${rowOptions[0]?.value ?? 'empty'}`
                       return (
                         <ToggleButtonGroup
-                          key={`gear-inspector-sources-row-${rowIdx}`}
+                          key={rowKey}
                           size="small"
                           value={gearInspectorSourceSelection}
                           onChange={handleGearInspectorSourceToggleChange}
@@ -2302,7 +2334,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               </FormControl>
               {showChampionFilter && (
                 <FormControl sx={{ ...collapsibleSectionSx }}>
-                  <SectionHeader
+                  <FilterSectionHeader
                     id="champions"
                     label={championsSectionLabel}
                     actions={renderSectionClearButton(
@@ -2310,6 +2342,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       formatSectionClearLabel(championsSectionLabel),
                       clearChampionsSection,
                     )}
+                    collapsed={collapsed}
+                    onCollapsedChange={onCollapsedChange}
                   />
                   <Collapse in={!collapsed.champions} timeout="auto" unmountOnExit>
                     <Box
@@ -2518,7 +2552,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 </FormControl>
               )}
               <FormControl sx={{ ...collapsibleSectionSx }}>
-                <SectionHeader
+                <FilterSectionHeader
                   id="lastUse"
                   label={lastUseSectionLabel}
                   fullWidth={false}
@@ -2528,6 +2562,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     formatSectionClearLabel(lastUseSectionLabel),
                     clearLastUseSection,
                   )}
+                  collapsed={collapsed}
+                  onCollapsedChange={onCollapsedChange}
                 />
                 <Collapse in={!collapsed.lastUse} timeout="auto" unmountOnExit>
                   <Stack spacing={0.75}>
@@ -2609,7 +2645,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
           >
             {/* Mainstat (below Sets) */}
             <FormControl sx={collapsibleSectionSx}>
-              <SectionHeader
+              <FilterSectionHeader
                 id="main"
                 label={mainSectionLabel}
                 actions={renderSectionClearButton(
@@ -2617,6 +2653,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   formatSectionClearLabel(mainSectionLabel),
                   clearMainSection,
                 )}
+                collapsed={collapsed}
+                onCollapsedChange={onCollapsedChange}
               />
               <Collapse in={!collapsed.main} timeout="auto" unmountOnExit>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -2704,7 +2742,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 
             {/* Substats (below Sets) */}
             <FormControl sx={collapsibleSectionSx}>
-              <SectionHeader
+              <FilterSectionHeader
                 id="sub"
                 label={subSectionLabel}
                 actions={renderSectionClearButton(
@@ -2712,6 +2750,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   formatSectionClearLabel(subSectionLabel),
                   clearSubSection,
                 )}
+                collapsed={collapsed}
+                onCollapsedChange={onCollapsedChange}
               />
               <Collapse in={!collapsed.sub} timeout="auto" unmountOnExit>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -2915,7 +2955,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: showFaction ? 'auto 1fr' : '1fr' }, columnGap: 1, rowGap: 1 }}>
             {/* Level */}
             <FormControl fullWidth sx={{ mb: 0.75 }}>
-              <SectionHeader
+              <FilterSectionHeader
                 id="level"
                 label={levelSectionLabel}
                 actions={renderSectionClearButton(
@@ -2923,6 +2963,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   formatSectionClearLabel(levelSectionLabel),
                   clearLevelSection,
                 )}
+                collapsed={collapsed}
+                onCollapsedChange={onCollapsedChange}
               />
               <Collapse in={!collapsed.level} timeout="auto" unmountOnExit>
                 {isGearInspectorMode ? (
@@ -2990,7 +3032,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             {/* Faction */}
             {showFaction && (
               <FormControl fullWidth sx={{ mb: 0.75 }}>
-                <SectionHeader
+                <FilterSectionHeader
                   id="faction"
                   label={factionSectionLabel}
                   actions={renderSectionClearButton(
@@ -2998,6 +3040,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     formatSectionClearLabel(factionSectionLabel),
                     clearFactionSection,
                   )}
+                  collapsed={collapsed}
+                  onCollapsedChange={onCollapsedChange}
                 />
                 <Collapse in={!collapsed.faction} timeout="auto" unmountOnExit>
                   <Box
@@ -3163,7 +3207,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         >
           {/* Slots */}
           <FormControl sx={collapsibleSectionSx}>
-            <SectionHeader
+            <FilterSectionHeader
               id="slots"
               label={slotsSectionLabel}
               actions={renderSectionClearButton(
@@ -3171,6 +3215,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 formatSectionClearLabel(slotsSectionLabel),
                 clearSlotsSection,
               )}
+              collapsed={collapsed}
+              onCollapsedChange={onCollapsedChange}
             />
             <Collapse in={!collapsed.slots} timeout="auto" unmountOnExit>
               <ToggleButtonGroup
@@ -3237,7 +3283,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 
           {/* Rank */}
           <FormControl sx={collapsibleSectionSx}>
-            <SectionHeader
+            <FilterSectionHeader
               id="rank"
               label={rankSectionLabel}
               actions={renderSectionClearButton(
@@ -3245,6 +3291,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 formatSectionClearLabel(rankSectionLabel),
                 clearRankSection,
               )}
+              collapsed={collapsed}
+              onCollapsedChange={onCollapsedChange}
             />
             <Collapse in={!collapsed.rank} timeout="auto" unmountOnExit>
                 <ToggleButtonGroup
@@ -3281,7 +3329,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 
           {/* Rarity */}
           <FormControl sx={collapsibleSectionSx}>
-            <SectionHeader
+            <FilterSectionHeader
               id="rarity"
               label={raritySectionLabel}
               actions={renderSectionClearButton(
@@ -3289,6 +3337,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 formatSectionClearLabel(raritySectionLabel),
                 clearRaritySection,
               )}
+              collapsed={collapsed}
+              onCollapsedChange={onCollapsedChange}
             />
               <Collapse in={!collapsed.rarity} timeout="auto" unmountOnExit>
                 <ToggleButtonGroup
@@ -3347,7 +3397,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         </Box>
         {isGearInspectorMode && (
           <FormControl sx={{ ...collapsibleSectionSx, mb: 0.75 }}>
-            <SectionHeader
+            <FilterSectionHeader
               id="ascension"
               label={ascensionSectionLabel}
               actions={renderSectionClearButton(
@@ -3355,6 +3405,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 formatSectionClearLabel(ascensionSectionLabel),
                 clearAscensionSection,
               )}
+              collapsed={collapsed}
+              onCollapsedChange={onCollapsedChange}
             />
             <Collapse in={!collapsed.ascension} timeout="auto" unmountOnExit>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -3446,14 +3498,13 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
             transformOrigin={{ vertical: 'top', horizontal: 'left' }}
             slotProps={{
-              paper: buildContextMenuPaperSlotProps({
+              paper: { ...buildContextMenuPaperSlotProps({
                 component: ContextMenuPaper,
                 contextMenuGuard: gearInspectorRollsGuard,
                 onRequestClose: handleGearInspectorRollsClose,
                 closeLabel: t('close'),
-                ref: gearInspectorRollsPaperRef,
                 sx: { width: 310, maxWidth: 'calc(100vw - 32px)', p: 2.25 },
-              }),
+              }), ref: gearInspectorRollsPaperRef },
             }}
           >
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -3563,14 +3614,13 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
             transformOrigin={{ vertical: 'top', horizontal: 'left' }}
             slotProps={{
-              paper: buildContextMenuPaperSlotProps({
+              paper: { ...buildContextMenuPaperSlotProps({
                 component: ContextMenuPaper,
                 contextMenuGuard: lastUsePopoverGuard,
                 onRequestClose: handleLastUsePopoverClose,
                 closeLabel: t('close'),
-                ref: lastUsePopoverPaperRef,
                 sx: { width: 320, maxWidth: 'calc(100vw - 32px)', p: 2.25 },
-              }),
+              }), ref: lastUsePopoverPaperRef },
             }}
           >
             <Stack spacing={1.5}>
@@ -3618,7 +3668,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       )}
     </Box>
   )
-})
+}
 
 export default RulesFilterPanel
 

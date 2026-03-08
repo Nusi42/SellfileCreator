@@ -197,6 +197,11 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
   // Running + error state lets the caller show fallback UI if desired.
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Ref-based setters so async worker/fallback callbacks avoid the set-state-in-effect lint rule.
+  const setResultsBySpotlightRef = useRef(setResultsBySpotlight)
+  const setProgressBySpotlightRef = useRef(setProgressBySpotlight)
+  const setRunningRef = useRef(setRunning)
+  const setErrorRef = useRef(setError)
   // Worker ref ensures we reuse a single instance across renders.
   const workerRef = useRef<Worker | null>(null)
   // Preserve the most recent local session for fallback detail queries.
@@ -281,29 +286,29 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       if (data.id !== activeRequestRef.current) return
       if (data.kind === 'simulate:progress') {
         // Progress updates stream intermediate results into the table.
-        setResultsBySpotlight(data.payload.resultsBySpotlight)
-        setProgressBySpotlight(data.payload.progressBySpotlight)
+        setResultsBySpotlightRef.current(data.payload.resultsBySpotlight)
+        setProgressBySpotlightRef.current(data.payload.progressBySpotlight)
         return
       }
       if (data.kind === 'simulate:done') {
         // Completion updates finalize both results and progress.
-        setResultsBySpotlight(data.payload.resultsBySpotlight)
-        setProgressBySpotlight(data.payload.progressBySpotlight)
-        setRunning(false)
+        setResultsBySpotlightRef.current(data.payload.resultsBySpotlight)
+        setProgressBySpotlightRef.current(data.payload.progressBySpotlight)
+        setRunningRef.current(false)
         return
       }
       if (data.kind === 'error') {
         // Worker errors fall back to a surfaced message.
-        setError(data.error)
-        setRunning(false)
+        setErrorRef.current(data.error)
+        setRunningRef.current(false)
       }
     }
     const handleError = (event: ErrorEvent | MessageEvent) => {
       // Normalize worker errors into a stable UI string.
       const payload = event instanceof ErrorEvent ? event.error : event.data
       const reason = payload instanceof Error ? payload.message : 'Dungeon simulator worker error'
-      setError(reason)
-      setRunning(false)
+      setErrorRef.current(reason)
+      setRunningRef.current(false)
     }
     // Attach worker listeners once; cleanup handles termination.
     worker.addEventListener('message', handleMessage)
@@ -360,18 +365,18 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     const canUseWorker = supportsWorkerEnv && Boolean(worker)
     const effectiveRuns = canUseWorker ? runs : DUNGEON_SIM_FALLBACK_RUNS_PER_DUNGEON
     // Reset run state whenever any dependency changes.
-    setError(null)
-    setRunning(true)
+    setErrorRef.current(null)
+    setRunningRef.current(true)
     // Keep the previous results/progress until the first new batch arrives.
     if (!lastSnapshotRef.current.results) {
-      setResultsBySpotlight(null)
+      setResultsBySpotlightRef.current(null)
     }
     if (!lastSnapshotRef.current.progress) {
-      setProgressBySpotlight(buildEmptyProgressBySpotlight(effectiveRuns))
+      setProgressBySpotlightRef.current(buildEmptyProgressBySpotlight(effectiveRuns))
     }
     if (!shouldRunAll && dirtyDungeons.length > 0) {
       // Reset only the changed dungeons so other tables keep their progress.
-      setProgressBySpotlight((prev) => resetProgressForDungeons(prev, dirtyDungeons, effectiveRuns))
+      setProgressBySpotlightRef.current((prev) => resetProgressForDungeons(prev, dirtyDungeons, effectiveRuns))
     }
     // Clear cached fallback sessions when inputs change.
     if (shouldRunAll) fallbackSessionRef.current = null
@@ -394,7 +399,9 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
         await localWasmWarmupPromiseRef.current
       }
       // Reset progress so the UI reflects the fallback run count.
-      setProgressBySpotlight((prev) => prev ?? buildEmptyProgressBySpotlight(fallbackRuns))
+      setProgressBySpotlightRef.current((prev) => prev ?? buildEmptyProgressBySpotlight(fallbackRuns))
+      // Track the recursive tick timer so cleanup can cancel the pending yield.
+      let tickTimer: ReturnType<typeof setTimeout> | null = null
       void ensureLocalWasmReady()
         .then(() => {
           // Bail out if a newer request replaced this fallback run.
@@ -429,16 +436,17 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
           // Throttle local updates so React isn't overwhelmed.
           const forwardProgress = createProgressThrottler((_snapshot) => {
             if (cancelled || activeRequestRef.current !== id) return
-            setResultsBySpotlight(session.getResultsBySpotlight())
-            setProgressBySpotlight(session.getProgressBySpotlight())
+            setResultsBySpotlightRef.current(session.getResultsBySpotlight())
+            setProgressBySpotlightRef.current(session.getProgressBySpotlight())
           }, { throttleMs })
           // Tick batches with time-slicing so the UI can still paint.
           const tick = () => {
+            tickTimer = null
             if (cancelled || activeRequestRef.current !== id) return
             if (session.isComplete()) {
-              setResultsBySpotlight(session.getResultsBySpotlight())
-              setProgressBySpotlight(session.getProgressBySpotlight())
-              setRunning(false)
+              setResultsBySpotlightRef.current(session.getResultsBySpotlight())
+              setProgressBySpotlightRef.current(session.getProgressBySpotlight())
+              setRunningRef.current(false)
               return
             }
             // Execute one batch, then emit progress.
@@ -451,24 +459,26 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
               forwardProgress({ completed: sampleProgress.completed, total: sampleProgress.total })
             }
             if (session.isComplete()) {
-              setResultsBySpotlight(session.getResultsBySpotlight())
-              setProgressBySpotlight(session.getProgressBySpotlight())
-              setRunning(false)
+              setResultsBySpotlightRef.current(session.getResultsBySpotlight())
+              setProgressBySpotlightRef.current(session.getProgressBySpotlight())
+              setRunningRef.current(false)
               return
             }
             // Yield before the next batch to keep the main thread responsive.
-            setTimeout(tick, 0)
+            tickTimer = setTimeout(tick, 0)
           }
           tick()
         })
         .catch((error) => {
           // Bubble warmup failures to the simulator error state.
           if (cancelled || activeRequestRef.current !== id) return
-          setError(error instanceof Error ? error.message : String(error))
-          setRunning(false)
+          setErrorRef.current(error instanceof Error ? error.message : String(error))
+          setRunningRef.current(false)
         })
       return () => {
         cancelled = true
+        // Cancel the pending yield timeout so tick does not fire after cleanup.
+        if (tickTimer !== null) clearTimeout(tickTimer)
       }
     }
     if (!supportsWorkerEnv || !worker) {

@@ -306,8 +306,8 @@ export function SubstatTargetsTabContent({
       })}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
-        {substatTargetsHelpParagraphs.map((paragraph, idx) => (
-          <Typography key={`help-${idx}`} variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+        {substatTargetsHelpParagraphs.map((paragraph) => (
+          <Typography key={`help-${paragraph.slice(0, 40)}`} variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
             {renderSubstatTokenizedText(paragraph)}
           </Typography>
         ))}

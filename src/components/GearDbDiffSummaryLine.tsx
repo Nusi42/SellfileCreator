@@ -3,7 +3,7 @@
  *
  * Shared summary line renderer for Gear DB diff counts with icon glyphs.
  */
-import type { ReactNode } from 'react'
+import type { JSX, ReactNode } from 'react'
 import { Box } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -134,10 +134,15 @@ export const buildGearDbDiffSummaryLineNodes = (
   // Only enable the count pill when a caller explicitly requests it.
   const useCountPill = options?.useCountPill ?? false
   // Map each spec to a UI-ready node, trimming empty text rows.
+  // Track per-kind occurrence counts so composite keys stay unique
+  // even when multiple specs share the same discriminant.
+  const kindCounts: Record<string, number> = {}
   const nodes: Array<SummaryLineNode | null> = lineSpecs.map((spec) => {
+    const kindOcc = (kindCounts[spec.kind] = (kindCounts[spec.kind] ?? 0) + 1)
     if (spec.kind === 'diff') {
       return (
         <GearDbDiffSummaryLine
+          key={`${spec.kind}-${kindOcc}`}
           label={diffLabel}
           addedCount={spec.addedCount}
           removedCount={spec.removedCount}
