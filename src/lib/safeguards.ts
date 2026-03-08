@@ -772,7 +772,9 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   const beatEquippedPercentile = (typeof rawPercentile === 'number' && Number.isFinite(rawPercentile))
     ? Math.max(0, Math.min(100, Math.floor(rawPercentile)))
     : SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE
-  return {
+  // Run the substat-dependents gate so no caller receives a rule where
+  // beat-equipped or weights are set without any substats to back them.
+  return normalizeSafeguardSubstatDependents({
     id,
     name,
     combination,
@@ -786,7 +788,36 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
     substatMatch,
     substatWeights: parseSubstatWeights(weightsSource),
     beatEquippedPercentile,
+  })
+}
+
+/**
+ * normalizeSafeguardSubstatDependents
+ *
+ * Clears beat-equipped, substat-match, and substat-weights when a rule has no
+ * substats. This is the SSOT post-parse gate called by normalizeSafeguardRule
+ * (covering all load paths) and re-used by the multi-edit apply pipeline in
+ * safeguardMultiEditDraft.ts.
+ */
+export function normalizeSafeguardSubstatDependents(rule: SafeguardRule): SafeguardRule {
+  const substats = rule.substats ?? []
+  // Nothing to do when substats are present — dependent fields are already valid.
+  if (substats.length > 0) return rule
+  let next = rule
+  // Beat-equipped requires at least one substat to be meaningful.
+  if (next.beatEquippedPercentile !== SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE) {
+    next = { ...next, beatEquippedPercentile: SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE }
   }
+  // substatMatch reverts to Any with no substats to match against.
+  if (next.substatMatch !== SafeguardSubstatMatch.Any) {
+    next = { ...next, substatMatch: SafeguardSubstatMatch.Any }
+  }
+  // Prune any stale weight entries (none should remain without substats).
+  const pruned = pruneSafeguardsSubstatWeights(next.substatWeights, substats)
+  if (pruned !== next.substatWeights) {
+    next = { ...next, substatWeights: pruned }
+  }
+  return next
 }
 
 // Read finite positive value for one substat variant from the artifact.

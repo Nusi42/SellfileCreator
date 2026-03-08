@@ -28,10 +28,9 @@ import {
   type SafeguardRuleActivation,
   type SafeguardRuleCountMode,
   type SafeguardCombination,
-  SafeguardSubstatMatch,
-  SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
+  type SafeguardSubstatMatch,
   cloneSafeguardCombination,
-  pruneSafeguardsSubstatWeights,
+  normalizeSafeguardSubstatDependents,
 } from './safeguards'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
@@ -620,34 +619,6 @@ export function applyMultiEditFieldsToSafeguardRule(
   return nextRule
 }
 
-/**
- * normalizeSafeguardSubstatDependents
- *
- * Clears beat-equipped, substat-match, and substat-weights when a rule has no
- * substats. This is the SSOT post-apply gate shared by the multi-edit pipeline
- * and any future batch mutation paths — mirrors the single-edit constraint in
- * constrainSafeguardSubstats without requiring a combination parameter.
- */
-export function normalizeSafeguardSubstatDependents(rule: SafeguardRule): SafeguardRule {
-  const substats = rule.substats ?? []
-  // Nothing to do if substats are present — dependent fields are already valid.
-  if (substats.length > 0) return rule
-  let next = rule
-  // Beat-equipped requires at least one substat to be meaningful.
-  if (next.beatEquippedPercentile !== SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE) {
-    next = { ...next, beatEquippedPercentile: SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE }
-  }
-  // Substat-match defaults to Any when there is nothing to match against.
-  if (next.substatMatch !== SafeguardSubstatMatch.Any) {
-    next = { ...next, substatMatch: SafeguardSubstatMatch.Any }
-  }
-  // Prune any stale weight entries (none should remain without substats).
-  const pruned = pruneSafeguardsSubstatWeights(next.substatWeights, substats)
-  if (pruned !== next.substatWeights) {
-    next = { ...next, substatWeights: pruned }
-  }
-  return next
-}
 
 function applyPatchForKey(
   rule: SafeguardRule,
