@@ -516,7 +516,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     inboxArtifacts: GearDbArtifactRow[] | null
     champions: GearDbChampionRow[] | null
     lastUsed: GearDbLastUsedRow[] | null
-  }>({ artifacts: null, inboxArtifacts: null, champions: null, lastUsed: null })
+    // Inverse of the per-champion artifacts slot map; populated by gearDbChampions
+    // so artifacts can have their cID field patched at snapshot-synthesis time.
+    equippedByArtifact: Map<number, number> | null
+  }>({ artifacts: null, inboxArtifacts: null, champions: null, lastUsed: null, equippedByArtifact: null })
   const [gearInspectorItems, setGearInspectorItems] = useState<GearInspectorItem[]>([])
   const gearInspectorItemsRef = useRef(gearInspectorItems)
   useEffect(() => { gearInspectorItemsRef.current = gearInspectorItems }, [gearInspectorItems])
@@ -3423,11 +3426,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // A subsequent binary push must build its "before" snapshot from the JSON dataset.
       gearDbBinarySnapshotCacheRef.current = null
       // Keep raw parts in sync so partial per-type updates merge against this baseline.
+      // Preserve equippedByArtifact: when champions arrive before artifacts the map
+      // must survive until artifacts land so patchCID can still apply it then.
+      const preservedEquippedByArtifact = gearDbRawPartsRef.current.equippedByArtifact
       gearDbRawPartsRef.current = {
         artifacts: command.artifacts,
         inboxArtifacts: command.inboxArtifacts,
         champions: command.champions,
         lastUsed: command.lastUsed,
+        equippedByArtifact: preservedEquippedByArtifact,
       }
       // Diff the Gear Inspector queue so only net changes are enqueued.
       const { removedCount, addedCount } = applyGearDbDiff(gearInspectorItems)
@@ -3475,7 +3482,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       gearDbRawDatasetRef.current = null
       // Clear accumulated parts so stale data does not seed the next snapshot.
-      gearDbRawPartsRef.current = { artifacts: null, inboxArtifacts: null, champions: null, lastUsed: null }
+      gearDbRawPartsRef.current = { artifacts: null, inboxArtifacts: null, champions: null, lastUsed: null, equippedByArtifact: null }
       // Reset the revision baseline so the next push falls back to a full snapshot.
       gearDbRevisionMapRef.current = new Map()
       // Clear the binary snapshot cache so the next binary push starts fresh too.
@@ -3517,11 +3524,26 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       parts.artifacts = cmd.artifacts
     } else if (cmd.kind === 'gearDbChampions') {
       parts.champions = cmd.champions
+      // Store the inverse slot map so artifacts can be patched with cID below.
+      parts.equippedByArtifact = cmd.equippedByArtifact
     } else if (cmd.kind === 'gearDbInboxArtifacts') {
       parts.inboxArtifacts = cmd.inboxArtifacts
     } else {
       // gearDbLastUsed — the only remaining variant.
       parts.lastUsed = cmd.lastUsed
+    }
+    // Patch cID on artifact rows using the champion slot map when available.
+    // The endpoint reverses the relationship — champions list their artifacts
+    // instead of artifacts carrying their equipped-champion id (cID).
+    const equippedBy = parts.equippedByArtifact
+    const patchCID = (rows: GearDbArtifactRow[]): GearDbArtifactRow[] => {
+      if (!equippedBy || equippedBy.size === 0) return rows
+      return rows.map(row => {
+        const championId = equippedBy.get(row.ID)
+        // Only replace when the map gives us a valid champion — preserves any
+        // cID that was already set by an earlier full-snapshot import.
+        return championId ? { ...row, cID: championId } : row
+      })
     }
     // Synthesize a snapshot immediately using whatever parts are available.
     // Null slots fall back to empty arrays so normalization always succeeds.
@@ -3530,8 +3552,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Parts messages carry no shared snapshot id or version.
       snapshotId: null,
       payloadVersion: null,
-      artifacts: parts.artifacts ?? [],
-      inboxArtifacts: parts.inboxArtifacts ?? [],
+      artifacts: patchCID(parts.artifacts ?? []),
+      inboxArtifacts: patchCID(parts.inboxArtifacts ?? []),
       champions: parts.champions ?? [],
       lastUsed: parts.lastUsed ?? [],
     }
@@ -4774,8 +4796,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               // Accumulate without processing; let the final burst element trigger the snapshot.
               const parts = gearDbRawPartsRef.current
               if (next.kind === 'gearDbArtifacts') parts.artifacts = next.artifacts
-              else if (next.kind === 'gearDbChampions') parts.champions = next.champions
-              else if (next.kind === 'gearDbInboxArtifacts') parts.inboxArtifacts = next.inboxArtifacts
+              else if (next.kind === 'gearDbChampions') {
+                parts.champions = next.champions
+                // Keep equippedByArtifact in sync with the champion slot maps.
+                parts.equippedByArtifact = next.equippedByArtifact
+              } else if (next.kind === 'gearDbInboxArtifacts') parts.inboxArtifacts = next.inboxArtifacts
               else parts.lastUsed = next.lastUsed
               continue
             }
