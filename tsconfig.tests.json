@@ -21,6 +21,7 @@
     "src/types/**/*.d.ts",
     "tests/unit/**/*.ts",
     "tests/integration/**/*.ts",
+    "tests/benchmarks/**/*.ts",
     "tests/**/*.d.ts"
   ]
 }
