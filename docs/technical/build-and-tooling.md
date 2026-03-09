@@ -153,16 +153,17 @@ Coding patterns adopted during the refactor (required for PRs):
 - Build via `npm run build`, export localization catalogs (`npm run export:l10n`), and stage README translations so the ZIP ships with ready-to-edit templates under `i18n/`.
 - Stage helper resources under a `dev/` subdirectory when present (`scripts/watchers/run-db-watcher.ps1`, `scripts/watchers/Stream-Helper-DB-to-Creator.bat`, `websocket-jsonrpc.md`).
 - Create a flat `release_staging` workspace, rename `dist/index.html` to `SellfileCreator.html`, generate UTF-8 BOM README `.txt` files with a `###### vX.Y.Z` badge, and add a `runme.bat` launcher.
+- Sample sellfiles are generated at build time by `scripts/tooling/gen-release-hsf.mjs` from `examples/example.sfr` using the recipe-overrides DSL — the `lategame` and `endgame` preset tokens select the respective account-level override, and the script applies them through the same `computeMergedRules` path the app uses. The script is self-contained: it reuses `tmp/tsc/tests` when already present (production builds, which run `test:unit` first) and compiles it on-demand otherwise (dev builds that skip the test suite).
 - Archive contents:
   - `SellfileCreator.html` — from `dist/index.html`
   - `README.txt` — converted from `README.md` (UTF-8 BOM; injects the version badge)
   - `README.<lang>.txt` — localized README variants converted to UTF-8 BOM text
   - `HISTORY.txt` — copied from `docs/HISTORY.txt` so the release bundle ships with the full changelog
   - `i18n/*.l10n.json` — localization templates exported from `dist/l10n`
-  - `Sellfiles/_RECIPE_FOR_LATEGAME_AND_ENDGAME_.sfr` — prefers the most recent `Nusi_*.sfr` in `examples/`; falls back to `example.sfr` (legacy `example.sfr`) if no timestamped sample is present
-  - `Sellfiles/lategame-sellfile.hsf` — copied from `examples/lategame.hsf` (legacy `Lategame.hsf` fallback) so the archive always ships the curated lategame baseline
-  - `Sellfiles/endgame-sellfile.hsf` — copied from `examples/endgame.hsf` (legacy `Endgame.hsf` fallback) so the archive also ships the curated endgame baseline
-  - `Sellfiles/basic.sfr` — copied from `examples/Basic.sfr` (legacy `Basic.sfr` fallback) as the minimal starter recipe
+  - `Sellfiles/_RECIPE_FOR_LATEGAME_AND_ENDGAME_.sfr` — prefers the most recent `Nusi_*.sfr` in `examples/`; falls back to `example.sfr` if no timestamped sample is present
+  - `Sellfiles/lategame-sellfile.hsf` — generated at build time from `example.sfr` with the `lategame` recipe-override preset applied
+  - `Sellfiles/endgame-sellfile.hsf` — generated at build time from `example.sfr` with the `endgame` recipe-override preset applied
+  - `Sellfiles/basic.sfr` — copied from `examples/Basic.sfr` as the minimal starter recipe
   - `runme.bat` — launches the HTML in the default browser
   - `dev/` — optional helper folder with the WebSocket watcher scripts and protocol docs when available
 

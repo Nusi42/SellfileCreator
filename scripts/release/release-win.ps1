@@ -57,10 +57,6 @@ $staging = $null
 try {
   # Using built-in Compress-Archive; no external dependencies.
 
-  # Single source of truth: keep shipped sample names consistent.
-  $ShippedSellfileBaseName = 'lategame'
-  $ShippedRecipeFileName = '_RECIPE_FOR_LATEGAME_AND_ENDGAME_.sfr'
-
   # Read version from package.json and normalize depending on mode
   $pkgPath = Join-Path $RepoRoot 'package.json'
   $pkgRaw = Get-Content -Raw -LiteralPath $pkgPath
@@ -178,35 +174,25 @@ try {
     }
   }
 
-  # Pin the lategame/endgame HSF payloads so release archives are deterministic.
-  # Why: These files are curated baselines and should not float to timestamped Nusi_* variants.
-  $lategameHsfPath = Join-Path $samplesDir 'lategame.hsf'
-  if (-not (Test-Path -LiteralPath $lategameHsfPath)) {
-    $legacyLategameHsfPath = Join-Path $samplesDir 'Lategame.hsf'
-    if (Test-Path -LiteralPath $legacyLategameHsfPath) {
-      $lategameHsfPath = $legacyLategameHsfPath
-    } else {
-      throw "Lategame HSF sample not found in 'examples'"
-    }
-  }
-
-  # Keep endgame alongside lategame in every release so users can choose either baseline.
-  $endgameHsfPath = Join-Path $samplesDir 'endgame.hsf'
-  if (-not (Test-Path -LiteralPath $endgameHsfPath)) {
-    $legacyEndgameHsfPath = Join-Path $samplesDir 'Endgame.hsf'
-    if (Test-Path -LiteralPath $legacyEndgameHsfPath) {
-      $endgameHsfPath = $legacyEndgameHsfPath
-    } else {
-      throw "Endgame HSF sample not found in 'examples'"
-    }
-  }
-
-  Write-Host ("Using samples: {0}, {1}, and {2}" -f $sampleSfr.Name, (Split-Path -Leaf $lategameHsfPath), (Split-Path -Leaf $endgameHsfPath))
+  Write-Host ("Using SFR sample: {0}" -f $sampleSfr.Name)
   $sellfilesDir = Join-Path $staging 'Sellfiles'
   if (-not (Test-Path $sellfilesDir)) { New-Item -ItemType Directory -Path $sellfilesDir | Out-Null }
-  Copy-Item -LiteralPath $sampleSfr.FullName -Destination (Join-Path $sellfilesDir $ShippedRecipeFileName) -Force
-  Copy-Item -LiteralPath $lategameHsfPath -Destination (Join-Path $sellfilesDir "$ShippedSellfileBaseName-sellfile.hsf") -Force
-  Copy-Item -LiteralPath $endgameHsfPath  -Destination (Join-Path $sellfilesDir 'endgame-sellfile.hsf') -Force
+  Copy-Item -LiteralPath $sampleSfr.FullName -Destination (Join-Path $sellfilesDir '_RECIPE_FOR_LATEGAME_AND_ENDGAME_.sfr') -Force
+
+  # Generate sellfiles from example.sfr using recipe-overrides presets.
+  # Why: Avoids maintaining pre-built HSF binaries in the repo; output is always
+  # derived from the same SFR shipped as the recipe sample.
+  # To add a new variant: add another gen-release-hsf call below with the preset
+  # token (id= value in the DSL) and the desired archive filename.
+  $genScript = Join-Path $RepoRoot 'scripts\tooling\gen-release-hsf.mjs'
+  $gen = { param($token, $name)
+    Write-Host "  Generating $name ($token)..."
+    node --experimental-wasm-modules $genScript $sampleSfr.FullName $token (Join-Path $sellfilesDir $name)
+    if ($LASTEXITCODE -ne 0) { throw "Sellfile generation failed for '$token' (exit code $LASTEXITCODE)" }
+  }
+  Write-Host 'Generating sample sellfiles from example.sfr...'
+  & $gen 'lategame' 'lategame-sellfile.hsf'
+  & $gen 'endgame'  'endgame-sellfile.hsf'
   # Ship the baseline Basic.sfr so newcomers can inspect an intentionally minimal recipe.
   $basicSfrPath = Join-Path $samplesDir 'Basic.sfr'
   if (-not (Test-Path -LiteralPath $basicSfrPath)) {
