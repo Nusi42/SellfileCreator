@@ -1,9 +1,9 @@
 // Generate a single HSF sellfile from an SFR file by selecting a named
 // recipe-overrides preset token (e.g. 'lategame', 'endgame').
 //
-// Compilation: if tmp/tsc/tests is already present (e.g. from a prior test:unit
-// run) it is reused as-is; otherwise tsc + ESM patch + WASM copy run first so
-// the script is self-contained for dev builds that skip the test suite.
+// Compilation: always recompiles from source (tsc + ESM patch + WASM copy) to
+// guarantee a fresh, consistent build regardless of any stale tmp/tsc/tests
+// artifacts left by prior runs (test:unit, export:l10n, etc.).
 //
 // Usage:
 //   node --experimental-wasm-modules scripts/tooling/gen-release-hsf.mjs \
@@ -29,33 +29,30 @@ if (!sfrPath || !presetToken || !outputPath) {
   process.exit(1)
 }
 
-// --- Ensure compiled CLI libs are available ---
-// Production builds: test:unit already populated tmp/tsc/tests — skip compilation.
-// Dev builds: compile now so dynamic imports below can find the library modules.
-const compiledSfrIo = resolve(LIBDIR, 'sfrIO.js')
-if (!existsSync(compiledSfrIo)) {
-  console.log('Compiled CLI libs not found — compiling now...')
-  const run = (cmd, args) => {
-    const r = spawnSync(cmd, args, { stdio: 'inherit', cwd: ROOT, env: process.env })
-    if (r.error) throw r.error
-    if (r.status !== 0) throw new Error(`"${[cmd, ...args].join(' ')}" exited with status ${r.status}`)
-  }
-  // Reset stale output before recompiling so imports see a clean slate.
-  rmSync(TMP_LIB, { recursive: true, force: true })
-  // Compile using the same tsconfig the test suite uses.
-  const localTsc = resolve(ROOT, 'node_modules', 'typescript', 'bin', 'tsc')
-  if (existsSync(localTsc)) {
-    run(process.execPath, [localTsc, '-p', 'tsconfig.tests.json'])
-  } else {
-    run('tsc', ['-p', 'tsconfig.tests.json'])
-  }
-  // Patch ESM specifiers so Node resolves compiled imports without extensions.
-  run(process.execPath, ['scripts/tooling/patch-esm-specifiers.cjs'])
-  // Copy WASM binaries alongside compiled output so imports resolve the .wasm file.
-  if (existsSync(WASM_SRC)) {
-    mkdirSync(WASM_DST, { recursive: true })
-    cpSync(WASM_SRC, WASM_DST, { recursive: true })
-  }
+// --- Compile CLI libs unconditionally ---
+// Always recompile from source so stale artifacts (from test:unit, export:l10n,
+// or any other prior run that touched tmp/tsc/tests) cannot cause subtle bugs.
+console.log('Compiling CLI libs...')
+const run = (cmd, args) => {
+  const r = spawnSync(cmd, args, { stdio: 'inherit', cwd: ROOT, env: process.env })
+  if (r.error) throw r.error
+  if (r.status !== 0) throw new Error(`"${[cmd, ...args].join(' ')}" exited with status ${r.status}`)
+}
+// Reset stale output before recompiling so imports see a clean slate.
+rmSync(TMP_LIB, { recursive: true, force: true })
+// Compile using the same tsconfig the test suite uses.
+const localTsc = resolve(ROOT, 'node_modules', 'typescript', 'bin', 'tsc')
+if (existsSync(localTsc)) {
+  run(process.execPath, [localTsc, '-p', 'tsconfig.tests.json'])
+} else {
+  run('tsc', ['-p', 'tsconfig.tests.json'])
+}
+// Patch ESM specifiers so Node resolves compiled imports without extensions.
+run(process.execPath, ['scripts/tooling/patch-esm-specifiers.cjs'])
+// Copy WASM binaries alongside compiled output so imports resolve the .wasm file.
+if (existsSync(WASM_SRC)) {
+  mkdirSync(WASM_DST, { recursive: true })
+  cpSync(WASM_SRC, WASM_DST, { recursive: true })
 }
 
 // --- Import compiled library modules ---
