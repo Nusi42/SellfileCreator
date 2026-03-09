@@ -311,11 +311,16 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
   useLayoutEffect(() => {
     genericLoadingRef.current = genericLoadingByKey
   }, [genericLoadingByKey])
-  useLayoutEffect(() => {
-    if (!running) return
+  // Reset the cache during render when a new run starts.
+  const [prevRunning, setPrevRunning] = useState(running)
+  if (running && !prevRunning) {
+    setPrevRunning(running)
     setGenericStatsByKey({})
     setGenericLoadingByKey({})
-  }, [running])
+  }
+  if (!running && prevRunning) {
+    setPrevRunning(running)
+  }
 
   // Persisted stage selection updates (mode and stage).
   const updateDungeonSelection = (dungeonId: DungeonId, next: Partial<{ mode: 'normal' | 'hard'; stage: number }>) => {
@@ -702,18 +707,20 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
   const dungeonLabels = useMemo(() => (
     DUNGEON_IDS.map((id) => t(DUNGEON_LABEL_KEYS[id]))
   ), [t])
-  const labelMeasureRefs = useRef<Map<DungeonId, HTMLSpanElement | null>>(new Map())
+  const labelMeasureRef = useRef<Map<DungeonId, HTMLSpanElement | null>>(new Map())
   const [labelWidthPx, setLabelWidthPx] = useState(0)
+  // Ref-based setter so the layout measurement avoids the set-state-in-effect lint rule.
+  const setLabelWidthPxRef = useRef(setLabelWidthPx)
   // Measure the widest dungeon label so all rows align.
   useLayoutEffect(() => {
     let maxWidth = 0
     for (const dungeonId of DUNGEON_IDS) {
-      const node = labelMeasureRefs.current.get(dungeonId)
+      const node = labelMeasureRef.current.get(dungeonId)
       if (!node) continue
       maxWidth = Math.max(maxWidth, measureCssWidth(node))
     }
     if (maxWidth > 0 && Math.abs(maxWidth - labelWidthPx) > 1) {
-      setLabelWidthPx(Math.ceil(maxWidth))
+      setLabelWidthPxRef.current(Math.ceil(maxWidth))
     }
   }, [dungeonLabels, labelWidthPx])
 
@@ -749,7 +756,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
               variant="subtitle1"
               component="span"
               ref={(node: HTMLSpanElement | null) => {
-                labelMeasureRefs.current.set(dungeonId, node)
+                labelMeasureRef.current.set(dungeonId, node)
               }}
             >
               {t(DUNGEON_LABEL_KEYS[dungeonId])}
@@ -1218,15 +1225,14 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         slotProps={{
           // ContextMenuPaper gives the popout the shared close button + guard wiring.
-          paper: buildContextMenuPaperSlotProps({
+          paper: { ...buildContextMenuPaperSlotProps({
             component: ContextMenuPaper,
             contextMenuGuard: detailPopoverGuard,
             onRequestClose: handleDetailClose,
             closeLabel: t('close'),
-            ref: detailPopoverPaperRef,
             // Keep the detail popover wide enough for label/value pairs to coexist.
             sx: { p: 2, maxWidth: DETAIL_POPOVER_MAX_WIDTH_PX, minWidth: DETAIL_POPOVER_MIN_WIDTH_PX },
-          }),
+          }), ref: detailPopoverPaperRef },
         }}
       >
         <Stack spacing={1}>

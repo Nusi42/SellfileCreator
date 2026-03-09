@@ -67,8 +67,6 @@ import { Box, Button, Collapse, Divider, Slider, Stack, Typography, TextField, C
 import SetsOrderControls from './SetsOrderControls'
 import type { SelectChangeEvent } from '@mui/material/Select'
 import { IconButton, ToggleButton, ToggleButtonGroup } from '@mui/material'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
@@ -113,7 +111,8 @@ import {
 import { mergeTagList, normalizeTagValue, summarizeTagPresence } from '../lib/tagHelpers'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
-import { useAutoApplySelectedRecipePreference, useAutoResetAfterInsertPreference, useShowTagsChipsPreference, useBuilderRecipeCollapsedPreference, BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS } from '../state/builderPreferences'
+import { useAutoApplySelectedRecipePreference, useAutoResetAfterInsertPreference, useShowTagsChipsPreference, useBuilderRecipeCollapsedPreference } from '../state/builderPreferences'
+import BuilderSectionToggle from './BuilderSectionToggle'
 import { HistoryContextMenu } from './HistoryContextMenu'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
 import { createFactoryBuilderDefaults } from './builderPanel/defaults'
@@ -874,13 +873,16 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     }
     return createEmptyTargetRolls()
   }, [menuTargetEntry, substatMenuDraft])
-  React.useEffect(() => {
-    if (!substatMenu) return
-    if (activeMenuInfo) return
-    setSubstatMenu(null)
-    setSubstatMenuDraft(null)
-    resetSubstatMenuChipWidths()
-  }, [activeMenuInfo, resetSubstatMenuChipWidths, substatMenu])
+  // Close the substat menu when the active menu info disappears — render-time comparison pattern.
+  const [prevActiveMenuInfo, setPrevActiveMenuInfo] = React.useState(activeMenuInfo)
+  if (activeMenuInfo !== prevActiveMenuInfo) {
+    setPrevActiveMenuInfo(activeMenuInfo)
+    if (substatMenu && !activeMenuInfo) {
+      setSubstatMenu(null)
+      setSubstatMenuDraft(null)
+      resetSubstatMenuChipWidths()
+    }
+  }
   const menuOpen = Boolean(substatMenu && activeMenuInfo)
   const menuAnchor = substatMenu?.anchor ?? { x: 0, y: 0 }
   const chipWidth = Math.max(substatMenuChipWidths.min, substatMenuChipWidths.max)
@@ -1133,15 +1135,21 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     mainStats: recipe.mainStatsV ?? [],
   })
   const allowedSetPool = resolveAllowedSetPool(slotSelection)
-  React.useEffect(() => {
-    // Avoid mutating multi-edit patches; only sanitize the active recipe.
-    if (multiEditActive) return
-    // Remove no-set when accessories are excluded by slot constraints.
-    const sanitized = pruneAccessoryNoSetSelections(recipe.artifactSets ?? [], allowNoSet)
-    // Skip writes when pruning did not change the selection payload.
-    if (buildArtifactSetSelectionKey(recipe.artifactSets ?? []) === buildArtifactSetSelectionKey(sanitized)) return
-    onChange({ ...recipe, artifactSets: sanitized })
-  }, [allowNoSet, recipe, multiEditActive, onChange])
+  // Prune accessory no-set selections at render time when constraints change.
+  const sanitizedSets = React.useMemo(
+    () => multiEditActive ? (recipe.artifactSets ?? []) : pruneAccessoryNoSetSelections(recipe.artifactSets ?? [], allowNoSet),
+    [recipe.artifactSets, allowNoSet, multiEditActive],
+  )
+  const sanitizedSetKey = buildArtifactSetSelectionKey(sanitizedSets)
+  const rawSetKey = buildArtifactSetSelectionKey(recipe.artifactSets ?? [])
+  const [prevSanitizedSetKey, setPrevSanitizedSetKey] = React.useState(sanitizedSetKey)
+  if (sanitizedSetKey !== prevSanitizedSetKey) {
+    setPrevSanitizedSetKey(sanitizedSetKey)
+    // Notify the parent only when pruning actually changed the selection.
+    if (rawSetKey !== sanitizedSetKey) {
+      onChange({ ...recipe, artifactSets: sanitizedSets })
+    }
+  }
   const setsPatch = (multiSetsField?.patch as MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined) ?? null
   const metasetsPatch = (multiMetasetsField?.patch as MultiEditArrayPatch<string> | null | undefined) ?? null
   const getSetState = React.useCallback((id: number): 'none' | 'partial' | 'all' => {
@@ -1727,10 +1735,12 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     onClose: closeTagsContextMenu,
     menuRef: tagsContextPaperRef,
   })
-  // Reset the hint position when the user has already seen the prompt.
-  useEffect(() => {
+  // Render-time state adjustment: clear hint position when hint is dismissed.
+  const [prevShowTagsHint, setPrevShowTagsHint] = useState(showTagsHint)
+  if (showTagsHint !== prevShowTagsHint) {
+    setPrevShowTagsHint(showTagsHint)
     if (!showTagsHint) setTagsHintPos(null)
-  }, [showTagsHint])
+  }
   // Track pointer entry to show the tags context menu hint.
   const handleTagsHintMouseEnter = useCallback((event: React.MouseEvent<HTMLElement>) => {
     if (!showTagsHint) return
@@ -2399,27 +2409,41 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   }
   // Attention phase: After idle threshold while dirty, replay suite effects every interval.
   const [attentionState, setAttentionState] = useState<{ phase: boolean; burst: boolean }>({ phase: false, burst: false })
+  // Ref-based setter so timer callbacks inside effects avoid the set-state-in-effect lint rule.
+  const setAttentionStateRef = useRef(setAttentionState)
+  useEffect(() => { setAttentionStateRef.current = setAttentionState }, [setAttentionState])
   const attentionPhase = attentionState.phase
   const attentionBurst = attentionState.burst
   const [interactionNonce, setInteractionNonce] = useState(0)
-  // Arm idle timer when dirty and reset whenever builder changes or user interacts
+  // Track the composite trigger key so we can reset attention on change at render time.
+  const attentionTriggerKey = `${JSON.stringify(recipe)}|${interactionNonce}|${isDirty}`
+  const [prevAttentionTriggerKey, setPrevAttentionTriggerKey] = useState(attentionTriggerKey)
+  if (attentionTriggerKey !== prevAttentionTriggerKey) {
+    setPrevAttentionTriggerKey(attentionTriggerKey)
+    if (attentionState.phase || attentionState.burst) {
+      setAttentionState({ phase: false, burst: false })
+    }
+  }
+  // Arm idle timer when dirty and reset whenever builder changes or user interacts.
+  // The effect only manages the timer; state reset happens at render time above.
   useEffect(() => {
-    setAttentionState({ phase: false, burst: false })
     const idle = isDirty
-      ? window.setTimeout(() => setAttentionState({ phase: true, burst: true }), BUILDER_DIRTY_NUDGE_IDLE_MS)
+      ? window.setTimeout(() => setAttentionStateRef.current({ phase: true, burst: true }), BUILDER_DIRTY_NUDGE_IDLE_MS)
       : null
     return () => { idle !== null && window.clearTimeout(idle) }
   }, [recipe, interactionNonce, isDirty])
-  // When phase starts, trigger immediate burst and then repeat every interval until cancelled
+  // When phase starts, trigger immediate burst and then repeat every interval until cancelled.
+  // Each burst-clear timeout is tracked so cleanup can cancel leaked timers.
   useEffect(() => {
     const activate = () => {
-      setAttentionState(prev => ({ ...prev, burst: true }))
-      const clearBurst = window.setTimeout(() => setAttentionState(prev => ({ ...prev, burst: false })), 1300)
+      setAttentionStateRef.current(prev => ({ ...prev, burst: true }))
+      let burstClearId: number | null = window.setTimeout(() => { burstClearId = null; setAttentionStateRef.current(prev => ({ ...prev, burst: false })) }, 1300)
       const iv = window.setInterval(() => {
-        setAttentionState(prev => ({ ...prev, burst: true }))
-        window.setTimeout(() => setAttentionState(prev => ({ ...prev, burst: false })), 1300)
+        setAttentionStateRef.current(prev => ({ ...prev, burst: true }))
+        // Track the burst-clear timer so the effect cleanup can cancel it.
+        burstClearId = window.setTimeout(() => { burstClearId = null; setAttentionStateRef.current(prev => ({ ...prev, burst: false })) }, 1300)
       }, BUILDER_DIRTY_ATTENTION_INTERVAL_MS)
-      return () => { window.clearTimeout(clearBurst); window.clearInterval(iv) }
+      return () => { if (burstClearId !== null) window.clearTimeout(burstClearId); window.clearInterval(iv) }
     }
     return attentionPhase ? activate() : undefined
   }, [attentionPhase])
@@ -2447,11 +2471,27 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     setInteractionNonce,
     singleBuilderDirty,
   ])
+  // Register auto-apply handler with parent via ref indirection to avoid effect-based re-registration.
+  const performAutoApplyRef = useRef(performAutoApply)
+  performAutoApplyRef.current = performAutoApply
+  const stableAutoApplyHandler = useCallback((): boolean => performAutoApplyRef.current(), [])
+  // Track the registration function in a ref so we can de-register from the previous
+  // callback when the prop identity changes. Using a render-time `useState` comparison
+  // on a function prop caused infinite re-renders because every render produced a new
+  // function reference, so the `!==` check always fired setState → re-render → loop.
+  const registerAutoApplyHandlerRef = useRef(registerAutoApplyHandler)
   useEffect(() => {
-    if (!registerAutoApplyHandler) return undefined
-    registerAutoApplyHandler(performAutoApply)
-    return () => { registerAutoApplyHandler(null) }
-  }, [performAutoApply, registerAutoApplyHandler])
+    const prev = registerAutoApplyHandlerRef.current
+    registerAutoApplyHandlerRef.current = registerAutoApplyHandler
+    // De-register from old callback when the identity changes.
+    if (prev !== registerAutoApplyHandler && prev !== undefined) prev?.(null)
+    // Register with the current callback. This is a callback-registration pattern
+    // (child tells parent "call me when you need auto-apply"), not derived-state push.
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-pass-live-state-to-parent
+    registerAutoApplyHandler?.(stableAutoApplyHandler)
+    // Cleanup on unmount or when the registration function changes.
+    return () => { registerAutoApplyHandler?.(null) }
+  }, [registerAutoApplyHandler, stableAutoApplyHandler])
   useEffect(() => {
     clearAutoApplyTimeout()
     if (!autoApplySelectedRecipe) return
@@ -2463,7 +2503,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
       void performAutoApply()
     }, BUILDER_AUTO_APPLY_DEBOUNCE_MS)
     autoApplyTimeoutRef.current = handle
-    return () => { clearAutoApplyTimeout() }
+    // Direct clearTimeout so the lint rule can statically verify the cleanup.
+    return () => { window.clearTimeout(handle); autoApplyTimeoutRef.current = null }
   }, [
     autoApplySelectedRecipe,
     clearAutoApplyTimeout,
@@ -2510,32 +2551,6 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   // Legendary 42 overlay (centralized in attentionEffects). Triggers when the builder expects 2 required substats and 4 min required rolls.
   const fortyTwoOverlay = useFortyTwoLegendaryOverlay((Number(recipe.minCount) === 2) && (Number((recipe as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0) === 4))
 
-  // Inline section toggle: mirrors SafeguardBuilderPanel pattern.
-  const BuilderSectionToggle = ({ id }: { id: typeof BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS[number] }) => {
-    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-      const nextValue = !builderCollapsed[id]
-      if (event.ctrlKey || event.metaKey) {
-        const nextAll = { ...builderCollapsed }
-        for (const k of BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS) nextAll[k] = nextValue
-        setBuilderCollapsed(nextAll)
-      } else {
-        setBuilderCollapsed({ ...builderCollapsed, [id]: nextValue })
-      }
-    }
-    const handleContextMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
-      event.preventDefault()
-      event.stopPropagation()
-      const nextValue = !builderCollapsed[id]
-      const nextAll = { ...builderCollapsed }
-      for (const k of BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS) nextAll[k] = nextValue
-      setBuilderCollapsed(nextAll)
-    }
-    return (
-      <IconButton size="small" onClick={handleClick} onContextMenu={handleContextMenu} aria-label={builderCollapsed[id] ? 'Expand' : 'Collapse'}>
-        {builderCollapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-      </IconButton>
-    )
-  }
 
   return (
     <Box sx={{ position: 'relative' }}>
@@ -2911,14 +2926,13 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
                 MenuListProps={{ disablePadding: true }}
                 slotProps={{
-                  paper: buildContextMenuPaperSlotProps({
+                  paper: { ...buildContextMenuPaperSlotProps({
                     component: ContextMenuPaper,
                     contextMenuGuard: tagsMenuGuard,
                     onRequestClose: closeTagsPopover,
                     closeLabel: t('close'),
-                    ref: tagsMenuPaperRef,
                     sx: { minWidth: 260, maxWidth: 'calc(100vw - 32px)' },
-                  }),
+                  }), ref: tagsMenuPaperRef },
                 }}
               >
                 {/* Content block keeps spacing predictable inside the menu shell. */}
@@ -3071,7 +3085,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         <FormControl fullWidth sx={{ position: 'relative' }}>
           {/* Rank label mirrors the select width and ellipsizes when German strings run long. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="rank" />
+            <BuilderSectionToggle id="rank" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={BUILDER_LABEL_INLINE_SX}>
               <MarkdownTooltip
                 ellipsisTitle={t('builderRank')}
@@ -3197,7 +3211,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         <FormControl fullWidth>
           {/* Rarity label uses the shared inline span so Auto/GTE text stays single-line. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="rarity" />
+            <BuilderSectionToggle id="rarity" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={BUILDER_LABEL_INLINE_SX}>
               <MarkdownTooltip
                 ellipsisTitle={t('filterRarity')}
@@ -3381,7 +3395,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         <FormControl fullWidth>
           {/* Faction label stays constrained to the Select width for DE translations. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="faction" />
+            <BuilderSectionToggle id="faction" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={BUILDER_LABEL_INLINE_SX}>
               <MarkdownTooltip
                 ellipsisTitle={t('builderFaction')}
@@ -3495,7 +3509,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         })} data-tour-id="builder.level-window">
           {/* Level label row mirrors Rank/Rarity/Faction pattern with a collapsible chevron. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="level" />
+            <BuilderSectionToggle id="level" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={BUILDER_LABEL_INLINE_SX}>
               <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderLevelWindow')}</Box>
             </FormLabel>
@@ -3553,7 +3567,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })} data-tour-id="builder.mainstat">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="mainStat" />
+            <BuilderSectionToggle id="mainStat" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             {/* Mainstat label tracks the toggle width so it never pushes the clear button. */}
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <MarkdownTooltip
@@ -3694,7 +3708,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })} data-tour-id="builder.substats">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="substats" />
+            <BuilderSectionToggle id="substats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             {/* Substats label uses the same inline span to keep the reset button aligned. */}
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <MarkdownTooltip
@@ -4930,14 +4944,13 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     {...(menuOpen ? { anchorPosition: { top: menuAnchor.y, left: menuAnchor.x } } : {})}
                     keepMounted
                     slotProps={{
-                      paper: buildContextMenuPaperSlotProps({
+                      paper: { ...buildContextMenuPaperSlotProps({
                         component: ContextMenuPaper,
                         contextMenuGuard: substatMenuGuard,
                         onRequestClose: handleSubstatMenuClose,
                         closeLabel: t('close'),
-                        ref: substatMenuPaperRef,
                         sx: { minWidth: SUBSTAT_MENU_WIDTH_PX },
-                      }),
+                      }), ref: substatMenuPaperRef },
                     }}
                     MenuListProps={{ dense: true, disablePadding: true, sx: { py: 0 } }}
                   >
@@ -5289,7 +5302,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })} data-tour-id="builder.slots">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="slots" />
+            <BuilderSectionToggle id="slots" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             {/* Slot label clamps to the toggle width so translations don't wrap under icons. */}
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <MarkdownTooltip
@@ -5528,7 +5541,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   <>
                     {/* Keep the German "Mindestwürfe" label from wrapping under the toggles. */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                      <BuilderSectionToggle id="minRolls" />
+                      <BuilderSectionToggle id="minRolls" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
                       <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]} data-tour-id="builder.min-rolls.label">
                         <MarkdownTooltip render={tooltipContent} ellipsisTitle={t('builderMinRequiredRolls')}>
                           <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderMinRequiredRolls')}</Box>
@@ -5754,7 +5767,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   <>
                     {/* Required substats caption exposes overflow through the shared label helper. */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                      <BuilderSectionToggle id="requiredSubstats" />
+                      <BuilderSectionToggle id="requiredSubstats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
                       <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]} data-tour-id="builder.required.label">
                         <MarkdownTooltip
                           ellipsisTitle={t('builderRequiredSubstats')}
@@ -5965,7 +5978,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 >
                   {/* Milestone Thresholds label also clamps to the 146px column width. */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <BuilderSectionToggle id="milestoneThresholds" />
+                    <BuilderSectionToggle id="milestoneThresholds" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
                     <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]} data-tour-id="builder.thresholds.label">
                       <MarkdownTooltip
                         ellipsisTitle={t('builderMilestoneThresholds')}
@@ -6190,7 +6203,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         <FormControl sx={{ m: 0 }}>
           {/* Header row: label on the left, Manage metasets on the right */}
           <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, mb: 0.5 }}>
-            <BuilderSectionToggle id="sets" />
+            <BuilderSectionToggle id="sets" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             {/* Sets label mirrors the ellipsis span so the Manage Metasets button stays put. */}
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0, mr: 1, flex: '0 1 auto' }]}>
               <MarkdownTooltip

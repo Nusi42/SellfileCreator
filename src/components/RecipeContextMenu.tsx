@@ -233,15 +233,14 @@ export function RecipeContextMenu({
       anchorReference="anchorPosition"
       {...(anchorPosition ? { anchorPosition } : {})}
       slotProps={{
-        paper: buildContextMenuPaperSlotProps({
+        paper: { ...buildContextMenuPaperSlotProps({
           component: ContextMenuPaper,
           contextMenuGuard,
           onRequestClose: onClose,
           closeLabel: t('close'),
-          ref: paperRef,
           'data-tour-id': paperDataTourId,
           onContextMenu: onPaperContextMenu,
-        }),
+        }), ref: paperRef },
       }}
     >
       {primaryItems}

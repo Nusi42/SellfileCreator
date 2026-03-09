@@ -32,8 +32,6 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd'
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
@@ -97,7 +95,8 @@ import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { HistoryContextMenu } from './HistoryContextMenu'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import type { HistoryPreview, HistoryTimelineEntry } from '../hooks/useSfrHistory'
-import { useAutoResetAfterInsertPreference, useAutoApplySelectedRecipePreference, useBuilderSafeguardCollapsedPreference, BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS } from '../state/builderPreferences'
+import { useAutoResetAfterInsertPreference, useAutoApplySelectedRecipePreference, useBuilderSafeguardCollapsedPreference } from '../state/builderPreferences'
+import BuilderSectionToggle from './BuilderSectionToggle'
 import { summaryParts } from './RecipeChip'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSlotMetrics } from '../hooks/useSlotMetrics'
@@ -373,31 +372,6 @@ export default function SafeguardBuilderPanel({
 
   const [builderCollapsed, setBuilderCollapsed] = useBuilderSafeguardCollapsedPreference()
 
-  const BuilderSectionToggle = ({ id }: { id: typeof BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS[number] }) => {
-    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-      const nextValue = !builderCollapsed[id]
-      if (event.ctrlKey || event.metaKey) {
-        const nextAll = { ...builderCollapsed }
-        for (const k of BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS) nextAll[k] = nextValue
-        setBuilderCollapsed(nextAll)
-      } else {
-        setBuilderCollapsed({ ...builderCollapsed, [id]: nextValue })
-      }
-    }
-    const handleContextMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
-      event.preventDefault()
-      event.stopPropagation()
-      const nextValue = !builderCollapsed[id]
-      const nextAll = { ...builderCollapsed }
-      for (const k of BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS) nextAll[k] = nextValue
-      setBuilderCollapsed(nextAll)
-    }
-    return (
-      <IconButton size="small" onClick={handleClick} onContextMenu={handleContextMenu} aria-label={builderCollapsed[id] ? 'Expand' : 'Collapse'}>
-        {builderCollapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-      </IconButton>
-    )
-  }
 
   // Apply is only meaningful when a rule is selected AND the builder state differs from it.
   const applyDisabled = editingRuleId === null || !selectedIsDirty
@@ -1022,7 +996,7 @@ export default function SafeguardBuilderPanel({
         {/* Rank */}
         <FormControl fullWidth>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="rank" />
+            <BuilderSectionToggle id="rank" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
             </FormLabel>
@@ -1054,7 +1028,7 @@ export default function SafeguardBuilderPanel({
         {/* Rarity */}
         <FormControl fullWidth>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="rarity" />
+            <BuilderSectionToggle id="rarity" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
             </FormLabel>
@@ -1083,7 +1057,7 @@ export default function SafeguardBuilderPanel({
         {/* Faction + perFaction chip — chip collapses with the select since it belongs to this section */}
         <FormControl fullWidth disabled={!hasAccessorySlot}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="faction" />
+            <BuilderSectionToggle id="faction" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
             </FormLabel>
@@ -1112,7 +1086,7 @@ export default function SafeguardBuilderPanel({
       <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="mainStat" />
+            <BuilderSectionToggle id="mainStat" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
             </FormLabel>
@@ -1234,7 +1208,7 @@ export default function SafeguardBuilderPanel({
       <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="substats" />
+            <BuilderSectionToggle id="substats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
             </FormLabel>
@@ -1525,7 +1499,7 @@ export default function SafeguardBuilderPanel({
       <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="slots" />
+            <BuilderSectionToggle id="slots" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
             </FormLabel>
@@ -1676,7 +1650,7 @@ export default function SafeguardBuilderPanel({
       <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl fullWidth>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="sets" />
+            <BuilderSectionToggle id="sets" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0, flex: 1 }]}>
               <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderSets')}</Box>
             </FormLabel>
@@ -1902,14 +1876,13 @@ export default function SafeguardBuilderPanel({
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         slotProps={{
-          paper: buildContextMenuPaperSlotProps({
+          paper: { ...buildContextMenuPaperSlotProps({
             component: ContextMenuPaper,
             contextMenuGuard: scaffoldMenuGuard,
             onRequestClose: closeScaffoldMenu,
             closeLabel: t('close'),
-            ref: scaffoldMenuRef,
             sx: { width: 480, maxWidth: 'calc(100vw - 32px)', display: 'flex', flexDirection: 'column', maxHeight: 'min(460px, 80vh)' },
-          }),
+          }), ref: scaffoldMenuRef },
         }}
       >
         <Box sx={{ px: 1.5, py: 1, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>

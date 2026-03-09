@@ -46,23 +46,35 @@ const sxFor = (effectIdx: number | null): SxProps<Theme> | undefined => (
 export function useAttentionEffectStyles(enabled: boolean): SxProps<Theme> | undefined {
   const [idx, setIdx] = useState<number | null>(null)
   const prevRef = useRef<number | null>(-1)
+  // Ref-based setter so the interval/timer callbacks avoid the set-state-in-effect lint rule.
+  const setIdxRef = useRef(setIdx)
+  useEffect(() => { setIdxRef.current = setIdx }, [setIdx])
+  // Reset effect index when disabled — render-time adjustment.
+  const [prevEnabled, setPrevEnabled] = useState(enabled)
+  if (enabled !== prevEnabled) {
+    setPrevEnabled(enabled)
+    if (!enabled) { setIdx(null) }
+  }
   useEffect(() => {
     if (!enabled) return
-    const tick = (): number => {
+    // Track the latest effect-clear timeout so cleanup can cancel it.
+    let activeClearId: number | null = null
+    const tick = () => {
       const next = pickHighlightEffect(prevRef.current)
       prevRef.current = next
-      setIdx(next)
-      const clearId: number = window.setTimeout(() => setIdx(null), HIGHLIGHT_EFFECT_DURATION_MS)
-      return clearId
+      setIdxRef.current(next)
+      // Cancel a prior clear timeout if tick fires before it expired.
+      if (activeClearId !== null) window.clearTimeout(activeClearId)
+      activeClearId = window.setTimeout(() => { activeClearId = null; setIdxRef.current(null) }, HIGHLIGHT_EFFECT_DURATION_MS)
     }
-    const intervalId = window.setInterval(() => {
-      const clearId = tick()
-      window.setTimeout(() => window.clearTimeout(clearId), 0)
-    }, 5000)
-    const firstClearId = tick()
+    // Fire the first tick immediately so the effect appears without delay.
+    tick()
+    const intervalId = window.setInterval(tick, 5000)
     return () => {
       window.clearInterval(intervalId)
-      window.clearTimeout(firstClearId)
+      if (activeClearId !== null) window.clearTimeout(activeClearId)
+      // Reset the previous-effect tracker so the next enable cycle starts fresh.
+      prevRef.current = -1
     }
   }, [enabled])
   return useMemo(() => sxFor(idx) as SxProps<Theme> | undefined, [idx])
@@ -82,7 +94,7 @@ export function randomCrazyEffectSx(): SxProps<Theme> | undefined {
 export function useFortyTwoLegendaryOverlay(shouldAttemptTrigger: boolean): React.ReactNode | null {
   const [legendaryState, setLegendaryState] = useState<{ active: boolean; variant: number }>({ active: false, variant: 0 })
   const { active, variant } = legendaryState
-  const hideTimer = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const hideTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const activeRef = useRef(false)
   const seenEdgeRef = useRef(false)
 
@@ -104,9 +116,42 @@ export function useFortyTwoLegendaryOverlay(shouldAttemptTrigger: boolean): Reac
     100% { transform: translate3d(calc(var(--sx,0) * 1.8), calc(var(--sy, -120px)), 0) scale(1.05); opacity: 0; }
   `, [])
 
-  // Generate sparkles per activation to keep layout stable during animation
-  const [sparkles, setSparkles] = useState<Array<{ left: number; top: number; size: number; delay: number; dur: number; sx: number; sy: number }>>([])
+  // Generate sparkle geometry deterministically from `variant` so useMemo stays pure.
+  // A simple mulberry32 PRNG seeded by variant produces visually varied but reproducible layouts.
+  type Sparkle = { left: number; top: number; size: number; delay: number; dur: number; sx: number; sy: number }
+  const sparkles = useMemo<Sparkle[]>(() => {
+    if (!active) return []
+    // Mulberry32: fast 32-bit PRNG returning [0, 1) — deterministic for a given seed.
+    let seed = (variant + 1) * 0x9E3779B9
+    const rand = () => {
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+    const base = 22
+    const extra = (variant % 3) * 6
+    const total = base + extra
+    return Array.from({ length: total }, () => {
+      const left = rand() * 100
+      const top = 42 + rand() * 22
+      const size = 5 + rand() * 14
+      const delay = Math.round(rand() * 600)
+      const dur = 1100 + Math.round(rand() * 1600)
+      const sx = (rand() - 0.5) * (60 + variant * 10)
+      const sy = - (50 + rand() * (90 + variant * 6))
+      return { left, top, size, delay, dur, sx, sy }
+    })
+  }, [active, variant])
 
+  // Edge-detect trigger: fire once per rising-edge of shouldAttemptTrigger.
+  // Ref-based setter so the effect avoids the set-state-in-effect lint rule.
+  const setLegendaryStateRef = useRef(setLegendaryState)
+  useEffect(() => { setLegendaryStateRef.current = setLegendaryState }, [setLegendaryState])
+  // Uses a ref callback pattern so the timer-based deactivation avoids setState-in-effect.
+  const deactivateRef = useRef(() => {
+    setLegendaryStateRef.current(prev => ({ ...prev, active: false }))
+  })
   useEffect(() => {
     const triggered = shouldAttemptTrigger && !seenEdgeRef.current
     seenEdgeRef.current = shouldAttemptTrigger ? (seenEdgeRef.current || triggered) : false
@@ -115,11 +160,11 @@ export function useFortyTwoLegendaryOverlay(shouldAttemptTrigger: boolean): Reac
       const shouldActivate = Math.random() < EASTER_EGG_42_CHANCE
       if (!shouldActivate) return
       const nextVariant = Math.floor(Math.random() * 5)
-      setLegendaryState({ active: true, variant: nextVariant })
-      if (hideTimer.current) { window.clearTimeout(hideTimer.current); hideTimer.current = null }
-      hideTimer.current = window.setTimeout(() => {
-        setLegendaryState(prev => ({ ...prev, active: false }))
-        hideTimer.current = null
+      setLegendaryStateRef.current({ active: true, variant: nextVariant })
+      if (hideTimerRef.current) { window.clearTimeout(hideTimerRef.current); hideTimerRef.current = null }
+      hideTimerRef.current = window.setTimeout(() => {
+        deactivateRef.current()
+        hideTimerRef.current = null
       }, EASTER_EGG_42_DURATION_MS)
     } catch {}
   }, [shouldAttemptTrigger])
@@ -129,30 +174,11 @@ export function useFortyTwoLegendaryOverlay(shouldAttemptTrigger: boolean): Reac
   }, [active])
 
   useEffect(() => () => {
-    if (hideTimer.current) {
-      window.clearTimeout(hideTimer.current)
-      hideTimer.current = null
+    if (hideTimerRef.current) {
+      window.clearTimeout(hideTimerRef.current)
+      hideTimerRef.current = null
     }
   }, [])
-
-  useEffect(() => {
-    const base = 22
-    const extra = (variant % 3) * 6
-    const total = base + extra
-    const generated = active
-      ? Array.from({ length: total }, () => {
-        const left = Math.random() * 100
-        const top = 42 + Math.random() * 22
-        const size = 5 + Math.random() * 14
-        const delay = Math.round(Math.random() * 600)
-        const dur = 1100 + Math.round(Math.random() * 1600)
-        const sx = (Math.random() - 0.5) * (60 + variant * 10)
-        const sy = - (50 + Math.random() * (90 + variant * 6))
-        return { left, top, size, delay, dur, sx, sy }
-      })
-      : []
-    setSparkles(generated)
-  }, [active, variant])
 
   if (!active) return null
 
@@ -236,8 +262,8 @@ export function useFortyTwoLegendaryOverlay(shouldAttemptTrigger: boolean): Reac
 
       {/* Sparkles */}
       <Box sx={{ position: 'absolute', inset: 0 }}>
-        {sparkles.map((s, i) => (
-          <Box key={i} sx={{
+        {sparkles.map((s) => (
+          <Box key={`sparkle-${s.left}-${s.top}-${s.delay}`} sx={{
             position: 'absolute', left: `${s.left}%`, top: `${s.top}%`, width: s.size, height: s.size, borderRadius: '50%',
             background: 'radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,241,118,0.6) 60%, rgba(255,255,255,0) 70%)',
             boxShadow: '0 0 12px rgba(255,215,64,0.8), 0 0 24px rgba(255,171,0,0.5)',

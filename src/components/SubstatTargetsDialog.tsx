@@ -287,8 +287,8 @@ export default function SubstatTargetsDialog({
         <DialogTitle>{t('titleManageSubstatTargets')}</DialogTitle>
         <DialogContent dividers sx={{ px: STANDARD_DIALOG_PADDING_INLINE_UNITS, py: STANDARD_DIALOG_PADDING_BLOCK_UNITS }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
-            {substatTargetsHelpParagraphs.map((paragraph, idx) => (
-              <Typography key={`help-${idx}`} variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+            {substatTargetsHelpParagraphs.map((paragraph) => (
+              <Typography key={`help-${paragraph.slice(0, 40)}`} variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
                 {renderSubstatTokenizedText(paragraph)}
               </Typography>
             ))}

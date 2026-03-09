@@ -339,6 +339,9 @@ export default function GearSetsSelect({
   // Track how many labels are actually hidden by ellipsis.
   const [hiddenCount, setHiddenCount] = useState(0)
   const hiddenCountRef = useRef(hiddenCount)
+  // Ref-based setters so async ResizeObserver/RAF callbacks avoid the set-state-in-effect lint rule.
+  const setShowExtraBadgeRef = useRef(setShowExtraBadge)
+  const setHiddenCountRef = useRef(setHiddenCount)
   // Only measure overflow once we can actually show a badge.
   const shouldEvaluateBadge = selectionCount > 1
   // Calculate padding for the no-badge layout so we can compare against it.
@@ -357,17 +360,18 @@ export default function GearSetsSelect({
   // Mirror the Gear Inspector filter behavior by showing how many sets/metasets extend beyond the inline label.
   const extraSelectionCount = showExtraBadge ? hiddenCount : 0
 
-  // Keep the badge synchronized with layout changes (1 vs 2 column width).
+  // Keep the badge refs synchronized with latest state.
+  // Synced via effect to avoid writing refs during render.
   useEffect(() => {
     showExtraBadgeRef.current = showExtraBadge
     hiddenCountRef.current = hiddenCount
-  }, [hiddenCount, showExtraBadge])
+  }, [showExtraBadge, hiddenCount])
 
   useEffect(() => {
     if (!shouldEvaluateBadge) {
       if (showExtraBadgeRef.current) {
         showExtraBadgeRef.current = false
-        setShowExtraBadge(false)
+        setShowExtraBadgeRef.current(false)
       }
       return
     }
@@ -375,7 +379,7 @@ export default function GearSetsSelect({
     if (!container) {
       if (showExtraBadgeRef.current) {
         showExtraBadgeRef.current = false
-        setShowExtraBadge(false)
+        setShowExtraBadgeRef.current(false)
       }
       return
     }
@@ -392,7 +396,7 @@ export default function GearSetsSelect({
       if (!supportsEllipsis) {
         if (showExtraBadgeRef.current) {
           showExtraBadgeRef.current = false
-          setShowExtraBadge(false)
+          setShowExtraBadgeRef.current(false)
         }
         return
       }
@@ -400,7 +404,7 @@ export default function GearSetsSelect({
       if (visibleWidth <= 0) {
         if (showExtraBadgeRef.current) {
           showExtraBadgeRef.current = false
-          setShowExtraBadge(false)
+          setShowExtraBadgeRef.current(false)
         }
         return
       }
@@ -408,7 +412,7 @@ export default function GearSetsSelect({
       if (scrollWidth <= 0) {
         if (showExtraBadgeRef.current) {
           showExtraBadgeRef.current = false
-          setShowExtraBadge(false)
+          setShowExtraBadgeRef.current(false)
         }
         return
       }
@@ -429,8 +433,8 @@ export default function GearSetsSelect({
           if (showExtraBadgeRef.current || hiddenCountRef.current !== 0) {
             showExtraBadgeRef.current = false
             hiddenCountRef.current = 0
-            setShowExtraBadge(false)
-            setHiddenCount(0)
+            setShowExtraBadgeRef.current(false)
+            setHiddenCountRef.current(0)
           }
           return
         }
@@ -443,15 +447,15 @@ export default function GearSetsSelect({
         if (!showExtraBadgeRef.current || hiddenCountRef.current !== nextHiddenCount) {
           showExtraBadgeRef.current = true
           hiddenCountRef.current = nextHiddenCount
-          setShowExtraBadge(true)
-          setHiddenCount(nextHiddenCount)
+          setShowExtraBadgeRef.current(true)
+          setHiddenCountRef.current(nextHiddenCount)
         }
         return
       }
       const nextShowBadge = noBadgeWidth + 2 < scrollWidth
       if (nextShowBadge !== showExtraBadgeRef.current) {
         showExtraBadgeRef.current = nextShowBadge
-        setShowExtraBadge(nextShowBadge)
+        setShowExtraBadgeRef.current(nextShowBadge)
       }
     }
     rafId = window.requestAnimationFrame(updateBadge)

@@ -51,7 +51,8 @@ export type UseChipListDndResult = {
 
 export function useChipListDnd(options: UseChipListDndOptions): UseChipListDndResult {
   const optionsRef = useRef(options)
-  optionsRef.current = options
+  // Sync via effect to avoid writing a ref during render.
+  useEffect(() => { optionsRef.current = options })
 
   const { containerRef } = options
 
@@ -164,6 +165,9 @@ export function useChipListDnd(options: UseChipListDndOptions): UseChipListDndRe
     }
   }, [])
 
+  // Ref indirection breaks the self-reference cycle so the lint rule sees a stable binding.
+  const stepAutoScrollRef = useRef<() => void>(() => {})
+
   const stepAutoScroll = useCallback(() => {
     const container = containerRef.current
     if (!container) {
@@ -181,8 +185,11 @@ export function useChipListDnd(options: UseChipListDndOptions): UseChipListDndRe
     if (pointerSession?.started && dragStateRef.current) {
       updateDropTarget(pointerSession.lastClientX, pointerSession.lastClientY)
     }
-    autoScrollFrameRef.current = requestAnimationFrame(stepAutoScroll)
+    autoScrollFrameRef.current = requestAnimationFrame(stepAutoScrollRef.current)
   }, [containerRef, stopAutoScroll, updateDropTarget])
+
+  // Keep the ref in sync so recursive rAF calls always reach the latest closure.
+  useEffect(() => { stepAutoScrollRef.current = stepAutoScroll }, [stepAutoScroll])
 
   const requestAutoScroll = useCallback((clientY: number) => {
     const container = containerRef.current

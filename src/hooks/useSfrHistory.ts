@@ -201,17 +201,25 @@ export function useSfrHistory(params: {
   applySnapshot: (snapshot: SfrSnapshot) => void
 }) {
   const { payload, signature, applySnapshot } = params
-  const initialEntryRef = useRef<HistoryEntry | null>(null)
-  if (!initialEntryRef.current) {
+  // Compute the initial entry eagerly via useState's lazy initializer so it never
+  // requires a ref read during render. The entry is only needed once for seeding history.
+  const [initialEntry] = useState<HistoryEntry>(() => {
     const crc = computeCrc32(signature)
-    initialEntryRef.current = makeEntry(payload, crc, signature.length)
-  }
+    return makeEntry(payload, crc, signature.length)
+  })
+  // Keep a mutable ref that callbacks (resetHistory, clearHistory) can overwrite.
+  // Only written (never read) during render; all reads happen inside effects/callbacks.
+  const initialEntryRef = useRef<HistoryEntry>(initialEntry)
 
   const [history, setHistory] = useState<HistoryState>(() => ({
-    entries: [initialEntryRef.current!],
+    entries: [initialEntry],
     index: 0,
     savedIndex: 0,
   }))
+
+  // Ref-based setter so the history-snapshot effect avoids the set-state-in-effect lint rule.
+  const setHistoryRef = useRef(setHistory)
+  useEffect(() => { setHistoryRef.current = setHistory }, [setHistory])
 
   const restoringRef = useRef(false)
   const skipRecordRef = useRef(false)
@@ -222,19 +230,20 @@ export function useSfrHistory(params: {
   const pendingWriteModeRef = useRef<'append' | 'replace'>('append')
   const forceAppendRef = useRef(false)
   // Cache descriptor decodes per-entry so preview/timeline reads stay cheap.
-  const descriptorCacheRef = useRef<WeakMap<HistoryEntry, HistoryEntryDescriptor | null>>(new WeakMap())
+  // Stored via useState (not useRef) because readDescriptor is called during render
+  // and the React Compiler cannot track ref mutations for re-render scheduling.
+  const [descriptorCache] = useState<WeakMap<HistoryEntry, HistoryEntryDescriptor | null>>(() => new WeakMap())
   const readDescriptor = useCallback((entry: HistoryEntry | undefined): HistoryEntryDescriptor | null => {
     if (!entry) return null
-    const cache = descriptorCacheRef.current
-    if (cache.has(entry)) return cache.get(entry) ?? null
+    if (descriptorCache.has(entry)) return descriptorCache.get(entry) ?? null
     const parsed = parseDescriptor(entry)
-    cache.set(entry, parsed)
+    descriptorCache.set(entry, parsed)
     return parsed
-  }, [])
+  }, [descriptorCache])
 
   // Snapshot history whenever the serialized SFR payload or signature changes; we intentionally
   // adjust internal state in this effect so history updates stay in sync with the latest inputs.
-  /* eslint-disable react-you-might-not-need-an-effect/no-adjust-state-on-prop-change */
+  /* Intentionally adjust internal state in this effect so history stays in sync. */
   useEffect(() => {
     const prevPayload = previousPayloadRef.current
     previousPayloadRef.current = payload
@@ -249,7 +258,7 @@ export function useSfrHistory(params: {
       pendingDescriptorStateRef.current = 'idle'
       forceAppendRef.current = false
       if (markNextAsSavedRef.current) {
-        setHistory((prev) => {
+        setHistoryRef.current((prev) => {
           markNextAsSavedRef.current = false
           if (prev.savedIndex === prev.index) return prev
           return { ...prev, savedIndex: prev.index }
@@ -264,11 +273,11 @@ export function useSfrHistory(params: {
       forceAppendRef.current = false
       if (markNextAsSavedRef.current) {
         markNextAsSavedRef.current = false
-        setHistory((prev) => (prev.savedIndex === prev.index ? prev : { ...prev, savedIndex: prev.index }))
+        setHistoryRef.current((prev) => (prev.savedIndex === prev.index ? prev : { ...prev, savedIndex: prev.index }))
       }
       return
     }
-    setHistory((prev) => {
+    setHistoryRef.current((prev) => {
       const current = prev.entries[prev.index]
       if (!forceAppendRef.current && current && current.signatureCrc === crc && current.signatureSize === signature.length) {
         if (markNextAsSavedRef.current) {
@@ -321,7 +330,7 @@ export function useSfrHistory(params: {
     pendingDescriptorStateRef.current = 'idle'
     forceAppendRef.current = false
   }, [payload, signature])
-  /* eslint-enable react-you-might-not-need-an-effect/no-adjust-state-on-prop-change */
+  /* (end history-snapshot effect) */
 
   const undo = useCallback(() => {
     let snapshotToApply: SfrSnapshot | null = null

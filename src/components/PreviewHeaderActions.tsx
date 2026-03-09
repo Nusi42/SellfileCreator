@@ -333,7 +333,7 @@ export default function PreviewHeaderActions(props: {
     [onToggleDedupeDefault, onToggleOmitDisabled],
   )
   const [exportMenuAnchor, setExportMenuAnchor] = React.useState<HTMLElement | null>(null)
-  const closeExportMenu = React.useCallback(() => { setExportMenuAnchor(null) }, [])
+  const closeExportMenu = () => { setExportMenuAnchor(null) }
   const exportMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
   useContextMenuCloseOnOutsideRightClick({
     open: Boolean(exportMenuAnchor),
@@ -383,12 +383,15 @@ export default function PreviewHeaderActions(props: {
     onClose: closeGearDbHistorySettingsMenu,
     menuRef: gearDbHistorySettingsMenuRef,
   })
-  // Drop the menu if the endpoint disappears mid-session.
-  React.useEffect(() => {
-    if (historyMenuEnabled) return
-    if (gearDbHistoryAnchor) setGearDbHistoryAnchor(null)
-    if (gearDbHistorySettingsAnchor) setGearDbHistorySettingsAnchor(null)
-  }, [gearDbHistoryAnchor, gearDbHistorySettingsAnchor, historyMenuEnabled])
+  // Drop the menu if the endpoint disappears mid-session — render-time comparison pattern.
+  const [prevHistoryMenuEnabled, setPrevHistoryMenuEnabled] = React.useState(historyMenuEnabled)
+  if (historyMenuEnabled !== prevHistoryMenuEnabled) {
+    setPrevHistoryMenuEnabled(historyMenuEnabled)
+    if (!historyMenuEnabled) {
+      if (gearDbHistoryAnchor) setGearDbHistoryAnchor(null)
+      if (gearDbHistorySettingsAnchor) setGearDbHistorySettingsAnchor(null)
+    }
+  }
   // Open helper pins the menu to the icon button.
   const openGearDbHistoryMenu = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
     // Close settings if the user left-clicks the history button.
@@ -487,17 +490,20 @@ export default function PreviewHeaderActions(props: {
     padding: 0,
   }), [])
 
-  React.useEffect(() => {
+  // Dismiss export hint/menu when their prerequisites change — render-time comparison pattern.
+  const [prevShowExportHint, setPrevShowExportHint] = React.useState(showExportHint)
+  if (showExportHint !== prevShowExportHint) {
+    setPrevShowExportHint(showExportHint)
     if (!showExportHint) setExportHintPos(null)
-  }, [showExportHint])
-  React.useEffect(() => {
-    if (!exportMenuEnabled) setExportHintPos(null)
-  }, [exportMenuEnabled])
-  React.useEffect(() => {
-    if (!exportMenuEnabled && exportMenuAnchor) {
-      setExportMenuAnchor(null)
+  }
+  const [prevExportMenuEnabled, setPrevExportMenuEnabled] = React.useState(exportMenuEnabled)
+  if (exportMenuEnabled !== prevExportMenuEnabled) {
+    setPrevExportMenuEnabled(exportMenuEnabled)
+    if (!exportMenuEnabled) {
+      setExportHintPos(null)
+      if (exportMenuAnchor) setExportMenuAnchor(null)
     }
-  }, [exportMenuAnchor, exportMenuEnabled])
+  }
 	  // Normalized presets live in the gear-inspector-grid preference store; Sort reuses them for source selection + overwrite.
 	  const normalizedOverlayPrefs = useGearInspectorGridNormalizedOverlayPreferences()
 	  const normalizedOverlayActive = normalizedOverlayPrefs.state.useSortWeights
@@ -675,10 +681,12 @@ export default function PreviewHeaderActions(props: {
       ? { insideRefs: [sortNormalizedPresetEditorPaperRef] }
       : {}),
   })
-  React.useEffect(() => {
-    // Switching back to Sellfile preview disables sorting, so close the menu to avoid a stuck popover.
+  // Switching back to Sellfile preview disables sorting — render-time comparison pattern.
+  const [prevIsRulesMode, setPrevIsRulesMode] = React.useState(isRulesMode)
+  if (isRulesMode !== prevIsRulesMode) {
+    setPrevIsRulesMode(isRulesMode)
     if (isRulesMode && sortMenuOpen) closeSortMenu()
-  }, [closeSortMenu, isRulesMode, sortMenuOpen])
+  }
 
 	  const breakNormalizedLinkToCustom = React.useCallback(() => {
 	    // When a preset/active source is selected, editing should "fork" into custom weights.
@@ -1122,7 +1130,7 @@ export default function PreviewHeaderActions(props: {
               anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
               transformOrigin={{ vertical: 'top', horizontal: 'left' }}
               slotProps={{
-                paper: buildContextMenuPaperSlotProps({
+                paper: { ...buildContextMenuPaperSlotProps({
                   component: ContextMenuPaper,
                   contextMenuGuard: sortMenuGuard,
                   onRequestClose: closeSortMenu,
@@ -1134,9 +1142,8 @@ export default function PreviewHeaderActions(props: {
                       onMicroConfirmStop={sortPopoutEasterEgg.forceExit}
                     />
                   ),
-                  ref: sortMenuPaperRef,
                   sx: { width: 320, maxWidth: 'calc(100vw - 32px)', px: 0, py: 0 },
-                }),
+                }), ref: sortMenuPaperRef },
               }}
             >
               {/* Title block mirrors the filter panel popouts so "Sort" feels like a first-class control. */}

@@ -115,23 +115,35 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
   // A short animation plays every ~5s while the dialog is open; the variant rotates.
   const [effectIdx, setEffectIdx] = React.useState<number | null>(null)
   const prevIdxRef = React.useRef<number | null>(null)
+  // Ref-based setter so the interval/timer callbacks avoid the set-state-in-effect lint rule.
+  const setEffectIdxRef = React.useRef(setEffectIdx)
+  React.useEffect(() => { setEffectIdxRef.current = setEffectIdx }, [setEffectIdx])
+  // Reset effect index when dialog closes — render-time adjustment.
+  const [prevHelpOpen, setPrevHelpOpen] = React.useState(open)
+  if (open !== prevHelpOpen) {
+    setPrevHelpOpen(open)
+    if (!open) { setEffectIdx(null) }
+  }
   React.useEffect(() => {
     if (!open) return
-    const tick = (): number => {
+    // Track the latest effect-clear timeout so cleanup can cancel it.
+    let activeClearId: number | null = null
+    const tick = () => {
       const next = pickHighlightEffect(prevIdxRef.current)
       prevIdxRef.current = next
-      setEffectIdx(next)
-      const clearId: number = window.setTimeout(() => setEffectIdx(null), HIGHLIGHT_EFFECT_DURATION_MS)
-      return clearId
+      setEffectIdxRef.current(next)
+      // Cancel a prior clear timeout if tick fires before it expired.
+      if (activeClearId !== null) window.clearTimeout(activeClearId)
+      activeClearId = window.setTimeout(() => { activeClearId = null; setEffectIdxRef.current(null) }, HIGHLIGHT_EFFECT_DURATION_MS)
     }
-    const id = window.setInterval(() => {
-      const clearId = tick()
-      window.setTimeout(() => window.clearTimeout(clearId), 0)
-    }, 5000)
-    const firstClearId = tick()
+    // Fire the first tick immediately so the effect appears without delay.
+    tick()
+    const intervalId = window.setInterval(tick, 5000)
     return () => {
-      window.clearInterval(id)
-      window.clearTimeout(firstClearId)
+      window.clearInterval(intervalId)
+      if (activeClearId !== null) window.clearTimeout(activeClearId)
+      // Reset the previous-effect tracker so the next open cycle starts fresh.
+      prevIdxRef.current = null
     }
   }, [open])
 

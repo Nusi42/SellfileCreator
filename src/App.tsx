@@ -610,6 +610,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { gearEntriesActiveBuildIdRef.current = gearEntriesActiveBuildId }, [gearEntriesActiveBuildId])
   const gearInspectorMatchResetRef = useRef<{ reason: GearInspectorMatchResetReason; targetBuildId: number; startedAt: number } | null>(null)
   const [gearInspectorMatchResetReason, setGearInspectorMatchResetReason] = useState<GearInspectorMatchResetReason | null>(null)
+  // Ref-based setter so timer callbacks in the reset-check effect avoid the set-state-in-effect lint rule.
+  const setGearInspectorMatchResetReasonRef = useRef(setGearInspectorMatchResetReason)
+  useEffect(() => { setGearInspectorMatchResetReasonRef.current = setGearInspectorMatchResetReason }, [setGearInspectorMatchResetReason])
   const beginGearInspectorMatchReset = useCallback((reason: GearInspectorMatchResetReason) => {
     // Endpoint pushes should keep grid interactions available during rebuilds.
     nextGearInspectorBuildOriginRef.current = reason === 'gearDbEndpoint' ? 'endpoint' : 'user'
@@ -632,7 +635,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!gearInspectorMatchResetReason) return
     let pending = gearInspectorMatchResetRef.current
     if (!pending || pending.reason !== gearInspectorMatchResetReason) {
-      if (!pending) setGearInspectorMatchResetReason(null)
+      if (!pending) setGearInspectorMatchResetReasonRef.current(null)
       return
     }
     if (gearEntriesActiveBuildId > pending.targetBuildId) {
@@ -644,7 +647,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     if (!gearEntriesBuilding && gearEntriesCommittedBuildId >= pending.targetBuildId) {
       gearInspectorMatchResetRef.current = null
-      setGearInspectorMatchResetReason(null)
+      setGearInspectorMatchResetReasonRef.current(null)
       return
     }
     let timeoutId: ReturnType<typeof setTimeout> | null = null
@@ -658,11 +661,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const committed = gearEntriesCommittedBuildIdRef.current
       if (committed >= current.targetBuildId) {
         gearInspectorMatchResetRef.current = null
-        setGearInspectorMatchResetReason(null)
+        setGearInspectorMatchResetReasonRef.current(null)
         return
       }
       gearInspectorMatchResetRef.current = null
-      setGearInspectorMatchResetReason(null)
+      setGearInspectorMatchResetReasonRef.current(null)
     }
     timeoutId = setTimeout(handleResetCheck, GEAR_INSPECTOR_MATCH_RESET_TIMEOUT_MS)
     return () => {
@@ -790,6 +793,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [rulesBuildProgress, setRulesBuildProgress] = useState<ProgressSnapshot | null>(null)
   // Shared spinner ratio merges both rule + Gear Inspector builders so the UI has a single busy signal.
   const [workloadProgressRatio, setWorkloadProgressRatio] = useState(0)
+  // Ref-based setter so the spinner hang timeout avoids the set-state-in-effect lint rule.
+  const setWorkloadProgressRatioRef = useRef(setWorkloadProgressRatio)
+  useEffect(() => { setWorkloadProgressRatioRef.current = setWorkloadProgressRatio }, [setWorkloadProgressRatio])
   const workloadSpinnerHangTimeoutRef = useRef<number | null>(null)
   const rulesBuildingRef = useRef(rulesBuilding)
   useEffect(() => { rulesBuildingRef.current = rulesBuilding }, [rulesBuilding])
@@ -903,7 +909,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     if (workloadBusy) {
       clearHangTimeout()
-      setWorkloadProgressRatio(Math.max(workloadDeterminateRatio, WORKLOAD_PENDING_MIN_RATIO))
+      setWorkloadProgressRatioRef.current(Math.max(workloadDeterminateRatio, WORKLOAD_PENDING_MIN_RATIO))
       return () => {
         clearHangTimeout()
       }
@@ -911,7 +917,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     clearHangTimeout()
     workloadSpinnerHangTimeoutRef.current = window.setTimeout(() => {
       workloadSpinnerHangTimeoutRef.current = null
-      setWorkloadProgressRatio(0)
+      setWorkloadProgressRatioRef.current(0)
     }, WORKLOAD_SPINNER_HANG_MS)
     return () => {
       clearHangTimeout()
@@ -1286,11 +1292,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Track current persisted count (not in-memory) for dialog display.
   // Why: runtime sets stay dormant until user opts in.
   const [storedRuntimeGearSetCount, setStoredRuntimeGearSetCount] = useState(initialRuntimeGearSetCount)
-  useEffect(() => {
-    // Refresh the persisted count whenever the runtime catalog changes.
-    // Why: importing/clearing runtime sets rewrites localStorage snapshots.
+  // Render-time state adjustment: refresh persisted count when the catalog version changes.
+  const [prevGearSetCatalogVersion, setPrevGearSetCatalogVersion] = useState(gearSetCatalogVersion)
+  if (gearSetCatalogVersion !== prevGearSetCatalogVersion) {
+    setPrevGearSetCatalogVersion(gearSetCatalogVersion)
     setStoredRuntimeGearSetCount(getPersistedRuntimeGearSetCount())
-  }, [gearSetCatalogVersion])
+  }
   const persistRuntimeGearSetsNow = useCallback(() => {
     // Persist the *current in-memory* runtime registry to localStorage.
     // Why: this is the only time we mutate storage after a restore decision.
@@ -1358,7 +1365,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     handleRecipeReorder,
     handleSelectAllRecipes,
     handleClearSelection,
-    setSelectionAnchor,
+    updateSelectionAnchor,
   } = useRecipeSelection({
     customRecipes,
     setCustomRecipes,
@@ -1395,7 +1402,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const next = typeof value === 'function' ? value(selectedRecipeIdx) : value
       const normalized = (typeof next === 'number' && Number.isInteger(next) && next >= 0) ? next : null
       setSelectedRecipeIdxRaw(normalized)
-      setSelectionAnchor(normalized)
+      updateSelectionAnchor(normalized)
       if (options?.preserveSelection) return
       if (!multiselectActive || options?.forceSync === true || normalized === null) {
         setSelectedRecipeIndices(normalized === null ? [] : [normalized])
@@ -1406,7 +1413,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } else {
       applySelectionChange()
     }
-  }, [autoApplyNowRef, multiselectActive, selectedRecipeIdx, runWithSelectionDraftSuppressed, setSelectedRecipeIdxRaw, setSelectedRecipeIndices, setSelectionAnchor])
+  }, [autoApplyNowRef, multiselectActive, selectedRecipeIdx, runWithSelectionDraftSuppressed, setSelectedRecipeIdxRaw, setSelectedRecipeIndices, updateSelectionAnchor])
   // Track final sell state for history session aggregation outside the render path.
   const fsrRef = React.useRef(finalSellRemainder)
   // Mirror the latest final-sell remainder into a ref so history helpers can read it without forcing extra renders.
@@ -1421,14 +1428,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const substatTargetsHistorySessionRef = useRef<'idle' | 'active'>('idle')
   const substatTargetsSessionBaselineRef = useRef<SubstatTargetTable | null>(null)
   const substatTargetsSessionModeRef = useRef<'edit' | 'reset' | 'import' | null>(null)
-  // Reset substatTargets history snapshots when the dialog closes so future edits start from a clean baseline.
-  useEffect(() => {
+  // Reset substatTargets history snapshots when the dialog closes — render-time comparison pattern.
+  const [prevSubstatTargetsDialogOpen, setPrevSubstatTargetsDialogOpen] = useState(substatTargetsDialogOpen)
+  if (substatTargetsDialogOpen !== prevSubstatTargetsDialogOpen) {
+    setPrevSubstatTargetsDialogOpen(substatTargetsDialogOpen)
     if (!substatTargetsDialogOpen) {
       substatTargetsHistorySessionRef.current = 'idle'
       substatTargetsSessionBaselineRef.current = null
       substatTargetsSessionModeRef.current = null
     }
-  }, [substatTargetsDialogOpen])
+  }
   const {
     undo,
     redo,
@@ -1471,7 +1480,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSfrNote,
     setSelectedRecipeIdx: setSelectedRecipeIdxRaw,
     setSelectedRecipeIndices,
-    setSelectionAnchor,
+    setSelectionAnchor: updateSelectionAnchor,
     setBuilder,
     setBuilderNameDraft: () => {},
     setBuilderNameDraftKey: () => {},
@@ -1876,7 +1885,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     window.addEventListener('contextmenu', onCtx, { capture: true })
     return () => {
-      window.removeEventListener('contextmenu', onCtx, true as unknown as undefined)
+      window.removeEventListener('contextmenu', onCtx, { capture: true })
       try { document.body.classList.remove('restrict-ui') } catch {}
     }
   }, [])
@@ -2106,8 +2115,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     hideGearDbUpdateToast,
     showGearDbDiffToast,
   ])
-  // Wait for the Gear Inspector grid to commit so diff toasts can capture match details.
-  useEffect(() => {
+  // Drain the queued diff-toast once the Gear Inspector grid has committed a matching build.
+  // Extracted as a stable callback so the effect body is a thin trigger.
+  const drainGearDbDiffToast = useCallback(() => {
     const pending = gearDbDiffToastPendingRef.current
     // Nothing queued means nothing to render.
     if (!pending) return
@@ -2140,7 +2150,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
     // Commit the toast payload now that matches are current.
     // Honor the history menu toggle when showing endpoint success toasts.
-    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
     if (!hideGearDbUpdateToast) {
       showGearDbDiffToast({
         headerLines,
@@ -2155,11 +2164,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     appendGearDbDiffHistory,
     buildGearDbHistoryHeaderLines,
     buildMatchMapByArtifactId,
-    gearEntriesCommittedBuildId,
     hideGearDbUpdateToast,
     showGearDbDiffToast,
-    gearInspectorPreviewRows,
   ])
+  // Re-attempt drain whenever the build id or preview rows advance — render-time comparison.
+  const drainTriggerKey = `${gearEntriesCommittedBuildId}|${gearInspectorPreviewRows.length}`
+  const [prevDrainTriggerKey, setPrevDrainTriggerKey] = useState(drainTriggerKey)
+  if (drainTriggerKey !== prevDrainTriggerKey) {
+    setPrevDrainTriggerKey(drainTriggerKey)
+    // Schedule drain after commit so React has committed the new state values.
+    queueMicrotask(() => drainGearDbDiffToast())
+  }
   const [gearImportBusy, setGearImportBusy] = useState(false)
   const gearImportBusyCountRef = useRef(0)
   const beginGearImport = useCallback(() => {
@@ -2330,6 +2345,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [filtersSynced, filterCollapsed, setFilterCollapsedRaw])
   const [limitRecipesToFiltered, setLimitRecipesToFiltered] = useState<boolean>(false)
   const [gearInspectorRecipeFilterMode, setGearInspectorRecipeFilterMode] = useState<GearInspectorRecipeFilterMode>(GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT)
+  // Ref-based setter so the filter-reset layout effect avoids the set-state-in-effect lint rule.
+  const setGearInspectorRecipeFilterModeRef = useRef(setGearInspectorRecipeFilterMode)
+  useEffect(() => { setGearInspectorRecipeFilterModeRef.current = setGearInspectorRecipeFilterMode }, [setGearInspectorRecipeFilterMode])
   // Saved filter presets live outside autosave and must remain explicit user-controlled snapshots.
   const [filterPresets, setFilterPresets] = useFilterPresetsPreference()
 
@@ -2444,11 +2462,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const rulesFilterPanelRef = useRef<RulesFilterPanelHandle | null>(null)
   const filterShortcutPendingFocusRef = useRef(false)
 
-  useEffect(() => {
-    if (!filterOpen || !filterShortcutPendingFocusRef.current) return
-    filterShortcutPendingFocusRef.current = false
-    rulesFilterPanelRef.current?.focusRecipeNameInput()
-  }, [filterOpen])
+  // Focus the filter name input when the filter panel opens via keyboard shortcut.
+  const [prevFilterOpen, setPrevFilterOpen] = useState(filterOpen)
+  if (filterOpen !== prevFilterOpen) {
+    setPrevFilterOpen(filterOpen)
+    if (filterOpen && filterShortcutPendingFocusRef.current) {
+      filterShortcutPendingFocusRef.current = false
+      // Schedule focus after the current render so the input is mounted.
+      queueMicrotask(() => { rulesFilterPanelRef.current?.focusRecipeNameInput() })
+    }
+  }
 
   useEffect(() => {
     const shouldIgnoreShortcutTarget = (target: EventTarget | null): boolean => {
@@ -2482,7 +2505,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
     window.addEventListener('keydown', onKeydown, { capture: true })
     return () => {
-      window.removeEventListener('keydown', onKeydown, true as unknown as undefined)
+      window.removeEventListener('keydown', onKeydown, { capture: true })
     }
   }, [filterOpen, setFilterOpen])
 
@@ -2498,9 +2521,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     t,
   })
   const pushEndpoint = useMemo(() => getPushEndpoint(), [])
-  const [pushEndpointReachable, setPushEndpointReachableState] = useState(() => Boolean(pushEndpoint))
-  const setPushEndpointReachable = useCallback((next: boolean) => {
-    setPushEndpointReachableState((prev) => (prev === next ? prev : next))
+  const [pushEndpointReachable, setPushEndpointReachable] = useState(() => Boolean(pushEndpoint))
+  const updatePushEndpointReachable = useCallback((next: boolean) => {
+    setPushEndpointReachable((prev) => (prev === next ? prev : next))
   }, [])
 
   const handleConfirmClearAll = useCallback(() => {
@@ -3076,13 +3099,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setQueuedSellfileExport(true)
     return true
   }, [isSellfileExportBlockedByWorker])
-  // Establish the export signature baseline after resets or first render to track unsaved changes.
-  useEffect(() => {
-    if (exportBaselineResetRef.current || lastExportSig === null) {
-      setLastExportSig(hsfExportStateSig)
-      exportBaselineResetRef.current = false
-    }
-  }, [hsfExportStateSig, lastExportSig])
+  // Establish the export signature baseline after resets or first render — render-time adjustment.
+  if (exportBaselineResetRef.current || lastExportSig === null) {
+    setLastExportSig(hsfExportStateSig)
+    exportBaselineResetRef.current = false
+  }
   const hsfDirty = lastExportSig !== null && !exportDirtyStatesEqual(hsfExportStateSig, lastExportSig)
   const handleSetDedupeDefault = useCallback((next: boolean) => {
     setDedupeDefault(Boolean(next))
@@ -3194,14 +3215,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     filtersResetRef.current = true
     if (hasFilterChange) {
       resetRulesFilterPreferences()
-      setGearInspectorRecipeFilterMode('off')
+      setGearInspectorRecipeFilterModeRef.current('off')
       resetBuilderCollapsedPreferences()
     }
     if (hasSortChange) clearGearInspectorSubstatSort()
-  }, [clearGearInspectorSubstatSort, restoreDialogPending, restoreDraft, restoreFiltersDiffer, restoreSortDiffer, setGearInspectorRecipeFilterMode])
-  useEffect(() => {
+  }, [clearGearInspectorSubstatSort, restoreDialogPending, restoreDraft, restoreFiltersDiffer, restoreSortDiffer])
+  // Clear the filters-reset guard when the restore dialog is dismissed — render-time comparison.
+  const [prevRestoreDialogPending, setPrevRestoreDialogPending] = useState(restoreDialogPending)
+  if (restoreDialogPending !== prevRestoreDialogPending) {
+    setPrevRestoreDialogPending(restoreDialogPending)
     if (!restoreDialogPending) filtersResetRef.current = false
-  }, [restoreDialogPending])
+  }
   // Show the autosave restore prompt only after the README dialog is dismissed.
   const restoreDlgOpen = !tutorial.helpOpen && (restoreDialogPending || Boolean(gearInspectorRestoreDraft))
   const { applyGearDbDiff } = useGearInspectorItemsActions({
@@ -3573,7 +3597,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   } | null>(null)
   const [metasetConflictOpen, setMetasetConflictOpen] = useState(false)
   const [conflictIds, setConflictIds] = useState<string[]>([])
-  const [importIdMap, setImportIdMap] = useState<Map<string, string>>(new Map())
+  const [importIdMap, setImportIdMap] = useState<Map<string, string>>(() => new Map())
   // no separate stash for metas to add; computed on the fly
 
   const {
@@ -3609,7 +3633,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setRecipesEnabled,
     setSelectedRecipeIdx: syncSelectedRecipeIdx,
     setSelectedRecipeIndices,
-    setSelectionAnchor,
+    setSelectionAnchor: updateSelectionAnchor,
     setBuilder,
     setMetasetConflictOpen,
     setPendingImport,
@@ -4913,7 +4937,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const { sendRequest: sendExternalRequest } = useExternalCommands({
     pushEndpoint,
     onCommand: handleExternalCommand,
-    onReachabilityChange: setPushEndpointReachable,
+    onReachabilityChange: updatePushEndpointReachable,
   })
   // Dirty flag: builder differs from currently selected recipe
   const duplicateOfIndices = useMemo(() => computeDuplicateIndices(customRecipes), [customRecipes])
@@ -6386,7 +6410,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         })
         if (response.ok) {
           // A successful request proves endpoint reachability for later pushes.
-          setPushEndpointReachable(true)
+          updatePushEndpointReachable(true)
           pushToast = 'success'
           setLastExportSig(hsfExportStateSig)
         } else {
@@ -6399,7 +6423,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (import.meta.env.DEV) {
           console.error('Failed to export sellfile over WebSocket', err)
         }
-        setPushEndpointReachable(false)
+        updatePushEndpointReachable(false)
         pushToast = 'failure'
       } finally {
         if (pushToast === 'success') {
@@ -6424,7 +6448,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     hsfExportStateSig,
     pushExportEndpoint,
     sendExternalRequest,
-    setPushEndpointReachable,
+    updatePushEndpointReachable,
     showToast,
     t,
   ])

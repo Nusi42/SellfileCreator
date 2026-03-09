@@ -67,7 +67,7 @@ export function useSfrDialogs({
   const [pasteErr, setPasteErr] = useState<string | null>(null)
   const [pasteSelectOnEmpty, setPasteSelectOnEmpty] = useState(false)
   const [pasteAfterIdx, setPasteAfterIdx] = useState<number | null>(null)
-  const [copyDlgOpen, setCopyDlgOpenState] = useState(false)
+  const [copyDlgOpen, setCopyDlgOpen] = useState(false)
   const [copyText, setCopyText] = useState('')
   const copyInputRef = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null)
   const copySelectTimerRef = useRef<number | null>(null)
@@ -81,11 +81,10 @@ export function useSfrDialogs({
     cancelPendingNoteClose()
   }, [cancelPendingNoteClose])
 
-  useEffect(() => {
-    if (autosaveSilencedByClear && customRecipeCount > 0) {
-      setAutosaveSilencedByClear(false)
-    }
-  }, [autosaveSilencedByClear, customRecipeCount])
+  // Render-time state adjustment: un-silence autosave once recipes exist again.
+  if (autosaveSilencedByClear && customRecipeCount > 0) {
+    setAutosaveSilencedByClear(false)
+  }
 
   const requestClearAll = useCallback(() => {
     setConfirmClearOpen(true)
@@ -193,8 +192,8 @@ export function useSfrDialogs({
     }
   }, [])
 
-  const setCopyDlgOpen = useCallback<Dispatch<SetStateAction<boolean>>>((next) => {
-    setCopyDlgOpenState((prev) => {
+  const updateCopyDlgOpen = useCallback<Dispatch<SetStateAction<boolean>>>((next) => {
+    setCopyDlgOpen((prev) => {
       const resolved = typeof next === 'function' ? (next as (value: boolean) => boolean)(prev) : next
       if (resolved && !prev) {
         scheduleCopyDialogSelection()
@@ -238,7 +237,7 @@ export function useSfrDialogs({
     pasteAfterIdx,
     setPasteAfterIdx,
     copyDlgOpen,
-    setCopyDlgOpen,
+    setCopyDlgOpen: updateCopyDlgOpen,
     copyText,
     setCopyText,
     copyInputRef,
@@ -264,7 +263,7 @@ export function useSfrDialogs({
     pasteSelectOnEmpty,
     pasteAfterIdx,
     copyDlgOpen,
-    setCopyDlgOpen,
+    updateCopyDlgOpen,
     copyText,
   ])
 }

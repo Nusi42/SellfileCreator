@@ -43,7 +43,7 @@ export function useTooltipScrollGuard(): TooltipScrollGuardReturn {
 
     return () => {
       window.removeEventListener('wheel', onWheel)
-      window.removeEventListener('scroll', onScroll, true as unknown as undefined)
+      window.removeEventListener('scroll', onScroll, { capture: true })
       window.removeEventListener('touchmove', onTouchMove)
       if (hideTipsTimerRef.current) {
         window.clearTimeout(hideTipsTimerRef.current)

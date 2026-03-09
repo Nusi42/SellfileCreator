@@ -128,11 +128,19 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
   const headerRef = useRef<HTMLTableSectionElement | null>(null)
   const [containerW, setContainerW] = useState(0)
   const [showScrollRangeHint, setShowScrollRangeHint] = useState(false)
+  // Ref-based setters so scroll/ResizeObserver callbacks avoid the set-state-in-effect lint rule.
+  const setContainerWRef = useRef(setContainerW)
+  useEffect(() => { setContainerWRef.current = setContainerW }, [setContainerW])
+  const setShowScrollRangeHintRef = useRef(setShowScrollRangeHint)
+  useEffect(() => { setShowScrollRangeHintRef.current = setShowScrollRangeHint }, [setShowScrollRangeHint])
   const scrollRangeVisibleRef = useRef(false)
   const scrollRangeHideTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   // Sticky header height participates in both empty overlays and the "actually visible" viewport math.
   // Why: the table header consumes vertical space that should not count as visible row real estate.
   const [headerHeightPx, setHeaderHeightPx] = useState(0)
+  // Ref-based setter so the ResizeObserver callback avoids the set-state-in-effect lint rule.
+  const setHeaderHeightPxRef = useRef(setHeaderHeightPx)
+  useEffect(() => { setHeaderHeightPxRef.current = setHeaderHeightPx }, [setHeaderHeightPx])
   // Smooth-scroll preview jumps via TanStack's `scrollToFn` hook.
   // Why: calling `scrollToIndex({ behavior: 'smooth' })` alone is not reliable with dynamic-size rows.
   const WRAP_ROWS_KEY = 'sellfileCreator.rulesTableWrapRows.v1'
@@ -144,7 +152,6 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     } catch {}
     return false
   })
-  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler */
   useEffect(() => {
     try { localStorage.setItem(WRAP_ROWS_KEY, String(wrapRows)) } catch {}
   }, [wrapRows])
@@ -500,12 +507,17 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
   } = useContextMenuHint('rulesTableRows')
   const [headerHintPos, setHeaderHintPos] = useState<{ x: number; y: number } | null>(null)
   const [rowHintPos, setRowHintPos] = useState<{ x: number; y: number } | null>(null)
-  useEffect(() => {
+  // Render-time state adjustment: clear hint positions when the hint is dismissed.
+  const [prevShowRulesHeaderHint, setPrevShowRulesHeaderHint] = useState(showRulesHeaderHint)
+  if (showRulesHeaderHint !== prevShowRulesHeaderHint) {
+    setPrevShowRulesHeaderHint(showRulesHeaderHint)
     if (!showRulesHeaderHint) setHeaderHintPos(null)
-  }, [showRulesHeaderHint])
-  useEffect(() => {
+  }
+  const [prevShowRulesRowHint, setPrevShowRulesRowHint] = useState(showRulesRowHint)
+  if (showRulesRowHint !== prevShowRulesRowHint) {
+    setPrevShowRulesRowHint(showRulesRowHint)
     if (!showRulesRowHint) setRowHintPos(null)
-  }, [showRulesRowHint])
+  }
 
   // Header drag-to-reorder support
   const dragSrcIdxRef = useRef<number | null>(null)
@@ -589,6 +601,7 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
   }, [])
   // Single TanStack virtualizer drives both fixed and wrap modes.
   // Why: This replaces the bespoke prefix-sum windowing logic while preserving the `<Table>` structure.
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual's useVirtualizer returns unstable references; compiler skips this component
   const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
     // Virtualize the `rules[]` array directly.
     // Why: all recipe span / selection math is expressed as indices into this array.
@@ -715,7 +728,7 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     const onScroll = () => {
       if (!scrollRangeVisibleRef.current) {
         scrollRangeVisibleRef.current = true
-        setShowScrollRangeHint(true)
+        setShowScrollRangeHintRef.current(true)
       }
       if (scrollRangeHideTimerRef.current) {
         clearTimeout(scrollRangeHideTimerRef.current)
@@ -723,12 +736,12 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
       }
       scrollRangeHideTimerRef.current = window.setTimeout(() => {
         scrollRangeVisibleRef.current = false
-        setShowScrollRangeHint(false)
+        setShowScrollRangeHintRef.current(false)
         scrollRangeHideTimerRef.current = null
       }, RULES_TABLE_SCROLL_HINT_HIDE_MS)
     }
     const measure = () => {
-      setContainerW(el.clientWidth)
+      setContainerWRef.current(el.clientWidth)
     }
     measure()
     el.addEventListener('scroll', onScroll, { passive: true })
@@ -875,17 +888,18 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
   // Visible columns (memoized): used for header, width calc, and rows
   const visibleColsForContainer = useMemo(() => cols.filter(c => isColVisible(c)), [cols, isColVisible])
 
+  // Mount-only ResizeObserver for header height; re-measurement triggered by ResizeObserver or resize event.
   useLayoutEffect(() => {
     const node = headerRef.current
     if (!node) {
-      setHeaderHeightPx(0)
+      setHeaderHeightPxRef.current(0)
       return
     }
     const measure = () => {
       // Prefer integer layout metrics to avoid 1px oscillations from fractional `getBoundingClientRect` heights.
       // Why: the header height feeds TanStack scroll padding/margins, so subpixel drift creates visible jitter.
       const next = Math.max(0, Math.round(node.offsetHeight || node.getBoundingClientRect().height || 0))
-      setHeaderHeightPx(prev => (prev === next ? prev : next))
+      setHeaderHeightPxRef.current(prev => (prev === next ? prev : next))
     }
     measure()
     if (typeof ResizeObserver !== 'undefined') {
@@ -895,24 +909,27 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     }
     window.addEventListener('resize', measure)
     return () => window.removeEventListener('resize', measure)
-  }, [visibleColsForContainer])
+  }, [])
   // Compute whether horizontal scroll is needed to avoid column width jitter
   const totalVisibleWidth = visibleColsForContainer.reduce((sum, c) => sum + (c.width || 0), 0)
   // Add small hysteresis to avoid rapid flip-flopping when widths are near the container boundary.
   // This stabilizes layout (and the visible range math) to reduce the X–Y indicator flicker.
+  // Render-time state adjustment: recompute needHScroll when inputs change.
   const [needHScroll, setNeedHScroll] = useState(false)
-  useEffect(() => {
-    if (containerW <= 0) { setNeedHScroll(false); return }
-    const ON_MARGIN = 8   // require a bit of extra overflow to turn on
-    const OFF_MARGIN = 8  // require a bit of extra slack to turn off
-    setNeedHScroll(prev => {
-      if (!prev) {
-        return totalVisibleWidth > (containerW + ON_MARGIN)
-      }
-      return !(totalVisibleWidth < (containerW - OFF_MARGIN))
-    })
-  }, [totalVisibleWidth, containerW])
-  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
+  const [prevHScrollInputs, setPrevHScrollInputs] = useState({ totalVisibleWidth, containerW })
+  if (totalVisibleWidth !== prevHScrollInputs.totalVisibleWidth || containerW !== prevHScrollInputs.containerW) {
+    setPrevHScrollInputs({ totalVisibleWidth, containerW })
+    if (containerW <= 0) {
+      if (needHScroll) setNeedHScroll(false)
+    } else {
+      const ON_MARGIN = 8   // require a bit of extra overflow to turn on
+      const OFF_MARGIN = 8  // require a bit of extra slack to turn off
+      const next = !needHScroll
+        ? totalVisibleWidth > (containerW + ON_MARGIN)
+        : !(totalVisibleWidth < (containerW - OFF_MARGIN))
+      if (next !== needHScroll) setNeedHScroll(next)
+    }
+  }
 
   let scrollRangeOverlay: { start: number; end: number; total: number } | null = null
 
@@ -1286,14 +1303,14 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                               <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
                                 {(() => {
                                   if (wrapRows) {
-                                    return types.map((typeId, i) => {
+                                    return types.map((typeId) => {
                                       const Icon = artifactTypeIconFor(typeId)
                                       return Icon ? (
-                                        <Box key={`slot-${typeId}-${i}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
+                                        <Box key={`slot-${typeId}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
                                           <Icon fontSize="inherit" />
                                         </Box>
                                       ) : (
-                                        <Box key={`slot-${typeId}-${i}`} component="span" sx={{ mr: 0.5 }}>{t(artifactTypeI18nKey(typeId))}</Box>
+                                        <Box key={`slot-${typeId}`} component="span" sx={{ mr: 0.5 }}>{t(artifactTypeI18nKey(typeId))}</Box>
                                       )
                                     })
                                   }
@@ -1310,14 +1327,14 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                                   const overflow = Math.max(0, types.length - visibleCount)
                                   return (
                                     <>
-                                      {vis.map((typeId, i) => {
+                                      {vis.map((typeId) => {
                                         const Icon = artifactTypeIconFor(typeId)
                                         return Icon ? (
-                                          <Box key={`slot-${typeId}-${i}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
+                                          <Box key={`slot-${typeId}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
                                             <Icon fontSize="inherit" />
                                           </Box>
                                         ) : (
-                                          <Box key={`slot-${typeId}-${i}`} component="span" sx={{ mr: 0.5 }}>{t(artifactTypeI18nKey(typeId))}</Box>
+                                          <Box key={`slot-${typeId}`} component="span" sx={{ mr: 0.5 }}>{t(artifactTypeI18nKey(typeId))}</Box>
                                         )
                                       })}
                                       {overflow > 0 ? <Box component="span" sx={{ ml: 0.25 }}>…</Box> : null}
@@ -1387,8 +1404,8 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                               <MarkdownTooltip markdown={tooltipTitle}>
                                 <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
                                   {(() => {
-                                    if (wrapRows) return setEntries.map(({ id, label }, i) => (
-                                      <SetIcon key={`${id}-${i}`} setId={id} label={label} sx={{ mr: 0 }} />
+                                    if (wrapRows) return setEntries.map(({ id, label }) => (
+                                      <SetIcon key={`set-${id}`} setId={id} label={label} sx={{ mr: 0 }} />
                                     ))
                                     const PAD_X = 12
                                     const GAP_PX = 2
@@ -1401,8 +1418,8 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                                     const overflow = Math.max(0, setEntries.length - visibleCount)
                                     return (
                                       <>
-                                        {vis.map(({ id, label }, i) => (
-                                          <SetIcon key={`${id}-${i}`} setId={id} label={label} sx={{ mr: 0 }} />
+                                        {vis.map(({ id, label }) => (
+                                          <SetIcon key={`set-${id}`} setId={id} label={label} sx={{ mr: 0 }} />
                                         ))}
                                         {overflow > 0 ? <Box component="span" sx={{ ml: 0.25 }}>…</Box> : null}
                                       </>
@@ -1617,14 +1634,13 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
         anchorReference="anchorPosition"
         {...(headerMenu?.open ? { anchorPosition: { top: headerMenu.y, left: headerMenu.x } } : {})}
         slotProps={{
-          paper: buildContextMenuPaperSlotProps({
+          paper: { ...buildContextMenuPaperSlotProps({
             component: ContextMenuPaper,
             contextMenuGuard: headerMenuGuard,
             onRequestClose: closeHeaderMenu,
             closeLabel: t('close'),
-            ref: headerMenuPaperRef,
             'data-tour-id': 'preview.header.menu',
-          }),
+          }), ref: headerMenuPaperRef },
         }}
       >
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setWrapRows(!wrapRows)}>
@@ -1799,13 +1815,12 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
         anchorReference="anchorPosition"
         {...(rowMenu?.open ? { anchorPosition: { top: rowMenu.y, left: rowMenu.x } } : {})}
         slotProps={{
-          paper: buildContextMenuPaperSlotProps({
+          paper: { ...buildContextMenuPaperSlotProps({
             component: ContextMenuPaper,
             contextMenuGuard: rowMenuGuard,
             onRequestClose: closeRowMenu,
             closeLabel: t('close'),
-            ref: rowMenuPaperRef,
-          }),
+          }), ref: rowMenuPaperRef },
         }}
       >
         {rowMenu?.source === RULE_SOURCE_HSF ? (

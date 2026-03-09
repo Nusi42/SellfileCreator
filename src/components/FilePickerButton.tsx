@@ -13,6 +13,7 @@ type FilePickerButtonProps = Omit<ButtonProps, 'component' | 'children' | 'onSel
   buttonProps?: ButtonProps
   labelMaxWidth?: number
   children?: React.ReactNode
+  ref?: React.Ref<HTMLButtonElement>
 }
 
 function assignRef<T>(ref: React.Ref<T | null> | undefined, value: T | null) {
@@ -28,7 +29,7 @@ function assignRef<T>(ref: React.Ref<T | null> | undefined, value: T | null) {
   }
 }
 
-const FilePickerButton = React.forwardRef<HTMLButtonElement, FilePickerButtonProps>((props, forwardedRef) => {
+function FilePickerButton(props: FilePickerButtonProps) {
   const {
     label,
     startIcon,
@@ -38,6 +39,7 @@ const FilePickerButton = React.forwardRef<HTMLButtonElement, FilePickerButtonPro
     buttonProps,
     labelMaxWidth,
     children,
+    ref: forwardedRef,
     ...passThroughProps
   } = props
   const buttonStartIcon = children ? undefined : startIcon
@@ -143,7 +145,7 @@ const FilePickerButton = React.forwardRef<HTMLButtonElement, FilePickerButtonPro
       {buttonNode}
     </EllipsisTooltip>
   )
-})
+}
 
 FilePickerButton.displayName = 'FilePickerButton'
 

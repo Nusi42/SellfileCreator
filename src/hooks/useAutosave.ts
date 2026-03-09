@@ -140,12 +140,16 @@ export function useAutosave(opts: UseAutosaveOptions) {
     lastScheduledSignalRef.current = changeSignal
     // New payload signal invalidates both the pending debounce and idle work.
     clearScheduledWrite()
-    const schedule = window.setTimeout(() => {
+    // Store the timer id locally so clearTimeout is visible to the lint rule in the cleanup.
+    let timerId: number | null = window.setTimeout(() => {
+      timerId = null
       debounceRef.current = null
       scheduleWrite()
     }, debounceMs)
-    debounceRef.current = schedule
+    debounceRef.current = timerId
     return () => {
+      // Direct clearTimeout satisfies the lint rule's cleanup tracing.
+      if (timerId !== null) window.clearTimeout(timerId)
       clearScheduledWrite()
     }
   }, [changeSignal, clearScheduledWrite, debounceMs, enabled, scheduleWrite])

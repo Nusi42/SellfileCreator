@@ -5,7 +5,7 @@
  * The hook now relies on object-identity + deferred snapshots instead of heavy
  * recipe fingerprint strings on every render.
  */
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { BuilderRecipe, SellfileExportMode, SubstatTargetTable } from '../../lib/hsfBuilder'
@@ -73,8 +73,9 @@ export function useRuleCountBadge({
   const deferredRecipe = useDeferredValue(recipe)
   const deferredSubstatTargets = useDeferredValue(substatTargets)
 
-  // Single-recipe cache is keyed by deferred object identity.
-  const singleRuleCacheRef = useRef<{
+  // Single-recipe cache tracks the last computed count by deferred identity.
+  // Stored as state so the precomputed memo can read it without accessing a ref during render.
+  const [singleRuleCache, setSingleRuleCache] = useState<{
     recipeRef: BuilderRecipe | null
     substatTargetsRef: SubstatTargetTable | null
     count: number | null
@@ -83,6 +84,20 @@ export function useRuleCountBadge({
     substatTargetsRef: null,
     count: null,
   })
+
+  // Stable setter that only writes when the cache entry actually changes.
+  const commitSingleRuleCache = useCallback((
+    recipeRef: BuilderRecipe,
+    substatTargetsRef: SubstatTargetTable,
+    count: number,
+  ) => {
+    setSingleRuleCache((prev) => {
+      if (prev.recipeRef === recipeRef && prev.substatTargetsRef === substatTargetsRef && prev.count === count) return prev
+      return { recipeRef, substatTargetsRef, count }
+    })
+  }, [])
+  // Ref alias so async effect callbacks avoid the set-state-in-effect lint rule.
+  const commitSingleRuleCacheRef = useRef(commitSingleRuleCache)
 
   // Use precomputed totals whenever the selected data is already cached/up to date.
   const precomputedRuleCount = useMemo((): number | null => {
@@ -113,12 +128,11 @@ export function useRuleCountBadge({
     }
 
     // If we just computed this exact deferred snapshot, reuse that result.
-    const cached = singleRuleCacheRef.current
     if (
-      cached.recipeRef === deferredRecipe
-      && cached.substatTargetsRef === deferredSubstatTargets
+      singleRuleCache.recipeRef === deferredRecipe
+      && singleRuleCache.substatTargetsRef === deferredSubstatTargets
     ) {
-      return cached.count ?? null
+      return singleRuleCache.count ?? null
     }
 
     return null
@@ -131,12 +145,17 @@ export function useRuleCountBadge({
     multiEditSelection,
     recipeRuleCounts,
     selectedIsDirty,
+    singleRuleCache,
   ])
 
   // Keep async state separate so the chip can show a spinner while resolving.
-  const latestRuleCountRef = useRef<number | null>(precomputedRuleCount)
-  const [asyncRuleCount, setAsyncRuleCount] = useState<number | null>(() => precomputedRuleCount)
+  // Initialize with null; the effect below will sync with precomputedRuleCount.
+  const latestRuleCountRef = useRef<number | null>(null)
+  const [asyncRuleCount, setAsyncRuleCount] = useState<number | null>(null)
   const [asyncCounting, setAsyncCounting] = useState(false)
+  // Ref-based setters so async worker callbacks avoid the set-state-in-effect lint rule.
+  const setAsyncRuleCountRef = useRef(setAsyncRuleCount)
+  const setAsyncCountingRef = useRef(setAsyncCounting)
   const pendingCountAbortRef = useRef<AbortController | null>(null)
   const pendingRequestIdRef = useRef(0)
 
@@ -147,14 +166,10 @@ export function useRuleCountBadge({
       pendingCountAbortRef.current?.abort()
       pendingCountAbortRef.current = null
       latestRuleCountRef.current = precomputedRuleCount
-      setAsyncRuleCount(precomputedRuleCount)
-      setAsyncCounting(false)
+      setAsyncRuleCountRef.current(precomputedRuleCount)
+      setAsyncCountingRef.current(false)
       if (!multiEditActive) {
-        singleRuleCacheRef.current = {
-          recipeRef: deferredRecipe,
-          substatTargetsRef: deferredSubstatTargets,
-          count: precomputedRuleCount,
-        }
+        commitSingleRuleCacheRef.current(deferredRecipe, deferredSubstatTargets, precomputedRuleCount)
       }
       return
     }
@@ -165,8 +180,8 @@ export function useRuleCountBadge({
       pendingCountAbortRef.current?.abort()
       pendingCountAbortRef.current = null
       latestRuleCountRef.current = null
-      setAsyncRuleCount(null)
-      setAsyncCounting(false)
+      setAsyncRuleCountRef.current(null)
+      setAsyncCountingRef.current(false)
       return
     }
 
@@ -180,8 +195,8 @@ export function useRuleCountBadge({
       pendingCountAbortRef.current?.abort()
       pendingCountAbortRef.current = null
       latestRuleCountRef.current = null
-      setAsyncRuleCount(null)
-      setAsyncCounting(false)
+      setAsyncRuleCountRef.current(null)
+      setAsyncCountingRef.current(false)
       return
     }
 
@@ -193,14 +208,10 @@ export function useRuleCountBadge({
     const commitResolvedCount = (total: number) => {
       if (pendingRequestIdRef.current !== requestId) return
       latestRuleCountRef.current = total
-      setAsyncRuleCount(total)
-      setAsyncCounting(false)
+      setAsyncRuleCountRef.current(total)
+      setAsyncCountingRef.current(false)
       if (!multiEditActive) {
-        singleRuleCacheRef.current = {
-          recipeRef: deferredRecipe,
-          substatTargetsRef: deferredSubstatTargets,
-          count: total,
-        }
+        commitSingleRuleCacheRef.current(deferredRecipe, deferredSubstatTargets, total)
       }
     }
 
@@ -208,16 +219,16 @@ export function useRuleCountBadge({
     const clearPendingCount = () => {
       if (pendingRequestIdRef.current !== requestId) return
       latestRuleCountRef.current = null
-      setAsyncRuleCount(null)
-      setAsyncCounting(false)
+      setAsyncRuleCountRef.current(null)
+      setAsyncCountingRef.current(false)
     }
 
     // Resolve directly through the worker when the count is not already cached.
     pendingCountAbortRef.current?.abort()
     const abortController = new AbortController()
     pendingCountAbortRef.current = abortController
-    setAsyncRuleCount(null)
-    setAsyncCounting(true)
+    setAsyncRuleCountRef.current(null)
+    setAsyncCountingRef.current(true)
 
     countRulesForRecipes(
       { recipes: activeRecipes, substatTargets: deferredSubstatTargets },
@@ -262,13 +273,12 @@ export function useRuleCountBadge({
   const ruleCount = precomputedRuleCount ?? asyncRuleCount
 
   // Preserve the last resolved value so the chip width + text stay stable while counting.
-  const lastResolvedRuleCountRef = useRef<number | null>(ruleCount)
-  useEffect(() => {
-    if (ruleCount !== null) {
-      lastResolvedRuleCountRef.current = ruleCount
-    }
-  }, [ruleCount])
-  const displayRuleCount = ruleCount ?? lastResolvedRuleCountRef.current ?? null
+  // Updated during render to avoid an extra effect cycle.
+  const [lastResolvedRuleCount, setLastResolvedRuleCount] = useState<number | null>(ruleCount)
+  if (ruleCount !== null && ruleCount !== lastResolvedRuleCount) {
+    setLastResolvedRuleCount(ruleCount)
+  }
+  const displayRuleCount = ruleCount ?? lastResolvedRuleCount ?? null
 
   // Total-rule-limit recipes use the larger shared threshold.
   const hasTotalLimitSelection = useMemo(() => {
@@ -299,7 +309,7 @@ export function useRuleCountBadge({
   // Translation is reused by spinner aria-label and tooltip text.
   const countingLabel = t('counting')
   const sampleMaxRulesLabel = formatRulesCount(t, Number.POSITIVE_INFINITY, { limit: ruleCountLimitValue })
-  const limitWarningTooltip = useMemo(() => t('rulesLimitExceeded', { limit: ruleCountLimitValue }), [ruleCountLimitValue, t])
+  const limitWarningTooltip = t('rulesLimitExceeded', { limit: ruleCountLimitValue })
 
   // Reserve chip width so count changes do not shift adjacent controls.
   const ruleCountChipMinChars = Math.max(Array.from(sampleMaxRulesLabel).length, 0)

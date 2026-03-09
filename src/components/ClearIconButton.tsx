@@ -34,12 +34,10 @@ const baseClearButtonSx: SxProps<Theme> = (theme) => ({
 
 export interface ClearIconButtonProps extends Omit<IconButtonProps, 'color'> {
   tooltip?: string
+  ref?: React.Ref<HTMLButtonElement>
 }
 
-const ClearIconButton = React.forwardRef<HTMLButtonElement, ClearIconButtonProps>(function ClearIconButton(
-  { tooltip, sx, ...iconButtonProps },
-  ref,
-) {
+function ClearIconButton({ tooltip, sx, ref, ...iconButtonProps }: ClearIconButtonProps) {
   const mergedSx = React.useMemo<SxProps<Theme>>(() => {
     if (!sx) return baseClearButtonSx
     if (Array.isArray(sx)) {
@@ -75,6 +73,6 @@ const ClearIconButton = React.forwardRef<HTMLButtonElement, ClearIconButtonProps
       {button}
     </MarkdownTooltip>
   )
-})
+}
 
 export default ClearIconButton

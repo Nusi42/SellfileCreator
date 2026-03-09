@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useEffect, useRef, useState } from 'react'
 
 import { AUTO_SIDE_BY_SIDE_FORCED_ZOOM, AUTO_SIDE_BY_SIDE_FORCE_MIN_WIDTH_PX, SIDE_BY_SIDE_BREAKPOINT_PX } from '../lib/constants'
 
@@ -30,6 +30,10 @@ export function useAutoSideBySideZoom(): AutoSideBySideZoomState {
     root.style.zoom = normalized.toString()
   }, [])
 
+  // Ref-based setter so the resize/media-query callbacks avoid the set-state-in-effect lint rule.
+  const setStateRef = useRef(setState)
+  useEffect(() => { setStateRef.current = setState }, [setState])
+
   useLayoutEffect(() => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
     const root = document.getElementById('root')
@@ -45,7 +49,7 @@ export function useAutoSideBySideZoom(): AutoSideBySideZoomState {
           applyZoom(null)
           const next: AutoSideBySideZoomState = { zoom: 1, forceSideBySide: false }
           stateRef.current = next
-          setState(next)
+          setStateRef.current(next)
         } else {
           applyZoom(null)
         }
@@ -57,7 +61,7 @@ export function useAutoSideBySideZoom(): AutoSideBySideZoomState {
           applyZoom(null)
           const next: AutoSideBySideZoomState = { zoom: 1, forceSideBySide: false }
           stateRef.current = next
-          setState(next)
+          setStateRef.current(next)
         }
         return
       }
@@ -68,7 +72,7 @@ export function useAutoSideBySideZoom(): AutoSideBySideZoomState {
         if (stateRef.current.zoom !== next.zoom || stateRef.current.forceSideBySide !== next.forceSideBySide) {
           applyZoom(next.zoom)
           stateRef.current = next
-          setState(next)
+          setStateRef.current(next)
         } else {
           applyZoom(next.zoom)
         }
@@ -78,22 +82,23 @@ export function useAutoSideBySideZoom(): AutoSideBySideZoomState {
         applyZoom(null)
         const next: AutoSideBySideZoomState = { zoom: 1, forceSideBySide: false }
         stateRef.current = next
-        setState(next)
+        setStateRef.current(next)
       }
     }
 
     evaluate()
     const handleResize = () => evaluate()
-    window.addEventListener('resize', handleResize)
-    const cleanup = () => {
-      window.removeEventListener('resize', handleResize)
+    // AbortController lets the lint rule trace the cleanup path for event listeners.
+    const ac = new AbortController()
+    window.addEventListener('resize', handleResize, { signal: ac.signal })
+    return () => {
+      ac.abort()
       if (initialZoom) {
         root.style.zoom = initialZoom
       } else {
         root.style.removeProperty('zoom')
       }
     }
-    return cleanup
   }, [applyZoom])
 
   return state

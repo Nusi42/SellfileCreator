@@ -158,6 +158,8 @@ export function useExternalCommands({
     }
 
     closedRef.current = false
+    // Local timer id lets the lint rule trace clearTimeout in the effect cleanup.
+    let reconnectTimer: number | null = null
 
   const connect = () => {
       // Stop reconnect attempts after unmount.
@@ -237,7 +239,9 @@ export function useExternalCommands({
           pendingBinaryMetaRef.current = null
           // Reconnect unless the hook is being torn down.
           if (closedRef.current) return
-          reconnectTimerRef.current = window.setTimeout(connect, DEFAULT_RECONNECT_DELAY_MS)
+          // Keep both local and ref in sync for cleanup traceability.
+          reconnectTimer = window.setTimeout(connect, DEFAULT_RECONNECT_DELAY_MS)
+          reconnectTimerRef.current = reconnectTimer
         }
 
         socket.onerror = () => {
@@ -247,7 +251,9 @@ export function useExternalCommands({
       } catch {
         // Failures during construction should still trigger a reconnect.
         onReachabilityChange(false)
-        reconnectTimerRef.current = window.setTimeout(connect, DEFAULT_RECONNECT_DELAY_MS)
+        // Keep both local and ref in sync for cleanup traceability.
+        reconnectTimer = window.setTimeout(connect, DEFAULT_RECONNECT_DELAY_MS)
+        reconnectTimerRef.current = reconnectTimer
       }
     }
 
@@ -256,6 +262,8 @@ export function useExternalCommands({
     return () => {
       // Signal that reconnects should stop before cleaning up.
       closedRef.current = true
+      // Direct clearTimeout satisfies the lint rule's cleanup tracing.
+      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer)
       // Tear down the socket and cancel outstanding requests.
       cleanupSocket('WebSocket closed by client')
     }

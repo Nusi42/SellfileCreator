@@ -147,11 +147,11 @@ function detectPreferredLanguage(): Language {
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
-  const [lang, setLangState] = React.useState<Language>(safeGetLanguage)
+  const [lang, setLang] = React.useState<Language>(safeGetLanguage)
   const [runtimeCatalogs, setRuntimeCatalogs] = React.useState<Record<string, StrictCatalog>>({})
 
-  const setLang = React.useCallback((l: Language) => {
-    setLangState(l)
+  const updateLang = React.useCallback((l: Language) => {
+    setLang(l)
     try {
       const auto = isDev ? detectPreferredLanguage() : DEFAULT_LANGUAGE
       if (l === auto) {
@@ -168,7 +168,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     const merged: StrictCatalog = { ...base, ...(CATALOGS[langCode as Language] || {}), ...(patch as StrictCatalog) }
     setRuntimeCatalogs((prev) => ({ ...prev, [langCode]: merged }))
     // Switch to the runtime language without persisting selection
-    setLangState((langCode as Language) || DEFAULT_LANGUAGE)
+    setLang((langCode as Language) || DEFAULT_LANGUAGE)
   }, [])
 
   const t = React.useCallback((key: I18nKey, params?: Record<string, string | number>) => {
@@ -182,12 +182,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     return expandStatTokens(val, cat)
   }, [lang, runtimeCatalogs])
 
-  const value = React.useMemo<I18nContextValue>(() => ({ lang, setLang, t, registerRuntimeCatalog }), [lang, setLang, t, registerRuntimeCatalog])
-  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
+  const value = React.useMemo<I18nContextValue>(() => ({ lang, setLang: updateLang, t, registerRuntimeCatalog }), [lang, updateLang, t, registerRuntimeCatalog])
+  return <I18nContext value={value}>{children}</I18nContext>
 }
 
 export function useI18n(): I18nContextValue {
-  const ctx = React.useContext(I18nContext)
+  const ctx = React.use(I18nContext)
   if (!ctx) throw new Error('useI18n must be used within I18nProvider')
   return ctx
 }

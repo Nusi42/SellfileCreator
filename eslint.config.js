@@ -1,9 +1,9 @@
-// Flat ESLint config (ESLint v9+) migrated from .eslintrc.cjs
-// Keeps prior intent: TS-first, React, import rules, and targeted ignores.
+// Flat ESLint config (ESLint v9+)
+// TS-first, ESLint React, React hooks, import rules, and targeted ignores.
 import js from '@eslint/js';
 import tsParser from '@typescript-eslint/parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
-import reactPlugin from 'eslint-plugin-react';
+import eslintReact from '@eslint-react/eslint-plugin';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import reactYouMightNotNeedAnEffectPlugin from 'eslint-plugin-react-you-might-not-need-an-effect';
 import importPlugin from 'eslint-plugin-import';
@@ -45,13 +45,13 @@ export default [
     },
     plugins: {
       '@typescript-eslint': tsPlugin,
-      react: reactPlugin,
+      // ESLint React (replaces eslint-plugin-react) — register all sub-plugins from the preset
+      ...eslintReact.configs['recommended-typescript'].plugins,
       'react-hooks': reactHooksPlugin,
       'react-you-might-not-need-an-effect': reactYouMightNotNeedAnEffectPlugin,
       import: importPlugin,
     },
     settings: {
-      react: { version: 'detect' },
       // Enable TypeScript path/resolution for eslint-plugin-import
       'import/resolver': { typescript: {} },
     },
@@ -63,15 +63,15 @@ export default [
       '@typescript-eslint/no-explicit-any': 'error',
       // Allow empty catch blocks (we intentionally swallow in many UI spots)
       'no-empty': ['error', { allowEmptyCatch: true }],
-      // Flag undefined JSX components (e.g., missing imports)
-      'react/jsx-no-undef': 'error',
-      // Using the new JSX transform; no need for React in scope
-      'react/react-in-jsx-scope': 'off',
-      // Not using prop-types with TypeScript
-      'react/prop-types': 'off',
-      // React Hooks recommended
-      ...reactHooksPlugin.configs.recommended.rules,
-      // Enable "You Might Not Need an Effect" rules as warnings across the board for triage
+
+      // ── ESLint React recommended-typescript preset + disable RSC (client-only SPA) ──
+      ...eslintReact.configs['recommended-typescript'].rules,
+      ...eslintReact.configs['disable-rsc'].rules,
+
+      // ── React Hooks v7 full recommended (includes React Compiler rules) ──
+      ...reactHooksPlugin.configs['recommended-latest'].rules,
+
+      // ── "You Might Not Need an Effect" rules as warnings for triage ──
       ...reactYouMightNotNeedAnEffectPlugin.configs.recommended.rules,
       'react-you-might-not-need-an-effect/no-empty-effect': 'warn',
       'react-you-might-not-need-an-effect/no-initialize-state': 'warn',

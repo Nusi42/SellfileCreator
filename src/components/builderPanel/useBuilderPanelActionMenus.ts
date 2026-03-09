@@ -4,7 +4,7 @@
  * Encapsulates the context-menu anchor tracking plus hint overlays so the
  * BuilderPanel render tree stays lean.
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import type React from 'react'
 import { useContextMenuCloseOnOutsideRightClick } from '../../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuHint } from '../../hooks/useContextMenuHint'
@@ -64,10 +64,11 @@ export const useBuilderPanelActionMenus = ({
     markSeen: markInsertHintSeen,
   } = useContextMenuHint('builderInsertMenu')
   const [insertHintPos, setInsertHintPos] = useState<{ x: number; y: number } | null>(null)
+  // Clear the insert hint position during render when the hint is dismissed.
+  if (!showInsertHint && insertHintPos !== null) {
+    setInsertHintPos(null)
+  }
   const insertHintActive = showInsertHint && insertHintPos !== null && !insertMenuAnchor && builderCanAdd && !multiEditActive
-  useEffect(() => {
-    if (!showInsertHint) setInsertHintPos(null)
-  }, [showInsertHint])
   const handleInsertHintMouseEnter = useCallback((event: React.MouseEvent<HTMLElement>) => {
     if (!showInsertHint) return
     if (!builderCanAdd) return
@@ -110,10 +111,11 @@ export const useBuilderPanelActionMenus = ({
     markSeen: markApplyHintSeen,
   } = useContextMenuHint('builderApplyMenu')
   const [applyHintPos, setApplyHintPos] = useState<{ x: number; y: number } | null>(null)
+  // Clear the apply hint position during render when the hint is dismissed.
+  if (!showApplyHint && applyHintPos !== null) {
+    setApplyHintPos(null)
+  }
   const applyHintActive = showApplyHint && applyHintPos !== null && !applyMenuAnchor && !multiEditActive
-  useEffect(() => {
-    if (!showApplyHint) setApplyHintPos(null)
-  }, [showApplyHint])
   const handleApplyHintMouseEnter = useCallback((event: React.MouseEvent<HTMLElement>) => {
     if (!showApplyHint) return
     if (multiEditActive) return
@@ -156,10 +158,11 @@ export const useBuilderPanelActionMenus = ({
     markSeen: markResetHintSeen,
   } = useContextMenuHint('builderReset')
   const [resetHintPos, setResetHintPos] = useState<{ x: number; y: number } | null>(null)
+  // Clear the reset hint position during render when the hint is dismissed.
+  if (!showResetHint && resetHintPos !== null) {
+    setResetHintPos(null)
+  }
   const resetHintActive = showResetHint && resetHintPos !== null && !resetMenuAnchor && !multiEditActive && !isDefaultBuilder
-  useEffect(() => {
-    if (!showResetHint) setResetHintPos(null)
-  }, [showResetHint])
   const handleResetHintMouseEnter = useCallback((event: React.MouseEvent<HTMLElement>) => {
     if (!showResetHint) return
     if (isDefaultBuilder) return

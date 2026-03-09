@@ -82,12 +82,12 @@ export function safeguardSummaryParts(
     // "Per Slot: " prefix when this rule splits its quota by slot.
     const slotLbl = perSlot ? `${opts.t ? opts.t('safeguardsCountModePerSlot') : 'Per Slot'}:${NBSP}` : ''
     if (opts.showSlotIcons) {
-      const nodes = sorted.map((typeId, i) => {
+      const nodes = sorted.map((typeId) => {
         const Icon = artifactTypeIconFor(typeId)
         if (Icon) {
           return (
             <Box
-              key={`slot-${typeId}-${i}`}
+              key={`slot-${typeId}`}
               component="span"
               sx={{
                 display: 'inline-flex',
@@ -102,7 +102,7 @@ export function safeguardSummaryParts(
         }
         // Icon missing: fall back to localised text label.
         const label = withNbsp(opts.t ? opts.t(artifactTypeI18nKey(typeId)) : artifactTypeName(typeId))
-        return <Box key={`slot-${typeId}-${i}`} component="span" sx={{ mr: 0.5 }}>{label}</Box>
+        return <Box key={`slot-${typeId}`} component="span" sx={{ mr: 0.5 }}>{label}</Box>
       })
       addNode(
         <>
@@ -150,13 +150,13 @@ export function safeguardSummaryParts(
   if (c.factions && c.factions.length > 0) {
     // "Per Faction: " prefix when this rule splits its quota by faction.
     const factionLbl = perFaction ? `${opts.t ? opts.t('safeguardsCountModePerFaction') : 'Per Faction'}:${NBSP}` : ''
-    const factNodes = c.factions.map((factionCode, i) => {
+    const factNodes = c.factions.map((factionCode) => {
       const rawLabel = opts.t ? opts.t(factionI18nKey(factionCode)) : factionCodeToName(factionCode)
       const label = withNbsp(rawLabel)
       if (opts.showFactionIcons) {
         return (
           <Box
-            key={`f-${factionCode}-${i}`}
+            key={`f-${factionCode}`}
             component="span"
             sx={{
               display: 'inline-flex',
@@ -168,7 +168,7 @@ export function safeguardSummaryParts(
           </Box>
         )
       }
-      return <Box key={`f-${factionCode}-${i}`} component="span">{label}</Box>
+      return <Box key={`f-${factionCode}`} component="span">{label}</Box>
     })
     addNode(
       <>
@@ -187,11 +187,11 @@ export function safeguardSummaryParts(
     // "Per Mainstat: " prefix when this rule splits its quota by main stat.
     const mainLbl = perMainStat ? `${opts.t ? opts.t('safeguardsCountModePerMain') : 'Per Mainstat'}:${NBSP}` : ''
     const sorted = [...c.mainStats].sort(compareVariants)
-    const nodes = sorted.map((vk, i) => {
+    const nodes = sorted.map((vk) => {
       const name = withNbsp(opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
       const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
       return (
-        <Box key={`m-${vk}-${i}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>
+        <Box key={`m-${vk}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>
           {name}
         </Box>
       )
@@ -199,7 +199,7 @@ export function safeguardSummaryParts(
     const interleaved: JSX.Element[] = []
     nodes.forEach((n, i) => {
       interleaved.push(n)
-      if (i < nodes.length - 1) interleaved.push(<Box key={`m-sep-${i}`} component="span">, </Box>)
+      if (i < nodes.length - 1) interleaved.push(<Box key={`m-sep-${sorted[i]}`} component="span">, </Box>)
     })
     addNode(
       <>
@@ -217,11 +217,11 @@ export function safeguardSummaryParts(
   // the recipe equivalent. We still color them per the substatColors mapping.
   if (rule.substats && rule.substats.length > 0) {
     const sorted = [...rule.substats].sort(compareVariants)
-    const nodes = sorted.map((vk, i) => {
+    const nodes = sorted.map((vk) => {
       const name = withNbsp(opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
       const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
       return (
-        <Box key={`s-${vk}-${i}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>
+        <Box key={`s-${vk}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>
           {name}
         </Box>
       )
@@ -229,7 +229,7 @@ export function safeguardSummaryParts(
     const interleaved: JSX.Element[] = []
     nodes.forEach((n, i) => {
       interleaved.push(n)
-      if (i < nodes.length - 1) interleaved.push(<Box key={`s-sep-${i}`} component="span">, </Box>)
+      if (i < nodes.length - 1) interleaved.push(<Box key={`s-sep-${sorted[i]}`} component="span">, </Box>)
     })
     const tr = opts.t
     // Per-substat glyph when each substat is counted separately (PerSubstat mode).
@@ -375,7 +375,7 @@ export function safeguardSummaryParts(
   const withSeps: JSX.Element[] = []
   parts.forEach((p, i) => {
     withSeps.push(p)
-    if (i < parts.length - 1) withSeps.push(<Box key={`sep-${i}`} component="span"> | </Box>)
+    if (i < parts.length - 1) withSeps.push(<Box key={`sep-after-${p.key}`} component="span"> | </Box>)
   })
   return <>{withSeps}</>
 }

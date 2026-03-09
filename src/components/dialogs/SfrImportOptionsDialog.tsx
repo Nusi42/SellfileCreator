@@ -12,7 +12,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material'
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import { useI18n } from '../../lib/i18n'
 import EllipsisTooltip from '../EllipsisTooltip'
 import type { BuilderRecipe } from '../../lib/hsfBuilder'
@@ -92,17 +92,23 @@ export default function SfrImportOptionsDialog(props: SfrImportOptionsDialogProp
   const hasIncomingNote = Boolean(incomingNote && incomingNote.trim().length > 0)
 
   // Reset defaults each time a fresh Shift-load dialog opens.
-  useEffect(() => {
-    if (!open) return
-    const nextSelection: SfrImportSelection = {
+  // Track the previous dependency snapshot in state so the comparison doesn't
+  // trigger the react-hooks/refs lint rule during render.
+  const importResetKey = open ? `${incomingRecipeCount}|${hasIncomingNote}|${incomingMetasetCount}|${incomingSafeguardCount}` : ''
+  const [prevImportResetKey, setPrevImportResetKey] = useState<string>('')
+  if (open && importResetKey !== prevImportResetKey) {
+    setPrevImportResetKey(importResetKey)
+    setSelection({
       recipes: incomingRecipeCount > 0,
       note: hasIncomingNote,
       metasets: incomingMetasetCount > 0,
       safeguards: incomingSafeguardCount > 0,
-    }
-    setSelection(nextSelection)
+    })
     setModes(DEFAULT_MODES)
-  }, [open, incomingRecipeCount, hasIncomingNote, incomingMetasetCount, incomingSafeguardCount])
+  }
+  if (!open && prevImportResetKey !== '') {
+    setPrevImportResetKey('')
+  }
 
   // Build incoming payload dependency sets for metaset constraints.
   const incomingMetasetIds = useMemo(

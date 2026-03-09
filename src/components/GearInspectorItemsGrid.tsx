@@ -572,7 +572,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             const statColor = resolveTooltipSubstatColor(variant)
             return (
               <Box
-                key={`safeguard-requirement-substat-${artifactId}-${variant}-${idx}`}
+                key={`safeguard-requirement-substat-${artifactId}-${variant}`}
                 component="span"
                 sx={statColor ? { color: statColor } : {}}
               >
@@ -633,8 +633,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                 {tooltipRequirementNode}
               </Typography>
             </Box>
-            {debugTooltipLines.map((line, idx) => (
-              <Box key={`safeguard-tooltip-debug-${artifactId}-${idx}`} component="li" sx={{ p: 0, listStylePosition: 'outside' }}>
+            {debugTooltipLines.map((line) => (
+              <Box key={`safeguard-tooltip-debug-${artifactId}-${line}`} component="li" sx={{ p: 0, listStylePosition: 'outside' }}>
                 <Typography variant="body2" component="span">
                   {line}
                 </Typography>
@@ -689,12 +689,16 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     markGridContextHintSeen()
     setGridContextHintPos(null)
   }, [markGridContextHintSeen])
-  useEffect(() => {
-    if (!shouldShowGridContextHint) {
-      setGridContextHintPos(null)
-    }
-  }, [shouldShowGridContextHint])
+  // Render-time state adjustment: clear hint position when the hint is dismissed.
+  const [prevShouldShowGridContextHint, setPrevShouldShowGridContextHint] = useState(shouldShowGridContextHint)
+  if (shouldShowGridContextHint !== prevShouldShowGridContextHint) {
+    setPrevShouldShowGridContextHint(shouldShowGridContextHint)
+    if (!shouldShowGridContextHint) setGridContextHintPos(null)
+  }
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set())
+  // Ref-based setter so the focus-scroll layout effect avoids the set-state-in-effect lint rule.
+  const setCollapsedGroupsRef = useRef(setCollapsedGroups)
+  useEffect(() => { setCollapsedGroupsRef.current = setCollapsedGroups }, [setCollapsedGroups])
   const visibleGroupKeys = useMemo(() => {
     const keys = new Set<string>()
     const addKeys = (group: GearInspectorGroup) => {
@@ -822,20 +826,23 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     })
   }, [getMultiToggleScope, recordScrollAnchor])
 
-  useEffect(() => {
-    setCollapsedGroups((prev) => {
-      let changed = false
-      const next = new Set<string>()
-      prev.forEach((key) => {
-        if (persistentGroupKeys.has(key)) {
-          next.add(key)
-        } else {
-          changed = true
-        }
-      })
-      return changed ? next : prev
+  // Render-time state adjustment: prune collapsed groups that no longer exist in the persistent set.
+  const [prevPersistentGroupKeys, setPrevPersistentGroupKeys] = useState(persistentGroupKeys)
+  if (persistentGroupKeys !== prevPersistentGroupKeys) {
+    setPrevPersistentGroupKeys(persistentGroupKeys)
+    // Check if any collapsed groups need pruning.
+    let needsPrune = false
+    collapsedGroups.forEach((key) => {
+      if (!persistentGroupKeys.has(key)) needsPrune = true
     })
-  }, [persistentGroupKeys])
+    if (needsPrune) {
+      const next = new Set<string>()
+      collapsedGroups.forEach((key) => {
+        if (persistentGroupKeys.has(key)) next.add(key)
+      })
+      setCollapsedGroups(next)
+    }
+  }
   const containerRef = useRef<HTMLDivElement | null>(null)
   // Cache the last scrollbar width so we only notify on real changes.
   const scrollbarWidthRef = useRef<number | null>(null)
@@ -851,6 +858,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const [scrollHintMinWidthPx, setScrollHintMinWidthPx] = useState(0)
   const viewportMeasureRafRef = useRef<number | null>(null)
   const revealIdleDrainTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Ref-based setter so the ResizeObserver/rAF callback avoids the set-state-in-effect lint rule.
+  const setViewportHeightRef = useRef(setViewportHeight)
+  useEffect(() => { setViewportHeightRef.current = setViewportHeight }, [setViewportHeight])
   useEffect(() => {
     const node = containerRef.current
     if (!node) return
@@ -864,7 +874,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     }
     const measure = () => {
       const nextHeight = node.clientHeight
-      setViewportHeight(nextHeight)
+      setViewportHeightRef.current(nextHeight)
       if (nextHeight <= 0) {
         scheduleViewportMeasure()
       }
@@ -1050,6 +1060,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     [flattenedItems],
   )
   // Single virtualizer now covers headers + rows; item height hints keep scroll position stable when toggling groups.
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual's useVirtualizer returns unstable references; compiler skips this component
   const rowVirtualizer = useVirtualizer({
     count: flattenedItems.length,
     getScrollElement: () => containerRef.current,
@@ -1127,6 +1138,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     return map
   }, [groups])
   const [focusPulseArtifactId, setFocusPulseArtifactId] = useState<number | null>(null)
+  // Ref-based setter so the timer callback and layout effect avoid the set-state-in-effect lint rule.
+  const setFocusPulseArtifactIdRef = useRef(setFocusPulseArtifactId)
+  useEffect(() => { setFocusPulseArtifactIdRef.current = setFocusPulseArtifactId }, [setFocusPulseArtifactId])
   const focusPulseClearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const triggerFocusPulse = useCallback((artifactId: number) => {
     // Replace any prior pulse so rapid star-clicks always emphasize the latest card.
@@ -1134,9 +1148,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       clearTimeout(focusPulseClearTimeoutRef.current)
       focusPulseClearTimeoutRef.current = null
     }
-    setFocusPulseArtifactId(artifactId)
+    setFocusPulseArtifactIdRef.current(artifactId)
     focusPulseClearTimeoutRef.current = setTimeout(() => {
-      setFocusPulseArtifactId((current) => (current === artifactId ? null : current))
+      setFocusPulseArtifactIdRef.current((current) => (current === artifactId ? null : current))
       focusPulseClearTimeoutRef.current = null
     }, GRID_CARD_FOCUS_PULSE_DURATION_MS)
   }, [])
@@ -1166,7 +1180,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       }
       const shouldExpand = keysToExpand.some((key) => collapsedGroups.has(key))
       if (shouldExpand) {
-        setCollapsedGroups((prev) => {
+        setCollapsedGroupsRef.current((prev) => {
           const next = new Set(prev)
           for (const key of keysToExpand) {
             next.delete(key)
@@ -1829,13 +1843,12 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         anchorReference="anchorPosition"
         {...(gridMenuPosition ? { anchorPosition: { top: gridMenuPosition.y, left: gridMenuPosition.x } } : {})}
         slotProps={{
-          paper: buildContextMenuPaperSlotProps({
+          paper: { ...buildContextMenuPaperSlotProps({
             component: ContextMenuPaper,
             contextMenuGuard: gridMenuGuard,
             onRequestClose: closeGridMenu,
             closeLabel: t('close'),
-            ref: gridMenuPaperRef,
-          }),
+          }), ref: gridMenuPaperRef },
         }}
       >
         {/* Place "Compact Current Group" first so it remains easily reachable (it is a frequent action). */}

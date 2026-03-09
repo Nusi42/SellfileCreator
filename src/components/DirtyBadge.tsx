@@ -1,15 +1,15 @@
 import { Box } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
-import { forwardRef } from 'react'
-import type { HTMLAttributes, ReactNode } from 'react'
+import type { HTMLAttributes, ReactNode, Ref } from 'react'
 
 interface DirtyBadgeProps extends HTMLAttributes<HTMLDivElement> {
   active: boolean
   children: ReactNode
   sx?: SxProps<Theme>
+  ref?: Ref<HTMLDivElement>
 }
 
-const DirtyBadge = forwardRef<HTMLDivElement, DirtyBadgeProps>(function DirtyBadge({ active, children, sx, ...rest }, ref) {
+function DirtyBadge({ active, children, sx, ref, ...rest }: DirtyBadgeProps) {
   return (
     <Box
       ref={ref}
@@ -42,6 +42,6 @@ const DirtyBadge = forwardRef<HTMLDivElement, DirtyBadgeProps>(function DirtyBad
       )}
     </Box>
   )
-})
+}
 
 export default DirtyBadge

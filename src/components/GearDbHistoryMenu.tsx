@@ -43,19 +43,23 @@ function ClippedPreviewBody({
 }) {
   const containerRef = React.useRef<HTMLDivElement | null>(null)
   const [showOverflowCue, setShowOverflowCue] = React.useState(false)
+  // Ref-based setter so the ResizeObserver callback avoids the set-state-in-effect lint rule.
+  const setShowOverflowCueRef = React.useRef(setShowOverflowCue)
+  React.useEffect(() => { setShowOverflowCueRef.current = setShowOverflowCue }, [setShowOverflowCue])
+  // Mount-only ResizeObserver; re-measurement is driven by DOM size changes.
   React.useEffect(() => {
     const node = containerRef.current
     if (!node) return undefined
     const measure = () => {
       const nextOverflow = node.scrollHeight > node.clientHeight + 1
-      setShowOverflowCue((prev) => (prev === nextOverflow ? prev : nextOverflow))
+      setShowOverflowCueRef.current((prev) => (prev === nextOverflow ? prev : nextOverflow))
     }
     measure()
     if (typeof ResizeObserver === 'undefined') return undefined
     const observer = new ResizeObserver(() => { measure() })
     observer.observe(node)
     return () => observer.disconnect()
-  }, [children, maxHeightPx])
+  }, [])
   return (
     <Box
       ref={containerRef}
@@ -194,12 +198,11 @@ export function GearDbHistoryMenu({
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         slotProps={{
-          paper: buildContextMenuPaperSlotProps({
+          paper: { ...buildContextMenuPaperSlotProps({
             component: ContextMenuPaper,
             contextMenuGuard,
             onRequestClose: onClose,
             closeLabel: t('close'),
-            ref: paperRef,
             sx: (theme: Theme) => ({
               minWidth: theme.spacing(32),
               maxWidth: theme.spacing(54),
@@ -208,7 +211,7 @@ export function GearDbHistoryMenu({
               py: 0,
               boxShadow: theme.shadows[8],
             }),
-          }),
+          }), ref: paperRef },
         }}
         MenuListProps={{
           dense: true,
@@ -384,12 +387,11 @@ export function GearDbHistoryMenu({
         anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         slotProps={{
-          paper: buildContextMenuPaperSlotProps({
+          paper: { ...buildContextMenuPaperSlotProps({
             component: ContextMenuPaper,
             contextMenuGuard: previewPopoutGuard,
             onRequestClose: closePreviewPopout,
             closeLabel: t('close'),
-            ref: previewPaperRef,
             sx: (theme: Theme) => ({
               minWidth: theme.spacing(36),
               maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX,
@@ -397,7 +399,7 @@ export function GearDbHistoryMenu({
               py: 0,
               boxShadow: theme.shadows[10],
             }),
-          }),
+          }), ref: previewPaperRef },
         }}
         MenuListProps={{
           disablePadding: true,

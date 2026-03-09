@@ -6,7 +6,8 @@
  * Slot icons now reuse Farbstoff's RSL Helper assets. We inline their SVG
  * paths so the bundle stays single-file and we can tint them consistently.
  */
-// React types are picked up via jsx, no runtime import needed.
+// JSX namespace must be explicitly imported in React 19's type definitions.
+import type { JSX } from 'react'
 import type { ArtifactTypeId } from '../lib/types'
 import { ArtifactType, artifactTypeName, PREFERRED_ARTIFACT_TYPE_ORDER } from '../lib/types'
 

@@ -276,9 +276,13 @@ export function useSfrHistoryController(params: Params): ControllerResult {
     return /Mac|iPhone|iPad|iPod/i.test(platform)
   }, [])
   const canUndoRef = useRef(canUndo)
-  canUndoRef.current = canUndo
   const canRedoRef = useRef(canRedo)
-  canRedoRef.current = canRedo
+  // Sync refs in an effect so the keydown handler always reads the latest values
+  // without triggering a ref access during render.
+  useEffect(() => {
+    canUndoRef.current = canUndo
+    canRedoRef.current = canRedo
+  }, [canUndo, canRedo])
 
   useEffect(() => {
     const shouldIgnoreTarget = (el: EventTarget | null): boolean => {
@@ -316,7 +320,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
     }
     window.addEventListener('keydown', onKeyDown, { capture: true })
     return () => {
-      window.removeEventListener('keydown', onKeyDown, true as unknown as undefined)
+      window.removeEventListener('keydown', onKeyDown, { capture: true })
     }
   }, [isMacLike, redo, undo])
 
