@@ -1158,7 +1158,10 @@ export function summaryParts(
   if (parts.length === 0) return null
   // Interleave with separators
   const withSeps: JSX.Element[] = []
-  parts.forEach((p, i) => { withSeps.push(p); if (i < parts.length - 1) withSeps.push(<Box key={`sep-after-${p.key}`} component="span"> | </Box>) })
+  // Key derived from the current array length (before pushing the separator)
+  // is unique per separator and avoids using the forEach index parameter.
+  // Using p.key was wrong — React nulls element.key at runtime.
+  parts.forEach((p, i) => { withSeps.push(p); if (i < parts.length - 1) { const pos = withSeps.length; withSeps.push(<Box key={`sep-${pos}`} component="span"> | </Box>) } })
   return <>{withSeps}</>
 }
 /**

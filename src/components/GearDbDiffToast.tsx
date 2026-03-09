@@ -75,13 +75,12 @@ export function GearDbDiffToast({
     >
       {headerLineNodes.length > 0 ? (
         <Stack spacing={0.35}>
-          {/* Stable keys derived from lineSpecs or string content. */}
+          {/* Positional keys: string lines can repeat (same localized text),
+              and JSX nodes have no stable identity, so a counter is correct. */}
           {(() => {
-            // Pre-compute keys: string nodes use content; JSX nodes
-            // use a running counter scoped outside the map callback.
             let nodeSeq = 0
             return headerLineNodes.map((line) => {
-              const k = typeof line === 'string' ? `hdr-${line}` : `hdr-node-${++nodeSeq}`
+              const k = `hdr-${++nodeSeq}`
               return (
                 <Typography
                   key={k}

@@ -2475,20 +2475,23 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   const performAutoApplyRef = useRef(performAutoApply)
   performAutoApplyRef.current = performAutoApply
   const stableAutoApplyHandler = useCallback((): boolean => performAutoApplyRef.current(), [])
-  // Use a sentinel initial value so the first render triggers registration.
-  const [prevRegisterAutoApplyHandler, setPrevRegisterAutoApplyHandler] = useState<typeof registerAutoApplyHandler | undefined>(undefined)
-  if (registerAutoApplyHandler !== prevRegisterAutoApplyHandler) {
-    setPrevRegisterAutoApplyHandler(registerAutoApplyHandler)
-    // De-register from old, register with new.
-    if (prevRegisterAutoApplyHandler !== undefined) prevRegisterAutoApplyHandler?.(null)
-    registerAutoApplyHandler?.(stableAutoApplyHandler)
-  }
-  // Cleanup on unmount — deregister auto-apply handler.
+  // Track the registration function in a ref so we can de-register from the previous
+  // callback when the prop identity changes. Using a render-time `useState` comparison
+  // on a function prop caused infinite re-renders because every render produced a new
+  // function reference, so the `!==` check always fired setState → re-render → loop.
   const registerAutoApplyHandlerRef = useRef(registerAutoApplyHandler)
-  registerAutoApplyHandlerRef.current = registerAutoApplyHandler
   useEffect(() => {
-    return () => { registerAutoApplyHandlerRef.current?.(null) }
-  }, [])
+    const prev = registerAutoApplyHandlerRef.current
+    registerAutoApplyHandlerRef.current = registerAutoApplyHandler
+    // De-register from old callback when the identity changes.
+    if (prev !== registerAutoApplyHandler && prev !== undefined) prev?.(null)
+    // Register with the current callback. This is a callback-registration pattern
+    // (child tells parent "call me when you need auto-apply"), not derived-state push.
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-pass-live-state-to-parent
+    registerAutoApplyHandler?.(stableAutoApplyHandler)
+    // Cleanup on unmount or when the registration function changes.
+    return () => { registerAutoApplyHandler?.(null) }
+  }, [registerAutoApplyHandler, stableAutoApplyHandler])
   useEffect(() => {
     clearAutoApplyTimeout()
     if (!autoApplySelectedRecipe) return

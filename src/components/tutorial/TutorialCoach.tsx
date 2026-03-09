@@ -521,13 +521,15 @@ export function TutorialCoach({
     const parts = String(text).split(BRAND)
     // Content-derived keys at each split level avoid passing .map()
     // index into key props (satisfies no-array-index-key).
-    let brandSeq = 0
-    return parts.map((seg) => {
-      const isBrand = (brandSeq++ % 2) === 1
+    // Running counter across all split levels ensures unique keys even when
+    // the same text fragment (e.g. ", ") appears multiple times.
+    let seq = 0
+    return parts.map((seg, brandIdx) => {
+      const isBrand = brandIdx % 2 === 1
       if (isBrand) {
         return (
           <Box
-            key={`b-${seg}`}
+            key={`b-${seq++}`}
             component="span"
             sx={{
               color: 'warning.main',
@@ -544,20 +546,16 @@ export function TutorialCoach({
       }
       // Non-brand: split by ^^ for error/red segments, then within plain segments split by backticks
       const caretParts = seg.split('^^')
-      let caretSeq = 0
-      return caretParts.map((caretSeg) => {
-        const isError = (caretSeq++ % 2) === 1
-        if (isError) {
-          return <Box key={`e-${caretSeg}`} component="span" sx={{ color: 'error.main', fontWeight: 600 }}>{caretSeg}</Box>
+      return caretParts.map((caretSeg, caretIdx) => {
+        if (caretIdx % 2 === 1) {
+          return <Box key={`e-${seq++}`} component="span" sx={{ color: 'error.main', fontWeight: 600 }}>{caretSeg}</Box>
         }
         const ticks = caretSeg.split('`')
-        let tickSeq = 0
-        return ticks.map((p) => {
-          const isKeyword = (tickSeq++ % 2) === 1
-          return isKeyword
-            ? <Box key={`k-${p}`} component="span" sx={{ color: 'primary.main', fontWeight: 600 }}>{p}</Box>
-            : <Box key={`t-${p}`} component="span">{p}</Box>
-        })
+        return ticks.map((p, tickIdx) => (
+          tickIdx % 2 === 1
+            ? <Box key={`k-${seq++}`} component="span" sx={{ color: 'primary.main', fontWeight: 600 }}>{p}</Box>
+            : <Box key={`t-${seq++}`} component="span">{p}</Box>
+        ))
       })
     })
   }, [brandBeat])

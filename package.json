@@ -35,7 +35,8 @@
     "tests:extract": "tsc -p tsconfig.tests.json && node scripts/tooling/patch-esm-specifiers.cjs && node scripts/test/dump-tests-sfr.mjs"
   },
   "overrides": {
-    "esbuild": ">=0.24.3"
+    "esbuild": ">=0.24.3",
+    "rehype-prism-plus": "^2.0.2"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

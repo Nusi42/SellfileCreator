@@ -307,8 +307,9 @@ export function MarkdownTooltip({
   const anchorCallback = useCallback((node: HTMLElement | null) => {
     setAnchorEl(node)
   }, [])
+  // React 19: ref is a regular prop, not a special element property.
   const childRef = React.isValidElement(children)
-    ? (children as React.ReactElement & { ref?: React.Ref<Element> }).ref ?? null
+    ? (children.props as { ref?: React.Ref<Element> }).ref ?? null
     : null
   const mergedChildRef = useForkRef(childRef, anchorCallback)
   // Native-title support only runs when the caller explicitly wants overflow copy exposed.
