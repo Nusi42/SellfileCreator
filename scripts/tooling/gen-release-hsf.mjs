@@ -84,20 +84,16 @@ await warmupWasmRuleEngine()
 // Use defaultSubstatTargets as the fallback; the SFR's own Minima section
 // overrides it via parseSfrText when present.
 const sfrText = readFileSync(sfrPath, 'utf8')
-const { recipes, metasets, substatTargets, finalSellRemainder } = parseSfrText(
+const { recipes, metasets, substatTargets, finalSellRemainder, note: sfrNote } = parseSfrText(
   sfrText,
   { metasets: [], substatTargets: defaultSubstatTargets() },
 )
 
-// Locate the recipe whose note contains the recipe-overrides DSL.
-// In example.sfr this is the final recipe, which holds the account-level question.
-const noteRecipe = recipes.find(
-  (r) => typeof r.note === 'string' && r.note.includes('recipe-overrides'),
-)
-if (!noteRecipe) {
-  throw new Error('No recipe with recipe-overrides DSL found in ' + sfrPath)
+// The recipe-overrides DSL lives in the top-level SFR Note (not on any recipe).
+if (typeof sfrNote !== 'string' || !sfrNote.includes('recipe-overrides')) {
+  throw new Error('No recipe-overrides DSL found in top-level Note of ' + sfrPath)
 }
-const overridesNote = noteRecipe.note
+const overridesNote = sfrNote
 
 // --- Locate the question option matching the preset token ---
 // The token is the id= value from the DSL (e.g. id=lategame → token 'lategame').
