@@ -62,6 +62,13 @@ if (!existsSync(compiledSfrIo)) {
 // Resolve as file URLs so dynamic imports work on all platforms.
 const lib = (p) => pathToFileURL(resolve(LIBDIR, p)).href
 
+// Pre-initialize the WASM binary from disk before importing any module that
+// depends on it. The generated __wbg_init accepts a BufferSource directly and
+// skips the URL→fetch path, which fails on file:// in some Node.js versions.
+// warmupWasmRuleEngine then sees the wasm variable already set and returns early.
+const { default: initWasmBinary } = await import(lib('wasm/generated/rule_engine.js'))
+await initWasmBinary(readFileSync(resolve(WASM_DST, 'rule_engine_bg.wasm')))
+
 const { warmupWasmRuleEngine } = await import(lib('wasm/wasmRuleEngine.js'))
 const { parseSfrText } = await import(lib('sfrIO.js'))
 const { defaultSubstatTargets } = await import(lib('hsfBuilder.js'))
@@ -73,7 +80,7 @@ const {
 const { computeMergedRules } = await import(lib('merge.js'))
 const { buildHsfFileFromMerged } = await import(lib('hsfIO.js'))
 
-// Initialize WASM rule engine before any builder calls.
+// Confirm WASM is ready (fast path — binary already loaded above).
 await warmupWasmRuleEngine()
 
 // --- Parse SFR ---
