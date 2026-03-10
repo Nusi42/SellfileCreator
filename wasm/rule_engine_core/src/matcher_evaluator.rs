@@ -1,47 +1,71 @@
 use super::*;
 
 // Rules bucketed by artifact slot for fast per-item evaluation.
-// At configure time, rules with empty artifact_types go into `shared` (every item sees them)
-// and rules with specific types go into per_slot buckets (only items with that slot see them).
-// A rule spanning multiple slot ids is cloned into each relevant bucket at configure time
-// so hot-path evaluation stays allocation-free.
+// from_rules partitions the flat rule list into shared (any-type) and per-slot buckets
+// internally, then builds a merged_per_slot list for each slot by merging shared +
+// slot-specific rules sorted by original_index. This restores flat-list recipe order
+// across the bucket boundary so a higher-index recipe's any-type rule cannot jump ahead
+// of an earlier recipe's slot-specific rule during evaluation.
+// A rule spanning multiple slot ids is cloned into each relevant bucket at configure time.
 #[derive(Debug, Default)]
 pub struct BucketedRules {
-    // Applies to every item regardless of slot.
+    // Slot-agnostic rules; kept for slots with no slot-specific rules and for is_empty().
     pub shared: Vec<PreparedRule>,
-    // Applies only to items whose slot id matches the map key.
-    pub per_slot: HashMap<i64, Vec<PreparedRule>>,
+    // Per-slot merged lists: shared + slot-specific rules sorted by original_index.
+    // Only present for slots that have at least one slot-specific rule.
+    merged_per_slot: HashMap<i64, Vec<PreparedRule>>,
 }
 
 impl BucketedRules {
-    // Partition a flat rule list into shared vs per-slot buckets.
+    // Partition the flat rule list into shared vs per-slot buckets, then pre-build
+    // a merged sorted list per slot so evaluate_item processes rules in flat-list order.
     // original_index is stamped onto each rule here so EvalMatch.rule_index always
     // refers to the flat-list position that TS callers use to look up rule metadata.
     pub fn from_rules(rules: Vec<PreparedRule>) -> Self {
-        let mut bucketed = Self::default();
+        let mut shared: Vec<PreparedRule> = Vec::new();
+        let mut per_slot: HashMap<i64, Vec<PreparedRule>> = HashMap::new();
         for (idx, mut rule) in rules.into_iter().enumerate() {
             // Stamp the flat-list position before distributing into buckets.
             rule.original_index = idx;
             if rule.artifact_types.is_empty() {
                 // No slot constraint — every item evaluates this rule.
-                bucketed.shared.push(rule);
+                shared.push(rule);
             } else {
                 // Push into each declared slot bucket (clone for multi-slot rules).
                 let mut types_iter = rule.artifact_types.iter().copied();
                 // Move the rule into the first slot bucket; clone for any additional slots.
                 let first_slot = types_iter.next().expect("non-empty artifact_types");
                 for extra_slot in types_iter {
-                    bucketed.per_slot.entry(extra_slot).or_default().push(rule.clone());
+                    per_slot.entry(extra_slot).or_default().push(rule.clone());
                 }
-                bucketed.per_slot.entry(first_slot).or_default().push(rule);
+                per_slot.entry(first_slot).or_default().push(rule);
             }
         }
-        bucketed
+        // Merge shared + slot-specific per slot and sort by original_index so evaluation
+        // sees rules in flat-list order. Without this, any-type (shared-bucket) rules from
+        // a later recipe would fire before slot-specific rules from an earlier recipe,
+        // producing an incorrect first_match recipe index.
+        let merged_per_slot = per_slot
+            .into_iter()
+            .map(|(slot, slot_rules)| {
+                let mut merged: Vec<PreparedRule> =
+                    shared.iter().cloned().chain(slot_rules).collect();
+                merged.sort_by_key(|r| r.original_index);
+                (slot, merged)
+            })
+            .collect();
+        Self { shared, merged_per_slot }
     }
 
-    // Return the slice of slot-specific rules for an item's slot (empty if none).
-    pub fn slot_rules(&self, slot: i64) -> &[PreparedRule] {
-        self.per_slot.get(&slot).map_or(&[], Vec::as_slice)
+    // Merged rule list for this slot in flat-list position order (shared + slot-specific).
+    // Falls back to shared-only for slots with no slot-specific rules.
+    pub fn rules_for_slot(&self, slot: i64) -> &[PreparedRule] {
+        self.merged_per_slot.get(&slot).map_or(self.shared.as_slice(), Vec::as_slice)
+    }
+
+    // True when no rules of any kind are configured.
+    pub fn is_empty(&self) -> bool {
+        self.shared.is_empty() && self.merged_per_slot.is_empty()
     }
 }
 
@@ -489,12 +513,10 @@ fn should_include_recipe(
 // HashSet and HashMap allocations. Returns only the two first-match results;
 // callers read recipe data from scratch.recipe_matches after the call.
 //
-// shared_rules: slot-agnostic rules (artifact_types empty) evaluated for every item.
-// slot_rules: rules pre-filtered to the item's slot at configure time (BucketedRules::slot_rules).
-// Callers derive slot_rules from BucketedRules::slot_rules(item.slot) — zero allocation.
+// rules: merged shared + slot-specific rules in flat-list position order,
+// obtained from BucketedRules::rules_for_slot(item.slot) at the call site.
 pub fn evaluate_item(
-    shared_rules: &[PreparedRule],
-    slot_rules: &[PreparedRule],
+    rules: &[PreparedRule],
     recipe_modes: &[String],
     item: &TestItemRaw,
     options: &EvaluateOptionsPrepared,
@@ -512,10 +534,10 @@ pub fn evaluate_item(
     let mut pending_keep_override: Option<EvalMatch> = None;
     let mut prekeep_override: Option<EvalMatch> = None;
 
-    // Chain shared (all-slot) rules first, then slot-specific rules — zero-copy iterator.
-    // Use rule.original_index (stamped at configure time) so EvalMatch.rule_index always
-    // matches the original flat-list position that TS callers use to look up rule metadata.
-    for rule in shared_rules.iter().chain(slot_rules.iter()) {
+    // Iterate the pre-merged, original_index-sorted rule slice from BucketedRules::rules_for_slot.
+    // Shared and slot-specific rules are interleaved in flat-list order so recipe ordering
+    // is preserved; rule.original_index maps back to the TS-visible flat-list position.
+    for rule in rules.iter() {
         let rule_index = rule.original_index;
         if !match_rule(rule, item) {
             continue;
@@ -627,7 +649,7 @@ fn resolve_safeguard_candidate_keep_flags_core(
     ignore_safeguard_recipe_indices: &[i64],
 ) -> Vec<bool> {
     let has_ignored_recipes = !ignore_safeguard_recipe_indices.is_empty();
-    let no_rules = bucketed_rules.shared.is_empty() && bucketed_rules.per_slot.is_empty();
+    let no_rules = bucketed_rules.is_empty();
     // eval_options reuses the same Vec slice (already a Vec<i64>) — no extra allocation.
     let eval_options =
         EvaluateOptionsPrepared::from_excluded_recipe_indices(ignore_safeguard_recipe_indices);
@@ -674,10 +696,9 @@ fn resolve_safeguard_candidate_keep_flags_core(
         // first matching rule, masking a different outcome from the remaining rules.
         // We re-evaluate with eval_options excluding the ignored recipe so the result
         // reflects what the sell engine would decide without safeguard interference.
-        let slot_rules = bucketed_rules.slot_rules(row.item.slot);
+        let rules = bucketed_rules.rules_for_slot(row.item.slot);
         let (first_match, _) = evaluate_item(
-            &bucketed_rules.shared,
-            slot_rules,
+            rules,
             recipe_modes,
             &row.item,
             &eval_options,
@@ -751,4 +772,119 @@ pub fn collect_safeguard_candidates_core(
         candidates,
         unique_item_keys: unique_sorted,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Construct a minimal PreparedRule that matches any item of the given slot.
+    // artifact_types empty → shared (any-type) bucket; non-empty → slot-specific.
+    fn make_rule(original_index: usize, recipe_idx: i64, artifact_types: Vec<i64>) -> PreparedRule {
+        PreparedRule {
+            original_index,
+            use_flag: true,
+            keep_flag: true,
+            artifact_types,
+            artifact_sets: vec![],
+            faction: 0,
+            // LEVEL_ANY_SENTINEL bypasses the level check in match_rule.
+            level_for_check: LEVEL_ANY_SENTINEL,
+            // STAT_ID_ANY bypasses the main-stat check in match_rule.
+            main_stat_id: STAT_ID_ANY,
+            main_stat_f: 0,
+            substats: vec![],
+            recipe_idx: Some(recipe_idx),
+            source_bits: 0,
+            source_fallback: None,
+            safeguard_item_key: None,
+            // 0xFF matches every rank and rarity bit without needing specific values.
+            rank_mask: 0xFF,
+            rarity_mask: 0xFF,
+            is_keep_override_source: false,
+        }
+    }
+
+    // Minimal weapon item; slot 1 = Weapon in RSL domain constants.
+    fn make_weapon_item() -> TestItemRaw {
+        TestItemRaw {
+            slot: 1,
+            set: 1,
+            rank: 6,
+            rarity: 5,
+            level: LEVEL_ANY_SENTINEL,
+            faction: None,
+            main: None,
+            sub_values: None,
+            item_id: None,
+            preview_extras: None,
+        }
+    }
+
+    // Before the fix, BucketedRules evaluated shared rules before slot-specific rules,
+    // so a recipe-181 any-type rule (shared bucket) fired ahead of a recipe-49 slot-specific
+    // rule even though recipe 49 appeared first in the flat rule list — producing the wrong
+    // first_match recipe index.
+    //
+    // After the fix, merged_per_slot sorts shared + slot-specific rules by original_index
+    // so the evaluation order matches the flat-list position regardless of bucket origin.
+    #[test]
+    fn slot_specific_rule_fires_before_later_any_type_rule() {
+        // Flat list: index 0 = recipe 49 (weapon-only), index 1 = recipe 181 (any type).
+        // Recipe 49 should be first_match for a weapon item; recipe 181 must not jump ahead.
+        let rule_49 = make_rule(0, 49, vec![1]);   // slot-specific: Weapon
+        let rule_181 = make_rule(1, 181, vec![]);  // any-type: shared bucket
+        let bucketed = BucketedRules::from_rules(vec![rule_49, rule_181]);
+
+        let item = make_weapon_item();
+        let mut scratch = EvaluateItemScratch::new();
+        let options = EvaluateOptionsPrepared::default();
+
+        let rules = bucketed.rules_for_slot(item.slot);
+        let (first_match, _) = evaluate_item(rules, &[], &item, &options, &mut scratch);
+
+        assert_eq!(
+            first_match.and_then(|m| m.recipe_idx),
+            Some(49),
+            "recipe 49 has a lower flat-list index than recipe 181; it must be first_match"
+        );
+        // matchingRecipeIndices must also respect flat-list order.
+        let indices: Vec<i64> = scratch.recipe_matches.iter().map(|(k, _)| *k).collect();
+        assert_eq!(indices, vec![49, 181], "recipe 49 must precede recipe 181 in match order");
+    }
+
+    // Inverse case: when the any-type rule genuinely comes first in the flat list it
+    // must still win, so the fix does not accidentally invert the ordering.
+    #[test]
+    fn any_type_rule_fires_first_when_it_has_lower_flat_index() {
+        // Flat list: index 0 = recipe 181 (any type), index 1 = recipe 49 (weapon-only).
+        let rule_181 = make_rule(0, 181, vec![]);  // any-type: flat index 0
+        let rule_49 = make_rule(1, 49, vec![1]);   // slot-specific: flat index 1
+        let bucketed = BucketedRules::from_rules(vec![rule_181, rule_49]);
+
+        let item = make_weapon_item();
+        let mut scratch = EvaluateItemScratch::new();
+        let options = EvaluateOptionsPrepared::default();
+
+        let rules = bucketed.rules_for_slot(item.slot);
+        let (first_match, _) = evaluate_item(rules, &[], &item, &options, &mut scratch);
+
+        assert_eq!(
+            first_match.and_then(|m| m.recipe_idx),
+            Some(181),
+            "recipe 181 has a lower flat-list index here; it must be first_match"
+        );
+        let indices: Vec<i64> = scratch.recipe_matches.iter().map(|(k, _)| *k).collect();
+        assert_eq!(indices, vec![181, 49]);
+    }
+
+    // A slot with no slot-specific rules must still receive the shared rules.
+    #[test]
+    fn slot_with_no_specific_rules_receives_shared_rules() {
+        let rule_any = make_rule(0, 10, vec![]);  // any-type only
+        let bucketed = BucketedRules::from_rules(vec![rule_any]);
+        // Slot 99 has no slot-specific rules — fall back to shared.
+        let rules = bucketed.rules_for_slot(99);
+        assert_eq!(rules.len(), 1, "shared-only slot must return the single shared rule");
+    }
 }

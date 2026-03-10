@@ -1012,11 +1012,10 @@ pub fn evaluate_engine(
         let mut scratch = EvaluateItemScratch::new();
         let mut results = Vec::with_capacity(items.len());
         for entry in &items {
-            // Derive slot-specific rules for this item; zero allocation per-item.
-            let slot_rules = engine.bucketed_rules.slot_rules(entry.item.slot);
+            // Derive the merged rule slice for this item's slot; zero allocation per-item.
+            let rules = engine.bucketed_rules.rules_for_slot(entry.item.slot);
             let (first_match, first_non_excluded) = evaluate_item(
-                &engine.bucketed_rules.shared,
-                slot_rules,
+                rules,
                 &engine.recipe_modes,
                 &entry.item,
                 &prepared_options,
@@ -1042,8 +1041,7 @@ pub fn evaluate_engine(
                 if needs_baseline {
                     // Second call overwrites scratch; recipe data already extracted above.
                     let (_, baseline_non_excluded) = evaluate_item(
-                        &engine.bucketed_rules.shared,
-                        slot_rules,
+                        rules,
                         &engine.recipe_modes,
                         &entry.item,
                         baseline,
@@ -1137,11 +1135,10 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
         let mut evaluate_results = Vec::<EvaluateItemResult>::with_capacity(collect_rows.len());
 
         for row in collect_rows.iter() {
-            // Derive slot-specific rules for this item; zero allocation per-item.
-            let slot_rules = engine.bucketed_rules.slot_rules(row.item.slot);
+            // Derive the merged rule slice for this item's slot; zero allocation per-item.
+            let rules = engine.bucketed_rules.rules_for_slot(row.item.slot);
             let (first_match, first_non_excluded) = evaluate_item(
-                &engine.bucketed_rules.shared,
-                slot_rules,
+                rules,
                 &engine.recipe_modes,
                 &row.item,
                 &prepared_options,
@@ -1169,8 +1166,7 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
                     first_match.map(|m| m.is_keep_override_source).unwrap_or(false);
                 if needs_baseline {
                     let (_, baseline_non_excluded) = evaluate_item(
-                        &engine.bucketed_rules.shared,
-                        slot_rules,
+                        rules,
                         &engine.recipe_modes,
                         &row.item,
                         baseline,

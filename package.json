@@ -23,7 +23,7 @@
     "release:win": "powershell -ExecutionPolicy Bypass -File ./scripts/release/release-win.ps1",
     "release:win-dev": "powershell -ExecutionPolicy Bypass -File ./scripts/release/release-win-dev.ps1",
     "release-notes:catchup": "bash ./scripts/release/run-release-notes-catchup.sh",
-    "test:unit": "npm run wasm:ensure:rule-engine && node scripts/test/run-tests.mjs",
+    "test:unit": "npm run wasm:ensure:rule-engine && cargo test --manifest-path wasm/rule_engine_core/Cargo.toml && node scripts/test/run-tests.mjs",
     "bench:pipeline": "npm run wasm:ensure:rule-engine && node node_modules/typescript/bin/tsc -p tsconfig.tests.json --noEmit false && node scripts/tooling/patch-esm-specifiers.cjs && node --experimental-wasm-modules --import ./tmp/tsc/tests/tests/setup/wasm-warmup.js tmp/tsc/tests/tests/benchmarks/pipeline-perf.bench.js",
     "test:e2e:chromium": "playwright test --project=chromium",
     "test:e2e:firefox": "playwright test --project=firefox",
