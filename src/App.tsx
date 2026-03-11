@@ -1739,6 +1739,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [])
   const {
     selectedRuleIds: selectedSafeguardRuleIds,
+    setSelectedRuleIds: setSelectedSafeguardRuleIds,
     multiselectActive: safeguardMultiselectActive,
     multiSelectedRules: multiSelectedSafeguardRules,
     multiEditHandle: safeguardMultiEditHandle,
@@ -1817,9 +1818,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleSelectSafeguardRule = useCallback((ruleId: string) => {
     safeguardAutoApplyNowRef.current()
     setSelectedSafeguardRuleId(ruleId)
+    // Collapse the multi-select IDs to just this rule so SafeguardChipsPanel highlights it
+    // correctly. SafeguardChipsPanel uses selectedRuleIds (not selectedRuleId) when
+    // onRuleSelect is provided, so the single-select scalar alone is not enough.
+    setSelectedSafeguardRuleIds([ruleId], { suppressWillChange: true })
     const rule = safeguardRules.find((r) => r.id === ruleId)
     if (rule) setSafeguardBuilder(cloneSafeguardRule(rule))
-  }, [safeguardRules, setSafeguardBuilder])
+  }, [safeguardRules, setSafeguardBuilder, setSelectedSafeguardRuleIds])
 
   // Shared helper: build a scaffolded SafeguardRule from a recipe without touching state.
   // Uses safeguardBuilderRef.current as the base so id/countMode/etc. are preserved.
