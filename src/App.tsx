@@ -2116,17 +2116,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     showGearDbDiffToast,
   ])
   // Drain the queued diff-toast once the Gear Inspector grid has committed a matching build.
-  // Extracted as a stable callback so the effect body is a thin trigger.
-  const drainGearDbDiffToast = useCallback(() => {
+  // Accepts the current building/committedBuildId values captured at render time so the
+  // checks reflect the just-committed state rather than refs that useEffect hasn't updated yet.
+  // (queueMicrotask fires before useEffect, so reading refs directly would see stale values.)
+  const drainGearDbDiffToast = useCallback((building: boolean, committedBuildId: number) => {
     const pending = gearDbDiffToastPendingRef.current
     // Nothing queued means nothing to render.
     if (!pending) return
     // Ignore stale entries if a newer diff request superseded this one.
     if (pending.requestId !== gearDbDiffToastRequestIdRef.current) return
     // Wait until the Gear Inspector grid has committed a new build for the update.
-    if (gearEntriesBuildingRef.current) return
+    if (building) return
     // Ignore commits that predate the queued diff request.
-    if (gearEntriesCommittedBuildIdRef.current <= pending.baselineBuildId) return
+    if (committedBuildId <= pending.baselineBuildId) return
     // Map current preview rows so matches line up with the diff entries.
     const matchesAfter = buildMatchMapByArtifactId(gearInspectorPreviewRowsRef.current)
     // Enrich the shared retained list once; history/toast derive slices from it.
@@ -2172,8 +2174,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [prevDrainTriggerKey, setPrevDrainTriggerKey] = useState(drainTriggerKey)
   if (drainTriggerKey !== prevDrainTriggerKey) {
     setPrevDrainTriggerKey(drainTriggerKey)
-    // Schedule drain after commit so React has committed the new state values.
-    queueMicrotask(() => drainGearDbDiffToast())
+    // Capture the state values now — queueMicrotask fires before useEffect, so refs
+    // updated by effects would still be stale when the microtask runs.
+    const drainBuilding = gearEntriesBuilding
+    const drainCommittedBuildId = gearEntriesCommittedBuildId
+    queueMicrotask(() => drainGearDbDiffToast(drainBuilding, drainCommittedBuildId))
   }
   const [gearImportBusy, setGearImportBusy] = useState(false)
   const gearImportBusyCountRef = useRef(0)
