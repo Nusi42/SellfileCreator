@@ -4,6 +4,11 @@
  * Exposes a tiny localStorage-backed store that cooperates with React via
  * `useSyncExternalStore`. Callers can subscribe to a key, update it, and keep
  * React state in sync without ad-hoc Effects.
+ *
+ * Cross-window sync via the `storage` event is intentionally NOT supported.
+ * The SFR autosave (the document being edited) does not live-sync across
+ * windows; keeping preferences isolated per-window matches that behavior and
+ * avoids confusing interactions when two windows are open simultaneously.
  */
 import { useCallback, useSyncExternalStore } from 'react'
 
@@ -31,7 +36,6 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
   let current: T = fallback
   let currentSerialized: string | null = null
   const listeners = new Set<() => void>()
-  let storageListenerAttached = false
 
   const equality: EqualityFn<T> = equals ?? ((a, b) => Object.is(a, b))
 
@@ -72,44 +76,11 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
     for (const listener of listeners) listener()
   }
 
-  const handleStorage = (event: StorageEvent) => {
-    if (!isWindowDefined()) return
-    if (event.storageArea !== window.localStorage) return
-    if (event.key !== key) return
-    const raw = event.newValue ?? null
-    try {
-      const parsed = parse(raw)
-      if (equality(current, parsed)) {
-        currentSerialized = raw
-        return
-      }
-      current = parsed
-      currentSerialized = raw
-      notify()
-    } catch {
-      if (equality(current, fallback)) {
-        currentSerialized = raw
-        return
-      }
-      current = fallback
-      currentSerialized = raw
-      notify()
-    }
-  }
-
+  // Subscribe/unsubscribe for useSyncExternalStore. The `storage` event is
+  // intentionally not listened to — cross-window sync is not supported.
   const subscribe = (listener: () => void) => {
     listeners.add(listener)
-    if (!storageListenerAttached && isWindowDefined()) {
-      window.addEventListener('storage', handleStorage)
-      storageListenerAttached = true
-    }
-    return () => {
-      listeners.delete(listener)
-      if (storageListenerAttached && listeners.size === 0 && isWindowDefined()) {
-        window.removeEventListener('storage', handleStorage)
-        storageListenerAttached = false
-      }
-    }
+    return () => { listeners.delete(listener) }
   }
 
   const getSnapshot = () => readFromStorage()
