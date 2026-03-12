@@ -230,7 +230,7 @@ import type {
   GearDbLastUsedRow,
   NormalizedGearArtifact,
 } from './lib/importers/gearDbNormalizer'
-import { GearInspectorItemsGrid } from './components/GearInspectorItemsGrid'
+import { GearInspectorItemsGridMemo as GearInspectorItemsGrid } from './components/GearInspectorItemsGrid'
 import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from './types/gearInspectorPreview'
 import type { GearInspectorMatchWorkerItemResult } from './workers/gearInspectorMatchWorkerTypes'
 import {
@@ -1390,6 +1390,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const editingRecipeIndex = useMemo(() => (
     selectedRecipeIndices.length === 1 ? selectedRecipeIndices[0]! : null
   ), [selectedRecipeIndices])
+
   const [previewSelectedRecipeIdx, setPreviewSelectedRecipeIdx] = useState<number | null>(selectedRecipeIdx)
   useEffect(() => {
     startTransition(() => {
@@ -4037,6 +4038,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     specialRuleSourceLabels,
   ])
   const gearEntriesAfterRulesFilter = gearInspectorFilterResult.items
+  // Derive the set of recipe indices that are the first match for at least one filtered Gear Inspector row.
+  // Built from already-computed worker results — no WASM evaluation needed. Used to short-circuit the
+  // expensive evaluateFirst loop in builderInsertBecomesGearInspectorFirstMatch when the builder is clean.
+  const firstMatchRecipeIndices = useMemo(() => {
+    const s = new Set<number>()
+    for (const row of gearEntriesAfterRulesFilter) {
+      if (row.match?.recipeIdx != null) s.add(row.match.recipeIdx)
+    }
+    return s
+  }, [gearEntriesAfterRulesFilter])
   const gearInspectorChampionOptions = useMemo<GearInspectorChampionOption[]>(() => {
     // Cache champion metadata per id so the dropdown can render icons without rescanning rows.
     const map = new Map<number, GearInspectorChampionOption>()
@@ -4688,21 +4699,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const insertHiddenByFilters = useMemo(() => {
     if (!limitRecipesToFiltered) return false
     if (previewMode === 'gearInspector') {
+      // When the builder is clean and the insert position matches the current recipe's saved position,
+      // the worker-cached first-match set reflects exactly what inserting/saving would produce.
+      if (!selectedIsDirty && prospectiveInsertIndex === editingRecipeIndex) {
+        return editingRecipeIndex === null || !firstMatchRecipeIndices.has(editingRecipeIndex)
+      }
       return !builderInsertBecomesGearInspectorFirstMatch(prospectiveInsertIndex)
     }
     return !builderInsertMatchesRuleFilters
   }, [
     builderInsertBecomesGearInspectorFirstMatch,
     builderInsertMatchesRuleFilters,
+    editingRecipeIndex,
+    firstMatchRecipeIndices,
     limitRecipesToFiltered,
     previewMode,
     prospectiveInsertIndex,
+    selectedIsDirty,
   ])
 
   const saveHiddenByFilters = useMemo(() => {
     if (!limitRecipesToFiltered) return false
     if (editingRecipeIndex === null) return false
     if (previewMode === 'gearInspector') {
+      // When the builder is clean, the worker-cached first-match set is accurate — skip WASM evaluation.
+      if (!selectedIsDirty) return !firstMatchRecipeIndices.has(editingRecipeIndex)
       return !builderInsertBecomesGearInspectorFirstMatch(editingRecipeIndex)
     }
     return !builderSaveMatchesRuleFilters
@@ -4710,8 +4731,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     builderInsertBecomesGearInspectorFirstMatch,
     builderSaveMatchesRuleFilters,
     editingRecipeIndex,
+    firstMatchRecipeIndices,
     limitRecipesToFiltered,
     previewMode,
+    selectedIsDirty,
   ])
 
   // Endpoint pushes that mutate Gear Inspector/preview state must run in strict sequence.

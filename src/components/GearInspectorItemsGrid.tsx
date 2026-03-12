@@ -2967,4 +2967,7 @@ function groupRowsBySet(
   return grouped
 }
 
+// Memoized variant — prevents re-renders when the parent re-renders but props are unchanged.
+// Used wherever the grid can be skipped (e.g. recipe selection that doesn't affect the gear set).
+export const GearInspectorItemsGridMemo = React.memo(GearInspectorItemsGrid)
 export default GearInspectorItemsGrid
