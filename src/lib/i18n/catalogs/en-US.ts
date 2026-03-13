@@ -1205,6 +1205,9 @@ const enUS: Catalog = {
   toastSellfileExportFailed: 'Sellfile export failed. See console for details.',
   toastGearDbImportedShort: 'Imported {count}',
   toastGearDbImportedShortWithInbox: 'Imported {count} (+{inboxCount} inbox)',
+  // Used after the initial import when the DB already had gear — shows the running total, not "Imported".
+  toastGearDbTotalShort: 'Total: {count}',
+  toastGearDbTotalShortWithInbox: 'Total: {count} (+{inboxCount} inbox)',
   toastGearDbDiffSummaryLabel: 'Gear updated:',
   toastGearDbDiffSummary: 'Gear updated: {added} / {removed} / {updated}.',
   toastGearDbImportEmpty: 'Database did not contain any gear items.',

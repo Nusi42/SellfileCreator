@@ -103,7 +103,8 @@ export type GearDbDiffToastPayload = {
  * Structured header lines used to render localized history summaries.
  */
 export type GearDbDiffHistoryLineSpec =
-  | { kind: 'import'; totalCount: number; inboxCount: number }
+  // isInitial: true on the very first push when the DB was empty; false on subsequent diffs.
+  | { kind: 'import'; totalCount: number; inboxCount: number; isInitial: boolean }
   | { kind: 'diff'; addedCount: number; removedCount: number; updatedCount: number }
   | { kind: 'timestamp'; at: number }
 
@@ -156,13 +157,20 @@ export const formatGearDbDiffHistoryLineText = (
   t: GearDbDiffHistoryLineTranslator,
 ): string | null => {
   // Import lines summarize how many items landed and inbox inclusion.
+  // Initial imports use "Imported" phrasing; subsequent diff updates use "Total" so the
+  // label reflects that existing gear was updated rather than freshly loaded.
   if (spec.kind === 'import') {
     const totalCount = Math.max(0, Math.floor(spec.totalCount))
     const inboxCount = Math.max(0, Math.floor(spec.inboxCount))
     const inventoryCount = Math.max(0, totalCount - inboxCount)
+    if (spec.isInitial) {
+      return inboxCount > 0
+        ? t('toastGearDbImportedShortWithInbox', { count: inventoryCount, inboxCount })
+        : t('toastGearDbImportedShort', { count: totalCount })
+    }
     return inboxCount > 0
-      ? t('toastGearDbImportedShortWithInbox', { count: inventoryCount, inboxCount })
-      : t('toastGearDbImportedShort', { count: totalCount })
+      ? t('toastGearDbTotalShortWithInbox', { count: inventoryCount, inboxCount })
+      : t('toastGearDbTotalShort', { count: totalCount })
   }
   // Diff lines highlight added vs removed vs updated counts for quick scanning.
   if (spec.kind === 'diff') {

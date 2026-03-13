@@ -1191,6 +1191,8 @@ const overrides: Catalog = {
   toastSellfileExportFailed: 'Sellfile dışa aktarma başarısız oldu. Ayrıntılar için konsola bakın.',
   toastGearDbImportedShort: 'İçe aktarıldı {count}',
   toastGearDbImportedShortWithInbox: 'İçe aktarıldı {count} (+{inboxCount} gelen kutusu)',
+  toastGearDbTotalShort: 'Toplam: {count}',
+  toastGearDbTotalShortWithInbox: 'Toplam: {count} (+{inboxCount} gelen kutusu)',
   toastGearDbDiffSummaryLabel: 'Ekipman güncellendi:',
   toastGearDbDiffSummary: 'Ekipman güncellendi: {added} / {removed} / {updated}.',
   toastGearDbImportEmpty: 'Veritabanında ekipman bulunmuyor.',

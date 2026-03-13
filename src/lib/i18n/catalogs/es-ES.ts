@@ -1191,6 +1191,8 @@ const overrides: Catalog = {
   toastSellfileExportFailed: 'Error al exportar el Sellfile. Consulta la consola.',
   toastGearDbImportedShort: 'Importadas {count}',
   toastGearDbImportedShortWithInbox: 'Importadas {count} (+{inboxCount} buzón)',
+  toastGearDbTotalShort: 'Total: {count}',
+  toastGearDbTotalShortWithInbox: 'Total: {count} (+{inboxCount} buzón)',
   toastGearDbDiffSummaryLabel: 'Equipo actualizado:',
   toastGearDbDiffSummary: 'Equipo actualizado: {added} / {removed} / {updated}.',
   toastGearDbImportEmpty: 'La base de datos no contiene piezas de equipo.',

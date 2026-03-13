@@ -1191,6 +1191,8 @@ const catalog: Catalog = {
   toastSellfileExportFailed: 'Falha ao exportar o Sellfile. Veja o console.',
   toastGearDbImportedShort: 'Importadas {count}',
   toastGearDbImportedShortWithInbox: 'Importadas {count} (+{inboxCount} caixa de entrada)',
+  toastGearDbTotalShort: 'Total: {count}',
+  toastGearDbTotalShortWithInbox: 'Total: {count} (+{inboxCount} caixa de entrada)',
   toastGearDbDiffSummaryLabel: 'Equipamentos atualizados:',
   toastGearDbDiffSummary: 'Equipamentos atualizados: {added} / {removed} / {updated}.',
   toastGearDbImportEmpty: 'O banco de dados não contém peças de gear.',

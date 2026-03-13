@@ -3346,17 +3346,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const diffDetails = buildGearDbDiffSummary(previousGearInspectorSnapshots, importedSnapshots)
         // Capture a shared timestamp so toast + history stay aligned.
         const queuedAt = Date.now()
-        // Build structured header specs so history can re-localize later.
-        const lineSpecs = appendGearDbTimestampLineSpec([
-          { kind: 'import', totalCount, inboxCount },
-          {
-            // Use snapshot diff counts so summary lines mirror the toast entries.
-            kind: 'diff',
-            addedCount: diffDetails.addedCount,
-            removedCount: diffDetails.removedCount,
-            updatedCount: diffDetails.updatedCount,
-          },
-        ], queuedAt)
+        // True only when the previous baseline was empty — i.e. the very first binary push
+        // after a fresh start or reset. Subsequent pushes are treated as diffs.
+        const isInitial = previousGearInspectorSnapshots.size === 0
+        const importSpec = { kind: 'import' as const, totalCount, inboxCount, isInitial }
+        const diffSpec = {
+          // Use snapshot diff counts so summary lines mirror the toast entries.
+          kind: 'diff' as const,
+          addedCount: diffDetails.addedCount,
+          removedCount: diffDetails.removedCount,
+          updatedCount: diffDetails.updatedCount,
+        }
+        // On the initial import lead with the "Imported X" summary; on diffs lead with
+        // the icon row so the change counts are the primary headline in the history list.
+        const lineSpecs = appendGearDbTimestampLineSpec(
+          isInitial ? [importSpec, diffSpec] : [diffSpec, importSpec],
+          queuedAt,
+        )
         // Build the tooltip copy from the structured line specs.
         const { tooltipMessage } = buildGearDbCommandMessages(lineSpecs)
         setGearDbCommandError(null)
@@ -3493,17 +3499,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Build summary specs for the header and the status badge.
       // Capture a shared timestamp so badge + history remain in sync.
       const queuedAt = Date.now()
+      // True only when there was no prior dataset — i.e. the very first JSON push.
+      const isInitial = previousDataset === null
+      const importSpec = { kind: 'import' as const, totalCount, inboxCount, isInitial }
+      const diffSpec = {
+        // Use snapshot diff counts so summary lines mirror the toast entries.
+        kind: 'diff' as const,
+        addedCount: diffDetails.addedCount,
+        removedCount: diffDetails.removedCount,
+        updatedCount: diffDetails.updatedCount,
+      }
       // Build structured header specs so history stays localizable.
-      const lineSpecs = appendGearDbTimestampLineSpec([
-        { kind: 'import', totalCount, inboxCount },
-        {
-          // Use snapshot diff counts so summary lines mirror the toast entries.
-          kind: 'diff',
-          addedCount: diffDetails.addedCount,
-          removedCount: diffDetails.removedCount,
-          updatedCount: diffDetails.updatedCount,
-        },
-      ], queuedAt)
+      // On the initial import lead with the "Imported X" summary; on diffs lead with
+      // the icon row so the change counts are the primary headline in the history list.
+      const lineSpecs = appendGearDbTimestampLineSpec(
+        isInitial ? [importSpec, diffSpec] : [diffSpec, importSpec],
+        queuedAt,
+      )
       // Build the tooltip copy from the structured line specs.
       const { tooltipMessage } = buildGearDbCommandMessages(lineSpecs)
       // Update the header indicator with the full tooltip summary.

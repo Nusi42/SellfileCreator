@@ -1192,6 +1192,8 @@ const overrides: Catalog = {
   toastSellfileExportFailed: 'Не вдалося експортувати Sellfile. Перевірте консоль.',
   toastGearDbImportedShort: 'Імпортовано {count}',
   toastGearDbImportedShortWithInbox: 'Імпортовано {count} (+{inboxCount} з пошти)',
+  toastGearDbTotalShort: 'Всього: {count}',
+  toastGearDbTotalShortWithInbox: 'Всього: {count} (+{inboxCount} з пошти)',
   toastGearDbDiffSummaryLabel: 'Спорядження оновлено:',
   toastGearDbDiffSummary: 'Спорядження оновлено: {added} / {removed} / {updated}.',
   toastGearDbImportEmpty: 'У базі даних немає спорядження.',
