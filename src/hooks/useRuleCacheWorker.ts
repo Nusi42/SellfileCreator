@@ -13,6 +13,7 @@ import type {
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { GearInspectorMatchWorkerItemResult } from '../workers/gearInspectorMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
+import type { UpgradeChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
 
 type PipelineParams = {
   recipes: BuilderRecipe[]
@@ -26,6 +27,9 @@ type PipelineParams = {
   dedupeBeforeSafeguards: boolean
   recipeModes: SellfileExportMode[]
   artifacts: NormalizedGearArtifact[]
+  // When true, the worker computes improvement-chance percentages in WASM and
+  // returns them in the result (requires safeguards to be enabled).
+  computeUpgradeChance?: boolean
 }
 
 type RuleCacheStateSnapshot = {
@@ -43,6 +47,8 @@ type PipelineResult = {
   state: RuleCacheStateSnapshot
   matches: GearInspectorMatchWorkerItemResult[]
   safeguardDetection: SafeguardDetectionSnapshot | null
+  // Null when computeUpgradeChance was false or safeguards were inactive.
+  upgradeChanceByArtifactId: Map<number, UpgradeChanceWasmEntry> | null
 }
 
 type CountRulesParams = {
@@ -180,10 +186,16 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           if (!pending) return
           pipelineMap.delete(data.id)
           if (abortedSet.delete(data.id)) return
+          // Reconstruct the artifactId → entry map from the flat array (structured-clone safe).
+          const entries = data.payload.upgradeChanceEntries
+          const upgradeChanceByArtifactId = entries != null
+            ? new Map(entries.map((e) => [e.artifactId, e] as const))
+            : null
           pending.resolve({
             state: toStateSnapshotFromWorker(data.payload),
             matches: data.payload.matches,
             safeguardDetection: data.payload.safeguardDetection,
+            upgradeChanceByArtifactId,
           })
           return
         }
@@ -342,6 +354,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         recipeModes: params.recipeModes,
         artifacts: params.artifacts,
         emitProgressEvents: Boolean(onProgress),
+        computeUpgradeChance: params.computeUpgradeChance === true,
       },
     }
 

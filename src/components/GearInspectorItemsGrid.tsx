@@ -62,7 +62,7 @@ import {
   sanitizeSafeguardCountMode,
   type SafeguardRule,
 } from '../lib/safeguards'
-import { buildSafeguardUpgradeChanceByArtifactId } from '../lib/safeguardUpgradeChance'
+import type { UpgradeChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
 import EmptyStateMessage, { type EmptyStateMessageProps } from './EmptyStateMessage'
 import {
   computeGearInspectorNormalizedSubstatScore,
@@ -125,8 +125,8 @@ type GearInspectorItemsGridProps = {
   rows: GearInspectorPreviewRow[]
   // Optional unfiltered source rows so group chips can show filtered/total pairs.
   allRows?: readonly GearInspectorPreviewRow[]
-  // Optional source rows for safeguard chance math (defaults to visible rows).
-  safeguardUpgradeChanceRows?: readonly GearInspectorPreviewRow[]
+  // Pre-computed improvement-chance map from the WASM worker pipeline; null when not computed.
+  upgradeChanceByArtifactId?: Map<number, UpgradeChanceWasmEntry> | null
   filterActive?: boolean
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors?: boolean
@@ -167,8 +167,8 @@ type GearInspectorItemsGridProps = {
   sortState?: GearInspectorSubstatSortState | null
   // Grouping settings for the Gear Inspector grid; independent of sorting.
   grouping?: GearInspectorGroupingState
-  // Resolved safeguard rules used by the Gear Inspector grid upgrade-chance overlay.
-  safeguardUpgradeChanceRules?: readonly SafeguardRule[]
+  // Resolved safeguard rules used for tooltip rule-name lookup in the upgrade-chance overlay.
+  safeguardRules?: readonly SafeguardRule[]
 }
 
 type GearInspectorGroupKind ='artifactSet' | 'artifactSlot' | 'accessorySet' | 'accessoryFaction'
@@ -199,7 +199,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const {
     rows,
     allRows,
-    safeguardUpgradeChanceRows,
     filterActive = false,
     substatColors,
     useStatButtonColors = false,
@@ -229,7 +228,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     substatSort = null,
     sortState = null,
     grouping = GEAR_INSPECTOR_GROUPING_DEFAULT_STATE,
-    safeguardUpgradeChanceRules = [],
+    safeguardRules = [],
+    upgradeChanceByArtifactId = null,
   } = props
   // Variant flags control keep-override behavior without forking the grid.
   const safeguardsVariant = variant === 'safeguards'
@@ -385,8 +385,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     theme.palette.error.main,
     theme.palette.success.main,
   ])
-  // Keep chance source separate from visible rows so filters do not affect chance math.
-  const safeguardChanceSourceRows = safeguardUpgradeChanceRows ?? rows
   // Group chips can optionally compare filtered rows against the original unfiltered dataset.
   const groupSummarySourceRows = allRows ?? rows
   // Sorting can request chance data even when the overlay itself is hidden.
@@ -394,36 +392,20 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     () => (effectiveSubstatSort?.priorities ?? []).some((key) => Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE),
     [effectiveSubstatSort?.priorities],
   )
-  // Artifacts are projected as a batch once; tooltip-only updates should not rebuild this list.
-  const safeguardChanceSourceArtifacts = useMemo(
-    () => safeguardChanceSourceRows.map((row) => row.artifact),
-    [safeguardChanceSourceRows],
-  )
   const safeguardRuleById = useMemo(() => {
     const map = new Map<string, SafeguardRule>()
-    for (const rule of safeguardUpgradeChanceRules) {
+    for (const rule of safeguardRules) {
       const normalizedRuleId = typeof rule.id === 'string' ? rule.id.trim() : ''
       if (!normalizedRuleId) continue
       map.set(normalizedRuleId, rule)
     }
     return map
-  }, [safeguardUpgradeChanceRules])
-  const safeguardUpgradeChanceByArtifactId = useMemo(() => {
-    // Keep heavy chance recursion disabled unless either overlay rendering or sorting needs this data.
-    if (!showSafeguardUpgradeChance && !safeguardChanceSortEnabled) {
-      return buildSafeguardUpgradeChanceByArtifactId([], [])
-    }
-    // Chance map is keyed by artifact id so re-grouping does not invalidate lookups.
-    return buildSafeguardUpgradeChanceByArtifactId(
-      safeguardChanceSourceArtifacts,
-      safeguardUpgradeChanceRules,
-    )
-  }, [
-    safeguardChanceSourceArtifacts,
-    safeguardChanceSortEnabled,
-    safeguardUpgradeChanceRules,
-    showSafeguardUpgradeChance,
-  ])
+  }, [safeguardRules])
+  // Pre-computed by the WASM worker; coalesce null to a stable empty map so downstream memo deps don't thrash.
+  const safeguardUpgradeChanceByArtifactId = useMemo<Map<number, UpgradeChanceWasmEntry>>(
+    () => upgradeChanceByArtifactId ?? new Map(),
+    [upgradeChanceByArtifactId],
+  )
   const substatSortWithSafeguardChance = useMemo(() => {
     // When improvement-chance is not part of the current sort priorities, reuse the original spec unchanged.
     if (!effectiveSubstatSort || !safeguardChanceSortEnabled) return effectiveSubstatSort
@@ -519,7 +501,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       const tooltipHeader = t('testerGridSafeguardChanceTooltipHeader', { chance: `${entry.chancePercent}%` })
       const tooltipProjection = t('testerGridSafeguardChanceTooltipProjection')
       const tooltipDataset = t('testerGridSafeguardChanceTooltipDataset', {
-        count: numberFormatter.format(debug?.sourceArtifactCount ?? safeguardChanceSourceRows.length),
+        count: numberFormatter.format(debug?.sourceArtifactCount ?? (allRows ?? rows).length),
       })
       const tooltipRule = t('testerGridSafeguardChanceTooltipRule', { name: safeguardName })
       const tooltipRuleNameIndex = tooltipRule.indexOf(safeguardName)
@@ -654,9 +636,10 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     }
     return overlays
   }, [
+    allRows,
     onJumpToSafeguardRule,
     numberFormatter,
-    safeguardChanceSourceRows,
+    rows,
     safeguardRuleById,
     safeguardUpgradeChanceByArtifactId,
     showSafeguardUpgradeChance,

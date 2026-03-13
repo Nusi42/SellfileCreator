@@ -402,7 +402,7 @@ pub fn resolve_safeguard_rules_with_metasets_value(
 // Expose a fixed version token so diagnostics can verify which WASM build loaded.
 #[wasm_bindgen]
 pub fn version() -> String {
-    "rule-engine-wasm-v0.15".to_string()
+    "rule-engine-wasm-v0.16".to_string()
 }
 
 // --- HSF builder/runtime exports ---
@@ -656,6 +656,23 @@ pub fn evaluate_and_collect_safeguard_protection_value(
     ).map_err(|error| JsValue::from_str(&error))?;
     to_js_value(&snapshot)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize evaluate-and-collect snapshot: {error}")))
+}
+
+// Compute upgrade-chance percentages for all non-maxed artifacts in stored rows.
+// Reads ENGINE_STATE.stored_rows (requires store_artifact_rows_value first).
+// Returns an array of UpgradeChanceEntry objects; empty when !enabled or no rows.
+// Uses to_js_value (not wasm_to_js) because UpgradeChanceEntry has no HashMap fields.
+#[wasm_bindgen]
+pub fn compute_upgrade_chance_value(
+    rules: JsValue,
+    enabled: bool,
+) -> Result<JsValue, JsValue> {
+    let parsed_rules: Vec<SafeguardWasmRuleIn> = from_js_value(rules)
+        .map_err(|error| JsValue::from_str(&format!("Invalid upgrade-chance rules payload: {error}")))?;
+    let entries = compute_upgrade_chance_engine(parsed_rules, enabled)
+        .map_err(|error| JsValue::from_str(&error))?;
+    to_js_value(&entries)
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize upgrade-chance entries: {error}")))
 }
 
 // Evaluate a batch of Gear Inspector items against the configured rules.

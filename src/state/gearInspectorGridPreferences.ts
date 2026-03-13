@@ -106,6 +106,10 @@ export const snapshotSafeguardUpgradeChance = (): boolean =>
 export const restoreSafeguardUpgradeChance = (value: boolean): void =>
   gearInspectorGridShowSafeguardUpgradeChanceStore.set(value)
 
+// Reactive read for callers outside the grid (e.g. App.tsx pipeline flag).
+export const useShowSafeguardUpgradeChance = (): boolean =>
+  gearInspectorGridShowSafeguardUpgradeChanceStore.useValue()
+
 export function useGearInspectorGridPreferences(variant: GearInspectorGridPreferenceVariant = 'gearInspector') {
   const columns = gearInspectorGridColumnsStore.useValue()
   const showFirstMatch = gearInspectorGridShowFirstStore.useValue()

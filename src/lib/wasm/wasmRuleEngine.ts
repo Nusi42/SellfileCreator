@@ -10,6 +10,7 @@ import initRuleEngineWasm, {
   collect_and_compute_safeguard_protection_value as collectAndComputeSafeguardProtectionWasmValueBinding,
   evaluate_and_collect_safeguard_protection_value as evaluateAndCollectSafeguardProtectionWasmValueBinding,
   store_artifact_rows_value as storeArtifactRowsWasmValueBinding,
+  compute_upgrade_chance_value as computeUpgradeChanceWasmValueBinding,
   compute_merged_rules_value as computeMergedRulesWasmValueBinding,
   compute_safeguard_protection_value as computeSafeguardProtectionValueWasmBinding,
   dedupe_hsf_rules_for_export_value as dedupeHsfRulesForExportWasmValueBinding,
@@ -410,6 +411,29 @@ export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
     return result
   }
   throw new Error('WASM safeguard combined collector/detector returned an invalid payload.')
+}
+
+// Debug snapshot mirroring UpgradeChanceDebug from upgrade_chance.rs.
+// exactOptionalPropertyTypes: all nullable fields use T | null (not T | undefined).
+export type UpgradeChanceWasmDebug = {
+  sourceArtifactCount: number
+  viableScenarioCount: number
+  selectedSubstats: number[]
+  substatMatch: string
+  requiredPerGroup: number
+  bucketCandidateCount: number
+  betterCandidateCount: number
+  matchedSelectedNow: number
+  maxAdditionEventsTo16: number
+}
+
+// Single artifact entry returned by compute_upgrade_chance_value.
+export type UpgradeChanceWasmEntry = {
+  artifactId: number
+  chancePercent: number
+  hasMatchingSafeguard: boolean
+  matchedRuleId: string | null
+  debug: UpgradeChanceWasmDebug | null
 }
 
 // Output shape for the combined evaluate+collect WASM call.
@@ -1019,4 +1043,18 @@ export const getPermutationsI32WithLoadedWasm = (values: number[]): number[][] =
   const flat = permutationsI32FastFlatWasmBinding(payload)
   // Rehydrate rows where width equals input length.
   return unflattenI32Rows(flat, payload.length)
+}
+
+// Compute improvement-chance entries for all non-maxed artifacts in stored rows.
+// Reads ENGINE_STATE.stored_rows — store_artifact_rows_value must be called first.
+// Returns null when the WASM result is not a valid array (defensive guard).
+export const computeUpgradeChanceWithLoadedWasm = (params: {
+  rules: readonly SafeguardRuleForWasm[]
+  enabled: boolean
+}): UpgradeChanceWasmEntry[] | null => {
+  assertWasmInitializedSync()
+  const result = computeUpgradeChanceWasmValueBinding(params.rules, params.enabled === true)
+  // Defensive guard: WASM must return an array of entry objects.
+  if (!Array.isArray(result)) return null
+  return result as UpgradeChanceWasmEntry[]
 }

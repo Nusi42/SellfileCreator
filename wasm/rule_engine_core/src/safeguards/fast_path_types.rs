@@ -17,6 +17,8 @@ pub struct SafeguardWasmSubstatIn {
     #[serde(default)]
     pub is_flat: bool,
     pub value: f64,
+    // Observed roll count for divisor computation in expected-gain estimation.
+    pub rolls: Option<i64>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -71,6 +73,9 @@ pub struct SafeguardWasmSubstatRawIn {
     pub value: Option<f64>,
     #[serde(default)]
     pub total_value: Option<f64>,
+    // Roll count for per-roll expected-gain computation; absent when artifact lacks roll data.
+    #[serde(default)]
+    pub rolls: Option<i64>,
 }
 
 // Fast-path artifact decoder mirrors normalized gear inspector artifact payloads.
@@ -151,10 +156,15 @@ pub(super) fn safeguard_substats_from_fast_payload(
             .filter(|inner| inner.is_finite())
             .or_else(|| substat.total_value.filter(|inner| inner.is_finite()))
             .unwrap_or(0.0);
+        // Clamp raw rolls to a non-negative integer; absent or invalid → None.
+        let rolls = substat.rolls
+            .filter(|&r| r >= 0)
+            .map(|r| r.max(0));
         out.push(SafeguardWasmSubstatIn {
             variant: substat.variant,
             is_flat: substat.is_flat,
             value: numeric_value,
+            rolls,
         });
     }
     out

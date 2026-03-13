@@ -2379,7 +2379,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
                 dimUnhighlightedRows={highlightActive}
                 suppressMatchDetails={suppressMatchDetails}
                 safeguardsEnabled={enabled}
-                safeguardUpgradeChanceRules={resolvedRulesForUpgradeChance}
+                safeguardRules={resolvedRulesForUpgradeChance}
                 hasGearInspectorData={hasPreviewGear}
                 emptyStateOptions={!hasPreviewGear ? {
                   borderVariant: 'dashed',

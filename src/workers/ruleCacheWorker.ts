@@ -23,12 +23,14 @@ import type { GearInspectorMatchWorkerItemResult } from './gearInspectorMatchWor
 import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from './ruleCacheWorkerTypes'
 import { resolveArtifactItemIdWithFallback } from '../lib/itemIdentity'
 import {
+  computeUpgradeChanceWithLoadedWasm,
   configureWasmRuleEngine,
   evaluateWasmRuleEngineItems,
   finalizeGeneratedRulesWithLoadedWasm,
   getWasmRuleEngineVersion,
   warmupWasmRuleEngine,
 } from '../lib/wasm/wasmRuleEngine'
+import type { UpgradeChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
 import { createProgressThrottler } from '../types/progress'
 
 declare const self: DedicatedWorkerGlobalScope
@@ -303,6 +305,8 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     const ignoreSafeguardRecipeIndices = buildIgnoreSafeguardRecipeIndices(recipesForRules)
     const baselineMatchMap = new Map<number, GearInspectorMatchWorkerItemResult>()
     let safeguardDetectionSnapshot: SafeguardDetectionSnapshot | null = null
+    // Populated inside needsDetection branch when payload.computeUpgradeChance is true.
+    let upgradeChanceEntries: UpgradeChanceWasmEntry[] | null = null
     if (needsDetection) {
       // Configure baseline rules so the combined WASM evaluate+collect call uses them.
       await configureWasmRuleEngine({
@@ -351,6 +355,16 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         })
       }
       safeguardDetectionSnapshot = detectionResult.detection
+      // Compute improvement-chance percentages in WASM while stored_rows are still fresh.
+      // Gated on the caller opt-in flag; skipped when safeguards are off (needsDetection already
+      // ensures safeguards.enabled && rules.length > 0 && artifacts.length > 0).
+      if (payload.computeUpgradeChance) {
+        upgradeChanceEntries = computeUpgradeChanceWithLoadedWasm({
+          rules: payload.safeguards.rules,
+          enabled: payload.safeguards.enabled,
+        })
+        if (runIsStale()) return
+      }
       completed = warmTotal + artifactEntries.length
       emitPipelineProgress?.({ completed, total })
     } else {
@@ -420,6 +434,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         excludedByTotalLimitIndices: pipelineState.excludedByTotalLimitIndices.slice(),
         matches,
         safeguardDetection: safeguardDetectionSnapshot,
+        upgradeChanceEntries,
       },
     }
     self.postMessage(response)

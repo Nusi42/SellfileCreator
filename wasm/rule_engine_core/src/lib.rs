@@ -98,6 +98,11 @@ pub use safeguards::fast_path_types::{
     SafeguardCollectRowFastIn,
     SafeguardWasmCandidateFastIn,
 };
+pub use safeguards::upgrade_chance::{
+    compute_upgrade_chance_core,
+    UpgradeChanceDebug,
+    UpgradeChanceEntry,
+};
 pub use hsf_builder_execution::{
     prepare_hsf_builder_recipe_core_fn,
     build_hsf_rules_runtime_core_fn,
@@ -1226,6 +1231,26 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
             unique_item_keys: collected.unique_item_keys,
             detection,
         })
+    })
+}
+
+// Engine-level upgrade-chance entry point.
+// Reads ENGINE_STATE.stored_rows (must be populated via store_artifact_rows_engine)
+// and delegates probability computation to the upgrade_chance submodule.
+pub fn compute_upgrade_chance_engine(
+    rules: Vec<SafeguardWasmRuleIn>,
+    enabled: bool,
+) -> Result<Vec<UpgradeChanceEntry>, String> {
+    ENGINE_STATE.with(|state| {
+        let guard = state.borrow();
+        let engine = guard
+            .as_ref()
+            .ok_or("WASM rule engine is not configured")?;
+        let rows = engine
+            .stored_rows
+            .as_ref()
+            .ok_or("WASM artifact rows are not stored; call store_artifact_rows_value first")?;
+        Ok(compute_upgrade_chance_core(rows, rules, enabled))
     })
 }
 

@@ -5,6 +5,9 @@ use crate::SafeguardCollectedAndProtectedSnapshotOut;
 // Fast-path input types and conversion functions live in a dedicated submodule
 // to keep this file focused on rule resolution and scoring logic.
 pub mod fast_path_types;
+// Upgrade-chance probabilistic computation lives in its own submodule so the
+// recursion and scenario-building logic stay separated from snapshot evaluation.
+pub mod upgrade_chance;
 // Re-export pub(crate) structs that lib.rs imports via `use safeguards::*`.
 pub use fast_path_types::SafeguardWasmArtifactIn;
 // Pull in internal types and conversion helpers used by the functions below.
@@ -466,8 +469,9 @@ struct SafeguardWasmGroupBucket {
 
 // Count grouping keys stay typed internally so grouped scans do not allocate
 // repeated `slot:x|set:y|...` strings in hot loops.
+// pub(super) so upgrade_chance submodule can build count keys without allocating.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-enum SafeguardCountKey {
+pub(super) enum SafeguardCountKey {
     Global,
     Scoped {
         slot: Option<i64>,
@@ -528,7 +532,8 @@ pub struct SafeguardWasmGroupKeyArtifactIn {
     main_stat: Option<SafeguardWasmMainStatRawIn>,
 }
 
-fn safeguard_is_accessory_slot(slot: i64) -> bool {
+// pub(super) so upgrade_chance submodule can derive faction-bucketing flags.
+pub(super) fn safeguard_is_accessory_slot(slot: i64) -> bool {
     // Accessories are the only slots where faction grouping applies.
     // Artifact slots always collapse to faction 0 in safeguard logic.
     slot == SAFEGUARD_SLOT_RING || slot == SAFEGUARD_SLOT_AMULET || slot == SAFEGUARD_SLOT_BANNER
@@ -611,7 +616,8 @@ fn safeguard_normalize_weight(raw: f64) -> f64 {
     (stepped * 100.0).round() / 100.0
 }
 
-fn safeguard_substat_max6_by_variant(variant: i64) -> f64 {
+// pub(super) so upgrade_chance can compute fallback roll gains and normalization.
+pub(super) fn safeguard_substat_max6_by_variant(variant: i64) -> f64 {
     // Use the canonical 6-star per-roll maxima for normalized scoring.
     // Unknown variants return 0 to disable normalized contribution.
     match variant {
@@ -630,7 +636,8 @@ fn safeguard_substat_max6_by_variant(variant: i64) -> f64 {
     }
 }
 
-fn safeguard_normalize_substat_value(variant: i64, value: f64) -> f64 {
+// pub(super) so upgrade_chance can normalize state values for scoring.
+pub(super) fn safeguard_normalize_substat_value(variant: i64, value: f64) -> f64 {
     // Normalize every substat by the canonical 6-star max roll total.
     let max = safeguard_substat_max6_by_variant(variant);
     // Unknown variants or invalid maxima contribute zero.
@@ -645,7 +652,8 @@ fn safeguard_normalize_substat_value(variant: i64, value: f64) -> f64 {
     (value / max).max(0.0)
 }
 
-fn safeguard_percent_to_flat_main(variant: i64) -> Option<i64> {
+// pub(super) so upgrade_chance can replicate the tie-break percent→flat mapping.
+pub(super) fn safeguard_percent_to_flat_main(variant: i64) -> Option<i64> {
     // Map percent mains to their flat counterpart for tie-priority logic.
     // Non HP/ATK/DEF mains have no flat companion and return None.
     match variant {
@@ -694,7 +702,8 @@ pub fn safeguard_normalize_set_selections(
     normalized
 }
 
-fn safeguard_split_set_selections(values: &[SafeguardWasmSetSelection]) -> (HashSet<i64>, HashSet<i64>) {
+// pub(super) so upgrade_chance can build include/exclude set lookups for rule filters.
+pub(super) fn safeguard_split_set_selections(values: &[SafeguardWasmSetSelection]) -> (HashSet<i64>, HashSet<i64>) {
     // Normalize first so duplicates/exclusions are already resolved.
     let normalized = safeguard_normalize_set_selections(values);
     let mut includes = HashSet::<i64>::new();
@@ -1676,7 +1685,8 @@ fn safeguard_build_placeholder_rules(
     rules
 }
 
-fn safeguard_is_activation_off(raw: &str) -> bool {
+// pub(super) so upgrade_chance can skip disabled rules using the shared token check.
+pub(super) fn safeguard_is_activation_off(raw: &str) -> bool {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
         return false;
@@ -1906,7 +1916,8 @@ fn safeguard_build_placeholder(
     }
 }
 
-fn safeguard_matches_selection(selection: &[i64], candidate: i64) -> bool {
+// pub(super) so upgrade_chance can apply combination filters using the shared wildcard logic.
+pub(super) fn safeguard_matches_selection(selection: &[i64], candidate: i64) -> bool {
     // Empty selection means wildcard dimension.
     if selection.is_empty() {
         return true;
@@ -2019,7 +2030,8 @@ fn safeguard_candidate_matches_substats(
     matched > 0
 }
 
-fn safeguard_weight_for_variant(weights: &HashMap<i64, f64>, variant: i64) -> f64 {
+// pub(super) so upgrade_chance can resolve weights with the shared fallback rule.
+pub(super) fn safeguard_weight_for_variant(weights: &HashMap<i64, f64>, variant: i64) -> f64 {
     // Missing entries fall back to canonical default weight.
     weights
         .get(&variant)
@@ -2042,7 +2054,8 @@ fn safeguard_stat_value_for_variant(artifact: &SafeguardWasmArtifactIn, variant:
     0.0
 }
 
-fn safeguard_compute_score(
+// pub(super) so upgrade_chance can compute current-level scores for floor checks + debug.
+pub(super) fn safeguard_compute_score(
     artifact: &SafeguardWasmArtifactIn,
     selected_substats: &[i64],
     weights: &HashMap<i64, f64>,
@@ -2203,7 +2216,8 @@ fn safeguard_count_key(artifact: &SafeguardWasmArtifactIn, mode: SafeguardWasmCo
     )
 }
 
-fn safeguard_count_key_from_parts(
+// pub(super) so upgrade_chance can build count keys to bucket challengers correctly.
+pub(super) fn safeguard_count_key_from_parts(
     slot: i64,
     set: i64,
     faction_raw: i64,
@@ -2234,7 +2248,8 @@ fn safeguard_count_key_from_parts(
     }
 }
 
-fn safeguard_count_key_to_string(key: &SafeguardCountKey) -> String {
+// pub(super) so upgrade_chance can stringify count keys for HashMap bucket lookups.
+pub(super) fn safeguard_count_key_to_string(key: &SafeguardCountKey) -> String {
     // Global bucket keeps the historical token for TS parity.
     let SafeguardCountKey::Scoped {
         slot,

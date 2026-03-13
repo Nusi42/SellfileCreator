@@ -129,11 +129,12 @@ import {
   type GearDbDiffToastEntry,
   type GearDbDiffToastPayload,
 } from './lib/gearDbDiffToast'
-import { isGearInspectorSyntheticSortKey, sortGearInspectorRows } from './lib/gearInspectorSort'
+import { isGearInspectorSyntheticSortKey, sortGearInspectorRows, GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE } from './lib/gearInspectorSort'
 import { buildGearInspectorRuleTemplateRecipe } from './lib/gearInspectorRuleTemplates'
 import { buildGearInspectorOutcomeSummary } from './lib/gearInspectorOutcomeSummary'
 import { isDefaultGearInspectorSubstatSortState, setGearInspectorSubstatSortState, useGearInspectorSubstatSortPreferences } from './state/gearInspectorSubstatSortPreferences'
 import { useGearInspectorGridNormalizedOverlayPreferences } from './state/gearInspectorGridNormalizedOverlayPreferences'
+import { useShowSafeguardUpgradeChance } from './state/gearInspectorGridPreferences'
 import { FILTER_PRESETS_VERSION, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
@@ -233,6 +234,7 @@ import type {
 import { GearInspectorItemsGridMemo as GearInspectorItemsGrid } from './components/GearInspectorItemsGrid'
 import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from './types/gearInspectorPreview'
 import type { GearInspectorMatchWorkerItemResult } from './workers/gearInspectorMatchWorkerTypes'
+import type { UpgradeChanceWasmEntry } from './lib/wasm/wasmRuleEngine'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
@@ -587,6 +589,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     [gearInspectorPreviewRows],
   )
   const [safeguardDetection, setSafeguardDetection] = useState<SafeguardDetectionSnapshot | null>(null)
+  // Pre-computed improvement-chance map returned by the WASM worker; null when not computed.
+  const [upgradeChanceByArtifactId, setUpgradeChanceByArtifactId] =
+    useState<Map<number, UpgradeChanceWasmEntry> | null>(null)
   const resolvedSafeguardRules = useMemo(() => (
     resolveSafeguardRulesWithMetasets(safeguardRules, metasets)
   ), [safeguardRules, metasets])
@@ -927,6 +932,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Track the active pipeline abort controller so we can cancel if needed.
   const pipelineAbortRef = useRef<AbortController | null>(null)
   const pipelineDebounceRef = useRef<number | null>(null)
+  // Gear Inspector substat sorting is view-only but should persist across sessions like filters.
+  // Declared here so the pipeline effect (below) can reference both sort prefs and the upgrade-chance
+  // flag without TDZ errors — their derived values are consumed inside the effect dep array.
+  const gearInspectorSubstatSortPrefs = useGearInspectorSubstatSortPreferences()
+  // Reactive flag: true when the improvement-chance overlay toggle is on.
+  const showSafeguardUpgradeChance = useShowSafeguardUpgradeChance()
+  // True when the improvement-chance sort key appears in the active sort priority list.
+  const safeguardChanceSortEnabled = (gearInspectorSubstatSortPrefs.state.priorities ?? [])
+    .some((k) => Number(k) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE)
   useEffect(() => {
     // Pipeline payloads use immediate state snapshots.
     // Why: deferred snapshots can emit follow-up renders for the same user click
@@ -1013,6 +1027,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         dedupeBeforeSafeguards: dedupeDefault,
         recipeModes: recipeModesForBuild,
         artifacts: gearInspectorPreviewArtifacts,
+        // Request WASM upgrade-chance computation when the overlay or sort column is active.
+        computeUpgradeChance: showSafeguardUpgradeChance || safeguardChanceSortEnabled,
       }
       // Cancel the prior in-flight run only when dispatching a new payload.
       // Effect rerenders alone no longer abort active work.
@@ -1033,7 +1049,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         },
       })
         .then((result) => {
-          const { state, matches, safeguardDetection } = result
+          const { state, matches, safeguardDetection, upgradeChanceByArtifactId: upgradeChanceResult } = result
           if (abortController.signal.aborted) {
             // Abort is expected control flow during rapid edit bursts.
             return
@@ -1089,9 +1105,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             setGearEntriesCommittedBuildId(requestToken)
             setGearEntriesActiveBuildId(requestToken)
           }
-          // Safeguard table snapshots are preview-only and can be deferred.
+          // Safeguard table snapshots and improvement-chance results are preview-only; defer them.
           startTransition(() => {
             setSafeguardDetection(safeguardDetection ?? null)
+            setUpgradeChanceByArtifactId(upgradeChanceResult ?? null)
           })
           lastRecipeNamesRef.current = recipeNamesForBuild
           const totalCustomRules = Array.from(state.countsByRecipe.values()).reduce((acc, val) => (
@@ -1132,6 +1149,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   state: retryState,
                   matches: retryMatches,
                   safeguardDetection: retrySafeguardDetection,
+                  upgradeChanceByArtifactId: retryUpgradeChanceResult,
                 } = retryResult
                 const splitRetry = splitMergedRules(retryState.mergedRules)
                 // Retry snapshots are just as large; keep them out of the urgent lane.
@@ -1176,9 +1194,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   setGearEntriesCommittedBuildId(requestToken)
                   setGearEntriesActiveBuildId(requestToken)
                 }
-                // Safeguard previews are informative, not input-critical.
+                // Safeguard previews and improvement-chance results are informative, not input-critical.
                 startTransition(() => {
                   setSafeguardDetection(retrySafeguardDetection ?? null)
+                  setUpgradeChanceByArtifactId(retryUpgradeChanceResult ?? null)
                 })
                 lastRecipeNamesRef.current = recipeNamesForBuild
               })
@@ -1235,6 +1254,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     recipesEnabled,
     gearInspectorPreviewArtifacts,
     getArtifactItemId,
+    showSafeguardUpgradeChance,
+    safeguardChanceSortEnabled,
   ])
   useEffect(() => {
     return () => {
@@ -2234,9 +2255,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [rulesFilter, setRulesFilterRaw, rulesFilterByMode] = useRulesFilterStatePreference(previewMode)
   const [filterCollapsed, setFilterCollapsedRaw, filterCollapsedByMode] = useRulesFilterCollapsedPreference(previewMode)
   const [filtersSynced, setFiltersSyncedRaw] = useRulesFilterSyncPreference()
-  // Gear Inspector substat sorting is view-only but should persist across sessions like filters.
-	  const gearInspectorSubstatSortPrefs = useGearInspectorSubstatSortPreferences()
-	  const clearGearInspectorSubstatSort = gearInspectorSubstatSortPrefs.clear
+  const clearGearInspectorSubstatSort = gearInspectorSubstatSortPrefs.clear
 	  // Normalized overlay presets are reused by the Sort popout (shared presets + overwrite behavior).
 	  const gearInspectorNormalizedOverlayPrefs = useGearInspectorGridNormalizedOverlayPreferences()
 	  const gearInspectorSubstatSortSpec = useMemo(() => {
@@ -6852,8 +6871,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               <GearInspectorItemsGrid
                 rows={gearEntriesForTable}
                 allRows={gearInspectorPreviewRows}
-                // Chance overlays should compare against the full Gear Inspector inventory, not the filtered slice.
-                safeguardUpgradeChanceRows={gearInspectorPreviewRows}
                 filterActive={gearInspectorFilterActive || gearInspectorRecipeFilterActive}
                 substatColors={substatColors}
                 useStatButtonColors={statButtonBorders}
@@ -6872,7 +6889,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 grouping={gearInspectorSubstatSortPrefs.state.grouping}
                 substatSort={gearInspectorSubstatSortSpec}
                 sortState={gearInspectorSubstatSortPrefs.state}
-                safeguardUpgradeChanceRules={resolvedSafeguardRules}
+                safeguardRules={resolvedSafeguardRules}
+                upgradeChanceByArtifactId={upgradeChanceByArtifactId}
                 emptyStateVerticalAlign={emptyStateVerticalAlign}
               />
             </Box>
