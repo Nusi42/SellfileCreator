@@ -2175,8 +2175,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     hideGearDbUpdateToast,
     showGearDbDiffToast,
   ])
-  // Re-attempt drain whenever the build id or preview rows advance — render-time comparison.
-  const drainTriggerKey = `${gearEntriesCommittedBuildId}|${gearInspectorPreviewRows.length}`
+  // Re-attempt drain whenever the build id, building flag, or preview rows advance.
+  // Including gearEntriesBuilding ensures the drain retries once startTransition commits
+  // the building=false update — without it, updates that keep the row count constant
+  // (e.g. a single piece level-up) never get a second drain attempt after the first one
+  // bails on building=true.
+  const drainTriggerKey = `${gearEntriesBuilding}|${gearEntriesCommittedBuildId}|${gearInspectorPreviewRows.length}`
   const [prevDrainTriggerKey, setPrevDrainTriggerKey] = useState(drainTriggerKey)
   if (drainTriggerKey !== prevDrainTriggerKey) {
     setPrevDrainTriggerKey(drainTriggerKey)
