@@ -140,9 +140,9 @@ export default function GearInspectorOutcomeSummaryChip({
     const tooltipParts = metricMode === 'safeguardsOnly'
       ? [`${t('safeguardsToggleLabel')}: ${safeguards}`]
       : [
-          `${t('testerSummaryTotalLabel')}: ${total}`,
-          `${t('testerMatchSell')}: ${sold}`,
-          `${t('testerMatchKeep')}: ${kept}`,
+          `${t('gearInspectorSummaryTotalLabel')}: ${total}`,
+          `${t('gearInspectorMatchSell')}: ${sold}`,
+          `${t('gearInspectorMatchKeep')}: ${kept}`,
           `${t('safeguardsToggleLabel')}: ${safeguards}`,
         ]
     return {

@@ -20,13 +20,13 @@ The technical reference is now split across focused documents. Start here, then 
 - `useAutosave` now tracks the last change-signal per storage key so enable/disable flips cannot reschedule expensive payload builders when the underlying content did not change.
 
 - [Build and Tooling](technical/build-and-tooling.md) — stack, scripts, packaging, project structure, and the Tauri wrapper.
-- [Application Behavior](technical/app-behavior.md) — builder guardrails, preview filters (including substat include/exclude), rule cache fast paths, clipboard/save flows, file import, recipe overrides prompt formatting (including group-level fallbacks and two-string label/value layouts), and the rule tester (including grouping + sort behavior and headerless mode).
+- [Application Behavior](technical/app-behavior.md) — builder guardrails, preview filters (including substat include/exclude), rule cache fast paths, clipboard/save flows, file import, recipe overrides prompt formatting (including group-level fallbacks and two-string label/value layouts), and the Gear Inspector (including grouping + sort behavior and headerless mode).
 - [Tutorial and Onboarding](technical/tutorial.md) — help dialog, tutorial coach behavior, and guidance for extending scripted steps.
 - [Rules and Data](technical/rules-and-data.md) — SFR/HSF schemas, builder roll semantics, autosave plumbing, and migration notes.
-- [Safeguards](technical/app-behavior.md#safeguards) — Logic Hub layout, gear-combination detection, substat-focused protection (including weighted ranking for **Any/All Substats**), tester-grid linking (including Rule Tester card-width matching), and reset behaviors.
+- [Safeguards](technical/app-behavior.md#safeguards) — Logic Hub layout, gear-combination detection, substat-focused protection (including weighted ranking for **Any/All Substats**), Gear Inspector grid linking (including Gear Inspector card-width matching), and reset behaviors.
 - [Dungeon Simulator](technical/dungeon-simulator.md) — Logic Hub Dungeon Drops tab, drop-table assumptions, stat generation, and keep evaluation rules.
 - [Locked roll constraints](technical/app-behavior.md#builder-outputs-and-normalization) — how `lockedMinRequiredRolls` impacts aggregate targets so locked selections can demand their own roll floors alongside the global sum.
-- [Gear Database Import](technical/gear-db-import.md) — reverse-engineering the RSL Helper SQLite dump, mapping it into the Rule Tester, and documenting endpoint diff toasts/history.
+- [Gear Database Import](technical/gear-db-import.md) — reverse-engineering the RSL Helper SQLite dump, mapping it into the Gear Inspector, and documenting endpoint diff toasts/history.
 - [WebSocket Protocol (JSON-RPC)](technical/websocket-jsonrpc.md) — JSON-RPC 2.0 message shapes, request/response flow, and push notifications.
 - [UI and Layout](technical/ui-and-layout.md) — localization, metasets, preview UX (including dimmed disabled recipes), shared hooks, effect guidelines, and responsive layout constraints.
 - [Gear Inspector Rule Templates](technical/gear-inspector-rule-templates.md) — gear-card actions, UX behaviors, and default keep/sell template logic.
@@ -57,7 +57,7 @@ All documents describe the *current* implementation; update the relevant file wh
 - Autosave and SFR payloads serialize the toggle plus combinations via `Safeguards` and `SafeguardsEnabled`. Autosave restore, clipboard import/export, and history snapshots treat them exactly like recipes/metasets so undo/redo remains accurate. The SFR import path (`applySfrLoadResult`) always writes the file’s safeguard snapshot into state before we trigger a rule cache warm so a file with zero safeguard rules clears the previous session’s entries and lets the preview chip’s progress ring advance cleanly.
 - Safeguards history entries emit structured tooltip payloads: add/delete snapshots show the full rule breakdown, while updates render before/after diffs for only the changed fields (slots/sets/metasets/main stats plus rank/rarity/faction lines).
 - Safeguard scans only run while `safeguardsEnabled` is true; disabling the feature or rebuilding the gear queue clears `keepUniqueDetection` so the UI never shows stale combination stats. The app tracks the last applied detection snapshot by reference in memory (no persisted detection signature in autosave payloads).
-- Safeguard rule names debounce using `BUILDER_AUTO_APPLY_DEBOUNCE_MS`; tester match chips refresh from the live name map without forcing a rule-cache rebuild.
+- Safeguard rule names debounce using `BUILDER_AUTO_APPLY_DEBOUNCE_MS`; Gear Inspector match chips refresh from the live name map without forcing a rule-cache rebuild.
 - Recipes tagged `ignore_by_safeguards` keep their items in previews but are ignored during safeguard coverage checks so rework fodder never satisfies the uniqueness quota. Legacy aliases (`ignore_keep_unique`, `ignore_safeguard`) are still accepted on import and canonicalized to `ignore_by_safeguards`.
 - Pipeline requests now carry a monotonic `generation` id; stale in-flight runs are discarded so only the newest payload can update preview state.
 - Worker-backed matcher pipelines run through a single-flight scheduler (`useRuleCacheWorker`): one active run, one latest queued payload. New payloads supersede active work immediately.
@@ -67,7 +67,7 @@ All documents describe the *current* implementation; update the relevant file wh
 - `computeKeepUniqueProtection` reads the normalized preview gear and emits combination stats (`currentCount`, `keptCount`, `projectedCount`, `coveredByExisting`, `deficit`, gear ids) that the UI and safeguard-rule generator consume.
 - Safeguard expected-group expansion (slot/set/faction/main-scope cartesian products used for per-group deficits) now runs entirely in WASM using a shared domain payload from TS.
 - Substat scoring always uses normalized substat scoring and keeps the top N per scope. Equal-score ties resolve only when we can prove one item is better (`same main stat => higher rank`, or `% HP/DEF/ATK beats the matching flat variant`); unresolved boundary ties are all kept, so the selected count can exceed N. Weights shift the ranking when **Any** or **All Substats** is active, while **Per Substat** sticks to equal weighting.
-- `TesterItemsGrid` exposes a `variant="safeguards"` path so the dialog can reuse the shared renderer with forced two-column cards and rule-linked highlighting.
+- `GearInspectorItemsGrid` exposes a `variant="safeguards"` path so the dialog can reuse the shared renderer with forced two-column cards and rule-linked highlighting.
 - `computeMergedRules` prepends Safeguard rules ahead of the Final Sell batch, tagging each rule with `RULE_SOURCE_SAFEGUARDS` and metadata (`__keepUniqueRuleId`, combination hash, required count, scan timestamp). Canonical safeguard-rule keys ensure we skip duplicates when SFR/Final Sell already guarantee the same combination.
 - Safeguard rows in the HSF preview are informational-only: they show the hollow-star attribution but do not expose a row context menu.
 - Tester match rebuild + safeguard detection now run inside the unified rule-cache worker pipeline (`runPipeline` in `App.tsx` + `ruleCacheWorker.ts`) so rules, matches, and safeguard detection resolve in one request/response cycle.
@@ -218,12 +218,12 @@ All documents describe the *current* implementation; update the relevant file wh
   - `fixture-paths.ts` is the single source of truth for Playwright fixture paths; import from it instead of hardcoding file locations.
   - `tests/data/sample-small.sfr` (3 recipes, no Safeguards) is the fast SFR fixture for most UI coverage; `tests/data/sample.sfr` remains the large fixture for scroll/perf scenarios.
   - `tests/data/sample-small-recipe-overrides-disabled.sfr` mirrors the small SFR fixture with recipe overrides disabled (used by note/recipe-override coverage).
-  - `tests/data/sample-small.db` is the slim Rule Tester fixture for Playwright; `tests/data/sample.db` stays reserved for unit tests and offline tooling.
+  - `tests/data/sample-small.db` is the slim Gear Inspector fixture for Playwright; `tests/data/sample.db` stays reserved for unit tests and offline tooling.
 - Specs:
   - `tests/playwright/smoke.spec.ts` is the canonical health-check (run single-browser only for targeted debugging, e.g. `npx playwright test tests/playwright/smoke.spec.ts --project=chromium --reporter=list`).
   - `tests/playwright/config-insert-order.spec.ts` guards the “paste after” ordering regression by loading `tests/data/sample-small.sfr`, performing copy/paste, and verifying row ordering.
   - `tests/playwright/builder-config-switch-perf.spec.ts` seeds a tiny autosave payload (two recipes) to measure a single recipe switch without SFR import overhead.
-  - `tests/playwright/safeguard-disabled-clone-sell.spec.ts` seeds a tiny Rule Tester autosave payload (no DB import) to verify recipe-duplicate behavior with recipe overrides disabled.
+  - `tests/playwright/safeguard-disabled-clone-sell.spec.ts` seeds a tiny Gear Inspector autosave payload (no DB import) to verify recipe-duplicate behavior with recipe overrides disabled.
 - Default test runs:
   - `npm run test:unit` executes the node:test suite and SFR fixture runner.
   - `npm run test:e2e:chromium` executes the Playwright suite in Chromium only.
@@ -240,7 +240,7 @@ All documents describe the *current* implementation; update the relevant file wh
   - `testDefault` is 3s and should cover most UI specs; only rule rebuild or matcher workflows may use `testLong` (15s).
   - Expect/wait budgets follow the same split: `expectDefault` (3s) for general UI, `expectLong` (15s) only when a rule rebuild or matcher run is the explicit action under test.
   - Initial app-shell mounts may use `appGoto` (15s) for the first visible control in perf/modal specs; the rest of the interactions must stick to the 3s defaults.
-  - Long timeouts are justified only for app-shell boot, SFR imports, recipe rebuilds, or Rule Tester matching; everything else must stay on the 3s defaults.
+  - Long timeouts are justified only for app-shell boot, SFR imports, recipe rebuilds, or Gear Inspector matching; everything else must stay on the 3s defaults.
   - If a test needs more than 15s, shrink the fixture (use `sample-small.sfr` / `sample-small.db`) or split the scenario; do not increase timeouts.
   - Do not add new timeout tiers or increase these values; if a test exceeds 15s, reduce the workload, improve readiness checks, or split the scenario.
 - Install behavior:

@@ -489,25 +489,25 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       const rawMatchMode = entry.debug?.substatMatch ?? matchedRule?.substatMatch ?? SafeguardSubstatMatch.Any
       const matchModeLabel = (
         rawMatchMode === SafeguardSubstatMatch.All
-          ? t('testerGridSafeguardChanceMatchModeAll')
+          ? t('gearInspectorGridSafeguardChanceMatchModeAll')
           : (
             rawMatchMode === SafeguardSubstatMatch.PerSubstat
-              ? t('testerGridSafeguardChanceMatchModePerSubstat')
-              : t('testerGridSafeguardChanceMatchModeAny')
+              ? t('gearInspectorGridSafeguardChanceMatchModePerSubstat')
+              : t('gearInspectorGridSafeguardChanceMatchModeAny')
           )
       )
       const safeguardName = (() => {
         const trimmedName = matchedRule?.name?.trim() ?? ''
         if (trimmedName.length > 0) return trimmedName
-        return t('testerGridSafeguardChanceUnknownRule')
+        return t('gearInspectorGridSafeguardChanceUnknownRule')
       })()
       const debug = entry.debug
-      const tooltipHeader = t('testerGridSafeguardChanceTooltipHeader', { chance: `${entry.chancePercent}%` })
-      const tooltipProjection = t('testerGridSafeguardChanceTooltipProjection')
-      const tooltipDataset = t('testerGridSafeguardChanceTooltipDataset', {
+      const tooltipHeader = t('gearInspectorGridSafeguardChanceTooltipHeader', { chance: `${entry.chancePercent}%` })
+      const tooltipProjection = t('gearInspectorGridSafeguardChanceTooltipProjection')
+      const tooltipDataset = t('gearInspectorGridSafeguardChanceTooltipDataset', {
         count: numberFormatter.format(debug?.sourceArtifactCount ?? (allRows ?? rows).length),
       })
-      const tooltipRule = t('testerGridSafeguardChanceTooltipRule', { name: safeguardName })
+      const tooltipRule = t('gearInspectorGridSafeguardChanceTooltipRule', { name: safeguardName })
       const tooltipRuleNameIndex = tooltipRule.indexOf(safeguardName)
       const tooltipRuleNameHighlightedMarkdown = tooltipRuleNameIndex >= 0
         ? `${tooltipRule.slice(0, tooltipRuleNameIndex)}*${safeguardName}*${tooltipRule.slice(tooltipRuleNameIndex + safeguardName.length)}`
@@ -525,26 +525,26 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       const requiredCountScopeSuffix = countModeScopeLabels.length > 0
         ? ` (${countModeScopeLabels.join(', ')})`
         : ''
-      const tooltipRequirementBase = t('testerGridSafeguardChanceTooltipRequirement', {
+      const tooltipRequirementBase = t('gearInspectorGridSafeguardChanceTooltipRequirement', {
         matchMode: matchModeLabel,
         substats: selectedSubstatLabel,
       })
       const tooltipRequirement = tooltipRequirementBase
-      const tooltipRequirementTemplateBase = t('testerGridSafeguardChanceTooltipRequirement', {
+      const tooltipRequirementTemplateBase = t('gearInspectorGridSafeguardChanceTooltipRequirement', {
         matchMode: matchModeLabel,
         substats: requirementSubstatsToken,
       })
       const tooltipRequirementTemplate = tooltipRequirementTemplateBase
       const tooltipRequirementTemplateParts = tooltipRequirementTemplate.split(requirementSubstatsToken)
       const tooltipRequiredCount = debug
-        ? `${t('testerGridSafeguardChanceTooltipRequiredCount', { count: numberFormatter.format(debug.requiredPerGroup) })}${requiredCountScopeSuffix}`
+        ? `${t('gearInspectorGridSafeguardChanceTooltipRequiredCount', { count: numberFormatter.format(debug.requiredPerGroup) })}${requiredCountScopeSuffix}`
         : null
       const debugTooltipLines = debug
         ? [
           tooltipRequiredCount,
-          t('testerGridSafeguardChanceTooltipBucketCount', { count: numberFormatter.format(debug.bucketCandidateCount) }),
-          t('testerGridSafeguardChanceTooltipBetterCount', { count: numberFormatter.format(debug.betterCandidateCount) }),
-          t('testerGridSafeguardChanceTooltipMatchedNow', { count: numberFormatter.format(debug.matchedSelectedNow) }),
+          t('gearInspectorGridSafeguardChanceTooltipBucketCount', { count: numberFormatter.format(debug.bucketCandidateCount) }),
+          t('gearInspectorGridSafeguardChanceTooltipBetterCount', { count: numberFormatter.format(debug.betterCandidateCount) }),
+          t('gearInspectorGridSafeguardChanceTooltipMatchedNow', { count: numberFormatter.format(debug.matchedSelectedNow) }),
         ]
         : []
       const resolveTooltipSubstatColor = (variant: number): string | undefined => (
@@ -1346,7 +1346,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     if (!row) return null
     const artifact = row.artifact
     if (!artifact) return null
-    const fallback = t('testerValueUnknown')
+    const fallback = t('gearInspectorValueUnknown')
     const slotValue = Number(artifact.slot)
     const resolvedSlotId = Number.isFinite(slotValue) ? (slotValue as ArtifactTypeId) : (1 as ArtifactTypeId)
     const slotIsAccessory = Number.isFinite(slotValue) && isAccessorySlot(resolvedSlotId)
@@ -1403,13 +1403,13 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     const emptyStateMessage = (() => {
       if (safeguardsVariant) {
         // Safeguards empty states explain missing Gear Inspector data or disabled rules.
-        if (!hasGearInspectorData) return t('safeguardsNoTesterData')
-        if (!safeguardsEnabled) return t('testerTableEmptySafeguardsDisabled')
-        if (filterActive) return t('testerTableEmptyFilter')
-        return t('testerTableEmptySafeguardsNoMatches')
+        if (!hasGearInspectorData) return t('safeguardsNoGearInspectorData')
+        if (!safeguardsEnabled) return t('gearInspectorTableEmptySafeguardsDisabled')
+        if (filterActive) return t('gearInspectorTableEmptyFilter')
+        return t('gearInspectorTableEmptySafeguardsNoMatches')
       }
       // Base Gear Inspector grid falls back to the generic filter/empty messages.
-      return filterActive ? t('testerTableEmptyFilter') : t('testerGridEmpty')
+      return filterActive ? t('gearInspectorTableEmptyFilter') : t('gearInspectorGridEmpty')
     })()
     const emptyStateProps: EmptyStateWrapperProps = {
       borderVariant: 'none',
@@ -1862,7 +1862,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
               minHeight: SMALL_BUTTON_HEIGHT_PX,
             }}
           >
-            {t('testerGridCompactGroup')}
+            {t('gearInspectorGridCompactGroup')}
           </Button>
         </MenuItem>
         <Divider sx={{ my: 0.5 }} />
@@ -1871,7 +1871,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           onClick={() => setShowSafeguardUpgradeChance(!showSafeguardUpgradeChance)}
         >
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
-            {t('testerGridShowSafeguardUpgradeChance')}
+            {t('gearInspectorGridShowSafeguardUpgradeChance')}
           </Typography>
           <Button
             size="small"
@@ -1895,9 +1895,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             toggleNormalizedOverlayEnabledPresetsFromLastUsed()
           }}
         >
-          <MarkdownTooltip markdown={t('testerGridNormalizedTooltip')} placement="top-start">
+          <MarkdownTooltip markdown={t('gearInspectorGridNormalizedTooltip')} placement="top-start">
             <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
-              {t('testerGridNormalizedLabel')}
+              {t('gearInspectorGridNormalizedLabel')}
             </Typography>
           </MarkdownTooltip>
           <Box
@@ -1912,7 +1912,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             }}
           >
             <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-              <MarkdownTooltip markdown={t('testerGridNormalizedSortSourceTooltip')} placement="top-start">
+              <MarkdownTooltip markdown={t('gearInspectorGridNormalizedSortSourceTooltip')} placement="top-start">
                 <Box component="span">
                   <Button
                     key="gear-inspector-grid-normalized-preset-s"
@@ -1939,7 +1939,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                       event.preventDefault()
                       event.stopPropagation()
                     }}
-                    aria-label={t('testerSortLabel')}
+                    aria-label={t('gearInspectorSortLabel')}
                   >
                     <SortIcon sx={{ fontSize: 18 }} />
                   </Button>
@@ -1954,13 +1954,13 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                   : String(presetId + 1)
                 const tooltipMarkdown = preset
                   ? buildGearInspectorNormalizedPresetTooltipMarkdown({
-                      title: t('testerGridNormalizedPresetTitle', { n: presetId + 1 }),
+                      title: t('gearInspectorGridNormalizedPresetTitle', { n: presetId + 1 }),
                       preset,
                       labelForVariant: (variant) => t(statVariantI18nKey(variant)),
-                      emptyLabel: t('testerNormalizedPresetTooltipEmpty'),
-                      rightClickHint: t('testerNormalizedPresetTooltipRightClickHint'),
+                      emptyLabel: t('gearInspectorNormalizedPresetTooltipEmpty'),
+                      rightClickHint: t('gearInspectorNormalizedPresetTooltipRightClickHint'),
                     })
-                  : t('testerNormalizedPresetTooltipEmpty')
+                  : t('gearInspectorNormalizedPresetTooltipEmpty')
                 return (
                   <MarkdownTooltip
                     key={`gear-inspector-grid-normalized-preset-tooltip-${presetId}`}
@@ -2011,13 +2011,13 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                   : String(presetId + 1)
                 const tooltipMarkdown = preset
                   ? buildGearInspectorNormalizedPresetTooltipMarkdown({
-                      title: t('testerGridNormalizedPresetTitle', { n: presetId + 1 }),
+                      title: t('gearInspectorGridNormalizedPresetTitle', { n: presetId + 1 }),
                       preset,
                       labelForVariant: (variant) => t(statVariantI18nKey(variant)),
-                      emptyLabel: t('testerNormalizedPresetTooltipEmpty'),
-                      rightClickHint: t('testerNormalizedPresetTooltipRightClickHint'),
+                      emptyLabel: t('gearInspectorNormalizedPresetTooltipEmpty'),
+                      rightClickHint: t('gearInspectorNormalizedPresetTooltipRightClickHint'),
                     })
-                  : t('testerNormalizedPresetTooltipEmpty')
+                  : t('gearInspectorNormalizedPresetTooltipEmpty')
                 return (
                   <MarkdownTooltip
                     key={`gear-inspector-grid-normalized-preset-tooltip-${presetId}`}
@@ -2069,7 +2069,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           }}
         >
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
-            {t('testerSortGlyphsLabel')}
+            {t('gearInspectorSortGlyphsLabel')}
           </Typography>
           <Button
             size="small"
@@ -2084,7 +2084,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
               gearInspectorSubstatSortPreferences.toggleExcludeGlyphs()
             }}
           >
-            {normalizedOverlayExcludeGlyphs ? t('testerSortGlyphsExclude') : t('testerSortGlyphsInclude')}
+            {normalizedOverlayExcludeGlyphs ? t('gearInspectorSortGlyphsExclude') : t('gearInspectorSortGlyphsInclude')}
           </Button>
         </MenuItem>
         <Divider sx={{ my: 0.5 }} />
@@ -2204,7 +2204,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         {/* Rule template button is opt-in so we surface it only for the main Gear Inspector grid. */}
         {variant === 'gearInspector' ? (
           <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowRuleTemplates(!showRuleTemplates)}>
-            <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('testerGridShowRuleTemplates')}</Typography>
+            <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('gearInspectorGridShowRuleTemplates')}</Typography>
             <Button
               size="small"
               variant={showRuleTemplates ? 'contained' : 'outlined'}
@@ -2574,7 +2574,7 @@ function groupRowsBySet(
   const formatSlotLabel = (slotId: ArtifactTypeId): string => {
     // Invalid slots should render as "Unknown" instead of throwing on i18n lookup.
     const slotValue = Number(slotId)
-    if (!Number.isFinite(slotValue)) return translate('testerValueUnknown')
+    if (!Number.isFinite(slotValue)) return translate('gearInspectorValueUnknown')
     return translate(artifactTypeI18nKey(slotValue as ArtifactTypeId))
   }
 
@@ -2706,7 +2706,7 @@ function groupRowsBySet(
       const factionKey = `faction:${factionId}`
       let factionGroup = factionGroups.get(factionKey)
       if (!factionGroup) {
-        const factionLabel = factionId > 0 ? translate(factionI18nKey(factionId)) : translate('testerValueUnknown')
+        const factionLabel = factionId > 0 ? translate(factionI18nKey(factionId)) : translate('gearInspectorValueUnknown')
         factionGroup = {
           group: {
             key: factionKey,

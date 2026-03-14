@@ -58,7 +58,7 @@ export const STATUS_CHIP_BORDER_RADIUS_PX = 8
 // Autosave storage key for SFR sessions
 export const AUTOSAVE_KEY = 'sellfileCreator.autosave.sfr.v1'
 // Autosave storage key for the Gear Inspector dialog item queue
-export const AUTOSAVE_GEAR_INSPECTOR_KEY = 'sellfileCreator.autosave.tester.v1'
+export const AUTOSAVE_GEAR_INSPECTOR_KEY = 'sellfileCreator.autosave.gearInspector.v1'
 // Persisted Sellfile Preview / Gear Inspector toggle selection
 export const PREVIEW_MODE_STORAGE_KEY = 'sellfileCreator.previewMode.v1'
 // Persisted Recipe Builder / Safeguard Builder toggle selection
@@ -504,28 +504,28 @@ export const RARITY_AUTO_LABEL = 'Auto'
 export const RULES_TABLE_SHOW_SLOT_ICONS_KEY = 'sellfileCreator.rulesTable.slotIcons.v2'
 export const RULES_TABLE_SHOW_SET_ICONS_KEY = 'sellfileCreator.rulesTable.setIcons.v2'
 export const RULES_TABLE_SHOW_FACTION_ICONS_KEY = 'sellfileCreator.rulesTable.factionIcons.v1'
-export const GEAR_INSPECTOR_PREVIEW_LAYOUT_KEY = 'sellfileCreator.tester.previewLayout.v1'
-export const GEAR_INSPECTOR_GRID_COLUMNS_KEY = 'sellfileCreator.tester.grid.columns.v1'
-export const GEAR_INSPECTOR_GRID_SHOW_FIRST_MATCH_KEY = 'sellfileCreator.tester.grid.showFirstMatch.v1'
-export const GEAR_INSPECTOR_GRID_SHOW_MATCH_RECIPE_INDEX_KEY = 'sellfileCreator.tester.grid.showMatchRecipeIndex.v1'
-export const GEAR_INSPECTOR_GRID_SHOW_MATCH_LINE_KEY = 'sellfileCreator.tester.grid.showMatchLine.v1'
-export const GEAR_INSPECTOR_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.tester.grid.showOtherMatches.v1'
+export const GEAR_INSPECTOR_PREVIEW_LAYOUT_KEY = 'sellfileCreator.gearInspector.previewLayout.v1'
+export const GEAR_INSPECTOR_GRID_COLUMNS_KEY = 'sellfileCreator.gearInspector.grid.columns.v1'
+export const GEAR_INSPECTOR_GRID_SHOW_FIRST_MATCH_KEY = 'sellfileCreator.gearInspector.grid.showFirstMatch.v1'
+export const GEAR_INSPECTOR_GRID_SHOW_MATCH_RECIPE_INDEX_KEY = 'sellfileCreator.gearInspector.grid.showMatchRecipeIndex.v1'
+export const GEAR_INSPECTOR_GRID_SHOW_MATCH_LINE_KEY = 'sellfileCreator.gearInspector.grid.showMatchLine.v1'
+export const GEAR_INSPECTOR_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.gearInspector.grid.showOtherMatches.v1'
 // Safeguards keeps its own default for "show other matches" so Gear Inspector stays unchanged.
 export const SAFEGUARDS_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.safeguards.grid.showOtherMatches.v1'
-export const GEAR_INSPECTOR_GRID_SHOW_CHAMP_ICONS_KEY = 'sellfileCreator.tester.grid.showChampIcons.v1'
-export const GEAR_INSPECTOR_GRID_SHOW_RULE_TEMPLATES_KEY = 'sellfileCreator.tester.grid.showRuleTemplates.v1'
+export const GEAR_INSPECTOR_GRID_SHOW_CHAMP_ICONS_KEY = 'sellfileCreator.gearInspector.grid.showChampIcons.v1'
+export const GEAR_INSPECTOR_GRID_SHOW_RULE_TEMPLATES_KEY = 'sellfileCreator.gearInspector.grid.showRuleTemplates.v1'
 // Gear Inspector grid: keep/sell outcome background emphasis toggle.
 // Why: this is view-only card styling and should persist across sessions like other grid toggles.
-export const GEAR_INSPECTOR_GRID_HIGHLIGHT_KEEP_SELL_KEY = 'sellfileCreator.tester.grid.highlightKeepSell.v1'
+export const GEAR_INSPECTOR_GRID_HIGHLIGHT_KEEP_SELL_KEY = 'sellfileCreator.gearInspector.grid.highlightKeepSell.v1'
 // Gear Inspector grid: safeguard upgrade chance overlay toggle.
 // Why: the overlay is view-only and should persist across sessions like other grid display toggles.
-export const GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY = 'sellfileCreator.tester.grid.showSafeguardUpgradeChance.v1'
+export const GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY = 'sellfileCreator.gearInspector.grid.showSafeguardUpgradeChance.v1'
 // Gear Inspector grid: substat sorting controls.
 // Why: Sorting is view-only (like filters) but should persist across sessions.
-export const GEAR_INSPECTOR_SUBSTAT_SORT_KEY = 'sellfileCreator.tester.sort.substats.v1'
+export const GEAR_INSPECTOR_SUBSTAT_SORT_KEY = 'sellfileCreator.gearInspector.sort.substats.v1'
 // Gear Inspector grid: normalized overlay presets + selection.
 // Why: Overlay is view-only, but users need the presets to persist across sessions.
-export const GEAR_INSPECTOR_GRID_NORMALIZED_OVERLAY_KEY = 'sellfileCreator.tester.grid.normalizedOverlay.v1'
+export const GEAR_INSPECTOR_GRID_NORMALIZED_OVERLAY_KEY = 'sellfileCreator.gearInspector.grid.normalizedOverlay.v1'
 // Preview selection scroll sources.
 // Why: Auto-scroll should only fire from explicit user/command signals.
 export const SELECTION_SCROLL_SOURCE_USER = 'user' as const

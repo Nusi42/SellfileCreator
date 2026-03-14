@@ -129,9 +129,9 @@ export function GearInspectorSortWeightControls({
     }
   }, [enabled, holdDelayMs, onBump, scheduleTick, stopHold])
 
-  const decreaseAria = t('testerSortWeightDecreaseAria', { label })
-  const increaseAria = t('testerSortWeightIncreaseAria', { label })
-  const resetAria = t('testerSortWeightResetAria', { label })
+  const decreaseAria = t('gearInspectorSortWeightDecreaseAria', { label })
+  const increaseAria = t('gearInspectorSortWeightIncreaseAria', { label })
+  const resetAria = t('gearInspectorSortWeightResetAria', { label })
 
   return (
     <>

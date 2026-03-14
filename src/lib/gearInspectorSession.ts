@@ -38,7 +38,7 @@ export type GearInspectorSourceCategory = 'manual' | 'inventory' | 'collection' 
 export const gearInspectorSourceCategoryForItem = (item: GearInspectorItem): GearInspectorSourceCategory => {
   const extras = item.previewExtras
   const baseSource = extras?.source
-  if (!baseSource || baseSource === 'tester') return 'manual'
+  if (!baseSource || baseSource === 'manual') return 'manual'
   if (baseSource === 'inbox') return 'inbox'
   if (extras?.equippedToChampionId != null) {
     const loc = extras.equippedChampionLocation

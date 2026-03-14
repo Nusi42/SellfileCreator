@@ -717,7 +717,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         <EllipsisTooltip title={entry.label} selector=".MuiChip-label">
           {clickable
             ? (
-                <MarkdownTooltip markdown={t('testerJumpToRecipe')}>
+                <MarkdownTooltip markdown={t('gearInspectorJumpToRecipe')}>
                   {chipBox}
                 </MarkdownTooltip>
               )
@@ -754,7 +754,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   // Skip the numeric portion for those so the card doesn't display a spurious "0".
   const mainStatValueKnown = artifact.mainStat != null && Number.isFinite(artifact.mainStat.totalValue)
   const mainValue = mainStatValueKnown ? formatStatPreGlyph(artifact.mainStat ?? null) : ''
-  const mainInline = mainValue ? t('testerMainStatInline', { stat: mainLabel, value: mainValue }) : mainLabel
+  const mainInline = mainValue ? t('gearInspectorMainStatInline', { stat: mainLabel, value: mainValue }) : mainLabel
   const mainVariant = artifact.mainStat?.variant
   const mainColor = useStatButtonColors && typeof mainVariant === 'number'
     ? (substatColors[mainVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainVariant])
@@ -766,7 +766,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     .filter((stat) => stat.variant !== StatVariant.Any)
     .map((stat) => {
       const statLabel = t(statVariantI18nKey(stat.variant))
-      const statValue = formatStatPreGlyph(stat) || t('testerValueUnknown')
+      const statValue = formatStatPreGlyph(stat) || t('gearInspectorValueUnknown')
       const statColor = useStatButtonColors
         ? (substatColors[stat.variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[stat.variant])
         : undefined
@@ -780,7 +780,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         ? formatCircledDigit(stat.rolls)
         : null
       const rollAriaLabel = (typeof stat.rolls === 'number' && stat.rolls > 0)
-        ? t('testerRollsLabel', { rolls: stat.rolls })
+        ? t('gearInspectorRollsLabel', { rolls: stat.rolls })
         : null
       return {
         variant: stat.variant,
@@ -853,7 +853,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     if (ascValue && ascLabelNode && ascValueNode) {
       const statToken = '__STAT__'
       const valueToken = '__VALUE__'
-      const template = t('testerMainStatInline', { stat: statToken, value: valueToken })
+      const template = t('gearInspectorMainStatInline', { stat: statToken, value: valueToken })
       const replacements = [
         { token: statToken, node: ascLabelNode },
         { token: valueToken, node: ascValueNode },
@@ -947,13 +947,13 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     return name.charAt(0).toUpperCase()
   })()
   const rerollLabel = artifact.rerollCount > 0 ? '⟳' : ''
-  const rerollTooltip = artifact.rerollCount > 0 ? t('testerRerollLabel') : ''
+  const rerollTooltip = artifact.rerollCount > 0 ? t('gearInspectorRerollLabel') : ''
   // Tooltip copy surfaces the localized last-used timestamp whenever the DB provided one.
   const lastUseTooltip = (() => {
     if (!artifact.lastUseLocalTimestamp) return null
     const formatted = formatLocalDateTime(artifact.lastUseLocalTimestamp, { dateStyle: 'medium', timeStyle: 'medium' })
     const displayTimestamp = formatted ?? artifact.lastUseLocalTimestamp
-    return t('testerLastUsedTooltip', { timestamp: displayTimestamp })
+    return t('gearInspectorLastUsedTooltip', { timestamp: displayTimestamp })
   })()
   // Dev builds include artifact id in the icon tooltip for quick transcript/debug lookups.
   const devArtifactIdTooltip = (() => {
@@ -973,7 +973,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     ? {
         tone: match.keep === false ? theme.palette.error.main : theme.palette.success.main,
         glyph: match.keep === false ? <SellIcon fontSize="inherit" aria-hidden /> : '✓',
-        label: match.keep === false ? t('testerMatchSell') : t('testerMatchKeep'),
+        label: match.keep === false ? t('gearInspectorMatchSell') : t('gearInspectorMatchKeep'),
         canJump: allowPrimaryMatchJump,
         ...(allowPrimaryMatchJump ? { onClick: handlePrimaryMatchClick } : {}),
         inactive: matchDetailsFrozen,
@@ -1048,10 +1048,10 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   // Gear action button opens the keep/sell template menu.
   const ruleTemplateButton = canCreateRuleTemplate ? (
     // Tooltip clarifies the action without cluttering the card.
-    <MarkdownTooltip markdown={t('testerRuleTemplateTooltip')}>
+    <MarkdownTooltip markdown={t('gearInspectorRuleTemplateTooltip')}>
       <ButtonBase
         onClick={handleRuleTemplateOpen}
-        aria-label={t('testerRuleTemplateButtonAria')}
+        aria-label={t('gearInspectorRuleTemplateButtonAria')}
         aria-haspopup="menu"
         sx={{
           width: CARD_ACTION_BUTTON_SIZE_PX,
@@ -1090,7 +1090,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     outcomeColor: string,
   ) => {
     // Resolve one template so languages can choose their own word order.
-    const template = t('testerRuleTemplateActionTemplate', { outcome: ruleTemplateOutcomeMarker })
+    const template = t('gearInspectorRuleTemplateActionTemplate', { outcome: ruleTemplateOutcomeMarker })
     // Locate the marker once and split prefix/suffix around it.
     const markerIndex = template.indexOf(ruleTemplateOutcomeMarker)
     // Fallback: if marker is missing, just show the outcome word.
@@ -1134,13 +1134,13 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
       {/* Keep actions create a keep template tied to the current item. */}
       <MenuItem onClick={() => handleRuleTemplateSelect('keep')}>
         <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
-          {renderRuleTemplateActionLabel(t('testerMatchKeep'), theme.palette.success.main)}
+          {renderRuleTemplateActionLabel(t('gearInspectorMatchKeep'), theme.palette.success.main)}
         </Box>
       </MenuItem>
       {/* Sell actions create a sell template tied to the current item. */}
       <MenuItem onClick={() => handleRuleTemplateSelect('sell')}>
         <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
-          {renderRuleTemplateActionLabel(t('testerMatchSell'), theme.palette.error.main)}
+          {renderRuleTemplateActionLabel(t('gearInspectorMatchSell'), theme.palette.error.main)}
         </Box>
       </MenuItem>
     </Menu>
@@ -1633,7 +1633,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           ) : null}
           {shouldPinOtherMatchesToPrimaryRow ? (
             // Reuse the +N affordance so hidden matches remain discoverable while first match stays fully visible.
-            <MarkdownTooltip markdown={`${t('testerRecipeMatches')} (+${matchingOverflowCount})`}>
+            <MarkdownTooltip markdown={`${t('gearInspectorRecipeMatches')} (+${matchingOverflowCount})`}>
               <Box component="span" ref={handleMoreChipRef} sx={{ ...MATCHING_CHIP_WRAPPER_SX, ml: 'auto' }}>
                 <Chip
                   label={`+${matchingOverflowCount}`}
@@ -1702,7 +1702,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
             {matchingOverflowCount > 0 ? (
               <>
                 {/* MarkdownTooltip keeps the "+N" overflow chip consistent with other Gear Inspector tooltips. */}
-                <MarkdownTooltip markdown={`${t('testerRecipeMatches')} (+${matchingOverflowCount})`}>
+                <MarkdownTooltip markdown={`${t('gearInspectorRecipeMatches')} (+${matchingOverflowCount})`}>
                   <Box component="span" ref={handleMoreChipRef} sx={MATCHING_CHIP_WRAPPER_SX}>
                     <Chip
                       label={`+${matchingOverflowCount}`}

@@ -588,7 +588,7 @@ export default function SafeguardChipsPanel({
     const selected = effectiveSelectedIds.has(rule.id)
     const isEditingRuleName = editingRuleNameId === rule.id
     const rawName = (pendingNameById.get(rule.id) ?? rule.name ?? '').trim()
-    const fallbackName = `${t('testerRule')} ${ruleIndex + 1}`
+    const fallbackName = `${t('gearInspectorRule')} ${ruleIndex + 1}`
     const nameDecoration = parseRecipeNameDirectives(rawName || undefined, 'inherit')
     const displayName = nameDecoration.displayName || fallbackName
     const actColor = activationColor(rule.activation)

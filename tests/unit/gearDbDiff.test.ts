@@ -67,7 +67,7 @@ test('gear DB diff reuses entries across example backups', async () => {
 })
 
 test('gear DB diff retains manually added gear when requested', () => {
-  const makePreviewExtras = (source: 'tester' | 'artifacts') => ({ source })
+  const makePreviewExtras = (source: 'manual' | 'artifacts') => ({ source })
   const manual: GearInspectorItem = {
     itemId: 1,
     slot: 1,
@@ -76,7 +76,7 @@ test('gear DB diff retains manually added gear when requested', () => {
     rarity: 6,
     level: 0,
     faction: 0,
-    previewExtras: makePreviewExtras('tester'),
+    previewExtras: makePreviewExtras('manual'),
   }
   const imported: GearInspectorItem = {
     itemId: 2,

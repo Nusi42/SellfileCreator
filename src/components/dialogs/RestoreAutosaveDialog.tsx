@@ -95,7 +95,7 @@ export default function RestoreAutosaveDialog({
     // viewFilterDiffer covers both view/filter and sort; show the combined row when either differs.
     if (viewFilterDiffer) next.filters = true
     // Skip Gear Inspector if snapshot is empty — that equals the default state.
-    if (hasGearInspectorContent) next.tester = true
+    if (hasGearInspectorContent) next.gearInspector = true
     if (gearSetsCount > 0) next.gearSets = true
     return next
   }, [recipesCount, viewFilterDiffer, gearSetsCount, hasNote, hasSafeguards, hasTargets, metasCount, metasetsDiffer, targetsDiffer, hasGearInspectorContent])
@@ -156,9 +156,9 @@ export default function RestoreAutosaveDialog({
     // An empty snapshot equals the factory default and would be a no-op restore.
     if (hasGearInspectorContent) {
       rows.push({
-        key: 'tester',
-        label: t('restoreAutosaveTesterLabel', { count: gearInspectorDraft!.count }),
-        helper: t('restoreAutosaveTesterHelper'),
+        key: 'gearInspector',
+        label: t('restoreAutosaveGearInspectorLabel', { count: gearInspectorDraft!.count }),
+        helper: t('restoreAutosaveGearInspectorHelper'),
       })
     }
     if (gearSetsCount > 0) {
@@ -245,7 +245,7 @@ export default function RestoreAutosaveDialog({
             )}
             {gearInspectorSavedAt && (
               <Typography variant="caption" color="text.secondary">
-                {t('restoreAutosaveTesterSavedAt', { timestamp: gearInspectorSavedAt })}
+                {t('restoreAutosaveGearInspectorSavedAt', { timestamp: gearInspectorSavedAt })}
               </Typography>
             )}
           </Stack>

@@ -40,7 +40,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 
 ### Localization alignment workflow
 
-- README translations (`README.<lang>.md`) and their catalogs (`src/lib/i18n/catalogs/<lang>.ts`) form a single source of truth for terminology. When a feature’s copy changes (Rule Tester preview, Safeguards defaults/helper rules, quota scopes, clipboard workflows, glyph/roll filters, config management tips), update the English README first, then mirror the structure and wording in every translated README while updating the matching catalog keys in the same commit.
+- README translations (`README.<lang>.md`) and their catalogs (`src/lib/i18n/catalogs/<lang>.ts`) form a single source of truth for terminology. When a feature’s copy changes (Gear Inspector preview, Safeguards defaults/helper rules, quota scopes, clipboard workflows, glyph/roll filters, config management tips), update the English README first, then mirror the structure and wording in every translated README while updating the matching catalog keys in the same commit.
 - Use heading outlines to compare structures instead of noisy line-by-line diffs: `rg '^##' README.md` / `rg '^##' README.<lang>.md` (and `^###` for subsections) keeps the focus on missing sections, tables, and grids. Open both files side by side while applying the English layout to the localized version so tables, scenario grids, and config-management paragraphs stay parallel.
 - README.md and all README translations (`README.<lang>.md`) are end-user facing documentation. Keep the wording simple, avoid technical terms, explain straight up on point and dont try to sell a feature. Using terminology from the game Raid Shadow Legends is fine though.
 - All `Config`-building, `Filter`, `Gear-Sets`, and `Safeguards` terminology must stay synchronized between README copy, catalog strings, and UI labels. That includes the tab/section title, default/helper rule descriptions, badge labels, scope chips, and any other user facting button not explicitly mentioned here. If a locale intentionally keeps a loanword (e.g., “Rolls” in de-DE), mention the reasoning as a comment in their catalogs (`src/lib/i18n/catalogs/<lang>.ts`) so future translators do not “fix” it.
@@ -53,7 +53,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   - `MarkdownTooltip` (`src/components/MarkdownTooltip.tsx`) wraps MUI Tooltip with standardized, intent-aware delays (500 ms for informational text, 1,000 ms for click targets), width caps, and a markdown renderer (paragraphs, bullet lists, `**bold**`, `_italic_`, inline code). Every explanatory tooltip uses this path. Pass `markdown="..."` for localized strings or `render={...}` when you need JSX (e.g., `BuilderTooltipContent`, colored chips). The component auto-detects left-click handlers anywhere in its child tree; set `hoverIntent="interactive"|"informational"` only when the handler lives outside the subtree you’re rendering (rare).
 - `EllipsisTooltip` (`src/components/EllipsisTooltip.tsx`) is the only allowed overflow helper. Wrap the element that can clip text, add `data-ellipsis-target` to the truncating node, and it dynamically applies a native `title` *only* when the content is visually ellipsized. Do not use it for “help” copy.
 - `MarkdownTooltip` now accepts `ellipsisTitle` (and optional `ellipsisSelector`). When you pass a label, it automatically sets a transient native `title` on the ellipsized trigger so the OS tooltip exposes the full text without stacking a second popper. Tag the truncating element with `data-ellipsis-target` (or pass a selector) so the helper knows which node to probe.
-- All implementations (builder, rules filter, preview tables, dialog buttons, tester grids) import those helpers. Do **not** import `@mui/material/Tooltip` elsewhere; the shared wrapper already exposes `slotProps`, `placement`, etc.
+- All implementations (builder, rules filter, preview tables, dialog buttons, Gear Inspector grids) import those helpers. Do **not** import `@mui/material/Tooltip` elsewhere; the shared wrapper already exposes `slotProps`, `placement`, etc.
 - When converting legacy JSX tooltips, keep the content declarative: reuse `BuilderTooltipContent`, avoid inline HTML entities, and keep translation strings in `en-US.ts`. Multi-line copy should be separated with blank lines or `- bullet` formatting to match the markdown renderer’s expectations.
 - Overflow-only surfaces (buttons with shrinking labels, select render-value spans, table cells that switch to icons) should:
   1. Wrap the surface in `<EllipsisTooltip title={label}>`.
@@ -64,7 +64,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   2. Skip explicit `enterDelay`/`leaveDelay`; the wrapper centralizes timing and automatically picks the short vs. long delay.
   3. Prefer `placement="top"`/`"right"` only when alignment truly matters (e.g., builder export mode toggles). Otherwise let the default `top-start` stand.
 - Set descriptions (`WithSetTooltip`) and other shared helpers must also compose `MarkdownTooltip` so there is **one** place to adjust behavior (timing, width, disableInteractive). If you need a variant, extend `MarkdownTooltip` rather than wrapping MUI Tooltip again.
-- Context-menu hints use `ContextMenuHintOverlay` + `useContextMenuHint`. Hook every eligible surface into the overlay map (see `docs/technical/app-behavior.md` for IDs) and reuse the localized hint strings (`contextMenuHint`, `contextMenuHintRulesTableHeader`, etc.). Existing surfaces include the builder history menu, rules-table headers/context menus, preview export/header menus, tester grid menu + scroll hint, dialog filter sections, and the Rule Tester intro copy-path button; mirror their patterns when adding new popovers. Do not hand-roll ad-hoc overlays—the shared helper already manages per-version dismissals.
+- Context-menu hints use `ContextMenuHintOverlay` + `useContextMenuHint`. Hook every eligible surface into the overlay map (see `docs/technical/app-behavior.md` for IDs) and reuse the localized hint strings (`contextMenuHint`, `contextMenuHintRulesTableHeader`, etc.). Existing surfaces include the builder history menu, rules-table headers/context menus, preview export/header menus, Gear Inspector grid menu + scroll hint, dialog filter sections, and the Gear Inspector intro copy-path button; mirror their patterns when adding new popovers. Do not hand-roll ad-hoc overlays—the shared helper already manages per-version dismissals.
 - Any menu/popover that uses `ContextMenuPaper` must go through `useContextMenuPaperGuard` and pass the returned `contextMenuGuard` into `buildContextMenuPaperSlotProps`. This enforces the outside-click cleanup and prevents stuck backdrops (the “resize to recover” freeze).
 - When adding new tooltip copy:
   - Keep it intent-focused (“Explains what toggling does”) rather than narrating mechanics.
@@ -94,7 +94,7 @@ Representative overflow-only surfaces:
 - Iconic buttons whose labels can collapse (builder note/save buttons, preview header actions, dialog primary actions).
 - Select `renderValue` spans (gear sets, factions, champions, builder set/faction pickers, rules filter chips).
 - Table cells that toggle between icons and text (HSF slot/faction columns, metaset menus, builder set menus).
-- Config/tester chips plus the tester grid’s matching-config badges.
+- Config/Gear Inspector chips plus the Gear Inspector grid’s matching-config badges.
 
 When the same surface needs a rich Markdown tooltip *and* an overflow-expansion title, pass `ellipsisTitle` to `MarkdownTooltip` so it handles the overflow probe and native `title` for you instead of nesting tooltip systems.
 
@@ -104,8 +104,8 @@ Anything that is not overflow-triggered runs through `MarkdownTooltip`. Represen
 
 - Builder form labels, action buttons, flex/min controls, lock toggles, roll target warnings, history entries, and metaset dialogs.
 - Rules filter chips/toggles (sets, chaos ore, glyph filters, roll summary), tester config buttons, preview header menus, and filter sections.
-- Headers, icons, and buttons inside the HSF preview table and tester grid (match rows, champion badges, Safeguards chips, context-menu affordances).
-- Dialog controls (Note dialog toolbar, Safeguards tabs, Substat Targets star chips, Rule Tester action buttons, copy-to-clipboard helpers).
+- Headers, icons, and buttons inside the HSF preview table and Gear Inspector grid (match rows, champion badges, Safeguards chips, context-menu affordances).
+- Dialog controls (Note dialog toolbar, Safeguards tabs, Substat Targets star chips, Gear Inspector action buttons, copy-to-clipboard helpers).
 - Export/load/save buttons, load-sellfile helpers, final-sell toggles, context shorthand hints, etc.
 - Note dialog markers: HTML/Markdown comments `<!-- recipes:1,0 -->` render Config chips; `<!-- recipes-re:"speed" -->` filters configs by name or tags; `<!-- safeguards:1,2 -->` renders Safeguard summary cards; `<!-- safeguards-re:"ring" -->` filters cards by Safeguard rule name. Markers are 1-based, support `0` for “next after previous marker”, and resolve against the current in-memory config/safeguard ordering.
 
@@ -162,7 +162,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - Chip click: Selecting a config chip triggers an explicit scroll request and jumps the table to the first matching rule row. Single-line mode uses smooth scrolling when nearby and falls back to an instant jump for long distances; wrap mode always jumps.
 - `selectRule` commands also trigger preview scrolling (to the requested rule row) while still syncing the related config selection.
 - Auto-scroll is gated to explicit selection intents (chip clicks or `selectRule`) so background rule updates never re-scroll the table.
-- Mode switch retention: Sellfile Preview and Rule Tester now cache independent scroll offsets; toggling between modes restores the prior viewport and relies on native scroll clamping when filtered/removed rows shrink the content height.
+- Mode switch retention: Sellfile Preview and Gear Inspector now cache independent scroll offsets; toggling between modes restores the prior viewport and relies on native scroll clamping when filtered/removed rows shrink the content height.
 
 ### Obsolete Rules Handling
 
@@ -225,7 +225,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 
 - Sticky header keeps the table caption visible while the container scrolls. Layout uses `tableLayout: fixed` to stabilize widths.
 - Virtualization:
-  - Implementation: `@tanstack/react-virtual` (same dependency as the tester grid), while still rendering a real `<Table>` by inserting top/bottom spacer rows.
+  - Implementation: `@tanstack/react-virtual` (same dependency as the Gear Inspector grid), while still rendering a real `<Table>` by inserting top/bottom spacer rows.
   - Single-line mode: fixed-height rows (~30px); avoids per-row measurement during scroll.
   - Wrap mode: variable-height rows measured via the virtualizer; row heights re-measure when layout changes so scroll and range hints stay accurate.
 - Header menu (context): reset columns, toggle wrap mode, toggle icon modes, adjust stat-border coloring, and manage per-column visibility (Faction supports `auto|show|hide`). Drag headers to reorder; resize via drag handles (min width 40px); widths persist.
@@ -237,18 +237,18 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Safeguard rows suppress the "right-click for actions" hint because they intentionally expose no row context menu actions.
   - Clicking a safeguard star now branches by data: concrete safeguard matches switch to `Gear Inspector`, while anticipate-only placeholders open `Tools → Safeguards`, select the matching rule, and expand its card.
 
-### Tester Grid Virtualization
+### Gear Inspector Grid Virtualization
 
-- `src/components/TesterItemsGrid.tsx` now feeds TanStack a *flattened* list of headers, spacers, and card rows instead of mounting whole accordions. Each flattened item carries its own deterministic height so the virtualizer never needs to sample DOM nodes.
+- `src/components/GearInspectorItemsGrid.tsx` now feeds TanStack a *flattened* list of headers, spacers, and card rows instead of mounting whole accordions. Each flattened item carries its own deterministic height so the virtualizer never needs to sample DOM nodes.
 - Group expansion simply rebuilds the flattened list; the TanStack instance keeps scroll position stable by reusing keys (`header:<key>`, `row:<key>:<index>`, etc.).
 - Nested faction → set trees no longer mount en masse: child accordions emit spacer entries plus their own header/cell rows, and anything outside the viewport collapses down to a single placeholder block.
 - Terminology: we call a top-level accessory node a *faction header*, any child set node (artifact or accessory) a *set header*, and when a faction header has no children it behaves like a leaf (set) header. All three flow through the same `groupHeader` flattened item so the DOM stays consistent.
 - Card rows still hydrate lazily. Skeletons appear whenever a flattened row is rendered before its reveal task finishes, but scrolling back up no longer forces an entire faction/set subtree to remount; only the specific flattened rows in view re-enter the DOM.
-- Scroll-hint sampling keeps using `[data-tester-grid-card="true"]` so the existing flyout logic works unchanged. Because virtual rows now mirror the actual viewport, the hint updates immediately even when the user drags the scrollbar thumb.
-- When adjusting tester-grid behavior:
+- Scroll-hint sampling keeps using `[data-gear-inspector-grid-card="true"]` so the existing flyout logic works unchanged. Because virtual rows now mirror the actual viewport, the hint updates immediately even when the user drags the scrollbar thumb.
+- When adjusting Gear Inspector grid behavior:
   - Update the flattened builder (`buildFlattenedGridItems`) so the virtualizer stays authoritative.
   - Keep the chunked row helper (`chunkGroupRows`) in sync with the card grid layout; card height math still depends on the column count and match-row toggles.
-  - Remember to update this section plus the inline comments in `TesterItemsGrid.tsx` whenever you tweak virtualization heuristics, skeleton batching (`useTesterGridCardContentReady`), or the scroll-hint sampling strategy.
+  - Remember to update this section plus the inline comments in `GearInspectorItemsGrid.tsx` whenever you tweak virtualization heuristics, skeleton batching (`useGearInspectorGridCardContentReady`), or the scroll-hint sampling strategy.
   - Selecting a chip auto-scrolls to its first rule row (smooth in single-line mode; jump in wrap mode).
 - Row context menu matches chip actions (Duplicate, Move, Copy, Paste after, Delete). Base rows show Clear instead of Delete. Safeguard rows do not show a row context menu.
 - Cells:

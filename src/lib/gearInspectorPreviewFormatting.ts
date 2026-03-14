@@ -47,7 +47,7 @@ export function formatSubstats(
   stats: readonly NormalizedStat[],
   translate: TranslateFn,
 ): { summary: string; tooltip: string } {
-  if (!stats.length) return { summary: translate('testerSubstatsNone'), tooltip: translate('testerSubstatsNone') }
+  if (!stats.length) return { summary: translate('gearInspectorSubstatsNone'), tooltip: translate('gearInspectorSubstatsNone') }
   const pieces: string[] = []
   const tooltips: string[] = []
   for (const stat of stats) {
@@ -56,7 +56,7 @@ export function formatSubstats(
     const value = formatStatPreGlyph(stat)
     const compact = value ? `${label} ${value}` : label
     pieces.push(compact)
-    const rolls = typeof stat.rolls === 'number' && stat.rolls > 0 ? ` (${translate('testerRollsLabel', { rolls: stat.rolls })})` : ''
+    const rolls = typeof stat.rolls === 'number' && stat.rolls > 0 ? ` (${translate('gearInspectorRollsLabel', { rolls: stat.rolls })})` : ''
     const mythMagnitude = Math.abs(Number(stat.mythValue) || 0)
     const mythSuffix = mythMagnitude >= 0.01
       ? ` (+${translate('rarityMythical')} ${formatStatNumber(mythMagnitude)})`
@@ -85,24 +85,24 @@ export function resolveRarityLabel(translate: TranslateFn, rarityCode: number): 
 export function getItemSourceDescriptor(artifact: NormalizedGearArtifact, translate: TranslateFn): ItemSourceDescriptor {
   const category = determineGearInspectorSourceCategory(artifact)
   if (category === 'manual') {
-    return { category, label: translate('testerSourceManual') }
+    return { category, label: translate('gearInspectorSourceManual') }
   }
   if (category === 'inbox') {
-    return { category, label: translate('testerSourceInbox') }
+    return { category, label: translate('gearInspectorSourceInbox') }
   }
   if (artifact.equippedToChampionId != null) {
     const tooltip = artifact.equippedChampionName && artifact.equippedChampionName.trim().length > 0
       ? artifact.equippedChampionName.trim()
-      : translate('testerEquippedLabel', { id: artifact.equippedToChampionId })
+      : translate('gearInspectorEquippedLabel', { id: artifact.equippedToChampionId })
     return {
       category,
       label: category === 'vault'
-        ? translate('testerSourceEquippedVault')
-        : translate('testerSourceEquippedCollection'),
+        ? translate('gearInspectorSourceEquippedVault')
+        : translate('gearInspectorSourceEquippedCollection'),
       tooltip,
     }
   }
-  return { category, label: translate('testerSourceInventory') }
+  return { category, label: translate('gearInspectorSourceInventory') }
 }
 
 const resolveStatPreGlyphValue = (stat: NormalizedStat | null): number | null => {

@@ -1,12 +1,12 @@
 # Gear Database Import
 
-This note tracks the reverse-engineering work required to ingest RSL Helper’s gear database (SQLite) into the Rule Tester.
+This note tracks the reverse-engineering work required to ingest RSL Helper’s gear database (SQLite) into the Gear Inspector.
 
 ## Goals
 
 - Understand every table/column the helper exports so we can map the raw rows into the Sellfile Creator domain models (`src/lib/types.ts`, `src/lib/hsfTypes.ts`).
 - Document enumerations (slots, sets, rarities, stats, factions) and reconcile them with the constants we already ship.
-- Produce a deterministic importer that can translate the full dataset (~5000 items) into the Rule Tester without guessing at schema details.
+- Produce a deterministic importer that can translate the full dataset (~5000 items) into the Gear Inspector without guessing at schema details.
 
 ## Inspection Workflow
 
@@ -28,7 +28,7 @@ This note tracks the reverse-engineering work required to ingest RSL Helper’s 
 
 | Table | Rows | Notes |
 | ----- | ---- | ----- |
-| `Artifacts` | 6 900 | Equipped + inventory items; core source for Rule Tester import. |
+| `Artifacts` | 6 900 | Equipped + inventory items; core source for Gear Inspector import. |
 | `InboxArtifacts` | 358 | Pending drops in the inbox; same schema as `Artifacts` but `sum*` aggregates are zeroed until equipped. |
 | `Champs` | 1 688 | Champion roster, including equipped artifact IDs and faction codes. |
 | `LastUsedArtifacts` | varies | Stores `{ id, lastUse }` entries so we can show when a piece was last equipped (local timestamps). |
@@ -56,7 +56,7 @@ Inspection output lives under `tmp/gear-db-inspection/` and is not committed. Th
 | 8 | Amulet | `ArtifactType.Amulet` |
 | 9 | Banner | `ArtifactType.Banner` |
 
-Importer code must translate these values before normalizing Rule Tester entries.
+Importer code must translate these values before normalizing Gear Inspector entries.
 
 ### Stat Identifiers & Scaling
 
@@ -87,7 +87,7 @@ Importer code must translate these values before normalizing Rule Tester entries
 
 Accessories carry a `accset` code that does **not** match our `Faction` enum directly. Mapping confirmed via champion names:
 
-| DB `accset` | Faction | Rule Tester ID |
+| DB `accset` | Faction | Gear Inspector ID |
 | ----------- | ------- | -------------- |
 | 0 | Any | `0` |
 | 1 | Banner Lords | `Faction.BannerLords` |
@@ -112,7 +112,7 @@ Argonites currently assume a new `accset = 17` mapping until a sample database c
 
 ### Champion Metadata
 
-- `Champs` rows expose the owning hero’s `Rarity` alongside `BaseHeroID`. The importer captures this as `NormalizedGearArtifact.equippedChampionRarity` (also included in tester preview extras) so UI surfaces can align avatar chrome with each champion’s in-game tier.
+- `Champs` rows expose the owning hero’s `Rarity` alongside `BaseHeroID`. The importer captures this as `NormalizedGearArtifact.equippedChampionRarity` (also included in Gear Inspector preview extras) so UI surfaces can align avatar chrome with each champion’s in-game tier.
 
 ### Normalization Helper
 
@@ -120,40 +120,40 @@ Argonites currently assume a new `accset = 17` mapping until a sample database c
   - Slot translation (`Artifacts.type` → `ArtifactType`) and accessory “no set” handling (`aset = 0` → `ACCESSORY_NO_SET_ID`).
   - Fixed-point decoding with `STAT_SCALE = 2^32`, emitting rounded user-facing numbers (integers for flat stats, 2 decimals for percentages).
   - Mythical pre-roll bonuses from `s?mlvlid` land in `mythValue`; totals shown to users include the pre-roll, and the UI highlights the affected substat so Mythical gear stays legible.
-  - Ascension bonuses captured separately (`source = 'ascension'`) so the UI can display them, while rule comparisons ignore them (tester `subValues` aggregate only the pre-glyph substat amounts; glyph deltas ride along in `previewExtras.substats[].glyphValue`).
+  - Ascension bonuses captured separately (`source = 'ascension'`) so the UI can display them, while rule comparisons ignore them (Gear Inspector `subValues` aggregate only the pre-glyph substat amounts; glyph deltas ride along in `previewExtras.substats[].glyphValue`).
   - Level metadata: `level` keeps the nearest milestone (0/4/8/12/16) used during rule matching, and `exactLevel` stores the clamped raw upgrade level from the database (0–16). When `exactLevel` is present the UI displays that precise value; custom gear entries omit this field and fall back to the milestone label.
   - Accessory faction remapping via the table above, with non-accessory slots forced to `0`.
 - Guardrails live in `tests/unit/gearDbNormalizer.test.ts`, using real rows from `tests/data/sample.db` to assert slot, set, faction, and stat decoding (including ascension glyphs).
 - Drag-and-drop integration (and the Sellfile Preview “Load RSL Helper Sellfile” button): both accept `.db` files. `src/lib/importers/gearDbImporter.ts` streams the file via `sql.js`, normalizes every row, and queues the resulting gear without forcing the Logic Hub dialog’s Gear tab open.
 
-  Regardless of whether the payload arrived via manual drop or an external `gearDbFile` command, the app diffs the incoming payload against whatever is already rendered. We fingerprint the full gear entry (slot, stats, preview extras, equipped metadata) to decide which rows already exist, remove entries whose fingerprints disappear, retain any pending chunks that are still needed, and only enqueue the delta. Diff application mutates the in-memory tester snapshot synchronously before scheduling React state so rapid endpoint bursts cannot compute follow-up diffs from stale rows. Because the UI sorting is deterministic (with artifact id as the final tie-breaker), new items fall into place without thrashing the virtualization chunk size.
+  Regardless of whether the payload arrived via manual drop or an external `gearDbFile` command, the app diffs the incoming payload against whatever is already rendered. We fingerprint the full gear entry (slot, stats, preview extras, equipped metadata) to decide which rows already exist, remove entries whose fingerprints disappear, retain any pending chunks that are still needed, and only enqueue the delta. Diff application mutates the in-memory Gear Inspector snapshot synchronously before scheduling React state so rapid endpoint bursts cannot compute follow-up diffs from stale rows. Because the UI sorting is deterministic (with artifact id as the final tie-breaker), new items fall into place without thrashing the virtualization chunk size.
 
   Empty imports leave the current queue untouched and surface `toastGearDbImportEmpty`. Invalid databases fall back to the shared “file format” error dialog so users know we could not detect a supported payload.
 
   External pushes continue to light up the indicator badge on the history button (left of Load) and emit a compact toast in the top-right corner that auto-dismisses after roughly 3 seconds so the notification never hides the preview controls. The history button’s context menu can hide that success toast while keeping the badge and history entries intact.
 
-  Endpoint push commands are processed strictly in arrival order. The app now waits for the worker pipeline to finish, the HSF preview to commit, and the tester grid commit to settle before consuming the next push, preventing overlapping endpoint bursts from racing each other.
+  Endpoint push commands are processed strictly in arrival order. The app now waits for the worker pipeline to finish, the HSF preview to commit, and the Gear Inspector grid commit to settle before consuming the next push, preventing overlapping endpoint bursts from racing each other.
 
-  The endpoint toast includes a before/after diff preview (up to 18 items) rendered with scaled tester grid cards; any overflow is summarized with a `+X more` footer. Session history entries store the same preview depth (up to 18 items); hover still shows a quick preview, and left-click opens a persistent scrollable popout with an explicit close button for long diffs.
+  The endpoint toast includes a before/after diff preview (up to 18 items) rendered with scaled Gear Inspector grid cards; any overflow is summarized with a `+X more` footer. Session history entries store the same preview depth (up to 18 items); hover still shows a quick preview, and left-click opens a persistent scrollable popout with an explicit close button for long diffs.
 
   Timestamp-only `LastUsed` updates are ignored, while source or champion metadata changes still produce a preview card. Endpoint pushes also populate a session-only history menu (icon left of the Load button) that replays the diff preview and offers a Clear History action. The menu keeps up to 2,880 endpoint updates per session (8 hours at 10-second pushes), storing each entry’s capped diff preview in compact JSON and decoding it on demand for display.
 
 ## Raw JSON WebSocket events
 
 - Endpoints can skip uploading SQLite blobs entirely by sending `gearDbRawSnapshot` and `gearDbRawDelta` notifications over the WebSocket protocol. See `docs/technical/websocket-jsonrpc.md` for the exact message shapes expected by the UI.
-- The snapshot payload ships every row from `Artifacts`, `InboxArtifacts`, `Champs`, and `LastUsedArtifacts`. The UI normalizes those rows through `createDatasetFromSnapshot` (`src/lib/importers/gearDbRawDataset.ts`) and pushes the resulting tester queue through the same diff logic as `.db` imports, so users still get the added/removed counts plus the command toast.
-- Delta payloads mirror Helper’s SQL mutations (`upsert` or `remove` for each table). The dataset helper applies the operations incrementally, rehydrates champion metadata, and emits a fresh tester payload so matcher diffs stay exact even when RSL Helper only changes one row.
+- The snapshot payload ships every row from `Artifacts`, `InboxArtifacts`, `Champs`, and `LastUsedArtifacts`. The UI normalizes those rows through `createDatasetFromSnapshot` (`src/lib/importers/gearDbRawDataset.ts`) and pushes the resulting Gear Inspector queue through the same diff logic as `.db` imports, so users still get the added/removed counts plus the command toast.
+- Delta payloads mirror Helper’s SQL mutations (`upsert` or `remove` for each table). The dataset helper applies the operations incrementally, rehydrates champion metadata, and emits a fresh Gear Inspector payload so matcher diffs stay exact even when RSL Helper only changes one row.
 - Both commands honor `snapshotId`: when it regresses or is omitted after a prior snapshot, the browser drops the delta and requests a fresh snapshot so endpoints never have to guess which dataset is active.
 
 ### Table Relationships
 
 - `Artifacts.cID` points to `Champs.ID` for equipped pieces (3 714 matches in this dump). `0` denotes inventory items.
-- `Champs` exposes nine slot columns (`Weapon`, `Helmet`, …, `Banner`) that reference artifact IDs; useful for cross-checking type translations and for optional “currently equipped” flags in the Rule Tester.
+- `Champs` exposes nine slot columns (`Weapon`, `Helmet`, …, `Banner`) that reference artifact IDs; useful for cross-checking type translations and for optional “currently equipped” flags in the Gear Inspector.
 - `InboxArtifacts` mirrors the item schema, enabling us to treat inbox gear as additional candidates once the importer supports it.
 
 ## Mapping Checklist
 
-- **Slots & Types** – translate DB `type` values to `ArtifactType` before formatting Rule Tester entries.
+- **Slots & Types** – translate DB `type` values to `ArtifactType` before formatting Gear Inspector entries.
 - **Sets** – `aset` already aligns with our `ArtifactSet` catalog (0 denotes “no set”). Handle accessory-only sets (1000–1004) and propagate faction data from `accset`.
 - **Stats** – convert `mid`/`s?id` to `StatId` and respect the percent flag when scaling `*lvlid`/`*gv` values.
 - **Rarity & Rank** – `rarity` (3–6 observed) and `rank` (5–6) are numeric; map them to the readable labels we expose in SFR/HSF.
@@ -167,15 +167,15 @@ Write down open questions as you go—especially when sample rows expose partial
 1. Expand the sample extraction to cover edge cases (e.g., glyph-enhanced gear, locked items, ascended Mythical pieces).
 2. Define a normalization layer (likely a TypeScript helper under `scripts/` or `src/lib/importers/`) that converts the raw rows into our `RuleTesterItem` shape.
 3. Add integration tests that load a small fixture DB (redacted/synthetic) and assert the importer emits the same structures as our `.hsf` samples.
-4. Wire the normalizer into a DB reader (Python or Node bridge) so the Rule Tester can ingest whole inventories without manual exports.
+4. Wire the normalizer into a DB reader (Python or Node bridge) so the Gear Inspector can ingest whole inventories without manual exports.
 5. Update this document—and `docs/TECHNICAL.md`’s index—whenever we uncover new fields or evolve the importer.
 ### Last-Used Tracking
 
 - RSL Helper now emits a `LastUsedArtifacts` table with two columns:
   - `id` — matches the artifact ID in both `Artifacts` and `InboxArtifacts`.
   - `lastUse` — declared as `REAL` in the shipped schema. SQL.js will surface either trimmed text (older dumps) or floats (Julian day numbers) depending on how the DB was saved.
-- The importer now normalizes both shapes: strings are trimmed in-place, while REAL payloads are converted into `YYYY-MM-DD HH:MM:SS.sss` strings using the runtime’s local timezone so the tester consumes the same format regardless of source DB quirks. Those strings feed `NormalizedGearArtifact.lastUseLocalTimestamp` plus the tester preview extras. The tester grid renders the value in a tooltip on the gear icon using the user’s locale.
-- REAL conversions only accept values inside the safe Julian range we’ve observed in helper dumps (`[1.7M, 3M]`). Anything else is dropped so bogus payloads cannot poison tester filters.
+- The importer now normalizes both shapes: strings are trimmed in-place, while REAL payloads are converted into `YYYY-MM-DD HH:MM:SS.sss` strings using the runtime’s local timezone so the Gear Inspector consumes the same format regardless of source DB quirks. Those strings feed `NormalizedGearArtifact.lastUseLocalTimestamp` plus the Gear Inspector preview extras. The Gear Inspector grid renders the value in a tooltip on the gear icon using the user’s locale.
+- REAL conversions only accept values inside the safe Julian range we’ve observed in helper dumps (`[1.7M, 3M]`). Anything else is dropped so bogus payloads cannot poison Gear Inspector filters.
 - When the table is missing (older DBs), we simply omit the tooltip—no fallback data is guessed.
-- Tester filters consume this metadata: the `Last used` presets (`Never used`, `≤7d`, `≤30d`, `≤90d`, `>90d`) and the custom day-range popover both evaluate against `lastUseLocalTimestamp`, so any DB without the table automatically treats those rows as “unknown.”
+- Gear Inspector filters consume this metadata: the `Last used` presets (`Never used`, `≤7d`, `≤30d`, `≤90d`, `>90d`) and the custom day-range popover both evaluate against `lastUseLocalTimestamp`, so any DB without the table automatically treats those rows as “unknown.”
 - Helper dumps also ship a sentinel artifact row (ID `-1`, nonsense slot/type) that carries metadata for RSL Helper itself. SQL.js surfaced that as an “artifact,” so the importer now drops any row whose ID ≤ 0 or whose slot mapping is unknown before normalization. Real gear is unaffected, and malformed rows no longer trigger the “File Not Supported” dialog.

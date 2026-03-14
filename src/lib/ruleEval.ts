@@ -22,7 +22,7 @@ export type GearInspectorItemPreviewExtras = {
   // Stable numeric id used to correlate preview rows and matcher results.
   id?: number
   // Origin of the row (imported artifacts, inbox, or manual Gear Inspector rows).
-  source?: 'artifacts' | 'inbox' | 'tester'
+  source?: 'artifacts' | 'inbox' | 'manual'
   // Re-roll count shown in Gear Inspector card badges.
   rerollCount?: number
   // Champion linkage fields mirrored from normalized Gear Inspector rows.

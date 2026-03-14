@@ -25,7 +25,7 @@ const buildFilters = (overrides: Partial<AutosaveFiltersState> = {}): AutosaveFi
   return {
     activeMode: overrides.activeMode ?? 'rules',
     views: overrides.views ?? baseViews,
-    testerRecipeFilterMode: overrides.testerRecipeFilterMode ?? GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+    gearInspectorRecipeFilterMode: overrides.gearInspectorRecipeFilterMode ?? GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
     ...overrides,
   }
 }

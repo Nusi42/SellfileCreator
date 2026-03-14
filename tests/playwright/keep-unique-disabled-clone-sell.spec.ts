@@ -56,7 +56,7 @@ const TESTER_AUTOSAVE_ENTRY = (() => {
   return JSON.stringify([crc, TESTER_AUTOSAVE_PAYLOAD])
 })()
 
-const getTesterCountLabel = async (page: Parameters<typeof test.use>[0]['page']) => {
+const getGearInspectorCountLabel = async (page: Parameters<typeof test.use>[0]['page']) => {
   // Read the label from the DOM directly to avoid locator timeouts.
   return page.evaluate(() => {
     // Scope to the preview paper so we do not catch other aria labels.
@@ -74,7 +74,7 @@ const getTesterCountLabel = async (page: Parameters<typeof test.use>[0]['page'])
   })
 }
 
-const parseTesterCounts = (label: string) => {
+const parseGearInspectorCounts = (label: string) => {
   // Expect either "Total: X" or "Total: X / Y".
   const match = label.match(/Total:\s*([0-9,]+)(?:\s*\/\s*([0-9,]+))?/i)
   // Strip thousands separators before numeric conversion.
@@ -91,11 +91,11 @@ const seedTesterSellFilters = async (page: Parameters<typeof test.use>[0]['page'
   // Clone defaults so we only override the tester result filter.
   const rulesFilters = cloneDefaultRulesFilterState()
   // Start from the same defaults for the tester view.
-  const testerFilters = cloneDefaultRulesFilterState()
+  const gearInspectorFilters = cloneDefaultRulesFilterState()
   // Filter tester results to Sell-only so the count chip is scoped.
-  testerFilters.testerResult = { keep: 'no', matched: 'any' }
+  gearInspectorFilters.gearInspectorResult = { keep: 'no', matched: 'any' }
   // Store both views together so the app boots in tester mode with the Sell filter active.
-  const filterState = { rules: rulesFilters, gearInspector: testerFilters }
+  const filterState = { rules: rulesFilters, gearInspector: gearInspectorFilters }
   // Keep the tester filter panel open so the UI state matches the seed.
   const filterOpen = { rules: false, gearInspector: true }
   await page.addInitScript(
@@ -145,11 +145,11 @@ const acceptTesterRestoreDialog = async (page: Parameters<typeof test.use>[0]['p
   const isVisible = await dialog.isVisible().catch(() => false)
   if (!isVisible) return
   // Accept the default selection so tester items load without extra clicks.
-  const testerCheckbox = dialog.getByRole('checkbox', { name: /Gear Inspector/i })
+  const gearInspectorCheckbox = dialog.getByRole('checkbox', { name: /Gear Inspector/i })
   // Ensure the tester payload is selected even if persisted preferences cleared it.
-  if (await testerCheckbox.isVisible().catch(() => false)) {
-    if (!(await testerCheckbox.isChecked().catch(() => false))) {
-      await testerCheckbox.click()
+  if (await gearInspectorCheckbox.isVisible().catch(() => false)) {
+    if (!(await gearInspectorCheckbox.isChecked().catch(() => false))) {
+      await gearInspectorCheckbox.click()
     }
   }
   const restoreButton = dialog.getByRole('button', { name: 'Restore Selected' })
@@ -206,12 +206,12 @@ test('disable recipe overrides then duplicate disabled config changes sell count
   // Wait for the tester count chip to render.
   await expect(page.locator('[data-tour-id="preview.paper"] [aria-label*="Total:"]').first()).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
   // Read the initial counts once the label is visible.
-  const beforeLabel = await getTesterCountLabel(page)
-  const beforeCounts = parseTesterCounts(beforeLabel)
+  const beforeLabel = await getGearInspectorCountLabel(page)
+  const beforeCounts = parseGearInspectorCounts(beforeLabel)
   // Fail fast if the autosave seed did not populate any rows.
   expect(beforeCounts.total ?? 0).toBeGreaterThan(0)
   // Log the snapshot for CLI inspection.
-  console.log(`[pw:tester-count] before=${JSON.stringify(beforeCounts)}`)
+  console.log(`[pw:gear-inspector-count] before=${JSON.stringify(beforeCounts)}`)
 
   // Duplicate the disabled config via the chip context menu.
   await expect(targetChip).toBeVisible()
@@ -225,11 +225,11 @@ test('disable recipe overrides then duplicate disabled config changes sell count
   await duplicateItem.click({ force: true })
 
   // Capture the updated sell count after the duplication.
-  const afterLabel = await getTesterCountLabel(page)
+  const afterLabel = await getGearInspectorCountLabel(page)
   // Parse the label so we can diff the filtered count.
-  const afterCounts = parseTesterCounts(afterLabel)
+  const afterCounts = parseGearInspectorCounts(afterLabel)
   // Log the after snapshot for CLI inspection.
-  console.log(`[pw:tester-count] after=${JSON.stringify(afterCounts)}`)
+  console.log(`[pw:gear-inspector-count] after=${JSON.stringify(afterCounts)}`)
   // The disabled-config duplicate should not alter the filtered sell count.
   expect(afterCounts.filtered).toBe(beforeCounts.filtered)
   // The total inventory count should remain stable as well.

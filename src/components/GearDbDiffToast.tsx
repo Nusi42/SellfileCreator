@@ -426,7 +426,7 @@ function EmptyDiffCard({ tone, size }: EmptyDiffCardProps) {
         fontSize: '0.75rem',
       }}
     >
-      {t('testerValueUnknown')}
+      {t('gearInspectorValueUnknown')}
     </Box>
   )
 }
