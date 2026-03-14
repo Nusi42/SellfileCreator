@@ -1305,11 +1305,9 @@ rankNum       := "1" | "2" | "3" | "4" | "5" | "6"
 lvlVal        := lvlMilestone | lvlMilestone "-" lvlMilestone
 lvlMilestone  := "0" | "4" | "8" | "12" | "16"
 string        := '"' {char | escape} '"'
-escape        := "\\" ("n" | "t" | "r" | "\\" | '"')
-                 (\\n = newline, \\\\ = literal backslash)
+escape        := "\\" ("n" | "t" | "r" | "\\" | '"')  (\\n = newline, \\\\ = literal backslash)
 comment       := "//" {any} eol | "/*" {any} "*/"
-token         := /[\\p{L}\\p{M}_][\\p{L}\\p{N}\\p{M}_]*/
-                (unicode letters/marks, underscore)
+token         := /[\\p{L}\\p{M}_][\\p{L}\\p{N}\\p{M}_]*/  (unicode letters/marks, underscore)
 rarityName    := "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythical" | "auto" | "any"
 slotName      := "Weapon" | "Helmet" | "Shield" | "Gauntlets" | "Chestplate" | "Boots" | "Ring" | "Amulet" | "Banner"
 starKey       := "1" | "2" | "3" | "4" | "5" | "6" | "one" | "two" | "three" | "four" | "five" | "six"`
