@@ -142,8 +142,9 @@ pub struct SafeguardWasmCombination {
     pub slots: Vec<i64>,
     #[serde(default)]
     pub sets: Vec<SafeguardWasmSetSelection>,
+    // `metaSetNames` after the metaset ID→name migration (previously `metaSetIds`).
     #[serde(default)]
-    pub meta_set_ids: Vec<String>,
+    pub meta_set_names: Vec<String>,
     #[serde(default)]
     pub ranks: Vec<i64>,
     #[serde(default)]
@@ -245,7 +246,7 @@ pub struct SafeguardWasmResolvedRuleOut {
 }
 
 // Canonical metaset-id list is sorted and deduped for deterministic hashes.
-fn safeguard_sort_unique_meta_set_ids(values: Vec<String>) -> Vec<String> {
+fn safeguard_sort_unique_meta_set_names(values: Vec<String>) -> Vec<String> {
     let mut sorted = values
         .into_iter()
         .map(|value| value.trim().to_string())
@@ -350,10 +351,11 @@ pub fn normalize_safeguard_expected_group_domain_core(parsed: SafeguardWasmExpec
 }
 
 // Metaset payload for in-wasm safeguard set expansion.
+// `name` is the primary key after the metaset ID→name migration.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SafeguardWasmMetasetIn {
-    pub id: String,
+    pub name: String,
     #[serde(default)]
     pub sets: Vec<i64>,
 }
@@ -1151,7 +1153,7 @@ pub fn safeguard_hash_combination(combination: &SafeguardWasmCombination) -> Str
     [
         safeguard_canonicalize_number_list(&combination.slots),
         safeguard_canonicalize_set_entries(&combination.sets),
-        safeguard_canonicalize_string_list(&combination.meta_set_ids),
+        safeguard_canonicalize_string_list(&combination.meta_set_names),
         safeguard_canonicalize_number_list(&combination.ranks),
         safeguard_canonicalize_number_list(&combination.rarities),
         safeguard_canonicalize_number_list(&combination.main_stats),
@@ -1175,7 +1177,7 @@ pub fn sort_safeguard_combination_core(combination: SafeguardWasmCombination) ->
     let SafeguardWasmCombination {
         slots,
         sets,
-        meta_set_ids,
+        meta_set_names,
         ranks,
         rarities,
         main_stats,
@@ -1184,7 +1186,7 @@ pub fn sort_safeguard_combination_core(combination: SafeguardWasmCombination) ->
     SafeguardWasmCombination {
         slots: safeguard_sort_unique_slots(&slots),
         sets: safeguard_normalize_set_selections(&sets),
-        meta_set_ids: safeguard_sort_unique_meta_set_ids(meta_set_ids),
+        meta_set_names: safeguard_sort_unique_meta_set_names(meta_set_names),
         ranks: safeguard_sorted_unique_i64(&ranks),
         rarities: safeguard_sorted_unique_i64(&rarities),
         main_stats: safeguard_sort_unique_main_stats(&main_stats),

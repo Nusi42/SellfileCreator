@@ -12,7 +12,7 @@ import { normalizeExportModeFields, resolveExportModeField, coerceSellfileExport
 import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeAutoSubstatFlex, normalizeAggregateRollTargets } from './recipeNormalization'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
-import { orderMetasetIds, type Metaset } from './metasets'
+import { orderMetasets, type Metaset } from './metasets'
 import {
   LEVEL_MILESTONES,
   type LevelMilestone,
@@ -342,10 +342,11 @@ const SAFEGUARD_RARITY_LABEL: Record<number, string> = {
   6: 'Mythical',
 }
 
-function mergeMetasetIds(base: BuilderRecipe, metasets: Metaset[], extras: readonly string[] = []): BuilderRecipe {
-  const baseOrdered = orderMetasetIds(base.artifactMetaSets, metasets)
-  const extrasOrdered = extras.length ? orderMetasetIds(extras, metasets) : []
-  const merged = extrasOrdered.length ? orderMetasetIds([...baseOrdered, ...extrasOrdered], metasets) : baseOrdered
+// Merge metaset names from `extras` into the base recipe, preserving the catalog order.
+function mergeMetasetNames(base: BuilderRecipe, metasets: Metaset[], extras: readonly string[] = []): BuilderRecipe {
+  const baseOrdered = orderMetasets(base.artifactMetaSets, metasets)
+  const extrasOrdered = extras.length ? orderMetasets(extras, metasets) : []
+  const merged = extrasOrdered.length ? orderMetasets([...baseOrdered, ...extrasOrdered], metasets) : baseOrdered
   if (extrasOrdered.length || Array.isArray(base.artifactMetaSets)) {
     return { ...base, artifactMetaSets: merged }
   }
@@ -746,9 +747,9 @@ export function buildReadableRecipe(recipe: BuilderRecipe, metasets: Metaset[]) 
     artifactTypeNames: (recipe.artifactTypes ?? []).slice().sort(compareArtifactTypes).map(t => artifactTypeNames[Number(t)]).filter(Boolean),
     // Artifact sets now serialize as objects so exclusions can be preserved.
     artifactSetNames: buildReadableArtifactSetEntries(recipe.artifactSets ?? []),
-    // Write compact metaset references by ID for smaller files. Names remain
-    // available under Metasets[].name and are not duplicated here.
-    artifactMetaSetIds: (recipe.artifactMetaSets ?? []).slice(),
+    // Metaset names are the primary key; emit them directly. Legacy readers
+    // that only understand artifactMetaSetIds will skip this field gracefully.
+    artifactMetaSetNames: (recipe.artifactMetaSets ?? []).slice(),
   }
 }
 
@@ -786,16 +787,24 @@ export function substatTargetsToReadable(substatTargets: SubstatTargetTable) {
 export function parseRecipesFromText(text: string, metasetsForNames?: Metaset[]): BuilderRecipe[] {
   try {
     const parsed = JSON.parse(text) as unknown
-    const resolveMetaIds = (rawRecipe: unknown, metas: Metaset[]): string[] => {
+    // Resolve metaset references from a raw recipe record. Reads artifactMetaSetNames
+    // (current format) first; falls back to legacy artifactMetaSetIds mapped to names
+    // via the embedded Metasets array.
+    const resolveMetaNames = (rawRecipe: unknown, metas: Metaset[]): string[] => {
       const rec = (rawRecipe && typeof rawRecipe === 'object') ? (rawRecipe as Record<string, unknown>) : {}
-      // Prefer explicit IDs when present
-      const ids = Array.isArray(rec['artifactMetaSetIds']) ? (rec['artifactMetaSetIds'] as unknown[]).map(String) : []
-      if (ids.length) return ids
-      // Backward compatibility: map names to IDs
+      // Current format: names are the primary key.
       const names = Array.isArray(rec['artifactMetaSetNames']) ? (rec['artifactMetaSetNames'] as unknown[]).map(String) : []
-      if (!names.length) return []
-      const byName = new Map<string, string>(metas.map(m => [m.name, m.id]))
-      return names.map(n => byName.get(String(n))).filter((x): x is string => typeof x === 'string')
+      if (names.length) return names
+      // Legacy fallback: IDs must be resolved to names via the embedded Metasets list.
+      const ids = Array.isArray(rec['artifactMetaSetIds']) ? (rec['artifactMetaSetIds'] as unknown[]).map(String) : []
+      if (!ids.length) return []
+      const byId = new Map<string, string>()
+      for (const m of metas) {
+        // id may be present in legacy parsed Metaset entries (not on the Metaset type).
+        const legacyId = String((m as unknown as Record<string, unknown>)['id'] ?? '')
+        if (legacyId) byId.set(legacyId, m.name)
+      }
+      return ids.map(id => byId.get(id)).filter((x): x is string => typeof x === 'string')
     }
     const metasFromObj = (obj: Record<string, unknown>): Metaset[] | null => {
       const raws = obj['Metasets']
@@ -805,7 +814,8 @@ export function parseRecipesFromText(text: string, metasetsForNames?: Metaset[])
           const mRec = (m || {}) as Record<string, unknown>
           const names = Array.isArray(mRec['setNames']) ? (mRec['setNames'] as unknown[]) : []
           const sets = names.map((n: unknown) => resolveSetId(n)).filter((x: unknown): x is number => typeof x === 'number')
-          return { id: String(mRec['id']), name: String(mRec['name']), sets, show: mRec['show'] !== false }
+          // id field is ignored; name is the primary key.
+          return { name: String(mRec['name']), sets, show: mRec['show'] !== false }
         })
       } catch { return null }
     }
@@ -813,8 +823,8 @@ export function parseRecipesFromText(text: string, metasetsForNames?: Metaset[])
       const metas = metasetsForNames ?? []
       return parsed.map((raw) => {
         const base = normalizeRecipe(raw)
-        const metaIds = metas.length ? resolveMetaIds(raw, metas) : []
-        return mergeMetasetIds(base, metas, metaIds)
+        const metaIds = metas.length ? resolveMetaNames(raw, metas) : []
+        return mergeMetasetNames(base, metas, metaIds)
       })
     }
     if (isRecord(parsed)) {
@@ -825,13 +835,13 @@ export function parseRecipesFromText(text: string, metasetsForNames?: Metaset[])
       if (recipes.length) {
         return recipes.map((raw) => {
           const base = normalizeRecipe(raw)
-          const metaIds = metas.length ? resolveMetaIds(raw, metas) : []
-          return mergeMetasetIds(base, metas, metaIds)
+          const metaIds = metas.length ? resolveMetaNames(raw, metas) : []
+          return mergeMetasetNames(base, metas, metaIds)
         })
       }
       const base = normalizeRecipe(parsed)
-      const metaIds = metas.length ? resolveMetaIds(parsed, metas) : []
-      return [mergeMetasetIds(base, metas, metaIds)]
+      const metaIds = metas.length ? resolveMetaNames(parsed, metas) : []
+      return [mergeMetasetNames(base, metas, metaIds)]
     }
   } catch {
     // ignore
@@ -905,17 +915,25 @@ export function parseSfrObject(
     })()
     if (hasReadableRecipeKey) rawRecipes = [parsedRec]
   }
+  // Build a legacy-ID → name map from the raw Metasets array before constructing typed objects.
+  // This is used below to resolve old artifactMetaSetIds in recipe records.
+  const legacyMetaIdToName = new Map<string, string>()
   const metasets: Metaset[] = (() => {
     const raws = parsedRec['Metasets']
     if (!Array.isArray(raws)) return prev.metasets
     return raws.map((m: unknown) => {
       const mRec = (m || {}) as Record<string, unknown>
+      const rawId = String(mRec['id'] ?? '')
+      const rawName = String(mRec['name'] ?? '')
+      // Populate legacy-ID map while we still have the raw record.
+      if (rawId) legacyMetaIdToName.set(rawId, rawName)
       const names = Array.isArray(mRec['setNames']) ? (mRec['setNames'] as unknown[]) : []
       const sets = names
         .map((n: unknown) => resolveSetId(n, runtimeSetNameMap))
         .filter((x: unknown): x is number => typeof x === 'number')
       const iconId = normalizeMetasetIconId(mRec['iconId'])
-      return { id: String(mRec['id']), name: String(mRec['name']), sets, show: mRec['show'] !== false, iconId }
+      // id field intentionally omitted — name is now the primary key.
+      return { name: rawName, sets, show: mRec['show'] !== false, iconId }
     })
   })()
   const substatTargets: SubstatTargetTable = (!Array.isArray(parsed) && parsedRec['Minima'])
@@ -925,17 +943,17 @@ export function parseSfrObject(
     // Only autosave restore provides `runtimeSetNameMap`.
     const base = normalizeRecipe(raw, runtimeSetNameMap)
     const rec = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {}
-    // Prefer explicit IDs, fallback to names
-    const ids = Array.isArray(rec['artifactMetaSetIds']) ? (rec['artifactMetaSetIds'] as unknown[]).map(String) : []
-    let resolvedIds = ids
-    if (!resolvedIds.length) {
-      const names = Array.isArray(rec['artifactMetaSetNames']) ? (rec['artifactMetaSetNames'] as unknown[]).map(String) : []
-      if (names.length) {
-        const byName = new Map<string, string>(metasets.map(m => [m.name, m.id]))
-        resolvedIds = names.map(n => byName.get(String(n))).filter((x): x is string => typeof x === 'string')
+    // Current format: artifactMetaSetNames contains display names directly.
+    const names = Array.isArray(rec['artifactMetaSetNames']) ? (rec['artifactMetaSetNames'] as unknown[]).map(String) : []
+    let resolvedNames = names
+    if (!resolvedNames.length) {
+      // Legacy fallback: map IDs to names via the legacyMetaIdToName map built above.
+      const legacyIds = Array.isArray(rec['artifactMetaSetIds']) ? (rec['artifactMetaSetIds'] as unknown[]).map(String) : []
+      if (legacyIds.length) {
+        resolvedNames = legacyIds.map(id => legacyMetaIdToName.get(id)).filter((x): x is string => typeof x === 'string')
       }
     }
-    return mergeMetasetIds(base, metasets, resolvedIds)
+    return mergeMetasetNames(base, metasets, resolvedNames)
   })
   // Optional Final Sell configuration
   const fsr = (() => {
@@ -1035,7 +1053,7 @@ type ReadableSafeguardTuple = {
   slots: string[]
   // Keep sets readable but preserve exclusions with structured entries.
   sets: ReadableArtifactSetExportEntry[]
-  metaSetIds: string[]
+  metaSetNames: string[]
   ranks: string[]
   rarities: string[]
   mainStats: string[]
@@ -1082,7 +1100,7 @@ const buildReadableSafeguardTuple = (combination: SafeguardRule['combination']):
   return {
     slots: slotLabels,
     sets: setLabels,
-    metaSetIds: [...(sorted.metaSetIds ?? [])],
+    metaSetNames: [...(sorted.metaSetNames ?? [])],
     ranks: rankLabels,
     rarities: rarityLabels,
     mainStats: mainStatLabels,
@@ -1175,7 +1193,7 @@ export function buildSfrPayload(args: {
   recipesEnabled?: boolean,
   }): {
     Version: string
-    Metasets: Array<{ id: string; name: string; setNames: string[]; show?: boolean }>
+    Metasets: Array<{ name: string; setNames: string[]; show?: boolean }>
     Minima: unknown
     Recipes: unknown[]
     FinalSellRemainder: FinalSellRemainderConfig
@@ -1211,8 +1229,8 @@ export function buildSfrPayload(args: {
   } = args
   const metasOut = metasets.map(m => {
     const iconId = normalizeMetasetIconId(m.iconId)
+    // id field omitted — name is now the primary key.
     return {
-      id: m.id,
       name: m.name,
       setNames: m.sets.slice().sort(compareArtifactSets)
         .map((id) => artifactSetName(Number(id) as ArtifactSetId))

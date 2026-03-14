@@ -92,7 +92,7 @@ const makeRule = (overrides: Partial<SafeguardRule> = {}): SafeguardRule => {
       slots: [ArtifactType.Weapon],
       // Default to a single entry object to match selection shape.
       sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
-      metaSetIds: [],
+      metaSetNames: [],
       ranks: [6],
       rarities: [6],
       mainStats: [StatVariant.ATK],
@@ -117,7 +117,7 @@ test('hashSafeguardCombination differentiates accessory factions', () => {
   const base = {
     slots: [ArtifactType.Ring],
     sets: normalizeArtifactSetSelections([ArtifactSet.Refresh]),
-    metaSetIds: [],
+    metaSetNames: [],
     ranks: [6 as RankValue],
     rarities: [6 as RankValue],
     mainStats: [StatVariant.HP],
@@ -149,7 +149,7 @@ test('normalizeSafeguardRule supports readable wrapper payloads', () => {
       tuple: {
         slots: ['Banner'],
         sets: [],
-        metaSetIds: [],
+        metaSetNames: [],
         ranks: ['5★', '6★'],
         rarities: ['Rare', 'Epic', 'Legendary', 'Mythical'],
         mainStats: [],
@@ -190,7 +190,7 @@ test('normalizeSafeguardRule applies default toggle values', () => {
     combination: {
       slots: [ArtifactType.Weapon],
       sets: [],
-      metaSetIds: [],
+      metaSetNames: [],
       ranks: [],
       rarities: [],
       mainStats: [],
@@ -210,7 +210,7 @@ test('computeSafeguardProtection aggregates combination counts', () => {
       combination: {
         slots: [ArtifactType.Weapon],
         sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
-        metaSetIds: [],
+        metaSetNames: [],
         ranks: [6 as RankValue],
         rarities: [6 as RankValue],
         mainStats: [StatVariant.ATK],
@@ -239,7 +239,7 @@ test('projected count mirrors existing keep state when disabled', () => {
     combination: {
       slots: [ArtifactType.Ring],
       sets: normalizeArtifactSetSelections([ArtifactSet.Refresh]),
-      metaSetIds: [],
+      metaSetNames: [],
       ranks: [5 as RankValue],
       rarities: [5 as RankValue],
       mainStats: [StatVariant.RES],
@@ -355,7 +355,7 @@ test('per combination mode multiplies targets and deficits', () => {
     combination: {
       slots: [ArtifactType.Weapon],
       sets: normalizeArtifactSetSelections([ArtifactSet.Speed, ArtifactSet.Accuracy]),
-      metaSetIds: [],
+      metaSetNames: [],
       ranks: [6 as RankValue],
       rarities: [6 as RankValue],
       mainStats: [StatVariant.ATK],
@@ -383,7 +383,7 @@ test('per rule mode keeps a single aggregate quota', () => {
     combination: {
       slots: [ArtifactType.Weapon],
       sets: [],
-      metaSetIds: [],
+      metaSetNames: [],
       ranks: [],
       rarities: [],
       mainStats: [],
@@ -411,7 +411,7 @@ test('custom grouping honors the selected dimensions only', () => {
     combination: {
       slots: [ArtifactType.Weapon],
       sets: normalizeArtifactSetSelections([ArtifactSet.Speed, ArtifactSet.Accuracy]),
-      metaSetIds: [],
+      metaSetNames: [],
       ranks: [],
       rarities: [],
       mainStats: [],
@@ -439,7 +439,7 @@ test('per-slot grouping splits quotas by slot and avoids zero-missing placeholde
     combination: {
       slots: [ArtifactType.Weapon, ArtifactType.Helmet],
       sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
-      metaSetIds: [],
+      metaSetNames: [],
       ranks: [6 as RankValue],
       rarities: [6 as RankValue],
       mainStats: [StatVariant.ATK],
@@ -471,7 +471,7 @@ test('ranked ties on the same main stat prefer higher rank', () => {
     combination: {
       slots: [ArtifactType.Weapon],
       sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
-      metaSetIds: [],
+      metaSetNames: [],
       ranks: [],
       rarities: [],
       mainStats: [],
@@ -511,7 +511,7 @@ test('ranked ties across main stats prefer percent over matching flat stat', () 
     combination: {
       slots: [ArtifactType.Weapon],
       sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
-      metaSetIds: [],
+      metaSetNames: [],
       ranks: [],
       rarities: [],
       mainStats: [],
@@ -551,7 +551,7 @@ test('ranked unresolved cutoff ties keep more than N', () => {
     combination: {
       slots: [ArtifactType.Weapon],
       sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
-      metaSetIds: [],
+      metaSetNames: [],
       ranks: [],
       rarities: [],
       mainStats: [],
@@ -592,7 +592,7 @@ test('ranked unresolved ties are order-invariant across candidate permutations',
     combination: {
       slots: [ArtifactType.Weapon],
       sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
-      metaSetIds: [],
+      metaSetNames: [],
       ranks: [],
       rarities: [],
       mainStats: [],
@@ -647,7 +647,7 @@ test('resolveSafeguardRulesWithMetasets expands set lists', () => {
       combination: {
         slots: [ArtifactType.Weapon],
         sets: [],
-        metaSetIds: ['meta_speed'],
+        metaSetNames: ['meta_speed'],
         ranks: [],
         rarities: [],
         mainStats: [StatVariant.ATK],
@@ -656,7 +656,6 @@ test('resolveSafeguardRulesWithMetasets expands set lists', () => {
     }),
   ]
   const metasets: Metaset[] = [{
-    id: 'meta_speed',
     name: 'Speed Sets',
     sets: [ArtifactSet.Speed, ArtifactSet.DivineSpeed],
     show: true,
@@ -677,7 +676,7 @@ test('resolveSafeguardRulesWithMetasets preserves rules without metaset expansio
       combination: {
         slots: [ArtifactType.Banner],
         sets: [],
-        metaSetIds: [],
+        metaSetNames: [],
         ranks: [5 as RankValue, 6 as RankValue],
         rarities: [3 as RankValue, 4 as RankValue, 5 as RankValue, 6 as RankValue],
         mainStats: [],
@@ -692,7 +691,6 @@ test('resolveSafeguardRulesWithMetasets preserves rules without metaset expansio
   ]
   // Unrelated metasets should not remove or alter this rule.
   const metasets: Metaset[] = [{
-    id: 'unrelated_meta',
     name: 'Unrelated',
     sets: [ArtifactSet.Speed],
     show: true,
@@ -703,7 +701,7 @@ test('resolveSafeguardRulesWithMetasets preserves rules without metaset expansio
   assert.ok(kept)
   assert.strictEqual(kept.id, 'ku_no_meta')
   assert.deepStrictEqual(kept.combination.slots, [ArtifactType.Banner])
-  assert.deepStrictEqual(kept.combination.metaSetIds, [])
+  assert.deepStrictEqual(kept.combination.metaSetNames, [])
   assert.deepStrictEqual(kept.combination.sets, [])
   assert.strictEqual(kept.requiredCount, 3)
   assert.strictEqual(kept.activation, SafeguardRuleActivation.AnticipateGaps)
@@ -751,7 +749,7 @@ test('anticipate mode emits placeholder keeps when deficits remain', () => {
     combination: {
       slots: [ArtifactType.Amulet],
       sets: normalizeArtifactSetSelections([ArtifactSet.Refresh]),
-      metaSetIds: [],
+      metaSetNames: [],
       ranks: [6],
       rarities: [5],
       mainStats: [StatVariant.CDMG],
@@ -781,7 +779,7 @@ test('safeguard merge preserves injected rule payload fields', () => {
     combination: {
       slots: [ArtifactType.Amulet],
       sets: normalizeArtifactSetSelections([ArtifactSet.Refresh]),
-      metaSetIds: [],
+      metaSetNames: [],
       ranks: [6],
       rarities: [5],
       mainStats: [StatVariant.CDMG],
@@ -821,7 +819,7 @@ test('wasm safeguard merge binding preserves injected payload fields', async () 
     combination: {
       slots: [ArtifactType.Amulet],
       sets: normalizeArtifactSetSelections([ArtifactSet.Refresh]),
-      metaSetIds: [],
+      metaSetNames: [],
       ranks: [6],
       rarities: [5],
       mainStats: [StatVariant.CDMG],

@@ -63,8 +63,8 @@ export const useKeepOverrideCombinationTools = (metasets: Metaset[]) => {
     const allowedSetIds = new Set(allowedSetPool.map(Number))
     const filteredSets = normalizeArtifactSetSelections(combination.sets)
       .filter((entry) => allowedSetIds.has(Number(entry.id)))
-    const filteredMetaIds = (combination.metaSetIds ?? []).filter((metaId) => {
-      const meta = metasets.find((item) => item.id === metaId)
+    const filteredMetaIds = (combination.metaSetNames ?? []).filter((metaId) => {
+      const meta = metasets.find((item) => item.name === metaId)
       if (!meta || !meta.sets.length) return false
       return meta.sets.every((setId) => allowedSetIds.has(Number(setId)))
     })
@@ -72,7 +72,7 @@ export const useKeepOverrideCombinationTools = (metasets: Metaset[]) => {
     const hasAccessory = normalizedSlots.length === 0 || normalizedSlots.some((slotId) => isAccessorySlot(slotId))
     const filteredMainStats = dedupeNumericArray((combination.mainStats ?? []).filter((variant) => mainOptions.includes(variant)))
     const filteredFactions = hasAccessory ? dedupeNumericArray(combination.factions ?? []) : []
-    const hadExplicitSetSelection = combination.sets.length > 0 || (combination.metaSetIds?.length ?? 0) > 0
+    const hadExplicitSetSelection = combination.sets.length > 0 || (combination.metaSetNames?.length ?? 0) > 0
     const resolvedSets = filteredSets.length > 0
       ? filteredSets
       : (hadExplicitSetSelection && allowedSetPool[0] ? [{ id: allowedSetPool[0] }] : [])
@@ -80,7 +80,7 @@ export const useKeepOverrideCombinationTools = (metasets: Metaset[]) => {
       ...combination,
       slots: normalizedSlots,
       sets: resolvedSets,
-      metaSetIds: dedupeStringArray(filteredMetaIds),
+      metaSetNames: dedupeStringArray(filteredMetaIds),
       mainStats: filteredMainStats,
       factions: filteredFactions,
     }

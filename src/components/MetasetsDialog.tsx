@@ -9,7 +9,7 @@ import EllipsisTooltip from './EllipsisTooltip'
 import type { Metaset } from '../lib/metasets'
 import { filterAndSortSetEntries, getLocalizedGearSetName, type ArtifactSetId } from '../lib/types'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
-import { cloneMetaset, defaultMetasets, makeMetasetId } from '../lib/metasets'
+import { cloneMetaset, defaultMetasets } from '../lib/metasets'
 import { DEFAULT_METASET_ICON_ID, METASET_ICON_OPTIONS, metasetIconOptionById, normalizeMetasetIconId, randomMetasetIconId } from '../lib/metasetIcons'
 import type { MetasetIconId } from '../lib/metasetIcons'
 // no constants needed here; sizes handled in SetsOrderControls
@@ -80,8 +80,11 @@ const sparkleRise = keyframes`
 `
 
 // Inner component handles draft state for a single metaset name field.
-const MetasetNameFieldInner = React.memo(function MetasetNameFieldInner({ initialName, idx, highlight, onCommitName }: { initialName: string; idx: number; highlight: boolean; onCommitName: (value: string) => void }) {
+const MetasetNameFieldInner = React.memo(function MetasetNameFieldInner({ initialName, idx, highlight, allNames, onCommitName }: { initialName: string; idx: number; highlight: boolean; allNames: string[]; onCommitName: (value: string) => void }) {
   const [draft, setDraft] = useState(initialName)
+  // Show error border when the current draft (trimmed) is already used by another metaset.
+  const trimmedDraft = draft.trim()
+  const isDuplicate = trimmedDraft.length > 0 && allNames.some((n, i) => i !== idx && n === trimmedDraft)
   return (
     <Box sx={{ position: 'relative', display: 'block', width: '100%', borderRadius: 1, overflow: 'visible' }}>
       {highlight && (
@@ -89,8 +92,7 @@ const MetasetNameFieldInner = React.memo(function MetasetNameFieldInner({ initia
           aria-hidden
           sx={{
             position: 'absolute',
-            // Keep glow tightly around the input box; avoid label overlay.
-            top: 6,
+            top: 0,
             right: 0,
             bottom: 0,
             left: 0,
@@ -124,7 +126,6 @@ const MetasetNameFieldInner = React.memo(function MetasetNameFieldInner({ initia
       )}
       <MuiTextField
         size="small"
-        label={`Metaset #${idx + 1}`}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => {
@@ -134,17 +135,15 @@ const MetasetNameFieldInner = React.memo(function MetasetNameFieldInner({ initia
         }}
         onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
         fullWidth
-        sx={{
-          // No margin to keep grid gap uniform
-          m: 0,
-        }}
+        error={isDuplicate}
+        sx={{ m: 0 }}
       />
     </Box>
   )
 })
 
 // Outer wrapper resets draft state via key when name/id changes.
-const MetasetNameField = React.memo(function MetasetNameField({ id, name, idx, highlight, onCommitName }: { id: string; name: string; idx: number; highlight?: boolean; onCommitName: (value: string) => void }) {
+const MetasetNameField = React.memo(function MetasetNameField({ id, name, idx, highlight, allNames, onCommitName }: { id: string; name: string; idx: number; highlight?: boolean; allNames: string[]; onCommitName: (value: string) => void }) {
   const highlightActive = Boolean(highlight)
   return (
     <MetasetNameFieldInner
@@ -152,6 +151,7 @@ const MetasetNameField = React.memo(function MetasetNameField({ id, name, idx, h
       initialName={name}
       idx={idx}
       highlight={highlightActive}
+      allNames={allNames}
       onCommitName={onCommitName}
     />
   )
@@ -284,7 +284,7 @@ export default function MetasetsDialog({
   const skipSetsMenuAutoScrollRef = useRef(false)
   const [activeSetMenuMetaId, setActiveSetMenuMetaId] = useState<string | null>(null)
   {
-    const active = new Set(draftMetasets.map(m => m.id))
+    const active = new Set(draftMetasets.map(m => m.name))
     for (const key of Object.keys(selectContainerRefsRef.current)) {
       if (!active.has(key)) delete selectContainerRefsRef.current[key]
     }
@@ -326,7 +326,7 @@ export default function MetasetsDialog({
   const cloneMetasetMap = useCallback((list: Metaset[]): Map<string, Metaset> => {
     const map = new Map<string, Metaset>()
     for (const meta of list) {
-      map.set(meta.id, cloneMetaset(meta))
+      map.set(meta.name, cloneMetaset(meta))
     }
     return map
   }, [])
@@ -334,7 +334,7 @@ export default function MetasetsDialog({
   const buildMetasetsAggregateDescriptor = useCallback((baselineMap: Map<string, Metaset>, currentList: Metaset[]): HistoryEntryDescriptor | null => {
     const currentMap = new Map<string, Metaset>()
     currentList.forEach((meta) => {
-      currentMap.set(meta.id, meta)
+      currentMap.set(meta.name, meta)
     })
 
     const descriptors: HistoryEntryDescriptor[] = []
@@ -363,7 +363,7 @@ export default function MetasetsDialog({
     }
 
     currentList.forEach((meta, index) => {
-      if (!baselineMap.has(meta.id)) {
+      if (!baselineMap.has(meta.name)) {
         void index
         descriptors.push({ kind: 'metasetAdded', metaset: cloneMetaset(meta) })
       }
@@ -506,7 +506,7 @@ export default function MetasetsDialog({
     if (order === 'icons') return
     const list = setsMenuListRefsRef.current[metaId]
     if (!list) return
-    const meta = draftMetasets.find((m) => m.id === metaId)
+    const meta = draftMetasets.find((m) => m.name === metaId)
     if (!meta || meta.sets.length === 0) return
     const selectedIds = new Set(meta.sets)
     const sortedForOrder = sortedSetEntries[order] ?? sortedSetEntries.game
@@ -570,8 +570,8 @@ export default function MetasetsDialog({
                 const inlinePaddingPx = hasSelectedSets ? SETS_SELECT_INLINE_GUTTER_PX : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
                 return (
                 <Box
-                  key={m.id}
-                  data-meta-id={m.id}
+                  key={m.name}
+                  data-meta-id={m.name}
                   // First row gets a stable tour-id so the tutorial can spotlight it individually.
                   data-tour-id={idx === 0 ? 'metasets.row.first' : undefined}
                   sx={{
@@ -651,14 +651,18 @@ export default function MetasetsDialog({
                     </MarkdownTooltip>
                   </Box>
                   <MetasetNameField
-                    id={m.id}
+                    id={m.name}
                     name={m.name}
                     idx={idx}
-                    highlight={legendaryMetaId === m.id}
+                    highlight={legendaryMetaId === m.name}
+                    allNames={draftMetasets.map((dm) => dm.name)}
                     onCommitName={(nextName) => {
+                      // Names are the primary key; reject renames that would create a duplicate.
+                      const trimmed = nextName.trim()
+                      if (!trimmed || draftMetasets.some((other, otherIdx) => otherIdx !== idx && other.name === trimmed)) return
                       commitMetasetUpdate(
                         idx,
-                        (prevMeta) => ({ ...prevMeta, name: nextName }),
+                        (prevMeta) => ({ ...prevMeta, name: trimmed }),
                         (previousMeta, nextMeta) => ({ kind: 'metasetRenamed', previous: previousMeta, next: nextMeta }),
                       )
                     }}
@@ -671,7 +675,7 @@ export default function MetasetsDialog({
                   >
                     <Box
                       ref={(el: HTMLDivElement | null) => {
-                        selectContainerRefsRef.current[m.id] = el
+                        selectContainerRefsRef.current[m.name] = el
                       }}
                       sx={{ position: 'relative' }}
                     >
@@ -679,7 +683,7 @@ export default function MetasetsDialog({
                           This avoids remounting hundreds of set menu items for every metaset
                           on each click, which was a major source of main-thread churn. */}
                       {(() => {
-                        const setsMenuActive = metaSetsMenuOpen && activeSetMenuMetaId === m.id
+                        const setsMenuActive = metaSetsMenuOpen && activeSetMenuMetaId === m.name
                         return (
                           <Select
                         size="small"
@@ -702,7 +706,7 @@ export default function MetasetsDialog({
                             .join(', ')
                         )}
                         onOpen={(e) => {
-                          setActiveSetMenuMetaId(m.id)
+                          setActiveSetMenuMetaId(m.name)
                           setMetaSetsMenuOpen(true)
                           try {
                             const el = (e?.currentTarget as HTMLElement | null)
@@ -739,13 +743,13 @@ export default function MetasetsDialog({
                               } catch {}
                               if (typeof targetSetId === 'number') {
                                 try {
-                                  const list = setsMenuListRefsRef.current[m.id]
+                                  const list = setsMenuListRefsRef.current[m.name]
                                   if (!list) return
                                   const item = list.querySelector<HTMLElement>(`[data-set-id="${targetSetId}"]`)
                                   if (item) item.scrollIntoView({ block: 'nearest' })
                                 } catch {}
                               }
-                              scrollMetasetSetsMenuToSelected(m.id, setsOrder)
+                              scrollMetasetSetsMenuToSelected(m.name, setsOrder)
                             }
                             requestAnimationFrame(() => requestAnimationFrame(refine))
                           } catch { setSetsMenuAnchorPos(null) }
@@ -806,7 +810,7 @@ export default function MetasetsDialog({
                                   </ListSubheader>
                                   <Box
                                     component="ul"
-                                    ref={(el: HTMLUListElement | null) => { setsMenuListRefsRef.current[m.id] = el }}
+                                    ref={(el: HTMLUListElement | null) => { setsMenuListRefsRef.current[m.name] = el }}
                                     sx={{
                                       listStyle: 'none',
                                       p: 0,
@@ -834,7 +838,7 @@ export default function MetasetsDialog({
                                       sorted={sorted}
                                       setsOrder={setsOrder}
                                       metasets={draftMetasets}
-                                      excludeMetasetId={m.id}
+                                      excludeMetasetId={m.name}
                                       setUsageCounts={setUsageCounts}
                                       valueForSet={(id) => String(id)}
                                       hideHeader
@@ -867,11 +871,11 @@ export default function MetasetsDialog({
                       <InlineSelectClearButton
                         disabled={!hasSelectedSets}
                         label={t('clear')}
-                        onClear={() => setConfirmClearMetaId(m.id)}
+                        onClear={() => setConfirmClearMetaId(m.name)}
                       />
                       <SelectDropdownActivator
                         getDisplayNode={() => {
-                          const root = selectContainerRefsRef.current[m.id]
+                          const root = selectContainerRefsRef.current[m.name]
                           if (!root) return null
                           return root.querySelector('[role="combobox"]') as HTMLElement | null
                         }}
@@ -948,8 +952,8 @@ export default function MetasetsDialog({
                   })}
                   </Select>
                 {(() => {
-                  const recipeUsed = metasetUsageCounts[m.id] || 0
-                  const safeguardUsed = safeguardMetasetUsageCounts[m.id] || 0
+                  const recipeUsed = metasetUsageCounts[m.name] || 0
+                  const safeguardUsed = safeguardMetasetUsageCounts[m.name] || 0
                   const totalUsed = recipeUsed + safeguardUsed
                   return (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -957,13 +961,13 @@ export default function MetasetsDialog({
                         const hasSets = m.sets.length > 0
                         if (totalUsed === 0 && !hasSets) {
                           // Safe auto-delete: not used and empty
-                          onDeleteMetaset(m.id)
+                          onDeleteMetaset(m.name)
                           return
                         }
                         // Otherwise open confirmation; default to delete action
                         setDeleteMode(totalUsed > 0 && hasSets ? 'replaceSets' : 'delete')
                         setDeleteReplaceMetaId('')
-                        setConfirmDeleteMetaId(m.id)
+                        setConfirmDeleteMetaId(m.name)
                       }}>{t('delete')}</Button>
                       {totalUsed > 0 ? (
                         <MarkdownTooltip markdown={t('metasetsUsesTooltip')}>
@@ -976,7 +980,7 @@ export default function MetasetsDialog({
                               onClick={() => {
                                 // Map Safeguard references are informational only; the chip keeps
                                 // selecting recipes to mirror the previous affordance.
-                                try { onSelectRecipesByMetaset(m.id) } catch {}
+                                try { onSelectRecipesByMetaset(m.name) } catch {}
                                 // Close the dialog so the selection is visible in the chips list
                                 try { onClose() } catch {}
                               }}
@@ -1026,15 +1030,15 @@ export default function MetasetsDialog({
         <DialogActions>
           <Button data-tour-id="metasets.add" onClick={() => {
             const { name, isFun } = generateMetasetNameWithFlag(draftMetasets.map(m => m.name))
-            const id = makeMetasetId()
             const iconId = randomMetasetIconId()
-            setPendingScrollMetaId(id)
+            // name is the primary key; use it for scroll/animation tracking
+            setPendingScrollMetaId(name)
             if (isFun) {
               // Trigger a short celebratory glow on the new row's Select
-              setLegendaryMetaId(id)
+              setLegendaryMetaId(name)
               window.setTimeout(() => setLegendaryMetaId(''), 1600)
             }
-            const nextMeta = { id, name, sets: [], show: true, iconId }
+            const nextMeta = { name, sets: [], show: true, iconId }
             const nextMetasets = draftMetasets.concat(nextMeta)
             recordHistory({ kind: 'metasetAdded', metaset: cloneMetaset(nextMeta) }, { mutated: true, nextMetasets })
             scheduleDraftPublish(nextMetasets)
@@ -1043,7 +1047,7 @@ export default function MetasetsDialog({
           <Button size="small" variant="outlined" color="error" onClick={() => {
             // Default selection mirrors Delete: prefer replace-with-sets when possible
             try {
-              const used = draftMetasets.filter(m => (metasetUsageCounts[m.id] || 0) > 0 || (safeguardMetasetUsageCounts[m.id] || 0) > 0)
+              const used = draftMetasets.filter(m => (metasetUsageCounts[m.name] || 0) > 0 || (safeguardMetasetUsageCounts[m.name] || 0) > 0)
               const anyHasSets = used.some(m => m.sets.length > 0)
               setResetMode(anyHasSets ? 'replaceSets' : 'delete')
             } catch { setResetMode('delete') }
@@ -1069,7 +1073,7 @@ export default function MetasetsDialog({
             onClick={() => {
               const id = confirmClearMetaId!
               setConfirmClearMetaId(null)
-              const targetIdx = draftMetasets.findIndex(m => m.id === id)
+              const targetIdx = draftMetasets.findIndex(m => m.name === id)
               if (targetIdx === -1) {
                 recordHistory(null)
                 return
@@ -1108,11 +1112,11 @@ export default function MetasetsDialog({
           )}
           {(() => {
             const id = confirmDeleteMetaId
-            const m = draftMetasets.find(x => x.id === id)
+            const m = draftMetasets.find(x => x.name === id)
             const recipeUsed = id ? (metasetUsageCounts[id] || 0) : 0
             const safeguardUsed = id ? (safeguardMetasetUsageCounts[id] || 0) : 0
             const totalUsed = recipeUsed + safeguardUsed
-            const otherMetas = draftMetasets.filter(x => x.id !== id)
+            const otherMetas = draftMetasets.filter(x => x.name !== id)
             const hasOtherMetas = otherMetas.length > 0
             const hasSets = Boolean(m && m.sets.length > 0)
 
@@ -1151,11 +1155,11 @@ export default function MetasetsDialog({
                       disabled={!hasOtherMetas || deleteMode !== 'replaceMeta'}
                       renderValue={(v) => {
                         if (!hasOtherMetas) return t('metasetsNoMetasetsToReplaceWith')
-                        return v ? (draftMetasets.find(x => x.id === v)?.name ?? v) : t('metasetsChooseMetasetPlaceholder')
+                        return v ? (draftMetasets.find(x => x.name === v)?.name ?? v) : t('metasetsChooseMetasetPlaceholder')
                       }}
                     >
                       {otherMetas.map((mm) => (
-                        <MenuItem key={mm.id} value={mm.id}>{mm.name}</MenuItem>
+                        <MenuItem key={mm.name} value={mm.name}>{mm.name}</MenuItem>
                       ))}
                     </Select>
                   </Box>
@@ -1239,7 +1243,7 @@ export default function MetasetsDialog({
           {(() => {
             // Combine recipe + Safeguard references; reset flow must keep both in sync.
             const totalRefs = draftMetasets.reduce((acc, meta) => (
-              acc + (metasetUsageCounts[meta.id] || 0) + (safeguardMetasetUsageCounts[meta.id] || 0)
+              acc + (metasetUsageCounts[meta.name] || 0) + (safeguardMetasetUsageCounts[meta.name] || 0)
             ), 0)
             if (totalRefs === 0) {
               return (
@@ -1262,10 +1266,10 @@ export default function MetasetsDialog({
                       onChange={(e) => setResetReplaceMetaId(e.target.value as string)}
                       disabled={resetMode !== 'replaceMeta'}
                       displayEmpty
-                      renderValue={(v) => v ? (defaults.find(x => x.id === v)?.name ?? v) : t('metasetsChooseMetasetPlaceholder')}
+                      renderValue={(v) => v ? (defaults.find(x => x.name === v)?.name ?? v) : t('metasetsChooseMetasetPlaceholder')}
                     >
                       {defaults.map(m => (
-                        <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
+                        <MenuItem key={m.name} value={m.name}>{m.name}</MenuItem>
                       ))}
                     </Select>
                   </Box>

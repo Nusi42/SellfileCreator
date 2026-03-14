@@ -12,7 +12,7 @@ const IGNORED_KEYS = new Set([
   // Cosmetic metadata never alters the generated rules, so we exclude it from fingerprints.
   'artifactTypeNames',
   'artifactSetNames',
-  'artifactMetaSetIds',
+  'artifactMetaSetNames',
   'name',
   'tags',
 ])

@@ -518,7 +518,7 @@ export function filterHsfRules<T extends HsfRule>(
   if (metasets && (f.sets?.metaSelected?.length ?? 0) > 0) {
     const metaSet = new Set<string>(f.sets!.metaSelected!)
     for (const m of metasets) {
-      if (metaSet.has(m.id)) {
+      if (metaSet.has(m.name)) {
         for (const s of m.sets) selectedSets.add(Number(s))
       }
     }
@@ -857,7 +857,7 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
   if (metasets && (f.sets?.metaSelected?.length ?? 0) > 0) {
     const metaSet = new Set<string>(f.sets!.metaSelected!)
     for (const m of metasets) {
-      if (metaSet.has(m.id)) {
+      if (metaSet.has(m.name)) {
         for (const s of m.sets) selectedSets.add(Number(s))
       }
     }

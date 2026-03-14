@@ -100,7 +100,7 @@ const makeSpdSafeguardRule = (id: string): SafeguardRule => ({
   combination: {
     slots: [ArtifactType.Weapon],
     sets: [],
-    metaSetIds: [],
+    metaSetNames: [],
     ranks: [],
     rarities: [],
     mainStats: [],
@@ -191,7 +191,7 @@ test('marks no-match artifacts when no safeguard applies to the piece', () => {
     combination: {
       slots: [ArtifactType.Boots],
       sets: [],
-      metaSetIds: [],
+      metaSetNames: [],
       ranks: [],
       rarities: [],
       mainStats: [],

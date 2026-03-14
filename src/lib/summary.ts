@@ -10,7 +10,7 @@ import { RARITY_AUTO_LABEL } from './constants'
 import type { Metaset } from './metasets'
 import { splitArtifactSetSelections } from './gearSets/selection'
 
-export function summaryOf(recipe: BuilderRecipe, metasets: Metaset[]): string {
+export function summaryOf(recipe: BuilderRecipe, _metasets?: Metaset[]): string {
   const parts: string[] = []
   const ellipsize = (s: string, max = 20) => (s.length <= max ? s : s.slice(0, max - 1) + '…')
   const push = (label: string, value: string) => parts.push(`${label}:${ellipsize(value)}`)
@@ -75,7 +75,8 @@ export function summaryOf(recipe: BuilderRecipe, metasets: Metaset[]): string {
   // Explicit excludes are prefixed so intent is obvious.
   const excludedNames = setSelection.excluded.map((id) => `not ${artifactSetName(id)}`)
   // Metaset labels are resolved against the active metaset list.
-  const metaNames = (recipe.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id)
+  // Since names are now the primary key, the artifactMetaSets array already contains display names.
+  const metaNames = recipe.artifactMetaSets ?? []
   // Build a single comma-separated list for compact chips.
   const setsJoined = [...metaNames, ...setNames, ...excludedNames].join(',')
   if (setsJoined) push('Sets', setsJoined)

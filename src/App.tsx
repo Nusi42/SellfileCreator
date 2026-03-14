@@ -208,7 +208,6 @@ import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT, SAFEGUARD_BUILDER_USER_DEFAU
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
 import { cloneMetaset, defaultMetasets, type Metaset } from './lib/metasets'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections, type ArtifactSetSelectionEntry } from './lib/gearSets/selection'
-import { generateMetasetNameWithFlag } from './lib/namegen'
 import { useDisplayPreferences, useDisplayPreferenceActions } from './state/preferencesState'
 import {
   useAutoApplySelectedRecipePreference,
@@ -743,7 +742,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     for (const rule of safeguardRules) {
       // Treat a rule that references the same metaset multiple times as a single hit
       // so the overlay reflects “number of rules” rather than raw ID frequency.
-      const metaIds = Array.from(new Set(rule.combination.metaSetIds ?? []))
+      const metaIds = Array.from(new Set(rule.combination.metaSetNames ?? []))
       if (!metaIds.length) continue
       for (const metaId of metaIds) {
         counts[metaId] = (counts[metaId] ?? 0) + 1
@@ -885,7 +884,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // the user explicitly inserts or applies, mirroring the recipe builder's draft model.
   const [safeguardBuilderState, setSafeguardBuilderState] = useState<SafeguardRule>(() => ({
     id: createSafeguardRuleId(),
-    combination: { slots: [], sets: [], metaSetIds: [], ranks: [], rarities: [], mainStats: [], factions: [] },
+    combination: { slots: [], sets: [], metaSetNames: [], ranks: [], rarities: [], mainStats: [], factions: [] },
     name: '',
     requiredCount: 1,
     activation: SafeguardRuleActivation.ProtectExisting,
@@ -3166,7 +3165,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const hsfExportStateSig = useMemo<ExportDirtyState>(() => {
     const metasetDigests = metasets
       .map((meta) => ({
-        id: String(meta.id),
+        id: meta.name,
         sets: (Array.isArray(meta.sets) ? [...meta.sets].map(Number).sort((a, b) => a - b) : []),
       }))
       .sort((a, b) => a.id.localeCompare(b.id))
@@ -5200,14 +5199,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleResetMetasets = useCallback((mode: 'delete' | 'replaceSets' | 'replaceMeta', replacementMetaId?: string) => {
     const defaults = defaultMetasets()
     const replacementId = mode === 'replaceMeta' ? (replacementMetaId || null) : null
-    const replacementMetaName = replacementId ? (defaults.find((meta) => meta.id === replacementId)?.name ?? null) : null
+    const replacementMetaName = replacementId ? (defaults.find((meta) => meta.name === replacementId)?.name ?? null) : null
     const descriptor: HistoryEntryDescriptor = {
       kind: 'metasetsReset',
       mode,
       ...(replacementMetaName ? { replacementName: replacementMetaName } : {}),
     }
     describeNextChange(descriptor)
-    const metasById = new Map(metasets.map((meta) => [meta.id, meta]))
+    const metasById = new Map(metasets.map((meta) => [meta.name, meta]))
     const stringArraysEqual = (a: readonly string[], b: readonly string[]): boolean => {
       if (a.length !== b.length) return false
       for (let i = 0; i < a.length; i += 1) {
@@ -5246,7 +5245,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSafeguardRulesTransition((prev) => {
       let mutated = false
       const next = prev.map((rule) => {
-        const metaIds = rule.combination.metaSetIds ?? []
+        const metaIds = rule.combination.metaSetNames ?? []
         if (metaIds.length === 0) return rule
         // Mirror recipe/builder reset behavior so Safeguard combinations stay in sync.
         const nextMeta = (mode === 'replaceMeta' && replacementId) ? [replacementId] : []
@@ -5417,7 +5416,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       describeNextChange={describeNextChange}
       onDeleteMetaset={(id, opts) => {
         // Determine replacement strategy before mutating metasets/recipes/safeguard rules
-        const metaToDelete = metasets.find(m => m.id === id) || null
+        const metaToDelete = metasets.find(m => m.name === id) || null
         const replaceWithSets = Boolean(opts?.replaceWithSets && metaToDelete && (metaToDelete.sets.length > 0))
         const replaceWithMetaId = opts?.replaceWithMetaId && opts.replaceWithMetaId !== id ? opts.replaceWithMetaId : null
 
@@ -5427,7 +5426,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           return
         }
         const deletionMode: 'delete' | 'replaceSets' | 'replaceMeta' = replaceWithSets ? 'replaceSets' : (replaceWithMetaId ? 'replaceMeta' : 'delete')
-        const replacementName = replaceWithMetaId ? (metasets.find((m) => m.id === replaceWithMetaId)?.name ?? null) : null
+        const replacementName = replaceWithMetaId ? (metasets.find((m) => m.name === replaceWithMetaId)?.name ?? null) : null
         const descriptor: HistoryEntryDescriptor = {
           kind: 'metasetDeleted',
           metaset: cloneMetaset(metaToDelete),
@@ -5436,7 +5435,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
         describeNextChange(descriptor)
         // Deleting a metaset can fan out into recipe/safeguard recalculation; keep non-urgent.
-        handleMetasetsChange(prev => prev.filter(m => m.id !== id))
+        handleMetasetsChange(prev => prev.filter(m => m.name !== id))
 
         // Update the live builder selection if it referenced this metaset
         const builderUses = (builder.artifactMetaSets ?? []).includes(id)
@@ -5484,7 +5483,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           setSafeguardRulesTransition((prev) => {
             let mutated = false
             const next = prev.map((rule) => {
-              const metaIds = rule.combination.metaSetIds ?? []
+              const metaIds = rule.combination.metaSetNames ?? []
               if (!metaIds.includes(id)) return rule
               // Rewrite Safeguard combinations so deleted metaset IDs are dropped
               // or swapped, matching the recipe/builder behavior.
@@ -5859,7 +5858,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...rule,
       combination: {
         ...rule.combination,
-        metaSetIds: (rule.combination.metaSetIds ?? []).map((id) => metasetIdMap.get(id) ?? id),
+        metaSetIds: (rule.combination.metaSetNames ?? []).map((id) => metasetIdMap.get(id) ?? id),
       },
     }))
     // Track whether any section modifies recipe/Gear Inspector match behavior.
@@ -6424,13 +6423,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           const substatTargetsDescriptor = applySubstatTargetsChange(pendingImport.substatTargets, { mode: 'import', publish: false })
           const refIds = new Set<string>()
           for (const c of recipes) for (const id of c.artifactMetaSets ?? []) refIds.add(String(id))
-          const have = new Set(nextMetas.map((m) => m.id))
+          const have = new Set(nextMetas.map((m) => m.name))
           const finalMetas = nextMetas.slice()
           for (const id of refIds) {
             if (!have.has(id)) {
-              const existingNames = metasets.map((m) => m.name)
-              const gen = generateMetasetNameWithFlag(existingNames)
-              finalMetas.push({ id, name: gen.name, sets: [], show: false, iconId: DEFAULT_METASET_ICON_ID })
+              finalMetas.push({ name: id, sets: [], show: false, iconId: DEFAULT_METASET_ICON_ID })
             }
           }
           const conflictDescriptor: HistoryEntryDescriptor = {

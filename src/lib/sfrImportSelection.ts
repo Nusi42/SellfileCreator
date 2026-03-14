@@ -29,7 +29,7 @@ export const collectRecipeMetasetIds = (recipes: readonly BuilderRecipe[]): Set<
 export const collectSafeguardMetasetIds = (rules: readonly SafeguardRule[]): Set<string> => {
   const ids = new Set<string>()
   for (const rule of rules) {
-    const metaIds = rule.combination.metaSetIds ?? []
+    const metaIds = rule.combination.metaSetNames ?? []
     for (const id of metaIds) ids.add(String(id))
   }
   return ids
@@ -39,7 +39,8 @@ export const collectSafeguardMetasetIds = (rules: readonly SafeguardRule[]): Set
 // Why: constraints apply only to references that point at incoming metasets.
 export const collectMetasetIds = (metasets: readonly Metaset[]): Set<string> => {
   const ids = new Set<string>()
-  for (const metaset of metasets) ids.add(String(metaset.id))
+  // Names are now the primary key; collect them for reference checks.
+  for (const metaset of metasets) ids.add(metaset.name)
   return ids
 }
 

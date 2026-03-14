@@ -117,8 +117,8 @@ export const metasetsEqualSession = (a: Metaset[] | null | undefined, b: Metaset
   const aList = a ?? []
   const bList = b ?? []
   if (metasetsSignature(aList) !== metasetsSignature(bList)) return false
-  const aIds = new Set(aList.map((m) => m.id))
-  const bIds = new Set(bList.map((m) => m.id))
+  const aIds = new Set(aList.map((m) => m.name))
+  const bIds = new Set(bList.map((m) => m.name))
   return aIds.size === bIds.size && [...aIds].every((id) => bIds.has(id))
 }
 

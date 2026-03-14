@@ -1500,7 +1500,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
                     setRuleCombination(rule.id, (prev) => ({ ...prev, sets: normalizeArtifactSetSelections(nextSets) }))
                   }}
                   metasets={metasets}
-                  selectedMetasetIds={combination.metaSetIds}
+                  selectedMetasetIds={combination.metaSetNames}
                   onChangeMetasetIds={(nextMetaIds) => {
                     if (ruleDisabled) return
                     setRuleCombination(rule.id, (prev) => ({ ...prev, metaSetIds: dedupeStringArray(nextMetaIds) }))

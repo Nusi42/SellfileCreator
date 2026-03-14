@@ -191,7 +191,7 @@ export function extractSafeguardEditableFields(rule: SafeguardRule): SafeguardEd
     sets: normalizeArtifactSetSelections(combo.sets ?? []).map((e) =>
       e.excluded ? { id: e.id, excluded: true } : { id: e.id },
     ),
-    metaSetIds: Array.isArray(combo.metaSetIds) ? [...combo.metaSetIds] : [],
+    metaSetIds: Array.isArray(combo.metaSetNames) ? [...combo.metaSetNames] : [],
     ranks: Array.isArray(combo.ranks) ? [...combo.ranks] : [],
     rarities: Array.isArray(combo.rarities) ? [...combo.rarities] : [],
     mainStats: Array.isArray(combo.mainStats) ? [...combo.mainStats] : [],
@@ -718,10 +718,10 @@ function applySetSelectionPatch(
 }
 
 function applyMetaSetIdsPatch(rule: SafeguardRule, patch: MultiEditArrayPatch<string>): SafeguardRule {
-  const current = Array.isArray(rule.combination.metaSetIds) ? rule.combination.metaSetIds.map(String) : []
+  const current = Array.isArray(rule.combination.metaSetNames) ? rule.combination.metaSetNames.map(String) : []
   const next = applyStringArrayPatch(current, patch)
   if (arraysStrEqual(current, next)) return rule
-  return { ...rule, combination: { ...rule.combination, metaSetIds: next } }
+  return { ...rule, combination: { ...rule.combination, metaSetNames: next } }
 }
 
 // ── low-level array patch ────────────────────────────────────────────────────

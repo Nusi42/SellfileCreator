@@ -80,7 +80,7 @@ export const useSafeguardMultiEditSummary = (
       setCounts.set(n, (setCounts.get(n) ?? 0) + 1)
     }
     // Count meta-set id presence.
-    for (const metaId of (combo.metaSetIds ?? [])) {
+    for (const metaId of (combo.metaSetNames ?? [])) {
       metaSetIdCounts.set(metaId, (metaSetIdCounts.get(metaId) ?? 0) + 1)
     }
   }
