@@ -5757,12 +5757,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
 
     markNextSnapshotAsSaved()
-    // Synchronously clear pre-load dirty state so the first paint after load never shows stale dirty
-    // markers. The history useEffect (post-paint) will later create the new snapshot and honour
-    // markNextSnapshotAsSaved to anchor savedIndex there; markSavedNow in the rAF is a safety net.
-    markSavedNow()
     setLastExportSig(null)
     exportBaselineResetRef.current = true
+    // markNextSnapshotAsSaved anchors the upcoming history snapshot as saved.
+    // markSavedNow in the rAF is a safety net for any edge-case where the effect
+    // fires without recording a new entry (e.g. identical payload CRC after load).
+    // NOTE: do NOT call markSavedNow() synchronously here — it clears
+    // markNextAsSavedRef immediately, defeating markNextSnapshotAsSaved.
     if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
       window.requestAnimationFrame(() => { markSavedNow() })
     } else {
@@ -5948,10 +5949,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     }
     markNextSnapshotAsSaved()
-    // Synchronously clear pre-load dirty state — mirrors the full-load path above.
-    markSavedNow()
     setLastExportSig(null)
     exportBaselineResetRef.current = true
+    // Same rationale as applySfrLoadResult — do NOT call markSavedNow() synchronously here.
     if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
       window.requestAnimationFrame(() => { markSavedNow() })
     } else {
@@ -7432,15 +7432,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               if (typeof draft?.SafeguardsEnabled === 'boolean') setSafeguardsEnabled(Boolean(draft.SafeguardsEnabled))
               if (typeof draft?.RecipesEnabled === 'boolean') setRecipesEnabled(draft.RecipesEnabled !== false)
             }
-            // Clear dirty markers so the first paint after restore does not show stale indicators.
-            // Same rationale as applySfrLoadResult: markNextSnapshotAsSaved anchors the upcoming
-            // history snapshot; markSavedNow batches a synchronous savedIndex reset so the
-            // intermediate render already sees isDirty=false before the history useEffect fires.
-            // setLastExportSig(null) + exportBaselineResetRef reset the HSF export baseline.
+            // Clear dirty markers after restore: markNextSnapshotAsSaved anchors the upcoming
+            // history snapshot as saved; rAF markSavedNow is a safety net for the edge case where
+            // the effect fires without a new entry. setLastExportSig(null) + exportBaselineResetRef
+            // reset the HSF export baseline. Do NOT call markSavedNow() synchronously — it clears
+            // markNextAsSavedRef immediately, defeating markNextSnapshotAsSaved.
             markNextSnapshotAsSaved()
-            markSavedNow()
             setLastExportSig(null)
             exportBaselineResetRef.current = true
+            if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+              window.requestAnimationFrame(() => { markSavedNow() })
+            } else {
+              setTimeout(() => { markSavedNow() }, 0)
+            }
             // Coalesce downstream rebuilds into a single pass.
             restoringAutosaveRef.current = true
             acceptRestore()
