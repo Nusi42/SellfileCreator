@@ -4312,6 +4312,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Keep the notification short because this only explains why auto-scroll did not occur.
     showToast(t('toastGearInspectorFocusArtifactFiltered'), { icon: <HelpOutlineIcon fontSize="inherit" /> })
   }, [showToast, t])
+  // Stable ref so handleGearInspectorRuleView can trigger chip scroll even though
+  // scrollSelectedRecipeIntoView is declared later in the same component.
+  const scrollSelectedRecipeIntoViewRef = useRef<() => void>(() => {})
   const handleGearInspectorRuleView = useCallback((ruleIndex: number, recipeIdx: number | null) => {
     setGearInspectorArtifactFocusRequest(null)
     const targetRule = mergedRulesRef.current[ruleIndex]
@@ -4335,6 +4338,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       syncSelectedRecipeIdx(targetRecipeIdx, { forceSync: true })
       const recipe = recipeSnapshot[targetRecipeIdx]
       if (recipe) setBuilder(recipe)
+      // Force-scroll the chips panel to the target recipe even when it is already selected.
+      // Why: the normal path (onSelectionScrollRequest gated on selectionChanged in handleRecipeSelect)
+      // never fires for repeated clicks on the same recipe. Call via ref to avoid forward-declaration.
+      scrollSelectedRecipeIntoViewRef.current()
     } else {
       setPreviewMode('rules')
     }
@@ -4349,7 +4356,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } catch {
       setFocusRuleIndex(null)
     }
-  }, [openLogicHubSafeguardRule, setBuilder, setBuilderMode, setFocusRuleIndex, setPreviewMode, setLogicHubOpen, syncSelectedRecipeIdx])
+  }, [openLogicHubSafeguardRule, scrollSelectedRecipeIntoViewRef, setBuilder, setBuilderMode, setFocusRuleIndex, setPreviewMode, setLogicHubOpen, syncSelectedRecipeIdx])
   const handleGearInspectorRuleTemplateCreate = useCallback((row: GearInspectorPreviewRow, intent: 'keep' | 'sell') => {
     const artifact = row.artifact
     // Build the baseline template based on level, rolls, and the item’s current stats.
@@ -4467,6 +4474,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	      })
 	    } catch {}
 	  }, [chipsContainerRef, multiselectActive, selectedRecipeIdx])
+  // Keep the ref current so handleGearInspectorRuleView always calls the latest version.
+  scrollSelectedRecipeIntoViewRef.current = scrollSelectedRecipeIntoView
   // Keep the focused recipe chip in view as filters or list length change so keyboard navigation stays visible.
   useEffect(() => {
     scrollSelectedRecipeIntoView()
