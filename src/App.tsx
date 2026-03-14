@@ -7432,6 +7432,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               if (typeof draft?.SafeguardsEnabled === 'boolean') setSafeguardsEnabled(Boolean(draft.SafeguardsEnabled))
               if (typeof draft?.RecipesEnabled === 'boolean') setRecipesEnabled(draft.RecipesEnabled !== false)
             }
+            // Clear dirty markers so the first paint after restore does not show stale indicators.
+            // Same rationale as applySfrLoadResult: markNextSnapshotAsSaved anchors the upcoming
+            // history snapshot; markSavedNow batches a synchronous savedIndex reset so the
+            // intermediate render already sees isDirty=false before the history useEffect fires.
+            // setLastExportSig(null) + exportBaselineResetRef reset the HSF export baseline.
+            markNextSnapshotAsSaved()
+            markSavedNow()
+            setLastExportSig(null)
+            exportBaselineResetRef.current = true
             // Coalesce downstream rebuilds into a single pass.
             restoringAutosaveRef.current = true
             acceptRestore()
