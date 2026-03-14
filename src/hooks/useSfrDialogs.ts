@@ -109,19 +109,19 @@ export function useSfrDialogs({
   }, [onConfirmClearAll])
 
   const handleConfirmDelete = useCallback(() => {
-    setConfirmDeleteIdx((current) => {
-      if (current == null) return current
-      onConfirmDeleteSingle(current)
-      return null
-    })
-  }, [onConfirmDeleteSingle])
+    // Read confirmDeleteIdx directly — state updaters must be pure (no side effects)
+    // because React Strict Mode double-invokes them, which would trigger the delete twice.
+    if (confirmDeleteIdx == null) return
+    onConfirmDeleteSingle(confirmDeleteIdx)
+    setConfirmDeleteIdx(null)
+  }, [confirmDeleteIdx, onConfirmDeleteSingle])
 
   const handleConfirmDeleteMulti = useCallback(() => {
-    setConfirmDeleteTargets((targets) => {
-      onConfirmDeleteMulti(targets ?? null)
-      return null
-    })
-  }, [onConfirmDeleteMulti])
+    // Same pattern: call the side effect outside the state setter so Strict Mode
+    // double-invocation of the updater cannot run the deletion twice.
+    onConfirmDeleteMulti(confirmDeleteTargets ?? null)
+    setConfirmDeleteTargets(null)
+  }, [confirmDeleteTargets, onConfirmDeleteMulti])
 
   const openNoteEditor = useCallback(() => {
     cancelPendingNoteClose()

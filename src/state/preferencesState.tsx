@@ -66,26 +66,27 @@ export function DisplayPreferencesProvider({ children }: { children: React.React
   }))
 
   const actions: DisplayPreferenceDispatchers = useMemo(() => ({
-    setShowSlotIcons: (next: boolean) => setPrefs((prev) => {
-      if (prev.showSlotIcons === next) return prev
+    // Each dispatcher persists to localStorage before updating React state so the write
+    // is never inside a state-updater function. React Strict Mode double-invokes updaters,
+    // which would cause double writes if the side effect were placed there. Writing before
+    // setPrefs is safe: if the state update turns out to be a no-op (prev === next), the
+    // write is a benign duplicate that does not corrupt data.
+    setShowSlotIcons: (next: boolean) => {
       writeBooleanPref(RULES_TABLE_SHOW_SLOT_ICONS_KEY, next)
-      return { ...prev, showSlotIcons: next }
-    }),
-    setShowSetIcons: (next: boolean) => setPrefs((prev) => {
-      if (prev.showSetIcons === next) return prev
+      setPrefs((prev) => prev.showSlotIcons === next ? prev : { ...prev, showSlotIcons: next })
+    },
+    setShowSetIcons: (next: boolean) => {
       writeBooleanPref(RULES_TABLE_SHOW_SET_ICONS_KEY, next)
-      return { ...prev, showSetIcons: next }
-    }),
-    setShowFactionIcons: (next: boolean) => setPrefs((prev) => {
-      if (prev.showFactionIcons === next) return prev
+      setPrefs((prev) => prev.showSetIcons === next ? prev : { ...prev, showSetIcons: next })
+    },
+    setShowFactionIcons: (next: boolean) => {
       writeBooleanPref(RULES_TABLE_SHOW_FACTION_ICONS_KEY, next)
-      return { ...prev, showFactionIcons: next }
-    }),
-    setStatButtonBorders: (next: boolean) => setPrefs((prev) => {
-      if (prev.statButtonBorders === next) return prev
+      setPrefs((prev) => prev.showFactionIcons === next ? prev : { ...prev, showFactionIcons: next })
+    },
+    setStatButtonBorders: (next: boolean) => {
       writeBooleanPref(STAT_BUTTON_BORDERS_KEY, next)
-      return { ...prev, statButtonBorders: next }
-    }),
+      setPrefs((prev) => prev.statButtonBorders === next ? prev : { ...prev, statButtonBorders: next })
+    },
   }), [])
 
   return (
