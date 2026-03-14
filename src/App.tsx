@@ -6458,13 +6458,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     />
   ) : null
 
-  const runSellfileExportNow = useCallback(async () => {
+  const runSellfileExportNow = useCallback(async (forceLocal = false) => {
     // Default export always serializes the active in-app ruleset.
     // Dedupe-by-default is already applied in the pre-safeguard pipeline.
     const payload = buildExportPayload()
     const blob = hsfToBlob(payload)
     const filename = sellfileFilename()
-    const target = pushExportEndpoint
+    // forceLocal bypasses the push path so the menu "Export to file" item always downloads.
+    const target = forceLocal ? null : pushExportEndpoint
     if (target) {
       let pushToast: 'success' | 'failure' | null = null
       try {
@@ -6527,6 +6528,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (queueSellfileExportIfNeeded()) return
     void runSellfileExportNow()
   }, [queueSellfileExportIfNeeded, runSellfileExportNow])
+  // Secondary action: always triggers a local file download regardless of push endpoint.
+  // Exposed via the split-button dropdown when an endpoint is active.
+  const handleExportSellfileLocal = useCallback(() => {
+    if (!exportRulesCountRef.current) return
+    void runSellfileExportNow(true)
+  }, [runSellfileExportNow])
   useEffect(() => {
     // No queued request means nothing to flush.
     if (!queuedSellfileExport) return
@@ -6786,6 +6793,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         omitDisabledForExport={omitDisabledForExport}
         onToggleOmitDisabled={handleSetOmitDisabled}
         onExport={handleExportSellfile}
+        onExportLocal={handleExportSellfileLocal}
         exportDisabled={!mergedRules.length}
         previewMode={previewMode}
         onChangePreviewMode={setPreviewMode}

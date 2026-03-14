@@ -107,6 +107,8 @@ export default function PreviewHeaderActions(props: {
   onClearBase: () => void
   baseRuleCount?: number
   onExport: () => void
+  // Secondary action shown in the dropdown when a push endpoint is active — always downloads locally.
+  onExportLocal?: () => void
   dedupeDefault: boolean
   onToggleDedupeDefault: (next: boolean) => void
   omitDisabledForExport: boolean
@@ -176,6 +178,7 @@ export default function PreviewHeaderActions(props: {
     onClearBase,
     baseRuleCount,
     onExport,
+    onExportLocal,
     dedupeDefault,
     onToggleDedupeDefault,
     omitDisabledForExport,
@@ -329,8 +332,9 @@ export default function PreviewHeaderActions(props: {
 	  const sortGroupingNoHeadersLabel = t('testerSortGroupingNoHeadersLabel')
 	  const sortGroupingNoHeadersTooltip = t('testerSortGroupingNoHeadersTooltip')
   const exportMenuEnabled = React.useMemo(
-    () => typeof onToggleDedupeDefault === 'function' || typeof onToggleOmitDisabled === 'function',
-    [onToggleDedupeDefault, onToggleOmitDisabled],
+    // Also enabled when a local-export fallback is provided (push-mode split button).
+    () => typeof onToggleDedupeDefault === 'function' || typeof onToggleOmitDisabled === 'function' || !!onExportLocal,
+    [onToggleDedupeDefault, onToggleOmitDisabled, onExportLocal],
   )
   const [exportMenuAnchor, setExportMenuAnchor] = React.useState<HTMLElement | null>(null)
   const closeExportMenu = () => { setExportMenuAnchor(null) }
@@ -2126,6 +2130,15 @@ export default function PreviewHeaderActions(props: {
               anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
               transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
+              {pushActive && onExportLocal ? (
+                <>
+                  {/* Local-download fallback when a push endpoint is active. */}
+                  <MenuItem onClick={() => { onExportLocal(); closeExportMenu() }}>
+                    <SaveIcon fontSize="small" sx={{ mr: 1 }} />
+                    {baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile')}
+                  </MenuItem>
+                </>
+              ) : null}
               <MenuItem
                 onClick={() => onToggleOmitDisabled(!omitDisabledForExport)}
               >
