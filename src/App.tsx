@@ -398,6 +398,18 @@ type GearInspectorArtifactFocusRequest = {
 }
 // Tag Gear Inspector rebuild origin so endpoint pushes can keep card interactions alive.
 type GearInspectorBuildOrigin = 'user' | 'endpoint'
+// Stores a processed pipeline result so undo/redo revisits skip the worker AND all JS
+// post-processing. processedRows is null only when includeMatchesInPipeline was false at
+// cache-fill time (the cache key encodes that flag, so a null entry is never served to a
+// caller that needs rows).
+type PipelineCacheEntry = {
+  result: PipelineResult
+  processedSnapshot: RecipeRulesStateSnapshot
+  processedRows: GearInspectorPreviewRow[] | null
+  processedSafeguardDetection: SafeguardDetectionSnapshot | null
+  processedUpgradeChance: Map<number, UpgradeChanceWasmEntry> | null
+  insertedAt: number
+}
 
 // Inserts/updates still flow through the worker; the UI only handles pure reorders locally.
 
@@ -939,21 +951,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const pipelineDebounceRef = useRef<number | null>(null)
   // Pipeline result cache: skip re-running the worker AND all JS post-processing when
   // undo/redo revisits a state we already evaluated.
-  // Key = historyCrc:historySize:flags; evicted by LRU size cap or TTL.
+  // Key = historyCrc:historySize:flags (including includeMatchesInPipeline bit); evicted by LRU size cap or TTL.
   // Stores both the raw worker result and the pre-built UI state so cache hits can call
   // setState with the exact same object references, letting React.memo skip row re-renders.
-  type PipelineCacheEntry = {
-    result: PipelineResult
-    processedSnapshot: RecipeRulesStateSnapshot
-    // null when includeMatchesInPipeline was false at cache-fill time (currently always true).
-    processedRows: GearInspectorPreviewRow[] | null
-    processedSafeguardDetection: SafeguardDetectionSnapshot | null
-    processedUpgradeChance: Map<number, UpgradeChanceWasmEntry> | null
-    insertedAt: number
-  }
   const pipelineCacheRef = useRef<Map<string, PipelineCacheEntry>>(new Map())
-  // Insertion order array enables O(1) LRU eviction by shifting the oldest key.
-  const pipelineCacheOrderRef = useRef<string[]>([])
+  // Insertion order Set enables O(1) LRU eviction and O(1) key removal on TTL eviction.
+  const pipelineCacheOrderRef = useRef<Set<string>>(new Set())
   // Ref-shadowed so launchPipeline can read the current signature without adding it to the
   // pipeline dep array (which would cause spurious re-runs on selection-only history steps).
   // Initialized to null; the update effect below keeps it current after the first render.
@@ -972,7 +975,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Declared before the pipeline effect so it runs first in the same React commit.
   useEffect(() => {
     pipelineCacheRef.current.clear()
-    pipelineCacheOrderRef.current.length = 0
+    pipelineCacheOrderRef.current.clear()
   }, [gearInspectorPreviewArtifacts])
 
   // Proactively evict entries that have exceeded the TTL so GC can reclaim their memory
@@ -983,8 +986,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       for (const [key, entry] of pipelineCacheRef.current) {
         if (now - entry.insertedAt > PIPELINE_CACHE_TTL_MS) {
           pipelineCacheRef.current.delete(key)
-          const idx = pipelineCacheOrderRef.current.indexOf(key)
-          if (idx >= 0) pipelineCacheOrderRef.current.splice(idx, 1)
+          pipelineCacheOrderRef.current.delete(key)
         }
       }
     }, 60_000)
@@ -1081,21 +1083,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         computeUpgradeChance: showSafeguardUpgradeChance || safeguardChanceSortEnabled,
       }
       // Build a cache key from the history signature (covers recipes, note, safeguards, etc.)
-      // and the 4 boolean flags that affect pipeline output. Null when no history entry exists yet.
+      // and the 5 boolean flags that affect pipeline output (including includeMatchesInPipeline).
+      // Null when no history entry exists yet.
       // Read via ref so this logic stays out of the effect dep array (avoids selection-only re-runs).
       const currentSig = currentEntrySignatureRef.current
       const cacheKey = currentSig
-        ? `${currentSig.crc}:${currentSig.size}:${omitDisabledForExport ? 1 : 0}${dedupeDefault ? 1 : 0}${showSafeguardUpgradeChance ? 1 : 0}${safeguardChanceSortEnabled ? 1 : 0}`
+        ? `${currentSig.crc}:${currentSig.size}:${includeMatchesInPipeline ? 1 : 0}${omitDisabledForExport ? 1 : 0}${dedupeDefault ? 1 : 0}${showSafeguardUpgradeChance ? 1 : 0}${safeguardChanceSortEnabled ? 1 : 0}`
         : null
       const nowMs = Date.now()
-      const cachedEntry = cacheKey ? (pipelineCacheRef.current.get(cacheKey) ?? null) : null
+      const rawEntry = cacheKey ? (pipelineCacheRef.current.get(cacheKey) ?? null) : null
       // Treat entries past their TTL as misses and remove them eagerly to free memory.
-      const cachedResult = (cachedEntry !== null && nowMs - cachedEntry.insertedAt <= PIPELINE_CACHE_TTL_MS)
-        ? cachedEntry.result : null
-      if (cachedEntry !== null && cachedResult === null) {
+      const cachedEntry = rawEntry !== null && nowMs - rawEntry.insertedAt <= PIPELINE_CACHE_TTL_MS
+        ? rawEntry : null
+      if (rawEntry !== null && cachedEntry === null) {
         pipelineCacheRef.current.delete(cacheKey!)
-        const expiredIdx = pipelineCacheOrderRef.current.indexOf(cacheKey!)
-        if (expiredIdx >= 0) pipelineCacheOrderRef.current.splice(expiredIdx, 1)
+        pipelineCacheOrderRef.current.delete(cacheKey!)
       }
 
       // Cancel the prior in-flight run only when dispatching a new payload.
@@ -1109,8 +1111,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
       // On a cache hit resolve immediately without touching the worker.
       // On a miss dispatch to the worker as usual.
-      const resultPromise = cachedResult !== null
-        ? Promise.resolve(cachedResult)
+      const resultPromise = cachedEntry !== null
+        ? Promise.resolve(cachedEntry.result)
         : runPipeline(pipelinePayload, {
             signal: abortController.signal,
             onProgress: (progress) => {
@@ -1131,7 +1133,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           // Fast path: processed outputs are already cached — skip all JS post-processing
           // and serve the exact same object references so React.memo in row components
           // can skip re-rendering unchanged rows on undo/redo revisits.
-          if (cachedResult !== null && cachedEntry !== null) {
+          if (cachedEntry !== null) {
             // Rule-table snapshots are large; transition so input-heavy dialogs stay responsive.
             startTransition(() => {
               setRecipeRulesState(cachedEntry.processedSnapshot)
@@ -1315,8 +1317,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
           // Cache the processed outputs so the next revisit of this history state is instant.
           if (cacheKey !== null) {
-            if (pipelineCacheOrderRef.current.length >= PIPELINE_CACHE_MAX) {
-              pipelineCacheRef.current.delete(pipelineCacheOrderRef.current.shift()!)
+            if (pipelineCacheOrderRef.current.size >= PIPELINE_CACHE_MAX) {
+              // Evict the least-recently-inserted entry (Set preserves insertion order).
+              const oldest = pipelineCacheOrderRef.current.values().next().value!
+              pipelineCacheRef.current.delete(oldest)
+              pipelineCacheOrderRef.current.delete(oldest)
             }
             pipelineCacheRef.current.set(cacheKey, {
               result,
@@ -1326,7 +1331,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               processedUpgradeChance: upgradeChanceResult ?? null,
               insertedAt: Date.now(),
             })
-            pipelineCacheOrderRef.current.push(cacheKey)
+            pipelineCacheOrderRef.current.add(cacheKey)
           }
         })
         .catch((error: unknown) => {
