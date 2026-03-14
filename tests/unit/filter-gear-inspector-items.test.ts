@@ -199,7 +199,7 @@ test('filterGearInspectorItems filters by tester Keep/Sell result (plain mode)',
   // Keep-only: shows only keep-tagged items.
   const keepState: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerResult: { keep: true, sell: false, matched: false, unmatched: false },
+    gearInspectorResult: { keep: true, sell: false, matched: false, unmatched: false },
   }
   const keepMatches = filterGearInspectorItems(rows, keepState)
   assert.equal(keepMatches.items.length, 1)
@@ -208,7 +208,7 @@ test('filterGearInspectorItems filters by tester Keep/Sell result (plain mode)',
   // Sell-only: shows only sell-tagged items.
   const sellState: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerResult: { keep: false, sell: true, matched: false, unmatched: false },
+    gearInspectorResult: { keep: false, sell: true, matched: false, unmatched: false },
   }
   const sellMatches = filterGearInspectorItems(rows, sellState)
   assert.equal(sellMatches.items.length, 1)
@@ -217,7 +217,7 @@ test('filterGearInspectorItems filters by tester Keep/Sell result (plain mode)',
   // Keep+Sell both active: shows all matched items (keep and sell combined).
   const bothState: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerResult: { keep: true, sell: true, matched: false, unmatched: false },
+    gearInspectorResult: { keep: true, sell: true, matched: false, unmatched: false },
   }
   const bothMatches = filterGearInspectorItems(rows, bothState)
   assert.equal(bothMatches.items.length, 2)
@@ -232,7 +232,7 @@ test('filterGearInspectorItems filters by matched vs unmatched gear (plain mode)
   // Keep+Sell combined = all matched items (replaces old matched='yes' behavior).
   const matchedState: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerResult: { keep: true, sell: true, matched: false, unmatched: false },
+    gearInspectorResult: { keep: true, sell: true, matched: false, unmatched: false },
   }
   const matched = filterGearInspectorItems(rows, matchedState)
   assert.equal(matched.items.length, 1)
@@ -241,7 +241,7 @@ test('filterGearInspectorItems filters by matched vs unmatched gear (plain mode)
   // Unmatched alone = unmatched items only (plain filter, no context mode).
   const unmatchedState: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerResult: { keep: false, sell: false, matched: false, unmatched: true },
+    gearInspectorResult: { keep: false, sell: false, matched: false, unmatched: true },
   }
   const unmatched = filterGearInspectorItems(rows, unmatchedState)
   assert.equal(unmatched.items.length, 1)
@@ -249,7 +249,7 @@ test('filterGearInspectorItems filters by matched vs unmatched gear (plain mode)
 })
 
 test('filterGearInspectorItems filters by tester sources', () => {
-  const manual = makeArtifact({ source: 'tester' })
+  const manual = makeArtifact({ source: 'manual' })
   const inventory = makeArtifact()
   const collection = makeArtifact({ equippedToChampionId: 101, equippedChampionLocation: 'collection' })
   const rows: GearInspectorFilterRow[] = [
@@ -259,11 +259,11 @@ test('filterGearInspectorItems filters by tester sources', () => {
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerSources: { selected: ['manual'] },
+    gearInspectorSources: { selected: ['manual'] },
   }
   const result = filterGearInspectorItems(rows, state)
   assert.equal(result.items.length, 1)
-  assert.equal(result.items[0]?.artifact.source, 'tester')
+  assert.equal(result.items[0]?.artifact.source, 'manual')
 })
 
 test('filterGearInspectorItems filters by tester level slider range using exactLevels', () => {
@@ -275,7 +275,7 @@ test('filterGearInspectorItems filters by tester level slider range using exactL
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    level: { ...DEFAULT_RULES_FILTER_STATE.level, selected: [], testerRange: { min: 12, max: 16 } },
+    level: { ...DEFAULT_RULES_FILTER_STATE.level, selected: [], gearInspectorRange: { min: 12, max: 16 } },
   }
   const result = filterGearInspectorItems(rows, state)
   assert.equal(result.items.length, 1)
@@ -291,7 +291,7 @@ test('filterGearInspectorItems falls back to milestone level when exactLevel is 
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    level: { ...DEFAULT_RULES_FILTER_STATE.level, selected: [], testerRange: { min: 16, max: 16 } },
+    level: { ...DEFAULT_RULES_FILTER_STATE.level, selected: [], gearInspectorRange: { min: 16, max: 16 } },
   }
   const result = filterGearInspectorItems(rows, state)
   assert.equal(result.items.length, 1)
@@ -307,7 +307,7 @@ test('filterGearInspectorItems filters by chaos ore reroll state', () => {
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerChaos: { mode: 'rerolled' },
+    gearInspectorChaos: { mode: 'rerolled' },
   }
   const result = filterGearInspectorItems(rows, state)
   assert.equal(result.items.length, 1)
@@ -331,7 +331,7 @@ test('filterGearInspectorItems filters by glyph presence', () => {
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerGlyphs: { mode: 'on' },
+    gearInspectorGlyphs: { mode: 'on' },
   }
   const result = filterGearInspectorItems(rows, state)
   assert.equal(result.items.length, 1)
@@ -358,7 +358,7 @@ test('filterGearInspectorItems enforces glyphs on all selected substats when mod
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
     sub: { selected: [StatVariant.CR, StatVariant.CDMG], notSelected: [], mode: 'all', wildcardMode: 'include' },
-    testerGlyphs: { mode: 'selected' },
+    gearInspectorGlyphs: { mode: 'selected' },
   }
   const result = filterGearInspectorItems(rows, state)
   assert.equal(result.items.length, 1)
@@ -386,7 +386,7 @@ test('filterGearInspectorItems filters by ascension stars and stats', () => {
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerAscension: { stars: [3], stats: [StatVariant.SPD] },
+    gearInspectorAscension: { stars: [3], stats: [StatVariant.SPD] },
   }
   const result = filterGearInspectorItems(rows, state)
   assert.equal(result.items.length, 1)
@@ -411,7 +411,7 @@ test('filterGearInspectorItems treats Mythical preroll as the fifth roll', () =>
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerRolls: {
+    gearInspectorRolls: {
       wildcard: { mode: 'off', counts: [] },
       perStat: [{ stat: StatVariant.SPD, counts: [5] }],
     },
@@ -430,7 +430,7 @@ test('filterGearInspectorItems filters by champion selection', () => {
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerChampions: { selected: [321] },
+    gearInspectorChampions: { selected: [321] },
   }
   const result = filterGearInspectorItems(rows, state)
   assert.equal(result.items.length, 1)
@@ -456,7 +456,7 @@ test('filterGearInspectorItems filters by wildcard roll counts', () => {
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerRolls: {
+    gearInspectorRolls: {
       wildcard: { mode: 'any', counts: [2] },
       perStat: [],
     },
@@ -489,7 +489,7 @@ test('filterGearInspectorItems treats legacy selected wildcard mode as any stat'
   } as unknown as GearInspectorRollFilterState
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerRolls: legacyTesterRolls,
+    gearInspectorRolls: legacyTesterRolls,
   }
   const result = filterGearInspectorItems(rows, state)
   assert.equal(result.items.length, 1)
@@ -515,7 +515,7 @@ test('filterGearInspectorItems filters by per-stat roll requirements', () => {
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerRolls: {
+    gearInspectorRolls: {
       wildcard: { mode: 'off', counts: [] },
       perStat: [
         { stat: StatVariant.SPD, counts: [2] },
@@ -542,7 +542,7 @@ test('filterGearInspectorItems filters by last-used presets', () => {
     ]
     const recentState: RulesFilterState = {
       ...DEFAULT_RULES_FILTER_STATE,
-      testerLastUse: {
+      gearInspectorLastUse: {
         presets: ['recent7'],
         custom: { enabled: false, minDays: 0, maxDays: 365 },
       },
@@ -553,7 +553,7 @@ test('filterGearInspectorItems filters by last-used presets', () => {
 
     const olderState: RulesFilterState = {
       ...recentState,
-      testerLastUse: {
+      gearInspectorLastUse: {
         presets: ['older90', 'never'],
         custom: { enabled: false, minDays: 0, maxDays: 365 },
       },
@@ -580,7 +580,7 @@ test('filterGearInspectorItems unions custom last-used ranges with presets', () 
     ]
     const rangeState: RulesFilterState = {
       ...DEFAULT_RULES_FILTER_STATE,
-      testerLastUse: {
+      gearInspectorLastUse: {
         presets: [],
         custom: { enabled: true, minDays: 30, maxDays: 90 },
       },
@@ -591,7 +591,7 @@ test('filterGearInspectorItems unions custom last-used ranges with presets', () 
 
     const rangePlusNever: RulesFilterState = {
       ...rangeState,
-      testerLastUse: {
+      gearInspectorLastUse: {
         presets: ['never'],
         custom: { enabled: true, minDays: 30, maxDays: 90 },
       },
@@ -605,7 +605,7 @@ test('filterGearInspectorItems unions custom last-used ranges with presets', () 
 
     const rangePlusOlder: RulesFilterState = {
       ...rangeState,
-      testerLastUse: {
+      gearInspectorLastUse: {
         presets: ['older90'],
         custom: { enabled: true, minDays: 30, maxDays: 90 },
       },
@@ -643,7 +643,7 @@ test('Matched+Sell context mode: sell=primary, companion=companion, other hidden
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerResult: { keep: false, sell: true, matched: true, unmatched: false },
+    gearInspectorResult: { keep: false, sell: true, matched: true, unmatched: false },
   }
   const result = filterGearInspectorItems(rows, state)
 
@@ -674,7 +674,7 @@ test('Matched+Keep context mode: companion=primary, sell=companion, other hidden
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerResult: { keep: true, sell: false, matched: true, unmatched: false },
+    gearInspectorResult: { keep: true, sell: false, matched: true, unmatched: false },
   }
   const result = filterGearInspectorItems(rows, state)
 
@@ -696,7 +696,7 @@ test('Unmatched+Sell context mode: shows other group at 25% (all items returned)
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerResult: { keep: false, sell: true, matched: false, unmatched: true },
+    gearInspectorResult: { keep: false, sell: true, matched: false, unmatched: true },
   }
   const result = filterGearInspectorItems(rows, state)
 
@@ -719,7 +719,7 @@ test('Matched+Keep+Sell context mode: sell+companions both primary, other hidden
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerResult: { keep: true, sell: true, matched: true, unmatched: false },
+    gearInspectorResult: { keep: true, sell: true, matched: true, unmatched: false },
   }
   const result = filterGearInspectorItems(rows, state)
 
@@ -739,7 +739,7 @@ test('Matched alone (no Keep/Sell) defaults to sell focus', () => {
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerResult: { keep: false, sell: false, matched: true, unmatched: false },
+    gearInspectorResult: { keep: false, sell: false, matched: true, unmatched: false },
   }
   const result = filterGearInspectorItems(rows, state)
 
@@ -759,7 +759,7 @@ test('set=0 (no-set) armor has no companions even if same set+slot', () => {
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerResult: { keep: false, sell: true, matched: true, unmatched: false },
+    gearInspectorResult: { keep: false, sell: true, matched: true, unmatched: false },
   }
   const result = filterGearInspectorItems(rows, state)
 
@@ -783,7 +783,7 @@ test('accessory companions match by set + slot + faction', () => {
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerResult: { keep: false, sell: true, matched: true, unmatched: false },
+    gearInspectorResult: { keep: false, sell: true, matched: true, unmatched: false },
   }
   const result = filterGearInspectorItems(rows, state)
 
@@ -800,7 +800,7 @@ test('plain filter mode does not populate contextGroupById', () => {
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerResult: { keep: true, sell: false, matched: false, unmatched: false },
+    gearInspectorResult: { keep: true, sell: false, matched: false, unmatched: false },
   }
   const result = filterGearInspectorItems(rows, state)
   assert.equal(result.contextGroupById, undefined)

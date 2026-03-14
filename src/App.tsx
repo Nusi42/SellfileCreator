@@ -1326,7 +1326,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Mirror the new persisted count so the next restore prompt stays accurate.
     setStoredRuntimeGearSetCount(listRuntimeGearSets().length)
   }, [])
-  const gearInspectorFinalSellLabel = t('testerFinalSellChip')
+  const gearInspectorFinalSellLabel = t('gearInspectorFinalSellChip')
   const specialRuleSourceLabels = useMemo(() => {
     const trimmed = gearInspectorFinalSellLabel.trim()
     return trimmed.length > 0
@@ -2411,8 +2411,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       activeMode: previewMode,
       filtersSynced: Boolean(filtersSynced),
       limitRecipesToFiltered: Boolean(limitRecipesToFiltered),
-      testerRecipeFilterMode: gearInspectorRecipeFilterMode,
-      testerSubstatSort: gearInspectorSubstatSortPrefs.state,
+      gearInspectorRecipeFilterMode: gearInspectorRecipeFilterMode,
+      gearInspectorSubstatSort: gearInspectorSubstatSortPrefs.state,
       views,
     }
   }, [
@@ -2447,9 +2447,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Sync preference must apply before derived setters (filterOpen/rulesFilter) decide how to fan-out.
     setFiltersSyncedRaw(Boolean(snap.filtersSynced))
     setLimitRecipesToFiltered(Boolean(snap.limitRecipesToFiltered))
-    setGearInspectorRecipeFilterMode(snap.testerRecipeFilterMode)
+    setGearInspectorRecipeFilterMode(snap.gearInspectorRecipeFilterMode)
     // Gear Inspector sorting uses its own localStorage store; update it directly for immediate table refresh.
-    setGearInspectorSubstatSortState(snap.testerSubstatSort)
+    setGearInspectorSubstatSortState(snap.gearInspectorSubstatSort)
     // Apply per-mode filter views so switching tabs keeps the snapshot intact.
     for (const mode of RULES_FILTER_PREVIEW_MODES) {
       const view = snap.views?.[mode]
@@ -3236,8 +3236,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return substatTargetsSignature(restoreDraft.substatTargets) !== currentTargetsSignature
   }, [restoreDraft, currentTargetsSignature])
   const restoreFiltersDiffer = Boolean(restoreDraft?.Filters && !areFilterContentsDefault(restoreDraft.Filters))
-  // Sort differs when the saved TesterSort is present AND non-default — mirrors the Filters differ check.
-  const restoreSortDiffer = Boolean(restoreDraft?.TesterSort && !isDefaultGearInspectorSubstatSortState(restoreDraft.TesterSort))
+  // Sort differs when the saved GearInspectorSort is present AND non-default — mirrors the Filters differ check.
+  const restoreSortDiffer = Boolean(restoreDraft?.GearInspectorSort && !isDefaultGearInspectorSubstatSortState(restoreDraft.GearInspectorSort))
   const filtersResetRef = useRef(false)
   useLayoutEffect(() => {
     // Reset filter/sort state to a clean baseline when either has changed, so the user
@@ -3911,7 +3911,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...(recipeOverridesPayload ? { [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]: recipeOverridesPayload } : {}),
       ...(recipeOverridesDisabledPayload ? { [NOTE_RECIPE_OVERRIDES_DISABLED_KEY]: true } : {}),
       ...(filtersPayload ? { Filters: filtersPayload } : {}),
-      ...(gearInspectorSortPayload ? { TesterSort: gearInspectorSortPayload } : {}),
+      ...(gearInspectorSortPayload ? { GearInspectorSort: gearInspectorSortPayload } : {}),
     }
   }, [
     autosaveFiltersState,
@@ -4193,7 +4193,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     [gearEntriesForTable],
   )
   const hasManualGearInspectorRows = useMemo(() => (
-    gearInspectorPreviewRows.some((row) => row.artifact.source === 'tester')
+    gearInspectorPreviewRows.some((row) => row.artifact.source === 'manual')
   ), [gearInspectorPreviewRows])
   // Endpoint DB pushes are frequent; keep matcher rows clickable while those builds run.
   const endpointDrivenGearInspectorBuild = gearEntriesBuilding && activeGearInspectorBuildOrigin === 'endpoint'
@@ -4310,7 +4310,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [openLogicHubSafeguardRule, setLogicHubOpen, setPreviewMode, gearInspectorArtifactIdBySafeguardItemKey])
   const handleGearInspectorFocusArtifactFilteredOut = useCallback(() => {
     // Keep the notification short because this only explains why auto-scroll did not occur.
-    showToast(t('toastTesterFocusArtifactFiltered'), { icon: <HelpOutlineIcon fontSize="inherit" /> })
+    showToast(t('toastGearInspectorFocusArtifactFiltered'), { icon: <HelpOutlineIcon fontSize="inherit" /> })
   }, [showToast, t])
   const handleGearInspectorRuleView = useCallback((ruleIndex: number, recipeIdx: number | null) => {
     setGearInspectorArtifactFocusRequest(null)
@@ -4365,11 +4365,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
     // Skip placeholder markers so unknown sets do not pollute the name.
     const setLabel = setLabelRaw.trim()
-    const isSetKnown = setLabel.length > 0 && setLabel !== t('testerValueUnknown')
+    const isSetKnown = setLabel.length > 0 && setLabel !== t('gearInspectorValueUnknown')
     // Prefix the set name with a bullet to keep the label compact.
     const setSuffix = isSetKnown ? ` • ${setLabel}` : ''
     // Combine the labels into the final recipe name.
-    const name = t('testerRuleTemplateName', { slot: slotLabel, set: setSuffix }).trim()
+    const name = t('gearInspectorRuleTemplateName', { slot: slotLabel, set: setSuffix }).trim()
     // Clone to ensure the new recipe has unique references for history + multi-edit.
     const nextRecipe = cloneBuilderRecipe({ ...baseRecipe, name })
     // Insert after the current selection when possible so creation feels local.
@@ -7128,7 +7128,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             const shouldResetGearInspectorMatches = Boolean(
               (selection.recipes && Array.isArray(draft?.Recipes))
               || (selection.safeguards && (Array.isArray(draft?.Safeguards) || typeof draft?.SafeguardsEnabled === 'boolean'))
-              || (selection.tester && gearInspectorRestoreDraft)
+              || (selection.gearInspector && gearInspectorRestoreDraft)
             )
             if (shouldResetGearInspectorMatches) beginGearInspectorMatchReset('restore')
             const selectionKeys = Object.entries(selection).filter(([, value]) => value)
@@ -7137,7 +7137,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 version: typeof draft?.Version === 'string' ? draft.Version : null,
                 savedAt: typeof draft?.AutosaveSavedAt === 'string'
                   ? draft.AutosaveSavedAt
-                  : (selection.tester && gearInspectorRestoreDraft?.savedAt ? gearInspectorRestoreDraft.savedAt : null),
+                  : (selection.gearInspector && gearInspectorRestoreDraft?.savedAt ? gearInspectorRestoreDraft.savedAt : null),
               })
               describeNextChange(autosaveDescriptor)
             }
@@ -7173,7 +7173,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                         setRulesFilterCollapsedForMode(mode, collapsed)
                       }
                     }
-                    setGearInspectorRecipeFilterMode(draft.Filters.testerRecipeFilterMode ?? 'off')
+                    setGearInspectorRecipeFilterMode(draft.Filters.gearInspectorRecipeFilterMode ?? 'off')
                     if (draft.Filters.activeMode === 'rules' || draft.Filters.activeMode === 'gearInspector') {
                       setPreviewMode(draft.Filters.activeMode)
                     }
@@ -7182,8 +7182,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                     if (draft.Filters.builderSafeguardCollapsed) setBuilderSafeguardCollapsed(draft.Filters.builderSafeguardCollapsed)
                   } catch {}
                 }
-                // Sort (TesterSort) is bundled with filters — restore it together.
-                if (restoreSortDiffer && draft.TesterSort) setGearInspectorSubstatSortState(draft.TesterSort)
+                // Sort (GearInspectorSort) is bundled with filters — restore it together.
+                if (restoreSortDiffer && draft.GearInspectorSort) setGearInspectorSubstatSortState(draft.GearInspectorSort)
               }
               if (selection.gearSets) {
                 // User opted in: hydrate runtime sets from localStorage now.
@@ -7251,7 +7251,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 }
               }
             }
-            if (selection.tester && gearInspectorRestoreDraft) {
+            if (selection.gearInspector && gearInspectorRestoreDraft) {
               const restoredItems = gearInspectorRestoreDraft.items
               // Restores can include large Gear Inspector payloads; commit non-urgently like imports.
               setGearInspectorItemsTransition(restoredItems)

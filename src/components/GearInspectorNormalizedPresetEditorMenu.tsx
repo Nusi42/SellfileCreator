@@ -82,7 +82,7 @@ export function GearInspectorNormalizedPresetEditorMenu({
   const weights = preset.weights ?? {}
   const selectedSet = React.useMemo(() => new Set<number>((preset.variants ?? []).map((variant) => Number(variant))), [preset.variants])
 
-  const title = t('testerGridNormalizedPresetTitle', { n: presetId + 1 })
+  const title = t('gearInspectorGridNormalizedPresetTitle', { n: presetId + 1 })
 
   return (
     <Menu
@@ -102,7 +102,7 @@ export function GearInspectorNormalizedPresetEditorMenu({
       }}
     >
       <Box sx={{ px: 2.25, pt: 2.25, pb: 1 }}>
-        <ContextMenuTitle title={title} description={t('testerGridNormalizedPresetHelp')} />
+        <ContextMenuTitle title={title} description={t('gearInspectorGridNormalizedPresetHelp')} />
       </Box>
       <MenuItem
         disableRipple
@@ -111,7 +111,7 @@ export function GearInspectorNormalizedPresetEditorMenu({
         onClick={(event) => { event.stopPropagation() }}
       >
         <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
-          {t('testerGridNormalizedPresetGlyphLabel')}
+          {t('gearInspectorGridNormalizedPresetGlyphLabel')}
         </Typography>
         <Box
           // Match the substat rows: stable right-column width + centered content for easier scanning.
@@ -126,7 +126,7 @@ export function GearInspectorNormalizedPresetEditorMenu({
           <Select
             size="small"
             value={preset.iconId ?? DEFAULT_METASET_ICON_ID}
-            aria-label={t('testerGridNormalizedPresetGlyphPickerAria')}
+            aria-label={t('gearInspectorGridNormalizedPresetGlyphPickerAria')}
             // Keep the glyph centered; the default dropdown chevron shifts short glyphs off-center.
             IconComponent={() => null}
             onChange={(event) => {
@@ -335,7 +335,7 @@ export function GearInspectorNormalizedPresetEditorMenu({
             }}
             sx={{ minWidth: 220, fontWeight: 500 }}
           >
-            {t('testerGridNormalizedPresetReset')}
+            {t('gearInspectorGridNormalizedPresetReset')}
           </Button>
         </Box>
       </MenuItem>

@@ -9,12 +9,12 @@ export function formatGearInspectorSetLabel({ setId, slot, translate, lang }: { 
   const numeric = Number(setId)
   // Unknown/invalid ids should show the Gear Inspector "unknown" placeholder.
   if (!Number.isFinite(numeric)) {
-    return translate('testerValueUnknown')
+    return translate('gearInspectorValueUnknown')
   }
   // Accessories can carry the special no-set sentinel; other slots cannot.
   const slotIsAccessory = isAccessorySlot(slot)
   if (numeric === 0) {
-    return translate('testerValueUnknown')
+    return translate('gearInspectorValueUnknown')
   }
   // Respect the no-set sentinel only for accessory slots.
   if (slotIsAccessory && numeric === ACCESSORY_NO_SET_ID) {

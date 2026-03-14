@@ -130,14 +130,14 @@ export const createDefaultGearInspectorLastUseFilter = (): GearInspectorLastUseF
 export interface RulesFilterState {
   // Rule-level filters
   rule?: { keep: Bool3; use: Bool3 }
-  testerResult?: { keep: boolean; sell: boolean; matched: boolean; unmatched: boolean }
+  gearInspectorResult?: { keep: boolean; sell: boolean; matched: boolean; unmatched: boolean }
   sets: { selected: ArtifactSetSelectionEntry[]; metaSelected?: string[]; anyMode: AnyMode; match?: 'any' | 'all' }
   slots: { selected: ArtifactTypeId[]; anyMode: AnyMode }
   // Rank: discrete buttons (1..6) instead of a contiguous range
   rank: { selected: RankValue[]; anyMode: AnyMode }
   // Rarity: discrete buttons (Common..Mythical) instead of a contiguous range
   rarity: { selected: RankValue[]; anyMode: AnyMode }
-  level: { selected: LevelMilestone[]; anyMode: AnyMode; testerRange?: GearInspectorLevelRange }
+  level: { selected: LevelMilestone[]; anyMode: AnyMode; gearInspectorRange?: GearInspectorLevelRange }
   main: { selected: StatVariant[]; anyMode: AnyMode }
   sub: {
     // "Must have": include rules/items that match these selected substats.
@@ -151,13 +151,13 @@ export interface RulesFilterState {
   }
   faction: { selected: FactionId[]; anyMode: AnyMode }
   recipeName?: { query: string }
-  testerSources?: { selected: GearInspectorSourceFilter[] }
-  testerChaos?: { mode: GearInspectorChaosFilterMode }
-  testerGlyphs?: { mode: GearInspectorGlyphFilterMode }
-  testerAscension?: { stars: number[]; stats: StatVariant[] }
-  testerChampions?: { selected: number[] }
-  testerRolls?: GearInspectorRollFilterState
-  testerLastUse?: GearInspectorLastUseFilter
+  gearInspectorSources?: { selected: GearInspectorSourceFilter[] }
+  gearInspectorChaos?: { mode: GearInspectorChaosFilterMode }
+  gearInspectorGlyphs?: { mode: GearInspectorGlyphFilterMode }
+  gearInspectorAscension?: { stars: number[]; stats: StatVariant[] }
+  gearInspectorChampions?: { selected: number[] }
+  gearInspectorRolls?: GearInspectorRollFilterState
+  gearInspectorLastUse?: GearInspectorLastUseFilter
 }
 
 const clampGearInspectorLevelValue = (value: number | null | undefined): number => {
@@ -169,7 +169,7 @@ const clampGearInspectorLevelValue = (value: number | null | undefined): number 
 }
 
 export function resolveGearInspectorLevelRange(levelState?: RulesFilterState['level']): GearInspectorLevelRange {
-  const baseRange = levelState?.testerRange ?? DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE
+  const baseRange = levelState?.gearInspectorRange ?? DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE
   const min = clampGearInspectorLevelValue(baseRange?.min ?? DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.min)
   const max = clampGearInspectorLevelValue(baseRange?.max ?? DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.max)
   if (min <= max) return { min, max }
@@ -178,23 +178,23 @@ export function resolveGearInspectorLevelRange(levelState?: RulesFilterState['le
 
 export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
   rule: { keep: 'any', use: 'any' },
-  testerResult: { keep: false, sell: false, matched: false, unmatched: false },
+  gearInspectorResult: { keep: false, sell: false, matched: false, unmatched: false },
   sets: { selected: [], anyMode: 'include', match: 'any' },
   slots: { selected: [], anyMode: 'include' },
   rank: { selected: [], anyMode: 'include' },
   rarity: { selected: [], anyMode: 'include' },
-  level: { selected: [], anyMode: 'include', testerRange: { ...DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE } },
+  level: { selected: [], anyMode: 'include', gearInspectorRange: { ...DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE } },
   main: { selected: [], anyMode: 'include' },
   sub: { selected: [], notSelected: [], mode: 'all', wildcardMode: 'include' },
   faction: { selected: [], anyMode: 'include' },
   recipeName: { query: '' },
-  testerSources: { selected: [] },
-  testerChaos: { mode: 'any' },
-  testerGlyphs: { mode: 'any' },
-  testerAscension: { stars: [], stats: [] },
-  testerChampions: { selected: [] },
-  testerRolls: createDefaultGearInspectorRollsState(),
-  testerLastUse: createDefaultGearInspectorLastUseFilter(),
+  gearInspectorSources: { selected: [] },
+  gearInspectorChaos: { mode: 'any' },
+  gearInspectorGlyphs: { mode: 'any' },
+  gearInspectorAscension: { stars: [], stats: [] },
+  gearInspectorChampions: { selected: [] },
+  gearInspectorRolls: createDefaultGearInspectorRollsState(),
+  gearInspectorLastUse: createDefaultGearInspectorLastUseFilter(),
 }
 
 /**
@@ -292,7 +292,7 @@ export const sanitizeRulesFilterState = (raw: unknown): RulesFilterState => {
     }
   }
   {
-    const candidate = isRecord(rec['testerResult']) ? (rec['testerResult'] as UnknownRecord) : null
+    const candidate = isRecord(rec['gearInspectorResult']) ? (rec['gearInspectorResult'] as UnknownRecord) : null
     // Backward compat: old format stored Bool3 strings ('any'|'yes'|'no'); new format uses booleans.
     const rawKeep = candidate?.['keep']
     const rawSell = candidate?.['sell']
@@ -315,7 +315,7 @@ export const sanitizeRulesFilterState = (raw: unknown): RulesFilterState => {
       matched = Boolean(rawMatched)
       unmatched = Boolean(rawUnmatched)
     }
-    next.testerResult = { keep, sell, matched, unmatched }
+    next.gearInspectorResult = { keep, sell, matched, unmatched }
   }
 
   // Core required sections: always rebuild them so `.map()` calls remain safe.
@@ -354,11 +354,11 @@ export const sanitizeRulesFilterState = (raw: unknown): RulesFilterState => {
   }
   {
     const candidate = isRecord(rec['level']) ? (rec['level'] as UnknownRecord) : null
-    const gearInspectorRangeRaw = isRecord(candidate?.['testerRange']) ? (candidate?.['testerRange'] as UnknownRecord) : null
+    const gearInspectorRangeRaw = isRecord(candidate?.['gearInspectorRange']) ? (candidate?.['gearInspectorRange'] as UnknownRecord) : null
     const baseRange = resolveGearInspectorLevelRange({
       selected: [],
       anyMode: 'include',
-      testerRange: {
+      gearInspectorRange: {
         min: Number(gearInspectorRangeRaw?.['min'] ?? DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.min),
         max: Number(gearInspectorRangeRaw?.['max'] ?? DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.max),
       },
@@ -366,7 +366,7 @@ export const sanitizeRulesFilterState = (raw: unknown): RulesFilterState => {
     next.level = {
       selected: sanitizeUniqueNumberArrayFromSet(candidate?.['selected'], LEVEL_MILESTONES),
       anyMode: sanitizeStringEnum(candidate?.['anyMode'], ['off', 'include', 'only'] as const, next.level.anyMode),
-      testerRange: baseRange,
+      gearInspectorRange: baseRange,
     }
   }
   {
@@ -404,46 +404,46 @@ export const sanitizeRulesFilterState = (raw: unknown): RulesFilterState => {
     next.recipeName = { query }
   }
   {
-    const candidate = isRecord(rec['testerSources']) ? (rec['testerSources'] as UnknownRecord) : null
-    next.testerSources = {
+    const candidate = isRecord(rec['gearInspectorSources']) ? (rec['gearInspectorSources'] as UnknownRecord) : null
+    next.gearInspectorSources = {
       selected: sanitizeUniqueStringArray(candidate?.['selected']).filter(
         (value): value is GearInspectorSourceFilter => GEAR_INSPECTOR_SOURCE_FILTERS.includes(value as GearInspectorSourceFilter),
       ),
     }
   }
   {
-    const candidate = isRecord(rec['testerChaos']) ? (rec['testerChaos'] as UnknownRecord) : null
-    next.testerChaos = {
-      mode: sanitizeStringEnum(candidate?.['mode'], GEAR_INSPECTOR_CHAOS_MODES, next.testerChaos?.mode ?? 'any'),
+    const candidate = isRecord(rec['gearInspectorChaos']) ? (rec['gearInspectorChaos'] as UnknownRecord) : null
+    next.gearInspectorChaos = {
+      mode: sanitizeStringEnum(candidate?.['mode'], GEAR_INSPECTOR_CHAOS_MODES, next.gearInspectorChaos?.mode ?? 'any'),
     }
   }
   {
-    const candidate = isRecord(rec['testerGlyphs']) ? (rec['testerGlyphs'] as UnknownRecord) : null
-    next.testerGlyphs = {
-      mode: sanitizeStringEnum(candidate?.['mode'], GEAR_INSPECTOR_GLYPH_MODES, next.testerGlyphs?.mode ?? 'any'),
+    const candidate = isRecord(rec['gearInspectorGlyphs']) ? (rec['gearInspectorGlyphs'] as UnknownRecord) : null
+    next.gearInspectorGlyphs = {
+      mode: sanitizeStringEnum(candidate?.['mode'], GEAR_INSPECTOR_GLYPH_MODES, next.gearInspectorGlyphs?.mode ?? 'any'),
     }
   }
   {
-    const candidate = isRecord(rec['testerAscension']) ? (rec['testerAscension'] as UnknownRecord) : null
+    const candidate = isRecord(rec['gearInspectorAscension']) ? (rec['gearInspectorAscension'] as UnknownRecord) : null
     const stars = sanitizeUniqueNumberArray(candidate?.['stars'])
       .map((value) => Math.round(value))
       .filter((value) => value >= 1 && value <= 6)
     const uniqueStars = Array.from(new Set(stars)).sort((a, b) => a - b)
-    next.testerAscension = {
+    next.gearInspectorAscension = {
       stars: uniqueStars,
       stats: sanitizeUniqueNumberArray(candidate?.['stats']) as StatVariant[],
     }
   }
   {
-    const candidate = isRecord(rec['testerChampions']) ? (rec['testerChampions'] as UnknownRecord) : null
-    next.testerChampions = {
+    const candidate = isRecord(rec['gearInspectorChampions']) ? (rec['gearInspectorChampions'] as UnknownRecord) : null
+    next.gearInspectorChampions = {
       selected: sanitizeUniqueNumberArray(candidate?.['selected']).map((value) => Math.round(value)),
     }
   }
 
   // Legacy + partial shapes are handled by the existing normalizers.
-  next.testerRolls = normalizeGearInspectorRollsState(isRecord(rec['testerRolls']) ? (rec['testerRolls'] as GearInspectorRollFilterState) : undefined)
-  next.testerLastUse = normalizeGearInspectorLastUseFilter(rec['testerLastUse'] as RulesFilterState['testerLastUse'])
+  next.gearInspectorRolls = normalizeGearInspectorRollsState(isRecord(rec['gearInspectorRolls']) ? (rec['gearInspectorRolls'] as GearInspectorRollFilterState) : undefined)
+  next.gearInspectorLastUse = normalizeGearInspectorLastUseFilter(rec['gearInspectorLastUse'] as RulesFilterState['gearInspectorLastUse'])
 
   return next
 }
@@ -457,8 +457,8 @@ export function isRulesFilterActive(f: RulesFilterState, options?: { includeGear
     gearInspectorRangeActive = min > DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.min || max < DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.max
   }
   const ra = (f.rule?.keep ?? 'any') !== 'any' || (f.rule?.use ?? 'any') !== 'any'
-  const tr = Boolean(f.testerResult?.keep) || Boolean(f.testerResult?.sell)
-    || Boolean(f.testerResult?.matched) || Boolean(f.testerResult?.unmatched)
+  const tr = Boolean(f.gearInspectorResult?.keep) || Boolean(f.gearInspectorResult?.sell)
+    || Boolean(f.gearInspectorResult?.matched) || Boolean(f.gearInspectorResult?.unmatched)
   const a = (f.sets?.selected?.length ?? 0) > 0 || ((f.sets?.metaSelected)?.length ?? 0) > 0 || (f.sets?.anyMode ?? 'include') !== 'include' || f.sets?.match === 'all'
   const b = (f.slots?.selected?.length ?? 0) > 0 || (f.slots?.anyMode ?? 'include') !== 'include'
   const c = ((f.rank?.selected?.length ?? 0) > 0) || ((f.rank?.anyMode) ?? 'include') !== 'include'
@@ -471,13 +471,13 @@ export function isRulesFilterActive(f: RulesFilterState, options?: { includeGear
     || (f.sub?.mode ?? 'all') !== 'all'
   const i = (f.faction?.selected?.length ?? 0) > 0 || (f.faction?.anyMode ?? 'include') !== 'include'
   const j = Boolean(f.recipeName && typeof f.recipeName.query === 'string' && f.recipeName.query.length > 0)
-  const k = (f.testerSources?.selected?.length ?? 0) > 0
-  const l = (f.testerChaos?.mode ?? 'any') !== 'any'
-  const m = (f.testerGlyphs?.mode ?? 'any') !== 'any'
-  const p = isGearInspectorRollFilterActive(f.testerRolls)
-  const n = ((f.testerAscension?.stars?.length ?? 0) > 0) || ((f.testerAscension?.stats?.length ?? 0) > 0)
-  const o = (f.testerChampions?.selected?.length ?? 0) > 0
-  const q = isGearInspectorLastUseFilterActive(f.testerLastUse)
+  const k = (f.gearInspectorSources?.selected?.length ?? 0) > 0
+  const l = (f.gearInspectorChaos?.mode ?? 'any') !== 'any'
+  const m = (f.gearInspectorGlyphs?.mode ?? 'any') !== 'any'
+  const p = isGearInspectorRollFilterActive(f.gearInspectorRolls)
+  const n = ((f.gearInspectorAscension?.stars?.length ?? 0) > 0) || ((f.gearInspectorAscension?.stats?.length ?? 0) > 0)
+  const o = (f.gearInspectorChampions?.selected?.length ?? 0) > 0
+  const q = isGearInspectorLastUseFilterActive(f.gearInspectorLastUse)
   return ra || tr || a || b || c || d || e || g || h || i || j || k || l || m || p || n || o || q
 }
 
@@ -839,14 +839,14 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
 ): FilterGearInspectorItemsResult<T> {
   if (!rows.length) return { items: [], matchingRecipeIndices: new Set() }
 
-  const gearInspectorRolls = normalizeGearInspectorRollsState(f.testerRolls)
+  const gearInspectorRolls = normalizeGearInspectorRollsState(f.gearInspectorRolls)
   const gearInspectorRollsActive = isGearInspectorRollFilterActive(gearInspectorRolls)
 
   // Result filter button state (four independent boolean toggles).
-  const keepActive = Boolean(f.testerResult?.keep)
-  const sellActive = Boolean(f.testerResult?.sell)
-  const matchedActive = Boolean(f.testerResult?.matched)
-  const unmatchedActive = Boolean(f.testerResult?.unmatched)
+  const keepActive = Boolean(f.gearInspectorResult?.keep)
+  const sellActive = Boolean(f.gearInspectorResult?.sell)
+  const matchedActive = Boolean(f.gearInspectorResult?.matched)
+  const unmatchedActive = Boolean(f.gearInspectorResult?.unmatched)
   // Context mode activates when Matched is pressed, OR when Unmatched is combined with Keep/Sell.
   // Unmatched alone (no Keep/Sell/Matched) stays a plain filter: show only unmatched items.
   const contextModeActive = matchedActive || (unmatchedActive && (keepActive || sellActive))
@@ -870,11 +870,11 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
   const selectedSubVariants = new Set((f.sub?.selected ?? []).map(Number))
   const excludedSubVariants = new Set((f.sub?.notSelected ?? []).map(Number))
   const selectedFactions = new Set((f.faction?.selected ?? []).map(Number))
-  const selectedChampionIds = new Set((f.testerChampions?.selected ?? []).map(Number))
+  const selectedChampionIds = new Set((f.gearInspectorChampions?.selected ?? []).map(Number))
   const gearInspectorLevelRange = resolveGearInspectorLevelRange(f.level)
   const gearInspectorExactLevelRangeActive =
     gearInspectorLevelRange.min > DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.min || gearInspectorLevelRange.max < DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.max
-  const gearInspectorLastUse = normalizeGearInspectorLastUseFilter(f.testerLastUse)
+  const gearInspectorLastUse = normalizeGearInspectorLastUseFilter(f.gearInspectorLastUse)
   const gearInspectorLastUsePresetSet = new Set<GearInspectorLastUsePreset>(gearInspectorLastUse.presets)
   const gearInspectorLastUsePresetsActive = gearInspectorLastUsePresetSet.size > 0
   const gearInspectorLastUseCustom = gearInspectorLastUse.custom
@@ -897,13 +897,13 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
   }
 
   const matchingRecipeIndices = new Set<number>()
-  const selectedSources = new Set<GearInspectorSourceFilter>(f.testerSources?.selected ?? [])
-  const chaosMode = f.testerChaos?.mode ?? 'any'
-  const glyphMode = f.testerGlyphs?.mode ?? 'any'
-  const ascensionStars = new Set<number>(f.testerAscension?.stars ?? [])
-  const ascensionStats = new Set((f.testerAscension?.stats ?? []).map(Number))
-  // First pass: collect candidates passing all non-testerResult filters.
-  // testerResult is resolved in a second pass so companion keys can be computed
+  const selectedSources = new Set<GearInspectorSourceFilter>(f.gearInspectorSources?.selected ?? [])
+  const chaosMode = f.gearInspectorChaos?.mode ?? 'any'
+  const glyphMode = f.gearInspectorGlyphs?.mode ?? 'any'
+  const ascensionStars = new Set<number>(f.gearInspectorAscension?.stars ?? [])
+  const ascensionStats = new Set((f.gearInspectorAscension?.stats ?? []).map(Number))
+  // First pass: collect candidates passing all non-gearInspectorResult filters.
+  // gearInspectorResult is resolved in a second pass so companion keys can be computed
   // across the full candidate set before any item is excluded.
   const candidates: T[] = []
 
@@ -1166,7 +1166,7 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
     candidates.push(row)
   }
 
-  // Second pass: apply testerResult filter / context mode on candidates.
+  // Second pass: apply gearInspectorResult filter / context mode on candidates.
   const filtered: T[] = []
   let contextGroupById: Map<number, GearInspectorContextGroup> | undefined
 
@@ -1256,7 +1256,7 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
 }
 
 export const determineGearInspectorSourceCategory = (artifact: NormalizedGearArtifact): GearInspectorSourceFilter => {
-  if (artifact.source === 'tester') return 'manual'
+  if (artifact.source === 'manual') return 'manual'
   if (artifact.source === 'inbox') return 'inbox'
   if (artifact.equippedToChampionId != null) {
     const loc = artifact.equippedChampionLocation
@@ -1474,7 +1474,7 @@ export const toggleGearInspectorLastUsePresetSelection = (
 }
 
 export const normalizeGearInspectorLastUseFilter = (
-  input?: RulesFilterState['testerLastUse'] | null,
+  input?: RulesFilterState['gearInspectorLastUse'] | null,
 ): GearInspectorLastUseFilter => {
   if (!input) return createDefaultGearInspectorLastUseFilter()
   const rawPresets = Array.isArray(input.presets) ? input.presets : []
@@ -1501,7 +1501,7 @@ export const normalizeGearInspectorLastUseFilter = (
   }
 }
 
-export const isGearInspectorLastUseFilterActive = (value?: RulesFilterState['testerLastUse']): boolean => {
+export const isGearInspectorLastUseFilterActive = (value?: RulesFilterState['gearInspectorLastUse']): boolean => {
   const filter = normalizeGearInspectorLastUseFilter(value)
   if (filter.presets.length > 0) return true
   if (!filter.custom.enabled) return false

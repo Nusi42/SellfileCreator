@@ -201,7 +201,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
               textColor="primary"
               indicatorColor="primary"
             >
-              <Tab value={LOGIC_HUB_DIALOG_TAB_FINAL_SELL} label={t('testerFinalSell')} />
+              <Tab value={LOGIC_HUB_DIALOG_TAB_FINAL_SELL} label={t('gearInspectorFinalSell')} />
               <Tab value={LOGIC_HUB_DIALOG_TAB_SUBSTAT_TARGETS} label={t('tabSubstatTargets')} />
               <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
               <Tab value={LOGIC_HUB_DIALOG_TAB_DUNGEON} label={t('tabDungeonDrops')} />
@@ -503,9 +503,9 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
         open={confirmResetGearInspector}
         onClose={() => setConfirmResetGearInspector(false)}
       >
-        <DialogTitle>{t('titleResetGearTester')}</DialogTitle>
+        <DialogTitle>{t('titleResetGearInspector')}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">{t('msgResetGearTester')}</Typography>
+          <Typography variant="body2">{t('msgResetGearInspector')}</Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmResetGearInspector(false)}>{t('cancel')}</Button>

@@ -566,8 +566,8 @@ function RulesFilterPanel({
   const { t, lang } = useI18n()
   useGearSetCatalogVersion()
   const theme = useTheme()
-  const gearInspectorRollsState: GearInspectorRollFilterState = state.testerRolls ?? DEFAULT_RULES_FILTER_STATE.testerRolls ?? createDefaultGearInspectorRollsState()
-  const gearInspectorRollsActive = isGearInspectorRollFilterActive(state.testerRolls)
+  const gearInspectorRollsState: GearInspectorRollFilterState = state.gearInspectorRolls ?? DEFAULT_RULES_FILTER_STATE.gearInspectorRolls ?? createDefaultGearInspectorRollsState()
+  const gearInspectorRollsActive = isGearInspectorRollFilterActive(state.gearInspectorRolls)
   const [gearInspectorRollsAnchorEl, setGearInspectorRollsAnchorEl] = React.useState<HTMLElement | null>(null)
   const gearInspectorRollsPaperRef = React.useRef<HTMLDivElement | null>(null)
   const gearInspectorRollsOpen = Boolean(gearInspectorRollsAnchorEl)
@@ -795,15 +795,15 @@ function RulesFilterPanel({
   const rollChipAria = t('filterRollsChipAria', { summary: rollSummaryDescription })
 
   const applyGearInspectorRollsChange = React.useCallback((mutator: (current: GearInspectorRollFilterState) => GearInspectorRollFilterState) => {
-    const nextRolls = mutator(state.testerRolls ?? createDefaultGearInspectorRollsState())
+    const nextRolls = mutator(state.gearInspectorRolls ?? createDefaultGearInspectorRollsState())
     if (!isGearInspectorRollFilterActive(nextRolls) && nextRolls.wildcard.mode === 'off') {
-      const { testerRolls: _ignored, ...rest } = state
+      const { gearInspectorRolls: _ignored, ...rest } = state
       onChange(rest as RulesFilterState)
       return
     }
     onChange({
       ...state,
-      testerRolls: nextRolls,
+      gearInspectorRolls: nextRolls,
     })
   }, [onChange, state])
 
@@ -975,13 +975,13 @@ function RulesFilterPanel({
   }
 
   const gearInspectorLastUseFilter = React.useMemo(
-    () => normalizeGearInspectorLastUseFilter(state.testerLastUse),
-    [state.testerLastUse],
+    () => normalizeGearInspectorLastUseFilter(state.gearInspectorLastUse),
+    [state.gearInspectorLastUse],
   )
   const lastUsePresetSelection = gearInspectorLastUseFilter.presets
   const lastUseCustom = gearInspectorLastUseFilter.custom
   const dayShort = React.useMemo(() => {
-    const raw = t('testerLastUsedDayShort')
+    const raw = t('gearInspectorLastUsedDayShort')
     const trimmed = typeof raw === 'string' ? raw.trim() : ''
     return trimmed.length > 0 ? trimmed : 'd'
   }, [t])
@@ -994,11 +994,11 @@ function RulesFilterPanel({
       older90: `>90${dayShort}`,
     }
     return [
-      { value: 'never', label: labels.never, tooltip: t('testerLastUsedPresetNever') },
-      { value: 'recent7', label: labels.recent7, tooltip: t('testerLastUsedPreset7d') },
-      { value: 'recent30', label: labels.recent30, tooltip: t('testerLastUsedPreset30d') },
-      { value: 'recent90', label: labels.recent90, tooltip: t('testerLastUsedPreset90d') },
-      { value: 'older90', label: labels.older90, tooltip: t('testerLastUsedPresetOlder90d') },
+      { value: 'never', label: labels.never, tooltip: t('gearInspectorLastUsedPresetNever') },
+      { value: 'recent7', label: labels.recent7, tooltip: t('gearInspectorLastUsedPreset7d') },
+      { value: 'recent30', label: labels.recent30, tooltip: t('gearInspectorLastUsedPreset30d') },
+      { value: 'recent90', label: labels.recent90, tooltip: t('gearInspectorLastUsedPreset90d') },
+      { value: 'older90', label: labels.older90, tooltip: t('gearInspectorLastUsedPresetOlder90d') },
     ]
   }, [dayShort, t])
   const lastUseCustomSummary = React.useMemo(() => {
@@ -1007,17 +1007,17 @@ function RulesFilterPanel({
     const minActive = lastUseCustom.minDays > GEAR_INSPECTOR_LAST_USE_MIN_DAYS
     const maxActive = lastUseCustom.maxDays < GEAR_INSPECTOR_LAST_USE_MAX_DAYS
     if (minActive && maxActive) {
-      parts.push(t('testerLastUsedCustomSummaryRange', { minDays: lastUseCustom.minDays, maxDays: lastUseCustom.maxDays }))
+      parts.push(t('gearInspectorLastUsedCustomSummaryRange', { minDays: lastUseCustom.minDays, maxDays: lastUseCustom.maxDays }))
     } else if (minActive) {
-      parts.push(t('testerLastUsedCustomSummaryMin', { minDays: lastUseCustom.minDays }))
+      parts.push(t('gearInspectorLastUsedCustomSummaryMin', { minDays: lastUseCustom.minDays }))
     } else if (maxActive) {
-      parts.push(t('testerLastUsedCustomSummaryMax', { maxDays: lastUseCustom.maxDays }))
+      parts.push(t('gearInspectorLastUsedCustomSummaryMax', { maxDays: lastUseCustom.maxDays }))
     }
     const summary = parts.join(' • ')
-    return summary || t('testerLastUsedCustomChipLabel')
+    return summary || t('gearInspectorLastUsedCustomChipLabel')
   }, [lastUseCustom, t])
 
-  const lastUseAdvancedLabel = lastUseCustomSummary ?? t('testerLastUsedAdvancedButton')
+  const lastUseAdvancedLabel = lastUseCustomSummary ?? t('gearInspectorLastUsedAdvancedButton')
 
   const handleSetsChange = (e: SelectChangeEvent<string[]>) => {
     // Token list contains metasets + explicit set ids.
@@ -1040,7 +1040,7 @@ function RulesFilterPanel({
   const resetLastUseCustom = React.useCallback(() => {
     onChange({
       ...state,
-      testerLastUse: normalizeGearInspectorLastUseFilter({
+      gearInspectorLastUse: normalizeGearInspectorLastUseFilter({
         presets: gearInspectorLastUseFilter.presets,
         custom: { ...createDefaultGearInspectorLastUseCustom(), enabled: false },
       }),
@@ -1050,7 +1050,7 @@ function RulesFilterPanel({
     // Keep the custom range intact so users can stack presets + range without re-entering values.
     onChange({
       ...state,
-      testerLastUse: normalizeGearInspectorLastUseFilter({
+      gearInspectorLastUse: normalizeGearInspectorLastUseFilter({
         presets,
         custom: gearInspectorLastUseFilter.custom,
       }),
@@ -1065,7 +1065,7 @@ function RulesFilterPanel({
     // Preserve preset selection while toggling the custom slider so both act as a union.
     onChange({
       ...state,
-      testerLastUse: normalizeGearInspectorLastUseFilter({
+      gearInspectorLastUse: normalizeGearInspectorLastUseFilter({
         presets: gearInspectorLastUseFilter.presets,
         custom: merged,
       }),
@@ -1163,9 +1163,9 @@ function RulesFilterPanel({
   const toggleLabelSx = [ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', textAlign: 'center', fontSize: 'inherit' as const }]
   const gearInspectorRecipeFilterOn = gearInspectorRecipeFilterMode !== GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT
   const gearInspectorRecipeLabelStrings = React.useMemo(() => ({
-    first: t('testerFilterRecipesFirst'),
-    any: t('testerFilterRecipesAny'),
-    off: t('testerFilterRecipesOff'),
+    first: t('gearInspectorFilterRecipesFirst'),
+    any: t('gearInspectorFilterRecipesAny'),
+    off: t('gearInspectorFilterRecipesOff'),
   }), [t])
   const gearInspectorRecipeFilterLabel = gearInspectorRecipeFilterMode === 'first'
     ? gearInspectorRecipeLabelStrings.first
@@ -1203,12 +1203,12 @@ function RulesFilterPanel({
     : t('filterLimitSelectedRecipes')
   const recipeFilterButtonLabel = (
     isGearInspectorMode
-      ? (gearInspectorRecipeFilterOn ? gearInspectorRecipeFilterLabel : t('testerFilterRecipesOff'))
-      : (gearInspectorRecipeFilterOn ? t('recipeFilterOn') : t('testerFilterRecipesOff'))
+      ? (gearInspectorRecipeFilterOn ? gearInspectorRecipeFilterLabel : t('gearInspectorFilterRecipesOff'))
+      : (gearInspectorRecipeFilterOn ? t('recipeFilterOn') : t('gearInspectorFilterRecipesOff'))
   )
   const previewRecipeButtonActive = recipeChipFilterActive
   const previewRecipeButtonVariant: 'contained' | 'outlined' = previewRecipeButtonActive ? 'contained' : 'outlined'
-  const previewRecipeButtonLabel = previewRecipeButtonActive ? t('recipeFilterOn') : t('testerFilterRecipesOff')
+  const previewRecipeButtonLabel = previewRecipeButtonActive ? t('recipeFilterOn') : t('gearInspectorFilterRecipesOff')
   // Match Recipe Filter's width stabilization pattern so the Narrow button
   // doesn't "jump" as Off/On switches (or across localized strings).
   const previewRecipesValueWidthCh = React.useMemo(() => (
@@ -1220,13 +1220,13 @@ function RulesFilterPanel({
   ), [t])
   const gearInspectorSourceOptions = React.useMemo(() => {
     const options = [
-      { value: 'inventory', label: t('testerSourceInventory') },
-      { value: 'collection', label: t('testerSourceEquippedCollection') },
-      { value: 'vault', label: t('testerSourceEquippedVault') },
-      { value: 'inbox', label: t('testerSourceInbox') },
+      { value: 'inventory', label: t('gearInspectorSourceInventory') },
+      { value: 'collection', label: t('gearInspectorSourceEquippedCollection') },
+      { value: 'vault', label: t('gearInspectorSourceEquippedVault') },
+      { value: 'inbox', label: t('gearInspectorSourceInbox') },
     ] as const
     return hasManualGearInspectorItems
-      ? [...options, { value: 'manual', label: t('testerSourceManual') }]
+      ? [...options, { value: 'manual', label: t('gearInspectorSourceManual') }]
       : options.slice()
   }, [hasManualGearInspectorItems, t])
   // Keep the first two options anchored on the top row so the base grid stays 2x2.
@@ -1236,7 +1236,7 @@ function RulesFilterPanel({
     const remaining = gearInspectorSourceOptions.slice(2)
     return [firstRow, remaining]
   }, [gearInspectorSourceOptions])
-  const gearInspectorSourcesSelected = state.testerSources?.selected
+  const gearInspectorSourcesSelected = state.gearInspectorSources?.selected
   const gearInspectorSourceSelectionRaw = React.useMemo(
     () => gearInspectorSourcesSelected ?? [],
     [gearInspectorSourcesSelected],
@@ -1252,20 +1252,20 @@ function RulesFilterPanel({
       const filtered = gearInspectorSourceSelectionRaw.filter((value) => value !== 'manual')
       onChange({
         ...state,
-        testerSources: { selected: filtered },
+        gearInspectorSources: { selected: filtered },
       })
     }
   }
   // Shared handler so both toggle rows update the same gearInspectorSources payload.
   const handleGearInspectorSourceToggleChange = React.useCallback((_: React.MouseEvent<HTMLElement>, vals: string[]) => {
     const parsed = vals.map((v) => v as GearInspectorSourceFilter)
-    onChange({ ...state, testerSources: { selected: parsed } })
+    onChange({ ...state, gearInspectorSources: { selected: parsed } })
   }, [onChange, state])
-  const gearInspectorChaosMode: GearInspectorChaosFilterMode = state.testerChaos?.mode ?? 'any'
-  const gearInspectorGlyphMode: GearInspectorGlyphFilterMode = state.testerGlyphs?.mode ?? 'any'
-  const gearInspectorAscStars = state.testerAscension?.stars ?? []
-  const gearInspectorAscStats = state.testerAscension?.stats ?? []
-  const championSelection = state.testerChampions?.selected ?? []
+  const gearInspectorChaosMode: GearInspectorChaosFilterMode = state.gearInspectorChaos?.mode ?? 'any'
+  const gearInspectorGlyphMode: GearInspectorGlyphFilterMode = state.gearInspectorGlyphs?.mode ?? 'any'
+  const gearInspectorAscStars = state.gearInspectorAscension?.stars ?? []
+  const gearInspectorAscStats = state.gearInspectorAscension?.stats ?? []
+  const championSelection = state.gearInspectorChampions?.selected ?? []
   const championSelectionCount = championSelection.length
   const extraChampionCount = Math.max(0, championSelectionCount - 1)
   // Expand the inline gutter when the "+N" badge is visible so long names respect the stacked controls.
@@ -1333,7 +1333,7 @@ function RulesFilterPanel({
   const formatChampionName = React.useCallback((option?: GearInspectorChampionOption | null): string => {
     if (!option) return ''
     if (option.name && option.name.trim().length > 0) return option.name.trim()
-    return t('testerChampionUnknownName', { id: option.id })
+    return t('gearInspectorChampionUnknownName', { id: option.id })
   }, [t])
   // Dev builds benefit from showing ids inline so missing icon assets are faster to diagnose.
   // Keep prod labels clean by gating behind `import.meta.env.DEV`.
@@ -1349,8 +1349,8 @@ function RulesFilterPanel({
   }, [formatChampionName])
   const formatChampionLocation = React.useCallback((option?: GearInspectorChampionOption | null): string | null => {
     if (!option?.location) return null
-    if (option.location === 'vault' || option.location === 'reserveVault') return t('testerSourceEquippedVault')
-    if (option.location === 'collection') return t('testerSourceEquippedCollection')
+    if (option.location === 'vault' || option.location === 'reserveVault') return t('gearInspectorSourceEquippedVault')
+    if (option.location === 'collection') return t('gearInspectorSourceEquippedCollection')
     return null
   }, [t])
   const handleGearInspectorRecipeFilterClick = () => {
@@ -1370,11 +1370,11 @@ function RulesFilterPanel({
   }
 
   // Section labels feed both the header copy and the clear-button tooltips so we only translate once per render.
-  const ruleSectionLabel = t(isGearInspectorMode ? 'filterTesterResult' : 'filterRule')
+  const ruleSectionLabel = t(isGearInspectorMode ? 'filterGearInspectorResult' : 'filterRule')
   const setsSectionLabel = t('filterSets')
   const sourcesSectionLabel = t('filterSource')
-  const championsSectionLabel = t('testerChampionFilterLabel')
-  const lastUseSectionLabel = t('testerLastUsedFilterLabel')
+  const championsSectionLabel = t('gearInspectorChampionFilterLabel')
+  const lastUseSectionLabel = t('gearInspectorLastUsedFilterLabel')
   const mainSectionLabel = t('filterMainstat')
   const subSectionLabel = t('filterSubstats')
   const levelSectionLabel = t('filterLevel')
@@ -1411,7 +1411,7 @@ function RulesFilterPanel({
   // Each clear helper targets the fields surfaced inside that section so partial resets never clobber other filters.
   const clearRuleSection = () => {
     if (isGearInspectorMode) {
-      onChange({ ...state, testerResult: { ...(DEFAULT_RULES_FILTER_STATE.testerResult ?? { keep: false, sell: false, matched: false, unmatched: false }) } })
+      onChange({ ...state, gearInspectorResult: { ...(DEFAULT_RULES_FILTER_STATE.gearInspectorResult ?? { keep: false, sell: false, matched: false, unmatched: false }) } })
       return
     }
     onChange({ ...state, rule: { ...(DEFAULT_RULES_FILTER_STATE.rule ?? { keep: 'any', use: 'any' }) } })
@@ -1429,19 +1429,19 @@ function RulesFilterPanel({
   const clearSourcesSection = () => {
     onChange({
       ...state,
-      testerSources: { ...(DEFAULT_RULES_FILTER_STATE.testerSources ?? { selected: [] }) },
+      gearInspectorSources: { ...(DEFAULT_RULES_FILTER_STATE.gearInspectorSources ?? { selected: [] }) },
     })
   }
   const clearChampionsSection = () => {
     onChange({
       ...state,
-      testerChampions: { ...(DEFAULT_RULES_FILTER_STATE.testerChampions ?? { selected: [] }) },
+      gearInspectorChampions: { ...(DEFAULT_RULES_FILTER_STATE.gearInspectorChampions ?? { selected: [] }) },
     })
   }
   const clearLastUseSection = () => {
     onChange({
       ...state,
-      testerLastUse: createDefaultGearInspectorLastUseFilter(),
+      gearInspectorLastUse: createDefaultGearInspectorLastUseFilter(),
     })
   }
   const clearMainSection = () => {
@@ -1450,7 +1450,7 @@ function RulesFilterPanel({
       main: { ...(DEFAULT_RULES_FILTER_STATE.main ?? { selected: [], anyMode: 'include' }) },
     }
     if (isGearInspectorMode) {
-      next.testerChaos = { ...(DEFAULT_RULES_FILTER_STATE.testerChaos ?? { mode: 'any' }) }
+      next.gearInspectorChaos = { ...(DEFAULT_RULES_FILTER_STATE.gearInspectorChaos ?? { mode: 'any' }) }
     }
     onChange(next)
   }
@@ -1460,19 +1460,19 @@ function RulesFilterPanel({
       sub: { ...(DEFAULT_RULES_FILTER_STATE.sub ?? { selected: [], notSelected: [], mode: 'all', wildcardMode: 'include' }) },
     }
     if (isGearInspectorMode) {
-      next.testerGlyphs = { ...(DEFAULT_RULES_FILTER_STATE.testerGlyphs ?? { mode: 'any' }) }
-      next.testerRolls = createDefaultGearInspectorRollsState()
+      next.gearInspectorGlyphs = { ...(DEFAULT_RULES_FILTER_STATE.gearInspectorGlyphs ?? { mode: 'any' }) }
+      next.gearInspectorRolls = createDefaultGearInspectorRollsState()
     }
     onChange(next)
   }
   const clearLevelSection = () => {
-    const defaultLevel = DEFAULT_RULES_FILTER_STATE.level ?? { selected: [], anyMode: 'include', testerRange: undefined }
+    const defaultLevel = DEFAULT_RULES_FILTER_STATE.level ?? { selected: [], anyMode: 'include', gearInspectorRange: undefined }
     const defaultRange = resolveGearInspectorLevelRange(defaultLevel)
     onChange({
       ...state,
       level: {
         ...defaultLevel,
-        testerRange: { ...defaultRange },
+        gearInspectorRange: { ...defaultRange },
       },
     })
   }
@@ -1503,15 +1503,15 @@ function RulesFilterPanel({
   const clearAscensionSection = () => {
     onChange({
       ...state,
-      testerAscension: { ...(DEFAULT_RULES_FILTER_STATE.testerAscension ?? { stars: [], stats: [] }) },
+      gearInspectorAscension: { ...(DEFAULT_RULES_FILTER_STATE.gearInspectorAscension ?? { stars: [], stats: [] }) },
     })
   }
 
   // Dirty-state probes ensure the clear affordance only lights up when this section diverged from factory defaults.
   const defaultRuleFilter = DEFAULT_RULES_FILTER_STATE.rule ?? { keep: 'any', use: 'any' }
   const ruleSectionDirty = isGearInspectorMode
-    ? (Boolean(state.testerResult?.keep) || Boolean(state.testerResult?.sell)
-      || Boolean(state.testerResult?.matched) || Boolean(state.testerResult?.unmatched))
+    ? (Boolean(state.gearInspectorResult?.keep) || Boolean(state.gearInspectorResult?.sell)
+      || Boolean(state.gearInspectorResult?.matched) || Boolean(state.gearInspectorResult?.unmatched))
     : ((state.rule?.keep ?? defaultRuleFilter.keep) !== defaultRuleFilter.keep
       || (state.rule?.use ?? defaultRuleFilter.use) !== defaultRuleFilter.use)
   const setsSectionDirty = (
@@ -1531,13 +1531,13 @@ function RulesFilterPanel({
   const mainSectionDirty = (
     (state.main.selected.length > 0)
     || (!isGearInspectorMode && ((state.main.anyMode ?? DEFAULT_RULES_FILTER_STATE.main.anyMode) !== DEFAULT_RULES_FILTER_STATE.main.anyMode))
-    || (isGearInspectorMode && (gearInspectorChaosMode !== (DEFAULT_RULES_FILTER_STATE.testerChaos?.mode ?? 'any')))
+    || (isGearInspectorMode && (gearInspectorChaosMode !== (DEFAULT_RULES_FILTER_STATE.gearInspectorChaos?.mode ?? 'any')))
   )
   const subSectionDirty = (
     (state.sub.selected.length > 0)
     || (state.sub.notSelected.length > 0)
     || (state.sub.mode !== DEFAULT_RULES_FILTER_STATE.sub.mode)
-    || (isGearInspectorMode && gearInspectorGlyphMode !== (DEFAULT_RULES_FILTER_STATE.testerGlyphs?.mode ?? 'any'))
+    || (isGearInspectorMode && gearInspectorGlyphMode !== (DEFAULT_RULES_FILTER_STATE.gearInspectorGlyphs?.mode ?? 'any'))
     || (isGearInspectorMode && gearInspectorRollsActive)
   )
   const levelSectionDirty = (
@@ -1726,14 +1726,14 @@ function RulesFilterPanel({
                   <ToggleButtonGroup
                     size="small"
                     value={[
-                      ...(state.testerResult?.keep ? ['keep'] : []),
-                      ...(state.testerResult?.sell ? ['sell'] : []),
+                      ...(state.gearInspectorResult?.keep ? ['keep'] : []),
+                      ...(state.gearInspectorResult?.sell ? ['sell'] : []),
                     ]}
                     onChange={(_, newValues: string[]) => {
                       onChange({
                         ...state,
-                        testerResult: {
-                          ...(state.testerResult ?? DEFAULT_RULES_FILTER_STATE.testerResult!),
+                        gearInspectorResult: {
+                          ...(state.gearInspectorResult ?? DEFAULT_RULES_FILTER_STATE.gearInspectorResult!),
                           keep: newValues.includes('keep'),
                           sell: newValues.includes('sell'),
                         },
@@ -1775,14 +1775,14 @@ function RulesFilterPanel({
                   <ToggleButtonGroup
                     size="small"
                     value={[
-                      ...(state.testerResult?.matched ? ['matched'] : []),
-                      ...(state.testerResult?.unmatched ? ['unmatched'] : []),
+                      ...(state.gearInspectorResult?.matched ? ['matched'] : []),
+                      ...(state.gearInspectorResult?.unmatched ? ['unmatched'] : []),
                     ]}
                     onChange={(_, newValues: string[]) => {
                       onChange({
                         ...state,
-                        testerResult: {
-                          ...(state.testerResult ?? DEFAULT_RULES_FILTER_STATE.testerResult!),
+                        gearInspectorResult: {
+                          ...(state.gearInspectorResult ?? DEFAULT_RULES_FILTER_STATE.gearInspectorResult!),
                           matched: newValues.includes('matched'),
                           unmatched: newValues.includes('unmatched'),
                         },
@@ -1804,16 +1804,16 @@ function RulesFilterPanel({
                     }, SEGMENTED_TOGGLE_BUTTON_GROUP_SX]}
                   >
                     <ToggleButton value={'matched'}>
-                      <EllipsisTooltip title={t('testerResultMatched')} wrap="block">
+                      <EllipsisTooltip title={t('gearInspectorResultMatched')} wrap="block">
                         <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
-                          {t('testerResultMatched')}
+                          {t('gearInspectorResultMatched')}
                         </Typography>
                       </EllipsisTooltip>
                     </ToggleButton>
                     <ToggleButton value={'unmatched'}>
-                      <EllipsisTooltip title={t('testerMatchNoRule')} wrap="block">
+                      <EllipsisTooltip title={t('gearInspectorMatchNoRule')} wrap="block">
                         <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
-                          {t('testerMatchNoRule')}
+                          {t('gearInspectorMatchNoRule')}
                         </Typography>
                       </EllipsisTooltip>
                     </ToggleButton>
@@ -2373,7 +2373,7 @@ function RulesFilterPanel({
                           const parsed = vals
                             .map((v) => Number(v))
                             .filter((id) => Number.isFinite(id) && id > 0)
-                          onChange({ ...state, testerChampions: { selected: parsed } })
+                          onChange({ ...state, gearInspectorChampions: { selected: parsed } })
                         }}
                         displayEmpty
 	                        renderValue={(vals) => {
@@ -2462,7 +2462,7 @@ function RulesFilterPanel({
                           value={championSearch}
                           onChange={(e) => setChampionSearch(e.target.value)}
                           size="small"
-                          placeholder={t('testerChampionSearchPlaceholder')}
+                          placeholder={t('gearInspectorChampionSearchPlaceholder')}
                           fullWidth
                           onClick={(e) => e.stopPropagation()}
                           onKeyDown={(e) => e.stopPropagation()}
@@ -2556,7 +2556,7 @@ function RulesFilterPanel({
                       <InlineSelectClearButton
                         disabled={championSelection.length === 0}
                         label={t('clear')}
-                        onClear={() => onChange({ ...state, testerChampions: { selected: [] } })}
+                        onClear={() => onChange({ ...state, gearInspectorChampions: { selected: [] } })}
                       />
                     </Box>
                   </Collapse>
@@ -2732,7 +2732,7 @@ function RulesFilterPanel({
                             : gearInspectorChaosMode === 'notRerolled'
                               ? 'rerolled'
                               : 'any'
-                        onChange({ ...state, testerChaos: { mode: next } })
+                        onChange({ ...state, gearInspectorChaos: { mode: next } })
                       }}
                       sx={tintedChipSx(gearInspectorChaosMode === 'any' ? theme.palette.success : gearInspectorChaosMode === 'notRerolled' ? theme.palette.info : theme.palette.warning)}
                     />
@@ -2925,7 +2925,7 @@ function RulesFilterPanel({
                               : gearInspectorGlyphMode === 'selected'
                                 ? 'off'
                                 : 'any'
-                        onChange({ ...state, testerGlyphs: { mode: next } })
+                        onChange({ ...state, gearInspectorGlyphs: { mode: next } })
                       }}
                       sx={tintedChipSx(
                         gearInspectorGlyphMode === 'any'
@@ -3004,10 +3004,10 @@ function RulesFilterPanel({
                         const [rawMin, rawMax] = value as [number, number]
                         const normalized = resolveGearInspectorLevelRange({
                           ...state.level,
-                          testerRange: { min: rawMin, max: rawMax },
+                          gearInspectorRange: { min: rawMin, max: rawMax },
                         })
                         if (normalized.min === gearInspectorLevelRange.min && normalized.max === gearInspectorLevelRange.max) return
-                        onChange({ ...state, level: { ...state.level, testerRange: normalized } })
+                        onChange({ ...state, level: { ...state.level, gearInspectorRange: normalized } })
                       }}
                       sx={{
                         width: '100%',
@@ -3429,8 +3429,8 @@ function RulesFilterPanel({
                       const parsed = vals
                         .map((v) => Number(v))
                         .filter((n) => Number.isFinite(n)) as number[]
-                      const prev = state.testerAscension ?? DEFAULT_RULES_FILTER_STATE.testerAscension!
-                      onChange({ ...state, testerAscension: { ...prev, stars: parsed } })
+                      const prev = state.gearInspectorAscension ?? DEFAULT_RULES_FILTER_STATE.gearInspectorAscension!
+                      onChange({ ...state, gearInspectorAscension: { ...prev, stars: parsed } })
                     }}
                     sx={[{
                       display: 'grid',
@@ -3460,9 +3460,9 @@ function RulesFilterPanel({
                     size="small"
                     value={filterRowSelection(gearInspectorAscStats, STAT_VARIANTS_PRIORITY_ROW1)}
                     onChange={(_, vals: string[]) => {
-                      const prev = state.testerAscension ?? DEFAULT_RULES_FILTER_STATE.testerAscension!
+                      const prev = state.gearInspectorAscension ?? DEFAULT_RULES_FILTER_STATE.gearInspectorAscension!
                       const nextStats = mergeRowSelection(prev.stats ?? [], STAT_VARIANTS_PRIORITY_ROW1, vals)
-                      onChange({ ...state, testerAscension: { ...prev, stats: nextStats } })
+                      onChange({ ...state, gearInspectorAscension: { ...prev, stats: nextStats } })
                     }}
                     sx={buildToggleGridSx(STAT_VARIANTS_PRIORITY_ROW1.length)}
                   >
@@ -3476,9 +3476,9 @@ function RulesFilterPanel({
                     size="small"
                     value={filterRowSelection(gearInspectorAscStats, STAT_VARIANTS_PRIORITY_ROW2)}
                     onChange={(_, vals: string[]) => {
-                      const prev = state.testerAscension ?? DEFAULT_RULES_FILTER_STATE.testerAscension!
+                      const prev = state.gearInspectorAscension ?? DEFAULT_RULES_FILTER_STATE.gearInspectorAscension!
                       const nextStats = mergeRowSelection(prev.stats ?? [], STAT_VARIANTS_PRIORITY_ROW2, vals)
-                      onChange({ ...state, testerAscension: { ...prev, stats: nextStats } })
+                      onChange({ ...state, gearInspectorAscension: { ...prev, stats: nextStats } })
                     }}
                     sx={buildToggleGridSx(STAT_VARIANTS_PRIORITY_ROW2.length)}
                   >
@@ -3635,12 +3635,12 @@ function RulesFilterPanel({
             }}
           >
             <Stack spacing={1.5}>
-              <ContextMenuTitle title={t('testerLastUsedRangeTitle')} description={t('testerLastUsedRangeDescription')} />
+              <ContextMenuTitle title={t('gearInspectorLastUsedRangeTitle')} description={t('gearInspectorLastUsedRangeDescription')} />
               <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
                 <TextField
                   type="number"
                   size="small"
-                  label={t('testerLastUsedRangeMinLabel')}
+                  label={t('gearInspectorLastUsedRangeMinLabel')}
                   inputProps={{ min: GEAR_INSPECTOR_LAST_USE_MIN_DAYS, max: GEAR_INSPECTOR_LAST_USE_MAX_DAYS }}
                   value={lastUseCustom.minDays}
                   onChange={handleLastUseInputChange('minDays')}
@@ -3649,7 +3649,7 @@ function RulesFilterPanel({
                 <TextField
                   type="number"
                   size="small"
-                  label={t('testerLastUsedRangeMaxLabel')}
+                  label={t('gearInspectorLastUsedRangeMaxLabel')}
                   inputProps={{ min: GEAR_INSPECTOR_LAST_USE_MIN_DAYS, max: GEAR_INSPECTOR_LAST_USE_MAX_DAYS }}
                   value={lastUseCustom.maxDays}
                   onChange={handleLastUseInputChange('maxDays')}
@@ -3670,7 +3670,7 @@ function RulesFilterPanel({
                   // Match Close button sizing so the control widths stay aligned.
                   sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
                 >
-                  {t('testerLastUsedRangeReset')}
+                  {t('gearInspectorLastUsedRangeReset')}
                 </Button>
               </Box>
             </Stack>

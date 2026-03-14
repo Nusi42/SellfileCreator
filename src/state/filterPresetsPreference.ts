@@ -36,8 +36,8 @@ export type FilterPresetSnapshot = {
   activeMode: RulesFilterPreviewMode
   filtersSynced: boolean
   limitRecipesToFiltered: boolean
-  testerRecipeFilterMode: GearInspectorRecipeFilterMode
-  testerSubstatSort: GearInspectorSubstatSortState
+  gearInspectorRecipeFilterMode: GearInspectorRecipeFilterMode
+  gearInspectorSubstatSort: GearInspectorSubstatSortState
   views: Record<RulesFilterPreviewMode, FilterPresetView>
 }
 
@@ -64,8 +64,8 @@ const cloneDefaultSnapshot = (): FilterPresetSnapshot => {
     activeMode: 'rules',
     filtersSynced: false,
     limitRecipesToFiltered: false,
-    testerRecipeFilterMode: GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
-    testerSubstatSort: DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
+    gearInspectorRecipeFilterMode: GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+    gearInspectorSubstatSort: DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
     views,
   }
 }
@@ -144,8 +144,8 @@ const sanitizeSnapshot = (raw: unknown): FilterPresetSnapshot => {
     activeMode: sanitizeMode(rec['activeMode']),
     filtersSynced: rec['filtersSynced'] === true,
     limitRecipesToFiltered: rec['limitRecipesToFiltered'] === true,
-    testerRecipeFilterMode: sanitizeGearInspectorRecipeFilterMode(rec['testerRecipeFilterMode']),
-    testerSubstatSort: normalizeGearInspectorSubstatSortState(rec['testerSubstatSort']),
+    gearInspectorRecipeFilterMode: sanitizeGearInspectorRecipeFilterMode(rec['gearInspectorRecipeFilterMode']),
+    gearInspectorSubstatSort: normalizeGearInspectorSubstatSortState(rec['gearInspectorSubstatSort']),
     views,
   }
 }

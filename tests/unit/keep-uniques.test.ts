@@ -66,14 +66,14 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}, variant: 
     equippedToChampionId: overrides.equippedToChampionId ?? null,
     equippedChampionBaseId: overrides.equippedChampionBaseId ?? null,
     equippedChampionRarity: overrides.equippedChampionRarity ?? null,
-    source: overrides.source ?? 'tester',
+    source: overrides.source ?? 'manual',
     equippedChampionName: overrides.equippedChampionName ?? null,
     equippedChampionLocation: overrides.equippedChampionLocation ?? null,
     lastUseLocalTimestamp: overrides.lastUseLocalTimestamp ?? null,
   }
 }
 
-const makeTesterRow = (overrides: Partial<NormalizedGearArtifact> = {}, keep = false, variant: StatVariant = StatVariant.ATK): GearInspectorPreviewRow => {
+const makeGearInspectorRow = (overrides: Partial<NormalizedGearArtifact> = {}, keep = false, variant: StatVariant = StatVariant.ATK): GearInspectorPreviewRow => {
   const artifact = makeArtifact(overrides, variant)
   const match = keep ? { keep: true, recipeIdx: 0, recipeName: 'Keep', ruleIndex: 0, ruleLabel: null, ruleSource: 'sfr' } : null
   return {
@@ -219,8 +219,8 @@ test('computeSafeguardProtection aggregates combination counts', () => {
     }),
   ]
   const rows: GearInspectorPreviewRow[] = [
-    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, rank: 6 as RankValue, rarity: 6 as RankValue }, false, StatVariant.ATK),
-    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, rank: 6 as RankValue, rarity: 6 as RankValue }, false, StatVariant.ATK),
+    makeGearInspectorRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, rank: 6 as RankValue, rarity: 6 as RankValue }, false, StatVariant.ATK),
+    makeGearInspectorRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, rank: 6 as RankValue, rarity: 6 as RankValue }, false, StatVariant.ATK),
   ]
   const candidates = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] }).candidates
   const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
@@ -247,8 +247,8 @@ test('projected count mirrors existing keep state when disabled', () => {
     },
   })]
   const rows = [
-    makeTesterRow({ slot: ArtifactType.Ring, set: ArtifactSet.Refresh, rank: 5 as RankValue, rarity: 5 as RankValue, faction: 3 }, false, StatVariant.RES),
-    makeTesterRow({ slot: ArtifactType.Ring, set: ArtifactSet.Refresh, rank: 5 as RankValue, rarity: 5 as RankValue, faction: 3 }, false, StatVariant.RES),
+    makeGearInspectorRow({ slot: ArtifactType.Ring, set: ArtifactSet.Refresh, rank: 5 as RankValue, rarity: 5 as RankValue, faction: 3 }, false, StatVariant.RES),
+    makeGearInspectorRow({ slot: ArtifactType.Ring, set: ArtifactSet.Refresh, rank: 5 as RankValue, rarity: 5 as RankValue, faction: 3 }, false, StatVariant.RES),
   ]
   const candidates = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] }).candidates
   const snapshot = computeSafeguardProtection({ candidates, rules, enabled: false })
@@ -287,7 +287,7 @@ test('ignorePreviousSafeguards=false evaluates against cumulative prior safeguar
     ignorePreviousSafeguards: true,
   })
   const rows = [
-    makeTesterRow({
+    makeGearInspectorRow({
       id: 9101,
       slot: ArtifactType.Weapon,
       set: ArtifactSet.Speed,
@@ -320,19 +320,19 @@ test('equipped ignore toggles exclude matching collection/vault artifacts', () =
     ignoreEquippedInVault: true,
   })
   const rows = [
-    makeTesterRow({
+    makeGearInspectorRow({
       id: 9201,
       slot: ArtifactType.Weapon,
       set: ArtifactSet.Speed,
       equippedChampionLocation: 'collection',
     }, false, StatVariant.ATK),
-    makeTesterRow({
+    makeGearInspectorRow({
       id: 9202,
       slot: ArtifactType.Weapon,
       set: ArtifactSet.Speed,
       equippedChampionLocation: 'vault',
     }, false, StatVariant.ATK),
-    makeTesterRow({
+    makeGearInspectorRow({
       id: 9203,
       slot: ArtifactType.Weapon,
       set: ArtifactSet.Speed,
@@ -363,8 +363,8 @@ test('per combination mode multiplies targets and deficits', () => {
     },
   })]
   const rows = [
-    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed }, false, StatVariant.ATK),
-    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Accuracy }, false, StatVariant.ATK),
+    makeGearInspectorRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed }, false, StatVariant.ATK),
+    makeGearInspectorRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Accuracy }, false, StatVariant.ATK),
   ]
   const { candidates } = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] })
   const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
@@ -392,8 +392,8 @@ test('per rule mode keeps a single aggregate quota', () => {
     countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
   })]
   const rows = [
-    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed }, false, StatVariant.ATK),
-    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Accuracy }, false, StatVariant.CDMG),
+    makeGearInspectorRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed }, false, StatVariant.ATK),
+    makeGearInspectorRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Accuracy }, false, StatVariant.CDMG),
   ]
   const { candidates } = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] })
   const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
@@ -420,9 +420,9 @@ test('custom grouping honors the selected dimensions only', () => {
     countMode: { perRule: false, perSet: true, perFaction: false, perMainStat: false, perSlot: false },
   })]
   const rows = [
-    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, faction: 1 }, false, StatVariant.ATK),
-    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, faction: 2 }, false, StatVariant.DEF),
-    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Accuracy, faction: 1 }, false, StatVariant.CDMG),
+    makeGearInspectorRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, faction: 1 }, false, StatVariant.ATK),
+    makeGearInspectorRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, faction: 2 }, false, StatVariant.DEF),
+    makeGearInspectorRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Accuracy, faction: 1 }, false, StatVariant.CDMG),
   ]
   const { candidates } = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] })
   const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
@@ -449,8 +449,8 @@ test('per-slot grouping splits quotas by slot and avoids zero-missing placeholde
   })]
   // One sold match per slot should fully satisfy the per-slot requirement.
   const rows = [
-    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed }, false, StatVariant.ATK),
-    makeTesterRow({ slot: ArtifactType.Helmet, set: ArtifactSet.Speed }, false, StatVariant.ATK),
+    makeGearInspectorRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed }, false, StatVariant.ATK),
+    makeGearInspectorRow({ slot: ArtifactType.Helmet, set: ArtifactSet.Speed }, false, StatVariant.ATK),
   ]
   const { candidates } = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] })
   const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
@@ -480,14 +480,14 @@ test('ranked ties on the same main stat prefer higher rank', () => {
     substats: [StatVariant.SPD],
   })]
   const rows = [
-    makeTesterRow({
+    makeGearInspectorRow({
       id: 101,
       rank: 5 as RankValue,
       rarity: 6 as RankValue,
       mainStat: buildMainStat(StatVariant.ATK),
       substats: [buildSubstat(StatVariant.SPD, 6)],
     }, false, StatVariant.ATK),
-    makeTesterRow({
+    makeGearInspectorRow({
       id: 102,
       rank: 6 as RankValue,
       rarity: 5 as RankValue,
@@ -520,14 +520,14 @@ test('ranked ties across main stats prefer percent over matching flat stat', () 
     substats: [StatVariant.SPD],
   })]
   const rows = [
-    makeTesterRow({
+    makeGearInspectorRow({
       id: 201,
       rank: 6 as RankValue,
       rarity: 6 as RankValue,
       mainStat: buildMainStat(StatVariant.ATK_FLAT),
       substats: [buildSubstat(StatVariant.SPD, 6)],
     }, false, StatVariant.ATK),
-    makeTesterRow({
+    makeGearInspectorRow({
       id: 202,
       rank: 6 as RankValue,
       rarity: 6 as RankValue,
@@ -560,14 +560,14 @@ test('ranked unresolved cutoff ties keep more than N', () => {
     substats: [StatVariant.SPD],
   })]
   const rows = [
-    makeTesterRow({
+    makeGearInspectorRow({
       id: 301,
       rank: 6 as RankValue,
       rarity: 6 as RankValue,
       mainStat: buildMainStat(StatVariant.CDMG),
       substats: [buildSubstat(StatVariant.SPD, 6)],
     }, false, StatVariant.ATK),
-    makeTesterRow({
+    makeGearInspectorRow({
       id: 302,
       rank: 6 as RankValue,
       rarity: 5 as RankValue,
@@ -600,21 +600,21 @@ test('ranked unresolved ties are order-invariant across candidate permutations',
     },
     substats: [StatVariant.SPD],
   })]
-  const rowA = makeTesterRow({
+  const rowA = makeGearInspectorRow({
     id: 401,
     rank: 6 as RankValue,
     rarity: 6 as RankValue,
     mainStat: buildMainStat(StatVariant.CDMG),
     substats: [buildSubstat(StatVariant.SPD, 6)],
   }, false, StatVariant.ATK)
-  const rowB = makeTesterRow({
+  const rowB = makeGearInspectorRow({
     id: 402,
     rank: 6 as RankValue,
     rarity: 6 as RankValue,
     mainStat: buildMainStat(StatVariant.CDMG),
     substats: [buildSubstat(StatVariant.SPD, 6)],
   }, false, StatVariant.ATK)
-  const rowC = makeTesterRow({
+  const rowC = makeGearInspectorRow({
     id: 403,
     rank: 6 as RankValue,
     rarity: 6 as RankValue,

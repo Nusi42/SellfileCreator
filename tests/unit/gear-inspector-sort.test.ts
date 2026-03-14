@@ -152,7 +152,7 @@ const makeGearInspectorRow = (overrides: Partial<NormalizedGearArtifact> = {}): 
     equippedChampionRarity: overrides.equippedChampionRarity ?? null,
     equippedChampionName: overrides.equippedChampionName ?? null,
     equippedChampionLocation: overrides.equippedChampionLocation ?? null,
-    source: overrides.source ?? 'tester',
+    source: overrides.source ?? 'manual',
     exactLevel: overrides.exactLevel ?? null,
     lastUseLocalTimestamp: overrides.lastUseLocalTimestamp ?? null,
   }

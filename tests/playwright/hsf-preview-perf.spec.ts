@@ -10,7 +10,7 @@ import { SFR_LOAD_INPUT_SELECTOR } from './ui-selectors'
 
 // Reuse fixture assets so perf runs do not depend on external samples.
 const LARGE_SFR_PATH = SAMPLE_SFR_PATH
-const LOG_PREFIX = '[tester-grid]'
+const LOG_PREFIX = '[gear-inspector-grid]'
 
 test.describe('HSF preview performance', () => {
   test.beforeAll(async ({ browser }) => {
@@ -25,11 +25,11 @@ test.describe('HSF preview performance', () => {
     // Allow the long timeout for SFR parsing and the rebuild it triggers.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
 
-    const testerLogs: string[] = []
+    const gearInspectorLogs: string[] = []
     page.on('console', (message) => {
       const text = message.text()
       if (text.includes(LOG_PREFIX)) {
-        testerLogs.push(text)
+        gearInspectorLogs.push(text)
       }
     })
 
@@ -98,17 +98,17 @@ test.describe('HSF preview performance', () => {
 
     console.log(`Large HSF first-row render: ${elapsedMs.toFixed(1)} ms`)
 
-    const gridContainer = page.locator('[data-tester-grid-container="true"]').first()
+    const gridContainer = page.locator('[data-gear-inspector-grid-container="true"]').first()
     // Skip the scroll pass when the tester grid is not rendered in rules mode.
-    const gridPresent = await page.evaluate(() => Boolean(document.querySelector('[data-tester-grid-container="true"]')))
+    const gridPresent = await page.evaluate(() => Boolean(document.querySelector('[data-gear-inspector-grid-container="true"]')))
     if (!gridPresent) {
-      console.log('[tester-grid] skip-scroll reason=container-missing')
+      console.log('[gear-inspector-grid] skip-scroll reason=container-missing')
     } else if (!(await gridContainer.isVisible().catch(() => false))) {
-      console.log('[tester-grid] skip-scroll reason=container-hidden')
+      console.log('[gear-inspector-grid] skip-scroll reason=container-hidden')
     } else {
       // Scroll through the grid to exercise virtualized row reveal timings.
       await page.evaluate(async () => {
-        const container = document.querySelector('[data-tester-grid-container="true"]') as HTMLElement | null
+        const container = document.querySelector('[data-gear-inspector-grid-container="true"]') as HTMLElement | null
         if (!container) {
           throw new Error('Tester grid container not found')
         }
@@ -151,7 +151,7 @@ test.describe('HSF preview performance', () => {
       return { event, fields, raw: line }
     }
 
-    const parsed = testerLogs.map(parseLogLine).filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+    const parsed = gearInspectorLogs.map(parseLogLine).filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
 
     const revealLatencies = parsed.filter((entry) => entry.event === 'reveal-latency')
     const maxRevealLatency = revealLatencies.reduce((max, entry) => Math.max(max, Number(entry.fields.latencyMs ?? 0)), 0)

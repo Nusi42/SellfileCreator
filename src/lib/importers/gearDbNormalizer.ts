@@ -213,7 +213,7 @@ export type NormalizedGearArtifact = {
   equippedToChampionId: number | null
   equippedChampionBaseId: number | null
   equippedChampionRarity: RankValue | null
-  source: 'artifacts' | 'inbox' | 'tester'
+  source: 'artifacts' | 'inbox' | 'manual'
   equippedChampionName: string | null
   equippedChampionLocation: ChampionLocation | null
   lastUseLocalTimestamp: string | null

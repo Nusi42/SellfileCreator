@@ -122,7 +122,7 @@ const buildTutorialGearInspectorItems = (): GearInspectorItem[] => [
     },
     subOrder: [StatVariant.SPD, StatVariant.CR, StatVariant.HP],
     previewExtras: {
-      source: 'tester',
+      source: 'manual',
       exactLevel: LEVEL_MILESTONES[4]!,
     },
   },
@@ -143,7 +143,7 @@ const buildTutorialGearInspectorItems = (): GearInspectorItem[] => [
       [StatVariant.DEF_FLAT]: 9,
     },
     previewExtras: {
-      source: 'tester',
+      source: 'manual',
       exactLevel: LEVEL_MILESTONES[0]!,
     },
   },
@@ -167,7 +167,7 @@ const buildTutorialGearInspectorItems = (): GearInspectorItem[] => [
     },
     subOrder: [StatVariant.HP, StatVariant.DEF_FLAT, StatVariant.ACC],
     previewExtras: {
-      source: 'tester',
+      source: 'manual',
       exactLevel: LEVEL_MILESTONES[2]!,
     },
   },
@@ -194,7 +194,7 @@ const buildTutorialGearInspectorItems = (): GearInspectorItem[] => [
     },
     subOrder: [StatVariant.SPD, StatVariant.CR, StatVariant.CDMG, StatVariant.ATK],
     previewExtras: {
-      source: 'tester',
+      source: 'manual',
       exactLevel: LEVEL_MILESTONES[4]!,
     },
   },

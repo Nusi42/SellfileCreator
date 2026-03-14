@@ -61,7 +61,7 @@ export type RestoreDraft = {
   NoteRecipeOverridesDisabled?: boolean
   AutosaveSavedAt?: string
   Filters?: AutosaveFiltersState
-  TesterSort?: GearInspectorSubstatSortState
+  GearInspectorSort?: GearInspectorSubstatSortState
   LogicHubDialogTab?: LogicHubDialogTab
   SafeguardsGridFilterMode?: SafeguardsGridFilterMode
 }
@@ -75,7 +75,7 @@ export type AutosaveFilterView = {
 export type AutosaveFiltersState = {
   activeMode: RulesFilterPreviewMode
   views: Record<RulesFilterPreviewMode, AutosaveFilterView>
-  testerRecipeFilterMode?: GearInspectorRecipeFilterMode
+  gearInspectorRecipeFilterMode?: GearInspectorRecipeFilterMode
   // Builder section collapse state — one entry per builder panel.
   // Absent means all sections are expanded (defaults).
   builderRecipeCollapsed?: BuilderPanelCollapsedSections
@@ -145,7 +145,7 @@ const normalizeAutosaveFilters = (filters: AutosaveFiltersState | null | undefin
   return {
     activeMode: filters.activeMode === 'gearInspector' ? 'gearInspector' : 'rules',
     views,
-    testerRecipeFilterMode: filters.testerRecipeFilterMode ?? GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+    gearInspectorRecipeFilterMode: filters.gearInspectorRecipeFilterMode ?? GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
     builderRecipeCollapsed,
     builderSafeguardCollapsed,
   }
@@ -199,7 +199,7 @@ const parseSavedFilters = (raw: unknown): AutosaveFiltersState | null => {
       collapsed: parseCollapsedSections(viewRec['collapsed']),
     }
   }
-  const gearInspectorModeRaw = rec['testerRecipeFilterMode']
+  const gearInspectorModeRaw = rec['gearInspectorRecipeFilterMode']
   const gearInspectorRecipeFilterMode = parseGearInspectorRecipeFilterMode(gearInspectorModeRaw)
   const activeModeRaw = rec['activeMode']
   // Validate stored mode; unrecognized values fall back to 'rules'.
@@ -210,7 +210,7 @@ const parseSavedFilters = (raw: unknown): AutosaveFiltersState | null => {
   return {
     activeMode,
     views,
-    ...(gearInspectorRecipeFilterMode ? { testerRecipeFilterMode: gearInspectorRecipeFilterMode } : {}),
+    ...(gearInspectorRecipeFilterMode ? { gearInspectorRecipeFilterMode: gearInspectorRecipeFilterMode } : {}),
     builderRecipeCollapsed,
     builderSafeguardCollapsed,
   }
@@ -229,7 +229,7 @@ export const filtersSignature = (filters: AutosaveFiltersState | null | undefine
   return JSON.stringify({
     activeMode: normalized.activeMode,
     views,
-    testerRecipeFilterMode: normalized.testerRecipeFilterMode ?? GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+    gearInspectorRecipeFilterMode: normalized.gearInspectorRecipeFilterMode ?? GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
     builderRecipeCollapsed: canonicalize(normalized.builderRecipeCollapsed),
     builderSafeguardCollapsed: canonicalize(normalized.builderSafeguardCollapsed),
   })
@@ -245,7 +245,7 @@ const DEFAULT_AUTOSAVE_FILTERS_SIGNATURE = filtersSignature({
     }
     return acc
   }, {} as Record<RulesFilterPreviewMode, AutosaveFilterView>),
-  testerRecipeFilterMode: GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+  gearInspectorRecipeFilterMode: GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
 })
 
 // Treat exact matches to the factory defaults as "no filters" so autosave stays clean.
@@ -268,7 +268,7 @@ const filterContentSignature = (filters: AutosaveFiltersState | null | undefined
   return JSON.stringify({
     activeMode: normalized.activeMode,
     views,
-    testerRecipeFilterMode: normalized.testerRecipeFilterMode ?? GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+    gearInspectorRecipeFilterMode: normalized.gearInspectorRecipeFilterMode ?? GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
     builderRecipeCollapsed: canonicalize(normalized.builderRecipeCollapsed),
     builderSafeguardCollapsed: canonicalize(normalized.builderSafeguardCollapsed),
   })
@@ -284,7 +284,7 @@ const DEFAULT_FILTER_CONTENT_SIGNATURE = filterContentSignature({
     }
     return acc
   }, {} as Record<RulesFilterPreviewMode, AutosaveFilterView>),
-  testerRecipeFilterMode: GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+  gearInspectorRecipeFilterMode: GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
 })
 
 // Returns true when only UI state (panel open, collapsed sections) differs — no filter
@@ -346,7 +346,7 @@ function computeInitialAutosaveState(args: {
       const savedFilters = parseSavedFilters(savedFiltersRaw)
       const filtersMatchDefaults = areAutosaveFiltersDefault(savedFilters)
       const savedGearInspectorSortRaw = (entry.payload && typeof entry.payload === 'object')
-        ? (entry.payload as Record<string, unknown>)['TesterSort']
+        ? (entry.payload as Record<string, unknown>)['GearInspectorSort']
         : null
       const savedGearInspectorSortNormalized = savedGearInspectorSortRaw ? normalizeGearInspectorSubstatSortState(savedGearInspectorSortRaw) : null
       const savedGearInspectorSort = savedGearInspectorSortNormalized && !isDefaultGearInspectorSubstatSortState(savedGearInspectorSortNormalized)
@@ -416,7 +416,7 @@ function computeInitialAutosaveState(args: {
             ...(savedRecipeOverridesDisabled ? { [NOTE_RECIPE_OVERRIDES_DISABLED_KEY]: true } : {}),
             ...(savedAtRaw ? { AutosaveSavedAt: savedAtRaw } : {}),
             ...(savedFilters ? { Filters: savedFilters } : {}),
-            ...(savedGearInspectorSort ? { TesterSort: savedGearInspectorSort } : {}),
+            ...(savedGearInspectorSort ? { GearInspectorSort: savedGearInspectorSort } : {}),
             ...(() => {
               const rawLogicHubTab = typeof payload['LogicHubDialogTab'] === 'string'
                 ? payload['LogicHubDialogTab']
@@ -526,7 +526,7 @@ export function useAutosaveRestore(opts: {
         : {}),
       ...(noteRecipeOverridesDisabled ? { [NOTE_RECIPE_OVERRIDES_DISABLED_KEY]: true } : {}),
       ...(filtersForSnapshot ? { Filters: filtersForSnapshot } : {}),
-      ...(gearInspectorSortForSnapshot ? { TesterSort: gearInspectorSortForSnapshot } : {}),
+      ...(gearInspectorSortForSnapshot ? { GearInspectorSort: gearInspectorSortForSnapshot } : {}),
     }
     return JSON.stringify(base)
   }, [

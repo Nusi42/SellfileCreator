@@ -612,11 +612,11 @@ export function GearInspectorTabContent({
 	  }, [allocGearInspectorItemId, makeDefaultItem, pruneEasterEggStateForItems, setItems])
 
   const deletableSources = useMemo(() => ([
-    { key: 'manual' as const, label: t('testerSourceManual') },
-    { key: 'inventory' as const, label: t('testerSourceInventory') },
-    { key: 'collection' as const, label: t('testerSourceEquippedCollection') },
-    { key: 'vault' as const, label: t('testerSourceEquippedVault') },
-    { key: 'inbox' as const, label: t('testerSourceInbox') },
+    { key: 'manual' as const, label: t('gearInspectorSourceManual') },
+    { key: 'inventory' as const, label: t('gearInspectorSourceInventory') },
+    { key: 'collection' as const, label: t('gearInspectorSourceEquippedCollection') },
+    { key: 'vault' as const, label: t('gearInspectorSourceEquippedVault') },
+    { key: 'inbox' as const, label: t('gearInspectorSourceInbox') },
   ]), [t])
 
   const pendingDeleteMeta = useMemo(() => {
@@ -1139,7 +1139,7 @@ export function GearInspectorTabContent({
                   size="small"
                   color="success"
                   variant="filled"
-                  label={t('testerNoMatch')}
+                  label={t('gearInspectorNoMatch')}
                 />
               )}
             </Box>
@@ -1201,7 +1201,7 @@ export function GearInspectorTabContent({
                     if (!Number.isFinite(setNum) || setNum === 0) {
                       return (
                         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                          <span>{t('testerValueUnknown')}</span>
+                          <span>{t('gearInspectorValueUnknown')}</span>
                         </Box>
                       )
                     }
@@ -1576,7 +1576,7 @@ export function GearInspectorTabContent({
                   size="small"
                   color="success"
                   variant="filled"
-                  label={t('testerNoMatch')}
+                  label={t('gearInspectorNoMatch')}
                 />
               )}
             </Box>
@@ -1677,7 +1677,7 @@ export function GearInspectorTabContent({
           </Box>
 	        ) : (
 	          <EmptyStateMessage minHeight="100%" verticalAlign={emptyStateVerticalAlign}>
-	            {t('testerTableEmpty')}
+	            {t('gearInspectorTableEmpty')}
 	          </EmptyStateMessage>
 	        )}
       </Box>

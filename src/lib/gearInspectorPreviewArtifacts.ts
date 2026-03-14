@@ -80,7 +80,7 @@ export function buildPreviewArtifactFromGearInspectorItem(
 ): NormalizedGearArtifact {
   const extras = item.previewExtras
   const id = extras?.id ?? options?.fallbackId ?? 0
-  const source = extras?.source ?? 'tester'
+  const source = extras?.source ?? 'manual'
   const rerollCount = extras?.rerollCount ?? 0
   const equippedToChampionId = extras?.equippedToChampionId ?? null
   const equippedChampionBaseId = extras?.equippedChampionBaseId ?? null

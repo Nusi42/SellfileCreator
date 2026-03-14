@@ -67,13 +67,13 @@ export function GearInspectorRuleReferenceChip({
   // Rule source flags drive tint + label behavior.
   const isFinalSellSource = match.ruleSource === RULE_SOURCE_FINAL_SELL
   const isSafeguardSource = match.ruleSource === RULE_SOURCE_SAFEGUARDS
-  const jumpTooltip = isSafeguardSource ? t('testerJumpToSafeguard') : t('testerJumpToRecipe')
+  const jumpTooltip = isSafeguardSource ? t('gearInspectorJumpToSafeguard') : t('gearInspectorJumpToRecipe')
   if (isFinalSellSource) {
     if (!showFinalSellLabel) return null
     const finalSellTint = buildSourceChipSurfaceTint(theme, theme.palette.error.main)
     return (
       <GearInspectorRuleReferenceChipBody
-        label={t('testerFinalSellChip')}
+        label={t('gearInspectorFinalSellChip')}
         variant="outlined"
         clickable={false}
         ruleIndex={null}

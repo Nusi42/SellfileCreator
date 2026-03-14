@@ -1144,7 +1144,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
     // Summary title: name is optional, so fall back to a muted placeholder for fast scanning.
     const rawName = (pendingNameById.get(rule.id) ?? rule.name ?? '').trim()
     const nameDecoration = parseRecipeNameDirectives(rawName || undefined, '')
-    const summaryTitle = nameDecoration.displayName || `${t('testerRule')} ${ruleIndex + 1}`
+    const summaryTitle = nameDecoration.displayName || `${t('gearInspectorRule')} ${ruleIndex + 1}`
     const isEditingRuleName = editingRuleNameId === rule.id
     // Summary status keeps the header scannable: checkmark when active, X when Off.
     const ruleActive = rule.activation !== SafeguardRuleActivation.Off

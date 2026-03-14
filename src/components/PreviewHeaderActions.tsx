@@ -242,11 +242,11 @@ export default function PreviewHeaderActions(props: {
     ? (baseRuleCount === 1 ? t('loadedBaseRuleOne') : t('loadedBaseRuleMany', { n: formattedBaseRuleCount }))
     : null
   const gearInspectorTotalLabel = gearInspectorCountValue === 1
-    ? t('testerItemsCountOne')
-    : t('testerItemsCountMany', { n: numberFormatter.format(gearInspectorCountValue) })
+    ? t('gearInspectorItemsCountOne')
+    : t('gearInspectorItemsCountMany', { n: numberFormatter.format(gearInspectorCountValue) })
   const gearInspectorFilteredLabel = gearInspectorFilteredValue === 1
-    ? t('testerItemsCountOne')
-    : t('testerItemsCountMany', { n: numberFormatter.format(gearInspectorFilteredValue) })
+    ? t('gearInspectorItemsCountOne')
+    : t('gearInspectorItemsCountMany', { n: numberFormatter.format(gearInspectorFilteredValue) })
   const chipBaseLabel = isRulesMode
     ? (filterActive && typeof filteredCount === 'number'
       ? `${formatRulesCount(t, filteredCount, { limit: TOTAL_RULE_COUNT_LIMIT })} / ${mergedCountLabel}`
@@ -306,31 +306,31 @@ export default function PreviewHeaderActions(props: {
   const previewModeChip = isRulesMode ? rulesModeChip : gearInspectorModeChip
 
   const rulesModeLabel = t('previewModeRules')
-  const gearInspectorModeLabel = t('previewModeTester')
-  const sortLabel = t('testerSortLabel')
-  const sortClearLabel = t('testerSortClear')
-  const sortDirectionLabel = t('testerSortDirection')
-  const sortGlyphsLabel = t('testerSortGlyphsLabel')
-	  const sortGlyphsExcludeLabel = t('testerSortGlyphsExclude')
-	  const sortGlyphsIncludeLabel = t('testerSortGlyphsInclude')
-	  const sortNormalizedLabel = t('testerSortNormalized')
-	  const sortNormalizedTooltip = t('testerSortNormalizedTooltip')
-  const sortNormalizedUseActiveLabel = t('testerSortNormalizedUseActive')
-  const sortNormalizedUseActiveTooltip = t('testerSortNormalizedUseActiveTooltip')
-  const normalizedPresetTooltipEmptyLabel = t('testerNormalizedPresetTooltipEmpty')
-  const normalizedPresetTooltipRightClickHint = t('testerNormalizedPresetTooltipRightClickHint')
-  const sortNormalizedPresetActionsOverwriteLabel = t('testerSortNormalizedPresetActionsOverwrite')
-	  const sortHighToLowLabel = t('testerSortHighToLow')
-	  const sortLowToHighLabel = t('testerSortLowToHigh')
-	  const sortLastUsedLabel = t('testerLastUsedFilterLabel')
-	  const sortNewestLabel = t('testerSortNewestLabel')
-	  const sortImprovementChanceLabel = t('testerSortImprovementChanceLabel')
-	  const sortGlyphInheritDirectionLabel = t('testerSortPerKeyInheritDirection')
-	  const sortGlyphFlippedDirectionLabel = t('testerSortPerKeyFlippedDirection')
-	  const sortGroupingArtifactsLabel = t('testerSortGroupingArtifactsLabel')
-	  const sortGroupingAccessoriesLabel = t('testerSortGroupingAccessoriesLabel')
-	  const sortGroupingNoHeadersLabel = t('testerSortGroupingNoHeadersLabel')
-	  const sortGroupingNoHeadersTooltip = t('testerSortGroupingNoHeadersTooltip')
+  const gearInspectorModeLabel = t('previewModeGearInspector')
+  const sortLabel = t('gearInspectorSortLabel')
+  const sortClearLabel = t('gearInspectorSortClear')
+  const sortDirectionLabel = t('gearInspectorSortDirection')
+  const sortGlyphsLabel = t('gearInspectorSortGlyphsLabel')
+	  const sortGlyphsExcludeLabel = t('gearInspectorSortGlyphsExclude')
+	  const sortGlyphsIncludeLabel = t('gearInspectorSortGlyphsInclude')
+	  const sortNormalizedLabel = t('gearInspectorSortNormalized')
+	  const sortNormalizedTooltip = t('gearInspectorSortNormalizedTooltip')
+  const sortNormalizedUseActiveLabel = t('gearInspectorSortNormalizedUseActive')
+  const sortNormalizedUseActiveTooltip = t('gearInspectorSortNormalizedUseActiveTooltip')
+  const normalizedPresetTooltipEmptyLabel = t('gearInspectorNormalizedPresetTooltipEmpty')
+  const normalizedPresetTooltipRightClickHint = t('gearInspectorNormalizedPresetTooltipRightClickHint')
+  const sortNormalizedPresetActionsOverwriteLabel = t('gearInspectorSortNormalizedPresetActionsOverwrite')
+	  const sortHighToLowLabel = t('gearInspectorSortHighToLow')
+	  const sortLowToHighLabel = t('gearInspectorSortLowToHigh')
+	  const sortLastUsedLabel = t('gearInspectorLastUsedFilterLabel')
+	  const sortNewestLabel = t('gearInspectorSortNewestLabel')
+	  const sortImprovementChanceLabel = t('gearInspectorSortImprovementChanceLabel')
+	  const sortGlyphInheritDirectionLabel = t('gearInspectorSortPerKeyInheritDirection')
+	  const sortGlyphFlippedDirectionLabel = t('gearInspectorSortPerKeyFlippedDirection')
+	  const sortGroupingArtifactsLabel = t('gearInspectorSortGroupingArtifactsLabel')
+	  const sortGroupingAccessoriesLabel = t('gearInspectorSortGroupingAccessoriesLabel')
+	  const sortGroupingNoHeadersLabel = t('gearInspectorSortGroupingNoHeadersLabel')
+	  const sortGroupingNoHeadersTooltip = t('gearInspectorSortGroupingNoHeadersTooltip')
   const exportMenuEnabled = React.useMemo(
     // Also enabled when a local-export fallback is provided (push-mode split button).
     () => typeof onToggleDedupeDefault === 'function' || typeof onToggleOmitDisabled === 'function' || !!onExportLocal,
@@ -599,16 +599,16 @@ export default function PreviewHeaderActions(props: {
 	  const artifactGroupingToggles = [
 	    {
 	      key: 'set',
-	      label: t('testerSortGroupingArtifactsSetLabel'),
-	      tooltip: t('testerSortGroupingArtifactsSetTooltip'),
+	      label: t('gearInspectorSortGroupingArtifactsSetLabel'),
+	      tooltip: t('gearInspectorSortGroupingArtifactsSetTooltip'),
 	      icon: <CategoryIcon sx={GROUPING_ICON_PRIMARY_SX} />,
 	      active: artifactGroupBySet,
 	      onToggle: onToggleGearInspectorArtifactGroupBySet,
 	    },
 	    {
 	      key: 'slot',
-	      label: t('testerSortGroupingArtifactsSlotLabel'),
-	      tooltip: t('testerSortGroupingArtifactsSlotTooltip'),
+	      label: t('gearInspectorSortGroupingArtifactsSlotLabel'),
+	      tooltip: t('gearInspectorSortGroupingArtifactsSlotTooltip'),
 	      icon: <GridViewIcon sx={GROUPING_ICON_PRIMARY_SX} />,
 	      active: artifactGroupBySlot,
 	      onToggle: onToggleGearInspectorArtifactGroupBySlot,
@@ -617,24 +617,24 @@ export default function PreviewHeaderActions(props: {
 	  const accessoryGroupingToggles = [
 	    {
 	      key: 'faction',
-	      label: t('testerSortGroupingAccessoriesFactionLabel'),
-	      tooltip: t('testerSortGroupingAccessoriesFactionTooltip'),
+	      label: t('gearInspectorSortGroupingAccessoriesFactionLabel'),
+	      tooltip: t('gearInspectorSortGroupingAccessoriesFactionTooltip'),
 	      icon: <GroupsIcon sx={GROUPING_ICON_PRIMARY_SX} />,
 	      active: accessoryGroupByFaction,
 	      onToggle: onToggleGearInspectorAccessoryGroupByFaction,
 	    },
 	    {
 	      key: 'set',
-	      label: t('testerSortGroupingAccessoriesSetLabel'),
-	      tooltip: t('testerSortGroupingAccessoriesSetTooltip'),
+	      label: t('gearInspectorSortGroupingAccessoriesSetLabel'),
+	      tooltip: t('gearInspectorSortGroupingAccessoriesSetTooltip'),
 	      icon: <CategoryIcon sx={GROUPING_ICON_PRIMARY_SX} />,
 	      active: accessoryGroupBySet,
 	      onToggle: onToggleGearInspectorAccessoryGroupBySet,
 	    },
 	    {
 	      key: 'slot',
-	      label: t('testerSortGroupingAccessoriesSlotLabel'),
-	      tooltip: t('testerSortGroupingAccessoriesSlotTooltip'),
+	      label: t('gearInspectorSortGroupingAccessoriesSlotLabel'),
+	      tooltip: t('gearInspectorSortGroupingAccessoriesSlotTooltip'),
 	      icon: <GridViewIcon sx={GROUPING_ICON_PRIMARY_SX} />,
 	      active: accessoryGroupBySlot,
 	      onToggle: onToggleGearInspectorAccessoryGroupBySlot,
@@ -797,7 +797,7 @@ export default function PreviewHeaderActions(props: {
               <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{rulesModeLabel}</Typography>
             </ToggleButton>
           </MarkdownTooltip>
-          <MarkdownTooltip markdown={t('previewModeTesterTooltip')}>
+          <MarkdownTooltip markdown={t('previewModeGearInspectorTooltip')}>
             <ToggleButton
               value="gearInspector"
               aria-label={gearInspectorModeLabel}
@@ -933,7 +933,7 @@ export default function PreviewHeaderActions(props: {
               )}
             </Box>
             <Box sx={{ minWidth: 0, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 0.5, ml: 1, mr: 1 }}>
-              <MarkdownTooltip markdown={t('testerSortTooltip')}>
+              <MarkdownTooltip markdown={t('gearInspectorSortTooltip')}>
                 <span>
                   <Button
                     size="small"
@@ -1152,7 +1152,7 @@ export default function PreviewHeaderActions(props: {
             >
               {/* Title block mirrors the filter panel popouts so "Sort" feels like a first-class control. */}
               <Box sx={{ px: 2.25, pt: 2.25, pb: 1 }}>
-                <ContextMenuTitle title={sortLabel} description={t('testerSortPopoverDescription')} />
+                <ContextMenuTitle title={sortLabel} description={t('gearInspectorSortPopoverDescription')} />
               </Box>
 	              {[
 	                ...STAT_VARIANTS_PRIORITY,
@@ -1517,7 +1517,7 @@ export default function PreviewHeaderActions(props: {
 	                            : String(presetId + 1)
 	                          const tooltipMarkdown = preset
 	                            ? buildGearInspectorNormalizedPresetTooltipMarkdown({
-	                                title: t('testerGridNormalizedPresetTitle', { n: presetId + 1 }),
+	                                title: t('gearInspectorGridNormalizedPresetTitle', { n: presetId + 1 }),
 	                                preset,
 	                                labelForVariant: (variant) => t(statVariantI18nKey(variant)),
 	                                emptyLabel: normalizedPresetTooltipEmptyLabel,
@@ -1605,7 +1605,7 @@ export default function PreviewHeaderActions(props: {
 	                            : String(presetId + 1)
 	                          const tooltipMarkdown = preset
 	                            ? buildGearInspectorNormalizedPresetTooltipMarkdown({
-	                                title: t('testerGridNormalizedPresetTitle', { n: presetId + 1 }),
+	                                title: t('gearInspectorGridNormalizedPresetTitle', { n: presetId + 1 }),
 	                                preset,
 	                                labelForVariant: (variant) => t(statVariantI18nKey(variant)),
 	                                emptyLabel: normalizedPresetTooltipEmptyLabel,

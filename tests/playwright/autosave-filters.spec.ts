@@ -99,7 +99,7 @@ const savedAutosaveEntry = (() => {
           collapsed: savedCollapsedState,
         },
       },
-      testerRecipeFilterMode: 'first',
+      gearInspectorRecipeFilterMode: 'first',
     },
   }
   const serialized = JSON.stringify(payload)
@@ -318,8 +318,8 @@ test.describe('autosave filter restore', () => {
     const storedOpen = await page.evaluate((key) => window.localStorage.getItem(key), RULES_FILTER_OPEN_STORAGE_KEY)
     expect(storedOpen).toBe(JSON.stringify(restoredOpenMap))
 
-    const testerToggle = page.getByRole('button', { name: /Gear Inspector/i })
-    await expect(testerToggle).toHaveAttribute('aria-pressed', 'true')
+    const gearInspectorToggle = page.getByRole('button', { name: /Gear Inspector/i })
+    await expect(gearInspectorToggle).toHaveAttribute('aria-pressed', 'true')
 
     const filterButton = page.getByRole('button', { name: /Filters On/i })
     await expect(filterButton).toBeVisible()
