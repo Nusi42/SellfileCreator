@@ -456,6 +456,12 @@ export function useSfrHistory(params: {
   const canUndo = history.index > 0
   const canRedo = history.index < history.entries.length - 1
   const isDirty = history.savedIndex === null ? history.index > 0 : history.index !== history.savedIndex
+  // Expose the current entry's rule-state signature so callers can use it as a cheap pipeline
+  // cache key without re-serializing the full payload. Returns null before any entry is recorded.
+  const currentEntrySignature = useMemo(() => {
+    const e = history.entries[history.index]
+    return e ? { crc: e.signatureCrc, size: e.signatureSize } : null
+  }, [history.entries, history.index])
   const undoDescriptor = canUndo ? readDescriptor(history.entries[history.index]) : null
   const redoDescriptor = canRedo ? readDescriptor(history.entries[history.index + 1]) : null
   const undoPreview = useMemo<HistoryPreview>(() => ({ descriptor: undoDescriptor }), [undoDescriptor])
@@ -520,6 +526,7 @@ export function useSfrHistory(params: {
     suppressNextSnapshot,
     resetHistory,
     captureSnapshotNow,
+    currentEntrySignature,
     undoPreview,
     redoPreview,
     historyTimeline,

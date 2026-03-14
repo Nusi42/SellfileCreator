@@ -183,6 +183,10 @@ const WORKLOAD_PENDING_MIN_RATIO = 0.02 as const
 const WORKLOAD_SPINNER_HANG_MS = 450 as const
 // Coalesce rapid edits so we do not restart the pipeline for every keystroke/reorder.
 const PIPELINE_DEBOUNCE_MS = 200 as const
+// Pipeline result cache: maximum number of entries kept in memory at once.
+const PIPELINE_CACHE_MAX = 10 as const
+// Pipeline result cache: entries older than this are considered stale and evicted.
+const PIPELINE_CACHE_TTL_MS = 3 * 60 * 1000
 // Stable empty metaset snapshot lets filter memos avoid recomputing on metaset edits
 // when the current filters do not reference any metaset ids.
 const EMPTY_METASETS: Metaset[] = []
@@ -246,6 +250,7 @@ import type { FinalSellRemainderConfig, FinalSellLevel, LogicHubDialogTab } from
 import { useRecipeSelection } from './hooks/useRecipeSelection'
 import { useSafeguardSelection } from './hooks/useSafeguardSelection'
 import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
+import type { PipelineResult } from './hooks/useRuleCacheWorker'
 import { useGearInspectorItemsActions } from './hooks/useGearInspectorItemsActions'
 import {
   resolveArtifactItemIdWithFallback,
@@ -932,6 +937,27 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Track the active pipeline abort controller so we can cancel if needed.
   const pipelineAbortRef = useRef<AbortController | null>(null)
   const pipelineDebounceRef = useRef<number | null>(null)
+  // Pipeline result cache: skip re-running the worker AND all JS post-processing when
+  // undo/redo revisits a state we already evaluated.
+  // Key = historyCrc:historySize:flags; evicted by LRU size cap or TTL.
+  // Stores both the raw worker result and the pre-built UI state so cache hits can call
+  // setState with the exact same object references, letting React.memo skip row re-renders.
+  type PipelineCacheEntry = {
+    result: PipelineResult
+    processedSnapshot: RecipeRulesStateSnapshot
+    // null when includeMatchesInPipeline was false at cache-fill time (currently always true).
+    processedRows: GearInspectorPreviewRow[] | null
+    processedSafeguardDetection: SafeguardDetectionSnapshot | null
+    processedUpgradeChance: Map<number, UpgradeChanceWasmEntry> | null
+    insertedAt: number
+  }
+  const pipelineCacheRef = useRef<Map<string, PipelineCacheEntry>>(new Map())
+  // Insertion order array enables O(1) LRU eviction by shifting the oldest key.
+  const pipelineCacheOrderRef = useRef<string[]>([])
+  // Ref-shadowed so launchPipeline can read the current signature without adding it to the
+  // pipeline dep array (which would cause spurious re-runs on selection-only history steps).
+  // Initialized to null; the update effect below keeps it current after the first render.
+  const currentEntrySignatureRef = useRef<{ crc: string; size: number } | null>(null)
   // Gear Inspector substat sorting is view-only but should persist across sessions like filters.
   // Declared here so the pipeline effect (below) can reference both sort prefs and the upgrade-chance
   // flag without TDZ errors — their derived values are consumed inside the effect dep array.
@@ -941,6 +967,30 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // True when the improvement-chance sort key appears in the active sort priority list.
   const safeguardChanceSortEnabled = (gearInspectorSubstatSortPrefs.state.priorities ?? [])
     .some((k) => Number(k) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE)
+  // Wipe the entire pipeline cache whenever the artifact set changes (DB refresh updates stats).
+  // All cached results were computed against the previous artifact data and are now invalid.
+  // Declared before the pipeline effect so it runs first in the same React commit.
+  useEffect(() => {
+    pipelineCacheRef.current.clear()
+    pipelineCacheOrderRef.current.length = 0
+  }, [gearInspectorPreviewArtifacts])
+
+  // Proactively evict entries that have exceeded the TTL so GC can reclaim their memory
+  // even when no new pipeline runs happen to trigger a lookup-based eviction.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const now = Date.now()
+      for (const [key, entry] of pipelineCacheRef.current) {
+        if (now - entry.insertedAt > PIPELINE_CACHE_TTL_MS) {
+          pipelineCacheRef.current.delete(key)
+          const idx = pipelineCacheOrderRef.current.indexOf(key)
+          if (idx >= 0) pipelineCacheOrderRef.current.splice(idx, 1)
+        }
+      }
+    }, 60_000)
+    return () => window.clearInterval(id)
+  }, [])
+
   useEffect(() => {
     // Pipeline payloads use immediate state snapshots.
     // Why: deferred snapshots can emit follow-up renders for the same user click
@@ -1030,6 +1080,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // Request WASM upgrade-chance computation when the overlay or sort column is active.
         computeUpgradeChance: showSafeguardUpgradeChance || safeguardChanceSortEnabled,
       }
+      // Build a cache key from the history signature (covers recipes, note, safeguards, etc.)
+      // and the 4 boolean flags that affect pipeline output. Null when no history entry exists yet.
+      // Read via ref so this logic stays out of the effect dep array (avoids selection-only re-runs).
+      const currentSig = currentEntrySignatureRef.current
+      const cacheKey = currentSig
+        ? `${currentSig.crc}:${currentSig.size}:${omitDisabledForExport ? 1 : 0}${dedupeDefault ? 1 : 0}${showSafeguardUpgradeChance ? 1 : 0}${safeguardChanceSortEnabled ? 1 : 0}`
+        : null
+      const nowMs = Date.now()
+      const cachedEntry = cacheKey ? (pipelineCacheRef.current.get(cacheKey) ?? null) : null
+      // Treat entries past their TTL as misses and remove them eagerly to free memory.
+      const cachedResult = (cachedEntry !== null && nowMs - cachedEntry.insertedAt <= PIPELINE_CACHE_TTL_MS)
+        ? cachedEntry.result : null
+      if (cachedEntry !== null && cachedResult === null) {
+        pipelineCacheRef.current.delete(cacheKey!)
+        const expiredIdx = pipelineCacheOrderRef.current.indexOf(cacheKey!)
+        if (expiredIdx >= 0) pipelineCacheOrderRef.current.splice(expiredIdx, 1)
+      }
+
       // Cancel the prior in-flight run only when dispatching a new payload.
       // Effect rerenders alone no longer abort active work.
       if (pipelineAbortRef.current) {
@@ -1039,22 +1107,56 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const abortController = new AbortController()
       pipelineAbortRef.current = abortController
 
-      // One pipeline invocation per update after early fast paths.
-      runPipeline(pipelinePayload, {
-        signal: abortController.signal,
-        onProgress: (progress) => {
-          if (requestToken !== rulesBuildingTokenRef.current) return
-          setRulesBuildProgress(progress)
-          if (includeMatchesInPipeline) setGearEntriesProgress(progress)
-        },
-      })
+      // On a cache hit resolve immediately without touching the worker.
+      // On a miss dispatch to the worker as usual.
+      const resultPromise = cachedResult !== null
+        ? Promise.resolve(cachedResult)
+        : runPipeline(pipelinePayload, {
+            signal: abortController.signal,
+            onProgress: (progress) => {
+              if (requestToken !== rulesBuildingTokenRef.current) return
+              setRulesBuildProgress(progress)
+              if (includeMatchesInPipeline) setGearEntriesProgress(progress)
+            },
+          })
+      resultPromise
         .then((result) => {
-          const { state, matches, safeguardDetection, upgradeChanceByArtifactId: upgradeChanceResult } = result
+          // Abort/stale-token guards apply to both cache hits and misses.
           if (abortController.signal.aborted) {
             // Abort is expected control flow during rapid edit bursts.
             return
           }
           if (requestToken !== rulesBuildingTokenRef.current) return
+
+          // Fast path: processed outputs are already cached — skip all JS post-processing
+          // and serve the exact same object references so React.memo in row components
+          // can skip re-rendering unchanged rows on undo/redo revisits.
+          if (cachedResult !== null && cachedEntry !== null) {
+            // Rule-table snapshots are large; transition so input-heavy dialogs stay responsive.
+            startTransition(() => {
+              setRecipeRulesState(cachedEntry.processedSnapshot)
+            })
+            if (includeMatchesInPipeline && cachedEntry.processedRows !== null) {
+              startTransition(() => {
+                setGearInspectorPreviewRows(cachedEntry.processedRows!)
+              })
+            }
+            if (includeMatchesInPipeline || gearInspectorMatchResetRef.current) {
+              setGearEntriesCommittedBuildId(requestToken)
+              setGearEntriesActiveBuildId(requestToken)
+            }
+            startTransition(() => {
+              setSafeguardDetection(cachedEntry.processedSafeguardDetection)
+              setUpgradeChanceByArtifactId(cachedEntry.processedUpgradeChance)
+            })
+            lastRecipeNamesRef.current = recipeNamesForBuild
+            recoverMissingRulesRef.current = false
+            return
+          }
+
+          // Slow path: fresh worker result — process, display, then cache processed outputs
+          // so future revisits can use the fast path above.
+          const { state, matches, safeguardDetection, upgradeChanceByArtifactId: upgradeChanceResult } = result
           const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
           const snapshot: RecipeRulesStateSnapshot = {
             baseRules,
@@ -1073,6 +1175,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           startTransition(() => {
             setRecipeRulesState(snapshot)
           })
+          let processedRows: GearInspectorPreviewRow[] | null = null
           if (includeMatchesInPipeline) {
             const matchMap = new Map<number, GearInspectorMatchWorkerItemResult>()
             for (const entry of matches) {
@@ -1094,9 +1197,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 matchingRecipeDecisions: matchEntry?.matchingRecipeDecisions ?? [],
               })
             }
+            processedRows = sortGearInspectorRows(rows)
             // Gear Inspector row lists can be large; transition to avoid blocking edits.
             startTransition(() => {
-              setGearInspectorPreviewRows(sortGearInspectorRows(rows))
+              setGearInspectorPreviewRows(processedRows!)
             })
           }
           // Advance Gear Inspector build ids only when Gear Inspector rows were requested, or when a
@@ -1122,6 +1226,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           if (shouldRetryWarm) {
             recoverMissingRulesRef.current = true
             // Force a full warm/match pass so restored recipes cannot get stuck empty.
+            // Do not cache the retry result; the next normal run will populate the cache.
             runPipeline(
               {
                 ...pipelinePayload,
@@ -1207,6 +1312,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             return
           }
           recoverMissingRulesRef.current = false
+
+          // Cache the processed outputs so the next revisit of this history state is instant.
+          if (cacheKey !== null) {
+            if (pipelineCacheOrderRef.current.length >= PIPELINE_CACHE_MAX) {
+              pipelineCacheRef.current.delete(pipelineCacheOrderRef.current.shift()!)
+            }
+            pipelineCacheRef.current.set(cacheKey, {
+              result,
+              processedSnapshot: snapshot,
+              processedRows,
+              processedSafeguardDetection: safeguardDetection ?? null,
+              processedUpgradeChance: upgradeChanceResult ?? null,
+              insertedAt: Date.now(),
+            })
+            pipelineCacheOrderRef.current.push(cacheKey)
+          }
         })
         .catch((error: unknown) => {
           if (isAbortError(error)) return
@@ -1471,6 +1592,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     describeNextChange,
     suppressNextSnapshot,
     captureSnapshotNow,
+    currentEntrySignature,
     undoPreview,
     redoPreview,
     historyTimeline,
@@ -1511,6 +1633,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     autoApplySelectedRecipe,
   })
   describeNextChangeRef.current = describeNextChange
+  // Keep the ref in sync so launchPipeline (200ms-debounced) reads the correct value when it fires.
+  useEffect(() => { currentEntrySignatureRef.current = currentEntrySignature }, [currentEntrySignature])
   // Use one SSOT transition wrapper for heavy tab/dialog writes so every pathway
   // (builder, minima, safeguards, final-sell, gear) shares the same scheduling behavior.
   const setCustomRecipesTransition = useNonUrgentStateDispatch(setCustomRecipes)

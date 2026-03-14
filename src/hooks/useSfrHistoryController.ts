@@ -64,6 +64,7 @@ type ControllerResult = {
   captureSnapshotNow: (descriptor: HistoryEntryDescriptor | null, options?: { markSaved?: boolean; forceAppend?: boolean }) => void
   undoPreview: HistoryPreview
   redoPreview: HistoryPreview
+  currentEntrySignature: { crc: string; size: number } | null
   historyTimeline: HistoryTimelineEntry[]
   jumpToHistoryIndex: (index: number) => boolean
   clearHistory: () => void
@@ -259,6 +260,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
     describeNextChange,
     suppressNextSnapshot,
     captureSnapshotNow,
+    currentEntrySignature,
     undoPreview,
     redoPreview,
     historyTimeline,
@@ -336,6 +338,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
     describeNextChange,
     suppressNextSnapshot,
     captureSnapshotNow,
+    currentEntrySignature,
     undoPreview,
     redoPreview,
     historyTimeline,

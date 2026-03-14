@@ -43,7 +43,9 @@ type RuleCacheStateSnapshot = {
   excludedByTotalLimitIndices: number[]
 }
 
-type PipelineResult = {
+// Exported so callers (e.g. App.tsx pipeline cache) can type-annotate stored results without
+// duplicating the shape or relying on Awaited<ReturnType<...>> at call sites.
+export type PipelineResult = {
   state: RuleCacheStateSnapshot
   matches: GearInspectorMatchWorkerItemResult[]
   safeguardDetection: SafeguardDetectionSnapshot | null
