@@ -4339,6 +4339,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return sortGearInspectorRows(rows)
   }, [builderMode, gearInspectorRecipeFilterMode, safeguardSelectedRuleItemKeySet, safeguardAnyMatchItemKeySet, gearInspectorRecipeFilterSelectedSet, gearEntriesAfterRulesFilter])
+  // Opaque key that changes when the filter selection changes but stays stable across DB/rule
+  // updates with the same filter active.  The grid uses it to suppress card entering animations
+  // on filter switches while still animating for genuine data changes.
+  const gearInspectorEnterKey = useMemo(() => {
+    if (builderMode === 'safeguard') {
+      return `sg:${gearInspectorRecipeFilterMode}:${selectedSafeguardRuleId ?? 'none'}`
+    }
+    const indices = selectedRecipeIndices.slice().sort((a, b) => a - b).join(',')
+    return `r:${gearInspectorRecipeFilterMode}:${indices}`
+  }, [builderMode, gearInspectorRecipeFilterMode, selectedSafeguardRuleId, selectedRecipeIndices])
   // Summarize the filtered Gear Inspector rows so the preview chip mirrors the grid contents.
   const gearInspectorOutcomeSummaryForPreview = useMemo(
     () => buildGearInspectorOutcomeSummary(gearEntriesForTable),
@@ -7070,6 +7080,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 safeguardRules={resolvedSafeguardRules}
                 upgradeChanceByArtifactId={upgradeChanceByArtifactId}
                 emptyStateVerticalAlign={emptyStateVerticalAlign}
+                enterKey={gearInspectorEnterKey}
               />
             </Box>
             <Box

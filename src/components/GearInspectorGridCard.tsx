@@ -1223,12 +1223,14 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         // Context mode opacity takes precedence; falls back to safeguards dim or full opacity.
         opacity: contextOpacity ?? (cardDimmed ? 0.35 : 1),
         transition: 'opacity 220ms ease, border-color 260ms ease, box-shadow 280ms ease, background-color 280ms ease',
-        // Programmatic focus pulse takes priority; match-change pulse fires next; enter animation otherwise.
-        // Only one animation plays at a time — all three resolve to 'none' when idle.
+        // Programmatic focus pulse takes priority.  Entering cards play both the slide-in
+        // and the match-change color pulse simultaneously so newly-appearing items are as
+        // visually prominent as cards whose outcome flipped.  Match-change pulse fires alone
+        // for outcome-only changes.  All paths resolve to 'none' when idle.
         animation: focusPulseActive
           ? `${GEAR_INSPECTOR_GRID_CARD_FOCUS_PULSE_KEYFRAMES} ${GRID_CARD_FOCUS_PULSE_DURATION_MS}ms ease-in-out 1`
           : animateIn
-          ? `${GEAR_INSPECTOR_GRID_CARD_ENTER_KEYFRAMES} ${GRID_CARD_ENTER_ANIMATION_MS}ms ease-out 1`
+          ? `${GEAR_INSPECTOR_GRID_CARD_ENTER_KEYFRAMES} ${GRID_CARD_ENTER_ANIMATION_MS}ms ease-out 1, ${GEAR_INSPECTOR_GRID_CARD_MATCH_CHANGE_KEYFRAMES} ${GRID_CARD_MATCH_CHANGE_PULSE_MS}ms ease-out 1`
           : matchChangePulsing
           ? `${GEAR_INSPECTOR_GRID_CARD_MATCH_CHANGE_KEYFRAMES} ${GRID_CARD_MATCH_CHANGE_PULSE_MS}ms ease-out 1`
           : 'none',
