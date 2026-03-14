@@ -1181,9 +1181,10 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
       }
     }
 
-    // Keep focus: companions are primary (100%), sell-tagged are companion (45%).
-    // Sell focus (default, including Matched alone): sell-tagged are primary (100%), companions are companion (45%).
+    // Keep focus: companions are primary (100%), sell-tagged are companion (intermediate%).
+    // Sell focus (default, including Matched alone): sell-tagged are primary (100%), companions are companion (intermediate%).
     // Both Keep+Sell: sell-tagged + companions are both primary (100%).
+    // Companion elevation only applies when Matched is active; without Matched, companions render at 25% like other.
     const keepFocused = keepActive && !sellActive
     const bothFocused = keepActive && sellActive
 
@@ -1210,6 +1211,8 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
         else if (isCompanion) group = 'companion'
         else group = 'other'
       }
+      // Without Matched, companions lose elevation and merge with the other group at 25%.
+      if (!matchedActive && group === 'companion') group = 'other'
       contextGroupById.set(row.artifact.id, group)
 
       // In Matched-only mode the "Other Group" is hidden; Unmatched mode shows it at 25%.

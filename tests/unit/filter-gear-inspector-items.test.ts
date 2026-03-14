@@ -700,11 +700,11 @@ test('Unmatched+Sell context mode: shows other group at 25% (all items returned)
   }
   const result = filterGearInspectorItems(rows, state)
 
-  // All three items are visible when Unmatched expands the other group.
+  // All three items visible; companion loses elevation when Matched is off.
   assert.equal(result.items.length, 3)
   const g = result.contextGroupById as Map<number, GearInspectorContextGroup>
   assert.equal(g.get(artA.id), 'primary')
-  assert.equal(g.get(artB.id), 'companion')
+  assert.equal(g.get(artB.id), 'other')   // no elevation without Matched
   assert.equal(g.get(artC.id), 'other')
 })
 
