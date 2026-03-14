@@ -80,6 +80,21 @@ const RULE_ROW_CHANGE_PULSE_KEYFRAMES = keyframes`
   100% { background-color: inherit; }
 `
 
+// Stable animation key for a rule row, used by both enter and change-pulse tracking.
+// SFR recipe rows use RecipeID (stable across inserts/deletes) so inserting a new
+// recipe does not make adjacent rows look new.  Non-recipe rows fall back to lineIdx
+// (positional) because they have no persistent identity across worker results.
+function computeRuleAnimKey(rule: HsfRuleWithRecipe, fallbackIdx: number): string {
+  const recipeIdx = getRuleRecipeIndex(rule)
+  const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : fallbackIdx
+  // SFR recipe rows: RecipeID is a durable 1-based identifier assigned by the builder.
+  if (rule.__source === RULE_SOURCE_SFR && recipeIdx !== null) return `sfr_${recipeIdx}`
+  // Safeguard injection rows share space with their associated recipe; prefix prevents collisions.
+  if (rule.__source === RULE_SOURCE_SAFEGUARDS) return `sg_${recipeIdx ?? lineIdx}`
+  // Base HSF and final-sell rows have no stable ID — position is the best proxy.
+  return `base_${lineIdx}`
+}
+
 const resolveDisplayRecipeIdx = (rule: HsfRuleWithRecipe | null | undefined): number | null => {
   const idx = getRuleRecipeIndex(rule ?? null)
   return idx !== null && idx >= 0 ? idx : null
@@ -143,9 +158,7 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     const currentKeys = new Set<string>()
     const newKeys = new Set<string>()
     rules.forEach((rule, idx) => {
-      const recipeIdx = getRuleRecipeIndex(rule)
-      const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : idx
-      const key = `${recipeIdx ?? 'base'}_${lineIdx}`
+      const key = computeRuleAnimKey(rule, idx)
       currentKeys.add(key)
       if (!prev.has(key)) newKeys.add(key)
     })
@@ -177,9 +190,7 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     const nextFp = new Map<string, string>()
     const changed = new Set<string>()
     rules.forEach((rule, idx) => {
-      const recipeIdx = getRuleRecipeIndex(rule)
-      const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : idx
-      const key = `${recipeIdx ?? 'base'}_${lineIdx}`
+      const key = computeRuleAnimKey(rule, idx)
       // Compact fingerprint of the fields the user can edit.  Substats are serialised
       // as sorted id:value:flat triples so reordering substats also triggers a pulse.
       const substats = [...(rule.Substats ?? [])].sort((a, b) => a.ID - b.ID)
@@ -1249,7 +1260,7 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                     // Resolved color from the directive (empty string when absent).
                     const previewRuleColor = ruleDecoration.hasExplicitColor ? ruleDecoration.resolvedColor : ''
                     // Determine whether this row should play the enter or change-pulse animation.
-                    const ruleKey = `${recipeIdxNumber ?? 'base'}_${lineIdx}`
+                    const ruleKey = computeRuleAnimKey(rule, idx)
                     const isNewRow = enteringRuleKeys.has(ruleKey)
                     // Content-change pulse only fires for rows that already existed (not new arrivals).
                     const isChangedRow = !isNewRow && changedRuleKeys.has(ruleKey)
