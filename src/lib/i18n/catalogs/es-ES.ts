@@ -77,7 +77,7 @@ const overrides: Catalog = {
   gearInspectorGridEmpty: 'Añade equipo personalizado o carga una base de datos de RSL Helper para ver entradas aquí.',
   gearInspectorTableEmptySafeguardsDisabled: '«Salvaguardas» está desactivado; actívalo para escanear tu equipo.',
   gearInspectorTableEmptySafeguardsNoMatches: 'Ningún equipo coincide con los filtros actuales de Salvaguardas.',
-  gearInspectorTableEmptyFilter: 'Ningún elemento del tester coincide con los filtros actuales.',
+  gearInspectorTableEmptyFilter: 'Ningún elemento del Inspector de Equipo coincide con los filtros actuales.',
   gearInspectorGridCompactGroup: 'Comprimir grupo actual',
   gearInspectorGridNormalizedLabel: 'Mostrar valoración de substats',
   gearInspectorGridShowSafeguardUpgradeChance: 'Mostrar probabilidad de mejora',
@@ -1201,7 +1201,7 @@ const overrides: Catalog = {
   toastL10nLoadFailed: 'Error al cargar el archivo de localización',
   toastGearSetsLoaded: 'Se cargaron {count} conjuntos personalizados',
   toastGearSetsLoadFailed: 'No se pudo cargar el archivo de conjuntos',
-  toastGearInspectorFocusArtifactFiltered: 'El objeto objetivo está oculto por los filtros activos del tester.',
+  toastGearInspectorFocusArtifactFiltered: 'El objeto objetivo está oculto por los filtros activos del Inspector de Equipo.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Conceptos básicos',

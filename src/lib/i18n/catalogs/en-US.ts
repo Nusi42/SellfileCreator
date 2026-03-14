@@ -1216,7 +1216,7 @@ const enUS: Catalog = {
   toastL10nLoadFailed: 'Failed to load localization file',
   toastGearSetsLoaded: 'Loaded {count} custom gear sets',
   toastGearSetsLoadFailed: 'Failed to load gear-set file',
-  toastGearInspectorFocusArtifactFiltered: 'Target item is currently hidden by active tester filters.',
+  toastGearInspectorFocusArtifactFiltered: 'Target item is currently hidden by active Gear Inspector filters.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Basics',

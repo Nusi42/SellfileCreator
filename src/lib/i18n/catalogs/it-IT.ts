@@ -28,7 +28,7 @@ const overrides: Catalog = {
   previewModeGearInspectorTooltip: '**Ispettore Equipaggiamento** — Carica il tuo inventario di equipaggiamento reale e testalo contro le tue ricette in tempo reale. Ogni pezzo mostra quale ricetta lo ha identificato e perché.\n\nPassate all\'**Anteprima Sellfile** per vedere l\'output combinato del sellfile.',
   manageColors: 'Gestisci colori',
   titleLogicHub: 'Strumenti',
-  optionalLoadSellfile: 'Opzionale: carica un Sellfile esistente per vedere la fusione oppure un database dell\'equipaggiamento (.db) per esaminarlo nel tester.',
+  optionalLoadSellfile: 'Opzionale: carica un Sellfile esistente per vedere la fusione oppure un database dell\'equipaggiamento (.db) per esaminarlo nell\'Ispettore Equipaggiamento.',
   fileFormatErrorTitle: 'Formato file non supportato',
   fileFormatErrorUnknownName: 'il file selezionato',
   fileFormatErrorMessage: 'Non siamo riusciti a rilevare nessuno dei formati supportati in {fileName}. Sellfile Creator accetta .sfr (ricette + Metaset), .hsf (Sellfile) e .db (database dell\'equipaggiamento).',
@@ -77,7 +77,7 @@ const overrides: Catalog = {
   gearInspectorGridEmpty: 'Aggiungi equipaggiamento personalizzato o carica un database di RSL Helper per vedere le voci qui.',
   gearInspectorTableEmptySafeguardsDisabled: '«Salvaguardie» è disattivato; attivalo per scansionare la tua attrezzatura.',
   gearInspectorTableEmptySafeguardsNoMatches: 'Nessun equipaggiamento corrisponde ai filtri Salvaguardie correnti.',
-  gearInspectorTableEmptyFilter: 'Nessuna riga del tester corrisponde ai filtri attuali.',
+  gearInspectorTableEmptyFilter: 'Nessuna riga dell\'Ispettore Equipaggiamento corrisponde ai filtri attuali.',
   gearInspectorGridCompactGroup: 'Compatta il gruppo corrente',
   gearInspectorGridNormalizedLabel: 'Mostra valutazione substat',
   gearInspectorGridShowSafeguardUpgradeChance: 'Mostra probabilità di miglioramento',
@@ -228,7 +228,7 @@ const overrides: Catalog = {
   accessories: 'Accessori',
   offByDefaultTooltip: 'Disattivato per impostazione predefinita per evitare la vendita di oggetti a +16. Attivarlo può vendere pezzi di valore se usato male in RSL Helper.',
   titleResetGearInspector: 'Svuotare Vendita finale → Equipaggiamento?',
-  msgResetGearInspector: 'Questo rimuove tutte le voci manuali e importate dalla scheda “Equipaggiamento” della finestra di dialogo `Strumenti` e svuota la coda del tester delle regole.',
+  msgResetGearInspector: 'Questo rimuove tutte le voci manuali e importate dalla scheda “Equipaggiamento” della finestra di dialogo `Strumenti` e svuota la coda dell\'Ispettore Equipaggiamento.',
 
   tabFinalSellGear: 'Equipaggiamento',
   tabSubstatTargets: 'Obiettivi substat',
@@ -1202,7 +1202,7 @@ const overrides: Catalog = {
   toastL10nLoadFailed: 'Impossibile caricare il file di localizzazione',
   toastGearSetsLoaded: 'Caricati {count} set personalizzati',
   toastGearSetsLoadFailed: 'Impossibile caricare il file dei set',
-  toastGearInspectorFocusArtifactFiltered: 'L\'oggetto di destinazione è nascosto dai filtri attivi del tester.',
+  toastGearInspectorFocusArtifactFiltered: 'L\'oggetto di destinazione è nascosto dai filtri attivi dell\'Ispettore Equipaggiamento.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Nozioni base',

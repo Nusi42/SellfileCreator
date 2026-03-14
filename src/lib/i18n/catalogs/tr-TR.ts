@@ -77,7 +77,7 @@ const overrides: Catalog = {
   gearInspectorGridEmpty: 'Burada kayıtları görmek için özel ekipman ekleyin veya RSL Helper veritabanı yükleyin.',
   gearInspectorTableEmptySafeguardsDisabled: '“Safeguards” kapalı; ekipmanınızı taramak için açın.',
   gearInspectorTableEmptySafeguardsNoMatches: 'Mevcut “Safeguards” filtreleriyle eşleşen ekipman yok.',
-  gearInspectorTableEmptyFilter: 'Hiçbir tester kaydı geçerli filtrelere uymuyor.',
+  gearInspectorTableEmptyFilter: 'Hiçbir Ekipman Denetçisi kaydı geçerli filtrelere uymuyor.',
   gearInspectorGridCompactGroup: 'Geçerli grubu sıkıştır',
   gearInspectorGridNormalizedLabel: 'Alt Stat Puanını Göster',
   gearInspectorGridShowSafeguardUpgradeChance: 'İyileştirme şansını göster',
@@ -1201,7 +1201,7 @@ const overrides: Catalog = {
   toastL10nLoadFailed: 'Yerelleştirme dosyası yüklenemedi',
   toastGearSetsLoaded: '{count} özel set yüklendi',
   toastGearSetsLoadFailed: 'Set dosyası yüklenemedi',
-  toastGearInspectorFocusArtifactFiltered: 'Hedef eşya şu anda etkin tester filtreleri tarafından gizleniyor.',
+  toastGearInspectorFocusArtifactFiltered: 'Hedef eşya şu anda etkin Ekipman Denetçisi filtreleri tarafından gizleniyor.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Temeller',

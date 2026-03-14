@@ -77,7 +77,7 @@ const catalog: Catalog = {
   gearInspectorGridEmpty: 'Adicione equipamentos personalizados ou carregue um banco de dados do RSL Helper para ver entradas aqui.',
   gearInspectorTableEmptySafeguardsDisabled: 'Salvaguardas está desativado; ative-o para escanear seu equipamento.',
   gearInspectorTableEmptySafeguardsNoMatches: 'Nenhum equipamento corresponde aos filtros atuais de Salvaguardas.',
-  gearInspectorTableEmptyFilter: 'Nenhuma entrada do tester corresponde aos filtros atuais.',
+  gearInspectorTableEmptyFilter: 'Nenhuma entrada do Inspetor de Equipamento corresponde aos filtros atuais.',
   gearInspectorGridCompactGroup: 'Compactar grupo atual',
   gearInspectorGridNormalizedLabel: 'Mostrar nota de substats',
   gearInspectorGridShowSafeguardUpgradeChance: 'Mostrar chance de melhoria',
@@ -1201,7 +1201,7 @@ const catalog: Catalog = {
   toastL10nLoadFailed: 'Falha ao carregar o arquivo de localização',
   toastGearSetsLoaded: '{count} conjuntos personalizados carregados',
   toastGearSetsLoadFailed: 'Falha ao carregar o arquivo de conjuntos',
-  toastGearInspectorFocusArtifactFiltered: 'O item de destino está oculto pelos filtros ativos do tester.',
+  toastGearInspectorFocusArtifactFiltered: 'O item de destino está oculto pelos filtros ativos do Inspetor de Equipamento.',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Noções básicas',
