@@ -70,6 +70,15 @@ const RULE_ROW_ENTER_KEYFRAMES = keyframes`
     transform: translateX(0);
   }
 `
+// Change-pulse duration for existing rows whose content was modified (ms).
+// Longer than enter so the brief flash is legible without being distracting.
+const RULE_ROW_CHANGE_PULSE_MS = 350
+// Warm background flash signals that a row's content changed without repositioning it.
+const RULE_ROW_CHANGE_PULSE_KEYFRAMES = keyframes`
+  0%   { background-color: inherit; }
+  35%  { background-color: var(--rule-row-change-bg); }
+  100% { background-color: inherit; }
+`
 
 const resolveDisplayRecipeIdx = (rule: HsfRuleWithRecipe | null | undefined): number | null => {
   const idx = getRuleRecipeIndex(rule ?? null)
@@ -156,6 +165,53 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
       RULE_ROW_ENTER_ANIMATION_MS + 50,
     )
   }, [enteringRuleKeys])
+
+  // Track which existing rule rows changed content so they can pulse.
+  // Fingerprint covers all mutable fields visible in the table; __lineIdx is excluded
+  // because positional churn (reorder) should not trigger a content-change pulse.
+  const prevRuleFingerprintsRef = useRef<Map<string, string>>(new Map())
+  const [clearRuleChangeGeneration, setClearRuleChangeGeneration] = useState(0)
+  const clearRuleChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const changedRuleKeys = useMemo(() => {
+    const prevFp = prevRuleFingerprintsRef.current
+    const nextFp = new Map<string, string>()
+    const changed = new Set<string>()
+    rules.forEach((rule, idx) => {
+      const recipeIdx = getRuleRecipeIndex(rule)
+      const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : idx
+      const key = `${recipeIdx ?? 'base'}_${lineIdx}`
+      // Compact fingerprint of the fields the user can edit.  Substats are serialised
+      // as sorted id:value:flat triples so reordering substats also triggers a pulse.
+      const substats = [...(rule.Substats ?? [])].sort((a, b) => a.ID - b.ID)
+        .map((s) => `${s.ID}:${s.Value}:${s.IsFlat ? 1 : 0}`).join(',')
+      const fp = [
+        rule.RecipeName ?? '',
+        rule.Keep ? 'k' : 's',
+        (rule.ArtifactSet ?? []).slice().sort().join('/'),
+        (rule.ArtifactType ?? []).slice().sort().join('/'),
+        rule.__rankMask ?? rule.Rank ?? '',
+        rule.__rarityMask ?? rule.Rarity ?? '',
+        rule.MainStatID ?? '',
+        rule.Faction ?? '',
+        substats,
+      ].join('|')
+      nextFp.set(key, fp)
+      // Only pulse rows that already existed — new rows get the enter animation instead.
+      if (prevFp.has(key) && prevFp.get(key) !== fp) changed.add(key)
+    })
+    prevRuleFingerprintsRef.current = nextFp
+    return changed
+    // clearRuleChangeGeneration forces a recompute after the pulse window so changed is empty.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rules, clearRuleChangeGeneration])
+  useEffect(() => {
+    if (changedRuleKeys.size === 0) return
+    if (clearRuleChangeTimerRef.current !== null) clearTimeout(clearRuleChangeTimerRef.current)
+    clearRuleChangeTimerRef.current = setTimeout(
+      () => setClearRuleChangeGeneration((g) => g + 1),
+      RULE_ROW_CHANGE_PULSE_MS + 50,
+    )
+  }, [changedRuleKeys])
 
   // Single-line mode is strict fixed-height (see `RULES_TABLE_FIXED_ROW_HEIGHT_PX`).
   // Why: fixed-height makes `scrollToIndex` exact even for very large lists without DOM measurement.
@@ -1192,9 +1248,11 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                     const previewRuleName = ruleDecoration.displayName || rawPreviewRuleName
                     // Resolved color from the directive (empty string when absent).
                     const previewRuleColor = ruleDecoration.hasExplicitColor ? ruleDecoration.resolvedColor : ''
-                    // Determine whether this row should play the enter animation.
+                    // Determine whether this row should play the enter or change-pulse animation.
                     const ruleKey = `${recipeIdxNumber ?? 'base'}_${lineIdx}`
                     const isNewRow = enteringRuleKeys.has(ruleKey)
+                    // Content-change pulse only fires for rows that already existed (not new arrivals).
+                    const isChangedRow = !isNewRow && changedRuleKeys.has(ruleKey)
                     return (
 		                      <TableRow
 		                        key={virtualItem.key}
@@ -1260,9 +1318,12 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
 		                          '&[data-selected-recipe="true"]': {
 		                            backgroundColor: theme.palette.action.selected,
 		                          },
-		                          // Play enter animation only for rows that arrived in the latest worker result.
+		                          // Play enter animation for new rows, change-pulse for modified existing rows.
 		                          ...(isNewRow ? {
 		                            animation: `${RULE_ROW_ENTER_KEYFRAMES} ${RULE_ROW_ENTER_ANIMATION_MS}ms ease-out 1`,
+		                          } : isChangedRow ? {
+		                            '--rule-row-change-bg': alpha(theme.palette.warning.main, 0.18),
+		                            animation: `${RULE_ROW_CHANGE_PULSE_KEYFRAMES} ${RULE_ROW_CHANGE_PULSE_MS}ms ease-out 1`,
 		                          } : {}),
 		                        })}
                       >
