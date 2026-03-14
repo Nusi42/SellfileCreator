@@ -117,7 +117,7 @@ const overrides: Catalog = {
   testerMatchKeep: 'Оставить',
   testerMatchSell: 'Продать',
   testerSummaryTotalLabel: 'Всего',
-  testerMatchNoRule: 'Совпадение отсутствует',
+  testerMatchNoRule: 'Без правила',
   testerRuleTemplateTooltip: 'Добавить рецепт для оставления или продажи на основе этого предмета.',
   testerRuleTemplateButtonAria: 'Добавить рецепт из этого предмета',
   testerRuleTemplateActionTemplate: 'Создать рецепт «{outcome}»',
@@ -1050,7 +1050,7 @@ const overrides: Catalog = {
   filterAnyTooltip: 'Влияет на правила, где {field} = «Любой». "Показать" — включить; "Скрыть" — исключить; "Только" — показать только эти значения.',
   filterMatchTooltipSets: 'При нескольких выбранных сетах переключатель задаёт, достаточно ли одного из них или нужно наличие всех выбранных сетов.',
   filterMatchTooltipSubstats: 'При нескольких выбранных подстатах переключатель задаёт, достаточно ли любого из них или нужны все выбранные подстаты.',
-  testerResultMatched: 'Совпало',
+  testerResultMatched: 'Область',
   // Abbreviation for “Common / Uncommon” rarity badge.
 
   // Rarity labels (generic)

@@ -1050,7 +1050,7 @@ const overrides: Catalog = {
   filterAnyTooltip: '{field} alanı "Herhangi" olduğunda kuralları etkiler. Göster = dahil et; Gizle = hariç tut; Yalnızca = sadece bunları göster.',
   filterMatchTooltipSets: 'Birden fazla Set seçiliyken geçiş düğmesi, seçilen setlerden birinin yeterli mi yoksa hepsinin mi gerekli olduğunu belirler.',
   filterMatchTooltipSubstats: 'Birden fazla Alt stat seçiliyken geçiş düğmesi, herhangi birinin yeterli mi yoksa tüm seçili alt statların mı gerekli olduğunu belirler.',
-  testerResultMatched: 'Eşleşti',
+  testerResultMatched: 'Kapsam',
   // Abbreviation for “Common / Uncommon” rarity badge.
 
   // Rarity labels (generic)

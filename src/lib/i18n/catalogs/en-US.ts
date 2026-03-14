@@ -118,7 +118,7 @@ const enUS: Catalog = {
   testerMatchKeep: 'Keep',
   testerMatchSell: 'Sell',
   testerSummaryTotalLabel: 'Total',
-  testerMatchNoRule: 'No Match',
+  testerMatchNoRule: 'Unmatched',
   testerRuleTemplateTooltip: 'Create a keep or sell recipe based on this item.',
   testerRuleTemplateButtonAria: 'Create recipe from this item',
   testerRuleTemplateActionTemplate: 'Create {outcome} Recipe',
@@ -1064,7 +1064,7 @@ const enUS: Catalog = {
   filterAnyTooltip: "Affects rules where {field} is 'Any'. Show = include; Hide = exclude; Only = show only these.",
   filterMatchTooltipSets: 'When multiple Sets are selected, choose whether gear with any selected Set is enough or if every selected Set is required.',
   filterMatchTooltipSubstats: 'When multiple Substats are selected, choose whether gear with any selected substat is enough or if every selected substat is required.',
-  testerResultMatched: 'Matched',
+  testerResultMatched: 'Scope',
   // Abbreviation for “Common / Uncommon” rarity badge.
 
   // Rarity labels (generic)

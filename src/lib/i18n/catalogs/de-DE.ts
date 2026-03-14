@@ -1050,7 +1050,7 @@ const overrides: Catalog = {
   filterAnyTooltip: 'Wirkt auf Regeln, bei denen {field} „Beliebig“ ist. Anzeigen = einschließen; Ausblenden = ausschließen; Nur = nur diese anzeigen.',
   filterMatchTooltipSets: 'Bei mehreren gewählten Sets legt der Schalter fest, ob mindestens ein Set reicht oder alle ausgewählten Sets enthalten sein müssen.',
   filterMatchTooltipSubstats: 'Bei mehreren gewählten Substats legt der Schalter fest, ob irgendein Substat reicht oder alle ausgewählten Substats enthalten sein müssen.',
-  testerResultMatched: 'Treffer',
+  testerResultMatched: 'Bereich',
   // Abbreviation for “Common / Uncommon” rarity badge.
 
   // Rarity labels (generic)

@@ -117,7 +117,7 @@ const overrides: Catalog = {
   testerMatchKeep: 'Garder',
   testerMatchSell: 'Vendre',
   testerSummaryTotalLabel: 'Total',
-  testerMatchNoRule: 'Aucune correspondance',
+  testerMatchNoRule: 'Sans règle',
   testerRuleTemplateTooltip: 'Ajouter une recette de garde ou de vente à partir de cet objet.',
   testerRuleTemplateButtonAria: 'Ajouter une recette depuis cet objet',
   testerRuleTemplateActionTemplate: 'Créer une recette « {outcome} »',
@@ -1051,7 +1051,7 @@ const overrides: Catalog = {
   filterAnyTooltip: 'Agit sur les règles où {field} vaut « Peu importe ». Afficher = inclure ; Masquer = exclure ; Seulement = afficher uniquement celles-ci.',
   filterMatchTooltipSets: 'Avec plusieurs sets sélectionnés, choisissez si la correspondance accepte un set quelconque ou si tous les sets sélectionnés sont requis.',
   filterMatchTooltipSubstats: 'Avec plusieurs sous-stats sélectionnées, choisissez si une seule suffit ou si toutes les sous-stats sélectionnées sont requises.',
-  testerResultMatched: 'Correspond',
+  testerResultMatched: 'Portée',
   // Abbreviation for “Common / Uncommon” rarity badge.
 
   // Rarity labels (generic)

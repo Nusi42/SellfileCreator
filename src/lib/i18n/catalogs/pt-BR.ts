@@ -117,7 +117,7 @@ const catalog: Catalog = {
   testerMatchKeep: 'Manter',
   testerMatchSell: 'Vender',
   testerSummaryTotalLabel: 'Total',
-  testerMatchNoRule: 'Sem correspondência',
+  testerMatchNoRule: 'Sem regra',
   testerRuleTemplateTooltip: 'Adicionar uma receita de manter ou vender com base neste item.',
   testerRuleTemplateButtonAria: 'Adicionar receita deste item',
   testerRuleTemplateActionTemplate: 'Criar receita de {outcome}',
@@ -1050,7 +1050,7 @@ const catalog: Catalog = {
   filterAnyTooltip: 'Afeta regras onde {field} é "Qualquer". Mostrar = incluir; Ocultar = excluir; Apenas = mostrar somente estes.',
   filterMatchTooltipSets: 'Com vários Sets selecionados, escolha se basta ter algum deles ou se todos os Sets selecionados são obrigatórios.',
   filterMatchTooltipSubstats: 'Com várias Substats selecionadas, escolha se basta ter alguma delas ou se todas as substats selecionadas são obrigatórias.',
-  testerResultMatched: 'Correspondido',
+  testerResultMatched: 'Escopo',
   // Abbreviation for “Common / Uncommon” rarity badge.
 
   // Rarity labels (generic)
