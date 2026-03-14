@@ -1248,9 +1248,9 @@ function buildMetasetBulletList(
 
 // Keep the recipe overrides EBNF header consistent across samples and tooltips.
 const RECIPE_OVERRIDES_EBNF_HEADER = 'Recipe overrides syntax (EBNF):'
-// Reference line sets the maximum width for EBNF formatting.
+// Reference line is kept for documentation; the wrap limit is set independently to match the tooltip width.
 const RECIPE_OVERRIDES_EBNF_REFERENCE_LINE = 'question      := ("q" | "question") string group+ [fallbackBlock]'
-const RECIPE_OVERRIDES_EBNF_MAX_LINE_LENGTH = RECIPE_OVERRIDES_EBNF_REFERENCE_LINE.length
+const RECIPE_OVERRIDES_EBNF_MAX_LINE_LENGTH = 126
 // Marker options shown in the EBNF block.
 const RECIPE_OVERRIDES_EBNF_MARKER_OPTION_TOKENS = [
   `"${NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY}" "=" number`,
@@ -1272,46 +1272,31 @@ const RECIPE_OVERRIDES_SAMPLE_CLOSE = '-->'
 const RECIPE_OVERRIDES_SAMPLE_COMMAND_KEY = 'insert-recipeOverrides-sample'
 
 // Static EBNF text; the statKey row is appended at runtime.
+// Lines are formatted to fit the wider RECIPE_OVERRIDES_TOOLTIP_MAX_WIDTH_PX (~126 chars).
 const RECIPE_OVERRIDES_EBNF_BASE =
-`marker        := "<!--" "recipe-overrides"
-             [markerOptions] question "-->"
+`marker        := "<!--" "recipe-overrides" [markerOptions] question "-->"
 markerOptions := "[" markerOption ("," markerOption)* "]"
 ${RECIPE_OVERRIDES_EBNF_MARKER_OPTION_LINE}
 ${RECIPE_OVERRIDES_EBNF_REFERENCE_LINE}
-group         := ("single" | "s" | "rb" | "radiobutton"
-             | "radio" | "multi" | "m" | "cb"
-             | "checkbox" | "check")
-             string [string] [headerToken {headerToken}]
-             [constraints] "{" selectorBlock+
-             [fallbackBlock] "}"
+group         := ("single" | "s" | "rb" | "radiobutton" | "radio" | "multi" | "m" | "cb" | "checkbox" | "check")
+             string [string] [headerToken {headerToken}] [constraints] "{" selectorBlock+ [fallbackBlock] "}"
 headerToken   := "id" "=" token | "*" | "default"
 selectorBlock := "@" selector "{" assignment+ "}"
 selector      := "all" | "tagged" | "untagged" | expr
 expr          := term (("and" | "or" | "&&" | "||") term)*
-term          := "tag" ("=" | ":") token
-             | "tag" ("in" "[" tokenList "]" | "any" | "none")
-             | "rank" "=" rankVal | "rank" (">=" | "<=") rankNum
-             | "rarity" ("=" | ">=" | "<=") rarityName
-             | "minrolls" ("=" | ">=" | "<=") number
-             | "minsubstats" ("=" | ">=" | "<=") number
-             | "flex" ("=" | ":") flexVal
+term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any" | "none")
+             | "rank" "=" rankVal | "rank" (">=" | "<=") rankNum | "rarity" ("=" | ">=" | "<=") rarityName
+             | "minrolls" ("=" | ">=" | "<=") number | "minsubstats" ("=" | ">=" | "<=") number | "flex" ("=" | ":") flexVal
 assignment    := ("rank" | "rarity") ("=" | ">=" | "<=") value
-             | ("slots" | "substats"
-             | "mainstats") "=" token ("," token)*
-             | field "=" value
+             | ("slots" | "substats" | "mainstats") "=" token ("," token)* | field "=" value
 fallbackBlock := ("fallback" | "else") "{" selectorBlock+ "}"
-constraints   := "!" tokenList | "excl" tokenList
-             | "set" tokenList | "+" tokenList
-             | "unset" tokenList | "-" tokenList
-             | "only" tokenList | "^" tokenList
+constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
+             | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
 tokenList     := token ("," token)*
 field         := "export" | "rank" | "rarity" | "lvl" | "keep"
-             | "autolate" | "minrolls" | "lockedminrolls"
-             | "minsubstats" | "flex" | "substatmin"
-             | "substatmin." statKey | "minima.any"
-             | "minima." starKey "." statKey
-value         := exportVal | keepVal | flexVal | rankVal
-             | lvlVal | rarityName | number | string
+             | "autolate" | "minrolls" | "lockedminrolls" | "minsubstats" | "flex"
+             | "substatmin" | "substatmin." statKey | "minima.any" | "minima." starKey "." statKey
+value         := exportVal | keepVal | flexVal | rankVal | lvlVal | rarityName | number | string
 exportVal     := "active" | "disabled" | "toggle"
 keepVal       := "early" | "late"
 flexVal       := "on" | "off" | "true" | "false"
@@ -1322,17 +1307,12 @@ lvlMilestone  := "0" | "4" | "8" | "12" | "16"
 string        := '"' {char | escape} '"'
 escape        := "\\" ("n" | "t" | "r" | "\\" | '"')
                  (\\n = newline, \\\\ = literal backslash)
-comment       := "//" {any} eol
-             | "/*" {any} "*/"
+comment       := "//" {any} eol | "/*" {any} "*/"
 token         := /[\\p{L}\\p{M}_][\\p{L}\\p{N}\\p{M}_]*/
                 (unicode letters/marks, underscore)
-rarityName    := "common" | "uncommon" | "rare" | "epic"
-             | "legendary" | "mythical" | "auto" | "any"
-slotName      := "Weapon" | "Helmet" | "Shield"
-             | "Gauntlets" | "Chestplate" | "Boots"
-             | "Ring" | "Amulet" | "Banner"
-starKey       := "1" | "2" | "3" | "4" | "5" | "6"
-             | "one" | "two" | "three" | "four" | "five" | "six"`
+rarityName    := "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythical" | "auto" | "any"
+slotName      := "Weapon" | "Helmet" | "Shield" | "Gauntlets" | "Chestplate" | "Boots" | "Ring" | "Amulet" | "Banner"
+starKey       := "1" | "2" | "3" | "4" | "5" | "6" | "one" | "two" | "three" | "four" | "five" | "six"`
 
 // Full insertable example used in the markdown sample block.
 const RECIPE_OVERRIDES_SAMPLE_EXAMPLE_TEXT = [
@@ -1402,9 +1382,11 @@ const RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_TEXT = [
 const RECIPE_OVERRIDES_SAMPLE_NOTE = (
   'Note: substatmin sets Min Rolls (Per Stat) per recipe; use minima.any/minima.<star>.<stat> for global minima.'
 )
+// The EBNF/example tooltip is wider than the generic markdown tooltip to show grammar comfortably.
+const RECIPE_OVERRIDES_TOOLTIP_MAX_WIDTH_PX = Math.round(MARKDOWN_TOOLTIP_MAX_WIDTH_PX * 2.25)
 const RECIPE_OVERRIDES_TOOLTIP_WRAP_SX = {
-  // Keep tooltip content within the shared markdown tooltip width.
-  maxWidth: MARKDOWN_TOOLTIP_MAX_WIDTH_PX,
+  // Wider than the shared tooltip default to give the EBNF grammar room to breathe.
+  maxWidth: RECIPE_OVERRIDES_TOOLTIP_MAX_WIDTH_PX,
   // Stack the EBNF and example blocks with consistent spacing.
   display: 'flex',
   flexDirection: 'column',
@@ -3570,8 +3552,13 @@ function NoteEditorContent({
                       // Override the insert-sample tooltip with the richer EBNF snippet.
                       const isRecipeOverridesSample = command?.keyCommand === RECIPE_OVERRIDES_SAMPLE_COMMAND_KEY
                       // Prefer custom render content for the sample tooltip.
+                      // The EBNF tooltip also overrides the MUI container maxWidth, which otherwise
+                      // clips content before the inner Box maxWidth can take effect.
                       const tooltipProps = isRecipeOverridesSample
-                        ? { render: recipeOverridesSampleTooltipContent }
+                        ? {
+                            render: recipeOverridesSampleTooltipContent,
+                            slotProps: { tooltip: { sx: { maxWidth: RECIPE_OVERRIDES_TOOLTIP_MAX_WIDTH_PX } } },
+                          }
                         : { markdown: label }
                       return (
                         // MarkdownTooltip keeps every toolbar command consistent (some strings contain Markdown tokens already).
