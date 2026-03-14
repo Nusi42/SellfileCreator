@@ -12,6 +12,8 @@ export type BuilderColumnProps = {
   paperRef: MutableRefObject<HTMLDivElement | null>
   sideBySideMinPaperHeightPx: string | undefined
   forceSideBySide?: boolean
+  /** Explicit left-panel width in px when the splitter has been dragged; overrides PANEL_WIDTH_PX. */
+  widthPx?: number | undefined
   title: ReactNode
   caption?: string
   substatTargets?: ReactNode
@@ -27,6 +29,7 @@ export function BuilderColumn({
   paperRef,
   sideBySideMinPaperHeightPx,
   forceSideBySide = false,
+  widthPx,
   title,
   caption,
   substatTargets,
@@ -44,8 +47,10 @@ export function BuilderColumn({
         p: 2,
         display: 'flex',
         flexDirection: 'column',
-        width: forceSideBySide ? PANEL_WIDTH_PX : '100%',
-        maxWidth: PANEL_WIDTH_PX,
+        // When widthPx is provided (splitter active), use it exactly — no maxWidth cap so the
+        // panel can grow beyond the default PANEL_WIDTH_PX when dragged right.
+        width: forceSideBySide ? (widthPx ?? PANEL_WIDTH_PX) : '100%',
+        maxWidth: widthPx != null ? 'none' : PANEL_WIDTH_PX,
         mx: forceSideBySide ? 0 : 'auto',
         // In forced side-by-side (zoom) mode, lock the paper to exactly the available viewport
         // height. minHeight + maxHeight together make it a fixed-height container so internal
@@ -58,7 +63,8 @@ export function BuilderColumn({
         // chipsMaxHeight updates on mode switch cannot nudge the paper height up or down.
         [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
           mx: 0,
-          width: PANEL_WIDTH_PX,
+          // Use the splitter-controlled width when available; fall back to default.
+          width: widthPx ?? PANEL_WIDTH_PX,
           ...(sideBySideMinPaperHeightPx
             ? { minHeight: sideBySideMinPaperHeightPx, maxHeight: sideBySideMinPaperHeightPx, overflow: 'hidden' }
             : {}),

@@ -136,8 +136,10 @@ import { isDefaultGearInspectorSubstatSortState, setGearInspectorSubstatSortStat
 import { useGearInspectorGridNormalizedOverlayPreferences } from './state/gearInspectorGridNormalizedOverlayPreferences'
 import { useShowSafeguardUpgradeChance } from './state/gearInspectorGridPreferences'
 import { FILTER_PRESETS_VERSION, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
+import { useSplitterLeftWidthPx } from './state/splitterPreference'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
+import { SideBySideSplitter } from './components/AppLayout/SideBySideSplitter'
 import SafeguardBuilderPanel from './components/SafeguardBuilderPanel'
 import SafeguardChipsPanel from './components/SafeguardChipsPanel'
 import { useFileDragDrop, routeFileByExtension, type FileRouteContext } from './hooks/useFileDragDrop'
@@ -708,6 +710,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     isSideBySide,
     scheduleMeasurement,
   } = useBuilderPreviewLayout({ forceSideBySide: forceSideBySideLayout })
+  // Persisted left-panel width for the draggable splitter. Only active in side-by-side mode.
+  const [splitterLeftPx, setSplitterLeftPx] = useSplitterLeftWidthPx()
+  // Right panel width = totalUsable - leftPanel. totalUsable = SIDE_BY_SIDE_BREAKPOINT_PX - GRID_COLUMN_GAP_PX.
+  const splitterRightPx = SIDE_BY_SIDE_BREAKPOINT_PX - GRID_COLUMN_GAP_PX - splitterLeftPx
   // Empty-state messaging reads better when stacked (top-aligned) but looks balanced side-by-side (centered).
   const emptyStateVerticalAlign = isSideBySide ? 'center' : 'top'
   useTooltipScrollGuard()
@@ -6865,33 +6871,36 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       
 
       <Stack spacing={2}>
-        {/* Original vertical layout; pairs side-by-side only when viewport >= 2304px */}
+        {/* Layout container: stacks vertically in single-column mode, flex-row in side-by-side.
+            In side-by-side, the GRID_COLUMN_GAP_PX gap is replaced by the SideBySideSplitter
+            handle so the user can drag to resize both panels. */}
         <Box
           sx={{
-            display: 'grid',
-            gap: 2,
-            width: forceSideBySideLayout ? `${SIDE_BY_SIDE_BREAKPOINT_PX}px` : '100%',
-            ...(forceSideBySideLayout
+            // Single-column mode: grid with spacing between stacked panels.
+            display: isSideBySide ? 'flex' : 'grid',
+            gap: isSideBySide ? 0 : 2,
+            ...(isSideBySide
               ? {
+                  // Side-by-side: flex-row; splitter handle fills the gap between panels.
+                  flexDirection: 'row',
+                  // stretch so the splitter can fill the height of the taller panel.
+                  alignItems: 'stretch',
                   position: 'relative',
                   left: '50%',
                   transform: 'translateX(-50%)',
-                  gridTemplateColumns: `${PANEL_WIDTH_PX}px ${PANEL_WIDTH_PX}px`,
-                  columnGap: `${GRID_COLUMN_GAP_PX}px`,
-                  alignItems: 'start',
+                  width: `${SIDE_BY_SIDE_BREAKPOINT_PX}px`,
                 }
               : {}),
-            // default: contained width with normal stacking
+            // Media query mirrors the flex-row layout for the initial CSS paint before
+            // React's matchMedia state has had a chance to fire (avoids a single-frame flash).
             [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
-              // Center the pair relative to the viewport without Container influence
-              // 1152 + 16 gap + 1152 = 2320
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'stretch',
               position: 'relative',
               left: '50%',
               transform: 'translateX(-50%)',
               width: `${SIDE_BY_SIDE_BREAKPOINT_PX}px`,
-              gridTemplateColumns: `${PANEL_WIDTH_PX}px ${PANEL_WIDTH_PX}px`,
-              columnGap: `${GRID_COLUMN_GAP_PX}px`,
-              alignItems: 'start',
             },
           }}
         >
@@ -6899,6 +6908,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           paperRef={leftPaperRef}
           sideBySideMinPaperHeightPx={sideBySideMinPaperHeightPx}
           forceSideBySide={forceSideBySideLayout}
+          widthPx={isSideBySide ? splitterLeftPx : undefined}
           title={builderModeToggle}
           substatTargets={substatTargetsElement}
           builderPanel={
@@ -6923,20 +6933,33 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           copyDialog={builderMode === 'safeguard' ? null : copyDialogElement}
         />
 
+        {/* Draggable splitter handle — only rendered in side-by-side mode; fills the gap between panels. */}
+        {isSideBySide && (
+          <SideBySideSplitter
+            leftWidthPx={splitterLeftPx}
+            onResize={setSplitterLeftPx}
+            forceSideBySide={forceSideBySideLayout}
+          />
+        )}
+
         <Paper ref={previewPaperRef} sx={{
           p: PREVIEW_PAPER_PADDING_UNITS,
           position: 'relative',
-          width: forceSideBySideLayout ? PANEL_WIDTH_PX : '100%',
-          maxWidth: PANEL_WIDTH_PX,
-          mx: forceSideBySideLayout ? 0 : 'auto',
+          // In side-by-side, use the splitter-controlled right-panel width. No maxWidth cap so
+          // the preview panel can grow beyond PANEL_WIDTH_PX when the left panel is dragged smaller.
+          width: isSideBySide ? splitterRightPx : (forceSideBySideLayout ? PANEL_WIDTH_PX : '100%'),
+          maxWidth: isSideBySide ? 'none' : PANEL_WIDTH_PX,
+          mx: (isSideBySide || forceSideBySideLayout) ? 0 : 'auto',
           display: 'flex',
           flexDirection: 'column',
           height: previewPaperHeightStyle ?? 'auto',
           ...(previewPaperHeightStyle ? { minHeight: previewPaperHeightStyle } : {}),
           overflow: forceSideBySideLayout ? 'hidden' : undefined,
+          // In the media query path the JS-derived splitterRightPx may not be active yet (first
+          // paint flash guard). Fall back to the default 50/50 equal-split width at that breakpoint.
           [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
             mx: 0,
-            width: PANEL_WIDTH_PX,
+            width: isSideBySide ? splitterRightPx : PANEL_WIDTH_PX,
             height: previewPaperHeightStyle ?? 'auto',
             ...(previewPaperHeightStyle ? { minHeight: previewPaperHeightStyle } : {}),
             overflow: 'hidden',
