@@ -38,6 +38,7 @@ import { resolveRarityAccentColor } from '../lib/rarityColors'
 import { formatGearInspectorSetLabel } from '../lib/gearInspectorFormatters'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { isAccessorySlot } from '../lib/gearInspectorDomain'
+import type { GearInspectorContextGroup } from '../lib/rulesFilter'
 import { KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT } from '../lib/keepOverrideLayout'
 // MarkdownTooltip unifies the Gear Inspector's tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
 import MarkdownTooltip from './MarkdownTooltip'
@@ -157,6 +158,8 @@ type GearInspectorItemsGridProps = {
   // Optional highlighter lets Safeguards fade non-matching cards without forking the grid.
   highlightedRowPredicate?: ((row: GearInspectorPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
+  /** Maps artifact ID → context group when result-filter context mode is active. */
+  contextGroupById?: Map<number, GearInspectorContextGroup> | null
   // Optional card-width tap for keep-override layout (measures Gear Inspector 4-col cards).
   onCardWidthMeasured?: (widthPx: number) => void
   // Optional scrollbar-width tap for keep-override layout (keeps pane width aligned).
@@ -223,6 +226,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     suppressMatchDetails: suppressMatchDetailsProp = false,
     highlightedRowPredicate = null,
     dimUnhighlightedRows = false,
+    contextGroupById = null,
     onCardWidthMeasured,
     onScrollbarWidthMeasured,
     substatSort = null,
@@ -1703,6 +1707,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                   onCreateRuleTemplate={canShowRuleTemplateActions ? onCreateRuleTemplate : undefined}
                   highlightedRowPredicate={highlightRowPredicate}
                   dimUnhighlightedRows={shouldDimUnhighlightedRows}
+                  contextGroupById={contextGroupById}
                   focusPulseActive={Number(row.artifact?.id) === focusPulseArtifactId}
                   cardPriority={{ base: scrollVersion, order: cardPriorityOrder }}
                 />

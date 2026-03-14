@@ -130,7 +130,7 @@ export const createDefaultGearInspectorLastUseFilter = (): GearInspectorLastUseF
 export interface RulesFilterState {
   // Rule-level filters
   rule?: { keep: Bool3; use: Bool3 }
-  testerResult?: { keep: Bool3; matched: Bool3 }
+  testerResult?: { keep: boolean; sell: boolean; matched: boolean; unmatched: boolean }
   sets: { selected: ArtifactSetSelectionEntry[]; metaSelected?: string[]; anyMode: AnyMode; match?: 'any' | 'all' }
   slots: { selected: ArtifactTypeId[]; anyMode: AnyMode }
   // Rank: discrete buttons (1..6) instead of a contiguous range
@@ -178,7 +178,7 @@ export function resolveGearInspectorLevelRange(levelState?: RulesFilterState['le
 
 export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
   rule: { keep: 'any', use: 'any' },
-  testerResult: { keep: 'any', matched: 'any' },
+  testerResult: { keep: false, sell: false, matched: false, unmatched: false },
   sets: { selected: [], anyMode: 'include', match: 'any' },
   slots: { selected: [], anyMode: 'include' },
   rank: { selected: [], anyMode: 'include' },
@@ -293,14 +293,29 @@ export const sanitizeRulesFilterState = (raw: unknown): RulesFilterState => {
   }
   {
     const candidate = isRecord(rec['testerResult']) ? (rec['testerResult'] as UnknownRecord) : null
-    next.testerResult = {
-      keep: sanitizeStringEnum(candidate?.['keep'], ['any', 'yes', 'no'] as const, next.testerResult?.keep ?? 'any'),
-      matched: sanitizeStringEnum(
-        candidate?.['matched'],
-        ['any', 'yes', 'no'] as const,
-        next.testerResult?.matched ?? 'any',
-      ),
+    // Backward compat: old format stored Bool3 strings ('any'|'yes'|'no'); new format uses booleans.
+    const rawKeep = candidate?.['keep']
+    const rawSell = candidate?.['sell']
+    const rawMatched = candidate?.['matched']
+    const rawUnmatched = candidate?.['unmatched']
+    let keep: boolean, sell: boolean, matched: boolean, unmatched: boolean
+    if (typeof rawKeep === 'string') {
+      // Old Bool3 → boolean pair
+      keep = rawKeep === 'yes'
+      sell = rawKeep === 'no'
+    } else {
+      keep = Boolean(rawKeep)
+      sell = Boolean(rawSell)
     }
+    if (typeof rawMatched === 'string') {
+      // Old Bool3 → boolean pair
+      matched = rawMatched === 'yes'
+      unmatched = rawMatched === 'no'
+    } else {
+      matched = Boolean(rawMatched)
+      unmatched = Boolean(rawUnmatched)
+    }
+    next.testerResult = { keep, sell, matched, unmatched }
   }
 
   // Core required sections: always rebuild them so `.map()` calls remain safe.
@@ -442,7 +457,8 @@ export function isRulesFilterActive(f: RulesFilterState, options?: { includeGear
     gearInspectorRangeActive = min > DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.min || max < DEFAULT_GEAR_INSPECTOR_LEVEL_RANGE.max
   }
   const ra = (f.rule?.keep ?? 'any') !== 'any' || (f.rule?.use ?? 'any') !== 'any'
-  const tr = (f.testerResult?.keep ?? 'any') !== 'any' || (f.testerResult?.matched ?? 'any') !== 'any'
+  const tr = Boolean(f.testerResult?.keep) || Boolean(f.testerResult?.sell)
+    || Boolean(f.testerResult?.matched) || Boolean(f.testerResult?.unmatched)
   const a = (f.sets?.selected?.length ?? 0) > 0 || ((f.sets?.metaSelected)?.length ?? 0) > 0 || (f.sets?.anyMode ?? 'include') !== 'include' || f.sets?.match === 'all'
   const b = (f.slots?.selected?.length ?? 0) > 0 || (f.slots?.anyMode ?? 'include') !== 'include'
   const c = ((f.rank?.selected?.length ?? 0) > 0) || ((f.rank?.anyMode) ?? 'include') !== 'include'
@@ -786,9 +802,33 @@ export interface FilterGearInspectorItemsOptions {
   specialRuleLabels?: RuleSourceLabelMap
 }
 
+/** Opacity group for each gear card in Matched/Unmatched context mode. */
+export type GearInspectorContextGroup = 'primary' | 'companion' | 'other'
+
+/**
+ * Companion key for a gear item used to find set-mates of sell-tagged pieces.
+ * Returns null when the item has no possible companions (regular no-set gear, set ID 0).
+ * Accessories companion by set + slot + faction; armor companions by set + slot only.
+ * No-set accessories (set ID −99) companion each other within the same slot + faction.
+ */
+function computeGearCompanionKey(artifact: NormalizedGearArtifact): string | null {
+  const setId = Number(artifact.set)
+  const slotId = Number(artifact.slot)
+  // Regular no-set gear (set ID 0) has no companions per spec.
+  if (setId === 0) return null
+  if (isAccessorySlot(slotId)) {
+    // Accessories match by set + slot + faction (includes no-set accessories, set ID −99).
+    return `${setId}:${slotId}:${Number(artifact.faction ?? 0)}`
+  }
+  // Armor matches by set + slot.
+  return `${setId}:${slotId}`
+}
+
 export interface FilterGearInspectorItemsResult<T extends GearInspectorFilterRow> {
   items: T[]
   matchingRecipeIndices: Set<number>
+  /** Populated in context mode (Matched or Unmatched active); maps artifact ID → display group. */
+  contextGroupById?: Map<number, GearInspectorContextGroup>
 }
 
 export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
@@ -802,8 +842,14 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
   const gearInspectorRolls = normalizeGearInspectorRollsState(f.testerRolls)
   const gearInspectorRollsActive = isGearInspectorRollFilterActive(gearInspectorRolls)
 
-  const gearInspectorKeepMode = f.testerResult?.keep ?? 'any'
-  const gearInspectorMatchedMode = f.testerResult?.matched ?? 'any'
+  // Result filter button state (four independent boolean toggles).
+  const keepActive = Boolean(f.testerResult?.keep)
+  const sellActive = Boolean(f.testerResult?.sell)
+  const matchedActive = Boolean(f.testerResult?.matched)
+  const unmatchedActive = Boolean(f.testerResult?.unmatched)
+  // Context mode activates when Matched is pressed, OR when Unmatched is combined with Keep/Sell.
+  // Unmatched alone (no Keep/Sell/Matched) stays a plain filter: show only unmatched items.
+  const contextModeActive = matchedActive || (unmatchedActive && (keepActive || sellActive))
   // Split include/exclude entries for Gear Inspector filtering.
   const setSelection = splitArtifactSetSelections(f.sets?.selected ?? [])
   const selectedSets = new Set(setSelection.included.map(Number))
@@ -856,22 +902,14 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
   const glyphMode = f.testerGlyphs?.mode ?? 'any'
   const ascensionStars = new Set<number>(f.testerAscension?.stars ?? [])
   const ascensionStats = new Set((f.testerAscension?.stats ?? []).map(Number))
-  const filtered: T[] = []
+  // First pass: collect candidates passing all non-testerResult filters.
+  // testerResult is resolved in a second pass so companion keys can be computed
+  // across the full candidate set before any item is excluded.
+  const candidates: T[] = []
 
   for (const row of rows) {
     const artifact = row.artifact
     const match = row.match
-
-    if (gearInspectorMatchedMode === 'yes') {
-      if (!match) continue
-    } else if (gearInspectorMatchedMode === 'no') {
-      if (match) continue
-    }
-    if (gearInspectorKeepMode === 'yes') {
-      if (match?.keep !== true) continue
-    } else if (gearInspectorKeepMode === 'no') {
-      if (match?.keep !== false) continue
-    }
 
     if (recipeNameFilterActive) {
       if (!recipeNameRegexValid) continue
@@ -1125,14 +1163,93 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
       })) continue
     }
 
-    if (match?.recipeIdx != null && match.recipeIdx >= 0) {
-      matchingRecipeIndices.add(match.recipeIdx)
-    }
-
-    filtered.push(row)
+    candidates.push(row)
   }
 
-  return { items: filtered, matchingRecipeIndices }
+  // Second pass: apply testerResult filter / context mode on candidates.
+  const filtered: T[] = []
+  let contextGroupById: Map<number, GearInspectorContextGroup> | undefined
+
+  if (contextModeActive) {
+    // Build the set of companion keys from all sell-tagged candidates.
+    // This determines which items are "companions" of sell-tagged gear.
+    const sellCompanionKeys = new Set<string>()
+    for (const row of candidates) {
+      if (row.match?.keep === false) {
+        const key = computeGearCompanionKey(row.artifact)
+        if (key !== null) sellCompanionKeys.add(key)
+      }
+    }
+
+    // Keep focus: companions are primary (100%), sell-tagged are companion (45%).
+    // Sell focus (default, including Matched alone): sell-tagged are primary (100%), companions are companion (45%).
+    // Both Keep+Sell: sell-tagged + companions are both primary (100%).
+    const keepFocused = keepActive && !sellActive
+    const bothFocused = keepActive && sellActive
+
+    contextGroupById = new Map<number, GearInspectorContextGroup>()
+    for (const row of candidates) {
+      const isSell = row.match?.keep === false
+      // Compute companion key only for non-sell items (sell items are the source, not companions of themselves).
+      const cKey = isSell ? null : computeGearCompanionKey(row.artifact)
+      const isCompanion = cKey !== null && sellCompanionKeys.has(cKey)
+
+      let group: GearInspectorContextGroup
+      if (keepFocused) {
+        // Keep focus: companions = primary, sell-tagged = companion, rest = other.
+        if (isCompanion) group = 'primary'
+        else if (isSell) group = 'companion'
+        else group = 'other'
+      } else if (bothFocused) {
+        // Both active: sell-tagged + companions share primary; others are other.
+        if (isSell || isCompanion) group = 'primary'
+        else group = 'other'
+      } else {
+        // Sell focus (sell-only or neither, Matched-alone defaults to sell focus).
+        if (isSell) group = 'primary'
+        else if (isCompanion) group = 'companion'
+        else group = 'other'
+      }
+      contextGroupById.set(row.artifact.id, group)
+
+      // In Matched-only mode the "Other Group" is hidden; Unmatched mode shows it at 25%.
+      if (group === 'other' && !unmatchedActive) continue
+
+      filtered.push(row)
+      if (row.match?.recipeIdx != null && row.match.recipeIdx >= 0) {
+        matchingRecipeIndices.add(row.match.recipeIdx)
+      }
+    }
+  } else {
+    // Plain filter mode: each button independently narrows the visible set.
+    for (const row of candidates) {
+      const match = row.match
+      if (keepActive && !sellActive) {
+        // Keep-only: show only keep-tagged items.
+        if (match?.keep !== true) continue
+      } else if (sellActive && !keepActive) {
+        // Sell-only: show only sell-tagged items.
+        if (match?.keep !== false) continue
+      } else if (keepActive && sellActive) {
+        // Both: show all matched items (keep or sell combined).
+        if (match === null) continue
+      } else if (unmatchedActive) {
+        // Unmatched alone (no Matched, no Keep, no Sell): show only unmatched items.
+        if (match !== null) continue
+      }
+      // Neither active: show everything (no restriction).
+
+      filtered.push(row)
+      if (match?.recipeIdx != null && match.recipeIdx >= 0) {
+        matchingRecipeIndices.add(match.recipeIdx)
+      }
+    }
+  }
+
+  // exactOptionalPropertyTypes: omit the key entirely when context mode was not active.
+  return contextGroupById != null
+    ? { items: filtered, matchingRecipeIndices, contextGroupById }
+    : { items: filtered, matchingRecipeIndices }
 }
 
 export const determineGearInspectorSourceCategory = (artifact: NormalizedGearArtifact): GearInspectorSourceFilter => {

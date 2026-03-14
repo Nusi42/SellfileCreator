@@ -1411,7 +1411,7 @@ function RulesFilterPanel({
   // Each clear helper targets the fields surfaced inside that section so partial resets never clobber other filters.
   const clearRuleSection = () => {
     if (isGearInspectorMode) {
-      onChange({ ...state, testerResult: { ...(DEFAULT_RULES_FILTER_STATE.testerResult ?? { keep: 'any', matched: 'any' }) } })
+      onChange({ ...state, testerResult: { ...(DEFAULT_RULES_FILTER_STATE.testerResult ?? { keep: false, sell: false, matched: false, unmatched: false }) } })
       return
     }
     onChange({ ...state, rule: { ...(DEFAULT_RULES_FILTER_STATE.rule ?? { keep: 'any', use: 'any' }) } })
@@ -1509,10 +1509,9 @@ function RulesFilterPanel({
 
   // Dirty-state probes ensure the clear affordance only lights up when this section diverged from factory defaults.
   const defaultRuleFilter = DEFAULT_RULES_FILTER_STATE.rule ?? { keep: 'any', use: 'any' }
-  const defaultGearInspectorResult = DEFAULT_RULES_FILTER_STATE.testerResult ?? { keep: 'any', matched: 'any' }
   const ruleSectionDirty = isGearInspectorMode
-    ? ((state.testerResult?.keep ?? defaultGearInspectorResult.keep) !== defaultGearInspectorResult.keep
-      || (state.testerResult?.matched ?? defaultGearInspectorResult.matched) !== defaultGearInspectorResult.matched)
+    ? (Boolean(state.testerResult?.keep) || Boolean(state.testerResult?.sell)
+      || Boolean(state.testerResult?.matched) || Boolean(state.testerResult?.unmatched))
     : ((state.rule?.keep ?? defaultRuleFilter.keep) !== defaultRuleFilter.keep
       || (state.rule?.use ?? defaultRuleFilter.use) !== defaultRuleFilter.use)
   const setsSectionDirty = (
@@ -1722,16 +1721,22 @@ function RulesFilterPanel({
             <Collapse in={!collapsed.rule} timeout="auto" unmountOnExit>
             {isGearInspectorMode ? (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                {/* Keep / Sell — independent toggles; both can be active simultaneously. */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
                   <ToggleButtonGroup
                     size="small"
-                    value={state.testerResult?.keep ?? 'any'}
-                    exclusive
-                    onChange={(_, v: Bool3 | null) => {
-                      const next = v ?? 'any'
+                    value={[
+                      ...(state.testerResult?.keep ? ['keep'] : []),
+                      ...(state.testerResult?.sell ? ['sell'] : []),
+                    ]}
+                    onChange={(_, newValues: string[]) => {
                       onChange({
                         ...state,
-                        testerResult: { keep: next, matched: state.testerResult?.matched ?? DEFAULT_RULES_FILTER_STATE.testerResult!.matched },
+                        testerResult: {
+                          ...(state.testerResult ?? DEFAULT_RULES_FILTER_STATE.testerResult!),
+                          keep: newValues.includes('keep'),
+                          sell: newValues.includes('sell'),
+                        },
                       })
                     }}
                     sx={[{
@@ -1749,14 +1754,14 @@ function RulesFilterPanel({
                       },
                     }, SEGMENTED_TOGGLE_BUTTON_GROUP_SX]}
                   >
-                    <ToggleButton value={'yes'}>
+                    <ToggleButton value={'keep'}>
                       <EllipsisTooltip title={t('keepValueKeep')} wrap="block">
                         <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
                           {t('keepValueKeep')}
                         </Typography>
                       </EllipsisTooltip>
                     </ToggleButton>
-                    <ToggleButton value={'no'}>
+                    <ToggleButton value={'sell'}>
                       <EllipsisTooltip title={t('keepValueSell')} wrap="block">
                         <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
                           {t('keepValueSell')}
@@ -1765,16 +1770,22 @@ function RulesFilterPanel({
                     </ToggleButton>
                   </ToggleButtonGroup>
                 </Box>
+                {/* Matched / Unmatched — independent toggles; both can be active simultaneously. */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
                   <ToggleButtonGroup
                     size="small"
-                    value={state.testerResult?.matched ?? 'any'}
-                    exclusive
-                    onChange={(_, v: Bool3 | null) => {
-                      const next = v ?? 'any'
+                    value={[
+                      ...(state.testerResult?.matched ? ['matched'] : []),
+                      ...(state.testerResult?.unmatched ? ['unmatched'] : []),
+                    ]}
+                    onChange={(_, newValues: string[]) => {
                       onChange({
                         ...state,
-                        testerResult: { keep: state.testerResult?.keep ?? DEFAULT_RULES_FILTER_STATE.testerResult!.keep, matched: next },
+                        testerResult: {
+                          ...(state.testerResult ?? DEFAULT_RULES_FILTER_STATE.testerResult!),
+                          matched: newValues.includes('matched'),
+                          unmatched: newValues.includes('unmatched'),
+                        },
                       })
                     }}
                     sx={[{
@@ -1792,14 +1803,14 @@ function RulesFilterPanel({
                       },
                     }, SEGMENTED_TOGGLE_BUTTON_GROUP_SX]}
                   >
-                    <ToggleButton value={'yes'}>
+                    <ToggleButton value={'matched'}>
                       <EllipsisTooltip title={t('testerResultMatched')} wrap="block">
                         <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
                           {t('testerResultMatched')}
                         </Typography>
                       </EllipsisTooltip>
                     </ToggleButton>
-                    <ToggleButton value={'no'}>
+                    <ToggleButton value={'unmatched'}>
                       <EllipsisTooltip title={t('testerMatchNoRule')} wrap="block">
                         <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
                           {t('testerMatchNoRule')}

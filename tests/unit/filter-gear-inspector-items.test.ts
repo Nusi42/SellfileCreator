@@ -1,7 +1,7 @@
 /* eslint import/no-unused-modules: off */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { filterGearInspectorItems, DEFAULT_RULES_FILTER_STATE, type GearInspectorFilterRow, type RulesFilterState, type GearInspectorRollFilterState } from '../../src/lib/rulesFilter.js'
+import { filterGearInspectorItems, DEFAULT_RULES_FILTER_STATE, type GearInspectorFilterRow, type RulesFilterState, type GearInspectorRollFilterState, type GearInspectorContextGroup } from '../../src/lib/rulesFilter.js'
 import { ArtifactSet, ArtifactType, StatId, StatVariant } from '../../src/lib/types.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../../src/lib/importers/gearDbNormalizer.js'
 import { RULE_SOURCE_FINAL_SELL } from '../../src/lib/merge.js'
@@ -190,45 +190,58 @@ test('filterGearInspectorItems matches special rule labels like Final Sell chips
   assert.equal(result.items[0]?.match?.ruleSource, RULE_SOURCE_FINAL_SELL)
 })
 
-test('filterGearInspectorItems filters by tester Keep/Sell result', () => {
+test('filterGearInspectorItems filters by tester Keep/Sell result (plain mode)', () => {
   const rows: GearInspectorFilterRow[] = [
     { artifact: makeArtifact(), match: { keep: true, recipeIdx: 0 } },
     { artifact: makeArtifact({ set: ArtifactSet.Life }), match: { keep: false, recipeIdx: 1 } },
     { artifact: makeArtifact({ set: ArtifactSet.Immortal }), match: null },
   ]
+  // Keep-only: shows only keep-tagged items.
   const keepState: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerResult: { keep: 'yes', matched: 'any' },
+    testerResult: { keep: true, sell: false, matched: false, unmatched: false },
   }
   const keepMatches = filterGearInspectorItems(rows, keepState)
   assert.equal(keepMatches.items.length, 1)
   assert.equal(keepMatches.items[0]?.match?.keep, true)
 
+  // Sell-only: shows only sell-tagged items.
   const sellState: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerResult: { keep: 'no', matched: 'any' },
+    testerResult: { keep: false, sell: true, matched: false, unmatched: false },
   }
   const sellMatches = filterGearInspectorItems(rows, sellState)
   assert.equal(sellMatches.items.length, 1)
   assert.equal(sellMatches.items[0]?.match?.keep, false)
+
+  // Keep+Sell both active: shows all matched items (keep and sell combined).
+  const bothState: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerResult: { keep: true, sell: true, matched: false, unmatched: false },
+  }
+  const bothMatches = filterGearInspectorItems(rows, bothState)
+  assert.equal(bothMatches.items.length, 2)
+  assert.equal(bothMatches.items.filter((r) => r.match !== null).length, 2)
 })
 
-test('filterGearInspectorItems filters by matched vs unmatched gear', () => {
+test('filterGearInspectorItems filters by matched vs unmatched gear (plain mode)', () => {
   const rows: GearInspectorFilterRow[] = [
     { artifact: makeArtifact(), match: { keep: true, recipeIdx: 0 } },
     { artifact: makeArtifact({ set: ArtifactSet.Life }), match: null },
   ]
+  // Keep+Sell combined = all matched items (replaces old matched='yes' behavior).
   const matchedState: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerResult: { keep: 'any', matched: 'yes' },
+    testerResult: { keep: true, sell: true, matched: false, unmatched: false },
   }
   const matched = filterGearInspectorItems(rows, matchedState)
   assert.equal(matched.items.length, 1)
   assert.equal(matched.items[0]?.match?.recipeIdx, 0)
 
+  // Unmatched alone = unmatched items only (plain filter, no context mode).
   const unmatchedState: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    testerResult: { keep: 'any', matched: 'no' },
+    testerResult: { keep: false, sell: false, matched: false, unmatched: true },
   }
   const unmatched = filterGearInspectorItems(rows, unmatchedState)
   assert.equal(unmatched.items.length, 1)
@@ -606,4 +619,189 @@ test('filterGearInspectorItems unions custom last-used ranges with presets', () 
   } finally {
     Date.now = realNow
   }
+})
+
+// ---------- Context mode (Matched / Unmatched) ----------
+
+test('Matched+Sell context mode: sell=primary, companion=companion, other hidden', () => {
+  // A and B are the same Speed/Helmet set-mates; A is sell-tagged.
+  const artA = makeArtifact({ set: ArtifactSet.Speed, slot: ArtifactType.Helmet })
+  const artB = makeArtifact({ set: ArtifactSet.Speed, slot: ArtifactType.Helmet })
+  // C shares set but different slot — not a companion of A.
+  const artC = makeArtifact({ set: ArtifactSet.Speed, slot: ArtifactType.Boots })
+  // D shares slot but different set — not a companion of A.
+  const artD = makeArtifact({ set: ArtifactSet.Life, slot: ArtifactType.Helmet })
+  // E has a different set — truly unrelated, no match.
+  const artE = makeArtifact({ set: ArtifactSet.Immortal, slot: ArtifactType.Helmet })
+
+  const rows: GearInspectorFilterRow[] = [
+    { artifact: artA, match: { keep: false, recipeIdx: 0 } }, // sell-tagged → primary
+    { artifact: artB, match: { keep: true,  recipeIdx: 1 } }, // companion → companion
+    { artifact: artC, match: { keep: true,  recipeIdx: 2 } }, // other (different slot) → hidden
+    { artifact: artD, match: { keep: true,  recipeIdx: 3 } }, // other (different set) → hidden
+    { artifact: artE, match: null },                          // other (different set, unmatched) → hidden
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerResult: { keep: false, sell: true, matched: true, unmatched: false },
+  }
+  const result = filterGearInspectorItems(rows, state)
+
+  // Only sell + companion items survive; other group is hidden in Matched mode.
+  assert.equal(result.items.length, 2)
+  const ids = new Set(result.items.map((r) => r.artifact.id))
+  assert.ok(ids.has(artA.id), 'sell item should be visible')
+  assert.ok(ids.has(artB.id), 'companion should be visible')
+
+  // contextGroupById must be present and correct.
+  const g = result.contextGroupById as Map<number, GearInspectorContextGroup>
+  assert.ok(g instanceof Map, 'contextGroupById should be a Map')
+  assert.equal(g.get(artA.id), 'primary')
+  assert.equal(g.get(artB.id), 'companion')
+  assert.equal(g.get(artC.id), 'other')
+  assert.equal(g.get(artD.id), 'other')
+  assert.equal(g.get(artE.id), 'other')
+})
+
+test('Matched+Keep context mode: companion=primary, sell=companion, other hidden', () => {
+  const artA = makeArtifact({ set: ArtifactSet.Speed, slot: ArtifactType.Helmet })
+  const artB = makeArtifact({ set: ArtifactSet.Speed, slot: ArtifactType.Helmet })
+  const artC = makeArtifact({ set: ArtifactSet.Life, slot: ArtifactType.Helmet })
+  const rows: GearInspectorFilterRow[] = [
+    { artifact: artA, match: { keep: false, recipeIdx: 0 } }, // sell-tagged → companion group in Keep focus
+    { artifact: artB, match: { keep: true,  recipeIdx: 1 } }, // set-mate of sell → primary group
+    { artifact: artC, match: { keep: true,  recipeIdx: 2 } }, // other → hidden
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerResult: { keep: true, sell: false, matched: true, unmatched: false },
+  }
+  const result = filterGearInspectorItems(rows, state)
+
+  assert.equal(result.items.length, 2)
+  const g = result.contextGroupById as Map<number, GearInspectorContextGroup>
+  assert.equal(g.get(artA.id), 'companion')  // sell-tagged is companion in Keep focus
+  assert.equal(g.get(artB.id), 'primary')    // set-mate of sell item is primary
+  assert.equal(g.get(artC.id), 'other')
+})
+
+test('Unmatched+Sell context mode: shows other group at 25% (all items returned)', () => {
+  const artA = makeArtifact({ set: ArtifactSet.Speed, slot: ArtifactType.Helmet })
+  const artB = makeArtifact({ set: ArtifactSet.Speed, slot: ArtifactType.Helmet })
+  const artC = makeArtifact({ set: ArtifactSet.Life, slot: ArtifactType.Helmet })
+  const rows: GearInspectorFilterRow[] = [
+    { artifact: artA, match: { keep: false, recipeIdx: 0 } }, // sell → primary
+    { artifact: artB, match: { keep: true,  recipeIdx: 1 } }, // companion → companion
+    { artifact: artC, match: null },                          // other → shown (Unmatched expands view)
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerResult: { keep: false, sell: true, matched: false, unmatched: true },
+  }
+  const result = filterGearInspectorItems(rows, state)
+
+  // All three items are visible when Unmatched expands the other group.
+  assert.equal(result.items.length, 3)
+  const g = result.contextGroupById as Map<number, GearInspectorContextGroup>
+  assert.equal(g.get(artA.id), 'primary')
+  assert.equal(g.get(artB.id), 'companion')
+  assert.equal(g.get(artC.id), 'other')
+})
+
+test('Matched+Keep+Sell context mode: sell+companions both primary, other hidden', () => {
+  const artA = makeArtifact({ set: ArtifactSet.Speed, slot: ArtifactType.Helmet })
+  const artB = makeArtifact({ set: ArtifactSet.Speed, slot: ArtifactType.Helmet })
+  const artC = makeArtifact({ set: ArtifactSet.Life, slot: ArtifactType.Helmet })
+  const rows: GearInspectorFilterRow[] = [
+    { artifact: artA, match: { keep: false, recipeIdx: 0 } }, // sell → primary
+    { artifact: artB, match: { keep: true,  recipeIdx: 1 } }, // companion → primary
+    { artifact: artC, match: { keep: true,  recipeIdx: 2 } }, // other → hidden
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerResult: { keep: true, sell: true, matched: true, unmatched: false },
+  }
+  const result = filterGearInspectorItems(rows, state)
+
+  assert.equal(result.items.length, 2)
+  const g = result.contextGroupById as Map<number, GearInspectorContextGroup>
+  assert.equal(g.get(artA.id), 'primary')
+  assert.equal(g.get(artB.id), 'primary')
+  assert.equal(g.get(artC.id), 'other')
+})
+
+test('Matched alone (no Keep/Sell) defaults to sell focus', () => {
+  const artA = makeArtifact({ set: ArtifactSet.Speed, slot: ArtifactType.Helmet })
+  const artB = makeArtifact({ set: ArtifactSet.Speed, slot: ArtifactType.Helmet })
+  const rows: GearInspectorFilterRow[] = [
+    { artifact: artA, match: { keep: false, recipeIdx: 0 } }, // sell → primary (sell focus default)
+    { artifact: artB, match: { keep: true,  recipeIdx: 1 } }, // companion → companion
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerResult: { keep: false, sell: false, matched: true, unmatched: false },
+  }
+  const result = filterGearInspectorItems(rows, state)
+
+  // Default sell focus: sell item is primary, companion is companion.
+  const g = result.contextGroupById as Map<number, GearInspectorContextGroup>
+  assert.equal(g.get(artA.id), 'primary')
+  assert.equal(g.get(artB.id), 'companion')
+})
+
+test('set=0 (no-set) armor has no companions even if same set+slot', () => {
+  // Two Helmets with set=0 must NOT companion each other per spec.
+  const artA = makeArtifact({ set: 0 as ArtifactSet, slot: ArtifactType.Helmet })
+  const artB = makeArtifact({ set: 0 as ArtifactSet, slot: ArtifactType.Helmet })
+  const rows: GearInspectorFilterRow[] = [
+    { artifact: artA, match: { keep: false, recipeIdx: 0 } }, // sell-tagged
+    { artifact: artB, match: { keep: true,  recipeIdx: 1 } }, // not a companion — set=0
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerResult: { keep: false, sell: true, matched: true, unmatched: false },
+  }
+  const result = filterGearInspectorItems(rows, state)
+
+  const g = result.contextGroupById as Map<number, GearInspectorContextGroup>
+  // artA is sell-tagged → primary; artB has no companion key (set=0) → other → hidden.
+  assert.equal(g.get(artA.id), 'primary')
+  assert.equal(g.get(artB.id), 'other')
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0]?.artifact.id, artA.id)
+})
+
+test('accessory companions match by set + slot + faction', () => {
+  // Three rings with the same set but different factions — only same-faction pair are companions.
+  const artA = makeArtifact({ set: ArtifactSet.Speed, slot: ArtifactType.Ring, faction: 1 })
+  const artB = makeArtifact({ set: ArtifactSet.Speed, slot: ArtifactType.Ring, faction: 1 }) // companion of A
+  const artC = makeArtifact({ set: ArtifactSet.Speed, slot: ArtifactType.Ring, faction: 2 }) // different faction
+  const rows: GearInspectorFilterRow[] = [
+    { artifact: artA, match: { keep: false, recipeIdx: 0 } },
+    { artifact: artB, match: { keep: true,  recipeIdx: 1 } },
+    { artifact: artC, match: { keep: true,  recipeIdx: 2 } },
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerResult: { keep: false, sell: true, matched: true, unmatched: false },
+  }
+  const result = filterGearInspectorItems(rows, state)
+
+  const g = result.contextGroupById as Map<number, GearInspectorContextGroup>
+  assert.equal(g.get(artA.id), 'primary')
+  assert.equal(g.get(artB.id), 'companion') // same faction → companion
+  assert.equal(g.get(artC.id), 'other')     // different faction → not companion
+  assert.equal(result.items.length, 2)
+})
+
+test('plain filter mode does not populate contextGroupById', () => {
+  const rows: GearInspectorFilterRow[] = [
+    { artifact: makeArtifact(), match: { keep: true, recipeIdx: 0 } },
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerResult: { keep: true, sell: false, matched: false, unmatched: false },
+  }
+  const result = filterGearInspectorItems(rows, state)
+  assert.equal(result.contextGroupById, undefined)
 })

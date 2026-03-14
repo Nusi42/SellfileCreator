@@ -4073,6 +4073,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     specialRuleSourceLabels,
   ])
   const gearEntriesAfterRulesFilter = gearInspectorFilterResult.items
+  // Companion context groups for opacity rendering; present only when Matched/Unmatched is active.
+  const gearInspectorContextGroupById = gearInspectorFilterResult.contextGroupById ?? null
   // Derive the set of recipe indices that are the first match for at least one filtered Gear Inspector row.
   // Built from already-computed worker results — no WASM evaluation needed. Used to short-circuit the
   // expensive evaluateFirst loop in builderInsertBecomesGearInspectorFirstMatch when the builder is clean.
@@ -6894,6 +6896,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 onJumpToSafeguardRule={openLogicHubSafeguardRule}
                 onCreateRuleTemplate={handleGearInspectorRuleTemplateCreate}
                 suppressMatchDetails={suppressGearInspectorMatchDetails}
+                contextGroupById={gearInspectorContextGroupById}
                 grouping={gearInspectorSubstatSortPrefs.state.grouping}
                 substatSort={gearInspectorSubstatSortSpec}
                 sortState={gearInspectorSubstatSortPrefs.state}

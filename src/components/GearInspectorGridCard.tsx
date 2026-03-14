@@ -40,7 +40,7 @@ import {
   getItemSourceDescriptor,
 } from '../lib/gearInspectorPreviewFormatting'
 import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
-import type { GearInspectorSourceFilter } from '../lib/rulesFilter'
+import type { GearInspectorContextGroup, GearInspectorSourceFilter } from '../lib/rulesFilter'
 import { GearInspectorSummaryLabel } from './GearInspectorSummaryLabel'
 import { GearInspectorRuleReferenceChip } from './GearInspectorRuleReferenceChip'
 import { getGearInspectorMatchBorderColor, getGearInspectorMatchSurfaceColors } from './gearInspectorMatchStyles'
@@ -338,6 +338,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   dimUnhighlightedRows = false,
   focusPulseActive = false,
   cardPriority,
+  contextGroupById = null,
 }: {
   row: GearInspectorPreviewRow
   centerOverlay?: { text: string; color?: string } | null
@@ -360,11 +361,21 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   dimUnhighlightedRows?: boolean
   focusPulseActive?: boolean
   cardPriority: { base: number; order: number }
+  /** When the result-filter context mode is active, maps artifact ID → display group for opacity. */
+  contextGroupById?: Map<number, GearInspectorContextGroup> | null
 }) {
   // Highlight state lets Safeguards call attention to the at-risk combinations without mutating the dataset.
   const highlightFn = typeof highlightedRowPredicate === 'function' ? highlightedRowPredicate : null
   const cardHighlighted = highlightFn ? Boolean(highlightFn(row)) : false
   const cardDimmed = Boolean(highlightFn && dimUnhighlightedRows && !cardHighlighted && !focusPulseActive)
+  // Context-mode opacity from result-filter companion grouping: primary=100%, companion=65%, other=25%.
+  const artifactIdForContext = Number(row.artifact?.id)
+  const contextGroup = contextGroupById != null && Number.isFinite(artifactIdForContext)
+    ? (contextGroupById.get(artifactIdForContext) ?? null)
+    : null
+  const contextOpacity = contextGroup === 'companion' ? 0.65
+    : contextGroup === 'other' ? 0.25
+    : null
   // Frozen match rows keep stale data visible but low-opacity until the rebuild commits.
   const matchDetailsFrozen = Boolean(suppressMatchDetails)
   const matchDetailsOpacity = matchDetailsFrozen ? 0.45 : 1
@@ -1173,7 +1184,8 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         boxShadow: cardHighlighted ? `0 0 0 1px ${alpha(theme.palette.info.main, 0.3)}` : 'none',
         // Card content must stay readable even inside colored containers (for example success toasts).
         color: theme.palette.text.primary,
-        opacity: cardDimmed ? 0.35 : 1,
+        // Context mode opacity takes precedence; falls back to safeguards dim or full opacity.
+        opacity: contextOpacity ?? (cardDimmed ? 0.35 : 1),
         transition: 'opacity 220ms ease, border-color 260ms ease, box-shadow 280ms ease, background-color 280ms ease',
         // Programmatic focus should blink once and then settle back to baseline (no persistent selection affordance).
         animation: focusPulseActive
