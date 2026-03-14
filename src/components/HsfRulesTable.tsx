@@ -145,7 +145,9 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     onChangeColorBlindMode(nextMode)
   }, [colorBlindMode, onChangeColorBlindMode])
   // Track which rule rows are newly added so they can play an enter animation.
-  // Key format: `${recipeIdx ?? 'base'}_${lineIdx}` — stable within a recipe across re-renders.
+  // Because RecipeID is positional (re-stamped as array index + 1), inserting a recipe
+  // shifts all subsequent keys making them look "new".  Suppress enter animation on
+  // structural changes (count differs) for the same reason as changedRuleKeys below.
   const prevRuleKeysRef = useRef<ReadonlySet<string>>(new Set())
   // clearGeneration is bumped via setTimeout after the animation window to force
   // the useMemo below to recompute and return an empty set.
@@ -157,10 +159,13 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     const prev = prevRuleKeysRef.current
     const currentKeys = new Set<string>()
     const newKeys = new Set<string>()
+    // Structural change guard: if rule count changed, positional key matching is unreliable —
+    // shifted rows would all appear "new".  Update the ref but return no animations.
+    const structuralChange = prev.size > 0 && prev.size !== rules.length
     rules.forEach((rule, idx) => {
       const key = computeRuleAnimKey(rule, idx)
       currentKeys.add(key)
-      if (!prev.has(key)) newKeys.add(key)
+      if (!structuralChange && !prev.has(key)) newKeys.add(key)
     })
     // Mutate the ref in render so the next render compares against the latest keys.
     prevRuleKeysRef.current = currentKeys
@@ -182,6 +187,11 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
   // Track which existing rule rows changed content so they can pulse.
   // Fingerprint covers all mutable fields visible in the table; __lineIdx is excluded
   // because positional churn (reorder) should not trigger a content-change pulse.
+  // NOTE: RecipeID is positional (re-stamped as array index + 1 on every worker run), so
+  // fingerprint matching is only reliable when the rule count is the same as before.
+  // When rules are inserted or deleted the positions shift and every downstream row would
+  // get a false-positive pulse.  Guard against this by suppressing change-pulse whenever
+  // the rule count differs from the previous render.
   const prevRuleFingerprintsRef = useRef<Map<string, string>>(new Map())
   const [clearRuleChangeGeneration, setClearRuleChangeGeneration] = useState(0)
   const clearRuleChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -207,8 +217,12 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
         substats,
       ].join('|')
       nextFp.set(key, fp)
-      // Only pulse rows that already existed — new rows get the enter animation instead.
-      if (prevFp.has(key) && prevFp.get(key) !== fp) changed.add(key)
+      // Structural change guard: if rule count changed, positional IDs shifted and
+      // fingerprint matching would produce false positives on every downstream row.
+      // Only record a changed key when the set size is stable (pure content edit).
+      if (prevFp.size === rules.length && prevFp.has(key) && prevFp.get(key) !== fp) {
+        changed.add(key)
+      }
     })
     prevRuleFingerprintsRef.current = nextFp
     return changed
