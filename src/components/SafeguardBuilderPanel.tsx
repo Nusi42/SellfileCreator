@@ -1652,7 +1652,7 @@ export default function SafeguardBuilderPanel({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="sets" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0, flex: 1 }]}>
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderSets')}</Box>
+              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
             </FormLabel>
             <MarkdownTooltip markdown={t('builderManageMetasetsTooltip')}>
               <Button
