@@ -5757,6 +5757,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
 
     markNextSnapshotAsSaved()
+    // Synchronously clear pre-load dirty state so the first paint after load never shows stale dirty
+    // markers. The history useEffect (post-paint) will later create the new snapshot and honour
+    // markNextSnapshotAsSaved to anchor savedIndex there; markSavedNow in the rAF is a safety net.
+    markSavedNow()
     setLastExportSig(null)
     exportBaselineResetRef.current = true
     if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
@@ -5944,6 +5948,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     }
     markNextSnapshotAsSaved()
+    // Synchronously clear pre-load dirty state — mirrors the full-load path above.
+    markSavedNow()
     setLastExportSig(null)
     exportBaselineResetRef.current = true
     if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
