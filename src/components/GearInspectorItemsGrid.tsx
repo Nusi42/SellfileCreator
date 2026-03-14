@@ -97,6 +97,7 @@ import {
   GRID_CARD_CONTAINER_PADDING_UNITS,
   GRID_CARD_OFFSCREEN_PRIORITY_PENALTY,
   GRID_CARD_FOCUS_PULSE_DURATION_MS,
+  GRID_CARD_ENTER_ANIMATION_MS,
   flushGearInspectorGridCardRevealQueue,
   useGearInspectorGridLayoutMetrics,
   formatGearInspectorRankLabel,
@@ -1124,6 +1125,42 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     groups.forEach(assignGroup)
     return map
   }, [groups])
+  // Track which artifact IDs are "new" so cards can play their enter animation.
+  // prevArtifactIdsRef holds the IDs from the previous rows render pass.
+  const prevArtifactIdsRef = useRef<ReadonlySet<number>>(new Set())
+  // clearGeneration bumps via setTimeout after the animation window to force the
+  // useMemo below to recompute and return an empty set.
+  const [clearGeneration, setClearGeneration] = useState(0)
+  const clearEnterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Compute new IDs synchronously during render by mutating prevArtifactIdsRef.
+  // This ensures animateIn is true on the SAME render as the new rows — no frame delay.
+  const enteringArtifactIds = useMemo(() => {
+    const prev = prevArtifactIdsRef.current
+    const currentIds = new Set<number>()
+    const newIds = new Set<number>()
+    for (const row of rows) {
+      const id = Number(row.artifact?.id)
+      if (!Number.isFinite(id)) continue
+      currentIds.add(id)
+      if (!prev.has(id)) newIds.add(id)
+    }
+    // Mutate the ref in render so the next render compares against the latest IDs.
+    prevArtifactIdsRef.current = currentIds
+    return newIds
+    // clearGeneration is intentionally included so the memo re-runs when the
+    // timer fires — at that point prevArtifactIdsRef already matches current rows,
+    // so newIds will be empty and animateIn props will drop to false.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, clearGeneration])
+  useEffect(() => {
+    // Schedule clearing the entering set after the animation window elapses.
+    if (enteringArtifactIds.size === 0) return
+    if (clearEnterTimerRef.current !== null) clearTimeout(clearEnterTimerRef.current)
+    clearEnterTimerRef.current = setTimeout(
+      () => setClearGeneration((g) => g + 1),
+      GRID_CARD_ENTER_ANIMATION_MS + 50,
+    )
+  }, [enteringArtifactIds])
   const [focusPulseArtifactId, setFocusPulseArtifactId] = useState<number | null>(null)
   // Ref-based setter so the timer callback and layout effect avoid the set-state-in-effect lint rule.
   const setFocusPulseArtifactIdRef = useRef(setFocusPulseArtifactId)
@@ -1709,6 +1746,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                   dimUnhighlightedRows={shouldDimUnhighlightedRows}
                   contextGroupById={contextGroupById}
                   focusPulseActive={Number(row.artifact?.id) === focusPulseArtifactId}
+                  animateIn={enteringArtifactIds.has(artifactId)}
                   cardPriority={{ base: scrollVersion, order: cardPriorityOrder }}
                 />
               )

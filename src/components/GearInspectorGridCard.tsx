@@ -66,6 +66,7 @@ import {
   GEAR_INSPECTOR_GRID_ROW_PADDING_UNITS,
 } from '../lib/gearInspectorGridLayout'
 import type { GearInspectorRuleTemplateIntent } from '../lib/gearInspectorRuleTemplates'
+import { useChangePulse } from '../hooks/useChangePulse'
 
 // TranslateFn is a locally-defined alias; both files define it identically without duplicating a domain literal.
 type TranslateFn = ReturnType<typeof useI18n>['t']
@@ -143,6 +144,12 @@ const CARD_ACTION_ICON_SIZE_PX = 18
 export const GRID_CARD_OFFSCREEN_PRIORITY_PENALTY = 1_000_000
 // Pulse duration exported so the main grid can clear the pulse timeout after the same window.
 export const GRID_CARD_FOCUS_PULSE_DURATION_MS = 1500
+// Match-change pulse fires once when a card's keep/sell outcome changes.
+// Single forward pass, shorter than the focus double-pulse.
+export const GRID_CARD_MATCH_CHANGE_PULSE_MS = 700
+// Enter animation plays when a card first appears in the filtered result set.
+// Exported so GearInspectorItemsGrid can clear the entering-ID set after this window.
+export const GRID_CARD_ENTER_ANIMATION_MS = 220
 
 type Rgb = { r: number; g: number; b: number }
 
@@ -282,6 +289,27 @@ const GEAR_INSPECTOR_GRID_CARD_FOCUS_PULSE_KEYFRAMES = keyframes`
   }
 `
 
+// Match-change: single forward pass using a warm primary tint distinct from the focus-pulse blue.
+// Returns to baseline at 100% so the card never stays tinted after the pulse.
+const GEAR_INSPECTOR_GRID_CARD_MATCH_CHANGE_KEYFRAMES = keyframes`
+  0% { background-color: var(--gear-inspector-focus-bg-base); }
+  25% { background-color: var(--gear-inspector-focus-bg-peak); }
+  100% { background-color: var(--gear-inspector-focus-bg-base); }
+`
+
+// Enter animation: card fades in from transparent and slides up 8px into place.
+// GPU-accelerated (opacity + transform only) so it doesn't trigger layout recalcs.
+const GEAR_INSPECTOR_GRID_CARD_ENTER_KEYFRAMES = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`
+
 const SOURCE_ICON_MAP: Record<GearInspectorSourceFilter, React.ElementType | null> = {
   manual: BuildOutlinedIcon,
   inventory: null,
@@ -337,6 +365,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   highlightedRowPredicate = null,
   dimUnhighlightedRows = false,
   focusPulseActive = false,
+  animateIn = false,
   cardPriority,
   contextGroupById = null,
 }: {
@@ -360,6 +389,9 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   highlightedRowPredicate?: ((row: GearInspectorPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
   focusPulseActive?: boolean
+  /** When true, plays a one-shot enter animation (fade + slide-up).  Set by the grid for
+   *  newly-appeared artifact IDs; cleared after GRID_CARD_ENTER_ANIMATION_MS. */
+  animateIn?: boolean
   cardPriority: { base: number; order: number }
   /** When the result-filter context mode is active, maps artifact ID → display group for opacity. */
   contextGroupById?: Map<number, GearInspectorContextGroup> | null
@@ -410,6 +442,10 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   )
   const cardContentReady = useGearInspectorGridCardContentReady(normalizedArtifactId, priorityBase, priorityOrder)
   const match = row.match
+  // Stable string that changes whenever the match outcome flips (keep/sell/none, recipe index).
+  // Used to trigger the match-change pulse animation so the user can see which cards updated.
+  const matchFingerprint = match == null ? 'none' : `${match.keep ? 'k' : 's'}:${match.recipeIdx ?? -1}`
+  const matchChangePulsing = useChangePulse(matchFingerprint, GRID_CARD_MATCH_CHANGE_PULSE_MS)
   const primaryRuleIndex = typeof match?.ruleIndex === 'number' ? match.ruleIndex : null
   const primaryRecipeIndex = typeof match?.recipeIdx === 'number' ? match.recipeIdx : null
   const canJumpToPrimaryMatch = typeof onJumpToRule === 'function' && primaryRuleIndex != null
@@ -1187,9 +1223,14 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         // Context mode opacity takes precedence; falls back to safeguards dim or full opacity.
         opacity: contextOpacity ?? (cardDimmed ? 0.35 : 1),
         transition: 'opacity 220ms ease, border-color 260ms ease, box-shadow 280ms ease, background-color 280ms ease',
-        // Programmatic focus should blink once and then settle back to baseline (no persistent selection affordance).
+        // Programmatic focus pulse takes priority; match-change pulse fires next; enter animation otherwise.
+        // Only one animation plays at a time — all three resolve to 'none' when idle.
         animation: focusPulseActive
           ? `${GEAR_INSPECTOR_GRID_CARD_FOCUS_PULSE_KEYFRAMES} ${GRID_CARD_FOCUS_PULSE_DURATION_MS}ms ease-in-out 1`
+          : animateIn
+          ? `${GEAR_INSPECTOR_GRID_CARD_ENTER_KEYFRAMES} ${GRID_CARD_ENTER_ANIMATION_MS}ms ease-out 1`
+          : matchChangePulsing
+          ? `${GEAR_INSPECTOR_GRID_CARD_MATCH_CHANGE_KEYFRAMES} ${GRID_CARD_MATCH_CHANGE_PULSE_MS}ms ease-out 1`
           : 'none',
       })}
     >

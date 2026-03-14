@@ -1,6 +1,7 @@
 import React from 'react'
 import { Box, Divider, Stack, Typography } from '@mui/material'
-import { alpha, type Theme } from '@mui/material/styles'
+import { alpha, keyframes, type Theme } from '@mui/material/styles'
+import { useChangePulse } from '../hooks/useChangePulse'
 import ViewListIcon from '@mui/icons-material/ViewList'
 import SellIcon from '@mui/icons-material/Sell'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
@@ -11,6 +12,17 @@ import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
 
 // Tone tokens keep summary metric colors consistent across the chip.
 type GearInspectorOutcomeSummaryTone = 'total' | 'sell' | 'keep' | 'unique'
+
+// Duration for the value-change pulse.  Short enough to be snappy, long enough to notice.
+const GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_MS = 550
+// Brief scale + background brightening so the chip draws attention when counts update.
+// Scale stays small so it doesn't push adjacent layout elements.
+const GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_KEYFRAMES = keyframes`
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.07); background-color: var(--gi-chip-pulse-bg); }
+  70%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+`
 
 // Keep the summary chip compact so it fits in headers and dialogs.
 const GEAR_INSPECTOR_SUMMARY_CHIP_RADIUS_PX = 999
@@ -154,6 +166,16 @@ export default function GearInspectorOutcomeSummaryChip({
     }
   }, [lang, metricMode, showFilteredTotals, showWhenEmpty, summary, t, totalSummary])
 
+  // Fingerprint changes whenever any metric count changes.
+  const summaryFingerprint = summary
+    ? `${summary.total}:${summary.sold}:${summary.kept}:${summary.keptBySafeguards}`
+    : null
+  const chipPulsing = useChangePulse(summaryFingerprint, GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_MS)
+  // Allow the pulse even when dimmed: the scale animation is still legible under
+  // reduced opacity and the result that triggered the change may arrive while the
+  // dimmed state is still true, so suppressing here would silently drop the pulse.
+  const shouldPulse = chipPulsing
+
   if (!formattedSummary) return null
 
   return (
@@ -161,7 +183,16 @@ export default function GearInspectorOutcomeSummaryChip({
     <MarkdownTooltip markdown={formattedSummary.tooltip}>
       {/* Outer pill matches the note dialog styling and scan order. */}
       <Box
-        sx={GEAR_INSPECTOR_SUMMARY_CHIP_SX}
+        sx={(theme) => ({
+          ...GEAR_INSPECTOR_SUMMARY_CHIP_SX(theme),
+          // CSS variable supplies the brightened background used by the pulse keyframe.
+          '--gi-chip-pulse-bg': alpha(theme.palette.info.main, 0.28),
+          // Apply pulse animation when counts changed and the chip is not already showing the dimmed state.
+          animation: shouldPulse
+            ? `${GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_KEYFRAMES} ${GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_MS}ms ease-out 1`
+            : 'none',
+          transformOrigin: 'center',
+        })}
         aria-label={ariaLabel ?? formattedSummary.tooltip}
       >
         {/* Row layout keeps metric icons aligned and evenly spaced. */}

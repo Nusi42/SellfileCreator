@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { elementScroll, useVirtualizer } from '@tanstack/react-virtual'
 import type { VirtualizerOptions } from '@tanstack/react-virtual'
 import { Box, Button, ButtonBase, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
-import { alpha, useTheme } from '@mui/material/styles'
+import { alpha, keyframes, useTheme } from '@mui/material/styles'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
@@ -57,6 +57,20 @@ const FACTION_ICON_PREVIEW_OFFSET_PX = 0 as const
 const SINGLE_LINE_PREVIEW_OFFSET_PX = 3 as const
 // Builder recipes map rows via RecipeID (1-based). Base rules, safeguard injections, and other
 // recipe-less rows omit RecipeID, so they should not participate in recipe selection math.
+// Enter animation duration for new rule rows (ms).  Short so it doesn't slow the user down.
+const RULE_ROW_ENTER_ANIMATION_MS = 200
+// New rule rows slide in from a slight left offset to draw attention without feeling heavy.
+const RULE_ROW_ENTER_KEYFRAMES = keyframes`
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+`
+
 const resolveDisplayRecipeIdx = (rule: HsfRuleWithRecipe | null | undefined): number | null => {
   const idx = getRuleRecipeIndex(rule ?? null)
   return idx !== null && idx >= 0 ? idx : null
@@ -106,6 +120,43 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
       colorBlindMode === 'normal' ? 'okabeIto' : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
     onChangeColorBlindMode(nextMode)
   }, [colorBlindMode, onChangeColorBlindMode])
+  // Track which rule rows are newly added so they can play an enter animation.
+  // Key format: `${recipeIdx ?? 'base'}_${lineIdx}` — stable within a recipe across re-renders.
+  const prevRuleKeysRef = useRef<ReadonlySet<string>>(new Set())
+  // clearGeneration is bumped via setTimeout after the animation window to force
+  // the useMemo below to recompute and return an empty set.
+  const [clearRuleGeneration, setClearRuleGeneration] = useState(0)
+  const clearRuleEnterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Compute new keys synchronously during render by mutating prevRuleKeysRef.
+  // This ensures isNewRow is true on the SAME render as the new rules — no frame delay.
+  const enteringRuleKeys = useMemo(() => {
+    const prev = prevRuleKeysRef.current
+    const currentKeys = new Set<string>()
+    const newKeys = new Set<string>()
+    rules.forEach((rule, idx) => {
+      const recipeIdx = getRuleRecipeIndex(rule)
+      const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : idx
+      const key = `${recipeIdx ?? 'base'}_${lineIdx}`
+      currentKeys.add(key)
+      if (!prev.has(key)) newKeys.add(key)
+    })
+    // Mutate the ref in render so the next render compares against the latest keys.
+    prevRuleKeysRef.current = currentKeys
+    return newKeys
+    // clearRuleGeneration is included so the memo re-runs when the timer fires —
+    // prevRuleKeysRef already matches current rules at that point, so newKeys is empty.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rules, clearRuleGeneration])
+  useEffect(() => {
+    // Schedule clearing the entering set after the animation window elapses.
+    if (enteringRuleKeys.size === 0) return
+    if (clearRuleEnterTimerRef.current !== null) clearTimeout(clearRuleEnterTimerRef.current)
+    clearRuleEnterTimerRef.current = setTimeout(
+      () => setClearRuleGeneration((g) => g + 1),
+      RULE_ROW_ENTER_ANIMATION_MS + 50,
+    )
+  }, [enteringRuleKeys])
+
   // Single-line mode is strict fixed-height (see `RULES_TABLE_FIXED_ROW_HEIGHT_PX`).
   // Why: fixed-height makes `scrollToIndex` exact even for very large lists without DOM measurement.
   // Wrap mode rows are variable-height; still provide a realistic estimate so `scrollToIndex` lands near the target.
@@ -1141,6 +1192,9 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                     const previewRuleName = ruleDecoration.displayName || rawPreviewRuleName
                     // Resolved color from the directive (empty string when absent).
                     const previewRuleColor = ruleDecoration.hasExplicitColor ? ruleDecoration.resolvedColor : ''
+                    // Determine whether this row should play the enter animation.
+                    const ruleKey = `${recipeIdxNumber ?? 'base'}_${lineIdx}`
+                    const isNewRow = enteringRuleKeys.has(ruleKey)
                     return (
 		                      <TableRow
 		                        key={virtualItem.key}
@@ -1206,6 +1260,10 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
 		                          '&[data-selected-recipe="true"]': {
 		                            backgroundColor: theme.palette.action.selected,
 		                          },
+		                          // Play enter animation only for rows that arrived in the latest worker result.
+		                          ...(isNewRow ? {
+		                            animation: `${RULE_ROW_ENTER_KEYFRAMES} ${RULE_ROW_ENTER_ANIMATION_MS}ms ease-out 1`,
+		                          } : {}),
 		                        })}
                       >
                       {visibleCols.map((c) => {
