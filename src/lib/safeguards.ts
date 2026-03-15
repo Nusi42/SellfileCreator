@@ -1,7 +1,7 @@
 import { isAccessorySlot } from './gearInspectorDomain'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from './gearInspectorSort'
 import { normalizeSubstatByMax6 } from './substatRollNormalization'
-import { resolveAllowedSubstatsForSlotsAndMains } from './statCompatibility'
+import { retainAllowedSubstats } from './statCompatibility'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import type {
   ArtifactSetId,
@@ -1393,11 +1393,11 @@ export function constrainSafeguardSubstats(
   // Sort the combination first so exports and comparisons stay deterministic.
   const sortedCombination = sortSafeguardCombination(combination)
   // Determine which substats are still valid for the updated slot/main scope.
-  const allowed = resolveAllowedSubstatsForSlotsAndMains({
-    slots: sortedCombination.slots,
-    mainStats: sortedCombination.mainStats,
-  })
-  const filtered = sortSafeguardSubstats((rule.substats ?? []).filter((v) => allowed.includes(v)))
+  const filtered = sortSafeguardSubstats(retainAllowedSubstats(
+    rule.substats ?? [],
+    (v) => v,
+    { slots: sortedCombination.slots, mainStats: sortedCombination.mainStats },
+  ))
   // Substat match only applies when a selection exists; reset otherwise.
   const nextMatch = filtered.length > 0 ? rule.substatMatch : SafeguardSubstatMatch.Any
   // Drop weight entries that no longer have a corresponding substat.

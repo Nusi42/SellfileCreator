@@ -89,3 +89,15 @@ export const resolveAllowedSubstatsForSlotsAndMains = ({
   // Preserve the app's preferred ordering for the final list.
   return STAT_VARIANTS_PRIORITY.filter((variant) => allowed.has(Number(variant)))
 }
+
+// retainAllowedSubstats filters any array whose items carry a stat variant to only
+// those variants still allowed for the given slots + main stats. Works for both
+// flat StatVariant arrays (safeguard substats) and substat-object arrays (recipe substats).
+export function retainAllowedSubstats<T>(
+  items: T[],
+  getVariant: (item: T) => StatVariantLike,
+  constraints: { slots: ArtifactTypeId[] | undefined; mainStats: StatVariantLike[] | undefined },
+): T[] {
+  const allowed = resolveAllowedSubstatsForSlotsAndMains(constraints)
+  return items.filter((item) => allowed.includes(Number(getVariant(item)) as StatVariant))
+}

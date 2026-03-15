@@ -60,7 +60,7 @@ import type { ArtifactSetSelectionEntry } from '../lib/gearSets/selection'
 import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import { isAccessorySlot, slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import { getMainStatOptionsForSlots } from './keepOverrides/keepOverrideRuleUtils'
-import { resolveAllowedSubstatsForSlotsAndMains } from '../lib/statCompatibility'
+import { resolveAllowedSubstatsForSlotsAndMains, retainAllowedSubstats } from '../lib/statCompatibility'
 import { useKeepOverrideCombinationTools } from './keepOverrides/useKeepOverrideCombinationTools'
 
 import { Box, Button, Collapse, Divider, Slider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu, Badge } from '@mui/material'
@@ -1130,10 +1130,22 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   // Slot-based filtering: compute allowed options for main stats, substats, and sets.
   const slotSelection = recipe.artifactTypes ?? []
   const mainStatOptions = getMainStatOptionsForSlots(slotSelection)
+  // Prune mainstats no longer valid for the selected slots (single-edit only).
+  const sanitizedMainStats = multiEditActive
+    ? (recipe.mainStatsV ?? [])
+    : (recipe.mainStatsV ?? []).filter((v) => mainStatOptions.includes(Number(v)))
+  // Feed pruned mains into substat constraint so disabled mainstats don't widen the substat pool.
   const allowedSubstatOptions = resolveAllowedSubstatsForSlotsAndMains({
     slots: slotSelection,
-    mainStats: recipe.mainStatsV ?? [],
+    mainStats: sanitizedMainStats,
   })
+  // Prune recipe substats that conflict with the updated slot/main scope (single-edit only).
+  const sanitizedSubstatsV = multiEditActive
+    ? (recipe.substatsV ?? [])
+    : retainAllowedSubstats(recipe.substatsV ?? [], (v) => v, {
+        slots: slotSelection,
+        mainStats: sanitizedMainStats,
+      })
   const allowedSetPool = resolveAllowedSetPool(slotSelection)
   // Prune accessory no-set selections at render time when constraints change.
   const sanitizedSets = React.useMemo(
@@ -1148,6 +1160,48 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     // Notify the parent only when pruning actually changed the selection.
     if (rawSetKey !== sanitizedSetKey) {
       onChange({ ...recipe, artifactSets: sanitizedSets })
+    }
+  }
+  // Prune invalid main-stat and substat selections when constraints tighten.
+  const sanitizedMainStatsKey = sanitizedMainStats.map(Number).sort((a, b) => a - b).join(',')
+  const rawMainStatsKey = (recipe.mainStatsV ?? []).map(Number).sort((a, b) => a - b).join(',')
+  const sanitizedSubstatsKey = sanitizedSubstatsV.map(Number).join(',')
+  const rawSubstatsKey = (recipe.substatsV ?? []).map(Number).join(',')
+  const [prevSanitizedStatKeys, setPrevSanitizedStatKeys] = React.useState(
+    `${sanitizedMainStatsKey}|${sanitizedSubstatsKey}`,
+  )
+  const nextStatKeys = `${sanitizedMainStatsKey}|${sanitizedSubstatsKey}`
+  if (nextStatKeys !== prevSanitizedStatKeys) {
+    setPrevSanitizedStatKeys(nextStatKeys)
+    const mainChanged = rawMainStatsKey !== sanitizedMainStatsKey
+    const subChanged  = rawSubstatsKey  !== sanitizedSubstatsKey
+    if (mainChanged || subChanged) {
+      // When substats are pruned, also clean up per-substat fields (mirrors manual substat removal).
+      const prunedSubPatch: Partial<BuilderRecipe> = {}
+      if (subChanged) {
+        const keptVariants = new Set(sanitizedSubstatsV.map(Number))
+        // fixedSubstatsV must remain a subset of substatsV.
+        const sanitizedFixedV = (recipe.fixedSubstatsV ?? []).filter((v) => keptVariants.has(Number(v)))
+        // substatRollBoundsV: drop variant-keyed entries for removed substats.
+        const boundsV = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+        const prunedBoundsV: Record<number, { min?: number; max?: number; any?: boolean }> = {}
+        for (const [k, v] of Object.entries(boundsV)) {
+          if (keptVariants.has(Number(k))) prunedBoundsV[Number(k)] = v
+        }
+        // minCount must not exceed the remaining substat count.
+        const nextMin = (recipe.autoMinCount
+          ? Math.min(4, sanitizedSubstatsV.length)
+          : (recipe.minCount > sanitizedSubstatsV.length ? sanitizedSubstatsV.length : recipe.minCount)) as 0 | 1 | 2 | 3 | 4
+        prunedSubPatch.substatsV = sanitizedSubstatsV
+        prunedSubPatch.fixedSubstatsV = sanitizedFixedV
+        prunedSubPatch.substatRollBoundsV = prunedBoundsV
+        prunedSubPatch.minCount = nextMin
+      }
+      onChange({
+        ...recipe,
+        ...(mainChanged ? { mainStatsV: sanitizedMainStats } : {}),
+        ...prunedSubPatch,
+      })
     }
   }
   const setsPatch = (multiSetsField?.patch as MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined) ?? null
