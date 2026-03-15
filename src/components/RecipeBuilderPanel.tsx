@@ -3070,19 +3070,19 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           </Box>
         </FormControl>
 
-        {/* Row 2: Left half (Rank, Rarity, Faction) */}
+        {/* Row 2: Left half (Rank, Rarity, Faction) — flex within cols 1-2; right half Level at col 3 */}
         <Box sx={(theme) => ({
           gridColumn: '1 / 3',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, minmax(180px, 1fr))',
-          columnGap: 1,
-          rowGap: 1,
+          display: 'flex',
+          gap: 1,
+          alignItems: 'flex-start',
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
-        <FormControl fullWidth sx={{ position: 'relative' }}>
+        {/* Rank — shrinks to header width when collapsed */}
+        <FormControl sx={{ flex: builderCollapsed.rank ? '0 0 auto' : '0 1 33.333%', minWidth: 0, position: 'relative' }}>
           {/* Rank label mirrors the select width and ellipsizes when German strings run long. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="rank" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
@@ -3208,7 +3208,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           </Collapse>
         </FormControl>
 
-        <FormControl fullWidth>
+        {/* Rarity — shrinks to header width when collapsed */}
+        <FormControl sx={{ flex: builderCollapsed.rarity ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
           {/* Rarity label uses the shared inline span so Auto/GTE text stays single-line. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="rarity" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
@@ -3391,8 +3392,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           </Collapse>
         </FormControl>
 
-        {/* Faction selection (accessories only) */}
-        <FormControl fullWidth>
+        {/* Faction selection (accessories only) — shrinks to header width when collapsed */}
+        <FormControl sx={{ flex: builderCollapsed.faction ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
           {/* Faction label stays constrained to the Select width for DE translations. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="faction" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
@@ -3497,15 +3498,13 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           </Collapse>
         </FormControl>
         </Box>
-        {/* Row 2: Right half (Level Window — range slider snapping to 0/4/8/12/16) */}
+        {/* Row 2 right: Level Window — col 3 only */}
         <Box sx={(theme) => ({
           gridColumn: '3 / 4',
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
-          pt: 0.5,
-          pb: 2,
         })} data-tour-id="builder.level-window">
           {/* Level label row mirrors Rank/Rarity/Faction pattern with a collapsible chevron. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
@@ -3557,7 +3556,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           </Box>
           </Collapse>
         </Box>
-        {/* Row 3: Mainstat (left), Substats (right) */}
+        {/* Row 3: Mainstat (left cols 1-2), Substats (right cols 3-4) */}
         <FormControl sx={(theme) => ({
           gridColumn: '1 / 3',
           borderRadius: 1,
@@ -3700,6 +3699,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           </Collapse>
         </FormControl>
 
+        {/* Substats — cols 3-4 */}
         <FormControl sx={(theme) => ({
           gridColumn: '3 / 5',
           borderRadius: 1,
@@ -5293,9 +5293,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           </Collapse>
         </FormControl>
 
-        {/* Slots grid 3x3 with icons */}
+        {/* Slots — cols 1-2, spans rows 4a + 4b so it sits flush alongside both right-column items */}
         <FormControl sx={(theme) => ({
           gridColumn: '1 / 3',
+          gridRow: 'span 2',
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
@@ -5478,13 +5479,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           </Collapse>
         </FormControl>
 
-        {/* Right column combined: Required substats + Sets in one grid cell */}
+        {/* Row 4a right: Min Rolls + Required Substats + Milestones — direct grid item at cols 3-4 */}
         <Box sx={(theme) => ({
           gridColumn: '3 / 5',
           display: 'flex',
           flexDirection: 'column',
           gap: 0.5,
-          alignSelf: 'stretch',
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
@@ -5501,12 +5501,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             }}
           >
             {/* Min Required Rolls */}
-            {/* Anchor Min Required Rolls to its English width so buttons never wrap in DE. */}
+            {/* Anchor to English-sized width so "Mindestwürfe" (DE) doesn't cause button overflow. */}
             <FormControl
               sx={{
                 m: 0,
-                width: `${BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX}px`,
-                flex: `0 0 ${BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX}px`,
+                flex: builderCollapsed.minRolls ? '0 0 auto' : `0 0 ${BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX}px`,
+                width: builderCollapsed.minRolls ? 'auto' : `${BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX}px`,
               }}
             >
               {(() => {
@@ -5710,8 +5710,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             <FormControl
               sx={{
                 m: 0,
-                width: `${BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX}px`,
-                flex: `0 0 ${BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX}px`,
+                flex: builderCollapsed.requiredSubstats ? '0 0 auto' : `0 0 ${BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX}px`,
+                width: builderCollapsed.requiredSubstats ? 'auto' : `${BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX}px`,
               }}
             >
               {(() => {
@@ -5972,8 +5972,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 <FormControl
                   sx={{
                     m: 0,
-                    width: `${BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX}px`,
-                    flex: `0 0 ${BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX}px`,
+                    flex: builderCollapsed.milestoneThresholds ? '0 0 auto' : `0 0 ${BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX}px`,
+                    width: builderCollapsed.milestoneThresholds ? 'auto' : `${BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX}px`,
                   }}
                 >
                   {/* Milestone Thresholds label also clamps to the 146px column width. */}
@@ -6199,8 +6199,18 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           )
         })()}
 
+        </Box>{/* end Row 4a right */}
+
+        {/* Row 4b right: Sets — auto-placed by grid to cols 3-4, row below Slots/Min Rolls */}
+        <Box sx={(theme) => ({
+          gridColumn: '3 / 5',
+          borderRadius: 1,
+          transition: UI_BG_HOVER_DANGER_TRANSITION,
+          boxShadow: 'none',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
+        })}>
         {/* Sets multi-select with order toggle and search */}
-        <FormControl sx={{ m: 0 }}>
+        <FormControl fullWidth sx={{ m: 0 }}>
           {/* Header row: label on the left, Manage metasets on the right */}
           <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, mb: 0.5 }}>
             <BuilderSectionToggle id="sets" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
@@ -6865,9 +6875,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           })()}
           </Collapse>
         </FormControl>
-        {/* Reserved spacer keeps layout consistent even without a dirty indicator. */}
-        <Box sx={{ mt: 'auto', height: 6 }} />
-        </Box>
+        </Box>{/* end Row 4b right (Sets) */}
 
       </Box>
 

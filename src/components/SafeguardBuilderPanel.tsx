@@ -981,20 +981,19 @@ export default function SafeguardBuilderPanel({
         </Box>
       </Box>
 
-      {/* ── Row 2 left: Rank | Rarity | Faction (nested 3-col, mirrors BuilderPanel) ── */}
+      {/* ── Row 2 left: Rank | Rarity | Faction (flex row; each section shrinks when collapsed) ── */}
       <Box sx={(theme) => ({
         gridColumn: '1 / 3',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(180px, 1fr))',
-        columnGap: 1,
-        rowGap: 1,
+        display: 'flex',
+        gap: 1,
+        alignItems: 'flex-start',
         borderRadius: 1,
         transition: UI_BG_HOVER_DANGER_TRANSITION,
         backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
       })}>
 
-        {/* Rank */}
-        <FormControl fullWidth>
+        {/* Rank — shrinks to header width when collapsed */}
+        <FormControl sx={{ flex: builderCollapsed.rank ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="rank" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
@@ -1025,8 +1024,8 @@ export default function SafeguardBuilderPanel({
           </Collapse>
         </FormControl>
 
-        {/* Rarity */}
-        <FormControl fullWidth>
+        {/* Rarity — shrinks to header width when collapsed */}
+        <FormControl sx={{ flex: builderCollapsed.rarity ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="rarity" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
@@ -1054,8 +1053,8 @@ export default function SafeguardBuilderPanel({
           </Collapse>
         </FormControl>
 
-        {/* Faction + perFaction chip — chip collapses with the select since it belongs to this section */}
-        <FormControl fullWidth disabled={!hasAccessorySlot}>
+        {/* Faction — shrinks to header width when collapsed */}
+        <FormControl sx={{ flex: builderCollapsed.faction ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }} disabled={!hasAccessorySlot}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="faction" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
@@ -1205,7 +1204,9 @@ export default function SafeguardBuilderPanel({
       </Box>
 
       {/* ── Row 3 right: Substats + match chips + weights ─────────────────── */}
-      <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+      {/* gap: 0 so the Collapse wrapper div (height:0 when collapsed) does not create phantom spacing.
+          The chips row adds its own mt: 0.75 inside the Collapse instead, which unmounts with the content. */}
+      <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="substats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
@@ -1323,7 +1324,9 @@ export default function SafeguardBuilderPanel({
         </FormControl>
         {/* Substat match mode chips + weights button + beat-equipped quality floor — all inline */}
         <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
+        {/* mt: 0.75 provides the same 6px spacing that the outer Box gap used to supply, but only
+            while the Collapse is mounted — preventing phantom height when the section is collapsed. */}
+        <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
           {/* Match mode chip woven with weights configure button.
               Chip cycles Any→All→Per Substat; button opens weights popover.
               Split-button pattern mirrors Final Sell: chip has flat right side,
@@ -1495,8 +1498,11 @@ export default function SafeguardBuilderPanel({
         </Collapse>
       </Box>
 
+      {/* ── Row 4: Slots (left) + Sets (right) — flex row; each always takes 50%, collapses vertically ── */}
+      <Box sx={{ gridColumn: '1 / -1', display: 'flex', gap: 1, alignItems: 'flex-start' }}>
       {/* ── Row 4 left: Slots icon grid + perSlot chip ────────────────────── */}
-      <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+      {/* flex: '0 1 50%' always — collapses vertically to header only, never shrinks horizontally */}
+      <Box sx={(theme) => ({ flex: '0 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="slots" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
@@ -1647,7 +1653,8 @@ export default function SafeguardBuilderPanel({
       </Box>
 
       {/* ── Row 4 right: Sets selector + perSet chip ──────────────────────── */}
-      <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+      {/* flex: '0 1 50%' always — collapses vertically to header only, never shrinks horizontally */}
+      <Box sx={(theme) => ({ flex: '0 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl fullWidth>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="sets" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
@@ -1691,6 +1698,7 @@ export default function SafeguardBuilderPanel({
           </Collapse>
         </FormControl>
       </Box>
+      </Box>{/* end Row 4 flex wrapper */}
 
       {/* ── Insert / Apply / Reset buttons + Scaffold (mirrors recipe builder) ── */}
       <Box sx={{ gridColumn: '1 / -1' }}>
