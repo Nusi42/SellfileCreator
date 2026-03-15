@@ -960,6 +960,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // pipeline dep array (which would cause spurious re-runs on selection-only history steps).
   // Initialized to null; the update effect below keeps it current after the first render.
   const currentEntrySignatureRef = useRef<{ crc: string; size: number } | null>(null)
+  // Ref-shadowed so launchPipeline can include recipe overrides in the cache key without adding
+  // them to the effect dep array — the effect already re-runs via ruleRecipes/recipeModes changes.
+  const noteRecipeOverridesAnswersRef = useRef(noteRecipeOverridesAnswers)
+  const noteRecipeOverridesDisabledRef = useRef(noteRecipeOverridesDisabled)
   // Gear Inspector substat sorting is view-only but should persist across sessions like filters.
   // Declared here so the pipeline effect (below) can reference both sort prefs and the upgrade-chance
   // flag without TDZ errors — their derived values are consumed inside the effect dep array.
@@ -1081,13 +1085,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // Request WASM upgrade-chance computation when the overlay or sort column is active.
         computeUpgradeChance: showSafeguardUpgradeChance || safeguardChanceSortEnabled,
       }
-      // Build a cache key from the history signature (covers recipes, note, safeguards, etc.)
-      // and the 5 boolean flags that affect pipeline output (including includeMatchesInPipeline).
+      // Build a cache key from the history signature (covers recipes, note, safeguards, etc.),
+      // the 5 boolean flags that affect pipeline output, and a recipe-overrides fingerprint.
+      // Recipe overrides answers/disabled are session-only (not in the history CRC), so they must
+      // be included explicitly — otherwise a stale cache hit serves the pre-override result.
       // Null when no history entry exists yet.
-      // Read via ref so this logic stays out of the effect dep array (avoids selection-only re-runs).
+      // Read via refs so this logic stays out of the effect dep array (avoids selection-only re-runs).
       const currentSig = currentEntrySignatureRef.current
+      const overridesKey = noteRecipeOverridesDisabledRef.current
+        ? 'off'
+        : JSON.stringify(noteRecipeOverridesAnswersRef.current)
       const cacheKey = currentSig
-        ? `${currentSig.crc}:${currentSig.size}:${includeMatchesInPipeline ? 1 : 0}${omitDisabledForExport ? 1 : 0}${dedupeDefault ? 1 : 0}${showSafeguardUpgradeChance ? 1 : 0}${safeguardChanceSortEnabled ? 1 : 0}`
+        ? `${currentSig.crc}:${currentSig.size}:${includeMatchesInPipeline ? 1 : 0}${omitDisabledForExport ? 1 : 0}${dedupeDefault ? 1 : 0}${showSafeguardUpgradeChance ? 1 : 0}${safeguardChanceSortEnabled ? 1 : 0}:${overridesKey}`
         : null
       const nowMs = Date.now()
       const rawEntry = cacheKey ? (pipelineCacheRef.current.get(cacheKey) ?? null) : null
@@ -1639,6 +1648,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   describeNextChangeRef.current = describeNextChange
   // Keep the ref in sync so launchPipeline (200ms-debounced) reads the correct value when it fires.
   useEffect(() => { currentEntrySignatureRef.current = currentEntrySignature }, [currentEntrySignature])
+  // Keep recipe overrides refs in sync so the debounced cache key uses up-to-date values.
+  useEffect(() => { noteRecipeOverridesAnswersRef.current = noteRecipeOverridesAnswers }, [noteRecipeOverridesAnswers])
+  useEffect(() => { noteRecipeOverridesDisabledRef.current = noteRecipeOverridesDisabled }, [noteRecipeOverridesDisabled])
   // Use one SSOT transition wrapper for heavy tab/dialog writes so every pathway
   // (builder, minima, safeguards, final-sell, gear) shares the same scheduling behavior.
   const setCustomRecipesTransition = useNonUrgentStateDispatch(setCustomRecipes)
