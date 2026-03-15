@@ -5612,6 +5612,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         </MarkdownTooltip>
                       </FormLabel>
                     </Box>
+                    {/* Outer wrapper: position:relative so the warning anchors below the Collapse
+                        without being clipped by the Collapse's own overflow:hidden */}
+                    <Box sx={{ position: 'relative' }}>
                     <Collapse in={!builderCollapsed.minRolls} timeout="auto" unmountOnExit>
                     <Box
                       data-tour-id="builder.min-rolls"
@@ -5619,8 +5622,6 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         display: 'flex',
                         gap: 0.5,
                         flexWrap: 'wrap',
-                        // position: relative anchors the absolutely-positioned warning below
-                        position: 'relative',
                         '& .MuiToggleButton-root': {
                           height: TOGGLE_BUTTON_HEIGHT_PX,
                           minHeight: TOGGLE_BUTTON_HEIGHT_PX,
@@ -5765,25 +5766,31 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           </ToggleButton>
                         )
                       })}
-                      {/* Warning: absolutely positioned below the toggle row so it bleeds over lower
-                          neighbours without adding height to Min Rolls or pushing Sets down.
-                          EllipsisTooltip reveals the full text as a native OS tooltip when truncated. */}
-                      {warnMsg && (
-                        <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, mt: 0.5, zIndex: 1 }}>
-                          <EllipsisTooltip title={warnMsg} wrap="block">
-                            <Typography
-                              data-ellipsis-target
-                              variant="caption"
-                              color="warning.main"
-                              sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                            >
-                              {warnMsg}
-                            </Typography>
-                          </EllipsisTooltip>
-                        </Box>
-                      )}
                     </Box>
                     </Collapse>
+                    {/* Warning: outside the Collapse so it is not clipped by overflow:hidden.
+                        Anchored by the outer position:relative Box; bleeds over Sets below.
+                        2-line clamp + EllipsisTooltip shows the OS tooltip when text overflows. */}
+                    {!builderCollapsed.minRolls && warnMsg && (
+                      <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, mt: 0.5, zIndex: 1 }}>
+                        <EllipsisTooltip title={warnMsg} wrap="block">
+                          <Typography
+                            data-ellipsis-target
+                            variant="caption"
+                            color="warning.main"
+                            sx={{
+                              display: '-webkit-box',
+                              WebkitBoxOrient: 'vertical',
+                              WebkitLineClamp: 2,
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {warnMsg}
+                          </Typography>
+                        </EllipsisTooltip>
+                      </Box>
+                    )}
+                    </Box>{/* end outer position:relative wrapper */}
                   </>
                 )
               })()}
