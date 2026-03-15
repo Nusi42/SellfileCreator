@@ -647,7 +647,7 @@ test('resolveSafeguardRulesWithMetasets expands set lists', () => {
       combination: {
         slots: [ArtifactType.Weapon],
         sets: [],
-        metaSetNames: ['meta_speed'],
+        metaSetNames: ['Speed Sets'],
         ranks: [],
         rarities: [],
         mainStats: [StatVariant.ATK],
