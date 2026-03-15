@@ -5613,6 +5613,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       </FormLabel>
                     </Box>
                     <Collapse in={!builderCollapsed.minRolls} timeout="auto" unmountOnExit>
+                    {/* Inline-flex column wrapper so the warning row below is exactly as wide as the buttons row.
+                        inline-flex shrinks to content; the buttons determine the width; the warning row inherits it. */}
+                    <Box sx={{ display: 'inline-flex', flexDirection: 'column', maxWidth: '100%' }}>
                     <Box
                       data-tour-id="builder.min-rolls"
                       sx={{
@@ -5765,9 +5768,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       })}
                     </Box>
                     {/* Warning chip row — always reserves chip height (same as Flex chip in Required Substats).
-                        lineHeight:1.0 makes 2 caption lines = exactly BUILDER_STATUS_CHIP_HEIGHT_PX px,
-                        so WebkitLineClamp:2 can draw the ellipsis within the fixed area. */}
-                    <Box sx={{ mt: 0.5, height: BUILDER_STATUS_CHIP_HEIGHT_PX, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+                        lineHeight:0.9 makes 2 caption lines = 21.6px ≤ BUILDER_STATUS_CHIP_HEIGHT_PX (22px)
+                        so WebkitLineClamp:2 can draw the ellipsis within the fixed area.
+                        width:0 + minWidth:'100%' is the circular-dependency trick: the warning contributes 0
+                        to the inline-flex container's intrinsic-size calculation (so the buttons drive the width),
+                        then stretches to 100% of the resolved container — avoiding animation-time layout blowout. */}
+                    <Box sx={{ mt: 0.5, width: 0, minWidth: '100%', height: BUILDER_STATUS_CHIP_HEIGHT_PX, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
                       {warnMsg && (
                         <EllipsisTooltip title={warnMsg} wrap="block">
                           <Typography
@@ -5789,6 +5795,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         </EllipsisTooltip>
                       )}
                     </Box>
+                    </Box>{/* end inline-flex column wrapper */}
                     </Collapse>
                   </>
                 )
