@@ -1503,7 +1503,7 @@ ${t('safeguardsIgnoreOptionsHint')}`
                   selectedMetasetIds={combination.metaSetNames}
                   onChangeMetasetIds={(nextMetaIds) => {
                     if (ruleDisabled) return
-                    setRuleCombination(rule.id, (prev) => ({ ...prev, metaSetIds: dedupeStringArray(nextMetaIds) }))
+                    setRuleCombination(rule.id, (prev) => ({ ...prev, metaSetNames: dedupeStringArray(nextMetaIds) }))
                   }}
                   allowedSetIds={allowedSetPool}
                   showMetasets

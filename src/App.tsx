@@ -5260,7 +5260,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             ...rule,
             combination: {
               ...rule.combination,
-              metaSetIds: nextMeta,
+              metaSetNames: nextMeta,
               sets: nextSets,
             },
           }
@@ -5272,7 +5272,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           ...rule,
           combination: {
             ...rule.combination,
-            metaSetIds: nextMeta,
+            metaSetNames: nextMeta,
             sets: rule.combination.sets ?? [],
           },
         }
@@ -5509,7 +5509,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 ...rule,
                 combination: {
                   ...rule.combination,
-                  metaSetIds: nextMetaIds,
+                  metaSetNames: nextMetaIds,
                   sets: nextSets,
                 },
               }
@@ -5858,7 +5858,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...rule,
       combination: {
         ...rule.combination,
-        metaSetIds: (rule.combination.metaSetNames ?? []).map((id) => metasetIdMap.get(id) ?? id),
+        metaSetNames: (rule.combination.metaSetNames ?? []).map((id) => metasetIdMap.get(id) ?? id),
       },
     }))
     // Track whether any section modifies recipe/Gear Inspector match behavior.

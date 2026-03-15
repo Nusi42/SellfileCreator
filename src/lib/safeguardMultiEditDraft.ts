@@ -58,7 +58,7 @@ export type SafeguardEditableFields = {
   // Combination arrays (patched individually)
   slots: ArtifactTypeId[]
   sets: ArtifactSetSelectionEntry[]
-  metaSetIds: string[]
+  metaSetNames: string[]
   ranks: RankValue[]
   rarities: RankValue[]
   mainStats: StatVariant[]
@@ -80,7 +80,7 @@ export const SAFEGUARD_FIELD_KEYS = [
   'ignoreEquippedInVault',
   'slots',
   'sets',
-  'metaSetIds',
+  'metaSetNames',
   'ranks',
   'rarities',
   'mainStats',
@@ -99,7 +99,7 @@ export type SafeguardFieldKey = typeof SAFEGUARD_FIELD_KEYS[number]
 type SafeguardFieldPatchByKey = {
   slots: MultiEditArrayPatch<ArtifactTypeId>
   sets: MultiEditArrayPatch<ArtifactSetSelectionEntry>
-  metaSetIds: MultiEditArrayPatch<string>
+  metaSetNames: MultiEditArrayPatch<string>
   ranks: MultiEditArrayPatch<RankValue>
   rarities: MultiEditArrayPatch<RankValue>
   mainStats: MultiEditArrayPatch<StatVariant>
@@ -191,7 +191,7 @@ export function extractSafeguardEditableFields(rule: SafeguardRule): SafeguardEd
     sets: normalizeArtifactSetSelections(combo.sets ?? []).map((e) =>
       e.excluded ? { id: e.id, excluded: true } : { id: e.id },
     ),
-    metaSetIds: Array.isArray(combo.metaSetNames) ? [...combo.metaSetNames] : [],
+    metaSetNames: Array.isArray(combo.metaSetNames) ? [...combo.metaSetNames] : [],
     ranks: Array.isArray(combo.ranks) ? [...combo.ranks] : [],
     rarities: Array.isArray(combo.rarities) ? [...combo.rarities] : [],
     mainStats: Array.isArray(combo.mainStats) ? [...combo.mainStats] : [],
@@ -217,7 +217,7 @@ export function applyEditableFieldKeyToRule(
   switch (key) {
     case 'slots':
     case 'sets':
-    case 'metaSetIds':
+    case 'metaSetNames':
     case 'ranks':
     case 'rarities':
     case 'mainStats':
@@ -256,7 +256,7 @@ export function areSafeguardFieldValuesEqual(
     case 'substats':
       // Simple number array comparison (order-sensitive as stored).
       return arePrimitiveArraysEqual(left as readonly unknown[], right as readonly unknown[])
-    case 'metaSetIds':
+    case 'metaSetNames':
       return arePrimitiveArraysEqual(left as readonly unknown[], right as readonly unknown[])
     case 'sets':
       return areSetSelectionsEqual(left, right)
@@ -321,7 +321,7 @@ export function cloneSafeguardFieldValue(key: SafeguardFieldKey, value: unknown)
     case 'mainStats':
     case 'factions':
     case 'substats':
-    case 'metaSetIds':
+    case 'metaSetNames':
       return Array.isArray(value) ? [...value] : value
     case 'sets':
       return normalizeArtifactSetSelections(Array.isArray(value) ? value : []).map((e) =>
@@ -381,7 +381,7 @@ export function cloneSafeguardFieldPatch<K extends SafeguardFieldKey>(
     case 'factions':
     case 'substats':
       return cloneArrayPatchOf(patch as MultiEditArrayPatch<number>) as SafeguardMultiEditFieldPatch<K>
-    case 'metaSetIds':
+    case 'metaSetNames':
       return cloneArrayPatchOf(patch as MultiEditArrayPatch<string>) as SafeguardMultiEditFieldPatch<K>
     default:
       return patch
@@ -405,7 +405,7 @@ export function normalizeSafeguardFieldPatch<K extends SafeguardFieldKey>(
   switch (key) {
     case 'slots':
     case 'sets':
-    case 'metaSetIds':
+    case 'metaSetNames':
     case 'ranks':
     case 'rarities':
     case 'mainStats':
@@ -630,8 +630,8 @@ function applyPatchForKey(
       return applySlotsPatch(rule, patch as MultiEditArrayPatch<ArtifactTypeId>)
     case 'sets':
       return applySetsPatch(rule, patch as MultiEditArrayPatch<ArtifactSetSelectionEntry>)
-    case 'metaSetIds':
-      return applyMetaSetIdsPatch(rule, patch as MultiEditArrayPatch<string>)
+    case 'metaSetNames':
+      return applyMetaSetNamesPatch(rule, patch as MultiEditArrayPatch<string>)
     case 'ranks':
       return applyRanksPatch(rule, patch as MultiEditArrayPatch<RankValue>)
     case 'rarities':
@@ -717,7 +717,7 @@ function applySetSelectionPatch(
   return normalizeArtifactSetSelections([...filtered, ...adds])
 }
 
-function applyMetaSetIdsPatch(rule: SafeguardRule, patch: MultiEditArrayPatch<string>): SafeguardRule {
+function applyMetaSetNamesPatch(rule: SafeguardRule, patch: MultiEditArrayPatch<string>): SafeguardRule {
   const current = Array.isArray(rule.combination.metaSetNames) ? rule.combination.metaSetNames.map(String) : []
   const next = applyStringArrayPatch(current, patch)
   if (arraysStrEqual(current, next)) return rule

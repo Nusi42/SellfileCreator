@@ -1313,8 +1313,8 @@ rarityName    := "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythic
 prefixToken   := ["+" | "-"] token   (all prefixed XOR all bare; mixed is ignored)
 gearToken     := ["+" | "+-" | "-"] token
 slotName      := "Weapon" | "Helmet" | "Shield" | "Gauntlets" | "Chestplate" | "Boots" | "Ring" | "Amulet" | "Banner"
-setName       := /set name, case-insensitive; quote multi-word: "Crit Damage"/  ["-" | "+"]
-metasetName   := /metaset name, case-sensitive; must be unique in the save file/
+setName       := ["+" | "+-" | "-"] /set name, case-insensitive; quote multi-word: "Crit Damage"/
+metasetName   := ["+" | "-"] /metaset name, case-sensitive; must be unique in the save file/
 starKey       := "1" | "2" | "3" | "4" | "5" | "6" | "one" | "two" | "three" | "four" | "five" | "six"`
 
 // Full insertable example used in the markdown sample block.

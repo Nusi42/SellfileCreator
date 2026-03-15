@@ -7,10 +7,9 @@
 import type { BuilderRecipe } from './hsfBuilder'
 import { formatRank, rarityCodeToName, factionCodeToName, labelOfVariant, artifactSetName } from './types'
 import { RARITY_AUTO_LABEL } from './constants'
-import type { Metaset } from './metasets'
 import { splitArtifactSetSelections } from './gearSets/selection'
 
-export function summaryOf(recipe: BuilderRecipe, _metasets?: Metaset[]): string {
+export function summaryOf(recipe: BuilderRecipe): string {
   const parts: string[] = []
   const ellipsize = (s: string, max = 20) => (s.length <= max ? s : s.slice(0, max - 1) + '…')
   const push = (label: string, value: string) => parts.push(`${label}:${ellipsize(value)}`)

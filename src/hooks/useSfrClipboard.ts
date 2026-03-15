@@ -306,7 +306,7 @@ export function useSfrClipboard({
           const existingNames = new Set(nextMetas.map(m => m.name))
           let newName = `${pair.inc.name} (imported)`
           let counter = 2
-          while (existingNames.has(newName) || newName === id) {
+          while (existingNames.has(newName)) {
             newName = `${pair.inc.name} (imported ${counter})`
             counter += 1
           }

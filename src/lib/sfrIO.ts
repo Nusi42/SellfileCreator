@@ -814,8 +814,10 @@ export function parseRecipesFromText(text: string, metasetsForNames?: Metaset[])
           const mRec = (m || {}) as Record<string, unknown>
           const names = Array.isArray(mRec['setNames']) ? (mRec['setNames'] as unknown[]) : []
           const sets = names.map((n: unknown) => resolveSetId(n)).filter((x: unknown): x is number => typeof x === 'number')
-          // id field is ignored; name is the primary key.
-          return { name: String(mRec['name']), sets, show: mRec['show'] !== false }
+          // id field is ignored; name is the primary key. Normalize iconId so clipboard
+          // and single-recipe import paths preserve icon data, matching parseSfrObject.
+          const iconId = normalizeMetasetIconId(mRec['iconId'])
+          return { name: String(mRec['name']), sets, show: mRec['show'] !== false, iconId }
         })
       } catch { return null }
     }

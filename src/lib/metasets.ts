@@ -55,7 +55,6 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      // v2: added SwiftParry after Cruel (synced with example.sfr)
       name: 'Nuker',
       sets: [
         ArtifactSet.CritDamage,
@@ -91,7 +90,6 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      // v2: added Deflection after SwiftParry (synced with example.sfr)
       name: 'Need 4 Speed',
       sets: [
         ArtifactSet.Speed,
@@ -115,7 +113,6 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      // v2: added Deflection after DivineSpeed (synced with example.sfr)
       name: 'Debuffer',
       sets: [
         ArtifactSet.Speed,
@@ -197,7 +194,6 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      // v2: prepended SwiftParry and Deflection before Protection (synced with example.sfr)
       name: 'Accessory Specific',
       sets: [
         ArtifactSet.SwiftParry,
@@ -223,7 +219,6 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      // v2: prepended Deflection before Stoneskin (synced with example.sfr)
       name: 'Debuffer - Limited Sets',
       sets: [
         ArtifactSet.Deflection,

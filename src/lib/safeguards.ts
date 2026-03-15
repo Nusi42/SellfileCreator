@@ -566,7 +566,7 @@ const parseStatVariant = (value: unknown): StatVariant => {
   return numeric as StatVariant
 }
 
-// Dedup + lexical ordering keeps metaset ids stable for hashing and exports.
+// Dedup + lexical ordering keeps metaset names stable for hashing and exports.
 const sortUniqueMetaSetNames = (values: string[]): string[] => {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b))
 }
