@@ -988,7 +988,18 @@ export function parseSfrObject(
     const normalized: SafeguardRule[] = []
     for (const entry of raws) {
       const rule = normalizeSafeguardRule(entry)
-      if (rule) normalized.push(rule)
+      if (!rule) continue
+      // Legacy-ID resolution: old SFR files stored metaSetIds (opaque IDs like "meta/1")
+      // in safeguard combinations. normalizeSafeguardRule collects them verbatim into
+      // metaSetNames; remap any that appear in the legacyMetaIdToName map built above.
+      if (rule.combination.metaSetNames?.length && legacyMetaIdToName.size) {
+        const remapped = rule.combination.metaSetNames.map(
+          (n) => legacyMetaIdToName.get(n) ?? n,
+        )
+        normalized.push({ ...rule, combination: { ...rule.combination, metaSetNames: remapped } })
+      } else {
+        normalized.push(rule)
+      }
     }
     return normalized
   })()
