@@ -1053,7 +1053,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     [flattenedItems],
   )
   // Single virtualizer now covers headers + rows; item height hints keep scroll position stable when toggling groups.
-  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual's useVirtualizer returns unstable references; compiler skips this component
   const rowVirtualizer = useVirtualizer({
     count: flattenedItems.length,
     getScrollElement: () => containerRef.current,
@@ -1221,7 +1220,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const leavingGeneration = enterDetection.leavingEpoch
   useEffect(() => {
     // Schedule clearing the entering set after the animation window elapses.
-    if (enteringArtifactIds.size === 0) return
+    if (enteringArtifactIds.size === 0) return // eslint-disable-line react-you-might-not-need-an-effect/no-event-handler -- timer teardown driven by derived memo state, not a user event
     if (clearEnterTimerRef.current !== null) clearTimeout(clearEnterTimerRef.current)
     clearEnterTimerRef.current = setTimeout(
       () => setClearGeneration((g) => g + 1),
