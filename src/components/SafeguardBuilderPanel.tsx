@@ -670,30 +670,85 @@ export default function SafeguardBuilderPanel({
       </Box>
 
       {/* ── Row 1: Mode toggle + Required count + Ignore chips + undo/redo (full-width) ── */}
-      <Box sx={{
-        gridColumn: '1 / -1',
-        display: 'flex',
-        alignItems: 'flex-end',
-        gap: 1.5,
-        flexWrap: 'wrap',
-      }}>
-        {/* Mode toggle with label */}
-        <FormControl sx={(theme) => ({ flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('safeguardsRuleModeLabel')}</Box>
-            </FormLabel>
-            <MarkdownTooltip markdown={ruleModeScopeTooltip}>
-              <IconButton
-                size="small"
-                color="inherit"
-                aria-label={t('safeguardsRuleModeHintLabel')}
-                sx={{ p: 0.25, fontSize: 16, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}
-              >
-                <InfoOutlinedIcon fontSize="inherit" />
-              </IconButton>
+      <Box sx={{ gridColumn: '1 / -1' }}>
+        {/* Header row: chevron + Mode label + info icon + undo/redo (always visible) */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <BuilderSectionToggle id="action" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
+          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+            <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('safeguardsRuleModeLabel')}</Box>
+          </FormLabel>
+          <MarkdownTooltip markdown={ruleModeScopeTooltip}>
+            <IconButton
+              size="small"
+              color="inherit"
+              aria-label={t('safeguardsRuleModeHintLabel')}
+              sx={{ p: 0.25, fontSize: 16, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}
+            >
+              <InfoOutlinedIcon fontSize="inherit" />
+            </IconButton>
+          </MarkdownTooltip>
+          {/* Undo/Redo: pinned right so it stays visible when mode section is collapsed. */}
+          <Box
+            sx={{ ml: 'auto', display: 'flex', alignItems: 'flex-end', gap: 0.5, flexShrink: 0, pb: 0, position: 'relative' }}
+            onContextMenu={handleHistoryContextMenu}
+            onMouseMove={handleHistoryMouseMove}
+            onMouseLeave={handleHistoryMouseLeave}
+          >
+            <MarkdownTooltip
+              render={<BuilderTooltipContent text={undoTooltipText} colorizeStats substatColors={substatColors} />}
+              slotProps={{ tooltip: { sx: { maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX } } }}
+            >
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={onUndo}
+                  disabled={!canUndo}
+                  aria-label={t('builderUndo')}
+                  sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
+                >
+                  <UndoIcon fontSize="small" />
+                </IconButton>
+              </span>
             </MarkdownTooltip>
+            <MarkdownTooltip
+              render={<BuilderTooltipContent text={redoTooltipText} colorizeStats substatColors={substatColors} />}
+              slotProps={{ tooltip: { sx: { maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX } } }}
+            >
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={onRedo}
+                  disabled={!canRedo}
+                  aria-label={t('builderRedo')}
+                  sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
+                >
+                  <RedoIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </MarkdownTooltip>
+            <ContextMenuHintOverlay text={t('contextMenuHint')} position={historyHintActive ? historyHintPos : null} />
+            <HistoryContextMenu
+              open={historyMenuOpen}
+              anchorPosition={historyMenuAnchor}
+              onClose={closeHistoryMenu}
+              paperRef={historyMenuPaperRef}
+              onPaperContextMenu={handleHistoryMenuContextMenu}
+              contextMenuGuard={historyMenuGuard}
+              entries={historyTimeline}
+              t={t}
+              lang={lang}
+              onSelectEntry={handleHistoryEntrySelect}
+              onRequestClearHistory={handleRequestClearHistory}
+              substatColors={substatColors}
+            />
           </Box>
+        </Box>
+        {/* Collapsible content: mode toggle + count + ignore chips */}
+        <Collapse in={!builderCollapsed.action} timeout="auto" unmountOnExit>
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flexWrap: 'wrap' }}>
+        {/* Mode toggle — label moved to header row above */}
+        <FormControl sx={(theme) => ({ flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+
           {/* Relative-positioned wrapper enables the mixed-state ::before overlay pattern. */}
           <Box sx={{ position: 'relative' }}>
           <ToggleButtonGroup
@@ -924,61 +979,8 @@ export default function SafeguardBuilderPanel({
             )
           })()}
         </Box>
-        {/* Undo / Redo — right-aligned, mirrors RecipeBuilderPanel position + right-click history */}
-        <Box
-          sx={{ ml: 'auto', display: 'flex', alignItems: 'flex-end', gap: 0.5, flexShrink: 0, pb: 0, position: 'relative' }}
-          onContextMenu={handleHistoryContextMenu}
-          onMouseMove={handleHistoryMouseMove}
-          onMouseLeave={handleHistoryMouseLeave}
-        >
-          <MarkdownTooltip
-            render={<BuilderTooltipContent text={undoTooltipText} colorizeStats substatColors={substatColors} />}
-            slotProps={{ tooltip: { sx: { maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX } } }}
-          >
-            <span>
-              <IconButton
-                size="small"
-                onClick={onUndo}
-                disabled={!canUndo}
-                aria-label={t('builderUndo')}
-                sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
-              >
-                <UndoIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </MarkdownTooltip>
-          <MarkdownTooltip
-            render={<BuilderTooltipContent text={redoTooltipText} colorizeStats substatColors={substatColors} />}
-            slotProps={{ tooltip: { sx: { maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX } } }}
-          >
-            <span>
-              <IconButton
-                size="small"
-                onClick={onRedo}
-                disabled={!canRedo}
-                aria-label={t('builderRedo')}
-                sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
-              >
-                <RedoIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </MarkdownTooltip>
-          <ContextMenuHintOverlay text={t('contextMenuHint')} position={historyHintActive ? historyHintPos : null} />
-          <HistoryContextMenu
-            open={historyMenuOpen}
-            anchorPosition={historyMenuAnchor}
-            onClose={closeHistoryMenu}
-            paperRef={historyMenuPaperRef}
-            onPaperContextMenu={handleHistoryMenuContextMenu}
-            contextMenuGuard={historyMenuGuard}
-            entries={historyTimeline}
-            t={t}
-            lang={lang}
-            onSelectEntry={handleHistoryEntrySelect}
-            onRequestClearHistory={handleRequestClearHistory}
-            substatColors={substatColors}
-          />
         </Box>
+        </Collapse>
       </Box>
 
       {/* ── Row 2 left: Rank | Rarity | Faction (flex row; each section shrinks when collapsed) ── */}
