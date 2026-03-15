@@ -45,7 +45,7 @@ export function collectMetasetSnapshotEntries(
     // Skip empty IDs to avoid placeholder entries.
     if (!id) continue
     // Look up the metaset so names and icons stay human-friendly.
-    const meta = metasets.find((entry) => entry.id === id) ?? null
+    const meta = metasets.find((entry) => entry.name === id) ?? null
     // Use the stored name when available so history mirrors the UI.
     const rawName = (meta?.name ?? '').trim()
     // Fall back to the ID so the entry is still identifiable.

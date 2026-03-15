@@ -210,7 +210,6 @@ import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT, SAFEGUARD_BUILDER_USER_DEFAU
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
 import { cloneMetaset, defaultMetasets, type Metaset } from './lib/metasets'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections, type ArtifactSetSelectionEntry } from './lib/gearSets/selection'
-import { generateMetasetNameWithFlag } from './lib/namegen'
 import { useDisplayPreferences, useDisplayPreferenceActions } from './state/preferencesState'
 import {
   useAutoApplySelectedRecipePreference,
@@ -749,7 +748,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     for (const rule of safeguardRules) {
       // Treat a rule that references the same metaset multiple times as a single hit
       // so the overlay reflects “number of rules” rather than raw ID frequency.
-      const metaIds = Array.from(new Set(rule.combination.metaSetIds ?? []))
+      const metaIds = Array.from(new Set(rule.combination.metaSetNames ?? []))
       if (!metaIds.length) continue
       for (const metaId of metaIds) {
         counts[metaId] = (counts[metaId] ?? 0) + 1
@@ -891,7 +890,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // the user explicitly inserts or applies, mirroring the recipe builder's draft model.
   const [safeguardBuilderState, setSafeguardBuilderState] = useState<SafeguardRule>(() => ({
     id: createSafeguardRuleId(),
-    combination: { slots: [], sets: [], metaSetIds: [], ranks: [], rarities: [], mainStats: [], factions: [] },
+    combination: { slots: [], sets: [], metaSetNames: [], ranks: [], rarities: [], mainStats: [], factions: [] },
     name: '',
     requiredCount: 1,
     activation: SafeguardRuleActivation.ProtectExisting,
@@ -1963,7 +1962,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       next.splice(idx + 1, 0, newRule)
       return next
     })
-    // Auto-enable safeguards when the first rule is inserted (mirrors old SafeguardsTab behaviour).
+    // Auto-enable safeguards when the first rule is inserted.
     if (safeguardRules.length === 0) applySafeguardsEnabledChange(true, { publish: false })
     setSelectedSafeguardRuleId(newId)
   }, [applySafeguardRulesChange, applySafeguardsEnabledChange, safeguardRules.length, selectedSafeguardRuleId])
@@ -3184,7 +3183,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const hsfExportStateSig = useMemo<ExportDirtyState>(() => {
     const metasetDigests = metasets
       .map((meta) => ({
-        id: String(meta.id),
+        id: meta.name,
         sets: (Array.isArray(meta.sets) ? [...meta.sets].map(Number).sort((a, b) => a - b) : []),
       }))
       .sort((a, b) => a.id.localeCompare(b.id))
@@ -5228,14 +5227,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleResetMetasets = useCallback((mode: 'delete' | 'replaceSets' | 'replaceMeta', replacementMetaId?: string) => {
     const defaults = defaultMetasets()
     const replacementId = mode === 'replaceMeta' ? (replacementMetaId || null) : null
-    const replacementMetaName = replacementId ? (defaults.find((meta) => meta.id === replacementId)?.name ?? null) : null
+    const replacementMetaName = replacementId ? (defaults.find((meta) => meta.name === replacementId)?.name ?? null) : null
     const descriptor: HistoryEntryDescriptor = {
       kind: 'metasetsReset',
       mode,
       ...(replacementMetaName ? { replacementName: replacementMetaName } : {}),
     }
     describeNextChange(descriptor)
-    const metasById = new Map(metasets.map((meta) => [meta.id, meta]))
+    const metasById = new Map(metasets.map((meta) => [meta.name, meta]))
     const stringArraysEqual = (a: readonly string[], b: readonly string[]): boolean => {
       if (a.length !== b.length) return false
       for (let i = 0; i < a.length; i += 1) {
@@ -5274,7 +5273,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSafeguardRulesTransition((prev) => {
       let mutated = false
       const next = prev.map((rule) => {
-        const metaIds = rule.combination.metaSetIds ?? []
+        const metaIds = rule.combination.metaSetNames ?? []
         if (metaIds.length === 0) return rule
         // Mirror recipe/builder reset behavior so Safeguard combinations stay in sync.
         const nextMeta = (mode === 'replaceMeta' && replacementId) ? [replacementId] : []
@@ -5289,7 +5288,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             ...rule,
             combination: {
               ...rule.combination,
-              metaSetIds: nextMeta,
+              metaSetNames: nextMeta,
               sets: nextSets,
             },
           }
@@ -5301,7 +5300,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           ...rule,
           combination: {
             ...rule.combination,
-            metaSetIds: nextMeta,
+            metaSetNames: nextMeta,
             sets: rule.combination.sets ?? [],
           },
         }
@@ -5445,7 +5444,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       describeNextChange={describeNextChange}
       onDeleteMetaset={(id, opts) => {
         // Determine replacement strategy before mutating metasets/recipes/safeguard rules
-        const metaToDelete = metasets.find(m => m.id === id) || null
+        const metaToDelete = metasets.find(m => m.name === id) || null
         const replaceWithSets = Boolean(opts?.replaceWithSets && metaToDelete && (metaToDelete.sets.length > 0))
         const replaceWithMetaId = opts?.replaceWithMetaId && opts.replaceWithMetaId !== id ? opts.replaceWithMetaId : null
 
@@ -5455,7 +5454,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           return
         }
         const deletionMode: 'delete' | 'replaceSets' | 'replaceMeta' = replaceWithSets ? 'replaceSets' : (replaceWithMetaId ? 'replaceMeta' : 'delete')
-        const replacementName = replaceWithMetaId ? (metasets.find((m) => m.id === replaceWithMetaId)?.name ?? null) : null
+        const replacementName = replaceWithMetaId ? (metasets.find((m) => m.name === replaceWithMetaId)?.name ?? null) : null
         const descriptor: HistoryEntryDescriptor = {
           kind: 'metasetDeleted',
           metaset: cloneMetaset(metaToDelete),
@@ -5464,7 +5463,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
         describeNextChange(descriptor)
         // Deleting a metaset can fan out into recipe/safeguard recalculation; keep non-urgent.
-        handleMetasetsChange(prev => prev.filter(m => m.id !== id))
+        handleMetasetsChange(prev => prev.filter(m => m.name !== id))
 
         // Update the live builder selection if it referenced this metaset
         const builderUses = (builder.artifactMetaSets ?? []).includes(id)
@@ -5512,7 +5511,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           setSafeguardRulesTransition((prev) => {
             let mutated = false
             const next = prev.map((rule) => {
-              const metaIds = rule.combination.metaSetIds ?? []
+              const metaIds = rule.combination.metaSetNames ?? []
               if (!metaIds.includes(id)) return rule
               // Rewrite Safeguard combinations so deleted metaset IDs are dropped
               // or swapped, matching the recipe/builder behavior.
@@ -5538,7 +5537,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 ...rule,
                 combination: {
                   ...rule.combination,
-                  metaSetIds: nextMetaIds,
+                  metaSetNames: nextMetaIds,
                   sets: nextSets,
                 },
               }
@@ -5702,9 +5701,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     substatTargets: SubstatTargetTable
     selectedIndex: number | null
     note?: string
-    finalSellRemainder: FinalSellRemainderConfig
-    safeguardRules: SafeguardRule[]
-    safeguardsEnabled: boolean
+    // null when the key was absent from the source (e.g. old SFR without these sections).
+    // File-import callers fall back to defaults; clipboard paste callers skip applying.
+    finalSellRemainder: FinalSellRemainderConfig | null
+    safeguardRules: SafeguardRule[] | null
+    safeguardsEnabled: boolean | null
     recipesEnabled: boolean
   }
 
@@ -5767,10 +5768,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
         } catch {}
       }
-      setSafeguardRules(safeguardRules)
-      setSafeguardsEnabled(safeguardsEnabled)
+      // File import replaces everything; null (absent key in old SFR) falls back to defaults.
+      setSafeguardRules(safeguardRules ?? [])
+      setSafeguardsEnabled(safeguardsEnabled ?? false)
       setRecipesEnabled(payloadRecipesEnabled)
-      applyFinalSellChange(fsr, { mode: 'import', publish: false })
+      if (fsr !== null) applyFinalSellChange(fsr, { mode: 'import', publish: false })
       // Always select first recipe on manual SFR load (index is not persisted in the file).
       syncSelectedRecipeIdx(resolvedSel, { forceSync: true, suppressDraft: true })
       if (resolvedSel !== null && recipes[resolvedSel]) {
@@ -5779,7 +5781,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Always land on the first safeguard rule when loading a file, and load its data into the builder.
       // Why: setSelectedSafeguardRuleId alone only updates the chip highlight; the builder draft must
       // also be replaced so the panel does not display stale state from the previous SFR.
-      const firstSafeguardRule = safeguardRules.length > 0 ? safeguardRules[0]! : null
+      const firstSafeguardRule = (safeguardRules ?? []).length > 0 ? (safeguardRules ?? [])[0]! : null
       setSelectedSafeguardRuleId(firstSafeguardRule?.id ?? null)
       if (firstSafeguardRule) setSafeguardBuilder(cloneSafeguardRule(firstSafeguardRule))
     })
@@ -5838,7 +5840,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     },
     incomingMetasetIds: collectMetasetIds(payload.metasets),
     recipeMetasetIds: collectRecipeMetasetIds(payload.recipes),
-    safeguardMetasetIds: collectSafeguardMetasetIds(payload.safeguardRules),
+    safeguardMetasetIds: collectSafeguardMetasetIds(payload.safeguardRules ?? []),
   }), [])
 
   // Resolve incoming SFR data with selection + merge settings.
@@ -5882,12 +5884,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...recipe,
       artifactMetaSets: (recipe.artifactMetaSets ?? []).map((id) => metasetIdMap.get(id) ?? id),
     }))
-    // Remap safeguard metaset references through the same map.
-    const remappedSafeguards = payload.safeguardRules.map((rule) => ({
+    // Remap safeguard metaset references through the same map; null means absent in source.
+    const remappedSafeguards = (payload.safeguardRules ?? []).map((rule) => ({
       ...rule,
       combination: {
         ...rule.combination,
-        metaSetIds: (rule.combination.metaSetIds ?? []).map((id) => metasetIdMap.get(id) ?? id),
+        metaSetNames: (rule.combination.metaSetNames ?? []).map((id) => metasetIdMap.get(id) ?? id),
       },
     }))
     // Track whether any section modifies recipe/Gear Inspector match behavior.
@@ -5903,7 +5905,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       try {
         applySubstatTargetsChange(payload.substatTargets, { mode: 'import', publish: false })
       } catch {}
-      applyFinalSellChange(payload.finalSellRemainder, { mode: 'import', publish: false })
+      if (payload.finalSellRemainder !== null) {
+        applyFinalSellChange(payload.finalSellRemainder, { mode: 'import', publish: false })
+      }
       if (modes.recipes === 'replace') {
         setCustomRecipes(remappedRecipes)
         const selected = typeof payload.selectedIndex === 'number'
@@ -5963,7 +5967,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (selection.safeguards) {
       if (modes.safeguards === 'replace') {
         setSafeguardRules(remappedSafeguards)
-        setSafeguardsEnabled(payload.safeguardsEnabled)
+        // null (absent key) falls back to false for file-import replace.
+        setSafeguardsEnabled(payload.safeguardsEnabled ?? false)
         setRecipesEnabled(payload.recipesEnabled !== false)
         // Replace mode wipes existing rules, so the old selection is always stale.
         // Load the first incoming rule into the builder draft to match the landing chip.
@@ -5972,7 +5977,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (firstRemapped) setSafeguardBuilder(cloneSafeguardRule(firstRemapped))
       } else {
         setSafeguardRules((prev) => [...prev, ...remappedSafeguards])
-        setSafeguardsEnabled((prev) => prev || payload.safeguardsEnabled)
+        setSafeguardsEnabled((prev) => prev || (payload.safeguardsEnabled ?? false))
         setRecipesEnabled((prev) => prev || payload.recipesEnabled !== false)
       }
     }
@@ -6452,13 +6457,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           const substatTargetsDescriptor = applySubstatTargetsChange(pendingImport.substatTargets, { mode: 'import', publish: false })
           const refIds = new Set<string>()
           for (const c of recipes) for (const id of c.artifactMetaSets ?? []) refIds.add(String(id))
-          const have = new Set(nextMetas.map((m) => m.id))
+          const have = new Set(nextMetas.map((m) => m.name))
           const finalMetas = nextMetas.slice()
           for (const id of refIds) {
             if (!have.has(id)) {
-              const existingNames = metasets.map((m) => m.name)
-              const gen = generateMetasetNameWithFlag(existingNames)
-              finalMetas.push({ id, name: gen.name, sets: [], show: false, iconId: DEFAULT_METASET_ICON_ID })
+              finalMetas.push({ name: id, sets: [], show: false, iconId: DEFAULT_METASET_ICON_ID })
             }
           }
           const conflictDescriptor: HistoryEntryDescriptor = {
@@ -6472,7 +6475,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           )
           describeNextChange(withClipboardSource(conflictDescriptor))
           setMetasets(finalMetas)
-          const finalSellDescriptor = applyFinalSellChange(pendingImport.finalSellRemainder, { mode: 'import', publish: false })
+          // Only apply when the clipboard source explicitly included the key (see PendingImport).
+          const finalSellDescriptor = pendingImport.finalSellRemainder !== null
+            ? applyFinalSellChange(pendingImport.finalSellRemainder, { mode: 'import', publish: false })
+            : null
           const incomingNote = typeof pendingImport.note === 'string' ? pendingImport.note : null
           const shouldApplyNote = !normalizeNoteValue(sfrNote) && Boolean(normalizeNoteValue(incomingNote))
           const noteDescriptor = shouldApplyNote
@@ -6552,8 +6558,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               setBuilder(recipes[recipes.length - 1]!)
             } catch {}
           }
-          setSafeguardRules(pendingImport.safeguardRules)
-          setSafeguardsEnabled(pendingImport.safeguardsEnabled)
+          // Only overwrite when the clipboard source explicitly included these keys.
+          if (pendingImport.safeguardRules !== null) setSafeguardRules(pendingImport.safeguardRules)
+          if (pendingImport.safeguardsEnabled !== null) setSafeguardsEnabled(pendingImport.safeguardsEnabled)
           setRecipesEnabled(pendingImport.recipesEnabled !== false)
         } finally {
           setMetasetConflictOpen(false)
@@ -6572,7 +6579,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       incomingRecipes={pendingSfrShiftDialogImport.payload.recipes}
       incomingNote={typeof pendingSfrShiftDialogImport.payload.note === 'string' ? pendingSfrShiftDialogImport.payload.note : null}
       incomingMetasets={pendingSfrShiftDialogImport.payload.metasets}
-      incomingSafeguards={pendingSfrShiftDialogImport.payload.safeguardRules}
+      incomingSafeguards={pendingSfrShiftDialogImport.payload.safeguardRules ?? []}
       onCancel={() => {
         setPendingSfrShiftDialogImport(null)
       }}

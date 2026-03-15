@@ -121,7 +121,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
         customRecipes: parsed.recipes,
         metasets: parsed.metasets,
         substatTargets: parsed.substatTargets,
-        finalSellRemainder: parsed.finalSellRemainder,
+        ...(parsed.finalSellRemainder !== null ? { finalSellRemainder: parsed.finalSellRemainder } : {}),
       })
       // Mirror the export pipeline so comparisons include RowIdx + sanitized field ordering.
       const exported = cleanHsfForExport(merged)

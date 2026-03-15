@@ -6,7 +6,7 @@ import { ACCESSORY_NO_SET_ID, FINAL_SELL_DEFAULT_LEVELS, README_SEEN_VERSION_KEY
 import { defaultSubstatTargets, type BuilderRecipe, type SubstatTargetTable } from '../lib/hsfBuilder'
 import { cloneBuilderRecipe } from '../lib/recipeMultiEditDraft'
 import type { HsfFile } from '../lib/hsfTypes'
-import { defaultMetasets, makeMetasetId, type Metaset } from '../lib/metasets'
+import { defaultMetasets, type Metaset } from '../lib/metasets'
 import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
@@ -206,7 +206,7 @@ const buildTutorialSafeguardRules = (): SafeguardRule[] => [{
   combination: {
     slots: [ArtifactType.Banner],
     sets: [{ id: ArtifactSet.Refresh }],
-    metaSetIds: [],
+    metaSetNames: [],
     // 5★ and 6★ only — low-rank pieces are not worth protecting.
     ranks: [5, 6],
     // Rare and higher — Common/Uncommon drops are not worth protecting.
@@ -243,7 +243,7 @@ const cloneSafeguardRule = (rule: SafeguardRule): SafeguardRule => ({
   combination: {
     slots: [...rule.combination.slots],
     sets: rule.combination.sets.map((entry) => (entry.excluded ? { id: entry.id, excluded: true } : { id: entry.id })),
-    metaSetIds: [...(rule.combination.metaSetIds ?? [])],
+    metaSetNames: [...(rule.combination.metaSetNames ?? [])],
     ranks: [...rule.combination.ranks],
     rarities: [...rule.combination.rarities],
     mainStats: [...rule.combination.mainStats],
@@ -968,9 +968,9 @@ export function useTutorialCoachState({
           setMetasets((prev) => {
             let next = prev
             if (!next.some((m) => m.name.trim().toLowerCase() === 'speed-sets'))
-              next = next.concat({ id: makeMetasetId(), name: 'Speed-Sets', sets: [ArtifactSet.Speed, ArtifactSet.Perception, ArtifactSet.Protection], show: true, iconId: DEFAULT_METASET_ICON_ID })
+              next = next.concat({ name: 'Speed-Sets', sets: [ArtifactSet.Speed, ArtifactSet.Perception, ArtifactSet.Protection], show: true, iconId: DEFAULT_METASET_ICON_ID })
             if (!next.some((m) => m.name.trim().toLowerCase() === 'slow dd'))
-              next = next.concat({ id: makeMetasetId(), name: 'Slow DD', sets: [ArtifactSet.Lethal, ArtifactSet.Savage, ArtifactSet.Stoneskin], show: true, iconId: DEFAULT_METASET_ICON_ID })
+              next = next.concat({ name: 'Slow DD', sets: [ArtifactSet.Lethal, ArtifactSet.Savage, ArtifactSet.Stoneskin], show: true, iconId: DEFAULT_METASET_ICON_ID })
             const wanted = new Set(['Nuker', 'Debuffer', 'Survivability'])
             const defs = defaultMetasets().filter((meta) => wanted.has(meta.name))
             const have = new Set(next.map((m) => m.name))
@@ -1002,7 +1002,7 @@ export function useTutorialCoachState({
           const speed = metasRef.current.find((m) => m.name.trim().toLowerCase() === 'speed-sets')
           if (speed) {
             suppressHistorySnapshot()
-            setBuilder((prev) => ({ ...prev, artifactMetaSets: [speed.id], artifactSets: [] }))
+            setBuilder((prev) => ({ ...prev, artifactMetaSets: [speed.name], artifactSets: [] }))
           }
           setSelectedRecipeIdx(0)
           const timers = tutorialTimersRef.current
@@ -1024,7 +1024,7 @@ export function useTutorialCoachState({
           const speed = metasRef.current.find((m) => m.name.trim().toLowerCase() === 'speed-sets')
           if (speed) {
             suppressHistorySnapshot()
-            setBuilder((prev) => ({ ...prev, artifactMetaSets: [speed.id], artifactSets: [] }))
+            setBuilder((prev) => ({ ...prev, artifactMetaSets: [speed.name], artifactSets: [] }))
           }
           setSelectedRecipeIdx(0)
         },
@@ -1044,8 +1044,8 @@ export function useTutorialCoachState({
           const speed = metasRef.current.find((m) => m.name.trim().toLowerCase() === 'speed-sets')
           if (speed) {
             suppressHistorySnapshot()
-            setBuilder((prev) => ({ ...prev, artifactMetaSets: [speed.id], artifactSets: [] }))
-            setCustomRecipes((prev) => prev.map((r, i) => i === 0 ? { ...r, artifactMetaSets: [speed.id], artifactSets: [] } : r))
+            setBuilder((prev) => ({ ...prev, artifactMetaSets: [speed.name], artifactSets: [] }))
+            setCustomRecipes((prev) => prev.map((r, i) => i === 0 ? { ...r, artifactMetaSets: [speed.name], artifactSets: [] } : r))
           }
           setSelectedRecipeIdx(0)
         },
@@ -1131,7 +1131,7 @@ export function useTutorialCoachState({
           const slow = metasRef.current.find((m) => m.name.trim().toLowerCase() === 'slow dd')
           if (slow) {
             suppressHistorySnapshot()
-            setBuilder((prev) => ({ ...prev, artifactMetaSets: [slow.id], artifactSets: [] }))
+            setBuilder((prev) => ({ ...prev, artifactMetaSets: [slow.name], artifactSets: [] }))
           }
           setSelectedRecipeIdx(1)
           const timers = tutorialTimersRef.current
@@ -1559,8 +1559,7 @@ export function useTutorialCoachState({
       let nextBuilder: BuilderRecipe = { ...TUTORIAL_INITIAL_BUILDER }
       const ensureSlowDD = () => {
         if (!nextMetas.some((meta) => meta.name.trim().toLowerCase() === 'slow dd')) {
-          const id = makeMetasetId()
-          nextMetas = nextMetas.concat({ id, name: 'Slow DD', sets: [ArtifactSet.Lethal, ArtifactSet.Savage, ArtifactSet.Stoneskin], show: true, iconId: DEFAULT_METASET_ICON_ID })
+          nextMetas = nextMetas.concat({ name: 'Slow DD', sets: [ArtifactSet.Lethal, ArtifactSet.Savage, ArtifactSet.Stoneskin], show: true, iconId: DEFAULT_METASET_ICON_ID })
         }
       }
       // Track which tutorial-driven additions have been replayed so the flags
@@ -1639,7 +1638,7 @@ export function useTutorialCoachState({
             // All tutorial metasets are pre-created in this step's before() hook.
             // Mirror that here: add Speed, Slow DD, and the three defaults to nextMetas.
             if (!nextMetas.some((m) => m.name.trim().toLowerCase() === 'speed-sets'))
-              nextMetas = nextMetas.concat({ id: makeMetasetId(), name: 'Speed-Sets', sets: [ArtifactSet.Speed, ArtifactSet.Perception, ArtifactSet.Protection], show: true, iconId: DEFAULT_METASET_ICON_ID })
+              nextMetas = nextMetas.concat({ name: 'Speed-Sets', sets: [ArtifactSet.Speed, ArtifactSet.Perception, ArtifactSet.Protection], show: true, iconId: DEFAULT_METASET_ICON_ID })
             ensureSlowDD()
             slowDDAdded = true
             const wanted = new Set(['Nuker', 'Debuffer', 'Survivability'])
@@ -1654,7 +1653,7 @@ export function useTutorialCoachState({
             // Builder gets Speed-Sets (dirty); recipe stays empty so Apply button is enabled.
             const speed = nextMetas.find((m) => m.name.trim().toLowerCase() === 'speed-sets')
             if (speed) {
-              nextBuilder = { ...nextBuilder, artifactMetaSets: [speed.id], artifactSets: [] }
+              nextBuilder = { ...nextBuilder, artifactMetaSets: [speed.name], artifactSets: [] }
             }
             nextSel = 0
             break
@@ -1663,7 +1662,7 @@ export function useTutorialCoachState({
             // Still dirty at step 14: builder has Speed-Sets, recipe does not yet.
             const speed = nextMetas.find((m) => m.name.trim().toLowerCase() === 'speed-sets')
             if (speed) {
-              nextBuilder = { ...nextBuilder, artifactMetaSets: [speed.id], artifactSets: [] }
+              nextBuilder = { ...nextBuilder, artifactMetaSets: [speed.name], artifactSets: [] }
             }
             nextSel = 0
             break
@@ -1672,8 +1671,8 @@ export function useTutorialCoachState({
             // Speed-Sets is now committed — mirrors the state after the user clicked Apply.
             const speed = nextMetas.find((m) => m.name.trim().toLowerCase() === 'speed-sets')
             if (speed && nextRecipes.length > 0) {
-              nextBuilder = { ...nextBuilder, artifactMetaSets: [speed.id], artifactSets: [] }
-              nextRecipes = nextRecipes.map((r, i) => i === 0 ? { ...r, artifactMetaSets: [speed.id], artifactSets: [] } : r)
+              nextBuilder = { ...nextBuilder, artifactMetaSets: [speed.name], artifactSets: [] }
+              nextRecipes = nextRecipes.map((r, i) => i === 0 ? { ...r, artifactMetaSets: [speed.name], artifactSets: [] } : r)
             }
             nextSel = 0
             break
@@ -1681,7 +1680,7 @@ export function useTutorialCoachState({
           case 'sets-metasets': {
             ensureSlowDD()
             const slow = nextMetas.find((meta) => meta.name.trim().toLowerCase() === 'slow dd')
-            if (slow) nextBuilder = { ...nextBuilder, artifactMetaSets: [slow.id], artifactSets: [] }
+            if (slow) nextBuilder = { ...nextBuilder, artifactMetaSets: [slow.name], artifactSets: [] }
             break
           }
           case 'adv-add': {
@@ -1944,8 +1943,8 @@ export function useTutorialCoachState({
               }
             } catch {}
             suppressHistorySnapshot()
-            setBuilder((prev) => ({ ...prev, artifactMetaSets: [speed.id], artifactSets: [] }))
-            setCustomRecipes((prev) => prev.map((r, i) => i === 0 ? { ...r, artifactMetaSets: [speed.id], artifactSets: [] } : r))
+            setBuilder((prev) => ({ ...prev, artifactMetaSets: [speed.name], artifactSets: [] }))
+            setCustomRecipes((prev) => prev.map((r, i) => i === 0 ? { ...r, artifactMetaSets: [speed.name], artifactSets: [] } : r))
           }
         } catch {}
       } else if (cur?.id === 'sets-metasets') {
@@ -1964,7 +1963,7 @@ export function useTutorialCoachState({
             suppressHistorySnapshot()
             setBuilder((prev) => ({
               ...prev,
-              artifactMetaSets: [slow.id],
+              artifactMetaSets: [slow.name],
               artifactSets: [],
             }))
           }

@@ -8,7 +8,7 @@ import { ArtifactSet, type ArtifactSetId } from './types'
 import { DEFAULT_METASET_ICON_ID, metasetIconOptionById, normalizeMetasetIconId, type MetasetIconId } from './metasetIcons'
 
 export type Metaset = {
-  id: string
+  // name is the primary key — must be unique across all metasets
   name: string
   sets: ArtifactSetId[]
   // When false, hide this metaset in selection menus (still functional for rules)
@@ -30,24 +30,6 @@ export const cloneMetasets = (list: readonly Metaset[]): Metaset[] => (
   list.map((metaset) => cloneMetaset(metaset))
 )
 
-/*
-// Create stable IDs for default metasets to survive rename
-function makeId(name: string): string {
-  return `meta_${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
-}
-*/
-
-// Generate a compact metaset ID for user-created metasets. IDs are short and
-// collision-resistant within typical UI usage. We avoid timestamps to keep
-// SFR files small and stable across sessions.
-export function makeMetasetId(seed: number = Date.now()): string {
-  // Mixed time/random source, base36-encoded. Keep under ~12 chars total.
-  const rand = Math.floor(Math.random() * 0xFFFF_FFFF)
-  const a = seed.toString(36)
-  const b = rand.toString(36)
-  return `m_${a.slice(-4)}${b.slice(0,6)}`
-}
-
 // Default metasets (curated).
 // Note: These defaults mirror the current state of `examples/example.sfr` so a
 // fresh run starts with the same metaset list/order as that reference file.
@@ -55,18 +37,9 @@ export function makeMetasetId(seed: number = Date.now()): string {
 // update the tutorial's "wanted" list if you rename any metasets here.
 
 export function defaultMetasets(): Metaset[] {
-  // Default metaset IDs must never collide with user-generated IDs.
-  // Why: User metasets use `makeMetasetId()` (prefix `m_`), so defaults reserve `dmeta_`.
-  const DEFAULT_ID_VERSION = 'v1'
-  // Modified or new metasets get a `ver` suffix so existing saved SFR files
-  // that reference old v1 IDs continue to load with their original behaviour.
-  const defaultMetasetId = (slug: string, ver: string = DEFAULT_ID_VERSION): string =>
-    `dmeta_${slug}_${ver}`
   const NO_ICON = DEFAULT_METASET_ICON_ID
   return [
     {
-      // v2: added SwiftParry after Cruel (synced with example.sfr)
-      id: defaultMetasetId('nuker_limited', 'v2'),
       name: 'Nuker - Limited Sets',
       sets: [
         ArtifactSet.Cruel,
@@ -82,8 +55,6 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      // v2: added SwiftParry after Cruel (synced with example.sfr)
-      id: defaultMetasetId('nuker', 'v2'),
       name: 'Nuker',
       sets: [
         ArtifactSet.CritDamage,
@@ -104,7 +75,6 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      id: defaultMetasetId('support_limited'),
       name: 'Support - Limited Sets',
       sets: [
         ArtifactSet.Bolster,
@@ -120,8 +90,6 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      // v2: added Deflection after SwiftParry (synced with example.sfr)
-      id: defaultMetasetId('need_4_speed', 'v2'),
       name: 'Need 4 Speed',
       sets: [
         ArtifactSet.Speed,
@@ -145,8 +113,6 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      // v2: added Deflection after DivineSpeed (synced with example.sfr)
-      id: defaultMetasetId('debuffer', 'v2'),
       name: 'Debuffer',
       sets: [
         ArtifactSet.Speed,
@@ -169,7 +135,6 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      id: defaultMetasetId('survivability'),
       name: 'Survivability',
       sets: [
         ArtifactSet.Regeneration,
@@ -200,7 +165,6 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      id: defaultMetasetId('extra_turn'),
       name: 'Extra Turn',
       sets: [
         ArtifactSet.Relentless,
@@ -211,7 +175,6 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      id: defaultMetasetId('utility'),
       name: 'Utility',
       sets: [
         ArtifactSet.Lifesteal,
@@ -231,8 +194,6 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      // v2: prepended SwiftParry and Deflection before Protection (synced with example.sfr)
-      id: defaultMetasetId('accessory_specific', 'v2'),
       name: 'Accessory Specific',
       sets: [
         ArtifactSet.SwiftParry,
@@ -258,8 +219,6 @@ export function defaultMetasets(): Metaset[] {
       iconId: NO_ICON,
     },
     {
-      // v2: prepended Deflection before Stoneskin (synced with example.sfr)
-      id: defaultMetasetId('debuffer_limited', 'v2'),
       name: 'Debuffer - Limited Sets',
       sets: [
         ArtifactSet.Deflection,
@@ -280,7 +239,6 @@ export function defaultMetasets(): Metaset[] {
     },
     {
       // New in v2: accessory-specific sets restricted to modern (non-legacy) options.
-      id: defaultMetasetId('accessory_specific_modern', 'v2'),
       name: 'Accessory Specific - Modern',
       sets: [
         ArtifactSet.SwiftParry,
@@ -302,7 +260,6 @@ export function defaultMetasets(): Metaset[] {
     },
     {
       // New in v2: legacy / low-value sets grouped for easy exclusion in rules.
-      id: defaultMetasetId('useless', 'v2'),
       name: 'Useless',
       sets: [
         ArtifactSet.Life,
@@ -346,13 +303,14 @@ export function defaultMetasets(): Metaset[] {
   ]
 }
 
-// Helper to resolve a list of metaset IDs to a unique set of artifact set IDs
-export function resolveMetasetIds(ids: string[] | undefined, metasets: Metaset[]): ArtifactSetId[] {
-  if (!ids || !ids.length) return []
-  const byId = new Map(metasets.map(m => [m.id, m]))
+// Resolve a list of metaset names to a unique set of artifact set IDs.
+// Names are the primary key; unknown names are silently skipped.
+export function resolveMetasets(names: string[] | undefined, metasets: Metaset[]): ArtifactSetId[] {
+  if (!names || !names.length) return []
+  const byName = new Map(metasets.map(m => [m.name, m]))
   const acc = new Set<ArtifactSetId>()
-  for (const id of ids) {
-    const m = byId.get(id)
+  for (const name of names) {
+    const m = byName.get(name)
     if (!m) continue
     for (const s of m.sets) acc.add(s)
   }
@@ -360,30 +318,30 @@ export function resolveMetasetIds(ids: string[] | undefined, metasets: Metaset[]
 }
 
 /**
- * Order metaset IDs to match the current visible metaset order used by the builder UI.
- * Duplicates are removed (first occurrence wins). IDs unknown to the active metasets
+ * Order metaset names to match the current visible metaset order used by the builder UI.
+ * Duplicates are removed (first occurrence wins). Names unknown to the active metasets
  * are appended in their original order so we preserve backwards-compatible data.
  */
-export function orderMetasetIds(ids: readonly string[] | undefined, metasets: Metaset[]): string[] {
-  const list = Array.isArray(ids) ? ids.map(String) : []
+export function orderMetasets(names: readonly string[] | undefined, metasets: Metaset[]): string[] {
+  const list = Array.isArray(names) ? names.map(String) : []
   if (list.length === 0) return []
 
   const unique: string[] = []
   const seen = new Set<string>()
-  for (const id of list) {
-    if (seen.has(id)) continue
-    seen.add(id)
-    unique.push(id)
+  for (const name of list) {
+    if (seen.has(name)) continue
+    seen.add(name)
+    unique.push(name)
   }
 
   const remaining = new Set(unique)
   const ordered: string[] = []
   for (const meta of metasets) {
-    if (remaining.delete(meta.id)) ordered.push(meta.id)
+    if (remaining.delete(meta.name)) ordered.push(meta.name)
   }
   if (remaining.size > 0) {
-    for (const id of unique) {
-      if (remaining.delete(id)) ordered.push(id)
+    for (const name of unique) {
+      if (remaining.delete(name)) ordered.push(name)
     }
   }
   return ordered

@@ -77,10 +77,13 @@ test('beatEquippedPercentile smoke — real example.sfr + RSLHelper.db', async (
 
   // ── load SFR ──────────────────────────────────────────────────────────────
   const sfrText = readFileSync(sfrPath, 'utf-8')
-  const { safeguardRules, safeguardsEnabled } = parseSfrText(sfrText, {
+  const parsed = parseSfrText(sfrText, {
     metasets: [],
     substatTargets: defaultSubstatTargets(),
   })
+  // example.sfr is a full SFR with safeguards; ?? [] is a defensive fallback for the type.
+  const safeguardRules = parsed.safeguardRules ?? []
+  const safeguardsEnabled = parsed.safeguardsEnabled ?? false
 
   // ── diagnostic: overall DB breakdown ─────────────────────────────────────
   const collectionEquipped = artifacts.filter((a) => a.equippedChampionLocation === 'collection')

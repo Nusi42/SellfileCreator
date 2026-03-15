@@ -3,8 +3,7 @@
  *
  * Rule chip list for the Safeguard Builder column. Manages add / delete / duplicate /
  * reorder / rename and exposes the selected rule id so the builder form can display
- * the right data. Mirrors the chip-management surface of SafeguardsTab without the
- * detection grid.
+ * the right data.
  *
  * When the optional multi-select props (selectedRuleIds, onRuleSelect, …) are
  * provided the panel enters multi-select mode: all rules in the set receive

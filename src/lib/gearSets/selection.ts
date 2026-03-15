@@ -1,6 +1,6 @@
 import type { ArtifactSetId } from '../types'
 import type { Metaset } from '../metasets'
-import { resolveMetasetIds } from '../metasets'
+import { resolveMetasets } from '../metasets'
 import { ACCESSORY_NO_SET_ID } from '../constants'
 
 export type ArtifactSetSelectionEntry = {
@@ -137,7 +137,7 @@ export const resolveArtifactSetSelections = (params: {
   const normalized = normalizeArtifactSetSelections(selections ?? [])
   const { included, excluded } = splitArtifactSetSelections(normalized)
   // Expand metasets into set IDs before applying exclusions.
-  const fromMetas = resolveMetasetIds(metasetIds ? Array.from(metasetIds) : undefined, metasets as Metaset[])
+  const fromMetas = resolveMetasets(metasetIds ? Array.from(metasetIds) : undefined, metasets as Metaset[])
   const union = new Set<number>()
   for (const id of included) union.add(Number(id))
   for (const id of fromMetas) union.add(Number(id))

@@ -5,7 +5,7 @@ import { useI18n } from '../../lib/i18n'
 import type { ArtifactSetId } from '../../lib/types'
 import { artifactSetName, filterAndSortSetEntries, getLocalizedGearSetName } from '../../lib/types'
 import type { Metaset } from '../../lib/metasets'
-import { metasetGlyph, orderMetasetIds, resolveMetasetIds } from '../../lib/metasets'
+import { metasetGlyph, orderMetasets, resolveMetasets } from '../../lib/metasets'
 import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../../lib/gearSets/selection'
 import { useSetsOrderPreference } from '../../state/setsOrderPreference'
@@ -98,7 +98,7 @@ export default function GearSetsSelect({
   )
   const orderBasis = visibleMetasets.length ? visibleMetasets : metasets
   const orderedMetaSelected = useMemo(
-    () => orderMetasetIds(allowMetasets ? selectedMetasetIds : [], orderBasis),
+    () => orderMetasets(allowMetasets ? selectedMetasetIds : [], orderBasis),
     [allowMetasets, orderBasis, selectedMetasetIds],
   )
   // Normalize selections so legacy arrays merge cleanly with exclusion entries.
@@ -126,7 +126,7 @@ export default function GearSetsSelect({
     for (const token of selectedTokens) {
       if (!token.startsWith('m:')) continue
       const id = token.slice(2)
-      const meta = metasets.find((m) => m.id === id)
+      const meta = metasets.find((m) => m.name === id)
       if (!meta) continue
       const { glyph, iconId } = metasetGlyph(meta)
       if (glyph != null && iconId) {
@@ -194,7 +194,7 @@ export default function GearSetsSelect({
       : setIds
     // Resolve metaset ordering when enabled.
     const metaIds = allowMetasets
-      ? orderMetasetIds(tokens.filter((token) => token.startsWith('m:')).map((token) => token.slice(2)), orderBasis)
+      ? orderMetasets(tokens.filter((token) => token.startsWith('m:')).map((token) => token.slice(2)), orderBasis)
       : []
     // Deduplicate the explicit includes for stable output.
     const normalizedSets = Array.from(new Set(nextSetIds.map((id) => Number(id)))).sort((a, b) => a - b).map((id) => id as ArtifactSetId)
@@ -305,12 +305,12 @@ export default function GearSetsSelect({
     return new Set(
       visibleMetasets
         .filter((meta) => !meta.sets.every((setId) => allowedSetFilter.has(Number(setId))))
-        .map((meta) => meta.id)
+        .map((meta) => meta.name)
     )
   }, [allowedSetFilter, allowMetasets, visibleMetasets])
   // Track which sets are implied by metasets so right-click only targets those.
   const metaDerivedSetIds = useMemo(() => (
-    allowMetasets ? new Set(resolveMetasetIds(selectedMetasetIds ?? [], metasets)) : new Set<number>()
+    allowMetasets ? new Set(resolveMetasets(selectedMetasetIds ?? [], metasets)) : new Set<number>()
   ), [allowMetasets, metasets, selectedMetasetIds])
   const handleContextMenuSet = useCallback((id: number) => {
     // Ignore context menu events when metasets are not active.
@@ -546,7 +546,7 @@ export default function GearSetsSelect({
                   const selected = new Set(selectedMetasetIds ?? [])
                   const targetMeta = (() => {
                     for (const meta of metasetsMenu) {
-                      if (selected.has(meta.id)) return meta.id
+                      if (selected.has(meta.name)) return meta.name
                     }
                     return null
                   })()
@@ -633,29 +633,29 @@ export default function GearSetsSelect({
                     const needsGap = iconId !== null && iconId !== 'empty'
                     const tooltipName = hasGlyph ? `${glyph}${needsGap ? ` ${meta.name}` : meta.name}` : meta.name
                     const displayGap = hasGlyph && needsGap ? 0.75 : 0.5
-                    const isMetaDisabled = disabledMetasetIds.has(meta.id)
-                    const selected = (selectedMetasetIds ?? []).includes(meta.id)
+                    const isMetaDisabled = disabledMetasetIds.has(meta.name)
+                    const selected = (selectedMetasetIds ?? []).includes(meta.name)
                     const setNames = meta.sets.map((id) => getLocalizedGearSetName(id, t, lang)).filter(Boolean)
                     const joined = setNames.join(', ')
                     return (
                       <MenuItem
-                        key={meta.id}
-                        value={`m:${meta.id}`}
+                        key={meta.name}
+                        value={`m:${meta.name}`}
                         selected={selected}
                         disabled={isMetaDisabled}
-                        data-metaset-id={meta.id}
-                        onMouseEnter={() => setHoveredMetasetId(meta.id)}
-                        onMouseLeave={() => setHoveredMetasetId((prev) => (prev === meta.id ? null : prev))}
+                        data-metaset-id={meta.name}
+                        onMouseEnter={() => setHoveredMetasetId(meta.name)}
+                        onMouseLeave={() => setHoveredMetasetId((prev) => (prev === meta.name ? null : prev))}
                         onClick={(evt) => {
                           evt.preventDefault()
                           evt.stopPropagation()
                           if (!onChangeMetasetIds) return
                           if (isMetaDisabled) return
-                          const token = `m:${meta.id}`
+                          const token = `m:${meta.name}`
                           const tokens = new Set(selectedTokens)
                           if (tokens.has(token)) tokens.delete(token); else tokens.add(token)
                           const metaIds = Array.from(tokens).filter((tok) => tok.startsWith('m:')).map((tok) => tok.slice(2))
-                          onChangeMetasetIds(orderMetasetIds(metaIds, orderBasis))
+                          onChangeMetasetIds(orderMetasets(metaIds, orderBasis))
                         }}
                       >
                         <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>

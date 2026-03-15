@@ -105,7 +105,7 @@ export const buildIgnoreSafeguardRecipeIndices = (recipes: readonly BuilderRecip
 export type SafeguardCombination = {
   slots: ArtifactTypeId[]
   sets: ArtifactSetSelectionEntry[]
-  metaSetIds: string[]
+  metaSetNames: string[]
   ranks: RankValue[]
   rarities: RankValue[]
   mainStats: StatVariant[]
@@ -253,7 +253,7 @@ export const cloneSafeguardCombination = (combination: SafeguardCombination): Sa
   slots: [...combination.slots],
   // Clone entries so excluded flags survive but references do not.
   sets: combination.sets.map((entry) => (entry.excluded ? { id: entry.id, excluded: true } : { id: entry.id })),
-  metaSetIds: [...(combination.metaSetIds ?? [])],
+  metaSetNames: [...(combination.metaSetNames ?? [])],
   ranks: [...combination.ranks],
   rarities: [...combination.rarities],
   mainStats: [...(combination.mainStats ?? [])],
@@ -264,7 +264,7 @@ export const cloneSafeguardCombination = (combination: SafeguardCombination): Sa
 export const createEmptySafeguardCombination = (): SafeguardCombination => ({
   slots: [],
   sets: [],
-  metaSetIds: [],
+  metaSetNames: [],
   ranks: [],
   rarities: [],
   mainStats: [],
@@ -334,7 +334,7 @@ export function buildDefaultSafeguardRules(): SafeguardRule[] {
 // Returns the factory (shipping) default field values for the safeguard builder
 // draft, without an id. Used to seed user-defaults logic (save / reset).
 export const createFactorySafeguardBuilderDefaults = (): Omit<SafeguardRule, 'id'> => ({
-  combination: { slots: [], sets: [], metaSetIds: [], ranks: [], rarities: [], mainStats: [], factions: [] },
+  combination: { slots: [], sets: [], metaSetNames: [], ranks: [], rarities: [], mainStats: [], factions: [] },
   name: '',
   requiredCount: 1,
   activation: SafeguardRuleActivation.ProtectExisting,
@@ -566,8 +566,8 @@ const parseStatVariant = (value: unknown): StatVariant => {
   return numeric as StatVariant
 }
 
-// Dedup + lexical ordering keeps metaset ids stable for hashing and exports.
-const sortUniqueMetaSetIds = (values: string[]): string[] => {
+// Dedup + lexical ordering keeps metaset names stable for hashing and exports.
+const sortUniqueMetaSetNames = (values: string[]): string[] => {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b))
 }
 
@@ -674,7 +674,7 @@ export function normalizeSafeguardCombination(value: unknown): SafeguardCombinat
   const rarities: RankValue[] = []
   const mainStats: StatVariant[] = []
   const factions: FactionId[] = []
-  const metaSetIds: string[] = []
+  const metaSetNames: string[] = []
 
   collectRecursive(record.slots, (leaf) => {
     const parsed = parseNamedOrNumeric(leaf, artifactTypeIdByName)
@@ -702,23 +702,31 @@ export function normalizeSafeguardCombination(value: unknown): SafeguardCombinat
     if (parsed == null) return
     factions.push(parsed as FactionId)
   })
+  collectRecursive(record.metaSetNames, (leaf) => {
+    if (typeof leaf !== 'string') return
+    const trimmed = leaf.trim()
+    if (!trimmed) return
+    metaSetNames.push(trimmed)
+  })
+  // Legacy: metaSetIds was the field name before migration to name-as-primary-key.
   collectRecursive(record.metaSetIds, (leaf) => {
     if (typeof leaf !== 'string') return
     const trimmed = leaf.trim()
     if (!trimmed) return
-    metaSetIds.push(trimmed)
+    metaSetNames.push(trimmed)
   })
+  // Older legacy: metaSets predates both metaSetIds and metaSetNames.
   collectRecursive(record.metaSets, (leaf) => {
     if (typeof leaf !== 'string') return
     const trimmed = leaf.trim()
     if (!trimmed) return
-    metaSetIds.push(trimmed)
+    metaSetNames.push(trimmed)
   })
 
   return {
     slots: Array.from(new Set(slots)).sort((left, right) => compareArtifactTypes(left, right)),
     sets: parseSetSelections(record.sets),
-    metaSetIds: sortUniqueMetaSetIds(metaSetIds),
+    metaSetNames: sortUniqueMetaSetNames(metaSetNames),
     ranks: Array.from(new Set(ranks)).sort((a, b) => a - b),
     rarities: Array.from(new Set(rarities)).sort((a, b) => a - b),
     mainStats: sortSafeguardSubstats(Array.from(new Set(mainStats))),
@@ -1283,7 +1291,7 @@ export function buildSafeguardCombinationFromRecipe(recipe: BuilderRecipe): Safe
   return sortSafeguardCombination({
     slots: [...(recipe.artifactTypes ?? [])],
     sets: [...(recipe.artifactSets ?? [])],
-    metaSetIds: [...(recipe.artifactMetaSets ?? [])],
+    metaSetNames: [...(recipe.artifactMetaSets ?? [])],
     ranks,
     rarities,
     mainStats: [...(recipe.mainStatsV ?? [])],

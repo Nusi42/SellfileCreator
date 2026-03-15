@@ -106,7 +106,7 @@ export default function SetMenuSection({
   const disabledSet = new Set((disabledSetIds ?? []).map(Number))
   // Resolve hovered metaset metadata when it is not the "all explicit" sentinel.
   const hoveredMeta = hovered && hovered !== allExplicitMetaId
-    ? metasets.find(m => m.id === hovered) || null
+    ? metasets.find(m => m.name === hovered) || null
     : null
   // Some callers define an "all explicit" metaset sentinel; highlight everything when hovered/selected.
   const hoveredHighlightsAll = Boolean(hovered && hovered === allExplicitMetaId)
@@ -188,7 +188,7 @@ export default function SetMenuSection({
               // Hover highlights only apply when the hovered metaset contains this set.
               const inHovered = hoveredHighlightsAll || Boolean(hoveredMeta && hoveredMeta.sets.includes(idNum))
               // Selected metasets outline sets that are not explicitly selected.
-              const inSelectedMeta = selectedHighlightsAll || metasets.some(m => selectedMetaSet.has(m.id) && m.sets.includes(idNum))
+              const inSelectedMeta = selectedHighlightsAll || metasets.some(m => selectedMetaSet.has(m.name) && m.sets.includes(idNum))
               // Tri-state: all/partial/none for multi-edit.
               const setState = getTriStateForSet(idNum)
               const inSelectedSet = setState === 'all'
@@ -346,13 +346,13 @@ export default function SetMenuSection({
           // Usage counts + metaset membership are rendered only in list modes.
           const used = setUsageCounts[idNum] || 0
           const metaNames = metasets
-            .filter(m => m.sets.includes(idNum) && m.id !== allExplicitMetaId && m.id !== excludeMetasetId && m.show !== false)
+            .filter(m => m.sets.includes(idNum) && m.name !== allExplicitMetaId && m.name !== excludeMetasetId && m.show !== false)
             .map(m => m.name)
           const joined = metaNames.join(', ')
           // Hover shows dotted edge for metaset preview.
           const inHovered = hoveredHighlightsAll || Boolean(hoveredMeta && hoveredMeta.sets.includes(idNum))
           // Selected metaset membership renders a blue left bar.
-          const inSelectedMeta = selectedHighlightsAll || metasets.some(m => selectedMetaSet.has(m.id) && m.sets.includes(idNum))
+          const inSelectedMeta = selectedHighlightsAll || metasets.some(m => selectedMetaSet.has(m.name) && m.sets.includes(idNum))
           // Tri-state values handle multi-edit mixing.
           const setState = getTriStateForSet(idNum)
           const inSelectedSet = setState === 'all'

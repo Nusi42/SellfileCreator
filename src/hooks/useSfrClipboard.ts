@@ -9,9 +9,7 @@ import {
 } from '../lib/sfrIO'
 import type { BuilderRecipe, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
-import { makeMetasetId } from '../lib/metasets'
 import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
-import { generateMetasetNameWithFlag } from '../lib/namegen'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import { artifactSetName, type ArtifactSetId } from '../lib/types'
 import { readTextSafe, writeTextSafe } from '../lib/clipboard'
@@ -29,9 +27,10 @@ export type PendingImport = {
   recipes: BuilderRecipe[]
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
-  finalSellRemainder: FinalSellRemainderConfig
-  safeguardRules: SafeguardRule[]
-  safeguardsEnabled: boolean
+  // null when the key was absent from the clipboard source — applied only when non-null.
+  finalSellRemainder: FinalSellRemainderConfig | null
+  safeguardRules: SafeguardRule[] | null
+  safeguardsEnabled: boolean | null
   recipesEnabled: boolean
   selectedIndex: number | null
   note?: string
@@ -134,18 +133,14 @@ const ensureReferencedMetasets = (base: Metaset[], recipes: BuilderRecipe[]): Me
   }
   if (!referenced.size) return base
 
-  const have = new Set(base.map((m) => m.id))
-  const names = new Set(base.map((m) => m.name))
+  // name is now the primary key; referenced IDs are names
+  const have = new Set(base.map((m) => m.name))
   const next = base.slice()
-  for (const id of referenced) {
-    if (have.has(id)) continue
-    let genName = generateMetasetNameWithFlag(Array.from(names)).name
-    while (names.has(genName)) {
-      genName = generateMetasetNameWithFlag(Array.from(names)).name
-    }
-    names.add(genName)
-    have.add(id)
-    next.push({ id, name: genName, sets: [], show: false, iconId: DEFAULT_METASET_ICON_ID })
+  for (const referencedName of referenced) {
+    if (have.has(referencedName)) continue
+    have.add(referencedName)
+    // Create a placeholder metaset whose name IS the reference key
+    next.push({ name: referencedName, sets: [], show: false, iconId: DEFAULT_METASET_ICON_ID })
   }
   return next
 }
@@ -222,50 +217,52 @@ export function useSfrClipboard({
   }, [])
 
   const prepareSfrImport = useCallback((current: Metaset[], incoming: Metaset[], recipesIn: BuilderRecipe[]): PreparedSfrImport => {
-    const byIdCur = new Map(current.map(m => [m.id, m]))
+    // name is the primary key; byIdCur is keyed by name
+    const byIdCur = new Map(current.map(m => [m.name, m]))
     const byValCur = new Map<string, Metaset>()
     for (const m of current) byValCur.set(valueKey(m.sets), m)
     const idMap = new Map<string, string>()
 
+    // Detect "same name, different sets" conflicts
     const conflicts: string[] = []
     const curVsIncById = new Map<string, { cur: Metaset; inc: Metaset }>()
     for (const inc of incoming) {
-      const cur = byIdCur.get(inc.id)
+      const cur = byIdCur.get(inc.name)
       if (cur && valueKey(cur.sets) !== valueKey(inc.sets)) {
-        conflicts.push(inc.id)
-        curVsIncById.set(inc.id, { cur, inc })
+        conflicts.push(inc.name)
+        curVsIncById.set(inc.name, { cur, inc })
       }
     }
 
-    const canonicalIncoming = new Map<string, string>() // valueKey -> canonical incoming ID
+    const canonicalIncoming = new Map<string, string>() // valueKey -> canonical incoming name
     for (const inc of incoming) {
       const vkey = valueKey(inc.sets)
-      if (curVsIncById.has(inc.id)) continue
+      if (curVsIncById.has(inc.name)) continue
       const curMatch = byValCur.get(vkey)
       if (curMatch) {
-        idMap.set(inc.id, curMatch.id)
+        idMap.set(inc.name, curMatch.name)
         continue
       }
       const existing = canonicalIncoming.get(vkey)
       if (existing) {
-        idMap.set(inc.id, existing)
+        idMap.set(inc.name, existing)
       } else {
-        canonicalIncoming.set(vkey, inc.id)
+        canonicalIncoming.set(vkey, inc.name)
       }
     }
 
     const toAdd: Metaset[] = []
     const seenAdd = new Set<string>()
     for (const inc of incoming) {
-      if (curVsIncById.has(inc.id)) continue
-      const target = idMap.get(inc.id) ?? inc.id
+      if (curVsIncById.has(inc.name)) continue
+      const target = idMap.get(inc.name) ?? inc.name
       if (byIdCur.has(target)) continue
       const vkey = valueKey(inc.sets)
       const canon = canonicalIncoming.get(vkey)
-      if (canon && canon !== inc.id) continue
+      if (canon && canon !== inc.name) continue
       if (seenAdd.has(target)) continue
       seenAdd.add(target)
-      toAdd.push({ ...inc, id: target })
+      toAdd.push({ ...inc, name: target })
     }
 
     const recipesMapped = recipesIn.map(recipe => {
@@ -294,7 +291,8 @@ export function useSfrClipboard({
 
     if (ids.length) {
       if (strategy === 'useIncoming') {
-        const map = new Map(nextMetas.map(m => [m.id, m]))
+        // Replace existing entries (keyed by name) with the incoming versions
+        const map = new Map(nextMetas.map(m => [m.name, m]))
         for (const id of ids) {
           const pair = conflictPairs.get(id)
           if (!pair) continue
@@ -302,15 +300,19 @@ export function useSfrClipboard({
         }
         nextMetas = Array.from(map.values())
       } else if (strategy === 'keepBoth') {
+        // Add the incoming metaset under a unique "<name> (imported)" / "<name> (imported 2)" name
         for (const id of ids) {
           const pair = conflictPairs.get(id)
           if (!pair) continue
-          let newId = makeMetasetId()
-          while (nextMetas.some(m => m.id === newId) || id === newId) {
-            newId = makeMetasetId()
+          const existingNames = new Set(nextMetas.map(m => m.name))
+          let newName = `${pair.inc.name} (imported)`
+          let counter = 2
+          while (existingNames.has(newName)) {
+            newName = `${pair.inc.name} (imported ${counter})`
+            counter += 1
           }
-          nextMetas.push({ ...pair.inc, id: newId })
-          remapForConflicts.set(id, newId)
+          nextMetas.push({ ...pair.inc, name: newName })
+          remapForConflicts.set(id, newName)
         }
       }
       // keepCurrent leaves existing entries untouched.
@@ -363,7 +365,10 @@ export function useSfrClipboard({
       const ensured = ensureReferencedMetasets(metasDone, prep.recipesMapped)
       setMetasets(ensured)
       const substatTargetsDescriptor = applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
-      const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
+      // Only apply finalSell when the clipboard source explicitly included the key.
+      const finalSellDescriptor = fsr !== null
+        ? applyFinalSellChange(fsr, { mode: 'import', publish: false })
+        : null
       const incomingNote = typeof note === 'string' ? note : null
       const shouldApplyNote = !normalizeNoteValue(sfrNote) && Boolean(normalizeNoteValue(incomingNote))
       const noteDescriptor = shouldApplyNote
@@ -399,8 +404,10 @@ export function useSfrClipboard({
         publishClipboardDescriptor(descriptor)
         return next
       })
-      setSafeguardRules(importedSafeguardRules)
-      setSafeguardsEnabled(importedSafeguardsEnabled)
+      // Only overwrite when the clipboard source explicitly included these keys;
+      // a recipe-only copy omits them, and we must not reset the user's current state.
+      if (importedSafeguardRules !== null) setSafeguardRules(importedSafeguardRules)
+      if (importedSafeguardsEnabled !== null) setSafeguardsEnabled(importedSafeguardsEnabled)
       setRecipesEnabled(importedRecipesEnabled !== false)
       setPasteErr(null)
       return true
@@ -502,7 +509,10 @@ export function useSfrClipboard({
           const ensured = ensureReferencedMetasets(metasDone, prep.recipesMapped)
           setMetasets(ensured)
           const substatTargetsDescriptor = applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
-          const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
+          // Only apply finalSell when the clipboard source explicitly included the key.
+          const finalSellDescriptor = fsr !== null
+            ? applyFinalSellChange(fsr, { mode: 'import', publish: false })
+            : null
           const incomingNote = typeof note === 'string' ? note : null
           const shouldApplyNote = !normalizeNoteValue(sfrNote) && Boolean(normalizeNoteValue(incomingNote))
           const noteDescriptor = shouldApplyNote
@@ -536,8 +546,9 @@ export function useSfrClipboard({
             publishClipboardDescriptor(descriptor)
             return next
           })
-          setSafeguardRules(importedSafeguardRules)
-          setSafeguardsEnabled(importedSafeguardsEnabled)
+          // Only overwrite when the clipboard source explicitly included these keys.
+          if (importedSafeguardRules !== null) setSafeguardRules(importedSafeguardRules)
+          if (importedSafeguardsEnabled !== null) setSafeguardsEnabled(importedSafeguardsEnabled)
           setRecipesEnabled(importedRecipesEnabled !== false)
           try {
             setSelectedRecipeIdx(idx + recipes.length)
@@ -656,9 +667,8 @@ export function useSfrClipboard({
       const usedMetaIds = new Set<string>()
       for (const recipe of recipes) for (const id of (recipe.artifactMetaSets ?? [])) usedMetaIds.add(String(id))
       const metasOut = metasets
-        .filter(m => usedMetaIds.has(m.id))
+        .filter(m => usedMetaIds.has(m.name))
         .map(m => ({
-          id: m.id,
           name: m.name,
           setNames: m.sets.slice().sort((a, b) => a - b)
             .map(idNum => artifactSetName(Number(idNum) as ArtifactSetId))
@@ -678,9 +688,8 @@ export function useSfrClipboard({
       const readable = buildReadableRecipe(recipe, metasets)
       const usedMetaIds = recipe.artifactMetaSets ?? []
       const metasOut = metasets
-        .filter(m => usedMetaIds.includes(m.id))
+        .filter(m => usedMetaIds.includes(m.name))
         .map(m => ({
-          id: m.id,
           name: m.name,
           setNames: m.sets.slice().sort((a, b) => a - b)
             .map(idNum => artifactSetName(Number(idNum) as ArtifactSetId))
@@ -744,7 +753,10 @@ export function useSfrClipboard({
           setMetasets(ensured)
           const preLen = customRecipes.length
           const substatTargetsDescriptor = applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
-          const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
+          // Only apply finalSell when the clipboard source explicitly included the key.
+          const finalSellDescriptor = fsr !== null
+            ? applyFinalSellChange(fsr, { mode: 'import', publish: false })
+            : null
           const incomingNote = typeof note === 'string' ? note : null
           const shouldApplyNote = !normalizeNoteValue(sfrNote) && Boolean(normalizeNoteValue(incomingNote))
           const noteDescriptor = shouldApplyNote
@@ -774,8 +786,9 @@ export function useSfrClipboard({
             publishClipboardDescriptor(descriptor)
             return next
           })
-          setSafeguardRules(importedSafeguardRules)
-          setSafeguardsEnabled(importedSafeguardsEnabled)
+          // Only overwrite when the clipboard source explicitly included these keys.
+          if (importedSafeguardRules !== null) setSafeguardRules(importedSafeguardRules)
+          if (importedSafeguardsEnabled !== null) setSafeguardsEnabled(importedSafeguardsEnabled)
           setRecipesEnabled(importedRecipesEnabled !== false)
           try {
             const sel = preLen + recipes.length - 1

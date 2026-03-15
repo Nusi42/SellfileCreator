@@ -93,6 +93,7 @@ const RECIPE_OVERRIDES_TOKEN_COLORS: Record<string, string> = {
   'directive-kw':      '#c678dd',
   'line-comment':      '#5c6370',
   'block-comment':     '#5c6370',
+  'regex':             '#5c6370',  // /…/ informal description in EBNF
   // id=TOKEN split: `id` keyword (blue keyword family) + defined name (bright amber)
   'id-kw':             '#7ab3d4',
   'id-name':           '#f0a757',
@@ -1288,14 +1289,14 @@ term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any"
              | "rank" "=" rankVal | "rank" (">=" | "<=") rankNum | "rarity" ("=" | ">=" | "<=") rarityName
              | "minrolls" ("=" | ">=" | "<=") number | "minsubstats" ("=" | ">=" | "<=") number | "flex" ("=" | ":") flexVal
 assignment    := ("rank" | "rarity") ("=" | ">=" | "<=") value
-             | ("slots" | "substats" | "mainstats") "=" token ("," token)* | field "=" value
+             | ("slots" | "substats" | "mainstats" | "metasets") "=" prefixToken ("," prefixToken)*
+             | "gearsets" "=" gearToken ("," gearToken)* | field "=" value
 fallbackBlock := ("fallback" | "else") "{" selectorBlock+ "}"
 constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
              | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
 tokenList     := token ("," token)*
-field         := "export" | "rank" | "rarity" | "lvl" | "keep"
-             | "autolate" | "minrolls" | "lockedminrolls" | "minsubstats" | "flex"
-             | "substatmin" | "substatmin." statKey | "minima.any" | "minima." starKey "." statKey
+field         := "export" | "rank" | "rarity" | "lvl" | "keep" | "autolate" | "minrolls" | "lockedminrolls"
+             | "minsubstats" | "flex" | "substatmin" | "substatmin." statKey | "minima.any" | "minima." starKey "." statKey
 value         := exportVal | keepVal | flexVal | rankVal | lvlVal | rarityName | number | string
 exportVal     := "active" | "disabled" | "toggle"
 keepVal       := "early" | "late"
@@ -1309,7 +1310,11 @@ escape        := "\\" ("n" | "t" | "r" | "\\" | '"')  (\\n = newline, \\\\ = lit
 comment       := "//" {any} eol | "/*" {any} "*/"
 token         := /[\\p{L}\\p{M}_][\\p{L}\\p{N}\\p{M}_]*/  (unicode letters/marks, underscore)
 rarityName    := "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythical" | "auto" | "any"
+prefixToken   := ["+" | "-"] token   (all prefixed XOR all bare; mixed is ignored)
+gearToken     := ["+" | "+-" | "-"] token
 slotName      := "Weapon" | "Helmet" | "Shield" | "Gauntlets" | "Chestplate" | "Boots" | "Ring" | "Amulet" | "Banner"
+setName       := ["+" | "+-" | "-"] /set name, case-insensitive; quote multi-word: "Crit Damage"/
+metasetName   := ["+" | "-"] /metaset name, case-sensitive; must be unique in the save file/
 starKey       := "1" | "2" | "3" | "4" | "5" | "6" | "one" | "two" | "three" | "four" | "five" | "six"`
 
 // Full insertable example used in the markdown sample block.
@@ -1359,6 +1364,18 @@ const RECIPE_OVERRIDES_SAMPLE_EXAMPLE_TEXT = [
   'check "Restrict to Weapon and Helmet slots" { @all { slots=Weapon,Helmet } }',
   'check "Override substats to SPD and ATK%" { @all { substats=SPD,ATK% } }',
   'check "Override main stats to ATK%" { @all { mainstats=ATK% } }',
+  // Gear-set and metaset overrides (comma-separated; gearsets supports +/- per entry).
+  'check "Restrict to Speed sets" { @all { gearsets=Speed } }',
+  'check "Restrict to Speed and Crit Damage sets" { @all { gearsets=Speed,"Crit Damage" } }',
+  'check "Exclude Defense sets" { @all { gearsets=-Defense } }',
+  'check "Use Nuker metaset only" { @all { metasets=Nuker } }',
+  // Add/remove mutation examples for all 5 list fields.
+  'check "Add SPD to substats" { @all { substats=+SPD } }',
+  'check "Remove ATK% from substats" { @all { substats=-ATK% } }',
+  'check "Add Weapon slot" { @all { slots=+Weapon } }',
+  'check "Add Speed, exclude Defense" { @all { gearsets=+Speed,+-Defense } }',
+  'check "Remove Speed from gearsets" { @all { gearsets=-Speed } }',
+  'check "Add Nuker metaset" { @all { metasets=+Nuker } }',
   // Close the comment block.
   RECIPE_OVERRIDES_SAMPLE_CLOSE,
 ].join('\n')
@@ -2109,13 +2126,13 @@ function SafeguardSummaryCard({
   })()
 
   const metasetLabels = (() => {
-    const ids = rule.combination.metaSetIds ?? []
+    const ids = rule.combination.metaSetNames ?? []
     const seen = new Set<string>()
     const labels: string[] = []
     ids.forEach((metaId) => {
       if (seen.has(metaId)) return
       seen.add(metaId)
-      const meta = metasets.find((item) => item.id === metaId)
+      const meta = metasets.find((item) => item.name === metaId)
       if (!meta) return
       const name = meta.name && meta.name.trim() ? meta.name.trim() : t('menuMetasetsSection')
       labels.push(name)

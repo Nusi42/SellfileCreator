@@ -1007,7 +1007,7 @@ export function summaryParts(
     // Keep excluded sets sorted so the strike-through list is stable.
     const excludedSetIds = setSelection.excluded.slice().sort((a, b) => Number(a) - Number(b))
     const metaEntries = (recipe.artifactMetaSets ?? []).map((metaId, idx) => {
-      const meta = metasets.find(m => m.id === metaId)
+      const meta = metasets.find(m => m.name === metaId)
       const iconId = (meta?.iconId ?? DEFAULT_METASET_ICON_ID) as MetasetIconId
       return { key: `${metaId}-${idx}`, name: meta?.name || metaId, iconId }
     })

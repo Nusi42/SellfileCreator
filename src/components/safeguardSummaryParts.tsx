@@ -256,8 +256,8 @@ export function safeguardSummaryParts(
     const setSelection = splitArtifactSetSelections(c.sets)
     const setIdsSorted = setSelection.included.slice().sort((a, b) => Number(a) - Number(b))
     const excludedSetIds = setSelection.excluded.slice().sort((a, b) => Number(a) - Number(b))
-    const metaEntries = (c.metaSetIds ?? []).map((metaId, idx) => {
-      const meta = metasets.find((m) => m.id === metaId)
+    const metaEntries = (c.metaSetNames ?? []).map((metaId, idx) => {
+      const meta = metasets.find((m) => m.name === metaId)
       const iconId = (meta?.iconId ?? DEFAULT_METASET_ICON_ID) as MetasetIconId
       return { key: `${metaId}-${idx}`, name: meta?.name || metaId, iconId }
     })

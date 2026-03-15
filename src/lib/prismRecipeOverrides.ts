@@ -69,6 +69,14 @@ function recipeOverrides(Prism: Refractor): void {
             },
         },
 
+        // Regex-literal notation used in the EBNF tooltip to express informal descriptions
+        // without triggering keyword highlighting.  Consumed greedily so keywords inside
+        // the slashes are not matched by any downstream token.
+        'regex': {
+            pattern: /\/[^/\n]+\//,
+            greedy: true,
+        },
+
         // Quoted string literals (e.g. display labels for questions).
         // Marked greedy so that `// …` or `/* … */` sequences inside a string are not
         // claimed by the comment tokens below before the string itself is matched.

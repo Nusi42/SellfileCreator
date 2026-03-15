@@ -138,7 +138,7 @@ test('safeguard exports include sentinel RecipeID/RecipeName', () => {
       slots: [ArtifactType.Ring],
       // Safeguard sets now use entry objects to allow exclusions.
       sets: [{ id: ArtifactSet.Refresh }],
-      metaSetIds: [],
+      metaSetNames: [],
       ranks: [],
       rarities: [],
       mainStats: [],

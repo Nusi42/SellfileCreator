@@ -17,7 +17,7 @@ export default function MetasetConflictDialog({ open, count, onCancel, onChoose 
       <DialogContent>
         <Stack spacing={1}>
           <Typography variant="body2">
-            We found {count} metaset(s) with the same ID but different sets.
+            We found {count} metaset(s) with the same name but different sets.
           </Typography>
           <Typography variant="caption" color="text.secondary">
             This applies to all conflicts in this paste.

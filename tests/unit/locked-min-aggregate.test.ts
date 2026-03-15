@@ -225,7 +225,7 @@ test('duplicate detection ignores cosmetic metadata fields (excluding config nam
   const withMetadata = { ...cfg } as BuilderRecipe & Record<string, unknown>
   withMetadata.artifactTypeNames = ['Weapon']
   withMetadata.artifactSetNames = ['Speed']
-  withMetadata.artifactMetaSetIds = ['set/1']
+  withMetadata.artifactMetaSetNames = ['set/1']
   const indices = computeDuplicateIndices([cfg, withMetadata])
   assert.deepEqual(indices, [null, 0], 'metadata-only changes should not produce duplicate warnings')
 })

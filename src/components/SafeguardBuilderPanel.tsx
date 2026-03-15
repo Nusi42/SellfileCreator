@@ -1685,9 +1685,9 @@ export default function SafeguardBuilderPanel({
                   setRuleCombination((prev) => ({ ...prev, sets: normalizeArtifactSetSelections(nextSets) }))
                 }}
                 metasets={metasets}
-                selectedMetasetIds={combination.metaSetIds}
+                selectedMetasetIds={combination.metaSetNames}
                 onChangeMetasetIds={(nextMetaIds) => {
-                  setRuleCombination((prev) => ({ ...prev, metaSetIds: dedupeStringArray(nextMetaIds) }))
+                  setRuleCombination((prev) => ({ ...prev, metaSetNames: dedupeStringArray(nextMetaIds) }))
                 }}
                 allowedSetIds={allowedSetPool}
                 showMetasets

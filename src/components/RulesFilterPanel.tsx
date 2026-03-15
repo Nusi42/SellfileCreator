@@ -33,7 +33,7 @@ import {
 } from '../lib/types'
 import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX, CHAMPION_ICON_BASE_SIZE, CHAMPION_ICON_BORDER_RADIUS_PX } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
-import { metasetGlyph, orderMetasetIds, resolveMetasetIds, type Metaset } from '../lib/metasets'
+import { metasetGlyph, orderMetasets, resolveMetasets, type Metaset } from '../lib/metasets'
 import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import { isAccessorySlot, slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import React from 'react'
@@ -911,7 +911,7 @@ function RulesFilterPanel({
   const [hoveredSetMetaId, setHoveredSetMetaId] = React.useState<string | null>(null)
   const visibleMetasets = metasets.filter(m => m.show !== false)
   const orderBasis = visibleMetasets.length ? visibleMetasets : metasets
-  const orderedMetaSelected = orderMetasetIds(state.sets.metaSelected, orderBasis)
+  const orderedMetaSelected = orderMetasets(state.sets.metaSelected, orderBasis)
   // Accessory-only sets (like no-set) should disappear when accessories are out of scope.
   const allowNoSet = slotSelectionAllowsAccessories(state.slots.selected)
   // Normalize filter selections so legacy payloads still resolve cleanly.
@@ -944,7 +944,7 @@ function RulesFilterPanel({
       // Metaset tokens keep their glyph/name display.
       if (tkn.startsWith('m:')) {
         const id = tkn.slice(2)
-        const meta = metasets.find(x => x.id === id)
+        const meta = metasets.find(x => x.name === id)
         if (meta) {
           const { glyph, iconId } = metasetGlyph(meta)
           if (glyph != null && iconId) {
@@ -1033,7 +1033,7 @@ function RulesFilterPanel({
     const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
     // Preserve metaset ordering against the current basis.
     const metaIdsRaw = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
-    const metaIds = orderMetasetIds(metaIdsRaw, orderBasis)
+    const metaIds = orderMetasets(metaIdsRaw, orderBasis)
     // Preserve existing exclusions unless the set was re-included explicitly.
     const nextExcluded = splitSetSelections.excluded.filter((id) => !setIds.includes(id))
     // Merge includes/excludes into the selection payload.
@@ -1947,7 +1947,7 @@ function RulesFilterPanel({
               // Treat exclusions as a real selection so Clear/labels stay active.
               const hasAnySelection = selectedSetTokens.length > 0 || splitSetSelections.excluded.length > 0
               // Track metaset-driven sets so right-click only affects derived entries.
-              const metaDerivedSetIds = new Set(resolveMetasetIds(state.sets.metaSelected ?? [], metasets).map(Number))
+              const metaDerivedSetIds = new Set(resolveMetasets(state.sets.metaSelected ?? [], metasets).map(Number))
               const handleExcludeSet = (id: number) => {
                 // Ignore non-metaset-derived items.
                 if (!metaDerivedSetIds.has(id)) return
@@ -2003,8 +2003,8 @@ function RulesFilterPanel({
                         const selectedMetasetIds = new Set(state.sets.metaSelected ?? [])
                         const targetMetasetId = (() => {
                           if (metasetsMenu.length === 0) return null
-                          const firstSelected = metasetsMenu.find((meta) => selectedMetasetIds.has(meta.id))
-                          return firstSelected?.id ?? null
+                          const firstSelected = metasetsMenu.find((meta) => selectedMetasetIds.has(meta.name))
+                          return firstSelected?.name ?? null
                         })()
                         const refine = () => {
                           try {
@@ -2088,28 +2088,28 @@ function RulesFilterPanel({
                         const needsGap = iconId !== null && iconId !== 'empty'
                         const tooltipName = hasGlyph ? `${glyph}${needsGap ? ` ${m.name}` : m.name}` : m.name
                         const displayGap = hasGlyph && needsGap ? 0.75 : 0.5
-                        const selected = (state.sets.metaSelected ?? []).includes(m.id)
+                        const selected = (state.sets.metaSelected ?? []).includes(m.name)
                         const setNames = m.sets.map(id => getLocalizedGearSetName(id, t, lang)).filter(Boolean)
                         const joined = setNames.join(', ')
                         return (
                           <MenuItem
-                              key={m.id}
-                              value={`m:${m.id}`}
+                              key={m.name}
+                              value={`m:${m.name}`}
                               selected={selected}
-                              data-metaset-id={m.id}
-                              onMouseEnter={() => setHoveredSetMetaId(m.id)}
-                              onMouseLeave={() => setHoveredSetMetaId(prev => prev === m.id ? null : prev)}
+                              data-metaset-id={m.name}
+                              onMouseEnter={() => setHoveredSetMetaId(m.name)}
+                              onMouseLeave={() => setHoveredSetMetaId(prev => prev === m.name ? null : prev)}
                               onClick={(e) => {
                                 // Toggle metaset tokens while keeping set exclusions intact.
                                 e.preventDefault()
                                 e.stopPropagation()
-                                const token = `m:${m.id}`
+                                const token = `m:${m.name}`
                                 const tokensSet = new Set<string>(selectedSetTokens)
                                 if (tokensSet.has(token)) tokensSet.delete(token); else tokensSet.add(token)
                                 const tokens = Array.from(tokensSet)
                                 // Rebuild the metaset selection from the token list.
                                 const metaIdsRaw = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
-                                const metaIds = orderMetasetIds(metaIdsRaw, orderBasis)
+                                const metaIds = orderMetasets(metaIdsRaw, orderBasis)
                                 // Preserve explicit set includes.
                                 const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
                                 // Drop exclusions only when the set is explicitly re-included.

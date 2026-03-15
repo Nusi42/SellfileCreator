@@ -211,7 +211,7 @@ function buildSafeguardRuleSignature(rule: SafeguardRule): SafeguardRuleSignatur
   const sets = normalizeArtifactSetSelections(combo.sets ?? [])
     .map((entry) => ({ id: Number(entry.id), excluded: entry.excluded === true }))
   // Normalize metaset IDs so their order does not affect comparisons.
-  const meta = Array.isArray(combo.metaSetIds) ? combo.metaSetIds.map(String).sort() : []
+  const meta = Array.isArray(combo.metaSetNames) ? combo.metaSetNames.map(String).sort() : []
   // Normalize ranks so signatures match regardless of selection order.
   const ranks = normalizeNumberArray(combo.ranks).slice().sort((a, b) => a - b)
   // Normalize rarities so signatures match regardless of selection order.
@@ -490,8 +490,8 @@ function buildSafeguardRuleDiffLines(
     detailLines.push(makeSetListDiffLine(prevSets, nextSets, t))
   }
   // Compare metasets via structured payloads to keep the diff readable.
-  const prevMetaIds = normalizeMetasetIds(previous.combination.metaSetIds)
-  const nextMetaIds = normalizeMetasetIds(next.combination.metaSetIds)
+  const prevMetaIds = normalizeMetasetIds(previous.combination.metaSetNames)
+  const nextMetaIds = normalizeMetasetIds(next.combination.metaSetNames)
   if (!areStringListsEqual(prevMetaIds, nextMetaIds)) {
     detailLines.push(makeMetasetDiffLine(prevMetaIds, nextMetaIds, metasets, t))
   }
@@ -746,7 +746,7 @@ function makeSetListSnapshotLine(rule: SafeguardRule, t: TranslateFn): string {
 
 function makeMetasetSnapshotLine(rule: SafeguardRule, metasets: Metaset[], t: TranslateFn): string {
   // Resolve metaset IDs into names/icons for structured tooltip output.
-  const entries = collectMetasetSnapshotEntries(rule.combination.metaSetIds ?? [], metasets)
+  const entries = collectMetasetSnapshotEntries(rule.combination.metaSetNames ?? [], metasets)
   // Emit the structured payload as JSON so the tooltip renderer can parse it.
   return JSON.stringify({
     kind: 'metasetSnapshot',

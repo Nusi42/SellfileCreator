@@ -91,12 +91,14 @@ const main = async (): Promise<void> => {
     substatTargets: defaultSubstatTargets(),
   })
   // Resolve metaset references up-front so safeguard inputs are explicit.
-  const safeguardRules = resolveSafeguardRulesWithMetasets(parsed.safeguardRules, parsed.metasets)
+  // sample2-bundle SFR always has safeguards; ?? [] is a type-system defensive fallback.
+  const rawSafeguardRules = parsed.safeguardRules ?? []
+  const safeguardRules = resolveSafeguardRulesWithMetasets(rawSafeguardRules, parsed.metasets)
   // Metaset resolution must not drop rules that do not use metasets.
   // Dropping such rules silently removes safeguard coverage in tester/grid flows.
   assert(
-    safeguardRules.length === parsed.safeguardRules.length,
-    `safeguard metaset resolution changed rule count (${parsed.safeguardRules.length} -> ${safeguardRules.length})`,
+    safeguardRules.length === rawSafeguardRules.length,
+    `safeguard metaset resolution changed rule count (${rawSafeguardRules.length} -> ${safeguardRules.length})`,
   )
   const recipeModes: SellfileExportMode[] = parsed.recipes.map((cfg) => cfg.exportMode)
 
@@ -112,9 +114,9 @@ const main = async (): Promise<void> => {
     customRecipes: parsed.recipes,
     metasets: parsed.metasets,
     substatTargets: parsed.substatTargets,
-    finalSellRemainder: parsed.finalSellRemainder,
+    ...(parsed.finalSellRemainder !== null ? { finalSellRemainder: parsed.finalSellRemainder } : {}),
     safeguards: {
-      enabled: parsed.safeguardsEnabled,
+      enabled: parsed.safeguardsEnabled ?? false,
       rules: safeguardRules,
       detection: null,
     },
@@ -149,7 +151,7 @@ const main = async (): Promise<void> => {
   const detection = computeSafeguardProtection({
     candidates: candidates.candidates,
     rules: safeguardRules,
-    enabled: parsed.safeguardsEnabled,
+    enabled: parsed.safeguardsEnabled ?? false,
   })
   // Invariant: placeholders must represent real deficits only.
   // Zero-missing placeholders indicate grouping regressions in safeguard scans.
@@ -172,9 +174,9 @@ const main = async (): Promise<void> => {
     customRecipes: parsed.recipes,
     metasets: parsed.metasets,
     substatTargets: parsed.substatTargets,
-    finalSellRemainder: parsed.finalSellRemainder,
+    ...(parsed.finalSellRemainder !== null ? { finalSellRemainder: parsed.finalSellRemainder } : {}),
     safeguards: {
-      enabled: parsed.safeguardsEnabled,
+      enabled: parsed.safeguardsEnabled ?? false,
       rules: safeguardRules,
       detection,
     },

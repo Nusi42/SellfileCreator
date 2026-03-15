@@ -55,7 +55,7 @@ import {
   type AggregateRollAction,
   type AggregateRollState,
 } from '../lib/aggregateRollState'
-import { type Metaset, metasetGlyph, orderMetasetIds, resolveMetasetIds } from '../lib/metasets'
+import { type Metaset, metasetGlyph, orderMetasets, resolveMetasets } from '../lib/metasets'
 import type { ArtifactSetSelectionEntry } from '../lib/gearSets/selection'
 import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import { isAccessorySlot, slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
@@ -6287,9 +6287,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             // Split include/exclude lists so UI can render both states.
             const baseSetSplit = splitArtifactSetSelections(baseSetSelections)
             // Resolve metaset order for the base recipe (or multi-edit union).
-            const baseMetaIds = orderMetasetIds(recipe.artifactMetaSets, orderBasis)
+            const baseMetaIds = orderMetasets(recipe.artifactMetaSets, orderBasis)
             const metaDisplayIds = multiEditActive && multiSummary
-              ? orderMetasetIds(
+              ? orderMetasets(
                   Array.from(new Set<string>([
                     ...baseMetaIds,
                     ...Array.from(multiSummary.metaCounts.keys()),
@@ -6358,7 +6358,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               ...selectedSetIds.map(tokenOf.set),
             ]
             // Track sets introduced by metasets so right-click exclusion is scoped.
-            const metaDerivedSetIds = new Set<number>(resolveMetasetIds(selectedMetaIds, metasets).map(Number))
+            const metaDerivedSetIds = new Set<number>(resolveMetasets(selectedMetaIds, metasets).map(Number))
             const handleExcludeSet = (id: number) => {
               // Multi-edit exclusion UI is intentionally disabled.
               if (multiEditActive) return
@@ -6394,7 +6394,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               const tokens = e.target.value as string[]
               // Resolve metaset IDs using the same ordering basis.
               const metaIdsRaw = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
-              const metaIds = orderMetasetIds(metaIdsRaw, orderBasis)
+              const metaIds = orderMetasets(metaIdsRaw, orderBasis)
               // Capture explicit includes from set tokens.
               const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
               // Keep exclusions unless the user explicitly selected the set.
@@ -6431,7 +6431,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 for (const id of metaDisplayIds) {
                   const state = getMetasetState(id)
                   if (state === 'none') continue
-                  const meta = metasets.find(x => x.id === id)
+                  const meta = metasets.find(x => x.name === id)
                   if (meta) {
                     const { glyph, iconId } = metasetGlyph(meta)
                     const hasGlyph = glyph != null && !!iconId
@@ -6482,7 +6482,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 for (const token of tokens) {
                   if (token.startsWith('m:')) {
                     const id = token.slice(2)
-                    const m = metasets.find(x => x.id === id)
+                    const m = metasets.find(x => x.name === id)
                     if (m) {
                       const { glyph, iconId } = metasetGlyph(m)
                       if (glyph != null && iconId) {
@@ -6565,10 +6565,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             }
                             const targetMetasetId = (() => {
                               if (!hasMetasetsSection) return null
-                              const firstFull = metasetsMenu.find((meta) => selectedMetaState(meta.id) === 'all')
-                              if (firstFull) return firstFull.id
-                              const firstPartial = metasetsMenu.find((meta) => selectedMetaState(meta.id) === 'partial')
-                              return firstPartial?.id ?? null
+                              const firstFull = metasetsMenu.find((meta) => selectedMetaState(meta.name) === 'all')
+                              if (firstFull) return firstFull.name
+                              const firstPartial = metasetsMenu.find((meta) => selectedMetaState(meta.name) === 'partial')
+                              return firstPartial?.name ?? null
                             })()
                             // Theoretical max height depends on whether the Metasets section is present.
                             const theoreticalMax = hasMetasetsSection
@@ -6680,31 +6680,31 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                               const displayGap = hasGlyph && needsGap ? 0.75 : 0.5
                               const setNames = m.sets.map((id) => getLocalizedGearSetName(id, t, lang)).filter(Boolean)
                               const joined = setNames.join(', ')
-                              const usedMeta = metasetUsageCounts[m.id] || 0
-                              const metaState = multiEditActive ? getMetasetState(m.id) : (selectedMetaIds.includes(m.id) ? 'all' : 'none')
+                              const usedMeta = metasetUsageCounts[m.name] || 0
+                              const metaState = multiEditActive ? getMetasetState(m.name) : (selectedMetaIds.includes(m.name) ? 'all' : 'none')
                               const isSelectedMeta = metaState === 'all'
                               const isPartialMeta = metaState === 'partial'
                               return (
                                 <MenuItem
-                                  key={m.id}
-                                  value={`m:${m.id}`}
+                                  key={m.name}
+                                  value={`m:${m.name}`}
                                   selected={isSelectedMeta}
-                                  data-metaset-id={m.id}
-                                  onMouseEnter={() => setHoveredSetMetaId(m.id)}
-                                  onMouseLeave={() => setHoveredSetMetaId((prev) => (prev === m.id ? null : prev))}
+                                  data-metaset-id={m.name}
+                                  onMouseEnter={() => setHoveredSetMetaId(m.name)}
+                                  onMouseLeave={() => setHoveredSetMetaId((prev) => (prev === m.name ? null : prev))}
                                   onClick={(e) => {
                                     e.preventDefault()
                                     e.stopPropagation()
                                     if (multiEditActive && multiEdit) {
-                                      toggleMetaset(m.id)
+                                      toggleMetaset(m.name)
                                       return
                                     }
-                                    const token = `m:${m.id}`
+                                    const token = `m:${m.name}`
                                     const tokensSet = new Set<string>(selectedTokens)
                                     if (tokensSet.has(token)) tokensSet.delete(token); else tokensSet.add(token)
                                     const tokens = Array.from(tokensSet)
                                     const metaIdsRaw = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
-                                    const metaIds = orderMetasetIds(metaIdsRaw, orderBasis)
+                                    const metaIds = orderMetasets(metaIdsRaw, orderBasis)
                                     const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
                                     const nextExcluded = excludedSetIds.filter((id) => !setIds.includes(id))
                                     const nextSelections = normalizeArtifactSetSelections([

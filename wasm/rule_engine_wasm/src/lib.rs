@@ -298,7 +298,7 @@ pub fn resolve_safeguard_rules_with_metasets_value(
         .map_err(|error| JsValue::from_str(&format!("Invalid safeguard metasets payload: {error}")))?;
     let mut meta_map = HashMap::<String, Vec<i64>>::new();
     for meta in metasets {
-        meta_map.insert(meta.id, meta.sets);
+        meta_map.insert(meta.name, meta.sets);
     }
 
     // Expand metaset ids for each rule and emit normalized rule payload rows.
@@ -317,7 +317,7 @@ pub fn resolve_safeguard_rules_with_metasets_value(
             .collect::<std::collections::HashSet<_>>();
 
         // Inject metaset members unless explicitly excluded or already included.
-        for meta_id in &combination.meta_set_ids {
+        for meta_id in &combination.meta_set_names {
             let Some(set_ids) = meta_map.get(meta_id) else {
                 continue;
             };
