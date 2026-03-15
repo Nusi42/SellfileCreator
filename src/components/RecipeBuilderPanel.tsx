@@ -5775,7 +5775,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             variant="caption"
                             color="warning.main"
                             sx={{
-                              lineHeight: 1.0,
+                              // 2 lines × 12px × 0.9 = 21.6px ≤ BUILDER_STATUS_CHIP_HEIGHT_PX (22px)
+                              // so both lines fit and WebkitLineClamp can draw the ellipsis within the container
+                              lineHeight: 0.9,
                               display: '-webkit-box',
                               WebkitBoxOrient: 'vertical',
                               WebkitLineClamp: 2,
