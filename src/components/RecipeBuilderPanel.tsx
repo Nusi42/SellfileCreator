@@ -5766,29 +5766,21 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         )
                       })}
                       {/* Warning: absolutely positioned below the toggle row so it bleeds over lower
-                          neighbours without adding height to Min Rolls or pushing Sets down */}
+                          neighbours without adding height to Min Rolls or pushing Sets down.
+                          EllipsisTooltip reveals the full text as a native OS tooltip when truncated. */}
                       {warnMsg && (
-                        <Typography
-                          variant="caption"
-                          color="warning.main"
-                          sx={{
-                            position: 'absolute',
-                            top: '100%',
-                            left: 0,
-                            right: 0,
-                            mt: 0.5,
-                            zIndex: 1,
-                            // Two-line clamp; collapses with Min Rolls, invisible when no warning
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                            lineHeight: 1.4,
-                            pointerEvents: 'none',
-                          }}
-                        >
-                          {warnMsg}
-                        </Typography>
+                        <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, mt: 0.5, zIndex: 1 }}>
+                          <EllipsisTooltip title={warnMsg} wrap="block">
+                            <Typography
+                              data-ellipsis-target
+                              variant="caption"
+                              color="warning.main"
+                              sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                            >
+                              {warnMsg}
+                            </Typography>
+                          </EllipsisTooltip>
+                        </Box>
                       )}
                     </Box>
                     </Collapse>
