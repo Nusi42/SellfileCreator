@@ -5633,7 +5633,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         gap: 0.5,
                         // Buttons shrink instead of wrapping when the panel is narrowed by the splitter.
                         flexWrap: 'nowrap',
-                        overflow: 'hidden',
+                        // overflow:visible so the absolutely-positioned lock icon can paint outside the button bounds.
+                        overflow: 'visible',
                         '& .MuiToggleButton-root': {
                           height: TOGGLE_BUTTON_HEIGHT_PX,
                           minHeight: TOGGLE_BUTTON_HEIGHT_PX,
