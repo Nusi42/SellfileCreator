@@ -51,7 +51,6 @@ export function SubstatTargetsTabContent({
   const substatTargetGridRef = useRef<HTMLDivElement | null>(null)
   // The stored fallback is which star column's values apply when a recipe uses "Any Rank".
   const storedFallback = substatTargets.anyRankDefaultsTo
-  const fallbackStar: Star = storedFallback ?? 6
   // Reuse the builder status chip style for the selected star-header chip.
   const fallbackChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
   const substatTargetsHelp = t('msgSubstatTargetsHelp')
@@ -243,8 +242,10 @@ export function SubstatTargetsTabContent({
 
   // Renders a star column header as a clickable Chip that sets the "Any Rank" fallback.
   // Selected star uses the active builder-status chip style; others render as plain text.
+  // When a recipe override is active, highlight the effective fallback star rather than the
+  // stored one so the user sees which column is actually in use.
   const starHeaderCell = ({ label, star }: { label: string; star: Star }) => {
-    const isSelected = fallbackStar === star
+    const isSelected = effectiveFallbackValue === star
     // baseSx comes from the shared builder status chip factory so the selected chip
     // stays visually consistent with recipe-level status chips elsewhere in the UI.
     const baseSx = (fallbackChipSx(true) ?? {}) as SystemStyleObject<Theme>
@@ -285,7 +286,7 @@ export function SubstatTargetsTabContent({
           />
         </MarkdownTooltip>
         {isSelected && anyRankOverrideActive
-          ? renderOverrideBadge(buildAnyRankTooltip(label), t('substatTargetsUseForAnyAria', { rank: label }))
+          ? renderOverrideBadge(recipeOverridesOverrideHint, recipeOverridesOverrideHint)
           : null}
       </Box>
     )
