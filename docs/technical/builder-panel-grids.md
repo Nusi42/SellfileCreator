@@ -21,7 +21,7 @@ Four equal columns, each at least 220 px, growing to fill available space. Secti
 ┌─────────────────────────────────────────────────┐
 │ Row 0 │ 1 / -1 │ Rule Name (TextField)          │  not collapsible
 ├─────────────────────────────────────────────────┤
-│ Row 1 │ 1 / -1 │ Action Mode (Keep/Sell/Ascend) │  not collapsible
+│ Row 1 │ 1 / -1 │ Action Mode (Keep/Sell/Ascend) │  collapsible (id: action); undo/redo always visible in header
 ├──────────────────┬──────────────────────┬───────┤
 │ Row 2            │                      │       │
 │  1/3  flex row   │ 3/4                  │ empty │
@@ -78,7 +78,7 @@ width: collapsed ? 'auto'    : `${BUILDER_XXX_COLUMN_WIDTH_PX}px`
 ┌─────────────────────────────────────────────────┐
 │ Row 0 │ 1 / -1 │ Rule Name (TextField)          │  not collapsible
 ├─────────────────────────────────────────────────┤
-│ Row 1 │ 1 / -1 │ Mode + Count + Ignore + Undo   │  not collapsible
+│ Row 1 │ 1 / -1 │ Mode + Count + Ignore + Undo   │  collapsible (id: action); undo/redo always visible in header
 ├──────────────────────────┬──────────────────────┤
 │ Row 2 │ 1 / 3  flex row  │ cols 3-4 EMPTY       │
 │   ├── Rank    33.3 %     │                      │  collapsible

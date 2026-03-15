@@ -2621,8 +2621,9 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
-          {/* Keep the Action label glued to the toggle width so translations never wrap. */}
+          {/* Action header row: chevron + label + info icon + undo/redo (always visible). */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <BuilderSectionToggle id="action" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0 }]}>
               <MarkdownTooltip
                 // ellipsisTitle mirrors the inline ellipsis span so DE strings expose their full text via
@@ -2651,7 +2652,63 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                 <InfoOutlinedIcon fontSize="inherit" />
               </IconButton>
             </MarkdownTooltip>
+            {/* Undo/Redo: pinned to the right of the header so it stays visible when action is collapsed. */}
+            <Box
+              sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}
+              onContextMenu={handleHistoryContextMenu}
+              onMouseMove={handleHistoryMouseMove}
+              onMouseLeave={handleHistoryMouseLeave}
+            >
+              <MarkdownTooltip
+                render={<BuilderTooltipContent text={undoTooltipText} colorizeStats substatColors={substatColors} />}
+                slotProps={{ tooltip: { sx: { maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX } } }}
+              >
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={onUndo}
+                    disabled={!canUndo}
+                    aria-label={t('builderUndo')}
+                    sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
+                  >
+                    <UndoIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </MarkdownTooltip>
+              <MarkdownTooltip
+                render={<BuilderTooltipContent text={redoTooltipText} colorizeStats substatColors={substatColors} />}
+                slotProps={{ tooltip: { sx: { maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX } } }}
+              >
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={onRedo}
+                    disabled={!canRedo}
+                    aria-label={t('builderRedo')}
+                    sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
+                  >
+                    <RedoIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </MarkdownTooltip>
+            </Box>
+            <ContextMenuHintOverlay text={t('contextMenuHint')} position={historyHintActive ? historyHintPos : null} />
+            <HistoryContextMenu
+              open={historyMenuOpen}
+              anchorPosition={historyMenuAnchor}
+              onClose={closeHistoryMenu}
+              paperRef={historyMenuPaperRef}
+              onPaperContextMenu={handleHistoryMenuContextMenu}
+              contextMenuGuard={historyMenuGuard}
+              entries={historyTimeline}
+              t={t}
+              lang={lang}
+              onSelectEntry={handleHistoryEntrySelect}
+              onRequestClearHistory={handleRequestClearHistory}
+              substatColors={substatColors}
+            />
           </Box>
+          <Collapse in={!builderCollapsed.action} timeout="auto" unmountOnExit>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Box>
@@ -3013,61 +3070,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               {/* Context menu hint overlay matches the rest of the builder controls. */}
               <ContextMenuHintOverlay text={t('contextMenuHint')} position={tagsHintActive ? tagsHintPos : null} />
             </Box>
-            <Box
-              sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}
-              onContextMenu={handleHistoryContextMenu}
-              onMouseMove={handleHistoryMouseMove}
-              onMouseLeave={handleHistoryMouseLeave}
-            >
-              <MarkdownTooltip
-                render={<BuilderTooltipContent text={undoTooltipText} colorizeStats substatColors={substatColors} />}
-                slotProps={{ tooltip: { sx: { maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX } } }}
-              >
-                <span>
-                  <IconButton
-                    size="small"
-                    onClick={onUndo}
-                    disabled={!canUndo}
-                    aria-label={t('builderUndo')}
-                    sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
-                  >
-                    <UndoIcon fontSize="small" />
-                  </IconButton>
-                </span>
-              </MarkdownTooltip>
-              <MarkdownTooltip
-                render={<BuilderTooltipContent text={redoTooltipText} colorizeStats substatColors={substatColors} />}
-                slotProps={{ tooltip: { sx: { maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX } } }}
-              >
-                <span>
-                  <IconButton
-                    size="small"
-                    onClick={onRedo}
-                    disabled={!canRedo}
-                    aria-label={t('builderRedo')}
-                    sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
-                  >
-                    <RedoIcon fontSize="small" />
-                  </IconButton>
-                </span>
-              </MarkdownTooltip>
-            </Box>
-            <ContextMenuHintOverlay text={t('contextMenuHint')} position={historyHintActive ? historyHintPos : null} />
-            <HistoryContextMenu
-              open={historyMenuOpen}
-              anchorPosition={historyMenuAnchor}
-              onClose={closeHistoryMenu}
-              paperRef={historyMenuPaperRef}
-              onPaperContextMenu={handleHistoryMenuContextMenu}
-              contextMenuGuard={historyMenuGuard}
-              entries={historyTimeline}
-              t={t}
-              lang={lang}
-              onSelectEntry={handleHistoryEntrySelect}
-              onRequestClearHistory={handleRequestClearHistory}
-              substatColors={substatColors}
-            />
           </Box>
+          </Collapse>
         </FormControl>
 
         {/* Row 2: Left half (Rank, Rarity, Faction) — flex within cols 1-2; right half Level at col 3 */}
