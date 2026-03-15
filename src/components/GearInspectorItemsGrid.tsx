@@ -17,7 +17,7 @@ import SortIcon from '@mui/icons-material/Sort'
 import { alpha, useTheme, type Theme } from '@mui/material/styles'
 import { useI18n } from '../lib/i18n'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
-import GearInspectorOutcomeSummaryChip from './GearInspectorOutcomeSummaryChip'
+import GearInspectorOutcomeSummaryChip, { GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_MS } from './GearInspectorOutcomeSummaryChip'
 import { SetIcon } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
 import { NoGearSetIcon } from './NoGearSetIcon'
@@ -173,6 +173,10 @@ type GearInspectorItemsGridProps = {
   grouping?: GearInspectorGroupingState
   // Resolved safeguard rules used for tooltip rule-name lookup in the upgrade-chance overlay.
   safeguardRules?: readonly SafeguardRule[]
+  // Opaque key that changes when the active filter selection changes (not on DB updates).
+  // When this key changes, card entering animations are suppressed (the filter changed,
+  // not the underlying data) while group chips can still pulse for newly-visible groups.
+  enterKey?: string
 }
 
 type GearInspectorGroupKind ='artifactSet' | 'artifactSlot' | 'accessorySet' | 'accessoryFaction'
@@ -235,6 +239,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     grouping = GEAR_INSPECTOR_GROUPING_DEFAULT_STATE,
     safeguardRules = [],
     upgradeChanceByArtifactId = null,
+    enterKey = undefined,
   } = props
   // Variant flags control keep-override behavior without forking the grid.
   const safeguardsVariant = variant === 'safeguards'
@@ -1125,33 +1130,95 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     groups.forEach(assignGroup)
     return map
   }, [groups])
-  // Track which artifact IDs are "new" so cards can play their enter animation.
-  // prevArtifactIdsRef holds the IDs from the previous rows render pass.
-  const prevArtifactIdsRef = useRef<ReadonlySet<number>>(new Set())
+  // Capsule for all entering/leaving detection state.  Keeping everything in one ref
+  // prevents the ref-mutation-in-useMemo anti-pattern that React StrictMode double-invocation
+  // would corrupt (StrictMode invokes useMemo twice; the second call must see the same ref
+  // state as the first so it returns an identical result rather than an empty entering set).
+  type EnterDetectionState = {
+    rows: readonly GearInspectorPreviewRow[] | null
+    enterKey: string | undefined
+    clearGen: number
+    prevIds: ReadonlySet<number>
+    result: ReadonlySet<number>
+    // Monotonically increments each time items leave the result set; used to bump
+    // leavingGeneration so summary chips pulse even on neutral-total changes.
+    leavingEpoch: number
+  }
+  const enterDetectionRef = useRef<EnterDetectionState>({
+    rows: null, enterKey: undefined, clearGen: -1,
+    prevIds: new Set(), result: new Set(), leavingEpoch: 0,
+  })
   // clearGeneration bumps via setTimeout after the animation window to force the
-  // useMemo below to recompute and return an empty set.
+  // memo below to recompute and return an empty entering set.
   const [clearGeneration, setClearGeneration] = useState(0)
   const clearEnterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Compute new IDs synchronously during render by mutating prevArtifactIdsRef.
-  // This ensures animateIn is true on the SAME render as the new rows — no frame delay.
-  const enteringArtifactIds = useMemo(() => {
-    const prev = prevArtifactIdsRef.current
-    const currentIds = new Set<number>()
-    const newIds = new Set<number>()
-    for (const row of rows) {
-      const id = Number(row.artifact?.id)
-      if (!Number.isFinite(id)) continue
-      currentIds.add(id)
-      if (!prev.has(id)) newIds.add(id)
+  const enterDetection = useMemo((): { entering: ReadonlySet<number>; leavingEpoch: number } => {
+    const state = enterDetectionRef.current
+    // StrictMode guard: React may invoke useMemo twice with identical inputs and discard the
+    // first result, but ref mutations from the first call persist.  When inputs match the
+    // last committed run, return the cached result to avoid re-computing against a stale ref.
+    if (state.rows === rows && state.enterKey === enterKey && state.clearGen === clearGeneration) {
+      return { entering: state.result, leavingEpoch: state.leavingEpoch }
     }
-    // Mutate the ref in render so the next render compares against the latest IDs.
-    prevArtifactIdsRef.current = currentIds
-    return newIds
-    // clearGeneration is intentionally included so the memo re-runs when the
-    // timer fires — at that point prevArtifactIdsRef already matches current rows,
-    // so newIds will be empty and animateIn props will drop to false.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, clearGeneration])
+    const filterChanged = state.enterKey !== enterKey
+    // clearGen bump: animation window elapsed — empty the entering set, keep prevIds intact
+    // so the next real rows change still computes the correct delta.
+    const isClearGen = !filterChanged && state.rows === rows && state.clearGen !== clearGeneration
+    let nextResult: ReadonlySet<number>
+    let nextPrevIds: ReadonlySet<number>
+    let leavingEpoch = state.leavingEpoch
+    if (isClearGen) {
+      nextResult = new Set()
+      nextPrevIds = state.prevIds
+    } else if (filterChanged) {
+      // Filter selection changed: update the ID baseline so the next DB update computes
+      // the correct delta, but return an empty entering set — the user switched chips,
+      // not the underlying data, so no card animations should fire.
+      const currentIds = new Set<number>()
+      for (const row of rows) {
+        const id = Number(row.artifact?.id)
+        if (Number.isFinite(id)) currentIds.add(id)
+      }
+      nextResult = new Set()
+      nextPrevIds = currentIds
+    } else {
+      // rows changed due to a DB update or rule change with the same filter: compute delta.
+      // Cards animate for IDs that were absent from the previous rows array.
+      const currentIds = new Set<number>()
+      const entering = new Set<number>()
+      let leavingCount = 0
+      for (const row of rows) {
+        const id = Number(row.artifact?.id)
+        if (!Number.isFinite(id)) continue
+        currentIds.add(id)
+        if (!state.prevIds.has(id)) entering.add(id)
+      }
+      for (const id of state.prevIds) {
+        if (!currentIds.has(id)) leavingCount++
+      }
+      // Each leaving batch gets its own epoch so the summary chip always pulses,
+      // even when total count is unchanged (e.g. one item added, one removed).
+      if (leavingCount > 0) leavingEpoch++
+      nextResult = entering
+      nextPrevIds = currentIds
+    }
+    // Commit new state; safe to mutate here because the StrictMode guard above ensures
+    // a true second invocation returns early before reaching this point.
+    state.rows = rows
+    state.enterKey = enterKey
+    state.clearGen = clearGeneration
+    state.prevIds = nextPrevIds
+    state.result = nextResult
+    state.leavingEpoch = leavingEpoch
+    return { entering: nextResult, leavingEpoch }
+    // enterDetectionRef is a ref; refs are intentionally omitted from the dependency array.
+  }, [rows, enterKey, clearGeneration])
+  const enteringArtifactIds = enterDetection.entering
+  // leavingEpoch is a memo-derived number that increments each time items leave the result
+  // set.  Passing it directly to the chip fingerprint is sufficient — no extra state layer
+  // or effect needed.  When rows change and items leave, the memo re-runs (rows is a dep),
+  // increments leavingEpoch, and the chip's useChangePulse detects the fingerprint change.
+  const leavingGeneration = enterDetection.leavingEpoch
   useEffect(() => {
     // Schedule clearing the entering set after the animation window elapses.
     if (enteringArtifactIds.size === 0) return
@@ -1161,6 +1228,59 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       GRID_CARD_ENTER_ANIMATION_MS + 50,
     )
   }, [enteringArtifactIds])
+  // Track which group keys are newly visible so their summary chips can play an animateIn
+  // pulse.  useChangePulse skips the first mount, so without this chips stay silent when
+  // a group appears for the first time after a filter change or a DB update.
+  type GroupEnterState = {
+    groups: readonly GearInspectorGroup[] | null
+    clearGen: number
+    prevKeys: ReadonlySet<string>
+    result: ReadonlySet<string>
+  }
+  const groupEnterRef = useRef<GroupEnterState>({
+    groups: null, clearGen: -1, prevKeys: new Set(), result: new Set(),
+  })
+  const [clearGroupGeneration, setClearGroupGeneration] = useState(0)
+  const clearGroupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const enteringGroupKeys = useMemo((): ReadonlySet<string> => {
+    const state = groupEnterRef.current
+    // StrictMode guard: same inputs → return cached result.
+    if (state.groups === groups && state.clearGen === clearGroupGeneration) return state.result
+    const isClearGen = state.groups === groups && state.clearGen !== clearGroupGeneration
+    let result: ReadonlySet<string>
+    let nextPrevKeys: ReadonlySet<string>
+    if (isClearGen) {
+      result = new Set()
+      nextPrevKeys = state.prevKeys
+    } else {
+      // Collect all current group keys (including children) and find newly-appeared ones.
+      const currentKeys = new Set<string>()
+      const entering = new Set<string>()
+      const visit = (g: GearInspectorGroup) => {
+        currentKeys.add(g.key)
+        if (!state.prevKeys.has(g.key)) entering.add(g.key)
+        g.children?.forEach(visit)
+      }
+      groups.forEach(visit)
+      result = entering
+      nextPrevKeys = currentKeys
+    }
+    state.groups = groups
+    state.clearGen = clearGroupGeneration
+    state.prevKeys = nextPrevKeys
+    state.result = result
+    return result
+    // groupEnterRef is a ref; intentionally omitted from the dependency array.
+  }, [groups, clearGroupGeneration])
+  useEffect(() => {
+    // Clear the entering group set after the chip pulse animation window.
+    if (enteringGroupKeys.size === 0) return
+    if (clearGroupTimerRef.current !== null) clearTimeout(clearGroupTimerRef.current)
+    clearGroupTimerRef.current = setTimeout(
+      () => setClearGroupGeneration((g) => g + 1),
+      GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_MS + 50,
+    )
+  }, [enteringGroupKeys])
   const [focusPulseArtifactId, setFocusPulseArtifactId] = useState<number | null>(null)
   // Ref-based setter so the timer callback and layout effect avoid the set-state-in-effect lint rule.
   const setFocusPulseArtifactIdRef = useRef(setFocusPulseArtifactId)
@@ -1612,6 +1732,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                   showWhenEmpty
                   showFilteredTotals={Boolean(filterActive)}
                   metricMode={safeguardsVariant ? 'safeguardsOnly' : 'all'}
+                  leavingGeneration={leavingGeneration}
+                  animateIn={enteringGroupKeys.has(group.key)}
                 />
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>

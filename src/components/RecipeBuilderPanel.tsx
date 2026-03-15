@@ -85,7 +85,7 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, COMPACT_HEADER_ACTION_BUTTON_SX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, SUBSTAT_TARGET_MAX_ROLLS, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_INLINE_SX, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, COMPACT_HEADER_ACTION_BUTTON_SX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, SUBSTAT_TARGET_MAX_ROLLS, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_INLINE_SX, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { buildWarningBadgeBase, warningBadgeSx } from '../lib/badgeStyles'
@@ -3070,19 +3070,19 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           </Box>
         </FormControl>
 
-        {/* Row 2: Left half (Rank, Rarity, Faction) */}
+        {/* Row 2: Left half (Rank, Rarity, Faction) — flex within cols 1-2; right half Level at col 3 */}
         <Box sx={(theme) => ({
           gridColumn: '1 / 3',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, minmax(180px, 1fr))',
-          columnGap: 1,
-          rowGap: 1,
+          display: 'flex',
+          gap: 1,
+          alignItems: 'flex-start',
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
-        <FormControl fullWidth sx={{ position: 'relative' }}>
+        {/* Rank — shrinks to header width when collapsed */}
+        <FormControl sx={{ flex: builderCollapsed.rank ? '0 0 auto' : '0 1 33.333%', minWidth: 0, position: 'relative' }}>
           {/* Rank label mirrors the select width and ellipsizes when German strings run long. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="rank" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
@@ -3208,7 +3208,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           </Collapse>
         </FormControl>
 
-        <FormControl fullWidth>
+        {/* Rarity — shrinks to header width when collapsed */}
+        <FormControl sx={{ flex: builderCollapsed.rarity ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
           {/* Rarity label uses the shared inline span so Auto/GTE text stays single-line. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="rarity" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
@@ -3391,8 +3392,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           </Collapse>
         </FormControl>
 
-        {/* Faction selection (accessories only) */}
-        <FormControl fullWidth>
+        {/* Faction selection (accessories only) — shrinks to header width when collapsed */}
+        <FormControl sx={{ flex: builderCollapsed.faction ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
           {/* Faction label stays constrained to the Select width for DE translations. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="faction" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
@@ -3497,15 +3498,13 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           </Collapse>
         </FormControl>
         </Box>
-        {/* Row 2: Right half (Level Window — range slider snapping to 0/4/8/12/16) */}
+        {/* Row 2 right: Level Window — col 3 only */}
         <Box sx={(theme) => ({
           gridColumn: '3 / 4',
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
-          pt: 0.5,
-          pb: 2,
         })} data-tour-id="builder.level-window">
           {/* Level label row mirrors Rank/Rarity/Faction pattern with a collapsible chevron. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
@@ -3557,7 +3556,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           </Box>
           </Collapse>
         </Box>
-        {/* Row 3: Mainstat (left), Substats (right) */}
+        {/* Row 3: Mainstat (left cols 1-2), Substats (right cols 3-4) */}
         <FormControl sx={(theme) => ({
           gridColumn: '1 / 3',
           borderRadius: 1,
@@ -3700,6 +3699,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           </Collapse>
         </FormControl>
 
+        {/* Substats — cols 3-4 */}
         <FormControl sx={(theme) => ({
           gridColumn: '3 / 5',
           borderRadius: 1,
@@ -5293,9 +5293,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           </Collapse>
         </FormControl>
 
-        {/* Slots grid 3x3 with icons */}
+        {/* Slots — cols 1-2, spans rows 4a + 4b so it sits flush alongside both right-column items */}
         <FormControl sx={(theme) => ({
           gridColumn: '1 / 3',
+          gridRow: 'span 2',
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
@@ -5478,13 +5479,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           </Collapse>
         </FormControl>
 
-        {/* Right column combined: Required substats + Sets in one grid cell */}
+        {/* Row 4a right: Min Rolls + Required Substats + Milestones — direct grid item at cols 3-4 */}
         <Box sx={(theme) => ({
           gridColumn: '3 / 5',
           display: 'flex',
           flexDirection: 'column',
           gap: 0.5,
-          alignSelf: 'stretch',
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
@@ -5501,12 +5501,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             }}
           >
             {/* Min Required Rolls */}
-            {/* Anchor Min Required Rolls to its English width so buttons never wrap in DE. */}
+            {/* Anchor to English-sized width so "Mindestwürfe" (DE) doesn't cause button overflow. */}
             <FormControl
               sx={{
                 m: 0,
-                width: `${BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX}px`,
-                flex: `0 0 ${BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX}px`,
+                flex: builderCollapsed.minRolls ? '0 0 auto' : `0 0 ${BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX}px`,
+                width: builderCollapsed.minRolls ? 'auto' : `${BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX}px`,
               }}
             >
               {(() => {
@@ -5537,6 +5537,70 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 const tooltipContent = (<BuilderTooltipContent text={tooltipLines.join('\n')} />)
                 const lockIconEnabled = lockedSubstatsExist
                 const autoState = getMinRequiredRollsTriState('auto')
+                // Warning text shown in the chip-like area below the toggle buttons.
+                // Moved here from the old standalone warning row so it collapses with Min Rolls.
+                const subsV = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
+                const fixedV = ((recipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+                const chosenCount = subsV.length
+                const fixedCount = fixedV.length
+                const warnMin = (chosenCount < recipe.minCount) && !(chosenCount === 0 && (recipe.autoMinRequiredRolls !== false))
+                const warnFixed = fixedCount > 4
+                // Locked substats that fill all Required slots make any additional selections dead weight
+                // (unless Flex is active, which rotates them into separate rules instead).
+                const hasUnlockedSelected = chosenCount > fixedCount
+                const flexActive = recipe.autoSubstatFlex === true && canFlexSubstats
+                const warnReqBelowLocked = (recipe.minCount ?? 0) < fixedCount
+                const warnReqEqLocked = (recipe.minCount === fixedCount) && hasUnlockedSelected && !flexActive
+                // Warn when a manual global Min Required Rolls is set but zero substats are selected — it will never fire.
+                const warnMinRollsWithoutSubstats = (() => {
+                  if (chosenCount !== 0) return false
+                  if (recipe.autoMinRequiredRolls !== false) return false
+                  return (recipe.minRequiredRolls ?? 0) > 0
+                })()
+                // Detect an impossible-by-target case: best-case sum of per-stat caps is below the global min.
+                const warnImpossible = (() => {
+                  if (!(recipe.autoMinRequiredRolls === false) || !recipe.minRequiredRolls || recipe.minRequiredRolls <= 0) return false
+                  if (!Array.isArray(subsV) || subsV.length === 0) return false
+                  const m = Math.max(recipe.minCount, fixedCount)
+                  if (m <= 0) return false
+                  const supportsFive = (() => {
+                    const rc = Number((recipe as unknown as { rarityCode?: number }).rarityCode ?? 0)
+                    const mode = (recipe as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode
+                    if (rc === RarityCode.Mythical || rc === RarityCode.LTE_Mythical) return true
+                    if (rc === RarityCode.Any) return true
+                    // When Auto and the global target is 5, treat as 5-cap capable.
+                    if (mode === 'auto' && (recipe.minRequiredRolls ?? 0) >= 5) return true
+                    return false
+                  })()
+                  const defaultCap = supportsFive ? 5 : 4
+                  const capFor = (v: number): number => {
+                    const b = (recipe.substatRollBoundsV ?? {})[Number(v)]
+                    const hasMax = (typeof b?.max === 'number' && isFinite(b.max))
+                    const raw = hasMax ? Number(b!.max) : defaultCap
+                    return Math.max(0, Math.min(defaultCap, raw))
+                  }
+                  const fixedCaps = fixedV.map(capFor)
+                  const optional = subsV.filter(v => !fixedV.includes(v))
+                  const optCaps = optional.map(capFor).sort((a, b) => b - a)
+                  let sumCaps = 0
+                  // Include all fixed caps, then highest optional caps to fill to m.
+                  for (const c of fixedCaps) sumCaps += c
+                  for (let i = 0; i < Math.max(0, m - fixedCaps.length); i++) { sumCaps += (optCaps[i] ?? 0) }
+                  return sumCaps < (recipe.minRequiredRolls ?? 0)
+                })()
+                const warnMsg = warnMin
+                  ? `Warning: Required (${recipe.minCount}) > chosen (${chosenCount})`
+                  : (warnFixed
+                      ? `Warning: Fixed substats (${fixedCount}) exceed 4 — extra will be ignored`
+                      : (warnReqBelowLocked
+                          ? `Warning: Required (${recipe.minCount}) is below locked (${fixedCount}); requirement will clamp to ${fixedCount}`
+                          : (warnReqEqLocked
+                              ? `Warning: Required (${recipe.minCount}) equals locked (${fixedCount}); other selected (${chosenCount - fixedCount}) will be ignored`
+                              : (warnImpossible
+                                  ? t('builderMinRequiredRollsImpossibleWarn')
+                                  : (warnMinRollsWithoutSubstats
+                                      ? t('builderMinRequiredRollsNoSubstatsWarn')
+                                      : '')))))
                 return (
                   <>
                     {/* Keep the German "Mindestwürfe" label from wrapping under the toggles. */}
@@ -5549,6 +5613,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       </FormLabel>
                     </Box>
                     <Collapse in={!builderCollapsed.minRolls} timeout="auto" unmountOnExit>
+                    {/* Inline-flex column wrapper so the warning row below is exactly as wide as the buttons row.
+                        inline-flex shrinks to content; the buttons determine the width; the warning row inherits it. */}
+                    <Box sx={{ display: 'inline-flex', flexDirection: 'column', maxWidth: '100%' }}>
                     <Box
                       data-tour-id="builder.min-rolls"
                       sx={{
@@ -5700,6 +5767,35 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         )
                       })}
                     </Box>
+                    {/* Warning chip row — always reserves chip height (same as Flex chip in Required Substats).
+                        lineHeight:0.9 makes 2 caption lines = 21.6px ≤ BUILDER_STATUS_CHIP_HEIGHT_PX (22px)
+                        so WebkitLineClamp:2 can draw the ellipsis within the fixed area.
+                        width:0 + minWidth:'100%' is the circular-dependency trick: the warning contributes 0
+                        to the inline-flex container's intrinsic-size calculation (so the buttons drive the width),
+                        then stretches to 100% of the resolved container — avoiding animation-time layout blowout. */}
+                    <Box sx={{ mt: 0.5, width: 0, minWidth: '100%', height: BUILDER_STATUS_CHIP_HEIGHT_PX, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+                      {warnMsg && (
+                        <EllipsisTooltip title={warnMsg} wrap="block">
+                          <Typography
+                            data-ellipsis-target
+                            variant="caption"
+                            color="warning.main"
+                            sx={{
+                              // 2 lines × 12px × 0.9 = 21.6px ≤ BUILDER_STATUS_CHIP_HEIGHT_PX (22px)
+                              // so both lines fit and WebkitLineClamp can draw the ellipsis within the container
+                              lineHeight: 0.9,
+                              display: '-webkit-box',
+                              WebkitBoxOrient: 'vertical',
+                              WebkitLineClamp: 2,
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {warnMsg}
+                          </Typography>
+                        </EllipsisTooltip>
+                      )}
+                    </Box>
+                    </Box>{/* end inline-flex column wrapper */}
                     </Collapse>
                   </>
                 )
@@ -5710,8 +5806,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             <FormControl
               sx={{
                 m: 0,
-                width: `${BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX}px`,
-                flex: `0 0 ${BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX}px`,
+                flex: builderCollapsed.requiredSubstats ? '0 0 auto' : `0 0 ${BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX}px`,
+                width: builderCollapsed.requiredSubstats ? 'auto' : `${BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX}px`,
               }}
             >
               {(() => {
@@ -5972,8 +6068,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 <FormControl
                   sx={{
                     m: 0,
-                    width: `${BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX}px`,
-                    flex: `0 0 ${BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX}px`,
+                    flex: builderCollapsed.milestoneThresholds ? '0 0 auto' : `0 0 ${BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX}px`,
+                    width: builderCollapsed.milestoneThresholds ? 'auto' : `${BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX}px`,
                   }}
                 >
                   {/* Milestone Thresholds label also clamps to the 146px column width. */}
@@ -6107,100 +6203,18 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             {/* Substat Values… moved to top row (right of Max Level) */}
           </Box>
         </FormControl>
-        {/* Warning area (fixed height, single line, ellipsed, always reserved) */}
-        {(() => {
-          const subsV = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
-          const fixedV = ((recipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
-          const chosenCount = subsV.length
-          const fixedCount = fixedV.length
-          const warnMin = (chosenCount < recipe.minCount) && !(chosenCount === 0 && (recipe.autoMinRequiredRolls !== false))
-          const warnFixed = fixedCount > 4
-          // When Flex is off and Required equals the number of locked substats while
-          // other unlocked substats are also selected, the unlocked ones never fire.
-          // Skip this warning when Flex permutations are active because the builder
-          // rotates those optional picks into separate rules instead of dropping them.
-          const hasUnlockedSelected = chosenCount > fixedCount
-          const flexActive = recipe.autoSubstatFlex === true && canFlexSubstats
-          const warnReqBelowLocked = (recipe.minCount ?? 0) < fixedCount
-          const warnReqEqLocked = (recipe.minCount === fixedCount) && hasUnlockedSelected && !flexActive
-          // Aggregate floors without any tracked substats confuse users because they
-          // never fire; warn whenever a manual global Min Required Rolls is set
-          // while zero selections keep the builder idle.
-          const warnMinRollsWithoutSubstats = (() => {
-            if (chosenCount !== 0) return false
-            if (recipe.autoMinRequiredRolls !== false) return false
-            return (recipe.minRequiredRolls ?? 0) > 0
-          })()
-          // New: detect an impossible-by-target case under simple sufficient conditions:
-          // If a global MinRequiredRolls is set and even the best-case sum of per‑stat caps
-          // across the required number of selected substats is below that minimum, then
-          // the target cannot be met. This mirrors cases like single SPD with Max=0 and MinRequired=1.
-          const warnImpossible = (() => {
-            if (!(recipe.autoMinRequiredRolls === false) || !recipe.minRequiredRolls || recipe.minRequiredRolls <= 0) return false
-            if (!Array.isArray(subsV) || subsV.length === 0) return false
-            const m = Math.max(recipe.minCount, fixedCount)
-            if (m <= 0) return false
-            // Build caps per selected variant
-            // UI heuristic: default per‑stat cap is 4 rolls, except when the
-            // selected rarity can feasibly reach 5 rolls on a single substat
-            // (e.g., exact Mythical, ≤ Mythical), or when rarity is Any — the
-            // builder models Mythical when needed. This avoids false
-            // "impossible" warnings for legitimate 5‑roll targets like ACC
-            // with a global MinRequired=5.
-            const supportsFive = (() => {
-              const rc = Number((recipe as unknown as { rarityCode?: number }).rarityCode ?? 0)
-              const mode = (recipe as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode
-              if (rc === RarityCode.Mythical || rc === RarityCode.LTE_Mythical) return true
-              if (rc === RarityCode.Any) return true
-              // When Auto and the global target is 5, treat as 5‑cap capable.
-              if (mode === 'auto' && (recipe.minRequiredRolls ?? 0) >= 5) return true
-              return false
-            })()
-            const defaultCap = supportsFive ? 5 : 4
-            const capFor = (v: number): number => {
-              const b = (recipe.substatRollBoundsV ?? {})[Number(v)]
-              const hasMax = (typeof b?.max === 'number' && isFinite(b.max))
-              const raw = hasMax ? Number(b!.max) : defaultCap
-              return Math.max(0, Math.min(defaultCap, raw))
-            }
-            const fixedCaps = fixedV.map(capFor)
-            const optional = subsV.filter(v => !fixedV.includes(v))
-            const optCaps = optional.map(capFor).sort((a,b)=>b-a)
-            let sumCaps = 0
-            // Include all fixed, then highest optional caps to fill to m
-            for (const c of fixedCaps) sumCaps += c
-            for (let i = 0; i < Math.max(0, m - fixedCaps.length); i++) { sumCaps += (optCaps[i] ?? 0) }
-            return sumCaps < (recipe.minRequiredRolls ?? 0)
-          })()
-          const msg = warnMin
-            ? `Warning: Required (${recipe.minCount}) > chosen (${chosenCount})`
-            : (warnFixed
-                ? `Warning: Fixed substats (${fixedCount}) exceed 4 — extra will be ignored`
-                : (warnReqBelowLocked
-                    ? `Warning: Required (${recipe.minCount}) is below locked (${fixedCount}); requirement will clamp to ${fixedCount}`
-                    : (warnReqEqLocked
-                        ? `Warning: Required (${recipe.minCount}) equals locked (${fixedCount}); other selected (${chosenCount - fixedCount}) will be ignored`
-                        : (warnImpossible
-                            ? t('builderMinRequiredRollsImpossibleWarn')
-                            : (warnMinRollsWithoutSubstats
-                                ? t('builderMinRequiredRollsNoSubstatsWarn')
-                                : '')))))
-          return (
-            // Always reserve a compact space to avoid layout shift while keeping the gap minimal
-            <Box sx={{ height: UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
-              <Typography
-                variant="caption"
-                color="warning.main"
-                sx={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', lineHeight: 1.2 }}
-              >
-                {msg}
-              </Typography>
-            </Box>
-          )
-        })()}
+        </Box>{/* end Row 4a right */}
 
+        {/* Row 4b right: Sets — auto-placed by grid to cols 3-4, row below Slots/Min Rolls */}
+        <Box sx={(theme) => ({
+          gridColumn: '3 / 5',
+          borderRadius: 1,
+          transition: UI_BG_HOVER_DANGER_TRANSITION,
+          boxShadow: 'none',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
+        })}>
         {/* Sets multi-select with order toggle and search */}
-        <FormControl sx={{ m: 0 }}>
+        <FormControl fullWidth sx={{ m: 0 }}>
           {/* Header row: label on the left, Manage metasets on the right */}
           <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, mb: 0.5 }}>
             <BuilderSectionToggle id="sets" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
@@ -6865,9 +6879,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           })()}
           </Collapse>
         </FormControl>
-        {/* Reserved spacer keeps layout consistent even without a dirty indicator. */}
-        <Box sx={{ mt: 'auto', height: 6 }} />
-        </Box>
+        </Box>{/* end Row 4b right (Sets) */}
 
       </Box>
 

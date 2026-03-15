@@ -213,11 +213,6 @@ export const MARKDOWN_TOOLTIP_INTERACTIVE_ENTER_DELAY_MS = 1500
 // gracefully without spanning the entire viewport.
 export const MARKDOWN_TOOLTIP_MAX_WIDTH_PX = 520
 
-// Compact reserved height for the Substats warning row in the Builder
-// Why: Keep a stable layout (no shift when warnings appear) while minimizing
-// wasted space between "Required substats" and "Sets".
-export const UI_SUBSTAT_WARNING_ROW_HEIGHT_PX = 14
-
 // File picker accept strings
 export const GEAR_DB_FILE_EXTENSIONS = ['.db', '.sqlite', '.sqlite3'] as const
 const IMPORTABLE_FILE_EXTENSIONS = [

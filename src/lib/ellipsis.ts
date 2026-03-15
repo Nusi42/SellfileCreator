@@ -29,6 +29,9 @@ export const hasEllipsisOverflow = (rootEl?: HTMLElement | null, selector?: stri
     if (!root) return false
     const target = pickEllipsisTarget(root, selector)
     const cs = getComputedStyle(target)
+    // Single-line case: textOverflow:ellipsis + whiteSpace:nowrap + overflow:hidden.
+    // Compare scroll width against the zoom-safe visible width to avoid false positives
+    // when the app auto-zooms for side-by-side mode.
     const isEllipsisStyle = (
       (cs.overflow === 'hidden' || cs.overflowX === 'hidden')
       && cs.textOverflow === 'ellipsis'
@@ -37,9 +40,16 @@ export const hasEllipsisOverflow = (rootEl?: HTMLElement | null, selector?: stri
     const visibleWidth = measureCssWidth(target)
     if (visibleWidth <= 0) return false
     const scrollW = Math.floor(target.scrollWidth || 0)
-    // Compare scroll width (intrinsic text width) against the zoom-safe visible width to avoid
-    // false positives when the app auto-zooms for side-by-side mode.
-    return Boolean(isEllipsisStyle && scrollW > 0 && visibleWidth + CSS_WIDTH_TOLERANCE_PX < scrollW)
+    if (isEllipsisStyle && scrollW > 0 && visibleWidth + CSS_WIDTH_TOLERANCE_PX < scrollW) return true
+    // Multi-line clamp case: -webkit-line-clamp clips vertically instead of horizontally.
+    // Detection uses scrollHeight vs clientHeight instead of scrollWidth.
+    const lineClamp = cs.getPropertyValue('-webkit-line-clamp')
+    if (lineClamp && lineClamp !== 'none' && (cs.overflow === 'hidden' || cs.overflowY === 'hidden')) {
+      const scrollH = Math.floor(target.scrollHeight || 0)
+      const clientH = Math.floor(target.clientHeight || 0)
+      return scrollH > clientH + CSS_WIDTH_TOLERANCE_PX
+    }
+    return false
   } catch {
     return false
   }

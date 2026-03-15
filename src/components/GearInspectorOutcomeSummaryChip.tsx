@@ -14,7 +14,8 @@ import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
 type GearInspectorOutcomeSummaryTone = 'total' | 'sell' | 'keep' | 'unique'
 
 // Duration for the value-change pulse.  Short enough to be snappy, long enough to notice.
-const GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_MS = 550
+// Exported so the parent grid can schedule the animateIn clear timer to match.
+export const GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_MS = 550
 // Brief scale + background brightening so the chip draws attention when counts update.
 // Scale stays small so it doesn't push adjacent layout elements.
 const GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_KEYFRAMES = keyframes`
@@ -116,6 +117,13 @@ export type GearInspectorOutcomeSummaryChipProps = {
   showFilteredTotals?: boolean
   metricMode?: 'all' | 'safeguardsOnly'
   ariaLabel?: string | undefined
+  // Monotonically increasing counter supplied by the parent grid; when it advances the
+  // fingerprint changes so the chip pulses even if item totals are unchanged (e.g. one
+  // item added and one removed in the same DB update batch).
+  leavingGeneration?: number
+  // When true the chip plays its pulse animation immediately (used when the group header
+  // mounts for the first time after a filter change, since useChangePulse skips first mount).
+  animateIn?: boolean
 }
 
 export default function GearInspectorOutcomeSummaryChip({
@@ -126,6 +134,8 @@ export default function GearInspectorOutcomeSummaryChip({
   showFilteredTotals = false,
   metricMode = 'all',
   ariaLabel,
+  leavingGeneration = 0,
+  animateIn = false,
 }: GearInspectorOutcomeSummaryChipProps) {
   const { t, lang } = useI18n()
   const formattedSummary = React.useMemo(() => {
@@ -166,15 +176,17 @@ export default function GearInspectorOutcomeSummaryChip({
     }
   }, [lang, metricMode, showFilteredTotals, showWhenEmpty, summary, t, totalSummary])
 
-  // Fingerprint changes whenever any metric count changes.
+  // Fingerprint changes whenever any metric count changes, or when items have left the
+  // result set (leavingGeneration advances) — ensures a pulse even on neutral-total batches.
   const summaryFingerprint = summary
-    ? `${summary.total}:${summary.sold}:${summary.kept}:${summary.keptBySafeguards}`
+    ? `${summary.total}:${summary.sold}:${summary.kept}:${summary.keptBySafeguards}:${leavingGeneration}`
     : null
   const chipPulsing = useChangePulse(summaryFingerprint, GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_MS)
   // Allow the pulse even when dimmed: the scale animation is still legible under
   // reduced opacity and the result that triggered the change may arrive while the
   // dimmed state is still true, so suppressing here would silently drop the pulse.
-  const shouldPulse = chipPulsing
+  // animateIn fires when the group header mounts fresh (filter switch revealed a new group).
+  const shouldPulse = chipPulsing || animateIn
 
   if (!formattedSummary) return null
 
