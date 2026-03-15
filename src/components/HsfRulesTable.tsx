@@ -176,7 +176,7 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
   }, [rules, clearRuleGeneration])
   useEffect(() => {
     // Schedule clearing the entering set after the animation window elapses.
-    if (enteringRuleKeys.size === 0) return
+    if (enteringRuleKeys.size === 0) return // eslint-disable-line react-you-might-not-need-an-effect/no-event-handler -- timer teardown driven by derived memo state, not a user event
     if (clearRuleEnterTimerRef.current !== null) clearTimeout(clearRuleEnterTimerRef.current)
     clearRuleEnterTimerRef.current = setTimeout(
       () => setClearRuleGeneration((g) => g + 1),
@@ -230,7 +230,7 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rules, clearRuleChangeGeneration])
   useEffect(() => {
-    if (changedRuleKeys.size === 0) return
+    if (changedRuleKeys.size === 0) return // eslint-disable-line react-you-might-not-need-an-effect/no-event-handler -- timer teardown driven by derived memo state, not a user event
     if (clearRuleChangeTimerRef.current !== null) clearTimeout(clearRuleChangeTimerRef.current)
     clearRuleChangeTimerRef.current = setTimeout(
       () => setClearRuleChangeGeneration((g) => g + 1),
@@ -733,7 +733,6 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
   }, [])
   // Single TanStack virtualizer drives both fixed and wrap modes.
   // Why: This replaces the bespoke prefix-sum windowing logic while preserving the `<Table>` structure.
-  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual's useVirtualizer returns unstable references; compiler skips this component
   const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
     // Virtualize the `rules[]` array directly.
     // Why: all recipe span / selection math is expressed as indices into this array.
