@@ -5764,21 +5764,16 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         )
                       })}
                     </Box>
-                    {/* Warning chip row — always reserves chip height so Sets never shifts.
-                        Mirrors the Flex chip row in Required Substats. Collapses with Min Rolls. */}
-                    <Box sx={{ mt: 0.5, minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX, display: 'flex', alignItems: 'center' }}>
+                    {/* Warning chip row — fixed chip height so Sets never shifts, matching
+                        the Flex chip row in Required Substats. Collapses with Min Rolls. */}
+                    <Box sx={{ mt: 0.5, height: BUILDER_STATUS_CHIP_HEIGHT_PX, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
                       {warnMsg && (
                         <EllipsisTooltip title={warnMsg} wrap="block">
                           <Typography
                             data-ellipsis-target
                             variant="caption"
                             color="warning.main"
-                            sx={{
-                              display: '-webkit-box',
-                              WebkitBoxOrient: 'vertical',
-                              WebkitLineClamp: 2,
-                              overflow: 'hidden',
-                            }}
+                            sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                           >
                             {warnMsg}
                           </Typography>
