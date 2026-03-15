@@ -1956,7 +1956,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       next.splice(idx + 1, 0, newRule)
       return next
     })
-    // Auto-enable safeguards when the first rule is inserted (mirrors old SafeguardsTab behaviour).
+    // Auto-enable safeguards when the first rule is inserted.
     if (safeguardRules.length === 0) applySafeguardsEnabledChange(true, { publish: false })
     setSelectedSafeguardRuleId(newId)
   }, [applySafeguardRulesChange, applySafeguardsEnabledChange, safeguardRules.length, selectedSafeguardRuleId])

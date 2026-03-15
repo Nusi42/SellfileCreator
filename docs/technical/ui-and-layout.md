@@ -277,7 +277,7 @@ Safeguards are edited in a dedicated builder mode accessed via the builder-colum
 - **Action buttons**: Insert, Apply, Reset — same layout as the recipe builder. Auto-apply and auto-reset preferences are shared with the recipe builder (mutually exclusive toggles).
 - **Scaffold from recipe**: a popover lists existing recipe configs; selecting one pre-fills the safeguard combination from that recipe's slot/set/faction/mainstat selectors, giving a quick starting point.
 - **Metasets**: the Sets picker uses the same filtered set pool as `RecipeBuilderPanel` via `useKeepOverrideCombinationTools`; the Manage Metasets entry point is forwarded from `App.tsx`.
-- **Auto-enable**: the first inserted safeguard rule automatically enables the Safeguards feature (mirrors the old SafeguardsTab behaviour).
+- **Auto-enable**: the first inserted safeguard rule automatically enables the Safeguards feature.
 - **Empty state**: when no rule is selected the form renders disabled so the panel height remains stable.
 - When no rule is selected the form renders disabled so the panel height remains stable.
 
@@ -297,9 +297,8 @@ Rendered in the builder column below the form panel, occupying the same scrollab
 
 - `src/hooks/useAutosaveRestore.ts`: Encapsulates autosave restore prompt, dismiss baseline, and enablement.
 - `src/hooks/useManageColorsDialog.ts`: Manages Manage Colors dialog state plus persisted substat colors.
-- Substat Targets is a tab inside the Tools dialog (`LOGIC_HUB_DIALOG_TAB_SUBSTAT_TARGETS`), not a standalone dialog. It is rendered as `SubstatTargetsTabContent` within `LogicHubDialog`. `useSubstatTargetsDialog.ts` still exists in the repo but is no longer imported; `SubstatTargetsDialog.tsx` is similarly dead code left over from the previous standalone-dialog era.
+- Substat Targets is a tab inside the Tools dialog (`LOGIC_HUB_DIALOG_TAB_SUBSTAT_TARGETS`), not a standalone dialog. It is rendered as `SubstatTargetsTabContent` within `LogicHubDialog`.
 - `src/hooks/useMetasetsDialog.ts`: Governs the Manage Metasets dialog lifecycle.
-- `src/hooks/useConfirmDialog.ts`: Generic confirm dialog state.
 - `src/components/FilePickerButton.tsx`: Shared file-picker button (label + hidden input) with `accept` and `onSelect` props.
 - `src/components/builderPanel/useBuilderHistoryMenu.ts`: Centralizes undo/redo tooltip formatting, builder history context-menu positioning, and context-menu hint lifecycles so the top row stays declarative.
 - `src/components/builderPanel/useRuleCountBadge.ts`: Handles deferred fingerprinting, worker coordination, and status-chip sizing for builder rule counts; always import this hook instead of duplicating the async pipeline.

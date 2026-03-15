@@ -281,8 +281,7 @@ export const findObsoleteRulesWithLoadedWasm = (rules: HsfRule[]): WasmObsoleteR
   throw new Error('WASM obsolete-rule detector returned an invalid payload.')
 }
 
-// Export dedupe helper mirrors hsfDeduplicate.ts segment semantics while moving
-// normalization + coverage matching to Rust as the single source of truth.
+// Export dedupe helper; normalization + coverage matching live in Rust as the single source of truth.
 export const dedupeHsfRulesForExportWithLoadedWasm = (rules: HsfRuleWithRecipe[]): HsfRuleWithRecipe[] | null => {
   assertWasmInitializedSync()
   const result = dedupeHsfRulesForExportWasmValueBinding(rules) as HsfRuleWithRecipe[]
