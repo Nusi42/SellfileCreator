@@ -2763,7 +2763,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
             />
           </Box>
           <Collapse in={!builderCollapsed.action} timeout="auto" unmountOnExit>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'nowrap', overflow: 'hidden' }}>
+          {/* overflow:visible so the absolutely-positioned export-mode override badge can paint above the row. */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'nowrap', overflow: 'visible' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Box>
                 <ToggleButtonGroup
