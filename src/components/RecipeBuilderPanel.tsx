@@ -5764,8 +5764,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         )
                       })}
                     </Box>
-                    {/* Warning chip row — fixed chip height so Sets never shifts, matching
-                        the Flex chip row in Required Substats. Collapses with Min Rolls. */}
+                    {/* Warning chip row — always reserves chip height (same as Flex chip in Required Substats).
+                        lineHeight:1.0 makes 2 caption lines = exactly BUILDER_STATUS_CHIP_HEIGHT_PX px,
+                        so WebkitLineClamp:2 can draw the ellipsis within the fixed area. */}
                     <Box sx={{ mt: 0.5, height: BUILDER_STATUS_CHIP_HEIGHT_PX, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
                       {warnMsg && (
                         <EllipsisTooltip title={warnMsg} wrap="block">
@@ -5773,7 +5774,13 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             data-ellipsis-target
                             variant="caption"
                             color="warning.main"
-                            sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                            sx={{
+                              lineHeight: 1.0,
+                              display: '-webkit-box',
+                              WebkitBoxOrient: 'vertical',
+                              WebkitLineClamp: 2,
+                              overflow: 'hidden',
+                            }}
                           >
                             {warnMsg}
                           </Typography>
