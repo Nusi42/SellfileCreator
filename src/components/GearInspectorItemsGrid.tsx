@@ -663,8 +663,15 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const canShowRuleTemplateActions = variant === 'gearInspector'
     && showRuleTemplates
     && typeof onCreateRuleTemplate === 'function'
-  // Preferences keep the old 4/5 column toggle alive while keep-override tabs use their own 1/2 columns.
-  const storedColumnPreference = gridColumnPreference === 5 ? 5 : 4
+  // Preferences keep the 4/5(/8-dev) column toggle alive while keep-override tabs use their own 1/2 columns.
+  // 8-column is dev-only; if a dev session persisted 8 and the user opens a production build, fall back to 5.
+  const storedColumnPreference = gridColumnPreference === 5
+    ? 5
+    : (gridColumnPreference === 8 && import.meta.env.DEV)
+      ? 8
+      : gridColumnPreference === 8
+        ? 5
+        : 4
   // Context-menu helper drives the "long press for menu" overlay when users have not seen it yet.
   const {
     shouldShow: shouldShowGridContextHint,
@@ -1440,7 +1447,15 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       onKeepOverrideColumnModeChange(next)
       return
     }
-    setColumns(storedColumnPreference === 5 ? 4 : 5)
+    // In dev: cycle 4 → 5 → 8 → 4 to allow testing the ultra-dense layout.
+    // In production: cycle 4 → 5 → 4 only (8-col is a dev-only feature).
+    setColumns(
+      storedColumnPreference === 4
+        ? 5
+        : (import.meta.env.DEV && storedColumnPreference === 5)
+          ? 8
+          : 4,
+    )
   }, [
     keepOverrideVariant,
     onKeepOverrideColumnModeChange,

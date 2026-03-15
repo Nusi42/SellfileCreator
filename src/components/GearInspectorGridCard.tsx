@@ -798,6 +798,16 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const glyphDeltaColor = theme.palette.success.main
   // Compact (<=4 columns) cards need explicit per-field alignment for substats.
   const compactSubstatColumnLayout = gridColumnCount <= 4
+  // Ultra-dense (8-column) cards omit stat values to preserve readability at minimal width.
+  const isUltraDense = gridColumnCount >= 8
+  // Scale the icon box down ~40% in ultra-dense mode so it doesn't dominate the narrow card.
+  const iconBoxSizePx = isUltraDense
+    ? Math.round(GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX * 0.6)
+    : GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX
+  // Dynamic card template matches the (possibly reduced) icon column width.
+  const cardGridTemplate = isUltraDense
+    ? `${iconBoxSizePx}px minmax(${GRID_CARD_STATS_MIN_COLUMN_PX}px, 1fr)`
+    : GRID_CARD_TEMPLATE
   const substatEntries = artifact.substats
     .filter((stat) => stat.variant !== StatVariant.Any)
     .map((stat) => {
@@ -833,7 +843,8 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         content: (
           <>
             <Box component="span" sx={{ color: statColor ?? 'inherit' }}>
-              {statLabel} {statValue}
+              {/* In ultra-dense 8-col mode, omit the numeric value to save horizontal space. */}
+              {statLabel}{isUltraDense ? null : <> {statValue}</>}
             </Box>
             {rollGlyph ? (
               <Box
@@ -852,7 +863,8 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                 {rollGlyph}
               </Box>
             ) : null}
-            {glyphDelta ? (
+            {/* Glyph delta (green delta value) is omitted in 8-col ultra-dense mode. */}
+            {(!isUltraDense && glyphDelta) ? (
               <Box component="span" sx={{ color: glyphDeltaColor, fontWeight: 600, ml: 0.5 }}>
                 {glyphDelta}
               </Box>
@@ -942,8 +954,9 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     return `${base} (${baseHeroLabel} / ${equippedToChampionId})`
   })()
   const championIconSrc = championIconUrl(artifact.equippedChampionBaseId ?? artifact.equippedToChampionId)
-  // Keep 4-column avatar sizing aligned with 5-column cards for visual consistency.
-  const championSizingColumnCount = gridColumnCount === 4 ? 5 : gridColumnCount
+  // 4-col and 8-col cards align to 5-col avatar sizing — 4-col for visual parity, 8-col because
+  // cards are narrower than 5-col despite the higher count so large avatars would crowd the stats.
+  const championSizingColumnCount = (gridColumnCount === 4 || gridColumnCount >= 8) ? 5 : gridColumnCount
   // Champion avatars only render for collection/vault sources so the extra visuals stay meaningful.
   const championIconEligible = Boolean(
     showChampionIcons
@@ -967,9 +980,12 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   // Smaller badges fall back to a single glyph so collapsed accordions stay lightweight.
   const SourceGlyph = shouldShowStandaloneSourceIcon && SourceIcon ? SourceIcon : null
   const sourceIconLabel = sourceDescriptor?.label ?? ''
-  const championIconSize = championIconMode === 'large'
-    ? CHAMPION_ICON_LARGE_SIZE
-    : CHAMPION_ICON_BASE_SIZE
+  // Ultra-dense 8-col uses a custom ~60% icon size to stay proportional within the narrower icon column.
+  const championIconSize = isUltraDense
+    ? { width: Math.round(CHAMPION_ICON_LARGE_SIZE.width * 0.6), height: Math.round(CHAMPION_ICON_LARGE_SIZE.height * 0.6) }
+    : championIconMode === 'large'
+      ? CHAMPION_ICON_LARGE_SIZE
+      : CHAMPION_ICON_BASE_SIZE
   // Champion avatars reuse the rarity palette so imported pieces surface their quality immediately.
   const rarityAccentColor = resolveRarityAccentColor(artifact.equippedChampionRarity)
   // Avatar frames fall back to the neutral divider so unknown rarities still look intentional.
@@ -1003,7 +1019,8 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     if (lastUseTooltip && devArtifactIdTooltip) return `${lastUseTooltip}\n\n${devArtifactIdTooltip}`
     return lastUseTooltip ?? devArtifactIdTooltip
   })()
-  const ascSummaryContent = ascSummary
+  // Ultra-dense 8-col shows only the ascension stat name, without the numeric value.
+  const ascSummaryContent = isUltraDense ? ascLabelNode : ascSummary
   // Keep/sell outcome surfaces the rule chip inline so keyboard users do not need to open popovers.
   const cardOutcome = match
     ? {
@@ -1055,7 +1072,8 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           lineHeight: 1.1,
         }}
       >
-        {mainInline}
+        {/* Ultra-dense 8-col shows only the stat name; full "Stat Value" inline is used otherwise. */}
+        {isUltraDense ? mainLabel : mainInline}
       </Typography>
       {ascSummaryContent ? (
         <Typography
@@ -1194,7 +1212,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
       data-match-recipe-index={cardMatchRecipeIdx}
       sx={(theme) => ({
         display: 'grid',
-        gridTemplateColumns: GRID_CARD_TEMPLATE,
+        gridTemplateColumns: cardGridTemplate,
         columnGap: theme.spacing(CARD_COLUMN_GAP_UNITS),
         p: theme.spacing(CARD_PADDING_UNITS),
         borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
@@ -1264,7 +1282,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           rerollLabel={rerollLabel || undefined}
           rerollTooltip={rerollTooltip || undefined}
           levelLabel={levelChipLabel}
-          size={GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX}
+          size={iconBoxSizePx}
           gearTooltip={gearTooltip}
           // Center overlay is informational and is rendered click-through by GridIconBox.
           {...(centerOverlay ? { centerOverlay } : {})}
@@ -1275,7 +1293,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         {shouldShowChampionIcon || shouldShowMissingChampionIconFallback ? (
           <Box
             sx={{
-              width: GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX,
+              width: iconBoxSizePx,
               height: championIconSize.height,
               position: 'relative',
               mt: championIconMode === 'large' ? 1.25 : -0.25,
@@ -1352,7 +1370,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                   sx={{
                     position: 'absolute',
                     top: `calc(50% + ${championIconMode === 'large' ? 0 : 3}px)`,
-                    left: `${GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX - 5}px`,
+                    left: `${iconBoxSizePx - 5}px`,
                     transform: 'translate(-50%, -50%)',
                     width: VAULT_GLYPH_SIZE_PX,
                     height: VAULT_GLYPH_SIZE_PX,
@@ -1450,8 +1468,9 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
             gap: CARD_SUBSTAT_ROW_GAP_UNITS,
             width: '100%',
             flexGrow: 1,
-            // Allow substat-row mythic highlighting to paint beyond row bounds.
-            overflowX: 'visible',
+            // Compact mode clamps the glyph column so it cannot bleed into adjacent cards.
+            // Non-compact mode keeps visible so mythic box-shadow can paint beyond the row.
+            overflowX: compactSubstatColumnLayout ? 'hidden' : 'visible',
             overflowY: 'visible',
           }}
         >
@@ -1522,7 +1541,10 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                           // Keep ellipsis stable when the stat text is long.
                           width: '100%',
                           minWidth: 0,
-                          overflow: compactSubstatColumnLayout ? 'visible' : 'hidden',
+                          // Hidden in both modes: compact mode prevents glyph overflow across card
+                          // boundaries; non-compact mode prevents long stat names from escaping.
+                          // Mythic box-shadow lives on the outer Box (rowMythicIndicatorSx), not here.
+                          overflow: 'hidden',
                           textOverflow: compactSubstatColumnLayout ? 'clip' : 'ellipsis',
                           whiteSpace: compactSubstatColumnLayout ? 'normal' : 'nowrap',
                           color: 'inherit',

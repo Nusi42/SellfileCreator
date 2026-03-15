@@ -825,26 +825,32 @@ export default function PreviewHeaderActions(props: {
             </ProgressChip>
           )}
           {baseRulesLabel ? (
-            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
+            <Typography variant="caption" color="text.secondary" noWrap sx={{ lineHeight: 1.2, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {baseRulesLabel}
             </Typography>
           ) : null}
         </Stack>
         <Box sx={{ flex: 1 }} />
         {filterActive ? (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{
-              whiteSpace: 'normal',
-              lineHeight: 1.2,
-              maxWidth: FILTER_HEADER_LABEL_MAX_WIDTH_PX,
-              textAlign: 'right',
-              wordBreak: 'break-word',
-            }}
-          >
-            {filterHeaderLabel}
-          </Typography>
+          // EllipsisTooltip surfaces the full label when it is clipped by a narrow panel.
+          <EllipsisTooltip title={filterHeaderLabel}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              noWrap
+              data-ellipsis-target
+              sx={{
+                lineHeight: 1.2,
+                maxWidth: FILTER_HEADER_LABEL_MAX_WIDTH_PX,
+                textAlign: 'right',
+                // Clip at one line; the tooltip carries the full text when truncated.
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {filterHeaderLabel}
+            </Typography>
+          </EllipsisTooltip>
         ) : null}
       </Stack>
       <Stack

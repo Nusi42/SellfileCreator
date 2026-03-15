@@ -292,13 +292,20 @@ const buildToggleGridSx = (
   const height = options?.height ?? 28
   return [
     {
-      display: 'inline-flex',
-      flexWrap: 'wrap',
+      // Auto-size to content at normal widths; cap at 100% when the panel is narrowed by the splitter.
+      display: 'flex',
+      width: 'fit-content',
+      maxWidth: '100%',
+      // Buttons shrink in-place instead of wrapping to new rows when the panel is constrained.
+      flexWrap: 'nowrap',
+      overflow: 'hidden',
       columnGap: 0.5,
-      rowGap: 0.5,
       '& .MuiToggleButton-root': {
         p: 0.5,
-        ...(minWidth != null ? { minWidth } : {}),
+        // Preserve natural content width normally; flex-shrink kicks in only under constraint.
+        flex: '0 1 auto',
+        minWidth: minWidth ?? 0,
+        overflow: 'hidden',
         height,
       },
     },
@@ -2588,8 +2595,9 @@ function RulesFilterPanel({
                         rowGap: 0.5,
                         '& .MuiToggleButton-root': {
                           p: 0.5,
+                          // Allow buttons to shrink below their natural width when the panel is narrow.
                           width: LAST_USE_TOGGLE_BUTTON_WIDTH_PX,
-                          minWidth: LAST_USE_TOGGLE_BUTTON_WIDTH_PX,
+                          minWidth: 24,
                           maxWidth: LAST_USE_TOGGLE_BUTTON_WIDTH_PX,
                           height: 28,
                           overflow: 'hidden',
@@ -2655,7 +2663,8 @@ function RulesFilterPanel({
             }}
           >
             {/* Mainstat (below Sets) */}
-            <FormControl sx={collapsibleSectionSx}>
+            {/* Allow this column to shrink when the panel is narrow via the splitter. */}
+            <FormControl sx={{ ...collapsibleSectionSx, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}>
               <FilterSectionHeader
                 id="main"
                 label={mainSectionLabel}
@@ -2680,7 +2689,12 @@ function RulesFilterPanel({
                 >
                   {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => (
                     <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
-                      {t(statVariantI18nKey(variant))}
+                      {/* EllipsisTooltip shows OS tooltip only when text is actually truncated. */}
+                      <EllipsisTooltip title={t(statVariantI18nKey(variant))} wrap="block">
+                        <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
+                          {t(statVariantI18nKey(variant))}
+                        </Typography>
+                      </EllipsisTooltip>
                     </ToggleButton>
                   ))}
                 </ToggleButtonGroup>
@@ -2695,7 +2709,11 @@ function RulesFilterPanel({
                 >
                   {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => (
                     <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
-                      {t(statVariantI18nKey(variant))}
+                      <EllipsisTooltip title={t(statVariantI18nKey(variant))} wrap="block">
+                        <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
+                          {t(statVariantI18nKey(variant))}
+                        </Typography>
+                      </EllipsisTooltip>
                     </ToggleButton>
                   ))}
                 </ToggleButtonGroup>
@@ -2752,7 +2770,8 @@ function RulesFilterPanel({
             </FormControl>
 
             {/* Substats (below Sets) */}
-            <FormControl sx={collapsibleSectionSx}>
+            {/* Allow this column to shrink when the panel is narrow via the splitter. */}
+            <FormControl sx={{ ...collapsibleSectionSx, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}>
               <FilterSectionHeader
                 id="sub"
                 label={subSectionLabel}
@@ -2837,12 +2856,18 @@ function RulesFilterPanel({
                           setTriStateVariant(variant, isActive ? 'off' : 'exclude')
                         }}
                       >
-                        <Box
-                          component="span"
-                          {...(isMustNot ? { sx: SUBSTAT_NOT_LABEL_SX } : {})}
-                        >
-                          {label}
-                        </Box>
+                        {/* EllipsisTooltip shows OS tooltip only when text is truncated.
+                            SUBSTAT_NOT_LABEL_SX adds the diagonal strike for must-not entries. */}
+                        <EllipsisTooltip title={label} wrap="block">
+                          <Typography
+                            component="span"
+                            noWrap
+                            sx={(isMustNot ? [...toggleLabelSx, SUBSTAT_NOT_LABEL_SX] : toggleLabelSx) as SxProps<Theme>}
+                            data-ellipsis-target
+                          >
+                            {label}
+                          </Typography>
+                        </EllipsisTooltip>
                       </ToggleButton>
                     )
                   }
@@ -3209,15 +3234,16 @@ function RulesFilterPanel({
         <Box
           sx={{
             display: 'flex',
-            flexWrap: 'wrap',
+            // Sections shrink instead of wrapping to new rows when the panel is narrowed by the splitter.
+            flexWrap: 'nowrap',
             columnGap: 1,
             rowGap: 0.75,
             mb: 0.75,
             alignItems: 'flex-start',
           }}
         >
-          {/* Slots */}
-          <FormControl sx={collapsibleSectionSx}>
+          {/* Slots — allow shrinking alongside Rank/Rarity when the panel is narrow. */}
+          <FormControl sx={{ ...collapsibleSectionSx, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}>
             <FilterSectionHeader
               id="slots"
               label={slotsSectionLabel}
@@ -3292,8 +3318,8 @@ function RulesFilterPanel({
               </Collapse>
             </FormControl>
 
-          {/* Rank */}
-          <FormControl sx={collapsibleSectionSx}>
+          {/* Rank — shrinkable alongside Slots/Rarity. */}
+          <FormControl sx={{ ...collapsibleSectionSx, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}>
             <FilterSectionHeader
               id="rank"
               label={rankSectionLabel}
@@ -3321,7 +3347,8 @@ function RulesFilterPanel({
                     gridTemplateColumns: 'repeat(3, auto)',
                     columnGap: 0.5,
                     rowGap: 0.5,
-                    '& .MuiToggleButton-root': { p: 0.5, minWidth: 44, height: 28 },
+                    // Allow rank buttons to shrink when the panel narrows via the splitter.
+                    '& .MuiToggleButton-root': { p: 0.5, minWidth: 28, height: 28, overflow: 'hidden' },
                   }, GRID_TOGGLE_BUTTON_GROUP_SX]}
                 >
                   {[1, 2, 3, 4, 5, 6].map((rank) => (
@@ -3338,8 +3365,8 @@ function RulesFilterPanel({
               </Collapse>
             </FormControl>
 
-          {/* Rarity */}
-          <FormControl sx={collapsibleSectionSx}>
+          {/* Rarity — shrinkable alongside Slots/Rank. */}
+          <FormControl sx={{ ...collapsibleSectionSx, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}>
             <FilterSectionHeader
               id="rarity"
               label={raritySectionLabel}
@@ -3369,8 +3396,9 @@ function RulesFilterPanel({
                     rowGap: 0.5,
                     '& .MuiToggleButton-root': {
                       p: 0.5,
-                      width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
-                      minWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                      // maxWidth keeps buttons at natural width; minWidth 28 allows shrinking when the
+                      // panel is narrowed via the splitter. Text ellipsis activates via EllipsisTooltip.
+                      minWidth: 28,
                       maxWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
                       height: 28,
                       overflow: 'hidden',

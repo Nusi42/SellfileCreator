@@ -13,7 +13,7 @@ import {
 } from '../lib/constants'
 import { createLocalStorageStore } from './localStorageStore'
 
-export type GearInspectorGridColumnMode = 4 | 5
+export type GearInspectorGridColumnMode = 4 | 5 | 8
 export type GearInspectorGridPreferenceVariant = 'gearInspector' | 'safeguards'
 
 const gearInspectorGridColumnsStore = createLocalStorageStore<GearInspectorGridColumnMode>({
@@ -24,11 +24,12 @@ const gearInspectorGridColumnsStore = createLocalStorageStore<GearInspectorGridC
     // Treat missing or malformed values as the 4-column default.
     if (raw === '4') return 4
     if (raw === '5') return 5
+    if (raw === '8') return 8
     // Keep the storage fallback aligned with the UI default.
     return 4
   },
   // Persist only the supported column modes so upgrades stay deterministic.
-  serialize: (value) => (value === 4 ? '4' : '5'),
+  serialize: (value) => (value === 5 ? '5' : value === 8 ? '8' : '4'),
 })
 
 const gearInspectorGridShowFirstStore = createLocalStorageStore<boolean>({
@@ -126,7 +127,8 @@ export function useGearInspectorGridPreferences(variant: GearInspectorGridPrefer
   const showSafeguardUpgradeChance = gearInspectorGridShowSafeguardUpgradeChanceStore.useValue()
 
   const setColumns = useCallback((next: GearInspectorGridColumnMode) => {
-    gearInspectorGridColumnsStore.set(next === 4 ? 4 : 5)
+    // Accept 4, 5, or 8; fall back to 4 for any other value.
+    gearInspectorGridColumnsStore.set(next === 5 ? 5 : next === 8 ? 8 : 4)
   }, [])
 
   const setShowFirstMatch = useCallback((next: boolean) => {

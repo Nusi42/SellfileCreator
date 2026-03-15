@@ -745,7 +745,7 @@ export default function SafeguardBuilderPanel({
         </Box>
         {/* Collapsible content: mode toggle + count + ignore chips */}
         <Collapse in={!builderCollapsed.action} timeout="auto" unmountOnExit>
-        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flexWrap: 'nowrap', overflow: 'hidden' }}>
         {/* Mode toggle — label moved to header row above */}
         <FormControl sx={(theme) => ({ flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
 
@@ -1328,7 +1328,7 @@ export default function SafeguardBuilderPanel({
         <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
         {/* mt: 0.75 provides the same 6px spacing that the outer Box gap used to supply, but only
             while the Collapse is mounted — preventing phantom height when the section is collapsed. */}
-        <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
+        <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'nowrap', overflow: 'hidden', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
           {/* Match mode chip woven with weights configure button.
               Chip cycles Any→All→Per Substat; button opens weights popover.
               Split-button pattern mirrors Final Sell: chip has flat right side,
@@ -1707,7 +1707,7 @@ export default function SafeguardBuilderPanel({
         <Divider sx={{ my: 1, opacity: 0.5 }} />
         {/* Unified action row — Insert/Scaffold/Reset hidden in multi-edit mode;
             Apply label and handler adapt to single vs. multi-edit. Mirrors RecipeBuilderPanel. */}
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'nowrap', overflow: 'hidden', alignItems: 'center' }}>
           {/* Insert button — disabled in multi-edit mode, mirrors RecipeBuilderPanel. */}
           <Box
             component="span"

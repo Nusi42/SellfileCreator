@@ -2709,7 +2709,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
             />
           </Box>
           <Collapse in={!builderCollapsed.action} timeout="auto" unmountOnExit>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'nowrap', overflow: 'hidden' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Box>
                 <ToggleButtonGroup
@@ -5499,9 +5499,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             sx={{
               display: 'flex',
               alignItems: 'flex-start',
-              flexWrap: 'wrap',
+              // Prevent Min Rolls / Required Substats / Milestone from jumping to a new row
+              // when the builder panel is narrowed via the splitter — they shrink instead.
+              flexWrap: 'nowrap',
               columnGap: 1,
               rowGap: 1,
+              overflow: 'hidden',
             }}
           >
             {/* Min Required Rolls */}
@@ -5509,8 +5512,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             <FormControl
               sx={{
                 m: 0,
-                flex: builderCollapsed.minRolls ? '0 0 auto' : `0 0 ${BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX}px`,
+                // flex-shrink:1 allows this column to compress when the builder panel is narrowed.
+                flex: builderCollapsed.minRolls ? '0 1 auto' : `0 1 ${BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX}px`,
                 width: builderCollapsed.minRolls ? 'auto' : `${BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX}px`,
+                minWidth: 0,
+                overflow: 'hidden',
               }}
             >
               {(() => {
@@ -5625,7 +5631,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       sx={{
                         display: 'flex',
                         gap: 0.5,
-                        flexWrap: 'wrap',
+                        // Buttons shrink instead of wrapping when the panel is narrowed by the splitter.
+                        flexWrap: 'nowrap',
+                        overflow: 'hidden',
                         '& .MuiToggleButton-root': {
                           height: TOGGLE_BUTTON_HEIGHT_PX,
                           minHeight: TOGGLE_BUTTON_HEIGHT_PX,
@@ -5810,8 +5818,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             <FormControl
               sx={{
                 m: 0,
-                flex: builderCollapsed.requiredSubstats ? '0 0 auto' : `0 0 ${BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX}px`,
+                // flex-shrink:1 lets this column compress under splitter pressure.
+                flex: builderCollapsed.requiredSubstats ? '0 1 auto' : `0 1 ${BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX}px`,
                 width: builderCollapsed.requiredSubstats ? 'auto' : `${BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX}px`,
+                minWidth: 0,
+                overflow: 'hidden',
               }}
             >
               {(() => {
@@ -5924,9 +5935,15 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       }}
                       data-tour-id="builder.required"
                       sx={{
+                        // Buttons shrink in-place instead of wrapping to a new row.
+                        flexWrap: 'nowrap',
+                        overflow: 'hidden',
                         '& .MuiToggleButton-root': {
                           height: TOGGLE_BUTTON_HEIGHT_PX,
                           minHeight: TOGGLE_BUTTON_HEIGHT_PX,
+                          flex: '0 1 auto',
+                          minWidth: 0,
+                          overflow: 'hidden',
                         },
                       }}
                     >
@@ -6072,8 +6089,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 <FormControl
                   sx={{
                     m: 0,
-                    flex: builderCollapsed.milestoneThresholds ? '0 0 auto' : `0 0 ${BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX}px`,
+                    // flex-shrink:1 lets this column compress under splitter pressure.
+                    flex: builderCollapsed.milestoneThresholds ? '0 1 auto' : `0 1 ${BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX}px`,
                     width: builderCollapsed.milestoneThresholds ? 'auto' : `${BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX}px`,
+                    minWidth: 0,
+                    overflow: 'hidden',
                   }}
                 >
                   {/* Milestone Thresholds label also clamps to the 146px column width. */}
@@ -6920,7 +6940,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
       {/* Small separator above action buttons (matching the one below) */}
       <Divider sx={{ my: 1, opacity: 0.5 }} />
 
-      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
+      <Stack direction="row" spacing={1} sx={{ flexWrap: 'nowrap', overflow: 'hidden', alignItems: 'center' }}>
         <Box
           component="span"
           onContextMenu={handleInsertContextMenu}

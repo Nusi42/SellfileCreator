@@ -6933,8 +6933,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           copyDialog={builderMode === 'safeguard' ? null : copyDialogElement}
         />
 
-        {/* Draggable splitter handle — only rendered in side-by-side mode; fills the gap between panels. */}
-        {isSideBySide && (
+        {/* Draggable splitter handle — dev-only feature; hidden in production builds. */}
+        {isSideBySide && import.meta.env.DEV && (
           <SideBySideSplitter
             leftWidthPx={splitterLeftPx}
             onResize={setSplitterLeftPx}
