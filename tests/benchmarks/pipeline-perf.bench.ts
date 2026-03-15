@@ -105,7 +105,8 @@ const DB_PATH  = resolve(ROOT_DIR, 'examples', 'um109288203_RSLHelper.db')
 console.log('\n[bench:pipeline-perf] loading fixtures…')
 const sfrRaw = JSON.parse(readFileSync(SFR_PATH, 'utf8'))
 const parsed = parseSfrObject(sfrRaw, { metasets: [], substatTargets: defaultSubstatTargets() })
-const safeguardRules: SafeguardRule[] = resolveSafeguardRulesWithMetasets(parsed.safeguardRules, parsed.metasets)
+// example.sfr has safeguards; ?? [] is a type-system defensive fallback.
+const safeguardRules: SafeguardRule[] = resolveSafeguardRulesWithMetasets(parsed.safeguardRules ?? [], parsed.metasets)
 const recipeModes: SellfileExportMode[] = parsed.recipes.map((cfg) => cfg.exportMode)
 
 const dbBytes  = readFileSync(DB_PATH)
@@ -134,10 +135,11 @@ const mergeParams = {
   customRecipes: parsed.recipes,
   metasets: parsed.metasets,
   substatTargets: parsed.substatTargets,
-  finalSellRemainder: parsed.finalSellRemainder ?? undefined,
+  // exactOptionalPropertyTypes: omit key entirely when null rather than assigning undefined.
+  ...(parsed.finalSellRemainder !== null ? { finalSellRemainder: parsed.finalSellRemainder } : {}),
 }
 const safeguardsNoDetect: SafeguardsMergeInput = {
-  enabled: parsed.safeguardsEnabled,
+  enabled: parsed.safeguardsEnabled ?? false,
   rules: safeguardRules,
   detection: null,
 }
@@ -154,7 +156,7 @@ const prebuiltDetect = collectAndComputeSafeguardProtection({
   baseRules: mergedRulesBaseline,
   recipeModes,
   rules: safeguardRules,
-  enabled: parsed.safeguardsEnabled,
+  enabled: parsed.safeguardsEnabled ?? false,
   now: Date.now(),
 })
 const safeguardsWithDetect: SafeguardsMergeInput = {
@@ -206,7 +208,7 @@ const b3 = bench(`collectAndComputeSafeguardProtection (${artifacts.length} rows
     baseRules: mergedRulesBaseline,
     recipeModes,
     rules: safeguardRules,
-    enabled: parsed.safeguardsEnabled,
+    enabled: parsed.safeguardsEnabled ?? false,
     now: Date.now(),
   })
 })
@@ -232,14 +234,9 @@ console.log('     flatten once, apply safeguard detection twice from shared comp
 
 const b5 = bench('buildMergedRulesComponents + fromComponents × 2', () => {
   const components = buildMergedRulesComponents(mergeParams)
-  computeMergedRulesFromComponents(components, {
-    finalSellRemainder: mergeParams.finalSellRemainder,
-    safeguards: safeguardsNoDetect,
-  })
-  computeMergedRulesFromComponents(components, {
-    finalSellRemainder: mergeParams.finalSellRemainder,
-    safeguards: safeguardsWithDetect,
-  })
+  const fsrArg = parsed.finalSellRemainder !== null ? { finalSellRemainder: parsed.finalSellRemainder } : {}
+  computeMergedRulesFromComponents(components, { ...fsrArg, safeguards: safeguardsNoDetect })
+  computeMergedRulesFromComponents(components, { ...fsrArg, safeguards: safeguardsWithDetect })
 })
 
 // ── benchmark 6: full pipeline simulation (end-to-end) ────────────────────────
@@ -253,12 +250,10 @@ console.log('     components → configure + baseline eval → detect → config
 const b6 = await benchAsync('full pipeline (components + 2×eval + detect)', async () => {
   // Build shared components once (flattenRuleBatches runs once here).
   const components = buildMergedRulesComponents(mergeParams)
+  const fsrArg = parsed.finalSellRemainder !== null ? { finalSellRemainder: parsed.finalSellRemainder } : {}
 
   // Baseline merged rules + eval.
-  const baseline = computeMergedRulesFromComponents(components, {
-    finalSellRemainder: mergeParams.finalSellRemainder,
-    safeguards: safeguardsNoDetect,
-  })
+  const baseline = computeMergedRulesFromComponents(components, { ...fsrArg, safeguards: safeguardsNoDetect })
   configureWasmRuleEngineWithLoadedWasm({ rules: baseline, recipeModes: Array.from(recipeModes) })
   evaluateWasmRuleEngineItemsWithLoadedWasm({ items: evalItems, options: {} })
 
@@ -268,15 +263,12 @@ const b6 = await benchAsync('full pipeline (components + 2×eval + detect)', asy
     baseRules: baseline,
     recipeModes,
     rules: safeguardRules,
-    enabled: parsed.safeguardsEnabled,
+    enabled: parsed.safeguardsEnabled ?? false,
     now: Date.now(),
   })
 
   // Final merged rules + eval.
-  const final = computeMergedRulesFromComponents(components, {
-    finalSellRemainder: mergeParams.finalSellRemainder,
-    safeguards: { ...safeguardsNoDetect, detection },
-  })
+  const final = computeMergedRulesFromComponents(components, { ...fsrArg, safeguards: { ...safeguardsNoDetect, detection } })
   configureWasmRuleEngineWithLoadedWasm({ rules: final, recipeModes: Array.from(recipeModes) })
   evaluateWasmRuleEngineItemsWithLoadedWasm({ items: evalItems, options: {} })
 })

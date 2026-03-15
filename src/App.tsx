@@ -5701,9 +5701,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     substatTargets: SubstatTargetTable
     selectedIndex: number | null
     note?: string
-    finalSellRemainder: FinalSellRemainderConfig
-    safeguardRules: SafeguardRule[]
-    safeguardsEnabled: boolean
+    // null when the key was absent from the source (e.g. old SFR without these sections).
+    // File-import callers fall back to defaults; clipboard paste callers skip applying.
+    finalSellRemainder: FinalSellRemainderConfig | null
+    safeguardRules: SafeguardRule[] | null
+    safeguardsEnabled: boolean | null
     recipesEnabled: boolean
   }
 
@@ -5766,10 +5768,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
         } catch {}
       }
-      setSafeguardRules(safeguardRules)
-      setSafeguardsEnabled(safeguardsEnabled)
+      // File import replaces everything; null (absent key in old SFR) falls back to defaults.
+      setSafeguardRules(safeguardRules ?? [])
+      setSafeguardsEnabled(safeguardsEnabled ?? false)
       setRecipesEnabled(payloadRecipesEnabled)
-      applyFinalSellChange(fsr, { mode: 'import', publish: false })
+      if (fsr !== null) applyFinalSellChange(fsr, { mode: 'import', publish: false })
       // Always select first recipe on manual SFR load (index is not persisted in the file).
       syncSelectedRecipeIdx(resolvedSel, { forceSync: true, suppressDraft: true })
       if (resolvedSel !== null && recipes[resolvedSel]) {
@@ -5778,7 +5781,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Always land on the first safeguard rule when loading a file, and load its data into the builder.
       // Why: setSelectedSafeguardRuleId alone only updates the chip highlight; the builder draft must
       // also be replaced so the panel does not display stale state from the previous SFR.
-      const firstSafeguardRule = safeguardRules.length > 0 ? safeguardRules[0]! : null
+      const firstSafeguardRule = (safeguardRules ?? []).length > 0 ? (safeguardRules ?? [])[0]! : null
       setSelectedSafeguardRuleId(firstSafeguardRule?.id ?? null)
       if (firstSafeguardRule) setSafeguardBuilder(cloneSafeguardRule(firstSafeguardRule))
     })
@@ -5837,7 +5840,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     },
     incomingMetasetIds: collectMetasetIds(payload.metasets),
     recipeMetasetIds: collectRecipeMetasetIds(payload.recipes),
-    safeguardMetasetIds: collectSafeguardMetasetIds(payload.safeguardRules),
+    safeguardMetasetIds: collectSafeguardMetasetIds(payload.safeguardRules ?? []),
   }), [])
 
   // Resolve incoming SFR data with selection + merge settings.
@@ -5881,8 +5884,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...recipe,
       artifactMetaSets: (recipe.artifactMetaSets ?? []).map((id) => metasetIdMap.get(id) ?? id),
     }))
-    // Remap safeguard metaset references through the same map.
-    const remappedSafeguards = payload.safeguardRules.map((rule) => ({
+    // Remap safeguard metaset references through the same map; null means absent in source.
+    const remappedSafeguards = (payload.safeguardRules ?? []).map((rule) => ({
       ...rule,
       combination: {
         ...rule.combination,
@@ -5902,7 +5905,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       try {
         applySubstatTargetsChange(payload.substatTargets, { mode: 'import', publish: false })
       } catch {}
-      applyFinalSellChange(payload.finalSellRemainder, { mode: 'import', publish: false })
+      if (payload.finalSellRemainder !== null) {
+        applyFinalSellChange(payload.finalSellRemainder, { mode: 'import', publish: false })
+      }
       if (modes.recipes === 'replace') {
         setCustomRecipes(remappedRecipes)
         const selected = typeof payload.selectedIndex === 'number'
@@ -5962,7 +5967,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (selection.safeguards) {
       if (modes.safeguards === 'replace') {
         setSafeguardRules(remappedSafeguards)
-        setSafeguardsEnabled(payload.safeguardsEnabled)
+        // null (absent key) falls back to false for file-import replace.
+        setSafeguardsEnabled(payload.safeguardsEnabled ?? false)
         setRecipesEnabled(payload.recipesEnabled !== false)
         // Replace mode wipes existing rules, so the old selection is always stale.
         // Load the first incoming rule into the builder draft to match the landing chip.
@@ -5971,7 +5977,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (firstRemapped) setSafeguardBuilder(cloneSafeguardRule(firstRemapped))
       } else {
         setSafeguardRules((prev) => [...prev, ...remappedSafeguards])
-        setSafeguardsEnabled((prev) => prev || payload.safeguardsEnabled)
+        setSafeguardsEnabled((prev) => prev || (payload.safeguardsEnabled ?? false))
         setRecipesEnabled((prev) => prev || payload.recipesEnabled !== false)
       }
     }
@@ -6469,7 +6475,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           )
           describeNextChange(withClipboardSource(conflictDescriptor))
           setMetasets(finalMetas)
-          const finalSellDescriptor = applyFinalSellChange(pendingImport.finalSellRemainder, { mode: 'import', publish: false })
+          // Only apply when the clipboard source explicitly included the key (see PendingImport).
+          const finalSellDescriptor = pendingImport.finalSellRemainder !== null
+            ? applyFinalSellChange(pendingImport.finalSellRemainder, { mode: 'import', publish: false })
+            : null
           const incomingNote = typeof pendingImport.note === 'string' ? pendingImport.note : null
           const shouldApplyNote = !normalizeNoteValue(sfrNote) && Boolean(normalizeNoteValue(incomingNote))
           const noteDescriptor = shouldApplyNote
@@ -6549,8 +6558,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               setBuilder(recipes[recipes.length - 1]!)
             } catch {}
           }
-          setSafeguardRules(pendingImport.safeguardRules)
-          setSafeguardsEnabled(pendingImport.safeguardsEnabled)
+          // Only overwrite when the clipboard source explicitly included these keys.
+          if (pendingImport.safeguardRules !== null) setSafeguardRules(pendingImport.safeguardRules)
+          if (pendingImport.safeguardsEnabled !== null) setSafeguardsEnabled(pendingImport.safeguardsEnabled)
           setRecipesEnabled(pendingImport.recipesEnabled !== false)
         } finally {
           setMetasetConflictOpen(false)
@@ -6569,7 +6579,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       incomingRecipes={pendingSfrShiftDialogImport.payload.recipes}
       incomingNote={typeof pendingSfrShiftDialogImport.payload.note === 'string' ? pendingSfrShiftDialogImport.payload.note : null}
       incomingMetasets={pendingSfrShiftDialogImport.payload.metasets}
-      incomingSafeguards={pendingSfrShiftDialogImport.payload.safeguardRules}
+      incomingSafeguards={pendingSfrShiftDialogImport.payload.safeguardRules ?? []}
       onCancel={() => {
         setPendingSfrShiftDialogImport(null)
       }}

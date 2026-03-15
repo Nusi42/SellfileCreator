@@ -80,7 +80,7 @@ test('SFR parser ignores SelectedConfigIndex (always selects first recipe) and c
   assert.equal(parsed.selectedIndex, 0)
   assert.equal(parsed.safeguardsEnabled, true)
   assert.equal(Array.isArray(parsed.safeguardRules), true)
-  assert.equal(parsed.safeguardRules.length, 0)
+  assert.equal(parsed.safeguardRules!.length, 0)
   // Boundary normalization should rewrite legacy recipe/safeguard markers once.
   assert.equal(parsed.note?.includes('recipe-overrides'), true)
   assert.equal(parsed.note?.includes('config-options'), false)
@@ -133,7 +133,7 @@ test('SFR parser preserves safeguard substatWeights from legacy KeepUniques payl
     { metasets: [], substatTargets: defaultSubstatTargets() },
   )
 
-  const importedRule = parsed.safeguardRules[0] as unknown as { substatWeights?: Record<string, number> } | undefined
+  const importedRule = parsed.safeguardRules![0] as unknown as { substatWeights?: Record<string, number> } | undefined
   assert(importedRule, 'expected imported safeguard rule')
   // Import should expose plain records, not map-like values, so downstream exports keep weights.
   const importedWeights = Object.values(importedRule.substatWeights ?? {}).sort((a, b) => a - b)
@@ -144,8 +144,8 @@ test('SFR parser preserves safeguard substatWeights from legacy KeepUniques payl
     metasets: parsed.metasets,
     substatTargets: parsed.substatTargets,
     recipes: parsed.recipes,
-    safeguardRules: parsed.safeguardRules,
-    safeguardsEnabled: parsed.safeguardsEnabled,
+    safeguardRules: parsed.safeguardRules!,
+    safeguardsEnabled: parsed.safeguardsEnabled!,
   }) as Record<string, unknown>
   const exportedRule = ((payload['Safeguards'] as unknown[])?.[0] ?? null) as Record<string, unknown> | null
   assert(exportedRule, 'expected exported safeguard rule')

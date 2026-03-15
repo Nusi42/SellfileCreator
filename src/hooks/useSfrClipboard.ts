@@ -27,9 +27,10 @@ export type PendingImport = {
   recipes: BuilderRecipe[]
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
-  finalSellRemainder: FinalSellRemainderConfig
-  safeguardRules: SafeguardRule[]
-  safeguardsEnabled: boolean
+  // null when the key was absent from the clipboard source — applied only when non-null.
+  finalSellRemainder: FinalSellRemainderConfig | null
+  safeguardRules: SafeguardRule[] | null
+  safeguardsEnabled: boolean | null
   recipesEnabled: boolean
   selectedIndex: number | null
   note?: string
@@ -364,7 +365,10 @@ export function useSfrClipboard({
       const ensured = ensureReferencedMetasets(metasDone, prep.recipesMapped)
       setMetasets(ensured)
       const substatTargetsDescriptor = applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
-      const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
+      // Only apply finalSell when the clipboard source explicitly included the key.
+      const finalSellDescriptor = fsr !== null
+        ? applyFinalSellChange(fsr, { mode: 'import', publish: false })
+        : null
       const incomingNote = typeof note === 'string' ? note : null
       const shouldApplyNote = !normalizeNoteValue(sfrNote) && Boolean(normalizeNoteValue(incomingNote))
       const noteDescriptor = shouldApplyNote
@@ -400,8 +404,10 @@ export function useSfrClipboard({
         publishClipboardDescriptor(descriptor)
         return next
       })
-      setSafeguardRules(importedSafeguardRules)
-      setSafeguardsEnabled(importedSafeguardsEnabled)
+      // Only overwrite when the clipboard source explicitly included these keys;
+      // a recipe-only copy omits them, and we must not reset the user's current state.
+      if (importedSafeguardRules !== null) setSafeguardRules(importedSafeguardRules)
+      if (importedSafeguardsEnabled !== null) setSafeguardsEnabled(importedSafeguardsEnabled)
       setRecipesEnabled(importedRecipesEnabled !== false)
       setPasteErr(null)
       return true
@@ -503,7 +509,10 @@ export function useSfrClipboard({
           const ensured = ensureReferencedMetasets(metasDone, prep.recipesMapped)
           setMetasets(ensured)
           const substatTargetsDescriptor = applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
-          const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
+          // Only apply finalSell when the clipboard source explicitly included the key.
+          const finalSellDescriptor = fsr !== null
+            ? applyFinalSellChange(fsr, { mode: 'import', publish: false })
+            : null
           const incomingNote = typeof note === 'string' ? note : null
           const shouldApplyNote = !normalizeNoteValue(sfrNote) && Boolean(normalizeNoteValue(incomingNote))
           const noteDescriptor = shouldApplyNote
@@ -537,8 +546,9 @@ export function useSfrClipboard({
             publishClipboardDescriptor(descriptor)
             return next
           })
-          setSafeguardRules(importedSafeguardRules)
-          setSafeguardsEnabled(importedSafeguardsEnabled)
+          // Only overwrite when the clipboard source explicitly included these keys.
+          if (importedSafeguardRules !== null) setSafeguardRules(importedSafeguardRules)
+          if (importedSafeguardsEnabled !== null) setSafeguardsEnabled(importedSafeguardsEnabled)
           setRecipesEnabled(importedRecipesEnabled !== false)
           try {
             setSelectedRecipeIdx(idx + recipes.length)
@@ -743,7 +753,10 @@ export function useSfrClipboard({
           setMetasets(ensured)
           const preLen = customRecipes.length
           const substatTargetsDescriptor = applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
-          const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
+          // Only apply finalSell when the clipboard source explicitly included the key.
+          const finalSellDescriptor = fsr !== null
+            ? applyFinalSellChange(fsr, { mode: 'import', publish: false })
+            : null
           const incomingNote = typeof note === 'string' ? note : null
           const shouldApplyNote = !normalizeNoteValue(sfrNote) && Boolean(normalizeNoteValue(incomingNote))
           const noteDescriptor = shouldApplyNote
@@ -773,8 +786,9 @@ export function useSfrClipboard({
             publishClipboardDescriptor(descriptor)
             return next
           })
-          setSafeguardRules(importedSafeguardRules)
-          setSafeguardsEnabled(importedSafeguardsEnabled)
+          // Only overwrite when the clipboard source explicitly included these keys.
+          if (importedSafeguardRules !== null) setSafeguardRules(importedSafeguardRules)
+          if (importedSafeguardsEnabled !== null) setSafeguardsEnabled(importedSafeguardsEnabled)
           setRecipesEnabled(importedRecipesEnabled !== false)
           try {
             const sel = preLen + recipes.length - 1

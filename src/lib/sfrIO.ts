@@ -865,9 +865,12 @@ export function parseSfrText(
   substatTargets: SubstatTargetTable
   selectedIndex: number | null
   note?: string
-  finalSellRemainder: FinalSellRemainderConfig
-  safeguardRules: SafeguardRule[]
-  safeguardsEnabled: boolean
+  // null when the key was absent from the source (e.g. recipe-only clipboard copy).
+  // Callers that perform a full replace (file import) should fall back to defaults;
+  // callers that merge into existing state (clipboard paste) should skip applying.
+  finalSellRemainder: FinalSellRemainderConfig | null
+  safeguardRules: SafeguardRule[] | null
+  safeguardsEnabled: boolean | null
   recipesEnabled: boolean
 } {
   const parsed = JSON.parse(text) as unknown
@@ -885,9 +888,12 @@ export function parseSfrObject(
   substatTargets: SubstatTargetTable
   selectedIndex: number | null
   note?: string
-  finalSellRemainder: FinalSellRemainderConfig
-  safeguardRules: SafeguardRule[]
-  safeguardsEnabled: boolean
+  // null when the key was absent from the source (e.g. recipe-only clipboard copy).
+  // Callers that perform a full replace (file import) should fall back to defaults;
+  // callers that merge into existing state (clipboard paste) should skip applying.
+  finalSellRemainder: FinalSellRemainderConfig | null
+  safeguardRules: SafeguardRule[] | null
+  safeguardsEnabled: boolean | null
   recipesEnabled: boolean
 } {
   const parsedRec = (typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {})
@@ -957,12 +963,16 @@ export function parseSfrObject(
     }
     return mergeMetasetNames(base, metasets, resolvedNames)
   })
-  // Optional Final Sell configuration
+  // Optional Final Sell configuration — null when the key is absent (e.g. recipe-only copy).
   const fsr = (() => {
     const DEFAULT_LEVELS: LevelMilestone[] = FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[]
     const DEFAULT_MODE = FINAL_SELL_DEFAULT_SETS_MODE
-    if (Array.isArray(parsed)) return { artifacts: false, accessories: false, levels: DEFAULT_LEVELS, setsMode: DEFAULT_MODE }
+    // Array input (legacy bare-array format) never carries FinalSell — treat as absent.
+    if (Array.isArray(parsed)) return null
+    // Key absent → null so callers can distinguish "not present" from "present but disabled".
+    if (!('FinalSellRemainder' in parsedRec)) return null
     const v = parsedRec['FinalSellRemainder']
+    // Key present but invalid value → return the disabled config (explicit author intent).
     if (!v || typeof v !== 'object') return { artifacts: false, accessories: false, levels: DEFAULT_LEVELS, setsMode: DEFAULT_MODE }
     const rec = v as Record<string, unknown>
     const artifacts = rec['artifacts'] === true ? true : false
@@ -979,8 +989,10 @@ export function parseSfrObject(
         : DEFAULT_MODE
     return { artifacts, accessories, levels: finalLevels, setsMode }
   })()
-  const safeguardRules: SafeguardRule[] = (() => {
+  // null when neither key is present — caller should preserve current state rather than reset.
+  const safeguardRules: SafeguardRule[] | null = (() => {
     // SFR boundary compatibility: accept both canonical and legacy keys.
+    if (!('Safeguards' in parsedRec) && !('KeepUniques' in parsedRec)) return null
     const raws = Array.isArray(parsedRec['Safeguards'])
       ? parsedRec['Safeguards']
       : parsedRec['KeepUniques']
@@ -1004,7 +1016,12 @@ export function parseSfrObject(
     return normalized
   })()
   // SFR boundary compatibility: keep legacy toggle key support on read only.
-  const safeguardsEnabled = parsedRec['SafeguardsEnabled'] === true || parsedRec['KeepUniquesEnabled'] === true
+  // null when the key is absent — caller should preserve current state rather than reset.
+  const safeguardsEnabled: boolean | null = (
+    'SafeguardsEnabled' in parsedRec || 'KeepUniquesEnabled' in parsedRec
+  )
+    ? (parsedRec['SafeguardsEnabled'] === true || parsedRec['KeepUniquesEnabled'] === true)
+    : null
   const recipesEnabled = parsedRec['RecipesEnabled'] !== false
   // Manual loads always start at the first recipe; selection is not persisted in SFR.
   const selectedIndex = recipes.length > 0 ? 0 : null
@@ -1038,9 +1055,10 @@ export async function readSfrFile(
   substatTargets: SubstatTargetTable
   selectedIndex: number | null
   note?: string
-  finalSellRemainder: FinalSellRemainderConfig
-  safeguardRules: SafeguardRule[]
-  safeguardsEnabled: boolean
+  // null when the key was absent from the file (old SFR without these sections).
+  finalSellRemainder: FinalSellRemainderConfig | null
+  safeguardRules: SafeguardRule[] | null
+  safeguardsEnabled: boolean | null
   recipesEnabled: boolean
 }>
 {
