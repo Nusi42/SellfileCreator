@@ -73,7 +73,7 @@ const loadSfr = async (sfrPath: string): Promise<{
     metasets: [],
     substatTargets: defaultSubstatTargets(),
   })
-  return { safeguardRules: parsedSfr.safeguardRules, metasets: parsedSfr.metasets }
+  return { safeguardRules: parsedSfr.safeguardRules ?? [], metasets: parsedSfr.metasets }
 }
 
 const loadGear = async (gearDbPath: string): Promise<NormalizedGearArtifact[]> => {
