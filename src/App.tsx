@@ -6661,8 +6661,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (target) {
       let pushToast: 'success' | 'failure' | null = null
       try {
-        // Serialize once so WS upload payloads match the downloaded sellfile body.
-        const payloadText = await blob.text()
+        // Compact JSON for the push path — no whitespace or newlines.
+        const payloadText = JSON.stringify(payload)
         // Send the upload command using the shared endpoint compatibility shim.
         const response = await sendExternalRequest(EXTERNAL_WS_METHOD_UPLOAD_SELLFILE, {
           name: filename,
