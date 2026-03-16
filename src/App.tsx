@@ -6661,13 +6661,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (target) {
       let pushToast: 'success' | 'failure' | null = null
       try {
-        // Compact JSON for the push path — no whitespace or newlines.
-        const payloadText = JSON.stringify(payload)
         // Send the upload command using the shared endpoint compatibility shim.
+        // Pass the object directly so the WS envelope serialises it inline — no double-encoding.
         const response = await sendExternalRequest(EXTERNAL_WS_METHOD_UPLOAD_SELLFILE, {
           name: filename,
           contentType: blob.type || 'application/json',
-          data: payloadText,
+          data: payload,
         })
         if (response.ok) {
           // A successful request proves endpoint reachability for later pushes.

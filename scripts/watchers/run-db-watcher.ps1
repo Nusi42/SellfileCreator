@@ -1062,16 +1062,23 @@ function Handle-JsonRpcRequest {
 
         $name = $params.name
         $data = $params.data
-        if (-not ($data -is [string])) {
+        # Accept either an inline object (current) or a pre-serialised string (legacy).
+        $payloadText = $null
+        if ($data -is [System.Collections.IDictionary]) {
+            # Re-serialise the parsed object into compact JSON for disk storage.
+            $payloadText = $data | ConvertTo-Json -Depth $script:WsJsonDepth -Compress
+        } elseif ($data -is [string]) {
+            $payloadText = $data
+        } else {
             Send-JsonRpcResponse -Socket $Socket -Id $id -Ok $false -ErrorMessage 'Missing data' -ResultPayload $null
             return
         }
 
         try {
-            $savedAs = Save-SellfilePayload -PayloadText $data -FileName ([string]$name)
+            $savedAs = Save-SellfilePayload -PayloadText $payloadText -FileName ([string]$name)
         }
         catch {
-            Write-Log -Message ("uploadSellfile write failed (bytes={0}): {1}" -f $data.Length, $_) -Color DarkYellow
+            Write-Log -Message ("uploadSellfile write failed (bytes={0}): {1}" -f $payloadText.Length, $_) -Color DarkYellow
             throw
         }
         $result = @{ ok = $true; savedAs = $savedAs }

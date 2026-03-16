@@ -16,7 +16,7 @@ Every message includes `"jsonrpc": "2.0"`.
 ### Request
 
 ```json
-{"jsonrpc":"2.0","id":1,"method":"uploadSellfile","params":{"name":"Sellfile_2026-01-13.hsf","contentType":"application/json","data":"{...}"}}
+{"jsonrpc":"2.0","id":1,"method":"uploadSellfile","params":{"name":"Sellfile_2026-01-13.hsf","contentType":"application/json","data":{...}}}
 ```
 
 ### Success Response
@@ -48,7 +48,7 @@ Upload a generated sellfile.
 **Params**
 - `name` (string, optional): Suggested filename (the server appends `.hsf` if missing).
 - `contentType` (string, optional): MIME type (usually `application/json`).
-- `data` (string, required): Raw `.hsf` JSON payload.
+- `data` (object, required): The `.hsf` file as an inline JSON object. The server re-serialises it to disk. Legacy string payloads are also accepted for backward compatibility.
 
 **Result**
 - `ok` (boolean)
