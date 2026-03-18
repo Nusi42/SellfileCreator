@@ -1,4 +1,4 @@
-/**
+﻿/**
  * App
  *
  * Top-level React component that orchestrates:
@@ -6674,15 +6674,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           pushToast = 'success'
           setLastExportSig(hsfExportStateSig)
         } else {
-          if (import.meta.env.DEV) {
-            console.error('Push endpoint responded with error', response.error)
-          }
+          console.error(`[push] endpoint error: ${JSON.stringify(response.error)}`)
           pushToast = 'failure'
         }
       } catch (err) {
-        if (import.meta.env.DEV) {
-          console.error('Failed to export sellfile over WebSocket', err)
-        }
+        console.error(`[push] WebSocket error: ${err instanceof Error ? err.message : String(err)}`)
         updatePushEndpointReachable(false)
         pushToast = 'failure'
       } finally {
