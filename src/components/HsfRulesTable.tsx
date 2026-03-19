@@ -106,11 +106,13 @@ export type SafeguardStarSelection = {
   isPlaceholder: boolean
 }
 
-export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, selectedRecipeIdx, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onSelectSafeguardRule, onRecipeAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
+export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, selectedRecipeIdx, selectedSafeguardOrdinal = null, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onSelectSafeguardRule, onRecipeAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
   rules: HsfRuleWithRecipe[]
   recipeNames?: readonly (string | null | undefined)[]
   setHoveredRecipeIdx: (idx: number | null) => void
   selectedRecipeIdx: number | null
+  // 1-based safeguard ordinal to highlight (mirrors selectedRecipeIdx for safeguard rows).
+  selectedSafeguardOrdinal?: number | null
   multiselectActive: boolean
   // Explicit scroll request for selection-driven preview jumps.
   selectionScrollRequest: SelectionScrollRequest
@@ -490,6 +492,26 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     return recipeRuleSpanMap.get(recipeIdx) ?? null
   }, [recipeRuleSpanMap])
 
+  // Parallel span map for safeguard rows — maps 1-based ordinal to the first/last row index.
+  // Mirrors recipeRuleSpanMap so the scroll effect can jump to a safeguard block the same way.
+  type SafeguardOrdinalSpan = { first: number; last: number }
+  const safeguardOrdinalSpanMap = useMemo<Map<number, SafeguardOrdinalSpan>>(() => {
+    const spans = new Map<number, SafeguardOrdinalSpan>()
+    for (let i = 0; i < rules.length; i += 1) {
+      const rule = rules[i] as HsfRuleWithRecipe | undefined
+      if (!rule || rule.__source !== RULE_SOURCE_SAFEGUARDS) continue
+      const ordinal = rule.__safeguardRuleOrdinal
+      if (typeof ordinal !== 'number') continue
+      const existing = spans.get(ordinal)
+      if (existing) {
+        existing.last = i
+      } else {
+        spans.set(ordinal, { first: i, last: i })
+      }
+    }
+    return spans
+  }, [rules])
+
   // Gate hover highlighting to the table area only
   const [isHoveringArea, setIsHoveringArea] = useState(false)
   // DOM-based hover highlight to avoid re-rendering rows during hover.
@@ -521,6 +543,30 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     selectedRowElsRef.current = list
     for (const el of list) {
       try { el.setAttribute('data-selected-recipe', 'true') } catch {}
+    }
+  }, [])
+  // Parallel DOM-level highlight for safeguard rows — mirrors applyDomSelection for recipe rows.
+  const selectedSafeguardRowElsRef = useRef<HTMLElement[] | null>(null)
+  const lastSelectedSafeguardOrdinalRef = useRef<number | null>(null)
+  const applyDomSafeguardSelection = useCallback((ordinal: number | null) => {
+    const container = tableContainerRef.current
+    if (!container) {
+      lastSelectedSafeguardOrdinalRef.current = ordinal
+      return
+    }
+    if (selectedSafeguardRowElsRef.current) {
+      for (const el of selectedSafeguardRowElsRef.current) {
+        try { el.removeAttribute('data-selected-safeguard') } catch {}
+      }
+      selectedSafeguardRowElsRef.current = null
+    }
+    lastSelectedSafeguardOrdinalRef.current = ordinal
+    if (ordinal === null || ordinal === undefined) return
+    const list = Array.from(container.querySelectorAll(`tr[data-safeguard-ordinal="${ordinal}"]`)) as HTMLElement[]
+    if (!list.length) return
+    selectedSafeguardRowElsRef.current = list
+    for (const el of list) {
+      try { el.setAttribute('data-selected-safeguard', 'true') } catch {}
     }
   }, [])
   const scheduleHoverPropagation = (next: number | null) => {
@@ -600,6 +646,11 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     applyDomSelection(multiselectActive ? null : selectedRecipeIdx)
   }, [selectedRecipeIdx, multiselectActive, applyDomSelection])
 
+  // Reapply safeguard highlight whenever the selected ordinal changes.
+  useEffect(() => {
+    applyDomSafeguardSelection(selectedSafeguardOrdinal)
+  }, [selectedSafeguardOrdinal, applyDomSafeguardSelection])
+
   useEffect(() => {
     // Virtualization swaps row elements as the user scrolls; reapply the hover class so
     // newly mounted rows for the active recipe keep their highlight without extra renders.
@@ -607,7 +658,9 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     if (hovered !== null && hovered !== undefined) {
       applyDomHover(hovered)
     }
+    // Reapply both recipe and safeguard highlights after every render (virtualization churn).
     applyDomSelection(lastSelectedRecipeRef.current ?? null)
+    applyDomSafeguardSelection(lastSelectedSafeguardOrdinalRef.current ?? null)
   })
 
   // Context menus
@@ -824,19 +877,24 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
   useEffect(() => {
     // Gate auto-scroll to explicit scroll requests only.
     // Why: background updates should not move the user's viewport.
-    const { token, source, targetRecipeIdx } = selectionScrollRequest
+    const { token, source, targetRecipeIdx, targetSafeguardOrdinal } = selectionScrollRequest
     if (token === lastSelectionScrollTokenRef.current) return
     lastSelectionScrollTokenRef.current = token
     // Skip recipe-based scroll when a rule-specific focus is active.
     // Why: selectRule already scrolls to the target row.
     if (source === SELECTION_SCROLL_SOURCE_SELECT_RULE && focusRuleIndex != null) return
-    // Prefer the explicit target when available.
-    // Why: selection updates can trail the user event that requested a scroll.
+    // If selection came from a table row click, skip this one automatic scroll.
+    if (suppressNextScrollRef.current) { suppressNextScrollRef.current = false; return }
+    // Safeguard chip selection: scroll to the first row of the target safeguard block.
+    if (targetSafeguardOrdinal != null) {
+      const span = safeguardOrdinalSpanMap.get(targetSafeguardOrdinal)
+      if (span) scrollRuleIndexToTop(span.first)
+      return
+    }
+    // Recipe chip selection: prefer the explicit target, fall back to the current selection.
     const effectiveRecipeIdx = targetRecipeIdx ?? selectedRecipeIdx
     if (effectiveRecipeIdx === null || effectiveRecipeIdx === undefined) return
     if (multiselectActive) return
-    // If selection came from a table row click, skip this one automatic scroll.
-    if (suppressNextScrollRef.current) { suppressNextScrollRef.current = false; return }
     // Map the selected recipe to its contiguous range of preview rows.
     // Why: a recipe can generate multiple rules (or none), and the preview must jump to the correct block.
     const span = getRecipeSpan(effectiveRecipeIdx as number)
@@ -848,6 +906,7 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     focusRuleIndex,
     getRecipeSpan,
     multiselectActive,
+    safeguardOrdinalSpanMap,
     scrollRuleIndexToTop,
     selectedRecipeIdx,
     selectionScrollRequest,
@@ -1287,6 +1346,8 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
 			                        data-row-index={idx}
 		                        data-rule-source={resolvedSource}
 		                        {...(recipeIdxNumber !== null && resolvedSource !== RULE_SOURCE_HSF ? { 'data-recipe-idx': String(recipeIdxNumber) } : {})}
+		                        // Stamp the 1-based safeguard ordinal so applyDomSafeguardSelection can query it.
+		                        {...(resolvedSource === RULE_SOURCE_SAFEGUARDS && typeof rule.__safeguardRuleOrdinal === 'number' ? { 'data-safeguard-ordinal': String(rule.__safeguardRuleOrdinal) } : {})}
 		                        // Wrap mode needs measured heights so TanStack can compute correct scroll offsets.
 		                        // Why: single-line mode is strict fixed-height, so measuring would unnecessarily enable dynamic mode.
 		                        ref={(el) => {
@@ -1340,6 +1401,10 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
 		                        sx={(theme) => ({
 		                          // Fixed-height styling is applied at the `<Table>` level so spacer rows can keep variable heights.
 		                          '&[data-selected-recipe="true"]': {
+		                            backgroundColor: theme.palette.action.selected,
+		                          },
+		                          // Safeguard row highlight mirrors the recipe selection style.
+		                          '&[data-selected-safeguard="true"]': {
 		                            backgroundColor: theme.palette.action.selected,
 		                          },
 		                          // Play enter animation for new rows, change-pulse for modified existing rows.
