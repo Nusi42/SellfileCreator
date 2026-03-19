@@ -310,7 +310,8 @@ fn merge_safeguard_injected_rules_core(
         filtered.push(rule);
     }
 
-    // Match merge.ts ordering: level, rule ordinal, placeholder rank, item key.
+    // Match merge.ts ordering: rule ordinal (groups all rows for one safeguard together),
+    // then level, placeholder rank, item key — so each safeguard's rows form a contiguous block.
     let mut sortable = filtered
         .into_iter()
         .enumerate()
@@ -332,11 +333,13 @@ fn merge_safeguard_injected_rules_core(
         })
         .collect::<Vec<_>>();
     sortable.sort_by(|left, right| {
-        if left.level_idx != right.level_idx {
-            return left.level_idx.cmp(&right.level_idx);
-        }
+        // Primary: safeguard ordinal — all rows for a single safeguard rule stay together.
         if left.rule_ordinal != right.rule_ordinal {
             return left.rule_ordinal.cmp(&right.rule_ordinal);
+        }
+        // Secondary: level — within a safeguard block rows ascend by level milestone.
+        if left.level_idx != right.level_idx {
+            return left.level_idx.cmp(&right.level_idx);
         }
         if left.placeholder_rank != right.placeholder_rank {
             return left.placeholder_rank.cmp(&right.placeholder_rank);

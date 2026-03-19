@@ -239,8 +239,12 @@ export function useSafeguardSelection({
       const only = safeguardRules.find((r) => r.id === final[0])
       if (only) setSafeguardBuilder(cloneSafeguardRule(only))
     }
-    // Scroll to the active rule when it changes.
-    if (selectionChanged && last) onSelectionScrollRequest?.(last)
+    // Scroll to the active rule on every click, not only when selection changed.
+    // Why: if WASM ordinals haven't rebuilt yet after a reorder, the first click
+    // silently fails (token consumed, span not found). Without this, the second
+    // click has selectionChanged = false and never retries. Unconditional fire
+    // lets the user click the chip again to recover without switching away first.
+    if (last) onSelectionScrollRequest?.(last)
   }, [
     applySelection,
     onSelectionScrollRequest,

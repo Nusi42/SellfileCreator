@@ -1487,10 +1487,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     source: SELECTION_SCROLL_SOURCE_USER,
     // No target until the first explicit selection request.
     targetRecipeIdx: null,
+    targetSafeguardOrdinal: null,
   }))
   // Bump the request token whenever a selection should auto-scroll the preview.
   // Why: a monotonic counter lets the table ignore unrelated renders.
-  const requestSelectionScroll = useCallback((source: SelectionScrollSource, targetRecipeIdx: number | null) => {
+  // Accepts an optional safeguard ordinal for safeguard chip selections (mutually exclusive with targetRecipeIdx).
+  const requestSelectionScroll = useCallback((source: SelectionScrollSource, targetRecipeIdx: number | null, targetSafeguardOrdinal?: number | null) => {
     // Increment the token so the preview sees a fresh scroll request.
     // Why: the token change is the sole trigger signal.
     setSelectionScrollRequest((prev) => ({
@@ -1498,8 +1500,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       token: prev.token + 1,
       // Keep the source so the preview can resolve scroll precedence.
       source,
-      // Stash the target so the preview scrolls to the intended recipe.
+      // Stash the target so the preview scrolls to the intended recipe or safeguard block.
       targetRecipeIdx,
+      targetSafeguardOrdinal: targetSafeguardOrdinal ?? null,
     }))
   }, [])
   const visibleRecipeIndicesRef = useRef<ReadonlySet<number> | null>(null)
@@ -1558,6 +1561,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setPreviewSelectedRecipeIdx(selectedRecipeIdx)
     })
   }, [selectedRecipeIdx])
+  // 1-based ordinal of the selected safeguard rule, derived from its ID position in the list.
+  // Used to drive HSF row highlight and "Selection on" filtering (mirrors selectedRecipeIdx).
+  const selectedSafeguardOrdinal = useMemo(() => {
+    if (!selectedSafeguardRuleId) return null
+    const idx = safeguardRules.findIndex((r) => r.id === selectedSafeguardRuleId)
+    return idx >= 0 ? idx + 1 : null
+  }, [selectedSafeguardRuleId, safeguardRules])
+  // Transitional copy so safeguard highlight updates are deferred like recipe highlight.
+  const [previewSelectedSafeguardOrdinal, setPreviewSelectedSafeguardOrdinal] = useState<number | null>(null)
+  useEffect(() => {
+    startTransition(() => {
+      setPreviewSelectedSafeguardOrdinal(selectedSafeguardOrdinal)
+    })
+  }, [selectedSafeguardOrdinal])
   const syncSelectedRecipeIdx = useCallback((value: React.SetStateAction<number | null>, options?: { preserveSelection?: boolean; forceSync?: boolean; suppressDraft?: boolean }) => {
     autoApplyNowRef.current()
     const applySelectionChange = () => {
@@ -1942,8 +1959,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSelectedRuleId: setSelectedSafeguardRuleId,
     onWillChangeSelection: handleSafeguardWillChangeSelection,
     onSelectionScrollRequest: (ruleId) => {
+      // Scroll the chips panel to keep the newly selected chip visible.
       safeguardFocusTokenRef.current += 1
       setSafeguardFocusRequest({ ruleId, token: safeguardFocusTokenRef.current })
+      // Also scroll the HSF preview table to the first row for this safeguard.
+      const ordinal = safeguardRules.findIndex((r) => r.id === ruleId) + 1
+      if (ordinal > 0) requestSelectionScroll(SELECTION_SCROLL_SOURCE_USER, null, ordinal)
     },
     visibleRuleIdsRef: visibleSafeguardRuleIdsRef,
     setSafeguardBuilder,
@@ -2003,7 +2024,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSelectedSafeguardRuleIds([ruleId], { suppressWillChange: true })
     const rule = safeguardRules.find((r) => r.id === ruleId)
     if (rule) setSafeguardBuilder(cloneSafeguardRule(rule))
-  }, [safeguardRules, setSafeguardBuilder, setSelectedSafeguardRuleIds])
+    // Scroll the HSF preview to the first row of this safeguard — mirrors recipe chip scroll.
+    const ordinal = safeguardRules.findIndex((r) => r.id === ruleId) + 1
+    if (ordinal > 0) requestSelectionScroll(SELECTION_SCROLL_SOURCE_USER, null, ordinal)
+  }, [safeguardRules, setSafeguardBuilder, setSelectedSafeguardRuleIds, requestSelectionScroll])
 
   // Shared helper: build a scaffolded SafeguardRule from a recipe without touching state.
   // Uses safeguardBuilderRef.current as the base so id/countMode/etc. are preserved.
@@ -4398,18 +4422,34 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return recipeSet
   }, [builderMode, gearInspectorRecipeFilterMode, safeguardSelectedRuleItemKeySet, safeguardAnyMatchItemKeySet, gearEntriesAfterRulesFilter])
+  // Mirrors gearInspectorRecipeFilterSelectedSet for safeguards: a Set containing the selected
+  // ordinal, or null when Selection is off / no chip is selected / not in safeguard mode.
+  // Gated on gearInspectorRecipeFilterMode (the "Selection" toggle) — same flag that drives
+  // gearInspectorRecipeFilterSelectedSet — not limitRecipesToFiltered (the "Narrow" toggle).
+  const safeguardOrdinalFilterSet = useMemo<Set<number> | null>(() => {
+    if (gearInspectorRecipeFilterMode === 'off' || builderMode !== 'safeguard' || selectedSafeguardOrdinal === null) return null
+    return new Set([selectedSafeguardOrdinal])
+  }, [gearInspectorRecipeFilterMode, builderMode, selectedSafeguardOrdinal])
   const hsfRulesForTable = useMemo(() => {
     const baseRules = filterActive ? filteredRules : mergedRules
+    // Safeguard selection filter: keeps only rows whose ordinal is in the set —
+    // equivalent to how gearInspectorRecipeFilterSelectedSet filters recipe rows.
+    if (safeguardOrdinalFilterSet !== null) {
+      return baseRules.filter((rule) => {
+        const ordinal = rule.__safeguardRuleOrdinal
+        return typeof ordinal === 'number' && safeguardOrdinalFilterSet.has(ordinal)
+      })
+    }
     const activeSet = builderMode === 'safeguard' ? safeguardMatchingRecipeIndexSet : gearInspectorRecipeFilterSelectedSet
     if (!activeSet || activeSet.size === 0) return baseRules
     return baseRules.filter((rule) => {
       const recipeIdx = getRuleRecipeIndex(rule)
       return recipeIdx !== null && activeSet.has(recipeIdx)
     })
-  }, [builderMode, filterActive, filteredRules, mergedRules, safeguardMatchingRecipeIndexSet, gearInspectorRecipeFilterSelectedSet])
+  }, [builderMode, filterActive, filteredRules, mergedRules, safeguardMatchingRecipeIndexSet, gearInspectorRecipeFilterSelectedSet, safeguardOrdinalFilterSet])
   const hsfRulesForTableRef = useRef(hsfRulesForTable)
   useEffect(() => { hsfRulesForTableRef.current = hsfRulesForTable }, [hsfRulesForTable])
-  const hsfTableEmptyDueToFilters = (filterActive || gearInspectorRecipeFilterActive) && mergedRules.length > 0 && hsfRulesForTable.length === 0
+  const hsfTableEmptyDueToFilters = (filterActive || gearInspectorRecipeFilterActive || safeguardOrdinalFilterSet !== null) && mergedRules.length > 0 && hsfRulesForTable.length === 0
   const gearInspectorArtifactIdBySafeguardItemKey = useMemo(() => {
     const byItemKey = new Map<number, number>()
     for (const row of gearInspectorPreviewRows) {
@@ -7133,6 +7173,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 recipeNames={recipeNamesForGrid}
                 setHoveredRecipeIdx={setHoveredRecipeIdx}
                 selectedRecipeIdx={previewSelectedRecipeIdx}
+                selectedSafeguardOrdinal={previewSelectedSafeguardOrdinal}
                 multiselectActive={multiselectActive}
                 selectionScrollRequest={selectionScrollRequest}
                 emptyStateVerticalAlign={emptyStateVerticalAlign}

@@ -536,8 +536,10 @@ export type SelectionScrollRequest = {
   token: number
   // Source of the request (user or command).
   source: SelectionScrollSource
-  // Target recipe index to scroll to (if applicable).
+  // Target recipe index to scroll to (mutually exclusive with targetSafeguardOrdinal).
   targetRecipeIdx: number | null
+  // Target safeguard ordinal to scroll to — set when a safeguard chip triggers the scroll.
+  targetSafeguardOrdinal?: number | null
 }
 
 // Fixed width for Faction Select in the Rules filter
