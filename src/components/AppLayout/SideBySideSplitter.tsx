@@ -27,9 +27,14 @@ export type SideBySideSplitterProps = {
   leftWidthPx: number
   /** When true, CSS zoom is applied to the root; deltas must be divided by the zoom factor. */
   forceSideBySide?: boolean
+  /**
+   * When false (production), the component still renders to reserve GRID_COLUMN_GAP_PX of
+   * horizontal space so the layout matches dev; drag interaction and the visible icon are suppressed.
+   */
+  interactive?: boolean
 }
 
-export function SideBySideSplitter({ onResize, leftWidthPx, forceSideBySide = false }: SideBySideSplitterProps) {
+export function SideBySideSplitter({ onResize, leftWidthPx, forceSideBySide = false, interactive = true }: SideBySideSplitterProps) {
   // Track drag start values via refs to avoid stale closures in event listeners.
   const dragStartXRef = useRef<number | null>(null)
   const dragStartLeftRef = useRef<number>(leftWidthPx)
@@ -72,8 +77,9 @@ export function SideBySideSplitter({ onResize, leftWidthPx, forceSideBySide = fa
 
   return (
     <Box
-      onMouseDown={handleMouseDown}
-      onDoubleClick={handleDoubleClick}
+      // Interaction handlers are only wired up in dev builds where interactive=true.
+      onMouseDown={interactive ? handleMouseDown : undefined}
+      onDoubleClick={interactive ? handleDoubleClick : undefined}
       sx={{
         // Fixed width — matches the original GRID_COLUMN_GAP_PX so total layout width is unchanged.
         width: GRID_COLUMN_GAP_PX,
@@ -83,30 +89,29 @@ export function SideBySideSplitter({ onResize, leftWidthPx, forceSideBySide = fa
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        cursor: 'col-resize',
-        // Subtle hover background so the user can discover the handle.
-        borderRadius: 1,
-        transition: 'background-color 150ms ease',
-        '&:hover': {
-          backgroundColor: 'action.hover',
-        },
-        '&:active': {
-          backgroundColor: 'action.selected',
-        },
-        // Prevent text selection while dragging.
-        userSelect: 'none',
+        // In production the element is a passive spacer — no pointer affordances.
+        ...(interactive ? {
+          cursor: 'col-resize',
+          borderRadius: 1,
+          transition: 'background-color 150ms ease',
+          '&:hover': { backgroundColor: 'action.hover' },
+          '&:active': { backgroundColor: 'action.selected' },
+          userSelect: 'none',
+        } : {}),
       }}
     >
-      {/* Vertical grip icon — rotated 90° so the drag lines run vertically. */}
-      <DragIndicatorIcon
-        sx={{
-          fontSize: 14,
-          color: 'text.disabled',
-          // The MUI DragIndicator icon has horizontal lines by default; rotating makes them vertical.
-          transform: 'rotate(90deg)',
-          pointerEvents: 'none',
-        }}
-      />
+      {/* Vertical grip icon — only shown when interactive (dev builds). */}
+      {interactive && (
+        <DragIndicatorIcon
+          sx={{
+            fontSize: 14,
+            color: 'text.disabled',
+            // The MUI DragIndicator icon has horizontal lines by default; rotating makes them vertical.
+            transform: 'rotate(90deg)',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
     </Box>
   )
 }
