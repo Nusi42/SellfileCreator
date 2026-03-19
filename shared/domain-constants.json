@@ -42,6 +42,25 @@
     "mythical": 15,
     "gteLegendary": 16
   },
+  "rankCode": {
+    "any": 0,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "gteOne": 7,
+    "gteTwo": 8,
+    "gteThree": 9,
+    "gteFour": 10,
+    "gteFive": 11,
+    "lteTwo": 12,
+    "lteThree": 13,
+    "lteFour": 14,
+    "lteFive": 15,
+    "lteSix": 16
+  },
   "rankValue": {
     "min": 1,
     "max": 6

@@ -7,7 +7,10 @@ use crate::safeguards::{build_safeguard_rules_core, safeguard_clone_any_substats
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum SafeguardInjectedKeepKey {
     Canonical(rule_dedupe::CollapseCanonicalKey),
-    PlaceholderCanonical(rule_dedupe::CollapseCanonicalKey),
+    // Rarity is included alongside the canonical key so same-rank placeholder
+    // rules that differ only by rarity are not incorrectly collapsed — each
+    // rarity variant is a distinct HSF target for anticipate-gaps mode.
+    PlaceholderCanonical(rule_dedupe::CollapseCanonicalKey, i64),
     ItemLevel { item_key: i64, level: i64 },
 }
 
@@ -294,7 +297,10 @@ fn merge_safeguard_injected_rules_core(
         let is_safeguard_source = rule.source.as_deref() == Some(RULE_SOURCE_SAFEGUARDS);
         let dedupe_key = if is_safeguard_source {
             if rule.safeguard_placeholder.unwrap_or(false) {
-                SafeguardInjectedKeepKey::PlaceholderCanonical(canonical.clone())
+                // Include rarity so same-rank-different-rarity placeholder rules
+                // each survive; CollapseCanonicalKey intentionally omits rarity
+                // for the epic/legendary collapse pass, but placeholders need it.
+                SafeguardInjectedKeepKey::PlaceholderCanonical(canonical.clone(), rule.Rarity.unwrap_or(0))
             } else {
                 let item_key = rule.safeguard_item_key.unwrap_or(JS_MAX_SAFE_INTEGER_I64);
                 let level = rule.LVLForCheck.unwrap_or(LEVEL_ANY_SENTINEL);

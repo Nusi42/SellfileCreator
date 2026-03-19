@@ -1394,16 +1394,6 @@ fn safeguard_build_placeholder_substats_group(variants: &[i64]) -> Vec<RuleSubRa
     cloned
 }
 
-fn safeguard_normalize_rank_selection(values: &[i64]) -> Vec<Option<i64>> {
-    let normalized = safeguard_sorted_unique_i64(values);
-    if normalized.is_empty() {
-        return vec![None];
-    }
-    normalized
-        .into_iter()
-        .map(|value| Some(safeguard_clamp_rank_or_rarity_value(value)))
-        .collect::<Vec<_>>()
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct SafeguardCanonicalSubstatKey {
@@ -1419,6 +1409,9 @@ struct SafeguardCanonicalRuleKey {
     keep: bool,
     use_flag: bool,
     rank: i64,
+    // rarity must be part of the key so rules that differ only by rarity are not
+    // collapsed — each rarity variant is a distinct placeholder target.
+    rarity: i64,
     level: i64,
     faction: i64,
     main_stat_id: i64,
@@ -1461,6 +1454,7 @@ fn safeguard_canonical_rule_key(rule: &RuleRaw) -> SafeguardCanonicalRuleKey {
         keep: rule.Keep.unwrap_or(false),
         use_flag: rule.Use.unwrap_or(true),
         rank: rule.Rank.unwrap_or(0),
+        rarity: rule.Rarity.unwrap_or(0),
         level: rule.LVLForCheck.unwrap_or(0),
         faction: rule.Faction.unwrap_or(0),
         main_stat_id: rule.MainStatID.unwrap_or(STAT_ID_ANY),
@@ -1483,6 +1477,63 @@ fn safeguard_trim_name(name: &str) -> Option<String> {
     }
 }
 
+// Consolidate placeholder rank values into pre-computed HSF rank codes.
+// Consecutive selections ending at the maximum rank value (6★) collapse to a
+// single GTE_* code, matching RSL Helper's "N stars or better" semantics.
+// Non-consecutive or mid-range selections fall through to one code per value.
+fn safeguard_consolidate_rank_options(ranks: &[i64]) -> Vec<i64> {
+    let sorted = safeguard_sorted_unique_i64(ranks);
+    if sorted.is_empty() {
+        // Empty selection = wildcard; RANK_CODE_ANY matches any rank.
+        return vec![RANK_CODE_ANY];
+    }
+    // Consecutive chain ending at the maximum rank value: map anchor to GTE code.
+    let ends_at_max = *sorted.last().unwrap() == RANK_VALUE_MAX;
+    let is_consecutive = sorted.windows(2).all(|w| w[1] == w[0] + 1);
+    if ends_at_max && is_consecutive {
+        let gte_code = match sorted[0] {
+            1 => RANK_CODE_GTE_ONE,
+            2 => RANK_CODE_GTE_TWO,
+            3 => RANK_CODE_GTE_THREE,
+            4 => RANK_CODE_GTE_FOUR,
+            5 => RANK_CODE_GTE_FIVE,
+            // Single top rank or unknown: fall back to exact Six code.
+            _ => RANK_CODE_SIX,
+        };
+        return vec![gte_code];
+    }
+    // Non-GTE selection: emit one exact code per rank value (1..6 map directly).
+    sorted.into_iter().map(|v| v.clamp(RANK_CODE_ONE, RANK_CODE_SIX)).collect()
+}
+
+// Consolidate placeholder rarity values into pre-computed HSF rarity codes.
+// Consecutive selections ending at the maximum rarity value (Mythical) collapse
+// to a single GTE_* code matching RSL Helper's "this rarity or better" semantics.
+// Non-consecutive or mid-range selections fall through to one code per value.
+fn safeguard_consolidate_rarity_codes(rarities: &[i64]) -> Vec<i64> {
+    let sorted = safeguard_sorted_unique_i64(rarities);
+    if sorted.is_empty() {
+        return vec![RARITY_CODE_ANY];
+    }
+    // Consecutive chain ending at max rarity: map anchor value to its GTE code.
+    let ends_at_max = *sorted.last().unwrap() == RANK_VALUE_MAX;
+    let is_consecutive = sorted.windows(2).all(|w| w[1] == w[0] + 1);
+    if ends_at_max && is_consecutive {
+        let gte_code = match sorted[0] {
+            1 => RARITY_CODE_GTE_COMMON,
+            2 => RARITY_CODE_GTE_UNCOMMON,
+            3 => RARITY_CODE_GTE_RARE,
+            4 => RARITY_CODE_GTE_EPIC,
+            5 => RARITY_CODE_GTE_LEGENDARY,
+            // Single top rarity or unknown: fall back to the exact code.
+            v => safeguard_rarity_value_to_code(v),
+        };
+        return vec![gte_code];
+    }
+    // Non-GTE selection: emit one exact code per rarity value.
+    sorted.into_iter().map(safeguard_rarity_value_to_code).collect()
+}
+
 fn safeguard_build_placeholder_base_rules(
     combination: &SafeguardWasmCombination,
     recipe_id: i64,
@@ -1493,8 +1544,10 @@ fn safeguard_build_placeholder_base_rules(
     let mut set_values = set_includes.into_iter().collect::<Vec<_>>();
     set_values.sort_unstable();
     let faction_values = safeguard_sorted_unique_i64(&combination.factions);
-    let rank_options = safeguard_normalize_rank_selection(&combination.ranks);
-    let rarity_options = safeguard_normalize_rank_selection(&combination.rarities);
+    // Consolidate consecutive rank/rarity chains ending at the maximum value into
+    // a single GTE anchor so each placeholder group emits the fewest HSF rules.
+    let rank_values = safeguard_consolidate_rank_options(&combination.ranks);
+    let rarity_codes = safeguard_consolidate_rarity_codes(&combination.rarities);
     let main_options = safeguard_sorted_unique_i64(&combination.main_stats);
     let faction_options = if faction_values.is_empty() {
         vec![0]
@@ -1508,8 +1561,8 @@ fn safeguard_build_placeholder_base_rules(
     };
     let mut rules = Vec::<RuleRaw>::new();
     let mut seen = HashSet::<SafeguardCanonicalRuleKey>::new();
-    for rank_variant in &rank_options {
-        for rarity_variant in &rarity_options {
+    for &rank in &rank_values {
+        for &rarity_code in &rarity_codes {
             for faction in &faction_options {
                 for main_variant in &main_variants {
                     let (main_id, main_f) = safeguard_variant_to_main(*main_variant);
@@ -1529,11 +1582,8 @@ fn safeguard_build_placeholder_base_rules(
                         } else {
                             Some(slot_values.clone())
                         },
-                        Rank: Some(rank_variant.unwrap_or(0)),
-                        Rarity: Some(match rarity_variant {
-                            Some(value) => safeguard_rarity_value_to_code(*value),
-                            None => RARITY_CODE_ANY,
-                        }),
+                        Rank: Some(rank),
+                        Rarity: Some(rarity_code),
                         MainStatID: Some(main_id),
                         MainStatF: Some(serde_json::Value::from(main_f)),
                         LVLForCheck: Some(LEVEL_ANY_SENTINEL),

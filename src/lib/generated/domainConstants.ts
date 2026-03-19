@@ -48,6 +48,25 @@ export const RARITY_CODE_LTE_MYTHICAL = 14
 export const RARITY_CODE_MYTHICAL = 15
 export const RARITY_CODE_GTE_LEGENDARY = 16
 
+// Rank code domain used by builder/rules generation (mirrors types.ts::RankCode).
+export const RANK_CODE_ANY = 0
+export const RANK_CODE_ONE = 1
+export const RANK_CODE_TWO = 2
+export const RANK_CODE_THREE = 3
+export const RANK_CODE_FOUR = 4
+export const RANK_CODE_FIVE = 5
+export const RANK_CODE_SIX = 6
+export const RANK_CODE_GTE_ONE = 7
+export const RANK_CODE_GTE_TWO = 8
+export const RANK_CODE_GTE_THREE = 9
+export const RANK_CODE_GTE_FOUR = 10
+export const RANK_CODE_GTE_FIVE = 11
+export const RANK_CODE_LTE_TWO = 12
+export const RANK_CODE_LTE_THREE = 13
+export const RANK_CODE_LTE_FOUR = 14
+export const RANK_CODE_LTE_FIVE = 15
+export const RANK_CODE_LTE_SIX = 16
+
 // Rank value bounds shared across TS and Rust safeguard/matcher logic.
 export const RANK_VALUE_MIN = 1
 export const RANK_VALUE_MAX = 6
