@@ -30,6 +30,7 @@ import {
 
 const METASET_ICON_BOX_PX = 16
 import type { SafeguardRule } from '../lib/safeguards'
+import { slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import type { Metaset } from '../lib/metasets'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { FactionIcon } from './FactionIcon'
@@ -74,6 +75,9 @@ export function safeguardSummaryParts(
   const addNode = (node: JSX.Element) => parts.push(<Box key={`n-${parts.length}`} component="span">{node}</Box>)
 
   const c = rule.combination
+  // Faction scope is only meaningful when the rule can include accessory slots.
+  // Mirrors SafeguardBuilderPanel's effectiveCountMode gate (same SSOT rule).
+  const hasAccessorySlot = slotSelectionAllowsAccessories(c.slots)
 
   // ── Slots ─────────────────────────────────────────────────────────────────
   const perSlot = rule.countMode?.perSlot ?? false
@@ -146,7 +150,9 @@ export function safeguardSummaryParts(
   }
 
   // ── Factions ──────────────────────────────────────────────────────────────
-  const perFaction = rule.countMode?.perFaction ?? false
+  // Suppress perFaction when no accessory slots are in scope, matching the
+  // builder's effectiveCountMode behaviour so the chip summary stays coherent.
+  const perFaction = hasAccessorySlot && (rule.countMode?.perFaction ?? false)
   if (c.factions && c.factions.length > 0) {
     // "Per Faction: " prefix when this rule splits its quota by faction.
     const factionLbl = perFaction ? `${opts.t ? opts.t('safeguardsCountModePerFaction') : 'Per Faction'}:${NBSP}` : ''
