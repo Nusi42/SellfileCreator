@@ -7017,7 +7017,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           />
         <PreviewHeaderActions
         mergedCount={totalLimitHit ? Number.POSITIVE_INFINITY : mergedRules.length}
-        {...(filterActive ? { filteredCount: totalLimitHit ? Number.POSITIVE_INFINITY : filteredRules.length } : {})}
+        {...(filterActive || gearInspectorRecipeFilterActive ? { filteredCount: totalLimitHit ? Number.POSITIVE_INFINITY : hsfRulesForTable.length } : {})}
         filterActive={previewFilterActive}
         filtersDirty={filtersDirty}
         filterOpen={filterOpen}
