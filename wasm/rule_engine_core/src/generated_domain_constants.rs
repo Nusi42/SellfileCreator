@@ -49,6 +49,25 @@ pub const RARITY_CODE_LTE_MYTHICAL: i64 = 14;
 pub const RARITY_CODE_MYTHICAL: i64 = 15;
 pub const RARITY_CODE_GTE_LEGENDARY: i64 = 16;
 
+// Rank code domain used by builder/rules generation (mirrors types.ts::RankCode).
+pub const RANK_CODE_ANY: i64 = 0;
+pub const RANK_CODE_ONE: i64 = 1;
+pub const RANK_CODE_TWO: i64 = 2;
+pub const RANK_CODE_THREE: i64 = 3;
+pub const RANK_CODE_FOUR: i64 = 4;
+pub const RANK_CODE_FIVE: i64 = 5;
+pub const RANK_CODE_SIX: i64 = 6;
+pub const RANK_CODE_GTE_ONE: i64 = 7;
+pub const RANK_CODE_GTE_TWO: i64 = 8;
+pub const RANK_CODE_GTE_THREE: i64 = 9;
+pub const RANK_CODE_GTE_FOUR: i64 = 10;
+pub const RANK_CODE_GTE_FIVE: i64 = 11;
+pub const RANK_CODE_LTE_TWO: i64 = 12;
+pub const RANK_CODE_LTE_THREE: i64 = 13;
+pub const RANK_CODE_LTE_FOUR: i64 = 14;
+pub const RANK_CODE_LTE_FIVE: i64 = 15;
+pub const RANK_CODE_LTE_SIX: i64 = 16;
+
 // Rank value bounds shared across TS and Rust safeguard/matcher logic.
 pub const RANK_VALUE_MIN: i64 = 1;
 pub const RANK_VALUE_MAX: i64 = 6;
