@@ -16,7 +16,7 @@
  */
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import { Box } from '@mui/material'
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 import { AUTO_SIDE_BY_SIDE_FORCED_ZOOM, GRID_COLUMN_GAP_PX, PANEL_WIDTH_PX } from '../../lib/constants'
 
@@ -41,7 +41,9 @@ export function SideBySideSplitter({ onResize, leftWidthPx, forceSideBySide = fa
   // Keep a live ref to leftWidthPx so the mousedown handler always reads the latest value
   // without re-registering the listener on every render.
   const leftWidthRef = useRef(leftWidthPx)
-  leftWidthRef.current = leftWidthPx
+  // Sync into ref after render so event handler callbacks always read the latest value
+  // without being recreated on every width change.
+  useEffect(() => { leftWidthRef.current = leftWidthPx })
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     // Only respond to primary (left) mouse button.

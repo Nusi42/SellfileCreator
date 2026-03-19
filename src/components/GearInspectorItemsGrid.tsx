@@ -1060,6 +1060,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     [flattenedItems],
   )
   // Single virtualizer now covers headers + rows; item height hints keep scroll position stable when toggling groups.
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual v3 is not React Compiler-compatible yet; tracked at https://github.com/TanStack/virtual/issues/736
   const rowVirtualizer = useVirtualizer({
     count: flattenedItems.length,
     getScrollElement: () => containerRef.current,
@@ -1286,6 +1287,13 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       () => setClearGroupGeneration((g) => g + 1),
       GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_MS + 50,
     )
+    // Cancel the pending timer if enteringGroupKeys changes again or the component unmounts.
+    return () => {
+      if (clearGroupTimerRef.current !== null) {
+        clearTimeout(clearGroupTimerRef.current)
+        clearGroupTimerRef.current = null
+      }
+    }
   }, [enteringGroupKeys])
   const [focusPulseArtifactId, setFocusPulseArtifactId] = useState<number | null>(null)
   // Ref-based setter so the timer callback and layout effect avoid the set-state-in-effect lint rule.
