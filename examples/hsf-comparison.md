@@ -1,89 +1,57 @@
-# HSF Comparison: `-260220` vs `-new`
+# Sell File Comparison: February 2026 vs March 2026
 
-Comparison of the bundled sample sell files generated on 22 February 2026 (`-260220`)
-against those generated from the current `example.sfr` recipe (`-new`).
-
----
-
-## Lategame
-
-### Rule count
-
-| File | Rules |
-| --- | ---: |
-| `Lategame-260220.hsf` | 18 573 |
-| `Lategame-new.hsf`    | 32 353 |
-| Δ | +13 780 (+74 %) |
-
-### Structural changes
-
-| Area | `-260220` | `-new` |
-| --- | --- | --- |
-| **Rank gate** | Mixed 5★/6★ — 5★ artifacts kept broadly | `rank_strict`: 6★ artifacts only; 5★ sold unless rolling SPD |
-| **Speed recipes** | "Speed – Primary" — only artifacts with Rank ≥ 6 | "Speed – Any Set" — Rank ≥ 0; applies to any rank |
-| **Marius Sets** | `Use: true` (default on) | `Use: false` (default off, opt-in via recipe override) |
-| **Preset structure** | Three-option model: Lategame / Endgame / Endgame+ | Four-option model with new Midgame tier; Lategame adds `rank_strict` + `rolls_33` |
-
-**Speed – Any Set** is the largest driver of the rule count increase. Removing the
-`Rank ≥ 6` constraint means every eligible slot × rarity combination now generates
-a dedicated rule entry for lower-rank gear, roughly doubling the rule set.
-The expanded rank window accounts for most of the +74 % growth.
-
-**Marius Sets** flipping to `Use: false` by default means those rules are inert unless
-the user opts in via the recipe override question. It does not change keep-rate for
-players who do not own Impulse/Zeal sets but reduces false positives for endgame players.
-
-**Rank gate** (`rank_strict`) means fewer 5★ artifacts survive from raw drops; the keep
-window now narrows to 6★ Epic and higher. This raises the bar for protection and is
-the secondary reason for the higher absolute rule count (more 6★ rarity variants are
-now fully enumerated).
+Compares the sell files from 22 February 2026 (`-260220`) with the updated versions
+from 22 March 2026 (`-260322`).
 
 ---
 
-## Endgame
+## What changed
 
-### Rule count
+### Lategame
 
-| File | Rules |
-| --- | ---: |
-| `Endgame-260220.hsf` | 10 729 |
-| `Endgame-new.hsf`    | 22 170 |
-| Δ | +11 441 (+107 %) |
-
-### Structural changes
-
-| Area | `-260220` | `-new` |
+| What | Old (Feb 2026) | New (Mar 2026) |
 | --- | --- | --- |
-| **Speed recipes** | "Speed – Primary" — Rank ≥ 6 | "Speed – Any Set" — Rank ≥ 0 |
-| **Marius Sets** | `Use: false` (unchanged) | `Use: false` (unchanged) |
-| **Preset structure** | Shared Endgame/Endgame+ entry point | Dedicated Endgame preset with `rank_strict` + `rolls_strict` + `eg_early` |
-| **Chaos Ore thresholds** | `ore5EpicLegendary_LvlCap` / `ore6EpicLegendary_LvlCap` | Same defaults; level-cap constraints tightened on 5★ Ore rules |
+| **5★ gear** | Both 5★ and 6★ gear were evaluated for keeps | Only 6★ gear is fully evaluated; most 5★ is sold unless it has a Speed substat |
+| **Speed-substat gear** | Only 6★ pieces were checked for Speed substat potential | All star levels are checked — more drops are held in early upgrade levels |
+| **Impulse / Zeal sets** | Protected | Sold |
 
-The same **Speed – Any Set** broadening applies here and is solely responsible for the
-~107 % rule count growth. The endgame preset is stricter on substats (`rolls_strict`)
-so pieces that are now evaluated at lower ranks are almost always sold immediately —
-they inflate the file size but have minimal impact on practical keep rates.
+The biggest practical difference is **Speed-substat gear**: the new sell file holds on to
+more drops at +0 / +4 / +8 to give them a chance to show their Speed substat. Pieces
+that do not develop good substats by +12 are sold just as before — final keep-rates at
++12 and +16 are nearly unchanged (see the delta table below).
+
+**Impulse and Zeal sets** are no longer protected. If you are still working through the
+Marius missions and want those sets kept, use the Lategame recipe in RSL Helper Sellfile
+Creator to generate a customised sell file with that option turned on.
+
+### Endgame
+
+| What | Old (Feb 2026) | New (Mar 2026) |
+| --- | --- | --- |
+| **Speed-substat gear** | Only 6★ pieces were checked for Speed substat potential | All star levels are checked |
+| **Impulse / Zeal sets** | Sold (unchanged) | Sold (unchanged) |
+| **Substat requirements** | Moderate | Stricter — more pieces are sold between +8 and +12 |
+
+The same Speed-substat change applies here. Because the substat requirements are now
+stricter, most of those extra held pieces are sold again by +12. Keep-rates at +4 / +8
+go up noticeably; final rates stay about the same.
 
 ---
 
 ## Dungeon drop simulation
 
-Keep-rate percentages are simulated with 10 000 runs per stage/boost configuration.
-**Level-up mode** — a simulated drop stops advancing once the sell file would auto-sell
-it, mirroring actual in-game rolling behavior.
+Each percentage shows how many drops out of 100 this sell file would **protect** at
+that upgrade level. Simulation uses 10 000 runs per configuration, level-up mode
+(a drop stops advancing once the sell file would auto-sell it, mirroring in-game
+rolling behavior). (Monte Carlo; results vary by ±0.1–0.3 pp across runs.)
 
-Columns without a set name show the **aggregate Σ keep-rate** across all sets that drop
-in that dungeon. Boost columns (3×) show only the keep-rate for the boosted set itself
-(denominator = total dungeon runs, not set-specific drops).
-
-Regenerate these tables at any time with:
-```
-node --experimental-wasm-modules scripts/tooling/gen-dungeon-stats.mjs <hsf-path>
-```
+Plain columns show the **average across all sets** that drop in that dungeon.
+Boost columns (3×) show the keep-rate for **that one boosted set only**
+(out of all dungeon runs, not just runs where that set dropped).
 
 ---
 
-### Lategame-260220.hsf
+### Lategame — old (Feb 2026)
 
 #### Fire Knight
 
@@ -117,7 +85,7 @@ node --experimental-wasm-modules scripts/tooling/gen-dungeon-stats.mjs <hsf-path
 
 ---
 
-### Lategame-new.hsf
+### Lategame — new (Mar 2026)
 
 #### Fire Knight
 
@@ -149,9 +117,9 @@ node --experimental-wasm-modules scripts/tooling/gen-dungeon-stats.mjs <hsf-path
 | +12 | 0.5% | 1.0% | 1.4% |
 | +16 | 0.5% | 0.9% | 1.4% |
 
-#### Lategame keep-rate delta (new − 260220)
+#### Lategame keep-rate change (new − old, percentage points)
 
-Positive values mean the new file keeps **more** drops at that gear level.
+Positive values mean the new sell file **protects more** drops at that upgrade level.
 
 | Gear level | FK N20 | FK N25 | FK H10 | Dragon N20 | Dragon N25 | Dragon H10 | IG N20 | IG N25 | IG H10 |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -161,16 +129,13 @@ Positive values mean the new file keeps **more** drops at that gear level.
 | +12 | 0.0 | −0.2 | −0.2 | +0.1 | +0.1 | +0.1 | 0.0 | +0.1 | −0.1 |
 | +16 | 0.0 | 0.0 | −0.1 | +0.2 | +0.1 | +0.2 | +0.1 | +0.1 | +0.2 |
 
-The +4 / +8 rows show the clearest signal: the new lategame file **protects
-substantially more drops in early-level windows**. This is the direct effect of
-"Speed – Any Set" — lower-rank gear now passes the initial keep check and continues
-to be evaluated at +4 and +8, where many then fall off as substats don't pan out.
-Keep rates at +12 and +16 are nearly unchanged, confirming that final-quality
-thresholds were not relaxed.
+The +4 / +8 rows show the biggest difference: more drops are held in the early
+upgrade window. Most of those extra pieces are eventually sold between +8 and +12
+once their substats are fully revealed. Keep-rates at +12 and +16 are almost identical.
 
 ---
 
-### Endgame-260220.hsf
+### Endgame — old (Feb 2026)
 
 #### Fire Knight
 
@@ -204,7 +169,7 @@ thresholds were not relaxed.
 
 ---
 
-### Endgame-new.hsf
+### Endgame — new (Mar 2026)
 
 #### Fire Knight
 
@@ -236,7 +201,7 @@ thresholds were not relaxed.
 | +12 | 0.2% | 0.4% | 0.8% |
 | +16 | 0.2% | 0.4% | 0.7% |
 
-#### Endgame keep-rate delta (new − 260220)
+#### Endgame keep-rate change (new − old, percentage points)
 
 | Gear level | FK N20 | FK N25 | FK H10 | Dragon N20 | Dragon N25 | Dragon H10 | IG N20 | IG N25 | IG H10 |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -246,24 +211,7 @@ thresholds were not relaxed.
 | +12 | +0.2 | +0.2 | +0.3 | 0.0 | 0.0 | −0.2 | 0.0 | 0.0 | −0.1 |
 | +16 | +0.1 | +0.3 | +0.3 | −0.1 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
 
-The pattern mirrors Lategame: large +4/+8 gains from "Speed – Any Set" bringing more
-drops into the initial keep window, while +12/+16 final-quality rates hold steady.
-The endgame +8 delta is even larger than lategame (+1.3–+2.9 pp vs +0.8–+2.2 pp)
-because the strict substat thresholds (`rolls_strict`) discard most of those newly
-admitted pieces between +8 and +12, so the spike is more concentrated.
-
----
-
-## Notes on regenerating
-
-The statistics above were generated with `scripts/tooling/gen-dungeon-stats.mjs`
-at 10 000 runs per configuration (Monte Carlo; results vary by ±0.1–0.3 pp across runs).
-
-To regenerate all four tables and paste them back into this file:
-
-```sh
-node --experimental-wasm-modules scripts/tooling/gen-dungeon-stats.mjs examples/Lategame-260220.hsf
-node --experimental-wasm-modules scripts/tooling/gen-dungeon-stats.mjs examples/Lategame-new.hsf
-node --experimental-wasm-modules scripts/tooling/gen-dungeon-stats.mjs examples/Endgame-260220.hsf
-node --experimental-wasm-modules scripts/tooling/gen-dungeon-stats.mjs examples/Endgame-new.hsf
-```
+Same pattern as Lategame: +4 / +8 gains are larger (up to +2.9 pp at Hard 10)
+because the new sell file now holds more drops in the early window, and the stricter
+Endgame thresholds then sell most of them off before +12. Final keep-rates are
+essentially the same as before.
