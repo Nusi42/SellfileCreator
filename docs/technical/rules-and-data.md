@@ -51,6 +51,67 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - New sessions seed a default Safeguard rule that protects 5★/6★ rings, amulets, and banners across every accessory-friendly set (1–9 families plus single-piece accessories) with `Per slot`, `Per set`, `Per faction`, and `Per main stat` scopes enabled so each combination preserves at least one item.
 - A second rule (disabled by default) guards 5★/6★ weapons and armor pieces (weapon, helmet, shield, gauntlets, chestplate, boots) for the stun, toxic, cursed, provoke, and destroy sets with `Per slot` and `Per set` scopes (per-faction/per-main are off) so you can enable it later when those rare sets become important.
 
+### NativeInput / NativeOutput (native DLL)
+
+These JSON schemas are consumed and produced by the `sfr_generate` C-ABI function
+in `wasm/rule_engine_native`.  They are distinct from the browser WASM bindings
+and require no JavaScript runtime.
+
+**NativeInput** — passed as a JSON string to `sfr_generate`:
+
+```jsonc
+{
+  // Raw SFR file content as a JSON string — the caller passes .sfr file text directly.
+  // The DLL calls serde_json::from_str on it; no pre-parsing required from the caller.
+  "sfr": "{\"Version\":\"1.0\",\"Recipes\":[...],\"Safeguards\":[...]}",
+
+  // Artifact rows in the same compact format produced by the RSL Helper WebSocket endpoint.
+  "artifacts": [
+    {
+      "ID":    1001,           // caller-assigned identifier; echoed back in upgradeChances
+      "type":  1,              // slot id: 1=Weapon 2=Helmet 3=Shield 4=Gauntlets 5=Chestplate 6=Boots 7=Ring 8=Amulet 9=Banner
+      "rank":  5,              // 1–6 (null = unknown)
+      "rarity": 4,             // 1=Common 2=Uncommon 3=Rare 4=Epic 5=Legendary 6=Mythical (null = unknown)
+      "lvl":   16,             // level milestone 0/4/8/12/16 (null = 0)
+      "aset":  10,             // armor set id (slot ≤ 6; null = no set)
+      "accset": null,          // accessory set id (slot ≥ 7; null = no set)
+      "mid":   1, "mfl": 0,    // main stat id + flat flag (0=percent, 1=flat)
+      "s1id":  4, "s1lvl": 2, "s1fl": 1,  // substat 1: id, roll count, flat flag
+      "s2id":  null, "s2lvl": null, "s2fl": null,  // absent substats use null
+      "s3id":  null, "s3lvl": null, "s3fl": null,
+      "s4id":  null, "s4lvl": null, "s4fl": null,
+      "cID":   null,           // equipped champion id (non-null sets equipped_in_collection=true)
+      "faction": 0             // pre-resolved champion faction id (0 = Any/unset)
+    }
+  ]
+}
+```
+
+Notes:
+- `s{n}lvl` is the **roll count** (0–5), not the raw substat value.  Actual values are
+  unavailable in the compact format; the DLL uses presence-based matching (value = 0.0
+  internally), so value-threshold safeguard checks are skipped.
+- Stat IDs, slot IDs, set IDs, and faction IDs are the same numeric values used throughout
+  the domain constants (see `shared/domain-constants.json`).
+
+**NativeOutput** — returned as a JSON string from `sfr_generate`:
+
+```jsonc
+{
+  "rules":          [/* HsfRule objects — same shape as the app's HSF download */],
+  "upgradeChances": [
+    {
+      "artifactId":    1001,   // echoes NativeInput artifact ID
+      "chancePercent": 72.4    // projected sell chance at +16 given active safeguards (0.0–100.0)
+      // additional fields may be present; treat unknown keys as informational
+    }
+  ]
+}
+```
+
+On any error, the DLL returns `{"error":"<message>"}` instead.  The caller must
+always check for the `error` key before reading `rules` or `upgradeChances`.
+
 ### IO Helpers (SFR)
 - Parse text/file: `parseSfrText`, `readSfrFile`.
 - Build & write: `buildReadableRecipe`, `substatTargetsToReadable`, `buildSfrPayload`, `sfrToBlob`.
