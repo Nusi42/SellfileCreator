@@ -157,6 +157,13 @@ const CLEAR_PLACEHOLDER_SX = {
   flexShrink: 0,
 } as const
 
+// Empirically measured height by which the recipe builder's level-window slider (size="small"
+// with mark labels) exceeds a BUILDER_TOGGLE_BUTTON_HEIGHT_PX select. Used to partially offset
+// the faction-chip inflation when aligning safeguard Row 3 with recipe Row 4.
+// Derived from MUI Slider internals (thumb 16px, mark 8px, markLabel 0.75rem + mt:0.5) — not
+// computable from owned constants, so treated as a measured value.
+const LEVEL_WINDOW_OVER_SELECT_SPACING = 1.4 // × 8px = 11.2px
+
 // Mirrors BuilderPanel's selectBoxHeightSx / selectContentHeightSx.
 // width: '100% ensures the Select fills its FormControl column rather than
 // growing to fit the rendered value text when items are selected.
@@ -671,8 +678,9 @@ export default function SafeguardBuilderPanel({
 
       {/* ── Row 1: Mode toggle + Required count + Ignore chips + undo/redo (full-width) ── */}
       <Box sx={{ gridColumn: '1 / -1' }}>
-        {/* Header row: chevron + Mode label + info icon + undo/redo (always visible) */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+        {/* Header row: chevron + Mode label + info icon + undo/redo (always visible).
+            position+zIndex keep the label and undo/redo controls on top of the toggle row bleed. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, position: 'relative', zIndex: 1 }}>
           <BuilderSectionToggle id="action" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
           <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
             <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('safeguardsRuleModeLabel')}</Box>
@@ -743,9 +751,12 @@ export default function SafeguardBuilderPanel({
             />
           </Box>
         </Box>
-        {/* Collapsible content: mode toggle + count + ignore chips */}
+        {/* Collapsible content: mode toggle + count + ignore chips.
+            mt: -14px (½·SMALL_BUTTON_HEIGHT_PX) bleeds the toggle row into the label row so its
+            visual center aligns with the label — matching the recipe builder's action subgroup.
+            The header row uses zIndex:1 to stay interactive on top of the bleed. */}
         <Collapse in={!builderCollapsed.action} timeout="auto" unmountOnExit>
-        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flexWrap: 'nowrap', overflow: 'hidden' }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flexWrap: 'nowrap', overflow: 'hidden', mt: `-${SMALL_BUTTON_HEIGHT_PX / 2}px` }}>
         {/* Mode toggle — label moved to header row above */}
         <FormControl sx={(theme) => ({ flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
 
@@ -1084,7 +1095,11 @@ export default function SafeguardBuilderPanel({
 
 
       {/* ── Row 3 left: Main stat + perMainStat chip ──────────────────────── */}
-      <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+      {/* mt aligns these rows with their recipe-builder counterparts.
+          The faction chip (BUILDER_STATUS_CHIP_HEIGHT_PX + spacing(0.75) = 28px) inflates the row above;
+          the level-window slider in the recipe builder partially offsets that
+          (LEVEL_WINDOW_OVER_SELECT_SPACING = 11.2px), so only the net difference is cancelled. */}
+      <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent', mt: `calc(-${BUILDER_STATUS_CHIP_HEIGHT_PX}px + ${theme.spacing(LEVEL_WINDOW_OVER_SELECT_SPACING)})` })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="mainStat" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
@@ -1207,8 +1222,9 @@ export default function SafeguardBuilderPanel({
 
       {/* ── Row 3 right: Substats + match chips + weights ─────────────────── */}
       {/* gap: 0 so the Collapse wrapper div (height:0 when collapsed) does not create phantom spacing.
-          The chips row adds its own mt: 0.75 inside the Collapse instead, which unmounts with the content. */}
-      <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+          The chips row adds its own mt: 0.75 inside the Collapse instead, which unmounts with the content.
+          mt mirrors the mainstat box (see comment there). */}
+      <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent', mt: `calc(-${BUILDER_STATUS_CHIP_HEIGHT_PX}px + ${theme.spacing(LEVEL_WINDOW_OVER_SELECT_SPACING)})` })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="substats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
