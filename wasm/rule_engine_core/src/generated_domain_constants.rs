@@ -80,6 +80,10 @@ pub const LEVEL_MILESTONE_8: i64 = 8;
 pub const LEVEL_MILESTONE_12: i64 = 12;
 pub const LEVEL_MILESTONE_16: i64 = 16;
 
+// Substat slot and roll-count limits shared by builder and safeguard logic.
+pub const SUBSTAT_SLOT_COUNT: i64 = 4;
+pub const SUBSTAT_MAX_ROLLS_PER_SLOT: i64 = 5;
+
 // StatVariant bit encoding constants and concrete variant values.
 pub const STAT_VARIANT_SHIFT_BITS: i64 = 8;
 pub const STAT_VARIANT_ID_MASK: i64 = 255;
@@ -133,3 +137,63 @@ pub const STAT_VARIANTS_PRIORITY_ROW2: [i64; 6] = [257, 256, 513, 512, 769, 768]
 pub const STAT_VARIANTS_PRIORITY: [i64; 11] = [1025, 1792, 2048, 1537, 1281, 257, 256, 513, 512, 769, 768];
 pub const PREFERRED_STAT_ORDER: [i64; 12] = [1025, 1792, 2048, 1537, 1281, 256, 257, 512, 513, 768, 769, 25345];
 
+
+// Faction IDs — one constant per faction.
+pub const FACTION_ID_BANNER_LORDS: i64 = 1;
+pub const FACTION_ID_HIGH_ELVES: i64 = 2;
+pub const FACTION_ID_SACRED_ORDER: i64 = 3;
+pub const FACTION_ID_OGRYN_TRIBES: i64 = 5;
+pub const FACTION_ID_LIZARDMEN: i64 = 6;
+pub const FACTION_ID_SKINWALKERS: i64 = 7;
+pub const FACTION_ID_ORCS: i64 = 8;
+pub const FACTION_ID_DEMONSPAWN: i64 = 9;
+pub const FACTION_ID_UNDEAD_HORDES: i64 = 10;
+pub const FACTION_ID_DARK_ELVES: i64 = 11;
+pub const FACTION_ID_KNIGHT_REVENANT: i64 = 12;
+pub const FACTION_ID_BARBARIANS: i64 = 13;
+pub const FACTION_ID_SYLVAN_WATCHERS: i64 = 14;
+pub const FACTION_ID_SHADOWKIN: i64 = 15;
+pub const FACTION_ID_DWARVES: i64 = 16;
+pub const FACTION_ID_ARGONITES: i64 = 17;
+
+// Faction names sorted alphabetically for binary-compatible linear scan.
+pub const FACTION_NAME_IDS: &[(&str, i64)] = &[("Argonites", 17), ("Banner Lords", 1), ("Barbarians", 13), ("Dark Elves", 11), ("Demonspawn", 9), ("Dwarves", 16), ("High Elves", 2), ("Knight Revenant", 12), ("Lizardmen", 6), ("Ogryn Tribes", 5), ("Orcs", 8), ("Sacred Order", 3), ("Shadowkin", 15), ("Skinwalkers", 7), ("Sylvan Watchers", 14), ("Undead Hordes", 10)];
+
+// Artifact slot display names by numeric ID, sorted by ID ascending.
+pub const ARTIFACT_TYPE_DISPLAY_NAMES: &[(i64, &str)] = &[(1, "Helmet"), (2, "Chestplate"), (3, "Gauntlets"), (4, "Boots"), (5, "Weapon"), (6, "Shield"), (7, "Ring"), (8, "Amulet"), (9, "Banner")];
+
+// Stat variant display labels sorted by variant value ascending.
+pub const STAT_VARIANT_DISPLAY_LABELS: &[(i64, &str)] = &[(256, "HP%"), (257, "HP"), (512, "ATK%"), (513, "ATK"), (768, "DEF%"), (769, "DEF"), (1025, "SPD"), (1281, "RES"), (1537, "ACC"), (1792, "CR%"), (2048, "CDMG%"), (25345, "Roll Count")];
+
+// Allowed main stat variants per slot (per-slot const + dispatch array).
+pub const ALLOWED_MAINS_HELMET: &[i64] = &[257];
+pub const ALLOWED_MAINS_CHESTPLATE: &[i64] = &[256, 257, 512, 513, 768, 769, 1537, 1281];
+pub const ALLOWED_MAINS_GAUNTLETS: &[i64] = &[256, 257, 512, 513, 768, 769, 1792, 2048];
+pub const ALLOWED_MAINS_BOOTS: &[i64] = &[256, 257, 512, 513, 768, 769, 1025];
+pub const ALLOWED_MAINS_WEAPON: &[i64] = &[513];
+pub const ALLOWED_MAINS_SHIELD: &[i64] = &[769];
+pub const ALLOWED_MAINS_RING: &[i64] = &[257, 513, 769];
+pub const ALLOWED_MAINS_AMULET: &[i64] = &[257, 513, 769, 2048];
+pub const ALLOWED_MAINS_BANNER: &[i64] = &[257, 513, 769, 1537, 1281];
+pub const ALLOWED_MAINS_BY_SLOT: &[(i64, &[i64])] = &[(1, ALLOWED_MAINS_HELMET), (2, ALLOWED_MAINS_CHESTPLATE), (3, ALLOWED_MAINS_GAUNTLETS), (4, ALLOWED_MAINS_BOOTS), (5, ALLOWED_MAINS_WEAPON), (6, ALLOWED_MAINS_SHIELD), (7, ALLOWED_MAINS_RING), (8, ALLOWED_MAINS_AMULET), (9, ALLOWED_MAINS_BANNER)];
+
+// Allowed sub stat variants per slot (per-slot const + dispatch array).
+pub const ALLOWED_SUBS_HELMET: &[i64] = &[256, 257, 512, 513, 768, 769, 1792, 2048, 1537, 1281, 1025];
+pub const ALLOWED_SUBS_CHESTPLATE: &[i64] = &[256, 257, 512, 513, 768, 769, 1792, 2048, 1537, 1281, 1025];
+pub const ALLOWED_SUBS_GAUNTLETS: &[i64] = &[256, 257, 512, 513, 768, 769, 1792, 2048, 1537, 1281, 1025];
+pub const ALLOWED_SUBS_BOOTS: &[i64] = &[256, 257, 512, 513, 768, 769, 1792, 2048, 1537, 1281, 1025];
+pub const ALLOWED_SUBS_WEAPON: &[i64] = &[256, 257, 512, 513, 1792, 2048, 1537, 1281, 1025];
+pub const ALLOWED_SUBS_SHIELD: &[i64] = &[256, 257, 768, 769, 1792, 2048, 1537, 1281, 1025];
+pub const ALLOWED_SUBS_RING: &[i64] = &[256, 257, 512, 513, 768, 769];
+pub const ALLOWED_SUBS_AMULET: &[i64] = &[257, 513, 769, 2048, 1537, 1281];
+pub const ALLOWED_SUBS_BANNER: &[i64] = &[256, 257, 512, 513, 768, 769, 1025];
+pub const ALLOWED_SUBS_BY_SLOT: &[(i64, &[i64])] = &[(1, ALLOWED_SUBS_HELMET), (2, ALLOWED_SUBS_CHESTPLATE), (3, ALLOWED_SUBS_GAUNTLETS), (4, ALLOWED_SUBS_BOOTS), (5, ALLOWED_SUBS_WEAPON), (6, ALLOWED_SUBS_SHIELD), (7, ALLOWED_SUBS_RING), (8, ALLOWED_SUBS_AMULET), (9, ALLOWED_SUBS_BANNER)];
+
+// Substat factory minima per star tier (per-star const + dispatch array).
+pub const SUBSTAT_MINIMA_1STAR: &[(i64, i64)] = &[(256, 1), (257, 90), (512, 1), (513, 7), (768, 1), (769, 7), (1025, 1), (1281, 5), (1537, 5), (1792, 1), (2048, 1)];
+pub const SUBSTAT_MINIMA_2STAR: &[(i64, i64)] = &[(256, 1), (257, 100), (512, 1), (513, 8), (768, 1), (769, 8), (1025, 1), (1281, 5), (1537, 5), (1792, 1), (2048, 1)];
+pub const SUBSTAT_MINIMA_3STAR: &[(i64, i64)] = &[(256, 2), (257, 110), (512, 2), (513, 9), (768, 2), (769, 9), (1025, 2), (1281, 6), (1537, 6), (1792, 2), (2048, 2)];
+pub const SUBSTAT_MINIMA_4STAR: &[(i64, i64)] = &[(256, 3), (257, 120), (512, 3), (513, 10), (768, 3), (769, 10), (1025, 3), (1281, 7), (1537, 7), (1792, 3), (2048, 3)];
+pub const SUBSTAT_MINIMA_5STAR: &[(i64, i64)] = &[(256, 4), (257, 136), (512, 4), (513, 12), (768, 4), (769, 12), (1025, 4), (1281, 8), (1537, 8), (1792, 4), (2048, 4)];
+pub const SUBSTAT_MINIMA_6STAR: &[(i64, i64)] = &[(256, 5), (257, 200), (512, 5), (513, 15), (768, 5), (769, 15), (1025, 5), (1281, 9), (1537, 9), (1792, 5), (2048, 5)];
+pub const SUBSTAT_MINIMA_BY_STAR: &[(i64, &[(i64, i64)])] = &[(1, SUBSTAT_MINIMA_1STAR), (2, SUBSTAT_MINIMA_2STAR), (3, SUBSTAT_MINIMA_3STAR), (4, SUBSTAT_MINIMA_4STAR), (5, SUBSTAT_MINIMA_5STAR), (6, SUBSTAT_MINIMA_6STAR)];

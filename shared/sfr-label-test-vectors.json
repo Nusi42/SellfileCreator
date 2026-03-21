@@ -1,0 +1,52 @@
+{
+  "_comment": "Canonical test vectors for sfr_reader label parsers. Input/output pairs checked by both Rust (#[test]) and Jest (sfr-reader.test.ts).",
+  "statVariantFromLabel": [
+    { "input": "SPD",       "expected": 1025 },
+    { "input": "spd",       "expected": 1025 },
+    { "input": "CR%",       "expected": 1792 },
+    { "input": "cr%",       "expected": 1792 },
+    { "input": "CDMG%",     "expected": 2048 },
+    { "input": "RES",       "expected": 1281 },
+    { "input": "ACC",       "expected": 1537 },
+    { "input": "HP%",       "expected": 256  },
+    { "input": "HP",        "expected": 257  },
+    { "input": "ATK%",      "expected": 512  },
+    { "input": "ATK",       "expected": 513  },
+    { "input": "DEF%",      "expected": 768  },
+    { "input": "DEF",       "expected": 769  },
+    { "input": "Roll Count","expected": 25345}
+  ],
+  "rankCodeFromLabel": [
+    { "input": "5★",   "expected": 5  },
+    { "input": "5*",   "expected": 5  },
+    { "input": "6★",   "expected": 6  },
+    { "input": "1★",   "expected": 1  },
+    { "input": "≥ 5★", "expected": 11 },
+    { "input": ">= 5*","expected": 11 },
+    { "input": "≥ 4★", "expected": 10 },
+    { "input": "≤ 4★", "expected": 14 },
+    { "input": "<= 4*","expected": 14 },
+    { "input": "Any",  "expected": 0  },
+    { "input": "",     "expected": 0  }
+  ],
+  "rarityCodeFromLabel": [
+    { "input": "Epic",        "expected": 4, "isAuto": false },
+    { "input": "Legendary",   "expected": 5, "isAuto": false },
+    { "input": "≥ Epic",      "expected": 9, "isAuto": false },
+    { "input": ">= Epic",     "expected": 9, "isAuto": false },
+    { "input": "≤ Legendary", "expected": 13,"isAuto": false },
+    { "input": "Auto",        "expected": 0, "isAuto": true  },
+    { "input": "Any",         "expected": 0, "isAuto": false },
+    { "input": "",            "expected": 0, "isAuto": false }
+  ],
+  "factionCodeFromLabel": [
+    { "input": "Banner Lords",    "expected": 1  },
+    { "input": "Barbarians",      "expected": 13 },
+    { "input": "Dwarves",         "expected": 16 },
+    { "input": "Knight Revenant", "expected": 12 },
+    { "input": "Sylvan Watchers", "expected": 14 },
+    { "input": "Argonites",       "expected": 17 },
+    { "input": "Any",             "expected": 0  },
+    { "input": "",                "expected": 0  }
+  ]
+}

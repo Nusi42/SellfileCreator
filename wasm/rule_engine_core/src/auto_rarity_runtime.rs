@@ -5,7 +5,7 @@ pub(crate) fn auto_rarity_clamp_roll_requirement(value: Option<f64>) -> i64 {
     if !numeric.is_finite() {
         return 0;
     }
-    (numeric.floor() as i64).clamp(0, 5)
+    (numeric.floor() as i64).clamp(0, SUBSTAT_MAX_ROLLS_PER_SLOT)
 }
 
 // Auto-rarity tables are generated from shared/domain-constants.json.
@@ -115,8 +115,8 @@ fn auto_rarity_present_at_level(rarity_code: i64, level: i64) -> i64 {
     let base_start = (4 - additions_total).max(0);
     // Additions up to the requested level increase present substat count.
     let adds_so_far = auto_rarity_count_levels_up_to_mask(additions_mask, level);
-    // Cap final presence at HSF's 4-substat maximum.
-    (base_start + adds_so_far).min(4)
+    // Cap final presence at the HSF substat slot maximum.
+    (base_start + adds_so_far).min(SUBSTAT_SLOT_COUNT)
 }
 
 // Auto-rarity resolver core mirrors hsfBuilder.ts::resolveAutoRarityCode,
@@ -169,13 +169,13 @@ pub(crate) fn resolve_auto_rarity_code_core(input: &AutoRarityResolveIn) -> i64 
         .copied()
         .filter(|variant| fixed_pool_raw_v.contains(variant))
         .collect::<Vec<_>>();
-    let max_selectable_total = selected_pool_v.len().min(4) as i64;
+    let max_selectable_total = selected_pool_v.len().min(HSF_SUBSTAT_SLOT_COUNT) as i64;
     let min_target_count = input
         .min_count
         .map(|value| value.floor() as i64)
         .unwrap_or(0)
         .max(fixed_pool_v.len() as i64)
-        .min(4);
+        .min(SUBSTAT_SLOT_COUNT);
     let presence_need = max_selectable_total.min(min_target_count);
     let required_v = fixed_pool_v
         .iter()
@@ -242,8 +242,8 @@ pub(crate) fn resolve_auto_rarity_code_core(input: &AutoRarityResolveIn) -> i64 
     }
 
     // Base rarity tier derives from aggregate and per-stat minimum pressure.
-    let required_rolls = aggregate_min.max(worst_sum_mins).clamp(0, 5);
-    if required_rolls >= 5 {
+    let required_rolls = aggregate_min.max(worst_sum_mins).clamp(0, SUBSTAT_MAX_ROLLS_PER_SLOT);
+    if required_rolls >= SUBSTAT_MAX_ROLLS_PER_SLOT {
         return apply_floor(RARITY_CODE_MYTHICAL);
     }
     let candidate = match required_rolls {
@@ -275,7 +275,7 @@ pub(crate) fn resolve_auto_rarity_code_core(input: &AutoRarityResolveIn) -> i64 
         .map(|value| value.trim().to_ascii_lowercase())
         .unwrap_or_else(|| "early".to_string());
     if min_level == LEVEL_MILESTONE_0 && early_mode != "late" {
-        let k = min_target_count.clamp(0, 4);
+        let k = min_target_count.clamp(0, SUBSTAT_SLOT_COUNT);
         let required_by_k = match k {
             0 => RARITY_CODE_ANY,
             1 => RARITY_CODE_GTE_UNCOMMON,
@@ -296,7 +296,7 @@ pub(crate) fn resolve_auto_rarity_code_core(input: &AutoRarityResolveIn) -> i64 
     }
 
     // Locked substats must physically exist at earliest emitted level.
-    let locked_presence_need = (required_v.len() as i64).clamp(0, 4);
+    let locked_presence_need = (required_v.len() as i64).clamp(0, SUBSTAT_SLOT_COUNT);
     if locked_presence_need > 0 && auto_rarity_present_at_level(candidate, LEVEL_MILESTONE_0) < locked_presence_need {
         for tier in [
             RARITY_CODE_GTE_UNCOMMON,
@@ -400,9 +400,9 @@ pub fn resolve_auto_rarity_code_for_builder_core(input: &AutoRarityResolveBuilde
     code as i32
 }
 
-// Clamp builder min-count domains to the supported 0..4 range.
+// Clamp builder min-count domains to the valid substat slot range.
 fn clamp_builder_min_count(value: i64) -> i64 {
-    value.clamp(0, 4)
+    value.clamp(0, SUBSTAT_SLOT_COUNT)
 }
 
 // Typed auto-flex bounds carry only the three fields the builder uses.

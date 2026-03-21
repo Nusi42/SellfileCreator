@@ -10,6 +10,10 @@ mod generated_domain_constants;
 // Re-export all domain constants so the wasm crate and any other consumers
 // can import them without duplicating the generated_domain_constants module.
 pub use generated_domain_constants::*;
+// SFR (Sellfile Record) reader: converts human-readable SFR JSON to numeric codes.
+pub mod sfr_reader;
+// Recipe builder: ports the TS hsfBuilder preprocessing pipeline to Rust.
+pub mod recipe_builder;
 pub mod auto_rarity_runtime;
 mod hsf_branch_execution;
 pub mod hsf_builder_core;
@@ -108,9 +112,17 @@ pub use hsf_builder_execution::{
     build_hsf_rules_runtime_core_fn,
     PrepareHsfBuilderRecipeIn,
     PrepareHsfBuilderRecipeOut,
+    PrepareHsfBuilderTargetEntryOut,
     BuildHsfRulesRuntimeIn,
     ExecuteHsfBuilderRuntimeOut,
 };
+pub use sfr_reader::{
+    parse_sfr,
+    SfrParsed,
+    ReadableRecipeParsed,
+    SubstatTargetTableIn,
+};
+pub use recipe_builder::build_hsf_rules_for_recipe;
 
 pub const RULE_SOURCE_HSF: &str = "hsf";
 pub const RULE_SOURCE_SFR: &str = "sfr";
@@ -122,7 +134,9 @@ pub const RULE_FIELD_UNSET_SENTINEL: i64 = STAT_ID_ANY;
 pub const FILTER_OPTION_NONE_I32: i32 = STAT_ID_ANY as i32;
 pub const MAIN_STAT_F_DEFAULT_FLAG: i64 = 1;
 pub const MAIN_STAT_F_DEFAULT_STR: &str = "1";
-pub const HSF_SUBSTAT_SLOT_COUNT: usize = 4;
+// usize alias for the generated SUBSTAT_SLOT_COUNT so slot-count comparisons with
+// collection lengths don't require a cast at every call site.
+pub const HSF_SUBSTAT_SLOT_COUNT: usize = SUBSTAT_SLOT_COUNT as usize;
 pub const LEVEL_ORDER_INDEX_0: i64 = 0;
 pub const LEVEL_ORDER_INDEX_4: i64 = 1;
 pub const LEVEL_ORDER_INDEX_8: i64 = 2;

@@ -4,7 +4,10 @@
  * Why: These values are used in multiple places and must remain consistent.
  * Centralizing avoids drift and clarifies intent without changing behavior.
  */
-import { ACCESSORY_NO_SET_ID as GENERATED_ACCESSORY_NO_SET_ID } from './generated/domainConstants'
+import {
+  ACCESSORY_NO_SET_ID as GENERATED_ACCESSORY_NO_SET_ID,
+  SUBSTAT_MAX_ROLLS_PER_SLOT as GENERATED_SUBSTAT_MAX_ROLLS_PER_SLOT,
+} from './generated/domainConstants'
 
 // Typography scale rooted at 16px (browser default). Why: collapse the UI to
 // predictable tiers while keeping markdown legibility and badge sizing.
@@ -353,7 +356,7 @@ export const BUILDER_SUBSTAT_IDLE_GUTTER_PX = ROLL_BADGE_SIZE_PX - 4
 
 // Substat roll target editor (Base + up to 5 rolls). Shared between the builder UI and
 // rule generation so manual overrides clamp consistently regardless of entry point.
-export const SUBSTAT_TARGET_MAX_ROLLS = 5
+export const SUBSTAT_TARGET_MAX_ROLLS = GENERATED_SUBSTAT_MAX_ROLLS_PER_SLOT
 
 // Idle nudge for dirty builder state before prompting attention on the
 // "Save changes to selected" control. Expressed as seconds × 1000 to

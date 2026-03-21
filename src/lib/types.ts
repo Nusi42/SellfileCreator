@@ -74,6 +74,26 @@ import {
   STAT_VARIANTS_PRIORITY as GENERATED_STAT_VARIANTS_PRIORITY,
   STAT_VARIANTS_PRIORITY_ROW1 as GENERATED_STAT_VARIANTS_PRIORITY_ROW1,
   STAT_VARIANTS_PRIORITY_ROW2 as GENERATED_STAT_VARIANTS_PRIORITY_ROW2,
+  FACTION_ID_BANNER_LORDS,
+  FACTION_ID_HIGH_ELVES,
+  FACTION_ID_SACRED_ORDER,
+  FACTION_ID_OGRYN_TRIBES,
+  FACTION_ID_LIZARDMEN,
+  FACTION_ID_SKINWALKERS,
+  FACTION_ID_ORCS,
+  FACTION_ID_DEMONSPAWN,
+  FACTION_ID_UNDEAD_HORDES,
+  FACTION_ID_DARK_ELVES,
+  FACTION_ID_KNIGHT_REVENANT,
+  FACTION_ID_BARBARIANS,
+  FACTION_ID_SYLVAN_WATCHERS,
+  FACTION_ID_SHADOWKIN,
+  FACTION_ID_DWARVES,
+  FACTION_ID_ARGONITES,
+  FACTION_NAMES as GENERATED_FACTION_NAMES,
+  ALLOWED_MAINS_BY_SLOT as GENERATED_ALLOWED_MAINS_BY_SLOT,
+  ALLOWED_SUBS_BY_SLOT as GENERATED_ALLOWED_SUBS_BY_SLOT,
+  ARTIFACT_TYPE_DISPLAY_NAMES as GENERATED_ARTIFACT_TYPE_DISPLAY_NAMES,
 } from './generated/domainConstants'
 import { artifactSetDescriptions } from './setDescriptions'
 import { ArtifactSetPieceGroup } from './gearSets/groups'
@@ -107,18 +127,8 @@ export const ArtifactType = {
 export type ArtifactType = number
 export type ArtifactTypeId = ArtifactType | number
 
-// Artifact type (slot) names by HSF numeric ID -> human label
-export const artifactTypeNames: Record<number, string> = {
-  [ArtifactType.Helmet]: 'Helmet',
-  [ArtifactType.Chestplate]: 'Chestplate',
-  [ArtifactType.Gauntlets]: 'Gauntlets',
-  [ArtifactType.Boots]: 'Boots',
-  [ArtifactType.Weapon]: 'Weapon',
-  [ArtifactType.Shield]: 'Shield',
-  [ArtifactType.Ring]: 'Ring',
-  [ArtifactType.Amulet]: 'Amulet',
-  [ArtifactType.Banner]: 'Banner',
-}
+// Artifact type (slot) names by HSF numeric ID -> human label (from generated constants).
+export const artifactTypeNames: Record<number, string> = { ...GENERATED_ARTIFACT_TYPE_DISPLAY_NAMES }
 
 // Preferred artifact type (slot) order for consistent UI rendering
 // Pull order values from generated shared constants so TS and Rust use one SSOT.
@@ -793,100 +803,17 @@ export function statSupportsGlyphs(variant: StatVariantLike): boolean {
 // agree on feasibility. Mirrors docs/TECHNICAL.md#artifact-rules. Use StatVariant
 // constants here to avoid duplicating encoding knowledge.
 
-// Allowed main stats by slot (as StatVariant values)
-export const ALLOWED_MAIN_BY_SLOT: Record<ArtifactType, ReadonlySet<number>> = {
-  [ArtifactType.Weapon]: new Set<number>([StatVariant.ATK_FLAT]),
-  [ArtifactType.Helmet]: new Set<number>([StatVariant.HP_FLAT]),
-  [ArtifactType.Shield]: new Set<number>([StatVariant.DEF_FLAT]),
-  [ArtifactType.Gauntlets]: new Set<number>([
-    StatVariant.HP, StatVariant.HP_FLAT,
-    StatVariant.ATK, StatVariant.ATK_FLAT,
-    StatVariant.DEF, StatVariant.DEF_FLAT,
-    StatVariant.CR, StatVariant.CDMG,
-  ]),
-  [ArtifactType.Chestplate]: new Set<number>([
-    StatVariant.HP, StatVariant.HP_FLAT,
-    StatVariant.ATK, StatVariant.ATK_FLAT,
-    StatVariant.DEF, StatVariant.DEF_FLAT,
-    StatVariant.ACC, StatVariant.RES,
-  ]),
-  [ArtifactType.Boots]: new Set<number>([
-    StatVariant.HP, StatVariant.HP_FLAT,
-    StatVariant.ATK, StatVariant.ATK_FLAT,
-    StatVariant.DEF, StatVariant.DEF_FLAT,
-    StatVariant.SPD,
-  ]),
-  [ArtifactType.Ring]: new Set<number>([
-    StatVariant.HP_FLAT, StatVariant.ATK_FLAT, StatVariant.DEF_FLAT,
-  ]),
-  [ArtifactType.Amulet]: new Set<number>([
-    StatVariant.HP_FLAT, StatVariant.ATK_FLAT, StatVariant.DEF_FLAT,
-    StatVariant.CDMG,
-  ]),
-  [ArtifactType.Banner]: new Set<number>([
-    StatVariant.HP_FLAT, StatVariant.ATK_FLAT, StatVariant.DEF_FLAT,
-    StatVariant.ACC, StatVariant.RES,
-  ]),
-}
+// Allowed main stats by slot (as StatVariant values) — built from generated constants.
+export const ALLOWED_MAIN_BY_SLOT: Record<ArtifactType, ReadonlySet<number>> =
+  Object.fromEntries(
+    Object.entries(GENERATED_ALLOWED_MAINS_BY_SLOT).map(([k, v]) => [Number(k), new Set(v)])
+  ) as Record<ArtifactType, ReadonlySet<number>>
 
-// Allowed substats by slot (as StatVariant values)
-export const ALLOWED_SUB_BY_SLOT: Record<ArtifactType, ReadonlySet<number>> = {
-  [ArtifactType.Weapon]: new Set<number>([
-    StatVariant.HP, StatVariant.HP_FLAT,
-    StatVariant.ATK, StatVariant.ATK_FLAT,
-    StatVariant.CR, StatVariant.CDMG,
-    StatVariant.ACC, StatVariant.RES, StatVariant.SPD,
-  ]),
-  [ArtifactType.Helmet]: new Set<number>([
-    StatVariant.HP, StatVariant.HP_FLAT,
-    StatVariant.ATK, StatVariant.ATK_FLAT,
-    StatVariant.DEF, StatVariant.DEF_FLAT,
-    StatVariant.CR, StatVariant.CDMG,
-    StatVariant.ACC, StatVariant.RES, StatVariant.SPD,
-  ]),
-  [ArtifactType.Shield]: new Set<number>([
-    StatVariant.HP, StatVariant.HP_FLAT,
-    StatVariant.DEF, StatVariant.DEF_FLAT,
-    StatVariant.CR, StatVariant.CDMG,
-    StatVariant.ACC, StatVariant.RES, StatVariant.SPD,
-  ]),
-  [ArtifactType.Gauntlets]: new Set<number>([
-    StatVariant.HP, StatVariant.HP_FLAT,
-    StatVariant.ATK, StatVariant.ATK_FLAT,
-    StatVariant.DEF, StatVariant.DEF_FLAT,
-    StatVariant.CR, StatVariant.CDMG,
-    StatVariant.ACC, StatVariant.RES, StatVariant.SPD,
-  ]),
-  [ArtifactType.Chestplate]: new Set<number>([
-    StatVariant.HP, StatVariant.HP_FLAT,
-    StatVariant.ATK, StatVariant.ATK_FLAT,
-    StatVariant.DEF, StatVariant.DEF_FLAT,
-    StatVariant.CR, StatVariant.CDMG,
-    StatVariant.ACC, StatVariant.RES, StatVariant.SPD,
-  ]),
-  [ArtifactType.Boots]: new Set<number>([
-    StatVariant.HP, StatVariant.HP_FLAT,
-    StatVariant.ATK, StatVariant.ATK_FLAT,
-    StatVariant.DEF, StatVariant.DEF_FLAT,
-    StatVariant.CR, StatVariant.CDMG,
-    StatVariant.ACC, StatVariant.RES, StatVariant.SPD,
-  ]),
-  [ArtifactType.Ring]: new Set<number>([
-    StatVariant.HP, StatVariant.HP_FLAT,
-    StatVariant.ATK, StatVariant.ATK_FLAT,
-    StatVariant.DEF, StatVariant.DEF_FLAT,
-  ]),
-  [ArtifactType.Amulet]: new Set<number>([
-    StatVariant.HP_FLAT, StatVariant.ATK_FLAT, StatVariant.DEF_FLAT,
-    StatVariant.CDMG, StatVariant.ACC, StatVariant.RES,
-  ]),
-  [ArtifactType.Banner]: new Set<number>([
-    StatVariant.HP, StatVariant.HP_FLAT,
-    StatVariant.ATK, StatVariant.ATK_FLAT,
-    StatVariant.DEF, StatVariant.DEF_FLAT,
-    StatVariant.SPD,
-  ]),
-}
+// Allowed substats by slot (as StatVariant values) — built from generated constants.
+export const ALLOWED_SUB_BY_SLOT: Record<ArtifactType, ReadonlySet<number>> =
+  Object.fromEntries(
+    Object.entries(GENERATED_ALLOWED_SUBS_BY_SLOT).map(([k, v]) => [Number(k), new Set(v)])
+  ) as Record<ArtifactType, ReadonlySet<number>>
 
 /** True if a slot supports a given main StatVariant. */
 export function slotSupportsMain(slot: ArtifactTypeId, main: StatVariantLike): boolean {
@@ -1135,51 +1062,32 @@ export function statVariantI18nKey(v: StatVariantLike):
   return 'statHP'
 }
 
-// Faction IDs used in HSF files (1..17), 0 = Any
+// Faction IDs used in HSF files (1..17), 0 = Any — values from generated constants.
 export const Faction = {
-  BannerLords: 1,
-  HighElves: 2,
-  SacredOrder: 3,
-  Barbarians: 13,
-  OgrynTribes: 5,
-  Lizardmen: 6,
-  Skinwalkers: 7,
-  Orcs: 8,
-  Demonspawn: 9,
-  UndeadHordes: 10,
-  DarkElves: 11,
-  KnightRevenant: 12,
-  Dwarves: 16,
-  Shadowkin: 15,
-  SylvanWatchers: 14,
-  // Argonites extend the Nyresan Union cohort with the next unused ID.
-  Argonites: 17,
+  BannerLords:    FACTION_ID_BANNER_LORDS,
+  HighElves:      FACTION_ID_HIGH_ELVES,
+  SacredOrder:    FACTION_ID_SACRED_ORDER,
+  OgrynTribes:    FACTION_ID_OGRYN_TRIBES,
+  Lizardmen:      FACTION_ID_LIZARDMEN,
+  Skinwalkers:    FACTION_ID_SKINWALKERS,
+  Orcs:           FACTION_ID_ORCS,
+  Demonspawn:     FACTION_ID_DEMONSPAWN,
+  UndeadHordes:   FACTION_ID_UNDEAD_HORDES,
+  DarkElves:      FACTION_ID_DARK_ELVES,
+  KnightRevenant: FACTION_ID_KNIGHT_REVENANT,
+  Barbarians:     FACTION_ID_BARBARIANS,
+  SylvanWatchers: FACTION_ID_SYLVAN_WATCHERS,
+  Shadowkin:      FACTION_ID_SHADOWKIN,
+  Dwarves:        FACTION_ID_DWARVES,
+  Argonites:      FACTION_ID_ARGONITES,
 } as const
 
 // eslint-disable-next-line no-redeclare -- expose the Faction identifier in both namespaces
 export type Faction = number
 export type FactionId = Faction | number
 
-export const factionNames: Record<number, string> = {
-  0: '',
-  [Faction.BannerLords]: 'Banner Lords',
-  [Faction.HighElves]: 'High Elves',
-  [Faction.SacredOrder]: 'Sacred Order',
-  [Faction.Barbarians]: 'Barbarians',
-  [Faction.OgrynTribes]: 'Ogryn Tribes',
-  [Faction.Lizardmen]: 'Lizardmen',
-  [Faction.Skinwalkers]: 'Skinwalkers',
-  [Faction.Orcs]: 'Orcs',
-  [Faction.Demonspawn]: 'Demonspawn',
-  [Faction.UndeadHordes]: 'Undead Hordes',
-  [Faction.DarkElves]: 'Dark Elves',
-  [Faction.KnightRevenant]: 'Knight Revenant',
-  [Faction.Dwarves]: 'Dwarves',
-  [Faction.Shadowkin]: 'Shadowkin',
-  [Faction.SylvanWatchers]: 'Sylvan Watchers',
-  // Keep the UI label aligned with the exported enum entry.
-  [Faction.Argonites]: 'Argonites',
-}
+// Faction name map from generated constants (includes 0: '' for Any).
+export const factionNames: Record<number, string> = { ...GENERATED_FACTION_NAMES }
 
 /** Human-readable faction name from Faction code (accepts enum or number). */
 export function factionCodeToName(code?: FactionId): string {

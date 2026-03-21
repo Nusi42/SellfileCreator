@@ -1,0 +1,218 @@
+/*
+ * rule_engine_native — C/C++ integration example and smoke test.
+ *
+ * Loads the DLL at runtime, calls sfr_generate with a hardcoded NativeInput,
+ * validates the output, and exits 0 on success / 1 on any failure.
+ * Suitable as a CI sanity test on both Linux (debug .so) and Windows (.dll).
+ *
+ * Build & run — Linux/WSL (debug .so):
+ *   cargo build -p rule_engine_native
+ *   g++ example/main.cpp -o example/run_example -ldl
+ *   ./example/run_example ./target/debug/librule_engine_native.so
+ *
+ * Build & run — Windows release .dll (Developer Command Prompt):
+ *   cargo build --release --target x86_64-pc-windows-msvc -p rule_engine_native
+ *   cl /EHsc example\main.cpp /Fe:example\run_example.exe
+ *   example\run_example.exe target\release\rule_engine_native.dll
+ */
+
+#include <cstdio>
+#include <cstring>
+#include <cstdlib>
+#include <string>
+
+/* Platform-agnostic DLL loading */
+#ifdef _WIN32
+  #include <windows.h>
+  #define DLL_OPEN(path)     LoadLibraryA(path)
+  #define DLL_SYM(lib, name) GetProcAddress((HMODULE)(lib), name)
+  #define DLL_CLOSE(lib)     FreeLibrary((HMODULE)(lib))
+  typedef HMODULE DllHandle;
+  static std::string dll_error() {
+      DWORD code = GetLastError();
+      char buf[256] = {};
+      FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, nullptr, code, 0, buf, sizeof(buf), nullptr);
+      return std::string(buf);
+  }
+#else
+  #include <dlfcn.h>
+  #define DLL_OPEN(path)     dlopen(path, RTLD_LAZY)
+  #define DLL_SYM(lib, name) dlsym(lib, name)
+  #define DLL_CLOSE(lib)     dlclose(lib)
+  typedef void* DllHandle;
+  static std::string dll_error() { const char* e = dlerror(); return e ? e : "(unknown)"; }
+#endif
+
+typedef char* (*SfrGenerateFn)(const char*);
+typedef void  (*SfrFreeFn)(char*);
+
+/* Minimal JSON helpers — avoids a JSON library dependency. */
+static bool json_has_key(const std::string& json, const char* key) {
+    std::string needle = std::string("\"") + key + "\"";
+    return json.find(needle) != std::string::npos;
+}
+
+static bool json_array_nonempty(const std::string& json, const char* key) {
+    std::string needle = std::string("\"") + key + "\"";
+    size_t pos = json.find(needle);
+    if (pos == std::string::npos) return false;
+    /* Scan forward past ':' and whitespace to find '[' */
+    pos = json.find('[', pos + needle.size());
+    if (pos == std::string::npos) return false;
+    /* If the next non-space character after '[' is ']' the array is empty. */
+    for (size_t i = pos + 1; i < json.size(); ++i) {
+        if (json[i] == ' ' || json[i] == '\n' || json[i] == '\r' || json[i] == '\t') continue;
+        return json[i] != ']';
+    }
+    return false;
+}
+
+/* ─── NativeInput — embedded test payload ─────────────────────────────────── */
+
+/* SFR: one "keep 5★ Epic with any SPD" recipe, safeguards disabled. */
+static const char* SFR_CONTENT =
+    "{"
+    "  \"Version\": \"1.0\","
+    "  \"Recipes\": ["
+    "    {"
+    "      \"keep\": true,"
+    "      \"Rank\": \"5\\u2605\","          /* 5★ */
+    "      \"Rarity\": \"Epic\","
+    "      \"substats\": [\"SPD\"],"
+    "      \"minCount\": 1"
+    "    }"
+    "  ],"
+    "  \"Safeguards\": [],"
+    "  \"SafeguardsEnabled\": false"
+    "}";
+
+/* Two artifacts: #1 matches (5★ Epic with SPD), #2 does not. */
+static const char* ARTIFACT_ARRAY =
+    "["
+    "  {"
+    "    \"ID\": 1001,"
+    "    \"type\": 1,"     /* Weapon */
+    "    \"rank\": 5,"
+    "    \"rarity\": 4,"   /* Epic */
+    "    \"lvl\": 16,"
+    "    \"aset\": 10,"
+    "    \"mid\": 1, \"mfl\": 0,"
+    "    \"s1id\": 4, \"s1lvl\": 4, \"s1fl\": 1"  /* SPD (stat_id=4, flat) */
+    "  },"
+    "  {"
+    "    \"ID\": 1002,"
+    "    \"type\": 2,"     /* Helmet */
+    "    \"rank\": 4,"
+    "    \"rarity\": 3,"   /* Rare */
+    "    \"lvl\": 0,"
+    "    \"aset\": 5,"
+    "    \"mid\": 2, \"mfl\": 0,"
+    "    \"s1id\": 2, \"s1lvl\": 1, \"s1fl\": 0"
+    "  }"
+    "]";
+
+/* Build the outer NativeInput JSON, embedding the SFR as a JSON string value. */
+static std::string build_input() {
+    /* Escape the SFR string so it can be embedded as a JSON string value. */
+    std::string sfr_escaped;
+    sfr_escaped.reserve(512);
+    for (const char* p = SFR_CONTENT; *p; ++p) {
+        switch (*p) {
+            case '"':  sfr_escaped += "\\\""; break;
+            case '\\': sfr_escaped += "\\\\"; break;
+            case '\n': sfr_escaped += "\\n";  break;
+            case '\r': sfr_escaped += "\\r";  break;
+            default:   sfr_escaped += *p;
+        }
+    }
+    std::string result;
+    result.reserve(1024);
+    result += "{\"sfr\": \"";
+    result += sfr_escaped;
+    result += "\", \"artifacts\": ";
+    result += ARTIFACT_ARRAY;
+    result += "}";
+    return result;
+}
+
+/* ─── main ────────────────────────────────────────────────────────────────── */
+
+int main(int argc, char* argv[]) {
+    /* Accept optional DLL path argument; default to platform-appropriate name. */
+#ifdef _WIN32
+    const char* dll_path = argc > 1 ? argv[1] : ".\\rule_engine_native.dll";
+#else
+    const char* dll_path = argc > 1 ? argv[1] : "./librule_engine_native.so";
+#endif
+
+    printf("[example] Loading DLL: %s\n", dll_path);
+    DllHandle lib = DLL_OPEN(dll_path);
+    if (!lib) {
+        fprintf(stderr, "[example] FAIL: could not load DLL: %s\n", dll_error().c_str());
+        return 1;
+    }
+
+    /* Resolve entry points. */
+    auto sfr_generate = reinterpret_cast<SfrGenerateFn>(DLL_SYM(lib, "sfr_generate"));
+    auto sfr_free_fn  = reinterpret_cast<SfrFreeFn>(DLL_SYM(lib, "sfr_free"));
+    if (!sfr_generate || !sfr_free_fn) {
+        fprintf(stderr, "[example] FAIL: could not resolve symbols: %s\n", dll_error().c_str());
+        DLL_CLOSE(lib);
+        return 1;
+    }
+    printf("[example] Symbols resolved.\n");
+
+    /* Build and call. */
+    std::string input_json = build_input();
+    printf("[example] Calling sfr_generate (%zu bytes)...\n", input_json.size());
+    char* output = sfr_generate(input_json.c_str());
+    if (!output) {
+        fprintf(stderr, "[example] FAIL: sfr_generate returned NULL\n");
+        DLL_CLOSE(lib);
+        return 1;
+    }
+    std::string result(output);
+    sfr_free_fn(output);
+    DLL_CLOSE(lib);
+
+    printf("[example] Output (%zu bytes): %.200s%s\n",
+           result.size(), result.c_str(),
+           result.size() > 200 ? "..." : "");
+
+    /* ── Validation ─────────────────────────────────────────────────────── */
+    int failures = 0;
+
+#define CHECK(cond, msg) \
+    do { if (!(cond)) { fprintf(stderr, "[example] FAIL: %s\n", msg); ++failures; } \
+         else { printf("[example] OK: %s\n", msg); } } while(0)
+
+    /* Must not contain "error" key. */
+    CHECK(!json_has_key(result, "error"),
+          "output must not contain an error key");
+
+    /* Must have a non-empty rules array. */
+    CHECK(json_has_key(result, "rules"),
+          "output must contain a rules field");
+    CHECK(json_array_nonempty(result, "rules"),
+          "rules array must be non-empty");
+
+    /* Must have an upgradeChances field (may be empty when safeguards are off). */
+    CHECK(json_has_key(result, "upgradeChances"),
+          "output must contain an upgradeChances field");
+
+    /* At least one rule must have "Keep":true */
+    CHECK(result.find("\"Keep\":true") != std::string::npos
+          || result.find("\"keep\":true") != std::string::npos
+          || result.find("\"Keep\": true") != std::string::npos
+          || result.find("\"keep\": true") != std::string::npos,
+          "at least one rule must have Keep=true");
+
+#undef CHECK
+
+    if (failures) {
+        fprintf(stderr, "[example] %d validation check(s) failed.\n", failures);
+        return 1;
+    }
+    printf("[example] All checks passed.\n");
+    return 0;
+}

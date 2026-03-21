@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::build_hsf_combo_vectors_core;
 use crate::emit_hsf_rules_for_filtered_distributions_compact_core;
-use crate::generated_domain_constants::RARITY_CODE_ANY;
+use crate::generated_domain_constants::{RARITY_CODE_ANY, SUBSTAT_SLOT_COUNT};
 use crate::BuildHsfComboBoundsIn;
 use crate::BuildHsfComboVectorsIn;
 use crate::EmitHsfMainChoiceIn;
@@ -94,7 +94,7 @@ fn should_plan(input: &BuildHsfFullSelectedFallbackPlanIn, full_selection_len: u
 fn build_full_selected_fallback_plan_core(
     input: &BuildHsfFullSelectedFallbackPlanIn,
 ) -> Option<BuildHsfFullSelectedFallbackPlanOut> {
-    let full_selection_len = input.selected_pool_v.len().min(4);
+    let full_selection_len = input.selected_pool_v.len().min(SUBSTAT_SLOT_COUNT as usize);
     if !should_plan(input, full_selection_len) {
         return None;
     }

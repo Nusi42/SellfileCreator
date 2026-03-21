@@ -69,6 +69,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rule_engine_native"
+version = "0.1.0"
+dependencies = [
+ "rule_engine_core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "rule_engine_wasm"
 version = "0.1.0"
 dependencies = [
