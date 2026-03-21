@@ -177,7 +177,7 @@ try {
   Write-Host ("Using SFR sample: {0}" -f $sampleSfr.Name)
   $sellfilesDir = Join-Path $staging 'Sellfiles'
   if (-not (Test-Path $sellfilesDir)) { New-Item -ItemType Directory -Path $sellfilesDir | Out-Null }
-  Copy-Item -LiteralPath $sampleSfr.FullName -Destination (Join-Path $sellfilesDir '_RECIPE_FOR_LATEGAME_AND_ENDGAME_.sfr') -Force
+  Copy-Item -LiteralPath $sampleSfr.FullName -Destination (Join-Path $sellfilesDir '_RECIPE_SAMPLE_.sfr') -Force
 
   # Generate sellfiles from example.sfr using recipe-overrides presets.
   # Why: Avoids maintaining pre-built HSF binaries in the repo; output is always
@@ -191,6 +191,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Sellfile generation failed for '$token' (exit code $LASTEXITCODE)" }
   }
   Write-Host 'Generating sample sellfiles from example.sfr...'
+  & $gen 'midgame'  'midgame-sellfile.hsf'
   & $gen 'lategame' 'lategame-sellfile.hsf'
   & $gen 'endgame'  'endgame-sellfile.hsf'
   # Ship the baseline Basic.sfr so newcomers can inspect an intentionally minimal recipe.

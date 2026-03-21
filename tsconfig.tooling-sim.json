@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.tests.json",
+  "compilerOptions": {
+    "outDir": "tmp/tsc/tests"
+  },
+  "include": [
+    "src/lib/hsfBuilder.ts",
+    "src/lib/types.ts",
+    "src/lib/hsfTypes.ts",
+    "src/lib/importers/gearDbNormalizer.ts",
+    "src/lib/importers/gearDbImporter.ts",
+    "src/lib/configDiff.ts",
+    "src/lib/dungeonSimulator.ts",
+    "src/types/**/*.d.ts",
+    "tests/unit/**/*.ts",
+    "tests/integration/**/*.ts",
+    "tests/benchmarks/**/*.ts",
+    "tests/**/*.d.ts"
+  ]
+}

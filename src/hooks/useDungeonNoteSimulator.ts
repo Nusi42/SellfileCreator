@@ -28,8 +28,10 @@ import { PROGRESS_THROTTLE_MS, createProgressThrottler } from '../types/progress
 // cost of slightly noisier percentages, which 1-decimal display absorbs well.
 export const NOTE_SIM_RUNS = 2000 as const
 
-// Only dragon and fire knight are shown in the note block — skip the other 3.
-const NOTE_SIM_DUNGEONS = ['dragon', 'fireKnight'] as const satisfies readonly DungeonId[]
+// Dragon + Fire Knight sub-set for boost configs (Ice Golem excluded there).
+const NOTE_SIM_DUNGEONS_FK_DRAGON: readonly DungeonId[] = ['dragon', 'fireKnight'] as const
+// Full set including Ice Golem for the no-boost configs.
+const NOTE_SIM_DUNGEONS_ALL: readonly DungeonId[] = ['dragon', 'fireKnight', 'iceGolem'] as const
 
 // ─── Config type ─────────────────────────────────────────────────────────────
 
@@ -38,16 +40,20 @@ const NOTE_SIM_DUNGEONS = ['dragon', 'fireKnight'] as const satisfies readonly D
 export type DungeonNoteConfig = {
   // Stable key used to look up results in the result map.
   id: string
-  // Per-dungeon stage selections (only dragon + fireKnight are relevant here).
+  // Per-dungeon stage selections; dragon, fireKnight, and optionally iceGolem.
   selections: Partial<Record<DungeonId, DungeonStageSelection>>
   // Per-dungeon boost selections; empty object means no boost.
   boosts: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
+  // Dungeons to simulate for this config; varies so Ice Golem is only run for off configs.
+  simulateDungeons: readonly DungeonId[]
   // For dragon columns with boost: show only this set's keep chance.
   // null = aggregate across all dragon sets.
   dragonFocusSetId: ArtifactSetId | null
   // For fire knight columns with boost: show only this set's keep chance.
   // null = aggregate across all fire knight sets.
   fireKnightFocusSetId: ArtifactSetId | null
+  // Ice Golem is always aggregate (no focus set, no boost columns).
+  iceGolemFocusSetId: null
 }
 
 // Results map keyed by config id.
@@ -55,46 +61,56 @@ export type DungeonNoteSimResults = Map<string, DungeonSimSpotlightResults>
 
 // ─── Hardcoded 6 configs ─────────────────────────────────────────────────────
 
-// Each entry covers both dragon and fire knight in one worker run.
-// Configs 0–2: no boost → aggregate keep chance for both dungeons.
-// Configs 3–5: 3× boost → dragon shows Speed set only; FK shows Savage set only.
+// Each entry covers dragon, fire knight, and (for no-boost configs) Ice Golem.
+// Configs 0–2: no boost → aggregate keep chance for all three dungeons.
+// Configs 3–5: 3× boost → dragon shows Speed set only; FK shows Savage set only;
+//              Ice Golem omitted (no boost applies and re-running is redundant).
 // ArtifactSet.Speed = 4, ArtifactSet.Savage = 19 (see artifactSets.ts).
 export const NOTE_SIM_CONFIGS: readonly DungeonNoteConfig[] = [
   {
-    // Dragon Normal 20 + FK Normal 20, no boost
+    // Dragon Normal 20 + FK Normal 20 + Ice Golem Normal 20, no boost
     id: 'n20-off',
     selections: {
       dragon: { mode: 'normal', stage: 20 } as DungeonStageSelection,
       fireKnight: { mode: 'normal', stage: 20 } as DungeonStageSelection,
+      iceGolem: { mode: 'normal', stage: 20 } as DungeonStageSelection,
     },
     boosts: {},
+    simulateDungeons: NOTE_SIM_DUNGEONS_ALL,
     dragonFocusSetId: null,
     fireKnightFocusSetId: null,
+    iceGolemFocusSetId: null,
   },
   {
-    // Dragon Normal 25 + FK Normal 25, no boost
+    // Dragon Normal 25 + FK Normal 25 + Ice Golem Normal 25, no boost
     id: 'n25-off',
     selections: {
       dragon: { mode: 'normal', stage: 25 } as DungeonStageSelection,
       fireKnight: { mode: 'normal', stage: 25 } as DungeonStageSelection,
+      iceGolem: { mode: 'normal', stage: 25 } as DungeonStageSelection,
     },
     boosts: {},
+    simulateDungeons: NOTE_SIM_DUNGEONS_ALL,
     dragonFocusSetId: null,
     fireKnightFocusSetId: null,
+    iceGolemFocusSetId: null,
   },
   {
-    // Dragon Hard 10 + FK Hard 10, no boost
+    // Dragon Hard 10 + FK Hard 10 + Ice Golem Hard 10, no boost
     id: 'h10-off',
     selections: {
       dragon: { mode: 'hard', stage: 10 } as DungeonStageSelection,
       fireKnight: { mode: 'hard', stage: 10 } as DungeonStageSelection,
+      iceGolem: { mode: 'hard', stage: 10 } as DungeonStageSelection,
     },
     boosts: {},
+    simulateDungeons: NOTE_SIM_DUNGEONS_ALL,
     dragonFocusSetId: null,
     fireKnightFocusSetId: null,
+    iceGolemFocusSetId: null,
   },
   {
-    // Dragon Normal 20 (3× Speed) + FK Normal 20 (3× Savage)
+    // Dragon Normal 20 (3× Speed) + FK Normal 20 (3× Savage) — no Ice Golem
     id: 'n20-3x',
     selections: {
       dragon: { mode: 'normal', stage: 20 } as DungeonStageSelection,
@@ -104,11 +120,13 @@ export const NOTE_SIM_CONFIGS: readonly DungeonNoteConfig[] = [
       dragon: { mode: '3x', setId: ArtifactSet.Speed as ArtifactSetId },
       fireKnight: { mode: '3x', setId: ArtifactSet.Savage as ArtifactSetId },
     },
+    simulateDungeons: NOTE_SIM_DUNGEONS_FK_DRAGON,
     dragonFocusSetId: ArtifactSet.Speed as ArtifactSetId,
     fireKnightFocusSetId: ArtifactSet.Savage as ArtifactSetId,
+    iceGolemFocusSetId: null,
   },
   {
-    // Dragon Normal 25 (3× Speed) + FK Normal 25 (3× Savage)
+    // Dragon Normal 25 (3× Speed) + FK Normal 25 (3× Savage) — no Ice Golem
     id: 'n25-3x',
     selections: {
       dragon: { mode: 'normal', stage: 25 } as DungeonStageSelection,
@@ -118,11 +136,13 @@ export const NOTE_SIM_CONFIGS: readonly DungeonNoteConfig[] = [
       dragon: { mode: '3x', setId: ArtifactSet.Speed as ArtifactSetId },
       fireKnight: { mode: '3x', setId: ArtifactSet.Savage as ArtifactSetId },
     },
+    simulateDungeons: NOTE_SIM_DUNGEONS_FK_DRAGON,
     dragonFocusSetId: ArtifactSet.Speed as ArtifactSetId,
     fireKnightFocusSetId: ArtifactSet.Savage as ArtifactSetId,
+    iceGolemFocusSetId: null,
   },
   {
-    // Dragon Hard 10 (3× Speed) + FK Hard 10 (3× Savage)
+    // Dragon Hard 10 (3× Speed) + FK Hard 10 (3× Savage) — no Ice Golem
     id: 'h10-3x',
     selections: {
       dragon: { mode: 'hard', stage: 10 } as DungeonStageSelection,
@@ -132,8 +152,10 @@ export const NOTE_SIM_CONFIGS: readonly DungeonNoteConfig[] = [
       dragon: { mode: '3x', setId: ArtifactSet.Speed as ArtifactSetId },
       fireKnight: { mode: '3x', setId: ArtifactSet.Savage as ArtifactSetId },
     },
+    simulateDungeons: NOTE_SIM_DUNGEONS_FK_DRAGON,
     dragonFocusSetId: ArtifactSet.Speed as ArtifactSetId,
     fireKnightFocusSetId: ArtifactSet.Savage as ArtifactSetId,
+    iceGolemFocusSetId: null,
   },
 ] as const
 
@@ -269,8 +291,8 @@ export function useDungeonNoteSimulator(
           selections: cfg.selections,
           // Only include boosts key when the config actually has boosts set.
           ...(hasBoosts ? { boosts: cfg.boosts } : {}),
-          // Restrict simulation to the two dungeons shown in the note block.
-          simulateDungeons: NOTE_SIM_DUNGEONS,
+          // Use per-config dungeon list (off configs include Ice Golem; boost configs do not).
+          simulateDungeons: cfg.simulateDungeons,
         },
       }
       workerRef.current.postMessage(payload)
@@ -414,8 +436,8 @@ export function useDungeonNoteSimulator(
           mode: 'levelUp',
           selections: firstCfg.selections,
           ...(firstHasBoosts ? { boosts: firstCfg.boosts } : {}),
-          // Restrict simulation to the two dungeons shown in the note block.
-          simulateDungeons: NOTE_SIM_DUNGEONS,
+          // Use per-config dungeon list (off configs include Ice Golem; boost configs do not).
+          simulateDungeons: firstCfg.simulateDungeons,
         },
       }
       worker!.postMessage(payload)
@@ -451,8 +473,8 @@ export function useDungeonNoteSimulator(
         mode: 'levelUp',
         selections: cfg.selections,
         ...(cfgHasBoosts ? { boosts: cfg.boosts } : {}),
-        // Restrict simulation to the two dungeons shown in the note block.
-        simulateDungeons: NOTE_SIM_DUNGEONS,
+        // Use per-config dungeon list (off configs include Ice Golem; boost configs do not).
+        simulateDungeons: cfg.simulateDungeons,
       })
 
       // Update config index so the component knows which one is active.

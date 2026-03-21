@@ -60,9 +60,9 @@ const cellPercent = (cell: DungeonSimCell | null, runs: number = cell?.total ?? 
   return (cell.kept / runs) * 100
 }
 
-// ─── Column descriptor ────────────────────────────────────────────────────────
+// ─── Column descriptors ───────────────────────────────────────────────────────
 
-// Maps each of the 6 display columns to its config id.
+// Maps each of the 6 display columns to its config id (Dragon + Fire Knight).
 // Labels are computed dynamically at render time using i18n so they reflect the
 // active locale — no hardcoded strings in the descriptor.
 const NOTE_SIM_COLUMNS: readonly { configId: string }[] = [
@@ -72,6 +72,13 @@ const NOTE_SIM_COLUMNS: readonly { configId: string }[] = [
   { configId: 'n20-3x'  },
   { configId: 'n25-3x'  },
   { configId: 'h10-3x'  },
+] as const
+
+// Ice Golem only shows the 3 no-boost columns (no focused set, no boost variants).
+const NOTE_SIM_ICE_GOLEM_COLUMNS: readonly { configId: string }[] = [
+  { configId: 'n20-off' },
+  { configId: 'n25-off' },
+  { configId: 'h10-off' },
 ] as const
 
 // All 5 milestone levels as rows; level-up mode captures each checkpoint without extra CPU cost.
@@ -103,19 +110,28 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
 
   // ─── i18n helpers ─────────────────────────────────────────────────────────
 
-  const dungeonLabel = (dungeonId: 'dragon' | 'fireKnight') => (
-    dungeonId === 'dragon' ? t('dungeonDragon') : t('dungeonFireKnight')
-  )
+  const dungeonLabel = (dungeonId: 'dragon' | 'fireKnight' | 'iceGolem') => {
+    if (dungeonId === 'dragon') return t('dungeonDragon')
+    if (dungeonId === 'fireKnight') return t('dungeonFireKnight')
+    return t('dungeonIceGolem')
+  }
+
+  // Return the focused set id for a dungeon in a given config; Ice Golem always null.
+  const getFocusId = (cfg: (typeof NOTE_SIM_CONFIGS)[number], dungeonId: 'dragon' | 'fireKnight' | 'iceGolem'): ArtifactSetId | null => {
+    if (dungeonId === 'dragon') return cfg.dragonFocusSetId
+    if (dungeonId === 'fireKnight') return cfg.fireKnightFocusSetId
+    return null
+  }
 
   // Resolve the localized column header for a column + dungeon combination.
-  const colLabel = (col: (typeof NOTE_SIM_COLUMNS)[number], dungeonId: 'dragon' | 'fireKnight'): string => {
+  const colLabel = (col: { configId: string }, dungeonId: 'dragon' | 'fireKnight' | 'iceGolem'): string => {
     const cfg = NOTE_SIM_CONFIGS.find((c) => c.id === col.configId)
     if (!cfg) return col.configId
     const sel = cfg.selections[dungeonId]
     const modeLabel = sel?.mode === 'hard' ? t('dungeonDropsModeHard') : t('dungeonDropsModeNormal')
     const stageLabel = `${modeLabel} ${sel?.stage ?? '?'}`
-    // Boost columns prefix with "3× SetName".
-    const focusId = dungeonId === 'dragon' ? cfg.dragonFocusSetId : cfg.fireKnightFocusSetId
+    // Boost columns prefix with "3× SetName" (Ice Golem focus is always null).
+    const focusId = getFocusId(cfg, dungeonId)
     if (focusId !== null) {
       const setName = getLocalizedGearSetName(focusId, t)
       return `${t('dungeonDropsBoost3x')} ${setName} · ${stageLabel}`
@@ -125,72 +141,62 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
 
   // ─── Cell value resolution ────────────────────────────────────────────────
 
-  // Resolve the keep-chance percentage for a cell.
+  // Resolve the keep-chance percentage for a cell (works for all three dungeons).
   const resolvePercent = (
-    dungeonId: 'dragon' | 'fireKnight',
-    colIdx: number,
+    dungeonId: 'dragon' | 'fireKnight' | 'iceGolem',
+    configId: string,
     level: LevelMilestone,
   ): number | null => {
-    const col = NOTE_SIM_COLUMNS[colIdx]
-    if (!col) return null
-    const spotlightResults = resultsByConfig.get(col.configId)
+    const spotlightResults = resultsByConfig.get(configId)
     const dungeonResults = spotlightResults?.[EVENT_SPOTLIGHT_DEFAULT]?.[dungeonId]
     if (!dungeonResults) return null
-    const cfg = NOTE_SIM_CONFIGS.find((c) => c.id === col.configId)
+    const cfg = NOTE_SIM_CONFIGS.find((c) => c.id === configId)
     if (!cfg) return null
     // Aggregate cell always uses sum(set.total) as denominator, which equals total runs.
     const aggCell = aggregateCell(dungeonResults, level)
     if (!aggCell || aggCell.total <= 0) return null
     // Boost columns: focused-set keep chance, denominator = total runs (not set-specific drops).
-    const focusId = dungeonId === 'dragon' ? cfg.dragonFocusSetId : cfg.fireKnightFocusSetId
+    const focusId = getFocusId(cfg, dungeonId)
     if (focusId !== null) {
       return cellPercent(focusedCell(dungeonResults, focusId, level), aggCell.total)
     }
-    // No-boost columns: aggregate across all sets (aggCell.total == runs here).
+    // No-boost / Ice Golem columns: aggregate across all sets.
     return cellPercent(aggCell)
   }
 
-  // Check whether a column's config has been started (results may be partial).
-  const configIdx = (colIdx: number): number => NOTE_SIM_CONFIGS.findIndex(
-    (c) => c.id === (NOTE_SIM_COLUMNS[colIdx]?.configId ?? ''),
-  )
-
-  // Determine whether a cell should show a skeleton (simulation not yet reached this config).
-  const isPending = (colIdx: number): boolean => {
+  // Determine whether a column's config has been simulated yet.
+  const isConfigPending = (configId: string): boolean => {
     if (!running && resultsByConfig.size === 0) return true
-    const cfgIdx = configIdx(colIdx)
-    return cfgIdx > configIndex && !resultsByConfig.has(NOTE_SIM_COLUMNS[colIdx]?.configId ?? '')
+    const cfgIdx = NOTE_SIM_CONFIGS.findIndex((c) => c.id === configId)
+    return cfgIdx > configIndex && !resultsByConfig.has(configId)
   }
 
   // ─── Tooltip content (JSX) ────────────────────────────────────────────────
 
   // Build a structured JSX tooltip for a cell, consisting of:
   //   • Header: dungeon · mode stage[ — 3× setName]
-  //   • Separator line
   //   • Keep chance at gear level +L: X.Y%  (from noteSimKeepChanceAtLevel)
   //   • Per-set breakdown as a two-column grid (name | pct), sorted by keep chance desc
   const buildTooltipContent = (
-    dungeonId: 'dragon' | 'fireKnight',
-    colIdx: number,
+    dungeonId: 'dragon' | 'fireKnight' | 'iceGolem',
+    configId: string,
     level: LevelMilestone,
   ): React.ReactNode => {
-    const col = NOTE_SIM_COLUMNS[colIdx]
-    if (!col) return null
-    const cfg = NOTE_SIM_CONFIGS.find((c) => c.id === col.configId)
+    const cfg = NOTE_SIM_CONFIGS.find((c) => c.id === configId)
     if (!cfg) return null
 
     // Header: DungeonName · ModeLabel Stage[ — 3× SetName]
     const sel = cfg.selections[dungeonId]
     const modeLabel = sel?.mode === 'hard' ? t('dungeonDropsModeHard') : t('dungeonDropsModeNormal')
     const stageDesc = sel ? `${modeLabel} ${sel.stage}` : '?'
-    const focusId = dungeonId === 'dragon' ? cfg.dragonFocusSetId : cfg.fireKnightFocusSetId
+    const focusId = getFocusId(cfg, dungeonId)
     const boostDesc = focusId !== null
       ? ` — ${t('dungeonDropsBoost3x')} ${getLocalizedGearSetName(focusId, t)}`
       : ''
     const header = `${dungeonLabel(dungeonId)} · ${stageDesc}${boostDesc}`
 
     // Look up the simulation results for this config + dungeon.
-    const spotlightResults = resultsByConfig.get(col.configId)
+    const spotlightResults = resultsByConfig.get(configId)
     const dungeonResults = spotlightResults?.[EVENT_SPOTLIGHT_DEFAULT]?.[dungeonId]
 
     // Headline keep-chance: fraction of ALL runs (with the active boost) that produce a keeper.
@@ -259,7 +265,7 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
   // Header cell: slightly bolder label.
   const headCellSx = { ...cellSx, fontWeight: 600, whiteSpace: 'nowrap' as const }
 
-  // ─── Per-dungeon table ────────────────────────────────────────────────────
+  // ─── Per-dungeon table (Dragon / Fire Knight) ─────────────────────────────
 
   const renderDungeonTable = (dungeonId: 'dragon' | 'fireKnight', isFirst: boolean) => (
     <Table
@@ -294,15 +300,13 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
             <TableCell sx={{ ...cellSx, pl: 0, color: 'text.secondary', whiteSpace: 'nowrap' }}>
               {`+${level}`}
             </TableCell>
-            {NOTE_SIM_COLUMNS.map((col, colIdx) => {
-              const pending = isPending(colIdx)
-              const pct = pending ? null : resolvePercent(dungeonId, colIdx, level)
-              const tooltipContent = buildTooltipContent(dungeonId, colIdx, level)
+            {NOTE_SIM_COLUMNS.map((col) => {
+              const pending = isConfigPending(col.configId)
+              const pct = pending ? null : resolvePercent(dungeonId, col.configId, level)
+              const tooltipContent = buildTooltipContent(dungeonId, col.configId, level)
               // Resolve which set is focused for this column + dungeon combination.
               const cfg = NOTE_SIM_CONFIGS.find((c) => c.id === col.configId)
-              const focusId = cfg
-                ? (dungeonId === 'dragon' ? cfg.dragonFocusSetId : cfg.fireKnightFocusSetId)
-                : null
+              const focusId = cfg ? getFocusId(cfg, dungeonId) : null
               return (
                 <TableCell key={col.configId} align="right" sx={cellSx}>
                   {pending || (running && pct === null) ? (
@@ -330,10 +334,71 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
     </Table>
   )
 
+  // ─── Ice Golem table (no boost, 3 columns only) ───────────────────────────
+
+  // Ice Golem always shows aggregate keep chance with no boost or focus set.
+  const renderIceGolemTable = () => (
+    <Table
+      size="small"
+      sx={{ tableLayout: 'fixed', width: '100%', mb: 0 }}
+    >
+      <TableHead>
+        {/* Section header spanning all columns */}
+        <TableRow>
+          <TableCell
+            colSpan={NOTE_SIM_ICE_GOLEM_COLUMNS.length + 1}
+            sx={{ ...headCellSx, pt: 1.5, pb: 0.25, pl: 0 }}
+          >
+            {dungeonLabel('iceGolem')}
+          </TableCell>
+        </TableRow>
+        {/* Column labels: mode + stage only (no boost prefix) */}
+        <TableRow>
+          <TableCell sx={{ ...headCellSx, pl: 0 }} />
+          {NOTE_SIM_ICE_GOLEM_COLUMNS.map((col) => (
+            <TableCell key={col.configId} align="right" sx={headCellSx}>
+              {colLabel(col, 'iceGolem')}
+            </TableCell>
+          ))}
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {NOTE_SIM_LEVELS.map((level) => (
+          <TableRow key={level}>
+            <TableCell sx={{ ...cellSx, pl: 0, color: 'text.secondary', whiteSpace: 'nowrap' }}>
+              {`+${level}`}
+            </TableCell>
+            {NOTE_SIM_ICE_GOLEM_COLUMNS.map((col) => {
+              const pending = isConfigPending(col.configId)
+              const pct = pending ? null : resolvePercent('iceGolem', col.configId, level)
+              const tooltipContent = buildTooltipContent('iceGolem', col.configId, level)
+              return (
+                <TableCell key={col.configId} align="right" sx={cellSx}>
+                  {pending || (running && pct === null) ? (
+                    <Skeleton variant="text" width={36} sx={{ ml: 'auto', fontSize: '0.75rem' }} />
+                  ) : (
+                    <MarkdownTooltip render={tooltipContent} enterDelay={400} placement="top">
+                      <Box component="span" sx={{ cursor: 'default', display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                        {/* Always Σ for Ice Golem — no boost, pure aggregate. */}
+                        <Box component="span" sx={{ fontSize: '0.6rem', opacity: 0.45, lineHeight: 1 }}>Σ</Box>
+                        {formatPct(pct)}
+                      </Box>
+                    </MarkdownTooltip>
+                  )}
+                </TableCell>
+              )
+            })}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  )
+
   return (
     <Box sx={{ my: 0.5 }}>
       {renderDungeonTable('fireKnight', true)}
       {renderDungeonTable('dragon', false)}
+      {renderIceGolemTable()}
     </Box>
   )
 }
