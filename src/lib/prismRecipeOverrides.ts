@@ -264,7 +264,8 @@ function noteMarkers(Prism: Refractor): void {
 
         // Marker type keyword. `recipes-re` / `safeguards-re` must precede their
         // shorter counterparts to win the first-match race.
-        'marker-kw': /\b(?:recipes-re|safeguards-re|recipes|safeguards)\b/,
+        // `dungeon-simulator` is a standalone marker with no arguments.
+        'marker-kw': /\b(?:recipes-re|safeguards-re|recipes|safeguards|dungeon-simulator)\b/,
 
         // Quoted regex pattern used in the `-re` filter variants.
         'string': /"(?:\\[\s\S]|[^"\\])*"/,
@@ -300,9 +301,10 @@ if (mdGrammar) {
                 inside: refractor.languages['recipe-overrides'],
             },
             // Matches inline <!-- recipes: … --> / <!-- recipes-re: "…" --> /
-            // <!-- safeguards: … --> / <!-- safeguards-re: "…" --> markers.
+            // <!-- safeguards: … --> / <!-- safeguards-re: "…" --> markers,
+            // and the standalone <!-- dungeon-simulator --> marker.
             'note-markers-block': {
-                pattern: /<!--\s*(?:recipes|safeguards)(?:-re)?\s*:[\s\S]*?-->/,
+                pattern: /<!--\s*(?:recipes|safeguards)(?:-re)?\s*:[\s\S]*?-->|<!--\s*dungeon-simulator\s*-->/,
                 inside: refractor.languages['note-markers'],
             },
         },

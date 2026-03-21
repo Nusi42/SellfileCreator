@@ -80,6 +80,7 @@ const runSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { k
       ...(payload.mode ? { mode: payload.mode } : {}),
       ...(payload.boosts ? { boosts: payload.boosts } : {}),
       ...(payload.selections ? { selections: payload.selections } : {}),
+      ...(payload.simulateDungeons ? { simulateDungeons: payload.simulateDungeons } : {}),
     })
   // Apply partial resets before streaming new batches.
   if (canReuse) {

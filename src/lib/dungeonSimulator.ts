@@ -1394,6 +1394,8 @@ export const createDungeonSimSpotlightSession = (params: {
   spotlights?: readonly EventSpotlightSelection[]
   mode?: DungeonSimMode
   runs?: number
+  // Restrict simulation to a subset of dungeons; omitted = all 5 dungeons (existing behavior).
+  simulateDungeons?: readonly DungeonId[]
 }): DungeonSimSpotlightSession => {
   // Default run count mirrors the global simulator default.
   const runs = params.runs ?? DUNGEON_SIM_RUNS_PER_DUNGEON
@@ -1411,6 +1413,13 @@ export const createDungeonSimSpotlightSession = (params: {
   let boostState: Partial<Record<DungeonBoostableId, DungeonBoostSelection>> = { ...(params.boosts ?? {}) }
   // Snapshot the current simulation mode for later resets.
   let modeState: DungeonSimMode = mode
+  // Determine which base (non-event) dungeons to build runtimes for.
+  // When not specified, all non-event dungeons are included (existing behavior).
+  const baseDungeonList = DUNGEON_IDS.filter((id) =>
+    id !== 'event' && (!params.simulateDungeons || params.simulateDungeons.includes(id))
+  )
+  // Whether the event dungeon is included in this session.
+  const simulateEvent = !params.simulateDungeons || params.simulateDungeons.includes('event')
   // Build a runtime for a base dungeon using the current selection + boost state.
   const buildBaseRuntime = (dungeonId: DungeonId): DungeonSimRuntime => {
     const boost = isBoostableDungeon(dungeonId)
@@ -1438,26 +1447,27 @@ export const createDungeonSimSpotlightSession = (params: {
     })
   }
   // Non-event dungeons share a single runtime seeded with the default spotlight.
+  // Only create runtimes for the requested subset (defaults to all non-event).
   const baseRuntimes = new Map<DungeonId, DungeonSimRuntime>()
-  for (const dungeonId of DUNGEON_IDS) {
-    if (dungeonId === 'event') continue
+  for (const dungeonId of baseDungeonList) {
     // Use the default spotlight because non-event dungeons are spotlight-agnostic.
     baseRuntimes.set(dungeonId, buildBaseRuntime(dungeonId))
   }
-  // Event dungeon runs once per spotlight.
+  // Event dungeon runs once per spotlight (omitted when not in simulateDungeons).
   const eventRuntimes = new Map<EventSpotlightSelection, DungeonSimRuntime>()
-  for (const spotlight of spotlights) {
-    // Each spotlight needs its own runtime because the set pool changes.
-    eventRuntimes.set(spotlight, buildEventRuntime(spotlight))
+  if (simulateEvent) {
+    for (const spotlight of spotlights) {
+      // Each spotlight needs its own runtime because the set pool changes.
+      eventRuntimes.set(spotlight, buildEventRuntime(spotlight))
+    }
   }
-  // Total progress counts every dungeon, including event per spotlight.
-  const total = runs * DUNGEON_IDS.length
+  // Total progress counts only the dungeons being simulated in this session.
+  const total = runs * (baseDungeonList.length + (simulateEvent ? 1 : 0))
   const buildProgressForSpotlight = (spotlight: EventSpotlightSelection): DungeonSimProgress => {
     // Build a per-dungeon completed map so the UI can label progress accurately.
     const completedByDungeon = {} as Record<DungeonId, number>
     let completed = 0
-    for (const dungeonId of DUNGEON_IDS) {
-      if (dungeonId === 'event') continue
+    for (const dungeonId of baseDungeonList) {
       const runtime = baseRuntimes.get(dungeonId)
       const count = runtime?.completed ?? 0
       completedByDungeon[dungeonId] = count
@@ -1478,8 +1488,7 @@ export const createDungeonSimSpotlightSession = (params: {
   const getResultsBySpotlight = (): DungeonSimSpotlightResults => {
     // Base results are shared by all spotlights (non-event dungeons).
     const baseResults: DungeonSimResults = {} as DungeonSimResults
-    for (const dungeonId of DUNGEON_IDS) {
-      if (dungeonId === 'event') continue
+    for (const dungeonId of baseDungeonList) {
       const runtime = baseRuntimes.get(dungeonId)
       if (!runtime) continue
       baseResults[dungeonId] = finalizeDungeonResults(runtime)
@@ -1560,8 +1569,10 @@ export const createDungeonSimSpotlightSession = (params: {
     if (modeChanged) {
       modeState = reset.mode!
     }
+    // On mode change, only rebuild dungeons this session was initialized with.
+    const sessionDungeons: DungeonId[] = [...baseDungeonList, ...(simulateEvent ? ['event' as DungeonId] : [])]
     // Deduplicate ids so we only rebuild each dungeon once.
-    const uniqueIds = new Set(modeChanged ? DUNGEON_IDS : reset.dungeonIds)
+    const uniqueIds = new Set(modeChanged ? sessionDungeons : reset.dungeonIds)
     for (const dungeonId of uniqueIds) {
       if (dungeonId === 'event') {
         // Event runs must be rebuilt for every spotlight variant.

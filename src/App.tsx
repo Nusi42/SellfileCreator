@@ -7248,6 +7248,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           gearSummary={gearInspectorOutcomeSummary}
           summaryProgressRatio={workloadProgressRatio}
           hideEditButton={noteAutoOpenedFromSfr}
+          rules={mergedRules}
+          substatTargets={effectiveSubstatTargets}
         />
       ) : null}
       <Snackbar

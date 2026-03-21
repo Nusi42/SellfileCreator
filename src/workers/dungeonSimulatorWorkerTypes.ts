@@ -28,6 +28,8 @@ export type DungeonSimulatorWorkerRunPayload = {
   dirtyDungeons?: DungeonId[]
   // Simulation mode (snapshot vs level-up).
   mode?: DungeonSimMode
+  // Optional list of dungeons to simulate; omitted = all 5 (default behavior).
+  simulateDungeons?: readonly DungeonId[]
   // Total runs per dungeon for this session.
   runs: number
   // Batch size for streaming updates.

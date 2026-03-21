@@ -310,6 +310,9 @@ const enUS: Catalog = {
   // Remaining dungeon names.
   dungeonDragon: 'Dragon',
   dungeonEvent: 'Event',
+  // Note-block dungeon simulator tooltip — keep-chance summary line.
+  // {level} = gear level milestone; {pct} = formatted keep-chance string.
+  noteSimKeepChanceAtLevel: 'Keep at +{level}: {pct}',
   safeguardsTabLabel: 'Safeguards',
   safeguardsTabIntro: 'Add safeguards per slot/set/stat filter so your active Sell rules keep a protected baseline.',
   safeguardsEnableLabel: 'Enable Safeguards',

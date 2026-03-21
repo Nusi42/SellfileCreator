@@ -22,6 +22,9 @@ import type { Pluggable } from 'unified'
 import type { Components } from 'react-markdown'
 import type { Root, RootContent, Element } from 'hast'
 import type { BuilderRecipe } from '../lib/hsfBuilder'
+import type { HsfRuleWithRecipe } from '../lib/merge'
+import type { SubstatTargetTable } from '../lib/hsfBuilder/types'
+import DungeonSimulatorNoteBlock from './DungeonSimulatorNoteBlock'
 import type { Metaset } from '../lib/metasets'
 import { metasetGlyph } from '../lib/metasets'
 import { metasetIconOptionById, DEFAULT_METASET_ICON_ID, type MetasetIconId } from '../lib/metasetIcons'
@@ -223,6 +226,12 @@ const QUESTION_GROUP_ELEMENT_TAG = 'note-recipe-overrides-group'
 const QUESTION_ELEMENT_INDEX_ATTR = 'data-question-index'
 // Backtick references like `\1` map to option labels by 1-based index.
 const QUESTION_PROMPT_REF_REGEX = /^\\(\d+)$/
+
+// ── Dungeon-simulator tag ────────────────────────────────────────────────────
+// Matches the body of <!-- dungeon-simulator --> HTML comment markers.
+const DUNGEON_SIM_COMMENT_REGEX = /^\s*dungeon-simulator\s*$/i
+// Custom element tag emitted by the rehype plugin into the sanitised HAST tree.
+const DUNGEON_SIM_ELEMENT_TAG = 'dungeon-sim-block'
 
 // Defensive guard: reject control characters that would break markdown parsing or regex compilation.
 function containsControlCharacters(value: string): boolean {
@@ -620,9 +629,15 @@ type NoteRenderContextValue = {
     nextAnswer: string[],
     preferredId?: string,
   ) => void
+  // Merged rules + substat targets forwarded from App for dungeon simulation.
+  rules: HsfRuleWithRecipe[]
+  substatTargets: SubstatTargetTable
+  // True while the rule cache pipeline is still running; gates dungeon sim start.
+  pipelineRunning: boolean
 }
 
-const NoteRenderContext = React.createContext<NoteRenderContextValue | null>(null)
+// Exported so DungeonSimulatorNoteBlock can consume it without a prop-drilling chain.
+export const NoteRenderContext = React.createContext<NoteRenderContextValue | null>(null)
 
 function useNoteRenderContext(): NoteRenderContextValue {
   const ctx = use(NoteRenderContext)
@@ -989,6 +1004,37 @@ const rehypeQuestionGroups: Pluggable = () => {
         i = cursor - 1
       }
       nodeChildren.splice(0, nodeChildren.length, ...nextChildren)
+    }
+    transform(tree)
+  }
+}
+
+// Replace <!-- dungeon-simulator --> comment nodes with a <dungeon-sim-block /> element.
+// The component reads rules + substatTargets + pipelineRunning from NoteRenderContext.
+const rehypeDungeonSimulatorComment: Pluggable = () => {
+  return (tree: Root) => {
+    const transform = (node: Root | Element): void => {
+      const nodeChildren = (node.children ?? []) as RootContent[]
+      for (let i = 0; i < nodeChildren.length; i++) {
+        const child = nodeChildren[i]
+        if (!child) continue
+        // Recurse into nested elements before replacing at this level.
+        if (child.type === 'element') {
+          transform(child as Element)
+          continue
+        }
+        // Only raw HTML comment nodes are candidates.
+        if (child.type !== 'comment') continue
+        const value = (child as { value?: string }).value ?? ''
+        if (!DUNGEON_SIM_COMMENT_REGEX.test(value)) continue
+        // Replace the comment node with the custom element (no attributes needed).
+        nodeChildren[i] = {
+          type: 'element',
+          tagName: DUNGEON_SIM_ELEMENT_TAG,
+          properties: {},
+          children: [],
+        }
+      }
     }
     transform(tree)
   }
@@ -2514,6 +2560,8 @@ export default function NoteDialog({
   gearSummary,
   summaryProgressRatio,
   hideEditButton,
+  rules,
+  substatTargets,
 }: {
   open: boolean
   mode: 'view' | 'edit'
@@ -2537,6 +2585,9 @@ export default function NoteDialog({
   summaryProgressRatio: number
   // Hide the edit entry point when the dialog auto-opens after SFR load.
   hideEditButton: boolean
+  // Merged rules + substat targets for the dungeon simulator embedded via <!-- dungeon-simulator -->.
+  rules: HsfRuleWithRecipe[]
+  substatTargets: SubstatTargetTable
 }) {
   const { t, lang } = useI18n()
   // Cache view/edit labels so button widths can align across modes.
@@ -2709,6 +2760,8 @@ export default function NoteDialog({
       return normalized
     })
   }, [onRecipeOverridesAnswersChange, renderNote])
+  // summaryProgressRatio > 0 signals that the rule cache pipeline is still rebuilding.
+  const pipelineRunning = summaryProgressRatio > 0
   const contextValue = useMemo<NoteRenderContextValue>(
     () => ({
       recipes,
@@ -2722,6 +2775,10 @@ export default function NoteDialog({
       recipeOverridesEditable: mode === 'view' && !recipeOverridesDisabled,
       recipeOverridesDisabled,
       onRecipeOverridesAnswerChange: handleRecipeOverridesAnswerChange,
+      // Forwarded to DungeonSimulatorNoteBlock via context.
+      rules,
+      substatTargets,
+      pipelineRunning,
     }),
     [
       recipes,
@@ -2735,11 +2792,16 @@ export default function NoteDialog({
       recipeOverridesDisabled,
       mode,
       handleRecipeOverridesAnswerChange,
+      rules,
+      substatTargets,
+      // pipelineRunning is derived from summaryProgressRatio in the same render, so tracking
+      // summaryProgressRatio here is sufficient — the memo will invalidate when it changes.
+      pipelineRunning,
     ],
   )
   const allowMarkdownElement = React.useCallback<MarkdownAllowElement>((element) => {
     const tag = typeof element.tagName === 'string' ? element.tagName.toLowerCase() : ''
-    if (tag === RECIPE_ELEMENT_TAG || tag === SAFEGUARD_ELEMENT_TAG || tag === QUESTION_ELEMENT_TAG || tag === QUESTION_GROUP_ELEMENT_TAG) return true
+    if (tag === RECIPE_ELEMENT_TAG || tag === SAFEGUARD_ELEMENT_TAG || tag === QUESTION_ELEMENT_TAG || tag === QUESTION_GROUP_ELEMENT_TAG || tag === DUNGEON_SIM_ELEMENT_TAG) return true
     return DEFAULT_ALLOWED_TAG_REGEX.test(tag)
   }, [])
   // Memoized sanitize schema and plugins for performance during typing.
@@ -2778,7 +2840,7 @@ export default function NoteDialog({
         [SAFEGUARD_ELEMENT_TAG]: mergedSafeguardAttrs,
         [QUESTION_ELEMENT_TAG]: mergedQuestionAttrs,
       },
-      tagNames: Array.from(new Set([...(defaultSchema.tagNames ?? []), 'span', RECIPE_ELEMENT_TAG, SAFEGUARD_ELEMENT_TAG, QUESTION_ELEMENT_TAG, QUESTION_GROUP_ELEMENT_TAG])),
+      tagNames: Array.from(new Set([...(defaultSchema.tagNames ?? []), 'span', RECIPE_ELEMENT_TAG, SAFEGUARD_ELEMENT_TAG, QUESTION_ELEMENT_TAG, QUESTION_GROUP_ELEMENT_TAG, DUNGEON_SIM_ELEMENT_TAG])),
     }
   }, [])
   const rehypePluginsSafe = useMemo<Pluggable[]>(() => (
@@ -2787,6 +2849,8 @@ export default function NoteDialog({
       rehypeSafeguardComments,
       rehypeQuestionComments,
       rehypeQuestionGroups,
+      // Replaces <!-- dungeon-simulator --> comments with the custom element tag.
+      rehypeDungeonSimulatorComment,
       [rehypeSanitize, sanitizeSchema] as unknown as Pluggable,
     ]
   ), [sanitizeSchema])
@@ -2795,6 +2859,8 @@ export default function NoteDialog({
     [SAFEGUARD_ELEMENT_TAG]: SafeguardBlock as unknown as React.ComponentType<Record<string, unknown>>,
     [QUESTION_ELEMENT_TAG]: NoteQuestionBlock as unknown as React.ComponentType<Record<string, unknown>>,
     [QUESTION_GROUP_ELEMENT_TAG]: NoteQuestionGroup as unknown as React.ComponentType<Record<string, unknown>>,
+    // Renders a live dungeon simulation summary table from <!-- dungeon-simulator -->.
+    [DUNGEON_SIM_ELEMENT_TAG]: DungeonSimulatorNoteBlock as unknown as React.ComponentType<Record<string, unknown>>,
   }), [])
 
   // Non-edit modes should always commit by closing immediately.
