@@ -33,6 +33,7 @@ English:
 - Clicking a **safeguard chip** in the sell-file preview now scrolls the table to the matching safeguard block; the **Selection** filter in the preview also works for safeguard rules.
 - Add **`<!-- dungeon-simulator -->`** to your Note to display a live keep-chance table for Fire Knight, Dragon, and Ice Golem across three difficulty stages (N20/N25/H10) and two boost modes, showing keep-rates at +0/+4/+8/+12/+16.
 - A new **Midgame** sell-file preset is now bundled alongside Lategame and Endgame; all three are generated at build time from the included recipe file so they always stay current.
+- Shoutout to **Red Tuxedo** and **Red VII** who provided invaluable information to create the Midgame sellfile!
 - The note DSL gains two more override fields: **`gearsets=`** swaps or mutates the gear-set list, and **`metasets=`** swaps or mutates a metaset reference — both support `+`/`-` prefixes to add or remove entries without replacing the whole list.
 - The `wholeline` keyword in note cards is replaced by **`[columns=N]`** (e.g., `[columns=2]` makes a card twice as wide). Notes that used `wholeline` need to be updated to `columns=N`.
 - A bare **`<br>`** tag between recipe-override comment blocks in a Note forces the next card onto a new row without rendering any visible element.
@@ -76,6 +77,7 @@ Deutsch:
 - Ein Klick auf einen **Schutzregel-Chip** in der Vorschau scrollt die Sellfile-Tabelle zum passenden Schutzregel-Block; der **Selection**-Filter in der Vorschau wirkt jetzt auch für Schutzregeln.
 - **`<!-- dungeon-simulator -->`** in deiner Notiz zeigt eine Live-Keep-Chance-Tabelle für Feuerritter, Drachen und Eisgolem auf drei Schwierigkeitsstufen (N20/N25/H10) und zwei Boost-Modi, mit Keep-Raten bei +0/+4/+8/+12/+16.
 - Ein neues **Midgame**-Sellfile-Preset ist jetzt neben Lategame und Endgame enthalten; alle drei werden beim Bauen aus der mitgelieferten Rezept-Datei generiert und bleiben so immer aktuell.
+- Ein herzliches Danke an **Red Tuxedo** und **Red VII** die mir unersätzliche Information zum Erstellen des Midgame Sellfiles gegeben haben!
 - Das Notiz-DSL erhält zwei weitere Override-Felder: **`gearsets=`** tauscht oder mutiert die Gear-Set-Liste, **`metasets=`** tauscht oder mutiert einen Metaset-Verweis – beide unterstützen `+`/`-`-Präfixe zum Hinzufügen oder Entfernen ohne die ganze Liste zu ersetzen.
 - Das Schlüsselwort `wholeline` in Notizkarten ist durch **`[columns=N]`** ersetzt (z. B. `[columns=2]` macht eine Karte doppelt so breit). Notizen, die `wholeline` verwenden, müssen auf `columns=N` aktualisiert werden.
 - Ein einfaches **`<br>`**-Tag zwischen Rezept-Override-Kommentarblöcken in einer Notiz zwingt die nächste Karte auf eine neue Zeile, ohne ein sichtbares Element zu rendern.
