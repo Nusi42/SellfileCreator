@@ -3,8 +3,11 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   resolveRecipeOverridesTags,
+  resolveRecipeOverridesEffectiveRecipe,
   NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT,
+  type RecipeOverridesOperation,
 } from '../../src/lib/noteRecipeOverrides.js'
+import { createFactoryBuilderDefaults } from '../../src/lib/builderDefaults.js'
 
 test('global explicit ids exclude options across questions', () => {
   // Build a note with two recipe-overrides markers.
@@ -644,6 +647,71 @@ test('omitting the columns marker defaults to vertical layout', () => {
   assert.ok(question, 'expected the question to be parsed')
   // Confirm the default column value means vertical layout.
   assert.equal(question?.layoutColumns, NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT)
+})
+
+test('gearsets=+-Name parses as addExcluded mutate operation', () => {
+  // `+` is tokenized as a symbol; the parser must peek past it to form `+-Name`.
+  // This is the mechanism for explicitly excluding a set that a metaset would include.
+  const note = [
+    '<!-- recipe-overrides',
+    'q "Set override"',
+    'radio "Exclude Daze" * { @all { gearsets=+-Daze } }',
+    '-->',
+  ].join('\n')
+  const { instructions } = resolveRecipeOverridesTags(note)
+  // One instruction block must have been parsed from the default option.
+  assert.equal(instructions.length, 1, 'expected one instruction block')
+  const op = instructions[0]!.operations.find(
+    (o): o is Extract<RecipeOverridesOperation, { kind: 'artifactSets' }> => o.kind === 'artifactSets',
+  )
+  // The operation must have been parsed and be a mutate.
+  assert.ok(op, 'expected an artifactSets operation')
+  assert.equal(op.mode, 'mutate', 'expected mutate mode from +-prefix')
+  // The add list must contain exactly one excluded entry (Daze).
+  assert.equal(op.add.length, 1, 'expected one add entry')
+  assert.equal(op.add[0]!.excluded, true, 'expected the entry to be excluded')
+  assert.equal(op.remove.length, 0, 'expected no remove entries')
+})
+
+test('gearsets=+Name parses as plain add mutate operation', () => {
+  // `+Name` should produce a non-excluded add entry in mutate mode.
+  const note = [
+    '<!-- recipe-overrides',
+    'q "Set override"',
+    'radio "Add Speed" * { @all { gearsets=+Speed } }',
+    '-->',
+  ].join('\n')
+  const { instructions } = resolveRecipeOverridesTags(note)
+  assert.equal(instructions.length, 1, 'expected one instruction block')
+  const op = instructions[0]!.operations.find(
+    (o): o is Extract<RecipeOverridesOperation, { kind: 'artifactSets' }> => o.kind === 'artifactSets',
+  )
+  assert.ok(op, 'expected an artifactSets operation')
+  assert.equal(op.mode, 'mutate', 'expected mutate mode from + prefix')
+  assert.equal(op.add.length, 1, 'expected one add entry')
+  assert.equal(op.add[0]!.excluded, undefined, 'expected entry to not be excluded')
+  assert.equal(op.remove.length, 0, 'expected no remove entries')
+})
+
+test('gearsets=+-Name applied to a metaset recipe adds excluded entry', () => {
+  // Recipes whose sets come exclusively from a metaset have an empty explicit
+  // artifactSets list.  A gearsets=+-Name override must add an excluded entry
+  // so the set is suppressed even though the metaset would normally include it.
+  const note = [
+    '<!-- recipe-overrides',
+    'q "Set override"',
+    'radio "Exclude Daze" * { @all { gearsets=+-Daze } }',
+    '-->',
+  ].join('\n')
+  const { instructions } = resolveRecipeOverridesTags(note)
+  // Base recipe: uses the Utility metaset, no explicit artifactSets.
+  const recipe = { ...createFactoryBuilderDefaults(), artifactMetaSets: ['Utility'], artifactSets: [] }
+  const resolved = resolveRecipeOverridesEffectiveRecipe(recipe, instructions)
+  // The resolved recipe must have Daze as an excluded entry.
+  const excluded = (resolved.artifactSets ?? []).filter((e) => e.excluded === true)
+  assert.equal(excluded.length, 1, 'expected exactly one excluded entry')
+  // The metaset reference itself must be untouched.
+  assert.deepEqual(resolved.artifactMetaSets, ['Utility'])
 })
 
 export {}
