@@ -228,13 +228,16 @@ export function mergeRecipeArtifactSets(recipe: BuilderRecipe, metasets: readonl
     metasetIds: recipe.artifactMetaSets,
     metasets,
   })
-  // Only include the resolved set IDs in cached recipes for fingerprints.
+  // Collapse to include-only entries and clear metasets so downstream callers
+  // (buildRulesForRecipe, fingerprinting) see the final set list without a
+  // second metaset expansion that would re-add explicitly excluded sets.
   const normalized = resolved.resolved.map((id) => ({ id }))
-  if (normalized.length === (recipe.artifactSets ?? []).length) {
-    const same = normalized.every((entry, idx) => Number(entry.id) === Number((recipe.artifactSets ?? [])[idx]?.id))
-    if (same) return recipe
-  }
-  return { ...recipe, artifactSets: normalized }
+  const metasetsAlreadyResolved = !recipe.artifactMetaSets?.length
+  const setsAlreadyNormalized = metasetsAlreadyResolved
+    && normalized.length === (recipe.artifactSets ?? []).length
+    && normalized.every((entry, idx) => Number(entry.id) === Number((recipe.artifactSets ?? [])[idx]?.id))
+  if (setsAlreadyNormalized) return recipe
+  return { ...recipe, artifactSets: normalized, artifactMetaSets: [] }
 }
 
 /**
