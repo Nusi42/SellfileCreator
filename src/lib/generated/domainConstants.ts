@@ -79,6 +79,10 @@ export const LEVEL_MILESTONE_8 = 8
 export const LEVEL_MILESTONE_12 = 12
 export const LEVEL_MILESTONE_16 = 16
 
+// Substat slot and roll-count limits shared by builder and safeguard logic.
+export const SUBSTAT_SLOT_COUNT = 4
+export const SUBSTAT_MAX_ROLLS_PER_SLOT = 5
+
 // StatVariant bit encoding constants and concrete variant values.
 export const STAT_VARIANT_SHIFT_BITS = 8
 export const STAT_VARIANT_ID_MASK = 255
@@ -132,3 +136,42 @@ export const STAT_VARIANTS_PRIORITY_ROW2 = [257, 256, 513, 512, 769, 768] as con
 export const STAT_VARIANTS_PRIORITY = [1025, 1792, 2048, 1537, 1281, 257, 256, 513, 512, 769, 768] as const
 export const PREFERRED_STAT_ORDER = [1025, 1792, 2048, 1537, 1281, 256, 257, 512, 513, 768, 769, 25345] as const
 
+
+// Faction IDs — one constant per faction (mirrors Faction enum in types.ts).
+export const FACTION_ID_BANNER_LORDS = 1
+export const FACTION_ID_HIGH_ELVES = 2
+export const FACTION_ID_SACRED_ORDER = 3
+export const FACTION_ID_OGRYN_TRIBES = 5
+export const FACTION_ID_LIZARDMEN = 6
+export const FACTION_ID_SKINWALKERS = 7
+export const FACTION_ID_ORCS = 8
+export const FACTION_ID_DEMONSPAWN = 9
+export const FACTION_ID_UNDEAD_HORDES = 10
+export const FACTION_ID_DARK_ELVES = 11
+export const FACTION_ID_KNIGHT_REVENANT = 12
+export const FACTION_ID_BARBARIANS = 13
+export const FACTION_ID_SYLVAN_WATCHERS = 14
+export const FACTION_ID_SHADOWKIN = 15
+export const FACTION_ID_DWARVES = 16
+export const FACTION_ID_ARGONITES = 17
+
+// Map of faction ID → display name (0 = Any/none).
+export const FACTION_NAMES: Record<number, string> = { 0: '', 1: "Banner Lords", 2: "High Elves", 3: "Sacred Order", 5: "Ogryn Tribes", 6: "Lizardmen", 7: "Skinwalkers", 8: "Orcs", 9: "Demonspawn", 10: "Undead Hordes", 11: "Dark Elves", 12: "Knight Revenant", 13: "Barbarians", 14: "Sylvan Watchers", 15: "Shadowkin", 16: "Dwarves", 17: "Argonites" }
+
+// Map of faction display name → faction ID.
+export const FACTION_NAMES_TO_ID: Record<string, number> = { "Banner Lords": 1, "High Elves": 2, "Sacred Order": 3, "Ogryn Tribes": 5, "Lizardmen": 6, "Skinwalkers": 7, "Orcs": 8, "Demonspawn": 9, "Undead Hordes": 10, "Dark Elves": 11, "Knight Revenant": 12, "Barbarians": 13, "Sylvan Watchers": 14, "Shadowkin": 15, "Dwarves": 16, "Argonites": 17 }
+
+// Artifact slot display names by numeric ID (mirrors artifactTypeNames in types.ts).
+export const ARTIFACT_TYPE_DISPLAY_NAMES: Record<number, string> = { 1: "Helmet", 2: "Chestplate", 3: "Gauntlets", 4: "Boots", 5: "Weapon", 6: "Shield", 7: "Ring", 8: "Amulet", 9: "Banner" }
+
+// Stat variant numeric value → canonical display label.
+export const STAT_VARIANT_DISPLAY_LABELS: Record<number, string> = { 256: "HP%", 257: "HP", 512: "ATK%", 513: "ATK", 768: "DEF%", 769: "DEF", 1025: "SPD", 1281: "RES", 1537: "ACC", 1792: "CR%", 2048: "CDMG%", 25345: "Roll Count" }
+
+// Allowed main stat variants by artifact slot ID.
+export const ALLOWED_MAINS_BY_SLOT: Record<number, readonly number[]> = { [1]: [257], [2]: [256, 257, 512, 513, 768, 769, 1537, 1281], [3]: [256, 257, 512, 513, 768, 769, 1792, 2048], [4]: [256, 257, 512, 513, 768, 769, 1025], [5]: [513], [6]: [769], [7]: [257, 513, 769], [8]: [257, 513, 769, 2048], [9]: [257, 513, 769, 1537, 1281] }
+
+// Allowed sub stat variants by artifact slot ID.
+export const ALLOWED_SUBS_BY_SLOT: Record<number, readonly number[]> = { [1]: [256, 257, 512, 513, 768, 769, 1792, 2048, 1537, 1281, 1025], [2]: [256, 257, 512, 513, 768, 769, 1792, 2048, 1537, 1281, 1025], [3]: [256, 257, 512, 513, 768, 769, 1792, 2048, 1537, 1281, 1025], [4]: [256, 257, 512, 513, 768, 769, 1792, 2048, 1537, 1281, 1025], [5]: [256, 257, 512, 513, 1792, 2048, 1537, 1281, 1025], [6]: [256, 257, 768, 769, 1792, 2048, 1537, 1281, 1025], [7]: [256, 257, 512, 513, 768, 769], [8]: [257, 513, 769, 2048, 1537, 1281], [9]: [256, 257, 512, 513, 768, 769, 1025] }
+
+// Substat factory minima keyed by star (1..6) then stat variant.
+export const SUBSTAT_MINIMA_BY_STAR: Record<number, Record<number, number>> = { 1: { 256: 1, 257: 90, 512: 1, 513: 7, 768: 1, 769: 7, 1025: 1, 1281: 5, 1537: 5, 1792: 1, 2048: 1 }, 2: { 256: 1, 257: 100, 512: 1, 513: 8, 768: 1, 769: 8, 1025: 1, 1281: 5, 1537: 5, 1792: 1, 2048: 1 }, 3: { 256: 2, 257: 110, 512: 2, 513: 9, 768: 2, 769: 9, 1025: 2, 1281: 6, 1537: 6, 1792: 2, 2048: 2 }, 4: { 256: 3, 257: 120, 512: 3, 513: 10, 768: 3, 769: 10, 1025: 3, 1281: 7, 1537: 7, 1792: 3, 2048: 3 }, 5: { 256: 4, 257: 136, 512: 4, 513: 12, 768: 4, 769: 12, 1025: 4, 1281: 8, 1537: 8, 1792: 4, 2048: 4 }, 6: { 256: 5, 257: 200, 512: 5, 513: 15, 768: 5, 769: 15, 1025: 5, 1281: 9, 1537: 9, 1792: 5, 2048: 5 } }

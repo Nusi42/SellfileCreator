@@ -69,6 +69,10 @@
     "anySentinel": 99,
     "milestones": [0, 4, 8, 12, 16]
   },
+  "substat": {
+    "slotCount": 4,
+    "maxRollsPerSlot": 5
+  },
   "encoding": {
     "statVariantShiftBits": 8,
     "statVariantIdMask": 255,
@@ -120,5 +124,78 @@
     "statVariantsPriorityRow2": ["hpFlat", "hpPercent", "atkFlat", "atkPercent", "defFlat", "defPercent"],
     "preferredStatOrder": ["spd", "cr", "cdmg", "acc", "res", "hpPercent", "hpFlat", "atkPercent", "atkFlat", "defPercent", "defFlat", "rollCount"]
   },
-  "accessoryNoSetId": -99
+  "accessoryNoSetId": -99,
+  "faction": {
+    "bannerLords":    { "id": 1,  "name": "Banner Lords" },
+    "highElves":      { "id": 2,  "name": "High Elves" },
+    "sacredOrder":    { "id": 3,  "name": "Sacred Order" },
+    "ogrynTribes":    { "id": 5,  "name": "Ogryn Tribes" },
+    "lizardmen":      { "id": 6,  "name": "Lizardmen" },
+    "skinwalkers":    { "id": 7,  "name": "Skinwalkers" },
+    "orcs":           { "id": 8,  "name": "Orcs" },
+    "demonspawn":     { "id": 9,  "name": "Demonspawn" },
+    "undeadHordes":   { "id": 10, "name": "Undead Hordes" },
+    "darkElves":      { "id": 11, "name": "Dark Elves" },
+    "knightRevenant": { "id": 12, "name": "Knight Revenant" },
+    "barbarians":     { "id": 13, "name": "Barbarians" },
+    "sylvanWatchers": { "id": 14, "name": "Sylvan Watchers" },
+    "shadowkin":      { "id": 15, "name": "Shadowkin" },
+    "dwarves":        { "id": 16, "name": "Dwarves" },
+    "argonites":      { "id": 17, "name": "Argonites" }
+  },
+  "artifactTypeNames": {
+    "weapon":     "Weapon",
+    "helmet":     "Helmet",
+    "shield":     "Shield",
+    "gauntlets":  "Gauntlets",
+    "chestplate": "Chestplate",
+    "boots":      "Boots",
+    "ring":       "Ring",
+    "amulet":     "Amulet",
+    "banner":     "Banner"
+  },
+  "statVariantLabels": {
+    "hpPercent": "HP%",
+    "hpFlat":    "HP",
+    "atkPercent":"ATK%",
+    "atkFlat":   "ATK",
+    "defPercent":"DEF%",
+    "defFlat":   "DEF",
+    "spd":       "SPD",
+    "res":       "RES",
+    "acc":       "ACC",
+    "cr":        "CR%",
+    "cdmg":      "CDMG%",
+    "rollCount": "Roll Count"
+  },
+  "allowedMainsBySlot": {
+    "helmet":     ["hpFlat"],
+    "chestplate": ["hpPercent","hpFlat","atkPercent","atkFlat","defPercent","defFlat","acc","res"],
+    "gauntlets":  ["hpPercent","hpFlat","atkPercent","atkFlat","defPercent","defFlat","cr","cdmg"],
+    "boots":      ["hpPercent","hpFlat","atkPercent","atkFlat","defPercent","defFlat","spd"],
+    "weapon":     ["atkFlat"],
+    "shield":     ["defFlat"],
+    "ring":       ["hpFlat","atkFlat","defFlat"],
+    "amulet":     ["hpFlat","atkFlat","defFlat","cdmg"],
+    "banner":     ["hpFlat","atkFlat","defFlat","acc","res"]
+  },
+  "allowedSubsBySlot": {
+    "helmet":     ["hpPercent","hpFlat","atkPercent","atkFlat","defPercent","defFlat","cr","cdmg","acc","res","spd"],
+    "chestplate": ["hpPercent","hpFlat","atkPercent","atkFlat","defPercent","defFlat","cr","cdmg","acc","res","spd"],
+    "gauntlets":  ["hpPercent","hpFlat","atkPercent","atkFlat","defPercent","defFlat","cr","cdmg","acc","res","spd"],
+    "boots":      ["hpPercent","hpFlat","atkPercent","atkFlat","defPercent","defFlat","cr","cdmg","acc","res","spd"],
+    "weapon":     ["hpPercent","hpFlat","atkPercent","atkFlat","cr","cdmg","acc","res","spd"],
+    "shield":     ["hpPercent","hpFlat","defPercent","defFlat","cr","cdmg","acc","res","spd"],
+    "ring":       ["hpPercent","hpFlat","atkPercent","atkFlat","defPercent","defFlat"],
+    "amulet":     ["hpFlat","atkFlat","defFlat","cdmg","acc","res"],
+    "banner":     ["hpPercent","hpFlat","atkPercent","atkFlat","defPercent","defFlat","spd"]
+  },
+  "substatMinimaByStar": {
+    "6": { "hpFlat": 200, "hpPercent": 5, "atkFlat": 15, "atkPercent": 5, "defFlat": 15, "defPercent": 5, "spd": 5, "res": 9, "acc": 9, "cr": 5, "cdmg": 5 },
+    "5": { "hpFlat": 136, "hpPercent": 4, "atkFlat": 12, "atkPercent": 4, "defFlat": 12, "defPercent": 4, "spd": 4, "res": 8, "acc": 8, "cr": 4, "cdmg": 4 },
+    "4": { "hpFlat": 120, "hpPercent": 3, "atkFlat": 10, "atkPercent": 3, "defFlat": 10, "defPercent": 3, "spd": 3, "res": 7, "acc": 7, "cr": 3, "cdmg": 3 },
+    "3": { "hpFlat": 110, "hpPercent": 2, "atkFlat":  9, "atkPercent": 2, "defFlat":  9, "defPercent": 2, "spd": 2, "res": 6, "acc": 6, "cr": 2, "cdmg": 2 },
+    "2": { "hpFlat": 100, "hpPercent": 1, "atkFlat":  8, "atkPercent": 1, "defFlat":  8, "defPercent": 1, "spd": 1, "res": 5, "acc": 5, "cr": 1, "cdmg": 1 },
+    "1": { "hpFlat":  90, "hpPercent": 1, "atkFlat":  7, "atkPercent": 1, "defFlat":  7, "defPercent": 1, "spd": 1, "res": 5, "acc": 5, "cr": 1, "cdmg": 1 }
+  }
 }

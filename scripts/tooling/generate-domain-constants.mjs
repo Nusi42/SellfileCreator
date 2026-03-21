@@ -26,6 +26,7 @@ const rarityCode = spec.rarityCode
 const rankCode = spec.rankCode
 const rankValue = spec.rankValue
 const level = spec.level
+const substat = spec.substat
 const encoding = spec.encoding
 const autoRarity = spec.autoRarity
 const safeguard = spec.safeguard
@@ -242,6 +243,10 @@ const tsLines = [
   `export const LEVEL_MILESTONE_12 = ${level12}`,
   `export const LEVEL_MILESTONE_16 = ${level16}`,
   '',
+  '// Substat slot and roll-count limits shared by builder and safeguard logic.',
+  `export const SUBSTAT_SLOT_COUNT = ${Number(substat.slotCount)}`,
+  `export const SUBSTAT_MAX_ROLLS_PER_SLOT = ${Number(substat.maxRollsPerSlot)}`,
+  '',
   '// StatVariant bit encoding constants and concrete variant values.',
   `export const STAT_VARIANT_SHIFT_BITS = ${shiftBits}`,
   `export const STAT_VARIANT_ID_MASK = ${Number(encoding.statVariantIdMask)}`,
@@ -381,6 +386,10 @@ const rustLines = [
   `pub const LEVEL_MILESTONE_12: i64 = ${level12};`,
   `pub const LEVEL_MILESTONE_16: i64 = ${level16};`,
   '',
+  '// Substat slot and roll-count limits shared by builder and safeguard logic.',
+  `pub const SUBSTAT_SLOT_COUNT: i64 = ${Number(substat.slotCount)};`,
+  `pub const SUBSTAT_MAX_ROLLS_PER_SLOT: i64 = ${Number(substat.maxRollsPerSlot)};`,
+  '',
   '// StatVariant bit encoding constants and concrete variant values.',
   `pub const STAT_VARIANT_SHIFT_BITS: i64 = ${shiftBits};`,
   `pub const STAT_VARIANT_ID_MASK: i64 = ${Number(encoding.statVariantIdMask)};`,
@@ -435,6 +444,215 @@ const rustLines = [
   `pub const PREFERRED_STAT_ORDER: [i64; ${preferredStatOrder.length}] = [${preferredStatOrder.join(", ")}];`,
   '',
 ]
+
+// ---------------------------------------------------------------------------
+// New sections: faction, artifactTypeNames, statVariantLabels,
+// allowedMainsBySlot, allowedSubsBySlot, substatMinimaByStar
+// ---------------------------------------------------------------------------
+
+const factionSpec = spec.faction
+const artifactTypeNamesSpec = spec.artifactTypeNames
+const statVariantLabelsSpec = spec.statVariantLabels
+const allowedMainsBySlotSpec = spec.allowedMainsBySlot
+const allowedSubsBySlotSpec = spec.allowedSubsBySlot
+const substatMinimaByStar = spec.substatMinimaByStar
+
+// Build sorted-by-id faction array for both emitters.
+const factionEntries = Object.entries(factionSpec)
+  .map(([key, val]) => ({ key, id: Number(val.id), name: String(val.name) }))
+  .sort((a, b) => a.id - b.id)
+
+// Helper: camelCase key → SCREAMING_SNAKE constant suffix.
+const toScreamingSnake = (key) =>
+  key.replace(/([A-Z])/g, '_$1').toUpperCase()
+
+// ── TS: faction individual constants ──────────────────────────────────────
+tsLines.push('')
+tsLines.push('// Faction IDs — one constant per faction (mirrors Faction enum in types.ts).')
+for (const { key, id } of factionEntries) {
+  tsLines.push(`export const FACTION_ID_${toScreamingSnake(key)} = ${id}`)
+}
+
+// TS: FACTION_NAMES record (0 → '' plus all factions).
+const factionNamesEntries = [['0', "''"]]
+for (const { id, name } of factionEntries) {
+  factionNamesEntries.push([String(id), JSON.stringify(name)])
+}
+tsLines.push('')
+tsLines.push('// Map of faction ID → display name (0 = Any/none).')
+tsLines.push(
+  `export const FACTION_NAMES: Record<number, string> = { ${factionNamesEntries.map(([k, v]) => `${k}: ${v}`).join(', ')} }`
+)
+
+// TS: FACTION_NAMES_TO_ID record.
+const factionNamesToIdEntries = factionEntries.map(({ id, name }) => `${JSON.stringify(name)}: ${id}`)
+tsLines.push('')
+tsLines.push('// Map of faction display name → faction ID.')
+tsLines.push(
+  `export const FACTION_NAMES_TO_ID: Record<string, number> = { ${factionNamesToIdEntries.join(', ')} }`
+)
+
+// ── TS: artifactTypeNames display map ────────────────────────────────────
+// Resolve token → numeric ID from artifactType then build ID → name map.
+const artifactTypeDisplayEntries = Object.entries(artifactTypeNamesSpec)
+  .map(([token, name]) => ({ id: Number(artifactType[token]), name: String(name) }))
+  .sort((a, b) => a.id - b.id)
+tsLines.push('')
+tsLines.push('// Artifact slot display names by numeric ID (mirrors artifactTypeNames in types.ts).')
+tsLines.push(
+  `export const ARTIFACT_TYPE_DISPLAY_NAMES: Record<number, string> = { ${artifactTypeDisplayEntries.map(({ id, name }) => `${id}: ${JSON.stringify(name)}`).join(', ')} }`
+)
+
+// ── TS: statVariant display labels ───────────────────────────────────────
+const statVariantLabelEntries = Object.entries(statVariantLabelsSpec)
+  .map(([token, label]) => ({ variant: Number(statVariant[token]), label: String(label) }))
+  .sort((a, b) => a.variant - b.variant)
+tsLines.push('')
+tsLines.push('// Stat variant numeric value → canonical display label.')
+tsLines.push(
+  `export const STAT_VARIANT_DISPLAY_LABELS: Record<number, string> = { ${statVariantLabelEntries.map(({ variant, label }) => `${variant}: ${JSON.stringify(label)}`).join(', ')} }`
+)
+
+// ── TS: allowedMainsBySlot ────────────────────────────────────────────────
+// Resolve slot tokens → IDs and stat variant tokens → variant numbers.
+const allowedMainsEntries = Object.entries(allowedMainsBySlotSpec)
+  .map(([slotToken, variantTokens]) => ({
+    slotId: Number(artifactType[slotToken]),
+    variants: variantTokens.map((t) => Number(statVariant[t])),
+  }))
+  .sort((a, b) => a.slotId - b.slotId)
+tsLines.push('')
+tsLines.push('// Allowed main stat variants by artifact slot ID.')
+tsLines.push(
+  `export const ALLOWED_MAINS_BY_SLOT: Record<number, readonly number[]> = { ${allowedMainsEntries.map(({ slotId, variants }) => `[${slotId}]: [${variants.join(', ')}]`).join(', ')} }`
+)
+
+// ── TS: allowedSubsBySlot ─────────────────────────────────────────────────
+const allowedSubsEntries = Object.entries(allowedSubsBySlotSpec)
+  .map(([slotToken, variantTokens]) => ({
+    slotId: Number(artifactType[slotToken]),
+    variants: variantTokens.map((t) => Number(statVariant[t])),
+  }))
+  .sort((a, b) => a.slotId - b.slotId)
+tsLines.push('')
+tsLines.push('// Allowed sub stat variants by artifact slot ID.')
+tsLines.push(
+  `export const ALLOWED_SUBS_BY_SLOT: Record<number, readonly number[]> = { ${allowedSubsEntries.map(({ slotId, variants }) => `[${slotId}]: [${variants.join(', ')}]`).join(', ')} }`
+)
+
+// ── TS: substatMinimaByStar ───────────────────────────────────────────────
+// Resolve star keys (string "6".."1") and stat variant tokens → numbers.
+const substatMinimaStarEntries = Object.entries(substatMinimaByStar)
+  .map(([starStr, statMap]) => ({
+    star: Number(starStr),
+    pairs: Object.entries(statMap)
+      .map(([token, value]) => ({ variant: Number(statVariant[token]), value: Number(value) }))
+      .sort((a, b) => a.variant - b.variant),
+  }))
+  .sort((a, b) => a.star - b.star)
+tsLines.push('')
+tsLines.push('// Substat factory minima keyed by star (1..6) then stat variant.')
+const substatMinimaBody = substatMinimaStarEntries
+  .map(({ star, pairs }) =>
+    `${star}: { ${pairs.map(({ variant, value }) => `${variant}: ${value}`).join(', ')} }`
+  )
+  .join(', ')
+tsLines.push(
+  `export const SUBSTAT_MINIMA_BY_STAR: Record<number, Record<number, number>> = { ${substatMinimaBody} }`
+)
+
+// ── Rust: faction individual constants ───────────────────────────────────
+rustLines.push('')
+rustLines.push('// Faction IDs — one constant per faction.')
+for (const { key, id } of factionEntries) {
+  rustLines.push(`pub const FACTION_ID_${toScreamingSnake(key)}: i64 = ${id};`)
+}
+
+// Rust: FACTION_NAME_IDS sorted alphabetically by name.
+const factionByName = [...factionEntries].sort((a, b) => a.name.localeCompare(b.name))
+const factionNameIdsRust = factionByName
+  .map(({ id, name }) => `(${asRustStringLiteral(name)}, ${id})`)
+  .join(', ')
+rustLines.push('')
+rustLines.push('// Faction names sorted alphabetically for binary-compatible linear scan.')
+rustLines.push(
+  `pub const FACTION_NAME_IDS: &[(&str, i64)] = &[${factionNameIdsRust}];`
+)
+
+// ── Rust: ARTIFACT_TYPE_DISPLAY_NAMES ────────────────────────────────────
+const artifactTypeDisplayRust = artifactTypeDisplayEntries
+  .map(({ id, name }) => `(${id}, ${asRustStringLiteral(name)})`)
+  .join(', ')
+rustLines.push('')
+rustLines.push('// Artifact slot display names by numeric ID, sorted by ID ascending.')
+rustLines.push(
+  `pub const ARTIFACT_TYPE_DISPLAY_NAMES: &[(i64, &str)] = &[${artifactTypeDisplayRust}];`
+)
+
+// ── Rust: STAT_VARIANT_DISPLAY_LABELS ────────────────────────────────────
+const statVariantLabelsRust = statVariantLabelEntries
+  .map(({ variant, label }) => `(${variant}, ${asRustStringLiteral(label)})`)
+  .join(', ')
+rustLines.push('')
+rustLines.push('// Stat variant display labels sorted by variant value ascending.')
+rustLines.push(
+  `pub const STAT_VARIANT_DISPLAY_LABELS: &[(i64, &str)] = &[${statVariantLabelsRust}];`
+)
+
+// ── Rust: ALLOWED_MAINS per slot + dispatch array ────────────────────────
+rustLines.push('')
+rustLines.push('// Allowed main stat variants per slot (per-slot const + dispatch array).')
+for (const { slotId, variants } of allowedMainsEntries) {
+  // Find the slot token for a readable name suffix.
+  const slotToken = Object.keys(artifactType).find((k) => Number(artifactType[k]) === slotId)
+  const suffix = slotToken ? slotToken.toUpperCase() : `SLOT_${slotId}`
+  rustLines.push(
+    `pub const ALLOWED_MAINS_${suffix}: &[i64] = &[${variants.join(', ')}];`
+  )
+}
+const allowedMainsDispatchRust = allowedMainsEntries.map(({ slotId }) => {
+  const slotToken = Object.keys(artifactType).find((k) => Number(artifactType[k]) === slotId)
+  const suffix = slotToken ? slotToken.toUpperCase() : `SLOT_${slotId}`
+  return `(${slotId}, ALLOWED_MAINS_${suffix})`
+}).join(', ')
+rustLines.push(
+  `pub const ALLOWED_MAINS_BY_SLOT: &[(i64, &[i64])] = &[${allowedMainsDispatchRust}];`
+)
+
+// ── Rust: ALLOWED_SUBS per slot + dispatch array ──────────────────────────
+rustLines.push('')
+rustLines.push('// Allowed sub stat variants per slot (per-slot const + dispatch array).')
+for (const { slotId, variants } of allowedSubsEntries) {
+  const slotToken = Object.keys(artifactType).find((k) => Number(artifactType[k]) === slotId)
+  const suffix = slotToken ? slotToken.toUpperCase() : `SLOT_${slotId}`
+  rustLines.push(
+    `pub const ALLOWED_SUBS_${suffix}: &[i64] = &[${variants.join(', ')}];`
+  )
+}
+const allowedSubsDispatchRust = allowedSubsEntries.map(({ slotId }) => {
+  const slotToken = Object.keys(artifactType).find((k) => Number(artifactType[k]) === slotId)
+  const suffix = slotToken ? slotToken.toUpperCase() : `SLOT_${slotId}`
+  return `(${slotId}, ALLOWED_SUBS_${suffix})`
+}).join(', ')
+rustLines.push(
+  `pub const ALLOWED_SUBS_BY_SLOT: &[(i64, &[i64])] = &[${allowedSubsDispatchRust}];`
+)
+
+// ── Rust: SUBSTAT_MINIMA per star + dispatch array ────────────────────────
+rustLines.push('')
+rustLines.push('// Substat factory minima per star tier (per-star const + dispatch array).')
+for (const { star, pairs } of substatMinimaStarEntries) {
+  const pairsRust = pairs.map(({ variant, value }) => `(${variant}, ${value})`).join(', ')
+  rustLines.push(
+    `pub const SUBSTAT_MINIMA_${star}STAR: &[(i64, i64)] = &[${pairsRust}];`
+  )
+}
+const substatMinimaDispatchRust = substatMinimaStarEntries
+  .map(({ star }) => `(${star}, SUBSTAT_MINIMA_${star}STAR)`)
+  .join(', ')
+rustLines.push(
+  `pub const SUBSTAT_MINIMA_BY_STAR: &[(i64, &[(i64, i64)])] = &[${substatMinimaDispatchRust}];`
+)
 
 // Ensure target directories exist before writing generated outputs.
 await fs.mkdir(path.dirname(TS_OUT_PATH), { recursive: true })

@@ -1,0 +1,461 @@
+// rule_engine_native — C-ABI entry points for generating HSF sell-file rules from SFR JSON.
+//
+// Two exported symbols:
+//   sfr_generate(input_json: *const c_char) -> *mut c_char
+//   sfr_free(ptr: *mut c_char)
+//
+// The pipeline mirrors the TypeScript → WASM flow but accepts raw SFR file text
+// directly, bypassing the browser layer.  All label parsing and builder logic
+// delegate to rule_engine_core — no logic is duplicated here.
+//
+// Build as Windows DLL:
+//   cargo build --release --target x86_64-pc-windows-msvc -p rule_engine_native
+// Build as Linux .so for WSL testing:
+//   cargo build -p rule_engine_native
+
+use std::ffi::{CStr, CString, c_char};
+use serde::{Deserialize, Serialize};
+
+use rule_engine_core::{
+    parse_sfr,
+    build_hsf_rules_for_recipe,
+    collect_and_compute_safeguard_protection_core,
+    compute_merged_rules_core,
+    compute_upgrade_chance_core,
+    ComputeMergedRulesIn,
+    SafeguardCollectRowIn,
+    SafeguardWasmArtifactIn,
+    UpgradeChanceEntry,
+    TestItemRaw,
+    PreviewExtrasRaw,
+    RuleRaw,
+};
+use rule_engine_core::safeguards::fast_path_types::SafeguardWasmSubstatIn;
+
+// ---------------------------------------------------------------------------
+// Input schema
+// ---------------------------------------------------------------------------
+
+// Compact artifact row — mirrors the GearDbArtifactRow fields sent by the websocket.
+// Only the subset consumed by the DLL pipeline is declared; extra JSON fields are ignored.
+#[derive(Debug, Deserialize)]
+struct NativeArtifactIn {
+    // Artifact ID (primary key; used in UpgradeChanceEntry.artifact_id).
+    #[serde(rename = "ID")]
+    id:     Option<i64>,
+    // Slot id matching ArtifactType enum (1=Weapon … 9=Banner).
+    #[serde(rename = "type")]
+    slot:   i64,
+    // Star rank (1–6).
+    #[serde(default)]
+    rank:   Option<i64>,
+    // Rarity code (1=Common … 6=Legendary).
+    #[serde(default)]
+    rarity: Option<i64>,
+    // Level milestone (0 / 4 / 8 / 12 / 16).
+    #[serde(default)]
+    lvl:    Option<i64>,
+    // Set id for armor slots (slot ≤ 6).
+    #[serde(default)]
+    aset:   Option<i64>,
+    // Set id for accessory slots (slot > 6).
+    #[serde(default)]
+    accset: Option<i64>,
+    // Main stat numeric id.
+    #[serde(default)]
+    mid:    Option<i64>,
+    // Main stat flat flag (0 = percentage, 1 = flat).
+    #[serde(default)]
+    mfl:    Option<i64>,
+    // Substats: id / roll-count / flat flag for slots 1–4.
+    #[serde(default)] s1id: Option<i64>, #[serde(default)] s1lvl: Option<i64>, #[serde(default)] s1fl: Option<i64>,
+    #[serde(default)] s2id: Option<i64>, #[serde(default)] s2lvl: Option<i64>, #[serde(default)] s2fl: Option<i64>,
+    #[serde(default)] s3id: Option<i64>, #[serde(default)] s3lvl: Option<i64>, #[serde(default)] s3fl: Option<i64>,
+    #[serde(default)] s4id: Option<i64>, #[serde(default)] s4lvl: Option<i64>, #[serde(default)] s4fl: Option<i64>,
+    // Equipped champion id — presence marks the artifact as equipped_in_collection.
+    #[serde(rename = "cID", default)]
+    c_id:    Option<i64>,
+    // Pre-resolved faction id for the equipped champion; 0 = Any when absent.
+    #[serde(default)]
+    faction: i64,
+}
+
+// Top-level DLL input: raw SFR file text + artifact array.
+#[derive(Debug, Deserialize)]
+struct NativeInput {
+    // Raw SFR JSON as a string (the .sfr file contents).  Passed verbatim to parse_sfr.
+    sfr:       String,
+    // Artifact rows to evaluate; may be empty (rules still generated, upgrade chances empty).
+    #[serde(default)]
+    artifacts: Vec<NativeArtifactIn>,
+}
+
+// ---------------------------------------------------------------------------
+// Output schema
+// ---------------------------------------------------------------------------
+
+// DLL output returned as a UTF-8 JSON string.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeOutput {
+    // Merged HSF rules ready for .hsf download — same array the app produces.
+    rules:           Vec<RuleRaw>,
+    // Per-artifact upgrade-chance entries; empty when safeguards are disabled.
+    upgrade_chances: Vec<UpgradeChanceEntry>,
+}
+
+// Error envelope used on all failure paths — never returns null from sfr_generate.
+#[derive(Debug, Serialize)]
+struct NativeError {
+    error: String,
+}
+
+// ---------------------------------------------------------------------------
+// Artifact normalisation helpers
+// ---------------------------------------------------------------------------
+
+// Encode (stat_id, flat_bit) into the StatVariant compact integer.
+// Encoding: high 8 bits = stat_id, low bit = is_flat.  Matches generated_domain_constants.rs.
+fn encode_variant(stat_id: i64, flat_bit: i64) -> i64 {
+    (stat_id << 8) | (flat_bit & 1)
+}
+
+// Normalise one substat slot.  Returns None when stat_id is absent or zero (empty slot).
+fn make_substat(id: Option<i64>, lvl: Option<i64>, fl: Option<i64>) -> Option<SafeguardWasmSubstatIn> {
+    // Skip empty or sentinel-zero slots.
+    let stat_id = id.filter(|&v| v > 0)?;
+    let flat_bit = fl.unwrap_or(0);
+    let variant  = encode_variant(stat_id, flat_bit);
+    // s{n}lvl is the roll count; actual substat values are not in the compact row format.
+    // Presence-based safeguard matching still works; value-threshold checks will not fire.
+    Some(SafeguardWasmSubstatIn {
+        variant,
+        is_flat: flat_bit != 0,
+        value:   0.0,
+        rolls:   lvl.filter(|&r| r >= 0),
+    })
+}
+
+// Normalise a NativeArtifactIn into a (SafeguardWasmArtifactIn, TestItemRaw) pair.
+// Both representations are needed: SafeguardWasmArtifactIn for safeguard logic,
+// TestItemRaw for the item-evaluator matcher.
+fn normalize_artifact(a: &NativeArtifactIn) -> (SafeguardWasmArtifactIn, TestItemRaw) {
+    // Resolve set id from the column appropriate for the artifact's slot range.
+    let set    = if a.slot > 6 { a.accset.unwrap_or(0) } else { a.aset.unwrap_or(0) };
+    let rank   = a.rank.unwrap_or(0);
+    let rarity = a.rarity.unwrap_or(0);
+    let level  = a.lvl.unwrap_or(0);
+
+    // Encode main stat variant; 0 falls back to SAFEGUARD_MAIN_ANY in the core.
+    let main_variant = match a.mid.filter(|&v| v > 0) {
+        Some(id) => encode_variant(id, a.mfl.unwrap_or(0)),
+        None     => 0,
+    };
+
+    // Build the four substat slots; empty slots produce None and are skipped.
+    let substats: Vec<SafeguardWasmSubstatIn> = [
+        make_substat(a.s1id, a.s1lvl, a.s1fl),
+        make_substat(a.s2id, a.s2lvl, a.s2fl),
+        make_substat(a.s3id, a.s3lvl, a.s3fl),
+        make_substat(a.s4id, a.s4lvl, a.s4fl),
+    ].into_iter().flatten().collect();
+
+    // sub_values: (variant, value=0.0) per substat so variant-presence matching works
+    // in the TestItemRaw evaluator even without actual roll values.
+    let sub_values: Vec<(i64, f64)> = substats.iter().map(|s| (s.variant, 0.0)).collect();
+
+    let artifact = SafeguardWasmArtifactIn {
+        id:                    a.id,
+        slot:                  a.slot,
+        set,
+        rank,
+        rarity,
+        level,
+        exact_level:           Some(level),
+        faction:               a.faction,
+        main_stat:             main_variant,
+        equipped_in_collection: a.c_id.is_some(),
+        equipped_in_vault:     false,
+        substats,
+    };
+    let item = TestItemRaw {
+        slot: a.slot,
+        set,
+        rank,
+        rarity,
+        level,
+        faction:   Some(a.faction),
+        main:      if main_variant != 0 { Some(main_variant) } else { None },
+        sub_values: if sub_values.is_empty() { None } else { Some(sub_values) },
+        item_id:   a.id,
+        // preview_extras carries the item_id so safeguard click-through navigation works.
+        preview_extras: a.id.map(|id| PreviewExtrasRaw { id: Some(id) }),
+    };
+    (artifact, item)
+}
+
+// ---------------------------------------------------------------------------
+// Core pipeline
+// ---------------------------------------------------------------------------
+
+fn run(input_json: &str) -> Result<String, String> {
+    // 1. Deserialise the outer NativeInput envelope.
+    let input: NativeInput = serde_json::from_str(input_json)
+        .map_err(|e| format!("Invalid input JSON: {e}"))?;
+
+    // 2. Parse the SFR string into normalised builder inputs.
+    //    parse_sfr handles label → code conversion, all SFR schema variants, and
+    //    the sub-minima table used by auto-min-count logic.
+    let parsed = parse_sfr(&input.sfr)
+        .map_err(|e| format!("SFR parse error: {e}"))?;
+
+    // 3. Derive recipe mode strings (one per recipe, indexed).
+    //    Used by the safeguard collector to skip disabled / separator recipes.
+    let recipe_modes: Vec<String> = parsed.recipes.iter()
+        .map(|r| {
+            if r.is_separator   { "separator".to_string() }
+            else if !r.use_flag { "disabled".to_string() }
+            else if r.keep      { "keep".to_string() }
+            else                { "sell".to_string() }
+        })
+        .collect();
+
+    // 4. Build HSF rules for each recipe; accumulate into custom_rules.
+    //    Recipe index is stored in each emitted rule for safeguard bucketing.
+    let minima_ref = parsed.minima.as_ref();
+    let mut custom_rules: Vec<RuleRaw> = Vec::new();
+    for (idx, recipe) in parsed.recipes.iter().enumerate() {
+        let mut rules = build_hsf_rules_for_recipe(recipe, minima_ref, Some(idx as i64))
+            .map_err(|e| format!("Recipe {idx} build error: {e}"))?;
+        custom_rules.append(&mut rules);
+    }
+
+    // 5. Normalise the input artifacts into SafeguardCollectRowIn rows.
+    //    Each row carries both the canonical SafeguardWasmArtifactIn and the
+    //    TestItemRaw needed by the item-evaluator matcher.
+    let rows: Vec<SafeguardCollectRowIn> = input.artifacts.iter()
+        .map(|a| {
+            let (artifact, item) = normalize_artifact(a);
+            SafeguardCollectRowIn {
+                item,
+                // base_match fields: no pre-evaluated match from outside; the safeguard
+                // collector will evaluate each artifact from scratch against the rules.
+                base_match_defined: false,
+                base_match:         None,
+                artifact,
+            }
+        })
+        .collect();
+
+    // 6. Run safeguard detection when safeguards are active and data is present.
+    //    The resulting snapshot drives safeguard-injected sell rules in step 7.
+    let safeguard_detection = if parsed.safeguards_enabled
+        && !parsed.safeguard_rules.is_empty()
+        && !rows.is_empty()
+    {
+        let combined = collect_and_compute_safeguard_protection_core(
+            rows.clone(),
+            custom_rules.clone(),
+            recipe_modes,
+            None,                           // ignore_safeguard_recipe_indices
+            parsed.safeguard_rules.clone(),
+            None,                           // expected_payload
+            true,
+            0.0,                            // now (timestamp; not used for rule logic)
+        ).map_err(|e| format!("Safeguard detection error: {e}"))?;
+        Some(combined.detection)
+    } else {
+        None
+    };
+
+    // 7. Merge custom rules + safeguard-injected rules into the final HSF rule list.
+    let merged_rules = compute_merged_rules_core(ComputeMergedRulesIn {
+        base_rules:                  vec![],
+        custom_rules,
+        final_sell_remainder:        parsed.final_sell,
+        all_known_set_ids:           parsed.all_known_set_ids,
+        omit_disabled_before_safeguards: false,
+        dedupe_before_safeguards:    false,
+        safeguard_enabled:           parsed.safeguards_enabled,
+        safeguard_rules:             parsed.safeguard_rules.clone(),
+        safeguard_detection,
+        safeguard_recipe_id_base:    None,
+    });
+
+    // 8. Compute per-artifact upgrade-chance percentages.
+    //    Returns an empty vec when safeguards are disabled or no rules/rows are present.
+    let upgrade_chances: Vec<UpgradeChanceEntry> = compute_upgrade_chance_core(
+        &rows,
+        parsed.safeguard_rules,
+        parsed.safeguards_enabled,
+    );
+
+    // 9. Serialise and return the output as a JSON string.
+    let output = NativeOutput { rules: merged_rules, upgrade_chances };
+    serde_json::to_string(&output).map_err(|e| format!("Serialise error: {e}"))
+}
+
+// ---------------------------------------------------------------------------
+// C ABI
+// ---------------------------------------------------------------------------
+
+/// Generate merged HSF rules and upgrade-chance entries from an SFR + artifact list.
+///
+/// `input_json` must be a valid UTF-8, null-terminated JSON string matching `NativeInput`:
+/// ```json
+/// { "sfr": "<SFR file contents as a JSON string>", "artifacts": [ ... ] }
+/// ```
+///
+/// Returns a heap-allocated null-terminated UTF-8 JSON string.  On any error the
+/// string is `{"error":"<message>"}`.  **The caller must release the pointer with
+/// `sfr_free` — do not call `free()` directly.**
+#[no_mangle]
+pub extern "C" fn sfr_generate(input_json: *const c_char) -> *mut c_char {
+    // Safety: caller guarantees a valid, null-terminated C string for the lifetime
+    //         of this function call.
+    let json_str = unsafe {
+        if input_json.is_null() {
+            return error_cstring("input_json pointer is null");
+        }
+        match CStr::from_ptr(input_json).to_str() {
+            Ok(s)  => s,
+            Err(_) => return error_cstring("input_json is not valid UTF-8"),
+        }
+    };
+    let json_out = match run(json_str) {
+        Ok(s)  => s,
+        Err(e) => serde_json::to_string(&NativeError { error: e })
+            .unwrap_or_else(|_| r#"{"error":"serialisation failed"}"#.to_string()),
+    };
+    // Null bytes in output are extremely unlikely but handled gracefully.
+    CString::new(json_out)
+        .unwrap_or_else(|_| CString::new(r#"{"error":"output contains null byte"}"#).unwrap())
+        .into_raw()
+}
+
+/// Release a string pointer previously returned by `sfr_generate`.
+/// Passing null is safe and is a no-op.
+#[no_mangle]
+pub extern "C" fn sfr_free(ptr: *mut c_char) {
+    if ptr.is_null() { return; }
+    // Safety: ptr was allocated by CString::into_raw in sfr_generate.
+    unsafe { drop(CString::from_raw(ptr)) };
+}
+
+// Helper: build an error JSON CString without panicking.
+fn error_cstring(msg: &str) -> *mut c_char {
+    let payload = serde_json::to_string(&NativeError { error: msg.to_string() })
+        .unwrap_or_else(|_| r#"{"error":"unknown"}"#.to_string());
+    CString::new(payload)
+        .unwrap_or_else(|_| CString::new(r#"{"error":"unknown"}"#).unwrap())
+        .into_raw()
+}
+
+// ---------------------------------------------------------------------------
+// Unit tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Minimal SFR: one "keep 5★ Epic with any SPD" recipe, safeguards disabled.
+    const MINIMAL_SFR: &str = r#"{
+        "Version": "1.0",
+        "Recipes": [
+            {
+                "keep": true,
+                "Rank": "5★",
+                "Rarity": "Epic",
+                "substats": ["SPD"],
+                "minCount": 1
+            }
+        ],
+        "Safeguards": [],
+        "SafeguardsEnabled": false
+    }"#;
+
+    // Two sample artifacts: first matches (5★ Epic, has SPD), second does not.
+    // Substats use stat_id=4 for SPD (variant = 4<<8|1 = 1025).
+    const SAMPLE_ARTIFACTS_JSON: &str = r#"[
+        {
+            "ID": 1001,
+            "type": 1,
+            "rank": 5,
+            "rarity": 4,
+            "lvl": 16,
+            "aset": 10,
+            "mid": 1, "mfl": 0,
+            "s1id": 4, "s1lvl": 4, "s1fl": 1
+        },
+        {
+            "ID": 1002,
+            "type": 2,
+            "rank": 4,
+            "rarity": 3,
+            "lvl": 0,
+            "aset": 5,
+            "mid": 2, "mfl": 0,
+            "s1id": 2, "s1lvl": 1, "s1fl": 0
+        }
+    ]"#;
+
+    // Build a NativeInput JSON string from the SFR content string and an artifact array.
+    fn make_input(sfr_content: &str, artifacts_json: &str) -> String {
+        // sfr_content is the raw SFR JSON — it must be serialised as a JSON string value.
+        let sfr_str = serde_json::to_string(sfr_content).unwrap();
+        format!(r#"{{"sfr": {sfr_str}, "artifacts": {artifacts_json}}}"#)
+    }
+
+    #[test]
+    fn pipeline_returns_nonempty_rules() {
+        let input = make_input(MINIMAL_SFR, SAMPLE_ARTIFACTS_JSON);
+        let result = run(&input).expect("pipeline should not error");
+        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert!(
+            parsed.get("rules").and_then(|v| v.as_array()).map(|a| !a.is_empty()).unwrap_or(false),
+            "expected non-empty rules array; got: {result}"
+        );
+        assert!(
+            parsed.get("upgradeChances").is_some(),
+            "expected upgradeChances field in output"
+        );
+    }
+
+    #[test]
+    fn pipeline_empty_artifacts() {
+        // Rules should still be generated even with no artifacts.
+        let input = make_input(MINIMAL_SFR, "[]");
+        let result = run(&input).expect("empty-artifacts pipeline should not error");
+        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert!(parsed.get("error").is_none(), "unexpected error: {result}");
+        assert!(
+            parsed.get("rules").and_then(|v| v.as_array()).map(|a| !a.is_empty()).unwrap_or(false),
+            "rules should be present even with no artifacts"
+        );
+    }
+
+    #[test]
+    fn sfr_generate_c_abi() {
+        // Verify the C-ABI wrapper produces valid JSON and sfr_free does not crash.
+        let input = make_input(MINIMAL_SFR, SAMPLE_ARTIFACTS_JSON);
+        let c_input = CString::new(input).unwrap();
+        let ptr = sfr_generate(c_input.as_ptr());
+        assert!(!ptr.is_null(), "sfr_generate must not return null");
+        let output = unsafe { CStr::from_ptr(ptr).to_str().unwrap().to_string() };
+        sfr_free(ptr);
+        let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+        assert!(parsed.get("error").is_none(), "unexpected error from sfr_generate: {output}");
+    }
+
+    #[test]
+    fn sfr_generate_null_input() {
+        // Null pointer must return an error JSON, not crash.
+        let ptr = sfr_generate(std::ptr::null());
+        assert!(!ptr.is_null());
+        let output = unsafe { CStr::from_ptr(ptr).to_str().unwrap().to_string() };
+        sfr_free(ptr);
+        let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+        assert!(parsed.get("error").is_some(), "null input must yield error field");
+    }
+}

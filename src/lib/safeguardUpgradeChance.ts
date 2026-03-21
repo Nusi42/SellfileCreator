@@ -19,11 +19,12 @@ import { substatMatchesMainVariant } from './statCompatibility'
 import { isAccessorySlot } from './gearInspectorDomain'
 import { SUBSTAT_ROLL_MAX_6_BY_VARIANT, normalizeSubstatByMax6 } from './substatRollNormalization'
 import { ALLOWED_SUB_BY_SLOT, StatVariant } from './types'
+import { SUBSTAT_SLOT_COUNT as GENERATED_SUBSTAT_SLOT_COUNT } from './generated/domainConstants'
 
 // Upgrade chance is always projected to +16 because safeguards compare final gear value.
 const SAFEGUARD_UPGRADE_TARGET_LEVEL = 16
 // Gear can never hold more than four substats.
-const SAFEGUARD_MAX_SUBSTAT_SLOTS = 4
+const SAFEGUARD_MAX_SUBSTAT_SLOTS = GENERATED_SUBSTAT_SLOT_COUNT
 // Upgrade milestones are fixed for gear progression.
 const ROLL_MILESTONES = [4, 8, 12, 16] as const
 // Rarity decides which milestones add a new substat instead of rolling one.

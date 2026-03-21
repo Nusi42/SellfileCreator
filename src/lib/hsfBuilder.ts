@@ -28,7 +28,6 @@ export {
   normalizeRollTargetEntry,
 } from './hsfBuilder/targets'
 import {
-  StatVariant,
   compareVariants,
   anySelectedSlotSupportsMain,
   RarityCode,
@@ -39,6 +38,7 @@ import {
 } from './types'
 import {
   AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE,
+  SUBSTAT_MINIMA_BY_STAR as GENERATED_SUBSTAT_MINIMA_BY_STAR,
 } from './generated/domainConstants'
 import { resolveAllowedSubstatsForSlotsAndMains } from './statCompatibility'
 import { splitArtifactSetSelections } from './gearSets/selection'
@@ -248,113 +248,27 @@ export function resolveAutoRarityCode(recipe: BuilderRecipe): RarityCode {
   return resolved as RarityCode
 }
 
-// Public API: build rules according to recipe with substat permutations and level chain
-// Base substatTargets per star and stat (IDs per types.ts). Units use integers (percent as points).
-// Factory-default minima: these encode the lowest roll each substat can spawn with
-// in-game. Collapse guards rely on these staying in sync with RSL Helper samples.
-const BASE_MIN_6: Record<number, number> = {
-  [StatVariant.HP_FLAT]: 200, // HP:    200..565
-  [StatVariant.HP]: 5,        // HP%:   5..7
-  [StatVariant.ATK_FLAT]: 15, // ATK:   15..30
-  [StatVariant.ATK]: 5,       // ATK%:  5..7
-  [StatVariant.DEF_FLAT]: 15, // DEF:   15..30
-  [StatVariant.DEF]: 5,       // DEF%:  5..7
-  [StatVariant.SPD]: 5,       // SPD:   5..6
-  [StatVariant.RES]: 9,       // RES:   9..12
-  [StatVariant.ACC]: 9,       // ACC:   9..12
-  [StatVariant.CR]: 5,        // CR%:   5..7
-  [StatVariant.CDMG]: 5,      // CDMG%: 5..7
-}
+// Factory-default minima from the canonical generated constants (shared/domain-constants.json).
+// Each star tier maps stat variant → lowest natural roll for that tier.
+const FACTORY_MINIMA_BY_STAR: Record<number, Record<number, number>> = GENERATED_SUBSTAT_MINIMA_BY_STAR
 
-const BASE_MIN_5: Record<number, number> = {
-  [StatVariant.HP_FLAT]: 136, // HP:    136..450
-  [StatVariant.HP]: 4,        // HP%:   4..6
-  [StatVariant.ATK_FLAT]: 12, // ATK    12..23
-  [StatVariant.ATK]: 4,       // ATK%   4..6
-  [StatVariant.DEF_FLAT]: 12, // DEF:   12..23
-  [StatVariant.DEF]: 4,       // DEF%   4..6
-  [StatVariant.SPD]: 4,       // SPD    4..5
-  [StatVariant.RES]: 8,       // RES    8..11
-  [StatVariant.ACC]: 8,       // ACC    8..11
-  [StatVariant.CR]: 4,        // CR%    4..6
-  [StatVariant.CDMG]: 4,      // CDMG%  4..6
-}
+// Re-export individual star tiers so existing callers (exported API) remain stable.
+// Non-null assertion: keys 1..6 are guaranteed present by the generator.
+export const BASE_MIN_4: Record<number, number> = GENERATED_SUBSTAT_MINIMA_BY_STAR[4]!
+export const BASE_MIN_3: Record<number, number> = GENERATED_SUBSTAT_MINIMA_BY_STAR[3]!
+export const BASE_MIN_2: Record<number, number> = GENERATED_SUBSTAT_MINIMA_BY_STAR[2]!
+export const BASE_MIN_1: Record<number, number> = GENERATED_SUBSTAT_MINIMA_BY_STAR[1]!
 
-// Explicit literals for lower-star substatTargets (derived from 5-star by -1 per tier)
-export const BASE_MIN_4: Record<number, number> = {
-  [StatVariant.HP_FLAT]: 120, // HP     // guessed
-  [StatVariant.HP]: 3,        // HP%
-  [StatVariant.ATK_FLAT]: 10, // ATK    // guessed
-  [StatVariant.ATK]: 3,       // ATK%
-  [StatVariant.DEF_FLAT]: 10, // DEF    // guessed
-  [StatVariant.DEF]: 3,       // DEF%
-  [StatVariant.SPD]: 3,       // SPD
-  [StatVariant.RES]: 7,       // RES
-  [StatVariant.ACC]: 7,       // ACC
-  [StatVariant.CR]: 3,        // CR%
-  [StatVariant.CDMG]: 3,      // CDMG%
-}
-
-export const BASE_MIN_3: Record<number, number> = {
-  [StatVariant.HP_FLAT]: 110, // HP     // guessed
-  [StatVariant.HP]: 2,        // HP%
-  [StatVariant.ATK_FLAT]: 9,  // ATK    // guessed
-  [StatVariant.ATK]: 2,       // ATK%
-  [StatVariant.DEF_FLAT]: 9,  // DEF    // guessed
-  [StatVariant.DEF]: 2,       // DEF%
-  [StatVariant.SPD]: 2,       // SPD
-  [StatVariant.RES]: 6,       // RES
-  [StatVariant.ACC]: 6,       // ACC
-  [StatVariant.CR]: 2,        // CR%
-  [StatVariant.CDMG]: 2,      // CDMG%
-}
-
-export const BASE_MIN_2: Record<number, number> = {
-  [StatVariant.HP_FLAT]: 100,  // HP    // guessed
-  [StatVariant.HP]: 1,         // HP%
-  [StatVariant.ATK_FLAT]: 8,   // ATK   // guessed
-  [StatVariant.ATK]: 1,        // ATK%
-  [StatVariant.DEF_FLAT]: 8,   // DEF   // guessed
-  [StatVariant.DEF]: 1,        // DEF%
-  [StatVariant.SPD]: 1,        // SPD
-  [StatVariant.RES]: 5,        // RES
-  [StatVariant.ACC]: 5,        // ACC
-  [StatVariant.CR]: 1,         // CR%
-  [StatVariant.CDMG]: 1,       // CDMG%
-}
-
-export const BASE_MIN_1: Record<number, number> = {
-  [StatVariant.HP_FLAT]: 90,   // HP    // guessed
-  [StatVariant.HP]: 1,         // HP%
-  [StatVariant.ATK_FLAT]: 7,   // ATK   // guessed
-  [StatVariant.ATK]: 1,        // ATK%
-  [StatVariant.DEF_FLAT]: 7,   // DEF   // guessed
-  [StatVariant.DEF]: 1,        // DEF%
-  [StatVariant.SPD]: 1,        // SPD
-  [StatVariant.RES]: 4,        // RES
-  [StatVariant.ACC]: 4,        // ACC
-  [StatVariant.CR]: 1,         // CR%
-  [StatVariant.CDMG]: 1,       // CDMG%
-}
-
-const FACTORY_MINIMA_BY_STAR: Record<Star, Record<number, number>> = {
-  1: BASE_MIN_1,
-  2: BASE_MIN_2,
-  3: BASE_MIN_3,
-  4: BASE_MIN_4,
-  5: BASE_MIN_5,
-  6: BASE_MIN_6,
-}
-
-/** Default Substat Target table initialized with zeroes for all stars. */
+/** Default Substat Target table initialized from generated factory minima. */
 export function defaultSubstatTargets(): SubstatTargetTable {
+  // Spread-copy each tier so callers cannot mutate the shared generated table.
   return {
-    one: { ...BASE_MIN_1 },
-    two: { ...BASE_MIN_2 },
-    three: { ...BASE_MIN_3 },
-    four: { ...BASE_MIN_4 },
-    five: { ...BASE_MIN_5 },
-    six: { ...BASE_MIN_6 },
+    one:   { ...GENERATED_SUBSTAT_MINIMA_BY_STAR[1] },
+    two:   { ...GENERATED_SUBSTAT_MINIMA_BY_STAR[2] },
+    three: { ...GENERATED_SUBSTAT_MINIMA_BY_STAR[3] },
+    four:  { ...GENERATED_SUBSTAT_MINIMA_BY_STAR[4] },
+    five:  { ...GENERATED_SUBSTAT_MINIMA_BY_STAR[5] },
+    six:   { ...GENERATED_SUBSTAT_MINIMA_BY_STAR[6] },
     anyRankDefaultsTo: 6,
   }
 }

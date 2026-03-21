@@ -283,7 +283,7 @@ pub struct SafeguardCandidateResolveBaseMatchIn {
 }
 
 // Candidate collection input extends resolver rows with normalized artifact data.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SafeguardCollectRowIn {
     pub item: TestItemRaw,

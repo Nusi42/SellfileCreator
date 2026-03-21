@@ -30,48 +30,48 @@ use crate::STAT_ID_ANY;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PrepareHsfBuilderRecipeIn {
-    min_count: i64,
-    auto_substat_flex: bool,
-    flex_eligible: bool,
+    pub(crate) min_count: i64,
+    pub(crate) auto_substat_flex: bool,
+    pub(crate) flex_eligible: bool,
     #[serde(default)]
-    substats_v: Vec<i64>,
+    pub(crate) substats_v: Vec<i64>,
     #[serde(default)]
-    fixed_substats_v: Vec<i64>,
+    pub(crate) fixed_substats_v: Vec<i64>,
     #[serde(default)]
-    allowed_substats: Vec<i64>,
+    pub(crate) allowed_substats: Vec<i64>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
+    pub(crate) substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    substat_roll_targets_v: HashMap<i64, BuildHsfComboTargetEntryIn>,
+    pub(crate) substat_roll_targets_v: HashMap<i64, BuildHsfComboTargetEntryIn>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    substat_target_by_variant: HashMap<i64, i64>,
+    pub(crate) substat_target_by_variant: HashMap<i64, i64>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    factory_base_by_variant_for_star: HashMap<i64, i64>,
+    pub(crate) factory_base_by_variant_for_star: HashMap<i64, i64>,
     #[serde(default)]
-    variant_priority: Vec<i64>,
+    pub(crate) variant_priority: Vec<i64>,
 }
 
 // Output carries normalized pools and per-variant maps consumed by branch runtime.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PrepareHsfBuilderRecipeOut {
-    selected_pool_v: Vec<i32>,
-    required_v: Vec<i32>,
-    optional_pool_v: Vec<i32>,
-    min_target_count: i32,
-    max_target_count: i32,
-    max_selectable_count: i32,
-    had_requested_substats: bool,
-    has_per_stat_min: bool,
+    pub(crate) selected_pool_v: Vec<i32>,
+    pub(crate) required_v: Vec<i32>,
+    pub(crate) optional_pool_v: Vec<i32>,
+    pub(crate) min_target_count: i32,
+    pub(crate) max_target_count: i32,
+    pub(crate) max_selectable_count: i32,
+    pub(crate) had_requested_substats: bool,
+    pub(crate) has_per_stat_min: bool,
     // serialize_with stringifies i64 keys so wasm_to_js can emit plain JS objects.
     #[serde(serialize_with = "crate::serialize_i64_key_map")]
-    current_base_by_variant: HashMap<i64, i32>,
+    pub(crate) current_base_by_variant: HashMap<i64, i32>,
     #[serde(serialize_with = "crate::serialize_i64_key_map")]
-    factory_base_by_variant: HashMap<i64, Option<i32>>,
+    pub(crate) factory_base_by_variant: HashMap<i64, Option<i32>>,
     #[serde(serialize_with = "crate::serialize_i64_key_map")]
-    target_base_override_by_variant: HashMap<i64, Option<i32>>,
+    pub(crate) target_base_override_by_variant: HashMap<i64, Option<i32>>,
     #[serde(serialize_with = "crate::serialize_i64_key_map")]
-    target_entries_by_variant: HashMap<i64, PrepareHsfBuilderTargetEntryOut>,
+    pub(crate) target_entries_by_variant: HashMap<i64, PrepareHsfBuilderTargetEntryOut>,
 }
 
 // Output target-entry payload mirrors the runtime input entry schema.
@@ -79,8 +79,8 @@ pub struct PrepareHsfBuilderRecipeOut {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PrepareHsfBuilderTargetEntryOut {
-    base: Option<f64>,
-    increments: Option<Vec<Option<f64>>>,
+    pub(crate) base: Option<f64>,
+    pub(crate) increments: Option<Vec<Option<f64>>>,
 }
 
 // Clamp and sanitize roll-target values to the same non-negative integer domain
@@ -292,8 +292,8 @@ struct ExecuteHsfBuilderRuntimeIn {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecuteHsfBuilderRuntimeOut {
-    rules: Vec<RuleRaw>,
-    limit_hit: bool,
+    pub(crate) rules: Vec<RuleRaw>,
+    pub(crate) limit_hit: bool,
 }
 
 // High-level runtime payload lets TS issue one wasm call after prep.
@@ -301,51 +301,51 @@ pub struct ExecuteHsfBuilderRuntimeOut {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildHsfRulesRuntimeIn {
-    recipe_id: Option<i64>,
-    keep: Option<bool>,
-    use_flag: bool,
+    pub(crate) recipe_id: Option<i64>,
+    pub(crate) keep: Option<bool>,
+    pub(crate) use_flag: bool,
     #[serde(default)]
-    artifact_set_ids: Vec<i64>,
+    pub(crate) artifact_set_ids: Vec<i64>,
     #[serde(default)]
-    artifact_type_ids: Vec<i64>,
-    rank_code: i64,
-    rarity_code: i64,
-    faction_code: i64,
+    pub(crate) artifact_type_ids: Vec<i64>,
+    pub(crate) rank_code: i64,
+    pub(crate) rarity_code: i64,
+    pub(crate) faction_code: i64,
     #[serde(default)]
-    main_choices: Vec<EmitHsfMainChoiceIn>,
-    emit_any_main_when_no_choices: bool,
-    baseline: Option<String>,
-    effective_start: i64,
-    suppress_roll_thresholds: bool,
-    level_window_min: i64,
-    level_window_max: i64,
-    required_v: Vec<i32>,
-    optional_pool_v: Vec<i32>,
-    selected_pool_v: Vec<i32>,
-    flex_active: bool,
-    aggregate_min_active: bool,
-    min_target_count: i32,
-    max_target_count: i32,
-    aggregate_targets_locked: bool,
-    aggregate_min_value: i32,
-    locked_min_active: bool,
-    locked_min_value: i32,
+    pub(crate) main_choices: Vec<EmitHsfMainChoiceIn>,
+    pub(crate) emit_any_main_when_no_choices: bool,
+    pub(crate) baseline: Option<String>,
+    pub(crate) effective_start: i64,
+    pub(crate) suppress_roll_thresholds: bool,
+    pub(crate) level_window_min: i64,
+    pub(crate) level_window_max: i64,
+    pub(crate) required_v: Vec<i32>,
+    pub(crate) optional_pool_v: Vec<i32>,
+    pub(crate) selected_pool_v: Vec<i32>,
+    pub(crate) flex_active: bool,
+    pub(crate) aggregate_min_active: bool,
+    pub(crate) min_target_count: i32,
+    pub(crate) max_target_count: i32,
+    pub(crate) aggregate_targets_locked: bool,
+    pub(crate) aggregate_min_value: i32,
+    pub(crate) locked_min_active: bool,
+    pub(crate) locked_min_value: i32,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
+    pub(crate) substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    target_entries_by_variant: HashMap<i64, BuildHsfComboTargetEntryIn>,
+    pub(crate) target_entries_by_variant: HashMap<i64, BuildHsfComboTargetEntryIn>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    current_base_by_variant: HashMap<i64, i32>,
+    pub(crate) current_base_by_variant: HashMap<i64, i32>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    factory_base_by_variant: HashMap<i64, Option<i32>>,
+    pub(crate) factory_base_by_variant: HashMap<i64, Option<i32>>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    target_base_override_by_variant: HashMap<i64, Option<i32>>,
-    rarity_mode: Option<String>,
-    early_keep_mode: Option<String>,
-    auto_rarity_supplements_threshold: Option<String>,
-    early_mode: String,
+    pub(crate) target_base_override_by_variant: HashMap<i64, Option<i32>>,
+    pub(crate) rarity_mode: Option<String>,
+    pub(crate) early_keep_mode: Option<String>,
+    pub(crate) auto_rarity_supplements_threshold: Option<String>,
+    pub(crate) early_mode: String,
     #[serde(default)]
-    emission_limit: Option<i64>,
+    pub(crate) emission_limit: Option<i64>,
 }
 
 // Canonicalize set selectors with numeric ordering (game-id order parity).

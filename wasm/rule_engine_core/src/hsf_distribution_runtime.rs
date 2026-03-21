@@ -481,9 +481,9 @@ fn compute_filtered_bounded_rows_with_offset_i32(input: &FilteredBoundedRowsIn<'
 // Convert optional max-cap sentinel into a concrete cap used by late-mode math.
 fn late_rows_resolve_cap(raw: i32) -> i32 {
     if raw <= FILTER_OPTION_NONE_I32 {
-        4
+        SUBSTAT_SLOT_COUNT as i32
     } else {
-        raw.clamp(0, 4)
+        raw.clamp(0, SUBSTAT_SLOT_COUNT as i32)
     }
 }
 

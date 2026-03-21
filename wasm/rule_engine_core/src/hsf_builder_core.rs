@@ -128,7 +128,7 @@ pub(crate) struct BuildHsfIntroAssignmentsForLevelIn {
 // Per-variant roll-bound payload used for combo vector normalization.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct BuildHsfComboBoundsIn {
+pub struct BuildHsfComboBoundsIn {
     pub(crate) min: Option<f64>,
     pub(crate) max: Option<f64>,
     pub(crate) any: Option<bool>,
@@ -137,7 +137,7 @@ pub(crate) struct BuildHsfComboBoundsIn {
 // Per-variant target override payload aligned to combo index order.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct BuildHsfComboTargetEntryIn {
+pub struct BuildHsfComboTargetEntryIn {
     pub(crate) base: Option<f64>,
     pub(crate) increments: Option<Vec<Option<f64>>>,
 }
@@ -527,8 +527,8 @@ pub(crate) fn build_hsf_level_contexts_core(input: &BuildHsfLevelContextsIn) -> 
         } else {
             raw_rolls_by_target
         };
-        // Present substat count clamps to the maximum four visible slots.
-        let present = (base_start + adds_so_far).min(4);
+        // Present substat count clamps to the maximum substat slots.
+        let present = (base_start + adds_so_far).min(SUBSTAT_SLOT_COUNT);
         out.push(BuildHsfLevelContextOut {
             level,
             rolls_up_to_start,
@@ -548,10 +548,10 @@ pub(crate) fn build_hsf_level_contexts_core(input: &BuildHsfLevelContextsIn) -> 
 
 // Shared level-combo core keeps required/optional expansion in one place.
 pub(crate) fn build_hsf_level_combos_core(input: &BuildHsfLevelCombosIn) -> Vec<Vec<i32>> {
-    // Clamp all count domains to the HSF 0..4 substat space.
-    let present = input.present.clamp(0, 4);
-    let min_target_count = input.min_target_count.clamp(0, 4);
-    let max_target_count = input.max_target_count.clamp(0, 4);
+    // Clamp all count domains to the HSF 0..SUBSTAT_SLOT_COUNT space.
+    let present = input.present.clamp(0, SUBSTAT_SLOT_COUNT as i32);
+    let min_target_count = input.min_target_count.clamp(0, SUBSTAT_SLOT_COUNT as i32);
+    let max_target_count = input.max_target_count.clamp(0, SUBSTAT_SLOT_COUNT as i32);
     let required_count = input.required_v.len() as i32;
     // Flex opens early only once enough rolls exist, with aggregate-min parity.
     let allow_flex_at_level = input.flex_active
@@ -727,13 +727,13 @@ pub(crate) fn build_hsf_combo_vectors_core(input: &BuildHsfComboVectorsIn) -> Bu
             .filter(|value| value.is_finite())
             .map(|value| value.floor() as i32)
             .unwrap_or(0)
-            .clamp(0, 5);
-        // Cap per-substat max at 4; absent values remain sentinel -1.
+            .clamp(0, SUBSTAT_MAX_ROLLS_PER_SLOT as i32);
+        // Cap per-substat max at SUBSTAT_SLOT_COUNT; absent values remain sentinel -1.
         let max_cap = bounds
             .and_then(|entry| entry.max)
             .filter(|value| value.is_finite())
             .map(|value| value.floor() as i32)
-            .map(|value| value.clamp(0, 4))
+            .map(|value| value.clamp(0, SUBSTAT_SLOT_COUNT as i32))
             .unwrap_or(FILTER_OPTION_NONE_I32);
         // Preserve impossible min>max combinations so TS can short-circuit rows.
         if max_cap > FILTER_OPTION_NONE_I32 && min_value > max_cap {
@@ -917,7 +917,7 @@ pub(crate) fn build_hsf_factory_combo_rows_from_parts(
             .filter(|value| value.is_finite())
             .map(|value| value.floor() as i32)
             .unwrap_or(0)
-            .clamp(0, 5);
+            .clamp(0, SUBSTAT_MAX_ROLLS_PER_SLOT as i32);
         if min_bound > 0 {
             factory_eligible = false;
             continue;
