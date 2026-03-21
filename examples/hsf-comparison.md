@@ -29,12 +29,15 @@ Creator to generate a customised sell file with that option turned on.
 | What | Old (Feb 2026) | New (Mar 2026) |
 | --- | --- | --- |
 | **Speed-substat gear** | Only 6★ pieces were checked for Speed substat potential | All star levels are checked |
-| **Impulse / Zeal sets** | Sold (unchanged) | Sold (unchanged) |
+| **Utility sets** (Stun, Toxic, Provoke…) | Kept from any upgrade level | Only level 16 pieces are kept |
+| **Zeal / Impulse / Feral sets** | Sold | Level 16 pieces are kept |
 | **Substat requirements** | Moderate | Stricter — more pieces are sold between +8 and +12 |
 
-The same Speed-substat change applies here. Because the substat requirements are now
-stricter, most of those extra held pieces are sold again by +12. Keep-rates at +4 / +8
-go up noticeably; final rates stay about the same.
+The Speed-substat change pushes keep-rates up noticeably at +4 / +8. At the same time,
+utility and PvP-adjacent sets (Stun, Toxic, Zeal, Impulse, etc.) are no longer held from
+the start — only pieces that survive to level 16 with good stats are protected. The net
+result is slightly lower keep-rates at +0 and at +12 / +16 compared to February, with a
+larger bulge in the +4 / +8 window.
 
 ---
 
@@ -175,11 +178,11 @@ once their substats are fully revealed. Keep-rates at +12 and +16 are almost ide
 
 | Gear level | Normal 20 | Normal 25 | Hard 10 | 3× Savage N20 | 3× Savage N25 | 3× Savage H10 |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: |
-| +0 | 2.8% | 5.0% | 7.1% | 1.1% | 1.8% | 2.7% |
-| +4 | 2.5% | 4.5% | 5.8% | 0.9% | 1.6% | 2.3% |
-| +8 | 2.2% | 4.0% | 5.2% | 0.7% | 1.2% | 1.6% |
+| +0 | 2.8% | 5.1% | 7.2% | 1.1% | 1.9% | 2.8% |
+| +4 | 2.5% | 4.5% | 5.9% | 0.9% | 1.6% | 2.4% |
+| +8 | 2.2% | 4.0% | 5.2% | 0.7% | 1.2% | 1.7% |
 | +12 | 0.7% | 1.4% | 1.8% | 0.4% | 0.5% | 0.8% |
-| +16 | 0.6% | 1.3% | 1.5% | 0.4% | 0.5% | 0.7% |
+| +16 | 0.6% | 1.3% | 1.6% | 0.3% | 0.5% | 0.7% |
 
 #### Dragon
 
@@ -195,23 +198,26 @@ once their substats are fully revealed. Keep-rates at +12 and +16 are almost ide
 
 | Gear level | Normal 20 | Normal 25 | Hard 10 |
 | --- | :---: | :---: | :---: |
-| +0 | 1.6% | 2.7% | 4.6% |
-| +4 | 1.4% | 2.4% | 3.6% |
-| +8 | 1.3% | 2.2% | 3.2% |
-| +12 | 0.2% | 0.4% | 0.8% |
-| +16 | 0.2% | 0.4% | 0.7% |
+| +0 | 1.4% | 2.3% | 3.9% |
+| +4 | 1.2% | 1.9% | 3.0% |
+| +8 | 1.1% | 1.8% | 2.7% |
+| +12 | 0.2% | 0.3% | 0.5% |
+| +16 | 0.2% | 0.3% | 0.4% |
 
 #### Endgame keep-rate change (new − old, percentage points)
 
+Positive values mean the new sell file **protects more** drops at that upgrade level.
+
 | Gear level | FK N20 | FK N25 | FK H10 | Dragon N20 | Dragon N25 | Dragon H10 | IG N20 | IG N25 | IG H10 |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| +0 | +0.1 | 0.0 | +0.6 | 0.0 | 0.0 | +0.6 | −0.1 | −0.1 | +0.4 |
-| +4 | +1.0 | +1.7 | +2.0 | +0.9 | +1.5 | +1.9 | +0.7 | +0.9 | +1.3 |
-| +8 | +1.4 | +2.3 | +2.9 | +1.3 | +2.3 | +2.8 | +0.9 | +1.5 | +1.9 |
-| +12 | +0.2 | +0.2 | +0.3 | 0.0 | 0.0 | −0.2 | 0.0 | 0.0 | −0.1 |
-| +16 | +0.1 | +0.3 | +0.3 | −0.1 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
+| +0 | +0.1 | +0.1 | +0.7 | 0.0 | 0.0 | +0.6 | −0.3 | −0.5 | −0.3 |
+| +4 | +1.0 | +1.7 | +2.1 | +0.9 | +1.5 | +1.9 | +0.5 | +0.4 | +0.7 |
+| +8 | +1.4 | +2.3 | +2.9 | +1.3 | +2.3 | +2.8 | +0.7 | +1.1 | +1.4 |
+| +12 | +0.2 | +0.2 | +0.3 | 0.0 | 0.0 | −0.2 | 0.0 | −0.1 | −0.4 |
+| +16 | +0.1 | +0.3 | +0.4 | −0.1 | 0.0 | 0.0 | 0.0 | −0.1 | −0.3 |
 
-Same pattern as Lategame: +4 / +8 gains are larger (up to +2.9 pp at Hard 10)
-because the new sell file now holds more drops in the early window, and the stricter
-Endgame thresholds then sell most of them off before +12. Final keep-rates are
-essentially the same as before.
+At +4 / +8, more drops are held across all dungeons — the Speed-substat scanning change
+is the main driver, same as in Lategame. The picture at +0 and +12 / +16 is more mixed:
+Ice Golem sees fewer holds early (utility sets like Stun and Toxic are no longer kept from
+the start — only level 16 pieces qualify), and the stricter Endgame substat requirements
+cut more pieces before +12 than before.
