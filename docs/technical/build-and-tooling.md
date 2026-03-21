@@ -102,7 +102,9 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 
 - No duplication of logic or data. Centralize and import instead of re-encoding knowledge in multiple files.
 - Domain catalogs, enums, and formatting live in `src/lib/types.ts` (artifact sets/types, rarity/rank/faction, `StatVariant`, and slot constraints). Consumers must use these exports and not redefine them.
-- Cross-language constants (used by both TS and Rust) must be added to `shared/domain-constants.json` and generated via `scripts/tooling/generate-domain-constants.mjs`; never duplicate those values directly in `src/**` and `wasm/rule_engine/src/**`, and never hand-edit generated constant files.
+- Cross-language constants (used by both TS and Rust) must be added to `shared/domain-constants.json` and generated via `scripts/tooling/generate-domain-constants.mjs`; never duplicate those values directly in `src/**`, `wasm/rule_engine/src/**`, or `wasm/rule_engine_native/src/**`, and never hand-edit generated constant files.
+  - Sections in `domain-constants.json`: artifact type IDs, stat IDs, rarity codes, rank codes, level sentinels and milestones, substat slot count and max rolls per slot, StatVariant bit encoding, auto-rarity schedule arrays, safeguard activation/match tokens, faction IDs and names, artifact type display names, stat variant display labels, allowed mains/subs per slot, substat minima by star rank.
+  - `shared/sfr-label-test-vectors.json` holds canonical input/expected-output pairs for label parsers; consumed by both Rust `#[test]` (in `sfr_reader.rs`) and Jest (`tests/unit/sfr-label-symmetry.test.ts`). Update it whenever a label mapping changes, not after the fact.
 - HSF schema and stat converters live in `src/lib/hsfTypes.ts`. App code should use `StatVariant` and helpers rather than rolling custom `{ id, flat }` handling.
 - UI/app constants (storage keys, sizes, timing, tooltip keywords, typography scale) live in `src/lib/constants.ts`.
   - Font tiers: display heading (32px) for the hero, base text (15px) for content, secondary text (12px) for chips/controls, 10px badges, and markdown explicitly pinned to 16px.
@@ -113,6 +115,78 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
   - `src/state/localStorageStore.ts` exposes a typed store factory (`createLocalStorageStore`) that normalizes key access, snapshotted state, and subscription notifications so components avoid writing bespoke Effects for persistence.
   - `src/state/colorBlindPreference.ts`, `src/state/rulesFilterPersistence.ts`, `src/state/rulesTableColumnsPreference.ts`, and `src/state/setsOrderPreference.ts` all wrap that store to provide domain-specific hooks (`useColorBlindPreference`, `useRulesFilterOpenPreference`, `useRulesFilterStatePreference`, `useRulesFilterCollapsedPreference`, `useRulesTableColumnsPreference`, `useSetsOrderPreference`) consumed by `App`, `RulesFilterPanel`, and `HsfRulesTable`.
   - Builder-specific preferences (e.g., `useAutoResetAfterInsertPreference`) live in `src/state/builderPreferences.ts` and continue to follow the same store contract so every preference path shares a single persistence mechanism.
+
+### Native DLL (rule_engine_native)
+
+`wasm/rule_engine_native/` is a Rust `cdylib` crate that exposes the same HSF
+generation logic as the WASM module via a C ABI.  It is used by external tools
+(e.g. an RSL Helper plugin written in C#) that need to produce sell-file rules
+without a browser or Node runtime.
+
+**C-ABI surface**
+
+```c
+// Generate merged HSF rules + per-artifact upgrade chances from an SFR + artifact list.
+// input_json : UTF-8 null-terminated JSON string (NativeInput schema, see rules-and-data.md).
+// Returns    : heap-allocated UTF-8 null-terminated JSON string (NativeOutput schema).
+//              On any error returns {"error":"<message>"}.  Never returns NULL.
+//              Caller MUST release the pointer with sfr_free.
+char* sfr_generate(const char* input_json);
+
+// Release memory returned by sfr_generate.
+void sfr_free(char* ptr);
+```
+
+**Build commands**
+
+```sh
+# Linux / WSL — debug .so (for integration tests)
+cargo build -p rule_engine_native
+
+# Windows release .dll (from Developer Command Prompt or cross-compiler)
+cargo build --release --target x86_64-pc-windows-msvc -p rule_engine_native
+
+# Cross-compile from WSL using MinGW (alternative)
+cargo build --release --target x86_64-pc-windows-gnu -p rule_engine_native
+```
+
+Output locations:
+- `wasm/target/debug/librule_engine_native.so` (Linux/WSL debug)
+- `target/release/rule_engine_native.dll` (Windows release)
+
+**C/C++ smoke test**
+
+`example/main.cpp` is both integration-test and sample code.  It loads the
+DLL at runtime, calls `sfr_generate` with a hardcoded minimal payload, validates
+the output, and exits 0 on success / 1 on any failure.
+
+```sh
+# Build and run (Linux/WSL):
+cd example && make run
+```
+
+The test verifies: `rules` array non-empty, at least one rule with `Keep=true`,
+`upgradeChances` key present, no `error` key.  The CI build treats a non-zero
+exit as a regression.
+
+**Internal pipeline** (per call to `sfr_generate`)
+
+1. Deserialize `NativeInput` JSON.
+2. Parse human-readable SFR via `sfr_reader::parse_sfr` (label strings → numeric codes).
+3. For each recipe, call `recipe_builder::prepare_recipe` then `build_hsf_rules_for_recipe`.
+4. Normalize compact artifact rows to `SafeguardWasmArtifactIn` + `TestItemRaw`.
+5. When safeguards are enabled, call `collect_and_compute_safeguard_protection_core`.
+6. Assemble `ComputeMergedRulesIn`, call `compute_merged_rules_core` → `Vec<RuleRaw>`.
+7. Call `compute_upgrade_chance_core` → `Vec<UpgradeChanceEntry>`.
+8. Serialize `NativeOutput` and return as a heap-allocated `CString`.
+
+**Relationship to the WASM module**
+
+Both `rule_engine_wasm` and `rule_engine_native` depend on `rule_engine_core`.
+The WASM crate uses `#[wasm_bindgen]` and `JsValue`; the native crate uses
+`extern "C"` and JSON strings.  The SFR label-parser module (`sfr_reader`) and
+recipe normalizer (`recipe_builder`) live in `rule_engine_core` so both
+compilation targets share the same parsing logic without duplication.
 
 ### Build Output (Single File)
 
