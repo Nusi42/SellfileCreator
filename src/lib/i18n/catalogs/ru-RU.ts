@@ -305,6 +305,7 @@ const overrides: Catalog = {
   // Remaining dungeon names.
   dungeonDragon: 'Дракон',
   dungeonEvent: 'Событие',
+  noteSimKeepChanceAtLevel: 'Сохранено при +{level}: {pct}',
   safeguardsTabLabel: 'Safeguards',
   safeguardsTabIntro: 'Добавьте правила по слоту/набору/характеристике, чтобы ваши текущие активные правила продажи никогда не убирали все копии этой комбинации.',
   safeguardsEnableLabel: 'Включить сохранение уникальных комбинаций',

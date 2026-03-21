@@ -305,6 +305,7 @@ const catalog: Catalog = {
   // Remaining dungeon names.
   dungeonDragon: 'Dragão',
   dungeonEvent: 'Evento',
+  noteSimKeepChanceAtLevel: 'Mantido em +{level}: {pct}',
   safeguardsTabLabel: 'Salvaguardas',
   safeguardsTabIntro: 'Adicione regras por slot/conjunto/estatística para que suas regras de venda atualmente ativas nunca removam todas as cópias dessa combinação.',
   safeguardsEnableLabel: 'Ativar Salvaguardas',

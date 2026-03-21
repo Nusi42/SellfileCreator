@@ -305,6 +305,7 @@ const overrides: Catalog = {
   // Remaining dungeon names.
   dungeonDragon: 'Drache',
   dungeonEvent: 'Ereignis',
+  noteSimKeepChanceAtLevel: 'Behaltene bei +{level}: {pct}',
   safeguardsTabLabel: 'Schutzmaßnahmen',
   safeguardsTabIntro: 'Füge Schutzmaßnahmen pro Slot/Set/Stat-Filter hinzu, damit aktive Verkaufsregeln deine Schutzbasis nicht entfernen.',
   safeguardsEnableLabel: 'Schutzmaßnahmen aktivieren',

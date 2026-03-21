@@ -305,6 +305,7 @@ const overrides: Catalog = {
   // Remaining dungeon names.
   dungeonDragon: 'Ejderha',
   dungeonEvent: 'Etkinlik',
+  noteSimKeepChanceAtLevel: 'Tutulan +{level}: {pct}',
   safeguardsTabLabel: 'Safeguards',
   safeguardsTabIntro: 'Slot/set/istatistik kombinasyonu bazında kurallar ekleyin, böylece şu anda aktif olan Satış kurallarınız bu kombinasyonun tüm kopyalarını asla silmesin.',
   safeguardsEnableLabel: 'Safeguards\'yu etkinleştir',
