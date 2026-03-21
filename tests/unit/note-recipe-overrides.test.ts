@@ -714,4 +714,29 @@ test('gearsets=+-Name applied to a metaset recipe adds excluded entry', () => {
   assert.deepEqual(resolved.artifactMetaSets, ['Utility'])
 })
 
+test('gearsets=+-Name works inside a tag-scoped selector block', () => {
+  // Regression: the fix must apply when gearsets=+-Name appears inside a nested
+  // @tag=X { ... } block, not just a top-level @all { ... } block.
+  const note = [
+    '<!-- recipe-overrides',
+    'q "Faction Wars complete?"',
+    'rb "Yes" * { @tag=utility { export=active lvl=16 gearsets=+-Daze } }',
+    'rb "No"  { @tag=utility { export=active lvl=0-16 } }',
+    '-->',
+  ].join('\n')
+  const { instructions } = resolveRecipeOverridesTags(note)
+  // The default option ("Yes") must produce one selector block.
+  assert.equal(instructions.length, 1, 'expected one instruction block from the default option')
+  // The block must target a tag=utility selector.
+  assert.equal(instructions[0]!.selector.kind, 'tag', 'expected a tag selector')
+  // The block must contain an artifactSets mutate with an excluded Daze entry.
+  const op = instructions[0]!.operations.find(
+    (o): o is Extract<RecipeOverridesOperation, { kind: 'artifactSets' }> => o.kind === 'artifactSets',
+  )
+  assert.ok(op, 'expected an artifactSets operation')
+  assert.equal(op.mode, 'mutate')
+  assert.equal(op.add.length, 1)
+  assert.equal(op.add[0]!.excluded, true)
+})
+
 export {}

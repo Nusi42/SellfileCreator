@@ -192,6 +192,21 @@ function recipeOverrides(Prism: Refractor): void {
             },
         },
 
+        // Excluded-add prefix `+-Name` used in list-valued assignment fields
+        // (e.g. `gearsets=+-Daze`).  Must precede `shorthand-constraint` and
+        // `punctuation` so the whole `+-Name` is consumed as one unit rather than
+        // splitting into a gray `+` (punctuation) followed by a separately colored
+        // `-Name` constraint fragment.
+        'list-excluded-add': {
+            pattern: /\+-[a-zA-Z_]\w*/,
+            inside: {
+                // The `+-` prefix gets the same operator color as shorthand-constraint ops.
+                'constraint-op': /^\+-/,
+                // The set/stat name is a referenced value (muted amber), same as id-ref.
+                'id-ref': /[a-zA-Z_]\w*$/,
+            },
+        },
+
         // Symbolic shorthand constraint operators: ! → excl, + → set, - → unset, ^ → only.
         // Optional whitespace between operator and id covers both `!token` and `! token`
         // forms (bug #7 fix). Matches only when the argument starts with a letter so
