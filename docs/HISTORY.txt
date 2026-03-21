@@ -16,10 +16,9 @@ English:
 - Safeguard chip summaries now show slot icons, colored stat names, set icons, Per Slot / Per Set / Per Faction / Per Main Stat prefix labels, and the required count inside the mode badge.
 - Filter button labels renamed: "Preview Recipes" → **Narrow**, "Recipe Filter" → **Selection** (sellfile view) or **By Match** (Gear Inspector view).
 - When viewing an imported HSF file, any recipe-index references that belong to a different SFR (not currently loaded) are shown in italics and are non-clickable, making it clear they cannot be edited here.
-- SFR files now store multi-line notes as an array of lines for cleaner diffs (existing plain-string notes continue to load correctly).
 - The guided tutorial was fully overhauled — new Safeguard and Early/Late comparison steps, redesigned Flex and Metasets sections — and localized into all 9 non-English languages.
 - The autosave/restore dialog now includes builder section collapse state in the View, Filter & Sort option; Gear Inspector sort preferences are no longer shown as a separate row.
-- Rule building is faster: only the recipe you just edited rebuilds its rules; unmodified recipes are served from an incremental cache.
+- Rule building is faster: only the recipe you just edited is rebuilt; unchanged recipes are reused.
 - Fixed: loading a new SFR file now immediately syncs the Safeguard Builder panel instead of showing stale content from the previous session.
 - Fixed: undo/redo no longer leaves the sellfile preview out of sync with the chip list after a selection change.
 - Fixed: custom gear added manually in the Gear Inspector now correctly matches its generated safeguard rules.
@@ -32,7 +31,7 @@ English:
 - The **Action/Mode row** in both builders (Keep/Sell/mode in recipes; activation, count, and ignore chips in safeguards) is now a collapsible section; undo/redo buttons remain pinned in the header regardless.
 - Clicking a **safeguard chip** in the sell-file preview now scrolls the table to the matching safeguard block; the **Selection** filter in the preview also works for safeguard rules.
 - Add **`<!-- dungeon-simulator -->`** to your Note to display a live keep-chance table for Fire Knight, Dragon, and Ice Golem across three difficulty stages (N20/N25/H10) and two boost modes, showing keep-rates at +0/+4/+8/+12/+16.
-- A new **Midgame** sell-file preset is now bundled alongside Lategame and Endgame; all three are generated at build time from the included recipe file so they always stay current.
+- A new **Midgame** sell-file preset is now bundled alongside Lategame and Endgame.
 - Shoutout to **Red Tuxedo** and **Red VII** who provided invaluable information to create the Midgame sellfile!
 - The note DSL gains two more override fields: **`gearsets=`** swaps or mutates the gear-set list, and **`metasets=`** swaps or mutates a metaset reference — both support `+`/`-` prefixes to add or remove entries without replacing the whole list.
 - The `wholeline` keyword in note cards is replaced by **`[columns=N]`** (e.g., `[columns=2]` makes a card twice as wide). Notes that used `wholeline` need to be updated to `columns=N`.
@@ -42,7 +41,8 @@ English:
 - The Gear DB update history now shows **change counts (added / removed / updated) as the primary headline** after the first import, with the running total as secondary, making it easier to spot what changed on each push.
 - When a **push endpoint** is configured, right-clicking the Push button shows an "Export to file" option that always downloads the sell-file locally, bypassing the configured endpoint.
 - **Safeguard improvement-chance** is now computed in the background worker instead of on the main thread — results appear faster and challengers are projected to +16 before ranking, giving a more realistic probability.
-- The live-streaming watcher (RSL Helper integration) now speaks **JSON-RPC 2.0 only**; each gear DB collection (artifacts, champions, inbox, last-used) can arrive as a separate notification; the legacy helper subprotocol is removed.
+- The live-streaming watcher (RSL Helper integration) has been updated and requires a current version of RSL Helper; the legacy connection protocol is no longer supported.
+- Fixed: safeguard **anticipate mode** now generates correct rank and rarity placeholder rules.
 - Fixed: **pasting a multi-recipe clipboard** that contained no safeguard data no longer silently clears your existing safeguard rules.
 - Fixed: changing the slot selection now **auto-removes any mainstat or substat** that is no longer valid for that slot, instead of leaving them stuck as selected-but-unclickable.
 
@@ -60,10 +60,9 @@ Deutsch:
 - Schutz-Chip-Zusammenfassungen zeigen jetzt Slot-Icons, farbige Stat-Namen, Set-Icons, Präfix-Label „Pro Slot / Pro Set / Pro Fraktion / Pro Main-Stat" sowie die Mindestanzahl im Modusbadge.
 - Filter-Schaltflächen umbenannt: „Preview Recipes" → **Narrow**, „Recipe Filter" → **Selection** (Sellfile-Ansicht) oder **By Match** (Gear Inspector).
 - Beim Betrachten einer importierten HSF-Datei werden Rezept-Index-Referenzen aus einer anderen SFR (die nicht geladen ist) kursiv und nicht anklickbar dargestellt.
-- SFR-Dateien speichern mehrzeilige Notizen jetzt als Zeilen-Array für sauberere Diffs (bestehende einzeilige Notizen werden weiterhin korrekt geladen).
 - Das Tutorial wurde komplett überarbeitet – neue Schutz- und Early/Late-Vergleichsschritte, überarbeitete Flex- und Metaset-Sektionen – und in alle 9 nicht-englischen Sprachen übersetzt.
 - Der Autosave/Wiederherstellen-Dialog enthält jetzt den Builder-Sektions-Klappstatus in der Option „Ansicht, Filter & Sort"; Gear-Inspector-Sortierung wird nicht mehr als eigene Zeile angeboten.
-- Regelaufbau ist schneller: Nur das gerade bearbeitete Rezept wird neu berechnet; unveränderte Rezepte werden aus einem inkrementellen Cache bedient.
+- Regelaufbau ist schneller: Nur das gerade bearbeitete Rezept wird neu berechnet; unveränderte Rezepte werden wiederverwendet.
 - Behoben: Das Laden einer neuen SFR-Datei synchronisiert jetzt sofort den Schutz-Builder, statt veraltete Inhalte der letzten Sitzung anzuzeigen.
 - Behoben: Undo/Redo lässt die Sellfile-Vorschau nicht mehr aus dem Takt geraten, nachdem sich die Auswahl geändert hat.
 - Behoben: Manuell im Gear Inspector hinzugefügtes Custom-Gear trifft jetzt korrekt auf seine generierten Schutzregeln zu.
@@ -76,7 +75,7 @@ Deutsch:
 - Die **Aktions-/Modus-Zeile** in beiden Buildern (Keep/Sell/Modus im Rezept-Builder; Aktivierung, Anzahl und Ignorieren-Chips im Schutz-Builder) ist jetzt eine klappbare Sektion; Undo/Redo-Schaltflächen bleiben im Header sichtbar.
 - Ein Klick auf einen **Schutzregel-Chip** in der Vorschau scrollt die Sellfile-Tabelle zum passenden Schutzregel-Block; der **Selection**-Filter in der Vorschau wirkt jetzt auch für Schutzregeln.
 - **`<!-- dungeon-simulator -->`** in deiner Notiz zeigt eine Live-Keep-Chance-Tabelle für Feuerritter, Drachen und Eisgolem auf drei Schwierigkeitsstufen (N20/N25/H10) und zwei Boost-Modi, mit Keep-Raten bei +0/+4/+8/+12/+16.
-- Ein neues **Midgame**-Sellfile-Preset ist jetzt neben Lategame und Endgame enthalten; alle drei werden beim Bauen aus der mitgelieferten Rezept-Datei generiert und bleiben so immer aktuell.
+- Ein neues **Midgame**-Sellfile-Preset ist jetzt neben Lategame und Endgame enthalten.
 - Ein herzliches Danke an **Red Tuxedo** und **Red VII** die mir unersätzliche Information zum Erstellen des Midgame Sellfiles gegeben haben!
 - Das Notiz-DSL erhält zwei weitere Override-Felder: **`gearsets=`** tauscht oder mutiert die Gear-Set-Liste, **`metasets=`** tauscht oder mutiert einen Metaset-Verweis – beide unterstützen `+`/`-`-Präfixe zum Hinzufügen oder Entfernen ohne die ganze Liste zu ersetzen.
 - Das Schlüsselwort `wholeline` in Notizkarten ist durch **`[columns=N]`** ersetzt (z. B. `[columns=2]` macht eine Karte doppelt so breit). Notizen, die `wholeline` verwenden, müssen auf `columns=N` aktualisiert werden.
@@ -86,7 +85,8 @@ Deutsch:
 - Die Gear-DB-Update-Historie zeigt nach dem Erstimport **Änderungszahlen (hinzugefügt / entfernt / aktualisiert) als Hauptüberschrift**, die Gesamtzahl rückt in die zweite Zeile.
 - Wenn ein **Push-Endpunkt** konfiguriert ist, bietet das Rechtsklick-Menü am Push-Button eine „Als Datei exportieren"-Option, die das Sellfile lokal herunterlädt statt es zum Endpunkt zu senden.
 - Die **Schutzregel-Verbesserungschance** wird jetzt im Hintergrund-Worker berechnet statt im Haupt-Thread – Ergebnisse erscheinen schneller und Konkurrenten werden vor dem Ranking auf +16 hochgerechnet, was eine realistischere Wahrscheinlichkeit ergibt.
-- Der Live-Streaming-Watcher (RSL-Helper-Integration) nutzt jetzt ausschließlich **JSON-RPC 2.0**; jede Gear-DB-Sammlung (Artefakte, Champions, Posteingang, Zuletzt benutzt) kann als separate Benachrichtigung ankommen; das ältere Hilfs-Protokoll (rws) wurde entfernt.
+- Der Live-Streaming-Watcher (RSL-Helper-Integration) wurde aktualisiert und benötigt eine aktuelle Version von RSL Helper; das ältere Verbindungsprotokoll wird nicht mehr unterstützt.
+- Behoben: Der **Antizipationsmodus** von Schutzregeln erzeugt jetzt korrekte Rang- und Seltenheits-Platzhalterregeln.
 - Behoben: **Einfügen eines Mehrfach-Rezept-Clipboards** ohne Schutzdaten löscht deine bestehenden Schutzregeln nicht mehr stillschweigend.
 - Behoben: Ein Slot-Wechsel **entfernt jetzt automatisch** alle Mainstats oder Substats, die für den neuen Slot ungültig sind, statt sie als ausgewählt-aber-nicht-anklickbar hängen zu lassen.
 
