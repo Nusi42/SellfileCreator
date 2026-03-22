@@ -39,6 +39,7 @@ import { formatCircledDigit } from '../lib/gearInspectorPreviewFormatting'
 import { resolveRarityAccentColor } from '../lib/rarityColors'
 import { useI18n } from '../lib/i18n'
 import { RULE_SOURCE_SAFEGUARDS } from '../lib/ruleSources'
+import type { SafeguardRuleCountMode } from '../lib/safeguards'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import { GearInspectorGridCard, getGearInspectorGridCardSizing } from './GearInspectorGridCard'
 import { GEAR_DB_DIFF_TOAST_CARD_SCALE, CHAMPION_ICON_LARGE_THRESHOLD } from '../lib/constants'
@@ -100,6 +101,8 @@ export type SafeguardCandidateRankListProps = {
   candidates: SafeguardCandidateOut[] | undefined
   // Quota for the rule — used to draw the cutoff line and count kept items.
   quota: number
+  // Count mode for the rule — used to label the cutoff with active grouping dimensions.
+  countMode?: SafeguardRuleCountMode
   // Artifact metadata keyed by itemKey, sourced from SafeguardDetectionEntry.artifacts.
   artifactsByItemKey: ReadonlyMap<number, SafeguardDetectionArtifact>
   // Substat variants selected in the rule — used for per-roll hints when no data.
@@ -144,6 +147,7 @@ export default function SafeguardCandidateRankList({
   onSelectCandidate,
   visibleItemKeys,
   ruleName,
+  countMode,
 }: SafeguardCandidateRankListProps) {
   const { t } = useI18n()
   const theme = useTheme()
@@ -221,11 +225,23 @@ export default function SafeguardCandidateRankList({
           theme={theme}
         />
       ))}
-      {/* Cutoff divider — scroll target on mount */}
+      {/* Cutoff divider — scroll target on mount.
+          Label lists active countMode dimensions so users understand why non-consecutive
+          global ranks appear on the same side of the line (e.g. "quota: 2 per set · faction"). */}
       <Box ref={cutoffRef} sx={{ display: 'flex', alignItems: 'center', py: 0.5 }}>
         <Divider sx={{ flex: 1, borderStyle: 'dashed', borderColor: 'text.disabled' }} />
         <Typography variant="caption" color="text.disabled" sx={{ px: 0.75, whiteSpace: 'nowrap', fontSize: '0.65rem' }}>
-          {t('safeguardsCandidateCutoff', { n: quota })}
+          {(() => {
+            // Collect active per-group dimensions in display order (slot → set → faction → main).
+            const scopeParts: string[] = []
+            if (countMode?.perSlot) scopeParts.push(t('safeguardsCountModeScopeSlot'))
+            if (countMode?.perSet) scopeParts.push(t('safeguardsCountModeScopeSet'))
+            if (countMode?.perFaction) scopeParts.push(t('safeguardsCountModeScopeFaction'))
+            if (countMode?.perMainStat) scopeParts.push(t('safeguardsCountModeScopeMain'))
+            return scopeParts.length > 0
+              ? t('safeguardsCandidateCutoffPerGroup', { n: quota, scope: scopeParts.join(' · ') })
+              : t('safeguardsCandidateCutoff', { n: quota })
+          })()}
         </Typography>
         <Divider sx={{ flex: 1, borderStyle: 'dashed', borderColor: 'text.disabled' }} />
       </Box>
@@ -387,9 +403,11 @@ function CandidateRow({
         py: 0.2,
         px: 0.25,
         borderRadius: 0.5,
-        // Dim rows hidden by the active Gear Inspector filter so users can still see them
-        // but understand they are outside the current view.
-        opacity: isFiltered ? 0.4 : 1,
+        // Filtered rows are dimmed. Rows matching this specific safeguard rule are dimmed less
+        // (0.6) so they remain visually distinct from other filtered candidates (0.4).
+        opacity: isFiltered
+          ? (previewRow?.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match.ruleLabel === ruleName ? 0.75 : 0.4)
+          : 1,
         cursor: onSelectCandidate ? 'pointer' : 'default',
         '&:hover': { bgcolor: alpha(theme.palette.text.primary, 0.04) },
       }}
@@ -526,11 +544,7 @@ function CandidateRow({
           fontSize: '0.6rem',
           // Use parsed directive color (white fallback) instead of muted text.disabled.
           color: matchSourceDecoration.resolvedColor,
-          // Bold when the first match in the sell-file is specifically this safeguard rule.
-          // Uses previewRow.match when available; falls back to isWithinQuota without preview data.
-          fontWeight: (previewRow
-            ? previewRow.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match?.ruleLabel === ruleName
-            : candidate.isWithinQuota) ? 700 : 400,
+          fontWeight: 400,
           width: 130,
           flexShrink: 0,
         }]}

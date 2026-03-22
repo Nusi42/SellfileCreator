@@ -2317,6 +2317,7 @@ export default function SafeguardBuilderPanel({
             <SafeguardCandidateRankList
               candidates={popoverCandidates}
               quota={rule?.requiredCount ?? 1}
+              countMode={rule?.countMode}
               artifactsByItemKey={artifactsByItemKey}
               substats={substatSelection}
               weights={rule?.substatWeights ?? {}}

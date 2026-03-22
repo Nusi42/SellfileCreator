@@ -375,6 +375,13 @@ const enUS: Catalog = {
   safeguardsCandidateSafeguarded: 'Guard',
   // {n} = quota count
   safeguardsCandidateCutoff: '── cutoff (quota: {n}) ──',
+  // {n} = quota count, {scope} = active countMode dimensions e.g. "set · faction"
+  safeguardsCandidateCutoffPerGroup: '── quota: {n} per {scope} ──',
+  // Short lowercase dimension labels used inside safeguardsCandidateCutoffPerGroup
+  safeguardsCountModeScopeSlot: 'slot',
+  safeguardsCountModeScopeSet: 'set',
+  safeguardsCountModeScopeFaction: 'faction',
+  safeguardsCountModeScopeMain: 'main stat',
   // {pts} = per-roll contribution, e.g. "0.17"
   safeguardsCandidateWeightHint: '1 roll ≈ +{pts}',
   safeguardsCandidatesNoData: 'No detection data.\nRun detection to see candidates.',
