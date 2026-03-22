@@ -198,17 +198,21 @@ export const normalizeGearInspectorGroupingState = (raw: unknown): GearInspector
 export const GEAR_INSPECTOR_SORT_KEY_LAST_USAGE = -1 as const
 export const GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE = -2 as const
 export const GEAR_INSPECTOR_SORT_KEY_NEWEST = -3 as const
+// Sorts by safeguard candidate rank: most-protected items (rank #1) sort first; unranked items last.
+export const GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK = -4 as const
 
 export type GearInspectorSortKey =
   | StatVariant
   | typeof GEAR_INSPECTOR_SORT_KEY_LAST_USAGE
   | typeof GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE
   | typeof GEAR_INSPECTOR_SORT_KEY_NEWEST
+  | typeof GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK
 
 export const isGearInspectorSyntheticSortKey = (key: number): boolean => (
   key === GEAR_INSPECTOR_SORT_KEY_LAST_USAGE
   || key === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE
   || key === GEAR_INSPECTOR_SORT_KEY_NEWEST
+  || key === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK
 )
 
 export type GearInspectorSubstatSortSpec = {
@@ -229,6 +233,9 @@ export type GearInspectorSubstatSortSpec = {
   normalizedScoreSpecs?: readonly GearInspectorNormalizedSubstatScoreSpec[]
   // Optional artifact-id keyed safeguard chance map used by the synthetic "improvement chance" sort key.
   safeguardUpgradeChanceByArtifactId?: ReadonlyMap<number, number | null>
+  // Optional artifact-id keyed safeguard rank map used by GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK.
+  // Value is the best (lowest) safeguard candidate rank across active rules; null = not ranked.
+  safeguardRankByArtifactId?: ReadonlyMap<number, number | null>
 }
 
 // Weighting constants are exported so UI + persistence + sort logic share a single source of truth.
@@ -304,6 +311,22 @@ const newestValueForSort = (row: GearInspectorPreviewRow): number | null => {
   // Artifact ids monotonically increase for imported DB rows, so larger ids are newer.
   const artifactId = Number(row.artifact.id)
   return Number.isFinite(artifactId) ? artifactId : null
+}
+
+const safeguardRankValueForSort = (
+  row: GearInspectorPreviewRow,
+  map: ReadonlyMap<number, number | null> | undefined,
+): number | null => {
+  // Missing map entry means "not ranked by any safeguard" — these sort last.
+  if (!map) return null
+  const artifactId = Number(row.artifact.id)
+  if (!Number.isFinite(artifactId)) return null
+  const value = map.get(artifactId)
+  if (value == null) return null
+  const numeric = Number(value)
+  // Rank 0 is the "unranked" sentinel; treat the same as missing.
+  if (!Number.isFinite(numeric) || numeric <= 0) return null
+  return numeric
 }
 
 export type GearInspectorNormalizedSubstatScoreSpec = {
@@ -416,6 +439,18 @@ export function compareGearInspectorPreviewRowsBySubstats(
       if (left == null) return 1
       if (right == null) return -1
       if (left === right) continue
+      return (left - right) * perKeyMultiplier
+    }
+
+    if (key === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK) {
+      // Lower rank = more protected; rank 1 is best. Unranked items sort after ranked.
+      const left = safeguardRankValueForSort(a, spec.safeguardRankByArtifactId)
+      const right = safeguardRankValueForSort(b, spec.safeguardRankByArtifactId)
+      if (left == null && right == null) continue
+      if (left == null) return 1
+      if (right == null) return -1
+      if (left === right) continue
+      // Rank #1 = best protected. Ascending by rank value; direction/flip still apply.
       return (left - right) * perKeyMultiplier
     }
 

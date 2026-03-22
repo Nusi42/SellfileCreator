@@ -338,7 +338,9 @@ export type MatchingRecipeEntry = {
 export type GearInspectorCardTopOverlay = {
   text: string
   color?: string
+  // Click handler for overlay navigation (e.g. jump to safeguard rule).
   onClick?: () => void
+  // Per-chip tooltip content — shown when hovering this chip only, isolated from the card icon tooltip.
   tooltipMarkdown?: string
   tooltipRender?: React.ReactNode
 }
@@ -348,6 +350,8 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   row,
   centerOverlay,
   topOverlay,
+  bottomOverlay,
+  overlaySlotCount = 1,
   substatColors,
   useStatButtonColors,
   suppressMatchDetails,
@@ -370,8 +374,13 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   contextGroupById = null,
 }: {
   row: GearInspectorPreviewRow
-  centerOverlay?: { text: string; color?: string } | null
+  // Substat rating chip — bottom in triple mode, center otherwise.
+  centerOverlay?: { text: string; color?: string; onClick?: () => void; tooltipMarkdown?: string; tooltipRender?: React.ReactNode } | null
   topOverlay?: GearInspectorCardTopOverlay | null
+  // Safeguard rank chip — center in triple mode, collapses to center in single/double.
+  bottomOverlay?: { text: string; color?: string; onClick?: () => void; tooltipMarkdown?: string; tooltipRender?: React.ReactNode } | null
+  // How many overlay types are globally active; drives chip size + Y positions in GridIconBox.
+  overlaySlotCount?: 1 | 2 | 3
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
   suppressMatchDetails: boolean
@@ -1014,10 +1023,13 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     if (!Number.isFinite(artifactId)) return null
     return `Artifact ID: ${Math.trunc(artifactId)}`
   })()
-  // Keep production tooltip behavior intact; dev simply appends id context when available.
+  // Card icon tooltip shows only last-use info and dev artifact id.
+  // Chip-specific content (rank table, upgrade breakdown) lives on the chips via tooltipMarkdown/tooltipRender.
   const gearTooltip = (() => {
-    if (lastUseTooltip && devArtifactIdTooltip) return `${lastUseTooltip}\n\n${devArtifactIdTooltip}`
-    return lastUseTooltip ?? devArtifactIdTooltip
+    const parts: string[] = []
+    if (lastUseTooltip) parts.push(lastUseTooltip)
+    if (devArtifactIdTooltip) parts.push(devArtifactIdTooltip)
+    return parts.length > 0 ? parts.join('\n\n---\n\n') : null
   })()
   // Ultra-dense 8-col shows only the ascension stat name, without the numeric value.
   const ascSummaryContent = isUltraDense ? ascLabelNode : ascSummary
@@ -1283,11 +1295,17 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           rerollTooltip={rerollTooltip || undefined}
           levelLabel={levelChipLabel}
           size={iconBoxSizePx}
-          gearTooltip={gearTooltip}
-          // Center overlay is informational and is rendered click-through by GridIconBox.
+          // Card icon tooltip: last-use + dev artifact id only.
+          // Per-chip tooltips (rank table, upgrade breakdown) are on the chips via tooltipMarkdown/tooltipRender.
+          {...(gearTooltip ? { gearTooltip } : {})}
+          // overlaySlotCount drives chip size + Y positions; passed uniformly so all grid cards align.
+          overlaySlotCount={overlaySlotCount}
+          // Each overlay carries its own tooltip; card icon hover shows only last-use / dev id.
           {...(centerOverlay ? { centerOverlay } : {})}
           // Top overlay stacks above the center score (used for safeguard upgrade chance).
           {...(topOverlay ? { topOverlay } : {})}
+          // Bottom overlay is the third stacked chip — safeguard rank (only active in triple mode).
+          {...(bottomOverlay ? { bottomOverlay } : {})}
           {...(cardOutcome ? { outcome: cardOutcome } : {})}
         />
         {shouldShowChampionIcon || shouldShowMissingChampionIconFallback ? (

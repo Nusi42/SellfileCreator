@@ -9,7 +9,7 @@
  *
  * When no rule is selected the form renders disabled so the panel height remains stable.
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Box,
   Button,
@@ -48,12 +48,14 @@ import {
   normalizeSafeguardSubstatMatch,
   normalizeSafeguardRule,
   pruneSafeguardsSubstatWeights,
-  safeguardWeightsEnabled,
   sanitizeSafeguardCountMode,
+  scoreSafeguardCandidates,
   sortSafeguardCombination,
   sortSafeguardSubstats,
   createFactorySafeguardBuilderDefaults,
   createSafeguardRuleContentSnapshot,
+  type SafeguardCandidateOut,
+  type SafeguardDetectionEntry,
   type SafeguardRule,
 } from '../lib/safeguards'
 import type { ColorBlindMode } from '../lib/constants'
@@ -89,6 +91,7 @@ import {
 } from '../lib/constants'
 
 import type { BuilderRecipe } from '../lib/hsfBuilder/types'
+import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useBuilderPanelActionMenus } from './builderPanel/useBuilderPanelActionMenus'
@@ -127,6 +130,8 @@ import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT, G
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import ClearIconButton from './ClearIconButton'
+import SafeguardCandidateRankList, { measureStatCellWidths } from './SafeguardCandidateRankList'
+import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
 import { mainStatToggleGroupSx, substatToggleGroupSx } from './SubstatToggleDisplay'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { Metaset } from '../lib/metasets'
@@ -225,10 +230,20 @@ export type SafeguardBuilderPanelProps = {
   onJumpToHistoryIndex: (index: number) => void
   onRequestClearHistory: () => void
   onManageMetasets: () => void
+  // Detection snapshot entry for the currently-editing rule (null when not yet run or rule not found).
+  // Used to populate the candidate rank list in the weight popover.
+  detectionEntry?: SafeguardDetectionEntry | null
+  // Preview rows keyed by safeguard item key — used for the hover card tooltip on candidate rows.
+  previewRowByItemKey?: ReadonlyMap<number, GearInspectorPreviewRow> | null
+  // Clicking a candidate row selects it in the Gear Inspector, scrolls to it, and switches tabs.
+  onSelectCandidate?: (itemKey: number) => void
   // Multi-edit props — all optional; absent means single-rule editing mode.
   multiEdit?: SafeguardMultiEditDraftHandle | null
   multiSelectedRules?: readonly SafeguardRule[] | null
   onApplyMultiEdit?: (() => void) | null
+  // When provided, candidates whose itemKey is absent from this set are dimmed in the list
+  // (they are currently hidden by the Gear Inspector filter).
+  visibleItemKeys?: ReadonlySet<number> | null
 }
 
 export default function SafeguardBuilderPanel({
@@ -256,9 +271,13 @@ export default function SafeguardBuilderPanel({
   onJumpToHistoryIndex,
   onRequestClearHistory,
   onManageMetasets,
+  detectionEntry,
+  previewRowByItemKey,
+  onSelectCandidate,
   multiEdit,
   multiSelectedRules,
   onApplyMultiEdit,
+  visibleItemKeys,
 }: SafeguardBuilderPanelProps) {
   const { t, lang } = useI18n()
   // ── multi-edit mode derived state ─────────────────────────────────────────
@@ -430,6 +449,11 @@ export default function SafeguardBuilderPanel({
   // ── state helpers ─────────────────────────────────────────────────────────
 
   const [weightsAnchorEl, setWeightsAnchorEl] = useState<HTMLElement | null>(null)
+  // Live preview candidates computed by debounced WASM rescore when weights change in the popover.
+  // null = not yet computed (use detectionEntry.candidates); undefined = rescore in progress (show stale).
+  const [livePreviewCandidates, setLivePreviewCandidates] = useState<SafeguardCandidateOut[] | null>(null)
+  // Ref used to cancel in-flight debounce timers when the popover closes or weights change quickly.
+  const livePreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [beatEquippedAnchorEl, setBeatEquippedAnchorEl] = useState<HTMLElement | null>(null)
   const [scaffoldAnchorEl, setScaffoldAnchorEl] = useState<HTMLElement | null>(null)
   // Tracks whether the Reset button is being hovered so all resettable sections
@@ -492,10 +516,6 @@ export default function SafeguardBuilderPanel({
   const effectiveSubstatMatch = hasSubstatSelection
     ? normalizeSafeguardSubstatMatch(rule?.substatMatch)
     : SafeguardSubstatMatch.Any
-  // currentMatchLabel moved to displayMatchLabel below (multi-edit-aware version).
-  // SSOT: delegate to safeguardWeightsEnabled so the rule is defined once.
-  const showSubstatWeights = safeguardWeightsEnabled(rule?.substatMatch, hasSubstatSelection)
-
   const countMode = sanitizeSafeguardCountMode(rule?.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
   const effectiveCountMode = hasAccessorySlot
     ? countMode
@@ -614,6 +634,84 @@ export default function SafeguardBuilderPanel({
 
   const mainStatValueStrings = mainStatSelection.map(String)
   const substatValueStrings = substatSelection.map(String)
+
+  // ── weight popover: candidate ranking ────────────────────────────────────
+
+  // Artifact lookup from the detection entry — stable map rebuilt only when entry changes.
+  const artifactsByItemKey = useMemo<ReadonlyMap<number, SafeguardDetectionEntry['artifacts'][number]>>(() => {
+    const map = new Map<number, SafeguardDetectionEntry['artifacts'][number]>()
+    if (detectionEntry?.artifacts) {
+      for (const artifact of detectionEntry.artifacts) map.set(artifact.itemKey, artifact)
+    }
+    return map
+  }, [detectionEntry])
+
+  // Trigger a debounced WASM rescore with the current unsaved weights.
+  // Substats are passed as a parameter (not closed over) to avoid React Compiler memoization issues
+  // with inline arrays that may be treated as mutable by the compiler analysis.
+  const triggerLiveRescore = useCallback((
+    nextWeights: Partial<Record<StatVariant, number>>,
+    currentSubstats: readonly StatVariant[],
+  ) => {
+    // Only rescore when we have detection artifacts to score against.
+    if (!detectionEntry?.artifacts?.length || !currentSubstats.length) return
+    // Cancel any previous pending timer.
+    if (livePreviewTimerRef.current !== null) clearTimeout(livePreviewTimerRef.current)
+    livePreviewTimerRef.current = setTimeout(() => {
+      livePreviewTimerRef.current = null
+      try {
+        const weightRecord: Record<number, number> = {}
+        for (const v of currentSubstats) {
+          weightRecord[v] = normalizeGearInspectorSortWeight(Number(nextWeights[v] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT))
+        }
+        // Call WASM to re-score; result is sorted by rank ascending.
+        const result = scoreSafeguardCandidates({
+          artifacts: detectionEntry.artifacts,
+          substats: currentSubstats as StatVariant[],
+          weights: weightRecord,
+          requiredCount: rule?.requiredCount ?? 1,
+        })
+        setLivePreviewCandidates(result)
+      } catch {
+        // Scoring failed (WASM not ready); clear live preview to fall back to snapshot.
+        setLivePreviewCandidates(null)
+      }
+    }, 150)
+  }, [detectionEntry, rule])
+
+  // Reset live preview and cancel any pending debounce timer when the weights popover closes.
+  const handleWeightsPopoverClose = useCallback(() => {
+    if (livePreviewTimerRef.current !== null) {
+      clearTimeout(livePreviewTimerRef.current)
+      livePreviewTimerRef.current = null
+    }
+    setLivePreviewCandidates(null)
+    setWeightsAnchorEl(null)
+  }, [])
+
+  // Close-button guard for the weights popover — same ContextMenuPaper pattern used for other popovers.
+  // menuRef must be forwarded to slotProps.paper so isTargetInsideAnyMenu can distinguish inside clicks.
+  const { contextMenuGuard: weightsPopoverGuard, menuRef: weightsPopoverMenuRef } = useContextMenuPaperGuard({
+    open: Boolean(weightsAnchorEl),
+    onClose: handleWeightsPopoverClose,
+  })
+
+  // Candidate list shown in the popover right column:
+  // prefer live preview (from unsaved weight edits) over the detection snapshot.
+  const popoverCandidates = livePreviewCandidates ?? detectionEntry?.candidates
+
+  // Measured cell widths — same canvas pass used by SafeguardCandidateRankList;
+  // drives the popover right-column width so it fits the list content exactly.
+  const { mainstatCellWidthPx, substatCellWidthPx } = useMemo(() => measureStatCellWidths(t, theme), [t, theme])
+
+  // Number of substat columns the list always renders (present cells + placeholders).
+  const substatColumnCount = Math.min(substatSelection.length, SUBSTAT_SLOT_COUNT)
+
+  // Minimum right column width — sum of every fixed element in a candidate row.
+  // The match-source column (flex: 1) fills remaining space, so only fixed components
+  // are counted here: rank(38) + identifier(130) + mainstat + mr-gap(6) + substats +
+  // score(44) + badge(14) + row-gaps(7×4=28) + left-padding(12) + safety(8)
+  const rightColumnWidthPx = 38 + 130 + mainstatCellWidthPx + 6 + substatCellWidthPx * substatColumnCount + 44 + 14 + 28 + 12 + 8
 
   // ── render ────────────────────────────────────────────────────────────────
 
@@ -1424,11 +1522,12 @@ export default function SafeguardBuilderPanel({
             <IconButton
               size="small"
               aria-label={t('safeguardsSubstatWeightsLabel')}
-              disabled={(!hasSubstatSelection && !multiEditActive) || (!showSubstatWeights && !substatMatchMixed)}
+              disabled={!hasSubstatSelection && !multiEditActive}
               onClick={(e) => setWeightsAnchorEl(e.currentTarget)}
               sx={(theme) => {
-                // Enable interaction when weights apply or match is mixed across selected rules.
-                const canInteract = (hasSubstatSelection || multiEditActive) && (showSubstatWeights || substatMatchMixed)
+                // Button is enabled whenever substats are selected, regardless of match mode.
+                // The candidate list is useful even in PerSubstat mode (equal-weight ranking).
+                const canInteract = hasSubstatSelection || multiEditActive
                 // Match chip background uses green when substats are selected (always green-colored).
                 const chipEnabled = hasSubstatSelection
                 const bg = chipEnabled ? alpha(theme.palette.success.main, 0.18) : alpha(theme.palette.text.disabled, 0.08)
@@ -2091,93 +2190,151 @@ export default function SafeguardBuilderPanel({
         </Box>
       </Popover>
 
-      {/* ── Substat weights popover ──────────────────────────────────────── */}
+      {/* ── Substat weights popover — two-column: controls (left) + candidate list (right) ── */}
       <Popover
         open={Boolean(weightsAnchorEl)}
         anchorEl={weightsAnchorEl}
-        onClose={() => setWeightsAnchorEl(null)}
+        onClose={handleWeightsPopoverClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{
+          paper: {
+            // eslint-disable-next-line react-hooks/refs -- handleWeightsPopoverClose reads livePreviewTimerRef only when invoked as an event handler, never during this render-time spread call.
+            ...buildContextMenuPaperSlotProps({
+              component: ContextMenuPaper,
+              contextMenuGuard: weightsPopoverGuard,
+              onRequestClose: handleWeightsPopoverClose,
+              closeLabel: t('close'),
+            }),
+            // ref must be forwarded separately (React Compiler restriction on refs in render-time spreads).
+            // Without this, isTargetInsideAnyMenu always returns false → every click closes the popover.
+            // Cast required: useContextMenuPaperGuard types the ref as Element, but Paper is always a div.
+            ref: weightsPopoverMenuRef as React.RefObject<HTMLDivElement | null>,
+          },
+        }}
       >
-        <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 0.75, minWidth: 220 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.25 }}>
-            {t('safeguardsSubstatWeightsLabel')}
-          </Typography>
-          {substatSelection.map((variant) => {
-            // In multi-edit mode, read staged weight from draft; fall back to rule's weight.
-            const stagedWeights = multiEditActive && multiSubstatWeightsField?.dirty
-              ? (multiSubstatWeightsField.value as Partial<Record<StatVariant, number>> ?? {})
-              : (rule?.substatWeights ?? {})
-            // Flag when the weight for this substat differs across the selection (and not yet staged).
-            const weightMixed = multiEditActive
-              && multiSubstatWeightsField?.status === 'mixed'
-              && !multiSubstatWeightsField.dirty
-            const rawWeight = Number(stagedWeights[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
-            const weight = normalizeGearInspectorSortWeight(rawWeight)
-            return (
-              <Box key={variant} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="caption" sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {t(statVariantI18nKey(variant))}
-                  {/* Mixed indicator shown when weights differ across the selection */}
-                  {weightMixed && (
-                    <Box component="span" sx={{ ml: 0.5, color: 'text.disabled', fontSize: '0.7em' }}>
-                      ({t('builderMultiEditMixedShort')})
-                    </Box>
-                  )}
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-                  <GearInspectorSortWeightControls
-                    label={t(statVariantI18nKey(variant))}
-                    enabled={true}
-                    weight={weight}
-                    onBump={(deltaSteps) => {
-                      if (multiEditActive && multiEdit) {
-                        // Stage a full weight-map replacement with the new value for this variant.
-                        const current = normalizeGearInspectorSortWeight(rawWeight)
-                        const nextValue = normalizeGearInspectorSortWeight(current + (deltaSteps * GEAR_INSPECTOR_SORT_WEIGHT_STEP))
-                        const nextWeights = { ...stagedWeights }
-                        if (nextValue === GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT) {
-                          delete nextWeights[variant]
-                        } else {
-                          nextWeights[variant] = nextValue
-                        }
-                        multiEdit.updateField('substatWeights', { value: nextWeights, status: 'common' })
-                      } else {
-                        updateRule((prev) => {
-                          const rawWeights = prev.substatWeights ?? {}
-                          const currentRaw = Number(rawWeights[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
-                          const current = normalizeGearInspectorSortWeight(currentRaw)
+        <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'row', gap: 2, alignItems: 'flex-start' }}>
+          {/* Left column: weight controls (unchanged layout) */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, minWidth: 220 }}>
+            <MarkdownTooltip markdown={t('safeguardsSubstatWeightsLabelTooltip')} placement="top">
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.25, display: 'inline-block' }}>
+                {t('safeguardsSubstatWeightsLabel')}
+              </Typography>
+            </MarkdownTooltip>
+            {substatSelection.map((variant) => {
+              // In multi-edit mode, read staged weight from draft; fall back to rule's weight.
+              const stagedWeights = multiEditActive && multiSubstatWeightsField?.dirty
+                ? (multiSubstatWeightsField.value as Partial<Record<StatVariant, number>> ?? {})
+                : (rule?.substatWeights ?? {})
+              // Flag when the weight for this substat differs across the selection (and not yet staged).
+              const weightMixed = multiEditActive
+                && multiSubstatWeightsField?.status === 'mixed'
+                && !multiSubstatWeightsField.dirty
+              const rawWeight = Number(stagedWeights[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
+              const weight = normalizeGearInspectorSortWeight(rawWeight)
+              return (
+                <Box key={variant} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="caption" sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {t(statVariantI18nKey(variant))}
+                    {/* Mixed indicator shown when weights differ across the selection */}
+                    {weightMixed && (
+                      <Box component="span" sx={{ ml: 0.5, color: 'text.disabled', fontSize: '0.7em' }}>
+                        ({t('builderMultiEditMixedShort')})
+                      </Box>
+                    )}
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                    <GearInspectorSortWeightControls
+                      label={t(statVariantI18nKey(variant))}
+                      enabled={true}
+                      weight={weight}
+                      onBump={(deltaSteps) => {
+                        if (multiEditActive && multiEdit) {
+                          // Stage a full weight-map replacement with the new value for this variant.
+                          const current = normalizeGearInspectorSortWeight(rawWeight)
                           const nextValue = normalizeGearInspectorSortWeight(current + (deltaSteps * GEAR_INSPECTOR_SORT_WEIGHT_STEP))
-                          const nextWeights = { ...rawWeights }
+                          const nextWeights = { ...stagedWeights }
                           if (nextValue === GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT) {
                             delete nextWeights[variant]
                           } else {
                             nextWeights[variant] = nextValue
                           }
-                          return { ...prev, substatWeights: nextWeights }
-                        })
-                      }
-                    }}
-                    onReset={() => {
-                      if (multiEditActive && multiEdit) {
-                        const nextWeights = { ...stagedWeights }
-                        delete nextWeights[variant]
-                        multiEdit.updateField('substatWeights', { value: nextWeights, status: 'common' })
-                      } else {
-                        updateRule((prev) => {
-                          const rawWeights = prev.substatWeights ?? {}
-                          if (!rawWeights[variant]) return prev
-                          const nextWeights = { ...rawWeights }
+                          multiEdit.updateField('substatWeights', { value: nextWeights, status: 'common' })
+                          // Trigger live preview with the new weights.
+                          triggerLiveRescore(nextWeights, substatSelection)
+                        } else {
+                          let nextWeightsForPreview: Partial<Record<StatVariant, number>> = rule?.substatWeights ?? {}
+                          updateRule((prev) => {
+                            const rawWeights = prev.substatWeights ?? {}
+                            const currentRaw = Number(rawWeights[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
+                            const current = normalizeGearInspectorSortWeight(currentRaw)
+                            const nextValue = normalizeGearInspectorSortWeight(current + (deltaSteps * GEAR_INSPECTOR_SORT_WEIGHT_STEP))
+                            const nextWeights = { ...rawWeights }
+                            if (nextValue === GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT) {
+                              delete nextWeights[variant]
+                            } else {
+                              nextWeights[variant] = nextValue
+                            }
+                            nextWeightsForPreview = nextWeights
+                            return { ...prev, substatWeights: nextWeights }
+                          })
+                          // Trigger live preview after the state update is queued.
+                          triggerLiveRescore(nextWeightsForPreview, substatSelection)
+                        }
+                      }}
+                      onReset={() => {
+                        if (multiEditActive && multiEdit) {
+                          const nextWeights = { ...stagedWeights }
                           delete nextWeights[variant]
-                          return { ...prev, substatWeights: nextWeights }
-                        })
-                      }
-                    }}
-                  />
+                          multiEdit.updateField('substatWeights', { value: nextWeights, status: 'common' })
+                          triggerLiveRescore(nextWeights, substatSelection)
+                        } else {
+                          let nextWeightsForPreview: Partial<Record<StatVariant, number>> = rule?.substatWeights ?? {}
+                          updateRule((prev) => {
+                            const rawWeights = prev.substatWeights ?? {}
+                            if (!rawWeights[variant]) return prev
+                            const nextWeights = { ...rawWeights }
+                            delete nextWeights[variant]
+                            nextWeightsForPreview = nextWeights
+                            return { ...prev, substatWeights: nextWeights }
+                          })
+                          triggerLiveRescore(nextWeightsForPreview, substatSelection)
+                        }
+                      }}
+                    />
+                  </Box>
                 </Box>
-              </Box>
-            )
-          })}
+              )
+            })}
+          </Box>
+          {/* Right column: candidate rank list — width computed from measured cell widths so it
+              fits the list content without wasted space or clipping. */}
+          <Box sx={{ minWidth: rightColumnWidthPx, flexShrink: 0, borderLeft: 1, borderColor: 'divider', pl: 1.5 }}>
+            <MarkdownTooltip markdown={t('safeguardsCandidatesLabelTooltip')} placement="top">
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, display: 'inline-block' }}>
+                {t('safeguardsCandidatesLabel')}
+              </Typography>
+            </MarkdownTooltip>
+            <SafeguardCandidateRankList
+              candidates={popoverCandidates}
+              quota={rule?.requiredCount ?? 1}
+              countMode={rule?.countMode}
+              artifactsByItemKey={artifactsByItemKey}
+              substats={substatSelection}
+              weights={rule?.substatWeights ?? {}}
+              noMatchesYet={detectionEntry !== null && detectionEntry !== undefined && (detectionEntry.candidates?.length ?? 0) === 0}
+              showSlotIcons={showSlotIcons}
+              showSetIcons={showSetIcons}
+              showFactionIcons={showFactionIcons}
+              substatColors={substatColors}
+              useStatButtonColors={useStatButtonColors}
+              previewRowByItemKey={previewRowByItemKey ?? null}
+              {...(rule?.name ? { ruleName: rule.name } : {})}
+              {...(rule?.id ? { ruleId: rule.id } : {})}
+              {...(visibleItemKeys != null ? { visibleItemKeys } : {})}
+              {...(onSelectCandidate ? { onSelectCandidate } : {})}
+            />
+          </Box>
         </Box>
       </Popover>
 
