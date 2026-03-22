@@ -48,6 +48,9 @@ import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
 
 // Scrollable container height — fits comfortably inside the 460px right column.
 const CANDIDATE_LIST_MAX_HEIGHT_PX = 380
+// Font size for the match-source (name) column — exported so SafeguardBuilderPanel can measure
+// the same size when computing the fixed column width from candidate names.
+export const FONT_SIZE_MATCH_SOURCE_REM = 0.68
 export type StatCellWidths = {
   // Width for the mainstat column — widest label across all variants, no roll glyph.
   mainstatCellWidthPx: number
@@ -139,6 +142,10 @@ export type SafeguardCandidateRankListProps = {
   // 1-based ordinal of the current safeguard rule — used for identity comparisons.
   // Replaces the old ruleOrdinal approach now that SafeguardRule carries no id field.
   ruleOrdinal?: number
+  // Number of substat columns to render per row (real cells + placeholder pads).
+  // Computed by the parent from the max matching substats across candidates; falls back to
+  // min(substats.length, SUBSTAT_SLOT_COUNT) when not provided.
+  substatColumnCount?: number
 }
 
 export default function SafeguardCandidateRankList({
@@ -159,6 +166,7 @@ export default function SafeguardCandidateRankList({
   ruleName,
   ruleOrdinal,
   countMode,
+  substatColumnCount,
 }: SafeguardCandidateRankListProps) {
   const { t } = useI18n()
   const theme = useTheme()
@@ -207,6 +215,10 @@ export default function SafeguardCandidateRankList({
     return <NoDataPlaceholder text={t('safeguardsCandidatesNoData')} />
   }
 
+  // Resolve substat column count — use parent-computed value (max across candidates) when available,
+  // fall back to the rule's selection length so the layout is still valid before detection runs.
+  const resolvedSubstatColumnCount = substatColumnCount ?? Math.min(substats.length, SUBSTAT_SLOT_COUNT)
+
   // Split into kept (isWithinQuota) and sold (outside quota) preserving rank order.
   const kept = candidates.filter((c) => c.isWithinQuota)
   const sold = candidates.filter((c) => !c.isWithinQuota)
@@ -229,6 +241,7 @@ export default function SafeguardCandidateRankList({
           ruleOrdinal={ruleOrdinal}
           mainstatCellWidthPx={mainstatCellWidthPx}
           substatCellWidthPx={substatCellWidthPx}
+          substatColumnCount={resolvedSubstatColumnCount}
           isFiltered={visibleItemKeys != null && !visibleItemKeys.has(candidate.itemKey)}
           {...(onSelectCandidate ? { onSelectCandidate } : {})}
           substatColors={substatColors ?? {}}
@@ -273,6 +286,7 @@ export default function SafeguardCandidateRankList({
           ruleOrdinal={ruleOrdinal}
           mainstatCellWidthPx={mainstatCellWidthPx}
           substatCellWidthPx={substatCellWidthPx}
+          substatColumnCount={resolvedSubstatColumnCount}
           isFiltered={visibleItemKeys != null && !visibleItemKeys.has(candidate.itemKey)}
           {...(onSelectCandidate ? { onSelectCandidate } : {})}
           substatColors={substatColors ?? {}}
@@ -301,6 +315,7 @@ function CandidateRow({
   ruleOrdinal,
   mainstatCellWidthPx,
   substatCellWidthPx,
+  substatColumnCount,
   isFiltered,
   substatColors,
   useStatButtonColors,
@@ -322,6 +337,8 @@ function CandidateRow({
   mainstatCellWidthPx: number
   // Uniform fixed pixel width for every substat cell — measured from the longest label + roll glyph.
   substatCellWidthPx: number
+  // Number of substat columns to render (real cells + placeholder pads) — from parent's max-across-candidates.
+  substatColumnCount: number
   // True when the artifact is hidden by the current Gear Inspector filter — renders dimmed.
   isFiltered: boolean
   substatColors: Record<number, { fg: string; bg: string }>
@@ -557,10 +574,9 @@ function CandidateRow({
             </Typography>
           </EllipsisTooltip>
         ))}
-        {/* Empty placeholder cells to pad up to min(substats.length, SUBSTAT_SLOT_COUNT).
-            A rule may select more substats than an artifact can have (max SUBSTAT_SLOT_COUNT),
-            so we cap the total to avoid adding more columns than any artifact could ever fill. */}
-        {Array.from({ length: Math.min(substats.length, SUBSTAT_SLOT_COUNT) - substatCells.length }, (_, i) => (
+        {/* Empty placeholder cells to pad up to substatColumnCount (max matching substats across candidates).
+            Keeps every row the same column width so the score/badge/match columns stay aligned. */}
+        {Array.from({ length: substatColumnCount - substatCells.length }, (_, i) => (
           <Box key={`ph-${i}`} sx={{ width: substatCellWidthPx, flexShrink: 0, flexGrow: 0 }} />
         ))}
       </Box>
@@ -585,12 +601,15 @@ function CandidateRow({
         variant="caption"
         title={matchSourceDecoration.displayName || undefined}
         sx={[ELLIPSIS_TEXT_SX, {
-          fontSize: '0.68rem',
+          fontSize: `${FONT_SIZE_MATCH_SOURCE_REM}rem`,
           // Use parsed directive color (white fallback) instead of muted text.disabled.
           color: matchSourceDecoration.resolvedColor,
           fontWeight: 400,
+          // Fills remaining row space, capped at 4× the substat cell width so
+          // the column never dwarfs the stat columns on wide rows.
           flex: 1,
           minWidth: 0,
+          maxWidth: substatCellWidthPx * 4,
         }]}
       >
         {matchSourceDecoration.displayName}

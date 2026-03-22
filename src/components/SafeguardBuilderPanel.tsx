@@ -130,7 +130,7 @@ import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT, G
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import ClearIconButton from './ClearIconButton'
-import SafeguardCandidateRankList, { measureStatCellWidths } from './SafeguardCandidateRankList'
+import SafeguardCandidateRankList from './SafeguardCandidateRankList'
 import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
 import { mainStatToggleGroupSx, substatToggleGroupSx } from './SubstatToggleDisplay'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -700,18 +700,22 @@ export default function SafeguardBuilderPanel({
   // prefer live preview (from unsaved weight edits) over the detection snapshot.
   const popoverCandidates = livePreviewCandidates ?? detectionEntry?.candidates
 
-  // Measured cell widths — same canvas pass used by SafeguardCandidateRankList;
-  // drives the popover right-column width so it fits the list content exactly.
-  const { mainstatCellWidthPx, substatCellWidthPx } = useMemo(() => measureStatCellWidths(t, theme), [t, theme])
-
-  // Number of substat columns the list always renders (present cells + placeholders).
-  const substatColumnCount = Math.min(substatSelection.length, SUBSTAT_SLOT_COUNT)
-
-  // Minimum right column width — sum of every fixed element in a candidate row.
-  // The match-source column (flex: 1) fills remaining space, so only fixed components
-  // are counted here: rank(38) + identifier(130) + mainstat + mr-gap(6) + substats +
-  // score(44) + badge(14) + row-gaps(7×4=28) + left-padding(12) + safety(8)
-  const rightColumnWidthPx = 38 + 130 + mainstatCellWidthPx + 6 + substatCellWidthPx * substatColumnCount + 44 + 14 + 28 + 12 + 8
+  // Number of substat columns per row: max across candidates of how many rule-selected substats
+  // the artifact actually has. Tighter than min(substats.length, SUBSTAT_SLOT_COUNT) when not all
+  // selected substats appear on any candidate. Falls back to the rule selection count before detection runs.
+  const substatColumnCount = (() => {
+    if (!popoverCandidates || popoverCandidates.length === 0) {
+      return Math.min(substatSelection.length, SUBSTAT_SLOT_COUNT)
+    }
+    let max = 0
+    for (const c of popoverCandidates) {
+      const art = artifactsByItemKey.get(c.itemKey)
+      if (!art) continue
+      const count = substatSelection.filter((v) => art.substats.some((s) => Number(s.variant) === v)).length
+      if (count > max) max = count
+    }
+    return Math.min(max, SUBSTAT_SLOT_COUNT)
+  })()
 
   // ── render ────────────────────────────────────────────────────────────────
 
@@ -2309,7 +2313,7 @@ export default function SafeguardBuilderPanel({
           </Box>
           {/* Right column: candidate rank list — width computed from measured cell widths so it
               fits the list content without wasted space or clipping. */}
-          <Box sx={{ minWidth: rightColumnWidthPx, flexShrink: 0, borderLeft: 1, borderColor: 'divider', pl: 1.5 }}>
+          <Box sx={{ flexShrink: 0, borderLeft: 1, borderColor: 'divider', pl: 1.5 }}>
             <MarkdownTooltip markdown={t('safeguardsCandidatesLabelTooltip')} placement="top">
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, display: 'inline-block' }}>
                 {t('safeguardsCandidatesLabel')}
@@ -2329,6 +2333,7 @@ export default function SafeguardBuilderPanel({
               substatColors={substatColors}
               useStatButtonColors={useStatButtonColors}
               previewRowByItemKey={previewRowByItemKey ?? null}
+              substatColumnCount={substatColumnCount}
               {...(rule?.name ? { ruleName: rule.name } : {})}
               {...(editingRuleIdx !== null ? { ruleOrdinal: editingRuleIdx + 1 } : {})}
               {...(visibleItemKeys != null ? { visibleItemKeys } : {})}
