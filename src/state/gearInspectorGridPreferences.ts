@@ -9,6 +9,7 @@ import {
   GEAR_INSPECTOR_GRID_SHOW_MATCH_LINE_KEY,
   GEAR_INSPECTOR_GRID_SHOW_OTHER_MATCHES_KEY,
   GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY,
+  GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_RANK_KEY,
   GEAR_INSPECTOR_GRID_SHOW_RULE_TEMPLATES_KEY,
 } from '../lib/constants'
 import { createLocalStorageStore } from './localStorageStore'
@@ -101,6 +102,18 @@ const gearInspectorGridShowSafeguardUpgradeChanceStore = createLocalStorageStore
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
+const gearInspectorGridShowSafeguardRankStore = createLocalStorageStore<boolean>({
+  key: GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_RANK_KEY,
+  // Default off — rank chip is opt-in so the card overlay stays uncluttered by default.
+  fallback: false,
+  parse: (raw) => raw === 'true',
+  serialize: (value) => (value ? 'true' : 'false'),
+})
+
+// Reactive read for callers that only need the rank toggle without the full preference hook.
+export const useShowSafeguardRank = (): boolean =>
+  gearInspectorGridShowSafeguardRankStore.useValue()
+
 // Standalone helpers for tutorial snapshot/restore — avoids passing the setter as a prop.
 export const snapshotSafeguardUpgradeChance = (): boolean =>
   gearInspectorGridShowSafeguardUpgradeChanceStore.getSnapshot()
@@ -125,6 +138,7 @@ export function useGearInspectorGridPreferences(variant: GearInspectorGridPrefer
   const showRuleTemplates = gearInspectorGridShowRuleTemplatesStore.useValue()
   const highlightKeepSell = gearInspectorGridHighlightKeepSellStore.useValue()
   const showSafeguardUpgradeChance = gearInspectorGridShowSafeguardUpgradeChanceStore.useValue()
+  const showSafeguardRank = gearInspectorGridShowSafeguardRankStore.useValue()
 
   const setColumns = useCallback((next: GearInspectorGridColumnMode) => {
     // Accept 4, 5, or 8; fall back to 4 for any other value.
@@ -167,6 +181,10 @@ export function useGearInspectorGridPreferences(variant: GearInspectorGridPrefer
     gearInspectorGridShowSafeguardUpgradeChanceStore.set(Boolean(next))
   }, [])
 
+  const setShowSafeguardRank = useCallback((next: boolean) => {
+    gearInspectorGridShowSafeguardRankStore.set(Boolean(next))
+  }, [])
+
   return {
     columns,
     showFirstMatch,
@@ -177,6 +195,7 @@ export function useGearInspectorGridPreferences(variant: GearInspectorGridPrefer
     showRuleTemplates,
     highlightKeepSell,
     showSafeguardUpgradeChance,
+    showSafeguardRank,
     setColumns,
     setShowFirstMatch,
     setShowMatchRecipeIndex,
@@ -186,5 +205,6 @@ export function useGearInspectorGridPreferences(variant: GearInspectorGridPrefer
     setShowRuleTemplates,
     setHighlightKeepSell,
     setShowSafeguardUpgradeChance,
+    setShowSafeguardRank,
   }
 }

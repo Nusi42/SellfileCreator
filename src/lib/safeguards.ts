@@ -52,6 +52,7 @@ import {
   resolveSafeguardRulesWithMetasetsWithLoadedWasm,
   sortSafeguardCombinationWithLoadedWasm,
   sortSafeguardSubstatsWithLoadedWasm,
+  scoreSafeguardCandidatesWithLoadedWasm,
 } from './wasm/wasmRuleEngine'
 import type { WasmEvaluateAndCollectSnapshot } from './wasm/wasmRuleEngine'
 import {
@@ -385,6 +386,18 @@ export type SafeguardDetectionSubstat = {
   value: number
 }
 
+// Per-candidate scoring output from the WASM detection pass or live preview.
+// Mirrors SafeguardWasmCandidateOut on the Rust side.
+export type SafeguardCandidateOut = {
+  itemKey: number
+  // Weighted normalized substat score; 0 when no substats are selected.
+  score: number
+  // 1-based rank within the group; 0 when scoring is inactive (no substats).
+  candidateRank: number
+  // true when the candidate ranks within the rule's keep quota.
+  isWithinQuota: boolean
+}
+
 export type SafeguardDetectionEntry = {
   hash: string
   combination: SafeguardCombination
@@ -402,6 +415,9 @@ export type SafeguardDetectionEntry = {
   itemKeys: number[]
   artifacts: SafeguardDetectionArtifact[]
   placeholders: SafeguardPlaceholderRequest[]
+  // Scored candidates from the detection pass (present when substats are configured).
+  // Populated by WASM; absent on older snapshots (treated as empty array).
+  candidates?: SafeguardCandidateOut[]
 }
 
 export type SafeguardDetectionSnapshot = {
@@ -658,6 +674,26 @@ export const sortSafeguardSubstats = (values: readonly StatVariant[]): StatVaria
   // Delegate sorting to wasm so TS does not duplicate priority/dedupe behavior.
   sortSafeguardSubstatsWithLoadedWasm(values).map((value) => Number(value) as StatVariant)
 )
+
+// Score and rank candidate artifacts with the given substats/weights for live
+// popover preview. Delegates to WASM to preserve SSOT on the scoring formula.
+export const scoreSafeguardCandidates = (params: {
+  // Serialized artifacts from SafeguardDetectionEntry.artifacts.
+  artifacts: SafeguardDetectionArtifact[]
+  // Substat variant IDs active in the rule.
+  substats: StatVariant[]
+  // Per-variant weight multipliers (variant → weight).
+  weights: Record<number, number>
+  // How many items the rule intends to keep.
+  requiredCount: number
+}): SafeguardCandidateOut[] =>
+  // Pass through to the wasm binding; result is already sorted by score desc.
+  scoreSafeguardCandidatesWithLoadedWasm({
+    artifacts: params.artifacts as unknown[],
+    substats: params.substats,
+    weights: params.weights,
+    requiredCount: params.requiredCount,
+  })
 
 // sortSafeguardCombination enforces stable ordering across every safeguard filter.
 export const sortSafeguardCombination = (combination: SafeguardCombination): SafeguardCombination => ({

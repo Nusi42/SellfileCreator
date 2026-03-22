@@ -383,6 +383,18 @@ struct SafeguardWasmArtifactOut {
     substats: Vec<SafeguardWasmSubstatOut>,
 }
 
+// Per-candidate scored output exposed in detection entries for UI overlays.
+// candidateRank is 1-based (1 = best score); 0 means the non-ranking path was used.
+// isWithinQuota is true when the candidate is among the top-N selected for this rule.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SafeguardWasmCandidateOut {
+    pub item_key: i64,
+    pub score: f64,
+    pub candidate_rank: u32,
+    pub is_within_quota: bool,
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct SafeguardWasmPlaceholderOut {
@@ -411,6 +423,9 @@ struct SafeguardWasmEntryOut {
     item_keys: Vec<i64>,
     artifacts: Vec<SafeguardWasmArtifactOut>,
     placeholders: Vec<SafeguardWasmPlaceholderOut>,
+    // All matched+scored candidates with their ranks; omitted from old snapshots (default = empty).
+    #[serde(default)]
+    candidates: Vec<SafeguardWasmCandidateOut>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -2546,7 +2561,11 @@ fn safeguard_build_entry_for_substats(
         let mut item_keys = Vec::<i64>::new();
         let mut artifacts = Vec::<SafeguardWasmArtifactOut>::new();
         let mut selected_candidate_indices = Vec::<usize>::new();
+        // Tracks ALL candidates that are within quota (kept + sold top-N) for is_within_quota output.
+        let mut within_quota_indices = HashSet::<usize>::new();
         let mut placeholders = Vec::<SafeguardWasmPlaceholderOut>::new();
+        // Collect all scored candidates across groups for rank/quota output.
+        let mut raw_candidates_for_output: Vec<SafeguardWasmScoredCandidate> = Vec::new();
 
         // Use explicit expected list when present, otherwise derive from observed groups.
         let expected_list = if !expected_groups.is_empty() {
@@ -2590,6 +2609,18 @@ fn safeguard_build_entry_for_substats(
             // Select top required entries with tie-boundary extension.
             let selected =
                 safeguard_select_top_scored_candidates(&bucket, required_per_group, candidates);
+            // Collect entire bucket for output ranking (all candidates, not just selected).
+            raw_candidates_for_output.extend(bucket.iter().cloned());
+            // Artifact metadata covers ALL bucket candidates so the UI can look up slot/set
+            // for every ranked candidate, not just the sold ones.
+            for scored_entry in bucket.iter() {
+                let candidate = &candidates[scored_entry.candidate_idx];
+                artifacts.push(safeguard_to_detection_artifact(candidate));
+            }
+            // within_quota_set covers ALL top-N candidates (both kept and sold) so is_within_quota
+            // is set correctly. selected_candidate_indices tracks only the sold subset for cascade.
+            let within_quota_set: HashSet<usize> =
+                selected.iter().map(|e| e.candidate_idx).collect();
             let mut group_total = 0i64;
             let mut group_kept = 0i64;
             let mut group_sold = 0i64;
@@ -2599,13 +2630,15 @@ fn safeguard_build_entry_for_substats(
                 let candidate = &candidates[candidate_idx];
                 if candidate_sold_state[candidate_idx] {
                     group_sold += 1;
+                    // item_keys tracks only sold (at-risk) items selected for protection.
                     selected_candidate_indices.push(candidate_idx);
                     item_keys.push(candidate.item_key);
-                    artifacts.push(safeguard_to_detection_artifact(candidate));
                 } else {
                     group_kept += 1;
                 }
             }
+            // Accumulate per-group within-quota sets for the global is_within_quota output.
+            within_quota_indices.extend(within_quota_set);
             // Group totals roll into overall counters.
             current_count += group_total;
             kept_count += group_kept;
@@ -2640,6 +2673,20 @@ fn safeguard_build_entry_for_substats(
 
         // Projected count includes sold artifacts only when rule is active.
         let projected = kept_count + if prepared_rule.rule_active { sold_count } else { 0 };
+        // Build global ranked candidate output: sort all by score desc and assign ranks.
+        raw_candidates_for_output
+            .sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(Ordering::Equal));
+        // is_within_quota uses the full within_quota_indices (kept + sold top-N), not just sold.
+        let candidates_out: Vec<SafeguardWasmCandidateOut> = raw_candidates_for_output
+            .iter()
+            .enumerate()
+            .map(|(rank_idx, entry)| SafeguardWasmCandidateOut {
+                item_key: candidates[entry.candidate_idx].item_key,
+                score: entry.score,
+                candidate_rank: (rank_idx + 1) as u32,
+                is_within_quota: within_quota_indices.contains(&entry.candidate_idx),
+            })
+            .collect();
         return SafeguardWasmEntryEvalOut {
             entry: SafeguardWasmEntryOut {
                 hash: prepared_rule.hash.clone(),
@@ -2657,6 +2704,7 @@ fn safeguard_build_entry_for_substats(
                 item_keys,
                 artifacts,
                 placeholders,
+                candidates: candidates_out,
             },
             selected_candidate_indices,
         };
@@ -2702,15 +2750,30 @@ fn safeguard_build_entry_for_substats(
                 placeholder_substats.clone(),
             ));
         }
-        // Materialize selected sold candidate ids/artifacts for UI.
+        // item_keys tracks only sold (at-risk) items selected for protection.
         let item_keys = selected_sold
             .iter()
             .map(|idx| candidates[*idx].item_key)
             .collect::<Vec<_>>();
-        let artifacts = selected_sold
+        // Artifact metadata covers ALL matching candidates so the UI can look up slot/set
+        // for every candidate in the list, not just the sold ones.
+        let artifacts = matching_indices
             .iter()
             .map(|idx| safeguard_to_detection_artifact(&candidates[*idx]))
             .collect::<Vec<_>>();
+        // Non-ranking: all matching candidates emitted with rank=0; within-quota
+        // means the item was already kept OR is in the at-risk selection.
+        let selected_sold_set: HashSet<usize> = selected_sold.iter().copied().collect();
+        let candidates_out: Vec<SafeguardWasmCandidateOut> = matching_indices
+            .iter()
+            .map(|idx| SafeguardWasmCandidateOut {
+                item_key: candidates[*idx].item_key,
+                score: 0.0,
+                candidate_rank: 0,
+                is_within_quota: !candidate_sold_state[*idx]
+                    || selected_sold_set.contains(idx),
+            })
+            .collect();
         return SafeguardWasmEntryEvalOut {
             entry: SafeguardWasmEntryOut {
                 hash: prepared_rule.hash.clone(),
@@ -2728,6 +2791,7 @@ fn safeguard_build_entry_for_substats(
                 item_keys,
                 artifacts,
                 placeholders,
+                candidates: candidates_out,
             },
             selected_candidate_indices: selected_sold,
         };
@@ -2892,15 +2956,31 @@ fn safeguard_build_entry_for_substats(
         deficit = required_per_group;
     }
 
-    // Materialize at-risk candidate ids/artifacts for UI.
+    // item_keys tracks only at-risk (sold) items selected for protection.
     let item_keys = at_risk
         .iter()
         .map(|idx| candidates[*idx].item_key)
         .collect::<Vec<_>>();
-    let artifacts = at_risk
-        .iter()
-        .map(|idx| safeguard_to_detection_artifact(&candidates[*idx]))
-        .collect::<Vec<_>>();
+    // Non-ranking grouped: emit all matching candidates with rank=0.
+    // Within-quota: already kept OR in at-risk selection.
+    let at_risk_set: HashSet<usize> = at_risk.iter().copied().collect();
+    // Artifact metadata covers ALL matching candidates (kept + sold) so the UI can look up
+    // slot/set for every candidate in the list, not just the at-risk sold ones.
+    let artifacts: Vec<SafeguardWasmArtifactOut> = group_counts
+        .values()
+        .flat_map(|group| group.kept.iter().chain(group.sold.iter()).copied())
+        .map(|idx| safeguard_to_detection_artifact(&candidates[idx]))
+        .collect();
+    let candidates_out: Vec<SafeguardWasmCandidateOut> = group_counts
+        .values()
+        .flat_map(|group| group.kept.iter().chain(group.sold.iter()).copied())
+        .map(|idx| SafeguardWasmCandidateOut {
+            item_key: candidates[idx].item_key,
+            score: 0.0,
+            candidate_rank: 0,
+            is_within_quota: !candidate_sold_state[idx] || at_risk_set.contains(&idx),
+        })
+        .collect();
     SafeguardWasmEntryEvalOut {
         entry: SafeguardWasmEntryOut {
             hash: prepared_rule.hash.clone(),
@@ -2918,6 +2998,7 @@ fn safeguard_build_entry_for_substats(
             item_keys,
             artifacts,
             placeholders,
+            candidates: candidates_out,
         },
         selected_candidate_indices: at_risk,
     }
@@ -2936,6 +3017,8 @@ fn safeguard_merge_substat_entries(
     let mut selected_candidate_indices = Vec::<usize>::new();
     let mut selected_candidate_set = HashSet::<usize>::new();
     let mut placeholders = Vec::<SafeguardWasmPlaceholderOut>::new();
+    let mut candidates_merged = Vec::<SafeguardWasmCandidateOut>::new();
+    let mut candidate_item_key_set = HashSet::<i64>::new();
     let mut required_count = 0i64;
     let mut current_count = 0i64;
     let mut projected_count = 0i64;
@@ -2969,6 +3052,12 @@ fn safeguard_merge_substat_entries(
                 artifacts.push(artifact);
             }
         }
+        // Deduplicate candidate rows across per-substat entries.
+        for candidate in entry.candidates {
+            if candidate_item_key_set.insert(candidate.item_key) {
+                candidates_merged.push(candidate);
+            }
+        }
     }
     SafeguardWasmEntryEvalOut {
         entry: SafeguardWasmEntryOut {
@@ -2987,6 +3076,7 @@ fn safeguard_merge_substat_entries(
             item_keys,
             artifacts,
             placeholders,
+            candidates: candidates_merged,
         },
         selected_candidate_indices,
     }
@@ -3270,4 +3360,55 @@ pub fn compute_safeguard_protection_from_collected_core(
         })
         .collect::<Vec<_>>();
     compute_safeguard_protection_core(protection_candidates, safeguard_rules, expected, enabled, now)
+}
+
+// Input payload for live preview scoring in the weight-configuration popover.
+// Allows TS to rescore candidates with in-progress (unsaved) weights without
+// re-running the full detection pass.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SafeguardWasmScorePreviewIn {
+    // Candidate artifacts to score (substats carry raw values from the detection snapshot).
+    pub artifacts: Vec<SafeguardWasmArtifactIn>,
+    // Selected substat variants used in the scoring formula.
+    pub substats: Vec<i64>,
+    // Per-variant weight multipliers (key = variant as string, default = 1.0).
+    pub weights: HashMap<i64, f64>,
+    // Number of items the rule intends to keep (used for isWithinQuota).
+    pub required_count: i64,
+}
+
+// Score and rank candidates with the given substats/weights for live popover preview.
+// Uses a simplified single-group ranking (no tie-boundary extension) sufficient for UI.
+pub fn score_safeguard_candidates_for_preview_core(
+    input: SafeguardWasmScorePreviewIn,
+) -> Vec<SafeguardWasmCandidateOut> {
+    // Score each artifact; skip items with zero score (no matching substat rolls).
+    let mut scored: Vec<(usize, f64)> = input
+        .artifacts
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, artifact)| {
+            let score = safeguard_compute_score(artifact, &input.substats, &input.weights);
+            if score > 0.0 { Some((idx, score)) } else { None }
+        })
+        .collect();
+    // Sort by score descending for rank assignment.
+    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
+    let required = input.required_count.max(0) as usize;
+    scored
+        .iter()
+        .enumerate()
+        .map(|(rank_idx, &(artifact_idx, score))| {
+            // Resolve item key: use artifact id if present, otherwise fall back to index.
+            let item_key = input.artifacts[artifact_idx].id.unwrap_or(artifact_idx as i64);
+            SafeguardWasmCandidateOut {
+                item_key,
+                score,
+                candidate_rank: (rank_idx + 1) as u32,
+                // Simplified quota: top-N without tie-boundary extension for preview use.
+                is_within_quota: rank_idx < required,
+            }
+        })
+        .collect()
 }
