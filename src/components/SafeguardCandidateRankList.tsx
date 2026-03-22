@@ -335,13 +335,13 @@ function CandidateRow({
   const badgeTitle = isSafeguarded
     ? t('safeguardsCandidateSafeguarded')
     : isRecipeKept ? t('safeguardsCandidateKept') : t('safeguardsCandidateSold')
-  // Match source: always show the actual sell-file first match (recipe/safeguard/rule label)
-  // so users can identify which entry drove the outcome.
-  // For items kept by this rule's quota with no previewRow match, fall back to the rule name.
-  const matchSourceRaw: string | null =
-    previewRow?.match?.recipeName
-    ?? previewRow?.match?.ruleLabel
-    ?? (candidate.isWithinQuota ? (ruleName ?? null) : null)
+  // Match source: always show the actual sell-file outcome name — the recipe, safeguard rule,
+  // or final-sell rule that determined the result — so keep/sell/guard rows all display their
+  // real reason. Show nothing when there is no match data (unmatched or no preview yet).
+  // Without preview data, fall back to the rule name only when the candidate is within quota.
+  const matchSourceRaw: string | null = previewRow
+    ? (previewRow.match?.recipeName ?? previewRow.match?.ruleLabel ?? null)
+    : (candidate.isWithinQuota ? (ruleName ?? null) : null)
   // Parse [rrggbb] color directives from the match source for colored display.
   // White is the default text color so names without a directive stand out on the dark row background.
   const matchSourceDecoration = parseRecipeNameDirectives(matchSourceRaw ?? undefined, theme.palette.common.white)
@@ -403,11 +403,16 @@ function CandidateRow({
         py: 0.2,
         px: 0.25,
         borderRadius: 0.5,
-        // Filtered rows are dimmed. Rows matching this specific safeguard rule are dimmed less
-        // (0.6) so they remain visually distinct from other filtered candidates (0.4).
-        opacity: isFiltered
-          ? (previewRow?.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match.ruleLabel === ruleName ? 0.75 : 0.4)
-          : 1,
+        // Four-level opacity based on filter state and whether this row's first match is
+        // specifically this safeguard rule:
+        //   not filtered + this rule  → 1.0  (primary)
+        //   not filtered + other      → 0.75 (secondary, but still unfiltered)
+        //   filtered    + this rule   → 0.55 (filtered but notable)
+        //   filtered    + other       → 0.4  (most dimmed)
+        opacity: (() => {
+          const isThisRule = previewRow?.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match.ruleLabel === ruleName
+          return isFiltered ? (isThisRule ? 0.55 : 0.4) : (isThisRule ? 1.0 : 0.75)
+        })(),
         cursor: onSelectCandidate ? 'pointer' : 'default',
         '&:hover': { bgcolor: alpha(theme.palette.text.primary, 0.04) },
       }}
