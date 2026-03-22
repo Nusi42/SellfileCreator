@@ -743,8 +743,9 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   const combination = normalizeSafeguardCombination(combinationSource)
   if (!combination) return null
 
-  const explicitId = typeof record.id === 'string' ? record.id.trim() : ''
-  const id = explicitId || generatedRuleId
+  // IDs are not persisted in SFR exports; always generate a fresh one on load.
+  // Legacy files that carry an `id` field are tolerated but the value is ignored.
+  const id = generatedRuleId
   const name = typeof record.name === 'string' ? record.name.trim() : ''
   const requiredCount = Math.max(1, toFiniteFloor(record.requiredCount) ?? 1)
   const countMode = (

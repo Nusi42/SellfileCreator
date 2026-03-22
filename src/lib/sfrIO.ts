@@ -1092,7 +1092,6 @@ type ReadableSafeguardTuple = {
 }
 
 export type ReadableSafeguardRuleEntry = {
-  id: string
   name?: string
   requiredCount: number
   activation: SafeguardRuleActivation
@@ -1181,7 +1180,6 @@ export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSa
   }
   // Build the base export entry in readable SFR form.
   const entry: ReadableSafeguardRuleEntry = {
-    id: rule.id,
     requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
     activation: rule.activation ?? SafeguardRuleActivation.ProtectExisting,
     countMode: {
@@ -1229,7 +1227,6 @@ export function buildSfrPayload(args: {
     Recipes: unknown[]
     FinalSellRemainder: FinalSellRemainderConfig
     Safeguards: Array<{
-      id: string
       name?: string
       requiredCount: number
       activation: SafeguardRuleActivation
