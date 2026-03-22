@@ -1933,8 +1933,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     safeguardAutoApplyNowRef.current()
   }, [])
   const {
-    selectedRuleIndices: selectedSafeguardRuleIds,
-    setSelectedRuleIndices: setSelectedSafeguardRuleIds,
+    selectedRuleIndices: selectedSafeguardRuleIndices,
+    setSelectedRuleIndices: setSelectedSafeguardRuleIndices,
     multiselectActive: safeguardMultiselectActive,
     multiSelectedRules: multiSelectedSafeguardRules,
     multiEditHandle: safeguardMultiEditHandle,
@@ -2025,13 +2025,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Collapse the multi-select to just this rule so SafeguardChipsPanel highlights it correctly.
     // SafeguardChipsPanel uses selectedRuleIndices (not selectedRuleIdx) when onRuleSelect is
     // provided, so the single-select scalar alone is not enough.
-    setSelectedSafeguardRuleIds([ruleIdx], { suppressWillChange: true })
+    setSelectedSafeguardRuleIndices([ruleIdx], { suppressWillChange: true })
     const rule = safeguardRules[ruleIdx]
     if (rule) setSafeguardBuilder(cloneSafeguardRule(rule))
     // Scroll the HSF preview to the first row of this safeguard — mirrors recipe chip scroll.
     const ordinal = ruleIdx + 1
     if (ordinal > 0) requestSelectionScroll(SELECTION_SCROLL_SOURCE_USER, null, ordinal)
-  }, [safeguardRules, setSafeguardBuilder, setSelectedSafeguardRuleIds, requestSelectionScroll])
+  }, [safeguardRules, setSafeguardBuilder, setSelectedSafeguardRuleIndices, requestSelectionScroll])
 
   // Shared helper: build a scaffolded SafeguardRule from a recipe without touching state.
   // Uses safeguardBuilderRef.current as the base so id/countMode/etc. are preserved.
@@ -5694,7 +5694,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       metasets={metasetsForPreview}
       substatColors={substatColors}
       focusRuleRequest={safeguardFocusRequest}
-      selectedRuleIndices={selectedSafeguardRuleIds}
+      selectedRuleIndices={selectedSafeguardRuleIndices}
       onRuleSelect={handleSafeguardRuleSelect}
       onRuleDelete={handleSafeguardRuleDelete}
       onRuleDuplicate={handleSafeguardRuleDuplicate}
@@ -6462,7 +6462,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onOpenNote={() => { notePresent ? openNoteViewerManual() : openNoteEditorManual() }}
       notePresent={notePresent}
       count={builderMode === 'safeguard' ? safeguardRules.length : customRecipes.length}
-      selectedCount={builderMode === 'safeguard' ? selectedSafeguardRuleIds.length : selectedRecipeIndices.length}
+      selectedCount={builderMode === 'safeguard' ? selectedSafeguardRuleIndices.length : selectedRecipeIndices.length}
       visibleCount={builderMode === 'safeguard' ? safeguardRules.length : visibleRecipeCount}
       {...(builderMode === 'safeguard' ? {
         // Compute the safeguard-specific chip label with the same "N of M" selection pattern used
@@ -6470,7 +6470,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         chipLabel: (() => {
           const n = safeguardRules.length
           const word = n === 1 ? t('safeguardOne') : t('safeguardMany')
-          const sel = selectedSafeguardRuleIds.length
+          const sel = selectedSafeguardRuleIndices.length
           if (sel >= 2 && sel < n) return t('recipesSelectedCount', { selected: sel, total: n, word })
           return `${n}\u00a0${word}`
         })(),

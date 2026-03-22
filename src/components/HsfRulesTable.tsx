@@ -1437,7 +1437,6 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                                     handleSafeguardStarClick(rule)
                                   }}
                                   data-safeguard-star="true"
-                                  data-safeguard-rule-id={rule.__safeguardRuleId ?? ''}
                                   sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', borderRadius: 0 }}
                                   aria-label={previewRuleName}
                                 >
