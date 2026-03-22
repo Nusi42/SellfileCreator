@@ -291,8 +291,10 @@ export function MarkdownTooltip({
     forceCloseUncontrolled()
   }, [externalOnClose, forceCloseUncontrolled])
 
-  // Pre-render Markdown content so we can hand JSX directly to MUI’s Tooltip.
+  // Pre-render Markdown content so we can hand JSX directly to MUI's Tooltip.
   // Precompute the tooltip body so Popper never re-renders markdown mid-hover.
+  // When render is provided it takes full ownership of the tooltip body; markdown is the fallback
+  // for callers that only have a text string (the common case).
   const content = useMemo(() => {
     if (typeof render === 'function') return render()
     if (render) return render

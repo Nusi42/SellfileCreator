@@ -8,6 +8,12 @@ export type GearInspectorPreviewMatch = {
   ruleIndex: number | null
   ruleLabel: string | null
   ruleSource: string | null
+  // Legacy string ID from __safeguardRuleId on injected HSF rows; always null in new sessions
+  // (SafeguardRule no longer carries an id). Kept for deserialization compat.
+  safeguardRuleId: string | null
+  // 1-based ordinal of the safeguard rule that produced this keep row; null for non-safeguard rules.
+  // Preferred identity token — derivable from rule list position without a generated ID.
+  safeguardRuleOrdinal: number | null
 }
 
 export type GearInspectorPreviewRow = GearInspectorFilterRow & {

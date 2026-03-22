@@ -33,12 +33,13 @@ import initRuleEngineWasm, {
   permutations_i32_fast_flat as permutationsI32FastFlatWasmBinding,
   sort_safeguard_combination_value as sortSafeguardCombinationWasmValueBinding,
   sort_safeguard_substats_value as sortSafeguardSubstatsWasmValueBinding,
+  score_safeguard_candidates_value as scoreSafeguardCandidatesWasmValueBinding,
   version as ruleEngineWasmVersionBinding,
 } from './generated/rule_engine.js'
 import type { GeneratedBranchRuleEntry, HsfRuleWithRecipe } from '../merge'
 import type { HsfRule } from '../hsfTypes'
 import type { BuilderRecipe, SellfileExportMode } from '../hsfBuilder'
-import type { SafeguardCandidate, SafeguardDetectionSnapshot, SafeguardRule, SafeguardRuleForWasm } from '../safeguards'
+import type { SafeguardCandidate, SafeguardCandidateOut, SafeguardDetectionSnapshot, SafeguardRule, SafeguardRuleForWasm } from '../safeguards'
 import type { FinalSellRemainderConfig } from '../logicHub'
 import type { GearInspectorMatchWorkerEvaluateItem, GearInspectorMatchWorkerItemResult } from '../../workers/gearInspectorMatchWorkerTypes'
 import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
@@ -803,6 +804,30 @@ export const sortSafeguardSubstatsWithLoadedWasm = (values: readonly number[]): 
   if (sorted instanceof Int32Array) return Array.from(sorted, (value) => Math.floor(Number(value)))
   if (Array.isArray(sorted)) return sorted.map((value) => Math.floor(Number(value)))
   throw new Error('WASM safeguard substat sorter returned an invalid payload.')
+}
+
+// Live preview scoring for the weight popover: scores candidates with the
+// given substats/weights without running the full detection pass.
+// Returns candidates sorted by score descending with 1-based rank and quota flag.
+export const scoreSafeguardCandidatesWithLoadedWasm = (params: {
+  // Artifacts to score — sourced from SafeguardDetectionEntry.artifacts in the snapshot.
+  artifacts: unknown[]
+  // Substat variant IDs to include in the scoring formula.
+  substats: number[]
+  // Per-variant weight multipliers (variant id → weight).
+  weights: Record<number, number>
+  // How many items the rule intends to keep (quota for isWithinQuota).
+  requiredCount: number
+}): SafeguardCandidateOut[] => {
+  assertWasmInitializedSync()
+  const result = scoreSafeguardCandidatesWasmValueBinding({
+    artifacts: params.artifacts,
+    substats: params.substats,
+    weights: params.weights,
+    requiredCount: params.requiredCount,
+  })
+  if (Array.isArray(result)) return result as SafeguardCandidateOut[]
+  throw new Error('WASM safeguard score preview returned an invalid payload.')
 }
 
 // Safeguard combination sorting runs in Rust so TS reuses one canonical order.

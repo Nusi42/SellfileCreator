@@ -279,7 +279,81 @@ Safeguards are edited in a dedicated builder mode accessed via the builder-colum
 - **Metasets**: the Sets picker uses the same filtered set pool as `RecipeBuilderPanel` via `useKeepOverrideCombinationTools`; the Manage Metasets entry point is forwarded from `App.tsx`.
 - **Auto-enable**: the first inserted safeguard rule automatically enables the Safeguards feature.
 - **Empty state**: when no rule is selected the form renders disabled so the panel height remains stable.
-- When no rule is selected the form renders disabled so the panel height remains stable.
+- **Candidate rank list** (`SafeguardCandidateRankList`): the sort-weight popover in Row 3 includes a scrollable candidate list powered by detection data. It renders scored candidates windowed around the quota cutoff — the last few kept items appear before the divider and the first few sold items after it, so users can immediately identify borderline pieces. When no detection data is available yet, the list shows a placeholder. When substats are configured but detection hasn't run, per-roll weight hints are shown instead. Hovering a row previews the gear card (same `GEAR_DB_DIFF_TOAST_CARD_SCALE = 0.7` scale as the DB-update toast). Clicking a row resolves the safeguard item key to an artifact id and navigates to that item in the Gear Inspector (`handleSafeguardCandidateSelect`). When Gear Inspector filters are active, candidates are dimmed: rows whose first match is *this* safeguard rule dim to `0.75` (still clearly readable); all other filtered rows dim to `0.4`. Unfiltered rows are always `1.0` — above/below the cutoff line is the only quota distinction shown.
+  - **Tooltips on section labels**: the "Weights" label and the "Candidates" label are each wrapped in a `MarkdownTooltip`. The candidates tooltip clarifies that items below the cutoff fall outside *this* rule's quota but may still be kept by another safeguard or recipe match.
+  - **Column widths — canvas measurement**: `measureStatCellWidths(t, theme)` (exported from `SafeguardCandidateRankList`) runs one canvas `measureText` pass over every `STAT_VARIANTS_PRIORITY` label. It returns `{ mainstatCellWidthPx, substatCellWidthPx }` where `substatCellWidthPx` includes the circled-4 roll glyph. Both the list and `SafeguardBuilderPanel` call this inside `useMemo([t, theme])` so the measurement is stable per language/theme and never repeated unnecessarily.
+  - **Uniform columns**: mainstat cell uses `width: mainstatCellWidthPx`; each substat cell uses `width: substatCellWidthPx`. Absent-substat slots are filled with invisible placeholder `Box` elements (count = `min(substats.length, SUBSTAT_SLOT_COUNT) − presentCells`) so the score/badge/match columns are naturally aligned across all rows.
+  - **EllipsisTooltip on substat cells**: each substat cell is wrapped in `EllipsisTooltip` — if the measured cell width is still too narrow for a particular translation, the browser shows an OS tooltip with the full label text.
+  - **Score column**: fixed `width: 44, textAlign: right`; always rendered (empty string when unranked) so the badge column never shifts.
+  - **Match source rendering**: `parseRecipeNameDirectives` is applied so `[rrggbb]` color tags in recipe/rule names render in their directive color (white fallback). Match source text is always `fontWeight: 400`; the row-level opacity (see above) is sufficient to distinguish which rule owns the item.
+  - **Badge icon logic**: `previewRow.match` is used as ground truth when available — Stars if kept by a safeguard, CheckCircle if kept by a recipe, Sell if sold. Falls back to `candidate.isWithinQuota → Stars` when no preview data exists.
+  - **Popover right-column width** (`SafeguardBuilderPanel`): computed as the explicit sum of every fixed row element — `38 (rank) + 130 (identifier) + mainstatCellWidthPx + 6 (mr gap) + substatCellWidthPx × min(substats.length, SUBSTAT_SLOT_COUNT) + 44 (score) + 14 (badge) + 130 (match) + 28 (row gaps) + 12 (padding) + 8 (safety)` — replacing the former magic constant `386 + 44 × maxSubstatCount`.
+
+### Gear Inspector Card Overlay Chip System
+
+Cards in `GearInspectorItemsGrid` support up to three stacked overlay chips rendered on top of the artifact icon. All sizing and positioning is driven by `overlaySlotCount` (1 | 2 | 3) — a global setting computed once per render pass and passed uniformly to every card so all chips sit at the same Y position regardless of per-card data availability.
+
+**Slot assignment (fixed order):**
+
+| Prop | Signal | Notes |
+| --- | --- | --- |
+| `topOverlay` | Safeguard upgrade chance % | Color-coded by normalized chance (red→green). |
+| `centerOverlay` | Safeguard rank #N | Green = kept (within quota), red = sold. Omitted when `showSafeguardRank` toggle is off. |
+| `bottomOverlay` | Normalized substat rating score | Same color scale as sort presets. |
+
+**Y positions by slot count:**
+
+| `overlaySlotCount` | Top | Center | Bottom |
+| --- | --- | --- | --- |
+| 1 | 50% | 50% | — |
+| 2 | 23% | 53% | — |
+| 3 | 20% | 50% | 80% |
+
+**Font sizes (at `size = 88 px`):**
+
+| Slot count | Formula | Result |
+| --- | --- | --- |
+| 1 | `min(16, max(13, round(size × 0.34)))` | 16 px |
+| 2 | `min(13, max(10, round(size × 0.25)))` | 13 px |
+| 3 | `min(12, max(10, round(size × 0.21)))` | 12 px |
+
+**Computing `overlaySlotCount`** in `GearInspectorItemsGrid`:
+```ts
+const overlaySlotCount = Math.max(1, Math.min(3,
+  (normalizedOverlayEnabled ? 1 : 0) +
+  (showSafeguardUpgradeChance ? 1 : 0) +
+  (showSafeguardRank && safeguardRankByArtifactId != null ? 1 : 0),
+)) as 1 | 2 | 3
+```
+
+**Implementation files:** `GridIconBox.tsx` (chip rendering), `GearInspectorGridCard.tsx` (prop forwarding), `GearInspectorItemsGrid.tsx` (overlay computation + `overlaySlotCount` wiring).
+
+### Per-Chip Isolated Tooltips
+
+Each overlay chip carries its own tooltip content via `tooltipMarkdown` and `tooltipRender` fields on `OverlayChip`. When either field is set, `GridIconBox` wraps that chip in a `MarkdownTooltip` so its hover content is fully isolated from the card icon's tooltip — no content merging needed.
+
+**Card icon tooltip scope** — `GearInspectorGridCard` now limits the gear icon tooltip to last-use info and dev artifact id only:
+- Merge logic: `[lastUseTooltip, devArtifactIdTooltip].filter(Boolean).join('\n\n---\n\n')`.
+- Upgrade-chance breakdown and safeguard rank table are surfaced on the chips themselves, not the card icon.
+
+**Chip tooltip fields (on `OverlayChip`):**
+- `tooltipMarkdown?: string` — plain markdown shown on chip hover; rendered by `MarkdownTooltip`.
+- `tooltipRender?: ReactNode` — JSX tooltip content; takes priority over `tooltipMarkdown` when both are set.
+
+**Rank chip tooltip** — rendered as JSX (`tooltipRender`): a localized `safeguardRankTooltipTitle` header followed by a vertical list of rank rows. The primary rule is bold (`#N Rule Name`); up to 3 additional rules where the item is also a candidate follow in plain weight.
+
+**Upgrade-chance chip tooltip** — markdown string derived from localized keys (`gearInspectorGridSafeguardChanceTooltipHeader`, `gearInspectorGridSafeguardChanceTooltipProjection`, `gearInspectorGridSafeguardChanceTooltipDataset`).
+
+### Safeguard Candidate List Display Flag Wiring
+
+`SafeguardCandidateRankList` respects the same global display preferences as the HSF table:
+- `showSlotIcons: boolean` — when `true`, a 16×16 slot type icon is shown; text slot label is suppressed.
+- `showSetIcons: boolean` — when `true`, a `SetIcon` (14 px) replaces the text set name.
+- `showFactionIcons: boolean` — when `true`, a `FactionIcon` (14 px) replaces the text faction label (accessory slots only).
+
+All three flags are sourced from `useDisplayPreferences()` in `SafeguardBuilderPanel` and passed directly to the list. This ensures slot/set/faction rendering in the candidate popover is always consistent with the main grid.
+
+**Hover card tooltip:** hovering a candidate row shows a scaled `GearInspectorGridCard` when `previewRowByItemKey` contains an entry for that item. The card uses the same CSS-scale pattern as `GearDbDiffToast` (`GEAR_DB_DIFF_TOAST_CARD_SCALE = 0.7`, column count `= CHAMPION_ICON_LARGE_THRESHOLD`). The preview map is computed in `App.tsx` as `safeguardPreviewRowByItemKey` (keyed by safeguard item key) and passed through `SafeguardBuilderPanel`.
 
 ### `SafeguardChipsPanel` (rule chip list)
 

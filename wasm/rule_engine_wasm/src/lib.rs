@@ -675,6 +675,19 @@ pub fn compute_upgrade_chance_value(
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize upgrade-chance entries: {error}")))
 }
 
+// Score and rank a list of candidate artifacts for the safeguard weight popover.
+// Accepts pre-parsed substats from a detection snapshot and the in-progress
+// weight map so the popover can show live score/rank updates without re-detection.
+// Uses to_js_value (SafeguardWasmCandidateOut has no HashMap fields).
+#[wasm_bindgen]
+pub fn score_safeguard_candidates_value(payload: JsValue) -> Result<JsValue, JsValue> {
+    let input: SafeguardWasmScorePreviewIn = from_js_value(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard score preview payload: {error}")))?;
+    let result = score_safeguard_candidates_for_preview_core(input);
+    to_js_value(&result)
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard score preview: {error}")))
+}
+
 // Evaluate a batch of Gear Inspector items against the configured rules.
 // Returns a JS value matching the existing worker result shape.
 // Fast evaluate variant accepts JS objects directly and returns a JS value.

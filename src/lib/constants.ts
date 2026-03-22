@@ -518,6 +518,9 @@ export const GEAR_INSPECTOR_GRID_HIGHLIGHT_KEEP_SELL_KEY = 'sellfileCreator.gear
 // Gear Inspector grid: safeguard upgrade chance overlay toggle.
 // Why: the overlay is view-only and should persist across sessions like other grid display toggles.
 export const GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY = 'sellfileCreator.gearInspector.grid.showSafeguardUpgradeChance.v1'
+// Gear Inspector grid: safeguard rank chip overlay toggle.
+// Why: rank is a secondary overlay; users may want upgrade chance without rank for a cleaner view.
+export const GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_RANK_KEY = 'sellfileCreator.gearInspector.grid.showSafeguardRank.v1'
 // Gear Inspector grid: substat sorting controls.
 // Why: Sorting is view-only (like filters) but should persist across sessions.
 export const GEAR_INSPECTOR_SUBSTAT_SORT_KEY = 'sellfileCreator.gearInspector.sort.substats.v1'

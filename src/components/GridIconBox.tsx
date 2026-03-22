@@ -16,9 +16,13 @@ import MarkdownTooltip from './MarkdownTooltip'
 const GRID_ICON_BOX_SIZE_PX = 88
 const GRID_ICON_BORDER_RADIUS_PX = 8
 const GRID_ICON_BORDER_WIDTH_PX = 2
-// Stacked overlay chips need breathing room so chance + rating remain visually distinct.
+// 2-chip stacked overlay positions (upgrade chance + substat rating).
 const STACKED_OVERLAY_TOP_Y_PERCENT = 23
 const STACKED_OVERLAY_CENTER_Y_PERCENT = 53
+// 3-chip stacked overlay positions (adds safeguard rank as third slot).
+const TRIPLE_OVERLAY_TOP_Y_PERCENT = 20
+const TRIPLE_OVERLAY_CENTER_Y_PERCENT = 50
+const TRIPLE_OVERLAY_BOTTOM_Y_PERCENT = 80
 
 const ACCESSORY_BADGED_SET_IDS = new Set<number>([
   ArtifactSet.Refresh,
@@ -37,6 +41,17 @@ type OutcomeIndicatorProps = {
   inactive?: boolean
 }
 
+// Chip overlay shape — each chip can carry its own tooltip, isolated from the card icon tooltip.
+type OverlayChip = {
+  text: string
+  color?: string
+  onClick?: () => void
+  // Per-chip tooltip content — shown when hovering this chip only.
+  // When render is provided it takes priority over markdown (same as MarkdownTooltip behavior).
+  tooltipMarkdown?: string
+  tooltipRender?: ReactNode
+}
+
 type GridIconBoxProps = {
   setId?: ArtifactSetId | number
   slotId: ArtifactTypeId | number
@@ -53,25 +68,23 @@ type GridIconBoxProps = {
   levelLabel?: string | undefined
   size?: number
   showRankStarsBackground?: boolean
+  // Plain-text gear hover content shown when hovering the icon (not chips).
+  // Chips have their own isolated tooltips via tooltipMarkdown/tooltipRender on OverlayChip.
   gearTooltip?: string | null
-  centerOverlay?: {
-    // Overlay text rendered at the visual center of the icon (e.g., normalized scores).
-    text: string
-    // Accent color applied to the overlay text + border; callers supply a range-mapped color.
-    color?: string
-  } | null
-  topOverlay?: {
-    // Secondary overlay text shown above center (for stacked overlay signals).
-    text: string
-    // Accent color applied to the overlay text + border; callers supply a range-mapped color.
-    color?: string
-    // Optional tooltip copy rendered on hover.
-    tooltipMarkdown?: string
-    // Optional rich tooltip content; when present it takes precedence over markdown text.
-    tooltipRender?: ReactNode
-    // Optional click-through action (used by safeguard chance overlay navigation).
-    onClick?: () => void
-  } | null
+  // Rich render node for the gear icon hover tooltip (e.g. an upgrade-chance breakdown).
+  // When set, takes priority over gearTooltip plain text (same as MarkdownTooltip render priority).
+  gearTooltipRender?: ReactNode
+  // Substat rating chip — bottom slot in triple mode, center in single/double.
+  centerOverlay?: OverlayChip | null
+  // Upgrade chance chip — top slot in all modes.
+  topOverlay?: OverlayChip | null
+  // Safeguard rank chip — center slot in triple mode, collapses to center in single/double.
+  bottomOverlay?: OverlayChip | null
+  // How many overlay TYPES are globally toggled on.
+  // Determines chip size and Y positions so every card in the grid is visually consistent,
+  // regardless of which individual chips have data for a given card.
+  // 1 → large chip at 50%; 2 → medium chips at 23%/53%; 3 → small chips at 20%/50%/80%.
+  overlaySlotCount?: 1 | 2 | 3
 }
 
 /**
@@ -102,8 +115,11 @@ export default function GridIconBox({
   size = GRID_ICON_BOX_SIZE_PX,
   showRankStarsBackground = true,
   gearTooltip,
+  gearTooltipRender,
   centerOverlay,
   topOverlay,
+  bottomOverlay,
+  overlaySlotCount = 1,
 }: GridIconBoxProps) {
   const theme = useTheme()
   const slotArtSrc = gearSetSlotIconUrl(
@@ -120,6 +136,25 @@ export default function GridIconBox({
   const hasRealSet = Number.isFinite(Number(setId)) && Number(setId) > 0
   // Check if a fallback slot icon exists (used when no set-specific art is available).
   const hasSlotIcon = artifactTypeIconFor(slotId as ArtifactTypeId) != null
+
+  // Derive Y positions and font sizing from the global slot count — not from per-card data presence.
+  // This ensures chips sit at the same position across all cards in the grid.
+  const isTriple = overlaySlotCount === 3
+  const isStacked = overlaySlotCount >= 2
+  const topY    = isTriple ? TRIPLE_OVERLAY_TOP_Y_PERCENT    : STACKED_OVERLAY_TOP_Y_PERCENT
+  const centerY = isTriple ? TRIPLE_OVERLAY_CENTER_Y_PERCENT : (isStacked ? STACKED_OVERLAY_CENTER_Y_PERCENT : 50)
+  const bottomY = TRIPLE_OVERLAY_BOTTOM_Y_PERCENT
+  // Font size shrinks as more chips compete for vertical space.
+  const chipFontSizePx = (slots: 1 | 2 | 3) =>
+    slots === 3 ? Math.min(12, Math.max(10, Math.round(size * 0.21)))
+  : slots === 2 ? Math.min(13, Math.max(10, Math.round(size * 0.25)))
+  :               Math.min(16, Math.max(13, Math.round(size * 0.34)))
+  const chipFontSize = theme.typography.pxToRem(chipFontSizePx(overlaySlotCount))
+  const chipPx = isStacked ? 0.65 : 0.85
+  const chipPy = isStacked ? 0.2 : 0.35
+  const chipLineHeight = isStacked ? 1.05 : 1.1
+  const chipLetterSpacing = isStacked ? 0.15 : 0.2
+
   const slotVisualNode = slotArtSrc ? (
     <Box
       sx={{
@@ -318,109 +353,85 @@ export default function GridIconBox({
 
   const hasCenterOverlay = typeof centerOverlay?.text === 'string' && centerOverlay.text.trim().length > 0
   const hasTopOverlay = typeof topOverlay?.text === 'string' && topOverlay.text.trim().length > 0
-  // When both overlays are enabled, keep both chips compact so they can stack cleanly.
-  const stackedOverlayMode = hasCenterOverlay && hasTopOverlay
+  const hasBottomOverlay = typeof bottomOverlay?.text === 'string' && bottomOverlay.text.trim().length > 0
 
-  const centerOverlayNode = hasCenterOverlay ? (
-    <Box
-      // Overlay is informational; keep it click-through so existing icon tooltips/interactions win.
-      sx={(theme) => {
-        // Single-overlay mode mirrors the larger rating chip; stacked mode mirrors the compact chance chip.
-        const compact = stackedOverlayMode
-        const overlayY = compact ? `${STACKED_OVERLAY_CENTER_Y_PERCENT}%` : '50%'
-        return {
-          position: 'absolute',
-          left: '50%',
-          top: overlayY,
-          transform: 'translate(-50%, -50%)',
-          px: compact ? 0.65 : 0.85,
-          py: compact ? 0.2 : 0.35,
-          borderRadius: 6,
-          border: '1px solid',
-          borderColor: centerOverlay?.color ?? alpha(theme.palette.text.primary, compact ? 0.5 : 0.55),
-          backgroundColor: alpha(theme.palette.background.paper, 0.9),
-          color: centerOverlay?.color ?? theme.palette.text.primary,
-          fontWeight: 800,
-          fontVariantNumeric: 'tabular-nums',
-          fontSize: theme.typography.pxToRem(
-            compact
-              ? Math.min(13, Math.max(10, Math.round(size * 0.25)))
-              : Math.min(16, Math.max(13, Math.round(size * 0.34))),
-          ),
-          lineHeight: compact ? 1.05 : 1.1,
-          letterSpacing: compact ? 0.15 : 0.2,
-          boxShadow: theme.shadows[2],
-          pointerEvents: 'none',
-          userSelect: 'none',
-          whiteSpace: 'nowrap',
-        }
-      }}
-    >
-      {centerOverlay?.text}
-    </Box>
-  ) : null
-  const topOverlayClickable = Boolean(topOverlay?.onClick)
-  const topOverlayTooltip = typeof topOverlay?.tooltipMarkdown === 'string' ? topOverlay.tooltipMarkdown.trim() : ''
-  const topOverlayHasRenderTooltip = topOverlay?.tooltipRender != null
-  const topOverlayInteractive = topOverlayClickable || topOverlayTooltip.length > 0 || topOverlayHasRenderTooltip
-  const topOverlayNode = hasTopOverlay ? (
-    <Box
-      component={topOverlayClickable ? 'button' : 'div'}
-      type={topOverlayClickable ? 'button' : undefined}
-      onClick={topOverlayClickable
-        ? (event: MouseEvent<HTMLButtonElement>) => {
-            // Keep overlay clicks from triggering underlying card interactions.
-            event.stopPropagation()
-            topOverlay.onClick?.()
-          }
-        : undefined}
-      sx={(theme) => {
-        // If chance is the only overlay, render it with the same prominent style as the rating chip.
-        const prominent = !stackedOverlayMode
-        const overlayY = prominent ? '50%' : `${STACKED_OVERLAY_TOP_Y_PERCENT}%`
-        return {
-          position: 'absolute',
-          left: '50%',
-          top: overlayY,
-          transform: 'translate(-50%, -50%)',
-          px: prominent ? 0.85 : 0.65,
-          py: prominent ? 0.35 : 0.2,
-          borderRadius: 6,
-          border: '1px solid',
-          borderColor: topOverlay?.color ?? alpha(theme.palette.text.primary, prominent ? 0.55 : 0.5),
-          backgroundColor: alpha(theme.palette.background.paper, 0.9),
-          color: topOverlay?.color ?? theme.palette.text.primary,
-          fontWeight: 800,
-          fontVariantNumeric: 'tabular-nums',
-          fontSize: theme.typography.pxToRem(
-            prominent
-              ? Math.min(16, Math.max(13, Math.round(size * 0.34)))
-              : Math.min(13, Math.max(10, Math.round(size * 0.25))),
-          ),
-          lineHeight: prominent ? 1.1 : 1.05,
-          letterSpacing: prominent ? 0.2 : 0.15,
-          boxShadow: theme.shadows[2],
-          pointerEvents: topOverlayInteractive ? 'auto' : 'none',
-          cursor: topOverlayClickable ? 'pointer' : (topOverlayInteractive ? 'help' : 'default'),
-          userSelect: 'none',
-          whiteSpace: 'nowrap',
-          // Reset native button chrome so clickable overlays keep visual parity.
-          appearance: 'none',
-          fontFamily: 'inherit',
-        }
-      }}
-    >
-      {topOverlay.text}
-    </Box>
-  ) : null
-  const topOverlayWrappedNode = topOverlayNode && (topOverlayTooltip.length > 0 || topOverlayHasRenderTooltip)
-    ? (
-      // Tooltip exposes chance-calculation context without adding permanent card clutter.
-      <MarkdownTooltip markdown={topOverlayTooltip} render={topOverlay?.tooltipRender}>
-        {topOverlayNode}
-      </MarkdownTooltip>
+  // Shared chip style shared across all three overlay slots for visual consistency.
+  const overlayChipSx = (color: string | undefined, _clickable: boolean, yPercent: number) => ({
+    position: 'absolute' as const,
+    left: '50%',
+    top: `${yPercent}%`,
+    transform: 'translate(-50%, -50%)',
+    px: chipPx,
+    py: chipPy,
+    borderRadius: 6,
+    border: '1px solid',
+    borderColor: color ?? alpha(theme.palette.text.primary, isStacked ? 0.5 : 0.55),
+    backgroundColor: alpha(theme.palette.background.paper, 0.9),
+    color: color ?? theme.palette.text.primary,
+    fontWeight: 800,
+    fontVariantNumeric: 'tabular-nums' as const,
+    fontSize: chipFontSize,
+    lineHeight: chipLineHeight,
+    letterSpacing: chipLetterSpacing,
+    boxShadow: theme.shadows[2],
+    userSelect: 'none' as const,
+    whiteSpace: 'nowrap' as const,
+  })
+
+  // Build a positioned overlay chip, optionally wrapped in MarkdownTooltip when tooltip data is present.
+  // Each chip intercepts its own hover events so the gear icon tooltip only fires in the gaps.
+  const buildChipNode = (
+    chip: OverlayChip | null | undefined,
+    hasContent: boolean,
+    yPercent: number,
+  ): ReactNode => {
+    if (!hasContent || !chip) return null
+    const clickable = Boolean(chip.onClick)
+    const hasTooltip = Boolean(chip.tooltipMarkdown) || Boolean(chip.tooltipRender)
+    const chipEl = (
+      <Box
+        component={clickable ? 'button' : 'div'}
+        type={clickable ? 'button' : undefined}
+        onClick={clickable
+          ? (event: MouseEvent<HTMLButtonElement>) => {
+              // Prevent overlay clicks from bubbling to underlying card interactions.
+              event.stopPropagation()
+              chip.onClick?.()
+            }
+          : undefined}
+        sx={{
+          ...overlayChipSx(chip.color, clickable, yPercent),
+          // Chips with click or tooltip must accept pointer events; pure display chips pass through.
+          pointerEvents: (clickable || hasTooltip) ? 'auto' : 'none',
+          cursor: clickable ? 'pointer' : 'default',
+          ...(clickable ? { appearance: 'none', fontFamily: 'inherit' } : {}),
+        }}
+      >
+        {chip.text}
+      </Box>
     )
-    : topOverlayNode
+    // When this chip has tooltip content, wrap it — the chip stays isolated from the card icon tooltip.
+    if (hasTooltip) {
+      return (
+        <MarkdownTooltip
+          markdown={chip.tooltipMarkdown ?? ''}
+          {...(chip.tooltipRender !== undefined ? { render: chip.tooltipRender } : {})}
+        >
+          {chipEl}
+        </MarkdownTooltip>
+      )
+    }
+    return chipEl
+  }
+
+  const centerOverlayNode = buildChipNode(centerOverlay, hasCenterOverlay, centerY)
+  const topOverlayNode = buildChipNode(topOverlay, hasTopOverlay, topY)
+
+  // Bottom chip renders whenever it has data; in triple mode it sits at the 80% position,
+  // otherwise it collapses into the center Y position (53% for 2-slot, 50% for single).
+  // This allows the safeguard rank chip to appear independently without requiring all 3 overlays.
+  const bottomEffectiveY = isTriple ? bottomY : centerY
+  const bottomOverlayNode = buildChipNode(bottomOverlay, hasBottomOverlay, bottomEffectiveY)
 
   const iconNode = (
     <Box
@@ -472,18 +483,22 @@ export default function GridIconBox({
       {rerollNode}
       {levelNode}
       {outcomeNode}
-      {topOverlayWrappedNode}
+      {/* Transparent catch-all behind chips — captures gear tooltip hover in non-chip areas.
+          Must be before chips in the DOM so chips (which are later = higher z-stacking) sit on top
+          and intercept their own hover events, isolating per-chip tooltips from this one. */}
+      {(gearTooltip || gearTooltipRender) && (
+        <MarkdownTooltip
+          markdown={gearTooltip ?? ''}
+          {...(gearTooltipRender !== undefined ? { render: gearTooltipRender } : {})}
+        >
+          <Box sx={{ position: 'absolute', inset: 0 }} />
+        </MarkdownTooltip>
+      )}
+      {topOverlayNode}
       {centerOverlayNode}
+      {bottomOverlayNode}
     </Box>
   )
-  if (gearTooltip) {
-    // Gear hover copy runs through MarkdownTooltip so translations keep the shared delay + styling.
-    return (
-      <MarkdownTooltip markdown={gearTooltip}>
-        {iconNode}
-      </MarkdownTooltip>
-    )
-  }
   return iconNode
 }
 

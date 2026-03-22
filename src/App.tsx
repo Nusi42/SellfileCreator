@@ -1066,6 +1066,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           recipeName: effectiveRecipeName && effectiveRecipeName.length > 0 ? effectiveRecipeName : null,
           ruleLabel: safeguardLabel ?? null,
           ruleSource: rule?.__source ?? null,
+          // Legacy ID field; always null in new sessions since SafeguardRule no longer carries id.
+          safeguardRuleId: rule?.__safeguardRuleId ?? null,
+          // 1-based ordinal for ordinal-based identity checks (preferred over safeguardRuleId).
+          safeguardRuleOrdinal: rule?.__safeguardRuleOrdinal ?? null,
         }
       }
 
@@ -4323,14 +4327,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return sorted
   }, [gearInspectorPreviewRows])
   // ── Safeguard item-key sets: power the recipe-filter integration in safeguard builder mode ──
+  // Items whose first eval match is ANY safeguard rule — mirrors recipe-mode "By Match: Any".
   const safeguardAnyMatchItemKeySet = useMemo(() => {
-    if (!safeguardsActive || !safeguardDetection?.entries?.length) return null
+    if (!safeguardsActive || !gearInspectorPreviewRows.length) return null
     const set = new Set<number>()
-    for (const entry of safeguardDetection.entries) {
-      for (const key of entry.itemKeys) set.add(key)
+    for (const row of gearInspectorPreviewRows) {
+      // Only count items whose first (winning) match came from a safeguard rule.
+      if (row.match?.ruleSource === RULE_SOURCE_SAFEGUARDS) set.add(getSafeguardItemKey(row.artifact))
     }
-    return set
-  }, [safeguardsActive, safeguardDetection])
+    return set.size > 0 ? set : null
+  }, [safeguardsActive, gearInspectorPreviewRows])
+  // Items whose first eval match is the currently-selected safeguard rule — mirrors "By Match: First".
+  // Uses ruleOrdinal for identity so two rules with the same display name remain distinct.
   const safeguardSelectedRuleItemKeySet = useMemo(() => {
     // selectedSafeguardRuleIdx is 0-based; ruleOrdinal in detection entries is 1-based.
     if (!safeguardsActive || selectedSafeguardRuleIdx === null || !safeguardDetection?.entries?.length) return null
@@ -4339,6 +4347,82 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!entry) return null
     return new Set<number>(entry.itemKeys)
   }, [safeguardsActive, safeguardDetection, selectedSafeguardRuleIdx])
+  // Full detection entry for the currently-editing safeguard — used to populate
+  // the candidate rank list in the weight popover (null when not yet run).
+  const safeguardBuilderDetectionEntry = useMemo(() => {
+    if (selectedSafeguardRuleIdx === null || !safeguardDetection?.entries?.length) return null
+    const targetOrdinal = selectedSafeguardRuleIdx + 1
+    return safeguardDetection.entries.find((e) => e.ruleOrdinal === targetOrdinal) ?? null
+  }, [safeguardDetection, selectedSafeguardRuleIdx])
+  // Safeguard rank overlay for the Gear Inspector: maps artifact id → best candidate rank + quota status.
+  // Context-aware: one rule selected → that rule's rank; multiple selected → best among those; none → best across all.
+  const safeguardRankByArtifactId = useMemo<ReadonlyMap<number, { rank: number; isWithinQuota: boolean; ruleOrdinal: number | null; otherRules: Array<{ ruleOrdinal: number; rank: number }> }> | null>(() => {
+    if (!safeguardsActive || !safeguardDetection?.entries?.length) return null
+    // selectedSafeguardRuleIndices are 0-based; detection entries use 1-based ordinals.
+    const selectedOrdinals: ReadonlySet<number> = safeguardMultiselectActive
+      ? new Set<number>(selectedSafeguardRuleIndices.map((idx) => idx + 1))
+      : (selectedSafeguardRuleIdx !== null ? new Set<number>([selectedSafeguardRuleIdx + 1]) : new Set<number>())
+    const useAllEntries = selectedOrdinals.size === 0
+    const relevantEntries = useAllEntries
+      ? safeguardDetection.entries
+      : safeguardDetection.entries.filter((e) => e.ruleOrdinal !== null && selectedOrdinals.has(e.ruleOrdinal!))
+    if (relevantEntries.length === 0 && !useAllEntries) return null
+    const sourceEntries = relevantEntries.length === 0 ? safeguardDetection.entries : relevantEntries
+    // Track best rank entry per artifact; value includes the contributing rule ordinal for tooltip/navigation.
+    const result = new Map<number, { rank: number; isWithinQuota: boolean; ruleOrdinal: number | null }>()
+    // Track all other applicable rule ordinals per artifact (sorted by rank ascending) for tooltip extras.
+    const otherRulesPerArtifact = new Map<number, Array<{ rank: number; ruleOrdinal: number | null }>>()
+    for (const entry of sourceEntries) {
+      // Only entries with scored candidates carry rank data.
+      if (!entry.candidates?.length) continue
+      for (const candidate of entry.candidates) {
+        if (candidate.candidateRank <= 0) continue
+        const existing = result.get(candidate.itemKey)
+        // Keep the best (lowest) rank across entries; demote the prior best into otherRules.
+        if (!existing || candidate.candidateRank < existing.rank) {
+          if (existing) {
+            const others = otherRulesPerArtifact.get(candidate.itemKey) ?? []
+            others.push({ rank: existing.rank, ruleOrdinal: existing.ruleOrdinal })
+            otherRulesPerArtifact.set(candidate.itemKey, others)
+          }
+          result.set(candidate.itemKey, { rank: candidate.candidateRank, isWithinQuota: candidate.isWithinQuota, ruleOrdinal: entry.ruleOrdinal })
+        } else {
+          const others = otherRulesPerArtifact.get(candidate.itemKey) ?? []
+          others.push({ rank: candidate.candidateRank, ruleOrdinal: entry.ruleOrdinal })
+          otherRulesPerArtifact.set(candidate.itemKey, others)
+        }
+      }
+    }
+    // Merge otherRules (sorted by rank, deduplicated by ordinal, excluding primary) into the result.
+    const merged = new Map<number, { rank: number; isWithinQuota: boolean; ruleOrdinal: number | null; otherRules: Array<{ ruleOrdinal: number; rank: number }> }>()
+    result.forEach(({ rank, isWithinQuota, ruleOrdinal }, artifactId) => {
+      const others = otherRulesPerArtifact.get(artifactId) ?? []
+      const seen = new Set<number>()
+      const otherRules: Array<{ ruleOrdinal: number; rank: number }> = []
+      for (const o of others.sort((a, b) => a.rank - b.rank)) {
+        if (typeof o.ruleOrdinal !== 'number' || o.ruleOrdinal === ruleOrdinal) continue
+        if (seen.has(o.ruleOrdinal)) continue
+        seen.add(o.ruleOrdinal)
+        otherRules.push({ ruleOrdinal: o.ruleOrdinal, rank: o.rank })
+        if (otherRules.length === 3) break
+      }
+      merged.set(artifactId, { rank, isWithinQuota, ruleOrdinal, otherRules })
+    })
+    return merged.size > 0 ? merged : null
+  }, [safeguardsActive, safeguardDetection, safeguardMultiselectActive, selectedSafeguardRuleIndices, selectedSafeguardRuleIdx])
+
+  // Lookup map for the candidate list hover card tooltip (shows scaled GearInspectorGridCard).
+  // Keyed by safeguard item key (not artifact DB id) so detection entry lookups stay consistent.
+  const safeguardPreviewRowByItemKey = useMemo(() => {
+    if (!safeguardsActive || gearInspectorPreviewRows.length === 0) return null
+    const map = new Map<number, GearInspectorPreviewRow>()
+    for (const row of gearInspectorPreviewRows) {
+      map.set(getSafeguardItemKey(row.artifact), row)
+    }
+    return map
+  }, [safeguardsActive, gearInspectorPreviewRows])
+
+
   // In safeguard mode the recipe-filter button operates on safeguard detection instead of recipe selection.
   const gearInspectorRecipeFilterActive = gearInspectorRecipeFilterMode !== 'off' && (
     builderMode === 'safeguard' ? true : selectedRecipeIndices.length > 0
@@ -4381,6 +4465,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return sortGearInspectorRows(rows)
   }, [builderMode, gearInspectorRecipeFilterMode, safeguardSelectedRuleItemKeySet, safeguardAnyMatchItemKeySet, gearInspectorRecipeFilterSelectedSet, gearEntriesAfterRulesFilter])
+  // Set of safeguard item keys currently visible in the Gear Inspector (after all filters).
+  // Non-null only when a filter is active; null means everything is visible (no dimming needed).
+  // Used by the safeguard candidate list to dim items hidden by the current filter.
+  const gearInspectorVisibleItemKeySet = useMemo<ReadonlySet<number> | null>(() => {
+    if (!gearInspectorFilterActive && !gearInspectorRecipeFilterActive) return null
+    const set = new Set<number>()
+    for (const row of gearEntriesForTable) set.add(getSafeguardItemKey(row.artifact))
+    return set
+  }, [gearInspectorFilterActive, gearInspectorRecipeFilterActive, gearEntriesForTable])
+
   // Opaque key that changes when the filter selection changes but stays stable across DB/rule
   // updates with the same filter active.  The grid uses it to suppress card entering animations
   // on filter switches while still animating for genuine data changes.
@@ -4529,6 +4623,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // No real gear was resolved for this safeguard, so open Safeguard Builder.
     openLogicHubSafeguardRule(ruleIdx)
   }, [openLogicHubSafeguardRule, setLogicHubOpen, setPreviewMode, gearInspectorArtifactIdBySafeguardItemKey])
+  // Candidate list row click: resolve safeguard item key → artifact id, switch to Gear Inspector, scroll.
+  const handleSafeguardCandidateSelect = useCallback((itemKey: number) => {
+    const artifactId = gearInspectorArtifactIdBySafeguardItemKey.get(itemKey) ?? null
+    if (artifactId == null) return
+    setPreviewMode('gearInspector')
+    gearInspectorArtifactFocusTokenRef.current += 1
+    setGearInspectorArtifactFocusRequest({
+      artifactId,
+      token: gearInspectorArtifactFocusTokenRef.current,
+    })
+  }, [gearInspectorArtifactIdBySafeguardItemKey, setPreviewMode])
+
   const handleGearInspectorFocusArtifactFilteredOut = useCallback(() => {
     // Keep the notification short because this only explains why auto-scroll did not occur.
     showToast(t('toastGearInspectorFocusArtifactFiltered'), { icon: <HelpOutlineIcon fontSize="inherit" /> })
@@ -5433,6 +5539,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onJumpToHistoryIndex={jumpToHistoryIndex}
       onRequestClearHistory={requestClearHistory}
       onManageMetasets={() => openMetasetsDialogRef.current()}
+      detectionEntry={safeguardBuilderDetectionEntry}
+      previewRowByItemKey={safeguardPreviewRowByItemKey}
+      onSelectCandidate={handleSafeguardCandidateSelect}
+      {...(gearInspectorVisibleItemKeySet != null ? { visibleItemKeys: gearInspectorVisibleItemKeySet } : {})}
       multiEdit={safeguardMultiEditHandle}
       multiSelectedRules={multiSelectedSafeguardRules}
       onApplyMultiEdit={safeguardMultiselectActive ? applySafeguardMultiEditDraft : null}
@@ -7166,6 +7276,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 sortState={gearInspectorSubstatSortPrefs.state}
                 safeguardRules={resolvedSafeguardRules}
                 upgradeChanceByArtifactId={upgradeChanceByArtifactId}
+                safeguardRankByArtifactId={safeguardRankByArtifactId}
                 emptyStateVerticalAlign={emptyStateVerticalAlign}
                 enterKey={gearInspectorEnterKey}
               />
