@@ -23,7 +23,7 @@ import EllipsisTooltip from './EllipsisTooltip'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import SellIcon from '@mui/icons-material/Sell'
 import StarsIcon from '@mui/icons-material/Stars'
-import { ELLIPSIS_TEXT_SX } from '../lib/constants'
+import { ELLIPSIS_TEXT_SX, FONT_SIZE_SECONDARY_REM } from '../lib/constants'
 import { alpha, useTheme, type Theme } from '@mui/material/styles'
 import { createElement, useEffect, useMemo, useRef } from 'react'
 import type { SafeguardCandidateOut, SafeguardDetectionArtifact } from '../lib/safeguards'
@@ -65,9 +65,9 @@ export function measureStatCellWidths(
 ): StatCellWidths {
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
-  // Resolve actual font size: 0.65rem relative to document root.
+  // Resolve actual font size: matches the caption variant (FONT_SIZE_SECONDARY_REM) used in table cells.
   const rootFontSizePx = parseFloat(getComputedStyle(document.documentElement).fontSize)
-  const fontSizePx = 0.65 * (Number.isFinite(rootFontSizePx) ? rootFontSizePx : 16)
+  const fontSizePx = FONT_SIZE_SECONDARY_REM * (Number.isFinite(rootFontSizePx) ? rootFontSizePx : 16)
   if (!ctx) {
     // Canvas unavailable — fall back to a rough per-char estimate.
     return { mainstatCellWidthPx: Math.ceil(fontSizePx * 4), substatCellWidthPx: Math.ceil(fontSizePx * 7) }
@@ -242,7 +242,7 @@ export default function SafeguardCandidateRankList({
           global ranks appear on the same side of the line (e.g. "quota: 2 per set · faction"). */}
       <Box ref={cutoffRef} sx={{ display: 'flex', alignItems: 'center', py: 0.5 }}>
         <Divider sx={{ flex: 1, borderStyle: 'dashed', borderColor: 'text.disabled' }} />
-        <Typography variant="caption" color="text.disabled" sx={{ px: 0.75, whiteSpace: 'nowrap', fontSize: '0.65rem' }}>
+        <Typography variant="caption" color="text.disabled" sx={{ px: 0.75, whiteSpace: 'nowrap', fontSize: `${FONT_SIZE_SECONDARY_REM}rem` }}>
           {(() => {
             // Collect active per-group dimensions in display order (slot → set → faction → main).
             const scopeParts: string[] = []
@@ -446,9 +446,9 @@ function CandidateRow({
         variant="caption"
         sx={{
           fontFamily: 'monospace',
-          fontSize: '0.7rem',
+          fontSize: `${FONT_SIZE_SECONDARY_REM}rem`,
           color: 'common.white',
-          minWidth: 38,  // "#1000" = 5 chars at monospace 0.7rem ≈ 34px
+          minWidth: 42,  // "#1000" = 5 chars at monospace 0.75rem ≈ 38px
           textAlign: 'right',
           flexShrink: 0,
         }}
@@ -486,13 +486,13 @@ function CandidateRow({
           <Typography
             variant="caption"
             noWrap
-            sx={{ fontSize: '0.68rem', maxWidth: 88, color: 'text.secondary' }}
+            sx={{ fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, maxWidth: 88, color: 'text.secondary' }}
           >
             {identifierText}
           </Typography>
         )}
         {!artifact && (
-          <Typography variant="caption" sx={{ fontSize: '0.68rem', color: 'text.disabled' }}>—</Typography>
+          <Typography variant="caption" sx={{ fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, color: 'text.disabled' }}>—</Typography>
         )}
       </Box>
       {/* Mainstat + substats sorted by weighted impact descending (highest-scoring substat first).
@@ -505,7 +505,7 @@ function CandidateRow({
             variant="caption"
             noWrap
             sx={{
-              fontSize: '0.65rem',
+              fontSize: `${FONT_SIZE_SECONDARY_REM}rem`,
               color: mainStatColor ?? 'text.secondary',
               width: mainstatCellWidthPx,
               flexGrow: 0,
@@ -525,7 +525,7 @@ function CandidateRow({
               variant="caption"
               noWrap
               sx={{
-                fontSize: '0.65rem',
+                fontSize: `${FONT_SIZE_SECONDARY_REM}rem`,
                 color: cell.color ?? 'text.secondary',
                 // Fixed width so every column is identically wide.
                 // flexGrow: 0 + flexShrink: 0 prevents flex from resizing the cell.
@@ -569,7 +569,7 @@ function CandidateRow({
           Always rendered (empty when unranked) so badge/match don't shift. */}
       <Typography
         variant="caption"
-        sx={{ fontFamily: 'monospace', fontSize: '0.68rem', color: 'common.white', flexShrink: 0, width: 44, textAlign: 'right' }}
+        sx={{ fontFamily: 'monospace', fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, color: 'common.white', flexShrink: 0, width: 48, textAlign: 'right' }}
       >
         {candidate.candidateRank > 0 ? candidate.score.toFixed(2) : ''}
       </Typography>
@@ -585,7 +585,7 @@ function CandidateRow({
         variant="caption"
         title={matchSourceDecoration.displayName || undefined}
         sx={[ELLIPSIS_TEXT_SX, {
-          fontSize: '0.6rem',
+          fontSize: '0.68rem',
           // Use parsed directive color (white fallback) instead of muted text.disabled.
           color: matchSourceDecoration.resolvedColor,
           fontWeight: 400,
