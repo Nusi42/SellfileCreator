@@ -1300,6 +1300,11 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     effectiveMinLevel !== storedMinLevel || effectiveMaxLevel !== storedMaxLevel
   )
   const keepOverrideActive = !multiEditActive && effectiveRecipe.earlyKeepMode !== recipe.earlyKeepMode
+  // True when a recipe override changes the effective gear-set selection vs. the stored one.
+  const setsOverrideActive = !multiEditActive && (
+    buildArtifactSetSelectionKey(effectiveRecipe.artifactSets ?? []) !== buildArtifactSetSelectionKey(recipe.artifactSets ?? [])
+    || (effectiveRecipe.artifactMetaSets ?? []).join('\0') !== (recipe.artifactMetaSets ?? []).join('\0')
+  )
   const autoLateOverrideActive = !multiEditActive && (
     effectiveRecipe.autoRaritySupplementsThreshold !== recipe.autoRaritySupplementsThreshold
   )
@@ -6405,9 +6410,13 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               ? setDisplayIds.filter((id) => getSetState(id) === 'all')
               : baseSetSplit.included.slice().sort((a, b) => a - b)
             // Keep excluded ids separate so the UI can render them with a red indicator.
+            // When a recipe override is active use the effective exclusions so the
+            // grid visually reflects what the override does (e.g. red border for +-Daze).
             const excludedSetIds = multiEditActive
               ? excludedDisplayIds
-              : baseSetSplit.excluded.slice().sort((a, b) => a - b)
+              : setsOverrideActive
+                ? splitArtifactSetSelections(effectiveRecipe.artifactSets ?? []).excluded.slice().sort((a, b) => a - b)
+                : baseSetSplit.excluded.slice().sort((a, b) => a - b)
             // Build the Select token list from explicit metasets + includes.
             const selectedTokens: string[] = [
               ...selectedMetaIds.map(tokenOf.meta),
@@ -6597,7 +6606,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
 
             return (
               <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
-                <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0, minHeight: 32, overflow: 'hidden' }}>
+                {/* overflow:visible so the absolutely-positioned gear-set override badge can paint above the row. */}
+                <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0, minHeight: 32, overflow: 'visible' }}>
                   {(() => {
                     const baseSelect = (
                       <Select
@@ -6904,9 +6914,22 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       </Box>
                       </Select>
                     )
+                    // Build a human-readable label for a sets+metasets config (for the badge tooltip).
+                    // Excluded entries are prefixed with "–" to mirror the exclusion UX convention.
+                    const setsLabel = (sets: typeof recipe.artifactSets, metas: typeof recipe.artifactMetaSets): string => {
+                      const parts: string[] = [
+                        ...(metas ?? []),
+                        ...(sets ?? []).map((e) => (e.excluded ? '–' : '') + getLocalizedGearSetName(e.id, t, lang)),
+                      ]
+                      return parts.length > 0 ? parts.join(', ') : t('any')
+                    }
                     const selectEl = (
                       <Box ref={setsSelectContainerRef} sx={{ position: 'relative' }}>
                         {baseSelect}
+                        {setsOverrideActive && renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+                          setsLabel(recipe.artifactSets, recipe.artifactMetaSets),
+                          setsLabel(effectiveRecipe.artifactSets, effectiveRecipe.artifactMetaSets),
+                        ))}
                         <InlineSelectClearButton
                           disabled={!hasAnySelection}
                           label={t('clear')}

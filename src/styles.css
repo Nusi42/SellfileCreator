@@ -63,6 +63,9 @@ body.restrict-ui [data-allow-select="1"] {
    not a keyword; id-refs stay muted amber. */
 .w-md-editor-text-pre .token.recipe-overrides-block .token.shorthand-constraint .token.constraint-op { color: #e87c3e; }
 .w-md-editor-text-pre .token.recipe-overrides-block .token.shorthand-constraint .token.id-ref        { color: #c8a96e; }
+/* Excluded-add prefix `+-Name` – same colors as shorthand-constraint since it carries the same sigil semantics. */
+.w-md-editor-text-pre .token.recipe-overrides-block .token.list-excluded-add .token.constraint-op   { color: #e87c3e; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.list-excluded-add .token.id-ref          { color: #c8a96e; }
 .w-md-editor-text-pre .token.recipe-overrides-block .token.logic-kw                   { color: #61afef; }
 .w-md-editor-text-pre .token.recipe-overrides-block .token.rarity-name                { color: #e5c07b; }
 .w-md-editor-text-pre .token.recipe-overrides-block .token.boolean-val                { color: #d19a66; }

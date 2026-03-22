@@ -539,14 +539,25 @@ function classifyListMode(tokens: PrefixedToken[]): 'replace' | 'mutate' | 'igno
 
 // After the first value token of a list field has been consumed, collect any
 // remaining comma-separated word/string tokens that continue the list.
+// Handles the `+` symbol prefix so that `+Speed` and `+-Daze` are accepted
+// as comma-separated entries (e.g. `gearsets=-Lifesteal,+-Daze,+Speed`).
 const consumeCommaSeparatedRemainder = (cursor: TokenCursor): string[] => {
   const extras: string[] = []
   while (cursor.consumeSymbol(',')) {
-    // Require a word or quoted string token after each comma.
-    const next = cursor.peek()
+    // `+` is tokenized as a symbol; peek past it when followed by a word.
+    let prefix = ''
+    let next = cursor.peek()
+    if (next?.kind === 'symbol' && next.value === '+') {
+      const wordTok = cursor.peek(1)
+      if (wordTok?.kind === 'word' || wordTok?.kind === 'string') {
+        cursor.next()   // consume `+`
+        prefix = '+'
+        next = wordTok
+      }
+    }
     if (!next || (next.kind !== 'word' && next.kind !== 'string')) break
     cursor.next()
-    extras.push(next.value)
+    extras.push(prefix + next.value)
   }
   return extras
 }
@@ -948,15 +959,26 @@ const parseOperations = (cursor: TokenCursor, endSymbol: string): RecipeOverride
       continue
     }
     cursor.next()
-    const valueToken = cursor.peek()
-    // Values must be a token or quoted string.
+    // `+` is tokenized as a symbol; peek past it when followed by a word so
+    // that `+Speed` and `+-Daze` parse correctly as prefixed list values.
+    let valueToken = cursor.peek()
+    let valuePrefix = ''
+    if (valueToken?.kind === 'symbol' && valueToken.value === '+') {
+      const wordTok = cursor.peek(1)
+      if (wordTok?.kind === 'word' || wordTok?.kind === 'string') {
+        cursor.next()   // consume `+`
+        valuePrefix = '+'
+        valueToken = wordTok
+      }
+    }
+    // Values must be a word or quoted string.
     if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) {
       if (valueToken) cursor.next()
       continue
     }
     cursor.next()
     // Level windows may include a range tokenized as "12", "-", "16".
-    let valueRaw = valueToken.value
+    let valueRaw = valuePrefix + valueToken.value
     if (field === 'lvl' && op === 'eq') {
       const dashToken = cursor.peek()
       const tailToken = cursor.peek(1)

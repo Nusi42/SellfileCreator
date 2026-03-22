@@ -3,7 +3,7 @@
  *
  * Inline editor for a single SafeguardRule. Controls mirror BuilderPanel styling and layout:
  * - Row 1: Mode toggle + Required count
- * - Row 2: [Rank | Rarity | Faction Select (nested 3-col)] | [Ignore chips]
+ * - Row 2: [Rank | Rarity | Faction Select (nested 3-col)] | [hidden level-window spacer col 3]
  * - Row 3: [Main stat toggles + perMainStat chip] | [Substats toggles + match chips + beat-equipped floor chip + weights]
  * - Row 4: [Slots icon grid + perSlot chip] | [Sets selector + perSet chip]
  *
@@ -28,6 +28,7 @@ import {
   Popover,
   Stack,
   TextField,
+  Slider,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
@@ -65,6 +66,7 @@ import {
   SAFEGUARD_BUILDER_USER_DEFAULTS_KEY,
 } from '../lib/constants'
 import {
+  LEVEL_MILESTONES,
   STAT_VARIANTS_PRIORITY_ROW1,
   STAT_VARIANTS_PRIORITY_ROW2,
   statVariantI18nKey,
@@ -776,8 +778,9 @@ export default function SafeguardBuilderPanel({
 
       {/* ── Row 1: Mode toggle + Required count + Ignore chips + undo/redo (full-width) ── */}
       <Box sx={{ gridColumn: '1 / -1' }}>
-        {/* Header row: chevron + Mode label + info icon + undo/redo (always visible) */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+        {/* Header row: chevron + Mode label + info icon + undo/redo (always visible).
+            position+zIndex keep the label and undo/redo controls on top of the toggle row bleed. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, position: 'relative', zIndex: 1 }}>
           <BuilderSectionToggle id="action" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
           <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
             <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('safeguardsRuleModeLabel')}</Box>
@@ -848,9 +851,12 @@ export default function SafeguardBuilderPanel({
             />
           </Box>
         </Box>
-        {/* Collapsible content: mode toggle + count + ignore chips */}
+        {/* Collapsible content: mode toggle + count + ignore chips.
+            mt: -14px (½·SMALL_BUTTON_HEIGHT_PX) bleeds the toggle row into the label row so its
+            visual center aligns with the label — matching the recipe builder's action subgroup.
+            The header row uses zIndex:1 to stay interactive on top of the bleed. */}
         <Collapse in={!builderCollapsed.action} timeout="auto" unmountOnExit>
-        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flexWrap: 'nowrap', overflow: 'hidden' }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flexWrap: 'nowrap', overflow: 'hidden', mt: `-${SMALL_BUTTON_HEIGHT_PX / 2}px` }}>
         {/* Mode toggle — label moved to header row above */}
         <FormControl sx={(theme) => ({ flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
 
@@ -1169,24 +1175,61 @@ export default function SafeguardBuilderPanel({
             </FormLabel>
           </Box>
           <Collapse in={!builderCollapsed.faction} timeout="auto" unmountOnExit>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-              <GearFactionSelect
-                multiple
-                disabled={!hasAccessorySlot}
-                value={factionSelection}
-                onChange={(nextFactions) => {
-                  if (!hasAccessorySlot) return
-                  setRuleCombination((prev) => ({ ...prev, factions: nextFactions }))
-                }}
-                anyLabel={t('any')}
-                sx={SELECT_BOX_HEIGHT_SX}
-              />
+            <GearFactionSelect
+              multiple
+              disabled={!hasAccessorySlot}
+              value={factionSelection}
+              onChange={(nextFactions) => {
+                if (!hasAccessorySlot) return
+                setRuleCombination((prev) => ({ ...prev, factions: nextFactions }))
+              }}
+              anyLabel={t('any')}
+              sx={SELECT_BOX_HEIGHT_SX}
+            />
+            {/* Negative mb cancels the chip's contribution to the Collapse height so the
+                faction section does not inflate the grid row. MUI Collapse switches to
+                overflow:visible when fully open, letting the chip render past its boundary. */}
+            <Box sx={{ mt: 0.75, mb: `-${BUILDER_STATUS_CHIP_HEIGHT_PX}px` }}>
               {renderScopeChip('perFaction', t('safeguardsCountModePerFaction'), scopeActive.perFaction, !hasAccessorySlot, perScopeMixed.perFaction)}
             </Box>
           </Collapse>
         </FormControl>
       </Box>
 
+      {/* ── Row 2 right: Hidden level-window spacer (col 3, mirrors recipe builder) ─── */}
+      {/* Invisible structural placeholder — same MUI Slider as the recipe builder's level-window
+          so Row 2's grid height is always determined by the same element on both panels.
+          The per-faction chip's negative mb keeps it out of the faction section's height, so
+          this spacer (not the chip) becomes the tallest item in the row. */}
+      <Box aria-hidden="true" sx={{ gridColumn: '3 / 4', visibility: 'hidden' }}>
+        {/* Label row mirrors the recipe builder's level-window header exactly (same components,
+            same sx) so this spacer's height is always pixel-identical on every screen/zoom. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <BuilderSectionToggle id="mainStat" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
+          <FormLabel sx={BUILDER_LABEL_INLINE_SX} />
+        </Box>
+        <Box sx={{ px: 1.5 }}>
+          <Slider
+            size="small"
+            min={0}
+            max={16}
+            step={null}
+            disableSwap
+            marks={LEVEL_MILESTONES.map((v) => ({ value: v, label: `+${v}` }))}
+            value={[0, 16]}
+            valueLabelDisplay="auto"
+            valueLabelFormat={(v) => `+${v}`}
+            onChange={() => { /* spacer — no-op */ }}
+            sx={{
+              '& .MuiSlider-track': { height: 4 },
+              '& .MuiSlider-rail': { height: 4 },
+              '& .MuiSlider-thumb': { width: 16, height: 16 },
+              '& .MuiSlider-mark': { height: 8 },
+              '& .MuiSlider-markLabel': { fontSize: '0.75rem', mt: 0.5 },
+            }}
+          />
+        </Box>
+      </Box>
 
       {/* ── Row 3 left: Main stat + perMainStat chip ──────────────────────── */}
       <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
