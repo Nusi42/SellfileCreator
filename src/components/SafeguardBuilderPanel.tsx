@@ -130,7 +130,8 @@ import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT, G
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import ClearIconButton from './ClearIconButton'
-import SafeguardCandidateRankList from './SafeguardCandidateRankList'
+import SafeguardCandidateRankList, { measureStatCellWidths } from './SafeguardCandidateRankList'
+import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
 import { mainStatToggleGroupSx, substatToggleGroupSx } from './SubstatToggleDisplay'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { Metaset } from '../lib/metasets'
@@ -699,26 +700,17 @@ export default function SafeguardBuilderPanel({
   // prefer live preview (from unsaved weight edits) over the detection snapshot.
   const popoverCandidates = livePreviewCandidates ?? detectionEntry?.candidates
 
-  // Max number of rule substats that any single candidate's artifact actually has.
-  // Used to size the right column width so we don't reserve space for unused columns.
-  // Falls back to the configured substat selection length when there are no candidates yet.
-  // Prefers previewRow artifact (plain JS-number variants) over detection-snapshot artifact
-  // (BigInt-coerced variants via serde_wasm_bindgen 0.6 to_js_value) to avoid mismatch.
-  const maxSubstatCount = useMemo(() => {
-    if (!popoverCandidates || popoverCandidates.length === 0) return substatSelection.length
-    let max = 0
-    for (const c of popoverCandidates) {
-      const previewSubs = previewRowByItemKey?.get(c.itemKey)?.artifact.substats
-      const detSubs = artifactsByItemKey.get(c.itemKey)?.substats
-      const sourceSubs = previewSubs ?? detSubs
-      if (!sourceSubs) continue
-      const count = substatSelection.filter((v) =>
-        sourceSubs.some((s) => Number(s.variant) === v),
-      ).length
-      if (count > max) max = count
-    }
-    return max
-  }, [popoverCandidates, artifactsByItemKey, substatSelection, previewRowByItemKey])
+  // Measured cell widths — same canvas pass used by SafeguardCandidateRankList;
+  // drives the popover right-column width so it fits the list content exactly.
+  const { mainstatCellWidthPx, substatCellWidthPx } = useMemo(() => measureStatCellWidths(t, theme), [t, theme])
+
+  // Number of substat columns the list always renders (present cells + placeholders).
+  const substatColumnCount = Math.min(substatSelection.length, SUBSTAT_SLOT_COUNT)
+
+  // Right column width — sum of every fixed element in a candidate row plus the substat columns.
+  // Components: rank(38) + identifier(130) + mainstat + mr-gap(6) + substats + score(44) +
+  //             badge(14) + match(130) + row-gaps(7×4=28) + left-padding(12) + safety(8)
+  const rightColumnWidthPx = 38 + 130 + mainstatCellWidthPx + 6 + substatCellWidthPx * substatColumnCount + 44 + 14 + 130 + 28 + 12 + 8
 
   // ── render ────────────────────────────────────────────────────────────────
 
@@ -2223,9 +2215,11 @@ export default function SafeguardBuilderPanel({
         <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'row', gap: 2, alignItems: 'flex-start' }}>
           {/* Left column: weight controls (unchanged layout) */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, minWidth: 220 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.25 }}>
-              {t('safeguardsSubstatWeightsLabel')}
-            </Typography>
+            <MarkdownTooltip markdown={t('safeguardsSubstatWeightsLabelTooltip')} placement="top">
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.25, display: 'inline-block' }}>
+                {t('safeguardsSubstatWeightsLabel')}
+              </Typography>
+            </MarkdownTooltip>
             {substatSelection.map((variant) => {
               // In multi-edit mode, read staged weight from draft; fall back to rule's weight.
               const stagedWeights = multiEditActive && multiSubstatWeightsField?.dirty
@@ -2312,13 +2306,14 @@ export default function SafeguardBuilderPanel({
               )
             })}
           </Box>
-          {/* Right column: candidate rank list — shows live scoring preview.
-              Width scales with actual max substats in the candidate set to avoid over-wide popovers. */}
-          {/* Width accounts for: fixed chrome (rank/identifier/score/badge/match source) + 52px per substat. */}
-          <Box sx={{ minWidth: Math.max(400, 386 + 44 * maxSubstatCount), borderLeft: 1, borderColor: 'divider', pl: 1.5 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, display: 'block' }}>
-              {t('safeguardsCandidatesLabel')}
-            </Typography>
+          {/* Right column: candidate rank list — width computed from measured cell widths so it
+              fits the list content without wasted space or clipping. */}
+          <Box sx={{ width: rightColumnWidthPx, flexShrink: 0, borderLeft: 1, borderColor: 'divider', pl: 1.5 }}>
+            <MarkdownTooltip markdown={t('safeguardsCandidatesLabelTooltip')} placement="top">
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, display: 'inline-block' }}>
+                {t('safeguardsCandidatesLabel')}
+              </Typography>
+            </MarkdownTooltip>
             <SafeguardCandidateRankList
               candidates={popoverCandidates}
               quota={rule?.requiredCount ?? 1}
