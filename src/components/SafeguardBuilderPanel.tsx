@@ -707,10 +707,11 @@ export default function SafeguardBuilderPanel({
   // Number of substat columns the list always renders (present cells + placeholders).
   const substatColumnCount = Math.min(substatSelection.length, SUBSTAT_SLOT_COUNT)
 
-  // Right column width — sum of every fixed element in a candidate row plus the substat columns.
-  // Components: rank(38) + identifier(130) + mainstat + mr-gap(6) + substats + score(44) +
-  //             badge(14) + match(130) + row-gaps(7×4=28) + left-padding(12) + safety(8)
-  const rightColumnWidthPx = 38 + 130 + mainstatCellWidthPx + 6 + substatCellWidthPx * substatColumnCount + 44 + 14 + 130 + 28 + 12 + 8
+  // Minimum right column width — sum of every fixed element in a candidate row.
+  // The match-source column (flex: 1) fills remaining space, so only fixed components
+  // are counted here: rank(38) + identifier(130) + mainstat + mr-gap(6) + substats +
+  // score(44) + badge(14) + row-gaps(7×4=28) + left-padding(12) + safety(8)
+  const rightColumnWidthPx = 38 + 130 + mainstatCellWidthPx + 6 + substatCellWidthPx * substatColumnCount + 44 + 14 + 28 + 12 + 8
 
   // ── render ────────────────────────────────────────────────────────────────
 
@@ -2308,7 +2309,7 @@ export default function SafeguardBuilderPanel({
           </Box>
           {/* Right column: candidate rank list — width computed from measured cell widths so it
               fits the list content without wasted space or clipping. */}
-          <Box sx={{ width: rightColumnWidthPx, flexShrink: 0, borderLeft: 1, borderColor: 'divider', pl: 1.5 }}>
+          <Box sx={{ minWidth: rightColumnWidthPx, flexShrink: 0, borderLeft: 1, borderColor: 'divider', pl: 1.5 }}>
             <MarkdownTooltip markdown={t('safeguardsCandidatesLabelTooltip')} placement="top">
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, display: 'inline-block' }}>
                 {t('safeguardsCandidatesLabel')}

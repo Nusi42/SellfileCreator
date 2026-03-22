@@ -545,8 +545,8 @@ function CandidateRow({
           // Use parsed directive color (white fallback) instead of muted text.disabled.
           color: matchSourceDecoration.resolvedColor,
           fontWeight: 400,
-          width: 130,
-          flexShrink: 0,
+          flex: 1,
+          minWidth: 0,
         }]}
       >
         {matchSourceDecoration.displayName}
