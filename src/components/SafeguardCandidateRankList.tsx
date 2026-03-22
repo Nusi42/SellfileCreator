@@ -38,7 +38,7 @@ import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
 import { formatCircledDigit } from '../lib/gearInspectorPreviewFormatting'
 import { resolveRarityAccentColor } from '../lib/rarityColors'
 import { useI18n } from '../lib/i18n'
-import { RULE_SOURCE_SAFEGUARDS } from '../lib/ruleSources'
+import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_SAFEGUARDS } from '../lib/ruleSources'
 import type { SafeguardRuleCountMode } from '../lib/safeguards'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import { GearInspectorGridCard, getGearInspectorGridCardSizing } from './GearInspectorGridCard'
@@ -321,26 +321,32 @@ function CandidateRow({
   // a detection run has completed).
   //   StarsIcon / warning.main       → kept by a safeguard rule (this OR another)
   //   CheckCircleIcon / success.main → kept by a recipe / SFR rule
-  //   SellIcon / error.main          → sold (nothing keeps it)
+  //   SellIcon / error.main          → explicitly sold (keep === false)
+  //   no badge                       → unmatched (no rule covers this item at all)
   const isSafeguarded = previewRow
     ? previewRow.match?.keep === true && previewRow.match.ruleSource === RULE_SOURCE_SAFEGUARDS
     : candidate.isWithinQuota
   const isRecipeKept = previewRow
     ? previewRow.match?.keep === true && previewRow.match.ruleSource !== RULE_SOURCE_SAFEGUARDS
     : false
-  const BadgeIcon = isSafeguarded ? StarsIcon : isRecipeKept ? CheckCircleIcon : SellIcon
+  // Unmatched: previewRow present but no match at all — not explicitly sold, just uncovered.
+  const isUnmatched = previewRow != null && previewRow.match == null
+  const isSold = !isSafeguarded && !isRecipeKept && !isUnmatched
+  const BadgeIcon = isSafeguarded ? StarsIcon : isRecipeKept ? CheckCircleIcon : isSold ? SellIcon : null
   const badgeColor = isSafeguarded
     ? theme.palette.warning.main
     : isRecipeKept ? theme.palette.success.main : theme.palette.error.main
   const badgeTitle = isSafeguarded
     ? t('safeguardsCandidateSafeguarded')
-    : isRecipeKept ? t('safeguardsCandidateKept') : t('safeguardsCandidateSold')
+    : isRecipeKept ? t('safeguardsCandidateKept') : isSold ? t('safeguardsCandidateSold') : undefined
   // Match source: always show the actual sell-file outcome name — the recipe, safeguard rule,
   // or final-sell rule that determined the result — so keep/sell/guard rows all display their
   // real reason. Show nothing when there is no match data (unmatched or no preview yet).
   // Without preview data, fall back to the rule name only when the candidate is within quota.
   const matchSourceRaw: string | null = previewRow
-    ? (previewRow.match?.recipeName ?? previewRow.match?.ruleLabel ?? null)
+    ? (previewRow.match?.ruleSource === RULE_SOURCE_FINAL_SELL
+        ? t('gearInspectorFinalSell')
+        : (previewRow.match?.recipeName ?? previewRow.match?.ruleLabel ?? null))
     : (candidate.isWithinQuota ? (ruleName ?? null) : null)
   // Parse [rrggbb] color directives from the match source for colored display.
   // White is the default text color so names without a directive stand out on the dark row background.
@@ -535,9 +541,10 @@ function CandidateRow({
       >
         {candidate.candidateRank > 0 ? candidate.score.toFixed(2) : ''}
       </Typography>
-      {/* Outcome badge: icon mirrors the Gear Inspector summary chip (Stars/CheckCircle/Sell). */}
-      <Box title={badgeTitle} sx={{ color: badgeColor, lineHeight: 0, flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-        <BadgeIcon sx={{ fontSize: 14 }} />
+      {/* Outcome badge: icon mirrors the Gear Inspector summary chip (Stars/CheckCircle/Sell).
+          Unmatched items render an empty placeholder so columns stay aligned. */}
+      <Box title={badgeTitle} sx={{ color: badgeColor, lineHeight: 0, flexShrink: 0, display: 'flex', alignItems: 'center', width: 14 }}>
+        {BadgeIcon && <BadgeIcon sx={{ fontSize: 14 }} />}
       </Box>
       {/* Match source: rule or recipe name that explains the outcome.
           Parsed for [rrggbb] color directives; white by default. Truncates with ellipsis + OS title. */}
