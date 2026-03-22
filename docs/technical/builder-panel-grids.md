@@ -80,10 +80,10 @@ width: collapsed ? 'auto'    : `${BUILDER_XXX_COLUMN_WIDTH_PX}px`
 ├─────────────────────────────────────────────────┤
 │ Row 1 │ 1 / -1 │ Mode + Count + Ignore + Undo   │  collapsible (id: action); undo/redo always visible in header
 ├──────────────────────────┬──────────────────────┤
-│ Row 2 │ 1 / 3  flex row  │ cols 3-4 EMPTY       │
-│   ├── Rank    33.3 %     │                      │  collapsible
-│   ├── Rarity  33.3 %     │                      │  collapsible
-│   └── Faction 33.3 %     │                      │  collapsible
+│ Row 2 │ 1 / 3  flex row  │ 3/4 hidden spacer    │
+│   ├── Rank    33.3 %     │ (level-window slider)│  collapsible
+│   ├── Rarity  33.3 %     │  visibility:hidden   │  collapsible
+│   └── Faction 33.3 %     │  aria-hidden         │  collapsible
 ├──────────────────────────┴──────────────────────┤
 │ Row 3                                           │
 │  1/3  Main Stat (2 rows toggle buttons)         │  collapsible
@@ -97,9 +97,11 @@ width: collapsed ? 'auto'    : `${BUILDER_XXX_COLUMN_WIDTH_PX}px`
 └─────────────────────────────────────────────────┘
 ```
 
-### Row 2 key difference
+### Row 2 — alignment with Recipe Builder
 
-Unlike Recipe Builder, the Rank/Rarity/Faction group spans **only columns 1–2** (`gridColumn: '1 / 3'`). Columns 3–4 of that grid row are intentionally empty. There is no Level section in Safeguard Builder.
+The Rank/Rarity/Faction group spans **only columns 1–2** (`gridColumn: '1 / 3'`). Column 3 holds an **invisible structural spacer** (`visibility: hidden; aria-hidden="true"`) that renders the exact same MUI Slider as the Recipe Builder's Level Window (same props, same `sx` overrides). This makes the grid row height on both panels identical on every screen and zoom level — no measured offsets needed.
+
+The per-faction scope chip uses a **negative bottom margin** (`mb: -BUILDER_STATUS_CHIP_HEIGHT_PX`) inside the Collapse so it does not inflate the faction section's layout height. MUI Collapse transitions to `overflow: visible` when fully open, so the chip renders visually below the select without contributing to the row height. The hidden spacer therefore remains the tallest item in the row, keeping Row 3 (Main Stat / Substats) locked to the same y-position as in the Recipe Builder.
 
 ### Row 3 — substats phantom-height fix
 
