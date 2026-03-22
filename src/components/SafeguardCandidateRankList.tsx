@@ -94,6 +94,13 @@ const CANDIDATE_CARD_COLUMN_COUNT = CHAMPION_ICON_LARGE_THRESHOLD
 const CANDIDATE_CARD_SCALE = GEAR_DB_DIFF_TOAST_CARD_SCALE
 const EMPTY_RECIPE_NAMES: string[] = []
 const CARD_PRIORITY_BASE = 0
+// Mythic substat highlight mirrors GearInspectorGridCard constants.
+const MYTHIC_SUBSTAT_SHADOW_BLUR_PX = 2
+const MYTHIC_SUBSTAT_SHADOW_SPREAD_PX = 1
+const MYTHIC_SUBSTAT_BG_ALPHA = 0.12
+const MYTHIC_SUBSTAT_RADIUS_PX = 4
+// A substat has a mythic bonus when its mythValue component is at least this threshold.
+const MYTHIC_BONUS_MIN = 0.01
 
 export type SafeguardCandidateRankListProps = {
   // Scored candidates from detection snapshot or live preview, sorted by rank ascending.
@@ -395,7 +402,9 @@ function CandidateRow({
       const rollGlyph = rolls !== null && rolls > 0 ? formatCircledDigit(rolls) : null
       // Apply stat button color when enabled; fall back to muted secondary color.
       const color = (useStatButtonColors && substatColors[variant]?.fg) ? substatColors[variant].fg : null
-      return [{ variant, label: t(statVariantI18nKey(variant)), rollGlyph, color, impact }]
+      // Mythic bonus is only detectable from NormalizedStat (previewRow); detection-only path has no mythValue.
+      const isMythic = (previewArtSub?.mythValue ?? 0) >= MYTHIC_BONUS_MIN
+      return [{ variant, label: t(statVariantI18nKey(variant)), rollGlyph, color, impact, isMythic }]
     })
     .sort((a, b) => b.impact - a.impact)
 
@@ -515,13 +524,27 @@ function CandidateRow({
                 flexGrow: 0,
                 flexShrink: 0,
                 textAlign: 'left',
+                // noWrap sets overflow:hidden which clips the child span's box-shadow.
+                // Override to visible for mythic cells — labels are short and won't overflow.
+                ...(cell.isMythic ? { overflow: 'visible' } : undefined),
               }}
             >
-              {cell.label}
-              {/* Roll count glyph uses white to match gear inspector card chip rendering. */}
-              {cell.rollGlyph && (
-                <Box component="span" sx={{ color: 'common.white' }}>{cell.rollGlyph}</Box>
-              )}
+              {/* Mythic bonus: red glow + tint + rounded corners scoped to label+glyph only,
+                  mirrors GearInspectorGridCard. Inline span keeps the highlight tight to the text. */}
+              <Box
+                component="span"
+                sx={cell.isMythic ? {
+                  boxShadow: `0 0 ${MYTHIC_SUBSTAT_SHADOW_BLUR_PX}px ${MYTHIC_SUBSTAT_SHADOW_SPREAD_PX}px ${theme.palette.error.main}`,
+                  backgroundColor: alpha(theme.palette.error.main, MYTHIC_SUBSTAT_BG_ALPHA),
+                  borderRadius: `${MYTHIC_SUBSTAT_RADIUS_PX}px`,
+                } : undefined}
+              >
+                {cell.label}
+                {/* Roll count glyph uses white to match gear inspector card chip rendering. */}
+                {cell.rollGlyph && (
+                  <Box component="span" sx={{ color: 'common.white' }}>{cell.rollGlyph}</Box>
+                )}
+              </Box>
             </Typography>
           </EllipsisTooltip>
         ))}
