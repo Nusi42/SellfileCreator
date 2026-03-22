@@ -75,7 +75,7 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}, variant: 
 
 const makeGearInspectorRow = (overrides: Partial<NormalizedGearArtifact> = {}, keep = false, variant: StatVariant = StatVariant.ATK): GearInspectorPreviewRow => {
   const artifact = makeArtifact(overrides, variant)
-  const match = keep ? { keep: true, recipeIdx: 0, recipeName: 'Keep', ruleIndex: 0, ruleLabel: null, ruleSource: 'sfr' } : null
+  const match = keep ? { keep: true, recipeIdx: 0, recipeName: 'Keep', ruleIndex: 0, ruleLabel: null, ruleSource: 'sfr', safeguardRuleId: null, safeguardRuleOrdinal: null } : null
   return {
     artifact,
     match,
@@ -87,7 +87,6 @@ const makeGearInspectorRow = (overrides: Partial<NormalizedGearArtifact> = {}, k
 
 const makeRule = (overrides: Partial<SafeguardRule> = {}): SafeguardRule => {
   const rule = normalizeSafeguardRule({
-    id: overrides.id ?? `rule-${Math.random().toString(16).slice(2)}`,
     combination: overrides.combination ?? {
       slots: [ArtifactType.Weapon],
       // Default to a single entry object to match selection shape.
@@ -133,7 +132,6 @@ test('normalizeSafeguardRule supports readable wrapper payloads', () => {
   const normalized = normalizeSafeguardRule({
     kind: 'safeguardRule',
     rule: {
-      id: 'ku_mlcrdw83_4zvye589',
       requiredCount: 3,
       activation: SafeguardRuleActivation.AnticipateGaps,
       countMode: {
@@ -159,7 +157,6 @@ test('normalizeSafeguardRule supports readable wrapper payloads', () => {
     },
   })
   assert.ok(normalized, 'wrapper payload should normalize into a safeguard rule')
-  assert.strictEqual(normalized.id, 'ku_mlcrdw83_4zvye589')
   assert.strictEqual(normalized.name, 'Reserve: Speed Banner')
   assert.deepStrictEqual(normalized.combination.slots, [ArtifactType.Banner])
   assert.deepStrictEqual(normalized.combination.ranks, [5, 6])
@@ -183,7 +180,6 @@ test('normalizeSafeguardRule supports readable wrapper payloads', () => {
 
 test('normalizeSafeguardRule applies default toggle values', () => {
   const normalized = normalizeSafeguardRule({
-    id: 'defaults',
     requiredCount: 1,
     activation: SafeguardRuleActivation.ProtectExisting,
     countMode: { ...SAFEGUARD_DEFAULT_COUNT_MODE },
@@ -206,7 +202,6 @@ test('normalizeSafeguardRule applies default toggle values', () => {
 test('computeSafeguardProtection aggregates combination counts', () => {
   const rules = [
     makeRule({
-      id: 'speed',
       combination: {
         slots: [ArtifactType.Weapon],
         sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
@@ -234,7 +229,6 @@ test('computeSafeguardProtection aggregates combination counts', () => {
 
 test('projected count mirrors existing keep state when disabled', () => {
   const rules = [makeRule({
-    id: 'ring',
     requiredCount: 2,
     combination: {
       slots: [ArtifactType.Ring],
@@ -270,18 +264,15 @@ test('coveredByExisting flips when existing keep rules meet requirement', () => 
 
 test('ignorePreviousSafeguards=false evaluates against cumulative prior safeguard state', () => {
   const firstRule = makeRule({
-    id: 'first',
     requiredCount: 1,
     countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
   })
   const cumulativeRule = makeRule({
-    id: 'cumulative',
     requiredCount: 1,
     countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
     ignorePreviousSafeguards: false,
   })
   const baselineRule = makeRule({
-    id: 'baseline',
     requiredCount: 1,
     countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
     ignorePreviousSafeguards: true,
@@ -308,13 +299,11 @@ test('ignorePreviousSafeguards=false evaluates against cumulative prior safeguar
 
 test('equipped ignore toggles exclude matching collection/vault artifacts', () => {
   const collectionRule = makeRule({
-    id: 'collection-filter',
     requiredCount: 1,
     countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
     ignoreEquippedInCollection: true,
   })
   const vaultRule = makeRule({
-    id: 'vault-filter',
     requiredCount: 1,
     countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
     ignoreEquippedInVault: true,
@@ -671,7 +660,6 @@ test('resolveSafeguardRulesWithMetasets preserves rules without metaset expansio
   // Rules without metasets still need to survive the resolver unchanged.
   const rules = [
     makeRule({
-      id: 'ku_no_meta',
       name: 'No Meta Rule',
       combination: {
         slots: [ArtifactType.Banner],
@@ -699,7 +687,6 @@ test('resolveSafeguardRulesWithMetasets preserves rules without metaset expansio
   assert.strictEqual(resolved.length, 1, 'rules without metasets must not be dropped')
   const kept = resolved[0]
   assert.ok(kept)
-  assert.strictEqual(kept.id, 'ku_no_meta')
   assert.deepStrictEqual(kept.combination.slots, [ArtifactType.Banner])
   assert.deepStrictEqual(kept.combination.metaSetNames, [])
   assert.deepStrictEqual(kept.combination.sets, [])
@@ -857,30 +844,28 @@ test('resolveSafeguardRuleLabel prefers trimmed rule names', () => {
 })
 
 test('resolveSafeguardRuleLabel falls back to ordinal when metadata is present', () => {
-  const keepRule = makeRule({ id: 'ku_demo' })
   const injectedRule: HsfRuleWithRecipe = {
     Keep: true,
     Use: true,
     IsRuleTypeAND: false,
     Substats: [],
     RecipeName: '   ',
-    __safeguardRuleId: keepRule.id,
     __safeguardRuleOrdinal: 3,
   }
   const label = resolveSafeguardRuleLabel(injectedRule)
   assert.strictEqual(label, '#3')
 })
 
-test('resolveSafeguardRuleLabel falls back to rule id when ordinal is missing', () => {
-  const keepRule = makeRule({ id: 'ku_demo' })
+test('resolveSafeguardRuleLabel falls back to __safeguardRuleId stamp when ordinal is missing', () => {
   const injectedRule: HsfRuleWithRecipe = {
     Keep: true,
     Use: true,
     IsRuleTypeAND: false,
     Substats: [],
     RecipeName: '   ',
-    __safeguardRuleId: keepRule.id,
+    // Legacy __safeguardRuleId stamp on HsfRuleWithRecipe (WASM boundary, still string-based).
+    __safeguardRuleId: 'ku_demo',
   }
   const label = resolveSafeguardRuleLabel(injectedRule)
-  assert.strictEqual(label, `#${keepRule.id}`)
+  assert.strictEqual(label, '#ku_demo')
 })

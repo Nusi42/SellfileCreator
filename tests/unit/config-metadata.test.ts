@@ -132,7 +132,6 @@ test('HSF export strips every UI-only metadata field', () => {
 
 test('safeguard exports include sentinel RecipeID/RecipeName', () => {
   const keepRule: SafeguardRule = {
-    id: 'ku_demo',
     name: '  Safeguard Demo  ',
     combination: {
       slots: [ArtifactType.Ring],
@@ -168,7 +167,7 @@ test('safeguard exports include sentinel RecipeID/RecipeName', () => {
     entries: [{
       hash: 'demo',
       combination: keepRule.combination,
-      ruleId: keepRule.id,
+      ruleOrdinal: 1,
       ruleActivation: SafeguardRuleActivation.ProtectExisting,
       countMode: keepRule.countMode,
       perGroupRequiredCount: 1,

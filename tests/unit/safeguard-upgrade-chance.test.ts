@@ -94,9 +94,9 @@ const makeArtifact = (params: {
   }
 }
 
-const makeSpdSafeguardRule = (id: string): SafeguardRule => ({
-  id,
-  name: id,
+// Rules no longer have an id field; ordinal is derived from position in the input array.
+const makeSpdSafeguardRule = (name: string): SafeguardRule => ({
+  name,
   combination: {
     slots: [ArtifactType.Weapon],
     sets: [],
@@ -139,7 +139,8 @@ test('returns a non-binary safeguard selection chance for upgradable gear', () =
     [makeSpdSafeguardRule('sg_spd')],
   ).get(1)
   assert.equal(Boolean(chance?.hasMatchingSafeguard), true)
-  assert.equal(chance?.matchedRuleId, 'sg_spd')
+  // Single rule at index 0 → ordinal 1.
+  assert.equal(chance?.matchedRuleOrdinal, 1)
   assert.equal(chance?.debug?.sourceArtifactCount, 2)
   assert.equal(chance?.debug?.requiredPerGroup, 1)
   assert.equal(chance?.debug?.selectedSubstats.join(','), String(StatVariant.SPD))
@@ -201,7 +202,7 @@ test('marks no-match artifacts when no safeguard applies to the piece', () => {
   const chance = buildSafeguardUpgradeChanceByArtifactId([candidate], [rule]).get(20)
   assert.equal(chance?.chancePercent, 0)
   assert.equal(Boolean(chance?.hasMatchingSafeguard), false)
-  assert.equal(chance?.matchedRuleId ?? null, null)
+  assert.equal(chance?.matchedRuleOrdinal ?? null, null)
   assert.equal(chance?.debug, undefined)
 })
 
@@ -223,7 +224,7 @@ test('treats no-SPD legendary gear as non-matching for SPD-only safeguards', () 
   ).get(30)
   assert.equal(chance?.chancePercent, 0)
   assert.equal(Boolean(chance?.hasMatchingSafeguard), false)
-  assert.equal(chance?.matchedRuleId ?? null, null)
+  assert.equal(chance?.matchedRuleOrdinal ?? null, null)
 })
 
 test('keeps no-SPD low-rarity gear eligible when future substat additions can still roll SPD', () => {
@@ -238,12 +239,13 @@ test('keeps no-SPD low-rarity gear eligible when future substat additions can st
     [makeSpdSafeguardRule('sg_spd_addable')],
   ).get(31)
   assert.equal(Boolean(chance?.hasMatchingSafeguard), true)
-  assert.equal(chance?.matchedRuleId, 'sg_spd_addable')
+  // Single rule at index 0 → ordinal 1.
+  assert.equal(chance?.matchedRuleOrdinal, 1)
   assert.ok((chance?.chancePercent ?? 0) > 0, `expected > 0, got ${String(chance?.chancePercent)}`)
   assert.ok((chance?.chancePercent ?? 0) < 100, `expected < 100, got ${String(chance?.chancePercent)}`)
 })
 
-test('prefers the most likely safeguard for matchedRuleId when multiple safeguards apply', () => {
+test('prefers the most likely safeguard for matchedRuleOrdinal when multiple safeguards apply', () => {
   const candidate = makeArtifact({
     id: 41,
     level: 0,
@@ -265,7 +267,8 @@ test('prefers the most likely safeguard for matchedRuleId when multiple safeguar
     ],
   ).get(41)
   assert.equal(Boolean(chance?.hasMatchingSafeguard), true)
-  assert.equal(chance?.matchedRuleId, 'sg_spd_best')
+  // sg_spd_best is at index 0 (ordinal 1); sg_spd_acc_all (All match) is less likely.
+  assert.equal(chance?.matchedRuleOrdinal, 1)
   assert.equal(chance?.debug?.selectedSubstats.join(','), String(StatVariant.SPD))
 })
 
@@ -296,7 +299,9 @@ test('breaks equal-chance safeguard ties by higher matching substat count', () =
   ).get(51)
   assert.equal(Boolean(chance?.hasMatchingSafeguard), true)
   assert.equal(chance?.chancePercent, 100)
-  assert.equal(chance?.matchedRuleId, 'sg_more_matching')
+  // sg_less_matching (SPD+ACC) is at ordinal 1; sg_more_matching (SPD+HP) is at ordinal 2.
+  // More matching substats wins, so ordinal 2 is preferred.
+  assert.equal(chance?.matchedRuleOrdinal, 2)
 })
 
 test('breaks equal-chance + equal-match ties by safeguard list order', () => {
@@ -326,5 +331,6 @@ test('breaks equal-chance + equal-match ties by safeguard list order', () => {
   ).get(52)
   assert.equal(Boolean(chance?.hasMatchingSafeguard), true)
   assert.equal(chance?.chancePercent, 100)
-  assert.equal(chance?.matchedRuleId, 'sg_top_rule')
+  // sg_top_rule is at index 0 (ordinal 1); ties broken by list order so ordinal 1 wins.
+  assert.equal(chance?.matchedRuleOrdinal, 1)
 })

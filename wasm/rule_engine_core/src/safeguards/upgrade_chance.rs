@@ -92,8 +92,12 @@ pub struct UpgradeChanceEntry {
     pub chance_percent: u8,
     // True when at least one substat safeguard applies to this artifact.
     pub has_matching_safeguard: bool,
-    // Preferred safeguard rule id for overlay click-through navigation.
+    // Preferred safeguard rule id for overlay click-through navigation (legacy; always None now that
+    // SafeguardRule carries no id — kept in payload for backward-compatible deserialization).
     pub matched_rule_id: Option<String>,
+    // 1-based ordinal of the preferred safeguard rule; None when no rule matched.
+    // Matches __safeguardRuleOrdinal on HSF rows so TypeScript can navigate by position.
+    pub matched_rule_ordinal: Option<i64>,
     // Optional debug snapshot populated when the caller requests diagnostics.
     pub debug: Option<UpgradeChanceDebug>,
 }
@@ -1189,12 +1193,7 @@ fn resolve_most_likely_scenario_idx<'a>(
         .filter(|&&i| viable[i].rule_order == best_order)
         .copied()
         .collect();
-    // Final: first with a non-empty rule id.
-    for idx in &order_best {
-        if !viable[*idx].rule_id.is_empty() {
-            return Some(*idx);
-        }
-    }
+    // Final tie-break: first by position (rule_id is no longer set on incoming rules).
     order_best.first().copied()
 }
 
@@ -1314,6 +1313,7 @@ pub fn compute_upgrade_chance_core(
                 chance_percent: 0,
                 has_matching_safeguard: false,
                 matched_rule_id: None,
+                matched_rule_ordinal: None,
                 debug: None,
             });
             continue;
@@ -1331,6 +1331,7 @@ pub fn compute_upgrade_chance_core(
                 chance_percent: 0,
                 has_matching_safeguard: false,
                 matched_rule_id: None,
+                matched_rule_ordinal: None,
                 debug: None,
             });
             continue;
@@ -1341,13 +1342,18 @@ pub fn compute_upgrade_chance_core(
         let debug = preferred.map(|s| {
             build_chance_debug(&row.artifact, s, &viability, source_count, viable.len() as u32)
         });
+        // matched_rule_id is always None now that SafeguardRule carries no id field;
+        // kept in struct for backward-compatible deserialization of old payloads.
         let matched_rule_id = preferred
             .and_then(|s| if s.rule_id.is_empty() { None } else { Some(s.rule_id.clone()) });
+        // 1-based ordinal derived from the 0-based rule_order; used by TypeScript for navigation.
+        let matched_rule_ordinal = preferred.map(|s| s.rule_order as i64 + 1);
         output.push(UpgradeChanceEntry {
             artifact_id,
             chance_percent: chance,
             has_matching_safeguard: true,
             matched_rule_id,
+            matched_rule_ordinal,
             debug,
         });
     }

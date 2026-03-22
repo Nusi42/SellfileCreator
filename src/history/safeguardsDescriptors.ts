@@ -26,7 +26,6 @@ type RuleChangeSummary = {
 }
 
 type SafeguardRuleSignature = {
-  id: string
   name: string
   requiredCount: number
   activation: SafeguardRuleActivation
@@ -49,11 +48,18 @@ type SafeguardRuleSignature = {
 }
 
 // isSafeguardRuleOrderChanged flags pure reorders so history can record them.
+// Only meaningful when totalChanges === 0 (i.e. same multiset of rules, different positions).
 export const isSafeguardRuleOrderChanged = (previous: SafeguardRule[], next: SafeguardRule[]): boolean => {
   // Reorders only matter when the list lengths match.
   if (previous.length !== next.length) return false
-  // Any ID mismatch at the same index means the order changed.
-  return previous.some((rule, index) => rule.id !== next[index]?.id)
+  // Compare content at each position; any mismatch means positions differ.
+  // When diffSafeguardRules gives totalChanges=0, this correctly distinguishes
+  // "identical list" (false) from "same rules in different order" (true).
+  return previous.some((rule, index) => {
+    const other = next[index]
+    if (!other) return true
+    return !safeguardRuleSignaturesEqual(buildSafeguardRuleSignature(rule), buildSafeguardRuleSignature(other))
+  })
 }
 
 // createSafeguardsEnabledChangeDescriptor snapshots the toggle history entry.
@@ -175,30 +181,48 @@ export function describeSafeguardsRulesChange(params: {
 }
 
 function diffSafeguardRules(previous: SafeguardRule[], next: SafeguardRule[]): RuleChangeSummary {
-  // Index both lists by rule ID so additions/removals are easy to spot.
-  const previousById = new Map(previous.map((rule) => [rule.id, rule]))
-  const nextById = new Map(next.map((rule) => [rule.id, rule]))
-  // Track rule-level changes by comparing stable signatures.
+  // Signature-based matching so pure reorders yield totalChanges=0.
+  // Each rule in `next` is matched to a rule in `previous` with the same full
+  // content signature; unmatched rules on either side are added or removed.
+  const sigKey = (rule: SafeguardRule): string => JSON.stringify(buildSafeguardRuleSignature(rule))
+
+  // Build a multiset map: sigKey → pool of previous rules with that signature.
+  const prevPool = new Map<string, SafeguardRule[]>()
+  for (const rule of previous) {
+    const key = sigKey(rule)
+    const pool = prevPool.get(key) ?? []
+    pool.push(rule)
+    prevPool.set(key, pool)
+  }
+
+  // Match each next rule against the pool; unmatched next rules are candidates
+  // for "added" or — if paired with an unmatched previous rule — "updated".
+  const matchedPrev = new Set<SafeguardRule>()
+  const unmatchedNext: SafeguardRule[] = []
+  for (const rule of next) {
+    const pool = prevPool.get(sigKey(rule))
+    const match = pool?.find((r) => !matchedPrev.has(r))
+    if (match) {
+      matchedPrev.add(match)
+    } else {
+      unmatchedNext.push(rule)
+    }
+  }
+
+  // Previous rules that were not matched are removed (or, if paired below, updated).
+  const unmatchedPrev = previous.filter((r) => !matchedPrev.has(r))
+
+  // Pair unmatched rules as "updated" (edit in place); leftovers are true adds/removes.
   const added: SafeguardRule[] = []
   const removed: SafeguardRule[] = []
   const updated: Array<{ previous: SafeguardRule; next: SafeguardRule }> = []
-  for (const [id, rule] of nextById) {
-    // Lookup the previous rule to detect add vs update.
-    const prevRule = previousById.get(id)
-    if (!prevRule) {
-      // New ID => added rule.
-      added.push(rule)
-      continue
-    }
-    // Compare normalized signatures so ordering noise does not trigger updates.
-    if (!safeguardRuleSignaturesEqual(buildSafeguardRuleSignature(prevRule), buildSafeguardRuleSignature(rule))) {
-      updated.push({ previous: prevRule, next: rule })
-    }
+  const pairCount = Math.min(unmatchedPrev.length, unmatchedNext.length)
+  for (let i = 0; i < pairCount; i += 1) {
+    updated.push({ previous: unmatchedPrev[i]!, next: unmatchedNext[i]! })
   }
-  for (const [id, rule] of previousById) {
-    // Missing ID => removed rule.
-    if (!nextById.has(id)) removed.push(rule)
-  }
+  for (let i = pairCount; i < unmatchedNext.length; i += 1) added.push(unmatchedNext[i]!)
+  for (let i = pairCount; i < unmatchedPrev.length; i += 1) removed.push(unmatchedPrev[i]!)
+
   return { added, removed, updated }
 }
 
@@ -237,7 +261,6 @@ function buildSafeguardRuleSignature(rule: SafeguardRule): SafeguardRuleSignatur
     : []
   // Return the normalized typed signature so callers can compare structurally.
   return {
-    id: rule.id,
     name: rule.name,
     requiredCount: rule.requiredCount,
     activation: rule.activation,
@@ -263,8 +286,7 @@ function buildSafeguardRuleSignature(rule: SafeguardRule): SafeguardRuleSignatur
 
 function safeguardRuleSignaturesEqual(left: SafeguardRuleSignature, right: SafeguardRuleSignature): boolean {
   if (
-    left.id !== right.id
-    || left.name !== right.name
+    left.name !== right.name
     || left.requiredCount !== right.requiredCount
     || left.activation !== right.activation
     || left.ignorePreviousSafeguards !== right.ignorePreviousSafeguards

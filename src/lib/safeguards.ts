@@ -274,7 +274,7 @@ export const createEmptySafeguardCombination = (): SafeguardCombination => ({
 
 // cloneSafeguardRule keeps history snapshots isolated from live edits.
 export const cloneSafeguardRule = (rule: SafeguardRule): SafeguardRule => ({
-  // Preserve stable identifiers and scalar fields.
+  // Preserve all scalar fields.
   ...rule,
   // Preserve cascade toggle with explicit default for legacy snapshots.
   ignorePreviousSafeguards: rule.ignorePreviousSafeguards !== false,
@@ -302,7 +302,6 @@ export const cloneSafeguardRules = (rules: readonly SafeguardRule[]): SafeguardR
 )
 
 export type SafeguardRule = {
-  id: string
   name: string
   combination: SafeguardCombination
   requiredCount: number
@@ -333,8 +332,8 @@ export function buildDefaultSafeguardRules(): SafeguardRule[] {
 }
 
 // Returns the factory (shipping) default field values for the safeguard builder
-// draft, without an id. Used to seed user-defaults logic (save / reset).
-export const createFactorySafeguardBuilderDefaults = (): Omit<SafeguardRule, 'id'> => ({
+// draft. Used to seed user-defaults logic (save / reset).
+export const createFactorySafeguardBuilderDefaults = (): SafeguardRule => ({
   combination: { slots: [], sets: [], metaSetNames: [], ranks: [], rarities: [], mainStats: [], factions: [] },
   name: '',
   requiredCount: 1,
@@ -352,7 +351,7 @@ export const createFactorySafeguardBuilderDefaults = (): Omit<SafeguardRule, 'id
 // Extracts the content fields of a SafeguardRule in the same stable key order as
 // createFactorySafeguardBuilderDefaults. Used as the SSOT for equality checks:
 // isDefaultRule (vs effective defaults) and dirty detection (vs selected rule).
-export const createSafeguardRuleContentSnapshot = (rule: SafeguardRule): Omit<SafeguardRule, 'id'> => ({
+export const createSafeguardRuleContentSnapshot = (rule: SafeguardRule): SafeguardRule => ({
   combination: rule.combination,
   name: rule.name ?? '',
   requiredCount: rule.requiredCount,
@@ -401,7 +400,8 @@ export type SafeguardCandidateOut = {
 export type SafeguardDetectionEntry = {
   hash: string
   combination: SafeguardCombination
-  ruleId: string | null
+  // 1-based ordinal of the rule that generated this entry; null for unmatched entries.
+  ruleOrdinal: number | null
   ruleActivation: SafeguardRuleActivation
   // Carry the scope metadata so the UI can explain how totals were derived.
   countMode: SafeguardRuleCountMode
@@ -484,12 +484,6 @@ export type SafeguardCollectAndDetectSnapshot = {
   detection: SafeguardDetectionSnapshot
 }
 
-/** Generate a short, unique id for combination rules. */
-export function createSafeguardRuleId(): string {
-  const rand = Math.random().toString(36).slice(2, 10)
-  return `ku_${Date.now().toString(36)}_${rand}`
-}
-
 /** Canonical hash for combination comparisons and metadata lookups. */
 export function hashSafeguardCombination(combination: SafeguardCombination): string {
   // Delegate canonical hash construction to wasm so TS does not duplicate rules.
@@ -518,12 +512,6 @@ const rarityCodeByName = new Map<string, RankValue>(
     .filter(([, name]) => Boolean(name && name.trim()))
     .map(([id, name]) => [name.trim().toLowerCase(), Math.max(RANK_VALUE_MIN, Math.min(RANK_VALUE_MAX, Number(id))) as RankValue]),
 )
-
-// buildNormalizedSafeguardRuleId keeps generated ids deterministic per call
-// while preserving existing random-prefix behavior across imports/paste.
-const buildNormalizedSafeguardRuleId = (): string => {
-  return createSafeguardRuleId()
-}
 
 // Narrow unknown values before property reads so normalization stays type-safe.
 const toRecord = (value: unknown): Record<string, unknown> | null => (
@@ -774,14 +762,11 @@ export function normalizeSafeguardCombination(value: unknown): SafeguardCombinat
 export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   const record = unwrapSafeguardRuleRecord(value)
   if (!record) return null
-  const generatedRuleId = buildNormalizedSafeguardRuleId()
   const combinationSource = record.combination ?? record.tuple ?? value
   const combination = normalizeSafeguardCombination(combinationSource)
   if (!combination) return null
 
-  // IDs are not persisted in SFR exports; always generate a fresh one on load.
-  // Legacy files that carry an `id` field are tolerated but the value is ignored.
-  const id = generatedRuleId
+  // IDs are not persisted; the `id` field on legacy payloads is ignored.
   const name = typeof record.name === 'string' ? record.name.trim() : ''
   const requiredCount = Math.max(1, toFiniteFloor(record.requiredCount) ?? 1)
   const countMode = (
@@ -824,7 +809,6 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   // Run the substat-dependents gate so no caller receives a rule where
   // beat-equipped or weights are set without any substats to back them.
   return normalizeSafeguardSubstatDependents({
-    id,
     name,
     combination,
     requiredCount,
@@ -1350,7 +1334,8 @@ export function resolveSafeguardRuleLabel(source: SafeguardLabelSource): string 
     return null
   })()
   if (ordinal) return `#${ordinal}`
-  const fallbackId = 'name' in source ? source.id : source.__safeguardRuleId
+  // Fall back to the legacy __safeguardRuleId stamp on injected HSF rows (HsfRuleWithRecipe).
+  const fallbackId = 'name' in source ? null : source.__safeguardRuleId
   if (typeof fallbackId === 'string') {
     const trimmed = fallbackId.trim()
     if (trimmed.length > 0) return `#${trimmed}`

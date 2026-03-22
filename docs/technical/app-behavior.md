@@ -121,11 +121,23 @@ This document captures runtime behavior, builder interactions, and user-facing w
   - **Name-only edits:** when the rule fingerprint is unchanged and only recipe names differ, the preview rows update the stored recipe labels in place and skip the worker entirely. Matches and detection remain intact because rule keys did not change.
   - **Restore safety:** autosave restores sometimes surface before deferred snapshots populate; the pipeline now falls back to immediate recipes/metasets/substatTargets to avoid sending an empty payload (which previously yielded final-sell-only previews). A retry guard forces one full warm+match pass if recipes exist but both base and custom rule counts come back zero.
 
-### Recipe selection identity
+### Recipe and safeguard rule identity
 
-- The chips panel and history stack track recipes by object identity so reorders can map selections back onto the mutated array without diffing every field. Whenever an operation produces a new recipe (builder insert, duplicate, reorder-copy, clipboard paste, tutorial snapshot), call `cloneBuilderRecipe` from `src/lib/multiEditDraft.ts` before writing it into `customRecipes`.
-- Never push shared references into the recipes array; identical payloads must still be distinct objects so selection updates don’t accidentally sweep every matching recipe. `cloneBuilderRecipe` reuses the per-field clone helpers, so nested arrays (`substatsV`, `artifactSets`, etc.) are detached as well.
-- When updating an existing recipe (e.g., “Apply Builder”), clone the builder draft once and reuse that object for both history descriptors and the `setCustomRecipes` call. This keeps undo/redo snapshots aligned with the chip identity the selection logic will reference after the update.
+Recipes and safeguard rules both use **array index** as their runtime identity — neither type carries a persistent `id` field.
+
+**Recipes (`BuilderRecipe`):**
+- Selection state is `selectedRecipeIdx: number | null`; multi-select is `selectedRecipeIndices: number[]`.
+- Reorder stability: the chips panel tracks selection across reorders via JS object identity (`mapSelectionByIdentity` in `useRecipeSelection`) — the same object reference found at a new index keeps the selection live.
+- Autosave restores `SelectedRecipeIndex` with bounds-checking; if the index is out of range the selection falls back to the last recipe.
+- Whenever an operation produces a new recipe (builder insert, duplicate, reorder-copy, clipboard paste, tutorial snapshot), call `cloneBuilderRecipe` from `src/lib/multiEditDraft.ts` before writing it into `customRecipes`. Never push shared references — identical payloads must be distinct objects so selection doesn’t sweep every matching recipe.
+- When updating an existing recipe (“Apply Builder”), clone the builder draft once and reuse that object for both history descriptors and `setCustomRecipes`. This keeps undo/redo snapshots aligned with the chip identity the selection logic references after the update.
+
+**Safeguard rules (`SafeguardRule`):**
+- Selection state is `selectedSafeguardRuleIdx: number | null`; multi-select is `selectedRuleIndices: number[]` managed by `useSafeguardSelection`.
+- Reorder stability: same JS object identity approach as recipes (`mapSelectionByIdentity` equivalent inside `useSafeguardSelection.handleRuleReorder`).
+- Autosave restores `SelectedSafeguardRuleIdx` with bounds-checking.
+- Detection cross-referencing uses `ruleOrdinal` (1-based, matching `__safeguardRuleOrdinal` on injected HSF rows), not a string ID. The Rust engine stamps `ruleOrdinal` on every `SafeguardDetectionEntry`; `build_safeguard_rules_core` matches detection entries to rules by ordinal first, falling back to the legacy `rule_id` field for snapshots produced before this scheme.
+- History diffing (`diffSafeguardRules`) uses content-signature-based matching so pure reorders yield `totalChanges = 0` and are correctly recorded as “Reordered” rather than “N rules updated”.
 
 ## Safeguards
 

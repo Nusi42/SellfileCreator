@@ -411,6 +411,9 @@ struct SafeguardWasmEntryOut {
     hash: String,
     combination: SafeguardWasmCombination,
     rule_id: Option<String>,
+    // 1-based position of this rule in the input list; matches __safeguardRuleOrdinal on HSF rules.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    rule_ordinal: Option<i64>,
     rule_activation: String,
     count_mode: SafeguardWasmCountMode,
     per_group_required_count: i64,
@@ -1775,11 +1778,17 @@ pub fn build_safeguard_rules_core(
         return Vec::<RuleRaw>::new();
     };
 
-    // Build lookup map by normalized rule id.
+    // Build lookup maps by normalized rule id and by ordinal (1-based).
+    // Ordinal-keyed map is preferred when entries carry rule_ordinal (new format);
+    // id-keyed map remains for legacy detection snapshots that carry only rule_id.
     let mut detection_by_rule_id = HashMap::<String, &SafeguardWasmEntryOut>::new();
+    let mut detection_by_ordinal = HashMap::<i64, &SafeguardWasmEntryOut>::new();
     for entry in &detection_snapshot.entries {
         if let Some(rule_id) = entry.rule_id.as_deref() {
             detection_by_rule_id.insert(rule_id.to_string(), entry);
+        }
+        if let Some(ordinal) = entry.rule_ordinal {
+            detection_by_ordinal.insert(ordinal, entry);
         }
     }
 
@@ -1807,7 +1816,11 @@ pub fn build_safeguard_rules_core(
         if safeguard_is_activation_off(&activation) {
             continue;
         }
-        let entry = detection_by_rule_id.get(rule_id.as_str()).copied();
+        // Prefer ordinal-based lookup (new format); fall back to id-based (legacy).
+        let entry = detection_by_ordinal
+            .get(&safeguard_rule_ordinal)
+            .or_else(|| detection_by_rule_id.get(rule_id.as_str()))
+            .copied();
         let Some(entry) = entry else {
             continue;
         };
@@ -2701,6 +2714,7 @@ fn safeguard_build_entry_for_substats(
                 hash: prepared_rule.hash.clone(),
                 combination: prepared_rule.combination.clone(),
                 rule_id: Some(prepared_rule.id.clone()),
+                rule_ordinal: None, // stamped by outer loop
                 rule_activation: prepared_rule.activation.clone(),
                 count_mode: prepared_rule.count_mode,
                 per_group_required_count: required_per_group,
@@ -2788,6 +2802,7 @@ fn safeguard_build_entry_for_substats(
                 hash: prepared_rule.hash.clone(),
                 combination: prepared_rule.combination.clone(),
                 rule_id: Some(prepared_rule.id.clone()),
+                rule_ordinal: None, // stamped by outer loop
                 rule_activation: prepared_rule.activation.clone(),
                 count_mode: prepared_rule.count_mode,
                 per_group_required_count: required_per_group,
@@ -2995,6 +3010,7 @@ fn safeguard_build_entry_for_substats(
             hash: prepared_rule.hash.clone(),
             combination: prepared_rule.combination.clone(),
             rule_id: Some(prepared_rule.id.clone()),
+            rule_ordinal: None, // stamped by outer loop
             rule_activation: prepared_rule.activation.clone(),
             count_mode: prepared_rule.count_mode,
             per_group_required_count: required_per_group,
@@ -3073,6 +3089,7 @@ fn safeguard_merge_substat_entries(
             hash: prepared_rule.hash.clone(),
             combination: prepared_rule.combination.clone(),
             rule_id: Some(prepared_rule.id.clone()),
+            rule_ordinal: None, // stamped by outer loop
             rule_activation: prepared_rule.activation.clone(),
             count_mode: prepared_rule.count_mode,
             per_group_required_count: required_per_group,
@@ -3203,6 +3220,9 @@ fn compute_safeguard_protection_core(
 
     // Evaluate each prepared rule and build entry payloads.
     let mut entries = Vec::<SafeguardWasmEntryOut>::new();
+    // 1-based ordinal counter — matches the __safeguardRuleOrdinal stamped by build_safeguard_rules_core
+    // so TypeScript can cross-reference detection entries back to the rule list by position.
+    let mut rule_ordinal = 0i64;
     for prepared_rule in &prepared_rules {
         // Per-rule toggle decides whether this rule sees prior safeguard selections.
         let candidate_sold_state = if prepared_rule.ignore_previous_safeguards {
@@ -3247,6 +3267,7 @@ fn compute_safeguard_protection_core(
                 effective_match,
             )
         };
+        rule_ordinal += 1;
         // Active safeguards always contribute to cumulative state for later rules.
         if prepared_rule.rule_active {
             for candidate_idx in &eval_result.selected_candidate_indices {
@@ -3256,7 +3277,10 @@ fn compute_safeguard_protection_core(
                 cumulative_candidate_sold_state[*candidate_idx] = false;
             }
         }
-        entries.push(eval_result.entry);
+        let mut entry = eval_result.entry;
+        // Stamp ordinal so TypeScript can reference back to the rule by position.
+        entry.rule_ordinal = Some(rule_ordinal);
+        entries.push(entry);
     }
 
     // Snapshot timestamp is sanitized to finite number for stable payloads.

@@ -201,7 +201,6 @@ const buildTutorialGearInspectorItems = (): GearInspectorItem[] => [
 ]
 
 const buildTutorialSafeguardRules = (): SafeguardRule[] => [{
-  id: 'tutorial-refresh-safeguard',
   name: 'Refresh RES Banner',
   combination: {
     slots: [ArtifactType.Banner],
@@ -276,8 +275,8 @@ export type UseTutorialCoachStateParams = {
   setLogicHubDialogTab: Dispatch<SetStateAction<LogicHubDialogTab>>
   safeguardRules: SafeguardRule[]
   setSafeguardRules: Dispatch<SetStateAction<SafeguardRule[]>>
-  selectedSafeguardRuleId: string | null
-  setSelectedSafeguardRuleId: Dispatch<SetStateAction<string | null>>
+  selectedSafeguardRuleIdx: number | null
+  setSelectedSafeguardRuleIdx: Dispatch<SetStateAction<number | null>>
   setSafeguardBuilder: Dispatch<SetStateAction<SafeguardRule>>
   safeguardsEnabled: boolean
   setSafeguardsEnabled: Dispatch<SetStateAction<boolean>>
@@ -341,8 +340,8 @@ export function useTutorialCoachState({
   setLogicHubDialogTab,
   safeguardRules,
   setSafeguardRules,
-  selectedSafeguardRuleId: _selectedSafeguardRuleId,
-  setSelectedSafeguardRuleId,
+  selectedSafeguardRuleIdx: _selectedSafeguardRuleIdx,
+  setSelectedSafeguardRuleIdx,
   setSafeguardBuilder,
   safeguardsEnabled,
   setSafeguardsEnabled,
@@ -593,7 +592,7 @@ export function useTutorialCoachState({
         setSubstatTargets(snap.substatTargets)
         setFinalSellRemainder(snap.fsr)
         setSafeguardRules(snap.safeguardRules)
-        setSelectedSafeguardRuleId(null)
+        setSelectedSafeguardRuleIdx(null)
         setSafeguardsEnabled(snap.safeguardsEnabled)
         setRecipesEnabled(snap.recipesEnabled)
         setSfrNote(snap.note)
@@ -614,7 +613,7 @@ export function useTutorialCoachState({
     setSubstatTargets,
     setSelectedRecipeIdx,
     setSafeguardRules,
-    setSelectedSafeguardRuleId,
+    setSelectedSafeguardRuleIdx,
     setSafeguardsEnabled,
     setRecipesEnabled,
     setGearInspectorItems,
@@ -859,7 +858,7 @@ export function useTutorialCoachState({
       // Always start in Recipe Builder mode so the first steps target the right panel.
       setBuilderMode('recipe')
       setSafeguardRules([])
-      setSelectedSafeguardRuleId(null)
+      setSelectedSafeguardRuleIdx(null)
       // Reset to app defaults: both toggles on, no safeguard rules to interfere.
       setSafeguardsEnabled(true)
       setRecipesEnabled(true)
@@ -1412,7 +1411,7 @@ export function useTutorialCoachState({
           // Switch to Safeguard Builder mode — no rule added yet; the form starts blank.
           setBuilderMode('safeguard')
           setSafeguardRules([])
-          setSelectedSafeguardRuleId(null)
+          setSelectedSafeguardRuleIdx(null)
           setSafeguardsEnabled(true)
         },
       },
@@ -1432,7 +1431,8 @@ export function useTutorialCoachState({
           // Mirror handleSelectSafeguardRule: set selection AND load the rule into the builder
           // so the form controls reflect its values, exactly as a manual chip click would.
           const rule = rules[0]
-          if (rule) { setSelectedSafeguardRuleId(rule.id); setSafeguardBuilder(cloneSafeguardRule(rule)) }
+          // Select by index (0 = first/only rule); mirrors handleSelectSafeguardRule.
+          if (rule) { setSelectedSafeguardRuleIdx(0); setSafeguardBuilder(cloneSafeguardRule(rule)) }
         },
       },
       {
@@ -1515,7 +1515,7 @@ export function useTutorialCoachState({
     setSafeguardRules,
     setSafeguardsEnabled,
     setRecipesEnabled,
-    setSelectedSafeguardRuleId,
+    setSelectedSafeguardRuleIdx,
     setTutorialAddedAutoLate,
     setTutorialAddedAdvanced,
     setTutorialAddedBasic,

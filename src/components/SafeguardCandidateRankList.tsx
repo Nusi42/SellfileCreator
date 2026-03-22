@@ -136,9 +136,9 @@ export type SafeguardCandidateRankListProps = {
   // Name of the current safeguard rule — shown as the match source label when a candidate
   // is kept by this safeguard (isWithinQuota = true).
   ruleName?: string
-  // Unique ID of the current safeguard rule — used for identity comparisons (avoids
-  // false matches when two rules share a display name).
-  ruleId?: string
+  // 1-based ordinal of the current safeguard rule — used for identity comparisons.
+  // Replaces the old ruleOrdinal approach now that SafeguardRule carries no id field.
+  ruleOrdinal?: number
 }
 
 export default function SafeguardCandidateRankList({
@@ -157,7 +157,7 @@ export default function SafeguardCandidateRankList({
   onSelectCandidate,
   visibleItemKeys,
   ruleName,
-  ruleId,
+  ruleOrdinal,
   countMode,
 }: SafeguardCandidateRankListProps) {
   const { t } = useI18n()
@@ -226,7 +226,7 @@ export default function SafeguardCandidateRankList({
           substats={substats}
           weights={weights}
           ruleName={ruleName}
-          ruleId={ruleId}
+          ruleOrdinal={ruleOrdinal}
           mainstatCellWidthPx={mainstatCellWidthPx}
           substatCellWidthPx={substatCellWidthPx}
           isFiltered={visibleItemKeys != null && !visibleItemKeys.has(candidate.itemKey)}
@@ -270,7 +270,7 @@ export default function SafeguardCandidateRankList({
           substats={substats}
           weights={weights}
           ruleName={ruleName}
-          ruleId={ruleId}
+          ruleOrdinal={ruleOrdinal}
           mainstatCellWidthPx={mainstatCellWidthPx}
           substatCellWidthPx={substatCellWidthPx}
           isFiltered={visibleItemKeys != null && !visibleItemKeys.has(candidate.itemKey)}
@@ -298,7 +298,7 @@ function CandidateRow({
   substats,
   weights,
   ruleName,
-  ruleId,
+  ruleOrdinal,
   mainstatCellWidthPx,
   substatCellWidthPx,
   isFiltered,
@@ -317,7 +317,7 @@ function CandidateRow({
   substats: StatVariant[]
   weights: Partial<Record<StatVariant, number>>
   ruleName: string | undefined
-  ruleId: string | undefined
+  ruleOrdinal: number | undefined
   // Uniform fixed pixel width for the mainstat cell — measured from the longest label at runtime.
   mainstatCellWidthPx: number
   // Uniform fixed pixel width for every substat cell — measured from the longest label + roll glyph.
@@ -433,7 +433,8 @@ function CandidateRow({
         //   filtered    + this rule   → 0.55 (filtered but notable)
         //   filtered    + other       → 0.4  (most dimmed)
         opacity: (() => {
-          const isThisRule = previewRow?.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match.safeguardRuleId === ruleId
+          // Use ordinal for identity — safeguardRuleId is legacy and always null in new sessions.
+          const isThisRule = previewRow?.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match.safeguardRuleOrdinal === ruleOrdinal
           return isFiltered ? (isThisRule ? 0.55 : 0.4) : (isThisRule ? 1.0 : 0.75)
         })(),
         cursor: onSelectCandidate ? 'pointer' : 'default',

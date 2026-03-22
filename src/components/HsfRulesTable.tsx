@@ -101,7 +101,8 @@ const resolveDisplayRecipeIdx = (rule: HsfRuleWithRecipe | null | undefined): nu
 }
 
 export type SafeguardStarSelection = {
-  safeguardRuleId: string | null
+  // 1-based ordinal matching __safeguardRuleOrdinal on HsfRuleWithRecipe; null for malformed rows.
+  safeguardRuleOrdinal: number | null
   safeguardItemKey: number | null
   isPlaceholder: boolean
 }
@@ -451,8 +452,8 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     return resolveMatchRecipeName(recipeIdx, recipeNames, rule) ?? ''
   }, [recipeNames, t])
   const handleSafeguardStarClick = useCallback((rule: HsfRuleWithRecipe) => {
-    // Safeguard injections carry the source safeguard id for cross-view routing.
-    const rawRuleId = typeof rule.__safeguardRuleId === 'string' ? rule.__safeguardRuleId.trim() : ''
+    // Safeguard rows carry a 1-based ordinal for cross-view routing.
+    const ruleOrdinal = typeof rule.__safeguardRuleOrdinal === 'number' ? rule.__safeguardRuleOrdinal : null
     // Real safeguard matches carry an item key; placeholder gaps do not.
     const safeguardItemKey = (
       typeof rule.__safeguardItemKey === 'number'
@@ -461,7 +462,7 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
       ? rule.__safeguardItemKey
       : null
     onSelectSafeguardRule?.({
-      safeguardRuleId: rawRuleId.length > 0 ? rawRuleId : null,
+      safeguardRuleOrdinal: ruleOrdinal,
       safeguardItemKey,
       isPlaceholder: rule.__safeguardPlaceholder === true,
     })
@@ -1436,7 +1437,6 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                                     handleSafeguardStarClick(rule)
                                   }}
                                   data-safeguard-star="true"
-                                  data-safeguard-rule-id={rule.__safeguardRuleId ?? ''}
                                   sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', borderRadius: 0 }}
                                   aria-label={previewRuleName}
                                 >

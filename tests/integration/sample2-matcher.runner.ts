@@ -75,6 +75,8 @@ const toPreviewMatch = (
     ruleIndex: result.ruleIndex ?? null,
     ruleLabel: null,
     ruleSource: matchedRule?.__source ?? null,
+    safeguardRuleId: null,
+    safeguardRuleOrdinal: null,
   }
 }
 

@@ -143,8 +143,8 @@ type GearInspectorItemsGridProps = {
   // Optional callback when the requested artifact is hidden by active Gear Inspector filters.
   onFocusArtifactFilteredOut?: ((artifactId: number) => void) | undefined
   onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null) => void) | undefined
-  // Optional safeguard deep-link used by the upgrade chance overlay click action.
-  onJumpToSafeguardRule?: ((ruleId: string) => void) | undefined
+  // Navigate to the safeguard rule at this 0-based index in the Safeguard Builder.
+  onJumpToSafeguardRule?: ((ruleIdx: number) => void) | undefined
   onCreateRuleTemplate?: ((row: GearInspectorPreviewRow, intent: GearInspectorRuleTemplateIntent) => void) | undefined
   variant?: GearInspectorItemsGridVariant
   safeguardsEnabled?: boolean
@@ -173,11 +173,11 @@ type GearInspectorItemsGridProps = {
   grouping?: GearInspectorGroupingState
   // Resolved safeguard rules used for tooltip rule-name lookup in the upgrade-chance overlay.
   safeguardRules?: readonly SafeguardRule[]
-  // Optional safeguard rank overlay: artifact-id → { rank, isWithinQuota, ruleId, otherRules }.
+  // Optional safeguard rank overlay: artifact-id → { rank, isWithinQuota, ruleOrdinal, otherRules }.
   // When present, ranked items show "#N" bottom chip.
-  // ruleId: the rule that gave this artifact its best rank (for click-to-jump + tooltip).
-  // otherRules: up to 3 other rules where this artifact is also a candidate (rank + ruleId for table tooltip).
-  safeguardRankByArtifactId?: ReadonlyMap<number, { rank: number; isWithinQuota: boolean; ruleId: string | null; otherRules: Array<{ ruleId: string; rank: number }> }> | null
+  // ruleOrdinal (1-based): the rule that gave this artifact its best rank (click-to-jump + tooltip).
+  // otherRules: up to 3 other rules where this artifact is also a candidate (rank + ruleOrdinal).
+  safeguardRankByArtifactId?: ReadonlyMap<number, { rank: number; isWithinQuota: boolean; ruleOrdinal: number | null; otherRules: Array<{ ruleOrdinal: number; rank: number }> }> | null
   // Opaque key that changes when the active filter selection changes (not on DB updates).
   // When this key changes, card entering animations are suppressed (the filter changed,
   // not the underlying data) while group chips can still pulse for newly-visible groups.
@@ -242,8 +242,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     substatSort = null,
     sortState = null,
     grouping = GEAR_INSPECTOR_GROUPING_DEFAULT_STATE,
-    safeguardRules = [],
     upgradeChanceByArtifactId = null,
+    safeguardRules,
     safeguardRankByArtifactId = null,
     enterKey = undefined,
   } = props
@@ -415,15 +415,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     () => (effectiveSubstatSort?.priorities ?? []).some((key) => Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK),
     [effectiveSubstatSort?.priorities],
   )
-  const safeguardRuleById = useMemo(() => {
-    const map = new Map<string, SafeguardRule>()
-    for (const rule of safeguardRules) {
-      const normalizedRuleId = typeof rule.id === 'string' ? rule.id.trim() : ''
-      if (!normalizedRuleId) continue
-      map.set(normalizedRuleId, rule)
-    }
-    return map
-  }, [safeguardRules])
   // Pre-computed by the WASM worker; coalesce null to a stable empty map so downstream memo deps don't thrash.
   const safeguardUpgradeChanceByArtifactId = useMemo<Map<number, UpgradeChanceWasmEntry>>(
     () => upgradeChanceByArtifactId ?? new Map(),
@@ -513,8 +504,10 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     for (const [artifactId, entry] of matchedEntries) {
       const ratio = range > 0 ? (entry.chancePercent - min) / range : 1
       const color = rgbToCss(mixRgb(lowRgb, highRgb, ratio))
-      const normalizedRuleId = typeof entry.matchedRuleId === 'string' ? entry.matchedRuleId.trim() : ''
-      const matchedRule = normalizedRuleId ? (safeguardRuleById.get(normalizedRuleId) ?? null) : null
+      // Ordinal is 1-based; convert to 0-based index for the safeguardRules array.
+      const matchedRule = (entry.ruleOrdinal != null && safeguardRules)
+        ? (safeguardRules[entry.ruleOrdinal - 1] ?? null)
+        : null
       const selectedSubstats = entry.debug?.selectedSubstats?.length
         ? entry.debug.selectedSubstats
         : normalizeSelectedSubstatsForTooltip(matchedRule?.substats ?? [])
@@ -664,22 +657,24 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           </Box>
         </Box>
       ) : undefined
-      const canJumpToSafeguard = normalizedRuleId.length > 0 && typeof onJumpToSafeguardRule === 'function'
+      // Click navigates to the matched safeguard rule in the builder; requires a valid ordinal.
+      const ruleIdx = entry.ruleOrdinal != null ? entry.ruleOrdinal - 1 : -1
+      const canJumpToSafeguard = ruleIdx >= 0 && typeof onJumpToSafeguardRule === 'function'
       overlays.set(artifactId, {
         text: `${entry.chancePercent}%`,
         color,
         tooltipMarkdown,
         ...(tooltipRender ? { tooltipRender } : {}),
-        ...(canJumpToSafeguard ? { onClick: () => onJumpToSafeguardRule(normalizedRuleId) } : {}),
+        ...(canJumpToSafeguard ? { onClick: () => onJumpToSafeguardRule(ruleIdx) } : {}),
       })
     }
     return overlays
   }, [
     allRows,
-    onJumpToSafeguardRule,
     numberFormatter,
+    onJumpToSafeguardRule,
     rows,
-    safeguardRuleById,
+    safeguardRules,
     safeguardUpgradeChanceByArtifactId,
     showSafeguardUpgradeChance,
     substatColors,
@@ -697,21 +692,21 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     }
     // Entry shape: chip data + JSX tooltipRender (MarkdownTooltip custom parser has no table support).
     const overlays = new Map<number, { text: string; color?: string; onClick?: () => void; tooltipRender: React.ReactNode }>()
-    safeguardRankByArtifactId.forEach(({ rank, isWithinQuota, ruleId, otherRules }, artifactId) => {
+    safeguardRankByArtifactId.forEach(({ rank, isWithinQuota, ruleOrdinal, otherRules }, artifactId) => {
       if (rank <= 0) return
       // Resolve chip color: green = kept, red = sold.
       const color = isWithinQuota
         ? theme.palette.success.main
         : theme.palette.error.main
       // Collect named rows: primary rule bold, other rules plain — each with a rank badge.
-      const normalizedRuleId = typeof ruleId === 'string' ? ruleId.trim() : ''
-      const primaryRule = normalizedRuleId ? (safeguardRuleById.get(normalizedRuleId) ?? null) : null
+      // ruleOrdinal is 1-based; safeguardRules array is 0-based.
+      const primaryRule = ruleOrdinal != null ? (safeguardRules?.[ruleOrdinal - 1] ?? null) : null
       const primaryRuleName = primaryRule?.name?.trim() || null
       type RankRow = { rank: number; name: string; isPrimary: boolean }
       const rankRows: RankRow[] = []
       if (primaryRuleName) rankRows.push({ rank, name: primaryRuleName, isPrimary: true })
       for (const other of otherRules) {
-        const otherRule = safeguardRuleById.get(other.ruleId)
+        const otherRule = safeguardRules?.[other.ruleOrdinal - 1]
         const otherName = otherRule?.name?.trim()
         if (otherName) rankRows.push({ rank: other.rank, name: otherName, isPrimary: false })
       }
@@ -737,13 +732,14 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           ))}
         </Box>
       ) : null
-      // Click navigates to the primary rule if a jump callback is available.
-      const canJump = normalizedRuleId.length > 0 && typeof onJumpToSafeguardRule === 'function'
-      const onClick = canJump ? () => onJumpToSafeguardRule!(normalizedRuleId) : undefined
+      // Click navigates to the primary rule if a valid ordinal and jump callback are available.
+      const ruleIdx = ruleOrdinal != null ? ruleOrdinal - 1 : -1
+      const canJump = ruleIdx >= 0 && typeof onJumpToSafeguardRule === 'function'
+      const onClick = canJump ? () => onJumpToSafeguardRule!(ruleIdx) : undefined
       overlays.set(artifactId, { text: `#${rank}`, color, tooltipRender, ...(onClick ? { onClick } : {}) })
     })
     return overlays.size > 0 ? overlays : null
-  }, [safeguardRankByArtifactId, onJumpToSafeguardRule, safeguardRuleById, theme.palette.success.main, theme.palette.error.main, t])
+  }, [safeguardRankByArtifactId, onJumpToSafeguardRule, safeguardRules, theme.palette.success.main, theme.palette.error.main, t])
 
   // Gear actions only apply to the Gear Inspector grid and must be explicitly enabled.
   const canShowRuleTemplateActions = variant === 'gearInspector'
