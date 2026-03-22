@@ -4318,20 +4318,35 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return sorted
   }, [gearInspectorPreviewRows])
   // ── Safeguard item-key sets: power the recipe-filter integration in safeguard builder mode ──
+  // Label that resolveSafeguardRuleLabel assigns to the currently-selected rule.
+  // Matches previewRow.match.ruleLabel for items whose first eval match is this rule.
+  const selectedSafeguardRuleLabel = useMemo(() => {
+    if (!selectedSafeguardRuleId) return null
+    const rule = safeguardRules.find((r) => r.id === selectedSafeguardRuleId)
+    return rule ? resolveSafeguardRuleLabel(rule) : null
+  }, [selectedSafeguardRuleId, safeguardRules])
+  // Items whose first eval match is ANY safeguard rule — mirrors recipe-mode "By Match: Any".
   const safeguardAnyMatchItemKeySet = useMemo(() => {
-    if (!safeguardsActive || !safeguardDetection?.entries?.length) return null
+    if (!safeguardsActive || !gearInspectorPreviewRows.length) return null
     const set = new Set<number>()
-    for (const entry of safeguardDetection.entries) {
-      for (const key of entry.itemKeys) set.add(key)
+    for (const row of gearInspectorPreviewRows) {
+      // Only count items whose first (winning) match came from a safeguard rule.
+      if (row.match?.ruleSource === RULE_SOURCE_SAFEGUARDS) set.add(getSafeguardItemKey(row.artifact))
     }
-    return set
-  }, [safeguardsActive, safeguardDetection])
+    return set.size > 0 ? set : null
+  }, [safeguardsActive, gearInspectorPreviewRows])
+  // Items whose first eval match is the currently-selected safeguard rule — mirrors "By Match: First".
   const safeguardSelectedRuleItemKeySet = useMemo(() => {
-    if (!safeguardsActive || !selectedSafeguardRuleId || !safeguardDetection?.entries?.length) return null
-    const entry = safeguardDetection.entries.find((e) => e.ruleId === selectedSafeguardRuleId)
-    if (!entry) return null
-    return new Set<number>(entry.itemKeys)
-  }, [safeguardsActive, safeguardDetection, selectedSafeguardRuleId])
+    if (!safeguardsActive || !selectedSafeguardRuleLabel || !gearInspectorPreviewRows.length) return null
+    const set = new Set<number>()
+    for (const row of gearInspectorPreviewRows) {
+      // Match by ruleSource + ruleLabel so the set reflects true first-match semantics.
+      if (row.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && row.match.ruleLabel === selectedSafeguardRuleLabel) {
+        set.add(getSafeguardItemKey(row.artifact))
+      }
+    }
+    return set.size > 0 ? set : null
+  }, [safeguardsActive, selectedSafeguardRuleLabel, gearInspectorPreviewRows])
   // Full detection entry for the currently-editing safeguard — used to populate
   // the candidate rank list in the weight popover (null when not yet run).
   const safeguardBuilderDetectionEntry = useMemo(() => {
