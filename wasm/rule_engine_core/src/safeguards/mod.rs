@@ -1812,7 +1812,9 @@ pub fn build_safeguard_rules_core(
             continue;
         };
         // Detection rows decide whether this rule has artifact or placeholder output.
-        let should_emit_artifacts = !entry.artifacts.is_empty();
+        // item_keys is the authoritative set of at-risk (sold) items selected for protection.
+        // artifacts may include kept items for UI display; keep-rule emission must not use it.
+        let should_emit_artifacts = !entry.item_keys.is_empty();
         let should_emit_placeholders =
             safeguard_is_activation_anticipate(&activation) && !entry.placeholders.is_empty();
         if !should_emit_artifacts && !should_emit_placeholders {
@@ -1825,8 +1827,15 @@ pub fn build_safeguard_rules_core(
         let normalized_name = safeguard_trim_name(rule.name.as_deref().unwrap_or(""));
 
         if should_emit_artifacts {
+            // Build a fast lookup set from item_keys so we skip kept (non-at-risk) artifacts.
+            // artifacts contains all matched items for UI; only item_keys items need keep rules.
+            let protected_keys: HashSet<i64> = entry.item_keys.iter().copied().collect();
             // Emit one keep rule per item-key + covered level milestone pair.
             for artifact in &entry.artifacts {
+                // Skip artifacts that are not in the at-risk set; they are kept already.
+                if !protected_keys.contains(&artifact.item_key) {
+                    continue;
+                }
                 let levels = safeguard_coverage_levels_for_artifact(artifact);
                 for level in levels {
                     let artifact_key = format!("{}:{level}", artifact.item_key);
