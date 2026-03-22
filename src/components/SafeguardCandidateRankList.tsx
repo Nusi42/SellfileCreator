@@ -136,6 +136,9 @@ export type SafeguardCandidateRankListProps = {
   // Name of the current safeguard rule — shown as the match source label when a candidate
   // is kept by this safeguard (isWithinQuota = true).
   ruleName?: string
+  // Unique ID of the current safeguard rule — used for identity comparisons (avoids
+  // false matches when two rules share a display name).
+  ruleId?: string
 }
 
 export default function SafeguardCandidateRankList({
@@ -154,6 +157,7 @@ export default function SafeguardCandidateRankList({
   onSelectCandidate,
   visibleItemKeys,
   ruleName,
+  ruleId,
   countMode,
 }: SafeguardCandidateRankListProps) {
   const { t } = useI18n()
@@ -222,6 +226,7 @@ export default function SafeguardCandidateRankList({
           substats={substats}
           weights={weights}
           ruleName={ruleName}
+          ruleId={ruleId}
           mainstatCellWidthPx={mainstatCellWidthPx}
           substatCellWidthPx={substatCellWidthPx}
           isFiltered={visibleItemKeys != null && !visibleItemKeys.has(candidate.itemKey)}
@@ -265,6 +270,7 @@ export default function SafeguardCandidateRankList({
           substats={substats}
           weights={weights}
           ruleName={ruleName}
+          ruleId={ruleId}
           mainstatCellWidthPx={mainstatCellWidthPx}
           substatCellWidthPx={substatCellWidthPx}
           isFiltered={visibleItemKeys != null && !visibleItemKeys.has(candidate.itemKey)}
@@ -292,6 +298,7 @@ function CandidateRow({
   substats,
   weights,
   ruleName,
+  ruleId,
   mainstatCellWidthPx,
   substatCellWidthPx,
   isFiltered,
@@ -310,6 +317,7 @@ function CandidateRow({
   substats: StatVariant[]
   weights: Partial<Record<StatVariant, number>>
   ruleName: string | undefined
+  ruleId: string | undefined
   // Uniform fixed pixel width for the mainstat cell — measured from the longest label at runtime.
   mainstatCellWidthPx: number
   // Uniform fixed pixel width for every substat cell — measured from the longest label + roll glyph.
@@ -425,7 +433,7 @@ function CandidateRow({
         //   filtered    + this rule   → 0.55 (filtered but notable)
         //   filtered    + other       → 0.4  (most dimmed)
         opacity: (() => {
-          const isThisRule = previewRow?.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match.ruleLabel === ruleName
+          const isThisRule = previewRow?.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match.safeguardRuleId === ruleId
           return isFiltered ? (isThisRule ? 0.55 : 0.4) : (isThisRule ? 1.0 : 0.75)
         })(),
         cursor: onSelectCandidate ? 'pointer' : 'default',

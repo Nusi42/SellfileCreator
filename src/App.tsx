@@ -1068,6 +1068,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           recipeName: effectiveRecipeName && effectiveRecipeName.length > 0 ? effectiveRecipeName : null,
           ruleLabel: safeguardLabel ?? null,
           ruleSource: rule?.__source ?? null,
+          // Carry the rule's unique ID for identity comparisons (avoids name-collision false matches).
+          safeguardRuleId: rule?.__safeguardRuleId ?? null,
         }
       }
 
@@ -4318,13 +4320,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return sorted
   }, [gearInspectorPreviewRows])
   // ── Safeguard item-key sets: power the recipe-filter integration in safeguard builder mode ──
-  // Label that resolveSafeguardRuleLabel assigns to the currently-selected rule.
-  // Matches previewRow.match.ruleLabel for items whose first eval match is this rule.
-  const selectedSafeguardRuleLabel = useMemo(() => {
-    if (!selectedSafeguardRuleId) return null
-    const rule = safeguardRules.find((r) => r.id === selectedSafeguardRuleId)
-    return rule ? resolveSafeguardRuleLabel(rule) : null
-  }, [selectedSafeguardRuleId, safeguardRules])
   // Items whose first eval match is ANY safeguard rule — mirrors recipe-mode "By Match: Any".
   const safeguardAnyMatchItemKeySet = useMemo(() => {
     if (!safeguardsActive || !gearInspectorPreviewRows.length) return null
@@ -4336,17 +4331,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return set.size > 0 ? set : null
   }, [safeguardsActive, gearInspectorPreviewRows])
   // Items whose first eval match is the currently-selected safeguard rule — mirrors "By Match: First".
+  // Uses safeguardRuleId (the unique rule id on the keep rule) for identity so two rules with
+  // the same display name remain distinct.
   const safeguardSelectedRuleItemKeySet = useMemo(() => {
-    if (!safeguardsActive || !selectedSafeguardRuleLabel || !gearInspectorPreviewRows.length) return null
+    if (!safeguardsActive || !selectedSafeguardRuleId || !gearInspectorPreviewRows.length) return null
     const set = new Set<number>()
     for (const row of gearInspectorPreviewRows) {
-      // Match by ruleSource + ruleLabel so the set reflects true first-match semantics.
-      if (row.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && row.match.ruleLabel === selectedSafeguardRuleLabel) {
+      // Match by ruleSource + safeguardRuleId — immune to name collisions.
+      if (row.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && row.match.safeguardRuleId === selectedSafeguardRuleId) {
         set.add(getSafeguardItemKey(row.artifact))
       }
     }
     return set.size > 0 ? set : null
-  }, [safeguardsActive, selectedSafeguardRuleLabel, gearInspectorPreviewRows])
+  }, [safeguardsActive, selectedSafeguardRuleId, gearInspectorPreviewRows])
   // Full detection entry for the currently-editing safeguard — used to populate
   // the candidate rank list in the weight popover (null when not yet run).
   const safeguardBuilderDetectionEntry = useMemo(() => {

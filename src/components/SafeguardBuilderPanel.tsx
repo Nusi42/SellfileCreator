@@ -2330,6 +2330,7 @@ export default function SafeguardBuilderPanel({
               useStatButtonColors={useStatButtonColors}
               previewRowByItemKey={previewRowByItemKey ?? null}
               {...(rule?.name ? { ruleName: rule.name } : {})}
+              {...(rule?.id ? { ruleId: rule.id } : {})}
               {...(visibleItemKeys != null ? { visibleItemKeys } : {})}
               {...(onSelectCandidate ? { onSelectCandidate } : {})}
             />

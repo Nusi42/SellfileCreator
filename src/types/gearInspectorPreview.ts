@@ -8,6 +8,9 @@ export type GearInspectorPreviewMatch = {
   ruleIndex: number | null
   ruleLabel: string | null
   ruleSource: string | null
+  // Unique rule ID for safeguard keep rules (__safeguardRuleId on HsfRuleWithRecipe).
+  // Null for non-safeguard rules. Used for identity comparisons to avoid name-collision issues.
+  safeguardRuleId: string | null
 }
 
 export type GearInspectorPreviewRow = GearInspectorFilterRow & {
