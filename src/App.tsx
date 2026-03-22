@@ -7157,6 +7157,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 focusArtifactRequest={gearInspectorArtifactFocusRequest}
                 onFocusArtifactFilteredOut={handleGearInspectorFocusArtifactFilteredOut}
                 onJumpToRule={handleGearInspectorRuleView}
+                onJumpToSafeguardRule={openLogicHubSafeguardRule}
                 onCreateRuleTemplate={handleGearInspectorRuleTemplateCreate}
                 suppressMatchDetails={suppressGearInspectorMatchDetails}
                 contextGroupById={gearInspectorContextGroupById}

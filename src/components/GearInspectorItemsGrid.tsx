@@ -143,6 +143,8 @@ type GearInspectorItemsGridProps = {
   // Optional callback when the requested artifact is hidden by active Gear Inspector filters.
   onFocusArtifactFilteredOut?: ((artifactId: number) => void) | undefined
   onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null) => void) | undefined
+  // Navigate to the safeguard rule at this 0-based index in the Safeguard Builder.
+  onJumpToSafeguardRule?: ((ruleIdx: number) => void) | undefined
   onCreateRuleTemplate?: ((row: GearInspectorPreviewRow, intent: GearInspectorRuleTemplateIntent) => void) | undefined
   variant?: GearInspectorItemsGridVariant
   safeguardsEnabled?: boolean
@@ -217,6 +219,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     focusArtifactRequest = null,
     onFocusArtifactFilteredOut,
     onJumpToRule,
+    onJumpToSafeguardRule,
     onCreateRuleTemplate,
     variant = 'gearInspector',
     safeguardsEnabled = true,
@@ -235,6 +238,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     sortState = null,
     grouping = GEAR_INSPECTOR_GROUPING_DEFAULT_STATE,
     upgradeChanceByArtifactId = null,
+    safeguardRules,
     enterKey = undefined,
   } = props
   // Variant flags control keep-override behavior without forking the grid.
@@ -471,9 +475,10 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     for (const [artifactId, entry] of matchedEntries) {
       const ratio = range > 0 ? (entry.chancePercent - min) / range : 1
       const color = rgbToCss(mixRgb(lowRgb, highRgb, ratio))
-      // matchedRuleId from WASM is a hash, not a SafeguardRule identity; ordinal-based lookup
-      // is not yet available (pending Phase 1 Rust rebuild). Graceful fallback to debug data.
-      const matchedRule = null as SafeguardRule | null
+      // Ordinal is 1-based; convert to 0-based index for the safeguardRules array.
+      const matchedRule = (entry.ruleOrdinal != null && safeguardRules)
+        ? (safeguardRules[entry.ruleOrdinal - 1] ?? null)
+        : null
       const selectedSubstats = entry.debug?.selectedSubstats?.length
         ? entry.debug.selectedSubstats
         : normalizeSelectedSubstatsForTooltip(matchedRule?.substats ?? [])
@@ -623,19 +628,24 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           </Box>
         </Box>
       ) : undefined
-      // Jump-to-safeguard is disabled until the WASM upgrade-chance path emits rule ordinals.
+      // Click navigates to the matched safeguard rule in the builder; requires a valid ordinal.
+      const ruleIdx = entry.ruleOrdinal != null ? entry.ruleOrdinal - 1 : -1
+      const canJumpToSafeguard = ruleIdx >= 0 && typeof onJumpToSafeguardRule === 'function'
       overlays.set(artifactId, {
         text: `${entry.chancePercent}%`,
         color,
         tooltipMarkdown,
         ...(tooltipRender ? { tooltipRender } : {}),
+        ...(canJumpToSafeguard ? { onClick: () => onJumpToSafeguardRule(ruleIdx) } : {}),
       })
     }
     return overlays
   }, [
     allRows,
     numberFormatter,
+    onJumpToSafeguardRule,
     rows,
+    safeguardRules,
     safeguardUpgradeChanceByArtifactId,
     showSafeguardUpgradeChance,
     substatColors,

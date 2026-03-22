@@ -431,7 +431,10 @@ export type UpgradeChanceWasmEntry = {
   artifactId: number
   chancePercent: number
   hasMatchingSafeguard: boolean
+  // Legacy field; always null now that SafeguardRule carries no id. Kept for deserialization compat.
   matchedRuleId: string | null
+  // 1-based ordinal of the preferred safeguard rule; null when no rule matched.
+  ruleOrdinal: number | null
   debug: UpgradeChanceWasmDebug | null
 }
 
