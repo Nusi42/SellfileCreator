@@ -56,6 +56,7 @@ export type RestoreDraft = {
   SafeguardsEnabled?: boolean
   RecipesEnabled?: boolean
   SelectedRecipeIndex?: number
+  SelectedSafeguardRuleId?: string
   Note?: string
   NoteRecipeOverridesAnswers?: NoteRecipeOverridesAnswers
   NoteRecipeOverridesDisabled?: boolean
@@ -399,6 +400,16 @@ function computeInitialAutosaveState(args: {
       if (!essentiallyDefault) {
         const payload = entry.payload as Record<string, unknown>
         const savedAtRaw = typeof payload['AutosaveSavedAt'] === 'string' ? payload['AutosaveSavedAt'] : null
+        // Read selected recipe index from the raw payload (parseSfrObject always returns 0 — not useful here).
+        const rawSelIdx = payload['SelectedRecipeIndex']
+        const savedRecipeSelIdx = typeof rawSelIdx === 'number' && rawSelIdx >= 0 && rawSelIdx < recipes.length
+          ? rawSelIdx
+          : null
+        // Read selected safeguard rule ID from the raw payload; validate it exists in the saved rule list.
+        const rawSelSgId = payload['SelectedSafeguardRuleId']
+        const savedSgSelId = typeof rawSelSgId === 'string' && savedSafeguards.some((r) => r.id === rawSelSgId)
+          ? rawSelSgId
+          : null
         return {
           restoreDlgOpen: true,
           restoreDraft: {
@@ -410,7 +421,8 @@ function computeInitialAutosaveState(args: {
             ...(savedSafeguards.length ? { Safeguards: savedSafeguards } : {}),
             ...(savedKeepEnabled ? { SafeguardsEnabled: savedKeepEnabled } : {}),
             ...(savedGridFilterMode ? { SafeguardsGridFilterMode: savedGridFilterMode } : {}),
-            ...(parsed.selectedIndex != null ? { SelectedRecipeIndex: parsed.selectedIndex } : {}),
+            ...(savedRecipeSelIdx != null ? { SelectedRecipeIndex: savedRecipeSelIdx } : {}),
+            ...(savedSgSelId ? { SelectedSafeguardRuleId: savedSgSelId } : {}),
             ...(parsed.note ? { Note: parsed.note } : {}),
             ...(savedRecipeOverridesAnswers ? { [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]: savedRecipeOverridesAnswers } : {}),
             ...(savedRecipeOverridesDisabled ? { [NOTE_RECIPE_OVERRIDES_DISABLED_KEY]: true } : {}),
