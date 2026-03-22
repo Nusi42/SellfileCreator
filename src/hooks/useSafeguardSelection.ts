@@ -1,10 +1,9 @@
 /**
  * useSafeguardSelection.ts
  *
- * ID-based multi-select and multi-edit draft hook for SafeguardRule lists.
- * Mirrors the architecture of useRecipeSelection but uses string rule-IDs
- * rather than numeric indices because safeguards have stable UUIDs, which
- * makes selection mapping across reorders trivial.
+ * Index-based multi-select and multi-edit draft hook for SafeguardRule lists.
+ * Mirrors the architecture of useRecipeSelection but uses numeric indices
+ * rather than string IDs (safeguards have no stable identity field).
  */
 import {
   useCallback,
@@ -18,7 +17,7 @@ import {
 } from 'react'
 import { arraysEqual } from '../lib/array'
 import type { SafeguardRule } from '../lib/safeguards'
-import { cloneSafeguardRule, createSafeguardRuleId } from '../lib/safeguards'
+import { cloneSafeguardRule } from '../lib/safeguards'
 import {
   sanitizeDragIndices,
   moveReorderItems,
@@ -51,15 +50,15 @@ export type UseSafeguardSelectionParams = {
   safeguardRules: SafeguardRule[]
   /** Functional setState for the live rule list (via App.tsx transition wrapper). */
   applySafeguardRulesChange: (value: React.SetStateAction<SafeguardRule[]>) => void
-  /** Currently active rule ID shown in the builder form. */
-  selectedRuleId: string | null
-  setSelectedRuleId: (id: string | null) => void
-  /** Called with (prev, next) ID arrays before a selection change commits; used for auto-apply. */
-  onWillChangeSelection?: ((previous: string[], next: string[]) => void) | undefined
-  /** Scroll the chips panel to a specific rule after selection changes. */
-  onSelectionScrollRequest?: ((ruleId: string) => void) | undefined
-  /** Set of currently visible rule IDs (for filter-aware shift-select). */
-  visibleRuleIdsRef: React.MutableRefObject<ReadonlySet<string> | null>
+  /** Currently active rule index shown in the builder form (null = none). */
+  selectedRuleIdx: number | null
+  setSelectedRuleIdx: (idx: number | null) => void
+  /** Called with (prev, next) index arrays before a selection change commits; used for auto-apply. */
+  onWillChangeSelection?: ((previous: number[], next: number[]) => void) | undefined
+  /** Scroll the chips panel to a specific rule index after selection changes. */
+  onSelectionScrollRequest?: ((ruleIdx: number) => void) | undefined
+  /** Set of currently visible rule indices (for filter-aware shift-select). */
+  visibleRuleIndicesRef: React.MutableRefObject<ReadonlySet<number> | null>
   /**
    * Loads a single rule into the builder draft when selection collapses to one item.
    * Mirrors useRecipeSelection's setBuilder param — call with cloneSafeguardRule(rule).
@@ -68,40 +67,38 @@ export type UseSafeguardSelectionParams = {
 }
 
 export type UseSafeguardSelectionResult = {
-  selectedRuleIds: string[]
-  setSelectedRuleIds: (next: string[], options?: { suppressWillChange?: boolean }) => void
+  selectedRuleIndices: number[]
+  setSelectedRuleIndices: (next: number[], options?: { suppressWillChange?: boolean }) => void
   multiselectActive: boolean
-  selectionAnchor: string | null
+  selectionAnchor: number | null
   multiSelectedRules: SafeguardRule[]
   multiEditDraftState: SafeguardMultiEditDraftState | null
   setMultiEditDraftState: Dispatch<SetStateAction<SafeguardMultiEditDraftState | null>>
   multiEditHandle: SafeguardMultiEditDraftHandle | null
   applyMultiEditDraft: () => void
-  handleRuleSelect: (event: MouseEvent, ruleId: string) => void
-  handleRuleDelete: (ruleId: string) => void
-  handleRuleDuplicate: (ruleId: string) => void
-  handleRuleMoveUp: (ruleId: string) => void
-  handleRuleMoveDown: (ruleId: string) => void
-  handleRuleMoveTop: (ruleId: string) => void
-  handleRuleMoveBottom: (ruleId: string) => void
+  handleRuleSelect: (event: MouseEvent, ruleIdx: number) => void
+  handleRuleDelete: (ruleIdx: number) => void
+  handleRuleDuplicate: (ruleIdx: number) => void
+  handleRuleMoveUp: (ruleIdx: number) => void
+  handleRuleMoveDown: (ruleIdx: number) => void
+  handleRuleMoveTop: (ruleIdx: number) => void
+  handleRuleMoveBottom: (ruleIdx: number) => void
   handleSelectAllRules: () => void
   handleClearSelection: () => void
-  /** Delete all currently-selected rules (keyboard shortcut target — mirrors handleRuleDelete for multi-select). */
+  /** Delete all currently-selected rules (keyboard shortcut target). */
   handleDeleteSelected: () => void
   /**
    * Called by useChipListDnd's onPrepareSelection when a drag gesture starts.
    * Returns the sorted index array to drag: the full selection when the dragged
    * chip is already selected, or collapses selection to just that chip.
-   * Mirrors useRecipeSelection.prepareDragSelection.
    */
   prepareDragSelection: (idx: number) => number[]
   /**
    * Full multi-index reorder handler for useChipListDnd's onReorder.
    * Handles contiguous and non-contiguous multi-rule drags as well as copy mode.
-   * Mirrors useRecipeSelection.handleRecipeReorder.
    */
   handleRuleReorder: (movingIndices: number[], targetIndex: number, options?: { mode?: 'move' | 'copy' }) => void
-  updateSelectionAnchor: Dispatch<SetStateAction<string | null>>
+  updateSelectionAnchor: Dispatch<SetStateAction<number | null>>
 }
 
 type ApplySelectionOptions = { suppressWillChange?: boolean }
@@ -112,119 +109,111 @@ type ApplySelectionOptions = { suppressWillChange?: boolean }
  * useSafeguardSelection
  *
  * Centralizes safeguard rule selection and multi-edit draft state so App.tsx
- * only wires the orchestration. The hook keeps the ID-based selection and
- * anchor in sync with the single-select builder ID, and exposes all handlers
- * consumed by SafeguardChipsPanel and SafeguardBuilderPanel.
+ * only wires the orchestration. The hook uses index-based selection (symmetric
+ * with useRecipeSelection), tracking rule object identity across reorders.
  */
 export function useSafeguardSelection({
   safeguardRules,
   applySafeguardRulesChange,
-  selectedRuleId,
-  setSelectedRuleId,
+  selectedRuleIdx,
+  setSelectedRuleIdx,
   onWillChangeSelection,
   onSelectionScrollRequest,
-  visibleRuleIdsRef,
+  visibleRuleIndicesRef,
   setSafeguardBuilder,
 }: UseSafeguardSelectionParams): UseSafeguardSelectionResult {
-  const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([])
-  const selectionAnchorRef = useRef<string | null>(null)
-  const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null)
-  const selectedIdsRef = useRef<string[]>([])
-  const multiselectActive = selectedRuleIds.length > 1
+  const [selectedRuleIndices, setSelectedRuleIndices] = useState<number[]>([])
+  const selectionAnchorRef = useRef<number | null>(null)
+  const [selectionAnchor, setSelectionAnchor] = useState<number | null>(null)
+  const selectedIndicesRef = useRef<number[]>([])
+  const multiselectActive = selectedRuleIndices.length > 1
 
-  // Derive the multi-selected rule objects from the current ID list.
+  // Derive multi-selected rule objects from the current index list.
   const multiSelectedRules = useMemo(() => {
-    if (selectedRuleIds.length <= 1) return []
-    const idSet = new Set(selectedRuleIds)
-    return safeguardRules.filter((r) => idSet.has(r.id))
-  }, [safeguardRules, selectedRuleIds])
+    if (selectedRuleIndices.length <= 1) return []
+    return selectedRuleIndices
+      .map((i) => safeguardRules[i])
+      .filter((r): r is SafeguardRule => r !== undefined)
+  }, [safeguardRules, selectedRuleIndices])
 
   const [multiEditDraftState, setMultiEditDraftState] = useState<SafeguardMultiEditDraftState | null>(null)
 
   // Keep the ref in sync so closures always read the latest selection.
   useEffect(() => {
-    selectedIdsRef.current = selectedRuleIds
-  }, [selectedRuleIds])
+    selectedIndicesRef.current = selectedRuleIndices
+  }, [selectedRuleIndices])
 
   // Rebuild the draft during render whenever the multi-selection or the rules change.
-  // Uses identity check on the memoized array to detect actual changes.
-  // Track previous value in state so the comparison doesn't trigger react-hooks/refs.
   const [prevMultiSelectedRules, setPrevMultiSelectedRules] = useState(multiSelectedRules)
   if (multiSelectedRules !== prevMultiSelectedRules) {
     setPrevMultiSelectedRules(multiSelectedRules)
     if (multiSelectedRules.length < 2) {
       if (multiEditDraftState !== null) setMultiEditDraftState(null)
     } else {
-      const base = createSafeguardMultiEditDraft(multiSelectedRules, multiSelectedRules.map((r) => r.id))
+      // Pass indices as the stable selection token for the multi-edit draft.
+      const selectionKeys = selectedRuleIndices.slice(0, multiSelectedRules.length).map(String)
+      const base = createSafeguardMultiEditDraft(multiSelectedRules, selectionKeys)
       setMultiEditDraftState((prev) => syncSafeguardMultiEditDraft(prev, base))
     }
   }
 
   // ── selection management ──────────────────────────────────────────────────
 
-  const updateSelectionAnchor = useCallback<Dispatch<SetStateAction<string | null>>>((value) => {
+  const updateSelectionAnchor = useCallback<Dispatch<SetStateAction<number | null>>>((value) => {
     const next = typeof value === 'function'
-      ? (value as (prev: string | null) => string | null)(selectionAnchorRef.current)
+      ? (value as (prev: number | null) => number | null)(selectionAnchorRef.current)
       : (value ?? null)
     if (selectionAnchorRef.current === next) return
     selectionAnchorRef.current = next
     setSelectionAnchor(next)
   }, [])
 
-  const applySelection = useCallback((nextIds: string[], options?: ApplySelectionOptions) => {
-    const normalized = nextIds.slice()
-    const prevIds = selectedIdsRef.current
+  const applySelection = useCallback((nextIndices: number[], options?: ApplySelectionOptions) => {
+    const normalized = nextIndices.slice()
+    const prevIndices = selectedIndicesRef.current
     // Bail when nothing changes so side-effects don't re-fire.
-    if (arraysEqual(prevIds, normalized)) return
+    if (arraysEqual(prevIndices, normalized)) return
     if (!options?.suppressWillChange && onWillChangeSelection) {
-      onWillChangeSelection(prevIds.slice(), normalized.slice())
+      onWillChangeSelection(prevIndices.slice(), normalized.slice())
     }
-    selectedIdsRef.current = normalized
-    setSelectedRuleIds(normalized)
+    selectedIndicesRef.current = normalized
+    setSelectedRuleIndices(normalized)
   }, [onWillChangeSelection])
 
   // ── click handler ─────────────────────────────────────────────────────────
 
-  const handleRuleSelect = useCallback((event: MouseEvent, ruleId: string) => {
+  const handleRuleSelect = useCallback((event: MouseEvent, ruleIdx: number) => {
     const rulesSnapshot = safeguardRules
 
     // Compute what the next selection should be.
-    const computeNext = (prev: string[]): string[] => {
+    const computeNext = (prev: number[]): number[] => {
       if (event.shiftKey && selectionAnchorRef.current !== null) {
-        // Build a range between anchor and clicked rule, respecting the visible set.
-        const anchorId = selectionAnchorRef.current
-        const anchorIdx = rulesSnapshot.findIndex((r) => r.id === anchorId)
-        const targetIdx = rulesSnapshot.findIndex((r) => r.id === ruleId)
-        if (anchorIdx === -1 || targetIdx === -1) return [ruleId]
-        const [lo, hi] = anchorIdx < targetIdx
-          ? [anchorIdx, targetIdx]
-          : [targetIdx, anchorIdx]
-        const visibleSet = visibleRuleIdsRef?.current ?? null
-        const span: string[] = []
+        // Build a range between anchor and clicked index, respecting the visible set.
+        const anchorIdx = selectionAnchorRef.current
+        const [lo, hi] = anchorIdx < ruleIdx ? [anchorIdx, ruleIdx] : [ruleIdx, anchorIdx]
+        const visibleSet = visibleRuleIndicesRef?.current ?? null
+        const span: number[] = []
         for (let i = lo; i <= hi; i += 1) {
-          const r = rulesSnapshot[i]
-          if (!r) continue
-          if (visibleSet && !visibleSet.has(r.id)) continue
-          span.push(r.id)
+          if (i >= rulesSnapshot.length) continue
+          if (visibleSet && !visibleSet.has(i)) continue
+          span.push(i)
         }
-        return span.length > 0 ? span : [ruleId]
+        return span.length > 0 ? span : [ruleIdx]
       }
       if (event.ctrlKey || event.metaKey) {
         const set = new Set(prev)
-        if (set.has(ruleId)) {
-          set.delete(ruleId)
+        if (set.has(ruleIdx)) {
+          set.delete(ruleIdx)
         } else {
-          set.add(ruleId)
+          set.add(ruleIdx)
         }
-        // Preserve ordering by filtering the live list.
-        return rulesSnapshot
-          .map((r) => r.id)
-          .filter((id) => set.has(id))
+        // Preserve ascending order.
+        return Array.from(set).sort((a, b) => a - b)
       }
-      return [ruleId]
+      return [ruleIdx]
     }
 
-    const prev = selectedRuleIds
+    const prev = selectedRuleIndices
     const next = computeNext(prev)
     const selectionChanged = !arraysEqual(prev, next)
     if (selectionChanged) applySelection(next)
@@ -232,221 +221,194 @@ export function useSafeguardSelection({
     const last = final.length > 0 ? final[final.length - 1]! : null
 
     if (selectionAnchorRef.current !== last) updateSelectionAnchor(last ?? null)
-    if (selectedRuleId !== last) setSelectedRuleId(last)
+    if (selectedRuleIdx !== last) setSelectedRuleIdx(last)
     // When selection settles on exactly one rule, load it into the builder draft.
-    // Mirrors useRecipeSelection's setBuilder(only) call — prevents stale builder state.
     if (final.length === 1) {
-      const only = safeguardRules.find((r) => r.id === final[0])
+      const only = rulesSnapshot[final[0]!]
       if (only) setSafeguardBuilder(cloneSafeguardRule(only))
     }
-    // Scroll to the active rule on every click, not only when selection changed.
-    // Why: if WASM ordinals haven't rebuilt yet after a reorder, the first click
-    // silently fails (token consumed, span not found). Without this, the second
-    // click has selectionChanged = false and never retries. Unconditional fire
-    // lets the user click the chip again to recover without switching away first.
-    if (last) onSelectionScrollRequest?.(last)
+    // Scroll to the active rule on every click (unconditional to allow retry after reorder).
+    if (last !== null) onSelectionScrollRequest?.(last)
   }, [
     applySelection,
     onSelectionScrollRequest,
     safeguardRules,
-    selectedRuleId,
-    selectedRuleIds,
-    setSelectedRuleId,
+    selectedRuleIdx,
+    selectedRuleIndices,
+    setSelectedRuleIdx,
     updateSelectionAnchor,
     setSafeguardBuilder,
-    visibleRuleIdsRef,
+    visibleRuleIndicesRef,
   ])
 
   // ── mutation handlers ─────────────────────────────────────────────────────
 
-  const handleRuleDelete = useCallback((ruleId: string) => {
-    // When multiple rules are selected and the clicked rule is in the set,
+  const handleRuleDelete = useCallback((ruleIdx: number) => {
+    // When multiple rules are selected and the clicked index is in the set,
     // delete all selected rules at once.
-    const targets = selectedRuleIds.length > 1 && selectedRuleIds.includes(ruleId)
-      ? selectedRuleIds.slice()
-      : [ruleId]
+    const targets = selectedRuleIndices.length > 1 && selectedRuleIndices.includes(ruleIdx)
+      ? selectedRuleIndices.slice()
+      : [ruleIdx]
     const targetSet = new Set(targets)
-    applySafeguardRulesChange((prev) => {
-      const next = prev.filter((r) => !targetSet.has(r.id))
-      return next
-    })
+    applySafeguardRulesChange((prev) => prev.filter((_, i) => !targetSet.has(i)))
     // Clear the selection if the active rule was deleted.
-    if (targetSet.has(selectedRuleId ?? '')) {
+    if (selectedRuleIdx !== null && targetSet.has(selectedRuleIdx)) {
       applySelection([])
-      setSelectedRuleId(null)
+      setSelectedRuleIdx(null)
       updateSelectionAnchor(null)
     }
-  }, [applySafeguardRulesChange, applySelection, selectedRuleId, selectedRuleIds, setSelectedRuleId, updateSelectionAnchor])
+  }, [applySafeguardRulesChange, applySelection, selectedRuleIdx, selectedRuleIndices, setSelectedRuleIdx, updateSelectionAnchor])
 
-  const handleRuleDuplicate = useCallback((ruleId: string) => {
+  const handleRuleDuplicate = useCallback((ruleIdx: number) => {
     // Duplicate all selected rules if the clicked one is part of the selection.
-    const selected = selectedRuleIds.length > 1 && selectedRuleIds.includes(ruleId)
-      ? selectedRuleIds
-      : [ruleId]
-    const selectedSet = new Set(selected)
-    const newIds: string[] = []
-    // Capture the single copy when duplicating exactly one rule so we can load it into the builder.
+    const selected = selectedRuleIndices.length > 1 && selectedRuleIndices.includes(ruleIdx)
+      ? selectedRuleIndices
+      : [ruleIdx]
+    // Capture the single copy so we can load it into the builder immediately.
     let singleCopy: SafeguardRule | null = null
+    let newIndices: number[] = []
     applySafeguardRulesChange((prev) => {
       // Find the last selected index to determine insertion point.
-      const lastIdx = prev.reduce((max, r, i) => (selectedSet.has(r.id) ? i : max), -1)
+      const lastIdx = selected.reduce((max, i) => (i < prev.length ? Math.max(max, i) : max), -1)
       if (lastIdx === -1) return prev
       const copies = selected
-        .map((id) => prev.find((r) => r.id === id))
-        .filter((r): r is SafeguardRule => Boolean(r))
-        .map((r) => {
-          const clone = cloneSafeguardRule(r)
-          const newId = createSafeguardRuleId()
-          newIds.push(newId)
-          return { ...clone, id: newId }
-        })
+        .map((i) => prev[i])
+        .filter((r): r is SafeguardRule => r !== undefined)
+        .map((r) => cloneSafeguardRule(r))
       if (copies.length === 0) return prev
-      // Capture the copy content so the builder can load it after state commits.
       if (copies.length === 1) singleCopy = copies[0]!
       const next = [
         ...prev.slice(0, lastIdx + 1),
         ...copies,
         ...prev.slice(lastIdx + 1),
       ]
+      // New copies land immediately after the last selected index.
+      newIndices = copies.map((_, ci) => lastIdx + 1 + ci)
       return next
     })
     // Select the duplicates after state commits (next tick).
     setTimeout(() => {
-      if (newIds.length === 0) return
-      applySelection(newIds)
-      const lastNew = newIds[newIds.length - 1]!
-      setSelectedRuleId(lastNew)
+      if (newIndices.length === 0) return
+      applySelection(newIndices)
+      const lastNew = newIndices[newIndices.length - 1]!
+      setSelectedRuleIdx(lastNew)
       updateSelectionAnchor(lastNew)
       // Load the single copy into the builder so the user sees the duplicate immediately.
-      if (newIds.length === 1 && singleCopy) setSafeguardBuilder(cloneSafeguardRule(singleCopy))
+      if (newIndices.length === 1 && singleCopy) setSafeguardBuilder(cloneSafeguardRule(singleCopy))
       onSelectionScrollRequest?.(lastNew)
     }, 0)
-  }, [applySafeguardRulesChange, applySelection, onSelectionScrollRequest, selectedRuleIds, setSelectedRuleId, updateSelectionAnchor, setSafeguardBuilder])
+  }, [applySafeguardRulesChange, applySelection, onSelectionScrollRequest, selectedRuleIndices, setSelectedRuleIdx, updateSelectionAnchor, setSafeguardBuilder])
 
-  const handleRuleMoveUp = useCallback((ruleId: string) => {
-    const selected = selectedRuleIds.length > 1 && selectedRuleIds.includes(ruleId)
-      ? new Set(selectedRuleIds)
-      : new Set([ruleId])
+  const handleRuleMoveUp = useCallback((ruleIdx: number) => {
+    const selected = selectedRuleIndices.length > 1 && selectedRuleIndices.includes(ruleIdx)
+      ? new Set(selectedRuleIndices)
+      : new Set([ruleIdx])
     applySafeguardRulesChange((prev) => {
       const arr = [...prev]
       let changed = false
       for (let i = 1; i < arr.length; i += 1) {
-        if (!selected.has(arr[i]!.id)) continue
-        if (selected.has(arr[i - 1]!.id)) continue
+        if (!selected.has(i)) continue
+        if (selected.has(i - 1)) continue
         changed = true
         const tmp = arr[i - 1]!; arr[i - 1] = arr[i]!; arr[i] = tmp
       }
       return changed ? arr : prev
     })
-  }, [applySafeguardRulesChange, selectedRuleIds])
+  }, [applySafeguardRulesChange, selectedRuleIndices])
 
-  const handleRuleMoveDown = useCallback((ruleId: string) => {
-    const selected = selectedRuleIds.length > 1 && selectedRuleIds.includes(ruleId)
-      ? new Set(selectedRuleIds)
-      : new Set([ruleId])
+  const handleRuleMoveDown = useCallback((ruleIdx: number) => {
+    const selected = selectedRuleIndices.length > 1 && selectedRuleIndices.includes(ruleIdx)
+      ? new Set(selectedRuleIndices)
+      : new Set([ruleIdx])
     applySafeguardRulesChange((prev) => {
       const arr = [...prev]
       let changed = false
       for (let i = arr.length - 2; i >= 0; i -= 1) {
-        if (!selected.has(arr[i]!.id)) continue
-        if (selected.has(arr[i + 1]!.id)) continue
+        if (!selected.has(i)) continue
+        if (selected.has(i + 1)) continue
         changed = true
         const tmp = arr[i + 1]!; arr[i + 1] = arr[i]!; arr[i] = tmp
       }
       return changed ? arr : prev
     })
-  }, [applySafeguardRulesChange, selectedRuleIds])
+  }, [applySafeguardRulesChange, selectedRuleIndices])
 
-  const handleRuleMoveTop = useCallback((ruleId: string) => {
-    const selected = selectedRuleIds.length > 1 && selectedRuleIds.includes(ruleId)
-      ? new Set(selectedRuleIds)
-      : new Set([ruleId])
+  const handleRuleMoveTop = useCallback((ruleIdx: number) => {
+    const selected = selectedRuleIndices.length > 1 && selectedRuleIndices.includes(ruleIdx)
+      ? new Set(selectedRuleIndices)
+      : new Set([ruleIdx])
     applySafeguardRulesChange((prev) => {
-      const block = prev.filter((r) => selected.has(r.id))
-      const rest = prev.filter((r) => !selected.has(r.id))
+      const block = prev.filter((_, i) => selected.has(i))
+      const rest = prev.filter((_, i) => !selected.has(i))
       if (block.length === 0) return prev
       const next = [...block, ...rest]
-      // Skip if already at top.
-      if (prev.every((r, i) => r.id === next[i]?.id)) return prev
+      // Skip when already at the top.
+      if (prev.length === next.length && prev.every((r, i) => r === next[i])) return prev
       return next
     })
-  }, [applySafeguardRulesChange, selectedRuleIds])
+  }, [applySafeguardRulesChange, selectedRuleIndices])
 
-  const handleRuleMoveBottom = useCallback((ruleId: string) => {
-    const selected = selectedRuleIds.length > 1 && selectedRuleIds.includes(ruleId)
-      ? new Set(selectedRuleIds)
-      : new Set([ruleId])
+  const handleRuleMoveBottom = useCallback((ruleIdx: number) => {
+    const selected = selectedRuleIndices.length > 1 && selectedRuleIndices.includes(ruleIdx)
+      ? new Set(selectedRuleIndices)
+      : new Set([ruleIdx])
     applySafeguardRulesChange((prev) => {
-      const block = prev.filter((r) => selected.has(r.id))
-      const rest = prev.filter((r) => !selected.has(r.id))
+      const block = prev.filter((_, i) => selected.has(i))
+      const rest = prev.filter((_, i) => !selected.has(i))
       if (block.length === 0) return prev
       const next = [...rest, ...block]
-      if (prev.every((r, i) => r.id === next[i]?.id)) return prev
+      if (prev.length === next.length && prev.every((r, i) => r === next[i])) return prev
       return next
     })
-  }, [applySafeguardRulesChange, selectedRuleIds])
+  }, [applySafeguardRulesChange, selectedRuleIndices])
 
   const handleSelectAllRules = useCallback(() => {
-    const visibleSet = visibleRuleIdsRef?.current ?? null
+    const visibleSet = visibleRuleIndicesRef?.current ?? null
     const all = visibleSet
-      ? safeguardRules.filter((r) => visibleSet.has(r.id)).map((r) => r.id)
-      : safeguardRules.map((r) => r.id)
+      ? safeguardRules.map((_, i) => i).filter((i) => visibleSet.has(i))
+      : safeguardRules.map((_, i) => i)
     applySelection(all)
-    const keep = selectedRuleId && all.includes(selectedRuleId) ? selectedRuleId : (all[0] ?? null)
-    setSelectedRuleId(keep)
+    const keep = selectedRuleIdx !== null && all.includes(selectedRuleIdx)
+      ? selectedRuleIdx
+      : (all[0] ?? null)
+    setSelectedRuleIdx(keep)
     updateSelectionAnchor(keep)
-  }, [applySelection, safeguardRules, selectedRuleId, setSelectedRuleId, updateSelectionAnchor, visibleRuleIdsRef])
+  }, [applySelection, safeguardRules, selectedRuleIdx, setSelectedRuleIdx, updateSelectionAnchor, visibleRuleIndicesRef])
 
   const handleClearSelection = useCallback(() => {
     applySelection([])
-    setSelectedRuleId(null)
+    setSelectedRuleIdx(null)
     updateSelectionAnchor(null)
-  }, [applySelection, setSelectedRuleId, updateSelectionAnchor])
+  }, [applySelection, setSelectedRuleIdx, updateSelectionAnchor])
 
-  // Deletes all currently-selected rules. Triggered by the Delete/Backspace keyboard shortcut
-  // in SafeguardChipsPanel — delegates to handleRuleDelete which handles both single and
-  // multi-rule deletion in one place (SSOT for the delete-selected logic).
+  // Deletes all currently-selected rules via the keyboard shortcut path.
   const handleDeleteSelected = useCallback(() => {
-    if (selectedRuleIds.length === 0) return
-    // Re-use the first selected id as the trigger — handleRuleDelete detects the multi-select
-    // set and deletes all selected rules when the triggered id is part of the selection.
-    handleRuleDelete(selectedRuleIds[0]!)
-  }, [handleRuleDelete, selectedRuleIds])
+    if (selectedRuleIndices.length === 0) return
+    // Re-use the first selected index — handleRuleDelete detects the multi-select set.
+    handleRuleDelete(selectedRuleIndices[0]!)
+  }, [handleRuleDelete, selectedRuleIndices])
 
   // ── drag-and-drop reorder ─────────────────────────────────────────────────
 
-  // Maps selected IDs to sorted ascending indices in the current rules array.
-  const selectedIndicesToDrag = useCallback((): number[] => {
-    const idSet = new Set(selectedRuleIds)
-    return safeguardRules
-      .map((r, i) => (idSet.has(r.id) ? i : -1))
-      .filter((i) => i >= 0)
-      .sort((a, b) => a - b)
-  }, [safeguardRules, selectedRuleIds])
-
   // Called by useChipListDnd.onPrepareSelection at drag-start.
-  // Returns the full sorted index set to drag (multi if already selected) or
-  // collapses selection to the single dragged item. Mirrors prepareDragSelection
-  // in useRecipeSelection but operates on rule IDs.
   const prepareDragSelection = useCallback((idx: number): number[] => {
     return resolveDragSelectionIndices(
       idx,
       safeguardRules.length,
-      selectedIndicesToDrag(),
+      selectedRuleIndices.slice().sort((a, b) => a - b),
       (singleIdx) => {
         // Collapse: select only the dragged rule.
         const rule = safeguardRules[singleIdx]
         if (!rule) return
-        applySelection([rule.id])
-        setSelectedRuleId(rule.id)
-        updateSelectionAnchor(rule.id)
+        applySelection([singleIdx])
+        setSelectedRuleIdx(singleIdx)
+        updateSelectionAnchor(singleIdx)
         setSafeguardBuilder(cloneSafeguardRule(rule))
       },
     )
-  }, [applySelection, safeguardRules, selectedIndicesToDrag, setSelectedRuleId, updateSelectionAnchor, setSafeguardBuilder])
+  }, [applySelection, safeguardRules, selectedRuleIndices, setSelectedRuleIdx, updateSelectionAnchor, setSafeguardBuilder])
 
-  // Full multi-index reorder handler. Delegates array manipulation to the shared
-  // chipListReorder utilities — same algorithm as useRecipeSelection.handleRecipeReorder.
+  // Full multi-index reorder handler. Delegates to the shared chipListReorder utilities.
   const handleRuleReorder = useCallback((movingIndices: number[], rawTargetIndex: number, options?: { mode?: 'move' | 'copy' }) => {
     if (!Array.isArray(movingIndices) || movingIndices.length === 0) return
     const prev = safeguardRules
@@ -454,32 +416,30 @@ export function useSafeguardSelection({
     if (sanitized.length === 0) return
     const mode = options?.mode === 'copy' ? 'copy' : 'move'
     if (mode === 'copy') {
-      // Clone each moved rule and assign a fresh ID so identities stay distinct.
-      const result = copyReorderItems(prev, sanitized, rawTargetIndex, (r) => ({
-        ...cloneSafeguardRule(r),
-        id: createSafeguardRuleId(),
-      }))
+      // Clone each moved rule; no new IDs needed since identity is by index.
+      const result = copyReorderItems(prev, sanitized, rawTargetIndex, (r) => cloneSafeguardRule(r))
       if (!result) return
-      const { next, copies } = result
+      const { next, copies, insertIdx } = result
       applySafeguardRulesChange(next)
-      // Select the newly-created copies.
-      const newIds = copies.map((r) => r.id)
-      applySelection(newIds)
-      const lastId = newIds[newIds.length - 1] ?? null
-      setSelectedRuleId(lastId)
-      updateSelectionAnchor(lastId)
+      // New copies land at insertIdx in the resulting list.
+      const newIndices = copies.map((_, ci) => insertIdx + ci)
+      applySelection(newIndices)
+      const lastIdx = newIndices[newIndices.length - 1] ?? null
+      setSelectedRuleIdx(lastIdx)
+      updateSelectionAnchor(lastIdx)
       return
     }
     const moveResult = moveReorderItems(prev, sanitized, rawTargetIndex)
     if (!moveResult) return
     const { next } = moveResult
     applySafeguardRulesChange(next)
-    // IDs are stable — selection stays the same set of IDs after a move.
-    // No selection state update needed; the existing selectedRuleIds remain valid.
-    // Trigger a re-render by calling applySelection with same IDs only if needed.
-    const movedIds = sanitized.map((i) => prev[i]!.id)
-    applySelection(movedIds)
-  }, [applySafeguardRulesChange, applySelection, safeguardRules, setSelectedRuleId, updateSelectionAnchor])
+    // Map selected rule objects to their new positions by identity.
+    const movedObjects = new Set(sanitized.map((i) => prev[i]))
+    const newIndices = next
+      .map((r, i) => (movedObjects.has(r) ? i : -1))
+      .filter((i) => i >= 0)
+    applySelection(newIndices)
+  }, [applySafeguardRulesChange, applySelection, safeguardRules, setSelectedRuleIdx, updateSelectionAnchor])
 
   // ── multi-edit draft field update ─────────────────────────────────────────
 
@@ -623,12 +583,13 @@ export function useSafeguardSelection({
     if (multiEditDraftState.selection.length < 2) return
     const dirtyKeys = getDirtySafeguardFieldKeys(multiEditDraftState.fields)
     if (dirtyKeys.length === 0) return
-    const selectionSet = new Set(multiEditDraftState.selection)
+    // Selection keys are index strings; recover the numeric indices.
+    const selectionIndices = new Set(multiEditDraftState.selection.map(Number))
     const fields = multiEditDraftState.fields
     applySafeguardRulesChange((prev) => {
       let changed = false
-      const next = prev.map((rule) => {
-        if (!selectionSet.has(rule.id)) return rule
+      const next = prev.map((rule, i) => {
+        if (!selectionIndices.has(i)) return rule
         const updated = applyMultiEditFieldsToSafeguardRule(rule, fields, dirtyKeys)
         if (updated !== rule) { changed = true; return updated }
         return rule
@@ -651,8 +612,8 @@ export function useSafeguardSelection({
   }, [multiEditDraftState, resetAllMultiEditFields, resetMultiEditField, updateMultiEditField])
 
   return {
-    selectedRuleIds,
-    setSelectedRuleIds: applySelection,
+    selectedRuleIndices,
+    setSelectedRuleIndices: applySelection,
     multiselectActive,
     selectionAnchor,
     multiSelectedRules,

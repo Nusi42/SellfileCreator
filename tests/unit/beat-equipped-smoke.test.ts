@@ -122,7 +122,7 @@ test('beatEquippedPercentile smoke — real example.sfr + RSLHelper.db', async (
     const floorAt100 = computeEquippedCollectionFloorScore(artifacts, rule.combination, substats, weights, 100)
     const floorAt50  = computeEquippedCollectionFloorScore(artifacts, rule.combination, substats, weights, 50)
 
-    const label = rule.name?.trim() || rule.id
+    const label = rule.name?.trim() || '(unnamed)'
     console.log(
       `  [${label}] null=${counts['null']} | 25=${counts['25']} | 50=${counts['50']} | 75=${counts['75']} | 100=${counts['100']}` +
       ` (refPool=${refPool.length} floor50=${floorAt50.toFixed(3)} floor100=${floorAt100.toFixed(3)})`,

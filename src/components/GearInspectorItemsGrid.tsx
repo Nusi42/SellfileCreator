@@ -143,8 +143,6 @@ type GearInspectorItemsGridProps = {
   // Optional callback when the requested artifact is hidden by active Gear Inspector filters.
   onFocusArtifactFilteredOut?: ((artifactId: number) => void) | undefined
   onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null) => void) | undefined
-  // Optional safeguard deep-link used by the upgrade chance overlay click action.
-  onJumpToSafeguardRule?: ((ruleId: string) => void) | undefined
   onCreateRuleTemplate?: ((row: GearInspectorPreviewRow, intent: GearInspectorRuleTemplateIntent) => void) | undefined
   variant?: GearInspectorItemsGridVariant
   safeguardsEnabled?: boolean
@@ -219,7 +217,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     focusArtifactRequest = null,
     onFocusArtifactFilteredOut,
     onJumpToRule,
-    onJumpToSafeguardRule,
     onCreateRuleTemplate,
     variant = 'gearInspector',
     safeguardsEnabled = true,
@@ -237,7 +234,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     substatSort = null,
     sortState = null,
     grouping = GEAR_INSPECTOR_GROUPING_DEFAULT_STATE,
-    safeguardRules = [],
     upgradeChanceByArtifactId = null,
     enterKey = undefined,
   } = props
@@ -402,15 +398,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     () => (effectiveSubstatSort?.priorities ?? []).some((key) => Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE),
     [effectiveSubstatSort?.priorities],
   )
-  const safeguardRuleById = useMemo(() => {
-    const map = new Map<string, SafeguardRule>()
-    for (const rule of safeguardRules) {
-      const normalizedRuleId = typeof rule.id === 'string' ? rule.id.trim() : ''
-      if (!normalizedRuleId) continue
-      map.set(normalizedRuleId, rule)
-    }
-    return map
-  }, [safeguardRules])
   // Pre-computed by the WASM worker; coalesce null to a stable empty map so downstream memo deps don't thrash.
   const safeguardUpgradeChanceByArtifactId = useMemo<Map<number, UpgradeChanceWasmEntry>>(
     () => upgradeChanceByArtifactId ?? new Map(),
@@ -484,8 +471,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     for (const [artifactId, entry] of matchedEntries) {
       const ratio = range > 0 ? (entry.chancePercent - min) / range : 1
       const color = rgbToCss(mixRgb(lowRgb, highRgb, ratio))
-      const normalizedRuleId = typeof entry.matchedRuleId === 'string' ? entry.matchedRuleId.trim() : ''
-      const matchedRule = normalizedRuleId ? (safeguardRuleById.get(normalizedRuleId) ?? null) : null
+      // matchedRuleId from WASM is a hash, not a SafeguardRule identity; ordinal-based lookup
+      // is not yet available (pending Phase 1 Rust rebuild). Graceful fallback to debug data.
+      const matchedRule = null as SafeguardRule | null
       const selectedSubstats = entry.debug?.selectedSubstats?.length
         ? entry.debug.selectedSubstats
         : normalizeSelectedSubstatsForTooltip(matchedRule?.substats ?? [])
@@ -635,22 +623,19 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           </Box>
         </Box>
       ) : undefined
-      const canJumpToSafeguard = normalizedRuleId.length > 0 && typeof onJumpToSafeguardRule === 'function'
+      // Jump-to-safeguard is disabled until the WASM upgrade-chance path emits rule ordinals.
       overlays.set(artifactId, {
         text: `${entry.chancePercent}%`,
         color,
         tooltipMarkdown,
         ...(tooltipRender ? { tooltipRender } : {}),
-        ...(canJumpToSafeguard ? { onClick: () => onJumpToSafeguardRule(normalizedRuleId) } : {}),
       })
     }
     return overlays
   }, [
     allRows,
-    onJumpToSafeguardRule,
     numberFormatter,
     rows,
-    safeguardRuleById,
     safeguardUpgradeChanceByArtifactId,
     showSafeguardUpgradeChance,
     substatColors,

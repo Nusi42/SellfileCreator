@@ -48,8 +48,8 @@ const UNKNOWN_ROLL_MIN_RANK_SCALE = 0.6
 type PreparedSafeguardRule = {
   // Preserve source list order so tied overlays can pick the top-most safeguard.
   ruleOrder: number
-  // Rule id is preserved so the UI can deep-link from chance overlays.
-  ruleId: string
+  // 1-based ordinal for click-through navigation (ruleOrder + 1).
+  ruleOrdinal: number
   // Non-substat filters must mirror safeguard matcher eligibility.
   slots: readonly number[]
   ranks: readonly number[]
@@ -77,8 +77,8 @@ type PreparedSafeguardRule = {
 type RuleScenario = {
   // Preserve source safeguard order for deterministic tie resolution.
   ruleOrder: number
-  // Every scenario maps back to one safeguard rule id for click-through navigation.
-  ruleId: string
+  // 1-based ordinal for click-through navigation.
+  ruleOrdinal: number
   // Full safeguard substat selection (not per-scenario split) for tie-break matching count.
   ruleSelectedSubstats: readonly number[]
   // Original rule match mode before per-substat expansion (used by debug snapshots for tooltip display).
@@ -134,8 +134,8 @@ export type SafeguardUpgradeChanceEntry = {
   chancePercent: number
   // True when at least one substat safeguard applies to this artifact.
   hasMatchingSafeguard: boolean
-  // Preferred safeguard rule target for click-through navigation.
-  matchedRuleId: string | null
+  // 1-based ordinal of the preferred safeguard rule for click-through navigation; null when none matched.
+  matchedRuleOrdinal: number | null
   // Optional debug snapshot used by UI tooltips to explain chance outcomes.
   debug?: SafeguardUpgradeChanceDebug
 }
@@ -243,7 +243,8 @@ const prepareSubstatSafeguardRules = (
       : null
     prepared.push({
       ruleOrder,
-      ruleId: typeof rule.id === 'string' ? rule.id.trim() : '',
+      // 1-based ordinal derived from the 0-based loop index.
+      ruleOrdinal: ruleOrder + 1,
       slots,
       ranks: (rule.combination.ranks ?? []).map((value) => Number(value)).filter(Number.isFinite),
       rarities: (rule.combination.rarities ?? []).map((value) => Number(value)).filter(Number.isFinite),
@@ -463,7 +464,7 @@ const buildRuleScenarios = (
       }
       scenarios.push({
         ruleOrder: rule.ruleOrder,
-        ruleId: rule.ruleId,
+        ruleOrdinal: rule.ruleOrdinal,
         ruleSelectedSubstats: rule.selectedSubstats,
         // Preserve original match mode so per-substat expansion does not erase PerSubstat in debug.
         ruleSubstatMatch: rule.substatMatch,
@@ -811,9 +812,9 @@ const scenarioCanMatchArtifactByLevel16 = (
 
 // Pick one stable scenario for tooltip/debug details (same ordering as rule scan).
 const resolvePreferredScenario = (artifactScenarios: readonly RuleScenario[]): RuleScenario | null => {
+  // Return the first scenario that has a valid ordinal; fall back to the first.
   for (const scenario of artifactScenarios) {
-    const normalized = typeof scenario.ruleId === 'string' ? scenario.ruleId.trim() : ''
-    if (normalized.length > 0) return scenario
+    if (scenario.ruleOrdinal > 0) return scenario
   }
   return artifactScenarios[0] ?? null
 }
@@ -923,11 +924,10 @@ const buildChanceDebugSnapshot = (
   }
 }
 
-// Pick a stable rule id for overlay click-through from applicable scenarios.
-const resolvePreferredRuleId = (artifactScenarios: readonly RuleScenario[]): string | null => {
+// Pick a stable rule ordinal for overlay click-through from applicable scenarios.
+const resolvePreferredRuleOrdinal = (artifactScenarios: readonly RuleScenario[]): number | null => {
   for (const scenario of artifactScenarios) {
-    const normalized = typeof scenario.ruleId === 'string' ? scenario.ruleId.trim() : ''
-    if (normalized.length > 0) return normalized
+    if (scenario.ruleOrdinal > 0) return scenario.ruleOrdinal
   }
   return null
 }
@@ -948,7 +948,7 @@ export const buildSafeguardUpgradeChanceByArtifactId = (
     output.set(artifactId, {
       chancePercent: 0,
       hasMatchingSafeguard: false,
-      matchedRuleId: null,
+      matchedRuleOrdinal: null,
     })
   }
   if (artifacts.length === 0 || rules.length === 0 || upgradableArtifactIds.size === 0) return output
@@ -983,7 +983,7 @@ export const buildSafeguardUpgradeChanceByArtifactId = (
       output.set(artifactId, {
         chancePercent: 0,
         hasMatchingSafeguard: false,
-        matchedRuleId: null,
+        matchedRuleOrdinal: null,
       })
       continue
     }
@@ -996,7 +996,7 @@ export const buildSafeguardUpgradeChanceByArtifactId = (
       output.set(artifactId, {
         chancePercent: 0,
         hasMatchingSafeguard: false,
-        matchedRuleId: null,
+        matchedRuleOrdinal: null,
       })
       continue
     }
@@ -1014,7 +1014,7 @@ export const buildSafeguardUpgradeChanceByArtifactId = (
     output.set(artifactId, {
       chancePercent: chance,
       hasMatchingSafeguard: true,
-      matchedRuleId: resolvePreferredRuleId(preferredScenario ? [preferredScenario] : viableArtifactScenarios),
+      matchedRuleOrdinal: resolvePreferredRuleOrdinal(preferredScenario ? [preferredScenario] : viableArtifactScenarios),
       ...(debugSnapshot ? { debug: debugSnapshot } : {}),
     })
   }

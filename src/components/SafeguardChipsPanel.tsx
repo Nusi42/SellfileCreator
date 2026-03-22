@@ -2,10 +2,10 @@
  * SafeguardChipsPanel
  *
  * Rule chip list for the Safeguard Builder column. Manages add / delete / duplicate /
- * reorder / rename and exposes the selected rule id so the builder form can display
+ * reorder / rename and exposes the selected rule index so the builder form can display
  * the right data.
  *
- * When the optional multi-select props (selectedRuleIds, onRuleSelect, …) are
+ * When the optional multi-select props (selectedRuleIndices, onRuleSelect, …) are
  * provided the panel enters multi-select mode: all rules in the set receive
  * selected styling and click events are forwarded to the parent hook so
  * shift/ctrl range selection is handled centrally.
@@ -44,7 +44,6 @@ import {
 import {
   SafeguardRuleActivation,
   cloneSafeguardRule,
-  createSafeguardRuleId,
   normalizeSafeguardRule,
   type SafeguardRule,
 } from '../lib/safeguards'
@@ -65,38 +64,38 @@ import { safeguardSummaryParts } from './safeguardSummaryParts'
 
 export type SafeguardChipsPanelProps = {
   rules: SafeguardRule[]
-  selectedRuleId: string | null
-  onSelect: (ruleId: string) => void
+  selectedRuleIdx: number | null
+  onSelect: (ruleIdx: number) => void
   onRulesChange: (next: SafeguardRule[]) => void
   maxHeightPx: number | undefined
   // When true the paper is a fixed-height flex container; use minHeight:0 + maxHeight:100%
   // so the chips list flex-fills the available wrapper space rather than holding a fixed size.
   isSideBySide?: boolean
   containerRef?: React.MutableRefObject<HTMLDivElement | null>
-  /** When set, only chips whose rule ID is in this set are shown (mirrors recipe visibleIndices). */
-  visibleRuleIds?: ReadonlySet<string> | null
+  /** When set, only chips whose index is in this set are shown (mirrors recipe visibleIndices). */
+  visibleRuleIndices?: ReadonlySet<number> | null
   metasets?: Metaset[]
   substatColors?: Record<number, { fg: string; bg: string }>
   /** External scroll request (e.g. from Gear Inspector jump). Increment token each time to re-trigger. */
-  focusRuleRequest?: { ruleId: string; token: number } | null
+  focusRuleRequest?: { ruleIdx: number; token: number } | null
 
   // ── multi-select (optional — omit to keep single-select behaviour) ──────
-  /** Full set of selected rule IDs when multi-select is active. */
-  selectedRuleIds?: readonly string[] | null
+  /** Full set of selected rule indices when multi-select is active. */
+  selectedRuleIndices?: readonly number[] | null
   /** Shift/ctrl-aware click handler forwarded from useSafeguardSelection. */
-  onRuleSelect?: ((event: ReactMouseEvent, ruleId: string) => void) | null
+  onRuleSelect?: ((event: ReactMouseEvent, ruleIdx: number) => void) | null
   /** Delegated delete so multi-rule deletes are handled centrally. */
-  onRuleDelete?: ((ruleId: string) => void) | null
+  onRuleDelete?: ((ruleIdx: number) => void) | null
   /** Delegated duplicate so multi-rule duplicates are handled centrally. */
-  onRuleDuplicate?: ((ruleId: string) => void) | null
+  onRuleDuplicate?: ((ruleIdx: number) => void) | null
   /** Delegated move-up aware of multi-select grouping. */
-  onRuleMoveUp?: ((ruleId: string) => void) | null
+  onRuleMoveUp?: ((ruleIdx: number) => void) | null
   /** Delegated move-down aware of multi-select grouping. */
-  onRuleMoveDown?: ((ruleId: string) => void) | null
+  onRuleMoveDown?: ((ruleIdx: number) => void) | null
   /** Delegated move-to-top aware of multi-select grouping. */
-  onRuleMoveTop?: ((ruleId: string) => void) | null
+  onRuleMoveTop?: ((ruleIdx: number) => void) | null
   /** Delegated move-to-bottom aware of multi-select grouping. */
-  onRuleMoveBottom?: ((ruleId: string) => void) | null
+  onRuleMoveBottom?: ((ruleIdx: number) => void) | null
 
   // ── drag-and-drop (mirrors RecipeChipsPanel) ─────────────────────────────
   /**
@@ -131,18 +130,18 @@ export type SafeguardChipsPanelProps = {
 
 export default function SafeguardChipsPanel({
   rules,
-  selectedRuleId,
+  selectedRuleIdx,
   onSelect,
   onRulesChange,
   maxHeightPx,
   isSideBySide = false,
   containerRef,
-  visibleRuleIds,
+  visibleRuleIndices,
   metasets = [],
   substatColors = {},
   focusRuleRequest,
   // Multi-select — all optional; omit to keep single-select behaviour.
-  selectedRuleIds,
+  selectedRuleIndices,
   onRuleSelect,
   onRuleDelete,
   onRuleDuplicate,
@@ -164,20 +163,26 @@ export default function SafeguardChipsPanel({
 }: SafeguardChipsPanelProps) {
   // Multi-select is active when the caller supplies the extended props.
   const multiselectMode = Boolean(onRuleSelect)
-  const effectiveSelectedIds: ReadonlySet<string> = multiselectMode && selectedRuleIds
-    ? new Set(selectedRuleIds)
-    : new Set(selectedRuleId ? [selectedRuleId] : [])
+  // Build the effective selected index set for chip styling.
+  const effectiveSelectedIndices: ReadonlySet<number> = multiselectMode && selectedRuleIndices
+    ? new Set(selectedRuleIndices)
+    : new Set(selectedRuleIdx !== null ? [selectedRuleIdx] : [])
   const { t, lang } = useI18n()
   const theme = useTheme()
   const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
 
   // ── internal state ───────────────────────────────────────────────────────
-  const [editingRuleNameId, setEditingRuleNameId] = useState<string | null>(null)
-  const [pendingNameById, setPendingNameById] = useState<Map<string, string>>(() => new Map())
-  const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
+  // Index of the rule whose inline name field is active; null when none.
+  const [editingRuleNameIdx, setEditingRuleNameIdx] = useState<number | null>(null)
+  // Buffered pending names keyed by rule index so typing is fast.
+  const [pendingNameByIdx, setPendingNameByIdx] = useState<Map<number, string>>(() => new Map())
+  // Index of the rule awaiting delete confirmation; null when none.
+  const [pendingDeleteRuleIdx, setPendingDeleteRuleIdx] = useState<number | null>(null)
   const [pendingDeleteAll, setPendingDeleteAll] = useState(false)
-  const [ruleMenu, setRuleMenu] = useState<{ ruleId: string; x: number; y: number } | null>(null)
-  const [pasteDialogTarget, setPasteDialogTarget] = useState<{ mode: 'after' | 'end'; ruleId?: string } | null>(null)
+  // Context menu anchor for a specific chip.
+  const [ruleMenu, setRuleMenu] = useState<{ ruleIdx: number; x: number; y: number } | null>(null)
+  // Paste dialog target; ruleIdx is the anchor when pasting "after".
+  const [pasteDialogTarget, setPasteDialogTarget] = useState<{ mode: 'after' | 'end'; ruleIdx?: number } | null>(null)
   const [pasteDialogText, setPasteDialogText] = useState('')
   const [pasteDialogError, setPasteDialogError] = useState<string | null>(null)
 
@@ -210,58 +215,56 @@ export default function SafeguardChipsPanel({
     }
   }, [])
 
-  const flushPendingName = useCallback((ruleId: string) => {
-    const nextName = pendingNameById.get(ruleId)
+  const flushPendingName = useCallback((ruleIdx: number) => {
+    const nextName = pendingNameByIdx.get(ruleIdx)
     if (nextName === undefined) return
-    mutateRules((prev) => prev.map((r) => r.id === ruleId ? (r.name === nextName ? r : { ...r, name: nextName }) : r))
-  }, [pendingNameById, mutateRules])
+    // Apply to the rule at the stored index; no-op when the name is already current.
+    mutateRules((prev) => prev.map((r, i) => i === ruleIdx ? (r.name === nextName ? r : { ...r, name: nextName }) : r))
+  }, [pendingNameByIdx, mutateRules])
 
-  const scheduleNameCommit = useCallback((ruleId: string) => {
+  const scheduleNameCommit = useCallback((ruleIdx: number) => {
     cancelNameCommitTimer()
     nameCommitTimerRef.current = window.setTimeout(() => {
       nameCommitTimerRef.current = null
-      flushPendingName(ruleId)
+      flushPendingName(ruleIdx)
     }, BUILDER_AUTO_APPLY_DEBOUNCE_MS)
   }, [cancelNameCommitTimer, flushPendingName])
 
   useEffect(() => () => cancelNameCommitTimer(), [cancelNameCommitTimer])
 
-  const startRuleNameEdit = useCallback((ruleId: string, persistedName: string) => {
-    setPendingNameById((prev) => {
+  const startRuleNameEdit = useCallback((ruleIdx: number, persistedName: string) => {
+    setPendingNameByIdx((prev) => {
       const next = new Map(prev)
-      next.set(ruleId, persistedName ?? '')
+      next.set(ruleIdx, persistedName ?? '')
       return next
     })
-    setEditingRuleNameId(ruleId)
+    setEditingRuleNameIdx(ruleIdx)
   }, [])
 
-  const finishRuleNameEdit = useCallback((ruleId: string, commit: boolean) => {
+  const finishRuleNameEdit = useCallback((ruleIdx: number, commit: boolean) => {
     cancelNameCommitTimer()
     if (commit) {
-      flushPendingName(ruleId)
+      flushPendingName(ruleIdx)
     } else {
-      setPendingNameById((prev) => {
-        if (!prev.has(ruleId)) return prev
+      setPendingNameByIdx((prev) => {
+        if (!prev.has(ruleIdx)) return prev
         const next = new Map(prev)
-        next.delete(ruleId)
+        next.delete(ruleIdx)
         return next
       })
     }
-    setEditingRuleNameId((prev) => (prev === ruleId ? null : prev))
+    setEditingRuleNameIdx((prev) => (prev === ruleIdx ? null : prev))
   }, [cancelNameCommitTimer, flushPendingName])
 
   // ── rule management ───────────────────────────────────────────────────────
 
   // Scrolls the targeted chip into view with smooth animation, mirroring the recipe chips pattern.
   //
-  // Retries up to MAX_FIND_ATTEMPTS frames in case the chip is briefly absent (e.g. paste/duplicate
-  // hasn't committed yet). Once found, waits one settle frame before computing the scroll target —
-  // this is necessary when the panel has just become visible (display:none → flex), because the
-  // ResizeObserver that updates maxHeightPx fires asynchronously; without the settle frame the
-  // container's clientHeight is briefly inflated, making scroll-down targets compute to zero.
-  // After settling, walks the offsetParent chain to get chipTop, then calls scrollTo with
-  // behavior:'smooth' — the same approach used by scrollSelectedRecipeIntoView in App.tsx.
-  const scheduleScrollToRule = useCallback((ruleId: string) => {
+  // Looks up the chip by its data-safeguard-chip-index attribute so the lookup is
+  // purely index-based. Retries up to MAX_FIND_ATTEMPTS frames in case the chip is
+  // briefly absent (e.g. paste/duplicate hasn't committed yet). One settle frame is
+  // awaited before computing the scroll target so the container's clientHeight is final.
+  const scheduleScrollToIdx = useCallback((ruleIdx: number) => {
     // Cancel any in-flight scroll attempt for a previous rule.
     if (scrollRafRef.current !== null) {
       window.cancelAnimationFrame(scrollRafRef.current)
@@ -271,7 +274,7 @@ export default function SafeguardChipsPanel({
     const MAX_FIND_ATTEMPTS = 8
     const tryScroll = (findAttempt: number, settled: boolean) => {
       const container = scrollRootRef.current
-      const target = container?.querySelector(`[data-safeguards-rule-id="${ruleId}"]`) as HTMLElement | null
+      const target = container?.querySelector(`[data-safeguard-chip-index="${ruleIdx}"]`) as HTMLElement | null
       if (!target) {
         // Chip not in DOM yet — retry next frame (reset settled; layout may shift further).
         if (findAttempt >= MAX_FIND_ATTEMPTS) { scrollRafRef.current = null; return }
@@ -308,7 +311,7 @@ export default function SafeguardChipsPanel({
       if (scrollTarget === null) { scrollRafRef.current = null; return }
       const maxScrollTop = Math.max(0, container!.scrollHeight - container!.clientHeight)
       const clampedTarget = Math.max(0, Math.min(scrollTarget, maxScrollTop))
-      // Only scroll if the chip is meaningfully out of view; smooth keeps the animation subtle.
+      // Only scroll if the chip is meaningfully out of view.
       if (Math.abs(clampedTarget - viewTop) > 0.5) {
         container!.scrollTo({ top: clampedTarget, behavior: 'smooth' })
       }
@@ -324,38 +327,38 @@ export default function SafeguardChipsPanel({
     scrollRafRef.current = null
   }, [])
 
-  // Scroll the targeted chip into view when an external jump request arrives
-  // (e.g. clicking a safeguard match chip in Gear Inspector). Token deduplication
-  // prevents re-firing on unrelated re-renders.
+  // Scroll the targeted chip into view when an external jump request arrives.
+  // Token deduplication prevents re-firing on unrelated re-renders.
   useEffect(() => {
     if (!focusRuleRequest) return
     if (lastAppliedFocusTokenRef.current === focusRuleRequest.token) return
     lastAppliedFocusTokenRef.current = focusRuleRequest.token
-    scheduleScrollToRule(focusRuleRequest.ruleId)
-  }, [focusRuleRequest, scheduleScrollToRule])
+    scheduleScrollToIdx(focusRuleRequest.ruleIdx)
+  }, [focusRuleRequest, scheduleScrollToIdx])
 
-  const handleDeleteRule = useCallback((ruleId: string) => {
+  const handleDeleteRule = useCallback((ruleIdx: number) => {
     // When multi-select is active, delegate to the parent hook so bulk deletes work.
-    if (onRuleDelete) { onRuleDelete(ruleId); setRuleMenu(null); return }
-    let filtered: SafeguardRule[] = []
+    if (onRuleDelete) { onRuleDelete(ruleIdx); setRuleMenu(null); return }
+    let nextLength = 0
     mutateRules((prev) => {
-      filtered = prev.filter((r) => r.id !== ruleId)
+      const filtered = prev.filter((_, i) => i !== ruleIdx)
+      nextLength = filtered.length
       return filtered
     })
     // Close the context menu if it was open for the deleted rule.
-    if (ruleMenu?.ruleId === ruleId) setRuleMenu(null)
+    if (ruleMenu?.ruleIdx === ruleIdx) setRuleMenu(null)
     // Auto-select the first remaining rule so the builder form doesn't go blank.
-    if (filtered.length > 0 && selectedRuleId === ruleId) {
-      onSelect(filtered[0]!.id)
+    if (nextLength > 0 && selectedRuleIdx === ruleIdx) {
+      onSelect(0)
     }
-  }, [mutateRules, onRuleDelete, ruleMenu, selectedRuleId, onSelect])
+  }, [mutateRules, onRuleDelete, ruleMenu, selectedRuleIdx, onSelect])
 
   const handleConfirmDeleteRule = useCallback(() => {
-    if (!pendingDeleteRuleId) return
-    handleDeleteRule(pendingDeleteRuleId)
-    // Clear the pending ID after the delete so the confirmation dialog closes.
-    setPendingDeleteRuleId(null)
-  }, [handleDeleteRule, pendingDeleteRuleId])
+    if (pendingDeleteRuleIdx === null) return
+    handleDeleteRule(pendingDeleteRuleIdx)
+    // Clear the pending index after the delete so the confirmation dialog closes.
+    setPendingDeleteRuleIdx(null)
+  }, [handleDeleteRule, pendingDeleteRuleIdx])
 
   const handleConfirmDeleteAll = useCallback(() => {
     mutateRules([])
@@ -363,38 +366,34 @@ export default function SafeguardChipsPanel({
     setRuleMenu(null)
   }, [mutateRules])
 
-  const handleDuplicateRule = useCallback((ruleId: string) => {
+  const handleDuplicateRule = useCallback((ruleIdx: number) => {
     // Delegate to parent when in multi-select mode so grouped duplicates work.
-    if (onRuleDuplicate) { onRuleDuplicate(ruleId); return }
-    const sourceIndex = rules.findIndex((r) => r.id === ruleId)
-    if (sourceIndex === -1) return
-    const source = rules[sourceIndex]
+    if (onRuleDuplicate) { onRuleDuplicate(ruleIdx); return }
+    const source = rules[ruleIdx]
     if (!source) return
     // Insert the clone immediately after the original in the list.
-    const cloneId = createSafeguardRuleId()
-    const duplicated: SafeguardRule = { ...source, id: cloneId, combination: { ...source.combination } }
+    const duplicated: SafeguardRule = { ...cloneSafeguardRule(source) }
     const next = rules.slice()
-    next.splice(sourceIndex + 1, 0, duplicated)
+    next.splice(ruleIdx + 1, 0, duplicated)
     mutateRules(next)
     // Select and scroll to the new clone so the user sees it right away.
-    onSelect(cloneId)
-    scheduleScrollToRule(cloneId)
-  }, [mutateRules, onRuleDuplicate, rules, onSelect, scheduleScrollToRule])
+    const newIdx = ruleIdx + 1
+    onSelect(newIdx)
+    scheduleScrollToIdx(newIdx)
+  }, [mutateRules, onRuleDuplicate, rules, onSelect, scheduleScrollToIdx])
 
-  const moveRule = useCallback((ruleId: string, targetIndex: number, direction?: 'up' | 'down' | 'top' | 'bottom') => {
+  const moveRule = useCallback((ruleIdx: number, targetIndex: number, direction?: 'up' | 'down' | 'top' | 'bottom') => {
     // In multi-select mode, delegate directional moves to the parent hook.
-    if (direction === 'up' && onRuleMoveUp) { onRuleMoveUp(ruleId); return }
-    if (direction === 'down' && onRuleMoveDown) { onRuleMoveDown(ruleId); return }
-    if (direction === 'top' && onRuleMoveTop) { onRuleMoveTop(ruleId); return }
-    if (direction === 'bottom' && onRuleMoveBottom) { onRuleMoveBottom(ruleId); return }
+    if (direction === 'up' && onRuleMoveUp) { onRuleMoveUp(ruleIdx); return }
+    if (direction === 'down' && onRuleMoveDown) { onRuleMoveDown(ruleIdx); return }
+    if (direction === 'top' && onRuleMoveTop) { onRuleMoveTop(ruleIdx); return }
+    if (direction === 'bottom' && onRuleMoveBottom) { onRuleMoveBottom(ruleIdx); return }
     mutateRules((prev) => {
-      const idx = prev.findIndex((r) => r.id === ruleId)
-      if (idx === -1) return prev
       // Clamp to valid bounds so arrow buttons at the edges don't no-op silently.
       const safeTarget = Math.min(Math.max(targetIndex, 0), prev.length - 1)
-      if (safeTarget === idx) return prev
+      if (safeTarget === ruleIdx) return prev
       const next = prev.slice()
-      const [moved] = next.splice(idx, 1)
+      const [moved] = next.splice(ruleIdx, 1)
       if (!moved) return prev
       next.splice(safeTarget, 0, moved)
       return next
@@ -415,8 +414,8 @@ export default function SafeguardChipsPanel({
     // the legacy single-item move so the panel stays functional when invoked
     // without the full multi-select prop set (e.g. standalone usage).
     onReorder: onReorderRules ?? ((movingIndices, targetIndex) => {
-      const ruleId = rules[movingIndices[0]!]?.id
-      if (ruleId !== undefined) moveRule(ruleId, targetIndex)
+      const idx = movingIndices[0]
+      if (idx !== undefined) moveRule(idx, targetIndex)
     }),
     ...(onPrepareDragSelection ? { onPrepareSelection: onPrepareDragSelection } : {}),
     copyModeEnabled: true,
@@ -424,10 +423,10 @@ export default function SafeguardChipsPanel({
   })
 
   // Visible rule count drives Ctrl+A; selected count drives Delete/Backspace.
-  const visibleRuleCount = visibleRuleIds
-    ? rules.filter((r) => visibleRuleIds.has(r.id)).length
+  const visibleRuleCount = visibleRuleIndices
+    ? rules.filter((_, i) => visibleRuleIndices.has(i)).length
     : rules.length
-  const selectedCount = multiselectMode && selectedRuleIds ? selectedRuleIds.length : (selectedRuleId ? 1 : 0)
+  const selectedCount = multiselectMode && selectedRuleIndices ? selectedRuleIndices.length : (selectedRuleIdx !== null ? 1 : 0)
 
   // Shared SSOT hook: keyboard shortcuts (Delete, Ctrl+A), focus ring, empty-click-to-deselect.
   const {
@@ -445,14 +444,14 @@ export default function SafeguardChipsPanel({
     onClearSelection: onClearSelection ?? (() => {}),
   })
 
-  const openRuleMenu = useCallback((event: ReactMouseEvent<HTMLElement>, ruleId: string) => {
+  const openRuleMenu = useCallback((event: ReactMouseEvent<HTMLElement>, ruleIdx: number) => {
     event.preventDefault()
     event.stopPropagation()
-    onSelect(ruleId)
+    onSelect(ruleIdx)
     const rect = event.currentTarget.getBoundingClientRect()
     const x = event.clientX || Math.round(rect.left + rect.width / 2)
     const y = event.clientY || Math.round(rect.top + rect.height / 2)
-    setRuleMenu({ ruleId, x, y })
+    setRuleMenu({ ruleIdx, x, y })
   }, [onSelect])
 
   // ── clipboard / paste ─────────────────────────────────────────────────────
@@ -480,33 +479,27 @@ export default function SafeguardChipsPanel({
     } catch { return [] }
   }, [])
 
-  // Inserts one or more rules at insertIndex, assigns fresh IDs, then selects and
-  // scrolls to the first inserted rule so the user sees the result immediately.
+  // Inserts one or more rules at insertIndex, then selects and scrolls to the
+  // first inserted rule so the user sees the result immediately.
   const insertSafeguardRulesAt = useCallback((rulesToInsert: SafeguardRule[], insertIndex: number) => {
-    const newRuleIds: string[] = []
+    let firstNewIdx: number | null = null
     mutateRules((prev) => {
       if (rulesToInsert.length === 0) return prev
       // Clamp so the caller doesn't have to worry about boundary conditions.
       const safeIndex = Math.min(Math.max(insertIndex, 0), prev.length)
+      // Always clone so pasted rules never share references with the source.
+      const copies = rulesToInsert.map((r) => cloneSafeguardRule(r))
       const next = prev.slice()
-      let offset = 0
-      for (const sourceRule of rulesToInsert) {
-        // Always clone + re-id so pasted rules never share references with the source.
-        const clone = cloneSafeguardRule(sourceRule)
-        const cloneId = createSafeguardRuleId()
-        clone.id = cloneId
-        newRuleIds.push(cloneId)
-        next.splice(safeIndex + offset, 0, clone)
-        offset += 1
-      }
+      next.splice(safeIndex, 0, ...copies)
+      firstNewIdx = safeIndex
       return next
     })
-    const [firstId] = newRuleIds
-    if (!firstId) return
+    if (firstNewIdx === null) return
+    const idx = firstNewIdx
     // Select and scroll to the first new rule so the builder panel updates.
-    onSelect(firstId)
-    scheduleScrollToRule(firstId)
-  }, [mutateRules, onSelect, scheduleScrollToRule])
+    onSelect(idx)
+    scheduleScrollToIdx(idx)
+  }, [mutateRules, onSelect, scheduleScrollToIdx])
 
   const closePasteDialog = useCallback(() => {
     setPasteDialogTarget(null)
@@ -514,14 +507,14 @@ export default function SafeguardChipsPanel({
     setPasteDialogError(null)
   }, [])
 
-  const openPasteDialog = useCallback((mode: 'after' | 'end', ruleId?: string, text = '') => {
-    setPasteDialogTarget({ mode, ...(ruleId ? { ruleId } : {}) })
+  const openPasteDialog = useCallback((mode: 'after' | 'end', ruleIdx?: number, text = '') => {
+    setPasteDialogTarget({ mode, ...(ruleIdx !== undefined ? { ruleIdx } : {}) })
     setPasteDialogText(text)
     setPasteDialogError(null)
   }, [])
 
-  const handleCopyRule = useCallback(async (ruleId: string) => {
-    const source = rules.find((r) => r.id === ruleId)
+  const handleCopyRule = useCallback(async (ruleIdx: number) => {
+    const source = rules[ruleIdx]
     if (!source) return
     // Serialize via the canonical readable entry builder so the format stays stable.
     const snapshot = buildReadableSafeguardRuleEntry(source)
@@ -532,18 +525,17 @@ export default function SafeguardChipsPanel({
     if (!ok) triggerCopyDialog(text)
   }, [rules])
 
-  const handlePasteAfterRule = useCallback(async (ruleId: string) => {
+  const handlePasteAfterRule = useCallback(async (ruleIdx: number) => {
     const text = await readTextSafe()
     const parsed = parseSafeguardClipboardRules(text)
     if (parsed.length > 0) {
       // Happy path: clipboard already holds a valid rule payload.
-      const idx = rules.findIndex((r) => r.id === ruleId)
-      insertSafeguardRulesAt(parsed, idx === -1 ? rules.length : idx + 1)
+      insertSafeguardRulesAt(parsed, ruleIdx + 1)
       return
     }
     // Clipboard content wasn't parseable; open the manual dialog pre-filled with it.
-    openPasteDialog('after', ruleId, text ?? '')
-  }, [insertSafeguardRulesAt, openPasteDialog, parseSafeguardClipboardRules, rules])
+    openPasteDialog('after', ruleIdx, text ?? '')
+  }, [insertSafeguardRulesAt, openPasteDialog, parseSafeguardClipboardRules])
 
   const handlePasteAtEnd = useCallback(async () => {
     const text = await readTextSafe()
@@ -563,16 +555,13 @@ export default function SafeguardChipsPanel({
       return
     }
     const mode = pasteDialogTarget?.mode ?? 'end'
-    // Resolve the insertion index from the mode and the optional anchor rule id.
+    // Resolve the insertion index from the mode and the optional anchor index.
     const insertIndex = mode === 'after'
-      ? (() => {
-        const idx = pasteDialogTarget?.ruleId ? rules.findIndex((r) => r.id === pasteDialogTarget!.ruleId) : -1
-        return idx === -1 ? rules.length : idx + 1
-      })()
+      ? ((pasteDialogTarget?.ruleIdx ?? -1) >= 0 ? pasteDialogTarget!.ruleIdx! + 1 : rules.length)
       : rules.length
     insertSafeguardRulesAt(parsed, insertIndex)
     closePasteDialog()
-  }, [closePasteDialog, insertSafeguardRulesAt, parseSafeguardClipboardRules, pasteDialogTarget, pasteDialogText, rules])
+  }, [closePasteDialog, insertSafeguardRulesAt, parseSafeguardClipboardRules, pasteDialogTarget, pasteDialogText, rules.length])
 
   // ── render ────────────────────────────────────────────────────────────────
 
@@ -583,10 +572,10 @@ export default function SafeguardChipsPanel({
   }
 
   const renderChip = (rule: SafeguardRule, ruleIndex: number) => {
-    // In multi-select mode, any rule in the selection set receives selected styling.
-    const selected = effectiveSelectedIds.has(rule.id)
-    const isEditingRuleName = editingRuleNameId === rule.id
-    const rawName = (pendingNameById.get(rule.id) ?? rule.name ?? '').trim()
+    // In multi-select mode, any rule at a selected index receives selected styling.
+    const selected = effectiveSelectedIndices.has(ruleIndex)
+    const isEditingRuleName = editingRuleNameIdx === ruleIndex
+    const rawName = (pendingNameByIdx.get(ruleIndex) ?? rule.name ?? '').trim()
     const fallbackName = `${t('gearInspectorRule')} ${ruleIndex + 1}`
     const nameDecoration = parseRecipeNameDirectives(rawName || undefined, 'inherit')
     const displayName = nameDecoration.displayName || fallbackName
@@ -618,20 +607,19 @@ export default function SafeguardChipsPanel({
 
     return (
       <Box
-        key={rule.id}
-        data-safeguards-rule-id={rule.id}
-        data-tour-id={`safeguards.chip.${rule.id}`}
+        key={ruleIndex}
         data-safeguard-chip-index={ruleIndex}
+        data-tour-id={`safeguards.chip.${ruleIndex}`}
         data-safeguard-chip="true"
         data-linked-hover="false"
         onMouseEnter={(e) => (e.currentTarget as HTMLElement).setAttribute('data-linked-hover', 'true')}
         onMouseLeave={(e) => (e.currentTarget as HTMLElement).setAttribute('data-linked-hover', 'false')}
         onClick={(e) => {
           // In multi-select mode, forward the full MouseEvent so shift/ctrl is handled.
-          if (onRuleSelect) { onRuleSelect(e, rule.id); return }
-          onSelect(rule.id)
+          if (onRuleSelect) { onRuleSelect(e, ruleIndex); return }
+          onSelect(ruleIndex)
         }}
-        onContextMenu={(event) => openRuleMenu(event, rule.id)}
+        onContextMenu={(event) => openRuleMenu(event, ruleIndex)}
         onPointerDown={dndEnabled ? (e) => handleChipPointerDown(e, ruleIndex) : undefined}
         sx={(themeCtx) => {
           const hoverBg = alpha(themeCtx.palette.primary.main, themeCtx.palette.mode === 'dark' ? HOVER_BG_ALPHA.dark : HOVER_BG_ALPHA.light)
@@ -676,17 +664,17 @@ export default function SafeguardChipsPanel({
             <TextField
               size="small"
               autoFocus
-              value={pendingNameById.get(rule.id) ?? rule.name ?? ''}
+              value={pendingNameByIdx.get(ruleIndex) ?? rule.name ?? ''}
               onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
               onChange={(e) => {
                 const raw = e.target.value ?? ''
-                setPendingNameById((prev) => { const next = new Map(prev); next.set(rule.id, raw); return next })
-                scheduleNameCommit(rule.id)
+                setPendingNameByIdx((prev) => { const next = new Map(prev); next.set(ruleIndex, raw); return next })
+                scheduleNameCommit(ruleIndex)
               }}
-              onBlur={() => finishRuleNameEdit(rule.id, true)}
+              onBlur={() => finishRuleNameEdit(ruleIndex, true)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') { e.preventDefault(); finishRuleNameEdit(rule.id, true); return }
-                if (e.key === 'Escape') { e.preventDefault(); finishRuleNameEdit(rule.id, false) }
+                if (e.key === 'Enter') { e.preventDefault(); finishRuleNameEdit(ruleIndex, true); return }
+                if (e.key === 'Escape') { e.preventDefault(); finishRuleNameEdit(ruleIndex, false) }
               }}
               sx={{ flex: '1 1 auto', minWidth: 0, mr: 0.5 }}
               inputProps={{ style: { fontSize: '0.75rem', padding: '2px 6px' } }}
@@ -704,11 +692,11 @@ export default function SafeguardChipsPanel({
               {`${ruleIndex + 1}. `}
               <Box
                 component="span"
-                onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); startRuleNameEdit(rule.id, rule.name ?? '') }}
+                onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); startRuleNameEdit(ruleIndex, rule.name ?? '') }}
                 onKeyDown={(e) => {
                   if (e.key !== 'F2') return
                   e.preventDefault(); e.stopPropagation()
-                  startRuleNameEdit(rule.id, rule.name ?? '')
+                  startRuleNameEdit(ruleIndex, rule.name ?? '')
                 }}
                 sx={{
                   fontStyle: rawName ? 'normal' : 'italic',
@@ -732,7 +720,7 @@ export default function SafeguardChipsPanel({
           size="small"
           aria-label={t('chipMenuMoveUp')}
           disabled={isFirst}
-          onClick={(e) => { e.stopPropagation(); moveRule(rule.id, ruleIndex - 1, 'up') }}
+          onClick={(e) => { e.stopPropagation(); moveRule(ruleIndex, ruleIndex - 1, 'up') }}
           sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
         >
           <ArrowUpwardIcon fontSize="inherit" />
@@ -741,7 +729,7 @@ export default function SafeguardChipsPanel({
           size="small"
           aria-label={t('chipMenuMoveDown')}
           disabled={isLast}
-          onClick={(e) => { e.stopPropagation(); moveRule(rule.id, ruleIndex + 1, 'down') }}
+          onClick={(e) => { e.stopPropagation(); moveRule(ruleIndex, ruleIndex + 1, 'down') }}
           sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
         >
           <ArrowDownwardIcon fontSize="inherit" />
@@ -749,7 +737,7 @@ export default function SafeguardChipsPanel({
         <IconButton
           size="small"
           aria-label={t('safeguardsDuplicateRule')}
-          onClick={(e) => { e.stopPropagation(); handleDuplicateRule(rule.id) }}
+          onClick={(e) => { e.stopPropagation(); handleDuplicateRule(ruleIndex) }}
           sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
         >
           <ContentCopyIcon fontSize="inherit" />
@@ -757,7 +745,7 @@ export default function SafeguardChipsPanel({
         <IconButton
           size="small"
           aria-label={t('safeguardsDeleteRule')}
-          onClick={(e) => { e.stopPropagation(); setPendingDeleteRuleId(rule.id) }}
+          onClick={(e) => { e.stopPropagation(); setPendingDeleteRuleIdx(ruleIndex) }}
           color="error"
           sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
         >
@@ -783,16 +771,16 @@ export default function SafeguardChipsPanel({
         contextMenuGuard={ruleMenuGuard}
         actions={(() => {
           if (!ruleMenu) return {}
-          const idx = rules.findIndex((r) => r.id === ruleMenu.ruleId)
+          const idx = ruleMenu.ruleIdx
           const isFirst = idx <= 0
-          const isLast = idx < 0 || idx === rules.length - 1
+          const isLast = idx >= rules.length - 1
           return {
-            moveTop: { handler: () => moveRule(ruleMenu.ruleId, 0, 'top'), disabled: isFirst },
-            moveUp: { handler: () => moveRule(ruleMenu.ruleId, idx - 1, 'up'), disabled: isFirst },
-            moveDown: { handler: () => moveRule(ruleMenu.ruleId, idx + 1, 'down'), disabled: isLast },
-            moveBottom: { handler: () => moveRule(ruleMenu.ruleId, rules.length - 1, 'bottom'), disabled: isLast },
-            copyRecipe: () => handleCopyRule(ruleMenu.ruleId),
-            pasteAfter: () => handlePasteAfterRule(ruleMenu.ruleId),
+            moveTop: { handler: () => moveRule(idx, 0, 'top'), disabled: isFirst },
+            moveUp: { handler: () => moveRule(idx, idx - 1, 'up'), disabled: isFirst },
+            moveDown: { handler: () => moveRule(idx, idx + 1, 'down'), disabled: isLast },
+            moveBottom: { handler: () => moveRule(idx, rules.length - 1, 'bottom'), disabled: isLast },
+            copyRecipe: () => handleCopyRule(idx),
+            pasteAfter: () => handlePasteAfterRule(idx),
             pasteAtEnd: handlePasteAtEnd,
             // Select All — same as Ctrl+A shortcut, available when rules exist.
             ...(onSelectAll ? {
@@ -818,13 +806,13 @@ export default function SafeguardChipsPanel({
         onCancel={closePasteDialog}
         onConfirm={handleConfirmPasteDialog}
       />
-      <Dialog open={pendingDeleteRuleId !== null} onClose={() => setPendingDeleteRuleId(null)}>
+      <Dialog open={pendingDeleteRuleIdx !== null} onClose={() => setPendingDeleteRuleIdx(null)}>
         <DialogTitle>{t('safeguardsDeleteRuleTitle')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2">{t('safeguardsDeleteRuleMessage')}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPendingDeleteRuleId(null)}>{t('cancel')}</Button>
+          <Button onClick={() => setPendingDeleteRuleIdx(null)}>{t('cancel')}</Button>
           <Button color="error" onClick={handleConfirmDeleteRule}>{t('delete')}</Button>
         </DialogActions>
       </Dialog>
@@ -906,7 +894,8 @@ export default function SafeguardChipsPanel({
           </Box>
         ) : (
           rules.map((rule, index) => {
-            if (visibleRuleIds && !visibleRuleIds.has(rule.id)) return null
+            // Skip hidden chips when a visible-index filter is active.
+            if (visibleRuleIndices && !visibleRuleIndices.has(index)) return null
             return renderChip(rule, index)
           })
         )}

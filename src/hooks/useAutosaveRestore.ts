@@ -56,7 +56,7 @@ export type RestoreDraft = {
   SafeguardsEnabled?: boolean
   RecipesEnabled?: boolean
   SelectedRecipeIndex?: number
-  SelectedSafeguardRuleId?: string
+  SelectedSafeguardRuleIdx?: number
   Note?: string
   NoteRecipeOverridesAnswers?: NoteRecipeOverridesAnswers
   NoteRecipeOverridesDisabled?: boolean
@@ -405,10 +405,10 @@ function computeInitialAutosaveState(args: {
         const savedRecipeSelIdx = typeof rawSelIdx === 'number' && rawSelIdx >= 0 && rawSelIdx < recipes.length
           ? rawSelIdx
           : null
-        // Read selected safeguard rule ID from the raw payload; validate it exists in the saved rule list.
-        const rawSelSgId = payload['SelectedSafeguardRuleId']
-        const savedSgSelId = typeof rawSelSgId === 'string' && savedSafeguards.some((r) => r.id === rawSelSgId)
-          ? rawSelSgId
+        // Read selected safeguard rule index from the raw payload; bounds-check against the saved list.
+        const rawSelSgIdx = payload['SelectedSafeguardRuleIdx']
+        const savedSgSelIdx = typeof rawSelSgIdx === 'number' && rawSelSgIdx >= 0 && rawSelSgIdx < savedSafeguards.length
+          ? rawSelSgIdx
           : null
         return {
           restoreDlgOpen: true,
@@ -422,7 +422,7 @@ function computeInitialAutosaveState(args: {
             ...(savedKeepEnabled ? { SafeguardsEnabled: savedKeepEnabled } : {}),
             ...(savedGridFilterMode ? { SafeguardsGridFilterMode: savedGridFilterMode } : {}),
             ...(savedRecipeSelIdx != null ? { SelectedRecipeIndex: savedRecipeSelIdx } : {}),
-            ...(savedSgSelId ? { SelectedSafeguardRuleId: savedSgSelId } : {}),
+            ...(savedSgSelIdx != null ? { SelectedSafeguardRuleIdx: savedSgSelIdx } : {}),
             ...(parsed.note ? { Note: parsed.note } : {}),
             ...(savedRecipeOverridesAnswers ? { [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]: savedRecipeOverridesAnswers } : {}),
             ...(savedRecipeOverridesDisabled ? { [NOTE_RECIPE_OVERRIDES_DISABLED_KEY]: true } : {}),

@@ -99,7 +99,6 @@ import {
   getSafeguardItemKey,
   resolveSafeguardRuleLabel,
   buildSafeguardCombinationFromRecipe,
-  createSafeguardRuleId,
   cloneSafeguardRule,
   SAFEGUARD_DEFAULT_COUNT_MODE,
   SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
@@ -880,16 +879,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     scheduleMeasurement()
   }, [builderMode, scheduleMeasurement])
-  // Which safeguard rule is selected in the builder (transient — not persisted).
-  const [selectedSafeguardRuleId, setSelectedSafeguardRuleId] = useState<string | null>(() => null)
+  // Which safeguard rule is selected in the builder (transient — not persisted); stored as list index.
+  const [selectedSafeguardRuleIdx, setSelectedSafeguardRuleIdx] = useState<number | null>(() => null)
   // External scroll request for SafeguardChipsPanel (e.g. Gear Inspector jump). Token increments on each new request.
-  const [safeguardFocusRequest, setSafeguardFocusRequest] = useState<{ ruleId: string; token: number } | null>(null)
+  const [safeguardFocusRequest, setSafeguardFocusRequest] = useState<{ ruleIdx: number; token: number } | null>(null)
   const safeguardFocusTokenRef = useRef(0)
 
   // Safeguard builder draft — separate from safeguardRules list so edits stay local until
   // the user explicitly inserts or applies, mirroring the recipe builder's draft model.
   const [safeguardBuilderState, setSafeguardBuilderState] = useState<SafeguardRule>(() => ({
-    id: createSafeguardRuleId(),
     combination: { slots: [], sets: [], metaSetNames: [], ranks: [], rarities: [], mainStats: [], factions: [] },
     name: '',
     requiredCount: 1,
@@ -921,7 +919,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // Ref kept in sync with the visible-rule-ids set so shift-click in useSafeguardSelection
   // respects filters; declared early so it's stable across renders.
-  const visibleSafeguardRuleIdsRef = useRef<ReadonlySet<string> | null>(null)
+  const visibleSafeguardRuleIdsRef = useRef<ReadonlySet<number> | null>(null)
 
   // Shared metasets dialog opener registered by RecipeBuilderPanel; called by SafeguardBuilderPanel.
   const openMetasetsDialogRef = useRef<() => void>(() => {})
@@ -1561,13 +1559,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setPreviewSelectedRecipeIdx(selectedRecipeIdx)
     })
   }, [selectedRecipeIdx])
-  // 1-based ordinal of the selected safeguard rule, derived from its ID position in the list.
+  // 1-based ordinal of the selected safeguard rule, derived from its index in the list.
   // Used to drive HSF row highlight and "Selection on" filtering (mirrors selectedRecipeIdx).
   const selectedSafeguardOrdinal = useMemo(() => {
-    if (!selectedSafeguardRuleId) return null
-    const idx = safeguardRules.findIndex((r) => r.id === selectedSafeguardRuleId)
-    return idx >= 0 ? idx + 1 : null
-  }, [selectedSafeguardRuleId, safeguardRules])
+    if (selectedSafeguardRuleIdx === null) return null
+    return selectedSafeguardRuleIdx >= 0 && selectedSafeguardRuleIdx < safeguardRules.length
+      ? selectedSafeguardRuleIdx + 1
+      : null
+  }, [selectedSafeguardRuleIdx, safeguardRules.length])
   // Transitional copy so safeguard highlight updates are deferred like recipe highlight.
   const [previewSelectedSafeguardOrdinal, setPreviewSelectedSafeguardOrdinal] = useState<number | null>(null)
   useEffect(() => {
@@ -1934,8 +1933,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     safeguardAutoApplyNowRef.current()
   }, [])
   const {
-    selectedRuleIds: selectedSafeguardRuleIds,
-    setSelectedRuleIds: setSelectedSafeguardRuleIds,
+    selectedRuleIndices: selectedSafeguardRuleIds,
+    setSelectedRuleIndices: setSelectedSafeguardRuleIds,
     multiselectActive: safeguardMultiselectActive,
     multiSelectedRules: multiSelectedSafeguardRules,
     multiEditHandle: safeguardMultiEditHandle,
@@ -1955,18 +1954,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   } = useSafeguardSelection({
     safeguardRules,
     applySafeguardRulesChange,
-    selectedRuleId: selectedSafeguardRuleId,
-    setSelectedRuleId: setSelectedSafeguardRuleId,
+    selectedRuleIdx: selectedSafeguardRuleIdx,
+    setSelectedRuleIdx: setSelectedSafeguardRuleIdx,
     onWillChangeSelection: handleSafeguardWillChangeSelection,
-    onSelectionScrollRequest: (ruleId) => {
+    onSelectionScrollRequest: (ruleIdx) => {
       // Scroll the chips panel to keep the newly selected chip visible.
       safeguardFocusTokenRef.current += 1
-      setSafeguardFocusRequest({ ruleId, token: safeguardFocusTokenRef.current })
+      setSafeguardFocusRequest({ ruleIdx, token: safeguardFocusTokenRef.current })
       // Also scroll the HSF preview table to the first row for this safeguard.
-      const ordinal = safeguardRules.findIndex((r) => r.id === ruleId) + 1
+      const ordinal = ruleIdx + 1
       if (ordinal > 0) requestSelectionScroll(SELECTION_SCROLL_SOURCE_USER, null, ordinal)
     },
-    visibleRuleIdsRef: visibleSafeguardRuleIdsRef,
+    visibleRuleIndicesRef: visibleSafeguardRuleIdsRef,
     setSafeguardBuilder,
   })
 
@@ -1974,27 +1973,35 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Auto-reset-after-insert is applied by SafeguardBuilderPanel after calling this.
   const handleInsertSafeguardFromBuilder = useCallback(() => {
     const current = safeguardBuilderRef.current
-    const newId = createSafeguardRuleId()
-    const newRule: SafeguardRule = { ...cloneSafeguardRule(current), id: newId }
+    const newRule: SafeguardRule = { ...cloneSafeguardRule(current) }
+    let insertedIdx = -1
     applySafeguardRulesChange((prev) => {
-      const idx = selectedSafeguardRuleId !== null ? prev.findIndex((r) => r.id === selectedSafeguardRuleId) : -1
-      if (idx === -1) return [...prev, newRule]
+      // Insert after the currently-selected rule, or append when nothing is selected.
+      const afterIdx = selectedSafeguardRuleIdx !== null && selectedSafeguardRuleIdx >= 0
+        ? selectedSafeguardRuleIdx
+        : prev.length - 1
+      if (afterIdx === -1 || afterIdx >= prev.length - 1) {
+        insertedIdx = prev.length
+        return [...prev, newRule]
+      }
+      insertedIdx = afterIdx + 1
       const next = [...prev]
-      next.splice(idx + 1, 0, newRule)
+      next.splice(insertedIdx, 0, newRule)
       return next
     })
     // Auto-enable safeguards when the first rule is inserted.
     if (safeguardRules.length === 0) applySafeguardsEnabledChange(true, { publish: false })
-    setSelectedSafeguardRuleId(newId)
-  }, [applySafeguardRulesChange, applySafeguardsEnabledChange, safeguardRules.length, selectedSafeguardRuleId])
+    // Select by the insertion index; use the computed value if available, else append index.
+    setSelectedSafeguardRuleIdx(insertedIdx >= 0 ? insertedIdx : safeguardRules.length)
+  }, [applySafeguardRulesChange, applySafeguardsEnabledChange, safeguardRules.length, selectedSafeguardRuleIdx])
 
   // Apply the draft to the currently selected rule.
   const handleApplySafeguardFromBuilder = useCallback(() => {
-    if (selectedSafeguardRuleId === null) return
+    if (selectedSafeguardRuleIdx === null) return
     const current = safeguardBuilderRef.current
-    const updated: SafeguardRule = { ...cloneSafeguardRule(current), id: selectedSafeguardRuleId }
-    applySafeguardRulesChange((prev) => prev.map((r) => (r.id === selectedSafeguardRuleId ? updated : r)))
-  }, [applySafeguardRulesChange, selectedSafeguardRuleId])
+    const updated: SafeguardRule = { ...cloneSafeguardRule(current) }
+    applySafeguardRulesChange((prev) => prev.map((r, i) => (i === selectedSafeguardRuleIdx ? updated : r)))
+  }, [applySafeguardRulesChange, selectedSafeguardRuleIdx])
 
   // Reset the builder draft to effective defaults: user-saved defaults if present, factory otherwise.
   const handleResetSafeguardBuilder = useCallback(() => {
@@ -2003,29 +2010,26 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     try {
       const raw = localStorage.getItem(SAFEGUARD_BUILDER_USER_DEFAULTS_KEY)
       if (raw) {
-        // Validate via normalizeSafeguardRule, then strip the generated id.
+        // Validate via normalizeSafeguardRule (id field no longer exists on SafeguardRule).
         const normalized = normalizeSafeguardRule(JSON.parse(raw))
-        if (normalized) {
-          const { id: _id, ...rest } = normalized
-          effectiveDefaults = { ...factory, ...rest }
-        }
+        if (normalized) effectiveDefaults = { ...factory, ...normalized }
       }
     } catch {}
-    setSafeguardBuilder({ id: createSafeguardRuleId(), ...effectiveDefaults })
+    setSafeguardBuilder({ ...effectiveDefaults })
   }, [setSafeguardBuilder])
 
   // Select a rule chip: auto-apply the current draft, then load the new rule into the draft.
-  const handleSelectSafeguardRule = useCallback((ruleId: string) => {
+  const handleSelectSafeguardRule = useCallback((ruleIdx: number) => {
     safeguardAutoApplyNowRef.current()
-    setSelectedSafeguardRuleId(ruleId)
-    // Collapse the multi-select IDs to just this rule so SafeguardChipsPanel highlights it
-    // correctly. SafeguardChipsPanel uses selectedRuleIds (not selectedRuleId) when
-    // onRuleSelect is provided, so the single-select scalar alone is not enough.
-    setSelectedSafeguardRuleIds([ruleId], { suppressWillChange: true })
-    const rule = safeguardRules.find((r) => r.id === ruleId)
+    setSelectedSafeguardRuleIdx(ruleIdx)
+    // Collapse the multi-select to just this rule so SafeguardChipsPanel highlights it correctly.
+    // SafeguardChipsPanel uses selectedRuleIndices (not selectedRuleIdx) when onRuleSelect is
+    // provided, so the single-select scalar alone is not enough.
+    setSelectedSafeguardRuleIds([ruleIdx], { suppressWillChange: true })
+    const rule = safeguardRules[ruleIdx]
     if (rule) setSafeguardBuilder(cloneSafeguardRule(rule))
     // Scroll the HSF preview to the first row of this safeguard — mirrors recipe chip scroll.
-    const ordinal = safeguardRules.findIndex((r) => r.id === ruleId) + 1
+    const ordinal = ruleIdx + 1
     if (ordinal > 0) requestSelectionScroll(SELECTION_SCROLL_SOURCE_USER, null, ordinal)
   }, [safeguardRules, setSafeguardBuilder, setSelectedSafeguardRuleIds, requestSelectionScroll])
 
@@ -2963,8 +2967,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setLogicHubDialogTab,
     safeguardRules,
     setSafeguardRules,
-    selectedSafeguardRuleId,
-    setSelectedSafeguardRuleId,
+    selectedSafeguardRuleIdx,
+    setSelectedSafeguardRuleIdx,
     setSafeguardBuilder,
     safeguardsEnabled,
     setSafeguardsEnabled,
@@ -3047,7 +3051,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   ), [mergedRules, recipeNames])
   type ExportDirtyMetasetDigest = { id: string; sets: number[] }
   type ExportDirtySafeguardRuleDigest = {
-    id: string
+    ordinal: number
     activation: string
     requiredCount: number
     ignorePreviousSafeguards: boolean
@@ -3059,7 +3063,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     combination: string
   }
   type ExportDirtyDetectionDigest = {
-    ruleId: string
+    ruleOrdinal: number
     ruleActivation: string
     requiredCount: number
     currentCount: number
@@ -3122,7 +3126,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const a = left[idx]!
       const b = right[idx]!
       if (
-        a.id !== b.id
+        a.ordinal !== b.ordinal
         || a.activation !== b.activation
         || a.requiredCount !== b.requiredCount
         || a.ignorePreviousSafeguards !== b.ignorePreviousSafeguards
@@ -3154,7 +3158,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const a = left[idx]!
       const b = right[idx]!
       if (
-        a.ruleId !== b.ruleId
+        a.ruleOrdinal !== b.ruleOrdinal
         || a.ruleActivation !== b.ruleActivation
         || a.requiredCount !== b.requiredCount
         || a.currentCount !== b.currentCount
@@ -3223,7 +3227,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           : [],
       }
       : null
-    const safeguardRuleDigests = resolvedSafeguardRules.map((rule) => {
+    const safeguardRuleDigests = resolvedSafeguardRules.map((rule, ruleOrdinal) => {
       const countMode = rule.countMode
       const countModeBits = [
         countMode?.perRule ? 1 : 0,
@@ -3239,7 +3243,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         .map(([variant, value]) => [Number(variant), Number(value)] as [number, number])
         .sort((a, b) => a[0] - b[0] || a[1] - b[1])
       return {
-        id: rule.id ?? '',
+        // Use 1-based ordinal as stable digest key — rules no longer carry id fields.
+        ordinal: ruleOrdinal + 1,
         activation: rule.activation ?? '',
         requiredCount: Number.isFinite(rule.requiredCount) ? Number(rule.requiredCount) : 0,
         ignorePreviousSafeguards: rule.ignorePreviousSafeguards !== false,
@@ -3253,7 +3258,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
     const safeguardDetectionDigests = safeguardDetection
       ? safeguardDetection.entries.map((entry) => ({
-        ruleId: entry.ruleId ?? '',
+        ruleOrdinal: entry.ruleOrdinal ?? 0,
         ruleActivation: entry.ruleActivation ?? '',
         requiredCount: Number(entry.requiredCount),
         currentCount: Number(entry.currentCount),
@@ -4096,7 +4101,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Capture current selections so they can be restored alongside their content.
       // Not included in autosavePayloadSignal, so selection-only changes do not trigger writes.
       ...(typeof selectedRecipeIdx === 'number' ? { SelectedRecipeIndex: selectedRecipeIdx } : {}),
-      ...(selectedSafeguardRuleId ? { SelectedSafeguardRuleId: selectedSafeguardRuleId } : {}),
+      ...(typeof selectedSafeguardRuleIdx === 'number' ? { SelectedSafeguardRuleIdx: selectedSafeguardRuleIdx } : {}),
     }
   }, [
     autosaveFiltersState,
@@ -4114,7 +4119,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     gearInspectorSubstatSortPrefs.state,
     trimmedSfrNote,
     selectedRecipeIdx,
-    selectedSafeguardRuleId,
+    selectedSafeguardRuleIdx,
   ])
   // Mutable references are enough to trigger autosave scheduling; avoid expensive payload
   // serialization in render by passing this signal instead of an eagerly-built object.
@@ -4327,11 +4332,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return set
   }, [safeguardsActive, safeguardDetection])
   const safeguardSelectedRuleItemKeySet = useMemo(() => {
-    if (!safeguardsActive || !selectedSafeguardRuleId || !safeguardDetection?.entries?.length) return null
-    const entry = safeguardDetection.entries.find((e) => e.ruleId === selectedSafeguardRuleId)
+    // selectedSafeguardRuleIdx is 0-based; ruleOrdinal in detection entries is 1-based.
+    if (!safeguardsActive || selectedSafeguardRuleIdx === null || !safeguardDetection?.entries?.length) return null
+    const targetOrdinal = selectedSafeguardRuleIdx + 1
+    const entry = safeguardDetection.entries.find((e) => e.ruleOrdinal === targetOrdinal)
     if (!entry) return null
     return new Set<number>(entry.itemKeys)
-  }, [safeguardsActive, safeguardDetection, selectedSafeguardRuleId])
+  }, [safeguardsActive, safeguardDetection, selectedSafeguardRuleIdx])
   // In safeguard mode the recipe-filter button operates on safeguard detection instead of recipe selection.
   const gearInspectorRecipeFilterActive = gearInspectorRecipeFilterMode !== 'off' && (
     builderMode === 'safeguard' ? true : selectedRecipeIndices.length > 0
@@ -4379,11 +4386,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // on filter switches while still animating for genuine data changes.
   const gearInspectorEnterKey = useMemo(() => {
     if (builderMode === 'safeguard') {
-      return `sg:${gearInspectorRecipeFilterMode}:${selectedSafeguardRuleId ?? 'none'}`
+      return `sg:${gearInspectorRecipeFilterMode}:${selectedSafeguardRuleIdx ?? 'none'}`
     }
     const indices = selectedRecipeIndices.slice().sort((a, b) => a - b).join(',')
     return `r:${gearInspectorRecipeFilterMode}:${indices}`
-  }, [builderMode, gearInspectorRecipeFilterMode, selectedSafeguardRuleId, selectedRecipeIndices])
+  }, [builderMode, gearInspectorRecipeFilterMode, selectedSafeguardRuleIdx, selectedRecipeIndices])
   // Summarize the filtered Gear Inspector rows so the preview chip mirrors the grid contents.
   const gearInspectorOutcomeSummaryForPreview = useMemo(
     () => buildGearInspectorOutcomeSummary(gearEntriesForTable),
@@ -4469,25 +4476,26 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return byItemKey
   }, [gearInspectorPreviewRows])
-  const openLogicHubSafeguardRule = useCallback((ruleId: string): boolean => {
-    const normalizedRuleId = typeof ruleId === 'string' ? ruleId.trim() : ''
-    if (normalizedRuleId.length === 0) return false
+  const openLogicHubSafeguardRule = useCallback((ruleIdx: number): boolean => {
+    if (ruleIdx < 0 || ruleIdx >= safeguardRules.length) return false
     // Safeguard jumps should not leave a stale Gear Inspector focus request queued.
     setGearInspectorArtifactFocusRequest(null)
     // Switch to Safeguard Builder mode and select the targeted rule inline.
     setBuilderMode('safeguard')
     // Load the rule into the draft builder so controls update immediately;
     // handleSelectSafeguardRule also auto-applies any pending draft changes first.
-    handleSelectSafeguardRule(normalizedRuleId)
+    handleSelectSafeguardRule(ruleIdx)
     // Request SafeguardChipsPanel to scroll the targeted chip into view.
     const token = ++safeguardFocusTokenRef.current
-    setSafeguardFocusRequest({ ruleId: normalizedRuleId, token })
+    setSafeguardFocusRequest({ ruleIdx, token })
     return true
-  }, [handleSelectSafeguardRule])
+  }, [handleSelectSafeguardRule, safeguardRules.length])
   const handleSafeguardPreviewStarSelect = useCallback((selection: SafeguardStarSelection) => {
-    const normalizedRuleId = typeof selection.safeguardRuleId === 'string' ? selection.safeguardRuleId.trim() : ''
-    // Missing ids can happen with malformed/legacy rows; still route users into Safeguard Builder.
-    if (normalizedRuleId.length === 0) {
+    // safeguardRuleOrdinal is 1-based; convert to 0-based index for openLogicHubSafeguardRule.
+    const ruleOrdinal = selection.safeguardRuleOrdinal
+    const ruleIdx = typeof ruleOrdinal === 'number' ? ruleOrdinal - 1 : -1
+    // Missing ordinals can happen with malformed rows; still route users into Safeguard Builder.
+    if (ruleIdx < 0) {
       setGearInspectorArtifactFocusRequest(null)
       setBuilderMode('safeguard')
       return
@@ -4502,7 +4510,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Row-specific routing: placeholder rows (or rows without item keys) should never jump to unrelated gear.
     const clickedRowHasConcreteItem = selection.isPlaceholder !== true && clickedItemKey != null
     if (!clickedRowHasConcreteItem) {
-      openLogicHubSafeguardRule(normalizedRuleId)
+      openLogicHubSafeguardRule(ruleIdx)
       return
     }
     // Concrete rows should jump only to the exact backing artifact referenced by that row's item key.
@@ -4519,7 +4527,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
     // No real gear was resolved for this safeguard, so open Safeguard Builder.
-    openLogicHubSafeguardRule(normalizedRuleId)
+    openLogicHubSafeguardRule(ruleIdx)
   }, [openLogicHubSafeguardRule, setLogicHubOpen, setPreviewMode, gearInspectorArtifactIdBySafeguardItemKey])
   const handleGearInspectorFocusArtifactFilteredOut = useCallback(() => {
     // Keep the notification short because this only explains why auto-scroll did not occur.
@@ -4532,12 +4540,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setGearInspectorArtifactFocusRequest(null)
     const targetRule = mergedRulesRef.current[ruleIndex]
     if (targetRule?.__source === RULE_SOURCE_SAFEGUARDS) {
-      const safeguardRuleId = typeof targetRule.__safeguardRuleId === 'string'
-        ? targetRule.__safeguardRuleId
-        : ''
+      // __safeguardRuleOrdinal is 1-based; convert to 0-based index.
+      const safeguardRuleOrdinal = typeof targetRule.__safeguardRuleOrdinal === 'number'
+        ? targetRule.__safeguardRuleOrdinal
+        : 0
       // Safeguard matches should switch to Safeguard Builder mode instead of opening LogicHub.
-      if (openLogicHubSafeguardRule(safeguardRuleId)) return
-      // Malformed safeguard rows can miss ids; still route into Safeguard Builder.
+      if (openLogicHubSafeguardRule(safeguardRuleOrdinal - 1)) return
+      // Malformed safeguard rows can miss ordinals; still route into Safeguard Builder.
       setBuilderMode('safeguard')
       return
     }
@@ -4632,16 +4641,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   visibleRecipeIndicesRef.current = visibleRecipeIndices
   // In safeguard builder mode, limitRecipesToFiltered hides safeguard rule chips that have no
   // matching items in the current (possibly recipe-filtered) gear table.
-  const visibleSafeguardRuleIds = useMemo<Set<string> | null>(() => {
+  const visibleSafeguardRuleIds = useMemo<Set<number> | null>(() => {
     if (!limitRecipesToFiltered || builderMode !== 'safeguard') return null
     if (!safeguardDetection?.entries?.length) return new Set()
     const gearItemKeySet = new Set<number>()
     for (const row of gearEntriesForTable) gearItemKeySet.add(getSafeguardItemKey(row.artifact))
-    const visible = new Set<string>()
+    // ruleOrdinal is 1-based; convert to 0-based index for the visible-indices set.
+    const visible = new Set<number>()
     for (const entry of safeguardDetection.entries) {
-      if (!entry.ruleId) continue
+      if (entry.ruleOrdinal === null) continue
       for (const key of entry.itemKeys) {
-        if (gearItemKeySet.has(key)) { visible.add(entry.ruleId); break }
+        if (gearItemKeySet.has(key)) { visible.add(entry.ruleOrdinal - 1); break }
       }
     }
     return visible
@@ -5381,23 +5391,26 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [areSetEntriesEqual, describeNextChange, mergeSelectionsWithMetasets, metasets, setBuilder, setCustomRecipesTransition, setMetasetsTransition, setSafeguardRulesTransition])
 
   // SafeguardBuilderPanel — shown in place of BuilderPanel when builderMode === 'safeguard'.
-  const selectedSafeguardRuleIndex = selectedSafeguardRuleId !== null
-    ? safeguardRules.findIndex((r) => r.id === selectedSafeguardRuleId)
+  // selectedSafeguardRuleIdx is already the index; validate it's in bounds.
+  const selectedSafeguardRuleIndex = selectedSafeguardRuleIdx !== null
+    && selectedSafeguardRuleIdx >= 0
+    && selectedSafeguardRuleIdx < safeguardRules.length
+    ? selectedSafeguardRuleIdx
     : -1
   // True when the builder's content differs from the currently-selected rule's saved state.
   // Mirrors the selectedIsDirty pattern used by the recipe builder.
   const safeguardBuilderIsDirty = useMemo(() => {
-    if (selectedSafeguardRuleId === null) return false
-    const selectedRule = safeguardRules.find((r) => r.id === selectedSafeguardRuleId)
+    if (selectedSafeguardRuleIdx === null) return false
+    const selectedRule = safeguardRules[selectedSafeguardRuleIdx]
     if (!selectedRule) return false
     return JSON.stringify(createSafeguardRuleContentSnapshot(safeguardBuilder))
       !== JSON.stringify(createSafeguardRuleContentSnapshot(selectedRule))
-  }, [safeguardBuilder, selectedSafeguardRuleId, safeguardRules])
+  }, [safeguardBuilder, selectedSafeguardRuleIdx, safeguardRules])
   const safeguardBuilderPanelElement = (
     <SafeguardBuilderPanel
       rule={safeguardBuilder}
       onChange={setSafeguardBuilder}
-      editingRuleId={selectedSafeguardRuleId}
+      editingRuleIdx={selectedSafeguardRuleIndex >= 0 ? selectedSafeguardRuleIndex : null}
       editingRuleIndex={selectedSafeguardRuleIndex >= 0 ? selectedSafeguardRuleIndex : null}
       metasets={metasets}
       substatColors={substatColors}
@@ -5671,17 +5684,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const safeguardChipsPanelElement = (
     <SafeguardChipsPanel
       rules={safeguardRules}
-      selectedRuleId={selectedSafeguardRuleId}
+      selectedRuleIdx={selectedSafeguardRuleIdx}
       onSelect={handleSelectSafeguardRule}
       onRulesChange={(next) => applySafeguardRulesChange(next)}
       maxHeightPx={safeguardChipsMaxHeight}
       isSideBySide={isSideBySide}
       containerRef={safeguardChipsContainerRef}
-      visibleRuleIds={visibleSafeguardRuleIds}
+      visibleRuleIndices={visibleSafeguardRuleIds}
       metasets={metasetsForPreview}
       substatColors={substatColors}
       focusRuleRequest={safeguardFocusRequest}
-      selectedRuleIds={selectedSafeguardRuleIds}
+      selectedRuleIndices={selectedSafeguardRuleIds}
       onRuleSelect={handleSafeguardRuleSelect}
       onRuleDelete={handleSafeguardRuleDelete}
       onRuleDuplicate={handleSafeguardRuleDuplicate}
@@ -5825,10 +5838,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setBuilder(recipes[resolvedSel]!)
       }
       // Always land on the first safeguard rule when loading a file, and load its data into the builder.
-      // Why: setSelectedSafeguardRuleId alone only updates the chip highlight; the builder draft must
+      // Why: setSelectedSafeguardRuleIdx alone only updates the chip highlight; the builder draft must
       // also be replaced so the panel does not display stale state from the previous SFR.
       const firstSafeguardRule = (safeguardRules ?? []).length > 0 ? (safeguardRules ?? [])[0]! : null
-      setSelectedSafeguardRuleId(firstSafeguardRule?.id ?? null)
+      setSelectedSafeguardRuleIdx(firstSafeguardRule ? 0 : null)
       if (firstSafeguardRule) setSafeguardBuilder(cloneSafeguardRule(firstSafeguardRule))
     })
 
@@ -5869,7 +5882,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setNoteRecipeOverridesDisabled,
     substatTargets,
     syncSelectedRecipeIdx,
-    setSelectedSafeguardRuleId,
+    setSelectedSafeguardRuleIdx,
     setSafeguardBuilder,
     beginGearInspectorMatchReset,
   ])
@@ -6019,7 +6032,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // Replace mode wipes existing rules, so the old selection is always stale.
         // Load the first incoming rule into the builder draft to match the landing chip.
         const firstRemapped = remappedSafeguards.length > 0 ? remappedSafeguards[0]! : null
-        setSelectedSafeguardRuleId(firstRemapped?.id ?? null)
+        // Replace mode wipes existing rules; select first incoming rule by index 0.
+        setSelectedSafeguardRuleIdx(firstRemapped ? 0 : null)
         if (firstRemapped) setSafeguardBuilder(cloneSafeguardRule(firstRemapped))
       } else {
         setSafeguardRules((prev) => [...prev, ...remappedSafeguards])
@@ -6069,7 +6083,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSafeguardRules,
     setSafeguardsEnabled,
     setRecipesEnabled,
-    setSelectedSafeguardRuleId,
+    setSelectedSafeguardRuleIdx,
     setSafeguardBuilder,
     sfrNote,
     syncSelectedRecipeIdx,
@@ -7143,7 +7157,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 focusArtifactRequest={gearInspectorArtifactFocusRequest}
                 onFocusArtifactFilteredOut={handleGearInspectorFocusArtifactFilteredOut}
                 onJumpToRule={handleGearInspectorRuleView}
-                onJumpToSafeguardRule={openLogicHubSafeguardRule}
                 onCreateRuleTemplate={handleGearInspectorRuleTemplateCreate}
                 suppressMatchDetails={suppressGearInspectorMatchDetails}
                 contextGroupById={gearInspectorContextGroupById}
@@ -7530,12 +7543,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               if (Array.isArray(draft?.Safeguards)) setSafeguardRules(draft.Safeguards)
               if (typeof draft?.SafeguardsEnabled === 'boolean') setSafeguardsEnabled(Boolean(draft.SafeguardsEnabled))
               if (typeof draft?.RecipesEnabled === 'boolean') setRecipesEnabled(draft.RecipesEnabled !== false)
-              // Restore safeguard selection only when the referenced rule exists in the restored set.
-              const sgSel = draft?.SelectedSafeguardRuleId
+              // Restore safeguard selection only when the referenced index is in bounds.
+              const sgSelIdx = draft?.SelectedSafeguardRuleIdx
               const restoredRules = Array.isArray(draft?.Safeguards) ? draft.Safeguards : []
-              if (typeof sgSel === 'string' && restoredRules.some((r) => r.id === sgSel)) {
-                setSelectedSafeguardRuleId(sgSel)
-                const selRule = restoredRules.find((r) => r.id === sgSel)
+              if (typeof sgSelIdx === 'number' && sgSelIdx >= 0 && sgSelIdx < restoredRules.length) {
+                setSelectedSafeguardRuleIdx(sgSelIdx)
+                const selRule = restoredRules[sgSelIdx]
                 if (selRule) setSafeguardBuilder(selRule)
               }
             }

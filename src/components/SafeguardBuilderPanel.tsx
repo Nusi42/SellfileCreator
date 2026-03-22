@@ -201,7 +201,7 @@ function parseSeparatorLabel(rawName: string | undefined): string {
 export type SafeguardBuilderPanelProps = {
   rule: SafeguardRule
   onChange: (next: SafeguardRule | ((prev: SafeguardRule) => SafeguardRule)) => void
-  editingRuleId: string | null
+  editingRuleIdx: number | null
   editingRuleIndex: number | null
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
@@ -234,7 +234,7 @@ export type SafeguardBuilderPanelProps = {
 export default function SafeguardBuilderPanel({
   rule,
   onChange,
-  editingRuleId,
+  editingRuleIdx,
   editingRuleIndex,
   metasets,
   substatColors,
@@ -363,8 +363,8 @@ export default function SafeguardBuilderPanel({
       if (raw) {
         const normalized = normalizeSafeguardRule(JSON.parse(raw))
         if (normalized) {
-          const { id: _id, ...rest } = normalized
-          effectiveDefaults = { ...factory, ...rest }
+          // Merge user defaults over factory values; no id field exists on SafeguardRule.
+          effectiveDefaults = { ...factory, ...normalized }
         }
       }
     } catch {}
@@ -376,7 +376,7 @@ export default function SafeguardBuilderPanel({
 
 
   // Apply is only meaningful when a rule is selected AND the builder state differs from it.
-  const applyDisabled = editingRuleId === null || !selectedIsDirty
+  const applyDisabled = editingRuleIdx === null || !selectedIsDirty
 
   const {
     insert: {
@@ -403,12 +403,12 @@ export default function SafeguardBuilderPanel({
     if (!registerAutoApplyHandler) return
     registerAutoApplyHandler(() => {
       if (!autoApplySelectedRecipe) return false
-      if (editingRuleId === null) return false
+      if (editingRuleIdx === null) return false
       onApplySafeguard()
       return true
     })
     return () => { registerAutoApplyHandler(null) }
-  }, [registerAutoApplyHandler, autoApplySelectedRecipe, editingRuleId, onApplySafeguard])
+  }, [registerAutoApplyHandler, autoApplySelectedRecipe, editingRuleIdx, onApplySafeguard])
 
   const ruleModeScopeTooltip = useMemo(() => (
     `${t('safeguardsRuleModeHint')}\n\n${t('safeguardsCountModeHint')}\n\n${t('safeguardsSubstatModeHint')}\n\n${t('safeguardsIgnoreOptionsHint')}`
@@ -1911,9 +1911,9 @@ export default function SafeguardBuilderPanel({
             disabled={(() => { try { return !localStorage.getItem(SAFEGUARD_BUILDER_USER_DEFAULTS_KEY) } catch { return true } })()}
             onClick={() => {
               closeResetMenu()
-              // Apply factory defaults to the current draft (keeps the same id).
+              // Apply factory defaults to the current draft.
               const factory = createFactorySafeguardBuilderDefaults()
-              onChange((prev) => ({ id: prev.id, ...factory }))
+              onChange(() => ({ ...factory }))
             }}
           >
             {t('builderMenuResetFactoryDefaults')}
