@@ -1308,6 +1308,16 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   const autoLateOverrideActive = !multiEditActive && (
     effectiveRecipe.autoRaritySupplementsThreshold !== recipe.autoRaritySupplementsThreshold
   )
+  // True when a recipe override changes the effective min required rolls or auto/manual mode.
+  const minRequiredRollsOverrideActive = !multiEditActive && (
+    (effectiveRecipe.autoMinRequiredRolls ?? true) !== (recipe.autoMinRequiredRolls ?? true)
+    || (effectiveRecipe.minRequiredRolls ?? 0) !== (recipe.minRequiredRolls ?? 0)
+  )
+  // True when a recipe override changes the effective required substat count or auto mode.
+  const minCountOverrideActive = !multiEditActive && (
+    Boolean(effectiveRecipe.autoMinCount) !== Boolean(recipe.autoMinCount)
+    || (effectiveRecipe.minCount ?? 0) !== (recipe.minCount ?? 0)
+  )
   // Prefer the recipe overrides-resolved mode for the single-recipe display.
   const exportModeValue: SellfileExportMode | null = multiEditActive
     ? (exportModeMixed ? null : (multiExportModeField?.value as SellfileExportMode | undefined ?? 'active'))
@@ -1410,6 +1420,18 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     return 'mixed'
   }, [])
   const getMinRequiredRollsTriState = React.useCallback((target: 'auto' | 0 | 1 | 2 | 3 | 4 | 5): 'on' | 'mixed' | 'off' => {
+    if (!multiEditActive || !multiSourceRecipes) {
+      // Use effectiveRecipe so recipe overrides are reflected in the button selection state.
+      const auto = effectiveRecipe.autoMinRequiredRolls !== false
+      if (target === 'auto') return auto ? 'on' : 'off'
+      if (auto) return 'off'
+      const manual = clampAggregateRollValue(Number(effectiveRecipe.minRequiredRolls ?? 0))
+      if (target === 0) {
+        const locked = clampAggregateRollValue(Number(effectiveRecipe.lockedMinRequiredRolls ?? 0))
+        return (manual === 0 && locked === 0) ? 'on' : 'off'
+      }
+      return manual === target ? 'on' : 'off'
+    }
     const total = aggregateRollSnapshots.length
     if (total <= 0) return 'off'
     if (target === 'auto') {
@@ -1432,7 +1454,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
       }
     }
     return computeTriState(matches, total)
-  }, [aggregateRollSnapshots, computeTriState])
+  }, [effectiveRecipe, multiEditActive, multiSourceRecipes, aggregateRollSnapshots, computeTriState])
   const getLockedMinRequiredRollsTriState = React.useCallback((target: 0 | 1 | 2 | 3 | 4 | 5): 'on' | 'mixed' | 'off' => {
     if (target === 0) return 'off'
     if (!lockedSubstatsExist) return 'off'
@@ -1448,9 +1470,10 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   }, [aggregateRollSnapshots, computeTriState, lockedSubstatsExist])
   const getRequiredCountTriState = React.useCallback((target: 'auto' | 1 | 2 | 3 | 4): 'on' | 'mixed' | 'off' => {
     if (!multiEditActive || !multiSourceRecipes) {
-      const auto = recipe.autoMinCount === true
+      // Use effectiveRecipe so recipe overrides are reflected in the button selection state.
+      const auto = effectiveRecipe.autoMinCount === true
       if (target === 'auto') return auto ? 'on' : 'off'
-      const value = Number(recipe.minCount ?? 0)
+      const value = Number(effectiveRecipe.minCount ?? 0)
       return (!auto && value === target) ? 'on' : 'off'
     }
     const autoField = multiAutoMinCountField
@@ -1493,7 +1516,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
       }
     }
     return computeTriState(matches, total)
-  }, [recipe, computeTriState, multiAutoMinCountField, multiEditActive, multiMinCountField, multiSourceRecipes])
+  }, [effectiveRecipe, computeTriState, multiAutoMinCountField, multiEditActive, multiMinCountField, multiSourceRecipes])
   const getKeepModeTriState = React.useCallback((target: 'early' | 'late'): 'on' | 'mixed' | 'off' => {
     if (!multiEditActive || !multiSourceRecipes) {
       const mode = ((effectiveRecipe as BuilderRecipe).earlyKeepMode ?? 'early') as 'early' | 'late'
@@ -1596,7 +1619,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   const recipeCount = _recipeCount
   // Shared styling for the builder's status chips (Flex, Only locked, Auto ≥ …).
   const builderToggleChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
-  const singleRequiredCountValue = recipe.autoMinCount ? 'auto' : ((recipe.minCount ?? 0) > 0 ? String(recipe.minCount) : 'auto')
+  // Use effectiveRecipe so the selected button reflects any active recipe overrides.
+  const singleRequiredCountValue = effectiveRecipe.autoMinCount ? 'auto' : ((effectiveRecipe.minCount ?? 0) > 0 ? String(effectiveRecipe.minCount) : 'auto')
   const requiredCountValue = multiEditActive
     ? (() => {
         if (getRequiredCountTriState('auto') === 'on') return 'auto'
@@ -1673,6 +1697,19 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     if (value === 'uncommon') return t('rarityUncommon')
     if (value === 'epic') return t('rarityEpic')
     return t('rarityRare')
+  }
+  // Format a min required rolls state as a short label for override badge tooltips.
+  const rollStateLabel = (auto: boolean | undefined, manual: number | undefined): string => {
+    if (auto !== false) return t('headerMenuAuto')
+    const v = clampAggregateRollValue(manual ?? 0)
+    return v === 0 ? t('headerMenuAuto') : String(v)
+  }
+  // Format a required substat count state as a short label for override badge tooltips.
+  // `autoMinCount === true` means auto; falsy means manual with the given count.
+  const minCountStateLabel = (auto: boolean | undefined, count: number | undefined): string => {
+    if (auto) return t('headerMenuAuto')
+    const v = count ?? 0
+    return v === 0 ? t('headerMenuAuto') : String(v)
   }
   const slotMetrics = useSlotMetrics()
   // Use the SSOT slot-label resolver from the hook (removes duplicate switch/case).
@@ -5686,6 +5723,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     {/* Inline-flex column wrapper so the warning row below is exactly as wide as the buttons row.
                         inline-flex shrinks to content; the buttons determine the width; the warning row inherits it. */}
                     <Box sx={{ display: 'inline-flex', flexDirection: 'column', maxWidth: '100%' }}>
+                    {/* Relative wrapper so the recipe-overrides badge can be anchored above the button row. */}
+                    <Box sx={{ position: 'relative', display: 'inline-flex' }}>
                     <Box
                       data-tour-id="builder.min-rolls"
                       sx={{
@@ -5840,6 +5879,13 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         )
                       })}
                     </Box>
+                    {minRequiredRollsOverrideActive
+                      ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+                          rollStateLabel(recipe.autoMinRequiredRolls, recipe.minRequiredRolls),
+                          rollStateLabel(effectiveRecipe.autoMinRequiredRolls, effectiveRecipe.minRequiredRolls),
+                        ))
+                      : null}
+                    </Box>{/* end relative badge wrapper */}
                     {/* Warning chip row — always reserves chip height (same as Flex chip in Required Substats).
                         lineHeight:0.9 makes 2 caption lines = 21.6px ≤ BUILDER_STATUS_CHIP_HEIGHT_PX (22px)
                         so WebkitLineClamp:2 can draw the ellipsis within the fixed area.
@@ -5957,6 +6003,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       </FormLabel>
                     </Box>
                     <Collapse in={!builderCollapsed.requiredSubstats} timeout="auto" unmountOnExit>
+                    {/* Relative wrapper so the recipe-overrides badge can be anchored above the button row. */}
+                    <Box sx={{ position: 'relative', display: 'inline-flex' }}>
                     <ToggleButtonGroup
                       exclusive
                       size="small"
@@ -6047,6 +6095,13 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         )
                       })}
                     </ToggleButtonGroup>
+                    {minCountOverrideActive
+                      ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+                          minCountStateLabel(recipe.autoMinCount, recipe.minCount),
+                          minCountStateLabel(effectiveRecipe.autoMinCount, effectiveRecipe.minCount),
+                        ))
+                      : null}
+                    </Box>{/* end relative badge wrapper */}
                     <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <MarkdownTooltip render={<BuilderTooltipContent text={t('builderSubstatFlexToggleTooltip')} />}>
                         <Box component="span" sx={{ display: 'inline-flex' }}>
