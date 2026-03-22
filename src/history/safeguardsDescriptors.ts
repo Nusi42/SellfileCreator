@@ -48,14 +48,17 @@ type SafeguardRuleSignature = {
 }
 
 // isSafeguardRuleOrderChanged flags pure reorders so history can record them.
+// Only meaningful when totalChanges === 0 (i.e. same multiset of rules, different positions).
 export const isSafeguardRuleOrderChanged = (previous: SafeguardRule[], next: SafeguardRule[]): boolean => {
   // Reorders only matter when the list lengths match.
   if (previous.length !== next.length) return false
-  // Compare content signatures at each position; any mismatch means the order changed.
+  // Compare content at each position; any mismatch means positions differ.
+  // When diffSafeguardRules gives totalChanges=0, this correctly distinguishes
+  // "identical list" (false) from "same rules in different order" (true).
   return previous.some((rule, index) => {
     const other = next[index]
     if (!other) return true
-    return JSON.stringify(buildSafeguardRuleSignature(rule)) !== JSON.stringify(buildSafeguardRuleSignature(other))
+    return !safeguardRuleSignaturesEqual(buildSafeguardRuleSignature(rule), buildSafeguardRuleSignature(other))
   })
 }
 
@@ -178,28 +181,48 @@ export function describeSafeguardsRulesChange(params: {
 }
 
 function diffSafeguardRules(previous: SafeguardRule[], next: SafeguardRule[]): RuleChangeSummary {
-  // Positional diff: compare rules at each position by content signature.
-  // Rules without a counterpart at the same index are treated as added/removed.
+  // Signature-based matching so pure reorders yield totalChanges=0.
+  // Each rule in `next` is matched to a rule in `previous` with the same full
+  // content signature; unmatched rules on either side are added or removed.
+  const sigKey = (rule: SafeguardRule): string => JSON.stringify(buildSafeguardRuleSignature(rule))
+
+  // Build a multiset map: sigKey → pool of previous rules with that signature.
+  const prevPool = new Map<string, SafeguardRule[]>()
+  for (const rule of previous) {
+    const key = sigKey(rule)
+    const pool = prevPool.get(key) ?? []
+    pool.push(rule)
+    prevPool.set(key, pool)
+  }
+
+  // Match each next rule against the pool; unmatched next rules are candidates
+  // for "added" or — if paired with an unmatched previous rule — "updated".
+  const matchedPrev = new Set<SafeguardRule>()
+  const unmatchedNext: SafeguardRule[] = []
+  for (const rule of next) {
+    const pool = prevPool.get(sigKey(rule))
+    const match = pool?.find((r) => !matchedPrev.has(r))
+    if (match) {
+      matchedPrev.add(match)
+    } else {
+      unmatchedNext.push(rule)
+    }
+  }
+
+  // Previous rules that were not matched are removed (or, if paired below, updated).
+  const unmatchedPrev = previous.filter((r) => !matchedPrev.has(r))
+
+  // Pair unmatched rules as "updated" (edit in place); leftovers are true adds/removes.
   const added: SafeguardRule[] = []
   const removed: SafeguardRule[] = []
   const updated: Array<{ previous: SafeguardRule; next: SafeguardRule }> = []
-  const maxLen = Math.max(previous.length, next.length)
-  for (let i = 0; i < maxLen; i += 1) {
-    const prevRule = previous[i]
-    const nextRule = next[i]
-    if (!prevRule && nextRule) {
-      // Position only exists in next list — added.
-      added.push(nextRule)
-    } else if (prevRule && !nextRule) {
-      // Position only exists in previous list — removed.
-      removed.push(prevRule)
-    } else if (prevRule && nextRule) {
-      // Both exist — compare content signatures.
-      if (!safeguardRuleSignaturesEqual(buildSafeguardRuleSignature(prevRule), buildSafeguardRuleSignature(nextRule))) {
-        updated.push({ previous: prevRule, next: nextRule })
-      }
-    }
+  const pairCount = Math.min(unmatchedPrev.length, unmatchedNext.length)
+  for (let i = 0; i < pairCount; i += 1) {
+    updated.push({ previous: unmatchedPrev[i]!, next: unmatchedNext[i]! })
   }
+  for (let i = pairCount; i < unmatchedNext.length; i += 1) added.push(unmatchedNext[i]!)
+  for (let i = pairCount; i < unmatchedPrev.length; i += 1) removed.push(unmatchedPrev[i]!)
+
   return { added, removed, updated }
 }
 
