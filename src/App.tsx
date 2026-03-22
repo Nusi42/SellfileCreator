@@ -4093,6 +4093,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...(recipeOverridesDisabledPayload ? { [NOTE_RECIPE_OVERRIDES_DISABLED_KEY]: true } : {}),
       ...(filtersPayload ? { Filters: filtersPayload } : {}),
       ...(gearInspectorSortPayload ? { GearInspectorSort: gearInspectorSortPayload } : {}),
+      // Capture current selections so they can be restored alongside their content.
+      // Not included in autosavePayloadSignal, so selection-only changes do not trigger writes.
+      ...(typeof selectedRecipeIdx === 'number' ? { SelectedRecipeIndex: selectedRecipeIdx } : {}),
+      ...(selectedSafeguardRuleId ? { SelectedSafeguardRuleId: selectedSafeguardRuleId } : {}),
     }
   }, [
     autosaveFiltersState,
@@ -4109,6 +4113,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     substatTargets,
     gearInspectorSubstatSortPrefs.state,
     trimmedSfrNote,
+    selectedRecipeIdx,
+    selectedSafeguardRuleId,
   ])
   // Mutable references are enough to trigger autosave scheduling; avoid expensive payload
   // serialization in render by passing this signal instead of an eagerly-built object.
@@ -7524,6 +7530,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               if (Array.isArray(draft?.Safeguards)) setSafeguardRules(draft.Safeguards)
               if (typeof draft?.SafeguardsEnabled === 'boolean') setSafeguardsEnabled(Boolean(draft.SafeguardsEnabled))
               if (typeof draft?.RecipesEnabled === 'boolean') setRecipesEnabled(draft.RecipesEnabled !== false)
+              // Restore safeguard selection only when the referenced rule exists in the restored set.
+              const sgSel = draft?.SelectedSafeguardRuleId
+              const restoredRules = Array.isArray(draft?.Safeguards) ? draft.Safeguards : []
+              if (typeof sgSel === 'string' && restoredRules.some((r) => r.id === sgSel)) {
+                setSelectedSafeguardRuleId(sgSel)
+                const selRule = restoredRules.find((r) => r.id === sgSel)
+                if (selRule) setSafeguardBuilder(selRule)
+              }
             }
             // Clear dirty markers after restore: markNextSnapshotAsSaved anchors the upcoming
             // history snapshot as saved; rAF markSavedNow is a safety net for the edge case where
