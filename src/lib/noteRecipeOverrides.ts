@@ -104,6 +104,7 @@ export type RecipeOverridesSelector =
   | { kind: 'lockedMinRolls'; op: TagOverrideOp; value: number }
   | { kind: 'minSubstats'; op: TagOverrideOp; value: number }
   | { kind: 'flex'; value: boolean }
+  | { kind: 'not'; inner: RecipeOverridesSelector }
   | { kind: 'and'; left: RecipeOverridesSelector; right: RecipeOverridesSelector }
   | { kind: 'or'; left: RecipeOverridesSelector; right: RecipeOverridesSelector }
 
@@ -891,8 +892,24 @@ const parseSelectorTokens = (tokens: Token[]): RecipeOverridesSelector | null =>
     return null
   }
 
+  // Unary `not` / `!` — higher precedence than `and` / `or`.
+  const parseNot = (): RecipeOverridesSelector | null => {
+    const token = cursor.peek()
+    if (!token) return null
+    const isNotKeyword = token.kind === 'word' && token.value.toLowerCase() === 'not'
+    const isNotSymbol = token.kind === 'symbol' && token.value === '!'
+    if (isNotKeyword || isNotSymbol) {
+      cursor.next()
+      // Recurse so `not not tag = foo` works, though it's redundant in practice.
+      const inner = parseNot()
+      if (!inner) return null
+      return { kind: 'not', inner }
+    }
+    return parseTerm()
+  }
+
   const parseAnd = (): RecipeOverridesSelector | null => {
-    let left = parseTerm()
+    let left = parseNot()
     if (!left) return null
     while (true) {
       const token = cursor.peek()
@@ -900,7 +917,7 @@ const parseSelectorTokens = (tokens: Token[]): RecipeOverridesSelector | null =>
       const word = token.kind === 'word' ? token.value.toLowerCase() : token.value
       if (word !== 'and' && word !== '&&') break
       cursor.next()
-      const right = parseTerm()
+      const right = parseNot()
       if (!right) return null
       left = { kind: 'and', left, right }
     }
@@ -2444,6 +2461,8 @@ const matchesSelector = (selector: RecipeOverridesSelector, recipe: BuilderRecip
       return compareNumeric(resolveEffectiveMinCount(recipe), selector.op, selector.value)
     case 'flex':
       return Boolean(recipe.autoSubstatFlex) === selector.value
+    case 'not':
+      return !matchesSelector(selector.inner, recipe)
     case 'and':
       return matchesSelector(selector.left, recipe) && matchesSelector(selector.right, recipe)
     case 'or':

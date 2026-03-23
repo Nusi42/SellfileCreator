@@ -1330,7 +1330,8 @@ group         := ("single" | "s" | "rb" | "radiobutton" | "radio" | "multi" | "m
 headerToken   := "id" "=" token | "*" | "default"
 selectorBlock := "@" selector "{" assignment+ "}"
 selector      := "all" | "tagged" | "untagged" | expr
-expr          := term (("and" | "or" | "&&" | "||") term)*
+expr          := notExpr (("and" | "or" | "&&" | "||") notExpr)*
+notExpr       := ("not" | "!") notExpr | term
 term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any" | "none")
              | "rank" "=" rankVal | "rank" (">=" | "<=") rankNum | "rarity" ("=" | ">=" | "<=") rarityName
              | "minrolls" ("=" | ">=" | "<=") number | "lockedminrolls" ("=" | ">=" | "<=") number
