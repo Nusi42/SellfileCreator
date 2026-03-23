@@ -1274,7 +1274,7 @@ const enUS: Catalog = {
   noteInsertRecipes: 'Insert Recipe Chips Tag',
   noteInsertSafeguards: 'Insert Safeguards Summary',
   noteInsertMetasets: 'Insert Metaset List',
-  noteInsertRecipeOverridesSample: 'Insert sample recipe overrides',
+  noteInsertRecipeOverridesSample: 'Insert Sample Recipe Overrides',
   noteRecipeOverridesChangedTooltip: 'Recipe-override markers changed in this edit session. Switch to View Note to review the prompts.',
   noteRecipeOverridesMenu: 'Recipe Overrides',
   noteRecipeOverridesResetDefaults: 'Reset Options to Defaults',

@@ -1,6 +1,6 @@
 import React, { use, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
-import { Badge, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, FormControlLabel, FormGroup, LinearProgress, Menu, MenuItem, Radio, RadioGroup, Stack, Typography } from '@mui/material'
+import { Badge, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, FormControlLabel, FormGroup, LinearProgress, Menu, MenuItem, Popover, Radio, RadioGroup, Stack, Typography } from '@mui/material'
 import { alpha, useTheme, type Theme } from '@mui/material/styles'
 import LocalOfferIcon from '@mui/icons-material/LocalOffer'
 import StarsIcon from '@mui/icons-material/Stars'
@@ -43,6 +43,8 @@ import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../l
 import RecipeChip from './RecipeChip'
 // MarkdownTooltip ensures the color pickers + toolbar reuse the same hover delay/style across the app.
 import MarkdownTooltip from './MarkdownTooltip'
+import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
+import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import {
   SAFEGUARD_DEFAULT_COUNT_MODE,
@@ -1445,12 +1447,11 @@ const RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_TEXT = [
 const RECIPE_OVERRIDES_SAMPLE_NOTE = (
   'Note: substatmin sets Min Rolls (Per Stat) per recipe; use minima.any/minima.<star>.<stat> for global minima.'
 )
-// The EBNF/example tooltip is wider than the generic markdown tooltip to show grammar comfortably.
+// The EBNF popover is wider than the generic markdown tooltip to show grammar comfortably.
 const RECIPE_OVERRIDES_TOOLTIP_MAX_WIDTH_PX = Math.round(MARKDOWN_TOOLTIP_MAX_WIDTH_PX * 2.25)
 const RECIPE_OVERRIDES_TOOLTIP_WRAP_SX = {
-  // Wider than the shared tooltip default to give the EBNF grammar room to breathe.
-  maxWidth: RECIPE_OVERRIDES_TOOLTIP_MAX_WIDTH_PX,
   // Stack the EBNF and example blocks with consistent spacing.
+  // Sizing (maxWidth, maxHeight, overflow) is handled by the Popover Paper.
   display: 'flex',
   flexDirection: 'column',
   gap: 0.75,
@@ -3118,6 +3119,17 @@ function NoteEditorContent({
   const editWrapRef = useRef<HTMLDivElement | null>(null)
   const editorRef = useRef<RefMDEditor | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  // Anchor for the EBNF reference popover; null when closed.
+  const [ebnfAnchorEl, setEbnfAnchorEl] = useState<HTMLElement | null>(null)
+  // Stable close handler so useContextMenuPaperGuard dependency stays fixed.
+  const handleEbnfPopoverClose = React.useCallback(() => setEbnfAnchorEl(null), [])
+  // Wires the standard close button + outside-click cleanup used by all context menus.
+  const { contextMenuGuard: ebnfPopoverGuard, menuRef: ebnfPopoverMenuRef } = useContextMenuPaperGuard({
+    open: Boolean(ebnfAnchorEl),
+    onClose: handleEbnfPopoverClose,
+  })
+  // Captured each render so the popover's Insert button can call MDEditor's executeCommand.
+  const executeRecipeOverridesSampleRef = useRef<(() => void) | null>(null)
   // Anchor the recipe overrides menu for edit-mode actions.
   const [editRecipeOverridesMenuAnchor, setEditRecipeOverridesMenuAnchor] = useState<HTMLElement | null>(null)
   // Track whether the edit-mode recipe overrides menu is open.
@@ -3632,28 +3644,29 @@ function NoteEditorContent({
                         l.includes('fullscreen') ? t('mdFullscreen') :
                         l.includes('color') ? t('mdColor') : raw
                       )
-                      // Override the insert-sample tooltip with the richer EBNF snippet.
                       const isRecipeOverridesSample = command?.keyCommand === RECIPE_OVERRIDES_SAMPLE_COMMAND_KEY
-                      // Prefer custom render content for the sample tooltip.
-                      // The EBNF tooltip also overrides the MUI container maxWidth, which otherwise
-                      // clips content before the inner Box maxWidth can take effect.
-                      const tooltipProps = isRecipeOverridesSample
-                        ? {
-                            render: recipeOverridesSampleTooltipContent,
-                            slotProps: { tooltip: { sx: { maxWidth: RECIPE_OVERRIDES_TOOLTIP_MAX_WIDTH_PX } } },
-                          }
-                        : { markdown: label }
+                      // Capture execute so the EBNF popover's Insert button can trigger it without MDEditor state.
+                      if (isRecipeOverridesSample) {
+                        const cmd = command as ICommand
+                        executeRecipeOverridesSampleRef.current = () => executeCommand?.(cmd, cmd.groupName)
+                      }
                       return (
                         // MarkdownTooltip keeps every toolbar command consistent (some strings contain Markdown tokens already).
-                        <MarkdownTooltip placement="bottom" {...tooltipProps}>
+                        <MarkdownTooltip placement="bottom" markdown={label}>
                           <button
                             type="button"
                             aria-label={label || undefined}
                             disabled={Boolean(disabled)}
                             onClick={(evn) => {
                               evn.stopPropagation()
-                              const cmd = command as ICommand
-                              executeCommand?.(cmd, cmd.groupName)
+                              if (isRecipeOverridesSample) {
+                                // Toggle the EBNF reference popover; insert is triggered from inside it.
+                                const target = evn.currentTarget
+                                setEbnfAnchorEl((prev) => prev ? null : target)
+                              } else {
+                                const cmd = command as ICommand
+                                executeCommand?.(cmd, cmd.groupName)
+                              }
                             }}
                           >
                             {command?.icon}
@@ -3755,6 +3768,40 @@ function NoteEditorContent({
           <Button onClick={commitAndClose}>{t('close')}</Button>
         </Box>
       </DialogActions>
+      {/* EBNF reference popover — opened by clicking the Insert Recipe Overrides toolbar button. */}
+      <Popover
+        open={Boolean(ebnfAnchorEl)}
+        anchorEl={ebnfAnchorEl}
+        onClose={handleEbnfPopoverClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{
+          paper: {
+            ...buildContextMenuPaperSlotProps({
+              component: ContextMenuPaper,
+              contextMenuGuard: ebnfPopoverGuard,
+              onRequestClose: handleEbnfPopoverClose,
+              closeLabel: t('close'),
+            }),
+            // Ref required so outside-click detection in useContextMenuPaperGuard works correctly.
+            ref: ebnfPopoverMenuRef as React.RefObject<HTMLDivElement | null>,
+          },
+        }}
+      >
+        {/* Scrollable content box; Paper uses overflow:visible for the close button overlay. */}
+        <Box sx={{ p: 1.5, maxWidth: RECIPE_OVERRIDES_TOOLTIP_MAX_WIDTH_PX, maxHeight: '80vh', overflow: 'auto', ...RECIPE_OVERRIDES_TOOLTIP_WRAP_SX }}>
+          {recipeOverridesSampleTooltipContent}
+          <Box sx={{ pt: 1, mt: 0.5, borderTop: 1, borderColor: 'divider' }}>
+            {/* Insert the sample block at the current cursor position and close the popover. */}
+            <Button size="small" variant="outlined" onClick={() => {
+              executeRecipeOverridesSampleRef.current?.()
+              handleEbnfPopoverClose()
+            }}>
+              {t('noteInsertRecipeOverridesSample')}
+            </Button>
+          </Box>
+        </Box>
+      </Popover>
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
         <DialogTitle>{t('titleClearNote')}</DialogTitle>
         <DialogContent>
