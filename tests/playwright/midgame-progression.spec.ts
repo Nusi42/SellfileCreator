@@ -2,14 +2,14 @@
  * midgame-progression.spec.ts
  *
  * Verifies that sell decisions follow the monotonic progression:
- *   Midgame ⊆ Lategame ⊆ Endgame ⊆ Endgame+
+ *   Midgame ⊆ Lategame ⊆ Endgame
  *
  * Any item sold in an earlier tier must also be sold in every later tier.
  * Equivalently: later tiers may only add to the sell set, never remove from it.
  *
  * Run against all three example databases so coverage spans different account
- * inventories. Expects the EXAMPLE_NUSI_SFR_PATH fixture to include the Midgame
- * option added in example.sfr.
+ * inventories. Expects the EXAMPLE_NUSI_SFR_PATH fixture to include the Midgame,
+ * Lategame, and Endgame recipe override checkboxes in example.sfr.
  */
 import path from 'node:path'
 import { test, expect } from './fixtures'
@@ -30,9 +30,9 @@ const SAMPLE_DBS = [
   { name: 'account-d', path: path.join(EXAMPLES_DIR, 'um109288203_RSLHelper.db') },
 ]
 
-// Account levels ordered from most permissive (midgame) to most strict (endgame+).
+// Account levels ordered from most permissive (midgame) to most strict (endgame).
 // Each item sold in an earlier tier must also be sold in every subsequent tier.
-const ORDERED_MODES = ['Midgame', 'Lategame', 'Endgame', 'Endgame+'] as const
+const ORDERED_MODES = ['Midgame', 'Lategame', 'Endgame'] as const
 type Mode = (typeof ORDERED_MODES)[number]
 
 type GearOutcomeRow = { id: number; outcome: string }
@@ -122,7 +122,7 @@ for (const { name: dbName, path: dbPath } of SAMPLE_DBS) {
       await warmupAppShell(browser)
     })
 
-    test('midgame ⊆ lategame ⊆ endgame ⊆ endgame+ sell sets', async ({ page }) => {
+    test('midgame ⊆ lategame ⊆ endgame sell sets', async ({ page }) => {
       // Large DBs + 4 matcher runs per test need a generous budget.
       test.setTimeout(180_000)
 
