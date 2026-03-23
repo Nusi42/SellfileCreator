@@ -1333,7 +1333,8 @@ selector      := "all" | "tagged" | "untagged" | expr
 expr          := term (("and" | "or" | "&&" | "||") term)*
 term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any" | "none")
              | "rank" "=" rankVal | "rank" (">=" | "<=") rankNum | "rarity" ("=" | ">=" | "<=") rarityName
-             | "minrolls" ("=" | ">=" | "<=") number | "minsubstats" ("=" | ">=" | "<=") number | "flex" ("=" | ":") flexVal
+             | "minrolls" ("=" | ">=" | "<=") number | "lockedminrolls" ("=" | ">=" | "<=") number
+             | "minsubstats" ("=" | ">=" | "<=") number | "flex" ("=" | ":") flexVal
 assignment    := ("rank" | "rarity") ("=" | ">=" | "<=") value
              | ("slots" | "substats" | "mainstats" | "metasets") "=" prefixToken ("," prefixToken)*
              | "gearsets" "=" gearToken ("," gearToken)* | field "=" value

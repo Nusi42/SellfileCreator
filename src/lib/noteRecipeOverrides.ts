@@ -90,7 +90,7 @@ export const NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS = [
 ] as const
 /** Field names valid in selector term comparisons. */
 export const NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS = [
-  'tag', 'rank', 'rarity', 'minrolls', 'minsubstats', 'flex',
+  'tag', 'rank', 'rarity', 'minrolls', 'lockedminrolls', 'minsubstats', 'flex',
 ] as const
 
 export type RecipeOverridesSelector =
@@ -101,6 +101,7 @@ export type RecipeOverridesSelector =
   | { kind: 'rank'; op: TagOverrideOp; value: RankCode }
   | { kind: 'rarity'; op: TagOverrideOp; mode: 'auto' | 'code'; code?: RarityCode }
   | { kind: 'minRolls'; op: TagOverrideOp; value: number }
+  | { kind: 'lockedMinRolls'; op: TagOverrideOp; value: number }
   | { kind: 'minSubstats'; op: TagOverrideOp; value: number }
   | { kind: 'flex'; value: boolean }
   | { kind: 'and'; left: RecipeOverridesSelector; right: RecipeOverridesSelector }
@@ -837,7 +838,7 @@ const parseSelectorTokens = (tokens: Token[]): RecipeOverridesSelector | null =>
       if (!normalized) return null
       return { kind: 'tag', mode: 'eq', values: [normalized] }
     }
-    if (keyword === 'rank' || keyword === 'rarity' || keyword === 'minrolls' || keyword === 'minsubstats') {
+    if (keyword === 'rank' || keyword === 'rarity' || keyword === 'minrolls' || keyword === 'lockedminrolls' || keyword === 'minsubstats') {
       cursor.next()
       const opToken = cursor.peek()
       if (!opToken || opToken.kind !== 'symbol') return null
@@ -863,6 +864,11 @@ const parseSelectorTokens = (tokens: Token[]): RecipeOverridesSelector | null =>
         const numeric = parseIntegerValue(valueToken.value)
         if (numeric == null) return null
         return { kind: 'minRolls', op, value: numeric }
+      }
+      if (keyword === 'lockedminrolls') {
+        const numeric = parseIntegerValue(valueToken.value)
+        if (numeric == null) return null
+        return { kind: 'lockedMinRolls', op, value: numeric }
       }
       if (keyword === 'minsubstats') {
         const numeric = parseIntegerValue(valueToken.value)
@@ -2431,6 +2437,9 @@ const matchesSelector = (selector: RecipeOverridesSelector, recipe: BuilderRecip
       const manual = (recipe.autoMinRequiredRolls === false) ? (recipe.minRequiredRolls ?? 0) : 0
       return compareNumeric(manual, selector.op, selector.value)
     }
+    case 'lockedMinRolls':
+      // Match against the locked-only floor (lockedMinRequiredRolls), treating absent as 0.
+      return compareNumeric(recipe.lockedMinRequiredRolls ?? 0, selector.op, selector.value)
     case 'minSubstats':
       return compareNumeric(resolveEffectiveMinCount(recipe), selector.op, selector.value)
     case 'flex':

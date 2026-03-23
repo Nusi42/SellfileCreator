@@ -1458,6 +1458,11 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   const getLockedMinRequiredRollsTriState = React.useCallback((target: 0 | 1 | 2 | 3 | 4 | 5): 'on' | 'mixed' | 'off' => {
     if (target === 0) return 'off'
     if (!lockedSubstatsExist) return 'off'
+    if (!multiEditActive || !multiSourceRecipes) {
+      // Use effectiveRecipe so recipe overrides are reflected in the button selection state.
+      const locked = clampAggregateRollValue(Number(effectiveRecipe.lockedMinRequiredRolls ?? 0))
+      return locked === target ? 'on' : 'off'
+    }
     const total = aggregateRollSnapshots.length
     if (total <= 0) return 'off'
     let matches = 0
@@ -1467,7 +1472,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
       }
     }
     return computeTriState(matches, total)
-  }, [aggregateRollSnapshots, computeTriState, lockedSubstatsExist])
+  }, [effectiveRecipe, aggregateRollSnapshots, computeTriState, lockedSubstatsExist, multiEditActive, multiSourceRecipes])
   const getRequiredCountTriState = React.useCallback((target: 'auto' | 1 | 2 | 3 | 4): 'on' | 'mixed' | 'off' => {
     if (!multiEditActive || !multiSourceRecipes) {
       // Use effectiveRecipe so recipe overrides are reflected in the button selection state.
