@@ -147,7 +147,7 @@ const run = async (): Promise<void> => {
   const unpatchedEntry = unpatched.get(TARGET_ARTIFACT_ID)
   console.log(`chancePercent: ${unpatchedEntry?.chancePercent ?? 'N/A'}`)
   console.log(`hasMatchingSafeguard: ${unpatchedEntry?.hasMatchingSafeguard ?? 'N/A'}`)
-  console.log(`matchedRuleId: ${unpatchedEntry?.matchedRuleId ?? 'N/A'}`)
+  console.log(`matchedRuleOrdinal: ${unpatchedEntry?.matchedRuleOrdinal ?? 'N/A'}`)
   if (unpatchedEntry?.debug) {
     const d = unpatchedEntry.debug
     console.log(`debug: bucketCandidates=${d.bucketCandidateCount}, betterCandidates=${d.betterCandidateCount}`)
@@ -159,7 +159,7 @@ const run = async (): Promise<void> => {
   const entry = result.get(TARGET_ARTIFACT_ID)
   console.log(`chancePercent: ${entry?.chancePercent ?? 'N/A'}`)
   console.log(`hasMatchingSafeguard: ${entry?.hasMatchingSafeguard ?? 'N/A'}`)
-  console.log(`matchedRuleId: ${entry?.matchedRuleId ?? 'N/A'}`)
+  console.log(`matchedRuleOrdinal: ${entry?.matchedRuleOrdinal ?? 'N/A'}`)
   if (entry?.debug) {
     const d = entry.debug
     console.log(`debug: bucketCandidates=${d.bucketCandidateCount}, betterCandidates=${d.betterCandidateCount}`)
@@ -171,8 +171,9 @@ const run = async (): Promise<void> => {
   }
 
   // --- TS challenger pool for Survivability Top Row (manual reconstruction) ---
-  const SURV_RULE_ID = 'ku_mlcx259q_y3j768i3'
-  const survRule = safeguardRules.find((r) => r.id === SURV_RULE_ID)
+  // Rules no longer carry a string id; look up by name instead.
+  const SURV_RULE_NAME = 'Survivability Top Row'
+  const survRule = safeguardRules.find((r) => r.name === SURV_RULE_NAME)
   if (survRule) {
     console.log('\n--- TS challenger pool for Survivability Top Row (patched gear) ---')
     const selectedSubstats = survRule.substats.map((s) => Number(s)).filter((v) => v > 0)
@@ -219,7 +220,8 @@ const run = async (): Promise<void> => {
   // --- WASM safeguard detection via full collect+detect pipeline ---
   // Pass minimal GearInspectorPreviewRow objects with match=null so the WASM collect step
   // treats every item as sold. baseRules=[] means no HSF keep-rules exist.
-  const SURVIVABILITY_TOP_ROW_RULE_ID = 'ku_mlcx259q_y3j768i3'
+  // Rules are identified by 1-based ordinal; derive it from the array index.
+  const survivabilityRuleOrdinal = safeguardRules.findIndex((r) => r.name === SURV_RULE_NAME) + 1
 
   const runWasmDetection = (label: string, artifacts: NormalizedGearArtifact[]) => {
     const rows = artifacts.map((a) => ({
@@ -240,15 +242,15 @@ const run = async (): Promise<void> => {
     })
     const targetArtifact = artifacts.find((a) => a.id === TARGET_ARTIFACT_ID)!
     const targetItemKey = getSafeguardItemKey(targetArtifact)
-    const targetCountKey = getSafeguardCountKey(targetArtifact, safeguardRules.find((r) => r.id === SURVIVABILITY_TOP_ROW_RULE_ID)!.countMode)
+    const targetCountKey = getSafeguardCountKey(targetArtifact, safeguardRules.find((r) => r.name === SURV_RULE_NAME)!.countMode)
     const matchingEntry = detection.entries.find((e) => e.itemKeys.includes(targetItemKey))
-    const survivabilityEntry = detection.entries.find((e) => e.ruleId === SURVIVABILITY_TOP_ROW_RULE_ID)
+    const survivabilityEntry = detection.entries.find((e) => e.ruleOrdinal === survivabilityRuleOrdinal)
 
     console.log(`\n--- WASM safeguard detection: ${label} ---`)
     console.log(`Target itemKey: ${targetItemKey}, countKey: ${targetCountKey}`)
 
     if (matchingEntry) {
-      console.log(`PROTECTED by rule: ${matchingEntry.ruleId ?? '(no id)'} | activation=${matchingEntry.ruleActivation}`)
+      console.log(`PROTECTED by rule ordinal: ${matchingEntry.ruleOrdinal ?? '(none)'} | activation=${matchingEntry.ruleActivation}`)
       console.log(`  requiredCount=${matchingEntry.requiredCount}, currentCount=${matchingEntry.currentCount}, deficit=${matchingEntry.deficit}`)
     } else {
       console.log(`NOT protected by any safeguard rule`)
@@ -263,7 +265,7 @@ const run = async (): Promise<void> => {
       const bucketArtifacts = survivabilityEntry.artifacts.filter((a) => {
         const art = artifacts.find((x) => getSafeguardItemKey(x) === a.itemKey)
         if (!art) return false
-        const ck = getSafeguardCountKey(art, safeguardRules.find((r) => r.id === SURVIVABILITY_TOP_ROW_RULE_ID)!.countMode)
+        const ck = getSafeguardCountKey(art, safeguardRules.find((r) => r.name === SURV_RULE_NAME)!.countMode)
         return ck === targetCountKey
       })
       console.log(`\n  Items in same countKey bucket as target (${bucketArtifacts.length}):`)
@@ -289,7 +291,7 @@ const run = async (): Promise<void> => {
     }
 
     // --- Extended diagnostics: all slot=6/set=44 candidates ---
-    const survRule = safeguardRules.find((r) => r.id === SURVIVABILITY_TOP_ROW_RULE_ID)!
+    const survRule = safeguardRules.find((r) => r.name === SURV_RULE_NAME)!
     const shieldGuardianCandidates = candidateSnapshot.candidates.filter((c) => {
       const a = c.artifact as NormalizedGearArtifact
       return Number(a.slot) === 6 && Number(a.set) === 44
@@ -305,13 +307,13 @@ const run = async (): Promise<void> => {
     // --- Extended diagnostics: which rules see slot=6/set=44 items ---
     console.log(`\n--- Detection entries with slot=6/set=44 items ---`)
     for (const e of detection.entries) {
-      if (!e.ruleId) continue
+      if (e.ruleOrdinal == null) continue
       // Check combination slots and sets
       const hasSlot6 = e.combination.slots.length === 0 || e.combination.slots.includes(6 as import('../../src/lib/types.js').ArtifactTypeId)
       const hasSet44 = e.combination.sets.length === 0 || e.combination.sets.some((s) => Number(s.id) === 44)
       if (hasSlot6 && hasSet44 && e.currentCount > 0) {
         const myArtifacts = e.artifacts.filter((a) => a.slot === 6 && a.set === 44)
-        console.log(`  [${e.ruleId}] currentCount=${e.currentCount} slot6/set44 artifacts=${myArtifacts.length}`)
+        console.log(`  [ordinal=${e.ruleOrdinal}] currentCount=${e.currentCount} slot6/set44 artifacts=${myArtifacts.length}`)
         for (const a of myArtifacts) {
           console.log(`    itemKey=${a.itemKey} level=${a.level} substats=[${a.substats.map((s) => `${s.variant}=${s.value}`).join(',')}]`)
         }
