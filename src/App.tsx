@@ -5928,6 +5928,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
     startTransition(() => {
       describeNextChange(loadDescriptor)
+      // SFR files do not carry an HSF; clear any previously loaded base file.
+      setHsf(null)
       setCustomRecipes(recipes)
       if (nextMetas !== metasets) {
         setMetasets(nextMetas)
@@ -5994,6 +5996,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     syncSelectedRecipeIdx,
     setSelectedSafeguardRuleIdx,
     setSafeguardBuilder,
+    setHsf,
     beginGearInspectorMatchReset,
   ])
 
