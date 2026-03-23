@@ -1,7 +1,7 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
-## v0.9.20 — 2026-03-21
+## v0.9.20 — 2026-03-23
 English:
 - The "Rule Tester" is now called **Gear Inspector** throughout the app, all menus, tooltips, and every language; the "Logic Hub" button is now called **Tools**.
 - Safeguards now have their own full-featured builder mode in the builder column: toggle between Recipe Builder and Safeguard Builder, edit rules with the same collapsible-section UI (rank, rarity, faction, main stats, substats, slots, sets), and drag-and-drop chips to reorder them.
@@ -19,6 +19,7 @@ English:
 - The guided tutorial was fully overhauled — new Safeguard and Early/Late comparison steps, redesigned Flex and Metasets sections — and localized into all 9 non-English languages.
 - The autosave/restore dialog now includes builder section collapse state in the View, Filter & Sort option; Gear Inspector sort preferences are no longer shown as a separate row.
 - Rule building is faster: only the recipe you just edited is rebuilt; unchanged recipes are reused.
+- Right-clicking **Reset** in the Safeguard Builder now offers **Save Local Settings as User Defaults** and **Reset to Factory Defaults**, matching the Recipe Builder's right-click menu.
 - Fixed: loading a new SFR file now immediately syncs the Safeguard Builder panel instead of showing stale content from the previous session.
 - Fixed: undo/redo no longer leaves the sellfile preview out of sync with the chip list after a selection change.
 - Fixed: custom gear added manually in the Gear Inspector now correctly matches its generated safeguard rules.
@@ -45,6 +46,12 @@ English:
 - Fixed: safeguard **anticipate mode** now generates correct rank and rarity placeholder rules.
 - Fixed: **pasting a multi-recipe clipboard** that contained no safeguard data no longer silently clears your existing safeguard rules.
 - Fixed: changing the slot selection now **auto-removes any mainstat or substat** that is no longer valid for that slot, instead of leaving them stuck as selected-but-unclickable.
+- Fixed: the preview header now correctly shows the filtered rule count (X of Y) when the **Selection** filter is the only active filter.
+- Fixed: safeguard chip summaries no longer show "Per Faction" when the rule's slot selection contains no accessory slots.
+- The sort-weight popover in the Safeguard Builder now includes a **Candidate Rank List**: a scrollable ranked list of all gear candidates for the active rule, showing slot, set, faction, substat names with roll counts, a weighted score, and a kept/sold badge. The list is windowed around the quota cutoff so borderline pieces are immediately visible. Hover any row to preview the item card; click to jump straight to that artifact in the Gear Inspector. Mythical substats are highlighted with a red glow matching the Gear Inspector card style.
+- Gear Inspector cards gain a **Safeguard Rank chip** (center overlay): the item's rank among all candidates for the selected safeguard rule — green for kept, red for sold. Enable it with "Show Safeguard Rank" in the Gear Inspector grid context menu. A new **Sort by Safeguard Rank** option is also available so the most-at-risk pieces surface first.
+- Fixed: the **By Match: First** filter in the Gear Inspector now correctly identifies which safeguard rule first claims each item rather than checking the quota bucket, which can differ when an earlier rule already keeps the piece.
+- Fixed: clicking the **upgrade-chance overlay chip** on a Gear Inspector card now correctly navigates to the matching safeguard rule in the Safeguard Builder.
 
 Deutsch:
 - Der „Rule Tester" heißt jetzt überall **Gear Inspector** (alle Menüs, Tooltips und Sprachen); aus „Logic Hub" wird der **Tools**-Button.
@@ -89,6 +96,12 @@ Deutsch:
 - Behoben: Der **Antizipationsmodus** von Schutzregeln erzeugt jetzt korrekte Rang- und Seltenheits-Platzhalterregeln.
 - Behoben: **Einfügen eines Mehrfach-Rezept-Clipboards** ohne Schutzdaten löscht deine bestehenden Schutzregeln nicht mehr stillschweigend.
 - Behoben: Ein Slot-Wechsel **entfernt jetzt automatisch** alle Mainstats oder Substats, die für den neuen Slot ungültig sind, statt sie als ausgewählt-aber-nicht-anklickbar hängen zu lassen.
+- Behoben: Die Vorschau-Kopfzeile zeigt jetzt korrekt die gefilterte Regelanzahl (X von Y) an, wenn der **Selection**-Filter als einziger aktiv ist.
+- Behoben: Schutzregel-Chip-Zusammenfassungen zeigen nicht mehr „Pro Fraktion" an, wenn die Slot-Auswahl der Regel keine Accessoire-Slots enthält.
+- Das Gewichtungs-Popover im Schutz-Builder enthält jetzt eine **Kandidaten-Rangliste**: eine scrollbare sortierte Liste aller Gear-Kandidaten für die aktive Schutzregel, mit Slot, Set, Fraktion, Substat-Namen und Roll-Anzahl, einem gewichteten Score und einem Kept/Sold-Badge. Die Liste ist rund um den Quota-Cutoff fensteriert, damit Grenzfälle sofort sichtbar sind. Hover über eine Zeile zeigt eine Vorschaukarte; ein Klick springt direkt zu diesem Item im Gear Inspector. Mythische Substats sind mit einem roten Leuchten hervorgehoben.
+- Gear-Inspector-Karten erhalten einen **Schutzregel-Rang-Chip** (mittleres Overlay): zeigt den Rang des Items unter den Kandidaten der ausgewählten Schutzregel — grün für behalten, rot für verkauft. Aktivieren über „Schutzregel-Rang anzeigen" im Gear-Inspector-Kontextmenü. Außerdem lässt sich jetzt nach **Schutzregel-Rang sortieren**, damit gefährdete Items zuerst erscheinen.
+- Behoben: Der **By Match: First**-Filter im Gear Inspector ermittelt jetzt korrekt, welche Schutzregel ein Item zuerst beansprucht, statt den Schutz-Bucket zu prüfen (der sich unterscheiden kann, wenn eine frühere Regel das Item bereits behält).
+- Behoben: Ein Klick auf den **Verbesserungschance-Overlay-Chip** auf einer Gear-Inspector-Karte springt jetzt korrekt zur passenden Schutzregel im Schutz-Builder.
 
 ## v0.9.19 — 2026-02-22
 English:

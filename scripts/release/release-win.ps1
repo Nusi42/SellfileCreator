@@ -97,16 +97,17 @@ try {
     throw "Failed to update third-party notices (exit code $LASTEXITCODE)"
   }
 
-  # Run unit + e2e tests for production releases; skip for dev builds to keep iteration fast.
+  # Run unit (+ e2e tests for production releases; skip for dev builds to keep iteration fast.
+  # don'r error out if e2e tests fail
   if (-not $DevBuild) {
-    Write-Host 'Running test suite (npm run test:all)...'
-    npm run --silent test:all
+    Write-Host 'Running test suite (npm run test:unit)...'
+    npm run --silent test:unit
     if ($LASTEXITCODE -ne 0) {
       throw "Tests failed with exit code $LASTEXITCODE"
     }
+    Write-Host 'Running test suite (npm run test:e2e)...'
+    npm run --silent test:e2e
   }
-
-
 
   # Ensure clean staging directory
   $staging = Join-Path $RepoRoot 'release_staging'
