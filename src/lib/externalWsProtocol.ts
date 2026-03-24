@@ -8,6 +8,8 @@ export const EXTERNAL_WS_PROTOCOL_DEFAULT = EXTERNAL_WS_SUBPROTOCOL_JSONRPC
 
 // Request method names double as shared identifiers across both protocol shapes.
 export const EXTERNAL_WS_METHOD_UPLOAD_SELLFILE = 'uploadSellfile'
+// Sends the current gear-inspector selection to RSL Helper; params: { artifactIds: number[] }.
+export const EXTERNAL_WS_METHOD_SELECT_ARTIFACTS = 'selectArtifacts'
 
 // Event names reuse the existing external command identifiers.
 export const EXTERNAL_WS_EVENT_SELECT_RULE = 'selectRule'
@@ -19,8 +21,7 @@ export const EXTERNAL_WS_EVENT_GEAR_DB_CHAMPIONS = 'champions'
 export const EXTERNAL_WS_EVENT_GEAR_DB_INBOX_ARTIFACTS = 'inboxArtifacts'
 export const EXTERNAL_WS_EVENT_GEAR_DB_LAST_USED = 'lastUsed'
 
-// Limit accepted method and event values so callers do not drift.
-export type ExternalWsRequestMethod = typeof EXTERNAL_WS_METHOD_UPLOAD_SELLFILE
+// Limit accepted event values so callers do not drift.
 export type ExternalWsEventName =
   | typeof EXTERNAL_WS_EVENT_SELECT_RULE
   | typeof EXTERNAL_WS_EVENT_GEAR_DB_FILE_BINARY
@@ -31,6 +32,11 @@ export type ExternalWsEventName =
 
 // Only JSON-RPC is supported; keep the type alias for call-site clarity.
 export type ExternalWsProtocol = typeof EXTERNAL_WS_SUBPROTOCOL_JSONRPC
+
+// Limit accepted request method values so callers do not drift.
+export type ExternalWsRequestMethod =
+  | typeof EXTERNAL_WS_METHOD_UPLOAD_SELLFILE
+  | typeof EXTERNAL_WS_METHOD_SELECT_ARTIFACTS
 
 // Normalized response shape for both protocols.
 export type ExternalWsResponse = {

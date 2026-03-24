@@ -55,6 +55,7 @@ const overrides: Catalog = {
   exportIgnoresFilters: 'Dışa aktarma filtreleri yok sayar',
   exportMergedSellfile: 'Birleştirilmiş RSL Helper Sellfile dışa aktar',
   exportSellfile: 'RSL Helper Sellfile dışa aktar',
+  exportSellfileAutoPush: 'Değişimde otomatik gönder',
   exportSellfileDedupDefault: 'Kuralları tekilleştir',
   exportSellfileOmitDisabled: 'Devre dışı kuralları atla',
   pushMergedSellfile: 'Birleştirilmiş Sellfile\'ı RSL Helper\'a gönder',

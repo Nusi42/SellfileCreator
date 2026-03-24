@@ -11,7 +11,7 @@ import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMe
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
-import { EXTERNAL_WS_METHOD_UPLOAD_SELLFILE } from './lib/externalWsProtocol'
+import { EXTERNAL_WS_METHOD_UPLOAD_SELLFILE, EXTERNAL_WS_METHOD_SELECT_ARTIFACTS } from './lib/externalWsProtocol'
 import type {
   ExternalCommand,
   GearDbArtifactsCommand,
@@ -285,7 +285,7 @@ import {
   type CollapsedSections,
 } from './state/rulesFilterPersistence'
 import { useSafeguardsGridFilterMode, sanitizeSafeguardsGridFilterMode } from './state/safeguardsPreferences'
-import { useSellfileDedupPreference, useSellfileOmitDisabledPreference } from './state/exportPreferences'
+import { useSellfileDedupPreference, useSellfileOmitDisabledPreference, useSellfileAutoPushPreference } from './state/exportPreferences'
 import { useSfrDialogs } from './hooks/useSfrDialogs'
 import { useSfrHistoryController } from './hooks/useSfrHistoryController'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from './hooks/useSfrHistory'
@@ -451,6 +451,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // These toggles now drive in-app rule transforms, not export-only behavior.
   const [dedupeDefault, setDedupeDefault] = useSellfileDedupPreference()
   const [omitDisabledForExport, setOmitDisabledForExport] = useSellfileOmitDisabledPreference()
+  // Auto-push: when enabled and an endpoint is active, push the sellfile on every dirty-state change.
+  const [autoPushEnabled, setAutoPushEnabled] = useSellfileAutoPushPreference()
   const { statButtonBorders } = useDisplayPreferences()
   const [autoApplySelectedRecipe] = useAutoApplySelectedRecipePreference()
   // Builder section collapse state — read here so the autosave memo can include it.
@@ -2421,6 +2423,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [])
   // Gear Inspector consumes this to expand + scroll to a targeted artifact card.
   const [gearInspectorArtifactFocusRequest, setGearInspectorArtifactFocusRequest] = useState<GearInspectorArtifactFocusRequest | null>(null)
+  // Selected gear items: optimistically updated on click and reconciled with endpoint response.
+  // Only active when the WebSocket push endpoint is connected.
+  const [selectedGearItemIds, setSelectedGearItemIds] = useState<ReadonlySet<number>>(new Set())
   const gearInspectorArtifactFocusTokenRef = useRef(0)
   // Ref for the preview paper element (used for Paper sizing/layout).
   const previewPaperRef = useRef<HTMLDivElement | null>(null)
@@ -3306,7 +3311,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   ])
   const [lastExportSig, setLastExportSig] = useState<ExportDirtyState | null>(null)
   // Queue one export request while rule/Gear Inspector workers are still rebuilding state.
-  const [queuedSellfileExport, setQueuedSellfileExport] = useState(false)
+  // 'loud' = show success toast; 'silent' = suppress success toast (auto-push); false = no pending export.
+  const [queuedSellfileExport, setQueuedSellfileExport] = useState<false | 'loud' | 'silent'>(false)
   const isSellfileExportBlockedByWorker = useCallback((): boolean => (
     // A queued debounce still means export snapshots are stale.
     pipelineDebounceRef.current !== null
@@ -3316,11 +3322,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     || rulesBuilding
     || gearEntriesBuilding
   ), [gearEntriesBuilding, rulesBuilding])
-  const queueSellfileExportIfNeeded = useCallback((): boolean => {
+  const queueSellfileExportIfNeeded = useCallback((silent = false): boolean => {
     // Run immediately when no worker build is pending.
     if (!isSellfileExportBlockedByWorker()) return false
-    // Keep one queued request while work is in flight.
-    setQueuedSellfileExport(true)
+    // Keep one queued request while work is in flight; preserve the caller's toast intent.
+    setQueuedSellfileExport(silent ? 'silent' : 'loud')
     return true
   }, [isSellfileExportBlockedByWorker])
   // Establish the export signature baseline after resets or first render — render-time adjustment.
@@ -5347,6 +5353,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     onCommand: handleExternalCommand,
     onReachabilityChange: updatePushEndpointReachable,
   })
+  // Optimistically apply gear selection; send to endpoint and revert on explicit decline.
+  const handleGearItemsSelect = useCallback((nextIds: ReadonlySet<number>) => {
+    // Snapshot previous selection so we can revert if the endpoint declines.
+    const prevIds = selectedGearItemIds
+    setSelectedGearItemIds(nextIds)
+    if (!pushExportEndpoint) return
+    void sendExternalRequest(EXTERNAL_WS_METHOD_SELECT_ARTIFACTS, { artifactIds: [...nextIds] })
+      .then((response) => {
+        // If the endpoint explicitly declines, revert to the pre-click selection.
+        if (!response.ok) {
+          setSelectedGearItemIds(prevIds)
+        }
+      })
+      .catch(() => {
+        // Network error: keep the optimistic selection (user intent is preserved).
+      })
+  }, [selectedGearItemIds, pushExportEndpoint, sendExternalRequest])
   // Dirty flag: builder differs from currently selected recipe
   const duplicateOfIndices = useMemo(() => computeDuplicateIndices(customRecipes), [customRecipes])
 
@@ -6823,7 +6846,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     />
   ) : null
 
-  const runSellfileExportNow = useCallback(async (forceLocal = false) => {
+  const runSellfileExportNow = useCallback(async (forceLocal = false, silent = false) => {
     // Default export always serializes the active in-app ruleset.
     // Dedupe-by-default is already applied in the pre-safeguard pipeline.
     const payload = buildExportPayload()
@@ -6855,7 +6878,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         updatePushEndpointReachable(false)
         pushToast = 'failure'
       } finally {
-        if (pushToast === 'success') {
+        if (pushToast === 'success' && !silent) {
           showToast(t('toastSellfileSaved'))
         } else if (pushToast === 'failure') {
           showToast(t('toastSellfileExportFailed'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
@@ -6871,7 +6894,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     a.click()
     URL.revokeObjectURL(url)
     setLastExportSig(hsfExportStateSig)
-    showToast(t('toastSellfileSaved'))
+    if (!silent) showToast(t('toastSellfileSaved'))
   }, [
     buildExportPayload,
     hsfExportStateSig,
@@ -6888,6 +6911,28 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (queueSellfileExportIfNeeded()) return
     void runSellfileExportNow()
   }, [queueSellfileExportIfNeeded, runSellfileExportNow])
+  // Silent variant used by auto-push — same logic but suppresses the success toast.
+  const handleExportSellfileSilent = useCallback(() => {
+    if (!exportRulesCountRef.current) return
+    if (queueSellfileExportIfNeeded(true)) return
+    void runSellfileExportNow(false, true)
+  }, [queueSellfileExportIfNeeded, runSellfileExportNow])
+  // Auto-push: fire on the rising edge of hsfDirty (or when autoPushEnabled turns on while already dirty).
+  const prevHsfDirtyRef = useRef(false)
+  const prevAutoPushRef = useRef(false)
+  useEffect(() => {
+    const wasDirty = prevHsfDirtyRef.current
+    const wasAutoPush = prevAutoPushRef.current
+    prevHsfDirtyRef.current = hsfDirty
+    prevAutoPushRef.current = autoPushEnabled
+    const shouldPush = autoPushEnabled && hsfDirty && !!pushExportEndpoint
+    // Only act on state transitions to avoid repeated pushes while conditions hold.
+    const justBecameDirty = hsfDirty && !wasDirty
+    const justEnabledAutoPush = autoPushEnabled && !wasAutoPush
+    if (shouldPush && (justBecameDirty || justEnabledAutoPush)) {
+      handleExportSellfileSilent()
+    }
+  }, [hsfDirty, autoPushEnabled, pushExportEndpoint, handleExportSellfileSilent])
   // Secondary action: always triggers a local file download regardless of push endpoint.
   // Exposed via the split-button dropdown when an endpoint is active.
   const handleExportSellfileLocal = useCallback(() => {
@@ -6902,10 +6947,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Run on the next frame so transition commits land before payload capture.
     const frameId = window.requestAnimationFrame(() => {
       if (isSellfileExportBlockedByWorker()) return
-      // Clear queue first so re-clicks during export can queue another action.
+      // Capture toast intent before clearing so the export sees the correct flag.
+      const wasSilent = queuedSellfileExport === 'silent'
       setQueuedSellfileExport(false)
       if (!exportRulesCountRef.current) return
-      void runSellfileExportNow()
+      void runSellfileExportNow(false, wasSilent)
     })
     return () => window.cancelAnimationFrame(frameId)
   }, [
@@ -7171,6 +7217,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onToggleDedupeDefault={handleSetDedupeDefault}
         omitDisabledForExport={omitDisabledForExport}
         onToggleOmitDisabled={handleSetOmitDisabled}
+        autoPushEnabled={autoPushEnabled}
+        onToggleAutoPush={setAutoPushEnabled}
         onExport={handleExportSellfile}
         onExportLocal={handleExportSellfileLocal}
         exportDisabled={!mergedRules.length}
@@ -7282,6 +7330,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 safeguardRankByArtifactId={safeguardRankByArtifactId}
                 emptyStateVerticalAlign={emptyStateVerticalAlign}
                 enterKey={gearInspectorEnterKey}
+                gearSelectionEnabled={!!pushExportEndpoint}
+                selectedGearItemIds={selectedGearItemIds}
+                onGearItemsSelect={handleGearItemsSelect}
               />
             </Box>
             <Box

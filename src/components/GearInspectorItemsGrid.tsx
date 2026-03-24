@@ -182,6 +182,12 @@ type GearInspectorItemsGridProps = {
   // When this key changes, card entering animations are suppressed (the filter changed,
   // not the underlying data) while group chips can still pulse for newly-visible groups.
   enterKey?: string
+  // Gear-inspector item selection: only active when a WebSocket push endpoint is connected.
+  selectedGearItemIds?: ReadonlySet<number>
+  // Called after each click-driven selection change; receives the full new selection set.
+  onGearItemsSelect?: (next: ReadonlySet<number>) => void
+  // When false (default) cards are not clickable for selection; gates cursor + click handler.
+  gearSelectionEnabled?: boolean
 }
 
 type GearInspectorGroupKind ='artifactSet' | 'artifactSlot' | 'accessorySet' | 'accessoryFaction'
@@ -246,6 +252,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     safeguardRules,
     safeguardRankByArtifactId = null,
     enterKey = undefined,
+    selectedGearItemIds,
+    onGearItemsSelect,
+    gearSelectionEnabled = false,
   } = props
   // Variant flags control keep-override behavior without forking the grid.
   const safeguardsVariant = variant === 'safeguards'
@@ -1137,6 +1146,64 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     gridLeafPaddingPx,
     groups,
   ])
+  // Anchor for shift-range selection: the last item clicked without shift held.
+  const [anchorArtifactId, setAnchorArtifactId] = useState<number | null>(null)
+  // Flat ordered list of artifact IDs in display order; used for shift-range selection.
+  const flatOrderedArtifactIds = useMemo(() => {
+    const ids: number[] = []
+    for (const item of flattenedItems) {
+      if (item.kind !== 'cardRow') continue
+      for (const entry of item.rowEntries) {
+        const id = Number(entry.artifact?.id)
+        if (Number.isFinite(id)) ids.push(id)
+      }
+    }
+    return ids
+  }, [flattenedItems])
+  // Click handler for individual gear cards — computes the next selection and notifies the parent.
+  const handleCardSelect = useCallback((artifactId: number, event: React.MouseEvent) => {
+    if (!gearSelectionEnabled || !onGearItemsSelect) return
+    const isCtrl = event.ctrlKey || event.metaKey
+    const isShift = event.shiftKey && anchorArtifactId !== null
+    let nextSelection: Set<number>
+    if (isShift) {
+      // Range: select all artifact IDs between the anchor and current item in display order.
+      const anchorIdx = flatOrderedArtifactIds.indexOf(anchorArtifactId!)
+      const currentIdx = flatOrderedArtifactIds.indexOf(artifactId)
+      if (anchorIdx < 0 || currentIdx < 0) {
+        // Either endpoint not found; fall back to single-item toggle.
+        nextSelection = new Set(selectedGearItemIds)
+        if (nextSelection.has(artifactId)) nextSelection.delete(artifactId)
+        else nextSelection.add(artifactId)
+      } else {
+        const lo = Math.min(anchorIdx, currentIdx)
+        const hi = Math.max(anchorIdx, currentIdx)
+        nextSelection = new Set(flatOrderedArtifactIds.slice(lo, hi + 1))
+      }
+      // Do not update the anchor on shift-click; it stays at the previous anchor point.
+    } else if (isCtrl) {
+      // Ctrl/Cmd: toggle the individual item, keep anchor at this item.
+      nextSelection = new Set(selectedGearItemIds)
+      if (nextSelection.has(artifactId)) nextSelection.delete(artifactId)
+      else nextSelection.add(artifactId)
+      setAnchorArtifactId(artifactId)
+    } else {
+      // Simple click: if only this item is selected, deselect it; otherwise select only this item.
+      if ((selectedGearItemIds?.size ?? 0) === 1 && selectedGearItemIds?.has(artifactId)) {
+        nextSelection = new Set()
+      } else {
+        nextSelection = new Set([artifactId])
+      }
+      setAnchorArtifactId(artifactId)
+    }
+    onGearItemsSelect(nextSelection)
+  }, [
+    gearSelectionEnabled,
+    onGearItemsSelect,
+    anchorArtifactId,
+    flatOrderedArtifactIds,
+    selectedGearItemIds,
+  ])
   const getFlattenedItemKey = useCallback(
     (index: number) => flattenedItems[index]?.key ?? `gear-inspector-grid-item-${index}`,
     [flattenedItems],
@@ -2009,6 +2076,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                   focusPulseActive={Number(row.artifact?.id) === focusPulseArtifactId}
                   animateIn={enteringArtifactIds.has(artifactId)}
                   cardPriority={{ base: scrollVersion, order: cardPriorityOrder }}
+                  selectionEnabled={gearSelectionEnabled}
+                  selected={gearSelectionEnabled && !!selectedGearItemIds?.has(artifactId)}
+                  {...(gearSelectionEnabled ? { onSelect: (e: React.MouseEvent) => handleCardSelect(artifactId, e) } : {})}
                 />
               )
             })}

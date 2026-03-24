@@ -372,6 +372,9 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   animateIn = false,
   cardPriority,
   contextGroupById = null,
+  selected = false,
+  onSelect,
+  selectionEnabled = false,
 }: {
   row: GearInspectorPreviewRow
   // Substat rating chip — bottom in triple mode, center otherwise.
@@ -404,6 +407,12 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   cardPriority: { base: number; order: number }
   /** When the result-filter context mode is active, maps artifact ID → display group for opacity. */
   contextGroupById?: Map<number, GearInspectorContextGroup> | null
+  /** When true, the card is part of the current gear-inspector selection (endpoint must be active). */
+  selected?: boolean
+  /** Called when the card is clicked and selectionEnabled is true; event carries modifier keys. */
+  onSelect?: (event: React.MouseEvent) => void
+  /** When true, the card is clickable for selection and shows cursor:pointer. */
+  selectionEnabled?: boolean
 }) {
   // Highlight state lets Safeguards call attention to the at-risk combinations without mutating the dataset.
   const highlightFn = typeof highlightedRowPredicate === 'function' ? highlightedRowPredicate : null
@@ -1216,20 +1225,27 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const matchRowHeight = `${CARD_MATCH_ROW_HEIGHT_PX}px`
 
   // Cards tint when highlighted so Safeguards can spotlight the matching combinations.
+  // Selection (endpoint-driven) takes priority over safeguard highlighting.
   return (
     <Box
       data-gear-inspector-grid-card="true"
       data-row-id={artifact.id}
       data-match-outcome={cardMatchOutcome}
       data-match-recipe-index={cardMatchRecipeIdx}
+      // Selection click captures the full card area; chip/button handlers still fire first via bubble.
+      onClick={selectionEnabled && onSelect ? onSelect : undefined}
       sx={(theme) => ({
         display: 'grid',
         gridTemplateColumns: cardGridTemplate,
         columnGap: theme.spacing(CARD_COLUMN_GAP_UNITS),
         p: theme.spacing(CARD_PADDING_UNITS),
         borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
-        border: `1px solid ${cardHighlighted ? theme.palette.info.light : theme.palette.divider}`,
-        bgcolor: outcomeTintBg ?? theme.palette.background.paper,
+        // Selection uses primary border; safeguard highlight uses info; default uses divider.
+        border: `1px solid ${selected ? theme.palette.primary.main : cardHighlighted ? theme.palette.info.light : theme.palette.divider}`,
+        // Selection adds a subtle primary tint to the background.
+        bgcolor: selected
+          ? alpha(theme.palette.primary.main, 0.08)
+          : (outcomeTintBg ?? theme.palette.background.paper),
         // Expose baseline/peak palette values so the pulse animation can resolve to theme-safe colors.
         '--gear-inspector-focus-border-base': cardHighlighted ? theme.palette.info.light : theme.palette.divider,
         '--gear-inspector-focus-border-peak': theme.palette.info.main,
@@ -1247,11 +1263,16 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         overflowX: 'visible',
         overflowY: 'visible',
         alignContent: 'start',
-        boxShadow: cardHighlighted ? `0 0 0 1px ${alpha(theme.palette.info.main, 0.3)}` : 'none',
+        // Selection: inner ring + outer glow in primary color; highlight: info glow; default: none.
+        boxShadow: selected
+          ? `inset 0 0 0 1px ${theme.palette.primary.main}, 0 0 0 2px ${alpha(theme.palette.primary.main, 0.25)}`
+          : cardHighlighted ? `0 0 0 1px ${alpha(theme.palette.info.main, 0.3)}` : 'none',
         // Card content must stay readable even inside colored containers (for example success toasts).
         color: theme.palette.text.primary,
         // Context mode opacity takes precedence; falls back to safeguards dim or full opacity.
         opacity: contextOpacity ?? (cardDimmed ? 0.35 : 1),
+        // Show pointer when the whole card is clickable for selection.
+        cursor: selectionEnabled ? 'pointer' : 'default',
         transition: 'opacity 220ms ease, border-color 260ms ease, box-shadow 280ms ease, background-color 280ms ease',
         // Programmatic focus pulse takes priority.  Entering cards play both the slide-in
         // and the match-change color pulse simultaneously so newly-appearing items are as

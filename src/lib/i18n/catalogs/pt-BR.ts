@@ -55,6 +55,7 @@ const catalog: Catalog = {
   exportIgnoresFilters: 'A exportação ignora os filtros',
   exportMergedSellfile: 'Exportar Sellfile do RSL Helper mesclado',
   exportSellfile: 'Exportar Sellfile do RSL Helper',
+  exportSellfileAutoPush: 'Envio automático ao alterar',
   exportSellfileDedupDefault: 'Deduplicar regras',
   exportSellfileOmitDisabled: 'Omitir regras desativadas',
   pushMergedSellfile: 'Enviar Sellfile mesclado para o RSL Helper',

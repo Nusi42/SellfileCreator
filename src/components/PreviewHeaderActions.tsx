@@ -114,6 +114,10 @@ export default function PreviewHeaderActions(props: {
   onToggleDedupeDefault: (next: boolean) => void
   omitDisabledForExport: boolean
   onToggleOmitDisabled: (next: boolean) => void
+  // When true, the sellfile is automatically pushed whenever unsaved changes are detected.
+  // Only relevant when a push endpoint is active.
+  autoPushEnabled: boolean
+  onToggleAutoPush: (next: boolean) => void
   exportDisabled: boolean
   pushEndpoint?: string
   hsfDirty: boolean
@@ -184,6 +188,8 @@ export default function PreviewHeaderActions(props: {
     onToggleDedupeDefault,
     omitDisabledForExport,
     onToggleOmitDisabled,
+    autoPushEnabled,
+    onToggleAutoPush,
     exportDisabled,
     pushEndpoint,
     hsfDirty,
@@ -2148,6 +2154,18 @@ export default function PreviewHeaderActions(props: {
                     {baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile')}
                   </MenuItem>
                 </>
+              ) : null}
+              {/* Auto-push only makes sense when a push endpoint is configured. */}
+              {pushActive ? (
+                <MenuItem onClick={() => onToggleAutoPush(!autoPushEnabled)}>
+                  <Checkbox
+                    size="small"
+                    checked={autoPushEnabled}
+                    onChange={(event) => onToggleAutoPush(Boolean(event.target.checked))}
+                    sx={{ mr: 1, p: 0.5 }}
+                  />
+                  {t('exportSellfileAutoPush')}
+                </MenuItem>
               ) : null}
               <MenuItem
                 onClick={() => onToggleOmitDisabled(!omitDisabledForExport)}

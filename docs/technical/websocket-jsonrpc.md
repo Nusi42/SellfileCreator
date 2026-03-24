@@ -54,6 +54,37 @@ Upload a generated sellfile.
 - `ok` (boolean)
 - `savedAs` (string)
 
+### selectArtifacts
+
+Tell RSL Helper which gear items are currently selected in the Gear Inspector.
+The app sends this request optimistically on every selection change (click,
+shift-click, ctrl-click, or deselect). If the server declines, the app reverts
+its local selection to the previous state.
+
+**Params**
+- `artifactIds` (array of number): Artifact instance ids that are now selected.
+  An empty array means "nothing selected".
+
+**Request example**
+```json
+{"jsonrpc":"2.0","id":7,"method":"selectArtifacts","params":{"artifactIds":[235431,312005]}}
+```
+
+**Result**
+- `ok` (boolean): `true` = selection accepted; `false` = selection declined (app reverts).
+
+**Success response example**
+```json
+{"jsonrpc":"2.0","id":7,"result":{"ok":true}}
+```
+
+**Decline response example**
+```json
+{"jsonrpc":"2.0","id":7,"result":{"ok":false}}
+```
+
+---
+
 ## Notifications
 
 These are pushed from the server to the browser.

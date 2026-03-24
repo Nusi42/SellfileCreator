@@ -10,6 +10,8 @@
  */
 import type { HsfFile, HsfRule } from './hsfTypes'
 import { getRuleRecipeIndex, normalizeRecipeName } from './ruleRecipeIndex'
+import { parseRecipeNameDirectives } from './recipeNameDirectives'
+import { RULE_SOURCE_FINAL_SELL } from './ruleSources'
 
 type HsfRuleWithRecipe = ReturnType<(typeof import('./merge'))['computeMergedRules']>[number]
 
@@ -85,7 +87,11 @@ export function cleanHsfForExport(rules: ExportableRule[]): HsfFile {
   const cleaned: HsfRule[] = rules.map((r, exportIndex) => {
     const stripped = stripUiMetadata(r) as ExportableRule & { rowIdx?: number }
     // Preserve RecipeID/RecipeName ordering for readability while omitting diagnostics.
-    const { RecipeID, RecipeName, RowIdx: _prevRowIdx, rowIdx: _legacyRowIdx, ...rest } = stripped
+    const { RecipeID, RecipeName: rawRecipeName, RowIdx: _prevRowIdx, rowIdx: _legacyRowIdx, ...rest } = stripped
+    // Strip [rrggbb] color directives from RecipeName — they are UI display hints and must not appear in exports.
+    const RecipeName = rawRecipeName != null
+      ? (parseRecipeNameDirectives(rawRecipeName, '').displayName || undefined)
+      : rawRecipeName
     // Builders already emit fields in the desired order; we simply reattach Recipe metadata.
     const others = rest as HsfRule
     const ordered: HsfRule = {
@@ -106,6 +112,9 @@ export async function readHsfFile(file: File): Promise<HsfFile> {
   return parseHsfFile(text)
 }
 
+// Fixed label written into the exported HSF for Final Sell rules so RSL Helper can display them correctly.
+const FINAL_SELL_EXPORT_NAME = 'Final Sell' as const
+
 type ExportMetadataOptions = { recipeNames?: RecipeNameList }
 
 function applyRecipeNamesForExport(rules: ExportableRule[], options?: ExportMetadataOptions): ExportableRule[] {
@@ -115,6 +124,11 @@ function applyRecipeNamesForExport(rules: ExportableRule[], options?: ExportMeta
   }
   return rules.map((rule) => {
     const clone = { ...rule }
+    // Final Sell rules always export under a fixed label regardless of RecipeID.
+    if (clone.__source === RULE_SOURCE_FINAL_SELL) {
+      clone.RecipeName = FINAL_SELL_EXPORT_NAME
+      return clone
+    }
     const recipeIdx = getRuleRecipeIndex(rule)
     if (recipeIdx !== null) {
       const normalized = normalizeRecipeName(names[recipeIdx] ?? null)
