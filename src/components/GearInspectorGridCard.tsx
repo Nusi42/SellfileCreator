@@ -1507,9 +1507,10 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
             gap: CARD_SUBSTAT_ROW_GAP_UNITS,
             width: '100%',
             flexGrow: 1,
-            // Compact mode clamps the glyph column so it cannot bleed into adjacent cards.
-            // Non-compact mode keeps visible so mythic box-shadow can paint beyond the row.
-            overflowX: compactSubstatColumnLayout ? 'hidden' : 'visible',
+            // Always visible: mythic box-shadow lives on the outer row Box (outside
+            // Typography), so this container must not clip it. Glyph cells clip
+            // individually via overflow:hidden on columns 3/4 instead.
+            overflowX: 'visible',
             overflowY: 'visible',
           }}
         >
@@ -1537,15 +1538,33 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                 const mythicTextShadow = entry.isMythicBonus
                   ? `0 0 ${MYTHIC_SUBSTAT_TEXT_SHADOW_BLUR_PX}px ${alpha(theme.palette.background.paper, MYTHIC_SUBSTAT_TEXT_SHADOW_ALPHA)}`
                   : undefined
-                // In compact table mode, cap mythic highlighting to populated columns only.
-                const rowMythicIndicatorSx = compactSubstatColumnLayout ? undefined : mythicIndicatorSx
-                // Determine the last populated compact column so mythic highlight
-                // stops at visible content while table columns remain shared/aligned.
+                // Shadow on the outer row Box works in both modes (it sits above Typography,
+                // so no overflow:hidden ancestor can clip it). In compact mode the row Box
+                // width is capped to populated columns so the shadow stops there too.
+                const rowMythicIndicatorSx = entry.isMythicBonus ? mythicIndicatorSx : undefined
+                // Determine the last populated compact column so the mythic highlight
+                // stops at visible content while shared table column widths stay aligned.
                 const compactMythicHighlightEndColumn = entry.hasGlyph
                   ? 4
                   : entry.hasRoll
                     ? 3
                     : (compactHasValueColumnContent && entry.hasValue ? 2 : 1)
+                // Pixel widths of each compact column (zero when absent at card level).
+                const highlightColWidths = [
+                  COMPACT_SUBSTAT_NAME_COL_PX,
+                  compactHasValueColumnContent ? COMPACT_SUBSTAT_VALUE_COL_PX : 0,
+                  compactHasRollColumnContent ? COMPACT_SUBSTAT_ROLL_COL_PX : 0,
+                  compactHasGlyphColumnContent ? COMPACT_SUBSTAT_GLYPH_COL_PX : 0,
+                ]
+                // Sum the px part and add (n-1) column gaps + both horizontal paddings.
+                const highlightPxWidth = highlightColWidths
+                  .slice(0, compactMythicHighlightEndColumn)
+                  .reduce((sum, w) => sum + w, 0)
+                const highlightGapCount = compactMythicHighlightEndColumn - 1
+                const highlightSpacingUnits =
+                  2 * SUBSTAT_ROW_HORIZONTAL_PADDING_UNITS + 0.4 * highlightGapCount
+                // calc() combines the fixed px part with the theme-unit gap+padding part.
+                const compactMythicWidth = `calc(${highlightPxWidth}px + ${theme.spacing(highlightSpacingUnits)})`
 
                 // Return a single inline row so ellipsis behavior stays consistent.
                 return (
@@ -1555,8 +1574,12 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                       // Inline flex keeps the stat label/value aligned with roll glyphs.
                       display: 'inline-flex',
                       alignItems: 'center',
-                      // Compact mode uses a full-width 3-column grid row (name | value | roll+glyph).
-                      width: compactSubstatColumnLayout ? '100%' : 'fit-content',
+                      // Compact mythic: exact populated-column width so the shadow stops at
+                      // the last real column, not the full grid template width. All other rows
+                      // use fit-content; column alignment comes from the shared template.
+                      width: (compactSubstatColumnLayout && entry.isMythicBonus)
+                        ? compactMythicWidth
+                        : 'fit-content',
                       maxWidth: '100%',
                       alignSelf: 'flex-start',
                       // Preserve shrink behavior so long stats still ellipsize.
@@ -1580,9 +1603,9 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                           // Keep ellipsis stable when the stat text is long.
                           width: '100%',
                           minWidth: 0,
-                          // Hidden in both modes: compact mode prevents glyph overflow across card
-                          // boundaries; non-compact mode prevents long stat names from escaping.
-                          // Mythic box-shadow lives on the outer Box (rowMythicIndicatorSx), not here.
+                          // Hidden in both modes: prevents long stat names from escaping the row.
+                          // Compact mythic rows are narrowed to populated columns via the outer
+                          // row Box width, so trailing empty columns are clipped here harmlessly.
                           overflow: 'hidden',
                           textOverflow: compactSubstatColumnLayout ? 'clip' : 'ellipsis',
                           whiteSpace: compactSubstatColumnLayout ? 'normal' : 'nowrap',
@@ -1606,19 +1629,6 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                               minWidth: 0,
                             }}
                           >
-                            {entry.isMythicBonus ? (
-                              <Box
-                                component="span"
-                                sx={{
-                                  gridColumn: `1 / ${compactMythicHighlightEndColumn + 1}`,
-                                  gridRow: '1',
-                                  alignSelf: 'stretch',
-                                  justifySelf: 'stretch',
-                                  ...(mythicIndicatorSx ?? {}),
-                                  zIndex: 0,
-                                }}
-                              />
-                            ) : null}
                             <Box
                               component="span"
                               sx={{
@@ -1656,6 +1666,9 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                                 gridColumn: '3',
                                 gridRow: '1',
                                 minWidth: 0,
+                                // Clip wide glyphs at the cell boundary so they cannot bleed
+                                // into adjacent columns or cards (replaces container overflow:hidden).
+                                overflow: 'hidden',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -1688,6 +1701,8 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                                 color: glyphDeltaColor,
                                 fontWeight: 600,
                                 minWidth: 0,
+                                // Clip at cell boundary — same reason as column 3.
+                                overflow: 'hidden',
                                 whiteSpace: 'nowrap',
                                 textAlign: 'right',
                                 justifySelf: 'end',
