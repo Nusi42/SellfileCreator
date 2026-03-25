@@ -2334,10 +2334,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     showGearDbDiffToast,
   ])
   // Drain the queued diff-toast once the Gear Inspector grid has committed a matching build.
-  // Accepts the current building/committedBuildId values captured at render time so the
-  // checks reflect the just-committed state rather than refs that useEffect hasn't updated yet.
-  // (queueMicrotask fires before useEffect, so reading refs directly would see stale values.)
-  const drainGearDbDiffToast = useCallback((building: boolean, committedBuildId: number) => {
+  // Accepts building/committedBuildId/previewRows captured at render time so all three reflect
+  // the just-committed state — queueMicrotask fires before useEffect, so reading refs directly
+  // (for any of these values) would still see stale data when the microtask runs.
+  const drainGearDbDiffToast = useCallback((building: boolean, committedBuildId: number, previewRows: GearInspectorPreviewRow[]) => {
     const pending = gearDbDiffToastPendingRef.current
     // Nothing queued means nothing to render.
     if (!pending) return
@@ -2347,8 +2347,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (building) return
     // Ignore commits that predate the queued diff request.
     if (committedBuildId <= pending.baselineBuildId) return
-    // Map current preview rows so matches line up with the diff entries.
-    const matchesAfter = buildMatchMapByArtifactId(gearInspectorPreviewRowsRef.current)
+    // Map the render-time preview rows so matches line up with the diff entries.
+    // Using the state value (not gearInspectorPreviewRowsRef) is critical — the ref is
+    // updated by a useEffect that runs after the microtask, so it would still be stale here.
+    const matchesAfter = buildMatchMapByArtifactId(previewRows)
     // Enrich the shared retained list once; history/toast derive slices from it.
     const retainedEnriched = pending.retainedEntries.map((entry) => ({
       ...entry,
@@ -2396,11 +2398,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [prevDrainTriggerKey, setPrevDrainTriggerKey] = useState(drainTriggerKey)
   if (drainTriggerKey !== prevDrainTriggerKey) {
     setPrevDrainTriggerKey(drainTriggerKey)
-    // Capture the state values now — queueMicrotask fires before useEffect, so refs
-    // updated by effects would still be stale when the microtask runs.
+    // Capture all three state values now — queueMicrotask fires before useEffect, so refs
+    // updated by effects (building flag, committedBuildId, preview rows) would still be
+    // stale when the microtask runs. Passing them as arguments avoids all three races.
     const drainBuilding = gearEntriesBuilding
     const drainCommittedBuildId = gearEntriesCommittedBuildId
-    queueMicrotask(() => drainGearDbDiffToast(drainBuilding, drainCommittedBuildId))
+    const drainPreviewRows = gearInspectorPreviewRows
+    queueMicrotask(() => drainGearDbDiffToast(drainBuilding, drainCommittedBuildId, drainPreviewRows))
   }
   const [gearImportBusy, setGearImportBusy] = useState(false)
   const gearImportBusyCountRef = useRef(0)
