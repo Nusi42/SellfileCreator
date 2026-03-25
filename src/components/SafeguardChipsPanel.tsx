@@ -447,7 +447,8 @@ export default function SafeguardChipsPanel({
   const openRuleMenu = useCallback((event: ReactMouseEvent<HTMLElement>, ruleIdx: number) => {
     event.preventDefault()
     event.stopPropagation()
-    onSelect(ruleIdx)
+    // Only select a chip when the menu was triggered from one; -1 signals an empty-area click.
+    if (ruleIdx >= 0) onSelect(ruleIdx)
     const rect = event.currentTarget.getBoundingClientRect()
     const x = event.clientX || Math.round(rect.left + rect.width / 2)
     const y = event.clientY || Math.round(rect.top + rect.height / 2)
@@ -521,6 +522,17 @@ export default function SafeguardChipsPanel({
     const payload = { kind: 'safeguardRule', rule: snapshot }
     const text = JSON.stringify(payload, null, 2)
     // Fall back to the manual copy dialog when the Clipboard API is unavailable.
+    const ok = await writeTextSafe(text)
+    if (!ok) triggerCopyDialog(text)
+  }, [rules])
+
+  // Copies all rules as an array using the same envelope format as handleCopyRule;
+  // parseSafeguardClipboardRules already handles array payloads on paste.
+  const handleCopyAllRules = useCallback(async () => {
+    if (rules.length === 0) return
+    const snapshots = rules.map((r) => buildReadableSafeguardRuleEntry(r))
+    const payload = { kind: 'safeguardRule', rule: snapshots }
+    const text = JSON.stringify(payload, null, 2)
     const ok = await writeTextSafe(text)
     if (!ok) triggerCopyDialog(text)
   }, [rules])
@@ -772,15 +784,21 @@ export default function SafeguardChipsPanel({
         actions={(() => {
           if (!ruleMenu) return {}
           const idx = ruleMenu.ruleIdx
+          // idx < 0 means the menu was opened from the empty area; show background actions only.
+          const isChipMenu = idx >= 0
           const isFirst = idx <= 0
           const isLast = idx >= rules.length - 1
           return {
-            moveTop: { handler: () => moveRule(idx, 0, 'top'), disabled: isFirst },
-            moveUp: { handler: () => moveRule(idx, idx - 1, 'up'), disabled: isFirst },
-            moveDown: { handler: () => moveRule(idx, idx + 1, 'down'), disabled: isLast },
-            moveBottom: { handler: () => moveRule(idx, rules.length - 1, 'bottom'), disabled: isLast },
-            copyRecipe: () => handleCopyRule(idx),
-            pasteAfter: () => handlePasteAfterRule(idx),
+            // Per-chip move/copy/paste-after actions only apply when a specific chip is targeted.
+            ...(isChipMenu ? {
+              moveTop: { handler: () => moveRule(idx, 0, 'top'), disabled: isFirst },
+              moveUp: { handler: () => moveRule(idx, idx - 1, 'up'), disabled: isFirst },
+              moveDown: { handler: () => moveRule(idx, idx + 1, 'down'), disabled: isLast },
+              moveBottom: { handler: () => moveRule(idx, rules.length - 1, 'bottom'), disabled: isLast },
+              copyRecipe: () => handleCopyRule(idx),
+              pasteAfter: () => handlePasteAfterRule(idx),
+            } : {}),
+            copyAll: { handler: handleCopyAllRules, disabled: rules.length === 0, labelKey: 'chipsMenuCopyAllSafeguards' },
             pasteAtEnd: handlePasteAtEnd,
             // Select All — same as Ctrl+A shortcut, available when rules exist.
             ...(onSelectAll ? {
@@ -840,6 +858,9 @@ export default function SafeguardChipsPanel({
         onFocus={chipListHandleFocus}
         onBlur={chipListHandleBlur}
         onMouseDown={chipListHandleMouseDown}
+        // Open the background context menu (paste/select-all/delete-all) when right-clicking
+        // the empty area; chip-level right-clicks stop propagation before reaching here.
+        onContextMenu={(event) => openRuleMenu(event, -1)}
         sx={(themeInner) => ({
           mt: 1,
           display: 'flex',

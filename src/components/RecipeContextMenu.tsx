@@ -37,7 +37,7 @@ export interface RecipeContextMenuActions {
   copyRecipeDev?: MenuClickHandler
   deleteRecipe?: MenuClickHandler
   selectAll?: SelectAllAction
-  copyAll?: { handler: MenuClickHandler; disabled: boolean }
+  copyAll?: { handler: MenuClickHandler; disabled: boolean; labelKey?: string }
   deleteAll?: HighlightableAction
 }
 
@@ -200,7 +200,7 @@ export function RecipeContextMenu({
         onClick={wrapClick(onClose, actions.copyAll.handler)}
         disabled={actions.copyAll.disabled}
       >
-        {t('chipsMenuCopyAllRecipes')}
+        {t(actions.copyAll.labelKey ?? 'chipsMenuCopyAllRecipes')}
       </MenuItem>,
     )
   }

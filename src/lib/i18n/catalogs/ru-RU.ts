@@ -1411,6 +1411,7 @@ const overrides: Catalog = {
   chipsMenuSelectAll: 'Выбрать все',
   chipsMenuSelectVisible: 'Выбрать видимые',
   chipsMenuCopyAllRecipes: 'Копировать все рецепты',
+  chipsMenuCopyAllSafeguards: 'Копировать все защиты',
   chipsMenuPasteAtEnd: 'Вставить в конец',
   chipsEmptyPasteHint: 'Пока нет рецептов — щёлкните правой кнопкой для вставки',
   chipsFilteredEmpty: 'Нет рецептов, подходящих под текущие фильтры',
