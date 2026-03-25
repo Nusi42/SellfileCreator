@@ -96,7 +96,9 @@ pub struct UpgradeChanceEntry {
     // SafeguardRule carries no id — kept in payload for backward-compatible deserialization).
     pub matched_rule_id: Option<String>,
     // 1-based ordinal of the preferred safeguard rule; None when no rule matched.
-    // Matches __safeguardRuleOrdinal on HSF rows so TypeScript can navigate by position.
+    // Renamed to "ruleOrdinal" to match TS type UpgradeChanceWasmEntry; overrides the struct-level
+    // camelCase rename which would otherwise produce "matchedRuleOrdinal".
+    #[serde(rename = "ruleOrdinal")]
     pub matched_rule_ordinal: Option<i64>,
     // Optional debug snapshot populated when the caller requests diagnostics.
     pub debug: Option<UpgradeChanceDebug>,
