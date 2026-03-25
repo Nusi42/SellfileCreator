@@ -71,7 +71,11 @@ pub(crate) struct ExecuteHsfBranchRuntimeIn {
 // Convert addition bitmasks into the concrete milestone timeline used by runtime.
 // Bit positions map to [4, 8, 12, 16] in the generated rarity schedule tables.
 fn addition_timeline_for_rarity(rarity_code: i64) -> Vec<i32> {
-    let mask = crate::auto_rarity_addition_mask_for_code(rarity_code);
+    // Normalize LTE range codes to their upper-bound concrete so base_start reflects
+    // the actual substat count at +0 (e.g. LTE_Epic → Epic: 3 substats, not Common: 0).
+    let mask = crate::auto_rarity_addition_mask_for_code(
+        crate::auto_rarity_runtime::rarity_for_schedule(rarity_code),
+    );
     let mut out = Vec::<i32>::new();
     if (mask & 1) != 0 {
         out.push(LEVEL_MILESTONE_4 as i32);

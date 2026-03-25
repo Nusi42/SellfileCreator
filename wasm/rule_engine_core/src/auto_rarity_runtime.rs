@@ -31,6 +31,21 @@ pub(crate) fn auto_rarity_addition_mask_for_code(rarity_code: i64) -> i64 {
     AUTO_RARITY_ADDITION_MASK_BY_CODE[auto_rarity_code_index(rarity_code)]
 }
 
+// Map LTE range codes to their concrete upper-bound rarity for substat-presence schedule.
+// LTE codes carry addition_mask=15 (Common schedule) in the generated tables, which would
+// compute base_start=0 for any LTE code — wrong for e.g. LTE_Epic where Epic starts with 3
+// substats.  GTE codes already share masks with their lower-bound concretes, so no mapping needed.
+pub(crate) fn rarity_for_schedule(code: i64) -> i64 {
+    match code {
+        c if c == RARITY_CODE_LTE_UNCOMMON  => RARITY_CODE_UNCOMMON,
+        c if c == RARITY_CODE_LTE_RARE      => RARITY_CODE_RARE,
+        c if c == RARITY_CODE_LTE_EPIC      => RARITY_CODE_EPIC,
+        c if c == RARITY_CODE_LTE_LEGENDARY => RARITY_CODE_LEGENDARY,
+        c if c == RARITY_CODE_LTE_MYTHICAL  => RARITY_CODE_MYTHICAL,
+        _                                   => code,
+    }
+}
+
 // Decode generated schedule masks into explicit milestone vectors.
 // Bit positions map to [4, 8, 12, 16] in both TS and Rust.
 fn auto_rarity_levels_from_mask(mask: i64) -> Vec<i32> {

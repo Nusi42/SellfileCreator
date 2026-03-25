@@ -460,8 +460,12 @@ pub(crate) fn build_hsf_level_contexts_core(input: &BuildHsfLevelContextsIn) -> 
     let max_level = input.level_window_min.max(input.level_window_max);
 
     // Decode rarity schedules once and reuse across all milestone rows.
+    // Roll masks for LTE codes already match their upper-bound concretes; addition masks do not —
+    // normalize LTE codes so base_start reflects the correct substat count at each milestone.
     let roll_mask = auto_rarity_roll_mask_for_code(input.rarity_code);
-    let addition_mask = auto_rarity_addition_mask_for_code(input.rarity_code);
+    let addition_mask = auto_rarity_addition_mask_for_code(
+        crate::auto_rarity_runtime::rarity_for_schedule(input.rarity_code),
+    );
     let pre_rolls = if auto_rarity_includes_mythical(input.rarity_code) { 1 } else { 0 };
     // After-start mode subtracts rolls up to the configured start.
     let rolls_up_to_start = auto_rarity_count_levels_up_to_mask(roll_mask, input.effective_start);
@@ -566,6 +570,13 @@ pub(crate) fn build_hsf_level_combos_core(input: &BuildHsfLevelCombosIn) -> Vec<
     });
     // Impossible windows produce no combos for this level.
     if level_max_count < required_count {
+        return Vec::<Vec<i32>>::new();
+    }
+    // Flex mode has no required_count gate, so guard separately: when fewer substats
+    // are present than the minimum count requires, every generated combo would be
+    // under-qualified (e.g. empty or single-substat combos for a minCount=2 recipe).
+    // Non-flex is already covered by the required_count guard above.
+    if input.flex_active && min_target_count > 0 && present < min_target_count {
         return Vec::<Vec<i32>>::new();
     }
 

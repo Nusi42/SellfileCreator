@@ -49,4 +49,6 @@ users can export from the app.
   - The `*-factory.*` pair pins `Minima` to the factory roll floors so the builder still collapses to a single rule (`auto-at-0-with-k-4-minreq4-factory.*`, `auto-banner-aggregate-window-factory.*`, `roll-target-collapsed-quad-factory.*`, etc.).
   - The legacy pair (without the suffix) retains the boosted minima used in the original test so we continue to exercise the expanded multi-rule path.
 
+- `lte-rarity-2-of-3-flat-sell.*` covers the LTE (≤) rarity range fix: eight sell recipes across ≤ Epic / ≤ Rare / ≤ Uncommon / Common, each in full-range (maxLevel=16) and level-0-only (maxLevel=0) variants, with `autoSubstatFlex=true` and `rollBounds: {any:true}` / `minCount=2`. Verifies (a) that LTE codes use their upper-bound rarity's substat-presence schedule so rules are generated for ≤ Epic at all levels and (b) that levels where fewer substats are present than `minCount` (e.g. Common at +0/+4, LTE_Uncommon at +0) are omitted from flex-mode sell rules rather than emitting empty or under-qualified rules.
+
 Update this document when adding new fixture categories so contributors understand the scenarios we already cover and how to extend them consistently.
