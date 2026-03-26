@@ -55,7 +55,8 @@ let wasmWarmupPromise: Promise<void> | null = null
 // so unchanged recipes skip the WASM buildRulesForRecipe call entirely.
 const persistentRuleCache = new Map<string, RecipeRulesCacheEntry>()
 
-// Batch evaluate so long matcher passes yield between chunks.
+// Batch evaluate so long matcher passes yield between chunks; progress is
+// emitted once per batch (not per artifact) to bound Firefox postMessage overhead.
 const PIPELINE_MATCH_BATCH_SIZE = 256 as const
 // Cap progress chatter so postMessage overhead stays bounded.
 const PIPELINE_PROGRESS_MAX_EVENTS = 16 as const
@@ -214,8 +215,11 @@ const buildPipelineMatches = async (
         matchingRecipeIndices: fullEval.matchingRecipeIndices,
         matchingRecipeDecisions: fullEval.matchingRecipeDecisions,
       })
-      if (!emitProgress) continue
-      completedRef.value += 1
+    }
+    // Emit progress once per batch rather than per artifact so the throttler
+    // is not called thousands of times on large DBs — the primary Firefox slowdown.
+    if (emitProgress) {
+      completedRef.value += batchEntries.length
       emitProgress({ completed: completedRef.value, total })
     }
     // Yield so superseding pipeline messages can update generation state.
