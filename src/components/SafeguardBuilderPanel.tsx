@@ -1839,7 +1839,6 @@ export default function SafeguardBuilderPanel({
                 showMetasets
                 layoutVersion={1}
                 anyLabel={t('anySet')}
-                includeNoSet={hasAccessorySlot}
               />
               {renderScopeChip('perSet', t('safeguardsCountModePerSet'), scopeActive.perSet, false, perScopeMixed.perSet)}
             </Box>

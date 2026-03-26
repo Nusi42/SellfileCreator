@@ -49,7 +49,6 @@ type GearSetsSelectProps = {
   disabled?: boolean
   layoutVersion?: number
   anyLabel?: string
-  includeNoSet?: boolean
   disabledSetIds?: number[]
   singleSelect?: boolean
   minWidthPx?: number
@@ -69,7 +68,6 @@ export default function GearSetsSelect({
   disabled = false,
   layoutVersion,
   anyLabel,
-  includeNoSet = false,
   disabledSetIds,
   singleSelect = false,
   minWidthPx,
@@ -92,6 +90,10 @@ export default function GearSetsSelect({
   const allowedSetFilter = useMemo(() => (
     allowedSetIds ? new Set(allowedSetIds.map(Number)) : null
   ), [allowedSetIds])
+  // Derive no-set visibility from the allowed pool: show the sentinel whenever
+  // the pool includes it (i.e. accessories are in scope). Default to false when
+  // no allowedSetIds are provided to avoid showing it unconditionally.
+  const includeNoSet = allowedSetFilter ? allowedSetFilter.has(ACCESSORY_NO_SET_ID) : false
   const visibleMetasets = useMemo(
     () => (allowMetasets ? metasets.filter((meta) => meta.show !== false) : []),
     [allowMetasets, metasets],
@@ -261,10 +263,10 @@ export default function GearSetsSelect({
     if (!allowedSetFilter) return disabledSetIds ?? []
     const fromAllowed = sortedSets
       .map(([id]) => Number(id))
-      .filter((id) => !allowedSetFilter.has(id) && !(includeNoSet && id === ACCESSORY_NO_SET_ID))
+      .filter((id) => !allowedSetFilter.has(id))
     if (!disabledSetIds || disabledSetIds.length === 0) return fromAllowed
     return Array.from(new Set([...fromAllowed, ...disabledSetIds]))
-  }, [allowedSetFilter, disabledSetIds, includeNoSet, sortedSets])
+  }, [allowedSetFilter, disabledSetIds, sortedSets])
 
   const handleToggleSet = useCallback((setId: number) => {
     const numeric = Number(setId)

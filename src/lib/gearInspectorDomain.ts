@@ -55,16 +55,16 @@ export function slotSelectionAllowsAccessories(slots?: readonly ArtifactTypeId[]
 export function allowedGearInspectorSetIds(slot: ArtifactTypeId): number[] {
   const numeric = Number(slot)
   if (numeric === GEAR_INSPECTOR_ANY_SLOT_ID) {
+    // getAllKnownArtifactSetIds already includes -99 (ACCESSORY_NO_SET_ID).
     const merged = new Set<number>([
-      ACCESSORY_NO_SET_ID,
       ...getAllKnownArtifactSetIds(),
       ...getAccessorySlotsCompatibleSetIds(),
     ])
     return Array.from(merged).sort(compareArtifactSets)
   }
   if (isAccessorySlot(numeric)) {
+    // getAccessorySlotsCompatibleSetIds already includes -99 (ACCESSORY_NO_SET_ID).
     const merged = new Set<number>([
-      ACCESSORY_NO_SET_ID,
       ...getAccessorySlotsCompatibleSetIds(),
     ])
     return Array.from(merged).sort(compareArtifactSets)

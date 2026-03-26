@@ -58,7 +58,7 @@ import {
 import { type Metaset, metasetGlyph, orderMetasets, resolveMetasets } from '../lib/metasets'
 import type { ArtifactSetSelectionEntry } from '../lib/gearSets/selection'
 import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
-import { isAccessorySlot, slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
+import { isAccessorySlot } from '../lib/gearInspectorDomain'
 import { getMainStatOptionsForSlots } from './keepOverrides/keepOverrideRuleUtils'
 import { resolveAllowedSubstatsForSlotsAndMains, retainAllowedSubstats } from '../lib/statCompatibility'
 import { useKeepOverrideCombinationTools } from './keepOverrides/useKeepOverrideCombinationTools'
@@ -1113,20 +1113,6 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       patch: nextPatch ?? undefined,
     })
   }, [recipe.artifactTypes, getSlotState, multiEdit, multiEditActive, multiSlotsField?.patch])
-  const slotSelectionForNoSet = React.useMemo(() => {
-    // Multi-edit: any non-none slot keeps accessories in scope for the union.
-    if (multiEditActive && multiSummary) {
-      const selected: number[] = []
-      for (const { id } of artifactTypeIconList) {
-        if (getSlotState(id) !== 'none') selected.push(id)
-      }
-      return selected
-    }
-    // Single-edit: empty selection means "Any slot".
-    return Array.isArray(recipe.artifactTypes) ? recipe.artifactTypes : []
-  }, [recipe.artifactTypes, getSlotState, multiEditActive, multiSummary])
-  // Accessory-only sets (like no-set) should only appear when accessories are in scope.
-  const allowNoSet = slotSelectionAllowsAccessories(slotSelectionForNoSet)
   // Slot-based filtering: compute allowed options for main stats, substats, and sets.
   const slotSelection = recipe.artifactTypes ?? []
   const mainStatOptions = getMainStatOptionsForSlots(slotSelection)
@@ -1147,6 +1133,8 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
         mainStats: sanitizedMainStats,
       })
   const allowedSetPool = resolveAllowedSetPool(slotSelection)
+  // Accessory-only sets (like no-set) appear only when the resolved pool includes them.
+  const allowNoSet = (allowedSetPool as readonly number[]).includes(ACCESSORY_NO_SET_ID)
   // Prune accessory no-set selections at render time when constraints change.
   const sanitizedSets = React.useMemo(
     () => multiEditActive ? (recipe.artifactSets ?? []) : pruneAccessoryNoSetSelections(recipe.artifactSets ?? [], allowNoSet),
@@ -6658,9 +6646,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             const allowedSetIdsSet = new Set(allowedSetPool.map(Number))
             const disabledSetIds = sorted
               .map(([id]) => Number(id))
-              // No Gear-Set is a sentinel, not a real set ID; it never appears in allowedSetPool
-              // but should be selectable whenever it's visible (accessories in scope).
-              .filter((id) => !allowedSetIdsSet.has(id) && id !== ACCESSORY_NO_SET_ID)
+              .filter((id) => !allowedSetIdsSet.has(id))
 
             // Show metasets section only when there is at least one visible user metaset. Avoid empty metasets UI.
             const hasMetasetsSection = visibleMetasets.length > 0

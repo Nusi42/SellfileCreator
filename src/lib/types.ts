@@ -281,10 +281,11 @@ export const ARMOR_VARIABLE_SET_IDS = Object.freeze(
 // Alias the variable list so "9-piece sets" callers have an intuitive export.
 export const NINE_PIECE_SET_IDS = ARMOR_VARIABLE_SET_IDS
 
-// Accessory slots accept traditional accessory sets (1-piece bonuses) and
-// any of the flexible 1–9 piece families.
+// Accessory slots accept the no-set sentinel (Spider-dungeon unset accessories),
+// traditional accessory sets (1-piece bonuses), and any of the flexible 1–9 piece families.
 export const ACCESSORY_SLOTS_COMPATIBLE_SET_IDS = Object.freeze(
   Array.from(new Set<number>([
+    ACCESSORY_NO_SET_ID,
     ...ACCESSORY_SET_IDS,
     ...ARMOR_VARIABLE_SET_IDS,
   ])).sort((a, b) => a - b)
@@ -293,6 +294,7 @@ export const ACCESSORY_SLOTS_COMPATIBLE_SET_IDS = Object.freeze(
 
 export const ALL_ARTIFACT_SET_IDS = Object.freeze(
   Array.from(new Set<number>([
+    ACCESSORY_NO_SET_ID,
     ...ACCESSORY_SET_IDS,
     ...ARMOR_FIXED_SET_IDS,
     ...ARMOR_VARIABLE_SET_IDS,
@@ -412,6 +414,8 @@ export function getAccessorySlotsCompatibleSetIds(): readonly ArtifactSetId[] {
 }
 
 export function findArtifactSetIdByName(name: string): ArtifactSetId | null {
+  // Handle the synthetic "no set" sentinel before scanning the baked catalog.
+  if (name === NO_GEAR_SET_FALLBACK_NAME) return ACCESSORY_NO_SET_ID as ArtifactSetId
   ensureRuntimeGearSetCache()
   for (const [id, label] of runtimeGearSetCache.entries) {
     if (label === name) {

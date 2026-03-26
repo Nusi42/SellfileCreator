@@ -45,7 +45,6 @@ import {
   FINAL_SELL_DEFAULT_LEVELS,
   SMALL_BUTTON_HEIGHT_PX,
   ELLIPSIS_TEXT_SX,
-  ACCESSORY_NO_SET_ID,
   FONT_SIZE_DISPLAY_REM,
   FONT_SIZE_HEADER_META_PX,
   FONT_SIZE_BASE_PX,
@@ -7634,12 +7633,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               }
               // If runtime gear sets were declined, strip any now-unknown runtime IDs
               // from restored artifacts/metasets so chips/selects don't show phantom sets.
+              // getAllKnownArtifactSetIds already includes ACCESSORY_NO_SET_ID (-99).
               const bakedInSetIdSet = selection.gearSets
                 ? null
                 : new Set<number>([
                   ...getAllKnownArtifactSetIds().map((id) => Number(id)),
-                  // Keep accessory no-set available even when runtime sets are declined.
-                  ACCESSORY_NO_SET_ID,
                 ])
               // Sanitize metasets by removing unknown set IDs.
               // Why: metasets are expanded into recipe rules and chip labels.

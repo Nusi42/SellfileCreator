@@ -26,6 +26,7 @@ import { resolveArtifactSetSelections } from './gearSets/selection'
 import {
   getAllKnownArtifactSetIds,
 } from './types'
+import { ACCESSORY_NO_SET_ID } from './constants'
 import {
   type FinalSellRemainderConfig,
 } from './logicHub'
@@ -175,7 +176,9 @@ export function buildFinalSellRules(finalSellRemainder: FinalSellRemainderConfig
   // Delegate final-sell level/type/set expansion to wasm for SSOT ordering.
   return buildFinalSellRulesWithLoadedWasm({
     finalSellRemainder,
-    allKnownSetIds: getAllKnownArtifactSetIds().map((id) => Number(id)),
+    // ACCESSORY_NO_SET_ID (-99) is a UI sentinel, not a real game set;
+    // exclude it so the WASM engine never generates a sell rule for set -99.
+    allKnownSetIds: getAllKnownArtifactSetIds().map((id) => Number(id)).filter((id) => id !== ACCESSORY_NO_SET_ID),
   })
 }
 
@@ -294,7 +297,8 @@ export function buildMergedRulesComponents(params: {
     batches: customBatches,
   })
 
-  return { base, customs, allKnownSetIds: getAllKnownArtifactSetIds().map((id) => Number(id)) }
+  // ACCESSORY_NO_SET_ID (-99) is a UI sentinel, not a real game set; exclude it here.
+  return { base, customs, allKnownSetIds: getAllKnownArtifactSetIds().map((id) => Number(id)).filter((id) => id !== ACCESSORY_NO_SET_ID) }
 }
 
 /**

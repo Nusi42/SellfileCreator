@@ -8,6 +8,7 @@ import {
 } from '../../lib/types'
 import type { Metaset } from '../../lib/metasets'
 import { isAccessorySlot } from '../../lib/gearInspectorDomain'
+import { ACCESSORY_NO_SET_ID } from '../../lib/constants'
 import { useGearSetCatalogVersion } from '../../hooks/useGearSetCatalogVersion'
 import { normalizeArtifactSetSelections } from '../../lib/gearSets/selection'
 import type { SafeguardRule } from '../../lib/safeguards'
@@ -73,9 +74,16 @@ export const useKeepOverrideCombinationTools = (metasets: Metaset[]) => {
     const filteredMainStats = dedupeNumericArray((combination.mainStats ?? []).filter((variant) => mainOptions.includes(variant)))
     const filteredFactions = hasAccessory ? dedupeNumericArray(combination.factions ?? []) : []
     const hadExplicitSetSelection = combination.sets.length > 0 || (combination.metaSetNames?.length ?? 0) > 0
+    // Skip the no-set sentinel when choosing a fallback real set — it sorts first
+    // (most-negative ID) but is not a meaningful default for any slot type.
     const resolvedSets = filteredSets.length > 0
       ? filteredSets
-      : (hadExplicitSetSelection && allowedSetPool[0] ? [{ id: allowedSetPool[0] }] : [])
+      : (hadExplicitSetSelection
+          ? (() => {
+              const fallback = (allowedSetPool as readonly number[]).find((id) => id !== ACCESSORY_NO_SET_ID)
+              return fallback != null ? [{ id: fallback as ArtifactSetId }] : []
+            })()
+          : [])
     return {
       ...combination,
       slots: normalizedSlots,

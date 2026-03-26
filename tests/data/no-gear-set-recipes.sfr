@@ -1,0 +1,105 @@
+{
+  "Version": "0.9.23-dev",
+  "Metasets": [],
+  "Recipes": [
+    {
+      "name": "",
+      "keep": false,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [
+        "HP"
+      ],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "earlyKeepMode": "late",
+      "substats": [
+        {
+          "stat": "HP%",
+          "rollBounds": {
+            "min": 2
+          }
+        },
+        {
+          "stat": "ATK",
+          "rollBounds": {
+            "any": true
+          }
+        }
+      ],
+      "autoRarityThreshold": "rare",
+      "minCount": 2,
+      "autoMinCount": true,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": true,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [
+        "Ring"
+      ],
+      "artifactSetNames": [
+        {
+          "name": "No Gear-Set"
+        }
+      ],
+      "artifactMetaSetNames": []
+    },
+    {
+      "name": "",
+      "keep": false,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [
+        "DEF"
+      ],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [],
+      "minCount": 0,
+      "autoMinCount": true,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": true,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [
+        "Banner"
+      ],
+      "artifactSetNames": [
+        {
+          "name": "No Gear-Set"
+        }
+      ],
+      "artifactMetaSetNames": []
+    },
+    {
+      "name": "",
+      "keep": false,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Barbarians",
+      "mainStats": [
+        "ATK"
+      ],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [],
+      "minCount": 0,
+      "autoMinCount": true,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": true,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [
+        "Banner"
+      ],
+      "artifactSetNames": [
+        {
+          "name": "No Gear-Set"
+        }
+      ],
+      "artifactMetaSetNames": []
+    }
+  ]
+}
