@@ -985,6 +985,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     pipelineCacheRef.current.clear()
     pipelineCacheOrderRef.current.clear()
   }, [gearInspectorPreviewArtifacts])
+  // Wipe the pipeline cache whenever the base HSF changes.
+  // The cache key is history-based (recipes/metasets CRC) and does not include HSF identity,
+  // so any result cached against a different (or absent) HSF is now stale.
+  // Declared before the pipeline effect so it runs first in the same React commit.
+  useEffect(() => {
+    pipelineCacheRef.current.clear()
+    pipelineCacheOrderRef.current.clear()
+  }, [hsf])
 
   // Proactively evict entries that have exceeded the TTL so GC can reclaim their memory
   // even when no new pipeline runs happen to trigger a lookup-based eviction.
@@ -1621,6 +1629,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       substatTargetsSessionModeRef.current = null
     }
   }
+  // Nonce incremented inside startTransition on every SFR load/selective import.
+  // The useEffect below watches it to call markSavedNow() AFTER the history snapshot
+  // effect fires in the same commit — ensuring the safety-net does not fire early
+  // (the rAF fires before React's useEffect for deferred transition renders).
+  const [sfrLoadNonce, setSfrLoadNonce] = useState(0)
   const {
     undo,
     redo,
@@ -1678,6 +1691,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Keep recipe overrides refs in sync so the debounced cache key uses up-to-date values.
   useEffect(() => { noteRecipeOverridesAnswersRef.current = noteRecipeOverridesAnswers }, [noteRecipeOverridesAnswers])
   useEffect(() => { noteRecipeOverridesDisabledRef.current = noteRecipeOverridesDisabled }, [noteRecipeOverridesDisabled])
+  // Safety-net: after every SFR load/selective import the nonce changes, which causes
+  // this effect to fire in the same React commit as the transition render — AFTER the
+  // history snapshot effect (which runs first because useSfrHistoryController was called
+  // earlier in the component).  markSavedNow() is idempotent if the snapshot effect
+  // already consumed markNextAsSavedRef; it also clears any leaked true value in the
+  // edge case where the transition produced no new history entry (identical payload).
+  // This replaces the previous rAF-based safety net, which fired before transitions
+  // committed and inadvertently prevented markNextSnapshotAsSaved from being honoured.
+  useEffect(() => {
+    if (sfrLoadNonce > 0) markSavedNow()
+  }, [sfrLoadNonce, markSavedNow])
   // Use one SSOT transition wrapper for heavy tab/dialog writes so every pathway
   // (builder, minima, safeguards, final-sell, gear) shares the same scheduling behavior.
   const setCustomRecipesTransition = useNonUrgentStateDispatch(setCustomRecipes)
@@ -5940,20 +5964,25 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
     if (importedNote !== null) {
       // Mark this as an auto-open so the view dialog hides the edit button.
+      // UI-only: stays outside startTransition so the dialog opens immediately.
       setNoteAutoOpenedFromSfr(true)
-      applyNoteChange(importedNote, { mode: 'import', publish: false })
       openNoteViewer()
     } else {
-      applyNoteChange(null, { mode: 'import', publish: false })
       handleCloseNote()
     }
-    // SFR files do not carry recipe overrides answers, so reset to defaults.
+    // Non-history state — not part of the signature, safe outside the transition.
     setNoteRecipeOverridesAnswers({})
     // SFR files never store the disabled flag, so re-enable parsing.
     setNoteRecipeOverridesDisabled(false)
 
     startTransition(() => {
       describeNextChange(loadDescriptor)
+      // Note change moved inside the transition so sfrNote and customRecipes commit in the
+      // same render batch. sfrNote is part of the history signature; if it were committed
+      // urgently (outside the transition), the first render would consume markNextAsSavedRef
+      // and the second render (customRecipes etc.) would land in a dirty state.
+      // applyNoteChange with publish:false never calls describeNextChange, so loadDescriptor is safe.
+      applyNoteChange(importedNote, { mode: 'import', publish: false })
       // SFR files do not carry an HSF; clear any previously loaded base file.
       setHsf(null)
       setCustomRecipes(recipes)
@@ -5981,21 +6010,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const firstSafeguardRule = (safeguardRules ?? []).length > 0 ? (safeguardRules ?? [])[0]! : null
       setSelectedSafeguardRuleIdx(firstSafeguardRule ? 0 : null)
       if (firstSafeguardRule) setSafeguardBuilder(cloneSafeguardRule(firstSafeguardRule))
+      // Increment nonce so the post-transition safety-net effect fires after the history
+      // snapshot effect in this same commit (see sfrLoadNonce useEffect above).
+      setSfrLoadNonce((n) => n + 1)
     })
 
     markNextSnapshotAsSaved()
     setLastExportSig(null)
     exportBaselineResetRef.current = true
-    // markNextSnapshotAsSaved anchors the upcoming history snapshot as saved.
-    // markSavedNow in the rAF is a safety net for any edge-case where the effect
-    // fires without recording a new entry (e.g. identical payload CRC after load).
-    // NOTE: do NOT call markSavedNow() synchronously here — it clears
-    // markNextAsSavedRef immediately, defeating markNextSnapshotAsSaved.
-    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(() => { markSavedNow() })
-    } else {
-      setTimeout(() => { markSavedNow() }, 0)
-    }
     flushTransientUi()
   }, [
     applyFinalSellChange,
@@ -6005,7 +6027,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     flushTransientUi,
     handleCloseNote,
     markNextSnapshotAsSaved,
-    markSavedNow,
     metasets,
     openNoteViewer,
     setNoteAutoOpenedFromSfr,
@@ -6023,6 +6044,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSelectedSafeguardRuleIdx,
     setSafeguardBuilder,
     setHsf,
+    setSfrLoadNonce,
     beginGearInspectorMatchReset,
   ])
 
@@ -6183,7 +6205,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     markNextSnapshotAsSaved()
     setLastExportSig(null)
     exportBaselineResetRef.current = true
-    // Same rationale as applySfrLoadResult — do NOT call markSavedNow() synchronously here.
+    // markSavedNow in the rAF is a safety net: this function uses urgent (non-transition)
+    // updates, so useEffect fires before the rAF and the rAF is truly a fallback.
     if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
       window.requestAnimationFrame(() => { markSavedNow() })
     } else {
