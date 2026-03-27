@@ -461,23 +461,6 @@ fn push_builder_runtime_rule(
     false
 }
 
-// Convert MainStatF payload to Number()-style fallback used by TS signature keys.
-fn main_stat_f_number(value: Option<&serde_json::Value>) -> f64 {
-    match value {
-        Some(serde_json::Value::Number(number)) => number.as_f64().unwrap_or(1.0),
-        Some(serde_json::Value::Bool(boolean)) => {
-            if *boolean {
-                1.0
-            } else {
-                0.0
-            }
-        }
-        Some(serde_json::Value::String(raw)) => raw.trim().parse::<f64>().unwrap_or(f64::NAN),
-        Some(serde_json::Value::Null) => 1.0,
-        _ => 1.0,
-    }
-}
-
 // Keep set/type arrays normalized so ordering does not affect dedupe keys.
 fn canonical_sorted_numeric(values: Option<&Vec<i64>>) -> Vec<i64> {
     let mut normalized = values.cloned().unwrap_or_default();
@@ -485,17 +468,6 @@ fn canonical_sorted_numeric(values: Option<&Vec<i64>>) -> Vec<i64> {
     normalized
 }
 
-// JS truthiness for IsFlat mirrors the previous TypeScript signature helper.
-fn is_truthy_is_flat(value: Option<&serde_json::Value>) -> bool {
-    match value {
-        Some(serde_json::Value::Bool(boolean)) => *boolean,
-        Some(serde_json::Value::Number(number)) => number.as_f64().map(|inner| inner != 0.0).unwrap_or(false),
-        Some(serde_json::Value::String(raw)) => !raw.is_empty(),
-        Some(serde_json::Value::Array(values)) => !values.is_empty(),
-        Some(serde_json::Value::Object(values)) => !values.is_empty(),
-        _ => false,
-    }
-}
 
 // Substat tuples mirror TS key dimensions while avoiding string concatenation.
 fn rule_substats_signature_key(substats: Option<&Vec<RuleSubRaw>>) -> Vec<BuilderSubstatSignatureKey> {
@@ -505,7 +477,7 @@ fn rule_substats_signature_key(substats: Option<&Vec<RuleSubRaw>>) -> Vec<Builde
         .into_iter()
         .map(|entry| BuilderSubstatSignatureKey {
             id: entry.ID.unwrap_or(STAT_ID_ANY),
-            flat_true: is_truthy_is_flat(entry.IsFlat.as_ref()),
+            flat_true: entry.IsFlat.unwrap_or(false),
             condition: entry.Condition.unwrap_or_default(),
             value_bits: normalize_f64_bits(entry.Value.unwrap_or(0.0)),
         })
@@ -520,7 +492,8 @@ fn builder_emission_signature(rule: &RuleRaw) -> BuilderEmissionSignatureKey {
         rank: rule.Rank.unwrap_or(0),
         faction: rule.Faction.unwrap_or(0),
         main_id: rule.MainStatID.unwrap_or(STAT_ID_ANY),
-        main_f_bits: normalize_f64_bits(main_stat_f_number(rule.MainStatF.as_ref())),
+        // MainStatF is now Option<i64>; cast to f64 for bit-stable signature comparison.
+        main_f_bits: normalize_f64_bits(rule.MainStatF.map_or(1.0, |v| v as f64)),
         level: rule.LVLForCheck.unwrap_or(LEVEL_ANY_SENTINEL),
         sets: canonical_sorted_numeric(rule.ArtifactSet.as_ref()),
         types: canonical_sorted_numeric(rule.ArtifactType.as_ref()),

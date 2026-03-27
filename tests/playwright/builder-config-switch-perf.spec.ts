@@ -140,7 +140,7 @@ test.describe('builder recipe switching performance', () => {
     // Skip additional HSF/DB imports so the perf check stays within the fast-fail budget.
 
     const chips = page.locator('[data-recipe-chip="true"]')
-    await expect(chips.first()).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
+    await expect(chips.first()).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 
     // Limit to a single switch so perf capture stays under the 15s cap.
     const measurementPairs = deriveMeasurementPairs(recipeNames, 2).slice(0, 1)

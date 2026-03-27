@@ -247,8 +247,8 @@ const setupAutoApplyScenario = async (page: Page): Promise<void> => {
   // Close any note/restore dialogs if they auto-open.
   await dismissBlockingDialogs(page)
 
-  // Wait for any recipe chip so we know the import finished.
-  await expect(page.locator('[data-recipe-chip="true"]').first()).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  // Chips render from restored state synchronously after dialog close.
+  await expect(page.locator('[data-recipe-chip="true"]').first()).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 
   // Click the chip to select recipe #2.
   await ensureChipSelected(getRecipeChipByName(page, MARIUS_RECIPE_NAME))

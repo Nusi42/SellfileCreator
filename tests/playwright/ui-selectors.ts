@@ -3,3 +3,5 @@
 export const SFR_LOAD_INPUT_SELECTOR = '[data-tour-id="sfr.load"] input[type="file"][accept*=".sfr"]'
 // Target the Tools toolbar trigger using a stable tour id (opens the LogicHub dialog).
 export const SUBSTAT_TARGETS_BUTTON_SELECTOR = '[data-tour-id="builder.tools-button"]'
+// Preview panel container — carries data-gear-results-version for pipeline-commit synchronization.
+export const PREVIEW_PAPER_SELECTOR = '[data-tour-id="preview.paper"]'

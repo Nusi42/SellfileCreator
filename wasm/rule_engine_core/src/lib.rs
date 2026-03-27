@@ -174,7 +174,8 @@ pub struct RuleRaw {
     pub Rank: Option<i64>,
     pub Rarity: Option<i64>,
     pub MainStatID: Option<i64>,
-    pub MainStatF: Option<serde_json::Value>,
+    // TS type is `number` (0 = percent, 1 = flat); concrete i64 avoids serde_json::Value AST.
+    pub MainStatF: Option<i64>,
     pub LVLForCheck: Option<i64>,
     pub Faction: Option<i64>,
     pub Substats: Option<Vec<RuleSubRaw>>,
@@ -216,7 +217,8 @@ pub struct RuleRaw {
 pub struct RuleSubRaw {
     pub ID: Option<i64>,
     pub Value: Option<f64>,
-    pub IsFlat: Option<serde_json::Value>,
+    // TS type is `boolean`; concrete bool avoids serde_json::Value AST per substat.
+    pub IsFlat: Option<bool>,
     pub NotAvailable: Option<bool>,
     pub Condition: Option<String>,
 }
@@ -622,21 +624,6 @@ pub fn auto_rarity_count_levels_up_to_mask(mask: i64, ceiling: i64) -> i64 {
     auto_rarity_runtime::auto_rarity_count_levels_up_to_mask(mask, ceiling)
 }
 
-// Coerce flat/percent flags from number/string/bool payloads.
-pub fn boolish_to_flag(value: Option<&serde_json::Value>) -> i64 {
-    match value {
-        Some(serde_json::Value::Bool(v)) => i64::from(*v),
-        Some(serde_json::Value::Number(v)) => {
-            let as_i64 = v.as_i64().unwrap_or(0);
-            i64::from(as_i64 != 0)
-        }
-        Some(serde_json::Value::String(v)) => {
-            let lower = v.trim().to_ascii_lowercase();
-            i64::from(lower == "1" || lower == "true")
-        }
-        _ => 0,
-    }
-}
 
 // Shared number-ish coercer accepts number/string/bool payloads.
 // Keep this behavior centralized so export and safeguard paths stay aligned.
@@ -647,12 +634,6 @@ pub fn numberish_to_f64(value: Option<&serde_json::Value>) -> Option<f64> {
         Some(serde_json::Value::String(raw)) => raw.trim().parse::<f64>().ok(),
         _ => None,
     }
-}
-
-// Keep compatibility helpers available at crate root for included modules.
-// Implementations live in `rule_dedupe` so conversion semantics are SSOT.
-pub fn numberish_or_default(value: Option<&serde_json::Value>, default: f64) -> f64 {
-    rule_dedupe::numberish_or_default(value, default)
 }
 
 // Shared sort+dedupe helper keeps integer selector normalization single-sourced.
@@ -1386,7 +1367,7 @@ fn emit_hsf_padded_substats(mut substats: Vec<RuleSubRaw>) -> Vec<RuleSubRaw> {
         substats.push(RuleSubRaw {
             ID: Some(STAT_ID_ANY),
             Value: Some(0.0),
-            IsFlat: Some(serde_json::Value::Bool(true)),
+            IsFlat: Some(true),
             Condition: Some(String::new()),
             NotAvailable: Some(false),
         });
@@ -1476,7 +1457,7 @@ pub fn emit_hsf_rules_for_distributions_core(
                 RuleSubRaw {
                     ID: Some(input.substats[idx].id),
                     Value: Some(value),
-                    IsFlat: Some(serde_json::Value::Bool(input.substats[idx].is_flat)),
+                    IsFlat: Some(input.substats[idx].is_flat),
                     Condition: Some(condition.to_string()),
                     NotAvailable: Some(false),
                 }
@@ -1488,7 +1469,7 @@ pub fn emit_hsf_rules_for_distributions_core(
             let mut rule = input.base_rule.clone();
             rule.IsRuleTypeAND = Some(false);
             rule.MainStatID = Some(main_choice.id);
-            rule.MainStatF = Some(serde_json::Value::from(main_choice.f.unwrap_or(MAIN_STAT_F_DEFAULT_FLAG)));
+            rule.MainStatF = Some(main_choice.f.unwrap_or(MAIN_STAT_F_DEFAULT_FLAG));
             rule.Substats = Some(padded_substats.clone());
             out.push(rule);
         }
@@ -1524,7 +1505,7 @@ pub fn build_hsf_presence_only_rules_core(input: &BuildHsfPresenceOnlyRulesIn) -
             let mut rule = input.base_core.clone();
             rule.IsRuleTypeAND = Some(false);
             rule.MainStatID = Some(STAT_ID_ANY);
-            rule.MainStatF = Some(serde_json::Value::Number(serde_json::Number::from(MAIN_STAT_F_DEFAULT_FLAG)));
+            rule.MainStatF = Some(MAIN_STAT_F_DEFAULT_FLAG);
             rule.LVLForCheck = Some(level);
             rule.Substats = Some(emit_hsf_padded_substats(Vec::new()));
             out.push(rule);
@@ -1534,9 +1515,7 @@ pub fn build_hsf_presence_only_rules_core(input: &BuildHsfPresenceOnlyRulesIn) -
             let mut rule = input.base_core.clone();
             rule.IsRuleTypeAND = Some(false);
             rule.MainStatID = Some(main_choice.id);
-            rule.MainStatF = Some(serde_json::Value::Number(serde_json::Number::from(
-                main_choice.f.unwrap_or(MAIN_STAT_F_DEFAULT_FLAG),
-            )));
+            rule.MainStatF = Some(main_choice.f.unwrap_or(MAIN_STAT_F_DEFAULT_FLAG));
             rule.LVLForCheck = Some(level);
             rule.Substats = Some(emit_hsf_padded_substats(Vec::new()));
             out.push(rule);

@@ -20,16 +20,12 @@ const DB_PATH = LARGE_ACCOUNT_DB_PATH
 // Duplicate recipe #2 (one-based), which is zero-based index 1.
 const TARGET_RECIPE_INDEX = 1
 
-// Large example DBs can take 30–60 s to fully evaluate under WASM.
-// Keep this local so timeouts.ts stays free of large values.
-const LARGE_DB_TIMEOUT_MS = 90_000
-
 /** Wait for the workload indicator to settle (appear then vanish, or never appear). */
 const waitForWorkloadIdle = async (page: Parameters<typeof test>[0]['page']): Promise<void> => {
   const workload = getWorkloadIndicator(page)
   // Catching is intentional: the indicator may never appear on a cache-hit fast path.
   await workload.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault }).catch(() => undefined)
-  await workload.waitFor({ state: 'hidden', timeout: LARGE_DB_TIMEOUT_MS }).catch(() => undefined)
+  await workload.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.workloadIdle }).catch(() => undefined)
 }
 
 /** Wait until at least one gear inspector card reports a keep/sell outcome. */
@@ -41,7 +37,7 @@ const waitForGearInspectorResults = async (page: Parameters<typeof test>[0]['pag
         return outcome === 'keep' || outcome === 'sell'
       }),
     undefined,
-    { timeout: LARGE_DB_TIMEOUT_MS },
+    { timeout: PLAYWRIGHT_TIMEOUTS.expectLong },
   )
 }
 
@@ -66,7 +62,9 @@ const duplicateRecipeChip = async (page: Parameters<typeof test>[0]['page'], ind
   await openContextMenu(page, chip)
   const duplicateItem = page.getByRole('menuitem', { name: /Duplicate/i })
   await expect(duplicateItem).toBeVisible()
-  await duplicateItem.click()
+  // Use evaluate(.click()) to bypass Playwright's pointer-simulation machinery, which
+  // can hang indefinitely in Firefox MUI menus even with force:true (ACTION_TIMEOUT_MS).
+  await duplicateItem.evaluate((el: HTMLElement) => el.click())
   // Wait for the extra chip to appear before continuing.
   await page.waitForFunction((prev) => {
     const nodes = Array.from(document.querySelectorAll('[data-recipe-chip-index]'))
@@ -86,8 +84,10 @@ test.beforeAll(async ({ browser }) => {
 
 test.describe('Gear Inspector grid matches remain stable with large DB', () => {
   test('duplicating recipe #2 keeps Gear Inspector outcomes unchanged (example.sfr + large DB)', async ({ page }) => {
-    // Two full WASM matcher passes over the large DB; budget must cover both.
-    test.setTimeout(LARGE_DB_TIMEOUT_MS * 2)
+    // Two full WASM passes over the 68 MB DB each take ~20 s; budget covers both.
+    // Individual step timeouts stay at ≤ 15 s — workload/result waits are soft/hard
+    // 15 s respectively, so the 68 MB WASM finishes well within the 60 s window.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testXL)
 
     await page.addInitScript(
       ({ previewKey, previewMode }: { previewKey: string; previewMode: string }) => {
@@ -120,20 +120,21 @@ test.describe('Gear Inspector grid matches remain stable with large DB', () => {
 
     await prepareApp(page)
     await page.goto('/', APP_GOTO_OPTIONS)
-    await dismissBlockingDialogs(page)
+    // prepareApp seeds localStorage to suppress dialogs on boot; no call needed here.
 
     // Load SFR + large gear DB from examples/.
     const sfrInput = page.locator(SFR_LOAD_INPUT_SELECTOR).first()
     await sfrInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
     await expect(sfrInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
     await sfrInput.setInputFiles(SFR_PATH)
+    // Note dialog may auto-open after SFR import — dismiss it before loading the DB.
     await dismissBlockingDialogs(page)
 
     const dbInput = page.locator('input[type="file"][accept*=".db"]').first()
     await dbInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
     await expect(dbInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
     await dbInput.setInputFiles(DB_PATH)
-    await dismissBlockingDialogs(page)
+    // DB load does not trigger any dialogs; no dismiss needed here.
 
     // Wait for the initial rule build + large-DB evaluation to settle.
     await waitForWorkloadIdle(page)

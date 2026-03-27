@@ -144,7 +144,7 @@ pub fn build_final_sell_rules_core(
                     Rank: Some(0),
                     Rarity: Some(0),
                     MainStatID: Some(STAT_ID_ANY),
-                    MainStatF: Some(serde_json::Value::from(MAIN_STAT_F_DEFAULT_FLAG)),
+                    MainStatF: Some(MAIN_STAT_F_DEFAULT_FLAG),
                     LVLForCheck: Some(level),
                     Faction: Some(0),
                     Substats: Some(safeguard_clone_any_substats()),

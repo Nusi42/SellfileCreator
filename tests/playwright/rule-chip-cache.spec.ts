@@ -44,10 +44,9 @@ const acceptConfigAutosaveRestore = async (page: Parameters<typeof test>[0]['pag
   // Restore the autosave so the recipes become available for testing.
   const restoreButton = dialog.getByRole('button', { name: /Restore selected/i })
   await expect(restoreButton).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-  // Allow the click to wait for async restore work on slower hosts.
-  await restoreButton.click({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
-  // Wait for the dialog to dismiss before continuing.
-  await expect(dialog).toBeHidden({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await restoreButton.click({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+  // Wait for the dialog to dismiss; restore parses JSON state synchronously so close is fast.
+  await expect(dialog).toBeHidden({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 }
 
 test.describe('builder rule count chip', () => {
@@ -87,8 +86,9 @@ test.describe('builder rule count chip', () => {
       undefined,
       { timeout: PLAYWRIGHT_TIMEOUTS.expectLong },
     )
-    await expect(chips.first()).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
-    await expect(chips.nth(1)).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+    // waitForFunction above already confirmed ≥2 chips in DOM; visibility is immediate.
+    await expect(chips.first()).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    await expect(chips.nth(1)).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
     try {
       await page.keyboard.press('Escape')
     } catch {

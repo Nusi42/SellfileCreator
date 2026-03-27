@@ -127,10 +127,8 @@ test.describe('preview chip scroll', () => {
 
     // Scroll to the bottom so we can capture a config index far from the top.
     // Why: this ensures we can test a large jump via chip selection.
-    await tableContainer.evaluate(
-      (el) => { (el as HTMLElement).scrollTop = (el as HTMLElement).scrollHeight },
-      { timeout: PLAYWRIGHT_TIMEOUTS.expectLong },
-    )
+    // scrollTop assignment is synchronous in the browser — no timeout needed.
+    await tableContainer.evaluate((el) => { (el as HTMLElement).scrollTop = (el as HTMLElement).scrollHeight })
     // Capture the resolved bottom index so we can force a large scroll.
     const bottomIdx = await readBoundaryConfigIdx(page, 'last')
     // Abort the test if the bottom rows are not yet available.
@@ -138,10 +136,7 @@ test.describe('preview chip scroll', () => {
 
     // Restore the scroll position to the top so the bottom config is hidden again.
     // Why: we want the click to trigger an actual scroll.
-    await tableContainer.evaluate(
-      (el) => { (el as HTMLElement).scrollTop = 0 },
-      { timeout: PLAYWRIGHT_TIMEOUTS.expectLong },
-    )
+    await tableContainer.evaluate((el) => { (el as HTMLElement).scrollTop = 0 })
     // Skip if the top config is not visible after the reset (avoids flaky waits).
     if (!(await isConfigVisible(page, topIdx))) return
     // Skip if the bottom config is still visible (jump would be meaningless).
