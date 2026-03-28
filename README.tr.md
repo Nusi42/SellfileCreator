@@ -10,7 +10,7 @@ Sellfile Creator, RSL Helper için satış dosyaları oluşturmayı kolaylaştı
   sayıları ve hedef değerler), fraksiyon ve seviye kilometre taşları filtreli adlandırılmış
   sakla/sat tarifleri oluşturun. Yeniden kullanılabilir bir kütüphane oluşturun ve tek
   tıkla RSL Helper satış dosyası (`.hsf`) olarak dışa aktarın.
-- **Satış dosyası önizleme** — dışa aktarmadan önce oluşturulan RSL Helper satış dosyasını
+- **Sellfile önizlemesi** — dışa aktarmadan önce oluşturulan RSL Helper satış dosyasını
   Önizleme sekmesinde görüntüleyin.
 - **Metasetler** — ekipman setlerini (örn. Hız + Algı) adlandırılmış koleksiyonlarda
   gruplandırın ve tariflerde ve koruma kurallarında yeniden kullanın.
@@ -27,7 +27,7 @@ Sellfile Creator, RSL Helper için satış dosyaları oluşturmayı kolaylaştı
   kaynak, seviye), bir set ağaç haritası, ana stat çubukları ve alt stat radarı içeren
   analitik gösterge paneli. Diğerlerini filtrelemek için herhangi bir grafiğe tıklayın;
   aktif filtreyi doğrudan Ekipman denetçisine gönderin.
-- **Son satış** — tek bir düğme, ayarlanabilir seviye aralıklarında eşleşmeyen ekipman
+- **Nihai satış** — tek bir düğme, ayarlanabilir seviye aralıklarında eşleşmeyen ekipman
   için yedek satış kuralları ekleyerek hiçbir şeyin gözden kaçmamasını sağlar.
 
 ## Nasıl kullanılır

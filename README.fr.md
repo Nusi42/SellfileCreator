@@ -10,7 +10,7 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
   filtres par emplacement, ensemble, rang, rareté, stat principale, sous-stats (avec
   minimums de rolls et cibles), faction et paliers de niveau. Constituez une bibliothèque
   réutilisable et exportez-la en fichier de vente RSL Helper (`.hsf`) en un clic.
-- **Aperçu du fichier de vente** — prévisualisez le fichier de vente RSL Helper généré
+- **Aperçu du Sellfile** — prévisualisez le fichier de vente RSL Helper généré
   dans l'onglet Aperçu avant d'exporter.
 - **Métasets** — regroupez des ensembles d'équipements (ex. Vitesse + Perception) en
   collections nommées et réutilisez-les dans vos recettes et protections.

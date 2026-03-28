@@ -10,7 +10,7 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
   set, rango, rarità, stat principale, sottostatistiche (con minimi di roll e obiettivi),
   fazione e traguardi di livello. Costruisci una libreria riutilizzabile ed esportala come
   file di vendita RSL Helper (`.hsf`) in un clic.
-- **Anteprima del file di vendita** — visualizza in anteprima il file di vendita RSL Helper
+- **Anteprima Sellfile** — visualizza in anteprima il file di vendita RSL Helper
   generato nella scheda Anteprima prima di esportare.
 - **Metaset** — raggruppa i set di equipaggiamento (es. Velocità + Percezione) in
   collezioni con nome e riutilizzali nelle ricette e nelle protezioni.
@@ -21,7 +21,7 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
   Cavaliere del Fuoco, il Drago e il Golem di Ghiaccio su livelli di difficoltà e
   potenziamento per confermare l'effetto del tuo file di vendita durante il farming o il
   potenziamento dell'equipaggiamento.
-- **Protezioni** — definisci combinazioni di slot/set/stat che non vuoi mai perdere; lo
+- **Salvaguardie** — definisci combinazioni di slot/set/stat che non vuoi mai perdere; lo
   scanner inietta automaticamente regole di conserva nel file di vendita quando la tua
   configurazione ridurrebbe una combinazione protetta al di sotto della sua quota.
 - **Lente equipaggiamento** — dashboard analitica con schede KPI, grafici a filtro

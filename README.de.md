@@ -10,24 +10,24 @@ Sellfile Creator erleichtert das Erstellen von Sell-Dateien für RSL Helper — 
   Set, Rang, Seltenheit, Hauptstat, Substats (mit Roll-Minima und Zielwerten), Fraktion
   und Stufenmeilensteinen. Baue eine wiederverwendbare Bibliothek auf und exportiere sie
   mit einem Klick als RSL-Helper-Verkaufsdatei (`.hsf`).
-- **Verkaufsdatei-Vorschau** — sieh dir die generierte RSL-Helper-Verkaufsdatei im
+- **Sellfile-Vorschau** — sieh dir die generierte RSL-Helper-Verkaufsdatei im
   Vorschau-Tab an, bevor du exportierst.
 - **Metasets** — fasse Ausrüstungssets (z. B. Geschwindigkeit + Wahrnehmung) in benannten
-  Sammlungen zusammen und verwende sie in Rezepten und Schutzregeln wieder.
+  Sammlungen zusammen und verwende sie in Rezepten und Schutzmaßnahmen wieder.
 - **Ausrüstungs-Inspektor** — lade deine Ausrüstungsdatenbank (`.db`-Dump oder
   Drag & Drop), um zu sehen, welche Items auf jedes Rezept passen und wie viele behalten
   oder verkauft würden.
 - **Dungeon-Simulator** — sieh dir Behalten-Chancen in Prozent für Feuerritter, Drachen
   und Eisgolem über Schwierigkeitsstufen und Ausbaustufen an, um die Wirkung deiner
   Verkaufsdatei beim Farmen oder Verbessern von Ausrüstung zu bestätigen.
-- **Schutzregeln** — definiere Slot/Set/Stat-Kombinationen, die du nie verlieren willst;
+- **Schutzmaßnahmen** — definiere Slot/Set/Stat-Kombinationen, die du nie verlieren willst;
   der Scanner fügt automatisch Behalten-Regeln in die Verkaufsdatei ein, wenn deine
   Einstellung eine geschützte Kombination unter ihre Quote senken würde.
 - **Ausrüstungs-Objektiv** — Analyse-Dashboard mit KPI-Karten, Kreuzfilter-Diagrammen
   (Slot, Rang, Seltenheit, Quelle, Stufe), einer Sets-Baumkarte, Hauptstat-Balken und
   einem Substat-Radar. Klicke auf ein Diagramm, um alle anderen zu filtern; sende den
   aktiven Filter direkt in den Ausrüstungs-Inspektor.
-- **Abschlussverkauf** — ein Schalter fügt Auffangregeln für nicht zugeordnete Ausrüstung
+- **Finaler Verkauf** — ein Schalter fügt Auffangregeln für nicht zugeordnete Ausrüstung
   über konfigurierbare Stufenbereiche hinzu, damit nichts durch die Lücken fällt.
 
 ## Nutzung

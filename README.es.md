@@ -10,7 +10,7 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
   ranura, conjunto, rango, rareza, estadística principal, subestadísticas (con mínimos de
   tiradas y objetivos), facción e hitos de nivel. Construye una biblioteca reutilizable y
   expórtala como archivo de venta de RSL Helper (`.hsf`) con un clic.
-- **Vista previa del archivo de venta** — previsualiza el archivo de venta de RSL Helper
+- **Vista Sellfile** — previsualiza el archivo de venta de RSL Helper
   generado en la pestaña Vista previa antes de exportar.
 - **Metaconjuntos** — agrupa conjuntos de equipo (p. ej. Velocidad + Percepción) en
   colecciones con nombre y reutilízalos en recetas y protecciones.
@@ -20,7 +20,7 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 - **Simulador de mazmorras** — consulta los porcentajes de probabilidad de conservar para
   el Caballero de Fuego, el Dragón y el Gólem de Hielo en distintos niveles de dificultad
   y mejora para confirmar el efecto de tu archivo de venta al farmear o mejorar equipo.
-- **Protecciones** — define combinaciones de ranura/conjunto/estadística que nunca quieras
+- **Salvaguardas** — define combinaciones de ranura/conjunto/estadística que nunca quieras
   perder; el escáner inyecta automáticamente reglas de conservar en el archivo de venta
   cuando tu configuración reduciría una combinación protegida por debajo de su cuota.
 - **Lente de equipo** — panel de análisis con tarjetas KPI, gráficos de filtro cruzado
