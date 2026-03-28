@@ -335,7 +335,8 @@ pub fn prepare_rule(raw: RuleRaw) -> PreparedRule {
     let faction = raw.Faction.unwrap_or(0);
     let level_for_check = raw.LVLForCheck.unwrap_or(LEVEL_ANY_SENTINEL);
     let main_stat_id = raw.MainStatID.unwrap_or(STAT_ID_ANY);
-    let main_stat_f = boolish_to_flag(raw.MainStatF.as_ref());
+    // MainStatF is now Option<i64>; 0 = percent, non-zero = flat.
+    let main_stat_f = raw.MainStatF.map_or(0_i64, |v| i64::from(v != 0));
     let source_raw = raw.source;
     let source_bits = source_raw
         .as_deref()
@@ -362,7 +363,8 @@ pub fn prepare_rule(raw: RuleRaw) -> PreparedRule {
                 return None;
             }
             Some(PreparedRuleSub {
-                variant: sub_to_variant(id, boolish_to_flag(sub.IsFlat.as_ref())),
+                // IsFlat is now Option<bool>; map to the i64 flag sub_to_variant expects.
+                variant: sub_to_variant(id, sub.IsFlat.map_or(0_i64, i64::from)),
                 value: sub.Value.unwrap_or(0.0),
                 condition: parse_sub_condition(sub.Condition.as_deref()),
             })

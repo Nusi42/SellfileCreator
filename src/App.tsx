@@ -590,6 +590,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [])
   const [gearInspectorPreviewRows, setGearInspectorPreviewRows] = useState<GearInspectorPreviewRow[]>([])
   const gearInspectorPreviewRowsRef = useRef<GearInspectorPreviewRow[]>([])
+  // Monotonically-increasing counter stamped on the preview DOM whenever the Gear Inspector
+  // preview rows commit via startTransition. Tests read data-gear-results-version to confirm
+  // that a new pipeline's rows are visible in the DOM before snapshotting outcomes.
+  const [gearInspectorResultsVersion, setGearInspectorResultsVersion] = useState(0)
   useEffect(() => { gearInspectorPreviewRowsRef.current = gearInspectorPreviewRows }, [gearInspectorPreviewRows])
   const recoverMissingRulesRef = useRef(false)
   const gearInspectorMatchesByItemId = useMemo(() => {
@@ -962,6 +966,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const pipelineCacheRef = useRef<Map<string, PipelineCacheEntry>>(new Map())
   // Insertion order Set enables O(1) LRU eviction and O(1) key removal on TTL eviction.
   const pipelineCacheOrderRef = useRef<Set<string>>(new Set())
+  // Monotonically increasing version bumped every time gearInspectorPreviewArtifacts changes.
+  // Included in the cache key so a pipeline run completed before a DB swap cannot be served
+  // as a cache hit to the next run — even if the history CRC and flags are identical.
+  const artifactCacheVersionRef = useRef(0)
   // Ref-shadowed so launchPipeline can read the current signature without adding it to the
   // pipeline dep array (which would cause spurious re-runs on selection-only history steps).
   // Initialized to null; the update effect below keeps it current after the first render.
@@ -981,8 +989,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     .some((k) => Number(k) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE)
   // Wipe the entire pipeline cache whenever the artifact set changes (DB refresh updates stats).
   // All cached results were computed against the previous artifact data and are now invalid.
+  // Bump artifactCacheVersion so any result written to the cache by an in-flight pipeline run
+  // (whose .then() fires after this effect but before the next launchPipeline) cannot be
+  // served as a valid cache hit — the version in its key will no longer match.
   // Declared before the pipeline effect so it runs first in the same React commit.
   useEffect(() => {
+    artifactCacheVersionRef.current += 1
     pipelineCacheRef.current.clear()
     pipelineCacheOrderRef.current.clear()
   }, [gearInspectorPreviewArtifacts])
@@ -1104,17 +1116,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         computeUpgradeChance: showSafeguardUpgradeChance || safeguardChanceSortEnabled,
       }
       // Build a cache key from the history signature (covers recipes, note, safeguards, etc.),
-      // the 5 boolean flags that affect pipeline output, and a recipe-overrides fingerprint.
+      // the 5 boolean flags that affect pipeline output, a recipe-overrides fingerprint, and the
+      // artifact cache version. The version is bumped whenever gearInspectorPreviewArtifacts
+      // changes; including it prevents a run that completed before a DB swap from being served
+      // as a cache hit to the first run after the swap — even when history and flags are identical.
       // Recipe overrides answers/disabled are session-only (not in the history CRC), so they must
       // be included explicitly — otherwise a stale cache hit serves the pre-override result.
       // Null when no history entry exists yet.
       // Read via refs so this logic stays out of the effect dep array (avoids selection-only re-runs).
       const currentSig = currentEntrySignatureRef.current
+      // Snapshot at launch time so the key is stable for the lifetime of this pipeline call.
+      const artifactCacheVersion = artifactCacheVersionRef.current
       const overridesKey = noteRecipeOverridesDisabledRef.current
         ? 'off'
         : JSON.stringify(noteRecipeOverridesAnswersRef.current)
       const cacheKey = currentSig
-        ? `${currentSig.crc}:${currentSig.size}:${includeMatchesInPipeline ? 1 : 0}${omitDisabledForExport ? 1 : 0}${dedupeDefault ? 1 : 0}${showSafeguardUpgradeChance ? 1 : 0}${safeguardChanceSortEnabled ? 1 : 0}:${overridesKey}`
+        ? `${currentSig.crc}:${currentSig.size}:v${artifactCacheVersion}:${includeMatchesInPipeline ? 1 : 0}${omitDisabledForExport ? 1 : 0}${dedupeDefault ? 1 : 0}${showSafeguardUpgradeChance ? 1 : 0}${safeguardChanceSortEnabled ? 1 : 0}:${overridesKey}`
         : null
       const nowMs = Date.now()
       const rawEntry = cacheKey ? (pipelineCacheRef.current.get(cacheKey) ?? null) : null
@@ -1167,6 +1184,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             if (includeMatchesInPipeline && cachedEntry.processedRows !== null) {
               startTransition(() => {
                 setGearInspectorPreviewRows(cachedEntry.processedRows!)
+                // Increment version in the same transition so DOM updates atomically.
+                setGearInspectorResultsVersion((v) => v + 1)
               })
             }
             if (includeMatchesInPipeline || gearInspectorMatchResetRef.current) {
@@ -1229,6 +1248,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             // Gear Inspector row lists can be large; transition to avoid blocking edits.
             startTransition(() => {
               setGearInspectorPreviewRows(processedRows!)
+              // Increment version in the same transition so DOM updates atomically.
+              setGearInspectorResultsVersion((v) => v + 1)
             })
           }
           // Advance Gear Inspector build ids only when Gear Inspector rows were requested, or when a
@@ -1321,6 +1342,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   // Retry Gear Inspector rows can be large; schedule as non-urgent UI work.
                   startTransition(() => {
                     setGearInspectorPreviewRows(sortGearInspectorRows(retryRows))
+                    // Increment version in the same transition so DOM updates atomically.
+                    setGearInspectorResultsVersion((v) => v + 1)
                   })
                 }
                 if (includeMatchesInPipeline || gearInspectorMatchResetRef.current) {
@@ -1701,6 +1724,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // This replaces the previous rAF-based safety net, which fired before transitions
   // committed and inadvertently prevented markNextSnapshotAsSaved from being honoured.
   useEffect(() => {
+    // Must run in the same React commit as the transition render, after the history snapshot
+    // effect — timing that cannot be achieved from the SFR load event handler directly.
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
     if (sfrLoadNonce > 0) markSavedNow()
   }, [sfrLoadNonce, markSavedNow])
   // Use one SSOT transition wrapper for heavy tab/dialog writes so every pathway
@@ -2453,7 +2479,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [gearInspectorArtifactFocusRequest, setGearInspectorArtifactFocusRequest] = useState<GearInspectorArtifactFocusRequest | null>(null)
   // Selected gear items: optimistically updated on click and reconciled with endpoint response.
   // Only active when the WebSocket push endpoint is connected.
-  const [selectedGearItemIds, setSelectedGearItemIds] = useState<ReadonlySet<number>>(new Set())
+  const [selectedGearItemIds, setSelectedGearItemIds] = useState<ReadonlySet<number>>(() => new Set())
   const gearInspectorArtifactFocusTokenRef = useRef(0)
   // Ref for the preview paper element (used for Paper sizing/layout).
   const previewPaperRef = useRef<HTMLDivElement | null>(null)
@@ -6994,7 +7020,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Only act on state transitions to avoid repeated pushes while conditions hold.
     const justBecameDirty = hsfDirty && !wasDirty
     const justEnabledAutoPush = autoPushEnabled && !wasAutoPush
+    // Rising-edge detection requires tracking prev values across renders; an event handler
+    // cannot observe the transition from false→true without this effect pattern.
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
     if (shouldPush && (justBecameDirty || justEnabledAutoPush)) {
+      // eslint-disable-next-line react-you-might-not-need-an-effect/no-derived-state
       handleExportSellfileSilent()
     }
   }, [hsfDirty, autoPushEnabled, pushExportEndpoint, handleExportSellfileSilent])
@@ -7252,7 +7282,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             ...(previewPaperHeightStyle ? { minHeight: previewPaperHeightStyle } : {}),
             overflow: 'hidden',
           }
-        }} data-tour-id="preview.paper">
+        }} data-tour-id="preview.paper" data-gear-results-version={gearInspectorResultsVersion}>
           {/* Transparent top-75% overlay — tutorial can spotlight the mode toggle + gear grid
               without covering the full paper height. */}
           <Box

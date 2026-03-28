@@ -1304,28 +1304,28 @@ pub fn safeguard_clone_any_substats() -> Vec<RuleSubRaw> {
         RuleSubRaw {
             ID: Some(STAT_ID_ANY),
             Value: Some(0.0),
-            IsFlat: Some(serde_json::Value::Bool(true)),
+            IsFlat: Some(true),
             NotAvailable: Some(false),
             Condition: Some(String::new()),
         },
         RuleSubRaw {
             ID: Some(STAT_ID_ANY),
             Value: Some(0.0),
-            IsFlat: Some(serde_json::Value::Bool(true)),
+            IsFlat: Some(true),
             NotAvailable: Some(false),
             Condition: Some(String::new()),
         },
         RuleSubRaw {
             ID: Some(STAT_ID_ANY),
             Value: Some(0.0),
-            IsFlat: Some(serde_json::Value::Bool(true)),
+            IsFlat: Some(true),
             NotAvailable: Some(false),
             Condition: Some(String::new()),
         },
         RuleSubRaw {
             ID: Some(STAT_ID_ANY),
             Value: Some(0.0),
-            IsFlat: Some(serde_json::Value::Bool(true)),
+            IsFlat: Some(true),
             NotAvailable: Some(false),
             Condition: Some(String::new()),
         },
@@ -1354,7 +1354,7 @@ fn safeguard_build_substats_for_artifact(substats: &[SafeguardWasmSubstatOut]) -
         cloned[idx] = RuleSubRaw {
             ID: Some(id),
             Value: Some(value),
-            IsFlat: Some(serde_json::Value::Bool(is_flat)),
+            IsFlat: Some(is_flat),
             NotAvailable: Some(false),
             Condition: Some(">=".to_string()),
         };
@@ -1375,7 +1375,7 @@ fn safeguard_build_placeholder_substats(variant: i64) -> Vec<RuleSubRaw> {
     cloned[0] = RuleSubRaw {
         ID: Some(id),
         Value: Some(1.0),
-        IsFlat: Some(serde_json::Value::Bool(is_flat)),
+        IsFlat: Some(is_flat),
         NotAvailable: Some(false),
         Condition: Some(">=".to_string()),
     };
@@ -1403,7 +1403,7 @@ fn safeguard_build_placeholder_substats_group(variants: &[i64]) -> Vec<RuleSubRa
         cloned[idx] = RuleSubRaw {
             ID: Some(id),
             Value: Some(1.0),
-            IsFlat: Some(serde_json::Value::Bool(is_flat)),
+            IsFlat: Some(is_flat),
             NotAvailable: Some(false),
             Condition: Some(">=".to_string()),
         };
@@ -1460,7 +1460,7 @@ fn safeguard_canonical_rule_key(rule: &RuleRaw) -> SafeguardCanonicalRuleKey {
             rows.iter()
                 .map(|sub| SafeguardCanonicalSubstatKey {
                     id: sub.ID.unwrap_or(STAT_ID_ANY),
-                    is_flat: matches!(sub.IsFlat.as_ref(), Some(serde_json::Value::Bool(true))),
+                    is_flat: sub.IsFlat.unwrap_or(false),
                     not_available: sub.NotAvailable.unwrap_or(false),
                     condition: sub.Condition.clone().unwrap_or_default(),
                     value_bits: safeguard_normalize_f64_bits(sub.Value.unwrap_or(0.0), 0.0),
@@ -1477,7 +1477,8 @@ fn safeguard_canonical_rule_key(rule: &RuleRaw) -> SafeguardCanonicalRuleKey {
         faction: rule.Faction.unwrap_or(0),
         main_stat_id: rule.MainStatID.unwrap_or(STAT_ID_ANY),
         main_stat_f_bits: safeguard_normalize_f64_bits(
-            numberish_or_default(rule.MainStatF.as_ref(), 1.0),
+            // MainStatF is now Option<i64>; cast to f64 for bit-stable canonical key.
+            rule.MainStatF.map_or(1.0, |v| v as f64),
             1.0,
         ),
         artifact_types,
@@ -1603,7 +1604,7 @@ fn safeguard_build_placeholder_base_rules(
                         Rank: Some(rank),
                         Rarity: Some(rarity_code),
                         MainStatID: Some(main_id),
-                        MainStatF: Some(serde_json::Value::from(main_f)),
+                        MainStatF: Some(main_f),
                         LVLForCheck: Some(LEVEL_ANY_SENTINEL),
                         Faction: Some(*faction),
                         Substats: Some(safeguard_clone_any_substats()),
@@ -1867,7 +1868,7 @@ pub fn build_safeguard_rules_core(
                         Rank: Some(safeguard_clamp_rank_or_rarity_value(artifact.rank)),
                         Rarity: Some(safeguard_rarity_value_to_code(artifact.rarity)),
                         MainStatID: Some(main_id),
-                        MainStatF: Some(serde_json::Value::from(main_f)),
+                        MainStatF: Some(main_f),
                         LVLForCheck: Some(level),
                         Faction: Some(artifact.faction),
                         Substats: Some(safeguard_build_substats_for_artifact(&artifact.substats)),

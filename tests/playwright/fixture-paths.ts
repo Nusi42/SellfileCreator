@@ -19,3 +19,5 @@ export const SAMPLE_DB_PATH = path.resolve(TEST_DATA_DIR, 'sample.db')
 export const SAMPLE_SMALL_DB_PATH = path.resolve(TEST_DATA_DIR, 'sample-small.db')
 // Example SFR export from the bundled Example recipes.
 export const EXAMPLE_NUSI_SFR_PATH = path.resolve(EXAMPLES_DIR, 'example.sfr')
+// Large user DB paired with example.sfr for large-artifact-set coverage.
+export const LARGE_ACCOUNT_DB_PATH = path.resolve(EXAMPLES_DIR, 'um109288203_RSLHelper.db')

@@ -43,6 +43,43 @@ import type { SafeguardCandidate, SafeguardCandidateOut, SafeguardDetectionSnaps
 import type { FinalSellRemainderConfig } from '../logicHub'
 import type { GearInspectorMatchWorkerEvaluateItem, GearInspectorMatchWorkerItemResult } from '../../workers/gearInspectorMatchWorkerTypes'
 import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
+import type { TestItem } from '../ruleEval'
+
+// Compact WASM substat input — only the fields SafeguardWasmSubstatRawIn reads.
+// Trimmed from NormalizedStat (9+ fields) to eliminate serde_wasm_bindgen overhead
+// from iterating ignored properties, which is catastrophically slow in Firefox.
+export type WasmSubstatStoreInput = {
+  variant: number
+  isFlat: boolean
+  totalValue?: number
+  rolls?: number
+}
+
+// Compact WASM artifact input — only the fields SafeguardWasmArtifactRawIn reads.
+// Avoids passing the full NormalizedGearArtifact (~20 fields) and NormalizedStat
+// substats (~9 fields each) through serde_wasm_bindgen.
+// mainStat is passed as a plain number (variant only) so serde immediately matches
+// the Variant(i64) branch of the untagged enum, skipping the failed object-try.
+export type WasmArtifactStoreInput = {
+  id: number
+  slot: number
+  set: number
+  rank: number
+  rarity: number
+  level: number
+  exactLevel?: number | null
+  faction: number
+  mainStat?: number | null
+  substats: WasmSubstatStoreInput[]
+  equippedChampionLocation?: string | null
+  gearInspectorItem: TestItem
+}
+
+// Compact row passed to store_artifact_rows_value.
+// Only artifact is required; SafeguardCollectRowFastIn's other fields default via #[serde(default)].
+export type WasmArtifactStoreRow = {
+  artifact: WasmArtifactStoreInput
+}
 
 // Evaluate options mirror evaluateMatchesByRecipe inputs used by worker paths.
 // The WASM engine accepts object values and applies the same source/recipe gating.
@@ -454,10 +491,11 @@ export type WasmEvaluateAndCollectSnapshot = {
 // Caller must have called configureWasmRuleEngine first; re-call when the artifact DB changes.
 // Returns the number of rows stored.
 export const storeArtifactRowsWithLoadedWasm = (params: {
-  rows: readonly GearInspectorPreviewRow[]
+  rows: readonly WasmArtifactStoreRow[]
 }): number => {
   assertWasmInitializedSync()
-  // Rows are passed in their preview-row format; WASM extracts artifact + gearInspectorItem.
+  // Compact rows contain only the fields WASM reads; extra properties have been stripped
+  // on the JS side to avoid serde_wasm_bindgen iterating ignored fields in Firefox.
   return storeArtifactRowsWasmValueBinding(params.rows) as number
 }
 

@@ -98,15 +98,13 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'npm run dev -- --host 127.0.0.1 --port 5182',
+    // Build the production bundle then serve it via vite preview.
+    // reuseExistingServer reuses an already-running preview instance so only
+    // the first test invocation in a session pays the build cost.
+    command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 5182',
     url: 'http://127.0.0.1:5182/',
     reuseExistingServer: !process.env.CI,
     stdout: 'pipe',
     stderr: 'pipe',
-    env: {
-      // Signal Vite config to disable dev-only checkers during Playwright runs.
-      // Why: e2e already runs `npm run typecheck` separately, and reducing background watchers stabilizes the harness.
-      PLAYWRIGHT: '1',
-    },
   },
 });

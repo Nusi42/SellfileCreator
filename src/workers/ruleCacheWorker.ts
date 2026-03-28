@@ -14,6 +14,7 @@ import {
   evaluateAndCollectSafeguardProtection,
   hasActiveSafeguardRules,
   storeArtifactRows,
+  toWasmArtifactStoreRow,
 } from '../lib/safeguards'
 import type { SafeguardDetectionSnapshot } from '../lib/safeguards'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
@@ -322,16 +323,10 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         wasmVersionLogged = true
       }
       if (runIsStale()) return
-      // Build detection rows — artifact (including gearInspectorItem) per item.
-      // Rows are stored in WASM state so the combined call avoids re-deserializing
-      // the artifact table on every detection pass.
-      const detectionRows = artifactEntries.map(([, artifact]) => ({
-        artifact,
-        match: null,
-        baseMatch: null,
-        matchingRecipeIndices: [],
-        matchingRecipeDecisions: [],
-      }))
+      // Build compact WASM store rows — only the fields SafeguardWasmArtifactRawIn reads.
+      // Avoids serde_wasm_bindgen iterating ignored NormalizedGearArtifact/NormalizedStat
+      // properties, which is catastrophically slow in Firefox (minutes vs seconds).
+      const detectionRows = artifactEntries.map(([, artifact]) => toWasmArtifactStoreRow(artifact))
       storeArtifactRows(detectionRows)
       // Pass baselineExcludeSources so keep-override sources are excluded from the
       // safeguard base-match the same way as the regular evaluate pass.

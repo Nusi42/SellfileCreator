@@ -37,7 +37,7 @@ import { normalizeRecipeName } from './ruleRecipeIndex'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
 import { hasIgnoreSafeguardTag } from './tagHelpers'
-import type { WasmRuleEngineEvaluateOptions } from './wasm/wasmRuleEngine'
+import type { WasmArtifactStoreRow, WasmRuleEngineEvaluateOptions } from './wasm/wasmRuleEngine'
 import {
   collectAndComputeSafeguardProtectionWithLoadedWasm,
   collectSafeguardCandidatesWithLoadedWasm,
@@ -1164,10 +1164,40 @@ export function collectAndComputeSafeguardProtection(
   }
 }
 
+// Build a compact WASM store row from a NormalizedGearArtifact.
+// Includes only the fields SafeguardWasmArtifactRawIn reads, eliminating
+// serde_wasm_bindgen overhead from iterating ignored properties — which is
+// catastrophically slow in Firefox for 8k+ artifacts with 9-field NormalizedStat substats.
+// mainStat is passed as a plain variant number so serde immediately matches Variant(i64),
+// skipping the failed object-attempt of the untagged enum fallback path.
+export const toWasmArtifactStoreRow = (artifact: NormalizedGearArtifact): WasmArtifactStoreRow => ({
+  artifact: {
+    id: artifact.id,
+    slot: artifact.slot,
+    set: artifact.set,
+    rank: artifact.rank,
+    rarity: artifact.rarity,
+    level: artifact.level,
+    ...(artifact.exactLevel != null ? { exactLevel: artifact.exactLevel } : {}),
+    faction: artifact.faction,
+    ...(artifact.mainStat != null ? { mainStat: artifact.mainStat.variant } : {}),
+    substats: artifact.substats.map((s) => ({
+      variant: s.variant,
+      isFlat: s.isFlat,
+      ...(s.totalValue != null ? { totalValue: s.totalValue } : {}),
+      ...(s.rolls != null ? { rolls: s.rolls } : {}),
+    })),
+    ...(artifact.equippedChampionLocation != null
+      ? { equippedChampionLocation: artifact.equippedChampionLocation }
+      : {}),
+    gearInspectorItem: artifact.gearInspectorItem,
+  },
+})
+
 // Store pre-parsed artifact rows in WASM engine state for the combined evaluate+collect path.
 // Must be called after configureWasmRuleEngine and before evaluateAndCollectSafeguardProtection.
 // Re-call whenever the artifact DB changes. Rows must include artifact.gearInspectorItem.
-export function storeArtifactRows(rows: readonly GearInspectorPreviewRow[]): void {
+export function storeArtifactRows(rows: readonly WasmArtifactStoreRow[]): void {
   storeArtifactRowsWithLoadedWasm({ rows })
 }
 

@@ -89,17 +89,6 @@ fn normalize_f64_bits(value: f64) -> u64 {
     }
 }
 
-// String form used in coarse keys for MainStatF (mirrors template literal behavior).
-fn coarse_main_stat_f(value: Option<&serde_json::Value>) -> String {
-    match value {
-        Some(serde_json::Value::Number(v)) => v.to_string(),
-        Some(serde_json::Value::Bool(v)) => v.to_string(),
-        Some(serde_json::Value::String(v)) => v.clone(),
-        Some(other) => other.to_string(),
-        None => MAIN_STAT_F_DEFAULT_STR.to_string(),
-    }
-}
-
 // Canonical array normalization mirrors JSON.stringify(canonArray(...)) semantics.
 // `None` and `[]` both collapse to wildcard/undefined in the coarse grouping key.
 fn canon_array_key(values: Option<&Vec<i64>>) -> Option<Vec<i64>> {
@@ -132,7 +121,8 @@ fn normalize_substats_for_domination(subs: Option<&Vec<RuleSubRaw>>) -> Option<V
             continue;
         }
         let cond = parse_sub_cond(sub.Condition.as_deref())?;
-        let variant = sub_to_variant(id, boolish_to_flag(sub.IsFlat.as_ref()));
+        // IsFlat is now Option<bool>; map to i64 flag for sub_to_variant.
+        let variant = sub_to_variant(id, sub.IsFlat.map_or(0_i64, i64::from));
         let key = NormalizedSubKey { variant, cond };
         let value = floor_number_or_zero(sub.Value);
         match dedup.get(&key).copied() {
@@ -173,7 +163,8 @@ fn normalize_substats_for_builder_pruning(subs: Option<&Vec<RuleSubRaw>>) -> Vec
         }
         normalized.push(BuilderNormalizedSubstat {
             id,
-            is_flat: boolish_to_flag(sub.IsFlat.as_ref()) != 0,
+            // IsFlat is now Option<bool>; unwrap directly.
+            is_flat: sub.IsFlat.unwrap_or(false),
             condition,
             value: sub.Value.unwrap_or(0.0),
         });
@@ -248,7 +239,8 @@ fn obsolete_coarse_key(rule: &RuleRaw) -> ObsoleteCoarseKey {
         level: rule.LVLForCheck.unwrap_or(RULE_FIELD_UNSET_SENTINEL),
         faction: rule.Faction.unwrap_or(0),
         main_id: rule.MainStatID.unwrap_or(STAT_ID_ANY),
-        main_f: coarse_main_stat_f(rule.MainStatF.as_ref()),
+        // MainStatF is now Option<i64>; stringify to match template-literal key format.
+        main_f: rule.MainStatF.map_or(MAIN_STAT_F_DEFAULT_STR.to_string(), |v| v.to_string()),
         sets: canon_array_key(rule.ArtifactSet.as_ref()),
         types: canon_array_key(rule.ArtifactType.as_ref()),
     }
@@ -318,7 +310,7 @@ pub(crate) fn collapse_canonical_key(rule: &RuleRaw) -> CollapseCanonicalKey {
         .map(|sub| CollapseCanonicalSubstatKey {
             // Keep exactly the same tuple fields as the JS canonicalizer.
             id: sub.ID.unwrap_or(STAT_ID_ANY),
-            is_flat_true: matches!(sub.IsFlat.as_ref(), Some(serde_json::Value::Bool(true))),
+            is_flat_true: sub.IsFlat.unwrap_or(false),
             not_available: sub.NotAvailable.unwrap_or(false),
             condition: sub.Condition.as_deref().unwrap_or("").to_string(),
             value_bits: normalize_f64_bits(sub.Value.unwrap_or(0.0)),
@@ -332,7 +324,8 @@ pub(crate) fn collapse_canonical_key(rule: &RuleRaw) -> CollapseCanonicalKey {
         level: rule.LVLForCheck.unwrap_or(0),
         faction: rule.Faction.unwrap_or(0),
         main_stat_id: rule.MainStatID.unwrap_or(STAT_ID_ANY),
-        main_stat_f: boolish_to_flag(rule.MainStatF.as_ref()),
+        // MainStatF is now Option<i64>; non-zero → flat flag.
+        main_stat_f: rule.MainStatF.map_or(0_i64, |v| i64::from(v != 0)),
         artifact_types,
         artifact_sets,
         substats: substats_key,
@@ -506,11 +499,6 @@ enum ExportDedupeSurvivor {
     Keep(ExportDedupeNormalizedRule),
 }
 
-// Normalize Number-like MainStatF payloads so strings and booleans match TS coercion.
-pub(crate) fn numberish_or_default(value: Option<&serde_json::Value>, default: f64) -> f64 {
-    numberish_to_f64(value).unwrap_or(default)
-}
-
 // Parse export-dedupe condition tokens; unsupported values disable normalization.
 fn parse_export_dedupe_condition(value: Option<&str>) -> Option<ExportDedupeCondition> {
     let trimmed = value.unwrap_or("").trim();
@@ -563,7 +551,8 @@ fn normalize_substats_for_export_dedupe(subs: Option<&Vec<RuleSubRaw>>) -> Optio
             continue;
         }
         let condition = parse_export_dedupe_condition(sub.Condition.as_deref())?;
-        let variant = sub_to_variant(stat_id, boolish_to_flag(sub.IsFlat.as_ref()));
+        // IsFlat is now Option<bool>; map to i64 flag for sub_to_variant.
+        let variant = sub_to_variant(stat_id, sub.IsFlat.map_or(0_i64, i64::from));
         let value = sub.Value.unwrap_or(0.0);
         if !value.is_finite() {
             return None;
@@ -604,7 +593,8 @@ fn normalize_keep_rule_for_export_dedupe(rule: &RuleRaw) -> Option<ExportDedupeN
         sets: normalize_sets_for_export_dedupe(rule),
         substats,
         main_stat_id: rule.MainStatID.unwrap_or(STAT_ID_ANY),
-        main_stat_f: numberish_or_default(rule.MainStatF.as_ref(), 1.0),
+        // MainStatF is now Option<i64>; cast to f64 for export-dedupe threshold comparison.
+        main_stat_f: rule.MainStatF.map_or(1.0, |v| v as f64),
         faction: rule.Faction.unwrap_or(0),
     })
 }
