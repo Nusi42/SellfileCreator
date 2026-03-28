@@ -179,6 +179,8 @@ struct ViabilityContext {
     initial_state: HashMap<i64, i64>,
     max_addition_events: usize,
     legal_addition_pool_set: HashSet<i64>,
+    // Mainstat variant for this piece; substats that equal it are impossible.
+    main_stat: i64,
 }
 
 // ─── per-slot allowed substat pools ──────────────────────────────────────────
@@ -419,6 +421,7 @@ fn state_matches_substats(
     state: &HashMap<i64, i64>,
     selected: &[i64],
     substat_match: &str,
+    main_stat: i64,
 ) -> bool {
     // Gate on substat presence; mirrors stateMatchesScenarioSubstats.
     if selected.is_empty() {
@@ -426,7 +429,17 @@ fn state_matches_substats(
     }
     let matched = count_matched_in_state(state, selected);
     if substat_match == SAFEGUARD_SUBSTAT_ALL {
-        return matched >= selected.len();
+        // Substats that equal the piece's mainstat are impossible; exclude them from
+        // the required total. STAT_VARIANT_ANY means no restriction is known.
+        let effective_required = if main_stat == STAT_VARIANT_ANY {
+            selected.len()
+        } else {
+            selected.iter().filter(|&&v| v != main_stat).count()
+        };
+        if effective_required == 0 {
+            return true;
+        }
+        return matched >= effective_required;
     }
     matched > 0
 }
@@ -616,7 +629,7 @@ fn is_state_selected_by_any_scenario(
         if !scenario.applicable_artifact_ids.contains(&ctx.artifact_id) {
             continue;
         }
-        if !state_matches_substats(state, &scenario.selected_substats, &scenario.substat_match) {
+        if !state_matches_substats(state, &scenario.selected_substats, &scenario.substat_match, ctx.artifact_main_stat) {
             continue;
         }
         let score = compute_score_from_state(state, &scenario.selected_substats, &scenario.weights);
@@ -780,7 +793,17 @@ fn artifact_matches_substats(
     let selected_set: HashSet<i64> = selected.iter().copied().collect();
     let matched = count_matched_on_artifact(artifact, &selected_set);
     if substat_match == SAFEGUARD_SUBSTAT_ALL {
-        return matched >= selected_set.len();
+        // Substats that equal the piece's mainstat are impossible; exclude them from
+        // the required total. STAT_VARIANT_ANY means no restriction is known.
+        let effective_required = if artifact.main_stat == STAT_VARIANT_ANY {
+            selected_set.len()
+        } else {
+            selected_set.iter().filter(|&&v| v != artifact.main_stat).count()
+        };
+        if effective_required == 0 {
+            return true;
+        }
+        return matched >= effective_required;
     }
     matched > 0
 }
@@ -860,6 +883,7 @@ fn build_viability_context(artifact: &SafeguardWasmArtifactIn) -> ViabilityConte
         initial_state,
         max_addition_events,
         legal_addition_pool_set: legal_pool.into_iter().collect(),
+        main_stat: artifact.main_stat,
     }
 }
 
@@ -874,15 +898,30 @@ fn scenario_can_match_by_level16(
     }
     let matched_now = count_matched_in_state(&viability.initial_state, selected);
     if scenario.substat_match == SAFEGUARD_SUBSTAT_ALL {
-        if matched_now >= selected.len() {
+        // Substats that equal the piece's mainstat are impossible; exclude them from
+        // the required total. STAT_VARIANT_ANY means no restriction is known.
+        let effective_required = if viability.main_stat == STAT_VARIANT_ANY {
+            selected.len()
+        } else {
+            selected.iter().filter(|&&v| v != viability.main_stat).count()
+        };
+        // Vacuously satisfied when every selected substat conflicts with the mainstat.
+        if effective_required == 0 {
+            return true;
+        }
+        if matched_now >= effective_required {
             return true;
         }
         if viability.max_addition_events == 0 {
             return false;
         }
-        // Every missing variant must be addable within the remaining addition budget.
+        // Every missing, possible variant must be addable within the remaining budget.
         let mut missing_addable = 0;
         for &v in selected {
+            // Substats that match the mainstat are impossible — skip them.
+            if viability.main_stat != STAT_VARIANT_ANY && v == viability.main_stat {
+                continue;
+            }
             if get_state_raw_value(&viability.initial_state, v) > 0.0 {
                 continue;
             }
