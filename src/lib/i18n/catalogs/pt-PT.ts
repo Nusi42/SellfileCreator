@@ -238,7 +238,7 @@ const overrides: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Simulador de drops de masmorra',
   // Gear Lens tab label and UI strings.
-  tabGearLens: 'Gear Lens',
+  tabGearLens: 'Análise de Equipamento',
   gearLensEmptyState: 'Carregue uma base de dados de equipamento (.db) no Gear Inspector para ver análises de inventário.',
   gearLensKpiLegendaryPlus: 'Legendary+',
   gearLensKpiSixStar: 'Taxa 6★',

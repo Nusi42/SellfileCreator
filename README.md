@@ -22,7 +22,7 @@ Sellfile Creator eases building sell files for RSL Helper — define gear filter
 - **Safeguards** — define slot/set/stat combinations you never want to lose; the scanner
   automatically injects keep rules into the sellfile whenever your setup would deplete a
   protected combination below its quota.
-- **Gear Lens** — analytics dashboard with KPI cards, crossfilter charts (slot, rank,
+- **Gear Analytics** — analytics dashboard with KPI cards, crossfilter charts (slot, rank,
   rarity, source, level), a sets treemap, main stat bars, and a substat radar. Click any
   chart to filter all others; push the active filter straight into the Gear Inspector.
 - **Final Sell** — one toggle adds catch-all sell rules for unmatched gear across

@@ -239,7 +239,7 @@ const enUS: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Dungeon Drops Simulator',
   // Gear Lens tab label and UI strings.
-  tabGearLens: 'Gear Lens',
+  tabGearLens: 'Gear Analytics',
   gearLensEmptyState: 'Load a gear database (.db) in the Gear Inspector to see inventory analytics.',
   gearLensKpiLegendaryPlus: 'Legendary+',
   gearLensKpiSixStar: '6★ Rate',

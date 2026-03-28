@@ -23,7 +23,7 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 - **Salvaguardas** — define combinaciones de ranura/conjunto/estadística que nunca quieras
   perder; el escáner inyecta automáticamente reglas de conservar en el archivo de venta
   cuando tu configuración reduciría una combinación protegida por debajo de su cuota.
-- **Lente de equipo** — panel de análisis con tarjetas KPI, gráficos de filtro cruzado
+- **Análisis de Equipo** — panel de análisis con tarjetas KPI, gráficos de filtro cruzado
   (ranura, rango, rareza, fuente, nivel), un mapa de árbol de conjuntos, barras de
   estadística principal y un radar de subestadísticas. Haz clic en cualquier gráfico para
   filtrar todos los demás; envía el filtro activo directamente al Inspector de equipo.

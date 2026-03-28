@@ -23,7 +23,7 @@ Sellfile Creator, RSL Helper için satış dosyaları oluşturmayı kolaylaştı
 - **Korumalar** — asla kaybetmek istemediğiniz slot/set/stat kombinasyonlarını tanımlayın;
   tarayıcı, kurulumunuz korunan bir kombinasyonu kotasının altına düşüreceğinde satış
   dosyasına otomatik olarak saklama kuralları ekler.
-- **Ekipman lensi** — KPI kartları, çapraz filtre grafikleri (slot, yıldız, nadirlik,
+- **Ekipman Analizi** — KPI kartları, çapraz filtre grafikleri (slot, yıldız, nadirlik,
   kaynak, seviye), bir set ağaç haritası, ana stat çubukları ve alt stat radarı içeren
   analitik gösterge paneli. Diğerlerini filtrelemek için herhangi bir grafiğe tıklayın;
   aktif filtreyi doğrudan Ekipman denetçisine gönderin.

@@ -23,7 +23,7 @@ O Sellfile Creator facilita a criação de ficheiros de venda para o RSL Helper 
 - **Salvaguardas** — defina combinações de slot/conjunto/estatística que nunca quer perder; o
   scanner injeta automaticamente regras de manter no ficheiro de venda quando a sua
   configuração reduziria uma combinação protegida abaixo da sua quota.
-- **Lente de equipamento** — painel analítico com cartões KPI, gráficos de filtro cruzado
+- **Análise de Equipamento** — painel analítico com cartões KPI, gráficos de filtro cruzado
   (slot, rank, raridade, fonte, nível), um mapa de árvore de conjuntos, barras de
   estatísticas principais e um radar de subestatísticas. Clique em qualquer gráfico para
   filtrar todos os outros; envie o filtro ativo diretamente para o Inspetor de equipamento.

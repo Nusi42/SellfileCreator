@@ -238,7 +238,7 @@ const overrides: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Симулятор дропов подземелий',
   // Gear Lens tab label and UI strings.
-  tabGearLens: 'Gear Lens',
+  tabGearLens: 'Аналитика снаряжения',
   gearLensEmptyState: 'Загрузите базу данных снаряжения (.db) в Gear Inspector, чтобы увидеть аналитику инвентаря.',
   gearLensKpiLegendaryPlus: 'Legendary+',
   gearLensKpiSixStar: 'Рейтинг 6★',

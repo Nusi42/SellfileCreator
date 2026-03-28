@@ -238,7 +238,7 @@ const catalog: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Simulador de drops de masmorra',
   // Gear Lens tab label and UI strings.
-  tabGearLens: 'Gear Lens',
+  tabGearLens: 'Análise de Equipamentos',
   gearLensEmptyState: 'Carregue um banco de dados de equipamentos (.db) no Gear Inspector para ver análises de inventário.',
   gearLensKpiLegendaryPlus: 'Legendary+',
   gearLensKpiSixStar: 'Taxa 6★',

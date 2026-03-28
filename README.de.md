@@ -23,7 +23,7 @@ Sellfile Creator erleichtert das Erstellen von Sell-Dateien für RSL Helper — 
 - **Schutzmaßnahmen** — definiere Slot/Set/Stat-Kombinationen, die du nie verlieren willst;
   der Scanner fügt automatisch Behalten-Regeln in die Verkaufsdatei ein, wenn deine
   Einstellung eine geschützte Kombination unter ihre Quote senken würde.
-- **Ausrüstungs-Objektiv** — Analyse-Dashboard mit KPI-Karten, Kreuzfilter-Diagrammen
+- **Ausrüstungsanalyse** — Analyse-Dashboard mit KPI-Karten, Kreuzfilter-Diagrammen
   (Slot, Rang, Seltenheit, Quelle, Stufe), einer Sets-Baumkarte, Hauptstat-Balken und
   einem Substat-Radar. Klicke auf ein Diagramm, um alle anderen zu filtern; sende den
   aktiven Filter direkt in den Ausrüstungs-Inspektor.

@@ -24,7 +24,7 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
 - **Salvaguardie** — definisci combinazioni di slot/set/stat che non vuoi mai perdere; lo
   scanner inietta automaticamente regole di conserva nel file di vendita quando la tua
   configurazione ridurrebbe una combinazione protetta al di sotto della sua quota.
-- **Lente equipaggiamento** — dashboard analitica con schede KPI, grafici a filtro
+- **Analisi Equipaggiamento** — dashboard analitica con schede KPI, grafici a filtro
   incrociato (slot, rango, rarità, fonte, livello), una mappa ad albero dei set, barre
   delle stat principali e un radar delle sottostatistiche. Clicca su qualsiasi grafico per
   filtrare tutti gli altri; invia il filtro attivo direttamente all'Ispettore equipaggiamento.

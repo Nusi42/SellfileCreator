@@ -25,7 +25,7 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
   voulez jamais perdre ; le scanner injecte automatiquement des règles de conservation dans
   le fichier de vente lorsque votre configuration risquerait d'épuiser une combinaison
   protégée en dessous de son quota.
-- **Lentille d'équipement** — tableau de bord analytique avec indicateurs clés, graphiques
+- **Analyse d'équipement** — tableau de bord analytique avec indicateurs clés, graphiques
   à filtre croisé (emplacement, rang, rareté, source, niveau), une arborescence des
   ensembles, des barres de stats principales et un radar de sous-stats. Cliquez sur un
   graphique pour filtrer tous les autres ; envoyez le filtre actif directement dans
