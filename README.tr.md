@@ -1,6 +1,6 @@
 ﻿# Sellfile Creator for RSL Helper
 
-RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyin ve dışa aktarın.
+Sellfile Creator, RSL Helper için satış dosyaları oluşturmayı kolaylaştırır — set, yuva, ana stat, alt statlar ve daha fazlasına göre ekipman filtreleri tanımlayın, eşleşen sonuçları canlı önizleyin ve hazır satış dosyalarını saniyeler içinde dışa aktarın.
 
 > Bu araç hayranlar tarafından geliştirildi. Plarium, Raid: Shadow Legends veya RSL Helper ile bağlantılı değildir. Bahsi geçen tüm ticari markalar sahiplerine aittir.
 

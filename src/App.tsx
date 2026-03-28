@@ -47,6 +47,7 @@ import {
   ELLIPSIS_TEXT_SX,
   FONT_SIZE_DISPLAY_REM,
   FONT_SIZE_HEADER_META_PX,
+  FONT_SIZE_APP_SUBTITLE_PX,
   FONT_SIZE_BASE_PX,
   GEAR_DB_DIFF_HISTORY_MAX_ITEMS,
   GEAR_DB_DIFF_HISTORY_MAX_UPDATES,
@@ -7158,7 +7159,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             <Typography variant="h4" fontWeight={700} sx={{ fontSize: `${FONT_SIZE_DISPLAY_REM}rem` }}>
               Sellfile Creator
             </Typography>
-            <Typography sx={{ fontSize: `${FONT_SIZE_HEADER_META_PX}px`, color: 'text.secondary', lineHeight: 1 }}>
+            <Typography sx={{ fontSize: `${FONT_SIZE_APP_SUBTITLE_PX}px`, color: 'text.secondary', lineHeight: 1 }}>
               for RSL Helper
             </Typography>
           </Box>

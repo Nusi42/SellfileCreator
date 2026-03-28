@@ -1,6 +1,6 @@
 ﻿# Sellfile Creator for RSL Helper
 
-Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramite un'interfaccia semplice.
+Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — definisci filtri per l'equipaggiamento per set, slot, statistica principale, sottostatistiche e altro, visualizza in anteprima i risultati in tempo reale ed esporta file di vendita pronti all'uso in pochi secondi.
 
 > Strumento indipendente creato dai fan. Non è affiliato con Plarium, Raid: Shadow Legends o RSL Helper. I marchi appartengono ai rispettivi proprietari.
 

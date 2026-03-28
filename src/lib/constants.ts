@@ -19,6 +19,8 @@ export const FONT_SIZE_TITLE_PX = 18
 export const FONT_SIZE_TITLE_REM = FONT_SIZE_TITLE_PX / FONT_SIZE_HTML_BASE_PX
 export const FONT_SIZE_HEADER_META_PX = 10
 export const FONT_SIZE_HEADER_META_REM = FONT_SIZE_HEADER_META_PX / FONT_SIZE_HTML_BASE_PX
+// Subtitle size for the "for RSL Helper" tagline in the app header and help dialog.
+export const FONT_SIZE_APP_SUBTITLE_PX = 14
 export const FONT_SIZE_SECONDARY_PX = 12
 export const FONT_SIZE_SECONDARY_REM = FONT_SIZE_SECONDARY_PX / FONT_SIZE_HTML_BASE_PX
 export const FONT_SIZE_BADGE_PX = 10

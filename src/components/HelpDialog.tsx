@@ -13,7 +13,7 @@ import { getHighlightEffectSx, pickHighlightEffect, HIGHLIGHT_EFFECT_DURATION_MS
 const README_FILES = import.meta.glob('../../README*.md', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
 import { APP_VERSION } from '../version'
 import { useI18n } from '../lib/i18n'
-import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_DISPLAY_REM, FONT_SIZE_HEADER_META_PX } from '../lib/constants'
+import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_DISPLAY_REM, FONT_SIZE_HEADER_META_PX, FONT_SIZE_APP_SUBTITLE_PX } from '../lib/constants'
 import {
   DEFAULT_LANGUAGE,
   DEV_LANGUAGES,
@@ -268,7 +268,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
             <Typography variant="h4" fontWeight={700} sx={{ fontSize: `${FONT_SIZE_DISPLAY_REM}rem` }}>
               Sellfile Creator
             </Typography>
-            <Typography sx={{ fontSize: `${FONT_SIZE_HEADER_META_PX}px`, color: 'text.secondary', lineHeight: 1 }}>
+            <Typography sx={{ fontSize: `${FONT_SIZE_APP_SUBTITLE_PX}px`, color: 'text.secondary', lineHeight: 1 }}>
               for RSL Helper
             </Typography>
           </Box>
