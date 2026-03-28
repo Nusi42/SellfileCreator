@@ -1,7 +1,7 @@
 /**
- * gearLens.ts
+ * gearAnalytics.ts
  *
- * Pure aggregation functions for the Gear Lens analytics tab.
+ * Pure aggregation functions for the Gear Analytics analytics tab.
  * No React, no side effects — operates on a snapshot of GearInspectorPreviewRow[].
  */
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
@@ -28,20 +28,20 @@ import {
 import { ACCESSORY_NO_SET_ID } from './constants'
 import type { StatVariantLike } from './types'
 
-// Re-export so Gear Lens components have a single import source for label i18n helpers.
+// Re-export so Gear Analytics components have a single import source for label i18n helpers.
 export { artifactTypeI18nKey, rarityRankValueI18nKey, statVariantI18nKey, getLocalizedGearSetName }
 
 // ── Outcome classification ────────────────────────────────────────────────────
 
 /**
- * The four possible outcomes for a gear item in the Gear Lens.
+ * The four possible outcomes for a gear item in the Gear Analytics.
  * 'none' distinguishes truly unmatched items (no rule triggered) from 'keep'
  * (explicit keep rule matched), giving users visibility into unevaluated gear.
  */
-export type GearLensOutcome = 'sell' | 'keep' | 'safe' | 'none'
+export type GearAnalyticsOutcome = 'sell' | 'keep' | 'safe' | 'none'
 
 /** Classify a row into its outcome bucket. */
-export function rowOutcome(row: GearInspectorPreviewRow): GearLensOutcome {
+export function rowOutcome(row: GearInspectorPreviewRow): GearAnalyticsOutcome {
   // No rule matched at all — item is unmatched (default keep by the app).
   if (row.match === null) return 'none'
   // Explicit sell match: keep=false means sell.
@@ -55,10 +55,10 @@ export function rowOutcome(row: GearInspectorPreviewRow): GearLensOutcome {
 // ── Cross-filter state ────────────────────────────────────────────────────────
 
 /** Re-export source category type so components don't need to import from rulesFilter directly. */
-export type { GearInspectorSourceFilter as GearLensSource }
+export type { GearInspectorSourceFilter as GearAnalyticsSource }
 
 /** Dimension selections for the cross-filter dashboard state. */
-export type GearLensDim = {
+export type GearAnalyticsDim = {
   /** Selected slot IDs (ArtifactTypeId). Empty = no slot filter. */
   slots: ReadonlySet<number>
   /** Selected star ranks (1–6). Empty = no rank filter. */
@@ -68,7 +68,7 @@ export type GearLensDim = {
   /** Selected set IDs (ArtifactSetId). Empty = no set filter. */
   sets: ReadonlySet<number>
   /** Selected result labels (sell / keep / safe). Empty = no result filter. */
-  outcomes: ReadonlySet<GearLensOutcome>
+  outcomes: ReadonlySet<GearAnalyticsOutcome>
   /** Selected source categories. Empty = no source filter. */
   sources: ReadonlySet<GearInspectorSourceFilter>
   /** Selected gear level milestones (0, 4, 8, 12, 16). Empty = no level filter. */
@@ -76,7 +76,7 @@ export type GearLensDim = {
 }
 
 /** Canonical empty dim: all charts unfiltered. */
-export const EMPTY_GEAR_LENS_DIM: GearLensDim = {
+export const EMPTY_GEAR_ANALYTICS_DIM: GearAnalyticsDim = {
   slots: new Set(),
   ranks: new Set(),
   rarities: new Set(),
@@ -108,7 +108,7 @@ export function sourceIconSvgAsset(id: number | string): { viewBox: string; path
  * Return true if any dimension in `dim` has at least one selection.
  * Used to decide whether to render the cross-filter chip bar.
  */
-export function isGearLensDimActive(dim: GearLensDim): boolean {
+export function isGearAnalyticsDimActive(dim: GearAnalyticsDim): boolean {
   // Check each dimension set for non-empty state.
   return (
     dim.slots.size > 0 || dim.ranks.size > 0 || dim.rarities.size > 0 || dim.sets.size > 0 ||
@@ -126,7 +126,7 @@ const SLOT_ACCESSORY_GROUP: ReadonlySet<number> = new Set(PREFERRED_ARTIFACT_TYP
 /**
  * Return the full group of slot IDs that share the same slot category as `id`.
  * Returns null if `id` is not a recognised slot.
- * Used by the Gear Lens slot donut: double-clicking a slice selects all group members.
+ * Used by the Gear Analytics slot donut: double-clicking a slice selects all group members.
  */
 export function slotGroupIds(id: number): ReadonlySet<number> | null {
   if (SLOT_ARMOR_GROUP.has(id))     return SLOT_ARMOR_GROUP
@@ -139,10 +139,10 @@ export function slotGroupIds(id: number): ReadonlySet<number> | null {
  * Crossfilter rule: each chart passes `exclude` as its own dimension key so it
  * receives data filtered by the *other* dimensions only, preserving its full range.
  */
-export function applyGearLensFilter(
+export function applyGearAnalyticsFilter(
   rows: readonly GearInspectorPreviewRow[],
-  dim: GearLensDim,
-  exclude?: keyof GearLensDim,
+  dim: GearAnalyticsDim,
+  exclude?: keyof GearAnalyticsDim,
 ): GearInspectorPreviewRow[] {
   // Short-circuit when nothing is active (after accounting for exclusion).
   const activeSlots    = exclude === 'slots'    ? EMPTY_SET : dim.slots
@@ -174,7 +174,7 @@ export function applyGearLensFilter(
   return result
 }
 
-/** Reusable sentinel for excluded dimensions in applyGearLensFilter. */
+/** Reusable sentinel for excluded dimensions in applyGearAnalyticsFilter. */
 const EMPTY_SET: ReadonlySet<never> = new Set()
 
 // ── Distribution counters ─────────────────────────────────────────────────────
@@ -437,7 +437,7 @@ export function buildSlotMainMatrix(rows: readonly GearInspectorPreviewRow[]): S
 
 // ── KPI metrics ───────────────────────────────────────────────────────────────
 
-export type GearLensKpis = {
+export type GearAnalyticsKpis = {
   /** % of items at Legendary rarity or above (rarity 5=Legendary, 6=Mythical). */
   legendaryPlusRate: number | null
   /** % of items at 6★ rank (max star grade). */
@@ -460,7 +460,7 @@ export type GearLensKpis = {
  * Compute KPI percentages for the given row set.
  * Returns null for a KPI when the denominator is zero (avoids 0/0 confusion).
  */
-export function computeGearLensKpis(rows: readonly GearInspectorPreviewRow[]): GearLensKpis {
+export function computeGearAnalyticsKpis(rows: readonly GearInspectorPreviewRow[]): GearAnalyticsKpis {
   const total = rows.length
   if (total === 0) {
     // All null: no data loaded yet.

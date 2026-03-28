@@ -1,7 +1,7 @@
 /**
- * GearLensBar.tsx
+ * GearAnalyticsBar.tsx
  *
- * Custom HTML horizontal bar chart for the Gear Lens dashboard.
+ * Custom HTML horizontal bar chart for the Gear Analytics dashboard.
  * Renders one labelled bar row per entry; clicking a row toggles cross-filter selection.
  * Labels are constrained to LABEL_COL_W and clipped with EllipsisTooltip on overflow.
  *
@@ -11,7 +11,7 @@
 import { useEffect, useRef } from 'react'
 import { alpha, Box, Tooltip, Typography, useTheme } from '@mui/material'
 import { EllipsisTooltip } from '../EllipsisTooltip'
-import { easingSnappy, easingSlam, type GearLensEggPeer } from '../../lib/easterEggAnimUtils'
+import { easingSnappy, easingSlam, type GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
 
 export type BarEntry = {
@@ -48,7 +48,7 @@ type Props = {
    * When the parent sets a new peer trigger (incremented seq), the bar chart reacts with
    * a sympathetic animation burst.
    */
-  peerDanceTrigger?: GearLensEggPeer | null
+  peerDanceTrigger?: GearAnalyticsEggPeer | null
 }
 
 /** Fixed width of the label column — wide enough for "Gauntlets", "CDMG%", etc. */
@@ -245,7 +245,7 @@ function triggerBarDance(container: HTMLElement, rows: ReadonlyMap<number | stri
   }
 }
 
-export function GearLensBar({ title, description, data, selected, onToggle, height = 240, accentColor, baseColor, colorById, readOnly = false, onEasterEgg, peerDanceTrigger }: Props) {
+export function GearAnalyticsBar({ title, description, data, selected, onToggle, height = 240, accentColor, baseColor, colorById, readOnly = false, onEasterEgg, peerDanceTrigger }: Props) {
   const theme = useTheme()
   const primary = accentColor ?? theme.palette.primary.main
   const base = baseColor ?? theme.palette.primary.light

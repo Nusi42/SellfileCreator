@@ -1,7 +1,7 @@
 /**
- * GearLensRadar.tsx
+ * GearAnalyticsRadar.tsx
  *
- * Radar (spider) chart showing substat frequency distribution in the Gear Lens.
+ * Radar (spider) chart showing substat frequency distribution in the Gear Analytics.
  * Each axis corresponds to one stat variant; the polygon area shows how often that
  * substat appears across the currently filtered gear set.
  * The canonical HEATMAP_VARIANTS order is used so axes are always consistent.
@@ -19,13 +19,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Chip, Tooltip, Typography, useTheme } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { RadarChart } from '@mui/x-charts/RadarChart'
-import { HEATMAP_VARIANTS, statVariantI18nKey } from '../../lib/gearLens'
+import { HEATMAP_VARIANTS, statVariantI18nKey } from '../../lib/gearAnalytics'
 import { useDisplayPreferences } from '../../state/preferencesState'
 import { useSubstatColors } from '../../hooks/useSubstatColors'
 import { useI18n } from '../../lib/i18n'
 import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
-import type { GearLensEggPeer } from '../../lib/easterEggAnimUtils'
-import type { BarEntry } from './GearLensBar'
+import type { GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
+import type { BarEntry } from './GearAnalyticsBar'
 
 type Props = {
   title: string
@@ -62,7 +62,7 @@ type Props = {
    * sympathetic dance (a random variant from its own palette, or 'wave'/'nervous').
    * Ignored when a self-triggered dance is already running.
    */
-  peerDanceTrigger?: GearLensEggPeer | null
+  peerDanceTrigger?: GearAnalyticsEggPeer | null
 }
 
 /** Ease-in-out cubic: maps a linear 0→1 progress to a smooth 0→1 curve. */
@@ -161,7 +161,7 @@ function applyRadarDance(
   return base.map((v) => Math.max(v * (1 - lerpW) + (maxBase - v) * lerpW, 0))
 }
 
-export function GearLensRadar({ title, description, data, referenceData, selectedSubstat, onToggleSubstat, onClearSubstat, onEasterEgg, peerDanceTrigger }: Props) {
+export function GearAnalyticsRadar({ title, description, data, referenceData, selectedSubstat, onToggleSubstat, onClearSubstat, onEasterEgg, peerDanceTrigger }: Props) {
   const theme = useTheme()
   const { t } = useI18n()
   const { statButtonBorders } = useDisplayPreferences()
@@ -398,7 +398,7 @@ export function GearLensRadar({ title, description, data, referenceData, selecte
 
   return (
     <Box ref={chartRef}>
-      {/* Title — same style as GearLensBar. Tooltip appears when a description is provided. */}
+      {/* Title — same style as GearAnalyticsBar. Tooltip appears when a description is provided. */}
       <Tooltip title={description ?? ''} arrow placement="top-start">
         <Typography
           variant="caption"
@@ -470,7 +470,7 @@ export function GearLensRadar({ title, description, data, referenceData, selecte
       {/*
        * Co-occurrence pivot row — always rendered at fixed minHeight to avoid layout shift.
        * Placed below the chart so it doesn't push the radar up when chips appear.
-       * Mirrors GearLensCrossFilterChips: a disabled Clear button + one primary-outlined chip per pivot.
+       * Mirrors GearAnalyticsCrossFilterChips: a disabled Clear button + one primary-outlined chip per pivot.
        * Clicking a chip's × deselects that substat; Clear deselects all at once.
        */}
       <Box sx={{ minHeight: 24, mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
@@ -481,7 +481,7 @@ export function GearLensRadar({ title, description, data, referenceData, selecte
           data-snapshot-hide
           sx={{ py: 0, minWidth: 'auto', fontSize: '0.75rem' }}
         >
-          {t('gearLensClearFilters')}
+          {t('gearAnalyticsClearFilters')}
         </Button>
         {selectedSubstat && [...selectedSubstat].map((v) => (
           <Chip

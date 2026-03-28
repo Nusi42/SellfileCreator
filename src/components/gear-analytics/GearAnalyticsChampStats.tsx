@@ -1,7 +1,7 @@
 /**
- * GearLensChampStats.tsx
+ * GearAnalyticsChampStats.tsx
  *
- * Champion gear-profile section within the Gear Lens tab.
+ * Champion gear-profile section within the Gear Analytics tab.
  * Filters by champion location (All / Collection / Vault) and an optional
  * "Fully Equipped" toggle, then shows a per-substat spline range chart.
  * An "Include Glyphs" toggle adds each substat's glyphValue to its totalValue
@@ -29,7 +29,7 @@ import { championIconUrl } from '../../lib/iconMaps/championIconMap'
 import { resolveRarityAccentColor } from '../../lib/rarityColors'
 import { CHAMPION_ICON_BORDER_RADIUS_PX } from '../../lib/constants'
 import { useI18n } from '../../lib/i18n'
-import { statVariantI18nKey } from '../../lib/gearLens'
+import { statVariantI18nKey } from '../../lib/gearAnalytics'
 import { useSubstatColors } from '../../hooks/useSubstatColors'
 import { useDisplayPreferences } from '../../state/preferencesState'
 
@@ -188,7 +188,7 @@ function SubstatRangeRow({ entry, labelColor }: RangeRowProps) {
         </Box>
       </Box>
       <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 0.25 }}>
-        {t('gearLensSeriesMin')} {fmtVal(min)} &nbsp;·&nbsp; {t('gearLensSeriesAvg')} {fmtVal(avg)} &nbsp;·&nbsp; {t('gearLensSeriesMax')} {fmtVal(max)}
+        {t('gearAnalyticsSeriesMin')} {fmtVal(min)} &nbsp;·&nbsp; {t('gearAnalyticsSeriesAvg')} {fmtVal(avg)} &nbsp;·&nbsp; {t('gearAnalyticsSeriesMax')} {fmtVal(max)}
       </Box>
     </Box>
   ) : ''
@@ -271,9 +271,9 @@ function SubstatRangeRow({ entry, labelColor }: RangeRowProps) {
 
 // ── localStorage persistence ───────────────────────────────────────────────────
 
-const LS_LOCATION         = 'gearLens.champLocation'
-const LS_FULLY_EQUIPPED   = 'gearLens.champFullyEquipped'
-const LS_INCLUDE_GLYPHS   = 'gearLens.champIncludeGlyphs'
+const LS_LOCATION         = 'gearAnalytics.champLocation'
+const LS_FULLY_EQUIPPED   = 'gearAnalytics.champFullyEquipped'
+const LS_INCLUDE_GLYPHS   = 'gearAnalytics.champIncludeGlyphs'
 
 // Factory defaults — used both on first load and when the parent resets to defaults.
 const DEFAULT_LOCATION: ChampLensLocation = 'collection'
@@ -296,7 +296,7 @@ function readIncludeGlyphs(): boolean {
   return v === null ? DEFAULT_INCLUDE_GLYPHS : v === 'true'
 }
 
-export function GearLensChampStats({ rows, resetKey }: Props) {
+export function GearAnalyticsChampStats({ rows, resetKey }: Props) {
   const { t } = useI18n()
   const [substatColors] = useSubstatColors()
   const { statButtonBorders } = useDisplayPreferences()
@@ -348,13 +348,13 @@ export function GearLensChampStats({ rows, resetKey }: Props) {
   return (
     <Box>
       {/* Section header */}
-      <Tooltip title={t('gearLensChampStatsTitleDesc')} arrow placement="top-start">
+      <Tooltip title={t('gearAnalyticsChampStatsTitleDesc')} arrow placement="top-start">
         <Typography
           variant="caption"
           color="text.secondary"
           sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem', display: 'inline-block', mb: 1, cursor: 'help' }}
         >
-          {t('gearLensChampStatsTitle')}
+          {t('gearAnalyticsChampStatsTitle')}
         </Typography>
       </Tooltip>
 
@@ -368,13 +368,13 @@ export function GearLensChampStats({ rows, resetKey }: Props) {
           onChange={(_e, val) => { if (val !== null) setLocation(val as ChampLensLocation) }}
         >
           <ToggleButton value="all" sx={{ py: 0.5, px: 1.5, fontSize: '0.75rem' }}>
-            {t('gearLensChampLocationAll')}
+            {t('gearAnalyticsChampLocationAll')}
           </ToggleButton>
           <ToggleButton value="collection" sx={{ py: 0.5, px: 1.5, fontSize: '0.75rem' }}>
-            {t('gearLensChampLocationCollection')}
+            {t('gearAnalyticsChampLocationCollection')}
           </ToggleButton>
           <ToggleButton value="vault" sx={{ py: 0.5, px: 1.5, fontSize: '0.75rem' }}>
-            {t('gearLensChampLocationVault')}
+            {t('gearAnalyticsChampLocationVault')}
           </ToggleButton>
         </ToggleButtonGroup>
 
@@ -386,7 +386,7 @@ export function GearLensChampStats({ rows, resetKey }: Props) {
           onClick={(e) => { e.preventDefault(); setFullyEquippedOnly(!fullyEquippedOnly) }}
           sx={{ py: 0.5, px: 1.5, fontSize: '0.75rem' }}
         >
-          {t('gearLensChampFullyEquippedOnly')}
+          {t('gearAnalyticsChampFullyEquippedOnly')}
         </ToggleButton>
 
         {/* Glyph toggle: when selected, adds each substat's glyphValue to totalValue in the chart. */}
@@ -397,7 +397,7 @@ export function GearLensChampStats({ rows, resetKey }: Props) {
           onClick={(e) => { e.preventDefault(); setIncludeGlyphs(!includeGlyphs) }}
           sx={{ py: 0.5, px: 1.5, fontSize: '0.75rem' }}
         >
-          {t('gearLensGlyphInclude')}
+          {t('gearAnalyticsGlyphInclude')}
         </ToggleButton>
       </Box>
 

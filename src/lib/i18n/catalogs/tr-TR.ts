@@ -238,7 +238,7 @@ const overrides: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Zindan Düşüşü Simülatörü',
   // Gear Lens tab label and UI strings.
-  tabGearLens: 'Ekipman Analizi',
+  tabGearAnalytics: 'Ekipman Analizi',
   gearLensEmptyState: 'Envanter analizlerini görmek için Gear Inspector\'a bir ekipman veritabanı (.db) yükleyin.',
   gearLensKpiLegendaryPlus: 'Legendary+',
   gearLensKpiSixStar: '6★ Oranı',

@@ -1,15 +1,15 @@
 /**
- * GearLensKpiCards.tsx
+ * GearAnalyticsKpiCards.tsx
  *
  * Row of eight KPI metric cards showing inventory health at a glance.
  * Each card shows a single percentage with a color-coded value.
  */
 import { Box, Paper, Skeleton, Tooltip, Typography } from '@mui/material'
-import type { GearLensKpis } from '../../lib/gearLens'
+import type { GearAnalyticsKpis } from '../../lib/gearAnalytics'
 import { useI18n } from '../../lib/i18n'
 
 type Props = {
-  kpis: GearLensKpis
+  kpis: GearAnalyticsKpis
 }
 
 type KpiCardProps = {
@@ -46,18 +46,18 @@ function KpiCard({ label, rate, tooltip }: KpiCardProps) {
   )
 }
 
-export function GearLensKpiCards({ kpis }: Props) {
+export function GearAnalyticsKpiCards({ kpis }: Props) {
   const { t } = useI18n()
   return (
     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-      <KpiCard label={t('gearLensKpiSixStar')}       rate={kpis.sixStarRate}       tooltip={t('gearLensKpiSixStarTip')} />
-      <KpiCard label={t('gearLensKpiLegendaryPlus')} rate={kpis.legendaryPlusRate} tooltip={t('gearLensKpiLegendaryPlusTip')} />
-      <KpiCard label={t('gearLensKpiMaxed')}          rate={kpis.maxedRate}          tooltip={t('gearLensKpiMaxedTip')} />
-      <KpiCard label={t('gearLensKpiEquipped')}       rate={kpis.equippedRate}       tooltip={t('gearLensKpiEquippedTip')} />
-      <KpiCard label={t('gearLensKpiVaultLocked')}    rate={kpis.vaultLockedRate}    tooltip={t('gearLensKpiVaultLockedTip')} />
-      <KpiCard label={t('gearLensKpiChaos')}          rate={kpis.chaosRate}          tooltip={t('gearLensKpiChaosTip')} />
-      <KpiCard label={t('gearLensKpiGlyphed')}        rate={kpis.glyphedRate}        tooltip={t('gearLensKpiGlyphedTip')} />
-      <KpiCard label={t('gearLensKpiAscended')}       rate={kpis.ascendedRate}       tooltip={t('gearLensKpiAscendedTip')} />
+      <KpiCard label={t('gearAnalyticsKpiSixStar')}       rate={kpis.sixStarRate}       tooltip={t('gearAnalyticsKpiSixStarTip')} />
+      <KpiCard label={t('gearAnalyticsKpiLegendaryPlus')} rate={kpis.legendaryPlusRate} tooltip={t('gearAnalyticsKpiLegendaryPlusTip')} />
+      <KpiCard label={t('gearAnalyticsKpiMaxed')}          rate={kpis.maxedRate}          tooltip={t('gearAnalyticsKpiMaxedTip')} />
+      <KpiCard label={t('gearAnalyticsKpiEquipped')}       rate={kpis.equippedRate}       tooltip={t('gearAnalyticsKpiEquippedTip')} />
+      <KpiCard label={t('gearAnalyticsKpiVaultLocked')}    rate={kpis.vaultLockedRate}    tooltip={t('gearAnalyticsKpiVaultLockedTip')} />
+      <KpiCard label={t('gearAnalyticsKpiChaos')}          rate={kpis.chaosRate}          tooltip={t('gearAnalyticsKpiChaosTip')} />
+      <KpiCard label={t('gearAnalyticsKpiGlyphed')}        rate={kpis.glyphedRate}        tooltip={t('gearAnalyticsKpiGlyphedTip')} />
+      <KpiCard label={t('gearAnalyticsKpiAscended')}       rate={kpis.ascendedRate}       tooltip={t('gearAnalyticsKpiAscendedTip')} />
     </Box>
   )
 }

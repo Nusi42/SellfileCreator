@@ -1,7 +1,7 @@
 import { Box } from '@mui/material'
 
 // Use the shared Spider icon asset for the no-set accessory marker.
-// Exported so other components (e.g. GearLensTabContent) can reference the same URL.
+// Exported so other components (e.g. GearAnalyticsTabContent) can reference the same URL.
 export const NO_SET_SPIDER_SRC = new URL('../../ico/sets/Spider.webp', import.meta.url).href
 
 const ICON_SIZE_PX: Record<'small' | 'medium' | 'large', number> = {

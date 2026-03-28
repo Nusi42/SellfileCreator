@@ -162,7 +162,7 @@ import { GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT, type GearInspectorRecipeFilt
 import { artifactTypeI18nKey, getAllKnownArtifactSetIds, type RankValue, type StatVariant } from './lib/types'
 import { formatGearInspectorSetLabel } from './lib/gearInspectorFormatters'
 import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, filterGearInspectorItems, isRulesFilterActive, normalizeRulesFilterForGearInspector, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
-import type { GearLensDim } from './lib/gearLens'
+import type { GearAnalyticsDim } from './lib/gearAnalytics'
 import {
   useAutosaveRestore,
   metasetsEqualSession,
@@ -2719,9 +2719,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setPreviewMode,
   ])
 
-  // Translates a Gear Lens cross-filter selection into a RulesFilterState applied to the
+  // Translates a Gear Analytics cross-filter selection into a RulesFilterState applied to the
   // Gear Inspector filter only. Does not switch tabs — the user navigates manually.
-  const handleApplyGearLensFilter = useCallback((dim: GearLensDim) => {
+  const handleApplyGearAnalyticsFilter = useCallback((dim: GearAnalyticsDim) => {
     const next: RulesFilterState = {
       ...DEFAULT_RULES_FILTER_STATE,
       slots: {
@@ -7880,7 +7880,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           gearInspectorMatches={gearInspectorMatchesByItemId}
           onResetGearInspector={handleResetGearInspectorItems}
           gearInspectorPreviewRows={gearInspectorPreviewRows}
-          onApplyGearLensFilter={handleApplyGearLensFilter}
+          onApplyGearAnalyticsFilter={handleApplyGearAnalyticsFilter}
           rules={mergedRules}
           substatTargets={substatTargets}
           effectiveSubstatTargets={effectiveSubstatTargets}

@@ -27,7 +27,7 @@ The technical reference is now split across focused documents. Start here, then 
 - [Safeguards](technical/app-behavior.md#safeguards) — Logic Hub layout, gear-combination detection, substat-focused protection (including weighted ranking for **Any/All Substats**), Gear Inspector grid linking (including Gear Inspector card-width matching), and reset behaviors.
 - [Dungeon Simulator](technical/dungeon-simulator.md) — Logic Hub Dungeon Drops tab, drop-table assumptions, stat generation, and keep evaluation rules.
 - [Locked roll constraints](technical/app-behavior.md#builder-outputs-and-normalization) — how `lockedMinRequiredRolls` impacts aggregate targets so locked selections can demand their own roll floors alongside the global sum.
-- [Gear Lens](technical/gear-lens.md) — cross-filter analytics dashboard: donut charts, KPI cards, stat frequency bars, heatmap, snapshot export, and the cross-filter pattern.
+- [Gear Analytics](technical/gear-analytics.md) — cross-filter analytics dashboard: donut charts, KPI cards, stat frequency bars, heatmap, snapshot export, and the cross-filter pattern.
 - [Gear Database Import](technical/gear-db-import.md) — reverse-engineering the RSL Helper SQLite dump, mapping it into the Gear Inspector, and documenting endpoint diff toasts/history.
 - [WebSocket Protocol (JSON-RPC)](technical/websocket-jsonrpc.md) — JSON-RPC 2.0 message shapes, request/response flow, and push notifications.
 - [UI and Layout](technical/ui-and-layout.md) — localization, metasets, preview UX (including dimmed disabled recipes), shared hooks, effect guidelines, and responsive layout constraints.

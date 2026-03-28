@@ -1,7 +1,7 @@
 /**
- * GearLensDonut.tsx
+ * GearAnalyticsDonut.tsx
  *
- * Reusable donut chart for the Gear Lens cross-filter dashboard.
+ * Reusable donut chart for the Gear Analytics cross-filter dashboard.
  * Clicking a slice toggles that value's selection; selected slices are highlighted.
  *
  * Optional colorBySliceId: supply per-slice colors (e.g. rarity accent colors).
@@ -21,7 +21,7 @@ import {
   ChartsTooltipTable,
   ChartsTooltipRow,
 } from '@mui/x-charts/ChartsTooltip'
-import { easingSnappy, easingSlam, type GearLensEggPeer } from '../../lib/easterEggAnimUtils'
+import { easingSnappy, easingSlam, type GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
 
 export type DonutSlice = {
@@ -78,7 +78,7 @@ type Props = {
    *   cascade — short random delay then a full random dance animation.
    *   rage    — instant angry inflate+tint burst (pie "furious" reaction).
    */
-  peerDanceTrigger?: GearLensEggPeer | null
+  peerDanceTrigger?: GearAnalyticsEggPeer | null
 }
 
 // Palette of distinct colors for the pie slices — cycles if more slices than colors.
@@ -414,7 +414,7 @@ function triggerDonutDance(el: HTMLElement): void {
   }
 }
 
-export function GearLensDonut({ title, data, selected, onToggle, onDoubleClickItem, height = 220, colorBySliceId, slotIconById, arcLabel, arcLabelMinAngleDeg = 15, iconSize = 14, onEasterEgg, peerDanceTrigger }: Props) {
+export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleClickItem, height = 220, colorBySliceId, slotIconById, arcLabel, arcLabelMinAngleDeg = 15, iconSize = 14, onEasterEgg, peerDanceTrigger }: Props) {
   const theme = useTheme()
 
   // Pre-build icon map: String(domainId) → SlotIconAsset.

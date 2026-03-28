@@ -27,8 +27,8 @@ import type { GearInspectorItem } from '../../lib/gearInspectorSession'
 import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
 import { GearInspectorTabContent, type GearInspectorTabLayoutSlots } from './GearInspectorTabContent'
 import DungeonSimulatorTab from './DungeonSimulatorTab'
-import { GearLensTabContent } from './GearLensTabContent'
-import type { GearLensDim } from '../../lib/gearLens'
+import { GearAnalyticsTabContent } from './GearAnalyticsTabContent'
+import type { GearAnalyticsDim } from '../../lib/gearAnalytics'
 // MarkdownTooltip keeps the level-hint copy behavior aligned with the rest of the app.
 import MarkdownTooltip from '../MarkdownTooltip'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
@@ -61,10 +61,10 @@ type LogicHubDialogProps = {
   effectiveSubstatTargets: SubstatTargetTable
   onSubstatTargetsChange: (m: SubstatTargetTable, opts?: { mode?: 'edit' | 'reset' | 'import' }) => void
   recipeOverridesActive: boolean
-  // All loaded gear rows — passed to Gear Lens for full-inventory analytics.
+  // All loaded gear rows — passed to Gear Analytics for full-inventory analytics.
   gearInspectorPreviewRows: readonly GearInspectorPreviewRow[]
-  // Called when the user requests applying the Gear Lens filter to the Gear Inspector.
-  onApplyGearLensFilter?: (dim: GearLensDim) => void
+  // Called when the user requests applying the Gear Analytics filter to the Gear Inspector.
+  onApplyGearAnalyticsFilter?: (dim: GearAnalyticsDim) => void
   // Propagates the main app's layout choice so empty-state messaging stays consistent across panes.
   emptyStateVerticalAlign?: EmptyStateMessageProps['verticalAlign']
 }
@@ -93,15 +93,15 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     onSubstatTargetsChange,
     recipeOverridesActive,
     gearInspectorPreviewRows,
-    onApplyGearLensFilter,
+    onApplyGearAnalyticsFilter,
     emptyStateVerticalAlign = 'center',
   } = props
   const { t } = useI18n()
   // Gear resets also confirm so a stray click does not clear imported databases or manual samples.
   const [confirmResetGearInspector, setConfirmResetGearInspector] = useState(false)
   const [confirmResetSubstatTargets, setConfirmResetSubstatTargets] = useState(false)
-  // Counter passed to GearLensTabContent; incrementing it triggers a cross-filter reset.
-  const [gearLensResetKey, setGearLensResetKey] = useState(0)
+  // Counter passed to GearAnalyticsTabContent; incrementing it triggers a cross-filter reset.
+  const [gearAnalyticsResetKey, setGearAnalyticsResetKey] = useState(0)
   // Counter passed to DungeonSimulatorTab; incrementing it triggers a preferences reset.
   const [dungeonResetKey, setDungeonResetKey] = useState(0)
   // Fallback keeps the Gear Inspector grid handler stable even when no jump target is supplied.
@@ -163,7 +163,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     }
     if (showGearStatsTab) {
       // Non-destructive: just clears cross-filter selections; no confirmation needed.
-      setGearLensResetKey((k) => k + 1)
+      setGearAnalyticsResetKey((k) => k + 1)
     }
   }
   // Clear the Gear Inspector items in one shot so manual + imported gear disappear together.
@@ -229,7 +229,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
               <Tab value={LOGIC_HUB_DIALOG_TAB_SUBSTAT_TARGETS} label={t('tabSubstatTargets')} />
               <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
               <Tab value={LOGIC_HUB_DIALOG_TAB_DUNGEON} label={t('tabDungeonDrops')} />
-              <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR_STATS} label={t('tabGearLens')} />
+              <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR_STATS} label={t('tabGearAnalytics')} />
             </Tabs>
           </Stack>
         </Box>
@@ -509,8 +509,8 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
           />
         )}
         {showGearStatsTab && (
-          // Gear Lens receives all loaded rows so stats always reflect the full inventory.
-          <GearLensTabContent rows={gearInspectorPreviewRows} onApplyToGearInspector={onApplyGearLensFilter} resetKey={gearLensResetKey} />
+          // Gear Analytics receives all loaded rows so stats always reflect the full inventory.
+          <GearAnalyticsTabContent rows={gearInspectorPreviewRows} onApplyToGearInspector={onApplyGearAnalyticsFilter} resetKey={gearAnalyticsResetKey} />
         )}
       </DialogContent>
       <DialogActions sx={{ px: STANDARD_DIALOG_PADDING_INLINE_UNITS, py: STANDARD_DIALOG_PADDING_BLOCK_UNITS }}>

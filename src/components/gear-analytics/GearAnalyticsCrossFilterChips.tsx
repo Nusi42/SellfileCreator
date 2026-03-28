@@ -1,5 +1,5 @@
 /**
- * GearLensCrossFilterChips.tsx
+ * GearAnalyticsCrossFilterChips.tsx
  *
  * Active cross-filter selections shown as chips with per-item delete buttons.
  * Always rendered below the donuts — the "Clear" button is disabled when no filter is active.
@@ -7,22 +7,22 @@
  */
 import { Box, Button, Chip } from '@mui/material'
 import {
-  type GearLensDim,
-  type GearLensOutcome,
-  type GearLensSource,
+  type GearAnalyticsDim,
+  type GearAnalyticsOutcome,
+  type GearAnalyticsSource,
   rankLabel,
   levelLabel,
   artifactTypeI18nKey,
   rarityRankValueI18nKey,
   statVariantI18nKey,
-} from '../../lib/gearLens'
+} from '../../lib/gearAnalytics'
 import { type ArtifactSetId, getLocalizedGearSetName } from '../../lib/types'
 import { useI18n } from '../../lib/i18n'
 
 type Props = {
-  dim: GearLensDim
+  dim: GearAnalyticsDim
   /** Partial dim setter: replaces only the provided keys. */
-  onUpdate: (patch: Partial<GearLensDim>) => void
+  onUpdate: (patch: Partial<GearAnalyticsDim>) => void
   /** Active main-stat selections (substat drill-down filter). */
   selectedMainStats: ReadonlySet<number | string>
   /** Remove one main-stat selection by id. */
@@ -38,24 +38,24 @@ function without<T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> {
   return next
 }
 
-/** Catalog keys for outcome chip labels — mirrors OUTCOME_I18N_KEY in GearLensTabContent. */
-const OUTCOME_I18N_KEY: Record<GearLensOutcome, string> = {
-  sell: 'gearLensOutcomeSell',
-  keep: 'gearLensOutcomeKeep',
-  safe: 'gearLensOutcomeSafe',
-  none: 'gearLensOutcomeNone',
+/** Catalog keys for outcome chip labels — mirrors OUTCOME_I18N_KEY in GearAnalyticsTabContent. */
+const OUTCOME_I18N_KEY: Record<GearAnalyticsOutcome, string> = {
+  sell: 'gearAnalyticsOutcomeSell',
+  keep: 'gearAnalyticsOutcomeKeep',
+  safe: 'gearAnalyticsOutcomeSafe',
+  none: 'gearAnalyticsOutcomeNone',
 }
 
-/** Catalog keys for source chip labels — mirrors SOURCE_I18N_KEY in GearLensTabContent. */
-const SOURCE_I18N_KEY: Record<GearLensSource, string> = {
-  inventory: 'gearLensSourceInventory',
-  collection: 'gearLensSourceCollection',
-  vault: 'gearLensSourceVault',
-  inbox: 'gearLensSourceInbox',
-  manual: 'gearLensSourceManual',
+/** Catalog keys for source chip labels — mirrors SOURCE_I18N_KEY in GearAnalyticsTabContent. */
+const SOURCE_I18N_KEY: Record<GearAnalyticsSource, string> = {
+  inventory: 'gearAnalyticsSourceInventory',
+  collection: 'gearAnalyticsSourceCollection',
+  vault: 'gearAnalyticsSourceVault',
+  inbox: 'gearAnalyticsSourceInbox',
+  manual: 'gearAnalyticsSourceManual',
 }
 
-export function GearLensCrossFilterChips({ dim, onUpdate, selectedMainStats, onDeleteMainStat, onClear }: Props) {
+export function GearAnalyticsCrossFilterChips({ dim, onUpdate, selectedMainStats, onDeleteMainStat, onClear }: Props) {
   const { t, lang } = useI18n()
   // Collect all active selection chips across every dimension.
   const chips: Array<{ key: string; label: string; onDelete: () => void }> = []
@@ -83,7 +83,7 @@ export function GearLensCrossFilterChips({ dim, onUpdate, selectedMainStats, onD
   }
   for (const set of dim.sets) {
     // -1 is the synthetic "others" bucket; -99 (ACCESSORY_NO_SET_ID) is no-set accessories.
-    const label = set === -1 ? t('gearLensOtherSetsChip')
+    const label = set === -1 ? t('gearAnalyticsOtherSetsChip')
       : getLocalizedGearSetName(set as ArtifactSetId, t, lang)
     chips.push({
       key: `set-${set}`,
@@ -143,7 +143,7 @@ export function GearLensCrossFilterChips({ dim, onUpdate, selectedMainStats, onD
         data-snapshot-hide
         sx={{ py: 0, minWidth: 'auto', fontSize: '0.75rem' }}
       >
-        {t('gearLensClearFilters')}
+        {t('gearAnalyticsClearFilters')}
       </Button>
       {chips.map((chip) => (
         <Chip

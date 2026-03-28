@@ -1,39 +1,39 @@
-# Gear Lens
+# Gear Analytics
 
-The **Gear Lens** tab in the Logic Hub dialog provides an interactive analytics dashboard for the loaded gear inventory. It is a read-only view — it never modifies gear data — and exposes cross-filter exploration, KPI health cards, stat frequency charts, a slot × main stat heatmap, and per-champion gear summaries.
+The **Gear Analytics** tab in the Logic Hub dialog provides an interactive analytics dashboard for the loaded gear inventory. It is a read-only view — it never modifies gear data — and exposes cross-filter exploration, KPI health cards, stat frequency charts, a slot × main stat heatmap, and per-champion gear summaries.
 
 ## Architecture overview
 
-All aggregation logic lives in `src/lib/gearLens.ts` (pure functions, no React). UI is split across:
+All aggregation logic lives in `src/lib/gearAnalytics.ts` (pure functions, no React). UI is split across:
 
 | File | Responsibility |
 |---|---|
-| `src/lib/gearLens.ts` | Types, filter logic, counters, KPI computation, label helpers, i18n key re-exports |
-| `src/components/dialogs/GearLensTabContent.tsx` | Orchestrator: state, derived data, layout |
-| `src/components/gear-lens/GearLensDonut.tsx` | Reusable donut chart with cross-filter toggle |
-| `src/components/gear-lens/GearLensRadar.tsx` | Radar chart for substat frequency + co-occurrence pivot |
-| `src/components/gear-lens/GearLensKpiCards.tsx` | Row of 8 KPI percentage cards |
-| `src/components/gear-lens/GearLensCrossFilterChips.tsx` | Active filter chip bar with per-chip delete |
-| `src/components/gear-lens/GearLensBar.tsx` | Horizontal bar chart (main stat frequency) |
-| `src/components/gear-lens/GearLensHeatmap.tsx` | Slot × main stat count heatmap |
-| `src/components/gear-lens/GearLensTreemap.tsx` | Squarified treemap for set cross-filter |
-| `src/components/gear-lens/GearLensChampStats.tsx` | Per-champion gear summary table |
+| `src/lib/gearAnalytics.ts` | Types, filter logic, counters, KPI computation, label helpers, i18n key re-exports |
+| `src/components/dialogs/GearAnalyticsTabContent.tsx` | Orchestrator: state, derived data, layout |
+| `src/components/gear-analytics/GearAnalyticsDonut.tsx` | Reusable donut chart with cross-filter toggle |
+| `src/components/gear-analytics/GearAnalyticsRadar.tsx` | Radar chart for substat frequency + co-occurrence pivot |
+| `src/components/gear-analytics/GearAnalyticsKpiCards.tsx` | Row of 8 KPI percentage cards |
+| `src/components/gear-analytics/GearAnalyticsCrossFilterChips.tsx` | Active filter chip bar with per-chip delete |
+| `src/components/gear-analytics/GearAnalyticsBar.tsx` | Horizontal bar chart (main stat frequency) |
+| `src/components/gear-analytics/GearAnalyticsHeatmap.tsx` | Slot × main stat count heatmap |
+| `src/components/gear-analytics/GearAnalyticsTreemap.tsx` | Squarified treemap for set cross-filter |
+| `src/components/gear-analytics/GearAnalyticsChampStats.tsx` | Per-champion gear summary table |
 
 ## Cross-filter pattern
 
 The dashboard follows the BI-style **Crossfilter** (linked selection) pattern: selecting a slice in any donut narrows every *other* chart to that subset, while the chart that owns the clicked dimension still shows its full distribution.
 
-### `GearLensDim`
+### `GearAnalyticsDim`
 
-All dimension selections live in a single `GearLensDim` object:
+All dimension selections live in a single `GearAnalyticsDim` object:
 
 ```ts
-type GearLensDim = {
+type GearAnalyticsDim = {
   slots:    ReadonlySet<number>           // ArtifactTypeId
   ranks:    ReadonlySet<number>           // star grade 1–6
   rarities: ReadonlySet<number>           // RankValue 1–6
   sets:     ReadonlySet<number>           // ArtifactSetId, or -1 for "others" bucket
-  outcomes: ReadonlySet<GearLensOutcome>  // sell | keep | safe | none
+  outcomes: ReadonlySet<GearAnalyticsOutcome>  // sell | keep | safe | none
   sources:  ReadonlySet<GearInspectorSourceFilter>
   levels:   ReadonlySet<number>           // gear level milestone 0/4/8/12/16
 }
@@ -41,7 +41,7 @@ type GearLensDim = {
 
 `EMPTY_GEAR_LENS_DIM` is the canonical all-zeroes sentinel; compare against it to test whether any filter is active.
 
-### `applyGearLensFilter(rows, dim, exclude?)`
+### `applyGearAnalyticsFilter(rows, dim, exclude?)`
 
 The core filter function. Each dimension narrows the result **AND**-wise; values within a dimension are **OR**'d. The optional `exclude` key tells the function to skip one dimension — used by each chart to receive data filtered only by the *other* active dimensions (so its own distribution always covers its full range).
 
@@ -49,9 +49,9 @@ Short-circuit path: if all active dimensions (after exclusion) are empty-sets, t
 
 ## Sets treemap
 
-Sets are displayed as a squarified treemap (`GearLensTreemap`) below the donut row. Tile area is proportional to item count per set — larger tiles mean more gear in that set. Each tile's background is split left-to-right into outcome color bands (sell / safeguarded / keep / no-match) proportional to item counts in those buckets.
+Sets are displayed as a squarified treemap (`GearAnalyticsTreemap`) below the donut row. Tile area is proportional to item count per set — larger tiles mean more gear in that set. Each tile's background is split left-to-right into outcome color bands (sell / safeguarded / keep / no-match) proportional to item counts in those buckets.
 
-`countSetsByOutcome` (in `gearLens.ts`) tallies all set IDs without a top-N cap and returns them sorted by total count descending. It accepts a `setNameFn` option for localized labels — the tab passes `(id) => getLocalizedGearSetName(id as ArtifactSetId, t, lang)` so set names respect the active language. Because every entry carries a real set ID, `applyGearLensFilter` can use `dim.sets` directly — no synthetic `-1` expansion or `effectiveDim` indirection is needed.
+`countSetsByOutcome` (in `gearAnalytics.ts`) tallies all set IDs without a top-N cap and returns them sorted by total count descending. It accepts a `setNameFn` option for localized labels — the tab passes `(id) => getLocalizedGearSetName(id as ArtifactSetId, t, lang)` so set names respect the active language. Because every entry carries a real set ID, `applyGearAnalyticsFilter` can use `dim.sets` directly — no synthetic `-1` expansion or `effectiveDim` indirection is needed.
 
 ### Treemap layout
 
@@ -69,7 +69,7 @@ When `showIcons` is true, icons take priority; labels appear alongside the icon 
 
 ## Donuts
 
-Six donut charts are rendered in a 6-column grid. Each owns one `GearLensDim` key and calls its toggle callback on click:
+Six donut charts are rendered in a 6-column grid. Each owns one `GearAnalyticsDim` key and calls its toggle callback on click:
 
 | Chart | Dimension key | Counter | Special behavior |
 |---|---|---|---|
@@ -80,7 +80,7 @@ Six donut charts are rendered in a 6-column grid. Each owns one `GearLensDim` ke
 | Source | `sources` | `countBySource` | SVG icons from `sourceIconSvgAsset` (no icon for inventory); `manual` = pencil |
 | Level | `levels` | `countByLevel` | Text arc labels (`+0`–`+16`) |
 
-### `GearLensDonut` props
+### `GearAnalyticsDonut` props
 
 - `slotIconById`: optional function `(id) => SlotIconAsset | null`. SVG path icons (`{viewBox, path}`) use `getContrastText(arcColor)` fill and no background circle. Bitmap icons (`{url}`) get a semi-transparent `<circle>` chip background.
 - `colorBySliceId`: optional function for per-slice color overrides (e.g. rarity colors).
@@ -91,11 +91,11 @@ Six donut charts are rendered in a 6-column grid. Each owns one `GearLensDim` ke
 
 ### Slot group double-click
 
-`slotGroupIds(id)` in `gearLens.ts` returns `SLOT_ARMOR_GROUP` (Weapon/Helmet/Shield/Gauntlets/Chestplate/Boots) or `SLOT_ACCESSORY_GROUP` (Ring/Amulet/Banner), derived at module load from `PREFERRED_ARTIFACT_TYPE_ORDER` + `isAccessorySlot`. The Slot donut passes `onDoubleClickItem={selectSlotGroup}` so double-clicking any armor slot selects all armor slots, and any accessory slot selects all accessory slots.
+`slotGroupIds(id)` in `gearAnalytics.ts` returns `SLOT_ARMOR_GROUP` (Weapon/Helmet/Shield/Gauntlets/Chestplate/Boots) or `SLOT_ACCESSORY_GROUP` (Ring/Amulet/Banner), derived at module load from `PREFERRED_ARTIFACT_TYPE_ORDER` + `isAccessorySlot`. The Slot donut passes `onDoubleClickItem={selectSlotGroup}` so double-clicking any armor slot selects all armor slots, and any accessory slot selects all accessory slots.
 
 ## KPI cards
 
-Eight percentage cards rendered by `GearLensKpiCards` from `computeGearLensKpis`. All values are 0–1 ratios; `null` means the row set is empty (avoids 0/0 confusion).
+Eight percentage cards rendered by `GearAnalyticsKpiCards` from `computeGearAnalyticsKpis`. All values are 0–1 ratios; `null` means the row set is empty (avoids 0/0 confusion).
 
 | KPI | Definition |
 |---|---|
@@ -112,7 +112,7 @@ All cards use a neutral text color — no green/amber/red thresholds.
 
 ## Substat frequency radar
 
-Substat frequency is shown as a radar chart (`GearLensRadar`, MUI X v8 `RadarChart`). The axes follow the fixed `HEATMAP_VARIANTS` order so the polygon shape is always comparable across filter states. `fillArea: true` fills the polygon for at-a-glance comparison.
+Substat frequency is shown as a radar chart (`GearAnalyticsRadar`, MUI X v8 `RadarChart`). The axes follow the fixed `HEATMAP_VARIANTS` order so the polygon shape is always comparable across filter states. `fillArea: true` fills the polygon for at-a-glance comparison.
 
 ### Co-occurrence pivot
 
@@ -128,7 +128,7 @@ The `MutationObserver` that applies per-stat colors matches SVG `<text>` nodes b
 
 ### Animation — JS interpolation + sqrt display scale
 
-MUI X RadarChart recreates its internal SVG path elements on data updates, so CSS `transition` on the `d` attribute does not fire reliably. Instead, `GearLensRadar` drives its own animation loop:
+MUI X RadarChart recreates its internal SVG path elements on data updates, so CSS `transition` on the `d` attribute does not fire reliably. Instead, `GearAnalyticsRadar` drives its own animation loop:
 
 - `animPosRef` holds the **raw** count values of the polygon's current position (updated every frame).
 - `animMaxRef` holds the **raw** current max scale value.
@@ -148,19 +148,19 @@ This is a visual-only transformation. The ratio `sqrt(count) / sqrt(max) = sqrt(
 
 ## Main stat / substat drill-down
 
-The Main Stats bar chart (`countMainStatFrequency`) tracks selected stat variants in a separate `selectedMainStats: ReadonlySet<number | string>` — not part of `GearLensDim`. Clicking a main stat bar toggles it; the Substat Frequency radar then filters to rows that have one of the selected main stats (this narrows the population before the co-occurrence pivot is applied).
+The Main Stats bar chart (`countMainStatFrequency`) tracks selected stat variants in a separate `selectedMainStats: ReadonlySet<number | string>` — not part of `GearAnalyticsDim`. Clicking a main stat bar toggles it; the Substat Frequency radar then filters to rows that have one of the selected main stats (this narrows the population before the co-occurrence pivot is applied).
 
-`selectedMainStats` selections appear as chips in `GearLensCrossFilterChips` and are cleared by the "Clear" button / `resetKey` increment. `onDeleteMainStat` removes individual chips.
+`selectedMainStats` selections appear as chips in `GearAnalyticsCrossFilterChips` and are cleared by the "Clear" button / `resetKey` increment. `onDeleteMainStat` removes individual chips.
 
 ## Cross-filter chip bar
 
-`GearLensCrossFilterChips` renders a flex-wrap chip row with a "Clear filters" button (always visible, disabled when no filter is active). It iterates over every non-empty dimension in `dim` plus `selectedMainStats` to produce labeled chips. Each chip has a per-item delete button that calls the appropriate toggle/delete callback.
+`GearAnalyticsCrossFilterChips` renders a flex-wrap chip row with a "Clear filters" button (always visible, disabled when no filter is active). It iterates over every non-empty dimension in `dim` plus `selectedMainStats` to produce labeled chips. Each chip has a per-item delete button that calls the appropriate toggle/delete callback.
 
 All chip labels are localized via `t()`:
 - Slot chips: `t(artifactTypeI18nKey(slot))`
 - Rank chips: `rankLabel(rank)` (e.g. `1★`)
 - Rarity chips: `t(rarityRankValueI18nKey(rarity))`
-- Set chips: `getLocalizedGearSetName(id, t, lang)` (handles the `-1` "others" bucket via `t('gearLensOtherSetsChip')`)
+- Set chips: `getLocalizedGearSetName(id, t, lang)` (handles the `-1` "others" bucket via `t('gearAnalyticsOtherSetsChip')`)
 - Outcome chips: `t(OUTCOME_I18N_KEY[outcome])`
 - Source chips: `t(SOURCE_I18N_KEY[source])`
 - Level chips: `levelLabel(lvl)` (e.g. `+16`)
@@ -176,18 +176,18 @@ When `onApplyToGearInspector` is provided (by the Logic Hub dialog), the "Apply 
 
 ## i18n
 
-All user-facing strings pass through the i18n catalog. Keys live under the `gearLens*` namespace, with related helpers re-exported from `gearLens.ts` so Gear Lens components have a single import source:
+All user-facing strings pass through the i18n catalog. Keys live under the `gearAnalytics*` namespace, with related helpers re-exported from `gearAnalytics.ts` so Gear Analytics components have a single import source:
 
 | Helper | Source | Usage |
 |---|---|---|
-| `artifactTypeI18nKey(slot)` | `types.ts`, re-exported via `gearLens.ts` | Slot names in donut labels, heatmap headers, chips |
-| `rarityRankValueI18nKey(rankValue)` | `types.ts`, re-exported via `gearLens.ts` | Rarity names in donut tooltips, chips |
-| `statVariantI18nKey(variant)` | `types.ts`, re-exported via `gearLens.ts` | Stat names in bar, radar, heatmap, chips |
-| `getLocalizedGearSetName(id, t, lang)` | `types.ts`, re-exported via `gearLens.ts` | Set names in treemap tiles/tooltips, chips |
+| `artifactTypeI18nKey(slot)` | `types.ts`, re-exported via `gearAnalytics.ts` | Slot names in donut labels, heatmap headers, chips |
+| `rarityRankValueI18nKey(rankValue)` | `types.ts`, re-exported via `gearAnalytics.ts` | Rarity names in donut tooltips, chips |
+| `statVariantI18nKey(variant)` | `types.ts`, re-exported via `gearAnalytics.ts` | Stat names in bar, radar, heatmap, chips |
+| `getLocalizedGearSetName(id, t, lang)` | `types.ts`, re-exported via `gearAnalytics.ts` | Set names in treemap tiles/tooltips, chips |
 
 `getLocalizedGearSetName` calls `t(artifactSetI18nKey(id))` and returns the result directly; it does **not** apply a secondary fallback to the static English name table. This means an empty catalog yields empty set name strings as intended. The `t()` function already falls back to `en-US` when a key is entirely absent from the active catalog.
 
-KPI tooltip strings are catalog-keyed (`gearLensKpi*Tip`). Source category labels (`gearLensSource*`) and outcome labels (`gearLensOutcome*`) are mapped through `SOURCE_I18N_KEY` / `OUTCOME_I18N_KEY` lookup objects in `GearLensCrossFilterChips.tsx`.
+KPI tooltip strings are catalog-keyed (`gearAnalyticsKpi*Tip`). Source category labels (`gearAnalyticsSource*`) and outcome labels (`gearAnalyticsOutcome*`) are mapped through `SOURCE_I18N_KEY` / `OUTCOME_I18N_KEY` lookup objects in `GearAnalyticsCrossFilterChips.tsx`.
 
 ## Reset behavior
 

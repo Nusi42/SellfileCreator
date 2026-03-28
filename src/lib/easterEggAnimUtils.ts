@@ -3,7 +3,7 @@
  *
  * Shared animation utilities for all Easter egg systems in the app.
  * Extracted from useGearInspectorSortPopoutEasterEgg so both the sort-popout
- * Easter egg and the Gear Lens Easter eggs share exactly one definition.
+ * Easter egg and the Gear Analytics Easter eggs share exactly one definition.
  */
 
 /** Smooth deceleration — good for "land in place" end states. */
@@ -32,8 +32,8 @@ export function clamp01(value: number): number {
 }
 
 /**
- * Cross-component Gear Lens Easter egg peer trigger.
- * Passed from GearLensTabContent down to sibling components so they can react
+ * Cross-component Gear Analytics Easter egg peer trigger.
+ * Passed from GearAnalyticsTabContent down to sibling components so they can react
  * when a different component's Easter egg fires.  The `seq` field increments
  * on every new trigger so React sees a fresh value even if the flavor repeats.
  *
@@ -41,4 +41,4 @@ export function clamp01(value: number): number {
  *   rage    — react with a brief "angry inflate" WAAPI burst (used by donuts when
  *             the treemap or radar fires, making them look like furious pie charts).
  */
-export type GearLensEggPeer = { seq: number; flavor: 'cascade' | 'rage' }
+export type GearAnalyticsEggPeer = { seq: number; flavor: 'cascade' | 'rage' }

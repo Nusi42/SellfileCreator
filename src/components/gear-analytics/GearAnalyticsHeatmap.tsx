@@ -1,5 +1,5 @@
 /**
- * GearLensHeatmap.tsx
+ * GearAnalyticsHeatmap.tsx
  *
  * CSS-grid slot × main stat coverage heatmap.
  * Cell color uses a red→green heat scale (high count = green, low count = red).
@@ -7,8 +7,8 @@
  */
 import React from 'react'
 import { Box, Tooltip, Typography, useTheme } from '@mui/material'
-import { HEATMAP_SLOTS, HEATMAP_VARIANTS, artifactTypeI18nKey, statVariantI18nKey, type SlotMainMatrix } from '../../lib/gearLens'
-import type { GearLensDim } from '../../lib/gearLens'
+import { HEATMAP_SLOTS, HEATMAP_VARIANTS, artifactTypeI18nKey, statVariantI18nKey, type SlotMainMatrix } from '../../lib/gearAnalytics'
+import type { GearAnalyticsDim } from '../../lib/gearAnalytics'
 import { EllipsisTooltip } from '../EllipsisTooltip'
 import { useI18n } from '../../lib/i18n'
 import { useDisplayPreferences } from '../../state/preferencesState'
@@ -17,7 +17,7 @@ import { useSubstatColors } from '../../hooks/useSubstatColors'
 
 type Props = {
   matrix: SlotMainMatrix
-  dim: GearLensDim
+  dim: GearAnalyticsDim
   /** Toggle a slot selection in the cross-filter when a cell is clicked. */
   onToggleSlot: (slot: number) => void
 }
@@ -34,7 +34,7 @@ function heatColor(intensity: number): string {
   return `hsl(${hue}, 65%, ${lightness}%)`
 }
 
-export function GearLensHeatmap({ matrix, dim, onToggleSlot }: Props) {
+export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot }: Props) {
   const theme = useTheme()
   const { t } = useI18n()
   const { statButtonBorders } = useDisplayPreferences()
@@ -42,13 +42,13 @@ export function GearLensHeatmap({ matrix, dim, onToggleSlot }: Props) {
 
   return (
     <Box>
-      <Tooltip title={t('gearLensChartHeatmapDesc')} arrow placement="top-start">
+      <Tooltip title={t('gearAnalyticsChartHeatmapDesc')} arrow placement="top-start">
         <Typography
           variant="caption"
           color="text.secondary"
           sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem', display: 'inline-block', mb: 0.5, cursor: 'help' }}
         >
-          {t('gearLensChartHeatmap')}
+          {t('gearAnalyticsChartHeatmap')}
         </Typography>
       </Tooltip>
       <Box sx={{ overflowX: 'auto' }}>

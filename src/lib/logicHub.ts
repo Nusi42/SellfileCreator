@@ -22,7 +22,7 @@ export const LOGIC_HUB_DIALOG_TAB_SUBSTAT_TARGETS: LogicHubDialogTab = 'substatT
 // Gear tab id lives here ahead of embedding the gear editor content.
 export const LOGIC_HUB_DIALOG_TAB_GEAR: LogicHubDialogTab = 'gear'
 export const LOGIC_HUB_DIALOG_TAB_DUNGEON: LogicHubDialogTab = 'dungeonDrops'
-// Gear Lens: inventory analytics dashboard with cross-filtering charts.
+// Gear Analytics: inventory analytics dashboard with cross-filtering charts.
 export const LOGIC_HUB_DIALOG_TAB_GEAR_STATS: LogicHubDialogTab = 'gearStats'
 // Stable ordering helps consumers clamp restored values to a supported tab id.
 export const LOGIC_HUB_DIALOG_TABS: readonly LogicHubDialogTab[] = [

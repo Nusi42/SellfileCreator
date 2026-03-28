@@ -1,13 +1,13 @@
 /**
- * GearLensTabContent.tsx
+ * GearAnalyticsTabContent.tsx
  *
- * Gear Lens analytics tab: cross-filtering inventory dashboard.
+ * Gear Analytics analytics tab: cross-filtering inventory dashboard.
  * Cross-filter rule: clicking a segment in any chart adds it to that dimension's
  * filter, and every other chart shows data filtered by the remaining active dimensions.
  * This is the BI-style Crossfilter pattern.
  */
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react'
-import type { GearLensEggPeer } from '../../lib/easterEggAnimUtils'
+import type { GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import { Box, Button, CircularProgress, Tooltip, Typography, useTheme } from '@mui/material'
 import { toPng } from 'html-to-image'
 import { RARITY_ACCENT_COLORS } from '../../lib/rarityColors'
@@ -18,8 +18,8 @@ import { useSubstatColors } from '../../hooks/useSubstatColors'
 import { useDisplayPreferences } from '../../state/preferencesState'
 import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
 import {
-  EMPTY_GEAR_LENS_DIM,
-  applyGearLensFilter,
+  EMPTY_GEAR_ANALYTICS_DIM,
+  applyGearAnalyticsFilter,
   countBySlot,
   countByRarity,
   countSetsByOutcome,
@@ -31,7 +31,7 @@ import {
   countMainStatFrequency,
   countSubstatFrequency,
   buildSlotMainMatrix,
-  computeGearLensKpis,
+  computeGearAnalyticsKpis,
   levelLabel,
   sourceIconSvgAsset,
   slotGroupIds,
@@ -39,29 +39,29 @@ import {
   rarityRankValueI18nKey,
   statVariantI18nKey,
   getLocalizedGearSetName,
-  type GearLensDim,
-  type GearLensOutcome,
-  type GearLensSource,
-} from '../../lib/gearLens'
+  type GearAnalyticsDim,
+  type GearAnalyticsOutcome,
+  type GearAnalyticsSource,
+} from '../../lib/gearAnalytics'
 import { STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS, ACCESSORY_NO_SET_ID } from '../../lib/constants'
 import type { ArtifactSetId } from '../../lib/types'
 import { APP_VERSION } from '../../version'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
-import { GearLensCrossFilterChips } from '../gear-lens/GearLensCrossFilterChips'
-import { GearLensKpiCards } from '../gear-lens/GearLensKpiCards'
-import { GearLensDonut, type DonutSlice } from '../gear-lens/GearLensDonut'
-import { GearLensBar, type BarEntry } from '../gear-lens/GearLensBar'
-import { GearLensTreemap } from '../gear-lens/GearLensTreemap'
-import { GearLensRadar } from '../gear-lens/GearLensRadar'
-import { GearLensHeatmap } from '../gear-lens/GearLensHeatmap'
-import { GearLensChampStats } from '../gear-lens/GearLensChampStats'
+import { GearAnalyticsCrossFilterChips } from '../gear-analytics/GearAnalyticsCrossFilterChips'
+import { GearAnalyticsKpiCards } from '../gear-analytics/GearAnalyticsKpiCards'
+import { GearAnalyticsDonut, type DonutSlice } from '../gear-analytics/GearAnalyticsDonut'
+import { GearAnalyticsBar, type BarEntry } from '../gear-analytics/GearAnalyticsBar'
+import { GearAnalyticsTreemap } from '../gear-analytics/GearAnalyticsTreemap'
+import { GearAnalyticsRadar } from '../gear-analytics/GearAnalyticsRadar'
+import { GearAnalyticsHeatmap } from '../gear-analytics/GearAnalyticsHeatmap'
+import { GearAnalyticsChampStats } from '../gear-analytics/GearAnalyticsChampStats'
 import { useI18n } from '../../lib/i18n'
 
 type Props = {
   /** All loaded gear rows, unfiltered. Stats always reflect the full inventory. */
   rows: readonly GearInspectorPreviewRow[]
-  /** Called when the user requests applying the current Gear Lens filter to the Gear Inspector. */
-  onApplyToGearInspector?: ((dim: GearLensDim) => void) | undefined
+  /** Called when the user requests applying the current Gear Analytics filter to the Gear Inspector. */
+  onApplyToGearInspector?: ((dim: GearAnalyticsDim) => void) | undefined
   /**
    * Increment this value from outside to reset all cross-filter dimensions to their empty state.
    * Mirrors the "Reset to defaults" button pattern used in other Logic Hub tabs.
@@ -70,22 +70,22 @@ type Props = {
 }
 
 /** Ordered outcome IDs and their i18n keys. */
-const OUTCOME_I18N_KEY: Record<GearLensOutcome, string> = {
-  sell: 'gearLensOutcomeSell',
-  keep: 'gearLensOutcomeKeep',
-  safe: 'gearLensOutcomeSafe',
-  none: 'gearLensOutcomeNone',
+const OUTCOME_I18N_KEY: Record<GearAnalyticsOutcome, string> = {
+  sell: 'gearAnalyticsOutcomeSell',
+  keep: 'gearAnalyticsOutcomeKeep',
+  safe: 'gearAnalyticsOutcomeSafe',
+  none: 'gearAnalyticsOutcomeNone',
 }
 /** Display order for the outcome donut slices. */
-const OUTCOME_ORDER: GearLensOutcome[] = ['sell', 'keep', 'safe', 'none']
+const OUTCOME_ORDER: GearAnalyticsOutcome[] = ['sell', 'keep', 'safe', 'none']
 
-/** Source category i18n key map — keeps GearLensTabContent free of string arithmetic. */
-const SOURCE_I18N_KEY: Record<GearLensSource, string> = {
-  inventory: 'gearLensSourceInventory',
-  collection: 'gearLensSourceCollection',
-  vault: 'gearLensSourceVault',
-  inbox: 'gearLensSourceInbox',
-  manual: 'gearLensSourceManual',
+/** Source category i18n key map — keeps GearAnalyticsTabContent free of string arithmetic. */
+const SOURCE_I18N_KEY: Record<GearAnalyticsSource, string> = {
+  inventory: 'gearAnalyticsSourceInventory',
+  collection: 'gearAnalyticsSourceCollection',
+  vault: 'gearAnalyticsSourceVault',
+  inbox: 'gearAnalyticsSourceInbox',
+  manual: 'gearAnalyticsSourceManual',
 }
 
 /** Toggle a value in a ReadonlySet, returning a new Set. */
@@ -95,7 +95,7 @@ function toggled<T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> {
   return next
 }
 
-export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: Props) {
+export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, resetKey }: Props) {
   const { t, lang } = useI18n()
   const theme = useTheme()
   const [substatColors] = useSubstatColors()
@@ -170,7 +170,7 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
         if (wm) wm.style.display = ''
       }
     } catch (err) {
-      console.error('[gear-lens] snapshot copy failed', err)
+      console.error('[gear-analytics] snapshot copy failed', err)
     } finally {
       setCopying(false)
     }
@@ -183,7 +183,7 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
   )
 
   // Cross-filter state: all dimensions start empty (= no filter).
-  const [dim, setDim] = useState<GearLensDim>(EMPTY_GEAR_LENS_DIM)
+  const [dim, setDim] = useState<GearAnalyticsDim>(EMPTY_GEAR_ANALYTICS_DIM)
   // Main stat selection: clicking a main stat bar filters the substat frequency chart.
   // Kept as local state separate from dim — not a cross-filter dimension.
   const [selectedMainStats, setSelectedMainStats] = useState<ReadonlySet<number | string>>(new Set())
@@ -195,21 +195,21 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
   // When any component's Easter egg fires it calls its onEasterEgg callback, which may
   // (randomly) set peer triggers on a random subset of sibling components.
   const eggSeqRef = useRef(0)
-  const [donutPeer,   setDonutPeer]   = useState<GearLensEggPeer | null>(null)
-  const [radarPeer,   setRadarPeer]   = useState<GearLensEggPeer | null>(null)
-  const [treemapPeer, setTreemapPeer] = useState<GearLensEggPeer | null>(null)
-  const [barPeer,     setBarPeer]     = useState<GearLensEggPeer | null>(null)
+  const [donutPeer,   setDonutPeer]   = useState<GearAnalyticsEggPeer | null>(null)
+  const [radarPeer,   setRadarPeer]   = useState<GearAnalyticsEggPeer | null>(null)
+  const [treemapPeer, setTreemapPeer] = useState<GearAnalyticsEggPeer | null>(null)
+  const [barPeer,     setBarPeer]     = useState<GearAnalyticsEggPeer | null>(null)
 
   // Helper: fire a peer trigger with a fresh seq only when a random roll passes the threshold.
   const maybeSet = useCallback(
-    (setter: React.Dispatch<React.SetStateAction<GearLensEggPeer | null>>, flavor: GearLensEggPeer['flavor'], threshold: number) => {
+    (setter: React.Dispatch<React.SetStateAction<GearAnalyticsEggPeer | null>>, flavor: GearAnalyticsEggPeer['flavor'], threshold: number) => {
       if (Math.random() < threshold) setter({ seq: ++eggSeqRef.current, flavor })
     },
     [],
   )
   // Helper: unconditionally fire a peer trigger (used for the jackpot all-react path).
   const forceSet = useCallback(
-    (setter: React.Dispatch<React.SetStateAction<GearLensEggPeer | null>>, flavor: GearLensEggPeer['flavor']) => {
+    (setter: React.Dispatch<React.SetStateAction<GearAnalyticsEggPeer | null>>, flavor: GearAnalyticsEggPeer['flavor']) => {
       setter({ seq: ++eggSeqRef.current, flavor })
     },
     [],
@@ -272,7 +272,7 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
   }, [maybeSet, forceSet])
 
   // Partial-update helper: merge a patch into the current dim.
-  const updateDim = useCallback((patch: Partial<GearLensDim>) => {
+  const updateDim = useCallback((patch: Partial<GearAnalyticsDim>) => {
     setDim((prev) => ({ ...prev, ...patch }))
   }, [])
 
@@ -295,11 +295,11 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
     // Allow -1 (others bucket) through — effectiveDim expands it at filter time.
     setDim((prev) => ({ ...prev, sets: toggled(prev.sets, Number(id)) }))
   }, [])
-  const toggleOutcome = useCallback((outcome: GearLensOutcome) => {
+  const toggleOutcome = useCallback((outcome: GearAnalyticsOutcome) => {
     setDim((prev) => ({ ...prev, outcomes: toggled(prev.outcomes, outcome) }))
   }, [])
   const toggleSource = useCallback((id: number | string) => {
-    setDim((prev) => ({ ...prev, sources: toggled(prev.sources, id as GearLensSource) }))
+    setDim((prev) => ({ ...prev, sources: toggled(prev.sources, id as GearAnalyticsSource) }))
   }, [])
   const toggleLevel = useCallback((id: number | string) => {
     setDim((prev) => ({ ...prev, levels: toggled(prev.levels, Number(id)) }))
@@ -318,14 +318,14 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
   }, [])
   const clearSubstat = useCallback(() => setSelectedSubstat(new Set()), [])
   const clearDim = useCallback(() => {
-    setDim(EMPTY_GEAR_LENS_DIM)
+    setDim(EMPTY_GEAR_ANALYTICS_DIM)
     setSelectedMainStats(new Set())
     setSelectedSubstat(new Set())
   }, [])
   // Clear all cross-filter dimensions when the parent increments resetKey (e.g. "Reset to defaults" button).
   useEffect(() => {
     if (resetKey !== undefined) {
-      setDim(EMPTY_GEAR_LENS_DIM)
+      setDim(EMPTY_GEAR_ANALYTICS_DIM)
       setSelectedMainStats(new Set())
       setSelectedSubstat(new Set())
     }
@@ -335,15 +335,15 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
   // Each chart receives the full row set filtered by all dimensions EXCEPT its own.
   // This preserves the full range of that dimension for interactive exploration.
   // The icon tile grid exposes real set IDs directly, so no synthetic -1 expansion is needed.
-  const rowsForSlot    = useMemo(() => applyGearLensFilter(rows, dim, 'slots'),    [rows, dim])
-  const rowsForRank    = useMemo(() => applyGearLensFilter(rows, dim, 'ranks'),    [rows, dim])
-  const rowsForRarity  = useMemo(() => applyGearLensFilter(rows, dim, 'rarities'), [rows, dim])
-  const rowsForSet     = useMemo(() => applyGearLensFilter(rows, dim, 'sets'),     [rows, dim])
-  const rowsForOutcome = useMemo(() => applyGearLensFilter(rows, dim, 'outcomes'), [rows, dim])
-  const rowsForSource  = useMemo(() => applyGearLensFilter(rows, dim, 'sources'),  [rows, dim])
-  const rowsForLevel   = useMemo(() => applyGearLensFilter(rows, dim, 'levels'),   [rows, dim])
+  const rowsForSlot    = useMemo(() => applyGearAnalyticsFilter(rows, dim, 'slots'),    [rows, dim])
+  const rowsForRank    = useMemo(() => applyGearAnalyticsFilter(rows, dim, 'ranks'),    [rows, dim])
+  const rowsForRarity  = useMemo(() => applyGearAnalyticsFilter(rows, dim, 'rarities'), [rows, dim])
+  const rowsForSet     = useMemo(() => applyGearAnalyticsFilter(rows, dim, 'sets'),     [rows, dim])
+  const rowsForOutcome = useMemo(() => applyGearAnalyticsFilter(rows, dim, 'outcomes'), [rows, dim])
+  const rowsForSource  = useMemo(() => applyGearAnalyticsFilter(rows, dim, 'sources'),  [rows, dim])
+  const rowsForLevel   = useMemo(() => applyGearAnalyticsFilter(rows, dim, 'levels'),   [rows, dim])
   // KPIs and bar charts use all active filters applied.
-  const rowsFiltered   = useMemo(() => applyGearLensFilter(rows, dim),             [rows, dim])
+  const rowsFiltered   = useMemo(() => applyGearAnalyticsFilter(rows, dim),             [rows, dim])
 
   // ── Aggregations ───────────────────────────────────────────────────────────
   // Slot donut data. Labels go through t() so they respect the active language.
@@ -462,7 +462,7 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
   const heatmapMatrix = useMemo(() => buildSlotMainMatrix(rowsFiltered), [rowsFiltered])
 
   // KPIs computed from the fully-filtered row set.
-  const kpis = useMemo(() => computeGearLensKpis(rowsFiltered), [rowsFiltered])
+  const kpis = useMemo(() => computeGearAnalyticsKpis(rowsFiltered), [rowsFiltered])
 
   // ── Color and icon helpers for specific donuts ──────────────────────────────
   // Rarity donut: use the app's canonical rarity accent palette.
@@ -500,7 +500,7 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
         })}
       >
         <Typography variant="body2" color="text.secondary" textAlign="center">
-          {t('gearLensEmptyState')}
+          {t('gearAnalyticsEmptyState')}
         </Typography>
       </Box>
     )
@@ -528,7 +528,7 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
       >
         {/* span wrapper inside Tooltip ensures the tooltip fires even when the Button is disabled */}
         {onApplyToGearInspector && (
-          <Tooltip title={t('gearLensApplyToInspectorTip')} arrow placement="top">
+          <Tooltip title={t('gearAnalyticsApplyToInspectorTip')} arrow placement="top">
             <span>
               <Button
                 size="small"
@@ -537,12 +537,12 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
                 disabled={!isFilterActive}
                 sx={{ fontSize: '0.75rem', py: 0.5 }}
               >
-                {t('gearLensApplyToInspector')}
+                {t('gearAnalyticsApplyToInspector')}
               </Button>
             </span>
           </Tooltip>
         )}
-        <Tooltip title={t('gearLensCopySnapshotTip')} arrow placement="top">
+        <Tooltip title={t('gearAnalyticsCopySnapshotTip')} arrow placement="top">
           <Button
             size="small"
             variant="outlined"
@@ -551,7 +551,7 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
             startIcon={copying ? <CircularProgress size={12} /> : undefined}
             sx={{ fontSize: '0.75rem', py: 0.5, minWidth: 130 }}
           >
-            {copyDone ? t('gearLensCopied') : t('gearLensCopySnapshot')}
+            {copyDone ? t('gearAnalyticsCopied') : t('gearAnalyticsCopySnapshot')}
           </Button>
         </Tooltip>
       </Box>
@@ -573,12 +573,12 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
       >
 
       {/* KPI cards: always reflect the fully-filtered dataset. */}
-      <GearLensKpiCards kpis={kpis} />
+      <GearAnalyticsKpiCards kpis={kpis} />
 
       {/* Row 1: Six donut charts — each excludes its own dimension from the filter. */}
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 1, mb: 1 }}>
-        <GearLensDonut
-          title={t('gearLensChartSlot')}
+        <GearAnalyticsDonut
+          title={t('gearAnalyticsChartSlot')}
           data={slotData}
           selected={dim.slots}
           onToggle={toggleSlot}
@@ -588,8 +588,8 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
           onEasterEgg={handleDonutEgg}
           peerDanceTrigger={donutPeer}
         />
-        <GearLensDonut
-          title={t('gearLensChartRank')}
+        <GearAnalyticsDonut
+          title={t('gearAnalyticsChartRank')}
           data={rankData}
           selected={dim.ranks}
           onToggle={toggleRank}
@@ -598,8 +598,8 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
           onEasterEgg={handleDonutEgg}
           peerDanceTrigger={donutPeer}
         />
-        <GearLensDonut
-          title={t('gearLensChartRarity')}
+        <GearAnalyticsDonut
+          title={t('gearAnalyticsChartRarity')}
           data={rarityData}
           selected={dim.rarities}
           onToggle={toggleRarity}
@@ -608,18 +608,18 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
           onEasterEgg={handleDonutEgg}
           peerDanceTrigger={donutPeer}
         />
-        <GearLensDonut
-          title={t('gearLensChartOutcome')}
+        <GearAnalyticsDonut
+          title={t('gearAnalyticsChartOutcome')}
           data={outcomeData}
           selected={dim.outcomes}
-          onToggle={(id) => toggleOutcome(id as GearLensOutcome)}
+          onToggle={(id) => toggleOutcome(id as GearAnalyticsOutcome)}
           height={160}
           colorBySliceId={outcomeColorById}
           onEasterEgg={handleDonutEgg}
           peerDanceTrigger={donutPeer}
         />
-        <GearLensDonut
-          title={t('gearLensChartSource')}
+        <GearAnalyticsDonut
+          title={t('gearAnalyticsChartSource')}
           data={sourceData}
           selected={dim.sources}
           onToggle={toggleSource}
@@ -628,8 +628,8 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
           onEasterEgg={handleDonutEgg}
           peerDanceTrigger={donutPeer}
         />
-        <GearLensDonut
-          title={t('gearLensChartLevel')}
+        <GearAnalyticsDonut
+          title={t('gearAnalyticsChartLevel')}
           data={levelData}
           selected={dim.levels}
           onToggle={toggleLevel}
@@ -642,8 +642,8 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
 
       {/* Row 2: Set treemap — tile area ∝ count, bands show outcome breakdown. */}
       <Box sx={{ mb: 1 }}>
-        <GearLensTreemap
-          title={t('gearLensChartSet')}
+        <GearAnalyticsTreemap
+          title={t('gearAnalyticsChartSet')}
           data={setData}
           selected={dim.sets}
           onToggle={toggleSet}
@@ -655,13 +655,13 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
       </Box>
 
       {/* Cross-filter chips — always visible below the donuts; disabled when nothing is selected. */}
-      <GearLensCrossFilterChips dim={dim} onUpdate={updateDim} selectedMainStats={selectedMainStats} onDeleteMainStat={toggleMainStat} onClear={clearDim} />
+      <GearAnalyticsCrossFilterChips dim={dim} onUpdate={updateDim} selectedMainStats={selectedMainStats} onDeleteMainStat={toggleMainStat} onClear={clearDim} />
 
       {/* Row 3: Main stat bar (click-to-filter) + Substat frequency radar. */}
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
-        <GearLensBar
-          title={t('gearLensChartMainStat')}
-          description={t('gearLensChartMainStatDesc')}
+        <GearAnalyticsBar
+          title={t('gearAnalyticsChartMainStat')}
+          description={t('gearAnalyticsChartMainStatDesc')}
           data={mainStatData}
           selected={selectedMainStats}
           onToggle={toggleMainStat}
@@ -669,9 +669,9 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
           onEasterEgg={handleBarEgg}
           peerDanceTrigger={barPeer}
         />
-        <GearLensRadar
-          title={t('gearLensChartSubstats')}
-          description={t('gearLensChartSubstatsDesc')}
+        <GearAnalyticsRadar
+          title={t('gearAnalyticsChartSubstats')}
+          description={t('gearAnalyticsChartSubstatsDesc')}
           data={substatData}
           referenceData={substatReferenceData}
           selectedSubstat={selectedSubstat}
@@ -684,13 +684,13 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
 
       {/* Row 3: Slot × Main Stat heatmap beside Champion Stats. */}
       <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
-        <GearLensHeatmap
+        <GearAnalyticsHeatmap
           matrix={heatmapMatrix}
           dim={dim}
           onToggleSlot={toggleSlot}
         />
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <GearLensChampStats rows={rows} {...(resetKey !== undefined && { resetKey })} />
+          <GearAnalyticsChampStats rows={rows} {...(resetKey !== undefined && { resetKey })} />
         </Box>
       </Box>
 

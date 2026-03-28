@@ -1,7 +1,7 @@
 /**
- * GearLensTreemap.tsx
+ * GearAnalyticsTreemap.tsx
  *
- * Squarified treemap for the Gear Lens Sets cross-filter dimension.
+ * Squarified treemap for the Gear Analytics Sets cross-filter dimension.
  * Tile area ∝ total item count per set — larger tiles = more gear in that set.
  * Each tile's background is split left-to-right into outcome color bands
  * (sell / safeguarded / keep / no-match) proportional to item counts.
@@ -16,9 +16,9 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { alpha, Box, Tooltip, Typography, useTheme } from '@mui/material'
-import type { SetOutcomeCount } from '../../lib/gearLens'
+import type { SetOutcomeCount } from '../../lib/gearAnalytics'
 import { useI18n } from '../../lib/i18n'
-import { clamp01, type GearLensEggPeer } from '../../lib/easterEggAnimUtils'
+import { clamp01, type GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ type Props = {
    * When the parent sets a new peer trigger (incremented seq), the treemap starts a
    * sympathetic dance.  Ignored when a self-triggered dance is already running.
    */
-  peerDanceTrigger?: GearLensEggPeer | null
+  peerDanceTrigger?: GearAnalyticsEggPeer | null
 }
 
 // ── Layout constants ──────────────────────────────────────────────────────────
@@ -220,7 +220,7 @@ type TileDanceOffset = { dx: number; dy: number; scale?: number; rotate?: number
 /** Duration of each treemap dance burst in milliseconds. */
 const TREEMAP_DANCE_MS = 2_000
 
-export function GearLensTreemap({ title, data, selected, onToggle, iconById, showIcons = true, onEasterEgg, peerDanceTrigger }: Props) {
+export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById, showIcons = true, onEasterEgg, peerDanceTrigger }: Props) {
   const theme = useTheme()
   const { t } = useI18n()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -441,7 +441,7 @@ export function GearLensTreemap({ title, data, selected, onToggle, iconById, sho
 
   return (
     <Box>
-      {/* Section title — same typography as GearLensBar. */}
+      {/* Section title — same typography as GearAnalyticsBar. */}
       <Typography
         variant="caption"
         color="text.secondary"
@@ -472,12 +472,12 @@ export function GearLensTreemap({ title, data, selected, onToggle, iconById, sho
               <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>{entry.label}</Typography>
               <Box component="table" sx={{ borderCollapse: 'collapse', mt: 0.25 }}>
                 <tbody>
-                  {entry.sell > 0 && <tr><td style={{ paddingRight: 8 }}>{t('gearLensOutcomeSell')}</td><td>{entry.sell}</td></tr>}
-                  {entry.none > 0 && <tr><td style={{ paddingRight: 8 }}>{t('gearLensOutcomeNone')}</td><td>{entry.none}</td></tr>}
-                  {entry.keep > 0 && <tr><td style={{ paddingRight: 8 }}>{t('gearLensOutcomeKeep')}</td><td>{entry.keep}</td></tr>}
-                  {entry.safe > 0 && <tr><td style={{ paddingRight: 8 }}>{t('gearLensOutcomeSafe')}</td><td>{entry.safe}</td></tr>}
+                  {entry.sell > 0 && <tr><td style={{ paddingRight: 8 }}>{t('gearAnalyticsOutcomeSell')}</td><td>{entry.sell}</td></tr>}
+                  {entry.none > 0 && <tr><td style={{ paddingRight: 8 }}>{t('gearAnalyticsOutcomeNone')}</td><td>{entry.none}</td></tr>}
+                  {entry.keep > 0 && <tr><td style={{ paddingRight: 8 }}>{t('gearAnalyticsOutcomeKeep')}</td><td>{entry.keep}</td></tr>}
+                  {entry.safe > 0 && <tr><td style={{ paddingRight: 8 }}>{t('gearAnalyticsOutcomeSafe')}</td><td>{entry.safe}</td></tr>}
                   <tr>
-                    <td style={{ paddingRight: 8, fontWeight: 600 }}>{t('gearLensTotal')}</td>
+                    <td style={{ paddingRight: 8, fontWeight: 600 }}>{t('gearAnalyticsTotal')}</td>
                     <td style={{ fontWeight: 600 }}>{entry.total}</td>
                   </tr>
                 </tbody>
@@ -614,7 +614,7 @@ export function GearLensTreemap({ title, data, selected, onToggle, iconById, sho
           <Box key={band} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Box sx={{ width: 8, height: 8, borderRadius: 0.5, flexShrink: 0, bgcolor: bandColor[band], border: `1px solid ${alpha(theme.palette.divider, 0.5)}` }} />
             <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
-              {t(({ sell: 'gearLensOutcomeSell', safe: 'gearLensOutcomeSafe', keep: 'gearLensOutcomeKeep', none: 'gearLensOutcomeNone' } as const)[band])}
+              {t(({ sell: 'gearAnalyticsOutcomeSell', safe: 'gearAnalyticsOutcomeSafe', keep: 'gearAnalyticsOutcomeKeep', none: 'gearAnalyticsOutcomeNone' } as const)[band])}
             </Typography>
           </Box>
         ))}

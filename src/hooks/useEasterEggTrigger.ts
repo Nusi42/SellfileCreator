@@ -2,7 +2,7 @@
  * useEasterEggTrigger.ts
  *
  * Shared trigger-detection hook for all Easter egg systems.
- * Extracted from useGearInspectorSortPopoutEasterEgg so the Gear Lens Easter
+ * Extracted from useGearInspectorSortPopoutEasterEgg so the Gear Analytics Easter
  * eggs and the sort-popout Easter egg share the same sliding-window logic.
  */
 import { useRef, useCallback } from 'react'

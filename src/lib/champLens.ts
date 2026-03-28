@@ -1,13 +1,13 @@
 /**
  * champLens.ts
  *
- * Pure aggregation functions for the Champion Stats section of the Gear Lens tab.
+ * Pure aggregation functions for the Champion Stats section of the Gear Analytics tab.
  * Builds per-champion gear profiles from a snapshot of GearInspectorPreviewRow[].
  * No React, no side effects.
  */
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import { isAccessorySlot } from './gearInspectorDomain'
-import { statLabel } from './gearLens'
+import { statLabel } from './gearAnalytics'
 import { PREFERRED_ARTIFACT_TYPE_ORDER, STAT_VARIANTS_PRIORITY, StatVariant } from './types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
