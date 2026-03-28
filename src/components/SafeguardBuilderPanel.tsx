@@ -42,6 +42,7 @@ import UndoIcon from '@mui/icons-material/Undo'
 import {
   SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
   SAFEGUARD_DEFAULT_COUNT_MODE,
+  SAFEGUARD_SUBSTAT_MIN_COUNTS,
   SafeguardRuleActivation,
   SafeguardSubstatMatch,
   constrainSafeguardSubstats,
@@ -516,7 +517,7 @@ export default function SafeguardBuilderPanel({
   const hasSubstatSelection = substatSelection.length > 0
   const effectiveSubstatMatch = hasSubstatSelection
     ? normalizeSafeguardSubstatMatch(rule?.substatMatch)
-    : SafeguardSubstatMatch.Any
+    : SafeguardSubstatMatch.Min1
   const countMode = sanitizeSafeguardCountMode(rule?.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
   const effectiveCountMode = hasAccessorySlot
     ? countMode
@@ -537,9 +538,6 @@ export default function SafeguardBuilderPanel({
     : effectiveSubstatMatch
   // Mixed indicator: true when selection has differing values not yet staged.
   const substatMatchMixed = multiEditActive && multiSubstatMatchField?.status === 'mixed' && !multiSubstatMatchField.dirty
-  const displayMatchLabel = displaySubstatMatch === SafeguardSubstatMatch.Any ? t('safeguardsSubstatRequirementAny')
-    : displaySubstatMatch === SafeguardSubstatMatch.All ? t('safeguardsSubstatRequirementAll')
-    : t('safeguardsSubstatRequirementPer')
   // Beat-equipped display and mixed state for multi-edit.
   const displayBeatEquippedPercentile = multiEditActive
     ? (multiBeatEquippedField?.value !== undefined && multiBeatEquippedField.value !== null
@@ -627,7 +625,7 @@ export default function SafeguardBuilderPanel({
     // it does not stay open after the last substat is deselected.
     if (sorted.length === 0) setWeightsAnchorEl(null)
     updateRule((prev) => {
-      const nextMatch = sorted.length > 0 ? prev.substatMatch : SafeguardSubstatMatch.Any
+      const nextMatch = sorted.length > 0 ? prev.substatMatch : SafeguardSubstatMatch.Min1
       const nextWeights = pruneSafeguardsSubstatWeights(prev.substatWeights, sorted)
       return { ...prev, substats: sorted, substatMatch: nextMatch, substatWeights: nextWeights }
     })
@@ -1368,7 +1366,7 @@ export default function SafeguardBuilderPanel({
                   aria-label={t('clear')}
                   tooltip={t('clear')}
                   onClick={() => {
-                    updateRule((prev) => ({ ...prev, substats: [], substatMatch: SafeguardSubstatMatch.Any, substatWeights: {} }))
+                    updateRule((prev) => ({ ...prev, substats: [], substatMatch: SafeguardSubstatMatch.Min1, substatWeights: {} }))
                   }}
                 />
               )
@@ -1475,45 +1473,71 @@ export default function SafeguardBuilderPanel({
         {/* mt: 0.75 provides the same 6px spacing that the outer Box gap used to supply, but only
             while the Collapse is mounted — preventing phantom height when the section is collapsed. */}
         <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'nowrap', overflow: 'hidden', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
-          {/* Match mode chip woven with weights configure button.
-              Chip cycles Any→All→Per Substat; button opens weights popover.
-              Split-button pattern mirrors Final Sell: chip has flat right side,
-              button attaches with matching background and a thin separator. */}
-          <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-            <MarkdownTooltip markdown={t('safeguardsSubstatRequirementHint')}>
+          {/* Min-count chips (≥1–≥4) + Per Substat chip + weights button.
+              Clicking a count chip sets substatMatch to the corresponding threshold.
+              Chips above the current substat selection count are disabled (can't be met).
+              Per Substat applies the quota independently to each substat and closes weights. */}
+          <MarkdownTooltip markdown={t('safeguardsSubstatRequirementHint')}>
+            <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, gap: 0.5 }}>
+              {SAFEGUARD_SUBSTAT_MIN_COUNTS.map((count) => {
+                const countNum = parseInt(count, 10)
+                // Chip is active when it matches the current (non-mixed) display mode.
+                const isActive = !substatMatchMixed && displaySubstatMatch === count
+                // Chips beyond the selection size cannot be satisfied; disable them.
+                const overLimit = countNum > substatSelection.length
+                const chipDisabled = (!hasSubstatSelection && !multiEditActive) || overLimit
+                return (
+                  <Chip
+                    key={count}
+                    size="small"
+                    variant={isActive ? 'filled' : 'outlined'}
+                    label={`\u2265${count}`}
+                    aria-label={`${t('safeguardsSubstatRequirementLabel')} \u2265${count}`}
+                    clickable={!chipDisabled}
+                    disabled={chipDisabled}
+                    onClick={() => {
+                      if (chipDisabled) return
+                      if (multiEditActive && multiEdit) {
+                        multiEdit.updateField('substatMatch', { value: count, status: 'common' })
+                        return
+                      }
+                      updateRule((prev) => ({ ...prev, substatMatch: count }))
+                    }}
+                    sx={{
+                      ...builderStatusChipSx(isActive, { dimDisabled: true }),
+                      ...(substatMatchMixed ? {
+                        borderStyle: 'dashed',
+                        borderColor: mixedBorderColor,
+                        color: mixedTextColor,
+                        backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                      } : {}),
+                    }}
+                  />
+                )
+              })}
+              {/* Per Substat chip — mutually exclusive with count chips */}
               <Chip
                 size="small"
-                variant="filled"
-                label={substatMatchMixed
-                  ? `${t('filterMatch')}:${NBSP}(${t('builderMultiEditMixedShort')})`
-                  : `${t('filterMatch')}:${NBSP}${displayMatchLabel}`}
-                aria-label={t('safeguardsSubstatRequirementLabel')}
-                clickable
+                variant={!substatMatchMixed && displaySubstatMatch === SafeguardSubstatMatch.PerSubstat ? 'filled' : 'outlined'}
+                label={t('safeguardsSubstatRequirementPer')}
+                aria-label={t('safeguardsSubstatRequirementPer')}
+                clickable={hasSubstatSelection || multiEditActive}
                 disabled={!hasSubstatSelection && !multiEditActive}
                 onClick={() => {
                   if (!hasSubstatSelection && !multiEditActive) return
+                  // Close weights popover — Per Substat disables weight controls.
+                  setWeightsAnchorEl(null)
                   if (multiEditActive && multiEdit) {
-                    // Cycle from current staged match value.
-                    const next = displaySubstatMatch === SafeguardSubstatMatch.Any ? SafeguardSubstatMatch.All
-                      : displaySubstatMatch === SafeguardSubstatMatch.All ? SafeguardSubstatMatch.PerSubstat
-                      : SafeguardSubstatMatch.Any
-                    if (next === SafeguardSubstatMatch.PerSubstat) setWeightsAnchorEl(null)
-                    multiEdit.updateField('substatMatch', { value: next, status: 'common' })
+                    multiEdit.updateField('substatMatch', { value: SafeguardSubstatMatch.PerSubstat, status: 'common' })
                     return
                   }
-                  // Single-edit: cycle Any → All → PerSubstat → Any.
-                  const next = effectiveSubstatMatch === SafeguardSubstatMatch.Any ? SafeguardSubstatMatch.All
-                    : effectiveSubstatMatch === SafeguardSubstatMatch.All ? SafeguardSubstatMatch.PerSubstat
-                    : SafeguardSubstatMatch.Any
-                  // Per Substat disables weights — close the popover so it doesn't linger.
-                  if (next === SafeguardSubstatMatch.PerSubstat) setWeightsAnchorEl(null)
-                  updateRule((prev) => ({ ...prev, substatMatch: next }))
+                  updateRule((prev) => ({ ...prev, substatMatch: SafeguardSubstatMatch.PerSubstat }))
                 }}
                 sx={{
-                  ...builderStatusChipSx(true, { dimDisabled: true }),
-                  // Flatten right corners so the configure button fits flush.
-                  borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px 0 0 ${STATUS_CHIP_BORDER_RADIUS_PX}px`,
-                  // Mixed overlay: dashed border + hatched gradient + muted text.
+                  ...builderStatusChipSx(
+                    !substatMatchMixed && displaySubstatMatch === SafeguardSubstatMatch.PerSubstat,
+                    { dimDisabled: true },
+                  ),
                   ...(substatMatchMixed ? {
                     borderStyle: 'dashed',
                     borderColor: mixedBorderColor,
@@ -1522,44 +1546,39 @@ export default function SafeguardBuilderPanel({
                   } : {}),
                 }}
               />
-            </MarkdownTooltip>
-            {/* Weights configure button — square left side continues the chip shape */}
-            <IconButton
-              size="small"
-              aria-label={t('safeguardsSubstatWeightsLabel')}
-              disabled={!hasSubstatSelection && !multiEditActive}
-              onClick={(e) => setWeightsAnchorEl(e.currentTarget)}
-              sx={(theme) => {
-                // Button is enabled whenever substats are selected, regardless of match mode.
-                // The candidate list is useful even in PerSubstat mode (equal-weight ranking).
-                const canInteract = hasSubstatSelection || multiEditActive
-                // Match chip background uses green when substats are selected (always green-colored).
-                const chipEnabled = hasSubstatSelection
-                const bg = chipEnabled ? alpha(theme.palette.success.main, 0.18) : alpha(theme.palette.text.disabled, 0.08)
-                const color = chipEnabled
-                  ? (theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark)
-                  : theme.palette.text.disabled
-                return {
-                  height: BUILDER_STATUS_CHIP_HEIGHT_PX,
-                  minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
-                  width: BUILDER_STATUS_CHIP_HEIGHT_PX,
-                  borderRadius: `0 ${STATUS_CHIP_BORDER_RADIUS_PX}px ${STATUS_CHIP_BORDER_RADIUS_PX}px 0`,
-                  backgroundColor: bg,
-                  color: canInteract ? color : alpha(color, 0.45),
-                  borderLeft: `1px solid ${chipEnabled ? alpha(theme.palette.success.main, 0.28) : alpha(theme.palette.divider, 0.5)}`,
-                  '&:hover': canInteract ? { backgroundColor: alpha(theme.palette.success.main, 0.28) } : {},
-                  '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: alpha(color, 0.35) },
-                  // Mixed overlay when match mode differs across selected rules.
-                  ...(substatMatchMixed ? {
-                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                    color: mixedTextColor,
-                  } : {}),
-                }
-              }}
-            >
-              <TuneIcon sx={{ fontSize: 14 }} />
-            </IconButton>
-          </Box>
+              {/* Weights configure button — attaches flush to the right of the chip row */}
+              <IconButton
+                size="small"
+                aria-label={t('safeguardsSubstatWeightsLabel')}
+                disabled={!hasSubstatSelection && !multiEditActive}
+                onClick={(e) => setWeightsAnchorEl(e.currentTarget)}
+                sx={(theme) => {
+                  const canInteract = hasSubstatSelection || multiEditActive
+                  const chipEnabled = hasSubstatSelection
+                  const bg = chipEnabled ? alpha(theme.palette.success.main, 0.18) : alpha(theme.palette.text.disabled, 0.08)
+                  const color = chipEnabled
+                    ? (theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark)
+                    : theme.palette.text.disabled
+                  return {
+                    height: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                    minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                    width: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                    borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                    backgroundColor: bg,
+                    color: canInteract ? color : alpha(color, 0.45),
+                    '&:hover': canInteract ? { backgroundColor: alpha(theme.palette.success.main, 0.28) } : {},
+                    '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: alpha(color, 0.35) },
+                    ...(substatMatchMixed ? {
+                      backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                      color: mixedTextColor,
+                    } : {}),
+                  }
+                }}
+              >
+                <TuneIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            </Box>
+          </MarkdownTooltip>
           {/* Beat-equipped quality floor chip woven with configure button.
               Chip toggles the floor on/off; button opens the percentile popover.
               Same split-button pattern as Match: flat right side on chip, button attaches flush. */}
@@ -1994,7 +2013,7 @@ export default function SafeguardBuilderPanel({
                 ignoreEquippedInVault: rule.ignoreEquippedInVault,
                 beatEquippedPercentile: rule.beatEquippedPercentile ?? null,
                 substats: rule.substats ?? [],
-                substatMatch: rule.substatMatch ?? SafeguardSubstatMatch.Any,
+                substatMatch: rule.substatMatch ?? SafeguardSubstatMatch.Min1,
                 substatWeights: rule.substatWeights ?? {},
               }
               const same = JSON.stringify(current) === JSON.stringify(factory)

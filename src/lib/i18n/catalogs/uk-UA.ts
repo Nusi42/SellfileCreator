@@ -93,8 +93,6 @@ const overrides: Catalog = {
   gearInspectorGridSafeguardChanceTooltipBucketCount: 'Порівнюваних предметів у цій групі: {count}',
   gearInspectorGridSafeguardChanceTooltipBetterCount: 'Предметів, що зараз кращі за цей: {count}',
   gearInspectorGridSafeguardChanceTooltipMatchedNow: 'Вибрані підстати вже присутні: {count}',
-  gearInspectorGridSafeguardChanceMatchModeAny: 'будь-який',
-  gearInspectorGridSafeguardChanceMatchModeAll: 'усі',
   gearInspectorGridSafeguardChanceMatchModePerSubstat: 'по-підстату',
   gearInspectorGridSafeguardChanceUnknownRule: '(захист без назви)',
   gearInspectorGridNormalizedTooltip: '**Показувати рейтинг підстатів** накладає той самий нормалізований бал, що й сортування **Normalized**:\n\n- **Бал = зважена сума** вибраних підстатів.\n- Кожен вибраний підстат має **вагу** (`0.1–3.0`, за замовчуванням `1.0`).\n- Кожен вибраний підстат масштабується за своїм **6★-лімітом ролу**: `значення / ліміт`.\n- Якщо предмет не має вибраного підстату, він додає **0**.\n- Якщо вибрано кілька пресетів, рейтинг бере **найкращий (max)** бал серед них (не середнє).\n- **Ураховуються лише підстати**. Сет, слот, ранг, рідкість і головний стат ігноруються.\n\nКолір оверлея відносний до поточного виду: **червоний = нижче**, **зелений = вище**.',
@@ -1358,8 +1356,6 @@ const overrides: Catalog = {
   noteSafeguardRaritiesLabel: 'Рідкості',
   noteSafeguardSubstatsLabel: 'Підстати',
   noteSafeguardSubstatRequirementLabel: 'Вимога підстатів',
-  noteSafeguardSubstatRequirementAny: 'Будь-який підстат',
-  noteSafeguardSubstatRequirementAll: 'Усі підстати',
   noteSafeguardSubstatRequirementPer: 'По підстату',
   noteSafeguardSubstatWeightsLabel: 'Ваги підстатів',
 

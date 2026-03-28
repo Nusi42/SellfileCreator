@@ -224,9 +224,9 @@ const buildTutorialSafeguardRules = (): SafeguardRule[] => [{
   ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
   ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
   beatEquippedPercentile: SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
-  // HP% and DEF% substats — any of them is sufficient (substatMatch: Any).
+  // HP% and DEF% substats — at least one is sufficient (substatMatch: Min1).
   substats: [StatVariant.HP, StatVariant.DEF],
-  substatMatch: SafeguardSubstatMatch.Any,
+  substatMatch: SafeguardSubstatMatch.Min1,
   substatWeights: {},
 }]
 

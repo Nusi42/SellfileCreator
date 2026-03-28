@@ -72,7 +72,6 @@ import {
   SAFEGUARD_WEIGHT_MIN,
   SAFEGUARD_WEIGHT_STEP,
   SAFEGUARD_SUBSTAT_ALL,
-  SAFEGUARD_SUBSTAT_ANY,
   SAFEGUARD_SUBSTAT_PER_SUBSTAT,
   RANK_VALUE_MAX,
   RANK_VALUE_MIN,
@@ -153,15 +152,26 @@ export type SafeguardRuleActivation =
   (typeof SafeguardRuleActivation)[keyof typeof SafeguardRuleActivation]
 
 // SafeguardSubstatMatch controls how multiple picked substats are matched.
+// Min1–Min4 set a numeric "at least N" threshold; PerSubstat applies the quota
+// independently to each substat. Legacy "any"/"all" tokens are migrated on load.
 export const SafeguardSubstatMatch = {
-  Any: SAFEGUARD_SUBSTAT_ANY,
-  All: SAFEGUARD_SUBSTAT_ALL,
+  Min1: '1',
+  Min2: '2',
+  Min3: '3',
+  Min4: '4',
   PerSubstat: SAFEGUARD_SUBSTAT_PER_SUBSTAT,
 } as const
 
 // eslint-disable-next-line no-redeclare -- allow constant/type pair
 export type SafeguardSubstatMatch =
   (typeof SafeguardSubstatMatch)[keyof typeof SafeguardSubstatMatch]
+
+// SafeguardSubstatMinCount is the subset of SafeguardSubstatMatch values that
+// represent numeric thresholds (used by the UI chip row).
+export type SafeguardSubstatMinCount = '1' | '2' | '3' | '4'
+
+// SAFEGUARD_SUBSTAT_MIN_COUNTS is the ordered list of valid numeric threshold tokens.
+export const SAFEGUARD_SUBSTAT_MIN_COUNTS: SafeguardSubstatMinCount[] = ['1', '2', '3', '4']
 
 // normalizeSafeguardActivation keeps activation parsing consistent across keep-override rules.
 export const normalizeSafeguardActivation = (
@@ -181,15 +191,28 @@ export const normalizeSafeguardActivation = (
 }
 
 // normalizeSafeguardSubstatMatch keeps matching choices stable and case-insensitive.
-export const normalizeSafeguardSubstatMatch = (value: unknown): SafeguardSubstatMatch => {
+// substatCount is used to migrate legacy "all" tokens to the correct numeric threshold.
+export const normalizeSafeguardSubstatMatch = (
+  value: unknown,
+  substatCount?: number,
+): SafeguardSubstatMatch => {
   const token = typeof value === 'string' ? value.trim().toLowerCase() : ''
-  if (token === SafeguardSubstatMatch.All.toLowerCase()) {
-    return SafeguardSubstatMatch.All
-  }
+  // Pass-through numeric min-count tokens "1"–"4".
+  if (token === '1') return SafeguardSubstatMatch.Min1
+  if (token === '2') return SafeguardSubstatMatch.Min2
+  if (token === '3') return SafeguardSubstatMatch.Min3
+  if (token === '4') return SafeguardSubstatMatch.Min4
+  // perSubstat stays as-is.
   if (token === SafeguardSubstatMatch.PerSubstat.toLowerCase()) {
     return SafeguardSubstatMatch.PerSubstat
   }
-  return SafeguardSubstatMatch.Any
+  // Legacy "all" → migrate to the numeric count of the selected substats.
+  if (token === SAFEGUARD_SUBSTAT_ALL.toLowerCase()) {
+    const count = Math.min(Math.max(substatCount ?? 4, 1), 4)
+    return String(count) as SafeguardSubstatMinCount
+  }
+  // Legacy "any" and unknown values → at-least-one default.
+  return SafeguardSubstatMatch.Min1
 }
 
 export const isSafeguardRuleActive = (rule: SafeguardRule): boolean => (
@@ -343,7 +366,7 @@ export const createFactorySafeguardBuilderDefaults = (): SafeguardRule => ({
   ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
   ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
   substats: [],
-  substatMatch: SafeguardSubstatMatch.Any,
+  substatMatch: SafeguardSubstatMatch.Min1,
   substatWeights: {},
   beatEquippedPercentile: SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
 })
@@ -361,7 +384,7 @@ export const createSafeguardRuleContentSnapshot = (rule: SafeguardRule): Safegua
   ignoreEquippedInCollection: rule.ignoreEquippedInCollection,
   ignoreEquippedInVault: rule.ignoreEquippedInVault,
   substats: rule.substats ?? [],
-  substatMatch: rule.substatMatch ?? SafeguardSubstatMatch.Any,
+  substatMatch: rule.substatMatch ?? SafeguardSubstatMatch.Min1,
   substatWeights: rule.substatWeights ?? {},
   beatEquippedPercentile: rule.beatEquippedPercentile ?? null,
 })
@@ -791,10 +814,11 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   })()
   const parsedSubstatMatch = (
     Object.prototype.hasOwnProperty.call(record, 'substatMatch')
-      ? normalizeSafeguardSubstatMatch(record.substatMatch)
-      : SafeguardSubstatMatch.Any
+      // Pass substat count so legacy "all" migrates to the correct numeric threshold.
+      ? normalizeSafeguardSubstatMatch(record.substatMatch, parsedSubstats.length)
+      : SafeguardSubstatMatch.Min1
   )
-  const substatMatch = parsedSubstats.length === 0 ? SafeguardSubstatMatch.Any : parsedSubstatMatch
+  const substatMatch = parsedSubstats.length === 0 ? SafeguardSubstatMatch.Min1 : parsedSubstatMatch
 
   const weightsSource = (
     Object.prototype.hasOwnProperty.call(record, 'substatWeights')
@@ -841,9 +865,9 @@ export function normalizeSafeguardSubstatDependents(rule: SafeguardRule): Safegu
   if (next.beatEquippedPercentile !== SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE) {
     next = { ...next, beatEquippedPercentile: SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE }
   }
-  // substatMatch reverts to Any with no substats to match against.
-  if (next.substatMatch !== SafeguardSubstatMatch.Any) {
-    next = { ...next, substatMatch: SafeguardSubstatMatch.Any }
+  // substatMatch reverts to Min1 (at-least-one default) with no substats to match against.
+  if (next.substatMatch !== SafeguardSubstatMatch.Min1) {
+    next = { ...next, substatMatch: SafeguardSubstatMatch.Min1 }
   }
   // Prune any stale weight entries (none should remain without substats).
   const pruned = pruneSafeguardsSubstatWeights(next.substatWeights, substats)
@@ -1451,7 +1475,7 @@ export function constrainSafeguardSubstats(
     { slots: sortedCombination.slots, mainStats: sortedCombination.mainStats },
   ))
   // Substat match only applies when a selection exists; reset otherwise.
-  const nextMatch = filtered.length > 0 ? rule.substatMatch : SafeguardSubstatMatch.Any
+  const nextMatch = filtered.length > 0 ? rule.substatMatch : SafeguardSubstatMatch.Min1
   // Drop weight entries that no longer have a corresponding substat.
   const nextWeights = pruneSafeguardsSubstatWeights(rule.substatWeights, filtered)
   // Bail early when only the combination changed; avoids a needless re-render.

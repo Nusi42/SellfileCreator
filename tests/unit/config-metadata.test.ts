@@ -159,7 +159,7 @@ test('safeguard exports include sentinel RecipeID/RecipeName', () => {
     beatEquippedPercentile: null,
     // Keep the sample rule unfiltered by substats to mirror classic behavior.
     substats: [],
-    substatMatch: SafeguardSubstatMatch.Any,
+    substatMatch: SafeguardSubstatMatch.Min1,
     substatWeights: {},
   }
   const detection: SafeguardDetectionSnapshot = {

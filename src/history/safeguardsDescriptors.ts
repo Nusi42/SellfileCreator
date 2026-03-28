@@ -409,9 +409,12 @@ const formatSubstatMatch = (
   t: TranslateFn,
 ): string => {
   const normalized = normalizeSafeguardSubstatMatch(match)
-  if (normalized === 'all') return t('safeguardsSubstatRequirementAll')
-  if (normalized === 'perSubstat') return t('safeguardsSubstatRequirementPer')
-  return t('safeguardsSubstatRequirementAny')
+  // Per Substat is a named mode; count tokens display as "≥N".
+  if (normalized === SafeguardSubstatMatch.PerSubstat) return t('safeguardsSubstatRequirementPer')
+  // Numeric min-count tokens: show ≥1, ≥2, ≥3, ≥4.
+  const n = parseInt(normalized, 10)
+  if (Number.isFinite(n) && n >= 1) return `\u2265${n}`
+  return `\u22651`
 }
 
 const formatSubstatList = (rule: SafeguardRule, t: TranslateFn): string => {

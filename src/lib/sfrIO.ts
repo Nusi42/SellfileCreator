@@ -1155,11 +1155,11 @@ export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSa
     .filter((label) => Boolean(label && label.trim()))
   // Substat matching only matters when a selection exists.
   const hasSubstatSelection = substatLabels.length > 0
-  // Normalize the match so "Any" stays implicit unless the user overrides it.
+  // Normalize the match so Min1 (the default) stays implicit unless overridden.
   const normalizedSubstatMatch = normalizeSafeguardSubstatMatch(rule.substatMatch)
   const shouldSerializeMatch = hasSubstatSelection
-    && normalizedSubstatMatch !== SafeguardSubstatMatch.Any
-  // Weight controls are honored for Any/All; Per Substat uses equal weighting.
+    && normalizedSubstatMatch !== SafeguardSubstatMatch.Min1
+  // Weight controls are honored for min-count modes; Per Substat uses equal weighting.
   const allowSubstatWeights = hasSubstatSelection
     && normalizedSubstatMatch !== SafeguardSubstatMatch.PerSubstat
   // Serialize weights by readable label, but only for selected substats.

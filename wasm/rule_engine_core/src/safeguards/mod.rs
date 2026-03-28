@@ -614,14 +614,38 @@ pub fn safeguard_resolve_count_mode(
 pub fn safeguard_normalize_substat_match(raw: &str) -> String {
     // Normalize whitespace/casing so persisted files and UI payloads match.
     let trimmed = raw.trim();
-    // Unknown tokens collapse to `any` to stay backward compatible.
-    if trimmed.eq_ignore_ascii_case(SAFEGUARD_SUBSTAT_ALL) {
-        return SAFEGUARD_SUBSTAT_ALL.to_string();
-    }
+    // perSubstat is a separate mode — pass through unchanged.
     if trimmed.eq_ignore_ascii_case(SAFEGUARD_SUBSTAT_PER_SUBSTAT) {
         return SAFEGUARD_SUBSTAT_PER_SUBSTAT.to_string();
     }
-    SAFEGUARD_SUBSTAT_ANY.to_string()
+    // Legacy "all" token: keep as-is so safeguard_substat_min_count can resolve it
+    // against the actual selection length at match time.
+    if trimmed.eq_ignore_ascii_case(SAFEGUARD_SUBSTAT_ALL) {
+        return SAFEGUARD_SUBSTAT_ALL.to_string();
+    }
+    // Numeric min-count tokens "1"–"4": pass through.
+    if let Ok(n) = trimmed.parse::<u8>() {
+        if n >= 1 && n <= 4 {
+            return n.to_string();
+        }
+    }
+    // Legacy "any" and unknown tokens collapse to "1" (at-least-one default).
+    "1".to_string()
+}
+
+/// Returns the minimum number of selected substats that must be present.
+/// Handles both legacy "all"/"any" tokens and new numeric "1"–"4" tokens.
+pub(super) fn safeguard_substat_min_count(substat_match: &str, selected_len: usize) -> usize {
+    // Legacy "all": every selected substat is required.
+    if substat_match == SAFEGUARD_SUBSTAT_ALL {
+        return selected_len;
+    }
+    // Numeric tokens specify the exact threshold; clamp to at least 1.
+    if let Ok(n) = substat_match.trim().parse::<usize>() {
+        return n.max(1);
+    }
+    // "any" / unknown → at least one.
+    1
 }
 
 fn safeguard_normalize_weight(raw: f64) -> f64 {
@@ -2111,25 +2135,23 @@ fn safeguard_candidate_matches_substats(
     if selected_substats.is_empty() {
         return true;
     }
-    // Compute count once and evaluate mode-specific threshold below.
     let matched = safeguard_count_selected_substats(artifact, selected_substats);
-    // `all` requires every possible selected variant; other modes require any hit.
-    if substat_match == SAFEGUARD_SUBSTAT_ALL {
-        // Substats that equal the piece's mainstat can never appear on that piece and
-        // must not count toward the required total. SAFEGUARD_MAIN_ANY means no
-        // mainstat restriction is known, so keep the full selection as required.
-        let effective_required = if artifact.main_stat == SAFEGUARD_MAIN_ANY {
-            selected_substats.len()
-        } else {
-            selected_substats.iter().filter(|&&v| v != artifact.main_stat).count()
-        };
-        // Vacuously satisfied when every selected substat conflicts with the mainstat.
-        if effective_required == 0 {
-            return true;
-        }
-        return matched >= effective_required;
+    // Resolve the minimum count threshold from the match token.
+    let min_count = safeguard_substat_min_count(substat_match, selected_substats.len());
+    // Substats that duplicate the piece's mainstat can never appear on that piece;
+    // they must not inflate the required total. SAFEGUARD_MAIN_ANY = no restriction.
+    let possible_count = if artifact.main_stat == SAFEGUARD_MAIN_ANY {
+        selected_substats.len()
+    } else {
+        selected_substats.iter().filter(|&&v| v != artifact.main_stat).count()
+    };
+    // Effective requirement is capped at what is actually achievable on this piece.
+    let effective_required = min_count.min(possible_count);
+    // Vacuously satisfied when no possible substat can satisfy the filter.
+    if effective_required == 0 {
+        return true;
     }
-    matched > 0
+    matched >= effective_required
 }
 
 // pub(super) so upgrade_chance can resolve weights with the shared fallback rule.

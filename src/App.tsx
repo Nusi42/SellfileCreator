@@ -906,7 +906,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
     beatEquippedPercentile: SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
     substats: [],
-    substatMatch: SafeguardSubstatMatch.Any,
+    substatMatch: SafeguardSubstatMatch.Min1,
     substatWeights: {},
   }))
   const safeguardBuilder = safeguardBuilderState
@@ -2106,7 +2106,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       requiredCount: 2,
       activation: SafeguardRuleActivation.AnticipateGaps,
       substats: [...(recipe.substatsV ?? [])],
-      substatMatch: SafeguardSubstatMatch.Any,
+      substatMatch: SafeguardSubstatMatch.Min1,
       substatWeights: {},
     }
   }, [customRecipes])
