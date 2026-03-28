@@ -23,8 +23,8 @@ import {
   computeChampSubstatTotalStats,
   type ChampSubstatStats,
   type ChampionDisplayInfo,
-  type ChampLensLocation,
-} from '../../lib/champLens'
+  type ChampAnalyticsLocation,
+} from '../../lib/champAnalytics'
 import { championIconUrl } from '../../lib/iconMaps/championIconMap'
 import { resolveRarityAccentColor } from '../../lib/rarityColors'
 import { CHAMPION_ICON_BORDER_RADIUS_PX } from '../../lib/constants'
@@ -276,11 +276,11 @@ const LS_FULLY_EQUIPPED   = 'gearAnalytics.champFullyEquipped'
 const LS_INCLUDE_GLYPHS   = 'gearAnalytics.champIncludeGlyphs'
 
 // Factory defaults — used both on first load and when the parent resets to defaults.
-const DEFAULT_LOCATION: ChampLensLocation = 'collection'
+const DEFAULT_LOCATION: ChampAnalyticsLocation = 'collection'
 const DEFAULT_FULLY_EQUIPPED = true
 const DEFAULT_INCLUDE_GLYPHS = true
 
-function readLocation(): ChampLensLocation {
+function readLocation(): ChampAnalyticsLocation {
   const v = localStorage.getItem(LS_LOCATION)
   if (v === 'all' || v === 'collection' || v === 'vault') return v
   return DEFAULT_LOCATION
@@ -302,7 +302,7 @@ export function GearAnalyticsChampStats({ rows, resetKey }: Props) {
   const { statButtonBorders } = useDisplayPreferences()
 
   // Filter/display state: persisted to localStorage so the user's preference survives reloads.
-  const [location, setLocation] = useState<ChampLensLocation>(readLocation)
+  const [location, setLocation] = useState<ChampAnalyticsLocation>(readLocation)
   const [fullyEquippedOnly, setFullyEquippedOnly] = useState<boolean>(readFullyEquipped)
   // When true, adds each substat's glyphValue to totalValue in the chart calculations.
   const [includeGlyphs, setIncludeGlyphs] = useState<boolean>(readIncludeGlyphs)
@@ -365,7 +365,7 @@ export function GearAnalyticsChampStats({ rows, resetKey }: Props) {
           size="small"
           exclusive
           value={location}
-          onChange={(_e, val) => { if (val !== null) setLocation(val as ChampLensLocation) }}
+          onChange={(_e, val) => { if (val !== null) setLocation(val as ChampAnalyticsLocation) }}
         >
           <ToggleButton value="all" sx={{ py: 0.5, px: 1.5, fontSize: '0.75rem' }}>
             {t('gearAnalyticsChampLocationAll')}

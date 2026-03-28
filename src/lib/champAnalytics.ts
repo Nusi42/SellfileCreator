@@ -1,5 +1,5 @@
 /**
- * champLens.ts
+ * champAnalytics.ts
  *
  * Pure aggregation functions for the Champion Stats section of the Gear Analytics tab.
  * Builds per-champion gear profiles from a snapshot of GearInspectorPreviewRow[].
@@ -13,7 +13,7 @@ import { PREFERRED_ARTIFACT_TYPE_ORDER, STAT_VARIANTS_PRIORITY, StatVariant } fr
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 /** Location filter options for the Champion Stats section. */
-export type ChampLensLocation = 'all' | 'collection' | 'vault'
+export type ChampAnalyticsLocation = 'all' | 'collection' | 'vault'
 
 /**
  * One per unique equipped champion across all loaded gear rows.
@@ -122,7 +122,7 @@ export function buildChampionGearProfiles(
  */
 export function filterChampionProfiles(
   profiles: readonly ChampionGearProfile[],
-  location: ChampLensLocation,
+  location: ChampAnalyticsLocation,
   fullyEquippedOnly: boolean,
 ): ChampionGearProfile[] {
   return profiles.filter((p) => {
