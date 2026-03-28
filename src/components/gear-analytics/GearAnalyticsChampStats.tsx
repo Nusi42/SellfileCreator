@@ -10,12 +10,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Box,
+  Collapse,
+  IconButton,
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
   Typography,
   useTheme,
 } from '@mui/material'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
 import {
   buildChampionGearProfiles,
@@ -37,6 +41,10 @@ type Props = {
   rows: readonly GearInspectorPreviewRow[]
   /** Increment from outside to reset all controls to their factory defaults. */
   resetKey?: number
+  /** When true, the chart body is hidden and only the title row remains visible. */
+  collapsed?: boolean
+  /** Called when the user clicks the collapse chevron; applyToAll = Ctrl/Cmd+click or right-click. */
+  onToggleCollapse?: (applyToAll: boolean) => void
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -296,7 +304,7 @@ function readIncludeGlyphs(): boolean {
   return v === null ? DEFAULT_INCLUDE_GLYPHS : v === 'true'
 }
 
-export function GearAnalyticsChampStats({ rows, resetKey }: Props) {
+export function GearAnalyticsChampStats({ rows, resetKey, collapsed, onToggleCollapse }: Props) {
   const { t } = useI18n()
   const [substatColors] = useSubstatColors()
   const { statButtonBorders } = useDisplayPreferences()
@@ -347,17 +355,29 @@ export function GearAnalyticsChampStats({ rows, resetKey }: Props) {
 
   return (
     <Box>
-      {/* Section header */}
-      <Tooltip title={t('gearAnalyticsChampStatsTitleDesc')} arrow placement="top-start">
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem', display: 'inline-block', mb: 1, cursor: 'help' }}
-        >
-          {t('gearAnalyticsChampStatsTitle')}
-        </Typography>
-      </Tooltip>
-
+      {/* Title row — chevron toggles collapse; tooltip on the label for context. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1, minWidth: 0 }}>
+        {onToggleCollapse && (
+          <IconButton
+            size="small"
+            onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
+            sx={{ p: 0.25, flexShrink: 0 }}
+          >
+            {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+          </IconButton>
+        )}
+        <Tooltip title={t('gearAnalyticsChampStatsTitleDesc')} arrow placement="top-start">
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem', display: 'inline-block', cursor: 'help' }}
+          >
+            {t('gearAnalyticsChampStatsTitle')}
+          </Typography>
+        </Tooltip>
+      </Box>
+      <Collapse in={!collapsed} timeout="auto">
       {/* Filter controls: location | fully-equipped | include glyphs */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5, flexWrap: 'wrap' }}>
         {/* Champion location filter */}
@@ -415,6 +435,7 @@ export function GearAnalyticsChampStats({ rows, resetKey }: Props) {
           ))}
         </Box>
       )}
+      </Collapse>
     </Box>
   )
 }

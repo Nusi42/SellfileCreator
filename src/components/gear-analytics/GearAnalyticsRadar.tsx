@@ -16,7 +16,9 @@
  * dance animation on the polygon.  10 distinct variants are available.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, Chip, Tooltip, Typography, useTheme } from '@mui/material'
+import { Box, Button, Chip, Collapse, IconButton, Tooltip, Typography, useTheme } from '@mui/material'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { alpha } from '@mui/material/styles'
 import { RadarChart } from '@mui/x-charts/RadarChart'
 import { HEATMAP_VARIANTS, statVariantI18nKey } from '../../lib/gearAnalytics'
@@ -63,6 +65,10 @@ type Props = {
    * Ignored when a self-triggered dance is already running.
    */
   peerDanceTrigger?: GearAnalyticsEggPeer | null
+  /** When true, the chart body is hidden and only the title row remains visible. */
+  collapsed?: boolean
+  /** Called when the user clicks the collapse chevron; applyToAll = Ctrl/Cmd+click or right-click. */
+  onToggleCollapse?: (applyToAll: boolean) => void
 }
 
 /** Ease-in-out cubic: maps a linear 0→1 progress to a smooth 0→1 curve. */
@@ -161,7 +167,7 @@ function applyRadarDance(
   return base.map((v) => Math.max(v * (1 - lerpW) + (maxBase - v) * lerpW, 0))
 }
 
-export function GearAnalyticsRadar({ title, description, data, referenceData, selectedSubstat, onToggleSubstat, onClearSubstat, onEasterEgg, peerDanceTrigger }: Props) {
+export function GearAnalyticsRadar({ title, description, data, referenceData, selectedSubstat, onToggleSubstat, onClearSubstat, onEasterEgg, peerDanceTrigger, collapsed, onToggleCollapse }: Props) {
   const theme = useTheme()
   const { t } = useI18n()
   const { statButtonBorders } = useDisplayPreferences()
@@ -398,16 +404,29 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
 
   return (
     <Box ref={chartRef}>
-      {/* Title — same style as GearAnalyticsBar. Tooltip appears when a description is provided. */}
-      <Tooltip title={description ?? ''} arrow placement="top-start">
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem', display: 'inline-block', mb: 0.5, cursor: description ? 'help' : 'default' }}
-        >
-          {title}
-        </Typography>
-      </Tooltip>
+      {/* Title row — chevron toggles collapse; tooltip on the label when a description is provided. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, minWidth: 0 }}>
+        {onToggleCollapse && (
+          <IconButton
+            size="small"
+            onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
+            sx={{ p: 0.25, flexShrink: 0 }}
+          >
+            {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+          </IconButton>
+        )}
+        <Tooltip title={description ?? ''} arrow placement="top-start">
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem', display: 'inline-block', cursor: description ? 'help' : 'default' }}
+          >
+            {title}
+          </Typography>
+        </Tooltip>
+      </Box>
+      <Collapse in={!collapsed} timeout="auto">
 
       {/*
        * RadarChart from MUI X v8.
@@ -495,6 +514,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
           />
         ))}
       </Box>
+      </Collapse>
     </Box>
   )
 }

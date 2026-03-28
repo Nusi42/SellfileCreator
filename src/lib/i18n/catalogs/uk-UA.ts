@@ -261,6 +261,8 @@ const overrides: Catalog = {
   gearAnalyticsCopied: 'Скопійовано!',
   gearAnalyticsApplyToInspectorTip: 'Застосувати активні перехресні фільтри до списку Gear Inspector. Потрібен хоча б один активний фільтр.',
   gearAnalyticsApplyToInspector: 'Застосувати до Gear Inspector',
+  gearAnalyticsCopyFromInspectorTip: 'Замінює поточний перехресний фільтр активним фільтром Gear Inspector. Доступно лише коли в Gear Inspector є хоча б один активний вимір фільтра.',
+  gearAnalyticsCopyFromInspector: 'Копіювати з Gear Inspector',
   gearAnalyticsTotal: 'Всього',
   gearAnalyticsChartSlot: 'Слоти',
   gearAnalyticsChartRank: 'Ранг',
@@ -300,6 +302,15 @@ const overrides: Catalog = {
   gearAnalyticsSeriesAvg: 'Сер',
   gearAnalyticsSeriesMedian: 'Медіана',
   gearAnalyticsSeriesMax: 'Макс',
+  // Not Fully Equipped section.
+  gearAnalyticsNotEquippedTitle: 'Не повністю екіпірований',
+  gearAnalyticsNotEquippedTitleDesc: 'Чемпіони з хоча б одним порожнім слотом снарядження. Сітка: заповнено = вдягнено, контур = порожньо.',
+  gearAnalyticsSortLabel: 'Сортування',
+  gearAnalyticsSortOff: 'Вимк.',
+  gearAnalyticsSlotModeAll: 'Усі',
+  gearAnalyticsSlotModeArtifacts: 'Артефакти',
+  gearAnalyticsSlotModeAccessories: 'Аксесуари',
+
   dungeonDropsIntro: 'Симулюйте дропи підземель, використовуючи поточні правила Sellfile (HSF), щоб оцінити, скільки екіпірування зберігається за сетом і рівневим рубежем.',
   dungeonDropsExplanation: 'Відсотки в таблиці — це збережені дропи, поділені на всі дропи цієї стадії; посилені сети змінюють лише ваги сетів.',
   // Simulation roll assumptions and run count.

@@ -12,7 +12,9 @@
  * Optional arcLabel: custom text label function for arcs (used when no slotIconById is given).
  */
 import { createContext, useContext, useEffect, useMemo, useRef } from 'react'
-import { alpha, Box, Typography, useTheme } from '@mui/material'
+import { alpha, Box, Collapse, IconButton, Typography, useTheme } from '@mui/material'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { PieChart } from '@mui/x-charts'
 import {
   useItemTooltip,
@@ -79,6 +81,10 @@ type Props = {
    *   rage    — instant angry inflate+tint burst (pie "furious" reaction).
    */
   peerDanceTrigger?: GearAnalyticsEggPeer | null
+  /** When true, the chart body is hidden and only the title row remains visible. */
+  collapsed?: boolean
+  /** Called when the user clicks the collapse chevron; applyToAll = Ctrl/Cmd+click or right-click. */
+  onToggleCollapse?: (applyToAll: boolean) => void
 }
 
 // Palette of distinct colors for the pie slices — cycles if more slices than colors.
@@ -414,7 +420,7 @@ function triggerDonutDance(el: HTMLElement): void {
   }
 }
 
-export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleClickItem, height = 220, colorBySliceId, slotIconById, arcLabel, arcLabelMinAngleDeg = 15, iconSize = 14, onEasterEgg, peerDanceTrigger }: Props) {
+export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleClickItem, height = 220, colorBySliceId, slotIconById, arcLabel, arcLabelMinAngleDeg = 15, iconSize = 14, onEasterEgg, peerDanceTrigger, collapsed, onToggleCollapse }: Props) {
   const theme = useTheme()
 
   // Pre-build icon map: String(domainId) → SlotIconAsset.
@@ -472,9 +478,25 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
   // No data: render a placeholder so the layout stays stable.
   if (data.length === 0) {
     return (
-      <Box sx={{ textAlign: 'center', height, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
-        <Typography variant="caption" color="text.secondary">{title}</Typography>
-        <Typography variant="caption" color="text.secondary">—</Typography>
+      <Box sx={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, mb: 0.5 }}>
+          {onToggleCollapse && (
+            <IconButton
+              size="small"
+              onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
+              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
+              sx={{ p: 0.25, flexShrink: 0 }}
+            >
+              {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+            </IconButton>
+          )}
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem' }}>{title}</Typography>
+        </Box>
+        <Collapse in={!collapsed} timeout="auto">
+          <Box sx={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Typography variant="caption" color="text.secondary">—</Typography>
+          </Box>
+        </Collapse>
       </Box>
     )
   }
@@ -538,9 +560,23 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
     <SlotIconContext.Provider value={iconMap ? { iconMap, data, iconSize } : null}>
       {/* ref target for WAAPI dance animations — the whole donut bounces/spins/etc. */}
       <Box ref={containerRef} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem' }}>
-          {title}
-        </Typography>
+        {/* Title row — chevron toggles collapse of the pie chart below. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, mb: 0.5 }}>
+          {onToggleCollapse && (
+            <IconButton
+              size="small"
+              onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
+              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
+              sx={{ p: 0.25, flexShrink: 0 }}
+            >
+              {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+            </IconButton>
+          )}
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem' }}>
+            {title}
+          </Typography>
+        </Box>
+        <Collapse in={!collapsed} timeout="auto">
         <PieChart
           series={[{
             data: seriesData,
@@ -568,6 +604,7 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
             '& .MuiPieArc-root': { cursor: 'pointer' },
           }}
         />
+        </Collapse>
       </Box>
     </SlotIconContext.Provider>
   )

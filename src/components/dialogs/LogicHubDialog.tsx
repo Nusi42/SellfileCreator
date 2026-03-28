@@ -65,6 +65,8 @@ type LogicHubDialogProps = {
   gearInspectorPreviewRows: readonly GearInspectorPreviewRow[]
   // Called when the user requests applying the Gear Analytics filter to the Gear Inspector.
   onApplyGearAnalyticsFilter?: (dim: GearAnalyticsDim) => void
+  // Current gear inspector filter expressed as a GearAnalyticsDim, for the "Copy from Gear Inspector" button.
+  gearInspectorDim?: GearAnalyticsDim | null
   // Propagates the main app's layout choice so empty-state messaging stays consistent across panes.
   emptyStateVerticalAlign?: EmptyStateMessageProps['verticalAlign']
 }
@@ -94,6 +96,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     recipeOverridesActive,
     gearInspectorPreviewRows,
     onApplyGearAnalyticsFilter,
+    gearInspectorDim,
     emptyStateVerticalAlign = 'center',
   } = props
   const { t } = useI18n()
@@ -510,7 +513,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
         )}
         {showGearStatsTab && (
           // Gear Analytics receives all loaded rows so stats always reflect the full inventory.
-          <GearAnalyticsTabContent rows={gearInspectorPreviewRows} onApplyToGearInspector={onApplyGearAnalyticsFilter} resetKey={gearAnalyticsResetKey} />
+          <GearAnalyticsTabContent rows={gearInspectorPreviewRows} onApplyToGearInspector={onApplyGearAnalyticsFilter} {...(gearInspectorDim !== undefined && { gearInspectorDim })} resetKey={gearAnalyticsResetKey} />
         )}
       </DialogContent>
       <DialogActions sx={{ px: STANDARD_DIALOG_PADDING_INLINE_UNITS, py: STANDARD_DIALOG_PADDING_BLOCK_UNITS }}>

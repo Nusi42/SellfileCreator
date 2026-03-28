@@ -261,6 +261,8 @@ const overrides: Catalog = {
   gearAnalyticsCopied: 'Kopiert!',
   gearAnalyticsApplyToInspectorTip: 'Aktive Kreuzfilter-Auswahl auf die Gear-Inspector-Liste anwenden. Erfordert mindestens einen aktiven Filter.',
   gearAnalyticsApplyToInspector: 'Im Gear Inspector anwenden',
+  gearAnalyticsCopyFromInspectorTip: 'Ersetzt den aktuellen Kreuzfilter durch den aktiven Gear-Inspector-Filter. Nur aktiv, wenn der Gear Inspector mindestens eine aktive Filterdimension hat.',
+  gearAnalyticsCopyFromInspector: 'Von Gear Inspector kopieren',
   gearAnalyticsTotal: 'Gesamt',
   gearAnalyticsChartSlot: 'Slots',
   gearAnalyticsChartRank: 'Rang',
@@ -300,6 +302,14 @@ const overrides: Catalog = {
   gearAnalyticsSeriesAvg: 'Mittel',
   gearAnalyticsSeriesMedian: 'Median',
   gearAnalyticsSeriesMax: 'Max',
+  // Not Fully Equipped section.
+  gearAnalyticsNotEquippedTitle: 'Nicht vollst\u00e4ndig ausr\u00fcstung',
+  gearAnalyticsNotEquippedTitleDesc: 'Champions mit mindestens einem leeren Ausr\u00fcstungsslot. Raster: ausgef\u00fcllt = ausr\u00fcstung, Umriss = leer.',
+  gearAnalyticsSortLabel: 'Sortieren',
+  gearAnalyticsSortOff: 'Aus',
+  gearAnalyticsSlotModeAll: 'Alle',
+  gearAnalyticsSlotModeArtifacts: 'Artefakte',
+  gearAnalyticsSlotModeAccessories: 'Accessoires',
   dungeonDropsIntro: 'Simuliere Dungeon-Drops mit deinen aktuellen Sellfile-Regeln (HSF), um zu schätzen, wie viel Ausrüstung pro Set und Stufenmeilenstein behalten wird.',
   dungeonDropsExplanation: 'Tabellen-Prozente sind behaltene Drops geteilt durch alle Drops dieser Stufe; geboostete Sets ändern nur die Set-Gewichte.',
   // Simulation roll assumptions and run count.

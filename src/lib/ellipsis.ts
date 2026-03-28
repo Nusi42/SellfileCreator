@@ -21,7 +21,9 @@ export const pickEllipsisTarget = (root: HTMLElement, selector?: string): HTMLEl
   return target || root
 }
 
-const CSS_WIDTH_TOLERANCE_PX = 2
+// Tolerance of 1px guards against sub-pixel rounding while still catching names
+// that overflow by a single CSS pixel (scrollWidth and offsetWidth are integers).
+const CSS_WIDTH_TOLERANCE_PX = 1
 
 export const hasEllipsisOverflow = (rootEl?: HTMLElement | null, selector?: string): boolean => {
   try {

@@ -262,6 +262,8 @@ const enUS: Catalog = {
   gearAnalyticsCopied: 'Copied!',
   gearAnalyticsApplyToInspectorTip: 'Apply the active cross-filter selections to the Gear Inspector list. Requires at least one active filter.',
   gearAnalyticsApplyToInspector: 'Apply to Gear Inspector',
+  gearAnalyticsCopyFromInspectorTip: 'Replace the current cross-filter with the active Gear Inspector filter. Enabled only when the Gear Inspector has at least one active filter dimension.',
+  gearAnalyticsCopyFromInspector: 'Copy from Gear Inspector',
   gearAnalyticsTotal: 'Total',
   gearAnalyticsChartSlot: 'Slots',
   gearAnalyticsChartRank: 'Rank',
@@ -302,6 +304,14 @@ const enUS: Catalog = {
   gearAnalyticsSeriesAvg: 'Avg',
   gearAnalyticsSeriesMedian: 'Median',
   gearAnalyticsSeriesMax: 'Max',
+  // Not Fully Equipped section.
+  gearAnalyticsNotEquippedTitle: 'Not Fully Equipped',
+  gearAnalyticsNotEquippedTitleDesc: 'Champions with at least one empty gear slot. Grid: filled = equipped, outline = empty.',
+  gearAnalyticsSortLabel: 'Sort',
+  gearAnalyticsSortOff: 'Off',
+  gearAnalyticsSlotModeAll: 'All',
+  gearAnalyticsSlotModeArtifacts: 'Artifacts',
+  gearAnalyticsSlotModeAccessories: 'Accessories',
   dungeonDropsIntro: 'Simulate dungeon drops using your current Sellfile rules (HSF) to estimate how much gear is kept per set and level milestone.',
   dungeonDropsExplanation: 'Table percentages are kept drops divided by all drops for that stage; boosted sets only change set weights.',
   // Simulation roll assumptions and run count.

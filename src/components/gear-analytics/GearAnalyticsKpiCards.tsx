@@ -4,7 +4,7 @@
  * Row of eight KPI metric cards showing inventory health at a glance.
  * Each card shows a single percentage with a color-coded value.
  */
-import { Box, Paper, Skeleton, Tooltip, Typography } from '@mui/material'
+import { Box, Paper, Tooltip, Typography } from '@mui/material'
 import type { GearAnalyticsKpis } from '../../lib/gearAnalytics'
 import { useI18n } from '../../lib/i18n'
 
@@ -25,15 +25,8 @@ function fmtPct(rate: number | null): string {
 }
 
 function KpiCard({ label, rate, tooltip }: KpiCardProps) {
-  if (rate === null) {
-    return (
-      <Paper variant="outlined" sx={{ px: 1.5, py: 1, minWidth: 100, flex: '1 1 100px' }}>
-        <Typography variant="caption" color="text.secondary" display="block" noWrap>{label}</Typography>
-        <Skeleton width={40} height={28} />
-      </Paper>
-    )
-  }
-
+  // Use the same height for all states: fmtPct returns '—' when rate is null, keeping the card
+  // layout stable when the cross-filter produces zero results and all KPIs become null.
   return (
     <Tooltip title={tooltip} arrow placement="top">
       <Paper variant="outlined" sx={{ px: 1.5, py: 1, minWidth: 100, flex: '1 1 100px', cursor: 'default' }}>

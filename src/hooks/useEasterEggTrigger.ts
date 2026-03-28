@@ -24,8 +24,8 @@ export function useEasterEggTrigger(threshold = 10, windowMs = 10_000) {
     const times = (h.get(id) ?? []).filter((t) => now - t < windowMs)
     times.push(now)
     if (times.length >= threshold) {
-      // Reset so the user needs another full streak to trigger again.
-      h.set(id, [])
+      // Clear ALL ids so a fresh streak is needed on any element to trigger again.
+      h.clear()
       return true
     }
     h.set(id, times)

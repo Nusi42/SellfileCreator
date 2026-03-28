@@ -261,6 +261,8 @@ const overrides: Catalog = {
   gearAnalyticsCopied: 'Copiato!',
   gearAnalyticsApplyToInspectorTip: 'Applica le selezioni di filtro incrociato attive alla lista del Gear Inspector. Richiede almeno un filtro attivo.',
   gearAnalyticsApplyToInspector: 'Applica al Gear Inspector',
+  gearAnalyticsCopyFromInspectorTip: 'Sostituisce il filtro incrociato corrente con il filtro attivo del Gear Inspector. Abilitato solo quando il Gear Inspector ha almeno una dimensione di filtro attiva.',
+  gearAnalyticsCopyFromInspector: 'Copia dal Gear Inspector',
   gearAnalyticsTotal: 'Totale',
   gearAnalyticsChartSlot: 'Slot',
   gearAnalyticsChartRank: 'Grado',
@@ -300,6 +302,14 @@ const overrides: Catalog = {
   gearAnalyticsSeriesAvg: 'Media',
   gearAnalyticsSeriesMedian: 'Mediana',
   gearAnalyticsSeriesMax: 'Max',
+  // Not Fully Equipped section.
+  gearAnalyticsNotEquippedTitle: 'Non completamente equipaggiato',
+  gearAnalyticsNotEquippedTitleDesc: 'Campioni con almeno uno slot equipaggiamento vuoto. Griglia: pieno = equipaggiato, contorno = vuoto.',
+  gearAnalyticsSortLabel: 'Ordina',
+  gearAnalyticsSortOff: 'No',
+  gearAnalyticsSlotModeAll: 'Tutti',
+  gearAnalyticsSlotModeArtifacts: 'Artefatti',
+  gearAnalyticsSlotModeAccessories: 'Accessori',
   dungeonDropsIntro: 'Simula i drop dei dungeon usando le tue regole Sellfile attuali (HSF) per stimare quanto equipaggiamento viene tenuto per set e traguardo di livello.',
   dungeonDropsExplanation: 'Le percentuali della tabella sono i drop tenuti divisi per tutti i drop di quella fase; i set potenziati cambiano solo i pesi dei set.',
   // Simulation roll assumptions and run count.

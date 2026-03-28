@@ -9,7 +9,9 @@
  * animation burst on the chart.  12 distinct WAAPI variants are available.
  */
 import { useEffect, useRef } from 'react'
-import { alpha, Box, Tooltip, Typography, useTheme } from '@mui/material'
+import { alpha, Box, Collapse, IconButton, Tooltip, Typography, useTheme } from '@mui/material'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { EllipsisTooltip } from '../EllipsisTooltip'
 import { easingSnappy, easingSlam, type GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
@@ -49,6 +51,10 @@ type Props = {
    * a sympathetic animation burst.
    */
   peerDanceTrigger?: GearAnalyticsEggPeer | null
+  /** When true, the chart body is hidden and only the title row remains visible. */
+  collapsed?: boolean
+  /** Called when the user clicks the collapse chevron; applyToAll = Ctrl/Cmd+click or right-click. */
+  onToggleCollapse?: (applyToAll: boolean) => void
 }
 
 /** Fixed width of the label column — wide enough for "Gauntlets", "CDMG%", etc. */
@@ -245,7 +251,7 @@ function triggerBarDance(container: HTMLElement, rows: ReadonlyMap<number | stri
   }
 }
 
-export function GearAnalyticsBar({ title, description, data, selected, onToggle, height = 240, accentColor, baseColor, colorById, readOnly = false, onEasterEgg, peerDanceTrigger }: Props) {
+export function GearAnalyticsBar({ title, description, data, selected, onToggle, height = 240, accentColor, baseColor, colorById, readOnly = false, onEasterEgg, peerDanceTrigger, collapsed, onToggleCollapse }: Props) {
   const theme = useTheme()
   const primary = accentColor ?? theme.palette.primary.main
   const base = baseColor ?? theme.palette.primary.light
@@ -274,16 +280,29 @@ export function GearAnalyticsBar({ title, description, data, selected, onToggle,
 
   return (
     <Box>
-      {/* Title — tooltip appears on hover when a description is provided. */}
-      <Tooltip title={description ?? ''} arrow placement="top-start">
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem', display: 'inline-block', mb: 0.5, cursor: description ? 'help' : 'default' }}
-        >
-          {title}
-        </Typography>
-      </Tooltip>
+      {/* Title row — chevron toggles collapse; tooltip on the label when a description is provided. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, minWidth: 0 }}>
+        {onToggleCollapse && (
+          <IconButton
+            size="small"
+            onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
+            sx={{ p: 0.25, flexShrink: 0 }}
+          >
+            {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+          </IconButton>
+        )}
+        <Tooltip title={description ?? ''} arrow placement="top-start">
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem', display: 'inline-block', cursor: description ? 'help' : 'default' }}
+          >
+            {title}
+          </Typography>
+        </Tooltip>
+      </Box>
+      <Collapse in={!collapsed} timeout="auto">
       <Box ref={containerRef}>
         {data.map((entry) => {
           const isSelected = selected.has(entry.id)
@@ -356,6 +375,7 @@ export function GearAnalyticsBar({ title, description, data, selected, onToggle,
           )
         })}
       </Box>
+      </Collapse>
     </Box>
   )
 }

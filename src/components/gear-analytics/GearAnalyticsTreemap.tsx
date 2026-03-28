@@ -15,11 +15,17 @@
  * animation on the tile layout.  10 distinct variants are available.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { alpha, Box, Tooltip, Typography, useTheme } from '@mui/material'
+import { alpha, Box, Collapse, IconButton, Tooltip, Typography, useTheme } from '@mui/material'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import type { SetOutcomeCount } from '../../lib/gearAnalytics'
 import { useI18n } from '../../lib/i18n'
 import { clamp01, type GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
+import type { ArtifactSetId } from '../../lib/types'
+import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
+import type { Metaset } from '../../lib/metasets'
+import GearSetsSelect from '../gear/GearSetsSelect'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -49,6 +55,28 @@ type Props = {
    * sympathetic dance.  Ignored when a self-triggered dance is already running.
    */
   peerDanceTrigger?: GearAnalyticsEggPeer | null
+  /** When true, the chart body is hidden and only the title row remains visible. */
+  collapsed?: boolean
+  /** Called when the user clicks the collapse chevron; applyToAll = Ctrl/Cmd+click or right-click. */
+  onToggleCollapse?: (applyToAll: boolean) => void
+  /**
+   * When provided, a GearSetsSelect quick-filter is rendered on the right side of the title row.
+   * It shows/hides with the section collapse state.
+   */
+  setSelectionEntries?: ArtifactSetSelectionEntry[]
+  /** Called when the user changes the selection via the title-row GearSetsSelect. */
+  onSetSelectionChange?: (next: ArtifactSetSelectionEntry[]) => void
+  /** Metasets available for the GearSetsSelect quick-filter. */
+  metasets?: Metaset[]
+  /** Currently-selected metaset group names — drives the metaset chip display in the select. */
+  selectedMetaSetNames?: string[]
+  /** Called when the user changes the metaset selection in the title-row GearSetsSelect. */
+  onMetaSetNamesChange?: (next: string[]) => void
+  /**
+   * When provided, limits the GearSetsSelect to compatible sets for the currently-selected slots.
+   * Undefined = no restriction (all slots selected or mixed armor + accessory).
+   */
+  allowedSetIds?: readonly ArtifactSetId[]
 }
 
 // ── Layout constants ──────────────────────────────────────────────────────────
@@ -220,7 +248,7 @@ type TileDanceOffset = { dx: number; dy: number; scale?: number; rotate?: number
 /** Duration of each treemap dance burst in milliseconds. */
 const TREEMAP_DANCE_MS = 2_000
 
-export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById, showIcons = true, onEasterEgg, peerDanceTrigger }: Props) {
+export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById, showIcons = true, onEasterEgg, peerDanceTrigger, collapsed, onToggleCollapse, setSelectionEntries, onSetSelectionChange, metasets, selectedMetaSetNames, onMetaSetNamesChange, allowedSetIds }: Props) {
   const theme = useTheme()
   const { t } = useI18n()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -441,15 +469,49 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
 
   return (
     <Box>
-      {/* Section title — same typography as GearAnalyticsBar. */}
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem', display: 'block', mb: 0.75 }}
-      >
-        {title}
-      </Typography>
-
+      {/* Title row — chevron + label on the left; GearSetsSelect quick-filter on the right (hidden when collapsed). */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.75, minWidth: 0 }}>
+        {onToggleCollapse && (
+          <IconButton
+            size="small"
+            onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
+            sx={{ p: 0.25, flexShrink: 0 }}
+          >
+            {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+          </IconButton>
+        )}
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem', display: 'inline-block' }}
+        >
+          {title}
+        </Typography>
+        {/* Quick gear-set filter — visible only when the section is expanded. */}
+        {!collapsed && setSelectionEntries !== undefined && onSetSelectionChange && (
+          // Fixed-width container: prevents the select from pushing the title label when many sets
+          // are selected and the label text grows long.
+          <Box sx={{ marginLeft: 'auto', flex: '0 0 240px' }}>
+            <GearSetsSelect
+              value={setSelectionEntries}
+              onChange={onSetSelectionChange}
+              showMetasets
+              metasets={metasets ?? []}
+              // Metaset group selection: provided when the parent tracks metaset state.
+              {...(selectedMetaSetNames !== undefined && onMetaSetNamesChange !== undefined && {
+                selectedMetasetIds: selectedMetaSetNames,
+                onChangeMetasetIds: onMetaSetNamesChange,
+              })}
+              {...(allowedSetIds !== undefined && { allowedSetIds })}
+              anyLabel={t('anySet')}
+              minWidthPx={240}
+              layoutVersion={1}
+            />
+          </Box>
+        )}
+      </Box>
+      <Collapse in={!collapsed} timeout="auto">
       {/* Treemap canvas. Tiles are absolutely positioned inside. */}
       <Box ref={containerRef} sx={{ position: 'relative', width: '100%', height: TREEMAP_H }}>
         {tiles.map(tile => {
@@ -619,7 +681,7 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
           </Box>
         ))}
       </Box>
-
+      </Collapse>
     </Box>
   )
 }

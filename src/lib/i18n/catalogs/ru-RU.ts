@@ -261,6 +261,8 @@ const overrides: Catalog = {
   gearAnalyticsCopied: 'Скопировано!',
   gearAnalyticsApplyToInspectorTip: 'Применить активные перекрёстные фильтры к списку Gear Inspector. Требуется хотя бы один активный фильтр.',
   gearAnalyticsApplyToInspector: 'Применить к Gear Inspector',
+  gearAnalyticsCopyFromInspectorTip: 'Заменяет текущий перекрёстный фильтр активным фильтром Gear Inspector. Доступно только когда в Gear Inspector есть хотя бы одно активное измерение фильтра.',
+  gearAnalyticsCopyFromInspector: 'Копировать из Gear Inspector',
   gearAnalyticsTotal: 'Итого',
   gearAnalyticsChartSlot: 'Слоты',
   gearAnalyticsChartRank: 'Ранг',
@@ -300,6 +302,15 @@ const overrides: Catalog = {
   gearAnalyticsSeriesAvg: 'Ср',
   gearAnalyticsSeriesMedian: 'Медиана',
   gearAnalyticsSeriesMax: 'Макс',
+  // Not Fully Equipped section.
+  gearAnalyticsNotEquippedTitle: 'Не полностью экипирован',
+  gearAnalyticsNotEquippedTitleDesc: 'Чемпионы хотя бы с одним пустым слотом снаряжения. Сетка: заполнено = одето, контур = пусто.',
+  gearAnalyticsSortLabel: 'Сортировка',
+  gearAnalyticsSortOff: 'Выкл.',
+  gearAnalyticsSlotModeAll: 'Все',
+  gearAnalyticsSlotModeArtifacts: 'Артефакты',
+  gearAnalyticsSlotModeAccessories: 'Аксессуары',
+
   dungeonDropsIntro: 'Симулируйте дропы подземелий, используя текущие правила Sellfile (HSF), чтобы оценить, сколько экипировки сохраняется по сету и уровневому этапу.',
   dungeonDropsExplanation: 'Проценты в таблице — это сохранённые дропы, делённые на все дропы этой стадии; усиленные сеты меняют только веса сетов.',
   // Simulation roll assumptions and run count.

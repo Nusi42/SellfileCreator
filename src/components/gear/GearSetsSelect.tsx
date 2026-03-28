@@ -503,7 +503,9 @@ export default function GearSetsSelect({
       ref={selectContainerRef}
       sx={{
         position: 'relative',
-        ...(minWidthPx ? { minWidth: minWidthPx } : {}),
+        // width (not just minWidth) keeps the trigger fixed — renderValue already
+        // clips overflow text with ellipsis, so the control doesn't need to grow.
+        ...(minWidthPx ? { width: minWidthPx, minWidth: minWidthPx } : {}),
         ...(disabled ? { pointerEvents: 'none', opacity: 0.6 } : {}),
       }}
     >

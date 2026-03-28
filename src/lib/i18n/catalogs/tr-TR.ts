@@ -261,6 +261,8 @@ const overrides: Catalog = {
   gearAnalyticsCopied: 'Kopyalandı!',
   gearAnalyticsApplyToInspectorTip: 'Etkin çapraz filtre seçimlerini Gear Inspector listesine uygulayın. En az bir etkin filtre gereklidir.',
   gearAnalyticsApplyToInspector: "Gear Inspector'a uygula",
+  gearAnalyticsCopyFromInspectorTip: "Mevcut çapraz filtreyi etkin Gear Inspector filtresiyle değiştirir. Yalnızca Gear Inspector'da en az bir aktif filtre boyutu varken etkindir.",
+  gearAnalyticsCopyFromInspector: "Gear Inspector'dan Kopyala",
   gearAnalyticsTotal: 'Toplam',
   gearAnalyticsChartSlot: 'Slotlar',
   gearAnalyticsChartRank: 'Derece',
@@ -300,6 +302,15 @@ const overrides: Catalog = {
   gearAnalyticsSeriesAvg: 'Ort',
   gearAnalyticsSeriesMedian: 'Medyan',
   gearAnalyticsSeriesMax: 'Maks',
+  // Not Fully Equipped section.
+  gearAnalyticsNotEquippedTitle: 'Tamamen donatılmamış',
+  gearAnalyticsNotEquippedTitleDesc: 'En az bir boş ekipman slotu olan şampiyonlar. Izgara: dolu = donatılmış, kontur = boş.',
+  gearAnalyticsSortLabel: 'Sırala',
+  gearAnalyticsSortOff: 'Kapalı',
+  gearAnalyticsSlotModeAll: 'Tümü',
+  gearAnalyticsSlotModeArtifacts: 'Eserler',
+  gearAnalyticsSlotModeAccessories: 'Aksesuarlar',
+
   dungeonDropsIntro: 'Mevcut Sellfile kurallarınızı (HSF) kullanarak zindan düşüşlerini simüle edin ve set ile seviye kilometre taşına göre ne kadar ekipmanın tutulduğunu tahmin edin.',
   dungeonDropsExplanation: 'Tablodaki yüzdeler, bu aşamadaki tüm düşüşlere bölünmüş elde tutulan düşüşlerdir; güçlendirilmiş setler yalnızca set ağırlıklarını değiştirir.',
   // Simulation roll assumptions and run count.

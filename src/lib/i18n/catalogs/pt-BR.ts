@@ -261,6 +261,8 @@ const catalog: Catalog = {
   gearAnalyticsCopied: 'Copiado!',
   gearAnalyticsApplyToInspectorTip: 'Aplicar as seleções de filtro cruzado ativas à lista do Gear Inspector. Requer pelo menos um filtro ativo.',
   gearAnalyticsApplyToInspector: 'Aplicar ao Gear Inspector',
+  gearAnalyticsCopyFromInspectorTip: 'Substitui o filtro cruzado atual pelo filtro ativo do Gear Inspector. Ativado apenas quando o Gear Inspector tiver pelo menos uma dimens\u00e3o de filtro ativa.',
+  gearAnalyticsCopyFromInspector: 'Copiar do Gear Inspector',
   gearAnalyticsTotal: 'Total',
   gearAnalyticsChartSlot: 'Slots',
   gearAnalyticsChartRank: 'Grau',
@@ -300,6 +302,14 @@ const catalog: Catalog = {
   gearAnalyticsSeriesAvg: 'Méd',
   gearAnalyticsSeriesMedian: 'Mediana',
   gearAnalyticsSeriesMax: 'Máx',
+  // Not Fully Equipped section.
+  gearAnalyticsNotEquippedTitle: 'Não totalmente equipado',
+  gearAnalyticsNotEquippedTitleDesc: 'Campeões com pelo menos um slot de equipamento vazio. Grade: preenchido = equipado, contorno = vazio.',
+  gearAnalyticsSortLabel: 'Ordenar',
+  gearAnalyticsSortOff: 'Desativ.',
+  gearAnalyticsSlotModeAll: 'Todos',
+  gearAnalyticsSlotModeArtifacts: 'Artefatos',
+  gearAnalyticsSlotModeAccessories: 'Acess\u00f3rios',
   dungeonDropsIntro: 'Simule drops de masmorra usando suas regras atuais do Sellfile (HSF) para estimar quanto equipamento é mantido por conjunto e marco de nível.',
   dungeonDropsExplanation: 'Os percentuais da tabela são drops mantidos divididos por todos os drops daquela etapa; sets impulsionados só mudam os pesos do set.',
   // Simulation roll assumptions and run count.
