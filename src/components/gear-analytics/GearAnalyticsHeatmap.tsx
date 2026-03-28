@@ -3,10 +3,13 @@
  *
  * CSS-grid slot × main stat coverage heatmap.
  * Cell color uses a red→green heat scale (high count = green, low count = red).
- * Clicking a cell or column header toggles its slot in the cross-filter.
+ * Clicking a column header toggles its slot in the cross-filter.
+ * Clicking a cell toggles both the slot (cross-filter) and the main stat (substat drill-down filter).
  */
 import React from 'react'
-import { Box, Tooltip, Typography, useTheme } from '@mui/material'
+import { Box, Collapse, IconButton, Tooltip, Typography, useTheme } from '@mui/material'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { HEATMAP_SLOTS, HEATMAP_VARIANTS, artifactTypeI18nKey, statVariantI18nKey, type SlotMainMatrix } from '../../lib/gearAnalytics'
 import type { GearAnalyticsDim } from '../../lib/gearAnalytics'
 import { EllipsisTooltip } from '../EllipsisTooltip'
@@ -18,8 +21,14 @@ import { useSubstatColors } from '../../hooks/useSubstatColors'
 type Props = {
   matrix: SlotMainMatrix
   dim: GearAnalyticsDim
-  /** Toggle a slot selection in the cross-filter when a cell is clicked. */
+  /** Toggle a slot selection in the cross-filter when a cell or column header is clicked. */
   onToggleSlot: (slot: number) => void
+  /** Toggle a main stat selection in the substat drill-down filter when a cell is clicked. */
+  onToggleMainStat?: (variant: number) => void
+  /** When true, the chart body is hidden and only the title row remains visible. */
+  collapsed?: boolean
+  /** Called when the user clicks the collapse chevron; applyToAll = Ctrl/Cmd+click or right-click. */
+  onToggleCollapse?: (applyToAll: boolean) => void
 }
 
 const CELL_SIZE = 34      // px per cell square
@@ -34,7 +43,7 @@ function heatColor(intensity: number): string {
   return `hsl(${hue}, 65%, ${lightness}%)`
 }
 
-export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot }: Props) {
+export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot, onToggleMainStat, collapsed, onToggleCollapse }: Props) {
   const theme = useTheme()
   const { t } = useI18n()
   const { statButtonBorders } = useDisplayPreferences()
@@ -42,15 +51,29 @@ export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot }: Props) {
 
   return (
     <Box>
-      <Tooltip title={t('gearAnalyticsChartHeatmapDesc')} arrow placement="top-start">
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem', display: 'inline-block', mb: 0.5, cursor: 'help' }}
-        >
-          {t('gearAnalyticsChartHeatmap')}
-        </Typography>
-      </Tooltip>
+      {/* Title row — chevron toggles collapse; tooltip on the label for context. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, minWidth: 0 }}>
+        {onToggleCollapse && (
+          <IconButton
+            size="small"
+            onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
+            sx={{ p: 0.25, flexShrink: 0 }}
+          >
+            {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+          </IconButton>
+        )}
+        <Tooltip title={t('gearAnalyticsChartHeatmapDesc')} arrow placement="top-start">
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem', display: 'inline-block', cursor: 'help' }}
+          >
+            {t('gearAnalyticsChartHeatmap')}
+          </Typography>
+        </Tooltip>
+      </Box>
+      <Collapse in={!collapsed} timeout="auto">
       <Box sx={{ overflowX: 'auto' }}>
         {/* Grid: first column is the stat label, then one column per slot. */}
         <Box
@@ -153,7 +176,7 @@ export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot }: Props) {
                     arrow
                   >
                     <Box
-                      onClick={() => onToggleSlot(slot)}
+                      onClick={() => { onToggleSlot(slot); onToggleMainStat?.(variant) }}
                       sx={{
                         height: CELL_SIZE,
                         display: 'flex',
@@ -180,6 +203,7 @@ export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot }: Props) {
           ))}
         </Box>
       </Box>
+      </Collapse>
     </Box>
   )
 }

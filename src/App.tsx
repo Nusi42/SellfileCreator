@@ -162,7 +162,8 @@ import { GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT, type GearInspectorRecipeFilt
 import { artifactTypeI18nKey, getAllKnownArtifactSetIds, type RankValue, type StatVariant } from './lib/types'
 import { formatGearInspectorSetLabel } from './lib/gearInspectorFormatters'
 import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, filterGearInspectorItems, isRulesFilterActive, normalizeRulesFilterForGearInspector, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
-import type { GearAnalyticsDim } from './lib/gearAnalytics'
+import type { GearAnalyticsDim, GearAnalyticsOutcome, GearAnalyticsSource } from './lib/gearAnalytics'
+import { EMPTY_GEAR_ANALYTICS_DIM } from './lib/gearAnalytics'
 import {
   useAutosaveRestore,
   metasetsEqualSession,
@@ -2728,6 +2729,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         selected: dim.slots.size > 0 ? [...dim.slots] as RulesFilterState['slots']['selected'] : [],
         anyMode: 'include',
       },
+      rank: {
+        selected: dim.ranks.size > 0 ? [...dim.ranks] as RulesFilterState['rank']['selected'] : [],
+        anyMode: 'include',
+      },
       rarity: {
         selected: dim.rarities.size > 0 ? [...dim.rarities] as RulesFilterState['rarity']['selected'] : [],
         anyMode: 'include',
@@ -2756,6 +2761,32 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Apply to the Gear Inspector filter only — the sellfile preview filter is left untouched.
     setRulesFilterStateForMode('gearInspector', next)
   }, [])
+
+  // Inverse of handleApplyGearAnalyticsFilter: maps a RulesFilterState back to a GearAnalyticsDim.
+  // Used to populate the "Copy from Gear Inspector" button in the Gear Analytics tab.
+  // Note: gearInspectorResult.keep covers both 'keep' and 'safe' (no distinction in the filter).
+  const gearInspectorDimForAnalytics = useMemo<GearAnalyticsDim>(() => {
+    const f = rulesFilterByMode['gearInspector'] ?? DEFAULT_RULES_FILTER_STATE
+    const slots = new Set((f.slots?.selected ?? []).map(Number))
+    const ranks = new Set((f.rank?.selected ?? []).map(Number))
+    const rarities = new Set((f.rarity?.selected ?? []).map(Number))
+    const sets = new Set(
+      (f.sets?.selected ?? []).filter((e) => !e.excluded).map((e) => Number(e.id)),
+    )
+    const levels = new Set((f.level?.selected ?? []).map(Number))
+    const sources = new Set<GearAnalyticsSource>((f.gearInspectorSources?.selected ?? []) as GearAnalyticsSource[])
+    const outcomes = new Set<GearAnalyticsOutcome>()
+    // keep=true covers both 'keep' (rule triggered, keep) and 'safe' (safeguarded);
+    // the filter cannot distinguish them so both are included in the dim.
+    if (f.gearInspectorResult?.keep) { outcomes.add('keep'); outcomes.add('safe') }
+    if (f.gearInspectorResult?.sell) outcomes.add('sell')
+    if (f.gearInspectorResult?.unmatched) outcomes.add('none')
+    if (slots.size === 0 && ranks.size === 0 && rarities.size === 0 && sets.size === 0 &&
+        levels.size === 0 && sources.size === 0 && outcomes.size === 0) {
+      return EMPTY_GEAR_ANALYTICS_DIM
+    }
+    return { slots, ranks, rarities, sets, outcomes, sources, levels }
+  }, [rulesFilterByMode])
 
   const handleDeleteFilterPreset = useCallback((presetId: string) => {
     // Deleting is purely local: remove the entry and keep the rest stable.
@@ -7881,6 +7912,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onResetGearInspector={handleResetGearInspectorItems}
           gearInspectorPreviewRows={gearInspectorPreviewRows}
           onApplyGearAnalyticsFilter={handleApplyGearAnalyticsFilter}
+          gearInspectorDim={gearInspectorDimForAnalytics}
           rules={mergedRules}
           substatTargets={substatTargets}
           effectiveSubstatTargets={effectiveSubstatTargets}

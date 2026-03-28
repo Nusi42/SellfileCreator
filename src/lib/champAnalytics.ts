@@ -34,6 +34,14 @@ export type ChampionGearProfile = {
   avgLevel: number
   /** Total item count equipped to this champion. */
   itemCount: number
+  /** Base hero ID for icon lookup; falls back to championId when absent. */
+  baseId: number | null
+  /** Champion rarity rank (1–6). */
+  rarity: number
+  /** Count of gear pieces that have an ascension (glyph) stat applied. */
+  ascentionCount: number
+  /** Sum of gear ranks (star grades) across all equipped pieces. */
+  rankSum: number
 }
 
 // ── Main slot IDs ─────────────────────────────────────────────────────────────
@@ -44,6 +52,14 @@ export type ChampionGearProfile = {
  */
 export const MAIN_ARMOR_SLOTS: readonly number[] = PREFERRED_ARTIFACT_TYPE_ORDER.filter(
   (s) => !isAccessorySlot(s),
+)
+
+/**
+ * The 3 accessory slots (Ring / Amulet / Banner). Kept as a named constant
+ * alongside MAIN_ARMOR_SLOTS so callers can refer to either group by name.
+ */
+export const ACCESSORY_SLOTS: readonly number[] = PREFERRED_ARTIFACT_TYPE_ORDER.filter(
+  (s) => isAccessorySlot(s),
 )
 
 // ── Core builder ──────────────────────────────────────────────────────────────
@@ -65,6 +81,10 @@ export function buildChampionGearProfiles(
       location: 'collection' | 'vault'
       slots: Set<number>
       levels: number[]
+      baseId: number | null
+      rarity: number
+      ascentionCount: number
+      rankSum: number
     }
   >()
 
@@ -85,11 +105,18 @@ export function buildChampionGearProfiles(
         location: loc as 'collection' | 'vault',
         slots: new Set<number>(),
         levels: [],
+        baseId: a.equippedChampionBaseId,
+        rarity: Number(a.equippedChampionRarity ?? 0),
+        ascentionCount: 0,
+        rankSum: 0,
       }
       map.set(id, entry)
     }
     entry.slots.add(Number(a.slot))
     entry.levels.push(Number(a.level))
+    // Accumulate fields needed for the profile tiebreaker / icon lookup.
+    if (a.ascension !== null) entry.ascentionCount++
+    entry.rankSum += Number(a.rank)
   }
 
   // Convert to ChampionGearProfile[].
@@ -109,6 +136,10 @@ export function buildChampionGearProfiles(
       fullyEquipped: mainSlotsFilled === MAIN_ARMOR_SLOTS.length,
       avgLevel,
       itemCount: entry.levels.length,
+      baseId: entry.baseId,
+      rarity: entry.rarity,
+      ascentionCount: entry.ascentionCount,
+      rankSum: entry.rankSum,
     })
   }
   return profiles
@@ -132,6 +163,26 @@ export function filterChampionProfiles(
     if (fullyEquippedOnly && !p.fullyEquipped) return false
     return true
   })
+}
+
+// ── Profile tiebreaker ────────────────────────────────────────────────────────
+
+/**
+ * Compare two ChampionGearProfile objects by the radar tiebreaker order:
+ * rarity desc → ascentionCount desc → avgLevel desc → avgRank desc.
+ * Mirrors the private `champTiebreaker` inside computeChampSubstatTotalStats.
+ */
+export function champProfileTiebreaker(a: ChampionGearProfile, b: ChampionGearProfile): number {
+  // 1. Highest champion rarity first.
+  if (b.rarity !== a.rarity) return b.rarity - a.rarity
+  // 2. Most gear pieces with an ascension (glyph) stat applied.
+  if (b.ascentionCount !== a.ascentionCount) return b.ascentionCount - a.ascentionCount
+  // 3. Highest average gear level.
+  if (b.avgLevel !== a.avgLevel) return b.avgLevel - a.avgLevel
+  // 4. Highest average gear rank (star grade).
+  const aAvgRank = a.itemCount > 0 ? a.rankSum / a.itemCount : 0
+  const bAvgRank = b.itemCount > 0 ? b.rankSum / b.itemCount : 0
+  return bAvgRank - aAvgRank
 }
 
 // ── Per-champion substat totals ────────────────────────────────────────────────

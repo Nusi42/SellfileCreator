@@ -19,6 +19,7 @@ import { useDisplayPreferences } from '../../state/preferencesState'
 import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
 import {
   EMPTY_GEAR_ANALYTICS_DIM,
+  isGearAnalyticsDimActive,
   applyGearAnalyticsFilter,
   countBySlot,
   countByRarity,
@@ -44,7 +45,12 @@ import {
   type GearAnalyticsSource,
 } from '../../lib/gearAnalytics'
 import { STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS, ACCESSORY_NO_SET_ID } from '../../lib/constants'
-import type { ArtifactSetId } from '../../lib/types'
+import type { ArtifactSetId, ArtifactTypeId } from '../../lib/types'
+import { getAccessorySlotsCompatibleSetIds, getArmorFixedSetIds, getArmorVariableSetIds } from '../../lib/types'
+import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
+import { isAccessorySlot } from '../../lib/gearInspectorDomain'
+import { useGearSetCatalogVersion } from '../../hooks/useGearSetCatalogVersion'
+import { useAppState } from '../../state/appState'
 import { APP_VERSION } from '../../version'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import { GearAnalyticsCrossFilterChips } from '../gear-analytics/GearAnalyticsCrossFilterChips'
@@ -55,6 +61,7 @@ import { GearAnalyticsTreemap } from '../gear-analytics/GearAnalyticsTreemap'
 import { GearAnalyticsRadar } from '../gear-analytics/GearAnalyticsRadar'
 import { GearAnalyticsHeatmap } from '../gear-analytics/GearAnalyticsHeatmap'
 import { GearAnalyticsChampStats } from '../gear-analytics/GearAnalyticsChampStats'
+import { GearAnalyticsNotEquipped } from '../gear-analytics/GearAnalyticsNotEquipped'
 import { useI18n } from '../../lib/i18n'
 
 type Props = {
@@ -63,10 +70,44 @@ type Props = {
   /** Called when the user requests applying the current Gear Analytics filter to the Gear Inspector. */
   onApplyToGearInspector?: ((dim: GearAnalyticsDim) => void) | undefined
   /**
+   * When provided, the "Copy from Gear Inspector" button becomes available.
+   * Null / undefined = button is hidden. Non-null but empty dim = button shown but disabled.
+   * Clicking copies this dim into the current cross-filter state (replaces it).
+   */
+  gearInspectorDim?: GearAnalyticsDim | null
+  /**
    * Increment this value from outside to reset all cross-filter dimensions to their empty state.
    * Mirrors the "Reset to defaults" button pattern used in other Logic Hub tabs.
    */
   resetKey?: number
+}
+
+// ── Section collapse IDs and localStorage persistence ─────────────────────────
+/** All collapsible section IDs in the Gear Analytics dashboard, in display order. */
+const GEAR_ANALYTICS_SECTION_IDS = ['slot', 'rank', 'rarity', 'outcome', 'source', 'level', 'treemap', 'mainStat', 'substats', 'heatmap', 'champStats', 'notEquipped'] as const
+type GearAnalyticsSectionId = (typeof GEAR_ANALYTICS_SECTION_IDS)[number]
+
+const COLLAPSED_STORAGE_KEY = 'gearAnalytics.collapsed'
+
+/** Returns a fully-expanded default collapsed record (all false = expanded). */
+function defaultCollapsed(): Record<GearAnalyticsSectionId, boolean> {
+  return Object.fromEntries(GEAR_ANALYTICS_SECTION_IDS.map((id) => [id, false])) as Record<GearAnalyticsSectionId, boolean>
+}
+
+/** Reads the persisted collapsed state from localStorage, falling back to all-expanded. */
+function readCollapsed(): Record<GearAnalyticsSectionId, boolean> {
+  try {
+    const raw = localStorage.getItem(COLLAPSED_STORAGE_KEY)
+    if (!raw) return defaultCollapsed()
+    const parsed = JSON.parse(raw) as Partial<Record<string, boolean>>
+    const result = defaultCollapsed()
+    for (const id of GEAR_ANALYTICS_SECTION_IDS) {
+      if (typeof parsed[id] === 'boolean') result[id] = parsed[id]!
+    }
+    return result
+  } catch {
+    return defaultCollapsed()
+  }
 }
 
 /** Ordered outcome IDs and their i18n keys. */
@@ -95,11 +136,15 @@ function toggled<T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> {
   return next
 }
 
-export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, resetKey }: Props) {
+export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInspectorDim, resetKey }: Props) {
   const { t, lang } = useI18n()
   const theme = useTheme()
   const [substatColors] = useSubstatColors()
   const { showSetIcons, statButtonBorders } = useDisplayPreferences()
+  // Metasets for the GearSetsSelect quick-filter in the Sets treemap title row.
+  const { metasets } = useAppState()
+  // Catalog version gate: forces recompute of slot-aware set pools when new sets are registered.
+  const gearSetCatalogVersion = useGearSetCatalogVersion()
 
   // Ref used by the Copy Snapshot button to capture the tab content.
   const contentRef = useRef<HTMLDivElement | null>(null)
@@ -181,6 +226,23 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, resetKey
     (id: number | string): string | undefined => substatColors[Number(id)]?.fg,
     [substatColors],
   )
+
+  // ── Section collapse state ─────────────────────────────────────────────────
+  // All sections start expanded (false = expanded); state is persisted to localStorage.
+  const [collapsed, setCollapsed] = useState<Record<GearAnalyticsSectionId, boolean>>(readCollapsed)
+  useEffect(() => {
+    try { localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify(collapsed)) } catch { /* storage unavailable */ }
+  }, [collapsed])
+  /** Toggle a single section or all sections at once (Ctrl/Cmd+click or right-click). */
+  const toggleSection = useCallback((id: GearAnalyticsSectionId, applyToAll: boolean) => {
+    setCollapsed((prev) => {
+      const nextValue = !prev[id]
+      if (applyToAll) {
+        return Object.fromEntries(GEAR_ANALYTICS_SECTION_IDS.map((k) => [k, nextValue])) as Record<GearAnalyticsSectionId, boolean>
+      }
+      return { ...prev, [id]: nextValue }
+    })
+  }, [])
 
   // Cross-filter state: all dimensions start empty (= no filter).
   const [dim, setDim] = useState<GearAnalyticsDim>(EMPTY_GEAR_ANALYTICS_DIM)
@@ -291,10 +353,83 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, resetKey
   const toggleRarity = useCallback((id: number | string) => {
     setDim((prev) => ({ ...prev, rarities: toggled(prev.rarities, Number(id)) }))
   }, [])
+  // ── Set cross-filter: individual selections + metaset group selections ─────────────────────────
+  // We track these separately so the GearSetsSelect can show metaset chips alongside individual set
+  // chips without losing the distinction. dim.sets = union(individual, metaset-expanded).
+  // Refs allow callbacks to read the current values without stale-closure issues.
+  const [dimIndividualSets, setDimIndividualSets] = useState<ReadonlySet<number>>(new Set())
+  const dimIndividualSetsRef = useRef<ReadonlySet<number>>(new Set())
+  dimIndividualSetsRef.current = dimIndividualSets
+  const [dimMetaSetNames, setDimMetaSetNames] = useState<string[]>([])
+  const dimMetaSetNamesRef = useRef<string[]>([])
+  dimMetaSetNamesRef.current = dimMetaSetNames
+
+  // Expand a list of metaset names to their constituent set IDs.
+  const getExpandedMetaSetIds = useCallback((names: string[]): Set<number> => {
+    const ids = new Set<number>()
+    for (const name of names) {
+      const meta = metasets.find((m) => m.name === name)
+      if (meta) meta.sets.forEach((id) => ids.add(Number(id)))
+    }
+    return ids
+  }, [metasets])
+
   const toggleSet = useCallback((id: number | string) => {
     // Allow -1 (others bucket) through — effectiveDim expands it at filter time.
-    setDim((prev) => ({ ...prev, sets: toggled(prev.sets, Number(id)) }))
-  }, [])
+    const num = Number(id)
+    const newIndividual = new Set(dimIndividualSetsRef.current)
+    if (newIndividual.has(num)) newIndividual.delete(num); else newIndividual.add(num)
+    setDimIndividualSets(newIndividual)
+    // Recompute effective sets = individual + metaset-expanded.
+    const expanded = getExpandedMetaSetIds(dimMetaSetNamesRef.current)
+    const newSets = new Set<number>([...newIndividual, ...expanded])
+    setDim((prev) => ({ ...prev, sets: newSets }))
+  }, [getExpandedMetaSetIds])
+
+  // GearSetsSelect value: only explicitly-selected individual sets (metaset chips are shown
+  // via selectedMetaSetNames so they don't need to appear here as individual entries).
+  const setSelectionEntries = useMemo<ArtifactSetSelectionEntry[]>(
+    () => Array.from(dimIndividualSets).map((id) => ({ id: id as ArtifactSetId })),
+    [dimIndividualSets],
+  )
+  // Replace the individual set selection from a GearSetsSelect onChange event.
+  const handleSetSelectionChange = useCallback((next: ArtifactSetSelectionEntry[]) => {
+    const ids = new Set(next.filter((e) => !e.excluded).map((e) => Number(e.id)))
+    setDimIndividualSets(ids)
+    const expanded = getExpandedMetaSetIds(dimMetaSetNamesRef.current)
+    const newSets = new Set<number>([...ids, ...expanded])
+    setDim((prev) => ({ ...prev, sets: newSets }))
+  }, [getExpandedMetaSetIds])
+  // Metaset group selection change: update dim.sets via a delta so that we never read a
+  // potentially-stale dimIndividualSetsRef (handleClear fires both onChange and onChangeMetasetIds
+  // synchronously, so the ref hasn't updated yet when the second callback executes).
+  // Instead: subtract constituent sets from deselected metasets and add those from newly-selected
+  // ones. Applying this delta on top of whatever setDim queued before is always correct.
+  const handleMetaSetNamesChange = useCallback((nextIds: string[]) => {
+    // prevIds read synchronously — safe before any batched state updates flush.
+    const prevIds = dimMetaSetNamesRef.current
+    setDimMetaSetNames(nextIds)
+    const prevExpanded = getExpandedMetaSetIds(prevIds)
+    const nextExpanded = getExpandedMetaSetIds(nextIds)
+    setDim((prev) => {
+      const newSets = new Set([...prev.sets].filter((id) => !prevExpanded.has(id)))
+      for (const id of nextExpanded) newSets.add(id)
+      return { ...prev, sets: newSets }
+    })
+  }, [getExpandedMetaSetIds])
+  // Slot-aware set pool for the GearSetsSelect quick-filter in the Sets treemap title row.
+  // When specific slots are selected, restrict the set list to sets compatible with those slots.
+  // Empty slots (= no filter) or mixed armor+accessory = no restriction (undefined).
+  const treemapAllowedSetIds = useMemo<readonly ArtifactSetId[] | undefined>(() => {
+    void gearSetCatalogVersion
+    if (dim.slots.size === 0) return undefined
+    const slots = Array.from(dim.slots) as ArtifactTypeId[]
+    const hasAccessory = slots.some((s) => isAccessorySlot(s))
+    const hasArmor = slots.some((s) => !isAccessorySlot(s))
+    if (hasAccessory && hasArmor) return undefined
+    if (hasAccessory) return getAccessorySlotsCompatibleSetIds()
+    return Object.freeze([...getArmorFixedSetIds(), ...getArmorVariableSetIds()])
+  }, [dim.slots, gearSetCatalogVersion])
   const toggleOutcome = useCallback((outcome: GearAnalyticsOutcome) => {
     setDim((prev) => ({ ...prev, outcomes: toggled(prev.outcomes, outcome) }))
   }, [])
@@ -321,13 +456,27 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, resetKey
     setDim(EMPTY_GEAR_ANALYTICS_DIM)
     setSelectedMainStats(new Set())
     setSelectedSubstat(new Set())
+    setDimIndividualSets(new Set())
+    setDimMetaSetNames([])
   }, [])
+  // Replace the current cross-filter state with the gear inspector dim (copy-from button).
+  // Treat all copied sets as individual selections (no metaset context is available from inspector).
+  const handleCopyFromGearInspector = useCallback(() => {
+    if (!gearInspectorDim) return
+    setDim(gearInspectorDim)
+    setSelectedMainStats(new Set())
+    setSelectedSubstat(new Set())
+    setDimIndividualSets(gearInspectorDim.sets as ReadonlySet<number>)
+    setDimMetaSetNames([])
+  }, [gearInspectorDim])
   // Clear all cross-filter dimensions when the parent increments resetKey (e.g. "Reset to defaults" button).
   useEffect(() => {
     if (resetKey !== undefined) {
       setDim(EMPTY_GEAR_ANALYTICS_DIM)
       setSelectedMainStats(new Set())
       setSelectedSubstat(new Set())
+      setDimIndividualSets(new Set())
+      setDimMetaSetNames([])
     }
   }, [resetKey])
 
@@ -459,7 +608,15 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, resetKey
   }, [rowsForSubstats])
 
   // Heatmap matrix (slot × main stat).
-  const heatmapMatrix = useMemo(() => buildSlotMainMatrix(rowsFiltered), [rowsFiltered])
+  // When substat pivot selections are active on the radar, narrow the heatmap to only
+  // slot × main stat combinations that co-occur with ALL selected substats.
+  const rowsForHeatmap = useMemo(() => {
+    if (selectedSubstat.size === 0) return rowsFiltered
+    return rowsFiltered.filter((row) =>
+      [...selectedSubstat].every((v) => row.artifact.substats.some((s) => Number(s.variant) === v)),
+    )
+  }, [rowsFiltered, selectedSubstat])
+  const heatmapMatrix = useMemo(() => buildSlotMainMatrix(rowsForHeatmap), [rowsForHeatmap])
 
   // KPIs computed from the fully-filtered row set.
   const kpis = useMemo(() => computeGearAnalyticsKpis(rowsFiltered), [rowsFiltered])
@@ -526,6 +683,22 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, resetKey
           flexShrink: 0,
         })}
       >
+        {/* Copy from Gear Inspector — shown when a gear inspector dim is available; disabled when dim is empty. */}
+        {gearInspectorDim != null && (
+          <Tooltip title={t('gearAnalyticsCopyFromInspectorTip')} arrow placement="top">
+            <span>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={handleCopyFromGearInspector}
+                disabled={!isGearAnalyticsDimActive(gearInspectorDim)}
+                sx={{ fontSize: '0.75rem', py: 0.5 }}
+              >
+                {t('gearAnalyticsCopyFromInspector')}
+              </Button>
+            </span>
+          </Tooltip>
+        )}
         {/* span wrapper inside Tooltip ensures the tooltip fires even when the Button is disabled */}
         {onApplyToGearInspector && (
           <Tooltip title={t('gearAnalyticsApplyToInspectorTip')} arrow placement="top">
@@ -587,6 +760,8 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, resetKey
           slotIconById={slotIconSvgAsset}
           onEasterEgg={handleDonutEgg}
           peerDanceTrigger={donutPeer}
+          collapsed={collapsed.slot}
+          onToggleCollapse={(all) => toggleSection('slot', all)}
         />
         <GearAnalyticsDonut
           title={t('gearAnalyticsChartRank')}
@@ -597,6 +772,8 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, resetKey
           arcLabel={(id) => rankLabel(Number(id))}
           onEasterEgg={handleDonutEgg}
           peerDanceTrigger={donutPeer}
+          collapsed={collapsed.rank}
+          onToggleCollapse={(all) => toggleSection('rank', all)}
         />
         <GearAnalyticsDonut
           title={t('gearAnalyticsChartRarity')}
@@ -607,6 +784,8 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, resetKey
           colorBySliceId={rarityColorById}
           onEasterEgg={handleDonutEgg}
           peerDanceTrigger={donutPeer}
+          collapsed={collapsed.rarity}
+          onToggleCollapse={(all) => toggleSection('rarity', all)}
         />
         <GearAnalyticsDonut
           title={t('gearAnalyticsChartOutcome')}
@@ -617,6 +796,8 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, resetKey
           colorBySliceId={outcomeColorById}
           onEasterEgg={handleDonutEgg}
           peerDanceTrigger={donutPeer}
+          collapsed={collapsed.outcome}
+          onToggleCollapse={(all) => toggleSection('outcome', all)}
         />
         <GearAnalyticsDonut
           title={t('gearAnalyticsChartSource')}
@@ -627,6 +808,8 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, resetKey
           slotIconById={sourceIconSvgAsset}
           onEasterEgg={handleDonutEgg}
           peerDanceTrigger={donutPeer}
+          collapsed={collapsed.source}
+          onToggleCollapse={(all) => toggleSection('source', all)}
         />
         <GearAnalyticsDonut
           title={t('gearAnalyticsChartLevel')}
@@ -637,6 +820,8 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, resetKey
           arcLabel={(id) => levelLabel(Number(id))}
           onEasterEgg={handleDonutEgg}
           peerDanceTrigger={donutPeer}
+          collapsed={collapsed.level}
+          onToggleCollapse={(all) => toggleSection('level', all)}
         />
       </Box>
 
@@ -651,6 +836,14 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, resetKey
           showIcons={showSetIcons}
           onEasterEgg={handleTreemapEgg}
           peerDanceTrigger={treemapPeer}
+          collapsed={collapsed.treemap}
+          onToggleCollapse={(all) => toggleSection('treemap', all)}
+          setSelectionEntries={setSelectionEntries}
+          onSetSelectionChange={handleSetSelectionChange}
+          metasets={metasets}
+          selectedMetaSetNames={dimMetaSetNames}
+          onMetaSetNamesChange={handleMetaSetNamesChange}
+          {...(treemapAllowedSetIds !== undefined && { allowedSetIds: treemapAllowedSetIds })}
         />
       </Box>
 
@@ -668,6 +861,8 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, resetKey
           {...(statButtonBorders && { colorById: statColorById })}
           onEasterEgg={handleBarEgg}
           peerDanceTrigger={barPeer}
+          collapsed={collapsed.mainStat}
+          onToggleCollapse={(all) => toggleSection('mainStat', all)}
         />
         <GearAnalyticsRadar
           title={t('gearAnalyticsChartSubstats')}
@@ -679,6 +874,8 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, resetKey
           onClearSubstat={clearSubstat}
           onEasterEgg={handleRadarEgg}
           peerDanceTrigger={radarPeer}
+          collapsed={collapsed.substats}
+          onToggleCollapse={(all) => toggleSection('substats', all)}
         />
       </Box>
 
@@ -688,10 +885,28 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, resetKey
           matrix={heatmapMatrix}
           dim={dim}
           onToggleSlot={toggleSlot}
+          onToggleMainStat={toggleMainStat}
+          collapsed={collapsed.heatmap}
+          onToggleCollapse={(all) => toggleSection('heatmap', all)}
         />
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <GearAnalyticsChampStats rows={rows} {...(resetKey !== undefined && { resetKey })} />
+          <GearAnalyticsChampStats
+            rows={rows}
+            {...(resetKey !== undefined && { resetKey })}
+            collapsed={collapsed.champStats}
+            onToggleCollapse={(all) => toggleSection('champStats', all)}
+          />
         </Box>
+      </Box>
+
+      {/* Row 4: Not-fully-equipped champion table — excluded from snapshot captures. */}
+      <Box sx={{ mt: 2 }} data-snapshot-hide>
+        <GearAnalyticsNotEquipped
+          rows={rows}
+          {...(resetKey !== undefined && { resetKey })}
+          collapsed={collapsed.notEquipped}
+          onToggleCollapse={(all) => toggleSection('notEquipped', all)}
+        />
       </Box>
 
       {/* Watermark — hidden normally; revealed with timestamp text during snapshot capture. */}

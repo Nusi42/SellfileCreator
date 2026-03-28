@@ -261,6 +261,8 @@ const overrides: Catalog = {
   gearAnalyticsCopied: 'Copié !',
   gearAnalyticsApplyToInspectorTip: 'Appliquer les sélections de filtre croisé actives à la liste du Gear Inspector. Nécessite au moins un filtre actif.',
   gearAnalyticsApplyToInspector: 'Appliquer au Gear Inspector',
+  gearAnalyticsCopyFromInspectorTip: 'Remplace le filtre croisé actuel par le filtre actif du Gear Inspector. Activé uniquement lorsque le Gear Inspector dispose d\'au moins une dimension de filtre active.',
+  gearAnalyticsCopyFromInspector: 'Copier depuis Gear Inspector',
   gearAnalyticsTotal: 'Total',
   gearAnalyticsChartSlot: 'Emplacements',
   gearAnalyticsChartRank: 'Rang',
@@ -300,6 +302,15 @@ const overrides: Catalog = {
   gearAnalyticsSeriesAvg: 'Moy',
   gearAnalyticsSeriesMedian: 'Médiane',
   gearAnalyticsSeriesMax: 'Max',
+  // Not Fully Equipped section.
+  gearAnalyticsNotEquippedTitle: 'Pas entièrement équipé',
+  gearAnalyticsNotEquippedTitleDesc: 'Champions avec au moins un emplacement d\'\u00e9quipement vide. Grille\u00a0: rempli = équipé, contour = vide.',
+  gearAnalyticsSortLabel: 'Trier',
+  gearAnalyticsSortOff: 'Désact.',
+  gearAnalyticsSlotModeAll: 'Tous',
+  gearAnalyticsSlotModeArtifacts: 'Artefacts',
+  gearAnalyticsSlotModeAccessories: 'Accessoires',
+
   dungeonDropsIntro: 'Simulez les butins de donjon avec vos règles Sellfile actuelles (HSF) pour estimer la quantité d’équipement conservée par set et par palier de niveau.',
   dungeonDropsExplanation: 'Les pourcentages du tableau sont les drops conservés divisés par tous les drops de cette étape; les sets boostés ne changent que les poids de set.',
   // Simulation roll assumptions and run count.

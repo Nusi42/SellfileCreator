@@ -53,6 +53,19 @@ Sets are displayed as a squarified treemap (`GearAnalyticsTreemap`) below the do
 
 `countSetsByOutcome` (in `gearAnalytics.ts`) tallies all set IDs without a top-N cap and returns them sorted by total count descending. It accepts a `setNameFn` option for localized labels — the tab passes `(id) => getLocalizedGearSetName(id as ArtifactSetId, t, lang)` so set names respect the active language. Because every entry carries a real set ID, `applyGearAnalyticsFilter` can use `dim.sets` directly — no synthetic `-1` expansion or `effectiveDim` indirection is needed.
 
+### Sets quick-filter (GearSetsSelect in the treemap title row)
+
+A `GearSetsSelect` control is rendered in the treemap title row (right-aligned, fixed 240 px wide) so the user can narrow the treemap and cross-filter to specific sets without clicking individual tiles.
+
+**Metaset support.** The control renders metaset chips alongside individual set chips. Because `dim.sets` must hold the *union* of all picked sets (individual picks + all sets expanded from active metasets), the tab tracks two parallel state variables:
+
+- `dimIndividualSets` — only the sets the user picked directly (drives `GearSetsSelect.value`)
+- `dimMetaSetNames` — the names of active metasets (drives `GearSetsSelect.selectedMetasetIds`)
+
+`dim.sets` is always `dimIndividualSets ∪ expand(dimMetaSetNames)`. When metasets change (`handleMetaSetNamesChange`), a delta update is applied inside a functional `setDim` call: subtract the sets that were contributed by the *previous* metaset selection, then add those contributed by the *next* selection. This avoids reading any potentially-stale ref when both `onChange` and `onChangeMetasetIds` fire in the same synchronous event (e.g. the GearSetsSelect "Clear" button).
+
+**Slot-aware allowed set pool.** When the `slots` dimension is non-empty and all active slots belong to the same category (all armor OR all accessories), the treemap receives an `allowedSetIds` prop computed by `treemapAllowedSetIds` (a useMemo in `GearAnalyticsTabContent`). Sets outside the allowed pool are shown as disabled in the picker so incompatible combinations cannot be selected. When slots span both categories, `allowedSetIds` is `undefined` (no restriction).
+
 ### Treemap layout
 
 The squarified algorithm (Bruls, Huizing, van Wijk 2000) produces near-square tiles by minimizing aspect ratio. Container width is measured reactively via `ResizeObserver` so the layout adapts when the dialog is resized. Height is fixed at 180 px (`TREEMAP_H`).
@@ -110,6 +123,8 @@ Eight percentage cards rendered by `GearAnalyticsKpiCards` from `computeGearAnal
 
 All cards use a neutral text color — no green/amber/red thresholds.
 
+When the cross-filter produces zero matching rows all KPI ratios become `null`. Cards always render through the same text path (`fmtPct(null)` returns `'—'`), keeping the card height stable. No `Skeleton` placeholder is used — its height (28 px) was taller than the `h6` text (~24 px) and caused layout shift.
+
 ## Substat frequency radar
 
 Substat frequency is shown as a radar chart (`GearAnalyticsRadar`, MUI X v8 `RadarChart`). The axes follow the fixed `HEATMAP_VARIANTS` order so the polygon shape is always comparable across filter states. `fillArea: true` fills the polygon for at-a-glance comparison.
@@ -146,6 +161,10 @@ This is a visual-only transformation. The ratio `sqrt(count) / sqrt(max) = sqrt(
 
 `setDisplayCounts` and `setDisplayMax` are both called from the same `step` callback and are therefore batched by React 18 into a single re-render per frame, keeping the scale and the polygon data permanently in sync.
 
+## Heatmap
+
+`GearAnalyticsHeatmap` shows a slot × main-stat count table. Clicking a cell toggles the corresponding main stat into `selectedMainStats` (via the `onToggleMainStat` callback), providing the same drill-down effect as clicking a bar in the Main Stats bar chart. The heatmap also adapts when a substat co-occurrence pivot is active: `rowsForHeatmap` is derived by applying the co-occurrence filter (`selectedSubstat`) so the cell counts reflect only items that have all the selected pivot substats.
+
 ## Main stat / substat drill-down
 
 The Main Stats bar chart (`countMainStatFrequency`) tracks selected stat variants in a separate `selectedMainStats: ReadonlySet<number | string>` — not part of `GearAnalyticsDim`. Clicking a main stat bar toggles it; the Substat Frequency radar then filters to rows that have one of the selected main stats (this narrows the population before the co-occurrence pivot is applied).
@@ -170,9 +189,33 @@ All chip labels are localized via `t()`:
 
 The "Copy Snapshot" button in the toolbar uses `html-to-image` (`toPng`) to capture the full scrollable tab content. Before capture, it temporarily removes overflow clipping and expands the container to `scrollHeight` so off-screen content is included. After capture, all style mutations are restored. The PNG is written to the clipboard via the Clipboard API (`navigator.clipboard.write`).
 
-## Apply to Gear Inspector
+## Gear Inspector integration
 
-When `onApplyToGearInspector` is provided (by the Logic Hub dialog), the "Apply to Gear Inspector" button calls it with the current `dim`. The parent translates the dim selections into Gear Inspector filter state. The button is wrapped in a `<Tooltip><span>` so the tooltip remains visible even when the button is disabled (disabled MUI buttons don't fire mouse events without a wrapper `<span>`).
+### Apply to Gear Inspector
+
+When `onApplyToGearInspector` is provided (by the Logic Hub dialog), the "Apply to Gear Inspector" button calls it with the current `dim`. The parent (`App.tsx`, `handleApplyGearAnalyticsFilter`) translates dim selections into Gear Inspector filter state, mapping `slots`, `ranks`, `rarities`, `sets`, `outcomes`, `sources`, and `levels`. The button is wrapped in a `<Tooltip><span>` so the tooltip remains visible even when the button is disabled (disabled MUI buttons don't fire mouse events without a wrapper `<span>`).
+
+### Copy from Gear Inspector
+
+"Copy from Gear Inspector" is the inverse operation. When `gearInspectorDim` is provided (non-null, computed in `App.tsx` from `rulesFilterByMode['gearInspector']`), the button appears **to the left** of "Apply to Gear Inspector". It is enabled only when `isGearAnalyticsDimActive(gearInspectorDim)` is true (i.e. the Gear Inspector filter has at least one mapped dimension).
+
+On click, `handleCopyFromGearInspector` calls `setDim(gearInspectorDim)` and also resets `dimIndividualSets` to the set IDs from `gearInspectorDim.sets` (no metaset expansion on copy-in), and clears `dimMetaSetNames`.
+
+The inverse mapping (`gearInspectorDimForAnalytics` useMemo in `App.tsx`) covers:
+
+| Gear Inspector filter field | Maps to |
+|---|---|
+| `slots.selected` | `dim.slots` |
+| `rank.selected` | `dim.ranks` |
+| `rarity.selected` | `dim.rarities` |
+| `sets.selected` (non-excluded) | `dim.sets` |
+| `level.selected` | `dim.levels` |
+| `gearInspectorSources.selected` | `dim.sources` |
+| `gearInspectorResult.keep` | `outcomes` ← `keep` + `safe` |
+| `gearInspectorResult.sell` | `outcomes` ← `sell` |
+| `gearInspectorResult.unmatched` | `outcomes` ← `none` |
+
+If all mapped sets are empty, `EMPTY_GEAR_ANALYTICS_DIM` is returned.
 
 ## i18n
 
@@ -191,4 +234,4 @@ KPI tooltip strings are catalog-keyed (`gearAnalyticsKpi*Tip`). Source category 
 
 ## Reset behavior
 
-`resetKey` (incremented externally by the Logic Hub "Reset to defaults" action) triggers a `useEffect` that restores `dim` to `EMPTY_GEAR_ANALYTICS_DIM` and clears both `selectedMainStats` and `selectedSubstat`. The same clear logic runs when the user clicks the "Clear" button in the cross-filter chip bar.
+`resetKey` (incremented externally by the Logic Hub "Reset to defaults" action) triggers a `useEffect` that restores `dim` to `EMPTY_GEAR_ANALYTICS_DIM` and clears `selectedMainStats`, `selectedSubstat`, `dimIndividualSets`, and `dimMetaSetNames`. The same clear logic runs when the user clicks the "Clear" button in the cross-filter chip bar, or when "Copy from Gear Inspector" is clicked.

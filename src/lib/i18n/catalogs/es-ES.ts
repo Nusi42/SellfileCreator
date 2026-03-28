@@ -261,6 +261,8 @@ const overrides: Catalog = {
   gearAnalyticsCopied: '¡Copiado!',
   gearAnalyticsApplyToInspectorTip: 'Aplicar las selecciones de filtro cruzado activas a la lista del Gear Inspector. Requiere al menos un filtro activo.',
   gearAnalyticsApplyToInspector: 'Aplicar al Gear Inspector',
+  gearAnalyticsCopyFromInspectorTip: 'Reemplaza el filtro cruzado actual con el filtro activo del Gear Inspector. Solo activo cuando el Gear Inspector tiene al menos una dimensión de filtro activa.',
+  gearAnalyticsCopyFromInspector: 'Copiar del Gear Inspector',
   gearAnalyticsTotal: 'Total',
   gearAnalyticsChartSlot: 'Ranuras',
   gearAnalyticsChartRank: 'Rango',
@@ -300,6 +302,14 @@ const overrides: Catalog = {
   gearAnalyticsSeriesAvg: 'Prom',
   gearAnalyticsSeriesMedian: 'Mediana',
   gearAnalyticsSeriesMax: 'Máx',
+  // Not Fully Equipped section.
+  gearAnalyticsNotEquippedTitle: 'No completamente equipado',
+  gearAnalyticsNotEquippedTitleDesc: 'Campeones con al menos una ranura de equipo vac\u00eda. Cuadr\u00edcula: relleno = equipado, contorno = vac\u00edo.',
+  gearAnalyticsSortLabel: 'Ordenar',
+  gearAnalyticsSortOff: 'Desact.',
+  gearAnalyticsSlotModeAll: 'Todos',
+  gearAnalyticsSlotModeArtifacts: 'Artefactos',
+  gearAnalyticsSlotModeAccessories: 'Accesorios',
   dungeonDropsIntro: 'Simula el botín de mazmorra usando tus reglas de Sellfile actuales (HSF) para estimar cuánto equipo se conserva por set y por hito de nivel.',
   dungeonDropsExplanation: 'Los porcentajes son drops conservados divididos por todos los drops de esa etapa; los sets potenciados solo cambian los pesos de set.',
   // Simulation roll assumptions and run count.
