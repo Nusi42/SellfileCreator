@@ -1723,6 +1723,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // This replaces the previous rAF-based safety net, which fired before transitions
   // committed and inadvertently prevented markNextSnapshotAsSaved from being honoured.
   useEffect(() => {
+    // Must run in the same React commit as the transition render, after the history snapshot
+    // effect — timing that cannot be achieved from the SFR load event handler directly.
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
     if (sfrLoadNonce > 0) markSavedNow()
   }, [sfrLoadNonce, markSavedNow])
   // Use one SSOT transition wrapper for heavy tab/dialog writes so every pathway
@@ -2475,7 +2478,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [gearInspectorArtifactFocusRequest, setGearInspectorArtifactFocusRequest] = useState<GearInspectorArtifactFocusRequest | null>(null)
   // Selected gear items: optimistically updated on click and reconciled with endpoint response.
   // Only active when the WebSocket push endpoint is connected.
-  const [selectedGearItemIds, setSelectedGearItemIds] = useState<ReadonlySet<number>>(new Set())
+  const [selectedGearItemIds, setSelectedGearItemIds] = useState<ReadonlySet<number>>(() => new Set())
   const gearInspectorArtifactFocusTokenRef = useRef(0)
   // Ref for the preview paper element (used for Paper sizing/layout).
   const previewPaperRef = useRef<HTMLDivElement | null>(null)
@@ -6978,7 +6981,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Only act on state transitions to avoid repeated pushes while conditions hold.
     const justBecameDirty = hsfDirty && !wasDirty
     const justEnabledAutoPush = autoPushEnabled && !wasAutoPush
+    // Rising-edge detection requires tracking prev values across renders; an event handler
+    // cannot observe the transition from false→true without this effect pattern.
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
     if (shouldPush && (justBecameDirty || justEnabledAutoPush)) {
+      // eslint-disable-next-line react-you-might-not-need-an-effect/no-derived-state
       handleExportSellfileSilent()
     }
   }, [hsfDirty, autoPushEnabled, pushExportEndpoint, handleExportSellfileSilent])
