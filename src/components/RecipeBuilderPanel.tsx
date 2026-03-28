@@ -6646,7 +6646,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             const allowedSetIdsSet = new Set(allowedSetPool.map(Number))
             const disabledSetIds = sorted
               .map(([id]) => Number(id))
-              .filter((id) => !allowedSetIdsSet.has(id))
+              // Disable sets outside the allowed pool, and always disable the no-set sentinel.
+              .filter((id) => !allowedSetIdsSet.has(id) || id === ACCESSORY_NO_SET_ID)
 
             // Show metasets section only when there is at least one visible user metaset. Avoid empty metasets UI.
             const hasMetasetsSection = visibleMetasets.length > 0
