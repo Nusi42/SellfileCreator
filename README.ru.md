@@ -1,4 +1,4 @@
-﻿# RSL Helper Sellfile Creator
+﻿# Sellfile Creator for RSL Helper
 
 Создавайте, проверяйте и экспортируйте правила продажи для RSL Helper через простой интерфейс.
 

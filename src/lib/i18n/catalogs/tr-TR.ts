@@ -1353,7 +1353,7 @@ const overrides: Catalog = {
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Hoş geldiniz',
-  tutWelcomeBody: '~~RSL Helper Sellfile Creator~~ ile `Reçete Oluşturucu` bölümünde kurallar oluşturabilir ve sonucu `Sellfile Preview` içinde görebilirsiniz. `Rütbe`, `Nadirlik`, `Statlar`, `Sets` ve `Yuvalar` seçerek ne saklayacağınıza ya da ne satacağınıza karar verirsiniz.\n\nİpucu: 💡 Bu öğreticiyi yardım düğmesinden istediğiniz zaman başlatabilirsiniz.',
+  tutWelcomeBody: '~~Sellfile Creator~~ ile `Reçete Oluşturucu` bölümünde kurallar oluşturabilir ve sonucu `Sellfile Preview` içinde görebilirsiniz. `Rütbe`, `Nadirlik`, `Statlar`, `Sets` ve `Yuvalar` seçerek ne saklayacağınıza ya da ne satacağınıza karar verirsiniz.\n\nİpucu: 💡 Bu öğreticiyi yardım düğmesinden istediğiniz zaman başlatabilirsiniz.',
   tutActionTitle: 'Eylem seçin',
   tutActionBody: 'Bu kural için hedefinize göre `Koru` veya `Sat`ı seçin — ~~RSL Helper~~ eşleşen her eşyaya buna göre davranır.',
   tutBasicsTitle: 'Rütbe/Nadirlik/Seviyeler',

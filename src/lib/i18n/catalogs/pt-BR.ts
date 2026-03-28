@@ -1353,7 +1353,7 @@ const catalog: Catalog = {
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Bem-vindo',
-  tutWelcomeBody: 'Com o ~~RSL Helper Sellfile Creator~~ você cria regras no `Construtor de receitas` e confere o resultado na `Prévia Sellfile`. Você vai escolher `Rank`, `Raridade`, `Stats`, `Sets` e `Slots` para decidir o que manter ou vender.\n\nDica: 💡 você pode reiniciar o tutorial a qualquer momento pelo botão de ajuda.',
+  tutWelcomeBody: 'Com o ~~Sellfile Creator~~ você cria regras no `Construtor de receitas` e confere o resultado na `Prévia Sellfile`. Você vai escolher `Rank`, `Raridade`, `Stats`, `Sets` e `Slots` para decidir o que manter ou vender.\n\nDica: 💡 você pode reiniciar o tutorial a qualquer momento pelo botão de ajuda.',
   tutActionTitle: 'Escolher ação',
   tutActionBody: 'Escolha `Manter` ou `Vender` conforme seu objetivo para esta regra — ~~RSL Helper~~ agirá em cada item que se encaixar.',
   tutBasicsTitle: 'Rank/Raridade/Níveis',

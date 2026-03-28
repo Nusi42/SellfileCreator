@@ -1375,7 +1375,7 @@ const enUS: Catalog = {
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Welcome',
-  tutWelcomeBody: 'With ~~RSL Helper Sellfile Creator~~ you build rules in the `Recipe Builder` and see results in `Sellfile Preview`. Each rule decides what to keep or sell based on `Rank`, `Rarity`, `Stats`, `Sets`, and `Slots`.\n\nTip: 💡 You can restart this tutorial any time from the help button.',
+  tutWelcomeBody: 'With ~~Sellfile Creator~~ you build rules in the `Recipe Builder` and see results in `Sellfile Preview`. Each rule decides what to keep or sell based on `Rank`, `Rarity`, `Stats`, `Sets`, and `Slots`.\n\nTip: 💡 You can restart this tutorial any time from the help button.',
   tutActionTitle: 'Choose Action',
   tutActionBody: 'Pick `Keep` or `Sell` to match your goal for this rule — ~~RSL Helper~~ will act on any item that fits.',
   tutBasicsTitle: 'Rank/Rarity/Levels',

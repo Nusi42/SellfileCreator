@@ -125,7 +125,9 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
         const absH = Math.floor(Math.abs(offsetMin) / 60)
         const absM = Math.abs(offsetMin) % 60
         const offsetStr = absM > 0 ? `UTC${sign}${absH}:${pad(absM)}` : `UTC${sign}${absH}`
-        wm.textContent = `${localTs} ${offsetStr} · RSL Helper Sellfile Creator v${APP_VERSION}`
+        // Use innerHTML to render "for RSL Helper" at a smaller font size inline.
+        // All values are build-time constants or formatted Date output — no user input, XSS-safe.
+        wm.innerHTML = `${localTs} ${offsetStr} \u00b7 Sellfile Creator<span style="font-size:0.78em;opacity:0.85"> for RSL Helper</span> v${APP_VERSION}`
         wm.style.display = 'block'
       }
       // Read dimensions after revealing watermark so fullHeight includes it.

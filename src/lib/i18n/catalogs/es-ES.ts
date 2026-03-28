@@ -1353,7 +1353,7 @@ const overrides: Catalog = {
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Bienvenido',
-  tutWelcomeBody: 'Con ~~RSL Helper Sellfile Creator~~ puedes crear reglas en `Constructor de recetas` y ver los resultados en `Vista Sellfile`. Elegirás `Rango`, `Rareza`, `Stats`, `Sets` y `Ranuras` para decidir qué conservar o vender.\n\nConsejo: 💡 puedes iniciar este tutorial en cualquier momento desde el botón de ayuda.',
+  tutWelcomeBody: 'Con ~~Sellfile Creator~~ puedes crear reglas en `Constructor de recetas` y ver los resultados en `Vista Sellfile`. Elegirás `Rango`, `Rareza`, `Stats`, `Sets` y `Ranuras` para decidir qué conservar o vender.\n\nConsejo: 💡 puedes iniciar este tutorial en cualquier momento desde el botón de ayuda.',
   tutActionTitle: 'Elegir acción',
   tutActionBody: 'Elige `Conservar` o `Vender` según tu objetivo para esta regla — ~~RSL Helper~~ actuará en cada objeto que encaje.',
   tutBasicsTitle: 'Rango/Rareza/Niveles',

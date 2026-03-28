@@ -1,5 +1,5 @@
 import React from 'react'
-import { Dialog, DialogActions, DialogContent, Button, Box } from '@mui/material'
+import { Dialog, DialogActions, DialogContent, Button, Box, Typography } from '@mui/material'
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material'
 import MDEditor from '@uiw/react-md-editor'
 import rehypeSanitize from 'rehype-sanitize'
@@ -13,7 +13,7 @@ import { getHighlightEffectSx, pickHighlightEffect, HIGHLIGHT_EFFECT_DURATION_MS
 const README_FILES = import.meta.glob('../../README*.md', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
 import { APP_VERSION } from '../version'
 import { useI18n } from '../lib/i18n'
-import { FONT_SIZE_MARKDOWN_PX } from '../lib/constants'
+import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_DISPLAY_REM, FONT_SIZE_HEADER_META_PX } from '../lib/constants'
 import {
   DEFAULT_LANGUAGE,
   DEV_LANGUAGES,
@@ -58,7 +58,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       const content = README_FILES[candidate]
       if (content) return content
     }
-    return '# RSL Helper Sellfile Creator'
+    return '# Sellfile Creator for RSL Helper'
   }, [lang])
   // Language selector is always visible; dev builds keep the blank-audit language.
   const languageOptions: ReadonlyArray<{ code: Language; label: string }> = React.useMemo(() => {
@@ -86,23 +86,24 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     languageOptions.some((opt) => opt.code === lang) ? lang : DEFAULT_LANGUAGE
   ), [lang, languageOptions])
   const languageLabel = t('helpLanguage')
-  // Inject version into the README title line at render time.
-  // Why: Keep the README.md in the repo clean and stable, but show users the app version contextually.
+  // Strip the H1 title (and any injected version badge) from the README before rendering.
+  // Why: The title is now rendered as a custom styled React element above the markdown content,
+  // so the markdown H1 would be a duplicate. We detect the app title on line 0 and drop it
+  // (plus the badge on line 1 if present) so the markdown starts with the first real section.
   const readmeWithVersion = React.useMemo(() => {
     try {
-      const text = readmeForLang
+      // Strip UTF-8 BOM if present — README files begin with U+FEFF which would
+      // otherwise prevent the leading `# ` H1 detection from matching.
+      const text = readmeForLang.replace(/^\uFEFF/, '')
       const lines = text.split(/\r?\n/)
       const first = lines[0] ?? ''
-      if (first.startsWith('# RSL Helper Sellfile Creator')) {
-        // Insert a small version/author line under the title
-        const badge = `###### v${APP_VERSION} — © Nusi㊷ - 2026`
-        // Avoid duplicating if such a line already exists
-        if ((lines[1] ?? '').startsWith('###### v')) {
-          lines[1] = badge
-        } else {
-          lines.splice(1, 0, badge)
-        }
-        return lines.join('\n')
+      if (first.startsWith('# Sellfile Creator for RSL Helper') || first.startsWith('# RSL Helper Sellfile Creator')) {
+        // Drop the H1 line (the app title); it is rendered as a custom React element above the
+        // markdown content, so the raw heading would be a duplicate.
+        // Both the current and legacy app name are matched to handle cached/old README content.
+        // Also drop a version badge that a prior build may have injected on line 1.
+        const startIdx = (lines[1] ?? '').startsWith('###### v') ? 2 : 1
+        return lines.slice(startIdx).join('\n')
       }
       return text
     } catch {
@@ -244,6 +245,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       onMouseLeave={onDialogMouseLeave}
     >
       <DialogContent dividers>
+        {/* Language selector — right-aligned, no sticky behaviour */}
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
           <FormControl size="small" sx={{ minWidth: 220 }}>
             <InputLabel id="i18n-language-select-label">{languageLabel}</InputLabel>
@@ -259,6 +261,20 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
               ))}
             </Select>
           </FormControl>
+        </Box>
+        {/* App title — replaces the stripped README H1; resembles the main screen title */}
+        <Box sx={{ mb: 1.5 }}>
+          <Box sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.75, whiteSpace: 'nowrap' }}>
+            <Typography variant="h4" fontWeight={700} sx={{ fontSize: `${FONT_SIZE_DISPLAY_REM}rem` }}>
+              Sellfile Creator
+            </Typography>
+            <Typography sx={{ fontSize: `${FONT_SIZE_HEADER_META_PX}px`, color: 'text.secondary', lineHeight: 1 }}>
+              for RSL Helper
+            </Typography>
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.6 }}>
+            v{APP_VERSION} — © Nusi㊷ - 2026
+          </Typography>
         </Box>
         <Box data-allow-select={1 as const} data-allow-context={1 as const} data-color-mode={('dark' as const)} sx={{ '& .wmde-markdown': { bgcolor: 'transparent', fontSize: FONT_SIZE_MARKDOWN_PX, lineHeight: 1.7 } }}>
           <MDEditor.Markdown
