@@ -11,6 +11,9 @@
  * active one so the user can see the full-collection baseline.  The radar scale is locked
  * to sqrt(refMax) regardless of the active filter, so the active polygon visibly contracts
  * when a filter narrows the data.
+ *
+ * Easter egg: clicking the same radar mark 10 times within 10 seconds triggers a random
+ * dance animation on the polygon.  10 distinct variants are available.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Chip, Tooltip, Typography, useTheme } from '@mui/material'
@@ -20,6 +23,8 @@ import { HEATMAP_VARIANTS, statVariantI18nKey } from '../../lib/gearLens'
 import { useDisplayPreferences } from '../../state/preferencesState'
 import { useSubstatColors } from '../../hooks/useSubstatColors'
 import { useI18n } from '../../lib/i18n'
+import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
+import type { GearLensEggPeer } from '../../lib/easterEggAnimUtils'
 import type { BarEntry } from './GearLensBar'
 
 type Props = {
@@ -47,6 +52,17 @@ type Props = {
   onToggleSubstat?: (variant: number) => void
   /** Called when the user clicks the Clear button to deselect all pivot substats. */
   onClearSubstat?: () => void
+  /**
+   * Called once when this radar's Easter egg fires so sibling components can react.
+   * The parent wires this to a cross-component broadcast.
+   */
+  onEasterEgg?: () => void
+  /**
+   * When the parent sets a new peer trigger (incremented seq), the radar starts a
+   * sympathetic dance (a random variant from its own palette, or 'wave'/'nervous').
+   * Ignored when a self-triggered dance is already running.
+   */
+  peerDanceTrigger?: GearLensEggPeer | null
 }
 
 /** Ease-in-out cubic: maps a linear 0→1 progress to a smooth 0→1 curve. */
@@ -56,7 +72,96 @@ function easeInOut(t: number): number {
 
 const ANIM_DURATION_MS = 300
 
-export function GearLensRadar({ title, description, data, referenceData, selectedSubstat, onToggleSubstat, onClearSubstat }: Props) {
+// ── Easter egg ──────────────────────────────────────────────────────────────
+// 10 distinct polygon dance variants, picked at random when the easter egg fires.
+type RadarDance = 'wave' | 'heartbeat' | 'chaos' | 'spiral' | 'nervous' | 'rainbow' | 'gravity' | 'star' | 'breathe' | 'flip'
+const RADAR_DANCES: readonly RadarDance[] = ['wave', 'heartbeat', 'chaos', 'spiral', 'nervous', 'rainbow', 'gravity', 'star', 'breathe', 'flip']
+/** Duration of each dance burst in milliseconds. */
+const RADAR_DANCE_MS = 3_000
+
+/** Apply the chosen dance transformation to a snapshot of base arm counts.
+ *  Returns new raw counts (pre-sqrt) for setDisplayCounts. */
+function applyRadarDance(
+  variant: RadarDance,
+  base: readonly number[],
+  elapsedMs: number,
+): number[] {
+  const t = elapsedMs / 1_000
+  const n = base.length
+  const progress = Math.min(elapsedMs / RADAR_DANCE_MS, 1)
+  const decay = 1 - progress
+
+  if (variant === 'wave') {
+    // Each arm ripples up/down with its own phase offset — polygon shimmies.
+    return base.map((v, i) =>
+      Math.max(v * (1 + 0.55 * Math.sin(t * 3 * Math.PI + (i / n) * Math.PI * 2)), 0))
+  }
+
+  if (variant === 'heartbeat') {
+    // All arms pulse out and back × ~4; amplitude decays to zero so it ends at base.
+    const scale = 1 + 0.7 * Math.pow(Math.sin(t * 4 * Math.PI), 2) * decay
+    return base.map((v) => v * scale)
+  }
+
+  if (variant === 'chaos') {
+    // Each arm vibrates at a unique irrational frequency; gradually settles back to base.
+    return base.map((v, i) =>
+      Math.max(v * (0.45 + 0.9 * Math.abs(Math.sin(t * (2.5 + i * 0.37) * Math.PI))) * (1 - decay * 0.3), 0))
+  }
+
+  if (variant === 'spiral') {
+    // Values appear to rotate around the radar via fractional index-shift interpolation.
+    // frac = how far into the next index step; step = which base index to start from.
+    const rotPos = t * 1.5  // completes 1.5 full rotations over RADAR_DANCE_MS
+    const frac = rotPos % 1
+    const step = Math.floor(rotPos) % n
+    return base.map((_, i) => {
+      const src  = (i + step) % n
+      const next = (src + 1) % n
+      return (base[src] ?? 0) * (1 - frac) + (base[next] ?? 0) * frac
+    })
+  }
+
+  if (variant === 'nervous') {
+    // High-frequency, low-amplitude trembling — the polygon quivers like it's scared.
+    // Adapted from the glitchScrub variant in the sort-popout easter egg.
+    return base.map((v, i) =>
+      Math.max(v * (1 + 0.18 * Math.sin(t * 28 + i * 3.7)) * (0.7 + decay * 0.3), 0))
+  }
+
+  if (variant === 'rainbow') {
+    // Polygon data unchanged; only a hue-rotate CSS filter is applied to chartRef.
+    // Filter mutation happens outside this function (in the dance rAF effect).
+    return base.map((v) => v)
+  }
+
+  if (variant === 'gravity') {
+    // Arms sag toward zero then spring back — adapted from the accordionFold variant.
+    // sin(progress * π) is 0 at start, peaks at 0.5, and returns to 0 at end.
+    const sag = Math.sin(progress * Math.PI)
+    return base.map((v) => Math.max(v * (1 - sag * 0.85), 0))
+  }
+
+  if (variant === 'star') {
+    // Alternating arms go high/low, creating a star ↔ anti-star oscillation.
+    const f = 0.5 + 0.5 * Math.sin(t * 4 * Math.PI)
+    return base.map((v, i) =>
+      Math.max(i % 2 === 0 ? v * (1 + f * 1.5) : v * (1 - f * 0.7), 0))
+  }
+
+  if (variant === 'breathe') {
+    // Single slow, deep expansion — sinπ(t/DANCE_s) is a half-pulse (out then back).
+    const scale = 1 + 0.4 * Math.sin((t / (RADAR_DANCE_MS / 1_000)) * Math.PI)
+    return base.map((v) => v * scale)
+  }
+
+  // 'flip': values repeatedly invert (high ↔ low); oscillation fades as decay → 0.
+  const maxBase = Math.max(...base, 1)
+  const lerpW = (0.5 + 0.5 * Math.sin(t * 3 * Math.PI)) * decay
+  return base.map((v) => Math.max(v * (1 - lerpW) + (maxBase - v) * lerpW, 0))
+}
+
+export function GearLensRadar({ title, description, data, referenceData, selectedSubstat, onToggleSubstat, onClearSubstat, onEasterEgg, peerDanceTrigger }: Props) {
   const theme = useTheme()
   const { t } = useI18n()
   const { statButtonBorders } = useDisplayPreferences()
@@ -167,7 +272,33 @@ export function GearLensRadar({ title, description, data, referenceData, selecte
   const [displayMax, setDisplayMax] = useState<number>(() => Math.sqrt(Math.max(...targetCounts, 1)))
   const rafRef = useRef<number | null>(null)
 
+  // ── Easter egg state ────────────────────────────────────────────────────────────────────────────
+  const [danceVariant, setDanceVariant] = useState<RadarDance | null>(null)
+  // recordClick returns true (and resets) when the same mark is clicked 10× within 10 s.
+  const recordClick = useEasterEggTrigger()
+  // Stable ref so the peer effect can read the current dance state without it as a dep.
+  // Writing to a ref during render is the canonical React pattern for "sync latest state into
+  // a ref for use inside effects without making it a dep"; the lint rule does not apply here.
+  const danceVariantRef = useRef(danceVariant)
+  // eslint-disable-next-line react-hooks/refs
+  danceVariantRef.current = danceVariant
+
+  // Peer reaction: sympathetic dance triggered by a sibling component's Easter egg.
+  // Picks a variant biased toward 'wave' and 'nervous' (feel reactive/contagious).
+  // Ignored when a self-triggered dance is already running to avoid interrupting it.
   useEffect(() => {
+    if (!peerDanceTrigger || danceVariantRef.current) return
+    // Peer-triggered dances favour 'wave', 'nervous', 'heartbeat' — they look "sympathetic".
+    const PEER_VARIANTS: RadarDance[] = ['wave', 'nervous', 'heartbeat', 'wave', 'nervous']
+    setDanceVariant(PEER_VARIANTS[Math.floor(Math.random() * PEER_VARIANTS.length)] ?? 'wave')
+  }, [peerDanceTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Normal interpolation animation — pauses while dance is active so both effects never
+  // compete over setDisplayCounts / setDisplayMax.
+  useEffect(() => {
+    // Dance effect takes exclusive ownership while a variant is selected.
+    if (danceVariant) return
+
     const from = animPosRef.current.slice()
     const fromMax = animMaxRef.current
     const to = targetCounts
@@ -208,7 +339,54 @@ export function GearLensRadar({ title, description, data, referenceData, selecte
         rafRef.current = null
       }
     }
-  }, [targetCounts, effectiveTargetMax])
+  }, [targetCounts, effectiveTargetMax, danceVariant])
+
+  // ── Dance rAF effect ────────────────────────────────────────────────────────────────────────────
+  // Runs for RADAR_DANCE_MS, then calls setDanceVariant(null) so the normal animation resumes
+  // and smoothly recovers to the true targetCounts from wherever the dance left off.
+  useEffect(() => {
+    if (!danceVariant) return
+
+    // Capture a stable (non-null) ref for use inside the rAF closure.
+    const variant = danceVariant
+    // Freeze the current polygon position as the dance baseline.
+    const base = animPosRef.current.slice()
+    const startTime = performance.now()
+    let rafId: number
+
+    function step(now: number) {
+      const elapsed = now - startTime
+      if (elapsed >= RADAR_DANCE_MS) {
+        // Dance complete — let the normal animation effect resume from the current position.
+        setDanceVariant(null)
+        return
+      }
+
+      const counts = applyRadarDance(variant, base, elapsed)
+      // Keep refs in sync so the normal animation starts from the right position after dance ends.
+      animPosRef.current = counts
+      animMaxRef.current = Math.max(...counts, ...base, 1)
+
+      // Rainbow variant: mutate a CSS hue-rotate on the chart container instead of polygon data.
+      if (variant === 'rainbow') {
+        const t = elapsed / 1_000
+        if (chartRef.current) chartRef.current.style.filter = `hue-rotate(${Math.round((t * 120) % 360)}deg)`
+      }
+
+      setDisplayCounts(counts.map(v => Math.sqrt(Math.max(v, 0))))
+      setDisplayMax(Math.sqrt(Math.max(animMaxRef.current, 1)))
+      rafId = requestAnimationFrame(step)
+    }
+
+    rafId = requestAnimationFrame(step)
+    // Capture stable DOM ref for use in the cleanup function (ref may have changed by then).
+    const chartEl = chartRef.current
+    return () => {
+      cancelAnimationFrame(rafId)
+      // Always clear the hue-rotate filter — may have been set by the rainbow variant.
+      if (chartEl) chartEl.style.filter = ''
+    }
+  }, [danceVariant])
 
   if (data.length === 0) {
     return (
@@ -276,7 +454,16 @@ export function GearLensRadar({ title, description, data, referenceData, selecte
         onMarkClick={onToggleSubstat ? (_e, item) => {
           // Both the active and reference series marks are clickable — either toggles the pivot.
           const v = HEATMAP_VARIANTS[item.dataIndex ?? -1]
-          if (v !== undefined) onToggleSubstat(v)
+          if (v === undefined) return
+          // Easter egg: 10 rapid clicks on the same mark triggers a dance.  Only start a new
+          // dance if none is running (recordClick resets the counter after firing).
+          if (recordClick(v) && danceVariant === null) {
+            const idx = Math.floor(Math.random() * RADAR_DANCES.length)
+            setDanceVariant(RADAR_DANCES[idx] ?? 'wave')
+            // Notify parent so sibling components can react.
+            onEasterEgg?.()
+          }
+          onToggleSubstat(v)
         } : undefined}
       />
 

@@ -10,11 +10,16 @@
  *
  * The squarified layout algorithm produces near-square tiles (Bruls, Huizing, van Wijk 2000).
  * Width is measured reactively via ResizeObserver so the layout adapts to the dialog size.
+ *
+ * Easter egg: clicking the same tile 10 times within 10 seconds triggers a random dance
+ * animation on the tile layout.  10 distinct variants are available.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { alpha, Box, Tooltip, Typography, useTheme } from '@mui/material'
 import type { SetOutcomeCount } from '../../lib/gearLens'
 import { useI18n } from '../../lib/i18n'
+import { clamp01, type GearLensEggPeer } from '../../lib/easterEggAnimUtils'
+import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -34,6 +39,16 @@ type Props = {
    *   for a label but still large enough for an icon.
    */
   showIcons?: boolean
+  /**
+   * Called once when this treemap's Easter egg fires so sibling components can react.
+   * The parent wires this to a cross-component broadcast.
+   */
+  onEasterEgg?: () => void
+  /**
+   * When the parent sets a new peer trigger (incremented seq), the treemap starts a
+   * sympathetic dance.  Ignored when a self-triggered dance is already running.
+   */
+  peerDanceTrigger?: GearLensEggPeer | null
 }
 
 // ── Layout constants ──────────────────────────────────────────────────────────
@@ -186,7 +201,26 @@ type Band = typeof BAND_ORDER[number]
 /** Same order used for the inline counts chip — all four outcomes. */
 const COUNT_ORDER = BAND_ORDER
 
-export function GearLensTreemap({ title, data, selected, onToggle, iconById, showIcons = true }: Props) {
+// ── Easter egg ────────────────────────────────────────────────────────────────
+// 10 rAF-driven dance variants applied to tile positions.  Each variant gets 2 s.
+
+type TreemapDance =
+  | 'earthquake' | 'bounce' | 'explosion' | 'wave'
+  | 'collapse'   | 'rain'   | 'scatter'   | 'grid-snap'
+  | 'cardboard'  | 'shockwave'
+const TREEMAP_DANCES: readonly TreemapDance[] = [
+  'earthquake', 'bounce', 'explosion', 'wave',
+  'collapse', 'rain', 'scatter', 'grid-snap',
+  'cardboard', 'shockwave',
+]
+
+/** Per-tile positional + transform offset during a dance animation. */
+type TileDanceOffset = { dx: number; dy: number; scale?: number; rotate?: number }
+
+/** Duration of each treemap dance burst in milliseconds. */
+const TREEMAP_DANCE_MS = 2_000
+
+export function GearLensTreemap({ title, data, selected, onToggle, iconById, showIcons = true, onEasterEgg, peerDanceTrigger }: Props) {
   const theme = useTheme()
   const { t } = useI18n()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -226,6 +260,176 @@ export function GearLensTreemap({ title, data, selected, onToggle, iconById, sho
 
   // O(1) lookup from set ID to entry.
   const dataById = useMemo(() => new Map(data.map(d => [d.id, d])), [data])
+
+  // ── Easter egg state ──────────────────────────────────────────────────────────
+  // activeDance bundles the chosen variant with the epicenter tile id (needed by shockwave).
+  const [activeDance, setActiveDance] = useState<{ variant: TreemapDance; epicenterId: number } | null>(null)
+  const [danceOffsets, setDanceOffsets] = useState<Map<number, TileDanceOffset>>(new Map())
+  const recordClick = useEasterEggTrigger()
+  // Stable ref so the peer effect can check dance state without triggering re-runs.
+  // Writing to a ref during render is the canonical React pattern for syncing state into
+  // a ref for use inside effects; the lint rule does not apply here.
+  const activeDanceRef = useRef(activeDance)
+  // eslint-disable-next-line react-hooks/refs
+  activeDanceRef.current = activeDance
+
+  // Peer reaction: sympathetic dance triggered by a sibling component's Easter egg.
+  // Picks from variants that look "reactive" — scatter, wave, explosion.
+  // Ignored when a self-triggered dance is already running.
+  useEffect(() => {
+    if (!peerDanceTrigger || activeDanceRef.current || tiles.length === 0) return
+    const PEER_VARIANTS: TreemapDance[] = ['scatter', 'wave', 'explosion', 'scatter', 'bounce']
+    const variant = PEER_VARIANTS[Math.floor(Math.random() * PEER_VARIANTS.length)] ?? 'scatter'
+    // Use the center tile as the epicenter for peer-triggered dances.
+    const epicenterId = tiles[Math.floor(tiles.length / 2)]?.id ?? tiles[0]!.id
+    setActiveDance({ variant, epicenterId })
+  }, [peerDanceTrigger, tiles]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Dance rAF loop — runs for TREEMAP_DANCE_MS, then clears state and lets the layout settle.
+  useEffect(() => {
+    if (!activeDance || tiles.length === 0) return
+
+    const { variant, epicenterId } = activeDance
+    const startTime = performance.now()
+    let rafId: number
+
+    // Precompute values used inside the frame loop — avoids recomputing per-frame.
+    const n = tiles.length
+    const cx = containerW / 2
+    const cy = TREEMAP_H / 2
+    // Tile centres for angle/distance calculations.
+    const tileCxs = tiles.map(tl => tl.x + tl.w / 2)
+    const tileCys = tiles.map(tl => tl.y + tl.h / 2)
+
+    // Grid positions for the grid-snap variant — equally sized cells.
+    const cols = Math.ceil(Math.sqrt(n))
+    const gridCellW = containerW / cols
+    const gridCellH = TREEMAP_H / Math.ceil(n / cols)
+    const gridXs = tiles.map((_, i) => (i % cols) * gridCellW)
+    const gridYs = tiles.map((_, i) => Math.floor(i / cols) * gridCellH)
+
+    // Epicenter position for the shockwave variant.
+    const epTile = tiles.find(tl => tl.id === epicenterId) ?? tiles[0]!
+    const epCx   = epTile.x + epTile.w / 2
+    const epCy   = epTile.y + epTile.h / 2
+
+    function step(now: number) {
+      const elapsed = now - startTime
+      if (elapsed >= TREEMAP_DANCE_MS) {
+        // Dance complete — clear offsets so tiles snap back to real positions.
+        setDanceOffsets(new Map())
+        setActiveDance(null)
+        return
+      }
+
+      const t = elapsed / 1_000
+      const progress = elapsed / TREEMAP_DANCE_MS
+      const decay = 1 - progress
+
+      const offsets = new Map<number, TileDanceOffset>()
+
+      tiles.forEach((tile, i) => {
+        const tileCx_ = tileCxs[i]!
+        const tileCy_ = tileCys[i]!
+
+        if (variant === 'earthquake') {
+          // Each tile shakes at its own sinusoidal frequency; decays to zero.
+          offsets.set(tile.id, {
+            dx: Math.sin(t * 15 + i * 1.31) * 9 * decay,
+            dy: Math.cos(t * 13 + i * 0.91) * 9 * decay,
+          })
+
+        } else if (variant === 'bounce') {
+          // Staggered vertical conga-line — tiles hop in sequence.
+          offsets.set(tile.id, {
+            dx: 0,
+            dy: -Math.abs(Math.sin(t * 3 * Math.PI + i * 0.45)) * 18 * decay,
+          })
+
+        } else if (variant === 'explosion') {
+          // Radial fly-out from treemap center then snap back (half-sine arc).
+          const angle = Math.atan2(tileCy_ - cy, tileCx_ - cx)
+          const r = Math.sin(progress * Math.PI) * 35
+          offsets.set(tile.id, {
+            dx: Math.cos(angle) * r,
+            dy: Math.sin(angle) * r,
+          })
+
+        } else if (variant === 'wave') {
+          // Left-to-right sine wave ripple across the treemap.
+          offsets.set(tile.id, {
+            dx: 0,
+            dy: Math.sin(t * 4 * Math.PI - (tile.x / Math.max(containerW, 1)) * Math.PI * 2) * 13 * decay,
+          })
+
+        } else if (variant === 'collapse') {
+          // Tiles converge toward the vertical center then spring back.
+          // Adapted from the accordionFold variant in the sort-popout easter egg.
+          offsets.set(tile.id, {
+            dx: 0,
+            dy: (cy - tileCy_) * Math.sin(progress * Math.PI) * 0.9,
+          })
+
+        } else if (variant === 'rain') {
+          // Tiles shoot upward together then fall back; slight per-tile wobble.
+          offsets.set(tile.id, {
+            dx: 0,
+            dy: -Math.sin(progress * Math.PI) * 80 + Math.sin(t * 5 + i * 0.4) * 5,
+          })
+
+        } else if (variant === 'scatter') {
+          // Deterministic random scatter based on tile index, snap back at end.
+          // Uses non-trivial multipliers so each tile goes to a distinct position.
+          const sdx = Math.sin(i * 1000) * 40 + Math.sin(i * 700) * 20
+          const sdy = Math.cos(i * 500) * 40 + Math.cos(i * 1300) * 20
+          const frac = Math.sin(progress * Math.PI)
+          offsets.set(tile.id, { dx: sdx * frac, dy: sdy * frac })
+
+        } else if (variant === 'grid-snap') {
+          // Tiles rearrange to an equal-area grid then snap back to organic layout.
+          const frac = Math.sin(progress * Math.PI)
+          offsets.set(tile.id, {
+            dx: ((gridXs[i] ?? 0) - tile.x) * frac,
+            dy: ((gridYs[i] ?? 0) - tile.y) * frac,
+          })
+
+        } else if (variant === 'cardboard') {
+          // Tiles fall and spin like pieces of cardboard, staggered by index.
+          // Adapted from the rowYeet variant in the sort-popout easter egg.
+          const delayMs = (i / Math.max(n, 1)) * 500  // stagger onset over first 0.5 s
+          const localElapsed = Math.max(0, elapsed - delayMs)
+          const localProgress = clamp01(localElapsed / (TREEMAP_DANCE_MS - 500))
+          const localSin = Math.sin(localProgress * Math.PI)
+          offsets.set(tile.id, {
+            dx: 0,
+            dy: localSin * 8 * decay,
+            rotate: localSin * (i % 2 === 0 ? 180 : -180) * decay,
+            scale: 1 - 0.6 * Math.abs(localSin),
+          })
+
+        } else {
+          // 'shockwave': staggered wobble radiating from the epicenter tile.
+          // Adapted directly from the shockwave variant in the sort-popout easter egg.
+          const dist = Math.sqrt((tileCx_ - epCx) ** 2 + (tileCy_ - epCy) ** 2)
+          const delayMs = dist * 3  // 3ms per pixel distance from epicenter
+          const localElapsed = Math.max(0, elapsed - delayMs)
+          if (localElapsed <= 0) {
+            offsets.set(tile.id, { dx: 0, dy: 0 })
+          } else {
+            const intensity = clamp01(1 - dist / 180) * clamp01(1 - localElapsed / 1_000)
+            const dx = Math.sin((localElapsed / 80) * Math.PI) * 14 * intensity
+            offsets.set(tile.id, { dx, dy: 0 })
+          }
+        }
+      })
+
+      setDanceOffsets(offsets)
+      rafId = requestAnimationFrame(step)
+    }
+
+    rafId = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(rafId)
+  }, [activeDance, tiles, containerW])
 
   if (data.length === 0) {
     return (
@@ -281,15 +485,31 @@ export function GearLensTreemap({ title, data, selected, onToggle, iconById, sho
             </Box>
           )
 
+          // Apply dance offset to tile position and optional transform.
+          const off = danceOffsets.get(tile.id)
+          const danceTransform = (off?.scale !== undefined || off?.rotate !== undefined)
+            ? `scale(${off.scale ?? 1}) rotate(${off.rotate ?? 0}deg)`
+            : undefined
+
           return (
             <Tooltip key={tile.id} title={tooltipContent} arrow placement="top" enterDelay={200} enterNextDelay={100}>
               <Box
-                onClick={() => onToggle(tile.id)}
+                onClick={() => {
+                  // Easter egg: 10 rapid clicks on the same tile fires a dance.
+                  if (recordClick(tile.id) && !activeDance) {
+                    const idx = Math.floor(Math.random() * TREEMAP_DANCES.length)
+                    setActiveDance({ variant: TREEMAP_DANCES[idx] ?? 'earthquake', epicenterId: tile.id })
+                    // Notify parent so sibling components can react.
+                    onEasterEgg?.()
+                  }
+                  onToggle(tile.id)
+                }}
                 sx={{
                   position: 'absolute',
                   // Inset by half-gap on each side so adjacent tiles have a full-gap separation.
-                  left:   tile.x + TILE_GAP / 2,
-                  top:    tile.y + TILE_GAP / 2,
+                  // Dance offsets shift the tile without affecting other tiles.
+                  left:   tile.x + TILE_GAP / 2 + (off?.dx ?? 0),
+                  top:    tile.y + TILE_GAP / 2 + (off?.dy ?? 0),
                   width:  Math.max(1, tile.w - TILE_GAP),
                   height: Math.max(1, tile.h - TILE_GAP),
                   overflow: 'hidden',
@@ -297,6 +517,8 @@ export function GearLensTreemap({ title, data, selected, onToggle, iconById, sho
                   cursor: 'pointer',
                   opacity: dimmed ? 0.25 : 1,
                   transition: 'opacity 0.15s',
+                  transform: danceTransform,
+                  transformOrigin: 'center center',
                   // Selection ring via outline; hover reveals primary-light border.
                   outline: isSelected
                     ? `2px solid ${theme.palette.primary.main}`

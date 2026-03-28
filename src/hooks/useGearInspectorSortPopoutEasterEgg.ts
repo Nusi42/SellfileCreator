@@ -1,5 +1,6 @@
 import * as React from 'react'
 import type { GearInspectorSortKey } from '../lib/gearInspectorSort'
+import { easingSnappy, easingSlam, easingGlitch, animateAll, clamp01 } from '../lib/easterEggAnimUtils'
 
 /**
  * GearInspectorSortPopout easter egg (UI-only mischief).
@@ -69,9 +70,7 @@ const VARIANTS: readonly GearInspectorSortPopoutEasterEggVariant[] = [
   'carouselScramble',
 ]
 
-const easingSnappy = 'cubic-bezier(0.2, 0.9, 0.2, 1)'
-const easingSlam = 'cubic-bezier(0.18, 1.15, 0.22, 1)'
-const easingGlitch = 'steps(6, end)'
+// easingSnappy, easingSlam, easingGlitch, animateAll, clamp01 imported from easterEggAnimUtils.
 
 type ToggleStreak = Readonly<{
   key: GearInspectorSortKey | null
@@ -129,14 +128,6 @@ const badgeForPriorityRow = (row: HTMLElement): HTMLElement | null =>
 
 const textNodesForPaper = (paper: HTMLElement): readonly HTMLElement[] =>
   Array.from(paper.querySelectorAll<HTMLElement>('[data-sort-popout-text]'))
-
-const animateAll = (targets: readonly HTMLElement[], keyframes: Keyframe[], options: KeyframeAnimationOptions): readonly Animation[] => {
-  // WAAPI animations are compositor-friendly and don’t require React re-rendering per frame.
-  return targets
-    .map((el) => el.animate(keyframes, options))
-}
-
-const clamp01 = (value: number): number => Math.max(0, Math.min(1, value))
 
 const pickVariant = (): GearInspectorSortPopoutEasterEggVariant => {
   // Keep the selection simple: one random pick per burst, stable until the idle timeout clears it.
