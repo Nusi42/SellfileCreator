@@ -13,6 +13,10 @@ import {
 import { isAccessorySlot } from './gearInspectorDomain'
 import {
   artifactTypeNames,
+  artifactTypeI18nKey,
+  rarityRankValueI18nKey,
+  statVariantI18nKey,
+  getLocalizedGearSetName,
   PREFERRED_ARTIFACT_TYPE_ORDER,
   STAT_VARIANTS_PRIORITY,
   StatVariant,
@@ -23,6 +27,9 @@ import {
 } from './types'
 import { ACCESSORY_NO_SET_ID } from './constants'
 import type { StatVariantLike } from './types'
+
+// Re-export so Gear Lens components have a single import source for label i18n helpers.
+export { artifactTypeI18nKey, rarityRankValueI18nKey, statVariantI18nKey, getLocalizedGearSetName }
 
 // ── Outcome classification ────────────────────────────────────────────────────
 
@@ -207,7 +214,7 @@ export function countByRarity(rows: readonly GearInspectorPreviewRow[]): Map<num
   return map
 }
 
-/** Max number of unique sets shown in the donut before bucketing into "other". */
+/** Max number of unique sets shown in a donut/pie before bucketing into "other". */
 const SET_DONUT_TOP_N = 15
 
 /**
@@ -266,6 +273,57 @@ export function countBySet(
     result.push({ id: -1, label, count: otherCount })
   }
   return result
+}
+
+/** Per-set outcome breakdown — one entry per set ID in the filtered row set. */
+export type SetOutcomeCount = {
+  id: number
+  label: string
+  sell: number
+  keep: number
+  safe: number
+  none: number
+  /** sum of all four outcome counts */
+  total: number
+}
+
+/**
+ * Count rows by set ID and break each set down into outcome buckets.
+ * Returns all sets (no top-N cap) sorted by total count descending.
+ * Used by the stacked vertical bar chart which replaces the sets donut.
+ */
+export function countSetsByOutcome(
+  rows: readonly GearInspectorPreviewRow[],
+  opts?: {
+    /** Display label for set ID -99 (ACCESSORY_NO_SET_ID = no-set accessories). */
+    noSetLabel?: string
+    /**
+     * Optional localized name function for a set ID.
+     * When provided it takes precedence over the fallback `artifactSetNames` lookup.
+     * Pass `(id) => getLocalizedGearSetName(id, t, lang)` from the calling component.
+     */
+    setNameFn?: (id: number) => string
+  },
+): SetOutcomeCount[] {
+  // Accumulate per-set, per-outcome tallies in a single pass.
+  const map = new Map<number, { sell: number; keep: number; safe: number; none: number }>()
+  for (const row of rows) {
+    const set = Number(row.artifact.set)
+    if (!map.has(set)) map.set(set, { sell: 0, keep: 0, safe: 0, none: 0 })
+    // rowOutcome classifies the row into sell / keep / safe / none.
+    map.get(set)![rowOutcome(row)]++
+  }
+  return Array.from(map.entries())
+    .map(([id, counts]) => ({
+      id,
+      label: (id === ACCESSORY_NO_SET_ID && opts?.noSetLabel)
+        ? opts.noSetLabel
+        : (opts?.setNameFn ? opts.setNameFn(id) : (artifactSetNames[id] ?? String(id))),
+      ...counts,
+      total: counts.sell + counts.keep + counts.safe + counts.none,
+    }))
+    // Sort by total descending so the most-populated sets appear first (left).
+    .sort((a, b) => b.total - a.total)
 }
 
 /** Count rows by source category (inventory / collection / vault / inbox / manual). */

@@ -870,6 +870,19 @@ export function artifactTypeName(id: ArtifactTypeId): string {
   return artifactTypeNames[Number(id)] ?? String(id)
 }
 
+/** i18n key for a rarity RankValue (1–6). UI should use this with `t(...)`. */
+export function rarityRankValueI18nKey(rankValue: number): 'rarityCommon' | 'rarityUncommon' | 'rarityRare' | 'rarityEpic' | 'rarityLegendary' | 'rarityMythical' {
+  switch (rankValue) {
+    case 1: return 'rarityCommon'
+    case 2: return 'rarityUncommon'
+    case 3: return 'rarityRare'
+    case 4: return 'rarityEpic'
+    case 5: return 'rarityLegendary'
+    case 6: return 'rarityMythical'
+  }
+  return 'rarityCommon'
+}
+
 // i18n key for artifact type (slot) label. UI should use this with `t(...)`.
 export function artifactTypeI18nKey(id: ArtifactTypeId): 'slotWeapon' | 'slotHelmet' | 'slotShield' | 'slotGauntlets' | 'slotChestplate' | 'slotBoots' | 'slotRing' | 'slotAmulet' | 'slotBanner' {
   switch (Number(id) as ArtifactType) {
@@ -917,8 +930,8 @@ export function getLocalizedGearSetName(
   if (runtime) {
     return (runtime.canonicalName ?? String(id)).trim()
   }
-  const label = t(artifactSetI18nKey(id))
-  return label || artifactSetName(id)
+  // t() already falls back to en-US when the key is absent; trust the catalog result directly.
+  return t(artifactSetI18nKey(id))
 }
 
 // i18n key for artifact set label shown in UI. Use this with `t(...)` for localized set names.

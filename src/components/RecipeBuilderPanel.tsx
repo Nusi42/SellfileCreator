@@ -6785,7 +6785,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             }}
                             data-tour-id="menu.metasets.section"
                           >
-                            <ListSubheader sx={LIST_SUBHEADER_SX}>Metasets</ListSubheader>
+                            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('menuMetasetsSection')}</ListSubheader>
                             {metasetsMenu.map((m) => {
                               const { glyph, iconId } = metasetGlyph(m)
                               const hasGlyph = glyph != null && !!iconId

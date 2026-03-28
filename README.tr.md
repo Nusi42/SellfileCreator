@@ -13,7 +13,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Tek tıkla dışa aktarma: RSL Helper’da kullanılmaya hazır bir HSF dosyası üretin.
 - “Araçlar” düğmesi: Önizleme başlığından bu düğmeye basarak `Nihai satış`, `Alt stat hedefleri`, `Zindan Düşüşleri` ve Ekipman diyaloğuna (Araçlar içindeki Gear sekmesi) tek noktadan ulaşın. Örnek ekipman oluşturun, satırları yapıştırın veya `%APPDATA%\\RslHelper\\Config` yolunu sürükleyin; ardından diyaloğu kapatıp önizleme anahtarını ihtiyacınız olan tabloda bırakın — Ekipman Denetçisi kuyruğu yeniden açmadan görünür kalır.
 - «Benzersizleri Koru» sekmesi: Kaybetmenize asla izin vermek istemediğiniz kombinasyonları tanımlayın. Reçeteleriniz + şu anda aktif olan Satış kurallarınız tüm kopyaları siliyorsa tarayıcı otomatik olarak koruma kuralları üretir.
-- Gear Lens: Araçlar diyaloğunda bir analitik pano. Sekiz KPI kartı koleksiyonun durumunu özetler (Efsanevi+, 6★ oranı, Maksimum seviye, Giyili, vb.). Altı çapraz filtreli donut grafiği (Yuvalar, Nadirlik, Setler, Sonuç, Kaynak, Seviye) bir dilime tıklanarak diğer tüm grafiklerin anında filtrelenmesini sağlar. Ana stat ve Alt stat sıklık çubukları, Yuva × Ana stat ısı haritası ve Şampiyon İstatistikleri sekmesi görünümü tamamlar. Etkin filtreler silinebilir rozetler olarak görünür. Panoyu PNG olarak kopyalayın veya etkin filtreyi doğrudan Ekipman Denetçisi'ne gönderin.
+- Gear Lens: Araçlar diyaloğunda bir analitik pano. Sekiz KPI kartı koleksiyonun durumunu özetler (Efsanevi+, 6★ oranı, Maksimum seviye, Giyili, vb.). Altı çapraz filtreli donut grafiği (Yuvalar, Derece, Nadirlik, Sonuç, Kaynak, Seviye) ve bir Setler Treemap'ı, diğer tüm grafikleri daraltmak için tıklamanızı sağlar. Ana stat çubuğu, ortak oluşum pivotlu alt stat sıklık radarı, Yuva × Ana stat ısı haritası ve Şampiyon İstatistikleri sekmesi görünümü tamamlar. Etkin filtreler silinebilir rozetler olarak görünür. Panoyu PNG olarak kopyalayın veya etkin filtreyi doğrudan Ekipman Denetçisi'ne gönderin.
 
 ## Nasıl kullanılır
 
@@ -153,18 +153,21 @@ Notlar:
 ### Gear Lens
 Araçlar'ı açıp **Gear Lens** sekmesine geçin — içe aktarılan ekipmanınızın analitik görünümü.
 
-**KPI Kartları (üst satır):** Sekiz yüzde kartı — **Efsanevi+**, **6★ Oranı**, **Maksimum (+16)**, **Giyili**, **Kasaya Kilitli**, **Chaos'd**, **Glyphed**, **Yükselmiş** — her biri koleksiyon sağlığı eşiklerine göre tooltip ve renk kodlamasıyla (yeşil/kehribar/kırmızı) gösterilir.
+**KPI Kartları (üst satır):** Sekiz yüzde kartı — **6★ Oranı**, **Efsanevi+**, **Maksimum (+16)**, **Giyili**, **Kasaya Kilitli**, **Chaos'd**, **Glyphed**, **Yükselmiş** — her biri tooltip ile gösterilir.
 
-**Çapraz filtreli donutlar:** Altı grafik — **Yuvalar**, **Nadirlik**, **Setler**, **Sonuç**, **Kaynak**, **Seviye** — tıklandığında birbirini günceller.
+**Çapraz filtreli donutlar:** Altı grafik — **Yuvalar**, **Derece**, **Nadirlik**, **Sonuç**, **Kaynak**, **Seviye** — tıklandığında birbirini günceller.
 - Bir dilime tıklayarak o boyut için filtre ekleyin; diğer tüm grafikler anında eşleşen ekipmanı gösterir. Her grafik kendi boyutunu dışarıda bırakır; bu sayede her zaman tam aralığını gösterir.
 - **Yuvalar** donutundaki bir dilime çift tıklamak tüm bir grubu seçer: herhangi bir zırh parçası (Silah, Miğfer, Kalkan, Eldiven, Zırh, Çizme) altı zırh yuvasını seçer; herhangi bir aksesuar (Yüzük, Muska, Sancak) üçünü birden seçer.
-- **Setler** donutu her arkte set ikonları gösterir. **Yuvalar** ve **Kaynak** donutları da kategori ikonları gösterir. **Seviye** donutu her arkı seviye metniyle etiketler.
+- **Yuvalar** ve **Kaynak** donutları kategori ikonları gösterir. **Seviye** donutu her arkı seviye metniyle etiketler.
+
+
+**Setler Treemap'ı:** Donutların altında görüntülenir. Her karo bir ekipman setini temsil eder; karo alanı öğe sayısıyla orantılıdır. Karo arka planı soldan sağa sonuç renk bantlarına bölünmüştür (Sat / Korunmuş / Sakla / Eşleşme yok). Bir karoya tıklayarak o seti çapraz filtre olarak ekleyin.
 
 **Filtre rozetleri:** Her boyutun etkin seçimleri donutların altında rozetler olarak görünür; bir rozetteki sil ikonuna tıklayarak yalnızca o filtreyi kaldırın. Ana stat seçimleri de rozet olarak görünür. **Filtreleri temizle** düğmesi tüm boyutları aynı anda sıfırlar.
 
 **Ana Stat Çubuğu:** Filtrelenmiş ekipmanda her ana statın ne sıklıkla göründüğünü gösterir. Bir çubuğa tıklayarak ayrıntıya inin — Alt stat sıklık grafiği yalnızca o ana stat seçili ekipmanın alt statlarını gösterecek şekilde güncellenir. Seçimi kaldırmak için tekrar tıklayın.
 
-**Alt Stat Sıklık Çubuğu:** Filtrelenmiş (ve isteğe bağlı olarak ana stata göre sınırlı) ekipmanda her alt statın ne sıklıkla göründüğünü gösterir.
+**Alt Stat Sıklık Radarı:** Filtrelenmiş (ve isteğe bağlı olarak ana stata göre sınırlı) ekipmanda her alt statın ne sıklıkla göründüğünü örümcek grafik olarak gösterir. Ortak oluşum pivotu olarak seçmek için bir eksen işaretine tıklayın — radar aynı anda seçilen tüm alt statları içeren ekipmanla kısıtlanır (en fazla 4 pivot). Aktif pivotlar grafiğin altında rozetler olarak görünür; × birini kaldırır, **Filtreleri temizle** hepsini kaldırır.
 
 **Yuva × Ana Stat Isı Haritası:** Yuva (sütunlar) × ana stat (satırlar) başına öğe sayısı. Sütun başlığına veya bir hücreye tıklayarak o yuvaya göre filtreleyin.
 

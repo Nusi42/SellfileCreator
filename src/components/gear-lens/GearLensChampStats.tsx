@@ -29,7 +29,9 @@ import { championIconUrl } from '../../lib/iconMaps/championIconMap'
 import { resolveRarityAccentColor } from '../../lib/rarityColors'
 import { CHAMPION_ICON_BORDER_RADIUS_PX } from '../../lib/constants'
 import { useI18n } from '../../lib/i18n'
+import { statVariantI18nKey } from '../../lib/gearLens'
 import { useSubstatColors } from '../../hooks/useSubstatColors'
+import { useDisplayPreferences } from '../../state/preferencesState'
 
 type Props = {
   rows: readonly GearInspectorPreviewRow[]
@@ -146,7 +148,10 @@ type RangeRowProps = { entry: ChampSubstatStats; labelColor?: string | undefined
 
 function SubstatRangeRow({ entry, labelColor }: RangeRowProps) {
   const theme = useTheme()
-  const { min, avg, max, label, count, minChamp, maxChamp, buckets, samples } = entry
+  const { t } = useI18n()
+  const { min, avg, max, count, minChamp, maxChamp, buckets, samples } = entry
+  // Localized stat label and min/avg/max series labels.
+  const label = t(statVariantI18nKey(entry.variant))
   // Position avg relative to max — each row uses its own scale (no shared axis).
   const scale = max > 0 ? max : 1
   const avgPct = (avg / scale) * 100
@@ -183,7 +188,7 @@ function SubstatRangeRow({ entry, labelColor }: RangeRowProps) {
         </Box>
       </Box>
       <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 0.25 }}>
-        Min {fmtVal(min)} &nbsp;·&nbsp; Avg {fmtVal(avg)} &nbsp;·&nbsp; Max {fmtVal(max)}
+        {t('gearLensSeriesMin')} {fmtVal(min)} &nbsp;·&nbsp; {t('gearLensSeriesAvg')} {fmtVal(avg)} &nbsp;·&nbsp; {t('gearLensSeriesMax')} {fmtVal(max)}
       </Box>
     </Box>
   ) : ''
@@ -294,6 +299,7 @@ function readIncludeGlyphs(): boolean {
 export function GearLensChampStats({ rows, resetKey }: Props) {
   const { t } = useI18n()
   const [substatColors] = useSubstatColors()
+  const { statButtonBorders } = useDisplayPreferences()
 
   // Filter/display state: persisted to localStorage so the user's preference survives reloads.
   const [location, setLocation] = useState<ChampLensLocation>(readLocation)
@@ -405,7 +411,7 @@ export function GearLensChampStats({ rows, resetKey }: Props) {
               so that different stat magnitudes (e.g. SPD vs HP flat) are
               independently readable. */}
           {substatStats.map((entry) => (
-            <SubstatRangeRow key={entry.variant} entry={entry} labelColor={substatColors[entry.variant]?.fg} />
+            <SubstatRangeRow key={entry.variant} entry={entry} labelColor={statButtonBorders ? substatColors[entry.variant]?.fg : undefined} />
           ))}
         </Box>
       )}

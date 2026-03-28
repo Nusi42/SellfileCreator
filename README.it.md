@@ -15,7 +15,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Modalità Salvaguardie: definisci le combinazioni che non vuoi perdere mai. Quando le tue ricette più le tue regole di vendita attualmente attive eliminerebbero tutte le copie, lo scanner genera automaticamente regole di mantenimento.
 - Dialogo di ripristino Autosave: quando troviamo un Autosave, scegli con precisione cosa ricaricare: ricette, Metaset, Valori obiettivo delle sotto-stat, resto di Vendita finale, nota fissata, stato del pannello filtri e perfino le importazioni dell'Ispettore Equipaggiamento.
 - Copia la cartella del DB di RSL Helper: l'intestazione dell'anteprima offre un pulsante negli appunti che copia `%APPDATA%\RslHelper\Config` così puoi incollare subito il percorso in Esplora risorse prima di trascinare dentro il `.db`.
-- Gear Lens: un pannello di analisi all'interno della finestra Strumenti. Otto schede KPI riassumono lo stato della collezione (Leggendaria+, Tasso 6★, Maxed, Equipaggiato, ecc.). Sei donut a filtro incrociato (Slot, Rarità, Set, Risultato, Fonte, Livello) permettono di cliccare i segmenti per filtrare tutti gli altri grafici contemporaneamente. Barre di frequenza delle stat principali e delle sotto-stat, una heatmap Slot × Stat principale e una scheda Statistiche campioni completano la vista. I filtri attivi appaiono come chip rimovibili. Copia l'intero pannello come PNG o invia il filtro attivo direttamente all'Ispettore Equipaggiamento.
+- Gear Lens: un pannello di analisi all'interno della finestra Strumenti. Otto schede KPI riassumono lo stato della collezione (Leggendaria+, Tasso 6★, Maxed, Equipaggiato, ecc.). Sei donut a filtro incrociato (Slot, Grado, Rarità, Risultato, Fonte, Livello) e una Treemap dei Set permettono di cliccare per filtrare tutti gli altri grafici. Una barra delle Stat principali, un radar della frequenza delle sotto-stat con pivot di co-occorrenza, una heatmap Slot × Stat principale e una scheda Statistiche campioni completano la vista. I filtri attivi appaiono come chip rimovibili. Copia l'intero pannello come PNG o invia il filtro attivo direttamente all'Ispettore Equipaggiamento.
 
 ## Come si usa
 
@@ -144,18 +144,21 @@ Note:
 ### Gear Lens
 Apri "Strumenti" e passa alla scheda **Gear Lens** per una panoramica analitica del tuo equipaggiamento importato.
 
-**Schede KPI (riga superiore):** Otto schede percentuale — **Leggendaria+**, **Tasso 6★**, **Maxed (+16)**, **Equipaggiata**, **Bloccata nel forziere**, **Chaos'd**, **Glyphed**, **Ascesa** — ciascuna con tooltip e codice colore (verde/ambra/rosso) basato su soglie di salute della collezione.
+**Schede KPI (riga superiore):** Otto schede percentuale — **Tasso 6★**, **Leggendaria+**, **Maxed (+16)**, **Equipaggiata**, **Bloccata nel forziere**, **Chaos'd**, **Glyphed**, **Ascesa** — ciascuna con tooltip.
 
-**Donut a filtro incrociato:** Sei grafici — **Slot**, **Rarità**, **Set**, **Risultato**, **Fonte**, **Livello** — si aggiornano a vicenda quando si clicca.
+**Donut a filtro incrociato:** Sei grafici — **Slot**, **Grado**, **Rarità**, **Risultato**, **Fonte**, **Livello** — si aggiornano a vicenda quando si clicca.
 - Clicca un segmento per aggiungerlo come filtro per quella dimensione; ogni altro grafico si restringe immediatamente all'equipaggiamento corrispondente. Ogni grafico esclude la propria dimensione per mostrare sempre l'intera gamma.
 - Doppio clic su un segmento del donut **Slot** per selezionare un intero gruppo in una volta: qualsiasi pezzo d'armatura (Arma, Elmo, Scudo, Guanti, Corazza, Stivali) seleziona tutti e sei gli slot d'armatura; qualsiasi accessorio (Anello, Amuleto, Vessillo) seleziona tutti e tre.
-- Il donut **Set** mostra le icone dei set su ogni arco. I donut **Slot** e **Fonte** mostrano anche icone di categoria. Il donut **Livello** etichetta ogni arco con il testo del livello.
+- I donut **Slot** e **Fonte** mostrano icone di categoria. Il donut **Livello** etichetta ogni arco con il testo del livello.
+
+
+**Treemap dei Set:** Visualizzata sotto i donut. Ogni tessera rappresenta un set di equipaggiamento; l'area della tessera è proporzionale al numero di oggetti. Lo sfondo della tessera è suddiviso da sinistra a destra in bande colorate per risultato (Vendi / Protetto / Tieni / Nessuna corrispondenza). Clicca una tessera per aggiungere quel set come filtro incrociato.
 
 **Chip di filtro:** Le selezioni attive per ciascuna dimensione appaiono come chip sotto i donut; clicca l'icona di eliminazione su un chip per rimuovere solo quel filtro. Anche le selezioni della stat principale appaiono come chip. Il pulsante **Cancella filtri** azzera tutte le dimensioni in una volta.
 
 **Barra Stat principali:** Mostra la frequenza di ogni stat principale nell'equipaggiamento filtrato. Clicca una barra per approfondire — il grafico della frequenza delle sotto-stat si aggiorna mostrando solo le sotto-stat dell'equipaggiamento con quella stat principale selezionata. Clicca di nuovo per deselezionare.
 
-**Barra Frequenza sotto-stat:** Mostra la frequenza di ogni sotto-stat nell'equipaggiamento filtrato (e opzionalmente limitato per stat principale).
+**Radar Frequenza sotto-stat:** Mostra la frequenza di ogni sotto-stat nell'equipaggiamento filtrato (e opzionalmente limitato per stat principale) come grafico radar. Clicca una marca su un asse per selezionarla come pivot di co-occorrenza — il radar si restringe all'equipaggiamento che contiene tutte le sotto-stat selezionate insieme (fino a 4 pivot). I pivot attivi appaiono come chip sotto il grafico; × ne rimuove uno, **Cancella filtri** li rimuove tutti.
 
 **Heatmap Slot × Stat principale:** Numero di oggetti per slot (colonne) × stat principale (righe). Clicca un'intestazione di colonna o una cella per filtrare per slot.
 

@@ -13,7 +13,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Exportación con un clic: genera un archivo HSF (Sellfile de RSL Helper) listo para cargar en RSL Helper.
 - Botón «Herramientas»: abre el diálogo desde el encabezado para entrar a `Venta final`, `Objetivos de substats`, `Botín de mazmorra` y el diálogo «Equipo» desde el mismo lugar. Crea equipo de ejemplo, pega filas o arrastra `%APPDATA%\\RslHelper\\Config`; después cierra el diálogo y deja el interruptor de vista previa en la tabla que necesites: la cola del Inspector de Equipo sigue visible sin reabrir nada.
 - Modo Protecciones: define las combinaciones que nunca quieres perder. El escáner genera reglas de conservación automáticamente cuando tus recetas más tus reglas de venta actualmente activas eliminarían todas las copias.
-- Gear Lens: un panel de análisis dentro del diálogo Herramientas. Ocho tarjetas KPI resumen el estado de la colección (Legendario+, Tasa 6★, Maxeado, Equipado, etc.). Seis donuts de filtro cruzado (Ranuras, Rareza, Sets, Resultado, Fuente, Nivel) permiten hacer clic en segmentos para filtrar todos los demás gráficos a la vez. Barras de frecuencia de mainstats y substats, un mapa de calor Ranura × Mainstat y una pestaña de Estadísticas de campeones completan la vista. Los filtros activos aparecen como chips eliminables. Copia todo el panel como PNG o envía el filtro activo directamente al Inspector de Equipo.
+- Gear Lens: un panel de análisis dentro del diálogo Herramientas. Ocho tarjetas KPI resumen el estado de la colección (Legendario+, Tasa 6★, Maxeado, Equipado, etc.). Seis donuts de filtro cruzado (Ranuras, Rango, Rareza, Resultado, Fuente, Nivel) y un Treemap de Sets permiten hacer clic para filtrar todos los demás gráficos. Una barra de Mainstats, un radar de frecuencia de substats con pivote de coocurrencia, un mapa de calor Ranura × Mainstat y una pestaña de Estadísticas de campeones completan la vista. Los filtros activos aparecen como chips eliminables. Copia todo el panel como PNG o envía el filtro activo directamente al Inspector de Equipo.
 
 ## Cómo usarlo
 
@@ -153,18 +153,21 @@ Notas:
 ### Gear Lens
 Abre «Herramientas» y cambia a la pestaña **Gear Lens** para una vista analítica de tu equipamiento importado.
 
-**Tarjetas KPI (fila superior):** Ocho tarjetas de porcentaje — **Legendario+**, **Tasa 6★**, **Maxeado (+16)**, **Equipado**, **Bloqueado en el cofre**, **Chaos'd**, **Glyphed**, **Ascendido** — cada una con un tooltip y código de color (verde/ámbar/rojo) basado en umbrales de salud de la colección.
+**Tarjetas KPI (fila superior):** Ocho tarjetas de porcentaje — **Tasa 6★**, **Legendario+**, **Maxeado (+16)**, **Equipado**, **Bloqueado en el cofre**, **Chaos'd**, **Glyphed**, **Ascendido** — cada una con un tooltip.
 
-**Donuts de filtro cruzado:** Seis gráficos — **Ranuras**, **Rareza**, **Sets**, **Resultado**, **Fuente**, **Nivel** — se actualizan mutuamente al hacer clic.
+**Donuts de filtro cruzado:** Seis gráficos — **Ranuras**, **Rango**, **Rareza**, **Resultado**, **Fuente**, **Nivel** — se actualizan mutuamente al hacer clic.
 - Haz clic en un segmento para añadirlo como filtro de esa dimensión; todos los demás gráficos se estrechan de inmediato al equipamiento coincidente. Cada gráfico excluye su propia dimensión para mostrar siempre su rango completo.
 - Doble clic en un segmento del donut **Ranuras** para seleccionar un grupo entero de una vez: cualquier pieza de armadura (Arma, Yelmo, Escudo, Guantes, Peto, Botas) selecciona las seis ranuras de armadura; cualquier accesorio (Anillo, Amuleto, Estandarte) selecciona los tres.
-- El donut **Sets** muestra los iconos del set en cada arco. Los donuts **Ranuras** y **Fuente** también muestran iconos de categoría. El donut **Nivel** etiqueta cada arco con su texto de nivel.
+- Los donuts **Ranuras** y **Fuente** muestran iconos de categoría. El donut **Nivel** etiqueta cada arco con su texto de nivel.
+
+
+**Treemap de Sets:** Se muestra debajo de los donuts. Cada mosaico representa un set de equipamiento; el área del mosaico es proporcional al número de objetos. El fondo del mosaico se divide de izquierda a derecha en bandas de color por resultado (Vender / Protegido / Conservar / Sin coincidencia). Haz clic en un mosaico para añadir ese set como filtro cruzado.
 
 **Chips de filtro:** Las selecciones activas para cada dimensión aparecen como chips bajo los donuts; haz clic en el icono de eliminar de un chip para quitar solo ese filtro. Las selecciones de mainstat también aparecen como chips. El botón **Borrar filtros** restablece todas las dimensiones a la vez.
 
 **Barra de Mainstats:** Muestra la frecuencia de cada mainstat en el equipamiento filtrado. Haz clic en una barra para profundizar — el gráfico de frecuencia de substats se actualiza mostrando solo los substats del equipamiento con ese mainstat seleccionado. Haz clic de nuevo para deseleccionar.
 
-**Barra de Frecuencia de Substats:** Muestra la frecuencia de cada substat en el equipamiento filtrado (y opcionalmente limitado por mainstat).
+**Radar de Frecuencia de Substats:** Muestra la frecuencia de cada substat en el equipamiento filtrado (y opcionalmente limitado por mainstat) como gráfico de araña. Haz clic en una marca de eje para seleccionarla como pivote de coocurrencia — el radar se restringe entonces al equipamiento que contiene todos los substats seleccionados a la vez (hasta 4 pivotes). Los pivotes activos aparecen como chips debajo del gráfico; × elimina uno, **Borrar filtros** los elimina todos.
 
 **Mapa de calor Ranura × Mainstat:** Recuento de objetos por ranura (columnas) × mainstat (filas). Haz clic en un encabezado de columna o una celda para filtrar por esa ranura.
 

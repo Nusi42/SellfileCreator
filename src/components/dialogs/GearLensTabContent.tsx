@@ -14,14 +14,14 @@ import { slotIconSvgAsset } from '../artifactTypeIcons'
 import { gearSetIconUrl } from '../../lib/iconMaps/gearsetIconMap'
 import { NO_SET_SPIDER_SRC } from '../NoGearSetIcon'
 import { useSubstatColors } from '../../hooks/useSubstatColors'
+import { useDisplayPreferences } from '../../state/preferencesState'
 import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
 import {
   EMPTY_GEAR_LENS_DIM,
   applyGearLensFilter,
-  getOtherSetIds,
   countBySlot,
   countByRarity,
-  countBySet,
+  countSetsByOutcome,
   countByOutcome,
   countByRank,
   countBySource,
@@ -31,27 +31,30 @@ import {
   countSubstatFrequency,
   buildSlotMainMatrix,
   computeGearLensKpis,
-  slotLabel,
-  rarityLabel,
   levelLabel,
-  statLabel,
   sourceIconSvgAsset,
   slotGroupIds,
+  artifactTypeI18nKey,
+  rarityRankValueI18nKey,
+  statVariantI18nKey,
+  getLocalizedGearSetName,
   type GearLensDim,
   type GearLensOutcome,
   type GearLensSource,
 } from '../../lib/gearLens'
 import { STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS, ACCESSORY_NO_SET_ID } from '../../lib/constants'
+import type { ArtifactSetId } from '../../lib/types'
 import { APP_VERSION } from '../../version'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import { GearLensCrossFilterChips } from '../gear-lens/GearLensCrossFilterChips'
 import { GearLensKpiCards } from '../gear-lens/GearLensKpiCards'
 import { GearLensDonut, type DonutSlice } from '../gear-lens/GearLensDonut'
 import { GearLensBar, type BarEntry } from '../gear-lens/GearLensBar'
+import { GearLensTreemap } from '../gear-lens/GearLensTreemap'
+import { GearLensRadar } from '../gear-lens/GearLensRadar'
 import { GearLensHeatmap } from '../gear-lens/GearLensHeatmap'
 import { GearLensChampStats } from '../gear-lens/GearLensChampStats'
 import { useI18n } from '../../lib/i18n'
-import type { ArtifactSetId } from '../../lib/types'
 
 type Props = {
   /** All loaded gear rows, unfiltered. Stats always reflect the full inventory. */
@@ -92,12 +95,15 @@ function toggled<T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> {
 }
 
 export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: Props) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const theme = useTheme()
   const [substatColors] = useSubstatColors()
+  const { showSetIcons, statButtonBorders } = useDisplayPreferences()
 
   // Ref used by the Copy Snapshot button to capture the tab content.
   const contentRef = useRef<HTMLDivElement | null>(null)
+  // Ref to the watermark element — hidden normally, revealed only during snapshot capture.
+  const watermarkRef = useRef<HTMLElement | null>(null)
   const [copying, setCopying] = useState(false)
   const [copyDone, setCopyDone] = useState(false)
 
@@ -106,7 +112,23 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
     setCopying(true)
     try {
       const el = contentRef.current
-      // Read dimensions before mutating styles so we capture the intended full extent.
+      // Reveal the watermark before reading dimensions so its height is included in scrollHeight.
+      const wm = watermarkRef.current
+      if (wm) {
+        const now = new Date()
+        const pad = (n: number) => String(n).padStart(2, '0')
+        const localTs = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
+        // Append UTC offset so snapshots are unambiguous when shared across timezones.
+        // getTimezoneOffset() returns minutes *behind* UTC, so negate it for the display sign.
+        const offsetMin = -now.getTimezoneOffset()
+        const sign = offsetMin >= 0 ? '+' : '-'
+        const absH = Math.floor(Math.abs(offsetMin) / 60)
+        const absM = Math.abs(offsetMin) % 60
+        const offsetStr = absM > 0 ? `UTC${sign}${absH}:${pad(absM)}` : `UTC${sign}${absH}`
+        wm.textContent = `${localTs} ${offsetStr} · RSL Helper Sellfile Creator v${APP_VERSION}`
+        wm.style.display = 'block'
+      }
+      // Read dimensions after revealing watermark so fullHeight includes it.
       const fullWidth  = el.offsetWidth
       const fullHeight = el.scrollHeight
       // Expand the element in-place (clone approach renders black — off-screen fixed elements
@@ -129,6 +151,8 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
           backgroundColor: theme.palette.background.paper,
           width: fullWidth,
           height: fullHeight,
+          // Hide Clear-filter buttons (no semantic value in a snapshot) but keep active chips.
+          filter: (node) => !(node instanceof Element && node.hasAttribute('data-snapshot-hide')),
         })
         const res  = await fetch(dataUrl)
         const blob = await res.blob()
@@ -139,6 +163,8 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
         el.style.overflow  = prevOverflow
         el.style.height    = prevHeight
         el.style.maxHeight = prevMaxH
+        // Hide the watermark again after capture.
+        if (wm) wm.style.display = ''
       }
     } catch (err) {
       console.error('[gear-lens] snapshot copy failed', err)
@@ -158,6 +184,9 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
   // Main stat selection: clicking a main stat bar filters the substat frequency chart.
   // Kept as local state separate from dim — not a cross-filter dimension.
   const [selectedMainStats, setSelectedMainStats] = useState<ReadonlySet<number | string>>(new Set())
+  // Substat co-occurrence pivot: one or more substat variants selected by clicking radar marks.
+  // The radar then shows only items containing ALL selected substats (AND intersection).
+  const [selectedSubstat, setSelectedSubstat] = useState<ReadonlySet<number>>(new Set())
 
   // Partial-update helper: merge a patch into the current dim.
   const updateDim = useCallback((patch: Partial<GearLensDim>) => {
@@ -196,54 +225,51 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
   const toggleMainStat = useCallback((id: number | string) => {
     setSelectedMainStats((prev) => toggled(prev, id))
   }, [])
+  const toggleSubstat = useCallback((variant: number) => {
+    setSelectedSubstat((prev) => {
+      // If already selected, deselect; if at the 4-pivot cap and not selected, ignore.
+      if (prev.has(variant)) return toggled(prev, variant)
+      if (prev.size >= 4) return prev
+      return toggled(prev, variant)
+    })
+  }, [])
+  const clearSubstat = useCallback(() => setSelectedSubstat(new Set()), [])
   const clearDim = useCallback(() => {
     setDim(EMPTY_GEAR_LENS_DIM)
     setSelectedMainStats(new Set())
+    setSelectedSubstat(new Set())
   }, [])
   // Clear all cross-filter dimensions when the parent increments resetKey (e.g. "Reset to defaults" button).
   useEffect(() => {
     if (resetKey !== undefined) {
       setDim(EMPTY_GEAR_LENS_DIM)
       setSelectedMainStats(new Set())
+      setSelectedSubstat(new Set())
     }
   }, [resetKey])
-
-  // ── "Others" set expansion ─────────────────────────────────────────────────
-  // The Sets donut uses -1 as a synthetic bucket for all sets beyond the top-N.
-  // applyGearLensFilter knows nothing about this synthetic id, so we expand it:
-  // replace -1 in dim.sets with the actual set IDs that fall into "others".
-  // Computed once from the full row set so it stays stable across cross-filter changes.
-  const otherSetIds = useMemo(() => getOtherSetIds(rows), [rows])
-  const effectiveDim = useMemo<GearLensDim>(() => {
-    if (!dim.sets.has(-1)) return dim
-    // Replace -1 with the real "others" set IDs, keeping any explicit individual selections.
-    const expandedSets = new Set([...dim.sets].filter((id) => id !== -1))
-    for (const id of otherSetIds) expandedSets.add(id)
-    return { ...dim, sets: expandedSets }
-  }, [dim, otherSetIds])
 
   // ── Crossfilter-filtered row sets ──────────────────────────────────────────
   // Each chart receives the full row set filtered by all dimensions EXCEPT its own.
   // This preserves the full range of that dimension for interactive exploration.
-  // effectiveDim is used so the -1 others bucket is resolved to real set IDs.
-  const rowsForSlot    = useMemo(() => applyGearLensFilter(rows, effectiveDim, 'slots'),    [rows, effectiveDim])
-  const rowsForRank    = useMemo(() => applyGearLensFilter(rows, effectiveDim, 'ranks'),    [rows, effectiveDim])
-  const rowsForRarity  = useMemo(() => applyGearLensFilter(rows, effectiveDim, 'rarities'), [rows, effectiveDim])
-  const rowsForSet     = useMemo(() => applyGearLensFilter(rows, effectiveDim, 'sets'),     [rows, effectiveDim])
-  const rowsForOutcome = useMemo(() => applyGearLensFilter(rows, effectiveDim, 'outcomes'), [rows, effectiveDim])
-  const rowsForSource  = useMemo(() => applyGearLensFilter(rows, effectiveDim, 'sources'),  [rows, effectiveDim])
-  const rowsForLevel   = useMemo(() => applyGearLensFilter(rows, effectiveDim, 'levels'),   [rows, effectiveDim])
+  // The icon tile grid exposes real set IDs directly, so no synthetic -1 expansion is needed.
+  const rowsForSlot    = useMemo(() => applyGearLensFilter(rows, dim, 'slots'),    [rows, dim])
+  const rowsForRank    = useMemo(() => applyGearLensFilter(rows, dim, 'ranks'),    [rows, dim])
+  const rowsForRarity  = useMemo(() => applyGearLensFilter(rows, dim, 'rarities'), [rows, dim])
+  const rowsForSet     = useMemo(() => applyGearLensFilter(rows, dim, 'sets'),     [rows, dim])
+  const rowsForOutcome = useMemo(() => applyGearLensFilter(rows, dim, 'outcomes'), [rows, dim])
+  const rowsForSource  = useMemo(() => applyGearLensFilter(rows, dim, 'sources'),  [rows, dim])
+  const rowsForLevel   = useMemo(() => applyGearLensFilter(rows, dim, 'levels'),   [rows, dim])
   // KPIs and bar charts use all active filters applied.
-  const rowsFiltered   = useMemo(() => applyGearLensFilter(rows, effectiveDim),             [rows, effectiveDim])
+  const rowsFiltered   = useMemo(() => applyGearLensFilter(rows, dim),             [rows, dim])
 
   // ── Aggregations ───────────────────────────────────────────────────────────
-  // Slot donut data.
+  // Slot donut data. Labels go through t() so they respect the active language.
   const slotData: DonutSlice[] = useMemo(() => {
     const counts = countBySlot(rowsForSlot)
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
-      .map(([slot, count]) => ({ id: slot, label: slotLabel(slot), count }))
-  }, [rowsForSlot])
+      .map(([slot, count]) => ({ id: slot, label: t(artifactTypeI18nKey(slot)), count }))
+  }, [rowsForSlot, t])
 
   // Rank donut data (star grade 1-6, ascending).
   const rankData: DonutSlice[] = useMemo(() => {
@@ -253,42 +279,43 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
       .map(([rank, count]) => ({ id: rank, label: rankLabel(rank), count }))
   }, [rowsForRank])
 
-  // Rarity donut data (RankValue 1-6, ascending).
+  // Rarity donut data (RankValue 1-6, ascending). Labels go through t() for the active language.
   const rarityData: DonutSlice[] = useMemo(() => {
     const counts = countByRarity(rowsForRarity)
     return Array.from(counts.entries())
       .sort((a, b) => a[0] - b[0])
-      .map(([rarity, count]) => ({ id: rarity, label: rarityLabel(rarity), count }))
-  }, [rowsForRarity])
+      .map(([rarity, count]) => ({ id: rarity, label: t(rarityRankValueI18nKey(rarity)), count }))
+  }, [rowsForRarity, t])
 
-  // Set donut data (top 15 + "other") — pass localized labels for -99 and "others" bucket.
-  const setData: DonutSlice[] = useMemo(
-    () => countBySet(rowsForSet, {
+  // Set chart data — all sets with per-outcome breakdown, sorted by total desc.
+  // setNameFn localizes set names via the catalog (getLocalizedGearSetName handles runtime sets too).
+  const setData = useMemo(
+    () => countSetsByOutcome(rowsForSet, {
       noSetLabel: t('noSetAccessories'),
-      othersLabel: (n) => t('gearLensOtherSets').replace('{n}', String(n)),
+      setNameFn: (id) => getLocalizedGearSetName(id as ArtifactSetId, t, lang),
     }),
-    [rowsForSet, t],
+    [rowsForSet, t, lang],
   )
 
-  // Icon function for the sets donut: returns a bitmap URL for gear set icons.
-  // ACCESSORY_NO_SET_ID (-99) uses the Spider dungeon icon; -1 (others bucket) has no icon.
+  // Icon function for the set chart: bitmap gear set icons; spider icon for no-set accessories.
   const setIconById = useCallback(
-    (id: number | string): { url: string } | null => {
-      const n = Number(id)
-      if (n === ACCESSORY_NO_SET_ID) return { url: NO_SET_SPIDER_SRC }
-      const url = gearSetIconUrl(n as ArtifactSetId)
+    (id: number): { url: string } | null => {
+      if (id === ACCESSORY_NO_SET_ID) return { url: NO_SET_SPIDER_SRC }
+      const url = gearSetIconUrl(id as ArtifactSetId)
       return url ? { url } : null
     },
     [],
   )
 
+
   // Main stat bar data — sorted descending by count so the tallest bar is always first.
+  // Labels go through t() so they respect the active language.
   const mainStatData: BarEntry[] = useMemo(() => {
     const counts = countMainStatFrequency(rowsFiltered)
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
-      .map(([variant, count]) => ({ id: variant, label: statLabel(variant), count }))
-  }, [rowsFiltered])
+      .map(([variant, count]) => ({ id: variant, label: t(statVariantI18nKey(variant)), count }))
+  }, [rowsFiltered, t])
 
   // Outcome donut data (fixed order; 'none' shown only when items are unmatched).
   const outcomeData: DonutSlice[] = useMemo(() => {
@@ -315,7 +342,7 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
   }, [rowsForLevel])
 
   // Substat frequency bar data — filtered by selectedMainStats when any are active,
-  // otherwise uses the fully cross-filtered set. Sorted descending by count.
+  // otherwise uses the fully cross-filtered set.
   const rowsForSubstats = useMemo(() => {
     if (selectedMainStats.size === 0) return rowsFiltered
     // Keep only rows whose main stat variant is in the selection.
@@ -324,11 +351,28 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
       return selectedMainStats.has(variant)
     })
   }, [rowsFiltered, selectedMainStats])
+  // Co-occurrence pivot: when substats are selected via the radar, further filter to items that
+  // contain ALL selected substats (AND intersection) so the radar shows what else co-occurs with them.
+  const rowsForSubstatRadar = useMemo(() => {
+    if (selectedSubstat.size === 0) return rowsForSubstats
+    return rowsForSubstats.filter((row) =>
+      [...selectedSubstat].every((v) => row.artifact.substats.some((s) => Number(s.variant) === v)),
+    )
+  }, [rowsForSubstats, selectedSubstat])
   const substatData: BarEntry[] = useMemo(() => {
-    const counts = countSubstatFrequency(rowsForSubstats)
+    const counts = countSubstatFrequency(rowsForSubstatRadar)
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
-      .map(([variant, count]) => ({ id: variant, label: statLabel(variant), count }))
+      .map(([variant, count]) => ({ id: variant, label: t(statVariantI18nKey(variant)), count }))
+  }, [rowsForSubstatRadar, t])
+
+  // Pre-pivot substat frequency — dim + main-stat filters applied but co-occurrence pivot excluded.
+  // Shown as a dimmed reference net behind the active polygon so the user can see the effect of
+  // the pivot selection specifically.  Labels omitted (empty string) — radar uses labelFormatter.
+  const substatReferenceData: BarEntry[] = useMemo(() => {
+    const counts = countSubstatFrequency(rowsForSubstats)
+    return Array.from(counts.entries())
+      .map(([variant, count]) => ({ id: variant, label: '', count }))
   }, [rowsForSubstats])
 
   // Heatmap matrix (slot × main stat).
@@ -380,8 +424,8 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
   }
 
   // True when at least one cross-filter dimension is active.
-  const isFilterActive = dim.slots.size > 0 || dim.rarities.size > 0 || dim.sets.size > 0
-    || dim.outcomes.size > 0 || dim.sources.size > 0 || dim.levels.size > 0
+  const isFilterActive = dim.slots.size > 0 || dim.ranks.size > 0 || dim.rarities.size > 0
+    || dim.sets.size > 0 || dim.outcomes.size > 0 || dim.sources.size > 0 || dim.levels.size > 0
 
   return (
     // Outer wrapper: flex column so the action bar sits above the scroll area.
@@ -410,7 +454,7 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
                 disabled={!isFilterActive}
                 sx={{ fontSize: '0.75rem', py: 0.5 }}
               >
-                Apply to Gear Inspector
+                {t('gearLensApplyToInspector')}
               </Button>
             </span>
           </Tooltip>
@@ -424,7 +468,7 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
             startIcon={copying ? <CircularProgress size={12} /> : undefined}
             sx={{ fontSize: '0.75rem', py: 0.5, minWidth: 130 }}
           >
-            {copyDone ? 'Copied!' : 'Copy Snapshot'}
+            {copyDone ? t('gearLensCopied') : t('gearLensCopySnapshot')}
           </Button>
         </Tooltip>
       </Box>
@@ -448,8 +492,8 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
       {/* KPI cards: always reflect the fully-filtered dataset. */}
       <GearLensKpiCards kpis={kpis} />
 
-      {/* Row 1: Seven donut charts — each excludes its own dimension from the filter. */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, mb: 1 }}>
+      {/* Row 1: Six donut charts — each excludes its own dimension from the filter. */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 1, mb: 1 }}>
         <GearLensDonut
           title={t('gearLensChartSlot')}
           data={slotData}
@@ -474,15 +518,6 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
           onToggle={toggleRarity}
           height={160}
           colorBySliceId={rarityColorById}
-        />
-        <GearLensDonut
-          title={t('gearLensChartSet')}
-          data={setData}
-          selected={dim.sets}
-          onToggle={toggleSet}
-          height={160}
-          slotIconById={setIconById}
-          iconSize={16}
         />
         <GearLensDonut
           title={t('gearLensChartOutcome')}
@@ -510,10 +545,22 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
         />
       </Box>
 
+      {/* Row 2: Set treemap — tile area ∝ count, bands show outcome breakdown. */}
+      <Box sx={{ mb: 1 }}>
+        <GearLensTreemap
+          title={t('gearLensChartSet')}
+          data={setData}
+          selected={dim.sets}
+          onToggle={toggleSet}
+          iconById={setIconById}
+          showIcons={showSetIcons}
+        />
+      </Box>
+
       {/* Cross-filter chips — always visible below the donuts; disabled when nothing is selected. */}
       <GearLensCrossFilterChips dim={dim} onUpdate={updateDim} selectedMainStats={selectedMainStats} onDeleteMainStat={toggleMainStat} onClear={clearDim} />
 
-      {/* Row 2: Main stat bar (driven by slot donut selection) + Substat frequency bar. */}
+      {/* Row 3: Main stat bar (click-to-filter) + Substat frequency radar. */}
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
         <GearLensBar
           title={t('gearLensChartMainStat')}
@@ -521,16 +568,16 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
           data={mainStatData}
           selected={selectedMainStats}
           onToggle={toggleMainStat}
-          colorById={statColorById}
+          {...(statButtonBorders && { colorById: statColorById })}
         />
-        <GearLensBar
+        <GearLensRadar
           title={t('gearLensChartSubstats')}
           description={t('gearLensChartSubstatsDesc')}
           data={substatData}
-          selected={new Set()}
-          onToggle={() => undefined}
-          readOnly
-          colorById={statColorById}
+          referenceData={substatReferenceData}
+          selectedSubstat={selectedSubstat}
+          onToggleSubstat={toggleSubstat}
+          onClearSubstat={clearSubstat}
         />
       </Box>
 
@@ -546,13 +593,12 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
         </Box>
       </Box>
 
-      {/* Watermark — visible in the captured snapshot. */}
+      {/* Watermark — hidden normally; revealed with timestamp text during snapshot capture. */}
       <Typography
+        ref={watermarkRef}
         variant="caption"
-        sx={{ display: 'block', textAlign: 'right', mt: 1.5, opacity: 0.35, fontSize: '0.6rem', userSelect: 'none' }}
-      >
-        Sellfile Creator v{APP_VERSION}
-      </Typography>
+        sx={{ display: 'none', textAlign: 'right', mt: 1.5, opacity: 0.35, fontSize: '0.6rem', userSelect: 'none' }}
+      />
       </Box>
     </Box>
   )

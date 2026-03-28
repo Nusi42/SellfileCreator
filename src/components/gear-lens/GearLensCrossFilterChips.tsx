@@ -10,14 +10,13 @@ import {
   type GearLensDim,
   type GearLensOutcome,
   type GearLensSource,
-  slotLabel,
   rankLabel,
-  rarityLabel,
   levelLabel,
-  statLabel,
+  artifactTypeI18nKey,
+  rarityRankValueI18nKey,
+  statVariantI18nKey,
 } from '../../lib/gearLens'
-import { ACCESSORY_NO_SET_ID } from '../../lib/constants'
-import { artifactSetNames } from '../../lib/types'
+import { type ArtifactSetId, getLocalizedGearSetName } from '../../lib/types'
 import { useI18n } from '../../lib/i18n'
 
 type Props = {
@@ -39,32 +38,32 @@ function without<T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> {
   return next
 }
 
-/** Label for an outcome bucket. */
-const OUTCOME_LABELS: Record<GearLensOutcome, string> = {
-  sell: 'Sell',
-  keep: 'Keep',
-  safe: 'Safeguarded',
-  none: 'No Match',
+/** Catalog keys for outcome chip labels — mirrors OUTCOME_I18N_KEY in GearLensTabContent. */
+const OUTCOME_I18N_KEY: Record<GearLensOutcome, string> = {
+  sell: 'gearLensOutcomeSell',
+  keep: 'gearLensOutcomeKeep',
+  safe: 'gearLensOutcomeSafe',
+  none: 'gearLensOutcomeNone',
 }
 
-/** Label for a source category. */
-const SOURCE_LABELS: Record<GearLensSource, string> = {
-  inventory: 'Inventory',
-  collection: 'Collection',
-  vault: 'Vault',
-  inbox: 'Inbox',
-  manual: 'Manual',
+/** Catalog keys for source chip labels — mirrors SOURCE_I18N_KEY in GearLensTabContent. */
+const SOURCE_I18N_KEY: Record<GearLensSource, string> = {
+  inventory: 'gearLensSourceInventory',
+  collection: 'gearLensSourceCollection',
+  vault: 'gearLensSourceVault',
+  inbox: 'gearLensSourceInbox',
+  manual: 'gearLensSourceManual',
 }
 
 export function GearLensCrossFilterChips({ dim, onUpdate, selectedMainStats, onDeleteMainStat, onClear }: Props) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   // Collect all active selection chips across every dimension.
   const chips: Array<{ key: string; label: string; onDelete: () => void }> = []
 
   for (const slot of dim.slots) {
     chips.push({
       key: `slot-${slot}`,
-      label: slotLabel(slot),
+      label: t(artifactTypeI18nKey(slot)),
       onDelete: () => onUpdate({ slots: without(dim.slots, slot) }),
     })
   }
@@ -78,15 +77,14 @@ export function GearLensCrossFilterChips({ dim, onUpdate, selectedMainStats, onD
   for (const rarity of dim.rarities) {
     chips.push({
       key: `rarity-${rarity}`,
-      label: rarityLabel(rarity),
+      label: t(rarityRankValueI18nKey(rarity)),
       onDelete: () => onUpdate({ rarities: without(dim.rarities, rarity) }),
     })
   }
   for (const set of dim.sets) {
     // -1 is the synthetic "others" bucket; -99 (ACCESSORY_NO_SET_ID) is no-set accessories.
     const label = set === -1 ? t('gearLensOtherSetsChip')
-      : set === ACCESSORY_NO_SET_ID ? t('noSetAccessories')
-      : (artifactSetNames[set] ?? String(set))
+      : getLocalizedGearSetName(set as ArtifactSetId, t, lang)
     chips.push({
       key: `set-${set}`,
       label,
@@ -96,14 +94,14 @@ export function GearLensCrossFilterChips({ dim, onUpdate, selectedMainStats, onD
   for (const outcome of dim.outcomes) {
     chips.push({
       key: `outcome-${outcome}`,
-      label: OUTCOME_LABELS[outcome],
+      label: t(OUTCOME_I18N_KEY[outcome]),
       onDelete: () => onUpdate({ outcomes: without(dim.outcomes, outcome) }),
     })
   }
   for (const src of dim.sources) {
     chips.push({
       key: `source-${src}`,
-      label: SOURCE_LABELS[src],
+      label: t(SOURCE_I18N_KEY[src]),
       onDelete: () => onUpdate({ sources: without(dim.sources, src) }),
     })
   }
@@ -117,7 +115,7 @@ export function GearLensCrossFilterChips({ dim, onUpdate, selectedMainStats, onD
   for (const id of selectedMainStats) {
     chips.push({
       key: `mainstat-${id}`,
-      label: statLabel(Number(id)),
+      label: t(statVariantI18nKey(Number(id))),
       onDelete: () => onDeleteMainStat(id),
     })
   }
@@ -142,6 +140,7 @@ export function GearLensCrossFilterChips({ dim, onUpdate, selectedMainStats, onD
         size="small"
         onClick={onClear}
         disabled={!hasFilters}
+        data-snapshot-hide
         sx={{ py: 0, minWidth: 'auto', fontSize: '0.75rem' }}
       >
         {t('gearLensClearFilters')}

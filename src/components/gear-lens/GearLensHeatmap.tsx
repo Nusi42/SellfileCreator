@@ -7,7 +7,7 @@
  */
 import React from 'react'
 import { Box, Tooltip, Typography, useTheme } from '@mui/material'
-import { HEATMAP_SLOTS, HEATMAP_VARIANTS, slotLabel, statLabel, type SlotMainMatrix } from '../../lib/gearLens'
+import { HEATMAP_SLOTS, HEATMAP_VARIANTS, artifactTypeI18nKey, statVariantI18nKey, type SlotMainMatrix } from '../../lib/gearLens'
 import type { GearLensDim } from '../../lib/gearLens'
 import { EllipsisTooltip } from '../EllipsisTooltip'
 import { useI18n } from '../../lib/i18n'
@@ -37,7 +37,7 @@ function heatColor(intensity: number): string {
 export function GearLensHeatmap({ matrix, dim, onToggleSlot }: Props) {
   const theme = useTheme()
   const { t } = useI18n()
-  const { showSlotIcons } = useDisplayPreferences()
+  const { statButtonBorders } = useDisplayPreferences()
   const [substatColors] = useSubstatColors()
 
   return (
@@ -66,10 +66,10 @@ export function GearLensHeatmap({ matrix, dim, onToggleSlot }: Props) {
           {HEATMAP_SLOTS.map((slot) => {
             const isSelected = dim.slots.has(slot)
             const icon = slotIconSvgAsset(slot)
-            const useIcon = showSlotIcons && icon !== null
+            const useIcon = icon !== null
             return (
               // Always show the full slot name in a tooltip (icons need it; text may be clipped).
-              <Tooltip key={slot} title={slotLabel(slot)} placement="top" arrow>
+              <Tooltip key={slot} title={t(artifactTypeI18nKey(slot))} placement="top" arrow>
                 <Box
                   onClick={() => onToggleSlot(slot)}
                   sx={{
@@ -100,7 +100,7 @@ export function GearLensHeatmap({ matrix, dim, onToggleSlot }: Props) {
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                       fontSize: 9, fontWeight: isSelected ? 700 : 400, lineHeight: 1, textAlign: 'center',
                     }}>
-                      {slotLabel(slot)}
+                      {t(artifactTypeI18nKey(slot))}
                     </Box>
                   )}
                 </Box>
@@ -113,7 +113,7 @@ export function GearLensHeatmap({ matrix, dim, onToggleSlot }: Props) {
             // Fragment carries the key; inner children don't need their own keys.
             <React.Fragment key={variant}>
               {/* Stat label cell — EllipsisTooltip shows the full name when text is clipped. */}
-              <EllipsisTooltip title={statLabel(variant)} wrap="block">
+              <EllipsisTooltip title={t(statVariantI18nKey(variant))} wrap="block">
                 <Box
                   sx={{
                     height: CELL_SIZE,
@@ -122,13 +122,14 @@ export function GearLensHeatmap({ matrix, dim, onToggleSlot }: Props) {
                     pr: 0.5,
                     fontSize: 10,
                     // Use the user-configured stat color; fall back to theme secondary.
-                    color: substatColors[variant]?.fg ?? theme.palette.text.secondary,
+                    // Respect the global "color stat texts" preference.
+                    color: statButtonBorders ? (substatColors[variant]?.fg ?? theme.palette.text.secondary) : theme.palette.text.secondary,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {statLabel(variant)}
+                  {t(statVariantI18nKey(variant))}
                 </Box>
               </EllipsisTooltip>
               {/* Count cells for each slot × this variant. */}
@@ -147,7 +148,7 @@ export function GearLensHeatmap({ matrix, dim, onToggleSlot }: Props) {
                 return (
                   <Tooltip
                     key={`${slot}-${variant}`}
-                    title={`${slotLabel(slot)} / ${statLabel(variant)}: ${count}`}
+                    title={`${t(artifactTypeI18nKey(slot))} / ${t(statVariantI18nKey(variant))}: ${count}`}
                     placement="top"
                     arrow
                   >

@@ -13,7 +13,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - One-click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
 - `Tools` button: open the dialog from the preview header to reach `Final Sell`, `Substat Targets`, `Dungeon Drops`, and the Gear Inspector from the same place. Load example gear, paste drops, or drag `%APPDATA%\\RslHelper\\Config`, then close the dialog and leave the preview toggle on whichever table you need — the Gear Inspector queue stays visible without reopening.
 - Safeguards builder mode: define combinations you never want to lose, and the scanner injects keep rules automatically whenever your recipes plus your current active Sell rules would sell every piece in that combination.
-- Gear Lens: an analytics dashboard inside the Tools dialog. Eight KPI cards summarize collection health (Legendary+, 6★ Rate, Maxed, Equipped, etc.). Six crossfilter donuts (Slots, Rarity, Sets, Result, Source, Level) let you click slices to narrow every other chart at once. Main Stat and Substat Frequency bars, a Slot × Main Stat heatmap, and a Champion Stats tab round out the view. Active filters appear as removable chips. Copy the entire dashboard as a PNG, or push the active filter straight into the Gear Inspector.
+- Gear Lens: an analytics dashboard inside the Tools dialog. Eight KPI cards summarize collection health (Legendary+, 6★ Rate, Maxed, Equipped, etc.). Six crossfilter donuts (Slots, Rank, Rarity, Result, Source, Level) and a Sets treemap let you click to narrow every other chart at once. A Main Stats bar, a Substat Frequency radar with co-occurrence pivot, a Slot × Main Stat heatmap, and a Champion Stats tab round out the view. Active filters appear as removable chips. Copy the entire dashboard as a PNG, or push the active filter straight into the Gear Inspector.
 
 ## How To Use
 
@@ -165,18 +165,21 @@ Notes:
 ### Gear Lens
 Open `Tools` and switch to the **Gear Lens** tab for an analytics overview of your imported gear.
 
-**KPI cards (top row):** Eight percentage cards — **Legendary+**, **6★ Rate**, **Maxed (+16)**, **Equipped**, **Vault-Locked**, **Chaos'd**, **Glyphed**, **Ascended** — each with a tooltip and color coding (green/amber/red) based on collection-health thresholds.
+**KPI cards (top row):** Eight percentage cards — **6★ Rate**, **Legendary+**, **Maxed (+16)**, **Equipped**, **Vault-Locked**, **Chaos'd**, **Glyphed**, **Ascended** — each with a tooltip.
 
-**Crossfilter donuts:** Six charts — **Slots**, **Rarity**, **Sets**, **Result**, **Source**, **Level** — update each other as you click.
+**Crossfilter donuts:** Six charts — **Slots**, **Rank**, **Rarity**, **Result**, **Source**, **Level** — update each other as you click.
 - Click a slice to add it as a filter for that dimension; every other chart instantly narrows to show only the matching gear. Each chart excludes its own dimension so it always shows its full range.
 - Double-click a slice on the **Slots** donut to select an entire group at once: any armor piece (Weapon, Helmet, Shield, Gauntlets, Chestplate, Boots) selects all six armor slots; any accessory (Ring, Amulet, Banner) selects all three.
-- The **Sets** donut renders set icons on each arc. **Slots** and **Source** donuts show category icons too. The **Level** donut labels each arc with its level text.
+- **Slots** and **Source** donuts show category icons. The **Level** donut labels each arc with its level text.
+
+
+**Sets treemap:** Displayed below the donuts. Each tile represents one gear set; tile area is proportional to item count. The tile background is split left-to-right into outcome color bands (Sell / Safeguarded / Keep / No Match). Click a tile to add that set as a crossfilter.
 
 **Filter chips:** Active selections for each dimension appear as chips below the donuts; click the delete icon on a chip to remove just that filter. Main Stat selections also appear as chips. The **Clear filters** button resets all dimensions at once.
 
 **Main Stats bar:** Shows how often each main stat appears across the filtered gear. Click a bar to drill down — the Substat Frequency chart updates to show only substats from gear with that main stat selected. Click the bar again to deselect.
 
-**Substat Frequency bar:** Shows how often each substat appears across the filtered (and optionally main-stat-drilled) gear.
+**Substat Frequency radar:** Shows how often each substat appears across the filtered (and optionally main-stat-drilled) gear as a spider chart. Click an axis mark to select it as a co-occurrence pivot — the radar then narrows to gear containing all selected substats at once (up to 4 pivots). Active pivots appear as chips below the chart; click × to deselect one, or **Clear** to remove all.
 
 **Slot × Main Stat heatmap:** Item count per slot (columns) × main stat (rows). Click a column header or any cell to filter by that slot.
 
