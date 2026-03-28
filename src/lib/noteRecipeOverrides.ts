@@ -2923,6 +2923,22 @@ const instructionAppliesToAnyRecipe = (
   return recipes.some((recipe) => matchesSelector(instruction.selector, recipe))
 }
 
+// Combined entry point: applies recipe overrides to both recipes and substat
+// targets in one call.  Prefer this over calling applyRecipeOverrides +
+// applyRecipeOverridesSubstatTargetsOverrides separately — the split API exists
+// only for React memoization; non-React callers should use this to avoid
+// accidentally forgetting the substat-targets half.
+export const applyAllRecipeOverrides = (
+  recipes: readonly BuilderRecipe[],
+  substatTargets: SubstatTargetTable,
+  instructions: RecipeOverridesInstructions,
+): { recipes: BuilderRecipe[]; substatTargets: SubstatTargetTable; substatTargetsOverridesActive: boolean } => {
+  const modifiedRecipes = applyRecipeOverrides(recipes, instructions)
+  const { substatTargets: effectiveSubstatTargets, overridesActive } =
+    applyRecipeOverridesSubstatTargetsOverrides(substatTargets, modifiedRecipes, instructions)
+  return { recipes: modifiedRecipes, substatTargets: effectiveSubstatTargets, substatTargetsOverridesActive: overridesActive }
+}
+
 export const applyRecipeOverridesSubstatTargetsOverrides = (
   substatTargets: SubstatTargetTable,
   recipes: readonly BuilderRecipe[],

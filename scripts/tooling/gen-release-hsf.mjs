@@ -72,7 +72,7 @@ const { defaultSubstatTargets } = await import(lib('hsfBuilder.js'))
 const {
   parseNoteRecipeOverrides,
   resolveRecipeOverridesTags,
-  applyRecipeOverrides,
+  applyAllRecipeOverrides,
 } = await import(lib('noteRecipeOverrides.js'))
 const { computeMergedRules } = await import(lib('merge.js'))
 const { buildHsfFileFromMerged } = await import(lib('hsfIO.js'))
@@ -115,15 +115,16 @@ const answers = { [match.questionId]: [match.optionId] }
 // Resolve instruction blocks for the chosen selection.
 const { instructions } = resolveRecipeOverridesTags(overridesNote, answers)
 
-// Apply instructions across all recipes (may change export modes, tags, etc.).
-const modifiedRecipes = applyRecipeOverrides(recipes, instructions)
+// Apply all recipe overrides in one call — recipes AND substat-targets minima.
+const { recipes: modifiedRecipes, substatTargets: effectiveSubstatTargets } =
+  applyAllRecipeOverrides(recipes, substatTargets, instructions)
 
 // Merge all recipe rules as the app does for a full SFR export (no imported HSF).
 const mergedRules = computeMergedRules({
   hsf: null,
   customRecipes: modifiedRecipes,
   metasets,
-  substatTargets,
+  substatTargets: effectiveSubstatTargets,
   finalSellRemainder,
 })
 
