@@ -2113,9 +2113,21 @@ fn safeguard_candidate_matches_substats(
     }
     // Compute count once and evaluate mode-specific threshold below.
     let matched = safeguard_count_selected_substats(artifact, selected_substats);
-    // `all` requires every selected variant; other modes require any hit.
+    // `all` requires every possible selected variant; other modes require any hit.
     if substat_match == SAFEGUARD_SUBSTAT_ALL {
-        return matched >= selected_substats.len();
+        // Substats that equal the piece's mainstat can never appear on that piece and
+        // must not count toward the required total. SAFEGUARD_MAIN_ANY means no
+        // mainstat restriction is known, so keep the full selection as required.
+        let effective_required = if artifact.main_stat == SAFEGUARD_MAIN_ANY {
+            selected_substats.len()
+        } else {
+            selected_substats.iter().filter(|&&v| v != artifact.main_stat).count()
+        };
+        // Vacuously satisfied when every selected substat conflicts with the mainstat.
+        if effective_required == 0 {
+            return true;
+        }
+        return matched >= effective_required;
     }
     matched > 0
 }
