@@ -39,7 +39,7 @@ type GearAnalyticsDim = {
 }
 ```
 
-`EMPTY_GEAR_LENS_DIM` is the canonical all-zeroes sentinel; compare against it to test whether any filter is active.
+`EMPTY_GEAR_ANALYTICS_DIM` is the canonical all-zeroes sentinel; compare against it to test whether any filter is active.
 
 ### `applyGearAnalyticsFilter(rows, dim, exclude?)`
 
@@ -191,4 +191,4 @@ KPI tooltip strings are catalog-keyed (`gearAnalyticsKpi*Tip`). Source category 
 
 ## Reset behavior
 
-`resetKey` (incremented externally by the Logic Hub "Reset to defaults" action) triggers a `useEffect` that restores `dim` to `EMPTY_GEAR_LENS_DIM` and clears both `selectedMainStats` and `selectedSubstat`. The same clear logic runs when the user clicks the "Clear" button in the cross-filter chip bar.
+`resetKey` (incremented externally by the Logic Hub "Reset to defaults" action) triggers a `useEffect` that restores `dim` to `EMPTY_GEAR_ANALYTICS_DIM` and clears both `selectedMainStats` and `selectedSubstat`. The same clear logic runs when the user clicks the "Clear" button in the cross-filter chip bar.
