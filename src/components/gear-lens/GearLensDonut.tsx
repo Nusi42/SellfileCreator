@@ -21,6 +21,8 @@ import {
   ChartsTooltipTable,
   ChartsTooltipRow,
 } from '@mui/x-charts/ChartsTooltip'
+import { easingSnappy, easingSlam, type GearLensEggPeer } from '../../lib/easterEggAnimUtils'
+import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
 
 export type DonutSlice = {
   /** Domain ID used to track selection (slot ID, rarity RankValue, set ID, outcome string, etc.). */
@@ -66,6 +68,17 @@ type Props = {
   arcLabelMinAngleDeg?: number
   /** Size in px of icons drawn on arc centroids. Default: 14. */
   iconSize?: number
+  /**
+   * Called once when this donut's Easter egg fires so sibling components can react.
+   * The parent wires this to a cross-component broadcast.
+   */
+  onEasterEgg?: () => void
+  /**
+   * When the parent sets a new peer trigger (incremented seq), this donut reacts:
+   *   cascade — short random delay then a full random dance animation.
+   *   rage    — instant angry inflate+tint burst (pie "furious" reaction).
+   */
+  peerDanceTrigger?: GearLensEggPeer | null
 }
 
 // Palette of distinct colors for the pie slices — cycles if more slices than colors.
@@ -284,7 +297,124 @@ function PieIconTooltip(_props: object) {
   )
 }
 
-export function GearLensDonut({ title, data, selected, onToggle, onDoubleClickItem, height = 220, colorBySliceId, slotIconById, arcLabel, arcLabelMinAngleDeg = 15, iconSize = 14 }: Props) {
+// ── Easter egg ──────────────────────────────────────────────────────────────────────────────────
+// 10 WAAPI dance variants applied to the donut's container element.
+// Shared easings from easterEggAnimUtils keep the feel consistent with the sort-popout easter egg.
+type DonutDance = 'spin' | 'bounce' | 'wiggle' | 'orbit' | 'pogo' | 'cardboard' | 'shake' | 'shrink' | 'roll' | 'dizzy'
+const DONUT_DANCES: readonly DonutDance[] = ['spin', 'bounce', 'wiggle', 'orbit', 'pogo', 'cardboard', 'shake', 'shrink', 'roll', 'dizzy']
+
+/** Pick a random dance variant and fire a WAAPI animation on the given container element. */
+function triggerDonutDance(el: HTMLElement): void {
+  const idx = Math.floor(Math.random() * DONUT_DANCES.length)
+  const variant = DONUT_DANCES[idx] ?? 'spin'
+
+  if (variant === 'spin') {
+    // Continuous 360° spin × 3 — the donut goes for a ride.
+    el.animate(
+      [{ transform: 'rotate(0)' }, { transform: 'rotate(360deg)' }],
+      { duration: 550, iterations: 3, easing: 'linear' },
+    )
+  } else if (variant === 'bounce') {
+    // Hops up and down × 4.
+    el.animate(
+      [{ transform: 'translateY(0)' }, { transform: 'translateY(-22px)' }, { transform: 'translateY(0)' }],
+      { duration: 380, iterations: 4, easing: 'ease-in-out' },
+    )
+  } else if (variant === 'wiggle') {
+    // Shakes side-to-side ("no no no!") × 2.
+    el.animate(
+      [
+        { transform: 'rotate(0)' },
+        { transform: 'rotate(-14deg)' }, { transform: 'rotate(14deg)' },
+        { transform: 'rotate(-10deg)' }, { transform: 'rotate(10deg)' },
+        { transform: 'rotate(-6deg)' },  { transform: 'rotate(6deg)' },
+        { transform: 'rotate(0)' },
+      ],
+      { duration: 700, iterations: 2, easing: 'ease-in-out' },
+    )
+  } else if (variant === 'orbit') {
+    // Circles around in a small orbit × 3 — the donut goes for a walk.
+    // 13 evenly-spaced frames close the loop precisely back at the start.
+    const orbitFrames = Array.from({ length: 13 }, (_, k) => {
+      const a = (k / 12) * Math.PI * 2
+      return { transform: `translate(${Math.round(Math.cos(a) * 15)}px, ${Math.round(Math.sin(a) * 15)}px)` }
+    })
+    el.animate(orbitFrames, { duration: 800, iterations: 3, easing: 'linear' })
+  } else if (variant === 'pogo') {
+    // Enormous single bounce × 2 with squash and stretch on impact.
+    el.animate(
+      [
+        { transform: 'translateY(0) scaleY(1)',        offset: 0    },
+        { transform: 'translateY(-55px) scaleY(1.1)',  offset: 0.32 },
+        { transform: 'translateY(0) scaleY(0.75)',     offset: 0.62 },
+        { transform: 'translateY(0) scaleY(1)',        offset: 0.72 },
+        { transform: 'translateY(-18px) scaleY(1.05)', offset: 0.86 },
+        { transform: 'translateY(0) scaleY(1)',        offset: 1    },
+      ],
+      { duration: 700, iterations: 2, easing: 'ease-in' },
+    )
+  } else if (variant === 'cardboard') {
+    // 3D perspective flip — the donut falls backwards like a piece of cardboard × 2.
+    // Adapted from the rowYeet variant in the sort-popout easter egg.
+    el.animate(
+      [
+        { transform: 'perspective(400px) rotateY(0deg)' },
+        { transform: 'perspective(400px) rotateY(180deg)' },
+        { transform: 'perspective(400px) rotateY(360deg)' },
+      ],
+      { duration: 800, iterations: 2, easing: easingSlam },
+    )
+  } else if (variant === 'shake') {
+    // Rapid horizontal "WHAT?!" shake × 2 — adapted from the shockwave sort-popout variant.
+    el.animate(
+      [
+        { transform: 'translateX(0)' },
+        { transform: 'translateX(-12px)' }, { transform: 'translateX(12px)' },
+        { transform: 'translateX(-12px)' }, { transform: 'translateX(12px)' },
+        { transform: 'translateX(-8px)' },  { transform: 'translateX(8px)' },
+        { transform: 'translateX(0)' },
+      ],
+      { duration: 500, iterations: 2 },
+    )
+  } else if (variant === 'shrink') {
+    // Collapses to near-nothing then pops back × 2 — adapted from badgeMeltdown.
+    el.animate(
+      [
+        { transform: 'scale(1)',   offset: 0   },
+        { transform: 'scale(0.1)', offset: 0.4 },
+        { transform: 'scale(1.5)', offset: 0.7 },
+        { transform: 'scale(1)',   offset: 1   },
+      ],
+      { duration: 600, iterations: 2 },
+    )
+  } else if (variant === 'roll') {
+    // Tilts and rolls away to the right, then snaps back × 2.
+    // Adapted from the carouselScramble sort-popout variant (linear offset → lateral roll).
+    el.animate(
+      [
+        { transform: 'rotate(0deg) translateX(0px)',   offset: 0   },
+        { transform: 'rotate(720deg) translateX(60px)', offset: 0.5 },
+        { transform: 'rotate(720deg) translateX(60px)', offset: 0.6 },
+        { transform: 'rotate(0deg) translateX(0px)',   offset: 1   },
+      ],
+      { duration: 1000, iterations: 2, easing: easingSnappy },
+    )
+  } else {
+    // 'dizzy': wobbly rotation + scale combo + hue-rotate filter — adapted from glitchScrub.
+    el.animate(
+      [
+        { transform: 'rotate(0deg) scale(1)',   filter: 'hue-rotate(0deg)'   },
+        { transform: 'rotate(12deg) scale(1.08)', filter: 'hue-rotate(120deg)' },
+        { transform: 'rotate(-8deg) scale(0.94)', filter: 'hue-rotate(240deg)' },
+        { transform: 'rotate(5deg) scale(1.03)',  filter: 'hue-rotate(360deg)' },
+        { transform: 'rotate(0deg) scale(1)',   filter: 'hue-rotate(0deg)'   },
+      ],
+      { duration: 600, iterations: 3, easing: 'ease-in-out' },
+    )
+  }
+}
+
+export function GearLensDonut({ title, data, selected, onToggle, onDoubleClickItem, height = 220, colorBySliceId, slotIconById, arcLabel, arcLabelMinAngleDeg = 15, iconSize = 14, onEasterEgg, peerDanceTrigger }: Props) {
   const theme = useTheme()
 
   // Pre-build icon map: String(domainId) → SlotIconAsset.
@@ -300,6 +430,44 @@ export function GearLensDonut({ title, data, selected, onToggle, onDoubleClickIt
     // Return null if no icons resolved — avoids activating icon slots for icon-less donuts.
     return map.size > 0 ? map : null
   }, [data, slotIconById])
+
+  // Easter egg — ref for the WAAPI target; recordClick fires true after 10 rapid clicks on the same arc.
+  const containerRef = useRef<HTMLDivElement>(null)
+  const recordClick  = useEasterEggTrigger()
+
+  // Peer reaction: when a sibling component fires its Easter egg, react here too.
+  // cascade → random delay then a full random donut dance (domino/chain effect).
+  // rage    → instant angry inflate+tint burst (pies furious at the treemap/radar).
+  useEffect(() => {
+    if (!peerDanceTrigger) return
+    const el = containerRef.current
+    if (!el) return
+    if (peerDanceTrigger.flavor === 'rage') {
+      // Angry inflate: swell up, flash red/orange, then settle back — no delay.
+      el.animate(
+        [
+          { transform: 'scale(1)',    filter: 'saturate(1) brightness(1)'   },
+          { transform: 'scale(1.22)', filter: 'saturate(4) hue-rotate(-30deg) brightness(1.3)', offset: 0.25 },
+          { transform: 'scale(1.15) translateY(-10px)', filter: 'saturate(3) hue-rotate(-20deg)', offset: 0.55 },
+          { transform: 'scale(1)',    filter: 'saturate(1) brightness(1)'   },
+        ],
+        { duration: 650, easing: easingSnappy },
+      )
+      return
+    } else {
+      // Cascade: stagger by a random 0–750 ms so the donuts fall like dominoes.
+      const delay = Math.random() * 750
+      const timer = setTimeout(() => {
+        if (containerRef.current) triggerDonutDance(containerRef.current)
+      }, delay)
+      return () => clearTimeout(timer)
+    }
+  }, [peerDanceTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pending single-click timer — used to distinguish click from double-click.
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Cancel any pending timer on unmount to prevent stale state updates.
+  useEffect(() => () => { if (clickTimerRef.current !== null) clearTimeout(clickTimerRef.current) }, [])
 
   // No data: render a placeholder so the layout stays stable.
   if (data.length === 0) {
@@ -323,16 +491,19 @@ export function GearLensDonut({ title, data, selected, onToggle, onDoubleClickIt
     return { id: item.id, value: item.count, label: item.label, color }
   })
 
-  // Pending single-click timer — used to distinguish click from double-click.
-  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Cancel any pending timer on unmount to prevent stale state updates.
-  useEffect(() => () => { if (clickTimerRef.current !== null) clearTimeout(clickTimerRef.current) }, [])
-
   // The identifier provides the dataIndex into our seriesData array.
   // When onDoubleClickItem is provided, a 300 ms window distinguishes single from double clicks.
   const handleItemClick = (_event: React.MouseEvent, identifier: { dataIndex: number }) => {
     const slice = seriesData[identifier.dataIndex]
     if (slice == null) return
+
+    // Easter egg: 10 rapid clicks on the same arc fires a random dance animation.
+    if (recordClick(slice.id) && containerRef.current) {
+      triggerDonutDance(containerRef.current)
+      // Notify parent so siblings can cascade.
+      onEasterEgg?.()
+    }
+
     if (!onDoubleClickItem) {
       onToggle(slice.id)
       return
@@ -365,7 +536,8 @@ export function GearLensDonut({ title, data, selected, onToggle, onDoubleClickIt
   return (
     // Provide iconMap + data to ArcIconLabel and PieIconTooltip via context.
     <SlotIconContext.Provider value={iconMap ? { iconMap, data, iconSize } : null}>
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      {/* ref target for WAAPI dance animations — the whole donut bounces/spins/etc. */}
+      <Box ref={containerRef} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem' }}>
           {title}
         </Typography>

@@ -7,6 +7,7 @@
  * This is the BI-style Crossfilter pattern.
  */
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react'
+import type { GearLensEggPeer } from '../../lib/easterEggAnimUtils'
 import { Box, Button, CircularProgress, Tooltip, Typography, useTheme } from '@mui/material'
 import { toPng } from 'html-to-image'
 import { RARITY_ACCENT_COLORS } from '../../lib/rarityColors'
@@ -187,6 +188,86 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
   // Substat co-occurrence pivot: one or more substat variants selected by clicking radar marks.
   // The radar then shows only items containing ALL selected substats (AND intersection).
   const [selectedSubstat, setSelectedSubstat] = useState<ReadonlySet<number>>(new Set())
+
+  // ── Cross-component Easter egg peer broadcasts ────────────────────────────────────────────────
+  // When any component's Easter egg fires it calls its onEasterEgg callback, which may
+  // (randomly) set peer triggers on a random subset of sibling components.
+  const eggSeqRef = useRef(0)
+  const [donutPeer,   setDonutPeer]   = useState<GearLensEggPeer | null>(null)
+  const [radarPeer,   setRadarPeer]   = useState<GearLensEggPeer | null>(null)
+  const [treemapPeer, setTreemapPeer] = useState<GearLensEggPeer | null>(null)
+  const [barPeer,     setBarPeer]     = useState<GearLensEggPeer | null>(null)
+
+  // Helper: fire a peer trigger with a fresh seq only when a random roll passes the threshold.
+  const maybeSet = useCallback(
+    (setter: React.Dispatch<React.SetStateAction<GearLensEggPeer | null>>, flavor: GearLensEggPeer['flavor'], threshold: number) => {
+      if (Math.random() < threshold) setter({ seq: ++eggSeqRef.current, flavor })
+    },
+    [],
+  )
+  // Helper: unconditionally fire a peer trigger (used for the jackpot all-react path).
+  const forceSet = useCallback(
+    (setter: React.Dispatch<React.SetStateAction<GearLensEggPeer | null>>, flavor: GearLensEggPeer['flavor']) => {
+      setter({ seq: ++eggSeqRef.current, flavor })
+    },
+    [],
+  )
+
+  // A donut fires.
+  // Jackpot (0.5 %): all siblings react at once — the whole dashboard goes haywire.
+  // Normal path: each sibling rolls independently.
+  const handleDonutEgg = useCallback(() => {
+    if (Math.random() < 0.005) {
+      forceSet(setDonutPeer,   'cascade')
+      forceSet(setTreemapPeer, 'cascade')
+      forceSet(setRadarPeer,   'cascade')
+      forceSet(setBarPeer,     'cascade')
+      return
+    }
+    maybeSet(setDonutPeer,   'cascade', 0.22)
+    maybeSet(setTreemapPeer, 'cascade', 0.15)
+    maybeSet(setRadarPeer,   'cascade', 0.15)
+    maybeSet(setBarPeer,     'cascade', 0.12)
+  }, [maybeSet, forceSet])
+
+  // The treemap fires.
+  const handleTreemapEgg = useCallback(() => {
+    if (Math.random() < 0.005) {
+      forceSet(setDonutPeer,   'rage')
+      forceSet(setRadarPeer,   'cascade')
+      forceSet(setBarPeer,     'cascade')
+      return
+    }
+    maybeSet(setDonutPeer, 'rage',    0.20)
+    maybeSet(setRadarPeer, 'cascade', 0.15)
+    maybeSet(setBarPeer,   'cascade', 0.12)
+  }, [maybeSet, forceSet])
+
+  // The radar fires.
+  const handleRadarEgg = useCallback(() => {
+    if (Math.random() < 0.005) {
+      forceSet(setTreemapPeer, 'cascade')
+      forceSet(setDonutPeer,   'cascade')
+      forceSet(setBarPeer,     'cascade')
+      return
+    }
+    maybeSet(setTreemapPeer, 'cascade', 0.15)
+    maybeSet(setDonutPeer,   'cascade', 0.15)
+    maybeSet(setBarPeer,     'cascade', 0.12)
+  }, [maybeSet, forceSet])
+
+  // The stat bars fire.
+  const handleBarEgg = useCallback(() => {
+    if (Math.random() < 0.005) {
+      forceSet(setDonutPeer,   'cascade')
+      forceSet(setTreemapPeer, 'cascade')
+      forceSet(setRadarPeer,   'cascade')
+      return
+    }
+    maybeSet(setDonutPeer,   'cascade', 0.15)
+    maybeSet(setTreemapPeer, 'cascade', 0.12)
+    maybeSet(setRadarPeer,   'cascade', 0.12)
+  }, [maybeSet, forceSet])
 
   // Partial-update helper: merge a patch into the current dim.
   const updateDim = useCallback((patch: Partial<GearLensDim>) => {
@@ -502,6 +583,8 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
           onDoubleClickItem={selectSlotGroup}
           height={160}
           slotIconById={slotIconSvgAsset}
+          onEasterEgg={handleDonutEgg}
+          peerDanceTrigger={donutPeer}
         />
         <GearLensDonut
           title={t('gearLensChartRank')}
@@ -510,6 +593,8 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
           onToggle={toggleRank}
           height={160}
           arcLabel={(id) => rankLabel(Number(id))}
+          onEasterEgg={handleDonutEgg}
+          peerDanceTrigger={donutPeer}
         />
         <GearLensDonut
           title={t('gearLensChartRarity')}
@@ -518,6 +603,8 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
           onToggle={toggleRarity}
           height={160}
           colorBySliceId={rarityColorById}
+          onEasterEgg={handleDonutEgg}
+          peerDanceTrigger={donutPeer}
         />
         <GearLensDonut
           title={t('gearLensChartOutcome')}
@@ -526,6 +613,8 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
           onToggle={(id) => toggleOutcome(id as GearLensOutcome)}
           height={160}
           colorBySliceId={outcomeColorById}
+          onEasterEgg={handleDonutEgg}
+          peerDanceTrigger={donutPeer}
         />
         <GearLensDonut
           title={t('gearLensChartSource')}
@@ -534,6 +623,8 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
           onToggle={toggleSource}
           height={160}
           slotIconById={sourceIconSvgAsset}
+          onEasterEgg={handleDonutEgg}
+          peerDanceTrigger={donutPeer}
         />
         <GearLensDonut
           title={t('gearLensChartLevel')}
@@ -542,6 +633,8 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
           onToggle={toggleLevel}
           height={160}
           arcLabel={(id) => levelLabel(Number(id))}
+          onEasterEgg={handleDonutEgg}
+          peerDanceTrigger={donutPeer}
         />
       </Box>
 
@@ -554,6 +647,8 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
           onToggle={toggleSet}
           iconById={setIconById}
           showIcons={showSetIcons}
+          onEasterEgg={handleTreemapEgg}
+          peerDanceTrigger={treemapPeer}
         />
       </Box>
 
@@ -569,6 +664,8 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
           selected={selectedMainStats}
           onToggle={toggleMainStat}
           {...(statButtonBorders && { colorById: statColorById })}
+          onEasterEgg={handleBarEgg}
+          peerDanceTrigger={barPeer}
         />
         <GearLensRadar
           title={t('gearLensChartSubstats')}
@@ -578,6 +675,8 @@ export function GearLensTabContent({ rows, onApplyToGearInspector, resetKey }: P
           selectedSubstat={selectedSubstat}
           onToggleSubstat={toggleSubstat}
           onClearSubstat={clearSubstat}
+          onEasterEgg={handleRadarEgg}
+          peerDanceTrigger={radarPeer}
         />
       </Box>
 
