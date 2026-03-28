@@ -25,7 +25,7 @@ use crate::{
     ARTIFACT_TYPE_GAUNTLETS, ARTIFACT_TYPE_HELMET, ARTIFACT_TYPE_RING, ARTIFACT_TYPE_SHIELD,
     ARTIFACT_TYPE_WEAPON,
     // Safeguard token constants from generated_domain_constants.
-    SAFEGUARD_SUBSTAT_ALL, SAFEGUARD_SUBSTAT_ANY, SAFEGUARD_SUBSTAT_PER_SUBSTAT,
+    SAFEGUARD_SUBSTAT_PER_SUBSTAT,
     // Stat variant constants from generated_domain_constants.
     STAT_VARIANT_ACC, STAT_VARIANT_ANY, STAT_VARIANT_ATK_FLAT, STAT_VARIANT_ATK_PERCENT,
     STAT_VARIANT_CDMG, STAT_VARIANT_CR, STAT_VARIANT_DEF_FLAT, STAT_VARIANT_DEF_PERCENT,
@@ -428,20 +428,18 @@ fn state_matches_substats(
         return true;
     }
     let matched = count_matched_in_state(state, selected);
-    if substat_match == SAFEGUARD_SUBSTAT_ALL {
-        // Substats that equal the piece's mainstat are impossible; exclude them from
-        // the required total. STAT_VARIANT_ANY means no restriction is known.
-        let effective_required = if main_stat == STAT_VARIANT_ANY {
-            selected.len()
-        } else {
-            selected.iter().filter(|&&v| v != main_stat).count()
-        };
-        if effective_required == 0 {
-            return true;
-        }
-        return matched >= effective_required;
+    let min_count = super::safeguard_substat_min_count(substat_match, selected.len());
+    // Substats that equal the piece's mainstat are impossible; cap the required total.
+    let possible_count = if main_stat == STAT_VARIANT_ANY {
+        selected.len()
+    } else {
+        selected.iter().filter(|&&v| v != main_stat).count()
+    };
+    let effective_required = min_count.min(possible_count);
+    if effective_required == 0 {
+        return true;
     }
-    matched > 0
+    matched >= effective_required
 }
 
 fn compute_score_from_state(
@@ -792,20 +790,18 @@ fn artifact_matches_substats(
     }
     let selected_set: HashSet<i64> = selected.iter().copied().collect();
     let matched = count_matched_on_artifact(artifact, &selected_set);
-    if substat_match == SAFEGUARD_SUBSTAT_ALL {
-        // Substats that equal the piece's mainstat are impossible; exclude them from
-        // the required total. STAT_VARIANT_ANY means no restriction is known.
-        let effective_required = if artifact.main_stat == STAT_VARIANT_ANY {
-            selected_set.len()
-        } else {
-            selected_set.iter().filter(|&&v| v != artifact.main_stat).count()
-        };
-        if effective_required == 0 {
-            return true;
-        }
-        return matched >= effective_required;
+    let min_count = super::safeguard_substat_min_count(substat_match, selected_set.len());
+    // Substats that equal the piece's mainstat are impossible; cap the required total.
+    let possible_count = if artifact.main_stat == STAT_VARIANT_ANY {
+        selected_set.len()
+    } else {
+        selected_set.iter().filter(|&&v| v != artifact.main_stat).count()
+    };
+    let effective_required = min_count.min(possible_count);
+    if effective_required == 0 {
+        return true;
     }
-    matched > 0
+    matched >= effective_required
 }
 
 // ─── per-artifact chance computation ─────────────────────────────────────────
@@ -897,51 +893,46 @@ fn scenario_can_match_by_level16(
         return false;
     }
     let matched_now = count_matched_in_state(&viability.initial_state, selected);
-    if scenario.substat_match == SAFEGUARD_SUBSTAT_ALL {
-        // Substats that equal the piece's mainstat are impossible; exclude them from
-        // the required total. STAT_VARIANT_ANY means no restriction is known.
-        let effective_required = if viability.main_stat == STAT_VARIANT_ANY {
-            selected.len()
-        } else {
-            selected.iter().filter(|&&v| v != viability.main_stat).count()
-        };
-        // Vacuously satisfied when every selected substat conflicts with the mainstat.
-        if effective_required == 0 {
-            return true;
-        }
-        if matched_now >= effective_required {
-            return true;
-        }
-        if viability.max_addition_events == 0 {
-            return false;
-        }
-        // Every missing, possible variant must be addable within the remaining budget.
-        let mut missing_addable = 0;
-        for &v in selected {
-            // Substats that match the mainstat are impossible — skip them.
-            if viability.main_stat != STAT_VARIANT_ANY && v == viability.main_stat {
-                continue;
-            }
-            if get_state_raw_value(&viability.initial_state, v) > 0.0 {
-                continue;
-            }
-            if !viability.legal_addition_pool_set.contains(&v) {
-                return false;
-            }
-            missing_addable += 1;
-        }
-        return missing_addable <= viability.max_addition_events;
+    let min_count = super::safeguard_substat_min_count(&scenario.substat_match, selected.len());
+    // Substats that equal the piece's mainstat are impossible; cap the required total.
+    let possible_count = if viability.main_stat == STAT_VARIANT_ANY {
+        selected.len()
+    } else {
+        selected.iter().filter(|&&v| v != viability.main_stat).count()
+    };
+    let effective_required = min_count.min(possible_count);
+    // Vacuously satisfied when no possible substat can satisfy the filter.
+    if effective_required == 0 {
+        return true;
     }
-    // "any" mode: already satisfied or at least one variant can still be added.
-    if matched_now > 0 {
+    // Already satisfied by the current state.
+    if matched_now >= effective_required {
         return true;
     }
     if viability.max_addition_events == 0 {
         return false;
     }
-    selected
-        .iter()
-        .any(|v| viability.legal_addition_pool_set.contains(v))
+    // Count how many missing-but-possible variants can still be added.
+    let mut missing_addable = 0usize;
+    for &v in selected {
+        // Substats that match the mainstat are structurally impossible — skip.
+        if viability.main_stat != STAT_VARIANT_ANY && v == viability.main_stat {
+            continue;
+        }
+        if get_state_raw_value(&viability.initial_state, v) > 0.0 {
+            continue;  // already present
+        }
+        if !viability.legal_addition_pool_set.contains(&v) {
+            // Cannot be added at any future event; rule cannot be met.
+            return false;
+        }
+        missing_addable += 1;
+        // Early exit: enough addable variants exist to meet the threshold.
+        if matched_now + missing_addable >= effective_required {
+            return true;
+        }
+    }
+    matched_now + missing_addable >= effective_required
 }
 
 // ─── rule preparation ─────────────────────────────────────────────────────────
@@ -1066,26 +1057,22 @@ struct ScenarioDef {
 }
 
 fn expand_rule_scenarios(rule: &PreparedUpgradeRule) -> Vec<ScenarioDef> {
-    // perSubstat mode splits each variant into its own Any scenario.
+    // perSubstat mode splits each variant into its own single-variant scenario.
     if rule.substat_match == SAFEGUARD_SUBSTAT_PER_SUBSTAT && rule.selected_substats.len() > 1 {
         return rule
             .selected_substats
             .iter()
             .map(|&v| ScenarioDef {
                 selected_substats: vec![v],
-                substat_match: SAFEGUARD_SUBSTAT_ANY.to_string(),
+                // Each single-variant scenario requires exactly that variant (≥1).
+                substat_match: "1".to_string(),
             })
             .collect();
     }
-    // Single or all-mode scenarios keep the full substat list.
-    let effective_match = if rule.substat_match == SAFEGUARD_SUBSTAT_ALL {
-        SAFEGUARD_SUBSTAT_ALL.to_string()
-    } else {
-        SAFEGUARD_SUBSTAT_ANY.to_string()
-    };
+    // Min-count and legacy all/any modes keep the full substat list as one scenario.
     vec![ScenarioDef {
         selected_substats: rule.selected_substats.clone(),
-        substat_match: effective_match,
+        substat_match: rule.substat_match.clone(),
     }]
 }
 

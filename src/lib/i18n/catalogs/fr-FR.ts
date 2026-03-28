@@ -93,8 +93,6 @@ const overrides: Catalog = {
   gearInspectorGridSafeguardChanceTooltipBucketCount: 'Objets comparables actuellement dans ce groupe : {count}',
   gearInspectorGridSafeguardChanceTooltipBetterCount: 'Objets actuellement meilleurs que celui-ci : {count}',
   gearInspectorGridSafeguardChanceTooltipMatchedNow: 'Sous-stats sélectionnées déjà présentes : {count}',
-  gearInspectorGridSafeguardChanceMatchModeAny: 'n’importe laquelle',
-  gearInspectorGridSafeguardChanceMatchModeAll: 'toutes',
   gearInspectorGridSafeguardChanceMatchModePerSubstat: 'par-sous-stat',
   gearInspectorGridSafeguardChanceUnknownRule: '(sauvegarde sans nom)',
   gearInspectorGridNormalizedTooltip: '**Afficher la note des sous-stats** superpose le même score normalisé utilisé par **Normalized** :\n\n- **Score = somme pondérée** des sous-stats sélectionnés.\n- Chaque sous-stat sélectionné a un **poids** (`0.1–3.0`, par défaut `1.0`).\n- Chaque sous-stat sélectionné est mis à l’échelle via son **cap de roll 6★** : `valeur / cap`.\n- Si un objet n’a pas une sous-stat sélectionnée, elle contribue **0**.\n- Si plusieurs préréglages sont sélectionnés, la note utilise le **meilleur (max)** score (pas une moyenne).\n- **Seules les sous-stats comptent**. Le set, l’emplacement, le rang, la rareté et la stat principale sont ignorés.\n\nLa couleur de l’overlay est relative à la vue actuelle : **rouge = plus faible**, **vert = plus élevé**.',
@@ -1347,8 +1345,6 @@ const overrides: Catalog = {
   noteSafeguardRaritiesLabel: 'Raretés',
   noteSafeguardSubstatsLabel: 'Sous-stats',
   noteSafeguardSubstatRequirementLabel: 'Exigence de sous-stats',
-  noteSafeguardSubstatRequirementAny: 'N’importe quel sous-stat',
-  noteSafeguardSubstatRequirementAll: 'Tous les sous-stats',
   noteSafeguardSubstatRequirementPer: 'Par sous-stat',
   noteSafeguardSubstatWeightsLabel: 'Poids des sous-stats',
 

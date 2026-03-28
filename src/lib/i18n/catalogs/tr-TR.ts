@@ -93,8 +93,6 @@ const overrides: Catalog = {
   gearInspectorGridSafeguardChanceTooltipBucketCount: 'Bu grupta karşılaştırılabilir öğe sayısı: {count}',
   gearInspectorGridSafeguardChanceTooltipBetterCount: 'Şu anda bundan daha iyi öğe sayısı: {count}',
   gearInspectorGridSafeguardChanceTooltipMatchedNow: 'Seçili alt statlar zaten mevcut: {count}',
-  gearInspectorGridSafeguardChanceMatchModeAny: 'herhangi',
-  gearInspectorGridSafeguardChanceMatchModeAll: 'hepsi',
   gearInspectorGridSafeguardChanceMatchModePerSubstat: 'alt-stat-bazlı',
   gearInspectorGridSafeguardChanceUnknownRule: '(isimsiz koruma)',
   gearInspectorGridNormalizedTooltip: '**Alt Stat Puanını Göster** katmanı, **Normalized** sıralamasının kullandığı aynı normalleştirilmiş puanı gösterir:\n\n- **Puan = ağırlıklı toplam** seçili alt statların toplamıdır.\n- Seçilen her alt statın bir **ağırlığı** vardır (`0.1–3.0`, varsayılan `1.0`).\n- Seçilen her alt stat, kendi **6★ rulo tavanına** göre ölçeklenir: `değer / tavan`.\n- Bir eşyada seçili bir alt stat yoksa katkısı **0** olur.\n- Birden fazla ön ayar seçildiyse puanlama **en iyi (max)** puanı kullanır (ortalama değil).\n- **Yalnızca alt statlar sayılır**. Set, slot, rütbe, nadirlik ve ana stat yok sayılır.\n\nOverlay rengi mevcut görünüme göredir: **kırmızı = en düşük**, **yeşil = en yüksek**.',
@@ -1346,8 +1344,6 @@ const overrides: Catalog = {
   noteSafeguardRaritiesLabel: 'Nadirlikler',
   noteSafeguardSubstatsLabel: 'Alt statlar',
   noteSafeguardSubstatRequirementLabel: 'Alt stat gereksinimi',
-  noteSafeguardSubstatRequirementAny: 'Herhangi bir Alt Stat',
-  noteSafeguardSubstatRequirementAll: 'Tüm Alt Statlar',
   noteSafeguardSubstatRequirementPer: 'Alt Stat başına',
   noteSafeguardSubstatWeightsLabel: 'Alt stat ağırlıkları',
 

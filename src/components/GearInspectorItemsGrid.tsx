@@ -527,16 +527,13 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       const selectedSubstatLabel = selectedSubstats.length > 0
         ? selectedSubstats.map((variant) => t(statVariantI18nKey(variant))).join(', ')
         : t('any')
-      const rawMatchMode = entry.debug?.substatMatch ?? matchedRule?.substatMatch ?? SafeguardSubstatMatch.Any
-      const matchModeLabel = (
-        rawMatchMode === SafeguardSubstatMatch.All
-          ? t('gearInspectorGridSafeguardChanceMatchModeAll')
-          : (
-            rawMatchMode === SafeguardSubstatMatch.PerSubstat
-              ? t('gearInspectorGridSafeguardChanceMatchModePerSubstat')
-              : t('gearInspectorGridSafeguardChanceMatchModeAny')
-          )
-      )
+      const rawMatchMode = entry.debug?.substatMatch ?? matchedRule?.substatMatch ?? SafeguardSubstatMatch.Min1
+      // PerSubstat uses an i18n label; numeric min-count tokens use language-agnostic ≥N format.
+      const matchModeLabel = (() => {
+        if (rawMatchMode === SafeguardSubstatMatch.PerSubstat) return t('gearInspectorGridSafeguardChanceMatchModePerSubstat')
+        const n = parseInt(rawMatchMode, 10)
+        return `\u2265${Number.isFinite(n) && n >= 1 ? n : 1}`
+      })()
       const safeguardName = (() => {
         const trimmedName = matchedRule?.name?.trim() ?? ''
         if (trimmedName.length > 0) return trimmedName

@@ -93,8 +93,6 @@ const overrides: Catalog = {
   gearInspectorGridSafeguardChanceTooltipBucketCount: 'Сопоставимых предметов в этой группе: {count}',
   gearInspectorGridSafeguardChanceTooltipBetterCount: 'Предметов, которые сейчас лучше этого: {count}',
   gearInspectorGridSafeguardChanceTooltipMatchedNow: 'Выбранные подстаты уже присутствуют: {count}',
-  gearInspectorGridSafeguardChanceMatchModeAny: 'любой',
-  gearInspectorGridSafeguardChanceMatchModeAll: 'все',
   gearInspectorGridSafeguardChanceMatchModePerSubstat: 'по-подстату',
   gearInspectorGridSafeguardChanceUnknownRule: '(защита без названия)',
   gearInspectorGridNormalizedTooltip: '**Показывать рейтинг подстатов** накладывает тот же нормализованный счёт, что используется в сортировке **Normalized**:\n\n- **Счёт = взвешенная сумма** выбранных подстатов.\n- У каждого выбранного подстата есть **вес** (`0.1–3.0`, по умолчанию `1.0`).\n- Каждый выбранный подстат масштабируется по своему **6★-капу ролла**: `значение / кап`.\n- Если у предмета нет выбранного подстата, он даёт **0**.\n- Если выбрано несколько пресетов, рейтинг использует **лучший (max)** счёт среди них (не среднее).\n- **Учитываются только подстаты**. Сет, слот, ранг, редкость и главный стат игнорируются.\n\nЦвет оверлея относителен текущему виду: **красный = ниже**, **зелёный = выше**.',
@@ -1346,8 +1344,6 @@ const overrides: Catalog = {
   noteSafeguardRaritiesLabel: 'Редкости',
   noteSafeguardSubstatsLabel: 'Подстаты',
   noteSafeguardSubstatRequirementLabel: 'Требование подстатов',
-  noteSafeguardSubstatRequirementAny: 'Любой подстат',
-  noteSafeguardSubstatRequirementAll: 'Все подстаты',
   noteSafeguardSubstatRequirementPer: 'По подстату',
   noteSafeguardSubstatWeightsLabel: 'Веса подстатов',
 

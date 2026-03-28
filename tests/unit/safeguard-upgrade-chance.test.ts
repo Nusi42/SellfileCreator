@@ -114,7 +114,7 @@ const makeSpdSafeguardRule = (name: string): SafeguardRule => ({
   ignoreEquippedInVault: false,
   beatEquippedPercentile: null,
   substats: [StatVariant.SPD],
-  substatMatch: SafeguardSubstatMatch.Any,
+  substatMatch: SafeguardSubstatMatch.Min1,
   substatWeights: {},
 })
 
@@ -262,7 +262,7 @@ test('prefers the most likely safeguard for matchedRuleOrdinal when multiple saf
       {
         ...makeSpdSafeguardRule('sg_spd_acc_all'),
         substats: [StatVariant.SPD, StatVariant.ACC],
-        substatMatch: SafeguardSubstatMatch.All,
+        substatMatch: SafeguardSubstatMatch.Min2,
       },
     ],
   ).get(41)
@@ -288,12 +288,12 @@ test('breaks equal-chance safeguard ties by higher matching substat count', () =
       {
         ...makeSpdSafeguardRule('sg_less_matching'),
         substats: [StatVariant.SPD, StatVariant.ACC],
-        substatMatch: SafeguardSubstatMatch.Any,
+        substatMatch: SafeguardSubstatMatch.Min1,
       },
       {
         ...makeSpdSafeguardRule('sg_more_matching'),
         substats: [StatVariant.SPD, StatVariant.HP],
-        substatMatch: SafeguardSubstatMatch.Any,
+        substatMatch: SafeguardSubstatMatch.Min1,
       },
     ],
   ).get(51)
@@ -320,12 +320,12 @@ test('breaks equal-chance + equal-match ties by safeguard list order', () => {
       {
         ...makeSpdSafeguardRule('sg_top_rule'),
         substats: [StatVariant.SPD, StatVariant.ACC],
-        substatMatch: SafeguardSubstatMatch.Any,
+        substatMatch: SafeguardSubstatMatch.Min1,
       },
       {
         ...makeSpdSafeguardRule('sg_bottom_rule'),
         substats: [StatVariant.SPD, StatVariant.RES],
-        substatMatch: SafeguardSubstatMatch.Any,
+        substatMatch: SafeguardSubstatMatch.Min1,
       },
     ],
   ).get(52)

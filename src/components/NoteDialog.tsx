@@ -2220,13 +2220,12 @@ function SafeguardSummaryCard({
 
   const normalizedSubstatMatch = normalizeSafeguardSubstatMatch(rule.substatMatch)
   const substatMatchLabel = (() => {
-    if (normalizedSubstatMatch === SafeguardSubstatMatch.All) {
-      return t('noteSafeguardSubstatRequirementAll')
-    }
     if (normalizedSubstatMatch === SafeguardSubstatMatch.PerSubstat) {
       return t('noteSafeguardSubstatRequirementPer')
     }
-    return t('noteSafeguardSubstatRequirementAny')
+    // Numeric min-count tokens ("1"–"4") render as ≥N — language-agnostic.
+    const n = parseInt(normalizedSubstatMatch, 10)
+    return `\u2265${Number.isFinite(n) && n >= 1 ? n : 1}`
   })()
 
   const substatWeightSummary = (() => {

@@ -21,6 +21,13 @@ import { SUBSTAT_ROLL_MAX_6_BY_VARIANT, normalizeSubstatByMax6 } from './substat
 import { ALLOWED_SUB_BY_SLOT, StatVariant } from './types'
 import { SUBSTAT_SLOT_COUNT as GENERATED_SUBSTAT_SLOT_COUNT } from './generated/domainConstants'
 
+// Parse a numeric min-count substat match token ("1"–"4") into an integer threshold.
+// Defaults to 1 for unknown or missing tokens (equivalent to the old "any" semantics).
+const parseSubstatMinCount = (substatMatch: SafeguardSubstatMatch): number => {
+  const n = parseInt(substatMatch, 10)
+  return Number.isFinite(n) && n >= 1 ? n : 1
+}
+
 // Upgrade chance is always projected to +16 because safeguards compare final gear value.
 const SAFEGUARD_UPGRADE_TARGET_LEVEL = 16
 // Gear can never hold more than four substats.
@@ -222,16 +229,8 @@ const prepareSubstatSafeguardRules = (
     if (selectedSubstats.length === 0) continue
     // Resolve include/exclude set IDs via shared helper (SSOT).
     const { includeSetIds, excludeSetIds } = resolveSetIdFilter(rule.combination.sets ?? [])
-    // Substat match defaults to `any` unless `all` was explicitly selected.
-    const normalizedMatch = (
-      rule.substatMatch === SafeguardSubstatMatchToken.All
-        ? SafeguardSubstatMatchToken.All
-        : (
-          rule.substatMatch === SafeguardSubstatMatchToken.PerSubstat
-            ? SafeguardSubstatMatchToken.PerSubstat
-            : SafeguardSubstatMatchToken.Any
-        )
-    )
+    // Substat match is already normalized at load time; pass through as-is.
+    const normalizedMatch = rule.substatMatch ?? SafeguardSubstatMatchToken.Min1
     // Extract slots and weights as locals for use in prepared.push below.
     const slots = (rule.combination.slots ?? []).map((value) => Number(value)).filter(Number.isFinite)
     const weights = normalizeRuleWeights(rule.substatWeights ?? {})
@@ -349,7 +348,8 @@ const countMatchedSelectedSubstatsOnArtifact = (
   return matched
 }
 
-// Safeguard substat gating (`any`/`all`) for static artifact challenger scans.
+// Safeguard substat gating for static artifact challenger scans.
+// Compares matched count against the numeric min-count token (≥1–≥4).
 const artifactMatchesScenarioSubstats = (
   artifact: NormalizedGearArtifact,
   selectedSubstats: readonly number[],
@@ -358,10 +358,7 @@ const artifactMatchesScenarioSubstats = (
   if (selectedSubstats.length === 0) return true
   const selectedSet = new Set<number>(selectedSubstats)
   const matched = countMatchedSelectedSubstatsOnArtifact(artifact, selectedSet)
-  if (substatMatch === SafeguardSubstatMatchToken.All) {
-    return matched >= selectedSet.size
-  }
-  return matched > 0
+  return matched >= parseSubstatMinCount(substatMatch)
 }
 
 // Strict tie comparator parity: returns true when challenger is strictly better.
@@ -407,16 +404,14 @@ const expandRuleScenarios = (rule: PreparedSafeguardRule): Array<{
   ) {
     return rule.selectedSubstats.map((variant) => ({
       selectedSubstats: [variant],
-      substatMatch: SafeguardSubstatMatchToken.Any,
+      // Each per-substat split requires exactly one match (Min1).
+      substatMatch: SafeguardSubstatMatchToken.Min1,
     }))
   }
   return [{
     selectedSubstats: rule.selectedSubstats,
-    substatMatch: (
-      rule.substatMatch === SafeguardSubstatMatchToken.All
-        ? SafeguardSubstatMatchToken.All
-        : SafeguardSubstatMatchToken.Any
-    ),
+    // Numeric min-count token is passed through as-is.
+    substatMatch: rule.substatMatch,
   }]
 }
 
@@ -523,10 +518,7 @@ const stateMatchesScenarioSubstats = (
 ): boolean => {
   if (selectedSubstats.length === 0) return true
   const matched = countMatchedSelectedSubstatsInState(state, selectedSubstats)
-  if (substatMatch === SafeguardSubstatMatchToken.All) {
-    return matched >= selectedSubstats.length
-  }
-  return matched > 0
+  return matched >= parseSubstatMinCount(substatMatch)
 }
 
 // Score +16 projected state with the same weighted normalized safeguard formula.
@@ -793,21 +785,17 @@ const scenarioCanMatchArtifactByLevel16 = (
   const selectedSubstats = Array.from(new Set<number>(scenario.selectedSubstats))
   if (selectedSubstats.length === 0) return false
   const matchedNow = countMatchedSelectedSubstatsInState(context.initialState, selectedSubstats)
-  if (scenario.substatMatch === SafeguardSubstatMatchToken.All) {
-    if (matchedNow >= selectedSubstats.length) return true
-    if (context.maxAdditionEvents <= 0) return false
-    let missingAddable = 0
-    for (const variant of selectedSubstats) {
-      if (getStateRawSubstatValue(context.initialState, variant) > 0) continue
-      if (!context.legalAdditionPool.has(variant)) return false
-      missingAddable += 1
-    }
-    return missingAddable <= context.maxAdditionEvents
-  }
-  if (matchedNow > 0) return true
-  if (context.maxAdditionEvents <= 0) return false
-  // `any` can still be satisfied if at least one selected variant can be added later.
-  return selectedSubstats.some((variant) => context.legalAdditionPool.has(variant))
+  const minCount = parseSubstatMinCount(scenario.substatMatch)
+  // Already satisfies the threshold — viable regardless of future additions.
+  if (matchedNow >= minCount) return true
+  const needed = minCount - matchedNow
+  if (context.maxAdditionEvents < needed) return false
+  // Count missing selected substats that can still be added at a future upgrade step.
+  const addableMissing = selectedSubstats.filter(
+    (v) => getStateRawSubstatValue(context.initialState, v) === 0
+      && context.legalAdditionPool.has(v),
+  ).length
+  return addableMissing >= needed
 }
 
 // Pick one stable scenario for tooltip/debug details (same ordering as rule scan).
