@@ -15,6 +15,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Modalità Salvaguardie: definisci le combinazioni che non vuoi perdere mai. Quando le tue ricette più le tue regole di vendita attualmente attive eliminerebbero tutte le copie, lo scanner genera automaticamente regole di mantenimento.
 - Dialogo di ripristino Autosave: quando troviamo un Autosave, scegli con precisione cosa ricaricare: ricette, Metaset, Valori obiettivo delle sotto-stat, resto di Vendita finale, nota fissata, stato del pannello filtri e perfino le importazioni dell'Ispettore Equipaggiamento.
 - Copia la cartella del DB di RSL Helper: l'intestazione dell'anteprima offre un pulsante negli appunti che copia `%APPDATA%\RslHelper\Config` così puoi incollare subito il percorso in Esplora risorse prima di trascinare dentro il `.db`.
+- Gear Lens: un pannello di analisi all'interno della finestra Strumenti. Otto schede KPI riassumono lo stato della collezione (Leggendaria+, Tasso 6★, Maxed, Equipaggiato, ecc.). Sei donut a filtro incrociato (Slot, Rarità, Set, Risultato, Fonte, Livello) permettono di cliccare i segmenti per filtrare tutti gli altri grafici contemporaneamente. Barre di frequenza delle stat principali e delle sotto-stat, una heatmap Slot × Stat principale e una scheda Statistiche campioni completano la vista. I filtri attivi appaiono come chip rimovibili. Copia l'intero pannello come PNG o invia il filtro attivo direttamente all'Ispettore Equipaggiamento.
 
 ## Come si usa
 
@@ -139,6 +140,30 @@ Note:
 - Usa le tue regole attuali di Mantieni/Vendi, incluso Vendita finale e Mantieni unici.
 - Circa 100.000 drop per fase e si aggiorna mentre gira.
 - Tassi di drop e roll sono simulati, quindi i numeri sono stime.
+
+### Gear Lens
+Apri "Strumenti" e passa alla scheda **Gear Lens** per una panoramica analitica del tuo equipaggiamento importato.
+
+**Schede KPI (riga superiore):** Otto schede percentuale — **Leggendaria+**, **Tasso 6★**, **Maxed (+16)**, **Equipaggiata**, **Bloccata nel forziere**, **Chaos'd**, **Glyphed**, **Ascesa** — ciascuna con tooltip e codice colore (verde/ambra/rosso) basato su soglie di salute della collezione.
+
+**Donut a filtro incrociato:** Sei grafici — **Slot**, **Rarità**, **Set**, **Risultato**, **Fonte**, **Livello** — si aggiornano a vicenda quando si clicca.
+- Clicca un segmento per aggiungerlo come filtro per quella dimensione; ogni altro grafico si restringe immediatamente all'equipaggiamento corrispondente. Ogni grafico esclude la propria dimensione per mostrare sempre l'intera gamma.
+- Doppio clic su un segmento del donut **Slot** per selezionare un intero gruppo in una volta: qualsiasi pezzo d'armatura (Arma, Elmo, Scudo, Guanti, Corazza, Stivali) seleziona tutti e sei gli slot d'armatura; qualsiasi accessorio (Anello, Amuleto, Vessillo) seleziona tutti e tre.
+- Il donut **Set** mostra le icone dei set su ogni arco. I donut **Slot** e **Fonte** mostrano anche icone di categoria. Il donut **Livello** etichetta ogni arco con il testo del livello.
+
+**Chip di filtro:** Le selezioni attive per ciascuna dimensione appaiono come chip sotto i donut; clicca l'icona di eliminazione su un chip per rimuovere solo quel filtro. Anche le selezioni della stat principale appaiono come chip. Il pulsante **Cancella filtri** azzera tutte le dimensioni in una volta.
+
+**Barra Stat principali:** Mostra la frequenza di ogni stat principale nell'equipaggiamento filtrato. Clicca una barra per approfondire — il grafico della frequenza delle sotto-stat si aggiorna mostrando solo le sotto-stat dell'equipaggiamento con quella stat principale selezionata. Clicca di nuovo per deselezionare.
+
+**Barra Frequenza sotto-stat:** Mostra la frequenza di ogni sotto-stat nell'equipaggiamento filtrato (e opzionalmente limitato per stat principale).
+
+**Heatmap Slot × Stat principale:** Numero di oggetti per slot (colonne) × stat principale (righe). Clicca un'intestazione di colonna o una cella per filtrare per slot.
+
+**Scheda Statistiche campioni:** Totali delle sotto-stat sommati sui pezzi equipaggiati per campione. Filtra per posizione (**Tutti** / **Collezione** / **Forziere**), attiva solo **Completamente equipaggiato** e includi o escludi i glifi. Mostra le serie Min/Media/Mediana/Max.
+
+**Pulsanti:**
+- **Copia istantanea:** Renderizza l'intera vista analitica come PNG e la copia negli appunti.
+- **Applica all'Ispettore Equipaggiamento:** Invia il filtro incrociato attivo nel filtro elenco dell'Ispettore Equipaggiamento (visibile solo quando è attivo un filtro).
 
 ### Gestione delle ricette
 - Elenco ricette salvate: ogni ricetta appare come un'etichetta sotto il builder. Usa l'elenco per selezionare (clic sinistro), duplicare, riordinare o eliminare (con conferma). "Elimina ricette" rimuove tutte (con conferma).

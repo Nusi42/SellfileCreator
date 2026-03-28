@@ -15,6 +15,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Modo Salvaguardas: defina as combinações que você não quer perder. Quando as suas receitas mais as suas regras de venda atualmente ativas removerem todas as cópias, o scanner gera automaticamente regras de manutenção.
 - Diálogo de restauração do Autosave: quando existe um autosave, escolha exatamente o que recuperar — receitas, meta-sets, Alvos de substats, restante da Venda final, nota fixada, estado do painel de filtros e até as importações do Inspetor de Equipamento.
 - Copiar a pasta do banco de dados do RSL Helper: o cabeçalho da prévia mostra um botão que copia `%APPDATA%\\RslHelper\\Config` para o porta‑papéis para colar o caminho no Explorer antes de arrastar a `.db` para o Sellfile Creator.
+- Gear Lens: um painel de análise dentro do diálogo Ferramentas. Oito cartões KPI resumem o estado da coleção (Lendária+, Taxa 6★, Maxed, Equipada, etc.). Seis donuts de filtro cruzado (Slots, Raridade, Sets, Resultado, Fonte, Nível) permitem clicar em segmentos para filtrar todos os outros gráficos de uma só vez. Barras de frequência de mainstats e substats, um mapa de calor Slot × Mainstat e uma aba de Estatísticas de campeões completam a vista. Os filtros ativos aparecem como chips removíveis. Copie todo o painel como PNG ou envie o filtro ativo diretamente para o Inspetor de Equipamento.
 
 ## Como utilizar
 
@@ -150,6 +151,30 @@ Notas:
 - Usa suas regras atuais de Manter/Vender, incluindo Venda final e Manter únicos.
 - Roda cerca de 100.000 drops por estágio e atualiza enquanto roda.
 - Taxas de drop e rolls são simulados; trate os números como estimativas.
+
+### Gear Lens
+Abra «Ferramentas» e vá para a aba **Gear Lens** para uma visão analítica do seu equipamento importado.
+
+**Cartões KPI (linha superior):** Oito cartões de porcentagem — **Lendária+**, **Taxa 6★**, **Maxed (+16)**, **Equipada**, **Bloqueada no cofre**, **Chaos'd**, **Glyphed**, **Ascendida** — cada um com um tooltip e código de cor (verde/âmbar/vermelho) com base em limiares de saúde da coleção.
+
+**Donuts de filtro cruzado:** Seis gráficos — **Slots**, **Raridade**, **Sets**, **Resultado**, **Fonte**, **Nível** — atualizam-se mutuamente ao clicar.
+- Clique em um segmento para adicioná-lo como filtro dessa dimensão; todos os outros gráficos se restringem imediatamente ao equipamento correspondente. Cada gráfico exclui sua própria dimensão para sempre mostrar seu intervalo completo.
+- Duplo clique em um segmento do donut **Slots** para selecionar um grupo inteiro de uma vez: qualquer peça de armadura (Arma, Elmo, Escudo, Luvas, Couraça, Botas) seleciona os seis slots de armadura; qualquer acessório (Anel, Amuleto, Estandarte) seleciona os três.
+- O donut **Sets** exibe ícones do set em cada arco. Os donuts **Slots** e **Fonte** também exibem ícones de categoria. O donut **Nível** rotula cada arco com o texto do nível.
+
+**Chips de filtro:** As seleções ativas para cada dimensão aparecem como chips abaixo dos donuts; clique no ícone de excluir em um chip para remover apenas aquele filtro. As seleções de mainstat também aparecem como chips. O botão **Limpar filtros** redefine todas as dimensões de uma vez.
+
+**Barra de Mainstats:** Mostra a frequência de cada mainstat no equipamento filtrado. Clique em uma barra para detalhar — o gráfico de frequência de substats se atualiza para mostrar apenas substats do equipamento com aquele mainstat selecionado. Clique novamente para desmarcar.
+
+**Barra de Frequência de Substats:** Mostra a frequência de cada substat no equipamento filtrado (e opcionalmente limitado por mainstat).
+
+**Mapa de calor Slot × Mainstat:** Contagem de itens por slot (colunas) × mainstat (linhas). Clique em um cabeçalho de coluna ou em uma célula para filtrar por aquele slot.
+
+**Aba Estatísticas de campeões:** Totais de substats somados nas peças equipadas por campeão. Filtre por localização (**Todos** / **Coleção** / **Cofre**), ative apenas **Totalmente equipado** e inclua ou exclua os glifos. Exibe séries Min/Média/Mediana/Máx.
+
+**Botões:**
+- **Copiar instantâneo:** Renderiza a vista analítica completa como PNG e a copia para a área de transferência.
+- **Aplicar ao Inspetor de Equipamento:** Envia o filtro cruzado ativo para o filtro de lista do Inspetor de Equipamento (visível apenas quando há um filtro ativo).
 
 ### Gestão de receitas
 - As receitas salvas aparecem como etiquetas sob o construtor. Clique para selecionar; clique direito para duplicar, mover, copiar ou eliminar.

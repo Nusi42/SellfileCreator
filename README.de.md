@@ -13,6 +13,7 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Export mit einem Klick: Exportiere eine HSF-Datei (die RSL Helper Sellfile), die sofort in RSL Helper geladen werden kann.
 - „Tools”-Button: Öffne den Dialog direkt aus dem Vorschau-Header, um `Finaler Verkauf`, `Substat-Richtwerte`, `Dungeon-Beute` und den Dialog „Ausrüstung” gemeinsam zu erreichen. Erstelle Beispielgear, füge Zeilen ein oder ziehe `%APPDATA%\\RslHelper\\Config` herüber; danach kannst du den Dialog schließen und die Vorschau auf der gewünschten Tabelle lassen — die Ausrüstungsinspektor-Warteschlange bleibt sichtbar.
 - Schutzmaßnahmen-Modus: Definiere Kombinationen, die du nie verlieren willst. Sobald deine Rezepte plus deine aktuell aktiven Verkaufsregeln jedes Exemplar dieser Kombination löschen würden, generiert der Scanner automatisch passende Behalte-Regeln.
+- Gear Lens: ein Analyse-Dashboard im Tools-Dialog. Acht KPI-Karten fassen den Sammlungszustand zusammen (Legendär+, 6★-Rate, Maxed, Angelegt usw.). Sechs Crossfilter-Donuts (Slots, Seltenheit, Sets, Ergebnis, Quelle, Level) lassen dich auf Segmente klicken, damit alle anderen Charts sofort mitgefiltert werden. Mainstat- und Substat-Frequenz-Balken, eine Slot × Mainstat-Heatmap und ein Champion-Stats-Tab runden die Ansicht ab. Aktive Filter erscheinen als entfernbare Chips. Kopiere das gesamte Dashboard als PNG oder übertrage den aktiven Filter direkt in den Ausrüstungsinspektor.
 
 ## Nutzung
 
@@ -149,6 +150,30 @@ Hinweise:
 - Nutzt deine aktuellen Behalten/Verkaufen-Regeln inklusive Finaler Verkauf und Schutzmaßnahmen.
 - Läuft mit etwa 100.000 Drops pro Stufe und aktualisiert sich währenddessen.
 - Drop-Raten und Rolls sind simuliert, die Zahlen sind Schätzungen.
+
+### Gear Lens
+Öffne „Tools" und wechsle zum Tab **Gear Lens** für eine Analyseübersicht deiner importierten Ausrüstung.
+
+**KPI-Karten (obere Zeile):** Acht Prozentkarten — **Legendär+**, **6★-Rate**, **Maxed (+16)**, **Angelegt**, **Tresor-gesperrt**, **Chaos'd**, **Glyphed**, **Aufgestiegen** — jeweils mit Tooltip und Farbkodierung (grün/bernstein/rot) basierend auf Sammlungs-Health-Schwellenwerten.
+
+**Crossfilter-Donuts:** Sechs Charts — **Slots**, **Seltenheit**, **Sets**, **Ergebnis**, **Quelle**, **Level** — aktualisieren sich gegenseitig beim Klicken.
+- Klicke auf ein Segment, um es als Filter für diese Dimension hinzuzufügen; jeder andere Chart grenzt sich sofort auf die passende Ausrüstung ein. Jeder Chart schließt seine eigene Dimension aus, damit er stets seinen vollen Bereich zeigt.
+- Doppelklick auf ein Segment im **Slots**-Donut wählt eine ganze Gruppe auf einmal: ein beliebiges Rüstungsteil (Waffe, Helm, Schild, Handschuhe, Brustpanzer, Stiefel) wählt alle sechs Rüstungsslots; ein Schmuckstück (Ring, Amulett, Banner) wählt alle drei.
+- Der **Sets**-Donut zeigt Set-Icons auf jedem Bogen. **Slots** und **Quelle** zeigen ebenfalls Kategorie-Icons. Der **Level**-Donut beschriftet jeden Bogen mit seinem Leveltext.
+
+**Filter-Chips:** Aktive Auswahlen für jede Dimension erscheinen als Chips unterhalb der Donuts; klicke das Lösch-Icon auf einem Chip, um nur diesen Filter zu entfernen. Mainstat-Auswahlen erscheinen ebenfalls als Chips. Der Button **Filter löschen** setzt alle Dimensionen auf einmal zurück.
+
+**Mainstat-Balken:** Zeigt, wie oft jeder Mainstat in der gefilterten Ausrüstung vorkommt. Klicke auf einen Balken, um ihn aufzubohren — das Substat-Frequenz-Chart zeigt dann nur Substats aus Ausrüstung mit dem ausgewählten Mainstat. Erneut klicken hebt die Auswahl auf.
+
+**Substat-Frequenz-Balken:** Zeigt, wie oft jeder Substat in der gefilterten (und optional nach Mainstat eingeschränkten) Ausrüstung vorkommt.
+
+**Slot × Mainstat-Heatmap:** Anzahl der Items pro Slot (Spalten) × Mainstat (Zeilen). Klicke auf einen Spaltenheader oder eine Zelle, um nach diesem Slot zu filtern.
+
+**Champion-Stats-Tab:** Substat-Gesamtwerte summiert über angelegte Teile pro Champion. Filtere nach Standort (**Alle** / **Sammlung** / **Tresor**), schalte **Voll ausgerüstet** ein und schließe Glyphen ein oder aus. Zeigt Min/Ø/Median/Max-Reihen.
+
+**Buttons:**
+- **Snapshot kopieren:** Rendert die vollständige Analyseansicht als PNG und kopiert sie in die Zwischenablage.
+- **Im Ausrüstungsinspektor anwenden:** Überträgt den aktiven Crossfilter in den Listenfilter des Ausrüstungsinspektors (nur sichtbar, wenn ein Filter aktiv ist).
 
 ### Rezepte verwalten
 - Gespeicherte Rezepte erscheinen als Chips unter dem Builder. Linksklick wählt sie zum Bearbeiten, Rechtsklick öffnet das Kontextmenü (Duplizieren, Verschieben, Kopieren, Löschen). „Delete Rezepte“ entfernt alle Rezepte (mit Sicherheitsabfrage).

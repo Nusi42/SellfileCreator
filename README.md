@@ -13,6 +13,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - One-click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
 - `Tools` button: open the dialog from the preview header to reach `Final Sell`, `Substat Targets`, `Dungeon Drops`, and the Gear Inspector from the same place. Load example gear, paste drops, or drag `%APPDATA%\\RslHelper\\Config`, then close the dialog and leave the preview toggle on whichever table you need — the Gear Inspector queue stays visible without reopening.
 - Safeguards builder mode: define combinations you never want to lose, and the scanner injects keep rules automatically whenever your recipes plus your current active Sell rules would sell every piece in that combination.
+- Gear Lens: an analytics dashboard inside the Tools dialog. Eight KPI cards summarize collection health (Legendary+, 6★ Rate, Maxed, Equipped, etc.). Six crossfilter donuts (Slots, Rarity, Sets, Result, Source, Level) let you click slices to narrow every other chart at once. Main Stat and Substat Frequency bars, a Slot × Main Stat heatmap, and a Champion Stats tab round out the view. Active filters appear as removable chips. Copy the entire dashboard as a PNG, or push the active filter straight into the Gear Inspector.
 
 ## How To Use
 
@@ -160,6 +161,30 @@ Notes:
 - Right‑click menus: On a saved recipe (Duplicate/Move/Copy/Delete) and on the saved recipes area (Copy All, Paste).
 - Clipboard fallback: If clipboard access is blocked, a dialog opens with the content pre‑selected — press Ctrl/Cmd+C to copy, or paste into the Paste dialog.
 - Recipes on/off toggle: The toggle in the builder header globally disables all recipes without deleting them, pausing the preview pipeline — useful to quickly check a safeguards-only export or confirm what Final Sell alone produces.
+
+### Gear Lens
+Open `Tools` and switch to the **Gear Lens** tab for an analytics overview of your imported gear.
+
+**KPI cards (top row):** Eight percentage cards — **Legendary+**, **6★ Rate**, **Maxed (+16)**, **Equipped**, **Vault-Locked**, **Chaos'd**, **Glyphed**, **Ascended** — each with a tooltip and color coding (green/amber/red) based on collection-health thresholds.
+
+**Crossfilter donuts:** Six charts — **Slots**, **Rarity**, **Sets**, **Result**, **Source**, **Level** — update each other as you click.
+- Click a slice to add it as a filter for that dimension; every other chart instantly narrows to show only the matching gear. Each chart excludes its own dimension so it always shows its full range.
+- Double-click a slice on the **Slots** donut to select an entire group at once: any armor piece (Weapon, Helmet, Shield, Gauntlets, Chestplate, Boots) selects all six armor slots; any accessory (Ring, Amulet, Banner) selects all three.
+- The **Sets** donut renders set icons on each arc. **Slots** and **Source** donuts show category icons too. The **Level** donut labels each arc with its level text.
+
+**Filter chips:** Active selections for each dimension appear as chips below the donuts; click the delete icon on a chip to remove just that filter. Main Stat selections also appear as chips. The **Clear filters** button resets all dimensions at once.
+
+**Main Stats bar:** Shows how often each main stat appears across the filtered gear. Click a bar to drill down — the Substat Frequency chart updates to show only substats from gear with that main stat selected. Click the bar again to deselect.
+
+**Substat Frequency bar:** Shows how often each substat appears across the filtered (and optionally main-stat-drilled) gear.
+
+**Slot × Main Stat heatmap:** Item count per slot (columns) × main stat (rows). Click a column header or any cell to filter by that slot.
+
+**Champion Stats tab:** Substat totals summed across equipped pieces per champion. Filter by location (**All** / **Collection** / **Vault**), toggle **Fully Equipped** only, and include or exclude glyphs. Displays Min/Avg/Median/Max series.
+
+**Buttons:**
+- **Copy Snapshot:** Renders the full analytics view as a PNG and copies it to the clipboard.
+- **Apply to Gear Inspector:** Pushes the active crossfilter into the Gear Inspector list filter (only visible when a filter is active).
 
 ### Sellfile Preview (Rules & Gear Inspector)
 - The preview header keeps the `Rules`/`Gear Inspector` toggle, the `Tools` button, and the “Load RSL Helper Sellfile” button together so you always know where to switch tables or open the Gear dialog.

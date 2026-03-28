@@ -161,6 +161,7 @@ import { GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT, type GearInspectorRecipeFilt
 import { artifactTypeI18nKey, getAllKnownArtifactSetIds, type RankValue, type StatVariant } from './lib/types'
 import { formatGearInspectorSetLabel } from './lib/gearInspectorFormatters'
 import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, filterGearInspectorItems, isRulesFilterActive, normalizeRulesFilterForGearInspector, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
+import type { GearLensDim } from './lib/gearLens'
 import {
   useAutosaveRestore,
   metasetsEqualSession,
@@ -2690,6 +2691,44 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setGearInspectorRecipeFilterMode,
     setPreviewMode,
   ])
+
+  // Translates a Gear Lens cross-filter selection into a RulesFilterState applied to the
+  // Gear Inspector filter only. Does not switch tabs — the user navigates manually.
+  const handleApplyGearLensFilter = useCallback((dim: GearLensDim) => {
+    const next: RulesFilterState = {
+      ...DEFAULT_RULES_FILTER_STATE,
+      slots: {
+        selected: dim.slots.size > 0 ? [...dim.slots] as RulesFilterState['slots']['selected'] : [],
+        anyMode: 'include',
+      },
+      rarity: {
+        selected: dim.rarities.size > 0 ? [...dim.rarities] as RulesFilterState['rarity']['selected'] : [],
+        anyMode: 'include',
+      },
+      sets: {
+        selected: dim.sets.size > 0
+          ? [...dim.sets].map((id) => ({ id: id as RulesFilterState['sets']['selected'][number]['id'] }))
+          : [],
+        anyMode: 'include',
+      },
+      level: {
+        selected: dim.levels.size > 0 ? [...dim.levels] as RulesFilterState['level']['selected'] : [],
+        anyMode: 'include',
+      },
+      gearInspectorSources: dim.sources.size > 0 ? { selected: [...dim.sources] } : { selected: [] },
+      // 'keep' and 'safe' both map to the keep flag; 'none' maps to unmatched (no rule triggered).
+      gearInspectorResult: dim.outcomes.size > 0
+        ? {
+            keep:      dim.outcomes.has('keep') || dim.outcomes.has('safe'),
+            sell:      dim.outcomes.has('sell'),
+            matched:   false,
+            unmatched: dim.outcomes.has('none'),
+          }
+        : { keep: false, sell: false, matched: false, unmatched: false },
+    }
+    // Apply to the Gear Inspector filter only — the sellfile preview filter is left untouched.
+    setRulesFilterStateForMode('gearInspector', next)
+  }, [])
 
   const handleDeleteFilterPreset = useCallback((presetId: string) => {
     // Deleting is purely local: remove the entry and keep the rest stable.
@@ -7801,6 +7840,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           allocGearInspectorItemId={allocGearInspectorItemId}
           gearInspectorMatches={gearInspectorMatchesByItemId}
           onResetGearInspector={handleResetGearInspectorItems}
+          gearInspectorPreviewRows={gearInspectorPreviewRows}
+          onApplyGearLensFilter={handleApplyGearLensFilter}
           rules={mergedRules}
           substatTargets={substatTargets}
           effectiveSubstatTargets={effectiveSubstatTargets}

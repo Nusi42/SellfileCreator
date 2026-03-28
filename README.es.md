@@ -13,6 +13,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Exportación con un clic: genera un archivo HSF (Sellfile de RSL Helper) listo para cargar en RSL Helper.
 - Botón «Herramientas»: abre el diálogo desde el encabezado para entrar a `Venta final`, `Objetivos de substats`, `Botín de mazmorra` y el diálogo «Equipo» desde el mismo lugar. Crea equipo de ejemplo, pega filas o arrastra `%APPDATA%\\RslHelper\\Config`; después cierra el diálogo y deja el interruptor de vista previa en la tabla que necesites: la cola del Inspector de Equipo sigue visible sin reabrir nada.
 - Modo Protecciones: define las combinaciones que nunca quieres perder. El escáner genera reglas de conservación automáticamente cuando tus recetas más tus reglas de venta actualmente activas eliminarían todas las copias.
+- Gear Lens: un panel de análisis dentro del diálogo Herramientas. Ocho tarjetas KPI resumen el estado de la colección (Legendario+, Tasa 6★, Maxeado, Equipado, etc.). Seis donuts de filtro cruzado (Ranuras, Rareza, Sets, Resultado, Fuente, Nivel) permiten hacer clic en segmentos para filtrar todos los demás gráficos a la vez. Barras de frecuencia de mainstats y substats, un mapa de calor Ranura × Mainstat y una pestaña de Estadísticas de campeones completan la vista. Los filtros activos aparecen como chips eliminables. Copia todo el panel como PNG o envía el filtro activo directamente al Inspector de Equipo.
 
 ## Cómo usarlo
 
@@ -148,6 +149,30 @@ Notas:
 - Usa tus reglas actuales de Conservar/Vender, incluyendo Venta final y Conservar únicos.
 - Corre unas 100.000 drops por etapa y se actualiza mientras corre.
 - Las tasas de drop y los rolls son simulados; toma los números como estimaciones.
+
+### Gear Lens
+Abre «Herramientas» y cambia a la pestaña **Gear Lens** para una vista analítica de tu equipamiento importado.
+
+**Tarjetas KPI (fila superior):** Ocho tarjetas de porcentaje — **Legendario+**, **Tasa 6★**, **Maxeado (+16)**, **Equipado**, **Bloqueado en el cofre**, **Chaos'd**, **Glyphed**, **Ascendido** — cada una con un tooltip y código de color (verde/ámbar/rojo) basado en umbrales de salud de la colección.
+
+**Donuts de filtro cruzado:** Seis gráficos — **Ranuras**, **Rareza**, **Sets**, **Resultado**, **Fuente**, **Nivel** — se actualizan mutuamente al hacer clic.
+- Haz clic en un segmento para añadirlo como filtro de esa dimensión; todos los demás gráficos se estrechan de inmediato al equipamiento coincidente. Cada gráfico excluye su propia dimensión para mostrar siempre su rango completo.
+- Doble clic en un segmento del donut **Ranuras** para seleccionar un grupo entero de una vez: cualquier pieza de armadura (Arma, Yelmo, Escudo, Guantes, Peto, Botas) selecciona las seis ranuras de armadura; cualquier accesorio (Anillo, Amuleto, Estandarte) selecciona los tres.
+- El donut **Sets** muestra los iconos del set en cada arco. Los donuts **Ranuras** y **Fuente** también muestran iconos de categoría. El donut **Nivel** etiqueta cada arco con su texto de nivel.
+
+**Chips de filtro:** Las selecciones activas para cada dimensión aparecen como chips bajo los donuts; haz clic en el icono de eliminar de un chip para quitar solo ese filtro. Las selecciones de mainstat también aparecen como chips. El botón **Borrar filtros** restablece todas las dimensiones a la vez.
+
+**Barra de Mainstats:** Muestra la frecuencia de cada mainstat en el equipamiento filtrado. Haz clic en una barra para profundizar — el gráfico de frecuencia de substats se actualiza mostrando solo los substats del equipamiento con ese mainstat seleccionado. Haz clic de nuevo para deseleccionar.
+
+**Barra de Frecuencia de Substats:** Muestra la frecuencia de cada substat en el equipamiento filtrado (y opcionalmente limitado por mainstat).
+
+**Mapa de calor Ranura × Mainstat:** Recuento de objetos por ranura (columnas) × mainstat (filas). Haz clic en un encabezado de columna o una celda para filtrar por esa ranura.
+
+**Pestaña Estadísticas de campeones:** Totales de substats sumados de las piezas equipadas por campeón. Filtra por ubicación (**Todos** / **Colección** / **Cofre**), activa solo **Totalmente equipado** e incluye o excluye los glifos. Muestra series Min/Prom/Mediana/Máx.
+
+**Botones:**
+- **Copiar captura:** Renderiza la vista analítica completa como PNG y la copia al portapapeles.
+- **Aplicar al Inspector de Equipo:** Envía el filtro cruzado activo al filtro de lista del Inspector de Equipo (solo visible cuando hay un filtro activo).
 
 ### Gestión de recetas
 - Las recetas guardadas aparecen como chips debajo del constructor. Haz clic para seleccionarlas, o clic derecho para duplicar, mover, copiar o borrar.

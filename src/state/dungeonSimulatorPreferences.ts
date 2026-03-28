@@ -216,3 +216,7 @@ const dungeonSimulatorPreferencesStore = createLocalStorageStore<DungeonSimulato
 })
 
 export const useDungeonSimulatorPreferences = createLocalStorageStateHook(dungeonSimulatorPreferencesStore)
+
+/** Returns a fresh set of default preferences — used by the "Reset to defaults" button. */
+export const buildDefaultDungeonSimulatorPreferences = (): DungeonSimulatorPreferences =>
+  sanitizePreferences(null)

@@ -15,6 +15,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 - Mode Protections : définissez les combinaisons que vous ne voulez jamais perdre. Dès que vos recettes plus vos règles de vente actuellement actives supprimeraient toutes les copies, l’analyse génère automatiquement des règles de conservation.
 - Dialogue de restauration Autosave : lorsqu’un Autosave est détecté, choisissez précisément quoi recharger — recettes, méta-sets, Objectifs de sous-stats, reste de Vente finale, note épinglée, état du panneau de filtres et même les importations de l’Inspecteur d’équipement.
 - Copier le dossier RSL Helper : le bandeau de l’aperçu expose un bouton presse-papiers qui copie `%APPDATA%\\RslHelper\\Config` pour coller le chemin dans l’Explorateur avant de faire glisser la `.db` dans Sellfile Creator.
+- Gear Lens : un tableau de bord analytique dans la fenêtre Outils. Huit cartes KPI résument l’état de la collection (Légendaire+, taux 6★, Maxé, Équipé, etc.). Six donuts à filtre croisé (Slots, Rareté, Sets, Résultat, Source, Niveau) permettent de cliquer sur un segment pour affiner tous les autres graphiques à la fois. Des barres de fréquence des stats principales et des sous-stats, une carte de chaleur Slot × Stat principale et un onglet Statistiques des champions complètent la vue. Les filtres actifs apparaissent comme des puces supprimables. Copiez l’intégralité du tableau de bord en PNG ou envoyez le filtre actif directement dans l’Inspecteur d’équipement.
 
 ## Mode d’emploi
 
@@ -152,6 +153,30 @@ Notes :
 - Utilise vos règles actuelles Conserver/Vendre, y compris Vente finale et Conserver les uniques.
 - Environ 100 000 drops par palier, avec mise à jour pendant l’exécution.
 - Les taux de drop et les rolls sont simulés : considérez les chiffres comme des estimations.
+
+### Gear Lens
+Ouvrez « Outils » et passez sur l'onglet **Gear Lens** pour un aperçu analytique de votre équipement importé.
+
+**Cartes KPI (ligne du haut) :** Huit cartes de pourcentage — **Légendaire+**, **Taux 6★**, **Maxé (+16)**, **Équipé**, **Verrouillé au coffre**, **Chaos'd**, **Glyphed**, **Éveillé** — chacune avec une infobulle et un code couleur (vert/ambré/rouge) basé sur des seuils de santé de collection.
+
+**Donuts à filtre croisé :** Six graphiques — **Slots**, **Rareté**, **Sets**, **Résultat**, **Source**, **Niveau** — se mettent à jour mutuellement lors d'un clic.
+- Cliquez sur un segment pour l'ajouter comme filtre de cette dimension ; chaque autre graphique se restreint immédiatement à l'équipement correspondant. Chaque graphique exclut sa propre dimension pour toujours afficher sa plage complète.
+- Double-cliquez sur un segment du donut **Slots** pour sélectionner tout un groupe d'un coup : toute pièce d'armure (Arme, Casque, Bouclier, Gants, Plastron, Bottes) sélectionne les six emplacements d'armure ; tout accessoire (Anneau, Amulette, Bannière) sélectionne les trois.
+- Le donut **Sets** affiche les icônes de set sur chaque arc. Les donuts **Slots** et **Source** affichent aussi des icônes de catégorie. Le donut **Niveau** libelle chaque arc avec son texte de niveau.
+
+**Puces de filtre :** Les sélections actives pour chaque dimension apparaissent sous forme de puces sous les donuts ; cliquez l'icône de suppression sur une puce pour retirer uniquement ce filtre. Les sélections de stat principale apparaissent aussi en puces. Le bouton **Effacer les filtres** réinitialise toutes les dimensions en même temps.
+
+**Barre Stats principales :** Indique la fréquence d'apparition de chaque stat principale dans l'équipement filtré. Cliquez une barre pour zoomer — le graphique de fréquence des sous-stats affiche alors uniquement les sous-stats provenant de l'équipement ayant cette stat principale. Cliquez à nouveau pour désélectionner.
+
+**Barre Fréquence des sous-stats :** Indique la fréquence d'apparition de chaque sous-stat dans l'équipement filtré (et éventuellement limité à une stat principale).
+
+**Carte de chaleur Slot × Stat principale :** Nombre d'objets par slot (colonnes) × stat principale (lignes). Cliquez sur un en-tête de colonne ou une cellule pour filtrer par ce slot.
+
+**Onglet Statistiques des champions :** Totaux de sous-stats cumulés sur les pièces équipées par champion. Filtrez par emplacement (**Tous** / **Collection** / **Coffre**), activez **Entièrement équipé** uniquement, et incluez ou excluez les glyphes. Affiche les séries Min/Moy/Médiane/Max.
+
+**Boutons :**
+- **Copier l'instantané :** Rend la vue analytique complète en PNG et la copie dans le presse-papiers.
+- **Appliquer à l'Inspecteur d'équipement :** Envoie le filtre croisé actif dans le filtre de liste de l'Inspecteur d'équipement (visible uniquement quand un filtre est actif).
 
 ### Gestion des recettes
 - Les recettes sauvegardées apparaissent sous forme de puces sous le builder. Clic gauche pour sélectionner ; clic droit pour dupliquer, déplacer, copier ou supprimer.

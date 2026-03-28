@@ -15,6 +15,7 @@ import {
   LOGIC_HUB_DIALOG_TAB_SUBSTAT_TARGETS,
   LOGIC_HUB_DIALOG_TAB_GEAR,
   LOGIC_HUB_DIALOG_TAB_DUNGEON,
+  LOGIC_HUB_DIALOG_TAB_GEAR_STATS,
   LOGIC_HUB_DIALOG_TABS,
   type LogicHubDialogTab,
   type FinalSellLevel,
@@ -23,9 +24,11 @@ import {
 } from '../../lib/logicHub'
 import type { BuilderRecipe } from '../../lib/hsfBuilder'
 import type { GearInspectorItem } from '../../lib/gearInspectorSession'
-import type { GearInspectorPreviewMatch } from '../../types/gearInspectorPreview'
+import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
 import { GearInspectorTabContent, type GearInspectorTabLayoutSlots } from './GearInspectorTabContent'
 import DungeonSimulatorTab from './DungeonSimulatorTab'
+import { GearLensTabContent } from './GearLensTabContent'
+import type { GearLensDim } from '../../lib/gearLens'
 // MarkdownTooltip keeps the level-hint copy behavior aligned with the rest of the app.
 import MarkdownTooltip from '../MarkdownTooltip'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
@@ -58,6 +61,10 @@ type LogicHubDialogProps = {
   effectiveSubstatTargets: SubstatTargetTable
   onSubstatTargetsChange: (m: SubstatTargetTable, opts?: { mode?: 'edit' | 'reset' | 'import' }) => void
   recipeOverridesActive: boolean
+  // All loaded gear rows — passed to Gear Lens for full-inventory analytics.
+  gearInspectorPreviewRows: readonly GearInspectorPreviewRow[]
+  // Called when the user requests applying the Gear Lens filter to the Gear Inspector.
+  onApplyGearLensFilter?: (dim: GearLensDim) => void
   // Propagates the main app's layout choice so empty-state messaging stays consistent across panes.
   emptyStateVerticalAlign?: EmptyStateMessageProps['verticalAlign']
 }
@@ -85,12 +92,18 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     effectiveSubstatTargets,
     onSubstatTargetsChange,
     recipeOverridesActive,
+    gearInspectorPreviewRows,
+    onApplyGearLensFilter,
     emptyStateVerticalAlign = 'center',
   } = props
   const { t } = useI18n()
   // Gear resets also confirm so a stray click does not clear imported databases or manual samples.
   const [confirmResetGearInspector, setConfirmResetGearInspector] = useState(false)
   const [confirmResetSubstatTargets, setConfirmResetSubstatTargets] = useState(false)
+  // Counter passed to GearLensTabContent; incrementing it triggers a cross-filter reset.
+  const [gearLensResetKey, setGearLensResetKey] = useState(0)
+  // Counter passed to DungeonSimulatorTab; incrementing it triggers a preferences reset.
+  const [dungeonResetKey, setDungeonResetKey] = useState(0)
   // Fallback keeps the Gear Inspector grid handler stable even when no jump target is supplied.
   const noopGearInspectorRuleJump = useCallback(() => {}, [])
   const gearTabOnView = onJumpToRule ?? noopGearInspectorRuleJump
@@ -122,13 +135,14 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
   const showSubstatTargetsTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_SUBSTAT_TARGETS
   const showGearTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_GEAR
   const showDungeonTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_DUNGEON
+  const showGearStatsTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_GEAR_STATS
   const showResetButton = showFinalSellTab
     ? Boolean(onReset)
     : showSubstatTargetsTab
       ? true
       : showGearTab
         ? Boolean(onResetGearInspector)
-        : false
+        : showDungeonTab || showGearStatsTab
   const handleResetButtonClick = () => {
     if (showFinalSellTab) {
       onReset?.()
@@ -140,6 +154,16 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     }
     if (showGearTab && onResetGearInspector) {
       setConfirmResetGearInspector(true)
+      return
+    }
+    if (showDungeonTab) {
+      // Non-destructive: resets persisted stage/boost/mode selections; no confirmation needed.
+      setDungeonResetKey((k) => k + 1)
+      return
+    }
+    if (showGearStatsTab) {
+      // Non-destructive: just clears cross-filter selections; no confirmation needed.
+      setGearLensResetKey((k) => k + 1)
     }
   }
   // Clear the Gear Inspector items in one shot so manual + imported gear disappear together.
@@ -205,6 +229,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
               <Tab value={LOGIC_HUB_DIALOG_TAB_SUBSTAT_TARGETS} label={t('tabSubstatTargets')} />
               <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
               <Tab value={LOGIC_HUB_DIALOG_TAB_DUNGEON} label={t('tabDungeonDrops')} />
+              <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR_STATS} label={t('tabGearLens')} />
             </Tabs>
           </Stack>
         </Box>
@@ -480,7 +505,12 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
             substatTargets={substatTargets}
             substatColors={substatColors}
             useStatButtonColors={useStatButtonColors}
+            resetKey={dungeonResetKey}
           />
+        )}
+        {showGearStatsTab && (
+          // Gear Lens receives all loaded rows so stats always reflect the full inventory.
+          <GearLensTabContent rows={gearInspectorPreviewRows} onApplyToGearInspector={onApplyGearLensFilter} resetKey={gearLensResetKey} />
         )}
       </DialogContent>
       <DialogActions sx={{ px: STANDARD_DIALOG_PADDING_INLINE_UNITS, py: STANDARD_DIALOG_PADDING_BLOCK_UNITS }}>

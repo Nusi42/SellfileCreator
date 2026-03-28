@@ -102,3 +102,8 @@ export function artifactTypeIconFor(id: ArtifactTypeId): LocalIcon | null {
 export function artifactTypeLabel(id: ArtifactTypeId): string {
   return artifactTypeName(id)
 }
+
+/** Raw SVG asset for a slot — viewBox and path string — for custom rendering contexts. */
+export function slotIconSvgAsset(id: ArtifactTypeId | string): { viewBox: string; path: string } | null {
+  return SLOT_ICON_BY_TYPE[Number(id) as ArtifactType] ?? null
+}

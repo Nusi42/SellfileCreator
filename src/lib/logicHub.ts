@@ -16,18 +16,21 @@ export const FINAL_SELL_DEFAULT_SETS_MODE: FinalSellSetsMode = FINAL_SELL_SETS_M
 
 // Logic Hub dialog tabs stay canonical so autosave/history handlers can share the same tokens.
 // Logic Hub tabs are centrally defined so autosave + history use the same ids.
-export type LogicHubDialogTab = 'finalSell' | 'substatTargets' | 'gear' | 'dungeonDrops'
+export type LogicHubDialogTab = 'finalSell' | 'substatTargets' | 'gear' | 'dungeonDrops' | 'gearStats'
 export const LOGIC_HUB_DIALOG_TAB_FINAL_SELL: LogicHubDialogTab = 'finalSell'
 export const LOGIC_HUB_DIALOG_TAB_SUBSTAT_TARGETS: LogicHubDialogTab = 'substatTargets'
 // Gear tab id lives here ahead of embedding the gear editor content.
 export const LOGIC_HUB_DIALOG_TAB_GEAR: LogicHubDialogTab = 'gear'
 export const LOGIC_HUB_DIALOG_TAB_DUNGEON: LogicHubDialogTab = 'dungeonDrops'
+// Gear Lens: inventory analytics dashboard with cross-filtering charts.
+export const LOGIC_HUB_DIALOG_TAB_GEAR_STATS: LogicHubDialogTab = 'gearStats'
 // Stable ordering helps consumers clamp restored values to a supported tab id.
 export const LOGIC_HUB_DIALOG_TABS: readonly LogicHubDialogTab[] = [
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
   LOGIC_HUB_DIALOG_TAB_SUBSTAT_TARGETS,
   LOGIC_HUB_DIALOG_TAB_GEAR,
   LOGIC_HUB_DIALOG_TAB_DUNGEON,
+  LOGIC_HUB_DIALOG_TAB_GEAR_STATS,
 ] as const
 
 export const FINAL_SELL_LEVEL_CHOICES: ReadonlyArray<{ key: FinalSellLevel; label: string }> = [

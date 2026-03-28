@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { Box, ButtonBase, Divider, IconButton, MenuItem, Popover, Select, Stack, Table, TableBody, TableCell, TableHead, TableRow, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
@@ -53,7 +53,7 @@ import type { SubstatColorMap } from '../../lib/renderColoredStatText'
 import { PROGRESS_THROTTLE_MS } from '../../types/progress'
 import { useDungeonSimulatorWorker } from '../../hooks/useDungeonSimulatorWorker'
 import { useContextMenuPaperGuard } from '../../hooks/useContextMenuPaperGuard'
-import { sanitizeStageSelection, useDungeonSimulatorPreferences } from '../../state/dungeonSimulatorPreferences'
+import { buildDefaultDungeonSimulatorPreferences, sanitizeStageSelection, useDungeonSimulatorPreferences } from '../../state/dungeonSimulatorPreferences'
 import MarkdownTooltip from '../MarkdownTooltip'
 import { measureCssWidth } from '../../lib/domMeasurements'
 
@@ -247,13 +247,20 @@ export type DungeonSimulatorTabProps = {
   substatColors: SubstatColorMap
   // Flag for the "color stat text" display preference.
   useStatButtonColors: boolean
+  /**
+   * Increment from outside to reset all persisted simulator preferences to their defaults.
+   * Mirrors the "Reset to defaults" button pattern used in other Logic Hub tabs.
+   */
+  resetKey?: number
 }
 
 export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
-  const { rules, substatTargets, substatColors, useStatButtonColors } = props
+  const { rules, substatTargets, substatColors, useStatButtonColors, resetKey } = props
   const { t, lang } = useI18n()
   // Persisted mode/stage/spotlight selections keep the simulator stable across sessions.
   const [prefs, setPrefs] = useDungeonSimulatorPreferences()
+  // Reset all preferences to defaults when the parent increments resetKey.
+  useEffect(() => { if (resetKey !== undefined) setPrefs(buildDefaultDungeonSimulatorPreferences()) }, [resetKey]) // eslint-disable-line react-hooks/exhaustive-deps
   // Manual refresh bumps force a full resimulation without input changes.
   const [refreshToken, setRefreshToken] = useState(0)
   // Anchor + target power the detail popover when a cell is clicked.
