@@ -4,16 +4,31 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 
 > Herramienta creada por fans. No está afiliada a Plarium, Raid: Shadow Legends ni RSL Helper. Todas las marcas mencionadas pertenecen a sus dueños.
 
-## Funciones
-- Construir y guardar reglas: crea recetas y conserva una biblioteca reutilizable.
-- Interruptor Vista Sellfile: cambia desde el encabezado entre la tabla de Reglas y la tabla del Inspector de Equipo. Los contadores/chips se adaptan (Conservar/Vender para reglas, Conservar/Vender/Ámbito/Sin regla para el Inspector de Equipo) y los filtros siguen el modo que elijas.
-- Arrastrar y soltar o botón «Cargar Sellfile de RSL Helper»: arrastra `.sfr`, `.hsf` o `.db` a cualquier parte (la superposición lo confirma) o haz clic en el botón. Ambos caminos hacen lo mismo: `.sfr` reemplaza el constructor, `.hsf` añade la Sellfile base opcional y las `.db` van directas a la cola del Inspector de Equipo sin tocar tus recetas.
-- Mantén pulsado `Shift` al abrir/cargar un `.sfr` (selector de archivos o arrastrar y soltar) para mostrar un diálogo de importación adicional donde puedes elegir por separado Recetas, Nota, Metasets y Protecciones.
-- Metasets: agrupa conjuntos de equipo (por ejemplo, Velocidad + Percepción) y reutilízalos en varias reglas.
-- Exportación con un clic: genera un archivo HSF (Sellfile de RSL Helper) listo para cargar en RSL Helper.
-- Botón «Herramientas»: abre el diálogo desde el encabezado para entrar a `Venta final`, `Objetivos de substats`, `Botín de mazmorra` y el diálogo «Equipo» desde el mismo lugar. Crea equipo de ejemplo, pega filas o arrastra `%APPDATA%\\RslHelper\\Config`; después cierra el diálogo y deja el interruptor de vista previa en la tabla que necesites: la cola del Inspector de Equipo sigue visible sin reabrir nada.
-- Modo Protecciones: define las combinaciones que nunca quieres perder. El escáner genera reglas de conservación automáticamente cuando tus recetas más tus reglas de venta actualmente activas eliminarían todas las copias.
-- Gear Lens: un panel de análisis dentro del diálogo Herramientas. Ocho tarjetas KPI resumen el estado de la colección (Legendario+, Tasa 6★, Maxeado, Equipado, etc.). Seis donuts de filtro cruzado (Ranuras, Rango, Rareza, Resultado, Fuente, Nivel) y un Treemap de Sets permiten hacer clic para filtrar todos los demás gráficos. Una barra de Mainstats, un radar de frecuencia de substats con pivote de coocurrencia, un mapa de calor Ranura × Mainstat y una pestaña de Estadísticas de campeones completan la vista. Los filtros activos aparecen como chips eliminables. Copia todo el panel como PNG o envía el filtro activo directamente al Inspector de Equipo.
+## Características
+
+- **Generador de recetas** — crea recetas de conservar/vender con nombre y filtros por
+  ranura, conjunto, rango, rareza, estadística principal, subestadísticas (con mínimos de
+  tiradas y objetivos), facción e hitos de nivel. Construye una biblioteca reutilizable y
+  expórtala como archivo de venta de RSL Helper (`.hsf`) con un clic.
+- **Vista previa del archivo de venta** — previsualiza el archivo de venta de RSL Helper
+  generado en la pestaña Vista previa antes de exportar.
+- **Metaconjuntos** — agrupa conjuntos de equipo (p. ej. Velocidad + Percepción) en
+  colecciones con nombre y reutilízalos en recetas y protecciones.
+- **Inspector de equipo** — carga tu base de datos de equipo (volcado `.db` o arrastrar y
+  soltar) para previsualizar qué objetos coinciden con cada receta y cuántos se
+  conservarían o venderían.
+- **Simulador de mazmorras** — consulta los porcentajes de probabilidad de conservar para
+  el Caballero de Fuego, el Dragón y el Gólem de Hielo en distintos niveles de dificultad
+  y mejora para confirmar el efecto de tu archivo de venta al farmear o mejorar equipo.
+- **Protecciones** — define combinaciones de ranura/conjunto/estadística que nunca quieras
+  perder; el escáner inyecta automáticamente reglas de conservar en el archivo de venta
+  cuando tu configuración reduciría una combinación protegida por debajo de su cuota.
+- **Lente de equipo** — panel de análisis con tarjetas KPI, gráficos de filtro cruzado
+  (ranura, rango, rareza, fuente, nivel), un mapa de árbol de conjuntos, barras de
+  estadística principal y un radar de subestadísticas. Haz clic en cualquier gráfico para
+  filtrar todos los demás; envía el filtro activo directamente al Inspector de equipo.
+- **Venta final** — un botón añade reglas de venta comodín para el equipo no coincidente
+  en rangos de nivel configurables, para que nada se escape.
 
 ## Cómo usarlo
 

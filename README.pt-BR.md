@@ -5,17 +5,30 @@ O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper �
 > Ferramenta criada por fãs. Não tem ligação com a Plarium, Raid: Shadow Legends ou RSL Helper. Todas as marcas mencionadas pertencem aos respectivos proprietários.
 
 ## Funcionalidades
-- Criar e salvar regras: construa receitas e mantenha uma biblioteca reutilizável.
-- Interruptor da Prévia Sellfile: alterne entre a tabela `Rules` e a tabela `Inspetor de Equipamento` direto no cabeçalho. Os contadores/badges mudam (Manter/Vender para regras, Manter/Vender/Escopo/Sem regra para o Inspetor de Equipamento) e os filtros acompanham a tabela escolhida.
-- Arrastar e soltar ou botão “Load RSL Helper Sellfile”: solte `.sfr`, `.hsf` ou `.db` em qualquer ponto (a sobreposição confirma) ou clique no botão. Ambos fazem exatamente a mesma coisa: `.sfr` substitui o builder, `.hsf` adiciona o Sellfile base opcional e `.db` vai direto para a fila do Inspetor de Equipamento sem tocar no builder/export.
-- Segure `Shift` ao abrir/carregar um `.sfr` (seletor de arquivos ou arrastar e soltar) para abrir um diálogo de importação adicional onde você escolhe separadamente Receitas, Nota, Metasets e Salvaguardas.
-- Meta-sets: agrupe conjuntos de equipamento (por exemplo, Velocidade + Percepção) e reutilize-os em várias regras.
-- Exportação com um clique: gere um arquivo HSF (Sellfile do RSL Helper) pronto a carregar no RSL Helper.
-- Botão «Ferramentas»: abra o diálogo pelo cabeçalho para acessar `Venda final`, `Alvos de substats`, `Drops de masmorra` e o diálogo Equipamento no mesmo lugar. Crie peças de exemplo, cole linhas ou arraste `%APPDATA%\\RslHelper\\Config`; depois feche o diálogo e deixe o interruptor da prévia na tabela que precisar — a fila do Inspetor de Equipamento continua visível sem reabrir nada.
-- Modo Salvaguardas: defina as combinações que você não quer perder. Quando as suas receitas mais as suas regras de venda atualmente ativas removerem todas as cópias, o scanner gera automaticamente regras de manutenção.
-- Diálogo de restauração do Autosave: quando existe um autosave, escolha exatamente o que recuperar — receitas, meta-sets, Alvos de substats, restante da Venda final, nota fixada, estado do painel de filtros e até as importações do Inspetor de Equipamento.
-- Copiar a pasta do banco de dados do RSL Helper: o cabeçalho da prévia mostra um botão que copia `%APPDATA%\\RslHelper\\Config` para o porta‑papéis para colar o caminho no Explorer antes de arrastar a `.db` para o Sellfile Creator.
-- Gear Lens: um painel de análise dentro do diálogo Ferramentas. Oito cartões KPI resumem o estado da coleção (Lendária+, Taxa 6★, Maxed, Equipada, etc.). Seis donuts de filtro cruzado (Slots, Grau, Raridade, Resultado, Fonte, Nível) e um Treemap de Sets permitem clicar para filtrar todos os outros gráficos. Uma barra de Mainstats, um radar de frequência de substats com pivô de co-ocorrência, um mapa de calor Slot × Mainstat e uma aba de Estatísticas de campeões completam a vista. Os filtros ativos aparecem como chips removíveis. Copie todo o painel como PNG ou envie o filtro ativo diretamente para o Inspetor de Equipamento.
+
+- **Construtor de receitas** — crie receitas de manter/vender com filtros por slot,
+  conjunto, rank, raridade, estatística principal, subestatísticas (com mínimos de rolls e
+  objetivos), facção e marcos de nível. Construa uma biblioteca reutilizável e exporte como
+  arquivo de venda RSL Helper (`.hsf`) com um clique.
+- **Pré-visualização do arquivo de venda** — pré-visualize o arquivo de venda RSL Helper
+  gerado na aba Pré-visualização antes de exportar.
+- **Metaconjuntos** — agrupe conjuntos de equipamentos (ex. Velocidade + Percepção) em
+  coleções nomeadas e reutilize-os em receitas e proteções.
+- **Inspetor de equipamentos** — carregue seu banco de dados de equipamentos (dump `.db`
+  ou arrastar e soltar) para pré-visualizar quais itens correspondem a cada receita e
+  quantos seriam mantidos ou vendidos.
+- **Simulador de masmorras** — veja os percentuais de chance de manter para o Cavaleiro do
+  Fogo, o Dragão e o Golem de Gelo nos níveis de dificuldade e aprimoramento para confirmar
+  o efeito do seu arquivo de venda ao farmar ou melhorar equipamentos.
+- **Proteções** — defina combinações de slot/conjunto/stat que nunca quer perder; o scanner
+  injeta automaticamente regras de manter no arquivo de venda quando sua configuração
+  reduziria uma combinação protegida abaixo de sua cota.
+- **Lente de equipamentos** — painel analítico com cards KPI, gráficos de filtro cruzado
+  (slot, rank, raridade, fonte, nível), um mapa de árvore de conjuntos, barras de
+  estatísticas principais e um radar de subestatísticas. Clique em qualquer gráfico para
+  filtrar todos os outros; envie o filtro ativo diretamente para o Inspetor de equipamentos.
+- **Venda final** — um único toggle adiciona regras de venda coringa para equipamentos não
+  correspondidos em intervalos de nível configuráveis, para que nada escape.
 
 ## Como utilizar
 

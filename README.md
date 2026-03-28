@@ -5,15 +5,28 @@ Sellfile Creator eases building sell files for RSL Helper — define gear filter
 > This is an independent, fan‑made tool. Not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
 
 ## Features
-- Build rules and save them: create recipes and keep a library you can reuse.
-- Sellfile Preview toggle: flip between the Rules table and the Gear Inspector table right from the header. Counts/outcome chips adapt (Keep/Sell for rules, Keep / Sell / Scope / Unmatched for Gear Inspector) and the filters follow whichever table you pick.
-- Drag & drop or Load button: drop `.sfr`, `.hsf`, or `.db` anywhere (overlay confirms) or click “Load RSL Helper Sellfile”. Both options behave the same — `.sfr` replaces your builder, `.hsf` layers on the optional base sellfile, and `.db` dumps go straight into the Gear Inspector queue without touching the builder.
-- Hold `Shift` while opening/loading an `.sfr` (file picker or drag/drop) to open an additional import dialog where you can choose Recipes, Note, Metasets, and Safeguards.
-- Metasets: name groups of gear sets (e.g., Speed + Perception) and reuse them across rules.
-- One-click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
-- `Tools` button: open the dialog from the preview header to reach `Final Sell`, `Substat Targets`, `Dungeon Drops`, and the Gear Inspector from the same place. Load example gear, paste drops, or drag `%APPDATA%\\RslHelper\\Config`, then close the dialog and leave the preview toggle on whichever table you need — the Gear Inspector queue stays visible without reopening.
-- Safeguards builder mode: define combinations you never want to lose, and the scanner injects keep rules automatically whenever your recipes plus your current active Sell rules would sell every piece in that combination.
-- Gear Lens: an analytics dashboard inside the Tools dialog. Eight KPI cards summarize collection health (Legendary+, 6★ Rate, Maxed, Equipped, etc.). Six crossfilter donuts (Slots, Rank, Rarity, Result, Source, Level) and a Sets treemap let you click to narrow every other chart at once. A Main Stats bar, a Substat Frequency radar with co-occurrence pivot, a Slot × Main Stat heatmap, and a Champion Stats tab round out the view. Active filters appear as removable chips. Copy the entire dashboard as a PNG, or push the active filter straight into the Gear Inspector.
+
+- **Recipe builder** — create named keep/sell recipes with filters for slot, set, rank,
+  rarity, main stat, substats (with roll minimums and targets), faction, and level
+  milestones. Build a reusable library and export it as an RSL Helper sell file (`.hsf`)
+  in one click.
+- **Sellfile preview** — preview the generated RSL Helper sell file in the Preview tab
+  before exporting.
+- **Metasets** — group gear sets (e.g. Speed + Perception) into named collections and
+  reuse them across recipes and safeguards.
+- **Gear Inspector** — load your gear database (`.db` dump or drag-and-drop) to preview
+  which items each recipe matches and how many would be kept or sold.
+- **Dungeon Simulator** — see keep-chance percentages for Fire Knight, Dragon, and Ice
+  Golem across difficulty stages and upgrade levels to confirm the effect of your sellfile
+  when farming or leveling gear.
+- **Safeguards** — define slot/set/stat combinations you never want to lose; the scanner
+  automatically injects keep rules into the sellfile whenever your setup would deplete a
+  protected combination below its quota.
+- **Gear Lens** — analytics dashboard with KPI cards, crossfilter charts (slot, rank,
+  rarity, source, level), a sets treemap, main stat bars, and a substat radar. Click any
+  chart to filter all others; push the active filter straight into the Gear Inspector.
+- **Final Sell** — one toggle adds catch-all sell rules for unmatched gear across
+  configurable level ranges, so nothing slips through by accident.
 
 ## How To Use
 

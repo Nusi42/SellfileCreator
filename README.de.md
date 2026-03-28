@@ -4,16 +4,31 @@ Sellfile Creator erleichtert das Erstellen von Sell-Dateien für RSL Helper — 
 
 > Dies ist ein unabhängiges Fan-Projekt. Es besteht keine Verbindung zu Plarium, Raid: Shadow Legends oder RSL Helper. Alle Marken gehören ihren jeweiligen Eigentümern.
 
-## Funktionen
-- Regeln erstellen und speichern: Baue Rezepte und behalte eine Bibliothek, die du wiederverwenden kannst.
-- Sellfile-Vorschau-Umschalter: Wechsle direkt im Header zwischen der Regel-Tabelle und der Ausrüstungsinspektor-Tabelle. Zähler/Ergebnis-Chips passen sich an (Behalten/Verkaufen für Regeln, Behalten/Verkaufen/Bereich/Kein Treffer für den Ausrüstungsinspektor) und die Filter folgen dem gewählten Modus.
-- Drag & Drop oder Laden-Button: Ziehe `.sfr`, `.hsf` oder `.db` überall in die App (Overlay bestätigt) oder klicke auf „RSL Helper Sellfile laden”. Beide Wege verhalten sich identisch: `.sfr` ersetzt den Builder, `.hsf` ergänzt eine optionale Basis-Sellfile, `.db` landet direkt in der Ausrüstungsinspektor-Warteschlange ohne deine Rezepte anzurühren.
-- Halte beim Laden einer `.sfr`-Datei die `Shift`-Taste (Dateiauswahl oder Drag & Drop), um einen zusätzlichen Import-Dialog zu öffnen. Dort kannst du getrennt Rezepte, Notiz, Metasets und Schutzmaßnahmen auswählen.
-- Metasets: Benenne Set-Gruppen (z. B. Speed + Wahrnehmung) und nutze sie in mehreren Regeln.
-- Export mit einem Klick: Exportiere eine HSF-Datei (die RSL Helper Sellfile), die sofort in RSL Helper geladen werden kann.
-- „Tools”-Button: Öffne den Dialog direkt aus dem Vorschau-Header, um `Finaler Verkauf`, `Substat-Richtwerte`, `Dungeon-Beute` und den Dialog „Ausrüstung” gemeinsam zu erreichen. Erstelle Beispielgear, füge Zeilen ein oder ziehe `%APPDATA%\\RslHelper\\Config` herüber; danach kannst du den Dialog schließen und die Vorschau auf der gewünschten Tabelle lassen — die Ausrüstungsinspektor-Warteschlange bleibt sichtbar.
-- Schutzmaßnahmen-Modus: Definiere Kombinationen, die du nie verlieren willst. Sobald deine Rezepte plus deine aktuell aktiven Verkaufsregeln jedes Exemplar dieser Kombination löschen würden, generiert der Scanner automatisch passende Behalte-Regeln.
-- Gear Lens: ein Analyse-Dashboard im Tools-Dialog. Acht KPI-Karten fassen den Sammlungszustand zusammen (Legendär+, 6★-Rate, Maxed, Angelegt usw.). Sechs Crossfilter-Donuts (Slots, Rang, Seltenheit, Ergebnis, Quelle, Level) und eine Sets-Treemap lassen dich klicken, um alle anderen Charts einzugrenzen. Ein Mainstat-Balken, ein Substat-Frequenz-Radar mit Kookkurrenz-Pivot, eine Slot × Mainstat-Heatmap und ein Champion-Stats-Tab runden die Ansicht ab. Aktive Filter erscheinen als entfernbare Chips. Kopiere das gesamte Dashboard als PNG oder übertrage den aktiven Filter direkt in den Ausrüstungsinspektor.
+## Features
+
+- **Rezept-Builder** — erstelle benannte Behalten/Verkaufen-Rezepte mit Filtern für Slot,
+  Set, Rang, Seltenheit, Hauptstat, Substats (mit Roll-Minima und Zielwerten), Fraktion
+  und Stufenmeilensteinen. Baue eine wiederverwendbare Bibliothek auf und exportiere sie
+  mit einem Klick als RSL-Helper-Verkaufsdatei (`.hsf`).
+- **Verkaufsdatei-Vorschau** — sieh dir die generierte RSL-Helper-Verkaufsdatei im
+  Vorschau-Tab an, bevor du exportierst.
+- **Metasets** — fasse Ausrüstungssets (z. B. Geschwindigkeit + Wahrnehmung) in benannten
+  Sammlungen zusammen und verwende sie in Rezepten und Schutzregeln wieder.
+- **Ausrüstungs-Inspektor** — lade deine Ausrüstungsdatenbank (`.db`-Dump oder
+  Drag & Drop), um zu sehen, welche Items auf jedes Rezept passen und wie viele behalten
+  oder verkauft würden.
+- **Dungeon-Simulator** — sieh dir Behalten-Chancen in Prozent für Feuerritter, Drachen
+  und Eisgolem über Schwierigkeitsstufen und Ausbaustufen an, um die Wirkung deiner
+  Verkaufsdatei beim Farmen oder Verbessern von Ausrüstung zu bestätigen.
+- **Schutzregeln** — definiere Slot/Set/Stat-Kombinationen, die du nie verlieren willst;
+  der Scanner fügt automatisch Behalten-Regeln in die Verkaufsdatei ein, wenn deine
+  Einstellung eine geschützte Kombination unter ihre Quote senken würde.
+- **Ausrüstungs-Objektiv** — Analyse-Dashboard mit KPI-Karten, Kreuzfilter-Diagrammen
+  (Slot, Rang, Seltenheit, Quelle, Stufe), einer Sets-Baumkarte, Hauptstat-Balken und
+  einem Substat-Radar. Klicke auf ein Diagramm, um alle anderen zu filtern; sende den
+  aktiven Filter direkt in den Ausrüstungs-Inspektor.
+- **Abschlussverkauf** — ein Schalter fügt Auffangregeln für nicht zugeordnete Ausrüstung
+  über konfigurierbare Stufenbereiche hinzu, damit nichts durch die Lücken fällt.
 
 ## Nutzung
 

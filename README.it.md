@@ -5,17 +5,31 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
 > Strumento indipendente creato dai fan. Non è affiliato con Plarium, Raid: Shadow Legends o RSL Helper. I marchi appartengono ai rispettivi proprietari.
 
 ## Funzionalità
-- Crea regole e salvale: costruisci ricette e mantieni una libreria da riutilizzare.
-- Interruttore Anteprima Sellfile: passa dalla tabella Regole alla tabella dell'Ispettore Equipaggiamento direttamente dall'intestazione. I contatori/gli indicatori di esito si adattano (Mantieni/Vendi per le regole, Mantieni/Vendi/Ambito/Senza regola per l'Ispettore Equipaggiamento) e i filtri seguono la tabella scelta.
-- Drag & drop o pulsante Carica: rilascia `.sfr`, `.hsf` o `.db` ovunque (l'overlay conferma) oppure clicca "Load RSL Helper Sellfile". Entrambe le opzioni si comportano allo stesso modo: `.sfr` sostituisce il builder, `.hsf` si affianca come Sellfile base opzionale e i dump `.db` finiscono direttamente nella coda dell'Ispettore Equipaggiamento senza toccare il builder.
-- Tieni premuto `Shift` durante il caricamento di un `.sfr` (selettore file o drag & drop) per aprire un dialogo di import aggiuntivo in cui puoi scegliere separatamente Ricette, Nota, Metaset e Salvaguardie.
-- Metaset: assegna un nome a gruppi di set (es. Velocità + Percezione) e riutilizzali nelle regole.
-- Esporta con un clic: esporta un file HSF (il Sellfile di RSL Helper) pronto per RSL Helper.
-- Pulsante "Strumenti": apri il dialogo dall'intestazione per raggiungere `Vendita finale`, `Obiettivi di substat`, `Drop dei dungeon` e il dialogo Equipaggiamento nello stesso punto. Crea equip di esempio, incolla righe oppure trascina `%APPDATA%\\RslHelper\\Config`, poi chiudi il dialogo e lascia l'interruttore dell'anteprima sulla tabella che ti serve: la coda dell'Ispettore Equipaggiamento resta visibile senza riaprire nulla.
-- Modalità Salvaguardie: definisci le combinazioni che non vuoi perdere mai. Quando le tue ricette più le tue regole di vendita attualmente attive eliminerebbero tutte le copie, lo scanner genera automaticamente regole di mantenimento.
-- Dialogo di ripristino Autosave: quando troviamo un Autosave, scegli con precisione cosa ricaricare: ricette, Metaset, Valori obiettivo delle sotto-stat, resto di Vendita finale, nota fissata, stato del pannello filtri e perfino le importazioni dell'Ispettore Equipaggiamento.
-- Copia la cartella del DB di RSL Helper: l'intestazione dell'anteprima offre un pulsante negli appunti che copia `%APPDATA%\RslHelper\Config` così puoi incollare subito il percorso in Esplora risorse prima di trascinare dentro il `.db`.
-- Gear Lens: un pannello di analisi all'interno della finestra Strumenti. Otto schede KPI riassumono lo stato della collezione (Leggendaria+, Tasso 6★, Maxed, Equipaggiato, ecc.). Sei donut a filtro incrociato (Slot, Grado, Rarità, Risultato, Fonte, Livello) e una Treemap dei Set permettono di cliccare per filtrare tutti gli altri grafici. Una barra delle Stat principali, un radar della frequenza delle sotto-stat con pivot di co-occorrenza, una heatmap Slot × Stat principale e una scheda Statistiche campioni completano la vista. I filtri attivi appaiono come chip rimovibili. Copia l'intero pannello come PNG o invia il filtro attivo direttamente all'Ispettore Equipaggiamento.
+
+- **Generatore di ricette** — crea ricette di conserva/vendi con nome e filtri per slot,
+  set, rango, rarità, stat principale, sottostatistiche (con minimi di roll e obiettivi),
+  fazione e traguardi di livello. Costruisci una libreria riutilizzabile ed esportala come
+  file di vendita RSL Helper (`.hsf`) in un clic.
+- **Anteprima del file di vendita** — visualizza in anteprima il file di vendita RSL Helper
+  generato nella scheda Anteprima prima di esportare.
+- **Metaset** — raggruppa i set di equipaggiamento (es. Velocità + Percezione) in
+  collezioni con nome e riutilizzali nelle ricette e nelle protezioni.
+- **Ispettore equipaggiamento** — carica il tuo database di equipaggiamento (dump `.db` o
+  trascina e rilascia) per vedere quali oggetti corrispondono a ogni ricetta e quanti
+  verrebbero conservati o venduti.
+- **Simulatore dungeon** — consulta le percentuali di probabilità di conservare per il
+  Cavaliere del Fuoco, il Drago e il Golem di Ghiaccio su livelli di difficoltà e
+  potenziamento per confermare l'effetto del tuo file di vendita durante il farming o il
+  potenziamento dell'equipaggiamento.
+- **Protezioni** — definisci combinazioni di slot/set/stat che non vuoi mai perdere; lo
+  scanner inietta automaticamente regole di conserva nel file di vendita quando la tua
+  configurazione ridurrebbe una combinazione protetta al di sotto della sua quota.
+- **Lente equipaggiamento** — dashboard analitica con schede KPI, grafici a filtro
+  incrociato (slot, rango, rarità, fonte, livello), una mappa ad albero dei set, barre
+  delle stat principali e un radar delle sottostatistiche. Clicca su qualsiasi grafico per
+  filtrare tutti gli altri; invia il filtro attivo direttamente all'Ispettore equipaggiamento.
+- **Vendita finale** — un solo toggle aggiunge regole di vendita catch-all per
+  l'equipaggiamento non abbinato su fasce di livello configurabili, in modo che nulla sfugga.
 
 ## Come si usa
 

@@ -5,15 +5,30 @@ Sellfile Creator, RSL Helper için satış dosyaları oluşturmayı kolaylaştı
 > Bu araç hayranlar tarafından geliştirildi. Plarium, Raid: Shadow Legends veya RSL Helper ile bağlantılı değildir. Bahsi geçen tüm ticari markalar sahiplerine aittir.
 
 ## Özellikler
-- Kuralları oluşturun ve kaydedin: Reçeteler hazırlayın ve tekrar kullanabileceğiniz bir kitaplık oluşturun.
-- Sellfile Önizleme anahtarı: Başlıktaki `Rules`/`Ekipman Denetçisi` anahtarıyla kurallar tablosu ile Ekipman Denetçisi tablosu arasında anında geçiş yapın. Sayaçlar ve sonuç rozetleri (Keep/Sell/Kapsam/Eşleşme yok) seçtiğiniz görünüme göre güncellenir, filtre satırı da aynı görünümü izler.
-- Sürükle-bırak veya Load düğmesi: `.sfr`, `.hsf` ya da `.db` dosyalarını herhangi bir yere bırakın (katman doğrular) ya da “Load RSL Helper Sellfile” düğmesine tıklayın. İki yol da aynı yönlendirmeyi kullanır; `.sfr` oluşturucuyu değiştirir, `.hsf` isteğe bağlı baz Sellfile olarak katmanlanır ve `.db` dökümleri Ekipman Denetçisi kuyruğuna aktarılır (oluşturucuya dokunmadan).
-- Bir `.sfr` açarken/yüklerken (dosya seçici veya sürükle-bırak) `Shift` tuşunu basılı tutarsanız ek bir içe aktarma diyaloğu açılır; burada Reçeteler, Not, Metasetler ve Güvenceler bölümlerini ayrı ayrı seçebilirsiniz.
-- Metasetler: Ekipman setlerini (ör. Hız + Algı) gruplayın ve birçok kuralda tekrar kullanın.
-- Tek tıkla dışa aktarma: RSL Helper’da kullanılmaya hazır bir HSF dosyası üretin.
-- “Araçlar” düğmesi: Önizleme başlığından bu düğmeye basarak `Nihai satış`, `Alt stat hedefleri`, `Zindan Düşüşleri` ve Ekipman diyaloğuna (Araçlar içindeki Gear sekmesi) tek noktadan ulaşın. Örnek ekipman oluşturun, satırları yapıştırın veya `%APPDATA%\\RslHelper\\Config` yolunu sürükleyin; ardından diyaloğu kapatıp önizleme anahtarını ihtiyacınız olan tabloda bırakın — Ekipman Denetçisi kuyruğu yeniden açmadan görünür kalır.
-- «Benzersizleri Koru» sekmesi: Kaybetmenize asla izin vermek istemediğiniz kombinasyonları tanımlayın. Reçeteleriniz + şu anda aktif olan Satış kurallarınız tüm kopyaları siliyorsa tarayıcı otomatik olarak koruma kuralları üretir.
-- Gear Lens: Araçlar diyaloğunda bir analitik pano. Sekiz KPI kartı koleksiyonun durumunu özetler (Efsanevi+, 6★ oranı, Maksimum seviye, Giyili, vb.). Altı çapraz filtreli donut grafiği (Yuvalar, Derece, Nadirlik, Sonuç, Kaynak, Seviye) ve bir Setler Treemap'ı, diğer tüm grafikleri daraltmak için tıklamanızı sağlar. Ana stat çubuğu, ortak oluşum pivotlu alt stat sıklık radarı, Yuva × Ana stat ısı haritası ve Şampiyon İstatistikleri sekmesi görünümü tamamlar. Etkin filtreler silinebilir rozetler olarak görünür. Panoyu PNG olarak kopyalayın veya etkin filtreyi doğrudan Ekipman Denetçisi'ne gönderin.
+
+- **Tarif oluşturucu** — slot, set, yıldız, nadirlik, ana stat, alt statlar (minimum rulo
+  sayıları ve hedef değerler), fraksiyon ve seviye kilometre taşları filtreli adlandırılmış
+  sakla/sat tarifleri oluşturun. Yeniden kullanılabilir bir kütüphane oluşturun ve tek
+  tıkla RSL Helper satış dosyası (`.hsf`) olarak dışa aktarın.
+- **Satış dosyası önizleme** — dışa aktarmadan önce oluşturulan RSL Helper satış dosyasını
+  Önizleme sekmesinde görüntüleyin.
+- **Metasetler** — ekipman setlerini (örn. Hız + Algı) adlandırılmış koleksiyonlarda
+  gruplandırın ve tariflerde ve koruma kurallarında yeniden kullanın.
+- **Ekipman denetçisi** — her tarifin hangi öğelerle eşleştiğini ve kaçının saklanacağını
+  veya satılacağını görmek için ekipman veritabanınızı (`.db` dökümü veya sürükle ve
+  bırak) yükleyin.
+- **Zindan simülatörü** — farming yaparken veya ekipman geliştirirken satış dosyanızın
+  etkisini doğrulamak için çeşitli zorluk ve yükseltme seviyelerinde Ateş Şövalyesi,
+  Ejderha ve Buz Golemi için saklama olasılığı yüzdelerini görün.
+- **Korumalar** — asla kaybetmek istemediğiniz slot/set/stat kombinasyonlarını tanımlayın;
+  tarayıcı, kurulumunuz korunan bir kombinasyonu kotasının altına düşüreceğinde satış
+  dosyasına otomatik olarak saklama kuralları ekler.
+- **Ekipman lensi** — KPI kartları, çapraz filtre grafikleri (slot, yıldız, nadirlik,
+  kaynak, seviye), bir set ağaç haritası, ana stat çubukları ve alt stat radarı içeren
+  analitik gösterge paneli. Diğerlerini filtrelemek için herhangi bir grafiğe tıklayın;
+  aktif filtreyi doğrudan Ekipman denetçisine gönderin.
+- **Son satış** — tek bir düğme, ayarlanabilir seviye aralıklarında eşleşmeyen ekipman
+  için yedek satış kuralları ekleyerek hiçbir şeyin gözden kaçmamasını sağlar.
 
 ## Nasıl kullanılır
 
