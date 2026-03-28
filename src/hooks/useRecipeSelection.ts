@@ -609,8 +609,18 @@ export function useRecipeSelection({
         labels,
       })
       describeNextChange(descriptor)
-      // Commit the reordered list before syncing selection indices.
-      setCustomRecipes(arr)
+      // Use a functional update so any pending edit-commit from
+      // flushAutoApplyBeforeReorder (which also calls setCustomRecipes via a
+      // functional update) is preserved — value updates would overwrite it.
+      setCustomRecipes(current => {
+        const reordered = [...current]
+        for (const i of selected) {
+          if (i <= 0) continue
+          if (!reordered[i] || !reordered[i - 1]) continue
+          const tmp = reordered[i - 1]!; reordered[i - 1] = reordered[i]!; reordered[i] = tmp
+        }
+        return reordered
+      })
       // Reorders should not trigger auto-apply or draft capture.
       syncSelectionAfterReorder(newSel)
     })
@@ -651,8 +661,19 @@ export function useRecipeSelection({
         labels,
       })
       describeNextChange(descriptor)
-      // Commit the reordered list before syncing selection indices.
-      setCustomRecipes(arr)
+      // Use a functional update so any pending edit-commit from
+      // flushAutoApplyBeforeReorder (which also calls setCustomRecipes via a
+      // functional update) is preserved — value updates would overwrite it.
+      setCustomRecipes(current => {
+        const reordered = [...current]
+        for (let k = selected.length - 1; k >= 0; k -= 1) {
+          const i = selected[k]!
+          if (i >= reordered.length - 1) continue
+          if (!reordered[i] || !reordered[i + 1]) continue
+          const tmp = reordered[i + 1]!; reordered[i + 1] = reordered[i]!; reordered[i] = tmp
+        }
+        return reordered
+      })
       // Reorders should not trigger auto-apply or draft capture.
       syncSelectionAfterReorder(newSel)
     })
@@ -685,8 +706,14 @@ export function useRecipeSelection({
         labels,
       })
       describeNextChange(descriptor)
-      // Commit the reordered list before syncing selection indices.
-      setCustomRecipes(next)
+      // Use a functional update so any pending edit-commit from
+      // flushAutoApplyBeforeReorder (which also calls setCustomRecipes via a
+      // functional update) is preserved — value updates would overwrite it.
+      setCustomRecipes(current => {
+        const currentRemaining = current.filter((_, i) => !selected.includes(i))
+        const currentBlock = selected.map(i => current[i]!)
+        return [...currentBlock, ...currentRemaining]
+      })
       // Reorders should not trigger auto-apply or draft capture.
       syncSelectionAfterReorder(newSel)
     })
@@ -719,8 +746,14 @@ export function useRecipeSelection({
         labels,
       })
       describeNextChange(descriptor)
-      // Commit the reordered list before syncing selection indices.
-      setCustomRecipes(next)
+      // Use a functional update so any pending edit-commit from
+      // flushAutoApplyBeforeReorder (which also calls setCustomRecipes via a
+      // functional update) is preserved — value updates would overwrite it.
+      setCustomRecipes(current => {
+        const currentRemaining = current.filter((_, i) => !selected.includes(i))
+        const currentBlock = selected.map(i => current[i]!)
+        return [...currentRemaining, ...currentBlock]
+      })
       // Reorders should not trigger auto-apply or draft capture.
       syncSelectionAfterReorder(newSel)
     })
