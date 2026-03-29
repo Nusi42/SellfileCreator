@@ -1613,8 +1613,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setPreviewSelectedSafeguardOrdinal(selectedSafeguardOrdinal)
     })
   }, [selectedSafeguardOrdinal])
-  const syncSelectedRecipeIdx = useCallback((value: React.SetStateAction<number | null>, options?: { preserveSelection?: boolean; forceSync?: boolean; suppressDraft?: boolean }) => {
-    autoApplyNowRef.current()
+  const syncSelectedRecipeIdx = useCallback((value: React.SetStateAction<number | null>, options?: { preserveSelection?: boolean; forceSync?: boolean; suppressDraft?: boolean; skipAutoApply?: boolean }) => {
+    // skipAutoApply skips the pending-edit flush; use it for bulk replacements like SFR
+    // loads where the entire recipe list is being replaced and auto-applying stale state
+    // would silently overwrite a freshly-loaded recipe.
+    if (!options?.skipAutoApply) autoApplyNowRef.current()
     const applySelectionChange = () => {
       const next = typeof value === 'function' ? value(selectedRecipeIdx) : value
       const normalized = (typeof next === 'number' && Number.isInteger(next) && next >= 0) ? next : null
@@ -1622,7 +1625,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       updateSelectionAnchor(normalized)
       if (options?.preserveSelection) return
       if (!multiselectActive || options?.forceSync === true || normalized === null) {
-        setSelectedRecipeIndices(normalized === null ? [] : [normalized])
+        // When auto-apply is suppressed, also suppress the will-change callback so the
+        // secondary autoApplyNow path through handleWillChangeSelection cannot fire.
+        const suppressWillChange = options?.skipAutoApply === true || undefined
+        setSelectedRecipeIndices(normalized === null ? [] : [normalized], suppressWillChange ? { suppressWillChange: true } : undefined)
       }
     }
     if (options?.suppressDraft) {
@@ -1710,6 +1716,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setMultiEditDraft: setMultiEditDraftState,
     suppressSelectionDraft: runWithSelectionDraftSuppressed,
     autoApplySelectedRecipe,
+    selectedSafeguardRuleIdx,
+    setSelectedSafeguardRuleIdx,
+    setSafeguardBuilder,
   })
   describeNextChangeRef.current = describeNextChange
   // Keep the ref in sync so launchPipeline (200ms-debounced) reads the correct value when it fires.
@@ -2032,26 +2041,30 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleInsertSafeguardFromBuilder = useCallback(() => {
     const current = safeguardBuilderRef.current
     const newRule: SafeguardRule = { ...cloneSafeguardRule(current) }
-    let insertedIdx = -1
+    // Compute insertion index from current state before enqueuing the updater.
+    // Why: functional state updaters are lazy — React evaluates them at render time,
+    // not synchronously, so any index captured inside the updater is unavailable here.
+    const afterIdx = selectedSafeguardRuleIdx !== null && selectedSafeguardRuleIdx >= 0
+      ? selectedSafeguardRuleIdx
+      : safeguardRules.length - 1
+    const insertedIdx = (afterIdx === -1 || afterIdx >= safeguardRules.length - 1)
+      ? safeguardRules.length
+      : afterIdx + 1
     applySafeguardRulesChange((prev) => {
       // Insert after the currently-selected rule, or append when nothing is selected.
-      const afterIdx = selectedSafeguardRuleIdx !== null && selectedSafeguardRuleIdx >= 0
-        ? selectedSafeguardRuleIdx
-        : prev.length - 1
       if (afterIdx === -1 || afterIdx >= prev.length - 1) {
-        insertedIdx = prev.length
         return [...prev, newRule]
       }
-      insertedIdx = afterIdx + 1
       const next = [...prev]
       next.splice(insertedIdx, 0, newRule)
       return next
     })
     // Auto-enable safeguards when the first rule is inserted.
     if (safeguardRules.length === 0) applySafeguardsEnabledChange(true, { publish: false })
-    // Select by the insertion index; use the computed value if available, else append index.
-    setSelectedSafeguardRuleIdx(insertedIdx >= 0 ? insertedIdx : safeguardRules.length)
-  }, [applySafeguardRulesChange, applySafeguardsEnabledChange, safeguardRules.length, selectedSafeguardRuleIdx])
+    // Update both the primary index and the multi-select array so chip highlight is correct.
+    setSelectedSafeguardRuleIdx(insertedIdx)
+    setSelectedSafeguardRuleIndices([insertedIdx], { suppressWillChange: true })
+  }, [applySafeguardRulesChange, applySafeguardsEnabledChange, safeguardRules.length, selectedSafeguardRuleIdx, setSelectedSafeguardRuleIndices])
 
   // Apply the draft to the currently selected rule.
   const handleApplySafeguardFromBuilder = useCallback(() => {
@@ -6097,15 +6110,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setRecipesEnabled(payloadRecipesEnabled)
       if (fsr !== null) applyFinalSellChange(fsr, { mode: 'import', publish: false })
       // Always select first recipe on manual SFR load (index is not persisted in the file).
-      syncSelectedRecipeIdx(resolvedSel, { forceSync: true, suppressDraft: true })
+      // skipAutoApply: the whole recipe list is being replaced, so auto-applying the old
+      // draft before the selection changes would silently corrupt the newly loaded recipes.
+      syncSelectedRecipeIdx(resolvedSel, { forceSync: true, suppressDraft: true, skipAutoApply: true })
       if (resolvedSel !== null && recipes[resolvedSel]) {
         setBuilder(recipes[resolvedSel]!)
       }
       // Always land on the first safeguard rule when loading a file, and load its data into the builder.
-      // Why: setSelectedSafeguardRuleIdx alone only updates the chip highlight; the builder draft must
-      // also be replaced so the panel does not display stale state from the previous SFR.
+      // Why: setSelectedSafeguardRuleIdx alone only updates the primary index; the multi-select
+      // indices (selectedSafeguardRuleIndices) and the builder draft must also be reset so the
+      // chip highlight and panel content stay in sync with the new SFR's rules.
       const firstSafeguardRule = (safeguardRules ?? []).length > 0 ? (safeguardRules ?? [])[0]! : null
       setSelectedSafeguardRuleIdx(firstSafeguardRule ? 0 : null)
+      // Reset the multi-select index array; suppressWillChange avoids auto-applying the stale draft.
+      setSelectedSafeguardRuleIndices(firstSafeguardRule ? [0] : [], { suppressWillChange: true })
       if (firstSafeguardRule) setSafeguardBuilder(cloneSafeguardRule(firstSafeguardRule))
       // Increment nonce so the post-transition safety-net effect fires after the history
       // snapshot effect in this same commit (see sfrLoadNonce useEffect above).
@@ -6139,6 +6157,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     substatTargets,
     syncSelectedRecipeIdx,
     setSelectedSafeguardRuleIdx,
+    setSelectedSafeguardRuleIndices,
     setSafeguardBuilder,
     setHsf,
     setSfrLoadNonce,
@@ -6232,7 +6251,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           && payload.selectedIndex < remappedRecipes.length
           ? payload.selectedIndex
           : (remappedRecipes.length > 0 ? 0 : null)
-        syncSelectedRecipeIdx(selected, { forceSync: true, suppressDraft: true })
+        // skipAutoApply: replacing the full recipe list; auto-applying stale state would
+        // corrupt the freshly-loaded recipes with builder content from the previous session.
+        syncSelectedRecipeIdx(selected, { forceSync: true, suppressDraft: true, skipAutoApply: true })
         if (selected !== null && remappedRecipes[selected]) {
           setBuilder(remappedRecipes[selected]!)
         }
@@ -6288,10 +6309,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setSafeguardsEnabled(payload.safeguardsEnabled ?? false)
         setRecipesEnabled(payload.recipesEnabled !== false)
         // Replace mode wipes existing rules, so the old selection is always stale.
-        // Load the first incoming rule into the builder draft to match the landing chip.
+        // Reset both the primary index and the multi-select indices so the chip highlight
+        // and builder draft stay consistent with the incoming rule set.
         const firstRemapped = remappedSafeguards.length > 0 ? remappedSafeguards[0]! : null
-        // Replace mode wipes existing rules; select first incoming rule by index 0.
         setSelectedSafeguardRuleIdx(firstRemapped ? 0 : null)
+        // suppressWillChange avoids auto-applying the stale draft during the reset.
+        setSelectedSafeguardRuleIndices(firstRemapped ? [0] : [], { suppressWillChange: true })
         if (firstRemapped) setSafeguardBuilder(cloneSafeguardRule(firstRemapped))
       } else {
         setSafeguardRules((prev) => [...prev, ...remappedSafeguards])
@@ -6343,6 +6366,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSafeguardsEnabled,
     setRecipesEnabled,
     setSelectedSafeguardRuleIdx,
+    setSelectedSafeguardRuleIndices,
     setSafeguardBuilder,
     sfrNote,
     syncSelectedRecipeIdx,
@@ -7847,6 +7871,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               const sgSelIdx = draft?.SelectedSafeguardRuleIdx
               const restoredRules = Array.isArray(draft?.Safeguards) ? draft.Safeguards : []
               if (typeof sgSelIdx === 'number' && sgSelIdx >= 0 && sgSelIdx < restoredRules.length) {
+                // Mirror syncSelectedRecipeIdx: flush any pending builder edits before changing
+                // the selection, so in-progress changes are not silently discarded.
+                safeguardAutoApplyNowRef.current()
                 setSelectedSafeguardRuleIdx(sgSelIdx)
                 const selRule = restoredRules[sgSelIdx]
                 if (selRule) setSafeguardBuilder(selRule)
