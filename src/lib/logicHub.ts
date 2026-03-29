@@ -12,7 +12,7 @@ export type FinalSellSetsMode = 'any' | 'explicit'
 export const FINAL_SELL_SETS_MODE_ANY: FinalSellSetsMode = 'any'
 export const FINAL_SELL_SETS_MODE_EXPLICIT: FinalSellSetsMode = 'explicit'
 
-export const FINAL_SELL_DEFAULT_SETS_MODE: FinalSellSetsMode = FINAL_SELL_SETS_MODE_ANY
+export const FINAL_SELL_DEFAULT_SETS_MODE: FinalSellSetsMode = FINAL_SELL_SETS_MODE_EXPLICIT
 
 // Logic Hub dialog tabs stay canonical so autosave/history handlers can share the same tokens.
 // Logic Hub tabs are centrally defined so autosave + history use the same ids.

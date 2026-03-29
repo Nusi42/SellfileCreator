@@ -255,8 +255,9 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
           >
             <Stack spacing={2} sx={{ mt: 0.5 }}>
           <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>{t('msgFinalSellExplainer')}</Typography>
-          <Box data-tour-id="finalsell.dialog.sets" sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {/* Sets coverage toggle + inline warning side-by-side */}
+          <Box data-tour-id="finalsell.dialog.sets" sx={{ display: 'flex', flexDirection: 'row', gap: 2, alignItems: 'flex-start' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flexShrink: 0 }}>
               <Typography variant="body2">{t('labelFinalSellSetsMode')}</Typography>
               <ToggleButtonGroup
                 exclusive
@@ -265,33 +266,6 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
                 size="small"
                 sx={{ alignSelf: 'flex-start' }}
               >
-                <ToggleButton
-                  value={FINAL_SELL_SETS_MODE_ANY}
-                  sx={{
-                    minHeight: MENU_CONTROL_HEIGHT_PX,
-                    height: MENU_CONTROL_HEIGHT_PX,
-                    lineHeight: 1,
-                    px: 1.25,
-                    py: 0,
-                    borderWidth: 1,
-                    borderColor: (theme) => theme.palette.grey[300],
-                    color: (theme) => theme.palette.text.secondary,
-                    backgroundColor: 'transparent',
-                    '&:hover': {
-                      borderColor: (theme) => theme.palette.grey[400],
-                      color: (theme) => theme.palette.text.primary,
-                      backgroundColor: (theme) => theme.palette.action.hover,
-                    },
-                    '&.Mui-selected': {
-                      bgcolor: (theme) => theme.palette.warning.main,
-                      color: (theme) => theme.palette.common.black,
-                      borderColor: (theme) => theme.palette.warning.main,
-                      '&:hover': { bgcolor: (theme) => theme.palette.warning.dark },
-                    },
-                  }}
-                >
-                  {t('finalSellSetsModeAny')}
-                </ToggleButton>
                 <ToggleButton
                   value={FINAL_SELL_SETS_MODE_EXPLICIT}
                   sx={{
@@ -319,6 +293,33 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
                 >
                   {t('finalSellSetsModeExplicit')}
                 </ToggleButton>
+                <ToggleButton
+                  value={FINAL_SELL_SETS_MODE_ANY}
+                  sx={{
+                    minHeight: MENU_CONTROL_HEIGHT_PX,
+                    height: MENU_CONTROL_HEIGHT_PX,
+                    lineHeight: 1,
+                    px: 1.25,
+                    py: 0,
+                    borderWidth: 1,
+                    borderColor: (theme) => theme.palette.grey[300],
+                    color: (theme) => theme.palette.text.secondary,
+                    backgroundColor: 'transparent',
+                    '&:hover': {
+                      borderColor: (theme) => theme.palette.grey[400],
+                      color: (theme) => theme.palette.text.primary,
+                      backgroundColor: (theme) => theme.palette.action.hover,
+                    },
+                    '&.Mui-selected': {
+                      bgcolor: (theme) => theme.palette.warning.main,
+                      color: (theme) => theme.palette.common.black,
+                      borderColor: (theme) => theme.palette.warning.main,
+                      '&:hover': { bgcolor: (theme) => theme.palette.warning.dark },
+                    },
+                  }}
+                >
+                  {t('finalSellSetsModeAny')}
+                </ToggleButton>
               </ToggleButtonGroup>
             </Box>
             <Alert
@@ -327,7 +328,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
               variant="outlined"
               color="warning"
               sx={{
-                minHeight: 120,
+                flex: 1,
                 display: 'flex',
                 alignItems: 'flex-start',
                 whiteSpace: 'pre-line',

@@ -215,7 +215,7 @@ const overrides: Catalog = {
   msgBlockedClipboard: 'Le navigateur a bloqué l’accès au presse‑papiers. Sélectionnez et copiez manuellement.',
 
   msgFinalSellExplainer: 'Ajoutez des règles de vente finale pour les éléments non couverts par vos règles Conserver.\nSans vente finale, les éléments non correspondants sont conservés. La vente ne se produit que lorsqu’une règle de vente correspond.',
-  msgFinalSellExplicitSetsWarning: 'Les règles de Vente finale s’étendent pour énumérer explicitement chaque set actuellement connu (aucun joker « Peu importe »). Si le jeu ajoute un set plus tard, il reste absent de la liste afin que le Sellfile exporté ne vende jamais automatiquement cet équipement tout juste arrivé. Cette protection ne concerne que la Vente finale ; vos propres règles restent exactement comme vous les définissez.',
+  msgFinalSellExplicitSetsWarning: 'Les règles de Vente finale s’étendent pour énumérer explicitement chaque set actuellement connu (aucun joker « Peu importe »). Si le jeu ajoute un set plus tard, il reste absent de la liste afin que le Sellfile exporté ne vende jamais automatiquement cet équipement tout juste arrivé.',
   msgFinalSellAnySetsWarning: 'Les règles de Vente finale considèrent chaque set comme une correspondance. Tout set inédit que vous n’avez pas déjà couvert dans vos autres règles sera également vendu dès qu’il arrivera ici.',
   labelFinalSellSetsMode: 'Couverture des sets',
   finalSellSetsModeAny: 'N’importe quel set',

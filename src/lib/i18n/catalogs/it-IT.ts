@@ -215,7 +215,7 @@ const overrides: Catalog = {
   msgBlockedClipboard: 'Il browser ha bloccato l\'accesso agli appunti. Seleziona e copia manualmente.',
 
   msgFinalSellExplainer: 'Aggiungi regole Vendi finali per gli oggetti non coperti dalle tue regole Mantieni.\nSenza Vendita finale, gli oggetti senza corrispondenze vengono mantenuti automaticamente. La vendita avviene solo quando una regola Vendi si attiva.',
-  msgFinalSellExplicitSetsWarning: 'Le regole di Vendita finale si ampliano elencando esplicitamente ogni set attualmente noto (nessun jolly “Qualsiasi”). Se in futuro il gioco introduce un set nuovo, resta fuori elenco così il Sellfile esportato non venderà automaticamente quell\'equip appena arrivato. Questa protezione vale solo per la Vendita finale; le regole create da te restano come le hai configurate.',
+  msgFinalSellExplicitSetsWarning: 'Le regole di Vendita finale si ampliano elencando esplicitamente ogni set attualmente noto (nessun jolly “Qualsiasi”). Se in futuro il gioco introduce un set nuovo, resta fuori elenco così il Sellfile esportato non venderà automaticamente quell\'equip appena arrivato.',
   msgFinalSellAnySetsWarning: 'Le regole di Vendita finale trattano ogni set come corrispondenza. Un set nuovo che non hai ancora coperto in altre regole verrà venduto appena finirà qui.',
   labelFinalSellSetsMode: 'Copertura set',
   finalSellSetsModeAny: 'Qualsiasi set',

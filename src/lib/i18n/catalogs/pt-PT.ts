@@ -215,7 +215,7 @@ const overrides: Catalog = {
   msgBlockedClipboard: 'O navegador bloqueou o acesso à área de transferência. Selecione e copie manualmente.',
 
   msgFinalSellExplainer: 'Adicione regras de venda final para itens não cobertos por suas regras de Manter.\nSem venda final, os itens não correspondentes são mantidos. A venda só ocorre quando uma regra de venda corresponde.',
-  msgFinalSellExplicitSetsWarning: 'As regras de Venda final expandem-se para listar explicitamente todos os conjuntos conhecidos (sem curinga “Qualquer”). Se o jogo receber um conjunto novo mais tarde, ele fica fora da lista e o Sellfile exportado não venderá automaticamente esse equipamento acabado de chegar. Esta proteção aplica-se apenas à Venda final; as regras que cria mantêm-se tal como as definiu.',
+  msgFinalSellExplicitSetsWarning: 'As regras de Venda final expandem-se para listar explicitamente todos os conjuntos conhecidos (sem curinga “Qualquer”). Se o jogo receber um conjunto novo mais tarde, ele fica fora da lista e o Sellfile exportado não venderá automaticamente esse equipamento acabado de chegar.',
   msgFinalSellAnySetsWarning: 'As regras de Venda final tratam cada conjunto como correspondência. Qualquer conjunto novo que ainda não esteja coberto noutras regras também será vendido assim que aparecer aqui.',
   labelFinalSellSetsMode: 'Cobertura de conjuntos',
   finalSellSetsModeAny: 'Qualquer conjunto',

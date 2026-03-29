@@ -106,9 +106,10 @@ pub fn build_final_sell_rules_core(
         return Vec::<RuleRaw>::new();
     }
 
-    // Build both explicit + any coverage rows so unchecked modes emit Use=false rows.
-    let coverage_modes = [FINAL_SELL_SETS_MODE_EXPLICIT, FINAL_SELL_SETS_MODE_ANY];
-    let all_levels = [
+    // Only emit rules for the active mode; inactive mode produces no rows.
+    let use_explicit_sets = sets_mode == FINAL_SELL_SETS_MODE_EXPLICIT;
+    // Iterate levels in canonical order, skipping unselected ones.
+    let ordered_levels = [
         LEVEL_MILESTONE_0,
         LEVEL_MILESTONE_4,
         LEVEL_MILESTONE_8,
@@ -116,60 +117,56 @@ pub fn build_final_sell_rules_core(
         LEVEL_MILESTONE_16,
     ];
     let mut rules = Vec::<RuleRaw>::new();
-    for level in all_levels {
-        for mode in coverage_modes {
-            // Enabled rows only when the mode matches and the level is selected.
-            let enabled = mode == sets_mode;
-            let use_explicit_sets = mode == FINAL_SELL_SETS_MODE_EXPLICIT;
-            let use_flag = enabled && selected_levels.contains(&level);
-            for combo in &type_combos {
-                let mut sorted_types = combo.clone();
-                sort_artifact_types_in_place(&mut sorted_types);
-                let mut rule = RuleRaw {
-                    RecipeID: None,
-                    RecipeName: None,
-                    Keep: Some(false),
-                    IsRuleTypeAND: Some(false),
-                    Use: Some(use_flag),
-                    ArtifactSet: if use_explicit_sets {
-                        Some(explicit_sets.clone())
-                    } else {
-                        None
-                    },
-                    ArtifactType: if sorted_types.is_empty() {
-                        None
-                    } else {
-                        Some(sorted_types)
-                    },
-                    Rank: Some(0),
-                    Rarity: Some(0),
-                    MainStatID: Some(STAT_ID_ANY),
-                    MainStatF: Some(MAIN_STAT_F_DEFAULT_FLAG),
-                    LVLForCheck: Some(level),
-                    Faction: Some(0),
-                    Substats: Some(safeguard_clone_any_substats()),
-                    source: Some(RULE_SOURCE_FINAL_SELL.to_string()),
-                    line_idx: None,
-                    all_known_sets: None,
-                    rank_mask: None,
-                    rarity_mask: None,
-                    safeguard_rule_id: None,
-                    safeguard_rule_ordinal: None,
-                    safeguard_hash: None,
-                    safeguard_required: None,
-                    safeguard_scan_ms: None,
-                    safeguard_projected: None,
-                    safeguard_deficit: None,
-                    safeguard_item_key: None,
-                    safeguard_placeholder: None,
-                    safeguard_placeholder_missing: None,
-                };
-                // Preserve merge.ts metadata marker for explicit-all-sets rows.
-                if use_explicit_sets {
-                    rule.all_known_sets = Some(true);
-                }
-                rules.push(rule);
+    for level in ordered_levels.into_iter().filter(|l| selected_levels.contains(l)) {
+        // All emitted rows are enabled — they match both the selected mode and level.
+        let use_flag = true;
+        for combo in &type_combos {
+            let mut sorted_types = combo.clone();
+            sort_artifact_types_in_place(&mut sorted_types);
+            let mut rule = RuleRaw {
+                RecipeID: None,
+                RecipeName: None,
+                Keep: Some(false),
+                IsRuleTypeAND: Some(false),
+                Use: Some(use_flag),
+                ArtifactSet: if use_explicit_sets {
+                    Some(explicit_sets.clone())
+                } else {
+                    None
+                },
+                ArtifactType: if sorted_types.is_empty() {
+                    None
+                } else {
+                    Some(sorted_types)
+                },
+                Rank: Some(0),
+                Rarity: Some(0),
+                MainStatID: Some(STAT_ID_ANY),
+                MainStatF: Some(MAIN_STAT_F_DEFAULT_FLAG),
+                LVLForCheck: Some(level),
+                Faction: Some(0),
+                Substats: Some(safeguard_clone_any_substats()),
+                source: Some(RULE_SOURCE_FINAL_SELL.to_string()),
+                line_idx: None,
+                all_known_sets: None,
+                rank_mask: None,
+                rarity_mask: None,
+                safeguard_rule_id: None,
+                safeguard_rule_ordinal: None,
+                safeguard_hash: None,
+                safeguard_required: None,
+                safeguard_scan_ms: None,
+                safeguard_projected: None,
+                safeguard_deficit: None,
+                safeguard_item_key: None,
+                safeguard_placeholder: None,
+                safeguard_placeholder_missing: None,
+            };
+            // Preserve merge.ts metadata marker for explicit-all-sets rows.
+            if use_explicit_sets {
+                rule.all_known_sets = Some(true);
             }
+            rules.push(rule);
         }
     }
     rules

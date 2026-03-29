@@ -215,7 +215,7 @@ const overrides: Catalog = {
   msgBlockedClipboard: 'Der Browser hat den Zugriff auf die Zwischenablage blockiert. Bitte manuell markieren und kopieren.',
 
   msgFinalSellExplainer: 'Füge finale Verkaufsregeln für Gegenstände hinzu, die von deinen Behalten‑Regeln nicht erfasst werden.\nOhne finalen Verkauf werden nicht zugeordnete Gegenstände automatisch behalten. Verkauft wird nur, wenn eine Verkaufsregel greift.',
-  msgFinalSellExplicitSetsWarning: 'Die Regeln des Finalen Verkaufs erweitern sich und listen jedes derzeit bekannte Set explizit auf (kein „Beliebig“-Platzhalter). Falls später neue Sets ins Spiel kommen, bleiben sie unaufgeführt, sodass das exportierte Sellfile dieses frische Gear nicht automatisch verkauft. Diese Absicherung gilt nur für den Finalen Verkauf; deine eigenen Regeln bleiben unverändert.',
+  msgFinalSellExplicitSetsWarning: 'Die Regeln des Finalen Verkaufs erweitern sich und listen jedes derzeit bekannte Set explizit auf (kein „Beliebig”-Platzhalter). Falls später neue Sets ins Spiel kommen, bleiben sie unaufgeführt, sodass das exportierte Sellfile dieses frische Gear nicht automatisch verkauft.',
   msgFinalSellAnySetsWarning: 'Der finale Verkauf behandelt jedes Set als Treffer. Taucht später ein neues Set auf, das du in anderen Regeln nicht abgedeckt hast, wird es hier ebenfalls verkauft.',
   labelFinalSellSetsMode: 'Set-Abdeckung',
   finalSellSetsModeAny: 'Beliebiges Set',

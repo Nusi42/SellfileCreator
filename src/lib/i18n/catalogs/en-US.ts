@@ -216,7 +216,7 @@ const enUS: Catalog = {
   msgBlockedClipboard: 'Your browser blocked clipboard access. Select and copy manually.',
 
   msgFinalSellExplainer: 'Add final Sell rules for items not matched by your Keep rules.\nWithout Final Sell, items that do not match any rule are automatically kept. Selling only happens when a Sell rule matches.',
-  msgFinalSellExplicitSetsWarning: 'Final Sell rules expand to list every currently known set explicitly (no “Any” wildcard). If the game adds a new set later, it stays unlisted so the exported sell file never auto-sells that fresh gear.\n\nFor the time being, Accessory pieces without a gear set (e.g. Spider drops) are always kept.',
+  msgFinalSellExplicitSetsWarning: 'Final Sell rules expand to list every currently known set explicitly (no “Any” wildcard). If the game adds a new set later, it stays unlisted so the exported sell file never auto-sells that fresh gear.',
   msgFinalSellAnySetsWarning: 'Final Sell rules treat every gear set as a match. Any brand-new set you haven’t covered in other rules will also get sold once it lands here.',
   labelFinalSellSetsMode: 'Sets Coverage',
   finalSellSetsModeAny: 'Any Gear Set',

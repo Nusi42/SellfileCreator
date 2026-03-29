@@ -215,7 +215,7 @@ const overrides: Catalog = {
   msgBlockedClipboard: 'Tarayıcı pano erişimini engelledi. Elle seçip kopyalayın.',
 
   msgFinalSellExplainer: '“Koru” kurallarıyla eşleşmeyen öğeler için nihai satış kuralları ekleyin.\nNihai satış olmadan eşleşmeyen öğeler korunur. Satış yalnızca bir satış kuralı eşleştiğinde olur.',
-  msgFinalSellExplicitSetsWarning: 'Final Satış kuralları, tüm bilinen setleri açıkça listeleyecek şekilde genişler (“Herhangi” jokersiz). Oyun ileride yeni bir set eklerse listede yer almaz, böylece dışa aktarılan Sellfile o taptaze ekipmanı otomatik satmaz. Bu önlem yalnızca Final Satış için geçerlidir; oluşturduğunuz kurallar olduğu gibi kalır.',
+  msgFinalSellExplicitSetsWarning: 'Final Satış kuralları, tüm bilinen setleri açıkça listeleyecek şekilde genişler (“Herhangi” jokersiz). Oyun ileride yeni bir set eklerse listede yer almaz, böylece dışa aktarılan Sellfile o taptaze ekipmanı otomatik satmaz.',
   msgFinalSellAnySetsWarning: 'Final Satış kuralları her seti eşleşme olarak kabul eder. Diğer kurallarınızda henüz kapsamadığınız yeni bir set buraya düştüğünde o da satılır.',
   labelFinalSellSetsMode: 'Set kapsamı',
   finalSellSetsModeAny: 'Herhangi bir set',

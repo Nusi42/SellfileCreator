@@ -19,7 +19,7 @@ import { ArtifactType, StatVariant } from '../../src/lib/types.js'
 import { normalizeRecipe, buildReadableRecipe, parseSfrObject } from '../../src/lib/sfrIO.js'
 import { computeMergedRules } from '../../src/lib/merge.js'
 import { ACCESSORY_NO_SET_ID } from '../../src/lib/constants.js'
-import { FINAL_SELL_DEFAULT_SETS_MODE } from '../../src/lib/logicHub.js'
+import { FINAL_SELL_DEFAULT_SETS_MODE, FINAL_SELL_SETS_MODE_ANY } from '../../src/lib/logicHub.js'
 import { cleanHsfForExport } from '../../src/lib/hsfIO.js'
 import '../setup/wasm-warmup.js'
 
@@ -386,7 +386,8 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     const expanded = buildHsfRules(cfg, boostedTargets)
     assert(expanded.length > 1, 'Boosted minima should emit expanded permutations instead of collapsing')
   }
-  // Final Sell remainder rules must cover accessories without a set so the Rule Tester and exports match game behavior.
+  // Final Sell remainder emits only the selected mode's rules (one rule per milestone, all enabled).
+  // Default mode is explicit, so rules carry ArtifactSet lists including the no-set sentinel.
   {
     const substatTargets: SubstatTargetTable = { one: {}, two: {}, three: {}, four: {}, five: {}, six: {}, anyRankDefaultsTo: 6 }
     const merged = computeMergedRules({
@@ -396,18 +397,30 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       substatTargets,
       finalSellRemainder: { artifacts: false, accessories: true, levels: [0, 4, 8, 12, 16], setsMode: FINAL_SELL_DEFAULT_SETS_MODE },
     })
-    assert(merged.length === 10, 'Final Sell accessories: expected both coverage modes per milestone')
-    const enabled = merged.filter(rule => rule.Use)
-    assert(enabled.length === 5, 'Final Sell accessories: expected enabled rules per milestone')
-    enabled.forEach((rule, index) => {
-      assert(rule.ArtifactSet === undefined, `Final Sell accessories rule ${index} should omit explicit sets in Any mode`)
+    // One rule per selected milestone — inactive mode no longer emits disabled rows.
+    assert(merged.length === 5, 'Final Sell accessories: expected one rule per milestone (single active mode)')
+    merged.forEach((rule, index) => {
+      assert(rule.Use === true, `Final Sell accessories rule ${index} should be enabled`)
     })
+    // Default is explicit, so every rule carries an ArtifactSet list with the no-set sentinel.
     const explicitCoverage = merged.filter(rule => rule.__allKnownSets)
-    assert(explicitCoverage.length === 5, 'Final Sell accessories: expected explicit coverage fallback per milestone')
+    assert(explicitCoverage.length === 5, 'Final Sell accessories: all rules should be explicit-coverage rows in default explicit mode')
     explicitCoverage.forEach((rule, index) => {
       const sets = Array.isArray(rule.ArtifactSet) ? rule.ArtifactSet.map(Number) : []
       assert(sets.includes(ACCESSORY_NO_SET_ID), `Final Sell explicit accessories rule ${index} is missing the no-set sentinel`)
-      assert(rule.Use === false, 'Final Sell explicit coverage fallback should stay disabled when Any mode is selected')
+    })
+    // Verify any-mode emits no ArtifactSet and no disabled rows.
+    const anyMerged = computeMergedRules({
+      hsf: null,
+      customRecipes: [],
+      metasets: [],
+      substatTargets,
+      finalSellRemainder: { artifacts: false, accessories: true, levels: [0, 4, 8, 12, 16], setsMode: FINAL_SELL_SETS_MODE_ANY },
+    })
+    assert(anyMerged.length === 5, 'Final Sell accessories (any mode): expected one rule per milestone')
+    anyMerged.forEach((rule, index) => {
+      assert(rule.Use === true, `Final Sell accessories any-mode rule ${index} should be enabled`)
+      assert(rule.ArtifactSet === undefined, `Final Sell accessories any-mode rule ${index} should omit explicit sets`)
     })
   }
   console.log(`\n${passed} passed, ${failed} failed`)
