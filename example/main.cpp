@@ -196,9 +196,9 @@ int main(int argc, char* argv[]) {
     CHECK(json_array_nonempty(result, "rules"),
           "rules array must be non-empty");
 
-    /* Must have an upgradeChances field (may be empty when safeguards are off). */
-    CHECK(json_has_key(result, "upgradeChances"),
-          "output must contain an upgradeChances field");
+    /* Must have an improvementChances field (may be empty when safeguards are off). */
+    CHECK(json_has_key(result, "improvementChances"),
+          "output must contain an improvementChances field");
 
     /* At least one rule must have "Keep":true */
     CHECK(result.find("\"Keep\":true") != std::string::npos

@@ -4,7 +4,7 @@
  * Inline editor for a single SafeguardRule. Controls mirror BuilderPanel styling and layout:
  * - Row 1: Mode toggle + Required count
  * - Row 2: [Rank | Rarity | Faction Select (nested 3-col)] | [hidden level-window spacer col 3]
- * - Row 3: [Main stat toggles + perMainStat chip] | [Substats toggles + match chips + beat-equipped floor chip + weights]
+ * - Row 3: [Main stat toggles + perMainStat chip] | [Substats toggles + match chips + improvement-chance threshold chip + weights]
  * - Row 4: [Slots icon grid + perSlot chip] | [Sets selector + perSet chip]
  *
  * When no rule is selected the form renders disabled so the panel height remains stable.
@@ -40,7 +40,7 @@ import RedoIcon from '@mui/icons-material/Redo'
 import TuneIcon from '@mui/icons-material/Tune'
 import UndoIcon from '@mui/icons-material/Undo'
 import {
-  SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
+  SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD,
   SAFEGUARD_DEFAULT_COUNT_MODE,
   SAFEGUARD_SUBSTAT_MIN_COUNTS,
   SafeguardRuleActivation,
@@ -302,7 +302,7 @@ export default function SafeguardBuilderPanel({
   const multiSubstatsField = multiFields?.substats ?? null
   const multiSubstatMatchField = multiFields?.substatMatch ?? null
   const multiSubstatWeightsField = multiFields?.substatWeights ?? null
-  const multiBeatEquippedField = multiFields?.beatEquippedPercentile ?? null
+  const multiImprovementChanceField = multiFields?.improvementChanceThreshold ?? null
   // True when at least one field has a staged (unsaved) change.
   const multiDraftDirty = multiEditActive && multiFields
     ? Object.values(multiFields).some((field) => field?.dirty)
@@ -456,7 +456,7 @@ export default function SafeguardBuilderPanel({
   const [livePreviewCandidates, setLivePreviewCandidates] = useState<SafeguardCandidateOut[] | null>(null)
   // Ref used to cancel in-flight debounce timers when the popover closes or weights change quickly.
   const livePreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [beatEquippedAnchorEl, setBeatEquippedAnchorEl] = useState<HTMLElement | null>(null)
+  const [improvementChanceAnchorEl, setImprovementChanceAnchorEl] = useState<HTMLElement | null>(null)
   const [scaffoldAnchorEl, setScaffoldAnchorEl] = useState<HTMLElement | null>(null)
   // Tracks whether the Reset button is being hovered so all resettable sections
   // can show a red tint — mirrors RecipeBuilderPanel's hoverReset pattern.
@@ -527,28 +527,28 @@ export default function SafeguardBuilderPanel({
   const ignorePreviousSafeguards = rule?.ignorePreviousSafeguards !== false
   const ignoreEquippedInCollection = rule?.ignoreEquippedInCollection === true
   const ignoreEquippedInVault = rule?.ignoreEquippedInVault === true
-  // beatEquippedPercentile: null means disabled; a number (0–100) means active.
-  const beatEquippedPercentile = rule?.beatEquippedPercentile ?? null
-  const beatEquippedEnabled = beatEquippedPercentile !== null
+  // improvementChanceThreshold: null means disabled; a number (0–100) means active.
+  const improvementChanceThreshold = rule?.improvementChanceThreshold ?? null
+  const improvementChanceEnabled = improvementChanceThreshold !== null
 
-  // ── multi-edit derived display values for substat/beat-equipped chips ─────
+  // ── multi-edit derived display values for substat/improvement-chance chips ────
   // Staged substat match value: prefer staged if active, else live effective value.
   const displaySubstatMatch = multiEditActive
     ? (multiSubstatMatchField?.value as SafeguardSubstatMatch ?? effectiveSubstatMatch)
     : effectiveSubstatMatch
   // Mixed indicator: true when selection has differing values not yet staged.
   const substatMatchMixed = multiEditActive && multiSubstatMatchField?.status === 'mixed' && !multiSubstatMatchField.dirty
-  // Beat-equipped display and mixed state for multi-edit.
-  const displayBeatEquippedPercentile = multiEditActive
-    ? (multiBeatEquippedField?.value !== undefined && multiBeatEquippedField.value !== null
-      ? (multiBeatEquippedField.value as number)
-      : beatEquippedPercentile)
-    : beatEquippedPercentile
-  const beatEquippedMixed = multiEditActive && multiBeatEquippedField?.status === 'mixed' && !multiBeatEquippedField.dirty
+  // Improvement-chance display and mixed state for multi-edit.
+  const displayImprovementChanceThreshold = multiEditActive
+    ? (multiImprovementChanceField?.value !== undefined && multiImprovementChanceField.value !== null
+      ? (multiImprovementChanceField.value as number)
+      : improvementChanceThreshold)
+    : improvementChanceThreshold
+  const improvementChanceMixed = multiEditActive && multiImprovementChanceField?.status === 'mixed' && !multiImprovementChanceField.dirty
   // In multi-edit, enabled = any rule has it on OR it has been staged as a change.
-  const displayBeatEquippedEnabled = multiEditActive
-    ? (multiBeatEquippedField?.dirty ? displayBeatEquippedPercentile !== null : beatEquippedEnabled)
-    : beatEquippedEnabled
+  const displayImprovementChanceEnabled = multiEditActive
+    ? (multiImprovementChanceField?.dirty ? displayImprovementChanceThreshold !== null : improvementChanceEnabled)
+    : improvementChanceEnabled
 
   const handleScopeChipToggle = (scope: KeepOverrideScopeKey) => {
     updateRule((prev) => {
@@ -1468,7 +1468,7 @@ export default function SafeguardBuilderPanel({
             </Box>
           </Collapse>
         </FormControl>
-        {/* Substat match mode chips + weights button + beat-equipped quality floor — all inline */}
+        {/* Substat match mode chips + weights button + improvement-chance threshold — all inline */}
         <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
         {/* mt: 0.75 provides the same 6px spacing that the outer Box gap used to supply, but only
             while the Collapse is mounted — preventing phantom height when the section is collapsed. */}
@@ -1579,45 +1579,45 @@ export default function SafeguardBuilderPanel({
               </IconButton>
             </Box>
           </MarkdownTooltip>
-          {/* Beat-equipped quality floor chip woven with configure button.
-              Chip toggles the floor on/off; button opens the percentile popover.
+          {/* Improvement-chance threshold chip woven with configure button.
+              Chip toggles the threshold on/off; button opens the percentile popover.
               Same split-button pattern as Match: flat right side on chip, button attaches flush. */}
           <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-            <MarkdownTooltip markdown={t('safeguardsBeatEquippedPercentileHint')} ellipsisTitle={t('safeguardsBeatEquippedPercentile')} ellipsisSelector=".MuiChip-label">
+            <MarkdownTooltip markdown={t('safeguardsImprovementChanceThresholdHint')} ellipsisTitle={t('safeguardsImprovementChanceThreshold')} ellipsisSelector=".MuiChip-label">
               <Chip
                 size="small"
                 variant="filled"
-                label={beatEquippedMixed
-                  ? `${t('safeguardsBeatEquippedShort')}${NBSP}(${t('builderMultiEditMixedShort')})`
-                  : (displayBeatEquippedEnabled
-                    ? t('safeguardsBeatEquippedWithValue', { value: displayBeatEquippedPercentile ?? 50 })
-                    : t('safeguardsBeatEquippedShort'))}
-                aria-label={t('safeguardsBeatEquippedPercentile')}
+                label={improvementChanceMixed
+                  ? `${t('safeguardsImprovementChanceShort')}${NBSP}(${t('builderMultiEditMixedShort')})`
+                  : (displayImprovementChanceEnabled
+                    ? t('safeguardsImprovementChanceWithValue', { value: displayImprovementChanceThreshold ?? 50 })
+                    : t('safeguardsImprovementChanceShort'))}
+                aria-label={t('safeguardsImprovementChanceThreshold')}
                 clickable
                 disabled={!hasSubstatSelection && !multiEditActive}
                 onClick={() => {
                   if (!hasSubstatSelection && !multiEditActive) return
                   if (multiEditActive && multiEdit) {
                     // Toggle: null ↔ 50 in multi-edit mode.
-                    const next = displayBeatEquippedEnabled ? SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE : 50
-                    multiEdit.updateField('beatEquippedPercentile', { value: next, status: 'common' })
+                    const next = displayImprovementChanceEnabled ? SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD : 50
+                    multiEdit.updateField('improvementChanceThreshold', { value: next, status: 'common' })
                     return
                   }
                   // Single-edit toggle.
                   updateRule((prev) => ({
                     ...prev,
-                    beatEquippedPercentile: prev.beatEquippedPercentile !== null
-                      ? SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE
+                    improvementChanceThreshold: prev.improvementChanceThreshold !== null
+                      ? SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD
                       : 50,
                   }))
                 }}
                 sx={{
                   // Show enabled (green) color when mixed — mirrors the flex chip pattern.
-                  ...builderStatusChipSx(displayBeatEquippedEnabled || beatEquippedMixed, { dimDisabled: true }),
+                  ...builderStatusChipSx(displayImprovementChanceEnabled || improvementChanceMixed, { dimDisabled: true }),
                   // Flatten right corners so the configure button fits flush.
                   borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px 0 0 ${STATUS_CHIP_BORDER_RADIUS_PX}px`,
                   // Full mixed overlay: dashed border + hatched gradient + muted text.
-                  ...(beatEquippedMixed ? {
+                  ...(improvementChanceMixed ? {
                     borderStyle: 'dashed',
                     borderColor: mixedBorderColor,
                     color: mixedTextColor,
@@ -1629,12 +1629,12 @@ export default function SafeguardBuilderPanel({
             {/* Configure button — interactive when the floor is active or mixed across rules */}
             <IconButton
               size="small"
-              aria-label={t('safeguardsBeatEquippedPercentile')}
-              disabled={(!hasSubstatSelection && !multiEditActive) || (!displayBeatEquippedEnabled && !beatEquippedMixed)}
-              onClick={(e) => setBeatEquippedAnchorEl(e.currentTarget)}
+              aria-label={t('safeguardsImprovementChanceThreshold')}
+              disabled={(!hasSubstatSelection && !multiEditActive) || (!displayImprovementChanceEnabled && !improvementChanceMixed)}
+              onClick={(e) => setImprovementChanceAnchorEl(e.currentTarget)}
               sx={(theme) => {
                 // Treat mixed as effectively enabled so the button stays interactive.
-                const isEffectivelyEnabled = displayBeatEquippedEnabled || beatEquippedMixed
+                const isEffectivelyEnabled = displayImprovementChanceEnabled || improvementChanceMixed
                 const canInteract = (hasSubstatSelection || multiEditActive) && isEffectivelyEnabled
                 const chipEnabled = isEffectivelyEnabled
                 const bg = chipEnabled ? alpha(theme.palette.success.main, 0.18) : alpha(theme.palette.text.disabled, 0.08)
@@ -1651,8 +1651,8 @@ export default function SafeguardBuilderPanel({
                   borderLeft: `1px solid ${chipEnabled ? alpha(theme.palette.success.main, 0.28) : alpha(theme.palette.divider, 0.5)}`,
                   '&:hover': canInteract ? { backgroundColor: alpha(theme.palette.success.main, 0.28) } : {},
                   '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: alpha(color, 0.35) },
-                  // Mixed overlay when beat-equipped differs across selected rules.
-                  ...(beatEquippedMixed ? {
+                  // Mixed overlay when improvement-chance differs across selected rules.
+                  ...(improvementChanceMixed ? {
                     backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                     color: mixedTextColor,
                   } : {}),
@@ -2011,7 +2011,7 @@ export default function SafeguardBuilderPanel({
                 ignorePreviousSafeguards: rule.ignorePreviousSafeguards,
                 ignoreEquippedInCollection: rule.ignoreEquippedInCollection,
                 ignoreEquippedInVault: rule.ignoreEquippedInVault,
-                beatEquippedPercentile: rule.beatEquippedPercentile ?? null,
+                improvementChanceThreshold: rule.improvementChanceThreshold ?? null,
                 substats: rule.substats ?? [],
                 substatMatch: rule.substatMatch ?? SafeguardSubstatMatch.Min1,
                 substatWeights: rule.substatWeights ?? {},
@@ -2158,17 +2158,17 @@ export default function SafeguardBuilderPanel({
         </Box>
       </Popover>
 
-      {/* ── Beat-equipped quality floor configure popover ────────────────── */}
+      {/* ── Improvement-chance threshold configure popover ───────────────────── */}
       <Popover
-        open={Boolean(beatEquippedAnchorEl)}
-        anchorEl={beatEquippedAnchorEl}
-        onClose={() => setBeatEquippedAnchorEl(null)}
+        open={Boolean(improvementChanceAnchorEl)}
+        anchorEl={improvementChanceAnchorEl}
+        onClose={() => setImprovementChanceAnchorEl(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
       >
         <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.25 }}>
-            {t('safeguardsBeatEquippedPercentile')}
+            {t('safeguardsImprovementChanceThreshold')}
           </Typography>
           <TextField
             size="small"
@@ -2178,29 +2178,29 @@ export default function SafeguardBuilderPanel({
               startAdornment: <InputAdornment position="start">≥</InputAdornment>,
               endAdornment: (
                 <NumberSpinnerAdornment
-                  ariaLabel={t('safeguardsBeatEquippedPercentile')}
+                  ariaLabel={t('safeguardsImprovementChanceThreshold')}
                   onStep={(delta) => {
                     if (multiEditActive && multiEdit) {
-                      const current = displayBeatEquippedPercentile ?? 50
+                      const current = displayImprovementChanceThreshold ?? 50
                       const next = Math.max(0, Math.min(100, Math.floor(current + delta)))
-                      multiEdit.updateField('beatEquippedPercentile', { value: next, status: 'common' })
+                      multiEdit.updateField('improvementChanceThreshold', { value: next, status: 'common' })
                     } else {
                       updateRule((prev) => {
-                        const next = Math.max(0, Math.min(100, Math.floor((prev.beatEquippedPercentile ?? 50) + delta)))
-                        return { ...prev, beatEquippedPercentile: next }
+                        const next = Math.max(0, Math.min(100, Math.floor((prev.improvementChanceThreshold ?? 50) + delta)))
+                        return { ...prev, improvementChanceThreshold: next }
                       })
                     }
                   }}
                 />
               ),
             }}
-            value={displayBeatEquippedPercentile ?? 50}
+            value={displayImprovementChanceThreshold ?? 50}
             onChange={(event) => {
               const raw = Math.min(100, Math.max(0, Math.floor(Number(event.target.value) || 0)))
               if (multiEditActive && multiEdit) {
-                multiEdit.updateField('beatEquippedPercentile', { value: raw, status: 'common' })
+                multiEdit.updateField('improvementChanceThreshold', { value: raw, status: 'common' })
               } else {
-                updateRule((prev) => ({ ...prev, beatEquippedPercentile: raw }))
+                updateRule((prev) => ({ ...prev, improvementChanceThreshold: raw }))
               }
             }}
             sx={(themeInner) => ({

@@ -1100,7 +1100,7 @@ export type ReadableSafeguardRuleEntry = {
   ignoreEquippedInCollection?: boolean
   ignoreEquippedInVault?: boolean
   // Quality floor: 0–100 percentile of equipped collection gear the candidate must beat.
-  beatEquippedPercentile?: number
+  improvementChanceThreshold?: number
   tuple: ReadableSafeguardTuple
   substats?: string[]
   substatMatch?: string
@@ -1197,9 +1197,9 @@ export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSa
   // Only persist a name when it is non-empty.
   if (trimmedName) entry.name = trimmedName
   // Serialize quality floor only when the user has set it (non-null).
-  const rawPercentile = rule.beatEquippedPercentile
+  const rawPercentile = rule.improvementChanceThreshold
   if (typeof rawPercentile === 'number' && Number.isFinite(rawPercentile)) {
-    entry.beatEquippedPercentile = Math.max(0, Math.min(100, Math.floor(rawPercentile)))
+    entry.improvementChanceThreshold = Math.max(0, Math.min(100, Math.floor(rawPercentile)))
   }
   // Capture substat filters when they are present.
   if (hasSubstatSelection) entry.substats = substatLabels

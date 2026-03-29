@@ -102,7 +102,7 @@ export const GLYPH_FOR_ALL = '∀'        // "every" indicator for empty (any) s
 export const GLYPH_IGNORE_PREVIOUS = '⏩'    // skip/bypass previous safeguard results
 export const GLYPH_IGNORE_COLLECTION = '🏆'  // gear worn by collection champions
 export const GLYPH_IGNORE_VAULT = '🏦'       // gear worn by vault champions
-export const GLYPH_BEAT_EQUIPPED = '📈'      // beat-equipped quality floor chip
+export const GLYPH_IMPROVEMENT_CHANCE = '📈'     // improvement-chance threshold chip
 // Substat match chip glyphs — one per mode option.
 export const GLYPH_SUBSTAT_ANY = '🔀'  // any one selected substat qualifies
 export const GLYPH_SUBSTAT_ALL = '🔗'  // all selected substats must be present
@@ -520,11 +520,11 @@ export const GEAR_INSPECTOR_GRID_SHOW_RULE_TEMPLATES_KEY = 'sellfileCreator.gear
 // Gear Inspector grid: keep/sell outcome background emphasis toggle.
 // Why: this is view-only card styling and should persist across sessions like other grid toggles.
 export const GEAR_INSPECTOR_GRID_HIGHLIGHT_KEEP_SELL_KEY = 'sellfileCreator.gearInspector.grid.highlightKeepSell.v1'
-// Gear Inspector grid: safeguard upgrade chance overlay toggle.
+// Gear Inspector grid: safeguard improvement chance overlay toggle.
 // Why: the overlay is view-only and should persist across sessions like other grid display toggles.
-export const GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY = 'sellfileCreator.gearInspector.grid.showSafeguardUpgradeChance.v1'
+export const GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_IMPROVEMENT_CHANCE_KEY = 'sellfileCreator.gearInspector.grid.showSafeguardImprovementChance.v1'
 // Gear Inspector grid: safeguard rank chip overlay toggle.
-// Why: rank is a secondary overlay; users may want upgrade chance without rank for a cleaner view.
+// Why: rank is a secondary overlay; users may want improvement chance without rank for a cleaner view.
 export const GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_RANK_KEY = 'sellfileCreator.gearInspector.grid.showSafeguardRank.v1'
 // Gear Inspector grid: substat sorting controls.
 // Why: Sorting is view-only (like filters) but should persist across sessions.

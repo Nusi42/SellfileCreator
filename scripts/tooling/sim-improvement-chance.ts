@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * sim-upgrade-chance.ts
+ * sim-improvement-chance.ts
  *
  * Simulate safeguard improvement chance for a specific item at a modified
  * level/substat value, using the real SFR + DB pipeline.
  *
- * Usage: node sim-upgrade-chance.js --sfr examples/example.sfr --db examples/um109288203_RSLHelper.db
+ * Usage: node sim-improvement-chance.js --sfr examples/example.sfr --db examples/um109288203_RSLHelper.db
  */
 import { cp, mkdir, readFile } from 'node:fs/promises'
 import { resolve as resolvePath } from 'node:path'
@@ -21,7 +21,7 @@ import {
 import { importGearDatabaseFromArrayBuffer } from '../../src/lib/importers/gearDbImporter.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../../src/lib/importers/gearDbNormalizer.js'
 import type { Metaset } from '../../src/lib/metasets.js'
-import { buildSafeguardUpgradeChanceByArtifactId } from '../../src/lib/safeguardUpgradeChance.js'
+import { buildSafeguardImprovementChanceByArtifactId } from '../../src/lib/safeguardImprovementChance.js'
 import { warmupWasmRuleEngine } from '../../src/lib/wasm/wasmRuleEngine.js'
 import { StatVariant } from '../../src/lib/types.js'
 import { normalizeSubstatByMax6 } from '../../src/lib/substatRollNormalization.js'
@@ -143,7 +143,7 @@ const run = async (): Promise<void> => {
 
   // Run improvement chance (unpatched = level 16 as-is)
   console.log(`\n--- Improvement chance at current level (${target.exactLevel ?? target.level}) ---`)
-  const unpatched = buildSafeguardUpgradeChanceByArtifactId(gear, safeguardRules)
+  const unpatched = buildSafeguardImprovementChanceByArtifactId(gear, safeguardRules)
   const unpatchedEntry = unpatched.get(TARGET_ARTIFACT_ID)
   console.log(`chancePercent: ${unpatchedEntry?.chancePercent ?? 'N/A'}`)
   console.log(`hasMatchingSafeguard: ${unpatchedEntry?.hasMatchingSafeguard ?? 'N/A'}`)
@@ -155,7 +155,7 @@ const run = async (): Promise<void> => {
 
   // Run improvement chance (patched = level 12, CDMG=12%)
   console.log(`\n--- Improvement chance at level 12, CDMG=${MODIFIED_CDMG_PERCENT}% ---`)
-  const result = buildSafeguardUpgradeChanceByArtifactId(patchedGear, safeguardRules)
+  const result = buildSafeguardImprovementChanceByArtifactId(patchedGear, safeguardRules)
   const entry = result.get(TARGET_ARTIFACT_ID)
   console.log(`chancePercent: ${entry?.chancePercent ?? 'N/A'}`)
   console.log(`hasMatchingSafeguard: ${entry?.hasMatchingSafeguard ?? 'N/A'}`)

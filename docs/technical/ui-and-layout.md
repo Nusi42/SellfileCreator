@@ -278,6 +278,7 @@ Safeguards are edited in a dedicated builder mode accessed via the builder-colum
 - **Scaffold from recipe**: a popover lists existing recipe configs; selecting one pre-fills the safeguard combination from that recipe's slot/set/faction/mainstat selectors, giving a quick starting point.
 - **Metasets**: the Sets picker uses the same filtered set pool as `RecipeBuilderPanel` via `useKeepOverrideCombinationTools`; the Manage Metasets entry point is forwarded from `App.tsx`.
 - **Auto-enable**: the first inserted safeguard rule automatically enables the Safeguards feature.
+- **Improvement chance threshold** (`improvementChanceThreshold`): optional quality gate (0–100 or null). When set, the detection pass only protects pieces whose precomputed improvement chance meets or exceeds the threshold. The improvement chance is computed in a dedicated pre-pass (`buildSafeguardImprovementChanceByArtifactId` in `safeguardImprovementChance.ts`) before detection runs; results are passed to the WASM detection call as `improvementChances`. The control renders as a popover-backed chip in the builder; `null` disables gating entirely (top-N selection remains active).
 - **Empty state**: when no rule is selected the form renders disabled so the panel height remains stable.
 - **Candidate rank list** (`SafeguardCandidateRankList`): the sort-weight popover in Row 3 includes a scrollable candidate list powered by detection data. It renders scored candidates windowed around the quota cutoff — the last few kept items appear before the divider and the first few sold items after it, so users can immediately identify borderline pieces. When no detection data is available yet, the list shows a placeholder. When substats are configured but detection hasn't run, per-roll weight hints are shown instead. Hovering a row previews the gear card (same `GEAR_DB_DIFF_TOAST_CARD_SCALE = 0.7` scale as the DB-update toast). Clicking a row resolves the safeguard item key to an artifact id and navigates to that item in the Gear Inspector (`handleSafeguardCandidateSelect`). When Gear Inspector filters are active, candidates are dimmed: rows whose first match is *this* safeguard rule dim to `0.75` (still clearly readable); all other filtered rows dim to `0.4`. Unfiltered rows are always `1.0` — above/below the cutoff line is the only quota distinction shown.
   - **Tooltips on section labels**: the "Weights" label and the "Candidates" label are each wrapped in a `MarkdownTooltip`. The candidates tooltip clarifies that items below the cutoff fall outside *this* rule's quota but may still be kept by another safeguard or recipe match.
@@ -297,7 +298,7 @@ Cards in `GearInspectorItemsGrid` support up to three stacked overlay chips rend
 
 | Prop | Signal | Notes |
 | --- | --- | --- |
-| `topOverlay` | Safeguard upgrade chance % | Color-coded by normalized chance (red→green). |
+| `topOverlay` | Safeguard improvement chance % | Color-coded by normalized chance (red→green). |
 | `centerOverlay` | Safeguard rank #N | Green = kept (within quota), red = sold. Omitted when `showSafeguardRank` toggle is off. |
 | `bottomOverlay` | Normalized substat rating score | Same color scale as sort presets. |
 
@@ -321,7 +322,7 @@ Cards in `GearInspectorItemsGrid` support up to three stacked overlay chips rend
 ```ts
 const overlaySlotCount = Math.max(1, Math.min(3,
   (normalizedOverlayEnabled ? 1 : 0) +
-  (showSafeguardUpgradeChance ? 1 : 0) +
+  (showSafeguardImprovementChance ? 1 : 0) +
   (showSafeguardRank && safeguardRankByArtifactId != null ? 1 : 0),
 )) as 1 | 2 | 3
 ```
@@ -334,7 +335,7 @@ Each overlay chip carries its own tooltip content via `tooltipMarkdown` and `too
 
 **Card icon tooltip scope** — `GearInspectorGridCard` now limits the gear icon tooltip to last-use info and dev artifact id only:
 - Merge logic: `[lastUseTooltip, devArtifactIdTooltip].filter(Boolean).join('\n\n---\n\n')`.
-- Upgrade-chance breakdown and safeguard rank table are surfaced on the chips themselves, not the card icon.
+- Improvement-chance breakdown and safeguard rank table are surfaced on the chips themselves, not the card icon.
 
 **Chip tooltip fields (on `OverlayChip`):**
 - `tooltipMarkdown?: string` — plain markdown shown on chip hover; rendered by `MarkdownTooltip`.
@@ -342,7 +343,7 @@ Each overlay chip carries its own tooltip content via `tooltipMarkdown` and `too
 
 **Rank chip tooltip** — rendered as JSX (`tooltipRender`): a localized `safeguardRankTooltipTitle` header followed by a vertical list of rank rows. The primary rule is bold (`#N Rule Name`); up to 3 additional rules where the item is also a candidate follow in plain weight.
 
-**Upgrade-chance chip tooltip** — markdown string derived from localized keys (`gearInspectorGridSafeguardChanceTooltipHeader`, `gearInspectorGridSafeguardChanceTooltipProjection`, `gearInspectorGridSafeguardChanceTooltipDataset`).
+**Improvement-chance chip tooltip** — markdown string derived from localized keys (`gearInspectorGridSafeguardChanceTooltipHeader`, `gearInspectorGridSafeguardChanceTooltipProjection`, `gearInspectorGridSafeguardChanceTooltipDataset`).
 
 ### Safeguard Candidate List Display Flag Wiring
 

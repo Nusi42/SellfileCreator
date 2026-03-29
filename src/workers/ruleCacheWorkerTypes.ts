@@ -7,7 +7,7 @@ import type { SafeguardDetectionSnapshot, SafeguardsMergeInput } from '../lib/sa
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { GearInspectorMatchWorkerItemResult } from './gearInspectorMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
-import type { UpgradeChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
+import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
 
 export type RuleCacheBuilderCountRequest = {
   id: number
@@ -44,7 +44,7 @@ export type RuleCachePipelineRequest = {
     artifacts: NormalizedGearArtifact[]
     emitProgressEvents?: boolean
     // When true, compute improvement-chance percentages for non-maxed artifacts.
-    computeUpgradeChance: boolean
+    computeImprovementChance: boolean
   }
 }
 
@@ -62,9 +62,9 @@ export type RuleCachePipelineResponse = {
     excludedByTotalLimitIndices: number[]
     matches: GearInspectorMatchWorkerItemResult[]
     safeguardDetection: SafeguardDetectionSnapshot | null
-    // Flat array of upgrade-chance entries; null when computeUpgradeChance was false.
+    // Flat array of improvement-chance entries; null when computeImprovementChance was false.
     // Receiver reconstructs Map<artifactId, entry> to avoid structured-clone Map issues.
-    upgradeChanceEntries: UpgradeChanceWasmEntry[] | null
+    improvementChanceEntries: ImprovementChanceWasmEntry[] | null
   }
 }
 

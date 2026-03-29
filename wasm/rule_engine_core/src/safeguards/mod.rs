@@ -5,9 +5,9 @@ use crate::SafeguardCollectedAndProtectedSnapshotOut;
 // Fast-path input types and conversion functions live in a dedicated submodule
 // to keep this file focused on rule resolution and scoring logic.
 pub mod fast_path_types;
-// Upgrade-chance probabilistic computation lives in its own submodule so the
+// Improvement-chance probabilistic computation lives in its own submodule so the
 // recursion and scenario-building logic stay separated from snapshot evaluation.
-pub mod upgrade_chance;
+pub mod improvement_chance;
 // Re-export pub(crate) structs that lib.rs imports via `use safeguards::*`.
 pub use fast_path_types::SafeguardWasmArtifactIn;
 // Pull in internal types and conversion helpers used by the functions below.
@@ -214,14 +214,11 @@ pub struct SafeguardWasmRuleIn {
     pub substat_match: Option<String>,
     #[serde(default, deserialize_with = "safeguard_deserialize_optional_i64_weight_map")]
     pub substat_weights: Option<HashMap<i64, f64>>,
-    // Pre-computed quality floor passed from TypeScript; None = disabled.
-    // Candidates scoring below this threshold are rejected (collection-equipped exempt).
+    // Minimum improvement-chance percentage a piece must have to be protected by this rule.
+    // When set, only pieces whose precomputed improvement chance meets this threshold are
+    // selected; when None, standard top-N ranking by projected score is used instead.
     #[serde(default)]
-    pub equipped_floor_score: Option<f64>,
-    // Raw percentile from the TS SafeguardRule; passed through the metaset resolver
-    // unchanged so TS can compute equippedFloorScore after resolution.
-    #[serde(default)]
-    pub beat_equipped_percentile: Option<f64>,
+    pub improvement_chance_threshold: Option<f64>,
 }
 
 // Resolved safeguard rule payload returned after metaset expansion in lib.rs.
@@ -240,9 +237,8 @@ pub struct SafeguardWasmResolvedRuleOut {
     pub substats: Vec<i64>,
     pub substat_match: String,
     pub substat_weights: HashMap<String, f64>,
-    // Quality floor passed through unchanged so the TS pipeline can pre-compute
-    // equippedFloorScore after metaset resolution. None = disabled.
-    pub beat_equipped_percentile: Option<f64>,
+    // Improvement-chance threshold echoed back to TypeScript for UI display. None = disabled.
+    pub improvement_chance_threshold: Option<f64>,
 }
 
 // Canonical metaset-id list is sorted and deduped for deterministic hashes.
@@ -450,8 +446,8 @@ struct SafeguardWasmPreparedRule {
     ignore_previous_safeguards: bool,
     ignore_equipped_in_collection: bool,
     ignore_equipped_in_vault: bool,
-    // Pre-computed quality floor score from TypeScript; None = disabled.
-    equipped_floor_score: Option<f64>,
+    // Minimum improvement-chance percentage threshold; None = use top-N ranking instead.
+    improvement_chance_threshold: Option<f64>,
     selected_substats: Vec<i64>,
     substat_match: String,
     weights: HashMap<i64, f64>,
@@ -489,7 +485,7 @@ struct SafeguardWasmGroupBucket {
 
 // Count grouping keys stay typed internally so grouped scans do not allocate
 // repeated `slot:x|set:y|...` strings in hot loops.
-// pub(super) so upgrade_chance submodule can build count keys without allocating.
+// pub(super) so improvement_chance submodule can build count keys without allocating.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(super) enum SafeguardCountKey {
     Global,
@@ -552,7 +548,7 @@ pub struct SafeguardWasmGroupKeyArtifactIn {
     main_stat: Option<SafeguardWasmMainStatRawIn>,
 }
 
-// pub(super) so upgrade_chance submodule can derive faction-bucketing flags.
+// pub(super) so improvement_chance submodule can derive faction-bucketing flags.
 pub(super) fn safeguard_is_accessory_slot(slot: i64) -> bool {
     // Accessories are the only slots where faction grouping applies.
     // Artifact slots always collapse to faction 0 in safeguard logic.
@@ -660,7 +656,7 @@ fn safeguard_normalize_weight(raw: f64) -> f64 {
     (stepped * 100.0).round() / 100.0
 }
 
-// pub(super) so upgrade_chance can compute fallback roll gains and normalization.
+// pub(super) so improvement_chance can compute fallback roll gains and normalization.
 pub(super) fn safeguard_substat_max6_by_variant(variant: i64) -> f64 {
     // Use the canonical 6-star per-roll maxima for normalized scoring.
     // Unknown variants return 0 to disable normalized contribution.
@@ -680,7 +676,7 @@ pub(super) fn safeguard_substat_max6_by_variant(variant: i64) -> f64 {
     }
 }
 
-// pub(super) so upgrade_chance can normalize state values for scoring.
+// pub(super) so improvement_chance can normalize state values for scoring.
 pub(super) fn safeguard_normalize_substat_value(variant: i64, value: f64) -> f64 {
     // Normalize every substat by the canonical 6-star max roll total.
     let max = safeguard_substat_max6_by_variant(variant);
@@ -696,7 +692,7 @@ pub(super) fn safeguard_normalize_substat_value(variant: i64, value: f64) -> f64
     (value / max).max(0.0)
 }
 
-// pub(super) so upgrade_chance can replicate the tie-break percent→flat mapping.
+// pub(super) so improvement_chance can replicate the tie-break percent→flat mapping.
 pub(super) fn safeguard_percent_to_flat_main(variant: i64) -> Option<i64> {
     // Map percent mains to their flat counterpart for tie-priority logic.
     // Non HP/ATK/DEF mains have no flat companion and return None.
@@ -746,7 +742,7 @@ pub fn safeguard_normalize_set_selections(
     normalized
 }
 
-// pub(super) so upgrade_chance can build include/exclude set lookups for rule filters.
+// pub(super) so improvement_chance can build include/exclude set lookups for rule filters.
 pub(super) fn safeguard_split_set_selections(values: &[SafeguardWasmSetSelection]) -> (HashSet<i64>, HashSet<i64>) {
     // Normalize first so duplicates/exclusions are already resolved.
     let normalized = safeguard_normalize_set_selections(values);
@@ -1902,7 +1898,7 @@ fn safeguard_build_placeholder_rules(
     rules
 }
 
-// pub(super) so upgrade_chance can skip disabled rules using the shared token check.
+// pub(super) so improvement_chance can skip disabled rules using the shared token check.
 pub(super) fn safeguard_is_activation_off(raw: &str) -> bool {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
@@ -2152,7 +2148,7 @@ fn safeguard_build_placeholder(
     }
 }
 
-// pub(super) so upgrade_chance can apply combination filters using the shared wildcard logic.
+// pub(super) so improvement_chance can apply combination filters using the shared wildcard logic.
 pub(super) fn safeguard_matches_selection(selection: &[i64], candidate: i64) -> bool {
     // Empty selection means wildcard dimension.
     if selection.is_empty() {
@@ -2172,16 +2168,6 @@ fn safeguard_artifact_matches_rule(
     }
     if rule.ignore_equipped_in_vault && artifact.equipped_in_vault {
         return false;
-    }
-    // Quality floor: collection-equipped pieces are the reference and always pass.
-    // Skip the check for low-level gear (<12); upgrade-chance handles those.
-    if let Some(floor_score) = rule.equipped_floor_score {
-        if !artifact.equipped_in_collection && artifact.level >= 12 {
-            let score = safeguard_compute_score(artifact, &rule.selected_substats, &rule.weights);
-            if score < floor_score {
-                return false;
-            }
-        }
     }
     // Slot filter is always evaluated first to fail fast.
     if !safeguard_matches_selection(&rule.combination.slots, artifact.slot) {
@@ -2276,7 +2262,7 @@ fn safeguard_candidate_matches_substats(
     matched >= effective_required
 }
 
-// pub(super) so upgrade_chance can resolve weights with the shared fallback rule.
+// pub(super) so improvement_chance can resolve weights with the shared fallback rule.
 pub(super) fn safeguard_weight_for_variant(weights: &HashMap<i64, f64>, variant: i64) -> f64 {
     // Missing entries fall back to canonical default weight.
     weights
@@ -2300,7 +2286,7 @@ fn safeguard_stat_value_for_variant(artifact: &SafeguardWasmArtifactIn, variant:
     0.0
 }
 
-// pub(super) so upgrade_chance can compute current-level scores for floor checks + debug.
+// pub(super) so improvement_chance can use current-level scores for debug/internal purposes.
 pub(super) fn safeguard_compute_score(
     artifact: &SafeguardWasmArtifactIn,
     selected_substats: &[i64],
@@ -2462,7 +2448,7 @@ fn safeguard_count_key(artifact: &SafeguardWasmArtifactIn, mode: SafeguardWasmCo
     )
 }
 
-// pub(super) so upgrade_chance can build count keys to bucket challengers correctly.
+// pub(super) so improvement_chance can build count keys to bucket challengers correctly.
 pub(super) fn safeguard_count_key_from_parts(
     slot: i64,
     set: i64,
@@ -2494,7 +2480,7 @@ pub(super) fn safeguard_count_key_from_parts(
     }
 }
 
-// pub(super) so upgrade_chance can stringify count keys for HashMap bucket lookups.
+// pub(super) so improvement_chance can stringify count keys for HashMap bucket lookups.
 pub(super) fn safeguard_count_key_to_string(key: &SafeguardCountKey) -> String {
     // Global bucket keeps the historical token for TS parity.
     let SafeguardCountKey::Scoped {
@@ -2630,6 +2616,8 @@ fn safeguard_build_entry_for_substats(
     candidate_sold_state: &[bool],
     selected_substats: &[i64],
     substat_match: &str,
+    // Pre-computed improvement chances keyed by artifact id; used when improvement_chance_threshold is set.
+    improvement_chances: &HashMap<i64, u8>,
 ) -> SafeguardWasmEntryEvalOut {
     // Presence of selected substats toggles ranking/scoring mode.
     let has_substat_filter = !selected_substats.is_empty();
@@ -2689,8 +2677,10 @@ fn safeguard_build_entry_for_substats(
             .iter()
             .filter_map(|candidate_idx| {
                 let candidate = &candidates[*candidate_idx];
-                let score =
-                    safeguard_compute_score(&candidate.artifact, selected_substats, &prepared_rule.weights);
+                // Score by projected-to-16 expected value so unleveled pieces compete fairly.
+                let score = improvement_chance::compute_projected_challenger_score(
+                    &candidate.artifact, selected_substats, &prepared_rule.weights,
+                );
                 if score <= 0.0 {
                     return None;
                 }
@@ -2785,9 +2775,24 @@ fn safeguard_build_entry_for_substats(
                 deficit += deficit_group;
                 continue;
             }
-            // Select top required entries with tie-boundary extension.
-            let selected =
-                safeguard_select_top_scored_candidates(&bucket, required_per_group, candidates);
+            // Select candidates: threshold mode keeps all whose improvement chance meets the bar;
+            // standard mode selects top-N by projected score with tie-boundary extension.
+            let selected: Vec<SafeguardWasmScoredCandidate> =
+                if let Some(threshold) = prepared_rule.improvement_chance_threshold {
+                    bucket
+                        .iter()
+                        .filter(|e| {
+                            let art_id =
+                                candidates[e.candidate_idx].artifact.id.unwrap_or(-1);
+                            improvement_chances
+                                .get(&art_id)
+                                .map_or(false, |&ch| (ch as f64) >= threshold)
+                        })
+                        .cloned()
+                        .collect()
+                } else {
+                    safeguard_select_top_scored_candidates(&bucket, required_per_group, candidates)
+                };
             // Collect entire bucket for output ranking (all candidates, not just selected).
             raw_candidates_for_output.extend(bucket.iter().cloned());
             // Artifact metadata covers ALL bucket candidates so the UI can look up slot/set
@@ -3281,6 +3286,9 @@ fn compute_safeguard_protection_core(
     expected_payload: SafeguardWasmExpectedGroupsPayloadIn,
     enabled: bool,
     now: f64,
+    // Pre-computed improvement chances keyed by artifact id. Populated before detection when
+    // at least one rule uses improvement_chance_threshold; empty map disables threshold gating.
+    improvement_chances: &HashMap<i64, u8>,
 ) -> SafeguardWasmSnapshotOut {
     // Baseline state never changes; per-rule toggle can opt to read from it.
     let baseline_candidate_sold_state = parsed_candidates
@@ -3317,8 +3325,8 @@ fn compute_safeguard_protection_core(
             let ignore_equipped_in_vault = rule
                 .ignore_equipped_in_vault
                 .unwrap_or(SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT);
-            // Preserve the pre-computed floor score from TypeScript; None disables it.
-            let equipped_floor_score = rule.equipped_floor_score.filter(|v| v.is_finite());
+            // Preserve the improvement-chance threshold; clamp to a finite value or None.
+            let improvement_chance_threshold = rule.improvement_chance_threshold.filter(|v| v.is_finite());
             // Required count is clamped to at least one.
             let required_per_group = rule.required_count.unwrap_or(1).max(1);
             // Normalize match mode token for deterministic branching.
@@ -3364,7 +3372,7 @@ fn compute_safeguard_protection_core(
                 ignore_previous_safeguards,
                 ignore_equipped_in_collection,
                 ignore_equipped_in_vault,
-                equipped_floor_score,
+                improvement_chance_threshold,
                 selected_substats,
                 substat_match,
                 weights,
@@ -3401,6 +3409,7 @@ fn compute_safeguard_protection_core(
                         candidate_sold_state,
                         &[*variant],
                         SAFEGUARD_SUBSTAT_ANY,
+                        improvement_chances,
                     )
                 })
                 .collect::<Vec<_>>();
@@ -3422,6 +3431,7 @@ fn compute_safeguard_protection_core(
                 candidate_sold_state,
                 &prepared_rule.selected_substats,
                 effective_match,
+                improvement_chances,
             )
         };
         rule_ordinal += 1;
@@ -3451,6 +3461,8 @@ pub fn compute_safeguard_protection_core_pub(
     expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
     enabled: bool,
     now: f64,
+    // Pre-computed improvement chances; empty map disables threshold gating entirely.
+    improvement_chances: HashMap<i64, u8>,
 ) -> SafeguardWasmSnapshotOut {
     // Parse candidates from fast-path format.
     let parsed_candidates = safeguard_parse_candidates_payload(fast_candidates);
@@ -3465,6 +3477,7 @@ pub fn compute_safeguard_protection_core_pub(
         resolved_payload,
         enabled,
         now,
+        &improvement_chances,
     )
 }
 
@@ -3480,6 +3493,8 @@ pub fn collect_and_compute_safeguard_protection_core(
     expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
     enabled: bool,
     now: f64,
+    // Pre-computed improvement chances; empty map disables threshold gating entirely.
+    improvement_chances: HashMap<i64, u8>,
 ) -> Result<SafeguardCollectedAndProtectedSnapshotOut, String> {
     // Resolve expected groups payload (None = empty default).
     let expected_payload = parse_safeguard_expected_groups_payload(expected_payload);
@@ -3514,6 +3529,7 @@ pub fn collect_and_compute_safeguard_protection_core(
         expected_payload,
         enabled,
         now,
+        &improvement_chances,
     );
     // Return both candidate and detection payloads for TS call sites.
     Ok(SafeguardCollectedAndProtectedSnapshotOut {
@@ -3535,6 +3551,8 @@ pub fn compute_safeguard_protection_from_collected_core(
     expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
     enabled: bool,
     now: f64,
+    // Pre-computed improvement chances; empty map disables threshold gating entirely.
+    improvement_chances: HashMap<i64, u8>,
 ) -> SafeguardWasmSnapshotOut {
     // Resolve expected groups payload (None = empty default).
     let expected = parse_safeguard_expected_groups_payload(expected_payload);
@@ -3549,7 +3567,14 @@ pub fn compute_safeguard_protection_from_collected_core(
             artifact: rows[candidate.row_index].artifact.clone(),
         })
         .collect::<Vec<_>>();
-    compute_safeguard_protection_core(protection_candidates, safeguard_rules, expected, enabled, now)
+    compute_safeguard_protection_core(
+        protection_candidates,
+        safeguard_rules,
+        expected,
+        enabled,
+        now,
+        &improvement_chances,
+    )
 }
 
 // Input payload for live preview scoring in the weight-configuration popover.

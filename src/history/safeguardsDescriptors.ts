@@ -44,7 +44,7 @@ type SafeguardRuleSignature = {
   substatMatch: SafeguardSubstatMatch
   substatWeights: Array<[number, number]>
   // Quality floor — null means disabled.
-  beatEquippedPercentile: number | null
+  improvementChanceThreshold: number | null
 }
 
 // isSafeguardRuleOrderChanged flags pure reorders so history can record them.
@@ -280,7 +280,7 @@ function buildSafeguardRuleSignature(rule: SafeguardRule): SafeguardRuleSignatur
     substatMatch: normalizedSubstatMatch,
     substatWeights: weightEntries,
     // Normalize the quality floor so null and undefined both map to null.
-    beatEquippedPercentile: rule.beatEquippedPercentile ?? null,
+    improvementChanceThreshold: rule.improvementChanceThreshold ?? null,
   }
 }
 
@@ -327,8 +327,8 @@ function safeguardRuleSignaturesEqual(left: SafeguardRuleSignature, right: Safeg
     const rw = right.substatWeights[idx]!
     if (lw[0] !== rw[0] || lw[1] !== rw[1]) return false
   }
-  // Compare quality floor so toggling beat-equipped is never a no-op.
-  if (left.beatEquippedPercentile !== right.beatEquippedPercentile) return false
+  // Compare improvement-chance threshold so toggling it is never a no-op.
+  if (left.improvementChanceThreshold !== right.improvementChanceThreshold) return false
   return true
 }
 
@@ -542,14 +542,14 @@ function buildSafeguardRuleDiffLines(
       pushDiffLine(detailLines, t, t('safeguardsSubstatWeightsLabel'), prevWeights || t('historyValueEmpty'), nextWeights || t('historyValueEmpty'))
     }
   }
-  // Compare quality floor so enabling/disabling beat-equipped appears in history.
-  const prevFloor = previous.beatEquippedPercentile ?? null
-  const nextFloor = next.beatEquippedPercentile ?? null
+  // Compare improvement-chance threshold so enabling/disabling it appears in history.
+  const prevFloor = previous.improvementChanceThreshold ?? null
+  const nextFloor = next.improvementChanceThreshold ?? null
   if (prevFloor !== nextFloor) {
     pushDiffLine(
       detailLines,
       t,
-      t('safeguardsBeatEquippedPercentile'),
+      t('safeguardsImprovementChanceThreshold'),
       prevFloor === null ? t('historyValueEmpty') : `≥ ${prevFloor}%`,
       nextFloor === null ? t('historyValueEmpty') : `≥ ${nextFloor}%`,
     )

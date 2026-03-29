@@ -105,10 +105,10 @@ pub use safeguards::fast_path_types::{
     SafeguardCollectRowFastIn,
     SafeguardWasmCandidateFastIn,
 };
-pub use safeguards::upgrade_chance::{
-    compute_upgrade_chance_core,
-    UpgradeChanceDebug,
-    UpgradeChanceEntry,
+pub use safeguards::improvement_chance::{
+    compute_improvement_chance_core,
+    ImprovementChanceDebug,
+    ImprovementChanceEntry,
 };
 pub use hsf_builder_execution::{
     prepare_hsf_builder_recipe_core_fn,
@@ -883,9 +883,8 @@ pub fn resolve_safeguard_rules_with_metasets_core(
                 .into_iter()
                 .map(|(variant, weight)| (variant.to_string(), weight))
                 .collect::<HashMap<String, f64>>(),
-            // Pass the raw percentile through so the TS pipeline can pre-compute
-            // equippedFloorScore after metaset resolution with the full artifact list.
-            beat_equipped_percentile: rule.beat_equipped_percentile.filter(|v| v.is_finite()),
+            // Echo threshold back to TS so the UI can display the configured value.
+            improvement_chance_threshold: rule.improvement_chance_threshold.filter(|v| v.is_finite()),
         });
     }
     resolved
@@ -1102,6 +1101,8 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
     expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
     enabled: bool,
     now: f64,
+    // Pre-computed improvement chances keyed by artifact id. Empty map disables threshold gating.
+    improvement_chances: HashMap<i64, u8>,
 ) -> Result<EvaluateAndCollectSnapshotOut, String> {
     ENGINE_STATE.with(|state| {
         let guard = state.borrow();
@@ -1221,6 +1222,7 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
             expected_payload,
             enabled,
             now,
+            improvement_chances,
         );
 
         Ok(EvaluateAndCollectSnapshotOut {
@@ -1232,13 +1234,13 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
     })
 }
 
-// Engine-level upgrade-chance entry point.
+// Engine-level improvement-chance entry point.
 // Reads ENGINE_STATE.stored_rows (must be populated via store_artifact_rows_engine)
-// and delegates probability computation to the upgrade_chance submodule.
-pub fn compute_upgrade_chance_engine(
+// and delegates probability computation to the improvement_chance submodule.
+pub fn compute_improvement_chance_engine(
     rules: Vec<SafeguardWasmRuleIn>,
     enabled: bool,
-) -> Result<Vec<UpgradeChanceEntry>, String> {
+) -> Result<Vec<ImprovementChanceEntry>, String> {
     ENGINE_STATE.with(|state| {
         let guard = state.borrow();
         let engine = guard
@@ -1248,7 +1250,7 @@ pub fn compute_upgrade_chance_engine(
             .stored_rows
             .as_ref()
             .ok_or("WASM artifact rows are not stored; call store_artifact_rows_value first")?;
-        Ok(compute_upgrade_chance_core(rows, rules, enabled))
+        Ok(compute_improvement_chance_core(rows, rules, enabled))
     })
 }
 

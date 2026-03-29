@@ -67,7 +67,7 @@ import {
   sanitizeSafeguardCountMode,
   type SafeguardRule,
 } from '../lib/safeguards'
-import type { UpgradeChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
+import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
 import EmptyStateMessage, { type EmptyStateMessageProps } from './EmptyStateMessage'
 import {
   computeGearInspectorNormalizedSubstatScore,
@@ -75,7 +75,7 @@ import {
   sortGearInspectorRowsBySubstats,
   GEAR_INSPECTOR_GROUPING_DEFAULT_STATE,
   isDefaultGearInspectorGroupingState,
-  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE,
+  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE,
   GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK,
   type GearInspectorGroupingState,
   type GearInspectorSubstatSortSpec,
@@ -132,7 +132,7 @@ type GearInspectorItemsGridProps = {
   // Optional unfiltered source rows so group chips can show filtered/total pairs.
   allRows?: readonly GearInspectorPreviewRow[]
   // Pre-computed improvement-chance map from the WASM worker pipeline; null when not computed.
-  upgradeChanceByArtifactId?: Map<number, UpgradeChanceWasmEntry> | null
+  improvementChanceByArtifactId?: Map<number, ImprovementChanceWasmEntry> | null
   filterActive?: boolean
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors?: boolean
@@ -175,7 +175,7 @@ type GearInspectorItemsGridProps = {
   sortState?: GearInspectorSubstatSortState | null
   // Grouping settings for the Gear Inspector grid; independent of sorting.
   grouping?: GearInspectorGroupingState
-  // Resolved safeguard rules used for tooltip rule-name lookup in the upgrade-chance overlay.
+  // Resolved safeguard rules used for tooltip rule-name lookup in the improvement-chance overlay.
   safeguardRules?: readonly SafeguardRule[]
   // Optional safeguard rank overlay: artifact-id → { rank, isWithinQuota, ruleOrdinal, otherRules }.
   // When present, ranked items show "#N" bottom chip.
@@ -252,7 +252,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     substatSort = null,
     sortState = null,
     grouping = GEAR_INSPECTOR_GROUPING_DEFAULT_STATE,
-    upgradeChanceByArtifactId = null,
+    improvementChanceByArtifactId = null,
     safeguardRules,
     safeguardRankByArtifactId = null,
     enterKey = undefined,
@@ -317,7 +317,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     showChampionIcons,
     showRuleTemplates,
     highlightKeepSell,
-    showSafeguardUpgradeChance,
+    showSafeguardImprovementChance,
     showSafeguardRank,
     setColumns,
     setShowFirstMatch,
@@ -327,7 +327,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     setShowChampionIcons,
     setShowRuleTemplates,
     setHighlightKeepSell,
-    setShowSafeguardUpgradeChance,
+    setShowSafeguardImprovementChance,
     setShowSafeguardRank,
   } = useGearInspectorGridPreferences(variant)
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
@@ -420,7 +420,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const groupSummarySourceRows = allRows ?? rows
   // Sorting can request chance data even when the overlay itself is hidden.
   const safeguardChanceSortEnabled = useMemo(
-    () => (effectiveSubstatSort?.priorities ?? []).some((key) => Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE),
+    () => (effectiveSubstatSort?.priorities ?? []).some((key) => Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE),
     [effectiveSubstatSort?.priorities],
   )
   // Whether the safeguard rank synthetic sort key is active in the current sort spec.
@@ -429,22 +429,22 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     [effectiveSubstatSort?.priorities],
   )
   // Pre-computed by the WASM worker; coalesce null to a stable empty map so downstream memo deps don't thrash.
-  const safeguardUpgradeChanceByArtifactId = useMemo<Map<number, UpgradeChanceWasmEntry>>(
-    () => upgradeChanceByArtifactId ?? new Map(),
-    [upgradeChanceByArtifactId],
+  const safeguardImprovementChanceByArtifactId = useMemo<Map<number, ImprovementChanceWasmEntry>>(
+    () => improvementChanceByArtifactId ?? new Map(),
+    [improvementChanceByArtifactId],
   )
   const substatSortWithSafeguardChance = useMemo(() => {
     if (!effectiveSubstatSort) return effectiveSubstatSort
-    // Thread the upgrade-chance map only when the sort key is active (avoid unnecessary work).
+    // Thread the improvement-chance map only when the sort key is active (avoid unnecessary work).
     const withChance: GearInspectorSubstatSortSpec = safeguardChanceSortEnabled
       ? (() => {
         // Comparator only needs numeric chance values; omit non-matching safeguards so they sort as null/last.
         const chanceMap = new Map<number, number | null>()
-        safeguardUpgradeChanceByArtifactId.forEach((entry, artifactId) => {
+        safeguardImprovementChanceByArtifactId.forEach((entry, artifactId) => {
           if (!entry.hasMatchingSafeguard) return
           chanceMap.set(artifactId, entry.chancePercent)
         })
-        return { ...effectiveSubstatSort, safeguardUpgradeChanceByArtifactId: chanceMap }
+        return { ...effectiveSubstatSort, safeguardImprovementChanceByArtifactId: chanceMap }
       })()
       : effectiveSubstatSort
     // Thread the safeguard rank map only when the sort key is active.
@@ -461,7 +461,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     effectiveSubstatSort,
     safeguardChanceSortEnabled,
     safeguardRankSortEnabled,
-    safeguardUpgradeChanceByArtifactId,
+    safeguardImprovementChanceByArtifactId,
     safeguardRankByArtifactId,
   ])
   // Group tree is recalculated only when the dataset, locale, or sort mode changes so TanStack can reuse measured rows.
@@ -475,11 +475,11 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   )
   // Upgrade overlay entry: chip data (click only) + tooltip content (surfaces on card icon level).
   // Tooltip content is extracted at render time and NOT passed as chip tooltip props.
-  type UpgradeChanceOverlayEntry = { text: string; color: string; onClick?: () => void; tooltipMarkdown: string; tooltipRender?: React.ReactNode }
+  type ImprovementChanceOverlayEntry = { text: string; color: string; onClick?: () => void; tooltipMarkdown: string; tooltipRender?: React.ReactNode }
   const safeguardUpgradeOverlayByArtifactId = useMemo(() => {
     // Tooltip-rich overlays are only needed when the card overlay toggle is enabled.
-    if (!showSafeguardUpgradeChance) {
-      return new Map<number, UpgradeChanceOverlayEntry>()
+    if (!showSafeguardImprovementChance) {
+      return new Map<number, ImprovementChanceOverlayEntry>()
     }
     const normalizeSelectedSubstatsForTooltip = (values: readonly number[]): number[] => {
       const out: number[] = []
@@ -497,9 +497,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       return out
     }
     // Hide overlay chips when the artifact does not match any substat safeguard.
-    const matchedEntries = Array.from(safeguardUpgradeChanceByArtifactId.entries()).filter(([, entry]) => entry.hasMatchingSafeguard)
+    const matchedEntries = Array.from(safeguardImprovementChanceByArtifactId.entries()).filter(([, entry]) => entry.hasMatchingSafeguard)
     if (matchedEntries.length === 0) {
-      return new Map<number, UpgradeChanceOverlayEntry>()
+      return new Map<number, ImprovementChanceOverlayEntry>()
     }
     // Color scale mirrors normalized substat ratings: low=red, high=green.
     let min = Number.POSITIVE_INFINITY
@@ -513,7 +513,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     const range = max - min
     const requirementSubstatsToken = '__REQUIREMENT_SUBSTATS__'
     // Pre-format percentage labels + click handlers so row rendering stays allocation-light.
-    const overlays = new Map<number, UpgradeChanceOverlayEntry>()
+    const overlays = new Map<number, ImprovementChanceOverlayEntry>()
     for (const [artifactId, entry] of matchedEntries) {
       const ratio = range > 0 ? (entry.chancePercent - min) / range : 1
       const color = rgbToCss(mixRgb(lowRgb, highRgb, ratio))
@@ -685,8 +685,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     onJumpToSafeguardRule,
     rows,
     safeguardRules,
-    safeguardUpgradeChanceByArtifactId,
-    showSafeguardUpgradeChance,
+    safeguardImprovementChanceByArtifactId,
+    showSafeguardImprovementChance,
     substatColors,
     useStatButtonColors,
     t,
@@ -2057,11 +2057,11 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
               const cardPriorityOrder = positionOrder + (columnIdx * 0.01)
               const artifactId = Number(row.artifact?.id)
               // Chip slot assignment (fixed, never reordered):
-              // top = upgrade chance %, center = safeguard rank #N, bottom = substat rating score.
+              // top = improvement chance %, center = safeguard rank #N, bottom = substat rating score.
               // Each chip carries its own tooltip so hovering a chip shows only that chip's content.
 
-              // Top slot: upgrade chance — chip text + per-chip tooltip (markdown + rich render).
-              const upgradeEntry = showSafeguardUpgradeChance && Number.isFinite(artifactId)
+              // Top slot: improvement chance — chip text + per-chip tooltip (markdown + rich render).
+              const upgradeEntry = showSafeguardImprovementChance && Number.isFinite(artifactId)
                 ? (safeguardUpgradeOverlayByArtifactId.get(artifactId) ?? null)
                 : null
               const topOverlay = upgradeEntry
@@ -2098,7 +2098,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
               // (based on globally-toggled types, not per-card data availability).
               const overlaySlotCount = Math.max(1, Math.min(3,
                 (normalizedOverlayEnabled ? 1 : 0) +
-                (showSafeguardUpgradeChance ? 1 : 0) +
+                (showSafeguardImprovementChance ? 1 : 0) +
                 (showSafeguardRank && safeguardRankByArtifactId != null ? 1 : 0),
               )) as 1 | 2 | 3
               return (
@@ -2336,31 +2336,35 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         <Divider sx={{ my: 0.5 }} />
         <MenuItem
           sx={{ gap: 1, alignItems: 'center' }}
-          onClick={() => setShowSafeguardUpgradeChance(!showSafeguardUpgradeChance)}
+          onClick={() => setShowSafeguardImprovementChance(!showSafeguardImprovementChance)}
         >
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
-            {t('gearInspectorGridShowSafeguardUpgradeChance')}
-          </Typography>
+          <MarkdownTooltip markdown={t('gearInspectorGridShowSafeguardImprovementChanceTooltip')} placement="top-start">
+            <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
+              {t('gearInspectorGridShowSafeguardImprovementChance')}
+            </Typography>
+          </MarkdownTooltip>
           <Button
             size="small"
-            variant={showSafeguardUpgradeChance ? 'contained' : 'outlined'}
+            variant={showSafeguardImprovementChance ? 'contained' : 'outlined'}
             color="success"
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
             onClick={(event) => {
               event.stopPropagation()
-              setShowSafeguardUpgradeChance(!showSafeguardUpgradeChance)
+              setShowSafeguardImprovementChance(!showSafeguardImprovementChance)
             }}
           >
-            {showSafeguardUpgradeChance ? t('commonOn') : t('commonOff')}
+            {showSafeguardImprovementChance ? t('commonOn') : t('commonOff')}
           </Button>
         </MenuItem>
         <MenuItem
           sx={{ gap: 1, alignItems: 'center' }}
           onClick={() => setShowSafeguardRank(!showSafeguardRank)}
         >
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
-            {t('gearInspectorGridShowSafeguardRank')}
-          </Typography>
+          <MarkdownTooltip markdown={t('gearInspectorGridShowSafeguardRankTooltip')} placement="top-start">
+            <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
+              {t('gearInspectorGridShowSafeguardRank')}
+            </Typography>
+          </MarkdownTooltip>
           <Button
             size="small"
             variant={showSafeguardRank ? 'contained' : 'outlined'}

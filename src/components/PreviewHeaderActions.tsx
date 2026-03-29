@@ -44,7 +44,7 @@ import HistoryIcon from '@mui/icons-material/History'
 import {
   GEAR_INSPECTOR_SORT_KEY_NEWEST,
   isGearInspectorSyntheticSortKey,
-  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE,
+  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE,
   GEAR_INSPECTOR_SORT_KEY_LAST_USAGE,
   GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK,
   GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT,
@@ -651,7 +651,7 @@ export default function PreviewHeaderActions(props: {
 	  const sortLabelForKey = React.useCallback((key: GearInspectorSortKey): string => {
 	    if (Number(key) === GEAR_INSPECTOR_SORT_KEY_LAST_USAGE) return sortLastUsedLabel
 	    if (Number(key) === GEAR_INSPECTOR_SORT_KEY_NEWEST) return sortNewestLabel
-	    if (Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE) return sortImprovementChanceLabel
+	    if (Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE) return sortImprovementChanceLabel
 	    if (Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK) return sortSafeguardRankLabel
 	    return t(statVariantI18nKey(key as StatVariant))
 	  }, [sortImprovementChanceLabel, sortLastUsedLabel, sortNewestLabel, sortSafeguardRankLabel, t])
@@ -1173,7 +1173,7 @@ export default function PreviewHeaderActions(props: {
 	                ...STAT_VARIANTS_PRIORITY,
 	                GEAR_INSPECTOR_SORT_KEY_LAST_USAGE as GearInspectorSortKey,
 	                GEAR_INSPECTOR_SORT_KEY_NEWEST as GearInspectorSortKey,
-	                GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE as GearInspectorSortKey,
+	                GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE as GearInspectorSortKey,
 	                GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK as GearInspectorSortKey,
 	              ].map((key) => {
 	                const idx = sortPriorities.findIndex((v) => Number(v) === Number(key))

@@ -21,11 +21,11 @@ use rule_engine_core::{
     build_hsf_rules_for_recipe,
     collect_and_compute_safeguard_protection_core,
     compute_merged_rules_core,
-    compute_upgrade_chance_core,
+    compute_improvement_chance_core,
     ComputeMergedRulesIn,
     SafeguardCollectRowIn,
     SafeguardWasmArtifactIn,
-    UpgradeChanceEntry,
+    ImprovementChanceEntry,
     TestItemRaw,
     PreviewExtrasRaw,
     RuleRaw,
@@ -40,7 +40,7 @@ use rule_engine_core::safeguards::fast_path_types::SafeguardWasmSubstatIn;
 // Only the subset consumed by the DLL pipeline is declared; extra JSON fields are ignored.
 #[derive(Debug, Deserialize)]
 struct NativeArtifactIn {
-    // Artifact ID (primary key; used in UpgradeChanceEntry.artifact_id).
+    // Artifact ID (primary key; used in ImprovementChanceEntry.artifact_id).
     #[serde(rename = "ID")]
     id:     Option<i64>,
     // Slot id matching ArtifactType enum (1=Weapon … 9=Banner).
@@ -85,7 +85,7 @@ struct NativeArtifactIn {
 struct NativeInput {
     // Raw SFR JSON as a string (the .sfr file contents).  Passed verbatim to parse_sfr.
     sfr:       String,
-    // Artifact rows to evaluate; may be empty (rules still generated, upgrade chances empty).
+    // Artifact rows to evaluate; may be empty (rules still generated, improvement chances empty).
     #[serde(default)]
     artifacts: Vec<NativeArtifactIn>,
 }
@@ -100,8 +100,8 @@ struct NativeInput {
 struct NativeOutput {
     // Merged HSF rules ready for .hsf download — same array the app produces.
     rules:           Vec<RuleRaw>,
-    // Per-artifact upgrade-chance entries; empty when safeguards are disabled.
-    upgrade_chances: Vec<UpgradeChanceEntry>,
+    // Per-artifact improvement-chance entries; empty when safeguards are disabled.
+    improvement_chances: Vec<ImprovementChanceEntry>,
 }
 
 // Error envelope used on all failure paths — never returns null from sfr_generate.
@@ -282,16 +282,16 @@ fn run(input_json: &str) -> Result<String, String> {
         safeguard_recipe_id_base:    None,
     });
 
-    // 8. Compute per-artifact upgrade-chance percentages.
+    // 8. Compute per-artifact improvement-chance percentages.
     //    Returns an empty vec when safeguards are disabled or no rules/rows are present.
-    let upgrade_chances: Vec<UpgradeChanceEntry> = compute_upgrade_chance_core(
+    let improvement_chances: Vec<ImprovementChanceEntry> = compute_improvement_chance_core(
         &rows,
         parsed.safeguard_rules,
         parsed.safeguards_enabled,
     );
 
     // 9. Serialise and return the output as a JSON string.
-    let output = NativeOutput { rules: merged_rules, upgrade_chances };
+    let output = NativeOutput { rules: merged_rules, improvement_chances };
     serde_json::to_string(&output).map_err(|e| format!("Serialise error: {e}"))
 }
 
@@ -299,7 +299,7 @@ fn run(input_json: &str) -> Result<String, String> {
 // C ABI
 // ---------------------------------------------------------------------------
 
-/// Generate merged HSF rules and upgrade-chance entries from an SFR + artifact list.
+/// Generate merged HSF rules and improvement-chance entries from an SFR + artifact list.
 ///
 /// `input_json` must be a valid UTF-8, null-terminated JSON string matching `NativeInput`:
 /// ```json
@@ -417,8 +417,8 @@ mod tests {
             "expected non-empty rules array; got: {result}"
         );
         assert!(
-            parsed.get("upgradeChances").is_some(),
-            "expected upgradeChances field in output"
+            parsed.get("improvementChances").is_some(),
+            "expected improvementChances field in output"
         );
     }
 

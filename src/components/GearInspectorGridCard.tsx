@@ -1323,7 +1323,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           overlaySlotCount={overlaySlotCount}
           // Each overlay carries its own tooltip; card icon hover shows only last-use / dev id.
           {...(centerOverlay ? { centerOverlay } : {})}
-          // Top overlay stacks above the center score (used for safeguard upgrade chance).
+          // Top overlay stacks above the center score (used for safeguard improvement chance).
           {...(topOverlay ? { topOverlay } : {})}
           // Bottom overlay is the third stacked chip — safeguard rank (only active in triple mode).
           {...(bottomOverlay ? { bottomOverlay } : {})}

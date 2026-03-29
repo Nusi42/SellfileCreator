@@ -13,7 +13,7 @@ import type {
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { GearInspectorMatchWorkerItemResult } from '../workers/gearInspectorMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
-import type { UpgradeChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
+import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
 
 type PipelineParams = {
   recipes: BuilderRecipe[]
@@ -29,7 +29,7 @@ type PipelineParams = {
   artifacts: NormalizedGearArtifact[]
   // When true, the worker computes improvement-chance percentages in WASM and
   // returns them in the result (requires safeguards to be enabled).
-  computeUpgradeChance?: boolean
+  computeImprovementChance?: boolean
 }
 
 type RuleCacheStateSnapshot = {
@@ -49,8 +49,8 @@ export type PipelineResult = {
   state: RuleCacheStateSnapshot
   matches: GearInspectorMatchWorkerItemResult[]
   safeguardDetection: SafeguardDetectionSnapshot | null
-  // Null when computeUpgradeChance was false or safeguards were inactive.
-  upgradeChanceByArtifactId: Map<number, UpgradeChanceWasmEntry> | null
+  // Null when computeImprovementChance was false or safeguards were inactive.
+  improvementChanceByArtifactId: Map<number, ImprovementChanceWasmEntry> | null
 }
 
 type CountRulesParams = {
@@ -189,15 +189,15 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           pipelineMap.delete(data.id)
           if (abortedSet.delete(data.id)) return
           // Reconstruct the artifactId → entry map from the flat array (structured-clone safe).
-          const entries = data.payload.upgradeChanceEntries
-          const upgradeChanceByArtifactId = entries != null
+          const entries = data.payload.improvementChanceEntries
+          const improvementChanceByArtifactId = entries != null
             ? new Map(entries.map((e) => [e.artifactId, e] as const))
             : null
           pending.resolve({
             state: toStateSnapshotFromWorker(data.payload),
             matches: data.payload.matches,
             safeguardDetection: data.payload.safeguardDetection,
-            upgradeChanceByArtifactId,
+            improvementChanceByArtifactId,
           })
           return
         }
@@ -356,7 +356,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         recipeModes: params.recipeModes,
         artifacts: params.artifacts,
         emitProgressEvents: Boolean(onProgress),
-        computeUpgradeChance: params.computeUpgradeChance === true,
+        computeImprovementChance: params.computeImprovementChance === true,
       },
     }
 

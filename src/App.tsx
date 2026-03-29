@@ -101,7 +101,7 @@ import {
   buildSafeguardCombinationFromRecipe,
   cloneSafeguardRule,
   SAFEGUARD_DEFAULT_COUNT_MODE,
-  SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
+  SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD,
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
   SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
@@ -128,12 +128,12 @@ import {
   type GearDbDiffToastEntry,
   type GearDbDiffToastPayload,
 } from './lib/gearDbDiffToast'
-import { isGearInspectorSyntheticSortKey, sortGearInspectorRows, GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE } from './lib/gearInspectorSort'
+import { isGearInspectorSyntheticSortKey, sortGearInspectorRows, GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE } from './lib/gearInspectorSort'
 import { buildGearInspectorRuleTemplateRecipe } from './lib/gearInspectorRuleTemplates'
 import { buildGearInspectorOutcomeSummary } from './lib/gearInspectorOutcomeSummary'
 import { isDefaultGearInspectorSubstatSortState, setGearInspectorSubstatSortState, useGearInspectorSubstatSortPreferences } from './state/gearInspectorSubstatSortPreferences'
 import { useGearInspectorGridNormalizedOverlayPreferences } from './state/gearInspectorGridNormalizedOverlayPreferences'
-import { useShowSafeguardUpgradeChance } from './state/gearInspectorGridPreferences'
+import { useShowSafeguardImprovementChance } from './state/gearInspectorGridPreferences'
 import { FILTER_PRESETS_VERSION, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
 import { useSplitterLeftWidthPx } from './state/splitterPreference'
 import FileDragOverlay from './components/FileDragOverlay'
@@ -240,7 +240,7 @@ import type {
 import { GearInspectorItemsGridMemo as GearInspectorItemsGrid } from './components/GearInspectorItemsGrid'
 import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from './types/gearInspectorPreview'
 import type { GearInspectorMatchWorkerItemResult } from './workers/gearInspectorMatchWorkerTypes'
-import type { UpgradeChanceWasmEntry } from './lib/wasm/wasmRuleEngine'
+import type { ImprovementChanceWasmEntry } from './lib/wasm/wasmRuleEngine'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
@@ -409,7 +409,7 @@ type PipelineCacheEntry = {
   processedSnapshot: RecipeRulesStateSnapshot
   processedRows: GearInspectorPreviewRow[] | null
   processedSafeguardDetection: SafeguardDetectionSnapshot | null
-  processedUpgradeChance: Map<number, UpgradeChanceWasmEntry> | null
+  processedImprovementChance: Map<number, ImprovementChanceWasmEntry> | null
   insertedAt: number
 }
 
@@ -615,8 +615,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   )
   const [safeguardDetection, setSafeguardDetection] = useState<SafeguardDetectionSnapshot | null>(null)
   // Pre-computed improvement-chance map returned by the WASM worker; null when not computed.
-  const [upgradeChanceByArtifactId, setUpgradeChanceByArtifactId] =
-    useState<Map<number, UpgradeChanceWasmEntry> | null>(null)
+  const [improvementChanceByArtifactId, setImprovementChanceByArtifactId] =
+    useState<Map<number, ImprovementChanceWasmEntry> | null>(null)
   const resolvedSafeguardRules = useMemo(() => (
     resolveSafeguardRulesWithMetasets(safeguardRules, metasets)
   ), [safeguardRules, metasets])
@@ -904,7 +904,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
     ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
     ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
-    beatEquippedPercentile: SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
+    improvementChanceThreshold: SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD,
     substats: [],
     substatMatch: SafeguardSubstatMatch.Min1,
     substatWeights: {},
@@ -981,14 +981,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const noteRecipeOverridesAnswersRef = useRef(noteRecipeOverridesAnswers)
   const noteRecipeOverridesDisabledRef = useRef(noteRecipeOverridesDisabled)
   // Gear Inspector substat sorting is view-only but should persist across sessions like filters.
-  // Declared here so the pipeline effect (below) can reference both sort prefs and the upgrade-chance
+  // Declared here so the pipeline effect (below) can reference both sort prefs and the improvement-chance
   // flag without TDZ errors — their derived values are consumed inside the effect dep array.
   const gearInspectorSubstatSortPrefs = useGearInspectorSubstatSortPreferences()
   // Reactive flag: true when the improvement-chance overlay toggle is on.
-  const showSafeguardUpgradeChance = useShowSafeguardUpgradeChance()
+  const showSafeguardImprovementChance = useShowSafeguardImprovementChance()
   // True when the improvement-chance sort key appears in the active sort priority list.
   const safeguardChanceSortEnabled = (gearInspectorSubstatSortPrefs.state.priorities ?? [])
-    .some((k) => Number(k) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE)
+    .some((k) => Number(k) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE)
   // Wipe the entire pipeline cache whenever the artifact set changes (DB refresh updates stats).
   // All cached results were computed against the previous artifact data and are now invalid.
   // Bump artifactCacheVersion so any result written to the cache by an in-flight pipeline run
@@ -1114,8 +1114,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         dedupeBeforeSafeguards: dedupeDefault,
         recipeModes: recipeModesForBuild,
         artifacts: gearInspectorPreviewArtifacts,
-        // Request WASM upgrade-chance computation when the overlay or sort column is active.
-        computeUpgradeChance: showSafeguardUpgradeChance || safeguardChanceSortEnabled,
+        // Request WASM improvement-chance computation when the overlay or sort column is active.
+        computeImprovementChance: showSafeguardImprovementChance || safeguardChanceSortEnabled,
       }
       // Build a cache key from the history signature (covers recipes, note, safeguards, etc.),
       // the 5 boolean flags that affect pipeline output, a recipe-overrides fingerprint, and the
@@ -1133,7 +1133,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         ? 'off'
         : JSON.stringify(noteRecipeOverridesAnswersRef.current)
       const cacheKey = currentSig
-        ? `${currentSig.crc}:${currentSig.size}:v${artifactCacheVersion}:${includeMatchesInPipeline ? 1 : 0}${omitDisabledForExport ? 1 : 0}${dedupeDefault ? 1 : 0}${showSafeguardUpgradeChance ? 1 : 0}${safeguardChanceSortEnabled ? 1 : 0}:${overridesKey}`
+        ? `${currentSig.crc}:${currentSig.size}:v${artifactCacheVersion}:${includeMatchesInPipeline ? 1 : 0}${omitDisabledForExport ? 1 : 0}${dedupeDefault ? 1 : 0}${showSafeguardImprovementChance ? 1 : 0}${safeguardChanceSortEnabled ? 1 : 0}:${overridesKey}`
         : null
       const nowMs = Date.now()
       const rawEntry = cacheKey ? (pipelineCacheRef.current.get(cacheKey) ?? null) : null
@@ -1196,7 +1196,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             }
             startTransition(() => {
               setSafeguardDetection(cachedEntry.processedSafeguardDetection)
-              setUpgradeChanceByArtifactId(cachedEntry.processedUpgradeChance)
+              setImprovementChanceByArtifactId(cachedEntry.processedImprovementChance)
             })
             lastRecipeNamesRef.current = recipeNamesForBuild
             recoverMissingRulesRef.current = false
@@ -1205,7 +1205,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
           // Slow path: fresh worker result — process, display, then cache processed outputs
           // so future revisits can use the fast path above.
-          const { state, matches, safeguardDetection, upgradeChanceByArtifactId: upgradeChanceResult } = result
+          const { state, matches, safeguardDetection, improvementChanceByArtifactId: improvementChanceResult } = result
           const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
           const snapshot: RecipeRulesStateSnapshot = {
             baseRules,
@@ -1263,7 +1263,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           // Safeguard table snapshots and improvement-chance results are preview-only; defer them.
           startTransition(() => {
             setSafeguardDetection(safeguardDetection ?? null)
-            setUpgradeChanceByArtifactId(upgradeChanceResult ?? null)
+            setImprovementChanceByArtifactId(improvementChanceResult ?? null)
           })
           lastRecipeNamesRef.current = recipeNamesForBuild
           const totalCustomRules = Array.from(state.countsByRecipe.values()).reduce((acc, val) => (
@@ -1305,7 +1305,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   state: retryState,
                   matches: retryMatches,
                   safeguardDetection: retrySafeguardDetection,
-                  upgradeChanceByArtifactId: retryUpgradeChanceResult,
+                  improvementChanceByArtifactId: retryImprovementChanceResult,
                 } = retryResult
                 const splitRetry = splitMergedRules(retryState.mergedRules)
                 // Retry snapshots are just as large; keep them out of the urgent lane.
@@ -1355,7 +1355,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 // Safeguard previews and improvement-chance results are informative, not input-critical.
                 startTransition(() => {
                   setSafeguardDetection(retrySafeguardDetection ?? null)
-                  setUpgradeChanceByArtifactId(retryUpgradeChanceResult ?? null)
+                  setImprovementChanceByArtifactId(retryImprovementChanceResult ?? null)
                 })
                 lastRecipeNamesRef.current = recipeNamesForBuild
               })
@@ -1379,7 +1379,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               processedSnapshot: snapshot,
               processedRows,
               processedSafeguardDetection: safeguardDetection ?? null,
-              processedUpgradeChance: upgradeChanceResult ?? null,
+              processedImprovementChance: improvementChanceResult ?? null,
               insertedAt: Date.now(),
             })
             pipelineCacheOrderRef.current.add(cacheKey)
@@ -1431,7 +1431,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     recipesEnabled,
     gearInspectorPreviewArtifacts,
     getArtifactItemId,
-    showSafeguardUpgradeChance,
+    showSafeguardImprovementChance,
     safeguardChanceSortEnabled,
   ])
   useEffect(() => {
@@ -7485,7 +7485,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 substatSort={gearInspectorSubstatSortSpec}
                 sortState={gearInspectorSubstatSortPrefs.state}
                 safeguardRules={resolvedSafeguardRules}
-                upgradeChanceByArtifactId={upgradeChanceByArtifactId}
+                improvementChanceByArtifactId={improvementChanceByArtifactId}
                 safeguardRankByArtifactId={safeguardRankByArtifactId}
                 emptyStateVerticalAlign={emptyStateVerticalAlign}
                 enterKey={gearInspectorEnterKey}

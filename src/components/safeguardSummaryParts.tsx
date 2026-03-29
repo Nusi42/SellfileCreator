@@ -337,13 +337,13 @@ export function safeguardSummaryParts(
     )
   }
 
-  // ── Beat-equipped quality floor ───────────────────────────────────────────
-  // Only shown when the floor is active; rendered as "Beat ≥ N% equipped".
-  if (rule.beatEquippedPercentile !== null && rule.beatEquippedPercentile !== undefined) {
-    const pct = rule.beatEquippedPercentile
+  // ── Improvement-chance threshold ─────────────────────────────────────────
+  // Only shown when the threshold is active; rendered as "Improvement chance ≥ N%".
+  if (rule.improvementChanceThreshold !== null && rule.improvementChanceThreshold !== undefined) {
+    const pct = rule.improvementChanceThreshold
     addText(opts.t
-      ? opts.t('safeguardsBeatEquippedWithValue', { value: pct })
-      : `Beat ≥ ${pct}% equipped`)
+      ? opts.t('safeguardsImprovementChanceWithValue', { value: pct })
+      : `Improvement chance ≥ ${pct}%`)
   }
 
   // ── Sets + Metasets ───────────────────────────────────────────────────────

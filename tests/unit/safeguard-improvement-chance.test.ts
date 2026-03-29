@@ -3,7 +3,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildSafeguardUpgradeChanceByArtifactId } from '../../src/lib/safeguardUpgradeChance.js'
+import { buildSafeguardImprovementChanceByArtifactId } from '../../src/lib/safeguardImprovementChance.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../../src/lib/importers/gearDbNormalizer.js'
 import {
   SAFEGUARD_DEFAULT_COUNT_MODE,
@@ -112,7 +112,7 @@ const makeSpdSafeguardRule = (name: string): SafeguardRule => ({
   ignorePreviousSafeguards: true,
   ignoreEquippedInCollection: false,
   ignoreEquippedInVault: false,
-  beatEquippedPercentile: null,
+  improvementChanceThreshold: null,
   substats: [StatVariant.SPD],
   substatMatch: SafeguardSubstatMatch.Min1,
   substatWeights: {},
@@ -134,7 +134,7 @@ test('returns a non-binary safeguard selection chance for upgradable gear', () =
     rarity: 6,
     substats: [makeSubstat(StatVariant.SPD, 20, 3)],
   })
-  const chance = buildSafeguardUpgradeChanceByArtifactId(
+  const chance = buildSafeguardImprovementChanceByArtifactId(
     [candidate, challenger],
     [makeSpdSafeguardRule('sg_spd')],
   ).get(1)
@@ -167,7 +167,7 @@ test('does not emit safeguard chance overlays for already-level-16 gear', () => 
     rarity: 6,
     substats: [makeSubstat(StatVariant.SPD, 20, 3)],
   })
-  const chanceById = buildSafeguardUpgradeChanceByArtifactId(
+  const chanceById = buildSafeguardImprovementChanceByArtifactId(
     [high, low, challenger],
     [makeSpdSafeguardRule('sg_spd_lvl16')],
   )
@@ -199,7 +199,7 @@ test('marks no-match artifacts when no safeguard applies to the piece', () => {
       factions: [],
     },
   }
-  const chance = buildSafeguardUpgradeChanceByArtifactId([candidate], [rule]).get(20)
+  const chance = buildSafeguardImprovementChanceByArtifactId([candidate], [rule]).get(20)
   assert.equal(chance?.chancePercent, 0)
   assert.equal(Boolean(chance?.hasMatchingSafeguard), false)
   assert.equal(chance?.matchedRuleOrdinal ?? null, null)
@@ -218,7 +218,7 @@ test('treats no-SPD legendary gear as non-matching for SPD-only safeguards', () 
       makeSubstat(StatVariant.RES, 7, 0),
     ],
   })
-  const chance = buildSafeguardUpgradeChanceByArtifactId(
+  const chance = buildSafeguardImprovementChanceByArtifactId(
     [candidate],
     [makeSpdSafeguardRule('sg_spd_only')],
   ).get(30)
@@ -234,7 +234,7 @@ test('keeps no-SPD low-rarity gear eligible when future substat additions can st
     rarity: 1,
     substats: [makeSubstat(StatVariant.HP, 5, 0)],
   })
-  const chance = buildSafeguardUpgradeChanceByArtifactId(
+  const chance = buildSafeguardImprovementChanceByArtifactId(
     [candidate],
     [makeSpdSafeguardRule('sg_spd_addable')],
   ).get(31)
@@ -255,7 +255,7 @@ test('prefers the most likely safeguard for matchedRuleOrdinal when multiple saf
       makeSubstat(StatVariant.HP, 5, 0),
     ],
   })
-  const chance = buildSafeguardUpgradeChanceByArtifactId(
+  const chance = buildSafeguardImprovementChanceByArtifactId(
     [candidate],
     [
       makeSpdSafeguardRule('sg_spd_best'),
@@ -282,7 +282,7 @@ test('breaks equal-chance safeguard ties by higher matching substat count', () =
       makeSubstat(StatVariant.HP, 6, 0),
     ],
   })
-  const chance = buildSafeguardUpgradeChanceByArtifactId(
+  const chance = buildSafeguardImprovementChanceByArtifactId(
     [candidate],
     [
       {
@@ -314,7 +314,7 @@ test('breaks equal-chance + equal-match ties by safeguard list order', () => {
       makeSubstat(StatVariant.HP, 6, 0),
     ],
   })
-  const chance = buildSafeguardUpgradeChanceByArtifactId(
+  const chance = buildSafeguardImprovementChanceByArtifactId(
     [candidate],
     [
       {

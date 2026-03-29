@@ -43,7 +43,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
 #### Safeguards payload
 
 - SFR payloads also carry `Safeguards?: SafeguardRule[]` plus `SafeguardsEnabled?: boolean`. Autosave/clipboard/history reuse the same fields; omitting either key is treated as “off” with an empty gear-combination list.
-- Each rule entry serializes `{ id, requiredCount, activation, countMode, combination }` (persisted as `tuple` in SFR). `countMode` stores the scope toggles `{ perRule, perSet, perFaction, perMainStat, perSlot }`; defaults when missing are `perRule=false`, `perSet=true`, `perFaction=true`, `perMainStat=true`, `perSlot=false`. Combinations are normalized via `normalizeSafeguardRule` and are written as readable labels (slot/set names, `5★` rank strings, rarity labels such as `Rare`, stat labels, faction names, metaset ids). `sets` now serialize as `{ name: string; excluded?: true }[]` so excluded gear sets remain explicit and parseable; older SFR strings (`string[]`) still load as includes. `mainStats` stores the selected stat variants (empty array = Any). Invalid combos are discarded during parsing so corrupted SFR files never reach the UI. Legacy SFR exports that wrote `enabled` instead of `activation` are still accepted; the loader maps `enabled=false` to `activation:'off'` and `true` to `activation:'protectExisting'`.
+- Each rule entry serializes `{ id, requiredCount, activation, countMode, combination }` plus optional `improvementChanceThreshold?: number` (0–100; omitted when null) (persisted as `tuple` in SFR). `countMode` stores the scope toggles `{ perRule, perSet, perFaction, perMainStat, perSlot }`; defaults when missing are `perRule=false`, `perSet=true`, `perFaction=true`, `perMainStat=true`, `perSlot=false`. Combinations are normalized via `normalizeSafeguardRule` and are written as readable labels (slot/set names, `5★` rank strings, rarity labels such as `Rare`, stat labels, faction names, metaset ids). `sets` now serialize as `{ name: string; excluded?: true }[]` so excluded gear sets remain explicit and parseable; older SFR strings (`string[]`) still load as includes. `mainStats` stores the selected stat variants (empty array = Any). Invalid combos are discarded during parsing so corrupted SFR files never reach the UI. Legacy SFR exports that wrote `enabled` instead of `activation` are still accepted; the loader maps `enabled=false` to `activation:'off'` and `true` to `activation:'protectExisting'`.
   - SFR tuples no longer mirror the first entry via a `mainStat` field; downstream consumers must read the `mainStats` array (or handle it being empty for Any).
 - Optional substat focus is stored as `substats?: string[]` (readable labels). Match behavior serializes `substatMatch?: 'any' | 'all' | 'perSubstat'` only when a non-default match is chosen; missing defaults to `any`. Substat scoring always uses normalized ranking; weights apply when `substatMatch` is `any` or `all`, while `perSubstat` ignores weights. Per-stat weights are stored as `substatWeights?: Record<string, number>` using the same labels and only include non-default weights for the selected substats.
 - Multiple substats follow the match: `any` accepts items that have at least one selected substat, `all` requires every selected substat, and `perSubstat` applies the quota separately for each selected substat.
@@ -72,7 +72,7 @@ and require no JavaScript runtime.
   // Artifact rows in the same compact format produced by the RSL Helper WebSocket endpoint.
   "artifacts": [
     {
-      "ID":    1001,           // caller-assigned identifier; echoed back in upgradeChances
+      "ID":    1001,           // caller-assigned identifier; echoed back in improvementChances
       "type":  1,              // slot id: 1=Weapon 2=Helmet 3=Shield 4=Gauntlets 5=Chestplate 6=Boots 7=Ring 8=Amulet 9=Banner
       "rank":  5,              // 1–6 (null = unknown)
       "rarity": 4,             // 1=Common 2=Uncommon 3=Rare 4=Epic 5=Legendary 6=Mythical (null = unknown)
@@ -103,10 +103,10 @@ Notes:
 ```jsonc
 {
   "rules":          [/* HsfRule objects — same shape as the app's HSF download */],
-  "upgradeChances": [
+  "improvementChances": [
     {
       "artifactId":    1001,   // echoes NativeInput artifact ID
-      "chancePercent": 72.4    // projected sell chance at +16 given active safeguards (0.0–100.0)
+      "chancePercent": 72.4    // improvement chance: probability of still ranking in the top-N after leveling to +16 (0.0–100.0)
       // additional fields may be present; treat unknown keys as informational
     }
   ]
@@ -114,7 +114,7 @@ Notes:
 ```
 
 On any error, the DLL returns `{"error":"<message>"}` instead.  The caller must
-always check for the `error` key before reading `rules` or `upgradeChances`.
+always check for the `error` key before reading `rules` or `improvementChances`.
 
 ### IO Helpers (SFR)
 - Parse text/file: `parseSfrText`, `readSfrFile`.

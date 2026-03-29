@@ -30,12 +30,12 @@ import {
   type GearInspectorSubstatSortState,
 } from '../state/gearInspectorSubstatSortPreferences'
 import {
-  snapshotSafeguardUpgradeChance,
-  restoreSafeguardUpgradeChance,
+  snapshotSafeguardImprovementChance,
+  restoreSafeguardImprovementChance,
 } from '../state/gearInspectorGridPreferences'
 import type { useI18n } from '../lib/i18n'
 import {
-  SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
+  SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD,
   SAFEGUARD_DEFAULT_COUNT_MODE,
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
@@ -68,7 +68,7 @@ type TutorialSnapshot = {
   logicHubOpen: boolean
   logicHubDialogTab: LogicHubDialogTab
   // Gear Inspector display flags that the tutorial forces on and must restore afterward.
-  safeguardUpgradeChance: boolean
+  safeguardImprovementChance: boolean
 }
 
 // Snapshot of view-only state that lives outside the main app snapshot (filter panels, sort).
@@ -223,7 +223,7 @@ const buildTutorialSafeguardRules = (): SafeguardRule[] => [{
   ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
   ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
   ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
-  beatEquippedPercentile: SAFEGUARD_DEFAULT_BEAT_EQUIPPED_PERCENTILE,
+  improvementChanceThreshold: SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD,
   // HP% and DEF% substats — at least one is sufficient (substatMatch: Min1).
   substats: [StatVariant.HP, StatVariant.DEF],
   substatMatch: SafeguardSubstatMatch.Min1,
@@ -582,7 +582,7 @@ export function useTutorialCoachState({
         restoreGearInspectorSubstatSortSnapshot(viewSnap.sortState)
         viewStateSnapshotRef.current = null
       }
-      restoreSafeguardUpgradeChance(snap.safeguardUpgradeChance)
+      restoreSafeguardImprovementChance(snap.safeguardImprovementChance)
       // eslint-disable-next-line @eslint-react/dom/no-flush-sync -- Tutorial restore must synchronously commit all state setters so the DOM reflects the restored snapshot before the next coach step measures element positions.
       flushSync(() => {
         setHsf(snap.hsf)
@@ -833,7 +833,7 @@ export function useTutorialCoachState({
         previewMode: gearInspectorPreviewModeRef.current,
         logicHubOpen: logicHubOpenRef.current,
         logicHubDialogTab: logicHubDialogTabRef.current,
-        safeguardUpgradeChance: snapshotSafeguardUpgradeChance(),
+        safeguardImprovementChance: snapshotSafeguardImprovementChance(),
       })
     } catch {}
 
@@ -862,8 +862,8 @@ export function useTutorialCoachState({
       // Reset to app defaults: both toggles on, no safeguard rules to interfere.
       setSafeguardsEnabled(true)
       setRecipesEnabled(true)
-      // Ensure upgrade chance column is visible for the safeguards payoff step.
-      restoreSafeguardUpgradeChance(true)
+      // Ensure improvement chance column is visible for the safeguards payoff step.
+      restoreSafeguardImprovementChance(true)
     } catch {}
 
     setTutorialIdx(0)

@@ -682,7 +682,8 @@ fn parse_sfr_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
     let ignore_prev = rec.get("ignorePreviousSafeguards").and_then(|v| v.as_bool());
     let ignore_coll = rec.get("ignoreEquippedInCollection").and_then(|v| v.as_bool());
     let ignore_vault = rec.get("ignoreEquippedInVault").and_then(|v| v.as_bool());
-    let beat_percentile = rec.get("beatEquippedPercentile").and_then(|v| v.as_f64());
+    let improvement_chance_threshold = rec.get("improvementChanceThreshold")
+        .and_then(|v| v.as_f64());
 
     // Count mode (perRule / perSet / perFaction / perMainStat / perSlot booleans).
     let count_mode = rec.get("countMode").map(|v| {
@@ -738,8 +739,7 @@ fn parse_sfr_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
         substats,
         substat_match,
         substat_weights,
-        equipped_floor_score: None,
-        beat_equipped_percentile: beat_percentile,
+        improvement_chance_threshold,
     })
 }
 

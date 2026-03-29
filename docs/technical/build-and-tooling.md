@@ -126,7 +126,7 @@ without a browser or Node runtime.
 **C-ABI surface**
 
 ```c
-// Generate merged HSF rules + per-artifact upgrade chances from an SFR + artifact list.
+// Generate merged HSF rules + per-artifact improvement chances from an SFR + artifact list.
 // input_json : UTF-8 null-terminated JSON string (NativeInput schema, see rules-and-data.md).
 // Returns    : heap-allocated UTF-8 null-terminated JSON string (NativeOutput schema).
 //              On any error returns {"error":"<message>"}.  Never returns NULL.
@@ -166,7 +166,7 @@ cd example && make run
 ```
 
 The test verifies: `rules` array non-empty, at least one rule with `Keep=true`,
-`upgradeChances` key present, no `error` key.  The CI build treats a non-zero
+`improvementChances` key present, no `error` key.  The CI build treats a non-zero
 exit as a regression.
 
 **Internal pipeline** (per call to `sfr_generate`)
@@ -177,7 +177,7 @@ exit as a regression.
 4. Normalize compact artifact rows to `SafeguardWasmArtifactIn` + `TestItemRaw`.
 5. When safeguards are enabled, call `collect_and_compute_safeguard_protection_core`.
 6. Assemble `ComputeMergedRulesIn`, call `compute_merged_rules_core` → `Vec<RuleRaw>`.
-7. Call `compute_upgrade_chance_core` → `Vec<UpgradeChanceEntry>`.
+7. Call `compute_improvement_chance_core` → `Vec<ImprovementChanceEntry>`.
 8. Serialize `NativeOutput` and return as a heap-allocated `CString`.
 
 **Relationship to the WASM module**

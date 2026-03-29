@@ -16,7 +16,7 @@ import MarkdownTooltip from './MarkdownTooltip'
 const GRID_ICON_BOX_SIZE_PX = 88
 const GRID_ICON_BORDER_RADIUS_PX = 8
 const GRID_ICON_BORDER_WIDTH_PX = 2
-// 2-chip stacked overlay positions (upgrade chance + substat rating).
+// 2-chip stacked overlay positions (improvement chance + substat rating).
 const STACKED_OVERLAY_TOP_Y_PERCENT = 23
 const STACKED_OVERLAY_CENTER_Y_PERCENT = 53
 // 3-chip stacked overlay positions (adds safeguard rank as third slot).
@@ -71,12 +71,12 @@ type GridIconBoxProps = {
   // Plain-text gear hover content shown when hovering the icon (not chips).
   // Chips have their own isolated tooltips via tooltipMarkdown/tooltipRender on OverlayChip.
   gearTooltip?: string | null
-  // Rich render node for the gear icon hover tooltip (e.g. an upgrade-chance breakdown).
+  // Rich render node for the gear icon hover tooltip (e.g. an improvement-chance breakdown).
   // When set, takes priority over gearTooltip plain text (same as MarkdownTooltip render priority).
   gearTooltipRender?: ReactNode
   // Substat rating chip — bottom slot in triple mode, center in single/double.
   centerOverlay?: OverlayChip | null
-  // Upgrade chance chip — top slot in all modes.
+  // Improvement chance chip — top slot in all modes.
   topOverlay?: OverlayChip | null
   // Safeguard rank chip — center slot in triple mode, collapses to center in single/double.
   bottomOverlay?: OverlayChip | null

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import {
   GEAR_INSPECTOR_SORT_KEY_LAST_USAGE,
   GEAR_INSPECTOR_SORT_KEY_NEWEST,
-  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE,
+  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE,
   sortGearInspectorRows,
   sortGearInspectorRowsBySubstats,
 } from '../../src/lib/gearInspectorSort.js'
@@ -338,11 +338,11 @@ test('sortGearInspectorRowsBySubstats sorts by safeguard improvement chance (hig
   const low = makeGearInspectorRow({ id: 2 })
   const none = makeGearInspectorRow({ id: 3 })
   const sorted = sortGearInspectorRowsBySubstats([low, none, high], {
-    priorities: [GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE],
+    priorities: [GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE],
     direction: 'desc',
     flipped: [],
     excludeGlyphs: true,
-    safeguardUpgradeChanceByArtifactId: new Map([
+    safeguardImprovementChanceByArtifactId: new Map([
       [1, 80],
       [2, 20],
     ]),
@@ -355,11 +355,11 @@ test('sortGearInspectorRowsBySubstats supports flipped direction for safeguard i
   const low = makeGearInspectorRow({ id: 2 })
   const none = makeGearInspectorRow({ id: 3 })
   const sorted = sortGearInspectorRowsBySubstats([high, none, low], {
-    priorities: [GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE],
+    priorities: [GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE],
     direction: 'desc',
-    flipped: [GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE],
+    flipped: [GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE],
     excludeGlyphs: true,
-    safeguardUpgradeChanceByArtifactId: new Map([
+    safeguardImprovementChanceByArtifactId: new Map([
       [1, 80],
       [2, 20],
     ]),
@@ -384,11 +384,11 @@ test('sortGearInspectorRowsBySubstats composes safeguard chance and substat prio
   const spdHigh = makeGearInspectorRow({ id: 1, substats: [makeSubstat(StatVariant.SPD, 20)] })
   const spdLow = makeGearInspectorRow({ id: 2, substats: [makeSubstat(StatVariant.SPD, 5)] })
   const sorted = sortGearInspectorRowsBySubstats([spdLow, spdHigh], {
-    priorities: [GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE, StatVariant.SPD],
+    priorities: [GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE, StatVariant.SPD],
     direction: 'desc',
     flipped: [],
     excludeGlyphs: true,
-    safeguardUpgradeChanceByArtifactId: new Map([
+    safeguardImprovementChanceByArtifactId: new Map([
       [1, 50],
       [2, 50],
     ]),

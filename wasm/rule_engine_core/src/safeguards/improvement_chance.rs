@@ -1,4 +1,4 @@
-// Direct Rust translation of safeguardUpgradeChance.ts.
+// Direct Rust translation of safeguardImprovementChance.ts.
 // Probability computation runs in WASM on the rule-cache worker thread
 // so the main-thread useMemo is eliminated (Bug 3 fix).
 // Bug 1 fix (enabled-gate): caller passes `enabled` and we return early.
@@ -62,7 +62,7 @@ const UNKNOWN_ROLL_MIN_RANK_SCALE: f64 = 0.6;
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct UpgradeChanceDebug {
+pub struct ImprovementChanceDebug {
     // Number of artifacts used as the comparison dataset for this chance run.
     pub source_artifact_count: u32,
     // Number of viable scenarios that can match this artifact by +16.
@@ -85,7 +85,7 @@ pub struct UpgradeChanceDebug {
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct UpgradeChanceEntry {
+pub struct ImprovementChanceEntry {
     // Artifact id this entry describes.
     pub artifact_id: i64,
     // Rounded probability (0..=100) of being safeguard-selected at +16.
@@ -96,12 +96,12 @@ pub struct UpgradeChanceEntry {
     // SafeguardRule carries no id — kept in payload for backward-compatible deserialization).
     pub matched_rule_id: Option<String>,
     // 1-based ordinal of the preferred safeguard rule; None when no rule matched.
-    // Renamed to "ruleOrdinal" to match TS type UpgradeChanceWasmEntry; overrides the struct-level
+    // Renamed to "ruleOrdinal" to match TS type ImprovementChanceWasmEntry; overrides the struct-level
     // camelCase rename which would otherwise produce "matchedRuleOrdinal".
     #[serde(rename = "ruleOrdinal")]
     pub matched_rule_ordinal: Option<i64>,
     // Optional debug snapshot populated when the caller requests diagnostics.
-    pub debug: Option<UpgradeChanceDebug>,
+    pub debug: Option<ImprovementChanceDebug>,
 }
 
 // ─── internal structs ────────────────────────────────────────────────────────
@@ -121,8 +121,6 @@ struct PreparedUpgradeRule {
     set_excludes: HashSet<i64>,
     ignore_equipped_in_collection: bool,
     ignore_equipped_in_vault: bool,
-    // Pre-computed score floor from beatEquippedPercentile; None = disabled.
-    equipped_floor_score: Option<f64>,
 }
 
 // One ranking scenario expanded from a rule; perSubstat splits into N Any scenarios.
@@ -509,7 +507,7 @@ fn build_legal_addition_pool(artifact: &SafeguardWasmArtifactIn) -> Vec<i64> {
     pool
 }
 
-fn compute_projected_challenger_score(
+pub(super) fn compute_projected_challenger_score(
     artifact: &SafeguardWasmArtifactIn,
     selected: &[i64],
     weights: &HashMap<i64, f64>,
@@ -591,7 +589,7 @@ fn is_challenger_strictly_better(
     cand_main: i64,
     cand_rank: i64,
 ) -> bool {
-    // Mirror isChallengerStrictlyBetterThanCandidate in safeguardUpgradeChance.ts.
+    // Mirror isChallengerStrictlyBetterThanCandidate in safeguardImprovementChance.ts.
     let delta = ch_score - cand_score;
     if delta.abs() > SCORE_TIE_EPSILON {
         return delta > 0.0;
@@ -960,7 +958,7 @@ fn prepare_upgrade_rules(rules: &[SafeguardWasmRuleIn]) -> Vec<PreparedUpgradeRu
     // Filter and pre-compute; mirrors prepareSubstatSafeguardRules.
     let mut prepared = Vec::<PreparedUpgradeRule>::new();
     for (rule_order, rule) in rules.iter().enumerate() {
-        // Disabled rules contribute nothing to upgrade chance.
+        // Disabled rules contribute nothing to improvement chance.
         if safeguard_is_activation_off(rule.activation.as_deref().unwrap_or("")) {
             continue;
         }
@@ -996,7 +994,6 @@ fn prepare_upgrade_rules(rules: &[SafeguardWasmRuleIn]) -> Vec<PreparedUpgradeRu
             set_excludes,
             ignore_equipped_in_collection: rule.ignore_equipped_in_collection.unwrap_or(false),
             ignore_equipped_in_vault: rule.ignore_equipped_in_vault.unwrap_or(false),
-            equipped_floor_score: rule.equipped_floor_score.filter(|v| v.is_finite()),
         });
     }
     prepared
@@ -1013,17 +1010,7 @@ fn upgrade_rule_applies_to_artifact(
     if rule.ignore_equipped_in_vault && artifact.equipped_in_vault {
         return false;
     }
-    // Floor score check: collection-equipped are reference; skip for low-level gear.
-    if let Some(floor) = rule.equipped_floor_score {
-        // Use exact_level when present (mirrors TS clampLevel(artifact.exactLevel ?? artifact.level)).
-        let eff_level = artifact.exact_level.unwrap_or(artifact.level);
-        if !artifact.equipped_in_collection && eff_level >= 12 {
-            let score = safeguard_compute_score(artifact, &rule.selected_substats, &rule.weights);
-            if score < floor {
-                return false;
-            }
-        }
-    }
+    // Projection in mod.rs handles all level bands, so no floor gate is needed here.
     if !safeguard_matches_selection(&rule.combination.slots, artifact.slot) {
         return false;
     }
@@ -1233,7 +1220,7 @@ fn build_chance_debug(
     viability: &ViabilityContext,
     source_artifact_count: u32,
     viable_scenario_count: u32,
-) -> UpgradeChanceDebug {
+) -> ImprovementChanceDebug {
     // Mirror buildChanceDebugSnapshot; populates tooltip data.
     let artifact_id = artifact.id.unwrap_or(0);
     // Current score (not projected) for the "betterCount" display in the tooltip.
@@ -1279,7 +1266,7 @@ fn build_chance_debug(
     };
     let matched_now =
         count_matched_in_state(&viability.initial_state, &scenario.selected_substats);
-    UpgradeChanceDebug {
+    ImprovementChanceDebug {
         source_artifact_count,
         viable_scenario_count,
         selected_substats: debug_substats,
@@ -1294,14 +1281,14 @@ fn build_chance_debug(
 
 // ─── public entry point ───────────────────────────────────────────────────────
 
-/// Compute upgrade-chance percentages for every non-maxed artifact in `rows`.
+/// Compute improvement-chance percentages for every non-maxed artifact in `rows`.
 /// Returns an empty vec when `!enabled`, when there are no substat rules,
 /// or when there are no non-maxed artifacts with applicable scenarios.
-pub fn compute_upgrade_chance_core(
+pub fn compute_improvement_chance_core(
     rows: &[SafeguardCollectRowIn],
     rules: Vec<SafeguardWasmRuleIn>,
     enabled: bool,
-) -> Vec<UpgradeChanceEntry> {
+) -> Vec<ImprovementChanceEntry> {
     if !enabled || rules.is_empty() || rows.is_empty() {
         return vec![];
     }
@@ -1321,7 +1308,7 @@ pub fn compute_upgrade_chance_core(
         }
     }
     let source_count = rows.len() as u32;
-    let mut output = Vec::<UpgradeChanceEntry>::new();
+    let mut output = Vec::<ImprovementChanceEntry>::new();
     for row in rows {
         let Some(artifact_id) = row.artifact.id else {
             continue;
@@ -1336,7 +1323,7 @@ pub fn compute_upgrade_chance_core(
             .map(|v| v.as_slice())
             .unwrap_or(&[]);
         if artifact_scenarios.is_empty() {
-            output.push(UpgradeChanceEntry {
+            output.push(ImprovementChanceEntry {
                 artifact_id,
                 chance_percent: 0,
                 has_matching_safeguard: false,
@@ -1354,7 +1341,7 @@ pub fn compute_upgrade_chance_core(
             .copied()
             .collect();
         if viable.is_empty() {
-            output.push(UpgradeChanceEntry {
+            output.push(ImprovementChanceEntry {
                 artifact_id,
                 chance_percent: 0,
                 has_matching_safeguard: false,
@@ -1376,7 +1363,7 @@ pub fn compute_upgrade_chance_core(
             .and_then(|s| if s.rule_id.is_empty() { None } else { Some(s.rule_id.clone()) });
         // 1-based ordinal derived from the 0-based rule_order; used by TypeScript for navigation.
         let matched_rule_ordinal = preferred.map(|s| s.rule_order as i64 + 1);
-        output.push(UpgradeChanceEntry {
+        output.push(ImprovementChanceEntry {
             artifact_id,
             chance_percent: chance,
             has_matching_safeguard: true,

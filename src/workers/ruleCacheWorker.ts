@@ -24,14 +24,14 @@ import type { GearInspectorMatchWorkerItemResult } from './gearInspectorMatchWor
 import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from './ruleCacheWorkerTypes'
 import { resolveArtifactItemIdWithFallback } from '../lib/itemIdentity'
 import {
-  computeUpgradeChanceWithLoadedWasm,
+  computeImprovementChanceWithLoadedWasm,
   configureWasmRuleEngine,
   evaluateWasmRuleEngineItems,
   finalizeGeneratedRulesWithLoadedWasm,
   getWasmRuleEngineVersion,
   warmupWasmRuleEngine,
 } from '../lib/wasm/wasmRuleEngine'
-import type { UpgradeChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
+import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
 import { createProgressThrottler } from '../types/progress'
 
 declare const self: DedicatedWorkerGlobalScope
@@ -310,8 +310,8 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     const ignoreSafeguardRecipeIndices = buildIgnoreSafeguardRecipeIndices(recipesForRules)
     const baselineMatchMap = new Map<number, GearInspectorMatchWorkerItemResult>()
     let safeguardDetectionSnapshot: SafeguardDetectionSnapshot | null = null
-    // Populated inside needsDetection branch when payload.computeUpgradeChance is true.
-    let upgradeChanceEntries: UpgradeChanceWasmEntry[] | null = null
+    // Populated inside needsDetection branch when payload.computeImprovementChance is true.
+    let improvementChanceEntries: ImprovementChanceWasmEntry[] | null = null
     if (needsDetection) {
       // Configure baseline rules so the combined WASM evaluate+collect call uses them.
       await configureWasmRuleEngine({
@@ -333,10 +333,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       const detectionOptions = hasActiveSafeguards
         ? { baselineExcludeSources: SAFEGUARD_OVERRIDE_RULE_SOURCES }
         : undefined
-      // Artifacts are extracted from detectionRows for equippedFloorScore computation.
-      // The WASM engine reads stored rows directly — no rows param needed here.
+      // The WASM engine reads stored rows directly; improvement-chance pre-computation
+      // happens inside evaluateAndCollectSafeguardProtection when a threshold is set.
       const detectionResult = evaluateAndCollectSafeguardProtection({
-        artifacts: artifactEntries.map(([, artifact]) => artifact),
         ...(detectionOptions ? { options: detectionOptions } : {}),
         rules: payload.safeguards.rules,
         enabled: payload.safeguards.enabled,
@@ -357,8 +356,8 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       // Compute improvement-chance percentages in WASM while stored_rows are still fresh.
       // Gated on the caller opt-in flag; skipped when safeguards are off (needsDetection already
       // ensures safeguards.enabled && rules.length > 0 && artifacts.length > 0).
-      if (payload.computeUpgradeChance) {
-        upgradeChanceEntries = computeUpgradeChanceWithLoadedWasm({
+      if (payload.computeImprovementChance) {
+        improvementChanceEntries = computeImprovementChanceWithLoadedWasm({
           rules: payload.safeguards.rules,
           enabled: payload.safeguards.enabled,
         })
@@ -433,7 +432,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         excludedByTotalLimitIndices: pipelineState.excludedByTotalLimitIndices.slice(),
         matches,
         safeguardDetection: safeguardDetectionSnapshot,
-        upgradeChanceEntries,
+        improvementChanceEntries,
       },
     }
     self.postMessage(response)

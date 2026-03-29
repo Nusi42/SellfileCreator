@@ -8,7 +8,7 @@ import {
   GEAR_INSPECTOR_GRID_SHOW_MATCH_RECIPE_INDEX_KEY,
   GEAR_INSPECTOR_GRID_SHOW_MATCH_LINE_KEY,
   GEAR_INSPECTOR_GRID_SHOW_OTHER_MATCHES_KEY,
-  GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY,
+  GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_IMPROVEMENT_CHANCE_KEY,
   GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_RANK_KEY,
   GEAR_INSPECTOR_GRID_SHOW_RULE_TEMPLATES_KEY,
 } from '../lib/constants'
@@ -94,8 +94,8 @@ const gearInspectorGridHighlightKeepSellStore = createLocalStorageStore<boolean>
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
-const gearInspectorGridShowSafeguardUpgradeChanceStore = createLocalStorageStore<boolean>({
-  key: GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_UPGRADE_CHANCE_KEY,
+const gearInspectorGridShowSafeguardImprovementChanceStore = createLocalStorageStore<boolean>({
+  key: GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_IMPROVEMENT_CHANCE_KEY,
   // Default on so users see improvement guidance immediately.
   fallback: true,
   parse: (raw) => raw === 'true',
@@ -115,14 +115,14 @@ export const useShowSafeguardRank = (): boolean =>
   gearInspectorGridShowSafeguardRankStore.useValue()
 
 // Standalone helpers for tutorial snapshot/restore — avoids passing the setter as a prop.
-export const snapshotSafeguardUpgradeChance = (): boolean =>
-  gearInspectorGridShowSafeguardUpgradeChanceStore.getSnapshot()
-export const restoreSafeguardUpgradeChance = (value: boolean): void =>
-  gearInspectorGridShowSafeguardUpgradeChanceStore.set(value)
+export const snapshotSafeguardImprovementChance = (): boolean =>
+  gearInspectorGridShowSafeguardImprovementChanceStore.getSnapshot()
+export const restoreSafeguardImprovementChance = (value: boolean): void =>
+  gearInspectorGridShowSafeguardImprovementChanceStore.set(value)
 
 // Reactive read for callers outside the grid (e.g. App.tsx pipeline flag).
-export const useShowSafeguardUpgradeChance = (): boolean =>
-  gearInspectorGridShowSafeguardUpgradeChanceStore.useValue()
+export const useShowSafeguardImprovementChance = (): boolean =>
+  gearInspectorGridShowSafeguardImprovementChanceStore.useValue()
 
 export function useGearInspectorGridPreferences(variant: GearInspectorGridPreferenceVariant = 'gearInspector') {
   const columns = gearInspectorGridColumnsStore.useValue()
@@ -137,7 +137,7 @@ export function useGearInspectorGridPreferences(variant: GearInspectorGridPrefer
   const showChampionIcons = gearInspectorGridShowChampIconsStore.useValue()
   const showRuleTemplates = gearInspectorGridShowRuleTemplatesStore.useValue()
   const highlightKeepSell = gearInspectorGridHighlightKeepSellStore.useValue()
-  const showSafeguardUpgradeChance = gearInspectorGridShowSafeguardUpgradeChanceStore.useValue()
+  const showSafeguardImprovementChance = gearInspectorGridShowSafeguardImprovementChanceStore.useValue()
   const showSafeguardRank = gearInspectorGridShowSafeguardRankStore.useValue()
 
   const setColumns = useCallback((next: GearInspectorGridColumnMode) => {
@@ -177,8 +177,8 @@ export function useGearInspectorGridPreferences(variant: GearInspectorGridPrefer
     gearInspectorGridHighlightKeepSellStore.set(Boolean(next))
   }, [])
 
-  const setShowSafeguardUpgradeChance = useCallback((next: boolean) => {
-    gearInspectorGridShowSafeguardUpgradeChanceStore.set(Boolean(next))
+  const setShowSafeguardImprovementChance = useCallback((next: boolean) => {
+    gearInspectorGridShowSafeguardImprovementChanceStore.set(Boolean(next))
   }, [])
 
   const setShowSafeguardRank = useCallback((next: boolean) => {
@@ -194,7 +194,7 @@ export function useGearInspectorGridPreferences(variant: GearInspectorGridPrefer
     showChampionIcons,
     showRuleTemplates,
     highlightKeepSell,
-    showSafeguardUpgradeChance,
+    showSafeguardImprovementChance,
     showSafeguardRank,
     setColumns,
     setShowFirstMatch,
@@ -204,7 +204,7 @@ export function useGearInspectorGridPreferences(variant: GearInspectorGridPrefer
     setShowChampionIcons,
     setShowRuleTemplates,
     setHighlightKeepSell,
-    setShowSafeguardUpgradeChance,
+    setShowSafeguardImprovementChance,
     setShowSafeguardRank,
   }
 }

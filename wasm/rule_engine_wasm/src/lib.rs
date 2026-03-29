@@ -1,8 +1,18 @@
 use std::collections::HashMap;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
 use wasm_bindgen::prelude::*;
 use rule_engine_core::*;
+
+// Minimal inbound representation of a pre-computed improvement-chance entry.
+// Only the two fields needed for threshold gating are deserialized; the full
+// ImprovementChanceEntry type is serialization-only and cannot be deserialized.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ImprovementChanceInput {
+    artifact_id: i64,
+    chance_percent: u8,
+}
 
 // Shared serializer used for all wasm outputs that contain HashMap fields.
 // serialize_maps_as_objects ensures HashMap<K, V> round-trips as a plain JS
@@ -165,6 +175,8 @@ pub fn compute_safeguard_protection_value(
     expected_groups_by_rule_id: JsValue,
     enabled: bool,
     now: f64,
+    // Pre-computed improvement chances as [{artifactId, chancePercent}] or null/undefined.
+    improvement_chances_payload: JsValue,
 ) -> Result<JsValue, JsValue> {
     // Parse canonical candidate payloads into the fast-path format for core.
     let parsed_candidates: Vec<SafeguardWasmCandidateFastIn> = from_js_value(candidates)
@@ -180,6 +192,15 @@ pub fn compute_safeguard_protection_value(
             Some(from_js_value(expected_groups_by_rule_id)
                 .map_err(|error| JsValue::from_str(&format!("Invalid safeguard expected-groups payload: {error}")))?)
         };
+    // Parse improvement-chance entries into a HashMap for O(1) lookup during ranking.
+    let improvement_chances: HashMap<i64, u8> =
+        if improvement_chances_payload.is_undefined() || improvement_chances_payload.is_null() {
+            HashMap::new()
+        } else {
+            let entries: Vec<ImprovementChanceInput> = from_js_value(improvement_chances_payload)
+                .map_err(|error| JsValue::from_str(&format!("Invalid safeguard improvement-chances payload: {error}")))?;
+            entries.into_iter().map(|e| (e.artifact_id, e.chance_percent)).collect()
+        };
     // Run the shared protection core and return the serialized snapshot.
     let snapshot = compute_safeguard_protection_core_pub(
         parsed_candidates,
@@ -187,6 +208,7 @@ pub fn compute_safeguard_protection_value(
         expected_payload,
         enabled,
         now,
+        improvement_chances,
     );
     to_js_value(&snapshot)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard snapshot: {error}")))
@@ -204,6 +226,8 @@ pub fn collect_and_compute_safeguard_protection_value(
     expected_groups_payload: JsValue,
     enabled: bool,
     now: f64,
+    // Pre-computed improvement chances as [{artifactId, chancePercent}] or null/undefined.
+    improvement_chances_payload: JsValue,
 ) -> Result<JsValue, JsValue> {
     // Parse canonical collect rows into the fast-path format for core parsing.
     let fast_rows: Vec<SafeguardCollectRowFastIn> = from_js_value(rows)
@@ -230,6 +254,15 @@ pub fn collect_and_compute_safeguard_protection_value(
             Some(from_js_value(expected_groups_payload)
                 .map_err(|error| JsValue::from_str(&format!("Invalid safeguard expected-groups payload: {error}")))?)
         };
+    // Parse improvement-chance entries into a HashMap for O(1) lookup during ranking.
+    let improvement_chances: HashMap<i64, u8> =
+        if improvement_chances_payload.is_undefined() || improvement_chances_payload.is_null() {
+            HashMap::new()
+        } else {
+            let entries: Vec<ImprovementChanceInput> = from_js_value(improvement_chances_payload)
+                .map_err(|error| JsValue::from_str(&format!("Invalid safeguard improvement-chances payload: {error}")))?;
+            entries.into_iter().map(|e| (e.artifact_id, e.chance_percent)).collect()
+        };
     let combined = collect_and_compute_safeguard_protection_core(
         parsed_rows,
         parsed_rules,
@@ -239,6 +272,7 @@ pub fn collect_and_compute_safeguard_protection_value(
         expected_payload,
         enabled,
         now,
+        improvement_chances,
     ).map_err(|error| JsValue::from_str(&error))?;
     to_js_value(&combined)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard combined snapshot: {error}")))
@@ -386,9 +420,8 @@ pub fn resolve_safeguard_rules_with_metasets_value(
                 .into_iter()
                 .map(|(variant, weight)| (variant.to_string(), weight))
                 .collect::<HashMap<String, f64>>(),
-            // Pass the raw percentile through so the TS pipeline can pre-compute
-            // equippedFloorScore after metaset resolution with the full artifact list.
-            beat_equipped_percentile: rule.beat_equipped_percentile.filter(|v| v.is_finite()),
+            // Echo threshold back to TS so the UI can display the configured value.
+            improvement_chance_threshold: rule.improvement_chance_threshold.filter(|v| v.is_finite()),
         });
     }
 
@@ -624,6 +657,9 @@ pub fn evaluate_and_collect_safeguard_protection_value(
     expected_groups_payload: JsValue,
     enabled: bool,
     now: f64,
+    // Pre-computed improvement chances as [{artifactId, chancePercent}] or null/undefined.
+    // Populated by TypeScript before this call when any rule has improvementChanceThreshold set.
+    improvement_chances_payload: JsValue,
 ) -> Result<JsValue, JsValue> {
     // Parse evaluate options (null/undefined = defaults).
     let parsed_options: EvaluateOptionsRaw = if options.is_undefined() || options.is_null() {
@@ -646,6 +682,19 @@ pub fn evaluate_and_collect_safeguard_protection_value(
             Some(from_js_value(expected_groups_payload)
                 .map_err(|error| JsValue::from_str(&format!("Invalid evaluate-and-collect expected-groups payload: {error}")))?)
         };
+    // Parse improvement-chance entries into a HashMap for O(1) lookup during ranking.
+    // null/undefined payload → empty map (no threshold gating applied).
+    let improvement_chances: HashMap<i64, u8> =
+        if improvement_chances_payload.is_undefined() || improvement_chances_payload.is_null() {
+            HashMap::new()
+        } else {
+            let entries: Vec<ImprovementChanceInput> = from_js_value(improvement_chances_payload)
+                .map_err(|error| JsValue::from_str(&format!("Invalid evaluate-and-collect improvement-chances payload: {error}")))?;
+            entries
+                .into_iter()
+                .map(|e| (e.artifact_id, e.chance_percent))
+                .collect()
+        };
     let snapshot = evaluate_engine_and_collect_safeguard_protection(
         parsed_options,
         parsed_ignore,
@@ -653,26 +702,27 @@ pub fn evaluate_and_collect_safeguard_protection_value(
         expected_payload,
         enabled,
         now,
+        improvement_chances,
     ).map_err(|error| JsValue::from_str(&error))?;
     to_js_value(&snapshot)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize evaluate-and-collect snapshot: {error}")))
 }
 
-// Compute upgrade-chance percentages for all non-maxed artifacts in stored rows.
+// Compute improvement-chance percentages for all non-maxed artifacts in stored rows.
 // Reads ENGINE_STATE.stored_rows (requires store_artifact_rows_value first).
-// Returns an array of UpgradeChanceEntry objects; empty when !enabled or no rows.
-// Uses to_js_value (not wasm_to_js) because UpgradeChanceEntry has no HashMap fields.
+// Returns an array of ImprovementChanceEntry objects; empty when !enabled or no rows.
+// Uses to_js_value (not wasm_to_js) because ImprovementChanceEntry has no HashMap fields.
 #[wasm_bindgen]
-pub fn compute_upgrade_chance_value(
+pub fn compute_improvement_chance_value(
     rules: JsValue,
     enabled: bool,
 ) -> Result<JsValue, JsValue> {
     let parsed_rules: Vec<SafeguardWasmRuleIn> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid upgrade-chance rules payload: {error}")))?;
-    let entries = compute_upgrade_chance_engine(parsed_rules, enabled)
+        .map_err(|error| JsValue::from_str(&format!("Invalid improvement-chance rules payload: {error}")))?;
+    let entries = compute_improvement_chance_engine(parsed_rules, enabled)
         .map_err(|error| JsValue::from_str(&error))?;
     to_js_value(&entries)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize upgrade-chance entries: {error}")))
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize improvement-chance entries: {error}")))
 }
 
 // Score and rank a list of candidate artifacts for the safeguard weight popover.

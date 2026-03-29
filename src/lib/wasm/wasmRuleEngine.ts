@@ -10,7 +10,7 @@ import initRuleEngineWasm, {
   collect_and_compute_safeguard_protection_value as collectAndComputeSafeguardProtectionWasmValueBinding,
   evaluate_and_collect_safeguard_protection_value as evaluateAndCollectSafeguardProtectionWasmValueBinding,
   store_artifact_rows_value as storeArtifactRowsWasmValueBinding,
-  compute_upgrade_chance_value as computeUpgradeChanceWasmValueBinding,
+  compute_improvement_chance_value as computeImprovementChanceWasmValueBinding,
   compute_merged_rules_value as computeMergedRulesWasmValueBinding,
   compute_safeguard_protection_value as computeSafeguardProtectionValueWasmBinding,
   dedupe_hsf_rules_for_export_value as dedupeHsfRulesForExportWasmValueBinding,
@@ -39,7 +39,7 @@ import initRuleEngineWasm, {
 import type { GeneratedBranchRuleEntry, HsfRuleWithRecipe } from '../merge'
 import type { HsfRule } from '../hsfTypes'
 import type { BuilderRecipe, SellfileExportMode } from '../hsfBuilder'
-import type { SafeguardCandidate, SafeguardCandidateOut, SafeguardDetectionSnapshot, SafeguardRule, SafeguardRuleForWasm } from '../safeguards'
+import type { SafeguardCandidate, SafeguardCandidateOut, SafeguardDetectionSnapshot, SafeguardRule } from '../safeguards'
 import type { FinalSellRemainderConfig } from '../logicHub'
 import type { GearInspectorMatchWorkerEvaluateItem, GearInspectorMatchWorkerItemResult } from '../../workers/gearInspectorMatchWorkerTypes'
 import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
@@ -345,6 +345,8 @@ export const finalizeGeneratedRulesWithLoadedWasm = (params: {
 export const computeSafeguardProtectionWithLoadedWasm = (params: {
   candidates: readonly SafeguardCandidate[]
   rules: readonly SafeguardRule[]
+  // Pre-computed improvement-chance entries; passed to WASM for threshold gating.
+  improvementChances?: readonly ImprovementChanceWasmEntry[]
   expectedGroupsByRuleId?: Record<string, unknown>
   expectedGroupDomain?: Record<string, unknown>
   enabled: boolean
@@ -371,6 +373,7 @@ export const computeSafeguardProtectionWithLoadedWasm = (params: {
     expectedGroupsPayload,
     params.enabled === true,
     Number.isFinite(params.now) ? params.now : 0,
+    params.improvementChances?.length ? params.improvementChances : null,
   )
   if (result && typeof result === 'object' && Array.isArray((result as { entries?: unknown }).entries)) {
     return result as SafeguardDetectionSnapshot
@@ -407,7 +410,9 @@ export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
   rules: HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
   ignoreSafeguardRecipeIndices?: ReadonlySet<number>
-  safeguardRules: readonly SafeguardRuleForWasm[]
+  safeguardRules: readonly SafeguardRule[]
+  // Pre-computed improvement-chance entries; passed to WASM for threshold gating.
+  improvementChances?: readonly ImprovementChanceWasmEntry[]
   expectedGroupsByRuleId?: Record<string, unknown>
   expectedGroupDomain?: Record<string, unknown>
   enabled: boolean
@@ -437,6 +442,7 @@ export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
     expectedGroupsPayload,
     params.enabled === true,
     Number.isFinite(params.now) ? params.now : 0,
+    params.improvementChances?.length ? params.improvementChances : null,
   ) as WasmCollectedAndProtectedSafeguardSnapshot
   if (
     result
@@ -450,9 +456,9 @@ export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
   throw new Error('WASM safeguard combined collector/detector returned an invalid payload.')
 }
 
-// Debug snapshot mirroring UpgradeChanceDebug from upgrade_chance.rs.
+// Debug snapshot mirroring ImprovementChanceDebug from improvement_chance.rs.
 // exactOptionalPropertyTypes: all nullable fields use T | null (not T | undefined).
-export type UpgradeChanceWasmDebug = {
+export type ImprovementChanceWasmDebug = {
   sourceArtifactCount: number
   viableScenarioCount: number
   selectedSubstats: number[]
@@ -464,8 +470,8 @@ export type UpgradeChanceWasmDebug = {
   maxAdditionEventsTo16: number
 }
 
-// Single artifact entry returned by compute_upgrade_chance_value.
-export type UpgradeChanceWasmEntry = {
+// Single artifact entry returned by compute_improvement_chance_value.
+export type ImprovementChanceWasmEntry = {
   artifactId: number
   chancePercent: number
   hasMatchingSafeguard: boolean
@@ -473,7 +479,7 @@ export type UpgradeChanceWasmEntry = {
   matchedRuleId: string | null
   // 1-based ordinal of the preferred safeguard rule; null when no rule matched.
   ruleOrdinal: number | null
-  debug: UpgradeChanceWasmDebug | null
+  debug: ImprovementChanceWasmDebug | null
 }
 
 // Output shape for the combined evaluate+collect WASM call.
@@ -506,7 +512,9 @@ export const storeArtifactRowsWithLoadedWasm = (params: {
 export const evaluateAndCollectSafeguardProtectionWithLoadedWasm = (params: {
   options?: WasmRuleEngineEvaluateOptions
   ignoreSafeguardRecipeIndices?: ReadonlySet<number>
-  safeguardRules: readonly SafeguardRuleForWasm[]
+  safeguardRules: readonly SafeguardRule[]
+  // Pre-computed improvement-chance entries; passed to WASM for threshold gating.
+  improvementChances?: readonly ImprovementChanceWasmEntry[]
   expectedGroupDomain?: Record<string, unknown>
   enabled: boolean
   now: number
@@ -531,6 +539,7 @@ export const evaluateAndCollectSafeguardProtectionWithLoadedWasm = (params: {
     expectedGroupsPayload,
     params.enabled === true,
     Number.isFinite(params.now) ? params.now : 0,
+    params.improvementChances?.length ? params.improvementChances : null,
   ) as WasmEvaluateAndCollectSnapshot
   if (
     result
@@ -1113,13 +1122,13 @@ export const getPermutationsI32WithLoadedWasm = (values: number[]): number[][] =
 // Compute improvement-chance entries for all non-maxed artifacts in stored rows.
 // Reads ENGINE_STATE.stored_rows — store_artifact_rows_value must be called first.
 // Returns null when the WASM result is not a valid array (defensive guard).
-export const computeUpgradeChanceWithLoadedWasm = (params: {
-  rules: readonly SafeguardRuleForWasm[]
+export const computeImprovementChanceWithLoadedWasm = (params: {
+  rules: readonly SafeguardRule[]
   enabled: boolean
-}): UpgradeChanceWasmEntry[] | null => {
+}): ImprovementChanceWasmEntry[] | null => {
   assertWasmInitializedSync()
-  const result = computeUpgradeChanceWasmValueBinding(params.rules, params.enabled === true)
+  const result = computeImprovementChanceWasmValueBinding(params.rules, params.enabled === true)
   // Defensive guard: WASM must return an array of entry objects.
   if (!Array.isArray(result)) return null
-  return result as UpgradeChanceWasmEntry[]
+  return result as ImprovementChanceWasmEntry[]
 }

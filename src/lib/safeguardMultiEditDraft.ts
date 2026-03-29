@@ -67,7 +67,7 @@ export type SafeguardEditableFields = {
   substats: StatVariant[]
   substatMatch: SafeguardSubstatMatch
   substatWeights: Partial<Record<StatVariant, number>>
-  beatEquippedPercentile: number | null
+  improvementChanceThreshold: number | null
 }
 
 export const SAFEGUARD_FIELD_KEYS = [
@@ -88,7 +88,7 @@ export const SAFEGUARD_FIELD_KEYS = [
   'substats',
   'substatMatch',
   'substatWeights',
-  'beatEquippedPercentile',
+  'improvementChanceThreshold',
 ] as const satisfies ReadonlyArray<keyof SafeguardEditableFields>
 
 export type SafeguardFieldKey = typeof SAFEGUARD_FIELD_KEYS[number]
@@ -199,7 +199,7 @@ export function extractSafeguardEditableFields(rule: SafeguardRule): SafeguardEd
     substats: Array.isArray(rule.substats) ? [...rule.substats] : [],
     substatMatch: rule.substatMatch,
     substatWeights: { ...(rule.substatWeights ?? {}) },
-    beatEquippedPercentile: rule.beatEquippedPercentile ?? null,
+    improvementChanceThreshold: rule.improvementChanceThreshold ?? null,
   }
 }
 
@@ -614,7 +614,7 @@ export function applyMultiEditFieldsToSafeguardRule(
   }
   // Post-apply normalization: substat-dependent fields are meaningless without substats.
   // This mirrors the single-edit constraint in constrainSafeguardSubstats and ensures
-  // rules that have no substats are not left with a stale beat-equipped or match setting.
+  // rules that have no substats are not left with a stale improvement-chance or match setting.
   nextRule = normalizeSafeguardSubstatDependents(nextRule)
   return nextRule
 }

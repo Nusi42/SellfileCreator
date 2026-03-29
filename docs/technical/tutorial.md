@@ -40,7 +40,7 @@
 
 ### Session Handling
 
-- Snapshot/restore: On tutorial start, the app snapshots the full SFR state in memory (recipes, selection, metasets, substatTargets, final-sell, safeguard rules, safeguards/recipes enabled flags, note, builder, Gear Inspector items, preview mode, Logic Hub open state and tab, safeguard upgrade-chance display flag) and resets to a clean default so the walkthrough is deterministic. On exit or finish, the snapshot is restored exactly.
+- Snapshot/restore: On tutorial start, the app snapshots the full SFR state in memory (recipes, selection, metasets, substatTargets, final-sell, safeguard rules, safeguards/recipes enabled flags, note, builder, Gear Inspector items, preview mode, Logic Hub open state and tab, safeguard improvement-chance display flag) and resets to a clean default so the walkthrough is deterministic. On exit or finish, the snapshot is restored exactly.
 - Exit hygiene: On exit/finish, the app first closes all transient UI (menus, dialogs, context menus), then restores the snapshot, then closes the coach. Autosave resumes after the original state is back in place.
 - Autosave: Paused while the tutorial runs to avoid overwriting the user's real session. Resumes after exit/finish.
 - History: Tutorial-driven resets, jumps, and snapshot restores suppress undo/redo history entries so the timeline only reflects user edits.

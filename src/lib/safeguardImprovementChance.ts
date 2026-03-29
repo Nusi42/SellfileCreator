@@ -5,7 +5,6 @@ import type {
   SafeguardSubstatMatch,
 } from './safeguards'
 import {
-  computeEquippedCollectionFloorScore,
   computeSafeguardScoreFromArtifact,
   getSafeguardCountKey,
   matchesCombinationFilter,
@@ -28,7 +27,7 @@ const parseSubstatMinCount = (substatMatch: SafeguardSubstatMatch): number => {
   return Number.isFinite(n) && n >= 1 ? n : 1
 }
 
-// Upgrade chance is always projected to +16 because safeguards compare final gear value.
+// Improvement chance is always projected to +16 because safeguards compare final gear value.
 const SAFEGUARD_UPGRADE_TARGET_LEVEL = 16
 // Gear can never hold more than four substats.
 const SAFEGUARD_MAX_SUBSTAT_SLOTS = GENERATED_SUBSTAT_SLOT_COUNT
@@ -77,8 +76,6 @@ type PreparedSafeguardRule = {
   // Equipped ignore toggles must match safeguard rule semantics.
   ignoreEquippedInCollection: boolean
   ignoreEquippedInVault: boolean
-  // Pre-computed score floor derived from beatEquippedPercentile; null = disabled.
-  equippedFloorScore: number | null
 }
 
 type RuleScenario = {
@@ -136,7 +133,7 @@ type ArtifactScenarioViabilityContext = {
   legalAdditionPool: ReadonlySet<number>
 }
 
-export type SafeguardUpgradeChanceEntry = {
+export type SafeguardImprovementChanceEntry = {
   // Compact integer chance (0..100) for this artifact to be safeguard-selected at +16.
   chancePercent: number
   // True when at least one substat safeguard applies to this artifact.
@@ -144,10 +141,10 @@ export type SafeguardUpgradeChanceEntry = {
   // 1-based ordinal of the preferred safeguard rule for click-through navigation; null when none matched.
   matchedRuleOrdinal: number | null
   // Optional debug snapshot used by UI tooltips to explain chance outcomes.
-  debug?: SafeguardUpgradeChanceDebug
+  debug?: SafeguardImprovementChanceDebug
 }
 
-export type SafeguardUpgradeChanceDebug = {
+export type SafeguardImprovementChanceDebug = {
   // Number of artifacts used as the comparison dataset for this chance run.
   sourceArtifactCount: number
   // Number of viable scenarios that can make this artifact safeguard-selected.
@@ -215,14 +212,12 @@ const normalizeSelectedSubstats = (values: readonly number[]): number[] => {
 }
 
 // Flatten active safeguard rules with selected substats into precomputed descriptors.
-// Accepts the current artifact list so floor scores can be derived per rule.
 const prepareSubstatSafeguardRules = (
   rules: readonly SafeguardRule[],
-  artifacts: readonly NormalizedGearArtifact[],
 ): PreparedSafeguardRule[] => {
   const prepared: PreparedSafeguardRule[] = []
   for (const [ruleOrder, rule] of rules.entries()) {
-    // Disabled safeguards cannot contribute upgrade chance.
+    // Disabled safeguards cannot contribute improvement chance.
     if (rule.activation === SafeguardRuleActivation.Off) continue
     // This overlay only uses safeguards that explicitly select substats.
     const selectedSubstats = normalizeSelectedSubstats(rule.substats ?? [])
@@ -234,12 +229,6 @@ const prepareSubstatSafeguardRules = (
     // Extract slots and weights as locals for use in prepared.push below.
     const slots = (rule.combination.slots ?? []).map((value) => Number(value)).filter(Number.isFinite)
     const weights = normalizeRuleWeights(rule.substatWeights ?? {})
-    // Compute equipped quality floor when beatEquippedPercentile is configured.
-    // Pass the full combination so the reference pool is filtered to true peers.
-    const percentile = rule.beatEquippedPercentile
-    const equippedFloorScore = (percentile !== null && percentile !== undefined && Number.isFinite(percentile))
-      ? computeEquippedCollectionFloorScore(artifacts, rule.combination, selectedSubstats, weights, percentile)
-      : null
     prepared.push({
       ruleOrder,
       // 1-based ordinal derived from the 0-based loop index.
@@ -258,7 +247,6 @@ const prepareSubstatSafeguardRules = (
       weights,
       ignoreEquippedInCollection: rule.ignoreEquippedInCollection === true,
       ignoreEquippedInVault: rule.ignoreEquippedInVault === true,
-      equippedFloorScore,
     })
   }
   return prepared
@@ -270,15 +258,6 @@ const ruleAppliesToArtifact = (rule: PreparedSafeguardRule, artifact: Normalized
   const equippedLocation = artifact.equippedChampionLocation
   if (rule.ignoreEquippedInCollection && equippedLocation === 'collection') return false
   if (rule.ignoreEquippedInVault && (equippedLocation === 'vault' || equippedLocation === 'reserveVault')) return false
-  // Quality floor: collection-equipped pieces are the reference and always pass.
-  // Skip the check for low-level gear (<12); upgrade-chance handles those instead.
-  if (rule.equippedFloorScore !== null && equippedLocation !== 'collection') {
-    const level = clampLevel(artifact.exactLevel ?? artifact.level)
-    if (level >= 12) {
-      const score = computeSafeguardScoreFromArtifact(artifact, rule.selectedSubstats, rule.weights)
-      if (score < rule.equippedFloorScore) return false
-    }
-  }
   // Slot, set, rank, and rarity all use wildcard-aware selection matching.
   const slot = Number(artifact.slot)
   const setId = Number(artifact.set)
@@ -708,7 +687,7 @@ const computeSelectionProbabilityToLevel16 = (
 }
 
 // Compute one artifact's +16 chance of being selected by at least one scenario.
-const computeArtifactUpgradeChancePercent = (
+const computeArtifactImprovementChancePercent = (
   artifact: NormalizedGearArtifact,
   artifactScenarios: readonly RuleScenario[],
 ): number => {
@@ -817,7 +796,7 @@ const resolveMostLikelyScenario = (
   let bestChance = Number.NEGATIVE_INFINITY
   let bestScenarios: RuleScenario[] = []
   for (const scenario of artifactScenarios) {
-    const chance = computeArtifactUpgradeChancePercent(artifact, [scenario])
+    const chance = computeArtifactImprovementChancePercent(artifact, [scenario])
     if (chance > bestChance) {
       bestChance = chance
       bestScenarios = [scenario]
@@ -875,7 +854,7 @@ const buildChanceDebugSnapshot = (
   viability: ArtifactScenarioViabilityContext,
   sourceArtifactCount: number,
   viableScenarioCount: number,
-): SafeguardUpgradeChanceDebug => {
+): SafeguardImprovementChanceDebug => {
   const artifactId = Number(artifact.id)
   const candidateMainStat = Number(artifact.mainStat?.variant ?? StatVariant.Any)
   const candidateRank = Number(artifact.rank)
@@ -921,11 +900,11 @@ const resolvePreferredRuleOrdinal = (artifactScenarios: readonly RuleScenario[])
 }
 
 // Build artifact-id keyed percentages for Gear Inspector grid overlay lookup.
-export const buildSafeguardUpgradeChanceByArtifactId = (
+export const buildSafeguardImprovementChanceByArtifactId = (
   artifacts: readonly NormalizedGearArtifact[],
   rules: readonly SafeguardRule[],
-): Map<number, SafeguardUpgradeChanceEntry> => {
-  const output = new Map<number, SafeguardUpgradeChanceEntry>()
+): Map<number, SafeguardImprovementChanceEntry> => {
+  const output = new Map<number, SafeguardImprovementChanceEntry>()
   const upgradableArtifactIds = new Set<number>()
   for (const artifact of artifacts) {
     const artifactId = Number(artifact.id)
@@ -941,7 +920,7 @@ export const buildSafeguardUpgradeChanceByArtifactId = (
   }
   if (artifacts.length === 0 || rules.length === 0 || upgradableArtifactIds.size === 0) return output
   // Precompute active substat safeguards first.
-  const preparedRules = prepareSubstatSafeguardRules(rules, artifacts)
+  const preparedRules = prepareSubstatSafeguardRules(rules)
   if (preparedRules.length === 0) return output
   // Build shared challenger scenarios once for this grid snapshot.
   const scenarios = buildRuleScenarios(artifacts, preparedRules)
@@ -988,7 +967,7 @@ export const buildSafeguardUpgradeChanceByArtifactId = (
       })
       continue
     }
-    const chance = computeArtifactUpgradeChancePercent(artifact, viableArtifactScenarios)
+    const chance = computeArtifactImprovementChancePercent(artifact, viableArtifactScenarios)
     const preferredScenario = resolveMostLikelyScenario(artifact, viableArtifactScenarios)
     const debugSnapshot = preferredScenario
       ? buildChanceDebugSnapshot(

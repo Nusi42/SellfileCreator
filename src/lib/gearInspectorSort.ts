@@ -196,7 +196,7 @@ export const normalizeGearInspectorGroupingState = (raw: unknown): GearInspector
 // Synthetic "priority keys" beyond the StatVariant enum.
 // Why: keep the sort menu extensible without forcing fake variants into the domain enum.
 export const GEAR_INSPECTOR_SORT_KEY_LAST_USAGE = -1 as const
-export const GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE = -2 as const
+export const GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE = -2 as const
 export const GEAR_INSPECTOR_SORT_KEY_NEWEST = -3 as const
 // Sorts by safeguard candidate rank: most-protected items (rank #1) sort first; unranked items last.
 export const GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK = -4 as const
@@ -204,13 +204,13 @@ export const GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK = -4 as const
 export type GearInspectorSortKey =
   | StatVariant
   | typeof GEAR_INSPECTOR_SORT_KEY_LAST_USAGE
-  | typeof GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE
+  | typeof GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE
   | typeof GEAR_INSPECTOR_SORT_KEY_NEWEST
   | typeof GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK
 
 export const isGearInspectorSyntheticSortKey = (key: number): boolean => (
   key === GEAR_INSPECTOR_SORT_KEY_LAST_USAGE
-  || key === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE
+  || key === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE
   || key === GEAR_INSPECTOR_SORT_KEY_NEWEST
   || key === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK
 )
@@ -232,7 +232,7 @@ export type GearInspectorSubstatSortSpec = {
   // Why: supports "combine presets and use the best" UX without forking the score math.
   normalizedScoreSpecs?: readonly GearInspectorNormalizedSubstatScoreSpec[]
   // Optional artifact-id keyed safeguard chance map used by the synthetic "improvement chance" sort key.
-  safeguardUpgradeChanceByArtifactId?: ReadonlyMap<number, number | null>
+  safeguardImprovementChanceByArtifactId?: ReadonlyMap<number, number | null>
   // Optional artifact-id keyed safeguard rank map used by GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK.
   // Value is the best (lowest) safeguard candidate rank across active rules; null = not ranked.
   safeguardRankByArtifactId?: ReadonlyMap<number, number | null>
@@ -289,7 +289,7 @@ const lastUsageValueForSort = (row: GearInspectorPreviewRow): number | null => {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-const safeguardUpgradeChanceValueForSort = (
+const safeguardImprovementChanceValueForSort = (
   row: GearInspectorPreviewRow,
   map: ReadonlyMap<number, number | null> | undefined,
 ): number | null => {
@@ -422,9 +422,9 @@ export function compareGearInspectorPreviewRowsBySubstats(
       return (left - right) * perKeyMultiplier
     }
 
-    if (key === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_UPGRADE_CHANCE) {
-      const left = safeguardUpgradeChanceValueForSort(a, spec.safeguardUpgradeChanceByArtifactId)
-      const right = safeguardUpgradeChanceValueForSort(b, spec.safeguardUpgradeChanceByArtifactId)
+    if (key === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE) {
+      const left = safeguardImprovementChanceValueForSort(a, spec.safeguardImprovementChanceByArtifactId)
+      const right = safeguardImprovementChanceValueForSort(b, spec.safeguardImprovementChanceByArtifactId)
       if (left == null && right == null) continue
       if (left == null) return 1
       if (right == null) return -1
