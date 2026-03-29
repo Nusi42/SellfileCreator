@@ -56,6 +56,7 @@ export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot, onToggleMainSt
         {onToggleCollapse && (
           <IconButton
             size="small"
+            data-snapshot-hide
             onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
             onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
             sx={{ p: 0.25, flexShrink: 0 }}
