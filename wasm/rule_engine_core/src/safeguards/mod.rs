@@ -1577,16 +1577,31 @@ fn safeguard_consolidate_rarity_codes(rarities: &[i64]) -> Vec<i64> {
     sorted.into_iter().map(safeguard_rarity_value_to_code).collect()
 }
 
-// Returns (rule, main_variant) pairs so callers can filter substats impossible for that mainstat.
+// Returns (rule, main_variant, effective_slots) triples so callers can filter substats
+// that are impossible for the mainstat or not legal on any of the effective slots.
 fn safeguard_build_placeholder_base_rules(
     combination: &SafeguardWasmCombination,
     recipe_id: i64,
     normalized_name: Option<&str>,
-) -> Vec<(RuleRaw, i64)> {
+) -> Vec<(RuleRaw, i64, Vec<i64>)> {
     let slot_values = safeguard_sorted_unique_i64(&combination.slots);
     let (set_includes, _) = safeguard_split_set_selections(&combination.sets);
     let mut set_values = set_includes.into_iter().collect::<Vec<_>>();
     set_values.sort_unstable();
+    // ACCESSORY_NO_SET_ID (-99) is the "no set" sentinel exclusive to accessory slots.
+    // When the only set in the combination is this sentinel, only accessory slots can match.
+    // Positive set IDs span both armor and accessory slots in RSL, so they need no filtering.
+    let no_set_only = set_values.len() == 1 && set_values[0] == ACCESSORY_NO_SET_ID;
+    let slot_values = if no_set_only && !slot_values.is_empty() {
+        // Keep only accessory slots; skip the combination entirely if none remain.
+        let accessory: Vec<i64> = slot_values.iter().copied()
+            .filter(|&s| safeguard_is_accessory_slot(s))
+            .collect();
+        if accessory.is_empty() { return Vec::new(); }
+        accessory
+    } else {
+        slot_values
+    };
     let faction_values = safeguard_sorted_unique_i64(&combination.factions);
     // Consolidate consecutive rank/rarity chains ending at the maximum value into
     // a single GTE anchor so each placeholder group emits the fewest HSF rules.
@@ -1603,12 +1618,27 @@ fn safeguard_build_placeholder_base_rules(
     } else {
         main_options
     };
-    let mut rules = Vec::<(RuleRaw, i64)>::new();
+    let mut rules = Vec::<(RuleRaw, i64, Vec<i64>)>::new();
     let mut seen = HashSet::<SafeguardCanonicalRuleKey>::new();
     for &rank in &rank_values {
         for &rarity_code in &rarity_codes {
             for faction in &faction_options {
                 for main_variant in &main_variants {
+                    // When slots are explicit and mainstat is concrete, emit only the slots
+                    // where that mainstat is actually allowed. Skip the combination entirely
+                    // when no slots remain — avoids unmatchable rules like Weapon + HP%.
+                    let effective_slots: Vec<i64> = if !slot_values.is_empty() && *main_variant != STAT_VARIANT_ANY {
+                        slot_values.iter().copied().filter(|&s| {
+                            ALLOWED_MAINS_BY_SLOT.iter().any(|&(allowed_slot, mains)| {
+                                allowed_slot == s && mains.contains(main_variant)
+                            })
+                        }).collect()
+                    } else {
+                        slot_values.clone()
+                    };
+                    if !slot_values.is_empty() && effective_slots.is_empty() {
+                        continue;
+                    }
                     let (main_id, main_f) = safeguard_variant_to_main(*main_variant);
                     let safeguard_rule = RuleRaw {
                         RecipeID: Some(recipe_id),
@@ -1621,10 +1651,10 @@ fn safeguard_build_placeholder_base_rules(
                         } else {
                             Some(set_values.clone())
                         },
-                        ArtifactType: if slot_values.is_empty() {
+                        ArtifactType: if effective_slots.is_empty() {
                             None
                         } else {
-                            Some(slot_values.clone())
+                            Some(effective_slots.clone())
                         },
                         Rank: Some(rank),
                         Rarity: Some(rarity_code),
@@ -1653,7 +1683,7 @@ fn safeguard_build_placeholder_base_rules(
                     if !seen.insert(canonical) {
                         continue;
                     }
-                    rules.push((safeguard_rule, *main_variant));
+                    rules.push((safeguard_rule, *main_variant, effective_slots.clone()));
                 }
             }
         }
@@ -1727,14 +1757,26 @@ fn safeguard_build_placeholder_rules(
             selected_substats.clone()
         };
         let has_placeholder_substat_filter = !placeholder_substats.is_empty();
-        for (base_rule, main_variant) in &base_rules {
+        for (base_rule, main_variant, effective_slots) in &base_rules {
             if has_placeholder_substat_filter {
                 // Exclude substats that are impossible for this placeholder's mainstat.
                 // A substat that equals the mainstat can never appear on that piece.
+                // Also exclude substats not in ALLOWED_SUBS_BY_SLOT for single-slot rules —
+                // only applied when there is exactly one effective slot to avoid over-filtering
+                // multi-slot rules (where a substat valid on some slots but not others should
+                // still be required on the slots where it is legal).
+                let slot_sub_filter: Option<&[i64]> = if effective_slots.len() == 1 {
+                    ALLOWED_SUBS_BY_SLOT.iter()
+                        .find(|&&(s, _)| s == effective_slots[0])
+                        .map(|(_, subs)| *subs)
+                } else {
+                    None
+                };
                 let possible_substats: Vec<i64> = placeholder_substats
                     .iter()
                     .copied()
                     .filter(|&v| *main_variant == SAFEGUARD_MAIN_ANY || v != *main_variant)
+                    .filter(|v| slot_sub_filter.map_or(true, |allowed| allowed.contains(v)))
                     .collect();
                 // No possible substats means every selected substat conflicts with this
                 // mainstat — no valid placeholder rule can be emitted for this combination.
