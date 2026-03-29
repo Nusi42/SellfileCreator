@@ -135,6 +135,7 @@ import { isDefaultGearInspectorSubstatSortState, setGearInspectorSubstatSortStat
 import { useGearInspectorGridNormalizedOverlayPreferences } from './state/gearInspectorGridNormalizedOverlayPreferences'
 import { useShowSafeguardUpgradeChance } from './state/gearInspectorGridPreferences'
 import { FILTER_PRESETS_VERSION, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
+import { useSortPresetsPreference, type SortPreset } from './state/sortPresetsPreference'
 import { useSplitterLeftWidthPx } from './state/splitterPreference'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
@@ -2646,7 +2647,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const setGearInspectorRecipeFilterModeRef = useRef(setGearInspectorRecipeFilterMode)
   useEffect(() => { setGearInspectorRecipeFilterModeRef.current = setGearInspectorRecipeFilterMode }, [setGearInspectorRecipeFilterMode])
   // Saved filter presets live outside autosave and must remain explicit user-controlled snapshots.
+  // Built-ins are seeded and merged by parsePresets inside the store, so no client-side merge needed.
   const [filterPresets, setFilterPresets] = useFilterPresetsPreference()
+  // Saved sort presets — independent of filter presets so users manage sort configs separately.
+  const [sortPresets, setSortPresets] = useSortPresetsPreference()
 
   const createFilterPresetId = useCallback((): string => {
     // Prefer UUIDs for low collision risk, but provide a stable fallback for older browsers.
@@ -2657,7 +2661,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return `preset_${Date.now()}_${Math.random().toString(16).slice(2)}`
   }, [])
 
-  const buildFilterPresetSnapshot = useCallback((): FilterPresetSnapshot => {
+  const buildFilterPresetSnapshot = useCallback((includeSort: boolean): FilterPresetSnapshot => {
     // Presets capture both modes so toggling between Sellfile preview and Gear Inspector stays coherent.
     const views = {} as FilterPresetSnapshot['views']
     for (const mode of RULES_FILTER_PREVIEW_MODES) {
@@ -2669,13 +2673,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const clonedCollapsed = JSON.parse(JSON.stringify(collapsed)) as CollapsedSections
       views[mode] = { open, state: clonedState, collapsed: clonedCollapsed }
     }
+    // exactOptionalPropertyTypes: only spread the sort field when the user opted in.
+    const sortField: Pick<FilterPresetSnapshot, 'gearInspectorSubstatSort'> = includeSort
+      ? { gearInspectorSubstatSort: gearInspectorSubstatSortPrefs.state }
+      : {}
     return {
       version: FILTER_PRESETS_VERSION,
       activeMode: previewMode,
       filtersSynced: Boolean(filtersSynced),
       limitRecipesToFiltered: Boolean(limitRecipesToFiltered),
       gearInspectorRecipeFilterMode: gearInspectorRecipeFilterMode,
-      gearInspectorSubstatSort: gearInspectorSubstatSortPrefs.state,
+      ...sortField,
       views,
     }
   }, [
@@ -2689,7 +2697,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     gearInspectorSubstatSortPrefs.state,
   ])
 
-  const handleSaveFilterPreset = useCallback((name: string) => {
+  const handleSaveFilterPreset = useCallback((name: string, includeSort: boolean) => {
     // Presets allow duplicates; the internal ID is what disambiguates entries.
     const trimmed = name.trim()
     if (!trimmed) return
@@ -2697,7 +2705,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       id: createFilterPresetId(),
       name: trimmed,
       savedAt: new Date().toISOString(),
-      snapshot: buildFilterPresetSnapshot(),
+      snapshot: buildFilterPresetSnapshot(includeSort),
     }
     setFilterPresets((prev) => [preset, ...(Array.isArray(prev) ? prev : [])])
   }, [buildFilterPresetSnapshot, createFilterPresetId, setFilterPresets])
@@ -2711,8 +2719,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setFiltersSyncedRaw(Boolean(snap.filtersSynced))
     setLimitRecipesToFiltered(Boolean(snap.limitRecipesToFiltered))
     setGearInspectorRecipeFilterMode(snap.gearInspectorRecipeFilterMode)
-    // Gear Inspector sorting uses its own localStorage store; update it directly for immediate table refresh.
-    setGearInspectorSubstatSortState(snap.gearInspectorSubstatSort)
+    // Only restore sort when the preset explicitly includes it (undefined = preserve current sort).
+    if (snap.gearInspectorSubstatSort !== undefined) {
+      setGearInspectorSubstatSortState(snap.gearInspectorSubstatSort)
+    }
     // Apply per-mode filter views so switching tabs keeps the snapshot intact.
     for (const mode of RULES_FILTER_PREVIEW_MODES) {
       const view = snap.views?.[mode]
@@ -2805,6 +2815,94 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Deleting is purely local: remove the entry and keep the rest stable.
     setFilterPresets((prev) => (Array.isArray(prev) ? prev.filter((entry) => entry.id !== presetId) : []))
   }, [setFilterPresets])
+  const handleMoveFilterPreset = useCallback((presetId: string, direction: 'up' | 'down') => {
+    setFilterPresets((prev) => {
+      if (!Array.isArray(prev)) return prev
+      const idx = prev.findIndex((entry) => entry.id === presetId)
+      // Guard against stale IDs or already-at-boundary moves.
+      if (idx < 0) return prev
+      if (direction === 'up' && idx === 0) return prev
+      if (direction === 'down' && idx === prev.length - 1) return prev
+      const next = [...prev]
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+      // Swap the two adjacent entries to reorder; temp variable avoids TS undefined-index errors.
+      const tmp = next[idx]!
+      next[idx] = next[swapIdx]!
+      next[swapIdx] = tmp
+      return next
+    })
+  }, [setFilterPresets])
+
+  // --- Sort preset handlers -------------------------------------------------
+
+  const handleSaveSortPreset = useCallback((name: string, includeFilter: boolean) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    // Capture the filter snapshot without sort (sort lives in snapshot already; no need to double-store).
+    const filterField: Pick<SortPreset, 'filterSnapshot'> = includeFilter
+      ? { filterSnapshot: buildFilterPresetSnapshot(false) }
+      : {}
+    const preset: SortPreset = {
+      // Reuse the same UUID strategy as filter presets for low collision risk.
+      id: createFilterPresetId(),
+      name: trimmed,
+      savedAt: new Date().toISOString(),
+      // Deep-clone so subsequent sort mutations don't corrupt the saved snapshot.
+      snapshot: JSON.parse(JSON.stringify(gearInspectorSubstatSortPrefs.state)) as typeof gearInspectorSubstatSortPrefs.state,
+      ...filterField,
+    }
+    setSortPresets((prev) => [preset, ...(Array.isArray(prev) ? prev : [])])
+  }, [buildFilterPresetSnapshot, createFilterPresetId, gearInspectorSubstatSortPrefs.state, setSortPresets])
+
+  const handleApplySortPreset = useCallback((presetId: string) => {
+    // Look through user presets + built-ins for the matching ID.
+    const preset = sortPresets.find((entry) => entry.id === presetId)
+    if (!preset) return
+    setGearInspectorSubstatSortState(preset.snapshot)
+    // Restore the captured filter state only when the preset explicitly includes it.
+    if (preset.filterSnapshot !== undefined) {
+      const snap = preset.filterSnapshot
+      setFiltersSyncedRaw(Boolean(snap.filtersSynced))
+      setLimitRecipesToFiltered(Boolean(snap.limitRecipesToFiltered))
+      setGearInspectorRecipeFilterMode(snap.gearInspectorRecipeFilterMode)
+      for (const mode of RULES_FILTER_PREVIEW_MODES) {
+        const view = snap.views?.[mode]
+        if (!view) continue
+        setRulesFilterOpenForMode(mode, Boolean(view.open))
+        setRulesFilterStateForMode(mode, JSON.parse(JSON.stringify(view.state)) as RulesFilterState)
+        setRulesFilterCollapsedForMode(mode, JSON.parse(JSON.stringify(view.collapsed)) as CollapsedSections)
+      }
+      setPreviewMode(snap.activeMode === 'gearInspector' ? 'gearInspector' : 'rules')
+    }
+  }, [
+    sortPresets,
+    setFiltersSyncedRaw,
+    setLimitRecipesToFiltered,
+    setGearInspectorRecipeFilterMode,
+    setPreviewMode,
+  ])
+
+  const handleDeleteSortPreset = useCallback((presetId: string) => {
+    // Guard: built-ins are never in the user list, but filter defensively.
+    setSortPresets((prev) => (Array.isArray(prev) ? prev.filter((entry) => entry.id !== presetId) : []))
+  }, [setSortPresets])
+
+  const handleMoveSortPreset = useCallback((presetId: string, direction: 'up' | 'down') => {
+    setSortPresets((prev) => {
+      if (!Array.isArray(prev)) return prev
+      const idx = prev.findIndex((entry) => entry.id === presetId)
+      if (idx < 0) return prev
+      if (direction === 'up' && idx === 0) return prev
+      if (direction === 'down' && idx === prev.length - 1) return prev
+      const next = [...prev]
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+      const tmp = next[idx]!
+      next[idx] = next[swapIdx]!
+      next[swapIdx] = tmp
+      return next
+    })
+  }, [setSortPresets])
+
   const handleToggleFiltersSynced = useCallback((next: boolean) => {
     setFiltersSyncedRaw(Boolean(next))
   }, [setFiltersSyncedRaw])
@@ -7406,6 +7504,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	          onSaveFilterPreset={handleSaveFilterPreset}
           onApplyFilterPreset={handleApplyFilterPreset}
           onDeleteFilterPreset={handleDeleteFilterPreset}
+          onMoveFilterPreset={handleMoveFilterPreset}
+          sortPresets={sortPresets}
+          onSaveSortPreset={handleSaveSortPreset}
+          onApplySortPreset={handleApplySortPreset}
+          onDeleteSortPreset={handleDeleteSortPreset}
+          onMoveSortPreset={handleMoveSortPreset}
 	        gearInspectorCount={gearInspectorItems.length}
         gearInspectorFilteredCount={gearEntriesForTable.length}
         gearDbCommandError={gearDbCommandError}

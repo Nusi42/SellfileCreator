@@ -15,7 +15,9 @@ import {
 } from './rulesFilterPersistence'
 import { GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT, type GearInspectorRecipeFilterMode } from '../types/gearInspectorRecipeFilterMode'
 import { sanitizeRulesFilterState, type RulesFilterState } from '../lib/rulesFilter'
+import { ArtifactType } from '../lib/types'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
+import { sanitizePresetId, sanitizePresetName, sanitizePresetSavedAt } from './presetUtils'
 import {
   DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
   normalizeGearInspectorSubstatSortState,
@@ -37,7 +39,8 @@ export type FilterPresetSnapshot = {
   filtersSynced: boolean
   limitRecipesToFiltered: boolean
   gearInspectorRecipeFilterMode: GearInspectorRecipeFilterMode
-  gearInspectorSubstatSort: GearInspectorSubstatSortState
+  // undefined means "don't overwrite the current sort when applying this preset".
+  gearInspectorSubstatSort?: GearInspectorSubstatSortState
   views: Record<RulesFilterPreviewMode, FilterPresetView>
 }
 
@@ -46,6 +49,8 @@ export type FilterPreset = {
   name: string
   savedAt: string
   snapshot: FilterPresetSnapshot
+  // When true, the preset is non-deletable (shipped with the app) but can be freely reordered.
+  builtin?: true
 }
 
 const cloneDefaultView = (): FilterPresetView => ({
@@ -68,28 +73,6 @@ const cloneDefaultSnapshot = (): FilterPresetSnapshot => {
     gearInspectorSubstatSort: DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
     views,
   }
-}
-
-const sanitizeId = (raw: unknown): string | null => {
-  // IDs are stable internal keys; accept only short-ish non-empty strings.
-  if (typeof raw !== 'string') return null
-  const trimmed = raw.trim()
-  if (!trimmed) return null
-  return trimmed.slice(0, 80)
-}
-
-const sanitizeName = (raw: unknown): string | null => {
-  // Names are user-facing; keep them readable and bounded.
-  if (typeof raw !== 'string') return null
-  const trimmed = raw.trim()
-  if (!trimmed) return null
-  return trimmed.length > 80 ? `${trimmed.slice(0, 77)}…` : trimmed
-}
-
-const sanitizeIsoString = (raw: unknown): string => {
-  // savedAt is informational; clamp malformed values to "now" so sorting still works.
-  if (typeof raw === 'string' && raw.trim()) return raw
-  return new Date().toISOString()
 }
 
 // Validate stored mode; fall back to 'rules' for any unknown value.
@@ -126,7 +109,8 @@ const sanitizeView = (raw: unknown): FilterPresetView => {
   }
 }
 
-const sanitizeSnapshot = (raw: unknown): FilterPresetSnapshot => {
+// Exported so SortPreset can embed a filter snapshot without duplicating the sanitization logic.
+export const sanitizeFilterPresetSnapshot = (raw: unknown): FilterPresetSnapshot => {
   // Snapshots are versioned so we can migrate in-place later without breaking older presets.
   const fallback = cloneDefaultSnapshot()
   if (!raw || typeof raw !== 'object') return fallback
@@ -139,56 +123,163 @@ const sanitizeSnapshot = (raw: unknown): FilterPresetSnapshot => {
       : null
     views[mode] = sanitizeView(viewRaw)
   }
+  // exactOptionalPropertyTypes: spread the sort field only when present so the
+  // property stays absent (not undefined) when the preset was saved without sort.
+  const sortRaw = rec['gearInspectorSubstatSort']
+  const sortField: Pick<FilterPresetSnapshot, 'gearInspectorSubstatSort'> = sortRaw !== undefined
+    ? { gearInspectorSubstatSort: normalizeGearInspectorSubstatSortState(sortRaw) }
+    : {}
   return {
     version: FILTER_PRESETS_VERSION,
     activeMode: sanitizeMode(rec['activeMode']),
     filtersSynced: rec['filtersSynced'] === true,
     limitRecipesToFiltered: rec['limitRecipesToFiltered'] === true,
     gearInspectorRecipeFilterMode: sanitizeGearInspectorRecipeFilterMode(rec['gearInspectorRecipeFilterMode']),
-    gearInspectorSubstatSort: normalizeGearInspectorSubstatSortState(rec['gearInspectorSubstatSort']),
+    ...sortField,
     views,
   }
 }
+
+// ---------------------------------------------------------------------------
+// Built-in filter presets
+// Must be defined before sanitizePreset/parsePresets so the map is available.
+// ---------------------------------------------------------------------------
+
+/** Shared outcome shape for "only Sell" filtering. */
+const SELL_ONLY_RESULT = Object.freeze({ keep: false, sell: true, matched: false, unmatched: false })
+
+/**
+ * Build a filter-preset snapshot that activates the Gear Inspector view and
+ * sets the specified gearInspectorResult + optional slot restrictions.
+ * Sort is intentionally omitted so applying a built-in never overwrites the
+ * user's current sort configuration.
+ */
+const makeBuiltinFilterSnapshot = (
+  gearInspectorResult: { keep: boolean; sell: boolean; matched: boolean; unmatched: boolean },
+  slotIds?: number[],
+): FilterPresetSnapshot => {
+  const giState: RulesFilterState = {
+    ...cloneDefaultRulesFilterState(),
+    gearInspectorResult,
+    // Explicit slot list narrows to artifacts or accessories; undefined leaves slots unrestricted.
+    ...(slotIds ? { slots: { selected: slotIds, anyMode: 'off' } } : {}),
+  }
+  return {
+    version: FILTER_PRESETS_VERSION,
+    activeMode: 'gearInspector',
+    filtersSynced: false,
+    limitRecipesToFiltered: false,
+    gearInspectorRecipeFilterMode: GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+    // No gearInspectorSubstatSort — preserves the user's live sort on apply.
+    views: {
+      rules: cloneDefaultView(),
+      gearInspector: {
+        // Filter panel stays closed; the active filter is visible via chip without forcing the panel open.
+        open: false,
+        state: giState,
+        collapsed: cloneDefaultRulesFilterCollapsed(),
+      },
+    },
+  }
+}
+
+/** Artifact slot IDs (Helmet → Shield). */
+const ARTIFACT_SLOT_IDS = [
+  ArtifactType.Helmet,
+  ArtifactType.Chestplate,
+  ArtifactType.Gauntlets,
+  ArtifactType.Boots,
+  ArtifactType.Weapon,
+  ArtifactType.Shield,
+]
+
+/** Accessory slot IDs (Ring, Amulet, Banner). */
+const ACCESSORY_SLOT_IDS = [
+  ArtifactType.Ring,
+  ArtifactType.Amulet,
+  ArtifactType.Banner,
+]
+
+/**
+ * Shipped filter presets shown at the top of the preset menu by default.
+ * They are non-deletable (`builtin: true`) but can be freely reordered.
+ */
+export const BUILTIN_FILTER_PRESETS: readonly FilterPreset[] = [
+  {
+    id: 'builtin:sell',
+    name: 'Show only Sell',
+    savedAt: '',
+    builtin: true,
+    snapshot: makeBuiltinFilterSnapshot(SELL_ONLY_RESULT),
+  },
+  {
+    id: 'builtin:sell-artifacts',
+    name: 'Show only Sell – Artifacts',
+    savedAt: '',
+    builtin: true,
+    snapshot: makeBuiltinFilterSnapshot(SELL_ONLY_RESULT, ARTIFACT_SLOT_IDS),
+  },
+  {
+    id: 'builtin:sell-accessories',
+    name: 'Show only Sell – Accessories',
+    savedAt: '',
+    builtin: true,
+    snapshot: makeBuiltinFilterSnapshot(SELL_ONLY_RESULT, ACCESSORY_SLOT_IDS),
+  },
+]
+
+/** Fast ID → preset lookup used by sanitizePreset to resolve stored built-in stubs. */
+const BUILTIN_FILTER_PRESET_MAP = new Map(BUILTIN_FILTER_PRESETS.map((p) => [p.id, p]))
+
+// ---------------------------------------------------------------------------
+// Parse / serialize
+// ---------------------------------------------------------------------------
 
 const sanitizePreset = (raw: unknown): FilterPreset | null => {
   // Top-level record validation prevents partially-written localStorage from breaking the menu.
   if (!raw || typeof raw !== 'object') return null
   const rec = raw as Record<string, unknown>
-  const id = sanitizeId(rec['id'])
-  const name = sanitizeName(rec['name'])
-  if (!id || !name) return null
+  const id = sanitizePresetId(rec['id'])
+  if (!id) return null
+  // Built-in stubs store only { id, builtin: true }; resolve to full preset data.
+  if (rec['builtin'] === true) return BUILTIN_FILTER_PRESET_MAP.get(id) ?? null
+  const name = sanitizePresetName(rec['name'])
+  if (!name) return null
   return {
     id,
     name,
-    savedAt: sanitizeIsoString(rec['savedAt']),
-    snapshot: sanitizeSnapshot(rec['snapshot']),
+    savedAt: sanitizePresetSavedAt(rec['savedAt']),
+    snapshot: sanitizeFilterPresetSnapshot(rec['snapshot']),
   }
 }
 
 const parsePresets = (raw: string | null): FilterPreset[] => {
-  // Empty storage is the common case; keep this fast path obvious.
-  if (!raw) return []
+  // Empty storage on first run: seed with all built-ins at default order.
+  if (!raw) return [...BUILTIN_FILTER_PRESETS]
   try {
     const parsed = JSON.parse(raw) as unknown
-    if (!Array.isArray(parsed)) return []
+    if (!Array.isArray(parsed)) return [...BUILTIN_FILTER_PRESETS]
     const sanitized: FilterPreset[] = []
     parsed.forEach((entry) => {
       const preset = sanitizePreset(entry)
       if (!preset) return
       sanitized.push(preset)
     })
-    // Preserve stable ordering: newest first by timestamp when possible.
-    sanitized.sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)))
-    return sanitized
+    // Inject any built-ins absent from stored order at the front (e.g. new ones added in a future version).
+    const storedIds = new Set(sanitized.map((p) => p.id))
+    const missing = BUILTIN_FILTER_PRESETS.filter((p) => !storedIds.has(p.id))
+    return [...missing, ...sanitized]
   } catch {
-    return []
+    return [...BUILTIN_FILTER_PRESETS]
   }
 }
 
 const serializePresets = (value: FilterPreset[]): string | null => {
   // Keep storage clean: prefer removing the key when there's nothing to save.
   if (!Array.isArray(value) || value.length === 0) return null
-  return JSON.stringify(value)
+  // Built-ins are stored as compact stubs so snapshot data isn't duplicated in localStorage.
+  const toStore = value.map((p) => (p.builtin ? { id: p.id, builtin: true } : p))
+  return JSON.stringify(toStore)
 }
 
 const presetsStore = createLocalStorageStore<FilterPreset[]>({

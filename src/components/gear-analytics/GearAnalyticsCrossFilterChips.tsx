@@ -125,7 +125,10 @@ export function GearAnalyticsCrossFilterChips({ dim, onUpdate, selectedMainStats
   return (
     // Wrapping flex row: chips flow onto new lines when the row is full.
     // minHeight locks in the button row so the panel doesn't collapse when empty.
+    // When no filters are active the entire row is tagged data-snapshot-hide so the
+    // reserved height doesn't appear as blank space in snapshot captures.
     <Box
+      {...(!hasFilters && { 'data-snapshot-hide': '' })}
       sx={{
         display: 'flex',
         flexWrap: 'wrap',

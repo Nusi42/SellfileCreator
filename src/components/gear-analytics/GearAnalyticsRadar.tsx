@@ -409,6 +409,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
         {onToggleCollapse && (
           <IconButton
             size="small"
+            data-snapshot-hide
             onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
             onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
             sx={{ p: 0.25, flexShrink: 0 }}
@@ -492,7 +493,12 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
        * Mirrors GearAnalyticsCrossFilterChips: a disabled Clear button + one primary-outlined chip per pivot.
        * Clicking a chip's × deselects that substat; Clear deselects all at once.
        */}
-      <Box sx={{ minHeight: 24, mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
+      {/* When no substats are selected the whole row is tagged data-snapshot-hide so the
+          reserved minHeight doesn't appear as blank space in snapshot captures. */}
+      <Box
+        {...((!selectedSubstat || selectedSubstat.size === 0) && { 'data-snapshot-hide': '' })}
+        sx={{ minHeight: 24, mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}
+      >
         <Button
           size="small"
           onClick={onClearSubstat}
