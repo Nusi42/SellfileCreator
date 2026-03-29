@@ -48,6 +48,9 @@ type Params = {
   setMultiEditDraft: (value: SetStateAction<MultiEditDraftState | null>) => void
   suppressSelectionDraft: <T>(fn: () => T) => T
   autoApplySelectedRecipe: boolean
+  selectedSafeguardRuleIdx: number | null
+  setSelectedSafeguardRuleIdx: (value: SetStateAction<number | null>) => void
+  setSafeguardBuilder: (value: SetStateAction<SafeguardRule>) => void
 }
 
 type ControllerResult = {
@@ -104,6 +107,9 @@ export function useSfrHistoryController(params: Params): ControllerResult {
     setMultiEditDraft,
     suppressSelectionDraft,
     autoApplySelectedRecipe,
+    selectedSafeguardRuleIdx,
+    setSelectedSafeguardRuleIdx,
+    setSafeguardBuilder,
   } = params
 
   const safeSelectedIndex = useMemo(() => {
@@ -112,6 +118,14 @@ export function useSfrHistoryController(params: Params): ControllerResult {
     }
     return null
   }, [customRecipes.length, selectedRecipeIdx])
+
+  // Bounds-checked safeguard index — null when out-of-range (mirrors safeSelectedIndex for recipes).
+  const safeSafeguardIndex = useMemo(() => {
+    if (typeof selectedSafeguardRuleIdx === 'number' && selectedSafeguardRuleIdx >= 0 && selectedSafeguardRuleIdx < safeguardRules.length) {
+      return selectedSafeguardRuleIdx
+    }
+    return null
+  }, [safeguardRules.length, selectedSafeguardRuleIdx])
 
   const historyBaseStrings = useMemo(() => {
     const selectedIdx = safeSelectedIndex
@@ -131,6 +145,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
       builderNameDraft: null as string | null,
       builderNameDraftKey: null as number | 'builder' | null,
       multiEditDraft,
+      selectedSafeguardRuleIdx: safeSafeguardIndex,
     }
     const payloadTemplate = JSON.stringify(basePayload)
     const signature = stableSerialize({
@@ -158,6 +173,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
     safeguardRules,
     safeguardsEnabled,
     recipesEnabled,
+    safeSafeguardIndex,
   ])
 
   const historyStrings = useMemo(() => {
@@ -228,6 +244,18 @@ export function useSfrHistoryController(params: Params): ControllerResult {
     setBuilderNameDraftKey(hasNameDraft ? snap.builderNameDraftKey ?? null : null)
     setBuilderNameDraft(hasNameDraft && typeof snap.builderNameDraft === 'string' ? snap.builderNameDraft : '')
     setMultiEditDraft(snap.multiEditDraft ?? null)
+    // Restore safeguard chip selection alongside the rules so the panel highlight is correct.
+    const sgLen = snap.safeguardRules.length
+    const restoredSgIdx = typeof snap.selectedSafeguardRuleIdx === 'number'
+      && snap.selectedSafeguardRuleIdx >= 0
+      && snap.selectedSafeguardRuleIdx < sgLen
+      ? snap.selectedSafeguardRuleIdx
+      : null
+    setSelectedSafeguardRuleIdx(restoredSgIdx)
+    // Keep builder draft in sync so the panel does not show stale state from before undo.
+    if (restoredSgIdx !== null && snap.safeguardRules[restoredSgIdx]) {
+      setSafeguardBuilder(snap.safeguardRules[restoredSgIdx]!)
+    }
   }, [
     setBuilder,
     setBuilderNameDraft,
@@ -246,6 +274,8 @@ export function useSfrHistoryController(params: Params): ControllerResult {
     setRecipesEnabled,
     suppressSelectionDraft,
     autoApplySelectedRecipe,
+    setSelectedSafeguardRuleIdx,
+    setSafeguardBuilder,
   ])
 
   const {

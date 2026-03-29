@@ -26,6 +26,9 @@ export type SfrSnapshot = {
   builderNameDraft: string | null
   builderNameDraftKey: number | 'builder' | null
   multiEditDraft: MultiEditDraftState | null
+  // 0-based index of the selected safeguard rule; null means no selection.
+  // Included alongside selectedRecipeIdx so undo/redo can restore chip highlights.
+  selectedSafeguardRuleIdx: number | null
 }
 
 export type DescribeNextChangeOptions = {
@@ -117,6 +120,7 @@ function parseSnapshot(entry: HistoryEntry): SfrSnapshot | null {
       safeguardRules,
       safeguardsEnabled,
       recipesEnabled,
+      selectedSafeguardRuleIdx,
     } = parsed
     if (!Array.isArray(customRecipes) || !Array.isArray(metasets) || !substatTargets || typeof finalSellRemainder !== 'object' || finalSellRemainder === null) {
       return null
@@ -160,6 +164,7 @@ function parseSnapshot(entry: HistoryEntry): SfrSnapshot | null {
     const normalizedMultiEditDraft = (multiEditDraft && typeof multiEditDraft === 'object' && Array.isArray((multiEditDraft as MultiEditDraftState).selection))
       ? multiEditDraft as MultiEditDraftState
       : null
+    const normalizedSafeguardIdx = typeof selectedSafeguardRuleIdx === 'number' ? selectedSafeguardRuleIdx : null
     return {
       customRecipes: customRecipes as BuilderRecipe[],
       metasets: metasets as Metaset[],
@@ -176,6 +181,7 @@ function parseSnapshot(entry: HistoryEntry): SfrSnapshot | null {
       builderNameDraft: normalizedNameDraft,
       builderNameDraftKey: normalizedNameDraftKey,
       multiEditDraft: normalizedMultiEditDraft,
+      selectedSafeguardRuleIdx: normalizedSafeguardIdx,
     }
   } catch {
     return null
