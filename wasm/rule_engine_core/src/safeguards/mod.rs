@@ -1577,11 +1577,12 @@ fn safeguard_consolidate_rarity_codes(rarities: &[i64]) -> Vec<i64> {
     sorted.into_iter().map(safeguard_rarity_value_to_code).collect()
 }
 
+// Returns (rule, main_variant) pairs so callers can filter substats impossible for that mainstat.
 fn safeguard_build_placeholder_base_rules(
     combination: &SafeguardWasmCombination,
     recipe_id: i64,
     normalized_name: Option<&str>,
-) -> Vec<RuleRaw> {
+) -> Vec<(RuleRaw, i64)> {
     let slot_values = safeguard_sorted_unique_i64(&combination.slots);
     let (set_includes, _) = safeguard_split_set_selections(&combination.sets);
     let mut set_values = set_includes.into_iter().collect::<Vec<_>>();
@@ -1602,7 +1603,7 @@ fn safeguard_build_placeholder_base_rules(
     } else {
         main_options
     };
-    let mut rules = Vec::<RuleRaw>::new();
+    let mut rules = Vec::<(RuleRaw, i64)>::new();
     let mut seen = HashSet::<SafeguardCanonicalRuleKey>::new();
     for &rank in &rank_values {
         for &rarity_code in &rarity_codes {
@@ -1652,7 +1653,7 @@ fn safeguard_build_placeholder_base_rules(
                     if !seen.insert(canonical) {
                         continue;
                     }
-                    rules.push(safeguard_rule);
+                    rules.push((safeguard_rule, *main_variant));
                 }
             }
         }
@@ -1726,12 +1727,24 @@ fn safeguard_build_placeholder_rules(
             selected_substats.clone()
         };
         let has_placeholder_substat_filter = !placeholder_substats.is_empty();
-        for base_rule in &base_rules {
+        for (base_rule, main_variant) in &base_rules {
             if has_placeholder_substat_filter {
+                // Exclude substats that are impossible for this placeholder's mainstat.
+                // A substat that equals the mainstat can never appear on that piece.
+                let possible_substats: Vec<i64> = placeholder_substats
+                    .iter()
+                    .copied()
+                    .filter(|&v| *main_variant == SAFEGUARD_MAIN_ANY || v != *main_variant)
+                    .collect();
+                // No possible substats means every selected substat conflicts with this
+                // mainstat — no valid placeholder rule can be emitted for this combination.
+                if possible_substats.is_empty() {
+                    continue;
+                }
                 if substat_match == SAFEGUARD_SUBSTAT_ALL {
                     let mut substat_rule = base_rule.clone();
                     substat_rule.Substats = Some(safeguard_build_placeholder_substats_group(
-                        &placeholder_substats,
+                        &possible_substats,
                     ));
                     safeguard_apply_rule_meta(
                         &mut substat_rule,
@@ -1745,7 +1758,7 @@ fn safeguard_build_placeholder_rules(
                     substat_rule.safeguard_placeholder_missing = Some(placeholder.missing);
                     rules.push(substat_rule);
                 } else {
-                    for variant in &placeholder_substats {
+                    for variant in &possible_substats {
                         let mut substat_rule = base_rule.clone();
                         substat_rule.Substats = Some(safeguard_build_placeholder_substats(*variant));
                         safeguard_apply_rule_meta(
