@@ -1406,6 +1406,26 @@ fn safeguard_build_placeholder_substats(variant: i64) -> Vec<RuleSubRaw> {
     cloned
 }
 
+// Enumerate all combinations of `k` elements from `pool` (order-independent).
+// Used to generate permutation rules for min-count substat anticipation.
+fn safeguard_combinations(pool: &[i64], k: usize) -> Vec<Vec<i64>> {
+    if k == 0 { return vec![vec![]]; }
+    if k > pool.len() { return Vec::new(); }
+    if k == pool.len() { return vec![pool.to_vec()]; }
+    let mut result = Vec::new();
+    // Recursive: include pool[0] in the combination, or skip it.
+    let first = pool[0];
+    let rest = &pool[1..];
+    // Combinations that include `first`.
+    for mut combo in safeguard_combinations(rest, k - 1) {
+        combo.insert(0, first);
+        result.push(combo);
+    }
+    // Combinations that exclude `first`.
+    result.extend(safeguard_combinations(rest, k));
+    result
+}
+
 fn safeguard_build_placeholder_substats_group(variants: &[i64]) -> Vec<RuleSubRaw> {
     let mut cloned = safeguard_clone_any_substats();
     let mut seen = HashSet::<i64>::new();
@@ -1783,7 +1803,30 @@ fn safeguard_build_placeholder_rules(
                 if possible_substats.is_empty() {
                     continue;
                 }
-                if substat_match == SAFEGUARD_SUBSTAT_ALL {
+                // Resolve the min-count threshold from the token.
+                // Legacy "all" maps to the full possible count; numeric tokens are direct.
+                let min_count = safeguard_substat_min_count(&substat_match, possible_substats.len());
+                // Clamp to what can actually fit in a single HSF rule (4 substat slots).
+                let min_count = min_count.min(HSF_SUBSTAT_SLOT_COUNT).min(possible_substats.len());
+                if min_count <= 1 {
+                    // ≥1: one rule per substat (OR — any one is sufficient).
+                    for variant in &possible_substats {
+                        let mut substat_rule = base_rule.clone();
+                        substat_rule.Substats = Some(safeguard_build_placeholder_substats(*variant));
+                        safeguard_apply_rule_meta(
+                            &mut substat_rule,
+                            normalized_rule_id,
+                            safeguard_rule_ordinal,
+                            &hash,
+                            entry,
+                            scanned_at,
+                        );
+                        substat_rule.safeguard_placeholder = Some(true);
+                        substat_rule.safeguard_placeholder_missing = Some(placeholder.missing);
+                        rules.push(substat_rule);
+                    }
+                } else if min_count >= possible_substats.len() {
+                    // All required: one grouped rule with every possible substat.
                     let mut substat_rule = base_rule.clone();
                     substat_rule.Substats = Some(safeguard_build_placeholder_substats_group(
                         &possible_substats,
@@ -1800,9 +1843,33 @@ fn safeguard_build_placeholder_rules(
                     substat_rule.safeguard_placeholder_missing = Some(placeholder.missing);
                     rules.push(substat_rule);
                 } else {
-                    for variant in &possible_substats {
+                    // ≥N (1 < N < total): enumerate C(possible, N) combinations and emit
+                    // one AND-style grouped rule per combination. Each rule keeps a piece
+                    // only when it has all N substats in that specific combination, so the
+                    // union of all rules correctly keeps any piece with at least N matches.
+                    // Cap at 70 combinations (C(8,4)) to prevent rule-count explosion.
+                    const MAX_COMBINATIONS: usize = 70;
+                    let combos = safeguard_combinations(&possible_substats, min_count);
+                    if combos.len() <= MAX_COMBINATIONS {
+                        for combo in &combos {
+                            let mut substat_rule = base_rule.clone();
+                            substat_rule.Substats = Some(safeguard_build_placeholder_substats_group(combo));
+                            safeguard_apply_rule_meta(
+                                &mut substat_rule,
+                                normalized_rule_id,
+                                safeguard_rule_ordinal,
+                                &hash,
+                                entry,
+                                scanned_at,
+                            );
+                            substat_rule.safeguard_placeholder = Some(true);
+                            substat_rule.safeguard_placeholder_missing = Some(placeholder.missing);
+                            rules.push(substat_rule);
+                        }
+                    } else {
+                        // Fallback: too many combinations to enumerate — emit the base rule
+                        // with no substat constraint (keep-anything for this group).
                         let mut substat_rule = base_rule.clone();
-                        substat_rule.Substats = Some(safeguard_build_placeholder_substats(*variant));
                         safeguard_apply_rule_meta(
                             &mut substat_rule,
                             normalized_rule_id,
