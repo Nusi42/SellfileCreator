@@ -61,7 +61,6 @@ import {
 } from '../lib/safeguards'
 import type { ColorBlindMode } from '../lib/constants'
 import {
-  ACCESSORY_NO_SET_ID,
   MULTI_EDIT_MIXED_BG_ALPHA,
   MULTI_EDIT_MIXED_BORDER_ALPHA,
   MULTI_EDIT_MIXED_TEXT_ALPHA,
@@ -1851,7 +1850,6 @@ export default function SafeguardBuilderPanel({
                   setRuleCombination((prev) => ({ ...prev, metaSetNames: dedupeStringArray(nextMetaIds) }))
                 }}
                 allowedSetIds={allowedSetPool}
-                disabledSetIds={[ACCESSORY_NO_SET_ID]}
                 showMetasets
                 layoutVersion={1}
                 anyLabel={t('anySet')}
