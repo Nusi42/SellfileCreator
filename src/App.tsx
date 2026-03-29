@@ -213,7 +213,7 @@ import { cloneMetaset, defaultMetasets, type Metaset } from './lib/metasets'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections, type ArtifactSetSelectionEntry } from './lib/gearSets/selection'
 import { useDisplayPreferences, useDisplayPreferenceActions } from './state/preferencesState'
 import {
-  useAutoApplySelectedRecipePreference,
+  useAutoApplyBuilderPreference,
   useBuilderRecipeCollapsedPreference,
   useBuilderSafeguardCollapsedPreference,
   resetBuilderCollapsedPreferences,
@@ -456,7 +456,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Auto-push: when enabled and an endpoint is active, push the sellfile on every dirty-state change.
   const [autoPushEnabled, setAutoPushEnabled] = useSellfileAutoPushPreference()
   const { statButtonBorders } = useDisplayPreferences()
-  const [autoApplySelectedRecipe] = useAutoApplySelectedRecipePreference()
+  const [autoApplySelectedRecipe] = useAutoApplyBuilderPreference()
   // Builder section collapse state — read here so the autosave memo can include it.
   // Both panel hooks share the same underlying stores, so updates from the panels are
   // immediately visible here and vice-versa (imperative reset/restore also updates the panels).
@@ -7875,8 +7875,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 // the selection, so in-progress changes are not silently discarded.
                 safeguardAutoApplyNowRef.current()
                 setSelectedSafeguardRuleIdx(sgSelIdx)
+                // Collapse multi-select to this rule so the chip highlights correctly.
+                // setSelectedSafeguardRuleIdx alone updates the external scalar but not the
+                // internal selectedIndices array inside the selection hook.
+                setSelectedSafeguardRuleIndices([sgSelIdx], { suppressWillChange: true })
                 const selRule = restoredRules[sgSelIdx]
                 if (selRule) setSafeguardBuilder(selRule)
+                // Scroll HsfRulesTable to the restored safeguard row (1-based ordinal).
+                requestSelectionScroll(SELECTION_SCROLL_SOURCE_USER, null, sgSelIdx + 1)
               }
             }
             // Clear dirty markers after restore: markNextSnapshotAsSaved anchors the upcoming

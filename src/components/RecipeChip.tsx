@@ -36,7 +36,7 @@ import { DEFAULT_METASET_ICON_ID, metasetIconOptionById } from '../lib/metasetIc
 import type { MetasetIconId } from '../lib/metasetIcons'
 import type { SellfileExportMode } from '../lib/hsfBuilder'
 import { splitArtifactSetSelections } from '../lib/gearSets/selection'
-import { RecipeContextMenu } from './RecipeContextMenu'
+import { RecipeContextMenu, buildChipContextMenuActions } from './RecipeContextMenu'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import MarkdownTooltip from './MarkdownTooltip'
 import { resolveDisabledOpacity } from './disabledOpacity'
@@ -578,16 +578,21 @@ function RecipeChip({
         actions={{
           ...(onInsertAsSafeguard ? { insertAsSafeguard: { handler: onInsertAsSafeguard, label: insertAsSafeguardLabel ?? '' } } : {}),
           ...(onApplyAsSafeguard ? { applyAsSafeguard: { handler: onApplyAsSafeguard, label: applyAsSafeguardLabel ?? '' } } : {}),
-          duplicate: onDuplicate,
-          moveTop: { handler: onMoveTop, disabled: index === 0 },
-          moveUp: { handler: onMoveUp, disabled: index === 0 },
-          moveDown: { handler: onMoveDown, disabled: isLast },
-          moveBottom: { handler: onMoveBottom, disabled: isLast },
-          copyRecipe: onCopy,
-          pasteAfter: onPasteAfter,
+          // Common per-chip actions shared with safeguard chips via buildChipContextMenuActions.
+          ...buildChipContextMenuActions({
+            onDuplicate,
+            onMoveTop,
+            onMoveUp,
+            onMoveDown,
+            onMoveBottom,
+            onCopy,
+            onPasteAfter,
+            onDelete,
+            isFirst: index === 0,
+            isLast,
+          }),
           pasteAtEnd: onPasteAtEnd,
           ...(isDev && onCopyDev ? { copyRecipeDev: onCopyDev } : {}),
-          deleteRecipe: onDelete,
           ...(onSelectAll ? {
             selectAll: {
               handler: onSelectAll,

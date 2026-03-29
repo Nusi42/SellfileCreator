@@ -1,29 +1,20 @@
 /**
  * useSafeguardSelection.ts
  *
- * Index-based multi-select and multi-edit draft hook for SafeguardRule lists.
- * Mirrors the architecture of useRecipeSelection but uses numeric indices
- * rather than string IDs (safeguards have no stable identity field).
+ * Thin wrapper over useItemListManager for SafeguardRule lists.
+ * All selection state, move, duplicate, delete, and reorder logic lives in the
+ * generic hook; this file adds only the safeguard-specific multi-edit field
+ * handlers, typed multiEditHandle, and applyMultiEditDraft.
  */
 import {
   useCallback,
-  useEffect,
   useMemo,
-  useRef,
-  useState,
   type Dispatch,
   type MouseEvent,
   type SetStateAction,
 } from 'react'
-import { arraysEqual } from '../lib/array'
 import type { SafeguardRule } from '../lib/safeguards'
 import { cloneSafeguardRule } from '../lib/safeguards'
-import {
-  sanitizeDragIndices,
-  moveReorderItems,
-  copyReorderItems,
-  resolveDragSelectionIndices,
-} from '../lib/chipListReorder'
 import {
   createSafeguardMultiEditDraft,
   syncSafeguardMultiEditDraft,
@@ -43,6 +34,7 @@ import {
   type SafeguardFieldKey,
   type SafeguardMultiEditFieldCommit,
 } from '../lib/safeguardMultiEditDraft'
+import { useItemListManager } from './useItemListManager'
 
 // ── parameter and return types ────────────────────────────────────────────────
 
@@ -61,7 +53,7 @@ export type UseSafeguardSelectionParams = {
   visibleRuleIndicesRef: React.MutableRefObject<ReadonlySet<number> | null>
   /**
    * Loads a single rule into the builder draft when selection collapses to one item.
-   * Mirrors useRecipeSelection's setBuilder param — call with cloneSafeguardRule(rule).
+   * Call with cloneSafeguardRule(rule).
    */
   setSafeguardBuilder: React.Dispatch<React.SetStateAction<SafeguardRule>>
 }
@@ -101,16 +93,13 @@ export type UseSafeguardSelectionResult = {
   updateSelectionAnchor: Dispatch<SetStateAction<number | null>>
 }
 
-type ApplySelectionOptions = { suppressWillChange?: boolean }
-
 // ── hook ──────────────────────────────────────────────────────────────────────
 
 /**
  * useSafeguardSelection
  *
- * Centralizes safeguard rule selection and multi-edit draft state so App.tsx
- * only wires the orchestration. The hook uses index-based selection (symmetric
- * with useRecipeSelection), tracking rule object identity across reorders.
+ * Wraps useItemListManager with SafeguardRule-specific multi-edit field logic.
+ * Selection, mutation, and DnD behaviour are all handled by the generic hook.
  */
 export function useSafeguardSelection({
   safeguardRules,
@@ -122,326 +111,34 @@ export function useSafeguardSelection({
   visibleRuleIndicesRef,
   setSafeguardBuilder,
 }: UseSafeguardSelectionParams): UseSafeguardSelectionResult {
-  const [selectedRuleIndices, setSelectedRuleIndices] = useState<number[]>([])
-  const selectionAnchorRef = useRef<number | null>(null)
-  const [selectionAnchor, setSelectionAnchor] = useState<number | null>(null)
-  const selectedIndicesRef = useRef<number[]>([])
-  const multiselectActive = selectedRuleIndices.length > 1
+  // ── generic core ────────────────────────────────────────────────────────
 
-  // Derive multi-selected rule objects from the current index list.
-  const multiSelectedRules = useMemo(() => {
-    if (selectedRuleIndices.length <= 1) return []
-    return selectedRuleIndices
-      .map((i) => safeguardRules[i])
-      .filter((r): r is SafeguardRule => r !== undefined)
-  }, [safeguardRules, selectedRuleIndices])
-
-  const [multiEditDraftState, setMultiEditDraftState] = useState<SafeguardMultiEditDraftState | null>(null)
-
-  // Keep the ref in sync so closures always read the latest selection.
-  useEffect(() => {
-    selectedIndicesRef.current = selectedRuleIndices
-  }, [selectedRuleIndices])
-
-  // Rebuild the draft during render whenever the multi-selection or the rules change.
-  const [prevMultiSelectedRules, setPrevMultiSelectedRules] = useState(multiSelectedRules)
-  if (multiSelectedRules !== prevMultiSelectedRules) {
-    setPrevMultiSelectedRules(multiSelectedRules)
-    if (multiSelectedRules.length < 2) {
-      if (multiEditDraftState !== null) setMultiEditDraftState(null)
-    } else {
-      // Pass indices as the stable selection token for the multi-edit draft.
-      const selectionKeys = selectedRuleIndices.slice(0, multiSelectedRules.length).map(String)
-      const base = createSafeguardMultiEditDraft(multiSelectedRules, selectionKeys)
-      setMultiEditDraftState((prev) => syncSafeguardMultiEditDraft(prev, base))
-    }
-  }
-
-  // ── selection management ──────────────────────────────────────────────────
-
-  const updateSelectionAnchor = useCallback<Dispatch<SetStateAction<number | null>>>((value) => {
-    const next = typeof value === 'function'
-      ? (value as (prev: number | null) => number | null)(selectionAnchorRef.current)
-      : (value ?? null)
-    if (selectionAnchorRef.current === next) return
-    selectionAnchorRef.current = next
-    setSelectionAnchor(next)
-  }, [])
-
-  const applySelection = useCallback((nextIndices: number[], options?: ApplySelectionOptions) => {
-    const normalized = nextIndices.slice()
-    const prevIndices = selectedIndicesRef.current
-    // Bail when nothing changes so side-effects don't re-fire.
-    if (arraysEqual(prevIndices, normalized)) return
-    if (!options?.suppressWillChange && onWillChangeSelection) {
-      onWillChangeSelection(prevIndices.slice(), normalized.slice())
-    }
-    selectedIndicesRef.current = normalized
-    setSelectedRuleIndices(normalized)
-  }, [onWillChangeSelection])
-
-  // ── click handler ─────────────────────────────────────────────────────────
-
-  const handleRuleSelect = useCallback((event: MouseEvent, ruleIdx: number) => {
-    const rulesSnapshot = safeguardRules
-
-    // Compute what the next selection should be.
-    const computeNext = (prev: number[]): number[] => {
-      if (event.shiftKey && selectionAnchorRef.current !== null) {
-        // Build a range between anchor and clicked index, respecting the visible set.
-        const anchorIdx = selectionAnchorRef.current
-        const [lo, hi] = anchorIdx < ruleIdx ? [anchorIdx, ruleIdx] : [ruleIdx, anchorIdx]
-        const visibleSet = visibleRuleIndicesRef?.current ?? null
-        const span: number[] = []
-        for (let i = lo; i <= hi; i += 1) {
-          if (i >= rulesSnapshot.length) continue
-          if (visibleSet && !visibleSet.has(i)) continue
-          span.push(i)
-        }
-        return span.length > 0 ? span : [ruleIdx]
-      }
-      if (event.ctrlKey || event.metaKey) {
-        const set = new Set(prev)
-        if (set.has(ruleIdx)) {
-          set.delete(ruleIdx)
-        } else {
-          set.add(ruleIdx)
-        }
-        // Preserve ascending order.
-        return Array.from(set).sort((a, b) => a - b)
-      }
-      return [ruleIdx]
-    }
-
-    const prev = selectedRuleIndices
-    const next = computeNext(prev)
-    const selectionChanged = !arraysEqual(prev, next)
-    if (selectionChanged) applySelection(next)
-    const final = selectionChanged ? next : prev
-    const last = final.length > 0 ? final[final.length - 1]! : null
-
-    if (selectionAnchorRef.current !== last) updateSelectionAnchor(last ?? null)
-    if (selectedRuleIdx !== last) setSelectedRuleIdx(last)
-    // When selection settles on exactly one rule, load it into the builder draft.
-    if (final.length === 1) {
-      const only = rulesSnapshot[final[0]!]
-      if (only) setSafeguardBuilder(cloneSafeguardRule(only))
-    }
-    // Scroll to the active rule on every click (unconditional to allow retry after reorder).
-    if (last !== null) onSelectionScrollRequest?.(last)
-  }, [
-    applySelection,
+  const mgr = useItemListManager<SafeguardRule, SafeguardMultiEditDraftState>({
+    items: safeguardRules,
+    applyItemsChange: applySafeguardRulesChange,
+    selectedIdx: selectedRuleIdx,
+    setSelectedIdx: setSelectedRuleIdx,
+    setBuilder: setSafeguardBuilder,
+    cloneItem: cloneSafeguardRule,
+    onWillChangeSelection,
     onSelectionScrollRequest,
-    safeguardRules,
-    selectedRuleIdx,
-    selectedRuleIndices,
-    setSelectedRuleIdx,
-    updateSelectionAnchor,
-    setSafeguardBuilder,
-    visibleRuleIndicesRef,
-  ])
+    visibleIndicesRef: visibleRuleIndicesRef,
+    // Safeguards have no history tracking — no suppressSelectionDraft or onDescribeNextChange.
+    // Multi-edit draft: selection keys are string-converted indices per SafeguardMultiEditDraftState.
+    createDraft: (items, indices) =>
+      createSafeguardMultiEditDraft(items, indices.map(String)),
+    syncDraft: syncSafeguardMultiEditDraft,
+    // Scroll fires on every click (safeguard default — scrollOnlyOnSingleSelectionChange absent).
+  })
 
-  // ── mutation handlers ─────────────────────────────────────────────────────
+  // Destructure multi-edit state from the generic result.
+  // TDraft is SafeguardMultiEditDraftState so these types are already exact.
+  const {
+    multiEditDraftState,
+    setMultiEditDraftState,
+  } = mgr
 
-  const handleRuleDelete = useCallback((ruleIdx: number) => {
-    // When multiple rules are selected and the clicked index is in the set,
-    // delete all selected rules at once.
-    const targets = selectedRuleIndices.length > 1 && selectedRuleIndices.includes(ruleIdx)
-      ? selectedRuleIndices.slice()
-      : [ruleIdx]
-    const targetSet = new Set(targets)
-    applySafeguardRulesChange((prev) => prev.filter((_, i) => !targetSet.has(i)))
-    // Clear the selection if the active rule was deleted.
-    if (selectedRuleIdx !== null && targetSet.has(selectedRuleIdx)) {
-      applySelection([])
-      setSelectedRuleIdx(null)
-      updateSelectionAnchor(null)
-    }
-  }, [applySafeguardRulesChange, applySelection, selectedRuleIdx, selectedRuleIndices, setSelectedRuleIdx, updateSelectionAnchor])
-
-  const handleRuleDuplicate = useCallback((ruleIdx: number) => {
-    // Duplicate all selected rules if the clicked one is part of the selection.
-    const selected = selectedRuleIndices.length > 1 && selectedRuleIndices.includes(ruleIdx)
-      ? selectedRuleIndices
-      : [ruleIdx]
-    // Capture the single copy so we can load it into the builder immediately.
-    let singleCopy: SafeguardRule | null = null
-    let newIndices: number[] = []
-    applySafeguardRulesChange((prev) => {
-      // Find the last selected index to determine insertion point.
-      const lastIdx = selected.reduce((max, i) => (i < prev.length ? Math.max(max, i) : max), -1)
-      if (lastIdx === -1) return prev
-      const copies = selected
-        .map((i) => prev[i])
-        .filter((r): r is SafeguardRule => r !== undefined)
-        .map((r) => cloneSafeguardRule(r))
-      if (copies.length === 0) return prev
-      if (copies.length === 1) singleCopy = copies[0]!
-      const next = [
-        ...prev.slice(0, lastIdx + 1),
-        ...copies,
-        ...prev.slice(lastIdx + 1),
-      ]
-      // New copies land immediately after the last selected index.
-      newIndices = copies.map((_, ci) => lastIdx + 1 + ci)
-      return next
-    })
-    // Select the duplicates after state commits (next tick).
-    setTimeout(() => {
-      if (newIndices.length === 0) return
-      applySelection(newIndices)
-      const lastNew = newIndices[newIndices.length - 1]!
-      setSelectedRuleIdx(lastNew)
-      updateSelectionAnchor(lastNew)
-      // Load the single copy into the builder so the user sees the duplicate immediately.
-      if (newIndices.length === 1 && singleCopy) setSafeguardBuilder(cloneSafeguardRule(singleCopy))
-      onSelectionScrollRequest?.(lastNew)
-    }, 0)
-  }, [applySafeguardRulesChange, applySelection, onSelectionScrollRequest, selectedRuleIndices, setSelectedRuleIdx, updateSelectionAnchor, setSafeguardBuilder])
-
-  const handleRuleMoveUp = useCallback((ruleIdx: number) => {
-    const selected = selectedRuleIndices.length > 1 && selectedRuleIndices.includes(ruleIdx)
-      ? new Set(selectedRuleIndices)
-      : new Set([ruleIdx])
-    applySafeguardRulesChange((prev) => {
-      const arr = [...prev]
-      let changed = false
-      for (let i = 1; i < arr.length; i += 1) {
-        if (!selected.has(i)) continue
-        if (selected.has(i - 1)) continue
-        changed = true
-        const tmp = arr[i - 1]!; arr[i - 1] = arr[i]!; arr[i] = tmp
-      }
-      return changed ? arr : prev
-    })
-  }, [applySafeguardRulesChange, selectedRuleIndices])
-
-  const handleRuleMoveDown = useCallback((ruleIdx: number) => {
-    const selected = selectedRuleIndices.length > 1 && selectedRuleIndices.includes(ruleIdx)
-      ? new Set(selectedRuleIndices)
-      : new Set([ruleIdx])
-    applySafeguardRulesChange((prev) => {
-      const arr = [...prev]
-      let changed = false
-      for (let i = arr.length - 2; i >= 0; i -= 1) {
-        if (!selected.has(i)) continue
-        if (selected.has(i + 1)) continue
-        changed = true
-        const tmp = arr[i + 1]!; arr[i + 1] = arr[i]!; arr[i] = tmp
-      }
-      return changed ? arr : prev
-    })
-  }, [applySafeguardRulesChange, selectedRuleIndices])
-
-  const handleRuleMoveTop = useCallback((ruleIdx: number) => {
-    const selected = selectedRuleIndices.length > 1 && selectedRuleIndices.includes(ruleIdx)
-      ? new Set(selectedRuleIndices)
-      : new Set([ruleIdx])
-    applySafeguardRulesChange((prev) => {
-      const block = prev.filter((_, i) => selected.has(i))
-      const rest = prev.filter((_, i) => !selected.has(i))
-      if (block.length === 0) return prev
-      const next = [...block, ...rest]
-      // Skip when already at the top.
-      if (prev.length === next.length && prev.every((r, i) => r === next[i])) return prev
-      return next
-    })
-  }, [applySafeguardRulesChange, selectedRuleIndices])
-
-  const handleRuleMoveBottom = useCallback((ruleIdx: number) => {
-    const selected = selectedRuleIndices.length > 1 && selectedRuleIndices.includes(ruleIdx)
-      ? new Set(selectedRuleIndices)
-      : new Set([ruleIdx])
-    applySafeguardRulesChange((prev) => {
-      const block = prev.filter((_, i) => selected.has(i))
-      const rest = prev.filter((_, i) => !selected.has(i))
-      if (block.length === 0) return prev
-      const next = [...rest, ...block]
-      if (prev.length === next.length && prev.every((r, i) => r === next[i])) return prev
-      return next
-    })
-  }, [applySafeguardRulesChange, selectedRuleIndices])
-
-  const handleSelectAllRules = useCallback(() => {
-    const visibleSet = visibleRuleIndicesRef?.current ?? null
-    const all = visibleSet
-      ? safeguardRules.map((_, i) => i).filter((i) => visibleSet.has(i))
-      : safeguardRules.map((_, i) => i)
-    applySelection(all)
-    const keep = selectedRuleIdx !== null && all.includes(selectedRuleIdx)
-      ? selectedRuleIdx
-      : (all[0] ?? null)
-    setSelectedRuleIdx(keep)
-    updateSelectionAnchor(keep)
-  }, [applySelection, safeguardRules, selectedRuleIdx, setSelectedRuleIdx, updateSelectionAnchor, visibleRuleIndicesRef])
-
-  const handleClearSelection = useCallback(() => {
-    applySelection([])
-    setSelectedRuleIdx(null)
-    updateSelectionAnchor(null)
-  }, [applySelection, setSelectedRuleIdx, updateSelectionAnchor])
-
-  // Deletes all currently-selected rules via the keyboard shortcut path.
-  const handleDeleteSelected = useCallback(() => {
-    if (selectedRuleIndices.length === 0) return
-    // Re-use the first selected index — handleRuleDelete detects the multi-select set.
-    handleRuleDelete(selectedRuleIndices[0]!)
-  }, [handleRuleDelete, selectedRuleIndices])
-
-  // ── drag-and-drop reorder ─────────────────────────────────────────────────
-
-  // Called by useChipListDnd.onPrepareSelection at drag-start.
-  const prepareDragSelection = useCallback((idx: number): number[] => {
-    return resolveDragSelectionIndices(
-      idx,
-      safeguardRules.length,
-      selectedRuleIndices.slice().sort((a, b) => a - b),
-      (singleIdx) => {
-        // Collapse: select only the dragged rule.
-        const rule = safeguardRules[singleIdx]
-        if (!rule) return
-        applySelection([singleIdx])
-        setSelectedRuleIdx(singleIdx)
-        updateSelectionAnchor(singleIdx)
-        setSafeguardBuilder(cloneSafeguardRule(rule))
-      },
-    )
-  }, [applySelection, safeguardRules, selectedRuleIndices, setSelectedRuleIdx, updateSelectionAnchor, setSafeguardBuilder])
-
-  // Full multi-index reorder handler. Delegates to the shared chipListReorder utilities.
-  const handleRuleReorder = useCallback((movingIndices: number[], rawTargetIndex: number, options?: { mode?: 'move' | 'copy' }) => {
-    if (!Array.isArray(movingIndices) || movingIndices.length === 0) return
-    const prev = safeguardRules
-    const sanitized = sanitizeDragIndices(movingIndices, prev.length)
-    if (sanitized.length === 0) return
-    const mode = options?.mode === 'copy' ? 'copy' : 'move'
-    if (mode === 'copy') {
-      // Clone each moved rule; no new IDs needed since identity is by index.
-      const result = copyReorderItems(prev, sanitized, rawTargetIndex, (r) => cloneSafeguardRule(r))
-      if (!result) return
-      const { next, copies, insertIdx } = result
-      applySafeguardRulesChange(next)
-      // New copies land at insertIdx in the resulting list.
-      const newIndices = copies.map((_, ci) => insertIdx + ci)
-      applySelection(newIndices)
-      const lastIdx = newIndices[newIndices.length - 1] ?? null
-      setSelectedRuleIdx(lastIdx)
-      updateSelectionAnchor(lastIdx)
-      return
-    }
-    const moveResult = moveReorderItems(prev, sanitized, rawTargetIndex)
-    if (!moveResult) return
-    const { next } = moveResult
-    applySafeguardRulesChange(next)
-    // Map selected rule objects to their new positions by identity.
-    const movedObjects = new Set(sanitized.map((i) => prev[i]))
-    const newIndices = next
-      .map((r, i) => (movedObjects.has(r) ? i : -1))
-      .filter((i) => i >= 0)
-    applySelection(newIndices)
-  }, [applySafeguardRulesChange, applySelection, safeguardRules, setSelectedRuleIdx, updateSelectionAnchor])
-
-  // ── multi-edit draft field update ─────────────────────────────────────────
+  // ── multi-edit field handlers ──────────────────────────────────────────
 
   const updateMultiEditField = useCallback(<K extends SafeguardFieldKey>(
     key: K,
@@ -470,7 +167,7 @@ export function useSafeguardSelection({
         }
         return true
       }
-      // If the staged value matches the initial value with no patch, revert to clean.
+      // Revert to clean state when the value matches the initial snapshot.
       const matchesInitial = nextStatus === currentField.initialStatus
         && areSafeguardFieldValuesEqual(key, nextValue, currentField.initialValue)
         && nextPatch === null
@@ -517,7 +214,7 @@ export function useSafeguardSelection({
       nextFields[key] = nextField
       return { ...prev, fields: nextFields }
     })
-  }, [])
+  }, [setMultiEditDraftState])
 
   const resetMultiEditField = useCallback((key: SafeguardFieldKey) => {
     setMultiEditDraftState((prev) => {
@@ -544,7 +241,7 @@ export function useSafeguardSelection({
       }
       return { ...prev, fields: nextFields }
     })
-  }, [])
+  }, [setMultiEditDraftState])
 
   const resetAllMultiEditFields = useCallback(() => {
     setMultiEditDraftState((prev) => {
@@ -574,9 +271,9 @@ export function useSafeguardSelection({
       }
       return changed ? { ...prev, fields: nextFields } : prev
     })
-  }, [])
+  }, [setMultiEditDraftState])
 
-  // ── multi-edit apply ──────────────────────────────────────────────────────
+  // ── multi-edit apply ──────────────────────────────────────────────────
 
   const applyMultiEditDraft = useCallback(() => {
     if (!multiEditDraftState) return
@@ -599,7 +296,7 @@ export function useSafeguardSelection({
     resetAllMultiEditFields()
   }, [applySafeguardRulesChange, multiEditDraftState, resetAllMultiEditFields])
 
-  // ── handle assembly ───────────────────────────────────────────────────────
+  // ── multi-edit handle ─────────────────────────────────────────────────
 
   const multiEditHandle = useMemo<SafeguardMultiEditDraftHandle | null>(() => {
     if (!multiEditDraftState) return null
@@ -611,29 +308,31 @@ export function useSafeguardSelection({
     }
   }, [multiEditDraftState, resetAllMultiEditFields, resetMultiEditField, updateMultiEditField])
 
+  // ── result ────────────────────────────────────────────────────────────
+
   return {
-    selectedRuleIndices,
-    setSelectedRuleIndices: applySelection,
-    multiselectActive,
-    selectionAnchor,
-    multiSelectedRules,
+    selectedRuleIndices: mgr.selectedIndices,
+    setSelectedRuleIndices: mgr.setSelectedIndices,
+    multiselectActive: mgr.multiselectActive,
+    selectionAnchor: mgr.selectionAnchor,
+    multiSelectedRules: mgr.multiSelectedItems,
     multiEditDraftState,
     setMultiEditDraftState,
     multiEditHandle,
     applyMultiEditDraft,
-    handleRuleSelect,
-    handleRuleDelete,
-    handleRuleDuplicate,
-    handleRuleMoveUp,
-    handleRuleMoveDown,
-    handleRuleMoveTop,
-    handleRuleMoveBottom,
-    handleSelectAllRules,
-    handleClearSelection,
-    handleDeleteSelected,
-    prepareDragSelection,
-    handleRuleReorder,
-    updateSelectionAnchor,
+    handleRuleSelect: mgr.handleItemSelect,
+    handleRuleDelete: mgr.handleItemDelete,
+    handleRuleDuplicate: mgr.handleItemDuplicate,
+    handleRuleMoveUp: mgr.handleItemMoveUp,
+    handleRuleMoveDown: mgr.handleItemMoveDown,
+    handleRuleMoveTop: mgr.handleItemMoveTop,
+    handleRuleMoveBottom: mgr.handleItemMoveBottom,
+    handleSelectAllRules: mgr.handleSelectAll,
+    handleClearSelection: mgr.handleClearSelection,
+    handleDeleteSelected: mgr.handleDeleteSelected,
+    prepareDragSelection: mgr.prepareDragSelection,
+    handleRuleReorder: mgr.handleReorder,
+    updateSelectionAnchor: mgr.updateSelectionAnchor,
   }
 }
 

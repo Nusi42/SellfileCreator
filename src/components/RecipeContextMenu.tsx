@@ -5,6 +5,48 @@ import ContextMenuPaper, { buildContextMenuPaperSlotProps, type ContextMenuPaper
 
 type MenuClickHandler = () => void
 
+// ── shared per-chip action builder ───────────────────────────────────────────
+
+/**
+ * Parameters for the common per-chip portion of a context menu.
+ * Both RecipeChip and SafeguardChipsPanel pass these; unique-to-one-panel actions
+ * (insertAsSafeguard, copyRecipeDev, deleteAll, …) are spread in by each caller.
+ */
+export type ChipContextMenuActionParams = {
+  onDuplicate?: MenuClickHandler
+  onMoveTop?: MenuClickHandler
+  onMoveUp?: MenuClickHandler
+  onMoveDown?: MenuClickHandler
+  onMoveBottom?: MenuClickHandler
+  onCopy?: MenuClickHandler
+  onPasteAfter?: MenuClickHandler
+  onDelete?: MenuClickHandler
+  /** True when the chip is the first item (disables move-up/move-top). */
+  isFirst: boolean
+  /** True when the chip is the last item (disables move-down/move-bottom). */
+  isLast: boolean
+}
+
+/**
+ * Builds the duplicate / move / copy / paste-after / delete subset of RecipeContextMenuActions
+ * that is identical for both recipe chips and safeguard chips.
+ * Callers spread this into their full actions object and add panel-specific entries.
+ */
+export function buildChipContextMenuActions(
+  params: ChipContextMenuActionParams,
+): Pick<RecipeContextMenuActions, 'duplicate' | 'moveTop' | 'moveUp' | 'moveDown' | 'moveBottom' | 'copyRecipe' | 'pasteAfter' | 'deleteRecipe'> {
+  return {
+    ...(params.onDuplicate ? { duplicate: params.onDuplicate } : {}),
+    ...(params.onMoveTop ? { moveTop: { handler: params.onMoveTop, disabled: params.isFirst } } : {}),
+    ...(params.onMoveUp ? { moveUp: { handler: params.onMoveUp, disabled: params.isFirst } } : {}),
+    ...(params.onMoveDown ? { moveDown: { handler: params.onMoveDown, disabled: params.isLast } } : {}),
+    ...(params.onMoveBottom ? { moveBottom: { handler: params.onMoveBottom, disabled: params.isLast } } : {}),
+    ...(params.onCopy ? { copyRecipe: params.onCopy } : {}),
+    ...(params.onPasteAfter ? { pasteAfter: params.onPasteAfter } : {}),
+    ...(params.onDelete ? { deleteRecipe: params.onDelete } : {}),
+  }
+}
+
 type MoveAction = {
   handler: MenuClickHandler
   disabled?: boolean

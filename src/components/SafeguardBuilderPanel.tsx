@@ -102,7 +102,8 @@ import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { HistoryContextMenu } from './HistoryContextMenu'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import type { HistoryPreview, HistoryTimelineEntry } from '../hooks/useSfrHistory'
-import { useAutoResetAfterInsertPreference, useAutoApplySelectedRecipePreference, useBuilderSafeguardCollapsedPreference } from '../state/builderPreferences'
+import { useBuilderSafeguardCollapsedPreference } from '../state/builderPreferences'
+import { useBuilderPanelPrefs } from './builderPanel/useBuilderPanelPrefs'
 import BuilderSectionToggle from './BuilderSectionToggle'
 import { summaryParts } from './RecipeChip'
 import { useDisplayPreferences } from '../state/preferencesState'
@@ -337,19 +338,13 @@ export default function SafeguardBuilderPanel({
   const { showFactionIcons, showSetIcons, showSlotIcons } = useDisplayPreferences()
   const { resolveAllowedSetPool, sanitizeCombinationForSlots } = useKeepOverrideCombinationTools(metasets)
 
-  // ── auto-apply / auto-reset preferences (shared with recipe builder) ───────
-  const [autoResetAfterInsert, setAutoResetAfterInsert] = useAutoResetAfterInsertPreference()
-  const [autoApplySelectedRecipe, setAutoApplySelectedRecipe] = useAutoApplySelectedRecipePreference()
-
-  const setAutoResetExclusive = useCallback((next: boolean) => {
-    setAutoResetAfterInsert(next)
-    if (next && autoApplySelectedRecipe) setAutoApplySelectedRecipe(false)
-  }, [autoApplySelectedRecipe, setAutoResetAfterInsert, setAutoApplySelectedRecipe])
-
-  const setAutoApplyExclusive = useCallback((next: boolean) => {
-    setAutoApplySelectedRecipe(next)
-    if (next && autoResetAfterInsert) setAutoResetAfterInsert(false)
-  }, [autoResetAfterInsert, setAutoApplySelectedRecipe, setAutoResetAfterInsert])
+  // ── auto-apply / auto-reset preferences (via shared hook) ───────────────
+  const {
+    autoApply: autoApplySelectedRecipe,
+    autoReset: autoResetAfterInsert,
+    setAutoApplyExclusive,
+    setAutoResetExclusive,
+  } = useBuilderPanelPrefs()
 
   // ── undo/redo history context menu (mirrors RecipeBuilderPanel) ──────────
   const {

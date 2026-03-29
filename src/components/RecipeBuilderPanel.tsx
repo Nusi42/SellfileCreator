@@ -111,7 +111,8 @@ import {
 import { mergeTagList, normalizeTagValue, summarizeTagPresence } from '../lib/tagHelpers'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
-import { useAutoApplySelectedRecipePreference, useAutoResetAfterInsertPreference, useShowTagsChipsPreference, useBuilderRecipeCollapsedPreference } from '../state/builderPreferences'
+import { useShowTagsChipsPreference, useBuilderRecipeCollapsedPreference } from '../state/builderPreferences'
+import { useBuilderPanelPrefs } from './builderPanel/useBuilderPanelPrefs'
 import BuilderSectionToggle from './BuilderSectionToggle'
 import { HistoryContextMenu } from './HistoryContextMenu'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
@@ -2443,14 +2444,11 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     saveDisabled,
     isDefaultBuilder,
   })
-  // Persisted toggle: auto reset the builder after inserting a recipe
-  const [autoResetAfterInsert, setAutoResetAfterInsert] = useAutoResetAfterInsertPreference()
-  // Persisted toggle: auto apply edits to the selected recipe after a short debounce.
-  const [autoApplySelectedRecipe, setAutoApplySelectedRecipe] = useAutoApplySelectedRecipePreference()
   // Persisted toggle: show tag chips next to the Tags button.
   const [showTagsChips, setShowTagsChips] = useShowTagsChipsPreference()
   // Persisted collapsed state for the 7 per-group collapsible sections.
   const [builderCollapsed, setBuilderCollapsed] = useBuilderRecipeCollapsedPreference()
+  // Debounce handle for auto-apply; cleared when auto-apply is disabled.
   const autoApplyTimeoutRef = useRef<number | null>(null)
   const clearAutoApplyTimeout = useCallback(() => {
     const handle = autoApplyTimeoutRef.current
@@ -2459,27 +2457,13 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
       autoApplyTimeoutRef.current = null
     }
   }, [])
-  const setAutoResetAfterInsertExclusive = useCallback((next: boolean) => {
-    setAutoResetAfterInsert(next)
-    if (next && autoApplySelectedRecipe) {
-      setAutoApplySelectedRecipe(false)
-      clearAutoApplyTimeout()
-    }
-  }, [autoApplySelectedRecipe, clearAutoApplyTimeout, setAutoApplySelectedRecipe, setAutoResetAfterInsert])
-  const setAutoApplySelectedRecipeExclusive = useCallback((next: boolean) => {
-    setAutoApplySelectedRecipe(next)
-    if (next && autoResetAfterInsert) {
-      setAutoResetAfterInsert(false)
-    }
-    if (!next) {
-      clearAutoApplyTimeout()
-    }
-  }, [autoResetAfterInsert, clearAutoApplyTimeout, setAutoApplySelectedRecipe, setAutoResetAfterInsert])
-  useEffect(() => {
-    if (autoApplySelectedRecipe && autoResetAfterInsert) {
-      setAutoResetAfterInsertExclusive(false)
-    }
-  }, [autoApplySelectedRecipe, autoResetAfterInsert, setAutoResetAfterInsertExclusive])
+  // ── auto-apply / auto-reset preferences (via shared hook) ───────────────
+  const {
+    autoApply: autoApplySelectedRecipe,
+    autoReset: autoResetAfterInsert,
+    setAutoApplyExclusive: setAutoApplySelectedRecipeExclusive,
+    setAutoResetExclusive: setAutoResetAfterInsertExclusive,
+  } = useBuilderPanelPrefs({ onAutoApplyDisabled: clearAutoApplyTimeout })
 
   const handleResetBuilder = React.useCallback(() => {
     const eff = getEffectiveDefaults()
