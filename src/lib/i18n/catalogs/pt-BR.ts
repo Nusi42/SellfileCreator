@@ -445,6 +445,7 @@ const catalog: Catalog = {
   safeguardsCountModeScopeFaction: 'facção',
   safeguardsCountModeScopeMain: 'stat principal',
   safeguardsCandidateWeightHint: '1 rolar ≈ +{pts}',
+  safeguardSubstatWeight: 'Peso: {value}×',
   safeguardsCandidatesNoData: 'Sem dados de detecção.\nExecute a detecção para ver os candidatos.',
   safeguardsCandidatesNoSubstats: 'Selecione sub-atributos para ativar a classificação.',
   safeguardsNoRules: 'Ainda não há regras de manutenção.',
@@ -749,6 +750,8 @@ const catalog: Catalog = {
   setAllKnownShorthand: 'Todos os conhecidos',
   // Receita chip labels
   chipSubs: 'Subs',
+  chipSubsMin: 'Subs ≥{n}',
+  chipSubsEach: 'Subs cada',
   chipReq: 'Nec.',
   chipMaxRolls: 'Rolagens máx: {n}',
   chipMinRolls: 'Rolagens mín: {n}',

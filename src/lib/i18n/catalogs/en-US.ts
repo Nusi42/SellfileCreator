@@ -455,6 +455,7 @@ const enUS: Catalog = {
   safeguardsCountModeScopeMain: 'main stat',
   // {pts} = per-roll contribution, e.g. "0.17"
   safeguardsCandidateWeightHint: '1 roll ≈ +{pts}',
+  safeguardSubstatWeight: 'Weight: {value}×',
   safeguardsCandidatesNoData: 'No detection data.\nRun detection to see candidates.',
   safeguardsCandidatesNoSubstats: 'Select substats to enable ranking.',
   safeguardsNoRules: 'No safeguards yet.',
@@ -763,6 +764,8 @@ const enUS: Catalog = {
   setAllKnownShorthand: 'All Currently Known',
   // Recipe chip labels
   chipSubs: 'Subs',
+  chipSubsMin: 'Subs ≥{n}',
+  chipSubsEach: 'Subs each',
   chipReq: 'Req',
   chipMaxRolls: 'Max Rolls: {n}',
   chipMinRolls: 'Min Rolls: {n}',

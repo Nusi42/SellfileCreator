@@ -446,6 +446,7 @@ const overrides: Catalog = {
   safeguardsCountModeScopeFaction: 'фракцию',
   safeguardsCountModeScopeMain: 'основной стат',
   safeguardsCandidateWeightHint: '1 бросок ≈ +{pts}',
+  safeguardSubstatWeight: 'Вес: {value}×',
   safeguardsCandidatesNoData: 'Нет данных обнаружения.\nЗапустите обнаружение, чтобы увидеть кандидатов.',
   safeguardsCandidatesNoSubstats: 'Выберите подхарактеристики для включения ранжирования.',
   safeguardsNoRules: 'Правила сохранения ещё не добавлены.',
@@ -750,6 +751,8 @@ const overrides: Catalog = {
   setAllKnownShorthand: 'Все известные',
   // Recipe chip labels
   chipSubs: 'Подстаты',
+  chipSubsMin: 'Подстаты ≥{n}',
+  chipSubsEach: 'Подстаты отд.',
   chipReq: 'Треб.',
   chipMaxRolls: 'Макс. ролей: {n}',
   chipMinRolls: 'Мин. ролей: {n}',

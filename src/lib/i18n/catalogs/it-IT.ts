@@ -445,6 +445,7 @@ const overrides: Catalog = {
   safeguardsCountModeScopeFaction: 'fazione',
   safeguardsCountModeScopeMain: 'stat principale',
   safeguardsCandidateWeightHint: '1 tiro ≈ +{pts}',
+  safeguardSubstatWeight: 'Peso: {value}×',
   safeguardsCandidatesNoData: 'Nessun dato di rilevamento.\nEsegui il rilevamento per vedere i candidati.',
   safeguardsCandidatesNoSubstats: 'Seleziona i substati per abilitare la classifica.',
   safeguardsNoRules: 'Nessuna regola di mantenimento.',
@@ -749,6 +750,8 @@ const overrides: Catalog = {
   setAllKnownShorthand: 'Tutti i set attualmente noti',
   // Ricetta chip labels
   chipSubs: 'Sotto',
+  chipSubsMin: 'Sotto ≥{n}',
+  chipSubsEach: 'Sotto ciascuno',
   chipReq: 'Rich.',
   chipMaxRolls: 'Roll max: {n}',
   chipMinRolls: 'Roll min: {n}',

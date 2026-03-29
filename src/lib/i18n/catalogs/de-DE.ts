@@ -443,6 +443,7 @@ const overrides: Catalog = {
   safeguardsCountModeScopeFaction: 'Fraktion',
   safeguardsCountModeScopeMain: 'Hauptstat',
   safeguardsCandidateWeightHint: '1 Roll ≈ +{pts}',
+  safeguardSubstatWeight: 'Gewicht: {value}×',
   safeguardsCandidatesNoData: 'Keine Erkennungsdaten.\nErkennung starten, um Kandidaten zu sehen.',
   safeguardsCandidatesNoSubstats: 'Substats auswählen, um die Rangfolge zu aktivieren.',
   safeguardsNoRules: 'Noch keine Schutzmaßnahmen.',
@@ -747,6 +748,8 @@ const overrides: Catalog = {
   setAllKnownShorthand: 'Alle aktuell bekannten',
   // Recipe chip labels
   chipSubs: 'Substats',
+  chipSubsMin: 'Substats ≥{n}',
+  chipSubsEach: 'Substats je',
   chipReq: 'Erf.',
   chipMaxRolls: 'Max. Rolls: {n}',
   chipMinRolls: 'Min. Rolls: {n}',

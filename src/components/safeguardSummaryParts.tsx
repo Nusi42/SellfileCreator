@@ -23,13 +23,17 @@ import {
   getLocalizedGearSetName,
   factionCodeToName,
   factionI18nKey,
+  RarityCode,
+  rarityCodeToName,
+  rarityRankValueI18nKey,
 } from '../lib/types'
 import {
   NBSP,
 } from '../lib/constants'
 
 const METASET_ICON_BOX_PX = 16
-import type { SafeguardRule } from '../lib/safeguards'
+import { type SafeguardRule, SafeguardSubstatMatch } from '../lib/safeguards'
+import MarkdownTooltip from './MarkdownTooltip'
 import { slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import type { Metaset } from '../lib/metasets'
 import { artifactTypeIconFor } from './artifactTypeIcons'
@@ -58,6 +62,40 @@ export type SafeguardSummaryOpts = {
   showSlotIcons: boolean
   t?: (key: string, params?: Record<string, string | number>) => string
   lang: string
+  // When true, suppresses hover tooltips (e.g. substat weight values).
+  tooltipsDisabled?: boolean
+}
+
+// Converts a rarity code to a localised display label (e.g. "≥ Rare", "Legendary").
+// Falls back to the English rarityNames table when no translator is provided.
+const rarityCodeLabel = (code: number, t: SafeguardSummaryOpts['t']): string => {
+  if (!t) return rarityCodeToName(code as RarityCode) || String(code)
+  // Map from actual rarity code to (prefix, ordinal 1–6) so we can use the
+  // existing rarityRankValueI18nKey for the translated base name.
+  type RarityOrdinal = 1 | 2 | 3 | 4 | 5 | 6
+  const info: { prefix: string; ordinal: RarityOrdinal } | null = (() => {
+    switch (code) {
+      case RarityCode.Common:        return { prefix: '',          ordinal: 1 }
+      case RarityCode.Uncommon:      return { prefix: '',          ordinal: 2 }
+      case RarityCode.Rare:          return { prefix: '',          ordinal: 3 }
+      case RarityCode.Epic:          return { prefix: '',          ordinal: 4 }
+      case RarityCode.Legendary:     return { prefix: '',          ordinal: 5 }
+      case RarityCode.Mythical:      return { prefix: '',          ordinal: 6 }
+      case RarityCode.GTE_Common:    return { prefix: `≥${NBSP}`,  ordinal: 1 }
+      case RarityCode.GTE_Uncommon:  return { prefix: `≥${NBSP}`,  ordinal: 2 }
+      case RarityCode.GTE_Rare:      return { prefix: `≥${NBSP}`,  ordinal: 3 }
+      case RarityCode.GTE_Epic:      return { prefix: `≥${NBSP}`,  ordinal: 4 }
+      case RarityCode.GTE_Legendary: return { prefix: `≥${NBSP}`,  ordinal: 5 }
+      case RarityCode.LTE_Uncommon:  return { prefix: `≤${NBSP}`,  ordinal: 2 }
+      case RarityCode.LTE_Rare:      return { prefix: `≤${NBSP}`,  ordinal: 3 }
+      case RarityCode.LTE_Epic:      return { prefix: `≤${NBSP}`,  ordinal: 4 }
+      case RarityCode.LTE_Legendary: return { prefix: `≤${NBSP}`,  ordinal: 5 }
+      case RarityCode.LTE_Mythical:  return { prefix: `≤${NBSP}`,  ordinal: 6 }
+      default: return null
+    }
+  })()
+  if (!info) return rarityCodeToName(code as RarityCode) || String(code)
+  return `${info.prefix}${t(rarityRankValueI18nKey(info.ordinal))}`
 }
 
 /**
@@ -125,8 +163,10 @@ export function safeguardSummaryParts(
     addText(opts.t ? opts.t('safeguardsCountModePerSlot') : 'Per Slot')
   }
 
-  // ── Ranks ─────────────────────────────────────────────────────────────────
-  if (c.ranks && c.ranks.length > 0) {
+  // ── Ranks + Rarities ──────────────────────────────────────────────────────
+  // Both rendered in one pipe segment, separated by NBSP, matching the
+  // RecipeChip rank+rarity layout. Either half is omitted when not set.
+  {
     const rankLabel = (n: number): string => {
       const star = (s: number): string => {
         const tr = opts.t
@@ -146,7 +186,16 @@ export function safeguardSummaryParts(
       if (n >= 12 && n <= 16) return `≤${NBSP}${star(n - 10)}`
       return String(n)
     }
-    addText(c.ranks.map((r) => rankLabel(Number(r))).join('/'))
+    const segmentParts: string[] = []
+    if (c.ranks && c.ranks.length > 0) {
+      segmentParts.push(c.ranks.map((r) => rankLabel(Number(r))).join('/'))
+    }
+    if (c.rarities && c.rarities.length > 0) {
+      segmentParts.push(c.rarities.map((r) => rarityCodeLabel(Number(r), opts.t)).join('/'))
+    }
+    if (segmentParts.length > 0) {
+      addText(segmentParts.join(NBSP))
+    }
   }
 
   // ── Factions ──────────────────────────────────────────────────────────────
@@ -219,18 +268,46 @@ export function safeguardSummaryParts(
   }
 
   // ── Substats ──────────────────────────────────────────────────────────────
-  // Safeguard substats have no roll bounds or targets, so this is simpler than
-  // the recipe equivalent. We still color them per the substatColors mapping.
+  // Safeguard substats carry a substatMatch threshold and optional per-stat
+  // weights. The section label reflects the threshold ("Subs ≥N:", "Subs each:").
+  // Custom weights surface as dotted underlines + hover tooltips, matching the
+  // RecipeChip roll-target underline pattern so the visual language stays consistent.
   if (rule.substats && rule.substats.length > 0) {
     const sorted = [...rule.substats].sort(compareVariants)
+    const weights = rule.substatWeights ?? {}
     const nodes = sorted.map((vk) => {
       const name = withNbsp(opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
       const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
-      return (
-        <Box key={`s-${vk}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>
+      const weight = weights[vk]
+      // Show dotted underline when a non-default (≠1) weight is explicitly set.
+      const hasCustomWeight = weight !== undefined && weight !== 1
+      const content = (
+        <Box
+          key={`s-${vk}`}
+          component="span"
+          sx={{
+            color: opts.useStatButtonColors ? fg : undefined,
+            textDecoration: hasCustomWeight ? 'underline' : undefined,
+            textDecorationStyle: hasCustomWeight ? 'dotted' : undefined,
+            textDecorationThickness: hasCustomWeight ? '1px' : undefined,
+            textUnderlineOffset: hasCustomWeight ? 2 : undefined,
+          }}
+        >
           {name}
         </Box>
       )
+      if (hasCustomWeight && !opts.tooltipsDisabled) {
+        // Tooltip shows the exact multiplier value on hover.
+        const tooltipText = opts.t
+          ? opts.t('safeguardSubstatWeight', { value: weight })
+          : `Weight: ${weight}×`
+        return (
+          <MarkdownTooltip key={`s-${vk}`} markdown={tooltipText} arrow>
+            {content}
+          </MarkdownTooltip>
+        )
+      }
+      return content
     })
     const interleaved: JSX.Element[] = []
     nodes.forEach((n, i) => {
@@ -238,10 +315,23 @@ export function safeguardSummaryParts(
       if (i < nodes.length - 1) interleaved.push(<Box key={`s-sep-${sorted[i]}`} component="span">, </Box>)
     })
     const tr = opts.t
-    // Per-substat glyph when each substat is counted separately (PerSubstat mode).
+    // Label reflects the substat match threshold: plain "Subs:" for Min1 (default),
+    // "Subs ≥N:" for Min2–Min4, "Subs each:" for PerSubstat independent scoring.
+    const subsLabel = (() => {
+      const match = rule.substatMatch ?? SafeguardSubstatMatch.Min1
+      if (match === SafeguardSubstatMatch.PerSubstat) {
+        return tr ? tr('chipSubsEach') : 'Subs each'
+      }
+      const n = parseInt(match, 10)
+      if (n >= 2 && n <= 4) {
+        return tr ? tr('chipSubsMin', { n }) : `Subs ≥${n}`
+      }
+      // Min1: default threshold, no annotation needed.
+      return tr ? tr('chipSubs') : 'Subs'
+    })()
     addNode(
       <>
-        <Box component="span">{`${tr ? tr('chipSubs') : 'Subs'}:${NBSP}`}</Box>
+        <Box component="span">{`${subsLabel}:${NBSP}`}</Box>
         {interleaved}
       </>,
     )

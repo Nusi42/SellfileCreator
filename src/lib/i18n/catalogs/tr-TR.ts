@@ -446,6 +446,7 @@ const overrides: Catalog = {
   safeguardsCountModeScopeFaction: 'fraksiyon',
   safeguardsCountModeScopeMain: 'ana stat',
   safeguardsCandidateWeightHint: '1 rulo ≈ +{pts}',
+  safeguardSubstatWeight: 'Ağırlık: {value}×',
   safeguardsCandidatesNoData: 'Tespit verisi yok.\nAdayları görmek için tespiti çalıştırın.',
   safeguardsCandidatesNoSubstats: 'Sıralamayı etkinleştirmek için alt istatistikleri seçin.',
   safeguardsNoRules: 'Henüz koruma kuralı yok.',
@@ -750,6 +751,8 @@ const overrides: Catalog = {
   setAllKnownShorthand: 'Tüm bilinenler',
   // Recipe chip labels
   chipSubs: 'Alt stat',
+  chipSubsMin: 'Alt stat ≥{n}',
+  chipSubsEach: 'Alt stat her',
   chipReq: 'Gerek',
   chipMaxRolls: 'Maks rulolar: {n}',
   chipMinRolls: 'Min rulolar: {n}',
