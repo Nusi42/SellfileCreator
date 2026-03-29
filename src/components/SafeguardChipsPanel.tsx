@@ -336,6 +336,17 @@ export default function SafeguardChipsPanel({
     scheduleScrollToIdx(focusRuleRequest.ruleIdx)
   }, [focusRuleRequest, scheduleScrollToIdx])
 
+  // Keep the selected chip visible after selection changes (move, duplicate, restore, keyboard
+  // navigation). Mirrors scrollSelectedRecipeIntoView in App.tsx for the recipe chip list.
+  // scheduleScrollToIdx is a no-op when the chip is already in the viewport, so this is safe
+  // to run on every selectedRuleIdx change without causing spurious scrolls on normal clicks.
+  const prevSelectedRuleIdxRef = useRef(selectedRuleIdx)
+  useEffect(() => {
+    if (prevSelectedRuleIdxRef.current === selectedRuleIdx) return
+    prevSelectedRuleIdxRef.current = selectedRuleIdx
+    if (selectedRuleIdx !== null) scheduleScrollToIdx(selectedRuleIdx)
+  }, [selectedRuleIdx, scheduleScrollToIdx])
+
   const handleDeleteRule = useCallback((ruleIdx: number) => {
     // When multi-select is active, delegate to the parent hook so bulk deletes work.
     if (onRuleDelete) { onRuleDelete(ruleIdx); setRuleMenu(null); return }
@@ -376,14 +387,13 @@ export default function SafeguardChipsPanel({
     const next = rules.slice()
     next.splice(ruleIdx + 1, 0, duplicated)
     mutateRules(next)
-    // Select and scroll to the new clone so the user sees it right away.
-    const newIdx = ruleIdx + 1
-    onSelect(newIdx)
-    scheduleScrollToIdx(newIdx)
-  }, [mutateRules, onRuleDuplicate, rules, onSelect, scheduleScrollToIdx])
+    // Select the clone; the selectedRuleIdx effect will scroll it into view.
+    onSelect(ruleIdx + 1)
+  }, [mutateRules, onRuleDuplicate, rules, onSelect])
 
   const moveRule = useCallback((ruleIdx: number, targetIndex: number, direction?: 'up' | 'down' | 'top' | 'bottom') => {
     // In multi-select mode, delegate directional moves to the parent hook.
+    // Chip list scroll after the move is handled by the selectedRuleIdx effect below.
     if (direction === 'up' && onRuleMoveUp) { onRuleMoveUp(ruleIdx); return }
     if (direction === 'down' && onRuleMoveDown) { onRuleMoveDown(ruleIdx); return }
     if (direction === 'top' && onRuleMoveTop) { onRuleMoveTop(ruleIdx); return }
@@ -789,8 +799,13 @@ export default function SafeguardChipsPanel({
           const isFirst = idx <= 0
           const isLast = idx >= rules.length - 1
           return {
-            // Per-chip move/copy/paste-after actions only apply when a specific chip is targeted.
+            // Per-chip actions mirror the structure defined in buildChipContextMenuActions
+            // (RecipeContextMenu.tsx). Written inline here because calling buildChipContextMenuActions
+            // inside this render-time IIFE causes @eslint-react to trace through the callback
+            // bodies and flag transitive ref accesses as "cannot access refs during render".
+            // RecipeChip uses buildChipContextMenuActions directly since it is not inside an IIFE.
             ...(isChipMenu ? {
+              duplicate: () => handleDuplicateRule(idx),
               moveTop: { handler: () => moveRule(idx, 0, 'top'), disabled: isFirst },
               moveUp: { handler: () => moveRule(idx, idx - 1, 'up'), disabled: isFirst },
               moveDown: { handler: () => moveRule(idx, idx + 1, 'down'), disabled: isLast },

@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Menu, MenuItem, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, Menu, MenuItem, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { alpha, type Theme } from '@mui/material/styles'
 import {
   ELLIPSIS_TEXT_SX,
@@ -25,10 +25,10 @@ import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuC
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
-import Checkbox from '@mui/material/Checkbox'
 // MarkdownTooltip keeps all preview tooltips (filter toggle, export warnings, etc.) aligned with the global styling/delay.
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
+
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import GearInspectorOutcomeSummaryChip from './GearInspectorOutcomeSummaryChip'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
@@ -36,6 +36,8 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import GridViewIcon from '@mui/icons-material/GridView'
 import CategoryIcon from '@mui/icons-material/Category'
 import GroupsIcon from '@mui/icons-material/Groups'
@@ -64,6 +66,7 @@ import type { GearInspectorSubstatSortState } from '../state/gearInspectorSubsta
 import { useGearInspectorGridNormalizedOverlayPreferences } from '../state/gearInspectorGridNormalizedOverlayPreferences'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
 import type { FilterPreset } from '../state/filterPresetsPreference'
+import type { SortPreset } from '../state/sortPresetsPreference'
 import { formatLocalDateTime } from '../lib/dateDisplay'
 import { useGearInspectorSortPopoutEasterEgg } from '../hooks/useGearInspectorSortPopoutEasterEgg'
 import GearInspectorSortPopoutEasterEggOverlay from './GearInspectorSortPopoutEasterEggOverlay'
@@ -168,9 +171,15 @@ export default function PreviewHeaderActions(props: {
   filtersSynced?: boolean
   onToggleFiltersSynced?: (next: boolean) => void
   filterPresets?: readonly FilterPreset[]
-  onSaveFilterPreset?: (name: string) => void
+  onSaveFilterPreset?: (name: string, includeSort: boolean) => void
   onApplyFilterPreset?: (presetId: string) => void
   onDeleteFilterPreset?: (presetId: string) => void
+  onMoveFilterPreset?: (presetId: string, direction: 'up' | 'down') => void
+  sortPresets?: readonly SortPreset[]
+  onSaveSortPreset?: (name: string, includeFilter: boolean) => void
+  onApplySortPreset?: (presetId: string) => void
+  onDeleteSortPreset?: (presetId: string) => void
+  onMoveSortPreset?: (presetId: string, direction: 'up' | 'down') => void
 }) {
   const {
     mergedCount,
@@ -235,6 +244,12 @@ export default function PreviewHeaderActions(props: {
     onSaveFilterPreset,
     onApplyFilterPreset,
     onDeleteFilterPreset,
+    onMoveFilterPreset,
+    sortPresets = [],
+    onSaveSortPreset,
+    onApplySortPreset,
+    onDeleteSortPreset,
+    onMoveSortPreset,
   } = props
   const isRulesMode = previewMode === 'rules'
   const { t } = useI18n()
@@ -378,6 +393,25 @@ export default function PreviewHeaderActions(props: {
   const [filterHintPos, setFilterHintPos] = React.useState<{ x: number; y: number } | null>(null)
   const filterHintActive = showFilterHint && filterHintPos !== null && !filterMenuAnchor
 
+  // Sort preset context menu — right-click on the sort button, same pattern as the filter menu.
+  const sortPresetMenuEnabled = React.useMemo(() => {
+    return !isRulesMode && (Boolean(onSaveSortPreset) || (sortPresets?.length ?? 0) > 0)
+  }, [isRulesMode, onSaveSortPreset, sortPresets])
+  const [sortPresetMenuAnchor, setSortPresetMenuAnchor] = React.useState<HTMLElement | null>(null)
+  const closeSortPresetMenu = React.useCallback(() => { setSortPresetMenuAnchor(null) }, [])
+  const sortPresetMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
+  useContextMenuCloseOnOutsideRightClick({
+    open: Boolean(sortPresetMenuAnchor),
+    onClose: closeSortPresetMenu,
+    menuRef: sortPresetMenuPaperRef,
+  })
+  const {
+    shouldShow: showSortPresetHint,
+    markSeen: markSortPresetHintSeen,
+  } = useContextMenuHint('previewSortPresetMenu')
+  const [sortPresetHintPos, setSortPresetHintPos] = React.useState<{ x: number; y: number } | null>(null)
+  const sortPresetHintActive = showSortPresetHint && sortPresetHintPos !== null && !sortPresetMenuAnchor
+
   // Endpoint history icon should only appear when an endpoint is configured.
   const historyMenuEnabled = Boolean(pushEndpoint)
   // Anchor element for the endpoint update history menu.
@@ -428,12 +462,16 @@ export default function PreviewHeaderActions(props: {
 
   const [savePresetOpen, setSavePresetOpen] = React.useState(false)
   const [savePresetName, setSavePresetName] = React.useState('')
+  // Whether to include the current sort config in the filter preset snapshot.
+  const [savePresetIncludeSort, setSavePresetIncludeSort] = React.useState(true)
   // Delete confirmation stores the target ID + label so duplicates remain unambiguous.
   const [deletePresetTarget, setDeletePresetTarget] = React.useState<{ id: string; name: string } | null>(null)
 
   const openSavePresetDialog = React.useCallback(() => {
     // Default to an empty field so repeated saves don't accidentally reuse prior input.
     setSavePresetName('')
+    // Default sort inclusion to true so the checkbox matches the previous behavior.
+    setSavePresetIncludeSort(true)
     setSavePresetOpen(true)
   }, [])
 
@@ -445,9 +483,49 @@ export default function PreviewHeaderActions(props: {
     const name = savePresetName.trim()
     // Skip empty names; the dialog keeps the user in-context until it's valid.
     if (!name) return
-    onSaveFilterPreset?.(name)
+    onSaveFilterPreset?.(name, savePresetIncludeSort)
     setSavePresetOpen(false)
-  }, [onSaveFilterPreset, savePresetName])
+  }, [onSaveFilterPreset, savePresetName, savePresetIncludeSort])
+
+  // --- Sort preset dialog state ---------------------------------------------
+
+  const [saveSortPresetOpen, setSaveSortPresetOpen] = React.useState(false)
+  const [saveSortPresetName, setSaveSortPresetName] = React.useState('')
+  // Default filter inclusion to true so the checkbox matches an "include everything" expectation.
+  const [saveSortPresetIncludeFilter, setSaveSortPresetIncludeFilter] = React.useState(true)
+  const [deleteSortPresetTarget, setDeleteSortPresetTarget] = React.useState<{ id: string; name: string } | null>(null)
+
+  const openSaveSortPresetDialog = React.useCallback(() => {
+    setSaveSortPresetName('')
+    // Reset inclusion flag on every open so the default is always "include both".
+    setSaveSortPresetIncludeFilter(true)
+    setSaveSortPresetOpen(true)
+  }, [])
+
+  const closeSaveSortPresetDialog = React.useCallback(() => {
+    setSaveSortPresetOpen(false)
+  }, [])
+
+  const confirmSaveSortPreset = React.useCallback(() => {
+    const name = saveSortPresetName.trim()
+    if (!name) return
+    onSaveSortPreset?.(name, saveSortPresetIncludeFilter)
+    setSaveSortPresetOpen(false)
+  }, [onSaveSortPreset, saveSortPresetName, saveSortPresetIncludeFilter])
+
+  const requestDeleteSortPreset = React.useCallback((presetId: string, presetName: string) => {
+    setDeleteSortPresetTarget({ id: presetId, name: presetName })
+  }, [])
+
+  const cancelDeleteSortPreset = React.useCallback(() => {
+    setDeleteSortPresetTarget(null)
+  }, [])
+
+  const confirmDeleteSortPreset = React.useCallback(() => {
+    if (!deleteSortPresetTarget) return
+    onDeleteSortPreset?.(deleteSortPresetTarget.id)
+    setDeleteSortPresetTarget(null)
+  }, [deleteSortPresetTarget, onDeleteSortPreset])
 
   const requestDeletePreset = React.useCallback((presetId: string, presetName: string) => {
     // Store a snapshot so list reorders never change which entry is being deleted.
@@ -949,7 +1027,28 @@ export default function PreviewHeaderActions(props: {
             </Box>
             <Box sx={{ minWidth: 0, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 0.5, ml: 1, mr: 1 }}>
               <MarkdownTooltip markdown={t('gearInspectorSortTooltip')}>
-                <span>
+                {/* Outer span carries the hint-tracking and right-click handlers. */}
+                <Box
+                  component="span"
+                  onMouseEnter={(event) => {
+                    if (!sortPresetMenuEnabled || !showSortPresetHint) return
+                    setSortPresetHintPos({ x: event.clientX, y: event.clientY })
+                  }}
+                  onMouseMove={(event) => {
+                    if (!sortPresetMenuEnabled || !showSortPresetHint) return
+                    setSortPresetHintPos({ x: event.clientX, y: event.clientY })
+                  }}
+                  onMouseLeave={() => { setSortPresetHintPos(null) }}
+                  onContextMenu={(event) => {
+                    if (!sortPresetMenuEnabled) return
+                    try { event.preventDefault(); event.stopPropagation() } catch {}
+                    // Close the sort popover if it happens to be open.
+                    setSortMenuAnchor(null)
+                    setSortPresetMenuAnchor(event.currentTarget as HTMLElement)
+                    markSortPresetHintSeen()
+                    setSortPresetHintPos(null)
+                  }}
+                >
                   <Button
                     size="small"
                     variant="outlined"
@@ -967,7 +1066,7 @@ export default function PreviewHeaderActions(props: {
                       {sortButtonLabel}
                     </Typography>
                   </Button>
-                </span>
+                </Box>
               </MarkdownTooltip>
               {!isRulesMode && (
                 sortPriorities.length > 0
@@ -985,6 +1084,7 @@ export default function PreviewHeaderActions(props: {
               )}
             </Box>
             <ContextMenuHintOverlay text={t('contextMenuHint')} position={filterHintActive ? filterHintPos : null} />
+            <ContextMenuHintOverlay text={t('contextMenuHint')} position={sortPresetHintActive ? sortPresetHintPos : null} />
             {filterMenuEnabled ? (
               <Menu
                 anchorEl={filterMenuAnchor}
@@ -1005,61 +1105,63 @@ export default function PreviewHeaderActions(props: {
                     {t('filterPresetsSaveAs')}
                   </MenuItem>
                 ) : null}
-                {/* Saved presets are ordered newest-first and allow duplicate names. */}
+                {/* Saved presets: built-ins first, then user-defined with move/delete controls. */}
                 {filterPresets.length > 0 ? (
-                  filterPresets.map((preset) => (
+                  filterPresets.map((preset, index) => (
                     <MenuItem
                       key={preset.id}
                       onClick={() => {
                         onApplyFilterPreset?.(preset.id)
                         closeFilterMenu()
                       }}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        // Slight extra vertical padding keeps the 2-line label visually centered.
-                        py: 0.75,
-                      }}
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.75 }}
                     >
-                      <Box
-                        sx={{
-                          flex: 1,
-                          minWidth: 0,
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'center',
-                          // Keep the text block vertically centered relative to the delete icon.
-                          lineHeight: 1,
-                        }}
-                      >
-                        <Typography
-                          variant="body2"
-                          noWrap
-                          sx={{ ...ELLIPSIS_TEXT_SX, lineHeight: 1.2 }}
-                        >
+                      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1 }}>
+                        <Typography variant="body2" noWrap sx={{ ...ELLIPSIS_TEXT_SX, lineHeight: 1.2 }}>
                           {preset.name}
                         </Typography>
-                        <Typography
-                          variant="caption"
-                          noWrap
-                          sx={{
-                            lineHeight: 1.1,
-                            // Slightly lighter than standard secondary text so the name remains the focal point.
-                            color: 'text.secondary',
-                            opacity: 0.78,
-                          }}
-                        >
-                          {formatPresetSavedAt(preset.savedAt)}
-                        </Typography>
+                        {/* Built-in presets carry no meaningful timestamp; show it only for user presets. */}
+                        {!preset.builtin ? (
+                          <Typography variant="caption" noWrap sx={{ lineHeight: 1.1, color: 'text.secondary', opacity: 0.78 }}>
+                            {formatPresetSavedAt(preset.savedAt)}
+                          </Typography>
+                        ) : null}
                       </Box>
+                      {onMoveFilterPreset ? (
+                        <>
+                          <IconButton
+                            size="small"
+                            aria-label={t('filterPresetsMoveUp')}
+                            disabled={index === 0}
+                            onClick={(event) => {
+                              try { event.stopPropagation() } catch {}
+                              onMoveFilterPreset(preset.id, 'up')
+                            }}
+                            sx={{ p: 0.5, alignSelf: 'center' }}
+                          >
+                            <ArrowUpwardIcon fontSize="inherit" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            aria-label={t('filterPresetsMoveDown')}
+                            disabled={index === filterPresets.length - 1}
+                            onClick={(event) => {
+                              try { event.stopPropagation() } catch {}
+                              onMoveFilterPreset(preset.id, 'down')
+                            }}
+                            sx={{ p: 0.5, alignSelf: 'center' }}
+                          >
+                            <ArrowDownwardIcon fontSize="inherit" />
+                          </IconButton>
+                        </>
+                      ) : null}
                       {onDeleteFilterPreset ? (
                         <IconButton
                           size="small"
                           color="error"
                           aria-label={t('delete')}
+                          disabled={preset.builtin}
                           onClick={(event) => {
-                            // Prevent the parent MenuItem from applying while we're requesting delete.
                             try { event.stopPropagation() } catch {}
                             closeFilterMenu()
                             requestDeletePreset(preset.id, preset.name)
@@ -1109,6 +1211,17 @@ export default function PreviewHeaderActions(props: {
                     }}
                     inputProps={{ maxLength: 80 }}
                   />
+                  {/* Allow the user to exclude sort so applying the preset preserves their current sort config. */}
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={savePresetIncludeSort}
+                        onChange={(event) => setSavePresetIncludeSort(event.target.checked)}
+                      />
+                    }
+                    label={t('filterPresetsSaveIncludeSort')}
+                  />
                 </Stack>
               </DialogContent>
               <DialogActions>
@@ -1128,6 +1241,149 @@ export default function PreviewHeaderActions(props: {
               <DialogActions>
                 <Button onClick={cancelDeletePreset}>{t('cancel')}</Button>
                 <Button color="error" variant="contained" onClick={confirmDeletePreset}>
+                  {t('delete')}
+                </Button>
+              </DialogActions>
+            </Dialog>
+            {/* Sort preset context menu — mirrors the filter preset menu, opened via right-click on Sort. */}
+            {sortPresetMenuEnabled ? (
+              <Menu
+                anchorEl={sortPresetMenuAnchor}
+                open={Boolean(sortPresetMenuAnchor)}
+                onClose={closeSortPresetMenu}
+                PaperProps={{ ref: sortPresetMenuPaperRef }}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+              >
+                {onSaveSortPreset ? (
+                  <MenuItem
+                    onClick={() => {
+                      closeSortPresetMenu()
+                      openSaveSortPresetDialog()
+                    }}
+                  >
+                    {t('sortPresetsSaveAs')}
+                  </MenuItem>
+                ) : null}
+                {sortPresets.length > 0 ? (
+                  sortPresets.map((preset, index) => (
+                    <MenuItem
+                      key={preset.id}
+                      onClick={() => {
+                        onApplySortPreset?.(preset.id)
+                        closeSortPresetMenu()
+                      }}
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.75 }}
+                    >
+                      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1 }}>
+                        <Typography variant="body2" noWrap sx={{ ...ELLIPSIS_TEXT_SX, lineHeight: 1.2 }}>
+                          {preset.name}
+                        </Typography>
+                        {/* Built-in presets have no meaningful timestamp; skip the caption. */}
+                        {!preset.builtin ? (
+                          <Typography variant="caption" noWrap sx={{ lineHeight: 1.1, color: 'text.secondary', opacity: 0.78 }}>
+                            {formatPresetSavedAt(preset.savedAt)}
+                          </Typography>
+                        ) : null}
+                      </Box>
+                      {onMoveSortPreset ? (
+                        <>
+                          <IconButton
+                            size="small"
+                            aria-label={t('filterPresetsMoveUp')}
+                            disabled={index === 0}
+                            onClick={(event) => {
+                              try { event.stopPropagation() } catch {}
+                              onMoveSortPreset(preset.id, 'up')
+                            }}
+                            sx={{ p: 0.5, alignSelf: 'center' }}
+                          >
+                            <ArrowUpwardIcon fontSize="inherit" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            aria-label={t('filterPresetsMoveDown')}
+                            disabled={index === sortPresets.length - 1}
+                            onClick={(event) => {
+                              try { event.stopPropagation() } catch {}
+                              onMoveSortPreset(preset.id, 'down')
+                            }}
+                            sx={{ p: 0.5, alignSelf: 'center' }}
+                          >
+                            <ArrowDownwardIcon fontSize="inherit" />
+                          </IconButton>
+                        </>
+                      ) : null}
+                      {onDeleteSortPreset ? (
+                        <IconButton
+                          size="small"
+                          color="error"
+                          aria-label={t('delete')}
+                          disabled={preset.builtin}
+                          onClick={(event) => {
+                            try { event.stopPropagation() } catch {}
+                            closeSortPresetMenu()
+                            requestDeleteSortPreset(preset.id, preset.name)
+                          }}
+                          sx={{ p: 0.5, alignSelf: 'center' }}
+                        >
+                          <DeleteIcon fontSize="inherit" />
+                        </IconButton>
+                      ) : null}
+                    </MenuItem>
+                  ))
+                ) : (
+                  <MenuItem disabled>{t('sortPresetsEmpty')}</MenuItem>
+                )}
+              </Menu>
+            ) : null}
+            <Dialog open={saveSortPresetOpen} onClose={closeSaveSortPresetDialog} maxWidth="xs" fullWidth>
+              <DialogTitle>{t('sortPresetsSaveDialogTitle')}</DialogTitle>
+              <DialogContent>
+                <Stack spacing={1.5} sx={{ mt: 0.5 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {t('sortPresetsSaveDialogHelper')}
+                  </Typography>
+                  <TextField
+                    autoFocus
+                    label={t('filterPresetsNameLabel')}
+                    value={saveSortPresetName}
+                    onChange={(event) => setSaveSortPresetName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') confirmSaveSortPreset()
+                    }}
+                    inputProps={{ maxLength: 80 }}
+                  />
+                  {/* Allow the user to exclude filter state so applying the preset preserves their current filters. */}
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={saveSortPresetIncludeFilter}
+                        onChange={(event) => setSaveSortPresetIncludeFilter(event.target.checked)}
+                      />
+                    }
+                    label={t('sortPresetsSaveIncludeFilter')}
+                  />
+                </Stack>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={closeSaveSortPresetDialog}>{t('cancel')}</Button>
+                <Button variant="contained" onClick={confirmSaveSortPreset} disabled={!saveSortPresetName.trim()}>
+                  {t('save')}
+                </Button>
+              </DialogActions>
+            </Dialog>
+            <Dialog open={Boolean(deleteSortPresetTarget)} onClose={cancelDeleteSortPreset} maxWidth="xs" fullWidth>
+              <DialogTitle>{t('sortPresetsDeleteDialogTitle')}</DialogTitle>
+              <DialogContent>
+                <Typography variant="body2">
+                  {t('sortPresetsDeleteDialogMessage', { name: deleteSortPresetTarget?.name ?? '' })}
+                </Typography>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={cancelDeleteSortPreset}>{t('cancel')}</Button>
+                <Button color="error" variant="contained" onClick={confirmDeleteSortPreset}>
                   {t('delete')}
                 </Button>
               </DialogActions>

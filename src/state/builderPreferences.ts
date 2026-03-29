@@ -104,7 +104,8 @@ const autoApplyStore = createLocalStorageStore<boolean>({
   serialize: (value) => String(value),
 })
 
-export const useAutoApplySelectedRecipePreference = createLocalStorageStateHook(autoApplyStore)
+/** Shared auto-apply toggle for both the recipe and safeguard builder panels. */
+export const useAutoApplyBuilderPreference = createLocalStorageStateHook(autoApplyStore)
 
 // Builder-only: control whether tag chips render beside the Tags button.
 const showTagsStore = createLocalStorageStore<boolean>({

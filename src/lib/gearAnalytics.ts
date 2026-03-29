@@ -438,10 +438,8 @@ export function buildSlotMainMatrix(rows: readonly GearInspectorPreviewRow[]): S
 // ── KPI metrics ───────────────────────────────────────────────────────────────
 
 export type GearAnalyticsKpis = {
-  /** % of items at Legendary rarity or above (rarity 5=Legendary, 6=Mythical). */
-  legendaryPlusRate: number | null
-  /** % of items at 6★ rank (max star grade). */
-  sixStarRate: number | null
+  /** % of items that are both 6★ rank and Legendary or Mythical rarity. */
+  sixStarLegendaryPlusRate: number | null
   /** % of items leveled to +16 (max level). */
   maxedRate: number | null
   /** % of items on a vault-benched champion (vault + reserveVault), out of all items. */
@@ -454,6 +452,10 @@ export type GearAnalyticsKpis = {
   ascendedRate: number | null
   /** % of items equipped to any champion (including vault-benched). */
   equippedRate: number | null
+  /** Raw count of non-accessory armor pieces in the current view. */
+  artifactCount: number | null
+  /** Raw count of accessory pieces in the current view. */
+  accessoryCount: number | null
 }
 
 /**
@@ -464,17 +466,15 @@ export function computeGearAnalyticsKpis(rows: readonly GearInspectorPreviewRow[
   const total = rows.length
   if (total === 0) {
     // All null: no data loaded yet.
-    return { legendaryPlusRate: null, sixStarRate: null, maxedRate: null, vaultLockedRate: null, chaosRate: null, glyphedRate: null, ascendedRate: null, equippedRate: null }
+    return { sixStarLegendaryPlusRate: null, maxedRate: null, vaultLockedRate: null, chaosRate: null, glyphedRate: null, ascendedRate: null, equippedRate: null, artifactCount: null, accessoryCount: null }
   }
 
-  let legendaryPlus = 0, sixStar = 0, maxed = 0, vaultLocked = 0, chaosed = 0, glyphed = 0, ascended = 0, equipped = 0
+  let sixStarLegendaryPlus = 0, maxed = 0, vaultLocked = 0, chaosed = 0, glyphed = 0, ascended = 0, equipped = 0, artifacts = 0, accessories = 0
 
   for (const row of rows) {
     const a = row.artifact
-    // Legendary+ = rarity 5 (Legendary) or 6 (Mythical, normalized from the DB value of 15).
-    if (Number(a.rarity) >= 5) legendaryPlus++
-    // 6★ = max star rank.
-    if (Number(a.rank) === 6) sixStar++
+    // 6★ Legendary+ = max star rank AND at least Legendary rarity (rarity 5 or 6).
+    if (Number(a.rank) === 6 && Number(a.rarity) >= 5) sixStarLegendaryPlus++
     // Maxed = milestone level 16.
     if (Number(a.level) === 16) maxed++
     // Vault-locked = gear on a vault-benched champion (includes both 'vault' and 'reserveVault'
@@ -489,17 +489,21 @@ export function computeGearAnalyticsKpis(rows: readonly GearInspectorPreviewRow[
     if (a.ascension !== null) ascended++
     // Equipped = has an equippedToChampionId (any champion, including benched).
     if (a.equippedToChampionId !== null) equipped++
+    // Artifacts vs accessories: split by slot type using the single-source-of-truth utility.
+    if (isAccessorySlot(a.slot)) accessories++
+    else artifacts++
   }
 
   return {
-    legendaryPlusRate: legendaryPlus / total,
-    sixStarRate: sixStar / total,
+    sixStarLegendaryPlusRate: sixStarLegendaryPlus / total,
     maxedRate: maxed / total,
     vaultLockedRate: vaultLocked / total,
     chaosRate: chaosed / total,
     glyphedRate: glyphed / total,
     ascendedRate: ascended / total,
     equippedRate: equipped / total,
+    artifactCount: artifacts,
+    accessoryCount: accessories,
   }
 }
 

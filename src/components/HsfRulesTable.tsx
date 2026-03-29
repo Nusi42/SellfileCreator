@@ -875,6 +875,12 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
   // Seed the ref with the current token so mount does not auto-scroll.
   // Why: only explicit requests should move the preview viewport.
   const lastSelectionScrollTokenRef = useRef<number>(selectionScrollRequest.token)
+  // Holds a safeguard scroll request that arrived before the span map was populated.
+  // Why: the pipeline is debounced ~200ms; a scroll request emitted on restore or chip
+  // click may arrive while safeguardOrdinalSpanMap is still empty. Storing the target
+  // here lets a separate effect retry the scroll once the map is ready, independent of
+  // whether selectionScrollRequest has since changed.
+  const pendingScrollRef = useRef<{ ordinal: number } | null>(null)
   useEffect(() => {
     // Gate auto-scroll to explicit scroll requests only.
     // Why: background updates should not move the user's viewport.
@@ -889,9 +895,19 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     // Safeguard chip selection: scroll to the first row of the target safeguard block.
     if (targetSafeguardOrdinal != null) {
       const span = safeguardOrdinalSpanMap.get(targetSafeguardOrdinal)
-      if (span) scrollRuleIndexToTop(span.first)
+      if (span) {
+        // Span available immediately — scroll now and clear any stale pending target.
+        pendingScrollRef.current = null
+        scrollRuleIndexToTop(span.first)
+      } else {
+        // Span map not yet populated (pipeline still running). Store the target so the
+        // resolution effect below can retry when safeguardOrdinalSpanMap updates.
+        pendingScrollRef.current = { ordinal: targetSafeguardOrdinal }
+      }
       return
     }
+    // A new non-safeguard request cancels any pending safeguard scroll.
+    pendingScrollRef.current = null
     // Recipe chip selection: prefer the explicit target, fall back to the current selection.
     const effectiveRecipeIdx = targetRecipeIdx ?? selectedRecipeIdx
     if (effectiveRecipeIdx === null || effectiveRecipeIdx === undefined) return
@@ -912,6 +928,18 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     selectedRecipeIdx,
     selectionScrollRequest,
   ])
+  // Resolve a pending safeguard scroll once the span map is populated.
+  // Why: the selectionScrollRequest effect stores a pending target when the span map is
+  // empty at request time; this effect retries on every safeguardOrdinalSpanMap update
+  // until the span appears, then clears the target.
+  useEffect(() => {
+    const pending = pendingScrollRef.current
+    if (!pending) return
+    const span = safeguardOrdinalSpanMap.get(pending.ordinal)
+    if (!span) return
+    pendingScrollRef.current = null
+    scrollRuleIndexToTop(span.first)
+  }, [safeguardOrdinalSpanMap, scrollRuleIndexToTop])
 
   useEffect(() => {
     const el = tableContainerRef.current

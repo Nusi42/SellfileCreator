@@ -12,7 +12,7 @@ All aggregation logic lives in `src/lib/gearAnalytics.ts` (pure functions, no Re
 | `src/components/dialogs/GearAnalyticsTabContent.tsx` | Orchestrator: state, derived data, layout |
 | `src/components/gear-analytics/GearAnalyticsDonut.tsx` | Reusable donut chart with cross-filter toggle |
 | `src/components/gear-analytics/GearAnalyticsRadar.tsx` | Radar chart for substat frequency + co-occurrence pivot |
-| `src/components/gear-analytics/GearAnalyticsKpiCards.tsx` | Row of 8 KPI percentage cards |
+| `src/components/gear-analytics/GearAnalyticsKpiCards.tsx` | Row of KPI cards — regular (single %) and double (two values with separator) |
 | `src/components/gear-analytics/GearAnalyticsCrossFilterChips.tsx` | Active filter chip bar with per-chip delete |
 | `src/components/gear-analytics/GearAnalyticsBar.tsx` | Horizontal bar chart (main stat frequency) |
 | `src/components/gear-analytics/GearAnalyticsHeatmap.tsx` | Slot × main stat count heatmap |
@@ -108,22 +108,26 @@ Six donut charts are rendered in a 6-column grid. Each owns one `GearAnalyticsDi
 
 ## KPI cards
 
-Eight percentage cards rendered by `GearAnalyticsKpiCards` from `computeGearAnalyticsKpis`. All values are 0–1 ratios; `null` means the row set is empty (avoids 0/0 confusion).
+`GearAnalyticsKpiCards` renders a single `nowrap` flex row of KPI cards driven by `computeGearAnalyticsKpis`. Two card variants exist:
 
-| KPI | Definition |
-|---|---|
-| 6★ | Items at max star rank |
-| Legendary+ | Items at rarity ≥ 5 (Legendary or Mythical) |
-| Maxed | Items at level 16 |
-| Equipped | Items equipped to any champion (including vault-benched) |
-| Vault-locked | Items on a vault-benched champion (`source = vault`) |
-| Chaos'd | Items rerolled ≥ 1 time with a chaos orb |
-| Glyphed | Items with at least one substat having `glyphValue > 0` |
-| Ascended | Items with at least one ascension level (`ascension !== null`) |
+- **`KpiCard`** — single percentage value. Accepts an optional `wide` prop (`flex: '2 1 0'`) to double its width in the row.
+- **`KpiDoubleCard`** — two pre-formatted values separated by a dimmed `+`. Always double-width (`flex: '2 1 0'`). Used for pairs that are conceptually distinct counts or rates shown side-by-side.
 
-All cards use a neutral text color — no green/amber/red thresholds.
+All ratio values are 0–1; `null` means the row set is empty (avoids 0/0 confusion). Raw counts use `toLocaleString()`. Cards render `'—'` when their value is `null`, keeping height stable without a `Skeleton`.
 
-When the cross-filter produces zero matching rows all KPI ratios become `null`. Cards always render through the same text path (`fmtPct(null)` returns `'—'`), keeping the card height stable. No `Skeleton` placeholder is used — its height (28 px) was taller than the `h6` text (~24 px) and caused layout shift.
+### Card layout (left → right)
+
+| Card | Type | Definition |
+|---|---|---|
+| Artifacts + Accessories | Double (counts) | Raw count of armor pieces (left) and accessory pieces (right); split by `isAccessorySlot` |
+| Equipped + Vault | Double (rates) | % equipped to any champion (left) · % on vault-benched champions (right); label composes `gearAnalyticsKpiEquipped` + `gearInspectorSourceEquippedVault` at runtime |
+| 6★ Legendary+ | Wide single | % of items that are **both** 6-star rank **and** Legendary or Mythical rarity |
+| Level +16 | Single | % at max level milestone |
+| Chaos'd | Single | % rerolled ≥ 1 time with a chaos orb |
+| Glyphed | Single | % with at least one substat having `glyphValue > 0` |
+| Ascended | Single | % with at least one ascension level (`ascension !== null`) |
+
+All cards use neutral text color — no green/amber/red thresholds.
 
 ## Substat frequency radar
 
