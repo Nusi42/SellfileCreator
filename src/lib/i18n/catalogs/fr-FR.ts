@@ -1143,6 +1143,8 @@ const overrides: Catalog = {
   filterPresetsNameLabel: 'Nom',
   filterPresetsDeleteDialogTitle: 'Supprimer le filtre enregistré ?',
   filterPresetsDeleteDialogMessage: 'Supprimer « {name} » ? Cette action est irréversible.',
+  filterPresetsMoveUp: 'Monter',
+  filterPresetsMoveDown: 'Descendre',
   filterMatch: 'Accord',
   filterAnyOf: 'Au moins un',
   filterAllOf: 'Tous',

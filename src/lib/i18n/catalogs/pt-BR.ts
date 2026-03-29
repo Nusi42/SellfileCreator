@@ -1141,6 +1141,8 @@ const catalog: Catalog = {
   filterPresetsNameLabel: 'Nome',
   filterPresetsDeleteDialogTitle: 'Excluir filtro salvo?',
   filterPresetsDeleteDialogMessage: 'Excluir “{name}”? Isso não pode ser desfeito.',
+  filterPresetsMoveUp: 'Mover para cima',
+  filterPresetsMoveDown: 'Mover para baixo',
   filterMatch: 'Acerto',
   filterAnyOf: 'Algum de',
   filterAllOf: 'Todos de',

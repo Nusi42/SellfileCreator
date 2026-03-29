@@ -1143,6 +1143,8 @@ const overrides: Catalog = {
   filterPresetsNameLabel: 'Назва',
   filterPresetsDeleteDialogTitle: 'Видалити збережений фільтр?',
   filterPresetsDeleteDialogMessage: 'Видалити “{name}”? Це не можна скасувати.',
+  filterPresetsMoveUp: 'Вгору',
+  filterPresetsMoveDown: 'Вниз',
   filterMatch: 'Збіг',
   filterAnyOf: 'Будь-який із',
   filterAllOf: 'Усі з',

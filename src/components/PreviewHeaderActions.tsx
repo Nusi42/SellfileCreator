@@ -36,6 +36,8 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import GridViewIcon from '@mui/icons-material/GridView'
 import CategoryIcon from '@mui/icons-material/Category'
 import GroupsIcon from '@mui/icons-material/Groups'
@@ -171,6 +173,7 @@ export default function PreviewHeaderActions(props: {
   onSaveFilterPreset?: (name: string) => void
   onApplyFilterPreset?: (presetId: string) => void
   onDeleteFilterPreset?: (presetId: string) => void
+  onMoveFilterPreset?: (presetId: string, direction: 'up' | 'down') => void
 }) {
   const {
     mergedCount,
@@ -235,6 +238,7 @@ export default function PreviewHeaderActions(props: {
     onSaveFilterPreset,
     onApplyFilterPreset,
     onDeleteFilterPreset,
+    onMoveFilterPreset,
   } = props
   const isRulesMode = previewMode === 'rules'
   const { t } = useI18n()
@@ -1005,9 +1009,9 @@ export default function PreviewHeaderActions(props: {
                     {t('filterPresetsSaveAs')}
                   </MenuItem>
                 ) : null}
-                {/* Saved presets are ordered newest-first and allow duplicate names. */}
+                {/* Saved presets are ordered by user-defined position and allow duplicate names. */}
                 {filterPresets.length > 0 ? (
-                  filterPresets.map((preset) => (
+                  filterPresets.map((preset, index) => (
                     <MenuItem
                       key={preset.id}
                       onClick={() => {
@@ -1017,7 +1021,7 @@ export default function PreviewHeaderActions(props: {
                       sx={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 1,
+                        gap: 0.5,
                         // Slight extra vertical padding keeps the 2-line label visually centered.
                         py: 0.75,
                       }}
@@ -1029,7 +1033,7 @@ export default function PreviewHeaderActions(props: {
                           display: 'flex',
                           flexDirection: 'column',
                           justifyContent: 'center',
-                          // Keep the text block vertically centered relative to the delete icon.
+                          // Keep the text block vertically centered relative to the action icons.
                           lineHeight: 1,
                         }}
                       >
@@ -1053,6 +1057,36 @@ export default function PreviewHeaderActions(props: {
                           {formatPresetSavedAt(preset.savedAt)}
                         </Typography>
                       </Box>
+                      {onMoveFilterPreset ? (
+                        <>
+                          {/* Move up: disabled for the first entry so arrows don't overshoot. */}
+                          <IconButton
+                            size="small"
+                            aria-label={t('filterPresetsMoveUp')}
+                            disabled={index === 0}
+                            onClick={(event) => {
+                              try { event.stopPropagation() } catch {}
+                              onMoveFilterPreset(preset.id, 'up')
+                            }}
+                            sx={{ p: 0.5, alignSelf: 'center' }}
+                          >
+                            <ArrowUpwardIcon fontSize="inherit" />
+                          </IconButton>
+                          {/* Move down: disabled for the last entry. */}
+                          <IconButton
+                            size="small"
+                            aria-label={t('filterPresetsMoveDown')}
+                            disabled={index === filterPresets.length - 1}
+                            onClick={(event) => {
+                              try { event.stopPropagation() } catch {}
+                              onMoveFilterPreset(preset.id, 'down')
+                            }}
+                            sx={{ p: 0.5, alignSelf: 'center' }}
+                          >
+                            <ArrowDownwardIcon fontSize="inherit" />
+                          </IconButton>
+                        </>
+                      ) : null}
                       {onDeleteFilterPreset ? (
                         <IconButton
                           size="small"

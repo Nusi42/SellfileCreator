@@ -177,8 +177,7 @@ const parsePresets = (raw: string | null): FilterPreset[] => {
       if (!preset) return
       sanitized.push(preset)
     })
-    // Preserve stable ordering: newest first by timestamp when possible.
-    sanitized.sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)))
+    // Preserve stored order so manual reordering (move up/down) persists across sessions.
     return sanitized
   } catch {
     return []

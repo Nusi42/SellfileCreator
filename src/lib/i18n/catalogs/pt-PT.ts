@@ -1141,6 +1141,8 @@ const overrides: Catalog = {
   filterPresetsNameLabel: 'Nome',
   filterPresetsDeleteDialogTitle: 'Eliminar filtro guardado?',
   filterPresetsDeleteDialogMessage: 'Eliminar “{name}”? Não pode ser desfeito.',
+  filterPresetsMoveUp: 'Mover para cima',
+  filterPresetsMoveDown: 'Mover para baixo',
   filterMatch: 'Acerto',
   filterAnyOf: 'Algum de',
   filterAllOf: 'Todos de',

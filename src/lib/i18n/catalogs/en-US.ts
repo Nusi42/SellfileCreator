@@ -1160,6 +1160,8 @@ const enUS: Catalog = {
   filterPresetsNameLabel: 'Name',
   filterPresetsDeleteDialogTitle: 'Delete saved filter?',
   filterPresetsDeleteDialogMessage: 'Delete “{name}”? This cannot be undone.',
+  filterPresetsMoveUp: 'Move up',
+  filterPresetsMoveDown: 'Move down',
   filterMatch: 'Match',
   filterAnyOf: 'Any Of',
   filterAllOf: 'All Of',

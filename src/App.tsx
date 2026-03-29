@@ -2805,6 +2805,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Deleting is purely local: remove the entry and keep the rest stable.
     setFilterPresets((prev) => (Array.isArray(prev) ? prev.filter((entry) => entry.id !== presetId) : []))
   }, [setFilterPresets])
+  const handleMoveFilterPreset = useCallback((presetId: string, direction: 'up' | 'down') => {
+    setFilterPresets((prev) => {
+      if (!Array.isArray(prev)) return prev
+      const idx = prev.findIndex((entry) => entry.id === presetId)
+      // Guard against stale IDs or already-at-boundary moves.
+      if (idx < 0) return prev
+      if (direction === 'up' && idx === 0) return prev
+      if (direction === 'down' && idx === prev.length - 1) return prev
+      const next = [...prev]
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+      // Swap the two adjacent entries to reorder; temp variable avoids TS undefined-index errors.
+      const tmp = next[idx]!
+      next[idx] = next[swapIdx]!
+      next[swapIdx] = tmp
+      return next
+    })
+  }, [setFilterPresets])
   const handleToggleFiltersSynced = useCallback((next: boolean) => {
     setFiltersSyncedRaw(Boolean(next))
   }, [setFiltersSyncedRaw])
@@ -7406,6 +7423,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	          onSaveFilterPreset={handleSaveFilterPreset}
           onApplyFilterPreset={handleApplyFilterPreset}
           onDeleteFilterPreset={handleDeleteFilterPreset}
+          onMoveFilterPreset={handleMoveFilterPreset}
 	        gearInspectorCount={gearInspectorItems.length}
         gearInspectorFilteredCount={gearEntriesForTable.length}
         gearDbCommandError={gearDbCommandError}
