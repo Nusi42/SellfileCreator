@@ -176,7 +176,14 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
         wm.innerHTML = `${localTs} ${offsetStr} \u00b7 Sellfile Creator<span style="font-size:0.78em;opacity:0.85"> for RSL Helper</span> v${APP_VERSION}`
         wm.style.display = 'block'
       }
-      // Read dimensions after revealing watermark so fullHeight includes it.
+      // Hide snapshot-excluded elements *before* measuring scrollHeight so they don't inflate
+      // the canvas size — otherwise html-to-image filters them out visually but the blank space
+      // they occupied still appears at the bottom of the exported image.
+      const hiddenNodes = Array.from(el.querySelectorAll<HTMLElement>('[data-snapshot-hide]'))
+      const prevDisplays = hiddenNodes.map((n) => n.style.display)
+      hiddenNodes.forEach((n) => { n.style.display = 'none' })
+      // Read dimensions after revealing watermark (and hiding excluded sections) so fullHeight
+      // reflects exactly what will be rendered.
       const fullWidth  = el.offsetWidth
       const fullHeight = el.scrollHeight
       // Expand the element in-place (clone approach renders black — off-screen fixed elements
@@ -211,7 +218,8 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
         el.style.overflow  = prevOverflow
         el.style.height    = prevHeight
         el.style.maxHeight = prevMaxH
-        // Hide the watermark again after capture.
+        // Restore snapshot-excluded elements and hide the watermark again after capture.
+        hiddenNodes.forEach((n, i) => { n.style.display = prevDisplays[i]! })
         if (wm) wm.style.display = ''
       }
     } catch (err) {

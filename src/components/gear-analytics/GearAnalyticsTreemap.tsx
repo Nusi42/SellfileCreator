@@ -488,11 +488,11 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
         >
           {title}
         </Typography>
-        {/* Quick gear-set filter — visible only when the section is expanded. */}
+        {/* Quick gear-set filter — visible only when the section is expanded; excluded from snapshots. */}
         {!collapsed && setSelectionEntries !== undefined && onSetSelectionChange && (
           // Fixed-width container: prevents the select from pushing the title label when many sets
           // are selected and the label text grows long.
-          <Box sx={{ marginLeft: 'auto', flex: '0 0 240px' }}>
+          <Box data-snapshot-hide sx={{ marginLeft: 'auto', flex: '0 0 240px' }}>
             <GearSetsSelect
               value={setSelectionEntries}
               onChange={onSetSelectionChange}
