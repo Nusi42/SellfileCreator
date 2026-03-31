@@ -5032,9 +5032,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     }}
                     MenuListProps={{ dense: true, disablePadding: true, sx: { py: 0 } }}
                   >
-                    {activeMenuInfo ? (
-                      <>
+                    {activeMenuInfo ? [
                         <MenuItem
+                          key="lock"
                           disableRipple
                           disableTouchRipple
                           onClick={(event) => {
@@ -5079,8 +5079,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         <Box sx={menuValueColumnSx}>
                           <Box sx={menuValuePillPlaceholderSx} />
                         </Box>
-                      </MenuItem>
+                      </MenuItem>,
                         <MenuItem
+                          key="min"
                           disableRipple
                           disableTouchRipple
                           onClick={(event) => {
@@ -5120,8 +5121,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         <Box sx={menuValueColumnSx}>
                           {renderRequirementChip('min')}
                         </Box>
-                      </MenuItem>
+                      </MenuItem>,
                         <MenuItem
+                          key="max"
                           disableRipple
                           disableTouchRipple
                           onClick={(event) => {
@@ -5154,9 +5156,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         <Box sx={menuValueColumnSx}>
                           {renderRequirementChip('max')}
                         </Box>
-                      </MenuItem>
-                      {activeMenuInfo ? (
+                      </MenuItem>,
+                      activeMenuInfo ? (
                         <MenuItem
+                          key="targets"
                           disableRipple
                           disableTouchRipple
                           onClick={(event) => {
@@ -5360,9 +5363,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             </Box>
                           </Box>
                         </MenuItem>
-                      ) : null}
-                      </>
-                    ) : null}
+                      ) : null,
+                    ] : null}
                   </Menu>
                 </>
               )

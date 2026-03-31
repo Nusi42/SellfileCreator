@@ -2402,14 +2402,12 @@ export default function PreviewHeaderActions(props: {
               anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
               transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
+              {/* Local-download fallback when a push endpoint is active. */}
               {pushActive && onExportLocal ? (
-                <>
-                  {/* Local-download fallback when a push endpoint is active. */}
-                  <MenuItem onClick={() => { onExportLocal(); closeExportMenu() }}>
-                    <SaveIcon fontSize="small" sx={{ mr: 1 }} />
-                    {baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile')}
-                  </MenuItem>
-                </>
+                <MenuItem onClick={() => { onExportLocal(); closeExportMenu() }}>
+                  <SaveIcon fontSize="small" sx={{ mr: 1 }} />
+                  {baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile')}
+                </MenuItem>
               ) : null}
               {/* Auto-push only makes sense when a push endpoint is configured. */}
               {pushActive ? (

@@ -2065,19 +2065,17 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
         {rowMenu?.source === RULE_SOURCE_FINAL_SELL ? (
           <MenuItem onClick={() => { closeRowMenu(); onConfigureFinalSell() }}>{t('rowMenuEditFinalSell')}</MenuItem>
         ) : null}
-        {rowMenu?.source === RULE_SOURCE_SFR ? (
-          <>
-            <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'duplicate') }}>{t('rowMenuDuplicate')}</MenuItem>
-            <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'move_top') }}>{t('rowMenuMoveTop')}</MenuItem>
-            <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'move_up') }}>{t('rowMenuMoveUp')}</MenuItem>
-            <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'move_down') }}>{t('rowMenuMoveDown')}</MenuItem>
-            <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'move_bottom') }}>{t('rowMenuMoveBottom')}</MenuItem>
-            <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'copy') }}>{t('rowMenuCopy')}</MenuItem>
-            <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'paste_after') }}>{t('rowMenuPasteAfter')}</MenuItem>
-            <Divider />
-            <MenuItem onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'delete') }} sx={{ color: 'error.main' }}>{t('rowMenuDelete')}</MenuItem>
-          </>
-        ) : null}
+        {rowMenu?.source === RULE_SOURCE_SFR ? [
+          <MenuItem key="duplicate" onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'duplicate') }}>{t('rowMenuDuplicate')}</MenuItem>,
+          <MenuItem key="move_top" onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'move_top') }}>{t('rowMenuMoveTop')}</MenuItem>,
+          <MenuItem key="move_up" onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'move_up') }}>{t('rowMenuMoveUp')}</MenuItem>,
+          <MenuItem key="move_down" onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'move_down') }}>{t('rowMenuMoveDown')}</MenuItem>,
+          <MenuItem key="move_bottom" onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'move_bottom') }}>{t('rowMenuMoveBottom')}</MenuItem>,
+          <MenuItem key="copy" onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'copy') }}>{t('rowMenuCopy')}</MenuItem>,
+          <MenuItem key="paste_after" onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'paste_after') }}>{t('rowMenuPasteAfter')}</MenuItem>,
+          <Divider key="divider" />,
+          <MenuItem key="delete" onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'delete') }} sx={{ color: 'error.main' }}>{t('rowMenuDelete')}</MenuItem>,
+        ] : null}
       </Menu>
     </Box>
   )
