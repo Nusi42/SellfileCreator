@@ -8,7 +8,6 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  Stack,
   Tooltip,
   Typography,
 } from '@mui/material'
@@ -1161,13 +1160,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     }
     return ids
   }, [flattenedItems])
-  // True when at least one accordion group header is rendered; false in "no headers" sort mode.
-  const hasGroupHeaders = useMemo(
-    () => flattenedItems.some((i) => i.kind === 'groupHeader'),
-    [flattenedItems],
-  )
-  // Click handler for individual gear cards — computes the next selection and notifies the parent.
-  // Plain click is always additive; Ctrl removes the single item; Shift adds a range; Shift+Ctrl removes a range.
+  // Click handler for individual gear cards — standard multi-select behavior:
+  // plain/Ctrl = toggle item; Shift = add range; Shift+Ctrl = remove range.
   const handleCardSelect = useCallback((artifactId: number, event: React.MouseEvent) => {
     if (!gearSelectionEnabled || !onGearItemsSelect) return
     const isCtrl = event.ctrlKey || event.metaKey
@@ -1189,7 +1183,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       }
       // Anchor does not change on shift-click.
     } else if (isShift) {
-      // Shift: add the anchor→current range to the existing selection (additive); anchor unchanged.
+      // Shift: add the anchor→current range to the existing selection; anchor unchanged.
       const anchorIdx = flatOrderedArtifactIds.indexOf(anchorArtifactId!)
       const currentIdx = flatOrderedArtifactIds.indexOf(artifactId)
       if (anchorIdx < 0 || currentIdx < 0) {
@@ -1202,15 +1196,15 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         nextSelection = new Set([...(selectedGearItemIds ?? []), ...flatOrderedArtifactIds.slice(lo, hi + 1)])
       }
       // Anchor does not change on shift-click.
-    } else if (isCtrl) {
-      // Ctrl/Cmd: deselect this item, update anchor to this item.
-      nextSelection = new Set(selectedGearItemIds)
-      nextSelection.delete(artifactId)
-      setAnchorArtifactId(artifactId)
     } else {
-      // Plain click: always additive — add this item and update anchor.
+      // Plain click or Ctrl+click: toggle this item and update the anchor.
+      // Ctrl held alone is treated identically to a plain click — standard multi-select behavior.
       nextSelection = new Set(selectedGearItemIds)
-      nextSelection.add(artifactId)
+      if (selectedGearItemIds?.has(artifactId)) {
+        nextSelection.delete(artifactId)
+      } else {
+        nextSelection.add(artifactId)
+      }
       setAnchorArtifactId(artifactId)
     }
     onGearItemsSelect(nextSelection)
@@ -1899,7 +1893,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             })}
             aria-expanded={expanded}
           >
-            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ width: '100%', flexWrap: 'nowrap' }}>
+            {/* 3-column grid: left (icon+title), center (chip, always centered), right (buttons). */}
+            <Box sx={(theme) => ({ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', width: '100%', columnGap: theme.spacing(1.5) })}>
+              {/* Left: set/slot icons followed by the group label. */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
                 {groupSetTooltipName && summarySetIcon ? (
                   <WithSetTooltip name={groupSetTooltipName} {...(groupSetTooltipProps ?? {})}>
@@ -1914,15 +1910,16 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                     size={group.kind === 'accessoryFaction' ? 24 : 18}
                   />
                 ) : null}
+                <Typography
+                  variant={nested ? 'subtitle2' : 'subtitle1'}
+                  sx={{ minWidth: 0 }}
+                  noWrap
+                >
+                  {group.label}
+                </Typography>
               </Box>
-              <Typography
-                variant={nested ? 'subtitle2' : 'subtitle1'}
-                sx={{ flex: 1, minWidth: 0 }}
-                noWrap
-              >
-                {group.label}
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+              {/* Center column: chip always centered in the header row. */}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <GearInspectorOutcomeSummaryChip
                   summary={groupOutcomeSummary}
                   totalSummary={groupTotalOutcomeSummary}
@@ -1933,47 +1930,50 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                   animateIn={enteringGroupKeys.has(group.key)}
                 />
               </Box>
-              {gearSelectionEnabled && onGearItemsSelect && (
-                // Stop propagation on the container and both buttons so clicks never reach the
-                // accordion ButtonBase and accidentally expand/collapse the group.
-                <Box
-                  sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Tooltip title={t('gearInspectorSelectionSelectAll')}>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        const ids = collectGroupArtifactIds(group)
-                        onGearItemsSelect(new Set([...(selectedGearItemIds ?? []), ...ids]))
-                      }}
-                      aria-label={t('gearInspectorSelectionSelectAll')}
-                    >
-                      <PlaylistAddCheckIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title={t('gearInspectorSelectionClearAll')}>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        const groupIds = new Set(collectGroupArtifactIds(group))
-                        onGearItemsSelect(
-                          new Set([...(selectedGearItemIds ?? [])].filter((id) => !groupIds.has(id))),
-                        )
-                      }}
-                      aria-label={t('gearInspectorSelectionClearAll')}
-                    >
-                      <PlaylistRemoveIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+              {/* Right: select buttons (when active) + expand/collapse icon, aligned to the end. */}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+                {gearSelectionEnabled && onGearItemsSelect && (
+                  // Stop propagation on the container and both buttons so clicks never reach the
+                  // accordion ButtonBase and accidentally expand/collapse the group.
+                  <Box
+                    sx={{ display: 'flex', alignItems: 'center' }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Tooltip title={t('gearInspectorSelectionSelectAll')}>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const ids = collectGroupArtifactIds(group)
+                          onGearItemsSelect(new Set([...(selectedGearItemIds ?? []), ...ids]))
+                        }}
+                        aria-label={t('gearInspectorSelectionSelectAll')}
+                      >
+                        <PlaylistAddCheckIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={t('gearInspectorSelectionClearAll')}>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const groupIds = new Set(collectGroupArtifactIds(group))
+                          onGearItemsSelect(
+                            new Set([...(selectedGearItemIds ?? [])].filter((id) => !groupIds.has(id))),
+                          )
+                        }}
+                        aria-label={t('gearInspectorSelectionClearAll')}
+                      >
+                        <PlaylistRemoveIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                )}
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                 </Box>
-              )}
-              <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
               </Box>
-            </Stack>
+            </Box>
           </ButtonBase>
         </Box>
       )
@@ -2159,51 +2159,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   )
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, position: 'relative' }}>
-      {/* Global "Gear" header: always shown when no group headers are present ("no headers" sort mode)
-          so the grid layout is consistent regardless of whether the WebSocket endpoint is active. */}
-      {!hasGroupHeaders && (
-        <Box
-          sx={(theme) => ({
-            px: 1.5,
-            py: 0.75,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            borderBottom: `1px solid ${theme.palette.divider}`,
-            flexShrink: 0,
-          })}
-        >
-          <Typography variant="subtitle2" sx={{ minWidth: 0 }}>
-            {t('gearInspectorAllGearLabel')}
-          </Typography>
-          {gearSelectionEnabled && (
-            <>
-              <Typography
-                variant="caption"
-                sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}
-              >
-                {t('gearInspectorSelectionCount', { count: selectedGearItemIds?.size ?? 0 })}
-              </Typography>
-              <Box sx={{ flex: 1 }} />
-              <Button
-                size="small"
-                variant="text"
-                onClick={() => onGearItemsSelect?.(new Set(flatOrderedArtifactIds))}
-              >
-                {t('gearInspectorSelectionSelectAll')}
-              </Button>
-              <Button
-                size="small"
-                variant="text"
-                onClick={() => onGearItemsSelect?.(new Set())}
-                disabled={!(selectedGearItemIds?.size)}
-              >
-                {t('gearInspectorSelectionClearAll')}
-              </Button>
-            </>
-          )}
-        </Box>
-      )}
       <Box
         ref={containerRef}
         onScroll={handleScroll}
@@ -2825,6 +2780,48 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           paperRef={normalizedPresetEditorPaperRef}
         />
       ) : null}
+      {/* Slim bottom bar: global select-all / unselect-all + running count.
+          Always visible when selection mode is active, regardless of grouping. */}
+      {gearSelectionEnabled && onGearItemsSelect && (
+        <Box
+          sx={(theme) => ({
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            px: 1.5,
+            py: 0.5,
+            borderTop: `1px solid ${theme.palette.divider}`,
+            flexShrink: 0,
+          })}
+        >
+          <Typography
+            variant="caption"
+            sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}
+          >
+            {t('gearInspectorSelectionCount', { count: selectedGearItemIds?.size ?? 0 })}
+          </Typography>
+          <Box sx={{ flex: 1 }} />
+          <Tooltip title={t('gearInspectorSelectionSelectAll')}>
+            <IconButton
+              size="small"
+              onClick={() => onGearItemsSelect(new Set(flatOrderedArtifactIds))}
+              aria-label={t('gearInspectorSelectionSelectAll')}
+            >
+              <PlaylistAddCheckIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={t('gearInspectorSelectionClearAll')}>
+            <IconButton
+              size="small"
+              onClick={() => onGearItemsSelect(new Set())}
+              disabled={!(selectedGearItemIds?.size)}
+              aria-label={t('gearInspectorSelectionClearAll')}
+            >
+              <PlaylistRemoveIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )}
     </Box>
   )
 }
@@ -3050,17 +3047,18 @@ function groupRowsBySet(
     : rows
 
   if (grouping.hideHeaders) {
-    // "No headers" renders everything in a single headerless group.
+    // "No headers" still renders a single "Gear" accordion so the header machinery (select buttons,
+    // expand/collapse) is available consistently regardless of grouping mode.
     const group: GearInspectorGroup = {
       key: 'gear-inspector:all',
-      label: '',
+      label: translate('gearInspectorAllGearLabel'),
       setId: null,
       slot: null,
       factionId: null,
       rows: sortedRows.slice(),
       order: 0,
       kind: 'artifactSet',
-      showHeader: false,
+      showHeader: true,
       parentKey: null,
     }
     return [group]
