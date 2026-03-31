@@ -105,10 +105,13 @@ import iconDefiantGloves from '../../../ico/sets/slots/Defiant_Gloves.webp';
 import iconDefiantHelmet from '../../../ico/sets/slots/Defiant_Helmet.webp';
 import iconDefiantShield from '../../../ico/sets/slots/Defiant_Shield.webp';
 import iconDefiantWeapon from '../../../ico/sets/slots/Defiant_Weapon.webp';
+import iconDeflectionAmulet from '../../../ico/sets/slots/Deflection_Amulet.webp';
+import iconDeflectionBanner from '../../../ico/sets/slots/Deflection_Banner.webp';
 import iconDeflectionBoots from '../../../ico/sets/slots/Deflection_Boots.webp';
 import iconDeflectionChest from '../../../ico/sets/slots/Deflection_Chest.webp';
 import iconDeflectionGloves from '../../../ico/sets/slots/Deflection_Gloves.webp';
 import iconDeflectionHelmet from '../../../ico/sets/slots/Deflection_Helmet.webp';
+import iconDeflectionRing from '../../../ico/sets/slots/Deflection_Ring.webp';
 import iconDeflectionShield from '../../../ico/sets/slots/Deflection_Shield.webp';
 import iconDeflectionWeapon from '../../../ico/sets/slots/Deflection_Weapon.webp';
 import iconDemonspawnAmulet from '../../../ico/sets/slots/Demonspawn_Amulet.webp';
@@ -450,10 +453,13 @@ import iconSupersonicHelmet from '../../../ico/sets/slots/Supersonic_Helmet.webp
 import iconSupersonicRing from '../../../ico/sets/slots/Supersonic_Ring.webp';
 import iconSupersonicShield from '../../../ico/sets/slots/Supersonic_Shield.webp';
 import iconSupersonicWeapon from '../../../ico/sets/slots/Supersonic_Weapon.webp';
+import iconSwiftParryAmulet from '../../../ico/sets/slots/Swift_Parry_Amulet.webp';
+import iconSwiftParryBanner from '../../../ico/sets/slots/Swift_Parry_Banner.webp';
 import iconSwiftParryBoots from '../../../ico/sets/slots/Swift_Parry_Boots.webp';
 import iconSwiftParryChest from '../../../ico/sets/slots/Swift_Parry_Chest.webp';
 import iconSwiftParryGloves from '../../../ico/sets/slots/Swift_Parry_Gloves.webp';
 import iconSwiftParryHelmet from '../../../ico/sets/slots/Swift_Parry_Helmet.webp';
+import iconSwiftParryRing from '../../../ico/sets/slots/Swift_Parry_Ring.webp';
 import iconSwiftParryShield from '../../../ico/sets/slots/Swift_Parry_Shield.webp';
 import iconSwiftParryWeapon from '../../../ico/sets/slots/Swift_Parry_Weapon.webp';
 import iconSylvanWatchersAmulet from '../../../ico/sets/slots/Sylvan_Watchers_Amulet.webp';
@@ -588,10 +594,13 @@ export const SET_SLOT_ASSETS = {
   'Defiant_Helmet': iconDefiantHelmet,
   'Defiant_Shield': iconDefiantShield,
   'Defiant_Weapon': iconDefiantWeapon,
+  'Deflection_Amulet': iconDeflectionAmulet,
+  'Deflection_Banner': iconDeflectionBanner,
   'Deflection_Boots': iconDeflectionBoots,
   'Deflection_Chest': iconDeflectionChest,
   'Deflection_Gloves': iconDeflectionGloves,
   'Deflection_Helmet': iconDeflectionHelmet,
+  'Deflection_Ring': iconDeflectionRing,
   'Deflection_Shield': iconDeflectionShield,
   'Deflection_Weapon': iconDeflectionWeapon,
   'Demonspawn_Amulet': iconDemonspawnAmulet,
@@ -933,10 +942,13 @@ export const SET_SLOT_ASSETS = {
   'Supersonic_Ring': iconSupersonicRing,
   'Supersonic_Shield': iconSupersonicShield,
   'Supersonic_Weapon': iconSupersonicWeapon,
+  'Swift_Parry_Amulet': iconSwiftParryAmulet,
+  'Swift_Parry_Banner': iconSwiftParryBanner,
   'Swift_Parry_Boots': iconSwiftParryBoots,
   'Swift_Parry_Chest': iconSwiftParryChest,
   'Swift_Parry_Gloves': iconSwiftParryGloves,
   'Swift_Parry_Helmet': iconSwiftParryHelmet,
+  'Swift_Parry_Ring': iconSwiftParryRing,
   'Swift_Parry_Shield': iconSwiftParryShield,
   'Swift_Parry_Weapon': iconSwiftParryWeapon,
   'Sylvan_Watchers_Amulet': iconSylvanWatchersAmulet,
