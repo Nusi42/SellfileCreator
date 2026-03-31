@@ -90,7 +90,7 @@ const gearInspectorGridHighlightKeepSellStore = createLocalStorageStore<boolean>
   key: GEAR_INSPECTOR_GRID_HIGHLIGHT_KEEP_SELL_KEY,
   // Default on so keep/sell outcomes are emphasized immediately for new sessions.
   fallback: true,
-  parse: (raw) => raw === 'true',
+  parse: (raw) => raw === null ? true : raw === 'true',
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
@@ -98,7 +98,7 @@ const gearInspectorGridShowSafeguardImprovementChanceStore = createLocalStorageS
   key: GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_IMPROVEMENT_CHANCE_KEY,
   // Default on so users see improvement guidance immediately.
   fallback: true,
-  parse: (raw) => raw === 'true',
+  parse: (raw) => raw === null ? true : raw === 'true',
   serialize: (value) => (value ? 'true' : 'false'),
 })
 

@@ -1867,12 +1867,22 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           })}
         >
           <ButtonBase
+            component="div"
+            role="button"
+            tabIndex={0}
             onClick={(event) => handleGroupToggle(group.key, !expanded, event)}
             onContextMenu={(event) => {
               event.preventDefault()
               event.stopPropagation()
               handleGroupToggle(group.key, !expanded, event, { applyToAll: true })
               handleGridHintSeen()
+            }}
+            onKeyDown={(event) => {
+              // Activate on Enter/Space like a native button when rendered as div
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                handleGroupToggle(group.key, !expanded, event as unknown as React.MouseEvent)
+              }
             }}
             sx={(theme) => ({
               display: 'flex',
@@ -1888,7 +1898,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
               borderBottom: expanded ? `1px solid ${theme.palette.divider}` : 'none',
             })}
             aria-expanded={expanded}
-            type="button"
           >
             <Stack direction="row" spacing={1.5} alignItems="center" sx={{ width: '100%', flexWrap: 'nowrap' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
