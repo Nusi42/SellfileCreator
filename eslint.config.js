@@ -13,7 +13,8 @@ export default [
   // Ignore generated/output folders and archived references
   {
     ignores: [
-      'dist/**',
+      'dist.app/**',
+      'dist.web/**',
       'node_modules/**',
       'src-tauri/**',
       'tmp/tsc/**',

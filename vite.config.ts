@@ -62,9 +62,14 @@ const shouldIgnoreDevWatchPath = (filePath: string): boolean => {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig(async ({ command }): Promise<UserConfig> => {
+export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
   // Keep one mode flag so Babel generator settings stay deterministic.
   const isBuild = command === 'build'
+
+  // `vite build --mode web` produces a standard web-server build (separate JS/CSS assets, ESM
+  // workers) output to dist.web/. The default (app) mode inlines everything into one HTML file
+  // and writes to dist.app/ for direct file:// opening on Windows.
+  const isWebBuild = mode === 'web'
 
   // Playwright runs the dev server via the Playwright `webServer` hook.
   // Why: `vite-plugin-checker` can be noisy/unstable in this harness, and the e2e runs already gate on `npm run typecheck`.
@@ -99,7 +104,8 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
           }),
         ]
       : []),
-    singleFilePlugin(),
+    // Web builds output normal split assets; app builds inline everything into one HTML file.
+    ...(!isWebBuild ? [singleFilePlugin()] : []),
   ],
   define: (() => {
     // Read package.json version so we have a single source of truth
@@ -119,10 +125,13 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
     entries: ['index.html'],
   },
   build: {
-    // Force Rollup to keep everything in a single JS chunk
-    cssCodeSplit: false,
-    assetsInlineLimit: 100000000, // inline any asset references as data URIs
-    modulePreload: false,
+    // Write to dist.app/ for the single-file app build, dist.web/ for web-server deployment.
+    outDir: isWebBuild ? 'dist.web' : 'dist.app',
+    // App build: force Rollup to keep everything in a single JS chunk and inline all assets.
+    // Web build: allow normal chunking/splitting so browsers can cache assets independently.
+    cssCodeSplit: isWebBuild,
+    assetsInlineLimit: isWebBuild ? 4096 : 100000000,
+    modulePreload: isWebBuild ? { polyfill: true } : false,
     // Smaller output: modern target + Terser minify with aggressive but safe compress
     target: 'es2018',
     minify: 'terser',
@@ -138,28 +147,20 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
     },
     sourcemap: false,
     rollupOptions: {
-      output: {
-        manualChunks: undefined,
-        inlineDynamicImports: true,
-      },
+      output: isWebBuild
+        ? {} // let Rollup/Vite decide chunk strategy for the web build
+        : { manualChunks: undefined, inlineDynamicImports: true },
     },
     brotliSize: false,
   },
   worker: {
-    // Release runs commonly open `SellfileCreator.html` via `file:///...` in Chrome.
-    // Chrome is stricter for module workers (ESM) under opaque `file://` origins and
-    // can reject worker startup with errors like:
-    //   "Refused to cross-origin redirects of the top-level worker script."
-    //
-    // Use a classic/IIFE worker format for compatibility, but force the worker
-    // bundle into a single chunk so Rollup doesn’t hit the IIFE multi-chunk restriction.
-    format: 'iife',
-    rollupOptions: {
-      output: {
-        inlineDynamicImports: true,
-        manualChunks: undefined,
-      },
-    },
+    // App build: IIFE workers are required for `file://` compatibility; Chrome rejects ESM
+    // workers under opaque origins. Force single chunk to satisfy IIFE multi-chunk restriction.
+    // Web build: ESM workers work fine on a real web server; allow normal splitting.
+    format: isWebBuild ? 'es' : 'iife',
+    rollupOptions: isWebBuild
+      ? {}
+      : { output: { inlineDynamicImports: true, manualChunks: undefined } },
   },
   resolve: {
     alias: {
