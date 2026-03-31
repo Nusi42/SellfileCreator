@@ -11,7 +11,7 @@ set "SCRIPT_DIR=%~dp0"
 set "PS_SCRIPT=!SCRIPT_DIR!run-db-watcher.ps1"
 REM Pin the app entry file in source control for local dev runs.
 REM Build/package tooling can rewrite this value for the target layout.
-set "APP_ENTRY_PATH=!SCRIPT_DIR!..\..\dist\index.html"
+set "APP_ENTRY_PATH=!SCRIPT_DIR!..\..\dist.app\index.html"
 
 REM Keep the PowerShell companion script next to this batch file.
 if not exist "!PS_SCRIPT!" (

@@ -131,7 +131,7 @@ try {
   }
 
   # Validate build output
-  $builtIndex = Join-Path $RepoRoot 'dist\index.html'
+  $builtIndex = Join-Path $RepoRoot 'dist.app\index.html'
   if (-not (Test-Path $builtIndex)) { throw "Build output not found: $builtIndex" }
 
   # Stage files with requested names (no subdirectories in archive)
@@ -262,7 +262,7 @@ try {
 
 
   # Stage localization JSON templates for contributors
-  $l10nDist = Join-Path $RepoRoot 'dist\l10n'
+  $l10nDist = Join-Path $RepoRoot 'dist.app\l10n'
   if (Test-Path $l10nDist) {
     # Keep localization templates alongside other contributor-only artifacts.
     $i18nDir = Join-Path $devDir 'i18n'
@@ -310,7 +310,7 @@ exit /b
   try {
     $oldReleases = Join-Path $RepoRoot 'old_releases'
     if (-not (Test-Path $oldReleases)) { New-Item -ItemType Directory -Path $oldReleases | Out-Null }
-    $builtIndex = Join-Path $RepoRoot 'dist\index.html'
+    $builtIndex = Join-Path $RepoRoot 'dist.app\index.html'
     $htmlLabel = if ($DevBuild) { $packageLabel } else { $releaseVersion }
     $versionedHtml = Join-Path $oldReleases ("SellfileCreator_v{0}.html" -f $htmlLabel)
     Copy-Item -LiteralPath $builtIndex -Destination $versionedHtml -Force

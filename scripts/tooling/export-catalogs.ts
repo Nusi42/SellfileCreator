@@ -32,7 +32,10 @@ const langs = PRODUCTION_LANGUAGES.map((code) => {
   return [code, catalog] as const
 })
 
-const outDir = join(process.cwd(), 'dist', 'l10n')
+// Build target controls which output tree receives the catalog files.
+// Set BUILD_TARGET=web when exporting alongside a web-server build.
+const distDir = process.env['BUILD_TARGET'] === 'web' ? 'dist.web' : 'dist.app'
+const outDir = join(process.cwd(), distDir, 'l10n')
 mkdirSync(outDir, { recursive: true })
 
 for (const [code, cat] of langs) {
