@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   ButtonBase,
+  Chip,
   Divider,
   IconButton,
   Menu,
@@ -1780,6 +1781,14 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       const group = item.group
       const groupOutcomeSummary = groupOutcomeSummaryByKey.get(group.key) ?? null
       const groupTotalOutcomeSummary = groupTotalOutcomeSummaryByKey.get(group.key) ?? groupOutcomeSummary
+      // Count of selected items in this group's direct rows only — children are excluded so
+      // parent and sub-accordion headers each show their own independent tally without overlap.
+      const groupSelectedCount = gearSelectionEnabled && selectedGearItemIds
+        ? group.rows.filter(row => {
+            const id = Number(row.artifact?.id)
+            return Number.isFinite(id) && selectedGearItemIds.has(id)
+          }).length
+        : 0
       const expanded = item.expanded
       const numericSetId = typeof group.setId === 'number' && group.setId > 0 ? group.setId : null
       const groupSetTooltipName = numericSetId != null ? artifactSetName(numericSetId as ArtifactSetId) : null
@@ -1936,9 +1945,15 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                   // Stop propagation on the container and both buttons so clicks never reach the
                   // accordion ButtonBase and accidentally expand/collapse the group.
                   <Box
-                    sx={{ display: 'flex', alignItems: 'center' }}
+                    sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
                     onClick={(e) => e.stopPropagation()}
                   >
+                    {groupSelectedCount > 0 && (
+                      <Chip
+                        size="small"
+                        label={t('gearInspectorSelectionCount', { count: groupSelectedCount })}
+                      />
+                    )}
                     <Tooltip title={t('gearInspectorSelectionSelectAll')}>
                       <IconButton
                         size="small"
@@ -2794,13 +2809,11 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             flexShrink: 0,
           })}
         >
-          <Typography
-            variant="caption"
-            sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}
-          >
-            {t('gearInspectorSelectionCount', { count: selectedGearItemIds?.size ?? 0 })}
-          </Typography>
           <Box sx={{ flex: 1 }} />
+          <Chip
+            size="small"
+            label={t('gearInspectorSelectionCount', { count: selectedGearItemIds?.size ?? 0 })}
+          />
           <Tooltip title={t('gearInspectorSelectionSelectAll')}>
             <IconButton
               size="small"
