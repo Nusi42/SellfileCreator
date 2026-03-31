@@ -31,6 +31,19 @@ export async function readTextSafe(): Promise<string | null> {
   }
 }
 
+/**
+ * Returns true when navigator.clipboard.write (image copy) is available in this context.
+ * The Clipboard API requires a secure context (HTTPS or localhost); over plain http://
+ * window.isSecureContext is false and the API is blocked entirely by the browser.
+ */
+export function canWriteImageToClipboard(): boolean {
+  return (
+    window.isSecureContext &&
+    !!navigator.clipboard &&
+    typeof (navigator.clipboard as unknown as { write?: unknown }).write === 'function'
+  )
+}
+
 /** Dispatch an event to request opening the manual copy dialog with given content. */
 export function triggerCopyDialog(text: string): void {
   try {

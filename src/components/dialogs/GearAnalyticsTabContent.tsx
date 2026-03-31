@@ -63,6 +63,7 @@ import { GearAnalyticsHeatmap } from '../gear-analytics/GearAnalyticsHeatmap'
 import { GearAnalyticsChampStats } from '../gear-analytics/GearAnalyticsChampStats'
 import { GearAnalyticsNotEquipped } from '../gear-analytics/GearAnalyticsNotEquipped'
 import { useI18n } from '../../lib/i18n'
+import { canWriteImageToClipboard } from '../../lib/clipboard'
 
 type Props = {
   /** All loaded gear rows, unfiltered. Stats always reflect the full inventory. */
@@ -152,6 +153,9 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
   const watermarkRef = useRef<HTMLElement | null>(null)
   const [copying, setCopying] = useState(false)
   const [copyDone, setCopyDone] = useState(false)
+  // Stable for the page's lifetime: navigator.clipboard.write requires a secure context (HTTPS/localhost).
+  // Over plain http://, the browser blocks the Clipboard API, so we fall back to a file download.
+  const canCopy = useMemo(() => canWriteImageToClipboard(), [])
 
   const handleCopySnapshot = useCallback(async () => {
     if (!contentRef.current || copying) return
@@ -209,9 +213,22 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
           // Hide Clear-filter buttons (no semantic value in a snapshot) but keep active chips.
           filter: (node) => !(node instanceof Element && node.hasAttribute('data-snapshot-hide')),
         })
-        const res  = await fetch(dataUrl)
-        const blob = await res.blob()
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+        if (canCopy) {
+          // Secure context: copy PNG blob directly to clipboard.
+          const res  = await fetch(dataUrl)
+          const blob = await res.blob()
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+        } else {
+          // Non-secure context (plain http://): trigger a browser file download instead.
+          // Build a timestamp-stamped filename so multiple snapshots don't overwrite each other.
+          const now2 = new Date()
+          const pad2 = (n: number) => String(n).padStart(2, '0')
+          const ts = `${now2.getFullYear()}${pad2(now2.getMonth() + 1)}${pad2(now2.getDate())}-${pad2(now2.getHours())}${pad2(now2.getMinutes())}`
+          const a = document.createElement('a')
+          a.href = dataUrl
+          a.download = `gear-analytics-${ts}.png`
+          a.click()
+        }
         setCopyDone(true)
         setTimeout(() => setCopyDone(false), 2000)
       } finally {
@@ -723,7 +740,7 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
             </span>
           </Tooltip>
         )}
-        <Tooltip title={t('gearAnalyticsCopySnapshotTip')} arrow placement="top">
+        <Tooltip title={t(canCopy ? 'gearAnalyticsCopySnapshotTip' : 'gearAnalyticsDownloadSnapshotTip')} arrow placement="top">
           <Button
             size="small"
             variant="outlined"
@@ -732,7 +749,9 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
             startIcon={copying ? <CircularProgress size={12} /> : undefined}
             sx={{ fontSize: '0.75rem', py: 0.5, minWidth: 130 }}
           >
-            {copyDone ? t('gearAnalyticsCopied') : t('gearAnalyticsCopySnapshot')}
+            {copyDone
+              ? t(canCopy ? 'gearAnalyticsCopied' : 'gearAnalyticsDownloaded')
+              : t(canCopy ? 'gearAnalyticsCopySnapshot' : 'gearAnalyticsDownloadSnapshot')}
           </Button>
         </Tooltip>
       </Box>
