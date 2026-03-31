@@ -34,7 +34,10 @@ const isWindowDefined = (): boolean => typeof window !== 'undefined'
 export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>): LocalStorageStore<T> {
   const { key, fallback, parse, serialize, equals } = options
   let current: T = fallback
-  let currentSerialized: string | null = null
+  // Sentinel: undefined means "never read yet". Distinguishes the uninitialized state from a
+  // missing localStorage key (which also returns null), so the first readFromStorage() call
+  // always runs parse() rather than short-circuiting with the fallback value.
+  let currentSerialized: string | null | undefined = undefined
   const listeners = new Set<() => void>()
 
   const equality: EqualityFn<T> = equals ?? ((a, b) => Object.is(a, b))
