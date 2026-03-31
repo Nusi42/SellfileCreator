@@ -197,6 +197,7 @@ const overrides: Catalog = {
   gearInspectorItemsCountMany: '{n} öğe',
   helpOpenLabel: 'Yardım',
   helpOpenTooltip: 'Yardımı / README\'yi aç',
+  connectRslHelper: 'RSL Helper\'e bağlan',
   counting: 'Sayılıyor…',
 
   titleClearHistory: 'Geçmiş temizlensin mi?',

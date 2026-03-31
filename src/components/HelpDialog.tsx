@@ -14,6 +14,7 @@ const README_FILES = import.meta.glob('../../README*.md', { eager: true, query: 
 import { APP_VERSION } from '../version'
 import { useI18n } from '../lib/i18n'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_DISPLAY_REM, FONT_SIZE_HEADER_META_PX, FONT_SIZE_APP_SUBTITLE_PX } from '../lib/constants'
+import { buildRslHelperConnectUrl } from '../lib/externalWsProtocol'
 import {
   DEFAULT_LANGUAGE,
   DEV_LANGUAGES,
@@ -211,14 +212,9 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     resetProximity()
   }, [firstRunMode, resetProximity])
 
-  // Build the "Connect to RSL Helper" deep-link — current origin+path with the WebSocket endpoint param.
+  // Build the "Connect to RSL Helper" deep-link using the shared helper (SSOT in externalWsProtocol.ts).
   // This lets users open the app pre-connected to a locally running RSL Helper instance.
-  const rslHelperUrl = React.useMemo(() => {
-    if (typeof window === 'undefined') return '#'
-    // Strip any existing query string so the URL is predictable regardless of current state.
-    const base = window.location.origin + window.location.pathname
-    return `${base}?endpoint=ws://localhost:8080/`
-  }, [])
+  const rslHelperUrl = React.useMemo(() => buildRslHelperConnectUrl(), [])
 
   // No automatic translation integration: only built-in or local README files are used.
   return (
@@ -296,7 +292,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
         <DialogActions sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1.25, overflow: 'visible', py: 1, minHeight: `${ACTIONS_MIN_HEIGHT_PX}px`, position: 'relative' }}>
           {/* RSL Helper deep-link — absolutely centered on the same row as the buttons */}
           <Typography component="a" href={rslHelperUrl} sx={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: 12, color: 'primary.main', textDecoration: 'underline', cursor: 'pointer', whiteSpace: 'nowrap', '&:hover': { color: 'primary.light' } }}>
-            Connect to RSL Helper
+            {t('connectRslHelper')}
           </Typography>
           <Box
             ref={closeWrapRef}
@@ -335,7 +331,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
           </Button>
           {/* RSL Helper deep-link — absolutely centered on the same row as the buttons */}
           <Typography component="a" href={rslHelperUrl} sx={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: 12, color: 'primary.main', textDecoration: 'underline', cursor: 'pointer', whiteSpace: 'nowrap', '&:hover': { color: 'primary.light' } }}>
-            Connect to RSL Helper
+            {t('connectRslHelper')}
           </Typography>
           <Button onClick={onClose}>{t('close')}</Button>
         </DialogActions>

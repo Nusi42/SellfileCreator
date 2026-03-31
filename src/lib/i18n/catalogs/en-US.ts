@@ -198,6 +198,7 @@ const enUS: Catalog = {
   gearInspectorItemsCountMany: '{n} Items',
   helpOpenLabel: 'Help',
   helpOpenTooltip: 'Open Help / README',
+  connectRslHelper: 'Connect to RSL Helper',
   counting: 'Counting…',
 
   titleClearHistory: 'Clear History?',

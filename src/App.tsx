@@ -11,7 +11,7 @@ import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMe
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
-import { EXTERNAL_WS_METHOD_UPLOAD_SELLFILE, EXTERNAL_WS_METHOD_SELECT_ARTIFACTS } from './lib/externalWsProtocol'
+import { EXTERNAL_WS_METHOD_UPLOAD_SELLFILE, EXTERNAL_WS_METHOD_SELECT_ARTIFACTS, buildRslHelperConnectUrl } from './lib/externalWsProtocol'
 import type {
   ExternalCommand,
   GearDbArtifactsCommand,
@@ -61,7 +61,7 @@ import {
 import { buildPreviewArtifactFromGearInspectorItem } from './lib/gearInspectorPreviewArtifacts'
 import { clampProgressRatio, type ProgressSnapshot } from './types/progress'
 
-import { Box, Container, Paper, Stack, Typography, GlobalStyles, Button, IconButton, ToggleButton, ToggleButtonGroup } from '@mui/material'
+import { Box, Container, Paper, Stack, Typography, GlobalStyles, Button, IconButton, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import SettingsIcon from '@mui/icons-material/Settings'
 
@@ -69,6 +69,7 @@ import SaveIcon from '@mui/icons-material/Save'
 import StorageIcon from '@mui/icons-material/Storage'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
+import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined'
 import { Snackbar, Alert } from '@mui/material'
 // Icons for App header and controls are imported within components that use them
 import { HsfRulesTableMemo, type SafeguardStarSelection } from './components/HsfRulesTable'
@@ -3693,6 +3694,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }
   // Show the autosave restore prompt only after the README dialog is dismissed.
   const restoreDlgOpen = !tutorial.helpOpen && (restoreDialogPending || Boolean(gearInspectorRestoreDraft))
+
+  // Detect whether the app was already opened with a WebSocket endpoint param.
+  // The button is hidden when the endpoint is already present so it is not confusing.
+  const hasEndpointParam = React.useMemo(() => new URLSearchParams(window.location.search).has('endpoint'), [])
+  // Deep-link URL — delegates to shared helper (SSOT in externalWsProtocol.ts).
+  const rslHelperConnectUrl = React.useMemo(() => buildRslHelperConnectUrl(), [])
+
   const { applyGearDbDiff } = useGearInspectorItemsActions({
     allocGearInspectorItemId,
     // Route manual imports + endpoint snapshots/deltas through the shared
@@ -7328,7 +7336,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 Many thanks to [STBL] Nasgor for his invaluable contributions! — Remember: Bleibt Stabil!
               </Typography>
             </Box>
-            <Box sx={{ alignSelf: 'flex-start' }}>
+            <Box sx={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <MarkdownTooltip markdown={t('helpOpenTooltip')}>
                 <Button
                   size="medium"
@@ -7341,6 +7349,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   {t('helpOpenLabel')}
                 </Button>
               </MarkdownTooltip>
+              {/* Connect to RSL Helper — hidden once an endpoint param is already present */}
+              {!hasEndpointParam && (
+                <Tooltip title={t('connectRslHelper')}>
+                  <IconButton
+                    size="small"
+                    onClick={() => { window.location.href = rslHelperConnectUrl }}
+                    aria-label={t('connectRslHelper')}
+                    sx={{ height: 34, width: 34, color: 'primary.main', border: '1px solid', borderColor: 'primary.main', borderRadius: 1, '&:hover': { bgcolor: 'primary.main', color: 'primary.contrastText' } }}
+                  >
+                    <SmartToyOutlinedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
             </Box>
           </Box>
         </Box>

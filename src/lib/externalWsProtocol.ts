@@ -1,5 +1,15 @@
 import type { ExternalCommand } from './externalCommands'
 
+// Default WebSocket endpoint used by a locally running RSL Helper instance.
+export const RSL_HELPER_DEFAULT_WS_ENDPOINT = 'ws://localhost:8080/'
+
+// Build the deep-link URL that opens the app pre-connected to a local RSL Helper instance.
+// Strips any existing query string so the result is predictable regardless of current state.
+export const buildRslHelperConnectUrl = (): string => {
+  const base = window.location.origin + window.location.pathname
+  return `${base}?endpoint=${RSL_HELPER_DEFAULT_WS_ENDPOINT}`
+}
+
 // JSON-RPC 2.0 is the sole supported wire protocol.
 export const EXTERNAL_WS_SUBPROTOCOL_JSONRPC = 'jsonrpc'
 

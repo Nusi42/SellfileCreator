@@ -197,6 +197,7 @@ const overrides: Catalog = {
   gearInspectorItemsCountMany: '{n} Gegenstände',
   helpOpenLabel: 'Hilfe',
   helpOpenTooltip: 'Hilfe / README öffnen',
+  connectRslHelper: 'Mit RSL Helper verbinden',
   counting: 'Zählen…',
 
   titleClearHistory: 'Verlauf leeren?',
