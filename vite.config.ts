@@ -6,6 +6,7 @@ import react from '@vitejs/plugin-react';
 import { assetsPlugin } from './scripts/vite/assetsPlugin';
 import { singleFilePlugin } from './scripts/vite/singleFilePlugin';
 import { wasmInlinePlugin } from './scripts/vite/wasmInlinePlugin';
+import { pruneOrphanedAssetsPlugin } from './scripts/vite/pruneOrphanedAssetsPlugin';
 
 const withRootPath = (relativePath: string): string =>
   fileURLToPath(new URL(relativePath, import.meta.url));
@@ -106,6 +107,10 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
       : []),
     // Web builds output normal split assets; app builds inline everything into one HTML file.
     ...(!isWebBuild ? [singleFilePlugin()] : []),
+    // Vite can emit duplicate copies of static-imported assets (one through Rollup's
+    // assetFileNames hook into img/, another through its own internal pipeline into assets/).
+    // This plugin prunes unreferenced image assets from the bundle at build time.
+    ...(isWebBuild && isBuild ? [pruneOrphanedAssetsPlugin()] : []),
   ],
   define: (() => {
     // Read package.json version so we have a single source of truth
@@ -130,7 +135,7 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
     // App build: force Rollup to keep everything in a single JS chunk and inline all assets.
     // Web build: allow normal chunking/splitting so browsers can cache assets independently.
     cssCodeSplit: isWebBuild,
-    assetsInlineLimit: isWebBuild ? 4096 : 100000000,
+    assetsInlineLimit: isWebBuild ? 0 : 100000000,
     modulePreload: isWebBuild ? { polyfill: true } : false,
     // Smaller output: modern target + Terser minify with aggressive but safe compress
     target: 'es2018',
@@ -148,10 +153,32 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
     sourcemap: false,
     rollupOptions: {
       output: isWebBuild
-        ? {} // let Rollup/Vite decide chunk strategy for the web build
+        ? {
+            // Organize web build output into meaningful subfolders with clean names.
+            // JS/CSS entry chunks go into assets/; images keep their source ico/ subfolder.
+            chunkFileNames: 'assets/[name]-[hash].js',
+            entryFileNames: 'assets/[name]-[hash].js',
+            assetFileNames(info) {
+              // Route ico/ assets into clean subfolders matching the source tree.
+              // originalFileNames / originalFileName are Vite extensions not in Rollup's types.
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const src: string | undefined = (info as any).originalFileNames?.[0] ?? (info as any).originalFileName;
+              if (src) {
+                const posix = src.replace(/\\/g, '/');
+                // ico/sets/slots/* → img/sets/slots/[name].webp  (must match before ico/sets/)
+                if (posix.includes('ico/sets/slots/')) return 'img/sets/slots/[name][extname]';
+                // ico/champs/*    → img/champs/[name].webp
+                // ico/faction/*   → img/faction/[name].webp
+                // ico/sets/*      → img/sets/[name].webp
+                const icoMatch = posix.match(/ico\/(champs|faction|sets)\//);
+                if (icoMatch) return `img/${icoMatch[1]}/[name][extname]`;
+              }
+              // CSS, WASM, and other non-image assets → assets/ with a cache-busting hash.
+              return 'assets/[name]-[hash][extname]';
+            },
+          }
         : { manualChunks: undefined, inlineDynamicImports: true },
-    },
-    brotliSize: false,
+    }
   },
   worker: {
     // App build: IIFE workers are required for `file://` compatibility; Chrome rejects ESM

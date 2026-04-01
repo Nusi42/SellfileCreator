@@ -29,7 +29,7 @@ try {
 
   # Build web assets (vite build --mode web → dist.web/).
   Write-Host 'Building web app (vite build --mode web)...'
-  npm exec -- vite build --mode web
+  node ./node_modules/vite/bin/vite.js build --mode web
   if ($LASTEXITCODE -ne 0) {
     throw "Web build failed with exit code $LASTEXITCODE"
   }
@@ -46,6 +46,15 @@ try {
   if ($LASTEXITCODE -ne 0) {
     throw "Catalog export failed with exit code $LASTEXITCODE"
   }
+
+  # Drop a PHP entry point that redirects to the SPA's index.html.
+  $phpEntry = Join-Path $RepoRoot 'dist.web\index.php'
+  Set-Content -Path $phpEntry -Value @'
+<?php
+header("Location: index.html");
+exit;
+?>
+'@ -Encoding UTF8
 
   $distWeb = Join-Path $RepoRoot 'dist.web'
   Write-Host "Web build complete. Deploy the contents of:" -ForegroundColor Green
