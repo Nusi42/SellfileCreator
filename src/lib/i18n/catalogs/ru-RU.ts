@@ -308,6 +308,7 @@ const overrides: Catalog = {
   // Not Fully Equipped section.
   gearAnalyticsNotEquippedTitle: 'Не полностью экипирован',
   gearAnalyticsNotEquippedTitleDesc: 'Чемпионы хотя бы с одним пустым слотом снаряжения. Сетка: заполнено = одето, контур = пусто.',
+  gearAnalyticsSlotNotUnlocked: 'Ещё не разблокировано — улучшите чемпиона для разблокировки',
   gearAnalyticsSortLabel: 'Сортировка',
   gearAnalyticsSortOff: 'Выкл.',
   gearAnalyticsSlotModeAll: 'Все',

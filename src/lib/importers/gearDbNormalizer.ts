@@ -155,6 +155,8 @@ export type GearDbArtifactRow = {
 
 export type GearDbChampionRow = {
   ID: number
+  /** Current hero-variant ID; ascension level = HeroID − BaseHeroID (0–6). */
+  HeroID?: number | null
   Name?: string | null
   Vault?: number | null
   RVault?: number | null
@@ -181,6 +183,8 @@ export type ChampionLookupRecord = {
   reserveVault: boolean
   baseHeroId: number | null
   rarity: RankValue | null
+  /** Champion ascension level (HeroID − BaseHeroID, 0–6); null when absent in the DB row. */
+  ascensionLevel: number | null
 }
 
 export type NormalizedStat = {
@@ -213,6 +217,8 @@ export type NormalizedGearArtifact = {
   equippedToChampionId: number | null
   equippedChampionBaseId: number | null
   equippedChampionRarity: RankValue | null
+  /** Ascension level (star grade, Rang) of the equipped champion; null when unknown. */
+  equippedChampionAscensionLevel: number | null
   source: 'artifacts' | 'inbox' | 'manual'
   equippedChampionName: string | null
   equippedChampionLocation: ChampionLocation | null
@@ -453,6 +459,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
     : null
   const equippedChampionBaseId = championRecord?.baseHeroId ?? null
   const equippedChampionRarity = championRecord?.rarity ?? null
+  const equippedChampionAscensionLevel = championRecord?.ascensionLevel ?? null
   const source = options.source ?? 'artifacts'
   const lastUseLocalTimestamp = sanitizeLastUseTimestamp(options.lastUseLocalTimestamp)
 
@@ -475,6 +482,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
       equippedToChampionId,
       equippedChampionBaseId,
       equippedChampionRarity,
+      equippedChampionAscensionLevel,
       equippedChampionName,
       equippedChampionLocation,
       mainStat,
@@ -502,6 +510,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
     equippedToChampionId,
     equippedChampionBaseId,
     equippedChampionRarity,
+    equippedChampionAscensionLevel,
     source,
     equippedChampionName,
     equippedChampionLocation,

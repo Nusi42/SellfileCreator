@@ -310,6 +310,7 @@ const overrides: Catalog = {
   // Not Fully Equipped section.
   gearAnalyticsNotEquippedTitle: 'Pas entièrement équipé',
   gearAnalyticsNotEquippedTitleDesc: 'Champions avec au moins un emplacement d\'\u00e9quipement vide. Grille\u00a0: rempli = équipé, contour = vide.',
+  gearAnalyticsSlotNotUnlocked: 'Pas encore débloqué — montez le champion en grade',
   gearAnalyticsSortLabel: 'Trier',
   gearAnalyticsSortOff: 'Désact.',
   gearAnalyticsSlotModeAll: 'Tous',

@@ -37,6 +37,21 @@ const sanitizeRarity = (value: unknown): RankValue | null => {
 }
 
 /**
+ * Compute the champion's ascension level from the DB row.
+ * Ascension level = HeroID − BaseHeroID (0–6): 0 means unascended, 6 means fully ascended.
+ * Returns null when either ID is missing, which causes the UI to treat all slots
+ * as available (graceful degradation for older DB dumps without HeroID).
+ */
+const computeAscensionLevel = (heroId: unknown, baseHeroId: unknown): number | null => {
+  const hero = typeof heroId === 'number' ? heroId : Number(heroId)
+  const base = typeof baseHeroId === 'number' ? baseHeroId : Number(baseHeroId)
+  if (!Number.isFinite(hero) || !Number.isFinite(base) || base <= 0) return null
+  const diff = hero - base
+  if (!Number.isFinite(diff)) return null
+  return Math.min(6, Math.max(0, Math.round(diff)))
+}
+
+/**
  * Convert a Champs row into the normalized lookup entry the Gear Inspector uses.
  * Returns `null` when the row lacks a usable ID so callers can skip it.
  */
@@ -45,6 +60,8 @@ export const championRowToLookupRecord = (row: GearDbChampionRow): ChampionLooku
   if (!Number.isFinite(id) || id <= 0) return null
   const name = typeof row.Name === 'string' ? row.Name.trim() : null
   const rarity = sanitizeRarity(row.Rarity)
+  // Ascension level = HeroID − BaseHeroID (0–6); null in older dumps without HeroID.
+  const ascensionLevel = computeAscensionLevel(row.HeroID, row.BaseHeroID)
   return {
     id,
     name: name && name.length > 0 ? name : null,
@@ -52,6 +69,7 @@ export const championRowToLookupRecord = (row: GearDbChampionRow): ChampionLooku
     reserveVault: Boolean(Number(row.RVault ?? 0)),
     baseHeroId: sanitizeBaseHeroId(row.BaseHeroID),
     rarity,
+    ascensionLevel,
   }
 }
 

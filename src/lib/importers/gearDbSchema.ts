@@ -73,6 +73,8 @@ export const ARTIFACT_COLUMN_KEYS: readonly (keyof GearDbArtifactRow)[] = [
 // map the Gear Inspector references, so treat this as a shared schema contract.
 export const CHAMPION_COLUMN_KEYS: readonly (keyof GearDbChampionRow)[] = [
   'ID',
+  // HeroID − BaseHeroID = champion ascension level (0–6). Unlocks amulet at 5, banner at 6.
+  'HeroID',
   'Name',
   'Vault',
   'RVault',

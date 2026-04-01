@@ -308,6 +308,7 @@ const overrides: Catalog = {
   // Not Fully Equipped section.
   gearAnalyticsNotEquippedTitle: 'Nicht vollst\u00e4ndig ausr\u00fcstung',
   gearAnalyticsNotEquippedTitleDesc: 'Champions mit mindestens einem leeren Ausr\u00fcstungsslot. Raster: ausgef\u00fcllt = ausr\u00fcstung, Umriss = leer.',
+  gearAnalyticsSlotNotUnlocked: 'Noch nicht freigeschaltet — Champion aufsteigen lassen',
   gearAnalyticsSortLabel: 'Sortieren',
   gearAnalyticsSortOff: 'Aus',
   gearAnalyticsSlotModeAll: 'Alle',

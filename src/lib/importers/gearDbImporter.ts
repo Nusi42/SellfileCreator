@@ -179,7 +179,8 @@ function tableExists(db: Database, name: string): boolean {
 function readChampions(db: Database): ChampionLookup {
   if (!tableExists(db, 'Champs')) return createChampionLookup([])
   const rows: GearDbChampionRow[] = []
-  const stmt = db.prepare('SELECT ID, Name, Vault, RVault, BaseHeroID, Rarity FROM Champs')
+  // HeroID − BaseHeroID encodes the champion's ascension level (0–6); amulet unlocks at 5, banner at 6.
+  const stmt = db.prepare('SELECT ID, HeroID, Name, Vault, RVault, BaseHeroID, Rarity FROM Champs')
   try {
     while (stmt.step()) {
       const row = stmt.getAsObject() as Record<string, unknown>

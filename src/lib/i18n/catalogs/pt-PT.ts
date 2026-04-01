@@ -308,6 +308,7 @@ const overrides: Catalog = {
   // Not Fully Equipped section.
   gearAnalyticsNotEquippedTitle: 'Não totalmente equipado',
   gearAnalyticsNotEquippedTitleDesc: 'Campeões com pelo menos um slot de equipamento em falta. Grelha: preenchido = equipado, contorno = em falta.',
+  gearAnalyticsSlotNotUnlocked: 'Ainda não desbloqueado — eleve o campeão para desbloquear',
   gearAnalyticsSortLabel: 'Ordenar',
   gearAnalyticsSortOff: 'Desativ.',
   gearAnalyticsSlotModeAll: 'Todos',

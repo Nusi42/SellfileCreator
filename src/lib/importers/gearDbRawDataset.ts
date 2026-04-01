@@ -133,6 +133,7 @@ const cloneGearInspectorItem = (artifact: NormalizedGearArtifact): TestItem => (
     equippedChampionName: artifact.equippedChampionName,
     equippedChampionBaseId: artifact.equippedChampionBaseId,
     equippedChampionRarity: artifact.equippedChampionRarity,
+    equippedChampionAscensionLevel: artifact.equippedChampionAscensionLevel,
     equippedChampionLocation: artifact.equippedChampionLocation,
     lastUseLocalTimestamp: artifact.lastUseLocalTimestamp,
     equippedToChampionId: artifact.equippedToChampionId,

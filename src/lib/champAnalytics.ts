@@ -8,7 +8,7 @@
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import { isAccessorySlot } from './gearInspectorDomain'
 import { statLabel } from './gearAnalytics'
-import { PREFERRED_ARTIFACT_TYPE_ORDER, STAT_VARIANTS_PRIORITY, StatVariant } from './types'
+import { ArtifactType, PREFERRED_ARTIFACT_TYPE_ORDER, STAT_VARIANTS_PRIORITY, StatVariant } from './types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -42,6 +42,23 @@ export type ChampionGearProfile = {
   ascentionCount: number
   /** Sum of gear ranks (star grades) across all equipped pieces. */
   rankSum: number
+  /** Champion ascension level (HeroID − BaseHeroID, 0–6); null when DB data is absent. */
+  champAscensionLevel: number | null
+}
+
+// ── Slot availability ─────────────────────────────────────────────────────────
+
+/**
+ * Returns true when a given slot is available to equip at the champion's
+ * ascension level (HeroID − BaseHeroID, 0–6).
+ * Amulet (slot 8) requires level ≥ 5; Banner (slot 9) requires level 6.
+ * All other slots are always available.
+ * Passing null (level unknown) conservatively returns true for all slots.
+ */
+export function isSlotAvailableAtAscensionLevel(slotId: number, ascensionLevel: number | null): boolean {
+  if (slotId === ArtifactType.Amulet) return ascensionLevel === null || ascensionLevel >= 5
+  if (slotId === ArtifactType.Banner) return ascensionLevel === null || ascensionLevel >= 6
+  return true
 }
 
 // ── Main slot IDs ─────────────────────────────────────────────────────────────
@@ -85,6 +102,8 @@ export function buildChampionGearProfiles(
       rarity: number
       ascentionCount: number
       rankSum: number
+      /** Ascension level from the first artifact seen for this champion. */
+      ascensionLevel: number | null
     }
   >()
 
@@ -109,6 +128,8 @@ export function buildChampionGearProfiles(
         rarity: Number(a.equippedChampionRarity ?? 0),
         ascentionCount: 0,
         rankSum: 0,
+        // Ascension level is constant per champion; capture it on first entry creation.
+        ascensionLevel: a.equippedChampionAscensionLevel ?? null,
       }
       map.set(id, entry)
     }
@@ -140,6 +161,7 @@ export function buildChampionGearProfiles(
       rarity: entry.rarity,
       ascentionCount: entry.ascentionCount,
       rankSum: entry.rankSum,
+      champAscensionLevel: entry.ascensionLevel,
     })
   }
   return profiles

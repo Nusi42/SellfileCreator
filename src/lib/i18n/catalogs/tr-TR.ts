@@ -308,6 +308,7 @@ const overrides: Catalog = {
   // Not Fully Equipped section.
   gearAnalyticsNotEquippedTitle: 'Tamamen donatılmamış',
   gearAnalyticsNotEquippedTitleDesc: 'En az bir boş ekipman slotu olan şampiyonlar. Izgara: dolu = donatılmış, kontur = boş.',
+  gearAnalyticsSlotNotUnlocked: 'Henüz açılmadı — açmak için şampiyonu yükseltin',
   gearAnalyticsSortLabel: 'Sırala',
   gearAnalyticsSortOff: 'Kapalı',
   gearAnalyticsSlotModeAll: 'Tümü',

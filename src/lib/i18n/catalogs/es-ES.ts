@@ -308,6 +308,7 @@ const overrides: Catalog = {
   // Not Fully Equipped section.
   gearAnalyticsNotEquippedTitle: 'No completamente equipado',
   gearAnalyticsNotEquippedTitleDesc: 'Campeones con al menos una ranura de equipo vac\u00eda. Cuadr\u00edcula: relleno = equipado, contorno = vac\u00edo.',
+  gearAnalyticsSlotNotUnlocked: 'Aún no desbloqueado — asciende al campeón para desbloquearlo',
   gearAnalyticsSortLabel: 'Ordenar',
   gearAnalyticsSortOff: 'Desact.',
   gearAnalyticsSlotModeAll: 'Todos',

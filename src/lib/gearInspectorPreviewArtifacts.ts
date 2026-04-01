@@ -85,6 +85,8 @@ export function buildPreviewArtifactFromGearInspectorItem(
   const equippedToChampionId = extras?.equippedToChampionId ?? null
   const equippedChampionBaseId = extras?.equippedChampionBaseId ?? null
   const equippedChampionRarity = (extras?.equippedChampionRarity ?? null) as RankValue | null
+  // Ascension level is only present for DB-imported rows; manual entries leave it null.
+  const equippedChampionAscensionLevel = extras?.equippedChampionAscensionLevel ?? null
   const equippedChampionName = extras?.equippedChampionName ?? null
   const equippedChampionLocation = extras?.equippedChampionLocation ?? null
   const mainStat = extras?.mainStat ? cloneStat(extras.mainStat) : buildManualMainStat(item.main)
@@ -115,6 +117,7 @@ export function buildPreviewArtifactFromGearInspectorItem(
     equippedToChampionId,
     equippedChampionBaseId,
     equippedChampionRarity,
+    equippedChampionAscensionLevel,
     source,
     equippedChampionName,
     equippedChampionLocation,

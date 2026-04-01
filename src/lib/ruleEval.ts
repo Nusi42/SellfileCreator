@@ -31,6 +31,8 @@ export type GearInspectorItemPreviewExtras = {
   equippedChampionBaseId?: number | null
   // Champion rarity helps downstream tooltip formatting.
   equippedChampionRarity?: number | null
+  // Champion ascension level (HeroID − BaseHeroID, 0–6) gates amulet/banner slot availability.
+  equippedChampionAscensionLevel?: number | null
   // Champion display name used by preview row labels.
   equippedChampionName?: string | null
   // Champion location helps filter/display context in Gear Inspector tables.

@@ -64,6 +64,7 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}): Normaliz
   equippedToChampionId: null,
   equippedChampionBaseId: null,
   equippedChampionRarity: null,
+    equippedChampionAscensionLevel: null,
   equippedChampionName: null,
   equippedChampionLocation: null,
   source: 'artifacts',

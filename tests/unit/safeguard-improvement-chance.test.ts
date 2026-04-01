@@ -87,6 +87,7 @@ const makeArtifact = (params: {
     equippedToChampionId: null,
     equippedChampionBaseId: null,
     equippedChampionRarity: null,
+    equippedChampionAscensionLevel: null,
     source: 'manual',
     equippedChampionName: null,
     equippedChampionLocation: null,

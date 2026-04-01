@@ -209,6 +209,7 @@ test('normalizeGearDbArtifact captures equipped champion rarity metadata', () =>
       reserveVault: false,
       baseHeroId: 1234,
       rarity: 5,
+      ascensionLevel: 6,
     }],
   ])
   const normalized = normalizeGearDbArtifact(weaponRow, { championLookup: lookup })

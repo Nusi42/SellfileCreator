@@ -113,6 +113,7 @@ Argonites currently assume a new `accset = 17` mapping until a sample database c
 ### Champion Metadata
 
 - `Champs` rows expose the owning hero’s `Rarity` alongside `BaseHeroID`. The importer captures this as `NormalizedGearArtifact.equippedChampionRarity` (also included in Gear Inspector preview extras) so UI surfaces can align avatar chrome with each champion’s in-game tier.
+- Champion ascension level = `HeroID − BaseHeroID` (0–6). The importer captures this as `NormalizedGearArtifact.equippedChampionAscensionLevel`. Ascension level ≥ 5 unlocks the Amulet slot; ascension level = 6 (fully ascended) additionally unlocks the Banner slot. `Rang` is the star-count column and must **not** be used for this — it reflects the champion’s current star rating (which incorporates their base rarity), not the number of ascension steps taken.
 
 ### Normalization Helper
 

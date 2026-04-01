@@ -308,6 +308,7 @@ const catalog: Catalog = {
   // Not Fully Equipped section.
   gearAnalyticsNotEquippedTitle: 'Não totalmente equipado',
   gearAnalyticsNotEquippedTitleDesc: 'Campeões com pelo menos um slot de equipamento vazio. Grade: preenchido = equipado, contorno = vazio.',
+  gearAnalyticsSlotNotUnlocked: 'Ainda não desbloqueado — ascenda o campeão para desbloquear',
   gearAnalyticsSortLabel: 'Ordenar',
   gearAnalyticsSortOff: 'Desativ.',
   gearAnalyticsSlotModeAll: 'Todos',

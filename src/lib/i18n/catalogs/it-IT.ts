@@ -308,6 +308,7 @@ const overrides: Catalog = {
   // Not Fully Equipped section.
   gearAnalyticsNotEquippedTitle: 'Non completamente equipaggiato',
   gearAnalyticsNotEquippedTitleDesc: 'Campioni con almeno uno slot equipaggiamento vuoto. Griglia: pieno = equipaggiato, contorno = vuoto.',
+  gearAnalyticsSlotNotUnlocked: 'Non ancora sbloccato — ascendi il campione per sbloccare',
   gearAnalyticsSortLabel: 'Ordina',
   gearAnalyticsSortOff: 'No',
   gearAnalyticsSlotModeAll: 'Tutti',

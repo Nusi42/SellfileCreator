@@ -25,6 +25,7 @@ import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
 import {
   buildChampionGearProfiles,
   champProfileTiebreaker,
+  isSlotAvailableAtAscensionLevel,
   MAIN_ARMOR_SLOTS,
   ACCESSORY_SLOTS,
   type ChampionGearProfile,
@@ -94,9 +95,13 @@ const SORT_SLOTS: Readonly<Record<SortMode, readonly number[]>> = {
   accessories: ACCESSORY_SLOTS,
 }
 
-/** Count of empty slots in the given slot list for this champion profile. */
+/**
+ * Count of empty slots in the given slot list that are also available for this
+ * champion's ascension level. Locked slots (e.g. amulet before ascension level 5, banner
+ * before ascension level 6) are excluded — they cannot be "missing" if they cannot be equipped.
+ */
 function missingCount(p: ChampionGearProfile, slots: readonly number[]): number {
-  return slots.filter((s) => !p.slotsFilled.has(s)).length
+  return slots.filter((s) => isSlotAvailableAtAscensionLevel(s, p.champAscensionLevel) && !p.slotsFilled.has(s)).length
 }
 
 // ── Gear preview card ─────────────────────────────────────────────────────────
@@ -193,23 +198,37 @@ function SlotGrid({ profile, rowByChampSlot, substatColors, useStatButtonColors 
     }}>
       {SLOT_GRID.map((slotId) => {
         const filled = profile.slotsFilled.has(slotId)
+        const available = isSlotAvailableAtAscensionLevel(slotId, profile.champAscensionLevel)
 
-        // Two visual states — sort mode has no effect on the grid display:
-        //   filled  → primary.main solid (slot has gear equipped)
-        //   empty   → neutral outline    (slot is missing gear)
-        const cell = (
-          <Box sx={{
-            width: SLOT_CELL, height: SLOT_CELL,
-            borderRadius: '2px', boxSizing: 'border-box',
-            bgcolor: filled ? 'primary.main' : 'transparent',
-            border: '1px solid',
-            borderColor: filled ? 'primary.main' : 'text.secondary',
-            opacity: filled ? 0.8 : 0.35,
-          }} />
-        )
+        // Three visual states — sort mode has no effect on the grid display:
+        //   filled    → primary.main solid    (slot has gear equipped)
+        //   available → neutral outline       (slot is empty but can be filled)
+        //   locked    → very dim, no border   (slot not yet unlocked for this ascension level)
+        const cell = available
+          ? (
+            <Box sx={{
+              width: SLOT_CELL, height: SLOT_CELL,
+              borderRadius: '2px', boxSizing: 'border-box',
+              bgcolor: filled ? 'primary.main' : 'transparent',
+              border: '1px solid',
+              borderColor: filled ? 'primary.main' : 'text.secondary',
+              opacity: filled ? 0.8 : 0.35,
+            }} />
+          )
+          : (
+            // Locked slot: ascension level too low to equip this type.
+            <Box sx={{
+              width: SLOT_CELL, height: SLOT_CELL,
+              borderRadius: '2px', boxSizing: 'border-box',
+              bgcolor: 'action.disabledBackground',
+              border: '1px dashed',
+              borderColor: 'action.disabled',
+              opacity: 0.3,
+            }} />
+          )
 
         // Filled slot: show the equipped gear piece via MarkdownTooltip (SSOT with safeguard preview).
-        if (filled) {
+        if (filled && available) {
           const previewRow = rowByChampSlot.get(`${profile.championId}_${slotId}`)
           if (previewRow) {
             return (
@@ -222,7 +241,15 @@ function SlotGrid({ profile, rowByChampSlot, substatColors, useStatButtonColors 
             )
           }
         }
-        // Empty slot or no preview data: plain slot-name tooltip.
+        // Locked slot: explain why it is unavailable.
+        if (!available) {
+          return (
+            <Tooltip key={slotId} title={`${t(artifactTypeI18nKey(slotId))} — ${t('gearAnalyticsSlotNotUnlocked')}`} placement="top" arrow>
+              {cell}
+            </Tooltip>
+          )
+        }
+        // Empty available slot or no preview data: plain slot-name tooltip.
         return (
           <Tooltip key={slotId} title={t(artifactTypeI18nKey(slotId))} placement="top" arrow>
             {cell}
