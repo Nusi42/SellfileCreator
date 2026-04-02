@@ -23,9 +23,10 @@ import {
   getLocalizedGearSetName,
   factionCodeToName,
   factionI18nKey,
-  RarityCode,
   rarityCodeToName,
+  rarityCodeFromRankValue,
   rarityRankValueI18nKey,
+  type RankValue,
 } from '../lib/types'
 import {
   NBSP,
@@ -66,37 +67,6 @@ export type SafeguardSummaryOpts = {
   tooltipsDisabled?: boolean
 }
 
-// Converts a rarity code to a localised display label (e.g. "≥ Rare", "Legendary").
-// Falls back to the English rarityNames table when no translator is provided.
-const rarityCodeLabel = (code: number, t: SafeguardSummaryOpts['t']): string => {
-  if (!t) return rarityCodeToName(code as RarityCode) || String(code)
-  // Map from actual rarity code to (prefix, ordinal 1–6) so we can use the
-  // existing rarityRankValueI18nKey for the translated base name.
-  type RarityOrdinal = 1 | 2 | 3 | 4 | 5 | 6
-  const info: { prefix: string; ordinal: RarityOrdinal } | null = (() => {
-    switch (code) {
-      case RarityCode.Common:        return { prefix: '',          ordinal: 1 }
-      case RarityCode.Uncommon:      return { prefix: '',          ordinal: 2 }
-      case RarityCode.Rare:          return { prefix: '',          ordinal: 3 }
-      case RarityCode.Epic:          return { prefix: '',          ordinal: 4 }
-      case RarityCode.Legendary:     return { prefix: '',          ordinal: 5 }
-      case RarityCode.Mythical:      return { prefix: '',          ordinal: 6 }
-      case RarityCode.GTE_Common:    return { prefix: `≥${NBSP}`,  ordinal: 1 }
-      case RarityCode.GTE_Uncommon:  return { prefix: `≥${NBSP}`,  ordinal: 2 }
-      case RarityCode.GTE_Rare:      return { prefix: `≥${NBSP}`,  ordinal: 3 }
-      case RarityCode.GTE_Epic:      return { prefix: `≥${NBSP}`,  ordinal: 4 }
-      case RarityCode.GTE_Legendary: return { prefix: `≥${NBSP}`,  ordinal: 5 }
-      case RarityCode.LTE_Uncommon:  return { prefix: `≤${NBSP}`,  ordinal: 2 }
-      case RarityCode.LTE_Rare:      return { prefix: `≤${NBSP}`,  ordinal: 3 }
-      case RarityCode.LTE_Epic:      return { prefix: `≤${NBSP}`,  ordinal: 4 }
-      case RarityCode.LTE_Legendary: return { prefix: `≤${NBSP}`,  ordinal: 5 }
-      case RarityCode.LTE_Mythical:  return { prefix: `≤${NBSP}`,  ordinal: 6 }
-      default: return null
-    }
-  })()
-  if (!info) return rarityCodeToName(code as RarityCode) || String(code)
-  return `${info.prefix}${t(rarityRankValueI18nKey(info.ordinal))}`
-}
 
 /**
  * Builds a rich JSX summary for a SafeguardRule, matching the visual style of
@@ -191,7 +161,14 @@ export function safeguardSummaryParts(
       segmentParts.push(c.ranks.map((r) => rankLabel(Number(r))).join('/'))
     }
     if (c.rarities && c.rarities.length > 0) {
-      segmentParts.push(c.rarities.map((r) => rarityCodeLabel(Number(r), opts.t)).join('/'))
+      // Rarities are stored as rank values 1–6 (where 6 = Mythical). Using
+      // rarityRankValueI18nKey avoids a collision: RarityCode.GTE_Common also = 6,
+      // which caused Mythical to render as ">= Common" via the old switch.
+      segmentParts.push(c.rarities.map((r) => {
+        const v = Number(r) as RankValue
+        if (opts.t) return opts.t(rarityRankValueI18nKey(v))
+        return rarityCodeToName(rarityCodeFromRankValue(v)) || String(v)
+      }).join('/'))
     }
     if (segmentParts.length > 0) {
       addText(segmentParts.join(NBSP))
