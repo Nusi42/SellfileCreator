@@ -385,11 +385,12 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
 
   useEffect(() => { localStorage.setItem(LS_SORT_MODE, sortMode) }, [sortMode])
   // Restore factory defaults when the parent increments resetKey.
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    if (resetKey !== undefined) { setSortMode(DEFAULT_SORT_MODE) }
-  }, [resetKey])
-  /* eslint-enable react-hooks/set-state-in-effect */
+  // "Adjust state directly during render" pattern avoids the one-render delay of useEffect.
+  const [prevResetKey, setPrevResetKey] = useState<number | undefined>(resetKey)
+  if (prevResetKey !== resetKey && resetKey !== undefined) {
+    setPrevResetKey(resetKey)
+    setSortMode(DEFAULT_SORT_MODE)
+  }
 
   // Build (championId_slotId) → row lookup for filled-slot gear previews.
   const rowByChampSlot = useMemo(() => {

@@ -244,7 +244,7 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
     } finally {
       setCopying(false)
     }
-  }, [copying, theme])
+  }, [canCopy, copying, theme])
 
   // Color callback used by bar charts to tint stat labels by their configured palette color.
   const statColorById = useCallback(
@@ -273,10 +273,10 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
   const [dim, setDim] = useState<GearAnalyticsDim>(EMPTY_GEAR_ANALYTICS_DIM)
   // Main stat selection: clicking a main stat bar filters the substat frequency chart.
   // Kept as local state separate from dim — not a cross-filter dimension.
-  const [selectedMainStats, setSelectedMainStats] = useState<ReadonlySet<number | string>>(new Set())
+  const [selectedMainStats, setSelectedMainStats] = useState<ReadonlySet<number | string>>(() => new Set())
   // Substat co-occurrence pivot: one or more substat variants selected by clicking radar marks.
   // The radar then shows only items containing ALL selected substats (AND intersection).
-  const [selectedSubstat, setSelectedSubstat] = useState<ReadonlySet<number>>(new Set())
+  const [selectedSubstat, setSelectedSubstat] = useState<ReadonlySet<number>>(() => new Set())
 
   // ── Cross-component Easter egg peer broadcasts ────────────────────────────────────────────────
   // When any component's Easter egg fires it calls its onEasterEgg callback, which may
@@ -382,7 +382,7 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
   // We track these separately so the GearSetsSelect can show metaset chips alongside individual set
   // chips without losing the distinction. dim.sets = union(individual, metaset-expanded).
   // Refs allow callbacks to read the current values without stale-closure issues.
-  const [dimIndividualSets, setDimIndividualSets] = useState<ReadonlySet<number>>(new Set())
+  const [dimIndividualSets, setDimIndividualSets] = useState<ReadonlySet<number>>(() => new Set())
   const dimIndividualSetsRef = useRef<ReadonlySet<number>>(new Set())
   dimIndividualSetsRef.current = dimIndividualSets
   const [dimMetaSetNames, setDimMetaSetNames] = useState<string[]>([])
@@ -495,7 +495,11 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
     setDimMetaSetNames([])
   }, [gearInspectorDim])
   // Clear all cross-filter dimensions when the parent increments resetKey (e.g. "Reset to defaults" button).
-  useEffect(() => {
+  // "Adjust state directly during render" pattern: React re-renders immediately when setState is called
+  // during render, so the user never sees the stale state. Avoids useEffect's one-render delay.
+  const [prevResetKey, setPrevResetKey] = useState<number | undefined>(resetKey)
+  if (prevResetKey !== resetKey) {
+    setPrevResetKey(resetKey)
     if (resetKey !== undefined) {
       setDim(EMPTY_GEAR_ANALYTICS_DIM)
       setSelectedMainStats(new Set())
@@ -503,7 +507,7 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
       setDimIndividualSets(new Set())
       setDimMetaSetNames([])
     }
-  }, [resetKey])
+  }
 
   // ── Crossfilter-filtered row sets ──────────────────────────────────────────
   // Each chart receives the full row set filtered by all dimensions EXCEPT its own.

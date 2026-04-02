@@ -293,11 +293,13 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
   // Picks a variant biased toward 'wave' and 'nervous' (feel reactive/contagious).
   // Ignored when a self-triggered dance is already running to avoid interrupting it.
   useEffect(() => {
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
     if (!peerDanceTrigger || danceVariantRef.current) return
     // Peer-triggered dances favour 'wave', 'nervous', 'heartbeat' — they look "sympathetic".
     const PEER_VARIANTS: RadarDance[] = ['wave', 'nervous', 'heartbeat', 'wave', 'nervous']
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-adjust-state-on-prop-change, @eslint-react/hooks-extra/no-direct-set-state-in-use-effect
     setDanceVariant(PEER_VARIANTS[Math.floor(Math.random() * PEER_VARIANTS.length)] ?? 'wave')
-  }, [peerDanceTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [peerDanceTrigger])
 
   // Normal interpolation animation — pauses while dance is active so both effects never
   // compete over setDisplayCounts / setDisplayMax.

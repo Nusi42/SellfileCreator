@@ -319,16 +319,14 @@ export function GearAnalyticsChampStats({ rows, resetKey, collapsed, onToggleCol
   useEffect(() => { localStorage.setItem(LS_FULLY_EQUIPPED, String(fullyEquippedOnly)) }, [fullyEquippedOnly])
   useEffect(() => { localStorage.setItem(LS_INCLUDE_GLYPHS, String(includeGlyphs)) }, [includeGlyphs])
   // Restore factory defaults when the parent increments resetKey.
-  // Multiple setState calls in a single effect are intentional — they batch together in React 18+
-  // and restore all three controls atomically. The react-compiler rule is suppressed accordingly.
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    if (resetKey === undefined) return
+  // "Adjust state directly during render" pattern: all three setters are batched by React 18+.
+  const [prevResetKey, setPrevResetKey] = useState<number | undefined>(resetKey)
+  if (prevResetKey !== resetKey && resetKey !== undefined) {
+    setPrevResetKey(resetKey)
     setLocation(DEFAULT_LOCATION)
     setFullyEquippedOnly(DEFAULT_FULLY_EQUIPPED)
     setIncludeGlyphs(DEFAULT_INCLUDE_GLYPHS)
-  }, [resetKey]) // eslint-disable-line react-hooks/exhaustive-deps
-  /* eslint-enable react-hooks/set-state-in-effect */
+  }
 
   // Build champion profiles once from the full row set.
   const allProfiles = useMemo(() => buildChampionGearProfiles(rows), [rows])

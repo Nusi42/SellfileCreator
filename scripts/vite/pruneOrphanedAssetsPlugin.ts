@@ -95,7 +95,6 @@ export function pruneOrphanedAssetsPlugin(): Plugin {
         rmSync(join(assetsDir, fileName), { force: true });
       }
 
-      // eslint-disable-next-line no-console
       console.log(`[prune-orphaned-assets] deduplicated ${rewrites.size} image(s) → img/`);
     },
   };

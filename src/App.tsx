@@ -2853,7 +2853,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...filterField,
     }
     setSortPresets((prev) => [preset, ...(Array.isArray(prev) ? prev : [])])
-  }, [buildFilterPresetSnapshot, createFilterPresetId, gearInspectorSubstatSortPrefs.state, setSortPresets])
+  }, [buildFilterPresetSnapshot, createFilterPresetId, gearInspectorSubstatSortPrefs, setSortPresets])
 
   const handleApplySortPreset = useCallback((presetId: string) => {
     // Look through user presets + built-ins for the matching ID.

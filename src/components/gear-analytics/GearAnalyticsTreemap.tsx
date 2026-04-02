@@ -259,12 +259,14 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
   useLayoutEffect(() => {
     const el = containerRef.current
     if (!el) return
+    // eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect
     setContainerW(el.offsetWidth)
   }, [])
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
     const obs = new ResizeObserver(entries => setContainerW(Math.floor(entries[0]!.contentRect.width)))
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-initialize-state
     obs.observe(el)
     return () => obs.disconnect()
   }, [])
@@ -292,7 +294,7 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
   // ── Easter egg state ──────────────────────────────────────────────────────────
   // activeDance bundles the chosen variant with the epicenter tile id (needed by shockwave).
   const [activeDance, setActiveDance] = useState<{ variant: TreemapDance; epicenterId: number } | null>(null)
-  const [danceOffsets, setDanceOffsets] = useState<Map<number, TileDanceOffset>>(new Map())
+  const [danceOffsets, setDanceOffsets] = useState<Map<number, TileDanceOffset>>(() => new Map())
   const recordClick = useEasterEggTrigger()
   // Stable ref so the peer effect can check dance state without triggering re-runs.
   // Writing to a ref during render is the canonical React pattern for syncing state into
@@ -305,13 +307,15 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
   // Picks from variants that look "reactive" — scatter, wave, explosion.
   // Ignored when a self-triggered dance is already running.
   useEffect(() => {
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
     if (!peerDanceTrigger || activeDanceRef.current || tiles.length === 0) return
     const PEER_VARIANTS: TreemapDance[] = ['scatter', 'wave', 'explosion', 'scatter', 'bounce']
     const variant = PEER_VARIANTS[Math.floor(Math.random() * PEER_VARIANTS.length)] ?? 'scatter'
     // Use the center tile as the epicenter for peer-triggered dances.
     const epicenterId = tiles[Math.floor(tiles.length / 2)]?.id ?? tiles[0]!.id
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-derived-state, @eslint-react/hooks-extra/no-direct-set-state-in-use-effect
     setActiveDance({ variant, epicenterId })
-  }, [peerDanceTrigger, tiles]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [peerDanceTrigger, tiles])
 
   // Dance rAF loop — runs for TREEMAP_DANCE_MS, then clears state and lets the layout settle.
   useEffect(() => {
@@ -326,17 +330,22 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
     const cx = containerW / 2
     const cy = TREEMAP_H / 2
     // Tile centres for angle/distance calculations.
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-pass-live-state-to-parent
     const tileCxs = tiles.map(tl => tl.x + tl.w / 2)
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-pass-live-state-to-parent
     const tileCys = tiles.map(tl => tl.y + tl.h / 2)
 
     // Grid positions for the grid-snap variant — equally sized cells.
     const cols = Math.ceil(Math.sqrt(n))
     const gridCellW = containerW / cols
     const gridCellH = TREEMAP_H / Math.ceil(n / cols)
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-pass-live-state-to-parent
     const gridXs = tiles.map((_, i) => (i % cols) * gridCellW)
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-pass-live-state-to-parent
     const gridYs = tiles.map((_, i) => Math.floor(i / cols) * gridCellH)
 
     // Epicenter position for the shockwave variant.
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-pass-live-state-to-parent
     const epTile = tiles.find(tl => tl.id === epicenterId) ?? tiles[0]!
     const epCx   = epTile.x + epTile.w / 2
     const epCy   = epTile.y + epTile.h / 2

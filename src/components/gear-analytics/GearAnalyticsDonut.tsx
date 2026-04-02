@@ -11,7 +11,7 @@
  *   Each icon gets a semi-transparent paper-background chip to stay legible on any arc color.
  * Optional arcLabel: custom text label function for arcs (used when no slotIconById is given).
  */
-import { createContext, useContext, useEffect, useMemo, useRef } from 'react'
+import { createContext, use, useEffect, useMemo, useRef } from 'react'
 import { alpha, Box, Collapse, IconButton, Typography, useTheme } from '@mui/material'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
@@ -133,7 +133,7 @@ function ArcIconLabel(props: {
   formattedArcLabel: string | null
   [key: string]: unknown
 }) {
-  const ctx   = useContext(SlotIconContext)
+  const ctx   = use(SlotIconContext)
   const theme = useTheme()
 
   // formattedArcLabel encodes the domain id (set by arcLabel: item => String(item.id)).
@@ -260,7 +260,7 @@ function TooltipIcon({ asset, size = 18 }: { asset: SlotIconAsset; size?: number
  * and SlotIconContext provides the pre-built icon map.
  */
 function PieIconTooltip(_props: object) {
-  const ctx         = useContext(SlotIconContext)
+  const ctx         = use(SlotIconContext)
   // Returns { identifier: { dataIndex }, color, label, formattedValue } or null when no hover.
   const tooltipData = useItemTooltip<'pie'>()
 
@@ -468,7 +468,7 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
       }, delay)
       return () => clearTimeout(timer)
     }
-  }, [peerDanceTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [peerDanceTrigger])
 
   // Pending single-click timer — used to distinguish click from double-click.
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -558,7 +558,7 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
 
   return (
     // Provide iconMap + data to ArcIconLabel and PieIconTooltip via context.
-    <SlotIconContext.Provider value={iconMap ? { iconMap, data, iconSize } : null}>
+    <SlotIconContext value={iconMap ? { iconMap, data, iconSize } : null}>
       {/* ref target for WAAPI dance animations — the whole donut bounces/spins/etc. */}
       <Box ref={containerRef} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {/* Title row — chevron toggles collapse of the pie chart below. */}
@@ -608,6 +608,6 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
         />
         </Collapse>
       </Box>
-    </SlotIconContext.Provider>
+    </SlotIconContext>
   )
 }

@@ -268,7 +268,7 @@ export function GearAnalyticsBar({ title, description, data, selected, onToggle,
   useEffect(() => {
     if (!peerDanceTrigger || !containerRef.current) return
     triggerBarDance(containerRef.current, rowRefsRef.current)
-  }, [peerDanceTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [peerDanceTrigger])
 
   if (data.length === 0) {
     return (
