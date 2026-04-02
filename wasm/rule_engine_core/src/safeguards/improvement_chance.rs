@@ -9,6 +9,7 @@ use super::{
     SafeguardWasmArtifactIn, SafeguardWasmCombination, SafeguardWasmCountMode,
     SafeguardWasmRuleIn,
     // Functions made pub(super) for this submodule.
+    glyph_average_for_variant,
     safeguard_compute_score, safeguard_count_key_from_parts, safeguard_count_key_to_string,
     safeguard_is_activation_off, safeguard_matches_selection,
     safeguard_normalize_substat_value, safeguard_percent_to_flat_main,
@@ -31,6 +32,8 @@ use crate::{
     STAT_VARIANT_CDMG, STAT_VARIANT_CR, STAT_VARIANT_DEF_FLAT, STAT_VARIANT_DEF_PERCENT,
     STAT_VARIANT_HP_FLAT, STAT_VARIANT_HP_PERCENT, STAT_VARIANT_RES, STAT_VARIANT_ROLL_COUNT,
     STAT_VARIANT_SPD,
+    // Per-star substat roll ranges for two-value branching.
+    SUBSTAT_ROLL_RANGES_BY_STAR,
 };
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -57,6 +60,9 @@ const STATE_VALUE_SCALE: i64 = 1_000;
 const UNKNOWN_ROLL_QUALITY_RATIO: f64 = 0.83;
 // Lower-rank gear rolls weaker on average; this is the rank-1 floor factor.
 const UNKNOWN_ROLL_MIN_RANK_SCALE: f64 = 0.6;
+// Two-value branching only kicks in at milestones at or above this level.
+// Early milestones (+4, +8) use a single average gain to reduce branching factor.
+const TWO_VALUE_BRANCHING_MIN_MILESTONE: i64 = 12;
 
 // ─── public output types ─────────────────────────────────────────────────────
 
@@ -166,10 +172,10 @@ struct RecursionContext<'a> {
     addition_milestones: HashSet<i64>,
     // Legal substats that can be added at addition events for this slot/main.
     legal_addition_pool: Vec<i64>,
-    // Per-roll expected gains from observed substat values (scaled integer).
-    expected_gain: HashMap<i64, i64>,
-    // Rank-based fallback gains for variants with no observed value (scaled).
-    fallback_gain: HashMap<i64, i64>,
+    // Two-value Q1/Q3 gains from observed substat values (scaled integer pairs).
+    expected_gain: HashMap<i64, (i64, i64)>,
+    // Rank-based fallback Q1/Q3 gains for variants with no observed value (scaled).
+    fallback_gain: HashMap<i64, (i64, i64)>,
 }
 
 // Per-artifact viability snapshot used to prune scenarios impossible by +16.
@@ -328,20 +334,46 @@ const ALL_SUBSTAT_VARIANTS: [i64; 11] = [
     STAT_VARIANT_CDMG,
 ];
 
-fn build_fallback_gain(rank: i64) -> HashMap<i64, i64> {
-    // Expected per-roll gain for each known variant, scaled to STATE_VALUE_SCALE.
-    // Uses rank-derived quality factor; mirrors buildFallbackExpectedGainByVariantScaled.
-    let rank_scale = resolve_unknown_rank_scale(rank);
-    let mut out = HashMap::<i64, i64>::new();
+// Look up per-star min/max roll range for a variant from the generated ranges table.
+// Returns (min, max) in raw stat units; falls back to legacy average if unavailable.
+fn resolve_roll_range(rank: i64, variant: i64) -> (f64, f64) {
+    let clamped = clamp_rank(rank);
+    // SUBSTAT_ROLL_RANGES_BY_STAR entries are (variant, min, max) triples.
+    if let Some(entry) = SUBSTAT_ROLL_RANGES_BY_STAR
+        .iter()
+        .find(|&&(star, _)| star == clamped)
+        .and_then(|&(_, triples)| triples.iter().find(|&&(v, _, _)| v == variant))
+    {
+        let (_, mn, mx) = *entry;
+        if mn > 0 && mx > 0 && mx >= mn {
+            return (mn as f64, mx as f64);
+        }
+    }
+    // Fallback: use legacy single-value estimate as both Q1 and Q3.
+    let max6 = safeguard_substat_max6_by_variant(variant);
+    let scale = resolve_unknown_rank_scale(rank);
+    let avg = max6 * UNKNOWN_ROLL_QUALITY_RATIO * scale;
+    (avg, avg)
+}
+
+// Build Q1/Q3 scaled gain pair from a roll range.
+fn build_gain_pair_scaled(min: f64, max: f64) -> (i64, i64) {
+    let low = ((3.0 * min + max) / 4.0 * STATE_VALUE_SCALE as f64).round().max(0.0) as i64;
+    let high = ((min + 3.0 * max) / 4.0 * STATE_VALUE_SCALE as f64).round().max(0.0) as i64;
+    (low, high)
+}
+
+fn build_fallback_gain(rank: i64) -> HashMap<i64, (i64, i64)> {
+    // Q1/Q3 per-roll gain pairs for each known variant, scaled to STATE_VALUE_SCALE.
+    let mut out = HashMap::<i64, (i64, i64)>::new();
     for variant in ALL_SUBSTAT_VARIANTS {
-        let max6 = safeguard_substat_max6_by_variant(variant);
-        if max6 <= 0.0 {
+        let (min_r, max_r) = resolve_roll_range(rank, variant);
+        if min_r <= 0.0 && max_r <= 0.0 {
             continue;
         }
-        let modeled = max6 * UNKNOWN_ROLL_QUALITY_RATIO * rank_scale;
-        let scaled = (modeled * STATE_VALUE_SCALE as f64).round() as i64;
-        if scaled > 0 {
-            out.insert(variant, scaled);
+        let pair = build_gain_pair_scaled(min_r, max_r);
+        if pair.0 > 0 || pair.1 > 0 {
+            out.insert(variant, pair);
         }
     }
     out
@@ -349,33 +381,33 @@ fn build_fallback_gain(rank: i64) -> HashMap<i64, i64> {
 
 fn build_existing_gain(
     artifact: &SafeguardWasmArtifactIn,
-    fallback: &HashMap<i64, i64>,
-) -> HashMap<i64, i64> {
-    // Per-roll expected gain derived from the accumulated substat value.
-    // Stored rows have no `rolls` field; treat rolls=0 → divisor=1 → modeled=min(max6, value).
-    // This mirrors the TS path: const divisor = Math.max(1, rolls + 1) with rolls=0.
-    let mut out = HashMap::<i64, i64>::new();
+    fallback: &HashMap<i64, (i64, i64)>,
+) -> HashMap<i64, (i64, i64)> {
+    // Per-roll Q1/Q3 gain pairs derived from observed substat quality and per-star ranges.
+    let rank = clamp_rank(artifact.rank);
+    let mut out = HashMap::<i64, (i64, i64)>::new();
     for substat in &artifact.substats {
         let max6 = safeguard_substat_max6_by_variant(substat.variant);
         if max6 <= 0.0 {
             continue;
         }
-        // divisor = max(1, rolls + 1) mirrors TS buildExistingExpectedGainByVariantScaled.
         let divisor = substat.rolls
             .filter(|&r| r > 0)
             .map(|r| (r + 1) as f64)
             .unwrap_or(1.0)
             .max(1.0);
-        let modeled = if substat.value > 0.0 && substat.value.is_finite() {
-            // Cap at max6 exactly as TS does (Math.min(max6, totalValue / divisor)).
+        let observed = if substat.value > 0.0 && substat.value.is_finite() {
             (substat.value / divisor).min(max6)
         } else {
             0.0
         };
-        if modeled > 0.0 {
-            out.insert(substat.variant, (modeled * STATE_VALUE_SCALE as f64).round() as i64);
+        if observed > 0.0 {
+            // Spread Q1/Q3 using the per-star roll range around the observed quality.
+            let (range_min, range_max) = resolve_roll_range(rank, substat.variant);
+            let effective_min = observed.min(range_min);
+            let effective_max = observed.max(range_max);
+            out.insert(substat.variant, build_gain_pair_scaled(effective_min, effective_max));
         } else if let Some(&fb) = fallback.get(&substat.variant) {
-            // Fall back to rank-based estimate when value is unavailable.
             out.insert(substat.variant, fb);
         }
     }
@@ -444,14 +476,23 @@ fn compute_score_from_state(
     state: &HashMap<i64, i64>,
     selected: &[i64],
     weights: &HashMap<i64, f64>,
+    rank: i64,
 ) -> f64 {
     // Weighted normalized sum from recursion state; mirrors computeSafeguardScoreFromState.
+    // Includes glyph potential for present substats.
     let mut total = 0.0;
     for &variant in selected {
         let raw = get_state_raw_value(state, variant);
         let normalized = safeguard_normalize_substat_value(variant, raw);
         let weight = safeguard_weight_for_variant(weights, variant);
         total += weight * normalized;
+        // Add glyph potential for present substats — mirrors TS scoring (SSOT).
+        if raw > 0.0 {
+            let glyph_avg = glyph_average_for_variant(rank, variant);
+            if glyph_avg > 0.0 {
+                total += weight * safeguard_normalize_substat_value(variant, glyph_avg);
+            }
+        }
     }
     if total.is_finite() { total } else { 0.0 }
 }
@@ -483,13 +524,16 @@ fn apply_state_delta(
 
 fn resolve_expected_gain(
     variant: i64,
-    existing: &HashMap<i64, i64>,
-    fallback: &HashMap<i64, i64>,
-) -> i64 {
+    existing: &HashMap<i64, (i64, i64)>,
+    fallback: &HashMap<i64, (i64, i64)>,
+) -> (i64, i64) {
     // Observed gain takes priority; fall back to rank-based estimate.
-    let direct = existing.get(&variant).copied().unwrap_or(0);
-    if direct > 0 { return direct; }
-    fallback.get(&variant).copied().unwrap_or(0)
+    if let Some(&pair) = existing.get(&variant) {
+        if pair.0 > 0 || pair.1 > 0 {
+            return pair;
+        }
+    }
+    fallback.get(&variant).copied().unwrap_or((0, 0))
 }
 
 // ─── challenger projection (Bug 2 fix) ───────────────────────────────────────
@@ -575,6 +619,13 @@ pub(super) fn compute_projected_challenger_score(
             };
         let normalized = safeguard_normalize_substat_value(variant, projected_val);
         total += weight * normalized;
+        // Add glyph potential for variants that will be present at +16.
+        if projected_val > 0.0 {
+            let glyph_avg = glyph_average_for_variant(artifact.rank, variant);
+            if glyph_avg > 0.0 {
+                total += weight * safeguard_normalize_substat_value(variant, glyph_avg);
+            }
+        }
     }
     if total.is_finite() { total } else { 0.0 }
 }
@@ -628,7 +679,7 @@ fn is_state_selected_by_any_scenario(
         if !state_matches_substats(state, &scenario.selected_substats, &scenario.substat_match, ctx.artifact_main_stat) {
             continue;
         }
-        let score = compute_score_from_state(state, &scenario.selected_substats, &scenario.weights);
+        let score = compute_score_from_state(state, &scenario.selected_substats, &scenario.weights, ctx.artifact_rank);
         if !(score > 0.0) {
             continue;
         }
@@ -710,15 +761,32 @@ fn compute_probability(
             compute_probability(ctx, state, event_idx + 1, memo)
         } else {
             let p = 1.0 / candidates.len() as f64;
+            // Early milestones use single average gain; later ones branch Q1/Q3.
+            let use_two_value = milestone >= TWO_VALUE_BRANCHING_MIN_MILESTONE;
             let mut total = 0.0;
             for variant in candidates {
-                let delta =
+                let (low, high) =
                     resolve_expected_gain(variant, &ctx.expected_gain, &ctx.fallback_gain);
-                if delta <= 0 {
+                if low <= 0 && high <= 0 {
                     continue;
                 }
-                let next = apply_state_delta(state, variant, delta);
-                total += p * compute_probability(ctx, &next, event_idx + 1, memo);
+                if use_two_value && low != high {
+                    // Two-value branching: Q1 (low) and Q3 (high), each 50% probability.
+                    if low > 0 {
+                        let next_low = apply_state_delta(state, variant, low);
+                        total += p * 0.5 * compute_probability(ctx, &next_low, event_idx + 1, memo);
+                    }
+                    if high > 0 {
+                        let next_high = apply_state_delta(state, variant, high);
+                        total += p * 0.5 * compute_probability(ctx, &next_high, event_idx + 1, memo);
+                    }
+                } else {
+                    // Single average gain: (low + high) / 2.
+                    let avg = ((low + high) as f64 / 2.0).round() as i64;
+                    if avg <= 0 { continue; }
+                    let next = apply_state_delta(state, variant, avg);
+                    total += p * compute_probability(ctx, &next, event_idx + 1, memo);
+                }
             }
             total
         }
@@ -730,15 +798,29 @@ fn compute_probability(
             compute_probability(ctx, state, event_idx + 1, memo)
         } else {
             let p = 1.0 / variants.len() as f64;
+            let use_two_value = milestone >= TWO_VALUE_BRANCHING_MIN_MILESTONE;
             let mut total = 0.0;
             for variant in variants {
-                let delta =
+                let (low, high) =
                     resolve_expected_gain(variant, &ctx.expected_gain, &ctx.fallback_gain);
-                if delta <= 0 {
+                if low <= 0 && high <= 0 {
                     continue;
                 }
-                let next = apply_state_delta(state, variant, delta);
-                total += p * compute_probability(ctx, &next, event_idx + 1, memo);
+                if use_two_value && low != high {
+                    if low > 0 {
+                        let next_low = apply_state_delta(state, variant, low);
+                        total += p * 0.5 * compute_probability(ctx, &next_low, event_idx + 1, memo);
+                    }
+                    if high > 0 {
+                        let next_high = apply_state_delta(state, variant, high);
+                        total += p * 0.5 * compute_probability(ctx, &next_high, event_idx + 1, memo);
+                    }
+                } else {
+                    let avg = ((low + high) as f64 / 2.0).round() as i64;
+                    if avg <= 0 { continue; }
+                    let next = apply_state_delta(state, variant, avg);
+                    total += p * compute_probability(ctx, &next, event_idx + 1, memo);
+                }
             }
             total
         }

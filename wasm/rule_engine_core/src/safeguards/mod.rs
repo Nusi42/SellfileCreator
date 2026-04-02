@@ -2286,6 +2286,28 @@ fn safeguard_stat_value_for_variant(artifact: &SafeguardWasmArtifactIn, variant:
     0.0
 }
 
+// Average glyph enchantment value for a given gear rank and substat variant.
+// Returns 0.0 for non-glyphable variants (CR, CDMG) or invalid inputs.
+// Source data: shared/domain-constants.json → GLYPH_RANGES_BY_RANK (SSOT).
+// Mirrors TS getGlyphAverageForVariant in substatRollNormalization.ts.
+pub(super) fn glyph_average_for_variant(rank: i64, variant: i64) -> f64 {
+    // CR and CDMG cannot receive glyphs.
+    if variant == STAT_VARIANT_CR || variant == STAT_VARIANT_CDMG {
+        return 0.0;
+    }
+    let clamped_rank = rank.clamp(1, 6);
+    // Look up (variant, min, max) triple from the generated dispatch table.
+    if let Some(entry) = GLYPH_RANGES_BY_RANK
+        .iter()
+        .find(|&&(r, _)| r == clamped_rank)
+        .and_then(|&(_, triples)| triples.iter().find(|&&(v, _, _)| v == variant))
+    {
+        let (_, mn, mx) = *entry;
+        return (mn as f64 + mx as f64) / 2.0;
+    }
+    0.0
+}
+
 // pub(super) so improvement_chance can use current-level scores for debug/internal purposes.
 pub(super) fn safeguard_compute_score(
     artifact: &SafeguardWasmArtifactIn,
@@ -2293,6 +2315,7 @@ pub(super) fn safeguard_compute_score(
     weights: &HashMap<i64, f64>,
 ) -> f64 {
     // Weighted normalized sum mirrors safeguards.ts scoring semantics.
+    // Includes glyph potential for present substats.
     let mut total = 0.0;
     for variant in selected_substats {
         // Read raw value for this variant from artifact substats.
@@ -2302,6 +2325,13 @@ pub(super) fn safeguard_compute_score(
         // Resolve weight (default when not explicitly configured).
         let weight = safeguard_weight_for_variant(weights, *variant);
         total += weight * normalized;
+        // Add glyph potential for present substats — mirrors TS scoring (SSOT).
+        if raw > 0.0 {
+            let glyph_avg = glyph_average_for_variant(artifact.rank, *variant);
+            if glyph_avg > 0.0 {
+                total += weight * safeguard_normalize_substat_value(*variant, glyph_avg);
+            }
+        }
     }
     // Defensive guard: never return NaN/Infinity to sort comparator.
     if total.is_finite() {

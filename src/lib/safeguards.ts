@@ -1,6 +1,6 @@
 import { isAccessorySlot } from './gearInspectorDomain'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from './gearInspectorSort'
-import { normalizeSubstatByMax6 } from './substatRollNormalization'
+import { normalizeSubstatByMax6, getGlyphAverageForVariant } from './substatRollNormalization'
 import { retainAllowedSubstats } from './statCompatibility'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import type {
@@ -890,18 +890,29 @@ const getArtifactSubstatValue = (artifact: NormalizedGearArtifact, variant: numb
 }
 
 // Compute safeguard ranking score using weighted normalized selected substats.
+// Includes glyph potential: for each present glyphable substat, the average glyph
+// enchantment value for the artifact's rank is added to the score. This accounts for
+// higher-rank gear having access to stronger glyphs even if raw substats are lower.
 // Exported so safeguardImprovementChance.ts shares one definition (SSOT).
 export const computeSafeguardScoreFromArtifact = (
   artifact: NormalizedGearArtifact,
   selectedSubstats: readonly number[],
   weights: ReadonlyMap<number, number>,
 ): number => {
+  const rank = Number(artifact.rank)
   let total = 0
   for (const variant of selectedSubstats) {
     const raw = getArtifactSubstatValue(artifact, variant)
     const normalized = normalizeSubstatByMax6(variant as StatVariant, raw)
     const weight = Number(weights.get(variant) ?? 1)
     total += weight * normalized
+    // Add glyph potential for present substats (0 for non-glyphable or missing).
+    if (raw > 0) {
+      const glyphAvg = getGlyphAverageForVariant(rank, variant)
+      if (glyphAvg > 0) {
+        total += weight * normalizeSubstatByMax6(variant as StatVariant, glyphAvg)
+      }
+    }
   }
   return Number.isFinite(total) ? total : 0
 }

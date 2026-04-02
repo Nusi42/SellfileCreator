@@ -456,6 +456,8 @@ const statVariantLabelsSpec = spec.statVariantLabels
 const allowedMainsBySlotSpec = spec.allowedMainsBySlot
 const allowedSubsBySlotSpec = spec.allowedSubsBySlot
 const substatMinimaByStar = spec.substatMinimaByStar
+const substatRollRangesByStar = spec.substatRollRangesByStar
+const glyphRangesByRank = spec.glyphRangesByRank
 
 // Build sorted-by-id faction array for both emitters.
 const factionEntries = Object.entries(factionSpec)
@@ -561,6 +563,49 @@ tsLines.push(
   `export const SUBSTAT_MINIMA_BY_STAR: Record<number, Record<number, number>> = { ${substatMinimaBody} }`
 )
 
+// ── TS: substatRollRangesByStar ──────────────────────────────────────────
+// Per-roll min/max ranges for upgrade chance two-value branching (separate from builder minima).
+const substatRollRangesStarEntries = Object.entries(substatRollRangesByStar)
+  .map(([starStr, statMap]) => ({
+    star: Number(starStr),
+    pairs: Object.entries(statMap)
+      .map(([token, range]) => ({ variant: Number(statVariant[token]), min: Number(range[0]), max: Number(range[1]) }))
+      .sort((a, b) => a.variant - b.variant),
+  }))
+  .sort((a, b) => a.star - b.star)
+tsLines.push('')
+tsLines.push('// Per-roll substat [min, max] range keyed by star (1..6) then stat variant.')
+tsLines.push('// Community-sourced; 6-star high confidence, lower stars are estimates.')
+const substatRollRangesBody = substatRollRangesStarEntries
+  .map(({ star, pairs }) =>
+    `${star}: { ${pairs.map(({ variant, min, max }) => `${variant}: [${min}, ${max}]`).join(', ')} }`
+  )
+  .join(', ')
+tsLines.push(
+  `export const SUBSTAT_ROLL_RANGES_BY_STAR: Record<number, Record<number, readonly [number, number]>> = { ${substatRollRangesBody} }`
+)
+
+// ── TS: glyphRangesByRank ───────────────────────────────────────────────
+// Glyph enchantment [min, max] by gear rank. CR/CDMG are non-glyphable and absent.
+const glyphRangesRankEntries = Object.entries(glyphRangesByRank)
+  .map(([rankStr, statMap]) => ({
+    rank: Number(rankStr),
+    pairs: Object.entries(statMap)
+      .map(([token, range]) => ({ variant: Number(statVariant[token]), min: Number(range[0]), max: Number(range[1]) }))
+      .sort((a, b) => a.variant - b.variant),
+  }))
+  .sort((a, b) => a.rank - b.rank)
+tsLines.push('')
+tsLines.push('// Glyph enchantment [min, max] by gear rank then stat variant. CR/CDMG are non-glyphable and absent.')
+const glyphRangesBody = glyphRangesRankEntries
+  .map(({ rank, pairs }) =>
+    `${rank}: { ${pairs.map(({ variant, min, max }) => `${variant}: [${min}, ${max}]`).join(', ')} }`
+  )
+  .join(', ')
+tsLines.push(
+  `export const GLYPH_RANGES_BY_RANK: Record<number, Record<number, readonly [number, number]>> = { ${glyphRangesBody} }`
+)
+
 // ── Rust: faction individual constants ───────────────────────────────────
 rustLines.push('')
 rustLines.push('// Faction IDs — one constant per faction.')
@@ -652,6 +697,39 @@ const substatMinimaDispatchRust = substatMinimaStarEntries
   .join(', ')
 rustLines.push(
   `pub const SUBSTAT_MINIMA_BY_STAR: &[(i64, &[(i64, i64)])] = &[${substatMinimaDispatchRust}];`
+)
+
+// ── Rust: SUBSTAT_ROLL_RANGES per star + dispatch array ──────────────────
+rustLines.push('')
+rustLines.push('// Per-roll substat (min, max) range per star tier.')
+rustLines.push('// Community-sourced; 6-star high confidence, lower stars are estimates.')
+for (const { star, pairs } of substatRollRangesStarEntries) {
+  const pairsRust = pairs.map(({ variant, min, max }) => `(${variant}, ${min}, ${max})`).join(', ')
+  rustLines.push(
+    `pub const SUBSTAT_ROLL_RANGES_${star}STAR: &[(i64, i64, i64)] = &[${pairsRust}];`
+  )
+}
+const substatRollRangesDispatchRust = substatRollRangesStarEntries
+  .map(({ star }) => `(${star}, SUBSTAT_ROLL_RANGES_${star}STAR)`)
+  .join(', ')
+rustLines.push(
+  `pub const SUBSTAT_ROLL_RANGES_BY_STAR: &[(i64, &[(i64, i64, i64)])] = &[${substatRollRangesDispatchRust}];`
+)
+
+// ── Rust: GLYPH_RANGES per rank + dispatch array ────────────────────────
+rustLines.push('')
+rustLines.push('// Glyph enchantment (variant, min, max) per gear rank. CR/CDMG are non-glyphable and absent.')
+for (const { rank, pairs } of glyphRangesRankEntries) {
+  const pairsRust = pairs.map(({ variant, min, max }) => `(${variant}, ${min}, ${max})`).join(', ')
+  rustLines.push(
+    `pub const GLYPH_RANGES_R${rank}: &[(i64, i64, i64)] = &[${pairsRust}];`
+  )
+}
+const glyphRangesDispatchRust = glyphRangesRankEntries
+  .map(({ rank }) => `(${rank}, GLYPH_RANGES_R${rank})`)
+  .join(', ')
+rustLines.push(
+  `pub const GLYPH_RANGES_BY_RANK: &[(i64, &[(i64, i64, i64)])] = &[${glyphRangesDispatchRust}];`
 )
 
 // Ensure target directories exist before writing generated outputs.

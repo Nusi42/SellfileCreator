@@ -106,7 +106,7 @@ Notes:
   "improvementChances": [
     {
       "artifactId":    1001,   // echoes NativeInput artifact ID
-      "chancePercent": 72.4    // improvement chance: probability of still ranking in the top-N after leveling to +16 (0.0–100.0)
+      "chancePercent": 72.4    // improvement chance: probability of still ranking in the top-N after leveling to +16, accounting for roll variance and glyph potential (0.0–100.0)
       // additional fields may be present; treat unknown keys as informational
     }
   ]

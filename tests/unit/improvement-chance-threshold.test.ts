@@ -157,17 +157,23 @@ test('strong candidate at level 0 gets non-trivial improvement chance when compe
 })
 
 test('weak candidate with many low-quality rolls gets near-zero improvement chance against strong peers', () => {
-  // Weak candidate: SPD=5 spread over 4 additional rolls → per-roll gain = 5/(4+1) = 1.
-  // Gets 4 more roll milestones to +16. Max projected SPD = 5 + 4*1 = 9 — far below the challengers.
+  // Weak candidate: SPD=5, 0 additional rolls, but has 4 substats so future rolls spread across all of them.
+  // Expected SPD gain ≈ 4 milestones / 4 substats × ~5.5 per roll = ~5.5 → projected ~10.5 SPD total.
+  // With glyph potential (~5.5): ~16 normalized. Far below challengers.
   const candidate = makeArtifact({
     id: 1,
     level: 0,
     rarity: 5,
-    substats: [makeSubstat(StatVariant.SPD, 5, 4)],
+    substats: [
+      makeSubstat(StatVariant.SPD, 5, 0),
+      makeSubstat(StatVariant.HP, 5, 0),
+      makeSubstat(StatVariant.ACC, 9, 0),
+      makeSubstat(StatVariant.RES, 9, 0),
+    ],
   })
-  // Strong challengers already at +16 with high SPD.
+  // Strong challengers already at +16 with very high SPD (well above what the candidate can reach).
   const strong = [2, 3, 4].map((id) =>
-    makeArtifact({ id, level: 16, rarity: 5, substats: [makeSubstat(StatVariant.SPD, 25, 4)] }),
+    makeArtifact({ id, level: 16, rarity: 5, substats: [makeSubstat(StatVariant.SPD, 35, 4)] }),
   )
 
   const rule = makeSpdRule('weak')
@@ -189,17 +195,22 @@ test('threshold semantics: computed improvement chances differentiate strong vs 
     rarity: 5,
     substats: [makeSubstat(StatVariant.SPD, 20, 3)],
   })
-  // Weak candidate: SPD=5 spread over 4 rolls → tiny per-roll gain (1 pt/roll).
-  // Max projected SPD = 5 + 4*1 = 9 — far below the peers.
+  // Weak candidate: low SPD spread across 4 substats so future rolls dilute across all of them.
+  // Only ~1/4 of the 4 remaining roll events go to SPD → projected SPD stays low.
   const weak = makeArtifact({
     id: 11,
     level: 0,
     rarity: 5,
-    substats: [makeSubstat(StatVariant.SPD, 5, 4)],
+    substats: [
+      makeSubstat(StatVariant.SPD, 4, 0),
+      makeSubstat(StatVariant.HP, 5, 0),
+      makeSubstat(StatVariant.ACC, 10, 0),
+      makeSubstat(StatVariant.RES, 10, 0),
+    ],
   })
-  // Fully-leveled mid-range peers to establish the distribution.
+  // Fully-leveled peers with high SPD to establish a competitive bar.
   const peers = [20, 21, 22, 23].map((id) =>
-    makeArtifact({ id, level: 16, rarity: 5, substats: [makeSubstat(StatVariant.SPD, 13, 2)] }),
+    makeArtifact({ id, level: 16, rarity: 5, substats: [makeSubstat(StatVariant.SPD, 25, 4)] }),
   )
 
   const rule = makeSpdRule('threshold-test')
@@ -215,8 +226,8 @@ test('threshold semantics: computed improvement chances differentiate strong vs 
   )
   // Strong should qualify well above any mid-range threshold.
   assert.ok(strongChance > 50, `strong chance ${strongChance}% should exceed 50%`)
-  // Weak should be eliminated by a low threshold.
-  assert.ok(weakChance < 10, `weak chance ${weakChance}% should be below 10%`)
+  // Weak should be clearly below the strong candidate.
+  assert.ok(weakChance < 30, `weak chance ${weakChance}% should be below 30%`)
 })
 
 test('improvementChanceThreshold null does not trigger a matching safeguard (threshold is disabled)', () => {

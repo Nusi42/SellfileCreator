@@ -16,9 +16,12 @@ import {
 } from './safeguards'
 import { substatMatchesMainVariant } from './statCompatibility'
 import { isAccessorySlot } from './gearInspectorDomain'
-import { SUBSTAT_ROLL_MAX_6_BY_VARIANT, normalizeSubstatByMax6 } from './substatRollNormalization'
+import { SUBSTAT_ROLL_MAX_6_BY_VARIANT, normalizeSubstatByMax6, getGlyphAverageForVariant } from './substatRollNormalization'
 import { ALLOWED_SUB_BY_SLOT, StatVariant } from './types'
-import { SUBSTAT_SLOT_COUNT as GENERATED_SUBSTAT_SLOT_COUNT } from './generated/domainConstants'
+import {
+  SUBSTAT_SLOT_COUNT as GENERATED_SUBSTAT_SLOT_COUNT,
+  SUBSTAT_ROLL_RANGES_BY_STAR,
+} from './generated/domainConstants'
 
 // Parse a numeric min-count substat match token ("1"–"4") into an integer threshold.
 // Defaults to 1 for unknown or missing tokens (equivalent to the old "any" semantics).
@@ -42,6 +45,9 @@ const ADDITION_LEVELS_BY_RARITY: Record<number, readonly number[]> = {
   5: [],
   6: [],
 }
+// Two-value branching only kicks in at milestones above this level.
+// Early milestones (+4, +8) use a single average gain to reduce branching factor.
+const TWO_VALUE_BRANCHING_MIN_MILESTONE = 12
 // Rust safeguard ranking treats tiny score deltas as ties.
 const SAFEGUARD_SCORE_TIE_EPSILON = 1e-9
 // State values are scaled so recursion keys stay deterministic.
@@ -108,6 +114,10 @@ type StaticCandidate = {
   mainStat: number
 }
 
+// Two-value roll branching: each roll event splits into a low (Q1) and high (Q3) outcome,
+// each with 50% probability. This models roll variance instead of using a single average.
+type RollGainPair = { low: number; high: number }
+
 type UpgradeRecursionContext = {
   // Target artifact is needed for count key + tie-break metadata.
   artifact: NormalizedGearArtifact
@@ -119,9 +129,9 @@ type UpgradeRecursionContext = {
   additionMilestones: ReadonlySet<number>
   // Legal additions depend on slot/main constraints.
   legalAdditionPool: readonly number[]
-  // Existing variants may use observed roll quality while unknown variants use fallback.
-  expectedGainByVariantScaled: ReadonlyMap<number, number>
-  fallbackGainByVariantScaled: ReadonlyMap<number, number>
+  // Two-value gains: low (Q1) and high (Q3) for each variant, modelling roll variance.
+  expectedGainByVariantScaled: ReadonlyMap<number, RollGainPair>
+  fallbackGainByVariantScaled: ReadonlyMap<number, RollGainPair>
 }
 
 type ArtifactScenarioViabilityContext = {
@@ -501,10 +511,12 @@ const stateMatchesScenarioSubstats = (
 }
 
 // Score +16 projected state with the same weighted normalized safeguard formula.
+// Includes glyph potential for present substats, matching computeSafeguardScoreFromArtifact symmetry.
 const computeSafeguardScoreFromState = (
   state: ReadonlyMap<number, number>,
   selectedSubstats: readonly number[],
   weights: ReadonlyMap<number, number>,
+  rank: number,
 ): number => {
   let total = 0
   for (const variant of selectedSubstats) {
@@ -512,6 +524,13 @@ const computeSafeguardScoreFromState = (
     const normalized = normalizeSubstatByMax6(variant as StatVariant, raw)
     const weight = Number(weights.get(variant) ?? 1)
     total += weight * normalized
+    // Add glyph potential for present substats — mirrors artifact scoring (SSOT).
+    if (raw > 0) {
+      const glyphAvg = getGlyphAverageForVariant(rank, variant)
+      if (glyphAvg > 0) {
+        total += weight * normalizeSubstatByMax6(variant as StatVariant, glyphAvg)
+      }
+    }
   }
   return Number.isFinite(total) ? total : 0
 }
@@ -523,59 +542,94 @@ const resolveUnknownRankScale = (rank: number): number => {
   return UNKNOWN_ROLL_MIN_RANK_SCALE + ((1 - UNKNOWN_ROLL_MIN_RANK_SCALE) * ratio)
 }
 
-// Build fallback expected roll gains (scaled) for variants not currently present.
-const buildFallbackExpectedGainByVariantScaled = (rank: number): ReadonlyMap<number, number> => {
+// Resolve per-rank roll range for one variant. Returns { min, max } in raw stat units.
+// Uses SUBSTAT_ROLL_RANGES_BY_STAR; falls back to { max6*scale, max6*scale }
+// when per-star data is unavailable (preserves legacy behavior as a safety net).
+const resolveRollRangeForVariant = (rank: number, variant: number): { min: number; max: number } => {
+  const clamped = clampRank(rank)
+  const range = SUBSTAT_ROLL_RANGES_BY_STAR[clamped]?.[variant]
+  if (range) {
+    const [minForStar, maxForStar] = range
+    if (minForStar > 0 && maxForStar > 0 && maxForStar >= minForStar) {
+      return { min: minForStar, max: maxForStar }
+    }
+  }
+  // Fallback: use the old average-only heuristic as both Q1 and Q3.
+  const max6 = Number(SUBSTAT_ROLL_MAX_6_BY_VARIANT[variant] ?? 0)
   const scale = resolveUnknownRankScale(rank)
-  const out = new Map<number, number>()
-  for (const [rawVariant, rawMax] of Object.entries(SUBSTAT_ROLL_MAX_6_BY_VARIANT)) {
+  const avg = max6 * UNKNOWN_ROLL_QUALITY_RATIO_AT_RANK_SIX * scale
+  return { min: avg, max: avg }
+}
+
+// Build Q1/Q3 gain pair from a roll range. Q1 = midpoint of lower half, Q3 = midpoint of upper half.
+const buildGainPairScaled = (min: number, max: number): RollGainPair => ({
+  low: Math.max(0, Math.round(((3 * min + max) / 4) * STATE_VALUE_SCALE)),
+  high: Math.max(0, Math.round(((min + 3 * max) / 4) * STATE_VALUE_SCALE)),
+})
+
+// Build fallback Q1/Q3 roll gains (scaled) for variants not currently present on the artifact.
+const buildFallbackExpectedGainByVariantScaled = (rank: number): ReadonlyMap<number, RollGainPair> => {
+  const out = new Map<number, RollGainPair>()
+  for (const rawVariant of Object.keys(SUBSTAT_ROLL_MAX_6_BY_VARIANT)) {
     const variant = Number(rawVariant)
-    const max6 = Number(rawMax)
-    if (!Number.isFinite(variant) || !Number.isFinite(max6) || max6 <= 0) continue
-    const modeled = max6 * UNKNOWN_ROLL_QUALITY_RATIO_AT_RANK_SIX * scale
-    out.set(variant, Math.max(0, Math.round(modeled * STATE_VALUE_SCALE)))
+    if (!Number.isFinite(variant)) continue
+    const range = resolveRollRangeForVariant(rank, variant)
+    if (range.min <= 0 && range.max <= 0) continue
+    out.set(variant, buildGainPairScaled(range.min, range.max))
   }
   return out
 }
 
-// Build per-variant expected gains from observed roll quality on existing substats.
+// Build per-variant Q1/Q3 gains from observed roll quality on existing substats.
+// Observed per-roll quality centers the Q1/Q3 around the actual quality while spreading
+// by the known min/max range for this rank, giving a variance-aware estimate.
 const buildExistingExpectedGainByVariantScaled = (
   artifact: NormalizedGearArtifact,
-  fallbackGainByVariantScaled: ReadonlyMap<number, number>,
-): ReadonlyMap<number, number> => {
-  const out = new Map<number, number>()
+  fallbackGainByVariantScaled: ReadonlyMap<number, RollGainPair>,
+): ReadonlyMap<number, RollGainPair> => {
+  const rank = clampRank(Number(artifact.rank))
+  const out = new Map<number, RollGainPair>()
   for (const substat of artifact.substats ?? []) {
     const variant = Number(substat.variant)
-    const max6 = Number(SUBSTAT_ROLL_MAX_6_BY_VARIANT[variant])
     if (!Number.isFinite(variant) || variant <= 0) continue
+    const max6 = Number(SUBSTAT_ROLL_MAX_6_BY_VARIANT[variant])
     if (!Number.isFinite(max6) || max6 <= 0) continue
     const totalValue = Number(substat.totalValue)
     const rawRolls = Number(substat.rolls ?? 0)
     const rolls = Number.isFinite(rawRolls) && rawRolls >= 0 ? Math.floor(rawRolls) : 0
     const divisor = Math.max(1, rolls + 1)
-    const modeled = Number.isFinite(totalValue) && totalValue > 0
+    const observedPerRoll = Number.isFinite(totalValue) && totalValue > 0
       ? Math.min(max6, totalValue / divisor)
       : 0
-    if (modeled > 0) {
-      out.set(variant, Math.round(modeled * STATE_VALUE_SCALE))
+    if (observedPerRoll > 0) {
+      // Use the per-star roll range to spread Q1/Q3 around the observed quality.
+      const range = resolveRollRangeForVariant(rank, variant)
+      // Clamp the observed value within the known range for a realistic spread.
+      const effectiveMin = Math.min(observedPerRoll, range.min)
+      const effectiveMax = Math.max(observedPerRoll, range.max)
+      out.set(variant, buildGainPairScaled(effectiveMin, effectiveMax))
       continue
     }
-    const fallback = Number(fallbackGainByVariantScaled.get(variant) ?? 0)
-    if (fallback > 0) out.set(variant, fallback)
+    const fallback = fallbackGainByVariantScaled.get(variant)
+    if (fallback && (fallback.low > 0 || fallback.high > 0)) out.set(variant, fallback)
   }
   return out
 }
 
-// Read expected gain for one variant (existing-observed first, fallback otherwise).
+// Sentinel for missing/invalid gain pairs — avoids allocating a new object per miss.
+const ZERO_GAIN_PAIR: RollGainPair = { low: 0, high: 0 }
+
+// Read expected gain pair for one variant (existing-observed first, fallback otherwise).
 const resolveExpectedGainScaledForVariant = (
   variant: number,
-  expectedGainByVariantScaled: ReadonlyMap<number, number>,
-  fallbackGainByVariantScaled: ReadonlyMap<number, number>,
-): number => {
-  const direct = Number(expectedGainByVariantScaled.get(variant) ?? 0)
-  if (direct > 0) return direct
-  const fallback = Number(fallbackGainByVariantScaled.get(variant) ?? 0)
-  if (fallback > 0) return fallback
-  return 0
+  expectedGainByVariantScaled: ReadonlyMap<number, RollGainPair>,
+  fallbackGainByVariantScaled: ReadonlyMap<number, RollGainPair>,
+): RollGainPair => {
+  const direct = expectedGainByVariantScaled.get(variant)
+  if (direct && (direct.low > 0 || direct.high > 0)) return direct
+  const fallback = fallbackGainByVariantScaled.get(variant)
+  if (fallback && (fallback.low > 0 || fallback.high > 0)) return fallback
+  return ZERO_GAIN_PAIR
 }
 
 // Stable recursion key keeps memoization deterministic across branches.
@@ -595,7 +649,7 @@ const isStateSelectedByAnyScenario = (
   for (const scenario of context.scenarios) {
     if (!scenario.applicableArtifactIds.has(context.artifactId)) continue
     if (!stateMatchesScenarioSubstats(state, scenario.selectedSubstats, scenario.substatMatch)) continue
-    const score = computeSafeguardScoreFromState(state, scenario.selectedSubstats, scenario.weights)
+    const score = computeSafeguardScoreFromState(state, scenario.selectedSubstats, scenario.weights, candidateRank)
     if (!(score > 0)) continue
     const countKey = getSafeguardCountKey(context.artifact, scenario.countMode)
     const challengers = scenario.challengersByCountKey.get(countKey) ?? []
@@ -650,16 +704,33 @@ const computeSelectionProbabilityToLevel16 = (
         return computeSelectionProbabilityToLevel16(context, state, eventIndex + 1, memo)
       }
       const p = 1 / candidates.length
+      // Early milestones use a single average gain; later ones branch into Q1/Q3.
+      const useTwoValue = milestone >= TWO_VALUE_BRANCHING_MIN_MILESTONE
       let total = 0
       for (const variant of candidates) {
-        const deltaScaled = resolveExpectedGainScaledForVariant(
+        const gainPair = resolveExpectedGainScaledForVariant(
           variant,
           context.expectedGainByVariantScaled,
           context.fallbackGainByVariantScaled,
         )
-        if (deltaScaled <= 0) continue
-        const next = applyStateDelta(state, variant, deltaScaled)
-        total += p * computeSelectionProbabilityToLevel16(context, next, eventIndex + 1, memo)
+        if (gainPair.low <= 0 && gainPair.high <= 0) continue
+        if (useTwoValue && gainPair.low !== gainPair.high) {
+          // Two-value branching: Q1 (low) and Q3 (high) outcomes, each 50% probability.
+          if (gainPair.low > 0) {
+            const nextLow = applyStateDelta(state, variant, gainPair.low)
+            total += p * 0.5 * computeSelectionProbabilityToLevel16(context, nextLow, eventIndex + 1, memo)
+          }
+          if (gainPair.high > 0) {
+            const nextHigh = applyStateDelta(state, variant, gainPair.high)
+            total += p * 0.5 * computeSelectionProbabilityToLevel16(context, nextHigh, eventIndex + 1, memo)
+          }
+        } else {
+          // Single average gain: (low + high) / 2.
+          const avg = Math.round((gainPair.low + gainPair.high) / 2)
+          if (avg <= 0) continue
+          const next = applyStateDelta(state, variant, avg)
+          total += p * computeSelectionProbabilityToLevel16(context, next, eventIndex + 1, memo)
+        }
       }
       return total
     }
@@ -669,16 +740,31 @@ const computeSelectionProbabilityToLevel16 = (
       return computeSelectionProbabilityToLevel16(context, state, eventIndex + 1, memo)
     }
     const p = 1 / variants.length
+    // Early milestones use a single average gain; later ones branch into Q1/Q3.
+    const useTwoValue = milestone >= TWO_VALUE_BRANCHING_MIN_MILESTONE
     let total = 0
     for (const variant of variants) {
-      const deltaScaled = resolveExpectedGainScaledForVariant(
+      const gainPair = resolveExpectedGainScaledForVariant(
         variant,
         context.expectedGainByVariantScaled,
         context.fallbackGainByVariantScaled,
       )
-      if (deltaScaled <= 0) continue
-      const next = applyStateDelta(state, variant, deltaScaled)
-      total += p * computeSelectionProbabilityToLevel16(context, next, eventIndex + 1, memo)
+      if (gainPair.low <= 0 && gainPair.high <= 0) continue
+      if (useTwoValue && gainPair.low !== gainPair.high) {
+        if (gainPair.low > 0) {
+          const nextLow = applyStateDelta(state, variant, gainPair.low)
+          total += p * 0.5 * computeSelectionProbabilityToLevel16(context, nextLow, eventIndex + 1, memo)
+        }
+        if (gainPair.high > 0) {
+          const nextHigh = applyStateDelta(state, variant, gainPair.high)
+          total += p * 0.5 * computeSelectionProbabilityToLevel16(context, nextHigh, eventIndex + 1, memo)
+        }
+      } else {
+        const avg = Math.round((gainPair.low + gainPair.high) / 2)
+        if (avg <= 0) continue
+        const next = applyStateDelta(state, variant, avg)
+        total += p * computeSelectionProbabilityToLevel16(context, next, eventIndex + 1, memo)
+      }
     }
     return total
   })()
@@ -706,8 +792,8 @@ const computeArtifactImprovementChancePercent = (
       milestones: [],
       additionMilestones: new Set<number>(),
       legalAdditionPool: [],
-      expectedGainByVariantScaled: new Map<number, number>(),
-      fallbackGainByVariantScaled: new Map<number, number>(),
+      expectedGainByVariantScaled: new Map<number, RollGainPair>(),
+      fallbackGainByVariantScaled: new Map<number, RollGainPair>(),
     })
       ? 100
       : 0

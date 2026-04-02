@@ -197,3 +197,22 @@ pub const SUBSTAT_MINIMA_4STAR: &[(i64, i64)] = &[(256, 3), (257, 120), (512, 3)
 pub const SUBSTAT_MINIMA_5STAR: &[(i64, i64)] = &[(256, 4), (257, 136), (512, 4), (513, 12), (768, 4), (769, 12), (1025, 4), (1281, 8), (1537, 8), (1792, 4), (2048, 4)];
 pub const SUBSTAT_MINIMA_6STAR: &[(i64, i64)] = &[(256, 5), (257, 200), (512, 5), (513, 15), (768, 5), (769, 15), (1025, 5), (1281, 9), (1537, 9), (1792, 5), (2048, 5)];
 pub const SUBSTAT_MINIMA_BY_STAR: &[(i64, &[(i64, i64)])] = &[(1, SUBSTAT_MINIMA_1STAR), (2, SUBSTAT_MINIMA_2STAR), (3, SUBSTAT_MINIMA_3STAR), (4, SUBSTAT_MINIMA_4STAR), (5, SUBSTAT_MINIMA_5STAR), (6, SUBSTAT_MINIMA_6STAR)];
+
+// Per-roll substat (min, max) range per star tier.
+// Community-sourced; 6-star high confidence, lower stars are estimates.
+pub const SUBSTAT_ROLL_RANGES_1STAR: &[(i64, i64, i64)] = &[(256, 1, 2), (257, 30, 60), (512, 1, 2), (513, 3, 6), (768, 1, 2), (769, 3, 6), (1025, 1, 2), (1281, 3, 7), (1537, 3, 7), (1792, 1, 2), (2048, 1, 3)];
+pub const SUBSTAT_ROLL_RANGES_2STAR: &[(i64, i64, i64)] = &[(256, 1, 2), (257, 55, 110), (512, 1, 2), (513, 5, 11), (768, 1, 2), (769, 5, 11), (1025, 1, 2), (1281, 4, 10), (1537, 4, 10), (1792, 1, 2), (2048, 2, 3)];
+pub const SUBSTAT_ROLL_RANGES_3STAR: &[(i64, i64, i64)] = &[(256, 2, 3), (257, 100, 190), (512, 2, 3), (513, 9, 18), (768, 2, 3), (769, 9, 18), (1025, 2, 3), (1281, 6, 14), (1537, 6, 14), (1792, 2, 3), (2048, 2, 4)];
+pub const SUBSTAT_ROLL_RANGES_4STAR: &[(i64, i64, i64)] = &[(256, 3, 5), (257, 170, 325), (512, 3, 5), (513, 14, 28), (768, 3, 5), (769, 14, 28), (1025, 2, 5), (1281, 8, 18), (1537, 8, 18), (1792, 2, 4), (2048, 3, 6)];
+pub const SUBSTAT_ROLL_RANGES_5STAR: &[(i64, i64, i64)] = &[(256, 4, 6), (257, 250, 475), (512, 4, 6), (513, 20, 40), (768, 4, 6), (769, 20, 40), (1025, 3, 5), (1281, 10, 22), (1537, 10, 22), (1792, 3, 5), (2048, 4, 7)];
+pub const SUBSTAT_ROLL_RANGES_6STAR: &[(i64, i64, i64)] = &[(256, 5, 8), (257, 350, 680), (512, 5, 8), (513, 29, 58), (768, 5, 8), (769, 29, 58), (1025, 4, 6), (1281, 13, 28), (1537, 13, 28), (1792, 4, 6), (2048, 5, 8)];
+pub const SUBSTAT_ROLL_RANGES_BY_STAR: &[(i64, &[(i64, i64, i64)])] = &[(1, SUBSTAT_ROLL_RANGES_1STAR), (2, SUBSTAT_ROLL_RANGES_2STAR), (3, SUBSTAT_ROLL_RANGES_3STAR), (4, SUBSTAT_ROLL_RANGES_4STAR), (5, SUBSTAT_ROLL_RANGES_5STAR), (6, SUBSTAT_ROLL_RANGES_6STAR)];
+
+// Glyph enchantment (variant, min, max) per gear rank. CR/CDMG are non-glyphable and absent.
+pub const GLYPH_RANGES_R1: &[(i64, i64, i64)] = &[(256, 1, 2), (257, 75, 100), (512, 1, 2), (513, 4, 5), (768, 1, 2), (769, 4, 5), (1025, 1, 1), (1281, 1, 2), (1537, 1, 2)];
+pub const GLYPH_RANGES_R2: &[(i64, i64, i64)] = &[(256, 1, 3), (257, 75, 190), (512, 1, 3), (513, 4, 10), (768, 1, 3), (769, 4, 10), (1025, 1, 2), (1281, 2, 4), (1537, 2, 4)];
+pub const GLYPH_RANGES_R3: &[(i64, i64, i64)] = &[(256, 2, 4), (257, 110, 280), (512, 2, 4), (513, 6, 15), (768, 2, 4), (769, 6, 15), (1025, 1, 3), (1281, 3, 6), (1537, 3, 6)];
+pub const GLYPH_RANGES_R4: &[(i64, i64, i64)] = &[(256, 2, 5), (257, 150, 375), (512, 2, 5), (513, 8, 20), (768, 2, 5), (769, 8, 20), (1025, 1, 4), (1281, 4, 8), (1537, 4, 8)];
+pub const GLYPH_RANGES_R5: &[(i64, i64, i64)] = &[(256, 3, 6), (257, 190, 560), (512, 3, 6), (513, 10, 30), (768, 3, 6), (769, 10, 30), (1025, 2, 6), (1281, 6, 12), (1537, 6, 12)];
+pub const GLYPH_RANGES_R6: &[(i64, i64, i64)] = &[(256, 4, 8), (257, 260, 750), (512, 4, 8), (513, 14, 40), (768, 4, 8), (769, 14, 40), (1025, 3, 8), (1281, 8, 16), (1537, 8, 16)];
+pub const GLYPH_RANGES_BY_RANK: &[(i64, &[(i64, i64, i64)])] = &[(1, GLYPH_RANGES_R1), (2, GLYPH_RANGES_R2), (3, GLYPH_RANGES_R3), (4, GLYPH_RANGES_R4), (5, GLYPH_RANGES_R5), (6, GLYPH_RANGES_R6)];
