@@ -5,7 +5,7 @@
  * Verifies that improvementChanceThreshold gates candidates based on their computed
  * improvement-chance probability (likelihood of surviving in the bucket once fully leveled).
  *
- * Pure-TS tests use buildSafeguardImprovementChanceByArtifactId directly (no WASM needed).
+ * Tests delegate to the WASM recursion engine (SSOT) via buildSafeguardImprovementChanceByArtifactId.
  * The monotonicity invariant is derived: items whose chance < threshold are excluded,
  * so a stricter threshold can only reduce or preserve the protection count, never increase it.
  */
@@ -18,9 +18,22 @@ import {
   SAFEGUARD_DEFAULT_COUNT_MODE,
   SafeguardRuleActivation,
   SafeguardSubstatMatch,
+  storeArtifactRows,
+  toWasmArtifactStoreRow,
   type SafeguardRule,
 } from '../../src/lib/safeguards.js'
 import { ArtifactSet, ArtifactType, StatId, StatVariant, type LevelMilestone, type RankValue } from '../../src/lib/types.js'
+import { configureWasmRuleEngineWithLoadedWasm } from '../../src/lib/wasm/wasmRuleEngine.js'
+
+// Test helper: configures WASM, stores artifacts, then computes improvement chance.
+const computeChance = (
+  artifacts: readonly NormalizedGearArtifact[],
+  rules: readonly SafeguardRule[],
+) => {
+  configureWasmRuleEngineWithLoadedWasm({ rules: [], recipeModes: [] })
+  storeArtifactRows(artifacts.map(toWasmArtifactStoreRow))
+  return buildSafeguardImprovementChanceByArtifactId(rules)
+}
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -146,7 +159,7 @@ test('strong candidate at level 0 gets non-trivial improvement chance when compe
   )
 
   const rule = makeSpdRule('strong')
-  const chances = buildSafeguardImprovementChanceByArtifactId([candidate, ...weak], [rule])
+  const chances = computeChance([candidate, ...weak], [rule])
   const entry = chances.get(1)
 
   assert.equal(Boolean(entry?.hasMatchingSafeguard), true, 'candidate should match the rule')
@@ -177,7 +190,7 @@ test('weak candidate with many low-quality rolls gets near-zero improvement chan
   )
 
   const rule = makeSpdRule('weak')
-  const chances = buildSafeguardImprovementChanceByArtifactId([candidate, ...strong], [rule])
+  const chances = computeChance([candidate, ...strong], [rule])
   const entry = chances.get(1)
 
   assert.equal(Boolean(entry?.hasMatchingSafeguard), true, 'candidate should still match the rule')
@@ -214,7 +227,7 @@ test('threshold semantics: computed improvement chances differentiate strong vs 
   )
 
   const rule = makeSpdRule('threshold-test')
-  const chances = buildSafeguardImprovementChanceByArtifactId([strong, weak, ...peers], [rule])
+  const chances = computeChance([strong, weak, ...peers], [rule])
 
   const strongChance = chances.get(10)?.chancePercent ?? 0
   const weakChance   = chances.get(11)?.chancePercent ?? 100
@@ -244,8 +257,8 @@ test('improvementChanceThreshold null does not trigger a matching safeguard (thr
   const ruleWithThreshold    = makeSpdRule('with-threshold', 50)
   const ruleWithoutThreshold = makeSpdRule('without-threshold', null)
 
-  const chancesWithThreshold    = buildSafeguardImprovementChanceByArtifactId([candidate], [ruleWithThreshold])
-  const chancesWithoutThreshold = buildSafeguardImprovementChanceByArtifactId([candidate], [ruleWithoutThreshold])
+  const chancesWithThreshold    = computeChance([candidate], [ruleWithThreshold])
+  const chancesWithoutThreshold = computeChance([candidate], [ruleWithoutThreshold])
 
   // Improvement chance is computed in both cases (overlay display needs it regardless).
   assert.ok(chancesWithThreshold.has(1), 'chance entry should exist when threshold is set')

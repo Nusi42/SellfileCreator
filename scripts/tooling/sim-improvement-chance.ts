@@ -16,6 +16,8 @@ import {
   collectAndComputeSafeguardProtection,
   getSafeguardItemKey,
   getSafeguardCountKey,
+  storeArtifactRows,
+  toWasmArtifactStoreRow,
   type SafeguardRule,
 } from '../../src/lib/safeguards.js'
 import { importGearDatabaseFromArrayBuffer } from '../../src/lib/importers/gearDbImporter.js'
@@ -143,7 +145,8 @@ const run = async (): Promise<void> => {
 
   // Run improvement chance (unpatched = level 16 as-is)
   console.log(`\n--- Improvement chance at current level (${target.exactLevel ?? target.level}) ---`)
-  const unpatched = buildSafeguardImprovementChanceByArtifactId(gear, safeguardRules)
+  storeArtifactRows(gear.map(toWasmArtifactStoreRow))
+  const unpatched = buildSafeguardImprovementChanceByArtifactId(safeguardRules)
   const unpatchedEntry = unpatched.get(TARGET_ARTIFACT_ID)
   console.log(`chancePercent: ${unpatchedEntry?.chancePercent ?? 'N/A'}`)
   console.log(`hasMatchingSafeguard: ${unpatchedEntry?.hasMatchingSafeguard ?? 'N/A'}`)
@@ -155,7 +158,8 @@ const run = async (): Promise<void> => {
 
   // Run improvement chance (patched = level 12, CDMG=12%)
   console.log(`\n--- Improvement chance at level 12, CDMG=${MODIFIED_CDMG_PERCENT}% ---`)
-  const result = buildSafeguardImprovementChanceByArtifactId(patchedGear, safeguardRules)
+  storeArtifactRows(patchedGear.map(toWasmArtifactStoreRow))
+  const result = buildSafeguardImprovementChanceByArtifactId(safeguardRules)
   const entry = result.get(TARGET_ARTIFACT_ID)
   console.log(`chancePercent: ${entry?.chancePercent ?? 'N/A'}`)
   console.log(`hasMatchingSafeguard: ${entry?.hasMatchingSafeguard ?? 'N/A'}`)
