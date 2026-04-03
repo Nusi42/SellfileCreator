@@ -58,13 +58,18 @@ import {
   CHAMPION_ICON_LARGE_SIZE,
   CHAMPION_ICON_LARGE_THRESHOLD,
   CHAMPION_ICON_BORDER_RADIUS_PX,
+  PREVIEW_PAPER_PADDING_UNITS,
 } from '../lib/constants'
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
 import {
   parseSpacingPx,
   GEAR_INSPECTOR_GRID_COLUMN_GAP_UNITS,
   GEAR_INSPECTOR_GRID_ROW_PADDING_UNITS,
+  GEAR_INSPECTOR_GRID_CONTAINER_PADDING_END_UNITS,
+  GEAR_INSPECTOR_CARD_TARGET_WIDTH_PX,
+  GEAR_INSPECTOR_CARD_FALLBACK_COLUMN_COUNT,
 } from '../lib/gearInspectorGridLayout'
+import type { GearInspectorGridColumnMode } from '../state/gearInspectorGridPreferences'
 import type { GearInspectorRuleTemplateIntent } from '../lib/gearInspectorRuleTemplates'
 import { useChangePulse } from '../hooks/useChangePulse'
 
@@ -2295,6 +2300,10 @@ export type GearInspectorGridLayoutMetrics = {
 
 type UseGearInspectorGridLayoutMetricsOptions = {
   preferredColumnCount: number
+  // When provided together, these drive the dynamic column count path for the Gear Inspector grid.
+  // panelWidthPx is the Paper's outer width (including its own padding) as reported by the splitter.
+  cardSizeMode?: GearInspectorGridColumnMode
+  panelWidthPx?: number
   cardStyleColumnCount?: number
   showFirstMatch: boolean
   showOtherMatches: boolean
@@ -2303,21 +2312,44 @@ type UseGearInspectorGridLayoutMetricsOptions = {
 
 export function useGearInspectorGridLayoutMetrics({
   preferredColumnCount,
+  cardSizeMode,
+  panelWidthPx,
   cardStyleColumnCount,
   showFirstMatch,
   showOtherMatches,
   theme,
 }: UseGearInspectorGridLayoutMetricsOptions): GearInspectorGridLayoutMetrics {
-  // Layout metrics re-run only on breakpoint or toggle changes so the cards stay stable across renders.
+  // Layout metrics re-run only on breakpoint or resize events so the cards stay stable across renders.
   const isMultiColumn = useMediaQuery(theme.breakpoints.up('sm'))
-  const gridColumnCount = isMultiColumn ? preferredColumnCount : 1
-  // Card internals can use a separate column profile so keep-override panes match Gear Inspector card styling.
+  const leafPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS)), [theme])
+  const gridColumnCount = useMemo(() => {
+    if (!isMultiColumn) return 1
+    // Dynamic path: derive column count from the splitter-reported panel width.
+    if (cardSizeMode != null && panelWidthPx != null && panelWidthPx > 0) {
+      const targetWidth = GEAR_INSPECTOR_CARD_TARGET_WIDTH_PX[cardSizeMode]
+      // Strip the Paper padding on both sides, the scroll container's inline-end padding, and
+      // the row padding on both sides to arrive at the usable card area.
+      const paperPaddingPx = parseSpacingPx(theme.spacing(PREVIEW_PAPER_PADDING_UNITS))
+      const containerInlineEndPx = parseSpacingPx(theme.spacing(GEAR_INSPECTOR_GRID_CONTAINER_PADDING_END_UNITS))
+      const rowContentWidth = Math.max(0, panelWidthPx - paperPaddingPx * 2 - containerInlineEndPx - leafPaddingPx * 2)
+      return Math.max(1, Math.floor(rowContentWidth / targetWidth))
+    }
+    // Static fallback: panel width not available, use the reference column count for the mode.
+    if (cardSizeMode != null) return GEAR_INSPECTOR_CARD_FALLBACK_COLUMN_COUNT[cardSizeMode]
+    // Keep-override path: preferredColumnCount is 1 or 2, used verbatim.
+    return Math.max(1, preferredColumnCount)
+  }, [isMultiColumn, cardSizeMode, panelWidthPx, leafPaddingPx, preferredColumnCount, theme])
+  // Card internals use a pinned column profile so their layout doesn't shift as the dynamic
+  // column count adjusts with panel width. Priority: explicit cardStyleColumnCount override
+  // (keep-override path) → mode's reference count (gear-inspector path) → gridColumnCount.
   const resolvedCardStyleColumnCount = Number.isFinite(cardStyleColumnCount)
     ? Math.max(1, Math.round(Number(cardStyleColumnCount)))
-    : gridColumnCount
+    : cardSizeMode != null
+      ? GEAR_INSPECTOR_CARD_FALLBACK_COLUMN_COUNT[cardSizeMode]
+      : gridColumnCount
   const accordionSpacingPx = useMemo(() => parseSpacingPx(theme.spacing(ACCORDION_MARGIN_UNITS)), [theme])
   const gridGapPx = useMemo(() => parseSpacingPx(theme.spacing(GRID_GAP)), [theme])
-  const leafPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS)), [theme])
+  // leafPaddingPx is computed above the gridColumnCount memo (needed there for row-content width).
   const cardVerticalPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(CARD_PADDING_UNITS)) * 2, [theme])
   const { firstRowHeightPx: cardFirstRowHeightPx } = useMemo(
     () => getGearInspectorGridCardColumnHeights(theme, resolvedCardStyleColumnCount),

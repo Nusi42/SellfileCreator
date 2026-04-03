@@ -7605,6 +7605,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 gearSelectionEnabled={!!pushExportEndpoint}
                 selectedGearItemIds={selectedGearItemIds}
                 onGearItemsSelect={handleGearItemsSelect}
+                {...(isSideBySide ? { panelWidthPx: splitterRightPx } : {})}
               />
             </Box>
             <Box
