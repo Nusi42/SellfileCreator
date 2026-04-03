@@ -7421,14 +7421,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           copyDialog={builderMode === 'safeguard' ? null : copyDialogElement}
         />
 
-        {/* Draggable splitter handle — interactive only in dev builds, but always rendered
-            in side-by-side so the GRID_COLUMN_GAP_PX space is reserved in production too. */}
+        {/* Draggable splitter handle — always interactive in side-by-side mode. */}
         {isSideBySide && (
           <SideBySideSplitter
             leftWidthPx={splitterLeftPx}
             onResize={setSplitterLeftPx}
             forceSideBySide={forceSideBySideLayout}
-            interactive={import.meta.env.DEV}
+            interactive
           />
         )}
 
