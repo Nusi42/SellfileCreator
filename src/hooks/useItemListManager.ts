@@ -107,7 +107,7 @@ export type UseItemListManagerParams<TItem, TDraft> = {
   requestDeleteMulti?: (indices: number[]) => void
   /**
    * Wrap a mutation fn to suppress history snapshot capture.
-   * Recipe: useSfrHistory's suppressSelectionDraft. Absent for safeguards.
+   * Recipe: useSfcHistory's suppressSelectionDraft. Absent for safeguards.
    */
   suppressSelectionDraft?: <T>(fn: () => T) => T
   /**

@@ -33,9 +33,9 @@ O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper �
 ## Como utilizar
 
 ### Arquivo de receitas
-- SFR (`.sfr`): arquivo de projeto do aplicativo. Pense nele como um “save” que pode carregar ou compartilhar. O RSL Helper não lê SFR diretamente.
+- SFC (`.sfc`): arquivo de projeto do aplicativo. Pense nele como um “save” que pode carregar ou compartilhar. O RSL Helper não lê SFC diretamente.
 - HSF (`.hsf`): o Sellfile consumido pelo RSL Helper. Exporte-o aqui e carregue-o depois no RSL Helper.
-- O nome padrão ao salvar é `SellfileCreatorRecipes_AAAA MM DD_HHMM.sfr`.
+- O nome padrão ao salvar é `SellfileCreatorRecipes_AAAA MM DD_HHMM.sfc`.
 
 ### Construtor de receitas
 - Preencha o Construtor de receitas e atribua um nome claro à receita.
@@ -204,7 +204,7 @@ Abra «Ferramentas» e vá para a aba **Gear Lens** para uma visão analítica d
 - O cabeçalho da prévia mantém o interruptor «Rules»/«Inspetor de Equipamento», o botão «Ferramentas» e o botão “Load RSL Helper Sellfile” juntos para saber sempre onde alternar de tabela ou abrir o diálogo Equipamento.
 - Vista «Rules» (padrão): mostra todas as linhas que serão exportadas, incluindo quaisquer `.hsf` base opcionais. Os contadores permanecem em Manter vs Vender, a faixa de filtros mantém os chips Qualquer/Apenas (`Any/Only`) para Slot/Rank/Raridade/Nível e agora exibe os dois botões de Receitas lado a lado: «Restringir» decide se as etiquetas fora dos filtros atuais ficam escondidas e a «Seleção» funciona como um interruptor Ligado/Desligado que limita as linhas do Sellfile às etiquetas selecionadas (deixando o mesmo filtro pronto para o Inspetor de Equipamento).
 - Vista «Inspetor de Equipamento»: muda a tabela para a lista de itens importados sem precisar reabrir Ferramentas. Os contadores passam a Manter/Vender/Escopo/Sem regra seguindo a regra de que “a primeira receita que dá match vence”, e a faixa de filtros mantém os dois botões «Receitas» («Restringir» + «Seleção»). O primeiro continua controlando a visibilidade das etiquetas, enquanto a «Seleção» aplica o triestado (`Off` → `Primeira` → `Por correspondência`) para isolar as linhas do Inspetor de Equipamento e continua limitando as regras do Sellfile à mesma seleção quando você retornar a «Rules». Importar um `.db` alterna automaticamente para esta vista, mas pode voltar a «Rules» quando quiser.
-- O botão “Load RSL Helper Sellfile” se comporta exatamente como o arrastar e soltar: `.sfr` substitui o estado do builder, `.hsf` adiciona o Sellfile base opcional e `.db` envia itens para o Inspetor de Equipamento sem tocar em receitas nem na exportação. «Limpar» remove o `.hsf` base quando existir.
+- O botão “Load RSL Helper Sellfile” se comporta exatamente como o arrastar e soltar: `.sfc` substitui o estado do builder, `.hsf` adiciona o Sellfile base opcional e `.db` envia itens para o Inspetor de Equipamento sem tocar em receitas nem na exportação. «Limpar» remove o `.hsf` base quando existir.
 - O ícone da paleta abre Gerenciar Cores para personalizar texto e fundo dos substats.
 - Na vista «Rules» a tabela continua a mostrar «Idx» e «Receita» (linhas do arquivo base deixam «Receita» em branco). Na vista «Inspetor de Equipamento», o mesmo espaço lista slot/set, stats do item e o badge da primeira receita correspondente para ver diretamente o que acontece a cada artefato.
 

@@ -31,7 +31,7 @@ export const cloneMetasets = (list: readonly Metaset[]): Metaset[] => (
 )
 
 // Default metasets (curated).
-// Note: These defaults mirror the current state of `examples/example.sfr` so a
+// Note: These defaults mirror the current state of `examples/example.sfc` so a
 // fresh run starts with the same metaset list/order as that reference file.
 // Tutorial note: `useTutorialCoachState` adds a small subset of these by *name*;
 // update the tutorial's "wanted" list if you rename any metasets here.

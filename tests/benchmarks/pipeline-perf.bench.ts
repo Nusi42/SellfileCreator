@@ -3,7 +3,7 @@
  * pipeline-perf.bench
  *
  * Wall-clock benchmarks for the evaluation + merge hot paths.
- * Uses the real example.sfr (recipes + safeguards) and the largest sample DB
+ * Uses the real example.sfc (recipes + safeguards) and the largest sample DB
  * so numbers reflect worst-case production workloads.
  *
  * Benchmarks:
@@ -19,7 +19,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-import { parseSfrObject } from '../../src/lib/sfrIO.js'
+import { parseSfcObject } from '../../src/lib/sfcIO.js'
 import { defaultSubstatTargets, type SellfileExportMode } from '../../src/lib/hsfBuilder.js'
 import { importGearDatabaseFromArrayBuffer } from '../../src/lib/importers/gearDbImporter.js'
 import {
@@ -97,15 +97,15 @@ function toArrayBuffer(bytes: Buffer): ArrayBuffer {
 }
 
 const ROOT_DIR = process.cwd()
-// example.sfr has both recipes AND safeguards — simulates a realistic full pipeline.
-const SFR_PATH = resolve(ROOT_DIR, 'examples', 'example.sfr')
+// example.sfc has both recipes AND safeguards — simulates a realistic full pipeline.
+const SFC_PATH = resolve(ROOT_DIR, 'examples', 'example.sfc')
 // Largest sample DB for worst-case timing.
 const DB_PATH  = resolve(ROOT_DIR, 'examples', 'um109288203_RSLHelper.db')
 
 console.log('\n[bench:pipeline-perf] loading fixtures…')
-const sfrRaw = JSON.parse(readFileSync(SFR_PATH, 'utf8'))
-const parsed = parseSfrObject(sfrRaw, { metasets: [], substatTargets: defaultSubstatTargets() })
-// example.sfr has safeguards; ?? [] is a type-system defensive fallback.
+const sfcRaw = JSON.parse(readFileSync(SFC_PATH, 'utf8'))
+const parsed = parseSfcObject(sfcRaw, { metasets: [], substatTargets: defaultSubstatTargets() })
+// example.sfc has safeguards; ?? [] is a type-system defensive fallback.
 const safeguardRules: SafeguardRule[] = resolveSafeguardRulesWithMetasets(parsed.safeguardRules ?? [], parsed.metasets)
 const recipeModes: SellfileExportMode[] = parsed.recipes.map((cfg) => cfg.exportMode)
 

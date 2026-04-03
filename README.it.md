@@ -34,9 +34,9 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
 ## Come si usa
 
 ### File di ricette
-- SFR (`.sfr`): il file di progetto per questa app. È come un salvataggio che puoi caricare o condividere. RSL Helper non usa direttamente gli SFR.
+- SFC (`.sfc`): il file di progetto per questa app. È come un salvataggio che puoi caricare o condividere. RSL Helper non usa direttamente gli SFC.
 - HSF (`.hsf`): il Sellfile per RSL Helper. Esportalo da questa app e poi caricalo in RSL Helper.
-- Il nome file salvato usa il formato predefinito `SellfileCreatorRecipes_AAAAmmGG_HHMM.sfr`.
+- Il nome file salvato usa il formato predefinito `SellfileCreatorRecipes_AAAAmmGG_HHMM.sfc`.
 
 ### Generatore di ricette
 - Compila il Generatore di ricette e assegna un "Nome ricetta" chiaro.
@@ -194,7 +194,7 @@ Apri "Strumenti" e passa alla scheda **Gear Lens** per una panoramica analitica 
 - L'intestazione dell'anteprima tiene insieme l'interruttore `Rules`/`Ispettore Equipaggiamento`, il pulsante “Strumenti” e il pulsante “Load RSL Helper Sellfile”, così sai sempre dove cambiare tabella o aprire il dialogo Equipaggiamento.
 - Vista `Rules` (predefinita): mostra tutte le regole che verranno esportate, incluse le righe del `.hsf` base opzionale. I contatori rimangono su Mantieni vs Vendi, la riga dei filtri conserva i chip Qualsiasi/Solo per Slot/Rango/Rarità/Livello e ora offre entrambi i pulsanti Ricette in parallelo: `Restringi` decide se nascondere i chip fuori dai filtri correnti, mentre la `Selezione` funziona come un interruttore On/Off che limita le righe del Sellfile ai chip selezionati (e mantiene pronta la stessa selezione per l'Ispettore Equipaggiamento).
 - Vista `Ispettore Equipaggiamento`: ribalta la tabella sulla lista importata così puoi scorrere gli import senza riaprire Strumenti. I contatori/indicatori passano a Mantieni/Vendi/Ambito/Senza regola secondo la regola “vince la prima ricetta corrispondente”, e la riga dei filtri mantiene entrambi i pulsanti Ricette (`Restringi` + `Selezione`). Il primo continua a governare la visibilità dei chip, mentre la `Selezione` applica il tri-stato (`Off` → `Prima` → `Per corrispondenza`) per isolare le righe dell'Ispettore Equipaggiamento e continua a limitare le righe del Sellfile alla tua selezione quando torni su `Rules`. Importare un `.db` commuta automaticamente su questa vista, ma puoi tornare alle Regole in qualsiasi momento.
-- Il pulsante “Load RSL Helper Sellfile” si comporta esattamente come il drag & drop: `.sfr` sostituisce lo stato del builder, `.hsf` si sovrappone come Sellfile base opzionale e `.db` accodano gli oggetti nell'Ispettore Equipaggiamento senza toccare il builder. Il pulsante “Svuota” scollega il `.hsf` base opzionale.
+- Il pulsante “Load RSL Helper Sellfile” si comporta esattamente come il drag & drop: `.sfc` sostituisce lo stato del builder, `.hsf` si sovrappone come Sellfile base opzionale e `.db` accodano gli oggetti nell'Ispettore Equipaggiamento senza toccare il builder. Il pulsante “Svuota” scollega il `.hsf` base opzionale.
 - Usa l'icona della tavolozza per aprire Gestione colori per le etichette delle sotto-stat.
 - In vista Regole la tabella mantiene le colonne “N.” e “Ricetta” (vuota per le righe del file base). In vista Ispettore Equipaggiamento nello stesso spazio vedi slot/set, statistiche dell'oggetto e il badge della prima ricetta corrispondente per capire subito cosa accadrà a ogni artefatto.
 

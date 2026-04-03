@@ -1,10 +1,10 @@
-// rule_engine_native — C-ABI entry points for generating HSF sell-file rules from SFR JSON.
+// rule_engine_native — C-ABI entry points for generating HSF sell-file rules from SFC JSON.
 //
 // Two exported symbols:
-//   sfr_generate(input_json: *const c_char) -> *mut c_char
-//   sfr_free(ptr: *mut c_char)
+//   sfc_generate(input_json: *const c_char) -> *mut c_char
+//   sfc_free(ptr: *mut c_char)
 //
-// The pipeline mirrors the TypeScript → WASM flow but accepts raw SFR file text
+// The pipeline mirrors the TypeScript → WASM flow but accepts raw SFC file text
 // directly, bypassing the browser layer.  All label parsing and builder logic
 // delegate to rule_engine_core — no logic is duplicated here.
 //
@@ -17,7 +17,7 @@ use std::ffi::{CStr, CString, c_char};
 use serde::{Deserialize, Serialize};
 
 use rule_engine_core::{
-    parse_sfr,
+    parse_sfc,
     build_hsf_rules_for_recipe,
     collect_and_compute_safeguard_protection_core,
     compute_merged_rules_core,
@@ -80,11 +80,11 @@ struct NativeArtifactIn {
     faction: i64,
 }
 
-// Top-level DLL input: raw SFR file text + artifact array.
+// Top-level DLL input: raw SFC file text + artifact array.
 #[derive(Debug, Deserialize)]
 struct NativeInput {
-    // Raw SFR JSON as a string (the .sfr file contents).  Passed verbatim to parse_sfr.
-    sfr:       String,
+    // Raw SFC JSON as a string (the .sfc file contents).  Passed verbatim to parse_sfc.
+    sfc:       String,
     // Artifact rows to evaluate; may be empty (rules still generated, improvement chances empty).
     #[serde(default)]
     artifacts: Vec<NativeArtifactIn>,
@@ -104,7 +104,7 @@ struct NativeOutput {
     improvement_chances: Vec<ImprovementChanceEntry>,
 }
 
-// Error envelope used on all failure paths — never returns null from sfr_generate.
+// Error envelope used on all failure paths — never returns null from sfc_generate.
 #[derive(Debug, Serialize)]
 struct NativeError {
     error: String,
@@ -203,11 +203,11 @@ fn run(input_json: &str) -> Result<String, String> {
     let input: NativeInput = serde_json::from_str(input_json)
         .map_err(|e| format!("Invalid input JSON: {e}"))?;
 
-    // 2. Parse the SFR string into normalised builder inputs.
-    //    parse_sfr handles label → code conversion, all SFR schema variants, and
+    // 2. Parse the SFC string into normalised builder inputs.
+    //    parse_sfc handles label → code conversion, all SFC schema variants, and
     //    the sub-minima table used by auto-min-count logic.
-    let parsed = parse_sfr(&input.sfr)
-        .map_err(|e| format!("SFR parse error: {e}"))?;
+    let parsed = parse_sfc(&input.sfc)
+        .map_err(|e| format!("SFC parse error: {e}"))?;
 
     // 3. Derive recipe mode strings (one per recipe, indexed).
     //    Used by the safeguard collector to skip disabled / separator recipes.
@@ -299,18 +299,18 @@ fn run(input_json: &str) -> Result<String, String> {
 // C ABI
 // ---------------------------------------------------------------------------
 
-/// Generate merged HSF rules and improvement-chance entries from an SFR + artifact list.
+/// Generate merged HSF rules and improvement-chance entries from an SFC + artifact list.
 ///
 /// `input_json` must be a valid UTF-8, null-terminated JSON string matching `NativeInput`:
 /// ```json
-/// { "sfr": "<SFR file contents as a JSON string>", "artifacts": [ ... ] }
+/// { "sfc": "<SFC file contents as a JSON string>", "artifacts": [ ... ] }
 /// ```
 ///
 /// Returns a heap-allocated null-terminated UTF-8 JSON string.  On any error the
 /// string is `{"error":"<message>"}`.  **The caller must release the pointer with
-/// `sfr_free` — do not call `free()` directly.**
+/// `sfc_free` — do not call `free()` directly.**
 #[no_mangle]
-pub extern "C" fn sfr_generate(input_json: *const c_char) -> *mut c_char {
+pub extern "C" fn sfc_generate(input_json: *const c_char) -> *mut c_char {
     // Safety: caller guarantees a valid, null-terminated C string for the lifetime
     //         of this function call.
     let json_str = unsafe {
@@ -333,12 +333,12 @@ pub extern "C" fn sfr_generate(input_json: *const c_char) -> *mut c_char {
         .into_raw()
 }
 
-/// Release a string pointer previously returned by `sfr_generate`.
+/// Release a string pointer previously returned by `sfc_generate`.
 /// Passing null is safe and is a no-op.
 #[no_mangle]
-pub extern "C" fn sfr_free(ptr: *mut c_char) {
+pub extern "C" fn sfc_free(ptr: *mut c_char) {
     if ptr.is_null() { return; }
-    // Safety: ptr was allocated by CString::into_raw in sfr_generate.
+    // Safety: ptr was allocated by CString::into_raw in sfc_generate.
     unsafe { drop(CString::from_raw(ptr)) };
 }
 
@@ -359,8 +359,8 @@ fn error_cstring(msg: &str) -> *mut c_char {
 mod tests {
     use super::*;
 
-    // Minimal SFR: one "keep 5★ Epic with any SPD" recipe, safeguards disabled.
-    const MINIMAL_SFR: &str = r#"{
+    // Minimal SFC: one "keep 5★ Epic with any SPD" recipe, safeguards disabled.
+    const MINIMAL_SFC: &str = r#"{
         "Version": "1.0",
         "Recipes": [
             {
@@ -400,16 +400,16 @@ mod tests {
         }
     ]"#;
 
-    // Build a NativeInput JSON string from the SFR content string and an artifact array.
-    fn make_input(sfr_content: &str, artifacts_json: &str) -> String {
-        // sfr_content is the raw SFR JSON — it must be serialised as a JSON string value.
-        let sfr_str = serde_json::to_string(sfr_content).unwrap();
-        format!(r#"{{"sfr": {sfr_str}, "artifacts": {artifacts_json}}}"#)
+    // Build a NativeInput JSON string from the SFC content string and an artifact array.
+    fn make_input(sfc_content: &str, artifacts_json: &str) -> String {
+        // sfc_content is the raw SFC JSON — it must be serialised as a JSON string value.
+        let sfc_str = serde_json::to_string(sfc_content).unwrap();
+        format!(r#"{{"sfc": {sfc_str}, "artifacts": {artifacts_json}}}"#)
     }
 
     #[test]
     fn pipeline_returns_nonempty_rules() {
-        let input = make_input(MINIMAL_SFR, SAMPLE_ARTIFACTS_JSON);
+        let input = make_input(MINIMAL_SFC, SAMPLE_ARTIFACTS_JSON);
         let result = run(&input).expect("pipeline should not error");
         let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
         assert!(
@@ -425,7 +425,7 @@ mod tests {
     #[test]
     fn pipeline_empty_artifacts() {
         // Rules should still be generated even with no artifacts.
-        let input = make_input(MINIMAL_SFR, "[]");
+        let input = make_input(MINIMAL_SFC, "[]");
         let result = run(&input).expect("empty-artifacts pipeline should not error");
         let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
         assert!(parsed.get("error").is_none(), "unexpected error: {result}");
@@ -436,25 +436,25 @@ mod tests {
     }
 
     #[test]
-    fn sfr_generate_c_abi() {
-        // Verify the C-ABI wrapper produces valid JSON and sfr_free does not crash.
-        let input = make_input(MINIMAL_SFR, SAMPLE_ARTIFACTS_JSON);
+    fn sfc_generate_c_abi() {
+        // Verify the C-ABI wrapper produces valid JSON and sfc_free does not crash.
+        let input = make_input(MINIMAL_SFC, SAMPLE_ARTIFACTS_JSON);
         let c_input = CString::new(input).unwrap();
-        let ptr = sfr_generate(c_input.as_ptr());
-        assert!(!ptr.is_null(), "sfr_generate must not return null");
+        let ptr = sfc_generate(c_input.as_ptr());
+        assert!(!ptr.is_null(), "sfc_generate must not return null");
         let output = unsafe { CStr::from_ptr(ptr).to_str().unwrap().to_string() };
-        sfr_free(ptr);
+        sfc_free(ptr);
         let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
-        assert!(parsed.get("error").is_none(), "unexpected error from sfr_generate: {output}");
+        assert!(parsed.get("error").is_none(), "unexpected error from sfc_generate: {output}");
     }
 
     #[test]
-    fn sfr_generate_null_input() {
+    fn sfc_generate_null_input() {
         // Null pointer must return an error JSON, not crash.
-        let ptr = sfr_generate(std::ptr::null());
+        let ptr = sfc_generate(std::ptr::null());
         assert!(!ptr.is_null());
         let output = unsafe { CStr::from_ptr(ptr).to_str().unwrap().to_string() };
-        sfr_free(ptr);
+        sfc_free(ptr);
         let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
         assert!(parsed.get("error").is_some(), "null input must yield error field");
     }

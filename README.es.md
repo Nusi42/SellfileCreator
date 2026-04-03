@@ -33,9 +33,9 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 ## Cómo usarlo
 
 ### Archivo de recetas
-- SFR (`.sfr`): archivo de proyecto para esta app. Piénsalo como una partida guardada que puedes cargar o compartir. RSL Helper no usa SFR directamente.
+- SFC (`.sfc`): archivo de proyecto para esta app. Piénsalo como una partida guardada que puedes cargar o compartir. RSL Helper no usa SFC directamente.
 - HSF (`.hsf`): el Sellfile que consume RSL Helper. Expórtalo desde la app y luego cárgalo dentro de RSL Helper.
-- El nombre predeterminado al guardar es `SellfileCreatorRecipes_AAAA MM DD_HHMM.sfr`.
+- El nombre predeterminado al guardar es `SellfileCreatorRecipes_AAAA MM DD_HHMM.sfc`.
 
 ### Constructor de recetas
 - Completa el Constructor de recetas y da un nombre claro a tu receta.
@@ -204,7 +204,7 @@ Abre «Herramientas» y cambia a la pestaña **Gear Lens** para una vista analí
 - El encabezado reúne el interruptor `Reglas`/`Inspector de Equipo`, el botón «Herramientas» y «Cargar Sellfile de RSL Helper», así siempre sabes dónde cambiar de tabla o abrir el diálogo «Equipo».
 - Vista `Reglas` (predeterminada): muestra todas las filas que se exportarán, incluidas las provenientes de la `.hsf` base opcional. Los contadores siguen en Conservar vs Vender, la fila de filtros mantiene los chips Cualquiera/Solo para Ranura/Rango/Rareza/Nivel y ahora muestra los dos botones de Recetas en paralelo: `Reducir` decide si se ocultan los chips fuera de los filtros actuales y la nueva `Selección` funciona como un interruptor Activado/Desactivado que limita las filas del Sellfile a tus chips seleccionados (dejando al mismo tiempo el filtro preparado para el Inspector de Equipo).
 - Vista `Inspector de Equipo`: cambia la tabla al listado del Inspector de Equipo para que revises piezas importadas o creadas sin reabrir el diálogo Herramientas. Los contadores y chips pasan a Conservar/Vender/Ámbito/Sin regla (según la regla «la primera coincidencia gana») y la fila de filtros mantiene ambos botones de Recetas lado a lado (`Reducir` + `Selección`). El primero sigue controlando la visibilidad de chips, mientras que la `Selección` se expande al triestado (`Off` → `Primera` → `Por coincidencia`) para aislar las filas del Inspector de Equipo y sigue limitando las reglas del Sellfile cuando regreses a `Reglas`. Importar `.db` conmuta automáticamente a esta vista, pero puedes volver a `Reglas` cuando quieras.
-- «Cargar Sellfile de RSL Helper» se comporta igual que arrastrar y soltar: `.sfr` reemplaza el estado del constructor, `.hsf` añade la Sellfile base opcional y `.db` envían piezas directamente al Inspector de Equipo (sin tocar tus recetas). El botón «Limpiar» desacopla la `.hsf` base.
+- «Cargar Sellfile de RSL Helper» se comporta igual que arrastrar y soltar: `.sfc` reemplaza el estado del constructor, `.hsf` añade la Sellfile base opcional y `.db` envían piezas directamente al Inspector de Equipo (sin tocar tus recetas). El botón «Limpiar» desacopla la `.hsf` base.
 - El icono de paleta abre Gestionar colores para personalizar texto y fondo de los substats.
 - En la vista `Reglas` las columnas «Idx» y «Receta» se mantienen (las filas de la `.hsf` base dejan «Receta» vacío). En la vista `Inspector de Equipo`, ese espacio muestra slot/set, estadísticas del objeto y la primera receta/regla que coincide, de modo que ves qué ocurriría con cada pieza desde la vista previa.
 

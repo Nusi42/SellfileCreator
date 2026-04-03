@@ -3,13 +3,13 @@
  * sim-improvement-chance.ts
  *
  * Simulate safeguard improvement chance for a specific item at a modified
- * level/substat value, using the real SFR + DB pipeline.
+ * level/substat value, using the real SFC + DB pipeline.
  *
- * Usage: node sim-improvement-chance.js --sfr examples/example.sfr --db examples/um109288203_RSLHelper.db
+ * Usage: node sim-improvement-chance.js --sfc examples/example.sfc --db examples/um109288203_RSLHelper.db
  */
 import { cp, mkdir, readFile } from 'node:fs/promises'
 import { resolve as resolvePath } from 'node:path'
-import { parseSfrObject } from '../../src/lib/sfrIO.js'
+import { parseSfcObject } from '../../src/lib/sfcIO.js'
 import { defaultSubstatTargets } from '../../src/lib/hsfBuilder.js'
 import {
   resolveSafeguardRulesWithMetasets,
@@ -65,17 +65,17 @@ const syncCompiledWasmBindings = async (): Promise<void> => {
   }
 }
 
-const loadSfr = async (sfrPath: string): Promise<{
+const loadSfc = async (sfcPath: string): Promise<{
   safeguardRules: SafeguardRule[]
   metasets: Metaset[]
 }> => {
-  const raw = await readFile(sfrPath, 'utf8')
+  const raw = await readFile(sfcPath, 'utf8')
   const parsed = JSON.parse(raw) as unknown
-  const parsedSfr = parseSfrObject(parsed, {
+  const parsedSfc = parseSfcObject(parsed, {
     metasets: [],
     substatTargets: defaultSubstatTargets(),
   })
-  return { safeguardRules: parsedSfr.safeguardRules ?? [], metasets: parsedSfr.metasets }
+  return { safeguardRules: parsedSfc.safeguardRules ?? [], metasets: parsedSfc.metasets }
 }
 
 const loadGear = async (gearDbPath: string): Promise<NormalizedGearArtifact[]> => {
@@ -112,13 +112,13 @@ const run = async (): Promise<void> => {
   await warmupWasmRuleEngine()
 
   const args = process.argv.slice(2)
-  const sfrPath = resolvePath(process.cwd(), args.includes('--sfr') ? args[args.indexOf('--sfr') + 1] ?? 'examples/example.sfr' : 'examples/example.sfr')
+  const sfcPath = resolvePath(process.cwd(), args.includes('--sfc') ? args[args.indexOf('--sfc') + 1] ?? 'examples/example.sfc' : 'examples/example.sfc')
   const dbPath = resolvePath(process.cwd(), args.includes('--db') ? args[args.indexOf('--db') + 1] ?? 'examples/um109288203_RSLHelper.db' : 'examples/um109288203_RSLHelper.db')
 
-  console.log(`Loading SFR: ${sfrPath}`)
+  console.log(`Loading SFC: ${sfcPath}`)
   console.log(`Loading DB:  ${dbPath}`)
 
-  const { safeguardRules: rawRules, metasets } = await loadSfr(sfrPath)
+  const { safeguardRules: rawRules, metasets } = await loadSfc(sfcPath)
   const safeguardRules = resolveSafeguardRulesWithMetasets(rawRules, metasets)
 
   const gear = await loadGear(dbPath)

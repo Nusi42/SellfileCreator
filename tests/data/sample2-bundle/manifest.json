@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-02-13T00:12:09.007Z",
-  "sourceSfr": "examples/example.sfr",
+  "sourceSfc": "examples/example.sfc",
   "sharedDb": "tests/data/sample2.db",
   "profiles": [
     {
@@ -23,12 +23,12 @@
     }
   ],
   "counts": {
-    "sourceConfigs": 194,
+    "sourceRecipes": 194,
     "sourceKeepUniques": 22,
-    "configFixtures": 291,
+    "recipeFixtures": 291,
     "keepUniqueFixtures": 66
   },
-  "configFixtures": [
+  "recipeFixtures": [
     {
       "ordinal": 1,
       "name": "Basics",
@@ -40,7 +40,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-001-v01-basics.sfr"
+          "file": "recipes/cfg-001-v01-basics.sfc"
         }
       ]
     },
@@ -53,7 +53,7 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-002-v01-optional-marius-sets.sfr"
+          "file": "recipes/cfg-002-v01-optional-marius-sets.sfc"
         },
         {
           "variant": 2,
@@ -61,7 +61,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-002-v02-optional-marius-sets.sfr"
+          "file": "recipes/cfg-002-v02-optional-marius-sets.sfc"
         }
       ]
     },
@@ -76,7 +76,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-003-v01-sell-low-value.sfr"
+          "file": "recipes/cfg-003-v01-sell-low-value.sfc"
         }
       ]
     },
@@ -91,7 +91,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-004-v01-low-value-sets.sfr"
+          "file": "recipes/cfg-004-v01-low-value-sets.sfc"
         }
       ]
     },
@@ -106,7 +106,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-005-v01-low-rank-rarity.sfr"
+          "file": "recipes/cfg-005-v01-low-rank-rarity.sfc"
         }
       ]
     },
@@ -121,7 +121,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-006-v01-low-rank-rarity.sfr"
+          "file": "recipes/cfg-006-v01-low-rank-rarity.sfc"
         }
       ]
     },
@@ -136,7 +136,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-007-v01-low-rank-rarity.sfr"
+          "file": "recipes/cfg-007-v01-low-rank-rarity.sfc"
         }
       ]
     },
@@ -151,7 +151,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-008-v01-good-gear.sfr"
+          "file": "recipes/cfg-008-v01-good-gear.sfc"
         }
       ]
     },
@@ -166,7 +166,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-009-v01-speed-primary.sfr"
+          "file": "recipes/cfg-009-v01-speed-primary.sfc"
         }
       ]
     },
@@ -181,7 +181,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-010-v01-speed-primary.sfr"
+          "file": "recipes/cfg-010-v01-speed-primary.sfc"
         }
       ]
     },
@@ -196,7 +196,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-011-v01-speed-primary.sfr"
+          "file": "recipes/cfg-011-v01-speed-primary.sfc"
         }
       ]
     },
@@ -211,7 +211,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-012-v01-speed-primary.sfr"
+          "file": "recipes/cfg-012-v01-speed-primary.sfc"
         }
       ]
     },
@@ -226,7 +226,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-013-v01-speed-primary.sfr"
+          "file": "recipes/cfg-013-v01-speed-primary.sfc"
         }
       ]
     },
@@ -241,7 +241,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-014-v01-speed-primary.sfr"
+          "file": "recipes/cfg-014-v01-speed-primary.sfc"
         }
       ]
     },
@@ -256,7 +256,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-015-v01-speed-primary.sfr"
+          "file": "recipes/cfg-015-v01-speed-primary.sfc"
         }
       ]
     },
@@ -271,7 +271,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-016-v01-speed-primary.sfr"
+          "file": "recipes/cfg-016-v01-speed-primary.sfc"
         }
       ]
     },
@@ -286,7 +286,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-017-v01-speed-primary.sfr"
+          "file": "recipes/cfg-017-v01-speed-primary.sfc"
         }
       ]
     },
@@ -301,7 +301,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-018-v01-speed-primary.sfr"
+          "file": "recipes/cfg-018-v01-speed-primary.sfc"
         }
       ]
     },
@@ -316,7 +316,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-019-v01-damage-primary.sfr"
+          "file": "recipes/cfg-019-v01-damage-primary.sfc"
         }
       ]
     },
@@ -331,7 +331,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-020-v01-damage-primary.sfr"
+          "file": "recipes/cfg-020-v01-damage-primary.sfc"
         }
       ]
     },
@@ -346,7 +346,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-021-v01-damage-primary.sfr"
+          "file": "recipes/cfg-021-v01-damage-primary.sfc"
         }
       ]
     },
@@ -361,7 +361,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-022-v01-damage-primary.sfr"
+          "file": "recipes/cfg-022-v01-damage-primary.sfc"
         }
       ]
     },
@@ -376,7 +376,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-023-v01-damage-primary.sfr"
+          "file": "recipes/cfg-023-v01-damage-primary.sfc"
         }
       ]
     },
@@ -391,7 +391,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-024-v01-damage-primary.sfr"
+          "file": "recipes/cfg-024-v01-damage-primary.sfc"
         }
       ]
     },
@@ -406,7 +406,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-025-v01-damage-primary.sfr"
+          "file": "recipes/cfg-025-v01-damage-primary.sfc"
         }
       ]
     },
@@ -421,7 +421,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-026-v01-damage-primary.sfr"
+          "file": "recipes/cfg-026-v01-damage-primary.sfc"
         }
       ]
     },
@@ -436,7 +436,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-027-v01-damage-primary.sfr"
+          "file": "recipes/cfg-027-v01-damage-primary.sfc"
         }
       ]
     },
@@ -451,7 +451,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-028-v01-damage-primary.sfr"
+          "file": "recipes/cfg-028-v01-damage-primary.sfc"
         }
       ]
     },
@@ -466,7 +466,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-029-v01-damage-primary.sfr"
+          "file": "recipes/cfg-029-v01-damage-primary.sfc"
         }
       ]
     },
@@ -481,7 +481,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-030-v01-damage-primary.sfr"
+          "file": "recipes/cfg-030-v01-damage-primary.sfc"
         }
       ]
     },
@@ -496,7 +496,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-031-v01-damage-primary.sfr"
+          "file": "recipes/cfg-031-v01-damage-primary.sfc"
         }
       ]
     },
@@ -511,7 +511,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-032-v01-damage-primary.sfr"
+          "file": "recipes/cfg-032-v01-damage-primary.sfc"
         }
       ]
     },
@@ -526,7 +526,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-033-v01-survivability-primary.sfr"
+          "file": "recipes/cfg-033-v01-survivability-primary.sfc"
         }
       ]
     },
@@ -541,7 +541,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-034-v01-survivability-primary.sfr"
+          "file": "recipes/cfg-034-v01-survivability-primary.sfc"
         }
       ]
     },
@@ -556,7 +556,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-035-v01-survivability-primary.sfr"
+          "file": "recipes/cfg-035-v01-survivability-primary.sfc"
         }
       ]
     },
@@ -571,7 +571,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-036-v01-survivability-primary.sfr"
+          "file": "recipes/cfg-036-v01-survivability-primary.sfc"
         }
       ]
     },
@@ -586,7 +586,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-037-v01-debuffer-primary.sfr"
+          "file": "recipes/cfg-037-v01-debuffer-primary.sfc"
         }
       ]
     },
@@ -601,7 +601,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-038-v01-debuffer-primary.sfr"
+          "file": "recipes/cfg-038-v01-debuffer-primary.sfc"
         }
       ]
     },
@@ -616,7 +616,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-039-v01-debuffer-primary-bomber.sfr"
+          "file": "recipes/cfg-039-v01-debuffer-primary-bomber.sfc"
         }
       ]
     },
@@ -631,7 +631,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-040-v01-debuffer-primary.sfr"
+          "file": "recipes/cfg-040-v01-debuffer-primary.sfc"
         }
       ]
     },
@@ -646,7 +646,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-041-v01-debuffer-primary.sfr"
+          "file": "recipes/cfg-041-v01-debuffer-primary.sfc"
         }
       ]
     },
@@ -661,7 +661,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-042-v01-limited-sets.sfr"
+          "file": "recipes/cfg-042-v01-limited-sets.sfc"
         }
       ]
     },
@@ -676,7 +676,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-043-v01-speed-limited-sets.sfr"
+          "file": "recipes/cfg-043-v01-speed-limited-sets.sfc"
         }
       ]
     },
@@ -691,7 +691,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-044-v01-speed-limited-sets.sfr"
+          "file": "recipes/cfg-044-v01-speed-limited-sets.sfc"
         }
       ]
     },
@@ -706,7 +706,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-045-v01-speed-limited-sets.sfr"
+          "file": "recipes/cfg-045-v01-speed-limited-sets.sfc"
         }
       ]
     },
@@ -721,7 +721,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-046-v01-speed-limited-sets.sfr"
+          "file": "recipes/cfg-046-v01-speed-limited-sets.sfc"
         }
       ]
     },
@@ -736,7 +736,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-047-v01-damage-limited-sets.sfr"
+          "file": "recipes/cfg-047-v01-damage-limited-sets.sfc"
         }
       ]
     },
@@ -751,7 +751,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-048-v01-damage-limited-sets.sfr"
+          "file": "recipes/cfg-048-v01-damage-limited-sets.sfc"
         }
       ]
     },
@@ -766,7 +766,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-049-v01-damage-limited-sets.sfr"
+          "file": "recipes/cfg-049-v01-damage-limited-sets.sfc"
         }
       ]
     },
@@ -781,7 +781,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-050-v01-damage-limited-sets.sfr"
+          "file": "recipes/cfg-050-v01-damage-limited-sets.sfc"
         }
       ]
     },
@@ -796,7 +796,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-051-v01-damage-limited-sets.sfr"
+          "file": "recipes/cfg-051-v01-damage-limited-sets.sfc"
         }
       ]
     },
@@ -811,7 +811,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-052-v01-damage-limited-sets.sfr"
+          "file": "recipes/cfg-052-v01-damage-limited-sets.sfc"
         }
       ]
     },
@@ -826,7 +826,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-053-v01-damage-limited-sets.sfr"
+          "file": "recipes/cfg-053-v01-damage-limited-sets.sfc"
         }
       ]
     },
@@ -841,7 +841,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-054-v01-damage-limited-sets.sfr"
+          "file": "recipes/cfg-054-v01-damage-limited-sets.sfc"
         }
       ]
     },
@@ -856,7 +856,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-055-v01-damage-limited-sets.sfr"
+          "file": "recipes/cfg-055-v01-damage-limited-sets.sfc"
         }
       ]
     },
@@ -871,7 +871,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-056-v01-damage-limited-sets.sfr"
+          "file": "recipes/cfg-056-v01-damage-limited-sets.sfc"
         }
       ]
     },
@@ -886,7 +886,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-057-v01-damage-limited-sets.sfr"
+          "file": "recipes/cfg-057-v01-damage-limited-sets.sfc"
         }
       ]
     },
@@ -901,7 +901,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-058-v01-damage-limited-sets.sfr"
+          "file": "recipes/cfg-058-v01-damage-limited-sets.sfc"
         }
       ]
     },
@@ -916,7 +916,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-059-v01-damage-limited-sets.sfr"
+          "file": "recipes/cfg-059-v01-damage-limited-sets.sfc"
         }
       ]
     },
@@ -931,7 +931,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-060-v01-damage-limited-sets.sfr"
+          "file": "recipes/cfg-060-v01-damage-limited-sets.sfc"
         }
       ]
     },
@@ -946,7 +946,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-061-v01-damage-limited-sets.sfr"
+          "file": "recipes/cfg-061-v01-damage-limited-sets.sfc"
         }
       ]
     },
@@ -961,7 +961,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-062-v01-damage-limited-sets.sfr"
+          "file": "recipes/cfg-062-v01-damage-limited-sets.sfc"
         }
       ]
     },
@@ -976,7 +976,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-063-v01-survivability-limited-sets.sfr"
+          "file": "recipes/cfg-063-v01-survivability-limited-sets.sfc"
         }
       ]
     },
@@ -991,7 +991,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-064-v01-survivability-limited-sets.sfr"
+          "file": "recipes/cfg-064-v01-survivability-limited-sets.sfc"
         }
       ]
     },
@@ -1006,7 +1006,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-065-v01-survivability-limited-sets.sfr"
+          "file": "recipes/cfg-065-v01-survivability-limited-sets.sfc"
         }
       ]
     },
@@ -1021,7 +1021,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-066-v01-survivability-limited-sets.sfr"
+          "file": "recipes/cfg-066-v01-survivability-limited-sets.sfc"
         }
       ]
     },
@@ -1036,7 +1036,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-067-v01-survivability-limited-sets.sfr"
+          "file": "recipes/cfg-067-v01-survivability-limited-sets.sfc"
         }
       ]
     },
@@ -1051,7 +1051,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-068-v01-survivability-limited-sets.sfr"
+          "file": "recipes/cfg-068-v01-survivability-limited-sets.sfc"
         }
       ]
     },
@@ -1066,7 +1066,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-069-v01-debuffer-limited-sets.sfr"
+          "file": "recipes/cfg-069-v01-debuffer-limited-sets.sfc"
         }
       ]
     },
@@ -1081,7 +1081,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-070-v01-debuffer-limited-sets.sfr"
+          "file": "recipes/cfg-070-v01-debuffer-limited-sets.sfc"
         }
       ]
     },
@@ -1096,7 +1096,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-071-v01-debuffer-bomber-focus.sfr"
+          "file": "recipes/cfg-071-v01-debuffer-bomber-focus.sfc"
         }
       ]
     },
@@ -1111,7 +1111,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-072-v01-debuffer-limited-sets.sfr"
+          "file": "recipes/cfg-072-v01-debuffer-limited-sets.sfc"
         }
       ]
     },
@@ -1126,7 +1126,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-073-v01-debuffer-limited-sets.sfr"
+          "file": "recipes/cfg-073-v01-debuffer-limited-sets.sfc"
         }
       ]
     },
@@ -1141,7 +1141,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-074-v01-mediocre-gear.sfr"
+          "file": "recipes/cfg-074-v01-mediocre-gear.sfc"
         }
       ]
     },
@@ -1156,7 +1156,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-075-v01-damage-secondary.sfr"
+          "file": "recipes/cfg-075-v01-damage-secondary.sfc"
         }
       ]
     },
@@ -1169,21 +1169,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-076-v01-damage-secondary.sfr"
+          "file": "recipes/cfg-076-v01-damage-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-076-v02-damage-secondary.sfr"
+          "file": "recipes/cfg-076-v02-damage-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-076-v03-damage-secondary.sfr"
+          "file": "recipes/cfg-076-v03-damage-secondary.sfc"
         }
       ]
     },
@@ -1196,21 +1196,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-077-v01-damage-secondary.sfr"
+          "file": "recipes/cfg-077-v01-damage-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-077-v02-damage-secondary.sfr"
+          "file": "recipes/cfg-077-v02-damage-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-077-v03-damage-secondary.sfr"
+          "file": "recipes/cfg-077-v03-damage-secondary.sfc"
         }
       ]
     },
@@ -1223,21 +1223,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-078-v01-damage-secondary.sfr"
+          "file": "recipes/cfg-078-v01-damage-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-078-v02-damage-secondary.sfr"
+          "file": "recipes/cfg-078-v02-damage-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-078-v03-damage-secondary.sfr"
+          "file": "recipes/cfg-078-v03-damage-secondary.sfc"
         }
       ]
     },
@@ -1250,21 +1250,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-079-v01-damage-secondary.sfr"
+          "file": "recipes/cfg-079-v01-damage-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-079-v02-damage-secondary.sfr"
+          "file": "recipes/cfg-079-v02-damage-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-079-v03-damage-secondary.sfr"
+          "file": "recipes/cfg-079-v03-damage-secondary.sfc"
         }
       ]
     },
@@ -1277,21 +1277,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-080-v01-damage-secondary.sfr"
+          "file": "recipes/cfg-080-v01-damage-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-080-v02-damage-secondary.sfr"
+          "file": "recipes/cfg-080-v02-damage-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-080-v03-damage-secondary.sfr"
+          "file": "recipes/cfg-080-v03-damage-secondary.sfc"
         }
       ]
     },
@@ -1304,21 +1304,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-081-v01-damage-secondary.sfr"
+          "file": "recipes/cfg-081-v01-damage-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-081-v02-damage-secondary.sfr"
+          "file": "recipes/cfg-081-v02-damage-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-081-v03-damage-secondary.sfr"
+          "file": "recipes/cfg-081-v03-damage-secondary.sfc"
         }
       ]
     },
@@ -1331,21 +1331,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-082-v01-damage-secondary.sfr"
+          "file": "recipes/cfg-082-v01-damage-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-082-v02-damage-secondary.sfr"
+          "file": "recipes/cfg-082-v02-damage-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-082-v03-damage-secondary.sfr"
+          "file": "recipes/cfg-082-v03-damage-secondary.sfc"
         }
       ]
     },
@@ -1358,21 +1358,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-083-v01-damage-secondary.sfr"
+          "file": "recipes/cfg-083-v01-damage-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-083-v02-damage-secondary.sfr"
+          "file": "recipes/cfg-083-v02-damage-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-083-v03-damage-secondary.sfr"
+          "file": "recipes/cfg-083-v03-damage-secondary.sfc"
         }
       ]
     },
@@ -1385,21 +1385,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-084-v01-damage-secondary.sfr"
+          "file": "recipes/cfg-084-v01-damage-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-084-v02-damage-secondary.sfr"
+          "file": "recipes/cfg-084-v02-damage-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-084-v03-damage-secondary.sfr"
+          "file": "recipes/cfg-084-v03-damage-secondary.sfc"
         }
       ]
     },
@@ -1412,21 +1412,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-085-v01-damage-secondary.sfr"
+          "file": "recipes/cfg-085-v01-damage-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-085-v02-damage-secondary.sfr"
+          "file": "recipes/cfg-085-v02-damage-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-085-v03-damage-secondary.sfr"
+          "file": "recipes/cfg-085-v03-damage-secondary.sfc"
         }
       ]
     },
@@ -1439,21 +1439,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-086-v01-damage-secondary.sfr"
+          "file": "recipes/cfg-086-v01-damage-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-086-v02-damage-secondary.sfr"
+          "file": "recipes/cfg-086-v02-damage-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-086-v03-damage-secondary.sfr"
+          "file": "recipes/cfg-086-v03-damage-secondary.sfc"
         }
       ]
     },
@@ -1466,21 +1466,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-087-v01-damage-secondary.sfr"
+          "file": "recipes/cfg-087-v01-damage-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-087-v02-damage-secondary.sfr"
+          "file": "recipes/cfg-087-v02-damage-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-087-v03-damage-secondary.sfr"
+          "file": "recipes/cfg-087-v03-damage-secondary.sfc"
         }
       ]
     },
@@ -1493,21 +1493,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-088-v01-damage-secondary.sfr"
+          "file": "recipes/cfg-088-v01-damage-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-088-v02-damage-secondary.sfr"
+          "file": "recipes/cfg-088-v02-damage-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-088-v03-damage-secondary.sfr"
+          "file": "recipes/cfg-088-v03-damage-secondary.sfc"
         }
       ]
     },
@@ -1522,7 +1522,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-089-v01-survivability-secondary.sfr"
+          "file": "recipes/cfg-089-v01-survivability-secondary.sfc"
         }
       ]
     },
@@ -1535,21 +1535,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-090-v01-survivability-secondary.sfr"
+          "file": "recipes/cfg-090-v01-survivability-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-090-v02-survivability-secondary.sfr"
+          "file": "recipes/cfg-090-v02-survivability-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-090-v03-survivability-secondary.sfr"
+          "file": "recipes/cfg-090-v03-survivability-secondary.sfc"
         }
       ]
     },
@@ -1562,21 +1562,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-091-v01-survivability-secondary.sfr"
+          "file": "recipes/cfg-091-v01-survivability-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-091-v02-survivability-secondary.sfr"
+          "file": "recipes/cfg-091-v02-survivability-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-091-v03-survivability-secondary.sfr"
+          "file": "recipes/cfg-091-v03-survivability-secondary.sfc"
         }
       ]
     },
@@ -1589,21 +1589,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-092-v01-survivability-secondary.sfr"
+          "file": "recipes/cfg-092-v01-survivability-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-092-v02-survivability-secondary.sfr"
+          "file": "recipes/cfg-092-v02-survivability-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-092-v03-survivability-secondary.sfr"
+          "file": "recipes/cfg-092-v03-survivability-secondary.sfc"
         }
       ]
     },
@@ -1616,21 +1616,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-093-v01-survivability-secondary.sfr"
+          "file": "recipes/cfg-093-v01-survivability-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-093-v02-survivability-secondary.sfr"
+          "file": "recipes/cfg-093-v02-survivability-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-093-v03-survivability-secondary.sfr"
+          "file": "recipes/cfg-093-v03-survivability-secondary.sfc"
         }
       ]
     },
@@ -1643,21 +1643,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-094-v01-survivability-secondary.sfr"
+          "file": "recipes/cfg-094-v01-survivability-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-094-v02-survivability-secondary.sfr"
+          "file": "recipes/cfg-094-v02-survivability-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-094-v03-survivability-secondary.sfr"
+          "file": "recipes/cfg-094-v03-survivability-secondary.sfc"
         }
       ]
     },
@@ -1670,21 +1670,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-095-v01-survivability-secondary.sfr"
+          "file": "recipes/cfg-095-v01-survivability-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-095-v02-survivability-secondary.sfr"
+          "file": "recipes/cfg-095-v02-survivability-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-095-v03-survivability-secondary.sfr"
+          "file": "recipes/cfg-095-v03-survivability-secondary.sfc"
         }
       ]
     },
@@ -1697,21 +1697,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-096-v01-survivability-secondary.sfr"
+          "file": "recipes/cfg-096-v01-survivability-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-096-v02-survivability-secondary.sfr"
+          "file": "recipes/cfg-096-v02-survivability-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-096-v03-survivability-secondary.sfr"
+          "file": "recipes/cfg-096-v03-survivability-secondary.sfc"
         }
       ]
     },
@@ -1724,21 +1724,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-097-v01-survivability-secondary.sfr"
+          "file": "recipes/cfg-097-v01-survivability-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-097-v02-survivability-secondary.sfr"
+          "file": "recipes/cfg-097-v02-survivability-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-097-v03-survivability-secondary.sfr"
+          "file": "recipes/cfg-097-v03-survivability-secondary.sfc"
         }
       ]
     },
@@ -1753,7 +1753,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-098-v01-survivability-secondary-cr.sfr"
+          "file": "recipes/cfg-098-v01-survivability-secondary-cr.sfc"
         }
       ]
     },
@@ -1766,21 +1766,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-099-v01-survivability-secondary-cr.sfr"
+          "file": "recipes/cfg-099-v01-survivability-secondary-cr.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-099-v02-survivability-secondary-cr.sfr"
+          "file": "recipes/cfg-099-v02-survivability-secondary-cr.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-099-v03-survivability-secondary-cr.sfr"
+          "file": "recipes/cfg-099-v03-survivability-secondary-cr.sfc"
         }
       ]
     },
@@ -1793,21 +1793,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-100-v01-survivability-secondary-cr.sfr"
+          "file": "recipes/cfg-100-v01-survivability-secondary-cr.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-100-v02-survivability-secondary-cr.sfr"
+          "file": "recipes/cfg-100-v02-survivability-secondary-cr.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-100-v03-survivability-secondary-cr.sfr"
+          "file": "recipes/cfg-100-v03-survivability-secondary-cr.sfc"
         }
       ]
     },
@@ -1820,21 +1820,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-101-v01-survivability-secondary-cr.sfr"
+          "file": "recipes/cfg-101-v01-survivability-secondary-cr.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-101-v02-survivability-secondary-cr.sfr"
+          "file": "recipes/cfg-101-v02-survivability-secondary-cr.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-101-v03-survivability-secondary-cr.sfr"
+          "file": "recipes/cfg-101-v03-survivability-secondary-cr.sfc"
         }
       ]
     },
@@ -1849,7 +1849,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-102-v01-survivability-secondary-acc.sfr"
+          "file": "recipes/cfg-102-v01-survivability-secondary-acc.sfc"
         }
       ]
     },
@@ -1862,21 +1862,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-103-v01-survivability-secondary-acc.sfr"
+          "file": "recipes/cfg-103-v01-survivability-secondary-acc.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-103-v02-survivability-secondary-acc.sfr"
+          "file": "recipes/cfg-103-v02-survivability-secondary-acc.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-103-v03-survivability-secondary-acc.sfr"
+          "file": "recipes/cfg-103-v03-survivability-secondary-acc.sfc"
         }
       ]
     },
@@ -1889,21 +1889,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-104-v01-survivability-secondary-acc.sfr"
+          "file": "recipes/cfg-104-v01-survivability-secondary-acc.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-104-v02-survivability-secondary-acc.sfr"
+          "file": "recipes/cfg-104-v02-survivability-secondary-acc.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-104-v03-survivability-secondary-acc.sfr"
+          "file": "recipes/cfg-104-v03-survivability-secondary-acc.sfc"
         }
       ]
     },
@@ -1916,21 +1916,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-105-v01-survivability-secondary-acc.sfr"
+          "file": "recipes/cfg-105-v01-survivability-secondary-acc.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-105-v02-survivability-secondary-acc.sfr"
+          "file": "recipes/cfg-105-v02-survivability-secondary-acc.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-105-v03-survivability-secondary-acc.sfr"
+          "file": "recipes/cfg-105-v03-survivability-secondary-acc.sfc"
         }
       ]
     },
@@ -1945,7 +1945,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-106-v01-debuffer-secondary.sfr"
+          "file": "recipes/cfg-106-v01-debuffer-secondary.sfc"
         }
       ]
     },
@@ -1958,21 +1958,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-107-v01-debuffer-secondary.sfr"
+          "file": "recipes/cfg-107-v01-debuffer-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-107-v02-debuffer-secondary.sfr"
+          "file": "recipes/cfg-107-v02-debuffer-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-107-v03-debuffer-secondary.sfr"
+          "file": "recipes/cfg-107-v03-debuffer-secondary.sfc"
         }
       ]
     },
@@ -1985,21 +1985,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-108-v01-debuffer-secondary-bomber.sfr"
+          "file": "recipes/cfg-108-v01-debuffer-secondary-bomber.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-108-v02-debuffer-secondary-bomber.sfr"
+          "file": "recipes/cfg-108-v02-debuffer-secondary-bomber.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-108-v03-debuffer-secondary-bomber.sfr"
+          "file": "recipes/cfg-108-v03-debuffer-secondary-bomber.sfc"
         }
       ]
     },
@@ -2012,21 +2012,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-109-v01-debuffer-secondary.sfr"
+          "file": "recipes/cfg-109-v01-debuffer-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-109-v02-debuffer-secondary.sfr"
+          "file": "recipes/cfg-109-v02-debuffer-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-109-v03-debuffer-secondary.sfr"
+          "file": "recipes/cfg-109-v03-debuffer-secondary.sfc"
         }
       ]
     },
@@ -2039,21 +2039,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-110-v01-debuffer-secondary.sfr"
+          "file": "recipes/cfg-110-v01-debuffer-secondary.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-110-v02-debuffer-secondary.sfr"
+          "file": "recipes/cfg-110-v02-debuffer-secondary.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-110-v03-debuffer-secondary.sfr"
+          "file": "recipes/cfg-110-v03-debuffer-secondary.sfc"
         }
       ]
     },
@@ -2068,7 +2068,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-111-v01-debuffer-secondary-cr.sfr"
+          "file": "recipes/cfg-111-v01-debuffer-secondary-cr.sfc"
         }
       ]
     },
@@ -2081,21 +2081,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-112-v01-debuffer-secondary-cr.sfr"
+          "file": "recipes/cfg-112-v01-debuffer-secondary-cr.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-112-v02-debuffer-secondary-cr.sfr"
+          "file": "recipes/cfg-112-v02-debuffer-secondary-cr.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-112-v03-debuffer-secondary-cr.sfr"
+          "file": "recipes/cfg-112-v03-debuffer-secondary-cr.sfc"
         }
       ]
     },
@@ -2108,21 +2108,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-113-v01-debuffer-secondary-cr.sfr"
+          "file": "recipes/cfg-113-v01-debuffer-secondary-cr.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-113-v02-debuffer-secondary-cr.sfr"
+          "file": "recipes/cfg-113-v02-debuffer-secondary-cr.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-113-v03-debuffer-secondary-cr.sfr"
+          "file": "recipes/cfg-113-v03-debuffer-secondary-cr.sfc"
         }
       ]
     },
@@ -2135,21 +2135,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-114-v01-debuffer-secondary-cr.sfr"
+          "file": "recipes/cfg-114-v01-debuffer-secondary-cr.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-114-v02-debuffer-secondary-cr.sfr"
+          "file": "recipes/cfg-114-v02-debuffer-secondary-cr.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-114-v03-debuffer-secondary-cr.sfr"
+          "file": "recipes/cfg-114-v03-debuffer-secondary-cr.sfc"
         }
       ]
     },
@@ -2164,7 +2164,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-115-v01-utility-gear.sfr"
+          "file": "recipes/cfg-115-v01-utility-gear.sfc"
         }
       ]
     },
@@ -2177,21 +2177,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-116-v01-utility.sfr"
+          "file": "recipes/cfg-116-v01-utility.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-116-v02-utility.sfr"
+          "file": "recipes/cfg-116-v02-utility.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-116-v03-utility.sfr"
+          "file": "recipes/cfg-116-v03-utility.sfc"
         }
       ]
     },
@@ -2204,21 +2204,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-117-v01-utility.sfr"
+          "file": "recipes/cfg-117-v01-utility.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-117-v02-utility.sfr"
+          "file": "recipes/cfg-117-v02-utility.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-117-v03-utility.sfr"
+          "file": "recipes/cfg-117-v03-utility.sfc"
         }
       ]
     },
@@ -2231,21 +2231,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-118-v01-utility.sfr"
+          "file": "recipes/cfg-118-v01-utility.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-118-v02-utility.sfr"
+          "file": "recipes/cfg-118-v02-utility.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-118-v03-utility.sfr"
+          "file": "recipes/cfg-118-v03-utility.sfc"
         }
       ]
     },
@@ -2258,21 +2258,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-119-v01-utility.sfr"
+          "file": "recipes/cfg-119-v01-utility.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-119-v02-utility.sfr"
+          "file": "recipes/cfg-119-v02-utility.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-119-v03-utility.sfr"
+          "file": "recipes/cfg-119-v03-utility.sfc"
         }
       ]
     },
@@ -2285,21 +2285,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-120-v01-utility.sfr"
+          "file": "recipes/cfg-120-v01-utility.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-120-v02-utility.sfr"
+          "file": "recipes/cfg-120-v02-utility.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-120-v03-utility.sfr"
+          "file": "recipes/cfg-120-v03-utility.sfc"
         }
       ]
     },
@@ -2312,21 +2312,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-121-v01-utility.sfr"
+          "file": "recipes/cfg-121-v01-utility.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-121-v02-utility.sfr"
+          "file": "recipes/cfg-121-v02-utility.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-121-v03-utility.sfr"
+          "file": "recipes/cfg-121-v03-utility.sfc"
         }
       ]
     },
@@ -2339,21 +2339,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-122-v01-utility.sfr"
+          "file": "recipes/cfg-122-v01-utility.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-122-v02-utility.sfr"
+          "file": "recipes/cfg-122-v02-utility.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-122-v03-utility.sfr"
+          "file": "recipes/cfg-122-v03-utility.sfc"
         }
       ]
     },
@@ -2366,21 +2366,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-123-v01-utility.sfr"
+          "file": "recipes/cfg-123-v01-utility.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-123-v02-utility.sfr"
+          "file": "recipes/cfg-123-v02-utility.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-123-v03-utility.sfr"
+          "file": "recipes/cfg-123-v03-utility.sfc"
         }
       ]
     },
@@ -2395,7 +2395,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-124-v01-keep-scarce-sets.sfr"
+          "file": "recipes/cfg-124-v01-keep-scarce-sets.sfc"
         }
       ]
     },
@@ -2408,21 +2408,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-125-v01-scarce-sets.sfr"
+          "file": "recipes/cfg-125-v01-scarce-sets.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-125-v02-scarce-sets.sfr"
+          "file": "recipes/cfg-125-v02-scarce-sets.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-125-v03-scarce-sets.sfr"
+          "file": "recipes/cfg-125-v03-scarce-sets.sfc"
         }
       ]
     },
@@ -2435,21 +2435,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-126-v01-scarce-sets.sfr"
+          "file": "recipes/cfg-126-v01-scarce-sets.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-126-v02-scarce-sets.sfr"
+          "file": "recipes/cfg-126-v02-scarce-sets.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-126-v03-scarce-sets.sfr"
+          "file": "recipes/cfg-126-v03-scarce-sets.sfc"
         }
       ]
     },
@@ -2462,21 +2462,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-127-v01-scarce-sets.sfr"
+          "file": "recipes/cfg-127-v01-scarce-sets.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-127-v02-scarce-sets.sfr"
+          "file": "recipes/cfg-127-v02-scarce-sets.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-127-v03-scarce-sets.sfr"
+          "file": "recipes/cfg-127-v03-scarce-sets.sfc"
         }
       ]
     },
@@ -2489,21 +2489,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-128-v01-scarce-sets.sfr"
+          "file": "recipes/cfg-128-v01-scarce-sets.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "configs/cfg-128-v02-scarce-sets.sfr"
+          "file": "recipes/cfg-128-v02-scarce-sets.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "configs/cfg-128-v03-scarce-sets.sfr"
+          "file": "recipes/cfg-128-v03-scarce-sets.sfc"
         }
       ]
     },
@@ -2518,7 +2518,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-129-v01-banner-gear-set-independent.sfr"
+          "file": "recipes/cfg-129-v01-banner-gear-set-independent.sfc"
         }
       ]
     },
@@ -2533,7 +2533,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-130-v01-banner-primary.sfr"
+          "file": "recipes/cfg-130-v01-banner-primary.sfc"
         }
       ]
     },
@@ -2548,7 +2548,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-131-v01-banner-primary.sfr"
+          "file": "recipes/cfg-131-v01-banner-primary.sfc"
         }
       ]
     },
@@ -2563,7 +2563,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-132-v01-banner-primary.sfr"
+          "file": "recipes/cfg-132-v01-banner-primary.sfc"
         }
       ]
     },
@@ -2578,7 +2578,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-133-v01-banner-primary-udk.sfr"
+          "file": "recipes/cfg-133-v01-banner-primary-udk.sfc"
         }
       ]
     },
@@ -2593,7 +2593,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-134-v01-banner-primary.sfr"
+          "file": "recipes/cfg-134-v01-banner-primary.sfc"
         }
       ]
     },
@@ -2608,7 +2608,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-135-v01-banner-primary.sfr"
+          "file": "recipes/cfg-135-v01-banner-primary.sfc"
         }
       ]
     },
@@ -2623,7 +2623,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-136-v01-banner-primary.sfr"
+          "file": "recipes/cfg-136-v01-banner-primary.sfc"
         }
       ]
     },
@@ -2638,7 +2638,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-137-v01-amulet-gear-set-independent.sfr"
+          "file": "recipes/cfg-137-v01-amulet-gear-set-independent.sfc"
         }
       ]
     },
@@ -2653,7 +2653,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-138-v01-amulet-primary.sfr"
+          "file": "recipes/cfg-138-v01-amulet-primary.sfc"
         }
       ]
     },
@@ -2668,7 +2668,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-139-v01-amulet-primary.sfr"
+          "file": "recipes/cfg-139-v01-amulet-primary.sfc"
         }
       ]
     },
@@ -2683,7 +2683,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-140-v01-amulet-primary.sfr"
+          "file": "recipes/cfg-140-v01-amulet-primary.sfc"
         }
       ]
     },
@@ -2698,7 +2698,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-141-v01-amulet-primary.sfr"
+          "file": "recipes/cfg-141-v01-amulet-primary.sfc"
         }
       ]
     },
@@ -2713,7 +2713,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-142-v01-amulet-primary.sfr"
+          "file": "recipes/cfg-142-v01-amulet-primary.sfc"
         }
       ]
     },
@@ -2728,7 +2728,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-143-v01-amulet-primary.sfr"
+          "file": "recipes/cfg-143-v01-amulet-primary.sfc"
         }
       ]
     },
@@ -2743,7 +2743,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-144-v01-amulet-primary.sfr"
+          "file": "recipes/cfg-144-v01-amulet-primary.sfc"
         }
       ]
     },
@@ -2758,7 +2758,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-145-v01-amulet-primary.sfr"
+          "file": "recipes/cfg-145-v01-amulet-primary.sfc"
         }
       ]
     },
@@ -2773,7 +2773,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-146-v01-ring-gear-set-independent.sfr"
+          "file": "recipes/cfg-146-v01-ring-gear-set-independent.sfc"
         }
       ]
     },
@@ -2788,7 +2788,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-147-v01-ring-primary.sfr"
+          "file": "recipes/cfg-147-v01-ring-primary.sfc"
         }
       ]
     },
@@ -2803,7 +2803,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-148-v01-ring-primary.sfr"
+          "file": "recipes/cfg-148-v01-ring-primary.sfc"
         }
       ]
     },
@@ -2818,7 +2818,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-149-v01-ring-primary.sfr"
+          "file": "recipes/cfg-149-v01-ring-primary.sfc"
         }
       ]
     },
@@ -2833,7 +2833,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-150-v01-ff7700-accessories-for-sets-must-be-listed-after-the-gear-set-independent-configs.sfr"
+          "file": "recipes/cfg-150-v01-ff7700-accessories-for-sets-must-be-listed-after-the-gear-set-independent-configs.sfc"
         }
       ]
     },
@@ -2848,7 +2848,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-151-v01-banner-for-sets.sfr"
+          "file": "recipes/cfg-151-v01-banner-for-sets.sfc"
         }
       ]
     },
@@ -2863,7 +2863,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-152-v01-banner-limited-sets.sfr"
+          "file": "recipes/cfg-152-v01-banner-limited-sets.sfc"
         }
       ]
     },
@@ -2878,7 +2878,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-153-v01-banner-limited-sets.sfr"
+          "file": "recipes/cfg-153-v01-banner-limited-sets.sfc"
         }
       ]
     },
@@ -2893,7 +2893,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-154-v01-banner-limited-sets.sfr"
+          "file": "recipes/cfg-154-v01-banner-limited-sets.sfc"
         }
       ]
     },
@@ -2908,7 +2908,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-155-v01-banner-limited-sets.sfr"
+          "file": "recipes/cfg-155-v01-banner-limited-sets.sfc"
         }
       ]
     },
@@ -2923,7 +2923,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-156-v01-banner-limited-sets.sfr"
+          "file": "recipes/cfg-156-v01-banner-limited-sets.sfc"
         }
       ]
     },
@@ -2938,7 +2938,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-157-v01-banner-limited-sets.sfr"
+          "file": "recipes/cfg-157-v01-banner-limited-sets.sfc"
         }
       ]
     },
@@ -2953,7 +2953,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-158-v01-banner-limited-sets.sfr"
+          "file": "recipes/cfg-158-v01-banner-limited-sets.sfc"
         }
       ]
     },
@@ -2968,7 +2968,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-159-v01-banner-limited-sets.sfr"
+          "file": "recipes/cfg-159-v01-banner-limited-sets.sfc"
         }
       ]
     },
@@ -2983,7 +2983,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-160-v01-banner-limited-sets.sfr"
+          "file": "recipes/cfg-160-v01-banner-limited-sets.sfc"
         }
       ]
     },
@@ -2998,7 +2998,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-161-v01-banner-limited-sets.sfr"
+          "file": "recipes/cfg-161-v01-banner-limited-sets.sfc"
         }
       ]
     },
@@ -3013,7 +3013,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-162-v01-banner-limited-sets.sfr"
+          "file": "recipes/cfg-162-v01-banner-limited-sets.sfc"
         }
       ]
     },
@@ -3028,7 +3028,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-163-v01-banner-limited-sets.sfr"
+          "file": "recipes/cfg-163-v01-banner-limited-sets.sfc"
         }
       ]
     },
@@ -3043,7 +3043,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-164-v01-amulet-for-sets.sfr"
+          "file": "recipes/cfg-164-v01-amulet-for-sets.sfc"
         }
       ]
     },
@@ -3058,7 +3058,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-165-v01-amulet-limited-sets.sfr"
+          "file": "recipes/cfg-165-v01-amulet-limited-sets.sfc"
         }
       ]
     },
@@ -3073,7 +3073,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-166-v01-amulet-limited-sets.sfr"
+          "file": "recipes/cfg-166-v01-amulet-limited-sets.sfc"
         }
       ]
     },
@@ -3088,7 +3088,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-167-v01-amulet-limited-sets.sfr"
+          "file": "recipes/cfg-167-v01-amulet-limited-sets.sfc"
         }
       ]
     },
@@ -3103,7 +3103,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-168-v01-amulet-limited-sets.sfr"
+          "file": "recipes/cfg-168-v01-amulet-limited-sets.sfc"
         }
       ]
     },
@@ -3118,7 +3118,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-169-v01-amulet-limited-sets.sfr"
+          "file": "recipes/cfg-169-v01-amulet-limited-sets.sfc"
         }
       ]
     },
@@ -3133,7 +3133,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-170-v01-amulet-limited-sets.sfr"
+          "file": "recipes/cfg-170-v01-amulet-limited-sets.sfc"
         }
       ]
     },
@@ -3148,7 +3148,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-171-v01-amulet-limited-sets.sfr"
+          "file": "recipes/cfg-171-v01-amulet-limited-sets.sfc"
         }
       ]
     },
@@ -3163,7 +3163,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-172-v01-amulet-limited-sets.sfr"
+          "file": "recipes/cfg-172-v01-amulet-limited-sets.sfc"
         }
       ]
     },
@@ -3178,7 +3178,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-173-v01-amulet-limited-sets.sfr"
+          "file": "recipes/cfg-173-v01-amulet-limited-sets.sfc"
         }
       ]
     },
@@ -3193,7 +3193,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-174-v01-ring-for-sets.sfr"
+          "file": "recipes/cfg-174-v01-ring-for-sets.sfc"
         }
       ]
     },
@@ -3208,7 +3208,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-175-v01-ring-limited-sets.sfr"
+          "file": "recipes/cfg-175-v01-ring-limited-sets.sfc"
         }
       ]
     },
@@ -3223,7 +3223,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-176-v01-ring-limited-sets.sfr"
+          "file": "recipes/cfg-176-v01-ring-limited-sets.sfc"
         }
       ]
     },
@@ -3238,7 +3238,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-177-v01-ring-limited-sets.sfr"
+          "file": "recipes/cfg-177-v01-ring-limited-sets.sfc"
         }
       ]
     },
@@ -3253,7 +3253,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-178-v01-ring-limited-sets.sfr"
+          "file": "recipes/cfg-178-v01-ring-limited-sets.sfc"
         }
       ]
     },
@@ -3268,7 +3268,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-179-v01-ring-limited-sets.sfr"
+          "file": "recipes/cfg-179-v01-ring-limited-sets.sfc"
         }
       ]
     },
@@ -3283,7 +3283,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-180-v01-ring-limited-sets.sfr"
+          "file": "recipes/cfg-180-v01-ring-limited-sets.sfc"
         }
       ]
     },
@@ -3298,7 +3298,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-181-v01-ring-limited-sets.sfr"
+          "file": "recipes/cfg-181-v01-ring-limited-sets.sfc"
         }
       ]
     },
@@ -3313,7 +3313,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-182-v01-ring-limited-sets.sfr"
+          "file": "recipes/cfg-182-v01-ring-limited-sets.sfc"
         }
       ]
     },
@@ -3328,7 +3328,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-183-v01-ring-limited-sets.sfr"
+          "file": "recipes/cfg-183-v01-ring-limited-sets.sfc"
         }
       ]
     },
@@ -3343,7 +3343,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-184-v01-for-chaos-ore.sfr"
+          "file": "recipes/cfg-184-v01-for-chaos-ore.sfc"
         }
       ]
     },
@@ -3358,7 +3358,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-185-v01-ff9900-chaos-ore.sfr"
+          "file": "recipes/cfg-185-v01-ff9900-chaos-ore.sfc"
         }
       ]
     },
@@ -3373,7 +3373,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-186-v01-ff5500-chaos-ore.sfr"
+          "file": "recipes/cfg-186-v01-ff5500-chaos-ore.sfc"
         }
       ]
     },
@@ -3386,7 +3386,7 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-187-v01-ff9900-chaos-ore.sfr"
+          "file": "recipes/cfg-187-v01-ff9900-chaos-ore.sfc"
         },
         {
           "variant": 2,
@@ -3394,7 +3394,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-187-v02-ff9900-chaos-ore.sfr"
+          "file": "recipes/cfg-187-v02-ff9900-chaos-ore.sfc"
         }
       ]
     },
@@ -3407,7 +3407,7 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-188-v01-ff5500-chaos-ore.sfr"
+          "file": "recipes/cfg-188-v01-ff5500-chaos-ore.sfc"
         },
         {
           "variant": 2,
@@ -3415,7 +3415,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-188-v02-ff5500-chaos-ore.sfr"
+          "file": "recipes/cfg-188-v02-ff5500-chaos-ore.sfc"
         }
       ]
     },
@@ -3430,7 +3430,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-189-v01-ff9900-chaos-ore.sfr"
+          "file": "recipes/cfg-189-v01-ff9900-chaos-ore.sfc"
         }
       ]
     },
@@ -3445,7 +3445,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-190-v01-ff5500-chaos-ore.sfr"
+          "file": "recipes/cfg-190-v01-ff5500-chaos-ore.sfc"
         }
       ]
     },
@@ -3458,7 +3458,7 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-191-v01-ff9900-chaos-ore.sfr"
+          "file": "recipes/cfg-191-v01-ff9900-chaos-ore.sfc"
         },
         {
           "variant": 2,
@@ -3466,7 +3466,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-191-v02-ff9900-chaos-ore.sfr"
+          "file": "recipes/cfg-191-v02-ff9900-chaos-ore.sfc"
         }
       ]
     },
@@ -3479,7 +3479,7 @@
           "profiles": [
             "lategame"
           ],
-          "file": "configs/cfg-192-v01-ff5500-chaos-ore.sfr"
+          "file": "recipes/cfg-192-v01-ff5500-chaos-ore.sfc"
         },
         {
           "variant": 2,
@@ -3487,7 +3487,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-192-v02-ff5500-chaos-ore.sfr"
+          "file": "recipes/cfg-192-v02-ff5500-chaos-ore.sfc"
         }
       ]
     },
@@ -3502,7 +3502,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-193-v01-88ff00-chaos-ore.sfr"
+          "file": "recipes/cfg-193-v01-88ff00-chaos-ore.sfc"
         }
       ]
     },
@@ -3517,7 +3517,7 @@
             "endgame",
             "endgameplus"
           ],
-          "file": "configs/cfg-194-v01-88ff00-chaos-ore.sfr"
+          "file": "recipes/cfg-194-v01-88ff00-chaos-ore.sfc"
         }
       ]
     }
@@ -3534,21 +3534,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-001-v01-reserve-speed-banner.sfr"
+          "file": "keep-uniques/ku-001-v01-reserve-speed-banner.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-001-v02-reserve-speed-banner.sfr"
+          "file": "keep-uniques/ku-001-v02-reserve-speed-banner.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-001-v03-reserve-speed-banner.sfr"
+          "file": "keep-uniques/ku-001-v03-reserve-speed-banner.sfc"
         }
       ]
     },
@@ -3563,21 +3563,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-002-v01-reserve-speed-artifacts.sfr"
+          "file": "keep-uniques/ku-002-v01-reserve-speed-artifacts.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-002-v02-reserve-speed-artifacts.sfr"
+          "file": "keep-uniques/ku-002-v02-reserve-speed-artifacts.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-002-v03-reserve-speed-artifacts.sfr"
+          "file": "keep-uniques/ku-002-v03-reserve-speed-artifacts.sfc"
         }
       ]
     },
@@ -3592,21 +3592,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-003-v01-reserve-debuff-artifacts-1.sfr"
+          "file": "keep-uniques/ku-003-v01-reserve-debuff-artifacts-1.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-003-v02-reserve-debuff-artifacts-1.sfr"
+          "file": "keep-uniques/ku-003-v02-reserve-debuff-artifacts-1.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-003-v03-reserve-debuff-artifacts-1.sfr"
+          "file": "keep-uniques/ku-003-v03-reserve-debuff-artifacts-1.sfc"
         }
       ]
     },
@@ -3621,21 +3621,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-004-v01-reserve-debuff-artifacts-2.sfr"
+          "file": "keep-uniques/ku-004-v01-reserve-debuff-artifacts-2.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-004-v02-reserve-debuff-artifacts-2.sfr"
+          "file": "keep-uniques/ku-004-v02-reserve-debuff-artifacts-2.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-004-v03-reserve-debuff-artifacts-2.sfr"
+          "file": "keep-uniques/ku-004-v03-reserve-debuff-artifacts-2.sfc"
         }
       ]
     },
@@ -3650,21 +3650,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-005-v01-reserve-attack-amulet.sfr"
+          "file": "keep-uniques/ku-005-v01-reserve-attack-amulet.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-005-v02-reserve-attack-amulet.sfr"
+          "file": "keep-uniques/ku-005-v02-reserve-attack-amulet.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-005-v03-reserve-attack-amulet.sfr"
+          "file": "keep-uniques/ku-005-v03-reserve-attack-amulet.sfc"
         }
       ]
     },
@@ -3679,21 +3679,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-006-v01-reserve-resistance-amulet.sfr"
+          "file": "keep-uniques/ku-006-v01-reserve-resistance-amulet.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-006-v02-reserve-resistance-amulet.sfr"
+          "file": "keep-uniques/ku-006-v02-reserve-resistance-amulet.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-006-v03-reserve-resistance-amulet.sfr"
+          "file": "keep-uniques/ku-006-v03-reserve-resistance-amulet.sfc"
         }
       ]
     },
@@ -3708,21 +3708,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-007-v01-reserve-stat-ring.sfr"
+          "file": "keep-uniques/ku-007-v01-reserve-stat-ring.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-007-v02-reserve-stat-ring.sfr"
+          "file": "keep-uniques/ku-007-v02-reserve-stat-ring.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-007-v03-reserve-stat-ring.sfr"
+          "file": "keep-uniques/ku-007-v03-reserve-stat-ring.sfc"
         }
       ]
     },
@@ -3737,21 +3737,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-008-v01-reserve-damage-top-row.sfr"
+          "file": "keep-uniques/ku-008-v01-reserve-damage-top-row.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-008-v02-reserve-damage-top-row.sfr"
+          "file": "keep-uniques/ku-008-v02-reserve-damage-top-row.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-008-v03-reserve-damage-top-row.sfr"
+          "file": "keep-uniques/ku-008-v03-reserve-damage-top-row.sfc"
         }
       ]
     },
@@ -3766,21 +3766,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-009-v01-reserve-damage-glove.sfr"
+          "file": "keep-uniques/ku-009-v01-reserve-damage-glove.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-009-v02-reserve-damage-glove.sfr"
+          "file": "keep-uniques/ku-009-v02-reserve-damage-glove.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-009-v03-reserve-damage-glove.sfr"
+          "file": "keep-uniques/ku-009-v03-reserve-damage-glove.sfc"
         }
       ]
     },
@@ -3795,21 +3795,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-010-v01-reserve-damage-chest-and-boots.sfr"
+          "file": "keep-uniques/ku-010-v01-reserve-damage-chest-and-boots.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-010-v02-reserve-damage-chest-and-boots.sfr"
+          "file": "keep-uniques/ku-010-v02-reserve-damage-chest-and-boots.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-010-v03-reserve-damage-chest-and-boots.sfr"
+          "file": "keep-uniques/ku-010-v03-reserve-damage-chest-and-boots.sfc"
         }
       ]
     },
@@ -3824,21 +3824,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-011-v01-reserve-crit-shield-top-row.sfr"
+          "file": "keep-uniques/ku-011-v01-reserve-crit-shield-top-row.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-011-v02-reserve-crit-shield-top-row.sfr"
+          "file": "keep-uniques/ku-011-v02-reserve-crit-shield-top-row.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-011-v03-reserve-crit-shield-top-row.sfr"
+          "file": "keep-uniques/ku-011-v03-reserve-crit-shield-top-row.sfc"
         }
       ]
     },
@@ -3853,21 +3853,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-012-v01-reserve-crit-shield-glove.sfr"
+          "file": "keep-uniques/ku-012-v01-reserve-crit-shield-glove.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-012-v02-reserve-crit-shield-glove.sfr"
+          "file": "keep-uniques/ku-012-v02-reserve-crit-shield-glove.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-012-v03-reserve-crit-shield-glove.sfr"
+          "file": "keep-uniques/ku-012-v03-reserve-crit-shield-glove.sfc"
         }
       ]
     },
@@ -3882,21 +3882,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-013-v01-reserve-crit-shield-chest-and-boots.sfr"
+          "file": "keep-uniques/ku-013-v01-reserve-crit-shield-chest-and-boots.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-013-v02-reserve-crit-shield-chest-and-boots.sfr"
+          "file": "keep-uniques/ku-013-v02-reserve-crit-shield-chest-and-boots.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-013-v03-reserve-crit-shield-chest-and-boots.sfr"
+          "file": "keep-uniques/ku-013-v03-reserve-crit-shield-chest-and-boots.sfc"
         }
       ]
     },
@@ -3911,21 +3911,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-014-v01-reserve-survivability-top-row.sfr"
+          "file": "keep-uniques/ku-014-v01-reserve-survivability-top-row.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-014-v02-reserve-survivability-top-row.sfr"
+          "file": "keep-uniques/ku-014-v02-reserve-survivability-top-row.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-014-v03-reserve-survivability-top-row.sfr"
+          "file": "keep-uniques/ku-014-v03-reserve-survivability-top-row.sfc"
         }
       ]
     },
@@ -3940,21 +3940,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-015-v01-reserve-survivability-bottom-row.sfr"
+          "file": "keep-uniques/ku-015-v01-reserve-survivability-bottom-row.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-015-v02-reserve-survivability-bottom-row.sfr"
+          "file": "keep-uniques/ku-015-v02-reserve-survivability-bottom-row.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-015-v03-reserve-survivability-bottom-row.sfr"
+          "file": "keep-uniques/ku-015-v03-reserve-survivability-bottom-row.sfc"
         }
       ]
     },
@@ -3969,21 +3969,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-016-v01-unique-accessories-1-per-mainstat-slot.sfr"
+          "file": "keep-uniques/ku-016-v01-unique-accessories-1-per-mainstat-slot.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-016-v02-unique-accessories-1-per-mainstat-slot.sfr"
+          "file": "keep-uniques/ku-016-v02-unique-accessories-1-per-mainstat-slot.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-016-v03-unique-accessories-1-per-mainstat-slot.sfr"
+          "file": "keep-uniques/ku-016-v03-unique-accessories-1-per-mainstat-slot.sfc"
         }
       ]
     },
@@ -3998,21 +3998,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-017-v01-unique-accessories-min-5.sfr"
+          "file": "keep-uniques/ku-017-v01-unique-accessories-min-5.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-017-v02-unique-accessories-min-5.sfr"
+          "file": "keep-uniques/ku-017-v02-unique-accessories-min-5.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-017-v03-unique-accessories-min-5.sfr"
+          "file": "keep-uniques/ku-017-v03-unique-accessories-min-5.sfc"
         }
       ]
     },
@@ -4027,21 +4027,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-018-v01-unique-artifacts-top-row.sfr"
+          "file": "keep-uniques/ku-018-v01-unique-artifacts-top-row.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-018-v02-unique-artifacts-top-row.sfr"
+          "file": "keep-uniques/ku-018-v02-unique-artifacts-top-row.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-018-v03-unique-artifacts-top-row.sfr"
+          "file": "keep-uniques/ku-018-v03-unique-artifacts-top-row.sfc"
         }
       ]
     },
@@ -4056,21 +4056,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-019-v01-unique-artifacts-bottom-row.sfr"
+          "file": "keep-uniques/ku-019-v01-unique-artifacts-bottom-row.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-019-v02-unique-artifacts-bottom-row.sfr"
+          "file": "keep-uniques/ku-019-v02-unique-artifacts-bottom-row.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-019-v03-unique-artifacts-bottom-row.sfr"
+          "file": "keep-uniques/ku-019-v03-unique-artifacts-bottom-row.sfc"
         }
       ]
     },
@@ -4085,21 +4085,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-020-v01-unique-utilities-top-row.sfr"
+          "file": "keep-uniques/ku-020-v01-unique-utilities-top-row.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-020-v02-unique-utilities-top-row.sfr"
+          "file": "keep-uniques/ku-020-v02-unique-utilities-top-row.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-020-v03-unique-utilities-top-row.sfr"
+          "file": "keep-uniques/ku-020-v03-unique-utilities-top-row.sfc"
         }
       ]
     },
@@ -4114,21 +4114,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-021-v01-unique-utilities-bottom-row.sfr"
+          "file": "keep-uniques/ku-021-v01-unique-utilities-bottom-row.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-021-v02-unique-utilities-bottom-row.sfr"
+          "file": "keep-uniques/ku-021-v02-unique-utilities-bottom-row.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-021-v03-unique-utilities-bottom-row.sfr"
+          "file": "keep-uniques/ku-021-v03-unique-utilities-bottom-row.sfc"
         }
       ]
     },
@@ -4143,21 +4143,21 @@
           "profiles": [
             "lategame"
           ],
-          "file": "keep-uniques/ku-022-v01-unique-faction-5-accessories-per-slot-per-faction.sfr"
+          "file": "keep-uniques/ku-022-v01-unique-faction-5-accessories-per-slot-per-faction.sfc"
         },
         {
           "variant": 2,
           "profiles": [
             "endgame"
           ],
-          "file": "keep-uniques/ku-022-v02-unique-faction-5-accessories-per-slot-per-faction.sfr"
+          "file": "keep-uniques/ku-022-v02-unique-faction-5-accessories-per-slot-per-faction.sfc"
         },
         {
           "variant": 3,
           "profiles": [
             "endgameplus"
           ],
-          "file": "keep-uniques/ku-022-v03-unique-faction-5-accessories-per-slot-per-faction.sfr"
+          "file": "keep-uniques/ku-022-v03-unique-faction-5-accessories-per-slot-per-faction.sfc"
         }
       ]
     }

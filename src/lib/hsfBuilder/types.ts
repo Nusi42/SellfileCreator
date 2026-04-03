@@ -13,15 +13,15 @@ export type SellfileExportMode = 'active' | 'disabled' | 'separator'
 
 export type Star = RankValue
 
-// BuilderRecipe mirrors the SFR schema but uses strongly-typed enums so the UI
+// BuilderRecipe mirrors the SFC schema but uses strongly-typed enums so the UI
 // and build steps guarantee we emit valid HSF payloads.
 export interface BuilderRecipe {
-  // Optional display name for this rule configuration (saved in SFR)
+  // Optional display name for this recipe (saved in SFC)
   name?: string
   // Optional recipe overrides tags used to enable/disable recipes via note prompts.
   tags?: string[]
   keep: boolean
-  // Sellfile export mode. Separator recipes export only to SFR (no Sellfile rules).
+  // Sellfile export mode. Separator recipes export only to SFC (no Sellfile rules).
   // 'disabled' keeps the recipe in exports but forces `Use: false` so RSL Helper ignores it.
   exportMode: SellfileExportMode
   // Explicit level window for which to emit rules (inclusive).
@@ -71,7 +71,7 @@ export interface BuilderRecipe {
   artifactTypes?: ArtifactTypeId[]
   // Set filters include exclude flags so metaset-driven entries can be removed explicitly.
   artifactSets?: ArtifactSetSelectionEntry[]
-  // Optional metaset references (IDs defined in SFR Metasets)
+  // Optional metaset references (IDs defined in SFC Metasets)
   artifactMetaSets?: string[]
   // Early/Late keep mode:
   // - 'early' (formerly 'progressive'): thresholds rise with gained rolls until feasible, then stay fixed.
@@ -106,7 +106,7 @@ export type SubstatTargetTable = {
   anyRankDefaultsTo: Star
 }
 
-// Legacy SFR payloads keep several mutually-exclusive fields—normalize them to
+// Legacy SFC payloads keep several mutually-exclusive fields—normalize them to
 // SellfileExportMode before persisting back to disk.
 export type LegacyVisibilityFields = {
   exportMode?: SellfileExportMode | null

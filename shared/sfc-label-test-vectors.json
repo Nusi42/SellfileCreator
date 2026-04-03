@@ -1,5 +1,5 @@
 {
-  "_comment": "Canonical test vectors for sfr_reader label parsers. Input/output pairs checked by both Rust (#[test]) and Jest (sfr-reader.test.ts).",
+  "_comment": "Canonical test vectors for sfc_reader label parsers. Input/output pairs checked by both Rust (#[test]) and Jest (sfc-reader.test.ts).",
   "statVariantFromLabel": [
     { "input": "SPD",       "expected": 1025 },
     { "input": "spd",       "expected": 1025 },

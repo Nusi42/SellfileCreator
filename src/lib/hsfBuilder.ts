@@ -74,7 +74,7 @@ export function coerceSellfileExportModeToken(value: unknown): SellfileExportMod
   return null
 }
 
-/** Resolve export mode from LegacyVisibilityFields (old SFR keys like visibility, sellfileMode, enabled). */
+/** Resolve export mode from LegacyVisibilityFields (old SFC keys like visibility, sellfileMode, enabled). */
 export function resolveExportModeField(source: LegacyVisibilityFields): SellfileExportMode {
   const direct = coerceSellfileExportModeToken(source.exportMode)
   if (direct) return direct

@@ -12,7 +12,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 - README translations live at the repo root as `README.<lang>.md` (e.g., `README.de.md`). The Help dialog pulls them via Vite glob imports when present.
 - Shipped languages:
   - Localized: `de-DE`, `fr-FR`, `es-ES`, `it-IT`, `pt-BR`, `pt-PT`, `ru-RU`, `uk-UA`, `tr-TR` — provide partial/complete overrides layered over English.
-- Vocabulary must stay consistent with the game and the existing UI. Reuse the terminology already present (e.g., “Config”) rather than inventing new phrases, and keep wording simple so non-expert users can follow along. Raid Shadow Legends terminology is allowed whenever it helps clarity. Apply this rule to every surface: catalogs, README translations, tutorials, cheat sheets, tooltips, and any other strings.
+- Vocabulary must stay consistent with the game and the existing UI. Reuse the terminology already present (e.g., “Recipe”) rather than inventing new phrases, and keep wording simple so non-expert users can follow along. Raid Shadow Legends terminology is allowed whenever it helps clarity. Apply this rule to every surface: catalogs, README translations, tutorials, cheat sheets, tooltips, and any other strings.
 - Capitalization rules: treat buttons, tabs, chips, dialog titles, and other UI labels as Title Case (capitalize every principal word; keep short prepositions/articles such as “to”, “and”, “a” lowercase). Descriptive copy (tooltips, helper paragraphs, warnings, error messages) stays in sentence case with terminal punctuation. When a string mixes both (`X per slot × per set`), keep the label portion Title Case and the explanatory fragment sentence-case. Apply this consistently when adding keys to `en-US.ts`.
 - Inline stat names must use the canonical tokens. Wrap every stat mention with `[[stat:statSPD]]`, `[[stat:statCR]]`, etc. so the shared `stat*` translations remain the single source of truth and colored text always matches the configured stat palettes. When you append your own units (e.g., `+12%`), add the `|bare` modifier (`[[stat:statCR|bare]] +12%`) to strip the built-in `%` suffix before applying your own.
 - Runtime behavior:
@@ -36,10 +36,10 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 
 ### Localization alignment workflow
 
-- README translations (`README.<lang>.md`) and their catalogs (`src/lib/i18n/catalogs/<lang>.ts`) form a single source of truth for terminology. When a feature’s copy changes (Gear Inspector preview, Safeguards defaults/helper rules, quota scopes, clipboard workflows, glyph/roll filters, config management tips), update the English README first, then mirror the structure and wording in every translated README while updating the matching catalog keys in the same commit.
-- Use heading outlines to compare structures instead of noisy line-by-line diffs: `rg '^##' README.md` / `rg '^##' README.<lang>.md` (and `^###` for subsections) keeps the focus on missing sections, tables, and grids. Open both files side by side while applying the English layout to the localized version so tables, scenario grids, and config-management paragraphs stay parallel.
+- README translations (`README.<lang>.md`) and their catalogs (`src/lib/i18n/catalogs/<lang>.ts`) form a single source of truth for terminology. When a feature’s copy changes (Gear Inspector preview, Safeguards defaults/helper rules, quota scopes, clipboard workflows, glyph/roll filters, recipe management tips), update the English README first, then mirror the structure and wording in every translated README while updating the matching catalog keys in the same commit.
+- Use heading outlines to compare structures instead of noisy line-by-line diffs: `rg ‘^##’ README.md` / `rg ‘^##’ README.<lang>.md` (and `^###` for subsections) keeps the focus on missing sections, tables, and grids. Open both files side by side while applying the English layout to the localized version so tables, scenario grids, and recipe-management paragraphs stay parallel.
 - README.md and all README translations (`README.<lang>.md`) are end-user facing documentation. Keep the wording simple, avoid technical terms, explain straight up on point and dont try to sell a feature. Using terminology from the game Raid Shadow Legends is fine though.
-- All `Config`-building, `Filter`, `Gear-Sets`, and `Safeguards` terminology must stay synchronized between README copy, catalog strings, and UI labels. That includes the tab/section title, default/helper rule descriptions, badge labels, scope chips, and any other user facting button not explicitly mentioned here. If a locale intentionally keeps a loanword (e.g., “Rolls” in de-DE), mention the reasoning as a comment in their catalogs (`src/lib/i18n/catalogs/<lang>.ts`) so future translators do not “fix” it.
+- All `Recipe`-building, `Filter`, `Gear-Sets`, and `Safeguards` terminology must stay synchronized between README copy, catalog strings, and UI labels. That includes the tab/section title, default/helper rule descriptions, badge labels, scope chips, and any other user facting button not explicitly mentioned here. If a locale intentionally keeps a loanword (e.g., “Rolls” in de-DE), mention the reasoning as a comment in their catalogs (`src/lib/i18n/catalogs/<lang>.ts`) so future translators do not “fix” it.
 - Locale-specific notes should live as a comment in their catalogs (`src/lib/i18n/catalogs/<lang>.ts`).
 
 ## Tooltips and Context Hints
@@ -73,12 +73,12 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 | Surface | Component(s) | Notes |
 | --- | --- | --- |
 | Builder form labels (action/rank/rarity/faction/level/main/substats/slots/etc.) | `MarkdownTooltip` + `BuilderTooltipContent` | Helper text that lived in inline `<Tooltip>` nodes now routes through the markdown wrapper so bullet lists share the global delay/width. |
-| Builder action buttons (add/save, undo/redo, export modes, help) | `MarkdownTooltip` | Buttons that expose multi-line guidance (hidden configs reminder, undo history, help links) all share the markdown wrapper with capped width. |
+| Builder action buttons (add/save, undo/redo, export modes, help) | `MarkdownTooltip` | Buttons that expose multi-line guidance (hidden recipes reminder, undo history, help links) all share the markdown wrapper with capped width. |
 | Builder flex/min/threshold chips + lock toggles | `MarkdownTooltip` (`render`) | Contextual icons still render via JSX, but that JSX flows through the markdown wrapper so colored badges share timing. |
 | Builder ellipsis-only surfaces (note/save buttons, metaset button, select renderers) | `EllipsisTooltip` | Wrap the button/select and tag the text node with `data-ellipsis-target` so the native `title` appears only when the label overflows. |
 | Rules filter chips/toggles | `MarkdownTooltip` for guidance, `EllipsisTooltip` for summaries | Glyph legend helpers return markdown strings (e.g., `≥ 0 = show any`). Icon/button labels use EllipsisTooltip so the tooltip only appears when text overflows. |
 | Preview/tester tables | `EllipsisTooltip` for overflow cells, `MarkdownTooltip` everywhere else | Slot/faction/set icons and column headers use MarkdownTooltip. Substat summaries wrap their chips with EllipsisTooltip whenever scroll containers clip the content. |
-| Context menus (builder history, rules table rows, config chips) | `MarkdownTooltip` | Inline helper text (builder context actions, chip menus, copy buttons) renders through the shared wrapper so keyboard users get consistent poppers. |
+| Context menus (builder history, rules table rows, recipe chips) | `MarkdownTooltip` | Inline helper text (builder context actions, chip menus, copy buttons) renders through the shared wrapper so keyboard users get consistent poppers. |
 | Set descriptions (`WithSetTooltip`) | `MarkdownTooltip` (`render`) | Structured descriptions still emit JSX (piece counts, colored buffs) but they flow through MarkdownTooltip so the timing knob lives in one place. |
 | Glyph/legend helpers (`renderGlyphTooltip`) | `MarkdownTooltip` (`markdown`) | Helper returns a markdown string so chips/buttons can simply call `<MarkdownTooltip markdown={renderGlyphTooltip(...)}/>` without bespoke JSX. |
 | Native titles | Targeted surfaces only | Native `title` is reserved for overflow expansion. Use `EllipsisTooltip`, or if a surface already owns a MarkdownTooltip popper, pass `ellipsisTitle` so MarkdownTooltip can manage the transient `title` without nesting. |
@@ -90,7 +90,7 @@ Representative overflow-only surfaces:
 - Iconic buttons whose labels can collapse (builder note/save buttons, preview header actions, dialog primary actions).
 - Select `renderValue` spans (gear sets, factions, champions, builder set/faction pickers, rules filter chips).
 - Table cells that toggle between icons and text (HSF slot/faction columns, metaset menus, builder set menus).
-- Config/Gear Inspector chips plus the Gear Inspector grid’s matching-config badges.
+- Recipe/Gear Inspector chips plus the Gear Inspector grid’s matching-recipe badges.
 
 When the same surface needs a rich Markdown tooltip *and* an overflow-expansion title, pass `ellipsisTitle` to `MarkdownTooltip` so it handles the overflow probe and native `title` for you instead of nesting tooltip systems.
 
@@ -99,11 +99,11 @@ When the same surface needs a rich Markdown tooltip *and* an overflow-expansion 
 Anything that is not overflow-triggered runs through `MarkdownTooltip`. Representative groupings:
 
 - Builder form labels, action buttons, flex/min controls, lock toggles, roll target warnings, history entries, and metaset dialogs.
-- Rules filter chips/toggles (sets, chaos ore, glyph filters, roll summary), tester config buttons, preview header menus, and filter sections.
+- Rules filter chips/toggles (sets, chaos ore, glyph filters, roll summary), tester recipe buttons, preview header menus, and filter sections.
 - Headers, icons, and buttons inside the HSF preview table and Gear Inspector grid (match rows, champion badges, Safeguards chips, context-menu affordances).
 - Dialog controls (Note dialog toolbar, Safeguards tabs, Substat Targets star chips, Gear Inspector action buttons, copy-to-clipboard helpers).
 - Export/load/save buttons, load-sellfile helpers, final-sell toggles, context shorthand hints, etc.
-- Note dialog markers: HTML/Markdown comments `<!-- recipes:1,0 -->` render Config chips; `<!-- recipes-re:"speed" -->` filters configs by name or tags; `<!-- safeguards:1,2 -->` renders Safeguard summary cards; `<!-- safeguards-re:"ring" -->` filters cards by Safeguard rule name. Markers are 1-based, support `0` for “next after previous marker”, and resolve against the current in-memory config/safeguard ordering.
+- Note dialog markers: HTML/Markdown comments `<!-- recipes:1,0 -->` render Recipe chips; `<!-- recipes-re:”speed” -->` filters recipes by name or tags; `<!-- safeguards:1,2 -->` renders Safeguard summary cards; `<!-- safeguards-re:”ring” -->` filters cards by Safeguard rule name. Markers are 1-based, support `0` for “next after previous marker”, and resolve against the current in-memory recipe/safeguard ordering.
 
 If tooltips need rich formatting (colored badges, inline icons), pass JSX via `render={<BuilderTooltipContent .../>}`. Everything else should use `markdown=` strings so translations stay readable and formatting stays consistent.
 
@@ -123,18 +123,18 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - Delete dialog behaviors:
   - Unused and empty: deletes immediately without confirmation.
   - Unused with sets: shows a simple confirmation (no replace options).
-  - Used in configs: shows a single-choice confirmation with radio options and a single confirm button (fixed width):
+  - Used in recipes: shows a single-choice confirmation with radio options and a single confirm button (fixed width):
     - Delete and remove references (red).
     - Replace with explicit sets (warning): merges the metaset’s sets into `artifactSets` and removes the metaset reference.
     - Replace with another metaset (warning): selector sits to the right of its radio; enabled only when selected.
   - Default selection mirrors Delete: if any referenced metaset contains sets, defaults to “Replace with explicit sets”, otherwise to “Delete and remove references”.
-  - Builder integration: when deleting or replacing a metaset, the live builder selection is updated using the same mapping as configs.
+  - Builder integration: when deleting or replacing a metaset, the live builder selection is updated using the same mapping as recipes.
   - Sets Select fallback: when a selection can’t be resolved (e.g., deleted ID), it renders “Any” instead of an empty label.
   - Clear buttons: “Clear” in Metasets editor is disabled for empty metasets; “Clear” in the builder’s Sets row is disabled when selection is Empty/Any.
-  - Icon picker: A compact dropdown to the right of the Sets selector assigns curated emoji/text glyph icons (plus “None”/“Empty”). The grid renders six columns for quick scanning, defaults to “None” for built-ins, picks a random emoji for generated names, and persists via SFR `iconId` (missing IDs normalize to `none`).
+  - Icon picker: A compact dropdown to the right of the Sets selector assigns curated emoji/text glyph icons (plus “None”/“Empty”). The grid renders six columns for quick scanning, defaults to “None” for built-ins, picks a random emoji for generated names, and persists via SFC `iconId` (missing IDs normalize to `none`).
 
 - Reset metasets to defaults:
-  - Presents the same three choices as Delete (remove references, explicit sets, or replace with metaset), applied across all configs and the builder.
+  - Presents the same three choices as Delete (remove references, explicit sets, or replace with metaset), applied across all recipes and the builder.
   - Defaults like Delete (prefer “Replace with explicit sets” when any used metaset has sets).
   - After applying the chosen mapping, replaces the metaset list with `defaultMetasets()`.
 
@@ -149,21 +149,21 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - IDs and IO:
     - Built-ins: stable slugs (e.g., `meta_nuker`).
     - New metasets: base-36 IDs via `makeMetasetId()` (e.g., `m_ab12cd3`).
-    - SFR configs reference metasets by ID via `artifactMetaSetIds`; the `Metasets` section stays readable with names + `setNames`.
+    - SFC recipes reference metasets by ID via `artifactMetaSetIds`; the `Metasets` section stays readable with names + `setNames`.
 - Tooltip copy style: avoid HTML entities. Use backticks for titles and string expressions for labels containing quotes to satisfy ESLint.
 
 ## Preview Table Selection
 
-- Row click: Selecting a rule row highlights the related config and selects the corresponding config chip, but never auto-scrolls the table.
-- Chip click: Selecting a config chip triggers an explicit scroll request and jumps the table to the first matching rule row. Single-line mode uses smooth scrolling when nearby and falls back to an instant jump for long distances; wrap mode always jumps.
-- `selectRule` commands also trigger preview scrolling (to the requested rule row) while still syncing the related config selection.
+- Row click: Selecting a rule row highlights the related recipe and selects the corresponding recipe chip, but never auto-scrolls the table.
+- Chip click: Selecting a recipe chip triggers an explicit scroll request and jumps the table to the first matching rule row. Single-line mode uses smooth scrolling when nearby and falls back to an instant jump for long distances; wrap mode always jumps.
+- `selectRule` commands also trigger preview scrolling (to the requested rule row) while still syncing the related recipe selection.
 - Auto-scroll is gated to explicit selection intents (chip clicks or `selectRule`) so background rule updates never re-scroll the table.
 - Mode switch retention: Sellfile Preview and Gear Inspector now cache independent scroll offsets; toggling between modes restores the prior viewport and relies on native scroll clamping when filtered/removed rows shrink the content height.
 
 ### Obsolete Rules Handling
 
 - Obsolete detection groups rules by coarse selectors (action, rank/rarity/level, sets/types, main stat, faction) and normalized substats. A rule is “obsolete” if another in the same group dominates it (componentwise looser-or-equal thresholds, with tie-breaking to earlier indices for exact duplicates).
-- Preview pruning only removes an obsolete rule when both rules originate from the same custom config (RecipeID). Duplicate configs, overlaps versus base configs, and cross-config overlaps remain visible for auditability.
+- Preview pruning only removes an obsolete rule when both rules originate from the same custom recipe (RecipeID). Duplicate recipes, overlaps versus base recipes, and cross-recipe overlaps remain visible for auditability.
 
 ## UI Notes (developer-facing)
 
@@ -172,7 +172,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - When tags are present (single or multi-edit), a compact clear (x) button appears next to the Tags button to reset the tag list quickly.
   - The Tags button has a right-click context menu with a `Show Tags` toggle (persisted). When off, the inline tag chips next to the button stay hidden.
   - Faction stays near Rarity. Only accessories care about faction; other gear ignores `Faction`.
-- Mainstat is multi-select with two rows of toggle buttons (HP/HP%/ATK/ATK%/DEF/DEF% and SPD/RES/ACC/CR%/CDMG%). Empty selection maps to Any; SFR export converts selections to readable labels.
+- Mainstat is multi-select with two rows of toggle buttons (HP/HP%/ATK/ATK%/DEF/DEF% and SPD/RES/ACC/CR%/CDMG%). Empty selection maps to Any; SFC export converts selections to readable labels.
 - Substats reuse the two-row toggle grid. Empty selection represents Any. Toggle buttons manage selection while a separate lock badge handles fixed state (supports `aria-pressed="mixed"`).
   - Lock badge only appears when the stat is selected, locked, or mixed.
   - Context menu (right-click/Menu key) exposes lock/unlock, min rolls, and roll upper limit controls. Min/max grids reuse compact toggle layouts with mixed indicators.
@@ -182,7 +182,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - Wildcard flex (star icon) only appears when Required uses a numeric count and at least one optional wildcard is selected. When enabled, the count becomes a floor and wildcards permute across totals ≥ `minCount` while mandatory stats remain fixed.
 - Flex eligibility is computed once (shared across normalization and builder). It unlocks when manual `minCount` is active, there are more selectable stats than the requirement, at least one optional wildcard lacks numeric bounds, and either an optional stat has a per-stat minimum or the aggregate minimum exceeds the requirement. Otherwise `autoSubstatFlex` is cleared during normalization/export.
 - Flex permutations wait until at least two milestone rolls exist so early milestones stay minimal.
-- Existing configs keep their saved flex state; the scratch builder alone auto-enables flex when a fresh combo first becomes eligible.
+- Existing recipes keep their saved flex state; the scratch builder alone auto-enables flex when a fresh combo first becomes eligible.
 - Builder permutations stay minimal even with flex: combos that never roll optional stats are skipped so the smaller locked/core combo remains the keeper. Optional stats demanding rolls still generate their own rows.
 - Canonicalization happens once through `canonicalizeRuleSelectors()` so pruning and dedupe logic never drift.
 - `Min Required Rolls` now has two distinct concepts:
@@ -195,19 +195,19 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Clicking the active lock again clears it and re-highlights that number as the new GMRR when none was selected.
   - GMRR = 0 is treated as a real manual value (the `0` button lights up) but the lock icon is hidden for that button. A lock never makes the `0` button appear highlighted.
   - Auto + lock cannot coexist: triggering Auto always resets both knobs.
-  - SFR imports/clipboard pastes run through the same invariants so configs never load with “lock ≥ total” or multiple locks.
+  - SFC imports/clipboard pastes run through the same invariants so recipes never load with “lock ≥ total” or multiple locks.
   - Distributions still fail Fast/Strict filtering when the aggregate cannot be reached by +16; Potential/Early keeps partial rows only when the aggregate is still attainable.
 - Defaults: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStatsV=[]`, `minLevel=0`, `maxLevel=16`, `minCount=0`, `autoMinCount=true`, `substatsV=[]`, `artifactTypes=[]`, `artifactSets=[]`.
 - Reset defaults restore the above and clear type/set/faction selections.
-- Config chips occupy a scrollable container (≈6 chips). Adding a new config selects it and scrolls it into view without moving the page.
-- Config chips render as a single column in the builder list: each chip spans the full row so configs never pack side-by-side.
+- Recipe chips occupy a scrollable container (≈6 chips). Adding a new recipe selects it and scrolls it into view without moving the page.
+- Recipe chips render as a single column in the builder list: each chip spans the full row so recipes never pack side-by-side.
 - Chips support drag-and-drop reordering: the dragged chips are dimmed but keep their spot (layout stays frozen), a blue guide line shows the drop slot between rows, auto-scroll kicks in near the container edges, tooltips/context hints are suppressed during the drag, and the actual reorder only happens on drop so previews do not churn mid-drag. Press `Esc` to cancel an in-flight drag without changing the list. Hold `Ctrl` (Cmd on macOS) while dragging to duplicate the selected chips into the highlighted slot instead of moving them; the new copies become the active selection after drop.
 - Preview auto-scroll stays confined to the table container:
-  - Selecting a config chip jumps the preview table to the first rule row for that config (no smooth scrolling).
+  - Selecting a recipe chip jumps the preview table to the first rule row for that recipe (no smooth scrolling).
 
 ### Persistence & Autosave
 
-- Autosave payload key: `sellfileCreator.autosave.sfr.v1`; value `[crc32, payload]`, where `payload = buildSfrPayload(...)`.
+- Autosave payload key: `sellfileCreator.autosave.sfc.v1`; value `[crc32, payload]`, where `payload = buildSfcPayload(...)`.
   - CRC detects corruption; invalid entries are cleared automatically.
   - On load, a valid entry prompts Restore vs Dismiss. Dismiss keeps the previous snapshot until the user edits state.
 - Substat color preferences: `sellfileCreator.substatColors.v6` (variant-keyed `{ fg, bg }`, default alpha 25%).
@@ -229,7 +229,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - Hovering a numeric `Recipe` cell now shows the recipe name (when present); safeguard star rows keep showing the safeguard rule label tooltip.
 - Row interactions:
   - Hover highlights only while pointer stays inside the preview.
-  - Clicking a row selects the config but suppresses auto-scroll (prevents loops).
+  - Clicking a row selects the recipe but suppresses auto-scroll (prevents loops).
   - Safeguard rows suppress the "right-click for actions" hint because they intentionally expose no row context menu actions.
   - Clicking a safeguard star now branches by data: concrete safeguard matches switch to `Gear Inspector`, while anticipate-only placeholders open `Tools → Safeguards`, select the matching rule, and expand its card.
 
@@ -271,7 +271,7 @@ Safeguards are edited in a dedicated builder mode accessed via the builder-colum
 - **Collapsible sections**: three sections are collapsible independently via `useBuilderSafeguardCollapsedPreference` (shared preference key, same sections as `RecipeBuilderPanel`).
 - **Undo / Redo**: full history with context menu, mirrors `RecipeBuilderPanel` via `useBuilderHistoryMenu`.
 - **Action buttons**: Insert, Apply, Reset — same layout as the recipe builder. Auto-apply and auto-reset preferences are shared with the recipe builder (mutually exclusive toggles).
-- **Scaffold from recipe**: a popover lists existing recipe configs; selecting one pre-fills the safeguard combination from that recipe's slot/set/faction/mainstat selectors, giving a quick starting point.
+- **Scaffold from recipe**: a popover lists existing recipes; selecting one pre-fills the safeguard combination from that recipe's slot/set/faction/mainstat selectors, giving a quick starting point.
 - **Metasets**: the Sets picker uses the same filtered set pool as `RecipeBuilderPanel` via `useKeepOverrideCombinationTools`; the Manage Metasets entry point is forwarded from `App.tsx`.
 - **Auto-enable**: the first inserted safeguard rule automatically enables the Safeguards feature.
 - **Improvement chance threshold** (`improvementChanceThreshold`): optional quality gate (0–100 or null). When set, the detection pass only protects pieces whose precomputed improvement chance meets or exceeds the threshold. The improvement chance is computed in a dedicated pre-pass (`buildSafeguardImprovementChanceByArtifactId` in `safeguardImprovementChance.ts`) before detection runs; results are passed to the WASM detection call as `improvementChances`. The simulation models **roll variance** via two-value branching (Q1/Q3 outcomes per roll, each 50 % probability) using per-star roll ranges from `SUBSTAT_ROLL_RANGES_BY_STAR`, and adds **glyph potential** (average enchantment value for the gear's rank from `GLYPH_RANGES_BY_RANK`) to each present glyphable substat's score — higher-rank gear benefits from stronger available glyphs. To limit branching complexity, only milestones +12 and +16 use two-value branching; earlier milestones (+4, +8) use the average of Q1/Q3 as a single gain value (`TWO_VALUE_BRANCHING_MIN_MILESTONE = 12`). Both data tables are generated from `shared/domain-constants.json`. The control renders as a popover-backed chip in the builder; `null` disables gating entirely (top-N selection remains active).
@@ -394,16 +394,17 @@ Rendered in the builder column below the form panel, occupying the same scrollab
   - Global event bridges: `useFileDragDrop`, `useTooltipScrollGuard`, `useContextMenuCloseOnOutsideRightClick` mount/unmount window listeners cleanly.
   - Autosave & external IO: `useAutosave`, `useAutosaveRestore`, `useExternalCommands`, and the copy/push listeners in `App` manage persistence and long-polling with abort-aware cleanups.
   - Layout/virtualization observers: `useBuilderPreviewLayout`, `HsfRulesTable`, `GearTesterTabContent`, `MetasetsDialog` coordinate ResizeObservers and scroll alignment.
-  - Attention/timer loops: `HelpDialog`, `PreviewHeaderActions`, `ConfigChipsPanel`, `attentionEffects` throttle requestAnimationFrame/timeouts behind explicit open/visibility checks.
-  - Tutorial/history refs: `useTutorialCoachState`, `useSfrHistoryController`, and `App` maintain refs for undo/history flows when render-only derivation is insufficient.
+  - Attention/timer loops: `HelpDialog`, `PreviewHeaderActions`, `RecipeChipsPanel`, `attentionEffects` throttle requestAnimationFrame/timeouts behind explicit open/visibility checks.
+  - Tutorial/history refs: `useTutorialCoachState`, `useSfcHistoryController`, and `App` maintain refs for undo/history flows when render-only derivation is insufficient.
   - Dialog focus management: `NoteDialog`, `ManageColorsDialog`, and `RulesFilterPanel` keep focus traps, autosave overlays, or preference synchronization confined to dialog scope.
 
 ### Internal vs IO Representation
 
 - UI/builder state uses `StatVariant`-based fields: `mainStatsV`, `substatsV`, `fixedSubstatsV`, `substatRollBoundsV`.
 - Per-substat roll overrides live in `substatRollTargetsV` (variant-keyed `{ base?: number; increments?: number[] }`). Context menus expose Base/+1…+5 entries and a “Use global targets” reset.
-- SFR write paths (Save, Copy All, Copy single config) emit compact metaset references `artifactMetaSetIds`. Read paths still accept `artifactMetaSetNames` and map them to IDs by name.
-- Copy single config writes `{ Version, Metasets: [subset], Configs: [config] }`.
+- SFC write paths (Save, Copy All, Copy single recipe) emit compact metaset references `artifactMetaSetIds`. Read paths still accept `artifactMetaSetNames` and map them to IDs by name.
+- Copy single recipe writes `{ Version, Metasets: [subset], Configs: [recipe] }`.
+  <!-- NOTE: `Configs` above is the literal JSON key preserved for file-format backward compatibility. -->
 - Paste-only flows create hidden placeholder metasets with generated names when encountering unknown IDs so chips never show raw IDs.
 - HSF read/write behavior is unchanged; IO boundaries continue to enforce the legacy stat conversions.
 
@@ -422,21 +423,21 @@ Rendered in the builder column below the form panel, occupying the same scrollab
 - Slot order: Weapon, Helmet, Shield, Gauntlets, Chestplate, Boots, Ring, Amulet, Banner (`compareArtifactTypes`).
 - Sets (UI): modes for Game order, A–Z, and Icons. Choice persists via `sellfileCreator.setsOrder.v1`; search is transient.
 - Sets (export): numeric ID ascending (`compareArtifactSets`).
-- Formatting helpers (`formatArtifactTypes`, `formatArtifactSets`) sort before rendering; Config chips mirror the order.
-- SFR export sorts `artifactTypeNames`, `artifactSetNames` (array of `{ name, excluded? }` entries), `mainStats`, merged `substats` entries (by stat label), and metaset `setNames` for stability.
+- Formatting helpers (`formatArtifactTypes`, `formatArtifactSets`) sort before rendering; Recipe chips mirror the order.
+- SFC export sorts `artifactTypeNames`, `artifactSetNames` (array of `{ name, excluded? }` entries), `mainStats`, merged `substats` entries (by stat label), and metaset `setNames` for stability.
 - Per-substat overrides emit under `substatRollTargets` (label-keyed). Normalization rehydrates variant-keyed `substatRollTargetsV`.
 - HSF export sorts `ArtifactType`/`ArtifactSet` arrays and applies `[minLevel..maxLevel]` filtering with feasibility gating and pre-16 combo sizing.
 - Builder canonicalization uses `compareVariants` so generated rule order is deterministic regardless of click order. Merge sorting preserves `(level milestone → branch index → branch sequence)` so preview chips, flex branches, and exports share the same ordering.
 - Roll timeline caps: multi-stat permutations clamp credited rolls to those obtainable after the stat appears; late optionals no longer inherit early thresholds.
 - Intro assignment: builder enumerates how selected stats occupy base vs later rarity slots. Fixed picks fill earliest slots; optional stats inherit remaining introductions, keeping thresholds aligned with availability.
 - `IsRuleTypeAND` always exports `false`; current RSL Helper compatibility does not require AND rules for our output.
-- Generated rules always carry `RecipeID` (1-based) ahead of `Keep`/`IsRuleTypeAND`; the export step injects the current trimmed `RecipeName` so downstream tooling can map Sellfile rows back to their configs without forcing the preview table to rebuild when names change.
+- Generated rules always carry `RecipeID` (1-based) ahead of `Keep`/`IsRuleTypeAND`; the export step injects the current trimmed `RecipeName` so downstream tooling can map Sellfile rows back to their recipes without forcing the preview table to rebuild when names change.
 
 ## Layout Notes (responsive + headers)
 
 - Fixed widths ensure both panels share `PANEL_WIDTH_PX` in stacked and side-by-side layouts. Stacked mode centers each Paper and caps width.
 - Side-by-side breakpoint: viewport ≥ `SIDE_BY_SIDE_BREAKPOINT_PX` renders the two Papers side-by-side, centered with a fixed grid and `GRID_COLUMN_GAP_PX` spacing.
-- Chips height guard: `chipsMaxHeight` starts at `BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX`, then grows to the measured safe height; the empty state clamps its floor to `BUILDER_CONFIG_CHIPS_EMPTY_MIN_HEIGHT_PX` without exceeding the measured cap. Resize observers keep the value fresh across layout changes. This drives chip sizing in stacked mode only; in side-by-side mode the Paper's `maxHeight = M` is the real constraint and chips flex-fill (see *Top-down paper height constraint* below).
+- Chips height guard: `chipsMaxHeight` starts at `BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX`, then grows to the measured safe height; the empty state clamps its floor to `BUILDER_RECIPE_CHIPS_EMPTY_MIN_HEIGHT_PX` without exceeding the measured cap. Resize observers keep the value fresh across layout changes. This drives chip sizing in stacked mode only; in side-by-side mode the Paper's `maxHeight = M` is the real constraint and chips flex-fill (see *Top-down paper height constraint* below).
 - Auto zoom fallback: `useAutoSideBySideZoom` applies the fixed `AUTO_SIDE_BY_SIDE_FORCED_ZOOM` whenever the viewport is narrower than `SIDE_BY_SIDE_BREAKPOINT_PX` but still at least `AUTO_SIDE_BY_SIDE_FORCE_MIN_WIDTH_PX`; otherwise it restores zoom 1 and reverts to the stacked layout.
 - Preview height cap: right Paper height matches the left Paper during side-by-side; the preview table scrolls inside an overflow-hidden flex column.
 - Header layout: Builder caption uses a three-column grid; Preview caption shares its row with filters/tester controls and wraps as needed.

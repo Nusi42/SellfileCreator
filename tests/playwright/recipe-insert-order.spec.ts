@@ -4,8 +4,8 @@ import { closeContextMenu, openContextMenu } from './context-menu'
 import { dismissBlockingDialogs } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { getWorkloadIndicator } from './workload-indicator'
-import { SAMPLE_SMALL_SFR_PATH } from './fixture-paths'
-import { SFR_LOAD_INPUT_SELECTOR } from './ui-selectors'
+import { SAMPLE_SMALL_SFC_PATH } from './fixture-paths'
+import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 
 async function getFirstRulePositions(page: import('@playwright/test').Page): Promise<number[]> {
   return page.evaluate(() => {
@@ -35,7 +35,7 @@ function positionsAreOrdered(positions: readonly number[]): boolean {
 
 test.describe('config insert ordering', () => {
   test('HSF preview rows stay aligned with config order after paste after', async ({ page }) => {
-    // Allow long timeout for the rebuilds triggered by SFR parsing + paste.
+    // Allow long timeout for the rebuilds triggered by SFC parsing + paste.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
     await prepareApp(page, { stubClipboard: true })
 
@@ -49,11 +49,11 @@ test.describe('config insert ordering', () => {
     }
 
     // Use the small fixture so the rebuild stays inside the long timeout.
-    const sfrPath = SAMPLE_SMALL_SFR_PATH
+    const sfcPath = SAMPLE_SMALL_SFC_PATH
     // Target the hidden file input directly so label changes do not break the test.
-    const sfrInput = page.locator(SFR_LOAD_INPUT_SELECTOR).first()
+    const sfcInput = page.locator(SFC_LOAD_INPUT_SELECTOR).first()
     // Allow slower engines to resolve the hidden input before uploading.
-    await sfrInput.setInputFiles(sfrPath, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+    await sfcInput.setInputFiles(sfcPath, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 
     // Clear any note/restore dialogs before interacting with chips.
     await dismissBlockingDialogs(page)

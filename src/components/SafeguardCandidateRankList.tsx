@@ -352,7 +352,7 @@ function CandidateRow({
   // Fall back to isWithinQuota only when no preview data exists (e.g. popover opened before
   // a detection run has completed).
   //   StarsIcon / warning.main       → kept by a safeguard rule (this OR another)
-  //   CheckCircleIcon / success.main → kept by a recipe / SFR rule
+  //   CheckCircleIcon / success.main → kept by a recipe / SFC rule
   //   SellIcon / error.main          → explicitly sold (keep === false)
   //   no badge                       → unmatched (no rule covers this item at all)
   const isSafeguarded = previewRow

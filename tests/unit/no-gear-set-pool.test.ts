@@ -54,7 +54,7 @@ test('getArtifactSetPieceGroup(-99) returns Accessories', () => {
   )
 })
 
-// The canonical English name is used by the SFR serializer and must survive a
+// The canonical English name is used by the SFC serializer and must survive a
 // name→id round-trip through findArtifactSetIdByName.
 test('artifactSetName(-99) returns "No Gear-Set"', () => {
   assert.equal(artifactSetName(ACCESSORY_NO_SET_ID as never), 'No Gear-Set')

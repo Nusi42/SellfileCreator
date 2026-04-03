@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { GEAR_DB_FILE_EXTENSIONS } from '../lib/constants'
 
 export type FileRouteHandlers = {
-  onSfr: (file: File, context?: FileRouteContext) => void | Promise<void>
+  onSfc: (file: File, context?: FileRouteContext) => void | Promise<void>
   onHsf: (file: File, context?: FileRouteContext) => void | Promise<void>
   onL10n?: (file: File, context?: FileRouteContext) => void | Promise<void>
   onGearDb?: (file: File, context?: FileRouteContext) => void | Promise<void>
@@ -17,7 +17,7 @@ export type FileRouteHandlers = {
 }
 
 // Route context carries transient key modifiers from entry points.
-// Why: Shift-triggered SFR imports open the selective import dialog.
+// Why: Shift-triggered SFC imports open the selective import dialog.
 export type FileRouteContext = {
   shiftKey?: boolean
   source?: 'manual' | 'command'
@@ -27,9 +27,9 @@ export async function routeFileByExtension(file: File, handlers: FileRouteHandle
   // Central router shared by drag/drop and manual file pickers.
   // Why: all supported file types should behave identically regardless of entry point.
   const name = String(file.name || '').toLowerCase()
-  // `.sfr` (and legacy `.hsfc`) = app recipe bundle.
-  if (name.endsWith('.sfr') || name.endsWith('.hsfc')) {
-    await handlers.onSfr(file, context)
+  // `.sfc` (and legacy `.sfr`/`.hsfc`) = app recipe bundle.
+  if (name.endsWith('.sfc') || name.endsWith('.sfr') || name.endsWith('.hsfc')) {
+    await handlers.onSfc(file, context)
     return
   }
   // `.hsf` = RSL Helper sellfile.

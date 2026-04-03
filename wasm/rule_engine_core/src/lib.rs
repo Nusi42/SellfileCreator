@@ -10,8 +10,8 @@ mod generated_domain_constants;
 // Re-export all domain constants so the wasm crate and any other consumers
 // can import them without duplicating the generated_domain_constants module.
 pub use generated_domain_constants::*;
-// SFR (Sellfile Record) reader: converts human-readable SFR JSON to numeric codes.
-pub mod sfr_reader;
+// SFC (Sellfile Record) reader: converts human-readable SFC JSON to numeric codes.
+pub mod sfc_reader;
 // Recipe builder: ports the TS hsfBuilder preprocessing pipeline to Rust.
 pub mod recipe_builder;
 pub mod auto_rarity_runtime;
@@ -119,16 +119,16 @@ pub use hsf_builder_execution::{
     BuildHsfRulesRuntimeIn,
     ExecuteHsfBuilderRuntimeOut,
 };
-pub use sfr_reader::{
-    parse_sfr,
-    SfrParsed,
+pub use sfc_reader::{
+    parse_sfc,
+    SfcParsed,
     ReadableRecipeParsed,
     SubstatTargetTableIn,
 };
 pub use recipe_builder::build_hsf_rules_for_recipe;
 
 pub const RULE_SOURCE_HSF: &str = "hsf";
-pub const RULE_SOURCE_SFR: &str = "sfr";
+pub const RULE_SOURCE_SFC: &str = "sfc";
 pub const RULE_SOURCE_FINAL_SELL: &str = "finalSell";
 pub const RULE_SOURCE_SAFEGUARDS: &str = "safeguards";
 pub const FINAL_SELL_SETS_MODE_ANY: &str = "any";

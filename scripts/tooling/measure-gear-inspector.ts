@@ -3,14 +3,14 @@
  * measure-gear-inspector.ts
  *
  * CLI utility to profile the Gear Inspector matching pipeline against a concrete
- * SFR + gear database pairing. Loads the SFR definition, imports the DB,
+ * SFC + gear database pairing. Loads the SFC definition, imports the DB,
  * runs the same matching logic used in the UI, and prints timing stats for
  * the base matcher, Safeguard detection, and the post-detection matcher.
  */
 import { cp, mkdir, readFile } from 'node:fs/promises'
 import { resolve as resolvePath } from 'node:path'
 import { performance } from 'node:perf_hooks'
-import { parseSfrObject } from '../../src/lib/sfrIO.js'
+import { parseSfcObject } from '../../src/lib/sfcIO.js'
 import { defaultSubstatTargets, type BuilderRecipe, type SellfileExportMode, type SubstatTargetTable } from '../../src/lib/hsfBuilder.js'
 import {
   computeMergedRules,
@@ -37,13 +37,13 @@ import type { FinalSellRemainderConfig } from '../../src/lib/logicHub.js'
 import { warmupWasmRuleEngine } from '../../src/lib/wasm/wasmRuleEngine.js'
 
 type ScenarioInput = {
-  sfrPath: string
+  sfcPath: string
   gearDbPath: string
 }
 
 type ScenarioData = {
   recipes: BuilderRecipe[]
-  metasets: ReturnType<typeof parseSfrObject>['metasets']
+  metasets: ReturnType<typeof parseSfcObject>['metasets']
   substatTargets: SubstatTargetTable
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
@@ -105,7 +105,7 @@ const syncCompiledWasmBindings = async (): Promise<void> => {
 
 // Default pairing mirrors the user-reported heavy scenario.
 const DEFAULT_SCENARIO: ScenarioInput = {
-  sfrPath: 'examples/example.sfr',
+  sfcPath: 'examples/example.sfc',
   gearDbPath: 'examples/251112_042110.db',
 }
 
@@ -116,7 +116,7 @@ const formatPerItem = (durationMs: number, count: number): string => {
   return `${(durationMs / count).toFixed(3)} ms/item`
 }
 
-// Support --sfr/--db overrides so perf runs can target arbitrary fixtures.
+// Support --sfc/--db overrides so perf runs can target arbitrary fixtures.
 const parseArgs = (): ScenarioInput => {
   const args = process.argv.slice(2)
   const result: ScenarioInput = { ...DEFAULT_SCENARIO }
@@ -128,15 +128,15 @@ const parseArgs = (): ScenarioInput => {
       : [arg, undefined]
     const nextValue = maybeValue ?? args[i + 1]
     const consumeNext = maybeValue === undefined
-    const assignPath = (target: 'sfrPath' | 'gearDbPath') => {
+    const assignPath = (target: 'sfcPath' | 'gearDbPath') => {
       if (!nextValue) {
         throw new Error(`Missing value for ${key}`)
       }
       result[target] = nextValue
       if (consumeNext) i += 1
     }
-    if (key === '--sfr') {
-      assignPath('sfrPath')
+    if (key === '--sfc') {
+      assignPath('sfcPath')
       continue
     }
     if (key === '--db' || key === '--gear-db') {
@@ -145,33 +145,33 @@ const parseArgs = (): ScenarioInput => {
     }
   }
   return {
-    sfrPath: resolvePath(process.cwd(), result.sfrPath),
+    sfcPath: resolvePath(process.cwd(), result.sfcPath),
     gearDbPath: resolvePath(process.cwd(), result.gearDbPath),
   }
 }
 
-// Read and normalize the SFR definition so we can rebuild the merged rules.
-const loadSfr = async (sfrPath: string): Promise<{
+// Read and normalize the SFC definition so we can rebuild the merged rules.
+const loadSfc = async (sfcPath: string): Promise<{
   recipes: BuilderRecipe[]
-  metasets: ReturnType<typeof parseSfrObject>['metasets']
+  metasets: ReturnType<typeof parseSfcObject>['metasets']
   substatTargets: SubstatTargetTable
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
   finalSellRemainder: FinalSellRemainderConfig
 }> => {
-  const raw = await readFile(sfrPath, 'utf8')
+  const raw = await readFile(sfcPath, 'utf8')
   const parsed = JSON.parse(raw) as unknown
-  const parsedSfr = parseSfrObject(parsed, {
+  const parsedSfc = parseSfcObject(parsed, {
     metasets: [],
     substatTargets: defaultSubstatTargets(),
   })
   return {
-    recipes: parsedSfr.recipes,
-    metasets: parsedSfr.metasets,
-    substatTargets: parsedSfr.substatTargets,
-    safeguardRules: parsedSfr.safeguardRules,
-    safeguardsEnabled: parsedSfr.safeguardsEnabled,
-    finalSellRemainder: parsedSfr.finalSellRemainder,
+    recipes: parsedSfc.recipes,
+    metasets: parsedSfc.metasets,
+    substatTargets: parsedSfc.substatTargets,
+    safeguardRules: parsedSfc.safeguardRules,
+    safeguardsEnabled: parsedSfc.safeguardsEnabled,
+    finalSellRemainder: parsedSfc.finalSellRemainder,
   }
 }
 
@@ -186,18 +186,18 @@ const loadGear = async (gearDbPath: string): Promise<NormalizedGearArtifact[]> =
   return [...imported.artifacts, ...imported.inboxArtifacts]
 }
 
-// Resolve SFR + gear data into the inputs we need for matching.
+// Resolve SFC + gear data into the inputs we need for matching.
 const buildScenario = async (input: ScenarioInput): Promise<ScenarioData> => {
-  const sfr = await loadSfr(input.sfrPath)
+  const sfc = await loadSfc(input.sfcPath)
   const gear = await loadGear(input.gearDbPath)
-  const recipeModes = sfr.recipes.map((recipe) => recipe.exportMode)
+  const recipeModes = sfc.recipes.map((recipe) => recipe.exportMode)
   return {
-    recipes: sfr.recipes,
-    metasets: sfr.metasets,
-    substatTargets: sfr.substatTargets,
-    safeguardRules: sfr.safeguardRules,
-    safeguardsEnabled: sfr.safeguardsEnabled,
-    finalSellRemainder: sfr.finalSellRemainder,
+    recipes: sfc.recipes,
+    metasets: sfc.metasets,
+    substatTargets: sfc.substatTargets,
+    safeguardRules: sfc.safeguardRules,
+    safeguardsEnabled: sfc.safeguardsEnabled,
+    finalSellRemainder: sfc.finalSellRemainder,
     recipeModes,
     gear,
   }
@@ -322,7 +322,7 @@ const main = async (): Promise<void> => {
   await warmupWasmRuleEngine()
   const input = parseArgs()
   console.log('Rule Tester measurement')
-  console.log(`  SFR: ${input.sfrPath}`)
+  console.log(`  SFC: ${input.sfcPath}`)
   console.log(`  Gear DB: ${input.gearDbPath}`)
   const scenario = await buildScenario(input)
   const resolvedSafeguardRules = resolveSafeguardRulesWithMetasets(

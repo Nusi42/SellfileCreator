@@ -36,7 +36,7 @@ import {
   STANDARD_DIALOG_PADDING_INLINE_UNITS,
 } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
-import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useSfrHistory'
+import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useSfcHistory'
 
 // Coalesce rapid per-click metaset edits into fewer App-level commits so the
 // dialog remains responsive while previews rebuild in the background.

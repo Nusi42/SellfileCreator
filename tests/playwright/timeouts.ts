@@ -9,7 +9,7 @@ const TEST_TIMEOUT_LONG_MS = 15_000
 const TEST_TIMEOUT_HEAVY_MS = 30_000
 // XL timeout for hooks that run multiple sequential WASM passes (e.g. 3× sequential 26 MB DB evals
 // in midgame-progression, or 2× passes on a 68 MB DB in large-db-duplication).
-// Budget: 3 × ~20 s per context under 2× CI load (2 s boot + 5 s SFR/dialog + 10 s WASM + 3 s overhead).
+// Budget: 3 × ~20 s per context under 2× CI load (2 s boot + 5 s SFC/dialog + 10 s WASM + 3 s overhead).
 // 90 s is sufficient now that Firefox serde bottleneck is fixed (pipeline ~3–5 s instead of minutes).
 const TEST_TIMEOUT_XL_MS = 90_000
 

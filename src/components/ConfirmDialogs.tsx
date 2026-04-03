@@ -91,5 +91,5 @@ export default function ConfirmDialogs({
  * ConfirmDialogs
  *
  * Centralized confirmation dialogs used by App for clearing history, clearing
- * all recipes, and deleting single or multiple configurations.
+ * all recipes, and deleting single or multiple recipes.
  */

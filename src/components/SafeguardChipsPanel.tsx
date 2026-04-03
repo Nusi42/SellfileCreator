@@ -48,7 +48,7 @@ import {
   type SafeguardRule,
 } from '../lib/safeguards'
 import type { Metaset } from '../lib/metasets'
-import { buildReadableSafeguardRuleEntry } from '../lib/sfrIO'
+import { buildReadableSafeguardRuleEntry } from '../lib/sfcIO'
 import { useI18n } from '../lib/i18n'
 import { readTextSafe, triggerCopyDialog, writeTextSafe } from '../lib/clipboard'
 import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'

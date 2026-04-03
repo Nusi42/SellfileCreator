@@ -1,4 +1,4 @@
-// Generate a single HSF sellfile from an SFR file by selecting a named
+// Generate a single HSF sellfile from an SFC file by selecting a named
 // recipe-overrides preset token (e.g. 'lategame', 'endgame').
 //
 // Compilation: always recompiles from source (tsc + ESM patch + WASM copy) to
@@ -7,7 +7,7 @@
 //
 // Usage:
 //   node --experimental-wasm-modules scripts/tooling/gen-release-hsf.mjs \
-//     <sfr-path> <preset-token> <output-path>
+//     <sfc-path> <preset-token> <output-path>
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -23,9 +23,9 @@ const WASM_SRC = resolve(ROOT, 'src', 'lib', 'wasm', 'generated')
 const WASM_DST = resolve(TMP_LIB, 'src', 'lib', 'wasm', 'generated')
 
 // --- Validate arguments ---
-const [sfrPath, presetToken, outputPath] = process.argv.slice(2)
-if (!sfrPath || !presetToken || !outputPath) {
-  console.error('Usage: gen-release-hsf.mjs <sfr-path> <preset-token> <output-path>')
+const [sfcPath, presetToken, outputPath] = process.argv.slice(2)
+if (!sfcPath || !presetToken || !outputPath) {
+  console.error('Usage: gen-release-hsf.mjs <sfc-path> <preset-token> <output-path>')
   process.exit(1)
 }
 
@@ -67,7 +67,7 @@ const { default: initWasmBinary } = await import(lib('wasm/generated/rule_engine
 await initWasmBinary(readFileSync(resolve(WASM_DST, 'rule_engine_bg.wasm')))
 
 const { warmupWasmRuleEngine } = await import(lib('wasm/wasmRuleEngine.js'))
-const { parseSfrText } = await import(lib('sfrIO.js'))
+const { parseSfcText } = await import(lib('sfcIO.js'))
 const { defaultSubstatTargets } = await import(lib('hsfBuilder.js'))
 const {
   parseNoteRecipeOverrides,
@@ -80,20 +80,20 @@ const { buildHsfFileFromMerged } = await import(lib('hsfIO.js'))
 // Confirm WASM is ready (fast path — binary already loaded above).
 await warmupWasmRuleEngine()
 
-// --- Parse SFR ---
-// Use defaultSubstatTargets as the fallback; the SFR's own Minima section
-// overrides it via parseSfrText when present.
-const sfrText = readFileSync(sfrPath, 'utf8')
-const { recipes, metasets, substatTargets, finalSellRemainder, note: sfrNote } = parseSfrText(
-  sfrText,
+// --- Parse SFC ---
+// Use defaultSubstatTargets as the fallback; the SFC's own Minima section
+// overrides it via parseSfcText when present.
+const sfcText = readFileSync(sfcPath, 'utf8')
+const { recipes, metasets, substatTargets, finalSellRemainder, note: sfcNote } = parseSfcText(
+  sfcText,
   { metasets: [], substatTargets: defaultSubstatTargets() },
 )
 
-// The recipe-overrides DSL lives in the top-level SFR Note (not on any recipe).
-if (typeof sfrNote !== 'string' || !sfrNote.includes('recipe-overrides')) {
-  throw new Error('No recipe-overrides DSL found in top-level Note of ' + sfrPath)
+// The recipe-overrides DSL lives in the top-level SFC Note (not on any recipe).
+if (typeof sfcNote !== 'string' || !sfcNote.includes('recipe-overrides')) {
+  throw new Error('No recipe-overrides DSL found in top-level Note of ' + sfcPath)
 }
-const overridesNote = sfrNote
+const overridesNote = sfcNote
 
 // --- Locate the question option matching the preset token ---
 // The token is the id= value from the DSL (e.g. id=lategame → token 'lategame').
@@ -105,7 +105,7 @@ for (const q of questions) {
   if (opt) { match = { questionId: q.id, optionId: opt.id }; break }
 }
 if (!match) {
-  throw new Error(`Recipe override option '${presetToken}' not found in note of ${sfrPath}`)
+  throw new Error(`Recipe override option '${presetToken}' not found in note of ${sfcPath}`)
 }
 
 // --- Apply the preset and build the HSF ---
@@ -119,7 +119,7 @@ const { instructions } = resolveRecipeOverridesTags(overridesNote, answers)
 const { recipes: modifiedRecipes, substatTargets: effectiveSubstatTargets } =
   applyAllRecipeOverrides(recipes, substatTargets, instructions)
 
-// Merge all recipe rules as the app does for a full SFR export (no imported HSF).
+// Merge all recipe rules as the app does for a full SFC export (no imported HSF).
 const mergedRules = computeMergedRules({
   hsf: null,
   customRecipes: modifiedRecipes,

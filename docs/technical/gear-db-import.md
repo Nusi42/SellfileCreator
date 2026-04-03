@@ -157,7 +157,7 @@ Argonites currently assume a new `accset = 17` mapping until a sample database c
 - **Slots & Types** – translate DB `type` values to `ArtifactType` before formatting Gear Inspector entries.
 - **Sets** – `aset` already aligns with our `ArtifactSet` catalog (0 denotes “no set”). Handle accessory-only sets (1000–1004) and propagate faction data from `accset`.
 - **Stats** – convert `mid`/`s?id` to `StatId` and respect the percent flag when scaling `*lvlid`/`*gv` values.
-- **Rarity & Rank** – `rarity` (3–6 observed) and `rank` (5–6) are numeric; map them to the readable labels we expose in SFR/HSF.
+- **Rarity & Rank** – `rarity` (3–6 observed) and `rank` (5–6) are numeric; map them to the readable labels we expose in SFC/HSF.
 - **Factions** – apply the `accset` remapping table above; non-accessories should emit `0` (“Any”).
 - **Lifecycle Flags** – capture enhancement levels, roll counts, lock status, and ownership metadata if present; document any fields we ignore so behavior stays intentional.
 

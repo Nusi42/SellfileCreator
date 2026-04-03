@@ -31,9 +31,9 @@ Sellfile Creator eases building sell files for RSL Helper — define gear filter
 ## How To Use
 
 ### Recipe File
-- SFR (`.sfr`): your project file for this app. Think of it like a save file you can load/share. RSL Helper does not read SFR directly.
+- SFC (`.sfc`): your project file for this app. Think of it like a save file you can load/share. RSL Helper does not read SFC directly.
 - HSF (`.hsf`): the RSL Helper Sellfile. Export from this app, then load it in RSL Helper.
-- Saved filename defaults to `SellfileCreatorRecipes_YYYYMMDD_HHMM.sfr`.
+- Saved filename defaults to `SellfileCreatorRecipes_YYYYMMDD_HHMM.sfc`.
 
 ### Recipe Builder
 - Fill in the Recipe Builder and give your recipe a clear name.
@@ -206,7 +206,7 @@ Open `Tools` and switch to the **Gear Lens** tab for an analytics overview of yo
 - The preview header keeps the `Rules`/`Gear Inspector` toggle, the `Tools` button, and the “Load RSL Helper Sellfile” button together so you always know where to switch tables or open the Gear dialog.
 - `Rules` view (default): shows every rule that will be exported, including any optional base `.hsf` rows. The header counts stay on Keep vs Sell, the filter row keeps the Any/Only chips for Slot/Rank/Rarity/Level, and both Recipe buttons remain: Preview Recipes controls chip visibility, while the Recipe Filter button is a simple On/Off toggle that hides Sellfile rows outside your selected recipe chips (and keeps that filter staged for when you switch modes).
 - `Gear Inspector` view: flips the table to the imported gear list so you can scan imported or hand-built items without reopening the Tools dialog. Counts/outcome chips switch to Keep / Sell / Scope / Unmatched based on first-match results, and the filter row keeps both Recipe buttons side by side: Preview Recipes still controls chip visibility, and the Recipe Filter button expands to a tri-state selector (`Off` → `First-Match` → `Any-Match`) so you can decide how those items respond while continuing to gate Sellfile rows when you jump back. Importing a `.db` automatically switches to this view, but you can jump back to Rules whenever you want.
-- The “Load RSL Helper Sellfile” button behaves exactly like drag & drop: `.sfr` replaces the builder state, `.hsf` layers on the optional base Sellfile, and `.db` queue items into the Gear Inspector (without touching recipes). The “Clear” button detaches the optional base `.hsf`.
+- The “Load RSL Helper Sellfile” button behaves exactly like drag & drop: `.sfc` replaces the builder state, `.hsf` layers on the optional base Sellfile, and `.db` queue items into the Gear Inspector (without touching recipes). The “Clear” button detaches the optional base `.hsf`.
 - Use the palette icon to open Manage Colors for substat labels.
 - In Rules view the table columns still include “Idx” and “Recipe” (empty for base file rows). In Gear Inspector view the same space lists slot/set, item stats, and the first matching recipe badge so you can see what would happen to each artifact directly inside the preview.
 

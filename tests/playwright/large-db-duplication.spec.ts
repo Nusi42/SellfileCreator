@@ -10,12 +10,12 @@ import {
   RULES_FILTER_STATE_STORAGE_KEY,
   cloneDefaultRulesFilterState,
 } from '../../src/state/rulesFilterPersistence'
-import { EXAMPLE_NUSI_SFR_PATH, LARGE_ACCOUNT_DB_PATH } from './fixture-paths'
-import { SFR_LOAD_INPUT_SELECTOR } from './ui-selectors'
+import { EXAMPLE_NUSI_SFC_PATH, LARGE_ACCOUNT_DB_PATH } from './fixture-paths'
+import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { warmupAppShell } from './app-warmup'
 
-// Use the full Example SFR + large DB to exercise the large-artifact-set matching path.
-const SFR_PATH = EXAMPLE_NUSI_SFR_PATH
+// Use the full Example SFC + large DB to exercise the large-artifact-set matching path.
+const SFC_PATH = EXAMPLE_NUSI_SFC_PATH
 const DB_PATH = LARGE_ACCOUNT_DB_PATH
 // Duplicate recipe #2 (one-based), which is zero-based index 1.
 const TARGET_RECIPE_INDEX = 1
@@ -83,7 +83,7 @@ test.beforeAll(async ({ browser }) => {
 })
 
 test.describe('Gear Inspector grid matches remain stable with large DB', () => {
-  test('duplicating recipe #2 keeps Gear Inspector outcomes unchanged (example.sfr + large DB)', async ({ page }) => {
+  test('duplicating recipe #2 keeps Gear Inspector outcomes unchanged (example.sfc + large DB)', async ({ page }) => {
     // Two full WASM passes over the 68 MB DB each take ~20 s; budget covers both.
     // Individual step timeouts stay at ≤ 15 s — workload/result waits are soft/hard
     // 15 s respectively, so the 68 MB WASM finishes well within the 60 s window.
@@ -122,12 +122,12 @@ test.describe('Gear Inspector grid matches remain stable with large DB', () => {
     await page.goto('/', APP_GOTO_OPTIONS)
     // prepareApp seeds localStorage to suppress dialogs on boot; no call needed here.
 
-    // Load SFR + large gear DB from examples/.
-    const sfrInput = page.locator(SFR_LOAD_INPUT_SELECTOR).first()
-    await sfrInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
-    await expect(sfrInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-    await sfrInput.setInputFiles(SFR_PATH)
-    // Note dialog may auto-open after SFR import — dismiss it before loading the DB.
+    // Load SFC + large gear DB from examples/.
+    const sfcInput = page.locator(SFC_LOAD_INPUT_SELECTOR).first()
+    await sfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
+    await expect(sfcInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    await sfcInput.setInputFiles(SFC_PATH)
+    // Note dialog may auto-open after SFC import — dismiss it before loading the DB.
     await dismissBlockingDialogs(page)
 
     const dbInput = page.locator('input[type="file"][accept*=".db"]').first()
@@ -144,7 +144,7 @@ test.describe('Gear Inspector grid matches remain stable with large DB', () => {
 
     // Wait for the post-duplication pipeline to complete without flooding or hanging.
     // The large DB uses virtual scrolling so DOM row counts differ per viewport;
-    // outcome-equality is verified separately by gear-inspector-config-duplication.spec.ts.
+    // outcome-equality is verified separately by gear-inspector-recipe-duplication.spec.ts.
     await waitForWorkloadIdle(page)
     await waitForGearInspectorResults(page)
   })

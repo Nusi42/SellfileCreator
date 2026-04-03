@@ -1,7 +1,7 @@
-// SFR (Sellfile Record) JSON reader for the native DLL.
+// SFC (Sellfile Record) JSON reader for the native DLL.
 //
 // Mirrors the TypeScript `normalizeRecipe` + `normalizeSafeguardRule` functions
-// in `sfrIO.ts` / `safeguards.ts`, converting human-readable label strings to the
+// in `sfcIO.ts` / `safeguards.ts`, converting human-readable label strings to the
 // numeric codes consumed by the core builder functions.
 //
 // Label-to-code tables are derived from `generated_domain_constants.rs` and the
@@ -178,14 +178,14 @@ pub fn rank_value_from_label(raw: &str) -> Option<i64> {
 }
 
 // ---------------------------------------------------------------------------
-// SFR JSON structs
+// SFC JSON structs
 // ---------------------------------------------------------------------------
 
-/// Top-level SFR payload as stored in .sfr files.
-/// Field names match the SFR JSON schema (PascalCase keys where applicable).
+/// Top-level SFC payload as stored in .sfc files.
+/// Field names match the SFC JSON schema (PascalCase keys where applicable).
 #[derive(Debug, Deserialize, Default)]
 #[serde(rename_all = "PascalCase")]
-pub struct ReadableSfr {
+pub struct ReadableSfc {
     #[serde(default)]
     pub version: Option<String>,
     #[serde(default)]
@@ -216,8 +216,8 @@ pub struct ReadableMetaset {
     pub set_names: Option<Vec<String>>,
 }
 
-/// Readable recipe entry as stored in the SFR "Recipes" array.
-/// Mirrors the output of `buildReadableRecipe` in sfrIO.ts.
+/// Readable recipe entry as stored in the SFC "Recipes" array.
+/// Mirrors the output of `buildReadableRecipe` in sfcIO.ts.
 #[derive(Debug, Deserialize, Default)]
 pub struct ReadableRecipe {
     // Identity / metadata
@@ -292,7 +292,7 @@ pub struct ReadableRecipe {
     pub auto_rarity_threshold: Option<String>,
 }
 
-/// Substat entry as stored in the SFR "substats" array.
+/// Substat entry as stored in the SFC "substats" array.
 /// Accepts both the compact string form (just a label) and the object form.
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
@@ -334,7 +334,7 @@ pub enum ReadableArtifactSetEntry {
     Id(i64),
 }
 
-/// Final Sell Remainder section in the SFR.
+/// Final Sell Remainder section in the SFC.
 #[derive(Debug, Deserialize, Default)]
 pub struct ReadableFinalSell {
     #[serde(default, rename = "artifacts")]
@@ -348,11 +348,11 @@ pub struct ReadableFinalSell {
 }
 
 // ---------------------------------------------------------------------------
-// SFR → builder pipeline
+// SFC → builder pipeline
 // ---------------------------------------------------------------------------
 
-/// Parsed / normalised builder inputs derived from one SFR payload.
-pub struct SfrParsed {
+/// Parsed / normalised builder inputs derived from one SFC payload.
+pub struct SfcParsed {
     pub recipes:            Vec<ReadableRecipeParsed>,
     pub safeguard_rules:    Vec<SafeguardWasmRuleIn>,
     pub safeguards_enabled: bool,
@@ -393,7 +393,7 @@ pub struct ReadableRecipeParsed {
     pub auto_rarity_supplements_threshold: Option<String>,
 }
 
-/// Minimal substat target table parsed from SFR Minima section.
+/// Minimal substat target table parsed from SFC Minima section.
 #[derive(Debug, Deserialize, Default, Serialize)]
 pub struct SubstatTargetTableIn {
     #[serde(default)]
@@ -414,7 +414,7 @@ pub struct SubstatTargetTableIn {
 // Mirrors SafeguardWasmMetasetIn in safeguards/mod.rs.
 // Re-export via serde_json::Value to avoid coupling types across modules.
 #[derive(Debug, Serialize, Clone)]
-pub struct SfrMetaset {
+pub struct SfcMetaset {
     pub name: String,
     pub set_ids: Vec<i64>,
 }
@@ -423,11 +423,11 @@ pub struct SfrMetaset {
 // Main parse function
 // ---------------------------------------------------------------------------
 
-/// Parse an SFR JSON string into normalised builder inputs ready for the DLL pipeline.
-pub fn parse_sfr(sfr_text: &str) -> Result<SfrParsed, String> {
+/// Parse an SFC JSON string into normalised builder inputs ready for the DLL pipeline.
+pub fn parse_sfc(sfc_text: &str) -> Result<SfcParsed, String> {
     // Normalise: allow bare recipe arrays for back-compat.
-    let root: serde_json::Value = serde_json::from_str(sfr_text)
-        .map_err(|e| format!("SFR JSON parse error: {e}"))?;
+    let root: serde_json::Value = serde_json::from_str(sfc_text)
+        .map_err(|e| format!("SFC JSON parse error: {e}"))?;
 
     // Bare array → wrap as Recipes list.
     let root = if root.is_array() {
@@ -436,11 +436,11 @@ pub fn parse_sfr(sfr_text: &str) -> Result<SfrParsed, String> {
         root
     };
 
-    let sfr: ReadableSfr = serde_json::from_value(root)
-        .map_err(|e| format!("SFR structure error: {e}"))?;
+    let sfc: ReadableSfc = serde_json::from_value(root)
+        .map_err(|e| format!("SFC structure error: {e}"))?;
 
     // Parse metasets (used to expand set IDs in safeguard combinations).
-    let metasets: Vec<SafeguardWasmMetasetIn> = sfr.metasets.as_deref().unwrap_or(&[])
+    let metasets: Vec<SafeguardWasmMetasetIn> = sfc.metasets.as_deref().unwrap_or(&[])
         .iter()
         .filter_map(|m| {
             let name = m.name.as_deref()?.trim().to_string();
@@ -452,7 +452,7 @@ pub fn parse_sfr(sfr_text: &str) -> Result<SfrParsed, String> {
         .collect();
 
     // Parse recipes.
-    let raw_recipes = sfr.recipes.as_deref().unwrap_or(&[]);
+    let raw_recipes = sfc.recipes.as_deref().unwrap_or(&[]);
     let mut parsed_recipes = Vec::with_capacity(raw_recipes.len());
     let mut all_set_ids: std::collections::HashSet<i64> = std::collections::HashSet::new();
     for (i, raw) in raw_recipes.iter().enumerate() {
@@ -467,17 +467,17 @@ pub fn parse_sfr(sfr_text: &str) -> Result<SfrParsed, String> {
     }
 
     // Parse safeguard rules.
-    let raw_safeguards = sfr.safeguards.as_deref().unwrap_or(&[]);
+    let raw_safeguards = sfc.safeguards.as_deref().unwrap_or(&[]);
     let mut safeguard_rules = Vec::with_capacity(raw_safeguards.len());
     for (i, raw) in raw_safeguards.iter().enumerate() {
-        match parse_sfr_safeguard_rule(raw) {
+        match parse_sfc_safeguard_rule(raw) {
             Ok(rule) => safeguard_rules.push(rule),
             Err(e)   => return Err(format!("Safeguard[{i}] parse error: {e}")),
         }
     }
 
     // Parse final sell remainder.
-    let final_sell = sfr.final_sell_remainder.as_ref().map(|fs| FinalSellRemainderIn {
+    let final_sell = sfc.final_sell_remainder.as_ref().map(|fs| FinalSellRemainderIn {
         artifacts:   fs.artifacts.unwrap_or(false),
         accessories: fs.accessories.unwrap_or(false),
         levels:      fs.levels.clone().unwrap_or_default(),
@@ -485,16 +485,16 @@ pub fn parse_sfr(sfr_text: &str) -> Result<SfrParsed, String> {
     });
 
     // Parse substat target minima table.
-    let minima = if let Some(raw_minima) = sfr.minima.as_ref() {
+    let minima = if let Some(raw_minima) = sfc.minima.as_ref() {
         parse_substat_target_table(raw_minima)
     } else {
         None
     };
 
-    Ok(SfrParsed {
+    Ok(SfcParsed {
         recipes: parsed_recipes,
         safeguard_rules,
-        safeguards_enabled: sfr.safeguards_enabled.unwrap_or(false),
+        safeguards_enabled: sfc.safeguards_enabled.unwrap_or(false),
         final_sell,
         all_known_set_ids: all_set_ids.into_iter().collect(),
         minima,
@@ -669,14 +669,14 @@ fn parse_readable_recipe(rec: &ReadableRecipe) -> Result<ReadableRecipeParsed, S
     })
 }
 
-/// Parse a safeguard rule entry from the SFR's Safeguards array.
-/// The SFR stores these with readable labels; we convert to SafeguardWasmRuleIn.
-fn parse_sfr_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRuleIn, String> {
+/// Parse a safeguard rule entry from the SFC's Safeguards array.
+/// The SFC stores these with readable labels; we convert to SafeguardWasmRuleIn.
+fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRuleIn, String> {
     let rec = raw.as_object().ok_or("Safeguard rule is not a JSON object")?;
 
     let id = rec.get("id").and_then(|v| v.as_str()).map(|s| s.trim().to_string());
 
-    // Activation string is already in canonical form in the SFR ("protectExisting" etc.).
+    // Activation string is already in canonical form in the SFC ("protectExisting" etc.).
     let activation = rec.get("activation").and_then(|v| v.as_str()).map(|s| s.to_string());
     let required_count = rec.get("requiredCount").and_then(|v| v.as_i64());
     let ignore_prev = rec.get("ignorePreviousSafeguards").and_then(|v| v.as_bool());
@@ -697,7 +697,7 @@ fn parse_sfr_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
         }
     });
 
-    // Substats: stored as string label array in the SFR.
+    // Substats: stored as string label array in the SFC.
     let substats = rec.get("substats").and_then(|v| v.as_array()).map(|arr| {
         arr.iter()
             .filter_map(|v| v.as_str())
@@ -721,10 +721,10 @@ fn parse_sfr_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
     });
     let substat_weights = substat_weights.filter(|m| !m.is_empty());
 
-    // Combination: stored under "tuple" in the SFR (built by buildReadableSafeguardTuple).
+    // Combination: stored under "tuple" in the SFC (built by buildReadableSafeguardTuple).
     let combination = rec.get("tuple")
         .or_else(|| rec.get("combination"))
-        .map(|raw_tuple| parse_sfr_safeguard_combination(raw_tuple));
+        .map(|raw_tuple| parse_sfc_safeguard_combination(raw_tuple));
 
     Ok(SafeguardWasmRuleIn {
         id,
@@ -743,8 +743,8 @@ fn parse_sfr_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
     })
 }
 
-/// Convert a readable safeguard combination (tuple) from SFR to SafeguardWasmCombination.
-fn parse_sfr_safeguard_combination(raw: &serde_json::Value) -> SafeguardWasmCombination {
+/// Convert a readable safeguard combination (tuple) from SFC to SafeguardWasmCombination.
+fn parse_sfc_safeguard_combination(raw: &serde_json::Value) -> SafeguardWasmCombination {
     let obj = raw.as_object();
 
     // Slots: string labels → slot IDs.
@@ -752,7 +752,7 @@ fn parse_sfr_safeguard_combination(raw: &serde_json::Value) -> SafeguardWasmComb
         .map(|arr| arr.iter().filter_map(|v| v.as_str().and_then(slot_id_from_name)).collect())
         .unwrap_or_default();
 
-    // Sets: the SFR stores set names (e.g. {name:"Lifesteal"}) but the DLL cannot
+    // Sets: the SFC stores set names (e.g. {name:"Lifesteal"}) but the DLL cannot
     // resolve names without a game-data catalog.  For V1 we accept numeric id fields
     // and silently skip entries that only have a string name.
     let sets = obj.and_then(|o| o.get("sets")).and_then(|v| v.as_array())
@@ -802,7 +802,7 @@ fn parse_sfr_safeguard_combination(raw: &serde_json::Value) -> SafeguardWasmComb
 }
 
 // ---------------------------------------------------------------------------
-// Substat target table parser (SFR Minima section)
+// Substat target table parser (SFC Minima section)
 // ---------------------------------------------------------------------------
 
 fn parse_substat_target_table(raw: &serde_json::Value) -> Option<SubstatTargetTableIn> {
@@ -857,7 +857,7 @@ mod label_tests {
     // ── stat_variant_from_label ───────────────────────────────────────────
     #[test]
     fn stat_variant_canonical_labels() {
-        // Vectors from shared/sfr-label-test-vectors.json — statVariantFromLabel
+        // Vectors from shared/sfc-label-test-vectors.json — statVariantFromLabel
         let cases: &[(&str, i64)] = &[
             ("SPD", STAT_VARIANT_SPD),   ("spd", STAT_VARIANT_SPD),
             ("CR%", STAT_VARIANT_CR),
@@ -880,7 +880,7 @@ mod label_tests {
     // ── rank_code_from_label ──────────────────────────────────────────────
     #[test]
     fn rank_code_canonical_labels() {
-        // Vectors from shared/sfr-label-test-vectors.json — rankCodeFromLabel
+        // Vectors from shared/sfc-label-test-vectors.json — rankCodeFromLabel
         let cases: &[(&str, i64)] = &[
             ("5★", RANK_CODE_FIVE),   ("5*", RANK_CODE_FIVE),
             ("6★", RANK_CODE_SIX),    ("1★", RANK_CODE_ONE),
@@ -901,7 +901,7 @@ mod label_tests {
     // ── rarity_code_from_label ────────────────────────────────────────────
     #[test]
     fn rarity_code_canonical_labels() {
-        // Vectors from shared/sfr-label-test-vectors.json — rarityCodeFromLabel
+        // Vectors from shared/sfc-label-test-vectors.json — rarityCodeFromLabel
         let cases: &[(&str, i64, bool)] = &[
             ("Epic",        RARITY_CODE_EPIC,         false),
             ("Legendary",   RARITY_CODE_LEGENDARY,    false),
@@ -924,7 +924,7 @@ mod label_tests {
     // ── faction_code_from_label ───────────────────────────────────────────
     #[test]
     fn faction_code_canonical_labels() {
-        // Vectors from shared/sfr-label-test-vectors.json — factionCodeFromLabel
+        // Vectors from shared/sfc-label-test-vectors.json — factionCodeFromLabel
         let cases: &[(&str, i64)] = &[
             ("Banner Lords",    1),  ("Barbarians",      13),
             ("Dwarves",         16), ("Knight Revenant", 12),

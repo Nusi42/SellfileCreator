@@ -10,7 +10,7 @@ import type { HistoryEntryDescriptor } from '../history/historyDescriptorTypes'
 
 export type { HistoryEntryDescriptor }
 
-export type SfrSnapshot = {
+export type SfcSnapshot = {
   customRecipes: BuilderRecipe[]
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
@@ -99,10 +99,10 @@ function makeEntryWithCompressedDescriptor(
   }
 }
 
-function parseSnapshot(entry: HistoryEntry): SfrSnapshot | null {
+function parseSnapshot(entry: HistoryEntry): SfcSnapshot | null {
   try {
     const json = decompressFromBytes(entry.compressedPayload)
-    const parsed = JSON.parse(json) as Partial<SfrSnapshot>
+    const parsed = JSON.parse(json) as Partial<SfcSnapshot>
     if (!parsed || typeof parsed !== 'object') return null
     const {
       customRecipes,
@@ -201,10 +201,10 @@ function parseDescriptor(entry: HistoryEntry): HistoryEntryDescriptor | null {
   }
 }
 
-export function useSfrHistory(params: {
+export function useSfcHistory(params: {
   payload: string
   signature: string
-  applySnapshot: (snapshot: SfrSnapshot) => void
+  applySnapshot: (snapshot: SfcSnapshot) => void
 }) {
   const { payload, signature, applySnapshot } = params
   // Compute the initial entry eagerly via useState's lazy initializer so it never
@@ -247,7 +247,7 @@ export function useSfrHistory(params: {
     return parsed
   }, [descriptorCache])
 
-  // Snapshot history whenever the serialized SFR payload or signature changes; we intentionally
+  // Snapshot history whenever the serialized SFC payload or signature changes; we intentionally
   // adjust internal state in this effect so history updates stay in sync with the latest inputs.
   /* Intentionally adjust internal state in this effect so history stays in sync. */
   useEffect(() => {
@@ -339,7 +339,7 @@ export function useSfrHistory(params: {
   /* (end history-snapshot effect) */
 
   const undo = useCallback(() => {
-    let snapshotToApply: SfrSnapshot | null = null
+    let snapshotToApply: SfcSnapshot | null = null
     setHistory((prev) => {
       if (prev.index === 0) return prev
       const nextIndex = prev.index - 1
@@ -357,7 +357,7 @@ export function useSfrHistory(params: {
   }, [applySnapshot])
 
   const redo = useCallback(() => {
-    let snapshotToApply: SfrSnapshot | null = null
+    let snapshotToApply: SfcSnapshot | null = null
     setHistory((prev) => {
       if (prev.index >= prev.entries.length - 1) return prev
       const nextIndex = prev.index + 1
@@ -481,7 +481,7 @@ export function useSfrHistory(params: {
   })), [history.entries, history.index, history.savedIndex, readDescriptor])
   const jumpToHistoryIndex = useCallback((targetIndex: number) => {
     if (!Number.isInteger(targetIndex)) return false
-    let snapshotToApply: SfrSnapshot | null = null
+    let snapshotToApply: SfcSnapshot | null = null
     let applied = false
     setHistory((prev) => {
       if (targetIndex < 0 || targetIndex >= prev.entries.length || targetIndex === prev.index) {

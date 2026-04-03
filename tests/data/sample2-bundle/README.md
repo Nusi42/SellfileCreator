@@ -1,12 +1,12 @@
 # Example + sample2 Fixture Bundle
 
-- Source SFR: `examples/example.sfr`
+- Source SFC: `examples/example.sfc`
 - Shared DB fixture: `tests/data/sample2.db`
 
 ## Layout
 
-- `configs/`: one `.sfr` fixture per config from `example.sfr` (keep uniques removed).
-- `keep-uniques/`: one `.sfr` fixture per Keep Uniques rule (full config list retained, single keep-unique rule retained).
+- `recipes/`: one `.sfc` fixture per recipe from `example.sfc` (keep uniques removed).
+- `keep-uniques/`: one `.sfc` fixture per Keep Uniques rule (full recipe list retained, single keep-unique rule retained).
 - `manifest.json`: index mapping source ordinals/names to generated files.
 
 ## Counts

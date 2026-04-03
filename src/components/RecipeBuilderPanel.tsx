@@ -20,7 +20,7 @@ import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuC
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { useSlotMetrics } from '../hooks/useSlotMetrics'
-import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useSfrHistory'
+import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useSfcHistory'
 import {
   normalizeExportModeFields,
   resolveAutoRarityCode,
@@ -6978,7 +6978,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       </Box>
                       </Select>
                     )
-                    // Build a human-readable label for a sets+metasets config (for the badge tooltip).
+                    // Build a human-readable label for a sets+metasets recipe (for the badge tooltip).
                     // Excluded entries are prefixed with "–" to mirror the exclusion UX convention.
                     const setsLabel = (sets: typeof recipe.artifactSets, metas: typeof recipe.artifactMetaSets): string => {
                       const parts: string[] = [

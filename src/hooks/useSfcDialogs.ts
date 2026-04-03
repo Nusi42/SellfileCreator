@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 
-type UseSfrDialogsParams = {
+type UseSfcDialogsParams = {
   customRecipeCount: number
   onConfirmClearAll: () => void
   onConfirmDeleteSingle: (targetIdx: number) => void
   onConfirmDeleteMulti: (targets: number[] | null) => void
 }
 
-export type UseSfrDialogsResult = {
+export type UseSfcDialogsResult = {
   confirmClearOpen: boolean
   setConfirmClearOpen: Dispatch<SetStateAction<boolean>>
   confirmDeleteIdx: number | null
@@ -45,17 +45,17 @@ export type UseSfrDialogsResult = {
 }
 
 /**
- * Centralizes SFR dialog state so App wires the callbacks without juggling local `useState`.
+ * Centralizes SFC dialog state so App wires the callbacks without juggling local `useState`.
  * - Tracks confirmation dialogs and re-applies the autosave suppressor when "Delete All" is confirmed.
  * - Keeps the Note dialog mode (`view` vs `edit`) aligned with the action that opened it.
- * - Exposes clipboard dialog state so `useSfrClipboard` can drive the same fallback UI.
+ * - Exposes clipboard dialog state so `useSfcClipboard` can drive the same fallback UI.
  */
-export function useSfrDialogs({
+export function useSfcDialogs({
   customRecipeCount,
   onConfirmClearAll,
   onConfirmDeleteSingle,
   onConfirmDeleteMulti,
-}: UseSfrDialogsParams): UseSfrDialogsResult {
+}: UseSfcDialogsParams): UseSfcDialogsResult {
   const [confirmClearOpen, setConfirmClearOpen] = useState(false)
   const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
   const [confirmDeleteTargets, setConfirmDeleteTargets] = useState<number[] | null>(null)
@@ -206,7 +206,7 @@ export function useSfrDialogs({
     })
   }, [scheduleCopyDialogSelection])
 
-  return useMemo<UseSfrDialogsResult>(() => ({
+  return useMemo<UseSfcDialogsResult>(() => ({
     confirmClearOpen,
     setConfirmClearOpen,
     confirmDeleteIdx,

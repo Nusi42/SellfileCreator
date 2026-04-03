@@ -13,11 +13,11 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - Every exported rule also records `RowIdx` — a 1-based row counter that reflects the final order inside the HSF file. This stays stable after dedupe/merges so downstream automation can reconcile preview rows with their file offsets even when `RecipeID` is absent or reused.
 - `cleanHsfForExport` strips every UI-only metadata field (anything prefixed with `__`, e.g., `__rankMask`, `__safeguardRuleId`, `__safeguardHash`, diagnostics from safeguard detection) before serializing. It also strips `[rrggbb]` color-directive prefixes from `RecipeName` (via `parseRecipeNameDirectives`) because those directives are display-only and must not appear in exported files. Push uploads reuse the same sanitized payload so endpoints never see transient fields.
 
-### SFR (this app)
-- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": SubstatTargetTable, "Recipes": ReadableRecipe[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: LevelMilestone[]; setsMode: 'any' | 'explicit' } }`. `Minima` stores the Substat Target Values table; the legacy name is preserved for compatibility. Recipe selection is not persisted in the SFR format; the first recipe and first safeguard rule are always selected on load.
+### SFC (this app)
+- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": SubstatTargetTable, "Recipes": ReadableRecipe[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: LevelMilestone[]; setsMode: 'any' | 'explicit' } }`. `Minima` stores the Substat Target Values table; the legacy name is preserved for compatibility. Recipe selection is not persisted in the SFC format; the first recipe and first safeguard rule are always selected on load.
   - Writer always includes `FinalSellRemainder` (even when off).
 - Reader: when `FinalSellRemainder` is missing (older files), treat it as off with default ranges `[0,4,8,12]` and `setsMode = 'any'`.
-  - Loader convenience applies to all builds: in addition to full SFR objects and `ReadableRecipe[]`, a single readable recipe object is accepted (matching `tests/fixtures/*.sfr`) so dragging fixtures into the app works everywhere.
+  - Loader convenience applies to all builds: in addition to full SFC objects and `ReadableRecipe[]`, a single readable recipe object is accepted (matching `tests/fixtures/*.sfc`) so dragging fixtures into the app works everywhere.
 - `Metaset` write format: `{ id: string; name: string; setNames: string[]; show?: boolean; iconId?: string }` — named group of artifact set names with an optional icon identifier. Defaults are created if omitted.
 - `ReadableRecipe` (write format for Save/Copy) emits human-readable labels plus metaset IDs:
   - `name?`, `Tags?` (string[]), `keep`, `visibility`: `'Active' | 'Disabled' | 'Separator'`.
@@ -25,15 +25,15 @@ This document covers file schemas, builder semantics, and compatibility notes.
   - `Rank`: string label (e.g., `"≥ 5★"`); `Rarity`: string label or `"Auto"`; `Faction`: faction name string.
   - `mainStats`: string[] (labels).
   - `minLevel`, `maxLevel`: explicit level milestones (`LevelMilestone`). `earlyKeepMode?`: `'late'` when Late thresholds are active.
-  - `substats`: array of `{ stat: string; fixed?: boolean; rollBounds?: { min?: number; max?: number; any?: boolean } }`. Each entry represents one selected substat, whether it is fixed, and its per-stat roll bounds. (The writer no longer emits separate `fixedSubstats`/`substatRollBounds` fields; the loader still accepts those legacy split shapes and converts them inside `sfrIO`.)
+  - `substats`: array of `{ stat: string; fixed?: boolean; rollBounds?: { min?: number; max?: number; any?: boolean } }`. Each entry represents one selected substat, whether it is fixed, and its per-stat roll bounds. (The writer no longer emits separate `fixedSubstats`/`substatRollBounds` fields; the loader still accepts those legacy split shapes and converts them inside `sfcIO`.)
   - `autoRarityThreshold?`: `'uncommon' | 'rare' | 'epic'` — emitted only when Milestone Thresholds are Late+Auto and active (defaults to `'rare'`).
   - `minCount`, `autoMinCount`, `autoSubstatFlex?` (true only when flex actually applies).
-- `minRequiredRolls`, `autoMinRequiredRolls`, `lockedMinRequiredRolls`. When `lockedMinRequiredRolls` is present and at least one substat is fixed, the builder treats the aggregate floor as “locked only” automatically — there is no separate scope flag anymore. Older SFR files may include `minRollsTarget: 'Locked'` or `substatMinTarget`; the importer converts those scope hints into `lockedMinRequiredRolls` (and clears the manual global floor when locked substats exist) so SFR exports no longer need the extra field while pure locked-scope recipes stay locked-only.
+- `minRequiredRolls`, `autoMinRequiredRolls`, `lockedMinRequiredRolls`. When `lockedMinRequiredRolls` is present and at least one substat is fixed, the builder treats the aggregate floor as “locked only” automatically — there is no separate scope flag anymore. Older SFC files may include `minRollsTarget: 'Locked'` or `substatMinTarget`; the importer converts those scope hints into `lockedMinRequiredRolls` (and clears the manual global floor when locked substats exist) so SFC exports no longer need the extra field while pure locked-scope recipes stay locked-only.
   - `artifactTypeNames?`: string[]; `artifactSetNames?`: `{ name: string; excluded?: true }[]` (excluded entries explicitly opt out of metaset-derived sets); `artifactMetaSetIds?`: string[] (IDs referencing the payload’s `Metasets` entries). The loader still accepts legacy `artifactSetNames: string[]`/`number[]` and `{ id | name, excluded? }` object entries for backward compatibility.
 - `SubstatTargetTable` write format: label-keyed maps (Substat Target Values per rank).
-- Compatibility: SFR loader targets the readable schema (labels + metaset IDs). For backward compatibility it still maps `artifactMetaSetNames` to IDs and tolerates legacy helpers like `rankCode`, but numeric stat IDs are no longer accepted.
-- Compatibility boundary: legacy payload coercion stays in SFR IO (`parseSfrObject`/`parseSfrText`). WASM rule-engine bindings now expect canonical app payloads and fail fast on malformed inputs.
-- Note marker compatibility is resolved at SFR IO boundaries: loader accepts legacy `<!-- config-options ... -->` and `<!-- keep-uniques(-re) ... -->` markers, and writers always emit canonical `<!-- recipe-overrides ... -->` and `<!-- safeguards(-re) ... -->` markers.
+- Compatibility: SFC loader targets the readable schema (labels + metaset IDs). For backward compatibility it still maps `artifactMetaSetNames` to IDs and tolerates legacy helpers like `rankCode`, but numeric stat IDs are no longer accepted.
+- Compatibility boundary: legacy payload coercion stays in SFC IO (`parseSfcObject`/`parseSfcText`). WASM rule-engine bindings now expect canonical app payloads and fail fast on malformed inputs.
+- Note marker compatibility is resolved at SFC IO boundaries: loader accepts legacy `<!-- config-options ... -->` and `<!-- keep-uniques(-re) ... -->` markers, and writers always emit canonical `<!-- recipe-overrides ... -->` and `<!-- safeguards(-re) ... -->` markers.
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Recipes.map(buildHsfRules))`.
   - `mergeRecipeArtifactSets` (in `ruleCache.ts`) pre-resolves a recipe's sets + metasets into a single flat include-only list and clears `artifactMetaSets` before fingerprinting and rule generation. This prevents the second `resolveArtifactSetSelections` call inside `buildRulesForRecipe` from re-adding sets that were explicitly excluded (e.g. `gearsets=+-Daze` on a metaset recipe would otherwise have Daze restored by the Utility metaset expansion).
   - Recipe overrides applied via `applyRecipeOverrides` / `resolveRecipeOverridesEffectiveRecipe` write excluded entries (`{ id, excluded: true }`) into `artifactSets` before the recipe reaches `mergeRecipeArtifactSets`, so the exclusion is correctly honoured during HSF rule generation.
@@ -42,9 +42,9 @@ This document covers file schemas, builder semantics, and compatibility notes.
 
 #### Safeguards payload
 
-- SFR payloads also carry `Safeguards?: SafeguardRule[]` plus `SafeguardsEnabled?: boolean`. Autosave/clipboard/history reuse the same fields; omitting either key is treated as “off” with an empty gear-combination list.
-- Each rule entry serializes `{ id, requiredCount, activation, countMode, combination }` plus optional `improvementChanceThreshold?: number` (0–100; omitted when null) (persisted as `tuple` in SFR). `countMode` stores the scope toggles `{ perRule, perSet, perFaction, perMainStat, perSlot }`; defaults when missing are `perRule=false`, `perSet=true`, `perFaction=true`, `perMainStat=true`, `perSlot=false`. Combinations are normalized via `normalizeSafeguardRule` and are written as readable labels (slot/set names, `5★` rank strings, rarity labels such as `Rare`, stat labels, faction names, metaset ids). `sets` now serialize as `{ name: string; excluded?: true }[]` so excluded gear sets remain explicit and parseable; older SFR strings (`string[]`) still load as includes. `mainStats` stores the selected stat variants (empty array = Any). Invalid combos are discarded during parsing so corrupted SFR files never reach the UI. Legacy SFR exports that wrote `enabled` instead of `activation` are still accepted; the loader maps `enabled=false` to `activation:'off'` and `true` to `activation:'protectExisting'`.
-  - SFR tuples no longer mirror the first entry via a `mainStat` field; downstream consumers must read the `mainStats` array (or handle it being empty for Any).
+- SFC payloads also carry `Safeguards?: SafeguardRule[]` plus `SafeguardsEnabled?: boolean`. Autosave/clipboard/history reuse the same fields; omitting either key is treated as “off” with an empty gear-combination list.
+- Each rule entry serializes `{ id, requiredCount, activation, countMode, combination }` plus optional `improvementChanceThreshold?: number` (0–100; omitted when null) (persisted as `tuple` in SFC). `countMode` stores the scope toggles `{ perRule, perSet, perFaction, perMainStat, perSlot }`; defaults when missing are `perRule=false`, `perSet=true`, `perFaction=true`, `perMainStat=true`, `perSlot=false`. Combinations are normalized via `normalizeSafeguardRule` and are written as readable labels (slot/set names, `5★` rank strings, rarity labels such as `Rare`, stat labels, faction names, metaset ids). `sets` now serialize as `{ name: string; excluded?: true }[]` so excluded gear sets remain explicit and parseable; older SFC strings (`string[]`) still load as includes. `mainStats` stores the selected stat variants (empty array = Any). Invalid combos are discarded during parsing so corrupted SFC files never reach the UI. Legacy SFC exports that wrote `enabled` instead of `activation` are still accepted; the loader maps `enabled=false` to `activation:'off'` and `true` to `activation:'protectExisting'`.
+  - SFC tuples no longer mirror the first entry via a `mainStat` field; downstream consumers must read the `mainStats` array (or handle it being empty for Any).
 - Optional substat focus is stored as `substats?: string[]` (readable labels). Match behavior serializes `substatMatch?: 'any' | 'all' | 'perSubstat'` only when a non-default match is chosen; missing defaults to `any`. Substat scoring always uses normalized ranking; weights apply when `substatMatch` is `any` or `all`, while `perSubstat` ignores weights. Per-stat weights are stored as `substatWeights?: Record<string, number>` using the same labels and only include non-default weights for the selected substats.
 - Multiple substats follow the match: `any` accepts items that have at least one selected substat, `all` requires every selected substat, and `perSubstat` applies the quota separately for each selected substat.
 - Importers clamp `rank`/`rarity` to `1..6`, coerce non-numeric stats to `StatVariant.Any`, and drop accessory factions whenever the combination refers to an armor slot. IDs fall back to regenerated `ku_<timestamp>_<rand>` values when blanks arrive from external files.
@@ -57,17 +57,17 @@ This document covers file schemas, builder semantics, and compatibility notes.
 
 ### NativeInput / NativeOutput (native DLL)
 
-These JSON schemas are consumed and produced by the `sfr_generate` C-ABI function
+These JSON schemas are consumed and produced by the `sfc_generate` C-ABI function
 in `wasm/rule_engine_native`.  They are distinct from the browser WASM bindings
 and require no JavaScript runtime.
 
-**NativeInput** — passed as a JSON string to `sfr_generate`:
+**NativeInput** — passed as a JSON string to `sfc_generate`:
 
 ```jsonc
 {
-  // Raw SFR file content as a JSON string — the caller passes .sfr file text directly.
+  // Raw SFC file content as a JSON string — the caller passes .sfc file text directly.
   // The DLL calls serde_json::from_str on it; no pre-parsing required from the caller.
-  "sfr": "{\"Version\":\"1.0\",\"Recipes\":[...],\"Safeguards\":[...]}",
+  "sfc": "{\"Version\":\"1.0\",\"Recipes\":[...],\"Safeguards\":[...]}",
 
   // Artifact rows in the same compact format produced by the RSL Helper WebSocket endpoint.
   "artifacts": [
@@ -98,7 +98,7 @@ Notes:
 - Stat IDs, slot IDs, set IDs, and faction IDs are the same numeric values used throughout
   the domain constants (see `shared/domain-constants.json`).
 
-**NativeOutput** — returned as a JSON string from `sfr_generate`:
+**NativeOutput** — returned as a JSON string from `sfc_generate`:
 
 ```jsonc
 {
@@ -116,24 +116,24 @@ Notes:
 On any error, the DLL returns `{"error":"<message>"}` instead.  The caller must
 always check for the `error` key before reading `rules` or `improvementChances`.
 
-### IO Helpers (SFR)
-- Parse text/file: `parseSfrText`, `readSfrFile`.
-- Build & write: `buildReadableRecipe`, `substatTargetsToReadable`, `buildSfrPayload`, `sfrToBlob`.
-- Object parsing: `parseSfrObject` normalizes a pre-parsed SFR payload (readable schema). Autosave stores the same SFR payload with a CRC and restores via this parser.
-- SFR parsing focuses on the readable schema; it applies the compatibility helpers noted above while HSF handles numeric legacy formats.
-- Legacy recipe-bundle support (`.hsfc` extension, legacy keys, and legacy note markers) remains centralized in `src/lib/sfrIO.ts`.
+### IO Helpers (SFC)
+- Parse text/file: `parseSfcText`, `readSfcFile`.
+- Build & write: `buildReadableRecipe`, `substatTargetsToReadable`, `buildSfcPayload`, `sfcToBlob`.
+- Object parsing: `parseSfcObject` normalizes a pre-parsed SFC payload (readable schema). Autosave stores the same SFC payload with a CRC and restores via this parser.
+- SFC parsing focuses on the readable schema; it applies the compatibility helpers noted above while HSF handles numeric legacy formats.
+- Legacy recipe-bundle support (`.hsfc` extension, legacy keys, and legacy note markers) remains centralized in `src/lib/sfcIO.ts`.
 
 ### Clipboard Helpers
 - `src/lib/clipboard.ts` centralizes clipboard interactions:
   - `writeTextSafe(text)` and `readTextSafe()` wrap the async Clipboard API with security checks and failure handling.
   - When writes are blocked, components dispatch `COPY_DIALOG_EVENT` to request that the App open a manual copy dialog prefilled with the content.
   - Fallback UI lives in `src/components/CopyDialog.tsx` (copy) and `src/components/PasteDialog.tsx` (paste).
-- Copy All copies a full SFR: `{ Version, Metasets, Minima (Substat Target Values), Recipes, FinalSellRemainder }`.
-- Copy single recipe copies a minimal SFR: `{ Version, Metasets: [only those referenced by the recipe], Recipes: [readable recipe] }` so pasting elsewhere brings required metasets.
-- Paste accepts: a single recipe, an array of recipes, or a full SFR object (readable schema). Legacy shapes are not normalized.
+- Copy All copies a full SFC: `{ Version, Metasets, Minima (Substat Target Values), Recipes, FinalSellRemainder }`.
+- Copy single recipe copies a minimal SFC: `{ Version, Metasets: [only those referenced by the recipe], Recipes: [readable recipe] }` so pasting elsewhere brings required metasets.
+- Paste accepts: a single recipe, an array of recipes, or a full SFC object (readable schema). Legacy shapes are not normalized.
 
 ### Autosave
-- Storage: LocalStorage key from `src/lib/constants.ts` (`AUTOSAVE_KEY = 'sellfileCreator.autosave.sfr.v1'`). Value is `[crc32, payload]` where `payload` is a readable SFR object (`buildSfrPayload`) plus dialog-only metadata (filters, timestamps). `crc32` verifies integrity (`src/lib/autosave.ts`).
+- Storage: LocalStorage key from `src/lib/constants.ts` (`AUTOSAVE_KEY = 'sellfileCreator.autosave.sfc.v1'`). Value is `[crc32, payload]` where `payload` is a readable SFC object (`buildSfcPayload`) plus dialog-only metadata (filters, timestamps). `crc32` verifies integrity (`src/lib/autosave.ts`).
 - Load/restore gating: `useAutosaveRestore({ key, version, metasets, substatTargets, recipes, finalSellRemainder, selectedRecipeIndex, note, filters })` handles reading the entry, surfacing the Restore dialog, and re-enabling autosave after the user makes a choice. All metaset equality comparisons during restore must go through `metasetsEqualSession(a, b)` (exported from `useAutosaveRestore.ts`) — it is the single source of truth for "are these two metaset lists interchangeable", checking both content (name + sets + iconId via `metasetsSignature`) and ID-set equality. Never inline this dual check; always import and call `metasetsEqualSession`. Gear Inspector autosave (`AUTOSAVE_GEAR_INSPECTOR_KEY`) is loaded separately via `loadGearInspectorAutosaveDraft` and merged into the same dialog so the checkbox list can cover both builder and Gear Inspector state.
 - `AutosaveFiltersState` (the `Filters` field inside the autosave payload) now includes `builderRecipeCollapsed` and `builderSafeguardCollapsed` alongside the filter-panel views. Builder section collapse is treated as session state — not a permanent preference — so the app starts with all sections expanded, resets to defaults when the restore dialog opens, and applies the saved layout only if the user checks "View & Filter" and confirms. Non-default builder collapse counts as a meaningful difference (i.e., it affects `restoreFiltersDiffer` and shows the checkbox), unlike filter-panel open/collapsed which is considered UI-only.
 - Restore vs Dismiss:
@@ -142,18 +142,18 @@ always check for the `error` key before reading `rules` or `improvementChances`.
   - Dismiss: preserves the previous autosave and keeps autosave disabled. A baseline snapshot of the current state is captured; autosave only enables after the user makes a change (state diverges from this baseline). This avoids overwriting the previous session just by dismissing the dialog. The gear queue behaves the same way: the saved list stays in localStorage until the user restores it or future autosaves overwrite it.
 - Writes: `useAutosave({ key, payload, enabled })` writes one snapshot immediately when enabled and on subsequent payload changes, and flushes the latest snapshot on `beforeunload`/visibility hidden. Gear Inspector autosave writes compressed payloads via `buildRuleTesterAutosavePayload` (with a timestamp) as soon as the queue diverges from the startup baseline (imports, restores, edits) and continues even if the Gear tab is closed; opening the Logic Hub dialog also primes autosave immediately.
 - file:// note: LocalStorage behavior varies for file origins and can be non-persistent or path-scoped. Prefer `npm run dev` or `npm run preview` for reliable autosave persistence.
-- Autosave-only fields: `NoteRecipeOverridesAnswers` stores recipe-override answers and `NoteRecipeOverridesDisabled` records when recipe overrides are ignored; SFR exports never include these fields. Legacy keys (`NoteConfigOptionsAnswers`, `NoteConfigOptionsDisabled`) are still accepted on load.
+- Autosave-only fields: `NoteRecipeOverridesAnswers` stores recipe-override answers and `NoteRecipeOverridesDisabled` records when recipe overrides are ignored; SFC exports never include these fields. Legacy keys (`NoteConfigOptionsAnswers`, `NoteConfigOptionsDisabled`) are still accepted on load.
 
 ### App Delegation and Boundaries
-- `src/App.tsx` delegates all file IO to `hsfIO`/`sfrIO` and clipboard actions to `clipboard.ts`. Autosave restore flow is delegated to `useAutosaveRestore`.
+- `src/App.tsx` delegates all file IO to `hsfIO`/`sfcIO` and clipboard actions to `clipboard.ts`. Autosave restore flow is delegated to `useAutosaveRestore`.
 - App uses `CopyDialog`/`PasteDialog` components for manual workflows; no direct use of normalization functions from UI code.
-- Shift-modified `.sfr` imports (manual picker or drag/drop with Shift pressed) open a selective import dialog for Recipes, Note, Metasets, and Safeguards. Per-section import modes are supported (`replace`/`append` for recipes, note, safeguards; `replace`/`merge` for metasets), and metaset merge conflicts reuse the existing conflict dialog.
+- Shift-modified `.sfc` imports (manual picker or drag/drop with Shift pressed) open a selective import dialog for Recipes, Note, Metasets, and Safeguards. Per-section import modes are supported (`replace`/`append` for recipes, note, safeguards; `replace`/`merge` for metasets), and metaset merge conflicts reuse the existing conflict dialog.
 - Shift-modified import uses the same metaset dependency constraint as autosave restore: Recipes/Safeguards without Metasets are blocked when they reference metaset IDs from the incoming file.
 
 ## HSF Semantics (as used here)
 
 - Rank codes (0–16), Rarity codes (0–16), Level milestones (`LEVEL_MILESTONES`) are interpreted in `hsfBuilder.ts` and `types.ts` based on observed samples.
-- Rarity “Auto”: SFR read/write accepts `Rarity: "Auto"`. The builder resolves this to a concrete rarity code before generating HSF rules based on roll requirements, always evaluating against the full +0→+16 timeline so the level window only clips emitted rows:
+- Rarity “Auto”: SFC read/write accepts `Rarity: "Auto"`. The builder resolves this to a concrete rarity code before generating HSF rules based on roll requirements, always evaluating against the full +0→+16 timeline so the level window only clips emitted rows:
   - Required rolls are the max of aggregate `minRequiredRolls` and the worst-case sum of per-stat `min` across generated permutations (fixed + highest mins among the remainder up to `minCount`).
   - Mapping: 0→Any, 1→≥ Uncommon, 2→≥ Rare, 3→≥ Epic, 4→≥ Legendary, 5→Mythical (exact).
   - When Auto has no roll requirements at all (aggregate min = 0 and no per-stat mins), it resolves to `Any` so no roll schedule is implied.
@@ -161,8 +161,8 @@ always check for the `error` key before reading `rules` or `improvementChances`.
 - Presence guards: Locked substats still force Auto to pick a rarity that has those stats present at the earliest emitted level (always +0 for Auto resolution). Auto also clamps to the requested `minCount` (bounded by selected substats) so Flex merely changes permutations, not the rarity floor. At +0 the ladder becomes: needing 1/2/3/4 substats escalates to ≥Uncommon/≥Rare/≥Epic/≥Legendary respectively.
   - Feasibility check: if the base mapping cannot reach the required rolls by +16 given the baseline/start, Mythical is chosen when it makes the target feasible (pre-roll at +0); otherwise the base mapping is used and infeasible rows are pruned as usual.
 - Levels follow `LEVEL_MILESTONES` (0/4/8/12/16).
-- Level window: SFR uses `minLevel` and `maxLevel` to bound emitted rules. When these fields are omitted the parser now defaults to the full `[0..16]` window.
-- Count Rolls baseline: derived from the explicit level window. When the window starts at +0, rolls are credited only after the start level (legacy “afterStart”). Windows that begin above +0 treat rolls gained before the start as already allocated (“upToLevel”). Legacy SFR `rollBaseline` fields are tolerated but ignored.
+- Level window: SFC uses `minLevel` and `maxLevel` to bound emitted rules. When these fields are omitted the parser now defaults to the full `[0..16]` window.
+- Count Rolls baseline: derived from the explicit level window. When the window starts at +0, rolls are credited only after the start level (legacy “afterStart”). Windows that begin above +0 treat rolls gained before the start as already allocated (“upToLevel”). Legacy SFC `rollBaseline` fields are tolerated but ignored.
 - Substat thresholds: base substat targets derive from the star bucket inferred from `rankCode` (see `starForRankCode`). Each “roll” adds another base target for that substat.
 - Rarity roll schedule (mapping in `rollLevelsForRarityCode`):
   - Common: none; Uncommon: [4]; Rare: [4,8]; Epic: [4,8,12]; Legendary/Mythical: [4,8,12,16].
@@ -215,13 +215,13 @@ always check for the `error` key before reading `rules` or `improvementChances`.
 - Wildcard-only, no aggregate (all selected are `any: true`, and `minRequiredRolls` is Auto/0): Potential/Early behaves like Strict for distributions (no “other” bucket). This prevents thresholds at +16 from being below earlier levels as additional substats become present.
 - Legendary full-set keepers: when the recipe requires all four selected substats, applies no per-stat min/max bounds, spans the full 0..16 window, and the rarity selection has all four substats present at +0 (Legendary/Mythical paths), the builder emits a single `LVLForCheck = 99` row instead of enumerating the 70 roll permutations as long as `Min Required Rolls` is either Auto/0 or exactly matches the number of rolls those rarities can supply by +16 (4 for Legendary, 5 for Mythical). Any lower aggregate target keeps the milestone permutations.
 
-## Migration Notes (SFR)
+## Migration Notes (SFC)
 
 - Rarity labels: The parser accepts human-readable `Rarity` strings (e.g., "≥ Epic", "Legendary", "Any"). When both `rarityCode` and `Rarity` are supplied, the normalized string (including "Auto") overrides the numeric code.
-- Metaset names: On paste/import, `artifactMetaSetNames` are resolved against the current in-app metasets, or against embedded `Metasets` for full SFR objects. To ensure consistent resolution across machines, include `Metasets` in SFR exports or pre-create matching metaset names.
+- Metaset names: On paste/import, `artifactMetaSetNames` are resolved against the current in-app metasets, or against embedded `Metasets` for full SFC objects. To ensure consistent resolution across machines, include `Metasets` in SFC exports or pre-create matching metaset names.
 - ≥ ranges (conservative): `≥ Common..≥ Epic (6..9)` now use their lower-bound roll schedules, and no Mythical pre-roll is assumed for any `≥` range. If you depended on the old behavior (Legendary schedule + Mythical pre-roll), switch to exact `Legendary`/`Mythical`.
 - Per-recipe pruning: Obsolete pruning runs per recipe before merging, so preview table counts match the builder chip. Cross-recipe overlaps remain visible by design.
-- Back-compat: SFR exports now require the explicit level window. When either `minLevel` or `maxLevel` is missing, the parser defaults to the full `[0..16]` window before the builder runs.
+- Back-compat: SFC exports now require the explicit level window. When either `minLevel` or `maxLevel` is missing, the parser defaults to the full `[0..16]` window before the builder runs.
 
 ### Runtime Gear Sets (`*.gearsets.json`)
 - Purpose: allow end users to hot-load brand-new gear-set definitions until an official release ships.
@@ -249,10 +249,10 @@ always check for the `error` key before reading `rules` or `improvementChances`.
   - `pieceGroup` must match the exported enum (`accessories`, `armorFixed`, `armorVariable`).
   - `pieces` and `text` are required; `byPieces` uses numeric keys.
   - `icon` is optional; when supplied it must be a `data:` URL (SVG, PNG, WebP, etc.). When omitted or invalid the UI falls back to a generated badge that displays the set ID.
-- Persistence: accepted sets are merged into the in-memory catalogs immediately and saved to `localStorage` (`sellfileCreator.runtimeGearSets.v1`). SFR files do not embed runtime sets; contributors should share the `.gearsets.json` alongside any `.sfr` they distribute. On startup, stored sets remain dormant until the user opts into the “Gear Sets” checkbox in the **Restore Last Saved Recipes?** dialog; declining (or dismissing the dialog) keeps the stored snapshot untouched until the next SFR autosave or Gear Inspector autosave writes, at which point the runtime registry snapshot (empty or not) is persisted. This lets contributors reopen the dialog later to reapply previously stored sets without re-importing.
+- Persistence: accepted sets are merged into the in-memory catalogs immediately and saved to `localStorage` (`sellfileCreator.runtimeGearSets.v1`). SFC files do not embed runtime sets; contributors should share the `.gearsets.json` alongside any `.sfc` they distribute. On startup, stored sets remain dormant until the user opts into the “Gear Sets” checkbox in the **Restore Last Saved Recipes?** dialog; declining (or dismissing the dialog) keeps the stored snapshot untouched until the next SFC autosave or Gear Inspector autosave writes, at which point the runtime registry snapshot (empty or not) is persisted. This lets contributors reopen the dialog later to reapply previously stored sets without re-importing.
 - Behavior:
   - Built-in catalogs stay untouched; runtime entries override lookups (names, tooltips, icons) for their numeric IDs.
   - Selection menus, tooltips, builder chips, history entries, and exports all pull from the merged catalog.
   - Accessory compatibility (`ACCESSORY_SLOTS_COMPATIBLE_SET_IDS`) and piece-group helpers now query the merged registry so runtime IDs respect slot/faction constraints automatically.
   - All locales display the contributor-supplied `name`/`text` fields; there is no per-language override for hot-loaded sets.
-  - Manual import buttons (`Load Recipes (.sfr)` in the builder and `Load Sellfile` in preview) now share the same router as drag-and-drop, so they silently accept `.hsf`, `.sfr` (legacy `.sfr`), `.l10n`, `.gearsets.json`, and gear database delta files.
+  - Manual import buttons (`Load Recipes (.sfc)` in the builder and `Load Sellfile` in preview) now share the same router as drag-and-drop, so they silently accept `.hsf`, `.sfc` (legacy `.sfc`), `.l10n`, `.gearsets.json`, and gear database delta files.

@@ -15,7 +15,7 @@
 - Manual start: `HelpDialog` includes a bottom-left "Start Tutorial" button. The dialog surfaces README content and acts as the entry point.
 - Steps: `src/hooks/useTutorialCoachState.ts` constructs the typed `TutorialStep[]` and wires the scripted examples: a basic Speed-Boots recipe, metaset creation and application, an advanced DPS recipe covering substats/Min Required Rolls/Flex, a third Banner-SPD recipe demonstrating the Auto-Late (early/late keep) mode, a Gear Inspector walkthrough, Final Sell, a Safeguards walkthrough, and Save & Export. Each step can register a `before` action to stage builder state before the overlay renders.
 - Targets: A step can highlight a single `targetId` or multiple `targetIds: string[]`. When multiple are given, the overlay hole covers the union of all target rects.
-- Targets: Key controls expose `data-tour-id` attributes: rank/rarity/faction selects, mainstat group, slots, sets Select, add-recipe button, SFR load/save buttons, Min Required Rolls, Thresholds groups, and the builder mode toggle (recipe vs. safeguard).
+- Targets: Key controls expose `data-tour-id` attributes: rank/rarity/faction selects, mainstat group, slots, sets Select, add-recipe button, SFC load/save buttons, Min Required Rolls, Thresholds groups, and the builder mode toggle (recipe vs. safeguard).
 
 ### Navigation
 
@@ -40,7 +40,7 @@
 
 ### Session Handling
 
-- Snapshot/restore: On tutorial start, the app snapshots the full SFR state in memory (recipes, selection, metasets, substatTargets, final-sell, safeguard rules, safeguards/recipes enabled flags, note, builder, Gear Inspector items, preview mode, Logic Hub open state and tab, safeguard improvement-chance display flag) and resets to a clean default so the walkthrough is deterministic. On exit or finish, the snapshot is restored exactly.
+- Snapshot/restore: On tutorial start, the app snapshots the full SFC state in memory (recipes, selection, metasets, substatTargets, final-sell, safeguard rules, safeguards/recipes enabled flags, note, builder, Gear Inspector items, preview mode, Logic Hub open state and tab, safeguard improvement-chance display flag) and resets to a clean default so the walkthrough is deterministic. On exit or finish, the snapshot is restored exactly.
 - Exit hygiene: On exit/finish, the app first closes all transient UI (menus, dialogs, context menus), then restores the snapshot, then closes the coach. Autosave resumes after the original state is back in place.
 - Autosave: Paused while the tutorial runs to avoid overwriting the user's real session. Resumes after exit/finish.
 - History: Tutorial-driven resets, jumps, and snapshot restores suppress undo/redo history entries so the timeline only reflects user edits.

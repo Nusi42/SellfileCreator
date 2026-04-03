@@ -3,7 +3,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildSfrPayload, parseSfrObject } from '../../src/lib/sfrIO.js'
+import { buildSfcPayload, parseSfcObject } from '../../src/lib/sfcIO.js'
 import { parseHsfFile } from '../../src/lib/hsfIO.js'
 import { defaultSubstatTargets, type BuilderRecipe } from '../../src/lib/hsfBuilder.js'
 
@@ -30,8 +30,8 @@ const buildRecipe = (name: string): BuilderRecipe => ({
   artifactMetaSets: [],
 })
 
-test('SFR writer does not emit SelectedRecipeIndex and canonicalizes note marker wording', () => {
-  const payload = buildSfrPayload({
+test('SFC writer does not emit SelectedRecipeIndex and canonicalizes note marker wording', () => {
+  const payload = buildSfcPayload({
     version: 'test-version',
     metasets: [],
     substatTargets: defaultSubstatTargets(),
@@ -44,7 +44,7 @@ test('SFR writer does not emit SelectedRecipeIndex and canonicalizes note marker
     ].join('\n'),
   }) as Record<string, unknown>
 
-  // Selection is no longer persisted in the SFR format.
+  // Selection is no longer persisted in the SFC format.
   assert.equal('SelectedRecipeIndex' in payload, false)
   assert.equal('SelectedConfigIndex' in payload, false)
   // New exports should canonicalize legacy recipe/safeguard note markers.
@@ -55,11 +55,11 @@ test('SFR writer does not emit SelectedRecipeIndex and canonicalizes note marker
   assert.equal(/<!--\s*keep-uniques-re\b/i.test(note), false)
 })
 
-test('SFR parser ignores SelectedConfigIndex (always selects first recipe) and canonicalizes note markers', () => {
-  const parsed = parseSfrObject(
+test('SFC parser ignores SelectedConfigIndex (always selects first recipe) and canonicalizes note markers', () => {
+  const parsed = parseSfcObject(
     {
       Version: 'legacy-demo',
-      Recipes: [buildSfrPayload({
+      Recipes: [buildSfcPayload({
         version: 'inner',
         metasets: [],
         substatTargets: defaultSubstatTargets(),
@@ -102,8 +102,8 @@ test('HSF parser resolves legacy ConfigID/ConfigName keys to recipe metadata at 
   assert.equal('ConfigName' in first, false)
 })
 
-test('SFR parser preserves safeguard substatWeights from legacy KeepUniques payloads', () => {
-  const parsed = parseSfrObject(
+test('SFC parser preserves safeguard substatWeights from legacy KeepUniques payloads', () => {
+  const parsed = parseSfcObject(
     {
       Version: 'legacy-keep-weights',
       Recipes: [buildRecipe('Legacy Keep Weights')],
@@ -139,7 +139,7 @@ test('SFR parser preserves safeguard substatWeights from legacy KeepUniques payl
   const importedWeights = Object.values(importedRule.substatWeights ?? {}).sort((a, b) => a - b)
   assert.deepEqual(importedWeights, [0.9, 1.5])
 
-  const payload = buildSfrPayload({
+  const payload = buildSfcPayload({
     version: 'roundtrip',
     metasets: parsed.metasets,
     substatTargets: parsed.substatTargets,
@@ -155,8 +155,8 @@ test('SFR parser preserves safeguard substatWeights from legacy KeepUniques payl
   assert.equal(exportedWeights['ACC'], 0.9)
 })
 
-test('SFR parser canonicalizes legacy safeguard-ignore recipe tags on roundtrip', () => {
-  const parsed = parseSfrObject(
+test('SFC parser canonicalizes legacy safeguard-ignore recipe tags on roundtrip', () => {
+  const parsed = parseSfcObject(
     {
       Version: 'legacy-ignore-tag',
       Recipes: [
@@ -171,7 +171,7 @@ test('SFR parser canonicalizes legacy safeguard-ignore recipe tags on roundtrip'
   // Read path should accept legacy ignore tag aliases.
   assert.deepEqual(parsed.recipes[0]?.tags, ['ignore_by_safeguards', 'speed'])
 
-  const payload = buildSfrPayload({
+  const payload = buildSfcPayload({
     version: 'roundtrip-ignore-tag',
     metasets: parsed.metasets,
     substatTargets: parsed.substatTargets,
@@ -183,12 +183,12 @@ test('SFR parser canonicalizes legacy safeguard-ignore recipe tags on roundtrip'
   assert.deepEqual(recipe['Tags'], ['ignore_by_safeguards', 'speed'])
 })
 
-test('SFR writer canonicalizes legacy safeguard-ignore aliases from runtime recipe state', () => {
+test('SFC writer canonicalizes legacy safeguard-ignore aliases from runtime recipe state', () => {
   const legacyTaggedRecipe = {
     ...buildRecipe('Legacy Writer Alias'),
     tags: ['ignore_keep_unique', 'speed'],
   }
-  const payload = buildSfrPayload({
+  const payload = buildSfcPayload({
     version: 'writer-legacy-ignore-tag',
     metasets: [],
     substatTargets: defaultSubstatTargets(),

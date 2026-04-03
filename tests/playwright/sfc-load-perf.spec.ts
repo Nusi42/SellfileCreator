@@ -1,15 +1,15 @@
 import { expect, test } from '@playwright/test'
 import { APP_GOTO_OPTIONS } from './app-init'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
-import { SAMPLE_SFR_PATH } from './fixture-paths'
-import { SFR_LOAD_INPUT_SELECTOR } from './ui-selectors'
+import { SAMPLE_SFC_PATH } from './fixture-paths'
+import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 
-const LARGE_SFR_PATH = SAMPLE_SFR_PATH
+const LARGE_SFC_PATH = SAMPLE_SFC_PATH
 
-test.describe('SFR load performance', () => {
+test.describe('SFC load performance', () => {
   // Run perf baselines in every browser to catch engine-specific regressions.
-  test('measures time to preview ready for large SFR', async ({ page }, testInfo) => {
-    // Allow the long timeout for the rebuild triggered by SFR import.
+  test('measures time to preview ready for large SFC', async ({ page }, testInfo) => {
+    // Allow the long timeout for the rebuild triggered by SFC import.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
     await page.addInitScript((storageKeys) => {
       try {
@@ -34,12 +34,12 @@ test.describe('SFR load performance', () => {
       await restoreDismiss.click()
     }
 
-    // Use the shared selector so the perf test matches other SFR import flows.
-    const sfrInput = page.locator(SFR_LOAD_INPUT_SELECTOR).first()
-    await sfrInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    // Use the shared selector so the perf test matches other SFC import flows.
+    const sfcInput = page.locator(SFC_LOAD_INPUT_SELECTOR).first()
+    await sfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 
     const start = await page.evaluate(() => performance.now())
-    await sfrInput.setInputFiles(LARGE_SFR_PATH)
+    await sfcInput.setInputFiles(LARGE_SFC_PATH)
 
     const noteDialog = page.locator('role=dialog[name="Note"]')
     const noteCloseButton = noteDialog.locator('button:has-text("Close")').first()
@@ -64,13 +64,13 @@ test.describe('SFR load performance', () => {
     const firstRowDelay = firstRowReady - start
 
     testInfo.annotations.push(
-      { type: 'perf', description: noteDelay == null ? 'Large SFR note ready: (skipped)' : `Large SFR note ready: ${noteDelay.toFixed(1)} ms` },
-      { type: 'perf', description: `Large SFR first-row render: ${firstRowDelay.toFixed(1)} ms` },
+      { type: 'perf', description: noteDelay == null ? 'Large SFC note ready: (skipped)' : `Large SFC note ready: ${noteDelay.toFixed(1)} ms` },
+      { type: 'perf', description: `Large SFC first-row render: ${firstRowDelay.toFixed(1)} ms` },
     )
 
     console.log([
-      noteDelay == null ? 'Large SFR note ready: (skipped)' : `Large SFR note ready: ${noteDelay.toFixed(1)} ms`,
-      `Large SFR first-row render: ${firstRowDelay.toFixed(1)} ms`,
+      noteDelay == null ? 'Large SFC note ready: (skipped)' : `Large SFC note ready: ${noteDelay.toFixed(1)} ms`,
+      `Large SFC first-row render: ${firstRowDelay.toFixed(1)} ms`,
     ].join(' | '))
   })
 })

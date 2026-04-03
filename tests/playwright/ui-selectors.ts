@@ -1,6 +1,6 @@
 // Shared Playwright selectors that should stay stable across locales and UI refactors.
 // Why: Centralizing these keeps tests in sync and avoids repeating fragile strings.
-export const SFR_LOAD_INPUT_SELECTOR = '[data-tour-id="sfr.load"] input[type="file"][accept*=".sfr"]'
+export const SFC_LOAD_INPUT_SELECTOR = '[data-tour-id="sfc.load"] input[type="file"][accept*=".sfc"]'
 // Target the Tools toolbar trigger using a stable tour id (opens the LogicHub dialog).
 export const SUBSTAT_TARGETS_BUTTON_SELECTOR = '[data-tour-id="builder.tools-button"]'
 // Preview panel container — carries data-gear-results-version for pipeline-commit synchronization.

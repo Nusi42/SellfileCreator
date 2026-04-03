@@ -8,7 +8,7 @@
  * introducing circular initialization issues during Node/test builds.
  */
 
-// Readable artifact set IDs (values match HSF/SFR catalog).
+// Readable artifact set IDs (values match HSF/SFC catalog).
 export const ArtifactSet = {
   Life: 1,
   Offense: 2,

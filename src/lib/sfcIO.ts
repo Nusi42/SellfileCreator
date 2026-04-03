@@ -1,12 +1,12 @@
 /**
- * SFR IO Helpers
+ * SFC IO Helpers
  *
  * Responsibilities:
- * - Normalize readable SFR payloads to the internal StatVariant-based model.
- * - Build readable SFR payloads (labels, not numeric IDs) from internal state for Save/Copy.
- * - Parse pasted text that may be a single recipe, an array of recipes, or a full SFR object.
+ * - Normalize readable SFC payloads to the internal StatVariant-based model.
+ * - Build readable SFC payloads (labels, not numeric IDs) from internal state for Save/Copy.
+ * - Parse pasted text that may be a single recipe, an array of recipes, or a full SFC object.
  *
- * This module deliberately contains only SFR read/write concerns to keep UI code tidy.
+ * This module deliberately contains only SFC read/write concerns to keep UI code tidy.
  */
 import { normalizeExportModeFields, resolveExportModeField, coerceSellfileExportModeToken, normalizeRollTargetEntry, type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode, type Star, type SubstatRollTargetEntry, type SubstatRollTargets } from './hsfBuilder'
 import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeAutoSubstatFlex, normalizeAggregateRollTargets } from './recipeNormalization'
@@ -61,10 +61,10 @@ import { normalizeArtifactSetSelections } from './gearSets/selection'
 import { canonicalizeNoteRecipeOverridesMarkers } from './noteRecipeOverrides'
 
 // Legacy safeguard note markers used `keep-uniques` wording.
-// Normalize opening markers at the SFR boundary so runtime/editor state stays canonical.
+// Normalize opening markers at the SFC boundary so runtime/editor state stays canonical.
 const NOTE_LEGACY_SAFEGUARDS_MARKER_OPEN_REGEX = /<!--(\s*)keep-uniques\b/gi
 
-// Canonicalize all known legacy note marker aliases at SFR IO boundaries.
+// Canonicalize all known legacy note marker aliases at SFC IO boundaries.
 const canonicalizeLegacyNoteMarkers = (note: string): string => (
   canonicalizeNoteRecipeOverridesMarkers(note)
     .replace(NOTE_LEGACY_SAFEGUARDS_MARKER_OPEN_REGEX, '<!--$1safeguards')
@@ -73,7 +73,7 @@ const canonicalizeLegacyNoteMarkers = (note: string): string => (
 type LockedMinValue = Exclude<BuilderRecipe['lockedMinRequiredRolls'], undefined>
 type AggregateMinValue = Exclude<BuilderRecipe['minRequiredRolls'], undefined>
 
-// Readable SFR substat payload that merges selection, fixed, and roll bounds.
+// Readable SFC substat payload that merges selection, fixed, and roll bounds.
 type ReadableSubstatBounds = {
   min?: number
   max?: number
@@ -95,20 +95,20 @@ const parseAggregateScopeToken = (value: unknown): 'locked' | 'selected' | null 
   return null
 }
 
-// Internal helpers for parsing unknown SFR shapes
+// Internal helpers for parsing unknown SFC shapes
 function isRecord(v: unknown): v is Record<string, unknown> { return typeof v === 'object' && v !== null }
-// no longer used: only label-based parsing is accepted for SFR
+// no longer used: only label-based parsing is accepted for SFC
 // function asNumber(v: unknown): number | undefined { return typeof v === 'number' && Number.isFinite(v) ? v : undefined }
 function asStringArray(v: unknown): string[] | undefined { return Array.isArray(v) ? (v as unknown[]).map((s) => String(s)) : undefined }
-// (Legacy helpers removed for SFR schema simplification)
+// (Legacy helpers removed for SFC schema simplification)
 function parseSubstatLike(v: unknown): number | undefined {
   if (typeof v === 'string') { const vk = variantFromLabel(v); if (vk !== null) return vk as number }
-  // Objects like { id, isFlat } are no longer accepted in SFR; labels only
+  // Objects like { id, isFlat } are no longer accepted in SFC; labels only
   return undefined
 }
 function parseMainStatLike(v: unknown): number | undefined {
   if (typeof v === 'string') { const vk = variantFromLabel(v); if (vk !== null) return vk as number }
-  // Objects like { id, f } are no longer accepted in SFR; labels only
+  // Objects like { id, f } are no longer accepted in SFC; labels only
   return undefined
 }
 
@@ -119,7 +119,7 @@ function parseMainStatLike(v: unknown): number | undefined {
  * persisted-runtime name map supplied by autosave restore.
  */
 const resolveSetId = (value: unknown, runtimeNameMap?: Map<string, number>): number | undefined => {
-  // Accept readable names first so SFR stays human-friendly.
+  // Accept readable names first so SFC stays human-friendly.
   // Why: users don’t memorize numeric IDs.
   if (typeof value === 'string') {
     const trimmed = value.trim()
@@ -318,7 +318,7 @@ const buildReadableArtifactSetEntries = (
 ): ReadableArtifactSetExportEntry[] => {
   // Normalize first so ordering/exclusion precedence is stable.
   const normalized = normalizeArtifactSetSelections(selections ?? [])
-  // Sort deterministically so SFR diffs stay clean.
+  // Sort deterministically so SFC diffs stay clean.
   const sorted = normalized
     .slice()
     .sort((a, b) => compareArtifactSets(Number(a.id), Number(b.id)))
@@ -356,9 +356,9 @@ function mergeMetasetNames(base: BuilderRecipe, metasets: Metaset[], extras: rea
   return base
 }
 
-// Normalize SFR recipes (readable schema) to current BuilderRecipe
+// Normalize SFC recipes (readable schema) to current BuilderRecipe
 /**
- * Normalize a readable SFR recipe to BuilderRecipe with *V fields.
+ * Normalize a readable SFC recipe to BuilderRecipe with *V fields.
  *
  * `runtimeNameMap` is only supplied by autosave restore to resolve dormant
  * runtime set names without activating the runtime catalog.
@@ -549,7 +549,7 @@ export function normalizeRecipe(input: unknown, runtimeNameMap?: Map<string, num
   // Assemble normalized base
   let normalized: BuilderRecipe = { ...baseRecipe, ...opt }
 
-  // Post-normalization to align SFR with in-app invariants:
+  // Post-normalization to align SFC with in-app invariants:
   // - Conflicting bounds: when min/max are present, drop 'any' (UI cannot represent both simultaneously).
   // - Clamp numeric bounds to valid ranges (already clamped above; re-apply defensively).
   try {
@@ -635,9 +635,9 @@ export function normalizeRecipe(input: unknown, runtimeNameMap?: Map<string, num
   return normalized
 }
 
-/** Normalize SFR Minima (label-keyed) to the internal Substat Target table. */
+/** Normalize SFC Minima (label-keyed) to the internal Substat Target table. */
 export function normalizeSubstatTargets(src: unknown): SubstatTargetTable {
-  // SFR stores per-rank targets keyed by stat label; convert them back to the
+  // SFC stores per-rank targets keyed by stat label; convert them back to the
   // variant IDs we use internally so builder math does not depend on labels.
   const coerceStar = (rec: unknown): Record<number, number> => {
     const out: Record<number, number> = {}
@@ -676,16 +676,16 @@ export function normalizeSubstatTargets(src: unknown): SubstatTargetTable {
   }
 }
 
-// Build a readable recipe object for SFR export/copy (labels, not numeric IDs)
-/** Build a single readable SFR recipe from internal BuilderRecipe state. */
+// Build a readable recipe object for SFC export/copy (labels, not numeric IDs)
+/** Build a single readable SFC recipe from internal BuilderRecipe state. */
 export function buildReadableRecipe(recipe: BuilderRecipe, metasets: Metaset[]) {
-  // Metasets are included in the SFR payload separately; recipes now reference
+  // Metasets are included in the SFC payload separately; recipes now reference
   // metasets by ID. We keep the parameter for call‑site symmetry and future use.
   void metasets
   const mainV = (recipe as (BuilderRecipe & { mainStatsV?: number[] })).mainStatsV ?? []
   const subV = (recipe as (BuilderRecipe & { substatsV?: number[] })).substatsV ?? []
   const fixedV = (recipe as (BuilderRecipe & { fixedSubstatsV?: number[] })).fixedSubstatsV ?? []
-  // Canonicalize label order for SFR: use preferred stat order via compareVariants.
+  // Canonicalize label order for SFC: use preferred stat order via compareVariants.
   const mainLabels = mainV.slice().sort(compareVariants).map(labelOfVariant)
   const substatEntries: ReadonlyArray<ReadableSubstatEntry> = (() => {
     const entries: ReadableSubstatEntry[] = []
@@ -715,7 +715,7 @@ export function buildReadableRecipe(recipe: BuilderRecipe, metasets: Metaset[]) 
       ? 'Disabled'
       : 'Active'
   const readableTargets = rollTargetsToReadable((recipe as BuilderRecipe).substatRollTargetsV)
-  // Canonicalize tags for SFR output (includes legacy safeguard-ignore aliases).
+  // Canonicalize tags for SFC output (includes legacy safeguard-ignore aliases).
   const tags = normalizeTagList(recipe.tags) ?? []
   return {
     name: recipe.name,
@@ -723,7 +723,7 @@ export function buildReadableRecipe(recipe: BuilderRecipe, metasets: Metaset[]) 
     ...(tags.length > 0 ? { Tags: tags } : {}),
     keep: recipe.keep,
     SellfileVisibility: exportModeLabel,
-    // For readability in SFR/clipboard, render Auto or explicit labels. "Any" when code is 0.
+    // For readability in SFC/clipboard, render Auto or explicit labels. "Any" when code is 0.
     Rank: (recipe.rankCode === RankCode.Any ? 'Any' : formatRank(recipe.rankCode)),
     Rarity: (recipe.rarityMode === 'auto' ? RARITY_AUTO_LABEL : (recipe.rarityCode === RarityCode.Any ? 'Any' : rarityCodeToName(recipe.rarityCode))),
     Faction: ((recipe.factionCode ?? 0) === 0 ? 'Any' : factionCodeToName(recipe.factionCode ?? 0)),
@@ -753,7 +753,7 @@ export function buildReadableRecipe(recipe: BuilderRecipe, metasets: Metaset[]) 
   }
 }
 
-/** Convert variant-keyed Substat Target tables to label-keyed maps for SFR export (SFR field remains "Minima"). */
+/** Convert variant-keyed Substat Target tables to label-keyed maps for SFC export (SFC field remains "Minima"). */
 export function substatTargetsToReadable(substatTargets: SubstatTargetTable) {
   const conv = (rec: Record<number, number>) => {
     const out: Record<string, number> = {}
@@ -782,8 +782,8 @@ export function substatTargetsToReadable(substatTargets: SubstatTargetTable) {
   }
 }
 
-// Parse text that may be a single recipe, an array, or an SFR object with Recipes
-/** Parse text as SFR content: returns normalized recipes array on success, [] on failure. */
+// Parse text that may be a single recipe, an array, or an SFC object with Recipes
+/** Parse text as SFC content: returns normalized recipes array on success, [] on failure. */
 export function parseRecipesFromText(text: string, metasetsForNames?: Metaset[]): BuilderRecipe[] {
   try {
     const parsed = JSON.parse(text) as unknown
@@ -815,7 +815,7 @@ export function parseRecipesFromText(text: string, metasetsForNames?: Metaset[])
           const names = Array.isArray(mRec['setNames']) ? (mRec['setNames'] as unknown[]) : []
           const sets = names.map((n: unknown) => resolveSetId(n)).filter((x: unknown): x is number => typeof x === 'number')
           // id field is ignored; name is the primary key. Normalize iconId so clipboard
-          // and single-recipe import paths preserve icon data, matching parseSfrObject.
+          // and single-recipe import paths preserve icon data, matching parseSfcObject.
           const iconId = normalizeMetasetIconId(mRec['iconId'])
           return { name: String(mRec['name']), sets, show: mRec['show'] !== false, iconId }
         })
@@ -852,10 +852,10 @@ export function parseRecipesFromText(text: string, metasetsForNames?: Metaset[])
 }
 
 /**
- * Parse a full SFR text payload and return normalized state slices.
+ * Parse a full SFC text payload and return normalized state slices.
  * Accepts a previous snapshot for metasets/substatTargets/allExplicit defaults.
  */
-export function parseSfrText(
+export function parseSfcText(
   text: string,
   prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
   options?: { runtimeSetNameMap?: Map<string, number> },
@@ -874,11 +874,11 @@ export function parseSfrText(
   recipesEnabled: boolean
 } {
   const parsed = JSON.parse(text) as unknown
-  return parseSfrObject(parsed, prev, options)
+  return parseSfcObject(parsed, prev, options)
 }
 
-/** Parse an SFR object (readable schema) into normalized slices. */
-export function parseSfrObject(
+/** Parse an SFC object (readable schema) into normalized slices. */
+export function parseSfcObject(
   parsed: unknown,
   prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
   options?: { runtimeSetNameMap?: Map<string, number> },
@@ -905,14 +905,14 @@ export function parseSfrObject(
         ? (parsedRec['Recipes'] as unknown[])
         : (Array.isArray(parsedRec['Configs']) ? (parsedRec['Configs'] as unknown[]) : [])
     )
-  // Convenience: accept a single readable-recipe object (tests/fixtures/*.sfr use this simplified shape).
+  // Convenience: accept a single readable-recipe object (tests/fixtures/*.sfc use this simplified shape).
   // Why: Developers often drag these fixtures into the app while validating builder output. The shape
-  // matches what parseSfrText expects for each recipe, so when no `Recipes` array is present but we
+  // matches what parseSfcText expects for each recipe, so when no `Recipes` array is present but we
   // detect the usual readable recipe keys, treat the payload as a one-item Recipes array.
   if (rawRecipes.length === 0 && parsedRec && typeof parsedRec === 'object') {
     const hasReadableRecipeKey = (() => {
       const keys = new Set(Object.keys(parsedRec))
-      // Heuristic: any of these readable SFR recipe keys indicates a single-recipe payload.
+      // Heuristic: any of these readable SFC recipe keys indicates a single-recipe payload.
       const hints = [
         'substats', 'fixedSubstats', 'mainStats', 'Rank', 'Rarity', 'Faction',
         'artifactTypeNames', 'artifactSetNames', 'artifactMetaSetNames',
@@ -991,7 +991,7 @@ export function parseSfrObject(
   })()
   // null when neither key is present — caller should preserve current state rather than reset.
   const safeguardRules: SafeguardRule[] | null = (() => {
-    // SFR boundary compatibility: accept both canonical and legacy keys.
+    // SFC boundary compatibility: accept both canonical and legacy keys.
     if (!('Safeguards' in parsedRec) && !('KeepUniques' in parsedRec)) return null
     const raws = Array.isArray(parsedRec['Safeguards'])
       ? parsedRec['Safeguards']
@@ -1001,7 +1001,7 @@ export function parseSfrObject(
     for (const entry of raws) {
       const rule = normalizeSafeguardRule(entry)
       if (!rule) continue
-      // Legacy-ID resolution: old SFR files stored metaSetIds (opaque IDs like "meta/1")
+      // Legacy-ID resolution: old SFC files stored metaSetIds (opaque IDs like "meta/1")
       // in safeguard combinations. normalizeSafeguardRule collects them verbatim into
       // metaSetNames; remap any that appear in the legacyMetaIdToName map built above.
       if (rule.combination.metaSetNames?.length && legacyMetaIdToName.size) {
@@ -1015,7 +1015,7 @@ export function parseSfrObject(
     }
     return normalized
   })()
-  // SFR boundary compatibility: keep legacy toggle key support on read only.
+  // SFC boundary compatibility: keep legacy toggle key support on read only.
   // null when the key is absent — caller should preserve current state rather than reset.
   const safeguardsEnabled: boolean | null = (
     'SafeguardsEnabled' in parsedRec || 'KeepUniquesEnabled' in parsedRec
@@ -1023,9 +1023,9 @@ export function parseSfrObject(
     ? (parsedRec['SafeguardsEnabled'] === true || parsedRec['KeepUniquesEnabled'] === true)
     : null
   const recipesEnabled = parsedRec['RecipesEnabled'] !== false
-  // Manual loads always start at the first recipe; selection is not persisted in SFR.
+  // Manual loads always start at the first recipe; selection is not persisted in SFC.
   const selectedIndex = recipes.length > 0 ? 0 : null
-  // Canonicalize legacy note markers during SFR import so runtime state uses new wording only.
+  // Canonicalize legacy note markers during SFC import so runtime state uses new wording only.
   // Accept both the legacy plain-string form and the current array-of-lines form.
   const rawNote = parsedRec['Note']
   const noteStr = Array.isArray(rawNote)
@@ -1045,8 +1045,8 @@ export function parseSfrObject(
   }
 }
 
-/** Read a `.sfr` (legacy `.hsfc`)/JSON file and parse with parseSfrText semantics. */
-export async function readSfrFile(
+/** Read a `.sfc` (or legacy `.sfr`/`.hsfc`)/JSON file and parse with parseSfcText semantics. */
+export async function readSfcFile(
   file: File,
   prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
 ): Promise<{
@@ -1055,7 +1055,7 @@ export async function readSfrFile(
   substatTargets: SubstatTargetTable
   selectedIndex: number | null
   note?: string
-  // null when the key was absent from the file (old SFR without these sections).
+  // null when the key was absent from the file (old SFC without these sections).
   finalSellRemainder: FinalSellRemainderConfig | null
   safeguardRules: SafeguardRule[] | null
   safeguardsEnabled: boolean | null
@@ -1063,18 +1063,18 @@ export async function readSfrFile(
 }>
 {
   const text = await file.text()
-  return parseSfrText(text, prev)
+  return parseSfcText(text, prev)
 }
 
-/** Parse an internal autosave payload (not SFR); expects variant-keyed substatTargets and full BuilderRecipe objects. */
+/** Parse an internal autosave payload (not SFC); expects variant-keyed substatTargets and full BuilderRecipe objects. */
 
 /**
- * Build a full, readable SFR payload object for Save/Copy, given current state.
+ * Build a full, readable SFC payload object for Save/Copy, given current state.
  */
-// Safeguard entries in SFR should stay human-readable; this tuple mirrors the
+// Safeguard entries in SFC should stay human-readable; this tuple mirrors the
 // in-memory shape but with labels instead of numeric IDs so saved files are self-explanatory.
 type ReadableArtifactSetExportEntry = {
-  // Human-readable set label for SFR exports.
+  // Human-readable set label for SFC exports.
   name: string
   // Optional exclusion marker so safeguard exports preserve "not" selections.
   excluded?: true
@@ -1178,7 +1178,7 @@ export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSa
       substatWeights[key] = weight
     }
   }
-  // Build the base export entry in readable SFR form.
+  // Build the base export entry in readable SFC form.
   const entry: ReadableSafeguardRuleEntry = {
     requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
     activation: rule.activation ?? SafeguardRuleActivation.ProtectExisting,
@@ -1210,7 +1210,7 @@ export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSa
   return entry
 }
 
-export function buildSfrPayload(args: {
+export function buildSfcPayload(args: {
   version: string,
   metasets: Metaset[],
   substatTargets: SubstatTargetTable,
@@ -1295,7 +1295,7 @@ export function buildSfrPayload(args: {
   }
 }
 
-/** Convert an SFR payload object to a Blob ready to download. */
-export function sfrToBlob(payload: unknown): Blob {
+/** Convert an SFC payload object to a Blob ready to download. */
+export function sfcToBlob(payload: unknown): Blob {
   return new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
 }

@@ -18,7 +18,7 @@
 
 use std::collections::HashMap;
 use crate::*;
-use crate::sfr_reader::{ReadableRecipeParsed, SubstatTargetTableIn};
+use crate::sfc_reader::{ReadableRecipeParsed, SubstatTargetTableIn};
 
 // ---------------------------------------------------------------------------
 // Slot compatibility tables (ALLOWED_MAIN_BY_SLOT / ALLOWED_SUB_BY_SLOT)
@@ -358,7 +358,7 @@ fn variant_to_main_choice(variant: i64) -> EmitHsfMainChoiceIn {
 
 /// Build HSF rules for one parsed recipe, mirroring the full TS buildHsfRules pipeline.
 ///
-/// `minima` is the user-provided substat target table from the SFR (may be None;
+/// `minima` is the user-provided substat target table from the SFC (may be None;
 /// factory defaults are used when absent).  `recipe_id` tags the generated rules
 /// so consumers can trace them back to their source recipe.
 pub fn build_hsf_rules_for_recipe(

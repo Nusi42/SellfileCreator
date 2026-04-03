@@ -6,7 +6,7 @@
  * preserving the dense inline documentation requirements.
  */
 import { useCallback, useMemo, useRef, useState, type MutableRefObject } from 'react'
-import type { HistoryPreview } from '../../hooks/useSfrHistory'
+import type { HistoryPreview } from '../../hooks/useSfcHistory'
 import { formatHistoryTooltipText } from '../../history/historyTooltip'
 import { useContextMenuPaperGuard } from '../../hooks/useContextMenuPaperGuard'
 import type { ContextMenuPaperGuardToken } from '../ContextMenuPaper'

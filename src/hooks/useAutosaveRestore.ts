@@ -7,8 +7,8 @@
  * currently enabled.
  */
 import { useMemo, useState } from 'react'
-import { loadAutosave } from '../lib/autosave'
-import { parseSfrObject } from '../lib/sfrIO'
+import { loadAutosave, removeAutosave } from '../lib/autosave'
+import { parseSfcObject } from '../lib/sfcIO'
 import { getPersistedRuntimeGearSetNameMap } from '../lib/gearSets/runtimeStore'
 import { normalizeMetasetIconId } from '../lib/metasetIcons'
 import type { SubstatTargetTable, BuilderRecipe } from '../lib/hsfBuilder'
@@ -318,13 +318,28 @@ function computeInitialAutosaveState(args: {
   storedRuntimeGearSetCount: number
 }): InitialAutosaveState {
   try {
+    // One-time migration from sfr→sfc rename (2026-04): if the new key is absent
+    // but the old key exists, move the data over so users don't lose their session.
+    const LEGACY_AUTOSAVE_KEY = args.key.replace('autosave.sfc.', 'autosave.sfr.')
+    if (typeof window !== 'undefined' && LEGACY_AUTOSAVE_KEY !== args.key) {
+      const newRaw = window.localStorage.getItem(args.key)
+      const oldRaw = window.localStorage.getItem(LEGACY_AUTOSAVE_KEY)
+      if (!newRaw && oldRaw) {
+        // Migrate: copy old entry under the new key, then remove the old key.
+        window.localStorage.setItem(args.key, oldRaw)
+        removeAutosave(LEGACY_AUTOSAVE_KEY)
+      } else if (newRaw && oldRaw) {
+        // New key already present; just remove the stale legacy key.
+        removeAutosave(LEGACY_AUTOSAVE_KEY)
+      }
+    }
     const entry = loadAutosave<unknown>(args.key)
     if (entry && args.recipes.length === 0) {
       // Build a dormant runtime-name map from localStorage.
       // Why: autosave drafts store readable set names even for runtime sets.
       // We must resolve those names without auto-applying runtime gear sets.
       const runtimeSetNameMap = getPersistedRuntimeGearSetNameMap()
-      const parsed = parseSfrObject(
+      const parsed = parseSfcObject(
         entry.payload as unknown,
         { metasets: args.metasets, substatTargets: args.substatTargets },
         { runtimeSetNameMap },
@@ -400,7 +415,7 @@ function computeInitialAutosaveState(args: {
       if (!essentiallyDefault) {
         const payload = entry.payload as Record<string, unknown>
         const savedAtRaw = typeof payload['AutosaveSavedAt'] === 'string' ? payload['AutosaveSavedAt'] : null
-        // Read selected recipe index from the raw payload (parseSfrObject always returns 0 — not useful here).
+        // Read selected recipe index from the raw payload (parseSfcObject always returns 0 — not useful here).
         const rawSelIdx = payload['SelectedRecipeIndex']
         const savedRecipeSelIdx = typeof rawSelIdx === 'number' && rawSelIdx >= 0 && rawSelIdx < recipes.length
           ? rawSelIdx

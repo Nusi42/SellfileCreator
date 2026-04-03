@@ -6,7 +6,7 @@
  * React state in sync without ad-hoc Effects.
  *
  * Cross-window sync via the `storage` event is intentionally NOT supported.
- * The SFR autosave (the document being edited) does not live-sync across
+ * The SFC autosave (the document being edited) does not live-sync across
  * windows; keeping preferences isolated per-window matches that behavior and
  * avoids confusing interactions when two windows are open simultaneously.
  */

@@ -17,7 +17,7 @@ import {
   type CollapsedSections,
 } from '../../src/state/rulesFilterPersistence'
 
-const AUTOSAVE_KEY = 'sellfileCreator.autosave.sfr.v1'
+const AUTOSAVE_KEY = 'sellfileCreator.autosave.sfc.v1'
 
 const basePayload = {
   Version: APP_VERSION,

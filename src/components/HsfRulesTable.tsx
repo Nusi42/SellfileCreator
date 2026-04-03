@@ -7,7 +7,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
 import type { HsfRule } from '../lib/hsfTypes'
-import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_SFR, RULE_SOURCE_SAFEGUARDS, type HsfRuleWithRecipe, type RuleSource } from '../lib/merge'
+import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_SFC, RULE_SOURCE_SAFEGUARDS, type HsfRuleWithRecipe, type RuleSource } from '../lib/merge'
 import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
 import { /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId, getLocalizedGearSetName } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
@@ -81,14 +81,14 @@ const RULE_ROW_CHANGE_PULSE_KEYFRAMES = keyframes`
 `
 
 // Stable animation key for a rule row, used by both enter and change-pulse tracking.
-// SFR recipe rows use RecipeID (stable across inserts/deletes) so inserting a new
+// SFC recipe rows use RecipeID (stable across inserts/deletes) so inserting a new
 // recipe does not make adjacent rows look new.  Non-recipe rows fall back to lineIdx
 // (positional) because they have no persistent identity across worker results.
 function computeRuleAnimKey(rule: HsfRuleWithRecipe, fallbackIdx: number): string {
   const recipeIdx = getRuleRecipeIndex(rule)
   const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : fallbackIdx
-  // SFR recipe rows: RecipeID is a durable 1-based identifier assigned by the builder.
-  if (rule.__source === RULE_SOURCE_SFR && recipeIdx !== null) return `sfr_${recipeIdx}`
+  // SFC recipe rows: RecipeID is a durable 1-based identifier assigned by the builder.
+  if (rule.__source === RULE_SOURCE_SFC && recipeIdx !== null) return `sfc_${recipeIdx}`
   // Safeguard injection rows share space with their associated recipe; prefix prevents collisions.
   if (rule.__source === RULE_SOURCE_SAFEGUARDS) return `sg_${recipeIdx ?? lineIdx}`
   // Base HSF and final-sell rows have no stable ID — position is the best proxy.
@@ -474,7 +474,7 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     for (let i = 0; i < rules.length; i += 1) {
       const rule = rules[i] as HsfRuleWithRecipe | undefined
       if (!rule) continue
-      // HSF-embedded indices reference a foreign SFR — exclude them so chip selection targets only active SFR rows.
+      // HSF-embedded indices reference a foreign SFC — exclude them so chip selection targets only active SFC rows.
       if (rule.__source === RULE_SOURCE_HSF) continue
       const recipeIdx = resolveDisplayRecipeIdx(rule as HsfRuleWithRecipe)
       if (recipeIdx === null) continue
@@ -1088,8 +1088,8 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     const nextMode: ColMode = currentMode === 'auto' ? 'show' : (currentMode === 'show' ? 'hide' : 'auto')
     updateColumns(prev => prev.map((col, i) => (i === columnIndex ? { ...col, mode: nextMode } : col)))
   }, [updateColumns])
-  // Show the Faction column automatically when any rule (from SFR or loaded HSF)
-  // has a non-zero faction filter. Previously this only reacted to SFR-built rows
+  // Show the Faction column automatically when any rule (from SFC or loaded HSF)
+  // has a non-zero faction filter. Previously this only reacted to SFC-built rows
   // (those carrying RecipeID), which hid the column for loaded HSF files.
   const anyWithFaction = useMemo(() => rules.some((r) => r && typeof r.Faction === 'number' && (r.Faction as number) !== 0), [rules])
   const isColVisible = React.useCallback((c: ColConfig) => {
@@ -1343,13 +1343,13 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                     const resolvedSource: RuleSource = (() => {
                       if (
                         rule.__source === RULE_SOURCE_HSF
-                        || rule.__source === RULE_SOURCE_SFR
+                        || rule.__source === RULE_SOURCE_SFC
                         || rule.__source === RULE_SOURCE_FINAL_SELL
                         || rule.__source === RULE_SOURCE_SAFEGUARDS
                       ) {
                         return rule.__source
                       }
-                      if (recipeIdxNumber !== null) return RULE_SOURCE_SFR
+                      if (recipeIdxNumber !== null) return RULE_SOURCE_SFC
                       return RULE_SOURCE_HSF
                     })()
                     // Keep overrides include safeguards injection rows.
@@ -1386,14 +1386,14 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
 		                        }}
                         onMouseEnter={() => {
                           if (!isHoveringArea) return
-                          // HSF-embedded indices reference a foreign SFR, so hovering should not highlight active recipes.
+                          // HSF-embedded indices reference a foreign SFC, so hovering should not highlight active recipes.
                           if (resolvedSource === RULE_SOURCE_HSF) return
                           const next = recipeIdxNumber
                           scheduleLocalHover(next)
                         }}
                         // Do not clear on row leave; container onMouseLeave clears once.
                         onClick={() => {
-                          // HSF-embedded indices reference a foreign SFR; clicking must not navigate to active recipes.
+                          // HSF-embedded indices reference a foreign SFC; clicking must not navigate to active recipes.
                           if (resolvedSource === RULE_SOURCE_HSF) return
                           if (recipeIdxNumber !== null) {
                             // Keep-override rows surface in the preview but do not map to chips, so only real recipes trigger selection + auto-scroll.
@@ -1504,7 +1504,7 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                     else value = ''
                         const isSub = c.key === 'SubstatsSummary'
                         const isIdx = c.key === 'Idx'
-                        // HSF-embedded recipe indices reference a foreign SFR — render them italic with a default cursor.
+                        // HSF-embedded recipe indices reference a foreign SFC — render them italic with a default cursor.
                         const isHsfRecipeIdx = c.key === 'RecipeIdx' && resolvedSource === RULE_SOURCE_HSF && recipeIdxNumber !== null
                         const keep = Boolean(rule.Keep)
                         // Dim disabled rules instead of applying a strikethrough.
@@ -2065,7 +2065,7 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
         {rowMenu?.source === RULE_SOURCE_FINAL_SELL ? (
           <MenuItem onClick={() => { closeRowMenu(); onConfigureFinalSell() }}>{t('rowMenuEditFinalSell')}</MenuItem>
         ) : null}
-        {rowMenu?.source === RULE_SOURCE_SFR ? [
+        {rowMenu?.source === RULE_SOURCE_SFC ? [
           <MenuItem key="duplicate" onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'duplicate') }}>{t('rowMenuDuplicate')}</MenuItem>,
           <MenuItem key="move_top" onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'move_top') }}>{t('rowMenuMoveTop')}</MenuItem>,
           <MenuItem key="move_up" onClick={() => { const i = rowMenu?.recipeIdx; closeRowMenu(); if (i !== null && i !== undefined) onRecipeAction(i, 'move_up') }}>{t('rowMenuMoveUp')}</MenuItem>,

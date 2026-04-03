@@ -23,30 +23,30 @@ import {
   collectRecipeMetasetIds,
   collectSafeguardMetasetIds,
   getMetasetDependencyIssues,
-} from '../../lib/sfrImportSelection'
+} from '../../lib/sfcImportSelection'
 
 // Keep section keys shared so state updates remain type-safe.
-export type SfrImportSectionKey = 'recipes' | 'note' | 'metasets' | 'safeguards'
+export type SfcImportSectionKey = 'recipes' | 'note' | 'metasets' | 'safeguards'
 
 // Recipes can either replace the builder list or append to it.
-export type SfrRecipeImportMode = 'replace' | 'append'
+export type SfcRecipeImportMode = 'replace' | 'append'
 // Note text can replace existing content or append to the end.
-export type SfrNoteImportMode = 'replace' | 'append'
+export type SfcNoteImportMode = 'replace' | 'append'
 // Metasets can replace current list or merge into it.
-export type SfrMetasetImportMode = 'replace' | 'merge'
+export type SfcMetasetImportMode = 'replace' | 'merge'
 // Safeguards can replace current rules or append incoming rules.
-export type SfrSafeguardsImportMode = 'replace' | 'append'
+export type SfcSafeguardsImportMode = 'replace' | 'append'
 
-export type SfrImportSelection = Record<SfrImportSectionKey, boolean>
+export type SfcImportSelection = Record<SfcImportSectionKey, boolean>
 
-export type SfrImportModes = {
-  recipes: SfrRecipeImportMode
-  note: SfrNoteImportMode
-  metasets: SfrMetasetImportMode
-  safeguards: SfrSafeguardsImportMode
+export type SfcImportModes = {
+  recipes: SfcRecipeImportMode
+  note: SfcNoteImportMode
+  metasets: SfcMetasetImportMode
+  safeguards: SfcSafeguardsImportMode
 }
 
-type SfrImportOptionsDialogProps = {
+type SfcImportOptionsDialogProps = {
   open: boolean
   fileName: string
   incomingRecipes: BuilderRecipe[]
@@ -54,24 +54,24 @@ type SfrImportOptionsDialogProps = {
   incomingMetasets: Metaset[]
   incomingSafeguards: SafeguardRule[]
   onCancel: () => void
-  onConfirm: (selection: SfrImportSelection, modes: SfrImportModes) => void
+  onConfirm: (selection: SfcImportSelection, modes: SfcImportModes) => void
 }
 
-const DEFAULT_SELECTION: SfrImportSelection = {
+const DEFAULT_SELECTION: SfcImportSelection = {
   recipes: true,
   note: true,
   metasets: true,
   safeguards: true,
 }
 
-const DEFAULT_MODES: SfrImportModes = {
+const DEFAULT_MODES: SfcImportModes = {
   recipes: 'replace',
   note: 'replace',
   metasets: 'replace',
   safeguards: 'replace',
 }
 
-export default function SfrImportOptionsDialog(props: SfrImportOptionsDialogProps) {
+export default function SfcImportOptionsDialog(props: SfcImportOptionsDialogProps) {
   const {
     open,
     fileName,
@@ -83,8 +83,8 @@ export default function SfrImportOptionsDialog(props: SfrImportOptionsDialogProp
     onConfirm,
   } = props
   const { t } = useI18n()
-  const [selection, setSelection] = useState<SfrImportSelection>(DEFAULT_SELECTION)
-  const [modes, setModes] = useState<SfrImportModes>(DEFAULT_MODES)
+  const [selection, setSelection] = useState<SfcImportSelection>(DEFAULT_SELECTION)
+  const [modes, setModes] = useState<SfcImportModes>(DEFAULT_MODES)
   // Compute payload counts once so labels and validation stay in sync.
   const incomingRecipeCount = incomingRecipes.length
   const incomingMetasetCount = incomingMetasets.length
@@ -138,14 +138,14 @@ export default function SfrImportOptionsDialog(props: SfrImportOptionsDialogProp
   const hasAtLeastOneSelection = selection.recipes || selection.note || selection.metasets || selection.safeguards
   const canConfirm = hasAtLeastOneSelection && dependencyIssues.length === 0
 
-  const toggleSelection = (key: SfrImportSectionKey) => (_event: React.ChangeEvent<HTMLInputElement>, checked: boolean) => {
+  const toggleSelection = (key: SfcImportSectionKey) => (_event: React.ChangeEvent<HTMLInputElement>, checked: boolean) => {
     setSelection((prev) => ({ ...prev, [key]: checked }))
   }
 
-  const setMode = <T extends keyof SfrImportModes>(key: T) => (
+  const setMode = <T extends keyof SfcImportModes>(key: T) => (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
-    const value = event.target.value as SfrImportModes[T]
+    const value = event.target.value as SfcImportModes[T]
     setModes((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -153,10 +153,10 @@ export default function SfrImportOptionsDialog(props: SfrImportOptionsDialogProp
     const messages: string[] = []
     for (const issue of dependencyIssues) {
       if (issue === 'recipesRequireMetasets') {
-        messages.push(t('sfrImportConstraintRecipesNeedMetasets'))
+        messages.push(t('sfcImportConstraintRecipesNeedMetasets'))
       }
       if (issue === 'safeguardsRequireMetasets') {
-        messages.push(t('sfrImportConstraintSafeguardsNeedMetasets'))
+        messages.push(t('sfcImportConstraintSafeguardsNeedMetasets'))
       }
     }
     return messages
@@ -165,11 +165,11 @@ export default function SfrImportOptionsDialog(props: SfrImportOptionsDialogProp
 
   return (
     <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('sfrImportDialogTitle')}</DialogTitle>
+      <DialogTitle>{t('sfcImportDialogTitle')}</DialogTitle>
       <DialogContent>
         <Stack spacing={2}>
           <Typography variant="body2">
-            {t('sfrImportDialogSubtitle', { fileName })}
+            {t('sfcImportDialogSubtitle', { fileName })}
           </Typography>
           <Stack spacing={1.25}>
             {/* Use one card per section so text and radio groups align consistently. */}
@@ -177,11 +177,11 @@ export default function SfrImportOptionsDialog(props: SfrImportOptionsDialogProp
               <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
                 <Checkbox checked={selection.recipes} onChange={toggleSelection('recipes')} sx={{ mt: -0.5, ml: -0.5 }} />
                 <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography variant="body2">{t('sfrImportSectionRecipesLabel', { count: incomingRecipeCount })}</Typography>
-                  <Typography variant="caption" color="text.secondary">{t('sfrImportSectionRecipesHelper')}</Typography>
+                  <Typography variant="body2">{t('sfcImportSectionRecipesLabel', { count: incomingRecipeCount })}</Typography>
+                  <Typography variant="caption" color="text.secondary">{t('sfcImportSectionRecipesHelper')}</Typography>
                   <RadioGroup row value={modes.recipes} onChange={setMode('recipes')} sx={{ columnGap: 2 }}>
-                    <FormControlLabel value="replace" control={<Radio size="small" />} label={t('sfrImportModeReplace')} disabled={!selection.recipes} />
-                    <FormControlLabel value="append" control={<Radio size="small" />} label={t('sfrImportModeAppend')} disabled={!selection.recipes} />
+                    <FormControlLabel value="replace" control={<Radio size="small" />} label={t('sfcImportModeReplace')} disabled={!selection.recipes} />
+                    <FormControlLabel value="append" control={<Radio size="small" />} label={t('sfcImportModeAppend')} disabled={!selection.recipes} />
                   </RadioGroup>
                 </Stack>
               </Box>
@@ -190,11 +190,11 @@ export default function SfrImportOptionsDialog(props: SfrImportOptionsDialogProp
               <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
                 <Checkbox checked={selection.note} onChange={toggleSelection('note')} sx={{ mt: -0.5, ml: -0.5 }} />
                 <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography variant="body2">{t('sfrImportSectionNoteLabel')}</Typography>
-                  <Typography variant="caption" color="text.secondary">{t('sfrImportSectionNoteHelper')}</Typography>
+                  <Typography variant="body2">{t('sfcImportSectionNoteLabel')}</Typography>
+                  <Typography variant="caption" color="text.secondary">{t('sfcImportSectionNoteHelper')}</Typography>
                   <RadioGroup row value={modes.note} onChange={setMode('note')} sx={{ columnGap: 2 }}>
-                    <FormControlLabel value="replace" control={<Radio size="small" />} label={t('sfrImportModeReplace')} disabled={!selection.note} />
-                    <FormControlLabel value="append" control={<Radio size="small" />} label={t('sfrImportModeAppend')} disabled={!selection.note} />
+                    <FormControlLabel value="replace" control={<Radio size="small" />} label={t('sfcImportModeReplace')} disabled={!selection.note} />
+                    <FormControlLabel value="append" control={<Radio size="small" />} label={t('sfcImportModeAppend')} disabled={!selection.note} />
                   </RadioGroup>
                 </Stack>
               </Box>
@@ -203,11 +203,11 @@ export default function SfrImportOptionsDialog(props: SfrImportOptionsDialogProp
               <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
                 <Checkbox checked={selection.metasets} onChange={toggleSelection('metasets')} sx={{ mt: -0.5, ml: -0.5 }} />
                 <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography variant="body2">{t('sfrImportSectionMetasetsLabel', { count: incomingMetasetCount })}</Typography>
-                  <Typography variant="caption" color="text.secondary">{t('sfrImportSectionMetasetsHelper')}</Typography>
+                  <Typography variant="body2">{t('sfcImportSectionMetasetsLabel', { count: incomingMetasetCount })}</Typography>
+                  <Typography variant="caption" color="text.secondary">{t('sfcImportSectionMetasetsHelper')}</Typography>
                   <RadioGroup row value={modes.metasets} onChange={setMode('metasets')} sx={{ columnGap: 2 }}>
-                    <FormControlLabel value="replace" control={<Radio size="small" />} label={t('sfrImportModeReplace')} disabled={!selection.metasets} />
-                    <FormControlLabel value="merge" control={<Radio size="small" />} label={t('sfrImportModeMerge')} disabled={!selection.metasets} />
+                    <FormControlLabel value="replace" control={<Radio size="small" />} label={t('sfcImportModeReplace')} disabled={!selection.metasets} />
+                    <FormControlLabel value="merge" control={<Radio size="small" />} label={t('sfcImportModeMerge')} disabled={!selection.metasets} />
                   </RadioGroup>
                 </Stack>
               </Box>
@@ -216,11 +216,11 @@ export default function SfrImportOptionsDialog(props: SfrImportOptionsDialogProp
               <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
                 <Checkbox checked={selection.safeguards} onChange={toggleSelection('safeguards')} sx={{ mt: -0.5, ml: -0.5 }} />
                 <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography variant="body2">{t('sfrImportSectionSafeguardsLabel', { count: incomingSafeguardCount })}</Typography>
-                  <Typography variant="caption" color="text.secondary">{t('sfrImportSectionSafeguardsHelper')}</Typography>
+                  <Typography variant="body2">{t('sfcImportSectionSafeguardsLabel', { count: incomingSafeguardCount })}</Typography>
+                  <Typography variant="caption" color="text.secondary">{t('sfcImportSectionSafeguardsHelper')}</Typography>
                   <RadioGroup row value={modes.safeguards} onChange={setMode('safeguards')} sx={{ columnGap: 2 }}>
-                    <FormControlLabel value="replace" control={<Radio size="small" />} label={t('sfrImportModeReplace')} disabled={!selection.safeguards} />
-                    <FormControlLabel value="append" control={<Radio size="small" />} label={t('sfrImportModeAppend')} disabled={!selection.safeguards} />
+                    <FormControlLabel value="replace" control={<Radio size="small" />} label={t('sfcImportModeReplace')} disabled={!selection.safeguards} />
+                    <FormControlLabel value="append" control={<Radio size="small" />} label={t('sfcImportModeAppend')} disabled={!selection.safeguards} />
                   </RadioGroup>
                 </Stack>
               </Box>
@@ -244,7 +244,7 @@ export default function SfrImportOptionsDialog(props: SfrImportOptionsDialogProp
           </Box>
         ) : <Box sx={{ flex: 1 }} />}
         <Button variant="contained" disabled={!canConfirm} onClick={() => onConfirm(selection, modes)}>
-          {t('sfrImportApply')}
+          {t('sfcImportApply')}
         </Button>
         <Button color="error" onClick={onCancel}>
           {t('cancel')}

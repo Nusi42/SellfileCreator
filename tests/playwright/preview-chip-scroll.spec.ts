@@ -2,11 +2,11 @@ import { test, expect } from './fixtures'
 import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { dismissBlockingDialogs } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
-import { SAMPLE_SFR_PATH } from './fixture-paths'
-import { SFR_LOAD_INPUT_SELECTOR } from './ui-selectors'
+import { SAMPLE_SFC_PATH } from './fixture-paths'
+import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 
-// Use the shared SFR fixture so the test stays aligned with the refactored test data layout.
-const SFR_PATH = SAMPLE_SFR_PATH
+// Use the shared SFC fixture so the test stays aligned with the refactored test data layout.
+const SFC_PATH = SAMPLE_SFC_PATH
 
 const isConfigVisible = async (page: Parameters<typeof test>[0]['page'], recipeIdx: number) => {
   // Check whether any row for the config intersects the visible preview viewport.
@@ -68,7 +68,7 @@ const readBoundaryConfigIdx = async (
 test.describe('preview chip scroll', () => {
   test('clicking config chip scrolls preview so config rows are visible (wrap mode)', async ({ page }) => {
     // Keep this repro enabled across browsers; guardrails below prevent cross-engine flakiness.
-    // Allow the long timeout for the rebuild after SFR import.
+    // Allow the long timeout for the rebuild after SFC import.
     // Allow extra time for large table renders in slower engines.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
     await prepareApp(page)
@@ -97,12 +97,12 @@ test.describe('preview chip scroll', () => {
     try { await page.getByRole('button', { name: 'Dismiss' }).first().click({ timeout: PLAYWRIGHT_TIMEOUTS.uiQuick }) } catch {}
     try { await page.getByRole('button', { name: 'Close' }).first().click({ timeout: PLAYWRIGHT_TIMEOUTS.uiQuick }) } catch {}
 
-    // Load the large SFR sample file.
+    // Load the large SFC sample file.
     // Why: it contains many recipes and enough rows to reproduce the scroll drift.
     // Use the shared selector so Playwright does not depend on button text.
-    const sfrInput = page.locator(SFR_LOAD_INPUT_SELECTOR).first()
+    const sfcInput = page.locator(SFC_LOAD_INPUT_SELECTOR).first()
     // Allow slower engines to resolve the hidden input before uploading.
-    await sfrInput.setInputFiles(SFR_PATH, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+    await sfcInput.setInputFiles(SFC_PATH, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 
     // Close any note/restore dialogs that appear after loading recipes.
     await dismissBlockingDialogs(page)

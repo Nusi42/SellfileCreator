@@ -1,7 +1,7 @@
 import type { BuilderRecipe } from './hsfBuilder'
 
 // Encapsulates all builder behaviors for Global Min Required Rolls (GMRR) and
-// Locked Min Required Rolls (LMRR) so the UI, multi-edit draft, and SFR
+// Locked Min Required Rolls (LMRR) so the UI, multi-edit draft, and SFC
 // normalization share a single source of truth.
 
 export type AggregateRollValue = 0 | 1 | 2 | 3 | 4 | 5

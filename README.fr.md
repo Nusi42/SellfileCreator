@@ -37,9 +37,9 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
 ## Mode d’emploi
 
 ### Fichier de recettes
-- SFR (`.sfr`) : fichier projet spécifique à l’application. Considérez-le comme une sauvegarde que vous pouvez charger ou partager. RSL Helper ne lit pas directement SFR.
+- SFC (`.sfc`) : fichier projet spécifique à l’application. Considérez-le comme une sauvegarde que vous pouvez charger ou partager. RSL Helper ne lit pas directement SFC.
 - HSF (`.hsf`) : la Sellfile consommée par RSL Helper. Exportez-la ici puis chargez-la dans RSL Helper.
-- Nom par défaut lors de l’enregistrement : `SellfileCreatorRecipes_AAAA MM JJ_HHMM.sfr`.
+- Nom par défaut lors de l’enregistrement : `SellfileCreatorRecipes_AAAA MM JJ_HHMM.sfc`.
 
 ### Recettes Builder
 - Renseignez les champs du Recettes Builder et attribuez un nom clair à votre recette.
@@ -210,7 +210,7 @@ Ouvrez « Outils » et passez sur l'onglet **Gear Lens** pour un aperçu analyti
 - L’en-tête de l’aperçu regroupe l’interrupteur `Règles`/`Inspecteur d’équipement`, le bouton « Outils » et « Charger Sellfile RSL Helper » pour que vous sachiez toujours où changer de table ou ouvrir le dialogue « Équipement ».
 - Vue `Règles` (par défaut) : affiche toutes les règles qui seront exportées, y compris les lignes provenant d’un éventuel `.hsf` de base. Les compteurs restent sur Conserver vs Vendre, la rangée de filtres conserve les puces Peu importe/Seulement (`Any/Only`) pour Slots/Rang/Rareté/Niveau et expose désormais les deux boutons `Recettes` côte à côte : `Recettes aperçu` décide si les puces restent visibles sous les filtres actuels et le `Filtre recettes` se comporte ici comme un simple bouton Activé/Désactivé qui masque les lignes du Sellfile hors de votre sélection (tout en gardant le filtre prêt pour l’Inspecteur d’équipement).
 - Vue `Inspecteur d’équipement` : bascule la table sur la liste importée afin d’examiner les objets importés ou créés sans rouvrir le dialogue Outils. Les compteurs passent en Conserver/Vendre/Portée/Sans règle selon la règle « la première recette correspondante l’emporte », et la rangée de filtres conserve les deux boutons `Recettes` (`Recettes aperçu` + `Filtre recettes`). Le premier continue de gérer la visibilité des puces, tandis que le `Filtre recettes` applique le tri-état (`Off` → `Première` → `Par correspondance`) pour isoler les lignes de l’Inspecteur d’équipement et continue de restreindre les règles correspondantes lorsque vous revenez sur `Règles`. L’import d’un `.db` passe automatiquement dans cette vue, mais vous pouvez revenir aux règles quand vous le souhaitez.
-- Le bouton « Charger Sellfile RSL Helper » se comporte exactement comme le glisser-déposer : `.sfr` remplace l’état du builder, `.hsf` ajoute un fichier de base optionnel et `.db` injecte des objets directement dans l’Inspecteur d’équipement (sans toucher aux recettes). Le bouton « Vider » déconnecte l’éventuel `.hsf` de base.
+- Le bouton « Charger Sellfile RSL Helper » se comporte exactement comme le glisser-déposer : `.sfc` remplace l’état du builder, `.hsf` ajoute un fichier de base optionnel et `.db` injecte des objets directement dans l’Inspecteur d’équipement (sans toucher aux recettes). Le bouton « Vider » déconnecte l’éventuel `.hsf` de base.
 - L’icône palette ouvre la gestion des couleurs pour ajuster texte et fond des étiquettes de sous-stats.
 - En vue Règles, les colonnes « Idx » et « Recette » restent en place (vides pour les lignes du fichier de base). En vue Inspecteur d’équipement, le même espace affiche slot/set, stats de l’objet et la puce de la première recette qui a correspondu pour visualiser immédiatement ce qui arriverait à chaque artefact.
 

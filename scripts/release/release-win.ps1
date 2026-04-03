@@ -160,52 +160,52 @@ try {
   # Why: Ship current, user-relevant examples without hardcoding old filenames.
   $samplesDir = Join-Path $RepoRoot 'examples'
 
-  $sampleSfr = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.sfr' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-  if (-not $sampleSfr) {
-    $fallbackSfrPath = Join-Path $samplesDir 'example.sfr'
-    if (Test-Path -LiteralPath $fallbackSfrPath) {
-      $sampleSfr = Get-Item -LiteralPath $fallbackSfrPath
+  $sampleSfc = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.sfc' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  if (-not $sampleSfc) {
+    $fallbackSfcPath = Join-Path $samplesDir 'example.sfc'
+    if (Test-Path -LiteralPath $fallbackSfcPath) {
+      $sampleSfc = Get-Item -LiteralPath $fallbackSfcPath
     } else {
-      $fallbackSfrPath = Join-Path $samplesDir 'example.sfr'
-      if (Test-Path -LiteralPath $fallbackSfrPath) {
-        $sampleSfr = Get-Item -LiteralPath $fallbackSfrPath
+      $fallbackSfcPath = Join-Path $samplesDir 'example.sfc'
+      if (Test-Path -LiteralPath $fallbackSfcPath) {
+        $sampleSfc = Get-Item -LiteralPath $fallbackSfcPath
       } else {
-        throw "No Example recipe sample (.sfr/.hsfc) found in 'examples'"
+        throw "No Example recipe sample (.sfc/.hsfc) found in 'examples'"
       }
     }
   }
 
-  Write-Host ("Using SFR sample: {0}" -f $sampleSfr.Name)
+  Write-Host ("Using SFC sample: {0}" -f $sampleSfc.Name)
   $sellfilesDir = Join-Path $staging 'Sellfiles'
   if (-not (Test-Path $sellfilesDir)) { New-Item -ItemType Directory -Path $sellfilesDir | Out-Null }
-  Copy-Item -LiteralPath $sampleSfr.FullName -Destination (Join-Path $sellfilesDir '_RECIPE_SAMPLE_.sfr') -Force
+  Copy-Item -LiteralPath $sampleSfc.FullName -Destination (Join-Path $sellfilesDir '_RECIPE_SAMPLE_.sfc') -Force
 
-  # Generate sellfiles from example.sfr using recipe-overrides presets.
+  # Generate sellfiles from example.sfc using recipe-overrides presets.
   # Why: Avoids maintaining pre-built HSF binaries in the repo; output is always
-  # derived from the same SFR shipped as the recipe sample.
+  # derived from the same SFC shipped as the recipe sample.
   # To add a new variant: add another gen-release-hsf call below with the preset
   # token (id= value in the DSL) and the desired archive filename.
   $genScript = Join-Path $RepoRoot 'scripts\tooling\gen-release-hsf.mjs'
   $gen = { param($token, $name)
     Write-Host "  Generating $name ($token)..."
-    node --experimental-wasm-modules $genScript $sampleSfr.FullName $token (Join-Path $sellfilesDir $name)
+    node --experimental-wasm-modules $genScript $sampleSfc.FullName $token (Join-Path $sellfilesDir $name)
     if ($LASTEXITCODE -ne 0) { throw "Sellfile generation failed for '$token' (exit code $LASTEXITCODE)" }
   }
-  Write-Host 'Generating sample sellfiles from example.sfr...'
+  Write-Host 'Generating sample sellfiles from example.sfc...'
   & $gen 'midgame'  'midgame-sellfile.hsf'
   & $gen 'lategame' 'lategame-sellfile.hsf'
   & $gen 'endgame'  'endgame-sellfile.hsf'
-  # Ship the baseline Basic.sfr so newcomers can inspect an intentionally minimal recipe.
-  $basicSfrPath = Join-Path $samplesDir 'Basic.sfr'
-  if (-not (Test-Path -LiteralPath $basicSfrPath)) {
-    $legacyBasicSfrPath = Join-Path $samplesDir 'Basic.sfr'
-    if (Test-Path -LiteralPath $legacyBasicSfrPath) {
-      $basicSfrPath = $legacyBasicSfrPath
+  # Ship the baseline Basic.sfc so newcomers can inspect an intentionally minimal recipe.
+  $basicSfcPath = Join-Path $samplesDir 'Basic.sfc'
+  if (-not (Test-Path -LiteralPath $basicSfcPath)) {
+    $legacyBasicSfcPath = Join-Path $samplesDir 'Basic.sfc'
+    if (Test-Path -LiteralPath $legacyBasicSfcPath) {
+      $basicSfcPath = $legacyBasicSfcPath
     } else {
-      throw "Basic recipe sample (.sfr/.hsfc) not found in 'examples'"
+      throw "Basic recipe sample (.sfc/.hsfc) not found in 'examples'"
     }
   }
-  Copy-Item -LiteralPath $basicSfrPath -Destination (Join-Path $sellfilesDir 'basic.sfr') -Force
+  Copy-Item -LiteralPath $basicSfcPath -Destination (Join-Path $sellfilesDir 'basic.sfc') -Force
 
   # Stage the WebSocket DB watchers under dev/ for helper integrations.
   $devDir = Join-Path $staging 'dev'

@@ -3,12 +3,12 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { parseSfrText, buildReadableRecipe } from '../../src/lib/sfrIO.js'
+import { parseSfcText, buildReadableRecipe } from '../../src/lib/sfcIO.js'
 import { ACCESSORY_NO_SET_ID } from '../../src/lib/constants.js'
 import type { SubstatTargetTable } from '../../src/lib/hsfBuilder/types.js'
 
 const fixtureText = readFileSync(
-  join(process.cwd(), 'tests', 'data', 'no-gear-set-recipes.sfr'),
+  join(process.cwd(), 'tests', 'data', 'no-gear-set-recipes.sfc'),
   'utf-8',
 )
 
@@ -18,10 +18,10 @@ const EMPTY_SUBSTAT_TARGETS: SubstatTargetTable = {
 }
 const EMPTY_PREV = { metasets: [], substatTargets: EMPTY_SUBSTAT_TARGETS }
 
-// Loading: "No Gear-Set" written as {"name": "No Gear-Set"} in the SFR must
+// Loading: "No Gear-Set" written as {"name": "No Gear-Set"} in the SFC must
 // resolve to ACCESSORY_NO_SET_ID (-99) rather than being silently dropped.
-test('parseSfrText resolves "No Gear-Set" name to ACCESSORY_NO_SET_ID (-99)', () => {
-  const { recipes } = parseSfrText(fixtureText, EMPTY_PREV)
+test('parseSfcText resolves "No Gear-Set" name to ACCESSORY_NO_SET_ID (-99)', () => {
+  const { recipes } = parseSfcText(fixtureText, EMPTY_PREV)
   assert.equal(recipes.length, 3, 'all three recipes should load')
   for (const recipe of recipes) {
     const sets = recipe.artifactSets ?? []
@@ -35,9 +35,9 @@ test('parseSfrText resolves "No Gear-Set" name to ACCESSORY_NO_SET_ID (-99)', ()
 })
 
 // Saving: a recipe with -99 in artifactSets must serialize back to the canonical
-// "No Gear-Set" name so the SFR stays human-readable and reloadable.
+// "No Gear-Set" name so the SFC stays human-readable and reloadable.
 test('buildReadableRecipe serializes ACCESSORY_NO_SET_ID (-99) as "No Gear-Set"', () => {
-  const { recipes } = parseSfrText(fixtureText, EMPTY_PREV)
+  const { recipes } = parseSfcText(fixtureText, EMPTY_PREV)
   for (const recipe of recipes) {
     const readable = buildReadableRecipe(recipe, [])
     const setNames = readable.artifactSetNames ?? []
@@ -51,15 +51,15 @@ test('buildReadableRecipe serializes ACCESSORY_NO_SET_ID (-99) as "No Gear-Set"'
 })
 
 // Round-trip: parse → serialize → re-parse must produce the same -99 set selection.
-test('no-gear-set SFR fixture survives a full parse → serialize → re-parse round-trip', () => {
-  const { recipes: firstLoad } = parseSfrText(fixtureText, EMPTY_PREV)
-  // Rebuild the SFR text from the first parse.
+test('no-gear-set SFC fixture survives a full parse → serialize → re-parse round-trip', () => {
+  const { recipes: firstLoad } = parseSfcText(fixtureText, EMPTY_PREV)
+  // Rebuild the SFC text from the first parse.
   const reserializedText = JSON.stringify({
     Version: '0.9.23-dev',
     Metasets: [],
     Recipes: firstLoad.map((r) => buildReadableRecipe(r, [])),
   })
-  const { recipes: secondLoad } = parseSfrText(reserializedText, EMPTY_PREV)
+  const { recipes: secondLoad } = parseSfcText(reserializedText, EMPTY_PREV)
   assert.equal(secondLoad.length, firstLoad.length, 're-parsed recipe count must match')
   for (let i = 0; i < secondLoad.length; i++) {
     const sets = secondLoad[i]!.artifactSets ?? []

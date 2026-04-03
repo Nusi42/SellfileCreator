@@ -26,7 +26,7 @@ type AppState = {
   customRecipes: BuilderRecipe[]
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
-  // Final "sell others" rule configuration, saved with SFR.
+  // Final "sell others" rule configuration, saved with SFC.
   // This adds catch-all Sell rules at selected level ranges for artifacts/accessories.
   finalSellRemainder: FinalSellRemainderConfig
   logicHubDialogTab: LogicHubDialogTab
@@ -34,7 +34,7 @@ type AppState = {
   safeguardsEnabled: boolean
   recipesEnabled: boolean
   selectedRecipeIdx: number | null
-  sfrNote: string | null
+  sfcNote: string | null
   // Session-only recipeOverrides answers keyed by question ID.
   noteRecipeOverridesAnswers: NoteRecipeOverridesAnswers
   // Session-only flag to ignore recipe overrides prompts.
@@ -53,7 +53,7 @@ type Action =
   | { type: 'setSafeguardsEnabled'; value: Updater<boolean> }
   | { type: 'setRecipesEnabled'; value: Updater<boolean> }
   | { type: 'setSelectedRecipeIdx'; value: Updater<number | null> }
-  | { type: 'setSfrNote'; value: Updater<string | null> }
+  | { type: 'setSfcNote'; value: Updater<string | null> }
   | { type: 'setNoteRecipeOverridesAnswers'; value: Updater<NoteRecipeOverridesAnswers> }
   | { type: 'setNoteRecipeOverridesDisabled'; value: Updater<boolean> }
 
@@ -106,9 +106,9 @@ function reducer(state: AppState, action: Action): AppState {
       const next = typeof action.value === 'function' ? (action.value as (p: number | null) => number | null)(state.selectedRecipeIdx) : action.value
       return { ...state, selectedRecipeIdx: next }
     }
-    case 'setSfrNote': {
-      const next = typeof action.value === 'function' ? (action.value as (p: string | null) => string | null)(state.sfrNote) : action.value
-      return { ...state, sfrNote: next }
+    case 'setSfcNote': {
+      const next = typeof action.value === 'function' ? (action.value as (p: string | null) => string | null)(state.sfcNote) : action.value
+      return { ...state, sfcNote: next }
     }
     case 'setNoteRecipeOverridesAnswers': {
       const next = typeof action.value === 'function'
@@ -136,7 +136,7 @@ type AppDispatchers = {
   setSafeguardsEnabled: (v: Updater<boolean>) => void
   setRecipesEnabled: (v: Updater<boolean>) => void
   setSelectedRecipeIdx: (v: Updater<number | null>) => void
-  setSfrNote: (v: Updater<string | null>) => void
+  setSfcNote: (v: Updater<string | null>) => void
   setNoteRecipeOverridesAnswers: (v: Updater<NoteRecipeOverridesAnswers>) => void
   setNoteRecipeOverridesDisabled: (v: Updater<boolean>) => void
 }
@@ -157,7 +157,7 @@ export function AppStateProvider({ initial, children }: { initial: AppState; chi
     setSafeguardsEnabled: (v) => dispatch({ type: 'setSafeguardsEnabled', value: v }),
     setRecipesEnabled: (v) => dispatch({ type: 'setRecipesEnabled', value: v }),
     setSelectedRecipeIdx: (v) => dispatch({ type: 'setSelectedRecipeIdx', value: v }),
-    setSfrNote: (v) => dispatch({ type: 'setSfrNote', value: v }),
+    setSfcNote: (v) => dispatch({ type: 'setSfcNote', value: v }),
     setNoteRecipeOverridesAnswers: (v) => dispatch({ type: 'setNoteRecipeOverridesAnswers', value: v }),
     setNoteRecipeOverridesDisabled: (v) => dispatch({ type: 'setNoteRecipeOverridesDisabled', value: v }),
   }), [])
@@ -193,7 +193,7 @@ export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, '
     safeguardsEnabled: true,
     recipesEnabled: true,
     selectedRecipeIdx: null,
-    sfrNote: null,
+    sfcNote: null,
     // Recipe overrides answers are stored only in autosave/session state.
     noteRecipeOverridesAnswers: {},
     // Recipe overrides are enabled by default when a note includes markers.

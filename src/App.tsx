@@ -3,7 +3,7 @@
  *
  * Top-level React component that orchestrates:
  * - Base HSF load/preview/merge and export
- * - SFR (custom rules) load/save/copy and state management
+ * - SFC (custom rules) load/save/copy and state management
  * - Rule builder UI, metasets, substatTargets, and autosave
  * - Color management for substat chips and various dialogs
  */
@@ -22,7 +22,7 @@ import type {
 } from './lib/externalCommands'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
-import { parseRecipesFromText, buildReadableRecipe, readSfrFile, buildSfrPayload, sfrToBlob } from './lib/sfrIO'
+import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob } from './lib/sfcIO'
 import { parseRecipeNameDirectives } from './lib/recipeNameDirectives'
 import { COPY_DIALOG_EVENT, writeTextSafe } from './lib/clipboard'
 import {
@@ -79,7 +79,7 @@ import ConfirmDialogs from './components/ConfirmDialogs'
 import BuilderPanel, { createFactoryBuilderDefaults } from './components/RecipeBuilderPanel'
 import CopyDialog from './components/CopyDialog'
 import PasteDialog from './components/PasteDialog'
-// Markdown preview for SFR Note (read-only). Requires installation:
+// Markdown preview for SFC Note (read-only). Requires installation:
 //   npm i @uiw/react-md-editor rehype-sanitize @uiw/react-markdown-preview
 // Styles are imported globally here.
 // If the deps are missing, the app will fail to compile; install them as above.
@@ -155,7 +155,7 @@ import { TutorialCoach } from './components/tutorial/TutorialCoach'
 import RestoreAutosaveDialog from './components/dialogs/RestoreAutosaveDialog'
 import MetasetConflictDialog from './components/dialogs/MetasetConflictDialog'
 import FileFormatErrorDialog from './components/dialogs/FileFormatErrorDialog'
-import SfrImportOptionsDialog, { type SfrImportModes, type SfrImportSelection } from './components/dialogs/SfrImportOptionsDialog'
+import SfcImportOptionsDialog, { type SfcImportModes, type SfcImportSelection } from './components/dialogs/SfcImportOptionsDialog'
 import { useAutosave } from './hooks/useAutosave'
 import { useNonUrgentStateDispatch } from './hooks/useNonUrgentStateDispatch'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
@@ -208,7 +208,7 @@ function isAbortError(error: unknown): boolean {
 }
 
 // WebSocket endpoints may still host HTTP downloads; map ws(s) -> http(s).
-import { sellfileFilename, sfrFilename } from './lib/filenames'
+import { sellfileFilename, sfcFilename } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT, SAFEGUARD_BUILDER_USER_DEFAULTS_KEY } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
 import { cloneMetaset, defaultMetasets, type Metaset } from './lib/metasets'
@@ -261,7 +261,7 @@ import {
 } from './lib/itemIdentity'
 // Local tag for Gear Inspector reset triggers; persists only in memory.
 // Endpoint pushes get their own reason so the Gear Inspector grid can stay interactive.
-type GearInspectorMatchResetReason = 'restore' | 'sfr' | 'gearDbManual' | 'gearDbEndpoint'
+type GearInspectorMatchResetReason = 'restore' | 'sfc' | 'gearDbManual' | 'gearDbEndpoint'
 import { getRecipeHoverIndex, setRecipeHoverIndex, subscribeRecipeHover } from './lib/recipeHoverBridge'
 import { useBuilderPreviewLayout } from './hooks/useBuilderPreviewLayout'
 import { getDirtyBuilderFieldKeys, cloneBuilderRecipe } from './lib/recipeMultiEditDraft'
@@ -269,7 +269,7 @@ import { useTooltipScrollGuard } from './hooks/useTooltipScrollGuard'
 import { useModalCleanup } from './hooks/useModalCleanup'
 import { useTutorialCoachState } from './hooks/useTutorialCoachState'
 import { useExternalCommands } from './hooks/useExternalCommands'
-import { useSfrClipboard, type PendingImport } from './hooks/useSfrClipboard'
+import { useSfcClipboard, type PendingImport } from './hooks/useSfcClipboard'
 import { useRuntimeCatalogLoader } from './hooks/useRuntimeCatalogLoader'
 import { useRuntimeGearSetLoader } from './hooks/useRuntimeGearSetLoader'
 import { useGearSetCatalogVersion } from './hooks/useGearSetCatalogVersion'
@@ -290,9 +290,9 @@ import {
 } from './state/rulesFilterPersistence'
 import { useSafeguardsGridFilterMode, sanitizeSafeguardsGridFilterMode } from './state/safeguardsPreferences'
 import { useSellfileDedupPreference, useSellfileOmitDisabledPreference, useSellfileAutoPushPreference } from './state/exportPreferences'
-import { useSfrDialogs } from './hooks/useSfrDialogs'
-import { useSfrHistoryController } from './hooks/useSfrHistoryController'
-import type { HistoryEntryDescriptor, DescribeNextChangeFn } from './hooks/useSfrHistory'
+import { useSfcDialogs } from './hooks/useSfcDialogs'
+import { useSfcHistoryController } from './hooks/useSfcHistoryController'
+import type { HistoryEntryDescriptor, DescribeNextChangeFn } from './hooks/useSfcHistory'
 import { createBuilderRecipeUpdateDescriptor } from './history/builderUpdateDescriptor'
 import {
   createRecipeAddedDescriptor,
@@ -311,7 +311,7 @@ import {
 } from './history/substatTargetDescriptors'
 import { createFinalSellChangeDescriptor, areFinalSellSettingsEqual, type FinalSellDescriptorMode } from './history/finalSellDescriptors'
 import { createNoteChangeDescriptor, normalizeNoteValue, type NoteDescriptorMode } from './history/noteDescriptors'
-import { createSfrLoadedDescriptor, createAutosaveRestoredDescriptor, makeClipboardSourceDescriptor } from './history/bulkLoadDescriptors'
+import { createSfcLoadedDescriptor, createAutosaveRestoredDescriptor, makeClipboardSourceDescriptor } from './history/bulkLoadDescriptors'
 import {
   createSafeguardsEnabledChangeDescriptor,
   createSafeguardsRulesChangeDescriptor,
@@ -336,7 +336,7 @@ import {
   collectRecipeMetasetIds,
   collectSafeguardMetasetIds,
   getMetasetDependencyIssues,
-} from './lib/sfrImportSelection'
+} from './lib/sfcImportSelection'
 
 // Components are organized under src/components
 
@@ -427,7 +427,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     substatTargets,
     finalSellRemainder,
     logicHubDialogTab,
-    sfrNote,
+    sfcNote,
     noteRecipeOverridesAnswers,
     noteRecipeOverridesDisabled,
     safeguardRules,
@@ -443,7 +443,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSubstatTargets,
     setFinalSellRemainder,
     setLogicHubDialogTab,
-    setSfrNote,
+    setSfcNote,
     setNoteRecipeOverridesAnswers,
     setNoteRecipeOverridesDisabled,
     setSafeguardRules,
@@ -466,7 +466,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [builderSafeguardCollapsed] = useBuilderSafeguardCollapsedPreference()
   const { setStatButtonBorders } = useDisplayPreferenceActions()
   // Normalize the note text so recipe overrides parsing never sees null.
-  const recipeOverridesNoteText = (!noteRecipeOverridesDisabled && typeof sfrNote === 'string') ? sfrNote : ''
+  const recipeOverridesNoteText = (!noteRecipeOverridesDisabled && typeof sfcNote === 'string') ? sfcNote : ''
   // Resolve recipe overrides tag actions based on the current note + answers.
   const recipeOverridesResolution = useMemo(
     () => resolveRecipeOverridesTags(recipeOverridesNoteText, noteRecipeOverridesAnswers),
@@ -479,7 +479,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     () => buildRecipeOverridesExportModeResolution(customRecipes, recipeOverridesInstructions),
     [customRecipes, recipeOverridesInstructions],
   )
-  // Apply recipe overrides for preview consumers (rules + note chips) without mutating SFR recipes.
+  // Apply recipe overrides for preview consumers (rules + note chips) without mutating SFC recipes.
   const recipeOverridesRecipesForRules = useMemo(
     () => applyRecipeOverrides(customRecipes, recipeOverridesInstructions),
     [customRecipes, recipeOverridesInstructions],
@@ -1616,7 +1616,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
   }, [selectedSafeguardOrdinal])
   const syncSelectedRecipeIdx = useCallback((value: React.SetStateAction<number | null>, options?: { preserveSelection?: boolean; forceSync?: boolean; suppressDraft?: boolean; skipAutoApply?: boolean }) => {
-    // skipAutoApply skips the pending-edit flush; use it for bulk replacements like SFR
+    // skipAutoApply skips the pending-edit flush; use it for bulk replacements like SFC
     // loads where the entire recipe list is being replaced and auto-applying stale state
     // would silently overwrite a freshly-loaded recipe.
     if (!options?.skipAutoApply) autoApplyNowRef.current()
@@ -1663,11 +1663,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       substatTargetsSessionModeRef.current = null
     }
   }
-  // Nonce incremented inside startTransition on every SFR load/selective import.
+  // Nonce incremented inside startTransition on every SFC load/selective import.
   // The useEffect below watches it to call markSavedNow() AFTER the history snapshot
   // effect fires in the same commit — ensuring the safety-net does not fire early
   // (the rAF fires before React's useEffect for deferred transition renders).
-  const [sfrLoadNonce, setSfrLoadNonce] = useState(0)
+  const [sfcLoadNonce, setSfcLoadNonce] = useState(0)
   const {
     undo,
     redo,
@@ -1685,7 +1685,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     historyTimeline,
     jumpToHistoryIndex,
     clearHistory,
-  } = useSfrHistoryController({
+  } = useSfcHistoryController({
     customRecipes,
     metasets,
     substatTargets,
@@ -1693,7 +1693,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     safeguardRules,
     safeguardsEnabled,
     recipesEnabled,
-    sfrNote,
+    sfcNote,
     selectedRecipeIdx,
     selectedRecipeIndices,
     selectionAnchor,
@@ -1708,7 +1708,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSafeguardRules,
     setSafeguardsEnabled,
     setRecipesEnabled,
-    setSfrNote,
+    setSfcNote,
     setSelectedRecipeIdx: setSelectedRecipeIdxRaw,
     setSelectedRecipeIndices,
     setSelectionAnchor: updateSelectionAnchor,
@@ -1728,9 +1728,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Keep recipe overrides refs in sync so the debounced cache key uses up-to-date values.
   useEffect(() => { noteRecipeOverridesAnswersRef.current = noteRecipeOverridesAnswers }, [noteRecipeOverridesAnswers])
   useEffect(() => { noteRecipeOverridesDisabledRef.current = noteRecipeOverridesDisabled }, [noteRecipeOverridesDisabled])
-  // Safety-net: after every SFR load/selective import the nonce changes, which causes
+  // Safety-net: after every SFC load/selective import the nonce changes, which causes
   // this effect to fire in the same React commit as the transition render — AFTER the
-  // history snapshot effect (which runs first because useSfrHistoryController was called
+  // history snapshot effect (which runs first because useSfcHistoryController was called
   // earlier in the component).  markSavedNow() is idempotent if the snapshot effect
   // already consumed markNextAsSavedRef; it also clears any leaked true value in the
   // edge case where the transition produced no new history entry (identical payload).
@@ -1738,10 +1738,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // committed and inadvertently prevented markNextSnapshotAsSaved from being honoured.
   useEffect(() => {
     // Must run in the same React commit as the transition render, after the history snapshot
-    // effect — timing that cannot be achieved from the SFR load event handler directly.
+    // effect — timing that cannot be achieved from the SFC load event handler directly.
     // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
-    if (sfrLoadNonce > 0) markSavedNow()
-  }, [sfrLoadNonce, markSavedNow])
+    if (sfcLoadNonce > 0) markSavedNow()
+  }, [sfcLoadNonce, markSavedNow])
   // Use one SSOT transition wrapper for heavy tab/dialog writes so every pathway
   // (builder, minima, safeguards, final-sell, gear) shares the same scheduling behavior.
   const setCustomRecipesTransition = useNonUrgentStateDispatch(setCustomRecipes)
@@ -3031,7 +3031,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
     syncSelectedRecipeIdx(null, { forceSync: true, suppressDraft: true })
   }, [describeNextChange, metasets, selectedRecipeIndices, setCustomRecipesTransition, syncSelectedRecipeIdx])
-  const sfrDialogs = useSfrDialogs({
+  const sfcDialogs = useSfcDialogs({
     customRecipeCount: customRecipes.length,
     onConfirmClearAll: handleConfirmClearAll,
     onConfirmDeleteSingle: handleConfirmDeleteSingle,
@@ -3071,20 +3071,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     copyText,
     setCopyText,
     copyInputRef,
-  } = sfrDialogs
-  // Track when the note dialog opened automatically from an SFR import.
+  } = sfcDialogs
+  // Track when the note dialog opened automatically from an SFC import.
   // Why: auto-opened notes should hide the "Edit Note & Recipe Overrides…" button.
-  const [noteAutoOpenedFromSfr, setNoteAutoOpenedFromSfr] = useState(false)
+  const [noteAutoOpenedFromSfc, setNoteAutoOpenedFromSfc] = useState(false)
   // Manual openers reset the auto-open flag so the edit entry point returns.
   const openNoteEditorManual = useCallback(() => {
-    setNoteAutoOpenedFromSfr(false)
+    setNoteAutoOpenedFromSfc(false)
     openNoteEditor()
-  }, [openNoteEditor, setNoteAutoOpenedFromSfr])
+  }, [openNoteEditor, setNoteAutoOpenedFromSfc])
   // Manual view opens should also clear auto-open gating.
   const openNoteViewerManual = useCallback(() => {
-    setNoteAutoOpenedFromSfr(false)
+    setNoteAutoOpenedFromSfc(false)
     openNoteViewer()
-  }, [openNoteViewer, setNoteAutoOpenedFromSfr])
+  }, [openNoteViewer, setNoteAutoOpenedFromSfc])
   requestDeleteSingleForSelection = requestDeleteSingle
   requestDeleteMultiForSelection = requestDeleteMulti
   requestDeleteSingleRef.current = requestDeleteSingle
@@ -3105,16 +3105,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     noteSessionBaselineRef.current = null
     noteSessionModeRef.current = null
     // Closing ends the auto-open session so later opens behave normally.
-    setNoteAutoOpenedFromSfr(false)
+    setNoteAutoOpenedFromSfc(false)
     closeNote()
-  }, [closeNote, setNoteAutoOpenedFromSfr])
+  }, [closeNote, setNoteAutoOpenedFromSfc])
 
   const applyNoteChange = useCallback((
     value: React.SetStateAction<string | null>,
     options?: { mode?: NoteDescriptorMode; publish?: boolean },
   ): HistoryEntryDescriptor | null => {
     const mode = options?.mode ?? 'edit'
-    const prevRaw = sfrNote ?? null
+    const prevRaw = sfcNote ?? null
     const nextRaw = typeof value === 'function'
       ? (value as (prev: string | null) => string | null)(prevRaw)
       : value
@@ -3133,11 +3133,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         noteSessionBaselineRef.current = null
         noteSessionModeRef.current = null
       }
-      setSfrNote(() => nextNormalized)
+      setSfcNote(() => nextNormalized)
       return null
     }
     // Persist the updated note content immediately.
-    setSfrNote(() => nextNormalized)
+    setSfcNote(() => nextNormalized)
     // Keep recipe overrides answers aligned with the current note markers.
     // Why: answers are session-only, so imports reset them while edits prune stale entries.
     setNoteRecipeOverridesAnswers((prev) => {
@@ -3181,7 +3181,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       describeNextChange(aggregateDescriptor ?? descriptor)
     }
     return aggregateDescriptor ?? descriptor
-  }, [describeNextChange, sfrNote, noteMode, noteOpen, setSfrNote, setNoteRecipeOverridesAnswers])
+  }, [describeNextChange, sfcNote, noteMode, noteOpen, setSfcNote, setNoteRecipeOverridesAnswers])
 
 
   const tutorial = useTutorialCoachState({
@@ -3213,8 +3213,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setGearInspectorItems: setGearInspectorItemsTransition,
     previewMode,
     setPreviewMode,
-    sfrNote,
-    setSfrNote,
+    sfcNote,
+    setSfcNote,
     builderRef,
     setBuilder,
     logicHubOpen,
@@ -3635,7 +3635,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     recipes: customRecipes,
     finalSellRemainder,
     selectedRecipeIndex: selectedRecipeIdx,
-    note: sfrNote,
+    note: sfcNote,
     noteRecipeOverridesAnswers,
     noteRecipeOverridesDisabled,
     filters: autosaveFiltersState,
@@ -4058,16 +4058,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     handleGearDbRawSnapshot(syntheticSnapshot)
   }, [handleGearDbRawSnapshot])
 
-  // ---- SFR import conflict state ----
+  // ---- SFC import conflict state ----
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null)
   // Shift-load selective imports can also hit metaset ID conflicts.
   // Why: merge mode reuses the same conflict dialog choices as clipboard imports.
-  const [pendingSfrLoadImport, setPendingSfrLoadImport] = useState<PendingSfrLoadImport | null>(null)
+  const [pendingSfcLoadImport, setPendingSfcLoadImport] = useState<PendingSfcLoadImport | null>(null)
   // Keep the parsed file in memory while the options dialog is open.
   // Why: avoid re-reading the file between Shift-load prompt and confirm.
-  const [pendingSfrShiftDialogImport, setPendingSfrShiftDialogImport] = useState<{
+  const [pendingSfcShiftDialogImport, setPendingSfcShiftDialogImport] = useState<{
     fileName: string
-    payload: SfrLoadPayload
+    payload: SfcLoadPayload
   } | null>(null)
   const [metasetConflictOpen, setMetasetConflictOpen] = useState(false)
   const [conflictIds, setConflictIds] = useState<string[]>([])
@@ -4082,13 +4082,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     handleCopyAllRecipes,
     handleCopyRecipe,
     handlePasteAtEnd,
-    prepareSfrImport,
+    prepareSfcImport,
     finalizeImport,
-  } = useSfrClipboard({
+  } = useSfcClipboard({
     metasets,
     substatTargets,
     customRecipes,
-    sfrNote,
+    sfcNote,
     finalSellRemainder,
     safeguardRules,
     safeguardsEnabled,
@@ -4306,17 +4306,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Autosave should not be triggered by selection-only changes.
   // Pass selectedRecipeIndex: null in autosave payload so selection changes
   // do not alter the payload. Explicit Save/Copy flows still include it.
-  const trimmedSfrNote = typeof sfrNote === 'string' ? sfrNote.trim() : ''
-  // Keep autosave scheduling lightweight: only build the heavy SFR snapshot when the
+  const trimmedSfcNote = typeof sfcNote === 'string' ? sfcNote.trim() : ''
+  // Keep autosave scheduling lightweight: only build the heavy SFC snapshot when the
   // debounced write actually executes, not on every render/update.
   const buildAutosavePayload = useCallback(() => {
-    const basePayload = buildSfrPayload({
+    const basePayload = buildSfcPayload({
       version: APP_VERSION,
       metasets,
       substatTargets,
       recipes: customRecipes,
       finalSellRemainder,
-      ...(trimmedSfrNote ? { note: trimmedSfrNote } : {}),
+      ...(trimmedSfcNote ? { note: trimmedSfcNote } : {}),
       safeguardRules,
       safeguardsEnabled,
       recipesEnabled,
@@ -4359,7 +4359,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     safeguardsGridFilterMode,
     substatTargets,
     gearInspectorSubstatSortPrefs.state,
-    trimmedSfrNote,
+    trimmedSfcNote,
     selectedRecipeIdx,
     selectedSafeguardRuleIdx,
   ])
@@ -4370,7 +4370,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     metasets,
     substatTargets,
     finalSellRemainder,
-    note: trimmedSfrNote || null,
+    note: trimmedSfcNote || null,
     safeguardRules,
     safeguardsEnabled,
     filters: autosaveFiltersState,
@@ -4392,7 +4392,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     safeguardsGridFilterMode,
     substatTargets,
     gearInspectorSubstatSortPrefs.state,
-    trimmedSfrNote,
+    trimmedSfcNote,
   ])
   useAutosave({
     key: AUTOSAVE_KEY,
@@ -6118,14 +6118,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     />
   )
 
-  // Shared SFR payload shape used by direct loads and selective Shift imports.
-  type SfrLoadPayload = {
+  // Shared SFC payload shape used by direct loads and selective Shift imports.
+  type SfcLoadPayload = {
     recipes: BuilderRecipe[]
     metasets: Metaset[]
     substatTargets: SubstatTargetTable
     selectedIndex: number | null
     note?: string
-    // null when the key was absent from the source (e.g. old SFR without these sections).
+    // null when the key was absent from the source (e.g. old SFC without these sections).
     // File-import callers fall back to defaults; clipboard paste callers skip applying.
     finalSellRemainder: FinalSellRemainderConfig | null
     safeguardRules: SafeguardRule[] | null
@@ -6136,16 +6136,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Merge strategy for metaset conflict handling when selective import uses merge mode.
   type MetasetConflictStrategy = 'keepCurrent' | 'useIncoming' | 'keepBoth'
 
-  type PendingSfrLoadImport = {
+  type PendingSfcLoadImport = {
     fileName: string
-    payload: SfrLoadPayload
-    selection: SfrImportSelection
-    modes: SfrImportModes
+    payload: SfcLoadPayload
+    selection: SfcImportSelection
+    modes: SfcImportModes
   }
 
-  const applySfrLoadResult = useCallback((
+  const applySfcLoadResult = useCallback((
     fileName: string,
-    payload: SfrLoadPayload,
+    payload: SfcLoadPayload,
   ) => {
     const {
       recipes,
@@ -6159,36 +6159,36 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       recipesEnabled: payloadRecipesEnabled,
     } = payload
 
-    const loadDescriptor = createSfrLoadedDescriptor(fileName)
+    const loadDescriptor = createSfcLoadedDescriptor(fileName)
     const resolvedSel = typeof selectedIndex === 'number' && selectedIndex >= 0 && selectedIndex < recipes.length
       ? selectedIndex
       : (recipes.length > 0 ? 0 : null)
     const rawNote = typeof note === 'string' ? note : ''
     const importedNote = rawNote.trim().length > 0 ? rawNote : null
-    beginGearInspectorMatchReset('sfr')
+    beginGearInspectorMatchReset('sfc')
 
     if (importedNote !== null) {
       // Mark this as an auto-open so the view dialog hides the edit button.
       // UI-only: stays outside startTransition so the dialog opens immediately.
-      setNoteAutoOpenedFromSfr(true)
+      setNoteAutoOpenedFromSfc(true)
       openNoteViewer()
     } else {
       handleCloseNote()
     }
     // Non-history state — not part of the signature, safe outside the transition.
     setNoteRecipeOverridesAnswers({})
-    // SFR files never store the disabled flag, so re-enable parsing.
+    // SFC files never store the disabled flag, so re-enable parsing.
     setNoteRecipeOverridesDisabled(false)
 
     startTransition(() => {
       describeNextChange(loadDescriptor)
-      // Note change moved inside the transition so sfrNote and customRecipes commit in the
-      // same render batch. sfrNote is part of the history signature; if it were committed
+      // Note change moved inside the transition so sfcNote and customRecipes commit in the
+      // same render batch. sfcNote is part of the history signature; if it were committed
       // urgently (outside the transition), the first render would consume markNextAsSavedRef
       // and the second render (customRecipes etc.) would land in a dirty state.
       // applyNoteChange with publish:false never calls describeNextChange, so loadDescriptor is safe.
       applyNoteChange(importedNote, { mode: 'import', publish: false })
-      // SFR files do not carry an HSF; clear any previously loaded base file.
+      // SFC files do not carry an HSF; clear any previously loaded base file.
       setHsf(null)
       setCustomRecipes(recipes)
       if (nextMetas !== metasets) {
@@ -6199,12 +6199,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
         } catch {}
       }
-      // File import replaces everything; null (absent key in old SFR) falls back to defaults.
+      // File import replaces everything; null (absent key in old SFC) falls back to defaults.
       setSafeguardRules(safeguardRules ?? [])
       setSafeguardsEnabled(safeguardsEnabled ?? false)
       setRecipesEnabled(payloadRecipesEnabled)
       if (fsr !== null) applyFinalSellChange(fsr, { mode: 'import', publish: false })
-      // Always select first recipe on manual SFR load (index is not persisted in the file).
+      // Always select first recipe on manual SFC load (index is not persisted in the file).
       // skipAutoApply: the whole recipe list is being replaced, so auto-applying the old
       // draft before the selection changes would silently corrupt the newly loaded recipes.
       syncSelectedRecipeIdx(resolvedSel, { forceSync: true, suppressDraft: true, skipAutoApply: true })
@@ -6214,15 +6214,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Always land on the first safeguard rule when loading a file, and load its data into the builder.
       // Why: setSelectedSafeguardRuleIdx alone only updates the primary index; the multi-select
       // indices (selectedSafeguardRuleIndices) and the builder draft must also be reset so the
-      // chip highlight and panel content stay in sync with the new SFR's rules.
+      // chip highlight and panel content stay in sync with the new SFC's rules.
       const firstSafeguardRule = (safeguardRules ?? []).length > 0 ? (safeguardRules ?? [])[0]! : null
       setSelectedSafeguardRuleIdx(firstSafeguardRule ? 0 : null)
       // Reset the multi-select index array; suppressWillChange avoids auto-applying the stale draft.
       setSelectedSafeguardRuleIndices(firstSafeguardRule ? [0] : [], { suppressWillChange: true })
       if (firstSafeguardRule) setSafeguardBuilder(cloneSafeguardRule(firstSafeguardRule))
       // Increment nonce so the post-transition safety-net effect fires after the history
-      // snapshot effect in this same commit (see sfrLoadNonce useEffect above).
-      setSfrLoadNonce((n) => n + 1)
+      // snapshot effect in this same commit (see sfcLoadNonce useEffect above).
+      setSfcLoadNonce((n) => n + 1)
     })
 
     markNextSnapshotAsSaved()
@@ -6239,7 +6239,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     markNextSnapshotAsSaved,
     metasets,
     openNoteViewer,
-    setNoteAutoOpenedFromSfr,
+    setNoteAutoOpenedFromSfc,
     setSafeguardRules,
     setSafeguardsEnabled,
     setRecipesEnabled,
@@ -6255,14 +6255,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSelectedSafeguardRuleIndices,
     setSafeguardBuilder,
     setHsf,
-    setSfrLoadNonce,
+    setSfcLoadNonce,
     beginGearInspectorMatchReset,
   ])
 
   // Guard selective imports so skipping metasets cannot break recipe/safeguard references.
   const getSelectiveImportMetasetIssues = useCallback((
-    selection: SfrImportSelection,
-    payload: SfrLoadPayload,
+    selection: SfcImportSelection,
+    payload: SfcLoadPayload,
   ) => getMetasetDependencyIssues({
     selection: {
       recipes: selection.recipes,
@@ -6274,13 +6274,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     safeguardMetasetIds: collectSafeguardMetasetIds(payload.safeguardRules ?? []),
   }), [])
 
-  // Resolve incoming SFR data with selection + merge settings.
+  // Resolve incoming SFC data with selection + merge settings.
   // Why: Shift-load applies only selected sections instead of replacing everything.
-  const applySelectiveSfrLoad = useCallback((args: {
+  const applySelectiveSfcLoad = useCallback((args: {
     fileName: string
-    payload: SfrLoadPayload
-    selection: SfrImportSelection
-    modes: SfrImportModes
+    payload: SfcLoadPayload
+    selection: SfcImportSelection
+    modes: SfcImportModes
     metasetConflictStrategy?: MetasetConflictStrategy
   }): { deferredConflict: boolean } => {
     const { fileName, payload, selection, modes, metasetConflictStrategy } = args
@@ -6294,10 +6294,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (modes.metasets === 'replace') {
         nextMetasets = payload.metasets
       } else {
-        const prep = prepareSfrImport(metasets, payload.metasets, payload.recipes)
+        const prep = prepareSfcImport(metasets, payload.metasets, payload.recipes)
         if (prep.conflicts.length > 0 && !metasetConflictStrategy) {
           // Defer apply until the metaset conflict dialog resolves merge strategy.
-          setPendingSfrLoadImport({ fileName, payload, selection, modes })
+          setPendingSfcLoadImport({ fileName, payload, selection, modes })
           setConflictIds(prep.conflicts)
           setImportIdMap(prep.idMap)
           setMetasetConflictOpen(true)
@@ -6325,9 +6325,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }))
     // Track whether any section modifies recipe/Gear Inspector match behavior.
     const affectsRecipesOrSafeguards = selection.recipes || selection.safeguards
-    if (affectsRecipesOrSafeguards) beginGearInspectorMatchReset('sfr')
+    if (affectsRecipesOrSafeguards) beginGearInspectorMatchReset('sfc')
     // Prefix the descriptor so history shows selective load context.
-    describeNextChange(createSfrLoadedDescriptor(fileName))
+    describeNextChange(createSfcLoadedDescriptor(fileName))
     if (selection.metasets && nextMetasets !== null) {
       setMetasets(nextMetasets)
     }
@@ -6369,13 +6369,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (selection.note) {
       const incomingNoteRaw = typeof payload.note === 'string' ? payload.note : ''
       if (modes.note === 'append') {
-        const current = typeof sfrNote === 'string' ? sfrNote.trim() : ''
+        const current = typeof sfcNote === 'string' ? sfcNote.trim() : ''
         const incoming = incomingNoteRaw.trim()
         const joined = current && incoming
           ? `${current}\n\n${incoming}`
           : (current || incoming || '')
         if (joined.length > 0) {
-          setNoteAutoOpenedFromSfr(true)
+          setNoteAutoOpenedFromSfc(true)
           applyNoteChange(joined, { mode: 'import', publish: false })
           openNoteViewer()
         } else {
@@ -6385,7 +6385,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       } else {
         const importedNote = incomingNoteRaw.trim().length > 0 ? incomingNoteRaw : null
         if (importedNote !== null) {
-          setNoteAutoOpenedFromSfr(true)
+          setNoteAutoOpenedFromSfc(true)
           applyNoteChange(importedNote, { mode: 'import', publish: false })
           openNoteViewer()
         } else {
@@ -6444,7 +6444,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     markSavedNow,
     metasets,
     openNoteViewer,
-    prepareSfrImport,
+    prepareSfcImport,
     selectedRecipeIdx,
     setBuilder,
     setCustomRecipes,
@@ -6453,47 +6453,47 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setLastExportSig,
     setMetasetConflictOpen,
     setMetasets,
-    setNoteAutoOpenedFromSfr,
+    setNoteAutoOpenedFromSfc,
     setNoteRecipeOverridesAnswers,
     setNoteRecipeOverridesDisabled,
-    setPendingSfrLoadImport,
+    setPendingSfcLoadImport,
     setSafeguardRules,
     setSafeguardsEnabled,
     setRecipesEnabled,
     setSelectedSafeguardRuleIdx,
     setSelectedSafeguardRuleIndices,
     setSafeguardBuilder,
-    sfrNote,
+    sfcNote,
     syncSelectedRecipeIdx,
   ])
 
-  const importSfrFile = useCallback(async (file: File, context?: FileRouteContext) => {
+  const importSfcFile = useCallback(async (file: File, context?: FileRouteContext) => {
     flushTransientUi()
     try {
-      const result = await readSfrFile(file, { metasets, substatTargets })
+      const result = await readSfcFile(file, { metasets, substatTargets })
       // Shift modifier opens selective import options instead of immediate full replace.
       if (context?.shiftKey) {
-        setPendingSfrShiftDialogImport({ fileName: file.name, payload: result })
+        setPendingSfcShiftDialogImport({ fileName: file.name, payload: result })
       } else {
-        applySfrLoadResult(file.name, result)
+        applySfcLoadResult(file.name, result)
       }
     } catch (err) {
       if (import.meta.env.DEV) {
-        console.error('Failed to parse recipe file (.sfr/.hsfc)', err)
+        console.error('Failed to parse recipe file (.sfc/.sfr/.hsfc)', err)
       }
       showFileFormatError(file.name)
       flushTransientUi()
     }
   }, [
-    applySfrLoadResult,
+    applySfcLoadResult,
     flushTransientUi,
     metasets,
-    setPendingSfrShiftDialogImport,
+    setPendingSfcShiftDialogImport,
     substatTargets,
     showFileFormatError,
   ])
 
-  const handleSfrFile = useCallback(async (file: File, context?: FileRouteContext) => {
+  const handleSfcFile = useCallback(async (file: File, context?: FileRouteContext) => {
     if (tutorial.helpOpen) {
       tutorial.setHelpOpen(false)
       tutorial.setHelpFirstRunMode(false)
@@ -6501,13 +6501,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     if (restoreDialogPending) dismissRestore()
     if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
-    await importSfrFile(file, context)
+    await importSfcFile(file, context)
   }, [
     confirmClearOpen,
     confirmDeleteIdx,
     confirmDeleteTargets,
     dismissRestore,
-    importSfrFile,
+    importSfcFile,
     restoreDialogPending,
     tutorial,
   ])
@@ -6546,7 +6546,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ? { source: context?.source ?? 'manual' }
       : { source: context?.source ?? 'manual', shiftKey: context.shiftKey }
     await routeFileByExtension(file, {
-      onSfr: handleSfrFile,
+      onSfc: handleSfcFile,
       onHsf: handleHsfFile,
       onL10n: handleRuntimeCatalog,
       onGearDb: handleGearDbImport,
@@ -6555,7 +6555,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }, routeContext)
   }, [
     handleGearDbImport,
-    handleSfrFile,
+    handleSfcFile,
     handleHsfFile,
     handleRuntimeCatalog,
     handleRuntimeGearSets,
@@ -6575,7 +6575,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     },
     // Use `void` so the arrow function always returns void regardless of the branch taken.
     // Handlers that don't accept a context arg are called with file only.
-    onSfr: (file, ctx) => { if (!tutorial.tutorialOpen) void handleSfrFile(file, ctx) },
+    onSfc: (file, ctx) => { if (!tutorial.tutorialOpen) void handleSfcFile(file, ctx) },
     onHsf: (file) => { if (!tutorial.tutorialOpen) void handleHsfFile(file) },
     onL10n: (file) => { if (!tutorial.tutorialOpen) void handleRuntimeCatalog(file) },
     onGearDb: (file, ctx) => { if (!tutorial.tutorialOpen) void handleGearDbImport(file, ctx) },
@@ -6584,7 +6584,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   })
 
   // Track whether a note exists so we can open in view mode.
-  const notePresent = Boolean(sfrNote && sfrNote.trim())
+  const notePresent = Boolean(sfcNote && sfcNote.trim())
 
   // Builder mode toggle — switches between Recipe Builder and Safeguard Builder.
   const builderModeToggle = (
@@ -6807,31 +6807,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     </Stack>
   )
 
-  // SFR load/save/copy controls surfaced at the top of the builder column.
+  // SFC load/save/copy controls surfaced at the top of the builder column.
   const headerActionsElement = (
     <HeaderActions
-      onAboutToOpenSfr={() => {
+      onAboutToOpenSfc={() => {
         markSavedNow()
       }}
       onSelectFile={handleManualFileSelection}
-      onSaveSfr={() => {
+      onSaveSfc={() => {
         persistRuntimeGearSetsNow()
-        const payload = buildSfrPayload({
+        const payload = buildSfcPayload({
           version: APP_VERSION,
           metasets,
           substatTargets,
           recipes: customRecipes,
           finalSellRemainder,
-          ...(sfrNote ? { note: sfrNote } : {}),
+          ...(sfcNote ? { note: sfcNote } : {}),
           safeguardRules,
           safeguardsEnabled,
           recipesEnabled,
         })
-        const blob = sfrToBlob(payload)
+        const blob = sfcToBlob(payload)
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = sfrFilename()
+        a.download = sfcFilename()
         a.click()
         URL.revokeObjectURL(url)
         showToast(t('toastRecipesSaved'))
@@ -6853,7 +6853,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           return `${n}\u00a0${word}`
         })(),
       } : {})}
-      sfrDirty={isDirty}
+      sfcDirty={isDirty}
     />
   )
 
@@ -6865,17 +6865,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onCancel={() => {
         setMetasetConflictOpen(false)
         setPendingImport(null)
-        setPendingSfrLoadImport(null)
+        setPendingSfcLoadImport(null)
         setConflictIds([])
       }}
       onChoose={(choice) => {
         try {
-          if (pendingSfrLoadImport) {
-            applySelectiveSfrLoad({
-              fileName: pendingSfrLoadImport.fileName,
-              payload: pendingSfrLoadImport.payload,
-              selection: pendingSfrLoadImport.selection,
-              modes: pendingSfrLoadImport.modes,
+          if (pendingSfcLoadImport) {
+            applySelectiveSfcLoad({
+              fileName: pendingSfcLoadImport.fileName,
+              payload: pendingSfcLoadImport.payload,
+              selection: pendingSfcLoadImport.selection,
+              modes: pendingSfcLoadImport.modes,
               metasetConflictStrategy: choice,
             })
             return
@@ -6884,7 +6884,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             setMetasetConflictOpen(false)
             return
           }
-          const prep = prepareSfrImport(metasets, pendingImport.metasets, pendingImport.recipes)
+          const prep = prepareSfcImport(metasets, pendingImport.metasets, pendingImport.recipes)
           const { nextMetas, remapForConflicts } = finalizeImport(metasets, prep, choice)
           const idMap = new Map(importIdMap)
           for (const [k, v] of remapForConflicts) idMap.set(k, v)
@@ -6918,7 +6918,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             ? applyFinalSellChange(pendingImport.finalSellRemainder, { mode: 'import', publish: false })
             : null
           const incomingNote = typeof pendingImport.note === 'string' ? pendingImport.note : null
-          const shouldApplyNote = !normalizeNoteValue(sfrNote) && Boolean(normalizeNoteValue(incomingNote))
+          const shouldApplyNote = !normalizeNoteValue(sfcNote) && Boolean(normalizeNoteValue(incomingNote))
           const noteDescriptor = shouldApplyNote
             ? applyNoteChange(incomingNote, { mode: 'import', publish: false })
             : null
@@ -7003,28 +7003,28 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         } finally {
           setMetasetConflictOpen(false)
           setPendingImport(null)
-          setPendingSfrLoadImport(null)
+          setPendingSfcLoadImport(null)
           setConflictIds([])
         }
       }}
     />
   ) : null
 
-  const sfrImportOptionsDialogElement = pendingSfrShiftDialogImport ? (
-    <SfrImportOptionsDialog
-      open={Boolean(pendingSfrShiftDialogImport)}
-      fileName={pendingSfrShiftDialogImport.fileName}
-      incomingRecipes={pendingSfrShiftDialogImport.payload.recipes}
-      incomingNote={typeof pendingSfrShiftDialogImport.payload.note === 'string' ? pendingSfrShiftDialogImport.payload.note : null}
-      incomingMetasets={pendingSfrShiftDialogImport.payload.metasets}
-      incomingSafeguards={pendingSfrShiftDialogImport.payload.safeguardRules ?? []}
+  const sfcImportOptionsDialogElement = pendingSfcShiftDialogImport ? (
+    <SfcImportOptionsDialog
+      open={Boolean(pendingSfcShiftDialogImport)}
+      fileName={pendingSfcShiftDialogImport.fileName}
+      incomingRecipes={pendingSfcShiftDialogImport.payload.recipes}
+      incomingNote={typeof pendingSfcShiftDialogImport.payload.note === 'string' ? pendingSfcShiftDialogImport.payload.note : null}
+      incomingMetasets={pendingSfcShiftDialogImport.payload.metasets}
+      incomingSafeguards={pendingSfcShiftDialogImport.payload.safeguardRules ?? []}
       onCancel={() => {
-        setPendingSfrShiftDialogImport(null)
+        setPendingSfcShiftDialogImport(null)
       }}
       onConfirm={(selection, modes) => {
-        const pending = pendingSfrShiftDialogImport
+        const pending = pendingSfcShiftDialogImport
         if (!pending) return
-        const result = applySelectiveSfrLoad({
+        const result = applySelectiveSfcLoad({
           fileName: pending.fileName,
           payload: pending.payload,
           selection,
@@ -7032,15 +7032,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         })
         // Keep dialog closed after confirm even when conflict dialog opens next.
         // Why: conflict choice is the follow-up step for the same import action.
-        setPendingSfrShiftDialogImport(null)
+        setPendingSfcShiftDialogImport(null)
         if (!result.deferredConflict) {
-          setPendingSfrLoadImport(null)
+          setPendingSfcLoadImport(null)
         }
       }}
     />
   ) : null
 
-  // Manual paste dialog for SFR snippets.
+  // Manual paste dialog for SFC snippets.
   const pasteDialogElement = pasteDlgOpen ? (
     <PasteDialog
       open={pasteDlgOpen}
@@ -7682,7 +7682,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         <NoteDialog
           open={noteOpen}
           mode={noteMode}
-          note={sfrNote ?? ''}
+          note={sfcNote ?? ''}
           onChange={(value, options) => {
             const mode: NoteDescriptorMode = options?.mode === 'clear' ? 'clear' : 'edit'
             applyNoteChange(value, { mode })
@@ -7704,7 +7704,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           substatColors={substatColors}
           gearSummary={gearInspectorOutcomeSummary}
           summaryProgressRatio={workloadProgressRatio}
-          hideEditButton={noteAutoOpenedFromSfr}
+          hideEditButton={noteAutoOpenedFromSfc}
           rules={mergedRules}
           substatTargets={effectiveSubstatTargets}
         />
@@ -7796,8 +7796,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setClearHistoryOpen={setConfirmClearHistoryOpen}
         onConfirmClearHistory={handleConfirmClearHistory}
       />
-      {sfrImportOptionsDialogElement}
-      {/* Restore autosaved SFR dialog */}
+      {sfcImportOptionsDialogElement}
+      {/* Restore autosaved SFC dialog */}
       {restoreDlgOpen ? (
         <RestoreAutosaveDialog
           open={restoreDlgOpen}

@@ -33,9 +33,9 @@ Sellfile Creator erleichtert das Erstellen von Sell-Dateien für RSL Helper — 
 ## Nutzung
 
 ### Rezept-Datei
-- SFR (`.sfr`): Das Projektfile der App. Betrachte es wie einen Spielstand, den du laden oder teilen kannst. RSL Helper verwendet SFR nicht direkt.
+- SFC (`.sfc`): Das Projektfile der App. Betrachte es wie einen Spielstand, den du laden oder teilen kannst. RSL Helper verwendet SFC nicht direkt.
 - HSF (`.hsf`): Die RSL Helper Sellfile. Exportiere sie hier und lade sie anschließend in RSL Helper.
-- Der Standardname beim Speichern lautet `SellfileCreatorRecipes_YYYYMMDD_HHMM.sfr`.
+- Der Standardname beim Speichern lautet `SellfileCreatorRecipes_YYYYMMDD_HHMM.sfc`.
 
 ### Rezept-Editor
 - Fülle den Rezept-Builder aus und gib deinem Rezept einen eindeutigen „Rezept-Namen“.
@@ -204,7 +204,7 @@ Hinweise:
 - Der Header bündelt den `Regeln`/`Ausrüstungsinspektor`-Schalter, den Button „Tools” und „RSL Helper Sellfile laden”, damit du sofort siehst, wo du die Tabelle wechselst oder den Dialog „Ausrüstung” öffnest.
 - Ansicht `Regeln` (Standard): zeigt alle exportierten Regeln inklusive optionaler Basis-`.hsf`-Zeilen. Die Header-Zähler bleiben bei Behalten vs. Verkaufen, die Filterleiste behält die Beliebig/Nur-Chips (`Any/Only`) für Slot/Rang/Seltenheit/Level und beide Rezept-Buttons sind immer sichtbar: „Eingrenzen” blendet Chips aus, deren Regeln den aktuellen Filter nicht bestehen, und die „Auswahl” ist hier ein einfacher An/Aus-Schalter, der Sellfile-Zeilen außerhalb deiner ausgewählten Rezept-Chips versteckt (und dabei den Filterzustand für den Ausrüstungsinspektor vormerkt).
 - Ansicht `Ausrüstungsinspektor`: schaltet auf die Liste der importierten Ausrüstung, sodass du externe oder manuell erstellte Items prüfen kannst, ohne den Tools-Dialog erneut zu öffnen. Zähler wechseln zu Behalten/Verkaufen/Bereich/Kein Treffer (nach der Regel „erste passende Rezept gewinnt”), und die Filterleiste zeigt weiterhin beide Rezept-Buttons nebeneinander: „Eingrenzen” für die Chip-Sichtbarkeit sowie die „Auswahl”, die hier als Tri-State (`Off` → `First-Match-Auswertung` → `Nach Treffer`) arbeitet, um die Ausrüstungszeilen zwischen Ersttreffern und beliebigen Treffern zu trennen, während beim Zurückwechseln weiterhin nur die Regeln deiner Auswahl sichtbar bleiben. `.db`-Importe springen automatisch in diese Ansicht; zurück zu `Regeln` kannst du jederzeit.
-- Der Button „RSL Helper Sellfile laden” macht genau dasselbe wie Drag & Drop: `.sfr` ersetzt den Builder-Zustand, `.hsf` ergänzt eine optionale Basis-Sellfile, `.db` schieben Ausrüstung direkt in den Ausrüstungsinspektor (ohne deine Rezepte zu ändern). „Leeren” trennt die optionale Basis-`.hsf`.
+- Der Button „RSL Helper Sellfile laden” macht genau dasselbe wie Drag & Drop: `.sfc` ersetzt den Builder-Zustand, `.hsf` ergänzt eine optionale Basis-Sellfile, `.db` schieben Ausrüstung direkt in den Ausrüstungsinspektor (ohne deine Rezepte zu ändern). „Leeren” trennt die optionale Basis-`.hsf`.
 - Das Paletten-Icon öffnet „Farben verwalten”, um Text- und Hintergrundfarben für Substats anzupassen.
 - In `Regeln` bleiben die Spalten „Idx” und „Rezept” erhalten (Basisdatei-Zeilen haben einen leeren Rezept-Wert). Im `Ausrüstungsinspektor` zeigen dieselben Flächen Slot/Set, Item-Stats und das Badge der zuerst passenden Rezept, damit du direkt im Vorschau siehst, was mit jedem Artefakt passieren würde.
 

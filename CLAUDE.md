@@ -36,8 +36,8 @@ This document summarizes how we collaborate on Sellfile Creator. Detailed techni
 ## Safety & Data
 
 - Align exports with the sample `.hsf` files under `docs/orig/`; do not guess at schema changes.
-- SFR serialization format must remain backward-compatible. Never change a persisted field name or drop a field without a migration path that loads existing saved files correctly. Autosave is ephemeral session state and does not carry this requirement.
-- Never silently discard user data. Unknown or unrecognized fields in SFR payloads should be preserved or explicitly warned about — not dropped without trace.
+- SFC serialization format must remain backward-compatible. Never change a persisted field name or drop a field without a migration path that loads existing saved files correctly. Autosave is ephemeral session state and does not carry this requirement.
+- Never silently discard user data. Unknown or unrecognized fields in SFC payloads should be preserved or explicitly warned about — not dropped without trace.
 - Avoid destructive commands (mass deletes, force resets) unless the user explicitly requests them.
 - Request elevated permissions before taking privileged filesystem or network actions.
 

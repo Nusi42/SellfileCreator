@@ -4,14 +4,14 @@ import { APP_GOTO_OPTIONS, APP_VERSION, prepareApp } from './app-init'
 import { dismissBlockingDialogs } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { getWorkloadIndicator } from './workload-indicator'
-import { SAMPLE_SMALL_SFR_PATH } from './fixture-paths'
+import { SAMPLE_SMALL_SFC_PATH } from './fixture-paths'
 import { AUTOSAVE_KEY } from '../../src/lib/constants'
 import { computeCrc32 } from '../../src/lib/autosave'
 
 const AUTO_APPLY_AUTOSAVE_ENTRY = (() => {
-  // Read the SFR fixture so we can seed autosave without file uploads.
-  const raw = fs.readFileSync(SAMPLE_SMALL_SFR_PATH, 'utf-8')
-  // Parse the SFR JSON into a payload we can attach autosave metadata to.
+  // Read the SFC fixture so we can seed autosave without file uploads.
+  const raw = fs.readFileSync(SAMPLE_SMALL_SFC_PATH, 'utf-8')
+  // Parse the SFC JSON into a payload we can attach autosave metadata to.
   const payload = JSON.parse(raw) as Record<string, unknown>
   // Ensure the payload uses the current app version for restore dialogs.
   const autosavePayload = {

@@ -286,8 +286,8 @@ export type UseTutorialCoachStateParams = {
   setGearInspectorItems: Dispatch<SetStateAction<GearInspectorItem[]>>
   previewMode: 'rules' | 'gearInspector'
   setPreviewMode: Dispatch<SetStateAction<'rules' | 'gearInspector'>>
-  sfrNote: string | null
-  setSfrNote: Dispatch<SetStateAction<string | null>>
+  sfcNote: string | null
+  setSfcNote: Dispatch<SetStateAction<string | null>>
   builderRef: MutableRefObject<BuilderRecipe>
   setBuilder: Dispatch<SetStateAction<BuilderRecipe>>
   // Filter/sort state is managed via store-level snapshot/restore functions;
@@ -351,8 +351,8 @@ export function useTutorialCoachState({
   setGearInspectorItems,
   previewMode,
   setPreviewMode,
-  sfrNote,
-  setSfrNote,
+  sfcNote,
+  setSfcNote,
   builderRef,
   setBuilder,
   logicHubOpen,
@@ -409,8 +409,8 @@ export function useTutorialCoachState({
   useEffect(() => { safeguardsEnabledRef.current = safeguardsEnabled }, [safeguardsEnabled])
   const recipesEnabledRef = useRef(recipesEnabled)
   useEffect(() => { recipesEnabledRef.current = recipesEnabled }, [recipesEnabled])
-  const noteRef = useRef(sfrNote)
-  useEffect(() => { noteRef.current = sfrNote }, [sfrNote])
+  const noteRef = useRef(sfcNote)
+  useEffect(() => { noteRef.current = sfcNote }, [sfcNote])
   // Filter/sort state is captured from stores directly; no per-render refs needed.
   const viewStateSnapshotRef = useRef<ViewStateSnapshot | null>(null)
   const gearInspectorItemsRef = useRef<GearInspectorItem[]>(gearInspectorItems)
@@ -595,7 +595,7 @@ export function useTutorialCoachState({
         setSelectedSafeguardRuleIdx(null)
         setSafeguardsEnabled(snap.safeguardsEnabled)
         setRecipesEnabled(snap.recipesEnabled)
-        setSfrNote(snap.note)
+        setSfcNote(snap.note)
         setBuilder(snap.builder)
         setGearInspectorItems(snap.gearInspectorItems)
         setPreviewMode(snap.previewMode)
@@ -608,7 +608,7 @@ export function useTutorialCoachState({
     setCustomRecipes,
     setFinalSellRemainder,
     setHsf,
-    setSfrNote,
+    setSfcNote,
     setMetasets,
     setSubstatTargets,
     setSelectedRecipeIdx,
@@ -847,7 +847,7 @@ export function useTutorialCoachState({
       setSubstatTargets(defaultSubstatTargets())
       setFinalSellRemainder({ artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[], setsMode: FINAL_SELL_DEFAULT_SETS_MODE })
       setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_FINAL_SELL)
-      setSfrNote(null)
+      setSfcNote(null)
       setBuilder(TUTORIAL_INITIAL_BUILDER)
       // Reset all-modes filter state and gear inspector sort so the tutorial starts clean.
       resetRulesFilterPreferences()
@@ -1469,7 +1469,7 @@ export function useTutorialCoachState({
         id: 'export-explain',
         title: t('tutExportExplainTitle'),
         body: t('tutExportExplainBody'),
-        targetIds: ['hsf.export', 'sfr.save'],
+        targetIds: ['hsf.export', 'sfc.save'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null)
           setPreviewMode('rules')
@@ -1503,7 +1503,7 @@ export function useTutorialCoachState({
     setCustomRecipes,
     setLogicHubOpen,
     setFinalSellRemainder,
-    setSfrNote,
+    setSfcNote,
     setHsf,
     setMetasets,
     setSubstatTargets,
@@ -1843,7 +1843,7 @@ export function useTutorialCoachState({
       setLogicHubOpen(nextLogicHubOpen)
       setLogicHubDialogTab(nextLogicHubDialogTab)
       setBuilderMode(nextBuilderMode)
-      setSfrNote(nextNote)
+      setSfcNote(nextNote)
       setBuilder(nextBuilder)
       // Write the tutorial-added flags back so Next-button guards stay in sync
       // after any breadcrumb jump or backward navigation via this replay path.
@@ -1862,7 +1862,7 @@ export function useTutorialCoachState({
     setCustomRecipes,
     setFinalSellRemainder,
     setHsf,
-    setSfrNote,
+    setSfcNote,
     setMetasets,
     setSubstatTargets,
     setSelectedRecipeIdx,

@@ -215,7 +215,7 @@ const NOTE_CARD_WIDTHS: Record<NoteCardWidthPreset, { flexBasis: number; minWidt
 }
 
 // Match HTML comment bodies that declare recipe-overrides markers.
-// Legacy recipe-overrides marker aliases are accepted silently for old .sfr files.
+// Legacy recipe-overrides marker aliases are accepted silently for old .sfc files.
 const QUESTION_MARKER_KEYWORD_PATTERN = NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN
 const QUESTION_COMMENT_REGEX = new RegExp(`^\\s*(?:${QUESTION_MARKER_KEYWORD_PATTERN})\\b`, 'i')
 // Match raw HTML comment markers in the Markdown stream.
@@ -2585,7 +2585,7 @@ export default function NoteDialog({
   substatColors: Record<number, { fg: string; bg: string }>
   gearSummary: GearInspectorOutcomeSummary | null
   summaryProgressRatio: number
-  // Hide the edit entry point when the dialog auto-opens after SFR load.
+  // Hide the edit entry point when the dialog auto-opens after SFC load.
   hideEditButton: boolean
   // Merged rules + substat targets for the dungeon simulator embedded via <!-- dungeon-simulator -->.
   rules: HsfRuleWithRecipe[]

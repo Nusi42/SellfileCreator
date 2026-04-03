@@ -179,9 +179,9 @@ export type HistoryEntryDescriptor =
       next: string | null
       mode: NoteDescriptorMode
     }
-  // sfrLoaded records file import metadata.
+  // sfcLoaded records file import metadata.
   | {
-      kind: 'sfrLoaded'
+      kind: 'sfcLoaded'
       fileName?: string | null
     }
   // autosaveRestored records autosave metadata.

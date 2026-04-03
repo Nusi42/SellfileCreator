@@ -2,11 +2,11 @@ import { useCallback } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { APP_VERSION } from '../version'
 import {
-  buildSfrPayload,
+  buildSfcPayload,
   buildReadableRecipe,
   parseRecipesFromText,
-  parseSfrText,
-} from '../lib/sfrIO'
+  parseSfcText,
+} from '../lib/sfcIO'
 import type { BuilderRecipe, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
@@ -16,7 +16,7 @@ import { readTextSafe, writeTextSafe } from '../lib/clipboard'
 import { createRecipesInsertedDescriptor } from '../history/recipeCollectionDescriptors'
 import type { TranslateFn } from '../history/historyI18n'
 import { buildInsertionLocation, snapshotRecipeLabel } from '../history/historyLabelUtils'
-import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useSfrHistory'
+import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useSfcHistory'
 import { appendDescriptorDetails } from '../history/substatTargetDescriptors'
 import type { FinalSellDescriptorMode } from '../history/finalSellDescriptors'
 import { normalizeNoteValue, type NoteDescriptorMode } from '../history/noteDescriptors'
@@ -38,7 +38,7 @@ export type PendingImport = {
   afterIdx?: number
 }
 
-type PreparedSfrImport = {
+type PreparedSfcImport = {
   idMap: Map<string, string>
   toAdd: Metaset[]
   conflicts: string[]
@@ -66,11 +66,11 @@ type ApplyNoteChangeFn = (
   options?: { mode?: NoteDescriptorMode; publish?: boolean },
 ) => HistoryEntryDescriptor | null
 
-type UseSfrClipboardParams = {
+type UseSfcClipboardParams = {
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
   customRecipes: BuilderRecipe[]
-  sfrNote: string | null
+  sfcNote: string | null
   finalSellRemainder: FinalSellRemainderConfig
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
@@ -104,7 +104,7 @@ type UseSfrClipboardParams = {
   setCopyText: Dispatch<SetStateAction<string>>
 }
 
-export type UseSfrClipboardResult = {
+export type UseSfcClipboardResult = {
   insertIndexAfter: (list: BuilderRecipe[], idx: number) => number
   handlePasteText: (text: string) => boolean
   pasteAfterIndex: (idx: number) => Promise<void>
@@ -112,10 +112,10 @@ export type UseSfrClipboardResult = {
   handleCopyAllRecipes: () => Promise<void>
   handleCopyRecipe: (idx: number) => Promise<void>
   handlePasteAtEnd: () => Promise<void>
-  prepareSfrImport: (current: Metaset[], incoming: Metaset[], recipesIn: BuilderRecipe[]) => PreparedSfrImport
+  prepareSfcImport: (current: Metaset[], incoming: Metaset[], recipesIn: BuilderRecipe[]) => PreparedSfcImport
   finalizeImport: (
     baseCurrent: Metaset[],
-    prep: PreparedSfrImport,
+    prep: PreparedSfcImport,
     strategy: 'keepCurrent' | 'useIncoming' | 'keepBoth'
   ) => FinalizeImportResult
 }
@@ -146,16 +146,16 @@ const ensureReferencedMetasets = (base: Metaset[], recipes: BuilderRecipe[]): Me
 }
 
 /**
- * Centralizes SFR clipboard orchestration so App.tsx wires handlers instead of duplicating logic.
+ * Centralizes SFC clipboard orchestration so App.tsx wires handlers instead of duplicating logic.
  * - Note merging only replaces the current note when it is blank, matching the legacy behavior.
  * - Missing metaset IDs referenced by imported recipes receive generated placeholder entries so
- *   downstream lookups stay consistent even when the source SFR references hidden metasets.
+ *   downstream lookups stay consistent even when the source SFC references hidden metasets.
  */
-export function useSfrClipboard({
+export function useSfcClipboard({
   metasets,
   substatTargets,
   customRecipes,
-  sfrNote,
+  sfcNote,
   finalSellRemainder,
   safeguardRules,
   safeguardsEnabled,
@@ -187,7 +187,7 @@ export function useSfrClipboard({
   setSelectedRecipeIndices: _setSelectedRecipeIndices,
   setSelectionAnchor: _setSelectionAnchor,
   setPasteSelectOnEmpty: _setPasteSelectOnEmpty,
-}: UseSfrClipboardParams): UseSfrClipboardResult {
+}: UseSfcClipboardParams): UseSfcClipboardResult {
   void _setSelectedRecipeIndices
   void _setSelectionAnchor
   void _setPasteSelectOnEmpty
@@ -216,7 +216,7 @@ export function useSfrClipboard({
     return labels
   }, [])
 
-  const prepareSfrImport = useCallback((current: Metaset[], incoming: Metaset[], recipesIn: BuilderRecipe[]): PreparedSfrImport => {
+  const prepareSfcImport = useCallback((current: Metaset[], incoming: Metaset[], recipesIn: BuilderRecipe[]): PreparedSfcImport => {
     // name is the primary key; byIdCur is keyed by name
     const byIdCur = new Map(current.map(m => [m.name, m]))
     const byValCur = new Map<string, Metaset>()
@@ -282,7 +282,7 @@ export function useSfrClipboard({
 
   const finalizeImport = useCallback((
     baseCurrent: Metaset[],
-    prep: PreparedSfrImport,
+    prep: PreparedSfcImport,
     strategy: 'keepCurrent' | 'useIncoming' | 'keepBoth',
   ): FinalizeImportResult => {
     const { toAdd, conflicts: ids, conflictPairs } = prep
@@ -324,7 +324,7 @@ export function useSfrClipboard({
 
   const handlePasteText = useCallback((text: string): boolean => {
     try {
-      const parsed = parseSfrText(text, { metasets, substatTargets })
+      const parsed = parseSfcText(text, { metasets, substatTargets })
       const {
         recipes,
         metasets: nextMetas,
@@ -340,7 +340,7 @@ export function useSfrClipboard({
         setPasteErr('No valid recipe found in pasted text')
         return false
       }
-      const prep = prepareSfrImport(metasets, nextMetas, recipes)
+      const prep = prepareSfcImport(metasets, nextMetas, recipes)
       if (prep.conflicts.length) {
         setPendingImport({
           recipes: prep.recipesMapped,
@@ -370,7 +370,7 @@ export function useSfrClipboard({
         ? applyFinalSellChange(fsr, { mode: 'import', publish: false })
         : null
       const incomingNote = typeof note === 'string' ? note : null
-      const shouldApplyNote = !normalizeNoteValue(sfrNote) && Boolean(normalizeNoteValue(incomingNote))
+      const shouldApplyNote = !normalizeNoteValue(sfcNote) && Boolean(normalizeNoteValue(incomingNote))
       const noteDescriptor = shouldApplyNote
         ? applyNoteChange(incomingNote, { mode: 'import', publish: false })
         : null
@@ -447,11 +447,11 @@ export function useSfrClipboard({
     applySubstatTargetsChange,
     publishClipboardDescriptor,
     finalizeImport,
-    sfrNote,
+    sfcNote,
     makeInsertedLabels,
     metasets,
     substatTargets,
-    prepareSfrImport,
+    prepareSfcImport,
     selectedRecipeIdx,
     setConflictIds,
     setCustomRecipes,
@@ -472,7 +472,7 @@ export function useSfrClipboard({
     const text = await readTextSafe()
     if (text && text.trim()) {
       try {
-        const parsed = parseSfrText(text, { metasets, substatTargets })
+        const parsed = parseSfcText(text, { metasets, substatTargets })
         const {
           recipes,
           metasets: nextMetas,
@@ -485,7 +485,7 @@ export function useSfrClipboard({
           recipesEnabled: importedRecipesEnabled,
         } = parsed
         if (recipes.length > 0) {
-          const prep = prepareSfrImport(metasets, nextMetas, recipes)
+          const prep = prepareSfcImport(metasets, nextMetas, recipes)
           if (prep.conflicts.length) {
             setPendingImport({
               recipes: prep.recipesMapped,
@@ -514,7 +514,7 @@ export function useSfrClipboard({
             ? applyFinalSellChange(fsr, { mode: 'import', publish: false })
             : null
           const incomingNote = typeof note === 'string' ? note : null
-          const shouldApplyNote = !normalizeNoteValue(sfrNote) && Boolean(normalizeNoteValue(incomingNote))
+          const shouldApplyNote = !normalizeNoteValue(sfcNote) && Boolean(normalizeNoteValue(incomingNote))
           const noteDescriptor = shouldApplyNote
             ? applyNoteChange(incomingNote, { mode: 'import', publish: false })
             : null
@@ -596,11 +596,11 @@ export function useSfrClipboard({
     applySubstatTargetsChange,
     publishClipboardDescriptor,
     finalizeImport,
-    sfrNote,
+    sfcNote,
     makeInsertedLabels,
     metasets,
     substatTargets,
-    prepareSfrImport,
+    prepareSfcImport,
     setBuilder,
     setConflictIds,
     setCustomRecipes,
@@ -628,13 +628,13 @@ export function useSfrClipboard({
   }, [selectedRecipeIndices, pasteAfterIndex])
 
   const handleCopyAllRecipes = useCallback(async () => {
-    const payload = buildSfrPayload({
+    const payload = buildSfcPayload({
       version: APP_VERSION,
       metasets,
       substatTargets,
       recipes: customRecipes,
       finalSellRemainder,
-      ...(sfrNote && sfrNote.trim() ? { note: sfrNote } : {}),
+      ...(sfcNote && sfcNote.trim() ? { note: sfcNote } : {}),
       safeguardRules,
       safeguardsEnabled,
       recipesEnabled,
@@ -648,7 +648,7 @@ export function useSfrClipboard({
   }, [
     customRecipes,
     finalSellRemainder,
-    sfrNote,
+    sfcNote,
     metasets,
     substatTargets,
     safeguardRules,
@@ -716,7 +716,7 @@ export function useSfrClipboard({
     const text = await readTextSafe()
     if (text && text.trim()) {
       try {
-        const parsed = parseSfrText(text, { metasets, substatTargets })
+        const parsed = parseSfcText(text, { metasets, substatTargets })
         const {
           recipes,
           metasets: nextMetas,
@@ -729,7 +729,7 @@ export function useSfrClipboard({
           recipesEnabled: importedRecipesEnabled,
         } = parsed
         if (recipes.length > 0) {
-          const prep = prepareSfrImport(metasets, nextMetas, recipes)
+          const prep = prepareSfcImport(metasets, nextMetas, recipes)
           if (prep.conflicts.length) {
             setPendingImport({
               recipes: prep.recipesMapped,
@@ -758,7 +758,7 @@ export function useSfrClipboard({
             ? applyFinalSellChange(fsr, { mode: 'import', publish: false })
             : null
           const incomingNote = typeof note === 'string' ? note : null
-          const shouldApplyNote = !normalizeNoteValue(sfrNote) && Boolean(normalizeNoteValue(incomingNote))
+          const shouldApplyNote = !normalizeNoteValue(sfcNote) && Boolean(normalizeNoteValue(incomingNote))
           const noteDescriptor = shouldApplyNote
             ? applyNoteChange(incomingNote, { mode: 'import', publish: false })
             : null
@@ -833,11 +833,11 @@ export function useSfrClipboard({
     customRecipes,
     applySubstatTargetsChange,
     finalizeImport,
-    sfrNote,
+    sfcNote,
     makeInsertedLabels,
     metasets,
     substatTargets,
-    prepareSfrImport,
+    prepareSfcImport,
     setBuilder,
     setConflictIds,
     setCustomRecipes,
@@ -866,7 +866,7 @@ export function useSfrClipboard({
     handleCopyAllRecipes,
     handleCopyRecipe,
     handlePasteAtEnd,
-    prepareSfrImport,
+    prepareSfcImport,
     finalizeImport,
   }
 }

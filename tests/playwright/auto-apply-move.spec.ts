@@ -5,13 +5,13 @@ import { APP_GOTO_OPTIONS, APP_VERSION, prepareApp } from './app-init'
 import { openContextMenu } from './context-menu'
 import { dismissBlockingDialogs, RESTORE_DIALOG_TITLE } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
-import { SAMPLE_SMALL_SFR_PATH } from './fixture-paths'
+import { SAMPLE_SMALL_SFC_PATH } from './fixture-paths'
 import { warmupAppShell } from './app-warmup'
 import { AUTOSAVE_KEY } from '../../src/lib/constants'
 import { computeCrc32 } from '../../src/lib/autosave'
 
-// Load the slim SFR snapshot so the recipe names are stable and rebuilds stay fast.
-const SFR_PATH = SAMPLE_SMALL_SFR_PATH
+// Load the slim SFC snapshot so the recipe names are stable and rebuilds stay fast.
+const SFC_PATH = SAMPLE_SMALL_SFC_PATH
 // Target recipe names used throughout the auto-apply checks.
 const MARIUS_RECIPE_NAME = 'Optional: Marius Sets'
 const BASICS_RECIPE_NAME = 'Basics'
@@ -21,9 +21,9 @@ const MAIN_STAT_LABEL = 'SPD'
 const SUBSTAT_LABEL = 'ACC'
 
 const AUTO_APPLY_AUTOSAVE_ENTRY = (() => {
-  // Read the SFR fixture so we can seed autosave without file upload latency.
-  const raw = fs.readFileSync(SFR_PATH, 'utf-8')
-  // Parse the SFR JSON into a payload we can attach autosave metadata to.
+  // Read the SFC fixture so we can seed autosave without file upload latency.
+  const raw = fs.readFileSync(SFC_PATH, 'utf-8')
+  // Parse the SFC JSON into a payload we can attach autosave metadata to.
   const payload = JSON.parse(raw) as Record<string, unknown>
   // Ensure the payload uses the current app version for restore dialogs.
   const autosavePayload = {

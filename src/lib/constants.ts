@@ -60,8 +60,8 @@ export const SELLFILE_BUTTON_HEIGHT_PX = SMALL_BUTTON_HEIGHT_PX + 8
 export const BUILDER_STATUS_CHIP_HEIGHT_PX = 22
 export const STATUS_CHIP_BORDER_RADIUS_PX = 8
 
-// Autosave storage key for SFR sessions
-export const AUTOSAVE_KEY = 'sellfileCreator.autosave.sfr.v1'
+// Autosave storage key for SFC sessions
+export const AUTOSAVE_KEY = 'sellfileCreator.autosave.sfc.v1'
 // Autosave storage key for the Gear Inspector dialog item queue
 export const AUTOSAVE_GEAR_INSPECTOR_KEY = 'sellfileCreator.autosave.gearInspector.v1'
 // Persisted Sellfile Preview / Gear Inspector toggle selection
@@ -222,7 +222,8 @@ export const MARKDOWN_TOOLTIP_MAX_WIDTH_PX = 520
 export const GEAR_DB_FILE_EXTENSIONS = ['.db', '.sqlite', '.sqlite3'] as const
 const IMPORTABLE_FILE_EXTENSIONS = [
   '.hsf',
-  '.sfr',
+  '.sfc',
+  '.sfr',           // legacy; accepted for backward-compat
   '.hsfc',
   '.gearsets',
   '.gearsets.json',
@@ -233,8 +234,8 @@ const IMPORTABLE_FILE_EXTENSIONS = [
   'application/json',
 ] as const
 export const ACCEPT_HSF = IMPORTABLE_FILE_EXTENSIONS.join(',')
-export const ACCEPT_SFR = ACCEPT_HSF
-export const ACCEPT_SFR_FILE_DIALOG = '.sfr,.hsfc'
+export const ACCEPT_SFC = ACCEPT_HSF
+export const ACCEPT_SFC_FILE_DIALOG = '.sfc,.sfr'
 export const ACCEPT_HSF_OR_DB_FILE_DIALOG = [
   '.hsf',
   ...GEAR_DB_FILE_EXTENSIONS,
@@ -368,7 +369,7 @@ export const BUILDER_DIRTY_NUDGE_IDLE_MS = 300 * 1000
 export const BUILDER_DIRTY_ATTENTION_INTERVAL_MS = 5 * 1000
 
 // Final-sell level milestones and defaults
-// Why: These values are used in multiple places (UI, merge/export, SFR defaults)
+// Why: These values are used in multiple places (UI, merge/export, SFC defaults)
 // and must remain consistent. Centralizing avoids drift and keeps intent clear.
 export const FINAL_SELL_LEVEL_MILESTONES = [0, 4, 8, 12, 16] as const
 export const FINAL_SELL_DEFAULT_LEVELS = [0, 4, 8, 12] as const
@@ -496,7 +497,7 @@ export const SELLFILE_PUSH_PATH_SEGMENT = 'hsf'
 // still feeling responsive.
 export const BUILDER_AUTO_APPLY_DEBOUNCE_MS = 400
 
-// Rarity UI label for automatic resolution (SFR writes this label; HSF export
+// Rarity UI label for automatic resolution (SFC writes this label; HSF export
 // always uses a concrete rarity code). Keeping it centralized avoids string
 // drift across IO and UI.
 export const RARITY_AUTO_LABEL = 'Auto'
@@ -684,7 +685,7 @@ export const GEAR_INSPECTOR_ANY_SLOT_ID = 0
 // small Button in a single line.
 export const GEAR_INSPECTOR_RESULT_ROW_MIN_HEIGHT_PX = 36
 
-// Maximum width for the Gear Inspector config chip before truncating with ellipsis.
+// Maximum width for the Gear Inspector recipe chip before truncating with ellipsis.
 // Chosen to balance long names without forcing the row to wrap unexpectedly.
 export const GEAR_INSPECTOR_RECIPE_CHIP_MAX_WIDTH_PX = 520
 

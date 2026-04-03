@@ -1,7 +1,7 @@
 /**
  * PasteDialog
  *
- * Manual paste dialog for SFR content (single recipe, array, or full SFR).
+ * Manual paste dialog for SFC content (single recipe, array, or full SFC).
  */
 import { Dialog, DialogActions, DialogContent, DialogTitle, Button, TextField, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'

@@ -33,9 +33,9 @@ Sellfile Creator, RSL Helper için satış dosyaları oluşturmayı kolaylaştı
 ## Nasıl kullanılır
 
 ### Reçete dosyası
-- SFR (`.sfr`): Uygulamanın proje dosyası. Yükleyip paylaşabileceğiniz bir kayıt dosyası gibi düşünün. RSL Helper SFR’yi doğrudan okumaz.
+- SFC (`.sfc`): Uygulamanın proje dosyası. Yükleyip paylaşabileceğiniz bir kayıt dosyası gibi düşünün. RSL Helper SFC’yi doğrudan okumaz.
 - HSF (`.hsf`): RSL Helper’ın tükettiği Sellfile. Buradan dışa aktarın ve RSL Helper’a yükleyin.
-- Varsayılan kayıt adı: `SellfileCreatorRecipes_YYYYMMDD_HHMM.sfr`.
+- Varsayılan kayıt adı: `SellfileCreatorRecipes_YYYYMMDD_HHMM.sfc`.
 
 ### Reçete Oluşturucu
 - Reçete Oluşturucu alanlarını doldurun ve reçeteye net bir isim verin.
@@ -204,7 +204,7 @@ Araçlar'ı açıp **Gear Lens** sekmesine geçin — içe aktarılan ekipmanın
 - Önizleme başlığı `Rules`/`Ekipman Denetçisi` anahtarını, “Araçlar” düğmesini ve “Load RSL Helper Sellfile” düğmesini yan yana tutar; böylece tabloyu nereden değiştireceğinizi veya Ekipman diyaloğunu (Araçlar → Gear sekmesi) nereden açacağınızı her zaman bilirsiniz.
 - `Rules` görünümü (varsayılan): Dışa aktarılacak tüm kuralları, yüklediğiniz isteğe bağlı baz `.hsf` satırları dahil gösterir. Başlıktaki sayaçlar Keep vs Sell dağılımında kalır; filtre satırı Slot/Rütbe/Nadirlik/Seviye için Herhangi/Yalnızca (`Any/Only`) çiplerini ve iki Reçeteler düğmesini birlikte gösterir: `Daralt` çip görünürlüğünü kontrol eder, `Seçim` ise seçtiğiniz çiplere göre Sellfile satırlarını gizleyen basit Açık/Kapalı düğmesi olarak çalışır ve Ekipman Denetçisi’ne geçmeden önce bile hazır kalır.
 - `Ekipman Denetçisi` görünümü: Tabloyu içeri aktardığınız veya oluşturduğunuz öğelerin listesine çevirir, böylece Araçlar iletişim kutusunu yeniden açmadan inceleme yapabilirsiniz. Sayaçlar/rozetler Keep/Sell/Kapsam/Eşleşme yok kombinasyonuna, yani “ilk eşleşen reçete kazanır” kuralına göre geçer; filtre satırı ise `Daralt` ve `Seçim` düğmelerini korur. `Seçim` tri-state’i (`Off` → `İlk` → `Eşleşmeye göre`) bu görünümde Ekipman Denetçisi satırlarının İlk/Herhangi davranışını ayırır ve `Rules`’a döndüğünüzde de Sellfile satırlarını seçtiğiniz reçetelerle sınırlamaya devam eder. `.db` içe aktarmaları otomatik olarak bu görünüme geçer; istediğiniz zaman `Rules`’a dönebilirsiniz.
-- “Load RSL Helper Sellfile” sürükle-bırak ile aynı yönlendirmeyi paylaşır: `.sfr` oluşturucuyu değiştirir, `.hsf` isteğe bağlı baz Sellfile olarak katmanlanır ve `.db` dosyaları Ekipman Denetçisi’ne kuyruklanır (reçetelere dokunmadan). “Clear” düğmesi baz `.hsf` katmanını kaldırır.
+- “Load RSL Helper Sellfile” sürükle-bırak ile aynı yönlendirmeyi paylaşır: `.sfc` oluşturucuyu değiştirir, `.hsf` isteğe bağlı baz Sellfile olarak katmanlanır ve `.db` dosyaları Ekipman Denetçisi’ne kuyruklanır (reçetelere dokunmadan). “Clear” düğmesi baz `.hsf` katmanını kaldırır.
 - Palet simgesini kullanarak alt stat etiketleri için metin/arka plan renklerini düzenleyin.
 - `Rules` görünümünde tablo sütunları hâlâ “Idx” alanını içerir. `Ekipman Denetçisi` görünümünde bu alan yuva/set, eşya istatistikleri ve ilk eşleşen reçete rozetini gösterir; böylece her artefakta ne olacağını doğrudan önizleme içinde görebilirsiniz.
 

@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defaultSubstatTargets, type SellfileExportMode } from '../../src/lib/hsfBuilder.js'
-import { parseSfrObject } from '../../src/lib/sfrIO.js'
+import { parseSfcObject } from '../../src/lib/sfcIO.js'
 import { importGearDatabaseFromArrayBuffer } from '../../src/lib/importers/gearDbImporter.js'
 import {
   RULE_SOURCE_SAFEGUARDS,
@@ -37,7 +37,7 @@ const requireNonEmptyString = (value: unknown, fieldName: string): string => {
 // We read only the paths needed for this runner so the manifest remains
 // the machine-readable source of truth for fixture locations.
 type Sample2BundleManifest = {
-  sourceSfr: string
+  sourceSfc: string
   sharedDb: string
 }
 
@@ -48,9 +48,9 @@ const MANIFEST_PATH = resolve(ROOT_DIR, 'tests', 'data', 'sample2-bundle', 'mani
 // Read and minimally validate the manifest fields consumed by this runner.
 const loadManifest = (): Sample2BundleManifest => {
   const raw = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as Partial<Sample2BundleManifest>
-  const sourceSfr = requireNonEmptyString(raw.sourceSfr, 'sourceSfr')
+  const sourceSfc = requireNonEmptyString(raw.sourceSfc, 'sourceSfc')
   const sharedDb = requireNonEmptyString(raw.sharedDb, 'sharedDb')
-  return { sourceSfr, sharedDb }
+  return { sourceSfc, sharedDb }
 }
 
 // Convert Node Buffer slices into stable ArrayBuffer views for the importer.
@@ -83,17 +83,17 @@ const toPreviewMatch = (
 const main = async (): Promise<void> => {
   // Load fixture pointers from manifest so path updates stay centralized.
   const manifest = loadManifest()
-  const sfrPath = resolve(ROOT_DIR, manifest.sourceSfr)
+  const sfcPath = resolve(ROOT_DIR, manifest.sourceSfc)
   const dbPath = resolve(ROOT_DIR, manifest.sharedDb)
 
-  // Parse the source SFR exactly like app startup does.
-  const sfrRaw = JSON.parse(readFileSync(sfrPath, 'utf8'))
-  const parsed = parseSfrObject(sfrRaw, {
+  // Parse the source SFC exactly like app startup does.
+  const sfcRaw = JSON.parse(readFileSync(sfcPath, 'utf8'))
+  const parsed = parseSfcObject(sfcRaw, {
     metasets: [],
     substatTargets: defaultSubstatTargets(),
   })
   // Resolve metaset references up-front so safeguard inputs are explicit.
-  // sample2-bundle SFR always has safeguards; ?? [] is a type-system defensive fallback.
+  // sample2-bundle SFC always has safeguards; ?? [] is a type-system defensive fallback.
   const rawSafeguardRules = parsed.safeguardRules ?? []
   const safeguardRules = resolveSafeguardRulesWithMetasets(rawSafeguardRules, parsed.metasets)
   // Metaset resolution must not drop rules that do not use metasets.

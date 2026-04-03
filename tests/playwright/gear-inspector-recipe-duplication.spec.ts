@@ -10,12 +10,12 @@ import {
   RULES_FILTER_STATE_STORAGE_KEY,
   cloneDefaultRulesFilterState,
 } from '../../src/state/rulesFilterPersistence'
-import { SAMPLE_SMALL_SFR_PATH, SAMPLE_SMALL_DB_PATH } from './fixture-paths'
-import { SFR_LOAD_INPUT_SELECTOR } from './ui-selectors'
+import { SAMPLE_SMALL_SFC_PATH, SAMPLE_SMALL_DB_PATH } from './fixture-paths'
+import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { warmupAppShell } from './app-warmup'
 
-// Use the slim SFR fixture so config duplication stays fast across browsers.
-const SFR_PATH = SAMPLE_SMALL_SFR_PATH
+// Use the slim SFC fixture so config duplication stays fast across browsers.
+const SFC_PATH = SAMPLE_SMALL_SFC_PATH
 // Use the slim DB fixture to keep Gear Inspector setup fast across browsers.
 const DB_PATH = SAMPLE_SMALL_DB_PATH
 const TARGET_CONFIG_INDEX = 2 // zero-based: config #3
@@ -136,14 +136,14 @@ test.describe('Gear Inspector grid matches remain stable', () => {
     await page.goto('/', APP_GOTO_OPTIONS)
     await dismissBlockingDialogs(page)
 
-    // Load the SFR + gear DB pair from the shared fixtures.
-    // Use the stable SFR selector so the button label can remain localized.
-    const sfrInput = page.locator(SFR_LOAD_INPUT_SELECTOR).first()
-    // Wait for the SFR input to attach so slow boots do not hit action timeouts.
-    await sfrInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
-    // Ensure the SFR input is enabled before uploading the fixture.
-    await expect(sfrInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-    await sfrInput.setInputFiles(SFR_PATH)
+    // Load the SFC + gear DB pair from the shared fixtures.
+    // Use the stable SFC selector so the button label can remain localized.
+    const sfcInput = page.locator(SFC_LOAD_INPUT_SELECTOR).first()
+    // Wait for the SFC input to attach so slow boots do not hit action timeouts.
+    await sfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
+    // Ensure the SFC input is enabled before uploading the fixture.
+    await expect(sfcInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    await sfcInput.setInputFiles(SFC_PATH)
     const dbInput = page.locator('input[type="file"][accept*=".db"]').first()
     // Wait for the DB input to attach so slow boots do not hit action timeouts.
     await dbInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })

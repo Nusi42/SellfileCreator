@@ -122,7 +122,7 @@ export type SafeguardRuleCountMode = {
   perSlot: boolean
 }
 
-// Mirrors the default scope-chip state (slot+set+faction+main) so SFR imports and tutorials stay aligned.
+// Mirrors the default scope-chip state (slot+set+faction+main) so SFC imports and tutorials stay aligned.
 export const SAFEGUARD_DEFAULT_COUNT_MODE: SafeguardRuleCountMode = {
   perRule: SAFEGUARD_DEFAULT_COUNT_MODE_PER_RULE,
   perSet: SAFEGUARD_DEFAULT_COUNT_MODE_PER_SET,
@@ -513,7 +513,7 @@ export function hashSafeguardCombination(combination: SafeguardCombination): str
   return hashSafeguardCombinationWithLoadedWasm(combination)
 }
 
-// Name lookups keep SFR tuple fields readable while still resolving back to
+// Name lookups keep SFC tuple fields readable while still resolving back to
 // enum IDs from TS domain constants (single source of truth for label -> id).
 const artifactTypeIdByName = new Map<string, ArtifactTypeId>(
   Object.entries(artifactTypeNames).map(([id, label]) => [label.trim().toLowerCase(), Number(id) as ArtifactTypeId]),
@@ -529,7 +529,7 @@ const factionIdByName = new Map<string, FactionId>(
     .map(([id, name]) => [name.trim().toLowerCase(), Number(id) as FactionId]),
 )
 
-// Rarity labels in readable SFR payloads resolve through this reverse map.
+// Rarity labels in readable SFC payloads resolve through this reverse map.
 const rarityCodeByName = new Map<string, RankValue>(
   Object.entries(rarityNames)
     .filter(([, name]) => Boolean(name && name.trim()))
@@ -712,7 +712,7 @@ export const sortSafeguardCombination = (combination: SafeguardCombination): Saf
   ...(sortSafeguardCombinationWithLoadedWasm(combination)),
 })
 
-/** Normalize combination payloads loaded from SFR/autosave. */
+/** Normalize combination payloads loaded from SFC/autosave. */
 export function normalizeSafeguardCombination(value: unknown): SafeguardCombination | null {
   const record = toRecord(value)
   if (!record) return null

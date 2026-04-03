@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// File-based recipe bundle (.sfr / legacy .hsfc) → HSF end-to-end tests.
+// File-based recipe bundle (.sfc / legacy .sfr / .hsfc) → HSF end-to-end tests.
 // Each case has two files in tests/fixtures/:
-//  - <name>.sfr   (input, human-readable recipe payload)
+//  - <name>.sfc   (input, human-readable recipe payload)
 //  - <name>.hsf   (expected HSF rules array)
-//  The runner also accepts legacy suffixes .hsfc / .hsfc.json / .hsf.json for compatibility.
+//  The runner also accepts legacy suffixes .sfr / .sfr.json / .hsfc / .hsfc.json / .hsf.json for compatibility.
 //
 // Assertions:
 // 1) Exact structural equality against expected after canonicalization
@@ -16,7 +16,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildHsfRules, defaultSubstatTargets, type BuilderRecipe, type SubstatTargetTable } from '../../src/lib/hsfBuilder.js'
 import { ArtifactType, StatVariant } from '../../src/lib/types.js'
-import { normalizeRecipe, buildReadableRecipe, parseSfrObject } from '../../src/lib/sfrIO.js'
+import { normalizeRecipe, buildReadableRecipe, parseSfcObject } from '../../src/lib/sfcIO.js'
 import { computeMergedRules } from '../../src/lib/merge.js'
 import { ACCESSORY_NO_SET_ID } from '../../src/lib/constants.js'
 import { FINAL_SELL_DEFAULT_SETS_MODE, FINAL_SELL_SETS_MODE_ANY } from '../../src/lib/logicHub.js'
@@ -59,49 +59,51 @@ function deepEqual(a: any, b: any): boolean { return JSON.stringify(a) === JSON.
 const ROOT_DIR = process.cwd()
 const FIXTURES_DIR = resolve(ROOT_DIR, 'tests', 'fixtures')
 
-type FixtureCase = { base: string; sfrPath: string; hsfPath: string }
+type FixtureCase = { base: string; sfcPath: string; hsfPath: string }
 type FixturePrep = { fixturesDir: string; cases: FixtureCase[] }
 
 function prepareFixtures(): FixturePrep {
   const entries = readdirSync(FIXTURES_DIR, { withFileTypes: true })
     .filter((d) => d.isFile())
     .map(d => d.name)
-  const sfrFiles = entries.filter(n => (
-    n.endsWith('.sfr')
+  const sfcFiles = entries.filter(n => (
+    n.endsWith('.sfc')
+    || n.endsWith('.sfc.json')
+    || n.endsWith('.sfr')       // legacy extension
     || n.endsWith('.sfr.json')
     || n.endsWith('.hsfc')
     || n.endsWith('.hsfc.json')
   ))
   const hsfFiles = entries.filter(n => n.endsWith('.hsf') || n.endsWith('.hsf.json'))
-  const baseOf = (n: string) => n.replace(/\.(sfr|hsfc|hsf)(\.json)?$/, '')
-  const sfrBases = new Set(sfrFiles.map(baseOf))
+  const baseOf = (n: string) => n.replace(/\.(sfc|sfr|hsfc|hsf)(\.json)?$/, '')
+  const sfcBases = new Set(sfcFiles.map(baseOf))
   const hsfBases = new Set(hsfFiles.map(baseOf))
   const missingHsf: string[] = []
-  const missingSfr: string[] = []
-  for (const b of sfrBases) if (!hsfBases.has(b)) missingHsf.push(b)
-  for (const b of hsfBases) if (!sfrBases.has(b)) missingSfr.push(b)
-  if (missingHsf.length || missingSfr.length) {
+  const missingSfc: string[] = []
+  for (const b of sfcBases) if (!hsfBases.has(b)) missingHsf.push(b)
+  for (const b of hsfBases) if (!sfcBases.has(b)) missingSfc.push(b)
+  if (missingHsf.length || missingSfc.length) {
     const lines: string[] = []
     if (missingHsf.length) lines.push(`Missing .hsf for: ${missingHsf.join(', ')}`)
-    if (missingSfr.length) lines.push(`Missing .sfr/.hsfc for: ${missingSfr.join(', ')}`)
+    if (missingSfc.length) lines.push(`Missing .sfc/.sfr/.hsfc for: ${missingSfc.join(', ')}`)
     throw new Error(`Fixture pairing error.\n${lines.join('\n')}`)
   }
-  const cases: FixtureCase[] = sfrFiles.map((f) => {
-    const base = f.replace(/\.(sfr|hsfc)(\.json)?$/, '')
-    const sfrPath = resolve(FIXTURES_DIR, f)
+  const cases: FixtureCase[] = sfcFiles.map((f) => {
+    const base = f.replace(/\.(sfc|sfr|hsfc)(\.json)?$/, '')
+    const sfcPath = resolve(FIXTURES_DIR, f)
     const hasHsf = hsfFiles.includes(`${base}.hsf`)
     const hsfPath = resolve(FIXTURES_DIR, hasHsf ? `${base}.hsf` : `${base}.hsf.json`)
-    return { base, sfrPath, hsfPath }
+    return { base, sfcPath, hsfPath }
   })
   return { fixturesDir: FIXTURES_DIR, cases }
 }
 
 const PREPARED_FIXTURES: FixturePrep = prepareFixtures()
 
-export const CASES: ReadonlyArray<{ name: string; sfr: Record<string, unknown> }> = Object.freeze(
-  PREPARED_FIXTURES.cases.map(({ base, sfrPath }) => ({
+export const CASES: ReadonlyArray<{ name: string; sfc: Record<string, unknown> }> = Object.freeze(
+  PREPARED_FIXTURES.cases.map(({ base, sfcPath }) => ({
     name: base,
-    sfr: JSON.parse(readFileSync(sfrPath, 'utf8')) as Record<string, unknown>,
+    sfc: JSON.parse(readFileSync(sfcPath, 'utf8')) as Record<string, unknown>,
   }))
 );
 
@@ -111,11 +113,11 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
   let failed = 0
   for (const c of cases) {
     try {
-      const sfr = JSON.parse(readFileSync(c.sfrPath, 'utf8'))
+      const sfc = JSON.parse(readFileSync(c.sfcPath, 'utf8'))
       const expectedRaw = JSON.parse(readFileSync(c.hsfPath, 'utf8'))
       assert(Array.isArray(expectedRaw), `${c.base}: expected HSF file to be a JSON array`)
 
-      const parsed = parseSfrObject(sfr, { metasets: [], substatTargets: defaultSubstatTargets() })
+      const parsed = parseSfcObject(sfc, { metasets: [], substatTargets: defaultSubstatTargets() })
       const merged = computeMergedRules({
         hsf: null,
         customRecipes: parsed.recipes,
@@ -427,6 +429,6 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
   if (failed > 0) process.exit(1)
 }
 
-if (!(typeof process !== 'undefined' && process?.env?.SFR_DUMP === '1')) {
+if (!(typeof process !== 'undefined' && process?.env?.SFC_DUMP === '1')) {
   void run()
 }

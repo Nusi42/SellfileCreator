@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { getMetasetDependencyIssues } from '../../src/lib/sfrImportSelection.js'
+import { getMetasetDependencyIssues } from '../../src/lib/sfcImportSelection.js'
 
 // Recipes that reference incoming metasets must require metaset import/restore.
 test('recipes cannot be imported without metasets when incoming metasets are referenced', () => {
@@ -35,4 +35,4 @@ test('importing metasets satisfies recipe and safeguard dependency checks', () =
   assert.deepEqual(issues, [])
 })
 
-export const __sfrImportSelectionTestMarker = true
+export const __sfcImportSelectionTestMarker = true

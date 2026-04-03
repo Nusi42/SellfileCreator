@@ -29,7 +29,7 @@ import {
   describeMetasetsReset,
   describeMetasetConflictResolved,
 } from './metasetDescriptors'
-import { describeSfrLoaded, describeAutosaveRestored } from './bulkLoadDescriptors'
+import { describeSfcLoaded, describeAutosaveRestored } from './bulkLoadDescriptors'
 import { describeSafeguardsEnabledChange, describeSafeguardsRulesChange } from './safeguardsDescriptors'
 import { formatRecipeLabel } from './historyLabelUtils'
 import type { RecipeLabelSnapshot } from './historyLabelUtils'
@@ -216,9 +216,9 @@ export const resolveHistoryEntryDescriptor = (
         mode: descriptor.mode,
         t: ctx.t,
       })
-    case 'sfrLoaded':
-      // SFR load entries show file name when present.
-      return describeSfrLoaded({
+    case 'sfcLoaded':
+      // SFC load entries show file name when present.
+      return describeSfcLoaded({
         fileName: descriptor.fileName ?? null,
         t: ctx.t,
       })

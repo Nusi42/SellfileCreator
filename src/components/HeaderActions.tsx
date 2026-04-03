@@ -1,6 +1,6 @@
 import { Box, Button, Chip, Typography } from '@mui/material'
 import type { MouseEvent } from 'react'
-import { ACCEPT_SFR_FILE_DIALOG, ELLIPSIS_TEXT_SX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
+import { ACCEPT_SFC_FILE_DIALOG, ELLIPSIS_TEXT_SX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
 import FilePickerButton from './FilePickerButton'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
@@ -10,27 +10,27 @@ import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
 
 export default function HeaderActions(props: {
-  onAboutToOpenSfr?: (event: MouseEvent<HTMLButtonElement>) => void
+  onAboutToOpenSfc?: (event: MouseEvent<HTMLButtonElement>) => void
   onSelectFile: (file: File, context?: { shiftKey?: boolean }) => void
-  onSaveSfr: () => void
+  onSaveSfc: () => void
   onOpenNote: () => void
   notePresent: boolean
   count: number
   selectedCount: number
   visibleCount: number
-  sfrDirty: boolean
+  sfcDirty: boolean
   chipLabel?: string
 }) {
   const {
-    onAboutToOpenSfr,
+    onAboutToOpenSfc,
     onSelectFile,
-    onSaveSfr,
+    onSaveSfc,
     onOpenNote,
     notePresent,
     count,
     selectedCount,
     visibleCount,
-    sfrDirty,
+    sfcDirty,
   } = props
   const { t } = useI18n()
   const recipeChipLabel = formatRecipesCount(
@@ -107,21 +107,21 @@ export default function HeaderActions(props: {
           <FilePickerButton
             label={t('loadRecipes')}
             startIcon={<UploadFileIcon />}
-            accept={ACCEPT_SFR_FILE_DIALOG}
-            onBeforeOpen={(event) => { onAboutToOpenSfr?.(event) }}
+            accept={ACCEPT_SFC_FILE_DIALOG}
+            onBeforeOpen={(event) => { onAboutToOpenSfc?.(event) }}
             onSelect={onSelectFile}
-            data-tour-id="sfr.load"
+            data-tour-id="sfc.load"
             labelMaxWidth={LONG_LABEL_BUTTON_MAX_WIDTH_PX}
             sx={{ flexShrink: 1, minWidth: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, ml: 2 }}
           />
         </MarkdownTooltip>
-        <DirtyBadge active={sfrDirty} sx={{ flexShrink: 1, minWidth: 0, display: 'inline-flex' }}>
+        <DirtyBadge active={sfcDirty} sx={{ flexShrink: 1, minWidth: 0, display: 'inline-flex' }}>
           <MarkdownTooltip markdown={t('saveAllRecipesTooltip')}>
             <Button
               startIcon={<SaveIcon />}
-              onClick={onSaveSfr}
+              onClick={onSaveSfc}
               disabled={false}
-              data-tour-id="sfr.save"
+              data-tour-id="sfc.save"
               sx={{ maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden', flexShrink: 1, minWidth: 0 }}
             >
               <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX} data-ellipsis-target>

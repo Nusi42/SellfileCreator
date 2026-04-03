@@ -1,7 +1,7 @@
 /*
  * rule_engine_native — C/C++ integration example and smoke test.
  *
- * Loads the DLL at runtime, calls sfr_generate with a hardcoded NativeInput,
+ * Loads the DLL at runtime, calls sfc_generate with a hardcoded NativeInput,
  * validates the output, and exits 0 on success / 1 on any failure.
  * Suitable as a CI sanity test on both Linux (debug .so) and Windows (.dll).
  *
@@ -43,8 +43,8 @@
   static std::string dll_error() { const char* e = dlerror(); return e ? e : "(unknown)"; }
 #endif
 
-typedef char* (*SfrGenerateFn)(const char*);
-typedef void  (*SfrFreeFn)(char*);
+typedef char* (*SfcGenerateFn)(const char*);
+typedef void  (*SfcFreeFn)(char*);
 
 /* Minimal JSON helpers — avoids a JSON library dependency. */
 static bool json_has_key(const std::string& json, const char* key) {
@@ -69,8 +69,8 @@ static bool json_array_nonempty(const std::string& json, const char* key) {
 
 /* ─── NativeInput — embedded test payload ─────────────────────────────────── */
 
-/* SFR: one "keep 5★ Epic with any SPD" recipe, safeguards disabled. */
-static const char* SFR_CONTENT =
+/* SFC: one "keep 5★ Epic with any SPD" recipe, safeguards disabled. */
+static const char* SFC_CONTENT =
     "{"
     "  \"Version\": \"1.0\","
     "  \"Recipes\": ["
@@ -111,24 +111,24 @@ static const char* ARTIFACT_ARRAY =
     "  }"
     "]";
 
-/* Build the outer NativeInput JSON, embedding the SFR as a JSON string value. */
+/* Build the outer NativeInput JSON, embedding the SFC as a JSON string value. */
 static std::string build_input() {
-    /* Escape the SFR string so it can be embedded as a JSON string value. */
-    std::string sfr_escaped;
-    sfr_escaped.reserve(512);
-    for (const char* p = SFR_CONTENT; *p; ++p) {
+    /* Escape the SFC string so it can be embedded as a JSON string value. */
+    std::string sfc_escaped;
+    sfc_escaped.reserve(512);
+    for (const char* p = SFC_CONTENT; *p; ++p) {
         switch (*p) {
-            case '"':  sfr_escaped += "\\\""; break;
-            case '\\': sfr_escaped += "\\\\"; break;
-            case '\n': sfr_escaped += "\\n";  break;
-            case '\r': sfr_escaped += "\\r";  break;
-            default:   sfr_escaped += *p;
+            case '"':  sfc_escaped += "\\\""; break;
+            case '\\': sfc_escaped += "\\\\"; break;
+            case '\n': sfc_escaped += "\\n";  break;
+            case '\r': sfc_escaped += "\\r";  break;
+            default:   sfc_escaped += *p;
         }
     }
     std::string result;
     result.reserve(1024);
-    result += "{\"sfr\": \"";
-    result += sfr_escaped;
+    result += "{\"sfc\": \"";
+    result += sfc_escaped;
     result += "\", \"artifacts\": ";
     result += ARTIFACT_ARRAY;
     result += "}";
@@ -153,9 +153,9 @@ int main(int argc, char* argv[]) {
     }
 
     /* Resolve entry points. */
-    auto sfr_generate = reinterpret_cast<SfrGenerateFn>(DLL_SYM(lib, "sfr_generate"));
-    auto sfr_free_fn  = reinterpret_cast<SfrFreeFn>(DLL_SYM(lib, "sfr_free"));
-    if (!sfr_generate || !sfr_free_fn) {
+    auto sfc_generate = reinterpret_cast<SfcGenerateFn>(DLL_SYM(lib, "sfc_generate"));
+    auto sfc_free_fn  = reinterpret_cast<SfcFreeFn>(DLL_SYM(lib, "sfc_free"));
+    if (!sfc_generate || !sfc_free_fn) {
         fprintf(stderr, "[example] FAIL: could not resolve symbols: %s\n", dll_error().c_str());
         DLL_CLOSE(lib);
         return 1;
@@ -164,15 +164,15 @@ int main(int argc, char* argv[]) {
 
     /* Build and call. */
     std::string input_json = build_input();
-    printf("[example] Calling sfr_generate (%zu bytes)...\n", input_json.size());
-    char* output = sfr_generate(input_json.c_str());
+    printf("[example] Calling sfc_generate (%zu bytes)...\n", input_json.size());
+    char* output = sfc_generate(input_json.c_str());
     if (!output) {
-        fprintf(stderr, "[example] FAIL: sfr_generate returned NULL\n");
+        fprintf(stderr, "[example] FAIL: sfc_generate returned NULL\n");
         DLL_CLOSE(lib);
         return 1;
     }
     std::string result(output);
-    sfr_free_fn(output);
+    sfc_free_fn(output);
     DLL_CLOSE(lib);
 
     printf("[example] Output (%zu bytes): %.200s%s\n",

@@ -38,7 +38,7 @@ import {
 } from './safeguards'
 import {
   RULE_SOURCE_HSF,
-  RULE_SOURCE_SFR,
+  RULE_SOURCE_SFC,
   RULE_SOURCE_SAFEGUARDS,
 } from './ruleSources'
 import type { RuleSource } from './ruleSources'
@@ -46,7 +46,7 @@ export {
   KEEP_OVERRIDE_RULE_SOURCES,
   RULE_SOURCE_FINAL_SELL,
   RULE_SOURCE_HSF,
-  RULE_SOURCE_SFR,
+  RULE_SOURCE_SFC,
   RULE_SOURCE_SAFEGUARDS,
   isKeepOverrideRuleSource,
   type RuleSource,
@@ -162,7 +162,7 @@ export function buildRulesForRecipe(params: {
     // Always pass through the selected finalizer so merge/order/prune behavior
     // comes from one implementation across app + worker + tests.
     const finalized = finalizeGeneratedRules({ entries: generatedEntries, applyObsoletePruning })
-    return finalized.map((rule): HsfRuleWithRecipe => ({ ...rule, __source: RULE_SOURCE_SFR }))
+    return finalized.map((rule): HsfRuleWithRecipe => ({ ...rule, __source: RULE_SOURCE_SFC }))
   } catch (error) {
     if (error instanceof RuleLimitReachedError) {
       options?.onLimit?.()

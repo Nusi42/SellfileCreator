@@ -14,6 +14,6 @@ export function sellfileFilename(date?: Date): string {
   return `Sellfile_${buildTimestamp(date)}.hsf`
 }
 
-export function sfrFilename(date?: Date): string {
-  return `SellfileCreatorRecipes_${buildTimestamp(date)}.sfr`
+export function sfcFilename(date?: Date): string {
+  return `SellfileCreatorRecipes_${buildTimestamp(date)}.sfc`
 }

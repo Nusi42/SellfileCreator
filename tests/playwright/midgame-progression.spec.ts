@@ -8,8 +8,8 @@
  * Equivalently: later tiers may only add to the sell set, never remove from it.
  *
  * Run against all three example databases so coverage spans different account
- * inventories. Expects the EXAMPLE_NUSI_SFR_PATH fixture to include the Midgame,
- * Lategame, and Endgame recipe override checkboxes in example.sfr.
+ * inventories. Expects the EXAMPLE_NUSI_SFC_PATH fixture to include the Midgame,
+ * Lategame, and Endgame recipe override checkboxes in example.sfc.
  */
 import path from 'node:path'
 import { type Browser, type Page } from '@playwright/test'
@@ -18,8 +18,8 @@ import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { NOTE_DIALOG_TITLES, NOTE_DIALOG_CLOSE_LABEL } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { getWorkloadIndicator } from './workload-indicator'
-import { EXAMPLE_NUSI_SFR_PATH } from './fixture-paths'
-import { PREVIEW_PAPER_SELECTOR, SFR_LOAD_INPUT_SELECTOR } from './ui-selectors'
+import { EXAMPLE_NUSI_SFC_PATH } from './fixture-paths'
+import { PREVIEW_PAPER_SELECTOR, SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { PREVIEW_MODE_STORAGE_KEY } from '../../src/lib/constants'
 
 // Example database bundled in the repo for smoke coverage.
@@ -93,12 +93,12 @@ const readGearInspectorSnapshot = async (page: Page): Promise<GearOutcomeRow[]> 
 
 /**
  * Load the app in a fresh browser context, select the target mode in the
- * note dialog that auto-opens after SFR import, then load the DB and collect
+ * note dialog that auto-opens after SFC import, then load the DB and collect
  * gear inspector outcomes after the single WASM pass completes.
  *
  * Contexts run sequentially (not in parallel) so each WASM pass has full CPU
  * and stays within the 15 s per-step timeout. Running in parallel would cause
- * CPU contention that pushes WASM evaluation and SFR rendering past the budget.
+ * CPU contention that pushes WASM evaluation and SFC rendering past the budget.
  */
 const collectOutcomesForMode = async (
   browser: Browser,
@@ -120,15 +120,15 @@ const collectOutcomesForMode = async (
     await prepareApp(page)
     await page.goto('/', APP_GOTO_OPTIONS)
 
-    // Load example.sfr — the note dialog auto-opens after import.
-    const sfrInput = page.locator(SFR_LOAD_INPUT_SELECTOR).first()
-    await sfrInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
-    await expect(sfrInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-    await sfrInput.setInputFiles(EXAMPLE_NUSI_SFR_PATH)
+    // Load example.sfc — the note dialog auto-opens after import.
+    const sfcInput = page.locator(SFC_LOAD_INPUT_SELECTOR).first()
+    await sfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
+    await expect(sfcInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    await sfcInput.setInputFiles(EXAMPLE_NUSI_SFC_PATH)
 
     // Use page.waitForFunction to find and click the mode checkbox in the note dialog.
     // Scanning inputs directly inside [role="dialog"] avoids Playwright locator
-    // re-resolution, which times out when the DOM is in flux from 194-recipe SFR
+    // re-resolution, which times out when the DOM is in flux from 194-recipe SFC
     // processing. The function polls the raw DOM every ~100 ms; each retry is a fresh
     // synchronous scan that is immune to React element churn during active rendering.
     await page.waitForFunction(
@@ -154,7 +154,7 @@ const collectOutcomesForMode = async (
       { timeout: PLAYWRIGHT_TIMEOUTS.expectLong },
     )
 
-    // Close the dialog — checkbox click is done; SFR processing is settled so locators are stable.
+    // Close the dialog — checkbox click is done; SFC processing is settled so locators are stable.
     const noteDialog = page.getByRole('dialog', { name: NOTE_DIALOG_TITLES[0] })
       .or(page.getByRole('dialog', { name: NOTE_DIALOG_TITLES[1] }))
     const closeButton = noteDialog.getByRole('button', { name: NOTE_DIALOG_CLOSE_LABEL })
@@ -201,9 +201,9 @@ const soldSet = (rows: GearOutcomeRow[]): Set<number> => (
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 // File-level warmup — runs once before any describe block in this file.
-// Waits for the SFR input to attach (requires Vite compile + React mount), which
+// Waits for the SFC input to attach (requires Vite compile + React mount), which
 // guarantees a warm compile cache before the sequential pages start. Without this,
-// the first page's sfrInput.waitFor can exceed appGoto (15 s) on a cold compile.
+// the first page's sfcInput.waitFor can exceed appGoto (15 s) on a cold compile.
 test.beforeAll(async ({ browser }) => {
   // 30 s covers a cold Vite first-compile; subsequent runs see a warm cache.
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
@@ -212,9 +212,9 @@ test.beforeAll(async ({ browser }) => {
   try {
     await prepareApp(warmupPage)
     await warmupPage.goto('/', APP_GOTO_OPTIONS)
-    // Wait for the SFR file input — this element only attaches after Vite has compiled
+    // Wait for the SFC file input — this element only attaches after Vite has compiled
     // all modules and React has fully mounted. catch so warmup stays best-effort.
-    await warmupPage.locator(SFR_LOAD_INPUT_SELECTOR).first()
+    await warmupPage.locator(SFC_LOAD_INPUT_SELECTOR).first()
       .waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
       .catch(() => undefined)
   } finally {
@@ -231,7 +231,7 @@ for (const { name: dbName, path: dbPath } of SAMPLE_DBS) {
     test.beforeAll(async ({ browser }) => {
       // Allow time for three sequential WASM passes, each in its own fresh context.
       // Contexts run one at a time so no CPU contention inflates step durations.
-      // testXL (90 s) covers: 3 × (page boot ~2 s + SFR+dialog ~5 s + WASM ~10 s) with 2× CI load.
+      // testXL (90 s) covers: 3 × (page boot ~2 s + SFC+dialog ~5 s + WASM ~10 s) with 2× CI load.
       test.setTimeout(PLAYWRIGHT_TIMEOUTS.testXL)
 
       // Collect outcomes for each mode in sequence — one fresh context per mode.

@@ -4,14 +4,14 @@ import type { Metaset } from '../lib/metasets'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import type { MultiEditDraftState } from '../lib/recipeMultiEditDraft'
 import {
-  useSfrHistory,
-  type SfrSnapshot,
+  useSfcHistory,
+  type SfcSnapshot,
   type HistoryEntryDescriptor,
   type HistoryPreview,
   type DescribeNextChangeFn,
   type SuppressNextSnapshotFn,
   type HistoryTimelineEntry,
-} from './useSfrHistory'
+} from './useSfcHistory'
 import type { SafeguardRule } from '../lib/safeguards'
 import { stableSerialize } from '../lib/stableSerialize'
 
@@ -23,7 +23,7 @@ type Params = {
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
   recipesEnabled: boolean
-  sfrNote: string | null
+  sfcNote: string | null
   selectedRecipeIdx: number | null
   selectedRecipeIndices: number[]
   selectionAnchor: number | null
@@ -38,7 +38,7 @@ type Params = {
   setSafeguardRules: (value: SetStateAction<SafeguardRule[]>) => void
   setSafeguardsEnabled: (value: SetStateAction<boolean>) => void
   setRecipesEnabled: (value: SetStateAction<boolean>) => void
-  setSfrNote: (value: SetStateAction<string | null>) => void
+  setSfcNote: (value: SetStateAction<string | null>) => void
   setSelectedRecipeIdx: (value: SetStateAction<number | null>) => void
   setSelectedRecipeIndices: (value: number[], options?: { suppressWillChange?: boolean }) => void
   setSelectionAnchor: (value: SetStateAction<number | null>) => void
@@ -73,7 +73,7 @@ type ControllerResult = {
   clearHistory: () => void
 }
 
-export function useSfrHistoryController(params: Params): ControllerResult {
+export function useSfcHistoryController(params: Params): ControllerResult {
   const {
   customRecipes,
   metasets,
@@ -82,7 +82,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
   safeguardRules,
   safeguardsEnabled,
   recipesEnabled,
-  sfrNote,
+  sfcNote,
     selectedRecipeIdx,
     selectedRecipeIndices,
     selectionAnchor,
@@ -97,7 +97,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
   setSafeguardRules,
   setSafeguardsEnabled,
   setRecipesEnabled,
-  setSfrNote,
+  setSfcNote,
     setSelectedRecipeIdx,
     setSelectedRecipeIndices,
     setSelectionAnchor,
@@ -137,7 +137,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
       safeguardRules,
       safeguardsEnabled,
       recipesEnabled,
-      note: sfrNote ?? null,
+      note: sfcNote ?? null,
       selectedRecipeIdx: selectedIdx,
       selectedRecipeIndices,
       selectionAnchor,
@@ -156,7 +156,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
       safeguardRules,
       safeguardsEnabled,
       recipesEnabled,
-      note: sfrNote ?? null,
+      note: sfcNote ?? null,
     })
     return { payloadTemplate, signature }
   }, [
@@ -165,7 +165,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
     metasets,
     substatTargets,
     finalSellRemainder,
-    sfrNote,
+    sfcNote,
     multiEditDraft,
     safeSelectedIndex,
     selectedRecipeIndices,
@@ -190,7 +190,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
     return { payload, signature }
   }, [builderNameDraft, builderNameDraftKey, historyBaseStrings])
 
-  const applySnapshot = useCallback((snap: SfrSnapshot) => {
+  const applySnapshot = useCallback((snap: SfcSnapshot) => {
     setCustomRecipes(snap.customRecipes)
     setMetasets(snap.metasets)
     setSubstatTargets(snap.substatTargets)
@@ -198,7 +198,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
     setSafeguardRules(snap.safeguardRules)
     setSafeguardsEnabled(Boolean(snap.safeguardsEnabled))
     setRecipesEnabled(snap.recipesEnabled !== false)
-    setSfrNote(snap.note)
+    setSfcNote(snap.note)
     const len = snap.customRecipes.length
     let restoredIdx: number | null = null
     suppressSelectionDraft(() => {
@@ -262,7 +262,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
     setBuilderNameDraftKey,
     setCustomRecipes,
     setFinalSellRemainder,
-    setSfrNote,
+    setSfcNote,
     setMetasets,
     setSubstatTargets,
     setMultiEditDraft,
@@ -296,7 +296,7 @@ export function useSfrHistoryController(params: Params): ControllerResult {
     historyTimeline,
     jumpToHistoryIndex,
     clearHistory,
-  } = useSfrHistory({
+  } = useSfcHistory({
     payload: historyStrings.payload,
     signature: historyStrings.signature,
     applySnapshot,
