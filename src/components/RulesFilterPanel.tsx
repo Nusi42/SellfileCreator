@@ -352,10 +352,11 @@ const sectionHeaderLabelTextSx = {
   whiteSpace: 'nowrap',
 } as const
 
-const SectionHeaderLabel = ({ label }: { label: string }) => (
+const SectionHeaderLabel = ({ label, highlight }: { label: string; highlight?: boolean }) => (
   <EllipsisTooltip title={label} wrap="block">
     <FormLabel sx={sectionHeaderLabelSx}>
-      <Box component="span" data-ellipsis-target sx={sectionHeaderLabelTextSx}>
+      {/* highlight: primary color signals the section has an active selection while collapsed. */}
+      <Box component="span" data-ellipsis-target sx={highlight ? [sectionHeaderLabelTextSx, { color: 'primary.main' }] : sectionHeaderLabelTextSx}>
         {label}
       </Box>
     </FormLabel>
@@ -408,6 +409,8 @@ const FilterSectionToggle: React.FC<FilterSectionToggleProps> = ({ id, collapsed
 type FilterSectionHeaderProps = {
   id: keyof CollapsedSections
   label: string
+  // dirty: true when the section has a non-default selection; highlights the label when collapsed.
+  dirty?: boolean
   actions?: React.ReactNode
   fullWidth?: boolean
   maxWidth?: number | string
@@ -418,6 +421,7 @@ type FilterSectionHeaderProps = {
 const FilterSectionHeader: React.FC<FilterSectionHeaderProps> = ({
   id,
   label,
+  dirty,
   actions,
   fullWidth = true,
   maxWidth,
@@ -425,6 +429,9 @@ const FilterSectionHeader: React.FC<FilterSectionHeaderProps> = ({
   onCollapsedChange,
 }) => {
   const resolvedMax = typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth
+  // Highlight the label when the section is collapsed and has a non-default selection,
+  // so the color acts as a secondary signal alongside the X-clear button.
+  const highlight = !!dirty && !!collapsed[id]
   return (
     <Box
       sx={{
@@ -443,7 +450,7 @@ const FilterSectionHeader: React.FC<FilterSectionHeaderProps> = ({
           flex: '0 1 auto',
         }}
       >
-        <SectionHeaderLabel label={label} />
+        <SectionHeaderLabel label={label} highlight={highlight} />
         {actions ? (
           <Box sx={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
             {actions}
@@ -1717,6 +1724,7 @@ function RulesFilterPanel({
             <FilterSectionHeader
               id="rule"
               label={ruleSectionLabel}
+              dirty={ruleSectionDirty}
               actions={renderSectionClearButton(
                 ruleSectionDirty,
                 formatSectionClearLabel(ruleSectionLabel),
@@ -1925,6 +1933,7 @@ function RulesFilterPanel({
             <FilterSectionHeader
               id="sets"
               label={setsSectionLabel}
+              dirty={setsSectionDirty}
               actions={renderSectionClearButton(
                 setsSectionDirty,
                 formatSectionClearLabel(setsSectionLabel),
@@ -2287,6 +2296,7 @@ function RulesFilterPanel({
                 <FilterSectionHeader
                   id="sources"
                   label={sourcesSectionLabel}
+                  dirty={sourcesSectionDirty}
                   fullWidth={false}
                   actions={renderSectionClearButton(
                     sourcesSectionDirty,
@@ -2355,6 +2365,7 @@ function RulesFilterPanel({
                   <FilterSectionHeader
                     id="champions"
                     label={championsSectionLabel}
+                    dirty={championsSectionDirty}
                     actions={renderSectionClearButton(
                       championsSectionDirty,
                       formatSectionClearLabel(championsSectionLabel),
@@ -2573,6 +2584,7 @@ function RulesFilterPanel({
                 <FilterSectionHeader
                   id="lastUse"
                   label={lastUseSectionLabel}
+                  dirty={lastUseSectionDirty}
                   fullWidth={false}
                   maxWidth={`${LAST_USE_SECTION_WIDTH_PX}px`}
                   actions={renderSectionClearButton(
@@ -2668,6 +2680,7 @@ function RulesFilterPanel({
               <FilterSectionHeader
                 id="main"
                 label={mainSectionLabel}
+                dirty={mainSectionDirty}
                 actions={renderSectionClearButton(
                   mainSectionDirty,
                   formatSectionClearLabel(mainSectionLabel),
@@ -2775,6 +2788,7 @@ function RulesFilterPanel({
               <FilterSectionHeader
                 id="sub"
                 label={subSectionLabel}
+                dirty={subSectionDirty}
                 actions={renderSectionClearButton(
                   subSectionDirty,
                   formatSectionClearLabel(subSectionLabel),
@@ -2994,6 +3008,7 @@ function RulesFilterPanel({
               <FilterSectionHeader
                 id="level"
                 label={levelSectionLabel}
+                dirty={levelSectionDirty}
                 actions={renderSectionClearButton(
                   levelSectionDirty,
                   formatSectionClearLabel(levelSectionLabel),
@@ -3071,6 +3086,7 @@ function RulesFilterPanel({
                 <FilterSectionHeader
                   id="faction"
                   label={factionSectionLabel}
+                  dirty={factionSectionDirty}
                   actions={renderSectionClearButton(
                     factionSectionDirty,
                     formatSectionClearLabel(factionSectionLabel),
@@ -3247,6 +3263,7 @@ function RulesFilterPanel({
             <FilterSectionHeader
               id="slots"
               label={slotsSectionLabel}
+              dirty={slotsSectionDirty}
               actions={renderSectionClearButton(
                 slotsSectionDirty,
                 formatSectionClearLabel(slotsSectionLabel),
@@ -3323,6 +3340,7 @@ function RulesFilterPanel({
             <FilterSectionHeader
               id="rank"
               label={rankSectionLabel}
+              dirty={rankSectionDirty}
               actions={renderSectionClearButton(
                 rankSectionDirty,
                 formatSectionClearLabel(rankSectionLabel),
@@ -3370,6 +3388,7 @@ function RulesFilterPanel({
             <FilterSectionHeader
               id="rarity"
               label={raritySectionLabel}
+              dirty={raritySectionDirty}
               actions={renderSectionClearButton(
                 raritySectionDirty,
                 formatSectionClearLabel(raritySectionLabel),
@@ -3439,6 +3458,7 @@ function RulesFilterPanel({
             <FilterSectionHeader
               id="ascension"
               label={ascensionSectionLabel}
+              dirty={ascensionSectionDirty}
               actions={renderSectionClearButton(
                 ascensionSectionDirty,
                 formatSectionClearLabel(ascensionSectionLabel),

@@ -389,7 +389,6 @@ export default function SafeguardBuilderPanel({
 
   const [builderCollapsed, setBuilderCollapsed] = useBuilderSafeguardCollapsedPreference()
 
-
   // Apply is only meaningful when a rule is selected AND the builder state differs from it.
   const applyDisabled = editingRuleIdx === null || !selectedIsDirty
 
@@ -491,17 +490,33 @@ export default function SafeguardBuilderPanel({
 
   const combination = rule.combination
   const activation = rule.activation
+  // Mode label color mirrors the activation badge color used in the safeguard chips panel.
+  // Only applied when collapsed so the color acts as a summary signal.
+  const modeLabelColor = builderCollapsed.action
+    ? activation === SafeguardRuleActivation.Off
+      ? 'text.disabled'
+      : activation === SafeguardRuleActivation.AnticipateGaps
+        ? 'warning.main'
+        : 'success.main' // ProtectExisting
+    : undefined
 
   const slotSelection = combination.slots
+  // Section dirty flag: shared by the label color and the X-clear button (SSOT).
+  const slotSectionDirty = slotSelection.length > 0
   const hasAccessorySlot = slotSelectionAllowsAccessories(slotSelection)
   const allowedSetPool = resolveAllowedSetPool(slotSelection)
   const setSelection = normalizeArtifactSetSelections(combination.sets)
     .filter((entry) => allowedSetPool.includes(Number(entry.id)))
+  const setsSectionDirty = setSelection.length > 0 || (combination.metaSetNames ?? []).length > 0
   const rankSelection = combination.ranks
+  const rankSectionDirty = rankSelection.length > 0
   const raritySelection = combination.rarities
+  const raritySectionDirty = raritySelection.length > 0
   const mainStatOptions = getMainStatOptionsForSlots(slotSelection)
   const mainStatSelection = dedupeNumericArray((combination.mainStats ?? []).filter((v) => mainStatOptions.includes(v)))
+  const mainStatSectionDirty = mainStatSelection.length > 0
   const factionSelection = hasAccessorySlot ? dedupeNumericArray(combination.factions ?? []) : []
+  const factionSectionDirty = factionSelection.length > 0
 
   const allowedSubstatOptions = resolveAllowedSubstatsForSlotsAndMains({
     slots: slotSelection,
@@ -773,7 +788,7 @@ export default function SafeguardBuilderPanel({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, position: 'relative', zIndex: 1 }}>
           <BuilderSectionToggle id="action" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
           <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
-            <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('safeguardsRuleModeLabel')}</Box>
+            <Box component="span" sx={modeLabelColor ? [BUILDER_LABEL_TEXT_SX, { color: modeLabelColor }] : BUILDER_LABEL_TEXT_SX}>{t('safeguardsRuleModeLabel')}</Box>
           </FormLabel>
           <MarkdownTooltip markdown={ruleModeScopeTooltip}>
             <IconButton
@@ -1100,7 +1115,7 @@ export default function SafeguardBuilderPanel({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="rank" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
+              <Box component="span" sx={builderCollapsed.rank && rankSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
             </FormLabel>
           </Box>
           <Collapse in={!builderCollapsed.rank} timeout="auto" unmountOnExit>
@@ -1132,7 +1147,7 @@ export default function SafeguardBuilderPanel({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="rarity" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
+              <Box component="span" sx={builderCollapsed.rarity && raritySectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
             </FormLabel>
           </Box>
           <Collapse in={!builderCollapsed.rarity} timeout="auto" unmountOnExit>
@@ -1161,7 +1176,7 @@ export default function SafeguardBuilderPanel({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="faction" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
+              <Box component="span" sx={builderCollapsed.faction && factionSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
             </FormLabel>
           </Box>
           <Collapse in={!builderCollapsed.faction} timeout="auto" unmountOnExit>
@@ -1233,9 +1248,9 @@ export default function SafeguardBuilderPanel({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="mainStat" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
+              <Box component="span" sx={builderCollapsed.mainStat && mainStatSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
             </FormLabel>
-            {mainStatSelection.length > 0
+            {mainStatSectionDirty
               ? (
                 <ClearIconButton
                   size="small"
@@ -1357,9 +1372,9 @@ export default function SafeguardBuilderPanel({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="substats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
+              <Box component="span" sx={builderCollapsed.substats && hasSubstatSelection ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
             </FormLabel>
-            {substatSelection.length > 0
+            {hasSubstatSelection
               ? (
                 <ClearIconButton
                   size="small"
@@ -1675,9 +1690,9 @@ export default function SafeguardBuilderPanel({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="slots" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
+              <Box component="span" sx={builderCollapsed.slots && slotSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
             </FormLabel>
-            {slotSelection.length > 0
+            {slotSectionDirty
               ? (
                 <ClearIconButton
                   size="small"
@@ -1827,7 +1842,7 @@ export default function SafeguardBuilderPanel({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="sets" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0, flex: 1 }]}>
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
+              <Box component="span" sx={builderCollapsed.sets && setsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
             </FormLabel>
             <MarkdownTooltip markdown={t('builderManageMetasetsTooltip')}>
               <Button

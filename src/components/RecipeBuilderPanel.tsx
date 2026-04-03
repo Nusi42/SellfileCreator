@@ -1116,11 +1116,14 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   }, [recipe.artifactTypes, getSlotState, multiEdit, multiEditActive, multiSlotsField?.patch])
   // Slot-based filtering: compute allowed options for main stats, substats, and sets.
   const slotSelection = recipe.artifactTypes ?? []
+  // Section dirty flags: shared by label color and X-clear button visibility (SSOT).
+  const slotSectionDirty = slotSelection.length > 0
   const mainStatOptions = getMainStatOptionsForSlots(slotSelection)
   // Prune mainstats no longer valid for the selected slots (single-edit only).
   const sanitizedMainStats = multiEditActive
     ? (recipe.mainStatsV ?? [])
     : (recipe.mainStatsV ?? []).filter((v) => mainStatOptions.includes(Number(v)))
+  const mainStatSectionDirty = sanitizedMainStats.length > 0
   // Feed pruned mains into substat constraint so disabled mainstats don't widen the substat pool.
   const allowedSubstatOptions = resolveAllowedSubstatsForSlotsAndMains({
     slots: slotSelection,
@@ -1133,6 +1136,22 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
         slots: slotSelection,
         mainStats: sanitizedMainStats,
       })
+  const substatSectionDirty = sanitizedSubstatsV.length > 0
+  const setsSectionDirty = (recipe.artifactSets ?? []).length > 0 || (recipe.artifactMetaSets ?? []).length > 0
+  // rank/rarity/faction: non-default when anything other than "any" is selected.
+  const levelSectionDirty = (recipe.minLevel ?? 0) !== 0 || (recipe.maxLevel ?? 16) !== 16
+  const rankSectionDirty = (recipe.rankCode ?? 0) !== 0
+  const raritySectionDirty = (recipe.rarityMode ?? 'code') !== 'code' || (recipe.rarityCode ?? 0) !== 0
+  const factionSectionDirty = (recipe.factionCode ?? 0) !== 0
+  // minRollsSectionDirty: also fires when auto mode is turned off (even with value 0),
+  // since hasManualAggregateMin inside milestoneThresholdsActive requires value > 0.
+  const minRollsSectionDirty = recipe.autoMinRequiredRolls === false || milestoneThresholdsActive
+  const requiredSubstatsSectionDirty =
+    recipe.autoMinCount === false ||
+    (recipe.minCount ?? 0) > 0 ||
+    (recipe.fixedSubstatsV ?? []).length > 0
+  // milestoneThresholds section only controls earlyKeepMode; default is 'early'.
+  const milestoneThresholdsSectionDirty = (recipe.earlyKeepMode ?? 'early') !== 'early'
   const allowedSetPool = resolveAllowedSetPool(slotSelection)
   // Accessory-only sets (like no-set) appear only when the resolved pool includes them.
   const allowNoSet = (allowedSetPool as readonly number[]).includes(ACCESSORY_NO_SET_ID)
@@ -2448,6 +2467,17 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   const [showTagsChips, setShowTagsChips] = useShowTagsChipsPreference()
   // Persisted collapsed state for the 7 per-group collapsible sections.
   const [builderCollapsed, setBuilderCollapsed] = useBuilderRecipeCollapsedPreference()
+  // Action label color mirrors the keep/sell color used in recipe chips.
+  // Only applied when collapsed so the color acts as a summary signal.
+  const actionLabelColor = builderCollapsed.action
+    ? recipe.exportMode === 'disabled'
+      ? 'text.disabled'
+      : recipe.exportMode === 'separator'
+        ? 'text.secondary'
+        : recipe.keep
+          ? 'success.main'
+          : 'error.main' // active sell (default)
+    : undefined
   // Debounce handle for auto-apply; cleared when auto-apply is disabled.
   const autoApplyTimeoutRef = useRef<number | null>(null)
   const clearAutoApplyTimeout = useCallback(() => {
@@ -2711,7 +2741,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                   />
                 )}
               >
-                <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderAction')}</Box>
+                <Box component="span" data-ellipsis-target sx={actionLabelColor ? [BUILDER_LABEL_TEXT_SX, { color: actionLabelColor }] : BUILDER_LABEL_TEXT_SX}>{t('builderAction')}</Box>
               </MarkdownTooltip>
             </FormLabel>
             {/* Info icon beside the Action label — hover to see builder overview. */}
@@ -3178,7 +3208,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                   />
                 )}
               >
-                <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
+                <Box component="span" data-ellipsis-target sx={builderCollapsed.rank && rankSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
               </MarkdownTooltip>
             </FormLabel>
           </Box>
@@ -3309,7 +3339,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                   />
                 )}
               >
-                <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
+                <Box component="span" data-ellipsis-target sx={builderCollapsed.rarity && raritySectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
               </MarkdownTooltip>
             </FormLabel>
           </Box>
@@ -3487,7 +3517,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                   />
                 )}
               >
-                <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
+                <Box component="span" data-ellipsis-target sx={builderCollapsed.faction && factionSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
               </MarkdownTooltip>
             </FormLabel>
           </Box>
@@ -3588,7 +3618,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="level" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={BUILDER_LABEL_INLINE_SX}>
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderLevelWindow')}</Box>
+              <Box component="span" sx={builderCollapsed.level && levelSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderLevelWindow')}</Box>
             </FormLabel>
           </Box>
           <Collapse in={!builderCollapsed.level} timeout="auto" unmountOnExit>
@@ -3655,7 +3685,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                   />
                 )}
               >
-                <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
+                <Box component="span" data-ellipsis-target sx={builderCollapsed.mainStat && mainStatSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
               </MarkdownTooltip>
             </FormLabel>
             {(() => {
@@ -3805,7 +3835,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                   />
                 )}
               >
-                <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
+                <Box component="span" data-ellipsis-target sx={builderCollapsed.substats && substatSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
               </MarkdownTooltip>
             </FormLabel>
             {(() => {
@@ -5394,7 +5424,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   />
                 )}
               >
-                <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
+                <Box component="span" data-ellipsis-target sx={builderCollapsed.slots && slotSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
               </MarkdownTooltip>
             </FormLabel>
             {(() => {
@@ -5694,7 +5724,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       <BuilderSectionToggle id="minRolls" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
                       <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]} data-tour-id="builder.min-rolls.label">
                         <MarkdownTooltip render={tooltipContent} ellipsisTitle={t('builderMinRequiredRolls')}>
-                          <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderMinRequiredRolls')}</Box>
+                          <Box component="span" data-ellipsis-target sx={builderCollapsed.minRolls && minRollsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMinRequiredRolls')}</Box>
                         </MarkdownTooltip>
                       </FormLabel>
                     </Box>
@@ -5977,7 +6007,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             />
                           )}
                         >
-                          <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderRequiredSubstats')}</Box>
+                          <Box component="span" data-ellipsis-target sx={builderCollapsed.requiredSubstats && requiredSubstatsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRequiredSubstats')}</Box>
                         </MarkdownTooltip>
                       </FormLabel>
                     </Box>
@@ -6208,7 +6238,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           />
                         )}
                       >
-                        <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderMilestoneThresholds')}</Box>
+                        <Box component="span" data-ellipsis-target sx={builderCollapsed.milestoneThresholds && milestoneThresholdsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMilestoneThresholds')}</Box>
                       </MarkdownTooltip>
                     </FormLabel>
                   </Box>
@@ -6347,7 +6377,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   />
                 )}
               >
-                <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
+                <Box component="span" data-ellipsis-target sx={builderCollapsed.sets && setsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
               </MarkdownTooltip>
             </FormLabel>
             {/* Flexible spacer keeps the label left-aligned and the button right-aligned */}
