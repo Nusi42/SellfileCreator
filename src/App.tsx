@@ -722,6 +722,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [splitterLeftPx, setSplitterLeftPx] = useSplitterLeftWidthPx()
   // Right panel width = totalUsable - leftPanel. totalUsable = SIDE_BY_SIDE_BREAKPOINT_PX - GRID_COLUMN_GAP_PX.
   const splitterRightPx = SIDE_BY_SIDE_BREAKPOINT_PX - GRID_COLUMN_GAP_PX - splitterLeftPx
+  // Ref for the flex container that holds both panels + the splitter handle. The splitter writes
+  // CSS custom properties here directly during drag so no React re-renders occur mid-gesture.
+  const splitterContainerRef = useRef<HTMLDivElement>(null)
+  // Keep --splitter-left-width / --splitter-right-width in sync with the committed value.
+  // useLayoutEffect runs synchronously before paint so there is no flash on initial render
+  // when the user has a saved width that differs from the default.
+  useLayoutEffect(() => {
+    const el = splitterContainerRef.current
+    if (!el) return
+    el.style.setProperty('--splitter-left-width', `${splitterLeftPx}px`)
+    el.style.setProperty('--splitter-right-width', `${splitterRightPx}px`)
+  }, [splitterLeftPx, splitterRightPx])
   // Empty-state messaging reads better when stacked (top-aligned) but looks balanced side-by-side (centered).
   const emptyStateVerticalAlign = isSideBySide ? 'center' : 'top'
   useTooltipScrollGuard()
@@ -7391,6 +7403,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               width: `${SIDE_BY_SIDE_BREAKPOINT_PX}px`,
             },
           }}
+          ref={splitterContainerRef}
         >
         <BuilderColumn
           paperRef={leftPaperRef}
@@ -7421,11 +7434,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           copyDialog={builderMode === 'safeguard' ? null : copyDialogElement}
         />
 
-        {/* Draggable splitter handle — always interactive in side-by-side mode. */}
+        {/* Draggable splitter handle — always interactive in side-by-side mode.
+            During drag, writes CSS vars directly to splitterContainerRef (no re-renders). */}
         {isSideBySide && (
           <SideBySideSplitter
             leftWidthPx={splitterLeftPx}
             onResize={setSplitterLeftPx}
+            containerRef={splitterContainerRef}
             forceSideBySide={forceSideBySideLayout}
             interactive
           />
@@ -7434,9 +7449,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         <Paper ref={previewPaperRef} sx={{
           p: PREVIEW_PAPER_PADDING_UNITS,
           position: 'relative',
-          // In side-by-side, use the splitter-controlled right-panel width. No maxWidth cap so
-          // the preview panel can grow beyond PANEL_WIDTH_PX when the left panel is dragged smaller.
-          width: isSideBySide ? splitterRightPx : (forceSideBySideLayout ? PANEL_WIDTH_PX : '100%'),
+          // In side-by-side, width tracks the CSS variable written by the splitter during drag.
+          // splitterRightPx (the committed JS value) is the var's fallback for the single
+          // re-render after mouseup and for non-side-by-side mode.
+          width: isSideBySide
+            ? `var(--splitter-right-width, ${splitterRightPx}px)`
+            : (forceSideBySideLayout ? PANEL_WIDTH_PX : '100%'),
           maxWidth: isSideBySide ? 'none' : PANEL_WIDTH_PX,
           mx: (isSideBySide || forceSideBySideLayout) ? 0 : 'auto',
           display: 'flex',
@@ -7448,7 +7466,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           // paint flash guard). Fall back to the default 50/50 equal-split width at that breakpoint.
           [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
             mx: 0,
-            width: isSideBySide ? splitterRightPx : PANEL_WIDTH_PX,
+            width: isSideBySide ? `var(--splitter-right-width, ${splitterRightPx}px)` : PANEL_WIDTH_PX,
             height: previewPaperHeightStyle ?? 'auto',
             ...(previewPaperHeightStyle ? { minHeight: previewPaperHeightStyle } : {}),
             overflow: 'hidden',
