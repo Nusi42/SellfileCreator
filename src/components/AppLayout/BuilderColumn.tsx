@@ -92,9 +92,9 @@ export function BuilderColumn({
           )}
           {substatTargets ?? <Box />}
         </Box>
-        {/* overflowX:auto gives the builder form section a horizontal scrollbar when
-            the toggle-button rows are wider than the (splitter-controlled) panel width. */}
-        <Box sx={{ position: 'relative', flexShrink: 0, overflowX: 'auto' }}>{builderPanel}</Box>
+        {/* The builder panels scope overflowX:auto to the form grid and keep the name
+            TextField above that scroll zone, so floating labels are never clipped here. */}
+        <Box sx={{ position: 'relative', flexShrink: 0 }}>{builderPanel}</Box>
         <Box sx={{ flexShrink: 0 }}>{headerActions}</Box>
       </Box>
       {metasetConflictDialog}

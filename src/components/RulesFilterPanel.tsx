@@ -37,6 +37,7 @@ import { metasetGlyph, orderMetasets, resolveMetasets, type Metaset } from '../l
 import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import { isAccessorySlot, slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import React from 'react'
+import { flushSync } from 'react-dom'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
@@ -385,13 +386,19 @@ const FilterSectionToggle: React.FC<FilterSectionToggleProps> = ({ id, collapsed
     onCollapsedChange({ ...collapsed, [id]: nextValue })
   }
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    // Guard against right-button synthetic clicks that some browser/OS combinations fire
+    // after a contextmenu event — those are handled exclusively by handleContextMenu.
+    if (event.button !== 0) return
     const multiToggle = event.ctrlKey || event.metaKey
     toggleSections(multiToggle)
   }
   const handleContextMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
     event.stopPropagation()
-    toggleSections(true)
+    // flushSync ensures React processes the store update synchronously before the browser's
+    // native contextmenu handling can defer or interrupt the scheduled re-render.
+    // eslint-disable-next-line @eslint-react/dom/no-flush-sync -- contextmenu events can stall React's render cycle; synchronous flush ensures the collapse state is visible immediately.
+    flushSync(() => toggleSections(true))
   }
   return (
     <IconButton

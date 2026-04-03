@@ -730,16 +730,11 @@ export default function SafeguardBuilderPanel({
   return (
     <Box
       data-tour-id="safeguards.builder"
-      sx={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, minmax(220px, 1fr))',
-        columnGap: 1,
-        rowGap: 1,
-      }}
     >
-
-      {/* ── Row 0: Rule name (full-width) ─── */}
-      <Box sx={(theme) => ({ gridColumn: '1 / -1', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+      {/* ── Name field above scroll zone — floating label extends ~9 px above the input
+          border when shrunk; keeping it outside overflowX:auto prevents the scroll
+          container's implicit overflow-y from clipping it. ── */}
+      <Box sx={(theme) => ({ borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <TextField
           label={t('safeguardBuilderRuleName')}
           // In multi-edit mode show staged name value (or placeholder when mixed).
@@ -780,6 +775,17 @@ export default function SafeguardBuilderPanel({
           fullWidth
         />
       </Box>
+      {/* Scroll wrapper: gives the toggle-button grid a horizontal scrollbar when wider
+          than the splitter-controlled panel; name field above avoids label clipping. */}
+      <Box sx={{ overflowX: 'auto', mt: 1 }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, minmax(220px, 1fr))',
+          columnGap: 1,
+          rowGap: 1,
+        }}
+      >
 
       {/* ── Row 1: Mode toggle + Required count + Ignore chips + undo/redo (full-width) ── */}
       <Box sx={{ gridColumn: '1 / -1' }}>
@@ -2376,6 +2382,8 @@ export default function SafeguardBuilderPanel({
           </Box>
         </Box>
       </Popover>
+      </Box>{/* end inner grid */}
+      </Box>{/* end scroll wrapper */}
 
     </Box>
   )

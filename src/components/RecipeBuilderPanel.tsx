@@ -2658,64 +2658,70 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   return (
     <Box sx={{ position: 'relative' }}>
       {fortyTwoOverlay}
+      {/* Name field above the scroll zone — the MUI outlined TextField floating label
+          extends ~9 px above the input border when shrunk; keeping it outside the
+          overflowX:auto wrapper prevents the scroll container's implicit overflow-y
+          from clipping it. */}
+      <Box sx={(theme) => ({
+        borderRadius: 1,
+        transition: UI_BG_HOVER_DANGER_TRANSITION,
+        boxShadow: 'none',
+        backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
+      })}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <TextField
+            label={t('builderRecipeName')}
+            value={renderedName}
+            {...(namePlaceholder ? { placeholder: namePlaceholder } : {})}
+            onChange={(e) => {
+              if (usingMultiName) {
+                multiEdit?.updateField('name', { value: e.target.value, status: 'common' })
+              } else {
+                setNameDraft(e.target.value)
+                setNameDraftKey(currentDraftKey)
+              }
+            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
+            onBlur={commitNameDraftIfNeeded}
+            InputProps={{
+              endAdornment: (() => {
+                const showClear = usingMultiName
+                  ? Boolean(multiNameField && String(multiNameField.value ?? '') !== '' && multiNameField.status !== 'mixed')
+                  : renderedName !== ''
+                if (!showClear) return undefined
+                return (
+                  <InputAdornment position="end">
+                    <ClearIconButton
+                      size="small"
+                      edge="end"
+                      aria-label={t('builderClearRecipeName')}
+                      tooltip={t('builderClearRecipeName')}
+                      onClick={() => {
+                        if (usingMultiName) {
+                          multiEdit?.updateField('name', { value: '', status: 'common' })
+                        } else if (renderedName !== '') {
+                          commitName('')
+                        }
+                      }}
+                    />
+                  </InputAdornment>
+                )
+              })(),
+            }}
+            fullWidth
+            inputProps={{ 'data-tour-id': 'builder.name' }}
+          />
+        </Box>
+      </Box>
+      {/* Scroll wrapper: gives the toggle-button grid a horizontal scrollbar when wider
+          than the splitter-controlled panel; name field above avoids label clipping. */}
+      <Box sx={{ overflowX: 'auto', mt: 1 }}>
       <Box sx={{
         display: 'grid',
         gridTemplateColumns: 'repeat(4, minmax(220px, 1fr))',
         columnGap: 1,
         rowGap: 1,
       }}>
-        <Box sx={(theme) => ({
-          gridColumn: '1 / -1',
-          borderRadius: 1,
-          transition: UI_BG_HOVER_DANGER_TRANSITION,
-          boxShadow: 'none',
-          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
-        })}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <TextField
-              label={t('builderRecipeName')}
-              value={renderedName}
-              {...(namePlaceholder ? { placeholder: namePlaceholder } : {})}
-              onChange={(e) => {
-                if (usingMultiName) {
-                  multiEdit?.updateField('name', { value: e.target.value, status: 'common' })
-                } else {
-                  setNameDraft(e.target.value)
-                  setNameDraftKey(currentDraftKey)
-                }
-              }}
-              onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
-              onBlur={commitNameDraftIfNeeded}
-              InputProps={{
-                endAdornment: (() => {
-                  const showClear = usingMultiName
-                    ? Boolean(multiNameField && String(multiNameField.value ?? '') !== '' && multiNameField.status !== 'mixed')
-                    : renderedName !== ''
-                  if (!showClear) return undefined
-                  return (
-                    <InputAdornment position="end">
-                      <ClearIconButton
-                        size="small"
-                        edge="end"
-                        aria-label={t('builderClearRecipeName')}
-                        tooltip={t('builderClearRecipeName')}
-                        onClick={() => {
-                          if (usingMultiName) {
-                            multiEdit?.updateField('name', { value: '', status: 'common' })
-                          } else if (renderedName !== '') {
-                            commitName('')
-                          }
-                        }}
-                      />
-                    </InputAdornment>
-                  )
-                })(),
-              }}
-              fullWidth
-              inputProps={{ 'data-tour-id': 'builder.name' }}
-            />
-          </Box>
-        </Box>
 
         <FormControl sx={(theme) => ({
           gridColumn: '1 / -1',
@@ -7049,6 +7055,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         </Box>{/* end Row 4b right (Sets) */}
 
       </Box>
+      </Box>{/* end scroll wrapper */}
 
         {/* Metasets dialog (separate component) */}
         {metaDlgOpen ? (
