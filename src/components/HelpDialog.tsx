@@ -13,7 +13,8 @@ import { getHighlightEffectSx, pickHighlightEffect, HIGHLIGHT_EFFECT_DURATION_MS
 const README_FILES = import.meta.glob('../../README*.md', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
 import { APP_VERSION } from '../version'
 import { useI18n } from '../lib/i18n'
-import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_DISPLAY_REM, FONT_SIZE_HEADER_META_PX, FONT_SIZE_APP_SUBTITLE_PX } from '../lib/constants'
+import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_HEADER_META_PX } from '../lib/constants'
+import { AppTitle } from './AppTitle'
 import { buildRslHelperConnectUrl } from '../lib/externalWsProtocol'
 import {
   DEFAULT_LANGUAGE,
@@ -267,16 +268,9 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
             </Select>
           </FormControl>
         </Box>
-        {/* App title — replaces the stripped README H1; resembles the main screen title */}
+        {/* App title — replaces the stripped README H1; shared component with main screen */}
         <Box sx={{ mb: 1.5 }}>
-          <Box sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.75, whiteSpace: 'nowrap' }}>
-            <Typography variant="h4" fontWeight={700} sx={{ fontSize: `${FONT_SIZE_DISPLAY_REM}rem` }}>
-              Sellfile Creator
-            </Typography>
-            <Typography sx={{ fontSize: `${FONT_SIZE_APP_SUBTITLE_PX}px`, color: 'text.secondary', lineHeight: 1 }}>
-              for RSL Helper
-            </Typography>
-          </Box>
+          <AppTitle />
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.6 }}>
             v{APP_VERSION} — © Nusi㊷ - 2026
           </Typography>

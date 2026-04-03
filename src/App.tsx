@@ -45,9 +45,7 @@ import {
   FINAL_SELL_DEFAULT_LEVELS,
   SMALL_BUTTON_HEIGHT_PX,
   ELLIPSIS_TEXT_SX,
-  FONT_SIZE_DISPLAY_REM,
   FONT_SIZE_HEADER_META_PX,
-  FONT_SIZE_APP_SUBTITLE_PX,
   FONT_SIZE_BASE_PX,
   GEAR_DB_DIFF_HISTORY_MAX_ITEMS,
   GEAR_DB_DIFF_HISTORY_MAX_UPDATES,
@@ -141,6 +139,7 @@ import { useSplitterLeftWidthPx } from './state/splitterPreference'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { SideBySideSplitter } from './components/AppLayout/SideBySideSplitter'
+import { AppTitle } from './components/AppTitle'
 import SafeguardBuilderPanel from './components/SafeguardBuilderPanel'
 import SafeguardChipsPanel from './components/SafeguardChipsPanel'
 import { useFileDragDrop, routeFileByExtension, type FileRouteContext } from './hooks/useFileDragDrop'
@@ -7316,15 +7315,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             },
           }}
         >
-          {/* Inline title: "Sellfile Creator" large with "for RSL Helper" smaller to its right, baseline-aligned */}
-          <Box sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.75, whiteSpace: 'nowrap' }}>
-            <Typography variant="h4" fontWeight={700} sx={{ fontSize: `${FONT_SIZE_DISPLAY_REM}rem` }}>
-              Sellfile Creator
-            </Typography>
-            <Typography sx={{ fontSize: `${FONT_SIZE_APP_SUBTITLE_PX}px`, color: 'text.secondary', lineHeight: 1 }}>
-              for RSL Helper
-            </Typography>
-          </Box>
+          {/* App title — shared component also used in HelpDialog */}
+          <AppTitle />
           <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', gap: 1, flex: 1, flexWrap: 'nowrap' }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25, minWidth: 0 }}>
               <Typography variant="caption" color="text.secondary" data-allow-select={1 as const} data-allow-context={1 as const} sx={{ fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.15, textAlign: 'right' }}>
