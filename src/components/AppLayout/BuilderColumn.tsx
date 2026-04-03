@@ -1,7 +1,7 @@
 import { Box, Paper, Typography } from '@mui/material'
 import type { MutableRefObject, ReactNode } from 'react'
 
-import { PANEL_WIDTH_PX, SIDE_BY_SIDE_BREAKPOINT_PX } from '../../lib/constants'
+import { SIDE_BY_SIDE_BREAKPOINT_PX } from '../../lib/constants'
 
 /**
  * BuilderColumn renders the builder-side layout: the rule form header, metaset controls, recipe chips,
@@ -52,10 +52,9 @@ export function BuilderColumn({
         // as the fallback for the initial render and the single re-render after mouseup.
         // The 50% fallback covers the flash-guard window before the CSS var is first written.
         width: forceSideBySide ? `var(--splitter-left-width, ${widthPx != null ? `${widthPx}px` : '50%'})` : '100%',
-        // When widthPx is set (side-by-side mode), the splitter controls the width — no cap.
-        // Single-column mode caps at PANEL_WIDTH_PX so the form stays readable when centred.
-        maxWidth: widthPx != null ? 'none' : PANEL_WIDTH_PX,
-        mx: forceSideBySide ? 0 : 'auto',
+        // Always fill the available container — no maxWidth cap in single-column either.
+        maxWidth: 'none',
+        mx: 0,
         // In forced side-by-side (zoom) mode, lock the paper to exactly the available viewport
         // height. minHeight + maxHeight together make it a fixed-height container so internal
         // flex children (form + chips) fill the paper without the paper itself ever growing
@@ -63,6 +62,16 @@ export function BuilderColumn({
         ...(forceSideBySide && sideBySideMinPaperHeightPx
           ? { minHeight: sideBySideMinPaperHeightPx, maxHeight: sideBySideMinPaperHeightPx, overflowY: 'hidden' }
           : {}),
+        // Border overrides: reduce visual "frame" on edges that should feel open.
+        // SBS left panel — remove the leftmost and bottom edges; inner (right) border stays.
+        // Non-SBS full-width — remove left/right edges.
+        ...(widthPx != null || forceSideBySide ? {
+          borderLeft: 'none',
+          borderBottom: 'none',
+        } : {
+          borderLeft: 'none',
+          borderRight: 'none',
+        }),
         // Native side-by-side (no zoom) gets the same fixed-height treatment so that
         // chipsMaxHeight updates on mode switch cannot nudge the paper height up or down.
         [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
@@ -72,6 +81,9 @@ export function BuilderColumn({
           ...(sideBySideMinPaperHeightPx
             ? { minHeight: sideBySideMinPaperHeightPx, maxHeight: sideBySideMinPaperHeightPx, overflowY: 'hidden' }
             : {}),
+          // Flash-guard fires in SBS — apply SBS border overrides here too.
+          borderLeft: 'none',
+          borderBottom: 'none',
         },
       }}
       data-tour-id="builder.panel"

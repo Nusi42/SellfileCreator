@@ -157,7 +157,8 @@ export const SAFEGUARD_RECIPE_ID_BASE = -1 as const
 // side-by-side layout is active.
 export const BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX = 300
 export const BUILDER_RECIPE_CHIPS_EMPTY_MIN_HEIGHT_PX = 340
-export const BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX = 3 * 8
+// 0: papers now fill to the viewport bottom edge (no bottom border, no Container pb in SBS).
+export const BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX = 0
 export const BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX = 12
 // Minimum usable height for the safeguard rule chip list before the list stops
 // shrinking further. Intentionally below the recipe default so the builder form

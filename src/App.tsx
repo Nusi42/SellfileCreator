@@ -7272,7 +7272,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   ])
 
   return (
-    <Container maxWidth="xl" sx={{ pt: 1.5, pb: 1.5 }}>
+    <Container maxWidth={false} disableGutters sx={{
+      pt: 1.5,
+      // In SBS the papers fill to the viewport bottom — no bottom padding so the
+      // Container doesn't push content off-screen or leave a dark strip.
+      pb: (isSideBySide || forceSideBySideLayout) ? 0 : 1.5,
+      // Flash-guard: mirror the SBS pb=0 before React state fires.
+      [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: { pb: 0 },
+    }}>
       {/* Full-screen, non-interactive overlay shown while dragging files over the app.
           We keep pointerEvents: 'none' so drops still reach the window handler. */}
       {(() => {
@@ -7522,13 +7529,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           width: isSideBySide
             ? `var(--splitter-right-width, ${splitterRightPx}px)`
             : (forceSideBySideLayout ? PANEL_WIDTH_PX : '100%'),
-          maxWidth: isSideBySide ? 'none' : PANEL_WIDTH_PX,
-          mx: (isSideBySide || forceSideBySideLayout) ? 0 : 'auto',
+          // Always fill the available container — no maxWidth cap in single-column either.
+          maxWidth: 'none',
+          mx: 0,
           display: 'flex',
           flexDirection: 'column',
           height: previewPaperHeightStyle ?? 'auto',
           ...(previewPaperHeightStyle ? { minHeight: previewPaperHeightStyle } : {}),
           overflow: forceSideBySideLayout ? 'hidden' : undefined,
+          // Border overrides: reduce visual "frame" on edges that should feel open.
+          // SBS right panel — remove the rightmost and bottom edges; inner (left) border stays.
+          // Non-SBS full-width — remove left/right edges.
+          ...(isSideBySide || forceSideBySideLayout ? {
+            borderRight: 'none',
+            borderBottom: 'none',
+          } : {
+            borderLeft: 'none',
+            borderRight: 'none',
+          }),
           // Flash-guard media query: the CSS var may not be initialised yet on the first paint.
           // Use the var with a 50% fallback so the panel fills its half of the fluid container.
           [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
@@ -7537,6 +7555,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             height: previewPaperHeightStyle ?? 'auto',
             ...(previewPaperHeightStyle ? { minHeight: previewPaperHeightStyle } : {}),
             overflow: 'hidden',
+            // Flash-guard fires in SBS — apply SBS border overrides here too.
+            borderRight: 'none',
+            borderBottom: 'none',
           }
         }} data-tour-id="preview.paper" data-gear-results-version={gearInspectorResultsVersion}>
           {/* Transparent top-75% overlay — tutorial can spotlight the mode toggle + gear grid
