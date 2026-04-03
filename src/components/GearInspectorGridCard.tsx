@@ -976,12 +976,11 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   // Smaller badges fall back to a single glyph so collapsed accordions stay lightweight.
   const SourceGlyph = shouldShowStandaloneSourceIcon && SourceIcon ? SourceIcon : null
   const sourceIconLabel = sourceDescriptor?.label ?? ''
-  // Ultra-dense 8-col uses a custom ~60% icon size to stay proportional within the narrower icon column.
-  const championIconSize = isUltraDense
-    ? { width: Math.round(CHAMPION_ICON_LARGE_SIZE.width * 0.6), height: Math.round(CHAMPION_ICON_LARGE_SIZE.height * 0.6) }
-    : championIconMode === 'large'
-      ? CHAMPION_ICON_LARGE_SIZE
-      : CHAMPION_ICON_BASE_SIZE
+  // Ultra-dense uses the same large size as non-dense large mode: 38×38 fits within the available
+  // column height (43 gear + 4 gap + 10 mt + 38 champ = 95 px < leftColumnHeightPx 100 px).
+  const championIconSize = (isUltraDense || championIconMode === 'large')
+    ? CHAMPION_ICON_LARGE_SIZE
+    : CHAMPION_ICON_BASE_SIZE
   // Champion avatars reuse the rarity palette so imported pieces surface their quality immediately.
   const rarityAccentColor = resolveRarityAccentColor(artifact.equippedChampionRarity)
   // Avatar frames fall back to the neutral divider so unknown rarities still look intentional.
@@ -1385,7 +1384,24 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                   component="span"
                   role="img"
                   aria-label={sourceIconLabel}
-                  sx={{
+                  sx={isUltraDense ? {
+                    // Ultra-dense: bottom-right corner badge overlaid on the portrait.
+                    // Horizontal offset aligns the badge with the portrait's right edge; the
+                    // dimmed pill background keeps the icon readable against any portrait colour.
+                    position: 'absolute',
+                    bottom: 1,
+                    right: Math.round((iconBoxSizePx - championIconSize.width) / 2) - 2,
+                    width: 17,
+                    height: 17,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: (theme) => alpha(theme.palette.background.paper, 0.65),
+                    borderRadius: '3px',
+                    color: 'text.secondary',
+                    fontSize: '0.85rem',
+                  } : {
+                    // Non-ultra-dense: right-side badge, vertically centred on the portrait.
                     position: 'absolute',
                     top: `calc(50% + ${championIconMode === 'large' ? 0 : 3}px)`,
                     left: `${iconBoxSizePx - 5}px`,
