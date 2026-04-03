@@ -1190,7 +1190,9 @@ export default function SafeguardBuilderPanel({
       {/* Invisible structural placeholder — same MUI Slider as the recipe builder's level-window
           so Row 2's grid height is always determined by the same element on both panels.
           The per-faction chip's negative mb keeps it out of the faction section's height, so
-          this spacer (not the chip) becomes the tallest item in the row. */}
+          this spacer (not the chip) becomes the tallest item in the row when any section is open.
+          When all three RRF sections are collapsed the slider collapses too, letting the row
+          shrink to label-row height instead of remaining slider-tall. */}
       <Box aria-hidden="true" sx={{ gridColumn: '3 / 4', visibility: 'hidden' }}>
         {/* Label row mirrors the recipe builder's level-window header exactly (same components,
             same sx) so this spacer's height is always pixel-identical on every screen/zoom. */}
@@ -1198,6 +1200,9 @@ export default function SafeguardBuilderPanel({
           <BuilderSectionToggle id="mainStat" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
           <FormLabel sx={BUILDER_LABEL_INLINE_SX} />
         </Box>
+        {/* Collapse mirrors left columns: hide the slider when every RRF section is collapsed so
+            the grid row height tracks the content rather than always being slider-tall. */}
+        <Collapse in={!builderCollapsed.rank || !builderCollapsed.rarity || !builderCollapsed.faction} timeout="auto" unmountOnExit>
         <Box sx={{ px: 1.5 }}>
           <Slider
             size="small"
@@ -1219,6 +1224,7 @@ export default function SafeguardBuilderPanel({
             }}
           />
         </Box>
+        </Collapse>
       </Box>
 
       {/* ── Row 3 left: Main stat + perMainStat chip ──────────────────────── */}
