@@ -615,42 +615,13 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     : (shouldShowOtherMatchesRow ? hiddenOtherMatching : [])
   const matchingOverflowCount = matchingOverflowEntries.length
   // Gap + refs let us squeeze as many chips as possible before handing the overflow to a popover.
-  const matchingChipGapPx = parseSpacingPx(String(theme.spacing(MATCHING_CHIP_GAP_UNITS)))
+  // matchingChipGapPx is no longer needed; chips container uses flex:1 so the +N button
+  // naturally claims its own space without a pixel-width calculation.
   const visibleChipsContainerRef = useRef<HTMLDivElement | null>(null)
   const handleVisibleChipsContainerRef = useCallback((node: HTMLDivElement | null) => {
     visibleChipsContainerRef.current = node
   }, [])
-  const moreChipRef = useRef<HTMLSpanElement | null>(null)
-  const handleMoreChipRef = useCallback((node: HTMLSpanElement | null) => {
-    moreChipRef.current = node
-  }, [])
-  const [moreChipWidth, setMoreChipWidth] = useState(0)
-  // Ref-based setter so the ResizeObserver callback avoids the set-state-in-effect lint rule.
-  const setMoreChipWidthRef = useRef(setMoreChipWidth)
-  useLayoutEffect(() => {
-    const node = moreChipRef.current
-    if (!node) {
-      setMoreChipWidthRef.current(0)
-      return
-    }
-    const measure = () => {
-      setMoreChipWidthRef.current(node.getBoundingClientRect().width)
-    }
-    measure()
-    if (typeof ResizeObserver === 'undefined') {
-      return
-    }
-    const observer = new ResizeObserver(measure)
-    observer.observe(node)
-    return () => {
-      observer.disconnect()
-    }
-  }, [hiddenOtherMatching.length])
   const hasHiddenMatches = hiddenOtherMatching.length > 0
-  // Available width is recalculated whenever the +N chip resizes so text never overflows.
-  const visibleChipsAvailableWidth = hasHiddenMatches
-    ? Math.max(0, otherMatchesRowWidth - (moreChipWidth + matchingChipGapPx))
-    : otherMatchesRowWidth
   // Ref-based setter so the layout effect avoids the set-state-in-effect lint rule.
   const setVisibleOtherMatchingLimitRef = useRef(setVisibleOtherMatchingLimit)
   useLayoutEffect(() => {
@@ -671,7 +642,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     normalizedVisibleLimit,
     hasHiddenMatches,
     totalOtherMatches,
-    visibleChipsAvailableWidth,
+    otherMatchesRowWidth,
     otherMatchingEntriesSignature,
   ])
   const [matchingPopoverAnchor, setMatchingPopoverAnchor] = useState<HTMLElement | null>(null)
@@ -771,7 +742,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     // MarkdownTooltip.cloneElement (which injects title=undefined onto its direct child) targets the
     // inner Box rather than EllipsisTooltip's title prop (which would produce "undefined" tooltips).
     return (
-      <Box key={key} component="span" sx={{ flexShrink: 0, display: 'inline-flex', minWidth: 0 }}>
+      <Box key={key} component="span" sx={{ flexShrink: 0, display: 'inline-flex', minWidth: 0, maxWidth: '100%' }}>
         {/* Use the chip-label class as the ellipsis target so native tooltips only appear for clipped labels. */}
         <EllipsisTooltip title={entry.label} selector=".MuiChip-label">
           {clickable
@@ -1802,7 +1773,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           {shouldPinOtherMatchesToPrimaryRow ? (
             // Reuse the +N affordance so hidden matches remain discoverable while first match stays fully visible.
             <MarkdownTooltip markdown={`${t('gearInspectorRecipeMatches')} (+${matchingOverflowCount})`}>
-              <Box component="span" ref={handleMoreChipRef} sx={{ ...MATCHING_CHIP_WRAPPER_SX, ml: 'auto' }}>
+              <Box component="span" sx={{ ...MATCHING_CHIP_WRAPPER_SX, flexShrink: 0, ml: 'auto' }}>
                 <Chip
                   label={`+${matchingOverflowCount}`}
                   size="small"
@@ -1853,16 +1824,13 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                 display: 'flex',
                 flexWrap: 'nowrap',
                 gap: MATCHING_CHIP_GAP_UNITS,
+                // flex:1 lets the container naturally fill whatever space remains after the
+                // +N button claims its own width — no pixel math needed.
+                flex: 1,
                 minWidth: 0,
-                // overflow: hidden clips chips that temporarily exceed the container width while the
+                // overflow:hidden clips chips that temporarily exceed the container width while the
                 // overflow-detection useLayoutEffect is still converging on the correct chip count.
                 overflow: 'hidden',
-                width: hasHiddenMatches
-                  ? `${visibleChipsAvailableWidth}px`
-                  : '100%',
-                maxWidth: hasHiddenMatches
-                  ? `${visibleChipsAvailableWidth}px`
-                  : '100%',
               }}
             >
               {visibleOtherMatching.map((entry) => renderMatchingChip(entry))}
@@ -1871,7 +1839,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
               <>
                 {/* MarkdownTooltip keeps the "+N" overflow chip consistent with other Gear Inspector tooltips. */}
                 <MarkdownTooltip markdown={`${t('gearInspectorRecipeMatches')} (+${matchingOverflowCount})`}>
-                  <Box component="span" ref={handleMoreChipRef} sx={MATCHING_CHIP_WRAPPER_SX}>
+                  <Box component="span" sx={{ ...MATCHING_CHIP_WRAPPER_SX, flexShrink: 0 }}>
                     <Chip
                       label={`+${matchingOverflowCount}`}
                       size="small"
