@@ -1,43 +1,47 @@
 /**
  * splitterPreference.ts
  *
- * Persists the user's chosen left-panel width for the side-by-side splitter.
+ * Persists the user's chosen split ratio for the side-by-side splitter.
+ * Storing a ratio (0.0–1.0) rather than absolute px means the panels scale
+ * correctly when the browser window is resized — the actual left/right px
+ * values are derived in App.tsx from the measured container width at runtime.
  * Uses the shared createLocalStorageStore pattern so React reads are reactive
  * and the value survives page reloads.
  */
 import { useCallback } from 'react'
 
-import { PANEL_WIDTH_PX } from '../lib/constants'
 import { createLocalStorageStore } from './localStorageStore'
 
 /** Minimum width (px) for either panel — prevents collapsing a side entirely. */
-const SPLITTER_MIN_WIDTH_PX = 320
-/** Maximum left-panel width. Right panel gets at least SPLITTER_MIN_WIDTH_PX. */
-const SPLITTER_MAX_WIDTH_PX = 2304 - SPLITTER_MIN_WIDTH_PX // totalUsable - minRight
+export const SPLITTER_MIN_WIDTH_PX = 320
+
+/** Default 50/50 ratio. */
+const SPLITTER_DEFAULT_RATIO = 0.5
+
+/** Permitted ratio range — ensures both panels always have some minimum usable space. */
+const SPLITTER_MIN_RATIO = 0.1
+const SPLITTER_MAX_RATIO = 0.9
 
 const store = createLocalStorageStore<number>({
-  key: 'side-by-side-splitter-left-px',
-  fallback: PANEL_WIDTH_PX,
+  key: 'side-by-side-splitter-ratio',
+  fallback: SPLITTER_DEFAULT_RATIO,
   parse: (raw) => {
     // Clamp to valid range; fall back to default on missing / non-numeric values.
     const n = parseFloat(raw ?? '')
-    if (!Number.isFinite(n)) return PANEL_WIDTH_PX
-    return Math.max(SPLITTER_MIN_WIDTH_PX, Math.min(SPLITTER_MAX_WIDTH_PX, Math.round(n)))
+    if (!Number.isFinite(n)) return SPLITTER_DEFAULT_RATIO
+    return Math.max(SPLITTER_MIN_RATIO, Math.min(SPLITTER_MAX_RATIO, n))
   },
-  serialize: (value) => String(Math.round(value)),
+  serialize: (value) => String(value),
 })
 
-export { SPLITTER_MIN_WIDTH_PX, SPLITTER_MAX_WIDTH_PX }
-
 /**
- * Returns the persisted left-panel width (px) and a setter that clamps + persists the value.
- * Call from App.tsx (or wherever the grid lives) in side-by-side mode.
+ * Returns the persisted split ratio (0.0–1.0) and a setter that clamps + persists it.
+ * App.tsx multiplies the ratio by the measured container usable width to get absolute px.
  */
-export function useSplitterLeftWidthPx(): [number, (px: number) => void] {
+export function useSplitterRatio(): [number, (ratio: number) => void] {
   const value = store.useValue()
-  const set = useCallback((px: number) => {
-    // Clamp before persisting so the stored value is always valid.
-    const clamped = Math.max(SPLITTER_MIN_WIDTH_PX, Math.min(SPLITTER_MAX_WIDTH_PX, Math.round(px)))
+  const set = useCallback((ratio: number) => {
+    const clamped = Math.max(SPLITTER_MIN_RATIO, Math.min(SPLITTER_MAX_RATIO, ratio))
     store.set(clamped)
   }, [])
   return [value, set]

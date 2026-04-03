@@ -6,15 +6,17 @@
  * 16px horizontal gap that previously appeared as an empty black strip.
  *
  * Drag behaviour:
- *   - mousedown: capture the start position and attach move/up listeners.
- *   - mousemove: clamp the new left width and write it directly to two CSS custom
- *       properties (--splitter-left-width, --splitter-right-width) on containerRef.
- *       No React state is touched during the drag gesture — zero re-renders.
- *   - mouseup: commit the final clamped value via onResize (one React re-render).
- *   - dblclick: reset to 50/50 split (PANEL_WIDTH_PX each).
+ *   - mousedown: capture the start ratio and attach move/up listeners.
+ *   - mousemove: read the container's current usable width, compute the new
+ *       ratio from the cursor delta, clamp it, and write absolute px values
+ *       directly to two CSS custom properties (--splitter-left-width,
+ *       --splitter-right-width) on containerRef. No React state is touched
+ *       during the drag gesture — zero re-renders.
+ *   - mouseup: commit the final clamped ratio via onResize (one React re-render).
+ *   - dblclick: reset to 50/50 split (ratio 0.5).
  *
  * The parent is responsible for initialising the CSS custom properties on the
- * container element (e.g. via useLayoutEffect) and for persisting the value
+ * container element (e.g. via useLayoutEffect) and for persisting the ratio
  * received from onResize.
  */
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
@@ -22,18 +24,19 @@ import { Box } from '@mui/material'
 import { useCallback, useEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 
-import { AUTO_SIDE_BY_SIDE_FORCED_ZOOM, GRID_COLUMN_GAP_PX, PANEL_WIDTH_PX, SIDE_BY_SIDE_BREAKPOINT_PX } from '../../lib/constants'
-import { SPLITTER_MIN_WIDTH_PX, SPLITTER_MAX_WIDTH_PX } from '../../state/splitterPreference'
+import { AUTO_SIDE_BY_SIDE_FORCED_ZOOM, GRID_COLUMN_GAP_PX } from '../../lib/constants'
+import { SPLITTER_MIN_WIDTH_PX } from '../../state/splitterPreference'
 
 export type SideBySideSplitterProps = {
-  /** Called once on mouseup with the final clamped left-panel width in CSS px. */
-  onResize: (newLeftPx: number) => void
-  /** Current committed left-panel width in CSS px — used as drag start reference. */
-  leftWidthPx: number
+  /** Called once on mouseup with the final clamped split ratio (0.0–1.0). */
+  onResize: (newRatio: number) => void
+  /** Current committed split ratio — used as drag start reference. */
+  ratio: number
   /**
    * Ref to the shared flex container that holds both panels. During drag, CSS
    * custom properties are written directly to this node so no React state
-   * updates occur until mouseup.
+   * updates occur until mouseup. Also used to read the live container width
+   * so the ratio→px conversion is always correct regardless of window size.
    */
   containerRef: RefObject<HTMLElement | null>
   /** When true, CSS zoom is applied to the root; deltas must be divided by the zoom factor. */
@@ -45,26 +48,29 @@ export type SideBySideSplitterProps = {
   interactive?: boolean
 }
 
-/** Total usable width shared by both panels (gap is occupied by the splitter handle). */
-const TOTAL_USABLE_PX = SIDE_BY_SIDE_BREAKPOINT_PX - GRID_COLUMN_GAP_PX
+/** Convert a split ratio to left/right px given the container's usable width. */
+function ratioToPx(ratio: number, usableWidthPx: number): { leftPx: number; rightPx: number } {
+  const leftPx = Math.max(SPLITTER_MIN_WIDTH_PX, Math.min(usableWidthPx - SPLITTER_MIN_WIDTH_PX, Math.round(ratio * usableWidthPx)))
+  return { leftPx, rightPx: usableWidthPx - leftPx }
+}
 
 export function SideBySideSplitter({
   onResize,
-  leftWidthPx,
+  ratio,
   containerRef,
   forceSideBySide = false,
   interactive = true,
 }: SideBySideSplitterProps) {
   // Track drag start values via refs to avoid stale closures in event listeners.
   const dragStartXRef = useRef<number | null>(null)
-  const dragStartLeftRef = useRef<number>(leftWidthPx)
-  // Accumulates the latest clamped value during the drag so mouseup can commit it.
-  const dragFinalPxRef = useRef<number>(leftWidthPx)
-  // Keep a live ref to leftWidthPx so the mousedown handler always reads the latest
+  const dragStartRatioRef = useRef<number>(ratio)
+  // Accumulates the latest clamped ratio during the drag so mouseup can commit it.
+  const dragFinalRatioRef = useRef<number>(ratio)
+  // Keep a live ref to ratio so the mousedown handler always reads the latest
   // committed value without re-registering the listener on every render.
-  const leftWidthRef = useRef(leftWidthPx)
+  const ratioRef = useRef(ratio)
   // Sync into ref after render.
-  useEffect(() => { leftWidthRef.current = leftWidthPx })
+  useEffect(() => { ratioRef.current = ratio })
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     // Only respond to primary (left) mouse button.
@@ -72,36 +78,50 @@ export function SideBySideSplitter({
     e.preventDefault()
 
     dragStartXRef.current = e.clientX
-    dragStartLeftRef.current = leftWidthRef.current
-    // Initialise the final-value ref so a click-without-move commits the current width.
-    dragFinalPxRef.current = leftWidthRef.current
+    dragStartRatioRef.current = ratioRef.current
+    // Initialise the final-value ref so a click-without-move commits the current ratio.
+    dragFinalRatioRef.current = ratioRef.current
+
+    // Snapshot the container's usable width once at drag start.
+    // The container is width: 100vw (or fixed in forced-zoom mode) — it does not change
+    // during a drag gesture. Caching this avoids calling getBoundingClientRect() on every
+    // mousemove, which would force a synchronous layout flush each event and starve the
+    // browser's rendering update that delivers ResizeObserver notifications (live column count).
+    const el = containerRef.current
+    const zoom = forceSideBySide ? AUTO_SIDE_BY_SIDE_FORCED_ZOOM : 1
+    const containerUsableAtStart = el
+      ? Math.max(0, el.getBoundingClientRect().width / zoom - GRID_COLUMN_GAP_PX)
+      : 0
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
-      if (dragStartXRef.current === null) return
+      if (dragStartXRef.current === null || containerUsableAtStart <= 0) return
+      const container = containerRef.current
+      if (!container) return
+
+      // clientX is in visual (zoomed) px when zoom is active; divide for CSS px delta.
       const rawDelta = moveEvent.clientX - dragStartXRef.current
-      // When CSS zoom is active, clientX is in visual (zoomed) pixels. Divide by the
-      // zoom factor to convert to CSS px, which is what the layout widths are measured in.
-      const delta = forceSideBySide ? rawDelta / AUTO_SIDE_BY_SIDE_FORCED_ZOOM : rawDelta
-      const clamped = Math.max(
-        SPLITTER_MIN_WIDTH_PX,
-        Math.min(SPLITTER_MAX_WIDTH_PX, Math.round(dragStartLeftRef.current + delta)),
-      )
-      dragFinalPxRef.current = clamped
+      const delta = forceSideBySide ? rawDelta / zoom : rawDelta
+
+      // Convert delta to a ratio change, then clamp the resulting ratio.
+      const rawRatio = dragStartRatioRef.current + delta / containerUsableAtStart
+      // Also enforce absolute-px minimums so panels never collapse below SPLITTER_MIN_WIDTH_PX.
+      const minRatio = SPLITTER_MIN_WIDTH_PX / containerUsableAtStart
+      const maxRatio = 1 - minRatio
+      const clampedRatio = Math.max(minRatio, Math.min(maxRatio, rawRatio))
+      dragFinalRatioRef.current = clampedRatio
 
       // Write CSS custom properties directly to the DOM — no React state, no re-renders.
-      const el = containerRef.current
-      if (el) {
-        el.style.setProperty('--splitter-left-width', `${clamped}px`)
-        el.style.setProperty('--splitter-right-width', `${TOTAL_USABLE_PX - clamped}px`)
-      }
+      const { leftPx, rightPx } = ratioToPx(clampedRatio, containerUsableAtStart)
+      container.style.setProperty('--splitter-left-width', `${leftPx}px`)
+      container.style.setProperty('--splitter-right-width', `${rightPx}px`)
     }
 
     const handleMouseUp = () => {
       dragStartXRef.current = null
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
-      // Commit the final value once — triggers exactly one React re-render + localStorage write.
-      onResize(dragFinalPxRef.current)
+      // Commit the final ratio once — triggers exactly one React re-render + localStorage write.
+      onResize(dragFinalRatioRef.current)
     }
 
     document.addEventListener('mousemove', handleMouseMove)
@@ -110,7 +130,7 @@ export function SideBySideSplitter({
 
   const handleDoubleClick = useCallback(() => {
     // Reset to the default 50/50 split.
-    onResize(PANEL_WIDTH_PX)
+    onResize(0.5)
   }, [onResize])
 
   return (

@@ -50,7 +50,10 @@ export function BuilderColumn({
         // During drag the splitter writes --splitter-left-width directly to the DOM, so the
         // panel width updates without any React re-render. widthPx (the committed value) serves
         // as the fallback for the initial render and the single re-render after mouseup.
-        width: forceSideBySide ? `var(--splitter-left-width, ${widthPx ?? PANEL_WIDTH_PX}px)` : '100%',
+        // The 50% fallback covers the flash-guard window before the CSS var is first written.
+        width: forceSideBySide ? `var(--splitter-left-width, ${widthPx != null ? `${widthPx}px` : '50%'})` : '100%',
+        // When widthPx is set (side-by-side mode), the splitter controls the width — no cap.
+        // Single-column mode caps at PANEL_WIDTH_PX so the form stays readable when centred.
         maxWidth: widthPx != null ? 'none' : PANEL_WIDTH_PX,
         mx: forceSideBySide ? 0 : 'auto',
         // In forced side-by-side (zoom) mode, lock the paper to exactly the available viewport
@@ -64,8 +67,8 @@ export function BuilderColumn({
         // chipsMaxHeight updates on mode switch cannot nudge the paper height up or down.
         [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
           mx: 0,
-          // CSS variable carries live drag updates; prop value is the committed fallback.
-          width: `var(--splitter-left-width, ${widthPx ?? PANEL_WIDTH_PX}px)`,
+          // CSS variable carries live drag updates; 50% fallback covers the flash-guard window.
+          width: `var(--splitter-left-width, ${widthPx != null ? `${widthPx}px` : '50%'})`,
           ...(sideBySideMinPaperHeightPx
             ? { minHeight: sideBySideMinPaperHeightPx, maxHeight: sideBySideMinPaperHeightPx, overflowY: 'hidden' }
             : {}),
