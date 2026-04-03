@@ -57,7 +57,7 @@ export function BuilderColumn({
         // flex children (form + chips) fill the paper without the paper itself ever growing
         // beyond the viewport and causing a document scrollbar.
         ...(forceSideBySide && sideBySideMinPaperHeightPx
-          ? { minHeight: sideBySideMinPaperHeightPx, maxHeight: sideBySideMinPaperHeightPx, overflow: 'hidden' }
+          ? { minHeight: sideBySideMinPaperHeightPx, maxHeight: sideBySideMinPaperHeightPx, overflowY: 'hidden' }
           : {}),
         // Native side-by-side (no zoom) gets the same fixed-height treatment so that
         // chipsMaxHeight updates on mode switch cannot nudge the paper height up or down.
@@ -66,7 +66,7 @@ export function BuilderColumn({
           // Use the splitter-controlled width when available; fall back to default.
           width: widthPx ?? PANEL_WIDTH_PX,
           ...(sideBySideMinPaperHeightPx
-            ? { minHeight: sideBySideMinPaperHeightPx, maxHeight: sideBySideMinPaperHeightPx, overflow: 'hidden' }
+            ? { minHeight: sideBySideMinPaperHeightPx, maxHeight: sideBySideMinPaperHeightPx, overflowY: 'hidden' }
             : {}),
         },
       }}
@@ -88,7 +88,9 @@ export function BuilderColumn({
           )}
           {substatTargets ?? <Box />}
         </Box>
-        <Box sx={{ position: 'relative', flexShrink: 0 }}>{builderPanel}</Box>
+        {/* overflowX:auto gives the builder form section a horizontal scrollbar when
+            the toggle-button rows are wider than the (splitter-controlled) panel width. */}
+        <Box sx={{ position: 'relative', flexShrink: 0, overflowX: 'auto' }}>{builderPanel}</Box>
         <Box sx={{ flexShrink: 0 }}>{headerActions}</Box>
       </Box>
       {metasetConflictDialog}
