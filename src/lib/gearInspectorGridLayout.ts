@@ -4,6 +4,31 @@
  * Shared layout constants + helpers for the Gear Inspector grid.
  */
 
+import type { GearInspectorGridColumnMode } from '../state/gearInspectorGridPreferences'
+
+// Target card width (px) per size mode. Column count is derived as
+// floor(rowContentWidth / targetWidth) so the grid auto-adjusts as the panel resizes.
+//
+// Calibrated for the default 50/50 side-by-side split where each panel is
+// PANEL_WIDTH_PX (1152 CSS px). The column count formula strips:
+//   – Paper padding: PREVIEW_PAPER_PADDING_UNITS = 2 → 16 px × 2 = 32 px
+//   – Scroll container inline-end padding: GEAR_INSPECTOR_GRID_CONTAINER_PADDING_END_UNITS = 0.5 → 4 px
+//   – Row padding (both sides): GEAR_INSPECTOR_GRID_ROW_PADDING_UNITS × 2 → ~12 px
+// → rowContentWidth ≈ 1104 px at the reference panel width.
+// These targets land on exactly 4 / 5 / 8 columns at that reference width.
+export const GEAR_INSPECTOR_CARD_TARGET_WIDTH_PX: Record<GearInspectorGridColumnMode, number> = {
+  large: 265,   // ≈4 columns at the default 1108 px row content width
+  medium: 210,  // ≈5 columns
+  small: 130,   // ≈8 columns
+}
+
+// Fallback column count used on the first render, before the ResizeObserver fires.
+export const GEAR_INSPECTOR_CARD_FALLBACK_COLUMN_COUNT: Record<GearInspectorGridColumnMode, number> = {
+  large: 4,
+  medium: 5,
+  small: 8,
+}
+
 // Column gap units inside the Gear Inspector grid (theme.spacing multiplier).
 export const GEAR_INSPECTOR_GRID_COLUMN_GAP_UNITS = 0.375
 

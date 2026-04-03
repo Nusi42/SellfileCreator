@@ -60,7 +60,10 @@ import {
   type ColorBlindMode,
 } from '../lib/constants'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
-import { useGearInspectorGridPreferences } from '../state/gearInspectorGridPreferences'
+import {
+  useGearInspectorGridPreferences,
+  type GearInspectorGridColumnMode,
+} from '../state/gearInspectorGridPreferences'
 import {
   SAFEGUARD_DEFAULT_COUNT_MODE,
   SafeguardSubstatMatch,
@@ -192,6 +195,9 @@ type GearInspectorItemsGridProps = {
   onGearItemsSelect?: (next: ReadonlySet<number>) => void
   // When false (default) cards are not clickable for selection; gates cursor + click handler.
   gearSelectionEnabled?: boolean
+  // Outer width of the preview Paper in CSS px, as reported by the splitter.
+  // When provided, the dynamic column count adjusts automatically as the panel resizes.
+  panelWidthPx?: number
 }
 
 type GearInspectorGroupKind ='artifactSet' | 'artifactSlot' | 'accessorySet' | 'accessoryFaction'
@@ -217,6 +223,13 @@ type GroupRowsBySetOptions = {
 
 // GearInspectorCardTopOverlay is defined and exported from GearInspectorGridCard.
 // It is imported at the top of this file so the main component can reference it without duplication.
+
+// Maps each card size mode to the i18n key that labels it in the grid-columns menu button.
+const COLUMN_MODE_I18N_KEY: Record<GearInspectorGridColumnMode, string> = {
+  large: 'rulesMenuGridColumnsLarge',
+  medium: 'rulesMenuGridColumnsMedium',
+  small: 'rulesMenuGridColumnsSmall',
+}
 
 export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const {
@@ -259,6 +272,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     selectedGearItemIds,
     onGearItemsSelect,
     gearSelectionEnabled = false,
+    panelWidthPx,
   } = props
   // Variant flags control keep-override behavior without forking the grid.
   const safeguardsVariant = variant === 'safeguards'
@@ -755,15 +769,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const canShowRuleTemplateActions = variant === 'gearInspector'
     && showRuleTemplates
     && typeof onCreateRuleTemplate === 'function'
-  // Preferences keep the 4/5(/8-dev) column toggle alive while keep-override tabs use their own 1/2 columns.
-  // 8-column is dev-only; if a dev session persisted 8 and the user opens a production build, fall back to 5.
-  const storedColumnPreference = gridColumnPreference === 5
-    ? 5
-    : (gridColumnPreference === 8 && import.meta.env.DEV)
-      ? 8
-      : gridColumnPreference === 8
-        ? 5
-        : 4
+  // The store returns the validated mode string directly; no coercion needed here.
+  const storedColumnPreference = gridColumnPreference
   // Context-menu helper drives the "long press for menu" overlay when users have not seen it yet.
   const {
     shouldShow: shouldShowGridContextHint,
@@ -950,7 +957,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const [scrollHintMinWidthPx, setScrollHintMinWidthPx] = useState(0)
   const viewportMeasureRafRef = useRef<number | null>(null)
   const revealIdleDrainTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Ref-based setter so the ResizeObserver/rAF callback avoids the set-state-in-effect lint rule.
+  // Ref-based setter so ResizeObserver/rAF callbacks avoid the set-state-in-effect lint rule.
   const setViewportHeightRef = useRef(setViewportHeight)
   useEffect(() => { setViewportHeightRef.current = setViewportHeight }, [setViewportHeight])
   useEffect(() => {
@@ -1019,8 +1026,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   }, [])
   // Keep overrides rely on a dedicated 1/2 column preference to widen the rule list when desired.
   const resolvedKeepOverrideColumnMode = keepOverrideColumnMode === 2 ? 2 : 1
-  // Default to 1 column whenever the keep-override preference is missing.
-  const preferredColumnCount = keepOverrideVariant ? resolvedKeepOverrideColumnMode : storedColumnPreference
+  // preferredColumnCount carries the numeric keep-override value (1 or 2).
+  // For the Gear Inspector path the column count is derived dynamically from cardSizeMode + containerWidthPx instead.
+  const preferredColumnCount = resolvedKeepOverrideColumnMode
   // Safeguards keeps its 1/2-column layout, but card internals should mirror the Gear Inspector 4-column profile.
   const keepOverrideCardStyleColumnCount = keepOverrideVariant ? KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT : undefined
   const {
@@ -1033,6 +1041,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   } = useGearInspectorGridLayoutMetrics({
     preferredColumnCount,
     ...(keepOverrideCardStyleColumnCount != null ? { cardStyleColumnCount: keepOverrideCardStyleColumnCount } : {}),
+    // Gear Inspector path: pass the size mode and splitter-reported panel width for dynamic column derivation.
+    ...(!keepOverrideVariant ? { cardSizeMode: storedColumnPreference, panelWidthPx } : {}),
     showFirstMatch,
     showOtherMatches,
     theme,
@@ -1607,7 +1617,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     }
     closeGridMenu()
   }, [closeGridMenu, normalizedPresetEditor])
-  // Keep overrides use their own 1/2 column preference; base Gear Inspector stays on 4/5.
+  // Keep overrides use their own 1/2 column preference; Gear Inspector cycles large/medium/small card sizes.
   const handleColumnToggle = useCallback(() => {
     if (keepOverrideVariant) {
       if (typeof onKeepOverrideColumnModeChange !== 'function') return
@@ -1615,14 +1625,11 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       onKeepOverrideColumnModeChange(next)
       return
     }
-    // In dev: cycle 4 → 5 → 8 → 4 to allow testing the ultra-dense layout.
-    // In production: cycle 4 → 5 → 4 only (8-col is a dev-only feature).
+    // Cycle through card size modes: large → medium → small → large.
     setColumns(
-      storedColumnPreference === 4
-        ? 5
-        : (import.meta.env.DEV && storedColumnPreference === 5)
-          ? 8
-          : 4,
+      storedColumnPreference === 'large' ? 'medium'
+      : storedColumnPreference === 'medium' ? 'small'
+      : 'large',
     )
   }, [
     keepOverrideVariant,
@@ -2576,7 +2583,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
               handleColumnToggle()
             }}
           >
-            {t('rulesMenuGridColumnsValue', { count: preferredColumnCount })}
+            {t(COLUMN_MODE_I18N_KEY[storedColumnPreference])}
           </Button>
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowFirstMatch(!showFirstMatch)}>

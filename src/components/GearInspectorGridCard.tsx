@@ -58,13 +58,18 @@ import {
   CHAMPION_ICON_LARGE_SIZE,
   CHAMPION_ICON_LARGE_THRESHOLD,
   CHAMPION_ICON_BORDER_RADIUS_PX,
+  PREVIEW_PAPER_PADDING_UNITS,
 } from '../lib/constants'
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
 import {
   parseSpacingPx,
   GEAR_INSPECTOR_GRID_COLUMN_GAP_UNITS,
   GEAR_INSPECTOR_GRID_ROW_PADDING_UNITS,
+  GEAR_INSPECTOR_GRID_CONTAINER_PADDING_END_UNITS,
+  GEAR_INSPECTOR_CARD_TARGET_WIDTH_PX,
+  GEAR_INSPECTOR_CARD_FALLBACK_COLUMN_COUNT,
 } from '../lib/gearInspectorGridLayout'
+import type { GearInspectorGridColumnMode } from '../state/gearInspectorGridPreferences'
 import type { GearInspectorRuleTemplateIntent } from '../lib/gearInspectorRuleTemplates'
 import { useChangePulse } from '../hooks/useChangePulse'
 
@@ -610,42 +615,13 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     : (shouldShowOtherMatchesRow ? hiddenOtherMatching : [])
   const matchingOverflowCount = matchingOverflowEntries.length
   // Gap + refs let us squeeze as many chips as possible before handing the overflow to a popover.
-  const matchingChipGapPx = parseSpacingPx(String(theme.spacing(MATCHING_CHIP_GAP_UNITS)))
+  // matchingChipGapPx is no longer needed; chips container uses flex:1 so the +N button
+  // naturally claims its own space without a pixel-width calculation.
   const visibleChipsContainerRef = useRef<HTMLDivElement | null>(null)
   const handleVisibleChipsContainerRef = useCallback((node: HTMLDivElement | null) => {
     visibleChipsContainerRef.current = node
   }, [])
-  const moreChipRef = useRef<HTMLSpanElement | null>(null)
-  const handleMoreChipRef = useCallback((node: HTMLSpanElement | null) => {
-    moreChipRef.current = node
-  }, [])
-  const [moreChipWidth, setMoreChipWidth] = useState(0)
-  // Ref-based setter so the ResizeObserver callback avoids the set-state-in-effect lint rule.
-  const setMoreChipWidthRef = useRef(setMoreChipWidth)
-  useLayoutEffect(() => {
-    const node = moreChipRef.current
-    if (!node) {
-      setMoreChipWidthRef.current(0)
-      return
-    }
-    const measure = () => {
-      setMoreChipWidthRef.current(node.getBoundingClientRect().width)
-    }
-    measure()
-    if (typeof ResizeObserver === 'undefined') {
-      return
-    }
-    const observer = new ResizeObserver(measure)
-    observer.observe(node)
-    return () => {
-      observer.disconnect()
-    }
-  }, [hiddenOtherMatching.length])
   const hasHiddenMatches = hiddenOtherMatching.length > 0
-  // Available width is recalculated whenever the +N chip resizes so text never overflows.
-  const visibleChipsAvailableWidth = hasHiddenMatches
-    ? Math.max(0, otherMatchesRowWidth - (moreChipWidth + matchingChipGapPx))
-    : otherMatchesRowWidth
   // Ref-based setter so the layout effect avoids the set-state-in-effect lint rule.
   const setVisibleOtherMatchingLimitRef = useRef(setVisibleOtherMatchingLimit)
   useLayoutEffect(() => {
@@ -666,7 +642,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     normalizedVisibleLimit,
     hasHiddenMatches,
     totalOtherMatches,
-    visibleChipsAvailableWidth,
+    otherMatchesRowWidth,
     otherMatchingEntriesSignature,
   ])
   const [matchingPopoverAnchor, setMatchingPopoverAnchor] = useState<HTMLElement | null>(null)
@@ -766,7 +742,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     // MarkdownTooltip.cloneElement (which injects title=undefined onto its direct child) targets the
     // inner Box rather than EllipsisTooltip's title prop (which would produce "undefined" tooltips).
     return (
-      <Box key={key} component="span" sx={{ flexShrink: 0, display: 'inline-flex', minWidth: 0 }}>
+      <Box key={key} component="span" sx={{ flexShrink: 0, display: 'inline-flex', minWidth: 0, maxWidth: '100%' }}>
         {/* Use the chip-label class as the ellipsis target so native tooltips only appear for clipped labels. */}
         <EllipsisTooltip title={entry.label} selector=".MuiChip-label">
           {clickable
@@ -823,8 +799,10 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     ? Math.round(GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX * 0.6)
     : GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX
   // Dynamic card template matches the (possibly reduced) icon column width.
+  // Ultra-dense uses minmax(0, 1fr) — the 112 px floor would overflow the ~114 px content
+  // area available inside a 130 px card (8 px padding each side + 43 px icon + gap).
   const cardGridTemplate = isUltraDense
-    ? `${iconBoxSizePx}px minmax(${GRID_CARD_STATS_MIN_COLUMN_PX}px, 1fr)`
+    ? `${iconBoxSizePx}px minmax(0, 1fr)`
     : GRID_CARD_TEMPLATE
   const substatEntries = artifact.substats
     .filter((stat) => stat.variant !== StatVariant.Any)
@@ -998,12 +976,11 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   // Smaller badges fall back to a single glyph so collapsed accordions stay lightweight.
   const SourceGlyph = shouldShowStandaloneSourceIcon && SourceIcon ? SourceIcon : null
   const sourceIconLabel = sourceDescriptor?.label ?? ''
-  // Ultra-dense 8-col uses a custom ~60% icon size to stay proportional within the narrower icon column.
-  const championIconSize = isUltraDense
-    ? { width: Math.round(CHAMPION_ICON_LARGE_SIZE.width * 0.6), height: Math.round(CHAMPION_ICON_LARGE_SIZE.height * 0.6) }
-    : championIconMode === 'large'
-      ? CHAMPION_ICON_LARGE_SIZE
-      : CHAMPION_ICON_BASE_SIZE
+  // Ultra-dense uses the same large size as non-dense large mode: 38×38 fits within the available
+  // column height (43 gear + 4 gap + 10 mt + 38 champ = 95 px < leftColumnHeightPx 100 px).
+  const championIconSize = (isUltraDense || championIconMode === 'large')
+    ? CHAMPION_ICON_LARGE_SIZE
+    : CHAMPION_ICON_BASE_SIZE
   // Champion avatars reuse the rarity palette so imported pieces surface their quality immediately.
   const rarityAccentColor = resolveRarityAccentColor(artifact.equippedChampionRarity)
   // Avatar frames fall back to the neutral divider so unknown rarities still look intentional.
@@ -1237,7 +1214,8 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
       sx={(theme) => ({
         display: 'grid',
         gridTemplateColumns: cardGridTemplate,
-        columnGap: theme.spacing(CARD_COLUMN_GAP_UNITS),
+        // Narrow the gap in ultra-dense mode to reclaim horizontal space for the stats column.
+        columnGap: theme.spacing(isUltraDense ? 0.75 : CARD_COLUMN_GAP_UNITS),
         p: theme.spacing(CARD_PADDING_UNITS),
         borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
         // Selection uses primary border; safeguard highlight uses info; default uses divider.
@@ -1406,7 +1384,24 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                   component="span"
                   role="img"
                   aria-label={sourceIconLabel}
-                  sx={{
+                  sx={isUltraDense ? {
+                    // Ultra-dense: bottom-right corner badge overlaid on the portrait.
+                    // Horizontal offset aligns the badge with the portrait's right edge; the
+                    // dimmed pill background keeps the icon readable against any portrait colour.
+                    position: 'absolute',
+                    bottom: 1,
+                    right: Math.round((iconBoxSizePx - championIconSize.width) / 2) - 2,
+                    width: 17,
+                    height: 17,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: (theme) => alpha(theme.palette.background.paper, 0.65),
+                    borderRadius: '3px',
+                    color: 'text.secondary',
+                    fontSize: '0.85rem',
+                  } : {
+                    // Non-ultra-dense: right-side badge, vertically centred on the portrait.
                     position: 'absolute',
                     top: `calc(50% + ${championIconMode === 'large' ? 0 : 3}px)`,
                     left: `${iconBoxSizePx - 5}px`,
@@ -1600,15 +1595,19 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                           lineHeight: 1.1,
                           display: compactSubstatColumnLayout ? 'block' : 'inline-flex',
                           alignItems: compactSubstatColumnLayout ? undefined : 'center',
-                          // Keep ellipsis stable when the stat text is long.
+                          // Keep text stable when the stat name is long.
                           width: '100%',
                           minWidth: 0,
                           // Hidden in both modes: prevents long stat names from escaping the row.
                           // Compact mythic rows are narrowed to populated columns via the outer
                           // row Box width, so trailing empty columns are clipped here harmlessly.
                           overflow: 'hidden',
-                          textOverflow: compactSubstatColumnLayout ? 'clip' : 'ellipsis',
+                          // Ultra-dense clips cleanly — no ellipsis; the roll glyph (if any)
+                          // is absolutely positioned so the label text can run right to it.
+                          textOverflow: (compactSubstatColumnLayout || isUltraDense) ? 'clip' : 'ellipsis',
                           whiteSpace: compactSubstatColumnLayout ? 'normal' : 'nowrap',
+                          // Anchor for the absolutely-positioned roll glyph in ultra-dense mode.
+                          position: 'relative',
                           color: 'inherit',
                           // Subtle halo keeps tinted text legible over the mythic background.
                           textShadow: mythicTextShadow,
@@ -1713,6 +1712,43 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                               {entry.glyphDelta ?? ''}
                             </Box>
                           </Box>
+                        ) : (isUltraDense && entry.hasRoll) ? (
+                          // Ultra-dense: label has flex: '0 1 auto' so it sits naturally right
+                          // of the icon and doesn't grow — glyph stays adjacent for short labels.
+                          // When space is tight the label box shrinks and its text clips cleanly
+                          // against the glyph (no ellipsis), which stays fully visible thanks to
+                          // flex-shrink: 0. A subtle rounded bg on the glyph keeps it readable
+                          // when it overlays the trailing characters of a long label.
+                          <>
+                            <Box
+                              component="span"
+                              sx={{
+                                flex: '0 1 auto',
+                                overflow: 'hidden',
+                                whiteSpace: 'nowrap',
+                                minWidth: 0,
+                                color: entry.statColor ?? 'inherit',
+                              }}
+                            >
+                              {entry.statLabel}
+                            </Box>
+                            <Box
+                              component="span"
+                              sx={{
+                                flexShrink: 0,
+                                fontSize: '1rem',
+                                lineHeight: 1,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                position: 'relative',
+                                top: '0.06em',
+                                ml: 0.5,
+                              }}
+                              aria-label={entry.rollAriaLabel ?? undefined}
+                            >
+                              {entry.rollGlyph}
+                            </Box>
+                          </>
                         ) : entry.content}
                       </Typography>
                   </Box>
@@ -1753,7 +1789,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           {shouldPinOtherMatchesToPrimaryRow ? (
             // Reuse the +N affordance so hidden matches remain discoverable while first match stays fully visible.
             <MarkdownTooltip markdown={`${t('gearInspectorRecipeMatches')} (+${matchingOverflowCount})`}>
-              <Box component="span" ref={handleMoreChipRef} sx={{ ...MATCHING_CHIP_WRAPPER_SX, ml: 'auto' }}>
+              <Box component="span" sx={{ ...MATCHING_CHIP_WRAPPER_SX, flexShrink: 0, ml: 'auto' }}>
                 <Chip
                   label={`+${matchingOverflowCount}`}
                   size="small"
@@ -1804,16 +1840,13 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                 display: 'flex',
                 flexWrap: 'nowrap',
                 gap: MATCHING_CHIP_GAP_UNITS,
+                // flex:1 lets the container naturally fill whatever space remains after the
+                // +N button claims its own width — no pixel math needed.
+                flex: 1,
                 minWidth: 0,
-                // overflow: hidden clips chips that temporarily exceed the container width while the
+                // overflow:hidden clips chips that temporarily exceed the container width while the
                 // overflow-detection useLayoutEffect is still converging on the correct chip count.
                 overflow: 'hidden',
-                width: hasHiddenMatches
-                  ? `${visibleChipsAvailableWidth}px`
-                  : '100%',
-                maxWidth: hasHiddenMatches
-                  ? `${visibleChipsAvailableWidth}px`
-                  : '100%',
               }}
             >
               {visibleOtherMatching.map((entry) => renderMatchingChip(entry))}
@@ -1822,7 +1855,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
               <>
                 {/* MarkdownTooltip keeps the "+N" overflow chip consistent with other Gear Inspector tooltips. */}
                 <MarkdownTooltip markdown={`${t('gearInspectorRecipeMatches')} (+${matchingOverflowCount})`}>
-                  <Box component="span" ref={handleMoreChipRef} sx={MATCHING_CHIP_WRAPPER_SX}>
+                  <Box component="span" sx={{ ...MATCHING_CHIP_WRAPPER_SX, flexShrink: 0 }}>
                     <Chip
                       label={`+${matchingOverflowCount}`}
                       size="small"
@@ -2295,6 +2328,10 @@ export type GearInspectorGridLayoutMetrics = {
 
 type UseGearInspectorGridLayoutMetricsOptions = {
   preferredColumnCount: number
+  // When provided together, these drive the dynamic column count path for the Gear Inspector grid.
+  // panelWidthPx is the Paper's outer width (including its own padding) as reported by the splitter.
+  cardSizeMode?: GearInspectorGridColumnMode
+  panelWidthPx?: number
   cardStyleColumnCount?: number
   showFirstMatch: boolean
   showOtherMatches: boolean
@@ -2303,21 +2340,44 @@ type UseGearInspectorGridLayoutMetricsOptions = {
 
 export function useGearInspectorGridLayoutMetrics({
   preferredColumnCount,
+  cardSizeMode,
+  panelWidthPx,
   cardStyleColumnCount,
   showFirstMatch,
   showOtherMatches,
   theme,
 }: UseGearInspectorGridLayoutMetricsOptions): GearInspectorGridLayoutMetrics {
-  // Layout metrics re-run only on breakpoint or toggle changes so the cards stay stable across renders.
+  // Layout metrics re-run only on breakpoint or resize events so the cards stay stable across renders.
   const isMultiColumn = useMediaQuery(theme.breakpoints.up('sm'))
-  const gridColumnCount = isMultiColumn ? preferredColumnCount : 1
-  // Card internals can use a separate column profile so keep-override panes match Gear Inspector card styling.
+  const leafPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS)), [theme])
+  const gridColumnCount = useMemo(() => {
+    if (!isMultiColumn) return 1
+    // Dynamic path: derive column count from the splitter-reported panel width.
+    if (cardSizeMode != null && panelWidthPx != null && panelWidthPx > 0) {
+      const targetWidth = GEAR_INSPECTOR_CARD_TARGET_WIDTH_PX[cardSizeMode]
+      // Strip the Paper padding on both sides, the scroll container's inline-end padding, and
+      // the row padding on both sides to arrive at the usable card area.
+      const paperPaddingPx = parseSpacingPx(theme.spacing(PREVIEW_PAPER_PADDING_UNITS))
+      const containerInlineEndPx = parseSpacingPx(theme.spacing(GEAR_INSPECTOR_GRID_CONTAINER_PADDING_END_UNITS))
+      const rowContentWidth = Math.max(0, panelWidthPx - paperPaddingPx * 2 - containerInlineEndPx - leafPaddingPx * 2)
+      return Math.max(1, Math.floor(rowContentWidth / targetWidth))
+    }
+    // Static fallback: panel width not available, use the reference column count for the mode.
+    if (cardSizeMode != null) return GEAR_INSPECTOR_CARD_FALLBACK_COLUMN_COUNT[cardSizeMode]
+    // Keep-override path: preferredColumnCount is 1 or 2, used verbatim.
+    return Math.max(1, preferredColumnCount)
+  }, [isMultiColumn, cardSizeMode, panelWidthPx, leafPaddingPx, preferredColumnCount, theme])
+  // Card internals use a pinned column profile so their layout doesn't shift as the dynamic
+  // column count adjusts with panel width. Priority: explicit cardStyleColumnCount override
+  // (keep-override path) → mode's reference count (gear-inspector path) → gridColumnCount.
   const resolvedCardStyleColumnCount = Number.isFinite(cardStyleColumnCount)
     ? Math.max(1, Math.round(Number(cardStyleColumnCount)))
-    : gridColumnCount
+    : cardSizeMode != null
+      ? GEAR_INSPECTOR_CARD_FALLBACK_COLUMN_COUNT[cardSizeMode]
+      : gridColumnCount
   const accordionSpacingPx = useMemo(() => parseSpacingPx(theme.spacing(ACCORDION_MARGIN_UNITS)), [theme])
   const gridGapPx = useMemo(() => parseSpacingPx(theme.spacing(GRID_GAP)), [theme])
-  const leafPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS)), [theme])
+  // leafPaddingPx is computed above the gridColumnCount memo (needed there for row-content width).
   const cardVerticalPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(CARD_PADDING_UNITS)) * 2, [theme])
   const { firstRowHeightPx: cardFirstRowHeightPx } = useMemo(
     () => getGearInspectorGridCardColumnHeights(theme, resolvedCardStyleColumnCount),
