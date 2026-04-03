@@ -4630,26 +4630,47 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return sorted
   }, [gearInspectorPreviewRows])
   // ── Safeguard item-key sets: power the recipe-filter integration in safeguard builder mode ──
-  // Items whose first eval match is ANY safeguard rule — mirrors recipe-mode "By Match: Any".
+  // Items that are candidates in any currently-selected safeguard rule — mirrors recipe "By Match: Any".
+  // "Any" for recipes shows gear matching any selected recipe (even non-first matches); here we union
+  // all candidates (ranked items) from the selected rules' detection entries, regardless of which
+  // rule ultimately won the item.  When nothing is selected, returns null (no filter), matching
+  // the recipe-mode convention where an empty selection means the filter is a no-op.
   const safeguardAnyMatchItemKeySet = useMemo(() => {
-    if (!safeguardsActive || !gearInspectorPreviewRows.length) return null
+    if (!safeguardsActive || !safeguardDetection?.entries?.length) return null
+    // Determine selected ordinals — same logic as safeguardSelectedRuleItemKeySet.
+    const selectedOrdinals: ReadonlySet<number> = safeguardMultiselectActive
+      ? new Set(selectedSafeguardRuleIndices.map((idx) => idx + 1))
+      : (selectedSafeguardRuleIdx !== null ? new Set([selectedSafeguardRuleIdx + 1]) : new Set())
+    if (selectedOrdinals.size === 0) return null
     const set = new Set<number>()
-    for (const row of gearInspectorPreviewRows) {
-      // Only count items whose first (winning) match came from a safeguard rule.
-      if (row.match?.ruleSource === RULE_SOURCE_SAFEGUARDS) set.add(getSafeguardItemKey(row.artifact))
+    for (const entry of safeguardDetection.entries) {
+      if (entry.ruleOrdinal === null || !selectedOrdinals.has(entry.ruleOrdinal)) continue
+      // Include every positively-ranked candidate for this rule (item key, not artifact id).
+      for (const candidate of entry.candidates ?? []) {
+        if (candidate.candidateRank > 0) set.add(candidate.itemKey)
+      }
     }
     return set.size > 0 ? set : null
-  }, [safeguardsActive, gearInspectorPreviewRows])
-  // Items whose first eval match is the currently-selected safeguard rule — mirrors "By Match: First".
+  }, [safeguardsActive, safeguardDetection, safeguardMultiselectActive, selectedSafeguardRuleIndices, selectedSafeguardRuleIdx])
+  // Items whose first eval match is any currently-selected safeguard rule — mirrors "By Match: First".
+  // Unions item keys from all selected ordinals when multiple chips are selected, mirroring how
+  // gearInspectorRecipeFilterSelectedSet collects all selected recipe indices.
   // Uses ruleOrdinal for identity so two rules with the same display name remain distinct.
   const safeguardSelectedRuleItemKeySet = useMemo(() => {
-    // selectedSafeguardRuleIdx is 0-based; ruleOrdinal in detection entries is 1-based.
-    if (!safeguardsActive || selectedSafeguardRuleIdx === null || !safeguardDetection?.entries?.length) return null
-    const targetOrdinal = selectedSafeguardRuleIdx + 1
-    const entry = safeguardDetection.entries.find((e) => e.ruleOrdinal === targetOrdinal)
-    if (!entry) return null
-    return new Set<number>(entry.itemKeys)
-  }, [safeguardsActive, safeguardDetection, selectedSafeguardRuleIdx])
+    if (!safeguardsActive || !safeguardDetection?.entries?.length) return null
+    // selectedSafeguardRuleIndices / selectedSafeguardRuleIdx are 0-based; ruleOrdinal is 1-based.
+    const selectedOrdinals: ReadonlySet<number> = safeguardMultiselectActive
+      ? new Set(selectedSafeguardRuleIndices.map((idx) => idx + 1))
+      : (selectedSafeguardRuleIdx !== null ? new Set([selectedSafeguardRuleIdx + 1]) : new Set())
+    if (selectedOrdinals.size === 0) return null
+    const set = new Set<number>()
+    for (const entry of safeguardDetection.entries) {
+      if (entry.ruleOrdinal !== null && selectedOrdinals.has(entry.ruleOrdinal)) {
+        for (const key of entry.itemKeys) set.add(key)
+      }
+    }
+    return set.size > 0 ? set : null
+  }, [safeguardsActive, safeguardDetection, safeguardMultiselectActive, selectedSafeguardRuleIndices, selectedSafeguardRuleIdx])
   // Full detection entry for the currently-editing safeguard — used to populate
   // the candidate rank list in the weight popover (null when not yet run).
   const safeguardBuilderDetectionEntry = useMemo(() => {
@@ -4727,8 +4748,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
 
   // In safeguard mode the recipe-filter button operates on safeguard detection instead of recipe selection.
+  // Requires an active selection in both modes: no selection → filter is a no-op, same as recipes.
   const gearInspectorRecipeFilterActive = gearInspectorRecipeFilterMode !== 'off' && (
-    builderMode === 'safeguard' ? true : selectedRecipeIndices.length > 0
+    builderMode === 'safeguard'
+      ? (safeguardMultiselectActive ? selectedSafeguardRuleIndices.length > 0 : selectedSafeguardRuleIdx !== null)
+      : selectedRecipeIndices.length > 0
   )
   const gearInspectorRecipeFilterSelectedSet = useMemo<Set<number> | null>(() => {
     if (!gearInspectorRecipeFilterActive) return null
@@ -4739,7 +4763,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const gearEntriesForTable = useMemo(() => {
     let rows: GearInspectorPreviewRow[] = gearEntriesAfterRulesFilter
     if (builderMode === 'safeguard' && gearInspectorRecipeFilterMode !== 'off') {
-      // Filter by safeguard detection: 'first' = selected rule, 'any' = any rule.
+      // Filter by safeguard detection: 'first' = items won by a selected rule,
+      // 'any' = items that are candidates of a selected rule (even if another rule won).
+      // Null key set means no selection → no filter, matching recipe-mode convention.
       const activeKeySet = gearInspectorRecipeFilterMode === 'first'
         ? safeguardSelectedRuleItemKeySet
         : safeguardAnyMatchItemKeySet
@@ -4747,8 +4773,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         rows = gearEntriesAfterRulesFilter.filter(
           (row) => activeKeySet.has(getSafeguardItemKey(row.artifact))
         )
-      } else {
-        rows = []
       }
     } else if (gearInspectorRecipeFilterSelectedSet && gearInspectorRecipeFilterSelectedSet.size > 0) {
       if (gearInspectorRecipeFilterMode === 'first') {
@@ -4783,11 +4807,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // on filter switches while still animating for genuine data changes.
   const gearInspectorEnterKey = useMemo(() => {
     if (builderMode === 'safeguard') {
-      return `sg:${gearInspectorRecipeFilterMode}:${selectedSafeguardRuleIdx ?? 'none'}`
+      // Use all selected indices (sorted) so the key changes correctly during multi-select.
+      const sgIndices = selectedSafeguardRuleIndices.slice().sort((a, b) => a - b).join(',')
+      return `sg:${gearInspectorRecipeFilterMode}:${sgIndices || 'none'}`
     }
     const indices = selectedRecipeIndices.slice().sort((a, b) => a - b).join(',')
     return `r:${gearInspectorRecipeFilterMode}:${indices}`
-  }, [builderMode, gearInspectorRecipeFilterMode, selectedSafeguardRuleIdx, selectedRecipeIndices])
+  }, [builderMode, gearInspectorRecipeFilterMode, selectedSafeguardRuleIndices, selectedRecipeIndices])
   // Summarize the filtered Gear Inspector rows so the preview chip mirrors the grid contents.
   const gearInspectorOutcomeSummaryForPreview = useMemo(
     () => buildGearInspectorOutcomeSummary(gearEntriesForTable),
@@ -4832,14 +4858,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return recipeSet
   }, [builderMode, gearInspectorRecipeFilterMode, safeguardSelectedRuleItemKeySet, safeguardAnyMatchItemKeySet, gearEntriesAfterRulesFilter])
-  // Mirrors gearInspectorRecipeFilterSelectedSet for safeguards: a Set containing the selected
-  // ordinal, or null when Selection is off / no chip is selected / not in safeguard mode.
+  // Mirrors gearInspectorRecipeFilterSelectedSet for safeguards: a Set of selected ordinals,
+  // or null when Selection is off / no chip is selected / not in safeguard mode.
   // Gated on gearInspectorRecipeFilterMode (the "Selection" toggle) — same flag that drives
   // gearInspectorRecipeFilterSelectedSet — not limitRecipesToFiltered (the "Narrow" toggle).
+  // Multi-select: includes all selected ordinals so the HSF table filters the full selection.
   const safeguardOrdinalFilterSet = useMemo<Set<number> | null>(() => {
-    if (gearInspectorRecipeFilterMode === 'off' || builderMode !== 'safeguard' || selectedSafeguardOrdinal === null) return null
-    return new Set([selectedSafeguardOrdinal])
-  }, [gearInspectorRecipeFilterMode, builderMode, selectedSafeguardOrdinal])
+    if (gearInspectorRecipeFilterMode === 'off' || builderMode !== 'safeguard') return null
+    const ordinals: number[] = safeguardMultiselectActive
+      ? selectedSafeguardRuleIndices.map((idx) => idx + 1)
+      : (selectedSafeguardOrdinal !== null ? [selectedSafeguardOrdinal] : [])
+    return ordinals.length > 0 ? new Set(ordinals) : null
+  }, [gearInspectorRecipeFilterMode, builderMode, safeguardMultiselectActive, selectedSafeguardRuleIndices, selectedSafeguardOrdinal])
   const hsfRulesForTable = useMemo(() => {
     const baseRules = filterActive ? filteredRules : mergedRules
     // Safeguard selection filter: keeps only rows whose ordinal is in the set —
