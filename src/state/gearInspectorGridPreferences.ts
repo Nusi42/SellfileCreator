@@ -14,23 +14,27 @@ import {
 } from '../lib/constants'
 import { createLocalStorageStore } from './localStorageStore'
 
-export type GearInspectorGridColumnMode = 4 | 5 | 8
+export type GearInspectorGridColumnMode = 'large' | 'medium' | 'small'
 export type GearInspectorGridPreferenceVariant = 'gearInspector' | 'safeguards'
 
 const gearInspectorGridColumnsStore = createLocalStorageStore<GearInspectorGridColumnMode>({
   key: GEAR_INSPECTOR_GRID_COLUMNS_KEY,
-  // Default to 4 columns so new sessions land on the denser Gear Inspector grid layout.
-  fallback: 4,
+  // Default to large cards so new sessions land on the spacious Gear Inspector grid layout.
+  fallback: 'large',
   parse: (raw) => {
-    // Treat missing or malformed values as the 4-column default.
-    if (raw === '4') return 4
-    if (raw === '5') return 5
-    if (raw === '8') return 8
-    // Keep the storage fallback aligned with the UI default.
-    return 4
+    // Accept current string values directly.
+    if (raw === 'large') return 'large'
+    if (raw === 'medium') return 'medium'
+    if (raw === 'small') return 'small'
+    // Migrate legacy numeric values stored by older builds.
+    if (raw === '4') return 'large'
+    if (raw === '5') return 'medium'
+    if (raw === '8') return 'small'
+    // Treat missing or unrecognized values as the large default.
+    return 'large'
   },
-  // Persist only the supported column modes so upgrades stay deterministic.
-  serialize: (value) => (value === 5 ? '5' : value === 8 ? '8' : '4'),
+  // Persist the mode name directly so future reads need no coercion.
+  serialize: (value) => value,
 })
 
 const gearInspectorGridShowFirstStore = createLocalStorageStore<boolean>({
@@ -141,8 +145,10 @@ export function useGearInspectorGridPreferences(variant: GearInspectorGridPrefer
   const showSafeguardRank = gearInspectorGridShowSafeguardRankStore.useValue()
 
   const setColumns = useCallback((next: GearInspectorGridColumnMode) => {
-    // Accept 4, 5, or 8; fall back to 4 for any other value.
-    gearInspectorGridColumnsStore.set(next === 5 ? 5 : next === 8 ? 8 : 4)
+    // Accept only the three named modes; fall back to large for any other value.
+    gearInspectorGridColumnsStore.set(
+      next === 'medium' ? 'medium' : next === 'small' ? 'small' : 'large',
+    )
   }, [])
 
   const setShowFirstMatch = useCallback((next: boolean) => {
