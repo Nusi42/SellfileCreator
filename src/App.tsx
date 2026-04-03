@@ -722,6 +722,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Absolute left/right px are derived below from the measured container width so panels scale
   // correctly as the browser window is resized.
   const [splitterRatio, setSplitterRatio] = useSplitterRatio()
+  // Live right-panel width during an active drag gesture. The splitter calls onResizeLive on
+  // every mousemove; we rAF-throttle to once per frame so we get at most ~60 re-renders/sec.
+  // Null means no drag is in progress; the committed splitterRightPx is used instead.
+  const [liveRightWidthPx, setLiveRightWidthPx] = useState<number | null>(null)
+  const liveRightWidthRafRef = useRef<number | null>(null)
+  // Latest value from the splitter — read inside the rAF callback to avoid stale closures.
+  const latestLiveRightWidthRef = useRef<number>(0)
+  const handleSplitterResizeLive = useCallback((rightPx: number) => {
+    latestLiveRightWidthRef.current = rightPx
+    // Coalesce multiple mousemove events within one animation frame into a single setState.
+    if (liveRightWidthRafRef.current != null) return
+    liveRightWidthRafRef.current = requestAnimationFrame(() => {
+      liveRightWidthRafRef.current = null
+      setLiveRightWidthPx(latestLiveRightWidthRef.current)
+    })
+  }, [])
+  const handleSplitterResize = useCallback((ratio: number) => {
+    // Commit the final ratio to localStorage and clear the transient drag state.
+    setSplitterRatio(ratio)
+    setLiveRightWidthPx(null)
+    if (liveRightWidthRafRef.current != null) {
+      cancelAnimationFrame(liveRightWidthRafRef.current)
+      liveRightWidthRafRef.current = null
+    }
+  }, [setSplitterRatio])
   // Ref for the flex container that holds both panels + the splitter handle. The splitter writes
   // CSS custom properties here directly during drag so no React re-renders occur mid-gesture.
   const splitterContainerRef = useRef<HTMLDivElement>(null)
@@ -7483,11 +7508,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         />
 
         {/* Draggable splitter handle — always interactive in side-by-side mode.
-            During drag, writes CSS vars directly to splitterContainerRef (no re-renders). */}
+            During drag, writes CSS vars directly to splitterContainerRef (no re-renders)
+            and notifies onResizeLive so the column count updates without waiting for mouseup. */}
         {isSideBySide && (
           <SideBySideSplitter
             ratio={splitterRatio}
-            onResize={setSplitterRatio}
+            onResize={handleSplitterResize}
+            onResizeLive={handleSplitterResizeLive}
             containerRef={splitterContainerRef}
             forceSideBySide={forceSideBySideLayout}
             interactive
@@ -7671,7 +7698,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 gearSelectionEnabled={!!pushExportEndpoint}
                 selectedGearItemIds={selectedGearItemIds}
                 onGearItemsSelect={handleGearItemsSelect}
-                {...(isSideBySide ? { panelWidthPx: splitterRightPx } : {})}
+                {...(isSideBySide ? { panelWidthPx: liveRightWidthPx ?? splitterRightPx } : {})}
               />
             </Box>
             <Box

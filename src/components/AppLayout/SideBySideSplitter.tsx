@@ -30,6 +30,13 @@ import { SPLITTER_MIN_WIDTH_PX } from '../../state/splitterPreference'
 export type SideBySideSplitterProps = {
   /** Called once on mouseup with the final clamped split ratio (0.0–1.0). */
   onResize: (newRatio: number) => void
+  /**
+   * Optional live callback fired on every mousemove during drag with the right-panel
+   * width in CSS px. Callers can use this to update layout props (e.g. column count)
+   * without waiting for mouseup. The value is the same px that gets written to
+   * --splitter-right-width, so no additional math is required on the caller side.
+   */
+  onResizeLive?: (rightWidthPx: number) => void
   /** Current committed split ratio — used as drag start reference. */
   ratio: number
   /**
@@ -56,6 +63,7 @@ function ratioToPx(ratio: number, usableWidthPx: number): { leftPx: number; righ
 
 export function SideBySideSplitter({
   onResize,
+  onResizeLive,
   ratio,
   containerRef,
   forceSideBySide = false,
@@ -71,6 +79,10 @@ export function SideBySideSplitter({
   const ratioRef = useRef(ratio)
   // Sync into ref after render.
   useEffect(() => { ratioRef.current = ratio })
+  // Keep a live ref to onResizeLive so the mousemove closure always calls the
+  // latest callback without needing to re-register the listener.
+  const onResizeLiveRef = useRef(onResizeLive)
+  useEffect(() => { onResizeLiveRef.current = onResizeLive }, [onResizeLive])
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     // Only respond to primary (left) mouse button.
@@ -114,6 +126,9 @@ export function SideBySideSplitter({
       const { leftPx, rightPx } = ratioToPx(clampedRatio, containerUsableAtStart)
       container.style.setProperty('--splitter-left-width', `${leftPx}px`)
       container.style.setProperty('--splitter-right-width', `${rightPx}px`)
+      // Notify the caller of the live right-panel width so layout props (e.g. column
+      // count) can update without waiting for mouseup to commit the ratio.
+      onResizeLiveRef.current?.(rightPx)
     }
 
     const handleMouseUp = () => {

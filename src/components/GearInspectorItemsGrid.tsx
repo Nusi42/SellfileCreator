@@ -949,13 +949,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const cardWidthMeasureRef = useRef<number | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(0)
-  // Live container width drives column count during splitter drag (CSS vars update the DOM
-  // immediately; React state from the splitter prop stays stale until mouseup).
-  const [containerWidthPx, setContainerWidthPx] = useState(0)
-  // Ref-based setter follows the same pattern as setViewportHeightRef so the ResizeObserver
-  // callback can call it without triggering the no-direct-set-state-in-use-effect lint rule.
-  const setContainerWidthRef = useRef(setContainerWidthPx)
-  useEffect(() => { setContainerWidthRef.current = setContainerWidthPx }, [setContainerWidthPx])
   const [showScrollGroupHint, setShowScrollGroupHint] = useState(false)
   const scrollHintVisibleRef = useRef(false)
   const scrollHintHideTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
@@ -980,11 +973,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     }
     const measure = () => {
       const nextHeight = node.clientHeight
-      // clientWidth reflects the current rendered width — live during splitter drag because
-      // the CSS var drives the Paper width and the ResizeObserver fires per layout frame.
-      const nextWidth = node.clientWidth
       setViewportHeightRef.current(nextHeight)
-      setContainerWidthRef.current(nextWidth)
       if (nextHeight <= 0) {
         scheduleViewportMeasure()
       }
@@ -1052,14 +1041,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   } = useGearInspectorGridLayoutMetrics({
     preferredColumnCount,
     ...(keepOverrideCardStyleColumnCount != null ? { cardStyleColumnCount: keepOverrideCardStyleColumnCount } : {}),
-    // Gear Inspector path: live container width is preferred over the stale splitter prop so column
-    // count updates during drag; panelWidthPx is the committed fallback for the first render and
-    // non-side-by-side mode where containerWidthPx may not yet reflect a meaningful value.
-    ...(!keepOverrideVariant ? {
-      cardSizeMode: storedColumnPreference,
-      panelWidthPx,
-      ...(containerWidthPx > 0 ? { containerInnerWidthPx: containerWidthPx } : {}),
-    } : {}),
+    // Gear Inspector path: panelWidthPx carries the live right-panel width during drag
+    // (App.tsx updates it via rAF-throttled onResizeLive) and the committed width at rest.
+    ...(!keepOverrideVariant ? { cardSizeMode: storedColumnPreference, panelWidthPx } : {}),
     showFirstMatch,
     showOtherMatches,
     theme,
