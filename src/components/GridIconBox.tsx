@@ -85,6 +85,9 @@ type GridIconBoxProps = {
   // regardless of which individual chips have data for a given card.
   // 1 → large chip at 50%; 2 → medium chips at 23%/53%; 3 → small chips at 20%/50%/80%.
   overlaySlotCount?: 1 | 2 | 3
+  // When true, replaces the star row with a compact numeric badge: "N★" (not ascended) or "A/N" (ascended).
+  // Intended for ultra-dense small-mode cards where individual stars become illegible.
+  compactRankDisplay?: boolean
 }
 
 /**
@@ -120,6 +123,7 @@ export default function GridIconBox({
   topOverlay,
   bottomOverlay,
   overlaySlotCount = 1,
+  compactRankDisplay = false,
 }: GridIconBoxProps) {
   const theme = useTheme()
   const slotArtSrc = gearSetSlotIconUrl(
@@ -145,13 +149,19 @@ export default function GridIconBox({
   const centerY = isTriple ? TRIPLE_OVERLAY_CENTER_Y_PERCENT : (isStacked ? STACKED_OVERLAY_CENTER_Y_PERCENT : 50)
   const bottomY = TRIPLE_OVERLAY_BOTTOM_Y_PERCENT
   // Font size shrinks as more chips compete for vertical space.
+  // In ultra-dense (compactRankDisplay) mode all chips are additionally reduced so they
+  // don't crowd the narrower icon box.
   const chipFontSizePx = (slots: 1 | 2 | 3) =>
     slots === 3 ? Math.min(12, Math.max(10, Math.round(size * 0.21)))
   : slots === 2 ? Math.min(13, Math.max(10, Math.round(size * 0.25)))
   :               Math.min(16, Math.max(13, Math.round(size * 0.34)))
-  const chipFontSize = theme.typography.pxToRem(chipFontSizePx(overlaySlotCount))
-  const chipPx = isStacked ? 0.65 : 0.85
-  const chipPy = isStacked ? 0.2 : 0.35
+  const chipFontSizeBasePx = chipFontSizePx(overlaySlotCount)
+  // Shave 1 px in compact mode — small chips on narrow cards need the extra breathing room.
+  const chipFontSizeResolvedPx = compactRankDisplay ? Math.max(8, chipFontSizeBasePx - 1) : chipFontSizeBasePx
+  const chipFontSize = theme.typography.pxToRem(chipFontSizeResolvedPx)
+  // Tighter padding in compact mode to keep chips within the narrower icon box.
+  const chipPx = compactRankDisplay ? (isStacked ? 0.4 : 0.6) : (isStacked ? 0.65 : 0.85)
+  const chipPy = compactRankDisplay ? (isStacked ? 0.1 : 0.25) : (isStacked ? 0.2 : 0.35)
   const chipLineHeight = isStacked ? 1.05 : 1.1
   const chipLetterSpacing = isStacked ? 0.15 : 0.2
 
@@ -452,30 +462,67 @@ export default function GridIconBox({
       }}
     >
       {numericRank > 0 ? (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: -10,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            pointerEvents: 'none',
-            px: 1,
-            py: 0.25,
-            background: showRankStarsBackground ? 'linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0))' : undefined,
-          }}
-        >
-          {Array.from({ length: numericRank }, (_, i) => i).map((starPos) => (
-            <StarRoundedIcon
-              key={`rank-star-${starPos}`}
-              sx={{
-                fontSize: '0.95rem',
-                color: starPos < ascensionStars ? '#a855f7' : '#fcd34d',
-                ml: starPos === 0 ? 0 : '-6px',
-              }}
-            />
-          ))}
-        </Box>
+        compactRankDisplay ? (
+          // Compact mode: replace individual stars with a numeric badge to save space.
+          // "N★" when not ascended (yellow); "A/N" when ascended (purple ascension / yellow rank).
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -10,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              display: 'inline-flex',
+              alignItems: 'baseline',
+              pointerEvents: 'none',
+              px: 0.5,
+              py: 0.15,
+              // Card-paper background pill so both purple ascension and yellow rank text stay
+              // legible against any gear icon art — matches the card surface color exactly.
+              bgcolor: showRankStarsBackground ? 'background.paper' : undefined,
+              borderRadius: '3px',
+              fontWeight: 700,
+              fontSize: '0.78rem',
+              lineHeight: 1,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {ascensionStars > 0 ? (
+              // Ascended: show ascension count in purple, separator and rank in yellow.
+              <>
+                <Box component="span" sx={{ color: '#a855f7' }}>{ascensionStars}</Box>
+                <Box component="span" sx={{ color: '#fcd34d' }}>/{numericRank}</Box>
+              </>
+            ) : (
+              // Not ascended: rank number followed by a star glyph, both in yellow.
+              <Box component="span" sx={{ color: '#fcd34d' }}>{numericRank}★</Box>
+            )}
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -10,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              display: 'flex',
+              pointerEvents: 'none',
+              px: 1,
+              py: 0.25,
+              background: showRankStarsBackground ? 'linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0))' : undefined,
+            }}
+          >
+            {Array.from({ length: numericRank }, (_, i) => i).map((starPos) => (
+              <StarRoundedIcon
+                key={`rank-star-${starPos}`}
+                sx={{
+                  fontSize: '0.95rem',
+                  color: starPos < ascensionStars ? '#a855f7' : '#fcd34d',
+                  ml: starPos === 0 ? 0 : '-6px',
+                }}
+              />
+            ))}
+          </Box>
+        )
       ) : null}
       {slotVisualNode}
       {accessoryBadge}

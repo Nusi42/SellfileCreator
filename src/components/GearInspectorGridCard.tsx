@@ -1294,6 +1294,8 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           rerollTooltip={rerollTooltip || undefined}
           levelLabel={levelChipLabel}
           size={iconBoxSizePx}
+          // Ultra-dense small-mode cards swap the star row for a compact numeric rank badge.
+          {...(isUltraDense ? { compactRankDisplay: true } : {})}
           // Card icon tooltip: last-use + dev artifact id only.
           // Per-chip tooltips (rank table, upgrade breakdown) are on the chips via tooltipMarkdown/tooltipRender.
           {...(gearTooltip ? { gearTooltip } : {})}
