@@ -12,9 +12,9 @@ export function AppTitle() {
       {/* aria-label gives screen readers a clean "Sellfile Creator" string; the inner spans are purely visual */}
       <Typography variant="h4" fontWeight={400} aria-label="Sellfile Creator" sx={{ fontSize: `${FONT_SIZE_DISPLAY_REM}rem` }}>
         {/* S, f, C are bold while surrounding chars stay at regular weight, surfacing the "SFC" abbreviation */}
-        <Box component="span" sx={{ fontWeight: 700 }}>S</Box>ell
-        <Box component="span" sx={{ fontWeight: 700 }}>f</Box>ile{' '}
-        <Box component="span" sx={{ fontWeight: 700 }}>C</Box>reator
+        <Box component="span" sx={{ fontWeight: 800 }}>S</Box>ell
+        <Box component="span" sx={{ fontWeight: 800 }}>f</Box>ile{' '}
+        <Box component="span" sx={{ fontWeight: 800 }}>C</Box>reator
       </Typography>
       <Typography sx={{ fontSize: `${FONT_SIZE_APP_SUBTITLE_PX}px`, color: 'text.secondary', lineHeight: 1 }}>
         for RSL Helper
