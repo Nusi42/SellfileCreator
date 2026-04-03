@@ -1598,6 +1598,9 @@ function RulesFilterPanel({
           p: 0.75,
           borderRadius: 1,
           mb: 1,
+          // Single horizontal scrollbar for the whole filter panel: when the 2-column
+          // subgroup grid (min-width: max-content) is wider than the panel, scroll here.
+          overflowX: 'auto',
         })}
       >
         <Box
@@ -1718,9 +1721,14 @@ function RulesFilterPanel({
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+          // auto auto: columns size to their max-content so the grid can exceed the panel
+          // width and trigger the outer overflowX:auto scrollbar (1fr would always fit).
+          gridTemplateColumns: { xs: '1fr', sm: 'auto auto' },
           columnGap: 1,
           rowGap: 0.75,
+          // Prevents the grid from shrinking below its natural content width — the outer
+          // Box's overflowX:auto scrollbar fires when the panel is narrower than this.
+          minWidth: { sm: 'max-content' },
         }}
       >
         {/* Left column */}
@@ -2292,7 +2300,7 @@ function RulesFilterPanel({
             <Box
               sx={{
                 display: 'flex',
-                flexWrap: 'wrap',
+                flexWrap: 'nowrap',
                 columnGap: 1,
                 rowGap: 0.75,
                 mb: 0.75,
@@ -2673,8 +2681,7 @@ function RulesFilterPanel({
           <Box
             sx={{
               display: 'flex',
-              // At sm+ keep mainstat and substat groups on a single row; xs stacks them naturally.
-              flexWrap: { xs: 'wrap', sm: 'nowrap' },
+              flexWrap: 'nowrap',
               columnGap: 1,
               rowGap: 0.75,
               mb: 0.75,
@@ -2682,8 +2689,7 @@ function RulesFilterPanel({
             }}
           >
             {/* Mainstat (below Sets) */}
-            {/* Allow this column to shrink when the panel is narrow via the splitter. */}
-            <FormControl sx={{ ...collapsibleSectionSx, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}>
+            <FormControl sx={collapsibleSectionSx}>
               <FilterSectionHeader
                 id="main"
                 label={mainSectionLabel}
@@ -2790,8 +2796,7 @@ function RulesFilterPanel({
             </FormControl>
 
             {/* Substats (below Sets) */}
-            {/* Allow this column to shrink when the panel is narrow via the splitter. */}
-            <FormControl sx={{ ...collapsibleSectionSx, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}>
+            <FormControl sx={collapsibleSectionSx}>
               <FilterSectionHeader
                 id="sub"
                 label={subSectionLabel}
@@ -3257,7 +3262,6 @@ function RulesFilterPanel({
         <Box
           sx={{
             display: 'flex',
-            // Sections shrink instead of wrapping to new rows when the panel is narrowed by the splitter.
             flexWrap: 'nowrap',
             columnGap: 1,
             rowGap: 0.75,
@@ -3265,8 +3269,8 @@ function RulesFilterPanel({
             alignItems: 'flex-start',
           }}
         >
-          {/* Slots — allow shrinking alongside Rank/Rarity when the panel is narrow. */}
-          <FormControl sx={{ ...collapsibleSectionSx, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}>
+          {/* Slots — wraps alongside Rank/Rarity when the panel is narrow. */}
+          <FormControl sx={collapsibleSectionSx}>
             <FilterSectionHeader
               id="slots"
               label={slotsSectionLabel}
@@ -3342,8 +3346,8 @@ function RulesFilterPanel({
               </Collapse>
             </FormControl>
 
-          {/* Rank — shrinkable alongside Slots/Rarity. */}
-          <FormControl sx={{ ...collapsibleSectionSx, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}>
+          {/* Rank — wraps alongside Slots/Rarity when the panel is narrow. */}
+          <FormControl sx={collapsibleSectionSx}>
             <FilterSectionHeader
               id="rank"
               label={rankSectionLabel}
@@ -3390,8 +3394,8 @@ function RulesFilterPanel({
               </Collapse>
             </FormControl>
 
-          {/* Rarity — shrinkable alongside Slots/Rank. */}
-          <FormControl sx={{ ...collapsibleSectionSx, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}>
+          {/* Rarity — wraps alongside Slots/Rank when the panel is narrow. */}
+          <FormControl sx={collapsibleSectionSx}>
             <FilterSectionHeader
               id="rarity"
               label={raritySectionLabel}
