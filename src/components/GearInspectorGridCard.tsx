@@ -767,6 +767,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         showOtherMatchesRow={baseOtherMatchesRowVisible}
         highlighted={cardHighlighted}
         dimmed={cardDimmed}
+        gridColumnCount={gridColumnCount}
       />
     )
   }
@@ -1926,6 +1927,8 @@ type GearInspectorGridCardSkeletonProps = {
   showOtherMatchesRow: boolean
   highlighted: boolean
   dimmed: boolean
+  // Drives ultra-dense layout adjustments (≥8 columns = small-card mode).
+  gridColumnCount: number
 }
 
 // Skeleton cards borrow the real grid metrics so TanStack virtualization keeps accurate heights while assets defer.
@@ -1937,15 +1940,24 @@ function GearInspectorGridCardSkeleton({
   showOtherMatchesRow,
   highlighted,
   dimmed,
+  gridColumnCount,
 }: GearInspectorGridCardSkeletonProps) {
   const skeletonTheme = useTheme()
   const cardHeightStyle = `${cardHeightPx}px`
   const matchRowHeight = `${CARD_MATCH_ROW_HEIGHT_PX}px`
+  // Mirror the real card's ultra-dense adjustments so the skeleton proportions match.
+  const isUltraDense = gridColumnCount >= 8
+  const iconBoxSizePx = isUltraDense
+    ? Math.round(GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX * 0.6)
+    : GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX
+  const skeletonCardTemplate = isUltraDense
+    ? `${iconBoxSizePx}px minmax(0, 1fr)`
+    : GRID_CARD_TEMPLATE
   return (
     <Box
       sx={(theme) => ({
         display: 'grid',
-        gridTemplateColumns: GRID_CARD_TEMPLATE,
+        gridTemplateColumns: skeletonCardTemplate,
         columnGap: theme.spacing(CARD_COLUMN_GAP_UNITS),
         p: theme.spacing(CARD_PADDING_UNITS),
         borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
@@ -1972,7 +1984,8 @@ function GearInspectorGridCardSkeleton({
           justifyContent: 'flex-start',
         }}
       >
-        <Skeleton variant="rounded" width={GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX} height={GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX} />
+        {/* Use the same icon box size as the real card — 60% in ultra-dense mode. */}
+        <Skeleton variant="rounded" width={iconBoxSizePx} height={iconBoxSizePx} />
         <Skeleton
           variant="rounded"
           width={CHAMPION_ICON_LARGE_SIZE.width}
@@ -2332,8 +2345,11 @@ type UseGearInspectorGridLayoutMetricsOptions = {
   preferredColumnCount: number
   // When provided together, these drive the dynamic column count path for the Gear Inspector grid.
   // panelWidthPx is the Paper's outer width (including its own padding) as reported by the splitter.
+  // containerInnerWidthPx is the scroll container's live clientWidth (paper padding already stripped);
+  // it is preferred over panelWidthPx because it updates during splitter drag via ResizeObserver.
   cardSizeMode?: GearInspectorGridColumnMode
   panelWidthPx?: number
+  containerInnerWidthPx?: number
   cardStyleColumnCount?: number
   showFirstMatch: boolean
   showOtherMatches: boolean
@@ -2344,6 +2360,7 @@ export function useGearInspectorGridLayoutMetrics({
   preferredColumnCount,
   cardSizeMode,
   panelWidthPx,
+  containerInnerWidthPx,
   cardStyleColumnCount,
   showFirstMatch,
   showOtherMatches,
@@ -2354,21 +2371,28 @@ export function useGearInspectorGridLayoutMetrics({
   const leafPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS)), [theme])
   const gridColumnCount = useMemo(() => {
     if (!isMultiColumn) return 1
-    // Dynamic path: derive column count from the splitter-reported panel width.
-    if (cardSizeMode != null && panelWidthPx != null && panelWidthPx > 0) {
+    if (cardSizeMode != null) {
       const targetWidth = GEAR_INSPECTOR_CARD_TARGET_WIDTH_PX[cardSizeMode]
-      // Strip the Paper padding on both sides, the scroll container's inline-end padding, and
-      // the row padding on both sides to arrive at the usable card area.
-      const paperPaddingPx = parseSpacingPx(theme.spacing(PREVIEW_PAPER_PADDING_UNITS))
       const containerInlineEndPx = parseSpacingPx(theme.spacing(GEAR_INSPECTOR_GRID_CONTAINER_PADDING_END_UNITS))
-      const rowContentWidth = Math.max(0, panelWidthPx - paperPaddingPx * 2 - containerInlineEndPx - leafPaddingPx * 2)
+      let rowContentWidth: number
+      if (containerInnerWidthPx != null && containerInnerWidthPx > 0) {
+        // Live path: containerInnerWidthPx is the scroll container's clientWidth, measured by
+        // ResizeObserver. Paper padding is already stripped — just remove container/row padding.
+        rowContentWidth = Math.max(0, containerInnerWidthPx - containerInlineEndPx - leafPaddingPx * 2)
+      } else if (panelWidthPx != null && panelWidthPx > 0) {
+        // Committed path: panelWidthPx is the Paper's outer width as reported by the splitter.
+        // Strip the Paper padding on both sides before removing container/row padding.
+        const paperPaddingPx = parseSpacingPx(theme.spacing(PREVIEW_PAPER_PADDING_UNITS))
+        rowContentWidth = Math.max(0, panelWidthPx - paperPaddingPx * 2 - containerInlineEndPx - leafPaddingPx * 2)
+      } else {
+        // Static fallback: neither width is available; use the reference column count for the mode.
+        return GEAR_INSPECTOR_CARD_FALLBACK_COLUMN_COUNT[cardSizeMode]
+      }
       return Math.max(1, Math.floor(rowContentWidth / targetWidth))
     }
-    // Static fallback: panel width not available, use the reference column count for the mode.
-    if (cardSizeMode != null) return GEAR_INSPECTOR_CARD_FALLBACK_COLUMN_COUNT[cardSizeMode]
     // Keep-override path: preferredColumnCount is 1 or 2, used verbatim.
     return Math.max(1, preferredColumnCount)
-  }, [isMultiColumn, cardSizeMode, panelWidthPx, leafPaddingPx, preferredColumnCount, theme])
+  }, [isMultiColumn, cardSizeMode, panelWidthPx, containerInnerWidthPx, leafPaddingPx, preferredColumnCount, theme])
   // Card internals use a pinned column profile so their layout doesn't shift as the dynamic
   // column count adjusts with panel width. Priority: explicit cardStyleColumnCount override
   // (keep-override path) → mode's reference count (gear-inspector path) → gridColumnCount.
