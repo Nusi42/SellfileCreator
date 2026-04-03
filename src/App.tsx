@@ -1927,74 +1927,63 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   ): void => {
     // Keep the toggle change labeled so history never falls back to unnamed snapshots.
     // Toggle updates can trigger detection/matcher pipelines; schedule non-urgent.
-    // Use a captured variable so describeNextChange fires OUTSIDE the updater function:
-    // React Strict Mode double-invokes updaters, so side effects placed inside them run twice.
-    // The updater sets `pendingDescriptor` (idempotent on double-invoke), then we emit once.
-    let pendingDescriptor: ReturnType<typeof createSafeguardsEnabledChangeDescriptor> | undefined
-    setSafeguardsEnabledTransition((prev) => {
-      // Resolve the next value so we can compare and label the transition.
-      const next = typeof value === 'function' ? (value as (p: boolean) => boolean)(prev) : value
-      // Skip no-op toggles so history stays clean.
-      if (prev === next) return prev
-      // Build the history descriptor before mutating state.
-      pendingDescriptor = createSafeguardsEnabledChangeDescriptor({
-        previousEnabled: prev,
-        nextEnabled: next,
-        rules: safeguardRules,
-      })
-      return next
+    // Eagerly resolve next from the current value so the descriptor can be queued
+    // before the state update — more reliable than capturing a variable inside an updater.
+    const prev = safeguardsEnabled
+    const next = typeof value === 'function' ? (value as (p: boolean) => boolean)(prev) : value
+    // Skip no-op toggles so history stays clean.
+    if (prev === next) return
+    const descriptor = createSafeguardsEnabledChangeDescriptor({
+      previousEnabled: prev,
+      nextEnabled: next,
+      rules: safeguardRules,
     })
-    // Emit outside the updater so Strict Mode double-invocation does not fire it twice.
-    if (options?.publish !== false && pendingDescriptor !== undefined) {
-      describeNextChange(pendingDescriptor ?? null)
+    // Queue descriptor before the state update so the history effect captures it reliably.
+    if (options?.publish !== false && descriptor !== null) {
+      describeNextChange(descriptor)
     }
-  }, [describeNextChange, safeguardRules, setSafeguardsEnabledTransition])
+    setSafeguardsEnabledTransition(value)
+  }, [describeNextChange, safeguardRules, safeguardsEnabled, setSafeguardsEnabledTransition])
   const applyRecipesEnabledChange = useCallback((
     value: React.SetStateAction<boolean>,
     options?: { publish?: boolean },
   ): void => {
-    // Same captured-variable pattern: compute the descriptor inside the updater (pure),
-    // emit describeNextChange outside so Strict Mode double-invoke does not fire it twice.
-    let pendingDescriptor: HistoryEntryDescriptor | undefined
-    setRecipesEnabledTransition((prev) => {
-      const next = typeof value === 'function' ? (value as (p: boolean) => boolean)(prev) : value
-      if (prev === next) return prev
-      pendingDescriptor = { kind: 'recipesEnabledChange', previousEnabled: prev, nextEnabled: next }
-      return next
-    })
-    if (options?.publish !== false && pendingDescriptor !== undefined) {
-      describeNextChange(pendingDescriptor)
-    }
-  }, [describeNextChange, setRecipesEnabledTransition])
+    // Eagerly resolve next from the current value to compute the descriptor before
+    // the state update — same fix applied across all enable-change helpers.
+    const prev = recipesEnabled
+    const next = typeof value === 'function' ? (value as (p: boolean) => boolean)(prev) : value
+    if (prev === next) return
+    const descriptor: HistoryEntryDescriptor = { kind: 'recipesEnabledChange', previousEnabled: prev, nextEnabled: next }
+    if (options?.publish !== false) describeNextChange(descriptor)
+    setRecipesEnabledTransition(value)
+  }, [describeNextChange, recipesEnabled, setRecipesEnabledTransition])
   const applySafeguardRulesChange = useCallback((
     value: React.SetStateAction<SafeguardRule[]>,
     options?: { mode?: 'edit' | 'reset'; publish?: boolean },
   ): void => {
-    // Snapshot safeguard rules with structured tooltip lines for history.
     // Safeguards-tab edits often rewrite many rows; keep them in transition lane.
-    // Same captured-variable pattern to avoid the side effect inside the updater.
-    let pendingDescriptor: ReturnType<typeof createSafeguardsRulesChangeDescriptor> | undefined
-    setSafeguardRulesTransition((prev) => {
-      // Resolve the next rules list so we can diff against the previous state.
-      const next = typeof value === 'function' ? (value as (p: SafeguardRule[]) => SafeguardRule[])(prev) : value
-      // Reordering keeps rule contents intact, so compare ID order explicitly.
-      const orderChanged = isSafeguardRuleOrderChanged(prev, next)
-      // Describe the rule changes so history stays informative.
-      const descriptor = createSafeguardsRulesChangeDescriptor({
-        previous: prev,
-        next,
-        metasets,
-        mode: options?.mode ?? 'edit',
-      })
-      // Skip no-op updates so we do not add empty history entries.
-      if (!descriptor && !orderChanged) return prev
-      // Capture descriptor for emission outside the updater.
-      if (options?.publish !== false && descriptor) pendingDescriptor = descriptor
-      return next
+    // Eagerly resolve next from the current rules so the descriptor can be computed
+    // and queued before the transition commits — mirrors useItemListManager's snapshot
+    // pattern (const prev = items) and avoids relying on React's eager-state evaluation
+    // to flush the updater synchronously, which is not guaranteed in React 19+.
+    const prev = safeguardRules
+    const next = typeof value === 'function' ? (value as (p: SafeguardRule[]) => SafeguardRule[])(prev) : value
+    // Reordering keeps rule contents intact, so compare ID order explicitly.
+    const orderChanged = isSafeguardRuleOrderChanged(prev, next)
+    // Describe the rule changes so history stays informative.
+    const descriptor = createSafeguardsRulesChangeDescriptor({
+      previous: prev,
+      next,
+      metasets,
+      mode: options?.mode ?? 'edit',
     })
-    // Emit outside the updater so Strict Mode double-invocation does not fire it twice.
-    if (pendingDescriptor !== undefined) describeNextChange(pendingDescriptor)
-  }, [describeNextChange, metasets, setSafeguardRulesTransition])
+    // Skip no-op updates so we do not add empty history entries.
+    if (!descriptor && !orderChanged) return
+    // Queue the descriptor before the state update so the history snapshot effect
+    // captures it reliably regardless of when React evaluates the transition.
+    if (options?.publish !== false && descriptor) describeNextChange(descriptor)
+    setSafeguardRulesTransition(value)
+  }, [describeNextChange, metasets, safeguardRules, setSafeguardRulesTransition])
 
   // ── safeguard multi-select / multi-edit (mirrors useRecipeSelection wiring) ─
   // Auto-apply the current draft before any selection change, just like the recipe builder.
