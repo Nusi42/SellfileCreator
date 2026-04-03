@@ -828,8 +828,10 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     ? Math.round(GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX * 0.6)
     : GEAR_INSPECTOR_GRID_ICON_BOX_SIZE_PX
   // Dynamic card template matches the (possibly reduced) icon column width.
+  // Ultra-dense uses minmax(0, 1fr) — the 112 px floor would overflow the ~114 px content
+  // area available inside a 130 px card (8 px padding each side + 43 px icon + gap).
   const cardGridTemplate = isUltraDense
-    ? `${iconBoxSizePx}px minmax(${GRID_CARD_STATS_MIN_COLUMN_PX}px, 1fr)`
+    ? `${iconBoxSizePx}px minmax(0, 1fr)`
     : GRID_CARD_TEMPLATE
   const substatEntries = artifact.substats
     .filter((stat) => stat.variant !== StatVariant.Any)
@@ -1242,7 +1244,8 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
       sx={(theme) => ({
         display: 'grid',
         gridTemplateColumns: cardGridTemplate,
-        columnGap: theme.spacing(CARD_COLUMN_GAP_UNITS),
+        // Narrow the gap in ultra-dense mode to reclaim horizontal space for the stats column.
+        columnGap: theme.spacing(isUltraDense ? 0.75 : CARD_COLUMN_GAP_UNITS),
         p: theme.spacing(CARD_PADDING_UNITS),
         borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
         // Selection uses primary border; safeguard highlight uses info; default uses divider.
@@ -1605,15 +1608,19 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                           lineHeight: 1.1,
                           display: compactSubstatColumnLayout ? 'block' : 'inline-flex',
                           alignItems: compactSubstatColumnLayout ? undefined : 'center',
-                          // Keep ellipsis stable when the stat text is long.
+                          // Keep text stable when the stat name is long.
                           width: '100%',
                           minWidth: 0,
                           // Hidden in both modes: prevents long stat names from escaping the row.
                           // Compact mythic rows are narrowed to populated columns via the outer
                           // row Box width, so trailing empty columns are clipped here harmlessly.
                           overflow: 'hidden',
-                          textOverflow: compactSubstatColumnLayout ? 'clip' : 'ellipsis',
+                          // Ultra-dense clips cleanly — no ellipsis; the roll glyph (if any)
+                          // is absolutely positioned so the label text can run right to it.
+                          textOverflow: (compactSubstatColumnLayout || isUltraDense) ? 'clip' : 'ellipsis',
                           whiteSpace: compactSubstatColumnLayout ? 'normal' : 'nowrap',
+                          // Anchor for the absolutely-positioned roll glyph in ultra-dense mode.
+                          position: 'relative',
                           color: 'inherit',
                           // Subtle halo keeps tinted text legible over the mythic background.
                           textShadow: mythicTextShadow,
@@ -1718,6 +1725,43 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                               {entry.glyphDelta ?? ''}
                             </Box>
                           </Box>
+                        ) : (isUltraDense && entry.hasRoll) ? (
+                          // Ultra-dense: label has flex: '0 1 auto' so it sits naturally right
+                          // of the icon and doesn't grow — glyph stays adjacent for short labels.
+                          // When space is tight the label box shrinks and its text clips cleanly
+                          // against the glyph (no ellipsis), which stays fully visible thanks to
+                          // flex-shrink: 0. A subtle rounded bg on the glyph keeps it readable
+                          // when it overlays the trailing characters of a long label.
+                          <>
+                            <Box
+                              component="span"
+                              sx={{
+                                flex: '0 1 auto',
+                                overflow: 'hidden',
+                                whiteSpace: 'nowrap',
+                                minWidth: 0,
+                                color: entry.statColor ?? 'inherit',
+                              }}
+                            >
+                              {entry.statLabel}
+                            </Box>
+                            <Box
+                              component="span"
+                              sx={{
+                                flexShrink: 0,
+                                fontSize: '1rem',
+                                lineHeight: 1,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                position: 'relative',
+                                top: '0.06em',
+                                ml: 0.5,
+                              }}
+                              aria-label={entry.rollAriaLabel ?? undefined}
+                            >
+                              {entry.rollGlyph}
+                            </Box>
+                          </>
                         ) : entry.content}
                       </Typography>
                   </Box>
