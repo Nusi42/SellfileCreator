@@ -353,12 +353,18 @@ export function SubstatToggleDisplay({
 // Shared sx for main-stat ToggleButtonGroup rows (Recipe Builder and Safeguard Builder).
 // Main stats use a small horizontal padding (px: 0.75) because they don't have a lock/roll
 // badge overlay — unlike substats which require px: 0 for the badge gutter alignment.
+// display:'flex' overrides MUI's default inline-flex so the group fills its column parent;
+// width:'100%' + flex:1 on each button lets the row shrink when the splitter is dragged left.
 export const mainStatToggleGroupSx = {
+  display: 'flex',
+  width: '100%',
   gap: 0.5,
   '& .MuiToggleButton-root': {
     px: 0.75,
-    minWidth: BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX,
-    width: BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX,
+    // Preferred width stays at the normal 88px but shrinks when the panel is narrowed;
+    // flex-grow:0 prevents expansion, flex-shrink:1 allows compression.
+    flex: `0 1 ${BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX}px`,
+    minWidth: 32,
     height: BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
     justifyContent: 'center',
     borderRadius: 1,
@@ -375,13 +381,16 @@ export const mainStatToggleGroupSx = {
 } as const
 
 export const substatToggleGroupSx = {
+  display: 'flex',
+  width: '100%',
   gap: 0.5,
   '& .MuiToggleButton-root': {
-    // Keep zero horizontal padding so the visual width matches the legacy
-    // builder toggles and the lock badge lines up with the label gutter.
+    // Keep zero horizontal padding so the lock badge gutter alignment is preserved.
     px: 0,
-    minWidth: BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX,
-    width: BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX,
+    // Preferred width stays at the normal 88px but shrinks when the panel is narrowed;
+    // flex-grow:0 prevents expansion, flex-shrink:1 allows compression.
+    flex: `0 1 ${BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX}px`,
+    minWidth: 32,
     height: BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
     justifyContent: 'center',
     position: 'relative',
