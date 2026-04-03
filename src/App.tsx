@@ -135,7 +135,7 @@ import { useGearInspectorGridNormalizedOverlayPreferences } from './state/gearIn
 import { useShowSafeguardImprovementChance } from './state/gearInspectorGridPreferences'
 import { FILTER_PRESETS_VERSION, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
 import { useSortPresetsPreference, type SortPreset } from './state/sortPresetsPreference'
-import { useSplitterLeftWidthPx } from './state/splitterPreference'
+import { useSplitterRatio, SPLITTER_MIN_WIDTH_PX } from './state/splitterPreference'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { SideBySideSplitter } from './components/AppLayout/SideBySideSplitter'
@@ -717,16 +717,70 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     isSideBySide,
     scheduleMeasurement,
   } = useBuilderPreviewLayout({ forceSideBySide: forceSideBySideLayout })
-  // Persisted left-panel width for the draggable splitter. Only active in side-by-side mode.
-  const [splitterLeftPx, setSplitterLeftPx] = useSplitterLeftWidthPx()
-  // Right panel width = totalUsable - leftPanel. totalUsable = SIDE_BY_SIDE_BREAKPOINT_PX - GRID_COLUMN_GAP_PX.
-  const splitterRightPx = SIDE_BY_SIDE_BREAKPOINT_PX - GRID_COLUMN_GAP_PX - splitterLeftPx
+  // Persisted split ratio (0.0–1.0) for the draggable splitter. Only active in side-by-side mode.
+  // Absolute left/right px are derived below from the measured container width so panels scale
+  // correctly as the browser window is resized.
+  const [splitterRatio, setSplitterRatio] = useSplitterRatio()
+  // Live right-panel width during an active drag gesture. The splitter calls onResizeLive on
+  // every mousemove; we rAF-throttle to once per frame so we get at most ~60 re-renders/sec.
+  // Null means no drag is in progress; the committed splitterRightPx is used instead.
+  const [liveRightWidthPx, setLiveRightWidthPx] = useState<number | null>(null)
+  const liveRightWidthRafRef = useRef<number | null>(null)
+  // Latest value from the splitter — read inside the rAF callback to avoid stale closures.
+  const latestLiveRightWidthRef = useRef<number>(0)
+  const handleSplitterResizeLive = useCallback((rightPx: number) => {
+    latestLiveRightWidthRef.current = rightPx
+    // Coalesce multiple mousemove events within one animation frame into a single setState.
+    if (liveRightWidthRafRef.current != null) return
+    liveRightWidthRafRef.current = requestAnimationFrame(() => {
+      liveRightWidthRafRef.current = null
+      setLiveRightWidthPx(latestLiveRightWidthRef.current)
+    })
+  }, [])
+  const handleSplitterResize = useCallback((ratio: number) => {
+    // Commit the final ratio to localStorage and clear the transient drag state.
+    setSplitterRatio(ratio)
+    setLiveRightWidthPx(null)
+    if (liveRightWidthRafRef.current != null) {
+      cancelAnimationFrame(liveRightWidthRafRef.current)
+      liveRightWidthRafRef.current = null
+    }
+  }, [setSplitterRatio])
   // Ref for the flex container that holds both panels + the splitter handle. The splitter writes
   // CSS custom properties here directly during drag so no React re-renders occur mid-gesture.
   const splitterContainerRef = useRef<HTMLDivElement>(null)
+  // Measured width of the panels container. Tracked by a ResizeObserver so the px values derived
+  // from the ratio stay correct as the window is resized. Seeded to 0 — the useLayoutEffect
+  // below initialises CSS vars on the first paint before the observer fires.
+  const [containerWidthPx, setContainerWidthPx] = useState<number>(0)
+  /* eslint-disable react-you-might-not-need-an-effect/no-initialize-state, @eslint-react/hooks-extra/no-direct-set-state-in-use-effect -- ResizeObserver pattern: DOM measurement is not available until after mount */
+  useEffect(() => {
+    const el = splitterContainerRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver((entries) => {
+      // offsetWidth / contentRect can differ when borders/padding are present; use contentRect
+      // for layout consistency since the panels live inside the content box.
+      const width = entries[0]?.contentRect.width ?? el.offsetWidth
+      setContainerWidthPx(Math.round(width))
+    })
+    ro.observe(el)
+    // Capture the initial size synchronously for the first render.
+    setContainerWidthPx(Math.round(el.offsetWidth))
+    return () => ro.disconnect()
+  }, [])
+  /* eslint-enable react-you-might-not-need-an-effect/no-initialize-state, @eslint-react/hooks-extra/no-direct-set-state-in-use-effect */
+  // Usable width shared by both panels (container width minus the splitter handle gap).
+  const containerUsablePx = Math.max(0, containerWidthPx - GRID_COLUMN_GAP_PX)
+  // Derive absolute px from ratio + measured container width; clamp to enforce min panel size.
+  const splitterLeftPx = containerUsablePx > 0
+    ? Math.max(SPLITTER_MIN_WIDTH_PX, Math.min(containerUsablePx - SPLITTER_MIN_WIDTH_PX, Math.round(splitterRatio * containerUsablePx)))
+    : Math.round(splitterRatio * (SIDE_BY_SIDE_BREAKPOINT_PX - GRID_COLUMN_GAP_PX))
+  const splitterRightPx = containerUsablePx > 0
+    ? containerUsablePx - splitterLeftPx
+    : SIDE_BY_SIDE_BREAKPOINT_PX - GRID_COLUMN_GAP_PX - splitterLeftPx
   // Keep --splitter-left-width / --splitter-right-width in sync with the committed value.
   // useLayoutEffect runs synchronously before paint so there is no flash on initial render
-  // when the user has a saved width that differs from the default.
+  // when the user has a saved ratio that differs from the default.
   useLayoutEffect(() => {
     const el = splitterContainerRef.current
     if (!el) return
@@ -7275,23 +7329,29 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       <Box
         sx={{
           mb: 1,
-          width: forceSideBySideLayout ? `${SIDE_BY_SIDE_BREAKPOINT_PX}px` : '100%',
-          maxWidth: forceSideBySideLayout ? 'none' : PANEL_WIDTH_PX,
-          mx: forceSideBySideLayout ? 0 : 'auto',
-          ...(forceSideBySideLayout
+          // Forced-zoom and native side-by-side: escape the MUI Container max-width cap
+          // so the header stays visually aligned with the panels row below it.
+          // Single-column: stay within the Container, cap at PANEL_WIDTH_PX, centred.
+          width: (isSideBySide || forceSideBySideLayout)
+            ? (forceSideBySideLayout ? `${SIDE_BY_SIDE_BREAKPOINT_PX}px` : '100vw')
+            : '100%',
+          maxWidth: (isSideBySide || forceSideBySideLayout) ? 'none' : PANEL_WIDTH_PX,
+          mx: (isSideBySide || forceSideBySideLayout) ? 0 : 'auto',
+          ...(isSideBySide || forceSideBySideLayout
             ? {
                 position: 'relative',
                 left: '50%',
                 transform: 'translateX(-50%)',
               }
             : {}),
+          // Flash-guard: mirror the native side-by-side escape before React's state fires.
           [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
+            width: '100vw',
+            maxWidth: 'none',
+            mx: 0,
             position: 'relative',
             left: '50%',
             transform: 'translateX(-50%)',
-            width: `${SIDE_BY_SIDE_BREAKPOINT_PX}px`,
-            maxWidth: 'none',
-            mx: 0,
           },
         }}
       >
@@ -7371,9 +7431,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             // Single-column mode: grid with spacing between stacked panels.
             display: isSideBySide ? 'flex' : 'grid',
             gap: isSideBySide ? 0 : 2,
-            ...(isSideBySide
+            ...(isSideBySide && forceSideBySideLayout
               ? {
-                  // Side-by-side: flex-row; splitter handle fills the gap between panels.
+                  // Forced-zoom path: fixed width so CSS zoom math stays correct.
                   flexDirection: 'row',
                   // stretch so the splitter can fill the height of the taller panel.
                   alignItems: 'stretch',
@@ -7382,9 +7442,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   transform: 'translateX(-50%)',
                   width: `${SIDE_BY_SIDE_BREAKPOINT_PX}px`,
                 }
-              : {}),
-            // Media query mirrors the flex-row layout for the initial CSS paint before
-            // React's matchMedia state has had a chance to fire (avoids a single-frame flash).
+              : isSideBySide
+                ? {
+                    // Native side-by-side: escape the MUI Container's max-width cap so the panels
+                    // can fill the full viewport width. `left:50%` shifts right by half the
+                    // Container width; `translateX(-50%)` shifts left by half the element's own
+                    // width (100vw), netting the element's left edge at the viewport left edge.
+                    flexDirection: 'row',
+                    alignItems: 'stretch',
+                    position: 'relative',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '100vw',
+                  }
+                : {}),
+            // Flash-guard media query mirrors the native fluid side-by-side layout for the
+            // initial CSS paint before React's matchMedia state has had a chance to fire.
             [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
               display: 'flex',
               flexDirection: 'row',
@@ -7392,7 +7465,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               position: 'relative',
               left: '50%',
               transform: 'translateX(-50%)',
-              width: `${SIDE_BY_SIDE_BREAKPOINT_PX}px`,
+              width: '100vw',
             },
           }}
           ref={splitterContainerRef}
@@ -7427,11 +7500,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         />
 
         {/* Draggable splitter handle — always interactive in side-by-side mode.
-            During drag, writes CSS vars directly to splitterContainerRef (no re-renders). */}
+            During drag, writes CSS vars directly to splitterContainerRef (no re-renders)
+            and notifies onResizeLive so the column count updates without waiting for mouseup. */}
         {isSideBySide && (
           <SideBySideSplitter
-            leftWidthPx={splitterLeftPx}
-            onResize={setSplitterLeftPx}
+            ratio={splitterRatio}
+            onResize={handleSplitterResize}
+            onResizeLive={handleSplitterResizeLive}
             containerRef={splitterContainerRef}
             forceSideBySide={forceSideBySideLayout}
             interactive
@@ -7454,11 +7529,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           height: previewPaperHeightStyle ?? 'auto',
           ...(previewPaperHeightStyle ? { minHeight: previewPaperHeightStyle } : {}),
           overflow: forceSideBySideLayout ? 'hidden' : undefined,
-          // In the media query path the JS-derived splitterRightPx may not be active yet (first
-          // paint flash guard). Fall back to the default 50/50 equal-split width at that breakpoint.
+          // Flash-guard media query: the CSS var may not be initialised yet on the first paint.
+          // Use the var with a 50% fallback so the panel fills its half of the fluid container.
           [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
             mx: 0,
-            width: isSideBySide ? `var(--splitter-right-width, ${splitterRightPx}px)` : PANEL_WIDTH_PX,
+            width: `var(--splitter-right-width, 50%)`,
             height: previewPaperHeightStyle ?? 'auto',
             ...(previewPaperHeightStyle ? { minHeight: previewPaperHeightStyle } : {}),
             overflow: 'hidden',
@@ -7615,7 +7690,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 gearSelectionEnabled={!!pushExportEndpoint}
                 selectedGearItemIds={selectedGearItemIds}
                 onGearItemsSelect={handleGearItemsSelect}
-                {...(isSideBySide ? { panelWidthPx: splitterRightPx } : {})}
+                {...(isSideBySide ? { panelWidthPx: liveRightWidthPx ?? splitterRightPx } : {})}
               />
             </Box>
             <Box
