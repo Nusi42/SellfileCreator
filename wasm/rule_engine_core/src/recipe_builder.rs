@@ -183,12 +183,13 @@ pub(crate) fn star_for_rank_code(rank_code: i64) -> i64 {
 // ---------------------------------------------------------------------------
 
 /// Return the factory-default substat minimum map for the given star (1..6).
-/// Values are the lowest natural roll for each stat variant at that tier.
+/// Derived from SUBSTAT_ROLL_RANGES_BY_STAR — the min per-roll value is the factory default.
 pub(crate) fn factory_minima_for_star(star: i64) -> HashMap<i64, i64> {
-    // SUBSTAT_MINIMA_BY_STAR is sorted by star ascending; linear scan over 6 tiers.
-    for &(s, pairs) in SUBSTAT_MINIMA_BY_STAR {
+    // SUBSTAT_ROLL_RANGES_BY_STAR is sorted by star ascending; linear scan over 6 tiers.
+    for &(s, triples) in SUBSTAT_ROLL_RANGES_BY_STAR {
         if s == star {
-            return pairs.iter().copied().collect();
+            // Each triple is (variant, min, max); extract (variant, min) pairs.
+            return triples.iter().map(|&(variant, min, _max)| (variant, min)).collect();
         }
     }
     HashMap::new()

@@ -33,7 +33,7 @@ export function getGlyphAverageForVariant(rank: number, variant: number): number
   if (!Number.isFinite(clampedRank)) return 0
   const range = GLYPH_RANGES_BY_RANK[clampedRank]?.[variant]
   if (!range) return 0
-  return (range[0] + range[1]) / 2
+  return (range.min + range.max) / 2
 }
 
 export function normalizeSubstatByMax6(variant: StatVariant, rawValue: number): number {

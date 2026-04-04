@@ -180,42 +180,33 @@
     "banner":     ["hpFlat","atkFlat","defFlat","acc","res"]
   },
   "allowedSubsBySlot": {
-    "helmet":     ["hpPercent","hpFlat","atkPercent","atkFlat","defPercent","defFlat","cr","cdmg","acc","res","spd"],
+    "helmet":     ["hpPercent",         "atkPercent","atkFlat","defPercent","defFlat","cr","cdmg","acc","res","spd"],
     "chestplate": ["hpPercent","hpFlat","atkPercent","atkFlat","defPercent","defFlat","cr","cdmg","acc","res","spd"],
     "gauntlets":  ["hpPercent","hpFlat","atkPercent","atkFlat","defPercent","defFlat","cr","cdmg","acc","res","spd"],
     "boots":      ["hpPercent","hpFlat","atkPercent","atkFlat","defPercent","defFlat","cr","cdmg","acc","res","spd"],
-    "weapon":     ["hpPercent","hpFlat","atkPercent","atkFlat","cr","cdmg","acc","res","spd"],
-    "shield":     ["hpPercent","hpFlat","defPercent","defFlat","cr","cdmg","acc","res","spd"],
+    "weapon":     ["hpPercent","hpFlat","atkPercent",                                 "cr","cdmg","acc","res","spd"],
+    "shield":     ["hpPercent","hpFlat",                        "defPercent",         "cr","cdmg","acc","res","spd"],
     "ring":       ["hpPercent","hpFlat","atkPercent","atkFlat","defPercent","defFlat"],
-    "amulet":     ["hpFlat","atkFlat","defFlat","cdmg","acc","res"],
-    "banner":     ["hpPercent","hpFlat","atkPercent","atkFlat","defPercent","defFlat","spd"]
+    "amulet":     [            "hpFlat",             "atkFlat",             "defFlat",     "cdmg","acc","res"],
+    "banner":     ["hpPercent","hpFlat","atkPercent","atkFlat","defPercent","defFlat",                        "spd"]
   },
-  "substatMinimaByStar": {
-    "6": { "hpFlat": 200, "hpPercent": 5, "atkFlat": 15, "atkPercent": 5, "defFlat": 15, "defPercent": 5, "spd": 5, "res": 9, "acc": 9, "cr": 5, "cdmg": 5 },
-    "5": { "hpFlat": 136, "hpPercent": 4, "atkFlat": 12, "atkPercent": 4, "defFlat": 12, "defPercent": 4, "spd": 4, "res": 8, "acc": 8, "cr": 4, "cdmg": 4 },
-    "4": { "hpFlat": 120, "hpPercent": 3, "atkFlat": 10, "atkPercent": 3, "defFlat": 10, "defPercent": 3, "spd": 3, "res": 7, "acc": 7, "cr": 3, "cdmg": 3 },
-    "3": { "hpFlat": 110, "hpPercent": 2, "atkFlat":  9, "atkPercent": 2, "defFlat":  9, "defPercent": 2, "spd": 2, "res": 6, "acc": 6, "cr": 2, "cdmg": 2 },
-    "2": { "hpFlat": 100, "hpPercent": 1, "atkFlat":  8, "atkPercent": 1, "defFlat":  8, "defPercent": 1, "spd": 1, "res": 5, "acc": 5, "cr": 1, "cdmg": 1 },
-    "1": { "hpFlat":  90, "hpPercent": 1, "atkFlat":  7, "atkPercent": 1, "defFlat":  7, "defPercent": 1, "spd": 1, "res": 5, "acc": 5, "cr": 1, "cdmg": 1 }
-  },
-
-  "_comment_substatRollRanges": "Per-roll min/max for upgrade chance two-value branching. Community-sourced; 6-star is high confidence, 1-4 star are lower confidence. Verify in-game.",
+  "_comment_substatRollRanges": "Per-roll min/max for upgrade chance two-value branching. Community-sourced; 5 and 6-star is high confidence, 1-4 star are purely guessed. Verify in-game. The min value also serves as the factory-default substat minimum (no separate substatMinimaByStar table needed).",
   "substatRollRangesByStar": {
-    "6": { "hpFlat": [350, 680], "hpPercent": [5, 8], "atkFlat": [29, 58], "atkPercent": [5, 8], "defFlat": [29, 58], "defPercent": [5, 8], "spd": [4, 6], "res": [13, 28], "acc": [13, 28], "cr": [4, 6], "cdmg": [5, 8] },
-    "5": { "hpFlat": [250, 475], "hpPercent": [4, 6], "atkFlat": [20, 40], "atkPercent": [4, 6], "defFlat": [20, 40], "defPercent": [4, 6], "spd": [3, 5], "res": [10, 22], "acc": [10, 22], "cr": [3, 5], "cdmg": [4, 7] },
-    "4": { "hpFlat": [170, 325], "hpPercent": [3, 5], "atkFlat": [14, 28], "atkPercent": [3, 5], "defFlat": [14, 28], "defPercent": [3, 5], "spd": [2, 5], "res": [8, 18], "acc": [8, 18], "cr": [2, 4], "cdmg": [3, 6] },
-    "3": { "hpFlat": [100, 190], "hpPercent": [2, 3], "atkFlat": [9, 18], "atkPercent": [2, 3], "defFlat": [9, 18], "defPercent": [2, 3], "spd": [2, 3], "res": [6, 14], "acc": [6, 14], "cr": [2, 3], "cdmg": [2, 4] },
-    "2": { "hpFlat": [55, 110], "hpPercent": [1, 2], "atkFlat": [5, 11], "atkPercent": [1, 2], "defFlat": [5, 11], "defPercent": [1, 2], "spd": [1, 2], "res": [4, 10], "acc": [4, 10], "cr": [1, 2], "cdmg": [2, 3] },
-    "1": { "hpFlat": [30, 60], "hpPercent": [1, 2], "atkFlat": [3, 6], "atkPercent": [1, 2], "defFlat": [3, 6], "defPercent": [1, 2], "spd": [1, 2], "res": [3, 7], "acc": [3, 7], "cr": [1, 2], "cdmg": [1, 3] }
+    "6": { "hpFlat": { "min": 200, "max": 565 }, "hpPercent": { "min": 5, "max": 7 }, "atkFlat": { "min": 15, "max": 30 }, "atkPercent": { "min": 5, "max": 7 }, "defFlat": { "min": 15, "max": 30 }, "defPercent": { "min": 5, "max": 7 }, "spd": { "min": 5, "max": 6 }, "res": { "min": 9, "max": 12 }, "acc": { "min": 9, "max": 12 }, "cr": { "min": 5, "max": 7 }, "cdmg": { "min": 5, "max": 7 } },
+    "5": { "hpFlat": { "min": 136, "max": 450 }, "hpPercent": { "min": 4, "max": 6 }, "atkFlat": { "min": 12, "max": 23 }, "atkPercent": { "min": 4, "max": 6 }, "defFlat": { "min": 12, "max": 23 }, "defPercent": { "min": 4, "max": 6 }, "spd": { "min": 4, "max": 5 }, "res": { "min": 8, "max": 11 }, "acc": { "min": 8, "max": 11 }, "cr": { "min": 4, "max": 6 }, "cdmg": { "min": 4, "max": 6 } },
+    "4": { "hpFlat": { "min": 120, "max": 325 }, "hpPercent": { "min": 3, "max": 5 }, "atkFlat": { "min": 10, "max": 28 }, "atkPercent": { "min": 3, "max": 5 }, "defFlat": { "min": 10, "max": 28 }, "defPercent": { "min": 3, "max": 5 }, "spd": { "min": 3, "max": 5 }, "res": { "min": 7, "max": 18 }, "acc": { "min": 7, "max": 18 }, "cr": { "min": 3, "max": 4 }, "cdmg": { "min": 3, "max": 6 } },
+    "3": { "hpFlat": { "min": 110, "max": 190 }, "hpPercent": { "min": 2, "max": 3 }, "atkFlat": { "min":  9, "max": 18 }, "atkPercent": { "min": 2, "max": 3 }, "defFlat": { "min":  9, "max": 18 }, "defPercent": { "min": 2, "max": 3 }, "spd": { "min": 2, "max": 3 }, "res": { "min": 6, "max": 14 }, "acc": { "min": 6, "max": 14 }, "cr": { "min": 2, "max": 3 }, "cdmg": { "min": 2, "max": 4 } },
+    "2": { "hpFlat": { "min": 100, "max": 110 }, "hpPercent": { "min": 1, "max": 2 }, "atkFlat": { "min":  8, "max": 11 }, "atkPercent": { "min": 1, "max": 2 }, "defFlat": { "min":  8, "max": 11 }, "defPercent": { "min": 1, "max": 2 }, "spd": { "min": 1, "max": 2 }, "res": { "min": 5, "max": 10 }, "acc": { "min": 5, "max": 10 }, "cr": { "min": 1, "max": 2 }, "cdmg": { "min": 1, "max": 3 } },
+    "1": { "hpFlat": { "min":  90, "max":  60 }, "hpPercent": { "min": 1, "max": 2 }, "atkFlat": { "min":  7, "max":  6 }, "atkPercent": { "min": 1, "max": 2 }, "defFlat": { "min":  7, "max":  6 }, "defPercent": { "min": 1, "max": 2 }, "spd": { "min": 1, "max": 2 }, "res": { "min": 5, "max":  7 }, "acc": { "min": 5, "max":  7 }, "cr": { "min": 1, "max": 2 }, "cdmg": { "min": 1, "max": 3 } }
   },
 
   "_comment_glyphRanges": "Glyph enchantment min/max by gear rank. CR and CDMG are non-glyphable and absent. Some lower-rank values are estimated.",
   "glyphRangesByRank": {
-    "6": { "hpFlat": [260, 750], "hpPercent": [4, 8], "atkFlat": [14, 40], "atkPercent": [4, 8], "defFlat": [14, 40], "defPercent": [4, 8], "spd": [3, 8], "res": [8, 16], "acc": [8, 16] },
-    "5": { "hpFlat": [190, 560], "hpPercent": [3, 6], "atkFlat": [10, 30], "atkPercent": [3, 6], "defFlat": [10, 30], "defPercent": [3, 6], "spd": [2, 6], "res": [6, 12], "acc": [6, 12] },
-    "4": { "hpFlat": [150, 375], "hpPercent": [2, 5], "atkFlat": [8, 20], "atkPercent": [2, 5], "defFlat": [8, 20], "defPercent": [2, 5], "spd": [1, 4], "res": [4, 8], "acc": [4, 8] },
-    "3": { "hpFlat": [110, 280], "hpPercent": [2, 4], "atkFlat": [6, 15], "atkPercent": [2, 4], "defFlat": [6, 15], "defPercent": [2, 4], "spd": [1, 3], "res": [3, 6], "acc": [3, 6] },
-    "2": { "hpFlat": [75, 190], "hpPercent": [1, 3], "atkFlat": [4, 10], "atkPercent": [1, 3], "defFlat": [4, 10], "defPercent": [1, 3], "spd": [1, 2], "res": [2, 4], "acc": [2, 4] },
-    "1": { "hpFlat": [75, 100], "hpPercent": [1, 2], "atkFlat": [4, 5], "atkPercent": [1, 2], "defFlat": [4, 5], "defPercent": [1, 2], "spd": [1, 1], "res": [1, 2], "acc": [1, 2] }
+    "6": { "hpFlat": { "min": 250, "max": 750 }, "hpPercent": { "min": 3, "max": 8 }, "atkFlat": { "min": 30, "max": 40 }, "atkPercent": { "min": 3, "max": 8 }, "defFlat": { "min": 30, "max": 40 }, "defPercent": { "min": 3, "max": 8 }, "spd": { "min": 3, "max": 8 }, "res": { "min": 6, "max": 16 }, "acc": { "min": 6, "max": 16 } },
+    "5": { "hpFlat": { "min": 225, "max": 475 }, "hpPercent": { "min": 1, "max": 5 }, "atkFlat": { "min": 15, "max": 25 }, "atkPercent": { "min": 1, "max": 5 }, "defFlat": { "min": 15, "max": 25 }, "defPercent": { "min": 1, "max": 5 }, "spd": { "min": 1, "max": 5 }, "res": { "min": 5, "max": 10 }, "acc": { "min": 5, "max": 10 } },
+    "4": { "hpFlat": { "min": 175, "max": 375 }, "hpPercent": { "min": 1, "max": 4 }, "atkFlat": { "min":  8, "max": 20 }, "atkPercent": { "min": 1, "max": 4 }, "defFlat": { "min":  8, "max": 20 }, "defPercent": { "min": 1, "max": 4 }, "spd": { "min": 1, "max": 4 }, "res": { "min": 4, "max":  7 }, "acc": { "min": 4, "max":  7 } },
+    "3": { "hpFlat": { "min":   1, "max":   1 }, "hpPercent": { "min": 1, "max": 3 }, "atkFlat": { "min":  1, "max":  1 }, "atkPercent": { "min": 1, "max": 3 }, "defFlat": { "min":  1, "max":  1 }, "defPercent": { "min": 1, "max": 3 }, "spd": { "min": 1, "max": 3 }, "res": { "min": 3, "max":  5 }, "acc": { "min": 3, "max":  5 } },
+    "2": { "hpFlat": { "min":   1, "max":   1 }, "hpPercent": { "min": 1, "max": 2 }, "atkFlat": { "min":  1, "max":  1 }, "atkPercent": { "min": 1, "max": 2 }, "defFlat": { "min":  1, "max":  1 }, "defPercent": { "min": 1, "max": 2 }, "spd": { "min": 1, "max": 2 }, "res": { "min": 2, "max":  3 }, "acc": { "min": 2, "max":  3 } },
+    "1": { "hpFlat": { "min":   1, "max":   1 }, "hpPercent": { "min": 1, "max": 1 }, "atkFlat": { "min":  4, "max":  5 }, "atkPercent": { "min": 1, "max": 1 }, "defFlat": { "min":  4, "max":  5 }, "defPercent": { "min": 1, "max": 1 }, "spd": { "min": 1, "max": 1 }, "res": { "min": 1, "max":  2 }, "acc": { "min": 1, "max":  2 } }
   }
 }

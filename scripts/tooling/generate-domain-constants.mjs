@@ -447,7 +447,7 @@ const rustLines = [
 
 // ---------------------------------------------------------------------------
 // New sections: faction, artifactTypeNames, statVariantLabels,
-// allowedMainsBySlot, allowedSubsBySlot, substatMinimaByStar
+// allowedMainsBySlot, allowedSubsBySlot, substatRollRangesByStar, glyphRangesByRank
 // ---------------------------------------------------------------------------
 
 const factionSpec = spec.faction
@@ -455,7 +455,6 @@ const artifactTypeNamesSpec = spec.artifactTypeNames
 const statVariantLabelsSpec = spec.statVariantLabels
 const allowedMainsBySlotSpec = spec.allowedMainsBySlot
 const allowedSubsBySlotSpec = spec.allowedSubsBySlot
-const substatMinimaByStar = spec.substatMinimaByStar
 const substatRollRangesByStar = spec.substatRollRangesByStar
 const glyphRangesByRank = spec.glyphRangesByRank
 
@@ -542,68 +541,49 @@ tsLines.push(
   `export const ALLOWED_SUBS_BY_SLOT: Record<number, readonly number[]> = { ${allowedSubsEntries.map(({ slotId, variants }) => `[${slotId}]: [${variants.join(', ')}]`).join(', ')} }`
 )
 
-// ── TS: substatMinimaByStar ───────────────────────────────────────────────
-// Resolve star keys (string "6".."1") and stat variant tokens → numbers.
-const substatMinimaStarEntries = Object.entries(substatMinimaByStar)
-  .map(([starStr, statMap]) => ({
-    star: Number(starStr),
-    pairs: Object.entries(statMap)
-      .map(([token, value]) => ({ variant: Number(statVariant[token]), value: Number(value) }))
-      .sort((a, b) => a.variant - b.variant),
-  }))
-  .sort((a, b) => a.star - b.star)
-tsLines.push('')
-tsLines.push('// Substat factory minima keyed by star (1..6) then stat variant.')
-const substatMinimaBody = substatMinimaStarEntries
-  .map(({ star, pairs }) =>
-    `${star}: { ${pairs.map(({ variant, value }) => `${variant}: ${value}`).join(', ')} }`
-  )
-  .join(', ')
-tsLines.push(
-  `export const SUBSTAT_MINIMA_BY_STAR: Record<number, Record<number, number>> = { ${substatMinimaBody} }`
-)
-
 // ── TS: substatRollRangesByStar ──────────────────────────────────────────
-// Per-roll min/max ranges for upgrade chance two-value branching (separate from builder minima).
+// Per-roll min/max ranges for upgrade chance two-value branching.
+// The min value also serves as the factory-default substat minimum (SSOT — no separate minima table).
 const substatRollRangesStarEntries = Object.entries(substatRollRangesByStar)
   .map(([starStr, statMap]) => ({
     star: Number(starStr),
     pairs: Object.entries(statMap)
-      .map(([token, range]) => ({ variant: Number(statVariant[token]), min: Number(range[0]), max: Number(range[1]) }))
+      .map(([token, range]) => ({ variant: Number(statVariant[token]), min: Number(range.min), max: Number(range.max) }))
       .sort((a, b) => a.variant - b.variant),
   }))
   .sort((a, b) => a.star - b.star)
 tsLines.push('')
-tsLines.push('// Per-roll substat [min, max] range keyed by star (1..6) then stat variant.')
+tsLines.push('// Per-roll substat { min, max } range keyed by star (1..6) then stat variant.')
 tsLines.push('// Community-sourced; 6-star high confidence, lower stars are estimates.')
+tsLines.push('// min is also the factory-default substat minimum for that star tier.')
 const substatRollRangesBody = substatRollRangesStarEntries
   .map(({ star, pairs }) =>
-    `${star}: { ${pairs.map(({ variant, min, max }) => `${variant}: [${min}, ${max}]`).join(', ')} }`
+    `${star}: { ${pairs.map(({ variant, min, max }) => `${variant}: { min: ${min}, max: ${max} }`).join(', ')} }`
   )
   .join(', ')
 tsLines.push(
-  `export const SUBSTAT_ROLL_RANGES_BY_STAR: Record<number, Record<number, readonly [number, number]>> = { ${substatRollRangesBody} }`
+  `export const SUBSTAT_ROLL_RANGES_BY_STAR: Record<number, Record<number, { readonly min: number; readonly max: number }>> = { ${substatRollRangesBody} }`
 )
 
 // ── TS: glyphRangesByRank ───────────────────────────────────────────────
-// Glyph enchantment [min, max] by gear rank. CR/CDMG are non-glyphable and absent.
+// Glyph enchantment { min, max } by gear rank. CR/CDMG are non-glyphable and absent.
 const glyphRangesRankEntries = Object.entries(glyphRangesByRank)
   .map(([rankStr, statMap]) => ({
     rank: Number(rankStr),
     pairs: Object.entries(statMap)
-      .map(([token, range]) => ({ variant: Number(statVariant[token]), min: Number(range[0]), max: Number(range[1]) }))
+      .map(([token, range]) => ({ variant: Number(statVariant[token]), min: Number(range.min), max: Number(range.max) }))
       .sort((a, b) => a.variant - b.variant),
   }))
   .sort((a, b) => a.rank - b.rank)
 tsLines.push('')
-tsLines.push('// Glyph enchantment [min, max] by gear rank then stat variant. CR/CDMG are non-glyphable and absent.')
+tsLines.push('// Glyph enchantment { min, max } by gear rank then stat variant. CR/CDMG are non-glyphable and absent.')
 const glyphRangesBody = glyphRangesRankEntries
   .map(({ rank, pairs }) =>
-    `${rank}: { ${pairs.map(({ variant, min, max }) => `${variant}: [${min}, ${max}]`).join(', ')} }`
+    `${rank}: { ${pairs.map(({ variant, min, max }) => `${variant}: { min: ${min}, max: ${max} }`).join(', ')} }`
   )
   .join(', ')
 tsLines.push(
-  `export const GLYPH_RANGES_BY_RANK: Record<number, Record<number, readonly [number, number]>> = { ${glyphRangesBody} }`
+  `export const GLYPH_RANGES_BY_RANK: Record<number, Record<number, { readonly min: number; readonly max: number }>> = { ${glyphRangesBody} }`
 )
 
 // ── Rust: faction individual constants ───────────────────────────────────
@@ -681,22 +661,6 @@ const allowedSubsDispatchRust = allowedSubsEntries.map(({ slotId }) => {
 }).join(', ')
 rustLines.push(
   `pub const ALLOWED_SUBS_BY_SLOT: &[(i64, &[i64])] = &[${allowedSubsDispatchRust}];`
-)
-
-// ── Rust: SUBSTAT_MINIMA per star + dispatch array ────────────────────────
-rustLines.push('')
-rustLines.push('// Substat factory minima per star tier (per-star const + dispatch array).')
-for (const { star, pairs } of substatMinimaStarEntries) {
-  const pairsRust = pairs.map(({ variant, value }) => `(${variant}, ${value})`).join(', ')
-  rustLines.push(
-    `pub const SUBSTAT_MINIMA_${star}STAR: &[(i64, i64)] = &[${pairsRust}];`
-  )
-}
-const substatMinimaDispatchRust = substatMinimaStarEntries
-  .map(({ star }) => `(${star}, SUBSTAT_MINIMA_${star}STAR)`)
-  .join(', ')
-rustLines.push(
-  `pub const SUBSTAT_MINIMA_BY_STAR: &[(i64, &[(i64, i64)])] = &[${substatMinimaDispatchRust}];`
 )
 
 // ── Rust: SUBSTAT_ROLL_RANGES per star + dispatch array ──────────────────

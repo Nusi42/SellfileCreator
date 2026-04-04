@@ -38,7 +38,7 @@ import {
 } from './types'
 import {
   AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE,
-  SUBSTAT_MINIMA_BY_STAR as GENERATED_SUBSTAT_MINIMA_BY_STAR,
+  SUBSTAT_ROLL_RANGES_BY_STAR as GENERATED_ROLL_RANGES,
 } from './generated/domainConstants'
 import { resolveAllowedSubstatsForSlotsAndMains } from './statCompatibility'
 import { splitArtifactSetSelections } from './gearSets/selection'
@@ -248,27 +248,32 @@ export function resolveAutoRarityCode(recipe: BuilderRecipe): RarityCode {
   return resolved as RarityCode
 }
 
-// Factory-default minima from the canonical generated constants (shared/domain-constants.json).
+// Derive factory-default minima from roll ranges (min per roll = factory default for a fresh substat).
 // Each star tier maps stat variant → lowest natural roll for that tier.
-const FACTORY_MINIMA_BY_STAR: Record<number, Record<number, number>> = GENERATED_SUBSTAT_MINIMA_BY_STAR
+const FACTORY_MINIMA_BY_STAR: Record<number, Record<number, number>> = Object.fromEntries(
+  Object.entries(GENERATED_ROLL_RANGES).map(([star, variantMap]) => [
+    star,
+    Object.fromEntries(Object.entries(variantMap).map(([variant, range]) => [variant, range.min])),
+  ])
+)
 
 // Re-export individual star tiers so existing callers (exported API) remain stable.
 // Non-null assertion: keys 1..6 are guaranteed present by the generator.
-export const BASE_MIN_4: Record<number, number> = GENERATED_SUBSTAT_MINIMA_BY_STAR[4]!
-export const BASE_MIN_3: Record<number, number> = GENERATED_SUBSTAT_MINIMA_BY_STAR[3]!
-export const BASE_MIN_2: Record<number, number> = GENERATED_SUBSTAT_MINIMA_BY_STAR[2]!
-export const BASE_MIN_1: Record<number, number> = GENERATED_SUBSTAT_MINIMA_BY_STAR[1]!
+export const BASE_MIN_4: Record<number, number> = FACTORY_MINIMA_BY_STAR[4]!
+export const BASE_MIN_3: Record<number, number> = FACTORY_MINIMA_BY_STAR[3]!
+export const BASE_MIN_2: Record<number, number> = FACTORY_MINIMA_BY_STAR[2]!
+export const BASE_MIN_1: Record<number, number> = FACTORY_MINIMA_BY_STAR[1]!
 
 /** Default Substat Target table initialized from generated factory minima. */
 export function defaultSubstatTargets(): SubstatTargetTable {
-  // Spread-copy each tier so callers cannot mutate the shared generated table.
+  // Spread-copy each tier so callers cannot mutate the shared derived table.
   return {
-    one:   { ...GENERATED_SUBSTAT_MINIMA_BY_STAR[1] },
-    two:   { ...GENERATED_SUBSTAT_MINIMA_BY_STAR[2] },
-    three: { ...GENERATED_SUBSTAT_MINIMA_BY_STAR[3] },
-    four:  { ...GENERATED_SUBSTAT_MINIMA_BY_STAR[4] },
-    five:  { ...GENERATED_SUBSTAT_MINIMA_BY_STAR[5] },
-    six:   { ...GENERATED_SUBSTAT_MINIMA_BY_STAR[6] },
+    one:   { ...FACTORY_MINIMA_BY_STAR[1] },
+    two:   { ...FACTORY_MINIMA_BY_STAR[2] },
+    three: { ...FACTORY_MINIMA_BY_STAR[3] },
+    four:  { ...FACTORY_MINIMA_BY_STAR[4] },
+    five:  { ...FACTORY_MINIMA_BY_STAR[5] },
+    six:   { ...FACTORY_MINIMA_BY_STAR[6] },
     anyRankDefaultsTo: 6,
   }
 }
