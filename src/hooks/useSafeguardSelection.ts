@@ -283,6 +283,20 @@ export function useSafeguardSelection({
     // Selection keys are index strings; recover the numeric indices.
     const selectionIndices = new Set(multiEditDraftState.selection.map(Number))
     const fields = multiEditDraftState.fields
+    // Refresh the builder before resetting the draft so the panel has the new
+    // value ready the moment the multi-edit overlay disappears. setBuilder is
+    // the SSOT for keeping the builder in sync after any mutation that doesn't
+    // collapse the selection (same path useItemListManager uses on single-item
+    // collapse).
+    if (selectedRuleIdx !== null) {
+      const focusedRule = safeguardRules[selectedRuleIdx]
+      if (focusedRule) {
+        const updated = selectionIndices.has(selectedRuleIdx)
+          ? applyMultiEditFieldsToSafeguardRule(focusedRule, fields, dirtyKeys)
+          : focusedRule
+        setSafeguardBuilder(cloneSafeguardRule(updated))
+      }
+    }
     applySafeguardRulesChange((prev) => {
       let changed = false
       const next = prev.map((rule, i) => {
@@ -294,7 +308,7 @@ export function useSafeguardSelection({
       return changed ? next : prev
     })
     resetAllMultiEditFields()
-  }, [applySafeguardRulesChange, multiEditDraftState, resetAllMultiEditFields])
+  }, [applySafeguardRulesChange, multiEditDraftState, resetAllMultiEditFields, safeguardRules, selectedRuleIdx, setSafeguardBuilder])
 
   // ── multi-edit handle ─────────────────────────────────────────────────
 
