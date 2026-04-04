@@ -26,6 +26,7 @@ import MarkdownTooltip from './MarkdownTooltip'
   RULE_COUNT_LIMIT,
   SELECTION_SCROLL_SOURCE_SELECT_RULE,
   type SelectionScrollRequest,
+  type ColorBlindMode,
 } from '../lib/constants'
 import { useDisplayPreferenceActions, useDisplayPreferences } from '../state/preferencesState'
 import { artifactTypeIconFor } from './artifactTypeIcons'
@@ -41,6 +42,7 @@ import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useRulesTableColumnsPreference, type StoredColumnConfig } from '../state/rulesTableColumnsPreference'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { HEADER_MENU_LABEL_SX } from './tableHeaderMenuStyles'
+import { CycleButton } from './CycleButton'
 import { EmptyStateMessage } from './EmptyStateMessage'
 import { getRuleRecipeIndex, resolveMatchRecipeName } from '../lib/ruleRecipeIndex'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
@@ -1972,16 +1974,17 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={(e) => { e.stopPropagation(); applyNextColorBlindMode() }}>
           <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuColorBlindPalette')}</Typography>
-          <Button
-            size="small"
+          <CycleButton
+            options={[
+              { value: 'normal',   label: t('colorBlindNormal')   },
+              { value: 'okabeIto', label: t('colorBlindOkabeIto') },
+              { value: 'tritan',   label: t('colorBlindTritan')   },
+            ]}
+            value={colorBlindMode}
             variant={colorBlindMode === 'normal' ? 'outlined' : 'contained'}
-            color="success"
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(e) => {
-              e.stopPropagation()
-              applyNextColorBlindMode()
-            }}
-          >{colorBlindMode === 'normal' ? t('colorBlindNormal') : (colorBlindMode === 'okabeIto' ? t('colorBlindOkabeIto') : t('colorBlindTritan'))}</Button>
+            onChange={(v) => onChangeColorBlindMode(v as ColorBlindMode)}
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
+          />
         </MenuItem>
         <Divider />
         {/* Reset should sit above the column labels list */}
@@ -2018,16 +2021,20 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
             >
               <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{colMenuLabel(c.key)}</Typography>
               {isFaction ? (
-                <Button
-                  size="small"
-                  variant={val === 'hide' ? 'outlined' : 'contained'}
+                <CycleButton
+                  options={[
+                    { value: 'auto', label: t('headerMenuAuto')   },
+                    { value: 'show', label: t('headerMenuShown')  },
+                    { value: 'hide', label: t('headerMenuHidden') },
+                  ]}
+                  value={val}
                   color={val === 'auto' ? 'info' : 'success'}
-                  sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    updateFactionColumnMode(idx, val as ColMode)
-                  }}
-                >{val === 'auto' ? t('headerMenuAuto') : (val === 'show' ? t('headerMenuShown') : t('headerMenuHidden'))}</Button>
+                  variant={val === 'hide' ? 'outlined' : 'contained'}
+                  onChange={(newMode) =>
+                    updateColumns(prev => prev.map((col, i) => i === idx ? { ...col, mode: newMode as ColMode } : col))
+                  }
+                  sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
+                />
               ) : (
                 <MarkdownTooltip markdown={val === 'show' ? t('headerMenuShownInTable') : t('headerMenuHiddenInTable')}>
                   <Button

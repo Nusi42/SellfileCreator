@@ -91,6 +91,7 @@ import {
   useGearInspectorGridNormalizedOverlayPreferences,
 } from '../state/gearInspectorGridNormalizedOverlayPreferences'
 import { GearInspectorNormalizedPresetEditorMenu } from './GearInspectorNormalizedPresetEditorMenu'
+import { CycleButton } from './CycleButton'
 import type { GearInspectorRuleTemplateIntent } from '../lib/gearInspectorRuleTemplates'
 import {
   parseSpacingPx,
@@ -231,11 +232,6 @@ type GroupRowsBySetOptions = {
 // It is imported at the top of this file so the main component can reference it without duplication.
 
 // Maps each card size mode to the i18n key that labels it in the grid-columns menu button.
-const COLUMN_MODE_I18N_KEY: Record<GearInspectorGridColumnMode, string> = {
-  large: 'rulesMenuGridColumnsLarge',
-  medium: 'rulesMenuGridColumnsMedium',
-  small: 'rulesMenuGridColumnsSmall',
-}
 
 export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const {
@@ -2559,25 +2555,26 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           </Button>
         </MenuItem>
         <Divider sx={{ my: 0.5 }} />
-        <MenuItem
-          sx={{ gap: 1, alignItems: 'center' }}
-          onClick={handleColumnToggle}
-          disabled={!canToggleColumns}
-        >
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} disabled={!canToggleColumns}>
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuGridColumns')}</Typography>
-          <Button
-            size="small"
-            variant="contained"
-            color="success"
-            disabled={!canToggleColumns}
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(event) => {
-              event.stopPropagation()
-              handleColumnToggle()
+          <CycleButton
+            options={[
+              { value: 'large',  label: t('rulesMenuGridColumnsLarge')  },
+              { value: 'medium', label: t('rulesMenuGridColumnsMedium') },
+              { value: 'small',  label: t('rulesMenuGridColumnsSmall')  },
+            ]}
+            value={storedColumnPreference}
+            onChange={(v) => {
+              if (keepOverrideVariant) {
+                // Keep-override mode uses a numeric 2-state column count; re-use existing handler.
+                handleColumnToggle()
+                return
+              }
+              setColumns(v as GearInspectorGridColumnMode)
             }}
-          >
-            {t(COLUMN_MODE_I18N_KEY[storedColumnPreference])}
-          </Button>
+            disabled={!canToggleColumns}
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
+          />
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowFirstMatch(!showFirstMatch)}>
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowFirstMatch')}</Typography>
@@ -2751,31 +2748,19 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             </MarkdownTooltip>
           </Box>
         </MenuItem>
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => {
-          const nextMode = colorBlindMode === 'normal'
-            ? 'okabeIto'
-            : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
-          onChangeColorBlindMode(nextMode)
-        }}
-        >
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }}>
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorBlindPalette')}</Typography>
-          <Button
-            size="small"
+          <CycleButton
+            options={[
+              { value: 'normal',   label: t('colorBlindNormal')   },
+              { value: 'okabeIto', label: t('colorBlindOkabeIto') },
+              { value: 'tritan',   label: t('colorBlindTritan')   },
+            ]}
+            value={colorBlindMode}
             variant={colorBlindMode === 'normal' ? 'outlined' : 'contained'}
-            color="success"
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(event) => {
-              event.stopPropagation()
-              const nextMode = colorBlindMode === 'normal'
-                ? 'okabeIto'
-                : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
-              onChangeColorBlindMode(nextMode)
-            }}
-          >
-            {colorBlindMode === 'normal'
-              ? t('colorBlindNormal')
-              : (colorBlindMode === 'okabeIto' ? t('colorBlindOkabeIto') : t('colorBlindTritan'))}
-          </Button>
+            onChange={(v) => onChangeColorBlindMode(v as ColorBlindMode)}
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
+          />
         </MenuItem>
       </Menu>
       {normalizedPresetEditor ? (
