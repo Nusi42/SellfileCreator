@@ -123,7 +123,34 @@ O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper �
 - `≥ Quantidade necessária` é a promessa que você quer manter. Os chips de escopo logo abaixo de cada seletor (todos exceto `Rank` e `Raridade`) decidem como essa quota se divide: `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` podem ser combinados livremente. Desligar todos volta automaticamente para `Por regra`.
 - O tooltip de `Quantidade necessária` mostra a divisão ativa de escopo (`X por slot × por conjunto × ...`) e uma linha simples de faltantes (`({missing} faltando)`).
 - O scanner só adiciona linhas de manter para itens correspondentes que seriam vendidos, e só quando a quota não é atendida. Em `Antecipar lacunas`, regras fictícias cobrem as combinações que faltam.
-- `Chance de Melhoria ≥ N%` (filtro de qualidade opcional): qual a probabilidade de esta peça ainda valer a pena após ser completamente melhorada? O app simula o nivelamento para +16 com **variância de rolagens** (resultados baixos/altos por rolagem) e **potencial de glifos** (equipamento de rank mais alto beneficia-se de glifos mais fortes), e verifica se ela ainda ficaria no seu top N. **50** = manter peças com boa chance (padrão recomendado), **75** = apenas peças com alta probabilidade de passar, **100** = apenas peças garantidas no ranking.
+- **`Chance de Melhoria ≥ N%`** (explorador de talentos opcional): amplia a rede de segurança além do top-N padrão. O scanner sempre mantém primeiro as peças do top-N pelo seu valor de substat **atual** — essas nunca estão em risco. Além disso, protege qualquer peça *fora* desse top-N cuja chance de melhoria atinja o limite. A ideia é: «segurar os drops brutos que têm boas chances de ser competitivos após serem melhorados».
+
+  **O que é a chance de melhoria?** O app simula todos os caminhos possíveis que uma peça pode seguir durante as melhorias até +16 — algumas rolagens acertam o substat que você quer, outras não — e conta quantas vezes a peça acaba no seu top N em todos esses futuros. Uma peça com 68 % de chance de melhoria chega ao top N em aproximadamente dois de cada três caminhos simulados.
+
+  **Regra principal: o limite só pode adicionar à proteção, nunca remover.** Seu top-N atual é sempre mantido, independentemente da pontuação de chance de melhoria. Uma peça completamente melhorada (+16) conta diretamente seu valor atual bloqueado — ela não pode sair da proteção por ter «esgotado o potencial de melhoria».
+
+  **Exemplo — estandartes SPD, Quantidade necessária = 2, Por facção (rank 6 lendário):**
+
+  | Estandarte | SPD | Nível | Chance de melhoria | Padrão | Limite ≥ 50 % | Limite ≥ 25 % |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | A | 12 | +16 | 100 % | ✔ top-2 | ✔ top-2 | ✔ top-2 |
+  | B | 6 | +16 | 0 % | ✔ top-2 | ✔ top-2 | ✔ top-2 |
+  | C | 5 | +0 | 26 % | ✗ vendido | ✗ vendido | ✔ limite adiciona |
+
+  Os estandartes de rank 6 rolam SPD em incrementos de **5 ou 6** por evento, então os únicos valores realistas em estado fresco são **5** (mínimo) ou **6** (máximo). O SPD=12 do estandarte A significa que recebeu exatamente uma rolagem SPD de bônus durante as melhorias (6 inicial + 1 rolagem de 6). O estandarte B foi completamente melhorado sem rolagens SPD de bônus — sua pontuação está bloqueada em 6.
+
+  O estandarte B tem 0 % de chance de melhoria: seu SPD=6 fixo perderá previsivelmente para qualquer concorrente não melhorado cujas rolagens futuras possam superá-lo. Mesmo assim, permanece protegido porque está no top-2 padrão pelo valor **atual**. A chance de melhoria nunca pode remover itens do top-N — apenas a lógica de expansão por limite a usa.
+
+  O estandarte C (SPD=5, fresco) fica logo fora do top-2 pelo valor atual. Sua chance de melhoria de 26 % significa que acabaria no top-2 em aproximadamente 1 de cada 4 caminhos simulados. Com limite ≥ **25 %** fica protegido; com limite ≥ 50 % continua vendido.
+
+  Se o estandarte C tivesse começado com **SPD=6**, sua chance de melhoria sobe para **68 %** — um candidato muito mais forte. Limite ≥ **65 %** o protegeria.
+
+  **Os estandartes épicos de rank 6** recebem apenas **3 eventos de rolagem SPD** (contra 4 para os lendários, porque a melhoria +4 adiciona um novo substat em vez de rolar um existente). As chances resultantes são quase idênticas: SPD=6 fresco → **70 %**, SPD=5 fresco → **26 %**.
+
+  **Limites sugeridos (equipamento de rank 6):**
+  - **65 %** — protege drops frescos com rolagem máxima (SPD=6, ~68–70 % de chance). Bom padrão se você quiser que drops promissores sobrevivam enquanto são melhorados.
+  - **25 %** — também protege drops com rolagem mínima (SPD=5, ~26 % de chance). Rede mais ampla; use quando espaço no inventário não for um problema.
+  - Evite **100 %**: só coincide com peças completamente melhoradas já mantidas pelo top-N padrão, então não adiciona nada além do modo padrão.
 
 #### Escopos de quota em resumo
 Empilhar chips de escopo decide quem recebe uma quota própria. Deixe «Por regra» ligado para compartilhar um único pool e vá ativando `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` para impor misturas Slot × Set × Facção × Atributo principal de forma independente.

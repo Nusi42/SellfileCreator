@@ -113,7 +113,34 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
 - Il tooltip di `Quantità richiesta` mostra la suddivisione attiva degli ambiti (`X per slot × per set × ...`) e una semplice riga dei mancanti (`({missing} mancanti)`).
 - Usa il selettore `Filtro: Tutti / Selezione` sopra la griglia per passare da tutta la tua attrezzatura unica solo agli oggetti che corrispondono alla regola evidenziata; Selezione si comporta come Tutti finché nessuna regola è selezionata.
 - Lo scanner aggiunge righe di mantenimento solo per gli oggetti che verrebbero venduti e solo quando la quota non è soddisfatta. In `Anticipa lacune`, aggiunge anche regole segnaposto per combinazioni mancanti.
-- `Probabilità di miglioramento ≥ N%` (filtro di qualità opzionale): quante probabilità ci sono che questo pezzo valga ancora la pena dopo essere stato completamente potenziato? L’app simula il livellamento a +16 con **varianza dei tiri** (risultati bassi/alti per tiro) e **potenziale glifi** (l’equipaggiamento di rango superiore beneficia di glifi più potenti disponibili), poi verifica se si classificherebbe ancora nel tuo top N. **50** = mantenere pezzi con buone possibilità (buona impostazione predefinita), **75** = solo pezzi che probabilmente passano la selezione, **100** = solo pezzi garantiti di classificarsi.
+- **`Probabilità di miglioramento ≥ N%`** (cercatore di talenti opzionale): allarga la rete di sicurezza oltre il top-N standard. Lo scanner mantiene sempre per prime le pezze del top-N in base al loro valore di sotto-stat **corrente** — quelle non sono mai a rischio. Poi protegge anche qualsiasi pezzo *fuori* da quel top-N la cui probabilità di miglioramento raggiunge la soglia. Il concetto è: «tieni i drop grezzi che hanno buone possibilità di essere competitivi una volta livellati».
+
+  **Cos’è la probabilità di miglioramento?** L’app simula tutti i modi possibili in cui un pezzo potrebbe tirare durante i potenziamenti fino a +16 — alcuni tiri colpiscono la sotto-stat che ti interessa, altri no — e conta quante volte il pezzo finisce nel tuo top N su tutti questi futuri. Un pezzo con il 68 % di probabilità di miglioramento finisce nel top N in circa due percorsi simulati su tre.
+
+  **Regola fondamentale: la soglia può solo aggiungere alla protezione, mai toglierla.** Il tuo top-N attuale è sempre conservato, indipendentemente dalla loro probabilità di miglioramento. Un pezzo completamente potenziato (+16) conta direttamente il suo valore attuale bloccato — non può uscire dalla protezione perché «ha esaurito il potenziale di miglioramento».
+
+  **Esempio — stendardi SPD, Quantità richiesta = 2, Per fazione (rango 6 leggendario):**
+
+  | Stendardo | SPD | Livello | Prob. miglioramento | Standard | Soglia ≥ 50 % | Soglia ≥ 25 % |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | A | 12 | +16 | 100 % | ✔ top-2 | ✔ top-2 | ✔ top-2 |
+  | B | 6 | +16 | 0 % | ✔ top-2 | ✔ top-2 | ✔ top-2 |
+  | C | 5 | +0 | 26 % | ✗ venduto | ✗ venduto | ✔ soglia aggiunge |
+
+  Gli stendardi di rango 6 tirano SPD in incrementi di **5 o 6** per evento, quindi gli unici valori realistici allo stato grezzo sono **5** (minimo) o **6** (massimo). Lo SPD=12 dello stendardo A significa che ha ricevuto esattamente un tiro SPD bonus durante i potenziamenti (6 iniziale + 1 tiro da 6). Lo stendardo B è stato completamente livellato senza tiri SPD bonus — il suo punteggio è bloccato a 6.
+
+  Lo stendardo B ottiene 0 % di probabilità di miglioramento: il suo SPD=6 fisso è destinato a perdere contro qualsiasi concorrente non livellato i cui futuri tiri potrebbero superarlo. Nonostante ciò rimane protetto perché è nel top-2 standard per valore **corrente**. La probabilità di miglioramento non può mai rimuovere oggetti dal top-N — solo la logica di espansione per soglia la usa.
+
+  Lo stendardo C (SPD=5, grezzo) si trova appena fuori dal top-2 per valore corrente. La sua probabilità di miglioramento del 26 % significa che finirebbe nel top-2 in circa 1 percorso simulato su 4. Con soglia ≥ **25 %** viene protetto; con soglia ≥ 50 % resta venduto.
+
+  Se lo stendardo C fosse partito con **SPD=6**, la sua probabilità di miglioramento sale al **68 %** — un candidato molto più solido. Soglia ≥ **65 %** lo proteggerebbe.
+
+  **Gli stendardi epici di rango 6** ricevono solo **3 eventi di tiro SPD** (contro 4 per i leggendari, perché il potenziamento +4 aggiunge una nuova sotto-stat invece di tirare una esistente). Le probabilità risultanti sono quasi identiche: SPD=6 grezzo → **70 %**, SPD=5 grezzo → **26 %**.
+
+  **Soglie suggerite (equipaggiamento di rango 6):**
+  - **65 %** — protegge i drop grezzi al massimo (SPD=6, ~68–70 % di probabilità). Buon default se vuoi che i drop promettenti sopravvivano durante il livellamento.
+  - **25 %** — protegge anche i drop al minimo (SPD=5, ~26 % di probabilità). Rete più ampia; usalo se lo spazio nell’inventario non è un problema.
+  - Evita **100 %**: corrisponde solo a pezzi completamente livellati già tenuti dal top-N standard, quindi non aggiunge nulla rispetto alla modalità standard.
 
 #### Ambiti della quota in breve
 

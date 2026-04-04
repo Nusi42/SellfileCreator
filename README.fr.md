@@ -128,7 +128,34 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
 - L’info-bulle de `Quantité requise` affiche la portée active (`X par emplacement × par ensemble × ...`) et une ligne simple des manquants (`({missing} manquants)`).
 - Le sélecteur « `Filtrer : {mode}` » (au-dessus de la grille) propose `Tous` et `Sélection`. `Sélection` affiche uniquement les entrées associées à la règle Conserver les uniques actuellement surlignée ; tant qu’aucune règle n’est choisie, le mode reste aligné sur `Tous`.
 - L’analyse n’ajoute des lignes de conservation que pour les correspondances qui seraient vendues, et seulement si le quota n’est pas atteint. En `Prévoir les manques`, des règles fictives couvrent aussi les combinaisons manquantes.
-- `Chance d’amélioration ≥ N%` (filtre de qualité optionnel) : quelle est la probabilité que cette pièce vaille encore la peine d’être gardée après son renforcement complet ? L’app simule le passage au niveau +16 avec la **variance des jets** (résultats bas/hauts par jet) et le **potentiel de glyphes** (l’équipement de rang supérieur bénéficie de glyphes plus puissants), puis vérifie si elle se classerait encore dans votre top N. **50** = garder les pièces avec une bonne chance (bonne valeur par défaut), **75** = uniquement les pièces susceptibles de passer la sélection, **100** = uniquement les pièces garanties de se classer.
+- **`Chance d’amélioration ≥ N%`** (éclaireur de talents optionnel) : élargit le filet de sécurité au-delà du top-N standard. Le scanner conserve toujours en priorité les pièces du top-N selon leur valeur de sous-stat **actuelle** — celles-là ne risquent jamais rien. Il protège ensuite toute pièce *hors* de ce top-N dont la chance d’amélioration atteint le seuil. L’idée : « garder les drops bruts qui ont de bonnes chances d’être compétitifs une fois nivelés. »
+
+  **Qu’est-ce que la chance d’amélioration ?** L’app simule toutes les façons dont une pièce pourrait roller lors du passage à +16 — certains jets touchent le sous-stat voulu, d’autres non — et compte combien de fois la pièce finit dans votre top N sur l’ensemble de ces futuros. Une pièce avec 68 % de chance d’amélioration finit dans le top N dans environ deux chemins simulés sur trois.
+
+  **Règle essentielle : le seuil ne peut qu’ajouter à la protection, jamais en retirer.** Votre top-N actuel est toujours conservé, quelle que soit sa chance d’amélioration. Une pièce entièrement renforcée (+16) compte directement sa valeur actuelle figée — elle ne peut pas tomber hors de la protection parce qu’elle « n’a plus de potentiel d’amélioration ».
+
+  **Exemple — bannières SPD, Quantité requise = 2, Par faction (rang 6 légendaire) :**
+
+  | Bannière | SPD | Niveau | Chance d’amélioration | Standard | Seuil ≥ 50 % | Seuil ≥ 25 % |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | A | 12 | +16 | 100 % | ✔ top-2 | ✔ top-2 | ✔ top-2 |
+  | B | 6 | +16 | 0 % | ✔ top-2 | ✔ top-2 | ✔ top-2 |
+  | C | 5 | +0 | 26 % | ✗ vendu | ✗ vendu | ✔ seuil ajoute |
+
+  Les bannières de rang 6 rollent le SPD par incréments de **5 ou 6** par événement, donc les seules valeurs réalistes à l’état frais sont **5** (minimum) ou **6** (maximum). Le SPD=12 de la bannière A signifie qu’elle a reçu exactement un jet SPD bonus lors du renforcement (6 initial + 1 jet de 6). La bannière B a été entièrement nivelée sans jet SPD bonus — sa valeur est figée à 6.
+
+  La bannière B obtient 0 % de chance d’amélioration : son SPD=6 fixe devrait perdre face à tout concurrent non nivelé dont les jets futurs pourraient le dépasser. Malgré tout, elle reste protégée car elle est dans le top-2 standard par valeur **actuelle**. La chance d’amélioration ne peut jamais retirer une pièce du top-N — seule la logique d’expansion par seuil l’utilise.
+
+  La bannière C (SPD=5, fraîche) se trouve juste en dehors du top-2 par valeur actuelle. Ses 26 % de chance d’amélioration signifient qu’elle finirait dans le top-2 dans environ 1 chemin simulé sur 4. Avec seuil ≥ **25 %**, elle est protégée ; à seuil ≥ 50 % elle reste vendue.
+
+  Si la bannière C avait débuté à **SPD=6**, sa chance d’amélioration monte à **68 %** — une candidate bien plus solide. Seuil ≥ **65 %** la protégerait.
+
+  **Les bannières épiques de rang 6** ne reçoivent que **3 événements de jet SPD** (contre 4 pour les légendaires, car la mise à niveau +4 ajoute un nouveau sous-stat plutôt que de roller un existant). Les chances résultantes sont quasi identiques : SPD=6 frais → **70 %**, SPD=5 frais → **26 %**.
+
+  **Seuils suggérés (équipement de rang 6) :**
+  - **65 %** — protège les drops frais au maximum (SPD=6, ~68–70 % de chance). Bon réglage par défaut si vous voulez que les drops prometteurs survivent pendant le nivelage.
+  - **25 %** — protège aussi les drops au minimum (SPD=5, ~26 % de chance). Filet plus large ; à utiliser si l’espace d’inventaire n’est pas un problème.
+  - Évitez **100 %** : cela ne correspond qu’aux pièces entièrement nivelées déjà conservées par le top-N standard, donc cela n’ajoute rien au mode standard.
 
 #### Portées de quota en un coup d’œil
 Empiler les puces de portée change qui obtient sa propre quote-part. Laissez « Par règle » actif pour partager un seul pool, puis activez `Par emplacement`, `Par ensemble`, `Par faction` et `Par stat principale` pour suivre chaque mélange Slot × Set × Faction × Stat principale séparément.

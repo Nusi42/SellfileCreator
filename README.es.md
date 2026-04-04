@@ -123,7 +123,34 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 - `≥ Cantidad necesaria` es la promesa que quieres cumplir. Los chips justo debajo de cada selector (todo salvo Rango y Rareza) comparten o duplican la cuota: `Por ranura`, `Por conjunto`, `Por facción` y `Por stat principal` se pueden combinar libremente, y al apagarlos todos la regla vuelve automáticamente a `Por regla`.
 - El tooltip de `Cantidad necesaria` muestra la división activa de ámbitos (`X por ranura × por conjunto × ...`) y una línea simple de faltantes (`({missing} faltan)`).
 - El escáner solo añade filas de conservación para coincidencias que se venderían y solo cuando la cuota no se cumple. En `Anticipar huecos`, también emite reglas de marcador para combinaciones faltantes.
-- `Probabilidad de mejora ≥ N%` (umbral de calidad opcional): ¿qué probabilidad tiene esta pieza de seguir valiendo la pena tras ser completamente mejorada? La app simula el nivelado a +16 con **varianza de tiradas** (resultados bajos/altos por tirada) y **potencial de glifos** (el equipo de mayor rango se beneficia de glifos más fuertes disponibles), y comprueba si seguiría clasificándose en tu top N. **50** = conservar piezas con buenas posibilidades (opción por defecto), **75** = solo piezas que probablemente superan el corte, **100** = solo piezas garantizadas en el ranking.
+- **`Probabilidad de mejora ≥ N%`** (explorador de talento opcional): amplía la red de seguridad más allá del top-N estándar. El escáner siempre conserva primero las piezas del top-N por su valor de substat **actual** — esas nunca están en riesgo. Además, protege cualquier pieza *fuera* de ese top-N cuya probabilidad de mejora alcance el umbral. La idea es: «conservar los drops en bruto que tienen buenas posibilidades de ser competitivos una vez mejorados».
+
+  **¿Qué es la probabilidad de mejora?** La app simula todas las formas posibles en que una pieza podría tirar durante las mejoras hasta +16 — algunas tiradas afectan al substat que te interesa, otras no — y cuenta cuántas veces la pieza acaba en tu top N en todos esos futuros. Una pieza con un 68 % de probabilidad de mejora llega al top N en aproximadamente dos de cada tres caminos de mejora simulados.
+
+  **Regla clave: el umbral solo puede añadir protección, nunca quitarla.** Tu top-N actual siempre se conserva, independientemente de su puntuación de probabilidad de mejora. Una pieza completamente mejorada (+16) cuenta directamente su valor actual bloqueado — no puede perder la protección porque «se le acabó el potencial de mejora».
+
+  **Ejemplo — estandartes SPD, Cantidad requerida = 2, Por facción (rango 6 legendario):**
+
+  | Estandarte | SPD | Nivel | Prob. de mejora | Estándar | Umbral ≥ 50 % | Umbral ≥ 25 % |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | A | 12 | +16 | 100 % | ✔ top-2 | ✔ top-2 | ✔ top-2 |
+  | B | 6 | +16 | 0 % | ✔ top-2 | ✔ top-2 | ✔ top-2 |
+  | C | 5 | +0 | 26 % | ✗ vendido | ✗ vendido | ✔ umbral añade |
+
+  Los estandartes de rango 6 tiran SPD en incrementos de **5 o 6** por evento, por lo que los únicos valores realistas en estado fresco son **5** (mínimo) o **6** (máximo). El SPD=12 del estandarte A significa que recibió exactamente una tirada SPD de bonus durante las mejoras (6 inicial + 1 tirada de 6). El estandarte B fue completamente mejorado sin tiradas SPD de bonus — su valor está bloqueado en 6.
+
+  El estandarte B tiene un 0 % de probabilidad de mejora: su SPD=6 fijo perderá previsiblemente frente a cualquier competidor sin mejorar cuyos futuros lanzamientos puedan superarlo. Pese a eso, permanece protegido porque está en el top-2 estándar por valor **actual**. La probabilidad de mejora nunca puede eliminar piezas del top-N — solo la lógica de expansión por umbral la utiliza.
+
+  El estandarte C (SPD=5, fresco) queda justo fuera del top-2 por valor actual. Su probabilidad de mejora del 26 % significa que acabaría en el top-2 en aproximadamente 1 de cada 4 caminos de mejora simulados. Con umbral ≥ **25 %** queda protegido; con umbral ≥ 50 % sigue vendiéndose.
+
+  Si el estandarte C hubiera empezado con **SPD=6**, su probabilidad de mejora sube al **68 %** — un candidato mucho más sólido. Umbral ≥ **65 %** lo protegería.
+
+  **Los estandartes épicos de rango 6** solo reciben **3 eventos de tirada SPD** (frente a 4 para los legendarios, porque la mejora +4 añade un nuevo substat en lugar de tirar uno existente). Las probabilidades resultantes son casi idénticas: SPD=6 fresco → **70 %**, SPD=5 fresco → **26 %**.
+
+  **Umbrales sugeridos (equipo de rango 6):**
+  - **65 %** — protege los drops frescos con tirada máxima (SPD=6, ~68–70 % de probabilidad). Buen valor predeterminado si quieres que los drops prometedores sobrevivan mientras se mejoran.
+  - **25 %** — también protege los drops con tirada mínima (SPD=5, ~26 % de probabilidad). Red más amplia; úsalo si el espacio en el inventario no es un problema.
+  - Evita **100 %**: solo coincide con piezas completamente mejoradas que ya están en el top-N estándar, así que no añade nada más allá del modo estándar.
 
 #### Alcances de cuota de un vistazo
 
