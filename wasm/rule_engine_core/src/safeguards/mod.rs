@@ -2123,12 +2123,40 @@ fn safeguard_build_placeholder_combination(
         };
     }
     if mode.per_faction {
-        // Non-accessory groups normalize faction to zero -> empty selection.
+        // Non-accessory groups normalize faction to zero -> empty factions selection.
         clone.factions = if group_sample.faction > 0 {
             vec![group_sample.faction]
         } else {
             Vec::new()
         };
+        // Narrow slots to the class implied by the group sample so accessory-faction
+        // placeholders never bleed into armor and the faction=0 armor placeholder never
+        // matches accessories. Without this, a faction=0 placeholder with an empty slots
+        // list would match any slot (including all accessories with any SPD).
+        let is_accessory_group = safeguard_is_accessory_slot(group_sample.slot);
+        let narrowed: Vec<i64> = if clone.slots.is_empty() {
+            // No explicit slot constraint: widen to the full slot class.
+            if is_accessory_group {
+                vec![ARTIFACT_TYPE_RING, ARTIFACT_TYPE_AMULET, ARTIFACT_TYPE_BANNER]
+            } else {
+                vec![
+                    ARTIFACT_TYPE_HELMET,
+                    ARTIFACT_TYPE_CHESTPLATE,
+                    ARTIFACT_TYPE_GAUNTLETS,
+                    ARTIFACT_TYPE_BOOTS,
+                    ARTIFACT_TYPE_WEAPON,
+                    ARTIFACT_TYPE_SHIELD,
+                ]
+            }
+        } else {
+            // Explicit slot list: keep only slots belonging to the matching class.
+            clone.slots
+                .iter()
+                .copied()
+                .filter(|s| safeguard_is_accessory_slot(*s) == is_accessory_group)
+                .collect()
+        };
+        clone.slots = narrowed;
     }
     clone
 }
