@@ -6,8 +6,8 @@
     "scripts":  {
                     "dev":  "node scripts/tooling/run-dev-with-wasm-watch.mjs",
                     "dev:vite":  "vite",
-                    "build":  "npm run wasm:ensure:rule-engine \u0026\u0026 vite build",
-                    "build:web":  "npm run wasm:ensure:rule-engine \u0026\u0026 vite build --mode web",
+                    "build":  "node -e \"console.log('Build started:', new Date().toLocaleString())\" \u0026\u0026 npm run wasm:ensure:rule-engine \u0026\u0026 vite build",
+                    "build:web":  "node -e \"console.log('Build started:', new Date().toLocaleString())\" \u0026\u0026 npm run wasm:ensure:rule-engine \u0026\u0026 vite build --mode web",
                     "preview":  "vite preview",
                     "typecheck":  "npm run wasm:ensure:rule-engine \u0026\u0026 tsc --noEmit",
                     "postinstall":  "npm run ensure:wasm-toolchain \u0026\u0026 npx playwright install",
