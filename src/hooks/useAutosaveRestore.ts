@@ -350,6 +350,8 @@ function computeInitialAutosaveState(args: {
       const savedFinalSell = parsed.finalSellRemainder
       const savedSafeguards = parsed.safeguardRules ?? []
       const savedKeepEnabled = parsed.safeguardsEnabled ?? false
+      // Explicit false is meaningful — treat absent as the default (true).
+      const savedRecipesEnabled = parsed.recipesEnabled ?? true
       const metasetsMatchDefaults = metasetsEqualSession(savedMetasets as Metaset[], args.metasets)
       // Compare canonicalized copies so reordering the variant keys (common when
       // editing via the dialog) does not trick autosave into thinking the
@@ -373,6 +375,7 @@ function computeInitialAutosaveState(args: {
         && !savedKeepEnabled
         && args.safeguardRules.length === 0
         && !args.safeguardsEnabled
+      const recipesEnabledMatchesSession = savedRecipesEnabled === args.recipesEnabled
       // Read any recipe overrides answers stored alongside the autosave payload.
       const payloadRecord = (entry.payload && typeof entry.payload === 'object')
         ? (entry.payload as Record<string, unknown>)
@@ -411,6 +414,7 @@ function computeInitialAutosaveState(args: {
         && filtersMatchDefaults
         && gearInspectorSortMatchDefaults
         && safeguardsMatchDefaults
+        && recipesEnabledMatchesSession
         && !hasStoredRuntimeGearSets
       if (!essentiallyDefault) {
         const payload = entry.payload as Record<string, unknown>
@@ -434,7 +438,9 @@ function computeInitialAutosaveState(args: {
             Recipes: recipes,
             ...(savedFinalSell ? { FinalSellRemainder: savedFinalSell } : {}),
             ...(savedSafeguards.length ? { Safeguards: savedSafeguards } : {}),
-            ...(savedKeepEnabled ? { SafeguardsEnabled: savedKeepEnabled } : {}),
+            // Always include both enabled-state booleans — false is a meaningful saved value.
+            SafeguardsEnabled: savedKeepEnabled,
+            RecipesEnabled: savedRecipesEnabled,
             ...(savedGridFilterMode ? { SafeguardsGridFilterMode: savedGridFilterMode } : {}),
             ...(savedRecipeSelIdx != null ? { SelectedRecipeIndex: savedRecipeSelIdx } : {}),
             ...(savedSgSelIdx != null ? { SelectedSafeguardRuleIdx: savedSgSelIdx } : {}),

@@ -8114,13 +8114,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               if (selection.metasets && restoreMetasetsDiffer && Array.isArray(draft.Metasets)) {
                 setMetasets(sanitizeMetasets(draft.Metasets))
               }
+              // Apply FinalSell when restoring either recipes or safeguards — it is shared config
+              // ("what to sell from everything remaining after your rules") and must be restored
+              // even in safeguards-only sessions where the user has no recipes to restore.
+              if ((selection.recipes || selection.safeguards) && draft.FinalSellRemainder && typeof draft.FinalSellRemainder === 'object') {
+                try {
+                  applyFinalSellChange(draft.FinalSellRemainder as FinalSellRemainderConfig, { publish: false })
+                } catch {}
+              }
               if (selection.recipes && Array.isArray(draft.Recipes)) {
-                if (draft.FinalSellRemainder && typeof draft.FinalSellRemainder === 'object') {
-                  try {
-                    const fsr = draft.FinalSellRemainder as FinalSellRemainderConfig
-                    applyFinalSellChange(fsr, { publish: false })
-                  } catch {}
-                }
                 const sanitizedRecipes = sanitizeRecipes(draft.Recipes)
                 setCustomRecipes(sanitizedRecipes)
                 const len = draft.Recipes.length
