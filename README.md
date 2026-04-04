@@ -121,11 +121,28 @@ Sellfile Creator eases building sell files for RSL Helper — define gear filter
 - Each keep rule lets you pick the slot, sets or metasets, ranks, rarities, main stats, and (for accessories) factions you care about. Leaving a picker empty means “any”.
 - `Mode` decides how the rule is emitted: `Off` disables it, `Protect existing` injects keep rows for sold matches until the quota is met, and `Anticipate gaps` also emits placeholder keep rules for missing combinations so new drops stay protected until the DB refreshes.
 - Substats are optional: pick one or more to only count items that actually have those substats. The match chip (`Any Substat` / `All Substats` / `Per Substat`) decides whether at least one, all, or each selected substat gets its own quota. Leave it empty to allow any substat.
-- Selected substats are always ranked by their projected-to-level-16 expected value (glyphs ignored); weight controls appear for `Any Substat` and `All Substats`, while `Per Substat` keeps equal weighting (ties at the cutoff stay protected).
+- Selected substats are ranked by their **current** substat value; weight controls appear for `Any Substat` and `All Substats`, while `Per Substat` keeps equal weighting (ties at the cutoff stay protected).
 - `≥ Required Count` is the promise you want the app to keep. Scope chips directly under each picker (everything except `Rank` and `Rarity`) decide how that quota is split: `Per slot`, `Per set`, `Per faction`, and `Per main stat` can be combined freely. Turning every chip off automatically falls back to the shared `Per rule` pool.
 - The info tooltip behind `Required Count` shows the active scope split (`X per slot × per set × ...`) and a simple deficit line (`({missing} missing)`).
 - The scanner only adds keep rows for matching items that would otherwise be sold, and only when the quota is not met. In `Anticipate gaps`, placeholder keep rules cover missing combinations.
-- `Improvement chance ≥ N%` (optional quality gate): how likely is this piece to still be worth keeping after it's fully upgraded? The app simulates leveling to +16 with **roll variance** (low/high outcomes per roll) and **glyph potential** (higher-rank gear benefits from stronger available glyphs), then checks whether it would still rank in your top N. Set **50** to keep pieces with a fair shot (good default), **75** for pieces likely to make the cut, or **100** for only guaranteed keepers.
+- **`Improvement chance ≥ N%`** (optional talent scout): widens the safety net beyond the standard top-N. The scanner always keeps the top-N pieces by their **current** substat value first — those are never at risk. It then also protects any piece *outside* that top-N whose improvement chance meets the threshold. Think of it as: "hold on to the raw drops that have a good shot at being competitive once they're leveled."
+
+  **What is improvement chance?** The app simulates all possible ways a piece could roll during upgrades to +16 — some rolls hit the substat you care about, some don't — and counts how often the piece ends up in your top N across all those futures. A piece with 68% improvement chance lands in the top N in roughly two out of three simulated upgrade paths.
+
+  **Key rule: the threshold can only add to protection, never remove.** Your current top-N is always kept, regardless of their improvement chance score. A fully upgraded piece (+16) counts its locked current value directly — it cannot fall out of protection because it "ran out of upgrade potential."
+
+  **Example — 4 SPD banners, Required Count = 2, Per faction:**
+
+  | Banner | SPD | Level | Upgrade chance | Without threshold | With threshold ≥ 50% |
+  | --- | --- | --- | --- | --- | --- |
+  | A | 8 | +16 | 0% | ✔ kept (top-2) | ✔ kept (top-2, always) |
+  | B | 7 | +0 | 68% | ✔ kept (top-2) | ✔ kept (top-2, always) |
+  | C | 6 | +0 | 68% | ✗ sold | ✔ kept (threshold adds) |
+  | D | 5 | +0 | 26% | ✗ sold | ✗ sold |
+
+  Banner A is the best piece by current SPD and stays protected at +16 even though it has 0% improvement chance (there are no rolls left). The threshold then catches Banner C, which has a 68% chance of outrunning A's locked score once it levels up.
+
+  **Suggested starting values:** **50%** keeps pieces with a fair shot at making the cut — good default. **75%** keeps only likely candidates. **100%** keeps only pieces that are *guaranteed* to land in the top N (very selective; often adds nothing beyond the standard top-N).
 
 #### Quota scopes at a glance
 Stacking the scope chips changes who gets their own quota. Leave `Per rule` on to share one pool, then layer `Per slot`, `Per set`, `Per faction`, and `Per main stat` to enforce Slot × Set × Faction × Main stat mixes independently.
