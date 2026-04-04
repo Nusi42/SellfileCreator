@@ -1150,6 +1150,17 @@ const overrides: Catalog = {
   filterPresetsEmpty: "Aucun filtre enregistré pour le moment.",
   filterPresetsSaveDialogTitle: "Enregistrer un préréglage de filtre",
   filterPresetsSaveDialogHelper: "Stocke l’état actuel du panneau de filtres et les paramètres de tri du testeur dans le stockage local.",
+  // Built-in filter preset names
+  builtinFilterPresetAllArtifacts: "Tous les artefacts",
+  builtinFilterPresetAllAccessories: "Tous les accessoires",
+  builtinFilterPresetShowOnlySell: "Vente uniquement",
+  builtinFilterPresetShowOnlySellArtifacts: "Vente uniquement – Artefacts",
+  builtinFilterPresetShowOnlySellAccessories: "Vente uniquement – Accessoires",
+  // Built-in sort preset names
+  builtinSortPresetNewest: "Les plus récents",
+  builtinSortPresetLatestUsed: "Dernier utilisé",
+  builtinSortPresetSpd: "SPD",
+  builtinSortPresetSpdPerSlot: "SPD – par emplacement",
   filterPresetsNameLabel: "Nom",
   filterPresetsDeleteDialogTitle: "Supprimer le filtre enregistré ?",
   filterPresetsDeleteDialogMessage: "Supprimer « {name} » ? Cette action est irréversible.",

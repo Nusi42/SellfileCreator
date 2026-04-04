@@ -1164,6 +1164,17 @@ const enUS: Catalog = {
   gearInspectorChampionUnknownName: "Unknown Champion #{id}",
   filterReset: "Reset Filters",
   filterSyncViews: "Sync filters between views",
+  // Built-in filter preset names
+  builtinFilterPresetAllArtifacts: "All Artifacts",
+  builtinFilterPresetAllAccessories: "All Accessories",
+  builtinFilterPresetShowOnlySell: "Show only Sell",
+  builtinFilterPresetShowOnlySellArtifacts: "Show only Sell \u2013 Artifacts",
+  builtinFilterPresetShowOnlySellAccessories: "Show only Sell \u2013 Accessories",
+  // Built-in sort preset names
+  builtinSortPresetNewest: "Newest",
+  builtinSortPresetLatestUsed: "Latest Used",
+  builtinSortPresetSpd: "SPD",
+  builtinSortPresetSpdPerSlot: "SPD \u2013 per Slot",
   filterPresetsSaveAs: "Save as…",
   filterPresetsEmpty: "No saved filters yet.",
   filterPresetsSaveDialogTitle: "Save filter preset",

@@ -1143,6 +1143,17 @@ const overrides: Catalog = {
   filterPresetsEmpty: "Noch keine gespeicherten Filter.",
   filterPresetsSaveDialogTitle: "Filtervorgabe speichern",
   filterPresetsSaveDialogHelper: "Speichert den aktuellen Status des Filterpanels und die Ausrüstungsinspektor-Sortierung im lokalen Speicher.",
+  // Built-in filter preset names
+  builtinFilterPresetAllArtifacts: "Alle Artefakte",
+  builtinFilterPresetAllAccessories: "Alle Accessoires",
+  builtinFilterPresetShowOnlySell: "Nur Verkauf",
+  builtinFilterPresetShowOnlySellArtifacts: "Nur Verkauf – Artefakte",
+  builtinFilterPresetShowOnlySellAccessories: "Nur Verkauf – Accessoires",
+  // Built-in sort preset names
+  builtinSortPresetNewest: "Neueste",
+  builtinSortPresetLatestUsed: "Zuletzt verwendet",
+  builtinSortPresetSpd: "SPD",
+  builtinSortPresetSpdPerSlot: "SPD – pro Slot",
   filterPresetsNameLabel: "Name",
   filterPresetsDeleteDialogTitle: "Gespeicherten Filter löschen?",
   filterPresetsDeleteDialogMessage: "„{name}” löschen? Das kann nicht rückgängig gemacht werden.",

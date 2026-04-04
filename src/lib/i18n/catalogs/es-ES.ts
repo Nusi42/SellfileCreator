@@ -1145,6 +1145,17 @@ const overrides: Catalog = {
   filterPresetsEmpty: "Aún no hay filtros guardados.",
   filterPresetsSaveDialogTitle: "Guardar preajuste de filtro",
   filterPresetsSaveDialogHelper: "Guarda el estado actual del panel de filtros y la configuración de orden del Probador en el almacenamiento local.",
+  // Built-in filter preset names
+  builtinFilterPresetAllArtifacts: "Todos los artefactos",
+  builtinFilterPresetAllAccessories: "Todos los accesorios",
+  builtinFilterPresetShowOnlySell: "Solo vender",
+  builtinFilterPresetShowOnlySellArtifacts: "Solo vender – Artefactos",
+  builtinFilterPresetShowOnlySellAccessories: "Solo vender – Accesorios",
+  // Built-in sort preset names
+  builtinSortPresetNewest: "Más recientes",
+  builtinSortPresetLatestUsed: "Último uso",
+  builtinSortPresetSpd: "SPD",
+  builtinSortPresetSpdPerSlot: "SPD – por ranura",
   filterPresetsNameLabel: "Nombre",
   filterPresetsDeleteDialogTitle: "¿Eliminar filtro guardado?",
   filterPresetsDeleteDialogMessage: "¿Eliminar “{name}”? Esto no se puede deshacer.",

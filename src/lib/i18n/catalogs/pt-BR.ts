@@ -1145,6 +1145,17 @@ const catalog: Catalog = {
   filterPresetsEmpty: "Ainda não há filtros salvos.",
   filterPresetsSaveDialogTitle: "Salvar predefinição de filtro",
   filterPresetsSaveDialogHelper: "Armazena o estado atual do painel de filtros e as configurações de ordenação do Teste de Regras no armazenamento local.",
+  // Built-in filter preset names
+  builtinFilterPresetAllArtifacts: "Todos os artefatos",
+  builtinFilterPresetAllAccessories: "Todos os acessórios",
+  builtinFilterPresetShowOnlySell: "Somente Vender",
+  builtinFilterPresetShowOnlySellArtifacts: "Somente Vender – Artefatos",
+  builtinFilterPresetShowOnlySellAccessories: "Somente Vender – Acessórios",
+  // Built-in sort preset names
+  builtinSortPresetNewest: "Mais recentes",
+  builtinSortPresetLatestUsed: "Último uso",
+  builtinSortPresetSpd: "SPD",
+  builtinSortPresetSpdPerSlot: "SPD – por slot",
   filterPresetsNameLabel: "Nome",
   filterPresetsDeleteDialogTitle: "Excluir filtro salvo?",
   filterPresetsDeleteDialogMessage: "Excluir “{name}”? Isso não pode ser desfeito.",

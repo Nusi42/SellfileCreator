@@ -1147,6 +1147,17 @@ const overrides: Catalog = {
   filterPresetsEmpty: "Henüz kaydedilmiş filtre yok.",
   filterPresetsSaveDialogTitle: "Filtre ön ayarını kaydet",
   filterPresetsSaveDialogHelper: "Geçerli filtre paneli durumunu ve Kural Testi sıralama ayarlarını yerel depolamaya kaydeder.",
+  // Built-in filter preset names
+  builtinFilterPresetAllArtifacts: "Tüm Artifaktlar",
+  builtinFilterPresetAllAccessories: "Tüm Aksesuarlar",
+  builtinFilterPresetShowOnlySell: "Sadece Sat",
+  builtinFilterPresetShowOnlySellArtifacts: "Sadece Sat – Artifaktlar",
+  builtinFilterPresetShowOnlySellAccessories: "Sadece Sat – Aksesuarlar",
+  // Built-in sort preset names
+  builtinSortPresetNewest: "En Yeniler",
+  builtinSortPresetLatestUsed: "Son Kullanılan",
+  builtinSortPresetSpd: "SPD",
+  builtinSortPresetSpdPerSlot: "SPD – slota göre",
   filterPresetsNameLabel: "Ad",
   filterPresetsDeleteDialogTitle: "Kaydedilmiş filtre silinsin mi?",
   filterPresetsDeleteDialogMessage: "”{name}” silinsin mi? Bu geri alınamaz.",

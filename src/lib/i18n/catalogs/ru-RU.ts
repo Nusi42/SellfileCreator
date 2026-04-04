@@ -1146,6 +1146,17 @@ const overrides: Catalog = {
   filterPresetsEmpty: "Сохранённых фильтров пока нет.",
   filterPresetsSaveDialogTitle: "Сохранить пресет фильтра",
   filterPresetsSaveDialogHelper: "Сохраняет текущее состояние панели фильтров и настройки сортировки Тестера в локальном хранилище.",
+  // Built-in filter preset names
+  builtinFilterPresetAllArtifacts: "Все артефакты",
+  builtinFilterPresetAllAccessories: "Все аксессуары",
+  builtinFilterPresetShowOnlySell: "Только продать",
+  builtinFilterPresetShowOnlySellArtifacts: "Только продать – Артефакты",
+  builtinFilterPresetShowOnlySellAccessories: "Только продать – Аксессуары",
+  // Built-in sort preset names
+  builtinSortPresetNewest: "Новейшие",
+  builtinSortPresetLatestUsed: "Последнее использование",
+  builtinSortPresetSpd: "SPD",
+  builtinSortPresetSpdPerSlot: "SPD – по слотам",
   filterPresetsNameLabel: "Имя",
   filterPresetsDeleteDialogTitle: "Удалить сохранённый фильтр?",
   filterPresetsDeleteDialogMessage: "Удалить «{name}»? Это действие нельзя отменить.",

@@ -17,6 +17,10 @@ import {
   type FilterPresetSnapshot,
 } from './filterPresetsPreference'
 import { StatVariant } from '../lib/types'
+import {
+  GEAR_INSPECTOR_SORT_KEY_LAST_USAGE,
+  GEAR_INSPECTOR_SORT_KEY_NEWEST,
+} from '../lib/gearInspectorSort'
 
 export const SORT_PRESETS_STORAGE_KEY = 'sellfileCreator.sortPresets.v1'
 
@@ -38,10 +42,44 @@ export type SortPreset = {
 // ---------------------------------------------------------------------------
 
 /**
+ * Flat grouping: one "Artifacts" bucket + one "Accessories" bucket, no set/slot/faction sub-groups.
+ * Used by time-based presets (Newest, Latest Used) where chronological order spans all types.
+ */
+const FLAT_TYPE_GROUPING = {
+  artifacts:   { bySet: false, bySlot: false },
+  accessories: { byFaction: false, bySet: false, bySlot: false },
+  hideHeaders: false,
+} as const
+
+/**
  * Shipped sort presets shown at the top of the sort preset menu by default.
  * They are non-deletable (`builtin: true`) but can be freely reordered.
  */
 export const BUILTIN_SORT_PRESETS: readonly SortPreset[] = [
+  {
+    id: 'builtin:newest',
+    name: 'Newest',
+    savedAt: '',
+    builtin: true,
+    // Sort by acquisition date descending; flat type groups so newest items float to the top globally.
+    snapshot: {
+      ...DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
+      priorities: [GEAR_INSPECTOR_SORT_KEY_NEWEST],
+      grouping: FLAT_TYPE_GROUPING,
+    },
+  },
+  {
+    id: 'builtin:latest-used',
+    name: 'Latest Used',
+    savedAt: '',
+    builtin: true,
+    // Sort by most recently equipped descending; flat type groups so recently touched items float up.
+    snapshot: {
+      ...DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
+      priorities: [GEAR_INSPECTOR_SORT_KEY_LAST_USAGE],
+      grouping: FLAT_TYPE_GROUPING,
+    },
+  },
   {
     id: 'builtin:spd',
     name: 'SPD',

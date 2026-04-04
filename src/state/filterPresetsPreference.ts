@@ -150,17 +150,20 @@ const SELL_ONLY_RESULT = Object.freeze({ keep: false, sell: true, matched: false
 
 /**
  * Build a filter-preset snapshot that activates the Gear Inspector view and
- * sets the specified gearInspectorResult + optional slot restrictions.
+ * sets the optional gearInspectorResult + optional slot restrictions.
+ * When gearInspectorResult is omitted the default (all-false) is used, meaning
+ * no result-label restriction and all items pass through.
  * Sort is intentionally omitted so applying a built-in never overwrites the
  * user's current sort configuration.
  */
 const makeBuiltinFilterSnapshot = (
-  gearInspectorResult: { keep: boolean; sell: boolean; matched: boolean; unmatched: boolean },
+  gearInspectorResult?: { keep: boolean; sell: boolean; matched: boolean; unmatched: boolean },
   slotIds?: number[],
 ): FilterPresetSnapshot => {
   const giState: RulesFilterState = {
     ...cloneDefaultRulesFilterState(),
-    gearInspectorResult,
+    // When provided, override the result filter (e.g. sell-only); absent keeps all-false (no restriction).
+    ...(gearInspectorResult ? { gearInspectorResult } : {}),
     // Explicit slot list narrows to artifacts or accessories; undefined leaves slots unrestricted.
     ...(slotIds ? { slots: { selected: slotIds, anyMode: 'off' } } : {}),
   }
@@ -205,6 +208,22 @@ const ACCESSORY_SLOT_IDS = [
  * They are non-deletable (`builtin: true`) but can be freely reordered.
  */
 export const BUILTIN_FILTER_PRESETS: readonly FilterPreset[] = [
+  {
+    id: 'builtin:all-artifacts',
+    name: 'All Artifacts',
+    savedAt: '',
+    builtin: true,
+    // No result restriction — shows every artifact regardless of sell/keep label.
+    snapshot: makeBuiltinFilterSnapshot(undefined, ARTIFACT_SLOT_IDS),
+  },
+  {
+    id: 'builtin:all-accessories',
+    name: 'All Accessories',
+    savedAt: '',
+    builtin: true,
+    // No result restriction — shows every accessory regardless of sell/keep label.
+    snapshot: makeBuiltinFilterSnapshot(undefined, ACCESSORY_SLOT_IDS),
+  },
   {
     id: 'builtin:sell',
     name: 'Show only Sell',

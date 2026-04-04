@@ -253,6 +253,29 @@ export default function PreviewHeaderActions(props: {
   } = props
   const isRulesMode = previewMode === 'rules'
   const { t } = useI18n()
+  // Resolve the localized display name for a built-in filter preset; user presets use their stored name.
+  const filterPresetDisplayName = (p: FilterPreset): string => {
+    if (!p.builtin) return p.name
+    switch (p.id) {
+      case 'builtin:all-artifacts':  return t('builtinFilterPresetAllArtifacts')
+      case 'builtin:all-accessories': return t('builtinFilterPresetAllAccessories')
+      case 'builtin:sell':            return t('builtinFilterPresetShowOnlySell')
+      case 'builtin:sell-artifacts':  return t('builtinFilterPresetShowOnlySellArtifacts')
+      case 'builtin:sell-accessories': return t('builtinFilterPresetShowOnlySellAccessories')
+      default: return p.name
+    }
+  }
+  // Resolve the localized display name for a built-in sort preset; user presets use their stored name.
+  const sortPresetDisplayName = (p: SortPreset): string => {
+    if (!p.builtin) return p.name
+    switch (p.id) {
+      case 'builtin:newest':      return t('builtinSortPresetNewest')
+      case 'builtin:latest-used': return t('builtinSortPresetLatestUsed')
+      case 'builtin:spd':         return t('builtinSortPresetSpd')
+      case 'builtin:spd-per-slot': return t('builtinSortPresetSpdPerSlot')
+      default: return p.name
+    }
+  }
   const mergedCountLabel = formatRulesCount(t, mergedCount, { limit: TOTAL_RULE_COUNT_LIMIT })
   const gearInspectorCountValue = Number.isFinite(gearInspectorCount) ? Math.max(0, Math.floor(gearInspectorCount ?? 0)) : 0
   const gearInspectorFilteredValue = Number.isFinite(gearInspectorFilteredCount) ? Math.max(0, Math.floor(gearInspectorFilteredCount ?? 0)) : gearInspectorCountValue
@@ -1118,7 +1141,7 @@ export default function PreviewHeaderActions(props: {
                     >
                       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1 }}>
                         <Typography variant="body2" noWrap sx={{ ...ELLIPSIS_TEXT_SX, lineHeight: 1.2 }}>
-                          {preset.name}
+                          {filterPresetDisplayName(preset)}
                         </Typography>
                         {/* Built-in presets carry no meaningful timestamp; show it only for user presets. */}
                         {!preset.builtin ? (
@@ -1164,7 +1187,7 @@ export default function PreviewHeaderActions(props: {
                           onClick={(event) => {
                             try { event.stopPropagation() } catch {}
                             closeFilterMenu()
-                            requestDeletePreset(preset.id, preset.name)
+                            requestDeletePreset(preset.id, filterPresetDisplayName(preset))
                           }}
                           sx={{ p: 0.5, alignSelf: 'center' }}
                         >
@@ -1277,7 +1300,7 @@ export default function PreviewHeaderActions(props: {
                     >
                       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1 }}>
                         <Typography variant="body2" noWrap sx={{ ...ELLIPSIS_TEXT_SX, lineHeight: 1.2 }}>
-                          {preset.name}
+                          {sortPresetDisplayName(preset)}
                         </Typography>
                         {/* Built-in presets have no meaningful timestamp; skip the caption. */}
                         {!preset.builtin ? (
@@ -1323,7 +1346,7 @@ export default function PreviewHeaderActions(props: {
                           onClick={(event) => {
                             try { event.stopPropagation() } catch {}
                             closeSortPresetMenu()
-                            requestDeleteSortPreset(preset.id, preset.name)
+                            requestDeleteSortPreset(preset.id, sortPresetDisplayName(preset))
                           }}
                           sx={{ p: 0.5, alignSelf: 'center' }}
                         >
