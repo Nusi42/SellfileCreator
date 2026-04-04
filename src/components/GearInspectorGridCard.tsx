@@ -23,6 +23,7 @@ import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import {
   artifactSetName,
   artifactTypeName,
+  factionCodeToName,
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
   formatLevel,
   statVariantI18nKey,
@@ -1010,13 +1011,50 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     if (!Number.isFinite(artifactId)) return null
     return `Artifact ID: ${Math.trunc(artifactId)}`
   })()
-  // Card icon tooltip shows only last-use info and dev artifact id.
-  // Chip-specific content (rank table, upgrade breakdown) lives on the chips via tooltipMarkdown/tooltipRender.
-  const gearTooltip = (() => {
-    const parts: string[] = []
-    if (lastUseTooltip) parts.push(lastUseTooltip)
-    if (devArtifactIdTooltip) parts.push(devArtifactIdTooltip)
-    return parts.length > 0 ? parts.join('\n\n---\n\n') : null
+  // Styled JSX render for the gear icon tooltip, matching the scroll-hint flyout appearance:
+  // caption weight, stacked rows, stat colors. Substats are included only in ultra-dense mode
+  // where inline values are hidden; last-used and dev id appear at the bottom when present.
+  const gearTooltipRender: React.ReactNode = (() => {
+    const slotName = artifactTypeName(artifact.slot as ArtifactTypeId)
+    const factionNum = Number(artifact.faction)
+    const factionName = (Number.isFinite(factionNum) && factionNum !== 0)
+      ? factionCodeToName(artifact.faction as FactionId)
+      : null
+    const hasSubstatSection = isUltraDense && substatEntries.length > 0
+    return (
+      <Typography
+        variant="caption"
+        component="div"
+        sx={{ fontWeight: 600, letterSpacing: 0.15, display: 'flex', flexDirection: 'column', gap: 0.25 }}
+      >
+        {/* Gear identity rows: faction (accessories) → set → slot, mirroring the scroll-hint flyout order. */}
+        {factionName ? <Box component="span">{factionName}</Box> : null}
+        {setTooltipName ? <Box component="span">{setTooltipName}</Box> : null}
+        <Box component="span">{slotName}</Box>
+        {/* Substats section — only in ultra-dense mode where inline values are hidden. */}
+        {hasSubstatSection ? (
+          <Box component="span" sx={{ display: 'flex', flexDirection: 'column', gap: 0.15, mt: 0.5 }}>
+            {substatEntries.map((e) => (
+              <Box key={e.variant} component="span" sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
+                <Box component="span" sx={{ flex: 1, color: e.statColor ?? 'inherit' }}>{e.statLabel}</Box>
+                <Box component="span">{e.statValue}</Box>
+                {e.glyphDelta ? (
+                  <Box component="span" sx={{ color: glyphDeltaColor }}>{e.glyphDelta}</Box>
+                ) : null}
+              </Box>
+            ))}
+          </Box>
+        ) : null}
+        {/* Last-used timestamp de-emphasised with reduced weight. */}
+        {lastUseTooltip ? (
+          <Box component="span" sx={{ fontWeight: 400, opacity: 0.75, mt: 0.5 }}>{lastUseTooltip}</Box>
+        ) : null}
+        {/* Dev-only: artifact ID for quick lookup in transcripts. */}
+        {devArtifactIdTooltip ? (
+          <Box component="span" sx={{ fontWeight: 400, opacity: 0.6 }}>{devArtifactIdTooltip}</Box>
+        ) : null}
+      </Typography>
+    )
   })()
   // Ultra-dense 8-col shows only the ascension stat name, without the numeric value.
   const ascSummaryContent = isUltraDense ? ascLabelNode : ascSummary
@@ -1297,9 +1335,9 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           size={iconBoxSizePx}
           // Ultra-dense small-mode cards swap the star row for a compact numeric rank badge.
           {...(isUltraDense ? { compactRankDisplay: true } : {})}
-          // Card icon tooltip: last-use + dev artifact id only.
+          // Card icon tooltip: styled JSX render matching the scroll-hint flyout.
           // Per-chip tooltips (rank table, upgrade breakdown) are on the chips via tooltipMarkdown/tooltipRender.
-          {...(gearTooltip ? { gearTooltip } : {})}
+          gearTooltipRender={gearTooltipRender}
           // overlaySlotCount drives chip size + Y positions; passed uniformly so all grid cards align.
           overlaySlotCount={overlaySlotCount}
           // Each overlay carries its own tooltip; card icon hover shows only last-use / dev id.
