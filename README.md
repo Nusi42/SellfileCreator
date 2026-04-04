@@ -131,18 +131,28 @@ Sellfile Creator eases building sell files for RSL Helper — define gear filter
 
   **Key rule: the threshold can only add to protection, never remove.** Your current top-N is always kept, regardless of their improvement chance score. A fully upgraded piece (+16) counts its locked current value directly — it cannot fall out of protection because it "ran out of upgrade potential."
 
-  **Example — 4 SPD banners, Required Count = 2, Per faction:**
+  **Example — SPD banners, Required Count = 2, Per faction (rank-6 legendary):**
 
-  | Banner | SPD | Level | Upgrade chance | Without threshold | With threshold ≥ 50% |
-  | --- | --- | --- | --- | --- | --- |
-  | A | 8 | +16 | 0% | ✔ kept (top-2) | ✔ kept (top-2, always) |
-  | B | 7 | +0 | 68% | ✔ kept (top-2) | ✔ kept (top-2, always) |
-  | C | 6 | +0 | 68% | ✗ sold | ✔ kept (threshold adds) |
-  | D | 5 | +0 | 26% | ✗ sold | ✗ sold |
+  | Banner | SPD | Level | Improvement chance | Standard | Threshold ≥ 50% | Threshold ≥ 25% |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | A | 12 | +16 | 100% | ✔ top-2 | ✔ top-2 | ✔ top-2 |
+  | B | 6 | +16 | 0% | ✔ top-2 | ✔ top-2 | ✔ top-2 |
+  | C | 5 | +0 | 26% | ✗ sold | ✗ sold | ✔ threshold adds |
 
-  Banner A is the best piece by current SPD and stays protected at +16 even though it has 0% improvement chance (there are no rolls left). The threshold then catches Banner C, which has a 68% chance of outrunning A's locked score once it levels up.
+  Rank-6 banners roll SPD in increments of **5 or 6** per event, so the only realistic fresh values are **5** (minimum) or **6** (maximum). Banner A's SPD=12 means it received exactly one bonus SPD roll during upgrades (6 initial + 1 roll of 6). Banner B was fully leveled with no bonus SPD rolls — its score is locked at 6.
 
-  **Suggested starting values:** **50%** keeps pieces with a fair shot at making the cut — good default. **75%** keeps only likely candidates. **100%** keeps only pieces that are *guaranteed* to land in the top N (very selective; often adds nothing beyond the standard top-N).
+  Banner B scores 0% improvement chance: its fixed SPD=6 is expected to lose to any unleveled competitor whose future rolls could exceed it. Despite that, it stays protected because it is in the standard top-2 by **current** value. Improvement chance can never remove items from the top-N — only the threshold expansion logic uses it.
+
+  Banner C (SPD=5, fresh) sits just outside the top-2 by current value. Its 26% improvement chance means it would end up in the top-2 in roughly 1 in 4 simulated upgrade paths. Setting threshold ≥ **25%** pulls it into protection; at threshold ≥ 50% it remains sold.
+
+  If Banner C had started at **SPD=6** instead, its improvement chance rises to **68%** — a much stronger candidate. Threshold ≥ **65%** would protect it.
+
+  **Rank-6 epic banners** only receive **3 SPD roll events** (versus 4 for legendary, because the +4 upgrade adds a brand-new substat rather than rolling an existing one). The resulting chances are nearly identical: SPD=6 fresh → **70%**, SPD=5 fresh → **26%**.
+
+  **Suggested thresholds (rank-6 gear):**
+  - **65%** — protects fresh max-roll drops (SPD=6, ~68–70% chance). Good default if you want promising drops to survive while leveling up.
+  - **25%** — also protects min-roll drops (SPD=5, ~26% chance). Wider net; use this if inventory space is not a concern.
+  - Avoid **100%**: it only ever matches fully-leveled pieces already held by the standard top-N, so it adds nothing beyond standard mode.
 
 #### Quota scopes at a glance
 Stacking the scope chips changes who gets their own quota. Leave `Per rule` on to share one pool, then layer `Per slot`, `Per set`, `Per faction`, and `Per main stat` to enforce Slot × Set × Faction × Main stat mixes independently.

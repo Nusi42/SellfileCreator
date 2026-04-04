@@ -123,7 +123,34 @@ Sellfile Creator, RSL Helper için satış dosyaları oluşturmayı kolaylaştı
 - `≥ Gerekli adet` uygulamanın size verdiği sözdür. Rank ve Nadirlik dışındaki her seçicinin altındaki kapsam çipleri (`Kural başına`, `Slot başına`, `Set başına`, `Fraksiyon başına`, `Ana stat başına`) bu kotanın nasıl paylaşıldığını belirler; hepsini kapatırsanız paylaşım otomatik olarak `Kural başına` havuzuna döner.
 - `Gerekli adet` bilgi ipucu aktif kapsam bölmesini (`X slot başına × set başına × ...`) ve basit bir eksik satırını (`({missing} eksik)`) gösterir.
 - Tarayıcı, yalnızca bir kuralı karşılayan ve aksi hâlde satılacak eşyalar için Koru satırları ekler; bu da yalnızca kota karşılanmadığında olur. `Açıkları öngör` modunda eksik kombinasyonlar için geçici kurallar eklenir.
-- `İyileştirme şansı ≥ N%` (isteğe bağlı kalite filtresi): bu parçanın tamamen yükseltildikten sonra hala değer taşıma olasılığı ne kadar? Uygulama **atış varyansı** (her atışta düşük/yüksek sonuçlar) ve **glif potansiyeli** (daha yüksek ranklı ekipman daha güçlü mevcut gliflerden yararlanır) ile +16'ya seviyelenmeyi simüle eder ve parçanın top N'inde hala sıralanacak olup olmadığını kontrol eder. **50** = iyi bir şansla parçaları tut (iyi varsayılan), **75** = yalnızca seçimi geçme olasılığı yüksek parçalar, **100** = yalnızca sıralamada garantili parçalar.
+- **`İyileştirme şansı ≥ N%`** (isteğe bağlı yetenek avcısı): standart top-N'nin ötesinde güvenlik ağını genişletir. Tarayıcı her zaman önce **mevcut** alt stat değerine göre top-N parçaları korur — bunlar hiçbir zaman tehlikede değildir. Ayrıca bu top-N'nin *dışındaki*, iyileştirme şansı eşiği karşılayan her parçayı da korur. Fikir şudur: «seviyeye getirildiklerinde rekabetçi olma ihtimali yüksek ham dropları elde tutmak».
+
+  **İyileştirme şansı nedir?** Uygulama, bir parçanın +16'ya yükseltilirken tüm olası atış yollarını simüle eder — bazı atışlar önemsediğiniz alt stata isabet eder, bazıları etmez — ve parçanın tüm bu geleceklerde kaç kez top N'e girdiğini sayar. %68 iyileştirme şansına sahip bir parça, simüle edilen yükseltme yollarının yaklaşık ikisinde top N'e girer.
+
+  **Temel kural: eşik yalnızca korumaya ekleme yapabilir, asla çıkarma yapamaz.** Mevcut top-N'niz iyileştirme şansı puanından bağımsız olarak her zaman korunur. Tamamen yükseltilmiş bir parça (+16) mevcut sabit değerini doğrudan sayar — «yükseltme potansiyelini tüketti» diye korumadan çıkarılamaz.
+
+  **Örnek — SPD bayrakları, Gerekli Sayı = 2, Fraksiyona göre (rank-6 efsanevi):**
+
+  | Bayrak | SPD | Seviye | İyileştirme şansı | Standart | Eşik ≥ %50 | Eşik ≥ %25 |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | A | 12 | +16 | %100 | ✔ top-2 | ✔ top-2 | ✔ top-2 |
+  | B | 6 | +16 | %0 | ✔ top-2 | ✔ top-2 | ✔ top-2 |
+  | C | 5 | +0 | %26 | ✗ satıldı | ✗ satıldı | ✔ eşik ekler |
+
+  Rank-6 bayraklar SPD'yi olay başına **5 veya 6** artırır; bu nedenle taze haldeki tek gerçekçi değerler **5** (minimum) veya **6** (maksimum)'dur. Bayrağın SPD=12 olması, yükseltmeler sırasında tam olarak bir bonus SPD atışı aldığı anlamına gelir (6 başlangıç + 6'lık 1 atış). Bayrak B, bonus SPD atışı olmadan tamamen seviye atlatılmıştır — puanı 6'da kilitlidir.
+
+  Bayrak B %0 iyileştirme şansı alır: sabit SPD=6'sının, gelecekteki atışları onu geçebilecek herhangi bir seviyesiz rakibe yenilmesi beklenir. Buna rağmen korunmaya devam eder çünkü **mevcut** değere göre standart top-2'dedir. İyileştirme şansı hiçbir zaman top-N'den öğe çıkaramaz — bunu yalnızca eşik genişleme mantığı kullanır.
+
+  Bayrak C (SPD=5, taze), mevcut değere göre top-2'nin hemen dışındadır. %26 iyileştirme şansı, simüle edilen yükseltme yollarının yaklaşık 1'inde top-2'ye gireceği anlamına gelir. Eşik ≥ **%25** ile koruma altına alınır; eşik ≥ %50 ile satılmaya devam eder.
+
+  Bayrak C **SPD=6** ile başlamış olsaydı, iyileştirme şansı **%68**'e yükselirdi — çok daha güçlü bir aday. Eşik ≥ **%65** onu korurdu.
+
+  **Rank-6 epic bayraklar** yalnızca **3 SPD atış olayı** alır (efsanevi için 4'e karşı, çünkü +4 yükseltme mevcut bir alt stata atış yapmak yerine yeni bir alt stat ekler). Ortaya çıkan şanslar neredeyse aynıdır: SPD=6 taze → **%70**, SPD=5 taze → **%26**.
+
+  **Önerilen eşikler (rank-6 ekipman):**
+  - **%65** — maksimum atışlı taze dropları korur (SPD=6, ~%68–70 şans). Gelecek vaat eden dropların seviye atlatılırken hayatta kalmasını istiyorsanız iyi bir varsayılan.
+  - **%25** — minimum atışlı dropları da korur (SPD=5, ~%26 şans). Daha geniş ağ; envanter alanı sorun değilse kullanın.
+  - **%100'den kaçının**: yalnızca zaten standart top-N tarafından tutulan tam seviyeli parçalarla eşleşir, bu nedenle standart moda göre hiçbir şey eklemez.
 
 Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değiştirir. Tek havuz için `Kural başına` açık bırakın; `Slot başına`, `Set başına`, `Fraksiyon başına` ve `Ana stat başına` düğmelerini katmanlayarak Slot × Set × Fraksiyon × Ana stat karışımlarını bağımsız takip edebilirsiniz.
 

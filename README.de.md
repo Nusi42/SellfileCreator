@@ -123,7 +123,34 @@ Sellfile Creator erleichtert das Erstellen von Sell-Dateien für RSL Helper — 
 - `≥ Benötigte Anzahl` definiert das Versprechen, das die App halten soll. Direkt darunter entscheiden Chips für `Pro Slot`, `Pro Set`, `Pro Fraktion` und `Pro Hauptstat`, wie das Kontingent aufgeteilt wird. Sind alle Chips aus, gilt automatisch `Pro Regel` (ein gemeinsamer Pool).
 - Der Hinweis bei `Benötigte Anzahl` zeigt die aktive Bereichs-Aufteilung (`X je Slot × je Set × ...`) plus eine einfache Fehlmenge (`({missing} fehlen)`).
 - Der Scanner fügt nur Behalte-Zeilen für passende Items hinzu, die sonst verkauft würden, und nur wenn die Quote nicht erfüllt ist. Im Modus `Lücken vorab sichern` kommen Platzhalter-Regeln für fehlende Kombinationen dazu.
-- `Verbesserungschance ≥ N%` (optionaler Qualitätsfilter): Wie wahrscheinlich ist es, dass dieses Teil nach dem vollständigen Aufwerten noch als Keeper gilt? Die App simuliert das Leveln auf +16 mit **Würfelvarianz** (niedrige/hohe Ergebnisse pro Wurf) und **Glyphenpotenzial** (höherrangige Ausrüstung profitiert von stärkeren verfügbaren Glyphen) und prüft, ob es noch im Top-N deiner Sicherheitsnetz-Gruppe liegt. **50** = Teile mit fairer Chance behalten (guter Standard), **75** = nur Teile, die den Cut wahrscheinlich schaffen, **100** = nur garantiert platzierende Teile.
+- **`Verbesserungschance ≥ N%`** (optionaler Talentspäher): erweitert das Sicherheitsnetz über das Standard-Top-N hinaus. Der Scanner behält zuerst immer die Top-N-Teile nach ihrem **aktuellen** Substat-Wert – diese sind nie gefährdet. Zusätzlich schützt er alle Teile *außerhalb* des Top-N, deren Verbesserungschance den Schwellenwert erreicht. Gedanke dahinter: „Halte die rohen Drops fest, die gute Chancen haben, nach dem Aufwerten konkurrenzfähig zu sein."
+
+  **Was ist die Verbesserungschance?** Die App simuliert alle möglichen Wege, wie ein Teil beim Aufwerten auf +16 würfeln könnte – manche Würfe treffen den gewünschten Substat, manche nicht – und zählt, wie oft das Teil dabei im Top-N landet. Ein Teil mit 68 % Verbesserungschance landet in etwa zwei von drei simulierten Aufwertungspfaden im Top-N.
+
+  **Wichtige Regel: Der Schwellenwert kann den Schutz nur erweitern, nie verringern.** Das aktuelle Top-N bleibt immer erhalten, unabhängig von der Verbesserungschance. Ein vollständig aufgewertetes Teil (+16) zählt seinen eingefrorenen aktuellen Wert direkt – es kann nicht aus dem Schutz fallen, weil es „keine Aufwertungsmöglichkeiten mehr hat".
+
+  **Beispiel – SPD-Banner, Benötigte Anzahl = 2, Pro Fraktion (Rang 6, legendär):**
+
+  | Banner | SPD | Level | Verbesserungschance | Standard | Schwelle ≥ 50 % | Schwelle ≥ 25 % |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | A | 12 | +16 | 100 % | ✔ Top-2 | ✔ Top-2 | ✔ Top-2 |
+  | B | 6 | +16 | 0 % | ✔ Top-2 | ✔ Top-2 | ✔ Top-2 |
+  | C | 5 | +0 | 26 % | ✗ verkauft | ✗ verkauft | ✔ Schwelle greift |
+
+  Rang-6-Banner würfeln SPD in Schritten von **5 oder 6** pro Ereignis, daher sind die einzigen realistischen Frisch-Werte **5** (Minimum) oder **6** (Maximum). Banner A mit SPD=12 hat beim Aufwerten genau einen Bonus-SPD-Würfel erhalten (6 initial + 1 Wurf von 6). Banner B wurde vollständig aufgewertet ohne Bonus-SPD-Würfel – sein Wert ist bei 6 eingefroren.
+
+  Banner B hat 0 % Verbesserungschance: Sein fester SPD-Wert von 6 wird voraussichtlich gegen jeden noch nicht aufgewerteten Konkurrenten verlieren, dessen zukünftige Würfe ihn übertreffen könnten. Trotzdem bleibt es geschützt, weil es im Standard-Top-2 nach dem **aktuellen** Wert liegt. Die Verbesserungschance kann Teile niemals aus dem Top-N entfernen – nur die Schwellenwert-Erweiterung nutzt sie.
+
+  Banner C (SPD=5, frisch) liegt knapp außerhalb des Top-2 nach aktuellem Wert. Seine Verbesserungschance von 26 % bedeutet, dass es in etwa 1 von 4 simulierten Aufwertungspfaden im Top-2 landen würde. Mit Schwelle ≥ **25 %** wird es geschützt; bei Schwelle ≥ 50 % bleibt es verkauft.
+
+  Hätte Banner C stattdessen mit **SPD=6** begonnen, steigt seine Verbesserungschance auf **68 %** – ein deutlich stärkerer Kandidat. Schwelle ≥ **65 %** würde es schützen.
+
+  **Rang-6-Epic-Banner** erhalten nur **3 SPD-Wurfereignisse** (gegenüber 4 bei legendären, da das +4-Upgrade einen neuen Substat hinzufügt statt einen vorhandenen zu würfeln). Die resultierenden Chancen sind nahezu identisch: SPD=6 frisch → **70 %**, SPD=5 frisch → **26 %**.
+
+  **Empfohlene Schwellenwerte (Rang-6-Ausrüstung):**
+  - **65 %** — schützt frische Maximum-Drops (SPD=6, ~68–70 % Chance). Guter Standard, wenn vielversprechende Drops beim Aufwerten erhalten bleiben sollen.
+  - **25 %** — schützt auch Minimum-Drops (SPD=5, ~26 % Chance). Weiteres Netz; geeignet, wenn Platz im Inventar kein Problem ist.
+  - **100 % vermeiden**: trifft nur vollständig aufgewertete Teile, die bereits im Standard-Top-N gehalten werden – daher bringt es gegenüber dem Standardmodus nichts.
 
 #### Kontingentbereiche auf einen Blick
 Mehrere Bereichs-Chips stapeln die Kontingente. Lass `Pro Regel` aktiv, um einen gemeinsamen Pool zu behalten, und kombiniere `Pro Slot`, `Pro Set`, `Pro Fraktion` und `Pro Hauptstat`, wenn Slot × Set × Fraktion × Hauptstat getrennte Quoten erhalten sollen.
