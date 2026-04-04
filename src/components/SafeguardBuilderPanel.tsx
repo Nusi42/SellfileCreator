@@ -2357,9 +2357,9 @@ export default function SafeguardBuilderPanel({
                 {/* Left: feature label with tooltip explaining the input fields. */}
                 <MarkdownTooltip markdown={t('safeguardsImprovementChanceThresholdHint')} placement="top">
                   <Typography
-                    variant="caption"
+                    variant="body2"
                     color="text.secondary"
-                    sx={{ fontWeight: 600, cursor: 'default', display: 'inline-block', pb: '6px', whiteSpace: 'nowrap' }}
+                    sx={{ cursor: 'default', whiteSpace: 'nowrap', pb: '6px' }}
                   >
                     {t('safeguardsImprovementChanceThreshold')}
                   </Typography>
@@ -2385,24 +2385,22 @@ export default function SafeguardBuilderPanel({
                           updateSlot(col.slot, '')
                         }
                       }}
-                      slotProps={{
-                        input: {
-                          endAdornment: (
-                            <NumberSpinnerAdornment
-                              ariaLabel={t(col.labelKey as Parameters<typeof t>[0])}
-                              onStep={(delta) => stepSlot(col.slot, delta)}
-                            />
-                          ),
-                          sx: {
-                            '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
-                            '& input[type=number]': { MozAppearance: 'textfield' },
-                          },
+                      InputProps={{
+                        endAdornment: (
+                          <NumberSpinnerAdornment
+                            ariaLabel={t(col.labelKey as Parameters<typeof t>[0])}
+                            onStep={(delta) => stepSlot(col.slot, delta)}
+                          />
+                        ),
+                        sx: {
+                          '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                          '& input[type=number]': { MozAppearance: 'textfield' },
                         },
-                        htmlInput: { min: 0, step: 0.1, max: 100 },
                       }}
+                      inputProps={{ min: 0, step: 0.1, max: 100 }}
                       sx={(themeInner) => ({
                         width: inputWidth,
-                        '& input': { textAlign: 'right', px: themeInner.spacing(0.5), fontSize: '0.8125rem' },
+                        '& input': { textAlign: 'right', paddingRight: themeInner.spacing(1), paddingLeft: themeInner.spacing(0.25) },
                       })}
                     />
                   </Box>
