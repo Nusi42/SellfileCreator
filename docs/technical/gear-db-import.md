@@ -113,7 +113,8 @@ Argonites currently assume a new `accset = 17` mapping until a sample database c
 ### Champion Metadata
 
 - `Champs` rows expose the owning hero’s `Rarity` alongside `BaseHeroID`. The importer captures this as `NormalizedGearArtifact.equippedChampionRarity` (also included in Gear Inspector preview extras) so UI surfaces can align avatar chrome with each champion’s in-game tier.
-- Champion ascension level = `HeroID − BaseHeroID` (0–6). The importer captures this as `NormalizedGearArtifact.equippedChampionAscensionLevel`. Ascension level ≥ 5 unlocks the Amulet slot; ascension level = 6 (fully ascended) additionally unlocks the Banner slot. `Rang` is the star-count column and must **not** be used for this — it reflects the champion’s current star rating (which incorporates their base rarity), not the number of ascension steps taken.
+- Champion ascension level = `HeroID − BaseHeroID` (0–6). The importer captures this as `NormalizedGearArtifact.equippedChampionAscensionLevel`. Ascension level ≥ 5 unlocks the Amulet slot; ascension level = 6 (fully ascended) additionally unlocks the Banner slot. `Rang`/`grade` is the current star count and must **not** be used for ascension level — it incorporates base rarity stars, not just ascension steps.
+- **JSON endpoint field mapping**: the `champions` JSON-RPC notification uses `typeId` (= SQL `HeroID`, e.g. `2066`) instead of `HeroID`; `BaseHeroID` is absent and derived as `Math.floor(typeId / 10) * 10`. `Name` and `Rarity` are present verbatim (same capitalisation as SQL columns). RSL Helper sends `champions` twice per sync; the second message omits `Name` and `Rarity` — the importer merges rows to preserve those fields. See `docs/technical/websocket-jsonrpc.md` § champions for details.
 
 ### Normalization Helper
 
