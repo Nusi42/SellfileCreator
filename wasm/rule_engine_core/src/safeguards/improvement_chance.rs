@@ -1395,11 +1395,8 @@ pub fn compute_improvement_chance_core(
         let Some(artifact_id) = row.artifact.id else {
             continue;
         };
-        let level = clamp_level(row.artifact.exact_level.unwrap_or(row.artifact.level));
-        // Fully-upgraded artifacts have no remaining events; skip chance overlays.
-        if level >= UPGRADE_TARGET_LEVEL {
-            continue;
-        }
+        // Fully-upgraded artifacts are included: compute_artifact_chance_percent handles the
+        // milestones.is_empty() case and returns 100 or 0 based on current competitiveness.
         let artifact_scenarios: &[&UpgradeScenario] = scenarios_by_id
             .get(&artifact_id)
             .map(|v| v.as_slice())

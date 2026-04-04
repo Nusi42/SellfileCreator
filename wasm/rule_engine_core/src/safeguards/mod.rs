@@ -2336,7 +2336,8 @@ pub(super) fn glyph_average_for_variant(rank: i64, variant: i64) -> f64 {
     0.0
 }
 
-// pub(super) so improvement_chance can use current-level scores for debug/internal purposes.
+// pub(super) so improvement_chance can use current-level scores, and so the ranking path
+// can use it for standard-mode (no improvement_chance_threshold) candidate scoring.
 pub(super) fn safeguard_compute_score(
     artifact: &SafeguardWasmArtifactIn,
     selected_substats: &[i64],
@@ -2735,8 +2736,10 @@ fn safeguard_build_entry_for_substats(
             .iter()
             .filter_map(|candidate_idx| {
                 let candidate = &candidates[*candidate_idx];
-                // Score by projected-to-16 expected value so unleveled pieces compete fairly.
-                let score = improvement_chance::compute_projected_challenger_score(
+                // Always rank by current substat value. When a threshold is set, the
+                // top-N is still determined by current score; improvement_chance is then
+                // checked independently to expand the keep-list, not replace it.
+                let score = safeguard_compute_score(
                     &candidate.artifact, selected_substats, &prepared_rule.weights,
                 );
                 if score <= 0.0 {
@@ -2833,23 +2836,31 @@ fn safeguard_build_entry_for_substats(
                 deficit += deficit_group;
                 continue;
             }
-            // Select candidates: threshold mode keeps all whose improvement chance meets the bar;
-            // standard mode selects top-N by projected score with tie-boundary extension.
+            // Always select top-N by current-value score with tie-boundary extension.
+            let top_n = safeguard_select_top_scored_candidates(&bucket, required_per_group, candidates);
+            // When a threshold is set, additionally keep any items outside the top-N
+            // whose improvement_chance meets the bar — the threshold expands the keep-list
+            // rather than replacing the current-value selection.
             let selected: Vec<SafeguardWasmScoredCandidate> =
                 if let Some(threshold) = prepared_rule.improvement_chance_threshold {
-                    bucket
-                        .iter()
-                        .filter(|e| {
-                            let art_id =
-                                candidates[e.candidate_idx].artifact.id.unwrap_or(-1);
-                            improvement_chances
-                                .get(&art_id)
-                                .map_or(false, |&ch| (ch as f64) >= threshold)
-                        })
-                        .cloned()
-                        .collect()
+                    let top_n_indices: HashSet<usize> =
+                        top_n.iter().map(|e| e.candidate_idx).collect();
+                    let mut expanded = top_n;
+                    for e in bucket.iter() {
+                        if top_n_indices.contains(&e.candidate_idx) {
+                            continue; // already in top-N
+                        }
+                        let art_id = candidates[e.candidate_idx].artifact.id.unwrap_or(-1);
+                        if improvement_chances
+                            .get(&art_id)
+                            .map_or(false, |&ch| (ch as f64) >= threshold)
+                        {
+                            expanded.push(e.clone());
+                        }
+                    }
+                    expanded
                 } else {
-                    safeguard_select_top_scored_candidates(&bucket, required_per_group, candidates)
+                    top_n
                 };
             // Collect entire bucket for output ranking (all candidates, not just selected).
             raw_candidates_for_output.extend(bucket.iter().cloned());

@@ -108,6 +108,8 @@ const makeRule = (overrides: Partial<SafeguardRule> = {}): SafeguardRule => {
     substats: overrides.substats,
     substatMatch: overrides.substatMatch,
     substatWeights: overrides.substatWeights,
+    // Forward threshold so tests can exercise improvement-chance mode.
+    improvementChanceThreshold: overrides.improvementChanceThreshold,
   })
   if (!rule) throw new Error('expected combination')
   return rule
@@ -630,6 +632,67 @@ test('ranked unresolved ties are order-invariant across candidate permutations',
   assert.deepStrictEqual(firstEntry.itemKeys, [401, 402, 403])
   assert.deepStrictEqual(secondEntry.itemKeys, [401, 402, 403])
 })
+
+test('threshold mode: top-N by current value is always kept regardless of improvement-chance', () => {
+  // Regression guard: a level-16 item competing against unleveled peers has 0% improvement
+  // chance (their projected +16 scores exceed its frozen value), but it must still be
+  // protected because it is the current-value top-1.  The threshold only expands the
+  // keep-list beyond the top-N — it never shrinks it.
+  // Note: computeSafeguardProtection does not pass pre-computed improvement-chances to WASM,
+  // so the threshold expansion path adds nothing here; this verifies the top-N path alone.
+  const rules = [makeRule({
+    requiredCount: 1,
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+    combination: {
+      slots: [ArtifactType.Weapon],
+      sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
+      metaSetNames: [],
+      ranks: [],
+      rarities: [],
+      mainStats: [],
+      factions: [],
+    },
+    substats: [StatVariant.SPD],
+    improvementChanceThreshold: 50,
+  })]
+  const rows = [
+    makeGearInspectorRow({ id: 510, level: 16, substats: [buildSubstat(StatVariant.SPD, 8)] }, false, StatVariant.ATK),
+    makeGearInspectorRow({ id: 511, level: 0,  substats: [buildSubstat(StatVariant.SPD, 5)] }, false, StatVariant.ATK),
+  ]
+  const { candidates } = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] })
+  const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
+  assert.deepStrictEqual(snapshot.entries[0]?.itemKeys, [510], 'level-16 SPD=8 must be kept as current-value top-1 even with 0% improvement chance')
+})
+
+test('ranked standard mode: level-16 item with higher SPD outranks level-0 item with lower SPD', () => {
+  // Regression guard for Fix 1: without the fix, projected scoring elevates the
+  // level-0 SPD=5 item (gains ~4 expected future roll events) above the level-16
+  // SPD=8 item (no remaining milestones), causing the better piece to be discarded.
+  // Standard mode (no improvementChanceThreshold) must rank by current value only.
+  const rules = [makeRule({
+    requiredCount: 1,
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+    combination: {
+      slots: [ArtifactType.Weapon],
+      sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
+      metaSetNames: [],
+      ranks: [],
+      rarities: [],
+      mainStats: [],
+      factions: [],
+    },
+    substats: [StatVariant.SPD],
+  })]
+  const rows = [
+    // Already-leveled piece with higher SPD: must outrank the raw level-0 piece.
+    makeGearInspectorRow({ id: 500, level: 16, substats: [buildSubstat(StatVariant.SPD, 8)] }, false, StatVariant.ATK),
+    makeGearInspectorRow({ id: 501, level: 0,  substats: [buildSubstat(StatVariant.SPD, 5)] }, false, StatVariant.ATK),
+  ]
+  const { candidates } = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] })
+  const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
+  assert.deepStrictEqual(snapshot.entries[0]?.itemKeys, [500], 'level-16 SPD=8 must outrank level-0 SPD=5 by current value')
+})
+
 
 test('resolveSafeguardRulesWithMetasets expands set lists', () => {
   const rules = [

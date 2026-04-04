@@ -163,7 +163,10 @@ test('returns a non-binary safeguard selection chance for upgradable gear', () =
   assert.ok((chance?.chancePercent ?? 0) < 100, `expected < 100, got ${String(chance?.chancePercent)}`)
 })
 
-test('does not emit safeguard chance overlays for already-level-16 gear', () => {
+test('emits improvement-chance entries for level-16 gear based on current competitiveness', () => {
+  // Regression guard for Fix 2: the early `continue` for level >= 16 in
+  // compute_improvement_chance_core previously skipped level-16 items entirely.
+  // They must now receive entries — 100% for competitive pieces, 0% for non-competitive.
   const high = makeArtifact({
     id: 10,
     level: 16,
@@ -186,9 +189,31 @@ test('does not emit safeguard chance overlays for already-level-16 gear', () => 
     [high, low, challenger],
     [makeSpdSafeguardRule('sg_spd_lvl16')],
   )
-  assert.equal(Boolean(chanceById.get(10)?.hasMatchingSafeguard), false)
-  assert.equal(Boolean(chanceById.get(11)?.hasMatchingSafeguard), false)
-  assert.equal(Boolean(chanceById.get(12)?.hasMatchingSafeguard), false)
+  // Both top-ranked pieces (tied at SPD=20) are selected — chance 100.
+  assert.equal(Boolean(chanceById.get(10)?.hasMatchingSafeguard), true, 'high should have a matching safeguard')
+  assert.equal(chanceById.get(10)?.chancePercent, 100, 'high SPD=20 should have chance 100')
+  assert.equal(Boolean(chanceById.get(12)?.hasMatchingSafeguard), true, 'challenger should have a matching safeguard')
+  assert.equal(chanceById.get(12)?.chancePercent, 100, 'challenger SPD=20 should have chance 100')
+  // The weaker piece is outranked by two better challengers — chance 0, still has an entry.
+  assert.equal(Boolean(chanceById.get(11)?.hasMatchingSafeguard), true, 'low should still have an entry')
+  assert.equal(chanceById.get(11)?.chancePercent, 0, 'low SPD=10 should have chance 0 — beaten by both peers')
+})
+
+test('sole level-16 candidate receives chance 100', () => {
+  // A single fully-upgraded piece with the target substat is trivially competitive —
+  // it has no rivals, so it is always within quota.  Confirms the Fix 2 code path
+  // (milestones.is_empty() branch in compute_artifact_chance_percent) is reachable.
+  const item = makeArtifact({
+    id: 20,
+    level: 16,
+    rarity: 6,
+    substats: [makeSubstat(StatVariant.SPD, 8, 1)],
+  })
+  const chanceById = computeChance([item], [makeSpdSafeguardRule('sg_solo_lvl16')])
+  const entry = chanceById.get(20)
+  assert.ok(entry, 'level-16 item must have an improvement-chance entry')
+  assert.equal(entry.hasMatchingSafeguard, true, 'sole level-16 candidate must match a safeguard')
+  assert.equal(entry.chancePercent, 100, 'sole level-16 candidate must have chance 100')
 })
 
 test('marks no-match artifacts when no safeguard applies to the piece', () => {
