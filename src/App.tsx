@@ -3098,6 +3098,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [describeNextChange, metasets, selectedRecipeIndices, setCustomRecipesTransition, syncSelectedRecipeIdx])
   const sfcDialogs = useSfcDialogs({
     customRecipeCount: customRecipes.length,
+    safeguardRuleCount: safeguardRules.length,
     onConfirmClearAll: handleConfirmClearAll,
     onConfirmDeleteSingle: handleConfirmDeleteSingle,
     onConfirmDeleteMulti: handleDeleteMultiConfirmed,
@@ -4689,7 +4690,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (candidate.candidateRank > 0) set.add(candidate.itemKey)
       }
     }
-    return set.size > 0 ? set : null
+    // Always return the Set even when empty: empty set = chip selected with no matches → show nothing.
+    // Returning null here would be indistinguishable from "no chip selected → no filter → show all".
+    return set
   }, [safeguardsActive, safeguardDetection, safeguardMultiselectActive, selectedSafeguardRuleIndices, selectedSafeguardRuleIdx])
   // Items whose first eval match is any currently-selected safeguard rule — mirrors "By Match: First".
   // Unions item keys from all selected ordinals when multiple chips are selected, mirroring how
@@ -4708,7 +4711,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         for (const key of entry.itemKeys) set.add(key)
       }
     }
-    return set.size > 0 ? set : null
+    // Always return the Set even when empty: empty set = chip selected with no matches → show nothing.
+    // Returning null here would be indistinguishable from "no chip selected → no filter → show all".
+    return set
   }, [safeguardsActive, safeguardDetection, safeguardMultiselectActive, selectedSafeguardRuleIndices, selectedSafeguardRuleIdx])
   // Full detection entry for the currently-editing safeguard — used to populate
   // the candidate rank list in the weight popover (null when not yet run).
@@ -4804,7 +4809,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (builderMode === 'safeguard' && gearInspectorRecipeFilterMode !== 'off') {
       // Filter by safeguard detection: 'first' = items won by a selected rule,
       // 'any' = items that are candidates of a selected rule (even if another rule won).
-      // Null key set means no selection → no filter, matching recipe-mode convention.
+      // Null key set means no chip selected → no filter; empty Set means selected chip has no matches → show nothing.
       const activeKeySet = gearInspectorRecipeFilterMode === 'first'
         ? safeguardSelectedRuleItemKeySet
         : safeguardAnyMatchItemKeySet

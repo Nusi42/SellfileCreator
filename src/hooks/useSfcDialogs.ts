@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 
 type UseSfcDialogsParams = {
   customRecipeCount: number
+  // Used alongside customRecipeCount to un-silence autosave when safeguards exist but no recipes do.
+  safeguardRuleCount: number
   onConfirmClearAll: () => void
   onConfirmDeleteSingle: (targetIdx: number) => void
   onConfirmDeleteMulti: (targets: number[] | null) => void
@@ -52,6 +54,7 @@ export type UseSfcDialogsResult = {
  */
 export function useSfcDialogs({
   customRecipeCount,
+  safeguardRuleCount,
   onConfirmClearAll,
   onConfirmDeleteSingle,
   onConfirmDeleteMulti,
@@ -81,8 +84,9 @@ export function useSfcDialogs({
     cancelPendingNoteClose()
   }, [cancelPendingNoteClose])
 
-  // Render-time state adjustment: un-silence autosave once recipes exist again.
-  if (autosaveSilencedByClear && customRecipeCount > 0) {
+  // Render-time state adjustment: un-silence autosave once any meaningful content exists again.
+  // Safeguards-only sessions must also un-silence — "Clear All" only removes recipes, not safeguards.
+  if (autosaveSilencedByClear && (customRecipeCount > 0 || safeguardRuleCount > 0)) {
     setAutosaveSilencedByClear(false)
   }
 
