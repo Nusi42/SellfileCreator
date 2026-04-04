@@ -395,6 +395,9 @@ export default function SafeguardChipsPanel({
   const effectiveSelectedIndices: ReadonlySet<number> = multiselectMode && selectedRuleIndices
     ? new Set(selectedRuleIndices)
     : new Set(selectedRuleIdx !== null ? [selectedRuleIdx] : [])
+  // Ref so openRuleMenu can read the current selection without it as a callback dep.
+  const effectiveSelectedIndicesRef = useRef<ReadonlySet<number>>(effectiveSelectedIndices)
+  useEffect(() => { effectiveSelectedIndicesRef.current = effectiveSelectedIndices })
   const { t, lang } = useI18n()
   const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
 
@@ -684,8 +687,9 @@ export default function SafeguardChipsPanel({
   const openRuleMenu = useCallback((event: ReactMouseEvent<HTMLElement>, ruleIdx: number) => {
     event.preventDefault()
     event.stopPropagation()
-    // Only select a chip when the menu was triggered from one; -1 signals an empty-area click.
-    if (ruleIdx >= 0) onSelect(ruleIdx)
+    // Only select a chip when it is not already selected; mirrors RecipeChip which skips
+    // onSelect when selected=true, preserving multi-select when right-clicking within it.
+    if (ruleIdx >= 0 && !effectiveSelectedIndicesRef.current.has(ruleIdx)) onSelect(ruleIdx)
     const rect = event.currentTarget.getBoundingClientRect()
     const x = event.clientX || Math.round(rect.left + rect.width / 2)
     const y = event.clientY || Math.round(rect.top + rect.height / 2)
@@ -852,6 +856,8 @@ export default function SafeguardChipsPanel({
               moveBottom: { handler: () => moveRule(idx, rules.length - 1, 'bottom'), disabled: isLast },
               copyRecipe: () => handleCopyRule(idx),
               pasteAfter: () => handlePasteAfterRule(idx),
+              // Delete the chip; mirrors RecipeChip's deleteRecipe action.
+              deleteRecipe: () => handleDeleteRule(idx),
             } : {}),
             copyAll: { handler: handleCopyAllRules, disabled: rules.length === 0, labelKey: 'chipsMenuCopyAllSafeguards' },
             pasteAtEnd: handlePasteAtEnd,
