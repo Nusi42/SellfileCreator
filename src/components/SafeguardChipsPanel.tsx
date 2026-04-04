@@ -10,7 +10,7 @@
  * selected styling and click events are forwarded to the parent hook so
  * shift/ctrl range selection is handled centrally.
  */
-import React, { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import {
   Box,
   Button,
@@ -128,6 +128,239 @@ export type SafeguardChipsPanelProps = {
   deleteAllDisabled?: boolean
 }
 
+// ── SafeguardChip ─────────────────────────────────────────────────────────────
+// Props for a single chip row. All booleans are pre-computed by the panel so
+// shallow-equality memoization skips renders when only unrelated panel state changes.
+type SafeguardChipProps = {
+  rule: SafeguardRule
+  ruleIndex: number
+  isSelected: boolean
+  isFirst: boolean
+  isLast: boolean
+  /** True when this chip's inline name field is active. */
+  isEditing: boolean
+  /** Buffered pending name for the inline field, or undefined when not editing. */
+  pendingName: string | undefined
+  dndEnabled: boolean
+  /** True when this chip is being dragged (ghost style). */
+  isGhostDragging: boolean
+  hasActiveDrag: boolean
+  metasets: Metaset[]
+  substatColors: Record<number, { fg: string; bg: string }>
+  statButtonBorders: boolean
+  showFactionIcons: boolean
+  showSetIcons: boolean
+  showSlotIcons: boolean
+  t: (key: string, params?: Record<string, string | number>) => string
+  lang: string
+  onSelect: (ruleIndex: number) => void
+  onRuleSelect?: ((e: ReactMouseEvent, ruleIndex: number) => void) | null
+  onContextMenu: (event: ReactMouseEvent<HTMLElement>, ruleIndex: number) => void
+  onChipPointerDown?: ((e: React.PointerEvent<HTMLElement>, ruleIndex: number) => void) | null
+  onMoveRule: (ruleIdx: number, targetIndex: number, direction?: 'up' | 'down' | 'top' | 'bottom') => void
+  onDuplicate: (ruleIndex: number) => void
+  onDeleteRequest: (ruleIndex: number) => void
+  onStartEdit: (ruleIndex: number, name: string) => void
+  onFinishEdit: (ruleIndex: number, commit: boolean) => void
+  onPendingNameChange: (ruleIndex: number, value: string) => void
+  onScheduleNameCommit: (ruleIndex: number) => void
+}
+
+// Individual chip row. React.memo default shallow equality means this only re-renders
+// when its own props change — panel state like open menus or dialogs is invisible to it.
+const SafeguardChip = React.memo(function SafeguardChip({
+  rule, ruleIndex, isSelected, isFirst, isLast, isEditing, pendingName,
+  dndEnabled, isGhostDragging, hasActiveDrag,
+  metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons,
+  t, lang,
+  onSelect, onRuleSelect, onContextMenu, onChipPointerDown, onMoveRule, onDuplicate,
+  onDeleteRequest, onStartEdit, onFinishEdit, onPendingNameChange, onScheduleNameCommit,
+}: SafeguardChipProps) {
+  // Derive display values from the rule; recomputed only when this chip's props change.
+  const rawName = (pendingName ?? rule.name ?? '').trim()
+  const fallbackName = `${t('gearInspectorRule')} ${ruleIndex + 1}`
+  const nameDecoration = parseRecipeNameDirectives(rawName || undefined, 'inherit')
+  const displayName = nameDecoration.displayName || fallbackName
+  // Activation badge color and label text.
+  const theme = useTheme()
+  const actColor = rule.activation === SafeguardRuleActivation.ProtectExisting
+    ? theme.palette.success.main
+    : rule.activation === SafeguardRuleActivation.AnticipateGaps
+      ? theme.palette.warning.main
+      : theme.palette.text.disabled
+  const actText = rule.activation === SafeguardRuleActivation.ProtectExisting
+    ? t('safeguardsRuleModeProtectShort')
+    : rule.activation === SafeguardRuleActivation.AnticipateGaps
+      ? t('safeguardsRuleModeAnticipateShort')
+      : t('safeguardsRuleModeOffShort')
+  // Ignore-flag glyphs shown after ≥ N in the mode badge.
+  const ignoreParts: string[] = []
+  if (rule.ignorePreviousSafeguards !== false) ignoreParts.push(GLYPH_IGNORE_PREVIOUS)
+  if (rule.ignoreEquippedInCollection === true) ignoreParts.push(GLYPH_IGNORE_COLLECTION)
+  if (rule.ignoreEquippedInVault === true) ignoreParts.push(GLYPH_IGNORE_VAULT)
+  const perDimSuffix = ignoreParts.length > 0 ? NBSP + ignoreParts.join('') : ''
+  // Summary line — memoized so it only recomputes when this chip's rule or display prefs change.
+  const summary = useMemo(
+    () => safeguardSummaryParts(rule, metasets, {
+      substatColors,
+      useStatButtonColors: statButtonBorders,
+      showFactionIcons,
+      showSetIcons,
+      showSlotIcons,
+      t,
+      lang,
+    }),
+    [rule, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons, t, lang],
+  )
+
+  return (
+    <Box
+      data-safeguard-chip-index={ruleIndex}
+      data-tour-id={`safeguards.chip.${ruleIndex}`}
+      data-safeguard-chip="true"
+      data-linked-hover="false"
+      onMouseEnter={(e) => (e.currentTarget as HTMLElement).setAttribute('data-linked-hover', 'true')}
+      onMouseLeave={(e) => (e.currentTarget as HTMLElement).setAttribute('data-linked-hover', 'false')}
+      onClick={(e) => {
+        // In multi-select mode, forward the full MouseEvent so shift/ctrl is handled.
+        if (onRuleSelect) { onRuleSelect(e, ruleIndex); return }
+        onSelect(ruleIndex)
+      }}
+      onContextMenu={(event) => onContextMenu(event, ruleIndex)}
+      onPointerDown={dndEnabled ? (e) => onChipPointerDown?.(e, ruleIndex) : undefined}
+      sx={(themeCtx) => {
+        const hoverBg = alpha(themeCtx.palette.primary.main, themeCtx.palette.mode === 'dark' ? HOVER_BG_ALPHA.dark : HOVER_BG_ALPHA.light)
+        const selectedHoverBg = alpha(themeCtx.palette.primary.main, themeCtx.palette.mode === 'dark' ? SELECTED_HOVER_BG_ALPHA.dark : SELECTED_HOVER_BG_ALPHA.light)
+        return {
+          position: 'relative',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 0.5,
+          maxWidth: '100%',
+          width: '100%',
+          overflow: 'hidden',
+          border: '1px solid',
+          borderColor: isSelected ? themeCtx.palette.primary.main : themeCtx.palette.divider,
+          backgroundColor: isSelected ? themeCtx.palette.action.selected : 'transparent',
+          borderRadius: `${RECIPE_CHIP_BORDER_RADIUS_PX}px`,
+          pl: 1,
+          pr: 0.4,
+          py: `${RECIPE_CHIP_VERTICAL_PADDING_PX}px`,
+          cursor: dndEnabled && !isGhostDragging
+            ? (hasActiveDrag ? 'grabbing' : 'grab')
+            : 'pointer',
+          flex: '0 0 auto',
+          '&[data-linked-hover="true"]': {
+            backgroundColor: isSelected ? selectedHoverBg : hoverBg,
+            borderColor: themeCtx.palette.primary.main,
+          },
+          ...(isGhostDragging ? {
+            opacity: 0.35,
+            transform: 'scale(0.985)',
+            pointerEvents: 'none',
+          } : {}),
+        }
+      }}
+    >
+      {/* Text content */}
+      {isEditing ? (
+        <>
+          <Typography variant="caption" component="span" sx={{ flexShrink: 0, color: 'text.disabled', pr: 0.25 }}>
+            {`${ruleIndex + 1}.`}
+          </Typography>
+          <TextField
+            size="small"
+            autoFocus
+            value={pendingName ?? rule.name ?? ''}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
+            onChange={(e) => {
+              const raw = e.target.value ?? ''
+              onPendingNameChange(ruleIndex, raw)
+              onScheduleNameCommit(ruleIndex)
+            }}
+            onBlur={() => onFinishEdit(ruleIndex, true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); onFinishEdit(ruleIndex, true); return }
+              if (e.key === 'Escape') { e.preventDefault(); onFinishEdit(ruleIndex, false) }
+            }}
+            sx={{ flex: '1 1 auto', minWidth: 0, mr: 0.5 }}
+            inputProps={{ style: { fontSize: '0.75rem', padding: '2px 6px' } }}
+          />
+          <Box component="span" sx={{ color: actColor, fontWeight: 600, fontSize: '0.75rem', flexShrink: 0, mr: 0.5 }}>
+            {actText}{NBSP}≥{NBSP}{rule.requiredCount ?? 1}{perDimSuffix}
+          </Box>
+        </>
+      ) : (
+        <Typography
+          variant="caption"
+          sx={{ mr: 0.5, flex: '1 1 auto', minWidth: 0, overflow: 'hidden', wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+        >
+          <Box component="span" sx={{ display: 'inline' }}>
+            {`${ruleIndex + 1}. `}
+            <Box
+              component="span"
+              onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); onStartEdit(ruleIndex, rule.name ?? '') }}
+              onKeyDown={(e) => {
+                if (e.key !== 'F2') return
+                e.preventDefault(); e.stopPropagation()
+                onStartEdit(ruleIndex, rule.name ?? '')
+              }}
+              sx={{
+                fontStyle: rawName ? 'normal' : 'italic',
+                color: rawName
+                  ? (nameDecoration.hasExplicitColor ? nameDecoration.resolvedColor : 'inherit')
+                  : 'text.secondary',
+              }}
+            >
+              {displayName}
+            </Box>
+            {' — '}
+            {/* Mode badge: activation label + quota + active per-dim glyphs. */}
+            <Box component="span" sx={{ color: actColor, fontWeight: 600 }}>{actText}{NBSP}≥{NBSP}{rule.requiredCount ?? 1}{perDimSuffix}</Box>
+            {summary ? <>{' | '}{summary}</> : null}
+          </Box>
+        </Typography>
+      )}
+      {/* Action buttons — directly in the row, matching RecipeChip */}
+      <IconButton
+        size="small"
+        aria-label={t('chipMenuMoveUp')}
+        disabled={isFirst}
+        onClick={(e) => { e.stopPropagation(); onMoveRule(ruleIndex, ruleIndex - 1, 'up') }}
+        sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
+      >
+        <ArrowUpwardIcon fontSize="inherit" />
+      </IconButton>
+      <IconButton
+        size="small"
+        aria-label={t('chipMenuMoveDown')}
+        disabled={isLast}
+        onClick={(e) => { e.stopPropagation(); onMoveRule(ruleIndex, ruleIndex + 1, 'down') }}
+        sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
+      >
+        <ArrowDownwardIcon fontSize="inherit" />
+      </IconButton>
+      <IconButton
+        size="small"
+        aria-label={t('safeguardsDuplicateRule')}
+        onClick={(e) => { e.stopPropagation(); onDuplicate(ruleIndex) }}
+        sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
+      >
+        <ContentCopyIcon fontSize="inherit" />
+      </IconButton>
+      <IconButton
+        size="small"
+        aria-label={t('safeguardsDeleteRule')}
+        onClick={(e) => { e.stopPropagation(); onDeleteRequest(ruleIndex) }}
+        color="error"
+        sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
+      >
+        <DeleteOutlineIcon fontSize="inherit" />
+      </IconButton>
+    </Box>
+  )
+})
+
 export default function SafeguardChipsPanel({
   rules,
   selectedRuleIdx,
@@ -168,7 +401,6 @@ export default function SafeguardChipsPanel({
     ? new Set(selectedRuleIndices)
     : new Set(selectedRuleIdx !== null ? [selectedRuleIdx] : [])
   const { t, lang } = useI18n()
-  const theme = useTheme()
   const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
 
   // ── internal state ───────────────────────────────────────────────────────
@@ -585,197 +817,10 @@ export default function SafeguardChipsPanel({
     closePasteDialog()
   }, [closePasteDialog, insertSafeguardRulesAt, parseSafeguardClipboardRules, pasteDialogTarget, pasteDialogText, rules.length])
 
-  // ── render ────────────────────────────────────────────────────────────────
-
-  const activationColor = (activation: SafeguardRule['activation']): string => {
-    if (activation === SafeguardRuleActivation.ProtectExisting) return theme.palette.success.main
-    if (activation === SafeguardRuleActivation.AnticipateGaps) return theme.palette.warning.main
-    return theme.palette.text.disabled
-  }
-
-  const renderChip = (rule: SafeguardRule, ruleIndex: number) => {
-    // In multi-select mode, any rule at a selected index receives selected styling.
-    const selected = effectiveSelectedIndices.has(ruleIndex)
-    const isEditingRuleName = editingRuleNameIdx === ruleIndex
-    const rawName = (pendingNameByIdx.get(ruleIndex) ?? rule.name ?? '').trim()
-    const fallbackName = `${t('gearInspectorRule')} ${ruleIndex + 1}`
-    const nameDecoration = parseRecipeNameDirectives(rawName || undefined, 'inherit')
-    const displayName = nameDecoration.displayName || fallbackName
-    const actColor = activationColor(rule.activation)
-    const actText = rule.activation === SafeguardRuleActivation.ProtectExisting
-      ? t('safeguardsRuleModeProtectShort')
-      : rule.activation === SafeguardRuleActivation.AnticipateGaps
-        ? t('safeguardsRuleModeAnticipateShort')
-        : t('safeguardsRuleModeOffShort')
-    // Build the ignore-flag glyph string shown after ≥ N in the mode badge.
-    // These mirror the three ignore chips positioned right of the required-count
-    // input in the builder: ⏩ ignore-previous, 🏆 ignore-collection, 🏦 ignore-vault.
-    const ignoreParts: string[] = []
-    if (rule.ignorePreviousSafeguards !== false) ignoreParts.push(GLYPH_IGNORE_PREVIOUS)
-    if (rule.ignoreEquippedInCollection === true) ignoreParts.push(GLYPH_IGNORE_COLLECTION)
-    if (rule.ignoreEquippedInVault === true) ignoreParts.push(GLYPH_IGNORE_VAULT)
-    const perDimSuffix = ignoreParts.length > 0 ? NBSP + ignoreParts.join('') : ''
-    const summary = safeguardSummaryParts(rule, metasets, {
-      substatColors,
-      useStatButtonColors: statButtonBorders,
-      showFactionIcons,
-      showSetIcons,
-      showSlotIcons,
-      t,
-      lang,
-    })
-    const isFirst = ruleIndex === 0
-    const isLast = ruleIndex === rules.length - 1
-
-    return (
-      <Box
-        key={ruleIndex}
-        data-safeguard-chip-index={ruleIndex}
-        data-tour-id={`safeguards.chip.${ruleIndex}`}
-        data-safeguard-chip="true"
-        data-linked-hover="false"
-        onMouseEnter={(e) => (e.currentTarget as HTMLElement).setAttribute('data-linked-hover', 'true')}
-        onMouseLeave={(e) => (e.currentTarget as HTMLElement).setAttribute('data-linked-hover', 'false')}
-        onClick={(e) => {
-          // In multi-select mode, forward the full MouseEvent so shift/ctrl is handled.
-          if (onRuleSelect) { onRuleSelect(e, ruleIndex); return }
-          onSelect(ruleIndex)
-        }}
-        onContextMenu={(event) => openRuleMenu(event, ruleIndex)}
-        onPointerDown={dndEnabled ? (e) => handleChipPointerDown(e, ruleIndex) : undefined}
-        sx={(themeCtx) => {
-          const hoverBg = alpha(themeCtx.palette.primary.main, themeCtx.palette.mode === 'dark' ? HOVER_BG_ALPHA.dark : HOVER_BG_ALPHA.light)
-          const selectedHoverBg = alpha(themeCtx.palette.primary.main, themeCtx.palette.mode === 'dark' ? SELECTED_HOVER_BG_ALPHA.dark : SELECTED_HOVER_BG_ALPHA.light)
-          return {
-            position: 'relative',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 0.5,
-            maxWidth: '100%',
-            width: '100%',
-            overflow: 'hidden',
-            border: '1px solid',
-            borderColor: selected ? themeCtx.palette.primary.main : themeCtx.palette.divider,
-            backgroundColor: selected ? themeCtx.palette.action.selected : 'transparent',
-            borderRadius: `${RECIPE_CHIP_BORDER_RADIUS_PX}px`,
-            pl: 1,
-            pr: 0.4,
-            py: `${RECIPE_CHIP_VERTICAL_PADDING_PX}px`,
-            cursor: dndEnabled && !dragGhostIndices.has(ruleIndex)
-              ? (hasActiveDrag ? 'grabbing' : 'grab')
-              : 'pointer',
-            flex: '0 0 auto',
-            '&[data-linked-hover="true"]': {
-              backgroundColor: selected ? selectedHoverBg : hoverBg,
-              borderColor: themeCtx.palette.primary.main,
-            },
-            ...(dragGhostIndices.has(ruleIndex) ? {
-              opacity: 0.35,
-              transform: 'scale(0.985)',
-              pointerEvents: 'none',
-            } : {}),
-          }
-        }}
-      >
-        {/* Text content */}
-        {isEditingRuleName ? (
-          <>
-            <Typography variant="caption" component="span" sx={{ flexShrink: 0, color: 'text.disabled', pr: 0.25 }}>
-              {`${ruleIndex + 1}.`}
-            </Typography>
-            <TextField
-              size="small"
-              autoFocus
-              value={pendingNameByIdx.get(ruleIndex) ?? rule.name ?? ''}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
-              onChange={(e) => {
-                const raw = e.target.value ?? ''
-                setPendingNameByIdx((prev) => { const next = new Map(prev); next.set(ruleIndex, raw); return next })
-                scheduleNameCommit(ruleIndex)
-              }}
-              onBlur={() => finishRuleNameEdit(ruleIndex, true)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') { e.preventDefault(); finishRuleNameEdit(ruleIndex, true); return }
-                if (e.key === 'Escape') { e.preventDefault(); finishRuleNameEdit(ruleIndex, false) }
-              }}
-              sx={{ flex: '1 1 auto', minWidth: 0, mr: 0.5 }}
-              inputProps={{ style: { fontSize: '0.75rem', padding: '2px 6px' } }}
-            />
-            <Box component="span" sx={{ color: actColor, fontWeight: 600, fontSize: '0.75rem', flexShrink: 0, mr: 0.5 }}>
-              {actText}{NBSP}≥{NBSP}{rule.requiredCount ?? 1}{perDimSuffix}
-            </Box>
-          </>
-        ) : (
-          <Typography
-            variant="caption"
-            sx={{ mr: 0.5, flex: '1 1 auto', minWidth: 0, overflow: 'hidden', wordBreak: 'break-word', overflowWrap: 'anywhere' }}
-          >
-            <Box component="span" sx={{ display: 'inline' }}>
-              {`${ruleIndex + 1}. `}
-              <Box
-                component="span"
-                onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); startRuleNameEdit(ruleIndex, rule.name ?? '') }}
-                onKeyDown={(e) => {
-                  if (e.key !== 'F2') return
-                  e.preventDefault(); e.stopPropagation()
-                  startRuleNameEdit(ruleIndex, rule.name ?? '')
-                }}
-                sx={{
-                  fontStyle: rawName ? 'normal' : 'italic',
-                  color: rawName
-                    ? (nameDecoration.hasExplicitColor ? nameDecoration.resolvedColor : 'inherit')
-                    : 'text.secondary',
-                }}
-              >
-                {displayName}
-              </Box>
-              {' — '}
-              {/* Mode badge: activation label + quota + active per-dim glyphs (with ∀ when selection is any). */}
-              <Box component="span" sx={{ color: actColor, fontWeight: 600 }}>{actText}{NBSP}≥{NBSP}{rule.requiredCount ?? 1}{perDimSuffix}</Box>
-              {summary ? <>{' | '}{summary}</> : null}
-            </Box>
-          </Typography>
-        )}
-
-        {/* Action buttons — directly in the row, matching RecipeChip */}
-        <IconButton
-          size="small"
-          aria-label={t('chipMenuMoveUp')}
-          disabled={isFirst}
-          onClick={(e) => { e.stopPropagation(); moveRule(ruleIndex, ruleIndex - 1, 'up') }}
-          sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
-        >
-          <ArrowUpwardIcon fontSize="inherit" />
-        </IconButton>
-        <IconButton
-          size="small"
-          aria-label={t('chipMenuMoveDown')}
-          disabled={isLast}
-          onClick={(e) => { e.stopPropagation(); moveRule(ruleIndex, ruleIndex + 1, 'down') }}
-          sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
-        >
-          <ArrowDownwardIcon fontSize="inherit" />
-        </IconButton>
-        <IconButton
-          size="small"
-          aria-label={t('safeguardsDuplicateRule')}
-          onClick={(e) => { e.stopPropagation(); handleDuplicateRule(ruleIndex) }}
-          sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
-        >
-          <ContentCopyIcon fontSize="inherit" />
-        </IconButton>
-        <IconButton
-          size="small"
-          aria-label={t('safeguardsDeleteRule')}
-          onClick={(e) => { e.stopPropagation(); setPendingDeleteRuleIdx(ruleIndex) }}
-          color="error"
-          sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
-        >
-          <DeleteOutlineIcon fontSize="inherit" />
-        </IconButton>
-      </Box>
-    )
-  }
+  // Stable callback for inline name field changes in SafeguardChip; avoids passing setPendingNameByIdx directly.
+  const handlePendingNameChange = useCallback((ruleIdx: number, value: string) => {
+    setPendingNameByIdx((prev) => { const next = new Map(prev); next.set(ruleIdx, value); return next })
+  }, [])
 
   const pasteDialogConfirmLabel = pasteDialogTarget?.mode === 'after'
     ? t('chipMenuPasteAfter')
@@ -932,7 +977,42 @@ export default function SafeguardChipsPanel({
           rules.map((rule, index) => {
             // Skip hidden chips when a visible-index filter is active.
             if (visibleRuleIndices && !visibleRuleIndices.has(index)) return null
-            return renderChip(rule, index)
+            // Pre-compute per-chip booleans so SafeguardChip's shallow equality can skip
+            // unchanged chips when unrelated panel state changes (menus, dialogs, etc.).
+            return (
+              // SafeguardRule has no stable ID; index is the correct key here.
+              <SafeguardChip key={index} // eslint-disable-line @eslint-react/no-array-index-key
+                rule={rule}
+                ruleIndex={index}
+                isSelected={effectiveSelectedIndices.has(index)}
+                isFirst={index === 0}
+                isLast={index === rules.length - 1}
+                isEditing={editingRuleNameIdx === index}
+                pendingName={pendingNameByIdx.get(index)}
+                dndEnabled={dndEnabled}
+                isGhostDragging={dragGhostIndices.has(index)}
+                hasActiveDrag={hasActiveDrag}
+                metasets={metasets}
+                substatColors={substatColors}
+                statButtonBorders={statButtonBorders}
+                showFactionIcons={showFactionIcons}
+                showSetIcons={showSetIcons}
+                showSlotIcons={showSlotIcons}
+                t={t}
+                lang={lang}
+                onSelect={onSelect}
+                onRuleSelect={onRuleSelect ?? null}
+                onContextMenu={openRuleMenu}
+                onChipPointerDown={handleChipPointerDown}
+                onMoveRule={moveRule}
+                onDuplicate={handleDuplicateRule}
+                onDeleteRequest={setPendingDeleteRuleIdx}
+                onStartEdit={startRuleNameEdit}
+                onFinishEdit={finishRuleNameEdit}
+                onPendingNameChange={handlePendingNameChange}
+                onScheduleNameCommit={scheduleNameCommit}
+              />
+            )
           })
         )}
       </Box>

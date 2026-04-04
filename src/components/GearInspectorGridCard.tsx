@@ -2067,6 +2067,12 @@ let gearInspectorGridCardRevealScheduled = false
 let gearInspectorGridCardRevealQueueDirty = false
 const gearInspectorGridCardSeenIds = new Set<number>()
 
+// Exported so the grid can skip passing a live scrollVersion to already-revealed cards,
+// preventing scroll events from triggering re-renders on cards that are already fully hydrated.
+export function isGearInspectorCardRevealed(artifactId: number): boolean {
+  return gearInspectorGridCardSeenIds.has(artifactId)
+}
+
 function useGearInspectorGridCardContentReady(rowId: number | null, priorityBase: number, priorityOrder: number): boolean {
   // Priority values keep row order deterministic while cards are still in their skeleton state.
   const normalizedBase = Number.isFinite(priorityBase) ? Math.max(0, priorityBase) : 0

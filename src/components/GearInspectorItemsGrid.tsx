@@ -101,12 +101,14 @@ import { buildGearInspectorOutcomeSummary } from '../lib/gearInspectorOutcomeSum
 // Card component + shared metrics/constants are defined in GearInspectorGridCard to keep this file under 1,500 lines.
 import {
   GearInspectorGridCard,
+  GearInspectorCardTopOverlay,
   GRID_CARD_SINGLE_COLUMN_TEMPLATE,
   GRID_CARD_CONTAINER_PADDING_UNITS,
   GRID_CARD_OFFSCREEN_PRIORITY_PENALTY,
   GRID_CARD_FOCUS_PULSE_DURATION_MS,
   GRID_CARD_ENTER_ANIMATION_MS,
   flushGearInspectorGridCardRevealQueue,
+  isGearInspectorCardRevealed,
   useGearInspectorGridLayoutMetrics,
   formatGearInspectorRankLabel,
   formatGearInspectorRarityLabel,
@@ -114,6 +116,10 @@ import {
   rgbToCss,
   mixRgb,
 } from './GearInspectorGridCard'
+
+// Stable sentinel passed to already-revealed cards so scroll events do not trigger re-renders.
+// Revealed cards ignore priorityBase/priorityOrder in their content-ready hook, so this is safe.
+const STABLE_CARD_PRIORITY = { base: 0, order: 0 } as const
 
 type EmptyStateWrapperProps = Omit<EmptyStateMessageProps, 'children'>
 
@@ -2093,32 +2099,16 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
               // Each chip carries its own tooltip so hovering a chip shows only that chip's content.
 
               // Top slot: improvement chance — chip text + per-chip tooltip (markdown + rich render).
-              const upgradeEntry = showSafeguardImprovementChance && Number.isFinite(artifactId)
+              // Pass the stable useMemo entry directly so reference equality is preserved across renders.
+              const topOverlay: GearInspectorCardTopOverlay | null = showSafeguardImprovementChance && Number.isFinite(artifactId)
                 ? (safeguardUpgradeOverlayByArtifactId.get(artifactId) ?? null)
-                : null
-              const topOverlay = upgradeEntry
-                ? {
-                    text: upgradeEntry.text,
-                    color: upgradeEntry.color,
-                    ...(upgradeEntry.onClick ? { onClick: upgradeEntry.onClick } : {}),
-                    tooltipMarkdown: upgradeEntry.tooltipMarkdown,
-                    ...(upgradeEntry.tooltipRender ? { tooltipRender: upgradeEntry.tooltipRender } : {}),
-                  }
                 : null
 
               // Center slot: safeguard rank — chip text + per-chip rank table tooltip.
               // Hidden when the showSafeguardRank toggle is off.
-              const rankEntry = showSafeguardRank && Number.isFinite(artifactId)
+              // Pass the stable useMemo entry directly so reference equality is preserved across renders.
+              const centerOverlay = showSafeguardRank && Number.isFinite(artifactId)
                 ? (safeguardRankOverlayByArtifactId?.get(artifactId) ?? null)
-                : null
-              // color is optional on the rank entry; use spread to avoid passing undefined for exactOptionalPropertyTypes.
-              const centerOverlay = rankEntry
-                ? {
-                    text: rankEntry.text,
-                    ...(rankEntry.color !== undefined ? { color: rankEntry.color } : {}),
-                    ...(rankEntry.onClick ? { onClick: rankEntry.onClick } : {}),
-                    ...(rankEntry.tooltipRender ? { tooltipRender: rankEntry.tooltipRender } : {}),
-                  }
                 : null
 
               // Bottom slot: substat rating score — no tooltip, no click.
@@ -2161,7 +2151,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                   contextGroupById={contextGroupById}
                   focusPulseActive={Number(row.artifact?.id) === focusPulseArtifactId}
                   animateIn={enteringArtifactIds.has(artifactId)}
-                  cardPriority={{ base: scrollVersion, order: cardPriorityOrder }}
+                  cardPriority={isGearInspectorCardRevealed(artifactId)
+                    ? STABLE_CARD_PRIORITY
+                    : { base: scrollVersion, order: cardPriorityOrder }}
                   selectionEnabled={gearSelectionEnabled}
                   selected={gearSelectionEnabled && !!selectedGearItemIds?.has(artifactId)}
                   {...(gearSelectionEnabled ? { onSelect: (e: React.MouseEvent) => handleCardSelect(artifactId, e) } : {})}
