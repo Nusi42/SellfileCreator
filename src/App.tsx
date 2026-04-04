@@ -4073,6 +4073,28 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     t,
   ])
 
+  // RSL Helper sends champions in two bursts: the first includes Name and Rarity; the second
+  // repeats the full roster without them. Merging preserves those fields from the prior message
+  // so subsequent updates never silently wipe display metadata.
+  const mergeChampionRows = (
+    incoming: GearDbChampionRow[],
+    existing: GearDbChampionRow[] | null,
+  ): GearDbChampionRow[] => {
+    if (!existing || existing.length === 0) return incoming
+    // Index prior rows by champion ID for O(1) lookup during merge.
+    const byId = new Map(existing.map((r) => [r.ID, r]))
+    return incoming.map((row) => {
+      const prior = byId.get(row.ID)
+      if (!prior) return row
+      // Carry forward Name and Rarity when the incoming row omits them.
+      if (row.Name != null && row.Rarity != null) return row
+      const merged: GearDbChampionRow = { ...row }
+      if (row.Name == null && prior.Name != null) merged.Name = prior.Name
+      if (row.Rarity == null && prior.Rarity != null) merged.Rarity = prior.Rarity
+      return merged
+    })
+  }
+
   // Handles the four separate per-type messages (artifacts / champions / inboxArtifacts / lastUsed).
   // Each message updates one slot of gearDbRawPartsRef and immediately synthesizes a snapshot so
   // that partial updates are never silently dropped — the endpoint may only send one or two types.
@@ -4086,7 +4108,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (cmd.kind === 'gearDbArtifacts') {
       parts.artifacts = cmd.artifacts
     } else if (cmd.kind === 'gearDbChampions') {
-      parts.champions = cmd.champions
+      parts.champions = mergeChampionRows(cmd.champions, parts.champions)
       // Store the inverse slot map so artifacts can be patched with cID below.
       parts.equippedByArtifact = cmd.equippedByArtifact
     } else if (cmd.kind === 'gearDbInboxArtifacts') {
@@ -5562,7 +5584,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               const parts = gearDbRawPartsRef.current
               if (next.kind === 'gearDbArtifacts') parts.artifacts = next.artifacts
               else if (next.kind === 'gearDbChampions') {
-                parts.champions = next.champions
+                parts.champions = mergeChampionRows(next.champions, parts.champions)
                 // Keep equippedByArtifact in sync with the champion slot maps.
                 parts.equippedByArtifact = next.equippedByArtifact
               } else if (next.kind === 'gearDbInboxArtifacts') parts.inboxArtifacts = next.inboxArtifacts

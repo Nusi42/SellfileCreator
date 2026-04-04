@@ -362,14 +362,16 @@ const parseLastUsedArray = (value: unknown): GearDbLastUsedRow[] => {
 // each canonical key maps to the alternate names to try when the primary lookup
 // returns undefined.
 const CHAMPION_FIELD_ALIASES: Partial<Record<keyof GearDbChampionRow, readonly string[]>> = {
-  // typeId is the variant/template reference in the endpoint — its floored base
-  // ID (nearest lower multiple of 10) corresponds to the SQL BaseHeroID column
-  // and the icon file name; see the flooring step in parseChampionRow.
-  BaseHeroID: ['typeId'],
-  // The endpoint carries no rarity tier field — grade is the star ascension
-  // level (1–6), not Rare/Epic/Legendary. Leaving Rarity unmapped means
-  // equippedChampionRarity stays null and the border renders neutral rather
-  // than incorrectly showing every champion as mythical.
+  // typeId is the variant/ascension ID (e.g. 2066) — identical to the SQL HeroID
+  // column. BaseHeroID is absent from the endpoint and is derived in parseChampionRow
+  // as Math.floor(HeroID / 10) * 10 (e.g. 2060), matching the SQL column and icon
+  // file name.
+  HeroID: ['typeId'],
+  // Rarity (1–6 rarity tier) and Name are present verbatim in the endpoint
+  // payload with the same capitalization as the SQL column names — no aliases
+  // needed; getValueIgnoreCase resolves them via the canonical key directly.
+  // grade is the champion's current star count and is NOT the rarity tier;
+  // it is left unmapped since Rarity already carries the correct value.
   // inStorage is a boolean flag; Number(true/false) → 1/0 so coercion is fine.
   Vault: ['inStorage'],
 }
@@ -416,10 +418,14 @@ const parseChampionRow = (value: unknown): GearDbChampionRow | null => {
   const id = toNumber(row.ID)
   if (!id || id <= 0) return null
   row.ID = id
-  // Endpoint typeId values are variant IDs (e.g. 2066); icon files live at the
-  // base template ID — the nearest lower multiple of 10 (e.g. 2060). Floor here
-  // so both the SQL path (already multiples of 10) and the endpoint path resolve
-  // to the same icon file name; Math.floor(2060/10)*10 === 2060 is idempotent.
+  // Endpoint path: BaseHeroID is absent; derive it from HeroID (typeId alias).
+  // HeroID is the variant/ascension ID (e.g. 2066); the base template ID is the
+  // nearest lower multiple of 10 (e.g. 2060), shared with the SQL BaseHeroID column.
+  if ((row.BaseHeroID == null || row.BaseHeroID <= 0) && row.HeroID != null && row.HeroID > 0) {
+    row.BaseHeroID = Math.floor(row.HeroID / 10) * 10
+  }
+  // Floor BaseHeroID to the nearest multiple of 10 — idempotent on the SQL path
+  // (already multiples of 10) and on the value just derived above.
   if (row.BaseHeroID != null && row.BaseHeroID > 0) {
     row.BaseHeroID = Math.floor(row.BaseHeroID / 10) * 10
   }

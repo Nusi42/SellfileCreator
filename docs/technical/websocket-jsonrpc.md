@@ -174,21 +174,27 @@ Champion roster. Provides display names and equipped-slot context; the app
 correlates champions to artifacts via `cID`.
 
 **Params**
-- `champions` (array of champion rows)
-  - `ID` (number) — champion instance id
-  - `Name` (string)
-  - `Vault` (number) — `1` if in vault
-  - `RVault` (number)
-  - `BaseHeroID` (number)
-  - `Rarity` (number)
+- `champions` (array of champion rows) — selected fields used by the importer:
+  - `id` (number) — champion instance id (maps to SQL `ID`)
+  - `typeId` (number) — variant/ascension ID, identical to SQL `HeroID` (e.g. `2066`);
+    `BaseHeroID` is derived as `Math.floor(typeId / 10) * 10` (e.g. `2060`)
+  - `Name` (string) — champion name (capitalization matches SQL column; no alias needed)
+  - `Rarity` (number) — rarity tier 1–6 (capitalization matches SQL column; no alias needed)
+  - `grade` (number) — current star count; NOT the rarity tier — left unmapped since `Rarity` carries the correct value
+  - `inStorage` (boolean) — `true` if in vault (maps to SQL `Vault`)
+  - Additional fields (`level`, `empower`, `locked`, `artifacts`, `skills`, `mastery`, `doubleAscend`, etc.) are present in the payload but not currently consumed by the importer.
 
 **Example**
 ```json
 {"jsonrpc":"2.0","method":"champions","params":{"champions":[
-  {"ID":24120,"Name":"Arbiter","Vault":0,"RVault":0,"BaseHeroID":204,"Rarity":6},
-  {"ID":18847,"Name":"Lyssandra","Vault":0,"RVault":0,"BaseHeroID":81,"Rarity":6}
+  {"id":37727,"typeId":2066,"grade":6,"level":60,"Name":"Warpriest","Rarity":3,"inStorage":true},
+  {"id":2742,"typeId":36,"grade":6,"level":60,"Name":"Athel","Rarity":5,"inStorage":false}
 ]}}
 ```
+
+**Double-send behaviour**: RSL Helper emits `champions` twice per sync cycle. The first message includes `Name` and `Rarity`; the second repeats the full roster without them. The importer merges incoming rows against the previously stored champion list so that display metadata from the first message is never overwritten by the stripped second message.
+
+See `docs/orig/sampleLog/helperRcvData.json` for a full captured session (all nine messages across `inboxArtifacts`, `champions`, and `artifacts`).
 
 ### lastUsed
 
