@@ -225,7 +225,7 @@ import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/recipeDuplicates'
 import { recipesForRuleBuild } from './lib/ruleCacheHelpers'
-import { evaluateFirst } from './lib/ruleEval'
+import { evaluateFirst, type TestItem } from './lib/ruleEval'
 import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import {
   buildArtifactRevisionMap,
@@ -3934,7 +3934,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   ])
 
   // Accepts the raw snapshot payload pushed by the helper and rewires the Gear Inspector queue.
-  const handleGearDbRawSnapshot = useCallback((command: GearDbRawSnapshotCommand) => {
+  const handleGearDbRawSnapshot = useCallback((command: GearDbRawSnapshotCommand, retainItems?: readonly TestItem[]) => {
     // Build a revision map for the incoming push before any normalization work.
     // Covering both arrays in one call keeps the iteration count minimal.
     const incomingRevisions = buildArtifactRevisionMap(command.artifacts, command.inboxArtifacts ?? [])
@@ -3994,7 +3994,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         equippedByArtifact: preservedEquippedByArtifact,
       }
       // Diff the Gear Inspector queue so only net changes are enqueued.
-      const { removedCount, addedCount } = applyGearDbDiff(gearInspectorItems)
+      // retainItems carries existing items from source types not yet received in this
+      // endpoint session (e.g. regular artifacts when only inboxArtifacts has arrived).
+      // Including them in the desired set prevents partial snapshots from removing gear
+      // that was loaded from file or autosave before all per-type messages have arrived.
+      const desiredItems = retainItems && retainItems.length > 0
+        ? [...retainItems, ...gearInspectorItems]
+        : gearInspectorItems
+      const { removedCount, addedCount } = applyGearDbDiff(desiredItems)
       if (removedCount > 0 || addedCount > 0) {
         // Endpoint snapshots should refresh matches without dimming card details.
         beginGearInspectorMatchReset('gearDbEndpoint')
@@ -4142,8 +4149,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       champions: parts.champions ?? [],
       lastUsed: parts.lastUsed ?? [],
     }
-    handleGearDbRawSnapshot(syntheticSnapshot)
-  }, [handleGearDbRawSnapshot])
+    // Collect existing items for part types not yet received so the diff treats
+    // them as "desired" and never removes gear loaded from file or autosave while
+    // the per-type endpoint burst is still in flight.
+    const current = gearInspectorItemsRef.current
+    const retainItems = (parts.artifacts === null || parts.inboxArtifacts === null)
+      ? current.filter((item) => (
+          (parts.artifacts === null && item.previewExtras?.source === 'artifacts')
+          || (parts.inboxArtifacts === null && item.previewExtras?.source === 'inbox')
+        ))
+      : undefined
+    handleGearDbRawSnapshot(syntheticSnapshot, retainItems)
+  }, [handleGearDbRawSnapshot, gearInspectorItemsRef])
 
   // ---- SFC import conflict state ----
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null)
