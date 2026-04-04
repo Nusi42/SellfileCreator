@@ -554,9 +554,11 @@ export default function SafeguardBuilderPanel({
       : improvementChanceThreshold)
     : improvementChanceThreshold
   const improvementChanceMixed = multiEditActive && multiImprovementChanceField?.status === 'mixed' && !multiImprovementChanceField.dirty
-  // In multi-edit, enabled = any rule has it on OR it has been staged as a change.
+  // In multi-edit, enabled = staged value is non-null (dirty) or any rule has it on (not yet staged).
+  // Use the raw staged field value when dirty — displayImprovementChanceThreshold falls back to the
+  // focused rule's threshold when the staged value is null, which would falsely report "enabled".
   const displayImprovementChanceEnabled = multiEditActive
-    ? (multiImprovementChanceField?.dirty ? displayImprovementChanceThreshold !== null : improvementChanceEnabled)
+    ? (multiImprovementChanceField?.dirty ? multiImprovementChanceField.value !== null : improvementChanceEnabled)
     : improvementChanceEnabled
 
   const handleScopeChipToggle = (scope: KeepOverrideScopeKey) => {
