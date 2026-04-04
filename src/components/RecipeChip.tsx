@@ -635,7 +635,6 @@ function areRecipeChipPropsEqual(prev: Readonly<RecipeChipProps>, next: Readonly
     && prev.index === next.index
     && prev.gearSetCatalogVersion === next.gearSetCatalogVersion
     && prev.dragEnabled === next.dragEnabled
-    && prev.onPointerDown === next.onPointerDown
     && prev.hideTooltip === next.hideTooltip
     && prev.ghostedWhileDragging === next.ghostedWhileDragging
     && prev.selected === next.selected

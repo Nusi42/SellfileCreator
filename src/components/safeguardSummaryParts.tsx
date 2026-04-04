@@ -33,7 +33,7 @@ import {
 } from '../lib/constants'
 
 const METASET_ICON_BOX_PX = 16
-import { type SafeguardRule, SafeguardSubstatMatch } from '../lib/safeguards'
+import { type SafeguardRule, SafeguardRuleActivation, SafeguardSubstatMatch } from '../lib/safeguards'
 import MarkdownTooltip from './MarkdownTooltip'
 import { slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import type { Metaset } from '../lib/metasets'
@@ -53,6 +53,16 @@ const SET_ICON_OFFSET_EM = -0.35
 const withNbsp = (value: string | undefined | null): string => {
   if (!value) return ''
   return value.replace(/ /g, NBSP)
+}
+
+/**
+ * Maps a SafeguardRule activation value to its MUI system color token.
+ * SSOT for the activation badge color used in SafeguardChipsPanel and SafeguardBuilderPanel.
+ */
+export function safeguardActivationColor(activation: SafeguardRule['activation']): 'success.main' | 'warning.main' | 'text.disabled' {
+  if (activation === SafeguardRuleActivation.ProtectExisting) return 'success.main'
+  if (activation === SafeguardRuleActivation.AnticipateGaps) return 'warning.main'
+  return 'text.disabled'
 }
 
 export type SafeguardSummaryOpts = {

@@ -147,6 +147,7 @@ import {
 } from './builderPanel/safeguardMultiEditHelpers'
 import type { MultiEditArrayPatch } from '../lib/recipeMultiEditDraft'
 import { useSafeguardMultiEditSummary } from './builderPanel/useSafeguardMultiEditSummary'
+import { safeguardActivationColor } from './safeguardSummaryParts'
 
 // ── constants ────────────────────────────────────────────────────────────────
 
@@ -490,15 +491,8 @@ export default function SafeguardBuilderPanel({
 
   const combination = rule.combination
   const activation = rule.activation
-  // Mode label color mirrors the activation badge color used in the safeguard chips panel.
-  // Only applied when collapsed so the color acts as a summary signal.
-  const modeLabelColor = builderCollapsed.action
-    ? activation === SafeguardRuleActivation.Off
-      ? 'text.disabled'
-      : activation === SafeguardRuleActivation.AnticipateGaps
-        ? 'warning.main'
-        : 'success.main' // ProtectExisting
-    : undefined
+  // Mode label color: SSOT via safeguardActivationColor; only shown when collapsed.
+  const modeLabelColor = builderCollapsed.action ? safeguardActivationColor(activation) : undefined
 
   const slotSelection = combination.slots
   // Section dirty flag: shared by the label color and the X-clear button (SSOT).
