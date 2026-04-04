@@ -11,7 +11,7 @@ use rule_engine_core::*;
 #[serde(rename_all = "camelCase")]
 struct ImprovementChanceInput {
     artifact_id: i64,
-    chance_percent: u8,
+    chance_percent: f64,
 }
 
 // Shared serializer used for all wasm outputs that contain HashMap fields.
@@ -193,7 +193,7 @@ pub fn compute_safeguard_protection_value(
                 .map_err(|error| JsValue::from_str(&format!("Invalid safeguard expected-groups payload: {error}")))?)
         };
     // Parse improvement-chance entries into a HashMap for O(1) lookup during ranking.
-    let improvement_chances: HashMap<i64, u8> =
+    let improvement_chances: HashMap<i64, f64> =
         if improvement_chances_payload.is_undefined() || improvement_chances_payload.is_null() {
             HashMap::new()
         } else {
@@ -255,7 +255,7 @@ pub fn collect_and_compute_safeguard_protection_value(
                 .map_err(|error| JsValue::from_str(&format!("Invalid safeguard expected-groups payload: {error}")))?)
         };
     // Parse improvement-chance entries into a HashMap for O(1) lookup during ranking.
-    let improvement_chances: HashMap<i64, u8> =
+    let improvement_chances: HashMap<i64, f64> =
         if improvement_chances_payload.is_undefined() || improvement_chances_payload.is_null() {
             HashMap::new()
         } else {
@@ -420,8 +420,8 @@ pub fn resolve_safeguard_rules_with_metasets_value(
                 .into_iter()
                 .map(|(variant, weight)| (variant.to_string(), weight))
                 .collect::<HashMap<String, f64>>(),
-            // Echo threshold back to TS so the UI can display the configured value.
-            improvement_chance_threshold: rule.improvement_chance_threshold.filter(|v| v.is_finite()),
+            // Echo threshold back verbatim so TS preserves null-inheritance slots.
+            improvement_chance_threshold: rule.improvement_chance_threshold.clone(),
         });
     }
 
@@ -684,7 +684,7 @@ pub fn evaluate_and_collect_safeguard_protection_value(
         };
     // Parse improvement-chance entries into a HashMap for O(1) lookup during ranking.
     // null/undefined payload → empty map (no threshold gating applied).
-    let improvement_chances: HashMap<i64, u8> =
+    let improvement_chances: HashMap<i64, f64> =
         if improvement_chances_payload.is_undefined() || improvement_chances_payload.is_null() {
             HashMap::new()
         } else {

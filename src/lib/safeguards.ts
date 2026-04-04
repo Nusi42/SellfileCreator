@@ -140,7 +140,99 @@ export const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION =
 export const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT =
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT_CONST
 // Improvement-chance threshold disabled by default; users opt in per rule.
-export const SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD: number | null = null
+export const SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD: SafeguardImprovementChanceLevelThresholds | null = null
+
+// Seed value used when the user first enables the improvement-chance threshold; also the
+// cascade-root fallback when atLevel0 is absent on legacy data.
+export const SAFEGUARD_IMPROVEMENT_CHANCE_DEFAULT_THRESHOLD = 25
+
+/** Per-upgrade-stage improvement-chance thresholds. atLevel0 is always required (the
+ *  cascade root). Each subsequent level inherits the resolved value of the previous
+ *  stage when its own value is null, so leaving later stages empty is equivalent to
+ *  repeating the atLevel0 value. When the outer field is null the feature is disabled. */
+export type SafeguardImprovementChanceLevelThresholds = {
+  // Items at levels 0–3; all 4 roll events are still ahead.
+  atLevel0: number
+  // Items at levels 4–7 (after 1st upgrade). null = inherit atLevel0.
+  atLevel4: number | null
+  // Items at levels 8–11 (after 2nd upgrade). null = inherit resolved atLevel4.
+  atLevel8: number | null
+  // Items at levels 12–15 (after 3rd upgrade). null = inherit resolved atLevel8.
+  atLevel12: number | null
+}
+
+/** Resolves inherited nulls to concrete values for all 4 upgrade stages.
+ *  Call this before passing thresholds to WASM so Rust always sees concrete values. */
+export function resolveImprovementChanceThresholds(
+  t: SafeguardImprovementChanceLevelThresholds,
+): [number, number, number, number] {
+  const l0 = t.atLevel0
+  const l4 = t.atLevel4 ?? l0
+  const l8 = t.atLevel8 ?? l4
+  const l12 = t.atLevel12 ?? l8
+  return [l0, l4, l8, l12]
+}
+
+/** Converts a legacy single-number threshold (or unknown payload) to the per-level form.
+ *  A bare number is expanded with all later stages null (inherit from atLevel0). */
+export function normalizeLegacyImprovementChanceThreshold(
+  v: number | SafeguardImprovementChanceLevelThresholds | null | undefined,
+): SafeguardImprovementChanceLevelThresholds | null {
+  if (v == null) return null
+  if (typeof v === 'number') {
+    return {
+      atLevel0: Math.max(0, Math.min(100, Math.round(v * 10) / 10)),
+      atLevel4: null,
+      atLevel8: null,
+      atLevel12: null,
+    }
+  }
+  return v
+}
+
+// IDs for the four named improvement-chance presets.
+export type SafeguardImprovementChancePresetId = 'lenient' | 'harsh' | 'graduated' | 'soft'
+
+export type SafeguardImprovementChancePreset = {
+  id: SafeguardImprovementChancePresetId
+  thresholds: SafeguardImprovementChanceLevelThresholds
+}
+
+/** Named improvement-chance presets. Lenient/Harsh inherit all later stages from
+ *  atLevel0 (null slots); Graduated and Soft set each stage explicitly. */
+export const IMPROVEMENT_CHANCE_PRESETS: readonly SafeguardImprovementChancePreset[] = [
+  // All stages at 25% — catches almost all non-junk at every upgrade stage.
+  { id: 'lenient', thresholds: { atLevel0: 25, atLevel4: null, atLevel8: null, atLevel12: null } },
+  // All stages at 65% — suitable for max-roll drops across all stages.
+  { id: 'harsh', thresholds: { atLevel0: 65, atLevel4: null, atLevel8: null, atLevel12: null } },
+  // Looser for fresh items, stricter as upgrades accumulate — moderate ramp.
+  { id: 'graduated', thresholds: { atLevel0: 25, atLevel4: 35, atLevel8: 50, atLevel12: 65 } },
+  // Very lenient early (catches near-everything at lvl 0), moderate gate at end.
+  { id: 'soft', thresholds: { atLevel0: 3, atLevel4: 12.5, atLevel8: 25, atLevel12: 50 } },
+]
+
+/** Returns the matching preset ID if the thresholds exactly match a builtin preset,
+ *  or null when the configuration is custom. */
+export function detectImprovementChancePresetId(
+  t: SafeguardImprovementChanceLevelThresholds,
+): SafeguardImprovementChancePresetId | null {
+  for (const preset of IMPROVEMENT_CHANCE_PRESETS) {
+    const p = preset.thresholds
+    if (
+      p.atLevel0 === t.atLevel0 &&
+      p.atLevel4 === t.atLevel4 &&
+      p.atLevel8 === t.atLevel8 &&
+      p.atLevel12 === t.atLevel12
+    ) {
+      return preset.id
+    }
+  }
+  return null
+}
+
+// localStorage key for the last-used improvement-chance threshold configuration.
+export const IMPROVEMENT_CHANCE_LAST_USED_KEY =
+  'sellfileCreator.improvementChanceLastUsed.v1'
 
 export const SafeguardRuleActivation = {
   Off: SAFEGUARD_ACTIVATION_OFF,
@@ -315,7 +407,7 @@ export const cloneSafeguardRule = (rule: SafeguardRule): SafeguardRule => ({
   substatMatch: rule.substatMatch,
   // Copy weights so ranking edits are isolated.
   substatWeights: { ...(rule.substatWeights ?? {}) },
-  // Preserve quality floor; null means disabled.
+  // Preserve per-level thresholds; null means feature disabled.
   improvementChanceThreshold: rule.improvementChanceThreshold ?? null,
 })
 
@@ -343,9 +435,10 @@ export type SafeguardRule = {
   substatMatch: SafeguardSubstatMatch
   // Per-substat weights for ranked scoring (only non-default values are stored).
   substatWeights: Partial<Record<StatVariant, number>>
-  // When set (0–100), a piece must have at least this probability of surviving in its
-  // bucket once fully leveled to qualify as a safeguard candidate. null = disabled.
-  improvementChanceThreshold: number | null
+  // Per-upgrade-stage improvement-chance thresholds. When set, a piece must meet the
+  // threshold for its current level range to be expanded beyond the standard top-N.
+  // null = feature disabled; use resolveImprovementChanceThresholds before passing to WASM.
+  improvementChanceThreshold: SafeguardImprovementChanceLevelThresholds | null
 }
 
 /** Build the default Safeguard rule list for new sessions (empty by design). */
@@ -825,11 +918,11 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
       ? record.substatWeights
       : record.substatWeighting
   )
-  // Parse optional quality floor; clamp to 0–100 or fall back to null.
-  const rawPercentile = record.improvementChanceThreshold
-  const improvementChanceThreshold = (typeof rawPercentile === 'number' && Number.isFinite(rawPercentile))
-    ? Math.max(0, Math.min(100, Math.floor(rawPercentile)))
-    : SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD
+  // Parse optional per-level threshold block; accepts both the legacy single-number form
+  // and the current object form. Falls back to null (disabled) on invalid/absent values.
+  const improvementChanceThreshold = normalizeLegacyImprovementChanceThreshold(
+    record.improvementChanceThreshold as number | SafeguardImprovementChanceLevelThresholds | null | undefined,
+  )
   // Run the substat-dependents gate so no caller receives a rule where
   // improvement-chance or weights are set without any substats to back them.
   return normalizeSafeguardSubstatDependents({

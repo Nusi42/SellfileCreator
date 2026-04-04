@@ -6,8 +6,8 @@
  */
 // safeguardsDescriptors keeps safeguard history data-only until render.
 import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
-import type { SafeguardRule, SafeguardRuleActivation, SafeguardRuleCountMode } from '../lib/safeguards'
-import { SafeguardSubstatMatch, normalizeSafeguardSubstatMatch } from '../lib/safeguards'
+import type { SafeguardRule, SafeguardRuleActivation, SafeguardRuleCountMode, SafeguardImprovementChanceLevelThresholds } from '../lib/safeguards'
+import { SafeguardSubstatMatch, normalizeSafeguardSubstatMatch, resolveImprovementChanceThresholds, detectImprovementChancePresetId, IMPROVEMENT_CHANCE_PRESETS } from '../lib/safeguards'
 import type { Metaset } from '../lib/metasets'
 import { compareArtifactSets, compareArtifactTypes, compareVariants, factionI18nKey, statVariantI18nKey, StatVariant, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
@@ -43,8 +43,8 @@ type SafeguardRuleSignature = {
   substats: number[]
   substatMatch: SafeguardSubstatMatch
   substatWeights: Array<[number, number]>
-  // Quality floor — null means disabled.
-  improvementChanceThreshold: number | null
+  // Per-level threshold — null means disabled.
+  improvementChanceThreshold: SafeguardImprovementChanceLevelThresholds | null
 }
 
 // isSafeguardRuleOrderChanged flags pure reorders so history can record them.
@@ -327,8 +327,8 @@ function safeguardRuleSignaturesEqual(left: SafeguardRuleSignature, right: Safeg
     const rw = right.substatWeights[idx]!
     if (lw[0] !== rw[0] || lw[1] !== rw[1]) return false
   }
-  // Compare improvement-chance threshold so toggling it is never a no-op.
-  if (left.improvementChanceThreshold !== right.improvementChanceThreshold) return false
+  // Compare improvement-chance threshold (object or null — use JSON for deep equality).
+  if (JSON.stringify(left.improvementChanceThreshold) !== JSON.stringify(right.improvementChanceThreshold)) return false
   return true
 }
 
@@ -545,16 +545,31 @@ function buildSafeguardRuleDiffLines(
   // Compare improvement-chance threshold so enabling/disabling it appears in history.
   const prevFloor = previous.improvementChanceThreshold ?? null
   const nextFloor = next.improvementChanceThreshold ?? null
-  if (prevFloor !== nextFloor) {
+  if (JSON.stringify(prevFloor) !== JSON.stringify(nextFloor)) {
     pushDiffLine(
       detailLines,
       t,
       t('safeguardsImprovementChanceThreshold'),
-      prevFloor === null ? t('historyValueEmpty') : `≥ ${prevFloor}%`,
-      nextFloor === null ? t('historyValueEmpty') : `≥ ${nextFloor}%`,
+      prevFloor === null ? t('historyValueEmpty') : formatThresholdForHistory(prevFloor),
+      nextFloor === null ? t('historyValueEmpty') : formatThresholdForHistory(nextFloor),
     )
   }
   return detailLines
+}
+
+// Format a per-level threshold as a compact string for history diffs.
+function formatThresholdForHistory(thr: SafeguardImprovementChanceLevelThresholds): string {
+  const presetId = detectImprovementChancePresetId(thr)
+  if (presetId) {
+    const preset = IMPROVEMENT_CHANCE_PRESETS.find((p) => p.id === presetId)!
+    const [l0] = resolveImprovementChanceThresholds(preset.thresholds)
+    if (presetId === 'graduated') return '25→65%'
+    return `≥${l0}%`
+  }
+  const [l0, l4, l8, l12] = resolveImprovementChanceThresholds(thr)
+  const allSame = l0 === l4 && l4 === l8 && l8 === l12
+  if (allSame) return `≥${l0}%`
+  return `${Math.min(l0, l4, l8, l12)}–${Math.max(l0, l4, l8, l12)}%`
 }
 
 function pushDiffLine(target: string[], t: TranslateFn, label: string, previous: string, next: string): void {

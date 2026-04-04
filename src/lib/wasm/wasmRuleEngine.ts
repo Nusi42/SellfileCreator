@@ -39,7 +39,13 @@ import initRuleEngineWasm, {
 import type { GeneratedBranchRuleEntry, HsfRuleWithRecipe } from '../merge'
 import type { HsfRule } from '../hsfTypes'
 import type { BuilderRecipe, SellfileExportMode } from '../hsfBuilder'
-import type { SafeguardCandidate, SafeguardCandidateOut, SafeguardDetectionSnapshot, SafeguardRule } from '../safeguards'
+import {
+  resolveImprovementChanceThresholds,
+  type SafeguardCandidate,
+  type SafeguardCandidateOut,
+  type SafeguardDetectionSnapshot,
+  type SafeguardRule,
+} from '../safeguards'
 import type { FinalSellRemainderConfig } from '../logicHub'
 import type { GearInspectorMatchWorkerEvaluateItem, GearInspectorMatchWorkerItemResult } from '../../workers/gearInspectorMatchWorkerTypes'
 import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
@@ -340,6 +346,21 @@ export const finalizeGeneratedRulesWithLoadedWasm = (params: {
   throw new Error('WASM finalize-generated-rules returned an invalid payload.')
 }
 
+/** Prepares safeguard rules for a WASM call by resolving per-level threshold inheritance.
+ *  Rust expects a concrete [f64; 4] array (one value per upgrade stage), not the sparse
+ *  object with inherited nulls that the TS layer stores.
+ *  Idempotent: rules whose threshold is already a resolved array (e.g., from WASM echo-back)
+ *  are passed through unchanged. */
+const resolveRulesForWasm = (rules: readonly SafeguardRule[]): readonly SafeguardRule[] =>
+  rules.map((r) => {
+    if (r.improvementChanceThreshold === null || r.improvementChanceThreshold === undefined) return r
+    // Already resolved to a concrete array (WASM echo-back path).
+    if (Array.isArray(r.improvementChanceThreshold)) return r
+    const [l0, l4, l8, l12] = resolveImprovementChanceThresholds(r.improvementChanceThreshold)
+    // Cast through unknown — the serialized shape is [f64;4] and Rust deserializes it as such.
+    return { ...r, improvementChanceThreshold: [l0, l4, l8, l12] as unknown as typeof r.improvementChanceThreshold }
+  })
+
 // Synchronous safeguard detector runs candidate/rule loops inside wasm.
 // Callers must warm wasm first; invalid payloads are surfaced by callers.
 export const computeSafeguardProtectionWithLoadedWasm = (params: {
@@ -369,7 +390,7 @@ export const computeSafeguardProtectionWithLoadedWasm = (params: {
     : undefined
   const result = computeSafeguardProtectionValueWasmBinding(
     params.candidates,
-    params.rules,
+    resolveRulesForWasm(params.rules),
     expectedGroupsPayload,
     params.enabled === true,
     Number.isFinite(params.now) ? params.now : 0,
@@ -438,7 +459,7 @@ export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
     params.rules,
     params.recipeModes,
     ignored,
-    params.safeguardRules,
+    resolveRulesForWasm(params.safeguardRules),
     expectedGroupsPayload,
     params.enabled === true,
     Number.isFinite(params.now) ? params.now : 0,
@@ -535,7 +556,7 @@ export const evaluateAndCollectSafeguardProtectionWithLoadedWasm = (params: {
   const result = evaluateAndCollectSafeguardProtectionWasmValueBinding(
     Object.keys(evaluatePayload).length ? evaluatePayload : null,
     ignored,
-    params.safeguardRules,
+    resolveRulesForWasm(params.safeguardRules),
     expectedGroupsPayload,
     params.enabled === true,
     Number.isFinite(params.now) ? params.now : 0,
@@ -594,7 +615,7 @@ export const buildSafeguardRulesWithLoadedWasm = (params: {
   assertWasmInitializedSync()
   if (!params.detection) return []
   const result = buildSafeguardRulesWasmValueBinding(
-    params.rules,
+    resolveRulesForWasm(params.rules),
     params.detection,
     BigInt(Math.floor(params.recipeIdBase)),
   )
@@ -659,7 +680,7 @@ export const computeMergedRulesWithLoadedWasm = (params: {
     dedupeBeforeSafeguards: params.dedupeBeforeSafeguards === true,
     // Rust uses canonical safeguard payload keys for merged-rule orchestration.
     safeguardEnabled: params.safeguardEnabled === true,
-    safeguardRules: params.safeguardRules,
+    safeguardRules: resolveRulesForWasm(params.safeguardRules),
     safeguardDetection: params.safeguardDetection ?? null,
     safeguardRecipeIdBase: Math.floor(params.safeguardRecipeIdBase),
   })
@@ -1127,7 +1148,7 @@ export const computeImprovementChanceWithLoadedWasm = (params: {
   enabled: boolean
 }): ImprovementChanceWasmEntry[] | null => {
   assertWasmInitializedSync()
-  const result = computeImprovementChanceWasmValueBinding(params.rules, params.enabled === true)
+  const result = computeImprovementChanceWasmValueBinding(resolveRulesForWasm(params.rules), params.enabled === true)
   // Defensive guard: WASM must return an array of entry objects.
   if (!Array.isArray(result)) return null
   return result as ImprovementChanceWasmEntry[]

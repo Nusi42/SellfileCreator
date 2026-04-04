@@ -16,10 +16,16 @@ import { buildSafeguardImprovementChanceByArtifactId } from '../../src/lib/safeg
 import type { NormalizedGearArtifact, NormalizedStat } from '../../src/lib/importers/gearDbNormalizer.js'
 import {
   SAFEGUARD_DEFAULT_COUNT_MODE,
+  SAFEGUARD_IMPROVEMENT_CHANCE_DEFAULT_THRESHOLD,
+  IMPROVEMENT_CHANCE_PRESETS,
   SafeguardRuleActivation,
   SafeguardSubstatMatch,
+  detectImprovementChancePresetId,
+  normalizeLegacyImprovementChanceThreshold,
+  resolveImprovementChanceThresholds,
   storeArtifactRows,
   toWasmArtifactStoreRow,
+  type SafeguardImprovementChanceLevelThresholds,
   type SafeguardRule,
 } from '../../src/lib/safeguards.js'
 import { ArtifactSet, ArtifactType, StatId, StatVariant, type LevelMilestone, type RankValue } from '../../src/lib/types.js'
@@ -119,7 +125,7 @@ const makeArtifact = (params: {
   }
 }
 
-const makeSpdRule = (name: string, improvementChanceThreshold: number | null = null): SafeguardRule => ({
+const makeSpdRule = (name: string, improvementChanceThreshold: SafeguardImprovementChanceLevelThresholds | null = null): SafeguardRule => ({
   name,
   combination: {
     slots: [ArtifactType.Weapon],
@@ -254,7 +260,7 @@ test('improvementChanceThreshold null does not trigger a matching safeguard (thr
     substats: [makeSubstat(StatVariant.SPD, 12, 1)],
   })
 
-  const ruleWithThreshold    = makeSpdRule('with-threshold', 50)
+  const ruleWithThreshold    = makeSpdRule('with-threshold', { atLevel0: 50, atLevel4: null, atLevel8: null, atLevel12: null })
   const ruleWithoutThreshold = makeSpdRule('without-threshold', null)
 
   const chancesWithThreshold    = computeChance([candidate], [ruleWithThreshold])
@@ -263,4 +269,62 @@ test('improvementChanceThreshold null does not trigger a matching safeguard (thr
   // Improvement chance is computed in both cases (overlay display needs it regardless).
   assert.ok(chancesWithThreshold.has(1), 'chance entry should exist when threshold is set')
   assert.ok(chancesWithoutThreshold.has(1), 'chance entry should exist even when threshold is null')
+})
+
+// ── helper unit tests ─────────────────────────────────────────────────────────
+
+test('resolveImprovementChanceThresholds: null slots inherit from their left neighbor', () => {
+  // atLevel0 is the cascade root; any null slot inherits the resolved value of the prior stage.
+  const resolved = resolveImprovementChanceThresholds({ atLevel0: 30, atLevel4: null, atLevel8: null, atLevel12: null })
+  assert.deepEqual(resolved, [30, 30, 30, 30], 'all slots should inherit atLevel0 when null')
+})
+
+test('resolveImprovementChanceThresholds: explicit values are preserved without inheritance', () => {
+  const resolved = resolveImprovementChanceThresholds({ atLevel0: 25, atLevel4: 35, atLevel8: 50, atLevel12: 65 })
+  assert.deepEqual(resolved, [25, 35, 50, 65], 'all explicit values must be preserved as-is')
+})
+
+test('resolveImprovementChanceThresholds: partial null chain inherits last set value', () => {
+  // atLevel4 = 40 is set; atLevel8/12 are null so they inherit atLevel4's resolved value.
+  const resolved = resolveImprovementChanceThresholds({ atLevel0: 25, atLevel4: 40, atLevel8: null, atLevel12: null })
+  assert.deepEqual(resolved, [25, 40, 40, 40], 'atLevel8 and atLevel12 should inherit atLevel4')
+})
+
+test('normalizeLegacyImprovementChanceThreshold: bare number expands to atLevel0 with null siblings', () => {
+  const result = normalizeLegacyImprovementChanceThreshold(50)
+  assert.deepEqual(result, { atLevel0: 50, atLevel4: null, atLevel8: null, atLevel12: null })
+})
+
+test('normalizeLegacyImprovementChanceThreshold: null returns null', () => {
+  assert.equal(normalizeLegacyImprovementChanceThreshold(null), null)
+})
+
+test('normalizeLegacyImprovementChanceThreshold: undefined returns null', () => {
+  assert.equal(normalizeLegacyImprovementChanceThreshold(undefined), null)
+})
+
+test('normalizeLegacyImprovementChanceThreshold: object form is returned unchanged', () => {
+  const input: SafeguardImprovementChanceLevelThresholds = { atLevel0: 30, atLevel4: 40, atLevel8: null, atLevel12: null }
+  assert.deepEqual(normalizeLegacyImprovementChanceThreshold(input), input)
+})
+
+test('SAFEGUARD_IMPROVEMENT_CHANCE_DEFAULT_THRESHOLD equals the cascade-root default (25)', () => {
+  // The enable-default and the atLevel0 fallback must share the same SSOT constant.
+  assert.equal(SAFEGUARD_IMPROVEMENT_CHANCE_DEFAULT_THRESHOLD, 25)
+})
+
+test('detectImprovementChancePresetId: identifies each builtin preset', () => {
+  for (const preset of IMPROVEMENT_CHANCE_PRESETS) {
+    assert.equal(
+      detectImprovementChancePresetId(preset.thresholds),
+      preset.id,
+      `preset '${preset.id}' should be detected by its own thresholds`,
+    )
+  }
+})
+
+test('detectImprovementChancePresetId: returns null for novel thresholds', () => {
+  // A threshold that does not match any builtin preset must return null.
+  const novel: SafeguardImprovementChanceLevelThresholds = { atLevel0: 17, atLevel4: null, atLevel8: null, atLevel12: null }
+  assert.equal(detectImprovementChancePresetId(novel), null, 'unknown threshold should return null preset id')
 })

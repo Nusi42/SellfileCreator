@@ -94,8 +94,8 @@ pub struct ImprovementChanceDebug {
 pub struct ImprovementChanceEntry {
     // Artifact id this entry describes.
     pub artifact_id: i64,
-    // Rounded probability (0..=100) of being safeguard-selected at +16.
-    pub chance_percent: u8,
+    // Probability (0.0–100.0, one decimal place) of being safeguard-selected at +16.
+    pub chance_percent: f64,
     // True when at least one substat safeguard applies to this artifact.
     pub has_matching_safeguard: bool,
     // Preferred safeguard rule id for overlay click-through navigation (legacy; always None now that
@@ -889,9 +889,9 @@ fn artifact_matches_substats(
 fn compute_artifact_chance_percent(
     artifact: &SafeguardWasmArtifactIn,
     scenarios: &[&UpgradeScenario],
-) -> u8 {
+) -> f64 {
     if scenarios.is_empty() {
-        return 0;
+        return 0.0;
     }
     let artifact_id = artifact.id.unwrap_or(0);
     let level = clamp_level(artifact.exact_level.unwrap_or(artifact.level));
@@ -914,9 +914,9 @@ fn compute_artifact_chance_percent(
             fallback_gain: HashMap::default(),
         };
         return if is_state_selected_by_any_scenario(&initial_state, &ctx) {
-            100
+            100.0
         } else {
-            0
+            0.0
         };
     }
     let rarity = clamp_rarity(artifact.rarity);
@@ -939,8 +939,8 @@ fn compute_artifact_chance_percent(
         fallback_gain,
     };
     let prob = compute_probability(&ctx, &initial_state, 0, &mut HashMap::new());
-    let percent = (prob.max(0.0).min(1.0) * 100.0).round() as i64;
-    percent.max(0).min(100) as u8
+    // One decimal place (e.g. 47.3) — round to nearest tenth.
+    (prob.max(0.0).min(1.0) * 1000.0).round() / 10.0
 }
 
 // ─── viability pruning ────────────────────────────────────────────────────────
@@ -1243,7 +1243,7 @@ fn resolve_most_likely_scenario_idx<'a>(
         return Some(0);
     }
     // Compute per-scenario chance in isolation.
-    let chances: Vec<u8> = viable
+    let chances: Vec<f64> = viable
         .iter()
         .map(|&s| {
             // Wrap single reference in a one-element array slice for the shared signature.
@@ -1251,7 +1251,7 @@ fn resolve_most_likely_scenario_idx<'a>(
             compute_artifact_chance_percent(artifact, &single)
         })
         .collect();
-    let best_chance = *chances.iter().max()?;
+    let &best_chance = chances.iter().max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))?;
     let best_idxs: Vec<usize> = chances
         .iter()
         .enumerate()
@@ -1404,7 +1404,7 @@ pub fn compute_improvement_chance_core(
         if artifact_scenarios.is_empty() {
             output.push(ImprovementChanceEntry {
                 artifact_id,
-                chance_percent: 0,
+                chance_percent: 0.0,
                 has_matching_safeguard: false,
                 matched_rule_id: None,
                 matched_rule_ordinal: None,
@@ -1422,7 +1422,7 @@ pub fn compute_improvement_chance_core(
         if viable.is_empty() {
             output.push(ImprovementChanceEntry {
                 artifact_id,
-                chance_percent: 0,
+                chance_percent: 0.0,
                 has_matching_safeguard: false,
                 matched_rule_id: None,
                 matched_rule_ordinal: None,

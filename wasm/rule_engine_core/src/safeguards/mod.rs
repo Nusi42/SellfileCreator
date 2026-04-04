@@ -187,6 +187,52 @@ pub struct SafeguardWasmCountMode {
     pub per_slot: bool,
 }
 
+// Per-level improvement-chance threshold; accepted in two forms:
+// - a resolved [f64;4] array (TypeScript's resolveRulesForWasm path), or
+// - the raw object form with null inheritance (SafeguardImprovementChanceLevelThresholds
+//   from sfc_reader / direct WASM calls). Legacy single-number SFC files are normalized
+//   to the object form by sfcIO.ts before they reach Rust.
+// The untagged discriminant tries variants in declaration order: array first, then object.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum ImprovementChanceThresholdIn {
+    // Resolved format: TypeScript has already applied inherit-from-left logic.
+    Array([f64; 4]),
+    // Raw TypeScript object — null slots inherit the resolved value of the previous stage.
+    Object {
+        #[serde(rename = "atLevel0")]
+        at_level_0: f64,
+        #[serde(rename = "atLevel4", default)]
+        at_level_4: Option<f64>,
+        #[serde(rename = "atLevel8", default)]
+        at_level_8: Option<f64>,
+        #[serde(rename = "atLevel12", default)]
+        at_level_12: Option<f64>,
+    },
+}
+
+impl ImprovementChanceThresholdIn {
+    // Resolve to a concrete [f64; 4] with clamped values. Null slots in the Object
+    // variant inherit from the resolved value of the previous stage (SSOT in TS too).
+    pub fn into_slots_clamped(self) -> [f64; 4] {
+        match self {
+            Self::Array([l0, l4, l8, l12]) => [
+                l0.clamp(0.0, 100.0),
+                l4.clamp(0.0, 100.0),
+                l8.clamp(0.0, 100.0),
+                l12.clamp(0.0, 100.0),
+            ],
+            Self::Object { at_level_0, at_level_4, at_level_8, at_level_12 } => {
+                let l0 = at_level_0.clamp(0.0, 100.0);
+                let l4 = at_level_4.unwrap_or(l0).clamp(0.0, 100.0);
+                let l8 = at_level_8.unwrap_or(l4).clamp(0.0, 100.0);
+                let l12 = at_level_12.unwrap_or(l8).clamp(0.0, 100.0);
+                [l0, l4, l8, l12]
+            }
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SafeguardWasmRuleIn {
@@ -214,11 +260,11 @@ pub struct SafeguardWasmRuleIn {
     pub substat_match: Option<String>,
     #[serde(default, deserialize_with = "safeguard_deserialize_optional_i64_weight_map")]
     pub substat_weights: Option<HashMap<i64, f64>>,
-    // Minimum improvement-chance percentage a piece must have to be protected by this rule.
-    // When set, only pieces whose precomputed improvement chance meets this threshold are
-    // selected; when None, standard top-N ranking by projected score is used instead.
+    // Per-level improvement-chance thresholds. Accepts legacy single-number, resolved [f64;4]
+    // array, or the raw object form with null-inheritance slots. When None, improvement-chance
+    // filtering is disabled and candidates are selected by standard top-N ranking only.
     #[serde(default)]
-    pub improvement_chance_threshold: Option<f64>,
+    pub improvement_chance_threshold: Option<ImprovementChanceThresholdIn>,
 }
 
 // Resolved safeguard rule payload returned after metaset expansion in lib.rs.
@@ -237,8 +283,8 @@ pub struct SafeguardWasmResolvedRuleOut {
     pub substats: Vec<i64>,
     pub substat_match: String,
     pub substat_weights: HashMap<String, f64>,
-    // Improvement-chance threshold echoed back to TypeScript for UI display. None = disabled.
-    pub improvement_chance_threshold: Option<f64>,
+    // Threshold echoed back verbatim so TS preserves null-inheritance slots (e.g. Lenient preset).
+    pub improvement_chance_threshold: Option<ImprovementChanceThresholdIn>,
 }
 
 // Canonical metaset-id list is sorted and deduped for deterministic hashes.
@@ -446,8 +492,9 @@ struct SafeguardWasmPreparedRule {
     ignore_previous_safeguards: bool,
     ignore_equipped_in_collection: bool,
     ignore_equipped_in_vault: bool,
-    // Minimum improvement-chance percentage threshold; None = use top-N ranking instead.
-    improvement_chance_threshold: Option<f64>,
+    // Per-level thresholds resolved to concrete [f64; 4]: slots [0..3, 4..7, 8..11, 12..15].
+    // None = improvement-chance filtering disabled; standard top-N ranking is used.
+    improvement_chance_threshold: Option<[f64; 4]>,
     selected_substats: Vec<i64>,
     substat_match: String,
     weights: HashMap<i64, f64>,
@@ -2676,7 +2723,7 @@ fn safeguard_build_entry_for_substats(
     selected_substats: &[i64],
     substat_match: &str,
     // Pre-computed improvement chances keyed by artifact id; used when improvement_chance_threshold is set.
-    improvement_chances: &HashMap<i64, u8>,
+    improvement_chances: &HashMap<i64, f64>,
 ) -> SafeguardWasmEntryEvalOut {
     // Presence of selected substats toggles ranking/scoring mode.
     let has_substat_filter = !selected_substats.is_empty();
@@ -2842,7 +2889,7 @@ fn safeguard_build_entry_for_substats(
             // whose improvement_chance meets the bar — the threshold expands the keep-list
             // rather than replacing the current-value selection.
             let selected: Vec<SafeguardWasmScoredCandidate> =
-                if let Some(threshold) = prepared_rule.improvement_chance_threshold {
+                if let Some(ref thresholds) = prepared_rule.improvement_chance_threshold {
                     let top_n_indices: HashSet<usize> =
                         top_n.iter().map(|e| e.candidate_idx).collect();
                     let mut expanded = top_n;
@@ -2851,9 +2898,19 @@ fn safeguard_build_entry_for_substats(
                             continue; // already in top-N
                         }
                         let art_id = candidates[e.candidate_idx].artifact.id.unwrap_or(-1);
+                        // Select the threshold slot for this artifact's current upgrade stage.
+                        // Slots: [0..3, 4..7, 8..11, 12..15]; level ≥16 is never expanded.
+                        let art_level = candidates[e.candidate_idx].artifact.level;
+                        let slot = match art_level {
+                            0..=3 => 0usize,
+                            4..=7 => 1,
+                            8..=11 => 2,
+                            _ => 3,
+                        };
+                        let threshold = thresholds[slot];
                         if improvement_chances
                             .get(&art_id)
-                            .map_or(false, |&ch| (ch as f64) >= threshold)
+                            .map_or(false, |&ch| ch >= threshold)
                         {
                             expanded.push(e.clone());
                         }
@@ -3357,7 +3414,7 @@ fn compute_safeguard_protection_core(
     now: f64,
     // Pre-computed improvement chances keyed by artifact id. Populated before detection when
     // at least one rule uses improvement_chance_threshold; empty map disables threshold gating.
-    improvement_chances: &HashMap<i64, u8>,
+    improvement_chances: &HashMap<i64, f64>,
 ) -> SafeguardWasmSnapshotOut {
     // Baseline state never changes; per-rule toggle can opt to read from it.
     let baseline_candidate_sold_state = parsed_candidates
@@ -3394,8 +3451,11 @@ fn compute_safeguard_protection_core(
             let ignore_equipped_in_vault = rule
                 .ignore_equipped_in_vault
                 .unwrap_or(SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT);
-            // Preserve the improvement-chance threshold; clamp to a finite value or None.
-            let improvement_chance_threshold = rule.improvement_chance_threshold.filter(|v| v.is_finite());
+            // Resolve per-level thresholds to a concrete [f64; 4] array, clamping each slot.
+            // Single/Array/Object variants are all normalized via into_slots_clamped().
+            let improvement_chance_threshold = rule.improvement_chance_threshold
+                .clone()
+                .map(|v| v.into_slots_clamped());
             // Required count is clamped to at least one.
             let required_per_group = rule.required_count.unwrap_or(1).max(1);
             // Normalize match mode token for deterministic branching.
@@ -3531,7 +3591,7 @@ pub fn compute_safeguard_protection_core_pub(
     enabled: bool,
     now: f64,
     // Pre-computed improvement chances; empty map disables threshold gating entirely.
-    improvement_chances: HashMap<i64, u8>,
+    improvement_chances: HashMap<i64, f64>,
 ) -> SafeguardWasmSnapshotOut {
     // Parse candidates from fast-path format.
     let parsed_candidates = safeguard_parse_candidates_payload(fast_candidates);
@@ -3563,7 +3623,7 @@ pub fn collect_and_compute_safeguard_protection_core(
     enabled: bool,
     now: f64,
     // Pre-computed improvement chances; empty map disables threshold gating entirely.
-    improvement_chances: HashMap<i64, u8>,
+    improvement_chances: HashMap<i64, f64>,
 ) -> Result<SafeguardCollectedAndProtectedSnapshotOut, String> {
     // Resolve expected groups payload (None = empty default).
     let expected_payload = parse_safeguard_expected_groups_payload(expected_payload);
@@ -3621,7 +3681,7 @@ pub fn compute_safeguard_protection_from_collected_core(
     enabled: bool,
     now: f64,
     // Pre-computed improvement chances; empty map disables threshold gating entirely.
-    improvement_chances: HashMap<i64, u8>,
+    improvement_chances: HashMap<i64, f64>,
 ) -> SafeguardWasmSnapshotOut {
     // Resolve expected groups payload (None = empty default).
     let expected = parse_safeguard_expected_groups_payload(expected_payload);
@@ -3695,4 +3755,88 @@ pub fn score_safeguard_candidates_for_preview_core(
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod improvement_chance_threshold_tests {
+    use super::ImprovementChanceThresholdIn;
+
+    // ── ImprovementChanceThresholdIn::into_slots_clamped ─────────────────────
+
+    #[test]
+    fn array_variant_preserves_all_slots() {
+        // Pre-resolved 4-element array must pass through unchanged (after clamping).
+        let slots = ImprovementChanceThresholdIn::Array([25.0, 35.0, 50.0, 65.0]).into_slots_clamped();
+        assert_eq!(slots, [25.0, 35.0, 50.0, 65.0]);
+    }
+
+    #[test]
+    fn object_null_slots_inherit_from_left() {
+        // atLevel4/8/12 are None — each must inherit the resolved value of its left neighbor.
+        let slots = ImprovementChanceThresholdIn::Object {
+            at_level_0: 30.0,
+            at_level_4: None,
+            at_level_8: None,
+            at_level_12: None,
+        }
+        .into_slots_clamped();
+        assert_eq!(slots, [30.0, 30.0, 30.0, 30.0]);
+    }
+
+    #[test]
+    fn object_partial_null_chain_inherits_last_set_value() {
+        // atLevel4=40 is set; atLevel8/12 are None so they inherit atLevel4's resolved value.
+        let slots = ImprovementChanceThresholdIn::Object {
+            at_level_0: 25.0,
+            at_level_4: Some(40.0),
+            at_level_8: None,
+            at_level_12: None,
+        }
+        .into_slots_clamped();
+        assert_eq!(slots, [25.0, 40.0, 40.0, 40.0]);
+    }
+
+    // ── level → slot mapping ──────────────────────────────────────────────────
+    // Verify the slot selection expression used in the gating branch picks the
+    // correct [f64; 4] index for each upgrade stage.
+
+    fn level_to_slot(level: i64) -> usize {
+        // Mirror of the gating logic in safeguard_run_for_rule_impl (~line 2845).
+        match level {
+            0..=3  => 0,
+            4..=7  => 1,
+            8..=11 => 2,
+            _      => 3,
+        }
+    }
+
+    #[test]
+    fn slot_0_covers_levels_0_through_3() {
+        for lvl in [0i64, 1, 2, 3] {
+            assert_eq!(level_to_slot(lvl), 0, "level {lvl} should map to slot 0");
+        }
+    }
+
+    #[test]
+    fn slot_1_covers_levels_4_through_7() {
+        for lvl in [4i64, 5, 6, 7] {
+            assert_eq!(level_to_slot(lvl), 1, "level {lvl} should map to slot 1");
+        }
+    }
+
+    #[test]
+    fn slot_2_covers_levels_8_through_11() {
+        for lvl in [8i64, 9, 10, 11] {
+            assert_eq!(level_to_slot(lvl), 2, "level {lvl} should map to slot 2");
+        }
+    }
+
+    #[test]
+    fn slot_3_covers_levels_12_through_16() {
+        // Level 16 (fully upgraded) never reaches the gating branch, but the slot
+        // mapping must still be correct for levels 12–15.
+        for lvl in [12i64, 13, 14, 15, 16] {
+            assert_eq!(level_to_slot(lvl), 3, "level {lvl} should map to slot 3");
+        }
+    }
 }

@@ -52,6 +52,7 @@ pub use safeguards::{
     SafeguardWasmCombination,
     SafeguardWasmCountMode,
     SafeguardWasmExpectedGroupsPayloadIn,
+    ImprovementChanceThresholdIn,
 };
 pub use matcher_evaluator::{
     collect_safeguard_candidates_core,
@@ -883,8 +884,8 @@ pub fn resolve_safeguard_rules_with_metasets_core(
                 .into_iter()
                 .map(|(variant, weight)| (variant.to_string(), weight))
                 .collect::<HashMap<String, f64>>(),
-            // Echo threshold back to TS so the UI can display the configured value.
-            improvement_chance_threshold: rule.improvement_chance_threshold.filter(|v| v.is_finite()),
+            // Echo threshold back verbatim so TS preserves null-inheritance slots.
+            improvement_chance_threshold: rule.improvement_chance_threshold.clone(),
         });
     }
     resolved
@@ -1102,7 +1103,7 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
     enabled: bool,
     now: f64,
     // Pre-computed improvement chances keyed by artifact id. Empty map disables threshold gating.
-    improvement_chances: HashMap<i64, u8>,
+    improvement_chances: HashMap<i64, f64>,
 ) -> Result<EvaluateAndCollectSnapshotOut, String> {
     ENGINE_STATE.with(|state| {
         let guard = state.borrow();

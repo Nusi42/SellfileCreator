@@ -560,7 +560,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         return t('gearInspectorGridSafeguardChanceUnknownRule')
       })()
       const debug = entry.debug
-      const tooltipHeader = t('gearInspectorGridSafeguardChanceTooltipHeader', { chance: `${entry.chancePercent}%` })
+      const tooltipHeader = t('gearInspectorGridSafeguardChanceTooltipHeader', { chance: `${entry.chancePercent.toFixed(1)}%` })
       const tooltipProjection = t('gearInspectorGridSafeguardChanceTooltipProjection')
       const tooltipDataset = t('gearInspectorGridSafeguardChanceTooltipDataset', {
         count: numberFormatter.format(debug?.sourceArtifactCount ?? (allRows ?? rows).length),

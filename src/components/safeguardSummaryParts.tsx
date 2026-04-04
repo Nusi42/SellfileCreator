@@ -33,7 +33,7 @@ import {
 } from '../lib/constants'
 
 const METASET_ICON_BOX_PX = 16
-import { type SafeguardRule, SafeguardRuleActivation, SafeguardSubstatMatch } from '../lib/safeguards'
+import { type SafeguardRule, SafeguardRuleActivation, SafeguardSubstatMatch, resolveImprovementChanceThresholds, detectImprovementChancePresetId, IMPROVEMENT_CHANCE_PRESETS } from '../lib/safeguards'
 import MarkdownTooltip from './MarkdownTooltip'
 import { slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import type { Metaset } from '../lib/metasets'
@@ -325,12 +325,34 @@ export function safeguardSummaryParts(
   }
 
   // ── Improvement-chance threshold ─────────────────────────────────────────
-  // Only shown when the threshold is active; rendered as "Improvement chance ≥ N%".
+  // Only shown when threshold is active. Summarises as "Improvement chance ≥ N%"
+  // or "N–M%" for per-level configs. Preset names are not resolved here (no i18n).
   if (rule.improvementChanceThreshold !== null && rule.improvementChanceThreshold !== undefined) {
-    const pct = rule.improvementChanceThreshold
-    addText(opts.t
-      ? opts.t('safeguardsImprovementChanceWithValue', { value: pct })
-      : `Improvement chance ≥ ${pct}%`)
+    const thr = rule.improvementChanceThreshold
+    const presetId = detectImprovementChancePresetId(thr)
+    let label: string
+    if (presetId === 'graduated') {
+      label = '25→65%'
+    } else {
+      const [l0, l4, l8, l12] = resolveImprovementChanceThresholds(thr)
+      const allSame = l0 === l4 && l4 === l8 && l8 === l12
+      const displayVal = allSame ? l0 : null
+      if (presetId && displayVal !== null) {
+        const [p0] = resolveImprovementChanceThresholds(IMPROVEMENT_CHANCE_PRESETS.find((p) => p.id === presetId)!.thresholds)
+        label = opts.t
+          ? opts.t('safeguardsImprovementChanceWithValue', { value: p0 })
+          : `Improvement chance ≥ ${p0}%`
+      } else if (allSame) {
+        label = opts.t
+          ? opts.t('safeguardsImprovementChanceWithValue', { value: l0 })
+          : `Improvement chance ≥ ${l0}%`
+      } else {
+        const minVal = Math.min(l0, l4, l8, l12)
+        const maxVal = Math.max(l0, l4, l8, l12)
+        label = `${minVal}–${maxVal}%`
+      }
+    }
+    addText(label)
   }
 
   // ── Sets + Metasets ───────────────────────────────────────────────────────
