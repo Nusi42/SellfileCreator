@@ -653,7 +653,7 @@ test('threshold mode: top-N by current value is always kept regardless of improv
       factions: [],
     },
     substats: [StatVariant.SPD],
-    improvementChanceThreshold: 50,
+    improvementChanceThreshold: { atLevel0: 50, atLevel4: null, atLevel8: null, atLevel12: null },
   })]
   const rows = [
     makeGearInspectorRow({ id: 510, level: 16, substats: [buildSubstat(StatVariant.SPD, 8)] }, false, StatVariant.ATK),

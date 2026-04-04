@@ -682,8 +682,11 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
     let ignore_prev = rec.get("ignorePreviousSafeguards").and_then(|v| v.as_bool());
     let ignore_coll = rec.get("ignoreEquippedInCollection").and_then(|v| v.as_bool());
     let ignore_vault = rec.get("ignoreEquippedInVault").and_then(|v| v.as_bool());
+    // Accept the per-level object form (current) or the resolved [f64;4] array form.
+    // Legacy bare-number SFC files are normalized to the object form by sfcIO.ts at import,
+    // so Rust never needs to handle that case here.
     let improvement_chance_threshold = rec.get("improvementChanceThreshold")
-        .and_then(|v| v.as_f64());
+        .and_then(|v| serde_json::from_value::<ImprovementChanceThresholdIn>(v.clone()).ok());
 
     // Count mode (perRule / perSet / perFaction / perMainStat / perSlot booleans).
     let count_mode = rec.get("countMode").map(|v| {

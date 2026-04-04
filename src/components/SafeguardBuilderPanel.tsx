@@ -43,6 +43,9 @@ import {
   SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD,
   SAFEGUARD_DEFAULT_COUNT_MODE,
   SAFEGUARD_SUBSTAT_MIN_COUNTS,
+  SAFEGUARD_IMPROVEMENT_CHANCE_DEFAULT_THRESHOLD,
+  IMPROVEMENT_CHANCE_PRESETS,
+  IMPROVEMENT_CHANCE_LAST_USED_KEY,
   SafeguardRuleActivation,
   SafeguardSubstatMatch,
   constrainSafeguardSubstats,
@@ -55,8 +58,11 @@ import {
   sortSafeguardSubstats,
   createFactorySafeguardBuilderDefaults,
   createSafeguardRuleContentSnapshot,
+  detectImprovementChancePresetId,
+  resolveImprovementChanceThresholds,
   type SafeguardCandidateOut,
   type SafeguardDetectionEntry,
+  type SafeguardImprovementChanceLevelThresholds,
   type SafeguardRule,
 } from '../lib/safeguards'
 import type { ColorBlindMode } from '../lib/constants'
@@ -451,6 +457,11 @@ export default function SafeguardBuilderPanel({
   // Ref used to cancel in-flight debounce timers when the popover closes or weights change quickly.
   const livePreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [improvementChanceAnchorEl, setImprovementChanceAnchorEl] = useState<HTMLElement | null>(null)
+  // Frozen position captured at open time — prevents the popover from drifting when the
+  // chip label resizes (which moves the anchor button) while the user edits values.
+  const [improvementChanceAnchorPos, setImprovementChanceAnchorPos] = useState<{ top: number; left: number } | null>(null)
+  // Ref tracks the latest threshold so the close callback can persist it without stale closure.
+  const improvementChanceThresholdRef = useRef<SafeguardImprovementChanceLevelThresholds | null>(null)
   const [scaffoldAnchorEl, setScaffoldAnchorEl] = useState<HTMLElement | null>(null)
   // Tracks whether the Reset button is being hovered so all resettable sections
   // can show a red tint — mirrors RecipeBuilderPanel's hoverReset pattern.
@@ -530,7 +541,7 @@ export default function SafeguardBuilderPanel({
   const ignorePreviousSafeguards = rule?.ignorePreviousSafeguards !== false
   const ignoreEquippedInCollection = rule?.ignoreEquippedInCollection === true
   const ignoreEquippedInVault = rule?.ignoreEquippedInVault === true
-  // improvementChanceThreshold: null means disabled; a number (0–100) means active.
+  // improvementChanceThreshold: null means disabled; an object means active with per-level gates.
   const improvementChanceThreshold = rule?.improvementChanceThreshold ?? null
   const improvementChanceEnabled = improvementChanceThreshold !== null
 
@@ -542,9 +553,9 @@ export default function SafeguardBuilderPanel({
   // Mixed indicator: true when selection has differing values not yet staged.
   const substatMatchMixed = multiEditActive && multiSubstatMatchField?.status === 'mixed' && !multiSubstatMatchField.dirty
   // Improvement-chance display and mixed state for multi-edit.
-  const displayImprovementChanceThreshold = multiEditActive
+  const displayImprovementChanceThreshold: SafeguardImprovementChanceLevelThresholds | null = multiEditActive
     ? (multiImprovementChanceField?.value !== undefined && multiImprovementChanceField.value !== null
-      ? (multiImprovementChanceField.value as number)
+      ? (multiImprovementChanceField.value as SafeguardImprovementChanceLevelThresholds)
       : improvementChanceThreshold)
     : improvementChanceThreshold
   const improvementChanceMixed = multiEditActive && multiImprovementChanceField?.status === 'mixed' && !multiImprovementChanceField.dirty
@@ -554,6 +565,42 @@ export default function SafeguardBuilderPanel({
   const displayImprovementChanceEnabled = multiEditActive
     ? (multiImprovementChanceField?.dirty ? multiImprovementChanceField.value !== null : improvementChanceEnabled)
     : improvementChanceEnabled
+
+  // Keep the threshold ref current so handleImprovementChancePopoverClose persists
+  // the latest value without a stale closure over displayImprovementChanceThreshold.
+  useEffect(() => { improvementChanceThresholdRef.current = displayImprovementChanceThreshold })
+
+  // ── improvement-chance helpers ────────────────────────────────────────────────
+
+  // Build the enable-default when the user first enables the threshold. Restores the
+  // last-used config from localStorage, or falls back to Lenient (all-25%) preset.
+  const getImprovementChanceEnableDefault = (): SafeguardImprovementChanceLevelThresholds => {
+    try {
+      const raw = localStorage.getItem(IMPROVEMENT_CHANCE_LAST_USED_KEY)
+      if (raw) return JSON.parse(raw) as SafeguardImprovementChanceLevelThresholds
+    } catch { /* ignore corrupt storage */ }
+    return IMPROVEMENT_CHANCE_PRESETS[0]!.thresholds // Lenient
+  }
+
+  // Summarise threshold as a chip label. Matches preset name (via resolved values),
+  // or "≥N%" when all stages equal, or "N–M%" range when mixed.
+  const formatThresholdChipLabel = (thr: SafeguardImprovementChanceLevelThresholds): string => {
+    const presetId = detectImprovementChancePresetId(thr)
+    if (presetId) {
+      // Uniform presets (all stages equal after resolution): show "≥N%" for compactness.
+      // Non-uniform presets (graduated, soft, …): show the preset's localized name.
+      const preset = IMPROVEMENT_CHANCE_PRESETS.find((p) => p.id === presetId)!
+      const [l0, l4, l8, l12] = resolveImprovementChanceThresholds(preset.thresholds)
+      if (l0 === l4 && l4 === l8 && l8 === l12) return t('safeguardsImprovementChanceWithValue', { value: l0 })
+      return t(`safeguardsImprovementChancePreset${presetId.charAt(0).toUpperCase()}${presetId.slice(1)}` as Parameters<typeof t>[0])
+    }
+    const [l0, l4, l8, l12] = resolveImprovementChanceThresholds(thr)
+    const allSame = l0 === l4 && l4 === l8 && l8 === l12
+    if (allSame) return t('safeguardsImprovementChanceWithValue', { value: l0 })
+    const minVal = Math.min(l0, l4, l8, l12)
+    const maxVal = Math.max(l0, l4, l8, l12)
+    return `${minVal}–${maxVal}%`
+  }
 
   const handleScopeChipToggle = (scope: KeepOverrideScopeKey) => {
     updateRule((prev) => {
@@ -699,6 +746,19 @@ export default function SafeguardBuilderPanel({
     open: Boolean(weightsAnchorEl),
     onClose: handleWeightsPopoverClose,
   })
+
+  // Close-button guard for the improvement-chance threshold popover.
+  // Saves current threshold to localStorage ("last used") on every close.
+  const handleImprovementChancePopoverClose = useCallback(() => {
+    const thr = improvementChanceThresholdRef.current
+    if (thr !== null) {
+      try { localStorage.setItem(IMPROVEMENT_CHANCE_LAST_USED_KEY, JSON.stringify(thr)) } catch { /* ignore */ }
+    }
+    setImprovementChanceAnchorEl(null)
+    setImprovementChanceAnchorPos(null)
+  }, [])
+  const { contextMenuGuard: improvementChancePopoverGuard, menuRef: improvementChancePopoverMenuRef } =
+    useContextMenuPaperGuard({ open: Boolean(improvementChanceAnchorEl), onClose: handleImprovementChancePopoverClose })
 
   // Candidate list shown in the popover right column:
   // prefer live preview (from unsaved weight edits) over the detection snapshot.
@@ -1606,8 +1666,8 @@ export default function SafeguardBuilderPanel({
                 variant="filled"
                 label={improvementChanceMixed
                   ? `${t('safeguardsImprovementChanceShort')}${NBSP}(${t('builderMultiEditMixedShort')})`
-                  : (displayImprovementChanceEnabled
-                    ? t('safeguardsImprovementChanceWithValue', { value: displayImprovementChanceThreshold ?? 50 })
+                  : (displayImprovementChanceEnabled && displayImprovementChanceThreshold
+                    ? formatThresholdChipLabel(displayImprovementChanceThreshold)
                     : t('safeguardsImprovementChanceShort'))}
                 aria-label={t('safeguardsImprovementChanceThreshold')}
                 clickable
@@ -1615,8 +1675,10 @@ export default function SafeguardBuilderPanel({
                 onClick={() => {
                   if (!hasSubstatSelection && !multiEditActive) return
                   if (multiEditActive && multiEdit) {
-                    // Toggle: null ↔ 50 in multi-edit mode.
-                    const next = displayImprovementChanceEnabled ? SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD : 50
+                    // Toggle: null ↔ last-used-or-Lenient in multi-edit mode.
+                    const next = displayImprovementChanceEnabled
+                      ? SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD
+                      : getImprovementChanceEnableDefault()
                     multiEdit.updateField('improvementChanceThreshold', { value: next, status: 'common' })
                     return
                   }
@@ -1625,7 +1687,7 @@ export default function SafeguardBuilderPanel({
                     ...prev,
                     improvementChanceThreshold: prev.improvementChanceThreshold !== null
                       ? SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD
-                      : 50,
+                      : getImprovementChanceEnableDefault(),
                   }))
                 }}
                 sx={{
@@ -1648,7 +1710,13 @@ export default function SafeguardBuilderPanel({
               size="small"
               aria-label={t('safeguardsImprovementChanceThreshold')}
               disabled={(!hasSubstatSelection && !multiEditActive) || (!displayImprovementChanceEnabled && !improvementChanceMixed)}
-              onClick={(e) => setImprovementChanceAnchorEl(e.currentTarget)}
+              onClick={(e) => {
+                // Capture the current bounding rect so the popover position is frozen
+                // at open time — prevents drift when chip label resizes during editing.
+                const rect = e.currentTarget.getBoundingClientRect()
+                setImprovementChanceAnchorPos({ top: rect.bottom, left: rect.left })
+                setImprovementChanceAnchorEl(e.currentTarget)
+              }}
               sx={(theme) => {
                 // Treat mixed as effectively enabled so the button stays interactive.
                 const isEffectivelyEnabled = displayImprovementChanceEnabled || improvementChanceMixed
@@ -2178,56 +2246,169 @@ export default function SafeguardBuilderPanel({
       <Popover
         open={Boolean(improvementChanceAnchorEl)}
         anchorEl={improvementChanceAnchorEl}
-        onClose={() => setImprovementChanceAnchorEl(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        onClose={handleImprovementChancePopoverClose}
+        // Use a frozen position so the popover doesn't drift when the chip label
+        // resizes (which shifts the anchor button) while the user edits values.
+        anchorReference={improvementChanceAnchorPos ? 'anchorPosition' : 'anchorEl'}
+        anchorPosition={improvementChanceAnchorPos ?? undefined}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{
+          paper: {
+            // eslint-disable-next-line react-hooks/refs -- improvementChancePopoverGuard contains a ref used only by the event-driven isTargetInsideAnyMenu check, never during render.
+            ...buildContextMenuPaperSlotProps({
+              component: ContextMenuPaper,
+              contextMenuGuard: improvementChancePopoverGuard,
+              onRequestClose: handleImprovementChancePopoverClose,
+              closeLabel: t('close'),
+            }),
+            // ref must be forwarded separately (React Compiler restriction on refs in render-time spreads).
+            // Without this, isTargetInsideAnyMenu always returns false → every click closes the popover.
+            // Cast required: useContextMenuPaperGuard types the ref as Element, but Paper is always a div.
+            ref: improvementChancePopoverMenuRef as React.RefObject<HTMLDivElement | null>,
+          },
+        }}
       >
-        <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.25 }}>
-            {t('safeguardsImprovementChanceThreshold')}
-          </Typography>
-          <TextField
-            size="small"
-            type="number"
-            autoFocus
-            InputProps={{
-              startAdornment: <InputAdornment position="start">≥</InputAdornment>,
-              endAdornment: (
-                <NumberSpinnerAdornment
-                  ariaLabel={t('safeguardsImprovementChanceThreshold')}
-                  onStep={(delta) => {
-                    if (multiEditActive && multiEdit) {
-                      const current = displayImprovementChanceThreshold ?? 50
-                      const next = Math.max(0, Math.min(100, Math.floor(current + delta)))
-                      multiEdit.updateField('improvementChanceThreshold', { value: next, status: 'common' })
-                    } else {
-                      updateRule((prev) => {
-                        const next = Math.max(0, Math.min(100, Math.floor((prev.improvementChanceThreshold ?? 50) + delta)))
-                        return { ...prev, improvementChanceThreshold: next }
-                      })
-                    }
-                  }}
+        {/* Render body only while threshold is active to avoid stale layout during close animation. */}
+        {displayImprovementChanceThreshold !== null && (() => {
+          const thr = displayImprovementChanceThreshold
+          const [resolvedL0, resolvedL4, resolvedL8, resolvedL12] = resolveImprovementChanceThresholds(thr)
+
+          // Helper: apply a full threshold update (single-edit and multi-edit paths).
+          const applyThreshold = (next: SafeguardImprovementChanceLevelThresholds) => {
+            if (multiEditActive && multiEdit) {
+              multiEdit.updateField('improvementChanceThreshold', { value: next, status: 'common' })
+            } else {
+              updateRule((prev) => ({ ...prev, improvementChanceThreshold: next }))
+            }
+          }
+
+          // Helper: clamp to 1-decimal precision within [0, 100].
+          const clampSlot = (v: number) => Math.round(Math.max(0, Math.min(100, v)) * 10) / 10
+          const updateSlot = (slot: 'atLevel0' | 'atLevel4' | 'atLevel8' | 'atLevel12', raw: string) => {
+            if (slot === 'atLevel0') {
+              applyThreshold({ ...thr, atLevel0: clampSlot(Number(raw) || SAFEGUARD_IMPROVEMENT_CHANCE_DEFAULT_THRESHOLD) })
+            } else {
+              const parsed = raw === '' ? null : clampSlot(Number(raw))
+              applyThreshold({ ...thr, [slot]: parsed })
+            }
+          }
+          const stepSlot = (slot: 'atLevel0' | 'atLevel4' | 'atLevel8' | 'atLevel12', delta: number) => {
+            const resolved = slot === 'atLevel0' ? resolvedL0
+              : slot === 'atLevel4' ? resolvedL4
+              : slot === 'atLevel8' ? resolvedL8
+              : resolvedL12
+            const current = thr[slot] !== null && thr[slot] !== undefined ? (thr[slot] as number) : resolved
+            applyThreshold(slot === 'atLevel0'
+              ? { ...thr, atLevel0: clampSlot(current + delta) }
+              : { ...thr, [slot]: clampSlot(current + delta) })
+          }
+
+          // Last-used: read from localStorage; fall back to 25% (Lenient) when nothing is stored yet.
+          let lastUsedThreshold: SafeguardImprovementChanceLevelThresholds =
+            { atLevel0: SAFEGUARD_IMPROVEMENT_CHANCE_DEFAULT_THRESHOLD, atLevel4: null, atLevel8: null, atLevel12: null }
+          try {
+            const raw = localStorage.getItem(IMPROVEMENT_CHANCE_LAST_USED_KEY)
+            if (raw) lastUsedThreshold = JSON.parse(raw) as SafeguardImprovementChanceLevelThresholds
+          } catch { /* ignore */ }
+
+          // Per-level column configuration (side-by-side, labels above inputs).
+          const levelCols: {
+            slot: 'atLevel0' | 'atLevel4' | 'atLevel8' | 'atLevel12'
+            labelKey: string
+            value: number | null
+            resolved: number
+          }[] = [
+            { slot: 'atLevel0',  labelKey: 'safeguardsImprovementChanceLevelLabel0',  value: thr.atLevel0,        resolved: resolvedL0 },
+            { slot: 'atLevel4',  labelKey: 'safeguardsImprovementChanceLevelLabel4',  value: thr.atLevel4 ?? null, resolved: resolvedL4 },
+            { slot: 'atLevel8',  labelKey: 'safeguardsImprovementChanceLevelLabel8',  value: thr.atLevel8 ?? null, resolved: resolvedL8 },
+            { slot: 'atLevel12', labelKey: 'safeguardsImprovementChanceLevelLabel12', value: thr.atLevel12 ?? null, resolved: resolvedL12 },
+          ]
+
+          const activePresetId = detectImprovementChancePresetId(thr)
+          const inputWidth = 72
+
+          return (
+            <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {/* Preset chips — all always visible; Last used disabled when absent or already active. */}
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {IMPROVEMENT_CHANCE_PRESETS.map((preset) => (
+                  <Chip
+                    key={preset.id}
+                    size="small"
+                    label={t(`safeguardsImprovementChancePreset${preset.id.charAt(0).toUpperCase()}${preset.id.slice(1)}` as Parameters<typeof t>[0])}
+                    variant={activePresetId === preset.id ? 'filled' : 'outlined'}
+                    color={activePresetId === preset.id ? 'primary' : 'default'}
+                    onClick={() => applyThreshold(preset.thresholds)}
+                    sx={{ height: 22, cursor: 'pointer' }}
+                  />
+                ))}
+                {/* Last used: always clickable — applies whatever was last persisted (or 25% default). */}
+                <Chip
+                  size="small"
+                  label={t('safeguardsImprovementChancePresetLastUsed')}
+                  variant="outlined"
+                  onClick={() => applyThreshold(lastUsedThreshold)}
+                  sx={{ height: 22, cursor: 'pointer' }}
                 />
-              ),
-            }}
-            value={displayImprovementChanceThreshold ?? 50}
-            onChange={(event) => {
-              const raw = Math.min(100, Math.max(0, Math.floor(Number(event.target.value) || 0)))
-              if (multiEditActive && multiEdit) {
-                multiEdit.updateField('improvementChanceThreshold', { value: raw, status: 'common' })
-              } else {
-                updateRule((prev) => ({ ...prev, improvementChanceThreshold: raw }))
-              }
-            }}
-            sx={(themeInner) => ({
-              width: 120,
-              '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
-              '& input[type=number]': { MozAppearance: 'textfield' },
-              '& input': { textAlign: 'right', paddingRight: themeInner.spacing(1), paddingLeft: themeInner.spacing(0.5) },
-            })}
-            inputProps={{ min: 0, step: 1, max: 100 }}
-          />
-        </Box>
+              </Box>
+
+              {/* Row: label left, inputs right — mirrors Roll Targets two-column layout. */}
+              <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5 }}>
+                {/* Left: feature label with tooltip explaining the input fields. */}
+                <MarkdownTooltip markdown={t('safeguardsImprovementChanceThresholdHint')} placement="top">
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ cursor: 'default', whiteSpace: 'nowrap', pb: '6px' }}
+                  >
+                    {t('safeguardsImprovementChanceThreshold')}
+                  </Typography>
+                </MarkdownTooltip>
+
+                {/* Right: side-by-side inputs with column labels above. */}
+                {levelCols.map((col, idx) => (
+                  <Box key={col.slot} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {t(col.labelKey as Parameters<typeof t>[0])}
+                    </Typography>
+                    <TextField
+                      size="small"
+                      type="number"
+                      autoFocus={idx === 0}
+                      // Empty string when null (inherited); placeholder shows the inherited resolved value.
+                      value={col.value !== null ? String(col.value) : ''}
+                      placeholder={String(col.resolved)}
+                      onChange={(e) => updateSlot(col.slot, e.target.value)}
+                      onKeyDown={(e) => {
+                        // Clear to null (inherit) on Delete/Backspace when the field is already empty.
+                        if ((e.key === 'Delete' || e.key === 'Backspace') && col.slot !== 'atLevel0' && col.value === null) {
+                          updateSlot(col.slot, '')
+                        }
+                      }}
+                      InputProps={{
+                        endAdornment: (
+                          <NumberSpinnerAdornment
+                            ariaLabel={t(col.labelKey as Parameters<typeof t>[0])}
+                            onStep={(delta) => stepSlot(col.slot, delta)}
+                          />
+                        ),
+                        sx: {
+                          '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                          '& input[type=number]': { MozAppearance: 'textfield' },
+                        },
+                      }}
+                      inputProps={{ min: 0, step: 0.1, max: 100 }}
+                      sx={(themeInner) => ({
+                        width: inputWidth,
+                        '& input': { textAlign: 'right', paddingRight: themeInner.spacing(1), paddingLeft: themeInner.spacing(0.25) },
+                      })}
+                    />
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          )
+        })()}
       </Popover>
 
       {/* ── Substat weights popover — two-column: controls (left) + candidate list (right) ── */}

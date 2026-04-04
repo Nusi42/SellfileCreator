@@ -1099,8 +1099,9 @@ export type ReadableSafeguardRuleEntry = {
   ignorePreviousSafeguards?: boolean
   ignoreEquippedInCollection?: boolean
   ignoreEquippedInVault?: boolean
-  // Quality floor: 0–100 percentile of equipped collection gear the candidate must beat.
-  improvementChanceThreshold?: number
+  // Per-level improvement-chance thresholds; written as an object in the current format.
+  // Legacy files may have a bare number (handled on import via normalizeLegacyImprovementChanceThreshold).
+  improvementChanceThreshold?: { atLevel0: number; atLevel4: number | null; atLevel8: number | null; atLevel12: number | null }
   tuple: ReadableSafeguardTuple
   substats?: string[]
   substatMatch?: string
@@ -1196,10 +1197,16 @@ export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSa
   }
   // Only persist a name when it is non-empty.
   if (trimmedName) entry.name = trimmedName
-  // Serialize quality floor only when the user has set it (non-null).
-  const rawPercentile = rule.improvementChanceThreshold
-  if (typeof rawPercentile === 'number' && Number.isFinite(rawPercentile)) {
-    entry.improvementChanceThreshold = Math.max(0, Math.min(100, Math.floor(rawPercentile)))
+  // Serialize per-level thresholds only when the feature is enabled (non-null).
+  const thr = rule.improvementChanceThreshold
+  if (thr !== null && thr !== undefined) {
+    const clampDecimal = (v: number) => Math.round(Math.max(0, Math.min(100, v)) * 10) / 10
+    entry.improvementChanceThreshold = {
+      atLevel0:  clampDecimal(thr.atLevel0),
+      atLevel4:  thr.atLevel4  != null ? clampDecimal(thr.atLevel4)  : null,
+      atLevel8:  thr.atLevel8  != null ? clampDecimal(thr.atLevel8)  : null,
+      atLevel12: thr.atLevel12 != null ? clampDecimal(thr.atLevel12) : null,
+    }
   }
   // Capture substat filters when they are present.
   if (hasSubstatSelection) entry.substats = substatLabels

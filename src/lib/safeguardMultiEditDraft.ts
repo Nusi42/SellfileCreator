@@ -29,6 +29,7 @@ import {
   type SafeguardRuleCountMode,
   type SafeguardCombination,
   type SafeguardSubstatMatch,
+  type SafeguardImprovementChanceLevelThresholds,
   cloneSafeguardCombination,
   normalizeSafeguardSubstatDependents,
 } from './safeguards'
@@ -67,7 +68,7 @@ export type SafeguardEditableFields = {
   substats: StatVariant[]
   substatMatch: SafeguardSubstatMatch
   substatWeights: Partial<Record<StatVariant, number>>
-  improvementChanceThreshold: number | null
+  improvementChanceThreshold: SafeguardImprovementChanceLevelThresholds | null
 }
 
 export const SAFEGUARD_FIELD_KEYS = [
