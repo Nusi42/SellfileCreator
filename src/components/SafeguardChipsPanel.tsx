@@ -26,7 +26,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
-import { alpha, useTheme } from '@mui/material/styles'
+import { alpha } from '@mui/material/styles'
 import {
   BUILDER_AUTO_APPLY_DEBOUNCE_MS,
   DANGER_TINT_BG,
@@ -59,7 +59,7 @@ import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useChipListDnd } from '../hooks/useChipListDnd'
 import { useChipListKeyboard } from '../hooks/useChipListKeyboard'
 import { useDisplayPreferences } from '../state/preferencesState'
-import { safeguardSummaryParts } from './safeguardSummaryParts'
+import { safeguardActivationColor, safeguardSummaryParts } from './safeguardSummaryParts'
 
 
 export type SafeguardChipsPanelProps = {
@@ -182,12 +182,7 @@ const SafeguardChip = React.memo(function SafeguardChip({
   const nameDecoration = parseRecipeNameDirectives(rawName || undefined, 'inherit')
   const displayName = nameDecoration.displayName || fallbackName
   // Activation badge color and label text.
-  const theme = useTheme()
-  const actColor = rule.activation === SafeguardRuleActivation.ProtectExisting
-    ? theme.palette.success.main
-    : rule.activation === SafeguardRuleActivation.AnticipateGaps
-      ? theme.palette.warning.main
-      : theme.palette.text.disabled
+  const actColor = safeguardActivationColor(rule.activation)
   const actText = rule.activation === SafeguardRuleActivation.ProtectExisting
     ? t('safeguardsRuleModeProtectShort')
     : rule.activation === SafeguardRuleActivation.AnticipateGaps
