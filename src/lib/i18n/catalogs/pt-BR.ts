@@ -1165,6 +1165,8 @@ const catalog: Catalog = {
   builtinSortPresetLatestUsed: "Último uso",
   builtinSortPresetSpd: "SPD",
   builtinSortPresetSpdPerSlot: "SPD – por slot",
+  builtinSortPresetImprovementChance: "Chance de melhoria",
+  builtinSortPresetSafeguardRank: "Posição da Salvaguarda",
   filterPresetsNameLabel: "Nome",
   filterPresetsDeleteDialogTitle: "Excluir filtro salvo?",
   filterPresetsDeleteDialogMessage: "Excluir “{name}”? Isso não pode ser desfeito.",

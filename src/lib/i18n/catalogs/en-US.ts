@@ -1184,6 +1184,8 @@ const enUS: Catalog = {
   builtinSortPresetLatestUsed: "Latest Used",
   builtinSortPresetSpd: "SPD",
   builtinSortPresetSpdPerSlot: "SPD \u2013 per Slot",
+  builtinSortPresetImprovementChance: "Improvement Chance",
+  builtinSortPresetSafeguardRank: "Safeguard Rank",
   filterPresetsSaveAs: "Save as…",
   filterPresetsEmpty: "No saved filters yet.",
   filterPresetsSaveDialogTitle: "Save filter preset",

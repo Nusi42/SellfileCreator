@@ -20,6 +20,8 @@ import { StatVariant } from '../lib/types'
 import {
   GEAR_INSPECTOR_SORT_KEY_LAST_USAGE,
   GEAR_INSPECTOR_SORT_KEY_NEWEST,
+  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE,
+  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK,
 } from '../lib/gearInspectorSort'
 
 export const SORT_PRESETS_STORAGE_KEY = 'sellfileCreator.sortPresets.v1'
@@ -106,6 +108,31 @@ export const BUILTIN_SORT_PRESETS: readonly SortPreset[] = [
         accessories: { byFaction: false, bySet: false, bySlot: true },
         hideHeaders: false,
       },
+    },
+  },
+  {
+    id: 'builtin:improvement-chance',
+    name: 'Improvement Chance',
+    savedAt: '',
+    builtin: true,
+    // Sort by safeguard improvement chance descending; flat type groups so highest-chance items float up globally.
+    snapshot: {
+      ...DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
+      priorities: [GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE],
+      grouping: FLAT_TYPE_GROUPING,
+    },
+  },
+  {
+    id: 'builtin:safeguard-rank',
+    name: 'Safeguard Rank',
+    savedAt: '',
+    builtin: true,
+    // Sort by safeguard rank ascending: rank #1 (most-protected) floats first; unranked items last.
+    snapshot: {
+      ...DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
+      priorities: [GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK],
+      direction: 'asc',
+      grouping: FLAT_TYPE_GROUPING,
     },
   },
 ]

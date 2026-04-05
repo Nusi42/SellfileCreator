@@ -1167,6 +1167,8 @@ const overrides: Catalog = {
   builtinSortPresetLatestUsed: "Son Kullanılan",
   builtinSortPresetSpd: "SPD",
   builtinSortPresetSpdPerSlot: "SPD – slota göre",
+  builtinSortPresetImprovementChance: "İyileştirme şansı",
+  builtinSortPresetSafeguardRank: "Koruyucu Sırası",
   filterPresetsNameLabel: "Ad",
   filterPresetsDeleteDialogTitle: "Kaydedilmiş filtre silinsin mi?",
   filterPresetsDeleteDialogMessage: "”{name}” silinsin mi? Bu geri alınamaz.",

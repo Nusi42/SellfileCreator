@@ -269,10 +269,12 @@ export default function PreviewHeaderActions(props: {
   const sortPresetDisplayName = (p: SortPreset): string => {
     if (!p.builtin) return p.name
     switch (p.id) {
-      case 'builtin:newest':      return t('builtinSortPresetNewest')
-      case 'builtin:latest-used': return t('builtinSortPresetLatestUsed')
-      case 'builtin:spd':         return t('builtinSortPresetSpd')
-      case 'builtin:spd-per-slot': return t('builtinSortPresetSpdPerSlot')
+      case 'builtin:newest':             return t('builtinSortPresetNewest')
+      case 'builtin:latest-used':        return t('builtinSortPresetLatestUsed')
+      case 'builtin:spd':                return t('builtinSortPresetSpd')
+      case 'builtin:spd-per-slot':       return t('builtinSortPresetSpdPerSlot')
+      case 'builtin:improvement-chance': return t('builtinSortPresetImprovementChance')
+      case 'builtin:safeguard-rank':     return t('builtinSortPresetSafeguardRank')
       default: return p.name
     }
   }

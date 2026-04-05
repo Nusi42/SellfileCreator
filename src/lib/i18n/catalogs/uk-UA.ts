@@ -1168,6 +1168,8 @@ const overrides: Catalog = {
   builtinSortPresetLatestUsed: "Останнє використання",
   builtinSortPresetSpd: "SPD",
   builtinSortPresetSpdPerSlot: "SPD – за слотами",
+  builtinSortPresetImprovementChance: "Шанс покращення",
+  builtinSortPresetSafeguardRank: "Ранг Захисту",
   filterPresetsNameLabel: "Назва",
   filterPresetsDeleteDialogTitle: "Видалити збережений фільтр?",
   filterPresetsDeleteDialogMessage: "Видалити “{name}”? Це не можна скасувати.",

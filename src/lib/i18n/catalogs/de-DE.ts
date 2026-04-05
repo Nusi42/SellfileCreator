@@ -1163,6 +1163,8 @@ const overrides: Catalog = {
   builtinSortPresetLatestUsed: "Zuletzt verwendet",
   builtinSortPresetSpd: "SPD",
   builtinSortPresetSpdPerSlot: "SPD – pro Slot",
+  builtinSortPresetImprovementChance: "Verbesserungschance",
+  builtinSortPresetSafeguardRank: "Sicherheitsnetz-Rang",
   filterPresetsNameLabel: "Name",
   filterPresetsDeleteDialogTitle: "Gespeicherten Filter löschen?",
   filterPresetsDeleteDialogMessage: "„{name}” löschen? Das kann nicht rückgängig gemacht werden.",

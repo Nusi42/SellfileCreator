@@ -1166,6 +1166,8 @@ const overrides: Catalog = {
   builtinSortPresetLatestUsed: "Последнее использование",
   builtinSortPresetSpd: "SPD",
   builtinSortPresetSpdPerSlot: "SPD – по слотам",
+  builtinSortPresetImprovementChance: "Шанс улучшения",
+  builtinSortPresetSafeguardRank: "Ранг Защиты",
   filterPresetsNameLabel: "Имя",
   filterPresetsDeleteDialogTitle: "Удалить сохранённый фильтр?",
   filterPresetsDeleteDialogMessage: "Удалить «{name}»? Это действие нельзя отменить.",
