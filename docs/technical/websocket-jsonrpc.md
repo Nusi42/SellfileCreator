@@ -57,10 +57,10 @@ Upload a generated sellfile.
 ### selectArtifacts
 
 Tell RSL Helper which gear items are currently selected in the Gear Inspector.
-The app sends this request fire-and-forget on every selection change (click,
-shift-click, ctrl-click, or deselect). The local selection is always kept
-regardless of the server response — the app is the source of truth for selection
-state. If the server needs to override, it should push a correction event.
+The app sends this request on every selection change (click, shift-click,
+ctrl-click, or deselect) and applies the new selection immediately without
+waiting for a response. The response body is not used; servers may respond
+with a standard success for acknowledgement or omit a response entirely.
 
 **Params**
 - `artifactIds` (array of number): Artifact instance ids that are now selected.
@@ -73,7 +73,6 @@ state. If the server needs to override, it should push a correction event.
 
 **Result**
 
-The app ignores the response body; any result or error is silently discarded.
 Servers may respond with a standard success for acknowledgement:
 
 **Success response example**
