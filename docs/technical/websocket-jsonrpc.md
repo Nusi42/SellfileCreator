@@ -57,9 +57,10 @@ Upload a generated sellfile.
 ### selectArtifacts
 
 Tell RSL Helper which gear items are currently selected in the Gear Inspector.
-The app sends this request optimistically on every selection change (click,
-shift-click, ctrl-click, or deselect). If the server declines, the app reverts
-its local selection to the previous state.
+The app sends this request fire-and-forget on every selection change (click,
+shift-click, ctrl-click, or deselect). The local selection is always kept
+regardless of the server response — the app is the source of truth for selection
+state. If the server needs to override, it should push a correction event.
 
 **Params**
 - `artifactIds` (array of number): Artifact instance ids that are now selected.
@@ -71,16 +72,13 @@ its local selection to the previous state.
 ```
 
 **Result**
-- `ok` (boolean): `true` = selection accepted; `false` = selection declined (app reverts).
+
+The app ignores the response body; any result or error is silently discarded.
+Servers may respond with a standard success for acknowledgement:
 
 **Success response example**
 ```json
 {"jsonrpc":"2.0","id":7,"result":{"ok":true}}
-```
-
-**Decline response example**
-```json
-{"jsonrpc":"2.0","id":7,"result":{"ok":false}}
 ```
 
 ---
