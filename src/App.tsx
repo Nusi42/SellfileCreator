@@ -5724,23 +5724,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     onCommand: handleExternalCommand,
     onReachabilityChange: updatePushEndpointReachable,
   })
-  // Optimistically apply gear selection; send to endpoint and revert on explicit decline.
+  // Optimistically apply gear selection and notify the endpoint; fire-and-forget.
+  // Selection is the source of truth in the app — the endpoint can push a correction
+  // event if it needs to override, but we do not revert on a bare error response
+  // (which would cause a visible "deselect then immediately reselect" flicker).
   const handleGearItemsSelect = useCallback((nextIds: ReadonlySet<number>) => {
-    // Snapshot previous selection so we can revert if the endpoint declines.
-    const prevIds = selectedGearItemIds
     setSelectedGearItemIds(nextIds)
     if (!pushExportEndpoint) return
-    void sendExternalRequest(EXTERNAL_WS_METHOD_SELECT_ARTIFACTS, { artifactIds: [...nextIds] })
-      .then((response) => {
-        // If the endpoint explicitly declines, revert to the pre-click selection.
-        if (!response.ok) {
-          setSelectedGearItemIds(prevIds)
-        }
-      })
-      .catch(() => {
-        // Network error: keep the optimistic selection (user intent is preserved).
-      })
-  }, [selectedGearItemIds, pushExportEndpoint, sendExternalRequest])
+    // Silently swallow errors; the optimistic update stands regardless.
+    void sendExternalRequest(EXTERNAL_WS_METHOD_SELECT_ARTIFACTS, { artifactIds: [...nextIds] }).catch(() => {})
+  }, [pushExportEndpoint, sendExternalRequest])
   // Dirty flag: builder differs from currently selected recipe
   const duplicateOfIndices = useMemo(() => computeDuplicateIndices(customRecipes), [customRecipes])
 
