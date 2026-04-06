@@ -1075,7 +1075,10 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
     }
     if (selectedFactions.size > 0 && !selectedFactions.has(faction)) continue
 
-    if (selectedSources.size > 0) {
+    // When context mode is active and sources are selected, sources are applied in the
+    // second pass as a reference constraint (companions may come from any source).
+    // In all other cases, sources remain a strict first-pass inclusion gate.
+    if (!contextModeActive && selectedSources.size > 0) {
       const category = determineGearInspectorSourceCategory(artifact)
       if (!selectedSources.has(category)) continue
     }
@@ -1171,19 +1174,26 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
   let contextGroupById: Map<number, GearInspectorContextGroup> | undefined
 
   if (contextModeActive) {
-    // Build the set of companion keys from all sell-tagged candidates.
-    // This determines which items are "companions" of sell-tagged gear.
+    // When sources are selected, use them as a reference set: only sell-tagged items FROM
+    // reference sources anchor companion keys; items outside reference sources can appear
+    // as companions but never as primaries. When no sources are selected, all candidates
+    // qualify as reference (existing behaviour — sourceScope is false).
+    const sourceScope = selectedSources.size > 0
+
+    // Build companion keys from sell-tagged reference-source candidates only.
     const sellCompanionKeys = new Set<string>()
     for (const row of candidates) {
       if (row.match?.keep === false) {
+        // Non-reference items don't anchor companion keys in source-scope mode.
+        if (sourceScope && !selectedSources.has(determineGearInspectorSourceCategory(row.artifact))) continue
         const key = computeGearCompanionKey(row.artifact)
         if (key !== null) sellCompanionKeys.add(key)
       }
     }
 
-    // Keep focus: companions are primary (100%), sell-tagged are companion (intermediate%).
-    // Sell focus (default, including Matched alone): sell-tagged are primary (100%), companions are companion (intermediate%).
-    // Both Keep+Sell: sell-tagged + companions are both primary (100%).
+    // Keep focus: companions are primary (100%), sell-tagged reference items are companion (intermediate%).
+    // Sell focus (default, including Matched alone): sell-tagged reference items are primary (100%), companions are companion (intermediate%).
+    // Both Keep+Sell: sell-tagged reference items + companions are both primary (100%).
     // Companion elevation only applies when Matched is active; without Matched, companions render at 25% like other.
     const keepFocused = keepActive && !sellActive
     const bothFocused = keepActive && sellActive
@@ -1191,23 +1201,28 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
     contextGroupById = new Map<number, GearInspectorContextGroup>()
     for (const row of candidates) {
       const isSell = row.match?.keep === false
-      // Compute companion key only for non-sell items (sell items are the source, not companions of themselves).
-      const cKey = isSell ? null : computeGearCompanionKey(row.artifact)
+      // In source-scope mode only reference-source items can be primary; outside-reference
+      // items may still surface as companions if their set+slot matches a primary's key.
+      const isInReference = !sourceScope || selectedSources.has(determineGearInspectorSourceCategory(row.artifact))
+      // Primary candidates are sell-tagged AND from the reference source set.
+      // They don't also act as companions of themselves, so cKey is null for them.
+      const isPrimaryCandidate = isSell && isInReference
+      const cKey = isPrimaryCandidate ? null : computeGearCompanionKey(row.artifact)
       const isCompanion = cKey !== null && sellCompanionKeys.has(cKey)
 
       let group: GearInspectorContextGroup
       if (keepFocused) {
-        // Keep focus: companions = primary, sell-tagged = companion, rest = other.
+        // Keep focus: companions = primary, sell-tagged reference items = companion, rest = other.
         if (isCompanion) group = 'primary'
-        else if (isSell) group = 'companion'
+        else if (isSell && isInReference) group = 'companion'
         else group = 'other'
       } else if (bothFocused) {
-        // Both active: sell-tagged + companions share primary; others are other.
-        if (isSell || isCompanion) group = 'primary'
+        // Both active: sell-tagged reference items + companions share primary; others are other.
+        if (isPrimaryCandidate || isCompanion) group = 'primary'
         else group = 'other'
       } else {
         // Sell focus (sell-only or neither, Matched-alone defaults to sell focus).
-        if (isSell) group = 'primary'
+        if (isPrimaryCandidate) group = 'primary'
         else if (isCompanion) group = 'companion'
         else group = 'other'
       }
