@@ -52,11 +52,14 @@ export type RuleCachePipelineResponse = {
   id: number
   kind: 'pipeline:done'
   payload: {
-    rulesByRecipeEntries: Array<[number, HsfRuleWithRecipe[]]>
+    // Null when the worker determined that per-recipe rules are identical to the last
+    // sent response (artifact-only burst). The receiver falls back to its lastRulesRef.
+    // Avoids structured-cloning ~50–100 MiB on every endpoint artifact push.
+    rulesByRecipeEntries: Array<[number, HsfRuleWithRecipe[]]> | null
     countsByRecipeEntries: Array<[number, number]>
-    keys: string[]
+    keys: string[] | null
     substatTargetsKey: string
-    mergedRules: HsfRuleWithRecipe[]
+    mergedRules: HsfRuleWithRecipe[] | null
     truncatedRecipeIndices: number[]
     totalLimitHit: boolean
     excludedByTotalLimitIndices: number[]
@@ -80,11 +83,21 @@ export type RuleCacheErrorResponse = {
   error: string
 }
 
+// Diagnostic postMessage relayed to the main thread so [sfc-diag] log lines from
+// the worker context reach page.on('console') in Playwright (worker console.log
+// does not fire that event). The main thread consumer logs the text with console.log
+// so it also appears in Chrome DevTools when running the app manually.
+export type RuleCacheDiagnosticResponse = {
+  kind: 'diagnostic'
+  text: string
+}
+
 export type RuleCacheWorkerResponse =
   | RuleCacheBuilderCountResponse
   | RuleCachePipelineResponse
   | RuleCachePipelineProgressResponse
   | RuleCacheErrorResponse
+  | RuleCacheDiagnosticResponse
 
 export type RuleCacheWorkerRequest =
   | RuleCacheBuilderCountRequest

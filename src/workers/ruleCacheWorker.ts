@@ -29,6 +29,7 @@ import {
   configureWasmRuleEngine,
   evaluateWasmRuleEngineItems,
   finalizeGeneratedRulesWithLoadedWasm,
+  getWasmLinearMemoryBytes,
   getWasmRuleEngineVersion,
   warmupWasmRuleEngine,
 } from '../lib/wasm/wasmRuleEngine'
@@ -57,6 +58,99 @@ let wasmWarmupPromise: Promise<void> | null = null
 // so unchanged recipes skip the WASM buildRulesForRecipe call entirely.
 const persistentRuleCache = new Map<string, RecipeRulesCacheEntry>()
 
+// Fingerprint of the artifact set most recently stored in WASM ENGINE_STATE.
+// Compared before each storeArtifactRows call; if unchanged, the call (and the
+// JS→WASM serialization + Vec alloc on the Rust side) is skipped entirely.
+let lastArtifactStoreFingerprint: number | null = null
+
+// Sentinels tracking the most recently sent per-recipe rule data.
+// When all six match the current pipeline output, rulesByRecipeEntries/mergedRules/keys
+// are sent as null, skipping the structured-clone of ~50–100 MiB on artifact-only bursts.
+let lastSentKeys: string[] | null = null
+let lastSentSubstatTargetsKey: string | null = null
+let lastSentTotalLimitHit = false
+let lastSentTruncatedCount = 0
+// Captures omitDisabledBeforeSafeguards, dedupeBeforeSafeguards, safeguards.enabled,
+// safeguards.rules.length, and presence of finalSellRemainder — all inputs to
+// computeMergedRulesFromComponents that are NOT reflected in pipelineState.keys.
+let lastSentMergeFlags: string | null = null
+// Fingerprint of the safeguard detection entries that drove the last sent mergedRulesFinal.
+// scannedAt is excluded (changes every run but does not affect merged rules).
+// Covers which entries were detected and how many placeholder rules each needs.
+let lastSentDetectionKey: string | null = null
+
+// O(N) element-wise comparison; no allocation.
+// V8 terminates at pointer equality for identical strings (common case for large fingerprints).
+const keysEqual = (a: string[], b: string[]): boolean => {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false
+  }
+  return true
+}
+
+// Cheap string key capturing all safeguard-merge inputs not in pipelineState.keys.
+// Boolean flags are encoded as bits; rule count catches add/remove without needing
+// to stringify each rule (content changes are rare and would show up in detection anyway).
+const computeMergeFlags = (
+  payload: Extract<RuleCacheWorkerRequest, { kind: 'pipeline' }>['payload'],
+): string => {
+  const { omitDisabledBeforeSafeguards: omit, dedupeBeforeSafeguards: dedup, safeguards } = payload
+  return `${omit ? 1 : 0}${dedup ? 1 : 0}${safeguards.enabled ? 1 : 0}${safeguards.rules.length}${payload.finalSellRemainder != null ? 1 : 0}`
+}
+
+// Fingerprint of the safeguard detection snapshot that drives placeholder-rule injection.
+// Two snapshots with the same key produce identical injected rules in mergedRulesFinal.
+// scannedAt is excluded — it changes every run regardless of content.
+const computeDetectionKey = (snapshot: SafeguardDetectionSnapshot | null): string => {
+  if (snapshot === null || snapshot.entries.length === 0) return ''
+  // For each detected combination: its stable hash + per-placeholder (missing count, reason,
+  // substat variant count). Entry order is deterministic for the same input.
+  return snapshot.entries.map((e) => {
+    const ph = e.placeholders.map(
+      (p) => `${p.missing}${p.reason}${p.substatVariants?.length ?? 0}`,
+    ).join(',')
+    return `${e.hash}:${ph}`
+  }).join('|')
+}
+
+// Compute a 32-bit integer hash over the mutable fields of each store row:
+//   id            — artifact added or removed
+//   level         — upgrade (also bounds which substats are unlocked)
+//   rank          — rank promotion
+//   substats.length — new sub added at levels 4/8/12/16
+//   Σ totalValue  — glyph application or substat value increase on upgrade
+//   equippedChampionLocation — artifact moved to/from champion / vault
+// Immutable fields (slot, set, faction, mainStat variant, substat isFlat) are
+// omitted for speed. Cost: O(N) integer multiply/XOR — no string allocation.
+const computeArtifactStoreFingerprint = (
+  entries: ReadonlyArray<[number, NormalizedGearArtifact]>,
+): number => {
+  // Seed with count so an empty set never collides with a 1-item set.
+  let h = entries.length * 0x9e3779b9 | 0
+  for (const [id, a] of entries) {
+    h ^= id
+    h = Math.imul(h, 0x9e3779b9) | 0
+    // Cover upgrade and rank promotion.
+    h ^= (a.level + (a.rank ?? 0) * 97) | 0
+    h = Math.imul(h, 0x517cc1b7) | 0
+    // Cover equipped-champion change: null=0, vault=1, collection/other=2.
+    const loc = a.equippedChampionLocation
+    const locCode = loc == null ? 0 : /vault/i.test(loc) ? 1 : 2
+    h ^= locCode * 31
+    h = Math.imul(h, 0xbf58476d) | 0
+    // Cover glyph and substat value changes: hash substat count + Σ totalValue.
+    // Scale by 10 so a 0.1-unit glyph gain produces a distinct integer delta.
+    let subHash = a.substats?.length ?? 0
+    for (const s of a.substats ?? []) {
+      subHash += Math.round((s.totalValue ?? 0) * 10)
+    }
+    h ^= subHash
+    h = Math.imul(h, 0x9e3779b9) | 0
+  }
+  return h
+}
+
 // Batch evaluate so long matcher passes yield between chunks; progress is
 // emitted once per batch (not per artifact) to bound Firefox postMessage overhead.
 const PIPELINE_MATCH_BATCH_SIZE = 256 as const
@@ -75,6 +169,14 @@ const notePipelineGeneration = (generation: number): void => {
 }
 
 const pipelineGenerationIsStale = (generation: number): boolean => generation < latestPipelineGeneration
+
+// Relay a [sfc-diag] line to the main thread via postMessage so it reaches
+// page.on('console') in Playwright (worker console.log does not fire that event).
+// The main thread consumer logs it with console.log so it also appears in DevTools.
+const postDiagnostic = (text: string): void => {
+  const response: RuleCacheWorkerResponse = { kind: 'diagnostic', text }
+  self.postMessage(response)
+}
 
 const postError = (id: number, error: unknown): void => {
   const response: RuleCacheWorkerResponse = {
@@ -325,11 +427,27 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         wasmVersionLogged = true
       }
       if (runIsStale()) return
-      // Build compact WASM store rows — only the fields SafeguardWasmArtifactRawIn reads.
-      // Avoids serde_wasm_bindgen iterating ignored NormalizedGearArtifact/NormalizedStat
-      // properties, which is catastrophically slow in Firefox (minutes vs seconds).
-      const detectionRows = artifactEntries.map(([, artifact]) => toWasmArtifactStoreRow(artifact))
-      storeArtifactRows(detectionRows)
+      // Store compact rows in WASM ENGINE_STATE for the combined evaluate+collect path.
+      // Only the fields SafeguardWasmArtifactRawIn reads are included (toWasmArtifactStoreRow).
+      // Skip the call entirely when the artifact set is unchanged: the Rust Vec is already
+      // populated from the previous run. If something did change, Rust reuses the backing
+      // allocation (clear + extend) instead of dropping and reallocating — see lib.rs
+      // store_artifact_rows_engine for the fragmentation rationale.
+      const storeFingerprint = computeArtifactStoreFingerprint(artifactEntries)
+      const rowsAreStale = storeFingerprint !== lastArtifactStoreFingerprint
+      if (rowsAreStale) {
+        const detectionRows = artifactEntries.map(([, artifact]) => toWasmArtifactStoreRow(artifact))
+        storeArtifactRows(detectionRows)
+        lastArtifactStoreFingerprint = storeFingerprint
+        const storedMsg = `[sfc-diag] store-rows count=${detectionRows.length} (stored) wasm-linear-mem=${(getWasmLinearMemoryBytes() / 1048576).toFixed(2)}MiB`
+        // Both: DevTools visibility for manual debugging + postMessage relay for Playwright.
+        console.log(storedMsg)
+        postDiagnostic(storedMsg)
+      } else {
+        const skippedMsg = `[sfc-diag] store-rows count=${artifactEntries.length} (skipped-unchanged) wasm-linear-mem=${(getWasmLinearMemoryBytes() / 1048576).toFixed(2)}MiB`
+        console.log(skippedMsg)
+        postDiagnostic(skippedMsg)
+      }
       // Pass baselineExcludeSources so keep-override sources are excluded from the
       // safeguard base-match the same way as the regular evaluate pass.
       const detectionOptions = hasActiveSafeguards
@@ -368,6 +486,12 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       completed = warmTotal + artifactEntries.length
       emitPipelineProgress?.({ completed, total })
     } else {
+      // Detection not needed (no safeguards active or no artifact rows). The fingerprint
+      // is left as-is: the stored rows in the WASM engine are still valid for the next
+      // run where detection IS needed. If the artifact data actually changed, the hash
+      // will differ on that run and trigger a re-store naturally. Resetting here caused
+      // spurious re-stores whenever an intermediate non-artifact pipeline run (e.g. a
+      // roster or account message) left artifactEntries empty between bursts.
       completed = warmTotal
     }
 
@@ -420,15 +544,51 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
 
     if (runIsStale()) return
 
+    // When safeguards are injecting rules into mergedRulesFinal, the merged output depends
+    // Check whether mergedRulesFinal is identical to what the main thread already holds.
+    // If so, send null for the three large fields to skip structured-cloning ~50–100 MiB
+    // on artifact-only endpoint bursts (the dominant cause of JS heap growth / OOM crashes).
+    // mergedRulesFinal depends on: recipe keys + substat targets + totalLimitHit +
+    // truncatedCount + merge flags (omitDisabled, dedupe, safeguards.enabled/count,
+    // finalSellRemainder presence) + safeguard detection entries (drive placeholder injection).
+    const detectionKey = computeDetectionKey(safeguardDetectionSnapshot)
+    const mergeFlags = computeMergeFlags(payload)
+    const rulesUnchanged =
+      lastSentKeys !== null &&
+      pipelineState.substatTargetsKey === lastSentSubstatTargetsKey &&
+      pipelineState.totalLimitHit === lastSentTotalLimitHit &&
+      pipelineState.truncatedRecipeIndices.length === lastSentTruncatedCount &&
+      mergeFlags === lastSentMergeFlags &&
+      detectionKey === lastSentDetectionKey &&
+      keysEqual(lastSentKeys, pipelineState.keys)
+
+    if (rulesUnchanged) {
+      const skipMsg = `[sfc-diag] rules-clone skipped merged-count=${mergedRulesFinal.length}`
+      console.log(skipMsg)
+      postDiagnostic(skipMsg)
+    } else {
+      // Capture sentinels before the response object is handed off (separate .slice()
+      // calls ensure lastSentKeys and the response's keys array don't alias each other).
+      lastSentKeys = pipelineState.keys.slice()
+      lastSentSubstatTargetsKey = pipelineState.substatTargetsKey
+      lastSentTotalLimitHit = pipelineState.totalLimitHit
+      lastSentTruncatedCount = pipelineState.truncatedRecipeIndices.length
+      lastSentMergeFlags = mergeFlags
+      lastSentDetectionKey = detectionKey
+      const sentMsg = `[sfc-diag] rules-clone sent merged-count=${mergedRulesFinal.length}`
+      console.log(sentMsg)
+      postDiagnostic(sentMsg)
+    }
+
     const response: RuleCacheWorkerResponse = {
       id,
       kind: 'pipeline:done',
       payload: {
-        rulesByRecipeEntries: Array.from(prebuiltCustomRules.entries()),
+        rulesByRecipeEntries: rulesUnchanged ? null : Array.from(prebuiltCustomRules.entries()),
         countsByRecipeEntries: Array.from(pipelineState.countsByRecipe.entries()),
-        keys: pipelineState.keys.slice(),
+        keys: rulesUnchanged ? null : pipelineState.keys.slice(),
         substatTargetsKey: pipelineState.substatTargetsKey,
-        mergedRules: mergedRulesFinal,
+        mergedRules: rulesUnchanged ? null : mergedRulesFinal,
         truncatedRecipeIndices: pipelineState.truncatedRecipeIndices.slice(),
         totalLimitHit: pipelineState.totalLimitHit,
         excludedByTotalLimitIndices: pipelineState.excludedByTotalLimitIndices.slice(),

@@ -980,9 +980,31 @@ pub fn store_artifact_rows_engine(fast_rows: Vec<SafeguardCollectRowFastIn>) -> 
         let Some(engine) = guard.as_mut() else {
             return;
         };
-        engine.stored_rows = Some(rows);
+        // Reuse the existing Vec's backing allocation instead of dropping and re-allocating.
+        // Repeated drop+alloc of large Vecs (1.6–5 MB per call for 8k–25k rows) fragments the
+        // WASM linear memory (which can only grow) → Chrome renderer OOM under sustained load.
+        // clear() zeroes len while retaining capacity; extend() refills in-place without
+        // reallocating as long as new len ≤ old capacity (the common case: same DB or minor
+        // additions). A realloc only occurs when count grows, and at most log₂(N) times total.
+        match engine.stored_rows.as_mut() {
+            Some(existing) => {
+                existing.clear();
+                existing.extend(rows);
+            }
+            None => engine.stored_rows = Some(rows),
+        }
     });
     Ok(count)
+}
+
+/// Returns the current WASM linear memory size in bytes (page_count × 65_536).
+/// Called from rule_engine_wasm, which wraps it in a #[wasm_bindgen] export.
+/// Readable from JS as wasm_linear_memory_bytes(); used by [sfc-diag] worker logs
+/// and the Playwright memory-profiling spec to track heap growth independently of
+/// the CDP ArrayBufferContents metric, which lumps all ArrayBuffers together.
+#[cfg(target_arch = "wasm32")]
+pub fn wasm_linear_memory_bytes_core() -> u32 {
+    (core::arch::wasm32::memory_size(0) as u32) * 65_536
 }
 
 // Shared evaluation implementation — returns String error instead of JsValue.

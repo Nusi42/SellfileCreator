@@ -35,6 +35,7 @@ import initRuleEngineWasm, {
   sort_safeguard_substats_value as sortSafeguardSubstatsWasmValueBinding,
   score_safeguard_candidates_value as scoreSafeguardCandidatesWasmValueBinding,
   version as ruleEngineWasmVersionBinding,
+  wasm_linear_memory_bytes as wasmLinearMemoryBytesBinding,
 } from './generated/rule_engine.js'
 import type { GeneratedBranchRuleEntry, HsfRuleWithRecipe } from '../merge'
 import type { HsfRule } from '../hsfTypes'
@@ -277,6 +278,15 @@ export const evaluateWasmRuleEngineItemsWithLoadedWasm = (params: {
 export const getWasmRuleEngineVersion = async (): Promise<string> => {
   await ensureWasmInitialized()
   return ruleEngineWasmVersionBinding()
+}
+
+// Returns the current WASM linear memory size in bytes (page_count × 65_536).
+// Cheaper and more precise than the CDP ArrayBufferContents metric, which lumps all
+// ArrayBuffers together. Used by worker [sfc-diag] logs and the memory-profiling spec.
+// WASM must be initialized (call warmupWasmRuleEngine first) — returns 0 otherwise.
+export const getWasmLinearMemoryBytes = (): number => {
+  if (!wasmInitialized) return 0
+  return wasmLinearMemoryBytesBinding()
 }
 
 type WasmObsoleteEntry = { index: number; coveredBy: number; reason: string }

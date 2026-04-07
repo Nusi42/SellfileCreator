@@ -1,12 +1,20 @@
 /* eslint import/no-unused-modules: off */
 /**
- * Memory profiling spec — measures JS + WASM heap pressure during two crash scenarios:
- *   1. Rapid recipe-enable/disable toggles while a large DB is loaded (recipe-override path).
- *   2. Rapid endpoint message bursts (WebSocket push path).
+ * Memory profiling spec — measures JS + WASM heap pressure during crash scenarios:
+ *   A. Rapid recipe-enable/disable toggles while a large DB is loaded.
+ *   B. Rapid endpoint message bursts (15 rounds) — tracks per-burst WASM linear memory growth.
+ *   C. 10 identical endpoint bursts — proves the storeArtifactRows fingerprint skip works.
  *
  * Uses Chrome DevTools Protocol (CDP) Performance.getMetrics to sample heap size.
- * Also uses HeapProfiler.takeHeapSnapshot to identify the largest retained object categories.
- * NOT a pass/fail gate — prints tables of peak usage and top retained types.
+ * Uses HeapProfiler.takeHeapSnapshot to identify largest retained object categories.
+ * Uses HeapProfiler.startSampling / getSamplingProfile for call-stack allocation attribution.
+ * All three scenarios are Chromium-only because CDP is not available on Firefox/WebKit.
+ * NOT a pass/fail gate — prints diagnostic tables to stdout.
+ *
+ * Diagnostic log lines produced by the worker (store-rows events) are accumulated on
+ * window.__sfcDiag by the main-thread diagnostic relay (useRuleCacheWorker.ts) and
+ * read via page.evaluate. This bypasses the Terser drop_console production build
+ * setting, which strips console.log calls before Playwright can capture them.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -44,7 +52,6 @@ async function gcAndSample(cdp: CDPSession, label: string): Promise<MemSample> {
   const jsHeapUsedMiB = (m['JSHeapUsedSize'] ?? 0) / 1024 / 1024
   const jsHeapTotalMiB = (m['JSHeapTotalSize'] ?? 0) / 1024 / 1024
   // ArrayBufferContents = total bytes in all ArrayBuffers, INCLUDING WASM memories.
-  // This is the best proxy for "WASM heap used" without parsing a full heap snapshot.
   const arrayBuffersMiB = (m['ArrayBufferContents'] ?? 0) / 1024 / 1024
   const totalEstMiB = jsHeapUsedMiB + arrayBuffersMiB
   console.log(
@@ -61,9 +68,7 @@ async function gcAndSample(cdp: CDPSession, label: string): Promise<MemSample> {
  * line-by-line using a simple regex scan rather than full JSON.parse.
  */
 async function snapshotTopObjects(cdp: CDPSession, topN = 15): Promise<void> {
-  // Buffer chunks and track current parse position.
   let buffer = ''
-  // Fast maps for accumulation — populated once we've seen the metadata header.
   const sizeByType: Record<string, number> = {}
   let nodeTypes: string[] | null = null
   let fieldCount = 0
@@ -74,7 +79,6 @@ async function snapshotTopObjects(cdp: CDPSession, topN = 15): Promise<void> {
   const chunkListener = (params: { chunk: string }) => {
     buffer += params.chunk
 
-    // Lazily extract node_types from the metadata preamble the first time.
     if (!nodeTypes) {
       const typesMatch = buffer.match(/"node_types":\s*\[\s*\[([^\]]+)\]/)
       if (typesMatch) {
@@ -89,14 +93,12 @@ async function snapshotTopObjects(cdp: CDPSession, topN = 15): Promise<void> {
       }
     }
 
-    // Once we hit the "nodes" key, switch to scanning mode.
     if (!inNodesArray) {
       const nodesStart = buffer.indexOf('"nodes":[')
       if (nodesStart !== -1) {
         buffer = buffer.slice(nodesStart + '"nodes":['.length)
         inNodesArray = true
       } else {
-        // Keep only the last 2 KB of the preamble in the buffer.
         if (buffer.length > 2048) buffer = buffer.slice(-2048)
         return
       }
@@ -104,11 +106,6 @@ async function snapshotTopObjects(cdp: CDPSession, topN = 15): Promise<void> {
 
     if (!nodeTypes || fieldCount === 0) return
 
-    // Scan complete comma-separated number sequences (groups of fieldCount numbers).
-    // Each group represents one node: [type, name, id, self_size, edge_count, ...]
-    const re = /(\d+(?:,\d+){${fieldCount - 1}})/g
-    re.lastIndex = 0
-    // Build the dynamic regex once per chunk.
     const dynRe = new RegExp(`(\\d+(?:,\\d+){${fieldCount - 1}})`, 'g')
     let m: RegExpExecArray | null
     let lastMatchEnd = 0
@@ -122,7 +119,6 @@ async function snapshotTopObjects(cdp: CDPSession, topN = 15): Promise<void> {
         sizeByType[typeName] = (sizeByType[typeName] ?? 0) + selfSize
       }
     }
-    // Retain only the unparsed tail so the next chunk can complete partial groups.
     buffer = buffer.slice(lastMatchEnd)
   }
 
@@ -149,6 +145,43 @@ async function snapshotTopObjects(cdp: CDPSession, topN = 15): Promise<void> {
   console.log(`[heap] ──────────────────────────────────────────────────────────`)
 }
 
+/**
+ * Stop CDP allocation sampling and print the top call frames by total allocated bytes.
+ * Directly answers "which code path is responsible for most retained allocations?"
+ */
+async function printAllocationSamplingProfile(cdp: CDPSession, topN = 15): Promise<void> {
+  const result = await cdp.send('HeapProfiler.stopSampling')
+  type SamplingNode = {
+    callFrame: { functionName: string; url: string; lineNumber: number }
+    selfSize: number
+    children: SamplingNode[]
+  }
+  const profile = result.profile as { head: SamplingNode }
+  const byFrame: Record<string, number> = {}
+  const walk = (node: SamplingNode): void => {
+    if (node.selfSize > 0) {
+      const name = node.callFrame.functionName || '(anonymous)'
+      const loc = node.callFrame.url
+        ? ` @ ${node.callFrame.url.replace(/.*\//, '')}:${node.callFrame.lineNumber}`
+        : ''
+      const key = `${name}${loc}`
+      byFrame[key] = (byFrame[key] ?? 0) + node.selfSize
+    }
+    for (const child of node.children) walk(child)
+  }
+  walk(profile.head)
+  const sorted = Object.entries(byFrame)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, topN)
+  const totalBytes = Object.values(byFrame).reduce((a, b) => a + b, 0)
+  const totalMiB = isFinite(totalBytes) ? (totalBytes / 1024 / 1024).toFixed(1) : '?'
+  console.log(`[alloc] ── Top ${topN} allocation call frames (total sampled: ${totalMiB} MiB) ──`)
+  for (const [frame, bytes] of sorted) {
+    console.log(`[alloc]   ${(bytes / 1024 / 1024).toFixed(2).padStart(8)} MiB  ${frame}`)
+  }
+  console.log(`[alloc] ──────────────────────────────────────────────────────────`)
+}
+
 async function waitForIdle(page: import('@playwright/test').Page): Promise<void> {
   const workload = getWorkloadIndicator(page)
   await workload.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault }).catch(() => undefined)
@@ -166,9 +199,88 @@ async function loadSfcAndDb(page: import('@playwright/test').Page): Promise<void
   await waitForIdle(page)
 }
 
+/**
+ * Read all [sfc-diag] entries accumulated on window.__sfcDiag and clear the array.
+ * The main-thread diagnostic relay (useRuleCacheWorker 'diagnostic' case) writes there
+ * because console.log is stripped by the Terser drop_console production-build setting.
+ */
+async function drainDiagLogs(page: import('@playwright/test').Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const w = window as Window & { __sfcDiag?: string[] }
+    const logs = w.__sfcDiag ?? []
+    w.__sfcDiag = []
+    return logs
+  })
+}
+
+/** Parse the last wasm-linear-mem=X.XXMiB value from a set of diag log lines. */
+function parseWasmMemMiB(diagLogs: string[]): number {
+  for (let i = diagLogs.length - 1; i >= 0; i--) {
+    const m = diagLogs[i]!.match(/wasm-linear-mem=([\d.]+)MiB/)
+    if (m) return parseFloat(m[1]!)
+  }
+  return -1
+}
+
+/** Count how many store-rows log lines match a keyword ('stored' or 'skipped-unchanged'). */
+function countStoreRows(diagLogs: string[], keyword: string): number {
+  return diagLogs.filter((l) => l.includes('store-rows') && l.includes(keyword)).length
+}
+
+/** Load the sample endpoint log and patch the missing commas (same fix as endpoint-replay). */
+function loadSampleMessages(): unknown[] {
+  let rawJson = fs.readFileSync(SAMPLE_LOG_PATH, 'utf-8')
+  rawJson = rawJson.replace(/ {4}\}\{\n {8}"jsonrpc"/g, '    },\n    {\n        "jsonrpc"')
+  return JSON.parse(rawJson) as unknown[]
+}
+
+/**
+ * Build one synthetic artifact entry in RSL Helper wire format.
+ * Fields chosen to produce realistic storeArtifactRows work:
+ *   kindId 1-6 = weapon/helmet/shield/gauntlet/chestplate/boots (6 slots, cycling)
+ *   setKindId 1-30 = cycling through 30 set types
+ *   4 substats at levels 3/2/1/1 — typical 4-slot 5★ artifact
+ *   statValue is the RSL Helper fixed-point encoding (×2^32 for percentage stats).
+ */
+function makeSyntheticArtifact(id: number): unknown {
+  const kindId = (id % 6) + 1
+  return {
+    id,
+    kindId,
+    rankId: 5,
+    rarityId: 5,
+    level: 16,
+    setKindId: (id % 30) + 1,
+    requiredFraction: 0,
+    // Slot 1 (weapon) uses ATK as primary; other slots use HP% (id=2, isAbsolute=0).
+    primary: kindId === 1
+      ? { id: 1, level: 0, isAbsolute: 1, statValue: 214748364800, glyphValue: 0, mValue: 0 }
+      : { id: 2, level: 0, isAbsolute: 0, statValue: 42949672960, glyphValue: 0, mValue: 0 },
+    secondary: [
+      // ATK flat, speed, crit rate%, crit dmg% — common competitive build
+      { id: 1, level: 3, isAbsolute: 1, statValue: 214748364800, glyphValue: 0, mValue: 0 },
+      { id: 6, level: 2, isAbsolute: 1, statValue: 42949672960, glyphValue: 0, mValue: 0 },
+      { id: 5, level: 1, isAbsolute: 0, statValue: 42949672960, glyphValue: 0, mValue: 0 },
+      { id: 7, level: 1, isAbsolute: 0, statValue: 42949672960, glyphValue: 0, mValue: 0 },
+    ],
+  }
+}
+
+/**
+ * Build a JSON-RPC 2.0 `artifacts` push message with `count` synthetic items.
+ * This is the same format RSL Helper sends over the WebSocket endpoint.
+ */
+function makeLargeArtifactMessage(count: number): unknown {
+  const artifacts = Array.from({ length: count }, (_, i) => makeSyntheticArtifact(i + 1))
+  return { jsonrpc: '2.0', method: 'artifacts', params: { artifacts } }
+}
+
 // ── Scenario A: rapid recipe enable/disable toggles ─────────────────────────
 
 test.describe('memory-profiling', () => {
+  // All three scenarios use the Chrome DevTools Protocol (CDP) which is Chromium-only.
+  test.skip(({ browserName }) => browserName !== 'chromium', 'CDP (HeapProfiler / Performance) is Chromium-only')
+
   test('Scenario A: rapid recipe enable/disable toggle with large DB loaded', async ({ page, context }) => {
     test.setTimeout(180_000)
 
@@ -209,14 +321,12 @@ test.describe('memory-profiling', () => {
     console.log(`[mem] Growth over loaded baseline: ${growth.toFixed(1)} MiB\n`)
   })
 
-  // ── Scenario B: rapid endpoint bursts ──────────────────────────────────────
+  // ── Scenario B: rapid endpoint bursts (15 rounds) with per-burst wasm-mem tracking ──
 
   test('Scenario B: rapid endpoint replay bursts with large DB loaded', async ({ page, context }) => {
-    test.setTimeout(300_000)
+    test.setTimeout(360_000)
 
-    let rawJson = fs.readFileSync(SAMPLE_LOG_PATH, 'utf-8')
-    rawJson = rawJson.replace(/ {4}\}\{\n {8}"jsonrpc"/g, '    },\n    {\n        "jsonrpc"')
-    const messages: unknown[] = JSON.parse(rawJson)
+    const messages = loadSampleMessages()
 
     let serverWs: import('@playwright/test').WebSocketRoute | null = null
     await page.routeWebSocket(ENDPOINT_URL, (ws) => {
@@ -240,32 +350,40 @@ test.describe('memory-profiling', () => {
     await snap('after SFC + DB loaded + pipeline settled')
 
     for (let i = 0; i < 50 && !serverWs; i++) await page.waitForTimeout(100)
-    if (!serverWs) throw new Error('WebSocket never established')
+    // Capture into const immediately — TypeScript narrows const reliably but not let.
+    const ws = serverWs
+    if (!ws) throw new Error('WebSocket never established')
 
     // Print all available CDP metrics once so we can see if any WASM-related counters exist.
     const allMetrics = await cdp.send('Performance.getMetrics')
     console.log('[mem] Available CDP metrics:', allMetrics.metrics.map((m: { name: string }) => m.name).join(', '))
 
-    // Collect [sfc-diag] console messages from the app so we can see which code paths fire.
-    const diagLogs: string[] = []
-    page.on('console', (msg) => {
-      if (msg.text().startsWith('[sfc-diag]')) diagLogs.push(msg.text())
-    })
+    // Start allocation sampling before first burst to capture call-stack attribution.
+    // samplingInterval=512 bytes gives reasonable resolution without excessive overhead.
+    await cdp.send('HeapProfiler.startSampling', { samplingInterval: 512 })
 
-    // 5 sequential bursts: send all 9 messages, wait for pipeline to settle, measure.
-    // Each burst is fully settled before the next, so the drain loop coalesces each into
-    // one pipeline run and the diag logs reflect exactly one round of processing.
-    const ws = serverWs
-    for (let burst = 0; burst < 5; burst++) {
-      diagLogs.length = 0
+    // Drain any diag logs accumulated during load.
+    await drainDiagLogs(page)
+
+    const BURST_COUNT = 15
+    for (let burst = 0; burst < BURST_COUNT; burst++) {
       for (const msg of messages) ws.send(JSON.stringify(msg))
-      // Wait for this burst's pipeline to fully settle before measuring and sending the next.
       await waitForIdle(page)
-      // Print diag logs for this burst so we can see what actually executed.
-      console.log(`[mem] ── Burst ${burst + 1} diag logs ──`)
-      for (const line of diagLogs) console.log(`[mem]   ${line}`)
-      await snap(`after burst ${burst + 1}/5 settled`)
+      const burstLogs = await drainDiagLogs(page)
+      const wasmMiB = parseWasmMemMiB(burstLogs)
+      const storedCount = countStoreRows(burstLogs, '(stored)')
+      const skippedCount = countStoreRows(burstLogs, '(skipped-unchanged)')
+      console.log(
+        `[mem] ── Burst ${String(burst + 1).padStart(2)}/${BURST_COUNT}`
+        + ` stored=${storedCount} skipped=${skippedCount}`
+        + (wasmMiB >= 0 ? ` wasm-linear-mem=${wasmMiB.toFixed(2)}MiB` : ''),
+      )
+      for (const line of burstLogs) console.log(`[mem]   ${line}`)
+      await snap(`after burst ${burst + 1}/${BURST_COUNT} settled`)
     }
+
+    console.log('[mem] Allocation sampling profile (call frames retaining most memory):')
+    await printAllocationSamplingProfile(cdp)
 
     console.log('[mem] Heap snapshot after all endpoint bursts:')
     await snapshotTopObjects(cdp, 20)
@@ -274,11 +392,196 @@ test.describe('memory-profiling', () => {
     const last = samples.at(-1)?.jsHeapUsedMiB ?? 0
     const peak = samples.reduce((a, b) => a.jsHeapUsedMiB > b.jsHeapUsedMiB ? a : b)
 
+    console.log(`\n[mem] ── Scenario B: ArrayBufferContents per burst ──────────────`)
+    for (const s of samples.slice(2)) {
+      console.log(`[mem]   ${s.label.padEnd(45)} arraybuf=${s.arrayBuffersMiB.toFixed(2).padStart(7)} MiB`)
+    }
     console.log(`\n[mem] ── Scenario B summary ──────────────────────────────────`)
     console.log(`[mem] Baseline after load: ${baseline.toFixed(1)} MiB`)
-    console.log(`[mem] After 5 bursts:      ${last.toFixed(1)} MiB`)
+    console.log(`[mem] After ${BURST_COUNT} bursts:    ${last.toFixed(1)} MiB`)
     console.log(`[mem] Peak:                ${peak.jsHeapUsedMiB.toFixed(1)} MiB at "${peak.label}"`)
     console.log(`[mem] Retained growth:     ${(last - baseline).toFixed(1)} MiB`)
     console.log(`[mem] ──────────────────────────────────────────────────────────\n`)
+  })
+
+  // ── Scenario C: 10 identical bursts — proves storeArtifactRows fingerprint skip ──
+  //
+  // Same 9 messages replayed 10 times. The first burst must call storeArtifactRows
+  // (fingerprint is null). Bursts 2-10 should show "(skipped-unchanged)" because the
+  // artifact set is identical. WASM ArrayBufferContents should be flat after burst 1.
+
+  test('Scenario C: 10 identical endpoint bursts — verify storeArtifactRows skip', async ({ page, context }) => {
+    test.setTimeout(300_000)
+
+    const messages = loadSampleMessages()
+
+    let serverWs: import('@playwright/test').WebSocketRoute | null = null
+    await page.routeWebSocket(ENDPOINT_URL, (ws) => {
+      serverWs = ws
+      ws.onMessage(() => { /* discard outbound */ })
+    })
+
+    await prepareApp(page)
+    await page.goto(`/?endpoint=${ENDPOINT_URL}`, APP_GOTO_OPTIONS)
+
+    const cdp = await context.newCDPSession(page)
+    await cdp.send('Performance.enable')
+    await cdp.send('HeapProfiler.enable')
+
+    const samples: MemSample[] = []
+    const snap = (label: string) => gcAndSample(cdp, label).then((s) => { samples.push(s); return s })
+
+    await snap('baseline (page loaded, no SFC/DB)')
+    await loadSfcAndDb(page)
+    await snap('after SFC + DB loaded + pipeline settled')
+
+    for (let i = 0; i < 50 && !serverWs; i++) await page.waitForTimeout(100)
+    const ws = serverWs
+    if (!ws) throw new Error('WebSocket never established')
+
+    await cdp.send('HeapProfiler.startSampling', { samplingInterval: 512 })
+
+    // Drain any diag logs accumulated during load.
+    await drainDiagLogs(page)
+
+    const BURST_COUNT = 10
+    const allDiagLogs: string[] = []
+    const wasmMemPerBurst: number[] = []
+
+    for (let burst = 0; burst < BURST_COUNT; burst++) {
+      for (const msg of messages) ws.send(JSON.stringify(msg))
+      await waitForIdle(page)
+      const burstLogs = await drainDiagLogs(page)
+      allDiagLogs.push(...burstLogs)
+      const wasmMiB = parseWasmMemMiB(burstLogs)
+      wasmMemPerBurst.push(wasmMiB)
+      const storedCount = countStoreRows(burstLogs, '(stored)')
+      const skippedCount = countStoreRows(burstLogs, '(skipped-unchanged)')
+      console.log(
+        `[mem] Burst ${String(burst + 1).padStart(2)}/${BURST_COUNT}`
+        + ` — stored=${storedCount} skipped=${skippedCount}`
+        + (wasmMiB >= 0 ? ` wasm-linear-mem=${wasmMiB.toFixed(2)}MiB` : ''),
+      )
+      await snap(`after burst ${burst + 1}/${BURST_COUNT}`)
+    }
+
+    console.log('[mem] Allocation sampling profile:')
+    await printAllocationSamplingProfile(cdp)
+
+    const totalStored = countStoreRows(allDiagLogs, '(stored)')
+    const totalSkipped = countStoreRows(allDiagLogs, '(skipped-unchanged)')
+    const arraybufGrowth = (samples.at(-1)?.arrayBuffersMiB ?? 0) - (samples[1]?.arrayBuffersMiB ?? 0)
+    const wasmFirst = wasmMemPerBurst.find((v) => v >= 0) ?? -1
+    const wasmLast = [...wasmMemPerBurst].reverse().find((v) => v >= 0) ?? -1
+
+    console.log(`\n[mem] ── Scenario C summary ──────────────────────────────────`)
+    console.log(`[mem] storeArtifactRows (stored):          ${totalStored}  (expected: 1)`)
+    console.log(`[mem] storeArtifactRows (skipped-unchanged): ${totalSkipped}  (expected: ${BURST_COUNT - 1})`)
+    console.log(`[mem] WASM linear mem after burst 1:       ${wasmFirst >= 0 ? `${wasmFirst.toFixed(2)} MiB` : 'n/a'}`)
+    console.log(`[mem] WASM linear mem after burst ${BURST_COUNT}:     ${wasmLast >= 0 ? `${wasmLast.toFixed(2)} MiB` : 'n/a'}`)
+    console.log(`[mem] ArrayBufferContents growth (load→end): ${arraybufGrowth.toFixed(2)} MiB  (expected: ~0 after burst 1)`)
+    console.log(`[mem] ──────────────────────────────────────────────────────────\n`)
+  })
+
+  // ── Scenario D: 10,000 synthetic artifacts × 10 identical bursts ─────────────────
+  //
+  // Uses generated data instead of the 4-artifact sample log so there is enough heap
+  // pressure to make the before/after Vec-reuse difference measurable:
+  //   10,000 artifacts × ~200 bytes/row ≈ 2 MiB per storeArtifactRows call.
+  //
+  // Expected (with fix):
+  //   Burst 1 → storeArtifactRows called (fingerprint was null), WASM mem rises.
+  //   Bursts 2-10 → fingerprint matches → skipped-unchanged, WASM mem flat.
+  //   ArrayBufferContents growth after burst 1 ≈ 0 on subsequent bursts.
+  //
+  // To baseline without the fix: temporarily revert the Rust clear()+extend() and the
+  // JS fingerprint guard, then re-run. You should see `stored` on every burst and
+  // monotonic WASM linear memory growth of ~2 MiB per burst.
+
+  test('Scenario D: 10,000 synthetic artifacts × 10 identical bursts — large-data memory proof', async ({ page, context }) => {
+    test.setTimeout(600_000)
+
+    const ARTIFACT_COUNT = 10_000
+    const artifactMsg = makeLargeArtifactMessage(ARTIFACT_COUNT)
+
+    let serverWs: import('@playwright/test').WebSocketRoute | null = null
+    await page.routeWebSocket(ENDPOINT_URL, (ws) => {
+      serverWs = ws
+      ws.onMessage(() => { /* discard outbound */ })
+    })
+
+    await prepareApp(page)
+    await page.goto(`/?endpoint=${ENDPOINT_URL}`, APP_GOTO_OPTIONS)
+
+    const cdp = await context.newCDPSession(page)
+    await cdp.send('Performance.enable')
+    await cdp.send('HeapProfiler.enable')
+
+    const samples: MemSample[] = []
+    const snap = (label: string) => gcAndSample(cdp, label).then((s) => { samples.push(s); return s })
+
+    await snap('baseline (page loaded, no SFC/DB)')
+    await loadSfcAndDb(page)
+    await snap('after SFC + DB loaded + pipeline settled')
+
+    for (let i = 0; i < 50 && !serverWs; i++) await page.waitForTimeout(100)
+    const ws = serverWs
+    if (!ws) throw new Error('WebSocket never established')
+
+    await cdp.send('HeapProfiler.startSampling', { samplingInterval: 512 })
+
+    // Drain logs accumulated during load.
+    await drainDiagLogs(page)
+
+    const BURST_COUNT = 10
+    const allDiagLogs: string[] = []
+    const wasmMemPerBurst: number[] = []
+
+    console.log(`[mem] Scenario D: sending ${ARTIFACT_COUNT} synthetic artifacts x ${BURST_COUNT} identical bursts`)
+
+    for (let burst = 0; burst < BURST_COUNT; burst++) {
+      // Single WebSocket message — same shape as a real RSL Helper artifacts push.
+      ws.send(JSON.stringify(artifactMsg))
+      await waitForIdle(page)
+      const burstLogs = await drainDiagLogs(page)
+      allDiagLogs.push(...burstLogs)
+      const wasmMiB = parseWasmMemMiB(burstLogs)
+      wasmMemPerBurst.push(wasmMiB)
+      const storedCount = countStoreRows(burstLogs, '(stored)')
+      const skippedCount = countStoreRows(burstLogs, '(skipped-unchanged)')
+      const wasmStr = wasmMiB >= 0 ? ` wasm-linear-mem=${wasmMiB.toFixed(2)}MiB` : ''
+      console.log(
+        `[mem] -- Burst ${String(burst + 1).padStart(2)}/${BURST_COUNT}`
+        + ` stored=${storedCount} skipped=${skippedCount}${wasmStr}`,
+      )
+      for (const line of burstLogs) console.log(`[mem]   ${line}`)
+      await snap(`after burst ${burst + 1}/${BURST_COUNT}`)
+    }
+
+    console.log('[mem] Scenario D allocation sampling profile:')
+    await printAllocationSamplingProfile(cdp)
+
+    const totalStored = countStoreRows(allDiagLogs, '(stored)')
+    const totalSkipped = countStoreRows(allDiagLogs, '(skipped-unchanged)')
+    // Burst 1 is samples[2] (index 0=baseline, 1=after load, 2=after burst 1).
+    const arraybufAfterBurst1 = samples[2]?.arrayBuffersMiB ?? 0
+    const arraybufAfterLast = samples.at(-1)?.arrayBuffersMiB ?? 0
+    const arraybufDrift = arraybufAfterLast - arraybufAfterBurst1
+    const wasmFirst = wasmMemPerBurst.find((v) => v >= 0) ?? -1
+    const wasmLast = [...wasmMemPerBurst].reverse().find((v) => v >= 0) ?? -1
+
+    console.log(`\n[mem] -- Scenario D: ArrayBufferContents per burst --`)
+    for (const s of samples.slice(2)) {
+      console.log(`[mem]   ${s.label.padEnd(45)} arraybuf=${s.arrayBuffersMiB.toFixed(2).padStart(7)} MiB`)
+    }
+    console.log(`\n[mem] -- Scenario D summary (${ARTIFACT_COUNT} synthetic artifacts) --`)
+    console.log(`[mem] storeArtifactRows (stored):            ${totalStored}  (expected: 1)`)
+    console.log(`[mem] storeArtifactRows (skipped-unchanged): ${totalSkipped}  (expected: ${BURST_COUNT - 1})`)
+    const wasmFirstStr = wasmFirst >= 0 ? `${wasmFirst.toFixed(2)} MiB` : 'n/a'
+    const wasmLastStr = wasmLast >= 0 ? `${wasmLast.toFixed(2)} MiB` : 'n/a'
+    console.log(`[mem] WASM linear mem after burst 1:         ${wasmFirstStr}`)
+    console.log(`[mem] WASM linear mem after burst ${BURST_COUNT}:       ${wasmLastStr}`)
+    console.log(`[mem] ArrayBufferContents burst1->last drift: ${arraybufDrift.toFixed(2)} MiB  (expected: ~0)`)
+    console.log(`[mem] ----------------------------------------------------------\n`)
   })
 })
