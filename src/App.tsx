@@ -4166,6 +4166,47 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         return championId ? { ...row, cID: championId } : row
       })
     }
+    // When champions have not arrived yet, reconstruct their rows from the current
+    // queue so the synthetic snapshot carries full equippedChampionBaseId / Name /
+    // Rarity / Location — all of which feed the item signature and the card UI.
+    let syntheticChampions = parts.champions
+    if (syntheticChampions === null) {
+      const seen = new Set<number>()
+      const rows: GearDbChampionRow[] = []
+      for (const item of gearInspectorItemsRef.current) {
+        const cId = item.previewExtras?.equippedToChampionId
+        if (cId == null || seen.has(cId)) continue
+        seen.add(cId)
+        const loc = item.previewExtras?.equippedChampionLocation
+        const baseId = item.previewExtras?.equippedChampionBaseId
+        const asc = item.previewExtras?.equippedChampionAscensionLevel
+        rows.push({
+          ID: cId,
+          Name: item.previewExtras?.equippedChampionName ?? null,
+          BaseHeroID: baseId ?? null,
+          // HeroID = BaseHeroID + ascensionLevel; both are required for the ascension calc.
+          HeroID: baseId != null && asc != null ? baseId + asc : null,
+          Rarity: item.previewExtras?.equippedChampionRarity ?? null,
+          // Reverse-map ChampionLocation back to the integer flags createChampionLookup expects.
+          Vault: loc === 'vault' ? 1 : 0,
+          RVault: loc === 'reserveVault' ? 1 : 0,
+        })
+      }
+      syntheticChampions = rows
+    }
+    // When lastUsed has not arrived yet, reconstruct entries from the current queue.
+    // coerceLastUseValue passes strings through unchanged, so existing timestamps survive.
+    let syntheticLastUsed = parts.lastUsed
+    if (syntheticLastUsed === null) {
+      const rows: GearDbLastUsedRow[] = []
+      for (const item of gearInspectorItemsRef.current) {
+        const aId = item.previewExtras?.id
+        const ts = item.previewExtras?.lastUseLocalTimestamp
+        if (aId == null || ts == null) continue
+        rows.push({ id: aId, lastUse: ts })
+      }
+      syntheticLastUsed = rows
+    }
     // Synthesize a snapshot immediately using whatever parts are available.
     // Null slots fall back to empty arrays so normalization always succeeds.
     const syntheticSnapshot: GearDbRawSnapshotCommand = {
@@ -4175,8 +4216,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       payloadVersion: null,
       artifacts: patchCID(parts.artifacts ?? []),
       inboxArtifacts: patchCID(parts.inboxArtifacts ?? []),
-      champions: parts.champions ?? [],
-      lastUsed: parts.lastUsed ?? [],
+      champions: syntheticChampions,
+      lastUsed: syntheticLastUsed,
     }
     // Collect existing items for part types not yet received so the diff treats
     // them as "desired" and never removes gear loaded from file or autosave while
