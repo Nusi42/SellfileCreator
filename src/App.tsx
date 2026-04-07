@@ -4143,7 +4143,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Patch cID on artifact rows using the champion slot map when available.
     // The endpoint reverses the relationship — champions list their artifacts
     // instead of artifacts carrying their equipped-champion id (cID).
-    const equippedBy = parts.equippedByArtifact
+    // When champions have not arrived yet (equippedByArtifact is null), reconstruct
+    // the map from the current queue so that a restored session's champion
+    // associations survive the first artifacts-only push until the real champions
+    // message lands and populates equippedByArtifact authoritatively.
+    let equippedBy = parts.equippedByArtifact
+    if (equippedBy == null) {
+      const fallback = new Map<number, number>()
+      for (const item of gearInspectorItemsRef.current) {
+        const aId = item.previewExtras?.id
+        const cId = item.previewExtras?.equippedToChampionId
+        if (aId != null && cId != null) fallback.set(aId, cId)
+      }
+      if (fallback.size > 0) equippedBy = fallback
+    }
     const patchCID = (rows: GearDbArtifactRow[]): GearDbArtifactRow[] => {
       if (!equippedBy || equippedBy.size === 0) return rows
       return rows.map(row => {
