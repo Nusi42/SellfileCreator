@@ -64,12 +64,20 @@ const persistentRuleCache = new Map<string, RecipeRulesCacheEntry>()
 let lastArtifactStoreFingerprint: number | null = null
 
 // Sentinels tracking the most recently sent per-recipe rule data.
-// When these match the current pipeline output, rulesByRecipeEntries/mergedRules/keys
+// When all six match the current pipeline output, rulesByRecipeEntries/mergedRules/keys
 // are sent as null, skipping the structured-clone of ~50–100 MiB on artifact-only bursts.
 let lastSentKeys: string[] | null = null
 let lastSentSubstatTargetsKey: string | null = null
 let lastSentTotalLimitHit = false
 let lastSentTruncatedCount = 0
+// Captures omitDisabledBeforeSafeguards, dedupeBeforeSafeguards, safeguards.enabled,
+// safeguards.rules.length, and presence of finalSellRemainder — all inputs to
+// computeMergedRulesFromComponents that are NOT reflected in pipelineState.keys.
+let lastSentMergeFlags: string | null = null
+// Fingerprint of the safeguard detection entries that drove the last sent mergedRulesFinal.
+// scannedAt is excluded (changes every run but does not affect merged rules).
+// Covers which entries were detected and how many placeholder rules each needs.
+let lastSentDetectionKey: string | null = null
 
 // O(N) element-wise comparison; no allocation.
 // V8 terminates at pointer equality for identical strings (common case for large fingerprints).
@@ -79,6 +87,31 @@ const keysEqual = (a: string[], b: string[]): boolean => {
     if (a[i] !== b[i]) return false
   }
   return true
+}
+
+// Cheap string key capturing all safeguard-merge inputs not in pipelineState.keys.
+// Boolean flags are encoded as bits; rule count catches add/remove without needing
+// to stringify each rule (content changes are rare and would show up in detection anyway).
+const computeMergeFlags = (
+  payload: Extract<RuleCacheWorkerRequest, { kind: 'pipeline' }>['payload'],
+): string => {
+  const { omitDisabledBeforeSafeguards: omit, dedupeBeforeSafeguards: dedup, safeguards } = payload
+  return `${omit ? 1 : 0}${dedup ? 1 : 0}${safeguards.enabled ? 1 : 0}${safeguards.rules.length}${payload.finalSellRemainder != null ? 1 : 0}`
+}
+
+// Fingerprint of the safeguard detection snapshot that drives placeholder-rule injection.
+// Two snapshots with the same key produce identical injected rules in mergedRulesFinal.
+// scannedAt is excluded — it changes every run regardless of content.
+const computeDetectionKey = (snapshot: SafeguardDetectionSnapshot | null): string => {
+  if (snapshot === null || snapshot.entries.length === 0) return ''
+  // For each detected combination: its stable hash + per-placeholder (missing count, reason,
+  // substat variant count). Entry order is deterministic for the same input.
+  return snapshot.entries.map((e) => {
+    const ph = e.placeholders.map(
+      (p) => `${p.missing}${p.reason}${p.substatVariants?.length ?? 0}`,
+    ).join(',')
+    return `${e.hash}:${ph}`
+  }).join('|')
 }
 
 // Compute a 32-bit integer hash over the mutable fields of each store row:
@@ -512,18 +545,21 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     if (runIsStale()) return
 
     // When safeguards are injecting rules into mergedRulesFinal, the merged output depends
-    // on detection results (not just recipe fingerprints) — always send the full payload.
-    const safeguardsInjecting =
-      safeguardDetectionSnapshot !== null && safeguardDetectionSnapshot.entries.length > 0
-    // Check whether the per-recipe rule data is identical to what the main thread already
-    // holds. If so, send null for the three large fields to skip structured-cloning ~50–100 MiB
+    // Check whether mergedRulesFinal is identical to what the main thread already holds.
+    // If so, send null for the three large fields to skip structured-cloning ~50–100 MiB
     // on artifact-only endpoint bursts (the dominant cause of JS heap growth / OOM crashes).
+    // mergedRulesFinal depends on: recipe keys + substat targets + totalLimitHit +
+    // truncatedCount + merge flags (omitDisabled, dedupe, safeguards.enabled/count,
+    // finalSellRemainder presence) + safeguard detection entries (drive placeholder injection).
+    const detectionKey = computeDetectionKey(safeguardDetectionSnapshot)
+    const mergeFlags = computeMergeFlags(payload)
     const rulesUnchanged =
-      !safeguardsInjecting &&
       lastSentKeys !== null &&
       pipelineState.substatTargetsKey === lastSentSubstatTargetsKey &&
       pipelineState.totalLimitHit === lastSentTotalLimitHit &&
       pipelineState.truncatedRecipeIndices.length === lastSentTruncatedCount &&
+      mergeFlags === lastSentMergeFlags &&
+      detectionKey === lastSentDetectionKey &&
       keysEqual(lastSentKeys, pipelineState.keys)
 
     if (rulesUnchanged) {
@@ -537,6 +573,8 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       lastSentSubstatTargetsKey = pipelineState.substatTargetsKey
       lastSentTotalLimitHit = pipelineState.totalLimitHit
       lastSentTruncatedCount = pipelineState.truncatedRecipeIndices.length
+      lastSentMergeFlags = mergeFlags
+      lastSentDetectionKey = detectionKey
       const sentMsg = `[sfc-diag] rules-clone sent merged-count=${mergedRulesFinal.length}`
       console.log(sentMsg)
       postDiagnostic(sentMsg)
