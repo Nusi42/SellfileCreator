@@ -63,6 +63,24 @@ const persistentRuleCache = new Map<string, RecipeRulesCacheEntry>()
 // JS→WASM serialization + Vec alloc on the Rust side) is skipped entirely.
 let lastArtifactStoreFingerprint: number | null = null
 
+// Sentinels tracking the most recently sent per-recipe rule data.
+// When these match the current pipeline output, rulesByRecipeEntries/mergedRules/keys
+// are sent as null, skipping the structured-clone of ~50–100 MiB on artifact-only bursts.
+let lastSentKeys: string[] | null = null
+let lastSentSubstatTargetsKey: string | null = null
+let lastSentTotalLimitHit = false
+let lastSentTruncatedCount = 0
+
+// O(N) element-wise comparison; no allocation.
+// V8 terminates at pointer equality for identical strings (common case for large fingerprints).
+const keysEqual = (a: string[], b: string[]): boolean => {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false
+  }
+  return true
+}
+
 // Compute a 32-bit integer hash over the mutable fields of each store row:
 //   id            — artifact added or removed
 //   level         — upgrade (also bounds which substats are unlocked)
@@ -493,15 +511,46 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
 
     if (runIsStale()) return
 
+    // When safeguards are injecting rules into mergedRulesFinal, the merged output depends
+    // on detection results (not just recipe fingerprints) — always send the full payload.
+    const safeguardsInjecting =
+      safeguardDetectionSnapshot !== null && safeguardDetectionSnapshot.entries.length > 0
+    // Check whether the per-recipe rule data is identical to what the main thread already
+    // holds. If so, send null for the three large fields to skip structured-cloning ~50–100 MiB
+    // on artifact-only endpoint bursts (the dominant cause of JS heap growth / OOM crashes).
+    const rulesUnchanged =
+      !safeguardsInjecting &&
+      lastSentKeys !== null &&
+      pipelineState.substatTargetsKey === lastSentSubstatTargetsKey &&
+      pipelineState.totalLimitHit === lastSentTotalLimitHit &&
+      pipelineState.truncatedRecipeIndices.length === lastSentTruncatedCount &&
+      keysEqual(lastSentKeys, pipelineState.keys)
+
+    if (rulesUnchanged) {
+      const skipMsg = `[sfc-diag] rules-clone skipped merged-count=${mergedRulesFinal.length}`
+      console.log(skipMsg)
+      postDiagnostic(skipMsg)
+    } else {
+      // Capture sentinels before the response object is handed off (separate .slice()
+      // calls ensure lastSentKeys and the response's keys array don't alias each other).
+      lastSentKeys = pipelineState.keys.slice()
+      lastSentSubstatTargetsKey = pipelineState.substatTargetsKey
+      lastSentTotalLimitHit = pipelineState.totalLimitHit
+      lastSentTruncatedCount = pipelineState.truncatedRecipeIndices.length
+      const sentMsg = `[sfc-diag] rules-clone sent merged-count=${mergedRulesFinal.length}`
+      console.log(sentMsg)
+      postDiagnostic(sentMsg)
+    }
+
     const response: RuleCacheWorkerResponse = {
       id,
       kind: 'pipeline:done',
       payload: {
-        rulesByRecipeEntries: Array.from(prebuiltCustomRules.entries()),
+        rulesByRecipeEntries: rulesUnchanged ? null : Array.from(prebuiltCustomRules.entries()),
         countsByRecipeEntries: Array.from(pipelineState.countsByRecipe.entries()),
-        keys: pipelineState.keys.slice(),
+        keys: rulesUnchanged ? null : pipelineState.keys.slice(),
         substatTargetsKey: pipelineState.substatTargetsKey,
-        mergedRules: mergedRulesFinal,
+        mergedRules: rulesUnchanged ? null : mergedRulesFinal,
         truncatedRecipeIndices: pipelineState.truncatedRecipeIndices.slice(),
         totalLimitHit: pipelineState.totalLimitHit,
         excludedByTotalLimitIndices: pipelineState.excludedByTotalLimitIndices.slice(),

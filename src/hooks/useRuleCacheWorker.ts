@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { BuilderRecipe, SellfileExportMode, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { HsfRuleWithRecipe } from '../lib/merge'
-import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from '../workers/ruleCacheWorkerTypes'
+import type {
+  RuleCacheWorkerRequest,
+  RuleCacheWorkerResponse,
+  RuleCachePipelineResponse,
+} from '../workers/ruleCacheWorkerTypes'
 import RuleCacheWorker from '../workers/ruleCacheWorker?worker&inline'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
@@ -101,26 +105,25 @@ const createAbortError = (): DOMException => new DOMException('Aborted', 'AbortE
 // Worker unavailability should fail with one consistent browser-facing message.
 const createWorkerUnavailableError = (): Error => new Error(RULE_CACHE_WORKER_REQUIRED_ERROR)
 
-type WorkerStatePayload = {
-  rulesByRecipeEntries: Array<[number, HsfRuleWithRecipe[]]>
-  countsByRecipeEntries: Array<[number, number]>
-  keys: string[]
-  substatTargetsKey: string
-  mergedRules: HsfRuleWithRecipe[]
-  truncatedRecipeIndices: number[]
-  totalLimitHit: boolean
-  excludedByTotalLimitIndices: number[]
-}
+// Canonical alias — avoids re-declaring fields that can drift out of sync with the worker type.
+type WorkerStatePayload = RuleCachePipelineResponse['payload']
 
-const toStateSnapshotFromWorker = (payload: WorkerStatePayload): RuleCacheStateSnapshot => ({
-  // Worker payload is already detached; Map reconstruction is enough here.
-  rulesByRecipe: new Map<number, HsfRuleWithRecipe[]>(payload.rulesByRecipeEntries),
-  // Keep count map aligned with the same per-recipe index space as rulesByRecipe.
+const toStateSnapshotFromWorker = (
+  payload: WorkerStatePayload,
+  // Most recently received non-null rule data; supplied as fallback when the worker
+  // skipped the large clone (artifact-only burst → rulesByRecipeEntries/mergedRules/keys = null).
+  lastRules: { rulesByRecipe: Map<number, HsfRuleWithRecipe[]>; mergedRules: HsfRuleWithRecipe[]; keys: string[] } | null,
+): RuleCacheStateSnapshot => ({
+  // Fall back to last known rules when the worker sent null.
+  rulesByRecipe: payload.rulesByRecipeEntries !== null
+    ? new Map<number, HsfRuleWithRecipe[]>(payload.rulesByRecipeEntries)
+    : (lastRules?.rulesByRecipe ?? new Map()),
+  // countsByRecipe is always fresh — it depends on baseRuleCount from the HSF file,
+  // which can change independently of recipe content.
   countsByRecipe: new Map<number, number>(payload.countsByRecipeEntries),
-  // Arrays can be reused directly because they are already structured clones.
-  keys: payload.keys,
+  keys: payload.keys ?? lastRules?.keys ?? [],
   substatTargetsKey: payload.substatTargetsKey,
-  mergedRules: payload.mergedRules,
+  mergedRules: payload.mergedRules ?? lastRules?.mergedRules ?? [],
   truncatedRecipeIndices: payload.truncatedRecipeIndices,
   totalLimitHit: payload.totalLimitHit,
   excludedByTotalLimitIndices: payload.excludedByTotalLimitIndices,
@@ -158,6 +161,15 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   // Keep one active and one queued payload for latest-only scheduling.
   const activePipelineRunRef = useRef<ActivePipelineRun | null>(null)
   const queuedPipelineRunRef = useRef<QueuedPipelineRun | null>(null)
+  // Most recently received non-null rule data. Artifact-only pipeline responses send
+  // null for the three large fields to avoid structured-cloning ~50–100 MiB per burst;
+  // this ref supplies the fallback. Scoped to the hook instance so a worker restart
+  // always overwrites it on the new worker's first (always full) response.
+  const lastRulesRef = useRef<{
+    rulesByRecipe: Map<number, HsfRuleWithRecipe[]>
+    mergedRules: HsfRuleWithRecipe[]
+    keys: string[]
+  } | null>(null)
 
   // Browser builds must use worker execution; no in-thread fallback path exists.
   const rejectWhenWorkerUnavailable = useCallback(<T,>(signal: AbortSignal | null): Promise<T> => {
@@ -193,8 +205,20 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           const improvementChanceByArtifactId = entries != null
             ? new Map(entries.map((e) => [e.artifactId, e] as const))
             : null
+          // Fall back to lastRulesRef when the worker sent null for the three large fields
+          // (artifact-only burst where per-recipe fingerprints were unchanged).
+          const state = toStateSnapshotFromWorker(data.payload, lastRulesRef.current)
+          // Update the ref only when full data was received, so it always holds the
+          // most recently valid rule set without being clobbered by null-skipped runs.
+          if (data.payload.mergedRules !== null) {
+            lastRulesRef.current = {
+              rulesByRecipe: state.rulesByRecipe,
+              mergedRules: state.mergedRules,
+              keys: state.keys,
+            }
+          }
           pending.resolve({
-            state: toStateSnapshotFromWorker(data.payload),
+            state,
             matches: data.payload.matches,
             safeguardDetection: data.payload.safeguardDetection,
             improvementChanceByArtifactId,

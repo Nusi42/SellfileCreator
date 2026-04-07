@@ -52,11 +52,14 @@ export type RuleCachePipelineResponse = {
   id: number
   kind: 'pipeline:done'
   payload: {
-    rulesByRecipeEntries: Array<[number, HsfRuleWithRecipe[]]>
+    // Null when the worker determined that per-recipe rules are identical to the last
+    // sent response (artifact-only burst). The receiver falls back to its lastRulesRef.
+    // Avoids structured-cloning ~50–100 MiB on every endpoint artifact push.
+    rulesByRecipeEntries: Array<[number, HsfRuleWithRecipe[]]> | null
     countsByRecipeEntries: Array<[number, number]>
-    keys: string[]
+    keys: string[] | null
     substatTargetsKey: string
-    mergedRules: HsfRuleWithRecipe[]
+    mergedRules: HsfRuleWithRecipe[] | null
     truncatedRecipeIndices: number[]
     totalLimitHit: boolean
     excludedByTotalLimitIndices: number[]
