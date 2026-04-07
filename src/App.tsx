@@ -4003,6 +4003,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         ? [...retainItems, ...gearInspectorItems]
         : gearInspectorItems
       const { removedCount, addedCount } = applyGearDbDiff(desiredItems)
+      // Reconcile selection: drop any artifact IDs that are no longer in the
+      // incoming dataset. Uses functional-update form so the callback never
+      // captures selectedGearItemIds in its closure (avoids recreation on click).
+      if (removedCount > 0) {
+        const validIds = new Set(
+          desiredItems.flatMap(item => item.previewExtras?.id != null ? [item.previewExtras.id] : [])
+        )
+        setSelectedGearItemIds(prev => {
+          if (prev.size === 0) return prev
+          const pruned = new Set([...prev].filter(id => validIds.has(id)))
+          // Return previous reference when nothing changed to skip a re-render.
+          return pruned.size === prev.size ? prev : pruned
+        })
+      }
       if (removedCount > 0 || addedCount > 0) {
         // Endpoint snapshots should refresh matches without dimming card details.
         beginGearInspectorMatchReset('gearDbEndpoint')
@@ -4077,6 +4091,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     queueGearDbDiffToast,
     setGearDbCommandError,
     setGearDbCommandSuccess,
+    setSelectedGearItemIds,
     showGearDbCommandToast,
     t,
   ])
