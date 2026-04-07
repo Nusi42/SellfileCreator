@@ -29,6 +29,7 @@ import {
   configureWasmRuleEngine,
   evaluateWasmRuleEngineItems,
   finalizeGeneratedRulesWithLoadedWasm,
+  getWasmLinearMemoryBytes,
   getWasmRuleEngineVersion,
   warmupWasmRuleEngine,
 } from '../lib/wasm/wasmRuleEngine'
@@ -57,6 +58,48 @@ let wasmWarmupPromise: Promise<void> | null = null
 // so unchanged recipes skip the WASM buildRulesForRecipe call entirely.
 const persistentRuleCache = new Map<string, RecipeRulesCacheEntry>()
 
+// Fingerprint of the artifact set most recently stored in WASM ENGINE_STATE.
+// Compared before each storeArtifactRows call; if unchanged, the call (and the
+// JS→WASM serialization + Vec alloc on the Rust side) is skipped entirely.
+let lastArtifactStoreFingerprint: number | null = null
+
+// Compute a 32-bit integer hash over the mutable fields of each store row:
+//   id            — artifact added or removed
+//   level         — upgrade (also bounds which substats are unlocked)
+//   rank          — rank promotion
+//   substats.length — new sub added at levels 4/8/12/16
+//   Σ totalValue  — glyph application or substat value increase on upgrade
+//   equippedChampionLocation — artifact moved to/from champion / vault
+// Immutable fields (slot, set, faction, mainStat variant, substat isFlat) are
+// omitted for speed. Cost: O(N) integer multiply/XOR — no string allocation.
+const computeArtifactStoreFingerprint = (
+  entries: ReadonlyArray<[number, NormalizedGearArtifact]>,
+): number => {
+  // Seed with count so an empty set never collides with a 1-item set.
+  let h = entries.length * 0x9e3779b9 | 0
+  for (const [id, a] of entries) {
+    h ^= id
+    h = Math.imul(h, 0x9e3779b9) | 0
+    // Cover upgrade and rank promotion.
+    h ^= (a.level + (a.rank ?? 0) * 97) | 0
+    h = Math.imul(h, 0x517cc1b7) | 0
+    // Cover equipped-champion change: null=0, vault=1, collection/other=2.
+    const loc = a.equippedChampionLocation
+    const locCode = loc == null ? 0 : /vault/i.test(loc) ? 1 : 2
+    h ^= locCode * 31
+    h = Math.imul(h, 0xbf58476d) | 0
+    // Cover glyph and substat value changes: hash substat count + Σ totalValue.
+    // Scale by 10 so a 0.1-unit glyph gain produces a distinct integer delta.
+    let subHash = a.substats?.length ?? 0
+    for (const s of a.substats ?? []) {
+      subHash += Math.round((s.totalValue ?? 0) * 10)
+    }
+    h ^= subHash
+    h = Math.imul(h, 0x9e3779b9) | 0
+  }
+  return h
+}
+
 // Batch evaluate so long matcher passes yield between chunks; progress is
 // emitted once per batch (not per artifact) to bound Firefox postMessage overhead.
 const PIPELINE_MATCH_BATCH_SIZE = 256 as const
@@ -75,6 +118,14 @@ const notePipelineGeneration = (generation: number): void => {
 }
 
 const pipelineGenerationIsStale = (generation: number): boolean => generation < latestPipelineGeneration
+
+// Relay a [sfc-diag] line to the main thread via postMessage so it reaches
+// page.on('console') in Playwright (worker console.log does not fire that event).
+// The main thread consumer logs it with console.log so it also appears in DevTools.
+const postDiagnostic = (text: string): void => {
+  const response: RuleCacheWorkerResponse = { kind: 'diagnostic', text }
+  self.postMessage(response)
+}
 
 const postError = (id: number, error: unknown): void => {
   const response: RuleCacheWorkerResponse = {
@@ -325,11 +376,27 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         wasmVersionLogged = true
       }
       if (runIsStale()) return
-      // Build compact WASM store rows — only the fields SafeguardWasmArtifactRawIn reads.
-      // Avoids serde_wasm_bindgen iterating ignored NormalizedGearArtifact/NormalizedStat
-      // properties, which is catastrophically slow in Firefox (minutes vs seconds).
-      const detectionRows = artifactEntries.map(([, artifact]) => toWasmArtifactStoreRow(artifact))
-      storeArtifactRows(detectionRows)
+      // Store compact rows in WASM ENGINE_STATE for the combined evaluate+collect path.
+      // Only the fields SafeguardWasmArtifactRawIn reads are included (toWasmArtifactStoreRow).
+      // Skip the call entirely when the artifact set is unchanged: the Rust Vec is already
+      // populated from the previous run. If something did change, Rust reuses the backing
+      // allocation (clear + extend) instead of dropping and reallocating — see lib.rs
+      // store_artifact_rows_engine for the fragmentation rationale.
+      const storeFingerprint = computeArtifactStoreFingerprint(artifactEntries)
+      const rowsAreStale = storeFingerprint !== lastArtifactStoreFingerprint
+      if (rowsAreStale) {
+        const detectionRows = artifactEntries.map(([, artifact]) => toWasmArtifactStoreRow(artifact))
+        storeArtifactRows(detectionRows)
+        lastArtifactStoreFingerprint = storeFingerprint
+        const storedMsg = `[sfc-diag] store-rows count=${detectionRows.length} (stored) wasm-linear-mem=${(getWasmLinearMemoryBytes() / 1048576).toFixed(2)}MiB`
+        // Both: DevTools visibility for manual debugging + postMessage relay for Playwright.
+        console.log(storedMsg)
+        postDiagnostic(storedMsg)
+      } else {
+        const skippedMsg = `[sfc-diag] store-rows count=${artifactEntries.length} (skipped-unchanged) wasm-linear-mem=${(getWasmLinearMemoryBytes() / 1048576).toFixed(2)}MiB`
+        console.log(skippedMsg)
+        postDiagnostic(skippedMsg)
+      }
       // Pass baselineExcludeSources so keep-override sources are excluded from the
       // safeguard base-match the same way as the regular evaluate pass.
       const detectionOptions = hasActiveSafeguards
@@ -368,6 +435,12 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       completed = warmTotal + artifactEntries.length
       emitPipelineProgress?.({ completed, total })
     } else {
+      // Detection not needed (no safeguards active or no artifact rows). The fingerprint
+      // is left as-is: the stored rows in the WASM engine are still valid for the next
+      // run where detection IS needed. If the artifact data actually changed, the hash
+      // will differ on that run and trigger a re-store naturally. Resetting here caused
+      // spurious re-stores whenever an intermediate non-artifact pipeline run (e.g. a
+      // roster or account message) left artifactEntries empty between bursts.
       completed = warmTotal
     }
 

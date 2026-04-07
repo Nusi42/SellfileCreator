@@ -223,6 +223,18 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           }
           return
         }
+        case 'diagnostic': {
+          // Accumulate [sfc-diag] text on window.__sfcDiag so Playwright tests can read
+          // it via page.evaluate. console.log is stripped in production builds (terser
+          // drop_console), and worker console.log does not fire page.on('console').
+          const diag = (window as Window & { __sfcDiag?: string[] }).__sfcDiag
+          if (diag) {
+            diag.push(data.text)
+          } else {
+            (window as Window & { __sfcDiag?: string[] }).__sfcDiag = [data.text]
+          }
+          return
+        }
       }
     }
 

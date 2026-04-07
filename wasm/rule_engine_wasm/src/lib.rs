@@ -643,6 +643,15 @@ pub fn store_artifact_rows_value(rows: JsValue) -> Result<JsValue, JsValue> {
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize stored row count: {error}")))
 }
 
+// Returns the WASM linear memory size in bytes (page_count × 65_536).
+// Used by worker [sfc-diag] log lines and the Playwright memory-profiling spec to
+// track WASM heap growth independently of CDP ArrayBufferContents (which includes
+// all ArrayBuffers, not just WASM memory).
+#[wasm_bindgen]
+pub fn wasm_linear_memory_bytes() -> u32 {
+    wasm_linear_memory_bytes_core()
+}
+
 // Combined evaluate + safeguard-collect entry point — replaces the two-step
 // evaluate_value + collect_and_compute_safeguard_protection_value call pattern.
 // Requires configure_value and store_artifact_rows_value to have been called first.
