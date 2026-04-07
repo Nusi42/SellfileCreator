@@ -69,7 +69,9 @@ let lastArtifactStoreFingerprint: number | null = null
 let lastSentKeys: string[] | null = null
 let lastSentSubstatTargetsKey: string | null = null
 let lastSentTotalLimitHit = false
-let lastSentTruncatedCount = 0
+// XOR-multiply hash over truncatedRecipeIndices to detect both count and identity
+// changes. A length-only check would miss swaps between identically-keyed recipes.
+let lastSentTruncatedHash = 0
 // Captures omitDisabledBeforeSafeguards, dedupeBeforeSafeguards, safeguards.enabled,
 // safeguards.rules.length, and presence of finalSellRemainder — all inputs to
 // computeMergedRulesFromComponents that are NOT reflected in pipelineState.keys.
@@ -92,11 +94,19 @@ const keysEqual = (a: string[], b: string[]): boolean => {
 // Cheap string key capturing all safeguard-merge inputs not in pipelineState.keys.
 // Boolean flags are encoded as bits; rule count catches add/remove without needing
 // to stringify each rule (content changes are rare and would show up in detection anyway).
+// finalSellRemainder content is fully encoded (not just presence) because changing
+// levels, setsMode, or artifact/accessory toggles produces different merged output
+// even though the field remains non-null.
 const computeMergeFlags = (
   payload: Extract<RuleCacheWorkerRequest, { kind: 'pipeline' }>['payload'],
 ): string => {
   const { omitDisabledBeforeSafeguards: omit, dedupeBeforeSafeguards: dedup, safeguards } = payload
-  return `${omit ? 1 : 0}${dedup ? 1 : 0}${safeguards.enabled ? 1 : 0}${safeguards.rules.length}${payload.finalSellRemainder != null ? 1 : 0}`
+  const fsr = payload.finalSellRemainder
+  // Encode each field of FinalSellRemainderConfig independently so any change is visible.
+  const fsrKey = fsr == null
+    ? '0'
+    : `1${fsr.artifacts ? 1 : 0}${fsr.accessories ? 1 : 0}${fsr.setsMode}${fsr.levels.join(',')}`
+  return `${omit ? 1 : 0}${dedup ? 1 : 0}${safeguards.enabled ? 1 : 0}${safeguards.rules.length}${fsrKey}`
 }
 
 // Fingerprint of the safeguard detection snapshot that drives placeholder-rule injection.
@@ -110,7 +120,13 @@ const computeDetectionKey = (snapshot: SafeguardDetectionSnapshot | null): strin
     const ph = e.placeholders.map(
       (p) => `${p.missing}${p.reason}${p.substatVariants?.length ?? 0}`,
     ).join(',')
-    return `${e.hash}:${ph}`
+    // Hash itemKeys: specific artifact IDs counted toward this safeguard drive per-item
+    // keep rules (__safeguardItemKey) in mergedRulesFinal. When a safeguarded item is removed
+    // and a spare absorbs the gap, placeholders stay empty but itemKeys changes — the merged
+    // output must update. FNV-style multiply-xor over the sorted IDs.
+    let keyHash = e.itemKeys.length
+    for (const k of e.itemKeys) keyHash = Math.imul(keyHash ^ k, 0x9e3779b9) | 0
+    return `${e.hash}:${ph}:${keyHash}`
   }).join('|')
 }
 
@@ -549,15 +565,21 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // If so, send null for the three large fields to skip structured-cloning ~50–100 MiB
     // on artifact-only endpoint bursts (the dominant cause of JS heap growth / OOM crashes).
     // mergedRulesFinal depends on: recipe keys + substat targets + totalLimitHit +
-    // truncatedCount + merge flags (omitDisabled, dedupe, safeguards.enabled/count,
-    // finalSellRemainder presence) + safeguard detection entries (drive placeholder injection).
+    // truncatedRecipeIndices identity + merge flags (omitDisabled, dedupe, safeguards.enabled/count,
+    // finalSellRemainder content) + safeguard detection entries (drive placeholder injection).
     const detectionKey = computeDetectionKey(safeguardDetectionSnapshot)
     const mergeFlags = computeMergeFlags(payload)
+    // XOR-multiply hash over truncated recipe indices — catches both count and
+    // identity changes (a length-only check would miss swaps between equal-key recipes).
+    let truncatedHash = pipelineState.truncatedRecipeIndices.length
+    for (const idx of pipelineState.truncatedRecipeIndices) {
+      truncatedHash = Math.imul(truncatedHash ^ idx, 0x9e3779b9) | 0
+    }
     const rulesUnchanged =
       lastSentKeys !== null &&
       pipelineState.substatTargetsKey === lastSentSubstatTargetsKey &&
       pipelineState.totalLimitHit === lastSentTotalLimitHit &&
-      pipelineState.truncatedRecipeIndices.length === lastSentTruncatedCount &&
+      truncatedHash === lastSentTruncatedHash &&
       mergeFlags === lastSentMergeFlags &&
       detectionKey === lastSentDetectionKey &&
       keysEqual(lastSentKeys, pipelineState.keys)
@@ -572,7 +594,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       lastSentKeys = pipelineState.keys.slice()
       lastSentSubstatTargetsKey = pipelineState.substatTargetsKey
       lastSentTotalLimitHit = pipelineState.totalLimitHit
-      lastSentTruncatedCount = pipelineState.truncatedRecipeIndices.length
+      lastSentTruncatedHash = truncatedHash
       lastSentMergeFlags = mergeFlags
       lastSentDetectionKey = detectionKey
       const sentMsg = `[sfc-diag] rules-clone sent merged-count=${mergedRulesFinal.length}`
