@@ -990,6 +990,7 @@ const overrides: Catalog = {
   builderLevelWindow: "Рівень",
   builderMultiMixedValue: "Змішано",
   builderApplyToRecipes: "Застосувати до {n} рецептів",
+  builderApplyToSafeguards: "Застосувати до {n} Safeguards",
   builderMultiNamePlaceholder: "Кілька назв",
   builderMultiMixedTooltipSuffix: "• Багатовибір: «Змішано» означає, що вибрані рецепти відрізняються. Виберіть значення, щоб синхронізувати їх.",
   builderMultiMixedTriStateHint: "• Багатовибір: підсвітка «Змішано» показує, що вибір відрізняється. Натисніть, щоб синхронізувати всі рецепти.",

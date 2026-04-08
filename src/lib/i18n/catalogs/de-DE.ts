@@ -986,6 +986,7 @@ const overrides: Catalog = {
   builderLevelWindow: "Level",
   builderMultiMixedValue: "Gemischt",
   builderApplyToRecipes: "Auf {n} Rezepte anwenden",
+  builderApplyToSafeguards: "Auf {n} Schutzmaßnahmen anwenden",
   builderMultiNamePlaceholder: "Mehrere Namen",
   builderMultiMixedTooltipSuffix: "• Mehrfachauswahl: \"Gemischt\" bedeutet, dass die ausgewählten Rezepte abweichen. Wähle einen Wert, um alle Rezepte zu synchronisieren.",
   builderMultiMixedTriStateHint: "• Mehrfachauswahl: Die Markierung \"Gemischt\" zeigt, dass die Auswahl abweicht. Klick, um alle Rezepte zu synchronisieren.",

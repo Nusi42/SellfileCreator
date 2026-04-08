@@ -1933,12 +1933,22 @@ export default function SafeguardBuilderPanel({
               <GearSetsSelect
                 value={setSelection}
                 onChange={(nextSets) => {
-                  setRuleCombination((prev) => ({ ...prev, sets: normalizeArtifactSetSelections(nextSets) }))
+                  const normalized = normalizeArtifactSetSelections(nextSets)
+                  // Always update the builder draft so the select reflects the new value immediately.
+                  setRuleCombination((prev) => ({ ...prev, sets: normalized }))
+                  // In multi-edit mode, also stage the change in the draft so the apply button enables.
+                  if (multiEditActive && multiEdit) {
+                    multiEdit.updateField('sets', { value: normalized, status: 'common' })
+                  }
                 }}
                 metasets={metasets}
                 selectedMetasetIds={combination.metaSetNames}
                 onChangeMetasetIds={(nextMetaIds) => {
-                  setRuleCombination((prev) => ({ ...prev, metaSetNames: dedupeStringArray(nextMetaIds) }))
+                  const deduped = dedupeStringArray(nextMetaIds)
+                  setRuleCombination((prev) => ({ ...prev, metaSetNames: deduped }))
+                  if (multiEditActive && multiEdit) {
+                    multiEdit.updateField('metaSetNames', { value: deduped, status: 'common' })
+                  }
                 }}
                 allowedSetIds={allowedSetPool}
                 showMetasets
@@ -1999,7 +2009,7 @@ export default function SafeguardBuilderPanel({
               }}
             >
               {multiEditActive
-                ? t('builderApplyToRecipes', { n: multiEditSelectionCount })
+                ? t('builderApplyToSafeguards', { n: multiEditSelectionCount })
                 : (editingRuleIndex !== null ? t('safeguardsBuilderApplyAs', { n: editingRuleIndex + 1 }) : t('safeguardsBuilderApply'))}
             </Button>
           </Box>

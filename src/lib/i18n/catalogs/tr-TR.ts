@@ -990,6 +990,7 @@ const overrides: Catalog = {
   builderLevelWindow: "Seviye",
   builderMultiMixedValue: "Karışık",
   builderApplyToRecipes: "{n} reçeteye uygula",
+  builderApplyToSafeguards: "{n} Safeguards'a uygula",
   builderMultiNamePlaceholder: "Birden fazla ad",
   builderMultiMixedTooltipSuffix: "• Çoklu seçim: \"Karışık\", seçili reçetelerin uyuşmadığını gösterir. Tüm reçeteleri eşitlemek için bir değer seçin.",
   builderMultiMixedTriStateHint: "• Çoklu seçim: \"Karışık\" vurgusu seçimin farklı olduğunu gösterir. Tüm reçeteleri eşitlemek için tıklayın.",
