@@ -26,6 +26,7 @@ import type { ArtifactSetId } from '../../lib/types'
 import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
 import type { Metaset } from '../../lib/metasets'
 import GearSetsSelect from '../gear/GearSetsSelect'
+import MarkdownTooltip from '../MarkdownTooltip'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -481,15 +482,18 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
       {/* Title row — chevron + label on the left; GearSetsSelect quick-filter on the right (hidden when collapsed). */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.75, minWidth: 0 }}>
         {onToggleCollapse && (
-          <IconButton
-            size="small"
-            data-snapshot-hide
-            onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
-            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
-            sx={{ p: 0.25, flexShrink: 0 }}
-          >
-            {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-          </IconButton>
+          // Tooltip surfaces the right-click toggle-all hint.
+          <MarkdownTooltip markdown={t('gearAnalyticsCollapseChartTooltip')}>
+            <IconButton
+              size="small"
+              data-snapshot-hide
+              onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
+              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
+              sx={{ p: 0.25, flexShrink: 0 }}
+            >
+              {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+            </IconButton>
+          </MarkdownTooltip>
         )}
         <Typography
           variant="caption"

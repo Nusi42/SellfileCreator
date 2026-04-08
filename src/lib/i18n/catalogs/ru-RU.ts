@@ -318,6 +318,8 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Все",
   gearAnalyticsSlotModeArtifacts: "Артефакты",
   gearAnalyticsSlotModeAccessories: "Аксессуары",
+  // Кнопка свернуть — правый клик переключает все графики одновременно.
+  gearAnalyticsCollapseChartTooltip: "Свернуть график\n\n_Правый клик — переключить все графики._",
 
   dungeonDropsIntro: "Симулируйте дропы подземелий, используя текущие правила Sellfile (HSF), чтобы оценить, сколько экипировки сохраняется по сету и уровневому этапу.",
   dungeonDropsExplanation: "Проценты в таблице — это сохранённые дропы, делённые на все дропы этой стадии; усиленные сеты меняют только веса сетов.",
@@ -366,6 +368,9 @@ const overrides: Catalog = {
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: "Свернуть таблицу подземелья",
   dungeonDropsExpandLabel: "Развернуть таблицу подземелья",
+  // Фрагменты подсказки для свернуть и цикла уровня в таблице подземелья.
+  dungeonDropsCollapseAllHint: "_Правый клик — свернуть/развернуть все таблицы._",
+  dungeonDropsRotateLevelRightClickHint: "_Правый клик — перелистать назад._",
   // Popover header and summary.
   dungeonDropsPopoverHeader: "{set} • {level}",
   dungeonDropsPopoverSummary: "Сохранено {percent} всех дропов ({kept}/{total}).",
@@ -816,6 +821,8 @@ const overrides: Catalog = {
   colorBlindTritan: "Тритан",
 
   // Builder panel
+  // Переключатель раздела — правый клик сворачивает/разворачивает все разделы.
+  builderSectionToggleTooltip: "Свернуть раздел\n\n_Правый клик — свернуть/развернуть все разделы._",
   builderRecipeName: "Имя рецепта",
   builderClearRecipeName: "Очистить имя рецепта",
   builderTagsLabel: "Теги",
@@ -1058,6 +1065,10 @@ const overrides: Catalog = {
   metasetsResetReplaceWithMetasetLabel: "Сбросить и заменить ссылки другим метасетом",
   metasetIconPickerLabel: "Выбрать значок",
   // Filter panel
+  // Переключатель раздела и подсказки вариантов для панели фильтров.
+  rulesFilterSectionToggleTooltip: "Свернуть раздел\n\n_Правый клик — свернуть/развернуть все разделы._",
+  rulesFilterVariantRightClickHintExclude: "_Правый клик — исключить._",
+  rulesFilterVariantRightClickHintRemove: "_Правый клик — убрать._",
   filterRule: "Правило",
   filterGearInspectorResult: "Результат",
   filterSets: "Сеты",

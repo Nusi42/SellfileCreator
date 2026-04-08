@@ -318,6 +318,8 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Todos",
   gearAnalyticsSlotModeArtifacts: "Artefactos",
   gearAnalyticsSlotModeAccessories: "Accesorios",
+  // Botón de colapso — clic derecho alterna todos los gráficos a la vez.
+  gearAnalyticsCollapseChartTooltip: "Contraer gráfico\n\n_Clic derecho para alternar todos los gráficos._",
   dungeonDropsIntro: "Simula el botín de mazmorra usando tus reglas de Sellfile actuales (HSF) para estimar cuánto equipo se conserva por set y por hito de nivel.",
   dungeonDropsExplanation: "Los porcentajes son drops conservados divididos por todos los drops de esa etapa; los sets potenciados solo cambian los pesos de set.",
   // Simulation roll assumptions and run count.
@@ -365,6 +367,9 @@ const overrides: Catalog = {
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: "Contraer tabla de mazmorra",
   dungeonDropsExpandLabel: "Expandir tabla de mazmorra",
+  // Fragmentos de sugerencia para colapso y ciclo de nivel en la tabla de mazmorra.
+  dungeonDropsCollapseAllHint: "_Clic derecho para contraer/expandir todas las tablas._",
+  dungeonDropsRotateLevelRightClickHint: "_Clic derecho para ir hacia atrás._",
   // Popover header and summary.
   dungeonDropsPopoverHeader: "{set} • {level}",
   dungeonDropsPopoverSummary: "Se conserva {percent} de todos los drops ({kept}/{total}).",
@@ -815,6 +820,8 @@ const overrides: Catalog = {
   colorBlindTritan: "Tritán",
 
   // Builder panel
+  // Toggle de sección — clic derecho colapsa/expande todas las secciones.
+  builderSectionToggleTooltip: "Contraer sección\n\n_Clic derecho para contraer/expandir todas las secciones._",
   builderRecipeName: "Nombre de receta",
   builderClearRecipeName: "Borrar nombre de receta",
   builderTagsLabel: "Etiquetas",
@@ -1057,6 +1064,10 @@ const overrides: Catalog = {
   metasetsResetReplaceWithMetasetLabel: "Reemplazar referencias por meta‑set",
   metasetIconPickerLabel: "Seleccionar icono",
   // Filter panel
+  // Toggle de sección y sugerencias de variante para el panel de filtros.
+  rulesFilterSectionToggleTooltip: "Contraer sección\n\n_Clic derecho para contraer/expandir todas las secciones._",
+  rulesFilterVariantRightClickHintExclude: "_Clic derecho para excluir._",
+  rulesFilterVariantRightClickHintRemove: "_Clic derecho para quitar._",
   filterRule: "Regla",
   filterGearInspectorResult: "Resultado",
   filterSets: "Sets",

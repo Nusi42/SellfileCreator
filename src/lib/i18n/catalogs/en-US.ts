@@ -323,6 +323,8 @@ const enUS: Catalog = {
   gearAnalyticsSlotModeAll: "All",
   gearAnalyticsSlotModeArtifacts: "Artifacts",
   gearAnalyticsSlotModeAccessories: "Accessories",
+  // Collapse chevron tooltip — right-click toggles all charts simultaneously.
+  gearAnalyticsCollapseChartTooltip: "Collapse chart\n\n_Right-click to toggle all charts._",
   dungeonDropsIntro: "Simulate dungeon drops using your current Sellfile rules (HSF) to estimate how much gear is kept per set and level milestone.",
   dungeonDropsExplanation: "Table percentages are kept drops divided by all drops for that stage; boosted sets only change set weights.",
   // Simulation roll assumptions and run count.
@@ -372,6 +374,9 @@ const enUS: Catalog = {
   dungeonDropsExpandLabel: "Expand dungeon table",
   // Collapsed row controls.
   dungeonDropsRotateLevelLabel: "Rotate level range",
+  // Right-click hint fragments for collapse chevron and level cycle in the dungeon table.
+  dungeonDropsCollapseAllHint: "_Right-click to collapse/expand all tables._",
+  dungeonDropsRotateLevelRightClickHint: "_Right-click to cycle backward._",
   // Simulation refresh control.
   dungeonDropsResimulateLabel: "Re-run dungeon simulation",
   // Popover header and summary.
@@ -833,6 +838,8 @@ const enUS: Catalog = {
   colorBlindTritan: "Tritan",
 
   // Builder panel
+  // Section collapse toggle — right-click collapses/expands all sections at once.
+  builderSectionToggleTooltip: "Collapse section\n\n_Right-click to collapse/expand all sections._",
   builderRecipeName: "Recipe Name",
   builderClearRecipeName: "Clear Recipe Name",
   builderTagsLabel: "Tags",
@@ -1080,6 +1087,11 @@ const enUS: Catalog = {
   metasetsResetReplaceWithMetasetLabel: "Reset and Replace References With Metaset",
   metasetIconPickerLabel: "Select Icon",
   // Filter panel
+  // Section collapse toggle — right-click collapses/expands all sections at once.
+  rulesFilterSectionToggleTooltip: "Collapse section\n\n_Right-click to collapse/expand all sections._",
+  // Substat variant toggle — right-click excludes instead of including.
+  rulesFilterVariantRightClickHintExclude: "_Right-click to exclude._",
+  rulesFilterVariantRightClickHintRemove: "_Right-click to remove._",
   filterRule: "Rule",
   filterGearInspectorResult: "Result",
   filterSets: "Sets",

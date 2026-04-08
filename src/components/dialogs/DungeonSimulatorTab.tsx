@@ -1077,6 +1077,8 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ width: 36, px: 0.5 }}>
+                      {/* Tooltip exposes the right-click toggle-all hint alongside the primary label. */}
+                      <MarkdownTooltip markdown={`${isCollapsed ? t('dungeonDropsExpandLabel') : t('dungeonDropsCollapseLabel')}\n\n${t('dungeonDropsCollapseAllHint')}`}>
                         <IconButton
                           size="small"
                           onClick={(event) => {
@@ -1084,15 +1086,16 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                             const scope = event.ctrlKey || event.metaKey ? 'all' : 'single'
                             toggleDungeonCollapsed({ dungeonId, scope })
                           }}
-                        onContextMenu={(event) => {
-                          // Right-click always toggles every table.
-                          event.preventDefault()
-                          toggleDungeonCollapsed({ dungeonId, scope: 'all' })
-                        }}
-                        aria-label={isCollapsed ? t('dungeonDropsExpandLabel') : t('dungeonDropsCollapseLabel')}
-                      >
-                        {isCollapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-                      </IconButton>
+                          onContextMenu={(event) => {
+                            // Right-click always toggles every table.
+                            event.preventDefault()
+                            toggleDungeonCollapsed({ dungeonId, scope: 'all' })
+                          }}
+                          aria-label={isCollapsed ? t('dungeonDropsExpandLabel') : t('dungeonDropsCollapseLabel')}
+                        >
+                          {isCollapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+                        </IconButton>
+                      </MarkdownTooltip>
                     </TableCell>
                     <TableCell sx={{ fontWeight: 600, width: 70 }}>{t('colLevel')}</TableCell>
                     {setIds.map((setId) => {
@@ -1135,23 +1138,26 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                     // Collapsed tables show the selected milestone row only.
                     <TableRow key={`${dungeonId}-collapsed-${collapsedLevel}`}>
                       <TableCell sx={{ width: 36, px: 0.5 }}>
-                        <IconButton
-                          size="small"
-                          onClick={(event) => {
-                            // Ctrl+click cycles forward and syncs every dungeon.
-                            const syncAll = event.ctrlKey || event.metaKey
-                            rotateCollapsedLevel({ dungeonId, direction: 'forward', syncAll })
-                          }}
-                          onContextMenu={(event) => {
-                            // Right-click cycles backward; Ctrl syncs all dungeons.
-                            event.preventDefault()
-                            const syncAll = event.ctrlKey || event.metaKey
-                            rotateCollapsedLevel({ dungeonId, direction: 'backward', syncAll })
-                          }}
-                          aria-label={t('dungeonDropsRotateLevelLabel')}
-                        >
-                          <SwapVertIcon fontSize="small" />
-                        </IconButton>
+                        {/* Tooltip exposes the right-click backward-cycle hint alongside the primary label. */}
+                        <MarkdownTooltip markdown={`${t('dungeonDropsRotateLevelLabel')}\n\n${t('dungeonDropsRotateLevelRightClickHint')}`}>
+                          <IconButton
+                            size="small"
+                            onClick={(event) => {
+                              // Ctrl+click cycles forward and syncs every dungeon.
+                              const syncAll = event.ctrlKey || event.metaKey
+                              rotateCollapsedLevel({ dungeonId, direction: 'forward', syncAll })
+                            }}
+                            onContextMenu={(event) => {
+                              // Right-click cycles backward; Ctrl syncs all dungeons.
+                              event.preventDefault()
+                              const syncAll = event.ctrlKey || event.metaKey
+                              rotateCollapsedLevel({ dungeonId, direction: 'backward', syncAll })
+                            }}
+                            aria-label={t('dungeonDropsRotateLevelLabel')}
+                          >
+                            <SwapVertIcon fontSize="small" />
+                          </IconButton>
+                        </MarkdownTooltip>
                       </TableCell>
                       <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap', width: 70 }}>
                         {formatLevelLabel(collapsedLevel)}

@@ -438,14 +438,17 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
       {/* Title row — chevron toggles collapse; tooltip on the label for legend context. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, minWidth: 0 }}>
         {onToggleCollapse && (
-          <IconButton
-            size="small"
-            onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
-            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
-            sx={{ p: 0.25, flexShrink: 0 }}
-          >
-            {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-          </IconButton>
+          // Tooltip surfaces the right-click toggle-all hint.
+          <MarkdownTooltip markdown={t('gearAnalyticsCollapseChartTooltip')}>
+            <IconButton
+              size="small"
+              onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
+              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
+              sx={{ p: 0.25, flexShrink: 0 }}
+            >
+              {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+            </IconButton>
+          </MarkdownTooltip>
         )}
         <Tooltip title={t('gearAnalyticsNotEquippedTitleDesc')} arrow placement="top-start">
           <Typography variant="caption" color="text.secondary" sx={{
