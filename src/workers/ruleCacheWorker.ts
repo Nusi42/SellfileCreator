@@ -105,7 +105,7 @@ const computeMergeFlags = (
   // Encode each field of FinalSellRemainderConfig independently so any change is visible.
   const fsrKey = fsr == null
     ? '0'
-    : `1${fsr.artifacts ? 1 : 0}${fsr.accessories ? 1 : 0}${fsr.setsMode}${fsr.levels.join(',')}`
+    : `1${fsr.artifacts ? 1 : 0}${fsr.accessories ? 1 : 0}${fsr.setsMode ?? ''}${Array.isArray(fsr.levels) ? fsr.levels.join(',') : ''}`
   return `${omit ? 1 : 0}${dedup ? 1 : 0}${safeguards.enabled ? 1 : 0}${safeguards.rules.length}${fsrKey}`
 }
 
