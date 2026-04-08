@@ -198,6 +198,10 @@ const overrides: Catalog = {
   helpOpenLabel: "Yardım",
   helpOpenTooltip: "Yardımı / README'yi aç",
   connectRslHelper: "RSL Helper'e bağlan",
+  connectRslHelperPortHint: "_Portu yapılandırmak için sağ tıklayın._",
+  rslHelperPortDialogTitle: "RSL Helper Portu",
+  rslHelperPortLabel: "Port",
+  rslHelperPortHelper: "RSL Helper ile başlatılırken uygulamanın bağlandığı port. Varsayılan: 8080.",
   counting: "Sayılıyor…",
 
   titleClearHistory: "Geçmiş temizlensin mi?",

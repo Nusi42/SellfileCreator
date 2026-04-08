@@ -1,13 +1,29 @@
 import type { ExternalCommand } from './externalCommands'
 
-// Default WebSocket endpoint used by a locally running RSL Helper instance.
-export const RSL_HELPER_DEFAULT_WS_ENDPOINT = 'ws://localhost:8080/'
+// Default port for a locally running RSL Helper WebSocket server.
+export const RSL_HELPER_DEFAULT_PORT = 8080
+// localStorage key that persists the user-configured RSL Helper port.
+export const RSL_HELPER_PORT_STORAGE_KEY = 'rslHelperPort'
+
+// Default WebSocket endpoint, built from the default port.
+export const RSL_HELPER_DEFAULT_WS_ENDPOINT = `ws://localhost:${RSL_HELPER_DEFAULT_PORT}/`
+
+// Read the persisted port from localStorage, falling back to the default.
+export const getRslHelperPort = (): number => {
+  const raw = localStorage.getItem(RSL_HELPER_PORT_STORAGE_KEY)
+  if (!raw) return RSL_HELPER_DEFAULT_PORT
+  const parsed = parseInt(raw, 10)
+  // Reject anything outside the valid TCP port range.
+  return Number.isFinite(parsed) && parsed >= 1 && parsed <= 65535 ? parsed : RSL_HELPER_DEFAULT_PORT
+}
 
 // Build the deep-link URL that opens the app pre-connected to a local RSL Helper instance.
 // Strips any existing query string so the result is predictable regardless of current state.
-export const buildRslHelperConnectUrl = (): string => {
+// Accepts an explicit port override; falls back to the persisted value or the default.
+export const buildRslHelperConnectUrl = (port?: number): string => {
   const base = window.location.origin + window.location.pathname
-  return `${base}?endpoint=${RSL_HELPER_DEFAULT_WS_ENDPOINT}`
+  const resolvedPort = port ?? getRslHelperPort()
+  return `${base}?endpoint=ws://localhost:${resolvedPort}/`
 }
 
 // JSON-RPC 2.0 is the sole supported wire protocol.

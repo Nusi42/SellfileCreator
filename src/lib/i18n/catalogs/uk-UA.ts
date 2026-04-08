@@ -198,6 +198,10 @@ const overrides: Catalog = {
   helpOpenLabel: "Довідка",
   helpOpenTooltip: "Відкрити довідку / README",
   connectRslHelper: "Підключитися до RSL Helper",
+  connectRslHelperPortHint: "_Клацніть правою кнопкою миші, щоб налаштувати порт._",
+  rslHelperPortDialogTitle: "Порт RSL Helper",
+  rslHelperPortLabel: "Порт",
+  rslHelperPortHelper: "Порт, до якого програма підключається при запуску з RSL Helper. За замовчуванням: 8080.",
   counting: "Підрахунок…",
 
   titleClearHistory: "Очистити історію?",

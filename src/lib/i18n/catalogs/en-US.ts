@@ -199,6 +199,10 @@ const enUS: Catalog = {
   helpOpenLabel: "Help",
   helpOpenTooltip: "Open Help / README",
   connectRslHelper: "Connect to RSL Helper",
+  connectRslHelperPortHint: "_Right-click to configure the port._",
+  rslHelperPortDialogTitle: "RSL Helper Port",
+  rslHelperPortLabel: "Port",
+  rslHelperPortHelper: "Port the app connects to when launching with RSL Helper. Default: 8080.",
   counting: "Counting…",
 
   titleClearHistory: "Clear History?",

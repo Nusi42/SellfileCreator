@@ -198,6 +198,10 @@ const catalog: Catalog = {
   helpOpenLabel: "Ajuda",
   helpOpenTooltip: "Abrir Ajuda / README",
   connectRslHelper: "Conectar ao RSL Helper",
+  connectRslHelperPortHint: "_Clique com o botão direito para configurar a porta._",
+  rslHelperPortDialogTitle: "Porta do RSL Helper",
+  rslHelperPortLabel: "Porta",
+  rslHelperPortHelper: "Porta à qual o app se conecta ao iniciar com o RSL Helper. Padrão: 8080.",
   counting: "Contando…",
 
   titleClearHistory: "Limpar histórico?",
