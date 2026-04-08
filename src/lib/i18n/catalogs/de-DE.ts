@@ -318,6 +318,8 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Alle",
   gearAnalyticsSlotModeArtifacts: "Artefakte",
   gearAnalyticsSlotModeAccessories: "Accessoires",
+  // Einklapp-Schaltfläche — Rechtsklick klappt alle Diagramme gleichzeitig ein/aus.
+  gearAnalyticsCollapseChartTooltip: "Diagramm einklappen\n\n_Rechtsklick: alle Diagramme umschalten._",
   dungeonDropsIntro: "Simuliere Dungeon-Drops mit deinen aktuellen Sellfile-Regeln (HSF), um zu schätzen, wie viel Ausrüstung pro Set und Stufenmeilenstein behalten wird.",
   dungeonDropsExplanation: "Tabellen-Prozente sind behaltene Drops geteilt durch alle Drops dieser Stufe; geboostete Sets ändern nur die Set-Gewichte.",
   // Simulation roll assumptions and run count.
@@ -365,6 +367,9 @@ const overrides: Catalog = {
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: "Dungeon-Tabelle einklappen",
   dungeonDropsExpandLabel: "Dungeon-Tabelle ausklappen",
+  // Tipp-Fragmente für Einklappen und Levelwechsel in der Dungeon-Tabelle.
+  dungeonDropsCollapseAllHint: "_Rechtsklick: alle Tabellen ein-/ausklappen._",
+  dungeonDropsRotateLevelRightClickHint: "_Rechtsklick: rückwärts wechseln._",
   // Popover header and summary.
   dungeonDropsPopoverHeader: "{set} • {level}",
   dungeonDropsPopoverSummary: "Behalten wurden {percent} aller Drops ({kept}/{total}).",
@@ -813,6 +818,8 @@ const overrides: Catalog = {
   colorBlindTritan: "Tritan",
 
   // Builder panel
+  // Abschnitt-Toggle — Rechtsklick klappt alle Abschnitte ein/aus.
+  builderSectionToggleTooltip: "Abschnitt einklappen\n\n_Rechtsklick: alle Abschnitte ein-/ausklappen._",
   builderRecipeName: "Rezept-Name",
   builderClearRecipeName: "Rezept-Name löschen",
   builderTagsLabel: "Tags",
@@ -1055,6 +1062,10 @@ const overrides: Catalog = {
   metasetsResetReplaceWithMetasetLabel: "Verweise durch Metaset ersetzen",
   metasetIconPickerLabel: "Symbol auswählen",
   // Filter panel
+  // Abschnitt-Toggle und Varianten-Tipp für den Filterbereich.
+  rulesFilterSectionToggleTooltip: "Abschnitt einklappen\n\n_Rechtsklick: alle Abschnitte ein-/ausklappen._",
+  rulesFilterVariantRightClickHintExclude: "_Rechtsklick: ausschließen._",
+  rulesFilterVariantRightClickHintRemove: "_Rechtsklick: entfernen._",
   filterRule: "Regel",
   filterGearInspectorResult: "Ergebnis",
   filterSets: "Sets",

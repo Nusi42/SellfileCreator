@@ -318,6 +318,8 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Tümü",
   gearAnalyticsSlotModeArtifacts: "Eserler",
   gearAnalyticsSlotModeAccessories: "Aksesuarlar",
+  // Daralt düğmesi — sağ tık tüm grafikleri aynı anda değiştirir.
+  gearAnalyticsCollapseChartTooltip: "Grafiği daralt\n\n_Tüm grafikleri değiştirmek için sağ tıklayın._",
 
   dungeonDropsIntro: "Mevcut Sellfile kurallarınızı (HSF) kullanarak zindan düşüşlerini simüle edin ve set ile seviye kilometre taşına göre ne kadar ekipmanın tutulduğunu tahmin edin.",
   dungeonDropsExplanation: "Tablodaki yüzdeler, bu aşamadaki tüm düşüşlere bölünmüş elde tutulan düşüşlerdir; güçlendirilmiş setler yalnızca set ağırlıklarını değiştirir.",
@@ -366,6 +368,9 @@ const overrides: Catalog = {
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: "Zindan tablosunu daralt",
   dungeonDropsExpandLabel: "Zindan tablosunu genişlet",
+  // Zindan tablosunda daralt ve seviye döngüsü için ipucu parçaları.
+  dungeonDropsCollapseAllHint: "_Tüm tabloları daraltmak/genişletmek için sağ tıklayın._",
+  dungeonDropsRotateLevelRightClickHint: "_Geri gitmek için sağ tıklayın._",
   // Popover header and summary.
   dungeonDropsPopoverHeader: "{set} • {level}",
   dungeonDropsPopoverSummary: "Tüm düşüşlerin {percent}'i tutuldu ({kept}/{total}).",
@@ -817,6 +822,8 @@ const overrides: Catalog = {
   colorBlindTritan: "Tritan",
 
   // Builder panel
+  // Bölüm düğmesi — sağ tık tüm bölümleri daraltır/genişletir.
+  builderSectionToggleTooltip: "Bölümü daralt\n\n_Tüm bölümleri daraltmak/genişletmek için sağ tıklayın._",
   builderRecipeName: "Reçete adı",
   builderClearRecipeName: "Adı temizle",
   builderTagsLabel: "Etiketler",
@@ -1059,6 +1066,10 @@ const overrides: Catalog = {
   metasetsResetReplaceWithMetasetLabel: "Sıfırla ve referansları meta setle değiştir",
   metasetIconPickerLabel: "Simge seç",
   // Filter panel
+  // Filtre paneli için bölüm düğmesi ve varyant ipuçları.
+  rulesFilterSectionToggleTooltip: "Bölümü daralt\n\n_Tüm bölümleri daraltmak/genişletmek için sağ tıklayın._",
+  rulesFilterVariantRightClickHintExclude: "_Hariç tutmak için sağ tıklayın._",
+  rulesFilterVariantRightClickHintRemove: "_Kaldırmak için sağ tıklayın._",
   filterRule: "Kural",
   filterGearInspectorResult: "Sonuç",
   filterSets: "Setler",

@@ -25,6 +25,8 @@ import {
 } from '@mui/x-charts/ChartsTooltip'
 import { easingSnappy, easingSlam, type GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
+import { useI18n } from '../../lib/i18n'
+import MarkdownTooltip from '../MarkdownTooltip'
 
 export type DonutSlice = {
   /** Domain ID used to track selection (slot ID, rarity RankValue, set ID, outcome string, etc.). */
@@ -421,6 +423,7 @@ function triggerDonutDance(el: HTMLElement): void {
 }
 
 export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleClickItem, height = 220, colorBySliceId, slotIconById, arcLabel, arcLabelMinAngleDeg = 15, iconSize = 14, onEasterEgg, peerDanceTrigger, collapsed, onToggleCollapse }: Props) {
+  const { t } = useI18n()
   const theme = useTheme()
 
   // Pre-build icon map: String(domainId) → SlotIconAsset.
@@ -481,15 +484,18 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
       <Box sx={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, mb: 0.5 }}>
           {onToggleCollapse && (
-            <IconButton
-              size="small"
-              data-snapshot-hide
-              onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
-              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
-              sx={{ p: 0.25, flexShrink: 0 }}
-            >
-              {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-            </IconButton>
+            // Tooltip surfaces the right-click toggle-all hint.
+            <MarkdownTooltip markdown={t('gearAnalyticsCollapseChartTooltip')}>
+              <IconButton
+                size="small"
+                data-snapshot-hide
+                onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
+                onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
+                sx={{ p: 0.25, flexShrink: 0 }}
+              >
+                {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+              </IconButton>
+            </MarkdownTooltip>
           )}
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem' }}>{title}</Typography>
         </Box>
@@ -564,15 +570,18 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
         {/* Title row — chevron toggles collapse of the pie chart below. */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, mb: 0.5 }}>
           {onToggleCollapse && (
-            <IconButton
-              size="small"
-              data-snapshot-hide
-              onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
-              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
-              sx={{ p: 0.25, flexShrink: 0 }}
-            >
-              {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-            </IconButton>
+            // Tooltip surfaces the right-click toggle-all hint.
+            <MarkdownTooltip markdown={t('gearAnalyticsCollapseChartTooltip')}>
+              <IconButton
+                size="small"
+                data-snapshot-hide
+                onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
+                onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
+                sx={{ p: 0.25, flexShrink: 0 }}
+              >
+                {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+              </IconButton>
+            </MarkdownTooltip>
           )}
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem' }}>
             {title}

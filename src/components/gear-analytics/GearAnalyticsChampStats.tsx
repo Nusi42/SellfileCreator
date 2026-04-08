@@ -33,6 +33,7 @@ import { championIconUrl } from '../../lib/iconMaps/championIconMap'
 import { resolveRarityAccentColor } from '../../lib/rarityColors'
 import { CHAMPION_ICON_BORDER_RADIUS_PX } from '../../lib/constants'
 import { useI18n } from '../../lib/i18n'
+import MarkdownTooltip from '../MarkdownTooltip'
 import { statVariantI18nKey } from '../../lib/gearAnalytics'
 import { useSubstatColors } from '../../hooks/useSubstatColors'
 import { useDisplayPreferences } from '../../state/preferencesState'
@@ -356,15 +357,18 @@ export function GearAnalyticsChampStats({ rows, resetKey, collapsed, onToggleCol
       {/* Title row — chevron toggles collapse; tooltip on the label for context. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1, minWidth: 0 }}>
         {onToggleCollapse && (
-          <IconButton
-            size="small"
-            data-snapshot-hide
-            onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
-            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
-            sx={{ p: 0.25, flexShrink: 0 }}
-          >
-            {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-          </IconButton>
+          // Tooltip surfaces the right-click toggle-all hint.
+          <MarkdownTooltip markdown={t('gearAnalyticsCollapseChartTooltip')}>
+            <IconButton
+              size="small"
+              data-snapshot-hide
+              onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
+              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
+              sx={{ p: 0.25, flexShrink: 0 }}
+            >
+              {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+            </IconButton>
+          </MarkdownTooltip>
         )}
         <Tooltip title={t('gearAnalyticsChampStatsTitleDesc')} arrow placement="top-start">
           <Typography

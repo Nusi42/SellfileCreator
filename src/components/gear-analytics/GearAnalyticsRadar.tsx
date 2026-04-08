@@ -25,6 +25,7 @@ import { HEATMAP_VARIANTS, statVariantI18nKey } from '../../lib/gearAnalytics'
 import { useDisplayPreferences } from '../../state/preferencesState'
 import { useSubstatColors } from '../../hooks/useSubstatColors'
 import { useI18n } from '../../lib/i18n'
+import MarkdownTooltip from '../MarkdownTooltip'
 import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
 import type { GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import type { BarEntry } from './GearAnalyticsBar'
@@ -409,15 +410,18 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
       {/* Title row — chevron toggles collapse; tooltip on the label when a description is provided. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, minWidth: 0 }}>
         {onToggleCollapse && (
-          <IconButton
-            size="small"
-            data-snapshot-hide
-            onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
-            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
-            sx={{ p: 0.25, flexShrink: 0 }}
-          >
-            {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-          </IconButton>
+          // Tooltip surfaces the right-click toggle-all hint.
+          <MarkdownTooltip markdown={t('gearAnalyticsCollapseChartTooltip')}>
+            <IconButton
+              size="small"
+              data-snapshot-hide
+              onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
+              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
+              sx={{ p: 0.25, flexShrink: 0 }}
+            >
+              {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+            </IconButton>
+          </MarkdownTooltip>
         )}
         <Tooltip title={description ?? ''} arrow placement="top-start">
           <Typography

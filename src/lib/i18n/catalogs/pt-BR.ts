@@ -318,6 +318,8 @@ const catalog: Catalog = {
   gearAnalyticsSlotModeAll: "Todos",
   gearAnalyticsSlotModeArtifacts: "Artefatos",
   gearAnalyticsSlotModeAccessories: "Acess\u00f3rios",
+  // Botão recolher — clique com o botão direito alterna todos os gráficos ao mesmo tempo.
+  gearAnalyticsCollapseChartTooltip: "Recolher gráfico\n\n_Clique com o botão direito para alternar todos os gráficos._",
   dungeonDropsIntro: "Simule drops de masmorra usando suas regras atuais do Sellfile (HSF) para estimar quanto equipamento é mantido por conjunto e marco de nível.",
   dungeonDropsExplanation: "Os percentuais da tabela são drops mantidos divididos por todos os drops daquela etapa; sets impulsionados só mudam os pesos do set.",
   // Simulation roll assumptions and run count.
@@ -365,6 +367,9 @@ const catalog: Catalog = {
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: "Recolher tabela da masmorra",
   dungeonDropsExpandLabel: "Expandir tabela da masmorra",
+  // Fragmentos de dica para recolher e ciclar nível na tabela de masmorra.
+  dungeonDropsCollapseAllHint: "_Clique com o botão direito para recolher/expandir todas as tabelas._",
+  dungeonDropsRotateLevelRightClickHint: "_Clique com o botão direito para retroceder._",
   // Popover header and summary.
   dungeonDropsPopoverHeader: "{set} • {level}",
   dungeonDropsPopoverSummary: "Mantidos {percent} de todos os drops ({kept}/{total}).",
@@ -815,6 +820,8 @@ const catalog: Catalog = {
   colorBlindTritan: "Tritano",
 
   // Builder panel
+  // Toggle de seção — clique com o botão direito recolhe/expande todas as seções.
+  builderSectionToggleTooltip: "Recolher seção\n\n_Clique com o botão direito para recolher/expandir todas as seções._",
   builderRecipeName: "Nome da receita",
   builderClearRecipeName: "Limpar nome da receita",
   builderTagsLabel: "Tags",
@@ -1057,6 +1064,10 @@ const catalog: Catalog = {
   metasetsResetReplaceWithMetasetLabel: "Substituir referências por meta-set",
   metasetIconPickerLabel: "Selecionar ícone",
   // Filter panel
+  // Toggle de seção e dicas de variante para o painel de filtros.
+  rulesFilterSectionToggleTooltip: "Recolher seção\n\n_Clique com o botão direito para recolher/expandir todas as seções._",
+  rulesFilterVariantRightClickHintExclude: "_Clique com o botão direito para excluir._",
+  rulesFilterVariantRightClickHintRemove: "_Clique com o botão direito para remover._",
   filterRule: "Regra",
   filterGearInspectorResult: "Resultado",
   filterSets: "Conjuntos",

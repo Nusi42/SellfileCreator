@@ -3,6 +3,8 @@ import { IconButton } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import { BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS, type BuilderPanelCollapsibleSectionId, type BuilderPanelCollapsedSections } from '../state/builderPreferences'
+import MarkdownTooltip from './MarkdownTooltip'
+import { useI18n } from '../lib/i18n'
 
 // Module-level toggle button for builder collapsible sections.
 // Shared by RecipeBuilderPanel and SafeguardBuilderPanel (SSOT).
@@ -14,6 +16,7 @@ type BuilderSectionToggleProps = {
 
 // Single-click toggles the target section; Ctrl/Cmd-click or right-click toggles all sections at once.
 const BuilderSectionToggle: React.FC<BuilderSectionToggleProps> = ({ id, collapsed, onCollapsedChange }) => {
+  const { t } = useI18n()
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     const nextValue = !collapsed[id]
     if (event.ctrlKey || event.metaKey) {
@@ -33,9 +36,12 @@ const BuilderSectionToggle: React.FC<BuilderSectionToggleProps> = ({ id, collaps
     onCollapsedChange(nextAll)
   }
   return (
-    <IconButton size="small" onClick={handleClick} onContextMenu={handleContextMenu} aria-label={collapsed[id] ? 'Expand' : 'Collapse'}>
-      {collapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-    </IconButton>
+    // Tooltip surfaces the right-click hint so users discover the toggle-all gesture.
+    <MarkdownTooltip markdown={t('builderSectionToggleTooltip')}>
+      <IconButton size="small" onClick={handleClick} onContextMenu={handleContextMenu} aria-label={collapsed[id] ? 'Expand' : 'Collapse'}>
+        {collapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+      </IconButton>
+    </MarkdownTooltip>
   )
 }
 

@@ -318,6 +318,8 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Усі",
   gearAnalyticsSlotModeArtifacts: "Артефакти",
   gearAnalyticsSlotModeAccessories: "Аксесуари",
+  // Кнопка згортання — правий клік перемикає всі графіки одночасно.
+  gearAnalyticsCollapseChartTooltip: "Згорнути графік\n\n_Правий клік — перемкнути всі графіки._",
 
   dungeonDropsIntro: "Симулюйте дропи підземель, використовуючи поточні правила Sellfile (HSF), щоб оцінити, скільки екіпірування зберігається за сетом і рівневим рубежем.",
   dungeonDropsExplanation: "Відсотки в таблиці — це збережені дропи, поділені на всі дропи цієї стадії; посилені сети змінюють лише ваги сетів.",
@@ -366,6 +368,9 @@ const overrides: Catalog = {
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: "Згорнути таблицю підземелля",
   dungeonDropsExpandLabel: "Розгорнути таблицю підземелля",
+  // Фрагменти підказки для згортання та циклу рівня в таблиці підземелля.
+  dungeonDropsCollapseAllHint: "_Правий клік — згорнути/розгорнути всі таблиці._",
+  dungeonDropsRotateLevelRightClickHint: "_Правий клік — перемотати назад._",
   // Popover header and summary.
   dungeonDropsPopoverHeader: "{set} • {level}",
   dungeonDropsPopoverSummary: "Збережено {percent} усіх дропів ({kept}/{total}).",
@@ -817,6 +822,8 @@ const overrides: Catalog = {
   colorBlindTritan: "Тритан",
 
   // Builder panel
+  // Перемикач розділу — правий клік згортає/розгортає всі розділи.
+  builderSectionToggleTooltip: "Згорнути розділ\n\n_Правий клік — згорнути/розгорнути всі розділи._",
   builderRecipeName: "Назва рецепта",
   builderClearRecipeName: "Очистити назву",
   builderTagsLabel: "Теги",
@@ -1059,6 +1066,10 @@ const overrides: Catalog = {
   metasetsResetReplaceWithMetasetLabel: "Скинути й замінити посилання метасетом",
   metasetIconPickerLabel: "Вибрати значок",
   // Filter panel
+  // Перемикач розділу та підказки варіанту для панелі фільтрів.
+  rulesFilterSectionToggleTooltip: "Згорнути розділ\n\n_Правий клік — згорнути/розгорнути всі розділи._",
+  rulesFilterVariantRightClickHintExclude: "_Правий клік — виключити._",
+  rulesFilterVariantRightClickHintRemove: "_Правий клік — прибрати._",
   filterRule: "Правило",
   filterGearInspectorResult: "Результат",
   filterSets: "Сети",

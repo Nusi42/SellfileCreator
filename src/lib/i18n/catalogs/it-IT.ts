@@ -318,6 +318,8 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Tutti",
   gearAnalyticsSlotModeArtifacts: "Artefatti",
   gearAnalyticsSlotModeAccessories: "Accessori",
+  // Pulsante comprimi — clic destro alterna tutti i grafici contemporaneamente.
+  gearAnalyticsCollapseChartTooltip: "Comprimi grafico\n\n_Clic destro per alternare tutti i grafici._",
   dungeonDropsIntro: "Simula i drop dei dungeon usando le tue regole Sellfile attuali (HSF) per stimare quanto equipaggiamento viene tenuto per set e traguardo di livello.",
   dungeonDropsExplanation: "Le percentuali della tabella sono i drop tenuti divisi per tutti i drop di quella fase; i set potenziati cambiano solo i pesi dei set.",
   // Simulation roll assumptions and run count.
@@ -365,6 +367,9 @@ const overrides: Catalog = {
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: "Comprimi tabella dungeon",
   dungeonDropsExpandLabel: "Espandi tabella dungeon",
+  // Frammenti di suggerimento per comprimi e ciclo livello nella tabella dungeon.
+  dungeonDropsCollapseAllHint: "_Clic destro per comprimere/espandere tutte le tabelle._",
+  dungeonDropsRotateLevelRightClickHint: "_Clic destro per tornare indietro._",
   // Popover header and summary.
   dungeonDropsPopoverHeader: "{set} • {level}",
   dungeonDropsPopoverSummary: "Conservati {percent} di tutti i drop ({kept}/{total}).",
@@ -816,6 +821,8 @@ const overrides: Catalog = {
   colorBlindTritan: "Tritan",
 
   // Builder panel
+  // Toggle sezione — clic destro comprime/espande tutte le sezioni.
+  builderSectionToggleTooltip: "Comprimi sezione\n\n_Clic destro per comprimere/espandere tutte le sezioni._",
   builderRecipeName: "Nome ricetta",
   builderClearRecipeName: "Pulisci nome ricetta",
   builderTagsLabel: "Tag",
@@ -1058,6 +1065,10 @@ const overrides: Catalog = {
   metasetsResetReplaceWithMetasetLabel: "Ripristina e sostituisci i riferimenti con un Metaset",
   metasetIconPickerLabel: "Seleziona icona",
   // Filter panel
+  // Toggle sezione e suggerimenti variante per il pannello filtri.
+  rulesFilterSectionToggleTooltip: "Comprimi sezione\n\n_Clic destro per comprimere/espandere tutte le sezioni._",
+  rulesFilterVariantRightClickHintExclude: "_Clic destro per escludere._",
+  rulesFilterVariantRightClickHintRemove: "_Clic destro per rimuovere._",
   filterRule: "Regola",
   filterGearInspectorResult: "Risultato",
   filterSets: "Set",

@@ -13,6 +13,8 @@ import { alpha, Box, Collapse, IconButton, Tooltip, Typography, useTheme } from 
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { EllipsisTooltip } from '../EllipsisTooltip'
+import MarkdownTooltip from '../MarkdownTooltip'
+import { useI18n } from '../../lib/i18n'
 import { easingSnappy, easingSlam, type GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
 
@@ -252,6 +254,7 @@ function triggerBarDance(container: HTMLElement, rows: ReadonlyMap<number | stri
 }
 
 export function GearAnalyticsBar({ title, description, data, selected, onToggle, height = 240, accentColor, baseColor, colorById, readOnly = false, onEasterEgg, peerDanceTrigger, collapsed, onToggleCollapse }: Props) {
+  const { t } = useI18n()
   const theme = useTheme()
   const primary = accentColor ?? theme.palette.primary.main
   const base = baseColor ?? theme.palette.primary.light
@@ -283,15 +286,18 @@ export function GearAnalyticsBar({ title, description, data, selected, onToggle,
       {/* Title row — chevron toggles collapse; tooltip on the label when a description is provided. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, minWidth: 0 }}>
         {onToggleCollapse && (
-          <IconButton
-            size="small"
-            data-snapshot-hide
-            onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
-            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
-            sx={{ p: 0.25, flexShrink: 0 }}
-          >
-            {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-          </IconButton>
+          // Tooltip surfaces the right-click toggle-all hint.
+          <MarkdownTooltip markdown={t('gearAnalyticsCollapseChartTooltip')}>
+            <IconButton
+              size="small"
+              data-snapshot-hide
+              onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
+              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
+              sx={{ p: 0.25, flexShrink: 0 }}
+            >
+              {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+            </IconButton>
+          </MarkdownTooltip>
         )}
         <Tooltip title={description ?? ''} arrow placement="top-start">
           <Typography

@@ -320,6 +320,8 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Tous",
   gearAnalyticsSlotModeArtifacts: "Artefacts",
   gearAnalyticsSlotModeAccessories: "Accessoires",
+  // Bouton réduire — clic droit bascule tous les graphiques simultanément.
+  gearAnalyticsCollapseChartTooltip: "Réduire le graphique\n\n_Clic droit pour basculer tous les graphiques._",
 
   dungeonDropsIntro: "Simulez les butins de donjon avec vos règles Sellfile actuelles (HSF) pour estimer la quantité d’équipement conservée par set et par palier de niveau.",
   dungeonDropsExplanation: "Les pourcentages du tableau sont les drops conservés divisés par tous les drops de cette étape; les sets boostés ne changent que les poids de set.",
@@ -368,6 +370,9 @@ const overrides: Catalog = {
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: "Réduire la table de donjon",
   dungeonDropsExpandLabel: "Développer la table de donjon",
+  // Fragments d'info-bulle pour réduire et faire défiler le niveau dans le tableau du donjon.
+  dungeonDropsCollapseAllHint: "_Clic droit pour réduire/développer tous les tableaux._",
+  dungeonDropsRotateLevelRightClickHint: "_Clic droit pour revenir en arrière._",
   // Popover header and summary.
   dungeonDropsPopoverHeader: "{set} • {level}",
   dungeonDropsPopoverSummary: "Conservés : {percent} de tous les drops ({kept}/{total}).",
@@ -819,6 +824,8 @@ const overrides: Catalog = {
   colorBlindTritan: "Tritan",
 
   // Builder panel
+  // Bouton de section — clic droit réduit/développe toutes les sections.
+  builderSectionToggleTooltip: "Réduire la section\n\n_Clic droit pour réduire/développer toutes les sections._",
   builderRecipeName: "Nom de la recette",
   builderClearRecipeName: "Effacer le nom",
   builderTagsLabel: "Tags",
@@ -1061,6 +1068,10 @@ const overrides: Catalog = {
   metasetsResetReplaceWithMetasetLabel: "Remplacer les références par un méta‑set",
   metasetIconPickerLabel: "Sélectionner une icône",
   // Filter panel
+  // Bouton de section et infobulles de variante pour le panneau de filtres.
+  rulesFilterSectionToggleTooltip: "Réduire la section\n\n_Clic droit pour réduire/développer toutes les sections._",
+  rulesFilterVariantRightClickHintExclude: "_Clic droit pour exclure._",
+  rulesFilterVariantRightClickHintRemove: "_Clic droit pour supprimer._",
   filterRule: "Règle",
   filterGearInspectorResult: "Résultat",
   filterSets: "Sets",

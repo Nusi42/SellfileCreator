@@ -373,6 +373,7 @@ type FilterSectionToggleProps = {
 }
 
 const FilterSectionToggle: React.FC<FilterSectionToggleProps> = ({ id, collapsed, onCollapsedChange }) => {
+  const { t } = useI18n()
   const toggleSections = (applyToAll: boolean) => {
     const nextValue = !collapsed[id]
     if (applyToAll) {
@@ -401,14 +402,17 @@ const FilterSectionToggle: React.FC<FilterSectionToggleProps> = ({ id, collapsed
     flushSync(() => toggleSections(true))
   }
   return (
-    <IconButton
-      size="small"
-      onClick={handleClick}
-      onContextMenu={handleContextMenu}
-      aria-label={collapsed[id] ? 'Expand' : 'Collapse'}
-    >
-      {collapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-    </IconButton>
+    // Tooltip surfaces the right-click hint so users discover the toggle-all gesture.
+    <MarkdownTooltip markdown={t('rulesFilterSectionToggleTooltip')}>
+      <IconButton
+        size="small"
+        onClick={handleClick}
+        onContextMenu={handleContextMenu}
+        aria-label={collapsed[id] ? 'Expand' : 'Collapse'}
+      >
+        {collapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+      </IconButton>
+    </MarkdownTooltip>
   )
 }
 
@@ -2867,24 +2871,29 @@ function RulesFilterPanel({
                     const label = t(statVariantI18nKey(variant))
                     const isMustNot = mustNotSet.has(Number(variant))
                     const isActive = mustHaveSet.has(Number(variant)) || isMustNot
+                    // MarkdownTooltip on the outer wrapper adds the right-click hint; ellipsisTitle
+                    // restores the EllipsisTooltip behavior (native OS title when text is truncated).
                     return (
-                      <ToggleButton
+                      <MarkdownTooltip
                         key={variant}
-                        value={String(variant)}
-                        aria-label={labelOfVariant(variant)}
-                        onClick={() => {
-                          // Left click: Off -> include, Active -> Off.
-                          setTriStateVariant(variant, isActive ? 'off' : 'include')
-                        }}
-                        onContextMenu={(e) => {
-                          // Right click: Off -> exclude, Active -> Off.
-                          e.preventDefault()
-                          setTriStateVariant(variant, isActive ? 'off' : 'exclude')
-                        }}
+                        markdown={`${label}\n\n${isActive ? t('rulesFilterVariantRightClickHintRemove') : t('rulesFilterVariantRightClickHintExclude')}`}
+                        ellipsisTitle={label}
+                        ellipsisSelector="[data-ellipsis-target]"
                       >
-                        {/* EllipsisTooltip shows OS tooltip only when text is truncated.
-                            SUBSTAT_NOT_LABEL_SX adds the diagonal strike for must-not entries. */}
-                        <EllipsisTooltip title={label} wrap="block">
+                        <ToggleButton
+                          value={String(variant)}
+                          aria-label={labelOfVariant(variant)}
+                          onClick={() => {
+                            // Left click: Off -> include, Active -> Off.
+                            setTriStateVariant(variant, isActive ? 'off' : 'include')
+                          }}
+                          onContextMenu={(e) => {
+                            // Right click: Off -> exclude, Active -> Off.
+                            e.preventDefault()
+                            setTriStateVariant(variant, isActive ? 'off' : 'exclude')
+                          }}
+                        >
+                          {/* SUBSTAT_NOT_LABEL_SX adds the diagonal strike for must-not entries. */}
                           <Typography
                             component="span"
                             noWrap
@@ -2893,8 +2902,8 @@ function RulesFilterPanel({
                           >
                             {label}
                           </Typography>
-                        </EllipsisTooltip>
-                      </ToggleButton>
+                        </ToggleButton>
+                      </MarkdownTooltip>
                     )
                   }
 
