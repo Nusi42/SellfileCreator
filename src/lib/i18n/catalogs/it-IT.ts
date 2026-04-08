@@ -989,6 +989,7 @@ const overrides: Catalog = {
   builderLevelWindow: "Livello",
   builderMultiMixedValue: "Misto",
   builderApplyToRecipes: "Applica a {n} ricette",
+  builderApplyToSafeguards: "Applica a {n} salvaguardie",
   builderMultiNamePlaceholder: "Più nomi",
   builderMultiMixedTooltipSuffix: "• Selezione multipla: \"Misto\" indica che le ricette selezionate differiscono. Scegli un valore per sincronizzarle tutte.",
   builderMultiMixedTriStateHint: "• Selezione multipla: l'evidenziazione \"Misto\" indica che la selezione differisce. Fai clic per sincronizzare tutte le ricette.",

@@ -1011,6 +1011,7 @@ const enUS: Catalog = {
   builderEditingMultiple: "Editing {n} rules",
   builderMultiEditDiscard: "Discard changes",
   builderApplyToRecipes: "Apply to {n} Recipes",
+  builderApplyToSafeguards: "Apply to {n} Safeguards",
   builderMultiNamePlaceholder: "Multiple Names",
   builderMultiMixedTooltipSuffix: "• Multiselect: \"Mixed\" means the selected recipes disagree. Choose a value to sync every recipe.",
   builderMultiMixedTriStateHint: "• Multiselect: \"Mixed\" shading shows the selection disagrees. Click to sync every recipe.",

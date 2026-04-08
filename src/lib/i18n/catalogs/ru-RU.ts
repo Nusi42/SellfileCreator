@@ -989,6 +989,7 @@ const overrides: Catalog = {
   builderLevelWindow: "Уровень",
   builderMultiMixedValue: "Смешанное",
   builderApplyToRecipes: "Применить к {n} рецептам",
+  builderApplyToSafeguards: "Применить к {n} Safeguards",
   builderMultiNamePlaceholder: "Несколько имён",
   builderMultiMixedTooltipSuffix: "• Множественный выбор: «Смешанное» означает, что выбранные рецепты отличаются. Выберите значение, чтобы синхронизировать их.",
   builderMultiMixedTriStateHint: "• Множественный выбор: подсветка «Смешанное» показывает, что выбор отличается. Нажмите, чтобы синхронизировать все рецепты.",
