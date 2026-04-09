@@ -501,6 +501,16 @@ export type ImprovementChanceWasmDebug = {
   maxAdditionEventsTo16: number
 }
 
+// Perf-diagnostics block returned alongside entries when debug=true.
+// Mirrors ImprovementChancePerfDiag from improvement_chance.rs.
+export type ImprovementChanceWasmPerfDiag = {
+  rowCount: number
+  ruleCount: number
+  scenarioCount: number
+  artifactsWithScenarios: number
+  artifactsViable: number
+}
+
 // Single artifact entry returned by compute_improvement_chance_value.
 export type ImprovementChanceWasmEntry = {
   artifactId: number
@@ -1152,14 +1162,21 @@ export const getPermutationsI32WithLoadedWasm = (values: number[]): number[][] =
 
 // Compute improvement-chance entries for all non-maxed artifacts in stored rows.
 // Reads ENGINE_STATE.stored_rows — store_artifact_rows_value must be called first.
-// Returns null when the WASM result is not a valid array (defensive guard).
+// Returns null on invalid WASM output (defensive guard).
+// When debug=true, the returned diag block is populated with work counters for dev tracing.
 export const computeImprovementChanceWithLoadedWasm = (params: {
   rules: readonly SafeguardRule[]
   enabled: boolean
-}): ImprovementChanceWasmEntry[] | null => {
+  debug?: boolean
+}): { entries: ImprovementChanceWasmEntry[]; diag: ImprovementChanceWasmPerfDiag | null } | null => {
   assertWasmInitializedSync()
-  const result = computeImprovementChanceWasmValueBinding(resolveRulesForWasm(params.rules), params.enabled === true)
-  // Defensive guard: WASM must return an array of entry objects.
-  if (!Array.isArray(result)) return null
-  return result as ImprovementChanceWasmEntry[]
+  const raw = computeImprovementChanceWasmValueBinding(
+    resolveRulesForWasm(params.rules),
+    params.enabled === true,
+    params.debug === true,
+  )
+  // Defensive guard: WASM must return the { entries, diag } wrapper object.
+  if (raw == null || typeof raw !== 'object' || !Array.isArray((raw as { entries?: unknown }).entries)) return null
+  const typed = raw as { entries: ImprovementChanceWasmEntry[]; diag: ImprovementChanceWasmPerfDiag | null }
+  return typed
 }

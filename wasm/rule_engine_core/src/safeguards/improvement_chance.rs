@@ -110,6 +110,26 @@ pub struct ImprovementChanceEntry {
     pub debug: Option<ImprovementChanceDebug>,
 }
 
+// Performance counters returned when the caller sets debug=true.
+// Gives JS a breakdown of work done without wall-clock timers (unavailable in
+// wasm32 without web_sys). JS times the outer call with performance.now() and
+// uses these counts to understand scaling (e.g. why 10k artifacts × N scenarios
+// is slow even when each compute_probability depth is bounded at 4).
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ImprovementChancePerfDiag {
+    // Total artifact rows passed to the function.
+    pub row_count: u32,
+    // Prepared upgrade rules after filtering (substat rules only).
+    pub rule_count: u32,
+    // Total unique scenarios built (can exceed rule_count due to perSubstat expansion).
+    pub scenario_count: u32,
+    // Artifacts that had at least one applicable scenario (non-zero input to viability pruning).
+    pub artifacts_with_scenarios: u32,
+    // Artifacts that passed viability pruning and received a compute_artifact_chance_percent call.
+    pub artifacts_viable: u32,
+}
+
 // ─── internal structs ────────────────────────────────────────────────────────
 
 // Prepared rule distilled from SafeguardWasmRuleIn; all parsing done once.
@@ -1370,17 +1390,18 @@ pub fn compute_improvement_chance_core(
     rows: &[SafeguardCollectRowIn],
     rules: Vec<SafeguardWasmRuleIn>,
     enabled: bool,
-) -> Vec<ImprovementChanceEntry> {
+    debug: bool,
+) -> (Vec<ImprovementChanceEntry>, Option<ImprovementChancePerfDiag>) {
     if !enabled || rules.is_empty() || rows.is_empty() {
-        return vec![];
+        return (vec![], None);
     }
     let prepared = prepare_upgrade_rules(&rules);
     if prepared.is_empty() {
-        return vec![];
+        return (vec![], None);
     }
     let scenarios = build_scenarios(rows, &prepared);
     if scenarios.is_empty() {
-        return vec![];
+        return (vec![], None);
     }
     // Index applicable scenario references per artifact id for fast lookup.
     let mut scenarios_by_id: HashMap<i64, Vec<&UpgradeScenario>> = HashMap::new();
@@ -1391,6 +1412,9 @@ pub fn compute_improvement_chance_core(
     }
     let source_count = rows.len() as u32;
     let mut output = Vec::<ImprovementChanceEntry>::new();
+    // Perf counters — only accumulated when debug=true so the hot path is unaffected.
+    let mut artifacts_with_scenarios = 0u32;
+    let mut artifacts_viable = 0u32;
     for row in rows {
         let Some(artifact_id) = row.artifact.id else {
             continue;
@@ -1412,6 +1436,7 @@ pub fn compute_improvement_chance_core(
             });
             continue;
         }
+        if debug { artifacts_with_scenarios += 1; }
         // Prune scenarios that cannot be satisfied by +16 for this artifact.
         let viability = build_viability_context(&row.artifact);
         let viable: Vec<&UpgradeScenario> = artifact_scenarios
@@ -1430,10 +1455,11 @@ pub fn compute_improvement_chance_core(
             });
             continue;
         }
+        if debug { artifacts_viable += 1; }
         let chance = compute_artifact_chance_percent(&row.artifact, &viable);
         let preferred_idx = resolve_most_likely_scenario_idx(&row.artifact, &viable);
         let preferred = preferred_idx.map(|i| viable[i]);
-        let debug = preferred.map(|s| {
+        let debug_snapshot = preferred.map(|s| {
             build_chance_debug(&row.artifact, s, &viability, source_count, viable.len() as u32)
         });
         // matched_rule_id is always None now that SafeguardRule carries no id field;
@@ -1448,8 +1474,19 @@ pub fn compute_improvement_chance_core(
             has_matching_safeguard: true,
             matched_rule_id,
             matched_rule_ordinal,
-            debug,
+            debug: debug_snapshot,
         });
     }
-    output
+    let perf_diag = if debug {
+        Some(ImprovementChancePerfDiag {
+            row_count: rows.len() as u32,
+            rule_count: prepared.len() as u32,
+            scenario_count: scenarios.len() as u32,
+            artifacts_with_scenarios,
+            artifacts_viable,
+        })
+    } else {
+        None
+    };
+    (output, perf_diag)
 }

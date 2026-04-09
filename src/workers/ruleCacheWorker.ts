@@ -38,6 +38,10 @@ import { createProgressThrottler } from '../types/progress'
 
 declare const self: DedicatedWorkerGlobalScope
 
+// True only on the Vite dev server (replaced to `false` in production builds by Vite).
+// Used as a dead-code eliminator: all devLog / devTimer calls compile away in prod.
+const IS_DEV = import.meta.env.DEV
+
 type PipelineState = {
   rulesByRecipe: Map<number, HsfRuleWithRecipe[]>
   countsByRecipe: Map<number, number>
@@ -64,7 +68,7 @@ const persistentRuleCache = new Map<string, RecipeRulesCacheEntry>()
 let lastArtifactStoreFingerprint: number | null = null
 
 // Sentinels tracking the most recently sent per-recipe rule data.
-// When all six match the current pipeline output, rulesByRecipeEntries/mergedRules/keys
+// When all seven match the current pipeline output, rulesByRecipeEntries/mergedRules/keys
 // are sent as null, skipping the structured-clone of ~50–100 MiB on artifact-only bursts.
 let lastSentKeys: string[] | null = null
 let lastSentSubstatTargetsKey: string | null = null
@@ -78,8 +82,12 @@ let lastSentTruncatedHash = 0
 let lastSentMergeFlags: string | null = null
 // Fingerprint of the safeguard detection entries that drove the last sent mergedRulesFinal.
 // scannedAt is excluded (changes every run but does not affect merged rules).
-// Covers which entries were detected and how many placeholder rules each needs.
+// Covers which entries were detected, their placeholder contents, and itemKeys identity.
 let lastSentDetectionKey: string | null = null
+// Safety-net sentinel: the merged rule count of the most recently sent full payload.
+// A count change guarantees rule content changed regardless of fingerprint matches,
+// and catches any fingerprint gap not covered by the six keys above.
+let lastSentMergedCount = -1
 
 // O(N) element-wise comparison; no allocation.
 // V8 terminates at pointer equality for identical strings (common case for large fingerprints).
@@ -115,15 +123,22 @@ const computeMergeFlags = (
 const computeDetectionKey = (snapshot: SafeguardDetectionSnapshot | null): string => {
   if (snapshot === null || snapshot.entries.length === 0) return ''
   // For each detected combination: its stable hash + per-placeholder (missing count, reason,
-  // substat variant count). Entry order is deterministic for the same input.
+  // and substat variant VALUES). Hashing only length was insufficient: when an item is upgraded
+  // and its substats change, the placeholder list may carry the same count but different variant
+  // numbers, producing different __safeguardSubstatVariant placeholder rules in mergedRulesFinal.
   return snapshot.entries.map((e) => {
-    const ph = e.placeholders.map(
-      (p) => `${p.missing}${p.reason}${p.substatVariants?.length ?? 0}`,
-    ).join(',')
+    const ph = e.placeholders.map((p) => {
+      // XOR-multiply hash over the variant array so order and value both matter.
+      // Seeded with length so an empty array never collides with a single-element array.
+      let variantHash = p.substatVariants?.length ?? 0
+      if (p.substatVariants) {
+        for (const v of p.substatVariants) variantHash = Math.imul(variantHash ^ v, 0x9e3779b9) | 0
+      }
+      return `${p.missing}${p.reason}${variantHash}`
+    }).join(',')
     // Hash itemKeys: specific artifact IDs counted toward this safeguard drive per-item
     // keep rules (__safeguardItemKey) in mergedRulesFinal. When a safeguarded item is removed
-    // and a spare absorbs the gap, placeholders stay empty but itemKeys changes — the merged
-    // output must update. FNV-style multiply-xor over the sorted IDs.
+    // and a spare absorbs the gap, placeholders stay empty but itemKeys changes.
     let keyHash = e.itemKeys.length
     for (const k of e.itemKeys) keyHash = Math.imul(keyHash ^ k, 0x9e3779b9) | 0
     return `${e.hash}:${ph}:${keyHash}`
@@ -193,6 +208,26 @@ const postDiagnostic = (text: string): void => {
   const response: RuleCacheWorkerResponse = { kind: 'diagnostic', text }
   self.postMessage(response)
 }
+
+// Emit a trace line to DevTools and the diagnostic relay.
+// No-ops in production builds (IS_DEV is a Vite compile-time constant → dead code).
+const devLog = IS_DEV
+  ? (msg: string): void => {
+    console.log(msg)
+    postDiagnostic(msg)
+  }
+  : (msg: string): void => { void msg /* stripped in prod by Vite dead-code elimination */ }
+
+// Returns a zero-argument lambda that logs elapsed ms when called.
+// Usage: const done = devTimer('label'); ... done()
+const devTimer = IS_DEV
+  ? (label: string): (() => void) => {
+    const t0 = performance.now()
+    return (): void => {
+      devLog(`[sfc-trace] ${label} ${(performance.now() - t0).toFixed(1)}ms`)
+    }
+  }
+  : (_label: string): (() => void) => (): void => { /* stripped in prod */ }
 
 const postError = (id: number, error: unknown): void => {
   const response: RuleCacheWorkerResponse = {
@@ -383,7 +418,10 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
   const runIsStale = (): boolean => pipelineGenerationIsStale(pipelineGeneration)
 
   try {
+    devLog(`[sfc-trace] pipeline start id=${id} recipes=${payload.recipes.length} artifacts=${payload.artifacts.length}`)
+    const doneState = devTimer('buildPipelineState')
     const { state: pipelineState } = buildPipelineState(payload)
+    doneState()
     const prebuiltCustomRules = pipelineState.rulesByRecipe
     const hasActiveSafeguards = hasActiveSafeguardRules(payload.safeguards)
     const baseSafeguards = hasActiveSafeguards
@@ -408,6 +446,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
 
     // Build base + flattened-customs once; both baseline and final merged-rules
     // calls reuse this to skip the redundant WASM flattenRuleBatches step.
+    const doneComponents = devTimer('buildMergedRulesComponents')
     const sharedComponents: MergedRulesComponents = buildMergedRulesComponents({
       hsf: payload.hsf,
       customRecipes: recipesForRules,
@@ -415,16 +454,19 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       substatTargets: payload.substatTargets,
       prebuiltCustomRules,
     })
+    doneComponents()
     const mergeParams = {
       ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
       omitDisabledBeforeSafeguards: payload.omitDisabledBeforeSafeguards,
       dedupeBeforeSafeguards: payload.dedupeBeforeSafeguards,
     }
 
+    const doneBaseline = devTimer('mergedRulesBaseline')
     const mergedRulesBaseline = computeMergedRulesFromComponents(sharedComponents, {
       ...mergeParams,
       safeguards: baseSafeguards,
     })
+    doneBaseline()
 
     // ignoreSafeguardRecipeIndices is needed by both detection and final passes.
     const ignoreSafeguardRecipeIndices = buildIgnoreSafeguardRecipeIndices(recipesForRules)
@@ -464,18 +506,49 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         console.log(skippedMsg)
         postDiagnostic(skippedMsg)
       }
+      // Compute improvement-chance percentages once, before detection. Two consumers need
+      // this result: (a) the detection call uses it for threshold gating on candidate ranking,
+      // (b) the payload sends it to the main thread. Computing here and passing
+      // precomputedImprovementChances to evaluateAndCollectSafeguardProtection suppresses the
+      // internal fallback, avoiding a second WASM call and second peak-allocation for the Vec.
+      // Gated on either threshold presence (detection needs it) or the caller opt-in flag.
+      const hasThreshold = payload.safeguards.rules.some(
+        (r) => r.improvementChanceThreshold !== null && r.improvementChanceThreshold !== undefined,
+      )
+      const needsImprovementChance = hasThreshold || payload.computeImprovementChance
+      if (needsImprovementChance) {
+        const doneImprovChance = devTimer('computeImprovementChance')
+        const improvResult = computeImprovementChanceWithLoadedWasm({
+          rules: payload.safeguards.rules,
+          enabled: payload.safeguards.enabled,
+          // Pass debug flag so WASM populates perf counters in dev only.
+          debug: IS_DEV,
+        })
+        doneImprovChance()
+        // Store entries for the payload (null when caller didn't opt in).
+        improvementChanceEntries = payload.computeImprovementChance ? (improvResult?.entries ?? null) : null
+        if (IS_DEV && improvResult?.diag != null) {
+          const d = improvResult.diag
+          devLog(
+            `[sfc-trace] improvChance-diag rows=${d.rowCount} rules=${d.ruleCount}` +
+            ` scenarios=${d.scenarioCount} withScenarios=${d.artifactsWithScenarios} viable=${d.artifactsViable}`,
+          )
+        }
+        if (runIsStale()) return
+      }
       // Pass baselineExcludeSources so keep-override sources are excluded from the
       // safeguard base-match the same way as the regular evaluate pass.
       const detectionOptions = hasActiveSafeguards
         ? { baselineExcludeSources: SAFEGUARD_OVERRIDE_RULE_SOURCES }
         : undefined
-      // The WASM engine reads stored rows directly; improvement-chance pre-computation
-      // happens inside evaluateAndCollectSafeguardProtection when a threshold is set.
+      // Supply pre-computed entries so evaluateAndCollectSafeguardProtection skips its
+      // internal improvement-chance fallback (prevents a second WASM call + allocation).
       const detectionResult = evaluateAndCollectSafeguardProtection({
         ...(detectionOptions ? { options: detectionOptions } : {}),
         rules: payload.safeguards.rules,
         enabled: payload.safeguards.enabled,
         ignoreSafeguardRecipeIndices,
+        precomputedImprovementChances: improvementChanceEntries ?? [],
       })
       if (runIsStale()) return
       // Populate baseline match map from per-item evaluation results.
@@ -489,16 +562,6 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         })
       }
       safeguardDetectionSnapshot = detectionResult.detection
-      // Compute improvement-chance percentages in WASM while stored_rows are still fresh.
-      // Gated on the caller opt-in flag; skipped when safeguards are off (needsDetection already
-      // ensures safeguards.enabled && rules.length > 0 && artifacts.length > 0).
-      if (payload.computeImprovementChance) {
-        improvementChanceEntries = computeImprovementChanceWithLoadedWasm({
-          rules: payload.safeguards.rules,
-          enabled: payload.safeguards.enabled,
-        })
-        if (runIsStale()) return
-      }
       completed = warmTotal + artifactEntries.length
       emitPipelineProgress?.({ completed, total })
     } else {
@@ -512,6 +575,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     }
 
     // Use shared components so flattenRuleBatches is not called a second time.
+    const doneFinal = devTimer('mergedRulesFinal')
     const mergedRulesFinal = computeMergedRulesFromComponents(sharedComponents, {
       ...mergeParams,
       safeguards: {
@@ -519,6 +583,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         detection: safeguardDetectionSnapshot,
       },
     })
+    doneFinal()
 
     // Optimisation: when detection found nothing to protect (no injected safeguard
     // rules), the final merged rules are functionally identical to baseline and the
@@ -540,6 +605,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       }
     } else {
       const finalProgressRef = { value: completed }
+      const doneMatchPass = devTimer(`matchPass artifacts=${artifactEntries.length} rules=${mergedRulesFinal.length}`)
       matches = await buildPipelineMatches(
         mergedRulesFinal,
         artifactEntries,
@@ -551,6 +617,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         hasActiveSafeguards,
         runIsStale,
       )
+      doneMatchPass()
       if (runIsStale()) return
       if (total > 0 && finalProgressRef.value < total) {
         finalProgressRef.value = total
@@ -577,6 +644,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     }
     const rulesUnchanged =
       lastSentKeys !== null &&
+      // Safety net: any change in rule count guarantees content changed, regardless of
+      // whether all fingerprints caught it. Catches gaps in the six keys below.
+      mergedRulesFinal.length === lastSentMergedCount &&
       pipelineState.substatTargetsKey === lastSentSubstatTargetsKey &&
       pipelineState.totalLimitHit === lastSentTotalLimitHit &&
       truncatedHash === lastSentTruncatedHash &&
@@ -597,6 +667,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       lastSentTruncatedHash = truncatedHash
       lastSentMergeFlags = mergeFlags
       lastSentDetectionKey = detectionKey
+      lastSentMergedCount = mergedRulesFinal.length
       const sentMsg = `[sfc-diag] rules-clone sent merged-count=${mergedRulesFinal.length}`
       console.log(sentMsg)
       postDiagnostic(sentMsg)
@@ -618,6 +689,19 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         safeguardDetection: safeguardDetectionSnapshot,
         improvementChanceEntries,
       },
+    }
+    if (IS_DEV) {
+      // Rough postMessage payload size: JSON is a proxy for structured-clone byte cost.
+      // Only serialise a sample of large fields to keep the tracing overhead low.
+      const mergedSize = rulesUnchanged ? 0 : mergedRulesFinal.length
+      const matchesSize = matches.length
+      const detectionEntries = safeguardDetectionSnapshot?.entries.length ?? 0
+      const wamLinearMib = (getWasmLinearMemoryBytes() / 1048576).toFixed(2)
+      devLog(
+        `[sfc-trace] postMessage id=${id} merged=${mergedSize} matches=${matchesSize}` +
+        ` detection-entries=${detectionEntries} rulesUnchanged=${rulesUnchanged}` +
+        ` wasm-linear=${wamLinearMib}MiB`,
+      )
     }
     self.postMessage(response)
   } catch (error) {

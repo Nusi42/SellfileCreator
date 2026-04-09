@@ -110,6 +110,7 @@ pub use safeguards::improvement_chance::{
     compute_improvement_chance_core,
     ImprovementChanceDebug,
     ImprovementChanceEntry,
+    ImprovementChancePerfDiag,
 };
 pub use hsf_builder_execution::{
     prepare_hsf_builder_recipe_core_fn,
@@ -1260,10 +1261,12 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
 // Engine-level improvement-chance entry point.
 // Reads ENGINE_STATE.stored_rows (must be populated via store_artifact_rows_engine)
 // and delegates probability computation to the improvement_chance submodule.
+// When debug=true the returned tuple includes a populated ImprovementChancePerfDiag.
 pub fn compute_improvement_chance_engine(
     rules: Vec<SafeguardWasmRuleIn>,
     enabled: bool,
-) -> Result<Vec<ImprovementChanceEntry>, String> {
+    debug: bool,
+) -> Result<(Vec<ImprovementChanceEntry>, Option<ImprovementChancePerfDiag>), String> {
     ENGINE_STATE.with(|state| {
         let guard = state.borrow();
         let engine = guard
@@ -1273,7 +1276,7 @@ pub fn compute_improvement_chance_engine(
             .stored_rows
             .as_ref()
             .ok_or("WASM artifact rows are not stored; call store_artifact_rows_value first")?;
-        Ok(compute_improvement_chance_core(rows, rules, enabled))
+        Ok(compute_improvement_chance_core(rows, rules, enabled, debug))
     })
 }
 

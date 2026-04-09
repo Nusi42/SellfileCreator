@@ -38,7 +38,7 @@ import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
 import { hasIgnoreSafeguardTag } from './tagHelpers'
 import type { TestItem } from './ruleEval'
-import type { WasmArtifactStoreRow, WasmRuleEngineEvaluateOptions } from './wasm/wasmRuleEngine'
+import type { ImprovementChanceWasmEntry, WasmArtifactStoreRow, WasmRuleEngineEvaluateOptions } from './wasm/wasmRuleEngine'
 import {
   collectAndComputeSafeguardProtectionWithLoadedWasm,
   collectSafeguardCandidatesWithLoadedWasm,
@@ -1197,7 +1197,8 @@ export function collectAndComputeSafeguardProtection(
   // Pre-compute improvement chances when any rule uses improvementChanceThreshold; the results
   // are passed to the detection WASM call so ranking can gate on the threshold.
   const hasThreshold = rules.some((r) => r.improvementChanceThreshold !== null && r.improvementChanceThreshold !== undefined)
-  const improvementChances = hasThreshold ? (computeImprovementChanceWithLoadedWasm({ rules, enabled }) ?? []) : []
+  // Unwrap the { entries, diag } wrapper; diag is only used in the worker dev-tracing path.
+  const improvementChances = hasThreshold ? (computeImprovementChanceWithLoadedWasm({ rules, enabled })?.entries ?? []) : []
   // Pass canonical rows/rules and let wasm produce the detection payload.
   const combined = collectAndComputeSafeguardProtectionWithLoadedWasm({
     rows,
@@ -1295,19 +1296,35 @@ export function storeArtifactRows(rows: readonly WasmArtifactStoreRow[]): void {
 // buildPipelineMatches + collectAndComputeSafeguardProtection two-step sequence.
 // Caller must configure the WASM engine via configureWasmRuleEngine and store artifact
 // rows via storeArtifactRows before calling this function.
+//
+// `precomputedImprovementChances` may be supplied by callers that already computed
+// improvement-chance entries for the same stored rows and rules (e.g. the rule-cache
+// worker computes once for the payload and passes the result here for threshold gating,
+// avoiding a second WASM call that would double peak memory pressure).
+// When omitted and any rule carries an improvementChanceThreshold, the computation is
+// performed internally.
 export function evaluateAndCollectSafeguardProtection(params: {
   options?: WasmRuleEngineEvaluateOptions
   rules: readonly SafeguardRule[]
   ignoreSafeguardRecipeIndices?: ReadonlySet<number>
   enabled: boolean
   now?: number
+  precomputedImprovementChances?: readonly ImprovementChanceWasmEntry[]
 }): { evaluateResults: WasmEvaluateAndCollectSnapshot['evaluateResults']; detection: SafeguardDetectionSnapshot } {
   const { options, rules, enabled } = params
   const timestamp = Number.isFinite(params.now) ? Number(params.now) : Date.now()
-  // Pre-compute improvement chances when any rule uses improvementChanceThreshold; stored rows
-  // are already in WASM state so this is a pure in-engine computation.
-  const hasThreshold = rules.some((r) => r.improvementChanceThreshold !== null && r.improvementChanceThreshold !== undefined)
-  const improvementChances = hasThreshold ? (computeImprovementChanceWithLoadedWasm({ rules, enabled }) ?? []) : []
+  // Use pre-computed entries when the caller already has them; otherwise compute internally
+  // only when a threshold rule is present. This prevents a second WASM computation (and
+  // second peak-allocation for the result Vec) when the worker supplies entries for the
+  // payload alongside this detection call.
+  let improvementChances: readonly ImprovementChanceWasmEntry[]
+  if (params.precomputedImprovementChances !== undefined) {
+    improvementChances = params.precomputedImprovementChances
+  } else {
+    const hasThreshold = rules.some((r) => r.improvementChanceThreshold !== null && r.improvementChanceThreshold !== undefined)
+    // Unwrap the { entries, diag } wrapper; diag is only used in the worker dev-tracing path.
+    improvementChances = hasThreshold ? (computeImprovementChanceWithLoadedWasm({ rules, enabled })?.entries ?? []) : []
+  }
   // Rows are read from WASM engine state (stored via storeArtifactRows); no row param needed.
   const result = evaluateAndCollectSafeguardProtectionWithLoadedWasm({
     ...(options !== undefined ? { options } : {}),

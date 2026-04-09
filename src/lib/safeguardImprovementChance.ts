@@ -25,9 +25,10 @@ export const buildSafeguardImprovementChanceByArtifactId = (
 ): Map<number, SafeguardImprovementChanceEntry> => {
   const output = new Map<number, SafeguardImprovementChanceEntry>()
   // Delegate to the Rust recursion engine (SSOT for the probability computation).
-  const entries = computeImprovementChanceWithLoadedWasm({ rules, enabled: true })
-  if (!entries) return output
-  for (const entry of entries) {
+  // Unwrap the { entries, diag } wrapper; diag is only used in the worker dev-tracing path.
+  const result = computeImprovementChanceWithLoadedWasm({ rules, enabled: true })
+  if (!result) return output
+  for (const entry of result.entries) {
     const artifactId = Number(entry.artifactId)
     if (Number.isFinite(artifactId)) {
       output.set(artifactId, entry)

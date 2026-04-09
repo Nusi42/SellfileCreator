@@ -717,20 +717,32 @@ pub fn evaluate_and_collect_safeguard_protection_value(
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize evaluate-and-collect snapshot: {error}")))
 }
 
+// Wrapper returned by compute_improvement_chance_value.
+// Bundles the entry array and optional perf diagnostics so the JS caller
+// can log the diag block in dev without a second round-trip.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImprovementChanceOutput<'a> {
+    entries: &'a Vec<ImprovementChanceEntry>,
+    diag: Option<&'a ImprovementChancePerfDiag>,
+}
+
 // Compute improvement-chance percentages for all non-maxed artifacts in stored rows.
 // Reads ENGINE_STATE.stored_rows (requires store_artifact_rows_value first).
-// Returns an array of ImprovementChanceEntry objects; empty when !enabled or no rows.
-// Uses to_js_value (not wasm_to_js) because ImprovementChanceEntry has no HashMap fields.
+// Returns { entries, diag } where diag is populated only when debug=true.
+// Uses to_js_value (not wasm_to_js) because the output types have no HashMap fields.
 #[wasm_bindgen]
 pub fn compute_improvement_chance_value(
     rules: JsValue,
     enabled: bool,
+    debug: bool,
 ) -> Result<JsValue, JsValue> {
     let parsed_rules: Vec<SafeguardWasmRuleIn> = from_js_value(rules)
         .map_err(|error| JsValue::from_str(&format!("Invalid improvement-chance rules payload: {error}")))?;
-    let entries = compute_improvement_chance_engine(parsed_rules, enabled)
+    let (entries, perf_diag) = compute_improvement_chance_engine(parsed_rules, enabled, debug)
         .map_err(|error| JsValue::from_str(&error))?;
-    to_js_value(&entries)
+    let output = ImprovementChanceOutput { entries: &entries, diag: perf_diag.as_ref() };
+    to_js_value(&output)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize improvement-chance entries: {error}")))
 }
 
