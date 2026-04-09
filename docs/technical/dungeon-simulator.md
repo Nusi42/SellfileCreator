@@ -1,6 +1,6 @@
 # Dungeon Simulator
 
-The Logic Hub now includes a **Dungeon Drops** tab that simulates dungeon farming outcomes using the current HSF rule set.
+The Tools dialog now includes a **Dungeon Drops** tab that simulates dungeon farming outcomes using the current HSF rule set.
 
 ## Data Sources
 

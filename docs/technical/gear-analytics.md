@@ -1,6 +1,6 @@
 # Gear Analytics
 
-The **Gear Analytics** tab in the Logic Hub dialog provides an interactive analytics dashboard for the loaded gear inventory. It is a read-only view — it never modifies gear data — and exposes cross-filter exploration, KPI health cards, stat frequency charts, a slot × main stat heatmap, and per-champion gear summaries.
+The **Gear Analytics** tab in the Tools dialog provides an interactive analytics dashboard for the loaded gear inventory. It is a read-only view — it never modifies gear data — and exposes cross-filter exploration, KPI health cards, stat frequency charts, a slot × main stat heatmap, and per-champion gear summaries.
 
 ## Architecture overview
 
@@ -197,7 +197,7 @@ The "Copy Snapshot" button in the toolbar uses `html-to-image` (`toPng`) to capt
 
 ### Apply to Gear Inspector
 
-When `onApplyToGearInspector` is provided (by the Logic Hub dialog), the "Apply to Gear Inspector" button calls it with the current `dim`. The parent (`App.tsx`, `handleApplyGearAnalyticsFilter`) translates dim selections into Gear Inspector filter state, mapping `slots`, `ranks`, `rarities`, `sets`, `outcomes`, `sources`, and `levels`. The button is wrapped in a `<Tooltip><span>` so the tooltip remains visible even when the button is disabled (disabled MUI buttons don't fire mouse events without a wrapper `<span>`).
+When `onApplyToGearInspector` is provided (by the Tools dialog), the "Apply to Gear Inspector" button calls it with the current `dim`. The parent (`App.tsx`, `handleApplyGearAnalyticsFilter`) translates dim selections into Gear Inspector filter state, mapping `slots`, `ranks`, `rarities`, `sets`, `outcomes`, `sources`, and `levels`. The button is wrapped in a `<Tooltip><span>` so the tooltip remains visible even when the button is disabled (disabled MUI buttons don't fire mouse events without a wrapper `<span>`).
 
 ### Copy from Gear Inspector
 
@@ -238,4 +238,4 @@ KPI tooltip strings are catalog-keyed (`gearAnalyticsKpi*Tip`). Source category 
 
 ## Reset behavior
 
-`resetKey` (incremented externally by the Logic Hub "Reset to defaults" action) triggers a `useEffect` that restores `dim` to `EMPTY_GEAR_ANALYTICS_DIM` and clears `selectedMainStats`, `selectedSubstat`, `dimIndividualSets`, and `dimMetaSetNames`. The same clear logic runs when the user clicks the "Clear" button in the cross-filter chip bar, or when "Copy from Gear Inspector" is clicked.
+`resetKey` (incremented externally by the Tools dialog "Reset to defaults" action) triggers a `useEffect` that restores `dim` to `EMPTY_GEAR_ANALYTICS_DIM` and clears `selectedMainStats`, `selectedSubstat`, `dimIndividualSets`, and `dimMetaSetNames`. The same clear logic runs when the user clicks the "Clear" button in the cross-filter chip bar, or when "Copy from Gear Inspector" is clicked.
