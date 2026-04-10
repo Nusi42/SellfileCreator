@@ -537,6 +537,7 @@ const overrides: Catalog = {
   // File drag overlay
   fileDropTitle: "Solte o arquivo para carregar",
   fileDropSubtitle: "Aceita .sfc (receitas + metasets), .hsf (Sellfile) e .db (base de dados de gear)",
+  fileDropShiftHint: "Mantenha Shift ao soltar um .sfc para escolher o que importar",
 
   // Sets section labels
   setsTitle: "Conjuntos",
