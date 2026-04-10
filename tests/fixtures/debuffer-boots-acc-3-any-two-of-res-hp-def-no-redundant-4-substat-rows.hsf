@@ -150,7 +150,7 @@
     "Substats": [
       {
         "ID": 6,
-        "Value": 9,
+        "Value": 18,
         "IsFlat": true,
         "NotAvailable": false,
         "Condition": ">="
@@ -195,7 +195,7 @@
     "Substats": [
       {
         "ID": 6,
-        "Value": 9,
+        "Value": 18,
         "IsFlat": true,
         "NotAvailable": false,
         "Condition": ">="
@@ -240,7 +240,7 @@
     "Substats": [
       {
         "ID": 6,
-        "Value": 9,
+        "Value": 18,
         "IsFlat": true,
         "NotAvailable": false,
         "Condition": ">="
@@ -285,7 +285,7 @@
     "Substats": [
       {
         "ID": 6,
-        "Value": 9,
+        "Value": 27,
         "IsFlat": true,
         "NotAvailable": false,
         "Condition": ">="
@@ -330,7 +330,7 @@
     "Substats": [
       {
         "ID": 6,
-        "Value": 9,
+        "Value": 27,
         "IsFlat": true,
         "NotAvailable": false,
         "Condition": ">="
@@ -375,7 +375,7 @@
     "Substats": [
       {
         "ID": 6,
-        "Value": 9,
+        "Value": 27,
         "IsFlat": true,
         "NotAvailable": false,
         "Condition": ">="

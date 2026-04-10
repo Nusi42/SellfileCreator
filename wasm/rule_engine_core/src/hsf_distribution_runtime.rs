@@ -638,7 +638,21 @@ pub(crate) fn build_hsf_late_bounded_rows_core(input: &BuildHsfLateBoundedRowsIn
         mins: &input.mins,
         skip_optional_baseline,
     };
-    compute_filtered_bounded_rows_with_offset_i32(&bounded_input)
+    let mut rows = compute_filtered_bounded_rows_with_offset_i32(&bounded_input);
+    // Post-generation feasibility guard: reject distributions where the total
+    // per-stat deficit (sum of max(0, min_i - row_i)) exceeds remaining milestones.
+    // Without this, wildcard substats in the targeted pool can absorb the
+    // extra-targeted budget even when doing so makes non-wildcard minimums jointly
+    // infeasible.  Concretely: remaining=1, SPD=1 (need 2), CR%=0 (need 1),
+    // CDMG%=2 (wildcard) → deficit = 1+1 = 2 > 1 → must be rejected.
+    let budget = input.remaining.max(0);
+    rows.retain(|row| {
+        let deficit: i32 = input.mins.iter().enumerate().map(|(idx, &min_i)| {
+            (min_i - row.get(idx).copied().unwrap_or(0)).max(0)
+        }).sum();
+        deficit <= budget
+    });
+    rows
 }
 
 // Shared intro-assignment core to serve JSON and fast-array bindings.

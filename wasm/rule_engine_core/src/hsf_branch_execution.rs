@@ -284,7 +284,7 @@ pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn)
             out.extend(combo_out.rules);
         }
 
-        // Early potential mode keeps the full-selected fallback branch per level.
+        // Late potential mode keeps the full-selected fallback branch per level.
         let mut fallback_base_rule = input.base_rule.clone();
         fallback_base_rule.LVLForCheck = Some(level as i64);
         fallback_base_rule.Substats = Some(Vec::new());

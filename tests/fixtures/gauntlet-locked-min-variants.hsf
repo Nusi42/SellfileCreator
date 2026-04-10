@@ -1635,7 +1635,7 @@
     "Substats": [
       {
         "ID": 4,
-        "Value": 5,
+        "Value": 10,
         "IsFlat": true,
         "NotAvailable": false,
         "Condition": ">="

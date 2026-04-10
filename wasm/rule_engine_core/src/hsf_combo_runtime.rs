@@ -153,7 +153,6 @@ pub(crate) fn execute_hsf_combo_runtime_core(input: &ExecuteHsfComboRuntimeIn) -
         sum_min_targeted: combo_policy.sum_min_targeted as i64,
         min_non_target_now: combo_policy.min_non_target_now as i64,
         needs_locked_aggregate,
-        remaining: remaining as i64,
         targeted_mask: decode_mask_bool(&targeted_mask),
         locked_mask: decode_mask_bool(&locked_mask),
         mins: to_i64_vec(&mins),

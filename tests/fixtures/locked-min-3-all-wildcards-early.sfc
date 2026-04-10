@@ -1,0 +1,46 @@
+{
+  "Version": "1.0.1-dev",
+  "Metasets": [],
+  "Recipes": [
+    {
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        {
+          "stat": "SPD",
+          "fixed": true,
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "CR%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "CDMG%",
+          "rollBounds": {
+            "any": true
+          }
+        }
+      ],
+      "minCount": 3,
+      "autoMinCount": false,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 3,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetNames": []
+    }
+  ]
+}

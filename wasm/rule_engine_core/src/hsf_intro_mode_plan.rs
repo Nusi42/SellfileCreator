@@ -19,7 +19,6 @@ pub(crate) struct BuildHsfIntroModePlanIn {
     pub(crate) sum_min_targeted: i64,
     pub(crate) min_non_target_now: i64,
     pub(crate) needs_locked_aggregate: bool,
-    pub(crate) remaining: i64,
     pub(crate) targeted_mask: Vec<bool>,
     pub(crate) locked_mask: Vec<bool>,
     pub(crate) mins: Vec<i64>,
@@ -300,6 +299,19 @@ pub(crate) fn build_intro_mode_plan_core(input: &BuildHsfIntroModePlanIn) -> Bui
             });
         } else if input.early_mode == "late" {
             steps.push(HsfIntroModePlanStepOut::EmitPresence);
+        } else if input.needs_locked_aggregate {
+            // Early mode with all wildcards and no global min — enforce locked aggregate
+            // proportional progress: at level L, every locked substat must collectively
+            // reach locked_min_value by the final milestone, so require at least
+            // locked_min_value - remaining rolls to already be present now.
+            let locked_now = (input.locked_min_value - (input.num_target - input.avail)).max(0);
+            steps.push(HsfIntroModePlanStepOut::EmitFilteredAllowOther {
+                min_floors: None,
+                targeted_exact: Some(locked_now),
+                deficit_floors: None,
+                deficit_max: None,
+                prefer_virtual_sink: input.prefer_virtual_sink,
+            });
         } else {
             steps.push(HsfIntroModePlanStepOut::EmitFilteredAllowOther {
                 min_floors: None,
@@ -340,15 +352,25 @@ pub(crate) fn build_intro_mode_plan_core(input: &BuildHsfIntroModePlanIn) -> Bui
         }
         return BuildHsfIntroModePlanOut { steps };
     }
+    // Use FeasibleByTarget (mode=2) so intermediate levels accept partial progress
+    // rather than rejecting all distributions (avail < sum_min).  The recovery
+    // budget is sum_min - avail (not num_target - avail = remaining): only the rolls
+    // needed to reach the per-stat minimums count toward "allowable deficit" — any
+    // surplus roll capacity beyond sum_min is not a recovery budget for missed mins.
+    // Using remaining instead of sum_min - avail causes false passes on rarities where
+    // num_target > sum_min (e.g. Legendary with 4 milestones and SPD min=3).
+    let strict_budget = (input.sum_min - input.avail).max(0);
     steps.push(HsfIntroModePlanStepOut::EmitFilteredSelected {
         min_floors: None,
         targeted_exact: None,
         deficit_floors: Some(input.deficit_floors.clone()),
-        deficit_max: Some(input.remaining),
-        global_mode: if input.global_min > 0 { 1 } else { 0 },
-        global_remaining: 0,
-        locked_mode: if input.locked_min_active { 1 } else { 0 },
-        locked_remaining: 0,
+        deficit_max: Some(strict_budget),
+        global_mode: if input.global_min > 0 { 2 } else { 0 },
+        global_remaining: (input.global_min - input.avail).max(0),
+        // FeasibleByTarget (mode=2): locked substats need locked_min_value by the final milestone.
+        // Budget is num_target - avail (remaining milestones) — same logic as global_remaining.
+        locked_mode: if input.locked_min_active { 2 } else { 0 },
+        locked_remaining: if input.locked_min_active { (input.num_target - input.avail).max(0) } else { 0 },
         fallback_presence_on_empty: true,
     });
     BuildHsfIntroModePlanOut { steps }

@@ -80,7 +80,13 @@ fn should_plan(input: &BuildHsfFullSelectedFallbackPlanIn, full_selection_len: u
     if input.impossible_min_max {
         return false;
     }
-    if input.effective_mode != "potential" || input.early_mode != "early" {
+    // Fallback is intentionally "potential + late" only: it generates lenient rules that allow
+    // an artifact to be behind the required roll pace as long as it can still catch up by +16.
+    // In "early" mode the artifact MUST already be on pace at each milestone — those rules come
+    // from the strict combo path instead. Firing the fallback in early mode produces rules with
+    // lower thresholds than the strict rules, which then cause the strict rules to be pruned as
+    // obsolete (they're superseded), leaving only incorrect lenient rules in the output.
+    if input.effective_mode != "potential" || input.early_mode != "late" {
         return false;
     }
     if full_selection_len <= 1 {
