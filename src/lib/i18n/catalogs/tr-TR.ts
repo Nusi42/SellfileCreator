@@ -539,6 +539,7 @@ const overrides: Catalog = {
   // File drag overlay
   fileDropTitle: "Yüklemek için dosyayı bırak",
   fileDropSubtitle: ".sfc (reçeteler + meta setler), .hsf (sellfile) ve .db (gear veritabanı) kabul edilir",
+  fileDropShiftHint: "Ne içe aktarılacağını seçmek için .sfc bırakırken Shift'i basılı tut",
 
   // Sets section labels
   setsTitle: "Setler",

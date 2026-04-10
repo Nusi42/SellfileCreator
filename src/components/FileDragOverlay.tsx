@@ -4,7 +4,7 @@ import { useI18n } from '../lib/i18n'
 const FILE_OVERLAY_Z_INDEX = 2000
 
 export default function FileDragOverlay({ active }: { active: boolean }) {
-  // i18n: Shown during global drag-over; messages explain accepted types.
+  // i18n: Shown during global drag-over; messages explain accepted types and shift modifier hint.
   const { t } = useI18n()
   if (!active) return null
   return (
@@ -36,6 +36,20 @@ export default function FileDragOverlay({ active }: { active: boolean }) {
       >
         <Typography variant="h6" sx={{ fontWeight: 600 }}>{t('fileDropTitle')}</Typography>
         <Typography variant="body2" sx={{ opacity: 0.9 }}>{t('fileDropSubtitle')}</Typography>
+        {/* Always show the shift-modifier hint so users can discover the selective import feature. */}
+        <Typography
+          variant="body2"
+          sx={{
+            mt: 1,
+            pt: 1,
+            borderTop: '1px solid rgba(255,255,255,0.15)',
+            opacity: 0.75,
+            color: 'primary.light',
+            fontStyle: 'italic',
+          }}
+        >
+          {t('fileDropShiftHint')}
+        </Typography>
       </Box>
     </Box>
   )

@@ -537,6 +537,7 @@ const catalog: Catalog = {
   // File drag overlay
   fileDropTitle: "Solte o arquivo para carregar",
   fileDropSubtitle: "Aceita .sfc (receitas + meta-sets), .hsf (Sellfile) e .db (banco de dados de gear)",
+  fileDropShiftHint: "Segure Shift ao soltar um .sfc para escolher o que importar",
 
   // Sets section labels
   setsTitle: "Conjuntos",

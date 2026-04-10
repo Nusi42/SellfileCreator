@@ -551,6 +551,7 @@ const enUS: Catalog = {
   // File drag overlay
   fileDropTitle: "Drop File to Load",
   fileDropSubtitle: "Accepts .sfc (recipes + Metasets), .hsf (sellfile), and .db (gear database)",
+  fileDropShiftHint: "Hold Shift while dropping .sfc to choose what to import",
 
   // Sets section labels
   setsTitle: "Sets",
