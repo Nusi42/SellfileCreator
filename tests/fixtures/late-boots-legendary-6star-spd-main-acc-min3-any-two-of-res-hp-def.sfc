@@ -1,0 +1,57 @@
+{
+  "Version": "1.0.1-dev",
+  "Metasets": [],
+  "Recipes": [
+    {
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "6★",
+      "Rarity": "≥ Legendary",
+      "Faction": "Any",
+      "mainStats": [
+        "SPD"
+      ],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        {
+          "stat": "ACC",
+          "fixed": true,
+          "rollBounds": {
+            "min": 3
+          }
+        },
+        {
+          "stat": "RES",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "HP%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "DEF%",
+          "rollBounds": {
+            "any": true
+          }
+        }
+      ],
+      "minCount": 3,
+      "autoMinCount": false,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": true,
+      "lockedMinRequiredRolls": 0,
+      "earlyKeepMode": "late",
+      "artifactTypeNames": [
+        "Boots"
+      ],
+      "artifactSetNames": [],
+      "artifactMetaSetNames": []
+    }
+  ]
+}
