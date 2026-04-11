@@ -38,7 +38,6 @@ import initRuleEngineWasm, {
   score_safeguard_candidates_value as scoreSafeguardCandidatesWasmValueBinding,
   version as ruleEngineWasmVersionBinding,
   wasm_linear_memory_bytes as wasmLinearMemoryBytesBinding,
-  get_allocator_counters_value as getWasmAllocatorCountersBinding,
 } from './generated/rule_engine.js'
 import type { GeneratedBranchRuleEntry, HsfRuleWithRecipe } from '../merge'
 import type { HsfRule } from '../hsfTypes'
@@ -309,27 +308,6 @@ export const getWasmLinearMemoryBytes = (): number => {
   return wasmLinearMemoryBytesBinding()
 }
 
-// Talc allocator counters — available because the crate is compiled with "counters" feature.
-// Exposes allocation_count, fragment_count, available_bytes, claimed_bytes, etc.
-// Useful for diagnosing heap fragmentation around pipeline phases in dev builds.
-export type WasmAllocatorCounters = {
-  allocationCount: number
-  totalAllocationCount: number
-  allocatedBytes: number
-  totalAllocatedBytes: number
-  availableBytes: number
-  fragmentCount: number
-  heapCount: number
-  totalHeapCount: number
-  claimedBytes: number
-  totalClaimedBytes: number
-}
-
-// Returns the current talc allocator counters, or null if WASM is not initialized.
-export const getWasmAllocatorCounters = (): WasmAllocatorCounters | null => {
-  if (!wasmInitialized) return null
-  return getWasmAllocatorCountersBinding() as WasmAllocatorCounters
-}
 
 type WasmObsoleteEntry = { index: number; coveredBy: number; reason: string }
 type WasmObsoleteReport = { obsolete: WasmObsoleteEntry[] }

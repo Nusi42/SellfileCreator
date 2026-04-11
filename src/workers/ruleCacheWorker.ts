@@ -31,7 +31,6 @@ import {
   configureWasmRuleEngine,
   evaluateWasmRuleEngineItems,
   finalizeGeneratedRulesWithLoadedWasm,
-  getWasmAllocatorCounters,
   getWasmLinearMemoryBytes,
   getWasmRuleEngineVersion,
   resetWasmInstance,
@@ -39,13 +38,8 @@ import {
 } from '../lib/wasm/wasmRuleEngine'
 import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
 import { createProgressThrottler } from '../types/progress'
-import { ts } from '../lib/logTimestamp'
 
 declare const self: DedicatedWorkerGlobalScope
-
-// True only on the Vite dev server (replaced to `false` in production builds by Vite).
-// Used as a dead-code eliminator: all devLog / devTimer calls compile away in prod.
-const IS_DEV = import.meta.env.DEV
 
 type PipelineState = {
   rulesByRecipe: Map<number, HsfRuleWithRecipe[]>
@@ -214,36 +208,6 @@ const notePipelineGeneration = (generation: number): void => {
 }
 
 const pipelineGenerationIsStale = (generation: number): boolean => generation < latestPipelineGeneration
-
-// Relay a [sfc-diag] line to the main thread via postMessage so it reaches
-// page.on('console') in Playwright (worker console.log does not fire that event).
-// The main thread consumer logs it with console.log so it also appears in DevTools.
-const postDiagnostic = (text: string): void => {
-  const response: RuleCacheWorkerResponse = { kind: 'diagnostic', text }
-  self.postMessage(response)
-}
-
-// Emit a trace line to DevTools and the diagnostic relay.
-// No-ops in production builds (IS_DEV is a Vite compile-time constant → dead code).
-const devLog = IS_DEV
-  ? (msg: string): void => {
-    // Prepend the wall-clock time so log lines are correlatable across workers.
-    const line = `${ts()} ${msg}`
-    console.log(line)
-    postDiagnostic(line)
-  }
-  : (msg: string): void => { void msg /* stripped in prod by Vite dead-code elimination */ }
-
-// Returns a zero-argument lambda that logs elapsed ms when called.
-// Usage: const done = devTimer('label'); ... done()
-const devTimer = IS_DEV
-  ? (label: string): (() => void) => {
-    const t0 = performance.now()
-    return (): void => {
-      devLog(`[sfc-trace] ${label} ${(performance.now() - t0).toFixed(1)}ms`)
-    }
-  }
-  : (_label: string): (() => void) => (): void => { /* stripped in prod */ }
 
 // Returns true when err is a WASM OOM abort (unreachable instruction trap).
 // V8: "RuntimeError: unreachable"   SpiderMonkey: "RuntimeError: unreachable executed"
@@ -450,14 +414,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
   const runIsStale = (): boolean => pipelineGenerationIsStale(pipelineGeneration)
 
   try {
-    devLog(`[sfc-trace] pipeline start id=${id} recipes=${payload.recipes.length} artifacts=${payload.artifacts.length}`)
-    // Yield so the trace above is delivered to the main thread before the first WASM
-    // allocation. If the process crashes inside a WASM call, the last trace that arrived
-    // on the main thread tells us exactly where the crash occurred.
-    if (IS_DEV) await yieldWorkerMacrotask()
-    const doneState = devTimer('buildPipelineState')
     const { state: pipelineState } = buildPipelineState(payload)
-    doneState()
     const prebuiltCustomRules = pipelineState.rulesByRecipe
     const hasActiveSafeguards = hasActiveSafeguardRules(payload.safeguards)
     const baseSafeguards = hasActiveSafeguards
@@ -482,7 +439,6 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
 
     // Build base + flattened-customs once; both baseline and final merged-rules
     // calls reuse this to skip the redundant WASM flattenRuleBatches step.
-    const doneComponents = devTimer('buildMergedRulesComponents')
     const sharedComponents: MergedRulesComponents = buildMergedRulesComponents({
       hsf: payload.hsf,
       customRecipes: recipesForRules,
@@ -490,19 +446,16 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       substatTargets: payload.substatTargets,
       prebuiltCustomRules,
     })
-    doneComponents()
     const mergeParams = {
       ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
       omitDisabledBeforeSafeguards: payload.omitDisabledBeforeSafeguards,
       dedupeBeforeSafeguards: payload.dedupeBeforeSafeguards,
     }
 
-    const doneBaseline = devTimer('mergedRulesBaseline')
     const mergedRulesBaseline = computeMergedRulesFromComponents(sharedComponents, {
       ...mergeParams,
       safeguards: baseSafeguards,
     })
-    doneBaseline()
 
     // ignoreSafeguardRecipeIndices is needed by both detection and final passes.
     const ignoreSafeguardRecipeIndices = buildIgnoreSafeguardRecipeIndices(recipesForRules)
@@ -511,9 +464,6 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // Populated inside needsDetection branch when payload.computeImprovementChance is true.
     let improvementChanceEntries: ImprovementChanceWasmEntry[] | null = null
     if (needsDetection) {
-      // Trace + yield before the first WASM allocation so a crash inside configure is visible.
-      devLog(`[sfc-trace] configure-baseline id=${id} rules=${mergedRulesBaseline.length}`)
-      if (IS_DEV) await yieldWorkerMacrotask()
       // Configure baseline rules so the combined WASM evaluate+collect call uses them.
       await configureWasmRuleEngine({
         rules: mergedRulesBaseline,
@@ -534,19 +484,8 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       const rowsAreStale = storeFingerprint !== lastArtifactStoreFingerprint
       if (rowsAreStale) {
         const detectionRows = artifactEntries.map(([, artifact]) => toWasmArtifactStoreRow(artifact))
-        // Trace + yield so a crash inside storeArtifactRows is distinguishable from configure.
-        devLog(`[sfc-trace] store-rows-call id=${id} count=${detectionRows.length}`)
-        if (IS_DEV) await yieldWorkerMacrotask()
         storeArtifactRows(detectionRows)
         lastArtifactStoreFingerprint = storeFingerprint
-        const storedMsg = `${ts()} [sfc-diag] store-rows count=${detectionRows.length} (stored) wasm-linear-mem=${(getWasmLinearMemoryBytes() / 1048576).toFixed(2)}MiB`
-        // Both: DevTools visibility for manual debugging + postMessage relay for Playwright.
-        console.log(storedMsg)
-        postDiagnostic(storedMsg)
-      } else {
-        const skippedMsg = `${ts()} [sfc-diag] store-rows count=${artifactEntries.length} (skipped-unchanged) wasm-linear-mem=${(getWasmLinearMemoryBytes() / 1048576).toFixed(2)}MiB`
-        console.log(skippedMsg)
-        postDiagnostic(skippedMsg)
       }
       // Compute improvement-chance percentages once, before detection. Two consumers need
       // this result: (a) the detection call uses it for threshold gating on candidate ranking,
@@ -571,54 +510,13 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         const improvChancePrewarmBytes =
           Math.ceil((artifactEntries.length * 4096) / PAGE_16MIB) * PAGE_16MIB
         preWarmHeapWithLoadedWasm(improvChancePrewarmBytes) // 32 MiB for ~7982 items
-        // Log heap state immediately before improvement-chance to diagnose state drift.
-        if (IS_DEV) {
-          const ac = getWasmAllocatorCounters()
-          if (ac != null) {
-            devLog(
-              `[sfc-diag] alloc-counters before-improvChance` +
-              ` fragments=${ac.fragmentCount} avail=${(ac.availableBytes / 1048576).toFixed(2)}MiB` +
-              ` live=${(ac.allocatedBytes / 1048576).toFixed(2)}MiB` +
-              ` claimed=${(ac.claimedBytes / 1048576).toFixed(2)}MiB` +
-              ` heaps=${ac.heapCount}`,
-            )
-          }
-        }
-        // Trace + yield so a crash inside computeImprovementChance is distinguishable.
-        devLog(`[sfc-trace] compute-impr-chance id=${id}`)
-        if (IS_DEV) await yieldWorkerMacrotask()
-        const doneImprovChance = devTimer('computeImprovementChance')
         const improvResult = computeImprovementChanceWithLoadedWasm({
           rules: payload.safeguards.rules,
           enabled: payload.safeguards.enabled,
-          // Pass debug flag so WASM populates perf counters in dev only.
-          debug: IS_DEV,
+          debug: false,
         })
-        doneImprovChance()
         // Store entries for the payload (null when caller didn't opt in).
         improvementChanceEntries = payload.computeImprovementChance ? (improvResult?.entries ?? null) : null
-        if (IS_DEV && improvResult?.diag != null) {
-          const d = improvResult.diag
-          devLog(
-            `[sfc-trace] improvChance-diag rows=${d.rowCount} rules=${d.ruleCount}` +
-            ` scenarios=${d.scenarioCount} withScenarios=${d.artifactsWithScenarios} viable=${d.artifactsViable}`,
-          )
-        }
-        // Log allocator counters after improvement-chance to capture post-phase heap state.
-        // fragment_count and available_bytes reveal how much fragmentation the improvement-
-        // chance alloc/free cycles left behind before the large eval-collect allocations land.
-        if (IS_DEV) {
-          const ac = getWasmAllocatorCounters()
-          if (ac != null) {
-            devLog(
-              `[sfc-diag] alloc-counters after-improvChance` +
-              ` fragments=${ac.fragmentCount} avail=${(ac.availableBytes / 1048576).toFixed(2)}MiB` +
-              ` live=${(ac.allocatedBytes / 1048576).toFixed(2)}MiB` +
-              ` claimed=${(ac.claimedBytes / 1048576).toFixed(2)}MiB` +
-              ` heaps=${ac.heapCount}`,
-            )
-          }
-        }
         if (runIsStale()) return
       }
       // Pass baselineExcludeSources so keep-override sources are excluded from the
@@ -635,9 +533,6 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       // for the BucketedRules evaluate pass; round up to the nearest 16 MiB grow page.
       const evalCollectPrewarmBytes = Math.ceil((artifactEntries.length * 4096) / (16 * 1024 * 1024)) * (16 * 1024 * 1024)
       if (evalCollectPrewarmBytes > 0) preWarmHeapWithLoadedWasm(evalCollectPrewarmBytes)
-      // Trace + yield so a crash inside evaluateAndCollectSafeguardProtection is distinguishable.
-      devLog(`[sfc-trace] eval-collect id=${id}`)
-      if (IS_DEV) await yieldWorkerMacrotask()
       // Supply pre-computed entries so evaluateAndCollectSafeguardProtection skips its
       // internal improvement-chance fallback (prevents a second WASM call + allocation).
       const detectionResult = evaluateAndCollectSafeguardProtection({
@@ -659,21 +554,6 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         })
       }
       safeguardDetectionSnapshot = detectionResult.detection
-      // Log allocator counters after eval-collect to see post-phase heap state.
-      // If fragment_count grew significantly compared to after-improvChance, eval-collect
-      // itself is the fragmentation source; if it stayed stable the fix is working.
-      if (IS_DEV) {
-        const ac = getWasmAllocatorCounters()
-        if (ac != null) {
-          devLog(
-            `[sfc-diag] alloc-counters after-evalCollect` +
-            ` fragments=${ac.fragmentCount} avail=${(ac.availableBytes / 1048576).toFixed(2)}MiB` +
-            ` live=${(ac.allocatedBytes / 1048576).toFixed(2)}MiB` +
-            ` claimed=${(ac.claimedBytes / 1048576).toFixed(2)}MiB` +
-            ` heaps=${ac.heapCount}`,
-          )
-        }
-      }
       completed = warmTotal + artifactEntries.length
       emitPipelineProgress?.({ completed, total })
     } else {
@@ -694,27 +574,12 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // The rows will be repopulated on the next pipeline run via store_artifact_rows_value.
     if (needsDetection) {
       clearStoredRowsWithLoadedWasm()
-      // Trace heap state immediately after the free so we can compare with the
-      // after-evalCollect snapshot and confirm talc is coalescing the freed space.
-      if (IS_DEV) {
-        const ac = getWasmAllocatorCounters()
-        if (ac != null) {
-          devLog(
-            `[sfc-diag] alloc-counters after-clearRows` +
-            ` fragments=${ac.fragmentCount} avail=${(ac.availableBytes / 1048576).toFixed(2)}MiB` +
-            ` live=${(ac.allocatedBytes / 1048576).toFixed(2)}MiB` +
-            ` claimed=${(ac.claimedBytes / 1048576).toFixed(2)}MiB` +
-            ` heaps=${ac.heapCount}`,
-          )
-        }
-      }
       // Invalidate the artifact store fingerprint so the next pipeline run that needs
       // detection re-stores rows unconditionally (stored_rows is now None in ENGINE_STATE).
       lastArtifactStoreFingerprint = null
     }
 
     // Use shared components so flattenRuleBatches is not called a second time.
-    const doneFinal = devTimer('mergedRulesFinal')
     const mergedRulesFinal = computeMergedRulesFromComponents(sharedComponents, {
       ...mergeParams,
       safeguards: {
@@ -722,7 +587,6 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         detection: safeguardDetectionSnapshot,
       },
     })
-    doneFinal()
 
     // Optimisation: when detection found nothing to protect (no injected safeguard
     // rules), the final merged rules are functionally identical to baseline and the
@@ -744,10 +608,6 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       }
     } else {
       const finalProgressRef = { value: completed }
-      // Trace + yield so a crash inside the final match pass is distinguishable from eval-collect.
-      devLog(`[sfc-trace] match-pass id=${id} artifacts=${artifactEntries.length} rules=${mergedRulesFinal.length}`)
-      if (IS_DEV) await yieldWorkerMacrotask()
-      const doneMatchPass = devTimer(`matchPass artifacts=${artifactEntries.length} rules=${mergedRulesFinal.length}`)
       matches = await buildPipelineMatches(
         mergedRulesFinal,
         artifactEntries,
@@ -759,7 +619,6 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         hasActiveSafeguards,
         runIsStale,
       )
-      doneMatchPass()
       if (runIsStale()) return
       if (total > 0 && finalProgressRef.value < total) {
         finalProgressRef.value = total
@@ -787,20 +646,13 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       detectionKey === lastSentDetectionKey &&
       keysEqual(lastSentKeys, pipelineState.keys)
 
-    if (rulesUnchanged) {
-      const skipMsg = `${ts()} [sfc-diag] rules-clone skipped merged-count=${mergedRulesFinal.length}`
-      console.log(skipMsg)
-      postDiagnostic(skipMsg)
-    } else {
+    if (!rulesUnchanged) {
       // Capture sentinels before the response object is handed off (separate .slice()
       // calls ensure lastSentKeys and the response's keys array don't alias each other).
       lastSentKeys = pipelineState.keys.slice()
       lastSentRecipeKey = recipeKey
       lastSentDetectionKey = detectionKey
       lastSentMergedCount = mergedRulesFinal.length
-      const sentMsg = `${ts()} [sfc-diag] rules-clone sent merged-count=${mergedRulesFinal.length}`
-      console.log(sentMsg)
-      postDiagnostic(sentMsg)
     }
 
     const response: RuleCacheWorkerResponse = {
@@ -824,25 +676,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         wasmLinearBytes: getWasmLinearMemoryBytes(),
       },
     }
-    if (IS_DEV) {
-      // Rough postMessage payload size: JSON is a proxy for structured-clone byte cost.
-      // Only serialise a sample of large fields to keep the tracing overhead low.
-      const mergedSize = rulesUnchanged ? 0 : mergedRulesFinal.length
-      const matchesSize = matches.length
-      const detectionEntries = safeguardDetectionSnapshot?.entries.length ?? 0
-      const wamLinearMib = (getWasmLinearMemoryBytes() / 1048576).toFixed(2)
-      devLog(
-        `[sfc-trace] postMessage id=${id} merged=${mergedSize} matches=${matchesSize}` +
-        ` detection-entries=${detectionEntries} rulesUnchanged=${rulesUnchanged}` +
-        ` wasm-linear=${wamLinearMib}MiB`,
-      )
-    }
     self.postMessage(response)
-    // If this line logs, the crash is NOT during self.postMessage (structured clone).
-    // If it never appears after the "postMessage id=N" line, the crash is inside postMessage.
-    devLog(`[sfc-trace] postMessage-sent id=${id}`)
     // True heap resets happen in the main thread via cycleWorkerProactively
-    // (PIPELINE_RESTART_INTERVAL=5) which terminates and respawns the worker.
+    // (PIPELINE_RESTART_INTERVAL=3) which terminates and respawns the worker.
     // An in-worker resetWasmInstance() call cannot produce a clean heap because
     // wasm-bindgen's initRuleEngineWasm is idempotent — it returns the cached
     // instance without re-instantiating it.
@@ -856,7 +692,6 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       // skipped and the worker would otherwise sit with wasmInitialized=false.
       resetWasmInstance()
       wasmWarmupPromise = null
-      devLog(`[sfc-diag] wasm-oom-reset id=${id} — instance reset for next pipeline`)
     }
     if (runIsStale()) return
     postError(id, error)

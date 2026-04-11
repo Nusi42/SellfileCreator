@@ -19,12 +19,8 @@ import type {
   DungeonSimulatorWorkerResponse,
 } from './dungeonSimulatorWorkerTypes'
 import { createProgressThrottler, PROGRESS_THROTTLE_MS } from '../types/progress'
-import { ts } from '../lib/logTimestamp'
 
 declare const self: DedicatedWorkerGlobalScope
-
-// Compile-time flag — same pattern as ruleCacheWorker.ts; dead-code eliminated in prod.
-const IS_DEV = import.meta.env.DEV
 
 // Track the active run so newer requests can preempt older ones.
 let activeRunId = 0
@@ -90,10 +86,8 @@ const runSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { k
   const { id, payload } = message
   // Mark the newest run as active so earlier runs can self-abort.
   activeRunId = id
-  if (IS_DEV) console.log(`${ts()} [sfc-dsim] sim start id=${id} rules=${payload.rules.length} runs=${payload.runs}`)
   // Warm up WASM before any sync matcher calls happen in the simulation loop.
   await ensureWasmWorkerReady()
-  if (IS_DEV) console.log(`${ts()} [sfc-dsim] wasm ready id=${id}`)
   // Guard against invalid batch sizes that would stall the loop.
   const batchSize = Number.isFinite(payload.batchSize)
     ? Math.max(1, Math.floor(payload.batchSize))
@@ -173,7 +167,6 @@ const runSessionToCompletion = async (
   }
   // Abort if another request superseded this one.
   if (activeRunId !== id) return
-  if (IS_DEV) console.log(`${ts()} [sfc-dsim] sim done id=${id}`)
   // Emit a final "done" snapshot.
   const doneResponse: DungeonSimulatorWorkerResponse = {
     id,
@@ -197,7 +190,6 @@ const runResumedSimulation = async (message: Extract<DungeonSimulatorWorkerReque
   }
   // Mark as the active run so the batch loop guard stays consistent.
   activeRunId = id
-  if (IS_DEV) console.log(`${ts()} [sfc-dsim] resume id=${id}`)
   const batchSize = Number.isFinite(payload.batchSize) ? Math.max(1, Math.floor(payload.batchSize)) : 1
   const throttleMs = payload.throttleMs ?? PROGRESS_THROTTLE_MS
   // Continue the existing session — no new session is created.

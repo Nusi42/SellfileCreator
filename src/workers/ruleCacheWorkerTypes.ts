@@ -86,21 +86,11 @@ export type RuleCacheErrorResponse = {
   error: string
 }
 
-// Diagnostic postMessage relayed to the main thread so [sfc-diag] log lines from
-// the worker context reach page.on('console') in Playwright (worker console.log
-// does not fire that event). The main thread consumer logs the text with console.log
-// so it also appears in Chrome DevTools when running the app manually.
-export type RuleCacheDiagnosticResponse = {
-  kind: 'diagnostic'
-  text: string
-}
-
 export type RuleCacheWorkerResponse =
   | RuleCacheBuilderCountResponse
   | RuleCachePipelineResponse
   | RuleCachePipelineProgressResponse
   | RuleCacheErrorResponse
-  | RuleCacheDiagnosticResponse
 
 export type RuleCacheWorkerRequest =
   | RuleCacheBuilderCountRequest

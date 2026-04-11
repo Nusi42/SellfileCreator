@@ -18,7 +18,6 @@ import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { GearInspectorMatchWorkerItemResult } from '../workers/gearInspectorMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
 import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
-import { ts } from '../lib/logTimestamp'
 import { pauseAllDsimWorkers, signalPipelineDone } from '../lib/wasmWorkerSlot'
 
 type PipelineParams = {
@@ -163,7 +162,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   // STATUS_ACCESS_VIOLATION is unrecoverable at the JS level (V8 OS-level crash), so
   // the only defence is staying below the ~160 MiB grow-rejection threshold.
   const WASM_HEAP_RESTART_BYTES = 150 * 1024 * 1024 // 150 MiB
-  const PIPELINE_RESTART_INTERVAL = 5               // restart worker every 5 completed pipelines
+  const PIPELINE_RESTART_INTERVAL = 3               // restart worker every 3 completed pipelines
   const completedPipelineCountRef = useRef(0)
   const lastWasmLinearBytesRef = useRef(0)
   const pendingPipelineRef = useRef<Map<number, PendingPipelineRequest>>(new Map())
@@ -211,16 +210,6 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           return
         }
         case 'pipeline:done': {
-          // DEV: if this line appears the large structured-clone was fully deserialized on
-          // the main thread. If it does NOT appear after a worker "postMessage-sent" trace,
-          // the crash is happening during structured-clone deserialization.
-          if (import.meta.env.DEV) {
-            console.log(
-              `${ts()} [sfc-trace] main pipeline:done id=${data.id}` +
-              ` rules=${data.payload.mergedRules?.length ?? 'null'}` +
-              ` matches=${data.payload.matches.length}`,
-            )
-          }
           const pending = pipelineMap.get(data.id)
           if (!pending) return
           pipelineMap.delete(data.id)
@@ -286,20 +275,6 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           }
           return
         }
-        case 'diagnostic': {
-          // Accumulate [sfc-diag] text on window.__sfcDiag so Playwright tests can read
-          // it via page.evaluate. Also echo to console so the message is visible in
-          // DevTools during manual debugging (worker console.log does not fire
-          // page.on('console'), and these messages are only sent in dev builds).
-          console.log(data.text)
-          const diag = (window as Window & { __sfcDiag?: string[] }).__sfcDiag
-          if (diag) {
-            diag.push(data.text)
-          } else {
-            (window as Window & { __sfcDiag?: string[] }).__sfcDiag = [data.text]
-          }
-          return
-        }
       }
     }
 
@@ -342,9 +317,6 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       completedPipelineCountRef.current = 0
       lastWasmLinearBytesRef.current = 0
       spawnWorker()
-      if (import.meta.env.DEV) {
-        console.log(`${ts()} [sfc-diag] rule-cache worker cycled — fresh WASM heap`)
-      }
     }
     cycleWorkerProactivelyRef.current = cycleWorkerProactively
     const replaceWorkerAfterRuntimeError = () => {

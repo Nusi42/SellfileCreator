@@ -17,6 +17,11 @@ serde-wasm-bindgen = "0.6"
 # phase followed by eval-collect, causing STATUS_ACCESS_VIOLATION on ~8 000-row
 # artifact sets.  TalckWasm is purpose-built for wasm32-unknown-unknown.
 # Always enable counters: the overhead is minimal (a few atomic increments per
-# alloc/free) and they let us observe fragmentation state in dev builds without
-# a separate release-vs-debug dependency split.
+# alloc/free) and the data is available to get_allocator_counters_value() when
+# the dev-diagnostics feature is active (WASM_DEV_DIAGNOSTICS=1 in the build script).
 talc = { version = "5", default-features = false, features = ["counters"] }
+
+[features]
+# Enable extra wasm_bindgen exports for dev-time heap diagnostics.
+# Build with WASM_DEV_DIAGNOSTICS=1 to include get_allocator_counters_value().
+dev-diagnostics = []

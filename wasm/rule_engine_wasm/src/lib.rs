@@ -794,9 +794,8 @@ pub fn prewarm_heap_value(bytes: u32) {
 }
 
 // Returns the WASM linear memory size in bytes (page_count × 65_536).
-// Used by worker [sfc-diag] log lines and the Playwright memory-profiling spec to
-// track WASM heap growth independently of CDP ArrayBufferContents (which includes
-// all ArrayBuffers, not just WASM memory).
+// Used by worker [sfc-diag] log lines and the proactive worker-cycling threshold
+// (WASM_HEAP_RESTART_BYTES) to track WASM heap growth.
 #[wasm_bindgen]
 pub fn wasm_linear_memory_bytes() -> u32 {
     wasm_linear_memory_bytes_core()
@@ -804,6 +803,8 @@ pub fn wasm_linear_memory_bytes() -> u32 {
 
 // Mirror of talc::base::Counters for serde serialization across the WASM boundary.
 // u64 fields are cast to f64; all realistic values for our workloads fit in f64 mantissa.
+// Compiled only when the dev-diagnostics feature is active (WASM_DEV_DIAGNOSTICS=1).
+#[cfg(feature = "dev-diagnostics")]
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AllocatorCounters {
@@ -820,17 +821,16 @@ struct AllocatorCounters {
 }
 
 // Expose talc allocator counters for heap diagnostics.
-// Available in all builds (counters feature is always enabled) but intended for
-// dev use: log fragment_count / available_bytes / allocated_bytes around pipeline
-// phases to diagnose heap pressure without needing a full profiler.
+// Compiled only when the dev-diagnostics feature is active (WASM_DEV_DIAGNOSTICS=1
+// in the build script). Intended for dev use: log fragment_count / available_bytes /
+// allocated_bytes around pipeline phases to diagnose heap pressure without a profiler.
 // Returns an AllocatorCounters object (see struct above for field names).
 //
 // talc 5 does not forward counters() from TalcSyncCell to its inner TalcCell, so
 // we reinterpret-cast the static reference.  TalcSyncCell<S,B>(TalcCell<S,B>) is a
 // newtype with a single unnamed field at offset 0; no padding or niche-optimization
-// can affect a single-field struct, making this cast safe in practice.  This
-// function is intentionally WASM-only and is only called from dev/diagnostic code.
-#[cfg(all(not(target_feature = "atomics"), target_family = "wasm"))]
+// can affect a single-field struct, making this cast safe in practice.
+#[cfg(all(feature = "dev-diagnostics", not(target_feature = "atomics"), target_family = "wasm"))]
 #[wasm_bindgen]
 pub fn get_allocator_counters_value() -> Result<JsValue, JsValue> {
     // SAFETY: see comment above — single-field newtype cast, read-only, single-threaded WASM.
