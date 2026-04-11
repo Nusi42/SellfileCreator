@@ -13,7 +13,9 @@ const cloneStat = (stat: NormalizedStat | null | undefined): NormalizedStat | nu
 )
 
 const cloneStats = (stats: NormalizedStat[] | undefined): NormalizedStat[] => (
-  (stats ?? []).map((stat) => ({ ...stat, mythValue: stat.mythValue ?? 0 }))
+  // Filter out null/undefined entries defensively — the type guarantees they are
+  // non-null, but malformed deserialized payloads can violate that at runtime.
+  (stats ?? []).filter((stat): stat is NormalizedStat => stat != null).map((stat) => ({ ...stat, mythValue: stat.mythValue ?? 0 }))
 )
 
 const buildManualMainStat = (variantValue: number | undefined): NormalizedStat | null => {

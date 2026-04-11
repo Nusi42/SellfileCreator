@@ -10,6 +10,8 @@ import initRuleEngineWasm, {
   collect_and_compute_safeguard_protection_value as collectAndComputeSafeguardProtectionWasmValueBinding,
   evaluate_and_collect_safeguard_protection_value as evaluateAndCollectSafeguardProtectionWasmValueBinding,
   store_artifact_rows_value as storeArtifactRowsWasmValueBinding,
+  clear_stored_rows_value as clearStoredRowsWasmBinding,
+  prewarm_heap_value as preWarmHeapWasmBinding,
   compute_improvement_chance_value as computeImprovementChanceWasmValueBinding,
   compute_merged_rules_value as computeMergedRulesWasmValueBinding,
   compute_safeguard_protection_value as computeSafeguardProtectionValueWasmBinding,
@@ -36,6 +38,7 @@ import initRuleEngineWasm, {
   score_safeguard_candidates_value as scoreSafeguardCandidatesWasmValueBinding,
   version as ruleEngineWasmVersionBinding,
   wasm_linear_memory_bytes as wasmLinearMemoryBytesBinding,
+  get_allocator_counters_value as getWasmAllocatorCountersBinding,
 } from './generated/rule_engine.js'
 import type { GeneratedBranchRuleEntry, HsfRuleWithRecipe } from '../merge'
 import type { HsfRule } from '../hsfTypes'
@@ -297,6 +300,28 @@ export const getWasmLinearMemoryBytes = (): number => {
   return wasmLinearMemoryBytesBinding()
 }
 
+// Talc allocator counters — available because the crate is compiled with "counters" feature.
+// Exposes allocation_count, fragment_count, available_bytes, claimed_bytes, etc.
+// Useful for diagnosing heap fragmentation around pipeline phases in dev builds.
+export type WasmAllocatorCounters = {
+  allocationCount: number
+  totalAllocationCount: number
+  allocatedBytes: number
+  totalAllocatedBytes: number
+  availableBytes: number
+  fragmentCount: number
+  heapCount: number
+  totalHeapCount: number
+  claimedBytes: number
+  totalClaimedBytes: number
+}
+
+// Returns the current talc allocator counters, or null if WASM is not initialized.
+export const getWasmAllocatorCounters = (): WasmAllocatorCounters | null => {
+  if (!wasmInitialized) return null
+  return getWasmAllocatorCountersBinding() as WasmAllocatorCounters
+}
+
 type WasmObsoleteEntry = { index: number; coveredBy: number; reason: string }
 type WasmObsoleteReport = { obsolete: WasmObsoleteEntry[] }
 
@@ -552,6 +577,25 @@ export const storeArtifactRowsWithLoadedWasm = (params: {
   // Compact rows contain only the fields WASM reads; extra properties have been stripped
   // on the JS side to avoid serde_wasm_bindgen iterating ignored fields in Firefox.
   return storeArtifactRowsWasmValueBinding(params.rows) as number
+}
+
+// Drops the stored artifact rows from ENGINE_STATE, releasing their heap allocation
+// back to talc.  Call after eval-collect (the last consumer of stored_rows) and before
+// computeMergedRulesWithLoadedWasm to free ~16–20 MiB before the large merge allocations.
+// Rows must be re-populated via storeArtifactRowsWithLoadedWasm on the next pipeline run.
+export const clearStoredRowsWithLoadedWasm = (): void => {
+  assertWasmInitializedSync()
+  clearStoredRowsWasmBinding()
+}
+
+// Prewarms the talc heap by allocating then immediately freeing `bytes` bytes.
+// Forces memory.grow now (before the critical phase) so the freed block is in the
+// talc free list when the phase's large allocations arrive.  No-op if a free block
+// of that size already exists (the Vec::with_capacity hits an existing block and drop
+// returns it — zero net effect in the steady-state case).
+export const preWarmHeapWithLoadedWasm = (bytes: number): void => {
+  assertWasmInitializedSync()
+  preWarmHeapWasmBinding(bytes)
 }
 
 // Combined evaluate + safeguard-collect wrapper — replaces the two-step

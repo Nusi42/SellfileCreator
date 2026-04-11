@@ -11,3 +11,12 @@ rule_engine_core = { path = "../rule_engine_core" }
 serde = { version = "1.0", features = ["derive"] }
 wasm-bindgen = "0.2"
 serde-wasm-bindgen = "0.6"
+# Replace dlmalloc (default WASM allocator) with talc, which coalesces free blocks
+# aggressively and handles wasm32 memory.grow natively.  dlmalloc fragments badly
+# under the mixed small/large allocation pattern produced by the improvement-chance
+# phase followed by eval-collect, causing STATUS_ACCESS_VIOLATION on ~8 000-row
+# artifact sets.  TalckWasm is purpose-built for wasm32-unknown-unknown.
+# Always enable counters: the overhead is minimal (a few atomic increments per
+# alloc/free) and they let us observe fragmentation state in dev builds without
+# a separate release-vs-debug dependency split.
+talc = { version = "5", default-features = false, features = ["counters"] }

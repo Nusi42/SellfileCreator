@@ -4,6 +4,119 @@ use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
 use wasm_bindgen::prelude::*;
 use rule_engine_core::*;
 
+// Replace the default dlmalloc with talc.  dlmalloc fragments badly under the
+// mixed small/large allocation pattern produced by the pipeline (many small Vecs
+// during improvement-chance, then large contiguous Vecs during eval-collect),
+// causing STATUS_ACCESS_VIOLATION on ~8 000-row artifact sets in V8/Windows.
+//
+// ROOT CAUSE of STATUS_ACCESS_VIOLATION on V8/Windows: V8 commits WASM pages
+// lazily.  Every memory.grow call that requests pages V8 has not yet committed
+// can fail under address-space pressure, raising STATUS_ACCESS_VIOLATION.
+//
+// The key is to minimise the NUMBER of memory.grow calls.  talc's stock
+// WasmGrowAndExtend grows by exactly ceil((request + CHUNK_UNIT) / PAGE_SIZE)
+// pages per OOM — as little as 1 × 64 KiB page per HashMap resize.  The
+// improvement-chance phase alone can produce 20–40 such calls during its
+// HashMap growth, each an independent failure opportunity.
+//
+// WasmBulkGrow (below) wraps WasmGrowAndExtend's logic but rounds up every
+// grow request to a minimum of MIN_GROWTH_PAGES (256 × 64 KiB = 16 MiB).
+// This limits the pipeline to ≤ 10 memory.grow calls (160 MiB ÷ 16 MiB) instead
+// of dozens, dramatically reducing the chance of any individual call failing.
+// 16 MiB is the empirically safe floor on V8/Windows: larger grow requests (32 MiB)
+// are sometimes rejected, causing STATUS_BREAKPOINT via Rust's OOM abort.
+// The heap still extends contiguously (same as WasmGrowAndExtend), so
+// fragmentation characteristics are identical.
+//
+// The "counters" feature adds minimal runtime overhead (a few atomic increments
+// per alloc/free) and exposes fragment_count, available_bytes, and allocation
+// statistics via get_allocator_counters_value for dev-time diagnosis.
+
+#[cfg(all(not(target_feature = "atomics"), target_family = "wasm"))]
+mod wasm_alloc {
+    use talc::{base::binning::Binning, cell::TalcSyncCell, wasm::WasmBinning};
+    use core::ptr::NonNull;
+
+    // Minimum growth per memory.grow call: 256 × 64 KiB = 16 MiB.
+    // Keeps the total number of memory.grow calls during a full pipeline (≈ 160 MiB)
+    // to ≤ 10, versus the 20–40 calls that WasmGrowAndExtend produces with 1-page
+    // increments.  Fewer calls → fewer opportunities for V8/Windows STATUS_ACCESS_VIOLATION.
+    // 16 MiB is the empirically safe floor: V8/Windows reliably commits 16 MiB pages
+    // (from 0 through 160+ MiB) while 32 MiB requests are rejected at certain heap
+    // sizes (e.g. ~97 MiB), causing STATUS_BREAKPOINT via Rust's OOM abort.
+    const PAGE_SIZE: usize = 1024 * 64;
+    const MIN_GROWTH_PAGES: usize = 256; // 16 MiB per grow call
+
+    #[derive(Debug, Default)]
+    pub struct WasmBulkGrow {
+        // Tracks the end of the last heap segment so contiguous grows can
+        // extend rather than claim, preserving single-segment heap layout.
+        end: Option<NonNull<u8>>,
+    }
+
+    impl WasmBulkGrow {
+        pub const fn new() -> Self {
+            Self { end: None }
+        }
+    }
+
+    unsafe impl talc::source::Source for WasmBulkGrow {
+        fn acquire<B: Binning>(
+            talc: &mut talc::base::Talc<Self, B>,
+            layout: core::alloc::Layout,
+        ) -> Result<(), ()> {
+            // Round the required pages up to at least MIN_GROWTH_PAGES so that
+            // small allocations (e.g. HashMap node) don't cause a 1-page grow.
+            // This amortises V8 page-commit latency across many allocations.
+            let chunk_unit = talc::base::CHUNK_UNIT;
+            let needed_pages =
+                (layout.size() + chunk_unit + (PAGE_SIZE - 1)) / PAGE_SIZE;
+            let delta_pages = needed_pages.max(MIN_GROWTH_PAGES);
+
+            let prev_memory_end = match {
+                #[cfg(target_arch = "wasm32")]
+                { core::arch::wasm32::memory_grow::<0>(delta_pages) }
+                #[cfg(not(any(target_arch = "wasm32", target_arch = "wasm64")))]
+                { usize::MAX } // non-WASM: signal failure (allocator unused)
+            } {
+                usize::MAX => return Err(()),
+                prev => prev,
+            };
+
+            let new_base = (prev_memory_end * PAGE_SIZE) as *mut u8;
+            let new_bytes = delta_pages * PAGE_SIZE;
+            // SAFETY: new_base + new_bytes is within the freshly grown WASM pages.
+            // wrapping_add avoids UB on overflow; at wasm32 address space limits
+            // this saturates naturally since no valid allocation can exceed 4 GiB.
+            let new_end = new_base.wrapping_add(new_bytes);
+
+            if let Some(old_end) = talc.source.end.take() {
+                if old_end.as_ptr() == new_base {
+                    // Contiguous: extend the existing heap segment.
+                    // SAFETY: new_end is within the newly grown pages.
+                    let new_end = unsafe { talc.extend(old_end, new_end) };
+                    talc.source.end = Some(new_end);
+                    return Ok(());
+                }
+            }
+            // Disjoint (first call or gap): claim as a new segment.
+            // SAFETY: new_base..new_bytes is exclusively owned WASM memory.
+            talc.source.end = unsafe { talc.claim(new_base, new_bytes) };
+            Ok(())
+        }
+    }
+
+    pub type WasmBulkGrowTalc = TalcSyncCell<WasmBulkGrow, WasmBinning>;
+
+    pub const fn new_bulk_grow_allocator() -> WasmBulkGrowTalc {
+        TalcSyncCell::new_wasm(WasmBulkGrow::new())
+    }
+}
+
+#[cfg(all(not(target_feature = "atomics"), target_family = "wasm"))]
+#[global_allocator]
+static ALLOCATOR: wasm_alloc::WasmBulkGrowTalc = wasm_alloc::new_bulk_grow_allocator();
+
 // Minimal inbound representation of a pre-computed improvement-chance entry.
 // Only the two fields needed for threshold gating are deserialized; the full
 // ImprovementChanceEntry type is serialization-only and cannot be deserialized.
@@ -643,6 +756,43 @@ pub fn store_artifact_rows_value(rows: JsValue) -> Result<JsValue, JsValue> {
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize stored row count: {error}")))
 }
 
+// Releases the stored artifact rows from ENGINE_STATE, returning their heap allocation
+// to talc.  Call after eval-collect (the last consumer of stored_rows in the pipeline)
+// and before computeMergedRules.  Freeing ~16–20 MiB here reduces the probability of
+// talc needing to call memory.grow to satisfy the large allocations in the merge phase.
+// The rows will be repopulated by store_artifact_rows_value on the next pipeline run.
+#[wasm_bindgen]
+pub fn clear_stored_rows_value() {
+    clear_stored_rows_engine();
+}
+
+// Prewarms the talc heap by allocating then immediately freeing `bytes` bytes.
+//
+// Purpose: after several pipeline cycles the heap can fragment such that no contiguous
+// free block of the required size exists.  When a subsequent large allocation (e.g. a
+// HashMap resize inside improvement-chance) triggers talc.acquire, it calls
+// memory.grow.  If the browser rejects that grow (or if the layout post-grow still can
+// not satisfy the request), the allocator returns null and Rust aborts with `unreachable`
+// (STATUS_BREAKPOINT on V8/Windows).
+//
+// By allocating a large scratch buffer here — before the phase that needs it — we force
+// memory.grow to happen NOW (when we can control the size) rather than inside the phase.
+// After drop the freed block sits in talc's bin list, immediately available for the
+// first large HashMap resize.  The net cost is one memory.grow call amortised across
+// the whole pipeline, not an unpredictable grow inside improvement-chance.
+//
+// If a free block of `bytes` already exists (typical after the first few pipeline runs),
+// Vec::with_capacity finds it immediately and drop returns it — zero net effect and no
+// grow.  The call becomes a no-op in the steady-state case.
+#[wasm_bindgen]
+pub fn prewarm_heap_value(bytes: u32) {
+    // Force allocation of `bytes` contiguous bytes.  Talc calls acquire (memory.grow) if
+    // no free block of this size exists, then the Vec is immediately dropped, leaving the
+    // block in the free list for the caller's next allocation phase.
+    let v: Vec<u8> = Vec::with_capacity(bytes as usize);
+    drop(v);
+}
+
 // Returns the WASM linear memory size in bytes (page_count × 65_536).
 // Used by worker [sfc-diag] log lines and the Playwright memory-profiling spec to
 // track WASM heap growth independently of CDP ArrayBufferContents (which includes
@@ -650,6 +800,58 @@ pub fn store_artifact_rows_value(rows: JsValue) -> Result<JsValue, JsValue> {
 #[wasm_bindgen]
 pub fn wasm_linear_memory_bytes() -> u32 {
     wasm_linear_memory_bytes_core()
+}
+
+// Mirror of talc::base::Counters for serde serialization across the WASM boundary.
+// u64 fields are cast to f64; all realistic values for our workloads fit in f64 mantissa.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AllocatorCounters {
+    allocation_count: usize,
+    total_allocation_count: f64,
+    allocated_bytes: usize,
+    total_allocated_bytes: f64,
+    available_bytes: usize,
+    fragment_count: usize,
+    heap_count: usize,
+    total_heap_count: f64,
+    claimed_bytes: usize,
+    total_claimed_bytes: f64,
+}
+
+// Expose talc allocator counters for heap diagnostics.
+// Available in all builds (counters feature is always enabled) but intended for
+// dev use: log fragment_count / available_bytes / allocated_bytes around pipeline
+// phases to diagnose heap pressure without needing a full profiler.
+// Returns an AllocatorCounters object (see struct above for field names).
+//
+// talc 5 does not forward counters() from TalcSyncCell to its inner TalcCell, so
+// we reinterpret-cast the static reference.  TalcSyncCell<S,B>(TalcCell<S,B>) is a
+// newtype with a single unnamed field at offset 0; no padding or niche-optimization
+// can affect a single-field struct, making this cast safe in practice.  This
+// function is intentionally WASM-only and is only called from dev/diagnostic code.
+#[cfg(all(not(target_feature = "atomics"), target_family = "wasm"))]
+#[wasm_bindgen]
+pub fn get_allocator_counters_value() -> Result<JsValue, JsValue> {
+    // SAFETY: see comment above — single-field newtype cast, read-only, single-threaded WASM.
+    let c = unsafe {
+        let inner = &ALLOCATOR as *const wasm_alloc::WasmBulkGrowTalc
+            as *const talc::cell::TalcCell<wasm_alloc::WasmBulkGrow, talc::wasm::WasmBinning>;
+        (*inner).counters()
+    };
+    let snapshot = AllocatorCounters {
+        allocation_count:       c.allocation_count,
+        total_allocation_count: c.total_allocation_count as f64,
+        allocated_bytes:        c.allocated_bytes,
+        total_allocated_bytes:  c.total_allocated_bytes as f64,
+        available_bytes:        c.available_bytes,
+        fragment_count:         c.fragment_count,
+        heap_count:             c.heap_count,
+        total_heap_count:       c.total_heap_count as f64,
+        claimed_bytes:          c.claimed_bytes,
+        total_claimed_bytes:    c.total_claimed_bytes as f64,
+    };
+    to_js_value(&snapshot).map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
 // Combined evaluate + safeguard-collect entry point — replaces the two-step

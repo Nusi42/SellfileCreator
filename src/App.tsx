@@ -582,8 +582,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           subOrder: item.subOrder,
         })
         next.push(artifact)
-      } catch {
-        void idx
+      } catch (err) {
+        // Surface conversion failures so they can be diagnosed — silently skipped items
+        // will not appear in the pipeline and will show in the Gear Inspector without a
+        // match result.  Log enough context to reproduce the issue.
+        if (import.meta.env.DEV) {
+          console.warn(
+            `[sfc-gear] buildPreviewArtifactFromGearInspectorItem failed for item idx=${idx}`,
+            `slot=${item.slot} set=${item.set} rank=${item.rank} rarity=${item.rarity} level=${item.level}`,
+            `itemId=${item.itemId} hasExtras=${item.previewExtras != null}`,
+            err,
+          )
+        }
       }
     })
     return next

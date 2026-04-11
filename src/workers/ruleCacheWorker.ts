@@ -25,10 +25,13 @@ import type { GearInspectorMatchWorkerItemResult } from './gearInspectorMatchWor
 import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from './ruleCacheWorkerTypes'
 import { resolveArtifactItemIdWithFallback } from '../lib/itemIdentity'
 import {
+  clearStoredRowsWithLoadedWasm,
+  preWarmHeapWithLoadedWasm,
   computeImprovementChanceWithLoadedWasm,
   configureWasmRuleEngine,
   evaluateWasmRuleEngineItems,
   finalizeGeneratedRulesWithLoadedWasm,
+  getWasmAllocatorCounters,
   getWasmLinearMemoryBytes,
   getWasmRuleEngineVersion,
   warmupWasmRuleEngine,
@@ -546,6 +549,27 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       )
       const needsImprovementChance = hasThreshold || payload.computeImprovementChance
       if (needsImprovementChance) {
+        // Prewarm the talc heap with a 32 MiB scratch buffer before improvement-chance.
+        // Improvement-chance uses a large HashMap memo table; its growth path triggers
+        // memory.grow inside a WASM call where we have no control over the grow size.
+        // Pre-growing here (outside the critical path) forces any needed memory.grow now,
+        // leaving a fresh 32 MiB free block ready for the first HashMap resize.
+        // If 32 MiB is already available the call is a no-op (Vec finds a free block,
+        // drop returns it — no grow, no net allocation change).
+        preWarmHeapWithLoadedWasm(16 * 1024 * 1024) // 16 MiB — matches MIN_GROWTH_PAGES
+        // Log heap state immediately before improvement-chance to diagnose state drift.
+        if (IS_DEV) {
+          const ac = getWasmAllocatorCounters()
+          if (ac != null) {
+            devLog(
+              `[sfc-diag] alloc-counters before-improvChance` +
+              ` fragments=${ac.fragmentCount} avail=${(ac.availableBytes / 1048576).toFixed(2)}MiB` +
+              ` live=${(ac.allocatedBytes / 1048576).toFixed(2)}MiB` +
+              ` claimed=${(ac.claimedBytes / 1048576).toFixed(2)}MiB` +
+              ` heaps=${ac.heapCount}`,
+            )
+          }
+        }
         // Trace + yield so a crash inside computeImprovementChance is distinguishable.
         devLog(`[sfc-trace] compute-impr-chance id=${id}`)
         if (IS_DEV) await yieldWorkerMacrotask()
@@ -565,6 +589,21 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
             `[sfc-trace] improvChance-diag rows=${d.rowCount} rules=${d.ruleCount}` +
             ` scenarios=${d.scenarioCount} withScenarios=${d.artifactsWithScenarios} viable=${d.artifactsViable}`,
           )
+        }
+        // Log allocator counters after improvement-chance to capture post-phase heap state.
+        // fragment_count and available_bytes reveal how much fragmentation the improvement-
+        // chance alloc/free cycles left behind before the large eval-collect allocations land.
+        if (IS_DEV) {
+          const ac = getWasmAllocatorCounters()
+          if (ac != null) {
+            devLog(
+              `[sfc-diag] alloc-counters after-improvChance` +
+              ` fragments=${ac.fragmentCount} avail=${(ac.availableBytes / 1048576).toFixed(2)}MiB` +
+              ` live=${(ac.allocatedBytes / 1048576).toFixed(2)}MiB` +
+              ` claimed=${(ac.claimedBytes / 1048576).toFixed(2)}MiB` +
+              ` heaps=${ac.heapCount}`,
+            )
+          }
         }
         if (runIsStale()) return
       }
@@ -597,6 +636,21 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         })
       }
       safeguardDetectionSnapshot = detectionResult.detection
+      // Log allocator counters after eval-collect to see post-phase heap state.
+      // If fragment_count grew significantly compared to after-improvChance, eval-collect
+      // itself is the fragmentation source; if it stayed stable the fix is working.
+      if (IS_DEV) {
+        const ac = getWasmAllocatorCounters()
+        if (ac != null) {
+          devLog(
+            `[sfc-diag] alloc-counters after-evalCollect` +
+            ` fragments=${ac.fragmentCount} avail=${(ac.availableBytes / 1048576).toFixed(2)}MiB` +
+            ` live=${(ac.allocatedBytes / 1048576).toFixed(2)}MiB` +
+            ` claimed=${(ac.claimedBytes / 1048576).toFixed(2)}MiB` +
+            ` heaps=${ac.heapCount}`,
+          )
+        }
+      }
       completed = warmTotal + artifactEntries.length
       emitPipelineProgress?.({ completed, total })
     } else {
@@ -607,6 +661,33 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       // spurious re-stores whenever an intermediate non-artifact pipeline run (e.g. a
       // roster or account message) left artifactEntries empty between bursts.
       completed = warmTotal
+    }
+
+    // Free stored artifact rows from WASM ENGINE_STATE before the merge phase.
+    // stored_rows (7970 items, ~16–20 MiB) are only consumed by eval-collect and are
+    // no longer needed.  Dropping them gives talc a large allocation budget before
+    // computeMergedRulesFromComponents (which deserializes 24k rules and needs
+    // contiguous blocks the fragmented heap cannot otherwise provide without a grow).
+    // The rows will be repopulated on the next pipeline run via store_artifact_rows_value.
+    if (needsDetection) {
+      clearStoredRowsWithLoadedWasm()
+      // Trace heap state immediately after the free so we can compare with the
+      // after-evalCollect snapshot and confirm talc is coalescing the freed space.
+      if (IS_DEV) {
+        const ac = getWasmAllocatorCounters()
+        if (ac != null) {
+          devLog(
+            `[sfc-diag] alloc-counters after-clearRows` +
+            ` fragments=${ac.fragmentCount} avail=${(ac.availableBytes / 1048576).toFixed(2)}MiB` +
+            ` live=${(ac.allocatedBytes / 1048576).toFixed(2)}MiB` +
+            ` claimed=${(ac.claimedBytes / 1048576).toFixed(2)}MiB` +
+            ` heaps=${ac.heapCount}`,
+          )
+        }
+      }
+      // Invalidate the artifact store fingerprint so the next pipeline run that needs
+      // detection re-stores rows unconditionally (stored_rows is now None in ENGINE_STATE).
+      lastArtifactStoreFingerprint = null
     }
 
     // Use shared components so flattenRuleBatches is not called a second time.

@@ -1004,6 +1004,23 @@ pub fn store_artifact_rows_engine(fast_rows: Vec<SafeguardCollectRowFastIn>) -> 
     Ok(count)
 }
 
+// Frees the stored artifact rows from ENGINE_STATE, releasing their heap allocation.
+// Call this after eval-collect (which is the last consumer of stored_rows in the
+// pipeline) and before computeMergedRules (which needs large contiguous allocations).
+// Freeing ~16–20 MiB of row data before the merge reduces the risk of talc's
+// acquire (memory.grow) being triggered by a fragmented heap with no free large blocks.
+// stored_rows will be repopulated on the next pipeline run via store_artifact_rows_engine.
+pub fn clear_stored_rows_engine() {
+    ENGINE_STATE.with(|state| {
+        if let Some(engine) = state.borrow_mut().as_mut() {
+            // Drop the Vec and its backing allocation completely.  We intentionally do
+            // NOT use clear() here: we want the memory returned to the allocator so that
+            // talc can reuse it for the merge phase, not just zeroed and held.
+            engine.stored_rows = None;
+        }
+    });
+}
+
 /// Returns the current WASM linear memory size in bytes (page_count × 65_536).
 /// Called from rule_engine_wasm, which wraps it in a #[wasm_bindgen] export.
 /// Readable from JS as wasm_linear_memory_bytes(); used by [sfc-diag] worker logs
