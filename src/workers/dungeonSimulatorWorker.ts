@@ -63,8 +63,14 @@ const hasIncompleteOutsideDirty = (
 }
 
 // Yield back to the event loop so cancel/next-run messages can land.
-const sleep = (ms: number) => new Promise((resolve) => {
-  setTimeout(resolve, ms)
+// Uses MessageChannel instead of setTimeout: Chrome throttles setTimeout in
+// background tabs (intensive throttling → up to 1-minute intervals), which
+// would freeze the batch loop when the tab is hidden. MessageChannel messages
+// are not subject to background timer throttling.
+const yieldToEventLoop = (): Promise<void> => new Promise<void>((resolve) => {
+  const { port1, port2 } = new MessageChannel()
+  port1.onmessage = () => { port1.close(); port2.close(); resolve() }
+  port2.postMessage(null)
 })
 
 // Execute a full simulation run, streaming progress as batches complete.
@@ -151,7 +157,7 @@ const runSessionToCompletion = async (
       forwardProgress({ completed: sampleProgress.completed, total: sampleProgress.total })
     }
     // Yield so the worker can process newer messages between batches.
-    await sleep(0)
+    await yieldToEventLoop()
   }
   // Abort if another request superseded this one.
   if (activeRunId !== id) return
