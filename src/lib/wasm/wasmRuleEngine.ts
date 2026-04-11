@@ -116,6 +116,7 @@ type WasmRuleEngineEvaluatePayload = {
 let wasmInitPromise: Promise<void> | null = null
 let wasmInitialized = false
 
+
 // Sync helpers are used on hot paths that cannot await. Callers must warm up first.
 const assertWasmInitializedSync = (): void => {
   if (!wasmInitialized) {
@@ -289,6 +290,14 @@ export const evaluateWasmRuleEngineItemsWithLoadedWasm = (params: {
 export const getWasmRuleEngineVersion = async (): Promise<string> => {
   await ensureWasmInitialized()
   return ruleEngineWasmVersionBinding()
+}
+
+// Called after a caught RuntimeError: unreachable (WASM OOM abort) to allow the next
+// pipeline run to re-initialize a fresh WASM instance instead of continuing to call into
+// the corrupted heap.  Only affects the calling worker's module scope.
+export const resetWasmInstance = (): void => {
+  wasmInitPromise = null
+  wasmInitialized = false
 }
 
 // Returns the current WASM linear memory size in bytes (page_count × 65_536).

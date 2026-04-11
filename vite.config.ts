@@ -6,7 +6,7 @@ import react from '@vitejs/plugin-react';
 import { assetsPlugin } from './scripts/vite/assetsPlugin';
 import { singleFilePlugin } from './scripts/vite/singleFilePlugin';
 import { wasmInlinePlugin } from './scripts/vite/wasmInlinePlugin';
-import { pruneOrphanedAssetsPlugin } from './scripts/vite/pruneOrphanedAssetsPlugin';
+import { pruneOrphanedAssetsPlugin } from './scripts/vite/pruneOrphanedAssetsPlugin'
 
 const withRootPath = (relativePath: string): string =>
   fileURLToPath(new URL(relativePath, import.meta.url));

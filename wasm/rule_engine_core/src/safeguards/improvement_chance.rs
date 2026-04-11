@@ -36,7 +36,7 @@ use crate::{
     SUBSTAT_ROLL_RANGES_BY_STAR,
 };
 use serde::Serialize;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -199,7 +199,7 @@ struct RecursionContext<'a> {
 
 // Per-artifact viability snapshot used to prune scenarios impossible by +16.
 struct ViabilityContext {
-    initial_state: HashMap<i64, i64>,
+    initial_state: BTreeMap<i64, i64>,
     max_addition_events: usize,
     legal_addition_pool_set: HashSet<i64>,
     // Mainstat variant for this piece; substats that equal it are impossible.
@@ -435,9 +435,9 @@ fn build_existing_gain(
 
 // ─── recursion state helpers ──────────────────────────────────────────────────
 
-fn build_initial_scaled_state(artifact: &SafeguardWasmArtifactIn) -> HashMap<i64, i64> {
+fn build_initial_scaled_state(artifact: &SafeguardWasmArtifactIn) -> BTreeMap<i64, i64> {
     // Seed the mutable recursion state from the artifact's current substats.
-    let mut state = HashMap::<i64, i64>::new();
+    let mut state = BTreeMap::<i64, i64>::new();
     for substat in &artifact.substats {
         if substat.variant <= 0 {
             continue;
@@ -453,12 +453,12 @@ fn build_initial_scaled_state(artifact: &SafeguardWasmArtifactIn) -> HashMap<i64
     state
 }
 
-fn get_state_raw_value(state: &HashMap<i64, i64>, variant: i64) -> f64 {
+fn get_state_raw_value(state: &BTreeMap<i64, i64>, variant: i64) -> f64 {
     // Read a variant's unscaled value from the recursion state.
     state.get(&variant).copied().unwrap_or(0).max(0) as f64 / STATE_VALUE_SCALE as f64
 }
 
-fn count_matched_in_state(state: &HashMap<i64, i64>, selected: &[i64]) -> usize {
+fn count_matched_in_state(state: &BTreeMap<i64, i64>, selected: &[i64]) -> usize {
     // Count selected substats that have a positive value in the state.
     selected
         .iter()
@@ -467,7 +467,7 @@ fn count_matched_in_state(state: &HashMap<i64, i64>, selected: &[i64]) -> usize 
 }
 
 fn state_matches_substats(
-    state: &HashMap<i64, i64>,
+    state: &BTreeMap<i64, i64>,
     selected: &[i64],
     substat_match: &str,
     main_stat: i64,
@@ -492,7 +492,7 @@ fn state_matches_substats(
 }
 
 fn compute_score_from_state(
-    state: &HashMap<i64, i64>,
+    state: &BTreeMap<i64, i64>,
     selected: &[i64],
     weights: &HashMap<i64, f64>,
     rank: i64,
@@ -518,7 +518,9 @@ fn compute_score_from_state(
 
 // Compact stack-allocated memo key: avoids all heap allocation vs. the old String approach.
 // State has at most MAX_SUBSTAT_SLOTS (4) entries; event_idx is bounded by milestone count (≤8).
-#[derive(Hash, Eq, PartialEq)]
+// Ord is derived so StateKey can be used as a BTreeMap key (avoids large contiguous
+// reallocs that the HashMap backing array requires on resize).
+#[derive(Hash, Eq, PartialEq, Ord, PartialOrd)]
 struct StateKey {
     event_idx: u8,
     len: u8,
@@ -526,7 +528,7 @@ struct StateKey {
     entries: [(i64, i64); 4],
 }
 
-fn make_state_key(state: &HashMap<i64, i64>, event_idx: usize) -> StateKey {
+fn make_state_key(state: &BTreeMap<i64, i64>, event_idx: usize) -> StateKey {
     // Collect into a fixed-size array; sort the live prefix in place.
     let mut entries = [(0i64, 0i64); 4];
     let mut len = 0usize;
@@ -689,7 +691,7 @@ fn is_challenger_strictly_better(
 // ─── evaluation: state × scenarios ───────────────────────────────────────────
 
 fn is_state_selected_by_any_scenario(
-    state: &HashMap<i64, i64>,
+    state: &BTreeMap<i64, i64>,
     ctx: &RecursionContext<'_>,
 ) -> bool {
     // Test whether the projected state is safeguard-selected by any scenario.
@@ -753,9 +755,9 @@ fn is_state_selected_by_any_scenario(
 // StateKey (stack-allocated, no heap) to the cached probability for that node.
 fn compute_probability(
     ctx: &RecursionContext<'_>,
-    state: &mut HashMap<i64, i64>,
+    state: &mut BTreeMap<i64, i64>,
     event_idx: usize,
-    memo: &mut HashMap<StateKey, f64>,
+    memo: &mut BTreeMap<StateKey, f64>,
 ) -> f64 {
     // Base case: no more milestones; evaluate the final projected state.
     if event_idx >= ctx.milestones.len() {
@@ -938,7 +940,7 @@ fn artifact_matches_substats(
 fn compute_artifact_chance_percent(
     artifact: &SafeguardWasmArtifactIn,
     scenarios: &[&UpgradeScenario],
-    memo: &mut HashMap<StateKey, f64>,
+    memo: &mut BTreeMap<StateKey, f64>,
 ) -> f64 {
     if scenarios.is_empty() {
         return 0.0;
@@ -1204,15 +1206,18 @@ fn expand_rule_scenarios(rule: &PreparedUpgradeRule) -> Vec<ScenarioDef> {
 fn build_scenarios(
     rows: &[SafeguardCollectRowIn],
     rules: &[PreparedUpgradeRule],
-) -> (Vec<UpgradeScenario>, HashMap<i64, Vec<usize>>) {
+) -> (Vec<UpgradeScenario>, BTreeMap<i64, Vec<usize>>) {
     // Builds shared challenger scenarios; mirrors buildRuleScenarios.
     // Returns scenarios plus an artifact-id → scenario-index map so callers do not need
     // to store applicable_artifact_ids inside each UpgradeScenario (~64 KB × N scenarios).
+    // BTreeMap: up to 7982 entries — avoids the large contiguous backing-array realloc that
+    // HashMap requires on resize (which can fail on V8/Windows when the heap is fragmented).
     let mut scenarios = Vec::<UpgradeScenario>::new();
-    let mut idx_by_id: HashMap<i64, Vec<usize>> = HashMap::new();
+    let mut idx_by_id: BTreeMap<i64, Vec<usize>> = BTreeMap::new();
     for rule in rules {
         // Find which artifacts pass this rule's non-substat combination filters.
-        let applicable_ids: HashSet<i64> = rows
+        // BTreeSet: up to 7982 entries, built once per rule — same fragmentation rationale.
+        let applicable_ids: BTreeSet<i64> = rows
             .iter()
             .filter_map(|row| {
                 let id = row.artifact.id?;
@@ -1308,7 +1313,7 @@ fn resolve_most_likely_scenario_idx<'a>(
     }
     // Compute per-scenario chance in isolation; reuse one memo across all inner
     // calls so N single-scenario invocations share one HashMap instead of N.
-    let mut memo: HashMap<StateKey, f64> = HashMap::new();
+    let mut memo: BTreeMap<StateKey, f64> = BTreeMap::new();
     let mut chances: Vec<f64> = Vec::with_capacity(viable.len());
     for &s in viable.iter() {
         // Wrap single reference in a one-element array slice for the shared signature.
@@ -1448,7 +1453,8 @@ pub fn compute_improvement_chance_core(
     }
     // Convert the artifact-id → index map into artifact-id → scenario-reference map.
     // Done after scenarios is stable (finalized Vec) so references are valid for the loop below.
-    let mut scenarios_by_id: HashMap<i64, Vec<&UpgradeScenario>> = HashMap::with_capacity(idx_by_id.len());
+    // BTreeMap: mirrors idx_by_id (up to 7982 entries) — avoids contiguous resize.
+    let mut scenarios_by_id: BTreeMap<i64, Vec<&UpgradeScenario>> = BTreeMap::new();
     for (art_id, indices) in &idx_by_id {
         scenarios_by_id.insert(*art_id, indices.iter().map(|&i| &scenarios[i]).collect());
     }
@@ -1457,7 +1463,7 @@ pub fn compute_improvement_chance_core(
     // Single scratch memo reused across all per-artifact compute_probability calls.
     // compute_artifact_chance_percent calls memo.clear() at the start of each artifact,
     // so stale entries from the previous artifact never leak into the next one.
-    let mut impr_memo: HashMap<StateKey, f64> = HashMap::new();
+    let mut impr_memo: BTreeMap<StateKey, f64> = BTreeMap::new();
     // Perf counters — only accumulated when debug=true so the hot path is unaffected.
     let mut artifacts_with_scenarios = 0u32;
     let mut artifacts_viable = 0u32;

@@ -7,7 +7,12 @@ import {
   EVENT_SPOTLIGHT_OPTIONS,
   createDungeonSimSpotlightSession,
 } from '../lib/dungeonSimulator'
-import { warmupWasmRuleEngine } from '../lib/wasm/wasmRuleEngine'
+import {
+  warmupDsimWasmRuleEngine,
+  configureDsimRuleEngineWithLoadedWasm,
+  evaluateDsimRuleEngineItemsWithLoadedWasm,
+} from '../lib/wasm/wasmDsimRuleEngine'
+import { setRuleEvalWasmBindings } from '../lib/ruleEval'
 import type { DungeonId } from '../lib/dungeonSimulator'
 import type {
   DungeonSimulatorWorkerRequest,
@@ -32,7 +37,14 @@ let wasmWarmupPromise: Promise<void> | null = null
 // On failure the cached promise is cleared so the next sim request can retry.
 const ensureWasmWorkerReady = async (): Promise<void> => {
   if (!wasmWarmupPromise) {
-    wasmWarmupPromise = warmupWasmRuleEngine()
+    wasmWarmupPromise = warmupDsimWasmRuleEngine().then(() => {
+      // Redirect ruleEval.ts helpers to use the lean dsim binary for this worker.
+      // This override is scoped to this worker's JS module — does not affect the pipeline worker.
+      setRuleEvalWasmBindings({
+        configure: configureDsimRuleEngineWithLoadedWasm,
+        evaluate: evaluateDsimRuleEngineItemsWithLoadedWasm,
+      })
+    })
   }
   try {
     await wasmWarmupPromise

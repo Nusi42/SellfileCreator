@@ -68,6 +68,9 @@ export type RuleCachePipelineResponse = {
     // Flat array of improvement-chance entries; null when computeImprovementChance was false.
     // Receiver reconstructs Map<artifactId, entry> to avoid structured-clone Map issues.
     improvementChanceEntries: ImprovementChanceWasmEntry[] | null
+    // WASM linear memory size at the end of this pipeline run, in bytes.
+    // Used by the hook to decide when to proactively restart the worker.
+    wasmLinearBytes: number
   }
 }
 

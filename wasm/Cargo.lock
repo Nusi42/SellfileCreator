@@ -84,6 +84,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rule_engine_dsim_wasm"
+version = "0.1.0"
+dependencies = [
+ "rule_engine_core",
+ "serde",
+ "serde-wasm-bindgen",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "rule_engine_native"
 version = "0.1.0"
 dependencies = [

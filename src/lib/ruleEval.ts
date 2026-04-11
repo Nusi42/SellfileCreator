@@ -112,6 +112,40 @@ const FALLBACK_EVAL_ITEM_ID = 0
 // rows without paying configure cost on every single call.
 let wasmMatcherConfigCache: WasmMatcherConfigCache | null = null
 
+// -- Overridable WASM bindings --
+//
+// Default to the full pipeline WASM functions (used by the pipeline worker and main thread).
+// The dungeon simulator worker calls setRuleEvalWasmBindings() at startup to redirect all
+// evaluateFirst / evaluateMatchesByRecipe calls through the lean dsim binary instead.
+// Since workers are isolated JS module scopes, this override affects only the calling worker.
+//
+// Signature types mirror the relevant exports in wasmRuleEngine.ts; kept inline here to
+// avoid a circular import between ruleEval.ts and wasmRuleEngine.ts.
+type WasmConfigureFn = (params: { rules: HsfRuleWithRecipe[]; recipeModes: SellfileExportMode[] }) => void
+// Return type mirrors evaluateWasmRuleEngineItemsWithLoadedWasm via ReturnType to avoid
+// importing GearInspectorMatchWorkerItemResult from the workers directory into lib/.
+type WasmEvaluateFn = (params: {
+  items: Array<{ itemId: number; item: TestItem }>
+  options?: WasmRuleEngineEvaluateOptions
+}) => ReturnType<typeof evaluateWasmRuleEngineItemsWithLoadedWasm>
+
+let _currentConfigureFn: WasmConfigureFn = configureWasmRuleEngineWithLoadedWasm
+let _currentEvaluateFn: WasmEvaluateFn = (params) =>
+  evaluateWasmRuleEngineItemsWithLoadedWasm(params)
+
+// Override the WASM functions used by evaluateFirst / evaluateMatchesByRecipe.
+// Call this once at worker startup (after warmup) when using the lean dsim binary.
+// Has no effect outside the calling worker's module scope.
+export const setRuleEvalWasmBindings = (fns: {
+  configure: WasmConfigureFn
+  evaluate: WasmEvaluateFn
+}): void => {
+  // Clear the config cache so the first call after binding swap reconfigures WASM.
+  wasmMatcherConfigCache = null
+  _currentConfigureFn = fns.configure
+  _currentEvaluateFn = fns.evaluate
+}
+
 const createEmptyEvalMatchesByRecipeResult = (): EvalMatchesByRecipeResult => ({
   // No first match exists when evaluation cannot find any rule hit.
   firstMatch: null,
@@ -172,8 +206,8 @@ const ensureWasmMatcherConfigured = (
   ) {
     return
   }
-  // Reconfigure WASM when either rules or recipe-mode arrays changed.
-  configureWasmRuleEngineWithLoadedWasm({ rules, recipeModes })
+  // Reconfigure via the active binding (full pipeline or lean dsim WASM).
+  _currentConfigureFn({ rules, recipeModes })
   // Cache the new identities so subsequent calls can skip reconfigure work.
   wasmMatcherConfigCache = { rules, recipeModes }
 }
@@ -190,8 +224,8 @@ const evaluateSingleItemWithWasm = (
   ensureWasmMatcherConfigured(rules, recipeModes)
   // Convert local option shape into the compact payload accepted by WASM.
   const wasmOptions = toWasmEvaluateOptions(options)
-  // Evaluate exactly one item; adapter APIs consume single-row requests.
-  const [result] = evaluateWasmRuleEngineItemsWithLoadedWasm(
+  // Evaluate via the active binding (full pipeline or lean dsim WASM).
+  const [result] = _currentEvaluateFn(
     wasmOptions
       ? {
           // Pass resolved item id so safeguard item-bound rules can match.

@@ -34,6 +34,7 @@ import {
   getWasmAllocatorCounters,
   getWasmLinearMemoryBytes,
   getWasmRuleEngineVersion,
+  resetWasmInstance,
   warmupWasmRuleEngine,
 } from '../lib/wasm/wasmRuleEngine'
 import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
@@ -243,6 +244,15 @@ const devTimer = IS_DEV
     }
   }
   : (_label: string): (() => void) => (): void => { /* stripped in prod */ }
+
+// Returns true when err is a WASM OOM abort (unreachable instruction trap).
+// V8: "RuntimeError: unreachable"   SpiderMonkey: "RuntimeError: unreachable executed"
+// When this fires the WASM linear heap is corrupted — every subsequent call also fails.
+// Caller must call resetWasmInstance() so the next pipeline starts with a fresh heap.
+const isWasmOom = (err: unknown): boolean =>
+  err instanceof Error &&
+  err.constructor.name === 'RuntimeError' &&
+  err.message.includes('unreachable')
 
 const postError = (id: number, error: unknown): void => {
   const response: RuleCacheWorkerResponse = {
@@ -549,14 +559,18 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       )
       const needsImprovementChance = hasThreshold || payload.computeImprovementChance
       if (needsImprovementChance) {
-        // Prewarm the talc heap with a 32 MiB scratch buffer before improvement-chance.
+        // Prewarm the talc heap before improvement-chance using the same artifact-count
+        // formula as eval-collect: ceil(n * 4096 / 16 MiB) × 16 MiB, minimum 16 MiB.
         // Improvement-chance uses a large HashMap memo table; its growth path triggers
         // memory.grow inside a WASM call where we have no control over the grow size.
         // Pre-growing here (outside the critical path) forces any needed memory.grow now,
-        // leaving a fresh 32 MiB free block ready for the first HashMap resize.
-        // If 32 MiB is already available the call is a no-op (Vec finds a free block,
+        // leaving a fresh contiguous block ready for the first HashMap resize.
+        // If the block is already available the call is a no-op (Vec finds a free block,
         // drop returns it — no grow, no net allocation change).
-        preWarmHeapWithLoadedWasm(16 * 1024 * 1024) // 16 MiB — matches MIN_GROWTH_PAGES
+        const PAGE_16MIB = 16 * 1024 * 1024
+        const improvChancePrewarmBytes =
+          Math.ceil((artifactEntries.length * 4096) / PAGE_16MIB) * PAGE_16MIB
+        preWarmHeapWithLoadedWasm(improvChancePrewarmBytes) // 32 MiB for ~7982 items
         // Log heap state immediately before improvement-chance to diagnose state drift.
         if (IS_DEV) {
           const ac = getWasmAllocatorCounters()
@@ -612,6 +626,15 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       const detectionOptions = hasActiveSafeguards
         ? { baselineExcludeSources: SAFEGUARD_OVERRIDE_RULE_SOURCES }
         : undefined
+      // Pre-grow the WASM heap before the most allocation-intensive call in the pipeline.
+      // evaluateAndCollectSafeguardProtection builds per-item result Vecs, a candidates
+      // Vec, and intermediate match buffers proportional to artifact count × rule count.
+      // On V8/Windows a memory.grow *during* the call causes STATUS_ACCESS_VIOLATION;
+      // growing here (before the call) forces that grow into a context where the OS is
+      // more likely to grant it.  ~4 KiB per artifact is a rough working-set estimate
+      // for the BucketedRules evaluate pass; round up to the nearest 16 MiB grow page.
+      const evalCollectPrewarmBytes = Math.ceil((artifactEntries.length * 4096) / (16 * 1024 * 1024)) * (16 * 1024 * 1024)
+      if (evalCollectPrewarmBytes > 0) preWarmHeapWithLoadedWasm(evalCollectPrewarmBytes)
       // Trace + yield so a crash inside evaluateAndCollectSafeguardProtection is distinguishable.
       devLog(`[sfc-trace] eval-collect id=${id}`)
       if (IS_DEV) await yieldWorkerMacrotask()
@@ -795,6 +818,10 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         matches,
         safeguardDetection: safeguardDetectionSnapshot,
         improvementChanceEntries,
+        // Snapshot taken after all WASM work completes; lets the hook decide when to
+        // proactively restart the worker to keep the heap from growing past the
+        // memory.grow failure threshold (~160+ MiB on V8/Windows).
+        wasmLinearBytes: getWasmLinearMemoryBytes(),
       },
     }
     if (IS_DEV) {
@@ -814,7 +841,23 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // If this line logs, the crash is NOT during self.postMessage (structured clone).
     // If it never appears after the "postMessage id=N" line, the crash is inside postMessage.
     devLog(`[sfc-trace] postMessage-sent id=${id}`)
+    // True heap resets happen in the main thread via cycleWorkerProactively
+    // (PIPELINE_RESTART_INTERVAL=5) which terminates and respawns the worker.
+    // An in-worker resetWasmInstance() call cannot produce a clean heap because
+    // wasm-bindgen's initRuleEngineWasm is idempotent — it returns the cached
+    // instance without re-instantiating it.
   } catch (error) {
+    if (isWasmOom(error)) {
+      // WASM heap is corrupted after an OOM abort (RuntimeError: unreachable).
+      // Reset both the init flags and the warmup promise so ensureWasmWorkerReady()
+      // fully reinitializes on the next pipeline.  The main thread will typically
+      // replace this worker upon receiving the postError below, making these resets
+      // redundant; they are a fallback for the stale-run path where postError is
+      // skipped and the worker would otherwise sit with wasmInitialized=false.
+      resetWasmInstance()
+      wasmWarmupPromise = null
+      devLog(`[sfc-diag] wasm-oom-reset id=${id} — instance reset for next pipeline`)
+    }
     if (runIsStale()) return
     postError(id, error)
   }

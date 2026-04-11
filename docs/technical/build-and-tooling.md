@@ -190,24 +190,44 @@ compilation targets share the same parsing logic without duplication.
 
 ### WASM Linear Memory Management
 
-WASM linear memory is a flat address space managed by `dlmalloc`. Pages grow on demand but never shrink; freed allocations return to `dlmalloc`'s free list but the high-water mark only increases. On Windows, V8 commits WASM pages lazily from the virtual address space, and if the system cannot commit a new page (fragmented committed memory, heavy concurrent usage) `memory.grow` fails with a `STATUS_ACCESS_VIOLATION` that kills the renderer worker process. The three mitigations applied to `rule_engine_core` address the three dominant allocation sources:
+WASM linear memory is a flat address space managed by `talc` (with a `WasmBulkGrow` wrapper that rounds every `memory.grow` request up to `MIN_GROWTH_PAGES = 256` pages / 16 MiB). Pages grow on demand but never shrink; freed allocations return to talc's free list but the high-water mark only increases. On Windows, V8 commits WASM pages lazily from the virtual address space, and if the system cannot commit a new page (fragmented committed memory, heavy concurrent usage) `memory.grow` fails with a `STATUS_ACCESS_VIOLATION` that kills the renderer worker process.
+
+**Rust-side structural fixes** (`rule_engine_core`)
 
 **1. Drop-before-allocate in `configure_engine`** (`lib.rs`)
 
-`configure_engine` rebuilds `BucketedRules` on every pipeline run. The old code built the new `BucketedRules` while the previous `EngineState` (containing the old rules) was still live, creating a double-allocation window. The fix extracts and drops the previous `EngineState` — including its `stored_rows` Vec — before calling `BucketedRules::from_rules`, so `dlmalloc` can recycle the freed blocks for the new allocation instead of growing the heap. The `stored_rows` payload is preserved across the drop and re-attached to the new `EngineState`.
+`configure_engine` rebuilds `BucketedRules` on every pipeline run. The old code built the new `BucketedRules` while the previous `EngineState` (containing the old rules) was still live, creating a double-allocation window. The fix extracts and drops the previous `EngineState` before calling `BucketedRules::from_rules`, so talc can recycle the freed blocks instead of growing the heap. The `stored_rows` payload is preserved across the drop and re-attached to the new `EngineState`.
 
 **2. Lazy merge in `BucketedRules`** (`matcher_evaluator.rs`)
 
-Rules partition into two groups at `from_rules` time: `shared` (empty `artifact_types` — applicable to every slot) and `per_slot` (slot-specific, keyed by slot id). The old design pre-merged shared rules into every slot's `Vec` at configure time, so with 9 slots and a significant shared fraction the stored rule count was 3–5× the input. The new design stores each group exactly once and merges them lazily inside `evaluate_item` via a zero-copy two-pointer sorted merge (both slices are in `original_index` order from enumeration at configure time). This reduces `BucketedRules` peak memory from ~3–5× input to ~1× input.
+Rules partition into `shared` (no slot constraint) and `per_slot` (slot-specific) at configure time. Both groups are stored exactly once; `evaluate_item` merges them lazily via a zero-copy two-pointer sorted merge. This reduces `BucketedRules` peak memory from ~3–5× input to ~1× input. `per_slot` uses a `HashMap<i64, Vec<PreparedRule>>` with at most 9 entries (one per slot type) — too small to require contiguous-memory attention.
 
-**3. Undo-redo in `compute_probability`** (`safeguards/improvement_chance.rs`)
+**3. BTreeMap / BTreeSet throughout `improvement_chance.rs`**
 
-The improvement-chance pass runs `compute_probability` for each of ~7 000+ viable artifacts. The old code called `apply_state_delta` on every recursive branch, cloning the `HashMap<i64,i64>` substat state (up to 4 entries) before each recursive call. With millions of branches across all artifacts, `dlmalloc` allocated and freed millions of small HashMap backing tables; fragmentation raised the heap high-water mark by 50–70 MiB per pipeline run. The fix replaces all `apply_state_delta` calls with in-place mutation + undo: before each recursive call the relevant key is updated directly in the live `state` map, and after the call returns the original value is restored. The `initial_state` HashMap allocated once per artifact now serves the entire recursion tree with zero clones.
+`HashMap` and `HashSet` use a single contiguous backing array that must be reallocated (doubled in place) on each resize. On a fragmented WASM heap, finding a multi-hundred-KB contiguous block for a resize fails with `STATUS_ACCESS_VIOLATION`. Every collection in the improvement-chance hot path that scales with artifact or rule count has been converted:
 
-Three additional allocation reductions accompany fix 3:
-- **`StateKey` struct** replaces the String-keyed memo: each recursive call previously allocated a `Vec<(i64,i64)>` + multiple `String` segments for the memo key; the new `StateKey` is a stack-allocated struct `{ event_idx: u8, len: u8, entries: [(i64,i64); 4] }` — zero heap allocation per call.
-- **Stack buffers for candidates/variants**: the `candidates` and `variants` Vecs are replaced by `[0i64; 12]` / `[0i64; 4]` stack arrays since both are bounded (≤11 legal pool entries, ≤4 substat slots).
-- **Reusable memo HashMap**: a single `HashMap<StateKey, f64>` is allocated before the outer artifact loop and cleared (not reallocated) between artifacts, eliminating 7 000+ HashMap lifecycle alloc/free cycles per run.
+| Old type | New type | Max size | Risk |
+|---|---|---|---|
+| `HashMap<StateKey, f64>` (memo) | `BTreeMap<StateKey, f64>` | per-artifact recursion depth | was primary crash site |
+| `HashMap<i64, i64>` (recursion state) | `BTreeMap<i64, i64>` | ≤4 entries | small, consistent |
+| `HashMap<i64, Vec<usize>>` (`idx_by_id`) | `BTreeMap<i64, Vec<usize>>` | up to 7 982 entries (~290 KB contiguous) | high |
+| `HashMap<i64, Vec<&UpgradeScenario>>` (`scenarios_by_id`) | `BTreeMap<i64, Vec<&…>>` | up to 7 982 entries | high |
+| `HashSet<i64>` (`applicable_ids`) | `BTreeSet<i64>` | up to 7 982 entries, built once per rule | medium |
+
+`BTreeMap`/`BTreeSet` allocate individual B-tree nodes (each a few hundred bytes), so growth never requires a single large contiguous block. `HashMap` entries that are bounded-small and outside the hot path (`weights`, `challengers_by_count_key`, `expected_gain`, `fallback_gain`) are left as `HashMap`.
+
+`StateKey` derives `Ord, PartialOrd` (arrays of `(i64,i64)` implement `Ord` automatically) to satisfy the `BTreeMap` key constraint.
+
+**4. Undo-redo in `compute_probability`** (`safeguards/improvement_chance.rs`)
+
+The old code cloned the `HashMap<i64,i64>` substat state before each recursive call. With millions of branches across all artifacts, this allocated and freed millions of small HashMap backing tables; fragmentation raised the heap high-water mark by 50–70 MiB per run. The fix mutates the live state in-place and restores the original value after each recursive call (undo-redo pattern). Additional micro-optimizations: `StateKey` is stack-allocated (zero heap per call); candidate/variant buffers are stack arrays `[0i64; 12]` / `[0i64; 4]`; the memo `BTreeMap` is allocated once before the artifact loop and `.clear()`'d (not re-allocated) between artifacts.
+
+**Worker-side mitigations** (`ruleCacheWorker.ts`, `useRuleCacheWorker.ts`)
+
+- **Heap prewarm before improvement-chance**: `preWarmHeapWithLoadedWasm(N)` allocates and immediately frees an `N`-byte Vec, forcing any needed `memory.grow` calls to happen outside the critical path. `N = ceil(artifactCount × 4096 / 16 MiB) × 16 MiB` (32 MiB for ~7 982 items).
+- **clearStoredRows after eval-collect**: drops the 7 970-item `stored_rows` Vec (~16–20 MiB) before `computeMergedRulesFromComponents`, giving talc headroom for the contiguous rules Vec.
+- **OOM recovery**: a caught `RuntimeError: unreachable` (WASM OOM abort) is detected by `isWasmOom()` in the worker catch block and by the `case 'error'` handler in `useRuleCacheWorker.ts`. The worker resets its WASM init flags; the main thread calls `replaceWorkerAfterRuntimeError()` so the next pipeline starts with a fresh, zero-fragmentation heap.
+- **Proactive worker cycling**: `useRuleCacheWorker` tracks `completedPipelineCountRef` and `lastWasmLinearBytesRef`. When `completedCount >= PIPELINE_RESTART_INTERVAL` or `heapBytes >= WASM_HEAP_RESTART_BYTES` (150 MiB), `cycleWorkerProactively()` terminates the old worker and spawns a fresh one before the next pipeline.
 
 **Warmup-promise hardening** (`wasmRuleEngine.ts`, `ruleCacheWorker.ts`, `dungeonSimulatorWorker.ts`)
 

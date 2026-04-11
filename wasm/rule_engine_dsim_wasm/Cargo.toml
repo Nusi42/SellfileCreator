@@ -1,0 +1,25 @@
+[package]
+name    = "rule_engine_dsim_wasm"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+# Lean cdylib for the dungeon simulator worker: only configure_value + evaluate_value.
+# Exports only the two WASM functions the dsim needs; all other rule_engine_core
+# symbols (safeguards, HSF builder, improvement-chance, merge, etc.) are eliminated
+# by the Rust/LLVM dead-code pass since no #[wasm_bindgen] attribute references them.
+#
+# Uses the default wasm32 allocator (dlmalloc / lol_alloc from wasm-bindgen).
+# talc is intentionally omitted: the dsim allocation pattern is simple — configure
+# allocates BucketedRules once, evaluate does small temporary allocs per item.
+# No large HashMap memo tables, no repeated alloc/free cycles → no fragmentation.
+#
+# Build: node scripts/tooling/build-rule-engine-dsim-wasm.mjs
+# Output: src/lib/wasm/generated/rule_engine_dsim.* (--out-name rule_engine_dsim)
+crate-type = ["cdylib"]
+
+[dependencies]
+rule_engine_core  = { path = "../rule_engine_core" }
+serde             = { version = "1.0", features = ["derive"] }
+wasm-bindgen      = "0.2"
+serde-wasm-bindgen = "0.6"
