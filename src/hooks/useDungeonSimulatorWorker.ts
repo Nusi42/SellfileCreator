@@ -59,6 +59,12 @@ type UseDungeonSimulatorWorkerResult = {
 // Feature detection prevents SSR and older browsers from attempting worker creation.
 const supportsWorkerEnv = typeof window !== 'undefined' && typeof Worker !== 'undefined'
 
+// Idle period before the dungeon-sim worker is terminated to release WASM linear memory.
+// Resets on each simulate:done or served detail/generic response. Worker is recreated on
+// the next simulation request so the rule-cache worker never competes with a live dsim WASM
+// instance during heavy pipeline runs.
+const DSIM_WORKER_IDLE_MS = 30_000
+
 // Build a zeroed progress snapshot for a new simulation run.
 const buildEmptyProgress = (runsPerDungeon: number): DungeonSimProgress => {
   // Pre-fill a stable dungeon map so UI tables can render while streaming.
@@ -216,6 +222,13 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
   const localWasmWarmupPromiseRef = useRef<Promise<void> | null>(null)
   // Local fallback loop needs a cancel hook when dependencies change.
   const fallbackCancelRef = useRef<(() => void) | null>(null)
+  // Idle-termination timer: fires DSIM_WORKER_IDLE_MS after each completed sim or detail response.
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Stable handler refs so the same functions can be attached to recreated workers.
+  const messageHandlerRef = useRef<((e: MessageEvent<DungeonSimulatorWorkerResponse>) => void) | null>(null)
+  const errorHandlerRef = useRef<((e: ErrorEvent | MessageEvent) => void) | null>(null)
+  // Factory ref: creates a fresh worker and wires up handlers. Set in mount effect.
+  const createWorkerRef = useRef<(() => Worker | null) | null>(null)
   // Track previous inputs so we can resimulate only changed dungeons.
   const prevInputsRef = useRef<{
     rules: HsfRuleWithRecipe[]
@@ -234,14 +247,33 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
 
   useEffect(() => {
     if (!supportsWorkerEnv) return
-    // Build the worker once; later effects only post messages to it.
-    let worker: Worker | null = null
-    try {
-      worker = new DungeonSimulatorWorker()
-      workerRef.current = worker
-    } catch (_error) {
+    // Terminate the current worker and resolve all pending requests to null.
+    // Called by the idle timer and on unmount; safe to call when no worker exists.
+    const terminateWorkerNow = () => {
+      if (idleTimerRef.current !== null) {
+        clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = null
+      }
+      const w = workerRef.current
+      if (!w) return
+      if (messageHandlerRef.current) w.removeEventListener('message', messageHandlerRef.current)
+      if (errorHandlerRef.current) {
+        w.removeEventListener('error', errorHandlerRef.current)
+        w.removeEventListener('messageerror', errorHandlerRef.current)
+      }
+      w.terminate()
       workerRef.current = null
-      return
+      // Resolve all in-flight detail/generic requests to null so callers do not hang.
+      for (const resolve of detailResolversRef.current.values()) resolve(null)
+      detailResolversRef.current.clear()
+      for (const resolve of genericResolversRef.current.values()) resolve(null)
+      genericResolversRef.current.clear()
+    }
+    // Schedule idle-termination after inactivity; resets on each completed sim or detail response.
+    // Keeping the window at DSIM_WORKER_IDLE_MS lets the user view detail stats before WASM is freed.
+    const scheduleIdle = () => {
+      if (idleTimerRef.current !== null) clearTimeout(idleTimerRef.current)
+      idleTimerRef.current = setTimeout(terminateWorkerNow, DSIM_WORKER_IDLE_MS)
     }
     const handleMessage = (event: MessageEvent<DungeonSimulatorWorkerResponse>) => {
       // Ignore messages that do not match the active request id.
@@ -253,6 +285,8 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
         if (resolver) {
           resolver(data.payload)
           detailResolversRef.current.delete(data.id)
+          // Reset idle timer: user is actively viewing detail stats.
+          scheduleIdle()
         }
         return
       }
@@ -262,6 +296,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
         if (resolver) {
           resolver(null)
           detailResolversRef.current.delete(data.id)
+          scheduleIdle()
         }
         return
       }
@@ -271,6 +306,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
         if (resolver) {
           resolver(data.payload)
           genericResolversRef.current.delete(data.id)
+          scheduleIdle()
         }
         return
       }
@@ -280,6 +316,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
         if (resolver) {
           resolver(null)
           genericResolversRef.current.delete(data.id)
+          scheduleIdle()
         }
         return
       }
@@ -295,12 +332,15 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
         setResultsBySpotlightRef.current(data.payload.resultsBySpotlight)
         setProgressBySpotlightRef.current(data.payload.progressBySpotlight)
         setRunningRef.current(false)
+        // Start idle countdown — worker will self-terminate if unused for DSIM_WORKER_IDLE_MS.
+        scheduleIdle()
         return
       }
       if (data.kind === 'error') {
         // Worker errors fall back to a surfaced message.
         setErrorRef.current(data.error)
         setRunningRef.current(false)
+        scheduleIdle()
       }
     }
     const handleError = (event: ErrorEvent | MessageEvent) => {
@@ -309,17 +349,28 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       const reason = payload instanceof Error ? payload.message : 'Dungeon simulator worker error'
       setErrorRef.current(reason)
       setRunningRef.current(false)
+      scheduleIdle()
     }
-    // Attach worker listeners once; cleanup handles termination.
-    worker.addEventListener('message', handleMessage)
-    worker.addEventListener('error', handleError)
-    worker.addEventListener('messageerror', handleError)
+    messageHandlerRef.current = handleMessage
+    errorHandlerRef.current = handleError
+    // Store the factory so the sim effect can create a fresh worker after idle termination.
+    // Workers are created lazily on the first simulation request, not at mount.
+    createWorkerRef.current = () => {
+      let w: Worker | null = null
+      try {
+        w = new DungeonSimulatorWorker()
+      } catch {
+        return null
+      }
+      w.addEventListener('message', handleMessage)
+      w.addEventListener('error', handleError)
+      w.addEventListener('messageerror', handleError)
+      workerRef.current = w
+      return w
+    }
     return () => {
-      worker.removeEventListener('message', handleMessage)
-      worker.removeEventListener('error', handleError)
-      worker.removeEventListener('messageerror', handleError)
-      worker.terminate()
-      workerRef.current = null
+      // Unmount: immediately terminate and release WASM memory.
+      terminateWorkerNow()
     }
   }, [])
 
@@ -360,6 +411,16 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     }
     // No-op when only object references changed without actual edits.
     if (!shouldRunAll && dirtyDungeons.length === 0) return undefined
+    // Cancel any idle-termination timer — we are about to start a new simulation.
+    if (idleTimerRef.current !== null) {
+      clearTimeout(idleTimerRef.current)
+      idleTimerRef.current = null
+    }
+    // If the worker was idle-terminated, create a fresh instance before simulating.
+    // The new worker shares the same stable handlers wired up in the mount effect.
+    if (supportsWorkerEnv && !workerRef.current && createWorkerRef.current) {
+      createWorkerRef.current()
+    }
     // Use a reduced run count if workers cannot be used.
     const worker = workerRef.current
     const canUseWorker = supportsWorkerEnv && Boolean(worker)
@@ -518,8 +579,15 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     }
     return () => {
       // Cancel the active worker run when dependencies change.
-      const cancel: DungeonSimulatorWorkerRequest = { id, kind: 'cancel' }
-      activeWorker.postMessage(cancel)
+      // Guard against the worker having been idle-terminated between renders.
+      if (workerRef.current === activeWorker) {
+        try {
+          const cancel: DungeonSimulatorWorkerRequest = { id, kind: 'cancel' }
+          activeWorker.postMessage(cancel)
+        } catch {
+          // Worker already terminated — nothing to cancel.
+        }
+      }
     }
   }, [rules, substatTargets, selections, boosts, mode, refreshToken, runs, safeBatchSize, throttleMs])
 
@@ -531,6 +599,12 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     // Prefer the worker cache when available.
     const worker = workerRef.current
     if (supportsWorkerEnv && worker) {
+      // Pause the idle countdown while the query is in-flight.
+      // scheduleIdle() is called again in handleMessage when the response arrives.
+      if (idleTimerRef.current !== null) {
+        clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = null
+      }
       const id = ++detailRequestRef.current
       const request: DungeonSimulatorWorkerRequest = {
         id,
@@ -552,6 +626,11 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     // Prefer the worker cache when available.
     const worker = workerRef.current
     if (supportsWorkerEnv && worker) {
+      // Pause the idle countdown while the query is in-flight.
+      if (idleTimerRef.current !== null) {
+        clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = null
+      }
       const id = ++detailRequestRef.current
       const request: DungeonSimulatorWorkerRequest = {
         id,
