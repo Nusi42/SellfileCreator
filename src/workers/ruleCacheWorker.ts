@@ -192,11 +192,18 @@ const PIPELINE_MATCH_BATCH_SIZE = 256 as const
 const PIPELINE_PROGRESS_MAX_EVENTS = 16 as const
 
 // Yield one macrotask turn so queued worker messages can advance generation.
-const yieldWorkerMacrotask = async (): Promise<void> => {
-  await new Promise<void>((resolve) => {
-    self.setTimeout(() => resolve(), 0)
-  })
-}
+// Uses MessageChannel instead of setTimeout(0): Chrome throttles setTimeout in
+// background tabs (up to 1-minute intervals under intensive throttling), which
+// would freeze a multi-yield pipeline for 5–10 minutes when the tab is hidden.
+// MessageChannel messages are delivered as regular macrotasks and are NOT subject
+// to background timer throttling, so the pipeline stays responsive regardless of
+// tab visibility.
+const yieldWorkerMacrotask = (): Promise<void> => new Promise<void>((resolve) => {
+  const { port1, port2 } = new MessageChannel()
+  // Close both ports after delivery to avoid a reference-counted port leak.
+  port1.onmessage = () => { port1.close(); port2.close(); resolve() }
+  port2.postMessage(null)
+})
 
 const notePipelineGeneration = (generation: number): void => {
   if (generation > latestPipelineGeneration) latestPipelineGeneration = generation
