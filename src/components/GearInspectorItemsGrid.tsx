@@ -866,6 +866,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     targetOffset: number
     attemptedMount?: boolean
   } | null>(null)
+  // After compacting a group, scroll its header back into view smoothly.
+  const pendingCompactScrollGroupKeyRef = useRef<string | null>(null)
   const recordScrollAnchor = useCallback((groupKey: string, node?: Element | null) => {
     const container = containerRef.current
     if (!container) return
@@ -1280,6 +1282,18 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     }
     pendingScrollAnchorRef.current = null
   }, [flattenedItems, rowVirtualizer, virtualizationRangeStartIndex, virtualizationRangeEndIndex])
+  // After a compact, nudge the group header smoothly into view if it drifted off-screen.
+  useLayoutEffect(() => {
+    const compactKey = pendingCompactScrollGroupKeyRef.current
+    if (!compactKey) return
+    pendingCompactScrollGroupKeyRef.current = null
+    const idx = flattenedItems.findIndex(
+      (item) => item.kind === 'groupHeader' && item.group.key === compactKey,
+    )
+    if (idx >= 0) {
+      rowVirtualizer.scrollToIndex(idx, { align: 'auto', behavior: 'smooth' })
+    }
+  }, [flattenedItems, rowVirtualizer])
   const rowLookup = useMemo(() => {
     const map = new Map<number, GearInspectorPreviewRow>()
     rows.forEach((row) => {
@@ -1646,6 +1660,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     : true
   const handleCompactCurrentGroup = useCallback(() => {
     if (!gridMenuGroupKey) return
+    // Record before state update so the layout effect can scroll the header into view after re-render.
+    pendingCompactScrollGroupKeyRef.current = gridMenuGroupKey
     setCollapsedGroups((prev) => {
       if (prev.has(gridMenuGroupKey)) return prev
       const next = new Set(prev)
